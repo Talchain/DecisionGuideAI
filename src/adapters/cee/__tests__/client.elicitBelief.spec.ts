@@ -23,6 +23,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { CEEClient, CEEError } from '../client'
 
 vi.mock('../../../lib/observability-headers', () => ({
@@ -243,5 +246,251 @@ describe('CEEClient.elicitBelief — response handling', () => {
     fetchSpy.mockResolvedValue(jsonResponse({ message: 'rate limited' }, 429))
 
     await expect(new CEEClient().elicitBelief(INPUT)).rejects.toBeInstanceOf(CEEError)
+  })
+})
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * BASE RESOLUTION — the guard that catches the defect the suite above CANNOT.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Drop comments so a guard cannot confuse PROSE about a var with USE of it. */
+function stripComments(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('*') && !l.trim().startsWith('//'))
+    .join('\n')
+}
+
+/**
+ * The `elicitBelief` method BODY — the exact span between the braces that open
+ * and close it.
+ *
+ * ⚠ NOT a regex. The first attempt was `/async elicitBelief\([\s\S]*?\n {2}\}/`,
+ * reasoning that inner blocks close at ≥4-space indent so `\n  }` must be the
+ * method end. That is FALSE for this method: its parameter is an inline object
+ * TYPE whose own closing brace sits at 2-space indent (`  }): Promise<…> {`),
+ * so the regex returned the signature alone and the binding assertion failed
+ * against correct code. An extractor that silently returns the wrong span is a
+ * guard that measures the wrong thing — so it is scanned properly instead, and
+ * the positive controls below exercise the real shapes.
+ *
+ * Walks the parameter list by paren depth first, so braces inside the parameter
+ * type cannot be mistaken for the body; then brace-matches the body. Quoted
+ * strings are skipped so a brace or paren inside a literal cannot unbalance it.
+ */
+function elicitBeliefBodyOf(code: string): string | undefined {
+  const start = code.indexOf('async elicitBelief(')
+  if (start < 0) return undefined
+
+  let i = code.indexOf('(', start)
+  let parens = 0
+  let quote: string | null = null
+  for (; i < code.length; i++) {
+    const c = code[i]
+    if (quote) {
+      if (c === '\\') i++
+      else if (c === quote) quote = null
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') { quote = c; continue }
+    if (c === '(') parens++
+    else if (c === ')') { parens--; if (parens === 0) break }
+  }
+  if (parens !== 0) return undefined
+
+  const bodyStart = code.indexOf('{', i)
+  if (bodyStart < 0) return undefined
+
+  let braces = 0
+  quote = null
+  for (let j = bodyStart; j < code.length; j++) {
+    const c = code[j]
+    if (quote) {
+      if (c === '\\') j++
+      else if (c === quote) quote = null
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') { quote = c; continue }
+    if (c === '{') braces++
+    else if (c === '}') { braces--; if (braces === 0) return code.slice(bodyStart, j + 1) }
+  }
+  return undefined
+}
+
+/** The path netlify.toml binds the `cee-proxy` edge function to. DERIVED. */
+function ceeProxyBoundPath(toml: string): string | undefined {
+  const block = toml
+    .split('[[edge_functions]]')
+    .slice(1)
+    .find((b) => /function\s*=\s*"cee-proxy"/.test(b))
+  return block?.match(/path\s*=\s*"([^"]+)"/)?.[1]
+}
+
+describe('CEEClient.elicitBelief — base resolution (⚠ VITE_CEE_BFF_BASE points at PLoT)', () => {
+  const dir = path.dirname(fileURLToPath(import.meta.url))
+  const repoRoot = path.join(dir, '..', '..', '..', '..')
+  const clientSrc = readFileSync(path.join(dir, '..', 'client.ts'), 'utf8')
+  const code = stripComments(clientSrc)
+
+  /**
+   * ⚠ THIS GUARD READS THE SOURCE, AND THAT IS THE ONLY INSTRUMENT THAT CAN SEE
+   * THE DEFECT — the same finding as PR #570, now MEASURED a second time on the
+   * deployed artefact rather than inherited.
+   *
+   * Vite substitutes `import.meta.env.VITE_*` at TRANSFORM time, so under vitest
+   * BOTH the hazardous form and the safe one evaluate to the `/bff/cee`
+   * fallback. The behavioural pin below (`expect(url).toBe('/bff/cee/elicit-belief')`)
+   * therefore passed for the whole of #572 while the DEPLOYED build sent the
+   * request to `https://plot-lite-service-staging.onrender.com/v1/cee/elicit-belief`
+   * and took a 404 — witnessed on the wire 2026-08-03 (`journey-witness-2026-08-04d.md`
+   * target 1) and re-confirmed at the deployed bytes: the shipped `CEEClient`
+   * constructor reads
+   *   `this.baseURL="https://plot-lite-service-staging.onrender.com/v1/cee"`
+   * (`assets/clipboard-DeNkRSL5.js@44203`, build `122b847a`), and `/bff/cee`
+   * occurs exactly ONCE in the whole 80-chunk bundle — in `scenarioGraph`'s
+   * hardcoded constant, i.e. the #570 fix, and nowhere else.
+   *
+   * A runtime assertion cannot distinguish the two forms. This one can.
+   */
+  it('never RESOLVES the elicit base from VITE_CEE_BFF_BASE (source-level, with positive controls)', () => {
+    // (1) The base is a LITERAL same-origin path, declared here, not resolved.
+    //     This single assertion also forecloses the import-hop refactor: a
+    //     `import { CEE_ELICIT_BASE } from './somewhere'` has no `const … = '…'`
+    //     declaration to match, so the indirection cannot be smuggled in.
+    expect(code).toMatch(/const CEE_ELICIT_BASE = '\/bff\/cee'/)
+
+    // (2) BIND THE GUARD TO WHAT THE REQUEST ACTUALLY USES (#570 review A4).
+    //     A spelling-presence check alone false-passes on a two-step refactor
+    //     that leaves the constant in place but DEAD.
+    const body = elicitBeliefBodyOf(code)
+    expect(body).toBeDefined()
+    expect(body).toContain('CEE_ELICIT_BASE')
+
+    // (3) …and the env-resolved base is not reachable from this method by any
+    //     of its spellings. `this.fetch<T>()` / `this.fetchIdempotent<T>()` both
+    //     close over `this.baseURL`, which IS the hazard — so the call shape is
+    //     forbidden, not merely the variable name.
+    expect(body).not.toContain('this.baseURL')
+    expect(body).not.toContain('CEE_BASE_URL')
+    expect(body).not.toMatch(/this\.fetch(Idempotent)?</)
+    expect(body).not.toMatch(/https?:\/\//)
+
+    // (4) DERIVED, NOT MIRRORED (trap 12). The literal is not trusted because it
+    //     looks right — it is checked against netlify.toml, which is the source
+    //     of truth for the seam. `cee-proxy` is what rewrites /bff/cee/<x> to
+    //     /assist/v1/<x> and injects X-Olumi-Assist-Key server-side; a base that
+    //     misses that binding gets the SPA catch-all (200 text/html, the 2.317
+    //     defect) or leaves the origin entirely (the 404 this fixes).
+    const boundPath = ceeProxyBoundPath(readFileSync(path.join(repoRoot, 'netlify.toml'), 'utf8'))
+    expect(boundPath).toBe('/bff/cee/*')
+    const declared = code.match(/const CEE_ELICIT_BASE = '([^']+)'/)?.[1]
+    expect(declared).toBe(boundPath!.replace(/\/\*$/, ''))
+  })
+
+  /**
+   * POSITIVE CONTROLS (trap 13). Every matcher above must be shown capable of
+   * seeing the thing it forbids — otherwise an absence assertion passes by
+   * testing nothing. Each control is a synthetic artefact, so none of them can
+   * be hollowed out by a later change to the real file (trap 12b).
+   */
+  it('POSITIVE CONTROLS — each matcher can see the defect it forbids', () => {
+    // (i) the spelling matcher can see a presence. Note this is asserted on the
+    //     REAL file: client.ts must KEEP VITE_CEE_BFF_BASE, because biasCheck and
+    //     sensitivityCoach hit genuinely PLoT-REGISTERED routes (measured
+    //     2026-08-03: POST /v1/cee/bias-check and /v1/cee/sensitivity-coach both
+    //     401 "Missing bearer token", while /v1/cee/elicit-belief and a garbage
+    //     control both 404). That is exactly why this guard is METHOD-scoped and
+    //     scenarioGraph's is FILE-scoped — a file-scoped guard is impossible here.
+    expect(clientSrc).toContain('VITE_CEE_BFF_BASE')
+
+    // (ii) THE EXTRACTOR ITSELF IS CONTROLLED FIRST. A guard is only as good as
+    //      the span it reads, and the first version of this extractor silently
+    //      returned the SIGNATURE ONLY (the parameter's inline object type closes
+    //      at 2-space indent). So: the real span must reach the request.
+    const realBody = elicitBeliefBodyOf(code)
+    expect(realBody).toBeDefined()
+    expect(realBody).toContain('JSON.stringify(body)')
+    expect(realBody).toContain("'/elicit-belief'")
+    //      …and must NOT run past the end of the method into its neighbours.
+    expect(realBody).not.toContain('async biasCheck')
+    expect(realBody).not.toContain("'/bias-check'")
+
+    // (iii) the binding matcher can see the absence of the constant, and the
+    //       call-shape matcher can see the pre-fix form. Proven against the
+    //       VERBATIM parameter shape of the real method — multi-line inline
+    //       object type, closing brace at 2-space indent — so the control
+    //       exercises exactly the structure that broke the first extractor.
+    const SIGNATURE = [
+      '',
+      '  async elicitBelief(input: {',
+      '    node_id: string',
+      '    node_label: string',
+      "    target_type: 'prior' | 'edge_weight'",
+      '    context_id?: string',
+      '  }): Promise<BeliefElicitSuggestion> {',
+    ].join('\n')
+    const preFixBody = elicitBeliefBodyOf(
+      SIGNATURE +
+        [
+          '',
+          "    const raw = await this.fetch<unknown>('/elicit-belief', {",
+          "      method: 'POST',",
+          '      body: JSON.stringify(body),',
+          '    })',
+          '    return raw as BeliefElicitSuggestion',
+          '  }',
+        ].join('\n'),
+    )
+    expect(preFixBody).toBeDefined()
+    expect(preFixBody).toContain('JSON.stringify(body)') // extractor reached the body
+    expect(preFixBody).not.toContain('CEE_ELICIT_BASE')
+    expect(preFixBody).toMatch(/this\.fetch(Idempotent)?</)
+
+    // (iv) the dead-constant refactor (#570 A4) is caught: constant present and
+    //      correct at file scope, method silently back on the env base.
+    const deadBody = elicitBeliefBodyOf(
+      SIGNATURE +
+        [
+          '',
+          "    return this.fetchWithBase(this.baseURL, '/elicit-belief', {})",
+          '  }',
+        ].join('\n'),
+    )
+    expect(deadBody).toBeDefined()
+    expect(deadBody).not.toContain('CEE_ELICIT_BASE')
+    expect(deadBody).toContain('this.baseURL')
+
+    // (v) the import-hop refactor has no matching declaration, so (1) reds.
+    expect("import { CEE_ELICIT_BASE } from './bffBase'").not.toMatch(
+      /const CEE_ELICIT_BASE = '\/bff\/cee'/,
+    )
+
+    // (vi) the netlify.toml extractor is not returning a constant — it reads a
+    //     different path out of a synthetic block.
+    expect(
+      ceeProxyBoundPath('[[edge_functions]]\n  function = "cee-proxy"\n  path = "/bff/WRONG/*"\n'),
+    ).toBe('/bff/WRONG/*')
+    //     …and it identifies the block by FUNCTION, not by position.
+    expect(
+      ceeProxyBoundPath(
+        '[[edge_functions]]\n  function = "isl-proxy"\n  path = "/bff/isl/*"\n' +
+          '[[edge_functions]]\n  function = "cee-proxy"\n  path = "/bff/cee/*"\n',
+      ),
+    ).toBe('/bff/cee/*')
+  })
+
+  /**
+   * The behavioural pin, kept — but HONESTLY LABELLED. It proves the composed
+   * URL is same-origin *in this environment*, and it is BLIND to the hazard
+   * above (both forms resolve to the fallback under vitest). It is not the
+   * guard; assertion (1)–(4) above is.
+   */
+  it('composes a RELATIVE url — never a scheme-bearing absolute host (env-blind: see the guard above)', async () => {
+    await new CEEClient().elicitBelief(INPUT)
+    const { url } = firstCall()
+    expect(url).toBe('/bff/cee/elicit-belief')
+    expect(url.startsWith('/')).toBe(true)
+    expect(url).not.toMatch(/^https?:/i)
   })
 })
