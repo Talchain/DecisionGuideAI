@@ -64,6 +64,28 @@ export interface PreAnalysisModel {
     headline: string
     subline: string
   }
+  /**
+   * ROADMAP 2.332 / 2.339 — the state of the readiness CHECK, as distinct from
+   * the readiness VERDICT.
+   *
+   * `null` whenever the last check completed: the footer then renders exactly
+   * what it always did, and this slice adds nothing to the panel. It is
+   * non-null only when the store holds a truthful failure — an unreachable
+   * service, a missing route, or a server error — which is precisely the state
+   * that was invisible before this slice existed.
+   *
+   * `verdictRetained` distinguishes "we have never had an answer" from "we are
+   * showing you an older one", and `stale` distinguishes an older answer that
+   * still describes this model from one the model has outgrown. Nothing here
+   * gates the run: the verdict remains the server's.
+   */
+  readinessCheck: {
+    message: string
+    verdictRetained: boolean
+    stale: boolean
+    verdictAtMs: number | null
+    retry: () => void
+  } | null
 }
 
 export function usePreAnalysisModel(): PreAnalysisModel {
@@ -78,7 +100,13 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   const sensitivity = useCanvasStore(s => s.preAnalysisSensitivity)
   const currentBriefText = useCanvasStore(s => s.currentBriefText)
   const scenarioId = useCanvasStore(s => s.currentScenarioId)
-  const { readiness } = useGraphReadiness()
+  const {
+    readiness,
+    error: readinessError,
+    stale: readinessStale,
+    verdictAtMs: readinessVerdictAtMs,
+    refresh: refreshReadiness,
+  } = useGraphReadiness()
   const seen = useSignalSessionStore(s => s.seen)
   const markSeen = useSignalSessionStore(s => s.markSeen)
   const ensureScenario = useSignalSessionStore(s => s.ensureScenario)
@@ -360,6 +388,25 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     [facts.factorNodes.length, edges.length, readiness?.readiness_score, canRun, provenance],
   )
 
+  // ROADMAP 2.332 / 2.339. `error` is set ONLY by the store's honest failure
+  // arms — transport rejection (2.319a), 404 (2.329) and every other non-ok
+  // status (2.339). The 429 arm sets an error too, but it also publishes a
+  // labelled local fallback, so it is a verdict-bearing state and reaches the
+  // retained arm rather than the never-checked one, which is the truth.
+  const readinessCheck = useMemo(
+    () =>
+      readinessError
+        ? {
+            message: readinessError,
+            verdictRetained: readiness != null,
+            stale: readinessStale,
+            verdictAtMs: readinessVerdictAtMs,
+            retry: refreshReadiness,
+          }
+        : null,
+    [readinessError, readiness, readinessStale, readinessVerdictAtMs, refreshReadiness],
+  )
+
   return useMemo(
     () => ({
       hero,
@@ -371,7 +418,19 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       risks,
       advanced,
       footer,
+      readinessCheck,
     }),
-    [hero, bars, ladder, derived.sharpen, estimates, options, risks, advanced, footer],
+    [
+      hero,
+      bars,
+      ladder,
+      derived.sharpen,
+      estimates,
+      options,
+      risks,
+      advanced,
+      footer,
+      readinessCheck,
+    ],
   )
 }

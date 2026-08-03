@@ -157,6 +157,10 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
         isAnalysing={isAnalysing}
         canRun={canRun}
         blockedReason={blockedReason}
+        // ROADMAP 2.332 / 2.339 — when the readiness CHECK failed, this footer
+        // is the surface that used to claim "Analysis available" about a model
+        // nothing had assessed. It says so instead. Run authority is unchanged.
+        readinessCheck={model.readinessCheck}
       />
     </div>
   )

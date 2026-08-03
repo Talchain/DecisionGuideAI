@@ -323,6 +323,10 @@ export function useGraphReadiness() {
   const readiness = useReadinessStore((s) => s.readiness)
   const loading = useReadinessStore((s) => s.loading)
   const error = useReadinessStore((s) => s.error)
+  // ROADMAP 2.332: a retained verdict can outlive the model it graded, so the
+  // surface needs to know both that it has, and when it was taken.
+  const stale = useReadinessStore((s) => s.stale)
+  const verdictAtMs = useReadinessStore((s) => s.verdictAtMs)
   const refresh = useReadinessStore((s) => s.refresh)
 
   // Ref-counted: startListening increments, returned cleanup decrements.
@@ -332,5 +336,5 @@ export function useGraphReadiness() {
     return unsub
   }, [])
 
-  return { readiness, loading, error, refresh }
+  return { readiness, loading, error, stale, verdictAtMs, refresh }
 }

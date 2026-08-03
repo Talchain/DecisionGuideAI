@@ -12,7 +12,6 @@
 import { create } from 'zustand'
 import { useCanvasStore } from '../store'
 import type { Node, Edge } from '@xyflow/react'
-import { getEdgeKey } from '../domain/edgeUtils'
 import type {
   GraphReadiness,
   GraphReadinessLevel,
@@ -64,6 +63,24 @@ function normaliseReadinessLevel(raw: unknown): GraphReadinessLevel {
   return 'fair'
 }
 
+/**
+ * ROADMAP 2.339 — a non-ok status that is neither 429 nor 404.
+ *
+ * Carries the STATUS and nothing else. The response body is logged at the
+ * throw site and never travels with the error, so no arm downstream can paste
+ * a proxy's HTML error page into user-facing copy — which is exactly what the
+ * pristine `HTTP ${status} - ${errorBody}` string did.
+ */
+export class ReadinessServiceStatusError extends Error {
+  readonly status: number
+
+  constructor(status: number) {
+    super(`Readiness service responded HTTP ${status}`)
+    this.name = 'ReadinessServiceStatusError'
+    this.status = status
+  }
+}
+
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -78,6 +95,20 @@ export interface ReadinessStoreState {
   readiness: GraphReadiness | null
   loading: boolean
   error: string | null
+  /**
+   * ROADMAP 2.332 — true when the model has changed in a way the CURRENT
+   * `readiness` verdict was not asked about.
+   *
+   * Set the moment a payload-affecting mutation is detected, cleared only when
+   * a fresh verdict lands. It exists because #564 made failure retain the last
+   * server verdict rather than replace it with a guess — the right call, but it
+   * means a retained verdict can outlive the model it graded. `stale` is what
+   * stops a surface presenting that verdict as current; it never changes the
+   * verdict itself, and never opens or closes the gate.
+   */
+  stale: boolean
+  /** `Date.now()` when `readiness` was last set from an answer. Null until then. */
+  verdictAtMs: number | null
 }
 
 export interface ReadinessStoreActions {
@@ -97,6 +128,8 @@ const initialState: ReadinessStoreState = {
   readiness: null,
   loading: false,
   error: null,
+  stale: false,
+  verdictAtMs: null,
 }
 
 // ── Module-level singletons ────────────────────────────────────────
@@ -106,9 +139,34 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let unsubCanvasStore: (() => void) | null = null
 /** Number of active consumers (hook instances). Subscription tears down at 0. */
 let listenerRefCount = 0
-let lastFingerprint: string | null = null
+/**
+ * The payload of the last request ATTEMPT, successful or not. The change
+ * detector compares against this, so a canvas emission that leaves the payload
+ * identical asks nothing — including after a failure, where `lastPayloadHash`
+ * is deliberately left unset.
+ *
+ * These two are NOT a mirror of each other: they answer different questions
+ * ("has anything the server would see changed since we last asked?" vs "do we
+ * already hold a verdict for exactly this?") and both derive from the SAME
+ * `buildReadinessPayload`, so neither can drift from the payload.
+ */
+let lastObservedPayload: string | null = null
+/** The payload of the last SUCCESSFUL request. Never written on failure. */
 let lastPayloadHash: string | null = null
 let fetchInFlight = false
+/**
+ * ROADMAP 2.332 (adversarial review, amendment 1) — a call that arrived while
+ * a fetch was in flight and had to be deferred.
+ *
+ * `fetchReadiness` opens with `if (fetchInFlight) return`. Without this flag
+ * that early return DISCARDED the call: a mutation landing during a slow fetch
+ * scheduled its refetch, the debounce fired at +500ms into the in-flight
+ * guard, and the request vanished with no timer and no record. Whenever
+ * readiness latency exceeds `DEBOUNCE_DELAY` — the Render cold-start shape —
+ * the mutated model was never asked about at all. That is the 3 Aug walk's own
+ * defect, re-created inside the fix for it.
+ */
+let fetchQueued = false
 let backoff = { delay: 0, until: 0 }
 let lastLogTime = 0
 /** Ref-counted dedup entry from the shared inflight cache */
@@ -121,27 +179,122 @@ function generateCorrelationId(): string {
 }
 
 /**
- * Create a stable fingerprint for graph state.
- * Only changes when graph content actually changes.
+ * ROADMAP 2.332 — the canvas state roots `buildReadinessPayload` reads.
+ *
+ * This is the change-detection predicate for the canvas subscription. It is
+ * kept honest by `readinessStore.invalidation.spec.ts`, which Proxy-wraps the
+ * state handed to `buildReadinessPayload`, records every top-level property it
+ * reads and asserts the set is a subset of this list — so a payload input
+ * added without a watcher fails the suite rather than going quietly dark.
+ *
+ * ⚠ CLAUDE.md trap 12d, stated rather than assumed: that guard proves this
+ * list AGREES with the builder. It cannot prove the PAYLOAD is complete — a
+ * field CEE needs that the builder never reads is invisible to both. The only
+ * thing that catches that is the corpus of tests driving real mutations
+ * (a turn writing `ceeAnalysisReady`, an observed-state edit, a rename, an
+ * edge weight, the brief), which is why those exist alongside the guard and
+ * neither replaces the other.
  */
-function createGraphFingerprint(nodes: Node[], edges: Edge[]): string {
-  const nodeFingerprint = nodes
-    .map((n) => {
-      const value = (n.data as any)?.value
-      return `${n.id}:${n.type}:${typeof value === 'number' ? value.toFixed(3) : 'x'}`
-    })
-    .sort()
-    .join(',')
+export const WATCHED_ROOTS = [
+  'nodes',
+  'edges',
+  'ceeAnalysisReady',
+  'currentBriefText',
+] as const
 
-  const edgeFingerprint = edges
-    .map((e) => {
-      const conf = (e.data as any)?.confidence
-      return `${getEdgeKey(e)}:${conf !== undefined ? conf.toFixed(3) : 'x'}`
-    })
-    .sort()
-    .join(',')
+/** The slice of canvas state the readiness request is a function of. */
+export interface ReadinessPayloadInputs {
+  nodes: Node[]
+  edges: Edge[]
+  ceeAnalysisReady: { options?: unknown[] } | null | undefined
+  currentBriefText: string | null | undefined
+}
 
-  return `n${nodes.length}|e${edges.length}|${nodeFingerprint}|${edgeFingerprint}`
+/**
+ * Build the `/graph-readiness` request body. Pure: everything it reads arrives
+ * in `s`, nothing is pulled from `useCanvasStore` inside.
+ *
+ * ROADMAP 2.332 — THIS FUNCTION IS THE SINGLE TRUTH ABOUT WHAT THE VERDICT IS
+ * A FUNCTION OF, and both callers use it: the request, and the change detector
+ * that decides whether to make one.
+ *
+ * It replaces `createGraphFingerprint`, a hand-written hash of node
+ * `id:type:data.value` plus edge `key:data.confidence`. That hash was a mirror
+ * of this payload maintained by memory, and it had drifted BOTH ways:
+ *   · it hashed `edge.data.confidence`, which this payload has never carried —
+ *     so a change to it entered the fetch, cleared the honest error state and
+ *     asked the server a question it had already answered; and
+ *   · it did NOT hash `observedState`, node `label`/`kind`, edge
+ *     `weight`/`belief`/`direction`, the brief, or `ceeAnalysisReady` — every
+ *     one of which this payload DOES carry. That is why the 3 Aug walk's
+ *     successful remedy (a turn writing `ceeAnalysisReady` via
+ *     `mirrorAnalysisReady`) changed the answer without ever asking for it,
+ *     and the gate stayed shut on a verdict eight turns old.
+ * A hash derived from the payload cannot drift from the payload, because it IS
+ * the payload.
+ */
+export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
+  const { nodes, edges, ceeAnalysisReady, currentBriefText } = s
+
+  const payload: Record<string, unknown> = {
+    graph: {
+      nodes: nodes.map((n) => {
+        const data = n.data as any
+        const nodeKind = data?.kind || n.type || 'factor'
+        const node: Record<string, unknown> = {
+          id: n.id,
+          type: nodeKind,
+          kind: nodeKind,
+          label: data?.label || n.id,
+        }
+        if (typeof data?.value === 'number') {
+          node.data = { value: data.value }
+        }
+        // F4 (A1 GO 21 Jul — CEE widen merged + deploy-verified live): send factor
+        // observed_state so /assist/v1/graph-readiness can report
+        // scaffold_plan.will_scaffold_options (fixes "blocked despite scaffold fired").
+        // Built EXPLICITLY (never spread observedState) so unit/source and any
+        // metadata-shaped key are excluded — a metadata key routes CEE to the strict
+        // constraint branch (needs metadata.operator) → HTTP 400. value REQUIRED (0-1
+        // model scale); raw_value OPTIONAL (display magnitude), only when numeric.
+        const observedState = data?.observedState
+        if (nodeKind === 'factor' && typeof observedState?.value === 'number') {
+          node.observed_state = {
+            value: observedState.value,
+            ...(typeof observedState.raw_value === 'number'
+              ? { raw_value: observedState.raw_value }
+              : {}),
+          }
+        }
+        return node
+      }),
+      /**
+       * UI-SEM-011: Default belief injection (belief: 0.8).
+       * UI-SEM-030: Edge defaults for CEE coaching (weight 0.5, belief 0.8, direction 'positive').
+       */
+      edges: edges.map((e) => ({
+        id: e.id,
+        from: e.source,
+        to: e.target,
+        weight: (e.data as any)?.weight ?? 0.5,
+        belief: (e.data as any)?.beliefExists ?? (e.data as any)?.belief ?? 0.8,
+        effect_direction: (e.data as any)?.direction ?? 'positive',
+      })),
+    },
+  }
+
+  if (currentBriefText && currentBriefText.length >= 20) {
+    payload.brief = currentBriefText
+  }
+
+  if (ceeAnalysisReady?.options?.length) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { model_adjustments: _strip, ...analysisReadyForPayload } =
+      ceeAnalysisReady as Record<string, unknown>
+    payload.analysis_ready = analysisReadyForPayload
+  }
+
+  return JSON.stringify(payload)
 }
 
 /**
@@ -189,7 +342,11 @@ function calculateFallbackReadiness(
 // ── Core fetch logic ───────────────────────────────────────────────
 
 async function fetchReadiness(): Promise<void> {
-  if (fetchInFlight) return
+  // ROADMAP 2.332 amendment 1 — defer, never discard. See `fetchQueued`.
+  if (fetchInFlight) {
+    fetchQueued = true
+    return
+  }
   fetchInFlight = true
 
   const store = useReadinessStore.getState()
@@ -205,12 +362,13 @@ async function fetchReadiness(): Promise<void> {
       return
     }
 
+    const canvasState = useCanvasStore.getState()
     const {
       nodes: currentNodes,
       edges: currentEdges,
       graphHealth,
       ceeAnalysisReady: currentCeeAnalysisReady,
-    } = useCanvasStore.getState()
+    } = canvasState
 
     if (currentNodes.length === 0) {
       useReadinessStore.setState({
@@ -223,9 +381,41 @@ async function fetchReadiness(): Promise<void> {
         },
         loading: false,
         error: null,
+        // This verdict IS a function of the current payload (zero nodes), so
+        // nothing about it is outgrown — the mark clears honestly.
+        stale: false,
+        // ROADMAP 2.332 amendment 2 — but it is composed HERE, not answered.
+        // `verdictAtMs` means "when `readiness` was last set from an ANSWER",
+        // and no request was made. Stamping it let the footer cite "Showing
+        // the check from HH:MM" for a verdict no server produced — reachable
+        // by adding the first node to an empty canvas while the service is
+        // down. Same invariant the 429 arm is nulled for; this is the branch
+        // that was still breaking it.
+        verdictAtMs: null,
       })
       return
     }
+
+    // ── ROADMAP 2.332: build and compare BEFORE touching store state ──
+    //
+    // The payload-hash check used to sit AFTER `{loading: true, error: null}`,
+    // so a canvas emission that changed nothing the server sees still flashed
+    // `loading` and — once #564 made failure set a truthful `error` — ERASED
+    // that error, with no request in flight to replace it. Composed with
+    // #564 the ordering was the difference between "Could not check readiness"
+    // and a panel that silently went quiet again.
+    //
+    // A no-op now touches NO store state at all: it does not clear the error,
+    // does not flash loading, and does not disturb the stale mark.
+    const payloadJson = buildReadinessPayload(canvasState)
+
+    if (payloadJson === lastPayloadHash) {
+      return
+    }
+
+    // Record the ATTEMPT (not the success): the change detector needs to know
+    // what was last asked, including when the answer never arrived.
+    lastObservedPayload = payloadJson
 
     // Release previous shared dedup entry
     if (currentInflightEntry) {
@@ -241,70 +431,6 @@ async function fetchReadiness(): Promise<void> {
     const correlationId = generateCorrelationId()
 
     try {
-      const payload: Record<string, unknown> = {
-        graph: {
-          nodes: currentNodes.map((n) => {
-            const data = n.data as any
-            const nodeKind = data?.kind || n.type || 'factor'
-            const node: Record<string, unknown> = {
-              id: n.id,
-              type: nodeKind,
-              kind: nodeKind,
-              label: data?.label || n.id,
-            }
-            if (typeof data?.value === 'number') {
-              node.data = { value: data.value }
-            }
-            // F4 (A1 GO 21 Jul — CEE widen merged + deploy-verified live): send factor
-            // observed_state so /assist/v1/graph-readiness can report
-            // scaffold_plan.will_scaffold_options (fixes "blocked despite scaffold fired").
-            // Built EXPLICITLY (never spread observedState) so unit/source and any
-            // metadata-shaped key are excluded — a metadata key routes CEE to the strict
-            // constraint branch (needs metadata.operator) → HTTP 400. value REQUIRED (0-1
-            // model scale); raw_value OPTIONAL (display magnitude), only when numeric.
-            const observedState = data?.observedState
-            if (nodeKind === 'factor' && typeof observedState?.value === 'number') {
-              node.observed_state = {
-                value: observedState.value,
-                ...(typeof observedState.raw_value === 'number'
-                  ? { raw_value: observedState.raw_value }
-                  : {}),
-              }
-            }
-            return node
-          }),
-          /**
-           * UI-SEM-011: Default belief injection (belief: 0.8).
-           * UI-SEM-030: Edge defaults for CEE coaching (weight 0.5, belief 0.8, direction 'positive').
-           */
-          edges: currentEdges.map((e) => ({
-            id: e.id,
-            from: e.source,
-            to: e.target,
-            weight: (e.data as any)?.weight ?? 0.5,
-            belief: (e.data as any)?.beliefExists ?? (e.data as any)?.belief ?? 0.8,
-            effect_direction: (e.data as any)?.direction ?? 'positive',
-          })),
-        },
-      }
-
-      const briefText = useCanvasStore.getState().currentBriefText
-      if (briefText && briefText.length >= 20) {
-        payload.brief = briefText
-      }
-
-      if (currentCeeAnalysisReady?.options?.length) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { model_adjustments: _strip, ...analysisReadyForPayload } = currentCeeAnalysisReady
-        payload.analysis_ready = analysisReadyForPayload
-      }
-
-      const payloadJson = JSON.stringify(payload)
-
-      if (payloadJson === lastPayloadHash) {
-        useReadinessStore.setState({ loading: false })
-        return
-      }
       // Set after successful fetch (not here) so failed fetches don't poison the cache.
       // See the setState call after response normalization below.
       const currentPayloadJson = payloadJson
@@ -437,6 +563,15 @@ async function fetchReadiness(): Promise<void> {
             readiness: fallback,
             error: 'Rate limited - using local validation',
             loading: false,
+            // ROADMAP 2.332 — this arm's BEHAVIOUR is deliberately unchanged
+            // (it still publishes the labelled local fallback; retiring that is
+            // a separate row). But `verdictAtMs` means "when `readiness` was
+            // last set from an ANSWER", and this verdict is not one — it is the
+            // local heuristic. Stamping it would let a surface cite a time for
+            // a number no server produced, which is the fabrication class this
+            // whole slice exists to close. Explicitly null, so the absence is a
+            // decision rather than an oversight.
+            verdictAtMs: null,
           })
           return
         }
@@ -494,12 +629,19 @@ async function fetchReadiness(): Promise<void> {
           return
         }
 
+        // ── ROADMAP 2.339: every remaining non-ok status ─────────────
+        //
+        // 500, 502, 503, 401, 403 — everything that is not 429 or 404. The
+        // body is logged, never carried: the pristine error string was
+        // `HTTP ${status} - ${errorBody}`, which for the outage shape that
+        // matters most (a proxy's HTML error page) put a page of markup where
+        // the UI expected a sentence.
         console.error('[readinessStore] CEE error response:', {
           status: response.status,
           statusText: response.statusText,
           body: response.errorBody,
         })
-        throw new Error(`HTTP ${response.status} - ${response.errorBody}`)
+        throw new ReadinessServiceStatusError(response.status)
       }
 
       backoff = { delay: 0, until: 0 }
@@ -584,20 +726,91 @@ async function fetchReadiness(): Promise<void> {
       // Only cache the payload hash after a successful fetch — failed fetches
       // should allow retry on the same payload.
       lastPayloadHash = currentPayloadJson
-      useReadinessStore.setState({ readiness: normalized, loading: false, error: null })
+      // ── ROADMAP 2.332 amendment 1: an answer clears only its OWN mark ──
+      //
+      // `stale: false` was unconditional here, and that let an answer launder
+      // a mark raised AFTER it was sent: mutate during a slow fetch, the
+      // in-flight answer lands, and the mark for a model it never saw is wiped.
+      // The queue-on-drop repair above guarantees the mutated model IS asked
+      // about, but the deferred request has not returned yet at this instant —
+      // so without this the store would report "current" about a model whose
+      // honest answer is still in the air.
+      //
+      // Derived, not tracked: rebuild the payload from the canvas as it stands
+      // NOW and compare with what this response answered. Same function as the
+      // request and the change detector, so it cannot disagree with either.
+      const answersCurrentModel =
+        buildReadinessPayload(useCanvasStore.getState()) === currentPayloadJson
+      useReadinessStore.setState({
+        readiness: normalized,
+        loading: false,
+        error: null,
+        // Cleared only when this verdict describes the model on the canvas.
+        // When it does not, the mark stands until the deferred answer arrives.
+        ...(answersCurrentModel ? { stale: false } : {}),
+        verdictAtMs: Date.now(),
+      })
     } catch (err) {
       if ((err as Error).name === 'AbortError') return
 
-      console.warn('[readinessStore] Fetch failed, using fallback:', err)
-      const fallback = calculateFallbackReadiness(currentNodes, currentEdges, graphHealth)
-      useReadinessStore.setState({
-        readiness: fallback,
-        error: err instanceof Error ? err.message : 'Unknown error',
-        loading: false,
-      })
+      // ── ROADMAP 2.339: the last fabrication path in this file ────
+      //
+      // This catch used to publish `calculateFallbackReadiness` as the
+      // readiness verdict. #564 closed that on the transport limb and 2.329
+      // closed it on the 404 limb; the #564 PR body then said "only 429
+      // remains untouched", and the review refuted it at the bytes — EVERY
+      // other non-ok status (500/502/503/401/403) was thrown into here and
+      // answered with the heuristic.
+      //
+      // It is the same defect with the same two teeth. The heuristic's verdict
+      // is `can_run_analysis: blockers.length === 0`, the blockers come from
+      // `graphHealth`, and `graphHealth` is null until an analysis has already
+      // run — so before the first analysis a 502 did not merely RISK opening
+      // the gate, it ALWAYS granted the run. And because it overwrote
+      // `readiness`, it could replace a `can_run_analysis: false` the server
+      // had already given with a locally invented `true` no consumer could
+      // tell from the server's own answer.
+      //
+      // A Render cold start answers 502. This is the most likely real outage
+      // shape there is, and it was the one limb with no test at all.
+      //
+      // So: publish no verdict, and say why — the mechanism #564 established.
+      //   · `readiness` is left EXACTLY as it was: null on first load (the
+      //     store's own "unknown" state, alongside a non-null `error`), and
+      //     otherwise the last answer the server actually gave, which a local
+      //     guess is not entitled to replace.
+      //   · `stale` is deliberately NOT touched. If the model changed since
+      //     that retained verdict, it is still stale, and saying so is the
+      //     truth; clearing it here would launder an outgrown verdict into a
+      //     current-looking one.
+      //   · `lastPayloadHash` stays unset, so the identical graph can be
+      //     re-requested the moment the service recovers.
+      //   · The message names the failure and carries the status. It never
+      //     carries the response body (see the throw site above).
+      //
+      // The alternatives were considered and rejected at the transport catch
+      // for reasons that apply here unchanged: a tri-state threaded through
+      // six consumers is the hand-maintained-mirror shape (CLAUDE.md trap 12),
+      // and `can_run_analysis: false` is equally a locally invented verdict,
+      // just in the blocking direction.
+      const message =
+        err instanceof ReadinessServiceStatusError
+          ? `The readiness service could not answer (HTTP ${err.status})`
+          : 'Could not complete the readiness check'
+      console.warn(`[readinessStore] ${message} — publishing no verdict:`, err)
+      useReadinessStore.setState({ error: message, loading: false })
     }
   } finally {
     fetchInFlight = false
+    // Drain exactly one deferred call. Re-entry is bounded, not a loop: the
+    // flag is cleared BEFORE the re-invoke, and the re-invoked fetch returns
+    // without a request whenever the payload already has a verdict.
+    if (fetchQueued) {
+      fetchQueued = false
+      fetchReadiness().catch(() => {
+        // Swallow — fetchReadiness handles its own errors internally.
+      })
+    }
   }
 }
 
@@ -608,6 +821,7 @@ export const useReadinessStore = create<ReadinessStoreState & ReadinessStoreActi
 
   refresh: () => {
     lastPayloadHash = null
+    lastObservedPayload = null
     fetchReadiness().catch(() => {
       // Swallow — fetchReadiness handles errors internally
     })
@@ -619,13 +833,33 @@ export const useReadinessStore = create<ReadinessStoreState & ReadinessStoreActi
     if (!unsubCanvasStore) {
       // First consumer — create the subscription
       unsubCanvasStore = useCanvasStore.subscribe((state, prevState) => {
-        // Only react to node/edge changes — skip unrelated store updates.
-        // Identity check is cheap; fingerprint is computed only on mismatch.
-        if (state.nodes === prevState.nodes && state.edges === prevState.edges) return
+        // ── ROADMAP 2.332: derive the change signal from the payload ──
+        //
+        // Step 1, cheap: did any root the payload is built from change
+        // IDENTITY? Same early-out the pristine code had, widened from
+        // `nodes`/`edges` to the full watched set — `ceeAnalysisReady` (where
+        // the 3 Aug walk's successful remedy landed, via
+        // `mirrorAnalysisReady → setCeeAnalysisReady`, and was never seen) and
+        // `currentBriefText` (never watched at all).
+        const rootChanged = WATCHED_ROOTS.some(
+          (root) =>
+            (state as unknown as Record<string, unknown>)[root] !==
+            (prevState as unknown as Record<string, unknown>)[root],
+        )
+        if (!rootChanged) return
 
-        const fp = createGraphFingerprint(state.nodes, state.edges)
-        if (fp === lastFingerprint) return
-        lastFingerprint = fp
+        // Step 2: did anything the SERVER would see actually change? Built by
+        // the same function the request uses, so it cannot answer differently
+        // from the request. A node drag produces new identities and an
+        // identical payload — no mark, no request, and (critically, composing
+        // with #564) no disturbance to a standing error.
+        const nextPayload = buildReadinessPayload(state as unknown as ReadinessPayloadInputs)
+        if (nextPayload === lastObservedPayload) return
+
+        // The verdict currently on screen was not asked about this model.
+        // Marked synchronously — before the debounce, before the request — so
+        // there is no window in which an outgrown verdict looks current.
+        useReadinessStore.setState({ stale: true })
 
         if (debounceTimer) clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
@@ -637,8 +871,6 @@ export const useReadinessStore = create<ReadinessStoreState & ReadinessStoreActi
       })
 
       // Fire immediately on first listen
-      const { nodes, edges } = useCanvasStore.getState()
-      lastFingerprint = createGraphFingerprint(nodes, edges)
       fetchReadiness().catch(() => {
         // Swallow — fetchReadiness handles its own errors internally.
         // This catch prevents unhandled rejection in test environments
@@ -680,9 +912,10 @@ function stopListening(): void {
     }
     currentInflightEntry = null
   }
-  lastFingerprint = null
+  lastObservedPayload = null
   lastPayloadHash = null
   fetchInFlight = false
+  fetchQueued = false
   backoff = { delay: 0, until: 0 }
   lastLogTime = 0
 }
@@ -691,18 +924,22 @@ function stopListening(): void {
 export const selectReadiness = (state: ReadinessStoreState) => state.readiness
 export const selectReadinessLoading = (state: ReadinessStoreState) => state.loading
 export const selectReadinessError = (state: ReadinessStoreState) => state.error
+/** ROADMAP 2.332 — true when the model has moved on from the verdict on screen. */
+export const selectReadinessStale = (state: ReadinessStoreState) => state.stale
+/** ROADMAP 2.332 — when the verdict on screen was taken. */
+export const selectReadinessVerdictAtMs = (state: ReadinessStoreState) => state.verdictAtMs
 
 // ── Test helpers ───────────────────────────────────────────────────
 
 /** @internal — exposed for unit testing. Not part of public API. */
 export const __test__ = {
   fetchReadiness,
-  createGraphFingerprint,
   calculateFallbackReadiness,
   getModuleState: () => ({
-    lastFingerprint,
+    lastObservedPayload,
     lastPayloadHash,
     fetchInFlight,
+    fetchQueued,
     backoff,
     listenerRefCount,
     hasSubscription: unsubCanvasStore !== null,
