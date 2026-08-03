@@ -86,9 +86,23 @@ export interface ValidationMetadata {
   /** Percentage points of goal probability; null pre-analysis */
   evoi_impact: number | null
 
-  // Visibility control (CEE applies one-per-target-node cap)
-  /** Whether CEE selected this contested edge for user review */
-  surfaced: boolean
+  // Visibility control
+  /**
+   * Whether CEE selected this contested edge for user review.
+   *
+   * ⚠ OPTIONAL, AND ABSENT MEANS ELIGIBLE. This field was specced as "CEE applies a
+   * one-per-target-node cap" and CEE never built it — `EdgeValidationMetadata` in
+   * olumi-assistants-service (`src/cee/validation-pipeline/types.ts`) has no `surfaced` key,
+   * so nothing on the wire ever sets it. Declaring it REQUIRED was a TS-only lie with no
+   * runtime validator, and the pre-analysis panel's `if (!validation.surfaced) continue`
+   * gate consequently dropped every contested edge once the CEE pipeline went live (#808).
+   *
+   * Per the orchestrator ruling of 4 Aug 2026 the designed cap now runs CLIENT-SIDE in
+   * `canvas/components/pre-analysis/utils/selectSurfacedContestedEdges.ts`, which honours an
+   * explicit `false` and treats absent as eligible. When CEE starts emitting this field,
+   * honour it and delete the client cap — see the supersession note in that module.
+   */
+  surfaced?: boolean
 
   // User interaction tracking
   was_shown: boolean

@@ -42,6 +42,12 @@ import { diversifyTriageItems } from '../utils/diversifyTriageItems'
 // and the pre-analysis priority-progress counter (`buildPriorityProgress`)
 // share one `observed_state.source ∈ user_*` contract — no drift.
 import { isReviewedByUser } from '../utils/isReviewedByUser'
+// `selectSurfacedContestedEdges` is the SINGLE source of truth for which contested edges
+// this panel shows: eligibility (honouring `surfaced` when CEE sends it, eligible when
+// absent) plus the client-side one-per-target-node cap. Both consumers below derive from
+// it — they used to be two hand-written filters with the same predicate spelled two
+// different ways. See that module for the CEE supersession note.
+import { selectSurfacedContestedEdges } from '../utils/selectSurfacedContestedEdges'
 // `isAiSourceFromNode` extracted to ../utils/isAiSource.ts; mirrors the
 // isReviewedByUser pattern. Field-level fallback fixes the legacy
 // object-level `observed_state ?? observedState` bug that produced
@@ -653,6 +659,11 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     return nodesByKind.goal[0] ?? null
   }, [nodes, ceeAnalysisReady?.goal_node_id, nodesByKind.goal])
 
+  // Contested edges this panel will show: eligible, capped one-per-target-node, deterministic.
+  // Computed ONCE and consumed by both the `verify` improvement items and the `contestedEdges`
+  // calibration cards, so the two surfaces cannot drift apart (trap 12).
+  const surfacedContestedEdges = useMemo(() => selectSurfacedContestedEdges(edges), [edges])
+
   // Build improvements by category
   const improvementsByCategory = useMemo(() => {
     const result: Record<ImprovementCategory, ImprovementItem[]> = {
@@ -878,14 +889,12 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     // === CONTESTED EDGES (highest priority in reviewAssumptions) ===
-    // Filter edges with contested validation that CEE surfaced for user review
-    for (const edge of edges) {
+    // Selection (eligibility + one-per-target-node cap) is derived ONCE in
+    // `surfacedContestedEdges`; this loop only renders it. The predicate used to be inlined
+    // here as `if (!validation.surfaced) continue`, which dropped every edge CEE actually
+    // sends — see utils/selectSurfacedContestedEdges.ts.
+    for (const { edge, validation } of surfacedContestedEdges) {
       const data = edge.data as { validation?: ValidationMetadata; label?: string } | undefined
-      const validation = data?.validation
-      if (!validation) continue
-      if (validation.status !== 'contested') continue
-      if (!validation.surfaced) continue
-      if (validation.user_action !== 'pending') continue
 
       const sourceNode = nodes.find(n => n.id === edge.source)
       const targetNode = nodes.find(n => n.id === edge.target)
@@ -1032,20 +1041,11 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return result
-  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.options, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions, preAnalysisSensitivity])
+  }, [nodes, edges, surfacedContestedEdges, nodesByKind, ceeAnalysisReady?.options, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions, preAnalysisSensitivity])
 
-  // Contested edges with full validation metadata for calibration card rendering
-  const contestedEdges = useMemo(() => {
-    return edges
-      .filter(e => {
-        const v = (e.data as { validation?: ValidationMetadata } | undefined)?.validation
-        return v?.status === 'contested' && v?.surfaced && v?.user_action === 'pending'
-      })
-      .map(e => ({
-        edge: e,
-        validation: (e.data as { validation: ValidationMetadata }).validation,
-      }))
-  }, [edges])
+  // Contested edges with full validation metadata for calibration card rendering.
+  // Same derived selection the verify items use — see `surfacedContestedEdges` above.
+  const contestedEdges = surfacedContestedEdges
 
   // Total improvements
   const totalImprovements = useMemo(() => {
