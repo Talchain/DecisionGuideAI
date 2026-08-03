@@ -6,7 +6,8 @@
  */
 
 import { memo, useState, useMemo, useCallback } from 'react'
-import { Link } from 'lucide-react'
+import { Link, MessageSquare } from 'lucide-react'
+import Tooltip from '../../../../components/Tooltip'
 import { useCanvasStore } from '../../../store'
 import type { NodeType, ObservedState, FactorNodeData } from '../../../domain/nodes'
 import { useEditConfirmation } from '../useEditConfirmation'
@@ -38,8 +39,18 @@ import { resolveCoaching } from '../coachingConfig'
 import { FactorControllableEditor } from '../editors/FactorControllableEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
-import { buildFactorValueEditEvent, resolveValueInputSeed } from '../../../conversation/factorValueEdit'
+import {
+  acceptsElicitedBelief,
+  buildFactorValueEditEvent,
+  resolveValueInputSeed,
+  type ValueInputSeedBasis,
+} from '../../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../../conversation/optimisticFactorEdit'
+import { useBeliefElicitation } from '../../../hooks/useBeliefElicitation'
+import {
+  BeliefElicitationField,
+  describeInWordsToggleLabel,
+} from '../../../components/BeliefElicitationField'
 
 /**
  * Extract a non-empty string intervention value, accepting either a bare
@@ -130,54 +141,103 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   // degrade to "local edit only", never throw. Same pattern as WhatChangedChip.
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
 
-  const handleValueBlur = useCallback(() => {
-    const parsed = parseFloat(draftValue)
-    // Commit ONCE per genuinely-changed value. `inputDisplayValue` is the
-    // number the field was showing, so a re-blur after a commit — and a commit
-    // of an unchanged number — are both no-ops here. That is the mechanism
-    // behind the negative control (a same-value edit must not claim a change);
-    // CEE's noop dedup is the backstop, not the mechanism.
-    if (isNaN(parsed) || parsed === inputDisplayValue) return
+  // ── "say it in words" (ROADMAP 2.391) ────────────────────────────────────
+  //
+  // The elicitation affordance was pre-analysis-ONLY until this panel got it:
+  // its only host, `pre-analysis-v3`'s CalibrateDrillIn, unmounts on "Analyse
+  // first pass" (measured on deployed `1730c6c5` and again on `33594598`). This
+  // panel is where a user IS when they want to revise a belief — after they
+  // have seen a result — so the loop "elicit → Use this → analysis goes stale"
+  // is only reachable at all from here.
+  const [inWords, setInWords] = useState(false)
+  const [phrase, setPhrase] = useState('')
+  const elicitation = useBeliefElicitation({
+    nodeId: nodeId ?? '',
+    nodeLabel: String(node?.data?.label ?? ''),
+  })
 
-    // ONE derivation feeds BOTH the local store write and the wire, so the two
-    // cannot disagree about the same edit. Building it first (rather than
-    // writing locally and re-deriving for the send) is what makes that
-    // structural instead of a convention someone has to remember.
-    const event = buildFactorValueEditEvent({
-      // `nodeId` is optional on InspectorPanelProps (the router renders the
-      // panel before a selection resolves). An empty id is unencodable and the
-      // builder returns null for it — fail closed rather than emit a mutation
-      // with no target.
-      nodeId: nodeId ?? '',
-      typedValue: parsed,
-      // Read the node as it was BEFORE the local write: the factor's own scale
-      // metadata (cap/unit) is what decides the scale of what the user typed.
-      nodeData: node?.data,
-    })
-    if (!event) return
-    const { value: modelValue, raw_value: rawMagnitude } = event.payload as {
-      value: number
-      raw_value?: number
-    }
+  /**
+   * May this factor be asked about in words? The SAME predicate the pre-analysis
+   * surface uses, read the SAME way: reactively, from the store, returning a
+   * BOOLEAN (a fresh object per render is what the zustand-selector guard
+   * exists to stop). Capless AND unitless only — see `acceptsElicitedBelief`
+   * for why, and for what widening it would actually take.
+   */
+  const canDescribeInWords = useCanvasStore(s =>
+    acceptsElicitedBelief(s.nodes.find(n => n.id === nodeId)?.data),
+  )
 
-    // ROADMAP 2.129 (b) — the undo for the optimistic write, captured from the
-    // pre-write node data. The defect was live-proven on the Model tab, but this
-    // is the same fire-and-forget shape against the same endpoint: a refusal
-    // leaves the panel showing a number the engine declined. Fixing one twin and
-    // leaving the other armed is how this class keeps coming back.
-    const undo = captureOptimisticFactorEdit(nodeId ?? '', modelValue, node?.data)
+  /**
+   * ONE commit path for both affordances on this panel.
+   *
+   * Extracted from `handleValueBlur` verbatim rather than copied beside it: two
+   * handlers building the same event from the same node would be the mirror
+   * that lets an optimistic write and a wire event drift apart on one edit.
+   * `seedBasis` is NOT a second scale rule — it tells the single scale authority
+   * WHICH number the committing control was displaying, the one thing that
+   * authority cannot derive for itself.
+   */
+  const commitValue = useCallback(
+    (
+      typedValue: number,
+      opts: {
+        seedBasis?: ValueInputSeedBasis
+        /**
+         * Write `typedValue` as the LOCAL display anchor too. Only the elicited
+         * path passes it, and only because the affordance is gated to factors
+         * with no unit and no cap — the shape where CEE itself persists
+         * `raw_value = value`. So this MIRRORS what the server will hold; it
+         * does not derive it. Without it, `setObservedValue` clears both
+         * `display_value` copies and leaves no anchor, and the row shows NO
+         * NUMBER where one used to be (#572 review, A2).
+         */
+        writeRawAnchor?: boolean
+      } = {},
+    ): void => {
+      // ONE derivation feeds BOTH the local store write and the wire, so the two
+      // cannot disagree about the same edit. Building it first (rather than
+      // writing locally and re-deriving for the send) is what makes that
+      // structural instead of a convention someone has to remember.
+      const event = buildFactorValueEditEvent({
+        // `nodeId` is optional on InspectorPanelProps (the router renders the
+        // panel before a selection resolves). An empty id is unencodable and the
+        // builder returns null for it — fail closed rather than emit a mutation
+        // with no target.
+        nodeId: nodeId ?? '',
+        typedValue,
+        // Read the node as it was BEFORE the local write: the factor's own scale
+        // metadata (cap/unit) is what decides the scale of what the user typed.
+        nodeData: node?.data,
+        ...(opts.seedBasis ? { seedBasis: opts.seedBasis } : {}),
+      })
+      // Fail CLOSED. This is also where the STRUCTURAL belt lands for the
+      // elicited path: `buildFactorValueEditEvent` refuses a `model_scale`
+      // commit outside [0,1] or on a magnitude-scaled factor, for every caller,
+      // and a null event means no local write, no wire, no receipt.
+      if (!event) return
+      const { value: modelValue, raw_value: rawMagnitude } = event.payload as {
+        value: number
+        raw_value?: number
+      }
 
-    // Local store write first, so the canvas and the freshness overlay reflect
-    // the edit immediately even if the turn is slow or fails. Note this writes
-    // the MODEL-scale number into `value` — the live defect wrote the display
-    // magnitude (300000) there, which is exactly what CEE's validator refuses.
-    mutations.setObservedValue(modelValue, rawMagnitude)
-    confirmEdit('value')
+      // ROADMAP 2.129 (b) — the undo for the optimistic write, captured from the
+      // pre-write node data. The defect was live-proven on the Model tab, but this
+      // is the same fire-and-forget shape against the same endpoint: a refusal
+      // leaves the panel showing a number the engine declined. Fixing one twin and
+      // leaving the other armed is how this class keeps coming back.
+      const undo = captureOptimisticFactorEdit(nodeId ?? '', modelValue, node?.data)
 
-    // Then the wire. Before this, the chain ENDED at the store write: the edit
-    // never reached CEE, its graph_hash never moved, and the rerun the
-    // freshness strip invited could not possibly reflect the change.
-    if (!sendSystemEvent) return
+      // Local store write first, so the canvas and the freshness overlay reflect
+      // the edit immediately even if the turn is slow or fails. Note this writes
+      // the MODEL-scale number into `value` — the live defect wrote the display
+      // magnitude (300000) there, which is exactly what CEE's validator refuses.
+      mutations.setObservedValue(modelValue, opts.writeRawAnchor ? typedValue : rawMagnitude)
+      confirmEdit('value')
+
+      // Then the wire. Before this, the chain ENDED at the store write: the edit
+      // never reached CEE, its graph_hash never moved, and the rerun the
+      // freshness strip invited could not possibly reflect the change.
+      if (!sendSystemEvent) return
     // Fire-and-forget: the response is ingested by the shared turn path
     // (applyV5State applies graph_patch + analysis_ready for system-event turns
     // exactly as it does for message turns). Awaiting here would block the blur
@@ -193,16 +253,57 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
     // buffer, which queues the send and flushes it when the lock clears (and
     // holds the freshness overlay dirty until it does). See
     // `useConversation`'s `deferredSystemSendsRef`.
-    void Promise.resolve(
-      sendSystemEvent(event, undo ? { optimisticFactorEdit: undo } : undefined),
-    ).catch(() => {
-      // Swallowed deliberately: a genuine send failure is already recorded by
-      // the conversation's own failure channel. Re-throwing from a blur handler
-      // would surface as an unhandled rejection and tell the user nothing they
-      // are not already being told. A server REFUSAL is not a failure and never
-      // reaches here — the dispatcher reverts the optimistic write instead.
-    })
-  }, [draftValue, inputDisplayValue, mutations, confirmEdit, sendSystemEvent, nodeId, node?.data])
+      void Promise.resolve(
+        sendSystemEvent(event, undo ? { optimisticFactorEdit: undo } : undefined),
+      ).catch(() => {
+        // Swallowed deliberately: a genuine send failure is already recorded by
+        // the conversation's own failure channel. Re-throwing from a blur handler
+        // would surface as an unhandled rejection and tell the user nothing they
+        // are not already being told. A server REFUSAL is not a failure and never
+        // reaches here — the dispatcher reverts the optimistic write instead.
+      })
+    },
+    [mutations, confirmEdit, sendSystemEvent, nodeId, node?.data],
+  )
+
+  const handleValueBlur = useCallback(() => {
+    const parsed = parseFloat(draftValue)
+    // Commit ONCE per genuinely-changed value. `inputDisplayValue` is the
+    // number the field was showing, so a re-blur after a commit — and a commit
+    // of an unchanged number — are both no-ops here. That is the mechanism
+    // behind the negative control (a same-value edit must not claim a change);
+    // CEE's noop dedup is the backstop, not the mechanism.
+    if (isNaN(parsed) || parsed === inputDisplayValue) return
+    commitValue(parsed)
+  }, [draftValue, inputDisplayValue, commitValue])
+
+  /**
+   * Accept an elicited number — the SAME commit and the SAME wire event as the
+   * typed field, differing only in which SCALE the committed number is in.
+   *
+   * NO SHAPE RE-CHECK HERE, deliberately, and this is a decision rather than an
+   * omission: `canDescribeInWords` is a REACTIVE store selector, so the moment a
+   * factor stops being a chance the whole affordance unmounts and there is no
+   * button left to click (pinned by the reactive-gate test). An accept-time copy
+   * of the predicate would be unreachable — and an unreachable guard that no
+   * mutant can kill is guarantee theatre. The STRUCTURAL refusal lives one layer
+   * down in `buildFactorValueEditEvent`, where it covers every caller.
+   *
+   * The draft sync at the end is NOT cosmetic. The number input was seeded at
+   * mount from the PREVIOUS value and does not re-seed; without this line the
+   * user's next blur on that field would commit the old number straight back
+   * over the value they just accepted.
+   */
+  const acceptElicited = useCallback(
+    (suggestedValue: number): void => {
+      commitValue(suggestedValue, { seedBasis: 'model_scale', writeRawAnchor: true })
+      elicitation.reset()
+      setInWords(false)
+      setPhrase('')
+      setDraftValue(String(suggestedValue))
+    },
+    [commitValue, elicitation],
+  )
 
   // Connections: options that set this + outbound influences
   const setByOptions = useMemo(() => {
@@ -373,7 +474,56 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             {unit && unit !== '\u00A3' && unit !== '$' && unit !== '\u20AC' && (
               <span className={`${typography.panelMeta} text-text-light`}>{unit}</span>
             )}
+            {/*
+              ON THE VALUE ROW, beside the number rather than replacing it: the
+              two are alternatives, and hiding the direct input behind a mode
+              toggle would make the fast path slower for anyone who already
+              knows their number. HIDDEN, never disabled, when the factor is not
+              a chance \u2014 a disabled control with no explanation is a mystery.
+            */}
+            {canDescribeInWords && (
+              <Tooltip content="Say what you think in plain words" delay={300}>
+                <button
+                  type="button"
+                  aria-label={describeInWordsToggleLabel(String(node.data?.label ?? ''))}
+                  aria-pressed={inWords}
+                  onClick={() => {
+                    setInWords(open => {
+                      if (open) {
+                        setPhrase('')
+                        elicitation.reset()
+                      }
+                      return !open
+                    })
+                  }}
+                  className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full outline-none transition-colors text-text-light hover:text-text-header hover:bg-panel-hover focus-visible:text-text-header focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              </Tooltip>
+            )}
           </div>
+
+          {inWords && canDescribeInWords && (
+            <div className="mt-2">
+              <BeliefElicitationField
+                testId="inspector-in-words"
+                label={String(node.data?.label ?? '')}
+                phrase={phrase}
+                onPhraseChange={next => {
+                  setPhrase(next)
+                  elicitation.request(next)
+                }}
+                onEscape={() => {
+                  setInWords(false)
+                  setPhrase('')
+                  elicitation.reset()
+                }}
+                elicitation={elicitation}
+                onAccept={acceptElicited}
+              />
+            </div>
+          )}
           {/* Provenance inline below value (no separate section title) */}
           {source && (
             <div className="flex items-center gap-1 mt-2 pt-2 border-t border-panel-border">
