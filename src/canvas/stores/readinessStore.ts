@@ -441,14 +441,56 @@ async function fetchReadiness(): Promise<void> {
           return
         }
 
+        // ── ROADMAP 2.329: a 404 here is an OUTAGE, not a deployment choice ──
+        //
+        // This branch used to publish `calculateFallbackReadiness` with NO
+        // error — the same defect 2.319(a) fixed one level up, on the path
+        // that was left out of it pending adjudication. The adjudication is
+        // now derived at the deployed bytes
+        // (PHASE0-EVIDENCE-2026-07-28/adjudication-2329-404-branch.md):
+        //
+        //   · NO deployed configuration produces a 404 on this path BY DESIGN.
+        //     On PLoT's deploy branch the route is registered UNCONDITIONALLY
+        //     — `createServer` → `registerV1Routes` → `registerCeeProxyRoutes`
+        //     → `app.post('/v1/cee/graph-readiness', …)`, no guard at any hop —
+        //     and a missing CEE_BASE_URL/CEE_API_KEY yields an error RESPONSE
+        //     from a registered handler, never a 404. Staging answers 401
+        //     (registered, auth-gated) where a control path answers 404.
+        //   · The `'/bff/cee'` same-origin fallback does not survive
+        //     minification in either deployed bundle (zero literals across an
+        //     81-chunk staging crawl and a 40-chunk production crawl), so the
+        //     "dead SPA redirect returns index.html" 404 vector is unreachable
+        //     in the shipped artifacts.
+        //   · One deployed configuration DOES 404 in steady state: production,
+        //     whose PLoT predates the route by ~6.5 months while its paired UI
+        //     bundle (built two months AFTER the route landed) bakes the call
+        //     in. That is deploy drift — the outage class — and this branch is
+        //     precisely what kept it invisible for those months.
+        //
+        // So there is no configuration this branch could be serving. Treat it
+        // exactly as a transport failure is treated: publish no verdict, set a
+        // truthful error, leave `lastPayloadHash` unset so a redeploy is picked
+        // up on the next request. `readiness` is left EXACTLY as it was — null
+        // on first load (the store's own "unknown" state), otherwise the last
+        // answer the server actually gave, which a local guess is not entitled
+        // to replace.
+        //
+        // Deliberately NOT a third state, and deliberately not `false`: both
+        // were considered and rejected at the transport catch above, for the
+        // same reasons (trap-12 tri-state threading; a false "no" is still a
+        // locally invented verdict).
+        //
+        // Consequence, stated rather than buried: shipped to production as-is
+        // against today's production PLoT, readiness would report a permanent,
+        // TRUTHFUL "could not check" until prod PLoT redeploys. That is a real
+        // outage becoming visible, not a regression introduced here.
         if (response.status === 404) {
-          if (import.meta.env.DEV) {
-            console.info(
-              '[readinessStore] CEE graph-readiness endpoint not available (404), using local validation',
-            )
-          }
-          const fallback = calculateFallbackReadiness(currentNodes, currentEdges, graphHealth)
-          useReadinessStore.setState({ readiness: fallback, loading: false })
+          const message = 'Could not find the readiness service'
+          console.warn(
+            `[readinessStore] ${message} (HTTP 404) — publishing no verdict:`,
+            response.errorBody,
+          )
+          useReadinessStore.setState({ error: message, loading: false })
           return
         }
 
