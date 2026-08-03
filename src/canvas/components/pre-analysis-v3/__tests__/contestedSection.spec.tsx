@@ -33,6 +33,7 @@ import { CONTESTED_COPY } from '../constants'
 import { getBasisLabel, getContestedReasonLabel } from '../../model-tab/strengthBands'
 import { findBannedTerm } from '../../../../test/glossaryBannedTerms'
 import type { ContestedReason, EstimateBasis } from '../../../domain/validation'
+import type { EdgeData } from '../../../domain/edges'
 
 function node(id: string, kind: string, label: string, data: Record<string, unknown> = {}): Node {
   return { id, type: kind, position: { x: 0, y: 0 }, data: { kind, label, ...data } } as Node
@@ -53,7 +54,11 @@ const BASE_NODES: Node[] = [
 function setGraph(edges: Edge[]) {
   useCanvasStore.setState({
     nodes: BASE_NODES,
-    edges,
+    // The shared `__fixtures__/contestedEdge` builder returns a plain `Edge` (it is also used
+    // by Model-tab and telemetry suites that never touch the store); the store's slice is
+    // `Edge<EdgeData>`. Narrowing at the boundary rather than forking the fixture — the fields
+    // under test (`data.validation`, `source`, `target`, `id`) are identical either way.
+    edges: edges as Edge<EdgeData>[],
     preAnalysisSensitivity: null,
     draftCoaching: null,
     currentBriefText: null,
