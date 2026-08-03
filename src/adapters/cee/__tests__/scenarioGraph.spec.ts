@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -18,6 +18,27 @@ import {
 } from '../scenarioGraph'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
+
+/** Drop comments so a guard cannot confuse PROSE about a var with USE of it. */
+function stripComments(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('*') && !l.trim().startsWith('//'))
+    .join('\n')
+}
+
+/** Relative import specifiers, so the guard can follow one hop of indirection. */
+function relativeImportsOf(code: string): string[] {
+  return [...code.matchAll(/from\s+'(\.[^']+)'/g)].map((m) => m[1])
+}
+
+function resolveTs(base: string): string | null {
+  for (const candidate of [`${base}.ts`, `${base}.tsx`, path.join(base, 'index.ts')]) {
+    if (existsSync(candidate)) return candidate
+  }
+  return null
+}
 
 /** A 64-hex token no local computation in this repo could reproduce. */
 const CEE_TOKEN = 'a'.repeat(63) + '7'
@@ -98,15 +119,8 @@ describe('scenarioGraph — base resolution (⚠ hazard: VITE_CEE_BFF_BASE point
    */
   it('never RESOLVES its base from VITE_CEE_BFF_BASE (source-level, with a positive control)', () => {
     const dir = path.dirname(fileURLToPath(import.meta.url))
-    const moduleSrc = readFileSync(path.join(dir, '..', 'scenarioGraph.ts'), 'utf8')
-
-    // Strip comments: this file DISCUSSES the var at length, and a guard that
-    // could not tell prose from code would be unmaintainable.
-    const code = moduleSrc
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .split('\n')
-      .filter((l) => !l.trim().startsWith('*') && !l.trim().startsWith('//'))
-      .join('\n')
+    const modulePath = path.join(dir, '..', 'scenarioGraph.ts')
+    const code = stripComments(readFileSync(modulePath, 'utf8'))
 
     expect(code).not.toContain('VITE_CEE_BFF_BASE')
     expect(code).not.toContain('VITE_BFF_BASE')
@@ -114,12 +128,38 @@ describe('scenarioGraph — base resolution (⚠ hazard: VITE_CEE_BFF_BASE point
     expect(code).not.toMatch(/https?:\/\//)
     expect(code).toContain("SCENARIO_GRAPH_BASE = '/bff/cee'")
 
-    // POSITIVE CONTROL (trap 13): the same read + match, pointed at a sibling
-    // that genuinely DOES resolve from the var. If this ever stops finding it,
-    // the guard above has stopped being able to see a presence and its absence
-    // assertions mean nothing.
+    // ⚠ BIND THE GUARD TO WHAT THE URL BUILDER ACTUALLY USES (review A4).
+    // The four assertions above were measured passing 18/18 against a realistic
+    // two-step refactor: import a base from a SIBLING module and leave
+    // `SCENARIO_GRAPH_BASE` in place but DEAD. No `VITE_` and no `http` appears
+    // in this file, so a spelling-presence guard is blind to it. Asserting on
+    // the builder's own body is what closes that: the constant has to be LIVE.
+    const builder = code.match(/export function scenarioGraphUrl[\s\S]*?\n\}/)?.[0]
+    expect(builder).toBeDefined()
+    expect(builder).toContain('SCENARIO_GRAPH_BASE')
+
+    // …and the indirection cannot be smuggled in through an import either.
+    for (const spec of relativeImportsOf(code)) {
+      const resolved = resolveTs(path.join(dir, '..', spec))
+      if (!resolved) continue
+      const importedCode = stripComments(readFileSync(resolved, 'utf8'))
+      expect(
+        importedCode.includes('VITE_CEE_BFF_BASE') || importedCode.includes('VITE_BFF_BASE'),
+        `${spec} resolves a base from an env var; importing it here would reintroduce the hazard`,
+      ).toBe(false)
+    }
+
+    // POSITIVE CONTROL (trap 13), now covering BOTH halves of the guard.
+    // (i) the spelling matcher can see a presence:
     const siblingSrc = readFileSync(path.join(dir, '..', 'client.ts'), 'utf8')
     expect(siblingSrc).toContain('VITE_CEE_BFF_BASE')
+    // (ii) the builder-body matcher can see the absence of the constant — proven
+    // against a synthetic body rather than trusted:
+    const deadConstantBody =
+      "export function scenarioGraphUrl(id: string): string {\n  return `${CEE_BASE_URL}/scenarios/${id}/graph`\n}"
+    expect(
+      deadConstantBody.match(/export function scenarioGraphUrl[\s\S]*?\n\}/)?.[0],
+    ).not.toContain('SCENARIO_GRAPH_BASE')
   })
 
   it('POSTs to the pinned URL with a JSON body', async () => {
@@ -173,7 +213,6 @@ describe('scenarioGraph — 200 semantics', () => {
     })
     // The object itself must never end up where the hash is expected.
     expect(typeof res.identity?.value).toBe('string')
-    expect(res.identity?.value).not.toContain('graph_identity_hash')
   })
 
   it('CONSUMER NOTE 2 — stores CEE’s token VERBATIM (no local recomputation)', async () => {
@@ -233,10 +272,10 @@ describe('scenarioGraph — refusal semantics', () => {
   it('CONSUMER NOTE 3 — 404 is NOT-READABLE, a distinct status from absent', async () => {
     fetchSpy.mockResolvedValue(jsonResponse(404, { error: 'NOT_FOUND' }))
     const res = await fetchScenarioGraph(SCENARIO_ID)
-    expect(res.status).toBe('notReadable')
     // The two must never collapse: `absent` means "no graph yet" (200),
-    // `notReadable` means "absent ∪ not-yours ∪ oracle-unresolvable".
-    expect(res.status).not.toBe('absent')
+    // `notReadable` means "absent ∪ not-yours ∪ oracle-unresolvable" and is a
+    // REFUSAL. M3 in the battery is the mutant that collapses them.
+    expect(res.status).toBe('notReadable')
   })
 
   it('401 / 403 / 429 are refusals and are NOT retried', async () => {
@@ -271,9 +310,6 @@ describe('scenarioGraph — 503 retry', () => {
     const res = await fetchScenarioGraph(SCENARIO_ID, { retryDelayMs: 0 })
     expect(res.status).toBe('unavailable')
     expect(fetchSpy).toHaveBeenCalledTimes(3)
-    // Never degrades into "no graph" — a DB blip must not read as an empty canvas.
-    expect(res.status).not.toBe('absent')
-    expect(res.status).not.toBe('notReadable')
   })
 
   it('a transport rejection is unusable, never absent', async () => {

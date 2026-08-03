@@ -73,6 +73,18 @@ export function scenarioGraphUrl(scenarioId: string): string {
 const MAX_ATTEMPTS = 3
 const DEFAULT_RETRY_DELAY_MS = 400
 
+/**
+ * Per-attempt deadline (review A3).
+ *
+ * ⚠ THIS IS A CORRECTNESS BOUND, NOT A UX NICETY. CEE staging cold-starts, and
+ * an answer that arrives tens of seconds after boot describes a graph the user
+ * has since edited on screen. Applying it then is not "late hydration", it is a
+ * SILENT ROLLBACK of work done in the window — and the autosave would persist
+ * the rolled-back state moments later, destroying the last copy. Bounding the
+ * wait bounds that window.
+ */
+const DEFAULT_TIMEOUT_MS = 8000
+
 /** The guest sentinel `AuthContext` mints; never a Supabase user id. */
 const GUEST_USER_ID = 'guest'
 
@@ -116,6 +128,8 @@ export interface FetchScenarioGraphOptions {
   signal?: AbortSignal
   /** Backoff between 503 retries. Tests pass 0. */
   retryDelayMs?: number
+  /** Per-attempt deadline. See `DEFAULT_TIMEOUT_MS`. */
+  timeoutMs?: number
 }
 
 function sleep(ms: number): Promise<void> {
@@ -224,22 +238,44 @@ export async function fetchScenarioGraph(
   const url = scenarioGraphUrl(scenarioId)
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // One deadline per attempt, chained to any caller signal so an unmount
+    // still cancels immediately.
+    const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    const attemptController = new AbortController()
+    const onCallerAbort = () => attemptController.abort()
+    if (opts.signal) {
+      if (opts.signal.aborted) return { status: 'unusable' }
+      opts.signal.addEventListener('abort', onCallerAbort, { once: true })
+    }
+    const timer =
+      timeoutMs > 0 ? setTimeout(() => attemptController.abort(), timeoutMs) : null
+
     let response: Response
     try {
       response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        signal: opts.signal,
+        signal: attemptController.signal,
       })
     } catch (err) {
-      // Transport failure — offline, CORS, TLS, abort. Unknown, never absent.
-      if ((err as Error)?.name === 'AbortError') return { status: 'unusable' }
+      // Transport failure — offline, CORS, TLS, deadline, or caller abort.
+      // Unknown, never absent.
+      if ((err as Error)?.name === 'AbortError') {
+        logger.warn('scenario_graph.aborted', {
+          attempt,
+          timedOut: !opts.signal?.aborted,
+        })
+        return { status: 'unusable' }
+      }
       logger.warn('scenario_graph.transport_failure', {
         attempt,
         error: (err as Error)?.message ?? 'unknown',
       })
       return { status: 'unusable' }
+    } finally {
+      if (timer !== null) clearTimeout(timer)
+      opts.signal?.removeEventListener('abort', onCallerAbort)
     }
 
     if (response.status === 503) {

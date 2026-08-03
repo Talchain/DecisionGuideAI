@@ -35,14 +35,15 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
   // param is the fallback for a deep link that has not reached the store yet.
   const scenarioId = currentScenarioId ?? scenarioIdFromRoute ?? null
 
-  const hydratedRef = useRef<string | null>(null)
+  const attemptedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!scenarioId) return
-    if (hydratedRef.current === scenarioId) return
-    hydratedRef.current = scenarioId
+    if (attemptedRef.current === scenarioId) return
+    attemptedRef.current = scenarioId
 
     const controller = new AbortController()
+    let settled = false
 
     // Fire-and-forget by design: hydration is an improvement on what is already
     // on screen, never a precondition for it. `hydrateCanvasFromServer` never
@@ -51,9 +52,23 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
       userId: user?.id ?? null,
       signal: controller.signal,
     }).then((outcome) => {
+      settled = true
       logger.debug('server_graph_hydration.outcome', { scenarioId, outcome })
     })
 
-    return () => controller.abort()
+    return () => {
+      controller.abort()
+      // ⚠ AN ABORTED ATTEMPT IS NOT AN ATTEMPT (review A6). React StrictMode
+      // mounts every effect twice in dev: the first run set the ref and was
+      // then torn down and aborted, and the second run early-returned on that
+      // same ref — so hydration NEVER ran in development. Production was
+      // unaffected, which is the trap: any manual dev check would have observed
+      // "no hydration" and drawn exactly the wrong conclusion about shipped
+      // code. Releasing the ref when the attempt did not settle makes the dev
+      // and prod paths agree, and costs nothing in prod, where this cleanup
+      // only fires on a dependency change (which must re-hydrate anyway) or on
+      // unmount (where there is nothing left to guard).
+      if (!settled) attemptedRef.current = null
+    }
   }, [scenarioId, user?.id])
 }

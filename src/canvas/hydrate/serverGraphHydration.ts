@@ -45,6 +45,8 @@ export interface HydrateFromServerOptions {
   userId?: string | null
   signal?: AbortSignal
   retryDelayMs?: number
+  /** Per-attempt deadline — bounds the silent-rollback window (review A3). */
+  timeoutMs?: number
 }
 
 /**
@@ -92,6 +94,7 @@ export async function hydrateCanvasFromServer(
     userId: opts.userId,
     signal: opts.signal,
     retryDelayMs: opts.retryDelayMs,
+    timeoutMs: opts.timeoutMs,
   })
 
   // ── Every non-graph answer: leave the canvas alone, say why, surface nothing.

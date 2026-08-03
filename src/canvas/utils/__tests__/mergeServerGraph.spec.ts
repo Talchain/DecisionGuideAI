@@ -238,10 +238,42 @@ describe('mergeServerGraphOnHydrate — honest absence', () => {
   })
 })
 
-describe('mergeServerGraphOnHydrate — boot is not an edit', () => {
-  it('pushes NO history entry — there is nothing to undo to on boot', () => {
+describe('mergeServerGraphOnHydrate — an overwrite is recoverable and disclosed (A3)', () => {
+  it('pushes a PRE-MERGE snapshot when an existing value moves', () => {
+    // Not "boot is not an edit" — an earlier version of this file reasoned that
+    // way and it was wrong in the case that matters: when the local autosave is
+    // NEWER than the server row, this merge reverts the user's work, and the
+    // autosave then persists the reverted state ~1.5s later. Without a snapshot
+    // that is silent AND unrecoverable.
     mergeServerGraphOnHydrate({
       nodes: [{ id: 'factor-1', kind: 'factor', label: 'Spend', value: 250 }],
+      edges: [],
+    })
+    expect(useCanvasStore.getState().history.past).toHaveLength(1)
+    // …and the snapshot holds the PRE-merge value, so undo restores the user's.
+    const snapshot = useCanvasStore.getState().history.past[0] as any
+    expect(snapshot.nodes.find((n: any) => n.id === 'factor-1').data.value).toBe(100)
+  })
+
+  it('pushes NO snapshot for a pure ADDITION — nothing is being overwritten', () => {
+    mergeServerGraphOnHydrate({
+      nodes: [
+        { id: 'factor-1', kind: 'factor', label: 'Spend', value: 100 },
+        { id: 'goal-1', kind: 'goal', label: 'Profit', value: 5 },
+        { id: 'factor-2', kind: 'factor', label: 'Headcount' },
+      ],
+      edges: [],
+    })
+    expect(useCanvasStore.getState().nodes).toHaveLength(3)
+    expect(useCanvasStore.getState().history.past).toHaveLength(0)
+  })
+
+  it('pushes NO snapshot on a no-op merge', () => {
+    mergeServerGraphOnHydrate({
+      nodes: [
+        { id: 'factor-1', kind: 'factor', label: 'Spend', value: 100 },
+        { id: 'goal-1', kind: 'goal', label: 'Profit', value: 5 },
+      ],
       edges: [],
     })
     expect(useCanvasStore.getState().history.past).toHaveLength(0)

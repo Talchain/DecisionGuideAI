@@ -12,6 +12,7 @@ import { useCanvasStore } from '../../store'
 import { hydrateCanvasFromServer } from '../serverGraphHydration'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
+const OTHER_SCENARIO_ID = '99999999-8888-4777-8666-555555555555'
 const CEE_TOKEN = 'a'.repeat(63) + '7'
 const CEE_TOKEN_2 = 'b'.repeat(63) + '4'
 
@@ -268,5 +269,44 @@ describe('hydrateCanvasFromServer — guards', () => {
   it('makes NO request for a non-UUID scenario id', async () => {
     expect(await hydrateCanvasFromServer('draft-local-1')).toBe('skipped')
     expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('REFUSES a graph whose scenario moved under the in-flight read', async () => {
+    // The request is slower than a route change, so an answer can arrive for a
+    // scenario the user has already left. Applying it would graft decision A's
+    // graph onto decision B's canvas.
+    const before = useCanvasStore.getState().nodes
+    fetchSpy.mockImplementation(async () => {
+      useCanvasStore.setState({ currentScenarioId: OTHER_SCENARIO_ID } as never)
+      return jsonResponse(200, okBody())
+    })
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('skipped')
+    expect(useCanvasStore.getState().nodes).toBe(before)
+    expect(useCanvasStore.getState().serverGraphIdentity).toBeNull()
+  })
+})
+
+describe('hydrateCanvasFromServer — the late-answer deadline (A3)', () => {
+  it('gives up on a hung read rather than rolling the canvas back later', async () => {
+    // A cold-start answer arriving tens of seconds after boot describes a graph
+    // the user has since edited on screen; applying it then is a silent
+    // rollback, and the autosave would persist it moments later.
+    const before = useCanvasStore.getState().nodes
+    fetchSpy.mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => {
+            const err = new Error('aborted')
+            err.name = 'AbortError'
+            reject(err)
+          })
+        }),
+    )
+    const outcome = await hydrateCanvasFromServer(SCENARIO_ID, {
+      timeoutMs: 5,
+      retryDelayMs: 0,
+    })
+    expect(outcome).toBe('unusable')
+    expect(useCanvasStore.getState().nodes).toBe(before)
   })
 })

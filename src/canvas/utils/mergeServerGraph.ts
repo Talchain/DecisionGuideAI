@@ -48,11 +48,20 @@
  * before this boot keeps its node on the canvas, but a field the server also
  * carries is overwritten by the server's value. That is the ruled behaviour
  * for this rung; a CAS/merge-policy rung is a separate row if wanted.
+ *
+ * ⚠ AND BECAUSE THAT OVERWRITE IS REAL, IT IS NOT SILENT. Whenever this merge
+ * moves at least one EXISTING value it (1) pushes a pre-merge history snapshot,
+ * so the revert is undoable rather than unrecoverable — the autosave would
+ * otherwise persist the reverted state ~1.5s later and destroy the last copy —
+ * and (2) pulses the changed elements on the existing applied-edit surface, so
+ * a number cannot move under the user unannounced. Neither fires on a pure
+ * addition or a no-op. See the commit block below.
  */
 
 import { useCanvasStore } from '../store'
 import { logger } from '../../lib/logger'
 import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
+import { pulseAppliedTargets } from './appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
 import {
   ADDED_COLUMN_X_GAP,
@@ -60,6 +69,23 @@ import {
   overlayEdge,
   overlayNode,
 } from './mergeAppliedGraph'
+import {
+  captureUserProvenance,
+  clearEdgeUserReviewOnValueChange,
+  clearUserProvenance,
+  observedValueUnchanged,
+  restoreUserProvenance,
+} from './hydrateProvenance'
+
+/** Structural equality, matching the overlay's own no-op test. */
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  try {
+    return JSON.stringify(a) === JSON.stringify(b)
+  } catch {
+    return false
+  }
+}
 
 export interface MergeServerGraphResult {
   addedNodeCount: number
@@ -156,12 +182,33 @@ export function mergeServerGraphOnHydrate(
   // height, measured, selected, dragging, style, zIndex, parentId — survives by
   // construction, bound to the node that owned it. Matching is by id, never by
   // array index.
+  //
+  // ⚠ PROVENANCE IS APPLIED ON TOP OF THE OVERLAY, NOT INSIDE IT (review A1).
+  // The overlay is provenance-blind: it replaces the camelCase `observedState`
+  // bag wholesale while the snake_case one — which `isReviewedByUser` reads
+  // FIRST — is never emitted by the mapper and therefore survives. Left alone
+  // that strips honest user stamps on an unchanged value AND leaves a "checked
+  // by you" badge on a number the server just changed. See `hydrateProvenance`.
   let updatedNodeCount = 0
   const mergedNodes = store.nodes.map((n: any) => {
     const serverNode = serverNodeById.get(n.id)
     if (!serverNode) return n
-    const next = overlayNode(n, serverNode)
-    if (next !== n) updatedNodeCount += 1
+
+    const userStamps = captureUserProvenance(n.data)
+    const overlaid = overlayNode(n, serverNode)
+    if (overlaid === n) return n
+
+    const nextData = observedValueUnchanged(n.data, overlaid.data)
+      ? restoreUserProvenance(overlaid.data, userStamps)
+      : clearUserProvenance(overlaid.data)
+    const next = nextData === overlaid.data ? overlaid : { ...overlaid, data: nextData }
+
+    // A merge whose ONLY effect was to strip a user stamp and then put it back
+    // is a no-op, and must stay one — otherwise every boot writes the store and
+    // dirties history for a canvas that did not change.
+    if (next.type === n.type && deepEqual(next.data, n.data)) return n
+
+    updatedNodeCount += 1
     return next
   })
 
@@ -170,8 +217,18 @@ export function mergeServerGraphOnHydrate(
     const key = canvasEdgePairKey(e)
     const serverEdge = key ? serverEdgeByPair.get(key) : undefined
     if (!serverEdge) return e
-    const next = overlayEdge(e, serverEdge)
-    if (next !== e) updatedEdgeCount += 1
+
+    const overlaid = overlayEdge(e, serverEdge)
+    if (overlaid === e) return e
+
+    // `userReviewedStrength` is UI-only and never on the wire, so the overlay
+    // can never clear it — it would outlive the weight it describes.
+    const nextData = clearEdgeUserReviewOnValueChange(e.data, overlaid.data)
+    const next = nextData === overlaid.data ? overlaid : { ...overlaid, data: nextData }
+
+    if (deepEqual(next.data, e.data)) return e
+
+    updatedEdgeCount += 1
     return next
   })
 
@@ -265,14 +322,46 @@ export function mergeServerGraphOnHydrate(
 
   if (!changed) return result
 
-  // One atomic write. Deliberately NO history entry — boot is not an edit and
-  // there is no prior state a user could meaningfully undo to — and no applied
-  // -edit pulse, which announces a change the user just made rather than the
-  // state their canvas was already in.
+  // ── A PRE-MERGE SNAPSHOT, WHENEVER AN EXISTING VALUE MOVES (review A3) ─────
+  //
+  // The earlier version of this file pushed no history entry, reasoning that
+  // "boot is not an edit". That reasoning was wrong in the one case that
+  // matters. When the local autosave is NEWER than the server row — routine,
+  // because guest inspector edits never reach CEE at all (ROADMAP 2.304) — this
+  // merge REVERTS the user's work to the server's older values. Silently, with
+  // no undo, and the `useScenario` autosave then persists the reverted state
+  // ~1.5s later, destroying the last copy that held it.
+  //
+  // So: whenever at least one EXISTING element's value changes, snapshot first.
+  // Additions alone do not qualify — nothing is being overwritten — and a
+  // no-op merge already returned above.
+  const overwroteExistingValues = updatedNodeCount > 0 || updatedEdgeCount > 0
+  if (overwroteExistingValues) {
+    useCanvasStore.getState().pushHistory()
+  }
+
   useCanvasStore.setState({
     nodes: [...mergedNodes, ...addedNodes] as any,
     edges: [...mergedEdges, ...addedEdges] as any,
   })
+
+  // ── DISCLOSURE: never move a number the user is looking at in silence ──────
+  //
+  // The same coalesced highlight the applied-edit path uses, on exactly the
+  // elements whose values this merge changed. It is deliberately NOT applied to
+  // ADDED elements: those are new arrivals, not overwrites, and pulsing them
+  // would dilute the signal that matters. Fails closed downstream against the
+  // canvas.
+  if (overwroteExistingValues) {
+    pulseAppliedTargets({
+      nodeIds: mergedNodes
+        .filter((n: any, i: number) => n !== store.nodes[i])
+        .map((n: any) => n.id as string),
+      edgeIds: mergedEdges
+        .filter((e: any, i: number) => e !== store.edges[i])
+        .map((e: any) => e.id as string),
+    })
+  }
 
   logger.info('merge_server_graph.applied', {
     scenarioId: store.currentScenarioId ?? null,
