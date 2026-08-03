@@ -21,10 +21,53 @@ import { withRetry } from '../../lib/fetchWithRetry'
 import { devWarn } from '../../utils/debugLog'
 import { plotAuthHeaders } from '../../lib/plotAuthHeaders'
 
+/**
+ * ⚠ THIS BASE RESOLVES TO **PLoT**, NOT CEE, ON EVERY DEPLOY. Despite the name
+ * and the `/bff/cee` fallback, `VITE_CEE_BFF_BASE` is set in the Netlify
+ * dashboard to `https://plot-lite-service-staging.onrender.com/v1/cee`, and
+ * Vite inlines it at BUILD time — so no test can observe the deployed value.
+ * MEASURED on build `122b847a`: the shipped constructor reads
+ * `this.baseURL="https://plot-lite-service-staging.onrender.com/v1/cee"`
+ * (`assets/clipboard-DeNkRSL5.js@44203`).
+ *
+ * It is correct ONLY for endpoints PLoT actually serves. Measured 2026-08-03,
+ * with a garbage-path control on the same service (a 404 alone proves nothing;
+ * a 401 next to a 404 proves registration):
+ *   REGISTERED (401 "Missing bearer token"): /bias-check · /sensitivity-coach ·
+ *     /graph-readiness · /prompts/warm
+ *   ABSENT (404, same as the garbage control): /elicit-belief · /ask ·
+ *     /suggest-edge-function · /health
+ * So `biasCheck` and `sensitivityCoach` below keep this base deliberately.
+ * Anything CEE-served must use `CEE_ELICIT_BASE`.
+ */
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+
+/**
+ * The same-origin Netlify edge path for **CEE-served** routes. A LITERAL, and
+ * deliberately NOT `CEE_BASE_URL` — see the hazard above.
+ *
+ * `/bff/cee/*` is owned by `netlify/edge-functions/cee-proxy.ts`, which rewrites
+ * the prefix to `/assist/v1` and injects `X-Olumi-Assist-Key` server-side (the
+ * key stays in the Netlify edge runtime and never enters the bundle);
+ * `vite.config.ts` proxies the same prefix the same way in dev.
+ *
+ * WHY A SECOND CONSTANT RATHER THAN A SHARED ONE. `scenarioGraph.ts` solved this
+ * exact hazard for the scenario-graph read (PR #570) with its own literal. The
+ * constant is not shared because the GUARD cannot be: this file must KEEP
+ * `CEE_BASE_URL` for the PLoT-registered routes, so the file-scoped
+ * "no VITE_CEE_BFF_BASE anywhere" assertion that protects `scenarioGraph.ts` is
+ * impossible here and the guard has to be method-scoped either way. Instead of a
+ * second unchecked mirror, the co-located guard DERIVES the expected value from
+ * `netlify.toml`'s `cee-proxy` binding — see
+ * `__tests__/client.elicitBelief.spec.ts`, "base resolution".
+ */
+const CEE_ELICIT_BASE = '/bff/cee'
+
 // CEE Draft Engine base URL
 // On staging, can be set to direct PLoT URL to bypass Netlify proxy (which times out at ~28s)
 // Example: VITE_CEE_DRAFT_BASE=https://plot-lite-service-staging.onrender.com/v1/cee
+// (Measured: it IS so set on staging — draft-graph is a PLoT-served route, so
+// this one is correct as it stands.)
 const CEE_DRAFT_ENGINE_BASE = (import.meta as any).env?.VITE_CEE_DRAFT_BASE || '/bff/engine/v1/cee'
 
 /**
@@ -520,9 +563,20 @@ export class CEEClient {
     this.timeout = config.timeout ?? DEFAULT_CEE_TIMEOUT
   }
 
-  private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    return this.fetchWithBase<T>(this.baseURL, endpoint, options)
-  }
+  /**
+   * ⚠ THERE IS DELIBERATELY NO BARE `this.fetch(endpoint)` HELPER ANY MORE.
+   *
+   * It existed, it read as "just use this client's base", and that is exactly
+   * how `elicitBelief` shipped pointed at PLoT — `this.baseURL` is
+   * `CEE_BASE_URL`, which the Netlify dashboard sets to the absolute PLoT URL
+   * (see the constant's header). `elicitBelief` was its only caller, so removing
+   * it costs nothing and takes the trap with it: every request on this client
+   * now names its base at the call site, where the choice between "PLoT serves
+   * this" and "CEE serves this" is visible to the person writing it.
+   *
+   * `fetchIdempotent` keeps `this.baseURL` on purpose — its two callers
+   * (`biasCheck`, `sensitivityCoach`) hit PLoT-REGISTERED routes.
+   */
 
   /** Fetch with retry — use only for idempotent/read-only endpoints (not draft-graph) */
   private async fetchIdempotent<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -860,13 +914,26 @@ export class CEEClient {
   /**
    * Turn a phrase about a factor into a number — ROADMAP 2.364.
    *
-   * Endpoint: `POST /elicit-belief` on this client's own base, which the
-   * `cee-proxy` edge function rewrites to `/assist/v1/elicit-belief` and signs
-   * with `X-Olumi-Assist-Key` server-side (`netlify/edge-functions/
-   * cee-proxy.ts`; `netlify.toml` binds it to `/bff/cee/*`). No absolute
-   * service URL is built here on purpose — the key lives in the Netlify
-   * dashboard, never in the bundle, and the same-origin path is what the live
-   * 2026-08-03 witness exercised.
+   * Endpoint: `POST /elicit-belief` on `CEE_ELICIT_BASE`, which the `cee-proxy`
+   * edge function rewrites to `/assist/v1/elicit-belief` and signs with
+   * `X-Olumi-Assist-Key` server-side (`netlify/edge-functions/cee-proxy.ts`;
+   * `netlify.toml` binds it to `/bff/cee/*`).
+   *
+   * ⚠ THIS PARAGRAPH IS A CORRECTION, AND THE OLD ONE IS WHY THE CAPABILITY WAS
+   * DARK FOR A DAY. It used to read "on this client's own base … no absolute
+   * service URL is built here on purpose". That was true of the SOURCE and false
+   * of the ARTEFACT: the client's own base is `CEE_BASE_URL`, which the Netlify
+   * dashboard sets to the absolute PLoT URL, and PLoT does not serve this route.
+   * Every word a user typed got `POST https://plot-lite-service-staging.onrender.com/v1/cee/elicit-belief`
+   * → 404 → "I couldn't read that as a number." (wire-witnessed 2026-08-03,
+   * `PHASE0-EVIDENCE-2026-07-28/journey-witness-2026-08-04d.md` target 1; the
+   * 404 discriminated from an auth artefact by a garbage-path control on the
+   * same service and by four sibling `/v1/cee/*` routes answering 401.)
+   *
+   * The co-located spec's mock-fetch pin asserted `/bff/cee/elicit-belief` and
+   * PASSED throughout, because Vite inlines `import.meta.env.VITE_*` at
+   * transform time and vitest only ever sees the fallback. A runtime test cannot
+   * see this class of defect; the source-level guard in that spec can.
    *
    * THE REQUEST IS A CONTRACT PIN, NOT A CONVENIENCE SHAPE. CEE's
    * `CEEElicitBeliefInput` is `.strict()` (`olumi-assistants-service/
@@ -905,7 +972,9 @@ export class CEEClient {
     // values, but building the key conditionally says so at the source.
     if (input.context_id !== undefined) body.context_id = input.context_id
 
-    const raw = await this.fetch<unknown>('/elicit-belief', {
+    // `fetchWithBase(CEE_ELICIT_BASE, …)`, NOT `this.fetch(…)`: the latter
+    // closes over `this.baseURL`, which is the PLoT base on every deploy.
+    const raw = await this.fetchWithBase<unknown>(CEE_ELICIT_BASE, '/elicit-belief', {
       method: 'POST',
       body: JSON.stringify(body),
     })
