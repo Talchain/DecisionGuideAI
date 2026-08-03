@@ -181,7 +181,7 @@
   "pnpm": {
     "overrides": {
       "protobufjs@>=7.5.0 <7.6.5": "^7.6.5",
-      "fast-uri@<3.1.2": "^3.1.2",
+      "fast-uri@<3.1.5": "^3.1.5",
       "form-data@>=4.0.0 <4.0.6": "^4.0.6",
       "ws@>=8.0.0 <8.21.0": "^8.21.0",
       "dompurify@<3.4.11": "^3.4.11",
@@ -192,7 +192,7 @@
   "//overrides-provenance": {
     "_comment": "Security overrides added for CI audit gate (claude-ui/security-audit-gate). Each entry pins a transitive dep to a patched version. Remove an entry once every dependent ships a fixed range natively. Provenance:",
     "protobufjs": "GHSA-xq3m-2v4x-88gg (critical) + GHSA-66ff/-75px/-jvwf/-685m/-wcpc (high) via posthog-js>@opentelemetry/otlp-transformer. Patched >=7.6.5. Remove when posthog-js bumps its otlp-transformer chain.",
-    "fast-uri": "GHSA-q3j6-qgpj-74h6 + GHSA-v39h-62p7-jpjc (high) via ajv. Patched >=3.1.2. Remove when ajv bumps fast-uri.",
+    "fast-uri": "GHSA-q3j6-qgpj-74h6 + GHSA-v39h-62p7-jpjc (high) via ajv, then GHSA-7p8r-x3mc-p8w7 (high, host confusion via backslash) which moved the floor. Patched >=3.1.5. Remove when ajv bumps fast-uri.",
     "form-data": "GHSA-hmw2-7cc7-3qxx (high) via openai>@types/node-fetch. Patched >=4.0.6. Remove when openai's node-fetch types drop the vulnerable range.",
     "ws": "GHSA-96hv-2xvq-fx4p (high) + GHSA-58qx-3vcg-4xpx (moderate) via @supabase/realtime-js. Patched >=8.21.0. Remove when @supabase/realtime-js bumps ws.",
     "dompurify": "GHSA-cmwh-pvxp-8882 + others (moderate/low) via posthog-js. Patched >=3.4.11. Remove when posthog-js bumps dompurify.",
