@@ -111,6 +111,28 @@ const WALK_OBSERVED = {
   extractionType: 'inferred',
 }
 
+/**
+ * ⭐ A capless/unitless factor that ALREADY CARRIES `raw_value` — the state this
+ * very panel leaves a factor in after ONE accept (the display anchor is written
+ * locally), and therefore the shape a SECOND accept meets.
+ *
+ * It exists because of a VACUITY I found in my own battery. On `WALK_OBSERVED`
+ * there is no `raw_value`, so the DEFAULT seed basis resolves to
+ * `{inUserUnits: false}` and emits exactly the same payload as `'model_scale'`
+ * — deleting `seedBasis: 'model_scale'` from the accept SURVIVED. Here it does
+ * not: with a `raw_value` present the default basis reports `inUserUnits: true`
+ * and attaches a `raw_value` the client has no business asserting. This fixture
+ * is what makes the "no raw_value" assertion bind the BASIS rather than the
+ * fixture's silence.
+ */
+const ANCHORED_ID = 'fac_brand_trust'
+const ANCHORED_LABEL = 'Brand trust'
+const ANCHORED_OBSERVED = {
+  value: 0.3,
+  raw_value: 0.3,
+  source: 'user_override',
+}
+
 /** A cap-bearing factor — CEE's own draft fixtures carry exactly this shape. */
 const CAPPED_ID = 'fac_team_size'
 const CAPPED_LABEL = 'Team Size'
@@ -361,6 +383,31 @@ describe('FactorControllablePanel — belief elicitation post-analysis (ROADMAP 
     expect(events[0].field).toBe('value')
     // The wire is not optional (2.365 class): the transport was actually called.
     expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+
+    // A2 — the accepted number is still DISPLAYED. Without the local display
+    // anchor, `setObservedValue` clears both `display_value` copies, the row and
+    // the canvas node show NO NUMBER where "Low (0)" was, and the factor then
+    // reads as scale-ambiguous — which takes the affordance itself away.
+    expect(screen.getByTestId('factor-display-text')).toHaveTextContent('0.7')
+  })
+
+  it('binds the model_scale BASIS: no raw_value even when the factor already carries one', async () => {
+    seed(ANCHORED_ID, ANCHORED_LABEL, ANCHORED_OBSERVED)
+    renderPanel(ANCHORED_ID)
+    elicitReplies.push(PRETTY_LIKELY)
+    await askInWords(ANCHORED_LABEL, 'pretty likely')
+
+    fireEvent.click(screen.getByLabelText(`Use about 70% for ${ANCHORED_LABEL}`))
+
+    const events = eventsFor(ANCHORED_ID)
+    expect(events).toHaveLength(1)
+    expect(events[0].value).toBe(PRETTY_LIKELY.suggested_value)
+    // THE ASSERTION THE WALK FIXTURE COULD NOT MAKE. With a stored `raw_value`,
+    // the DEFAULT basis would read the probability as a user-unit magnitude and
+    // attach `raw_value: 0.7` — a magnitude the user never gave, which CEE would
+    // then take at face value instead of inverting with its own cap.
+    expect(events[0]).not.toHaveProperty('raw_value')
+    expect(events[0]).not.toHaveProperty('unit')
   })
 
   it('a clarification chip commits THAT chip\'s value, not the first one', async () => {
