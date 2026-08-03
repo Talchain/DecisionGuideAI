@@ -6,7 +6,7 @@
  * - Debounce coalesces rapid changes
  * - refresh() bypasses debounce
  * - reset() unsubscribes and clears state
- * - Fallback on 404 / backoff on 429
+ * - No verdict + error on 404 (ROADMAP 2.329) / backoff on 429
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useReadinessStore, __test__ } from '../readinessStore'
@@ -299,17 +299,25 @@ describe('readinessStore', () => {
   })
 
   describe('error handling', () => {
-    it('falls back to local readiness on 404', async () => {
+    // ROADMAP 2.329 — this test used to read `falls back to local readiness on
+    // 404` and asserted `error === null` with a locally-computed verdict
+    // present. It was pinning the defect: a 404 on the readiness path is an
+    // outage (no deployed configuration produces one by design — derived at the
+    // deployed bytes, PHASE0-EVIDENCE-2026-07-28/adjudication-2329-404-branch.md)
+    // and an outage is not a readiness verdict. The full treatment, with its
+    // positive controls and identity-bound prior-verdict clause, lives in
+    // readinessStore.notFound.spec.tsx; this is the sibling suite's own guard
+    // against the old behaviour returning.
+    it('publishes no verdict and reports an error on 404', async () => {
       mockFetch.mockResolvedValue(mock404Response())
       seedCanvasWithNodes(3)
       useReadinessStore.getState().startListening()
       await vi.runAllTimersAsync()
 
       const state = useReadinessStore.getState()
-      expect(state.readiness).not.toBeNull()
-      // Fallback score for 3 nodes + 1 edge: 50 + 10 + 10 + 10 = 80
-      expect(state.readiness!.readiness_score).toBeGreaterThan(0)
-      expect(state.error).toBeNull()
+      expect(state.readiness).toBeNull()
+      expect(state.error).not.toBeNull()
+      expect(state.loading).toBe(false)
     })
 
     it('backs off on 429 and uses fallback', async () => {

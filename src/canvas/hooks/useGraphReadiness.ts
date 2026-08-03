@@ -36,6 +36,35 @@ export interface DeduplicatedResponse {
   retryAfterHeader: string | null
 }
 
+/**
+ * The server answered, but its body could not be read as JSON.
+ *
+ * This type exists to keep two different facts apart at the ONE catch site
+ * that sees both. `deduplicatedFetch` performs the `fetch()` and the
+ * `response.json()` inside a single async IIFE, so a caller awaiting the
+ * returned promise cannot otherwise distinguish "I never reached the server"
+ * from "I reached it and could not read its reply". Neither is a readiness
+ * verdict — but they are different things to report, and conflating them is
+ * how a transport failure came to be presented as a model assessment
+ * (ROADMAP 2.319a).
+ *
+ * Transport rejections are deliberately NOT wrapped: they propagate exactly
+ * as `fetch()` threw them, so a caller can still read the underlying cause.
+ */
+export class ReadinessBodyUnreadableError extends Error {
+  /** HTTP status of the response whose body would not parse. */
+  readonly status: number
+  /** The original `response.json()` rejection. */
+  readonly parseError: unknown
+
+  constructor(status: number, parseError: unknown) {
+    super(`Readiness response body was not readable JSON (HTTP ${status})`)
+    this.name = 'ReadinessBodyUnreadableError'
+    this.status = status
+    this.parseError = parseError
+  }
+}
+
 interface InflightEntry {
   promise: Promise<DeduplicatedResponse>
   timestamp: number
@@ -85,7 +114,15 @@ function deduplicatedFetch(
       signal: controller.signal,
     })
     if (response.ok) {
-      const data = await response.json()
+      // Tag a parse failure so the caller can tell it from a transport
+      // failure. Both mean "no verdict", but only one of them means the
+      // server was never reached — see ReadinessBodyUnreadableError.
+      let data: unknown
+      try {
+        data = await response.json()
+      } catch (parseErr) {
+        throw new ReadinessBodyUnreadableError(response.status, parseErr)
+      }
       return {
         ok: true,
         status: response.status,

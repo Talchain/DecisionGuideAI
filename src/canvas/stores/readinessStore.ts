@@ -21,6 +21,7 @@ import type {
 } from '../hooks/useGraphReadiness'
 import {
   ACCEPTED_READINESS_LEVELS,
+  ReadinessBodyUnreadableError,
   __test__ as dedupUtils,
 } from '../hooks/useGraphReadiness'
 import { plotAuthHeaders } from '../../lib/plotAuthHeaders'
@@ -331,16 +332,88 @@ async function fetchReadiness(): Promise<void> {
         currentInflightEntry = entry
         response = await promise
       } catch (fetchErr) {
-        // In test environments (jsdom), relative URLs cause TypeError.
-        // Fall back to local readiness rather than crashing.
+        // An abort is a cancellation, not a failure — the outer catch owns it.
         if ((fetchErr as Error).name === 'AbortError') throw fetchErr
-        console.warn('[readinessStore] Fetch setup failed, using fallback:', fetchErr)
-        const fallback = calculateFallbackReadiness(currentNodes, currentEdges, graphHealth)
-        useReadinessStore.setState({
-          readiness: fallback,
-          error: null,
-          loading: false,
-        })
+
+        // ── ROADMAP 2.319(a): no verdict is not a verdict ────────────
+        //
+        // `deduplicatedFetch` performs BOTH the `fetch()` and the
+        // `response.json()` inside one async IIFE, so everything below lands
+        // here as a single rejection:
+        //   · every transport failure — connection reset, cold start, offline,
+        //     DNS, TLS, and CORS. This call IS cross-origin in the deployed
+        //     UI, and that is NOT derivable from this repo (CLAUDE.md trap 18):
+        //     `CEE_BASE_URL` defaults to the same-origin path `/bff/cee` and
+        //     nothing in the tree sets `VITE_CEE_BFF_BASE`. It is set in the
+        //     NETLIFY DASHBOARD to the absolute URL
+        //     `https://plot-lite-service-staging.onrender.com/v1/cee` and Vite
+        //     INLINES it at build time — established by a recursive crawl of
+        //     the deployed JS chunks (zero `/bff/cee` literals, four absolute
+        //     `/v1/cee` hits) and corroborated by that service's own route
+        //     counters showing live traffic to those paths. So a cold start on
+        //     Render, a CORS refusal or a TLS failure all land here in
+        //     production. The fix does not rest on that fact — same-origin
+        //     fetches reject too — but it is why the blast radius is wide;
+        //   · jsdom's invalid-relative-URL TypeError, which is the single
+        //     case this catch was originally written for; and
+        //   · a 2xx whose body would not parse as JSON.
+        // A non-2xx response does NOT arrive here — `response.ok` is false and
+        // it is handled immediately below.
+        //
+        // What this used to do is the defect, and it was SYSTEMATIC rather
+        // than transient. It fell through to `calculateFallbackReadiness` — a
+        // node/edge-count heuristic whose verdict is
+        // `can_run_analysis: blockers.length === 0`, where the blockers come
+        // from `graphHealth`. `graphHealth` is `null` in the canvas store's
+        // initial state and is only ever populated from a COMPLETED analysis
+        // report's `graph_quality`. So before the first analysis there are
+        // never any blockers to find, and an unreachable server did not merely
+        // RISK opening the gate — it ALWAYS granted the run, on the most
+        // common path there is.
+        //
+        // And because it OVERWROTE `readiness` while reporting `error: null`,
+        // it also replaced a `can_run_analysis: false` the server had already
+        // given (the ROADMAP 2.308 blocked state) with a locally invented
+        // `true` that no consumer could distinguish from the server's own
+        // answer.
+        //
+        // So: publish no verdict, and say why.
+        //   · `readiness` is left EXACTLY as it was. On first load that is
+        //     `null`, which — alongside a non-null `error` — is the store's
+        //     OWN pre-existing "unknown" state, and it already has a rendered
+        //     surface: PreAnalysisHealth shows "Could not check graph health"
+        //     with a Retry button on `error && !readiness`. That branch was
+        //     UNREACHABLE on this path precisely because the fallback always
+        //     populated `readiness`. Nothing new is introduced here; a dormant
+        //     honest path is restored.
+        //   · Otherwise it is the last answer the server actually gave, which
+        //     a local guess is not entitled to replace.
+        //   · `lastPayloadHash` is deliberately still unset, so the identical
+        //     graph can be re-requested — a failure here must not be sticky.
+        //
+        // Two alternatives were considered and rejected, recorded here because
+        // the next reader will reach for one of them:
+        //   · Threading a tri-state `can_run_analysis` ('yes' | 'no' |
+        //     'unknown') through its SIX non-test consumers — PreAnalysisHealth,
+        //     usePreAnalysisData, usePreAnalysisModel, canRunAnalysis,
+        //     composeBlockedReason and the two gate call sites. That is the
+        //     hand-maintained-mirror shape (CLAUDE.md trap 12): a consumer
+        //     missed keeps reading a boolean and fails SILENTLY, in the
+        //     permissive direction. A state the store cannot lie about beats a
+        //     state six readers must each remember to honour.
+        //   · Setting `can_run_analysis: false` here. It is equally a locally
+        //     invented verdict, just in the blocking direction — and with no
+        //     prior server answer it strands the user behind a disabled Run
+        //     button with copy composed from verdict fields that do not exist,
+        //     which is exactly the permanent-dead-end class ROADMAP 2.308 was
+        //     opened to fix. Trading a false "yes" for a false "no" is not a
+        //     fix; refusing to answer is.
+        const message =
+          fetchErr instanceof ReadinessBodyUnreadableError
+            ? 'Could not read the readiness service response'
+            : 'Could not reach the readiness service'
+        console.warn(`[readinessStore] ${message} — publishing no verdict:`, fetchErr)
+        useReadinessStore.setState({ error: message, loading: false })
         return
       }
 
@@ -368,14 +441,56 @@ async function fetchReadiness(): Promise<void> {
           return
         }
 
+        // ── ROADMAP 2.329: a 404 here is an OUTAGE, not a deployment choice ──
+        //
+        // This branch used to publish `calculateFallbackReadiness` with NO
+        // error — the same defect 2.319(a) fixed one level up, on the path
+        // that was left out of it pending adjudication. The adjudication is
+        // now derived at the deployed bytes
+        // (PHASE0-EVIDENCE-2026-07-28/adjudication-2329-404-branch.md):
+        //
+        //   · NO deployed configuration produces a 404 on this path BY DESIGN.
+        //     On PLoT's deploy branch the route is registered UNCONDITIONALLY
+        //     — `createServer` → `registerV1Routes` → `registerCeeProxyRoutes`
+        //     → `app.post('/v1/cee/graph-readiness', …)`, no guard at any hop —
+        //     and a missing CEE_BASE_URL/CEE_API_KEY yields an error RESPONSE
+        //     from a registered handler, never a 404. Staging answers 401
+        //     (registered, auth-gated) where a control path answers 404.
+        //   · The `'/bff/cee'` same-origin fallback does not survive
+        //     minification in either deployed bundle (zero literals across an
+        //     81-chunk staging crawl and a 40-chunk production crawl), so the
+        //     "dead SPA redirect returns index.html" 404 vector is unreachable
+        //     in the shipped artifacts.
+        //   · One deployed configuration DOES 404 in steady state: production,
+        //     whose PLoT predates the route by ~6.5 months while its paired UI
+        //     bundle (built two months AFTER the route landed) bakes the call
+        //     in. That is deploy drift — the outage class — and this branch is
+        //     precisely what kept it invisible for those months.
+        //
+        // So there is no configuration this branch could be serving. Treat it
+        // exactly as a transport failure is treated: publish no verdict, set a
+        // truthful error, leave `lastPayloadHash` unset so a redeploy is picked
+        // up on the next request. `readiness` is left EXACTLY as it was — null
+        // on first load (the store's own "unknown" state), otherwise the last
+        // answer the server actually gave, which a local guess is not entitled
+        // to replace.
+        //
+        // Deliberately NOT a third state, and deliberately not `false`: both
+        // were considered and rejected at the transport catch above, for the
+        // same reasons (trap-12 tri-state threading; a false "no" is still a
+        // locally invented verdict).
+        //
+        // Consequence, stated rather than buried: shipped to production as-is
+        // against today's production PLoT, readiness would report a permanent,
+        // TRUTHFUL "could not check" until prod PLoT redeploys. That is a real
+        // outage becoming visible, not a regression introduced here.
         if (response.status === 404) {
-          if (import.meta.env.DEV) {
-            console.info(
-              '[readinessStore] CEE graph-readiness endpoint not available (404), using local validation',
-            )
-          }
-          const fallback = calculateFallbackReadiness(currentNodes, currentEdges, graphHealth)
-          useReadinessStore.setState({ readiness: fallback, loading: false })
+          const message = 'Could not find the readiness service'
+          console.warn(
+            `[readinessStore] ${message} (HTTP 404) — publishing no verdict:`,
+            response.errorBody,
+          )
+          useReadinessStore.setState({ error: message, loading: false })
           return
         }
 
