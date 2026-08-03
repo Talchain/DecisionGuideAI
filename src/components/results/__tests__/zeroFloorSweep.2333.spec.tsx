@@ -5,16 +5,23 @@
  * ─────────────────────────────────────────────────────────────────────────
  * THE CLASS, NOT THE INSTANCE
  * ─────────────────────────────────────────────────────────────────────────
- * Fixing the option card alone would have left four more places where a
+ * Fixing the option card alone would have left several more places where a
  * measured, non-zero probability is rounded to a bare "0%" — the same
  * untruth, on surfaces a user reaches in the same session:
  *
- *   · `RangeVisualization`  — bare `formatPercent` on BOTH registers
- *   · `SuccessTargetRow`    — bare `Math.round` on constraint satisfaction
- *   · `GoalNode` (canvas)   — its own literal, with a `> 0` carve-out that
- *                             made an EXACT zero print "0%" while every
- *                             dock surface printed the floor string
- *   · `OptionNode` (canvas) — the same literal, same class
+ *   · `RangeVisualization`       — bare `formatPercent` on BOTH registers
+ *   · `SuccessTargetRow`         — bare `Math.round` on constraint satisfaction
+ *   · `TargetProbabilityBars`    — the same constraint numbers, second surface
+ *   · `OptionCards` joint badge  — the same joint figure, third surface
+ *   · `GoalNode` (canvas)        — its own literal, with a `> 0` carve-out
+ *                                  that made an EXACT zero print "0%" while
+ *                                  every dock surface printed the floor string
+ *
+ * ⚠ `OptionNode` was named in the design as "the same literal, same class".
+ * It is NOT — its sub-1% predicate has no `> 0` carve-out, so an exact zero
+ * already took the floor arm and it never printed "0%". It is left unchanged;
+ * the control pinning that is in
+ * `canvas/nodes/__tests__/nodeGoalReadout.zeroFloor.2333.spec.tsx`.
  *
  * The `GoalNode` divergence is worth naming precisely, because it was
  * documented as an open question rather than a defect: `displayFloors.ts`
@@ -42,6 +49,7 @@ import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
 import { RangeVisualization } from '../RangeVisualization'
 import { SuccessTargetRow } from '../SuccessTargetRow'
+import { TargetProbabilityBars } from '../TargetProbabilityBars'
 import type { OptionResult } from '../types'
 import type { ConstraintAnalysis } from '../../../types/constraints'
 
@@ -149,6 +157,66 @@ describe('SuccessTargetRow — constraint satisfaction probabilities', () => {
     render(
       <SuccessTargetRow goalThreshold={100} constraintAnalysis={constraintAnalysis([0, 0.5], 0)} />,
     )
+    expect(document.body.textContent ?? '').toMatch(BARE_ZERO_PERCENT)
+  })
+})
+
+describe('TargetProbabilityBars — the OTHER surface rendering the same constraint numbers', () => {
+  /**
+   * ⚠ NOT IN THE DESIGN'S MANIFEST — found by re-running the design's OWN
+   * regenerating `rg` command at this tip (trap 12d in miniature: a derived
+   * query proves agreement among the rows it returns; it cannot tell you the
+   * hand-written TABLE is short).
+   *
+   * This matters because it is the same `prob_satisfied` / `joint_probability`
+   * that `SuccessTargetRow` renders. Fixing one and not the other would not
+   * have left a pre-existing defect alone — it would have MANUFACTURED a new
+   * "one number, two answers" pair between two surfaces of the same panel,
+   * with this slice's own change as the cause.
+   */
+  function analysis(probs: number[], joint: number): ConstraintAnalysis {
+    return {
+      constraints: probs.map((p, i) => ({
+        node_id: `c${i}`,
+        operator: '>=',
+        threshold: 100,
+        label: `Constraint ${i}`,
+        prob_satisfied: p,
+        failure_margin_median: 10,
+        near_miss_fraction: 0.1,
+        binding: i === 0,
+      })),
+      joint_probability: joint,
+    }
+  }
+
+  it('positive control: mid-range constraint probabilities render their own percentages', () => {
+    render(<TargetProbabilityBars constraintAnalysis={analysis([0.34, 0.72], 0.25)} />)
+    const text = document.body.textContent ?? ''
+    expect(text).toContain('34%')
+    expect(text).toContain('72%')
+    expect(text).toContain('25%')
+  })
+
+  it('never prints a bare "0%" for measured sub-1% satisfaction probabilities', () => {
+    render(<TargetProbabilityBars constraintAnalysis={analysis([0.0007, 0.0002], 0.0001)} />)
+    expect(document.body.textContent ?? '').not.toMatch(BARE_ZERO_PERCENT)
+  })
+
+  it('agrees with SuccessTargetRow on the SAME numbers', () => {
+    // The claim that motivated including this surface: two components, one
+    // constraint analysis, identical strings.
+    const ca = analysis([0.0007, 0.0002], 0.0001)
+    const { container: bars } = render(<TargetProbabilityBars constraintAnalysis={ca} />)
+    const { container: row } = render(<SuccessTargetRow goalThreshold={100} constraintAnalysis={ca} />)
+    for (const expected of ['< 1%']) {
+      expect(bars.textContent ?? '').toContain(expected)
+      expect(row.textContent ?? '').toContain(expected)
+    }
+  })
+
+  it('KEEPS "0%" for an exact zero — comparative register, deliberately', () => {
+    render(<TargetProbabilityBars constraintAnalysis={analysis([0, 0.5], 0)} />)
     expect(document.body.textContent ?? '').toMatch(BARE_ZERO_PERCENT)
   })
 })

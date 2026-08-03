@@ -822,7 +822,14 @@ function OptionCard({
           data-testid="option-constraint-badge"
         >
           {jointProbabilityLabel(option.constraintAnalysis.joint_probability)}{' '}
-          {Math.round(option.constraintAnalysis.joint_probability * 100)}%
+          {/* ROADMAP 2.333: was a bare `Math.round(... * 100)%`. This is the
+              SAME joint-constraint quantity `SuccessTargetRow` and
+              `TargetProbabilityBars` render, so leaving it rounded here would
+              have created a fresh "one number, two answers" pair with the
+              surfaces this slice just fixed. Comparative register (met every
+              target in n of N runs), hence `null` samples and an exact zero
+              still reading "0%". */}
+          {formatProbabilityWithResolution(option.constraintAnalysis.joint_probability, null)}
         </p>
       )}
 
