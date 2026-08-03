@@ -11,6 +11,11 @@
  * bare `Below resolution on this run: …` line — and never once told the user the
  * actual outcome. This suite pins the sentence that says it.
  *
+ * (That quoted line is the BEFORE state, kept for the record. The same PR's
+ * review also reworded it to the plain class — see `v7LensCopy.ts`. Every
+ * assertion here goes through `E.resolveNextBelow(...)` or a fixture label, so
+ * no pin in this file spells either wording.)
+ *
  * THE FIXTURE IS CAPTURED PRODUCER BYTES, NOT A HAND-WRITTEN SHAPE.
  * `ALL_BELOW_RESOLUTION_ROWS` is the `enrichment.factor_evppi` array copied
  * VERBATIM out of

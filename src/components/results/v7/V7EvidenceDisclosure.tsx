@@ -477,7 +477,21 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
                   />
                   {/* Demoted, never ranked. Below-resolution means
                       indistinguishable from noise AT THIS RUN'S RESOLUTION —
-                      not zero value, and not "not worth resolving". */}
+                      not zero value, and not "not worth resolving".
+
+                      ⭐ L51 review: the COPY here is no longer the design's
+                      "Below resolution on this run: …". It was reworded to the
+                      plain class ("Not enough precision this run to rank: …")
+                      because this line is behind NO expert affordance —
+                      `expertMode` is never passed into `V7TopMatter`, so it
+                      never reaches this component and every user who opens the
+                      accordion on an all-below run reads it.
+
+                      THE DOCTRINE ABOVE IS UNCHANGED and still constrains the
+                      wording: the shortfall is attributed to THIS RUN'S
+                      precision, never to the factors' worth. Any future
+                      rewording that implies "no value" or "not worth
+                      resolving" breaks it, whatever it does to the prose. */}
                   {resolveNext.belowResolution.length > 0 && (
                     <p
                       className={`${typography.panelMeta} text-text-light`}

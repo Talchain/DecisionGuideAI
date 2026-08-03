@@ -167,9 +167,24 @@ export const V7_LENS_COPY = {
     // ── Resolve next (V7-C slice 1, ROADMAP 2.141) ───────────────────────
     //
     // The five licensed sentences of V7C-EVPPI-RANKING-DESIGN-2026-07-30 §4,
-    // plus that table's honest gate, reproduced VERBATIM. Paul's sign-off is
-    // pending (design §8 Q2); verbatim use is what keeps his review meaningful,
-    // so a deviation here gets flagged in the PR, never silently improved.
+    // plus that table's honest gate. Paul's sign-off on the design was pending
+    // (design §8 Q2), and the rule was: reproduce them VERBATIM, because
+    // verbatim use is what keeps his review meaningful — so a deviation gets
+    // flagged in the PR, never silently improved.
+    //
+    // ⚠ ONE SENTENCE IS NO LONGER VERBATIM, BY RULING RATHER THAN BY DRIFT.
+    // `resolveNextBelow` was reworded off the design's "Below resolution on
+    // this run: …" onto the plain-language form below, per the orchestrator
+    // copy ruling carried by L51's review (the design doc §4 now carries a
+    // dated delta note recording the supersession). The reason it could not
+    // stay: it is NOT behind any expert affordance. `expertMode` is never
+    // passed into `V7TopMatter` and so never reaches this disclosure, so every
+    // user who opens the accordion on an all-below run reads it — producer
+    // vocabulary in the one place a lay reader lands.
+    //
+    // This paragraph previously said all six were verbatim full stop. Left
+    // alone it would have become exactly the trap-14 defect this deck's own
+    // rule exists to prevent: an honest label overwritten by a false one.
     //
     // WHAT LICENSES EACH SENTENCE (design §4):
     //   · resolveNextLead  ← rank-1 of the `status: 'resolved'` rows, in wire
@@ -178,6 +193,12 @@ export const V7_LENS_COPY = {
     //   · resolveNextBelow ← `status: 'below_resolution'`. NEVER "zero value"
     //     and never "not worth resolving": below-resolution means
     //     indistinguishable from noise AT THIS RUN'S RESOLUTION.
+    //     ⭐ REWORDED BY L51 (see the supersession note above). The doctrine in
+    //     the two lines above is unchanged and is what constrains the wording:
+    //     "Not enough precision this run to rank" attributes the shortfall to
+    //     THIS RUN'S precision, which is the honest cause, and never to the
+    //     factors' worth. A phrasing like "not worth resolving" or "no value"
+    //     would state the opposite and is still banned.
     //   · resolveNextNote  ← `method: 'regression_evppi_v1'` on every row. The
     //     honesty disclosure IS that we name the basis and the restraint. The
     //     em dash is the design's, kept against this file's own no-em-dash rule
@@ -199,7 +220,7 @@ export const V7_LENS_COPY = {
       'Ranked by value of information — what a run says it is worth learning before deciding. No amounts shown.',
     resolveNextLead: 'Most worth resolving next',
     resolveNextThen: 'then',
-    resolveNextBelow: (labels: string) => `Below resolution on this run: ${labels}`,
+    resolveNextBelow: (labels: string) => `Not enough precision this run to rank: ${labels}`,
     resolveNextPartial: "Some factors couldn't be assessed for this ranking.",
     resolveNextGate: "Value-of-information ranking wasn't produced for this run.",
     /**
@@ -216,12 +237,19 @@ export const V7_LENS_COPY = {
      * `V7EvidenceDisclosure.resolveNextAllBelowResolution.spec.tsx` §2/§3.
      *
      * PLAIN LANGUAGE, DELIBERATELY. "below_resolution", "noise floor" and
-     * "EVPPI" are the producer's vocabulary, not the user's; the one
-     * jargon-adjacent line on this surface (`resolveNextBelow`) is pre-existing
-     * ratified design copy and is left exactly where it was rather than
-     * relocated by this lane. "at this precision" is what carries the honest
-     * caveat that a longer run could resolve something — the sentence says
-     * nothing stands out YET, never that nothing matters.
+     * "EVPPI" are the producer's vocabulary, not the user's. "at this
+     * precision" is what carries the honest caveat that a longer run could
+     * resolve something — the sentence says nothing stands out YET, never that
+     * nothing matters.
+     *
+     * ⚠ THIS PARAGRAPH USED TO SAY the one jargon-adjacent line on this surface
+     * (`resolveNextBelow`) was "left exactly where it was". That was true when
+     * written and is now false: the review ruled it be reworded to the same
+     * plain class, on the finding that it sits behind NO expert affordance
+     * (`expertMode` never reaches this disclosure). The two sentences now speak
+     * one register, which is the point — an empty state in plain English
+     * directly above a producer-vocabulary line would have been the same
+     * mismatch this lane was sent to fix, moved down one element.
      *
      * The em dash is deliberate and matches `resolveNextNote` above.
      */
