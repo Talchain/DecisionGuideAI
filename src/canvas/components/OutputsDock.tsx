@@ -972,9 +972,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         // for spinner state.
         dispatch({
           action_type: 'run_analysis',
-          // Wave F-B: caller-supplied chip parameters (e.g. goal_threshold
-          // from the threshold/Define-success rerun) ride the canonical
-          // dispatch — no surface builds its own pipeline.
+          // Wave F-B: caller-supplied chip parameters (e.g. `chip_id`
+          // provenance from a node chip) ride the canonical dispatch — no
+          // surface builds its own pipeline. The former `goal_threshold`
+          // example is gone with the parameter itself (ROADMAP 2.109).
           ...(parameters ? { parameters } : {}),
           label: 'Run analysis',
           message: 'Run analysis',
