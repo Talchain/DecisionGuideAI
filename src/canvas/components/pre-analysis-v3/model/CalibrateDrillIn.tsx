@@ -93,6 +93,7 @@ import { useCanvasStore } from '../../../store'
 import { getObservedState, type ObservedStateData } from '../../../utils/observedStateHelpers'
 import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
 import {
+  acceptsElicitedBelief,
   buildFactorValueEditEvent,
   resolveValueInputSeed,
   type ValueInputSeedBasis,
@@ -168,6 +169,18 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
 
   const elicitation = useBeliefElicitation({ nodeId: row.nodeId, nodeLabel: row.label })
 
+  /**
+   * May this row be asked about in words? Derived from the FACTOR'S OWN
+   * declared shape through the scale module's predicate — never from the row
+   * model, which carries `cap` but not `unit` and so cannot answer it.
+   *
+   * Selector returns a BOOLEAN, not the node: a fresh object per render is
+   * what the zustand-selector guard exists to stop.
+   */
+  const canDescribeInWords = useCanvasStore(s =>
+    acceptsElicitedBelief(s.nodes.find(n => n.id === row.nodeId)?.data),
+  )
+
   // The sanctioned setter (the `NODE_SETTER_FIELDS` manifest the writtenFields
   // guard spec enforces), not a hand-rolled `updateNode` — the same one both
   // other value-committing surfaces use. It writes `observedState.value`,
@@ -214,7 +227,26 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
     (
       typedValue: number,
       reviewedStamp: Partial<ObservedStateData>,
-      opts: { seedBasis?: ValueInputSeedBasis; writeValue: boolean },
+      opts: {
+        seedBasis?: ValueInputSeedBasis
+        writeValue: boolean
+        /**
+         * Write `typedValue` as the LOCAL display anchor as well.
+         *
+         * Only the elicited path passes it, and only because the affordance is
+         * gated to factors with no unit and no cap — the shape where CEE
+         * itself persists `raw_value = value` (`normalise-factor-value.ts:16`).
+         * So this mirrors what the server will hold; it does NOT derive one.
+         * Without it the accept clears both `display_value` copies and leaves
+         * no anchor at all, `factorDisplayText` returns null, and the row (and
+         * the canvas node) show NO NUMBER where "Low (0)" used to be — then
+         * `buildEstimateRows` calls the node scale-ambiguous and the row
+         * degrades to confirm-only, taking this very affordance with it.
+         * Confirmed in review of #572; the typed path never had the bug
+         * because `raw_only` writes the typed number as its own anchor.
+         */
+        writeRawAnchor?: boolean
+      },
     ): void => {
       const node = useCanvasStore.getState().nodes.find(n => n.id === row.nodeId)
       if (!node) return
@@ -245,7 +277,12 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
 
       // The number moves now; the CLAIM does not. No `{ source }` option is
       // passed — that is the 2.304 fix in one line.
-      if (opts.writeValue) mutations.setObservedValue(modelValue, rawMagnitude)
+      if (opts.writeValue) {
+        mutations.setObservedValue(
+          modelValue,
+          opts.writeRawAnchor ? typedValue : rawMagnitude,
+        )
+      }
 
       if (!sendSystemEvent) return
       void Promise.resolve(
@@ -334,11 +371,27 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
    */
   const acceptElicited = useCallback(
     (suggestedValue: number): void => {
-      commit(suggestedValue, VALUE_STAMP, { seedBasis: 'model_scale', writeValue: true })
+      // BELT, not a duplicate of the affordance gate. The gate decides what to
+      // OFFER; this decides what to COMMIT, and it re-reads the factor's shape
+      // at accept time. If the gate ever drifts — or the node's shape changes
+      // under an open drill-in — the commit refuses with honest copy instead
+      // of turning £40,000 into £0.70. (`buildFactorValueEditEvent` refuses the
+      // same shape structurally; this exists so the refusal is VISIBLE rather
+      // than a silent no-op.)
+      const node = useCanvasStore.getState().nodes.find(n => n.id === row.nodeId)
+      if (!acceptsElicitedBelief(node?.data)) {
+        setHint(FIELD_FEEDBACK_COPY.elicitedNotAChanceHint)
+        return
+      }
+      commit(suggestedValue, VALUE_STAMP, {
+        seedBasis: 'model_scale',
+        writeValue: true,
+        writeRawAnchor: true,
+      })
       elicitation.reset()
       onDone()
     },
-    [commit, elicitation, onDone],
+    [commit, elicitation, onDone, row.nodeId],
   )
 
   return (
@@ -385,7 +438,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
           Confirm as is
         </button>
       )}
-      {row.canEditValue && (
+      {row.canEditValue && canDescribeInWords && (
         <Tooltip content="Say what you think in plain words" delay={300}>
           <PanelIconButton
             variant="ghost"
@@ -418,7 +471,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
         direct input behind a mode toggle would make the fast path slower for
         anyone who already knows their number.
       */}
-      {inWords && row.canEditValue && (
+      {inWords && row.canEditValue && canDescribeInWords && (
         <div className="space-y-1" data-testid="pre-analysis-v3-in-words">
           <input
             aria-label={`Describe ${row.label} in words`}
@@ -434,6 +487,12 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
             }}
           />
 
+          {elicitation.loading && (
+            <p className={`${typography.panelMeta} text-text-light`} role="status">
+              Reading that…
+            </p>
+          )}
+
           {elicitation.error && (
             <p className={`${typography.panelMeta} text-warning`} role="status">
               {elicitation.error}
@@ -446,14 +505,22 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
             it is unsure about, and rewriting it here would put words in the
             engine's mouth that the engine cannot stand behind.
           */}
-          {elicitation.suggestion?.needs_clarification &&
-            elicitation.suggestion.options?.length ? (
+          {elicitation.suggestion?.needs_clarification ? (
             <div className="space-y-1">
               <p className={`${typography.panelMeta} text-text-body`}>
-                {elicitation.suggestion.clarifying_question}
+                {/*
+                  A response can flag itself unsure and carry NO options. The
+                  old condition required BOTH, so that shape fell through to
+                  "That reads as about X%" + Use this — offering a number the
+                  ENGINE had just said it was unsure about, without its
+                  question. Now `needs_clarification` alone suppresses the
+                  offer, and the fallback line says what happened.
+                */}
+                {elicitation.suggestion.clarifying_question ??
+                  "I couldn't pin that down. Try another wording, or type the number."}
               </p>
               <div className="flex flex-wrap gap-1.5" role="group" aria-label={`Readings for ${row.label}`}>
-                {elicitation.suggestion.options.map(opt => (
+                {(elicitation.suggestion.options ?? []).map(opt => (
                   <button
                     key={opt.label}
                     type="button"
@@ -474,8 +541,14 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
                 The number, as a chance, in plain words. The engine's REASONING
                 and CONFIDENCE are expert detail and stay behind the existing
                 progressive-disclosure affordance — inline they read as hedging.
+                ⚠ This comment used to be FALSE about confidence: it was fetched,
+                typed and warn-parsed, and then rendered nowhere at all (#572
+                review). It is in the tooltip now, so the sentence is true.
               */}
-              <Tooltip content={elicitation.suggestion.reasoning} delay={300}>
+              <Tooltip
+                content={`${elicitation.suggestion.reasoning} (${elicitation.suggestion.confidence} confidence)`}
+                delay={300}
+              >
                 <span className={`${typography.panelMeta} text-text-body`}>
                   That reads as {formatElicitedChance(elicitation.suggestion.suggested_value)}
                 </span>

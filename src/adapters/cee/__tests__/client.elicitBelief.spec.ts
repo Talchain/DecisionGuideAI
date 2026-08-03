@@ -194,6 +194,51 @@ describe('CEEClient.elicitBelief — response handling', () => {
     })
   })
 
+  it('⭐ A4 — REFUSES an out-of-range CLARIFICATION CHIP value, not just suggested_value', async () => {
+    // A chip is committable: `acceptElicited(opt.value)` puts it straight into
+    // `observed_state.value`. Before this bound the chips were covered only by
+    // the OBSERVATIONAL warn-parse (log and continue), so a malformed 200 with
+    // a valid `suggested_value` and `options: [{value: 7.5}]` rendered a chip
+    // that committed 7.5 — contradicting this client's own invariant.
+    fetchSpy.mockResolvedValue(
+      jsonResponse({
+        ...WITNESSED_OK,
+        needs_clarification: true,
+        clarifying_question: 'How likely?',
+        options: [
+          { label: 'Very likely', value: 0.9 },
+          { label: 'Broken', value: 7.5 },
+        ],
+      }),
+    )
+
+    await expect(new CEEClient().elicitBelief(INPUT)).rejects.toBeInstanceOf(CEEError)
+  })
+
+  it('A4 — a well-formed clarification response still passes, boundaries included', async () => {
+    fetchSpy.mockResolvedValue(
+      jsonResponse({
+        ...WITNESSED_OK,
+        needs_clarification: true,
+        clarifying_question: 'How likely?',
+        options: [
+          { label: 'Certain', value: 1 },
+          { label: 'Impossible', value: 0 },
+        ],
+      }),
+    )
+
+    await expect(new CEEClient().elicitBelief(INPUT)).resolves.toMatchObject({
+      needs_clarification: true,
+    })
+  })
+
+  it('A4 — REFUSES a non-array `options`, rather than rendering nothing and calling it fine', async () => {
+    fetchSpy.mockResolvedValue(jsonResponse({ ...WITNESSED_OK, options: 'nope' }))
+
+    await expect(new CEEClient().elicitBelief(INPUT)).rejects.toBeInstanceOf(CEEError)
+  })
+
   it('surfaces an HTTP failure as a CEEError rather than a fabricated number', async () => {
     fetchSpy.mockResolvedValue(jsonResponse({ message: 'rate limited' }, 429))
 

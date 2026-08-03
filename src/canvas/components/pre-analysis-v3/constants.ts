@@ -311,6 +311,14 @@ export const FIELD_FEEDBACK_COPY = {
   check: 'Check',
   edit: 'Edit',
   /**
+   * Refusal when an elicited chance is accepted on a factor that records a
+   * real-world amount (ROADMAP 2.364, #572 review). Says what did NOT happen,
+   * names the factor's own recorded shape, and points at the control that
+   * does work — the same vocabulary the range refusal below uses.
+   */
+  elicitedNotAChanceHint:
+    "This one is recorded as an amount, not a chance, so I haven't changed anything. Type the amount instead.",
+  /**
    * Range refusal for normalised-scale-only factors (journey-walk gap #3):
    * no cap, no unit, no raw-value anchor — the committed number IS the
    * model-scale value, so a magnitude like £60,000 would paint 6000000%.

@@ -487,12 +487,28 @@ export function adaptDraftResponse(raw: unknown): CEEDraftResponse {
 const ENDPOINT_TIMEOUTS: Record<string, number> = {
   // draft-graph needs 150s: OpenAI can take 64-71s, plus CEE processing
   '/draft-graph': 150000,
+  // elicit-belief is a DETERMINISTIC lexicon+regex parse with no LLM call and
+  // no network fan-out, behind a debounced keystroke. The 150s default meant a
+  // cold start or a headers-then-body stall left the user staring at a text
+  // box for two and a half minutes with no answer and no error (#572 review).
+  // 20s is generous for a Render cold start and short enough that "it didn't
+  // work" arrives while the user is still looking at the field.
+  '/elicit-belief': 20000,
 }
 
 // Audit F-67: Default timeout set to 150s — above CEE's 135s route timeout.
 // Prevents silent hangs while allowing CEE sufficient processing time.
 // Surfaces timeout as user-visible CEEError (408) via AbortController in fetchWithBase.
 const DEFAULT_CEE_TIMEOUT = 150000
+
+/**
+ * A probability, as `observed_state.value` defines one: a finite number in
+ * [0,1]. The ONE place this bound is spelled on the client, so the
+ * `suggested_value` check and the chip check cannot drift apart.
+ */
+function isProbability(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+}
 
 export class CEEClient {
   private baseURL: string
@@ -896,13 +912,36 @@ export class CEEClient {
 
     warnOnInvalidApiResponse(CEEElicitBeliefResponseSchema, raw, 'CEE elicit-belief')
 
-    const suggested = (raw as { suggested_value?: unknown } | null)?.suggested_value
-    if (typeof suggested !== 'number' || !Number.isFinite(suggested) || suggested < 0 || suggested > 1) {
+    const parsed = raw as { suggested_value?: unknown; options?: unknown } | null
+    if (!isProbability(parsed?.suggested_value)) {
       throw new CEEError(
         'That estimate came back in a form we could not use, so nothing has changed.',
         502,
         raw,
       )
+    }
+
+    // THE CHIPS ARE COMMITTABLE TOO — so they get the SAME hard bound, not the
+    // observational one. `warnOnInvalidApiResponse` logs and continues, so
+    // before this check a malformed 200 carrying `options: [{label:'X',
+    // value: 7.5}]` alongside a valid `suggested_value` passed the client,
+    // rendered a chip, and committed 7.5 as `observed_state.value` on click —
+    // contradicting this file's own stated invariant that an out-of-range
+    // probability must never render or commit (#572 review). CEE's schema
+    // bounds them and its engine is deterministic; this is the boundary
+    // holding its own line rather than trusting the far side to.
+    if (parsed?.options !== undefined) {
+      const options = Array.isArray(parsed.options) ? parsed.options : null
+      if (
+        options === null ||
+        !options.every(o => isProbability((o as { value?: unknown } | null)?.value))
+      ) {
+        throw new CEEError(
+          'That estimate came back in a form we could not use, so nothing has changed.',
+          502,
+          raw,
+        )
+      }
     }
 
     return raw as BeliefElicitSuggestion

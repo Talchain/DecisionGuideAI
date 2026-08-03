@@ -96,6 +96,7 @@ vi.mock('../../../../../flags', async (importOriginal) => {
 })
 
 import { CalibrateDrillIn } from '../CalibrateDrillIn'
+import { buildFactorValueEditEvent } from '../../../../conversation/factorValueEdit'
 import { buildEstimateRows } from '../../selectors/buildEstimateRows'
 import { ConversationProvider } from '../../../../conversation/ConversationContext'
 import { useCanvasStore } from '../../../../store'
@@ -129,7 +130,13 @@ const AMBIGUOUS_GOOD = {
   provenance: 'cee',
 }
 
-/** A cap-bearing factor — CEE's own draft fixtures carry exactly this shape. */
+/**
+ * A cap-bearing factor — CEE's own draft fixtures carry exactly this shape.
+ * The COMMIT on it is scale-correct (pinned in factorValueEditModelScale), but
+ * the accepted number cannot be DISPLAYED afterwards without deriving
+ * `value * cap` in the client, so the affordance is not offered here. Kept as
+ * an absence control.
+ */
 const CAPPED_ID = 'fac_team_size'
 const CAPPED_LABEL = 'Team Size'
 const CAPPED_OBSERVED = {
@@ -137,6 +144,20 @@ const CAPPED_OBSERVED = {
   raw_value: 8,
   unit: 'engineers',
   cap: 20,
+  source: 'brief_extraction',
+}
+
+/**
+ * ⭐ THE THIRD SHAPE (#572 review blocker): staging-witnessed uncapped
+ * unit-bearing factor. Model scale IS the magnitude, so a verbatim 0.7 would
+ * make £40,000 into £0.70 with a "checked by you" stamp on it.
+ */
+const MAGNITUDE_ID = 'fac_monthly_spend'
+const MAGNITUDE_LABEL = 'Monthly spend'
+const MAGNITUDE_OBSERVED = {
+  value: 40000,
+  unit: '£',
+  raw_value: 40000,
   source: 'brief_extraction',
 }
 
@@ -225,6 +246,11 @@ function factorValueEdits(): Array<Record<string, unknown>> {
     .filter((e): e is Record<string, unknown> => e?.kind === 'factor_value_edit')
 }
 
+/** The row as the REAL selector derives it — display text, edit affordances. */
+function buildRow(id: string) {
+  return buildEstimateRows(useCanvasStore.getState().nodes, rankingFor(id), null)[0]
+}
+
 function observedOf(id: string): Record<string, unknown> {
   return getObservedState(
     useCanvasStore.getState().nodes.find((n) => n.id === id)?.data,
@@ -249,67 +275,84 @@ afterEach(() => {
 
 describe('CalibrateDrillIn — "say it in words" (ROADMAP 2.364)', () => {
   it('sends the factor\'s OWN id and label to the elicitation seam, with target_type prior', async () => {
-    seedFactor(CAPPED_ID, CAPPED_LABEL, { ...CAPPED_OBSERVED })
+    seedFactor(WALK_ID, WALK_LABEL, { ...WALK_OBSERVED })
     elicitReplies.push({ ...PRETTY_LIKELY })
-    renderFor(CAPPED_ID)
+    renderFor(WALK_ID)
 
-    await sayInWords(CAPPED_LABEL, 'pretty likely')
+    await sayInWords(WALK_LABEL, 'pretty likely')
 
     expect(elicitRequests).toHaveLength(1)
     // Bound by IDENTITY: the id, not "a string that happens to be there".
     expect(elicitRequests[0]).toEqual({
-      node_id: CAPPED_ID,
-      node_label: CAPPED_LABEL,
+      node_id: WALK_ID,
+      node_label: WALK_LABEL,
       user_expression: 'pretty likely',
       target_type: 'prior',
     })
   })
 
   it('renders the chance from suggested_value — "about 70%"', async () => {
-    seedFactor(CAPPED_ID, CAPPED_LABEL, { ...CAPPED_OBSERVED })
+    seedFactor(WALK_ID, WALK_LABEL, { ...WALK_OBSERVED })
     elicitReplies.push({ ...PRETTY_LIKELY })
-    renderFor(CAPPED_ID)
+    renderFor(WALK_ID)
 
-    await sayInWords(CAPPED_LABEL, 'pretty likely')
+    await sayInWords(WALK_LABEL, 'pretty likely')
 
     // 0.7 → "about 70%". No other field in the reply produces 70: `confidence`
-    // is a string, there are no options, and 0.4/8/20 are the node's. A
-    // renderer reading the wrong field cannot produce this string.
+    // is a string and there are no options. A renderer reading the wrong field
+    // cannot produce this string.
     expect(screen.getByText(/That reads as about 70%/)).toBeInTheDocument()
     expect(
-      screen.getByLabelText(`Use about 70% for ${CAPPED_LABEL}`),
+      screen.getByLabelText(`Use about 70% for ${WALK_LABEL}`),
     ).toBeInTheDocument()
   })
 
-  it('accepting dispatches ONE factor_value_edit carrying the PROBABILITY as value, with no raw_value/unit (cap-bearing factor)', async () => {
+  it('⭐ A1 — the affordance is ABSENT on an uncapped unit-bearing factor (£40,000 must not be askable as a chance)', async () => {
+    seedFactor(MAGNITUDE_ID, MAGNITUDE_LABEL, { ...MAGNITUDE_OBSERVED })
+    renderFor(MAGNITUDE_ID)
+
+    // The typed field is still there — this row is perfectly editable, just
+    // not as a probability.
+    expect(
+      screen.getByLabelText(`Your estimate for ${MAGNITUDE_LABEL}`),
+    ).toBeInTheDocument()
+    // Hidden, not disabled-with-a-mystery.
+    expect(
+      screen.queryByLabelText(`Describe your estimate for ${MAGNITUDE_LABEL} in words`),
+    ).toBeNull()
+    expect(screen.queryByTestId('pre-analysis-v3-in-words')).not.toBeInTheDocument()
+  })
+
+  it('⭐ A1 belt — a FORCED accept on that shape refuses: no wire event, no local write, no stamp', async () => {
+    seedFactor(MAGNITUDE_ID, MAGNITUDE_LABEL, { ...MAGNITUDE_OBSERVED })
+    renderFor(MAGNITUDE_ID)
+
+    // Drive the commit path directly, as a drifted gate (or a shape that
+    // changed under an open drill-in) would. This is the belt the reviewer
+    // asked for: if the predicate ever moves, the commit refuses rather than
+    // corrupts.
+    const event = buildFactorValueEditEvent({
+      nodeId: MAGNITUDE_ID,
+      typedValue: 0.7,
+      nodeData: useCanvasStore.getState().nodes.find(n => n.id === MAGNITUDE_ID)?.data,
+      seedBasis: 'model_scale',
+    })
+    expect(event).toBeNull()
+
+    // And nothing moved.
+    expect(factorValueEdits()).toHaveLength(0)
+    expect(observedOf(MAGNITUDE_ID).value).toBe(40000)
+    expect(observedOf(MAGNITUDE_ID).raw_value).toBe(40000)
+    expect(observedOf(MAGNITUDE_ID).source).toBe('brief_extraction')
+  })
+
+  it('the affordance is also absent on a cap-bearing factor (commit is correct there; display is not)', async () => {
     seedFactor(CAPPED_ID, CAPPED_LABEL, { ...CAPPED_OBSERVED })
-    elicitReplies.push({ ...PRETTY_LIKELY })
-    holdTurn = true
     renderFor(CAPPED_ID)
 
-    await sayInWords(CAPPED_LABEL, 'pretty likely')
-    await act(async () => {
-      fireEvent.click(screen.getByLabelText(`Use about 70% for ${CAPPED_LABEL}`))
-      await flush()
-    })
-
-    const edits = factorValueEdits()
-    expect(edits).toHaveLength(1)
-    const edit = edits[0] as Record<string, unknown>
-    expect(edit.target_id).toBe(CAPPED_ID)
-    expect(edit.field).toBe('value')
-    // THE SCALE CLAIM. 0.7 verbatim — NOT 70 (the design's original
-    // `Math.round(v*100)`, which on this factor asserts seventy ENGINEERS
-    // against a cap of 20), and NOT 0.7/20 = 0.035 (what the default
-    // user-units basis would have produced against the stored raw_value of 8).
-    expect(edit.value).toBe(0.7)
-    // ABSENCE IS THE CONTRACT: with no raw_value, CEE inverts with its OWN
-    // stored cap (`resolveUserUnitInput`). Sending one would assert a
-    // magnitude the user never gave.
-    expect(edit).not.toHaveProperty('raw_value')
-    expect(edit).not.toHaveProperty('unit')
-    // And the canvas moved at once, at the same scale.
-    expect(observedOf(CAPPED_ID).value).toBe(0.7)
+    expect(
+      screen.queryByLabelText(`Describe your estimate for ${CAPPED_LABEL} in words`),
+    ).toBeNull()
   })
 
   it('the same accept is scale-correct on the WITNESSED walk row (capless, unitless)', async () => {
@@ -391,6 +434,36 @@ describe('CalibrateDrillIn — "say it in words" (ROADMAP 2.364)', () => {
     // stamp is an assertion about what the ENGINE holds.
     expect(observedOf(WALK_ID).source).toBe('user_override')
     expect(observedOf(WALK_ID).value).toBe(0.7)
+  })
+
+  it('⭐ A2 — after accepting, the number STAYS VISIBLE and the affordance survives', async () => {
+    seedFactor(WALK_ID, WALK_LABEL, { ...WALK_OBSERVED })
+    elicitReplies.push({ ...PRETTY_LIKELY })
+    holdTurn = true
+    renderFor(WALK_ID)
+
+    // Before: the row shows CEE's prose for the previous value.
+    expect(buildRow(WALK_ID)?.displayText).toBe('Low (0)')
+
+    await sayInWords(WALK_LABEL, 'pretty likely')
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText(`Use about 70% for ${WALK_LABEL}`))
+      await flush()
+    })
+
+    // The accept clears both `display_value` copies (they describe the OLD
+    // number). Without a raw anchor `factorDisplayText` then returns null and
+    // the row — and the canvas node — show NOTHING, which is what the first
+    // cut of this feature did. The anchor is CEE's own identity for a capless
+    // factor (`raw_value === value`), not a client-derived scale.
+    const row = buildRow(WALK_ID)
+    expect(observedOf(WALK_ID).raw_value).toBe(0.7)
+    expect(row?.displayText).not.toBeNull()
+    expect(row?.displayText).toContain('0.7')
+    // …and the row did NOT degrade to confirm-only, so the affordance that
+    // committed the value is still there to correct it.
+    expect(row?.canEditValue).toBe(true)
+    expect(row?.needsValue).toBe(false)
   })
 
   it('a failed elicitation says so and commits NOTHING', async () => {

@@ -21,6 +21,19 @@
  * attributed to text the user has already replaced. That is a fabrication the
  * user cannot see is one, so it is guarded here rather than left to timing.
  *
+ * ⚠ THE GUARANTEE ABOVE WAS ONCE ONLY HALF TRUE, AND THIS PARAGRAPH IS THE
+ * CORRECTION (#572 review). The sequence was bumped when the debounce FIRED,
+ * not when the text CHANGED — so between a keystroke and the next debounce
+ * fire there was no new sequence to invalidate the old one, and the previous
+ * phrase's answer could still land, render, and be ACCEPTED against text the
+ * user had already replaced (a whole debounce + round-trip wide). And the
+ * ALREADY-RENDERED suggestion was never cleared on retype, so even with no
+ * response in flight the stale card stayed clickable.
+ * Both halves are fixed at the same place, and for the same reason: the moment
+ * the text changes, every answer about the OLD text is dead. `request()`
+ * therefore invalidates and clears FIRST, before it decides whether to
+ * schedule anything at all.
+ *
  * NOTHING IS COMMITTED HERE. This hook produces a SUGGESTION. Applying it is
  * the calling surface's job, through that surface's existing commit path — the
  * hook deliberately owns no mutation, no wire event and no store write.
@@ -99,10 +112,17 @@ export function useBeliefElicitation(target: BeliefElicitationTarget): BeliefEli
       if (debounceRef.current) clearTimeout(debounceRef.current)
       setError(null)
 
+      // FIRST, unconditionally, before any length test or scheduling: the text
+      // has changed, so every in-flight answer about the previous text is now
+      // stale, and the rendered card describes a phrase that no longer exists.
+      // Invalidate and clear together — a bump without a clear leaves a stale
+      // card on screen with a live Accept button, which is the half of this
+      // defect a sequence number alone never covered.
+      sequenceRef.current += 1
+      setSuggestion(null)
+
       const trimmed = text.trim()
       if (trimmed.length < MIN_EXPRESSION_LENGTH) {
-        sequenceRef.current += 1
-        setSuggestion(null)
         setLoading(false)
         return
       }

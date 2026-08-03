@@ -25,7 +25,9 @@
 
 import { describe, it, expect } from 'vitest'
 import {
+  acceptsElicitedBelief,
   buildFactorValueEditEvent,
+  isMagnitudeScaledFactor,
   resolveValueInputSeed,
 } from '../factorValueEdit'
 
@@ -34,6 +36,20 @@ const CAPPED = {
   kind: 'factor',
   label: 'Team Size',
   observedState: { value: 0.4, raw_value: 8, unit: 'engineers', cap: 20 },
+}
+
+/**
+ * ⭐ THE THIRD SHAPE — staging-witnessed, and the one the first cut of this
+ * feature corrupted. `{value: 40000, unit: '£', raw_value: 40000}`, NO cap:
+ * CEE stores model and raw identically, so this factor's model scale IS
+ * £40,000. Verbatim-committing a 0.7 here makes it £0.70.
+ * (`PHASE0-EVIDENCE-2026-07-28/diagnosis-2308-raw/probe-P1-res.json` and
+ * `journey-rewalk-2026-08-03-raw/wire-cfg-own-format-0-res.txt`.)
+ */
+const UNCAPPED_MAGNITUDE = {
+  kind: 'factor',
+  label: 'Monthly spend',
+  observedState: { value: 40000, unit: '£', raw_value: 40000 },
 }
 
 /** The 2026-08-03 walk shape — normalised-scale only. */
@@ -120,6 +136,90 @@ describe("factorValueEdit — 'model_scale' basis", () => {
     expect(payload.value).toBe(3.5)
     // This is what the `'model_scale'` basis exists to prevent; it is pinned
     // rather than described so the retirement cannot be undone by inheritance.
+  })
+
+  it('⭐ REFUSES the uncapped unit-bearing shape outright — £40,000 must not become £0.70', () => {
+    expect(isMagnitudeScaledFactor(UNCAPPED_MAGNITUDE)).toBe(true)
+    // Fails CLOSED: no event ⇒ no local write, no wire, no receipt, no
+    // "checked by you" stamp. Nothing at all beats a 57,000x corruption
+    // wearing a provenance badge.
+    expect(
+      buildFactorValueEditEvent({
+        nodeId: 'fac_spend',
+        typedValue: 0.7,
+        nodeData: UNCAPPED_MAGNITUDE,
+        seedBasis: 'model_scale',
+      }),
+    ).toBeNull()
+  })
+
+  it('the magnitude predicate is about UNIT-WITHOUT-CAP, not about units or caps alone', () => {
+    // A cap makes the model scale normalised again — CEE inverts with it.
+    expect(isMagnitudeScaledFactor(CAPPED)).toBe(false)
+    // No unit ⇒ nothing claims the number is an amount.
+    expect(isMagnitudeScaledFactor(WALK)).toBe(false)
+    // A cap of 0 is NOT a cap (normaliseRawFactorValue ignores cap <= 0), so a
+    // unit-bearing factor with cap 0 is still magnitude-scaled.
+    expect(
+      isMagnitudeScaledFactor({ observedState: { value: 5, unit: '£', cap: 0 } }),
+    ).toBe(true)
+    // A whitespace-only unit is not a unit.
+    expect(
+      isMagnitudeScaledFactor({ observedState: { value: 0.4, unit: '  ' } }),
+    ).toBe(false)
+  })
+
+  it('the OFFER predicate is narrower than the refusal — a capped factor commits correctly but cannot be SHOWN', () => {
+    // Both are safe to commit…
+    expect(isMagnitudeScaledFactor(CAPPED)).toBe(false)
+    // …but only the capless/unitless shape can display the accepted number
+    // afterwards without deriving `value * cap` in the client. See
+    // `acceptsElicitedBelief`'s own docstring.
+    expect(acceptsElicitedBelief(CAPPED)).toBe(false)
+    expect(acceptsElicitedBelief(UNCAPPED_MAGNITUDE)).toBe(false)
+    expect(acceptsElicitedBelief(WALK)).toBe(true)
+    expect(acceptsElicitedBelief(undefined)).toBe(true)
+  })
+
+  it('REFUSES a model_scale value outside [0,1], whatever the factor shape', () => {
+    // Covers every route a number can take that is NOT `suggested_value` —
+    // a clarification chip, or any future caller of this basis.
+    for (const bad of [1.5, -0.1, 5, 70]) {
+      expect(
+        buildFactorValueEditEvent({
+          nodeId: 'fac_content_marketing',
+          typedValue: bad,
+          nodeData: WALK,
+          seedBasis: 'model_scale',
+        }),
+      ).toBeNull()
+    }
+    // Boundaries still commit: the refusal is out-of-range, not near-range.
+    for (const ok of [0, 1]) {
+      expect(
+        (buildFactorValueEditEvent({
+          nodeId: 'fac_content_marketing',
+          typedValue: ok,
+          nodeData: WALK,
+          seedBasis: 'model_scale',
+        })!.payload as Record<string, unknown>).value,
+      ).toBe(ok)
+    }
+  })
+
+  it('CONTROL — the other two bases are UNTOUCHED on the uncapped magnitude shape', () => {
+    // The refusals are scoped to `model_scale`. A typed £45,000 on this factor
+    // must still commit exactly as it does today.
+    const typed = buildFactorValueEditEvent({
+      nodeId: 'fac_spend',
+      typedValue: 45000,
+      nodeData: UNCAPPED_MAGNITUDE,
+      seedBasis: 'raw_only',
+    })
+    const payload = typed!.payload as Record<string, unknown>
+    expect(payload.value).toBe(45000)
+    expect(payload.raw_value).toBe(45000)
+    expect(payload.unit).toBe('£')
   })
 
   it('still fails CLOSED on an unencodable edit', () => {

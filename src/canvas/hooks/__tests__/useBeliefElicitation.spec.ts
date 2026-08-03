@@ -90,8 +90,17 @@ describe('useBeliefElicitation', () => {
     // with a 0 ms timer, so a "debounce" test that only does that proves the
     // timer exists, never that it WAITS (measured: a `0`-ms mutant survived
     // exactly that test).
+    //
+    // ⚠ The step is a LITERAL, not `DEBOUNCE - 1` (#572 review, minor). When
+    // it was derived from the constant, a mutant that set the CONSTANT to 0
+    // died only incidentally — fake timers threw on `advanceTimersByTime(-1)`
+    // — so the kill came from arithmetic, not from the assertion. A literal
+    // makes both mutant forms die at the `inFlight` check, and the equality
+    // below is what keeps the literal honest if the constant ever moves.
+    expect(BELIEF_ELICITATION_DEBOUNCE_MS).toBe(500)
+
     await act(async () => {
-      vi.advanceTimersByTime(BELIEF_ELICITATION_DEBOUNCE_MS - 1)
+      vi.advanceTimersByTime(499)
       await settle()
     })
     expect(inFlight).toHaveLength(0)
@@ -149,6 +158,75 @@ describe('useBeliefElicitation', () => {
       await settle()
     })
     expect(result.current.suggestion?.suggested_value).toBe(0.15)
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('⭐ A3 — retyping INVALIDATES the previous phrase\'s answer immediately, before the next debounce fires', async () => {
+    const { result } = renderHook(() => useBeliefElicitation(TARGET))
+
+    // "pretty likely" is asked, answered, and rendered.
+    await act(async () => {
+      result.current.request('pretty likely')
+      vi.advanceTimersByTime(500)
+      await settle()
+    })
+    await act(async () => {
+      inFlight[0].resolve(reply(0.7))
+      await settle()
+    })
+    expect(result.current.suggestion?.suggested_value).toBe(0.7)
+
+    // The user corrects themselves. NOTHING has been sent yet — the new
+    // request is still inside its debounce window. The 0.7 card must go NOW:
+    // while it is on screen its Accept button will commit 0.7 for text that
+    // no longer exists.
+    act(() => {
+      result.current.request('actually unlikely')
+    })
+    expect(result.current.suggestion).toBeNull()
+
+    // And the OLD phrase's answer, if it were still in flight, cannot come
+    // back either — the sequence was bumped at the keystroke, not at the
+    // (not-yet-fired) debounce.
+    await act(async () => {
+      vi.advanceTimersByTime(500)
+      await settle()
+    })
+    expect(inFlight).toHaveLength(2)
+    await act(async () => {
+      inFlight[0].resolve(reply(0.7))
+      await settle()
+    })
+    expect(result.current.suggestion).toBeNull()
+
+    // Only the answer to the text actually on screen may render.
+    await act(async () => {
+      inFlight[1].resolve(reply(0.15))
+      await settle()
+    })
+    expect(result.current.suggestion?.suggested_value).toBe(0.15)
+  })
+
+  it('⭐ A3 — a phrase shortened below the minimum also clears the rendered suggestion', async () => {
+    const { result } = renderHook(() => useBeliefElicitation(TARGET))
+
+    await act(async () => {
+      result.current.request('pretty likely')
+      vi.advanceTimersByTime(500)
+      await settle()
+    })
+    await act(async () => {
+      inFlight[0].resolve(reply(0.7))
+      await settle()
+    })
+    expect(result.current.suggestion?.suggested_value).toBe(0.7)
+
+    // Clearing the field back to two characters must not leave the old answer
+    // standing beside an empty-ish input.
+    act(() => {
+      result.current.request('pr')
+    })
+    expect(result.current.suggestion).toBeNull()
     expect(result.current.loading).toBe(false)
   })
 
