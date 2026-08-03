@@ -119,9 +119,20 @@ describe('buildV7Lenses — passthrough lens + evidence model (V7 L5)', () => {
       )
       expect(m.goal.available).toBe(true)
       expect(m.goal.gate).toBe('none')
+      // ⭐ AMENDED (ROADMAP 2.334): `nValidSamples` is now carried on every
+      // goal-lens row so the rows can resolve sub-1% figures instead of
+      // printing one floor string for all of them. This fixture's `opt()`
+      // helper supplies no sample count, so the value is `null` — absent, NOT
+      // defaulted, which is the behaviour that keeps a run without a count on
+      // the floor arm rather than inventing a resolution.
+      //
+      // `toEqual` (exact shape) is kept deliberately over `toMatchObject`:
+      // this assertion is the reason the field addition was caught at all,
+      // and loosening it to make the failure go away would remove the guard
+      // that noticed. A future field addition SHOULD red this test.
       expect(m.goal.options).toEqual([
-        { id: 'a', label: 'A', goalProbability: 0.6, isWinner: true, goalFitIsSubstitutedJoint: false },
-        { id: 'b', label: 'B', goalProbability: 0.2, isWinner: false, goalFitIsSubstitutedJoint: false },
+        { id: 'a', label: 'A', goalProbability: 0.6, nValidSamples: null, isWinner: true, goalFitIsSubstitutedJoint: false },
+        { id: 'b', label: 'B', goalProbability: 0.2, nValidSamples: null, isWinner: false, goalFitIsSubstitutedJoint: false },
       ])
     })
   })

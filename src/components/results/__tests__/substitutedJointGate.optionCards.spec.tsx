@@ -200,7 +200,26 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
 
     // The badge still renders, still carries the number, and now names the
     // quantity it actually is — the register's compact readout, verbatim.
-    expect(text).toContain(GOAL_ANCHOR_COPY.phrase('< 1%', true))
+    //
+    // ⭐ AMENDED (ROADMAP 2.334): the readout was `'< 1%'`; it is now `'1%'`.
+    // The fixture carries `nValidSamples: 10000`, so the goal register no
+    // longer floors — it resolves, and 0.0054 renders through the shared
+    // smallest-distinct-precision rule.
+    //
+    // ⚠ NAMING THIS EXPLICITLY BECAUSE IT IS THE ONE BAND WHERE THE NEW
+    // REGISTER READS *HIGHER* THAN THE OLD FLOOR. For values in
+    // [0.005, 0.00999] the resolved string is "1%" where the floor said
+    // "< 1%" — 0.54% presented as 1%. That is ordinary integer rounding and
+    // it is byte-identical to what `formatProbabilityWithResolution` has
+    // rendered for WIN probabilities since ROADMAP 2.236, which is the whole
+    // point of the two registers sharing one rule. It is not a new untruth,
+    // but it IS a direction change, and a reviewer should see it stated
+    // rather than discover it: everywhere else in this slice the change makes
+    // readouts tighter or unchanged; here it makes one coarser.
+    //
+    // Derived by EXECUTING `formatGoalProbability(0.0054, 10000)` at this tip.
+    // Do not hand-edit this string — re-execute if the fixture moves.
+    expect(text).toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
   })
 
   it('RED-first: the goal bar does NOT carry the possessive "Hits target" label over a substituted joint figure', () => {
