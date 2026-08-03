@@ -100,10 +100,11 @@ import {
 } from '../../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../../conversation/optimisticFactorEdit'
 import { useNodeMutations } from '../../../ui/inspector-v2/useInspectorMutations'
+import { useBeliefElicitation } from '../../../hooks/useBeliefElicitation'
 import {
-  useBeliefElicitation,
-  formatElicitedChance,
-} from '../../../hooks/useBeliefElicitation'
+  BeliefElicitationField,
+  describeInWordsToggleLabel,
+} from '../../BeliefElicitationField'
 import { PanelIconButton } from '../ui/PanelIconButton'
 import { parseSuccessTarget } from '../hero/parseSuccessTarget'
 import type { EstimateRowModel } from '../types'
@@ -445,7 +446,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
         <Tooltip content="Say what you think in plain words" delay={300}>
           <PanelIconButton
             variant="ghost"
-            aria-label={`Describe your estimate for ${row.label} in words`}
+            aria-label={describeInWordsToggleLabel(row.label)}
             aria-pressed={inWords}
             onClick={() => {
               setInWords(open => {
@@ -473,103 +474,26 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
         rather than replacing it: the two are alternatives, and hiding the
         direct input behind a mode toggle would make the fast path slower for
         anyone who already knows their number.
+
+        The FIELD itself moved to `BeliefElicitationField` (ROADMAP 2.391) when
+        the inspector panel became a second host: two surfaces spelling the same
+        sentences and re-deciding the same three-way branch is the mirror trap
+        12 is about. Nothing else about this surface changed — the state, the
+        gate and `acceptElicited` are still owned here.
       */}
       {inWords && row.canEditValue && canDescribeInWords && (
-        <div className="space-y-1" data-testid="pre-analysis-v3-in-words">
-          <input
-            aria-label={`Describe ${row.label} in words`}
-            className={`${typography.panelBody} h-7 w-56 rounded-lg border border-panel-border bg-panel px-2 text-text-header outline-none placeholder:text-text-light focus:border-info focus:ring-2 focus:ring-info/20`}
-            placeholder="e.g. pretty likely"
-            value={phrase}
-            onChange={e => {
-              setPhrase(e.target.value)
-              elicitation.request(e.target.value)
-            }}
-            onKeyDown={e => {
-              if (e.key === 'Escape') onDone()
-            }}
-          />
-
-          {elicitation.loading && (
-            <p className={`${typography.panelMeta} text-text-light`} role="status">
-              Reading that…
-            </p>
-          )}
-
-          {elicitation.error && (
-            <p className={`${typography.panelMeta} text-warning`} role="status">
-              {elicitation.error}
-            </p>
-          )}
-
-          {/*
-            AMBIGUOUS PHRASE — the engine's own question, verbatim, and its own
-            option labels. Not paraphrased: it names the factor and the reading
-            it is unsure about, and rewriting it here would put words in the
-            engine's mouth that the engine cannot stand behind.
-          */}
-          {elicitation.suggestion?.needs_clarification ? (
-            <div className="space-y-1">
-              <p className={`${typography.panelMeta} text-text-body`}>
-                {/*
-                  A response can flag itself unsure and carry NO options. The
-                  old condition required BOTH, so that shape fell through to
-                  "That reads as about X%" + Use this — offering a number the
-                  ENGINE had just said it was unsure about, without its
-                  question. Now `needs_clarification` alone suppresses the
-                  offer, and the fallback line says what happened.
-                */}
-                {elicitation.suggestion.clarifying_question ??
-                  "I couldn't pin that down. Try another wording, or type the number."}
-              </p>
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label={`Readings for ${row.label}`}>
-                {(elicitation.suggestion.options ?? []).map(opt => (
-                  <button
-                    key={opt.label}
-                    type="button"
-                    onClick={() => acceptElicited(opt.value)}
-                    className={typo(
-                      'panelMeta',
-                      'rounded-full border border-panel-border bg-transparent px-2.5 py-1 text-text-body outline-none transition-colors hover:bg-panel-hover focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40',
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : elicitation.suggestion ? (
-            <div className="flex items-center gap-2">
-              {/*
-                The number, as a chance, in plain words. The engine's REASONING
-                and CONFIDENCE are expert detail and stay behind the existing
-                progressive-disclosure affordance — inline they read as hedging.
-                ⚠ This comment used to be FALSE about confidence: it was fetched,
-                typed and warn-parsed, and then rendered nowhere at all (#572
-                review). It is in the tooltip now, so the sentence is true.
-              */}
-              <Tooltip
-                content={`${elicitation.suggestion.reasoning} (${elicitation.suggestion.confidence} confidence)`}
-                delay={300}
-              >
-                <span className={`${typography.panelMeta} text-text-body`}>
-                  That reads as {formatElicitedChance(elicitation.suggestion.suggested_value)}
-                </span>
-              </Tooltip>
-              <button
-                type="button"
-                onClick={() => acceptElicited(elicitation.suggestion!.suggested_value)}
-                aria-label={`Use ${formatElicitedChance(elicitation.suggestion.suggested_value)} for ${row.label}`}
-                className={typo(
-                  'panelMeta',
-                  'rounded-full border border-panel-border bg-transparent px-2.5 py-1 text-text-body outline-none transition-colors hover:bg-panel-hover focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40',
-                )}
-              >
-                Use this
-              </button>
-            </div>
-          ) : null}
-        </div>
+        <BeliefElicitationField
+          testId="pre-analysis-v3-in-words"
+          label={row.label}
+          phrase={phrase}
+          onPhraseChange={next => {
+            setPhrase(next)
+            elicitation.request(next)
+          }}
+          onEscape={onDone}
+          elicitation={elicitation}
+          onAccept={acceptElicited}
+        />
       )}
     </div>
   )
