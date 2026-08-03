@@ -87,6 +87,18 @@ function deepEqual(a: unknown, b: unknown): boolean {
   }
 }
 
+/**
+ * Why a merge REFUSED the server's graph. Each value corresponds to one guard
+ * below; `null` on the accepted path.
+ */
+export type MergeServerGraphRefusal =
+  /** Not an object — nothing that could be a graph arrived. */
+  | 'unusableShape'
+  /** An object with no nodes AND no edges. Nothing was observed. */
+  | 'emptyServerGraph'
+  /** Zero node-id overlap with a non-empty canvas — two unrelated graphs. */
+  | 'zeroOverlap'
+
 export interface MergeServerGraphResult {
   addedNodeCount: number
   addedEdgeCount: number
@@ -99,9 +111,32 @@ export interface MergeServerGraphResult {
    */
   removedNodeCount: number
   removedEdgeCount: number
+  /**
+   * ⚠ WHETHER THE SERVER'S GRAPH WAS READ AT ALL — NOT WHETHER IT MOVED ANYTHING.
+   *
+   * Every refusal below used to return the SAME all-zero counts an ACCEPTED but
+   * idempotent merge returns, so the caller could not distinguish "I read the
+   * server's graph and it already matched" from "I refused to look at it". The
+   * hydration caller then recorded CEE's identity token — a claim that we have
+   * APPLIED that graph — on graphs it had just thrown away.
+   *
+   * The definition is STRUCTURAL, not a flag someone must remember to set:
+   * `accepted` is true exactly when control reaches the body that records
+   * `lastAuthoritativeGraph`. The two identity records therefore answer to ONE
+   * rule and cannot drift apart.
+   */
+  accepted: boolean
+  /** The guard that refused. `null` when `accepted`. */
+  refusedReason: MergeServerGraphRefusal | null
+  /**
+   * Whether the store was actually written. Distinct from `accepted`: an
+   * idempotent boot is `accepted: true, changed: false`, and that combination is
+   * exactly the case a caller must NOT treat as a refusal.
+   */
+  changed: boolean
 }
 
-const NO_CHANGE: MergeServerGraphResult = Object.freeze({
+const NO_CHANGE = Object.freeze({
   addedNodeCount: 0,
   addedEdgeCount: 0,
   updatedNodeCount: 0,
@@ -110,8 +145,8 @@ const NO_CHANGE: MergeServerGraphResult = Object.freeze({
   removedEdgeCount: 0,
 })
 
-function noChange(): MergeServerGraphResult {
-  return { ...NO_CHANGE }
+function refused(reason: MergeServerGraphRefusal): MergeServerGraphResult {
+  return { ...NO_CHANGE, accepted: false, refusedReason: reason, changed: false }
 }
 
 /**
@@ -125,7 +160,7 @@ function noChange(): MergeServerGraphResult {
 export function mergeServerGraphOnHydrate(
   serverGraph: unknown,
 ): MergeServerGraphResult {
-  if (serverGraph === null || typeof serverGraph !== 'object') return noChange()
+  if (serverGraph === null || typeof serverGraph !== 'object') return refused('unusableShape')
 
   const g = serverGraph as Record<string, unknown>
   const rawNodes: any[] = Array.isArray(g.nodes) ? g.nodes : []
@@ -134,7 +169,7 @@ export function mergeServerGraphOnHydrate(
   // Honest absence: nothing to merge, so nothing is written and no identity is
   // recorded. A server graph with no elements must not authorise later
   // deletions either.
-  if (rawNodes.length === 0 && rawEdges.length === 0) return noChange()
+  if (rawNodes.length === 0 && rawEdges.length === 0) return refused('emptyServerGraph')
 
   const store = useCanvasStore.getState()
   const existingNodeIds = new Set(store.nodes.map((n: any) => n.id))
@@ -157,7 +192,7 @@ export function mergeServerGraphOnHydrate(
         canvasNodeCount: store.nodes.length,
         serverNodeCount: rawNodes.length,
       })
-      return noChange()
+      return refused('zeroOverlap')
     }
   }
 
@@ -218,7 +253,15 @@ export function mergeServerGraphOnHydrate(
     const serverEdge = key ? serverEdgeByPair.get(key) : undefined
     if (!serverEdge) return e
 
-    const overlaid = overlayEdge(e, serverEdge)
+    // ⚠ PRESENCE, NOT EQUALITY-WITH-DEFAULT (L61). The receipt path infers "the
+    // wire supplied this" from "it differs from the mapper's default edge",
+    // which silently drops a server `strength.mean: 0.5` (== the default weight)
+    // and an explicit default-positive `effect_direction`. That under-
+    // application is fine for a receipt and wrong at boot: the server row is
+    // what the NEXT analysis rebases from, so a dropped value leaves the screen
+    // and the compute disagreeing. The mapper's own provenance stamps prove what
+    // the wire carried — see `overlayEdge`.
+    const overlaid = overlayEdge(e, serverEdge, { presenceFromProvenanceStamps: true })
     if (overlaid === e) return e
 
     // `userReviewedStrength` is UI-only and never on the wire, so the overlay
@@ -286,6 +329,10 @@ export function mergeServerGraphOnHydrate(
     return { ...mapped, id }
   })
 
+  // Past every guard: the server's graph WAS read. That is what `accepted`
+  // means, and it is the same fact that licenses the `setLastAuthoritativeGraph`
+  // record twelve lines below — one rule, asserted in
+  // `mergeServerGraph.acceptance.spec.ts` §3 so the two cannot drift apart.
   const result: MergeServerGraphResult = {
     addedNodeCount: addedNodes.length,
     addedEdgeCount: addedEdges.length,
@@ -294,6 +341,9 @@ export function mergeServerGraphOnHydrate(
     // Structural, not incidental: this path has no removal branch at all.
     removedNodeCount: 0,
     removedEdgeCount: 0,
+    accepted: true,
+    refusedReason: null,
+    changed: false, // set below, once the counts are known
   }
 
   // The server graph IS CEE's view of this scenario, so everything in it is an
@@ -319,7 +369,13 @@ export function mergeServerGraphOnHydrate(
     result.addedEdgeCount > 0 ||
     result.updatedNodeCount > 0 ||
     result.updatedEdgeCount > 0
+  result.changed = changed
 
+  // ⚠ ACCEPTED, NOT CHANGED. This early return is an IDEMPOTENT boot — the
+  // server's graph was read and it already matched — and it must stay
+  // distinguishable from the refusals above, because it is the ONE case that
+  // both looks like a refusal in the counters and legitimately licenses
+  // recording an identity token.
   if (!changed) return result
 
   // ── A PRE-MERGE SNAPSHOT, WHENEVER AN EXISTING VALUE MOVES (review A3) ─────

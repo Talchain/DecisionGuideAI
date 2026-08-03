@@ -29,6 +29,13 @@ export type HydrationOutcome =
   | 'unchanged'
   /** 200 with no graph yet — a normal empty scenario. Canvas untouched. */
   | 'absent'
+  /**
+   * A graph arrived and the MERGE refused it — unusable shape, an empty server
+   * graph, or zero node-id overlap with a non-empty canvas. Canvas untouched and
+   * NO identity token recorded, so the next read re-attempts. Distinct from
+   * `'refused'`, which is a TRANSPORT refusal (401/403/429).
+   */
+  | 'mergeRefused'
   /** 404 — not readable. NEVER deletion. Canvas untouched. */
   | 'notReadable'
   /** 503 through every attempt. Canvas untouched. */
@@ -137,7 +144,43 @@ export async function hydrateCanvasFromServer(
     return 'unchanged'
   }
 
-  mergeServerGraphOnHydrate(result.graph)
+  const merge = mergeServerGraphOnHydrate(result.graph)
+
+  // ── A REFUSED MERGE IS NOT A MERGE, AND MUST NOT BE RECORDED AS ONE (L61) ──
+  //
+  // `mergeServerGraphOnHydrate` refuses on an unusable shape, an empty server
+  // graph, and — the load-bearing one — zero node-id overlap with a non-empty
+  // canvas. Every refusal used to return the same all-zero counts an idempotent
+  // merge returns, this function discarded the return value entirely, and both
+  // the identity token and the `'merged'` outcome were recorded unconditionally.
+  //
+  // Two things were wrong with that, and they are not equally severe:
+  //
+  //   1. THE OUTCOME WAS FALSE, always. This module exists so that every boot
+  //      outcome INCLUDING THE REFUSALS is measurable without mounting React
+  //      (see the header). A refusal reported as `'merged'` breaks exactly that,
+  //      and `useServerGraphHydration` logs the false value as telemetry.
+  //
+  //   2. THE TOKEN IS A CLAIM THAT WE APPLIED THIS GRAPH, and it has a READER —
+  //      the `isSameServerGraph` short-circuit above, which returns `'unchanged'`
+  //      WITHOUT merging. The zero-overlap guard's verdict depends on the CANVAS,
+  //      which moves; the token compares only the SERVER, which has not. So a
+  //      refusal recorded as an application can suppress a later merge that
+  //      would by then succeed. (Narrow today: the token is in-memory only, is
+  //      cleared by `DECISION_CONTEXT_CLEAR`, and the hook attempts once per
+  //      scenario id. The invariant is fixed here regardless of that wiring —
+  //      a guarantee that depends on a caller's current shape is not one.)
+  //
+  // Gated on `accepted`, NEVER on `changed`: an idempotent boot — the server
+  // matched the canvas — is the most common accepted case, and gating on
+  // movement would turn it into a permanent re-merge.
+  if (!merge.accepted) {
+    logger.warn('server_graph_hydration.merge_refused', {
+      scenarioId,
+      reason: merge.refusedReason,
+    })
+    return 'mergeRefused'
+  }
 
   // Store CEE's token VERBATIM — after the merge, so a throw could not leave a
   // token recorded for a graph that was never applied. `null` when CEE issued
