@@ -35,9 +35,20 @@
  * that each CHANGE the payload, and every other spec in this directory seeds
  * nodes BEFORE `startListening` (so the zero-node arm is never taken) and lets
  * the canvas fall silent before asserting. Both halves of the deployed
- * condition were missing. The churn here is payload-IDENTICAL — asserted, not
- * assumed, in every test — and it keeps RUNNING ACROSS THE ASSERTION WINDOW. A
- * churn loop that stops before the assertion goes green on the broken code.
+ * condition were missing. The churn here keeps RUNNING ACROSS THE ASSERTION
+ * WINDOW in every test that uses it — a churn loop that stops before the
+ * assertion goes green on the broken code.
+ *
+ * Precisely which tests assert payload IDENTITY, because "asserted in every
+ * test" would be false and this file is about not asserting more than was
+ * measured: the five where the model is meant to STAND STILL — the churn
+ * positive control, RED-1, RED-3, and both no-op guards — each assert
+ * `currentPayload()` is byte-identical to the payload captured before the
+ * churn started. The two where the model deliberately MOVES under the churn
+ * (RED-2's added node, and the rate-limit test's added node) assert the
+ * REQUEST BODY instead, which is the stronger claim available there: they
+ * prove the mutated model is what got asked about. No test assumes identity
+ * it has not either asserted or deliberately broken.
  *
  * Scope note (CLAUDE.md trap 3): every assertion below is on store state, on
  * module state, or on the request count/body. Nothing here is a visibility
@@ -431,6 +442,86 @@ describe('readinessStore — the first fetch is not starved by canvas churn (ROA
 
       expect(mockFetch).toHaveBeenCalledTimes(2)
       expect(requestBody(1).graph.nodes).toHaveLength(17)
+    })
+  })
+
+  // ── Teardown releases the claim too ──────────────────────────────
+  //
+  // ⚠ THIS SECTION EXISTS BECAUSE AN ADVERSARIAL REVIEW FOUND A LINE OF MY FIX
+  // THAT NOTHING EXECUTED. The claim is released in two places — when the timer
+  // fires, and in `stopListening`. Only the first was pinned: deleting
+  // `pendingScheduledPayload = null` from `stopListening` passed the entire
+  // 294-test scope. That is my own M3 story one layer up, and it is worth
+  // saying plainly: the mutant I did not write is the one that would have
+  // shipped an unexecuted guarantee.
+  //
+  // The claim is module-level and `stopListening` is what `reset()` calls, so a
+  // leaked claim survives even a full store reset — there is no path back to a
+  // clean state short of the timer that was just cancelled. And the failure is
+  // SILENT: the early return sits above the `stale` mark, so the payload is
+  // neither asked about nor flagged as unasked. Ported from the reviewer's
+  // probe 3.
+  describe('the last consumer unmounting releases the scheduled claim', () => {
+    it('leaks no claim when teardown races an armed timer, and a remount asks', async () => {
+      mockFetch.mockResolvedValue(mockOpenServerResponse())
+      emptyCanvas()
+      const release = useReadinessStore.getState().startListening()
+      await vi.advanceTimersByTimeAsync(0)
+
+      draftLands(16)
+      await vi.advanceTimersByTimeAsync(100) // mid-debounce: armed and claiming
+      expect(__test__.getModuleState().hasDebounceTimer).toBe(true)
+      expect(__test__.getModuleState().hasPendingScheduledPayload).toBe(true)
+
+      release() // the last consumer unmounts while the timer is still armed
+      expect(__test__.getModuleState().hasDebounceTimer).toBe(false)
+      expect(__test__.getModuleState().hasPendingScheduledPayload).toBe(false)
+      expect(mockFetch).not.toHaveBeenCalled()
+
+      // Remount: the first-listen immediate fetch asks about the same model.
+      useReadinessStore.getState().startListening()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(requestBody(0).graph.nodes).toHaveLength(16)
+    })
+
+    it('asks about a model the canvas returns to after an unmount, and never goes silent', async () => {
+      // The harm the module-state assertion above only stands proxy for. A
+      // module-state pin proves the mechanism; this proves the damage, and the
+      // two are not the same test.
+      mockFetch.mockResolvedValue(mockOpenServerResponse())
+      emptyCanvas()
+      const release = useReadinessStore.getState().startListening()
+      await vi.advanceTimersByTimeAsync(0)
+
+      draftLands(16)
+      await vi.advanceTimersByTimeAsync(100)
+      release() // claim on the 16-node model, released here or leaked forever
+
+      // The canvas keeps moving while nothing is listening — the panel is shut.
+      useCanvasStore.setState({
+        nodes: [...useCanvasStore.getState().nodes, factorNode(99)] as any,
+      })
+
+      // Reopen. First listen asks about the 17-node model it finds.
+      useReadinessStore.getState().startListening()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(requestBody(0).graph.nodes).toHaveLength(17)
+
+      // Now undo, back to exactly the payload the released claim named. A
+      // leaked claim swallows this: no request, and — because the early return
+      // sits above the mark — no `stale` either. The gate would sit on a
+      // verdict for a model the canvas no longer holds, saying nothing.
+      clearInflightCache()
+      useCanvasStore.setState({
+        nodes: useCanvasStore.getState().nodes.slice(0, 16) as any,
+      })
+      expect(useReadinessStore.getState().stale).toBe(true)
+      await vi.advanceTimersByTimeAsync(1000)
+
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+      expect(requestBody(1).graph.nodes).toHaveLength(16)
     })
   })
 
