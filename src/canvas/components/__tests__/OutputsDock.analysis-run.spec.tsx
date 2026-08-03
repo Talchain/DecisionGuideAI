@@ -14,7 +14,6 @@ import { _clearTraces, getInteractionChains } from '../../../lib/debug-state'
 // established wrapper pattern in OutputsDock.conversationSingleton.spec.tsx.
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { useSuccessMeasureStore } from '../../../components/results/modals/successMeasureStore'
-import { resolveScenarioKey } from '../../../components/results/modals/scenarioKey'
 
 function renderOutputsDock() {
   return render(
