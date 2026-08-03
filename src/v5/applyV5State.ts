@@ -154,6 +154,10 @@ export interface V5ApplicatorStore {
     resultsSource?: 'direct' | 'conversation'
     enrichment?: unknown
     rawV2Response?: unknown
+    /** ROADMAP 2.350: the analysis_result block's own enrichment, for the
+     *  Compare tab's in-session snapshot capture. NOT the V2-shaped
+     *  `enrichment` slot above, which this path clears. */
+    v5Enrichment?: unknown
   }) => void
   /**
    * Current results hash for dedupe. When the new analysis hash matches
@@ -1070,6 +1074,24 @@ export function applyV5State(
           // cleared rather than left to a stale prior write.
           enrichment: null,
           rawV2Response: null,
+          // ROADMAP 2.350 — the block's OWN enrichment, for the Compare tab's
+          // in-session capture ONLY.
+          //
+          // ⚠ THIS IS DELIBERATELY A SEPARATE PARAM FROM `enrichment` ABOVE,
+          // AND MUST STAY ONE. That slot is V2-SHAPED and is being cleared on
+          // purpose — folding this value into it would repopulate a V2 slot
+          // the V5 path has explicitly emptied since it shipped, and every
+          // consumer reading it would start seeing a shape it was never
+          // written for. This param is read by exactly one thing: the snapshot
+          // capture at the bottom of `resultsComplete`.
+          //
+          // Why it is needed at all: that capture was gated on
+          // `rawV2Response`, which this call passes as null — so the gate
+          // never opened on the live wire, for any tier, and Compare's only
+          // other feed skips guests by design. A guest with two completed runs
+          // saw an empty state telling them to run an analysis they had
+          // already run twice. See `canvas/stores/v5RunSnapshotFactory.ts`.
+          v5Enrichment: analysisBlock.enrichment ?? null,
         })
         applied.push('analysis_result:results_hydrated')
         // Reliable run identity: a NEW analysis_result response_hash (hash !==

@@ -51,6 +51,7 @@ import { identityFromCanvasGraph } from './utils/graphIdentity'
 import { isCompareTabEnabled } from '../flags'
 import { useAnalysisSnapshotStore } from './stores/analysisSnapshotStore'
 import { buildAnalysisSnapshot } from './stores/analysisSnapshotFactory'
+import { buildSnapshotFromV5Analysis } from './stores/v5RunSnapshotFactory'
 import { handleLayoutWithRecovery } from './layout/handleLayoutWithRecovery'
 import { useComparisonStore } from './stores/comparisonStore'
 import { useDraftStore } from './stores/draftStore'
@@ -722,6 +723,15 @@ interface CanvasState {
     resultsSource?: 'direct' | 'conversation'
     /** Raw V2RunResponse from PLoT — preserved for typed field access and debug */
     rawV2Response?: V2RunResponse | null
+    /**
+     * ROADMAP 2.350 — the V5 `analysis_result` block's OWN enrichment record.
+     *
+     * Read by ONE thing: the Compare-tab snapshot capture at the bottom of
+     * this action. It is NOT written to any results slice, and it is
+     * deliberately not folded into `enrichment` above (which is V2-shaped and
+     * which the V5 path clears on purpose).
+     */
+    v5Enrichment?: unknown
   }) => void
   resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean; affectedOptions?: Array<{ id: string; label: string }> }) => void
   /** Capture detailed error information for Debug Panel */
@@ -3009,7 +3019,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }))
   },
 
-  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1: _ceeReviewV1, ceeTraceV1: _ceeTraceV1, ceeErrorV1: _ceeErrorV1, enrichment, resultsSource, rawV2Response }) => {
+  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1: _ceeReviewV1, ceeTraceV1: _ceeTraceV1, ceeErrorV1: _ceeErrorV1, enrichment, resultsSource, rawV2Response, v5Enrichment }) => {
     const { nodes, edges, results, currentScenarioId, graphHealth: existingHealth } = get()
 
     const finishedAt = Date.now()
@@ -3235,22 +3245,56 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       console.warn('[resultsComplete] Failed to persist analysis to autosave', err)
     }
 
-    // Refinement Journey: capture analysis snapshot for Compare tab
-    if (isCompareTabEnabled() && rawV2Response && report) {
+    // Refinement Journey: capture analysis snapshot for Compare tab.
+    //
+    // ⭐ ROADMAP 2.350 — THIS GATE USED TO READ `rawV2Response && report`, AND
+    // THAT CONJUNCT IS WHY COMPARE HAD NO DATA ON THE DEPLOYED WIRE AT ALL.
+    // The V5 applicator — the only analyse path in production — calls this
+    // action with `rawV2Response: null` EXPLICITLY ("V5 carries no V2
+    // envelope"). So this capture never executed on a real turn, for ANY tier,
+    // and the tab's only other feed (`useCompareHistoryHydration`) skips
+    // guests by design while staging serves every session as guest. Result:
+    // a guest who ran the analysis twice was shown an empty state instructing
+    // them to "run the analysis again". Witnessed on the 2026-08-04b walk
+    // (`p3b/P3b-compare-before.json`: runPickerCount 0, compare-empty-state).
+    //
+    // The V5 branch reads the analysis block's OWN enrichment — the same
+    // material the persisted rebuild parses, through the same shared reader
+    // (`stores/analysisEnrichmentShape.ts`), because a persisted run_analysis
+    // fact IS this enrichment after CEE wrote it.
+    if (isCompareTabEnabled() && report && (rawV2Response || v5Enrichment)) {
       try {
         const snapshotStore = useAnalysisSnapshotStore.getState()
         const capturedEvents = (get()._hydratedEvents ?? []) as ScenarioEvent[]
         const prevTimestamp = snapshotStore.getLatest()?.timestamp ?? null
-        const snapshot = buildAnalysisSnapshot({
-          rawV2Response,
-          report,
-          nodes,
-          edges,
-          runNumber: snapshotStore.getRunCount() + 1,
-          events: capturedEvents,
-          previousSnapshotTimestamp: prevTimestamp,
-        })
-        snapshotStore.addSnapshot(snapshot)
+        const runNumber = snapshotStore.getRunCount() + 1
+        const snapshot = rawV2Response
+          ? buildAnalysisSnapshot({
+              rawV2Response,
+              report,
+              nodes,
+              edges,
+              runNumber,
+              events: capturedEvents,
+              previousSnapshotTimestamp: prevTimestamp,
+            })
+          : buildSnapshotFromV5Analysis({
+              enrichment: v5Enrichment,
+              // Run identity, shared with the Results panel: `hash` is the
+              // response_hash the applicator already used to decide this was a
+              // NEW analysis. Carrying it is what lets addSnapshot reject a
+              // re-delivered run, and what lets a later sign-in merge dedupe
+              // this session run against its own persisted row.
+              responseHash: hash,
+              nodes,
+              edges,
+              runNumber,
+              events: capturedEvents,
+              previousSnapshotTimestamp: prevTimestamp,
+            })
+        // null ⇒ the block could not be read as a completed analysis. Omit the
+        // run rather than publish a snapshot of zeros nobody measured.
+        if (snapshot) snapshotStore.addSnapshot(snapshot)
       } catch (err) {
         if (import.meta.env.DEV) {
           console.warn('[resultsComplete] Snapshot capture failed', err)

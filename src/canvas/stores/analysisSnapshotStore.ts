@@ -6,12 +6,19 @@
  *
  * ROADMAP 2.113a slice 1 changed WHERE those runs come from. The store itself
  * is still in-memory — it is not written to localStorage or Supabase — but it
- * is now SEEDED from Supabase (`hydrateFromPersisted`), which is what makes
- * the journey survive a reload and, on the deployed V5 path, exist at all:
- * the session capture gate at `canvas/store.ts` `resultsComplete` requires a
- * `rawV2Response`, and the live results-hydration applicator passes null for
- * it (`v5/applyV5State.ts:1023`, "V5 carries no V2 envelope"), so that gate
- * never opened on the real wire.
+ * is now SEEDED from Supabase (`hydrateFromPersisted`).
+ *
+ * ⚠ CORRECTED BY ROADMAP 2.350. This header used to say that seeding "is what
+ * makes the journey ... on the deployed V5 path, exist at all", because the
+ * session capture gate required a `rawV2Response` the V5 applicator passes as
+ * null. The first half of that was true; the conclusion was too generous.
+ * `hydrateFromPersisted` is reached only through
+ * `useCompareHistoryHydration`, which skips guests before any read — and
+ * staging serves every session as guest — so on the deployed walks NEITHER
+ * feed ever wrote, and the tab was empty within a session as well as across a
+ * reload. 2.350 revived the session capture from the V5 block's own
+ * enrichment, so THIS store now has a live writer at guest tier.
+ * Cross-reload lineage at guest tier remains open (ROADMAP 2.312 / Track 2).
  */
 import { create } from 'zustand'
 import type { AnalysisSnapshot } from '../compare-tab/types'
@@ -53,8 +60,38 @@ export const useAnalysisSnapshotStore = create<AnalysisSnapshotStoreState & Anal
   (set, get) => ({
     snapshots: [],
 
+    /**
+     * Append a session-captured run.
+     *
+     * ⭐ IDENTITY-IDEMPOTENT (ROADMAP 2.350). A run already in the journey is
+     * NOT appended again.
+     *
+     * Why this is needed here and not left to the caller's own guard: the V5
+     * applicator's dedupe (`hash !== prevHash`) is CONSECUTIVE-ONLY. On the
+     * real wire a turn sequence re-delivers an earlier analysis verbatim —
+     * measured on the 2026-08-04b walk, where run 2's turn re-delivered run
+     * 1's `analysis_result` block BYTE-IDENTICALLY before the genuinely new
+     * analysis arrived. A consecutive re-delivery is caught upstream, but the
+     * order A, B, A is not: after B, `prevHash` is B's, so a re-delivered A
+     * passes that guard and would become a third "run" in a two-run journey.
+     * Putting the check on the store makes it un-bypassable by any caller
+     * rather than a rule each capture site has to remember.
+     *
+     * `hydrateFromPersisted` already dedupes on the same `runIdentity`, so the
+     * two writers now agree on what "the same run" means.
+     *
+     * ⚠ A SNAPSHOT WITH NO `responseHash` IS NEVER MERGED INTO ANOTHER — the
+     * identity falls back to the per-capture `runId`, which is a fresh uuid,
+     * so an unhashed run still appends. That is deliberate (silently dropping
+     * a run we cannot identify would be worse than showing it twice) and it
+     * preserves the pre-2.350 behaviour of the V2 capture path exactly.
+     */
     addSnapshot: (snapshot) => {
       set(state => {
+        const identity = runIdentity(snapshot)
+        if (state.snapshots.some(s => runIdentity(s) === identity)) {
+          return state
+        }
         // Enforce sequential 1-indexed runNumber regardless of caller
         const enforced = { ...snapshot, runNumber: state.snapshots.length + 1 }
         return { snapshots: [...state.snapshots, enforced] }
