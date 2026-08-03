@@ -8,6 +8,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   SCENARIO_GRAPH_BASE,
   scenarioGraphUrl,
@@ -71,41 +74,52 @@ describe('scenarioGraph — base resolution (⚠ hazard: VITE_CEE_BFF_BASE point
     )
   })
 
-  it('IGNORES VITE_CEE_BFF_BASE — it is dashboard-set to an absolute PLoT URL', async () => {
-    // The deployed bundle carries ZERO `/bff/cee` literals and four absolute
-    // `https://plot-lite-service-staging.onrender.com/v1/cee` bases, because
-    // Vite INLINES this var at build time. Any hydrate call that resolved its
-    // base from it would reach PLoT, which does not serve this route.
-    //
-    // ⚠ THE ENV MUST BE SET BEFORE THE MODULE IS IMPORTED, and the module
-    // RE-IMPORTED, or this control is VACUOUS. The defect being guarded is a
-    // MODULE-LEVEL `env.VITE_CEE_BFF_BASE || '/bff/cee'` const, which is
-    // evaluated once at import time — mutating the env afterwards and calling
-    // the already-imported function could never observe it, so the assertion
-    // would pass against the very code it exists to forbid. Verified by
-    // mutation: with the module const swapped for the env-resolved form, this
-    // case goes RED only in this shape.
-    const PLOT = 'https://plot-lite-service-staging.onrender.com/v1/cee'
-    const prev = (import.meta as any).env.VITE_CEE_BFF_BASE
-    try {
-      ;(import.meta as any).env.VITE_CEE_BFF_BASE = PLOT
-      vi.resetModules()
-      const fresh = await import('../scenarioGraph')
+  /**
+   * ⚠ THIS GUARD READS THE SOURCE, AND THAT IS THE ONLY INSTRUMENT THAT CAN
+   * SEE THE DEFECT. Two behavioural versions of it were written first and BOTH
+   * were vacuous; the second one only looked rigorous.
+   *
+   * MEASURED, not reasoned: a throwaway module containing exactly
+   * `(import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'` was imported
+   * under vitest after setting `import.meta.env.VITE_CEE_BFF_BASE` to a PLoT
+   * URL and calling `vi.resetModules()`. It still resolved to `'/bff/cee'`.
+   * Vite substitutes `import.meta.env.VITE_*` member accesses at TRANSFORM
+   * time from the env loaded at config time, so a runtime mutation is
+   * unobservable to the module no matter when it is imported.
+   *
+   * The consequence is the point: NO runtime assertion in this suite can
+   * distinguish the hazardous form from the safe one — in test, both evaluate
+   * to the fallback. A behavioural pin here would pass against the exact code
+   * it exists to forbid, forever. That is why the original evidence for this
+   * hazard was a crawl of the DEPLOYED BUNDLE and not a test.
+   *
+   * Proven by mutation: with `SCENARIO_GRAPH_BASE` swapped for the env-resolved
+   * form, the behavioural version SURVIVED and this version goes RED.
+   */
+  it('never RESOLVES its base from VITE_CEE_BFF_BASE (source-level, with a positive control)', () => {
+    const dir = path.dirname(fileURLToPath(import.meta.url))
+    const moduleSrc = readFileSync(path.join(dir, '..', 'scenarioGraph.ts'), 'utf8')
 
-      // Positive control: the env var really is visible to a fresh import, so a
-      // module that DID read it would see PLoT here.
-      expect((import.meta as any).env.VITE_CEE_BFF_BASE).toBe(PLOT)
+    // Strip comments: this file DISCUSSES the var at length, and a guard that
+    // could not tell prose from code would be unmaintainable.
+    const code = moduleSrc
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n')
+      .filter((l) => !l.trim().startsWith('*') && !l.trim().startsWith('//'))
+      .join('\n')
 
-      expect(fresh.SCENARIO_GRAPH_BASE).toBe('/bff/cee')
-      expect(fresh.scenarioGraphUrl(SCENARIO_ID)).toBe(
-        `/bff/cee/scenarios/${SCENARIO_ID}/graph`,
-      )
-      expect(fresh.scenarioGraphUrl(SCENARIO_ID)).not.toContain('plot-lite')
-      expect(fresh.scenarioGraphUrl(SCENARIO_ID)).not.toContain('http')
-    } finally {
-      ;(import.meta as any).env.VITE_CEE_BFF_BASE = prev
-      vi.resetModules()
-    }
+    expect(code).not.toContain('VITE_CEE_BFF_BASE')
+    expect(code).not.toContain('VITE_BFF_BASE')
+    // …and no absolute host, which is the failure the var would cause.
+    expect(code).not.toMatch(/https?:\/\//)
+    expect(code).toContain("SCENARIO_GRAPH_BASE = '/bff/cee'")
+
+    // POSITIVE CONTROL (trap 13): the same read + match, pointed at a sibling
+    // that genuinely DOES resolve from the var. If this ever stops finding it,
+    // the guard above has stopped being able to see a presence and its absence
+    // assertions mean nothing.
+    const siblingSrc = readFileSync(path.join(dir, '..', 'client.ts'), 'utf8')
+    expect(siblingSrc).toContain('VITE_CEE_BFF_BASE')
   })
 
   it('POSTs to the pinned URL with a JSON body', async () => {

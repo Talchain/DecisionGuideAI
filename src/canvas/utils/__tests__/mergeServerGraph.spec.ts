@@ -69,16 +69,29 @@ describe('mergeServerGraphOnHydrate — values from server, layout from local', 
     expect(nodeById('goal-1').data.value).toBe(9)
   })
 
-  it('preserves EACH node’s OWN local position — identity-bound, not positional', () => {
+  it('binds each server node to the node with the SAME ID, never the same INDEX', () => {
+    // The server array is deliberately the REVERSE of the canvas array.
+    //
+    // ⚠ ASSERT THE VALUES, NOT ONLY THE POSITIONS. An index-matched merge was
+    // written as a mutant and SURVIVED a position-only version of this test —
+    // and it survived for a structural reason worth recording: `overlayNode`
+    // spreads the EXISTING node first, so the position is preserved no matter
+    // WHICH server node it is handed. Layout is immune to the mis-binding; the
+    // VALUES are what get crossed. A position-only assertion here was therefore
+    // testing the one property the defect cannot disturb.
     mergeServerGraphOnHydrate({
-      // Deliberately the REVERSE order of the canvas array: a merge that
-      // matched by index rather than by id would swap these two positions.
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Profit', value: 9 },
         { id: 'factor-1', kind: 'factor', label: 'Spend', value: 250 },
       ],
       edges: [],
     })
+    // Values land on the node whose ID they name…
+    expect(nodeById('factor-1').data.value).toBe(250)
+    expect(nodeById('factor-1').data.label).toBe('Spend')
+    expect(nodeById('goal-1').data.value).toBe(9)
+    expect(nodeById('goal-1').data.label).toBe('Profit')
+    // …and each node keeps its own layout.
     expect(nodeById('factor-1').position).toEqual(A_POS)
     expect(nodeById('goal-1').position).toEqual(B_POS)
   })
