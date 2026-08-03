@@ -516,6 +516,8 @@ export const ResultsBody = memo(function ResultsBody({
                   // number so the label cannot assert "your goal" over a
                   // substituted joint value.
                   goalProbability: o.goalProbability,
+                  // ROADMAP 2.334 — the resolution the goal readouts need.
+                  nValidSamples: o.nValidSamples,
                   goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint,
                 }))}
               decisionState={vm.decisionState}

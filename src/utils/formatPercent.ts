@@ -79,12 +79,26 @@ export function formatProbabilityWithResolution(
     // ⭐ ROADMAP 2.236 — THE FALLBACK ARM APPLIES THE SHARED FLOOR.
     //
     // This arm used to be a bare `formatPercent(value, { fromDecimal: true })`,
-    // and it is the arm staging actually takes: per-option `n_valid_samples`
-    // is not on the wire, so EVERY dock surface downstream of this function
-    // (option cards, V7 lens rows, the analysis hero) printed a bare "0%" for
-    // a measured non-zero probability while each call site looked locally
-    // correct. Three surfaces, one missing line — which is why the fix is here
-    // and not at any of them.
+    // so EVERY dock surface downstream of this function (option cards, V7 lens
+    // rows, the analysis hero) printed a bare "0%" for a measured non-zero
+    // probability while each call site looked locally correct. Three surfaces,
+    // one missing line — which is why the fix is here and not at any of them.
+    //
+    // ⚠ CORRECTED 2026-08-03 (ROADMAP 2.333/2.334). This comment used to say
+    // per-option `n_valid_samples` "is not on the wire", and that it was
+    // therefore "the arm staging actually takes". BOTH clauses were stale, and
+    // in the trap-2 way: they described a gate's coverage rather than deriving
+    // it, so they kept teaching every reader not to bother threading a count
+    // that had been available for weeks. `n_valid_samples` IS on the wire —
+    // `adapters/plot/v2/responseMapper.ts` maps `outcome.n_valid_samples` to
+    // `OptionResult.nValidSamples` behind a positive-integer guard, and the
+    // 2026-08-03 walk measured 10000 on every option of a live staging run.
+    //
+    // What remains TRUE is narrower, and is the only thing this arm should be
+    // read as claiming: SOME surfaces still cannot supply a count (they hold a
+    // share or a row rather than the option object), and they take this arm.
+    // Which surfaces those are is derivable, not listable here — anything
+    // passing `null`/`undefined` as `nSamples`. Do not restore a list.
     //
     // An exact ZERO keeps reading "0%": "came out ahead in 0% of simulated
     // scenarios" is TRUE when the option never came out ahead, and the floor

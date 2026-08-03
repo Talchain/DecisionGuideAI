@@ -65,6 +65,13 @@ export interface OptionWinShare {
    */
   goalProbability?: number | null
   /**
+   * ROADMAP 2.334 — `OptionResult.nValidSamples`, carried so the goal rows
+   * resolve sub-1% figures instead of printing the register floor five times.
+   * The gauge's prop shape simply did not carry it, which is the same reason
+   * it could not draw the goal quantity at all before the re-anchoring.
+   */
+  nValidSamples?: number | null
+  /**
    * THE POSSESSIVE GATE — `OptionResult.goalFitIsSubstitutedJoint`, i.e.
    * `selectGoalProbability(...).basis === 'joint_goal_substituted'`. True ⇒
    * the number answers a different question from the one "your goal"
@@ -276,7 +283,7 @@ export function WinGauge({
               // exactly as it does on the option card beside it, instead of a
               // bare "0%" the same panel contradicts.
               const pct = Math.round(clamped * 100)
-              const readout = formatGoalProbability(clamped)
+              const readout = formatGoalProbability(clamped, share.nValidSamples)
               return (
                 <div
                   key={share.id}

@@ -35,6 +35,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
+import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 
 export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
@@ -142,16 +143,29 @@ export const GoalNode = memo((props: NodeProps) => {
   const goalFitSubstituted =
     displayMetadata.achievementProbabilityBasis === 'joint_goal_substituted'
   // The readout, built ONCE above both arms so the withheld and permitted
-  // wordings can never show different numbers for the same run. Byte-identical
-  // to the literal it replaces (`'< 1'` or rounded percent, then `'%'`).
+  // wordings can never show different numbers for the same run.
+  //
+  // ⭐ ROADMAP 2.333 — THE EXACT-ZERO DIVERGENCE, CLOSED.
+  // This was the node's own literal, and its sub-1% predicate carried a
+  // `> 0 &&` carve-out the dock surfaces do not have. The consequence was
+  // narrow and live: for an EXACT zero the carve-out fell through to
+  // `Math.round(0 * 100)`, so the canvas node said "0% chance of reaching
+  // target" while the option card beside it said "< 1%" about the same
+  // number. `displayFloors.ts` carried a standing correction recording this
+  // as the open, opposite convention.
+  //
+  // It now calls the goal register's shared formatter, so the canvas and the
+  // dock state one thing. Non-zero sub-1% values are unaffected — they read
+  // "< 1%" here exactly as they always did.
+  //
+  // No sample count is passed: `useNodeDisplayMetadata` carries the
+  // probability and its basis, not `n_valid_samples`, so this surface takes
+  // the floored fallback arm. That is the honest option — threading a count
+  // this hook does not hold would mean inventing one.
   const achievementReadout =
     displayMetadata.achievementProbability === null
       ? null
-      : `${
-          displayMetadata.achievementProbability > 0 && displayMetadata.achievementProbability < 0.01
-            ? '< 1'
-            : Math.round(displayMetadata.achievementProbability * 100)
-        }%`
+      : formatGoalProbability(displayMetadata.achievementProbability)
 
   // Border: dashed warning for no target, dashed by stability for post-analysis
   const goalBorderOverride = useMemo(() => {

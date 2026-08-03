@@ -48,7 +48,12 @@ import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import { selectFlipRisk } from '../utils/selectFlipRisk'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
-import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
+// `SUB_ONE_PERCENT_FLOOR` is still imported, and deliberately: it no longer
+// formats anything here, but it still GATES the no-option-on-track headline
+// (`allGoalBelowFloor`). That gate is a semantic threshold about the raw
+// values — "is any option meaningfully on track" — not a display rule, so it
+// keeps reading the constant even though the readouts now resolve finer.
+import { SUB_ONE_PERCENT_FLOOR, formatGoalProbability } from '../utils/displayFloors'
 import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../utils/goalFitBasisCaveatCopy'
@@ -150,10 +155,28 @@ const OUTCOME_CLOSE_RATIO = 0.15
  * when EVERY goal readout would render "< 1%", claiming any option "best
  * fits your goal" would be false.
  */
-function goalReadout(value: number | null): string {
+/**
+ * ⭐ ROADMAP 2.333/2.334 — this was a THIRD hand-copy of the goal register's
+ * floor (`value < SUB_ONE_PERCENT_FLOOR ? subOnePercent : formatPercent`),
+ * sitting beside the option card's and the V7 lens's copies of the same rule.
+ * It now calls the register's own formatter.
+ *
+ * The delegation is byte-identical to the previous behaviour whenever no
+ * sample count is supplied: `SUB_ONE_PERCENT_READOUT` and
+ * `HERO_COPY.readout.subOnePercent` are the same string ("< 1%"), and above
+ * the floor both paths are `formatPercent(v, { fromDecimal: true })`. The
+ * `missing` arm is the hero's own and stays here — it is a copy decision
+ * about an ABSENT value, not a formatting rule about a present one.
+ *
+ * With a count, the readout resolves exactly as the card and the goal lens
+ * now do. That matters most on this surface: the hero states its figure ABOVE
+ * the rows, so a hero saying "< 1%" over rows saying "0.1%" would be the same
+ * one-number-two-answers contradiction this slice exists to remove, moved one
+ * element up.
+ */
+function goalReadout(value: number | null, nSamples?: number | null): string {
   if (value == null) return HERO_COPY.readout.missing
-  if (value < SUB_ONE_PERCENT_FLOOR) return HERO_COPY.readout.subOnePercent
-  return formatPercent(value, { fromDecimal: true })
+  return formatGoalProbability(value, nSamples)
 }
 
 // formatFlipValue moved VERBATIM to `../utils/flipThresholdDisplay` (ROADMAP
@@ -322,10 +345,10 @@ export function buildHeroModel(
     const goalFit =
       goalValue != null
         ? optionHasConstraints(o)
-          ? HERO_COPY.detail.goalFitWithLimits(goalReadout(goalValue))
+          ? HERO_COPY.detail.goalFitWithLimits(goalReadout(goalValue, o.nValidSamples))
           : o.goalFitIsSubstitutedJoint === true
-            ? HERO_COPY.detail.goalFitJointBasis(goalReadout(goalValue))
-            : HERO_COPY.detail.goalFit(goalReadout(goalValue))
+            ? HERO_COPY.detail.goalFitJointBasis(goalReadout(goalValue, o.nValidSamples))
+            : HERO_COPY.detail.goalFit(goalReadout(goalValue, o.nValidSamples))
         : undefined
     // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): the caveat
     // renders ONLY when the goalFit number just above it is actually shown
@@ -345,7 +368,7 @@ export function buildHeroModel(
       label: stripEncodingNotation(o.label),
       goal: {
         value: goalValue,
-        readout: goalReadout(goalValue),
+        readout: goalReadout(goalValue, o.nValidSamples),
       },
       outcome: {
         p10,

@@ -132,10 +132,25 @@ describe('staging scenario — model truth', () => {
     // No goal-fit leader ring; the outcome highlight stays factual.
     expect(m.leaders.goal).toBeNull()
     expect(m.leaders.outcome).toBe('opt_virtual')
-    // Goal lens exists AND is the default — the "< 1%" rows ARE the story.
+    // Goal lens exists AND is the default — the sub-resolution rows ARE the
+    // story.
     expect(m.lenses).toEqual(['goal', 'outcome'])
     expect(m.defaultLens).toBe('goal')
-    expect(m.rows.every((r) => r.goal.readout === '< 1%')).toBe(true)
+    // ⭐ AMENDED (ROADMAP 2.334). Was `'< 1%'`. This run carries
+    // `nValidSamples: 4000` on every option and `goalProbability: 0`, so the
+    // goal register now states the bound the sampler actually supports:
+    // 1/4000 = 0.025 percentage points, rendered "<0.03%".
+    //
+    // This is the row's point getting SHARPER, not changing. "< 1%" was true
+    // but nearly two orders of magnitude looser than the evidence: it could
+    // not distinguish "we did not measure this finely" from "this is a real
+    // 0.9% chance". "<0.03%" says what 0 hits in 4000 runs licenses and
+    // nothing more.
+    //
+    // Derived by EXECUTING `formatGoalProbability(0, 4000)` at this tip, not
+    // hand-computed — the threshold ladder picks the smallest precision that
+    // renders distinctly non-zero, which is not obvious by inspection.
+    expect(m.rows.every((r) => r.goal.readout === '<0.03%')).toBe(true)
   })
 
   it('outcome readouts equal the denormalised values — never ×100 — and share the dot source field', () => {
@@ -186,12 +201,20 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
     expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/target/i)
   })
 
-  it('Goal fit still communicates the target shortfall (every option "< 1%", no-on-track headline)', () => {
+  it('Goal fit still communicates the target shortfall (every option "<0.03%", no-on-track headline)', () => {
     renderHero() // Goal fit is the default lens for this run.
     expect(screen.getByTestId('hero-headline')).toHaveTextContent(
       'No option is currently on track to meet every target this run scored.',
     )
-    expect(screen.getAllByText('< 1%').length).toBe(4)
+    // ⭐ AMENDED (ROADMAP 2.334): "< 1%" → "<0.03%" at n=4000. See the model
+    // -truth test above for why the tighter bound is the same claim, stated
+    // to the resolution the run actually has.
+    expect(screen.getAllByText('<0.03%').length).toBe(4)
+    // The headline gate is UNCHANGED and that is deliberate: it keys off
+    // `SUB_ONE_PERCENT_FLOOR` applied to the raw values, which is a semantic
+    // threshold ("is any option meaningfully on track"), not a display rule.
+    // Resolving the readouts finer must not quietly re-open that claim.
+    expect(screen.queryByText('< 1%')).not.toBeInTheDocument()
   })
 
   it('hero row 1 is the same option OptionCards ranks first, and both surfaces share one scale', () => {
@@ -216,8 +239,14 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
     expect(cardsText).toContain('6.39')
     expect(cardsText).not.toContain('-37%')
     expect(cardsText).not.toContain('80%')
-    // Goal honesty below stays consistent with the hero's "< 1%" readouts.
-    expect(within(cards.container).getAllByText(/< 1% likely to reach target/).length)
+    // Goal honesty below stays consistent with the hero's readouts — and
+    // THAT is the load-bearing claim here, not the literal string. Both
+    // surfaces move together because both now route through
+    // `formatGoalProbability` with the same per-option sample count; a change
+    // that resolved one and floored the other would reopen the
+    // one-number-two-answers defect between the hero and the cards.
+    // ⭐ AMENDED (ROADMAP 2.334): "< 1%" → "<0.03%" at n=4000.
+    expect(within(cards.container).getAllByText(/<0\.03% likely to reach target/).length)
       .toBeGreaterThan(0)
   })
 
