@@ -385,6 +385,45 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
               {resolveNext ? (
                 <>
                   <EvidenceNote>{E.resolveNextNote}</EvidenceNote>
+                  {/*
+                    ⭐ L51 — THE ARRIVED-AND-ALL-SUB-RESOLUTION EMPTY STATE.
+
+                    WHY THIS CONDITION IS THE HONEST ONE, EXACTLY. We are inside
+                    the `resolveNext != null` branch, and `buildVoiRanking`
+                    returns `null` for every case where the estimator did not
+                    deliver usable rows — absent, null, empty, all-invalid,
+                    all-unlabelable, unusable rank 1 (`voiRanking.ts:186,290,292`).
+                    So reaching here at all means rows ARRIVED, validated and
+                    label-resolved. `voiRanking.ts:292` then guarantees a
+                    non-null ranking has at least one row in some band, so
+                    `resolvedRows.length === 0` here means every surviving row is
+                    below-resolution — the precise condition the sentence claims.
+
+                    That is why the test is `resolvedRows.length === 0` and NOT
+                    `belowResolution.length > 0`: the two are equivalent at this
+                    point, and the former says what the sentence is about (there
+                    is nothing to rank) rather than restating the band split.
+
+                    THE BOUNDARY THIS MUST NOT CROSS. The sentence asserts the
+                    analysis LOOKED. On absent/unusable VOI that assertion would
+                    be fabricated, so those cases must keep the pre-existing
+                    `resolveNextGate` in the `else` below and must never reach
+                    here. Both directions are pinned in
+                    `__tests__/V7EvidenceDisclosure.resolveNextAllBelowResolution.spec.tsx`
+                    (§2 renders it, §3 proves absent/empty/invalid/unlabelable do
+                    not, §4 proves a single resolved row does not).
+
+                    It sits ABOVE the below-resolution line so the plain-language
+                    outcome is read before the factor list that occasioned it.
+                  */}
+                  {resolvedRows.length === 0 && (
+                    <p
+                      className={`${typography.panelBody} text-text-body`}
+                      data-testid="v7-resolve-next-none-above-resolution"
+                    >
+                      {E.resolveNextNoneAboveResolution}
+                    </p>
+                  )}
                   {resolvedRows.length > 0 && (
                     <ol className="ml-4 list-decimal space-y-1.5 marker:text-text-light">
                       {visibleResolveNext.map((r, i) => {
@@ -438,7 +477,21 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
                   />
                   {/* Demoted, never ranked. Below-resolution means
                       indistinguishable from noise AT THIS RUN'S RESOLUTION —
-                      not zero value, and not "not worth resolving". */}
+                      not zero value, and not "not worth resolving".
+
+                      ⭐ L51 review: the COPY here is no longer the design's
+                      "Below resolution on this run: …". It was reworded to the
+                      plain class ("Not enough precision this run to rank: …")
+                      because this line is behind NO expert affordance —
+                      `expertMode` is never passed into `V7TopMatter`, so it
+                      never reaches this component and every user who opens the
+                      accordion on an all-below run reads it.
+
+                      THE DOCTRINE ABOVE IS UNCHANGED and still constrains the
+                      wording: the shortfall is attributed to THIS RUN'S
+                      precision, never to the factors' worth. Any future
+                      rewording that implies "no value" or "not worth
+                      resolving" breaks it, whatever it does to the prose. */}
                   {resolveNext.belowResolution.length > 0 && (
                     <p
                       className={`${typography.panelMeta} text-text-light`}
