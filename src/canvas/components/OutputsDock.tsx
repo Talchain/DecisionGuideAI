@@ -88,12 +88,10 @@ import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
-import { useV2Run, resolveChipGoalThreshold, resolveMeasureUnitCap, resolveActiveGoalNodeId, type V2RunPersistence } from '../hooks/useV2Run'
-import {
-  useSuccessMeasureStore,
-  selectSuccessMeasure,
-} from '../../components/results/modals/successMeasureStore'
-import { resolveScenarioKey } from '../../components/results/modals/scenarioKey'
+// ROADMAP 2.109: the goal-threshold normalisation helpers and the
+// success-measure/scenario-key lookups left with the retired chip parameter —
+// only the goal-node resolver is still used (the atomic target commit).
+import { useV2Run, resolveActiveGoalNodeId, type V2RunPersistence } from '../hooks/useV2Run'
 import { useScenario } from '../../hooks/useScenario'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { normaliseRawFactorValue, withObservedStateUpdate } from '../utils/observedStateHelpers'
@@ -948,84 +946,36 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     if (canonical) {
       const dispatch = useGuidanceStore.getState()._dispatchAction
       if (dispatch) {
-        // Lane 1b (V-P0-1): the goal threshold is SCENARIO STATE, not a
-        // one-shot commit parameter — the V2 boundary reads the store on
-        // every run, but the V5 chip only carried it on the two commit
-        // flows, so every plain rerun silently dropped the saved target
-        // (live wire evidence 2026-07-13: strip Rerun with target 60 saved
-        // dispatched no parameters, making the goal node's "rerun to
-        // update" advice futile). When the caller supplies no threshold,
-        // resolve the store threshold through the same fail-closed
-        // normaliser (cap chain + saved-measure unit, UI-SEM-081) and
-        // attach it. An explicit caller `goal_threshold` always wins.
+        // ROADMAP 2.109 — the `goal_threshold` CHIP PARAMETER IS RETIRED.
+        // This block used to re-attach the store threshold to every plain run.
+        // It is deleted because the parameter was a WRITE-ONLY channel: at CEE
+        // staging tip `1ba181e7` the complete manifest of non-test
+        // `chip.parameters` readers is two sites — the `add_option` ingress
+        // (`route-v2.ts:2684`) and the typed-chip mutation pre-route
+        // (`turn-executor.ts:4536`, reader map = set_factor_value /
+        // adjust_edge_strength / add_constraint) — and NEITHER is
+        // `run_analysis`. The `run_analysis` handler contains zero occurrences
+        // of `parameters` or `goal_threshold`.
         //
-        // The test is PER-KEY, not "did the caller pass any parameters at
-        // all". It used to be `if (!parameters)`, which made the parameters
-        // channel all-or-nothing: a caller carrying an UNRELATED parameter
-        // (e.g. a node chip's `chip_id` provenance) suppressed the store
-        // threshold along with it.
+        // The user's target reaches CEE through the GRAPH (`goal_threshold_raw`,
+        // persisted on the goal node), which is the channel that actually closed
+        // the defect. DO NOT re-introduce this write: a second writer racing the
+        // raw-anchored graph channel is the split-brain class, and it would
+        // serve a value nothing reads.
         //
-        // SCOPE THAT HONESTLY — this is forward-safety, not a live-defect
-        // fix (review 2026-07-28, from a COMPLETE manifest of every non-test
-        // read of `chip.parameters` in CEE `src/`). Nothing in CEE reads
-        // parameters for `run_analysis`: the handler builds `{ scenario_id }`
-        // alone (`run-analysis.ts:255`), and CEE says so itself at
-        // `typed-chip-mutation-proposal.ts:39-43` — "NOT WIRED HERE … the
-        // run-canonical `goal_threshold` parameter … write-only today with a
-        // server-side `goal_threshold_raw` fallback deriving the same value".
-        // The user's target actually reaches CEE through the GRAPH
-        // (`goal_threshold_raw`, persisted at `useInspectorMutations.ts:114`,
-        // read at `turn-executor.ts:9200`). So the suppression changed
-        // nothing a user could observe, and this block is defence-in-depth
-        // for when that fallback is retired. DO NOT build a "the chip
-        // carries the user's target" premise on this comment without
-        // re-deriving the CEE reader manifest first.
-        //
-        // Boundary, stated so it is not later rediscovered as a bug: "run
-        // with NO threshold" is not expressible — `{}` and
-        // `{ goal_threshold: undefined }` both take the re-attach arm. No
-        // caller uses either spelling, and `null` / `0` are preserved (both
-        // are !== undefined). Behaviour is unchanged for every caller that
-        // passes a defined `goal_threshold` or passes no parameters — the
-        // only two that pass any are `DefineSuccessModal.tsx:223` and the
-        // apply-threshold path at `OutputsDock.tsx:1099`.
-        let parameters = opts?.parameters
-        if (parameters?.goal_threshold === undefined) {
-          const savedMeasure = selectSuccessMeasure(
-            useSuccessMeasureStore.getState(),
-            resolveScenarioKey(storeState.currentScenarioId),
-          )
-          const storeThreshold = resolveChipGoalThreshold(storeState.goalThreshold, {
-            analysisReady: storeState.ceeAnalysisReady,
-            nodes: storeState.nodes,
-            // Lane 5: one shared goal-node resolution (validated to exist) for
-            // request + cap, so V2 and V5 can never resolve different nodes.
-            goalNodeId: resolveActiveGoalNodeId(storeState),
-            // Provenance-guarded (review blocker): the measure's "%" may cap
-            // ONLY a store value that came from that measure — the store field
-            // also receives capless NORMALISED values from CEE-sync, which a
-            // blind ÷100 would shrink 100×.
-            unitCap: resolveMeasureUnitCap(savedMeasure, storeState.goalThreshold),
-            // Lane 5 (Codex P0-1): a store value the bare-sync tagged
-            // 'normalised' is already 0-1 — pass it through, never divide by
-            // the node cap (that was the 0.6 → 0.006 live corruption).
-            representation: storeState.goalThresholdRepresentation,
-          })
-          if (storeThreshold !== undefined) {
-            // Merge, never replace: the caller's other parameters (chip_id
-            // provenance) must survive the threshold re-attachment.
-            parameters = { ...parameters, goal_threshold: storeThreshold }
-          }
-        }
+        // The generic `parameters` passthrough deliberately SURVIVES — node
+        // chips ship `chip_id` provenance through it.
+        const parameters = opts?.parameters
         // Fire-and-forget — the dispatcher streams the response and
         // routeV5Response handles all state mutations. We deliberately do
         // NOT await: the OutputsDock UI subscribes to canvas store status
         // for spinner state.
         dispatch({
           action_type: 'run_analysis',
-          // Wave F-B: caller-supplied chip parameters (e.g. goal_threshold
-          // from the threshold/Define-success rerun) ride the canonical
-          // dispatch — no surface builds its own pipeline.
+          // Wave F-B: caller-supplied chip parameters (e.g. `chip_id`
+          // provenance from a node chip) ride the canonical dispatch — no
+          // surface builds its own pipeline. The former `goal_threshold`
+          // example is gone with the parameter itself (ROADMAP 2.109).
           ...(parameters ? { parameters } : {}),
           label: 'Run analysis',
           message: 'Run analysis',
@@ -1134,34 +1084,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // Wave F-B: the threshold rerun goes through the canonical runner like
     // every other run affordance — same gate, same V5/V2 routing. The V2
     // fallback reads store.goalThreshold (UI-SEM-058), already set above.
-    // Codex final-audit B3 — the V5 chip must carry the NORMALISED threshold
-    // (buildPayload forwards it verbatim; raw units are ignored by PLoT).
-    // Fail closed (omit) when normalisation can't be proven. The cap
-    // resolves against the SAME node the threshold was committed to above
-    // (test-practice audit: this previously used store.outcomeNodeId — a
-    // different resolution in the same handler). UI-SEM-081: the saved
-    // success measure's unit is the last-resort cap ("%" → 100).
-    const savedMeasure = selectSuccessMeasure(
-      useSuccessMeasureStore.getState(),
-      resolveScenarioKey(store.currentScenarioId),
-    )
-    const normalisedThreshold = resolveChipGoalThreshold(threshold, {
-      analysisReady: store.ceeAnalysisReady,
-      nodes: store.nodes,
-      goalNodeId,
-      // Provenance-guarded: the inline editor's number may be in a different
-      // scale than the saved measure — the "%" cap applies only when the
-      // applied value IS the measure's value.
-      unitCap: resolveMeasureUnitCap(savedMeasure, threshold),
-      // Lane 5: the inline editor commits a fresh RAW user number → keep the
-      // cap-chain conversion (never treated as pre-normalised).
-      representation: 'raw',
-    })
+    //
+    // ROADMAP 2.109 — the `goal_threshold` chip parameter is RETIRED (it had
+    // no CEE reader for `run_analysis`; see the note in dispatchRunAnalysis).
+    // The atomic store + goal-node commit above is what carries the user's
+    // target to CEE, through the graph's `goal_threshold_raw`. The
+    // normalisation that used to build the chip parameter is deleted with it.
     void runCanonicalAnalysis({
       source: 'apply-threshold',
-      ...(normalisedThreshold !== undefined
-        ? { parameters: { goal_threshold: normalisedThreshold } }
-        : {}),
     }).then((outcome) => {
       // Review (b): the hero copy promises "Applying runs the analysis
       // again" — a gated outcome must say why instead of silently saving
