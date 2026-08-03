@@ -482,6 +482,17 @@ interface CanvasState {
    * which the reconciler removes nothing.
    */
   lastAuthoritativeGraph: { nodeIds: string[]; edgePairs: string[] } | null
+  /**
+   * ROADMAP 2.312 piece 3 — CEE's `identity.v1` token for the server graph this
+   * canvas was last hydrated from, stored VERBATIM.
+   *
+   * ⚠ OPAQUE AND CEE-ISSUED. Compare CEE-to-CEE only, gated on
+   * `projectionVersion`, and NEVER recompute it locally: the normalisation,
+   * strip list and projection are CEE's and are versioned precisely so they can
+   * move, so no client-side value can be the same thing. It is the staleness
+   * anchor by ruling (there is deliberately no `updated_at` on the read route).
+   */
+  serverGraphIdentity: { value: string; projectionVersion: string } | null
   // CEE Pipeline trace from last draft-graph response (for debug panel)
   ceePipelineTrace: CeePipelineTrace | null
   // CEE V3: Per-node LLM reasoning (node ID → why text) for rationale tooltips
@@ -831,6 +842,10 @@ interface CanvasState {
   /** B2: record the identities of an authoritative CEE graph (see the field). */
   setLastAuthoritativeGraph: (
     graph: { nodeIds: string[]; edgePairs: string[] } | null,
+  ) => void
+  /** 2.312: store CEE's opaque identity token verbatim (see the field). */
+  setServerGraphIdentity: (
+    identity: { value: string; projectionVersion: string } | null,
   ) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
   setCeeQuality: (quality: CeeQualityDimensions | null) => void
@@ -1197,6 +1212,10 @@ const DECISION_CONTEXT_CLEAR = {
   // B2: element identities are graph-specific. A previous scenario's set would
   // authorise deleting same-id nodes in the newly loaded graph.
   lastAuthoritativeGraph: null,
+  // 2.312: the token identifies ONE scenario's server graph. Carrying it across
+  // a decision-context change would make the next scenario's first read compare
+  // equal to a graph it has nothing to do with, and skip its own hydration.
+  serverGraphIdentity: null,
 } as const
 
 /**
@@ -1584,6 +1603,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   goalConstraints: null,
   // B2: no authoritative graph seen yet — reconciler removes nothing.
   lastAuthoritativeGraph: null,
+  // 2.312: no server graph read yet — nothing to compare against.
+  serverGraphIdentity: null,
   // CEE Pipeline trace from last draft
   ceePipelineTrace: null,
   // CEE V3: Per-node LLM reasoning for rationale tooltips
@@ -4252,6 +4273,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setLastAuthoritativeGraph: (graph) => {
     set({ lastAuthoritativeGraph: graph })
+  },
+
+  setServerGraphIdentity: (identity) => {
+    set({ serverGraphIdentity: identity })
   },
 
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => {

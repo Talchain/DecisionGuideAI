@@ -546,7 +546,7 @@
 2	src/canvas/conversation/useConversation.ts	TS2339	Property 'graph_state' does not exist on type 'TurnRequestPayload'.
 1	src/canvas/conversation/useConversation.ts	TS2339	Property 'message' does not exist on type 'TurnRequestPayload'.
 2	src/canvas/conversation/useConversation.ts	TS2339	Property 'selected_elements' does not exist on type 'TurnRequestPayload'.
-1	src/canvas/conversation/useConversation.ts	TS2345	Argument of type '{ currentResultsHash: null | string; backfillGoalThreshold: (analysisReady: { goal_node_id?: string; goal_threshold_raw?: null | number; goal_threshold_unit?: null | string; goal_threshold_cap?: null | number; } | null) => void; ... 247 more ...; clearClarifierPreview: () => void; }' is not assignable to parameter of type 'V5ApplicatorStore'.
+1	src/canvas/conversation/useConversation.ts	TS2345	Argument of type '{ currentResultsHash: null | string; backfillGoalThreshold: (analysisReady: { goal_node_id?: string; goal_threshold_raw?: null | number; goal_threshold_unit?: null | string; goal_threshold_cap?: null | number; } | null) => void; ... 249 more ...; clearClarifierPreview: () => void; }' is not assignable to parameter of type 'V5ApplicatorStore'.
 2	src/canvas/conversation/useConversation.ts	TS2352	Conversion of type 'OrchestratorResponseEnvelopeV2' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/canvas/conversation/useGraphEditEvents.ts	TS6133	'op' is declared but its value is never read.
 1	src/canvas/conversation/useGraphEditEvents.ts	TS6133	'ops' is declared but its value is never read.

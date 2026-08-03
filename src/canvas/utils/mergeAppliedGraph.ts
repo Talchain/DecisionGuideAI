@@ -138,10 +138,14 @@ import {
 } from './applyDraftResult'
 import type { CEEDraftResponse, CEEv2Response, CEEv3Response } from '../../adapters/cee/types'
 
-/** Horizontal gap between the current bounding box and the added column. */
-const ADDED_COLUMN_X_GAP = 260
+/**
+ * Horizontal gap between the current bounding box and the added column.
+ * Exported so the boot-hydration merge places added nodes identically —
+ * two placement constants that must agree is a mirror, and mirrors drift.
+ */
+export const ADDED_COLUMN_X_GAP = 260
 /** Vertical spacing between stacked added nodes. */
-const ADDED_COLUMN_Y_STEP = 140
+export const ADDED_COLUMN_Y_STEP = 140
 
 export interface ReconcileAppliedGraphResult {
   addedNodeCount: number
@@ -253,8 +257,14 @@ function sameValue(a: unknown, b: unknown): boolean {
  * backfills (interventions, is_baseline, goal_threshold_*) live in the same
  * `data` bag. The residual is documented and accepted: a value CEE genuinely
  * cleared stays on the canvas until the next full draft.
+ *
+ * ⚠ EXPORTED for `mergeServerGraph.ts` (ROADMAP 2.312 piece 3). Boot hydration
+ * needs exactly this rule — server values win, local layout survives — and a
+ * second implementation of "spread existing first" would be the hand-maintained
+ * mirror this repo keeps getting bitten by. There is ONE definition of the
+ * overlay; its two callers differ only in the semantics around it.
  */
-function overlayNode(existing: any, wireNode: any): any {
+export function overlayNode(existing: any, wireNode: any): any {
   const mapped = mapDraftNodeToCanvas(wireNode)
   const nextData = { ...(existing.data ?? {}), ...(mapped.data ?? {}) }
   const nextType = mapped.type ?? existing.type
@@ -274,7 +284,7 @@ function overlayNode(existing: any, wireNode: any): any {
  * splat DEFAULT_EDGE_DATA over locally-tuned edges and churn history on every
  * turn.
  */
-function overlayEdge(existing: any, wireEdge: any): any {
+export function overlayEdge(existing: any, wireEdge: any): any {
   const mapped = mapDraftEdgeToCanvas(wireEdge, 0)
   const mappedData = (mapped.data ?? {}) as Record<string, unknown>
 

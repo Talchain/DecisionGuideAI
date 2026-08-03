@@ -17,6 +17,7 @@ import { TopBar } from '../components/layout/TopBar'
 import { getScenario } from '../canvas/store/scenarios'
 import { buildShareLink } from '../canvas/utils/shareLink'
 import { useScenario } from '../hooks/useScenario'
+import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 
@@ -66,6 +67,17 @@ export default function CanvasMVP() {
       })
     }
   }, [scenarioIdFromRoute, isPersistenceActive, loadSupabaseScenario])
+
+  // ROADMAP 2.312 piece 3: merge the SERVER's copy of this scenario's graph
+  // over the locally-restored canvas — values from CEE, layout from local.
+  //
+  // ⚠ NOT gated on `isPersistenceActive`. That flag is false for every guest
+  // session by construction (`lib/persistenceActive.ts`), and guest is the tier
+  // that ships — gating on it would leave this doing nothing for every real
+  // user. It does not apply here in any case: that flag governs the UI's own
+  // Supabase writes, whereas this read goes through CEE, which holds the
+  // service credential the browser deliberately does not have.
+  useServerGraphHydration(scenarioIdFromRoute)
 
   // Track canvas opened event
   useEffect(() => {
