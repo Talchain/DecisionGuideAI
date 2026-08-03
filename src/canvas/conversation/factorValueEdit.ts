@@ -70,8 +70,25 @@ function readNumber(field: unknown): number | undefined {
  *   6000000% class the #559 entry guard exists to stop, re-entered through the
  *   scale module. `'raw_only'` falls through to the module's own EMPTY-input
  *   rule instead (see `ValueInputSeed.inUserUnits`).
+ * - `'model_scale'` (ROADMAP 2.364) — the committing control did not carry a
+ *   TYPED number at all: it carried a probability in [0,1] produced by CEE's
+ *   belief-elicitation engine, which is already what `observed_state.value`
+ *   holds. The node's own `raw_value` therefore says nothing about it, so this
+ *   basis is answered BEFORE the `raw_value` rule rather than after it —
+ *   otherwise an elicited 0.7 on a factor storing `raw_value: 8, cap: 20`
+ *   would be labelled a user-unit magnitude and normalised to 0.035.
+ *
+ *   WHY THE UI DOES NOT CONVERT INSTEAD. The user-unit magnitude for an
+ *   elicited probability is `value * cap`, and that inversion already exists,
+ *   server-side, as the ONE authority that owns it: CEE's
+ *   `resolveUserUnitInput` (`orchestrator-v5/system-events/
+ *   factor-value-edit.ts`, read at `staging` 2026-08-03) does exactly
+ *   `cap !== undefined ? value * cap : value` when the wire carries no
+ *   `raw_value`. Re-deriving it here would be a SECOND scale authority in a
+ *   component — the defect this module exists to prevent — and it would use
+ *   the client's cached cap rather than the factor's stored one.
  */
-export type ValueInputSeedBasis = 'raw_or_value' | 'raw_only'
+export type ValueInputSeedBasis = 'raw_or_value' | 'raw_only' | 'model_scale'
 
 export interface ValueInputSeed {
   /** The number the input should display, or undefined for an empty input. */
@@ -102,12 +119,77 @@ export function resolveValueInputSeed(
   const rawValue = readNumber(obs.raw_value)
   const value = readNumber(obs.value)
 
+  // FIRST, deliberately: a model-scale commit is a statement about the number
+  // being committed, not about what the node happens to store, so no stored
+  // field may override it.
+  if (basis === 'model_scale') return { seed: value, inUserUnits: false }
   if (rawValue != null) return { seed: rawValue, inUserUnits: true }
   // A `raw_only` input never showed `value`, so the field the user typed into
   // was EMPTY — which is the module's existing user-units case, not a new rule.
   if (basis === 'raw_only') return { seed: undefined, inUserUnits: true }
   if (value != null) return { seed: value, inUserUnits: false }
   return { seed: undefined, inUserUnits: true }
+}
+
+/**
+ * Does this factor's MODEL scale carry a real-world magnitude?
+ *
+ * ⚠ THIS PREDICATE EXISTS BECAUSE OF A CONFIRMED CORRUPTION (review of #572).
+ * When a factor declares a unit but NO cap, CEE stores `value` and `raw_value`
+ * IDENTICALLY (`d1-shared/normalise-factor-value.ts:16`, and its own
+ * `resolveUserUnitInput` comment: "an uncapped factor stores raw and model
+ * identically"). The staging-witnessed shape is
+ * `{value: 40000, unit: '£', raw_value: 40000}` — no cap.
+ *
+ * On that shape a `'model_scale'` commit of a probability is a catastrophe with
+ * no surviving guard: the wire carries `{value: 0.7}` with no `raw_value`, CEE's
+ * `resolveUserUnitInput` takes the cap-absent branch and reads 0.7 AS THE
+ * POUNDS, and £40,000 becomes £0.70 — with a receipt-gated "checked by you"
+ * stamp on it. CEE's own `bare_ratio_on_unit_factor` gate, whose comment
+ * describes exactly this output, CANNOT fire: the system-event adapter stamps
+ * the factor's OWN unit onto the proposal (`factor-value-edit.ts:323`), so
+ * `inputHasUnit` is true; and with no cap the range guards never run.
+ *
+ * So the refusal has to live here, in the client, at the one place that knows
+ * both the basis and the factor's declared shape.
+ */
+export function isMagnitudeScaledFactor(nodeData: unknown): boolean {
+  const obs = getObservedState(nodeData)
+  const cap = readNumber(obs.cap)
+  const hasPositiveCap = typeof cap === 'number' && Number.isFinite(cap) && cap > 0
+  if (hasPositiveCap) return false
+  const unit = typeof obs.unit === 'string' ? obs.unit.trim() : ''
+  return unit.length > 0
+}
+
+/**
+ * May an elicited PROBABILITY be offered — and afterwards SHOWN — on this
+ * factor?
+ *
+ * Narrower than `!isMagnitudeScaledFactor`, and the extra narrowing is the
+ * display half of the same question. On a CAPPED factor the accepted 0.7 is
+ * scale-correct on the wire (CEE inverts it to `0.7 × cap`), but the client
+ * cannot DISPLAY it: `setObservedValue` clears both `display_value` copies, no
+ * receipt writes the server's `after` values back into node data
+ * (`confirmOptimisticFactorEdit` writes the provenance stamp and nothing else),
+ * and computing `value × cap` here would be the second scale authority this
+ * module exists to prevent. The row would therefore either go blank or keep
+ * showing the PREVIOUS magnitude beside the new value — a confident wrong
+ * number, which is worse than a blank one.
+ *
+ * On a factor with no unit and no cap, none of that arises: `value` IS the
+ * display scale, CEE persists `raw_value = value`, and the accepted number
+ * stays visible exactly as a typed `0.7` does today.
+ *
+ * WIDENING THIS IS A REAL FEATURE, NOT A ONE-LINE RELAXATION: it needs the
+ * applied `graph_patch`'s `after` values written back into node data. Rowed.
+ */
+export function acceptsElicitedBelief(nodeData: unknown): boolean {
+  const obs = getObservedState(nodeData)
+  const cap = readNumber(obs.cap)
+  if (typeof cap === 'number' && Number.isFinite(cap) && cap > 0) return false
+  const unit = typeof obs.unit === 'string' ? obs.unit.trim() : ''
+  return unit.length === 0
 }
 
 export interface FactorValueEditInput {
@@ -137,6 +219,19 @@ export function buildFactorValueEditEvent(
   const { nodeId, typedValue, nodeData, seedBasis } = input
   if (!nodeId) return null
   if (typeof typedValue !== 'number' || !Number.isFinite(typedValue)) return null
+
+  // ── the `'model_scale'` belt ─────────────────────────────────────────────
+  // Both refusals are STRUCTURAL: they hold for every caller, present and
+  // future, and they fail CLOSED (no event ⇒ no local write, no wire, no
+  // receipt, no stamp) rather than emitting a number the factor cannot mean.
+  if (seedBasis === 'model_scale') {
+    // A probability outside [0,1] is not a model-scale value. The client
+    // boundary refuses one in `suggested_value`; this catches every OTHER way
+    // a number can reach here — a clarification chip, or a future caller.
+    if (typedValue < 0 || typedValue > 1) return null
+    // The £40,000 → £0.70 shape. See `isMagnitudeScaledFactor`.
+    if (isMagnitudeScaledFactor(nodeData)) return null
+  }
 
   const obs = getObservedState(nodeData)
   const cap = readNumber(obs.cap)
