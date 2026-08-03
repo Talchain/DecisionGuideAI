@@ -177,6 +177,14 @@ describe('Contested edge calibration cards', () => {
     }
   })
 
+  // ⚠ THE TWO EDGES MUST HAVE DIFFERENT TARGETS, AND THAT IS LOAD-BEARING FOR THIS TEST.
+  // This spec pins the DISPLAY ordering of contested items (evoi_impact above no-evoi). Both
+  // edges pointed at `goal1` until the client-side one-per-target-node cap landed
+  // (utils/selectSurfacedContestedEdges.ts), which would keep only one of them and leave
+  // nothing to order. Repointing e2 at its own goal keeps BOTH items on screen so the
+  // ordering assertion still has two objects to order — it does not weaken the assertion:
+  // deleting the evoi-presence branch of the verify sort still elects e1 (max_divergence 0.9
+  // beats 0.3) and turns this red.
   it('sorts contested items with evoi_impact above those without', () => {
     const v1 = makeValidation({ max_divergence: 0.9, evoi_impact: null })
     const v2 = makeValidation({ max_divergence: 0.3, evoi_impact: 0.05 })
@@ -185,10 +193,11 @@ describe('Contested edge calibration cards', () => {
         { id: 'fac1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Factor 1' } },
         { id: 'fac2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Factor 2' } },
         { id: 'goal1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
+        { id: 'goal2', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal 2' } },
       ],
       edges: [
         { id: 'e1', source: 'fac1', target: 'goal1', data: { weight: 0.5, direction: 'positive', validation: v1 } },
-        { id: 'e2', source: 'fac2', target: 'goal1', data: { weight: 0.5, direction: 'positive', validation: v2 } },
+        { id: 'e2', source: 'fac2', target: 'goal2', data: { weight: 0.5, direction: 'positive', validation: v2 } },
       ],
     }))
 
