@@ -19,6 +19,7 @@ import { GoalTargetNudge } from '../pre-analysis/GoalTargetNudge'
 import { PanelHeader } from './header/PanelHeader'
 import { HeroSection, GOAL_INPUT_ID, SUCCESS_INPUT_ID } from './hero/HeroSection'
 import { SharpenSection } from './sharpen/SharpenSection'
+import { ContestedSection } from './contested/ContestedSection'
 import { YourDecisionSection } from './model/YourDecisionSection'
 import { AdvancedSection } from './advanced/AdvancedSection'
 import { PanelFooter } from './footer/PanelFooter'
@@ -148,6 +149,14 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
           onSendPrompt={sendPrompt}
           onAction={handleSignalAction}
         />
+        {/* ROADMAP 2.376 — connections CEE's two validation passes disagreed about.
+            Placed between Sharpen and Your decision on purpose: it is a "worth checking
+            before you run" item like Sharpen's, but it is about the MODEL's connections
+            rather than the framing, so it introduces the model section rather than
+            interrupting the coaching. It is deliberately ABOVE Advanced — a differentiator
+            no other tool shows should not be filed behind a collapsed set-up disclosure.
+            Renders nothing at all when no connection is contested, which is most models. */}
+        <ContestedSection rows={model.contested} />
         <YourDecisionSection model={model} onSendPrompt={sendPrompt} estimateFocus={estimateFocus} />
         <AdvancedSection advanced={model.advanced} />
       </div>
