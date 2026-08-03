@@ -27,14 +27,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { typography } from '@/styles/typography'
-import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPercent'
+import { formatProbabilityWithResolution } from '@/utils/formatPercent'
 import { loadRuns, type StoredRun } from '@/canvas/store/runHistory'
 import * as runsBus from '@/canvas/store/runsBus'
 import type { OptionResult } from '../types'
 import { OptionRangeBar } from '../shared/OptionRangeBar'
 import type { V7LensesModel } from './buildV7Lenses'
 import { V7_LENS_COPY } from './v7LensCopy'
-import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
+import { formatGoalProbability } from '../utils/displayFloors'
 import { V7WhatChangedLens, hasComparableRuns } from './V7WhatChangedLens'
 
 export type V7Lens = 'outcome' | 'goal' | 'stability' | 'whatChanged'
