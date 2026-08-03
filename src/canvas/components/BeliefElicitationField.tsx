@@ -32,6 +32,7 @@
  *     caller.
  */
 
+import { useEffect, useRef, useState } from 'react'
 import Tooltip from '../../components/Tooltip'
 import { typography, typo } from '../../styles/typography'
 import { formatElicitedChance, type BeliefElicitationApi } from '../hooks/useBeliefElicitation'
@@ -88,9 +89,67 @@ export function BeliefElicitationField({
   onAccept,
   testId,
 }: BeliefElicitationFieldProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [announcement, setAnnouncement] = useState('')
+
+  /**
+   * ⚠ THE DEAD END THIS EXISTS TO CLOSE (found live by Codex; confirmed at the
+   * bytes at `122b847a` AND at this lane's tip, on BOTH hosts).
+   *
+   * Revealing the field only flipped `inWords`. The new input had no ref, no
+   * `focus()` and no `scrollIntoView()`, so on a row near the panel's lower
+   * edge **the UI appeared not to change at all**: focus stayed on the icon,
+   * the field was off-screen, and the user typed their phrase INTO THE CHAT —
+   * where it does nothing. The headline feature was a practical dead end for
+   * exactly the users who did what the affordance invited.
+   *
+   * FOCUS ON MOUNT, NOT IN THE CLICK HANDLER, and that is the whole point:
+   * this component only mounts when the field is revealed, so the behaviour is
+   * identical however the reveal happened — pointer, Enter, Space, or a future
+   * caller that reveals it some other way. A handler on the toggle would have
+   * to be duplicated per host and per input modality, which is how the two
+   * hosts drifted in the first place.
+   */
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.focus()
+    // The repo's own guard (InspectorGuidanceSection.tsx:79): jsdom does not
+    // implement scrollIntoView, and an unguarded call turns every test that
+    // renders this field into a TypeError.
+    if (typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [])
+
+  /**
+   * Announced SEPARATELY, and set AFTER mount rather than rendered as initial
+   * content: a live region that already contains its text when it enters the
+   * DOM has no CHANGE to announce, so assistive tech stays silent. Separate
+   * effect from the focus one so a label change re-announces without yanking
+   * focus out of a field the user is mid-way through typing into.
+   */
+  useEffect(() => {
+    setAnnouncement(`Describe ${label} in words — for example, "pretty likely".`)
+  }, [label])
+
   return (
     <div className="space-y-1" data-testid={testId}>
+      {/*
+        `aria-live` WITHOUT `role="status"`, deliberately. `role="status"` is
+        just sugar for an implicit polite live region, and adding a THIRD one to
+        a component that already has two conditional `role="status"` paragraphs
+        ("Reading that…" and the error line) made `getByRole('status')`
+        ambiguous — it broke two existing CalibrateDrillIn tests the moment this
+        landed. Competing status regions are worse for a screen reader too: the
+        announcement, the loading line and the error line would all claim the
+        same role while describing different things.
+      */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcement}
+      </div>
       <input
+        ref={inputRef}
         aria-label={describeInWordsFieldLabel(label)}
         className={`${typography.panelBody} h-7 w-56 rounded-lg border border-panel-border bg-panel px-2 text-text-header outline-none placeholder:text-text-light focus:border-info focus:ring-2 focus:ring-info/20`}
         placeholder="e.g. pretty likely"

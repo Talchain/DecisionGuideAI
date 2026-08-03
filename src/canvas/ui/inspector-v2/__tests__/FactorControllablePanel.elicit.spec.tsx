@@ -303,6 +303,57 @@ describe('FactorControllablePanel — belief elicitation post-analysis (ROADMAP 
     expect(elicitRequests[0].target_type).toBe('prior')
   })
 
+  // ── 1b. THE REVEAL IS NOT A DEAD END ─────────────────────────────────────
+
+  it('revealing the field MOVES FOCUS INTO IT (the reveal was a practical dead end)', () => {
+    seed(WALK_ID, WALK_LABEL, WALK_OBSERVED)
+    renderPanel(WALK_ID)
+
+    const toggle = screen.getByLabelText(describeInWordsToggleLabel(WALK_LABEL))
+    expect(document.activeElement).not.toBe(toggle) // nothing focused yet
+    fireEvent.click(toggle)
+
+    // IDENTITY-BOUND: the active element IS this exact input, not "an input".
+    // Without this, focus stayed on the icon and — on a row near the panel's
+    // lower edge, where the new field is off-screen — the user typed their
+    // phrase into the CHAT, which does nothing (Codex hit this live).
+    const field = screen.getByLabelText(describeInWordsFieldLabel(WALK_LABEL))
+    expect(document.activeElement).toBe(field)
+  })
+
+  it('announces the reveal in a live region', () => {
+    seed(WALK_ID, WALK_LABEL, WALK_OBSERVED)
+    renderPanel(WALK_ID)
+    fireEvent.click(screen.getByLabelText(describeInWordsToggleLabel(WALK_LABEL)))
+
+    // Scoped to the revealed field: the panel has other role="status" nodes.
+    const region = screen
+      .getByTestId('inspector-in-words')
+      .querySelector('[aria-live="polite"]')
+    expect(region).not.toBeNull()
+    expect(region).toHaveTextContent(`Describe ${WALK_LABEL} in words`)
+  })
+
+  it('scrolls the revealed field into view — CALL-level, jsdom cannot prove layout', () => {
+    seed(WALK_ID, WALK_LABEL, WALK_OBSERVED)
+    renderPanel(WALK_ID)
+    // jsdom does not implement scrollIntoView at all, so installing the spy IS
+    // what makes the call observable. ⚠ CLAIM TYPE: this proves the component
+    // ASKS to be scrolled into view. It proves NOTHING about whether the field
+    // is visible on screen — jsdom cannot prove visibility (CLAUDE.md trap 3),
+    // and the off-screen half of the live defect is only witnessable in a real
+    // browser.
+    const spy = vi.fn()
+    ;(window.HTMLElement.prototype as unknown as { scrollIntoView: unknown }).scrollIntoView = spy
+
+    fireEvent.click(screen.getByLabelText(describeInWordsToggleLabel(WALK_LABEL)))
+
+    const field = screen.getByLabelText(describeInWordsFieldLabel(WALK_LABEL))
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy.mock.instances[0]).toBe(field)
+    delete (window.HTMLElement.prototype as unknown as Record<string, unknown>).scrollIntoView
+  })
+
   // ── 2. THE GATE, both ways ───────────────────────────────────────────────
 
   it('HIDES the affordance on the uncapped unit-bearing MAGNITUDE shape (the #572 blocker)', () => {

@@ -295,6 +295,31 @@ describe('CalibrateDrillIn — "say it in words" (ROADMAP 2.364)', () => {
     })
   })
 
+  /**
+   * ROADMAP 2.391 — THE REVEAL WAS A PRACTICAL DEAD END ON THIS SURFACE TOO.
+   *
+   * Found live by Codex and confirmed at the bytes at `122b847a`: the toggle
+   * only flipped `inWords`; the new input had no ref, no `focus()`, no
+   * `scrollIntoView()`. On a row near the panel's lower edge the UI appeared
+   * not to change, focus stayed on the icon, and the user typed the phrase
+   * into the CHAT instead — where it does nothing.
+   *
+   * This pin lives on BOTH hosts deliberately. The fix is in the shared
+   * `BeliefElicitationField` (mount-driven, so it is identical for pointer and
+   * keyboard), and this is the assertion that proves the ONE fix reaches the
+   * pre-analysis host and not only the inspector panel.
+   */
+  it('revealing the field MOVES FOCUS INTO IT (the reveal was a dead end)', async () => {
+    seedFactor(WALK_ID, WALK_LABEL, { ...WALK_OBSERVED })
+    renderFor(WALK_ID)
+
+    fireEvent.click(screen.getByLabelText(`Describe your estimate for ${WALK_LABEL} in words`))
+
+    // IDENTITY-BOUND to this exact input, not "an input is focused".
+    const field = screen.getByLabelText(`Describe ${WALK_LABEL} in words`)
+    expect(document.activeElement).toBe(field)
+  })
+
   it('renders the chance from suggested_value — "about 70%"', async () => {
     seedFactor(WALK_ID, WALK_LABEL, { ...WALK_OBSERVED })
     elicitReplies.push({ ...PRETTY_LIKELY })
