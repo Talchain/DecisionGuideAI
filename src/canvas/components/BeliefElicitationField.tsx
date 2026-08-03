@@ -123,11 +123,20 @@ export function BeliefElicitationField({
   }, [])
 
   /**
-   * Announced SEPARATELY, and set AFTER mount rather than rendered as initial
-   * content: a live region that already contains its text when it enters the
-   * DOM has no CHANGE to announce, so assistive tech stays silent. Separate
-   * effect from the focus one so a label change re-announces without yanking
-   * focus out of a field the user is mid-way through typing into.
+   * Announced SEPARATELY from the focus effect, so a label change re-announces
+   * without yanking focus out of a field the user is mid-way through typing
+   * into. That part IS pinned.
+   *
+   * ⚠ THE SET-AFTER-MOUNT PART IS A CONVENTION, NOT A GUARANTEE, AND SAYING SO
+   * IS THE POINT. The reason for an effect rather than an initial `useState`
+   * value is that a live region which ALREADY contains its text when it enters
+   * the DOM often is not announced at all — the AT has no CHANGE to report.
+   * But **jsdom cannot see the difference**: mutant M16 (move the text into the
+   * initial state) left all 55 tests GREEN. This comment used to assert the
+   * behaviour as though the suite protected it; it does not, and an unpinned
+   * claim dressed as a guarantee is the defect class this estate hunts. It is
+   * verifiable only against a real screen reader — same standing as the
+   * off-screen half of the scroll fix.
    */
   useEffect(() => {
     setAnnouncement(`Describe ${label} in words — for example, "pretty likely".`)
