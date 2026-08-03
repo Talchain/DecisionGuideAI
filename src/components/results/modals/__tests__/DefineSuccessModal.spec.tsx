@@ -268,11 +268,12 @@ describe('DefineSuccessModal — validation (never silent-close)', () => {
 })
 
 describe('DefineSuccessModal — save commits through the canonical path exactly once', () => {
-  it('Codex B2+B3: with a goal node and a provable cap, commits atomically to the node and sends the NORMALISED threshold', async () => {
+  it('Codex B2: with a goal node and a provable cap, commits the target atomically to the node (chip carries NO parameter)', async () => {
     // Goal node + a cap on ceeAnalysisReady (the same source the V2 request
     // boundary uses). Entering 60 (unit %) must: update the goal node's
-    // data (B2 — no more "target missing"), and send goal_threshold 0.6 on
-    // the chip (B3 — 60 / cap 100), not raw 60.
+    // data (B2 — no more "target missing"). The B3 half (sending
+    // goal_threshold 0.6 on the chip) is RETIRED — ROADMAP 2.109 deleted that
+    // write-only parameter; the target reaches CEE through the graph.
     useCanvasStore.setState({
       nodes: [
         { id: 'goal_1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Ship on time' } },
@@ -296,12 +297,9 @@ describe('DefineSuccessModal — save commits through the canonical path exactly
     expect((goalNode.data as { threshold_source?: string }).threshold_source).toBe('user')
     expect(useCanvasStore.getState().goalThreshold).toBe(60)
 
-    // B3: the chip carries the NORMALISED 0-1 value, never raw 60.
+    // ROADMAP 2.109: the rerun still happens, carrying NO chip parameter.
     expect(runner).toHaveBeenCalledTimes(1)
-    expect(runner).toHaveBeenCalledWith({
-      source: 'define-success-modal',
-      parameters: { goal_threshold: 0.6 },
-    })
+    expect(runner).toHaveBeenCalledWith({ source: 'define-success-modal' })
   })
 
   it('persists the full structured measure, calls the ONE setter and ONE canonical rerun, toasts and closes', async () => {
@@ -324,17 +322,11 @@ describe('DefineSuccessModal — save commits through the canonical path exactly
     expect(setterSpy).toHaveBeenCalledWith(20)
     expect(useCanvasStore.getState().goalThreshold).toBe(20)
 
-    // ONE canonical rerun. Deliberate pin flip (Lane 1b, UI-SEM-081): this
-    // fixture has no producer/node cap, but the modal's default unit is "%",
-    // which is a definitional cap of 100 — so raw 20 now provably normalises
-    // to 0.2 and RIDES the chip (previously the fail-closed omission
-    // swallowed every %-target on live drafts, V-P0-1). Raw values are still
-    // never sent.
+    // ONE canonical rerun, carrying NO chip parameter (ROADMAP 2.109). The
+    // raw 20 is committed to the store/goal node above; that graph value is
+    // what reaches CEE.
     expect(runner).toHaveBeenCalledTimes(1)
-    expect(runner).toHaveBeenCalledWith({
-      source: 'define-success-modal',
-      parameters: { goal_threshold: 0.2 },
-    })
+    expect(runner).toHaveBeenCalledWith({ source: 'define-success-modal' })
 
     // Full structured measure persisted per scenario.
     const saved = selectSuccessMeasure(useSuccessMeasureStore.getState(), 'scn_test')
@@ -398,7 +390,7 @@ describe('DefineSuccessModal — save commits through the canonical path exactly
 })
 
 describe('DefineSuccessModal — Lane 1b (V-P0-1): the target must reach the wire, or say why not', () => {
-  it('the % unit ALONE proves the cap: 60 % with no producer/node cap sends goal_threshold 0.6', async () => {
+  it('the % unit ALONE proves the cap: 60 % with no producer/node cap gets the plain saved toast, and NO chip parameter', async () => {
     // Live staging repro (2026-07-13, scenario f0acea23): analysis_ready has
     // no goal_threshold_cap and the CEE-drafted goal node has no scale_max,
     // so the save shipped a chip with NO parameters at all — the modal's own
@@ -420,11 +412,15 @@ describe('DefineSuccessModal — Lane 1b (V-P0-1): the target must reach the wir
       fireEvent.click(screen.getByTestId('define-success-save'))
     })
 
+    // ROADMAP 2.109: the normalised value no longer rides the chip, so the
+    // observable consequence of provability is the TOAST — a provable scale
+    // gets the plain "saved" copy, never the no-scale confession. (The
+    // negative half of this pair is pinned below.)
     expect(runner).toHaveBeenCalledTimes(1)
-    expect(runner).toHaveBeenCalledWith({
-      source: 'define-success-modal',
-      parameters: { goal_threshold: 0.6 },
-    })
+    expect(runner).toHaveBeenCalledWith({ source: 'define-success-modal' })
+    expect(screen.getByTestId('define-success-toast')).toHaveTextContent(
+      DEFINE_SUCCESS_COPY.toastSaved,
+    )
   })
 
   it('the cap resolves from the COMMITTED goal node, not store.outcomeNodeId', async () => {
@@ -459,11 +455,13 @@ describe('DefineSuccessModal — Lane 1b (V-P0-1): the target must reach the wir
       fireEvent.click(screen.getByTestId('define-success-save'))
     })
 
+    // ROADMAP 2.109: provability is observable through the toast, not the
+    // chip. A cap resolved from the COMMITTED node still proves the scale.
     expect(runner).toHaveBeenCalledTimes(1)
-    expect(runner).toHaveBeenCalledWith({
-      source: 'define-success-modal',
-      parameters: { goal_threshold: 0.3 },
-    })
+    expect(runner).toHaveBeenCalledWith({ source: 'define-success-modal' })
+    expect(screen.getByTestId('define-success-toast')).toHaveTextContent(
+      DEFINE_SUCCESS_COPY.toastSaved,
+    )
   })
 
   it('when the target genuinely cannot reach the analysis, the toast says so honestly', async () => {

@@ -220,11 +220,16 @@ export function DefineSuccessModal() {
       unitCap: capForUnit(unit),
     })
     close()
+    // ROADMAP 2.109 — the `goal_threshold` chip parameter is RETIRED (it had no
+    // CEE reader for `run_analysis`; see the note in OutputsDock's
+    // dispatchRunAnalysis). The B2 commit above is what carries the target to
+    // CEE, through the graph's `goal_threshold_raw`.
+    //
+    // `normalisedThreshold` is deliberately still computed: it is the
+    // provability signal the honest toast below reads (a target whose scale
+    // cannot be proven is reported as such). It no longer reaches any wire.
     void executeCanonicalRun({
       source: 'define-success-modal',
-      ...(normalisedThreshold !== undefined
-        ? { parameters: { goal_threshold: normalisedThreshold } }
-        : {}),
     }).then((outcome) => {
       if (outcome.status === 'blocked' || outcome.status === 'unavailable') {
         // The measure IS saved — say so, then the honest gate reason.
