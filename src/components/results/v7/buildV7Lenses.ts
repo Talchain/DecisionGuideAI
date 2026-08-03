@@ -93,6 +93,13 @@ export interface V7GoalLens {
     id: string
     label: string
     goalProbability: number
+    /**
+     * ROADMAP 2.334 — the option's Monte-Carlo sample count, carried so the
+     * goal rows can resolve sub-1% figures instead of collapsing them all to
+     * the register floor. Straight from `OptionResult.nValidSamples`; `null`
+     * when the producer supplied none, never defaulted.
+     */
+    nValidSamples: number | null
     isWinner: boolean
     /** Possessive gate (`selectGoalProbability` basis), carried to the copy layer. */
     goalFitIsSubstitutedJoint: boolean
@@ -216,6 +223,7 @@ export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
           id: o.id,
           label: o.label,
           goalProbability: o.goalProbability as number,
+          nValidSamples: o.nValidSamples ?? null,
           goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint === true,
           // ⭐ R1 (ROADMAP 2.233 review) — THE GOAL LENS DESIGNATES THE GOAL
           // LEADER, not the comparative one.

@@ -27,8 +27,12 @@ import {
   isFiniteProbability,
   runHasGoalNumbers,
 } from './utils/goalAnchorCopy'
+// NOTE (ROADMAP 2.333): the bare `formatPercent` import is GONE from this
+// file. It survived here as `formatPct` for exactly one caller — `StatBar`'s
+// internal readout — and that caller is the N11 defect. Every number this
+// module renders now goes through its register's shared primitive. Re-adding
+// a bare percent formatter here is how the two strings drift apart again.
 import {
-  formatPercent as formatPct,
   formatProbabilityWithResolution,
   isAboveSimulationResolution,
   isBelowSimulationResolution,
@@ -37,7 +41,7 @@ import { ExpertBlock } from './ExpertBlock'
 import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { OptionRangeBar, computeOptionScale } from './shared/OptionRangeBar'
-import { SUB_ONE_PERCENT_FLOOR } from './utils/displayFloors'
+import { formatGoalProbability } from './utils/displayFloors'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from './utils/goalFitBasisCaveatCopy'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
@@ -317,16 +321,55 @@ function hingeAwareDescription(
   return 'Compare against the leading option'
 }
 
-/** Horizontal bar segment for stat rows */
+/**
+ * Horizontal bar segment for stat rows.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * ⭐ THIS COMPONENT HOLDS NO FORMATTER (ROADMAP 2.333) — N11
+ * ─────────────────────────────────────────────────────────────────────────
+ * It used to render its readout with a bare
+ * `formatPercent(value, { fromDecimal: true })`. On one card, one render, one
+ * value (`goalProbability` 0.0007), that printed "0%" — about two centimetres
+ * from the low-goal badge, which applied the sub-1% floor and printed "< 1%".
+ * The same card also disagreed with itself on the comparative register: the
+ * header win readout went through `formatProbabilityWithResolution` ("0.3%")
+ * while the "Wins" row here printed "0%" for the same number.
+ *
+ * The fix is the PROP, not a better formatter. Teaching this component the
+ * right rule would have corrected those strings and preserved the shape that
+ * produced them — a component deriving a readout from a raw value, beside a
+ * caller deriving its own readout from the same raw value. The card now
+ * computes each register's readout ONCE and passes it to every surface that
+ * shows it, so the two strings CANNOT be computed twice and therefore cannot
+ * differ. N11 is impossible by construction rather than merely absent.
+ *
+ * `value` is still taken, and is still the raw probability: the BAR is
+ * geometry and must keep drawing from the number, including its
+ * `Math.max(2, …)` minimum-visibility floor. Geometry and readout are
+ * deliberately different things here — the visual floor is honest (a 2% bar
+ * for a 0.07% value is a "present but tiny" affordance, not a claim), whereas
+ * a floored NUMBER is a false statement.
+ */
 function StatBar({
   value,
+  readout,
   label,
   isLeader,
   color,
   neutralised = false,
   segmentColor,
+  testId,
 }: {
   value: number | null | undefined
+  /**
+   * The rendered readout, computed ONCE by the card for this register and
+   * shared with every other surface that states the same number. Required —
+   * there is no fallback formatter here, because a fallback is how the two
+   * strings drifted apart in the first place.
+   */
+  readout: string
+  /** Identity anchor for tests: the readout element's `data-testid`. */
+  testId?: string
   /**
    * Inline label for the 72px caption column, or `null` for none.
    *
@@ -378,8 +421,11 @@ function StatBar({
           }}
         />
       </div>
-      <span className={`${typography.panelMeta} text-text-body tabular-nums w-[36px] text-right flex-shrink-0`}>
-        {formatPct(value, { fromDecimal: true })}
+      <span
+        className={`${typography.panelMeta} text-text-body tabular-nums w-[36px] text-right flex-shrink-0`}
+        data-testid={testId}
+      >
+        {readout}
       </span>
     </div>
   )
@@ -528,17 +574,40 @@ function OptionCard({
   // This is a COPY switch, never a value transform: the bar length, the
   // percentage readout and the leader colour are all untouched.
   const goalFitSubstituted = option.goalFitIsSubstitutedJoint === true
-  // Built ONCE, above both arms, so the withheld and permitted wordings can
-  // never show a different number for the same option — the register modules
-  // make the same argument about casing, for the same reason. Byte-identical
-  // to the two literals it replaces: `< 1%` below the shared floor, otherwise
-  // the rounded percent.
-  const lowGoalReadout =
+
+  // ───────────────────────────────────────────────────────────────────────
+  // ⭐ ONE READOUT PER REGISTER PER CARD (ROADMAP 2.333) — N11
+  // ───────────────────────────────────────────────────────────────────────
+  // Every surface on this card that states a number states one of exactly
+  // these two strings. Not "computes it the same way" — states the SAME
+  // string, because there is only one.
+  //
+  // Both go through their register's shared primitive with the option's own
+  // `nValidSamples`, which the response mapper already carries off
+  // `outcome.n_valid_samples`. Passing it to only ONE of them is the
+  // half-fix that leaves a card printing a resolved figure in the header and
+  // a floored one in the row below, so both take it or neither does.
+  const goalReadout = formatGoalProbability(
+    option.goalProbability as number,
+    option.nValidSamples,
+  )
+  // Byte-identical to the expression the header readout has always used
+  // (:609 before this change) — now hoisted so the header and the "Wins" row
+  // are literally the same value rather than two evaluations of one rule.
+  const winsReadout = formatProbabilityWithResolution(
+    option.winProbability as number,
+    option.nValidSamples,
+  )
+
+  // The low-goal badge's VISIBILITY gate. It used to also carry its own
+  // inline copy of the sub-1% floor — a hand-copy of `formatGoalProbability`
+  // rather than a call to it, and the direct source of the "0%" beside
+  // "< 1%" contradiction. The threshold below is a display DECISION (when is
+  // a goal probability low enough to warrant a warning affordance) and stays;
+  // the FORMATTING is gone, and the badge now renders `goalReadout`.
+  const showLowGoalBadge =
     typeof option.goalProbability === 'number' && option.goalProbability < 0.10
-      ? option.goalProbability < SUB_ONE_PERCENT_FLOOR
-        ? '< 1%'
-        : `${Math.round(option.goalProbability * 100)}%`
-      : null
+  const lowGoalReadout = showLowGoalBadge ? goalReadout : null
 
   return (
     <div
@@ -597,16 +666,14 @@ function OptionCard({
                 ? 'This option did not lead in any of the simulation runs, so its true chance may be below the current resolution.'
                 : isAboveSimulationResolution(option.winProbability, option.nValidSamples)
                   ? 'This option led in every simulation run, so its display value reflects the current simulation resolution.'
-                  : COMPARATIVE_COPY.phrase(
-                      formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
-                    )
+                  : COMPARATIVE_COPY.phrase(winsReadout)
             }
           >
             <span
               className={`${typography.panelHeader} text-text-header tabular-nums flex-shrink-0`}
               data-testid={`win-pct-${option.id}`}
             >
-              {formatProbabilityWithResolution(option.winProbability, option.nValidSamples)}
+              {winsReadout}
             </span>
           </Tooltip>
         )}
@@ -631,9 +698,7 @@ function OptionCard({
           // register here on the grounds that `goalProbability` is in scope —
           // but the BAR is not the goal number, and a goal caption over a
           // comparative fill is the mislabel map row 3 forbids.
-          title={COMPARATIVE_COPY.phrase(
-            formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
-          )}
+          title={COMPARATIVE_COPY.phrase(winsReadout)}
         >
           <div
             className="h-full rounded-full transition-all duration-300"
@@ -679,6 +744,10 @@ function OptionCard({
           )}
           <StatBar
             value={option.goalProbability}
+            // The SAME string the low-goal badge below renders. This is the
+            // N11 fix at its call site: one readout, two surfaces.
+            readout={goalReadout}
+            testId={`goal-readout-${option.id}`}
             // The possessive "Hits target" names the user's OWN target, which
             // a substituted joint figure does not answer — so that arm is
             // withheld and the caption above carries the honest name instead.

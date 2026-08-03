@@ -18,7 +18,12 @@ import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from './utils/goalAnchorCopy'
-import { formatPercent as formatPct } from '../../utils/formatPercent'
+// `formatPct` stays for THRESHOLD/axis formatting below — those are outcome
+// VALUES in user units, not probabilities, and no display floor applies to
+// them. The probability readouts moved to their registers' primitives
+// (ROADMAP 2.333); do not route threshold values back through those.
+import { formatPercent as formatPct, formatProbabilityWithResolution } from '../../utils/formatPercent'
+import { formatGoalProbability } from './utils/displayFloors'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { formatRangeValue } from './utils/formatRangeValue'
 import type { OptionResult, OutcomeUnitType } from './types'
@@ -131,8 +136,13 @@ function OptionRangeBar({
     if (option.goalProbability != null && goalThreshold != null) {
       // Question A, in the house register — "hit target" named the right
       // quantity but not the question it answers.
+      // ROADMAP 2.333: was a bare `formatPct`, so a measured 0.07% goal
+      // probability printed "0%" here while the option card beside it
+      // printed "< 1%" — the N11 contradiction on a second surface. The
+      // GOAL quantity takes the goal register's formatter, with the
+      // option's own sample count when the run carries one.
       return GOAL_ANCHOR_COPY.phrase(
-        formatPct(option.goalProbability, { fromDecimal: true }),
+        formatGoalProbability(option.goalProbability, option.nValidSamples),
         option.goalFitIsSubstitutedJoint === true,
       )
     }
@@ -143,7 +153,11 @@ function OptionRangeBar({
       // comparative register — NOT the A register. Labelling it "chance of
       // hitting your goal" would put a goal caption on a comparative number,
       // which is the defect the confidence-ring pin exists to catch.
-      return COMPARATIVE_COPY.phrase(formatPct(option.winProbability, { fromDecimal: true }))
+      // Same fix, comparative register: the shared floored/resolution-aware
+      // comparative formatter, not a bare round.
+      return COMPARATIVE_COPY.phrase(
+        formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
+      )
     }
     // C10: Omit suffix entirely when both missing
     return null

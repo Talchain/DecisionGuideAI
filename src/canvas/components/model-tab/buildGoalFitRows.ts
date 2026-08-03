@@ -32,6 +32,34 @@ export interface GoalFitRow {
   isSubstitutedJoint: boolean
   /** Doctrine B: `GOAL_FIT_BASIS_CAVEAT_COPY` must render adjacent when true. */
   modelledBasis: boolean
+  /**
+   * ⭐ ROADMAP 2.334 — the Monte-Carlo sample count behind `probability`,
+   * or `null` when the producer did not supply one.
+   *
+   * This is what makes the rows READABLE. Without it every sub-1% figure
+   * renders as the register floor "< 1%", so the walk's run printed five
+   * identical strings over five different numbers: the ordering was correct,
+   * sourced and completely invisible, and the status-quo-lowest signature
+   * could not be seen at all. The count was on the wire the entire time —
+   * this builder simply did not carry it.
+   *
+   * `null` is meaningful and must NOT be defaulted: absent ≠ zero, and
+   * absent ≠ "assume 10000". A run without a count falls back to the floor,
+   * which understates rather than inventing a resolution the sampler never
+   * had.
+   */
+  nValidSamples: number | null
+}
+
+/**
+ * The response mapper's guard, applied at this seam too rather than trusted
+ * from upstream (`adapters/plot/v2/responseMapper.ts` uses the same rule on
+ * the same field). A zero count would make the display resolution `1/0`, and
+ * a fractional one is not a sample count at all — both are rejected to the
+ * floor arm rather than propagated into a precision claim.
+ */
+function positiveIntegerOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null
 }
 
 export function buildGoalFitRows(
@@ -46,12 +74,16 @@ export function buildGoalFitRows(
     const decision = selectGoalProbability(entry as GoalProbabilityInput)
     if (decision.goalProbability == null) return null
     const data = node.data as Record<string, unknown> | undefined
+    // Read straight off the producer entry this row was scored from, so the
+    // count and the probability cannot come from different options.
+    const outcome = (entry as { outcome?: Record<string, unknown> }).outcome
     rows.push({
       id: node.id,
       label: typeof data?.label === 'string' ? data.label : node.id,
       probability: decision.goalProbability,
       isSubstitutedJoint: decision.basis === 'joint_goal_substituted',
       modelledBasis: decision.goalFitIsModelledBasis,
+      nValidSamples: positiveIntegerOrNull(outcome?.n_valid_samples),
     })
   }
   return rows

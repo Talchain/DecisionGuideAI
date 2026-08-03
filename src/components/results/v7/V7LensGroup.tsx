@@ -98,19 +98,30 @@ function OutcomeRow({
 function GoalRow({
   label,
   probability,
+  nValidSamples,
   isWinner,
   isSubstitutedJoint,
 }: {
   label: string
   probability: number
+  /**
+   * ROADMAP 2.334 — the option's Monte-Carlo sample count, threaded so this
+   * lens can discriminate sub-1% figures instead of printing one string for
+   * all of them. Read from the option, never re-derived or defaulted.
+   */
+  nValidSamples: number | null | undefined
   isWinner: boolean
   /** Possessive gate — see `goalAnchorCopy`. Read from the model, never re-derived. */
   isSubstitutedJoint: boolean
 }) {
-  const readout =
-    probability < SUB_ONE_PERCENT_FLOOR
-      ? V7_LENS_COPY.goal.subOnePercent
-      : formatPercent(probability, { fromDecimal: true })
+  // ROADMAP 2.333: was a hand-copy of the goal register's floor
+  // (`probability < SUB_ONE_PERCENT_FLOOR ? subOnePercent : formatPercent`).
+  // The copy is gone; this calls the register's own formatter, which applies
+  // the identical floor when no sample count is available and resolves the
+  // figure when one is. `V7_LENS_COPY.goal.subOnePercent` stays in the copy
+  // register — it is the surface's own string, and its equality with the
+  // shared readout is the registers' concern, not this call site's.
+  const readout = formatGoalProbability(probability, nValidSamples)
   const widthPct = Math.max(2, Math.min(100, Math.round(probability * 100)))
   return (
     <div className="space-y-1" data-testid="v7-goal-row">
@@ -265,6 +276,7 @@ export function V7LensGroup({ model }: V7LensGroupProps) {
                   key={o.id}
                   label={o.label}
                   probability={o.goalProbability}
+                  nValidSamples={o.nValidSamples}
                   isWinner={o.isWinner}
                   isSubstitutedJoint={o.goalFitIsSubstitutedJoint}
                 />

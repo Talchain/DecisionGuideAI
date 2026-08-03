@@ -21,6 +21,7 @@ import {
   constraintConfidenceColour,
   CONSTRAINT_CONFIDENCE_THRESHOLDS,
 } from '../../types/constraints'
+import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 
 export interface SuccessTargetRowProps {
   /** Current goal threshold value (null = not set) */
@@ -60,7 +61,19 @@ function ConstraintIcon({ prob }: { prob: number }) {
 
 /** Single constraint row */
 function ConstraintRow({ item }: { item: ConstraintItem }) {
-  const pct = Math.round(item.prob_satisfied * 100)
+  // ROADMAP 2.333: was `${Math.round(item.prob_satisfied * 100)}%`, so a
+  // constraint satisfied in 7 of 10000 runs printed "0%" — a measured,
+  // non-zero probability rendered as impossibility.
+  //
+  // The COMPARATIVE register is the right one here, not the goal register:
+  // constraint satisfaction is a hit frequency over simulated scenarios
+  // ("satisfied in 0 of n runs"), the same shape as "came out ahead in n of
+  // N". That means an EXACT zero deliberately keeps reading "0%" — the floor
+  // exists to stop a non-zero value printing as zero, not to stop zero
+  // printing. `null` samples: this surface holds a constraint item, not the
+  // option object, so it has no per-option count to pass; the floored
+  // fallback arm applies and understates rather than inventing a resolution.
+  const readout = formatProbabilityWithResolution(item.prob_satisfied, null)
   const colour = constraintConfidenceColour(item.prob_satisfied)
   const isMissed = item.prob_satisfied < 0.5
 
@@ -75,7 +88,7 @@ function ConstraintRow({ item }: { item: ConstraintItem }) {
           {item.label} {renderOperator(item.operator)} {item.threshold}
         </span>
         <span className={`${typography.panelBody} ${colour} tabular-nums flex-shrink-0`}>
-          {pct}%
+          {readout}
         </span>
         {item.binding && (
           <span className={`${typography.panelMeta} text-danger flex-shrink-0`}>
@@ -148,7 +161,13 @@ export function SuccessTargetRow({
 
   // ── Multi-constraint display ──────────────────────────────────────────────
   if (hasConstraints) {
-    const jointPct = Math.round(constraintAnalysis.joint_probability * 100)
+    // Same register, same reason as the per-constraint rows above: the joint
+    // figure is "met every target in n of N runs", so it floors a non-zero
+    // value and keeps a true zero as "0%".
+    const jointReadout = formatProbabilityWithResolution(
+      constraintAnalysis.joint_probability,
+      null,
+    )
     const jointColour = constraintConfidenceColour(constraintAnalysis.joint_probability)
 
     return (
@@ -157,7 +176,7 @@ export function SuccessTargetRow({
         <div className="flex items-center justify-between min-h-[28px]">
           <span className={`${typography.panelHeader} text-text-header`}>
             Meeting all targets:{' '}
-            <span className={jointColour}>{jointPct}%</span>
+            <span className={jointColour}>{jointReadout}</span>
           </span>
           <button
             type="button"

@@ -203,7 +203,10 @@ function GoalSectionInner({ goalNode, onSendMessage, goalFitRows }: GoalSectionP
               <span className="text-text-header">{row.label}</span>
               {' — '}
               {GOAL_ANCHOR_COPY.phrase(
-                formatGoalProbability(row.probability),
+                // ROADMAP 2.334: the row's own sample count. Without it these
+                // five figures all rendered "< 1%" and the ordering the rows
+                // already carried could not be read off them.
+                formatGoalProbability(row.probability, row.nValidSamples),
                 row.isSubstitutedJoint,
               )}
             </div>

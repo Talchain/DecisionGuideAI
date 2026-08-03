@@ -161,8 +161,12 @@ export function buildV7Headline(
       headline: GOAL_ANCHOR_COPY.headline(
         goalLeader.label,
         // UI-SEM-057: the shared floor, so a 1.2% goal probability reads the
-        // same here as on the option card beside it.
-        formatGoalProbability(goalLeader.goalProbability as number),
+        // same here as on the option card beside it. ROADMAP 2.334 adds the
+        // leader's own sample count, so the headline resolves a sub-1% figure
+        // exactly as the card and the goal lens now do — a headline saying
+        // "< 1%" over rows saying "0.1%" would be the same contradiction one
+        // element up.
+        formatGoalProbability(goalLeader.goalProbability as number, goalLeader.nValidSamples),
         goalLeader.goalFitIsSubstitutedJoint === true,
       ),
       subline: leadSubline(leadPoints),
