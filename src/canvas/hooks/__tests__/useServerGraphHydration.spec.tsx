@@ -20,11 +20,20 @@ vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({ user }),
 }))
 
-let spy: ReturnType<typeof vi.spyOn>
+/**
+ * Typed through a factory rather than `ReturnType<typeof vi.spyOn>`, which
+ * widens to `MockInstance<unknown[], unknown>` and does not accept the real
+ * spy — the typecheck gate caught that as a genuine new error.
+ */
+function spyOnHydrate() {
+  return vi.spyOn(hydration, 'hydrateCanvasFromServer').mockResolvedValue('merged')
+}
+
+let spy: ReturnType<typeof spyOnHydrate>
 
 beforeEach(() => {
   user = { id: 'guest' }
-  spy = vi.spyOn(hydration, 'hydrateCanvasFromServer').mockResolvedValue('merged')
+  spy = spyOnHydrate()
 })
 
 afterEach(() => {

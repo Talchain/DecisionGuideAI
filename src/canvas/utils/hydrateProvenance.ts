@@ -147,8 +147,9 @@ export function clearUserProvenance(data: Record<string, any>): Record<string, a
 
   const next: Record<string, any> = { ...data }
   for (const key of locations) {
-    const { source: _dropped, ...rest } = next[key] as Record<string, unknown>
-    next[key] = rest
+    const bag = { ...(next[key] as Record<string, unknown>) }
+    delete bag.source
+    next[key] = bag
   }
   if (snapshot.top !== undefined) delete next.source
   return next
@@ -170,6 +171,7 @@ export function clearEdgeUserReviewOnValueChange(
   if (afterData?.userReviewedStrength !== true) return afterData
   const before = (beforeData ?? {}) as Record<string, any>
   if (Object.is(before.weight, afterData.weight)) return afterData
-  const { userReviewedStrength: _dropped, ...rest } = afterData
-  return rest
+  const next = { ...afterData }
+  delete next.userReviewedStrength
+  return next
 }
