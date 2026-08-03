@@ -14,6 +14,7 @@ import { SIGNAL_REGISTRY, type SignalDetectionInput } from '../registry'
 import {
   ACTIONS_MENU,
   ATTRIBUTION_COPY,
+  CONTESTED_COPY,
   FOOTER_COPY,
   HERO_COPY,
   LADDER_COPY,
@@ -209,6 +210,9 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
     manyOptions: BLOCKED_REASON_COPY.manyOptions(3, true),
     manyOptionsNoPromise: BLOCKED_REASON_COPY.manyOptions(3, false),
   })
+  // ROADMAP 2.376 — the contested surface's own copy, with its one factory invoked so the
+  // sentence a user is shown is scanned rather than the function that builds it.
+  push('CONTESTED_COPY', { ...CONTESTED_COPY, meta: CONTESTED_COPY.meta(2) })
   push('HERO_COPY', HERO_COPY)
   push('ACTIONS_MENU', ACTIONS_MENU)
   push('SPARK_PROMPTS', SPARK_PROMPTS)

@@ -13,6 +13,7 @@ import { useGraphReadiness } from '../../../hooks/useGraphReadiness'
 import { readinessWillScaffold } from '../../../utils/canRunAnalysis'
 import { isReviewedByUser } from '../../pre-analysis/utils/isReviewedByUser'
 import { computeBars, type BarsModel } from '../selectors/computeBars'
+import { computeContestedRows, type ContestedRowModel } from '../selectors/computeContestedRows'
 import { computeEstimateRanking } from '../selectors/computeEstimateRanking'
 import { computeGraphFacts, computeProvenanceCounts } from '../selectors/graphFacts'
 import { computeInfluenceCoverage } from '../selectors/computeInfluenceCoverage'
@@ -51,6 +52,19 @@ export interface PreAnalysisModel {
   }
   options: Array<{ nodeId: string; label: string }>
   risks: Array<{ nodeId: string; label: string; attribution: Attribution }>
+  /**
+   * ROADMAP 2.376 — connections CEE's two validation passes disagreed about, as words.
+   *
+   * Sourced from `useCanvasStore(s => s.edges)`, the same store slice every other v3 slice
+   * reads and the same one the legacy panel's `usePreAnalysisData` reads. That is not an
+   * assumption: `applyDraftResult` writes CEE's per-edge validation metadata onto
+   * `edge.data.validation` at ingest (`utils/applyDraftResult.ts:139,157`, via
+   * `readValidationMetadata`), so the metadata reaches this tree by construction — there is
+   * no separate legacy-only data path to bridge.
+   *
+   * EMPTY ARRAY IS THE NORMAL CASE and renders nothing at all.
+   */
+  contested: ContestedRowModel[]
   advanced: {
     factorCount: number
     connectionCount: number
@@ -303,6 +317,11 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     [nodes],
   )
 
+  // ROADMAP 2.376 — contested connections. Keyed on the store's own nodes/edges so one
+  // commit (a resolve in the Model tab, a re-draft) updates this section in the same pass as
+  // every other slice.
+  const contested = useMemo(() => computeContestedRows(nodes, edges), [nodes, edges])
+
   // UI-SEM-091: effective runnable ORs the scaffold intent, so advanced.canRun
   // and the footer agree with the run gate (canRunAnalysis util).
   const canRun = readiness ? readiness.can_run_analysis || willScaffoldOptions : null
@@ -416,6 +435,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       estimates,
       options,
       risks,
+      contested,
       advanced,
       footer,
       readinessCheck,
@@ -428,6 +448,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       estimates,
       options,
       risks,
+      contested,
       advanced,
       footer,
       readinessCheck,

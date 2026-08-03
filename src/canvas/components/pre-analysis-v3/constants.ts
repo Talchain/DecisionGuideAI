@@ -164,6 +164,36 @@ export const SIGNAL_COPY = {
     'A reflective check from Olumi, based on the structure of your model. Worth a thought, not a verdict.',
 } as const
 
+/**
+ * ROADMAP 2.376 — the contested-relationship surface.
+ *
+ * Plain language by ruling: no "contested", no "validation", no "pass 1/pass 2", no divergence
+ * number. The user is told that Olumi looked twice and the two looks did not agree about one
+ * named connection, and where to settle it. The per-reason sentences are NOT duplicated here:
+ * they are `getContestedReasonLabel` in `model-tab/strengthBands.ts`, the single source of
+ * truth the Model tab's own cards already render (trap 12 — a second copy of five sentences
+ * is a hand-maintained mirror). `contestedReasonsSweep.spec` scans those five through the
+ * same banned-terms matcher this object is scanned with.
+ *
+ * NO RESOLVE COPY HERE, DELIBERATELY. This section is DISPLAY-ONLY: the pre-analysis panel's
+ * contested resolve handler was deleted in the Brief 4 Task 6 dead-code sweep, and the only
+ * live adjudication surface is the Model tab. `reviewCta` therefore promises navigation, not
+ * a fix, and phrases it the way the legacy panel's own model-tab link does.
+ */
+export const CONTESTED_COPY = {
+  title: 'Where our reviews disagree',
+  meta: (n: number) => `${n} ${n === 1 ? 'connection' : 'connections'}`,
+  lead: 'Olumi looked at this model twice and the two looks did not agree here. Your judgement is worth more than either.',
+  /** Row title reads "How <source> affects <target>" — a noun phrase, not a claim. */
+  rowLeadIn: 'How',
+  rowConnective: 'affects',
+  /** Reached only if a connection is flagged with no stated reason. Claims nothing specific. */
+  reasonFallback: 'Our reviews did not settle on the same estimate here.',
+  showDetail: 'Show detail',
+  hideDetail: 'Hide detail',
+  reviewCta: 'Settle these in the model tab',
+} as const
+
 export const ATTRIBUTION_COPY = {
   olumiNoticed: 'Olumi noticed',
   olumiPrefix: 'Olumi:',
