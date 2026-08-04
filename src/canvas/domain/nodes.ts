@@ -33,6 +33,26 @@ export const NodeTypeEnum = z.enum(['goal', 'decision', 'option', 'factor', 'ris
 export type NodeType = z.infer<typeof NodeTypeEnum>
 
 /**
+ * Prior — either a plain probability (0..1) or the CEE distribution object
+ * (`{ distribution, range_min, range_max }`) that external factors carry.
+ *
+ * The object form is a first-class LIVE shape: written by
+ * useInspectorMutations (range edits), read by FactorNode/DecisionNode range
+ * displays, FactorExternalEditor/Panel and observedStateHelpers. Real canvas
+ * exports carry it (walk-582 fixtures, 2.463), so the import schema must
+ * accept it. `.passthrough()` matches the ObservedStateSchema/
+ * InterventionSchema convention for CEE-sourced value objects (additive CEE
+ * fields must survive the parse).
+ */
+export const PriorDistributionSchema = z.object({
+  distribution: z.string().optional(),
+  range_min: z.number().optional(),
+  range_max: z.number().optional(),
+}).passthrough()
+export const PriorSchema = z.union([z.number().min(0).max(1), PriorDistributionSchema])
+export type Prior = z.infer<typeof PriorSchema>
+
+/**
  * Base node data schema (v3)
  * All nodes share: label, type, optional description
  * v3 adds v1.2 API fields: kind, prior, utility, body
@@ -44,7 +64,7 @@ export const NodeDataSchema = z.object({
 
   // v1.2 API fields (optional, for backend interop)
   kind: z.enum(['goal', 'decision', 'option', 'factor', 'risk', 'outcome', 'action', 'constraint']).optional(), // Backend node classification
-  prior: z.number().min(0).max(1).optional(), // Probability (0..1)
+  prior: PriorSchema.optional(), // Probability (0..1) or CEE distribution object
   utility: z.number().min(-1).max(1).optional(), // Relative payoff (-1..+1)
   body: z.string().max(2000).optional(), // Longer text (distinct from description)
 
@@ -134,6 +154,14 @@ export const OptionNodeDataSchema = NodeDataSchema.extend({
     z.string(),
     z.union([z.number(), InterventionSchema]),
   ).nullable().optional(),
+  /**
+   * Derived cache of Object.keys(interventions) — written by every live
+   * creation path (mapDraftNodeToCanvas, applyPatch buildNode, plot adapter)
+   * and present on every real export. Kept in the schema so export → import
+   * round-trips losslessly (2.463); readers should still derive from
+   * `interventions` where possible.
+   */
+  interventionKeys: z.array(z.string()).nullable().optional(),
 })
 
 /**
@@ -176,6 +204,13 @@ export const FactorNodeDataSchema = NodeDataSchema.extend({
   observedState: ObservedStateSchema.nullable().optional(),
   /** CEE wire-shape top-level display text (mirrored in ObservedStateSchema for legacy reads). */
   display_value: z.string().nullable().optional(),
+  /**
+   * CEE value-encoding legend (e.g. { "0": "Not selected", "1": "Alpha Hall
+   * selected" }) — present on every drafted binary factor in real exports
+   * (walk-582 fixtures, 2.463). In the schema so export → import round-trips
+   * losslessly; numeric values tolerated defensively.
+   */
+  encoding_map: z.record(z.string(), z.union([z.string(), z.number()])).nullable().optional(),
 })
 
 /**
