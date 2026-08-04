@@ -12,6 +12,7 @@
 import type { UncertaintyItem, EvidenceGapItem } from '../types'
 import type { ConstraintAnalysis } from '../../../types/constraints'
 import { stripEncodingNotation, sanitizeCoachingText } from './cleanFactorLabel'
+import type { DskEvidenceStrength } from './decisionQualityPrompts'
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -37,6 +38,14 @@ export interface ActionItem {
   whatToDo?: string
   /** V12 B4: Node IDs for graph links (from M2 bias finding affected_elements) */
   affectedNodeIds?: string[]
+  /**
+   * Lane 1 (P1): DSK science provenance, carried from the source prompt.
+   * Present ONLY when attested upstream by a `dsk_claim_id` — an item without
+   * these fields is "not grounded", and render surfaces must show NO badge.
+   */
+  dskClaimId?: string
+  dskProtocolId?: string
+  evidenceStrength?: DskEvidenceStrength
 }
 
 export interface ActionGroup {
@@ -140,11 +149,20 @@ export interface M2BiasFindingInput {
   linkedCritiqueCode: string
 }
 
-/** V12: M2 decision quality prompt (real PLoT shape) */
+/**
+ * V12: M2 decision quality prompt (real PLoT shape).
+ * Lane 1 (P1): optional DSK provenance — already id-gated at the data layer
+ * (`utils/decisionQualityPrompts`): these fields are present ONLY when the
+ * wire entry attested a `dsk_claim_id`. Group 4 carries them through to the
+ * ActionItem verbatim; absence stays absence (never defaulted here either).
+ */
 export interface M2DecisionQualityPromptInput {
   principle: string
   appliesBecause: string
   question: string
+  dskClaimId?: string
+  dskProtocolId?: string
+  evidenceStrength?: DskEvidenceStrength
 }
 
 /** V12: M2 evidence enhancement per factor */
@@ -323,13 +341,23 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
     if (typeof item === 'string') {
       return { id: `premortem-${i}`, title: sanitizeCoachingText(item), source: 'brief' as const }
     }
-    // Structured M2 decision quality prompt — fields sanitized at data layer
+    // Structured M2 decision quality prompt — fields sanitized at data layer.
+    // Lane 1 (P1): DSK provenance carried verbatim when attested (id-gated
+    // upstream; re-gated here so a malformed caller cannot smuggle a
+    // strength without a claim id).
     return {
       id: `dqp-${i}`,
       title: item.principle,
       subtitle: item.question,
       whatCouldHappen: item.appliesBecause,
       source: 'model' as const,
+      ...(item.dskClaimId
+        ? {
+            dskClaimId: item.dskClaimId,
+            ...(item.dskProtocolId ? { dskProtocolId: item.dskProtocolId } : {}),
+            ...(item.evidenceStrength ? { evidenceStrength: item.evidenceStrength } : {}),
+          }
+        : {}),
     }
   })
 

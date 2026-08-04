@@ -33,6 +33,12 @@ function makeData(overrides: {
   bias?: Array<{ type: string; description: string }>
   dqp?: string[]
   /**
+   * Lane 1 (P1): full decision-quality-prompt objects (the mapped UI shape,
+   * incl. optional DSK provenance). Takes precedence over `dqp` when set —
+   * used by the DSK-grounding tests to feed fixture-identical entries.
+   */
+  dqpFull?: ConfidenceSectionData['m2DecisionQualityPrompts']
+  /**
    * Review status surfaced on `data.confidence.reviewStatus`. The Key
    * question card requires `'complete'` to render — defaulted to that
    * value here so existing DQP-present tests behave unchanged.
@@ -107,7 +113,7 @@ function makeData(overrides: {
       affectedElements: [],
       linkedCritiqueCode: '',
     })),
-    m2DecisionQualityPrompts: overrides.dqp?.map(q => ({
+    m2DecisionQualityPrompts: overrides.dqpFull ?? overrides.dqp?.map(q => ({
       principle: 'test',
       appliesBecause: 'test',
       question: q,
@@ -1415,5 +1421,113 @@ describe('buildAnalysisHeroViewModel', () => {
       })
       expect(vm.checkedCount).toBeNull()
     })
+  })
+})
+
+// ─── Lane 1 (P1): DSK science-provenance grounding on the key question ──────
+//
+// `selectKeyQuestion` reads `m2DecisionQualityPrompts[0]`. When that entry is
+// grounded in a Decision Science Knowledge claim (attested by `dskClaimId`),
+// the VM carries a `grounding` object for the card to render; when it is not,
+// the VM carries NONE — never a default, never an inferred strength.
+// Entries are fixture-identical (live captures r1/r3, CEE 76d2e1c) and
+// assertions bind by IDENTITY to the literal DSK ids.
+describe('keyQuestion DSK grounding (Lane 1)', () => {
+  const R1_ENTRY = {
+    principle: 'Consider-the-opposite as a debiasing strategy',
+    appliesBecause: 'Keep Current Setup (Status Quo) leads by a wide margin.',
+    question: 'What would make you switch to HubSpot instead of keeping the current setup?',
+    dskClaimId: 'DSK-T-003',
+    dskProtocolId: 'DSK-P-003',
+    evidenceStrength: 'medium' as const,
+  }
+  // r3[0] — the REAL no-id entry captured from live staging (the negative).
+  const R3_NO_ID_ENTRY = {
+    principle: 'Consider-the-opposite',
+    appliesBecause: 'HubSpot is the only challenger under plausible conditions.',
+    question: 'What would make you seriously consider switching from Keep Current Setup (Status Quo) to HubSpot?',
+  }
+  const R3_ID_ENTRY = {
+    principle: 'Outside view and reference class forecasting',
+    appliesBecause: 'Confidence in adoption risk is provisional.',
+    question: 'What is the base rate for user adoption success when mid-size teams move from status quo systems to new CRMs?',
+    dskClaimId: 'DSK-T-002',
+    dskProtocolId: 'DSK-P-002',
+    evidenceStrength: 'strong' as const,
+  }
+
+  it('r1[0] (DSK-T-003): grounding carried with claim id, protocol id, strength, principle — all verbatim', () => {
+    const vm = buildAnalysisHeroViewModel({
+      ...STD_ARGS,
+      data: makeData({ stability: 0.7, dqpFull: [R1_ENTRY] }),
+      vm: makeVm({ decisionState: 'sensitive' }),
+    })
+    expect(vm.keyQuestion?.text).toBe(R1_ENTRY.question)
+    expect(vm.keyQuestion?.grounding).toEqual({
+      principle: 'Consider-the-opposite as a debiasing strategy',
+      claimId: 'DSK-T-003',
+      protocolId: 'DSK-P-003',
+      strength: 'medium',
+    })
+  })
+
+  it('r3 in fixture order: main question is the REAL no-id entry → NO grounding (in-suite positive control: reordered run below)', () => {
+    const vm = buildAnalysisHeroViewModel({
+      ...STD_ARGS,
+      data: makeData({ stability: 0.7, dqpFull: [R3_NO_ID_ENTRY, R3_ID_ENTRY] }),
+      vm: makeVm({ decisionState: 'sensitive' }),
+    })
+    // The question still renders — honesty about provenance never suppresses content.
+    expect(vm.keyQuestion?.text).toBe(R3_NO_ID_ENTRY.question)
+    expect(vm.keyQuestion?.grounding).toBeUndefined()
+  })
+
+  it('positive control for the absence test: DSK-T-002 first → grounding present with strong strength', () => {
+    const vm = buildAnalysisHeroViewModel({
+      ...STD_ARGS,
+      data: makeData({ stability: 0.7, dqpFull: [R3_ID_ENTRY, R3_NO_ID_ENTRY] }),
+      vm: makeVm({ decisionState: 'sensitive' }),
+    })
+    expect(vm.keyQuestion?.grounding).toEqual({
+      principle: 'Outside view and reference class forecasting',
+      claimId: 'DSK-T-002',
+      protocolId: 'DSK-P-002',
+      strength: 'strong',
+    })
+  })
+
+  it('adversarial mapped shape: strength WITHOUT claim id → no grounding (VM never invents attestation)', () => {
+    const vm = buildAnalysisHeroViewModel({
+      ...STD_ARGS,
+      data: makeData({
+        stability: 0.7,
+        dqpFull: [{ ...R3_NO_ID_ENTRY, evidenceStrength: 'strong' } as never],
+      }),
+      vm: makeVm({ decisionState: 'sensitive' }),
+    })
+    expect(vm.keyQuestion?.text).toBe(R3_NO_ID_ENTRY.question)
+    expect(vm.keyQuestion?.grounding).toBeUndefined()
+  })
+
+  it('claim id present, strength absent → grounding WITHOUT strength (never defaulted)', () => {
+    const vm = buildAnalysisHeroViewModel({
+      ...STD_ARGS,
+      data: makeData({
+        stability: 0.7,
+        dqpFull: [{ ...R1_ENTRY, evidenceStrength: undefined }],
+      }),
+      vm: makeVm({ decisionState: 'sensitive' }),
+    })
+    expect(vm.keyQuestion?.grounding?.claimId).toBe('DSK-T-003')
+    expect(vm.keyQuestion?.grounding?.strength).toBeUndefined()
+  })
+
+  it('reviewStatus gate still hides the whole card — grounding never leaks past it', () => {
+    const vm = buildAnalysisHeroViewModel({
+      ...STD_ARGS,
+      data: makeData({ stability: 0.7, dqpFull: [R1_ENTRY], reviewStatus: 'in_progress' }),
+      vm: makeVm({ decisionState: 'sensitive' }),
+    })
+    expect(vm.keyQuestion).toBeNull()
   })
 })

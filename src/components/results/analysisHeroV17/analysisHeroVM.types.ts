@@ -10,6 +10,8 @@
  * happen in `buildAnalysisHeroViewModel`.
  */
 
+import type { DskEvidenceStrength } from '../utils/decisionQualityPrompts'
+
 export type HeroState = 'weak' | 'moderate' | 'reflect' | 'strong'
 
 export type RowCategory =
@@ -63,6 +65,24 @@ export interface HeroRow {
   chatPrompt: string
 }
 
+/**
+ * Lane 1 (P1): DSK science provenance for the main key question. Present ONLY
+ * when the prompt behind `KeyQuestion.text` attested a `dsk_claim_id` upstream
+ * (id-gated at the data layer AND re-gated in `selectKeyQuestion`). Absence
+ * means "not grounded in a cited DSK claim" — the card then renders NO badge:
+ * never a default id, never an inferred strength.
+ */
+export interface DskGrounding {
+  /** Sanitised DSK claim title, e.g. "Outside view and reference class forecasting". */
+  principle: string
+  /** DSK claim id verbatim, e.g. "DSK-T-002" — surfaced as a data-* attribute. */
+  claimId: string
+  /** DSK protocol id, e.g. "DSK-P-002", when cited. */
+  protocolId?: string
+  /** Closed-vocabulary evidence strength, verbatim, when attested. */
+  strength?: DskEvidenceStrength
+}
+
 export interface KeyQuestion {
   /** Main question text — glossary-scanned post-interpolation. */
   text: string
@@ -70,6 +90,8 @@ export interface KeyQuestion {
   extras: string[]
   /** Optional reply chips shown beneath the question. */
   chips: string[]
+  /** DSK provenance for `text`'s source prompt — see DskGrounding. */
+  grounding?: DskGrounding
 }
 
 export interface AlsoLink {

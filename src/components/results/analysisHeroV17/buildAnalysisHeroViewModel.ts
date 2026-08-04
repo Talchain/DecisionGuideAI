@@ -72,6 +72,7 @@ import type {
   DimensionSegment,
   HeroRow,
   HeroState,
+  DskGrounding,
   KeyQuestion,
   FooterCheck,
   FooterCta,
@@ -303,10 +304,27 @@ function selectKeyQuestion(
   const dqps = data?.confidence?.m2DecisionQualityPrompts ?? []
   const dqp = dqps[0]?.question
   if (dqp && !containsBannedTerm(dqp)) {
+    // Lane 1 (P1): DSK grounding for the main question's source prompt.
+    // Id-gated (defence in depth over the data-layer gate): no attested
+    // dskClaimId ⇒ NO grounding object — the card renders no badge. Strength
+    // is carried only when present upstream, never defaulted. The principle
+    // (the DSK claim title, user-facing badge copy) passes the same glossary
+    // gate as the question text.
+    const first = dqps[0]
+    const grounding: DskGrounding | undefined =
+      first.dskClaimId && first.principle && !containsBannedTerm(first.principle)
+        ? {
+            principle: first.principle,
+            claimId: first.dskClaimId,
+            ...(first.dskProtocolId ? { protocolId: first.dskProtocolId } : {}),
+            ...(first.evidenceStrength ? { strength: first.evidenceStrength } : {}),
+          }
+        : undefined
     return {
       text: dqp,
       extras: dqps.slice(1, 4).map(p => p.question).filter(q => q && !containsBannedTerm(q)),
       chips: ['High', 'Some', 'Not sure', 'Add note'],
+      ...(grounding ? { grounding } : {}),
     }
   }
 

@@ -15,6 +15,7 @@ import type { DecisionVerdict } from '../../lib/decisionVerdict'
 import type { ReportV1, OptionProbability } from '../../adapters/plot/types'
 import type { V2FactorSensitivity, V2OptionComparison } from '../../adapters/plot/v2/types'
 import type { KnownFlipReason } from './utils/flipReasonVocabulary'
+import type { MappedDecisionQualityPrompt } from './utils/decisionQualityPrompts'
 
 // Re-export M1 coaching type for component use
 export type { M1CoachingReadiness }
@@ -876,12 +877,14 @@ export interface ConfidenceSectionData {
     affectedElements: string[]
     linkedCritiqueCode: string
   }>
-  /** V12: M2 decision quality prompts (structured) */
-  m2DecisionQualityPrompts?: Array<{
-    principle: string
-    appliesBecause: string
-    question: string
-  }>
+  /**
+   * V12: M2 decision quality prompts (structured). Lane 1 (P1): the entry
+   * shape is owned by `utils/decisionQualityPrompts` (single mapping site) and
+   * carries optional id-gated DSK provenance — dskClaimId / dskProtocolId /
+   * evidenceStrength are present ONLY when the wire entry attested a
+   * `dsk_claim_id`; absence means "not grounded", never "unknown default".
+   */
+  m2DecisionQualityPrompts?: MappedDecisionQualityPrompt[]
   /** V12: M2 evidence enhancements per factor_id */
   m2EvidenceEnhancements?: Record<string, { specific_action: string; decision_hygiene: string }>
   /** V12: M2 narrative summary paragraph */
