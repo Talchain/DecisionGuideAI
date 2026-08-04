@@ -227,6 +227,10 @@ export function applyDraftResult(
     goalThreshold: null,
     goalThresholdRepresentation: null,
     outcomeNodeId: null,
+    // Interim 2.467: a CEE draft is CEE's OWN graph — a wholesale replacement
+    // of any locally-imported graph, so release the import hold (see
+    // importPendingServerRegistration in the store).
+    importPendingServerRegistration: false,
   })
 
   // Warning-only schema validation at the mutation boundary. Non-throwing —
