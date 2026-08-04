@@ -40,6 +40,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { useCanvasStore } from '../store'
 import { useAnalysisSnapshotStore } from '../stores/analysisSnapshotStore'
+import { useComparisonStore } from '../stores/comparisonStore'
 import { applyDraftResult } from '../utils/applyDraftResult'
 import {
   AnalysisFreshnessNotice,
@@ -121,6 +122,31 @@ function seedPreImportAnalysedState() {
     },
     analysisFreshnessDirty: false,
   } as never)
+  // The pre-import analysis also lives in the Compare-tab snapshot store and
+  // the comparison store — seed both so their post-import absence assertions
+  // are non-vacuous (trap 13: an absence check must first see a presence).
+  useAnalysisSnapshotStore.setState({
+    snapshots: [
+      {
+        runId: 'rewalk2459b-run-1',
+        responseHash: PRE_IMPORT_HASH,
+        options: [{ id: PRE_IMPORT_OPTION_ID, label: PRE_IMPORT_OPTION_LABEL }],
+      },
+    ],
+  } as never)
+  useComparisonStore.setState({
+    comparisonMode: {
+      active: true,
+      scenarios: [],
+      labels: [PRE_IMPORT_OPTION_LABEL],
+      comparison: null,
+      apiResponse: {
+        option_comparison: [
+          { option_id: PRE_IMPORT_OPTION_ID, option_label: PRE_IMPORT_OPTION_LABEL },
+        ],
+      },
+    },
+  } as never)
 }
 
 /**
@@ -145,6 +171,7 @@ function analysisResultsCluster() {
     preAnalysisSensitivity: s.preAnalysisSensitivity,
     lastAnalysisSeed: s.lastAnalysisSeed,
     compareSnapshots: useAnalysisSnapshotStore.getState().snapshots,
+    comparisonMode: useComparisonStore.getState().comparisonMode,
   }
 }
 
@@ -183,6 +210,7 @@ beforeEach(() => {
     currentScenarioId: null,
   } as never)
   useAnalysisSnapshotStore.getState().clearSnapshots()
+  useComparisonStore.getState().resetComparison()
 })
 
 describe('interim 2.467 — import invalidates pre-import analysis (rewalk-2459b attempt 2)', () => {
