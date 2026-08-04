@@ -19,11 +19,14 @@
  * jsdom proves presence/wiring only, never pixels (trap 3) — the post-deploy
  * browser walk uses the testids listed in the lane report.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { TopBar } from '../TopBar'
 import { ToastProvider } from '../../../canvas/ToastContext'
+import { ImportExportDialog } from '../../../canvas/components/ImportExportDialog'
+import { useCanvasStore } from '../../../canvas/store'
+import { exportCanvas as exportCanvasData } from '../../../canvas/persist'
 
 function renderTopBar() {
   return render(
@@ -115,5 +118,105 @@ describe('TopBar kebab capabilities (Lane 4 P5)', () => {
     const menu = screen.getByTestId('scenario-switcher-menu')
     expect(menu.className).toContain('top-full')
     expect(menu.className).not.toContain('bottom-full')
+  })
+})
+
+/**
+ * F1 (adversarial review of PR #582): the newly-exposed Import path calls
+ * store.importCanvas, which replaces the whole graph AND wipes undo history
+ * (store.ts:2467 — past/future emptied), with no confirmation. Codebase
+ * convention everywhere else is a confirm (ScenarioSwitcher load/import,
+ * snapshot Delete, kebab Reset). These tests pin the dirty-state confirm,
+ * bound by IDENTITY to ScenarioSwitcher's exact copy, and assert the
+ * destructive action is NOT taken until accepted.
+ */
+describe('ImportExportDialog import confirmation (F1)', () => {
+  const importedNode = {
+    id: 'n-imported-1',
+    type: 'decision',
+    position: { x: 0, y: 0 },
+    // data.type is the discriminant of AnyNodeDataSchema (v2 snapshot Zod) —
+    // without it the import path rejects the file (v2-parse-failed).
+    data: { label: 'Imported node F1', type: 'decision' },
+  }
+  // Build the file with the REAL exporter so the fixture cannot drift from
+  // the format the import path validates.
+  const validImportJson = exportCanvasData({ nodes: [importedNode] as never, edges: [] })
+
+  function resetStore() {
+    useCanvasStore.setState({ nodes: [], edges: [], isDirty: false })
+  }
+
+  beforeEach(() => {
+    localStorage.clear()
+    resetStore()
+  })
+
+  afterEach(() => {
+    resetStore()
+    vi.restoreAllMocks()
+  })
+
+  async function renderImportDialogWithFile() {
+    const onClose = vi.fn()
+    render(
+      <ToastProvider>
+        <ImportExportDialog isOpen onClose={onClose} mode="import" />
+      </ToastProvider>,
+    )
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    expect(input).not.toBeNull()
+    const file = new File([validImportJson], 'canvas.json', { type: 'application/json' })
+    // jsdom 24's File lacks Blob.text(); polyfill on the instance so the
+    // dialog's `await file.text()` resolves to the fixture content.
+    if (typeof (file as { text?: unknown }).text !== 'function') {
+      Object.defineProperty(file, 'text', {
+        value: () => Promise.resolve(validImportJson),
+      })
+    }
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } })
+    })
+    await screen.findByText('Import As-Is')
+    return onClose
+  }
+
+  it('with unsaved changes, declining the confirm leaves the canvas untouched', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    useCanvasStore.setState({ isDirty: true })
+    const onClose = await renderImportDialogWithFile()
+
+    fireEvent.click(screen.getByText('Import As-Is'))
+
+    expect(confirmSpy).toHaveBeenCalledWith('You have unsaved changes. Import anyway?')
+    // Destructive action NOT taken: graph unchanged, dialog still open.
+    expect(useCanvasStore.getState().nodes).toHaveLength(0)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('with unsaved changes, accepting the confirm performs the import', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    useCanvasStore.setState({ isDirty: true })
+    const onClose = await renderImportDialogWithFile()
+
+    fireEvent.click(screen.getByText('Import As-Is'))
+
+    expect(confirmSpy).toHaveBeenCalledWith('You have unsaved changes. Import anyway?')
+    // Identity: the imported node (exact label) is now on the canvas.
+    const labels = useCanvasStore.getState().nodes.map(n => n.data?.label)
+    expect(labels).toContain('Imported node F1')
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('with no unsaved changes, import proceeds without a prompt', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const onClose = await renderImportDialogWithFile()
+
+    fireEvent.click(screen.getByText('Import As-Is'))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    const labels = useCanvasStore.getState().nodes.map(n => n.data?.label)
+    expect(labels).toContain('Imported node F1')
+    expect(onClose).toHaveBeenCalled()
   })
 })

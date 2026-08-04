@@ -27,6 +27,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
   // React 18 + Zustand v5: use individual selectors instead of object+shallow
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  const isDirty = useCanvasStore(s => s.isDirty)
   const { showToast } = useToast()
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,6 +102,15 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
 
   const handleImport = (autoFix: boolean) => {
     if (!importPreview) return
+
+    // F1 (PR #582 adversarial review): store.importCanvas replaces the whole
+    // graph AND wipes undo history (past/future emptied), so the clobber is
+    // unrecoverable where localStorage autosave is disabled. Mirror
+    // ScenarioSwitcher's dirty-state confirm (same copy) before the
+    // destructive call.
+    if (isDirty && !window.confirm('You have unsaved changes. Import anyway?')) {
+      return
+    }
 
     let jsonToImport = importPreview
 

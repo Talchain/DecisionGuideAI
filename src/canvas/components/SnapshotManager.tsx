@@ -68,6 +68,13 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
   }
 
   const handleRestore = (key: string) => {
+    // F1 (PR #582 adversarial review): restore replaces the whole graph AND
+    // wipes undo history (store.importCanvas empties past/future) even when
+    // the canvas is not dirty — so ALWAYS confirm, matching the codebase's
+    // window.confirm convention (snapshot Delete, ScenarioSwitcher load).
+    if (!window.confirm('Restore this snapshot? This will replace your current canvas and clear undo history.')) {
+      return
+    }
     const data = loadSnapshot(key)
     if (data) {
       const importCanvas = useCanvasStore.getState().importCanvas
