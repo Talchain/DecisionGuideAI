@@ -1245,16 +1245,28 @@ export function mapV5AnalysisToReport(
   // Critiques transport, UI leg (ROADMAP 2.358) — mint the canonical
   // `run.critique` slot the Results consumers already read
   // (useResultsSectionData.ts:2015/:2453, OutputsDock.tsx:2423,
-  // usePreAnalysisData.ts:616). Bands are null, never fabricated (the V5
-  // wire has no bands; every reader falls through `?? null` chains —
-  // store.ts:5146-5148, decisionBrief.ts:320-322, runHistory.ts:292).
-  // `responseHash` is the report's own hash — one identity, not a second
-  // derivation. Present-and-empty is preserved for a producer-sent `[]`.
+  // usePreAnalysisData.ts:616; useUnifiedActions.ts:229 re-enables
+  // honestly). `responseHash` is the report's own hash — one identity, not
+  // a second derivation.
+  //
+  // ⚠ NO `bands` KEY — EVER (review #585 F1, executable-proven). A bands
+  // object of nulls is a TRUTHY value, and two readers branch on object
+  // truthiness (`canonicalBands ? canonicalBands.p50 :
+  // report?.results?.likely` at OutputsDock.tsx:1188-1194; the
+  // `if (bands)` early-return in share/decisionSummary.ts:28-37) — a
+  // null-bands object would have nulled a REAL mostLikelyValue on exactly
+  // the turns this reader lights up. True absence, not presence-shaped
+  // absence: `report.run?.bands` stays undefined and every fallback chain
+  // fires exactly as before this PR.
+  //
+  // Minted only when at least one row SURVIVES mapping (review F7): CEE's
+  // projection never emits an empty `critiques` array on the wire, so a
+  // present-and-empty slot would pin a producer behaviour that does not
+  // exist; `[]`/all-malformed input leaves `run` absent, same as no key.
   if (rawCritiques) {
-    report.run = {
-      responseHash,
-      bands: { p10: null, p50: null, p90: null },
-      critique: mapProjectedCritiques(rawCritiques),
+    const critique = mapProjectedCritiques(rawCritiques)
+    if (critique.length > 0) {
+      report.run = { responseHash, critique }
     }
   }
   // VOI family (V7-C slice 1) — see the derivation block above.

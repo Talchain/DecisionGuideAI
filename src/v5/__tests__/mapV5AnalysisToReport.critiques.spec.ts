@@ -124,22 +124,30 @@ describe('mapV5AnalysisToReport — projected critiques reach report.run.critiqu
     expect(report.run?.critique).toBeUndefined()
   })
 
-  it('carries a producer-sent empty array as PRESENT-and-empty (honest "nothing to disclose" ≠ absent)', () => {
+  it('a producer-sent empty array mints NO run (review F7: CEE never emits empty critiques — do not pin a nonexistent producer behaviour)', () => {
     const report = mapV5AnalysisToReport(liveShapedBlock([]) as never)
-    // RED at pristine: no run is minted at all today. After the fix the
-    // producer-sent [] must mint the slot with an empty array, so consumers
-    // can distinguish "producer said nothing to disclose" from "no producer".
-    expect(report.run).toBeDefined()
-    expect(report.run!.critique).toEqual([])
+    expect(report.run).toBeUndefined()
   })
 
-  it('never fabricates bands: the run minted for critiques carries null p10/p50/p90 (V5 wire has no bands)', () => {
+  it('an all-malformed array mints NO run (nothing survived ⇒ no slot, same as no key)', () => {
+    const report = mapV5AnalysisToReport(liveShapedBlock([null, 42, 'garbage']) as never)
+    expect(report.run).toBeUndefined()
+  })
+
+  it('F1 pin — the minted run has NO bands key AT ALL (true absence; a null-bands OBJECT is truthy and nulls real numbers)', () => {
     const report = mapV5AnalysisToReport(liveShapedBlock(PROJECTED_ROWS) as never)
-    // RED at pristine (run is undefined); after the fix, bands must be null —
-    // every reader falls through `?? null` chains (store.ts:5146-5148,
-    // decisionBrief.ts:320-322, runHistory.ts:292), so null is honest absence.
+    // RED at pristine (run is undefined). Review #585 F1, executable-proven:
+    // OutputsDock.tsx:1188-1194 (`canonicalBands ? canonicalBands.p50 :
+    // report?.results?.likely`) and share/decisionSummary.ts:28-37
+    // (`if (bands)` early-return) branch on OBJECT TRUTHINESS — a
+    // `{p10:null,p50:null,p90:null}` object would send mostLikelyValue
+    // 83079.94 → null on exactly the turns this reader lights up. The key
+    // must be ABSENT, not present-and-null-shaped.
     expect(report.run).toBeDefined()
-    expect(report.run!.bands).toEqual({ p10: null, p50: null, p90: null })
+    expect('bands' in report.run!).toBe(false)
+    // The two truthiness readers' guard expressions, replayed literally:
+    const canonicalBands = report.run?.bands ?? null
+    expect(canonicalBands).toBeNull()
     // And the responseHash on the run must be the report's own hash — one
     // identity, not a second derivation.
     expect(report.run!.responseHash).toBe(report.model_card?.response_hash)

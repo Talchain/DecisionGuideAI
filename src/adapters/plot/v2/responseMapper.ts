@@ -576,6 +576,11 @@ export function mapV2ResponseToReportV1(
     // P0 Fix: Pass through robustness_status for gating logic
     robustness_status: v2Response.robustness_status,
     run: {
+      // Lane 3 (#585 F1 follow-through): this construction was a baselined
+      // TS2741 type-lie (missing responseHash) since it was written; fixed at
+      // source with the same producer hash model_card carries, rather than
+      // re-baselined.
+      responseHash: v2Response.response_hash,
       critique,
       bands: {
         p10: ciLow,
@@ -1316,6 +1321,9 @@ export function createErrorReport(
     },
     drivers: [],
     run: {
+      // Lane 3: was a baselined missing-properties type-lie; the error report
+      // carries the same sentinel hash its model_card declares.
+      responseHash: 'error',
       critique: critiques.map((c) => ({
         code: c.code,
         severity: mapCritiqueSeverity(c.severity),

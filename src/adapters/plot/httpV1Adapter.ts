@@ -160,14 +160,14 @@ function mapV1ResultToReport(
 
   // Use v1.2 bands for results (with fallback to legacy summary)
   // Contract v1.1: results.most_likely.outcome (nested) or result.summary.likely (legacy)
-  const conservative = canonicalRun.bands.p10
+  const conservative = canonicalRun.bands?.p10
     ?? result.results?.conservative?.outcome
     ?? result.summary?.conservative ?? 0
-  const likely = canonicalRun.bands.p50
+  const likely = canonicalRun.bands?.p50
     ?? result.results?.most_likely?.outcome
     ?? result.summary?.most_likely
     ?? result.summary?.likely ?? 0
-  const optimistic = canonicalRun.bands.p90
+  const optimistic = canonicalRun.bands?.p90
     ?? result.results?.optimistic?.outcome
     ?? result.summary?.optimistic ?? 0
   const units = result.summary?.units || 'count'
