@@ -61,6 +61,7 @@ import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
+import { mapDecisionQualityPrompts } from './utils/decisionQualityPrompts'
 import { humaniseCritique } from './utils/humaniseCritique'
 import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
@@ -3143,11 +3144,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       m2DecisionQualityPrompts: (() => {
         const prompts = safeArray(m1ReviewAssumptions?.decision_quality_prompts)
         if (prompts.length === 0) return undefined
-        return prompts.map((p: any) => ({
-          principle: p.principle ? sanitizeCoachingText(p.principle) : '',
-          appliesBecause: p.applies_because ? sanitizeCoachingText(p.applies_because) : '',
-          question: p.question ? sanitizeCoachingText(p.question) : '',
-        }))
+        // Lane 1 (P1): single mapping site — carries DSK provenance
+        // (dskClaimId/dskProtocolId/evidenceStrength) id-gated, alongside the
+        // historical sanitised copy fields. See utils/decisionQualityPrompts.
+        return mapDecisionQualityPrompts(prompts)
       })(),
       m2EvidenceEnhancements: (() => {
         const raw = m1ReviewAssumptions?.evidence_enhancements as
