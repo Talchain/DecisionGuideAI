@@ -122,15 +122,32 @@ describe('TopBar kebab capabilities (Lane 4 P5)', () => {
 })
 
 /**
- * F1 (adversarial review of PR #582): the newly-exposed Import path calls
- * store.importCanvas, which replaces the whole graph AND wipes undo history
- * (store.ts:2467 — past/future emptied), with no confirmation. Codebase
- * convention everywhere else is a confirm (ScenarioSwitcher load/import,
- * snapshot Delete, kebab Reset). These tests pin the dirty-state confirm,
- * bound by IDENTITY to ScenarioSwitcher's exact copy, and assert the
- * destructive action is NOT taken until accepted.
+ * F1 (adversarial review of PR #582, prescription CORRECTED by the delta
+ * re-review): the newly-exposed Import path calls store.importCanvas, which
+ * replaces the whole graph AND wipes undo history (store.ts:2467 —
+ * past/future emptied), with no confirmation.
+ *
+ * The first prescription gated the confirm on `isDirty` — but that flag is
+ * HOLLOW: the complete writer manifest shows ordinary node/edge edits and
+ * CEE draft-apply never set it, so a dirty-gated confirm never fires on a
+ * real drafted graph. Corrected gate: NON-EMPTY canvas
+ * (nodes.length > 0 || edges.length > 0), with copy that states what
+ * actually happens (replace canvas, clear undo) — the "unsaved changes"
+ * copy would itself lie on a non-dirty canvas.
+ *
+ * These tests bind to the confirm's EXACT copy and assert the destructive
+ * action is NOT taken until accepted.
  */
 describe('ImportExportDialog import confirmation (F1)', () => {
+  const IMPORT_CONFIRM_COPY =
+    'Import this file? This will replace your current canvas and clear undo history.'
+
+  const existingNode = {
+    id: 'n-existing-1',
+    type: 'decision',
+    position: { x: 10, y: 10 },
+    data: { label: 'Existing node', type: 'decision' },
+  }
   const importedNode = {
     id: 'n-imported-1',
     type: 'decision',
@@ -181,39 +198,44 @@ describe('ImportExportDialog import confirmation (F1)', () => {
     return onClose
   }
 
-  it('with unsaved changes, declining the confirm leaves the canvas untouched', async () => {
+  it('with existing work on the canvas, declining the confirm leaves the canvas untouched', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    useCanvasStore.setState({ isDirty: true })
+    // NOT dirty — the gate must fire on canvas CONTENT, not the hollow
+    // isDirty flag (which real edits and CEE draft-apply never set).
+    useCanvasStore.setState({ nodes: [existingNode] as never })
     const onClose = await renderImportDialogWithFile()
 
     fireEvent.click(screen.getByText('Import As-Is'))
 
-    expect(confirmSpy).toHaveBeenCalledWith('You have unsaved changes. Import anyway?')
-    // Destructive action NOT taken: graph unchanged, dialog still open.
-    expect(useCanvasStore.getState().nodes).toHaveLength(0)
+    expect(confirmSpy).toHaveBeenCalledWith(IMPORT_CONFIRM_COPY)
+    // Destructive action NOT taken: the existing graph survives, dialog open.
+    const labels = useCanvasStore.getState().nodes.map(n => n.data?.label)
+    expect(labels).toEqual(['Existing node'])
     expect(onClose).not.toHaveBeenCalled()
   })
 
-  it('with unsaved changes, accepting the confirm performs the import', async () => {
+  it('with existing work on the canvas, accepting the confirm replaces the graph', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    useCanvasStore.setState({ isDirty: true })
+    useCanvasStore.setState({ nodes: [existingNode] as never })
     const onClose = await renderImportDialogWithFile()
 
     fireEvent.click(screen.getByText('Import As-Is'))
 
-    expect(confirmSpy).toHaveBeenCalledWith('You have unsaved changes. Import anyway?')
-    // Identity: the imported node (exact label) is now on the canvas.
+    expect(confirmSpy).toHaveBeenCalledWith(IMPORT_CONFIRM_COPY)
+    // Identity: the imported node (exact label) replaced the existing graph.
     const labels = useCanvasStore.getState().nodes.map(n => n.data?.label)
     expect(labels).toContain('Imported node F1')
+    expect(labels).not.toContain('Existing node')
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('with no unsaved changes, import proceeds without a prompt', async () => {
+  it('on an EMPTY canvas, import proceeds without a prompt', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const onClose = await renderImportDialogWithFile()
 
     fireEvent.click(screen.getByText('Import As-Is'))
 
+    // Empty canvas = nothing to clobber, no friction.
     expect(confirmSpy).not.toHaveBeenCalled()
     const labels = useCanvasStore.getState().nodes.map(n => n.data?.label)
     expect(labels).toContain('Imported node F1')

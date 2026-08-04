@@ -27,7 +27,6 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
   // React 18 + Zustand v5: use individual selectors instead of object+shallow
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
-  const isDirty = useCanvasStore(s => s.isDirty)
   const { showToast } = useToast()
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,12 +102,16 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
   const handleImport = (autoFix: boolean) => {
     if (!importPreview) return
 
-    // F1 (PR #582 adversarial review): store.importCanvas replaces the whole
-    // graph AND wipes undo history (past/future emptied), so the clobber is
-    // unrecoverable where localStorage autosave is disabled. Mirror
-    // ScenarioSwitcher's dirty-state confirm (same copy) before the
-    // destructive call.
-    if (isDirty && !window.confirm('You have unsaved changes. Import anyway?')) {
+    // F1 (PR #582 adversarial review, gate corrected by the delta re-review):
+    // store.importCanvas replaces the whole graph AND wipes undo history
+    // (past/future emptied), so the clobber is unrecoverable where
+    // localStorage autosave is disabled. Gate on NON-EMPTY canvas, not
+    // `isDirty` — that flag is hollow (ordinary node/edge edits and CEE
+    // draft-apply never set it), and the copy states what actually happens.
+    if (
+      (nodes.length > 0 || edges.length > 0) &&
+      !window.confirm('Import this file? This will replace your current canvas and clear undo history.')
+    ) {
       return
     }
 
