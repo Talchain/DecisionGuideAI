@@ -44,6 +44,13 @@
 # promoted.
 # =============================================================================
 [context.staging.environment]
+  # Supabase publishable (anon-class) key — PUBLIC BY DESIGN (Supabase: "can be
+  # safely shared publicly"). Set here 4 Aug 2026 after the project's key family
+  # was revoked (Supabase secret-scanning enforcement; ROADMAP 2.471): the
+  # dashboard-set VITE_SUPABASE_ANON_KEY went stale, and this file is the
+  # config-as-source-of-truth surface for staging builds (Codex B4 precedent).
+  # The SECRET key never goes in any repo file.
+  VITE_SUPABASE_ANON_KEY = "sb_publishable_Bhx6ZBWU7aLGmTfEedg60g_O5P1SQ-T"
   # aiPanelV2 — floating-first Olumi UX (PR #148 + PR #149).
   # Enabled on staging for manual testing. Promote to production by
   # adding to `[build.environment]` ONLY after sign-off.
