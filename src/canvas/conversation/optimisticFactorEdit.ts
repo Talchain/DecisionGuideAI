@@ -40,6 +40,8 @@
  */
 
 import { useCanvasStore } from '../store'
+import { saveAutosave } from '../store/scenarios'
+import { autosaveSourceFromStore, projectAutosaveData } from '../store/autosaveProjection'
 import { withObservedStateUpdate, type ObservedStateData } from '../utils/observedStateHelpers'
 import { unwrapInterventionValue, classifyUnit } from '../utils/labelUtils'
 import { formatValueWithUnit, formatNumber } from '../utils/formatValueWithUnit'
@@ -508,6 +510,28 @@ export function confirmOptimisticFactorEdit(edit: OptimisticFactorEdit): Confirm
   store.updateNode(edit.nodeId, {
     data: withObservedStateUpdate(node.data, edit.reviewedStamp),
   } as never)
+
+  // Persist the earned stamp NOW (L66, final-walk defect 0, P1). The stamp is
+  // the ONE thing only the client holds — the value round-trips through CEE,
+  // but `observed_state.source` cannot (the server enum has no user member,
+  // rowed 2.396(b)) — and before this flush nothing persisted it at the moment
+  // it was earned: the autosave writers were the 30 s timer, draft apply,
+  // auto-apply patches, draft undo, resultsComplete and the crash flush.
+  // Witnessed cost (runE, build 610ed5f7): a reload ~3 s after the receipt
+  // restored a pre-stamp slot and the row regressed to "Olumi estimate /
+  // check first" with the value intact. Flushing on 'stamped' — and ONLY on
+  // 'stamped': the other outcomes wrote nothing, so persisting on them would
+  // record a claim this function just declined to make — closes that window.
+  // Through the canonical projection, like every other writer (the
+  // autosave-projection-single-source ci-guard derives this list from the
+  // filesystem). Best-effort like its sibling call sites: a quota failure
+  // must not turn a successful receipt into a thrown error.
+  try {
+    saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
+  } catch {
+    // Non-critical: the in-memory stamp is already applied; the periodic
+    // autosave remains the fallback writer.
+  }
   return 'stamped'
 }
 
