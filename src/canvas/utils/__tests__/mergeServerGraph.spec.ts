@@ -185,6 +185,13 @@ describe('mergeServerGraphOnHydrate — honest absence', () => {
   it('an EMPTY server graph is a strict no-op — the canvas stands untouched', () => {
     const before = useCanvasStore.getState().nodes
     const res = mergeServerGraphOnHydrate({ nodes: [], edges: [] })
+    // ⚠ EXHAUSTIVE ON PURPOSE — kept `toEqual`, not relaxed to `toMatchObject`.
+    // This assertion is what caught L61's decision fields being added, and that
+    // is the behaviour we want: a new field on this result reaches a caller that
+    // may act on it, so it should have to be declared here rather than arriving
+    // silently. `accepted: false` is the L61 addition — an empty server graph is
+    // a REFUSAL (nothing was observed), which is the same rule that already
+    // governs `lastAuthoritativeGraph` on the line below.
     expect(res).toEqual({
       addedNodeCount: 0,
       addedEdgeCount: 0,
@@ -192,6 +199,9 @@ describe('mergeServerGraphOnHydrate — honest absence', () => {
       updatedEdgeCount: 0,
       removedNodeCount: 0,
       removedEdgeCount: 0,
+      accepted: false,
+      refusedReason: 'emptyServerGraph',
+      changed: false,
     })
     expect(useCanvasStore.getState().nodes).toBe(before)
     expect(useCanvasStore.getState().lastAuthoritativeGraph).toBeNull()

@@ -229,18 +229,36 @@ export const V7_LENS_COPY = {
      * LICENSED BY: a NON-NULL ranking whose `resolved` band is empty — i.e. the
      * estimator ran, rows arrived and were label-resolved, and not one of them
      * cleared its noise floor. It is NOT licensed by absent/empty/unusable
-     * `factor_evppi`: that is `resolveNextGate` above, and saying "no single
-     * unknown would change the recommendation" about factors nothing assessed
-     * would fabricate the assessment. The two are mutually exclusive by
-     * construction — `buildVoiRanking` returns `null` for exactly the gate's
-     * cases — and both directions are pinned in
+     * `factor_evppi`: that is `resolveNextGate` above, and claiming anything at
+     * all about factors nothing assessed would fabricate the assessment. The two
+     * are mutually exclusive by construction — `buildVoiRanking` returns `null`
+     * for exactly the gate's cases — and both directions are pinned in
      * `V7EvidenceDisclosure.resolveNextAllBelowResolution.spec.tsx` §2/§3.
      *
+     * ⚠ CORRECTED BY L61 — THIS SENTENCE OVERCLAIMED, AND IT WAS MY OWN.
+     * It read: *"Nothing stands out to resolve yet — at this precision, no
+     * single unknown would change the recommendation."* The second clause states
+     * EVIDENCE OF NO EFFECT, and the estimator established no such thing.
+     * Below-resolution means the run could not distinguish these factors FROM
+     * NOISE at its own resolution — a fact about THIS RUN'S PRECISION, not about
+     * the factors' influence. You cannot conclude "none of them would change the
+     * recommendation" from rows you could not resolve; that is precisely the
+     * inference the `resolveNextBelow` doctrine three blocks up forbids ("NEVER
+     * 'zero value' and never 'not worth resolving'"), and the empty state was
+     * contradicting the line rendered directly beneath it.
+     *
+     * The replacement stays in the CANNOT-RANK register: it says the run lacked
+     * the precision to tell the unknowns apart, which is what happened. The
+     * doctrine is now pinned rather than merely written down — §5 of the spec
+     * sweeps the constant AND the rendered DOM for no-effect phrasing, with a
+     * positive control proving the sweep can see the sentence and would have
+     * failed the historical wording (pinned to that literal, permanently, not to
+     * "whatever we ship now").
+     *
      * PLAIN LANGUAGE, DELIBERATELY. "below_resolution", "noise floor" and
-     * "EVPPI" are the producer's vocabulary, not the user's. "at this
-     * precision" is what carries the honest caveat that a longer run could
-     * resolve something — the sentence says nothing stands out YET, never that
-     * nothing matters.
+     * "EVPPI" are the producer's vocabulary, not the user's. "precision" is
+     * what carries the honest caveat that a longer run could resolve something —
+     * the sentence says nothing stands out YET, never that nothing matters.
      *
      * ⚠ THIS PARAGRAPH USED TO SAY the one jargon-adjacent line on this surface
      * (`resolveNextBelow`) was "left exactly where it was". That was true when
@@ -254,7 +272,7 @@ export const V7_LENS_COPY = {
      * The em dash is deliberate and matches `resolveNextNote` above.
      */
     resolveNextNoneAboveResolution:
-      'Nothing stands out to resolve yet — at this precision, no single unknown would change the recommendation.',
+      'Nothing stands out to resolve yet — this run does not have the precision to tell these unknowns apart.',
     /** Conditional-winner narration — all values are producer-supplied
      * (factor label, split value/unit, winner labels); nothing invented. */
     tradeOffSplit: (factor: string, value: string, high: string, low: string) =>

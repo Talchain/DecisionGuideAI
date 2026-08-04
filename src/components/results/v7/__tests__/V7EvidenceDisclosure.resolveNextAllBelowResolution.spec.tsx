@@ -28,9 +28,14 @@
  *
  * THE HONESTY BOUNDARY THIS SUITE POLICES (both directions — trap 13)
  * ──────────────────────────────────────────────────────────────────
- * The empty state is a CLAIM: it says the analysis assessed the unknowns and
- * none of them would change the recommendation. That claim is only true when the
- * rows ARRIVED. So:
+ * The empty state is a CLAIM: it says the analysis ASSESSED the unknowns and
+ * this run could not tell them apart. That claim is only true when the rows
+ * ARRIVED. So:
+ *
+ * (⚠ This paragraph used to say the sentence claimed "none of them would change
+ * the recommendation" — which is what the sentence then said, and what L61
+ * removed as an overclaim: below-resolution licenses CANNOT-RANK, never
+ * NO-EFFECT. §5 now pins that distinction.)
  *
  *   · rows arrived, none resolved  → the sentence renders          (§1, §2)
  *   · `factor_evppi` ABSENT        → the sentence must NOT render, the
@@ -374,5 +379,102 @@ describe('§4 NEGATIVE CONTROL — a resolved row present means there IS somethi
     expect(resolveNext!.resolved.map((r) => r.factorId)).toEqual([first.factor_id])
     expect(screen.queryByTestId('v7-resolve-next-none-above-resolution')).toBeNull()
     expect(text).not.toContain(E.resolveNextNoneAboveResolution)
+  })
+})
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * §5 THE CLAIM ITSELF — L61, and this section is the one that was missing
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+describe('§5 the empty state states CANNOT-RANK, never NO-EFFECT', () => {
+  /**
+   * ⚠ WHY THIS SECTION EXISTS AT ALL.
+   *
+   * Every pin in §1–§4 binds the SYMBOL `E.resolveNextNoneAboveResolution` and
+   * never its words — deliberately, so re-wording is not a test rewrite. The
+   * cost of that choice is that the WORDING had no guard whatsoever, and one
+   * shipped that overclaimed: *"at this precision, no single unknown would
+   * change the recommendation"*. That sentence asserts EVIDENCE OF NO EFFECT.
+   *
+   * Below-resolution licenses no such thing. It means the estimator could not
+   * distinguish these factors from noise AT THIS RUN'S RESOLUTION — a statement
+   * about the RUN'S PRECISION, not about the factors' influence. "None of them
+   * would change the recommendation" is a conclusion the estimator did not
+   * establish and cannot, from rows it could not resolve. The file's own
+   * doctrine says so (`v7LensCopy.ts`: below-resolution "NEVER 'zero value' and
+   * never 'not worth resolving'"), and the SIBLING line on the same surface,
+   * `resolveNextBelow`, already speaks the honest register — so the empty state
+   * was contradicting the line directly beneath it.
+   *
+   * These pins bind the DOCTRINE, not a preferred phrasing: any wording that
+   * stays in the cannot-rank register passes, and the specific overclaim cannot
+   * come back unnoticed.
+   */
+
+  const BANNED_NO_EFFECT_PHRASES = [
+    // The exact shipped overclaim and its near neighbours.
+    'would change the recommendation',
+    'no single unknown',
+    "wouldn't change",
+    'would not change',
+    'makes no difference',
+    // Already banned by v7LensCopy's own doctrine for `resolveNextBelow`;
+    // the empty state answers to the same rule.
+    'not worth',
+    'no value',
+    'zero value',
+  ]
+
+  it.each(BANNED_NO_EFFECT_PHRASES)(
+    'the copy constant does not claim no-effect: %s',
+    (phrase) => {
+      expect(E.resolveNextNoneAboveResolution.toLowerCase()).not.toContain(phrase)
+    },
+  )
+
+  it.each(BANNED_NO_EFFECT_PHRASES)(
+    'the RENDERED empty state does not claim no-effect: %s',
+    (phrase) => {
+      // Asserted at the DOM as well as at the constant: the constant is what we
+      // wrote, the DOM is what the user reads, and only the second is the claim.
+      const { text } = renderResolveNext(ALL_BELOW_ENRICHMENT)
+      expect(text.toLowerCase()).not.toContain(phrase)
+    },
+  )
+
+  it('POSITIVE CONTROL — the banned-phrase sweep can actually SEE the rendered sentence', () => {
+    // ⚠ Without this, every assertion above could be passing because the empty
+    // state never rendered at all (trap 13: an absence assertion must first
+    // prove it can detect a presence). Bind to the sentence by its own testid
+    // and confirm the sweep's haystack contains it.
+    const { text } = renderResolveNext(ALL_BELOW_ENRICHMENT)
+    const node = screen.getByTestId('v7-resolve-next-none-above-resolution')
+    expect(node).toHaveTextContent(E.resolveNextNoneAboveResolution)
+    expect(text).toContain(E.resolveNextNoneAboveResolution)
+    // And the sweep would have caught the historical wording, had it still been
+    // there — proven against the literal, pinned here permanently rather than
+    // against "whatever we ship now" (a control pinned to current is a tautology).
+    const HISTORICAL_OVERCLAIM =
+      'Nothing stands out to resolve yet — at this precision, no single unknown would change the recommendation.'
+    expect(
+      BANNED_NO_EFFECT_PHRASES.some((p) => HISTORICAL_OVERCLAIM.toLowerCase().includes(p)),
+      'the sweep must be capable of failing the sentence it was written to remove',
+    ).toBe(true)
+    expect(E.resolveNextNoneAboveResolution).not.toBe(HISTORICAL_OVERCLAIM)
+  })
+
+  it('keeps the below-resolution ≠ worthless doctrine — the sentence still says YET', () => {
+    // The honest reading is "this run could not tell", which leaves open that a
+    // longer run resolves something. A sentence that dropped that would swap one
+    // overclaim for another in the opposite direction.
+    expect(E.resolveNextNoneAboveResolution.toLowerCase()).toContain('yet')
+  })
+
+  it('speaks the same register as its sibling `resolveNextBelow`', () => {
+    // Both lines sit on the same surface with no expert affordance between them.
+    // `resolveNextBelow` attributes the shortfall to THIS RUN'S precision; the
+    // empty state must not attribute it to the factors.
+    expect(E.resolveNextBelow('X').toLowerCase()).toContain('precision')
+    expect(E.resolveNextNoneAboveResolution.toLowerCase()).toContain('precision')
   })
 })

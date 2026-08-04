@@ -275,6 +275,17 @@ export function overlayNode(existing: any, wireNode: any): any {
   return { ...existing, type: nextType, data: nextData }
 }
 
+export interface OverlayEdgeOptions {
+  /**
+   * Determine "the wire supplied this field" from the mapper's PROVENANCE
+   * STAMPS rather than from "the mapped value differs from the mapper default".
+   *
+   * OFF by default, so the RECEIPT path is byte-unchanged. Boot hydration turns
+   * it ON — see the block below for why the two paths differ.
+   */
+  presenceFromProvenanceStamps?: boolean
+}
+
 /**
  * Overlay a wire edge's analytical fields onto an existing canvas edge.
  * Returns the SAME reference when nothing changed.
@@ -283,8 +294,50 @@ export function overlayNode(existing: any, wireNode: any): any {
  * applied — see EDGE_MAPPER_DEFAULTS. Without that filter every receipt would
  * splat DEFAULT_EDGE_DATA over locally-tuned edges and churn history on every
  * turn.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠ EQUALITY-WITH-DEFAULT IS NOT PRESENCE, AND AT BOOT THAT COSTS A NUMBER (L61)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `DEFAULT_EDGE_DATA.weight` is `0.5`. So a server edge carrying
+ * `strength.mean: 0.5` maps to `weight: 0.5`, compares EQUAL to the synthetic
+ * baseline, and is discarded as "not supplied" — leaving a local `0.7` on screen
+ * while the next analysis is computed from the server's `0.5`. The synthetic
+ * baseline's `direction` is `'positive'` for the same reason (default weight
+ * `0.5 >= 0`), so an EXPLICIT server `effect_direction: 'positive'` is dropped
+ * and a local `'negative'` survives — a SIGN, not a rounding difference.
+ *
+ * Those are the only two reachable collisions: `beliefExists` resolves to
+ * `undefined` in the baseline (the explicit assignment overrides the
+ * `DEFAULT_EDGE_DATA` spread) and `strengthStd` is omitted, so both already
+ * differ from anything the wire sends.
+ *
+ * On the RECEIPT path the under-application is defensible and stays: a receipt
+ * echoes an edit the user just made, and over-applying defaults across every
+ * turn is the worse failure. At BOOT it is not defensible — the server row IS
+ * what the next turn rebases from, so a dropped value is screen-vs-compute
+ * divergence.
+ *
+ * THE FIX IS DERIVED, NOT A SECOND LIST. `mapDraftEdgeToCanvas` already proves
+ * which fields the wire carried: it computes `wireSuppliedStrength` from the
+ * same three probes its priority chain uses and passes it to
+ * `edgeValueSourcePatch`, which OMITS any stamp it cannot justify. Hence
+ * `weightSource` present on the mapped edge ⟺ the wire carried a strength. The
+ * field set is `EDGE_PROVENANCED_FIELDS`; the stamp key is `edgeSourceKey`.
+ *
+ * ⚠ WHAT THIS DOES NOT FIX, NAMED RATHER THAN GLOSSED. Presence is only
+ * recoverable for the PROVENANCED fields. Any other key the mapper always emits
+ * with a non-undefined default is still equality-detected, and would still be
+ * dropped if the wire ever started supplying it at exactly the default. That set
+ * is enumerated and reviewed in a corpus assertion in
+ * `mergeServerGraph.edgePresence.spec.ts` §4, which goes RED when it grows —
+ * because a guard derived from a registry can prove its consumers agree with the
+ * registry and can never prove the registry is complete.
  */
-export function overlayEdge(existing: any, wireEdge: any): any {
+export function overlayEdge(
+  existing: any,
+  wireEdge: any,
+  opts?: OverlayEdgeOptions,
+): any {
   const mapped = mapDraftEdgeToCanvas(wireEdge, 0)
   const mappedData = (mapped.data ?? {}) as Record<string, unknown>
 
@@ -292,6 +345,17 @@ export function overlayEdge(existing: any, wireEdge: any): any {
   const supplied: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(mappedData)) {
     if (!sameValue(v, defaults[k])) supplied[k] = v
+  }
+
+  // Presence beats equality on the paths that ask for it. Runs BEFORE the stamp
+  // coupling below, so a value promoted here keeps its own stamp rather than
+  // having it stripped as orphaned.
+  if (opts?.presenceFromProvenanceStamps) {
+    for (const field of EDGE_PROVENANCED_FIELDS) {
+      if (edgeSourceKey(field) in mappedData && field in mappedData) {
+        supplied[field] = mappedData[field]
+      }
+    }
   }
 
   // A provenance stamp must never outlive or precede the value it describes.
