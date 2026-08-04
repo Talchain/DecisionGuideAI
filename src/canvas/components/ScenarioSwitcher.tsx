@@ -18,7 +18,17 @@ import { exportScenario } from '../export/exportScenario'
 import { useToast } from '../ToastContext'
 import { typography } from '../../styles/typography'
 
-export function ScenarioSwitcher() {
+interface ScenarioSwitcherProps {
+  /**
+   * Which side of the trigger the dropdown opens on.
+   * 'above' (default) suits a bottom-anchored toolbar; 'below' is for the
+   * fixed TopBar mount (Lane 4 P5), where opening upward would leave the
+   * viewport.
+   */
+  dropdownPosition?: 'above' | 'below'
+}
+
+export function ScenarioSwitcher({ dropdownPosition = 'above' }: ScenarioSwitcherProps = {}) {
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const isDirty = useCanvasStore(s => s.isDirty)
   const isSaving = useCanvasStore(s => s.isSaving)
@@ -194,6 +204,7 @@ export function ScenarioSwitcher() {
           type="button"
           aria-expanded={isOpen}
           aria-haspopup="true"
+          data-testid="scenario-switcher-trigger"
         >
           <Folder className="w-4 h-4 text-gray-500" />
           <span className="max-w-[150px] truncate">
@@ -210,8 +221,9 @@ export function ScenarioSwitcher() {
         {/* Dropdown menu */}
         {isOpen && (
           <div
-            className="absolute bottom-full left-0 mb-1 w-72 bg-white border border-gray-200 rounded-lg shadow-panel z-50"
+            className={`absolute ${dropdownPosition === 'below' ? 'top-full mt-1' : 'bottom-full mb-1'} left-0 w-72 bg-white border border-gray-200 rounded-lg shadow-panel z-50`}
             role="menu"
+            data-testid="scenario-switcher-menu"
           >
             {/* Current scenario actions */}
             <div className="p-2 border-b border-gray-200">

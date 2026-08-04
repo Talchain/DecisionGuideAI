@@ -2,11 +2,17 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { TopBar } from '../TopBar'
+// Lane 4 (P5): TopBar now mounts toast-consuming children (ScenarioSwitcher,
+// KebabMenu's ImportExportDialog/SnapshotManager); useToast throws outside
+// ToastProvider. Production (CanvasMVP) provides it at the route level.
+import { ToastProvider } from '../../../canvas/ToastContext'
 
 function renderTopBar(props: React.ComponentProps<typeof TopBar>) {
   return render(
     <MemoryRouter>
-      <TopBar {...props} />
+      <ToastProvider>
+        <TopBar {...props} />
+      </ToastProvider>
     </MemoryRouter>,
   )
 }
