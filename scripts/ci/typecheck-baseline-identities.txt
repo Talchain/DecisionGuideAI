@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2500
+# count=2491
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -777,16 +777,14 @@
 2	src/canvas/ui/NodeInspector.stories.tsx	TS2353	Object literal may only specify known properties, and 'factor_sensitivity' does not exist in type 'ReportV1'.
 2	src/canvas/ui/NodeInspector.stories.tsx	TS2353	Object literal may only specify known properties, and 'option_comparison' does not exist in type 'ReportV1'.
 13	src/canvas/ui/NodeInspector.stories.tsx	TS7031	Binding element 'canvasElement' implicitly has an 'any' type.
-4	src/canvas/ui/NodeInspector.tsx	TS18047	'node.data.prior' is possibly 'null'.
 6	src/canvas/ui/NodeInspector.tsx	TS18047	'node.data.utility' is possibly 'null'.
 2	src/canvas/ui/NodeInspector.tsx	TS2322	Type 'unknown' is not assignable to type 'ReactNode'.
 1	src/canvas/ui/NodeInspector.tsx	TS2322	Type '{ className: string; style: { left: string; width: string; }; role: "meter"; "aria-valuenow": {} | null; "aria-valuemin": number; "aria-valuemax": number; "aria-valuetext": any; }' is not assignable to type 'DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>'.
-1	src/canvas/ui/NodeInspector.tsx	TS2322	Type '{ className: string; style: { width: string; }; role: "progressbar"; "aria-valuenow": {} | null; "aria-valuemin": number; "aria-valuemax": number; "aria-valuetext": string; }' is not assignable to type 'DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>'.
 1	src/canvas/ui/NodeInspector.tsx	TS2322	Type '{}' is not assignable to type 'ReactNode'.
 1	src/canvas/ui/NodeInspector.tsx	TS2339	Property 'robustness' does not exist on type 'ReportV1'.
 2	src/canvas/ui/NodeInspector.tsx	TS2339	Property 'toFixed' does not exist on type '{}'.
 1	src/canvas/ui/NodeInspector.tsx	TS2345	Argument of type '{} | null' is not assignable to parameter of type 'number'.
-5	src/canvas/ui/NodeInspector.tsx	TS2362	The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+1	src/canvas/ui/NodeInspector.tsx	TS2362	The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
 3	src/canvas/ui/NodeInspector.tsx	TS2365	Operator '>=' cannot be applied to types '{}' and 'number'.
 1	src/canvas/ui/__tests__/NodeInspector.goalFitBasisCaveat.spec.tsx	TS2741	Property 'progress' is missing in type '{ status: "complete"; report: null; }' but required in type 'ResultsState'.
 1	src/canvas/ui/__tests__/NodeInspector.icon.spec.tsx	TS6192	All imports in import declaration are unused.

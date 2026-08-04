@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2500
+# count=2491
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -324,7 +324,7 @@
 1	src/canvas/stores/resultsStore.ts
 15	src/canvas/ui/EdgeInspector.stories.tsx
 32	src/canvas/ui/NodeInspector.stories.tsx
-27	src/canvas/ui/NodeInspector.tsx
+18	src/canvas/ui/NodeInspector.tsx
 1	src/canvas/ui/__tests__/NodeInspector.goalFitBasisCaveat.spec.tsx
 1	src/canvas/ui/__tests__/NodeInspector.icon.spec.tsx
 10	src/canvas/ui/__tests__/NodeInspector.inspector-fixes.spec.tsx
