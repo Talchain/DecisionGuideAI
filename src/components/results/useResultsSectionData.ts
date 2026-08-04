@@ -1590,7 +1590,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         goalFitIsModelledBasis,
         // Which quantity `goalProbability` actually IS, carried to the render
         // layer so prose can name it honestly (see types.ts).
-        goalFitIsSubstitutedJoint: goalDecision.basis === 'joint_goal_substituted',
+        //
+        // ⭐ L62: reads the owner's published PERMISSION on a present number
+        // rather than testing a basis literal. Always false today — the
+        // substitution is withheld at source, so anything rendered here earns
+        // the possessive.
+        goalFitIsSubstitutedJoint:
+          goalDecision.goalProbability != null && !goalDecision.mayUsePossessiveGoalFraming,
+        // ⭐ L62: "a goal number was WITHHELD" — distinct from "there is no
+        // goal number", which is also the no-target state. Forwarded from the
+        // owner, never re-derived.
+        goalFitWithheld: goalDecision.jointSubstitutionWithheld,
         // Multi-constraint analysis (from ISL when goal_constraints were provided)
         constraintAnalysis: prob.constraint_analysis,
       }

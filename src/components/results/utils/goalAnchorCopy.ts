@@ -117,6 +117,34 @@ export const GOAL_ANCHOR_COPY = {
   noTarget: 'Set a success target to see which option is most likely to reach it.',
   /** Inline unlock action beside `noTarget`. `HERO_COPY` re-exports this. */
   noTargetCta: 'Define success',
+
+  /**
+   * ⭐ L62 — the WITHHELD state. A second no-number state, NOT a third
+   * A-register voice.
+   *
+   * The header above forbids inventing a third voice for a DISPLAYED number,
+   * and this is not one: it is the sentence for when there is no number at
+   * all. It exists because `noTarget` is the wrong sentence in this state and
+   * saying it would be its own small untruth — the user HAS set a target, or
+   * the run DID carry limits; the surface is not asking for one. What
+   * happened is that the only figure available was
+   * `probability_of_joint_goal` standing in for a goal probability the engine
+   * refused to produce, and nothing on the wire lets us check that the
+   * threshold and the samples are even in the same frame
+   * (`selectGoalProbability`, basis `'joint_goal_withheld'`). Scoring it
+   * anyway is what produced "< 1%" for every option on every decision.
+   *
+   * Plain language, no jargon, no number, no blame on the user, and it does
+   * not promise the figure is coming back.
+   */
+  notScored: "This run couldn't score your options against your target.",
+  /**
+   * The one-line reason, rendered beside `notScored` where there is room.
+   * Separate string so a compact surface can take the headline alone rather
+   * than truncate a sentence mid-clause.
+   */
+  notScoredReason:
+    'The analysis produced a figure for your limits, but not one that answers whether an option reaches your target.',
 } as const
 
 /**

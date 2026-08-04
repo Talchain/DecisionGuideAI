@@ -306,7 +306,13 @@ export function DecisionSummary({
                 threshold: goalThreshold ?? undefined,
                 // Read off the same decision the number came from — never
                 // re-derived, and never inferred from the value.
-                isSubstitutedJoint: decision.basis === 'joint_goal_substituted',
+                //
+                // ⭐ L62: reads the owner's published PERMISSION rather than a
+                // basis literal. Since the substitution is now withheld
+                // outright (no number on that basis), every number that
+                // reaches this branch earns the possessive and this is false —
+                // by construction, not by assertion.
+                isSubstitutedJoint: !decision.mayUsePossessiveGoalFraming,
               }
             : null
       }

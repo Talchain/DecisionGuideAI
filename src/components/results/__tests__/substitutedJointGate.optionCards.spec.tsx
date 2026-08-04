@@ -58,6 +58,31 @@
  * Scope limit (CLAUDE.md trap 3): jsdom proves PRESENCE and ABSENCE of
  * strings in the rendered output. It proves nothing about layout, wrapping
  * or visibility.
+ *
+ * ═════════════════════════════════════════════════════════════════════════
+ * ⭐ SUPERSEDED IN PART BY L62 (2026-08-04) — READ BEFORE EDITING
+ * ═════════════════════════════════════════════════════════════════════════
+ * 2.282's fix was a COPY switch: keep the substituted number, drop the
+ * possessive voice. L60's diagnosis
+ * (`PHASE0-EVIDENCE-2026-07-28/diagnosis-goalfit-untruth.md` §5–§8, verified
+ * live at the deployed tips) established that the NUMBER is the untruth. ISL
+ * evaluates the constraint with a bare `value >= threshold`, comparing a
+ * LEVEL or COUNT threshold against CHANGE-frame Monte-Carlo samples with no
+ * conversion — so P ≈ 0 is arithmetically forced for every option in every
+ * decision, and `probability_of_goal` was absent precisely because ISL's frame
+ * guard had honestly refused to guess. 2.282 was re-voicing a fabrication.
+ *
+ * `selectGoalProbability` therefore no longer substitutes at all (basis
+ * `'joint_goal_withheld'`, no number). The tests below that asserted the
+ * WITHHELD WORDING renders are inverted: nothing renders. Their possessive
+ * assertions are unchanged and still load-bearing, and the two positive
+ * controls — a real `probability_of_goal` keeps the possessive — are
+ * untouched, because they are what stops this reading as "the card went
+ * blank".
+ *
+ * The 2.282 narrative above is kept verbatim rather than rewritten: it is the
+ * record of what was believed and fixed at the time, and the amendment is
+ * more legible beside it than in place of it.
  */
 
 import { describe, expect, it } from 'vitest'
@@ -155,7 +180,10 @@ function toOptionResults(
       nValidSamples: 10000,
       goalProbability: goalDecision.goalProbability,
       goalFitIsModelledBasis: goalDecision.goalFitIsModelledBasis,
-      goalFitIsSubstitutedJoint: goalDecision.basis === 'joint_goal_substituted',
+      // L62: the hook's expression, verbatim — the owner's PERMISSION on a
+      // present number, not a basis literal.
+      goalFitIsSubstitutedJoint:
+        goalDecision.goalProbability != null && !goalDecision.mayUsePossessiveGoalFraming,
     } as OptionResult
   })
 }
@@ -176,83 +204,55 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
     const decisions = WITNESSED_PRODUCER_OPTIONS.map((o) => selectGoalProbability(o))
 
     for (const d of decisions) {
-      expect(d.basis).toBe('joint_goal_substituted')
+      expect(d.basis).toBe('joint_goal_withheld')
       expect(d.mayUsePossessiveGoalFraming).toBe(false)
+      expect(d.jointSubstitutionWithheld).toBe(true)
     }
-    // The substituted VALUE is the joint figure, unchanged — the fix is a
-    // copy switch, and this control would catch a "fix" that suppressed the
-    // number instead of the framing.
-    expect(decisions[0].goalProbability).toBe(0.0054)
+    // ⭐ THE INVERSION. 2.282 asserted `goalProbability === 0.0054` here and
+    // said this control "would catch a fix that suppressed the number instead
+    // of the framing". Suppressing the number is exactly what L62 does, on
+    // evidence 2.282 did not have — so the control asserts the opposite now,
+    // and the joint quantity is pinned as still-published beside it.
+    expect(decisions[0].goalProbability).toBeNull()
+    expect(decisions[0].jointGoalProbability).toBe(0.0054)
 
-    // And it survives the hook's mapping into the prop the card reads.
+    // And the withhold survives the hook's mapping into the prop the card reads.
     const mapped = toOptionResults(WITNESSED_PRODUCER_OPTIONS)
-    expect(mapped.every((o) => o.goalFitIsSubstitutedJoint === true)).toBe(true)
-    expect(mapped[0].goalProbability).toBe(0.0054)
+    expect(mapped.every((o) => o.goalFitIsSubstitutedJoint === false)).toBe(true)
+    expect(mapped[0].goalProbability).toBeNull()
   })
 
-  it('RED-first: the low-goal badge does NOT say "likely to reach target" over a substituted joint figure', () => {
+  it('L62: the low-goal badge does not render AT ALL over a withheld joint figure — neither voice, no number', () => {
     const { container } = renderCards(toOptionResults(WITNESSED_PRODUCER_OPTIONS))
     const text = container.textContent ?? ''
 
-    // The witnessed string, verbatim.
+    // The 2.282 assertions, unchanged: the possessive must not appear.
     expect(text).not.toContain('< 1% likely to reach target')
     expect(text).not.toContain(POSSESSIVE_BADGE_TAIL)
 
-    // The badge still renders, still carries the number, and now names the
-    // quantity it actually is — the register's compact readout, verbatim.
-    //
-    // ⭐ AMENDED (ROADMAP 2.334): the readout was `'< 1%'`; it is now `'1%'`.
-    // The fixture carries `nValidSamples: 10000`, so the goal register no
-    // longer floors — it resolves, and 0.0054 renders through the shared
-    // smallest-distinct-precision rule.
-    //
-    // ⚠ NAMING THIS EXPLICITLY BECAUSE IT IS THE ONE BAND WHERE THE NEW
-    // REGISTER READS *HIGHER* THAN THE OLD FLOOR. For values in
-    // [0.005, 0.00999] the resolved string is "1%" where the floor said
-    // "< 1%" — 0.54% presented as 1%. That is ordinary integer rounding and
-    // it is byte-identical to what `formatProbabilityWithResolution` has
-    // rendered for WIN probabilities since ROADMAP 2.236, which is the whole
-    // point of the two registers sharing one rule. It is not a new untruth,
-    // but it IS a direction change, and a reviewer should see it stated
-    // rather than discover it: everywhere else in this slice the change makes
-    // readouts tighter or unchanged; here it makes one coarser.
-    //
-    // Derived by EXECUTING `formatGoalProbability(0.0054, 10000)` at this tip.
-    // Do not hand-edit this string — re-execute if the fixture moves.
-    //
-    // ⚠ BOUND BY IDENTITY AND EXACT EQUALITY, NOT `toContain` — and that is
-    // not stylistic. A `toContain(phrase('1%', true))` here is VACUOUS: the
-    // OLD string "< 1% chance of meeting every target this run scored"
-    // literally CONTAINS the new one as a substring, so the assertion passes
-    // whether or not the fix is present. Caught by mutation (dropping the
-    // nSamples delegation left this test green while the sibling specs went
-    // red), which is the only reason it is written this way.
-    const badge = container.querySelector('[data-testid="low-goal-warning-opt_hybrid"]')
-    expect(badge).not.toBeNull()
-    expect(badge?.textContent).toBe(GOAL_ANCHOR_COPY.phrase('1%', true))
-    // And the floor string is gone from the card entirely, so no substring
-    // relationship can hide a regression.
+    // ⭐ INVERTED. 2.282 required the badge to SURVIVE, carrying the register's
+    // withheld phrase over the same value ("the fix is a copy switch, never a
+    // value transform"). With the value itself withheld there is no badge.
+    expect(container.querySelector('[data-testid="low-goal-warning-opt_hybrid"]')).toBeNull()
+    expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
     expect(text).not.toContain('< 1%')
   })
 
-  it('RED-first: the goal bar does NOT carry the possessive "Hits target" label over a substituted joint figure', () => {
+  it('L62: the goal bar carries neither the possessive label nor the withheld caption', () => {
     const { container } = renderCards(toOptionResults(WITNESSED_PRODUCER_OPTIONS))
     const text = container.textContent ?? ''
 
+    // 2.282's assertion, unchanged.
     expect(text).not.toContain(POSSESSIVE_BAR_LABEL)
-    // Replaced by the register's label form — the same string `WinGauge`'s
-    // goal block renders for the same state.
-    expect(text).toContain(GOAL_ANCHOR_COPY.label(true))
-    // Exactly one caption per RENDERED card. The count is DERIVED from the
-    // DOM rather than hard-coded to the five fixture options, because
-    // `OptionCards` truncates to `TOP_N` behind a "Show all" toggle — a
-    // literal 5 here would be a hand-maintained mirror of a constant this
-    // spec does not own (CLAUDE.md trap 12), and it would silently become
-    // the wrong number the day that constant moves.
-    const renderedCards = container.querySelectorAll('[data-testid^="option-card-"]')
-    expect(renderedCards.length).toBeGreaterThan(0)
-    expect(container.querySelectorAll('[data-testid^="goal-fit-substituted-label-"]'))
-      .toHaveLength(renderedCards.length)
+    // ⭐ INVERTED: 2.282 required the withheld label to REPLACE it. There is no
+    // number to caption, so neither appears.
+    expect(text).not.toContain(GOAL_ANCHOR_COPY.label(true))
+    expect(
+      container.querySelectorAll('[data-testid^="goal-fit-substituted-label-"]'),
+    ).toHaveLength(0)
+    // Control: the cards themselves DID render, so the absences above are about
+    // the goal claim and not about an empty component.
+    expect(container.querySelectorAll('[data-testid^="option-card-"]').length).toBeGreaterThan(0)
   })
 
   it('positive control: a REAL probability_of_goal KEEPS the possessive "Hits target" label and renders no withheld caption', () => {
@@ -286,19 +286,28 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
       .toHaveLength(1)
   })
 
-  it('the two arms are mutually exclusive: no render shows both voices at once', () => {
-    for (const options of [
-      toOptionResults(WITNESSED_PRODUCER_OPTIONS),
-      toOptionResults(withRealGoalProbability(0.055)),
-    ]) {
+  it('L62: the withheld run shows NEITHER voice, and the honest run shows exactly the possessive one', () => {
+    // 2.282 pinned `possessive === !withheld` — exactly one voice per render.
+    // Under L62 the withheld run has zero of both, so the XOR no longer holds
+    // and asserting it would be false. Each arm is pinned explicitly instead,
+    // which is strictly stronger: the XOR was satisfiable by a card rendering
+    // the WRONG single voice.
+    const cases = [
+      { options: toOptionResults(WITNESSED_PRODUCER_OPTIONS), expectPossessive: false },
+      { options: toOptionResults(withRealGoalProbability(0.055)), expectPossessive: true },
+    ]
+    for (const { options, expectPossessive } of cases) {
       const { container, unmount } = renderCards(options)
       const text = container.textContent ?? ''
       const possessive = text.includes(POSSESSIVE_BADGE_TAIL) || text.includes(POSSESSIVE_BAR_LABEL)
-      const withheld =
+      const withheldVoice =
         text.includes(GOAL_ANCHOR_COPY.label(true)) ||
         text.includes(GOAL_ANCHOR_COPY.phrase('< 1%', true)) ||
         text.includes(GOAL_ANCHOR_COPY.phrase('6%', true))
-      expect(possessive).toBe(!withheld)
+      expect(possessive).toBe(expectPossessive)
+      // The withheld VOICE is retired outright: it existed only to caption a
+      // substituted number, and there is no longer such a number.
+      expect(withheldVoice).toBe(false)
       unmount()
     }
   })

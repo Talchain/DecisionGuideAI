@@ -554,7 +554,11 @@ function OptionCard({
   // consumer of a mitigation six sibling surfaces already honour.
   //
   // `selectGoalProbability` publishes `basis`. When it is
-  // `'joint_goal_substituted'` the number in `option.goalProbability` is
+  // ⚠ L62 (2026-08-04): the basis named below was renamed
+  // `'joint_goal_withheld'` AND now carries no number at all, so this card
+  // renders no goal figure in that state and the branch is unreachable. The
+  // paragraph is kept as the record of what it guarded. On the basis
+  // `'joint_goal_withheld'` the number in `option.goalProbability` is
   // P(all constraints jointly satisfied) STANDING IN for an absent
   // `probability_of_goal` — it answers a DIFFERENT question from the one
   // "target" asserts, and the selector's `mayUsePossessiveGoalFraming` is

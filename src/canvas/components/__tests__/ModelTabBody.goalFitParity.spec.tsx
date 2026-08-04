@@ -146,7 +146,23 @@ describe('Model-tab goal card — per-option goal fit (real ModelTabBody→GoalS
     expect(rows).toHaveTextContent('2% chance of hitting your goal')
   })
 
-  it('substituted-joint basis withholds the possessive and renders the modelled-basis caveat', () => {
+  /**
+   * ⭐ AMENDED BY L62 (2026-08-04). THIS IS THE SCREENSHOT-05 SURFACE.
+   *
+   * 2.282 pinned that this card kept the substituted numbers and swapped to
+   * the non-possessive register. That is exactly what the user was looking at
+   * in L60's screenshot 05: "< 1% chance of meeting every target this run
+   * scored" four times, directly under "Target: 250,000" — for a target the
+   * engine had never even received, scored from a frame-blind comparison that
+   * forces P ~ 0 for every option.
+   *
+   * `buildGoalFitRows` calls `selectGoalProbability` and returns `null` the
+   * moment any option has no admissible figure (its complete-field rule). With
+   * the substitution withheld that is now every option, so the block does not
+   * render — the honest-absence state for this card, and the same rule the
+   * "one option without a figure" test below already pinned.
+   */
+  it('L62: a joint-only run renders NO goal-fit block at all — neither register, no caveat', () => {
     // The witnessed 2.282 shape: goal_probability absent, joint present,
     // scored from the modelled outcome distribution.
     setResults({
@@ -168,15 +184,21 @@ describe('Model-tab goal card — per-option goal fit (real ModelTabBody→GoalS
       },
     })
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={makeNodes()} edges={[]} />)
-    const rows = screen.getByTestId('goal-fit-parity')
-    // The possessive claim names a question the substituted number does not
-    // answer — the register's withheld arm renders instead.
-    expect(rows).not.toHaveTextContent('chance of hitting your goal')
-    expect(rows).toHaveTextContent('chance of meeting every target this run scored')
-    // Doctrine B: the caveat must sit adjacent to the number.
-    expect(screen.getByTestId('goal-fit-modelled-caveat')).toHaveTextContent(
-      "Modelled from the target's projected outcome distribution",
-    )
+
+    // Control first: the card ITSELF still renders, so the absences below are
+    // about the goal-fit claim and not about a blank tab.
+    expect(screen.getByTestId('model-goal-section')).toBeInTheDocument()
+
+    // The block is gone entirely — no rows, so neither register can appear.
+    expect(screen.queryByTestId('goal-fit-parity')).toBeNull()
+    const section = screen.getByTestId('model-goal-section')
+    expect(section).not.toHaveTextContent('chance of hitting your goal')
+    expect(section).not.toHaveTextContent('chance of meeting every target this run scored')
+    // Doctrine B in the only form left: with no number displayed there is
+    // nothing for the modelled-basis caveat to qualify, so it must not render
+    // either. A caveat beside no figure is a hedge about a value the user
+    // cannot see.
+    expect(screen.queryByTestId('goal-fit-modelled-caveat')).toBeNull()
   })
 })
 

@@ -116,6 +116,23 @@ function adaptedSubstitutedFlags(): Record<string, boolean | undefined> {
   return out
 }
 
+/**
+ * ⭐ L62 — the field that now carries the state 2.282's flag used to.
+ * `goalFitIsSubstitutedJoint` meant "the number shown is a substituted joint
+ * figure"; there is no such number any more, so it is false everywhere and
+ * `goalFitWithheld` says what happened instead. Both are read here, by the
+ * same hook render, so a test cannot assert one while the other quietly
+ * disagrees.
+ */
+function adaptedWithheldFlags(): Record<string, boolean | undefined> {
+  const { result } = renderHook(() => useResultsSectionData())
+  const out: Record<string, boolean | undefined> = {}
+  for (const o of result.current.recommendation?.allOptions ?? []) {
+    out[o.id] = o.goalFitWithheld
+  }
+  return out
+}
+
 describe('useResultsSectionData — goalProbability collapse — gate ON (default)', () => {
   beforeEach(() => {
     mockTrust.suspect = true
@@ -189,14 +206,21 @@ describe('useResultsSectionData — goalProbability collapse — POSITIVE CONTRO
     } as any)
   })
 
-  it('falls back to probability_of_joint_goal when goal_probability and constraint_analysis are absent (auto goal threshold)', () => {
+  /**
+   * ⭐ SUPERSEDED BY L62 — kept inverted, so restoring the fallback REDs here
+   * as well as at the selector. This is the hook-level twin of
+   * `selectGoalProbability.spec.ts`'s "does NOT fall back" test: the pair is
+   * what proves the withhold survives the hop into `OptionResult` rather than
+   * being re-derived on the way.
+   */
+  it('L62: does NOT fall back to probability_of_joint_goal when goal_probability and constraint_analysis are absent', () => {
     setStoreWithMappedReport(makeV2Response(
       { probability_of_joint_goal: 0 },
       { probability_of_joint_goal: 0 },
     ))
     const probs = adaptedGoalProbabilities()
-    expect(probs.opt_a).toBe(0)
-    expect(probs.opt_b).toBe(0)
+    expect(probs.opt_a).toBeNull()
+    expect(probs.opt_b).toBeNull()
   })
 
   it('prefers unconstrained goal_probability when no constraint_analysis exists', () => {
@@ -274,7 +298,7 @@ describe('useResultsSectionData — goalFitIsSubstitutedJoint (ROADMAP 2.282, th
     expect(adaptedGoalProbabilities().opt_a).toBeNull()
   })
 
-  it('SUBSTITUTED: joint present, goal_probability absent, no constraint_analysis → flag TRUE', () => {
+  it('L62 — WITHHELD: joint present, goal_probability absent, no constraint_analysis → no number, withheld flag TRUE', () => {
     // The witnessed staging shape (2026-08-01): ISL refused
     // `probability_of_goal` because `goal_threshold_frame` was never
     // stamped, and the auto-materialised constraint's joint figure stands in.
@@ -282,11 +306,19 @@ describe('useResultsSectionData — goalFitIsSubstitutedJoint (ROADMAP 2.282, th
       { probability_of_joint_goal: 0.0054 },
       { probability_of_joint_goal: 0.0018 },
     ))
+    // ⭐ L62. ROADMAP 2.282 pinned `goalFitIsSubstitutedJoint: true` with the
+    // value still published — "the withhold is on the framing only". The
+    // framing was never the problem: L60 showed the VALUE is
+    // P(level-or-count threshold >= change-frame sample), a structural zero.
+    // So the substituted flag is now false (nothing is substituted) and the
+    // withheld flag carries the state.
     const flags = adaptedSubstitutedFlags()
-    expect(flags.opt_a).toBe(true)
-    expect(flags.opt_b).toBe(true)
-    // The VALUE is still published — the withhold is on the framing only.
-    expect(adaptedGoalProbabilities().opt_a).toBe(0.0054)
+    expect(flags.opt_a).toBe(false)
+    expect(flags.opt_b).toBe(false)
+    expect(adaptedWithheldFlags().opt_a).toBe(true)
+    expect(adaptedWithheldFlags().opt_b).toBe(true)
+    // The number the user was shown is gone.
+    expect(adaptedGoalProbabilities().opt_a).toBeNull()
   })
 
   it('CONSTRAINED: the same joint figure WITH constraint_analysis → flag FALSE (possessive earned)', () => {
@@ -300,12 +332,19 @@ describe('useResultsSectionData — goalFitIsSubstitutedJoint (ROADMAP 2.282, th
       },
       { probability_of_joint_goal: 0.2 },
     ))
+    // ⭐ L62: the DISCRIMINATION this test exists for is unchanged and is what
+    // proves the gate is not a blanket ban on joint figures — one payload
+    // shape apart, opposite outcomes. Only the name of opt_b's state moved.
     const flags = adaptedSubstitutedFlags()
-    // opt_a carries its own constraints → 'joint_goal_constrained'.
+    // opt_a carries its own constraints → 'joint_goal_constrained' → the
+    // possessive is EARNED and the number is still shown.
     expect(flags.opt_a).toBe(false)
-    // opt_b has the identical joint number and NO constraints → substituted.
-    // The pair is the discriminator: one payload shape apart, opposite flags.
-    expect(flags.opt_b).toBe(true)
+    expect(adaptedGoalProbabilities().opt_a).toBe(0.2)
+    expect(adaptedWithheldFlags().opt_a).toBe(false)
+    // opt_b has the identical joint number and NO constraints → withheld.
+    expect(flags.opt_b).toBe(false)
+    expect(adaptedWithheldFlags().opt_b).toBe(true)
+    expect(adaptedGoalProbabilities().opt_b).toBeNull()
   })
 
   it('REAL goal probability → flag FALSE', () => {

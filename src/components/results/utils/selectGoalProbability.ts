@@ -46,17 +46,63 @@
  *                               option carries its own constraint analysis —
  *                               the user's own goal AND the user's own
  *                               limits, which the "and limits" copy names.
- *   • 'joint_goal_substituted'  the joint quantity STANDING IN for an absent
- *                               goal quantity. The number is real and the
- *                               user is entitled to it, but it answers a
- *                               different question from the one the
- *                               possessive framing ("your goal") asserts, so
- *                               `mayUsePossessiveGoalFraming` is false here.
+ *   • 'joint_goal_withheld'     a joint quantity WAS available and is being
+ *                               withheld from the goal-fit slot. No number is
+ *                               returned. See the L62 block below.
  *   • 'none'                    no admissible value.
  *
  * `goalProbability` and `goalProbabilityIsJoint` are DERIVED from `basis`
  * rather than computed alongside it, so the number and the claim about which
  * quantity it is cannot drift apart.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * ⭐ L62 (2026-08-04) — THE SUBSTITUTION IS WITHHELD, NOT RE-VOICED
+ * ─────────────────────────────────────────────────────────────────────────
+ * This basis used to be `'joint_goal_substituted'`: the joint number WAS
+ * returned, and the fix of the day (ROADMAP 2.282) was to withhold only the
+ * possessive VOICE around it — "chance of meeting every target this run
+ * scored" instead of "chance of hitting your goal". That was a copy fix over
+ * a number that should never have been shown.
+ *
+ * L60's diagnosis (`PHASE0-EVIDENCE-2026-07-28/diagnosis-goalfit-untruth.md`
+ * §5–§8, verified live at the deployed tips) establishes why the NUMBER is
+ * the problem, not the wording. `probability_of_joint_goal` is
+ * P(all constraints jointly satisfied), and ISL evaluates every constraint
+ * with `value >= constraint.threshold` — a LEVEL/COUNT threshold compared
+ * directly against CHANGE-frame Monte-Carlo samples, with no frame
+ * conversion and no refusal path. P ≈ 0 is then ARITHMETICALLY FORCED for
+ * every option regardless of option quality. Three flavours were witnessed
+ * producing exactly that: a draft-minted fraction constraint, a chat-minted
+ * COUNT constraint ("≤ 2 account executives" scored as P(risk-score ≤ 0.25)),
+ * and a goal-target LEVEL constraint. The honest channel
+ * (`probability_of_goal`) had already FAILED CLOSED on all three — ISL's
+ * frame guard refusing to guess — and this selector was papering over that
+ * refusal with the unguarded number from the channel the guard does not
+ * cover.
+ *
+ * WHY THE GATE IS TOTAL RATHER THAN CONDITIONAL. The obvious narrower gate
+ * is "substitute only when the producer marked the constraints decision-grade
+ * AND the frames are compatible". The second half is not derivable: NOTHING
+ * on the wire states the frame of a constraint threshold or of the samples it
+ * is compared against (`GoalConstraint` carries no frame field; the frame
+ * attestation exists only on `goal_threshold`, a different channel). And the
+ * first half does not discriminate — measured against the three witnessed
+ * producer captures, `constraints_decision_grade` is TRUE on two of the three
+ * fabrications and FALSE on the third. `goal_fit_basis` and the
+ * `CONSTRAINT_GOALFIT_MODELLED_BASIS` warning are absent entirely from one of
+ * them. There is no field, and no conjunction of fields, that separates a
+ * frame-broken joint figure from a sound one.
+ *
+ * So the strongest gate that is DERIVED rather than assumed is the total one:
+ * the joint figure never stands in for an absent goal probability. It is
+ * still published as `jointGoalProbability` and still rendered, unchanged, by
+ * the surfaces that label it honestly as the joint-constraints channel.
+ *
+ * REINSTATEMENT TRIGGER (do not relax this gate without it): a producer-side
+ * frame attestation on the constraint channel — the ISL/PLoT half of L60's
+ * fix stack — such that a joint figure can be shown to answer the question
+ * the goal-fit slot asks. Until such a field exists and is read here, any
+ * conditional substitution is a guess wearing a guarantee.
  */
 
 import { PLOT_JOINT_HEADLINE_SUSPECT } from '../../../adapters/plot/constraintTrust'
@@ -118,7 +164,16 @@ export type GoalProbabilityBasis =
   | 'none'
   | 'goal_probability'
   | 'joint_goal_constrained'
-  | 'joint_goal_substituted'
+  /**
+   * ⚠ RENAMED FROM `'joint_goal_substituted'` BY L62, DELIBERATELY.
+   *
+   * The rename is the instrument. Every consumer that compared against the
+   * old literal is now a COMPILE error rather than a silently-false branch,
+   * so the compiler enumerates the blast radius instead of a human listing it
+   * (CLAUDE.md trap 12 — derive, never mirror). Do not add the old member back
+   * as an alias.
+   */
+  | 'joint_goal_withheld'
 
 export interface GoalProbabilityInput extends Partial<Record<OwnedField, number>> {
   constraint_analysis?: { constraints?: unknown[] } | null
@@ -161,13 +216,49 @@ export interface GoalProbabilitySelection {
   /**
    * Whether prose may call the thing this number measures "YOUR goal".
    *
-   * False on `joint_goal_substituted`: the value is P(all constraints jointly
-   * satisfied) standing in for an absent goal probability, so the possessive
-   * would attribute to the user a question the number does not answer. The
-   * NUMBER is still shown (it is real, computed, and decision-relevant) —
-   * only the possessive framing is withheld.
+   * False whenever `goalProbability` is null, which now includes every
+   * `joint_goal_withheld` run: there is no number to frame.
    */
   mayUsePossessiveGoalFraming: boolean
+  /**
+   * ⭐ L62. True ⇔ `basis === 'joint_goal_withheld'` — the run DID carry a
+   * joint figure and this selector refused to put it in the goal-fit slot.
+   *
+   * Published because "no goal number" and "a goal number was withheld" need
+   * DIFFERENT copy, and a surface must not have to re-derive which it is
+   * holding. The no-target line ("Set a success target to see which option is
+   * most likely to reach it") is a lie in this state: the user did set a
+   * target, or the run did carry constraints — what failed is that nothing on
+   * the wire lets us score them honestly. Surfaces read this and say so.
+   */
+  jointSubstitutionWithheld: boolean
+}
+
+/**
+ * ⭐ L62 — THE ONE MAPPING from a basis to "must a RENDERED number withhold
+ * the possessive voice".
+ *
+ * Four surfaces (`OptionNode`, `GoalNode`, `GoalPanel`, `DecisionSummary`)
+ * each narrowed the basis with their own inline `=== 'joint_goal_substituted'`
+ * literal. That was one vocabulary while there was one literal to test; the
+ * moment the set of withholding bases changes it becomes four copies of a rule
+ * (CLAUDE.md trap 12). It is a function now, and it lives beside the basis it
+ * reads.
+ *
+ * ⚠ STATE OF THIS FUNCTION TODAY, PLAINLY: it returns true for exactly one
+ * basis, and that basis NEVER carries a number — `selectGoalProbability`
+ * returns `goalProbability: null` for it. Every call site is additionally
+ * gated on a present number, so **no call site can currently take the
+ * withholding arm**. This is deliberately NOT dressed up as a live guard: it
+ * is the seam that keeps the four surfaces speaking one language, and it goes
+ * live again the day a basis both carries a number and forbids the possessive.
+ * It is not evidence that anything is being protected today — what protects
+ * the user today is that the number is withheld at source.
+ */
+export function basisWithholdsPossessive(
+  basis: GoalProbabilityBasis | null | undefined,
+): boolean {
+  return basis === 'joint_goal_withheld'
 }
 
 export function selectGoalProbability(
@@ -217,6 +308,9 @@ export function selectGoalProbability(
       basis: unconstrained != null ? 'goal_probability' : 'none',
       goalFitIsModelledBasis: false,
       mayUsePossessiveGoalFraming: unconstrained != null,
+      // This arm never substitutes either, so nothing is withheld FROM a
+      // substitution here — the L62 gate below is what owns that state.
+      jointSubstitutionWithheld: false,
     }
   }
 
@@ -233,14 +327,19 @@ export function selectGoalProbability(
       : unconstrained != null
         ? 'goal_probability'
         : jointGoalProb != null
-          ? 'joint_goal_substituted'
+          ? // ⭐ L62: was `'joint_goal_substituted'`, and the joint number was
+            // returned here. It is now withheld — see the L62 block in the
+            // module header for the derivation.
+            'joint_goal_withheld'
           : 'none'
 
-  const goalProbabilityIsJoint =
-    basis === 'joint_goal_constrained' || basis === 'joint_goal_substituted'
+  const goalProbabilityIsJoint = basis === 'joint_goal_constrained'
 
   // Derived FROM the basis (never computed in parallel with it), so the
   // number and the statement of which quantity it is cannot diverge.
+  // `joint_goal_withheld` falls through to null by construction: there is no
+  // arm that returns a number for it, so no future edit can reintroduce the
+  // substitution without changing the basis itself.
   const goalProbability = goalProbabilityIsJoint
     ? jointGoalProb
     : basis === 'goal_probability'
@@ -250,10 +349,15 @@ export function selectGoalProbability(
   return {
     goalProbability,
     goalProbabilityIsJoint,
+    // UNCHANGED by the gate, deliberately: the surfaces that render the joint
+    // figure as its OWN, separately-labelled claim ("chance of hitting every
+    // target") are honest and keep their number. The gate governs the GOAL-FIT
+    // slot only.
     jointGoalProbability: jointGoalProb,
     basis,
     goalFitIsModelledBasis:
       goalProbabilityIsJoint && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
-    mayUsePossessiveGoalFraming: goalProbability != null && basis !== 'joint_goal_substituted',
+    mayUsePossessiveGoalFraming: goalProbability != null,
+    jointSubstitutionWithheld: basis === 'joint_goal_withheld',
   }
 }

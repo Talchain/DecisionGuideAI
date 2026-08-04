@@ -87,13 +87,47 @@ beforeEach(() => {
 })
 
 describe('useNodeDisplayMetadata — goalFitAvailable (REAL hook)', () => {
-  it('is TRUE on the witnessed payload, where no option is designated', () => {
+  /**
+   * ⭐ AMENDED BY L62 (2026-08-04) — AND THE FLIP IS THE USER-VISIBLE WIN.
+   *
+   * ROADMAP 2.275 added `goalFitAvailable` because the canvas goal node denied
+   * a probability while the Goal-fit sub-tab rendered "< 1%" four times from
+   * the same report. The flag made the node point the user AT those per-option
+   * figures ("see Goal fit for each option's chance").
+   *
+   * L60 then established what those figures were: P(level-or-count threshold
+   * >= change-frame sample), structurally ~0 for every option. So the flag was
+   * directing users to a fabrication. `selectGoalProbability` now withholds
+   * them, this scan finds nothing admissible, and the node states the simpler
+   * truth instead. 2.275's contradiction is resolved in the honest direction —
+   * both surfaces deny, rather than both affirming a fiction.
+   *
+   * The flag itself is NOT retired: the positive control below proves it still
+   * fires for a run carrying real per-option goal figures, which is the case
+   * 2.275 was actually built for.
+   */
+  it('L62: is FALSE on the witnessed payload — the per-option figures it used to advertise are withheld', () => {
     setReport(WITNESSED_REPORT)
     const { result } = renderHook(() => useNodeDisplayMetadata('goal_capacity', 'goal'))
 
-    // The pointer the hook needs is genuinely absent, so no node-level number…
     expect(result.current.achievementProbability).toBeNull()
-    // …but the run DID produce per-option goal figures, and the hook says so.
+    expect(result.current.goalFitAvailable).toBe(false)
+  })
+
+  it('⭐ L62 POSITIVE CONTROL: still TRUE when the run carries REAL per-option goal probabilities and no option is designated', () => {
+    // This is 2.275's actual case, and without it the amendment above would be
+    // indistinguishable from deleting the feature (trap 13). Same report
+    // shape, same missing pointer — only the producer channel differs.
+    setReport({
+      ...WITNESSED_REPORT,
+      option_probabilities: {
+        opt_bristol: { probability_of_goal: 0.31 },
+        opt_leeds: { probability_of_goal: 0.12 },
+      },
+    })
+    const { result } = renderHook(() => useNodeDisplayMetadata('goal_capacity', 'goal'))
+
+    expect(result.current.achievementProbability).toBeNull()
     expect(result.current.goalFitAvailable).toBe(true)
   })
 
@@ -114,8 +148,14 @@ describe('useNodeDisplayMetadata — goalFitAvailable (REAL hook)', () => {
   it('a hard zero still counts as a figure the run produced', () => {
     // witness §11c: run 4 returned exactly 0 for all four options. Zero is a
     // result, not an absence — denying it would be the same defect inverted.
+    //
+    // ⭐ L62 changed the CHANNEL, not the principle. The fixture was
+    // `probability_of_joint_goal: 0`, which is now withheld — so the test
+    // would have passed by asserting the withhold rather than the zero-is-a-
+    // result rule it exists for. It uses the honest goal channel instead, and
+    // the rule is pinned exactly as before: an EXACT ZERO is a measurement.
     setReport({
-      option_probabilities: { opt_a: { probability_of_joint_goal: 0 } },
+      option_probabilities: { opt_a: { probability_of_goal: 0 } },
       robustness: {},
     })
     const { result } = renderHook(() => useNodeDisplayMetadata('goal_capacity', 'goal'))
@@ -140,8 +180,24 @@ describe('useNodeDisplayMetadata — goalFitAvailable (REAL hook)', () => {
     // Positive control for the other direction: with a designation the hook
     // reaches selectGoalProbability, gets a number, and goalFitAvailable is
     // not needed. This is what keeps the two branches mutually exclusive.
+    // ⭐ L62: the designated option needs an HONEST figure for this control to
+    // test what it claims. With the witnessed (joint-only) payload the hook
+    // now reaches the selector and correctly gets NOTHING, so both branches
+    // would be false and the mutual exclusivity would hold vacuously.
     setReport({
       ...WITNESSED_REPORT,
+      option_probabilities: {
+        ...WITNESSED_REPORT.option_probabilities,
+        opt_bristol: {
+          probability_of_goal: 0.0002,
+          constraint_analysis: { constraints: [{ id: 'c1' }] },
+          probability_of_joint_goal: 0.0002,
+          goal_fit_basis: {
+            scored_from: 'modelled_outcome_distribution',
+            node_ids: ['goal_capacity'],
+          },
+        },
+      },
       robustness: { recommended_option_id: 'opt_bristol' },
     })
     const { result } = renderHook(() => useNodeDisplayMetadata('goal_capacity', 'goal'))

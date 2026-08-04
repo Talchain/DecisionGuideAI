@@ -75,7 +75,6 @@ function ConstraintRow({ item }: { item: ConstraintItem }) {
   // fallback arm applies and understates rather than inventing a resolution.
   const readout = formatProbabilityWithResolution(item.prob_satisfied, null)
   const colour = constraintConfidenceColour(item.prob_satisfied)
-  const isMissed = item.prob_satisfied < 0.5
 
   return (
     <div
@@ -96,12 +95,38 @@ function ConstraintRow({ item }: { item: ConstraintItem }) {
           </span>
         )}
       </div>
-      {/* Task M.1.2 Step 2: Display failure margin when constraint is missed */}
-      {isMissed && item.failure_margin_median != null && (
-        <p className={`${typography.panelMeta} text-warning ml-6`}>
-          Typically misses by {item.failure_margin_median} {/* TODO: Add unit from parent context if available */}
-        </p>
-      )}
+      {/*
+        ⭐ L62 (2026-08-04) — THE "TYPICALLY MISSES BY {N}" LINE IS REMOVED.
+
+        It rendered `failure_margin_median` as a DISTANCE the user is short of
+        their target. L60 showed at the bytes what that number is: PLoT
+        denormalises the constraint's shortfall by multiplying a CHANGE-frame
+        Monte-Carlo sample by the goal-threshold cap and subtracting it from the
+        LEVEL target — on the captured probe, "£200,678 short" out of
+        250000 − (p50 0.15783 × 312500). The two quantities are not in the same
+        frame, so the subtraction has no meaning, and the result is a precise,
+        confident, fabricated distance. It travelled with the same structurally
+        ≈0 probability this component's sibling surfaces now withhold
+        (`selectGoalProbability`, basis `'joint_goal_withheld'`), and it is the
+        same defect wearing units instead of a percentage.
+
+        It also shipped the number RAW with a standing `TODO: add unit`, so a
+        margin of 0.563 (a fraction) and one of 18.0 (a head-count) both
+        rendered as bare digits with no unit at all.
+
+        REINSTATEMENT TRIGGER — the same one the probability gate carries: a
+        producer-side frame attestation on the constraint channel, such that a
+        shortfall can be shown to be a distance in the user's units rather than
+        an arithmetic artefact. Nothing on the wire supplies that today.
+
+        SCOPE, STATED HONESTLY: this component is not currently mounted (the
+        hero panel supersedes it) and its `ConstraintAnalysis` input is stripped
+        by `responseMapper` while `PLOT_PER_OPTION_CONSTRAINTS_SUSPECT` holds,
+        so this line was NOT reaching users at this tip. It is removed at the
+        source anyway — it is the repo's only render of `failure_margin_median`,
+        and leaving it would mean the fabricated distance returns the moment
+        either of those two conditions changes.
+      */}
     </div>
   )
 }

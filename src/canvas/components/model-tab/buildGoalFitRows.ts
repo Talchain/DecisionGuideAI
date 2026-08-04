@@ -81,7 +81,11 @@ export function buildGoalFitRows(
       id: node.id,
       label: typeof data?.label === 'string' ? data.label : node.id,
       probability: decision.goalProbability,
-      isSubstitutedJoint: decision.basis === 'joint_goal_substituted',
+      // ⭐ L62: always false — the row only exists when a number survived line
+      // 75, and every surviving number earns the possessive now that the joint
+      // substitution is withheld at source. Read off the owner's permission,
+      // never a basis literal.
+      isSubstitutedJoint: !decision.mayUsePossessiveGoalFraming,
       modelledBasis: decision.goalFitIsModelledBasis,
       nValidSamples: positiveIntegerOrNull(outcome?.n_valid_samples),
     })

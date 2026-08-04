@@ -123,7 +123,10 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
   it('control: each fixture drives the REAL selector to the basis this suite claims for it', () => {
     // Anti-vacuity (trap 13): the absence assertions below are worthless if a
     // fixture stopped reaching its branch.
-    expect(selectGoalProbability(SUBSTITUTED_OPTION).basis).toBe('joint_goal_substituted')
+    expect(selectGoalProbability(SUBSTITUTED_OPTION).basis).toBe('joint_goal_withheld')
+    // ⭐ L62: and it carries no number, which is what turns "the possessive is
+    // withheld" below into "no goal claim renders at all".
+    expect(selectGoalProbability(SUBSTITUTED_OPTION).goalProbability).toBeNull()
     expect(selectGoalProbability(REAL_GOAL_OPTION).basis).toBe('goal_probability')
     expect(selectGoalProbability(CONSTRAINED_OPTION).basis).toBe('joint_goal_constrained')
   })
@@ -136,12 +139,18 @@ describe('DecisionSummary — possessive gate on a substituted joint goal figure
     expect(textOf()).toContain('chance of achieving')
   })
 
-  it('WITHHOLDS the possessive on the witnessed substituted run', () => {
+  /**
+   * ⭐ AMENDED BY L62. 2.283 kept the number and swapped the voice; L60 showed
+   * the number is the untruth (a structural zero from a frame-blind
+   * comparison), so this card states no goal claim at all on that basis. The
+   * possessive assertions are unchanged and still load-bearing; the
+   * "renders the withheld phrase" half is inverted.
+   */
+  it('L62: states NO goal claim on the witnessed substituted run — neither voice', () => {
     setStore(SUBSTITUTED_OPTION)
     const text = textOf()
-    // The register's phrase form verbatim — no copy invented at this site.
-    expect(text).toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
-    // Neither possessive arm survives: both named the user's own goal.
+    expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
+    // Neither possessive arm survives either: both named the user's own goal.
     expect(text).not.toContain('chance of achieving')
     expect(text).not.toContain(`achieving ${GOAL_LABEL}`)
   })

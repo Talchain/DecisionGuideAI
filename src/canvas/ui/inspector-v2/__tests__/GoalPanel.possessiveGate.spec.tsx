@@ -61,7 +61,7 @@ import { useCanvasStore } from '../../../store'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { selectGoalProbability } from '../../../../components/results/utils/selectGoalProbability'
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
-import { GOAL_CONSTRAINT_COPY } from '../inspectorStrings'
+import { GOAL_CONSTRAINT_COPY, GOAL_STRINGS } from '../inspectorStrings'
 import { mapV5AnalysisToReport } from '../../../../v5/mapV5AnalysisToReport'
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
 
@@ -164,9 +164,14 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     // Anti-vacuity (trap 13) — and this time the control also proves the REAL
     // mapper writes the owned fields where the panel's read must look.
     const sub = selectGoalProbability(recordOf(SUBSTITUTED_REPORT))
-    expect(sub.basis).toBe('joint_goal_substituted')
+    expect(sub.basis).toBe('joint_goal_withheld')
     expect(sub.mayUsePossessiveGoalFraming).toBe(false)
-    expect(sub.goalProbability).toBe(sub.jointGoalProbability)
+    // ⭐ L62: the identity 2.296 pinned here (`goalProbability ===
+    // jointGoalProbability`) is precisely the substitution, and it is gone.
+    // The joint quantity survives for the panel's own labelled row; the
+    // goal-fit slot is empty.
+    expect(sub.goalProbability).toBeNull()
+    expect(sub.jointGoalProbability).toBe(0.0054)
 
     expect(selectGoalProbability(recordOf(REAL_GOAL_REPORT)).basis).toBe('goal_probability')
     expect(selectGoalProbability(recordOf(CONSTRAINED_REPORT)).basis).toBe(
@@ -174,27 +179,36 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     )
   })
 
-  it('RED-first (2.296): the substituted figure RENDERS at all off the real mapper shape — the gate is no longer dark', () => {
+  /**
+   * ⭐ AMENDED BY L62. 2.296 proved the gate was no longer dark by asserting
+   * the substituted figure RENDERED (re-voiced). L60 §5–§8 showed the figure
+   * itself is the untruth, so the panel now renders no goal-fit figure at all
+   * on this basis. Both halves of the original assertion — the possessive one
+   * and the re-voiced one — must now be absent.
+   */
+  it('L62: the substituted figure does not render at all off the real mapper shape', () => {
     setStore(SUBSTITUTED_REPORT)
     const { container } = renderPanel()
     const text = container.textContent ?? ''
 
     expect(text).not.toContain('chance of reaching this target')
-    // Renamed, not removed — the register's compact readout, with the panel's
-    // existing "current model" qualifier kept.
-    expect(text).toContain(`${GOAL_ANCHOR_COPY.phrase('1%', true)}, based on the current model.`)
+    expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
+    expect(text).not.toContain('1% chance')
   })
 
-  it('RED-first: the Impact readout does NOT say "chance of success" over a substituted joint figure', () => {
+  it('L62: the Impact readout says neither "chance of success" nor the withheld phrase over a joint-only run', () => {
     setStore(SUBSTITUTED_REPORT)
     const { container } = renderPanel()
     const text = container.textContent ?? ''
 
     expect(text).not.toContain('chance of success')
-    expect(text).toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
+    expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
   })
 
-  it('RED-first — THE SELF-CONTRADICTION: the Impact block states ONE claim about the substituted number, not two incompatible ones', () => {
+  it('L62 — THE SELF-CONTRADICTION, resolved by subtraction: the Impact block states ZERO claims about the withheld number', () => {
+    // 2.283 fixed one-number-two-voices by picking the honest voice. L62 fixes
+    // it by removing the number, so the honest count is zero. The positive
+    // controls below are what stop that reading as "the panel went blank".
     setStore(SUBSTITUTED_REPORT)
     const { container } = renderPanel()
 
@@ -203,10 +217,9 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     const text = impact?.textContent ?? ''
 
     expect(text).not.toContain('chance of success')
-    expect(text).not.toContain('Chance of hitting every target')
-
-    const honest = GOAL_ANCHOR_COPY.phrase('1%', true)
-    expect(text.split(honest).length - 1).toBe(1)
+    expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
+    // The panel's own honest-absence string for this block.
+    expect(text).toContain(GOAL_STRINGS.impactUnavailable)
   })
 
   it('positive control: a REAL probability_of_goal KEEPS the possessive wording on BOTH sites', () => {
@@ -230,15 +243,22 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
     expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('42%', true))
   })
 
-  it('techMode: the diagnostic names the field the number ACTUALLY is under substitution', () => {
+  it('L62 — techMode: the diagnostic states NO goal field for a withheld run, and above all does not name `probability_of_goal`', () => {
+    // 2.282's fix was to stop the tech-mode line calling the substituted value
+    // `probability_of_goal` — "the most literally false line in the block, and
+    // the one a tech-mode reader would trust most". With no value to diagnose,
+    // the line is gone. Both false spellings are pinned absent, so a
+    // regression in either direction REDs.
     setStore(SUBSTITUTED_REPORT)
     const { container } = render(
       <GoalPanel nodeId="goal1" techMode onClose={() => {}} onNavigate={() => {}} />,
     )
     const text = container.textContent ?? ''
 
-    expect(text).toContain('probability_of_joint_goal (substituted for absent probability_of_goal)')
     expect(text).not.toContain('System: probability_of_goal:')
+    expect(text).not.toContain(
+      'probability_of_joint_goal (substituted for absent probability_of_goal)',
+    )
   })
 
   it('honest absence: WITHOUT the producer pointer the panel shows no figure (the 2.275 posture, same as the canvas)', () => {
@@ -294,16 +314,32 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real
     expect(container.textContent ?? '').toContain('Stay under budget')
   })
 
-  it('RED-first: the Constraints section does NOT restate the substituted joint figure', () => {
+  /**
+   * ⭐ AMENDED BY L62, AND THE DIRECTION REVERSES — read this one carefully.
+   *
+   * 2.283 SUPPRESSED this line under substitution, because the Impact block
+   * above was already stating the identical number in the honest voice and two
+   * findings from one measurement is a lie of arithmetic. That reasoning was
+   * entirely contingent on the substitution: `goalProbability ===
+   * jointGoalProbability` BY CONSTRUCTION was the whole argument.
+   *
+   * With the substitution withheld, the Impact block states nothing, so there
+   * is no duplicate — and the joint quantity is exactly the thing this section
+   * is FOR. It is the one surface where the figure is honestly labelled as
+   * what it is: P(all your limits met), not P(you reach your target). So it
+   * comes BACK, and this test pins its presence rather than its absence.
+   */
+  it('L62: the Constraints section DOES state the joint figure under its own honest label — the goal-fit slot is what was withheld, not the quantity', () => {
     setStoreWithConstraints(SUBSTITUTED_REPORT)
     const { container } = renderPanel()
     const text = container.textContent ?? ''
 
     expect(text).toContain('Stay under budget')
-    expect(text).not.toContain(JOINT_LINE)
-    // Paired presence proof (this suite's RED half): the Impact block carries
-    // the ONE honest statement of the number.
-    expect(text).toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
+    expect(text).toContain(JOINT_LINE)
+    // …and the goal-fit claim it used to be duplicating is gone, so this is
+    // one statement of one measurement, not two.
+    expect(text).not.toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
+    expect(text).not.toContain('chance of success')
   })
 
   it('positive control: with constraints defined, a REAL probability_of_goal KEEPS the Constraints line', () => {

@@ -72,12 +72,32 @@ export interface OptionWinShare {
    */
   nValidSamples?: number | null
   /**
-   * THE POSSESSIVE GATE — `OptionResult.goalFitIsSubstitutedJoint`, i.e.
-   * `selectGoalProbability(...).basis === 'joint_goal_substituted'`. True ⇒
+   * THE POSSESSIVE GATE — `OptionResult.goalFitIsSubstitutedJoint`. True ⇒
    * the number answers a different question from the one "your goal"
    * asserts, so the A copy drops the possessive. Read, never re-derived.
+   *
+   * ⚠ L62 (2026-08-04): this is now ALWAYS FALSE. It was
+   * `basis === 'joint_goal_substituted'`; that basis no longer exists (renamed
+   * `'joint_goal_withheld'`) and carries no number, so nothing reaches this
+   * surface needing a re-voiced caption. See `goalFitWithheld` below, which is
+   * the flag that now carries the state — and `selectGoalProbability`'s L62
+   * block for why. Kept only so the branches still compile; retiring it is a
+   * rowed follow-up.
    */
   goalFitIsSubstitutedJoint?: boolean
+  /**
+   * ⭐ L62 — `OptionResult.goalFitWithheld`. True when the run DID carry a
+   * `probability_of_joint_goal` and `selectGoalProbability` refused to put it
+   * in the goal-fit slot, because nothing on the wire shows the constraint
+   * threshold and the samples it is compared against are in the same frame.
+   *
+   * It exists to tell two silences apart. `goalProbability` being absent is
+   * ALSO how a no-target run looks, and the A5 line for that state — "Set a
+   * success target to see which option is most likely to reach it" — is the
+   * wrong sentence here: the user did set one, or the run did carry limits.
+   * Read, never re-derived.
+   */
+  goalFitWithheld?: boolean
 }
 
 // =============================================================================
@@ -258,6 +278,13 @@ export function WinGauge({
   // for the whole block — the safe direction, and it cannot produce a block
   // that says "your goal" over a number that does not answer it.
   const substituted = goalRows.some((s) => s.goalFitIsSubstitutedJoint === true)
+  // ⭐ L62 — same run-level reasoning as `substituted` above, and derived over
+  // ALL shares rather than `goalRows`: the withheld state is precisely the one
+  // where there ARE no goal rows, so filtering to rows first would make this
+  // permanently false. Any option whose goal figure was withheld puts the whole
+  // block in the withheld state, which is the safe direction: it can never
+  // invite a target the user already set.
+  const goalFitWithheld = shares.some((s) => s.goalFitWithheld === true)
 
   return (
     <div
@@ -326,13 +353,30 @@ export function WinGauge({
       ) : (
         // A5 — an invitation with its route, not a wall. The comparative
         // block below keeps rendering.
-        <p
-          className={`${typography.panelMeta} text-text-light mb-2`}
-          data-testid="win-gauge-no-target"
-        >
-          {GOAL_ANCHOR_COPY.noTarget}{' '}
-          <span className="text-info">{GOAL_ANCHOR_COPY.noTargetCta}</span>
-        </p>
+        // ⭐ L62 — TWO SILENCES, TWO SENTENCES.
+        // Withheld: the run produced a joint-constraints figure and the
+        // selector refused to score it as goal fit. Saying "Set a success
+        // target" here would ask the user for something they already gave and
+        // would imply the blank is their doing. Say what happened instead, and
+        // do NOT offer the unlock CTA — there is nothing for it to unlock.
+        goalFitWithheld ? (
+          <div className="mb-2" data-testid="win-gauge-goal-not-scored">
+            <p className={`${typography.panelMeta} text-text-light`}>
+              {GOAL_ANCHOR_COPY.notScored}
+            </p>
+            <p className={`${typography.panelMeta} text-text-light`}>
+              {GOAL_ANCHOR_COPY.notScoredReason}
+            </p>
+          </div>
+        ) : (
+          <p
+            className={`${typography.panelMeta} text-text-light mb-2`}
+            data-testid="win-gauge-no-target"
+          >
+            {GOAL_ANCHOR_COPY.noTarget}{' '}
+            <span className="text-info">{GOAL_ANCHOR_COPY.noTargetCta}</span>
+          </p>
+        )
       )}
 
       <div data-testid="win-gauge-comparative-block">

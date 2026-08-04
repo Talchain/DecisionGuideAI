@@ -519,6 +519,10 @@ export const ResultsBody = memo(function ResultsBody({
                   // ROADMAP 2.334 — the resolution the goal readouts need.
                   nValidSamples: o.nValidSamples,
                   goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint,
+                  // ⭐ L62 — lets the gauge tell "no target set" apart from
+                  // "a goal figure was withheld from you"; they need different
+                  // sentences and only the producer decision knows which.
+                  goalFitWithheld: o.goalFitWithheld,
                 }))}
               decisionState={vm.decisionState}
               designationsWithheld={

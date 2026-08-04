@@ -1260,8 +1260,11 @@ describe('OptionNode', () => {
       probability_of_joint_goal: 0.0054,
       goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
     })
-    expect(substituted.basis).toBe('joint_goal_substituted')
+    expect(substituted.basis).toBe('joint_goal_withheld')
     expect(substituted.mayUsePossessiveGoalFraming).toBe(false)
+    // ⭐ L62: and the number is withheld, not merely re-voiced — which is what
+    // makes the render assertion below an ABSENCE rather than a rewording.
+    expect(substituted.goalProbability).toBeNull()
 
     // …and the neighbouring fixture is genuinely the OTHER basis.
     const constrained = selectGoalProbability({
@@ -1272,18 +1275,24 @@ describe('OptionNode', () => {
     expect(constrained.mayUsePossessiveGoalFraming).toBe(true)
   })
 
-  it('RED-first: WITHHOLDS the possessive "chance of target." when the joint figure is SUBSTITUTED for an absent goal probability', () => {
+  /**
+   * ⭐ AMENDED BY L62. ROADMAP 2.282 renamed the badge; L60 showed the VALUE
+   * was the untruth, so the badge is now absent entirely on this basis.
+   * The possessive assertion is kept verbatim — it must still not appear — and
+   * the "renamed, same value" half is replaced by its opposite.
+   */
+  it('L62: renders NO goal badge at all when the only figure is a joint one standing in for an absent goal probability', () => {
     mockTrust.suspect = false
     mockResultsModeMetadata()
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeSubstitutedJointStore() as any)
     )
-    renderOption()
+    const { container } = renderOption()
     expect(screen.queryByText(/chance of target\./)).toBeNull()
-    // The number is NOT suppressed — it is renamed. Same value, honest voice,
-    // in the shared register's sentence form.
-    expect(screen.getByText(new RegExp(GOAL_ANCHOR_COPY.sentence('< 1%', true).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))))
-      .toBeDefined()
+    // Neither voice, and no number — the withheld wording is gone too, because
+    // there is nothing left for it to caption.
+    expect(container.textContent ?? '').not.toContain(GOAL_ANCHOR_COPY.label(true))
+    expect(container.textContent ?? '').not.toContain('< 1%')
   })
 
   it('positive control: the CONSTRAINED joint figure KEEPS the possessive wording (the gate is basis-scoped, not joint-scoped)', () => {
