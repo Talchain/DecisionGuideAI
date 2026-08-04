@@ -402,7 +402,6 @@ describe('applyV5State — ui_directive panel verbs (0.32.0, P3)', () => {
     useUIStore.setState({
       activeOutputTab: 'results',
       activeOutputTabVersion: 0,
-      hoveredElementId: null,
       activeRightPanel: null,
       pendingModelTabSection: null,
     })
