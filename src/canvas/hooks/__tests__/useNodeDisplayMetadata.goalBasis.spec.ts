@@ -121,19 +121,34 @@ describe('useNodeDisplayMetadata — achievementProbabilityBasis (REAL hook)', (
     // because a fixture silently stopped reaching the branch under test — the
     // failure mode that made a PLoT leak test capture 0 bytes and assert
     // nothing.
-    expect(selectGoalProbability(SUBSTITUTED_OPTION).basis).toBe('joint_goal_substituted')
+    expect(selectGoalProbability(SUBSTITUTED_OPTION).basis).toBe('joint_goal_withheld')
     expect(selectGoalProbability(SUBSTITUTED_OPTION).mayUsePossessiveGoalFraming).toBe(false)
+    // ⭐ L62: and it carries NO number — which is what turns the forwarding
+    // test below from "forwards the basis with a value" into "forwards the
+    // basis with the absence".
+    expect(selectGoalProbability(SUBSTITUTED_OPTION).goalProbability).toBeNull()
     expect(selectGoalProbability(REAL_GOAL_OPTION).basis).toBe('goal_probability')
     expect(selectGoalProbability(REAL_GOAL_OPTION).mayUsePossessiveGoalFraming).toBe(true)
     expect(selectGoalProbability(CONSTRAINED_OPTION).basis).toBe('joint_goal_constrained')
     expect(selectGoalProbability(CONSTRAINED_OPTION).mayUsePossessiveGoalFraming).toBe(true)
   })
 
-  it('forwards joint_goal_substituted on the witnessed payload', () => {
+  /**
+   * ⭐ AMENDED BY L62 (2026-08-04). 2.283 pinned that the hook forwarded the
+   * substituted basis ALONGSIDE the substituted number, so a render site could
+   * pick the honest voice for it. L60 §5–§8 showed the number is a structural
+   * zero, so the selector withholds it — and the thing the hook must now
+   * forward faithfully is the basis WITH the absence. Forwarding a basis while
+   * inventing a number would be worse than either.
+   */
+  it('L62: forwards joint_goal_withheld — basis AND absence — on the witnessed payload', () => {
     setReport(reportFor(SUBSTITUTED_OPTION))
     const md = renderForGoal()
-    expect(md.achievementProbability).toBe(0.0054)
-    expect(md.achievementProbabilityBasis).toBe('joint_goal_substituted')
+    expect(md.achievementProbability).toBeNull()
+    expect(md.achievementProbabilityBasis).toBe('joint_goal_withheld')
+    // The joint quantity itself still crosses the hop for the panel's own
+    // honestly-labelled row.
+    expect(md.jointGoalProbability).toBe(0.0054)
   })
 
   it('forwards goal_probability when the run carries the real goal quantity', () => {
@@ -150,7 +165,7 @@ describe('useNodeDisplayMetadata — achievementProbabilityBasis (REAL hook)', (
     expect(md.achievementProbabilityBasis).toBe('joint_goal_constrained')
     // The discriminator that matters: the same JOINT quantity, and yet not
     // substituted. A gate widened to "the figure is joint" fails here.
-    expect(md.achievementProbabilityBasis).not.toBe('joint_goal_substituted')
+    expect(md.achievementProbabilityBasis).not.toBe('joint_goal_withheld')
   })
 
   it('INVARIANT: a non-null achievementProbability is NEVER published without a basis', () => {
@@ -161,7 +176,13 @@ describe('useNodeDisplayMetadata — achievementProbabilityBasis (REAL hook)', (
     // possessive. This test is what stops "optional in the type" decaying into
     // "absent in practice": the real hook must populate it whenever it
     // publishes a number. Derived from the hook's own output, not mirrored.
-    for (const option of [SUBSTITUTED_OPTION, REAL_GOAL_OPTION, CONSTRAINED_OPTION]) {
+    // ⭐ L62 narrowed the fixture set, NOT the invariant. `SUBSTITUTED_OPTION`
+    // is removed because it no longer publishes a number, so it cannot
+    // exercise "a non-null probability without a basis" — including it would
+    // make the loop assert `not.toBeNull()` about a legitimately null value
+    // and turn the invariant into a false alarm. The withheld case gets its
+    // own, opposite invariant immediately below, so nothing goes unpinned.
+    for (const option of [REAL_GOAL_OPTION, CONSTRAINED_OPTION]) {
       setReport(reportFor(option))
       const md = renderForGoal()
       expect(md.achievementProbability).not.toBeNull()
@@ -169,6 +190,17 @@ describe('useNodeDisplayMetadata — achievementProbabilityBasis (REAL hook)', (
       expect(md.achievementProbabilityBasis).not.toBeUndefined()
       expect(md.achievementProbabilityBasis).not.toBe('none')
     }
+  })
+
+  it('⭐ L62 INVARIANT (the other direction): a WITHHELD basis is never published WITH a number', () => {
+    // The mirror of the invariant above, and the one that matters after L62:
+    // the whole defect was a basis that said "this is a stand-in" while a
+    // number rode along beside it and got rendered anyway. Absence and basis
+    // must travel together or the render sites are back to guessing.
+    setReport(reportFor(SUBSTITUTED_OPTION))
+    const md = renderForGoal()
+    expect(md.achievementProbabilityBasis).toBe('joint_goal_withheld')
+    expect(md.achievementProbability).toBeNull()
   })
 
   it('control: the pointer gap (ROADMAP 2.275) is the ONLY thing the fixtures add', () => {

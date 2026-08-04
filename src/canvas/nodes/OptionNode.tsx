@@ -20,7 +20,10 @@ import { readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, ActionIcons, BriefIcon, NodePopover, ScienceIcon } from './shared'
-import { selectGoalProbability } from '../../components/results/utils/selectGoalProbability'
+import {
+  selectGoalProbability,
+  basisWithholdsPossessive,
+} from '../../components/results/utils/selectGoalProbability'
 import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
@@ -785,7 +788,18 @@ export const OptionNode = memo((props: NodeProps) => {
   // limits, where the possessive is EARNED and stays. `OptionNode.spec.tsx`'s
   // ROADMAP 1.49 positive control is exactly that constrained case and must
   // keep rendering "chance of target."
-  const goalFitSubstituted = goalDecision?.basis === 'joint_goal_substituted'
+  //
+  // ⭐ L62 (2026-08-04) — THIS IS NOW ALWAYS FALSE, AND THAT IS THE FIX.
+  // `selectGoalProbability` no longer substitutes: on that basis it returns NO
+  // number (`'joint_goal_withheld'`, `goalProbability: null`), so a badge is
+  // never rendered in the withheld state and there is nothing left to re-voice.
+  // The bases that still carry a number — `'goal_probability'` and
+  // `'joint_goal_constrained'` — both EARN the possessive, which is why this
+  // reads the owner's own published permission rather than re-testing a basis
+  // literal: if the owner ever re-permits a number it forbids the possessive
+  // for, this lights up again without an edit here.
+  const goalFitSubstituted =
+    goalDecision?.goalProbability != null && basisWithholdsPossessive(goalDecision.basis)
   // The badge readout, built ONCE above both arms so the withheld and
   // permitted wordings cannot show different numbers for the same option.
   // Byte-identical to the literal it replaces (`'< '` + digits + `%`).

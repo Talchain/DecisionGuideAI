@@ -141,16 +141,43 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     // Anti-vacuity (trap 13): an absence assertion must first prove it can see
     // a presence. If a fixture stopped reaching its branch, the withheld/
     // permitted assertions below would pass by testing nothing.
-    expect(selectGoalProbability(SUBSTITUTED_OPTION).basis).toBe('joint_goal_substituted')
+    expect(selectGoalProbability(SUBSTITUTED_OPTION).basis).toBe('joint_goal_withheld')
     expect(selectGoalProbability(REAL_GOAL_OPTION).basis).toBe('goal_probability')
     expect(selectGoalProbability(CONSTRAINED_OPTION).basis).toBe('joint_goal_constrained')
+    // ⭐ L62: the withheld basis carries NO number, which is what turns the
+    // "withholds the possessive" test below into an absence-of-figure test.
+    expect(selectGoalProbability(SUBSTITUTED_OPTION).goalProbability).toBeNull()
+    expect(selectGoalProbability(CONSTRAINED_OPTION).goalProbability).toBe(0.42)
   })
 
-  it('WITHHOLDS the possessive on the witnessed substituted run', () => {
-    renderGoalWith(SUBSTITUTED_OPTION)
-    // The shared register's phrase form, verbatim — no copy invented here.
-    expect(screen.getByText(GOAL_ANCHOR_COPY.phrase('< 1%', true))).toBeInTheDocument()
+  /**
+   * ⭐ AMENDED BY L62. 2.283 pinned that the node kept the NUMBER and dropped
+   * the possessive. L60 §5–§8 showed the number is the untruth — a structural
+   * zero from comparing a level/count threshold to change-frame samples — so
+   * the node now shows no figure at all. The possessive assertion is retained
+   * verbatim; the "renders the withheld phrase" half is inverted.
+   */
+  it('L62: shows NO figure at all on the witnessed substituted run — neither voice', () => {
+    const { container } = renderGoalWith(SUBSTITUTED_OPTION)
+    expect(screen.queryByText(GOAL_ANCHOR_COPY.phrase('< 1%', true))).not.toBeInTheDocument()
     expect(screen.queryByText(new RegExp(POSSESSIVE))).not.toBeInTheDocument()
+    expect(container.textContent ?? '').not.toContain('< 1%')
+    // The node's own honest-absence line takes over.
+    //
+    // ⭐ AND NOTE WHICH ONE. Before L62 this run rendered "No overall goal
+    // probability for this run — see Goal fit for each option's chance",
+    // because `goalFitAvailable` was true: the per-option scan found the
+    // substituted figures and pointed the user AT them. That is the
+    // cross-surface contradiction ROADMAP 2.275 recorded from the other side —
+    // the node denying a figure while the Goal-fit sub-tab rendered "< 1%" four
+    // times from the same report. With the substitution withheld the scan finds
+    // nothing admissible, so the node states the simpler truth and the two
+    // surfaces finally agree. Pinned by string because the DIFFERENCE between
+    // these two sentences is the user-visible consequence of the fix.
+    expect(container.textContent ?? '').toContain(
+      'Target set. This run did not produce a goal probability.',
+    )
+    expect(container.textContent ?? '').not.toContain('see Goal fit for each option')
   })
 
   it('positive control: a REAL probability_of_goal keeps the possessive', () => {
@@ -169,13 +196,13 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     expect(screen.queryByText(GOAL_ANCHOR_COPY.phrase('42%', true))).not.toBeInTheDocument()
   })
 
-  it('the two arms are MUTUALLY EXCLUSIVE — the run states one voice, never both', () => {
-    // The GoalPanel defect in miniature: under substitution the same number
-    // rendered in two incompatible voices, exactly one of which was true.
+  it('L62: NEITHER voice appears on a withheld run — the mutual-exclusion test, with both arms now empty', () => {
+    // 2.283 pinned exactly-one-voice. Under L62 the honest count is zero of
+    // both: there is no number for either voice to caption. The CONSTRAINED
+    // positive control above is what stops this degenerating into "the gate
+    // silenced everything".
     renderGoalWith(SUBSTITUTED_OPTION)
-    const withheld = screen.queryAllByText(GOAL_ANCHOR_COPY.phrase('< 1%', true))
-    const possessive = screen.queryAllByText(new RegExp(POSSESSIVE))
-    expect(withheld).toHaveLength(1)
-    expect(possessive).toHaveLength(0)
+    expect(screen.queryAllByText(GOAL_ANCHOR_COPY.phrase('< 1%', true))).toHaveLength(0)
+    expect(screen.queryAllByText(new RegExp(POSSESSIVE))).toHaveLength(0)
   })
 })

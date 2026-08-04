@@ -175,15 +175,35 @@ export interface OptionResult {
   goalFitIsModelledBasis?: boolean
   /**
    * Goal-probability IDENTITY: true when the rendered `goalProbability` is
-   * `probability_of_joint_goal` STANDING IN for an absent `goal_probability`
-   * (the ISL-auto-derived-goal-threshold run). The number is real and the
-   * user is entitled to it, but it answers "P(all constraints jointly
-   * satisfied)", not "P(this option clears the goal)" — so prose showing it
-   * must NOT use the possessive "your goal" framing. Set from
-   * `selectGoalProbability(...).basis === 'joint_goal_substituted'`; never
-   * re-derived at a render site.
+   * `probability_of_joint_goal` STANDING IN for an absent `goal_probability`.
+   *
+   * ⚠ L62 (2026-08-04): this is now ALWAYS FALSE on every live payload, and
+   * the field is retained only so the surfaces that branch on it keep
+   * compiling. `selectGoalProbability` no longer substitutes — the joint
+   * figure is withheld from the goal-fit slot entirely (see that module's L62
+   * block for why the wire cannot justify the substitution). A rendered
+   * `goalProbability` is therefore always a quantity that earns the
+   * possessive. Retiring this field and the substituted-voice copy it selects
+   * is a follow-up; it is NOT done here because it touches a dozen surfaces
+   * and this change is a P0 truth fix, not a refactor.
+   *
+   * Set from `!selectGoalProbability(...).mayUsePossessiveGoalFraming` on a
+   * present number; never re-derived at a render site.
    */
   goalFitIsSubstitutedJoint?: boolean
+  /**
+   * ⭐ L62 — true when this run DID carry a `probability_of_joint_goal` and the
+   * selector refused to put it in the goal-fit slot (basis
+   * `'joint_goal_withheld'`).
+   *
+   * The distinction it carries is one no other field can: `goalProbability`
+   * being null means "no goal number", which is ALSO the state of a run where
+   * the user set no target. Those need different sentences — offering "Set a
+   * success target" to someone who set one is its own small untruth. Surfaces
+   * read this to choose `GOAL_ANCHOR_COPY.notScored` over
+   * `GOAL_ANCHOR_COPY.noTarget`.
+   */
+  goalFitWithheld?: boolean
 }
 
 /** Outcome unit type for formatting - from goal node observed_state.unit */

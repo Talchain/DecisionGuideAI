@@ -143,7 +143,18 @@ describe('useResultsSectionData — Seam-A live fixture carrying the 4 lifted fi
     expect(byId.get('opt_b')?.goalFitIsModelledBasis).toBe(false)
   })
 
-  it('POSITIVE CONTROL (gate OFF): goal_fit_basis caveat flag is true ONLY for the option whose displayed number is the modelled joint-goal figure', () => {
+  /**
+   * ⭐ AMENDED BY L62 (2026-08-04). This asserted that with the SEAM-1 gate off
+   * the joint-only option (`opt_a`) displayed 0.42 and carried the
+   * modelled-basis caveat. That is now the withheld state: `opt_a` has no
+   * `probability_of_goal`, so its only figure is a joint one standing in for
+   * the absent goal quantity, and `selectGoalProbability` refuses it.
+   *
+   * The test is retained because its DISCRIMINATION still matters and is
+   * pinned below — opt_a and opt_b differ by one field, and the two must not
+   * end up in the same state. What flipped is which state opt_a is in.
+   */
+  it('L62 (gate OFF): the joint-ONLY option is withheld; the option with a real goal probability is untouched', () => {
     mockTrust.suspect = false
     setStoreFromLiveSeamABlock(JOINT_CAVEAT_BLOCK)
 
@@ -151,10 +162,16 @@ describe('useResultsSectionData — Seam-A live fixture carrying the 4 lifted fi
     const byId = new Map(
       (result.current.recommendation?.allOptions ?? []).map((o) => [o.id, o]),
     )
-    expect(byId.get('opt_a')?.goalProbability).toBe(0.42)
-    expect(byId.get('opt_a')?.goalFitIsModelledBasis).toBe(true)
+    // opt_a: joint-only ⇒ withheld. No number, and therefore no caveat to hang
+    // on one.
+    expect(byId.get('opt_a')?.goalProbability).toBeNull()
+    expect(byId.get('opt_a')?.goalFitIsModelledBasis).toBe(false)
+    expect(byId.get('opt_a')?.goalFitWithheld).toBe(true)
+    // opt_b: a real `probability_of_goal` ⇒ untouched. This is what makes the
+    // pair a discriminator rather than a blanket suppression.
     expect(byId.get('opt_b')?.goalProbability).toBe(0.55)
     expect(byId.get('opt_b')?.goalFitIsModelledBasis).toBe(false)
+    expect(byId.get('opt_b')?.goalFitWithheld).toBe(false)
   })
 
   it('a live Seam-A turn WITHOUT the four fields renders honest absence — no invention, no crash', () => {

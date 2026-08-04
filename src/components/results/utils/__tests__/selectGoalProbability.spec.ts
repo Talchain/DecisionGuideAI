@@ -29,6 +29,9 @@ describe('selectGoalProbability — gate-independent behaviour', () => {
       basis: 'none' as const,
       goalFitIsModelledBasis: false,
       mayUsePossessiveGoalFraming: false,
+      // L62: nothing was available to withhold here — 'none' means the run
+      // carried no joint figure either.
+      jointSubstitutionWithheld: false,
     }
     // Exact shape, deliberately: the selection is a CONTRACT, and a field that
     // appears (or vanishes) without a decision here is a field some surface will
@@ -65,10 +68,31 @@ describe('selectGoalProbability — CURRENT STATE: seam 1 RESTORED (PLOT_JOINT_H
     expect(result.goalProbabilityIsJoint).toBe(true)
   })
 
-  it('falls back to probability_of_joint_goal when goal_probability is absent (ISL auto-derived goal threshold)', () => {
+  /**
+   * ⭐ SUPERSEDED BY L62 (2026-08-04), AND THE SUPERSESSION IS THE POINT.
+   *
+   * This test pinned the FALLBACK: goal_probability absent ⇒ show the joint
+   * figure instead. L60 established at the bytes that the joint figure on that
+   * path is P(level-or-count threshold ≥ change-frame sample) — a structural
+   * zero forced by arithmetic, not a measurement of anything the user asked —
+   * and that `probability_of_goal` was absent precisely BECAUSE ISL's frame
+   * guard had honestly refused to produce it. The fallback was papering over a
+   * refusal.
+   *
+   * The test is kept, inverted, rather than deleted: it is the record that this
+   * behaviour was deliberate once, and it now fails loudly if the fallback is
+   * ever restored. See `selectGoalProbability.l62Withhold.spec.ts` for the
+   * producer-byte pins.
+   */
+  it('does NOT fall back to probability_of_joint_goal when goal_probability is absent (L62 — was the fallback, now withheld)', () => {
     const result = selectGoalProbability({ probability_of_joint_goal: 0.0 })
-    expect(result.goalProbability).toBe(0)
-    expect(result.goalProbabilityIsJoint).toBe(true)
+    expect(result.goalProbability).toBeNull()
+    expect(result.goalProbabilityIsJoint).toBe(false)
+    expect(result.basis).toBe('joint_goal_withheld')
+    expect(result.jointSubstitutionWithheld).toBe(true)
+    // The quantity itself is still published for the surfaces that label it
+    // honestly — withheld from the goal-fit SLOT, not deleted.
+    expect(result.jointGoalProbability).toBe(0)
   })
 
   it('still uses unconstrained goal_probability when there are no constraints', () => {
@@ -137,20 +161,41 @@ describe('selectGoalProbability — basis and framing permission', () => {
     expect(result.mayUsePossessiveGoalFraming).toBe(true)
   })
 
-  it('a joint figure standing in for an absent goal figure shows the NUMBER but withholds the possessive', () => {
+  it('L62: a joint figure standing in for an absent goal figure is withheld entirely — no number, no voice', () => {
+    // ROADMAP 2.282 withheld only the possessive VOICE and kept showing the
+    // number. That was a copy fix over a value that should never have been
+    // shown; L60 §5–§8 is why. Both are withheld now.
     const result = selectGoalProbability({ probability_of_joint_goal: 0.62 })
-    expect(result.basis).toBe('joint_goal_substituted')
-    expect(result.goalProbability).toBe(0.62)
-    expect(result.goalProbabilityIsJoint).toBe(true)
+    expect(result.basis).toBe('joint_goal_withheld')
+    expect(result.goalProbability).toBeNull()
+    expect(result.goalProbabilityIsJoint).toBe(false)
     expect(result.mayUsePossessiveGoalFraming).toBe(false)
+    expect(result.jointSubstitutionWithheld).toBe(true)
+    expect(result.jointGoalProbability).toBe(0.62)
   })
 
-  it('carries the modelled-basis caveat on a joint figure the producer marked as modelled', () => {
+  it('carries the modelled-basis caveat on a CONSTRAINED joint figure the producer marked as modelled', () => {
+    // ⭐ L62 amended the INPUT, not the rule. The caveat still rides a joint
+    // figure marked `modelled_outcome_distribution` — but only one that is
+    // actually DISPLAYED, which after L62 means the constrained basis. A
+    // caveat rendered beside a withheld number would be a hedge about a value
+    // the user cannot see.
+    const result = selectGoalProbability({
+      probability_of_joint_goal: 0.62,
+      constraint_analysis: { constraints: [{ id: 'c1' }] },
+      goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+    })
+    expect(result.basis).toBe('joint_goal_constrained')
+    expect(result.goalFitIsModelledBasis).toBe(true)
+  })
+
+  it('L62: no modelled-basis caveat over a WITHHELD figure — there is nothing for it to qualify', () => {
     const result = selectGoalProbability({
       probability_of_joint_goal: 0.62,
       goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
     })
-    expect(result.goalFitIsModelledBasis).toBe(true)
+    expect(result.basis).toBe('joint_goal_withheld')
+    expect(result.goalFitIsModelledBasis).toBe(false)
   })
 
   it('never applies the caveat to the unconstrained goal quantity, even when the marker is present', () => {
@@ -205,8 +250,12 @@ describe('selectGoalProbability — owned aliases of the goal quantity', () => {
       probability_of_goal: undefined,
       probability_of_joint_goal: 0.5,
     })
-    expect(result.basis).toBe('joint_goal_substituted')
-    expect(result.goalProbability).toBe(0.5)
+    // L62: the ALIAS behaviour under test is unchanged — `undefined` is still
+    // treated as absent rather than coerced. What changed is what an absent
+    // goal quantity plus a present joint one now produces.
+    expect(result.basis).toBe('joint_goal_withheld')
+    expect(result.goalProbability).toBeNull()
+    expect(result.jointGoalProbability).toBe(0.5)
   })
 })
 

@@ -42,6 +42,7 @@ import { useAuth } from '../../../../contexts/AuthContext'
 import { isPersistenceActive } from '../../../../lib/persistenceActive'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
+import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
 import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 
 export const GoalPanel = memo(function GoalPanel({
@@ -131,8 +132,16 @@ export const GoalPanel = memo(function GoalPanel({
   // construction, so the Impact block was stating one value twice in two
   // different voices: "N% chance of success" over "Chance of hitting every
   // target: N%". One of those was false. They are collapsed to the honest one.
+  // ⭐ L62 (2026-08-04) — THIS IS NOW ALWAYS FALSE, AND THAT IS THE POINT.
+  // `selectGoalProbability` no longer substitutes the joint figure into the
+  // goal-fit slot at all: on that basis (`'joint_goal_withheld'`) it returns NO
+  // number, so this surface renders nothing to re-voice. The bases that still
+  // carry a number — `'goal_probability'` and `'joint_goal_constrained'` —
+  // both EARN the possessive. The narrowing goes through the owner's exported
+  // `basisWithholdsPossessive` so the four canvas/summary surfaces share ONE
+  // rule instead of four copies of a literal.
   const goalFitSubstituted =
-    displayMetadata.achievementProbabilityBasis === 'joint_goal_substituted'
+    probGoal !== null && basisWithholdsPossessive(displayMetadata.achievementProbabilityBasis)
 
   const thresholdUnit = (node?.data as Record<string, unknown>)?.goal_threshold_unit as string | undefined
   const thresholdRaw = (node?.data as Record<string, unknown>)?.goal_threshold_raw as string | number | null | undefined

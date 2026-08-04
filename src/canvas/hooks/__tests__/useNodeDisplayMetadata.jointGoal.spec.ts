@@ -90,12 +90,25 @@ describe('useNodeDisplayMetadata — jointGoalProbability (REAL hook)', () => {
     expect(md.jointGoalProbability).toBe(0.0054)
   })
 
-  it('under substitution the joint figure IS the achievement figure — the selector identity survives the hop', () => {
+  /**
+   * ⭐ AMENDED BY L62 (2026-08-04). This pinned the 2.296 identity: under
+   * substitution `achievementProbability === jointGoalProbability`, because the
+   * achievement figure WAS the joint figure. The substitution is gone (L60 §5:
+   * the joint figure is P(level-or-count threshold >= change-frame sample)), so
+   * the identity that survives the hop is now the OPPOSITE one, and it is the
+   * more important of the two: the joint quantity is still forwarded verbatim
+   * for the separately-labelled inspector row, while the achievement slot is
+   * empty. A gate that deleted the joint quantity too would break the honest
+   * surface, so this pins that it does not.
+   */
+  it('L62 — under withhold the joint figure is still FORWARDED, and the achievement figure is empty', () => {
     setReport(reportFor(SUBSTITUTED_OPTION))
     const md = renderForGoal()
-    expect(md.achievementProbabilityBasis).toBe('joint_goal_substituted')
+    expect(md.achievementProbabilityBasis).toBe('joint_goal_withheld')
+    expect(md.achievementProbability).toBeNull()
+    // Untouched, byte-for-byte: this is what `GoalPanel`'s "chance of hitting
+    // every target" row renders under its own honest label.
     expect(md.jointGoalProbability).toBe(0.0054)
-    expect(md.jointGoalProbability).toBe(md.achievementProbability)
   })
 
   it('no pointer (the 2.275 gap) → no joint figure either — nothing is read outside the owner', () => {

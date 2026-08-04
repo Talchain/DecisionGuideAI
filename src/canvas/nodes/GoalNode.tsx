@@ -25,6 +25,7 @@ import { typography } from '../../styles/typography'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
+import { basisWithholdsPossessive } from '../../components/results/utils/selectGoalProbability'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
@@ -140,8 +141,17 @@ export const GoalNode = memo((props: NodeProps) => {
   // `joint_goal_constrained` is the user's own goal AND their own limits —
   // the possessive is EARNED there and is untouched (the ROADMAP 1.49 case).
   // The expression is byte-identical to `OptionNode`'s, deliberately.
+  // ⭐ L62 (2026-08-04) — THIS IS NOW ALWAYS FALSE, AND THAT IS THE POINT.
+  // `selectGoalProbability` no longer substitutes the joint figure into the
+  // goal-fit slot at all: on that basis (`'joint_goal_withheld'`) it returns NO
+  // number, so this surface renders nothing to re-voice. The bases that still
+  // carry a number — `'goal_probability'` and `'joint_goal_constrained'` —
+  // both EARN the possessive. The narrowing goes through the owner's exported
+  // `basisWithholdsPossessive` so the four canvas/summary surfaces share ONE
+  // rule instead of four copies of a literal.
   const goalFitSubstituted =
-    displayMetadata.achievementProbabilityBasis === 'joint_goal_substituted'
+    displayMetadata.achievementProbability !== null &&
+    basisWithholdsPossessive(displayMetadata.achievementProbabilityBasis)
   // The readout, built ONCE above both arms so the withheld and permitted
   // wordings can never show different numbers for the same run.
   //
