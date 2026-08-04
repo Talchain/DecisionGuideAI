@@ -59,6 +59,7 @@ import { rankHeroRows } from './rowRanking'
 // AND the test scanner so what production guards against == what tests
 // catch. (Per P1.1 review feedback.)
 import { containsBannedTerm, safeInterpolatedLabel as safeLabel } from './glossaryCheck'
+import { deriveDskGrounding } from '../utils/decisionQualityPrompts'
 // Genuine Structure + Coverage signal derivation (P1.1 round-3 review).
 import {
   deriveStructureScore,
@@ -304,22 +305,13 @@ function selectKeyQuestion(
   const dqps = data?.confidence?.m2DecisionQualityPrompts ?? []
   const dqp = dqps[0]?.question
   if (dqp && !containsBannedTerm(dqp)) {
-    // Lane 1 (P1): DSK grounding for the main question's source prompt.
-    // Id-gated (defence in depth over the data-layer gate): no attested
-    // dskClaimId ⇒ NO grounding object — the card renders no badge. Strength
-    // is carried only when present upstream, never defaulted. The principle
-    // (the DSK claim title, user-facing badge copy) passes the same glossary
-    // gate as the question text.
-    const first = dqps[0]
-    const grounding: DskGrounding | undefined =
-      first.dskClaimId && first.principle && !containsBannedTerm(first.principle)
-        ? {
-            principle: first.principle,
-            claimId: first.dskClaimId,
-            ...(first.dskProtocolId ? { protocolId: first.dskProtocolId } : {}),
-            ...(first.evidenceStrength ? { strength: first.evidenceStrength } : {}),
-          }
-        : undefined
+    // Lane 1 (P1): DSK grounding for the main question's source prompt —
+    // id-gate + glossary re-gate now live in ONE place, shared with the
+    // lens-hero KeyQuestionCard (2.466): utils/decisionQualityPrompts
+    // .deriveDskGrounding. Behaviour is the extracted verbatim rule: no
+    // attested dskClaimId ⇒ NO grounding object; strength/protocol carried
+    // only when present upstream, never defaulted.
+    const grounding: DskGrounding | undefined = deriveDskGrounding(dqps[0])
     return {
       text: dqp,
       extras: dqps.slice(1, 4).map(p => p.question).filter(q => q && !containsBannedTerm(q)),

@@ -34,7 +34,7 @@ import { WhatChangedChip } from '../../canvas/components/WhatChangedChip'
 import { StrengthenContainer } from './strengthen/StrengthenContainer'
 import { InferenceWarningStrip } from './InferenceWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
-import { AnalysisHeroContainer } from './analysis-hero'
+import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
 import { V7TopMatter } from './v7/V7TopMatter'
 import { openDefineSuccess, HowComputedTrigger } from './modals'
 import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled, isAnalysisHeroPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
@@ -381,13 +381,26 @@ export const ResultsBody = memo(function ResultsBody({
           below consume — mounted ABOVE the existing hero block; flag off
           renders nothing and the tab is unchanged. */}
       {isAnalysisHeroPanelEnabled() && (
-        <SectionErrorBoundary section="Analysis hero">
-          <AnalysisHeroContainer
-            onDefineSuccess={openDefineSuccess}
-            data={resultsSectionData}
-            onApplyTarget={onApplyThreshold}
-          />
-        </SectionErrorBoundary>
+        <>
+          <SectionErrorBoundary section="Analysis hero">
+            <AnalysisHeroContainer
+              onDefineSuccess={openDefineSuccess}
+              data={resultsSectionData}
+              onApplyTarget={onApplyThreshold}
+            />
+          </SectionErrorBoundary>
+          {/* ── 2.466 (P1): decision-quality KEY QUESTION + DSK grounding ──
+              Fed from the LIVE turn state (runMeta.decisionReview030's
+              verbatim DQP carry), presence-gated — never from the legacy
+              m1ReviewAssumptions/reviewStatus pair that dark-shipped lane 1.
+              Hosted INSIDE this flag arm on purpose: the V17 HeroKeyQuestion
+              lives in the `!flag` arm below, so the two hosts are mutually
+              exclusive by the same fork that owns the slot — no posture can
+              double-render the grounding line. */}
+          <SectionErrorBoundary section="Key question">
+            <KeyQuestionCard />
+          </SectionErrorBoundary>
+        </>
       )}
 
       {/* ── DECISION CONFIDENCE TRIAGE ────────────────────────────── */}

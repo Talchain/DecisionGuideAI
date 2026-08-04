@@ -24,6 +24,7 @@
  */
 
 import { sanitizeCoachingText } from './cleanFactorLabel'
+import { containsBannedTerm } from '../analysisHeroV17/glossaryCheck'
 
 /**
  * The attested DSK evidence-strength vocabulary (derived from the committed
@@ -53,11 +54,59 @@ function nonEmptyString(v: unknown): v is string {
 }
 
 /**
+ * Lane 1 (P1): DSK science provenance for a rendered key question — the VIEW
+ * shape both hosts (V17 `HeroKeyQuestion`, lens-hero `KeyQuestionCard`)
+ * render. Present ONLY when the prompt behind the question attested a
+ * `dsk_claim_id` upstream (id-gated at the data layer AND re-gated in
+ * `deriveDskGrounding`). Absence means "not grounded in a cited DSK claim" —
+ * the host then renders NO grounding line: never a default id, never an
+ * inferred strength.
+ *
+ * 2.466: moved here from `analysisHeroV17/analysisHeroVM.types.ts` (which
+ * re-exports it) so the honest-absence rule has exactly ONE home now that a
+ * second host renders it. Two same-named inline copies of an honesty gate is
+ * the drift pattern this repo's trap 12 exists to kill.
+ */
+export interface DskGrounding {
+  /** Sanitised DSK claim title, e.g. "Outside view and reference class forecasting". */
+  principle: string
+  /** DSK claim id verbatim, e.g. "DSK-T-002" — surfaced as a data-* attribute. */
+  claimId: string
+  /** DSK protocol id, e.g. "DSK-P-002", when cited. */
+  protocolId?: string
+  /** Closed-vocabulary evidence strength, verbatim, when attested. */
+  strength?: DskEvidenceStrength
+}
+
+/**
+ * The grounding object for a mapped prompt, or undefined — lane 1's rule,
+ * verbatim (formerly inline in `selectKeyQuestion`):
+ *   - id-gate (defence in depth over the data-layer gate): no attested
+ *     `dskClaimId` ⇒ NO grounding object, whatever else the entry carries;
+ *   - the principle (user-facing badge copy) must exist and pass the same
+ *     glossary gate as question text;
+ *   - protocol id and strength are carried only when present upstream, never
+ *     defaulted.
+ */
+export function deriveDskGrounding(
+  p: MappedDecisionQualityPrompt,
+): DskGrounding | undefined {
+  return p.dskClaimId && p.principle && !containsBannedTerm(p.principle)
+    ? {
+        principle: p.principle,
+        claimId: p.dskClaimId,
+        ...(p.dskProtocolId ? { protocolId: p.dskProtocolId } : {}),
+        ...(p.evidenceStrength ? { strength: p.evidenceStrength } : {}),
+      }
+    : undefined
+}
+
+/**
  * Map raw wire prompt entries to the UI shape. Preserves the historical
  * behaviour for the three copy fields exactly (truthy check → sanitise,
  * else '') and adds the id-gated provenance carry.
  */
-export function mapDecisionQualityPrompts(raw: unknown[]): MappedDecisionQualityPrompt[] {
+export function mapDecisionQualityPrompts(raw: ReadonlyArray<unknown>): MappedDecisionQualityPrompt[] {
   return raw.map((entry) => {
     const p = (entry ?? {}) as Record<string, unknown>
     const mapped: MappedDecisionQualityPrompt = {

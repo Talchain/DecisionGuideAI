@@ -98,6 +98,9 @@ function makeReview030(
     robustness_explanation: null,
     readiness_rationale: null,
     scenario_contexts: [],
+    // 2.466: the verbatim DQP carry — irrelevant to completeness (it is not a
+    // hasProse input; pinned by decisionReviewAdapter.dqpCarry.spec).
+    decision_quality_prompts: [],
     produced_at: '2026-07-29T23:06:30.954Z',
     hasProse: true,
     ...overrides,
