@@ -317,7 +317,16 @@ export interface CritiqueItemV1 {
  */
 export type CanonicalRun = {
   responseHash: string
-  bands: { p10: number | null; p50: number | null; p90: number | null }
+  /**
+   * OPTIONAL since lane 3 (#585 review F1): a `run` minted for critiques
+   * only must OMIT this key entirely. A bands object of nulls is a TRUTHY
+   * value — two readers branch on object truthiness (`canonicalBands ?
+   * canonicalBands.p50 : results.likely` at OutputsDock.tsx and the
+   * `if (bands)` early-return in share/decisionSummary.ts) and would skip
+   * their real `report.results.*` fallbacks, nulling a real number.
+   * True absence, never presence-shaped absence.
+   */
+  bands?: { p10: number | null; p50: number | null; p90: number | null }
   confidence?: { level?: string; reason?: string; score?: number }
   critique?: CritiqueItemV1[]
 }

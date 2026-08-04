@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2502
+# count=2500
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -210,8 +210,6 @@
 1	src/adapters/plot/v2/responseMapper.ts	TS2352	Conversion of type 'V2RobustnessActual' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/adapters/plot/v2/responseMapper.ts	TS2353	Object literal may only specify known properties, and 'n_samples' does not exist in type '{ seed: null | number; response_id: string; elapsed_ms: number; }'.
 1	src/adapters/plot/v2/responseMapper.ts	TS2353	Object literal may only specify known properties, and 'source' does not exist in type 'CritiqueItemV1'.
-1	src/adapters/plot/v2/responseMapper.ts	TS2739	Type '{ critique: { code: string; severity: "BLOCKER" | "INFO" | "WARNING"; message: string; suggested_fix: string | undefined; node_id: string | undefined; auto_fixable: false; source: "isl"; }[]; }' is missing the following properties from type 'CanonicalRun': responseHash, bands
-1	src/adapters/plot/v2/responseMapper.ts	TS2741	Property 'responseHash' is missing in type '{ critique: CritiqueItemV1[]; bands: { p10: null | number; p50: null | number; p90: null | number; }; }' but required in type 'CanonicalRun'.
 1	src/adapters/plot/v2/responseMapper.ts	TS6133	'formatEdgeLabel' is declared but its value is never read.
 1	src/adapters/plot/v2/responseMapper.ts	TS6133	'i' is declared but its value is never read.
 1	src/canvas/ReactFlowGraph.tsx	TS2322	Type '(connection: Connection) => boolean' is not assignable to type 'IsValidConnection<Edge<EdgeData>>'.

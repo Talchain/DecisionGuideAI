@@ -31,7 +31,7 @@
 
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
 
-import type { ReportV1, ConfidenceLevel } from '../adapters/plot/types'
+import type { ReportV1, ConfidenceLevel, CritiqueItemV1 } from '../adapters/plot/types'
 import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
 import {
   factorDirectionToPolarity,
@@ -40,6 +40,59 @@ import {
 } from '../lib/factorDirection'
 
 // ─── Helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Projected-critique severity → the consumer union (CritiqueItemV1.severity,
+ * adapters/plot/types.ts:304). The CEE→UI wire carries the lowercase V2 union
+ * 'info'|'warning'|'error'|'blocker'; the Results consumers filter on the
+ * UPPERCASE V4 values (useResultsSectionData.ts:2454 matches 'WARNING' only),
+ * so a lowercase pass-through would silently drop every projected row from
+ * the uncertainties list. 'error' folds into 'BLOCKER' (the union has no
+ * ERROR member); unknown/absent severities fold to 'INFO' — conservative:
+ * an unclassifiable disclosure must not inflate the warning banner.
+ */
+function mapProjectedCritiqueSeverity(v: unknown): CritiqueItemV1['severity'] {
+  const s = typeof v === 'string' ? v.toLowerCase() : ''
+  if (s === 'warning') return 'WARNING'
+  if (s === 'error' || s === 'blocker') return 'BLOCKER'
+  return 'INFO'
+}
+
+/**
+ * Map CEE-projected critique rows to the canonical `run.critique` slot shape.
+ * Keeps ONLY rows with a non-empty `code` AND a non-empty `user_message` —
+ * the projection guarantees both on every surviving row, and a row without
+ * display-safe copy has nothing honest to render (`message` never arrives on
+ * this wire; it is withheld internal wording). `message` is populated FROM
+ * `user_message` so every existing consumer of the slot renders the
+ * display-safe copy; `user_message` also rides along verbatim for the
+ * humaniser's userMessage-first path.
+ */
+function mapProjectedCritiques(
+  raw: unknown[],
+): Array<CritiqueItemV1 & { user_message: string }> {
+  const out: Array<CritiqueItemV1 & { user_message: string }> = []
+  for (const r of raw) {
+    if (!isPlainObject(r)) continue
+    const code = safeString(r.code)
+    const userMessage = safeString(r.user_message)
+    if (!code || !userMessage) continue
+    const item: CritiqueItemV1 & { user_message: string } = {
+      severity: mapProjectedCritiqueSeverity(r.severity),
+      message: userMessage,
+      user_message: userMessage,
+      code,
+    }
+    const nodeId = Array.isArray(r.affected_node_ids)
+      ? safeString(r.affected_node_ids[0])
+      : undefined
+    if (nodeId) item.node_id = nodeId
+    const suggestion = safeString(r.suggestion)
+    if (suggestion) item.suggested_fix = suggestion
+    out.push(item)
+  }
+  return out
+}
 
 function safeString(v: unknown): string | undefined {
   return typeof v === 'string' && v.length > 0 ? v : undefined
@@ -984,6 +1037,19 @@ export function mapV5AnalysisToReport(
     ? (enrichment!.inference_warnings as unknown[])
     : undefined
 
+  // Critiques transport, UI leg (ROADMAP 2.358; schemas 0.31.0 / CEE #786).
+  // CEE's `projectCritiquesForTransport` (sanitise-enrichment.ts:690 at
+  // d2cdd99b) ships rows with `user_message` (display-safe; S-bucket = the
+  // Paul-approved 2026-04-30 copy, rendered CEE-side) and NO `message`
+  // (withheld internal wording). Until this read existed, every transported
+  // critique died here — the last hop before the browser (trap 16: the only
+  // prior `run.critique` writer was the DEAD V4 `envelope.analysis_response`
+  // path). Absence-preserving: key absent ⇒ no `run` minted; producer-sent
+  // `[]` ⇒ present-and-empty (honest "nothing to disclose").
+  const rawCritiques = Array.isArray(enrichment?.critiques)
+    ? (enrichment!.critiques as unknown[])
+    : undefined
+
   // V7-C slice 1 (ROADMAP 2.141): the VOI family. schemas 0.30.0 adds these
   // FOUR keys to `CEE_UI_ENRICHMENT_KEEP_LIST` and CEE #754 mirrors them onto
   // `P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP`, so they now arrive on
@@ -1176,6 +1242,33 @@ export function mapV5AnalysisToReport(
   if (confidenceTier !== undefined) widened.confidence_tier = confidenceTier
   if (constraintsStatus !== undefined) widened.constraints_status = constraintsStatus
   if (inferenceWarnings) widened.inference_warnings = inferenceWarnings
+  // Critiques transport, UI leg (ROADMAP 2.358) — mint the canonical
+  // `run.critique` slot the Results consumers already read
+  // (useResultsSectionData.ts:2015/:2453, OutputsDock.tsx:2423,
+  // usePreAnalysisData.ts:616; useUnifiedActions.ts:229 re-enables
+  // honestly). `responseHash` is the report's own hash — one identity, not
+  // a second derivation.
+  //
+  // ⚠ NO `bands` KEY — EVER (review #585 F1, executable-proven). A bands
+  // object of nulls is a TRUTHY value, and two readers branch on object
+  // truthiness (`canonicalBands ? canonicalBands.p50 :
+  // report?.results?.likely` at OutputsDock.tsx:1188-1194; the
+  // `if (bands)` early-return in share/decisionSummary.ts:28-37) — a
+  // null-bands object would have nulled a REAL mostLikelyValue on exactly
+  // the turns this reader lights up. True absence, not presence-shaped
+  // absence: `report.run?.bands` stays undefined and every fallback chain
+  // fires exactly as before this PR.
+  //
+  // Minted only when at least one row SURVIVES mapping (review F7): CEE's
+  // projection never emits an empty `critiques` array on the wire, so a
+  // present-and-empty slot would pin a producer behaviour that does not
+  // exist; `[]`/all-malformed input leaves `run` absent, same as no key.
+  if (rawCritiques) {
+    const critique = mapProjectedCritiques(rawCritiques)
+    if (critique.length > 0) {
+      report.run = { responseHash, critique }
+    }
+  }
   // VOI family (V7-C slice 1) — see the derivation block above.
   if (factorEvppi) widened.factor_evppi = factorEvppi
   if (decisionEvpi !== undefined) widened.decision_evpi = decisionEvpi
