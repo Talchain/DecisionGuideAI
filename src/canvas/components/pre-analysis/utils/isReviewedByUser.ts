@@ -68,13 +68,36 @@ export function isReviewedByUser(node: Node): boolean {
     observed_state?: { source?: string }
     observedState?: { source?: string }
     source?: string
+    provenance?: string
   }
   // Field-level fallback chain: snake_case → camelCase → top-level. An
   // empty `observed_state: {}` at the snake-case key no longer hides a
   // valid camelCase or top-level source.
   const source =
     data?.observed_state?.source ?? data?.observedState?.source ?? data?.source
-  return isReviewedSource(source)
+  if (isReviewedSource(source)) return true
+
+  // Final rung — the WIRE-CARRIED claim (L66, final-walk defect 0, P1).
+  //
+  // The `source` stamps above are CLIENT-side: CEE's `ObservedStateV3` types
+  // `observed_state.source` as z.enum(['brief_extraction','cee_inference']) —
+  // no user-owned member exists, and set_factor_value never writes the field
+  // (rowed 2.396(b)). So after a reload that hydrates from the server graph,
+  // every source stamp reads as the producer's and the badge lied in the
+  // under-claim direction: a value the USER set (witnessed: runE
+  // fac_pricing_level, 0.7 byte-identical across reload) regressed to
+  // "Olumi estimate / check first", re-prompting a check already made. The
+  // 3 Aug rewalk filed the same inversion as N1.
+  //
+  // What the server graph DOES carry is node-level `provenance: 'user_set'`,
+  // written by CEE when it APPLIES the user's edit — a receipt-backed claim,
+  // exactly the evidence class the receipt-gated stamp demands in-session.
+  // Only 'user_set' counts: 'from_brief' is an AI extraction of the user's
+  // text (may err — same reason brief_extraction is not a reviewed source)
+  // and 'ai_inferred' is the producer's own guess. The UI never writes
+  // `data.provenance`; it arrives from the wire, so it cannot be forged by a
+  // local path that skipped the receipt.
+  return data?.provenance === 'user_set'
 }
 
 /**

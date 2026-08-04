@@ -93,6 +93,53 @@ describe('isReviewedByUser — field-level fallback (addendum Blocking 2)', () =
   })
 })
 
+describe('isReviewedByUser — wire-carried provenance rung (L66, final-walk defect 0)', () => {
+  // The server graph structurally CANNOT carry a user claim in
+  // observed_state.source (CEE's ObservedStateV3 enum has no user member —
+  // rowed 2.396(b)); what it DOES carry is node-level provenance:'user_set',
+  // written by CEE when it applies the user's edit. On a reload that claim is
+  // the only durable evidence the user checked the value, so the predicate
+  // reads it as the final rung. Witnessed shape: runE post-reload
+  // fac_pricing_level — provenance user_set + observed_state.source
+  // cee_inference — must read as reviewed.
+  it('the exact runE post-reload shape reads as reviewed (provenance user_set beats a producer source)', () => {
+    const node = makeNode({
+      label: 'Paid Tier Price Point',
+      provenance: 'user_set',
+      display_value: '0.7',
+      observedState: {
+        value: 0.7,
+        source: 'cee_inference',
+        raw_value: 0.7,
+        std: 0.006999999999999999,
+        baseline: 0.7,
+      },
+    })
+    expect(isReviewedByUser(node)).toBe(true)
+  })
+
+  it('provenance user_set alone (no observed-state bags at all) reads as reviewed', () => {
+    expect(isReviewedByUser(makeNode({ provenance: 'user_set' }))).toBe(true)
+  })
+
+  it.each(['ai_inferred', 'from_brief'])(
+    'non-user provenance "%s" does NOT paint — the over-claim direction is the serious one',
+    (provenance) => {
+      expect(
+        isReviewedByUser(makeNode({ provenance, observedState: { source: 'cee_inference' } })),
+      ).toBe(false)
+    },
+  )
+
+  it('a user-owned SOURCE still wins regardless of provenance (the in-session receipt stamp path)', () => {
+    const node = makeNode({
+      provenance: 'ai_inferred',
+      observed_state: { source: 'user_override' },
+    })
+    expect(isReviewedByUser(node)).toBe(true)
+  })
+})
+
 describe('isReviewedEdge — edge-level predicate (pre-analysis-power-v2)', () => {
   const makeEdge = (data?: Record<string, unknown>): Edge => ({
     id: 'e1',
