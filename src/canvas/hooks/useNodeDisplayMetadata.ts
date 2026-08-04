@@ -98,8 +98,15 @@ interface NodeDisplayMetadata {
    * would be a SECOND copy of a fact the selector already owns — the
    * hand-maintained-mirror defect class (CLAUDE.md trap 12), and the exact
    * shape of the two `generateGraphHash` twins. Consumers narrow it themselves
-   * with `=== 'joint_goal_substituted'`, which is byte-for-byte the expression
-   * `OptionNode` already uses, so the canvas has ONE vocabulary for this test.
+   * with the owner's exported `basisWithholdsPossessive()`, which is
+   * byte-for-byte what `OptionNode`, `GoalNode` and `GoalPanel` all call, so
+   * the canvas has ONE vocabulary for this test.
+   *
+   * ⚠ L62 (2026-08-04): that narrowing used to be an inline
+   * `=== 'joint_goal_substituted'` literal at each of those four sites. The
+   * basis is now `'joint_goal_withheld'` and carries NO number, so every site
+   * evaluates false — and the four literals became one function precisely so
+   * the next change to the rule cannot leave three of them behind.
    *
    * OPTIONAL, for the reason `goalFitAvailable` below is optional (mock churn
    * rewrites printed type strings across unrelated suites). ⚠ Note the polarity

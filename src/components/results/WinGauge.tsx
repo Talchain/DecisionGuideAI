@@ -72,10 +72,17 @@ export interface OptionWinShare {
    */
   nValidSamples?: number | null
   /**
-   * THE POSSESSIVE GATE — `OptionResult.goalFitIsSubstitutedJoint`, i.e.
-   * `selectGoalProbability(...).basis === 'joint_goal_substituted'`. True ⇒
+   * THE POSSESSIVE GATE — `OptionResult.goalFitIsSubstitutedJoint`. True ⇒
    * the number answers a different question from the one "your goal"
    * asserts, so the A copy drops the possessive. Read, never re-derived.
+   *
+   * ⚠ L62 (2026-08-04): this is now ALWAYS FALSE. It was
+   * `basis === 'joint_goal_substituted'`; that basis no longer exists (renamed
+   * `'joint_goal_withheld'`) and carries no number, so nothing reaches this
+   * surface needing a re-voiced caption. See `goalFitWithheld` below, which is
+   * the flag that now carries the state — and `selectGoalProbability`'s L62
+   * block for why. Kept only so the branches still compile; retiring it is a
+   * rowed follow-up.
    */
   goalFitIsSubstitutedJoint?: boolean
   /**
