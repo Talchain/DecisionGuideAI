@@ -7,7 +7,41 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.31.0.tgz` ← THE CURRENT PIN
+### `talchain-schemas-0.32.0.tgz` ← THE CURRENT PIN
+
+**Provenance: PACKED FROM THE OPEN olumi-schemas PR BRANCH, PRE-PUBLISH — stated
+plainly because this file keeps cataloguing exactly this situation.** Lane 2
+(P3 ui_directive panel verbs) is a THREE-REPO TRAIN with a hard merge order
+(schemas → UI → CEE): this tarball was built with `npm pack` from
+`lane2/ui-directive-panel-section-0.32.0` at commit `23f8e01b` (the 0.32.0
+version-bump PR, full gate green: 40 files / 1402 tests), BEFORE that PR merged,
+because the UI leg cannot compile against verbs its pin does not carry.
+
+```
+this repo : 472cd35d355c2292589a98f609e6ad478c9576dab179ea1ce27b06c87a5dd93a
+```
+
+| Claim | Status |
+|---|---|
+| the sidecar matches the checked-in bytes | ✅ proven — `shasum -a 256 -c vendor/talchain-schemas-0.32.0.tgz.sha256` |
+| "is the published registry release" | ❌ **NOT YET — no 0.32.0 release existed when this was written.** The schemas PR merge (orchestrator's) auto-publishes; once tag `v0.32.0` exists, re-derive: `npm pack @talchain/schemas@0.32.0` and compare shas. A mismatch (e.g. pack-time metadata) is a finding to record here, not to hide. |
+| byte-identical to what CEE deploys | Only once CEE's leg of this train merges — CEE's re-vendor copies THIS tarball's bytes (sha recorded in its own vendor README), so the two consumers of the new verbs run identical schema bytes by construction. |
+| byte-identical to what PLoT deploys | ❌ PLoT stays on 0.31.0 — verified NOT a Block-union reader at its tip `d011b99` (`ui_directive` appears once, in a test comment), so the verbs this pin adds cannot reach it. Hazard 1 says check, not assume: check PLoT's own `package.json` before citing this row. |
+
+**What it adds (Lane 2, P3):** `ui_directive` verbs `open_panel` / `open_section`
++ optional strict `ui_target` (closed vocabularies: the 5 OutputsDock tab ids /
+the 5 ModelTabBody section ids), cross-field-enforced both directions at the
+BlockSchema union. Additive: every pre-0.32.0 payload parses byte-identically;
+a UI on THIS pin merely gains the ability to parse (and this PR, to execute) the
+new verbs. **Emission stays with CEE and lands only in CEE's own leg, after this
+one — so there is no window where a deployed consumer strict-rejects a served
+verb.** Rollback is a revert.
+
+`src/lib/talchainSchemasVersion.ts` is bumped to `0.32.0` in lockstep (its spec
+derives the expected value from the `file:` pin in `package.json` and fails on
+drift).
+
+### `talchain-schemas-0.31.0.tgz` (historical — no longer vendored)
 
 **Provenance: byte-identical to the artefact PLoT `staging` DEPLOYS.**
 olumi-schemas carries tag `v0.31.0`; PLoT PR #301 vendored

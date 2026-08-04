@@ -373,3 +373,203 @@ describe('applyV5State — ui_directive dispatcher (R4)', () => {
     expect([...arg.nodeIds].sort()).toEqual(['node-1', 'opt_a'])
   })
 })
+
+// ============================================================================
+// 0.32.0 panel verbs (Lane 2, P3 UI agency) — `open_panel` / `open_section`.
+//
+// These dispatch on `ui_target` (a closed schema vocabulary), NOT graph
+// targets, and reuse the SAME seams user-driven navigation uses:
+//   - open_panel   → useUIStore.forceActivateOutputTab(tab) — the open+activate
+//                    seam auto-dock and Dock-back use (bumps the version
+//                    counter so OutputsDock opens even when the tab value is
+//                    unchanged).
+//   - open_section → useUIStore.requestModelTabSection(section) +
+//                    forceActivateOutputTab('diagnostics') — the assistant
+//                    variant of PreAnalysisPanel's "See all relationships"
+//                    handoff (which uses setActiveOutputTab because ITS dock
+//                    is already open; the force variant also opens the dock).
+//
+// Assertions run against the REAL uiStore (no mock): identity-bound to the
+// exact tab id / section id / version-counter semantics the dock consumes.
+// ============================================================================
+import { useUIStore } from '../../stores/uiStore'
+
+const panelDirective = (verb: string, ui_target: unknown) =>
+  ({ type: 'ui_directive', verb, targets: [], ui_target }) as never
+
+describe('applyV5State — ui_directive panel verbs (0.32.0, P3)', () => {
+  beforeEach(() => {
+    useUIStore.setState({
+      activeOutputTab: 'results',
+      activeOutputTabVersion: 0,
+      hoveredElementId: null,
+      activeRightPanel: null,
+      pendingModelTabSection: null,
+    })
+  })
+
+  it('open_panel {kind:tab, id:compare} force-activates the compare tab (value + version bump)', () => {
+    const before = useUIStore.getState().activeOutputTabVersion
+    const result = applyV5State(
+      baseResponse({
+        blocks: [panelDirective('open_panel', { kind: 'tab', id: 'compare' })],
+      }),
+      makeStore(),
+    )
+    expect(useUIStore.getState().activeOutputTab).toBe('compare')
+    expect(useUIStore.getState().activeOutputTabVersion).toBe(before + 1)
+    expect(result.applied).toContain('ui_directive:open_panel:compare')
+  })
+
+  it('open_panel {kind:tab, id:results} bumps the version even when the tab value is unchanged (the dock-reopen contract)', () => {
+    // activeOutputTab is ALREADY 'results' — the force-activate seam must still
+    // bump the version counter, because that is what makes OutputsDock's sync
+    // effect open the dock when only the version changed.
+    const before = useUIStore.getState().activeOutputTabVersion
+    const result = applyV5State(
+      baseResponse({
+        blocks: [panelDirective('open_panel', { kind: 'tab', id: 'results' })],
+      }),
+      makeStore(),
+    )
+    expect(useUIStore.getState().activeOutputTab).toBe('results')
+    expect(useUIStore.getState().activeOutputTabVersion).toBe(before + 1)
+    expect(result.applied).toContain('ui_directive:open_panel:results')
+  })
+
+  it('open_section {kind:model_section, id:relationships} requests the section AND activates diagnostics', () => {
+    const before = useUIStore.getState().activeOutputTabVersion
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          panelDirective('open_section', { kind: 'model_section', id: 'relationships' }),
+        ],
+      }),
+      makeStore(),
+    )
+    expect(useUIStore.getState().pendingModelTabSection).toBe('relationships')
+    expect(useUIStore.getState().activeOutputTab).toBe('diagnostics')
+    expect(useUIStore.getState().activeOutputTabVersion).toBe(before + 1)
+    expect(result.applied).toContain('ui_directive:open_section:relationships')
+  })
+
+  it('open_section reaches every schema-legal section id (no dead-end vocabulary)', () => {
+    for (const id of ['options', 'factors', 'relationships', 'risks', 'modelcard']) {
+      useUIStore.setState({ pendingModelTabSection: null, activeOutputTab: 'results' })
+      const result = applyV5State(
+        baseResponse({
+          blocks: [panelDirective('open_section', { kind: 'model_section', id })],
+        }),
+        makeStore(),
+      )
+      expect(useUIStore.getState().pendingModelTabSection).toBe(id)
+      expect(result.applied).toContain(`ui_directive:open_section:${id}`)
+    }
+  })
+
+  it('a panel verb with a MISSING ui_target defers fail-closed and touches nothing', () => {
+    const before = useUIStore.getState().activeOutputTabVersion
+    const result = applyV5State(
+      baseResponse({ blocks: [{ type: 'ui_directive', verb: 'open_panel', targets: [] } as never] }),
+      makeStore(),
+    )
+    expect(result.deferred.some((d) => d.reason === 'ui_directive_missing_ui_target')).toBe(true)
+    expect(result.applied.filter((a) => a.startsWith('ui_directive:'))).toEqual([])
+    expect(useUIStore.getState().activeOutputTabVersion).toBe(before)
+    expect(useUIStore.getState().pendingModelTabSection).toBeNull()
+  })
+
+  it('a verb/kind MISMATCH defers fail-closed (open_panel with a model_section target)', () => {
+    const before = useUIStore.getState().activeOutputTabVersion
+    const result = applyV5State(
+      baseResponse({
+        blocks: [panelDirective('open_panel', { kind: 'model_section', id: 'relationships' })],
+      }),
+      makeStore(),
+    )
+    expect(
+      result.deferred.some((d) => d.reason === 'ui_directive_ui_target_kind_mismatch'),
+    ).toBe(true)
+    expect(useUIStore.getState().activeOutputTabVersion).toBe(before)
+    expect(useUIStore.getState().pendingModelTabSection).toBeNull()
+  })
+
+  it('RATE LIMIT holds across verb families: a graph directive first, panel second → panel defers', () => {
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          directive('highlight', [{ id: 'opt_a', label: 'A', kind: 'option' }]),
+          panelDirective('open_panel', { kind: 'tab', id: 'compare' }),
+        ],
+      }),
+      makeStore([{ id: 'opt_a', data: {} } as never]),
+    )
+    expect(result.applied).toContain('ui_directive:highlight:opt_a')
+    expect(result.deferred.some((d) => d.reason === 'ui_directive_rate_limited')).toBe(true)
+    expect(useUIStore.getState().activeOutputTab).toBe('results') // untouched
+  })
+
+  it('RATE LIMIT holds in the other direction: a panel directive BURNS the budget for graph verbs', () => {
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          panelDirective('open_panel', { kind: 'tab', id: 'compare' }),
+          directive('focus', [{ id: 'opt_a', label: 'A', kind: 'option' }]),
+        ],
+      }),
+      makeStore([{ id: 'opt_a', data: {} } as never]),
+    )
+    expect(result.applied).toContain('ui_directive:open_panel:compare')
+    expect(focusNodeMock).not.toHaveBeenCalled()
+    expect(result.deferred.some((d) => d.reason === 'ui_directive_rate_limited')).toBe(true)
+  })
+
+  it('an INVALID panel directive does not burn the budget — the next valid one executes', () => {
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          { type: 'ui_directive', verb: 'open_panel', targets: [] } as never, // missing ui_target
+          panelDirective('open_section', { kind: 'model_section', id: 'risks' }),
+        ],
+      }),
+      makeStore(),
+    )
+    expect(result.deferred.some((d) => d.reason === 'ui_directive_missing_ui_target')).toBe(true)
+    expect(result.applied).toContain('ui_directive:open_section:risks')
+    expect(useUIStore.getState().pendingModelTabSection).toBe('risks')
+  })
+
+  it('panel verbs NEVER mutate graph data and are NOT routed to the unknown-verb defer', () => {
+    for (const [verb, ui_target] of [
+      ['open_panel', { kind: 'tab', id: 'results' }],
+      ['open_section', { kind: 'model_section', id: 'factors' }],
+    ] as const) {
+      const store = makeStore(
+        [{ id: 'opt_a', data: {} } as never],
+        [{ id: 'e1', source: 'a', target: 'b' } as never],
+      )
+      const result = applyV5State(
+        baseResponse({ blocks: [panelDirective(verb, ui_target)] }),
+        store,
+      )
+      expect(store.updateNode).not.toHaveBeenCalled()
+      expect(store.updateEdgeData).not.toHaveBeenCalled()
+      expect(store.setGoalConstraints).not.toHaveBeenCalled()
+      expect(result.deferred.some((d) => d.reason === 'ui_directive_verb_deferred')).toBe(false)
+      expect(pulseMock).not.toHaveBeenCalled()
+      expect(focusNodeMock).not.toHaveBeenCalled()
+      expect(focusEdgeMock).not.toHaveBeenCalled()
+    }
+  })
+
+  it('a truly unknown verb (a FUTURE producer) still defers via ui_directive_verb_deferred', () => {
+    const result = applyV5State(
+      baseResponse({
+        blocks: [panelDirective('open_settings', { kind: 'tab', id: 'results' })],
+      }),
+      makeStore(),
+    )
+    expect(result.deferred.some((d) => d.reason === 'ui_directive_verb_deferred')).toBe(true)
+    expect(result.applied.filter((a) => a.startsWith('ui_directive:'))).toEqual([])
+  })
+})

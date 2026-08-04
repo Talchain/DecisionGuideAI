@@ -20,8 +20,10 @@
  *      constraint's value/label/unit while retaining its id — see
  *      add-constraint.ts); only a deep-semantic no-op (all fields equal after
  *      normalisation) writes nothing. Also: ui_directive verbs
- *      (highlight / focus / open_inspector) — the AI's "point at the graph"
- *      gestures, each reusing the seam its user-driven equivalent uses.
+ *      (highlight / focus / open_inspector on graph targets; 0.32.0 adds
+ *      open_panel / open_section on `ui_target`) — the AI's "point at the
+ *      graph" and "open this surface" gestures, each reusing the seam its
+ *      user-driven equivalent uses.
  *   3. analysis_result.enrichment.decision_review → runMeta. TWO different
  *      payloads share that key and go to two different fields: the live 0.30
  *      shape → `runMeta.decisionReview030`, the M1 REST shape →
@@ -51,6 +53,7 @@ import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
 import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
 import { focusNodeById, focusEdgeById } from '../canvas/utils/focusHelpers'
+import { useUIStore, type OutputTab } from '../stores/uiStore'
 import {
   readDecisionReviewWireState,
   type DecisionReview030,
@@ -734,9 +737,10 @@ export function applyV5State(
     } else if (block.type === 'ui_directive') {
       // R4 UI half: execute the AI's "point at the graph" directives at the
       // once-per-envelope side-effect site — never render-driven, so
-      // re-renders cannot re-fire them. Three verbs are wired, each reusing
+      // re-renders cannot re-fire them. Five verbs are wired, each reusing
       // the SAME seam its user-driven equivalent uses (the AI can point at the
-      // graph, never do something the user cannot):
+      // graph and open the surfaces the user can open, never do something the
+      // user cannot):
       //   - highlight      → the coalesced applied-edit pulse (one 2s static
       //                       ring, fail-closed in-graph filter, no viewport
       //                       or selection change) — the AI cannot hijack what
@@ -748,16 +752,59 @@ export function applyV5State(
       //                       the user-selection seam that opens/retargets
       //                       inspector-v2. Selection only, no camera move.
       //                       Single-target.
+      //   - open_panel     → useUIStore.forceActivateOutputTab(tab) — the
+      //                       open+activate seam auto-dock / Dock-back use
+      //                       (0.32.0, P3). Dispatches on `ui_target`
+      //                       {kind:'tab'}, not graph targets. Gated tabs
+      //                       degrade inside the dock (disabled compare/
+      //                       journey/olumi redirect to results).
+      //   - open_section   → useUIStore.requestModelTabSection(section) +
+      //                       forceActivateOutputTab('diagnostics') — the
+      //                       assistant variant of PreAnalysisPanel's
+      //                       "See all relationships" handoff (0.32.0, P3).
+      //                       Dispatches on `ui_target` {kind:'model_section'}.
       // Unknown verbs (a newer producer) defer fail-closed. duration_ms is a
       // producer hint not yet honoured (the highlight ring is a fixed 2s).
-      // Every verb is fail-closed on the target id: an off-canvas / unknown id
-      // is recorded not-found and never executed (keeps applied[] truthful and
-      // mirrors the graph_patch path's honesty).
+      // Every verb is fail-closed on its target: an off-canvas / unknown graph
+      // id is recorded not-found and never executed, and a panel verb with a
+      // missing or verb-mismatched ui_target defers without executing (keeps
+      // applied[] truthful and mirrors the graph_patch path's honesty).
       const targets = Array.isArray(block.targets) ? block.targets : []
       const verb = block.verb
       const verbSupported =
         verb === 'highlight' || verb === 'focus' || verb === 'open_inspector'
-      if (!verbSupported) {
+      const isPanelVerb = verb === 'open_panel' || verb === 'open_section'
+      if (isPanelVerb) {
+        // 0.32.0 panel gestures — dispatch on ui_target. The schema's
+        // cross-field rule guarantees a verb-matching ui_target on anything
+        // that parsed, but the handler stays independently fail-closed (the
+        // same defensive posture as the graph verbs' in-graph filter).
+        const uiTarget = (block as { ui_target?: { kind?: unknown; id?: unknown } }).ui_target
+        if (uiTarget === undefined || uiTarget === null || typeof uiTarget !== 'object') {
+          deferred.push({ reason: 'ui_directive_missing_ui_target', block })
+        } else if (uiDirectiveExecuted) {
+          deferred.push({
+            reason: 'ui_directive_rate_limited',
+            block,
+            detail: 'producer contract is one directive per turn',
+          })
+        } else if (verb === 'open_panel' && uiTarget.kind === 'tab') {
+          uiDirectiveExecuted = true
+          useUIStore.getState().forceActivateOutputTab(uiTarget.id as OutputTab)
+          applied.push(`ui_directive:open_panel:${String(uiTarget.id)}`)
+        } else if (verb === 'open_section' && uiTarget.kind === 'model_section') {
+          uiDirectiveExecuted = true
+          useUIStore.getState().requestModelTabSection(String(uiTarget.id))
+          useUIStore.getState().forceActivateOutputTab('diagnostics')
+          applied.push(`ui_directive:open_section:${String(uiTarget.id)}`)
+        } else {
+          deferred.push({
+            reason: 'ui_directive_ui_target_kind_mismatch',
+            block,
+            detail: `verb ${verb} with ui_target kind ${String(uiTarget.kind)}`,
+          })
+        }
+      } else if (!verbSupported) {
         deferred.push({
           reason: 'ui_directive_verb_deferred',
           block,
