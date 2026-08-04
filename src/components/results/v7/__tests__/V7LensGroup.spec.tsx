@@ -132,10 +132,16 @@ describe('V7LensGroup (V7 L5)', () => {
 // gated, because on a substituted-joint basis the number answers a different
 // question from the one "your goal" asserts. The CAPTION directly beneath
 // them was a static string reading "…reaches your success target." So on the
-// live V5 wire — where the basis is `joint_goal_substituted` on EVERY run
-// (`heroCopy`'s own note: "which, on the live V5 wire, is EVERY run") — the
-// lens rendered de-possessed rows under a possessive caption about the same
-// numbers.
+// live V5 wire OF THE TIME — where the basis was `joint_goal_substituted` on
+// EVERY run (per `heroCopy`'s note of the time) — the lens rendered
+// de-possessed rows under a possessive caption about the same numbers.
+//
+// ⚠ CORRECTED BY L65 (2026-08-04): that every-run state is history. L62
+// renamed the basis `'joint_goal_withheld'` and it carries NO number, so no
+// live run reaches the substituted arm today — these fixtures hand-set
+// `goalFitIsSubstitutedJoint: true` and still exercise the gate they pin.
+// The pins stay so the caption cannot regress if a number-bearing
+// substituted basis ever returns.
 //
 // RED-first: the substituted assertions fail on `48adda75`.
 // ─────────────────────────────────────────────────────────────────────────

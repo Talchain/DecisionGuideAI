@@ -63,10 +63,16 @@ export const V7_LENS_COPY = {
      * the rows directly beneath it printed `hitReadout(formatted,
      * isSubstitutedJoint)` — gated, because on a `joint_goal_substituted`
      * basis the number answers a DIFFERENT question from the one "your"
-     * asserts. On the live V5 wire that basis is EVERY run (`heroCopy`'s own
-     * note on `detail.goalFitJointBasis`), so the lens rendered de-possessed
-     * rows under a possessive caption about the same numbers, on every run a
-     * user has ever seen.
+     * asserts. When this gate was built, that basis WAS every live V5 run
+     * (`heroCopy`'s note of the time on `detail.goalFitJointBasis`), so the
+     * lens rendered de-possessed rows under a possessive caption about the
+     * same numbers, on every run a user had ever seen.
+     *
+     * ⚠ CORRECTED BY L65 (2026-08-04): the every-run claim above is history,
+     * not the present. L62 renamed that basis `'joint_goal_withheld'` and it
+     * now carries NO number, so no live run reaches the substituted arm —
+     * fixtures exercise it. The gate stays: a future number-bearing basis
+     * that withholds the possessive must find the caption already gated.
      *
      * ONE function of the flag, not two sibling constants — the same shape
      * `evidence.flipRisksNote` / `tradeOffsNote` below already use, for the
@@ -86,8 +92,12 @@ export const V7_LENS_COPY = {
         : 'Each value is the chance that option reaches your success target.',
     /** No user target set — user-actionable, distinct from the producer gap. */
     gateNoTarget: GOAL_ANCHOR_COPY.noTarget,
-    /** A target is set but the engine returned no per-option goal probabilities. */
-    gateProducerGap: 'Goal fit unlocks when the engine returns per-option goal probabilities for this run.',
+    /** A target is set but the engine returned no per-option goal
+     * probabilities. Delegates to the house register (L65, byte-identical
+     * move) — WinGauge renders the same run state from the same key, so the
+     * two surfaces cannot drift; the same delegation shape as `gateNoTarget`
+     * above. */
+    gateProducerGap: GOAL_ANCHOR_COPY.producerGap,
     hitReadout: (formatted: string, isSubstitutedJoint: boolean) =>
       GOAL_ANCHOR_COPY.phrase(formatted, isSubstitutedJoint),
     /** Mirrors OptionCards' sub-1% display-honesty affordance (UI-SEM-057). */

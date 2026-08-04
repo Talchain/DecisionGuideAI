@@ -1,9 +1,22 @@
 /**
  * Goal-attainment copy — ONE claim across THREE hero surfaces.
  *
- * THE DEFECT THIS PINS (family 2, slice −1). On every live V5 analysis the
- * shared selector resolves `basis === 'joint_goal_substituted'`, because both
- * of that branch's discriminating inputs are pinned constants on the wire:
+ * ⚠ CORRECTED BY L65 (2026-08-04): the trace below describes the wire AS IT
+ * WAS when this file was written — the state that PRODUCED the defect — and
+ * is no longer the live state. L62 renamed the substituted basis to
+ * `'joint_goal_withheld'` and it now returns NO number, and PLoT #308
+ * suppresses the frame-broken joint channel at source, so the ordinary live
+ * run lands on basis 'none' with an empty goal slot. These fixtures hand-set
+ * `goalFitIsSubstitutedJoint: true` (see `liveJointOnly`, whose name is now
+ * historical), so they still exercise the copy gates they pin; what changed
+ * is the claim that live runs take this path — today they do not. The pins
+ * stay so the wording cannot regress if a number-bearing substituted basis
+ * ever returns.
+ *
+ * THE DEFECT THIS PINS (family 2, slice −1), as traced at the time. On every
+ * live V5 analysis the shared selector resolved
+ * `basis === 'joint_goal_substituted'`, because both of that branch's
+ * discriminating inputs were pinned constants on the wire:
  *
  *   - `probability_of_goal` never arrives (PLoT synthesises an auto goal
  *     constraint whenever a finite threshold exists and then CLEARS the
@@ -64,9 +77,12 @@ const POSSESSIVE = /your goal/i
 const PLURALITY = /\ball targets\b|\bthe targets\b/i
 
 /**
- * The LIVE record shape, per the trace above: the row's number is the
- * substituted joint figure and NO option carries per-option constraint
- * analysis. Every live analysis produces exactly this.
+ * The record shape that was live when this file was written, per the trace
+ * above: the row's number is the substituted joint figure and NO option
+ * carries per-option constraint analysis. Every live analysis THEN produced
+ * exactly this; none does today (see the L65 correction in the header — the
+ * name is kept because renaming a fixture is a code change outside a prose
+ * correction's scope).
  */
 function liveJointOnly(base: OptionResult): OptionResult {
   return makeOption({

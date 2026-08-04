@@ -209,6 +209,7 @@ export function WinGauge({
   shares,
   decisionState,
   designationsWithheld = false,
+  goalThreshold = null,
 }: {
   shares: OptionWinShare[]
   decisionState?: DecisionState
@@ -226,6 +227,20 @@ export function WinGauge({
    * untouched — this chart is a distribution, and the distribution is data.
    */
   designationsWithheld?: boolean
+  /**
+   * ⭐ L65 — the user's success target, threaded from the same store-derived
+   * source the V7 goal lens discriminates with (`recommendation.goalThreshold`
+   * = `effectiveGoalThreshold` in `useResultsSectionData`; the lens's gate is
+   * `no_target` vs `producer_gap`, `buildV7Lenses.ts`).
+   *
+   * Exists because `goalFitWithheld` cannot see the post-#308 state: that
+   * flag fires only when a joint figure ARRIVED and was refused, but the
+   * producer now suppresses the frame-broken joint channel at source, so on
+   * the witnessed run class nothing arrives at all (basis 'none') — and the
+   * gauge fell back to the no-target invitation for a user who DID set a
+   * target. This prop is what lets it tell those two silences apart.
+   */
+  goalThreshold?: number | null
 }) {
   if (shares.length === 0) return null
 
@@ -353,12 +368,22 @@ export function WinGauge({
       ) : (
         // A5 — an invitation with its route, not a wall. The comparative
         // block below keeps rendering.
-        // ⭐ L62 — TWO SILENCES, TWO SENTENCES.
-        // Withheld: the run produced a joint-constraints figure and the
-        // selector refused to score it as goal fit. Saying "Set a success
-        // target" here would ask the user for something they already gave and
-        // would imply the blank is their doing. Say what happened instead, and
-        // do NOT offer the unlock CTA — there is nothing for it to unlock.
+        // ⭐ L62, EXTENDED BY L65 — THREE SILENCES, THREE SENTENCES.
+        // 1. Withheld: the run produced a joint-constraints figure and the
+        //    selector refused to score it as goal fit. Saying "Set a success
+        //    target" here would ask the user for something they already gave
+        //    and would imply the blank is their doing. Say what happened
+        //    instead, and do NOT offer the unlock CTA — there is nothing for
+        //    it to unlock. Checked FIRST because it is the more specific
+        //    truth: a figure existed, and the sentence pair says so.
+        // 2. Target set, nothing arrived (basis 'none' — the post-#308 norm,
+        //    with the producer suppressing the frame-broken joint channel at
+        //    source): the invitation is equally wrong, and the withheld pair
+        //    would claim a figure that never existed. Same sentence the V7
+        //    goal lens shows for the same run state (its `producer_gap`
+        //    gate), same finite-number guard as its threshold read, one
+        //    register key for both surfaces. No CTA — nothing unlocks it.
+        // 3. Genuinely no target: the invitation, with its route.
         goalFitWithheld ? (
           <div className="mb-2" data-testid="win-gauge-goal-not-scored">
             <p className={`${typography.panelMeta} text-text-light`}>
@@ -368,6 +393,13 @@ export function WinGauge({
               {GOAL_ANCHOR_COPY.notScoredReason}
             </p>
           </div>
+        ) : typeof goalThreshold === 'number' && Number.isFinite(goalThreshold) ? (
+          <p
+            className={`${typography.panelMeta} text-text-light mb-2`}
+            data-testid="win-gauge-goal-producer-gap"
+          >
+            {GOAL_ANCHOR_COPY.producerGap}
+          </p>
         ) : (
           <p
             className={`${typography.panelMeta} text-text-light mb-2`}

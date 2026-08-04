@@ -156,9 +156,14 @@ export const HERO_COPY = {
      * withheld the possessive while the headline and caption above it asserted
      * it, about the same number, on every live run.
      *
-     * WHY. The number every live V5 run renders here is
-     * `probability_of_joint_goal`. Two live cases produce it and the UI cannot
-     * tell them apart:
+     * WHY (as traced when this wording shipped — ⚠ L65, 2026-08-04: the
+     * every-run part is now history. L62 withholds the substituted joint
+     * figure at the selector, and PLoT #308 suppresses the frame-broken
+     * channel at source, so a number rendered here today is an honest
+     * `goal_probability`. The count/possessive restraint below stays until
+     * the interim-retirement trigger fires). The number every live V5 run
+     * rendered here was `probability_of_joint_goal`. Two live cases produced
+     * it and the UI could not tell them apart:
      *   A. no user constraints — PLoT synthesises ONE constraint from the goal
      *      threshold, on the goal node, `>=`, and ISL evaluates it against the
      *      EXACT goal samples. The figure IS goal attainment, over exactly one
@@ -303,12 +308,18 @@ export const HERO_COPY = {
     goalFit: (readout: string) => GOAL_ANCHOR_COPY.sentence(readout, false),
     goalFitWithLimits: (readout: string) => `${readout} chance of meeting your goal and limits.`,
     /**
-     * Goal-probability IDENTITY: used when the row's number is
+     * Goal-probability IDENTITY: the voice for a row whose number is
      * `probability_of_joint_goal` STANDING IN for an absent
-     * `goal_probability` (flagged by the shared selector as
-     * `basis: 'joint_goal_substituted'` — which, on the live V5 wire, is
-     * EVERY run). The number is shown, unchanged: this is a copy switch,
-     * never a value transform.
+     * `goal_probability`.
+     *
+     * ⚠ CORRECTED BY L65 (2026-08-04): this comment used to add that the
+     * flagging basis (`'joint_goal_substituted'`) "on the live V5 wire, is
+     * EVERY run". True when written; false now. L62 renamed the basis
+     * `'joint_goal_withheld'` and it carries NO number, so this arm renders
+     * on no run today — dead pending the rowed retirement of the
+     * substituted-register surfaces (ROADMAP 2.399(b)); do not delete it
+     * here. When it did render, the number was shown unchanged: a copy
+     * switch, never a value transform.
      *
      * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
      * same claim, in the same words, as `headline.goalOnly` /

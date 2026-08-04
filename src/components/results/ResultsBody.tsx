@@ -528,6 +528,13 @@ export const ResultsBody = memo(function ResultsBody({
               designationsWithheld={
                 resultsSectionData.recommendation.verdict?.hasLeadingOption === false
               }
+              // ⭐ L65 — the same store-derived target signal the V7 goal
+              // lens gates with (`recommendation.goalThreshold`). Lets the
+              // gauge tell "no target set" from "target set, nothing scored":
+              // post-#308 the producer suppresses the frame-broken joint
+              // channel at source, so `goalFitWithheld` (which needs a joint
+              // figure to ARRIVE) can no longer see that state.
+              goalThreshold={resultsSectionData.recommendation.goalThreshold}
             />
             {/* Codex B1: winnerId is ALWAYS the canonical leader — every leader
                 predicate (downside sentence, leader CTA/prompt) keys to it. The

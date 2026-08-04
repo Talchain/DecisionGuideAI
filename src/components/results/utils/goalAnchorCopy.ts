@@ -145,6 +145,29 @@ export const GOAL_ANCHOR_COPY = {
    */
   notScoredReason:
     'The analysis produced a figure for your limits, but not one that answers whether an option reaches your target.',
+
+  /**
+   * ⭐ L65 — the TARGET-SET-BUT-NOT-SCORED state. A third no-number state,
+   * and like `notScored` above it is NOT a third A-register voice: there is
+   * no number to voice.
+   *
+   * LICENSED BY: a user target exists (the store-derived `goalThreshold`
+   * signal the V7 goal lens already gates with, `buildV7Lenses.ts`) and NO
+   * goal-fit figure arrived at all — basis 'none'. Post-#308 the producer
+   * suppresses the frame-broken joint channel at source, so this is the
+   * ordinary shape of that run class, and BOTH existing sentences are wrong
+   * for it: `noTarget` asks the user for something they already gave, and
+   * `notScoredReason` claims "the analysis produced a figure for your
+   * limits" when nothing arrived. This sentence claims only the gap.
+   *
+   * The wording is the V7 goal lens's producer-gap gate, MOVED here verbatim
+   * (byte-identical) so the lens and WinGauge render one claim from one
+   * register — `V7_LENS_COPY.goal.gateProducerGap` now references this key,
+   * the same delegation shape as its `gateNoTarget`. No CTA beside it:
+   * there is nothing a user action currently unlocks.
+   */
+  producerGap:
+    'Goal fit unlocks when the engine returns per-option goal probabilities for this run.',
 } as const
 
 /**

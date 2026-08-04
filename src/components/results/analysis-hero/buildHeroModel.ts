@@ -336,12 +336,20 @@ export function buildHeroModel(
     // "your goal" wording names a question the number does not answer, so the
     // line states the quantity it actually is. The number itself is unchanged
     // and still shown: this is a copy switch, never a value transform.
-    // ⚠ On the live V5 wire this is the ONLY branch that runs: the selector's
-    // basis is `joint_goal_substituted` on every run (both discriminating
-    // inputs are pinned constants — see heroCopy's `noneOnTrack` block), and
-    // `optionHasConstraints` is always false. So this line, the headline and
-    // the caption must state ONE claim in one voice — they are read together,
-    // in a single render, about a single number.
+    // ⚠ CORRECTED BY L65 (2026-08-04) — the claim that used to sit here was
+    // true when written and is now false. It read: "On the live V5 wire this
+    // is the ONLY branch that runs: the selector's basis is
+    // `joint_goal_substituted` on every run". That basis no longer exists:
+    // L62 renamed it `'joint_goal_withheld'` and it returns NO number, so
+    // `goalFitIsSubstitutedJoint` is always false today and the
+    // `goalFitJointBasis` arm below is DEAD pending its rowed retirement
+    // (ROADMAP 2.399(b) — do not delete it here). A live row that has a
+    // number takes the plain `goalFit` arm (or `goalFitWithLimits` when the
+    // option carries its own constraint analysis). The one-voice rule the
+    // old paragraph stated still binds whenever the substituted arm renders:
+    // this line, the headline and the caption must state ONE claim in one
+    // voice — they are read together, in a single render, about a single
+    // number.
     const goalFit =
       goalValue != null
         ? optionHasConstraints(o)
