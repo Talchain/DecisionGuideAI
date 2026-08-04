@@ -29,6 +29,43 @@ export interface HumanisedCritique {
   factorId?: string
 }
 
+// ─── CEE-owned display-copy codes ────────────────────────────────────────────
+
+/**
+ * Codes whose USER-FACING COPY is owned by CEE's critique pipeline
+ * (`olumi-assistants-service/src/orchestrator-v5/compose/sanitise-enrichment.ts`
+ * at `d2cdd99b`): the 10 S-bucket codes (CEE REPLACES the message with
+ * Paul-approved copy, 2026-04-30, labels resolved CEE-side) + the 3 U-bucket
+ * codes (producer plain-English `user_message` shipped as-is). For these, a
+ * clean `userMessage` outranks any UI template — the UI must not restate an
+ * approved disclosure in its own words.
+ *
+ * ⚠ HAND-MAINTAINED MIRROR of CEE's bucket table (CLAUDE.md trap 12),
+ * accepted deliberately for Car 1 and guarded two ways: (1) the sentinel
+ * corpus test in `__tests__/projectedCritiques.reach.spec.ts` walks every
+ * entry; (2) Car 2 (schemas seam-split, ROADMAP 2.293) is the rowed home for
+ * exporting this set from `@talchain/schemas` so both sides derive it.
+ * D-bucket codes never reach the browser (dropped by CEE's projection), so
+ * they are deliberately not listed.
+ */
+export const CEE_OWNED_CRITIQUE_CODES: ReadonlySet<string> = new Set([
+  // S bucket (approved replacement copy)
+  'EMPTY_INTERVENTIONS',
+  'INVALID_INTERVENTION_TARGET',
+  'NO_EFFECTIVE_PATH_TO_GOAL',
+  'IDENTICAL_OPTIONS',
+  'GRAPH_DISCONNECTED',
+  'OPTION_NO_INTERVENTIONS',
+  'LOW_EFFECTIVE_SAMPLES',
+  'DEGENERATE_OPTION_ZERO_VARIANCE',
+  'HIGH_TIE_RATE',
+  'SAMPLES_REDUCED_FOR_COMPLEXITY',
+  // U bucket (producer plain-English user_message, shipped as-is)
+  'NO_OPTIONS',
+  'INSUFFICIENT_OPTIONS',
+  'DEGENERATE_OUTCOMES',
+])
+
 // ─── Code → template map ─────────────────────────────────────────────────────
 
 type TemplateFactory = (factorLabel: string) => Omit<HumanisedCritique, 'factorId' | 'displayText'>
@@ -254,6 +291,36 @@ export function humaniseCritique(
   nodeLabels?: Map<string, string>,
 ): HumanisedCritique {
   const { label: factorLabel, factorId } = resolveFactorLabel(item, nodeLabels)
+
+  // Lane 3 (ROADMAP 2.358): for the codes whose display copy is OWNED by
+  // CEE's critique pipeline, a clean `userMessage` wins over any UI template.
+  // For S-bucket codes that text is the Paul-approved 2026-04-30 copy
+  // rendered CEE-side with resolved labels — a UI template rewriting it is a
+  // surface stating its own version of an approved claim (pass-condition 2
+  // class; SAMPLES_REDUCED_FOR_COMPLEXITY was live in both maps). Scope is
+  // DELIBERATELY narrow: for every other code the V14.3 template-first
+  // contract stands (templates carry label-resolved titles + CTA
+  // suggestions that generic engine copy lacks — pinned in
+  // humaniseCritique.spec.ts "template takes precedence"), and templates
+  // still serve owned-code rows that arrive WITHOUT user_message (the
+  // reduced-precision safety net). Contaminated userMessage falls through to
+  // template/generic exactly as before (positive-control-pinned).
+  if (
+    CEE_OWNED_CRITIQUE_CODES.has(item.code) &&
+    item.userMessage &&
+    !INTERNAL_TOKEN_REGEX.test(item.userMessage)
+  ) {
+    return {
+      title: item.userMessage,
+      description: 'Review this factor to improve result accuracy.',
+      displayText: item.userMessage,
+      // Wire-carried remediation (projected `suggestion` → mapper
+      // `suggested_fix` → consumer `suggestion`) rides along when present —
+      // no auto-generated CTA is invented for producer rows without one.
+      ...(item.suggestion ? { suggestion: item.suggestion } : {}),
+      factorId,
+    }
+  }
 
   // Try mapped template
   const template = CODE_TEMPLATES[item.code]
