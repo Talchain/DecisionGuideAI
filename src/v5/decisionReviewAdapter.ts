@@ -271,6 +271,10 @@ function stringList(v: unknown): string[] {
  *     `key_assumptions`, `decision_quality_prompts`). They reach the UI via
  *     the enricher wire blocks, and validating a field this module neither
  *     reads nor renders would light the lamp for a surface it does not own.
+ *     (2.466 nuance: `decision_quality_prompts` is now additionally CARRIED
+ *     verbatim on the view-model for the results key-question card — still
+ *     silent here, still never rendered by this module; the carry field's own
+ *     docstring holds the policy and its rationale.)
  *
  * `undefined` AND `null` both count as ABSENT: explicit `null` is the
  * idiomatic JSON way to say "no value here", not a type error. A present,
@@ -372,6 +376,32 @@ export interface DecisionReview030 {
   robustness_explanation: DecisionReviewRobustnessExplanation | null
   readiness_rationale: string | null
   scenario_contexts: ReadonlyArray<DecisionReviewScenarioContext>
+  /**
+   * ROADMAP 2.466 — the RAW `decision_quality_prompts` wire entries, carried
+   * VERBATIM for the results-surface key-question card (`KeyQuestionCard`,
+   * lens-hero posture) to map via the single mapping site,
+   * `components/results/utils/decisionQualityPrompts.mapDecisionQualityPrompts`.
+   *
+   * This is a CARRY, not a projection: the key stays in
+   * `V0_30_ENRICHER_OWNED_KEYS`, this module still renders none of it, and the
+   * decision-review card's non-duplication guard keeps its meaning unchanged.
+   * (Before this field, the live V5 path DROPPED the prompts at this boundary
+   * — `runMeta.decisionReview030` was the only live-path retention that reaches
+   * the results surface, and it omitted them — so the product asked
+   * science-grounded key questions on the wire and showed the user none of
+   * them: the 2026-08-04 walk-train finding.)
+   *
+   * Policy is deliberately LENIENT, not the A1 strictness: absent, `null` and
+   * a wrong-typed container all read as `[]`, never `malformed`. Escalating a
+   * wrong-typed container would refuse the WHOLE payload — vaporising the five
+   * prose fields other surfaces already render — to alarm about a key whose
+   * sole consumer fails soft (the card simply does not mount). Note strictness
+   * would not even save that consumer: refusal nulls `decisionReview030`, so
+   * the card loses the data either way. Member-level honesty (id-gating,
+   * closed-vocabulary strength, sanitisation) lives in the mapper, where the
+   * A1-equivalent decisions for THIS field belong.
+   */
+  decision_quality_prompts: ReadonlyArray<unknown>
   /** The V5-added timestamp. Verbatim; the UI does not format or parse it. */
   produced_at: string
   /**
@@ -521,6 +551,12 @@ function readV0_30(raw: Record<string, unknown>): DecisionReview030 | null {
     robustness_explanation: robustness.value,
     readiness_rationale: readiness.value,
     scenario_contexts: scenarios.value,
+    // 2.466 carry — verbatim, lenient by documented policy (see the field's
+    // docstring); NOT a hasProse input and NOT part of the shape gate beyond
+    // its existing membership of V0_30_CONTENT_KEYS.
+    decision_quality_prompts: Array.isArray(raw.decision_quality_prompts)
+      ? raw.decision_quality_prompts
+      : [],
     produced_at: producedAt,
     hasProse:
       narrative.value !== null ||

@@ -178,7 +178,21 @@ describe('readDecisionReviewWireState — the live 0.30 payload', () => {
     expect(a.produced_at).not.toBe(b.produced_at)
   })
 
-  it('the six fields that already reach the UI via enricher blocks are NOT duplicated here', () => {
+  // ⚠ CONTRACT CHANGE, 2.466 (deliberate — not a baseline absorption). This
+  // pin used to assert ALL five enricher-owned keys stay off the view-model
+  // (its title also said "six" while listing five — that discrepancy was
+  // pre-existing). The premise "they already reach the UI via enricher
+  // blocks" was true of the CONVERSATION surface only: on the live V5 path
+  // the RESULTS surface received none of them, which is how the product came
+  // to ask science-grounded key questions on the wire and show testers
+  // nothing (walk-train 2026-08-04). `decision_quality_prompts` is therefore
+  // now CARRIED verbatim (see the field's docstring) for the lens-hero
+  // KeyQuestionCard; the other four remain un-carried, and the RENDER-side
+  // non-duplication guard (V5AnalysisResultBlock.decisionReview030.spec's
+  // sentinel plants) still covers all five — carrying is not rendering.
+  it('four enricher-owned fields stay off the view-model; decision_quality_prompts is the 2.466 carry', () => {
+    const wire = enrichmentOf(r1Block as unknown as Record<string, unknown>)
+      .decision_review as Record<string, unknown>
     const vm = v030Of(r1Block as unknown as Record<string, unknown>) as unknown as Record<
       string,
       unknown
@@ -188,10 +202,10 @@ describe('readDecisionReviewWireState — the live 0.30 payload', () => {
       'flip_thresholds',
       'bias_findings',
       'key_assumptions',
-      'decision_quality_prompts',
     ]) {
       expect(vm[dup]).toBeUndefined()
     }
+    expect(vm.decision_quality_prompts).toEqual(wire.decision_quality_prompts)
   })
 })
 

@@ -10,7 +10,7 @@
  * happen in `buildAnalysisHeroViewModel`.
  */
 
-import type { DskEvidenceStrength } from '../utils/decisionQualityPrompts'
+import type { DskGrounding } from '../utils/decisionQualityPrompts'
 
 export type HeroState = 'weak' | 'moderate' | 'reflect' | 'strong'
 
@@ -66,22 +66,12 @@ export interface HeroRow {
 }
 
 /**
- * Lane 1 (P1): DSK science provenance for the main key question. Present ONLY
- * when the prompt behind `KeyQuestion.text` attested a `dsk_claim_id` upstream
- * (id-gated at the data layer AND re-gated in `selectKeyQuestion`). Absence
- * means "not grounded in a cited DSK claim" — the card then renders NO badge:
- * never a default id, never an inferred strength.
+ * Lane 1 (P1): DSK science provenance for the main key question — see the
+ * canonical definition + `deriveDskGrounding` (the one home of the
+ * honest-absence rule) in `../utils/decisionQualityPrompts`. Re-exported here
+ * (2.466) so existing V17 imports keep working; the shape did not change.
  */
-export interface DskGrounding {
-  /** Sanitised DSK claim title, e.g. "Outside view and reference class forecasting". */
-  principle: string
-  /** DSK claim id verbatim, e.g. "DSK-T-002" — surfaced as a data-* attribute. */
-  claimId: string
-  /** DSK protocol id, e.g. "DSK-P-002", when cited. */
-  protocolId?: string
-  /** Closed-vocabulary evidence strength, verbatim, when attested. */
-  strength?: DskEvidenceStrength
-}
+export type { DskGrounding } from '../utils/decisionQualityPrompts'
 
 export interface KeyQuestion {
   /** Main question text — glossary-scanned post-interpolation. */
