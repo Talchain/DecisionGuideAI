@@ -43,6 +43,7 @@ import { useAnalysisSnapshotStore } from '../stores/analysisSnapshotStore'
 import { useComparisonStore } from '../stores/comparisonStore'
 import { applyDraftResult } from '../utils/applyDraftResult'
 import { createScenario } from '../store/scenarios'
+import { clearImportRegistrationMarkers } from '../store/importRegistrationMarker'
 import {
   AnalysisFreshnessNotice,
   FRESHNESS_COPY,
@@ -176,6 +177,27 @@ function analysisResultsCluster() {
   }
 }
 
+/**
+ * A graph that is STRUCTURALLY different from the walk's fixtures (different
+ * node ids), for the release-side controls.
+ *
+ * ⚠ The walk's two fixtures are NOT structurally different from each other:
+ * `import-modified` only RELABELS `opt_alpha`. The import marker's identity is
+ * node ids + edge endpoint pairs — deliberately label-independent, because
+ * including labels would let a user rename one node on an imported graph and
+ * silently release the hold, which is the P0 returning. So a control that needs
+ * "a graph this session never imported" must differ structurally.
+ */
+function structurallyUnrelatedGraph() {
+  return {
+    nodes: [
+      { id: 'unrelated_goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Other goal' } },
+      { id: 'unrelated_opt', type: 'option', position: { x: 0, y: 80 }, data: { label: 'Other option' } },
+    ],
+    edges: [],
+  }
+}
+
 function renderFreshnessSurfaces() {
   return render(
     <>
@@ -212,6 +234,7 @@ beforeEach(() => {
   } as never)
   useAnalysisSnapshotStore.getState().clearSnapshots()
   useComparisonStore.getState().resetComparison()
+  clearImportRegistrationMarkers()
 })
 
 describe('interim 2.467 — import invalidates pre-import analysis (rewalk-2459b attempt 2)', () => {
@@ -345,12 +368,12 @@ describe('interim 2.467 — import invalidates pre-import analysis (rewalk-2459b
     act(() => {
       useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
     })
-    // Production scenario load replaces the graph — the import is gone.
-    const exported = JSON.parse(EXPORT_ORIGINAL_JSON) as { nodes: never[]; edges: never[] }
+    // A load of a structurally unrelated graph replaces the import.
+    const other = structurallyUnrelatedGraph()
     act(() => {
       useCanvasStore.getState().hydrateGraphSlice({
-        nodes: exported.nodes,
-        edges: exported.edges,
+        nodes: other.nodes as never,
+        edges: other.edges as never,
         currentScenarioId: 'scn_after_import',
       })
     })
@@ -432,5 +455,260 @@ describe('interim 2.467 — import invalidates pre-import analysis (rewalk-2459b
       'data-freshness',
       'fresh',
     )
+  })
+})
+
+/**
+ * Round 2 — the three blockers from the adversarial review of PR #592.
+ *
+ * The first cut cleared an in-memory boolean at six named sites on the premise
+ * that they replace the canvas "with a server-known graph". Two of them do not:
+ * `hydrateGraphSlice`'s live callers pass the localStorage AUTOSAVE, and
+ * `loadScenario` reads localStorage. `useAutosave` debounces 500 ms on a
+ * graph-hash dirty check, so the imported graph is in localStorage ~0.5 s after
+ * the import, and a reload re-installs it through a RELEASE site — restoring
+ * the witnessed FAIL frame after one Rerun.
+ *
+ * The hold is now DERIVED at every graph-replacement site from a
+ * sessionStorage marker keyed to imported-graph identity, so "which sites
+ * release" is no longer a list anyone has to maintain. Per trap 12d, derivation
+ * proves agreement and never completeness — so EVERY replacement site below
+ * carries its own case, and each has its own mutant.
+ */
+describe('interim 2.467 round 2 — the hold is derived from the graph, not from a release list', () => {
+  /** The reload: the autosave carries the imported graph back in via hydrateGraphSlice. */
+  function simulateSameTabReloadRestoringAutosave() {
+    const imported = JSON.parse(IMPORT_MODIFIED_JSON) as { nodes: never[]; edges: never[] }
+    // A reload starts from a cold store; only sessionStorage survives.
+    useCanvasStore.getState().reset()
+    act(() => {
+      useCanvasStore.getState().hydrateGraphSlice({
+        nodes: imported.nodes,
+        edges: imported.edges,
+        // ReactFlowGraph's init effect preserves the scenario id across the
+        // reload so the in-flight CEE conversation keeps its scenario_id —
+        // which is exactly why CEE still holds its own pre-import graph.
+        currentScenarioId: 'scn_preserved_across_reload',
+      })
+    })
+  }
+
+  it('BLOCKER A: after import → autosave → reload, a rerun\'s server "fresh" still cannot affirm', () => {
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+
+    simulateSameTabReloadRestoringAutosave()
+
+    // The graph on the canvas is the imported one, restored from localStorage;
+    // the server has still never seen it.
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+
+    act(() => {
+      useCanvasStore.getState().setAnalysisFreshness(SERVER_FRESH_VERDICT_AFTER_RERUN)
+      useCanvasStore.getState().clearAnalysisFreshnessDirty()
+    })
+    renderFreshnessSurfaces()
+    const notice = screen.getByTestId('analysis-freshness-notice')
+    expect(notice).toHaveAttribute('data-cee-freshness', 'fresh')
+    expect(notice).not.toHaveAttribute('data-freshness', 'fresh')
+    expect(notice).not.toHaveTextContent(FRESHNESS_COPY.fresh)
+  })
+
+  it('BLOCKER A control: a reload restoring a DIFFERENT (never-imported) graph does NOT hold', () => {
+    // The same reload machinery, on a graph this session never imported: the
+    // hold must not be a blanket suppression of every hydrate.
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    const other = structurallyUnrelatedGraph()
+    useCanvasStore.getState().reset()
+    act(() => {
+      useCanvasStore.getState().hydrateGraphSlice({
+        nodes: other.nodes as never,
+        edges: other.edges as never,
+        currentScenarioId: 'scn_other',
+      })
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+    act(() => {
+      useCanvasStore.getState().setAnalysisFreshness(SERVER_FRESH_VERDICT_AFTER_RERUN)
+    })
+    renderFreshnessSurfaces()
+    expect(screen.getByTestId('analysis-freshness-notice')).toHaveAttribute(
+      'data-freshness',
+      'fresh',
+    )
+  })
+
+  it('BLOCKER D: undoDraft back onto the imported graph RE-ARMS the hold', () => {
+    const imported = JSON.parse(IMPORT_MODIFIED_JSON) as { nodes: never[]; edges: never[] }
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    // A CEE draft replaces the imported graph — the hold releases (CEE's own graph).
+    act(() => {
+      applyDraftResult({
+        nodes: [
+          { id: 'd_goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Drafted goal' } },
+        ],
+        edges: [],
+      } as never)
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+
+    // ...and undo puts the IMPORTED graph back. The server has still never seen it.
+    useCanvasStore.setState({
+      draftChatPreDraftSnapshot: { nodes: imported.nodes, edges: imported.edges },
+    } as never)
+    act(() => {
+      useCanvasStore.getState().undoDraft()
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+
+    act(() => {
+      useCanvasStore.getState().setAnalysisFreshness(SERVER_FRESH_VERDICT_AFTER_RERUN)
+      useCanvasStore.getState().clearAnalysisFreshnessDirty()
+    })
+    renderFreshnessSurfaces()
+    expect(screen.getByTestId('analysis-freshness-notice')).not.toHaveAttribute(
+      'data-freshness',
+      'fresh',
+    )
+  })
+
+  it('BLOCKER D control: undoDraft onto a never-imported pre-draft graph does NOT arm the hold', () => {
+    const other = structurallyUnrelatedGraph()
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+      applyDraftResult({
+        nodes: [
+          { id: 'd_goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Drafted goal' } },
+        ],
+        edges: [],
+      } as never)
+    })
+    useCanvasStore.setState({
+      draftChatPreDraftSnapshot: { nodes: other.nodes, edges: other.edges },
+    } as never)
+    act(() => {
+      useCanvasStore.getState().undoDraft()
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+  })
+
+  it('the hold is LABEL-INDEPENDENT: relabelling a node on the imported graph cannot release it', () => {
+    // The unsafe direction of the identity choice, pinned. If the digest
+    // included labels, a user renaming one node on the imported canvas would
+    // drop the hold and the next server 'fresh' would affirm — the P0,
+    // reachable by an ordinary edit.
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    const relabelled = JSON.parse(IMPORT_MODIFIED_JSON) as {
+      nodes: Array<{ id: string; data: { label: string } }>
+      edges: never[]
+    }
+    const target = relabelled.nodes.find((n) => n.id === PRE_IMPORT_OPTION_ID)!
+    target.data.label = 'Renamed after import'
+    act(() => {
+      useCanvasStore.getState().hydrateGraphSlice({
+        nodes: relabelled.nodes as never,
+        edges: relabelled.edges,
+      })
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+  })
+
+  it('BLOCKER E: loadScenario RESTORING the imported graph holds (localStorage is not the server)', () => {
+    const imported = JSON.parse(IMPORT_MODIFIED_JSON) as { nodes: never[]; edges: never[] }
+    // `loadScenario` reads scenarios.getScenario — localStorage, not the server.
+    // A scenario saved while the imported graph was on the canvas restores an
+    // unregistered graph exactly as the autosave does.
+    const scenario = createScenario({
+      name: 'Saved while imported',
+      nodes: imported.nodes,
+      edges: imported.edges,
+    })
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    act(() => {
+      expect(useCanvasStore.getState().loadScenario(scenario.id)).toBe(true)
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+  })
+
+  it('BLOCKER E: resetCanvas EMPTY-GRAPH early-return branch releases the hold', () => {
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    // Empty the graph without going through resetCanvas's main branch, so the
+    // early return is the code under test (the branch whose mutant survived).
+    useCanvasStore.setState({ nodes: [], edges: [] } as never)
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+    act(() => {
+      useCanvasStore.getState().resetCanvas()
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+  })
+
+  it('BLOCKER E: reset() releases the hold', () => {
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+    act(() => {
+      useCanvasStore.getState().reset()
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
+  })
+
+  it('the marker lives in sessionStorage — the storage choice IS the reload fix', () => {
+    // Pinned explicitly because it is the mechanism blocker A turns on: an
+    // in-memory marker (module variable) or a localStorage one would both pass
+    // the store-level tests below — the first dies with the page (leaving the
+    // defect), the second outlives the tab (over-holding into a new session).
+    //
+    // ⚠ Scope limit, stated rather than implied: jsdom does not reload a page,
+    // so the "reload" cases simulate it with a cold store + hydrate. They prove
+    // independence from the STORE INSTANCE; this assertion is what proves the
+    // record is in the storage that actually survives a real same-tab reload.
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    const raw = globalThis.sessionStorage.getItem('olumi.import.pendingServerRegistration.v1')
+    expect(raw).toBeTruthy()
+    expect(raw).toContain(PRE_IMPORT_OPTION_ID) // the imported graph's own node id
+    expect(
+      globalThis.localStorage.getItem('olumi.import.pendingServerRegistration.v1'),
+    ).toBeNull()
+  })
+
+  it('the marker is scoped to the TAB, not to the store instance (what makes the reload case work)', () => {
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    // A cold store (what a reload produces) still knows the graph is unregistered.
+    useCanvasStore.getState().reset()
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false) // initial graph
+    const imported = JSON.parse(IMPORT_MODIFIED_JSON) as { nodes: never[]; edges: never[] }
+    act(() => {
+      useCanvasStore.getState().hydrateGraphSlice({
+        nodes: imported.nodes,
+        edges: imported.edges,
+      })
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
   })
 })

@@ -48,6 +48,10 @@ import type { LimitsV1 } from '../adapters/plot/types'
 import type { ScenarioStage, ScenarioEvent } from '../types/scenario'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { identityFromCanvasGraph } from './utils/graphIdentity'
+import {
+  markGraphImported,
+  isGraphPendingImportRegistration,
+} from './store/importRegistrationMarker'
 import { isCompareTabEnabled } from '../flags'
 import { useAnalysisSnapshotStore } from './stores/analysisSnapshotStore'
 import { buildAnalysisSnapshot } from './stores/analysisSnapshotFactory'
@@ -447,11 +451,24 @@ interface CanvasState {
    * never a fabricated 'stale') so the affirmative "Analysis reflects the
    * current model." is unreachable.
    *
-   * Set by `importCanvas`. Cleared by every path that replaces the canvas with
-   * a server-known graph: `hydrateGraphSlice`, `loadScenario`, `resetCanvas`,
-   * `reset`, and `applyDraftResult` (a CEE draft is CEE's own graph).
-   * Session-scoped, never persisted. The atomic import→reset→registration
-   * train (ROADMAP 2.467) supersedes this flag; remove it when that lands.
+   * DERIVED, never mirrored: `importCanvas` records the imported graph's
+   * structural identity in a TAB-scoped marker
+   * (`store/importRegistrationMarker.ts`), and every graph-replacement site
+   * re-derives this flag from the graph it installs via
+   * `isGraphPendingImportRegistration`. There is no hand-maintained list of
+   * "release sites" to keep in sync.
+   *
+   * ⚠ The first cut of this mitigation DID keep such a list, on the premise
+   * that its six sites replace the canvas "with a server-known graph". TWO DID
+   * NOT — `hydrateGraphSlice`'s live callers pass the localStorage AUTOSAVE and
+   * `loadScenario` reads localStorage — so ~0.5 s after an import (the autosave
+   * debounce) a page reload re-installed the imported graph through a RELEASE
+   * site and one Rerun restored the witnessed false affirmative. Hence both the
+   * derivation and the marker's tab scope: the hazard outlives the page, so the
+   * marker must too.
+   *
+   * The atomic import→reset→registration train (ROADMAP 2.467) supersedes this
+   * flag; remove it and the marker module when that lands.
    */
   importPendingServerRegistration: boolean
   /**
@@ -2489,6 +2506,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const imported = persistImport(json)
     if (!imported) return false
 
+    // Interim 2.467: record this graph's identity as imported-and-unregistered
+    // BEFORE the set below, in a TAB-scoped marker. This is what survives a
+    // page reload — the autosave puts the imported graph back on the canvas
+    // ~0.5 s later, and the hold has to come back with it.
+    markGraphImported(imported.nodes, imported.edges)
+
     // Clear history since this is a full import
     clearTimers()
     
@@ -2541,8 +2564,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Interim 2.467: the server has never seen this graph (an import is
       // client-side only). While set, the freshness machinery holds the dirty
       // overlay so a rerun's server 'fresh' verdict — computed against CEE's
-      // own pre-import graph — can never display as the affirmative. Cleared
-      // when a server-known graph replaces the canvas; see the field's doc.
+      // own pre-import graph — can never display as the affirmative. The
+      // marker is written just below, BEFORE this set is observed, so every
+      // later graph-replacement site can re-derive the flag from the graph it
+      // installs (including after a page reload). See the field's doc.
       importPendingServerRegistration: true,
       // Lane 5 (Codex P0-2): a full import is a new decision context — clear the
       // target, its representation, readiness and outcome selection so the
@@ -2767,8 +2792,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // influence is the unit cap, which resolveMeasureUnitCap gates on
       // measure.threshold === store.goalThreshold — nulling the threshold
       // breaks that, so a leaked measure can't cap a cleared value.)
-      // Interim 2.467: starting fresh releases the import hold too.
-      set({ ...DECISION_CONTEXT_CLEAR, importPendingServerRegistration: false })
+      // Interim 2.467, DERIVED: the graph is already empty, and an empty graph
+      // is never an imported one (graphImportDigest returns null for it), so
+      // this releases — stated through the same derivation as every other
+      // replacement site rather than as a hardcoded false.
+      set({
+        ...DECISION_CONTEXT_CLEAR,
+        importPendingServerRegistration: isGraphPendingImportRegistration(nodes, edges),
+      })
       return
     }
 
@@ -2794,8 +2825,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // that only agreed with the spread by coincidence.)
       analysisFreshness: null,
       analysisFreshnessDirty: false,
-      // Interim 2.467: the imported graph is gone — release the import hold.
-      importPendingServerRegistration: false,
+      // Interim 2.467, DERIVED: resetCanvas installs an EMPTY graph, which is
+      // never an imported one — same derivation as every other site.
+      importPendingServerRegistration: isGraphPendingImportRegistration([], []),
       // V5 canonical analysis fact — clear on scenario reset (the fact does
       // not survive a graph reset; rerun analysis to mint a fresh one).
       v5AnalysisFact: null,
@@ -2952,8 +2984,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       _internal: { lastHistoryHash: historyHash(initialNodes, initialEdges) },
       hasCompletedFirstRun: false,
       showDraftChat: false,
-      // Interim 2.467: the graph slice is back to initial — no import present.
-      importPendingServerRegistration: false,
+      // Interim 2.467, DERIVED from the graph this installs (the initial one).
+      importPendingServerRegistration: isGraphPendingImportRegistration(
+        initialNodes,
+        initialEdges,
+      ),
     })
     // Reset AI model selections (lives in useDraftStore as of C3-5)
     useDraftStore.getState().resetAllModels()
@@ -3725,9 +3760,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // cannot leak into this one.
       analysisFreshness: null,
       analysisFreshnessDirty: false,
-      // Interim 2.467: a loaded scenario replaces any imported graph — release
-      // the import hold.
-      importPendingServerRegistration: false,
+      // Interim 2.467, DERIVED: `scenarios.getScenario` is localStorage, not
+      // the server — a scenario saved while an imported graph was on the canvas
+      // restores an unregistered graph. Derive from what is being installed.
+      importPendingServerRegistration: isGraphPendingImportRegistration(nodes, edges),
       isDirty: false,
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
@@ -4084,6 +4120,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       outcomeNodeId: firstGoalNodeId(draftChatPreDraftSnapshot.nodes),
       // Verdict is retained → reverted graph no longer matches it → dirty overlay.
       analysisFreshnessDirty: true,
+      // Interim 2.467, DERIVED: undo can put an IMPORTED graph back on the
+      // canvas (import → draft → undo). The draft released the hold because a
+      // CEE draft is CEE's own graph; the graph this restores may well not be,
+      // so re-derive. Without this the dirty overlay set above is cleared by
+      // the next 'fresh' verdict and the affirmative returns — the full P0,
+      // in-session, no reload needed.
+      importPendingServerRegistration: isGraphPendingImportRegistration(
+        draftChatPreDraftSnapshot.nodes,
+        draftChatPreDraftSnapshot.edges,
+      ),
       ceePipelineTrace: null,
       // Graph Lens: auto-reset on draft undo (graph shape changed)
       lens: createDefaultLensState(),
@@ -5275,10 +5321,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // dirty overlay so neither leaks from the previous graph/scenario.
       updates.analysisFreshness = null
       updates.analysisFreshnessDirty = false
-      // Interim 2.467: a hydrated (server-known) graph replaces any imported
-      // one — release the import hold so it never becomes permanent
-      // suppression.
-      updates.importPendingServerRegistration = false
+      // Interim 2.467, DERIVED (see the field's doc): this path's live callers
+      // pass the localStorage AUTOSAVE or loadState() — NOT a server-known
+      // graph. Re-deriving from the graph being installed is what makes a
+      // reload that restores the imported graph keep the hold, while a hydrate
+      // of any other graph releases it.
+      updates.importPendingServerRegistration = isGraphPendingImportRegistration(
+        loaded.nodes,
+        loaded.edges,
+      )
       // Lane 5 (Codex P0-2): this is the PRODUCTION scenario-load path
       // (useScenario → hydrateGraphSlice). Before this, it cleared freshness
       // but RETAINED goalThreshold / ceeAnalysisReady / outcomeNodeId, so the

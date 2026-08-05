@@ -16,6 +16,7 @@ import { DEFAULT_EDGE_DATA, readValidationMetadata } from '../domain/edges'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
+import { isGraphPendingImportRegistration } from '../store/importRegistrationMarker'
 import { hasAnalysisReady } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response, EffectDirection } from '../../adapters/cee/types'
 import { commitDraftCoachingToStore, edgeProvenanceDisplayPatch } from './draftIngestion'
@@ -227,10 +228,11 @@ export function applyDraftResult(
     goalThreshold: null,
     goalThresholdRepresentation: null,
     outcomeNodeId: null,
-    // Interim 2.467: a CEE draft is CEE's OWN graph — a wholesale replacement
-    // of any locally-imported graph, so release the import hold (see
-    // importPendingServerRegistration in the store).
-    importPendingServerRegistration: false,
+    // Interim 2.467, DERIVED: a CEE draft is CEE's OWN graph, so this normally
+    // releases the import hold — but it is derived from the graph being
+    // installed like every other replacement site, so a draft that reproduces
+    // an imported graph holds instead of affirming (fail-safe direction).
+    importPendingServerRegistration: isGraphPendingImportRegistration(nodes, edges),
   })
 
   // Warning-only schema validation at the mutation boundary. Non-throwing —
