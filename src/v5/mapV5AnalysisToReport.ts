@@ -129,6 +129,37 @@ function normaliseGoalFitBasis(
   }
 }
 
+/**
+ * ROADMAP 2.449 — normalise the per-option DOWNSIDE / tail-risk block.
+ *
+ * ALL-OR-NOTHING, and that is the PRODUCER's rule rather than a local
+ * invention: ISL declares `cvar_10`, `p05` and `expected_regret` as required
+ * floats on `DownsideV2` and omits the whole block — "Omitted, never null" —
+ * rather than ship a partial one; PLoT's `buildDownside` mirrors that at
+ * egress. So a partial block arriving here is a broken contract, not a
+ * half-answer, and the only honest reading of it is absence.
+ *
+ * NEVER substitutes a zero. A fabricated 0 in a tail-risk statistic does not
+ * read as "unknown" — it reads as "there is no downside", which is the most
+ * damaging direction this defect class can take.
+ *
+ * A MEASURED ZERO IS NOT AN ABSENCE: the option that wins every simulated draw
+ * has `expected_regret === 0` by construction, so this tests finiteness, never
+ * truthiness.
+ */
+function normaliseDownside(
+  raw: { cvar_10?: unknown; p05?: unknown; expected_regret?: unknown } | undefined,
+): { cvar_10: number; p05: number; expected_regret: number } | undefined {
+  if (!isPlainObject(raw)) return undefined
+  const cvar10 = safeFiniteNumber(raw.cvar_10)
+  const p05 = safeFiniteNumber(raw.p05)
+  const expectedRegret = safeFiniteNumber(raw.expected_regret)
+  if (cvar10 === undefined || p05 === undefined || expectedRegret === undefined) {
+    return undefined
+  }
+  return { cvar_10: cvar10, p05, expected_regret: expectedRegret }
+}
+
 // ─── Factor sensitivity normalisation ──────────────────────────────────
 
 interface NormalisedFactor {
@@ -369,6 +400,18 @@ interface RawOptionEnrichmentEntry {
    * verbatim, never derived. UI-BOUNDARY-DATA-INVENTORY.md §3.2/§5.
    */
   goal_fit_basis?: { scored_from?: unknown; node_ids?: unknown }
+  /**
+   * ROADMAP 2.449 — per-option DOWNSIDE / tail-risk block. Produced by ISL
+   * (`DownsideV2`) and forwarded verbatim by PLoT. All three values are in the
+   * SAME units as `outcome.mean` / `outcome.p10`, on the same axis and with no
+   * normalisation of their own — so the Results hook must apply the SAME
+   * denormalisation scale it applies to the percentile family, or the tail
+   * would be plotted against a different ruler than the range it belongs to.
+   *
+   * ABSENT (key omitted) whenever the producer could not compute the block
+   * honestly. Never `null`, never zeroed — see `normaliseDownside`.
+   */
+  downside?: { cvar_10?: unknown; p05?: unknown; expected_regret?: unknown }
 }
 
 interface ResolvedOptionEntry {
@@ -829,6 +872,13 @@ export function mapV5AnalysisToReport(
      * per the honesty rule in UI-BOUNDARY-DATA-INVENTORY.md §5.
      */
     goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
+    /**
+     * ROADMAP 2.449 — per-option tail-risk view, in `outcome`'s units.
+     * Present only when the producer emitted all three components as finite
+     * numbers; ABSENT otherwise (never zeroed). Consumers must apply the same
+     * denormalisation scale as the percentile family.
+     */
+    downside?: { cvar_10: number; p05: number; expected_regret: number }
   }
   const option_probabilities: Record<string, ResultsOptionProbability> = {}
 
@@ -876,6 +926,7 @@ export function mapV5AnalysisToReport(
     const p90 = safeFiniteNumber(outcome?.p90) ?? ciHigh
 
     const goalFitBasis = normaliseGoalFitBasis(enriched?.goal_fit_basis)
+    const downside = normaliseDownside(enriched?.downside)
 
     option_probabilities[optionId] = {
       /**
@@ -905,6 +956,10 @@ export function mapV5AnalysisToReport(
       confidence: 0.5,
       ...(winProb !== undefined ? { win_probability: winProb } : {}),
       ...(expected !== undefined ? { expected } : {}),
+      // 2.449 — tail-risk block. Same conditional-spread idiom as every other
+      // optional field here: no silent defaults, the key is simply absent when
+      // the producer had nothing honest to say.
+      ...(downside !== undefined ? { downside } : {}),
       outcome: {
         mean: rawMean ?? null,
         p10: p10 ?? null,
