@@ -370,6 +370,14 @@ export interface V5HeldProposalAction {
   label: string
   /** Message dispatched to CEE when the affordance is taken (the apply turn). */
   message: string
+  /**
+   * 0.19.0 `Action.detail` — the producer's COMPLETE sentence, emitted exactly
+   * when it had to clamp `label` to chip length, and absent when `label`
+   * already says everything. It is the consent record and the accessible name
+   * for a held proposal: a control the user consents through may not be named
+   * by a string that stops mid-word (ROADMAP 2.474 residual (a)).
+   */
+  detail?: string
 }
 
 export interface V5HeldProposalBlock {
