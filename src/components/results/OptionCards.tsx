@@ -43,6 +43,12 @@ import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { OptionRangeBar, computeOptionScale } from './shared/OptionRangeBar'
 import { formatGoalProbability } from './utils/displayFloors'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from './utils/goalFitBasisCaveatCopy'
+import {
+  DOWNSIDE_HEADING_COPY,
+  DOWNSIDE_TAIL_CAVEAT_COPY,
+  downsideSummaryCopy,
+} from './utils/downsideCopy'
+import { formatRangeValue } from './utils/formatRangeValue'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
 import { isGraphLensEnabled } from '../../flags'
@@ -815,6 +821,49 @@ function OptionCard({
               Expected: {option.outcome.mean.toLocaleString()}
             </p>
           ) : null}
+
+          {/* ROADMAP 2.449 — DOWNSIDE / TAIL RISK. "And if this goes badly,
+              how badly?" The engine has computed this since #91/#92; it died
+              in PLoT's option builder and no user has ever seen it.
+
+              Sits inside the SAME expert block as the range bar, immediately
+              below it, because these two numbers extend that exact bar
+              downward: same simulated runs, same units, same axis, same
+              formatter (`formatRangeValue`, so the tail cannot render on a
+              different precision rule than the range it belongs to).
+              Progressive disclosure (P5) — depth for the reader who asked for
+              depth, nothing added to the default card.
+
+              HONEST ABSENCE: `option.downside` is undefined whenever the
+              engine could not compute the block honestly, and this renders
+              NOTHING in that case — no zero, no dash, no "not available".
+              A zero here would read as "there is no downside", which is the
+              most damaging thing this surface could say.
+
+              ⛔ `downside.expectedRegret` is deliberately NOT rendered. It is
+              the per-option limb of the value-of-information family (the
+              whole-decision EVPI is exactly its minimum across options), and
+              the estate's no-EVPI-display doctrine licenses a ranking with NO
+              magnitudes there — the same doctrine that removed the EVPI
+              percentage-point pill from TriageCard. Showing it is a doctrine
+              ruling, not a wiring gap. */}
+          {option.downside !== undefined && (
+            <div className="mt-1" data-testid={`option-downside-${option.id}`}>
+              <p className={`${typography.panelMeta} text-text-light`}>
+                <span className="font-medium">{DOWNSIDE_HEADING_COPY}</span>{' '}
+                {downsideSummaryCopy(
+                  formatRangeValue(option.downside.p05),
+                  formatRangeValue(option.downside.cvar10),
+                )}
+              </p>
+              <p
+                className={`${typography.panelMeta} text-text-light`}
+                data-testid={`option-downside-caveat-${option.id}`}
+              >
+                {DOWNSIDE_TAIL_CAVEAT_COPY}
+              </p>
+            </div>
+          )}
         </ExpertBlock>
       )}
 

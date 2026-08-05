@@ -1533,6 +1533,26 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const scaledP50 = norm.p50 != null ? norm.p50 * scale : null
       const scaledP90 = norm.p90 != null ? norm.p90 * scale : null
 
+      // ROADMAP 2.449 — tail-risk block. `cvar_10` and `p05` are declared by
+      // the producer to be in the SAME units as outcome.mean/p10 with NO
+      // normalisation of their own, so they ride THIS option's scale decision
+      // — the same one, taken once above. Scaling them independently (or not
+      // at all) would plot the tail against a different ruler than the range
+      // it is the tail OF, and "the worst decile sits below p10" would stop
+      // being readable on screen.
+      //
+      // Absent stays absent: no zero, no placeholder, no partial object. The
+      // mapper has already enforced the producer's all-or-nothing rule.
+      const rawDownside = prob.downside
+      const optionDownside = rawDownside !== undefined
+        ? {
+            cvar10: rawDownside.cvar_10 * scale,
+            p05: rawDownside.p05 * scale,
+            // Carried, never displayed — see OptionDownside.expectedRegret.
+            expectedRegret: rawDownside.expected_regret * scale,
+          }
+        : undefined
+
       // T6 P0-3: Prefer probability_of_joint_goal (constrained) when constraints exist,
       // fall back to goal_probability (unconstrained).
       // Staging trust review: when ISL auto-derives the goal threshold as a
@@ -1587,6 +1607,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         isRecommended: false, // Will be set immutably below
         winProbability: prob.win_probability,
         nValidSamples,
+        // 2.449 — omitted entirely when the engine had nothing honest to say.
+        ...(optionDownside !== undefined ? { downside: optionDownside } : {}),
         goalProbability,
         goalFitIsModelledBasis,
         // Which quantity `goalProbability` actually IS, carried to the render

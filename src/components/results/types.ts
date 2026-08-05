@@ -132,6 +132,44 @@ export interface OptionOutcome {
   p90: number | null
 }
 
+/**
+ * ROADMAP 2.449 — the DOWNSIDE / tail-risk view of an option's simulated
+ * outcome distribution, ready for display: both magnitudes have already been
+ * put on the SAME scale as `OptionOutcome.p10/p50/p90`.
+ *
+ * Present only when the whole block survived the producer's all-or-nothing
+ * emission rule and the boundary guards; there is deliberately NO partial
+ * shape, and no field is ever defaulted to 0 — a zero in a tail statistic
+ * reads as "there is no downside".
+ */
+export interface OptionDownside {
+  /**
+   * Mean of the worst 10% of simulated outcomes (a tail average, so it sits
+   * at or below `outcome.p10` by construction).
+   *
+   * ⚠ The 10% cut-off is a WORKING DEFAULT at the producer, explicitly not a
+   * ratified convention. Any surface showing this number must say so — see
+   * `DOWNSIDE_TAIL_CAVEAT_COPY` in OptionCards.
+   */
+  cvar10: number
+  /** 5th percentile — extends the p10/p50/p90 family downward. */
+  p05: number
+  /**
+   * How much better this decision would have gone, on average, had the true
+   * outcome been known in advance and the best option chosen each time.
+   *
+   * ⛔ CARRIED, NOT DISPLAYED. This is the per-option limb of the
+   * value-of-information family (the whole-decision EVPI is exactly the
+   * MINIMUM of these across options), and the estate's standing
+   * no-EVPI-display doctrine licenses a ranking with NO magnitudes for that
+   * family — it is why the EVPI percentage-point pill was removed from
+   * TriageCard. Rendering this magnitude is a doctrine ruling, not a wiring
+   * gap. It is carried here so a licensed surface does not have to re-plumb
+   * four services; every render site must leave it alone until then.
+   */
+  expectedRegret: number
+}
+
 export interface OptionResult {
   id: string
   label: string
@@ -155,6 +193,13 @@ export interface OptionResult {
    * Source value only — display formatting happens at render time.
    */
   nValidSamples?: number
+  /**
+   * ROADMAP 2.449 — tail-risk view of this option's simulated outcomes,
+   * already scaled onto the same axis as `outcome`. ABSENT (undefined) when
+   * the engine could not compute it honestly; render sites must show nothing
+   * at all rather than a zero or a placeholder.
+   */
+  downside?: OptionDownside
   /** Optional goal probability when no distribution data exists. */
   goalProbability?: number | null
   /** Task 2.1: Whether this option is the baseline for comparison */
@@ -1232,6 +1277,15 @@ export interface ResultsOptionProbability extends OptionProbability {
    * UI-BOUNDARY-DATA-INVENTORY.md §5.
    */
   goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
+  /**
+   * ROADMAP 2.449 — per-option tail-risk view from ISL, forwarded by PLoT.
+   * Values are in the SAME units and on the SAME axis as `outcome.mean` /
+   * `outcome.p10` (no normalisation of their own), so any consumer that scales
+   * the percentile family MUST scale these identically. Present only when the
+   * producer emitted all three components as finite numbers; absent otherwise
+   * — never zeroed, never null.
+   */
+  downside?: { cvar_10: number; p05: number; expected_regret: number }
 }
 
 /**
