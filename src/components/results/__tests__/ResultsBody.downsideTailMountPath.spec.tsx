@@ -60,12 +60,22 @@
  *
  * Every assertion addresses a card by `option-card-<exact option id>` and
  * re-asserts that card's own label from the fixture, so no assertion can be
- * satisfied by a sibling (trap 19). Every magnitude is DERIVED by calling the
- * product's own `formatRangeValue` / `downsideSummaryCopy` on the fixture's
- * numbers rather than transcribed, so a formatter change cannot make this
- * suite pass against a display it no longer describes. Absence arms always run
- * in a tree where at least one sibling carries the surface, so the harness is
- * demonstrably able to see what it claims is missing (trap 13).
+ * satisfied by a sibling (trap 19).
+ *
+ * The MAGNITUDES are pinned by hand in `CAPTURED_DOWNSIDE` while the WORDING
+ * around them is derived by calling the product's own `formatRangeValue` /
+ * `downsideSummaryCopy`. That split is deliberate and was arrived at the hard
+ * way — see the note on `CAPTURED_DOWNSIDE`: the first version of this file
+ * derived both sides from the same helper, and a mutant that swapped two
+ * options' tail values on the wire left it entirely GREEN. Deriving the
+ * expectation from the input proves consistency and can never prove
+ * correctness (trap 12d). Pinning the numbers catches a mis-join; deriving the
+ * copy stops a formatter change leaving the suite passing against a display it
+ * no longer describes.
+ *
+ * Absence arms always run in a tree where at least one sibling carries the
+ * surface, so the harness is demonstrably able to see what it claims is
+ * missing (trap 13).
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
@@ -104,6 +114,36 @@ const FIXTURE_OPTION_IDS = [
 ] as const
 
 type DownsideOnWire = { cvar_10: number; p05: number; expected_regret: number }
+
+/**
+ * ⚠ THE CAPTURE'S OWN NUMBERS, TRANSCRIBED ON PURPOSE — and this constant is
+ * the correction of a defect this suite shipped with, caught by its own
+ * mutant kit.
+ *
+ * The first version of this file derived BOTH the rendered input and the
+ * expected output from `reportDownsideByOptionId()`. Every assertion was
+ * addressed by option id, so it read as identity-bound — but a mutant that
+ * SWAPPED `opt_oven`'s and `opt_vans`' tail values on the wire left the whole
+ * suite GREEN, because the oracle moved with the input. A guard whose
+ * expectation comes from the thing it is checking agrees with itself and can
+ * never notice a mis-join (trap 13b; trap 19's value-vs-identity form).
+ *
+ * So the magnitudes are pinned here, by hand, to the historical capture — the
+ * hand-written corpus that a derived guard structurally cannot replace
+ * (trap 12d). `expected_regret` is pinned too even though it is deliberately
+ * never displayed, so a producer-side change to it is visible rather than
+ * silent.
+ *
+ * PINNED TO 2026-08-05, NEVER REFRESHED TO TRACK A CURRENT PAYLOAD. Its whole
+ * evidential value is that it is the run the tester reported as broken.
+ */
+const CAPTURED_DOWNSIDE: Record<string, DownsideOnWire> = {
+  opt_oven: { cvar_10: -0.3079481799761663, p05: -0.2887558172745903, expected_regret: 0.20736548448233388 },
+  opt_packing: { cvar_10: -0.11219224064218787, p05: -0.10250235969033479, expected_regret: 0.1090488788556412 },
+  opt_retrofit: { cvar_10: -0.061314212185777095, p05: -0.05386777652540353, expected_regret: 0.09474318805872213 },
+  opt_status_quo: { cvar_10: -0.06891378031696103, p05: -0.059642932930203396, expected_regret: 0.2383033608647882 },
+  opt_vans: { cvar_10: -0.15563313781808016, p05: -0.145890584682423, expected_regret: 0.20068539228044652 },
+}
 
 /** The capture's `analysis_result` block, verbatim. */
 function liveAnalysisBlock(): AnalysisResultBlock {
@@ -295,12 +335,16 @@ describe('2.581 — the downside tail on the mount path, fed by the reported-bro
 
     const mapped = reportDownsideByOptionId()
     for (const row of block.enrichment.option_comparison) {
-      expect(row.downside, `wire: ${row.option_id} must carry a downside block`).toBeDefined()
-      expect(mapped[row.option_id], `mapper: ${row.option_id} must survive to the report`).toEqual({
-        cvar_10: row.downside!.cvar_10,
-        p05: row.downside!.p05,
-        expected_regret: row.downside!.expected_regret,
-      })
+      // The wire matches the CAPTURE — an independently pinned corpus, so a
+      // payload whose tail values moved (or were swapped between options)
+      // fails here rather than sliding through as "derived and consistent".
+      expect(row.downside, `wire: ${row.option_id} must carry a downside block`).toEqual(
+        CAPTURED_DOWNSIDE[row.option_id],
+      )
+      // ...and the mapper delivers THAT option's block to THAT option's key.
+      expect(mapped[row.option_id], `mapper: ${row.option_id} must survive to the report`).toEqual(
+        CAPTURED_DOWNSIDE[row.option_id],
+      )
     }
     expect(Object.keys(mapped).sort()).toEqual([...FIXTURE_OPTION_IDS].sort())
   })
@@ -312,7 +356,7 @@ describe('2.581 — the downside tail on the mount path, fed by the reported-bro
     renderBody(options, true)
     showAllOptions()
 
-    const wire = reportDownsideByOptionId()
+    const wire = CAPTURED_DOWNSIDE
     for (const id of FIXTURE_OPTION_IDS) {
       const card = cardByIdentity(id)
       const surface = within(card).getByTestId(`option-downside-${id}`)
@@ -362,7 +406,7 @@ describe('2.581 — the downside tail on the mount path, fed by the reported-bro
     )
     showAllOptions()
 
-    const wire = reportDownsideByOptionId()
+    const wire = CAPTURED_DOWNSIDE
     for (const id of FIXTURE_OPTION_IDS) {
       const card = cardByIdentity(id)
       expect(within(card).getByTestId(`option-downside-${id}`).textContent).toContain(
@@ -403,7 +447,7 @@ describe('2.581 — the downside tail on the mount path, fed by the reported-bro
     // POSITIVE CONTROL, both directions: the siblings in the same tree still
     // carry the real surface, so the absence above is a fact about this card
     // and not about the harness.
-    const wire = reportDownsideByOptionId()
+    const wire = CAPTURED_DOWNSIDE
     for (const id of FIXTURE_OPTION_IDS) {
       if (id === withheld) continue
       const card = cardByIdentity(id)
