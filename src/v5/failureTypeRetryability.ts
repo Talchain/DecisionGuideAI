@@ -211,6 +211,191 @@ export function extractReason(err: BoundaryError | undefined): string {
 }
 
 /**
+ * ── Ingress-violation taxonomy (ROADMAP 2.472) ─────────────────────────────
+ *
+ * CEE rides genuinely different failures on the single wire code
+ * INGRESS_CONTRACT_VIOLATION, carrying the real class in `validator` +
+ * `details.reason`. Until 2.472 the guidance line ignored both and told EVERY
+ * ingress violation "Please rephrase your message and try again." — witnessed
+ * false during the 4 Aug outage, when a server-side ownership-oracle failure
+ * (`validator:'scenario_preflight'`, `reason:'scenario_ownership_unverifiable'`,
+ * `retryable:false`) blamed the user's wording
+ * (PHASE0-EVIDENCE-2026-07-28/rewalk-2459b-raw/run{1,2}-rewalk-wire.json).
+ *
+ * Class → copy, from the complete producer manifest at CEE staging tip
+ * ac62fd4d (every non-test `INGRESS_CONTRACT_VIOLATION` emitter):
+ *   - `scenario_preflight` (route-v2-preflight.ts — reasons are the closed
+ *     union scenario_owned_by_other_user | scenario_requires_authenticated_owner
+ *     | scenario_ownership_unverifiable) and the commit/pipeline validators
+ *     (`turn_commit`, `chip_click_dispatch`, `draft_graph_pipeline`,
+ *     `edit_graph_pipeline` — reachable under this code via route-v2.ts's
+ *     `errorCode: failureType` passthrough) describe SERVER state. The user's
+ *     message played no part → server-fault copy.
+ *   ⚠ DORMANT ON THE WIRE TODAY: every emitter of `buildSignInRequiredError`
+ *     is gated on `CEE_REQUIRE_USER_JWT`, config default `false`, documented
+ *     "ships dark" (`config/index.ts:527`) — `resolveUserIdentity` returns
+ *     `{ mode: 'off' }` before it can refuse, and both browser-proxy emitters
+ *     test `config.auth?.requireUserJwt === true`. The DEPLOYED posture is
+ *     UNPROVEN from the repo (Render dashboard owns staging env; never infer
+ *     it from YAML or from this comment). With the flag down, an
+ *     unauthenticated caller on an owned scenario does NOT yield
+ *     `sign_in_required` — it yields `scenario_requires_authenticated_owner`,
+ *     routed by OWNERSHIP_REASON_GUIDANCE above. That row, not this one, is
+ *     what closes the live case.
+ *   - `user_jwt` (user-identity.ts, reason `sign_in_required`) describes
+ *     SESSION state; "rephrase" is false and "our side is broken" is also
+ *     false — recovery is signing in → sign-in copy.
+ *   - `OrchestratorTurnPayload` (validators/b1.ts) and `V5RequestExtensions`
+ *     (orchestrator-v5/boundary/request-extensions.ts) validate the payload
+ *     itself — genuinely input-shaped → rephrase copy (unchanged).
+ *
+ * ⚠ The validator set below is a documented MIRROR of CEE's producer
+ * vocabulary (trap 12) with the drift direction chosen deliberately: an
+ * unknown or absent validator/reason FAILS SAFE to the rephrase copy —
+ * today's behaviour, never a crash, never a blank. The `scenario_ownership`
+ * reason-prefix gate is derived from the producer's own closed-union naming
+ * (same pattern as the `turn_fence_` prefix above), so the ownership family
+ * routes honestly even under a future validator rename.
+ */
+const INGRESS_REPHRASE_GUIDANCE = 'Please rephrase your message and try again.'
+
+/**
+ * ⚠ The trailing "Please try again in a moment." is DELIBERATE here, and is
+ * deliberately NOT the same thing as `RETRY_INSTRUCTION_SENTENCE` above.
+ * That regex strips retry language from the CANONICAL FAILURE_USER_TEXT when
+ * the retry CHIP is withheld, so the copy never points at an affordance the
+ * UI is not rendering. This sentence points at no affordance: it tells the
+ * user that the fault is transient and that re-sending later is worth doing,
+ * which is true for an oracle-down / commit-failed class and is the only
+ * honest next step available to them. The live-chain spec asserts zero retry
+ * chips alongside this exact string, pinning that the two coexist on purpose.
+ * It is applied ONLY to genuinely transient server faults — never to the
+ * access-denied or sign-in classes, where waiting cannot help.
+ */
+const INGRESS_SERVER_FAULT_GUIDANCE =
+  "Something on our side isn't working — your message was fine. Please try again in a moment."
+
+/**
+ * Access correctly refused: the scenario has a different owner. Blames
+ * nobody, states plainly that the message was not the problem, prescribes no
+ * futile wait, and names the one action that can actually change the outcome.
+ */
+const INGRESS_NO_ACCESS_GUIDANCE =
+  "This decision belongs to someone else, so you can't make changes to it — nothing you typed was the problem. Ask its owner to share it with you if you need access."
+
+/**
+ * Auth-class copy. Deliberately neutral about WHY: `auth_reason` spans
+ * "never signed in" (missing_token) and "session ended" (expired_token), so
+ * asserting either would be a fresh untruth for the other half. It blames
+ * nobody, exonerates the message explicitly, and names the next action —
+ * pinned as a property of the string, not left to review.
+ */
+const INGRESS_SIGN_IN_GUIDANCE =
+  "You'll need to sign in to continue — nothing was wrong with your message. Please sign in, then send it again."
+
+const INGRESS_SERVER_STATE_VALIDATORS: ReadonlySet<string> = new Set([
+  'scenario_preflight',
+  'turn_commit',
+  'chip_click_dispatch',
+  'draft_graph_pipeline',
+  'edit_graph_pipeline',
+  // Validates ONLY app-constructed state — graph_state, analysis_state,
+  // user_id, selected_elements (request-extensions.ts:8). It carries no user
+  // text whatsoever, so "rephrase your message" is categorically false here:
+  // the UI built the malformed request, not the person typing.
+  'V5RequestExtensions',
+])
+
+/**
+ * `scenario_preflight` is NOT one failure. Its reason is a closed 3-member
+ * union (`build-turn-context.ts:1227-1235`) whose members need three
+ * DIFFERENT copies, and CEE names the reason precisely so the UI can tell
+ * them apart:
+ *
+ *   scenario_ownership_unverifiable        the oracle is down      → OUR FAULT
+ *   scenario_requires_authenticated_owner  anonymous caller, owned scenario
+ *                                          (IDOR fail-closed)      → SIGN IN
+ *   scenario_owned_by_other_user           cross-tenant attempt    → NO ACCESS
+ *
+ * Collapsing these into the server-fault copy — as this module did until the
+ * F1 review — tells a user whose access was CORRECTLY refused that our
+ * systems are broken and that waiting will help. Both halves are false, and
+ * the prescribed action can never succeed. That is a worse failure than the
+ * bug this module was written to fix, so each member is routed explicitly and
+ * an unknown future member falls back to the (blameless) server-fault copy.
+ */
+const OWNERSHIP_REASON_GUIDANCE: Record<string, string> = {
+  scenario_ownership_unverifiable: INGRESS_SERVER_FAULT_GUIDANCE,
+  scenario_requires_authenticated_owner: INGRESS_SIGN_IN_GUIDANCE,
+  scenario_owned_by_other_user: INGRESS_NO_ACCESS_GUIDANCE,
+}
+
+const INGRESS_SIGN_IN_VALIDATOR = 'user_jwt'
+
+/**
+ * The producer's DECLARED stable mapping key for the auth class
+ * (user-identity.ts `buildSignInRequiredError`, verbatim: "The stable UI
+ * mapping key is `details.code === 'sign_in_required'`"). Keyed on first, so
+ * a validator rename cannot silently drop this class back to "rephrase";
+ * `validator === 'user_jwt'` stays as a secondary signal for envelopes that
+ * omit the code.
+ */
+const SIGN_IN_REQUIRED_CODE = 'sign_in_required'
+
+/**
+ * The one `auth_reason` in the closed union (user-identity.ts:64-68) that is
+ * NOT the user's to fix: the verifier itself is unavailable. Telling that
+ * user to sign in prescribes an action that cannot work — precisely the
+ * defect class this row exists to remove — so it takes the server-fault copy.
+ */
+const AUTH_REASON_VERIFIER_DOWN = 'verification_unavailable'
+
+const SCENARIO_OWNERSHIP_REASON_PREFIX = 'scenario_ownership'
+
+/** Read `details.code` off a BoundaryError. Fail closed: absent/non-string → ''. */
+function extractDetailsCode(err: BoundaryError): string {
+  const code = (err.details as { code?: unknown } | undefined)?.code
+  return typeof code === 'string' ? code : ''
+}
+
+/** Read `details.auth_reason`. Fail closed: absent/non-string → ''. */
+function extractAuthReason(err: BoundaryError): string {
+  const reason = (err.details as { auth_reason?: unknown } | undefined)?.auth_reason
+  return typeof reason === 'string' ? reason : ''
+}
+
+/**
+ * Route an INGRESS_CONTRACT_VIOLATION to guidance that is true for its
+ * actual class. Fail safe: no envelope, unknown validator, or malformed
+ * fields → the rephrase copy (pre-2.472 behaviour).
+ */
+export function resolveIngressViolationGuidance(err: BoundaryError | undefined): string {
+  if (!err) return INGRESS_REPHRASE_GUIDANCE
+  const validator = typeof err.validator === 'string' ? err.validator : ''
+  // Auth class first, keyed on the producer's declared stable key.
+  if (extractDetailsCode(err) === SIGN_IN_REQUIRED_CODE || validator === INGRESS_SIGN_IN_VALIDATOR) {
+    // …except when the verifier itself is what failed: that is our fault, and
+    // signing in cannot clear it.
+    return extractAuthReason(err) === AUTH_REASON_VERIFIER_DOWN
+      ? INGRESS_SERVER_FAULT_GUIDANCE
+      : INGRESS_SIGN_IN_GUIDANCE
+  }
+  const reason = extractReason(err)
+  // Ownership/access reasons are routed by REASON first: they arrive under a
+  // server-state validator but three of them are not server faults at all.
+  const ownershipCopy = OWNERSHIP_REASON_GUIDANCE[reason]
+  if (ownershipCopy !== undefined) return ownershipCopy
+
+  if (
+    INGRESS_SERVER_STATE_VALIDATORS.has(validator) ||
+    reason.startsWith(SCENARIO_OWNERSHIP_REASON_PREFIX)
+  ) {
+    return INGRESS_SERVER_FAULT_GUIDANCE
+  }
+  return INGRESS_REPHRASE_GUIDANCE
+}
+
+/**
  * Guidance text for non-retryable errors. Retryable errors show a Try again
  * chip on the message bubble instead, so guidance is empty for them.
  *
@@ -218,12 +403,16 @@ export function extractReason(err: BoundaryError | undefined): string {
  * that use the full component) and useConversation's V5 typed_error branch
  * (which builds a plain-string message body for MessageBubble). Keeping
  * both paths on the same table prevents drift.
+ *
+ * 2.472: pass the BoundaryError when you have one — INGRESS_CONTRACT_VIOLATION
+ * branches on its wire taxonomy (see resolveIngressViolationGuidance). Callers
+ * without an envelope keep the pre-2.472 copy for every code.
  */
-export function resolveGuidance(code: FailureTypeLiteral): string {
+export function resolveGuidance(code: FailureTypeLiteral, err?: BoundaryError): string {
   if (isRetryable(code)) return ''
   switch (code) {
     case 'INGRESS_CONTRACT_VIOLATION':
-      return 'Please rephrase your message and try again.'
+      return resolveIngressViolationGuidance(err)
     case 'EGRESS_CONTRACT_VIOLATION':
       return 'The response could not be validated. Please try again or contact support.'
     case 'FEATURE_NOT_ENABLED':

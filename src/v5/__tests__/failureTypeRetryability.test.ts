@@ -103,8 +103,13 @@ describe('resolveGuidance — shared guidance resolver', () => {
     expect(resolveGuidance(code)).toBe('')
   })
 
+  // ⚠ DELIBERATE PIN CHANGE (ROADMAP 2.472): INGRESS_CONTRACT_VIOLATION left
+  // this table on purpose. Its old row pinned "always /rephrase/i" — the exact
+  // untruth 2.472 removes (a server-side key failure told the user to rephrase,
+  // witnessed live 4 Aug). Its guidance is now taxonomy-branched and pinned in
+  // the dedicated describe block below; the rephrase copy survives ONLY as the
+  // input-shaped / fail-safe branch.
   it.each([
-    ['INGRESS_CONTRACT_VIOLATION', /rephrase/i],
     ['EGRESS_CONTRACT_VIOLATION', /validated/i],
     ['FEATURE_NOT_ENABLED', /not yet available/i],
     ['TURN_BUDGET_EXCEEDED', /turn limit/i],
@@ -112,6 +117,385 @@ describe('resolveGuidance — shared guidance resolver', () => {
     const g = resolveGuidance(code)
     expect(g.length).toBeGreaterThan(0)
     expect(g).toMatch(pattern)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROADMAP 2.472 — INGRESS_CONTRACT_VIOLATION guidance branches on the wire's
+// own taxonomy (validator / details.reason) instead of blaming the user's
+// wording for every violation.
+//
+// Witnessed defect (4 Aug outage, capture at
+// PHASE0-EVIDENCE-2026-07-28/rewalk-2459b-raw/run2-rewalk-wire.json): CEE
+// refused the turn with validator 'scenario_preflight',
+// details.reason 'scenario_ownership_unverifiable', retryable:false — a
+// server-side ownership-oracle failure — and the UI said "Please rephrase
+// your message and try again."
+//
+// Class → copy contract (validator vocabulary derived at CEE staging tip
+// ac62fd4d — see PR body):
+//   server-state validators (scenario_preflight, turn_commit,
+//   chip_click_dispatch, draft_graph_pipeline, edit_graph_pipeline) or a
+//   details.reason in the producer's scenario_ownership* family → server-fault
+//   copy · user_jwt → sign-in copy · input-shaped validators
+//   (OrchestratorTurnPayload, V5RequestExtensions), unknown validators, and
+//   absent taxonomy → the rephrase copy (fail-safe: never crash, never blank).
+// ---------------------------------------------------------------------------
+describe('resolveGuidance — INGRESS_CONTRACT_VIOLATION wire-taxonomy branching (2.472)', () => {
+  const SERVER_FAULT_COPY =
+    "Something on our side isn't working — your message was fine. Please try again in a moment."
+  const REPHRASE_COPY = 'Please rephrase your message and try again.'
+  // The auth class (user_jwt / sign_in_required) moved to its own describe
+  // block below when the extension was ratified — its copy constant lives
+  // there, not here.
+
+  /** Byte-for-byte the BoundaryError CEE served during the witnessed outage
+   *  (rewalk run2; run1 identical modulo ids). Identity-bound: this object is
+   *  the witnessed wire shape, not a value-predicate stand-in. */
+  const WITNESSED_OUTAGE_ERROR: BoundaryError = {
+    error: 'INGRESS_CONTRACT_VIOLATION',
+    boundary: 'B1',
+    direction: 'ingress',
+    validator: 'scenario_preflight',
+    details: {
+      reason: 'scenario_ownership_unverifiable',
+      scenario_id: 'c261b74a-c7ce-4aad-96ca-04f0fdfd0fce',
+    },
+    request_id: 'd3daf877-2adb-4dde-babf-daa7d7a30d0b',
+    retryable: false,
+  }
+
+  const ingressErr = (validator: string, reason?: string): BoundaryError => ({
+    error: 'INGRESS_CONTRACT_VIOLATION',
+    boundary: 'B1',
+    direction: 'ingress',
+    validator,
+    details: reason === undefined ? {} : { reason },
+    request_id: 'req_2472',
+    retryable: false,
+  })
+
+  it('the witnessed outage wire shape gets the server-fault copy, verbatim', () => {
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', WITNESSED_OUTAGE_ERROR)).toBe(
+      SERVER_FAULT_COPY,
+    )
+  })
+
+  // ⚠ PIN CORRECTED (review F1): this list previously asserted ALL THREE
+  // scenario_preflight reasons → server-fault copy. That was wrong for two of
+  // them and the test agreed with the code because I wrote it from my own
+  // classification instead of the producer's semantics (trap 13b — a guard
+  // agreeing with itself). Only the oracle-down reason is a server fault; the
+  // access-denied pair is routed in its own describe block below.
+  it.each([
+    ['scenario_preflight', 'scenario_ownership_unverifiable'],
+    ['turn_commit', 'state_commit_failed_or_turn_runtime_failure'],
+    ['turn_commit', 'graph_write_conflict'],
+    ['chip_click_dispatch', 'chip_click_suggest_options_handler_failed'],
+    ['draft_graph_pipeline', 'draft_graph_commit_failed'],
+    ['edit_graph_pipeline', 'edit_graph_pipeline_threw'],
+  ] as const)(
+    'server-state validator %s (reason %s) → server-fault copy',
+    (validator, reason) => {
+      expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', ingressErr(validator, reason))).toBe(
+        SERVER_FAULT_COPY,
+      )
+    },
+  )
+
+  it('a scenario_ownership* reason under an unrecognised validator still → server-fault copy', () => {
+    expect(
+      resolveGuidance(
+        'INGRESS_CONTRACT_VIOLATION',
+        ingressErr('some_future_validator', 'scenario_ownership_unverifiable'),
+      ),
+    ).toBe(SERVER_FAULT_COPY)
+  })
+
+  it('a genuine input-shaped violation keeps the rephrase copy (positive control)', () => {
+    // OrchestratorTurnPayload is the B1 Zod validator over the turn body,
+    // which DOES carry the user's `message` — rephrasing can genuinely help,
+    // so this is the least-wrong copy and stays.
+    expect(
+      resolveGuidance(
+        'INGRESS_CONTRACT_VIOLATION',
+        ingressErr('OrchestratorTurnPayload', 'turn_id must be a UUID v4'),
+      ),
+    ).toBe(REPHRASE_COPY)
+  })
+
+  // ⚠ PIN CORRECTED (review F3): V5RequestExtensions used to be asserted here
+  // as a rephrase positive control. It validates ONLY app-constructed state —
+  // `graph_state`, `analysis_state`, `user_id`, `selected_elements`
+  // (request-extensions.ts:8) — and carries NO user text at all, so telling
+  // the user to rephrase their message is categorically false: the UI built
+  // the bad request, not them.
+  it('V5RequestExtensions → server-fault copy: those fields carry no user text', () => {
+    expect(
+      resolveGuidance('INGRESS_CONTRACT_VIOLATION', ingressErr('V5RequestExtensions')),
+    ).toBe(SERVER_FAULT_COPY)
+    expect(
+      resolveGuidance(
+        'INGRESS_CONTRACT_VIOLATION',
+        ingressErr('V5RequestExtensions', 'graph_state.nodes must be an array'),
+      ),
+    ).not.toMatch(/rephrase/i)
+  })
+
+  it('absent taxonomy FAILS SAFE to the rephrase copy (no error object)', () => {
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION')).toBe(REPHRASE_COPY)
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', undefined)).toBe(REPHRASE_COPY)
+  })
+
+  it('unknown validator + unknown reason FAILS SAFE to the rephrase copy', () => {
+    expect(
+      resolveGuidance('INGRESS_CONTRACT_VIOLATION', ingressErr('brand_new_validator', 'novel_reason')),
+    ).toBe(REPHRASE_COPY)
+  })
+
+  it('malformed taxonomy fields never crash and fail safe to rephrase', () => {
+    const malformed = {
+      ...ingressErr('x'),
+      validator: 42,
+      details: { reason: { nested: true } },
+    } as unknown as BoundaryError
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', malformed)).toBe(REPHRASE_COPY)
+    const nullDetails = { ...ingressErr('x'), details: null } as unknown as BoundaryError
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', nullDetails)).toBe(REPHRASE_COPY)
+  })
+
+  it('the error object changes nothing for retryable codes (early return holds)', () => {
+    expect(
+      resolveGuidance('INTERNAL_ERROR', ingressErr('scenario_preflight', 'anything')),
+    ).toBe('')
+  })
+
+  it('other non-retryable codes ignore the taxonomy (INGRESS-only branch)', () => {
+    expect(
+      resolveGuidance('FEATURE_NOT_ENABLED', ingressErr('scenario_preflight')),
+    ).toMatch(/not yet available/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROADMAP 2.472 — F1 (review blocker): `scenario_preflight` carries a
+// THREE-member reason union and they do NOT share a copy. Branching on the
+// validator alone collapsed them into "our side is broken, try again in a
+// moment", which for the two access-denied reasons is false in BOTH halves
+// AND prescribes an action that can never work — a worse failure than the
+// bug this lane set out to fix.
+//
+// Semantics read at the CEE bytes (`build-turn-context.ts:1183-1234`,
+// `:1326`, `:1339`, staging tip ac62fd4d), which state the branches
+// explicitly:
+//   - caller ABSENT on an owned scenario → IDOR fail-closed →
+//     `scenario_requires_authenticated_owner`  ⇒ SIGN IN
+//   - caller is a DIFFERENT user → cross-tenant attempt →
+//     `scenario_owned_by_other_user`           ⇒ NO ACCESS
+//   - ownership oracle unavailable →
+//     `scenario_ownership_unverifiable`        ⇒ OUR FAULT
+// CEE's admission NAMES the reason precisely so the UI can distinguish them.
+// ---------------------------------------------------------------------------
+describe('resolveGuidance — scenario_preflight reason union routes three ways (2.472 F1)', () => {
+  const SERVER_FAULT_COPY =
+    "Something on our side isn't working — your message was fine. Please try again in a moment."
+  const SIGN_IN_COPY =
+    "You'll need to sign in to continue — nothing was wrong with your message. Please sign in, then send it again."
+  const NO_ACCESS_COPY =
+    "This decision belongs to someone else, so you can't make changes to it — nothing you typed was the problem. Ask its owner to share it with you if you need access."
+
+  const preflightErr = (reason: string): BoundaryError => ({
+    error: 'INGRESS_CONTRACT_VIOLATION',
+    boundary: 'B1',
+    direction: 'ingress',
+    validator: 'scenario_preflight',
+    details: { reason, scenario_id: 'a9224aba-5a15-47b7-8b67-e913fa8f2a14' },
+    request_id: 'req_f1',
+    retryable: false,
+  })
+
+  it('scenario_ownership_unverifiable (the WITNESSED shape) → server-fault copy', () => {
+    expect(
+      resolveGuidance('INGRESS_CONTRACT_VIOLATION', preflightErr('scenario_ownership_unverifiable')),
+    ).toBe(SERVER_FAULT_COPY)
+  })
+
+  it('scenario_requires_authenticated_owner → SIGN-IN copy, never server-fault', () => {
+    const g = resolveGuidance(
+      'INGRESS_CONTRACT_VIOLATION',
+      preflightErr('scenario_requires_authenticated_owner'),
+    )
+    expect(g).toBe(SIGN_IN_COPY)
+    expect(g).not.toBe(SERVER_FAULT_COPY)
+    expect(g).not.toMatch(/rephrase/i)
+  })
+
+  it('scenario_owned_by_other_user → NO-ACCESS copy, never server-fault, never sign-in', () => {
+    const g = resolveGuidance(
+      'INGRESS_CONTRACT_VIOLATION',
+      preflightErr('scenario_owned_by_other_user'),
+    )
+    expect(g).toBe(NO_ACCESS_COPY)
+    expect(g).not.toBe(SERVER_FAULT_COPY)
+    expect(g).not.toBe(SIGN_IN_COPY)
+    expect(g).not.toMatch(/rephrase/i)
+  })
+
+  it('the three reasons produce THREE DISTINCT strings (the collapse this fix removes)', () => {
+    const copies = [
+      'scenario_ownership_unverifiable',
+      'scenario_requires_authenticated_owner',
+      'scenario_owned_by_other_user',
+    ].map((r) => resolveGuidance('INGRESS_CONTRACT_VIOLATION', preflightErr(r)))
+    expect(new Set(copies).size).toBe(3)
+  })
+
+  it('neither access-denied copy prescribes a futile wait-and-retry', () => {
+    for (const reason of ['scenario_requires_authenticated_owner', 'scenario_owned_by_other_user']) {
+      const g = resolveGuidance('INGRESS_CONTRACT_VIOLATION', preflightErr(reason))
+      expect(g).not.toMatch(/try again in a moment/i)
+      expect(g).not.toMatch(/isn't working/i)
+    }
+  })
+
+  it('the no-access copy blames nobody and names a real next step', () => {
+    const g = resolveGuidance('INGRESS_CONTRACT_VIOLATION', preflightErr('scenario_owned_by_other_user'))
+    expect(g).toMatch(/nothing you typed was the problem/i)
+    expect(g).toMatch(/share it with you/i)
+    expect(g).not.toMatch(/you (failed|forgot|should have)|your (mistake|error)/i)
+  })
+
+  it('an UNKNOWN future preflight reason falls back to server-fault, never to blame', () => {
+    const g = resolveGuidance('INGRESS_CONTRACT_VIOLATION', preflightErr('scenario_some_future_reason'))
+    expect(g).toBe(SERVER_FAULT_COPY)
+    expect(g).not.toMatch(/rephrase/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROADMAP 2.472 — auth class (RATIFIED scope extension, 5 Aug).
+//
+// ⚠ DORMANT ON THE WIRE TODAY (review F2 — an earlier version of this lane's
+// notes claimed CEE "has emitted sign_in_required since user-identity.ts
+// landed", which is FALSE). All three emitters are gated on
+// CEE_REQUIRE_USER_JWT, config default false, "ships dark"; resolveUserIdentity
+// returns { mode: 'off' } before it can refuse. The DEPLOYED posture is
+// unproven from the repo. These tests therefore pin a class that is correct
+// when the flag flips — the LIVE unauthenticated case today is
+// scenario_requires_authenticated_owner, pinned in the F1 block above.
+//
+// SOURCE OF THE WIRE SHAPE: **CEE source bytes**, not a live capture —
+// `olumi-assistants-service/src/orchestrator/user-identity.ts`
+// `buildSignInRequiredError()` read at staging tip
+// `ac62fd4d3a3a8657b4bcb58e64b0e91a1454f59f`. (Contrast the
+// scenario_preflight class above, which has BOTH source bytes and two
+// independent live captures. This class is byte-derived only; no capture in
+// PHASE0-EVIDENCE contains a user_jwt refusal. Stated so the evidence grade
+// is not overclaimed.)
+//
+// The producer's own comment declares the contract:
+//   "The stable UI mapping key is `details.code === 'sign_in_required'`
+//    (+ `details.recoverable: true`); `details.auth_reason` carries the
+//    refusal cause … `retryable: false` — retrying the same request
+//    unchanged cannot succeed; recovery is signing in."
+// So the gate below keys on `details.code` FIRST (the producer's declared
+// stable key), with `validator === 'user_jwt'` as a secondary signal.
+//
+// auth_reason is the closed union at user-identity.ts:64-68:
+//   missing_token | invalid_token | expired_token | verification_unavailable
+// The first three are genuinely "sign in". The FOURTH is not: if the
+// verifier itself is unavailable, instructing the user to sign in prescribes
+// an action that cannot work — the same defect class 2.472 exists to kill —
+// so it routes to the server-fault copy.
+// ---------------------------------------------------------------------------
+describe('resolveGuidance — auth class: sign-in copy, and the verifier-down carve-out (2.472)', () => {
+  const SERVER_FAULT_COPY =
+    "Something on our side isn't working — your message was fine. Please try again in a moment."
+  const SIGN_IN_COPY =
+    "You'll need to sign in to continue — nothing was wrong with your message. Please sign in, then send it again."
+
+  /** Byte-for-byte `buildSignInRequiredError(reason, requestId)` at ac62fd4d. */
+  const signInRequiredError = (
+    authReason: 'missing_token' | 'invalid_token' | 'expired_token' | 'verification_unavailable',
+  ): BoundaryError => ({
+    error: 'INGRESS_CONTRACT_VIOLATION',
+    boundary: 'B1',
+    direction: 'ingress',
+    validator: 'user_jwt',
+    details: {
+      reason: 'sign_in_required',
+      code: 'sign_in_required',
+      recoverable: true,
+      auth_reason: authReason,
+    },
+    request_id: 'req_signin_2472',
+    retryable: false,
+  })
+
+  it.each(['missing_token', 'invalid_token', 'expired_token'] as const)(
+    'auth_reason %s → sign-in copy, verbatim (never rephrase, never server-fault)',
+    (authReason) => {
+      const g = resolveGuidance('INGRESS_CONTRACT_VIOLATION', signInRequiredError(authReason))
+      expect(g).toBe(SIGN_IN_COPY)
+      expect(g).not.toMatch(/rephrase/i)
+      expect(g).not.toBe(SERVER_FAULT_COPY)
+    },
+  )
+
+  it('auth_reason verification_unavailable → server-fault copy: signing in cannot fix a downed verifier', () => {
+    expect(
+      resolveGuidance('INGRESS_CONTRACT_VIOLATION', signInRequiredError('verification_unavailable')),
+    ).toBe(SERVER_FAULT_COPY)
+  })
+
+  it("keys on the producer's declared stable key: details.code alone routes it, even under an unrecognised validator", () => {
+    const renamedValidator = {
+      ...signInRequiredError('expired_token'),
+      validator: 'user_jwt_v2_renamed',
+    }
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', renamedValidator)).toBe(SIGN_IN_COPY)
+  })
+
+  it('validator user_jwt alone routes it when details.code is absent (secondary signal)', () => {
+    const noCode: BoundaryError = {
+      error: 'INGRESS_CONTRACT_VIOLATION',
+      boundary: 'B1',
+      direction: 'ingress',
+      validator: 'user_jwt',
+      details: { reason: 'sign_in_required' },
+      request_id: 'req_no_code',
+      retryable: false,
+    }
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', noCode)).toBe(SIGN_IN_COPY)
+  })
+
+  it('an unknown future auth_reason still gets the sign-in copy (fail safe WITHIN the class)', () => {
+    const future = {
+      ...signInRequiredError('expired_token'),
+      details: { reason: 'sign_in_required', code: 'sign_in_required', auth_reason: 'novel_cause' },
+    } as unknown as BoundaryError
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', future)).toBe(SIGN_IN_COPY)
+  })
+
+  it('malformed auth fields never crash and stay in the sign-in class', () => {
+    const malformed = {
+      ...signInRequiredError('expired_token'),
+      details: { code: 'sign_in_required', auth_reason: { nested: true } },
+    } as unknown as BoundaryError
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', malformed)).toBe(SIGN_IN_COPY)
+  })
+
+  // Condition 4 of the ratification, asserted as a property of the string
+  // rather than trusted to review: no blame, and an explicit next action.
+  it('the sign-in copy blames nobody and names what to DO', () => {
+    const g = resolveGuidance('INGRESS_CONTRACT_VIOLATION', signInRequiredError('expired_token'))
+    // Says what to do.
+    expect(g).toMatch(/sign in/i)
+    expect(g).toMatch(/send it again|try again/i)
+    // Explicitly exonerates the message.
+    expect(g).toMatch(/nothing was wrong with your message/i)
+    // Blames nobody: no "you failed/forgot/must", no rephrase instruction.
+    expect(g).not.toMatch(/rephrase|you (failed|forgot|did|should have)|invalid|your (mistake|error)/i)
   })
 })
 

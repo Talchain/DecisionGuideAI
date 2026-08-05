@@ -188,3 +188,57 @@ describe('TypedErrorRenderer — fence-class GRAPH_DIVERGED (journey-walk gap #2
     );
   });
 });
+
+describe('TypedErrorRenderer — ingress-violation guidance branches on wire taxonomy (2.472)', () => {
+  it('the witnessed outage shape (scenario_preflight / ownership unverifiable) renders the server-fault copy, not rephrase', () => {
+    render(
+      <TypedErrorRenderer
+        code="INGRESS_CONTRACT_VIOLATION"
+        boundaryError={{
+          error: 'INGRESS_CONTRACT_VIOLATION',
+          boundary: 'B1',
+          direction: 'ingress',
+          validator: 'scenario_preflight',
+          details: {
+            reason: 'scenario_ownership_unverifiable',
+            scenario_id: 'c261b74a-c7ce-4aad-96ca-04f0fdfd0fce',
+          },
+          request_id: 'd3daf877-2adb-4dde-babf-daa7d7a30d0b',
+          retryable: false,
+        }}
+      />,
+    );
+    const guidance = screen.getByTestId('typed-error-guidance').textContent ?? '';
+    expect(guidance).toBe(
+      "Something on our side isn't working — your message was fine. Please try again in a moment.",
+    );
+    expect(guidance).not.toMatch(/rephrase/i);
+  });
+
+  it('without a boundaryError the guidance fails safe to the rephrase copy (positive control)', () => {
+    render(<TypedErrorRenderer code="INGRESS_CONTRACT_VIOLATION" />);
+    expect(screen.getByTestId('typed-error-guidance').textContent).toBe(
+      'Please rephrase your message and try again.',
+    );
+  });
+
+  it('an input-shaped violation (OrchestratorTurnPayload) keeps the rephrase copy (positive control)', () => {
+    render(
+      <TypedErrorRenderer
+        code="INGRESS_CONTRACT_VIOLATION"
+        boundaryError={{
+          error: 'INGRESS_CONTRACT_VIOLATION',
+          boundary: 'B1',
+          direction: 'ingress',
+          validator: 'OrchestratorTurnPayload',
+          details: { reason: 'turn_id must be a UUID v4' },
+          request_id: 'req_input_shaped',
+          retryable: false,
+        }}
+      />,
+    );
+    expect(screen.getByTestId('typed-error-guidance').textContent).toBe(
+      'Please rephrase your message and try again.',
+    );
+  });
+});

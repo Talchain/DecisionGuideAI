@@ -270,10 +270,11 @@ describe('V5 typed error — layered content assembly', () => {
     expect(target.kind).toBe('typed_error');
     if (target.kind !== 'typed_error') return;
 
-    // Reproduce the exact join useConversation performs
+    // Reproduce the exact join useConversation performs (2.472: guidance is
+    // taxonomy-aware, so the boundaryError rides along)
     const canonicalText = FAILURE_USER_TEXT[target.code];
     const reason = extractReason(target.boundaryError);
-    const guidance = resolveGuidance(target.code);
+    const guidance = resolveGuidance(target.code, target.boundaryError);
     const content = [canonicalText, reason, guidance].filter((s) => s.length > 0).join('\n\n');
 
     // Canonical layer — never generic
@@ -286,6 +287,50 @@ describe('V5 typed error — layered content assembly', () => {
     expect(content).toContain(canonicalText);
     expect(content).toContain('turn_id must be a UUID v4');
     expect(content).toContain(guidance);
+  });
+
+  it('2.472: the witnessed server-fault ingress violation never blames the user\'s wording', async () => {
+    // Byte-for-byte the BoundaryError CEE served during the 4 Aug outage
+    // (PHASE0-EVIDENCE-2026-07-28/rewalk-2459b-raw/run2-rewalk-wire.json):
+    // the ownership oracle was down — a pure server fault — and the UI told
+    // the user to rephrase. This pins the transport→router→guidance chain on
+    // that exact shape.
+    const boundaryErr: BoundaryError = {
+      error: 'INGRESS_CONTRACT_VIOLATION',
+      boundary: 'B1',
+      direction: 'ingress',
+      validator: 'scenario_preflight',
+      details: {
+        reason: 'scenario_ownership_unverifiable',
+        scenario_id: 'c261b74a-c7ce-4aad-96ca-04f0fdfd0fce',
+      },
+      request_id: 'd3daf877-2adb-4dde-babf-daa7d7a30d0b',
+      retryable: false,
+    };
+
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => boundaryErr,
+      text: async () => JSON.stringify(boundaryErr),
+    } as Response);
+
+    const result = await callV5Turn(VALID_PAYLOAD, { fetchImpl: fetchImpl as unknown as typeof fetch });
+    const target = routeV5Response(result);
+
+    expect(target.kind).toBe('typed_error');
+    if (target.kind !== 'typed_error') return;
+
+    // Identity binding: the taxonomy survived the transport intact.
+    expect(target.boundaryError?.validator).toBe('scenario_preflight');
+    expect(extractReason(target.boundaryError)).toBe('scenario_ownership_unverifiable');
+
+    const guidance = resolveGuidance(target.code, target.boundaryError);
+    expect(guidance).toBe(
+      "Something on our side isn't working — your message was fine. Please try again in a moment.",
+    );
+    expect(guidance).not.toMatch(/rephrase/i);
   });
 
   it('error block in response body (non-2xx path absent) produces typed_error with specific code', async () => {
