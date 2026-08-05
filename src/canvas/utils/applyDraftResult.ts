@@ -16,7 +16,6 @@ import { DEFAULT_EDGE_DATA, readValidationMetadata } from '../domain/edges'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
-import { isGraphPendingImportRegistration } from '../store/importRegistrationMarker'
 import { hasAnalysisReady } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response, EffectDirection } from '../../adapters/cee/types'
 import { commitDraftCoachingToStore, edgeProvenanceDisplayPatch } from './draftIngestion'
@@ -228,11 +227,15 @@ export function applyDraftResult(
     goalThreshold: null,
     goalThresholdRepresentation: null,
     outcomeNodeId: null,
-    // Interim 2.467, DERIVED: a CEE draft is CEE's OWN graph, so this normally
-    // releases the import hold — but it is derived from the graph being
-    // installed like every other replacement site, so a draft that reproduces
-    // an imported graph holds instead of affirming (fail-safe direction).
-    importPendingServerRegistration: isGraphPendingImportRegistration(nodes, edges),
+    // Interim 2.467 — the ONE replacement site that does not derive, stated
+    // plainly rather than dressed as derivation. A draft graph is one CEE has
+    // just produced, so it is server-known by construction and the hold
+    // releases unconditionally. (It is also the only site where derivation
+    // would be untestable theatre: draft nodes/edges arrive WIRE-shaped and are
+    // mapped here, so a canvas-shaped imported graph can never round-trip
+    // through this path to match the marker. An equivalent mutant is not
+    // coverage — see the evidence note on M7.)
+    importPendingServerRegistration: false,
   })
 
   // Warning-only schema validation at the mutation boundary. Non-throwing —
