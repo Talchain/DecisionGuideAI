@@ -19,6 +19,7 @@ import { buildRegistrationGraph } from '../buildRegistrationGraph'
 
 import IMPORTED_CANVAS from './fixtures/walk-import-modified.canvas.json'
 import ORIGINAL_CANVAS from './fixtures/walk-export-original.canvas.json'
+import CODEX_EXPORT from './fixtures/codex-export-2026-08-05.canvas.json'
 
 type CanvasFile = { nodes: Node[]; edges: Edge[] }
 
@@ -163,6 +164,70 @@ describe('buildRegistrationGraph — the captured canvas file', () => {
     expect(okGraph(buildRegistrationGraph(nodes, overWeight)).edges[0]).toMatchObject({
       strength: { mean: 1 },
     })
+  })
+})
+
+describe('buildRegistrationGraph — the analysis-bearing fields must reach the server', () => {
+  /**
+   * FIXTURE: the independent reviewer's own export, 5 Aug 2026
+   * (`PHASE0-EVIDENCE-2026-07-28/codex-deep-review-2026-08-05-raw/canvas-export-1785945361783.json`,
+   * SHA-256 `b2c195f16778…`) — 20 nodes, 34 edges, carrying a real
+   * goal-threshold quad (`raw 250000`, `unit £`, `cap 312500`, `frame level`).
+   *
+   * ⚠ WHY THIS FIXTURE IS THE FILE AND NOT THE CANVAS. Measured at these bytes:
+   *   the IMPORT path itself strips this data before the canvas ever sees it —
+   *   `importCanvas` on this exact file returns 20 nodes whose goal `data` is
+   *   reduced to `{kind, label, provenance, type}`, because
+   *   `V2SnapshotSchema`'s `AnyNodeDataSchema` is a strict discriminated union
+   *   and Zod drops undeclared keys. That defect is UPSTREAM of this module and
+   *   is reported, not silently absorbed.
+   *
+   *   This test therefore pins THIS seam's own obligation: given a canvas that
+   *   DOES carry the analysis-bearing fields, the registration projection must
+   *   not become a SECOND strip. Registering a hollowed-out graph would make
+   *   the server agree with a hollowed-out screen — agreement is not the goal,
+   *   carrying the user's model is.
+   */
+  const codex = CODEX_EXPORT as unknown as CanvasFile
+
+  it('POSITIVE CONTROL: the reviewer`s export really carries the goal-threshold quad', () => {
+    const goal = codex.nodes.find((n) => n.id === 'goal_mrr')
+    const data = goal?.data as Record<string, unknown>
+    expect(data.goal_threshold_raw).toBe(250000)
+    expect(data.goal_threshold_unit).toBe('£')
+    expect(data.goal_threshold_cap).toBe(312500)
+    expect(data.goal_threshold_frame).toBe('level')
+    expect(codex.nodes).toHaveLength(20)
+    expect(codex.edges).toHaveLength(34)
+  })
+
+  it('carries the WHOLE goal-threshold quad through to the wire, bound to the goal node by id', () => {
+    const graph = okGraph(buildRegistrationGraph(codex.nodes, codex.edges))
+    const goal = graph.nodes.find((n) => n.id === 'goal_mrr')
+    expect(goal).toMatchObject({
+      kind: 'goal',
+      goal_threshold_raw: 250000,
+      goal_threshold_unit: '£',
+      goal_threshold_cap: 312500,
+      goal_threshold_frame: 'level',
+    })
+  })
+
+  it('carries the baseline-option marker and per-node observed values', () => {
+    const graph = okGraph(buildRegistrationGraph(codex.nodes, codex.edges))
+    // Bound by IDENTITY: this option, not "an option somewhere with is_baseline".
+    expect(graph.nodes.find((n) => n.id === 'opt_status_quo')?.is_baseline).toBe(true)
+    expect(graph.nodes.find((n) => n.id === 'opt_hire_sales')?.is_baseline).toBe(false)
+  })
+
+  it('DISCRIMINATING HALF: a canvas WITHOUT the quad produces a wire node without it — the test is not asserting a constant', () => {
+    const stripped = clone(codex)
+    const goal = stripped.nodes.find((n) => n.id === 'goal_mrr')!
+    for (const k of Object.keys(goal.data as Record<string, unknown>)) {
+      if (k.startsWith('goal_threshold')) delete (goal.data as Record<string, unknown>)[k]
+    }
+    const graph = okGraph(buildRegistrationGraph(stripped.nodes, stripped.edges))
+    expect(graph.nodes.find((n) => n.id === 'goal_mrr')).not.toHaveProperty('goal_threshold_raw')
   })
 })
 
