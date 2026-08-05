@@ -7,7 +7,40 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.34.0.tgz`
+### `talchain-schemas-0.35.0.tgz` ← **THE CURRENT PIN**
+
+**Provenance: PACKED FROM THE MERGED, TAGGED, PUBLISHED RELEASE — the first
+section in this file that can say so.** Built with `npm ci && npm run build &&
+npm pack` from a fresh blobless clone of `olumi-schemas` at tag **`v0.35.0`**
+(= `6c88076b`, which is also `main`'s head). 337,967 bytes. sha256:
+
+```
+bbca89c0fe4b33b10822cfbac826a224424343c86729016df2882f16b9f464b7
+```
+
+| Claim | Status |
+|---|---|
+| the sidecar matches the checked-in bytes | ✅ `shasum -a 256 -c vendor/talchain-schemas-0.35.0.tgz.sha256` |
+| reproducible from tagged source | ✅ an independent `npm pack` at `v0.35.0` produced these exact bytes |
+| byte-identical to what **CEE deploys** | ✅ matches CEE's committed sidecar AND CEE's committed tarball re-hashed — both consumers of the editable-field table run identical schema bytes **by construction** |
+
+**What the UI adopts here (ROADMAP 2.474):** `orchestrator/editable-fields` — the
+CLASSED field-parity table (42 rows at revision 1) — and `orchestrator/edit-tool-ops`.
+**Neither module exists in 0.34.0**, which is the whole point of the bump: the UI
+could not import the table CEE has enforced its referee allowlist from since
+0.35.0, and `requireEditableFieldTableRevision` — the fail-loud pin-skew guard —
+was itself absent from the old pin, so the UI failed *silently*. Bound by
+`src/canvas/ui/inspector-v2/__tests__/editableFieldTable.pinAndParity.spec.ts`.
+
+> ⚠ **Bumping the pin? THREE places move together**, and only one is derived:
+> `package.json` (the pin), `pnpm-lock.yaml` (pnpm derives it), and
+> **`src/lib/talchainSchemasVersion.ts` — HAND-MAINTAINED**, feeding
+> `schema_versions.ui_vendored_talchain_schemas` in the debug bundle. Forgetting
+> the third stamps a wrong contract version into every evidence bundle; its guard
+> (`src/lib/__tests__/talchainSchemasVersion.spec.ts`) is what catches you, and it
+> caught exactly this on the 0.35.0 bump.
+
+### `talchain-schemas-0.34.0.tgz` (superseded — retained)
 
 > **⚠ BRANCH-PACKED, PRE-PUBLISH** (same trade as prior train sections; no
 > registry 0.34.0 exists until olumi-schemas PR #33 merges; merge order
@@ -25,7 +58,17 @@ AFTER CEE's 0.34.0 leg — an older CEE pin rejects the whole turn on either
 kind.
 
 
-### `talchain-schemas-0.32.0.tgz` ← THE CURRENT PIN
+### `talchain-schemas-0.32.0.tgz` (superseded — retained)
+
+> ⚠ **This section carried the marker `← THE CURRENT PIN` until 5 Aug 2026, and
+> it was ALREADY FALSE BEFORE THE 0.35.0 BUMP:** the pin had been 0.34.0 since
+> that section was added above, so the marker had been lying for at least one
+> whole version and nothing failed. It is the FOURTH hand-maintained mirror of
+> the pin, and the only unguarded one — the other three (`package.json`,
+> `pnpm-lock.yaml`, `src/lib/talchainSchemasVersion.ts`) all have a check that
+> REDs on drift, which is precisely why this one drifted and they did not. It is
+> also the first file a re-vendor lane reads, so it is the mirror best placed to
+> mislead. Marker moved to 0.35.0 above; this heading is now inert prose.
 
 **Provenance: PACKED FROM THE OPEN olumi-schemas PR BRANCH, PRE-PUBLISH — stated
 plainly because this file keeps cataloguing exactly this situation.** Lane 2
@@ -336,6 +379,17 @@ Earlier vendored versions (0.3.0 at A0, 0.4.0 at A1, ..., 0.13.1, 0.15.0 at
 the reasoning/held_proposal/ui_directive wave, and 0.18.0 at the
 goal_constraints wave) are removed on each bump — only the currently-pinned
 version lives in `vendor/`.
+
+> ⚠ **THAT INVARIANT IS CURRENTLY VIOLATED, stated rather than quietly fixed
+> (5 Aug 2026).** `vendor/` holds THREE tarballs — `0.32.0`, `0.34.0` and the
+> pinned `0.35.0`. Deleting the two superseded ones is the obvious tidy-up and
+> this lane deliberately did NOT do it: `scripts/check-vendor-sha.mjs` derives
+> the tarball it verifies FROM the pin, so an unpinned tarball is unverified by
+> anything, and removing files is exactly the kind of "obviously safe" change
+> that wants its own diff and its own gate run rather than a ride-along in a
+> pin bump. Rowed. Either enforce the invariant with a check or restate it as
+> "the pinned version plus retained history" — an invariant no one enforces is
+> the same broken alarm as a stale marker.
 
 (Note: this section once described 0.13.1 while the pin had already moved to
 0.15.0 — a hand-maintained mirror that had drifted. Treat this whole file as
