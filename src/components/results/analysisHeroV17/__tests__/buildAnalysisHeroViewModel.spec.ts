@@ -496,6 +496,108 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.keyQuestion?.text).toBe('What evidence would change your view?')
     })
 
+    /**
+     * ── 2.491: the `generalGuidance` JOIN ────────────────────────────────
+     *
+     * `buildKeyQuestion` maps the selected prompt's `groundingState` onto the
+     * VM's `generalGuidance` flag. That join is invisible to any render test —
+     * deleting `...(generalGuidance ? { generalGuidance: true } : {})` was
+     * demonstrated to SURVIVE the whole suite. These cases are what make that
+     * deletion bite.
+     *
+     * (The V17 hero is the flag-OFF arm and does not mount on staging; the
+     * DEPLOYED proof is KeyQuestionCard.generalGuidance.spec.tsx plus the
+     * mount-path guard in ResultsBody.keyQuestionLiveMount.spec.tsx. This join
+     * still needs pinning: an unpinned branch is an unpinned branch.)
+     */
+    it('2.491 — sets generalGuidance from the SELECTED prompt\'s general verdict', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          stability: 0.7,
+          dqpFull: [
+            {
+              principle: 'Consider-the-opposite',
+              appliesBecause: 'x',
+              question: 'What would make you switch?',
+              groundingState: 'general',
+            },
+          ] as never,
+        }),
+        vm: makeVm({ decisionState: 'sensitive' }),
+      })
+      // POSITIVE CONTROL for the join: prove a card exists before asserting a
+      // flag on it, or a null card passes vacuously.
+      expect(vm.keyQuestion).not.toBeNull()
+      expect(vm.keyQuestion?.text).toBe('What would make you switch?')
+      expect(vm.keyQuestion?.generalGuidance).toBe(true)
+      expect(vm.keyQuestion?.grounding).toBeUndefined()
+    })
+
+    it('2.491 — does NOT set generalGuidance for an attested prompt (discriminating half)', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          stability: 0.7,
+          dqpFull: [
+            {
+              principle: 'Outside view and reference class forecasting',
+              appliesBecause: 'x',
+              question: 'What is the base rate?',
+              dskClaimId: 'DSK-T-002',
+              evidenceStrength: 'strong',
+              groundingState: 'attested',
+            },
+          ] as never,
+        }),
+        vm: makeVm({ decisionState: 'sensitive' }),
+      })
+      expect(vm.keyQuestion?.generalGuidance).toBeUndefined()
+      expect(vm.keyQuestion?.grounding?.claimId).toBe('DSK-T-002')
+    })
+
+    it('2.491 — no verdict on the wire ⇒ no flag (absence is not "general")', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          stability: 0.7,
+          dqpFull: [
+            { principle: 'Consider-the-opposite', appliesBecause: 'x', question: 'A question' },
+          ] as never,
+        }),
+        vm: makeVm({ decisionState: 'sensitive' }),
+      })
+      expect(vm.keyQuestion).not.toBeNull()
+      expect(vm.keyQuestion?.generalGuidance).toBeUndefined()
+    })
+
+    it('2.491 — binds to prompt[0], not to "any prompt in the list"', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          stability: 0.7,
+          dqpFull: [
+            {
+              principle: 'Outside view and reference class forecasting',
+              appliesBecause: 'x',
+              question: 'attested first',
+              dskClaimId: 'DSK-T-002',
+              groundingState: 'attested',
+            },
+            {
+              principle: 'Consider-the-opposite',
+              appliesBecause: 'x',
+              question: 'general second',
+              groundingState: 'general',
+            },
+          ] as never,
+        }),
+        vm: makeVm({ decisionState: 'sensitive' }),
+      })
+      expect(vm.keyQuestion?.text).toBe('attested first')
+      expect(vm.keyQuestion?.generalGuidance).toBeUndefined()
+    })
+
     it('hides the card when reviewStatus !== "complete" even if a clean DQP is present (in-progress / stale guard)', () => {
       // Upstream selector exposes m2DecisionQualityPrompts even during a
       // partial review. Without the reviewStatus gate the card would

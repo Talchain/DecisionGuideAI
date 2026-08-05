@@ -41,6 +41,7 @@ import { useCanvasStore } from '../../../canvas/store'
 import { typography } from '@/styles/typography'
 import {
   deriveDskGrounding,
+  isGeneralGuidance,
   mapDecisionQualityPrompts,
 } from '../utils/decisionQualityPrompts'
 import { containsBannedTerm } from '../analysisHeroV17/glossaryCheck'
@@ -83,6 +84,18 @@ export function KeyQuestionCard() {
         >
           Grounded in: {grounding.principle}
           {grounding.strength ? ` · ${grounding.strength} evidence` : ''}
+        </p>
+      )}
+      {/* 2.491: the badge's negative twin. Absence of a grounding line used to
+          be SILENT, so an unattested prompt read exactly like an attested one.
+          Rendered only on CEE's positive `general` verdict — never inferred
+          from missing grounding (see isGeneralGuidance). */}
+      {isGeneralGuidance(main) && (
+        <p
+          className={`${typography.panelMeta} text-text-light break-words`}
+          data-testid="dsk-general-guidance"
+        >
+          General guidance — not drawn from our attested evidence base.
         </p>
       )}
     </section>

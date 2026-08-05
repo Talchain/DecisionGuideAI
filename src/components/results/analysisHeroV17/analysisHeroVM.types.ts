@@ -82,6 +82,12 @@ export interface KeyQuestion {
   chips: string[]
   /** DSK provenance for `text`'s source prompt — see DskGrounding. */
   grounding?: DskGrounding
+  /**
+   * 2.491 — true when CEE positively verdicted the source prompt as `general`
+   * (unattested). Renders the badge's negative twin so absence-of-badge stops
+   * being silent. Never inferred from `!grounding`: see `isGeneralGuidance`.
+   */
+  generalGuidance?: boolean
 }
 
 export interface AlsoLink {
