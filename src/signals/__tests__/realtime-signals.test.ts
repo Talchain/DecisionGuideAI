@@ -476,9 +476,32 @@ describe('false positive guards', () => {
  * mutants exceeds it by >=31%. See the lane evidence file
  * `PHASE0-EVIDENCE-2026-07-28/lane-perftest-2026-08-05.md`.
  *
- * Scope note: this catches SUPERLINEAR growth. A regex whose backtracking is
- * exponential rather than polynomial does not produce a finite ratio at all — it
- * is caught by the explicit test timeout below, not by this assertion.
+ * WHAT THIS DOES NOT CATCH — and the limit is RESOLUTION, not calibration.
+ * A fully quadratic regression with a small enough CONSTANT also passes at
+ * SIZE_FACTOR=4. Measured by adversarial review; both of these are fully O(n^2)
+ * and both PASS:
+ *      C1  mutant B's bug shape applied to ONE of the seven exclusion patterns
+ *          instead of all seven (a plausible targeted fix) ... 4.54x, 5.03x
+ *      C2  nested O(n^2) over SENTENCES rather than words .... 4.31x
+ * Lowering the ceiling would NOT recover these. Healthy INDIVIDUAL samples reach
+ * 5.95 under bursty load, so C1's median sits INSIDE the healthy sample range and
+ * no ceiling separates them at 4x. The fix is more dynamic range, not a tighter
+ * bound: holding all else fixed, healthy-vs-C1 separation is 1.33x at
+ * SIZE_FACTOR=4, 1.76x at 8, 1.97x at 16. Raising SIZE_FACTOR to 8 is ROWED
+ * separately — it doubles the large arm and needs its own calibration run.
+ * (A regex whose backtracking is exponential rather than polynomial produces no
+ * finite ratio at all, and is caught by the explicit timeout, not by this bound.)
+ *
+ * TWO LOAD-BEARING DETAILS A TIDY-UP MUST NOT REMOVE:
+ *   - The MEDIAN OF 9 PAIRS is doing real work; the CPU instrument alone is not
+ *     sufficient. A healthy INDIVIDUAL sample was measured at 5.95 under bursty
+ *     load, so a mean-based or single-sample design would still flake.
+ *   - `process.cpuUsage()` is PROCESS-wide, not thread-wide. A spec running
+ *     concurrently in the same process inflates it (2.01x measured from a single
+ *     spinning sibling). This test is sound only because `vitest.config.ts` pins
+ *     `poolOptions.threads.maxThreads`/`minThreads` to 1 and no CI workflow
+ *     overrides it (verified at this tip). Raising maxThreads would silently
+ *     degrade this measurement rather than fail it.
  *
  * The doubling is an honest doubling of the pathological dimension: the input is
  * a repeated unit, so 4x repeats quadruples every dimension the hot path scans —
