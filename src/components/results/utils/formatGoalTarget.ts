@@ -3,8 +3,8 @@
  *
  * ROADMAP 2.315(c). This is a CONSOLIDATION, not a new formatting authority:
  * every branch delegates rendering to `formatTargetValue` (the estate's
- * goal-target primitive, already used by GoalNode, NodeInspector,
- * BaselineTargetRow and SuccessTargetRow) and every unit decision comes from
+ * goal-target primitive, already used by GoalNode, NodeInspector and
+ * SuccessTargetRow) and every unit decision comes from
  * `classifyUnit` (the single-source classifier in src/utils/unitClassifier).
  *
  * WHY IT WAS NEEDED

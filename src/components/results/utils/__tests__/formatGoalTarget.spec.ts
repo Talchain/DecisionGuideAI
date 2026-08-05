@@ -4,8 +4,8 @@
  * WHY THIS EXISTS RATHER THAN A FOURTH FORMATTER
  * ----------------------------------------------
  * `formatTargetValue` is already the estate's goal-target primitive — named
- * for the job and used by the canvas GoalNode, NodeInspector,
- * BaselineTargetRow and SuccessTargetRow. But it takes a STRUCTURED unit kind
+ * for the job and used by the canvas GoalNode, NodeInspector and
+ * SuccessTargetRow. But it takes a STRUCTURED unit kind
  * ('currency' | 'percent' | 'count'), never the unit STRING that CEE actually
  * sends, so every caller hand-rolled the string→kind mapping and the three
  * copies drifted:

@@ -173,7 +173,6 @@ export const GoalPanel = memo(function GoalPanel({
    *    and would happily pair a normalised magnitude with a raw unit:
    *      · NodeInspector.tsx:334-348      (legacy inspector target line)
    *      · SuccessTargetRow.tsx           (0 references to the tag)
-   *      · BaselineTargetRow.tsx          (0 references to the tag)
    *      · RangeVisualization, via `effectiveGoalThreshold`
    *        (useResultsSectionData.ts:1338 — 0 references to the tag)
    *    Harmless TODAY only because CEE #798 is raw-anchored, so a unit-bearing

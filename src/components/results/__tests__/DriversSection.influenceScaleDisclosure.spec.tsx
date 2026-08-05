@@ -181,7 +181,7 @@ function legacyData(): DriversSectionData {
 
 function hoverInfluenceHeader(): void {
   // The Tooltip component wraps its child in the floating-ui reference div —
-  // hover that wrapper (same pattern as BaselineTargetRow.spec).
+  // hover that wrapper.
   const header = screen.getByText('Influence')
   fireEvent.mouseEnter(header.parentElement!)
 }
