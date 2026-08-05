@@ -33,7 +33,7 @@
  *       (hydrate / scenario load / reset / CEE draft) — no permanent
  *       suppression.
  */
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, screen, act, cleanup } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
@@ -55,6 +55,14 @@ import {
   FRESHNESS_COPY,
 } from '../../components/results/AnalysisFreshnessNotice'
 import { ReanalyseBar } from '../components/model-tab/ReanalyseBar'
+
+// Spy on the completion toast. `importOriginal` spread so the mock cannot rot
+// as the module gains exports (trap 12: a vi.mock factory REPLACES the module).
+const showToast = vi.fn()
+vi.mock('@/canvas/ToastContext', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/canvas/ToastContext')>()),
+  useShowToastSafe: () => showToast,
+}))
 
 const EXPORT_ORIGINAL_JSON = readFileSync(
   path.resolve(__dirname, '__fixtures__', 'rewalk2459b-export-original.json'),
@@ -750,6 +758,31 @@ describe('interim 2.467 round 2 — the hold is derived from the graph, not from
     // The ReanalyseBar is the "Model changed. Results may be out of date."
     // assertion — it must not render for an import hold.
     expect(screen.queryByTestId('reanalyse-bar')).toBeNull()
+  })
+
+  it('the COMPLETION TOAST cannot claim "with the current model" under an import hold', () => {
+    // The strip and the toast must claim the same thing (the acceptance the
+    // notice's own docs state). A mutation probe caught this uncovered: the
+    // toast took the un-held classification, so a rerun on an unregistered
+    // import announced "completed with the current model" — the affirmative
+    // the badge is forbidden to show, delivered by a different surface.
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    act(() => {
+      useCanvasStore.getState().setAnalysisFreshness(SERVER_FRESH_VERDICT_AFTER_RERUN)
+    })
+    showToast.mockClear()
+    // Drive a running → complete transition, which is what fires the toast.
+    useCanvasStore.setState({ results: { status: 'streaming', progress: 50 } } as never)
+    renderFreshnessSurfaces()
+    act(() => {
+      useCanvasStore.setState({ results: { status: 'complete', progress: 100 } } as never)
+    })
+    expect(showToast).toHaveBeenCalled()
+    const said = showToast.mock.calls.map((c) => String(c[0])).join(' | ')
+    expect(said).not.toContain('with the current model')
   })
 
   it('digest .sort() is load-bearing: a REORDERED hydrate of the imported graph still holds', () => {
