@@ -232,10 +232,26 @@ export function isSelfContradictoryStale(
  * They inherit the mitigation solely because `setAnalysisFreshness` forces the
  * dirty overlay on under a hold, which downgrades a `fresh` verdict to
  * `'unknown'` here. That forced-dirty line is the single most load-bearing line
- * in the mitigation (its mutant bites 6 tests). **Any new call site that asks a
- * POSITIVE question of this function — "is it fresh?" — will get the wrong
- * answer under a hold.** Ask `classifyFreshnessForDisplay` (which takes the
- * hold explicitly and gates the affirmative first) instead.
+ * in the mitigation.
+ *
+ * ⚠ NO MUTANT COUNT IS RECORDED HERE, DELIBERATELY. This sentence used to read
+ * "its mutant bites 6 tests" — a hand-written tally no gate derives, i.e. the
+ * hand-maintained mirror this codebase's own doctrine warns about, sitting
+ * inside a comment about load-bearing guarantees. Re-measured at 2.494 it was
+ * wrong AND ill-posed: deleting the assignment bites **5**, flipping it to
+ * `false` bites **7**, so "the" count depends on which mutant you pick and the
+ * number could only ever decay. Derive it instead — every test that can reach
+ * the held branch lives in ONE file,
+ * `src/canvas/__tests__/importCanvas.analysisInvalidation.spec.tsx`, and that
+ * is itself derivable rather than asserted: reaching the branch requires
+ * `importPendingServerRegistration === true`, and every route to it
+ * (`importCanvas`, `markGraphImported`, the marker's storage key, a direct
+ * `setState` of the field) is referenced by that spec alone.
+ *
+ * **Any new call site that asks a POSITIVE question of this function — "is it
+ * fresh?" — will get the wrong answer under a hold.** Ask
+ * `classifyFreshnessForDisplay` (which takes the hold explicitly and gates the
+ * affirmative first) instead.
  */
 export function resolveDisplayedFreshness(
   state: AnalysisFreshnessState | null,
