@@ -42,6 +42,7 @@ import type {
   V5CoachingBlock,
   V5EvidenceBlock,
   V5ExerciseBlock,
+  V5DskProtocolProvenance,
   V5Phase3Freshness,
   V5ReviewCardBlock,
 } from '../canvas/conversation/types'
@@ -275,6 +276,43 @@ export function adaptTypedEvidenceBlock(raw: unknown): V5EvidenceBlock | null {
  * say must not render an empty shell. Individual malformed warning_signs
  * entries are skipped, not repaired.
  */
+/**
+ * 0.37.0 — the DSK protocol provenance triple, or `undefined`.
+ *
+ * ⚠ THIS FUNCTION IS THE READER HALF OF CEE #830's FIX, AND ITS REFUSALS ARE
+ * THE POINT. #830 shipped an attestation that confirmed a DSK id EXISTED while
+ * the text rendered beneath it was the model's own prose — a badge printing
+ * assistant narration under the bundle's authority. The badge this feeds makes
+ * the same kind of claim, so it must be impossible to render one on a partial
+ * or ill-formed triple:
+ *   · ALL THREE members required — an id with no title is an authority claim
+ *     with nothing to check it against, which is exactly the #830 shape.
+ *   · `protocol_id` must match the bundle's PROTOCOL id form. `DSK-T-003` and
+ *     `DSK-TR-003` are real bundle objects, so "the id exists" is true of them
+ *     and still must not badge a protocol.
+ *   · `evidence_strength` must be one of the bundle's DECLARED values
+ *     (`DSKObjectBase.evidence_strength`), not merely a non-empty string.
+ * A refusal costs the ATTRIBUTION only — never the card. Losing a badge is a
+ * lost affordance; showing a wrong one is a lie about science.
+ */
+const DSK_PROTOCOL_ID_RE = /^DSK-P-\d{3}$/
+const DSK_EVIDENCE_STRENGTHS = ['strong', 'medium', 'weak', 'mixed'] as const
+
+function dskProtocolProvenance(raw: unknown): V5DskProtocolProvenance | undefined {
+  if (!isPlainObject(raw)) return undefined
+  const id = nonEmptyString(raw.protocol_id)
+  const title = nonEmptyString(raw.protocol_title)
+  const strength = nonEmptyString(raw.evidence_strength)
+  if (!id || !title || !strength) return undefined
+  if (!DSK_PROTOCOL_ID_RE.test(id)) return undefined
+  if (!(DSK_EVIDENCE_STRENGTHS as readonly string[]).includes(strength)) return undefined
+  return {
+    protocol_id: id,
+    protocol_title: title,
+    evidence_strength: strength as V5DskProtocolProvenance['evidence_strength'],
+  }
+}
+
 export function adaptTypedExerciseBlock(raw: unknown): V5ExerciseBlock | null {
   if (!isPlainObject(raw)) return null
   if (raw.type !== 'exercise') return null
@@ -307,11 +345,13 @@ export function adaptTypedExerciseBlock(raw: unknown): V5ExerciseBlock | null {
   }
 
   const targetElementRef = optionalRef(raw.target_element_ref)
+  const dskProvenance = dskProtocolProvenance(raw.dsk_provenance)
 
   return {
     type: 'v5_exercise',
     block_id: blockId,
     exercise_kind: exerciseKind,
+    ...(dskProvenance ? { dsk_provenance: dskProvenance } : {}),
     ...(failureScenario ? { failure_scenario: failureScenario } : {}),
     ...(signs ? { warning_signs: signs } : {}),
     ...(mitigation ? { mitigation } : {}),

@@ -313,10 +313,25 @@ export interface V5EvidenceBlock {
  * `exercise_kind` is a pass-through discriminator (data-* only). Distinct
  * from the legacy V4-era `ExerciseBlock` ConversationBlock.
  */
+/**
+ * 0.37.0 — the canonical DSK protocol an exercise card is an instance of,
+ * mirroring schemas' `DskProtocolProvenanceSchema`. ATOMIC by contract: the id
+ * never travels without the title and strength that make it checkable against
+ * `data/dsk/v1.json`. The adapter enforces the same rule independently, because
+ * it parses the raw wire payload rather than the Zod schema.
+ */
+export interface V5DskProtocolProvenance {
+  protocol_id: string
+  protocol_title: string
+  evidence_strength: 'strong' | 'medium' | 'weak' | 'mixed'
+}
+
 export interface V5ExerciseBlock {
   type: 'v5_exercise'
   block_id: string
   exercise_kind: string
+  /** Absent = this exercise claims no DSK protocol. Never "unknown protocol". */
+  dsk_provenance?: V5DskProtocolProvenance
   failure_scenario?: string
   warning_signs?: string[]
   mitigation?: string
