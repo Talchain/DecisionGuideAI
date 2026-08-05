@@ -62,7 +62,9 @@ export function TypedErrorRenderer(props: TypedErrorRendererProps): ReactElement
   // staleness — same resolution as useConversation's typed_error branch.
   const fenceCopy = code === 'GRAPH_DIVERGED' ? resolveFenceRefusalCopy(boundaryError) : null
   const text = fenceCopy ?? resolveUserText(code)
-  const guidance = resolveGuidance(code)
+  // 2.472: taxonomy-aware — an ingress violation whose validator/reason names
+  // server state gets server-fault guidance, never "rephrase your message".
+  const guidance = resolveGuidance(code, boundaryError)
   const reason = extractReason(boundaryError)
 
   return (

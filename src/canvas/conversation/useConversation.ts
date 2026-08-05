@@ -4967,7 +4967,12 @@ export function useConversation(): UseConversationReturn {
               const reasonLayer =
                 recovery.suggestion === undefined && isDisplaySafeReason(reason) ? reason : ''
               const guidance =
-                recovery.suggestion === undefined ? resolveV5ErrorGuidance(target.code) : ''
+                recovery.suggestion === undefined
+                  ? // 2.472: taxonomy-aware — a server-state ingress violation
+                    // (e.g. scenario_preflight/ownership) gets server-fault
+                    // guidance, never "rephrase your message".
+                    resolveV5ErrorGuidance(target.code, target.boundaryError)
+                  : ''
               content = [
                 baseCopy,
                 recovery.suggestion ?? '',

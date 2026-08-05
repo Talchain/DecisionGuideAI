@@ -103,8 +103,13 @@ describe('resolveGuidance — shared guidance resolver', () => {
     expect(resolveGuidance(code)).toBe('')
   })
 
+  // ⚠ DELIBERATE PIN CHANGE (ROADMAP 2.472): INGRESS_CONTRACT_VIOLATION left
+  // this table on purpose. Its old row pinned "always /rephrase/i" — the exact
+  // untruth 2.472 removes (a server-side key failure told the user to rephrase,
+  // witnessed live 4 Aug). Its guidance is now taxonomy-branched and pinned in
+  // the dedicated describe block below; the rephrase copy survives ONLY as the
+  // input-shaped / fail-safe branch.
   it.each([
-    ['INGRESS_CONTRACT_VIOLATION', /rephrase/i],
     ['EGRESS_CONTRACT_VIOLATION', /validated/i],
     ['FEATURE_NOT_ENABLED', /not yet available/i],
     ['TURN_BUDGET_EXCEEDED', /turn limit/i],
@@ -112,6 +117,146 @@ describe('resolveGuidance — shared guidance resolver', () => {
     const g = resolveGuidance(code)
     expect(g.length).toBeGreaterThan(0)
     expect(g).toMatch(pattern)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROADMAP 2.472 — INGRESS_CONTRACT_VIOLATION guidance branches on the wire's
+// own taxonomy (validator / details.reason) instead of blaming the user's
+// wording for every violation.
+//
+// Witnessed defect (4 Aug outage, capture at
+// PHASE0-EVIDENCE-2026-07-28/rewalk-2459b-raw/run2-rewalk-wire.json): CEE
+// refused the turn with validator 'scenario_preflight',
+// details.reason 'scenario_ownership_unverifiable', retryable:false — a
+// server-side ownership-oracle failure — and the UI said "Please rephrase
+// your message and try again."
+//
+// Class → copy contract (validator vocabulary derived at CEE staging tip
+// ac62fd4d — see PR body):
+//   server-state validators (scenario_preflight, turn_commit,
+//   chip_click_dispatch, draft_graph_pipeline, edit_graph_pipeline) or a
+//   details.reason in the producer's scenario_ownership* family → server-fault
+//   copy · user_jwt → sign-in copy · input-shaped validators
+//   (OrchestratorTurnPayload, V5RequestExtensions), unknown validators, and
+//   absent taxonomy → the rephrase copy (fail-safe: never crash, never blank).
+// ---------------------------------------------------------------------------
+describe('resolveGuidance — INGRESS_CONTRACT_VIOLATION wire-taxonomy branching (2.472)', () => {
+  const SERVER_FAULT_COPY =
+    "Something on our side isn't working — your message was fine. Please try again in a moment."
+  const SIGN_IN_COPY =
+    'You need to be signed in for this — your message was fine. Please sign in and try again.'
+  const REPHRASE_COPY = 'Please rephrase your message and try again.'
+
+  /** Byte-for-byte the BoundaryError CEE served during the witnessed outage
+   *  (rewalk run2; run1 identical modulo ids). Identity-bound: this object is
+   *  the witnessed wire shape, not a value-predicate stand-in. */
+  const WITNESSED_OUTAGE_ERROR: BoundaryError = {
+    error: 'INGRESS_CONTRACT_VIOLATION',
+    boundary: 'B1',
+    direction: 'ingress',
+    validator: 'scenario_preflight',
+    details: {
+      reason: 'scenario_ownership_unverifiable',
+      scenario_id: 'c261b74a-c7ce-4aad-96ca-04f0fdfd0fce',
+    },
+    request_id: 'd3daf877-2adb-4dde-babf-daa7d7a30d0b',
+    retryable: false,
+  }
+
+  const ingressErr = (validator: string, reason?: string): BoundaryError => ({
+    error: 'INGRESS_CONTRACT_VIOLATION',
+    boundary: 'B1',
+    direction: 'ingress',
+    validator,
+    details: reason === undefined ? {} : { reason },
+    request_id: 'req_2472',
+    retryable: false,
+  })
+
+  it('the witnessed outage wire shape gets the server-fault copy, verbatim', () => {
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', WITNESSED_OUTAGE_ERROR)).toBe(
+      SERVER_FAULT_COPY,
+    )
+  })
+
+  it.each([
+    ['scenario_preflight', 'scenario_owned_by_other_user'],
+    ['scenario_preflight', 'scenario_requires_authenticated_owner'],
+    ['scenario_preflight', 'scenario_ownership_unverifiable'],
+    ['turn_commit', 'state_commit_failed_or_turn_runtime_failure'],
+    ['turn_commit', 'graph_write_conflict'],
+    ['chip_click_dispatch', 'chip_click_suggest_options_handler_failed'],
+    ['draft_graph_pipeline', 'draft_graph_commit_failed'],
+    ['edit_graph_pipeline', 'edit_graph_pipeline_threw'],
+  ] as const)(
+    'server-state validator %s (reason %s) → server-fault copy',
+    (validator, reason) => {
+      expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', ingressErr(validator, reason))).toBe(
+        SERVER_FAULT_COPY,
+      )
+    },
+  )
+
+  it('a scenario_ownership* reason under an unrecognised validator still → server-fault copy', () => {
+    expect(
+      resolveGuidance(
+        'INGRESS_CONTRACT_VIOLATION',
+        ingressErr('some_future_validator', 'scenario_ownership_unverifiable'),
+      ),
+    ).toBe(SERVER_FAULT_COPY)
+  })
+
+  it('user_jwt (sign_in_required) → sign-in copy, never rephrase, never server-fault', () => {
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', ingressErr('user_jwt', 'sign_in_required'))).toBe(
+      SIGN_IN_COPY,
+    )
+  })
+
+  it('a genuine input-shaped violation keeps the rephrase copy (positive control)', () => {
+    expect(
+      resolveGuidance(
+        'INGRESS_CONTRACT_VIOLATION',
+        ingressErr('OrchestratorTurnPayload', 'turn_id must be a UUID v4'),
+      ),
+    ).toBe(REPHRASE_COPY)
+    expect(
+      resolveGuidance('INGRESS_CONTRACT_VIOLATION', ingressErr('V5RequestExtensions')),
+    ).toBe(REPHRASE_COPY)
+  })
+
+  it('absent taxonomy FAILS SAFE to the rephrase copy (no error object)', () => {
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION')).toBe(REPHRASE_COPY)
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', undefined)).toBe(REPHRASE_COPY)
+  })
+
+  it('unknown validator + unknown reason FAILS SAFE to the rephrase copy', () => {
+    expect(
+      resolveGuidance('INGRESS_CONTRACT_VIOLATION', ingressErr('brand_new_validator', 'novel_reason')),
+    ).toBe(REPHRASE_COPY)
+  })
+
+  it('malformed taxonomy fields never crash and fail safe to rephrase', () => {
+    const malformed = {
+      ...ingressErr('x'),
+      validator: 42,
+      details: { reason: { nested: true } },
+    } as unknown as BoundaryError
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', malformed)).toBe(REPHRASE_COPY)
+    const nullDetails = { ...ingressErr('x'), details: null } as unknown as BoundaryError
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', nullDetails)).toBe(REPHRASE_COPY)
+  })
+
+  it('the error object changes nothing for retryable codes (early return holds)', () => {
+    expect(
+      resolveGuidance('INTERNAL_ERROR', ingressErr('scenario_preflight', 'anything')),
+    ).toBe('')
+  })
+
+  it('other non-retryable codes ignore the taxonomy (INGRESS-only branch)', () => {
+    expect(
+      resolveGuidance('FEATURE_NOT_ENABLED', ingressErr('scenario_preflight')),
+    ).toMatch(/not yet available/i)
   })
 })
 

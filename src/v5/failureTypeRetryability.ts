@@ -211,6 +211,80 @@ export function extractReason(err: BoundaryError | undefined): string {
 }
 
 /**
+ * ── Ingress-violation taxonomy (ROADMAP 2.472) ─────────────────────────────
+ *
+ * CEE rides genuinely different failures on the single wire code
+ * INGRESS_CONTRACT_VIOLATION, carrying the real class in `validator` +
+ * `details.reason`. Until 2.472 the guidance line ignored both and told EVERY
+ * ingress violation "Please rephrase your message and try again." — witnessed
+ * false during the 4 Aug outage, when a server-side ownership-oracle failure
+ * (`validator:'scenario_preflight'`, `reason:'scenario_ownership_unverifiable'`,
+ * `retryable:false`) blamed the user's wording
+ * (PHASE0-EVIDENCE-2026-07-28/rewalk-2459b-raw/run{1,2}-rewalk-wire.json).
+ *
+ * Class → copy, from the complete producer manifest at CEE staging tip
+ * ac62fd4d (every non-test `INGRESS_CONTRACT_VIOLATION` emitter):
+ *   - `scenario_preflight` (route-v2-preflight.ts — reasons are the closed
+ *     union scenario_owned_by_other_user | scenario_requires_authenticated_owner
+ *     | scenario_ownership_unverifiable) and the commit/pipeline validators
+ *     (`turn_commit`, `chip_click_dispatch`, `draft_graph_pipeline`,
+ *     `edit_graph_pipeline` — reachable under this code via route-v2.ts's
+ *     `errorCode: failureType` passthrough) describe SERVER state. The user's
+ *     message played no part → server-fault copy.
+ *   - `user_jwt` (user-identity.ts, reason `sign_in_required`) describes
+ *     SESSION state; "rephrase" is false and "our side is broken" is also
+ *     false — recovery is signing in → sign-in copy.
+ *   - `OrchestratorTurnPayload` (validators/b1.ts) and `V5RequestExtensions`
+ *     (orchestrator-v5/boundary/request-extensions.ts) validate the payload
+ *     itself — genuinely input-shaped → rephrase copy (unchanged).
+ *
+ * ⚠ The validator set below is a documented MIRROR of CEE's producer
+ * vocabulary (trap 12) with the drift direction chosen deliberately: an
+ * unknown or absent validator/reason FAILS SAFE to the rephrase copy —
+ * today's behaviour, never a crash, never a blank. The `scenario_ownership`
+ * reason-prefix gate is derived from the producer's own closed-union naming
+ * (same pattern as the `turn_fence_` prefix above), so the ownership family
+ * routes honestly even under a future validator rename.
+ */
+const INGRESS_REPHRASE_GUIDANCE = 'Please rephrase your message and try again.'
+
+const INGRESS_SERVER_FAULT_GUIDANCE =
+  "Something on our side isn't working — your message was fine. Please try again in a moment."
+
+const INGRESS_SIGN_IN_GUIDANCE =
+  'You need to be signed in for this — your message was fine. Please sign in and try again.'
+
+const INGRESS_SERVER_STATE_VALIDATORS: ReadonlySet<string> = new Set([
+  'scenario_preflight',
+  'turn_commit',
+  'chip_click_dispatch',
+  'draft_graph_pipeline',
+  'edit_graph_pipeline',
+])
+
+const INGRESS_SIGN_IN_VALIDATOR = 'user_jwt'
+
+const SCENARIO_OWNERSHIP_REASON_PREFIX = 'scenario_ownership'
+
+/**
+ * Route an INGRESS_CONTRACT_VIOLATION to guidance that is true for its
+ * actual class. Fail safe: no envelope, unknown validator, or malformed
+ * fields → the rephrase copy (pre-2.472 behaviour).
+ */
+export function resolveIngressViolationGuidance(err: BoundaryError | undefined): string {
+  if (!err) return INGRESS_REPHRASE_GUIDANCE
+  const validator = typeof err.validator === 'string' ? err.validator : ''
+  if (validator === INGRESS_SIGN_IN_VALIDATOR) return INGRESS_SIGN_IN_GUIDANCE
+  if (
+    INGRESS_SERVER_STATE_VALIDATORS.has(validator) ||
+    extractReason(err).startsWith(SCENARIO_OWNERSHIP_REASON_PREFIX)
+  ) {
+    return INGRESS_SERVER_FAULT_GUIDANCE
+  }
+  return INGRESS_REPHRASE_GUIDANCE
+}
+
+/**
  * Guidance text for non-retryable errors. Retryable errors show a Try again
  * chip on the message bubble instead, so guidance is empty for them.
  *
@@ -218,12 +292,16 @@ export function extractReason(err: BoundaryError | undefined): string {
  * that use the full component) and useConversation's V5 typed_error branch
  * (which builds a plain-string message body for MessageBubble). Keeping
  * both paths on the same table prevents drift.
+ *
+ * 2.472: pass the BoundaryError when you have one — INGRESS_CONTRACT_VIOLATION
+ * branches on its wire taxonomy (see resolveIngressViolationGuidance). Callers
+ * without an envelope keep the pre-2.472 copy for every code.
  */
-export function resolveGuidance(code: FailureTypeLiteral): string {
+export function resolveGuidance(code: FailureTypeLiteral, err?: BoundaryError): string {
   if (isRetryable(code)) return ''
   switch (code) {
     case 'INGRESS_CONTRACT_VIOLATION':
-      return 'Please rephrase your message and try again.'
+      return resolveIngressViolationGuidance(err)
     case 'EGRESS_CONTRACT_VIOLATION':
       return 'The response could not be validated. Please try again or contact support.'
     case 'FEATURE_NOT_ENABLED':
