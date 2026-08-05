@@ -125,7 +125,6 @@ import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import { verboseDebug } from '../../utils/verboseLog'
 import { AnalysisFooter } from '../shared/AnalysisFooter'
 import { derivePostFooterStatus, derivePostFooterMeta } from './utils/postAnalysisFooter'
-import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer'
 import { DefineSuccessModal, DecisionRecordModal, HowComputedModal } from '../../components/results/modals'
@@ -248,6 +247,16 @@ export function getOutputTabsForParity(): { id: OutputsDockTab; label: string }[
     ...(isAiPanelV2Enabled() ? [{ id: 'olumi' as const, label: 'Olumi' }] : []),
     { id: 'results', label: 'Analysis' },
     ...(isCompareTabEnabled() ? [{ id: 'compare' as const, label: 'Compare' }] : []),
+    // ⚠ IDENTITY TRAP — READ THIS BEFORE WRITING A TEST AGAINST "THE MODEL TAB".
+    // The tab a user (and every brief, roadmap row and bug report) calls "Model"
+    // has id `'diagnostics'`, not `'model'`. There is no tab whose id is 'model'.
+    // A spec that queries `'model'` — by id, by testid, or by `getByRole('tab',
+    // { name: ... })` against the wrong string — binds to NOTHING and passes
+    // vacuously, and this is the most-touched surface in the product. The live
+    // testid is `outputs-dock-tab-diagnostics` (see the tab strip below); bind to
+    // that, or to the exact label 'Model' — never to a guessed id. Recorded here
+    // rather than in a doc because the next lane reads the code (ROADMAP 2.474;
+    // trap 19 — bind by identity, never by a value another object could satisfy).
     { id: 'diagnostics', label: 'Model' },
     ...(isJourneyTabEnabled() ? [{ id: 'journey' as const, label: 'Journey' }] : []),
   ]
@@ -419,11 +428,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
   const applyAutoFixChanges = useCanvasStore(s => s.applyAutoFixChanges)
-  // P0 Results Brief: Store actions for Status Quo baseline creation
-  const addNode = useCanvasStore(s => s.addNode)
-  const updateNode = useCanvasStore(s => s.updateNode)
-  const addEdge = useCanvasStore(s => s.addEdge)
-  const setCeeAnalysisReady = useCanvasStore(s => s.setCeeAnalysisReady)
   // P2: Success target affordance - threshold update
   const setGoalThreshold = useCanvasStore(s => s.setGoalThreshold)
   const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
@@ -1003,61 +1007,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
   }, [runCanonicalAnalysis, showToast])
 
-  // P0 Results Brief: Add Status Quo baseline option
-  // Creates a new option node with is_baseline=true, empty interventions, and connects it to a decision node
-  const addStatusQuoBaseline = useCallback(() => {
-    // Find a decision node to connect to (or any node if no decision exists)
-    const decisionNode = nodes.find(n => n.type === 'decision')
-    const anchorNode = decisionNode || nodes[0]
-    if (!anchorNode) {
-      console.warn('[OutputsDock] Cannot add Status Quo baseline: no nodes to connect to')
-      return
-    }
-
-    // Position the new node offset from the anchor
-    const newPosition = {
-      x: (anchorNode.position?.x || 200) + 200,
-      y: (anchorNode.position?.y || 200) + 50,
-    }
-
-    // Create the option node
-    addNode(newPosition, 'option')
-
-    // Get the newly created node (it's the last one added)
-    const newNodes = useCanvasStore.getState().nodes
-    const newNode = newNodes[newNodes.length - 1]
-    if (!newNode) return
-
-    // Update the node data to mark it as a baseline with Status Quo label
-    updateNode(newNode.id, {
-      data: {
-        ...newNode.data,
-        label: 'Status Quo',
-        kind: 'option',
-        is_baseline: true,
-        interventions: {},
-        status: 'ready',
-      },
-    })
-
-    // Connect the new option to the decision node (if we have a decision)
-    if (decisionNode) {
-      addEdge({
-        source: decisionNode.id,
-        target: newNode.id,
-        type: 'default',
-        data: {
-          ...DEFAULT_EDGE_DATA,
-          confidence: 0, // No confidence needed for decision→option edge
-        },
-      })
-    }
-
-    // Invalidate CEE analysis ready cache so next run re-extracts options
-    setCeeAnalysisReady(null)
-
-    console.warn('[OutputsDock] Added Status Quo baseline option:', newNode.id)
-  }, [nodes, addNode, updateNode, addEdge, setCeeAnalysisReady])
 
   // P2 Task 1: Handle threshold change and trigger re-run.
   //
@@ -1117,26 +1066,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     setTimeout(() => setHighlightedNodes([]), 3000)
   }, [setHighlightedNodes])
   const strengthCorrectionsForRun = useMemo(() => getStrengthCorrections(), [report])
-
-  // C1: Baseline addition does NOT trigger rerun — mutates draft only.
-  // User must manually rerun to generate comparison data.
-  const handleAddBaseline = useCallback(() => {
-    addStatusQuoBaseline()
-  }, [addStatusQuoBaseline])
-
-  // Set an existing option as the baseline by ID — clears is_baseline on all others first.
-  const handleSetBaseline = useCallback((optionId: string) => {
-    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.kind === 'option')
-    for (const n of optionNodes) {
-      if (n.data?.is_baseline && n.id !== optionId) {
-        updateNode(n.id, { data: { ...n.data, is_baseline: false } })
-      }
-    }
-    const target = optionNodes.find(n => n.id === optionId)
-    if (target) {
-      updateNode(optionId, { data: { ...target.data, is_baseline: true } })
-    }
-  }, [nodes, updateNode])
 
   // Handle auto-fix for validation issues
   const handleAutoFix = useCallback(async (item: CritiqueItem): Promise<boolean> => {
@@ -2557,10 +2486,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     strengthCorrections={strengthCorrectionsForRun}
                     onFocusNode={handleFocusResultNode}
                     isRunning={isRunning}
-                    onAddStatusQuoBaseline={addStatusQuoBaseline}
                     onApplyThreshold={handleApplyThreshold}
-                    onAddBaseline={handleAddBaseline}
-                    onSetBaseline={handleSetBaseline}
                     nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
                     seedUsed={(report as any)?.meta?.seed}
                     fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}

@@ -55,10 +55,7 @@ export interface ResultsBodyProps {
   strengthCorrections?: StrengthCorrectionDisplay[]
   onFocusNode?: (nodeId: string) => void
   isRunning?: boolean
-  onAddStatusQuoBaseline?: () => void
   onApplyThreshold?: (threshold: number | null) => void
-  onAddBaseline?: () => void
-  onSetBaseline?: (optionId: string) => void
   nSamples?: number | null
   seedUsed?: number | null
   fragileEdgeCount?: number
@@ -101,10 +98,7 @@ export const ResultsBody = memo(function ResultsBody({
   strengthCorrections = [],
   onFocusNode,
   isRunning,
-  onAddStatusQuoBaseline: _onAddStatusQuoBaseline,
   onApplyThreshold,
-  onAddBaseline: _onAddBaseline,
-  onSetBaseline: _onSetBaseline,
   nSamples,
   seedUsed,
   fragileEdgeCount,
