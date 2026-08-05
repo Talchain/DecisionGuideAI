@@ -935,7 +935,7 @@ describe('Canvas Store', () => {
     it('a user constraint edit dirties freshness → display downgrades fresh→changed', () => {
       // Precondition (positive control): fresh + not-dirty reads as 'current'.
       let s = useCanvasStore.getState()
-      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty)).toBe('current')
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty, false)).toBe('current')
 
       // User edit via the GoalPanel path (no fromProducerSync opt-out).
       useCanvasStore.getState().setGoalConstraints([
@@ -944,7 +944,7 @@ describe('Canvas Store', () => {
 
       s = useCanvasStore.getState()
       expect(s.analysisFreshnessDirty).toBe(true)
-      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty)).toBe('changed')
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty, false)).toBe('changed')
     })
 
     it('a no-op set (identical content) does NOT dirty freshness', () => {
@@ -955,7 +955,7 @@ describe('Canvas Store', () => {
 
       const s = useCanvasStore.getState()
       expect(s.analysisFreshnessDirty).toBe(false)
-      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty)).toBe('current')
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty, false)).toBe('current')
     })
 
     it('null→null is a no-op and does NOT dirty freshness', () => {
@@ -970,7 +970,7 @@ describe('Canvas Store', () => {
       )
       const s = useCanvasStore.getState()
       expect(s.analysisFreshnessDirty).toBe(false)
-      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty)).toBe('current')
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty, false)).toBe('current')
     })
 
     it('clearing a real constraint (array→null) dirties freshness', () => {
@@ -978,7 +978,7 @@ describe('Canvas Store', () => {
       useCanvasStore.getState().setGoalConstraints(null)
       const s = useCanvasStore.getState()
       expect(s.analysisFreshnessDirty).toBe(true)
-      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty)).toBe('changed')
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty, false)).toBe('changed')
     })
   })
 

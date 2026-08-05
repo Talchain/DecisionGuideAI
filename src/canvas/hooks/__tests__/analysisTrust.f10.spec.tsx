@@ -123,7 +123,8 @@ describe('F10 pin 1b — the mint→classify seam (the production fact update be
         dirty: false,
         source: r.source,
         resultsStatus: 'complete',
-      }).orphaned,
+        importHold: false,
+    }).orphaned,
     ).toBe(false)
   })
 
@@ -204,7 +205,8 @@ describe('F10 pin 3 — one trust surface', () => {
         dirty: false,
         source: 'cee_v5_run_analysis',
         resultsStatus: 'complete',
-      }),
+        importHold: false,
+    }),
     ).toEqual({ semantic: 'current', orphaned: false, isRunning: false, reason: 'graph_hash_match' })
 
     expect(
@@ -213,7 +215,8 @@ describe('F10 pin 3 — one trust surface', () => {
         dirty: false,
         source: 'orphaned_plot_result',
         resultsStatus: 'complete',
-      }),
+        importHold: false,
+    }),
     ).toMatchObject({ semantic: 'current', orphaned: true })
 
     expect(
@@ -222,7 +225,8 @@ describe('F10 pin 3 — one trust surface', () => {
         dirty: false,
         source: 'cee_v5_run_analysis',
         resultsStatus: 'complete',
-      }),
+        importHold: false,
+    }),
     ).toMatchObject({ semantic: 'cannot_confirm', reason: RUN_COMPLETED_WITHOUT_VERDICT })
 
     expect(
@@ -231,7 +235,8 @@ describe('F10 pin 3 — one trust surface', () => {
         dirty: false,
         source: 'cee_v5_run_analysis',
         resultsStatus: 'streaming',
-      }),
+        importHold: false,
+    }),
     ).toMatchObject({ semantic: 'none', isRunning: true })
   })
 
@@ -246,7 +251,8 @@ describe('F10 pin 3 — one trust surface', () => {
         dirty: false,
         source: 'orphaned_plot_result',
         resultsStatus: 'complete',
-      }),
+        importHold: false,
+    }),
     ).toMatchObject({ semantic: 'cannot_confirm', orphaned: true, reason: ORPHANED_RESULT })
   })
 
@@ -257,7 +263,8 @@ describe('F10 pin 3 — one trust surface', () => {
         dirty: false,
         source: 'orphaned_plot_result',
         resultsStatus: 'complete',
-      }),
+        importHold: false,
+    }),
     ).toMatchObject({ semantic: 'cannot_confirm', orphaned: true, reason: ORPHANED_RESULT })
   })
 
@@ -268,7 +275,8 @@ describe('F10 pin 3 — one trust surface', () => {
         dirty: false,
         source: 'cee_v5_run_analysis',
         resultsStatus: 'complete',
-      }),
+        importHold: false,
+    }),
     ).toMatchObject({ semantic: 'none', orphaned: false })
   })
 })

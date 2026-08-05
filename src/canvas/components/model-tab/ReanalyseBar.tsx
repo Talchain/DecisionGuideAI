@@ -11,6 +11,7 @@
 import { RefreshCw } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
+import { useCanvasStore } from '../../store'
 
 interface ReanalyseBarProps {
   onReanalyse?: () => void
@@ -18,18 +19,36 @@ interface ReanalyseBarProps {
 
 export function ReanalyseBar({ onReanalyse }: ReanalyseBarProps) {
   const { semantic } = useAnalysisTrust()
+  const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
 
-  if (semantic !== 'changed') return null
+  // AFFORDANCE ≠ ASSERTION (interim 2.467). This bar is BOTH the "Model
+  // changed" claim and the Model tab's ONLY re-analyse control — and conflating
+  // them is what cost the control once already (ROADMAP 2.129 (a), live-proved
+  // on staging `98aae72e`), then nearly again here: an import hold downgrades
+  // the semantic to cannot-confirm, which under the old `!== 'changed'` guard
+  // removed the button outright. The Rerun in the sticky AnalysisFooter is NOT
+  // a substitute — that footer lives in OutputsDock's RESULTS branch, while
+  // this bar's ModelTabBody is a sibling under `diagnostics`, so a Model-tab
+  // user loses the control entirely.
+  //
+  // So: render for a held cannot-confirm too, with copy that states uncertainty
+  // instead of asserting a change. You can be honestly unsure AND still offer
+  // the button.
+  const heldUnsure = importHold && semantic === 'cannot_confirm'
+  if (semantic !== 'changed' && !heldUnsure) return null
 
   return (
     <div
       className="sticky bottom-0 left-0 right-0 bg-panel border-t border-warning/30 px-3 py-2 flex items-center justify-between gap-2"
       data-testid="reanalyse-bar"
+      data-reason={heldUnsure ? 'import-unregistered' : 'model-changed'}
       role="status"
       aria-live="polite"
     >
       <span className={`${typography.panelMeta} text-text-light flex-1 min-w-0`}>
-        Model changed. Results may be out of date.
+        {heldUnsure
+          ? "Can't confirm this analysis matches the current model."
+          : 'Model changed. Results may be out of date.'}
       </span>
       <button
         type="button"

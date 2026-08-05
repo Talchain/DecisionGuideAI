@@ -75,6 +75,7 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
   const storeState = useCanvasStore((s) => s.analysisFreshness)
   const storeDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const resultsStatus = useCanvasStore((s) => s.results?.status)
+  const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
   const state = stateProp !== undefined ? stateProp : storeState
   const dirty = dirtyProp !== undefined ? dirtyProp : storeDirty
   const isRunning =
@@ -101,7 +102,20 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
   // disagree). 'current' is the ONLY semantic that supports "with the current
   // model"; a retained 'stale', a cannot-confirm downgrade or a
   // run-completed-without-verdict all get the neutral completion line.
-  const completionSemantic = classifyFreshnessForDisplay(effectiveState, dirty)
+  // Interim 2.467: the toast must claim exactly what the strip claims, so it
+  // takes the same importHold input (an unregistered import can never produce
+  // the "with the current model" completion line).
+  //
+  // ⚠ Honest note: this argument is currently REDUNDANT here, and that is
+  // measured, not assumed. Under a hold the store forces the dirty overlay on
+  // (setAnalysisFreshness / clearAnalysisFreshnessDirty / noteRunCompleted-
+  // WithoutVerdict all keep it true — pinned by its own invariant test), so the
+  // classification lands on 'changed' either way and both paths yield the
+  // neutral completion line. A mutant dropping this argument is therefore an
+  // EQUIVALENT mutant — demonstrated by that invariant test, not asserted. It
+  // stays as defence-in-depth: if the invariant ever weakens, the toast remains
+  // honest without needing a second fix.
+  const completionSemantic = classifyFreshnessForDisplay(effectiveState, dirty, importHold)
 
   // Parity audit: the prototype confirms a completed rerun. Watch the
   // running→complete transition; the strip is the canonical freshness owner

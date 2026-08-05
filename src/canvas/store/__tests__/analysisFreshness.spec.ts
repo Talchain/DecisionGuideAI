@@ -189,8 +189,8 @@ describe('resolveDisplayedFreshness (local dirty overlay display rule)', () => {
     it('identical hashes → displayed unknown (cannot-confirm), dirty or not', () => {
       expect(resolveDisplayedFreshness(contradictory, false)).toBe('unknown')
       expect(resolveDisplayedFreshness(contradictory, true)).toBe('unknown')
-      expect(classifyFreshnessForDisplay(contradictory, false)).toBe('cannot_confirm')
-      expect(classifyFreshnessForDisplay(contradictory, true)).toBe('cannot_confirm')
+      expect(classifyFreshnessForDisplay(contradictory, false, false)).toBe('cannot_confirm')
+      expect(classifyFreshnessForDisplay(contradictory, true, false)).toBe('cannot_confirm')
     })
 
     it('POSITIVE CONTROL: differing hashes keep the factual stale/changed claim', () => {
@@ -200,7 +200,7 @@ describe('resolveDisplayedFreshness (local dirty overlay display rule)', () => {
         currentGraphHash: 'a-different-hash',
       })
       expect(resolveDisplayedFreshness(genuine, false)).toBe('stale')
-      expect(classifyFreshnessForDisplay(genuine, false)).toBe('changed')
+      expect(classifyFreshnessForDisplay(genuine, false, false)).toBe('changed')
     })
 
     it('missing or empty hashes are NOT a contradiction (verdict trusted)', () => {
@@ -244,27 +244,27 @@ describe('resolveDisplayedFreshness (local dirty overlay display rule)', () => {
 
 describe('classifyFreshnessForDisplay (copy semantic across AI-panel surfaces)', () => {
   it('no verdict → none', () => {
-    expect(classifyFreshnessForDisplay(null, false)).toBe('none')
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'none' }), false)).toBe('none')
+    expect(classifyFreshnessForDisplay(null, false, false)).toBe('none')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'none' }), false, false)).toBe('none')
   })
 
   it('clean fresh → current', () => {
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'fresh' }), false)).toBe('current')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'fresh' }), false, false)).toBe('current')
   })
 
   it('CEE stale → changed', () => {
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'stale' }), true)).toBe('changed')
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'stale' }), false)).toBe('changed')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'stale' }), true, false)).toBe('changed')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'stale' }), false, false)).toBe('changed')
   })
 
   it('dirty-overlay downgrade of a retained fresh → changed (user definitely edited)', () => {
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'fresh' }), true)).toBe('changed')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'fresh' }), true, false)).toBe('changed')
   })
 
   it('CEE-sourced unknown → cannot_confirm, NEVER changed (no false "you edited" claim)', () => {
     // A present analysis_ready with missing/invalid freshness degrades to 'unknown'
     // (deriveAnalysisFreshnessUpdate). That is cannot-confirm, not a user edit.
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'unknown' }), false)).toBe('cannot_confirm')
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'unknown' }), true)).toBe('cannot_confirm')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'unknown' }), false, false)).toBe('cannot_confirm')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'unknown' }), true, false)).toBe('cannot_confirm')
   })
 })

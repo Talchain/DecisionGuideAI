@@ -227,6 +227,34 @@ export function applyDraftResult(
     goalThreshold: null,
     goalThresholdRepresentation: null,
     outcomeNodeId: null,
+    // Interim 2.467 — the ONE replacement site that does not derive. It
+    // releases unconditionally, and the honest argument for that is a SCOPE
+    // boundary, not provenance:
+    //
+    // ⚠ "a draft graph is server-known by construction" is FALSE, and was my
+    // second wrong justification for this line. `starters/loadStarter.ts`
+    // (applyStarter) routes a LOCAL starter fixture through this same function,
+    // and CEE has never seen that graph either. What is true is narrower: this
+    // interim defends against IMPORT-originated staleness only, and neither a
+    // CEE draft nor a starter arrives by import. A starter that is later
+    // analysed can affirm — that is the same posture as before this mitigation,
+    // not a regression it introduces, and it is disclosed as residue.
+    //
+    // ⚠ My FIRST justification ("the derivation here is an equivalent mutant —
+    // wire-shaped edges can never match") was false at the bytes: `nodes` and
+    // `edges` in scope here are the MAPPER'S CANVAS-SHAPED OUTPUT, and
+    // `mapDraftNodeToCanvas` preserves `n.id` verbatim, so a WIRE payload
+    // (`from`/`to`, which is what mapDraftEdgeToCanvas reads) carrying the
+    // imported ids yields exactly the same digest.
+    //
+    // ⚠ And my correction of it was ALSO wrong in the other direction: I wrote
+    // that a mutant swapping this line for the derivation BITES. A probe ran
+    // exactly that mutant and it SURVIVED 24/24 — every applyDraftResult call
+    // in the spec passed a structurally unrelated payload, so nothing could
+    // discriminate. The discriminating fixture now exists ("a draft REPRODUCING
+    // the imported graph identity still releases"). AN EQUIVALENT MUTANT MUST BE
+    // DEMONSTRATED, NEVER ASSERTED — and so must a NON-equivalent one.
+    importPendingServerRegistration: false,
   })
 
   // Warning-only schema validation at the mutation boundary. Non-throwing —

@@ -83,7 +83,8 @@ function semanticNow() {
     dirty: s.analysisFreshnessDirty,
     source: null,
     resultsStatus: 'complete',
-  }).semantic
+    importHold: false,
+    }).semantic
 }
 
 beforeEach(() => {
@@ -145,24 +146,26 @@ describe('the REJECTED edit — the control that was GREEN before the fix', () =
 
 describe('controls — the fix must NOT widen "changed" beyond the silent-payload case', () => {
   it('a CEE-STATED unknown verdict stays cannot-confirm, dirty or not', () => {
-    expect(classifyFreshnessForDisplay({ freshness: 'unknown' }, false)).toBe('cannot_confirm')
-    expect(classifyFreshnessForDisplay({ freshness: 'unknown' }, true)).toBe('cannot_confirm')
+    expect(classifyFreshnessForDisplay({ freshness: 'unknown' }, false, false)).toBe('cannot_confirm')
+    expect(classifyFreshnessForDisplay({ freshness: 'unknown' }, true, false)).toBe('cannot_confirm')
     expect(
       classifyFreshnessForDisplay(
         { freshness: 'unknown', freshnessReason: 'engine_could_not_determine' },
         true,
+        false,
       ),
     ).toBe('cannot_confirm')
   })
 
   it('the orphan synthesis and the run-completion write stay cannot-confirm', () => {
     expect(
-      classifyFreshnessForDisplay({ freshness: 'unknown', freshnessReason: 'orphaned_result' }, true),
+      classifyFreshnessForDisplay({ freshness: 'unknown', freshnessReason: 'orphaned_result' }, true, false),
     ).toBe('cannot_confirm')
     expect(
       classifyFreshnessForDisplay(
         { freshness: 'unknown', freshnessReason: 'run_completed_without_verdict' },
         true,
+        false,
       ),
     ).toBe('cannot_confirm')
   })
@@ -173,6 +176,7 @@ describe('controls — the fix must NOT widen "changed" beyond the silent-payloa
     expect(
       classifyFreshnessForDisplay(
         { freshness: 'unknown', freshnessReason: VERDICT_ABSENT_FROM_PAYLOAD },
+        false,
         false,
       ),
     ).toBe('cannot_confirm')
