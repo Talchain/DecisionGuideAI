@@ -33,6 +33,8 @@ import { OptionsSection } from './model-tab/OptionsSection'
 import { FactorsSection } from './model-tab/FactorsSection'
 import { RelationshipsSection } from './model-tab/RelationshipsSection'
 import type { UserAction, ValidationMetadata } from '../domain/validation'
+import { buildEdgeAdjudicationEvent } from '../conversation/edgeAdjudication'
+import { useOptionalConversationContext } from '../conversation/ConversationContext'
 import type { EdgeData } from '../domain/edges'
 import { RisksSection } from './model-tab/RisksSection'
 import { ModelHealthSection, type AuditTrailData } from './model-tab/ModelHealthSection'
@@ -166,6 +168,11 @@ export const ModelTabBody = memo(function ModelTabBody({
   // F9 (UI brief 2026-07-16 item 3): run-state coverage. One trust surface:
   // the composed useAnalysisTrust answer drives the in-flight treatment.
   const trust = useAnalysisTrust()
+
+  // P4 transport — contested-edge verdicts ride the conversation dispatcher
+  // (deferral buffer included) when a provider is present; optional so an
+  // isolated Model tab render still resolves locally.
+  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
 
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
@@ -590,6 +597,25 @@ export const ModelTabBody = memo(function ModelTabBody({
     const vm = edgeData.validation
     if (!vm) return
 
+    // P4 transport (schemas 0.34.0) — the verdict REACHES THE WIRE. Runs
+    // AFTER the local apply (the canvas must move regardless of the network),
+    // best-effort: a failed send never reverts a resolution the user already
+    // made locally, and an absent conversation context (e.g. isolated render)
+    // must not break resolution at all. CEE persists the event as a typed
+    // turn fact and writes no graph. The per-verdict value: an override
+    // carries the user's own number; an accepted verdict carries the accepted
+    // pass's mean, informatively, so the persisted fact is self-contained.
+    const emitAdjudication = (mean?: number) => {
+      if (!sendSystemEvent) return
+      const event = buildEdgeAdjudicationEvent(edge, action, mean)
+      if (event === null) return
+      void Promise.resolve(sendSystemEvent(event)).catch(() => {
+        // Background judgement receipt — the local resolution stands; the
+        // user can re-adjudicate to re-emit. Mirrors the silent handling of
+        // other best-effort background sends.
+      })
+    }
+
     // Spread preserves all ValidationMetadata fields; overlay user_action + resolved_by
     const updatedValidation: ValidationMetadata = { ...vm, user_action: action, resolved_by: 'user' }
 
@@ -612,6 +638,7 @@ export const ModelTabBody = memo(function ModelTabBody({
         validation: updatedValidation,
       }
       updateEdge(edgeId, { data: patch as EdgeData })
+      emitAdjudication(mean)
       return
     }
 
@@ -635,13 +662,17 @@ export const ModelTabBody = memo(function ModelTabBody({
         validation: { ...updatedValidation, resolved_value: { strength_mean: customMean } },
       }
       updateEdge(edgeId, { data: patch as EdgeData })
+      emitAdjudication(customMean)
       return
     }
 
     // accepted_pass1 or dismissed — mark user_action only, no edge data change
     const patch: DataPatch = { validation: updatedValidation }
     updateEdge(edgeId, { data: patch as EdgeData })
-  }, [edges, updateEdge])
+    // accepted_pass1 keeps the CURRENT (pass1) value; a dismissal asserts none
+    // (the builder drops the value for `dismissed` by contract).
+    emitAdjudication(action === 'accepted_pass1' ? vm.pass1.strength_mean : undefined)
+  }, [edges, updateEdge, sendSystemEvent])
 
   const handleCopyText = useCallback(() => {
     const lines: string[] = []
