@@ -434,23 +434,148 @@ describe('false positive guards', () => {
 // Performance
 // ---------------------------------------------------------------------------
 
+/**
+ * WHAT THIS PROVES, AND WHY IT IS SHAPED THIS WAY
+ *
+ * The stated risk for `extractRealtimeSignals` is regex backtracking on
+ * pathological input — i.e. SUPERLINEAR growth in the length of the brief.
+ * That is a property of the ALGORITHM, so this test measures the algorithm's
+ * growth rate, not the machine's speed.
+ *
+ * The predecessor asserted a raw wall-clock average (`avgMs < 5`). That is a
+ * measurement of the HOST, not of the code: it went red whenever anything else
+ * on the machine wanted CPU, while a genuine regression that merely doubled the
+ * constant factor would still have passed on a fast box. Two instruments are
+ * changed here, both for measured reasons:
+ *
+ *   1. CPU TIME, NOT WALL-CLOCK. `process.cpuUsage()` does not accrue while the
+ *      process is descheduled, so contention cancels out. Measured on a 10-core
+ *      host at load average 66-83 (8x oversubscribed, 20 spinners + 3 sibling
+ *      test lanes), 15 trials of the design below:
+ *        CPU-time ratio  min 3.417 | p50 3.831 | max 4.031   (expected 4.0)
+ *        wall-clock ratio min 2.085 | p50 6.095 | max 16.815  (same runs)
+ *      Wall-clock is not a usable instrument here at any threshold; individual
+ *      wall samples of identical work swung 6.2ms -> 104.7ms on this host.
+ *
+ *   2. A RATIO AT 4x INPUT, NOT AN ABSOLUTE TIME. Host speed multiplies both
+ *      arms equally and cancels. 4x (rather than 2x) is chosen to widen the gap
+ *      between the two hypotheses being distinguished: linear work lands at 4x,
+ *      an accidental O(n^2) pass well above it.
+ *
+ * THE CEILING (6.0) IS DERIVED FROM MEASUREMENT, NOT PICKED. Note that a real
+ * quadratic regression does NOT land at the textbook 16x, because the surviving
+ * linear work dilutes it — so a ceiling reasoned from theory alone (the 4-vs-16
+ * geometric midpoint, 8.0) was measured to be too loose, and was tightened:
+ *      healthy code, worst of 15 trials under deliberate load ....... 4.031
+ *      mutant A (nested O(n^2) pass over words) ..... median 9.82, worst 9.42
+ *      mutant B (number-exclusion window widened to
+ *                the whole brief — accidentally O(n^2)) . median 8.74, worst 7.89
+ * At 8.0, mutant B cleared by only 9% and two of its nine samples fell BELOW the
+ * bound. 6.0 is the geometric midpoint of the healthy worst case and mutant B's
+ * worst sample: 49% headroom above observed noise, and every sample of both
+ * mutants exceeds it by >=31%. See the lane evidence file
+ * `PHASE0-EVIDENCE-2026-07-28/lane-perftest-2026-08-05.md`.
+ *
+ * Scope note: this catches SUPERLINEAR growth. A regex whose backtracking is
+ * exponential rather than polynomial does not produce a finite ratio at all — it
+ * is caught by the explicit test timeout below, not by this assertion.
+ *
+ * The doubling is an honest doubling of the pathological dimension: the input is
+ * a repeated unit, so 4x repeats quadruples every dimension the hot path scans —
+ * text length, sentence count, extracted numbers, and `or`-splits alike. There is
+ * no "easy part" being padded.
+ *
+ * (Note: the predecessor's name said "500-word brief". `Array(100)` of a 28-word
+ * unit is ~2,800 words. The large arm below keeps that exact input; only the
+ * label is corrected.)
+ */
 describe('performance', () => {
-  it('processes 500-word brief in <5ms average (profiling, extreme input)', () => {
-    const brief = Array(100).fill(
-      'We are considering whether to expand into the European market or focus on US growth. ' +
-      'Currently at £150k MRR with 5% monthly churn. Budget is capped at £500k.',
-    ).join(' ')
+  const UNIT =
+    'We are considering whether to expand into the European market or focus on US growth. ' +
+    'Currently at £150k MRR with 5% monthly churn. Budget is capped at £500k.'
+  const brief = (repeats: number) => Array(repeats).fill(UNIT).join(' ')
 
-    const start = performance.now()
-    for (let i = 0; i < 200; i++) {
-      extractRealtimeSignals(brief)
+  /** Small arm: ~700 words. Large arm: ~2,800 words (the predecessor's input). */
+  const SMALL_REPEATS = 25
+  const SIZE_FACTOR = 4
+  /** Median over paired, adjacent samples: a pair is measured within a few ms, so
+   *  a P-core/E-core migration tends to hit both arms of a pair equally. */
+  const PAIRS = 9
+  /** Degeneracy floor: a sample below timer granularity makes the ratio noise.
+   *  Iterations are scaled UP until the small arm clears this; if it cannot, the
+   *  test FAILS loudly rather than passing on an unmeasurable sample. */
+  const MIN_SAMPLE_CPU_MS = 20
+  const MAX_ITERS = 4096
+  /** See the derivation in the block comment above — measured, not picked. */
+  const RATIO_CEILING = 6
+  /** Host-sensitive but deliberately NON-BINDING backstop. Worst large-arm cost
+   *  observed under load-83 was ~3.7ms CPU/call; 50ms is ~13x that, so it cannot
+   *  fire on contention. It exists only to catch a regression that is linear but
+   *  enormously slower (which the ratio, by construction, cannot see). */
+  const ABS_LARGE_CPU_MS_PER_CALL = 50
+
+  function cpuMs(text: string, iters: number): number {
+    const before = process.cpuUsage()
+    for (let i = 0; i < iters; i++) extractRealtimeSignals(text)
+    const d = process.cpuUsage(before)
+    return (d.user + d.system) / 1000
+  }
+
+  const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
+
+  it('scales linearly with brief length: 4x input costs <6x CPU (guards superlinear growth)', () => {
+    expect(
+      typeof process?.cpuUsage,
+      'process.cpuUsage() is unavailable, so this test cannot measure anything. It must ' +
+        'not be allowed to pass silently — run this suite on Node, or port the measurement.',
+    ).toBe('function')
+
+    const small = brief(SMALL_REPEATS)
+    const large = brief(SMALL_REPEATS * SIZE_FACTOR)
+
+    // Warm up both shapes so JIT tiering is not attributed to the large arm.
+    cpuMs(small, 40)
+    cpuMs(large, 10)
+
+    // Calibrate: grow iterations until one sample is comfortably above timer
+    // granularity. Both arms use the SAME iteration count, so the ratio is
+    // unaffected by whatever value this lands on.
+    let iters = 8
+    let calibration = 0
+    while (iters <= MAX_ITERS) {
+      calibration = cpuMs(small, iters)
+      if (calibration >= MIN_SAMPLE_CPU_MS) break
+      iters *= 2
     }
-    const elapsed = performance.now() - start
-    const avgMs = elapsed / 200
+    expect(
+      calibration,
+      `Small-arm sample stayed below ${MIN_SAMPLE_CPU_MS}ms of CPU at ${MAX_ITERS} iterations ` +
+        `(got ${calibration.toFixed(3)}ms). The ratio below would be timer noise, so this is a ` +
+        'hard failure, not a pass: raise MAX_ITERS or SMALL_REPEATS.',
+    ).toBeGreaterThanOrEqual(MIN_SAMPLE_CPU_MS)
 
-    // Spec target: <1ms for typical briefs (~50 words). This test uses an extreme
-    // 500-word × 100-repeat input; <5ms threshold accounts for JIT cold-start and
-    // regex backtracking on pathological input. Real briefs are well under 1ms.
-    expect(avgMs).toBeLessThan(5)
-  })
+    const ratios: number[] = []
+    const largeCpuPerCall: number[] = []
+    for (let p = 0; p < PAIRS; p++) {
+      const smallCpu = cpuMs(small, iters)
+      const largeCpu = cpuMs(large, iters)
+      ratios.push(largeCpu / smallCpu)
+      largeCpuPerCall.push(largeCpu / iters)
+    }
+
+    const growth = median(ratios)
+    expect(
+      growth,
+      `${SIZE_FACTOR}x input consumed ${growth.toFixed(2)}x CPU. Linear work lands near ` +
+        `${SIZE_FACTOR}x; the two quadratic regressions this bound was calibrated against ` +
+        'landed at 8.7x and 9.8x. This is superlinear growth in the length of the brief — ' +
+        'suspect regex backtracking, a nested pass over the words, or a per-item scan that ' +
+        'now re-reads the whole text. This assertion is contention-immune (it measures CPU ' +
+        'time, not wall-clock), so a busy machine is NOT the explanation. ' +
+        `Samples: ${ratios.map(r => r.toFixed(2)).join(', ')}`,
+    ).toBeLessThan(RATIO_CEILING)
+
+    // Non-binding sanity backstop — see ABS_LARGE_CPU_MS_PER_CALL above.
+    expect(median(largeCpuPerCall)).toBeLessThan(ABS_LARGE_CPU_MS_PER_CALL)
+  }, 120_000)
 })
