@@ -65,6 +65,25 @@ export const HELD_PROPOSAL_HEADING = 'Waiting for your go-ahead'
 export const HELD_PROPOSAL_DISMISS_LABEL = 'Not now'
 
 /**
+ * UI-owned confirm label used ONLY when the producer signals that it clamped
+ * its own chip label — i.e. when `Action.detail` is present and differs from
+ * `label` (ROADMAP 2.474 residual (a)).
+ *
+ * WHY THIS CONSTANT EXISTS. CEE clamps a multi-operation confirm label to 60
+ * characters on purpose (`buildGmHeldPublicCopy`: a ~300-character chip is
+ * unusable) and ships the complete sentence in `detail`. Rendering the clamped
+ * form put a sentence that stops mid-word on the control, in its accessible
+ * name, and — via the chip seam's display text — in the PERMANENT TRANSCRIPT,
+ * so the record of what the user agreed to ended in an ellipsis. The complete
+ * sentence goes to the accessible name and the record; the control itself
+ * carries this short, COMPLETE label instead of a fragment.
+ *
+ * It states the user's action and makes no claim about the change's content —
+ * that claim belongs to the producer's `summary`, rendered directly above.
+ */
+export const HELD_PROPOSAL_CONFIRM_CLAMPED_LABEL = 'Confirm these changes'
+
+/**
  * Acknowledgement shown after the user confirms. States the user's action, not
  * the outcome: the change is applied by CEE on the next turn, so the card must
  * not claim it is already applied.

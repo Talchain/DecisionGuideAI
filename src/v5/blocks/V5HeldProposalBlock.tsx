@@ -13,6 +13,16 @@
  *     fix: no internal-doctrine-prose leak.
  *   - THE USER'S ACTIONS: confirm + dismiss.
  *
+ * CONSENT COMPLETENESS (ROADMAP 2.474 residual (a), witnessed live 5 Aug 2026).
+ * The producer CLAMPS a multi-operation confirm label to 60 characters and
+ * ships the complete sentence in `Action.detail`. Rendering the clamped form
+ * put a sentence that stopped mid-word on the control, into its accessible
+ * name, and — through the chip seam's display text — into the PERMANENT
+ * TRANSCRIPT, so the record of what the user agreed to ended in an ellipsis.
+ * `resolveHeldConfirmCopy` below is the single place that resolves this: the
+ * accessible name and the consent record are always COMPLETE, and the visible
+ * label is never a fragment.
+ *
  * Action routing (EXISTING seams only — single-writer doctrine, post-#364):
  *   - Confirm dispatches the resolved suggested-action `message` through the
  *     guidance store's `_sendChip(label, message)` seam — the SAME chip-send
@@ -42,17 +52,63 @@ import { Hand } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { CHIP_CLASS } from './chipClass'
-import type { V5HeldProposalBlock as V5HeldProposalBlockType } from '../../canvas/conversation/types'
+import type {
+  V5HeldProposalBlock as V5HeldProposalBlockType,
+  V5HeldProposalAction,
+} from '../../canvas/conversation/types'
 import {
   heldProposalReasonText,
   HELD_PROPOSAL_HEADING,
   HELD_PROPOSAL_DISMISS_LABEL,
+  HELD_PROPOSAL_CONFIRM_CLAMPED_LABEL,
   HELD_PROPOSAL_CONFIRMED_ACK,
   HELD_PROPOSAL_DISMISSED_ACK,
 } from './heldProposalReasonCopy'
 
 export interface V5HeldProposalBlockProps {
   block: V5HeldProposalBlockType
+}
+
+/** The three strings the confirm affordance needs, resolved together. */
+export interface HeldConfirmCopy {
+  /** Rendered on the control. Always COMPLETE — never a clamped fragment. */
+  readonly visible: string
+  /** The control's accessible name. COMPLETE, and contains `visible`. */
+  readonly accessibleName: string
+  /** Display text handed to the chip seam — the PERMANENT consent record. */
+  readonly record: string
+}
+
+/**
+ * Resolve the confirm affordance's copy from the producer action.
+ *
+ * `detail` (0.19.0 `Action.detail`) is the producer's own signal that it
+ * CLAMPED `label`: CEE emits it exactly when clamping shortened the label, and
+ * omits it when the label already says everything
+ * (`edit-graph-referee-gate.ts :: buildGmHeldPublicCopy`).
+ *
+ *   - No detail (or detail === label) → the label is already complete. Render
+ *     it verbatim, name it verbatim, record it verbatim. Zero behaviour change.
+ *   - Detail present → the label is a fragment. The control carries the
+ *     UI-owned SHORT COMPLETE label; the accessible name and the consent
+ *     record carry the producer's COMPLETE sentence.
+ *
+ * WCAG 2.5.3 "Label in Name" holds in both branches: the accessible name is
+ * either the visible label itself, or the ratified `${visible}: ${detail}`
+ * construction, which contains it. A speech-input user can always activate the
+ * control by the words on screen — which is precisely what the clamped form
+ * made impossible, since its visible words ended mid-word in an ellipsis.
+ */
+export function resolveHeldConfirmCopy(action: V5HeldProposalAction): HeldConfirmCopy {
+  const detail = typeof action.detail === 'string' ? action.detail.trim() : ''
+  if (detail.length === 0 || detail === action.label) {
+    return { visible: action.label, accessibleName: action.label, record: action.label }
+  }
+  return {
+    visible: HELD_PROPOSAL_CONFIRM_CLAMPED_LABEL,
+    accessibleName: `${HELD_PROPOSAL_CONFIRM_CLAMPED_LABEL}: ${detail}`,
+    record: detail,
+  }
 }
 
 export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactElement {
@@ -63,6 +119,9 @@ export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactE
 
   /** Visible dismiss text: the producer's decline label when CEE emits one. */
   const dismissLabel = decline ? decline.label : HELD_PROPOSAL_DISMISS_LABEL
+
+  /** Complete confirm copy — see resolveHeldConfirmCopy. */
+  const confirmCopy = resolveHeldConfirmCopy(confirm)
 
   const handleConfirm = useCallback(() => {
     if (settled) return
@@ -75,9 +134,16 @@ export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactE
     if (!sendChip) return
     // Single-writer apply path: send the producer's confirm message as a turn;
     // CEE applies the held mutation server-side. No client-minted mutation.
-    sendChip(confirm.label, confirm.message)
+    //
+    // Arg 0 is the DISPLAY text — `dispatchAction` passes it as `displayText`,
+    // which becomes the user's bubble in the permanent transcript. That bubble
+    // IS the record of what was consented to, so it carries the COMPLETE
+    // sentence, never the producer's clamped chip label (2.474 residual (a)).
+    // Arg 1 is untouched: CEE's exact-match pre-route resolves a confirm by the
+    // message, so clamping or rewriting it would break hold routing.
+    sendChip(confirmCopy.record, confirm.message)
     setSettled('accepted')
-  }, [settled, sendChip, confirm.label, confirm.message])
+  }, [settled, sendChip, confirmCopy.record, confirm.message])
 
   const handleDismiss = useCallback(() => {
     if (settled) return
@@ -119,11 +185,15 @@ export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactE
           <button
             type="button"
             onClick={handleConfirm}
-            aria-label={confirm.label}
+            // COMPLETE accessible name: a screen-reader user's entire notion of
+            // what this control does is this string, so it names every
+            // operation. Contains the visible label (WCAG 2.5.3).
+            aria-label={confirmCopy.accessibleName}
+            title={confirmCopy.accessibleName}
             className={CHIP_CLASS}
             data-testid="v5-held-proposal-confirm"
           >
-            {confirm.label}
+            {confirmCopy.visible}
           </button>
           <button
             type="button"

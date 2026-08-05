@@ -193,7 +193,21 @@ export function mapV5Block(
         summary: block.summary,
         mutation_class: block.mutation_class,
         reason_code: block.reason_code,
-        confirm: { label: confirm.label, message: confirm.message },
+        // `detail` (0.19.0 Action.detail) is the producer's COMPLETE sentence,
+        // present exactly when it had to clamp `label` to chip length. Dropping
+        // it here is what made the confirm control's accessible name and the
+        // transcript's consent record stop mid-word (ROADMAP 2.474 residual
+        // (a), witnessed live 5 Aug 2026). Carried on `confirm` only: the
+        // producer clamps the confirm label (`buildGmHeldPublicCopy`) and no
+        // decline path emits `detail` today, so a decline field would be an
+        // unread passenger.
+        confirm: {
+          label: confirm.label,
+          message: confirm.message,
+          ...(typeof confirm.detail === 'string' && confirm.detail.length > 0
+            ? { detail: confirm.detail }
+            : {}),
+        },
         ...(decline ? { decline: { label: decline.label, message: decline.message } } : {}),
       }
     }
