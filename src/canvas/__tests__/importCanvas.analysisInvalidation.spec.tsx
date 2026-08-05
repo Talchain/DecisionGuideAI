@@ -42,6 +42,7 @@ import { useCanvasStore } from '../store'
 import { useAnalysisSnapshotStore } from '../stores/analysisSnapshotStore'
 import { useComparisonStore } from '../stores/comparisonStore'
 import { applyDraftResult } from '../utils/applyDraftResult'
+import { createScenario } from '../store/scenarios'
 import {
   AnalysisFreshnessNotice,
   FRESHNESS_COPY,
@@ -359,6 +360,32 @@ describe('interim 2.467 — import invalidates pre-import analysis (rewalk-2459b
     renderFreshnessSurfaces()
     // A fresh verdict on a server-loaded graph may affirm again — the interim
     // hold must not become a permanent suppression.
+    expect(screen.getByTestId('analysis-freshness-notice')).toHaveAttribute(
+      'data-freshness',
+      'fresh',
+    )
+  })
+
+  it('(c) the hold releases on loadScenario (the production scenario-switch path)', () => {
+    const scenario = createScenario({
+      name: 'Scenario after import',
+      nodes: [
+        { id: 'scn_goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Scenario goal' } },
+      ] as never,
+      edges: [],
+    })
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    act(() => {
+      const ok = useCanvasStore.getState().loadScenario(scenario.id)
+      expect(ok).toBe(true)
+    })
+    act(() => {
+      useCanvasStore.getState().setAnalysisFreshness(SERVER_FRESH_VERDICT_AFTER_RERUN)
+    })
+    renderFreshnessSurfaces()
     expect(screen.getByTestId('analysis-freshness-notice')).toHaveAttribute(
       'data-freshness',
       'fresh',
