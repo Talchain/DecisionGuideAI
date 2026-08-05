@@ -88,6 +88,38 @@ describe('buildRegistrationGraph — the captured canvas file', () => {
     expect(graph.nodes.every((n) => !('position' in n))).toBe(true)
   })
 
+  it('the ReactFlow renderer key NEVER outranks the semantic spelling', () => {
+    // MEASURED: on the captured file all three spellings agree, so a mutant
+    // that flipped the precedence to `node.type ?? data.kind` SURVIVED. That is
+    // a hole in the oracle, not an equivalence — `node.type` is a RENDERER key
+    // and `data.kind` is what the analysis means by the node. This is the case
+    // that discriminates them.
+    const file = clone(IMPORTED)
+    const node = file.nodes.find((n) => n.id === 'opt_alpha')!
+    // POSITIVE CONTROL: the fixture starts with all three agreeing, so the
+    // divergence below is genuinely introduced by this test.
+    expect(node.type).toBe('option')
+    node.type = 'factor'
+
+    const graph = okGraph(buildRegistrationGraph(file.nodes, file.edges))
+    expect(graph.nodes.find((n) => n.id === 'opt_alpha')?.kind).toBe('option')
+  })
+
+  it('drops a position nested INSIDE node.data, not just the top-level one', () => {
+    // MEASURED: deleting `'position'` from the canvas-only key list left every
+    // test green, because the captured file carries `position` only at the top
+    // level (which is dropped structurally, by never being copied). The
+    // blocklist entry exists for the nested case — so the nested case is what
+    // has to be asserted, or the entry is decoration a tidy-up would delete.
+    const file = clone(IMPORTED)
+    const node = file.nodes.find((n) => n.id === 'opt_alpha')!
+    ;(node.data as Record<string, unknown>).position = { x: 1, y: 2 }
+
+    const graph = okGraph(buildRegistrationGraph(file.nodes, file.edges))
+    expect(graph.nodes.find((n) => n.id === 'opt_alpha')).not.toHaveProperty('position')
+    expect(JSON.stringify(graph)).not.toContain('"position"')
+  })
+
   it('emits exactly ONE kind spelling per node — no `type` reaches the wire', () => {
     const graph = okGraph(buildRegistrationGraph(IMPORTED.nodes, IMPORTED.edges))
     expect(graph.nodes.every((n) => typeof n.kind === 'string')).toBe(true)
