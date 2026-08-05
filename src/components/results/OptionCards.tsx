@@ -46,6 +46,7 @@ import { GOAL_FIT_BASIS_CAVEAT_COPY } from './utils/goalFitBasisCaveatCopy'
 import {
   DOWNSIDE_HEADING_COPY,
   DOWNSIDE_TAIL_CAVEAT_COPY,
+  DOWNSIDE_UNAVAILABLE_COPY,
   downsideSummaryCopy,
 } from './utils/downsideCopy'
 import { formatRangeValue } from './utils/formatRangeValue'
@@ -834,11 +835,15 @@ function OptionCard({
               Progressive disclosure (P5) — depth for the reader who asked for
               depth, nothing added to the default card.
 
-              HONEST ABSENCE: `option.downside` is undefined whenever the
-              engine could not compute the block honestly, and this renders
-              NOTHING in that case — no zero, no dash, no "not available".
-              A zero here would read as "there is no downside", which is the
-              most damaging thing this surface could say.
+              HONEST ABSENCE — ⚠ AMENDED BY ROADMAP 2.581. `option.downside` is
+              undefined whenever the engine could not compute the block
+              honestly. This used to render NOTHING in that case. It now
+              renders a STATED absence (`DOWNSIDE_UNAVAILABLE_COPY`) and still
+              never a number: a zero here would read as "there is no downside",
+              which is the most damaging thing this surface could say, but
+              silence is what let 2.581 be reported as the feature "appearing
+              in some sessions and not others". A reader who asked for depth
+              and cannot have it is told so.
 
               ⛔ `downside.expectedRegret` is deliberately NOT rendered. It is
               the per-option limb of the value-of-information family (the
@@ -847,7 +852,7 @@ function OptionCard({
               magnitudes there — the same doctrine that removed the EVPI
               percentage-point pill from TriageCard. Showing it is a doctrine
               ruling, not a wiring gap. */}
-          {option.downside !== undefined && (
+          {option.downside !== undefined ? (
             <div className="mt-1" data-testid={`option-downside-${option.id}`}>
               <p className={`${typography.panelMeta} text-text-light`}>
                 <span className="font-medium">{DOWNSIDE_HEADING_COPY}</span>{' '}
@@ -863,6 +868,16 @@ function OptionCard({
                 {DOWNSIDE_TAIL_CAVEAT_COPY}
               </p>
             </div>
+          ) : (
+            /* 2.581 — the stated absence. Same expert block, same option
+               identity, so a reader who opened this card for the tail learns
+               that there is not one rather than scanning a gap. */
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1`}
+              data-testid={`option-downside-unavailable-${option.id}`}
+            >
+              {DOWNSIDE_UNAVAILABLE_COPY}
+            </p>
           )}
         </ExpertBlock>
       )}

@@ -27,11 +27,36 @@ import type { RunPair, RunPreset, Transition } from './types'
 
 interface CompareTabBodyProps {
   onRunAnalysis: () => void
+  /**
+   * ROADMAP 2.581 — THE PRODUCT HAS ONE EXPERT MODE, AND THIS TAB DOES NOT
+   * OWN IT.
+   *
+   * Until this change there were TWO independent expert states: OutputsDock's
+   * (`olumi.expertMode`, `'true'`/`'false'`, the one that gates the Results
+   * option cards' range bar, downside tail and tail caveat) and this tab's own
+   * `useState` behind `feature.compareExpert` (`'1'`/`'0'`). Different keys,
+   * different encodings, no relationship — and this tab's pill was the ONLY
+   * control in the product whose visible text read "Expert". The Results
+   * control is an unlabelled `</>` glyph.
+   *
+   * That is not a hypothetical. It is the measured cause of the 2.581 report:
+   * `expert-session-2026-08-05-raw/run5/driver.log` shows Compare clicked at
+   * 16:02:54, the button matching /^Expert$/i (this pill) at 16:02:57, then
+   * the Analysis tab at 16:02:59 — `</>` never touched. The Results panel
+   * stayed in simple mode, so the entire ExpertBlock (range bar AND tail AND
+   * caveat) never mounted, while the run's own payload carried the complete
+   * downside object for all five options. The tester reasonably read that as
+   * the feature being unreliable.
+   *
+   * CONTROLLED, not merely re-keyed. The state is hoisted to OutputsDock — the
+   * single owner — so there is no second copy to drift (trap 12: the fix for a
+   * mirror is to delete it, not to synchronise it).
+   */
+  expertMode: boolean
+  onToggleExpert: (value: boolean) => void
 }
 
-const EXPERT_STORAGE_KEY = 'feature.compareExpert'
-
-export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
+export function CompareTabBody({ onRunAnalysis, expertMode, onToggleExpert }: CompareTabBodyProps) {
   // ROADMAP 2.113a slice 1: seed the journey from PERSISTED `run_analysis`
   // facts. The session capture gate (canvas/store.ts `resultsComplete`)
   // requires a `rawV2Response`, and the deployed V5 results-hydration path
@@ -60,14 +85,10 @@ export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
    * choice the user could still get back. `pair` below is the resolved value.
    */
   const [requestedPair, setRequestedPair] = useState<RunPair | null>(null)
-  const [showExpert, setShowExpert] = useState(() => {
-    try { return localStorage.getItem(EXPERT_STORAGE_KEY) === '1' } catch { return false }
-  })
-
-  const handleToggleExpert = useCallback((val: boolean) => {
-    setShowExpert(val)
-    try { localStorage.setItem(EXPERT_STORAGE_KEY, val ? '1' : '0') } catch { /* */ }
-  }, [])
+  // 2.581 — the product's single expert mode, owned by OutputsDock. No local
+  // state and no storage key here: a second copy is the defect.
+  const showExpert = expertMode
+  const handleToggleExpert = onToggleExpert
 
   // State machine
   const compareState = useMemo(

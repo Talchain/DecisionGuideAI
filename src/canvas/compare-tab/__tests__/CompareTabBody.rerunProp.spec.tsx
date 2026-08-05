@@ -26,7 +26,10 @@ describe('CompareTabBody rerun prop wiring (correction 5)', () => {
       path.join(ROOT, 'src/canvas/components/OutputsDock.tsx'),
       'utf-8',
     )
-    expect(source).toContain('<CompareTabBodyV2 onRunAnalysis={handleRunAnalysis} />')
+    // ROADMAP 2.581 reshaped this mount from a single-prop self-closing tag to
+    // a multi-line element (expert mode is now owned by OutputsDock and passed
+    // down), so the pin is on the wiring rather than on one line's whitespace.
+    expect(source).toMatch(/<CompareTabBodyV2[\s\S]{0,200}?onRunAnalysis=\{handleRunAnalysis\}/)
   })
 
   it('CompareTabBody.onRunAnalysis prop signature is still a single callback', () => {

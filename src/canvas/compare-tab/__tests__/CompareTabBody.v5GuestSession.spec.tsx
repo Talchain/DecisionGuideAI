@@ -91,7 +91,7 @@ describe('ROADMAP 2.350 — guest, two runs in one session, Compare tab', () => 
   // gone" assertions would be passing for the wrong reason.
   it('CONTROL: with ONE run the guest still sees the empty state and no pickers', () => {
     applyTurn(runA)
-    render(<CompareTabBody onRunAnalysis={() => {}} />)
+    render(<CompareTabBody onRunAnalysis={() => {}} expertMode={false} onToggleExpert={() => {}} />)
 
     expect(screen.getByTestId('compare-empty-state')).toBeTruthy()
     expect(screen.getByText(EMPTY_STATE_COPY)).toBeTruthy()
@@ -104,7 +104,7 @@ describe('ROADMAP 2.350 — guest, two runs in one session, Compare tab', () => 
     applyTurn(runA)
     applyTurn(runB)
 
-    render(<CompareTabBody onRunAnalysis={() => {}} />)
+    render(<CompareTabBody onRunAnalysis={() => {}} expertMode={false} onToggleExpert={() => {}} />)
 
     // The `Pick two runs` preset is what mounts the pair picker
     // (RunSelector.tsx:73); the tab opens on `prev`.
@@ -126,7 +126,7 @@ describe('ROADMAP 2.350 — guest, two runs in one session, Compare tab', () => 
     applyTurn(runA)
     applyTurn(runB)
 
-    render(<CompareTabBody onRunAnalysis={() => {}} />)
+    render(<CompareTabBody onRunAnalysis={() => {}} expertMode={false} onToggleExpert={() => {}} />)
     fireEvent.click(screen.getByText('Pick two runs'))
 
     const captured = useAnalysisSnapshotStore.getState().snapshots
@@ -160,7 +160,7 @@ describe('ROADMAP 2.350 — guest, two runs in one session, Compare tab', () => 
     applyTurn(runA)
     applyTurn(runB)
 
-    render(<CompareTabBody onRunAnalysis={() => {}} />)
+    render(<CompareTabBody onRunAnalysis={() => {}} expertMode={false} onToggleExpert={() => {}} />)
 
     expect(screen.queryByTestId('compare-empty-state')).toBeNull()
     expect(screen.queryByText(EMPTY_STATE_COPY)).toBeNull()

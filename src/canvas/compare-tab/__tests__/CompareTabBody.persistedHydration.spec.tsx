@@ -121,7 +121,7 @@ describe('Compare tab hydrates from persisted analysis runs (2.113a slice 1)', (
       }),
     ])
 
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
 
     // POSITIVE CONTROL: real content, from rows, not "no error".
     expect(await screen.findByTestId('compare-hero')).toBeTruthy()
@@ -149,7 +149,7 @@ describe('Compare tab hydrates from persisted analysis runs (2.113a slice 1)', (
       makePersistedRunFactRow({ id: 'f3', createdAt: '2026-07-20T12:00:00.000Z', responseHash: 'h3' }),
     ])
 
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
 
     await waitFor(() => {
       expect(useAnalysisSnapshotStore.getState().snapshots).toHaveLength(3)
@@ -162,7 +162,7 @@ describe('Compare tab hydrates from persisted analysis runs (2.113a slice 1)', (
   it('GUEST UNCHANGED: no signed-in session ⇒ no read attempted, existing empty state, never an error', async () => {
     getSessionIdentity.mockResolvedValue({ userId: null, accessToken: null })
 
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
 
     await waitFor(() => expect(getSessionIdentity).toHaveBeenCalled())
     expect(listPersistedAnalysisRuns).not.toHaveBeenCalled()
@@ -174,7 +174,7 @@ describe('Compare tab hydrates from persisted analysis runs (2.113a slice 1)', (
   it('an owner whose scenario has no persisted runs sees the SAME empty state', async () => {
     listPersistedAnalysisRuns.mockResolvedValue([])
 
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
 
     await waitFor(() => expect(listPersistedAnalysisRuns).toHaveBeenCalled())
     expect(emptyState()).toBeTruthy()
@@ -186,7 +186,7 @@ describe('Compare tab hydrates from persisted analysis runs (2.113a slice 1)', (
       new Error('permission denied for table v5_handler_facts'),
     )
 
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
 
     await waitFor(() => expect(listPersistedAnalysisRuns).toHaveBeenCalled())
     expect(emptyState()).toBeTruthy()
@@ -209,7 +209,7 @@ describe('Compare tab hydrates from persisted analysis runs (2.113a slice 1)', (
 
     render(
       <StrictMode>
-        <CompareTabBody onRunAnalysis={vi.fn()} />
+        <CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />
       </StrictMode>,
     )
 
@@ -222,7 +222,7 @@ describe('Compare tab hydrates from persisted analysis runs (2.113a slice 1)', (
   it('a guest scenario id of null makes no read at all', async () => {
     mockCanvasState.currentScenarioId = null
 
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
 
     await waitFor(() => expect(emptyState()).toBeTruthy())
     expect(getSessionIdentity).not.toHaveBeenCalled()
