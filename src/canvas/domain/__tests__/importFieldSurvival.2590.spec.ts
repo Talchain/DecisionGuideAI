@@ -45,6 +45,7 @@ import { exportCanvas, importCanvas } from '../../persist'
 import { importSnapshot } from '../migrations'
 import { deepEqual } from '../analyticalChange'
 import { NODE_FIELD_REGISTRY } from '../analyticalNodeFields'
+import { EDITOR_WRITTEN_FIELDS } from '../../ui/inspector-v2/useInspectorMutations'
 import pristineExport from '../../__tests__/fixtures/walk582-t2b-export-pristine.json'
 
 type AnyRec = Record<string, unknown>
@@ -170,7 +171,10 @@ const READER_CORPUS: readonly CorpusEntry[] = [
     nodeId: 'goal_turnout',
     field: 'goalThreshold',
     value: 0.8,
-    reader: 'canvas/store.ts:1303 (camelCase derived cache) · analyticalNodeFields NODE_FIELD_REGISTRY',
+    // NOT canvas/store.ts:1303 — that WRITES a same-named *store* field from
+    // data.success_threshold; it never reads node.data.goalThreshold. The real
+    // reader is the staleness gate iterating STALE_NODE_FIELDS.
+    reader: 'canvas/domain/analyticalChange.ts:56 hasAnalyticalNodeChange (iterates STALE_NODE_FIELDS, which includes goalThreshold)',
   },
   {
     nodeId: 'risk_logistics',
@@ -243,6 +247,37 @@ const READER_CORPUS: readonly CorpusEntry[] = [
     value: true,
     reader: 'canvas/store.ts:2751',
   },
+  // --- added because GUARD 3's union was EXTENDED to EDITOR_WRITTEN_FIELDS.node.
+  //     Both are written at the TOP LEVEL of node.data by live inspector
+  //     setters. The original manifest recorded both only as members of
+  //     ObservedStateSchema (which is .passthrough(), so the NESTED copies
+  //     always survived) and never checked the top level — so both were being
+  //     destroyed, and nothing in this spec would have noticed a regression.
+  {
+    nodeId: 'fac_capacity',
+    field: 'extractionType',
+    value: 'explicit',
+    reader:
+      'WRITER canvas/ui/inspector-v2/useInspectorMutations.ts:279 setExtractionType · READERS canvas/components/pre-analysis/hooks/usePreAnalysisData.ts:789-792 ("extractionType has two storage locations… node.data.extractionType — factors edited via the inspector"), FactorObservableEditor.tsx:96, FactorControllableEditor.tsx:149',
+  },
+  {
+    nodeId: 'fac_capacity',
+    field: 'factor_type',
+    value: 'continuous',
+    reader:
+      'WRITER canvas/ui/inspector-v2/useInspectorMutations.ts:285 setFactorType · named in analyticalNodeFields.ts as a hash-by-default persisted field',
+  },
+  // Also named by the widened GUARD 3 union. Unlike the two above, `description`
+  // IS declared (on NodeDataSchema) and always survived — it was simply never
+  // round-tripped by this spec. Covering it is the guard demanding COVERAGE, not
+  // merely survival: an undeclared regression here would otherwise go unseen.
+  {
+    nodeId: 'dec_venue',
+    field: 'description',
+    value: 'Which venue maximises turnout?',
+    reader:
+      'WRITER canvas/ui/inspector-v2/useInspectorMutations.ts setDescription · READERS canvas/nodes/BaseNode.tsx:~ (data?.description), RiskNode.tsx, ActionNode.tsx',
+  },
 ] as const
 
 describe('2.590 — export → import must not silently destroy node.data fields', () => {
@@ -252,9 +287,13 @@ describe('2.590 — export → import must not silently destroy node.data fields
   describe('GUARD 1 (structural, input-derived): every key on every exported node survives, by id', () => {
     it('preserves every data key present on a real export fixture, per node id', () => {
       const state = cloneFixture()
-      // Plant a per-node sentinel so the guard has teeth even where the fixture
-      // itself carries only declared fields. NOT prefixed `__` — persist's
-      // deepSanitize drops `__`-prefixed keys by design.
+      // MEASURED (review, M1 applied with the plant removed): this guard PASSES
+      // on the bare fixture. Every key the fixture carries is declared, so the
+      // fixture contributes ZERO undeclared-key discrimination — ALL of this
+      // guard's teeth against 2.590 are the synthetic sentinel below. Guard 2's
+      // corpus is therefore load-bearing, not a backstop. Do not delete the
+      // plant on the theory that the real fixture already covers this.
+      // NOT prefixed `__` — persist's deepSanitize drops `__`-prefixed keys.
       for (const n of state.nodes) {
         n.data = { ...(n.data ?? {}), rt_probe_2590: `probe:${n.id}` }
       }
@@ -290,8 +329,12 @@ describe('2.590 — export → import must not silently destroy node.data fields
   // carries the goal threshold quad.
   // -------------------------------------------------------------------------
   describe('GUARD 2 (reader-derived corpus): fields real consumers read survive by exact key and value', () => {
+    // Title form matters: vitest's `$`-matcher treats `$nodeId.data.$field` as a
+    // PROPERTY PATH (`nodeId.data`), which is undefined, so every title rendered
+    // "preserves undefined (…)" and the failure signature lost its identity.
+    // `$nodeId data.$field` interpolates both.
     it.each(READER_CORPUS)(
-      'preserves $nodeId.data.$field (read by $reader)',
+      'preserves $nodeId data.$field (read by $reader)',
       ({ nodeId, field, value }) => {
         const state = cloneFixture()
         const target = state.nodes.find((n) => n.id === nodeId)
@@ -370,18 +413,33 @@ describe('2.590 — export → import must not silently destroy node.data fields
   // GUARD 3 — union assertion against an INDEPENDENT reader-derived register.
   // Mirror-free: derived from an importable list, never hand-copied.
   // -------------------------------------------------------------------------
-  describe('GUARD 3 (union assertion): every analyticalNodeFields registry field is round-trip covered', () => {
-    it('registry node fields ⊆ fields this spec actually round-trips', () => {
+  describe('GUARD 3 (union assertion): every externally-registered node field is round-trip covered', () => {
+    it('registry ∪ editor-written node fields ⊆ fields this spec actually round-trips', () => {
       const covered = new Set<string>(READER_CORPUS.map((e) => e.field))
       // Guard 1 covers whatever the fixture carries, so count those too.
       for (const n of (pristineExport as { nodes: any[] }).nodes) {
         for (const k of Object.keys(n.data ?? {})) covered.add(k)
       }
 
-      const uncovered = NODE_FIELD_REGISTRY.map((f) => f.field).filter((f) => !covered.has(f))
+      // TWO independent external registers, unioned. Neither is derived from
+      // the Zod schemas, so neither can agree with the thing under test:
+      //   • NODE_FIELD_REGISTRY   — analysis/persist relevance (staleness + autosave)
+      //   • EDITOR_WRITTEN_FIELDS.node — what the live inspector setters WRITE,
+      //     itself derived from NODE_SETTER_FIELDS and behaviourally guarded by
+      //     useInspectorMutations.writtenFields.spec.tsx
+      // The registry alone was SHORT: it carries neither `extractionType` nor
+      // `factor_type`, both of which the inspector writes at the top level and
+      // three consumers read. Union-ing the second register is what caught them
+      // — a single derived list proves agreement, never completeness (12d).
+      const required = [
+        ...NODE_FIELD_REGISTRY.map((f) => f.field),
+        ...EDITOR_WRITTEN_FIELDS.node,
+      ]
+
+      const uncovered = [...new Set(required)].filter((f) => !covered.has(f))
       expect(
         uncovered,
-        `analyticalNodeFields NODE_FIELD_REGISTRY grew but the 2.590 round-trip corpus did not: ` +
+        `A field register grew but the 2.590 round-trip corpus did not: ` +
           `${uncovered.join(', ')}. Add each to READER_CORPUS with the reader that depends on it.`,
       ).toEqual([])
     })
