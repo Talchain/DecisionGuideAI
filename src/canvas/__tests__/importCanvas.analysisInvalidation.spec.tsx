@@ -785,6 +785,38 @@ describe('interim 2.467 round 2 — the hold is derived from the graph, not from
     expect(said).not.toContain('with the current model')
   })
 
+  it('INVARIANT that makes the toast safe: under a hold, a fresh verdict always leaves dirty=true', () => {
+    // This is the DEMONSTRATION that mutant M14 (dropping `importHold` from the
+    // notice's toast classification) is equivalent, rather than an assertion
+    // that it is. With dirty forced true, `resolveDisplayedFreshness` already
+    // downgrades 'fresh' → 'unknown', so the toast classification lands on
+    // 'changed' with or without importHold, and BOTH produce the neutral
+    // "Analysis rerun completed" line — never the affirmative. The only state
+    // where the argument would change the toast is (hold ∧ ¬dirty ∧ fresh), and
+    // the three writers below make that state unreachable. The argument is kept
+    // as defence-in-depth: if this invariant ever weakens, the toast stays
+    // honest without a second fix.
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    // 1. ingestion of a fresh verdict forces the overlay on
+    act(() => {
+      useCanvasStore.getState().setAnalysisFreshness(SERVER_FRESH_VERDICT_AFTER_RERUN)
+    })
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+    // 2. the explicit clearer refuses under a hold
+    act(() => {
+      useCanvasStore.getState().clearAnalysisFreshnessDirty()
+    })
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+    // 3. a verdictless run completion also keeps it
+    act(() => {
+      useCanvasStore.getState().noteRunCompletedWithoutVerdict()
+    })
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+  })
+
   it('digest .sort() is load-bearing: a REORDERED hydrate of the imported graph still holds', () => {
     // A hydrate or a persistence round-trip can reorder nodes/edges without
     // changing the model. An order-sensitive digest would miss the match and

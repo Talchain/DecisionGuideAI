@@ -105,6 +105,16 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
   // Interim 2.467: the toast must claim exactly what the strip claims, so it
   // takes the same importHold input (an unregistered import can never produce
   // the "with the current model" completion line).
+  //
+  // ⚠ Honest note: this argument is currently REDUNDANT here, and that is
+  // measured, not assumed. Under a hold the store forces the dirty overlay on
+  // (setAnalysisFreshness / clearAnalysisFreshnessDirty / noteRunCompleted-
+  // WithoutVerdict all keep it true — pinned by its own invariant test), so the
+  // classification lands on 'changed' either way and both paths yield the
+  // neutral completion line. A mutant dropping this argument is therefore an
+  // EQUIVALENT mutant — demonstrated by that invariant test, not asserted. It
+  // stays as defence-in-depth: if the invariant ever weakens, the toast remains
+  // honest without needing a second fix.
   const completionSemantic = classifyFreshnessForDisplay(effectiveState, dirty, importHold)
 
   // Parity audit: the prototype confirms a completed rerun. Watch the
