@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod'
-import { AnyNodeDataSchema, NodeTypeEnum } from './nodes'
+import { AnyNodeDataImportSchema, NodeTypeEnum } from './nodes'
 import { EdgeDataSchema, DEFAULT_EDGE_DATA } from './edges'
 import { captureError } from '../../lib/monitoring'
 
@@ -38,7 +38,15 @@ const V2SnapshotSchema = z.object({
     id: z.string(),
     type: z.string(),
     position: z.object({ x: z.number(), y: z.number() }),
-    data: AnyNodeDataSchema,
+    /**
+     * 2.590 — the IMPORT variant of the node-data union (permissive on
+     * undeclared keys). The strict union stripped every field outside each
+     * per-type schema's declared set, silently destroying the goal target /
+     * unit / cap and everything BaseNode reads. Shape validation, the
+     * discriminant and per-field types are unchanged; see the rationale on
+     * AnyNodeDataImportSchema in ./nodes.ts.
+     */
+    data: AnyNodeDataImportSchema,
   })),
   edges: z.array(z.object({
     id: z.string(),
