@@ -98,6 +98,28 @@ export type MergeServerGraphRefusal =
   | 'emptyServerGraph'
   /** Zero node-id overlap with a non-empty canvas — two unrelated graphs. */
   | 'zeroOverlap'
+  /**
+   * ROADMAP 2.467/2.503 — the canvas holds a graph the SERVER HAS NEVER SEEN.
+   *
+   * THE DEFECT THIS CLOSES, live-witnessed 5 Aug: import a file, press F5
+   * WITHOUT saving, and the imported values were silently GONE. This module's
+   * own rule is "VALUES FROM THE SERVER, LAYOUT FROM LOCAL" — `overlayNode`
+   * does `{...existing.data, ...mapped.data}`, so CEE's `label` wins on every
+   * node id it shares. That rule is CORRECT once the server has the graph, and
+   * destructive before it does: nothing had registered the import, so the boot
+   * merge restored the pre-import model over the user's own work, without a
+   * word. Not a trust-of-numbers defect — the freshness posture stayed honestly
+   * cannot-confirm throughout — but the user's EDIT being undone.
+   *
+   * ⚠ THIS IS DELIBERATELY NOT A STANDALONE PATCH OF THE MERGE RULE. Weakening
+   *   server-wins in general would trade one silent divergence for another. The
+   *   refusal is scoped to exactly the window in which the server's copy is
+   *   KNOWN to be the older one, and it ENDS when registration is acknowledged:
+   *   `releaseImportRegistration` drops the hold, the next hydrate finds no
+   *   marker, and server-wins resumes with the server holding the user's graph.
+   *   Symptom and cause are closed by the same train.
+   */
+  | 'importUnregistered'
 
 export interface MergeServerGraphResult {
   addedNodeCount: number
@@ -172,6 +194,25 @@ export function mergeServerGraphOnHydrate(
   if (rawNodes.length === 0 && rawEdges.length === 0) return refused('emptyServerGraph')
 
   const store = useCanvasStore.getState()
+
+  // ROADMAP 2.467/2.503 — refuse while the canvas holds an UNREGISTERED import.
+  // Placed AFTER the shape guards (an unusable or empty server graph is still
+  // that, whatever the canvas holds) and BEFORE anything reads the canvas or
+  // records an identity: a refusal here must not leave `lastAuthoritativeGraph`
+  // claiming we applied a graph we deliberately did not.
+  //
+  // Derived from the store field, which is itself DERIVED at every
+  // graph-replacement site from the localStorage marker — so this covers the
+  // reload, the new tab and the scenario-load paths without a release list to
+  // keep in sync (trap 12).
+  if (store.importPendingServerRegistration) {
+    logger.warn('merge_server_graph.import_unregistered_hold', {
+      scenarioId: store.currentScenarioId ?? null,
+      canvasNodeCount: store.nodes.length,
+      serverNodeCount: rawNodes.length,
+    })
+    return refused('importUnregistered')
+  }
   const existingNodeIds = new Set(store.nodes.map((n: any) => n.id))
   const existingEdgeIds = new Set(store.edges.map((e: any) => e.id))
 

@@ -13,6 +13,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { Save, Copy, Edit2, Trash2, ChevronDown, Folder, AlertCircle, Download, Upload } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { loadScenarios, getScenario, type Scenario, importScenarioFromFile } from '../store/scenarios'
+import { markGraphImported } from '../store/importRegistrationMarker'
 import { SaveStatusPill } from './SaveStatusPill'
 import { exportScenario } from '../export/exportScenario'
 import { useToast } from '../ToastContext'
@@ -176,6 +177,23 @@ export function ScenarioSwitcher({ dropdownPosition = 'above' }: ScenarioSwitche
       const result = importScenarioFromFile(content, nodes, edges)
 
       if (result.success && result.scenario) {
+        // ROADMAP 2.467/2.483 — THE SECOND IMPORT ROUTE, and until now the
+        // unguarded one. This path never touches `store.importCanvas`, so
+        // `markGraphImported` was never called and `loadScenario`'s derivation
+        // returned FALSE: a graph the server has never seen was installed with
+        // the hold OFF, and one Rerun could re-attach an affirmative to CEE's
+        // own pre-import model. Marked HERE, before `loadScenario` derives the
+        // flag from the graph it installs — the ordering is the whole point.
+        //
+        // The graph is read back from the scenario the import just created,
+        // because `importScenarioFromFile` RESEEDS node ids: marking the file's
+        // original ids would compute a digest for a graph that never reaches
+        // the canvas, and the hold would silently never match.
+        const created = getScenario(result.scenario.id)
+        if (created?.graph) {
+          markGraphImported(created.graph.nodes, created.graph.edges)
+        }
+
         // Load the imported scenario
         loadScenario(result.scenario.id)
         showToast(`Imported "${result.scenario.name}" successfully`, 'success')

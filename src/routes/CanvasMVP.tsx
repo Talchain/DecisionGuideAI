@@ -18,6 +18,7 @@ import { getScenario } from '../canvas/store/scenarios'
 import { buildShareLink } from '../canvas/utils/shareLink'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
+import { useImportRegistration } from '../canvas/registration/useImportRegistration'
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 
@@ -78,6 +79,12 @@ export default function CanvasMVP() {
   // Supabase writes, whereas this read goes through CEE, which holds the
   // service credential the browser deliberately does not have.
   useServerGraphHydration(scenarioIdFromRoute)
+
+  // ROADMAP 2.467: register a locally-imported graph with CEE so the analysis
+  // describes the model on screen. Mounted BESIDE the hydration hook on
+  // purpose — the two are the same seam read in both directions, and the
+  // hydration merge refuses while this one still has the hold armed.
+  useImportRegistration()
 
   // Track canvas opened event
   useEffect(() => {

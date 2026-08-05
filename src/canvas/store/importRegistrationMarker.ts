@@ -144,6 +144,36 @@ export function isGraphPendingImportRegistration(nodes: GraphNodes, edges: Graph
   return readMarkers().includes(digest)
 }
 
+/**
+ * THE RELEASE — ROADMAP 2.467's registration train.
+ *
+ * Called with the graph the SERVER has just acknowledged holding. The hold is
+ * dropped for that structural identity and no other, so a session that imported
+ * two graphs and registered one keeps holding the other.
+ *
+ * ⚠ CALL THIS ONLY ON A SERVER ACKNOWLEDGEMENT. The whole point of the marker
+ *   is that a graph the server has never seen cannot be affirmed as current;
+ *   releasing on anything weaker than "CEE told us it stored this" re-opens the
+ *   P0. An unreadable answer, a transport failure and a 200 whose body did not
+ *   carry the registration envelope are all NOT acknowledgements.
+ *
+ * ⚠ IDENTITY IS STRUCTURAL, so the graph passed here must be the one that was
+ *   REGISTERED, not a later edit of it. Passing a mutated graph would release
+ *   nothing (the digest would not match) — which fails in the SAFE direction
+ *   (still holding), but silently, so callers snapshot before they send.
+ *
+ * Returns whether a marker was actually removed, so a caller can tell a real
+ * release from a no-op instead of assuming one.
+ */
+export function releaseImportRegistration(nodes: GraphNodes, edges: GraphEdges): boolean {
+  const digest = graphImportDigest(nodes, edges)
+  if (digest === null) return false
+  const markers = readMarkers()
+  if (!markers.includes(digest)) return false
+  writeMarkers(markers.filter((m) => m !== digest))
+  return true
+}
+
 /** Test/teardown helper — a real session drops the record when the tab closes. */
 export function clearImportRegistrationMarkers(): void {
   try {

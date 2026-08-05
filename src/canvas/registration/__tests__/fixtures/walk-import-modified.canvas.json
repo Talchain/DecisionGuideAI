@@ -1,0 +1,1894 @@
+{
+  "version": 2,
+  "timestamp": 1785927661783,
+  "nodes": [
+    {
+      "id": "dec_venue",
+      "type": "decision",
+      "position": {
+        "x": 570,
+        "y": 24
+      },
+      "data": {
+        "provenance": "ai_inferred",
+        "label": "Product Launch Venue Selection",
+        "kind": "decision",
+        "type": "decision"
+      },
+      "selected": false
+    },
+    {
+      "id": "fac_alpha",
+      "type": "factor",
+      "position": {
+        "x": 24,
+        "y": 321
+      },
+      "data": {
+        "category": "controllable",
+        "encoding_map": {
+          "0": "Not selected",
+          "1": "Alpha Hall selected"
+        },
+        "display_value": "Low (0)",
+        "provenance": "ai_inferred",
+        "label": "Alpha Hall Selected",
+        "kind": "factor",
+        "observedState": {
+          "value": 0,
+          "source": "cee_inference",
+          "extractionType": "inferred",
+          "factor_type": "other",
+          "uncertainty_drivers": [
+            "Not provided"
+          ]
+        },
+        "type": "factor"
+      },
+      "selected": true
+    },
+    {
+      "id": "fac_beta",
+      "type": "factor",
+      "position": {
+        "x": 388,
+        "y": 321
+      },
+      "data": {
+        "category": "controllable",
+        "encoding_map": {
+          "0": "Not selected",
+          "1": "Beta Garden selected"
+        },
+        "display_value": "Low (0)",
+        "provenance": "ai_inferred",
+        "label": "Beta Garden Selected",
+        "kind": "factor",
+        "observedState": {
+          "value": 0,
+          "source": "cee_inference",
+          "extractionType": "inferred",
+          "factor_type": "other",
+          "uncertainty_drivers": [
+            "Not provided"
+          ]
+        },
+        "type": "factor"
+      },
+      "selected": false
+    },
+    {
+      "id": "fac_gamma",
+      "type": "factor",
+      "position": {
+        "x": 752,
+        "y": 321
+      },
+      "data": {
+        "category": "controllable",
+        "encoding_map": {
+          "0": "Not selected",
+          "1": "Gamma Rooftop selected"
+        },
+        "display_value": "Low (0)",
+        "provenance": "ai_inferred",
+        "label": "Gamma Rooftop Selected",
+        "kind": "factor",
+        "observedState": {
+          "value": 0,
+          "source": "cee_inference",
+          "extractionType": "inferred",
+          "factor_type": "other",
+          "uncertainty_drivers": [
+            "Not provided"
+          ]
+        },
+        "type": "factor"
+      },
+      "selected": false
+    },
+    {
+      "id": "fac_weather",
+      "type": "factor",
+      "position": {
+        "x": 1116,
+        "y": 321
+      },
+      "data": {
+        "category": "external",
+        "prior": {
+          "distribution": "uniform",
+          "range_min": 0,
+          "range_max": 1
+        },
+        "provenance": "ai_inferred",
+        "label": "Weather Conditions on Event Day",
+        "kind": "factor",
+        "type": "factor"
+      },
+      "selected": false
+    },
+    {
+      "id": "goal_turnout",
+      "type": "goal",
+      "position": {
+        "x": 570,
+        "y": 832
+      },
+      "data": {
+        "provenance": "ai_inferred",
+        "label": "Maximise Attendee Turnout",
+        "kind": "goal",
+        "type": "goal"
+      },
+      "selected": false
+    },
+    {
+      "id": "opt_alpha",
+      "type": "option",
+      "position": {
+        "x": 24,
+        "y": 155
+      },
+      "data": {
+        "interventions": {
+          "fac_alpha": 1,
+          "fac_beta": 0,
+          "fac_gamma": 0
+        },
+        "is_baseline": false,
+        "provenance": "ai_inferred",
+        "label": "ZZZ IMPORTED OPTION",
+        "kind": "option",
+        "interventionKeys": [
+          "fac_alpha",
+          "fac_beta",
+          "fac_gamma"
+        ],
+        "type": "option"
+      },
+      "selected": false
+    },
+    {
+      "id": "opt_beta",
+      "type": "option",
+      "position": {
+        "x": 388,
+        "y": 155
+      },
+      "data": {
+        "interventions": {
+          "fac_alpha": 0,
+          "fac_beta": 1,
+          "fac_gamma": 0
+        },
+        "is_baseline": false,
+        "provenance": "ai_inferred",
+        "label": "Beta Garden",
+        "kind": "option",
+        "interventionKeys": [
+          "fac_alpha",
+          "fac_beta",
+          "fac_gamma"
+        ],
+        "type": "option"
+      },
+      "selected": false
+    },
+    {
+      "id": "opt_gamma",
+      "type": "option",
+      "position": {
+        "x": 752,
+        "y": 155
+      },
+      "data": {
+        "interventions": {
+          "fac_alpha": 0,
+          "fac_beta": 0,
+          "fac_gamma": 1
+        },
+        "is_baseline": false,
+        "provenance": "ai_inferred",
+        "label": "Gamma Rooftop",
+        "kind": "option",
+        "interventionKeys": [
+          "fac_alpha",
+          "fac_beta",
+          "fac_gamma"
+        ],
+        "type": "option"
+      },
+      "selected": false
+    },
+    {
+      "id": "opt_status_quo",
+      "type": "option",
+      "position": {
+        "x": 1116,
+        "y": 155
+      },
+      "data": {
+        "interventions": {
+          "fac_alpha": 0,
+          "fac_beta": 0,
+          "fac_gamma": 0
+        },
+        "is_baseline": true,
+        "provenance": "ai_inferred",
+        "label": "Defer Venue Decision (Status Quo)",
+        "kind": "option",
+        "interventionKeys": [
+          "fac_alpha",
+          "fac_beta",
+          "fac_gamma"
+        ],
+        "type": "option"
+      },
+      "selected": false
+    },
+    {
+      "id": "out_appeal",
+      "type": "outcome",
+      "position": {
+        "x": 388,
+        "y": 544
+      },
+      "data": {
+        "provenance": "ai_inferred",
+        "label": "Attendee Experience Appeal",
+        "kind": "outcome",
+        "type": "outcome"
+      },
+      "selected": false
+    },
+    {
+      "id": "out_capacity",
+      "type": "outcome",
+      "position": {
+        "x": 752,
+        "y": 544
+      },
+      "data": {
+        "provenance": "ai_inferred",
+        "label": "Venue Capacity and Accessibility",
+        "kind": "outcome",
+        "type": "outcome"
+      },
+      "selected": false
+    },
+    {
+      "id": "risk_logistics",
+      "type": "risk",
+      "position": {
+        "x": 388,
+        "y": 688
+      },
+      "data": {
+        "provenance": "ai_inferred",
+        "label": "Attendee Logistics Friction",
+        "kind": "risk",
+        "type": "risk"
+      },
+      "selected": false
+    },
+    {
+      "id": "risk_weather_exposure",
+      "type": "risk",
+      "position": {
+        "x": 752,
+        "y": 688
+      },
+      "data": {
+        "provenance": "ai_inferred",
+        "label": "Weather Disruption Risk",
+        "kind": "risk",
+        "type": "risk"
+      },
+      "selected": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-0",
+      "source": "dec_venue",
+      "target": "opt_alpha",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-1",
+      "source": "dec_venue",
+      "target": "opt_beta",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-2",
+      "source": "dec_venue",
+      "target": "opt_gamma",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-3",
+      "source": "dec_venue",
+      "target": "opt_status_quo",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-4",
+      "source": "fac_alpha",
+      "target": "out_appeal",
+      "type": "styled",
+      "data": {
+        "weight": 0.18999999999999997,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.75,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.08866666666666667,
+        "exists_probability": 0.75,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.3,
+            "strength_std": 0.14,
+            "exists_probability": 0.75
+          },
+          "pass2": {
+            "strength_mean": 0.25,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Indoor Alpha Hall offers moderate aesthetic appeal compared to more unique venues.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.375,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.15000000000000002,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "fac_alpha->out_appeal",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-5",
+      "source": "fac_alpha",
+      "target": "out_capacity",
+      "type": "styled",
+      "data": {
+        "weight": 0.5145833333333333,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.88,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.09499999999999999,
+        "exists_probability": 0.88,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.65,
+            "strength_std": 0.12,
+            "exists_probability": 0.88
+          },
+          "pass2": {
+            "strength_mean": 0.5,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Alpha Hall’s indoor space supports the largest attendee capacity with easy accessibility.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.625,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.050000000000000044,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "fac_alpha->out_capacity",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-6",
+      "source": "fac_alpha",
+      "target": "risk_logistics",
+      "type": "styled",
+      "data": {
+        "weight": 0.2,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.72,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "negative",
+        "strengthStd": 0.12,
+        "exists_probability": 0.72,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": -0.2,
+            "strength_std": 0.12,
+            "exists_probability": 0.72
+          },
+          "pass2": {
+            "strength_mean": -0.3,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Alpha Hall’s central location and parking minimize attendee logistics friction.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": -0.175,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.050000000000000044,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "fac_alpha->risk_logistics",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-7",
+      "source": "fac_beta",
+      "target": "out_appeal",
+      "type": "styled",
+      "data": {
+        "weight": 0.34833333333333333,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.82,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.10133333333333333,
+        "exists_probability": 0.82,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.55,
+            "strength_std": 0.16,
+            "exists_probability": 0.82
+          },
+          "pass2": {
+            "strength_mean": 0.35,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Beta Garden’s outdoor setting provides above-average aesthetic appeal.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.475,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.15000000000000013,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "fac_beta->out_appeal",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-8",
+      "source": "fac_beta",
+      "target": "out_capacity",
+      "type": "styled",
+      "data": {
+        "weight": 0.2770833333333333,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.8,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.11875,
+        "exists_probability": 0.8,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.35,
+            "strength_std": 0.15,
+            "exists_probability": 0.8
+          },
+          "pass2": {
+            "strength_mean": 0.3,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Beta Garden offers moderate capacity and accessibility outdoors.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.425,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.15000000000000002,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "fac_beta->out_capacity",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-9",
+      "source": "fac_beta",
+      "target": "risk_logistics",
+      "type": "styled",
+      "data": {
+        "weight": 0.25,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.7,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.13,
+        "exists_probability": 0.7,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "strength_band_change",
+            "confidence_band_change"
+          ],
+          "pass1": {
+            "strength_mean": 0.25,
+            "strength_std": 0.13,
+            "exists_probability": 0.7
+          },
+          "pass2": {
+            "strength_mean": -0.1,
+            "strength_std": 0.08000000000000002,
+            "exists_probability": 0.9,
+            "reasoning": "Outdoor garden may pose slight additional walking but limited navigation issues.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": true
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.024999999999999994,
+            "strength_std": 0.060000000000000026,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.45,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "LINT_STD_CLAMPED",
+              "edge_key": "fac_beta->risk_logistics",
+              "before": 0.15,
+              "after": 0.08000000000000002
+            },
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "fac_beta->risk_logistics",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-10",
+      "source": "fac_beta",
+      "target": "risk_weather_exposure",
+      "type": "styled",
+      "data": {
+        "weight": 0.3677419354838709,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.9,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.11032258064516128,
+        "exists_probability": 0.9,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "raw_magnitude"
+          ],
+          "pass1": {
+            "strength_mean": 0.6,
+            "strength_std": 0.18,
+            "exists_probability": 0.9
+          },
+          "pass2": {
+            "strength_mean": 0.2,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Beta Garden exposes attendees to weather risk without full shelter.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.325,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.5499999999999999,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "fac_beta->risk_weather_exposure",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-11",
+      "source": "fac_gamma",
+      "target": "out_appeal",
+      "type": "styled",
+      "data": {
+        "weight": 0.4116666666666667,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.85,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.09499999999999999,
+        "exists_probability": 0.85,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "strength_band_change"
+          ],
+          "pass1": {
+            "strength_mean": 0.65,
+            "strength_std": 0.15,
+            "exists_probability": 0.85
+          },
+          "pass2": {
+            "strength_mean": 0.4,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Gamma Rooftop’s view provides the highest uniqueness and appeal.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.525,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.3333333333333333,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "fac_gamma->out_appeal",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-12",
+      "source": "fac_gamma",
+      "target": "out_capacity",
+      "type": "styled",
+      "data": {
+        "weight": 0.15833333333333333,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.78,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.09499999999999999,
+        "exists_probability": 0.78,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "sign_flip"
+          ],
+          "pass1": {
+            "strength_mean": 0.2,
+            "strength_std": 0.12,
+            "exists_probability": 0.78
+          },
+          "pass2": {
+            "strength_mean": -0.2,
+            "strength_std": 0.2,
+            "exists_probability": 0.9,
+            "reasoning": "Gamma Rooftop has limited capacity and more challenging access.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": -0.07500000000000001,
+            "strength_std": 0.18000000000000002,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 1,
+          "distance_to_goal": 1,
+          "sign_unstable": true,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "fac_gamma->out_capacity",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-13",
+      "source": "fac_gamma",
+      "target": "risk_logistics",
+      "type": "styled",
+      "data": {
+        "weight": 0.35,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.75,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.14,
+        "exists_probability": 0.75,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.35,
+            "strength_std": 0.14,
+            "exists_probability": 0.75
+          },
+          "pass2": {
+            "strength_mean": 0.3,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Rooftop access typically increases logistics friction for attendees.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.425,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.15000000000000002,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "fac_gamma->risk_logistics",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-14",
+      "source": "fac_gamma",
+      "target": "risk_weather_exposure",
+      "type": "styled",
+      "data": {
+        "weight": 0.45967741935483863,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.92,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.09193548387096773,
+        "exists_probability": 0.92,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "strength_band_change"
+          ],
+          "pass1": {
+            "strength_mean": 0.75,
+            "strength_std": 0.15,
+            "exists_probability": 0.92
+          },
+          "pass2": {
+            "strength_mean": 0.3,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Gamma Rooftop is exposed to weather without overhead coverage.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.425,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.65,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "fac_gamma->risk_weather_exposure",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-15",
+      "source": "fac_weather",
+      "target": "risk_weather_exposure",
+      "type": "styled",
+      "data": {
+        "weight": 0.1225806451612903,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.85,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.06129032258064515,
+        "exists_probability": 0.85,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "raw_magnitude"
+          ],
+          "pass1": {
+            "strength_mean": 0.2,
+            "strength_std": 0.1,
+            "exists_probability": 0.85
+          },
+          "pass2": {
+            "strength_mean": 0.5,
+            "strength_std": 0.15,
+            "exists_probability": 0.95,
+            "reasoning": "Actual weather conditions are the primary driver of weather disruption risk.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.625,
+            "strength_std": 0.13,
+            "exists_probability": 0.8599999999999999
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.85,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "fac_weather->risk_weather_exposure",
+              "before": 0.95,
+              "after": 0.95
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-16",
+      "source": "opt_alpha",
+      "target": "fac_alpha",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-17",
+      "source": "opt_alpha",
+      "target": "fac_beta",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-18",
+      "source": "opt_alpha",
+      "target": "fac_gamma",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-19",
+      "source": "opt_beta",
+      "target": "fac_alpha",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-20",
+      "source": "opt_beta",
+      "target": "fac_beta",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-21",
+      "source": "opt_beta",
+      "target": "fac_gamma",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-22",
+      "source": "opt_gamma",
+      "target": "fac_alpha",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-23",
+      "source": "opt_gamma",
+      "target": "fac_beta",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-24",
+      "source": "opt_gamma",
+      "target": "fac_gamma",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-25",
+      "source": "opt_status_quo",
+      "target": "fac_alpha",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-26",
+      "source": "opt_status_quo",
+      "target": "fac_beta",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-27",
+      "source": "opt_status_quo",
+      "target": "fac_gamma",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-28",
+      "source": "out_appeal",
+      "target": "goal_turnout",
+      "type": "styled",
+      "data": {
+        "weight": 0.35,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.88,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.12,
+        "exists_probability": 0.88,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.35,
+            "strength_std": 0.12,
+            "exists_probability": 0.88
+          },
+          "pass2": {
+            "strength_mean": 0.2857142857142857,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Higher attendee experience appeal structurally increases likelihood of turnout.",
+            "basis": "structural_inference",
+            "needs_user_input": true,
+            "lint_corrected": true
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.4107142857142857,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.12142857142857144,
+          "distance_to_goal": 0,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "LINT_BUDGET_RESCALE",
+              "edge_key": "out_appeal->goal_turnout",
+              "before": 0.4,
+              "after": 0.2857142857142857
+            },
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "out_appeal->goal_turnout",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-29",
+      "source": "out_capacity",
+      "target": "goal_turnout",
+      "type": "styled",
+      "data": {
+        "weight": 0.55,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.92,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.1,
+        "exists_probability": 0.92,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.55,
+            "strength_std": 0.1,
+            "exists_probability": 0.92
+          },
+          "pass2": {
+            "strength_mean": 0.2857142857142857,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Greater venue capacity and accessibility structurally support higher turnout.",
+            "basis": "structural_inference",
+            "needs_user_input": true,
+            "lint_corrected": true
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.4107142857142857,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.2785714285714287,
+          "distance_to_goal": 0,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "LINT_BUDGET_RESCALE",
+              "edge_key": "out_capacity->goal_turnout",
+              "before": 0.4,
+              "after": 0.2857142857142857
+            },
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "out_capacity->goal_turnout",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-30",
+      "source": "risk_logistics",
+      "target": "goal_turnout",
+      "type": "styled",
+      "data": {
+        "weight": 0.2,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.8,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "negative",
+        "strengthStd": 0.1,
+        "exists_probability": 0.8,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": -0.2,
+            "strength_std": 0.1,
+            "exists_probability": 0.8
+          },
+          "pass2": {
+            "strength_mean": -0.21428571428571425,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Increased logistics friction structurally reduces attendee turnout.",
+            "basis": "structural_inference",
+            "needs_user_input": true,
+            "lint_corrected": true
+          },
+          "pass2_adjusted": {
+            "strength_mean": -0.08928571428571425,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.22142857142857153,
+          "distance_to_goal": 0,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "LINT_BUDGET_RESCALE",
+              "edge_key": "risk_logistics->goal_turnout",
+              "before": -0.3,
+              "after": -0.21428571428571425
+            },
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "risk_logistics->goal_turnout",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-31",
+      "source": "risk_weather_exposure",
+      "target": "goal_turnout",
+      "type": "styled",
+      "data": {
+        "weight": 0.3,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.85,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "negative",
+        "strengthStd": 0.12,
+        "exists_probability": 0.85,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "raw_magnitude"
+          ],
+          "pass1": {
+            "strength_mean": -0.3,
+            "strength_std": 0.12,
+            "exists_probability": 0.85
+          },
+          "pass2": {
+            "strength_mean": -0.21428571428571425,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "Greater weather disruption risk structurally lowers expected turnout.",
+            "basis": "structural_inference",
+            "needs_user_input": true,
+            "lint_corrected": true
+          },
+          "pass2_adjusted": {
+            "strength_mean": -0.08928571428571425,
+            "strength_std": 0.13,
+            "exists_probability": 0.81
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.125,
+            "strength_std_offset": -0.01999999999999999,
+            "exists_probability_offset": -0.09000000000000002
+          },
+          "max_divergence": 0.4214285714285715,
+          "distance_to_goal": 0,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "LINT_BUDGET_RESCALE",
+              "edge_key": "risk_weather_exposure->goal_turnout",
+              "before": -0.3,
+              "after": -0.21428571428571425
+            },
+            {
+              "code": "WARN_CLUSTERED_EP",
+              "edge_key": "risk_weather_exposure->goal_turnout",
+              "before": 0.9,
+              "after": 0.9
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    }
+  ]
+}
