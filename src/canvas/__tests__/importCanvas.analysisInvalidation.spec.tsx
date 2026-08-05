@@ -55,6 +55,8 @@ import {
   FRESHNESS_COPY,
 } from '../../components/results/AnalysisFreshnessNotice'
 import { ReanalyseBar } from '../components/model-tab/ReanalyseBar'
+import { V7FreshnessStrip } from '../../components/results/v7/V7FreshnessStrip'
+import { classifyFreshnessForDisplay } from '../store/analysisFreshness'
 
 // Spy on the completion toast. `importOriginal` spread so the mock cannot rot
 // as the module gains exports (trap 12: a vi.mock factory REPLACES the module).
@@ -212,10 +214,20 @@ function structurallyUnrelatedGraph() {
   }
 }
 
+/**
+ * EVERY surface that renders a freshness claim, mounted together.
+ *
+ * ⚠ `V7FreshnessStrip` was added after a review found it was the FOURTH
+ * surface and had no behavioural spec anywhere in the tree: dropping its
+ * `importHold` argument left this file 24/24 GREEN while the strip flipped back
+ * to asserting "Model changed since this analysis." A claim-bearing surface
+ * that no spec mounts is a claim nobody is checking.
+ */
 function renderFreshnessSurfaces() {
   return render(
     <>
       <AnalysisFreshnessNotice />
+      <V7FreshnessStrip />
       <ReanalyseBar onReanalyse={() => {}} />
     </>,
   )
@@ -332,16 +344,24 @@ describe('interim 2.467 — import invalidates pre-import analysis (rewalk-2459b
     expect(notice).toHaveAttribute('data-cee-freshness', 'fresh')
     expect(notice).not.toHaveAttribute('data-freshness', 'fresh')
     expect(notice).not.toHaveTextContent(FRESHNESS_COPY.fresh)
-    // Honest treatment, CORRECTED in round 3: the strip reads cannot-confirm
-    // and the "Model changed. Results may be out of date." bar does NOT render.
-    // Round 1 asserted the opposite — but that copy is an assertion about the
-    // MODEL, and the import hold cannot support it (the same identity match
-    // fires when the genuine server graph is on the canvas, where "changed" is
-    // simply false). The one Rerun still lives in the sticky AnalysisFooter, so
-    // no recovery affordance is lost.
+    // Honest treatment, settled in round 4: every claim-bearing surface reads
+    // cannot-confirm, and the re-analyse AFFORDANCE still renders — with copy
+    // that states uncertainty instead of asserting a change.
+    //
+    // ⚠ Round 1 asserted the "Model changed" bar; round 3 asserted its ABSENCE.
+    // Both were wrong, in opposite directions. The bar is simultaneously an
+    // assertion and the Model tab's ONLY re-analyse control, so removing it
+    // reproduced ROADMAP 2.129 (a). (The sticky AnalysisFooter Rerun is not a
+    // substitute: it sits in OutputsDock's RESULTS branch, while this bar's
+    // ModelTabBody is a sibling under `diagnostics`.)
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
     expect(notice).toHaveTextContent(FRESHNESS_COPY.unknown)
-    expect(screen.queryByTestId('reanalyse-bar')).toBeNull()
+    expect(screen.getByTestId('v7-freshness-strip')).toHaveTextContent(FRESHNESS_COPY.unknown)
+    const bar = screen.getByTestId('reanalyse-bar')
+    expect(bar).toHaveAttribute('data-reason', 'import-unregistered')
+    expect(bar).toHaveTextContent("Can't confirm this analysis matches the current model.")
+    expect(bar).not.toHaveTextContent('Model changed')
+    expect(screen.getByTestId('reanalyse-button')).toBeInTheDocument()
   })
 
   it("(b, order-independence) clear-then-verdict also cannot re-attach the affirmative", () => {
@@ -755,9 +775,50 @@ describe('interim 2.467 round 2 — the hold is derived from the graph, not from
     const notice = screen.getByTestId('analysis-freshness-notice')
     expect(notice).toHaveTextContent(FRESHNESS_COPY.unknown) // "Cannot confirm…"
     expect(notice).not.toHaveTextContent(FRESHNESS_COPY.stale) // never "Model changed…"
-    // The ReanalyseBar is the "Model changed. Results may be out of date."
-    // assertion — it must not render for an import hold.
-    expect(screen.queryByTestId('reanalyse-bar')).toBeNull()
+    // FOURTH SURFACE — the V7 strip must agree, not flip to "Model changed".
+    const v7 = screen.getByTestId('v7-freshness-strip')
+    expect(v7).toHaveAttribute('data-freshness-semantic', 'cannot_confirm')
+    expect(v7).toHaveTextContent(FRESHNESS_COPY.unknown)
+    expect(v7).not.toHaveTextContent(FRESHNESS_COPY.stale)
+    // The bar keeps the AFFORDANCE while withholding the assertion.
+    const bar = screen.getByTestId('reanalyse-bar')
+    expect(bar).toHaveAttribute('data-reason', 'import-unregistered')
+    expect(bar).not.toHaveTextContent('Model changed')
+  })
+
+  it('a CEE-STATED stale OUTRANKS the hold: all surfaces say "Model changed", bar keeps its assertion', () => {
+    // A first-hand server statement is a strictly stronger TRUE claim than our
+    // uncertainty. The first cut returned cannot-confirm ABOVE the stale
+    // branch, which suppressed it AND — because the bar gated on 'changed' —
+    // removed the Model tab's only re-analyse control: ROADMAP 2.129 (a),
+    // live-proved on staging `98aae72e`, reproduced by the fix for a different
+    // defect.
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+    act(() => {
+      useCanvasStore.getState().setAnalysisFreshness({
+        freshness: 'stale',
+        freshness_reason: 'graph_hash_mismatch',
+        graph_hash_at_run: 'server-at-run',
+        current_graph_hash: 'server-current-different',
+        computed_at: POST_RERUN_COMPUTED_AT,
+      })
+    })
+    renderFreshnessSurfaces()
+    expect(screen.getByTestId('analysis-freshness-notice')).toHaveAttribute(
+      'data-freshness',
+      'stale',
+    )
+    expect(screen.getByTestId('v7-freshness-strip')).toHaveAttribute(
+      'data-freshness-semantic',
+      'changed',
+    )
+    const bar = screen.getByTestId('reanalyse-bar')
+    expect(bar).toHaveAttribute('data-reason', 'model-changed')
+    expect(bar).toHaveTextContent('Model changed. Results may be out of date.')
   })
 
   it('the COMPLETION TOAST cannot claim "with the current model" under an import hold', () => {
@@ -783,6 +844,67 @@ describe('interim 2.467 round 2 — the hold is derived from the graph, not from
     expect(showToast).toHaveBeenCalled()
     const said = showToast.mock.calls.map((c) => String(c[0])).join(' | ')
     expect(said).not.toContain('with the current model')
+  })
+
+  it('THE AFFIRMATIVE GATE IS SELF-SUFFICIENT: (fresh, dirty=false, hold) is cannot-confirm', () => {
+    // Executed, not read: with the hold check placed below the
+    // `fresh → 'current'` line, this combination returned 'current' — the
+    // affirmative this PR exists to make unreachable — and was safe only
+    // because setAnalysisFreshness forces dirty=true one module away. This
+    // test asserts the classifier is fail-safe ON ITS OWN, with the overlay
+    // explicitly CLEAN, so the guarantee cannot be refactored away elsewhere.
+    expect(
+      classifyFreshnessForDisplay(
+        { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+        false, // dirty — deliberately clean
+        true, // importHold
+      ),
+    ).toBe('cannot_confirm')
+    // Control: same inputs without the hold still affirm (the gate is not a
+    // blanket suppression).
+    expect(
+      classifyFreshnessForDisplay(
+        { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+        false,
+        false,
+      ),
+    ).toBe('current')
+  })
+
+  it('a draft REPRODUCING the imported graph identity still releases (M7b discriminator)', () => {
+    // Written because a probe measured my claim FALSE: I said a mutant swapping
+    // the draft site's literal `false` for the derivation would bite, but every
+    // applyDraftResult call in this spec passed a structurally UNRELATED
+    // payload, so nothing could tell the two apart. This is the missing
+    // discriminating fixture: a WIRE-shaped draft (`from`/`to`, which is what
+    // mapDraftEdgeToCanvas reads) carrying the imported graph's own node ids and
+    // edge endpoints, so the mapped canvas graph has the SAME identity as the
+    // marker. The derivation would hold here; the literal releases — which is
+    // the deliberate behaviour (scope boundary: this interim defends
+    // import-originated staleness only).
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    const landedNodes = useCanvasStore.getState().nodes
+    const landedEdges = useCanvasStore.getState().edges
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+    act(() => {
+      applyDraftResult({
+        nodes: landedNodes.map((n) => ({
+          id: n.id,
+          type: (n as unknown as { type?: string }).type,
+          label: (n.data as { label?: string } | undefined)?.label,
+        })),
+        edges: landedEdges.map((e, i) => ({
+          id: e.id ?? `e-${i}`,
+          from: e.source,
+          to: e.target,
+        })),
+      } as never)
+    })
+    // Same identity on the canvas, hold RELEASED — the discriminating outcome.
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
   })
 
   it('INVARIANT that makes the toast safe: under a hold, a fresh verdict always leaves dirty=true', () => {

@@ -241,12 +241,19 @@ export function applyDraftResult(
     // not a regression it introduces, and it is disclosed as residue.
     //
     // ⚠ My FIRST justification ("the derivation here is an equivalent mutant —
-    // wire-shaped edges can never match") was also false at the bytes: `nodes`
-    // and `edges` in scope here are the MAPPER'S CANVAS-SHAPED OUTPUT, and
-    // `mapDraftNodeToCanvas` preserves `n.id` verbatim, so a payload carrying
-    // the imported ids yields exactly the same digest. The falsifying case is
-    // now a test, and a mutant swapping this line for the derivation BITES.
-    // An equivalent mutant must be DEMONSTRATED, never asserted.
+    // wire-shaped edges can never match") was false at the bytes: `nodes` and
+    // `edges` in scope here are the MAPPER'S CANVAS-SHAPED OUTPUT, and
+    // `mapDraftNodeToCanvas` preserves `n.id` verbatim, so a WIRE payload
+    // (`from`/`to`, which is what mapDraftEdgeToCanvas reads) carrying the
+    // imported ids yields exactly the same digest.
+    //
+    // ⚠ And my correction of it was ALSO wrong in the other direction: I wrote
+    // that a mutant swapping this line for the derivation BITES. A probe ran
+    // exactly that mutant and it SURVIVED 24/24 — every applyDraftResult call
+    // in the spec passed a structurally unrelated payload, so nothing could
+    // discriminate. The discriminating fixture now exists ("a draft REPRODUCING
+    // the imported graph identity still releases"). AN EQUIVALENT MUTANT MUST BE
+    // DEMONSTRATED, NEVER ASSERTED — and so must a NON-equivalent one.
     importPendingServerRegistration: false,
   })
 

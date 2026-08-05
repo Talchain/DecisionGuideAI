@@ -123,7 +123,7 @@ describe('applyV5State — CEE blocked analysis_ready (empty options, legacy rel
     })
     // Display semantic: cannot-confirm — NEVER 'current', NEVER 'changed'
     // (the user did not edit anything; CEE could not determine freshness).
-    expect(classifyFreshnessForDisplay(next, false)).toBe('cannot_confirm')
+    expect(classifyFreshnessForDisplay(next, false, false)).toBe('cannot_confirm')
   })
 
   it('freshness surface renders the honest cannot-confirm copy, not a currentness or completeness claim', () => {

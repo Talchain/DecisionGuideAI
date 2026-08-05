@@ -19,6 +19,7 @@ describe('F9: analysis trust composition carries the run clock', () => {
       source: 'none',
       resultsStatus: 'streaming',
       resultsStartedAt: 1_700_000_000_000,
+      importHold: false,
     })
 
     expect(trust.isRunning).toBe(true)
@@ -31,6 +32,7 @@ describe('F9: analysis trust composition carries the run clock', () => {
       dirty: false,
       source: 'none',
       resultsStatus: 'idle',
+      importHold: false,
     })
 
     expect(trust.isRunning).toBe(false)

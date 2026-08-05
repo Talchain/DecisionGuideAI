@@ -80,10 +80,11 @@ export function computeAnalysisTrust(input: {
   resultsStatus: string | null | undefined
   resultsStartedAt?: number
   /** Interim 2.467 — canvas graph is an unregistered import; see
-   *  classifyFreshnessForDisplay's `importHold`. Downgrades 'changed' to
-   *  cannot-confirm so the ReanalyseBar cannot assert "Model changed" about a
-   *  current analysis. */
-  importHold?: boolean
+   *  classifyFreshnessForDisplay's `importHold`. REQUIRED for the same reason
+   *  it is required there: an optional flag is one a call site can forget, and
+   *  this one already was — `exportBundle` omitted it and drifted from the hook
+   *  it documents itself as mirroring EXACTLY. */
+  importHold: boolean
 }): AnalysisTrust {
   const { freshness, dirty, source, resultsStatus, resultsStartedAt, importHold } = input
   const orphaned = source === 'orphaned_plot_result'
@@ -92,7 +93,7 @@ export function computeAnalysisTrust(input: {
   // than re-implementing (or missing) it.
   const { state: effective } = resolveTrustEffectiveState(freshness, orphaned)
   return {
-    semantic: classifyFreshnessForDisplay(effective, dirty, importHold ?? false),
+    semantic: classifyFreshnessForDisplay(effective, dirty, importHold),
     orphaned,
     isRunning: RUNNING_STATUSES.has(resultsStatus ?? ''),
     runStartedAt: resultsStartedAt,

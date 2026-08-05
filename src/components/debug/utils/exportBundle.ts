@@ -2843,9 +2843,17 @@ export async function captureDisplayState(
       .ceeAnalysisReady?.status
     const hasReport = Boolean((results as { report?: unknown } | null | undefined)?.report)
     // The composed trust answer (semantic 'changed' OR orphaned), mirroring
-    // the runtime hook (useAnalysisDisplayState) EXACTLY — NOT the local
+    // the runtime hook (useAnalysisDisplayState) — NOT the local
     // graphEditedSinceLastRun flag, and not a partial re-derivation (an
     // earlier version omitted the orphan OR and drifted from the hook).
+    //
+    // ⚠ The word "EXACTLY" used to sit in this sentence and had gone stale: a
+    // second input (`importHold`, interim 2.467) was added to the hook and this
+    // mirror did not carry it, so the bundle reported 'changed' where every
+    // live surface said cannot-confirm — the same drift the sentence warns
+    // about, committed under the sentence itself. `importHold` is now a
+    // REQUIRED parameter precisely so the next such addition is a compile
+    // error here rather than a silent divergence.
     const trust = computeAnalysisTrust({
       freshness:
         (state as { analysisFreshness?: Parameters<typeof computeAnalysisTrust>[0]['freshness'] })
@@ -2853,6 +2861,14 @@ export async function captureDisplayState(
       dirty: Boolean((state as { analysisFreshnessDirty?: boolean }).analysisFreshnessDirty),
       source: readAnalysisStateSourceFromStore().source,
       resultsStatus: (results as { status?: string } | null | undefined)?.status ?? null,
+      // Interim 2.467: the hook passes this, so the bundle must too — the
+      // comment above ("mirroring the runtime hook EXACTLY … an earlier version
+      // omitted the orphan OR and drifted") describes the exact defect that
+      // omitting it would reproduce: the bundle would report 'changed' where
+      // every live surface says cannot-confirm.
+      importHold: Boolean(
+        (state as { importPendingServerRegistration?: boolean }).importPendingServerRegistration,
+      ),
     })
     const analysisChanged = trust.semantic === 'changed' || trust.orphaned
     const displayView = deriveAnalysisDisplayState({

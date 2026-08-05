@@ -221,6 +221,22 @@ export function isSelfContradictoryStale(
  * HOLDS the verbatim CEE verdict (`data-cee-freshness` and debug exports keep
  * it); only the display value downgrades.
  */
+/**
+ * ⚠ INTERIM 2.467 — THIS FUNCTION TAKES NO `importHold`, AND ITS FOUR CALL
+ * SITES ARE FAIL-SAFE BY LUCK, NOT BY DESIGN. Documented rather than
+ * re-plumbed, deliberately, because re-plumbing them is out of scope for an
+ * interim mitigation.
+ *
+ * `useEditConfirmation`, `OutputsDock`, `AnalysisFreshnessNotice` and
+ * `DecisionConfidencePanel` all only ever ask "is this NOT confirmably fresh?".
+ * They inherit the mitigation solely because `setAnalysisFreshness` forces the
+ * dirty overlay on under a hold, which downgrades a `fresh` verdict to
+ * `'unknown'` here. That forced-dirty line is the single most load-bearing line
+ * in the mitigation (its mutant bites 6 tests). **Any new call site that asks a
+ * POSITIVE question of this function — "is it fresh?" — will get the wrong
+ * answer under a hold.** Ask `classifyFreshnessForDisplay` (which takes the
+ * hold explicitly and gates the affirmative first) instead.
+ */
 export function resolveDisplayedFreshness(
   state: AnalysisFreshnessState | null,
   dirty: boolean,
@@ -271,13 +287,44 @@ export function classifyFreshnessForDisplay(
    * the one that matters. Cannot-confirm is the honest reading of exactly this
    * state: we cannot confirm the server analysed what is on the canvas.
    */
-  importHold: boolean = false,
+  // REQUIRED, deliberately not defaulted. A `= false` default means any call
+  // site that forgets it silently gets the UNSAFE value and drifts back to the
+  // affirmative — derivation proves agreement between call sites, never that
+  // the set of call sites is complete (trap 12d). Making it required turns that
+  // silent drift into a compile error.
+  importHold: boolean,
 ): FreshnessDisplaySemantic {
   const displayed = resolveDisplayedFreshness(state, dirty)
   if (displayed === null || displayed === 'none') return 'none'
+  // ⚠ THE AFFIRMATIVE GATE, AND IT MUST STAY FIRST. Under an import hold the
+  // affirmative is unreachable BY THIS FUNCTION ALONE — not by cooperation with
+  // another module.
+  //
+  // Measured, after three review rounds had read this code without catching it:
+  // with the hold check placed anywhere BELOW the `fresh → 'current'` line,
+  // `(fresh, dirty=false, importHold=true)` returns **'current'** — the exact
+  // affirmative this mitigation exists to make unreachable. It was safe only
+  // because `setAnalysisFreshness` forces `dirty=true` under a hold, one module
+  // away. A mitigation that leans on an invariant in another file, undocumented
+  // at the point of use, is one refactor from re-opening the P0.
+  if (importHold && displayed === 'fresh') return 'cannot_confirm'
   if (displayed === 'fresh') return 'current'
-  if (importHold) return 'cannot_confirm'
+  // A CEE-STATED 'stale' OUTRANKS our own uncertainty and must reach this
+  // branch even under an import hold. It is a first-hand server statement that
+  // the model changed — a strictly stronger TRUE claim than "cannot confirm".
+  //
+  // ⚠ The first cut of the import hold returned cannot-confirm ABOVE this line,
+  // which suppressed that server statement, and — because `ReanalyseBar` gates
+  // on 'changed' — took the Model tab's ONLY re-analyse control with it. That
+  // is precisely the defect ROADMAP 2.129 (a) was opened for and live-proved on
+  // staging `98aae72e`; its account sits a few lines below. The hold gates the
+  // INFERRED 'changed' only (see the next branch), never a stated one.
   if (displayed === 'stale') return 'changed'
+  // The INFERRED cases below rest on our own dirty overlay rather than on
+  // anything the server said; under a hold that inference is unsafe (the
+  // structural identity match also fires when the GENUINE server graph is on
+  // the canvas, where "Model changed" would be false).
+  if (importHold) return 'cannot_confirm'
   // displayed === 'unknown': it means the user definitely changed the model
   // since the run in exactly two cases, both of which require the local dirty
   // overlay (the UI's own first-hand knowledge that an analysis-affecting edit
@@ -296,6 +343,11 @@ export function classifyFreshnessForDisplay(
   // 'unknown', the orphan synthesis (ORPHANED_RESULT) and the run-completion
   // write (RUN_COMPLETED_WITHOUT_VERDICT) must never be dressed up as a factual
   // "you edited" claim.
+  // Disclosed: the hold above also downgrades a genuine post-import EDIT
+  // (VERDICT_ABSENT_FROM_PAYLOAD + dirty), for which "Model changed" would have
+  // been true. Deliberate, and it costs nothing user-facing — the re-analyse
+  // affordance renders for a held cannot-confirm too (ReanalyseBar): the
+  // ASSERTION is withheld, the AFFORDANCE is not.
   if (dirty && (state?.freshness === 'fresh' || state?.freshnessReason === VERDICT_ABSENT_FROM_PAYLOAD)) {
     return 'changed'
   }
