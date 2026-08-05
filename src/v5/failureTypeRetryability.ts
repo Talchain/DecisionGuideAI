@@ -231,6 +231,17 @@ export function extractReason(err: BoundaryError | undefined): string {
  *     `edit_graph_pipeline` — reachable under this code via route-v2.ts's
  *     `errorCode: failureType` passthrough) describe SERVER state. The user's
  *     message played no part → server-fault copy.
+ *   ⚠ DORMANT ON THE WIRE TODAY: every emitter of `buildSignInRequiredError`
+ *     is gated on `CEE_REQUIRE_USER_JWT`, config default `false`, documented
+ *     "ships dark" (`config/index.ts:527`) — `resolveUserIdentity` returns
+ *     `{ mode: 'off' }` before it can refuse, and both browser-proxy emitters
+ *     test `config.auth?.requireUserJwt === true`. The DEPLOYED posture is
+ *     UNPROVEN from the repo (Render dashboard owns staging env; never infer
+ *     it from YAML or from this comment). With the flag down, an
+ *     unauthenticated caller on an owned scenario does NOT yield
+ *     `sign_in_required` — it yields `scenario_requires_authenticated_owner`,
+ *     routed by OWNERSHIP_REASON_GUIDANCE above. That row, not this one, is
+ *     what closes the live case.
  *   - `user_jwt` (user-identity.ts, reason `sign_in_required`) describes
  *     SESSION state; "rephrase" is false and "our side is broken" is also
  *     false — recovery is signing in → sign-in copy.

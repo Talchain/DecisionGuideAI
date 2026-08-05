@@ -375,6 +375,15 @@ describe('resolveGuidance — scenario_preflight reason union routes three ways 
 // ---------------------------------------------------------------------------
 // ROADMAP 2.472 — auth class (RATIFIED scope extension, 5 Aug).
 //
+// ⚠ DORMANT ON THE WIRE TODAY (review F2 — an earlier version of this lane's
+// notes claimed CEE "has emitted sign_in_required since user-identity.ts
+// landed", which is FALSE). All three emitters are gated on
+// CEE_REQUIRE_USER_JWT, config default false, "ships dark"; resolveUserIdentity
+// returns { mode: 'off' } before it can refuse. The DEPLOYED posture is
+// unproven from the repo. These tests therefore pin a class that is correct
+// when the flag flips — the LIVE unauthenticated case today is
+// scenario_requires_authenticated_owner, pinned in the F1 block above.
+//
 // SOURCE OF THE WIRE SHAPE: **CEE source bytes**, not a live capture —
 // `olumi-assistants-service/src/orchestrator/user-identity.ts`
 // `buildSignInRequiredError()` read at staging tip
