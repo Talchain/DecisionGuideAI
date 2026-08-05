@@ -72,9 +72,19 @@ function getHeroCopy(
       const narrow = isNarrowFlip(latest)
       return {
         line1: `Run ${latest.runNumber} · Result changed: ${latest.winnerLabel} now leads at ${latest.winnerProbability}%`,
+        // ⚠ THIS USED TO READ 'Structure changed · Review the new result'
+        // (ROADMAP 2.578). The `flipped` state is `previous.winnerId !==
+        // latest.winnerId` and NOTHING ELSE — a change of leading option. It is
+        // not evidence about the model's shape, and no structure signal is in
+        // scope here at all. So the hero was asserting a cause it had never
+        // measured, on the same surface where the transition card states the
+        // structure verdict from the canonical graph diff — the two could, and
+        // would, contradict each other on a wide flip over an unchanged model.
+        // The replacement says only what this branch actually knows: the leader
+        // changed, and not narrowly.
         line2: narrow
           ? 'New leader by a narrow margin · Review the change carefully'
-          : 'Structure changed · Review the new result',
+          : 'Result changed decisively · Review the new result',
         actionPrefix: '',
         actionLink: 'Review what caused the change',
         actionNodeId: null,

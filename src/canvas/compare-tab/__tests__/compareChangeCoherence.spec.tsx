@@ -227,6 +227,35 @@ describe('ROADMAP 2.578 — the labels cannot contradict each other', () => {
 })
 
 // ---------------------------------------------------------------------------
+// The THIRD claim on this surface.
+//
+// The transition card is not the only place Compare talks about structure: the
+// hero's `flipped` copy said "Structure changed · Review the new result".
+// `flipped` is derived as `previous.winnerId !== latest.winnerId` and nothing
+// else — a change of leading option — so that sentence asserted a cause nobody
+// measured, and could contradict the card's canonical verdict on the very same
+// screen. Fixing the card while leaving this in place would satisfy the letter
+// of the row and not its point.
+// ---------------------------------------------------------------------------
+
+describe('ROADMAP 2.578 — no surface claims a structure change without structure evidence', () => {
+  it('the hero copy contains no structure claim, in any state', () => {
+    const heroSource = readFileSync(
+      resolve(__dirname, '../../../..', 'src/canvas/compare-tab/Hero.tsx'),
+      'utf8',
+    )
+    // Positive control: prove this read can SEE hero copy before asserting an
+    // absence in it (trap 13 — an absence assertion must first see a presence).
+    expect(heroSource).toContain('Review the new result')
+    // The structure verdict has exactly one owner, and it is not the hero.
+    const claims = heroSource.split('\n').filter(l =>
+      /Structure changed/.test(l) && !l.trimStart().startsWith('//') && !l.trimStart().startsWith('*'),
+    )
+    expect(claims).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
 // The honesty rule: a claim the data does not support is not shown at all.
 // ---------------------------------------------------------------------------
 
