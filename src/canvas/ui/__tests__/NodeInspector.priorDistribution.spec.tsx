@@ -173,6 +173,90 @@ describe('NodeInspector — distribution-form priors render honestly (2.468a)', 
     expect(container.textContent).not.toContain('NaN')
   })
 
+  /**
+   * 2.495 — the scale predicate is a MEMBERSHIP test, not a one-sided bound.
+   *
+   * The shipped predicate was `range_min >= 0 && range_max <= 1`: it bounded
+   * range_min from BELOW and range_max from ABOVE and checked neither of the
+   * other two limbs. Measured at 91a541a3, before the fix, on this component:
+   *   {range_min: 30,  range_max: 1}   → "30 to 1 on 0–1 scale"
+   *   {range_min: 2,   range_max: 0.5} → "2 to 0.5 on 0–1 scale"
+   *   {range_min: 0.5, range_max: -2}  → "0.5 to -2 on 0–1 scale"
+   * Neither F1 case above catches this: fac_price (10–30) fails `max <= 1`
+   * and fac_delta (-0.5–0.5) fails `min >= 0`, so BOTH are caught by the
+   * one-sided form and the broken branch was never exercised — a guard
+   * agreeing with itself (estate trap 13b).
+   *
+   * ⚠ WHY TWO CASES AND NOT ONE. The predicate was short by two independent
+   * limbs, and a case pinning one of them is silent about the other: a
+   * "fix" adding only `range_min <= 1` renders "30 to 1" honestly while
+   * still emitting "0.5 to -2 on 0–1 scale", and vice versa. One case here
+   * would PASS while the property FAILS. Each case below pins exactly one
+   * missing limb; both are required and neither is redundant (proven by a
+   * discriminating mutant pair — see the 2.495 mutant kit).
+   *
+   * Each case also asserts the bare range is PRESENT, not merely that the
+   * suffix is absent: an absence assertion over an unrendered row passes by
+   * testing nothing (trap 13).
+   *
+   * Reachability, no CEE involved: FactorExternalPanel.handleMinBlur writes
+   * `setPriorRange(parsed, rangeMax ?? parsed)` — unclamped — so a user
+   * whose max is 1 typing 30 into min produces the first row verbatim.
+   */
+  it('2.495 range_min ABOVE 1 (min 30, max 1): the min-upper-bound limb — bare range, NO scale claim', () => {
+    setStore([
+      {
+        id: 'fac_min_above_one',
+        type: 'factor',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Ticket Price Multiplier',
+          kind: 'factor',
+          prior: { distribution: 'uniform', range_min: 30, range_max: 1 },
+        },
+      },
+    ])
+    const { container } = render(<NodeInspector nodeId="fac_min_above_one" onClose={() => {}} />)
+
+    // Identity: this render is THE fac_min_above_one node, by exact label.
+    expect(screen.getByText('Ticket Price Multiplier')).toBeDefined()
+
+    // Both prior rows render the stored bounds and make no scale claim.
+    // Exact strings: under the one-sided predicate these read
+    // "30 to 1 on 0–1 scale" / "Between 30 and 1 on 0–1 scale" and both
+    // exact-match lookups fail.
+    expect(screen.getByText('30 to 1')).toBeDefined()
+    expect(screen.getByText('Between 30 and 1')).toBeDefined()
+
+    expect(container.textContent).not.toContain('0–1 scale')
+    expect(container.textContent).not.toContain('NaN')
+  })
+
+  it('2.495 range_max BELOW 0 (min 0.5, max -2): the max-lower-bound limb — bare range, NO scale claim', () => {
+    setStore([
+      {
+        id: 'fac_max_below_zero',
+        type: 'factor',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Cost Variance Floor',
+          kind: 'factor',
+          prior: { distribution: 'uniform', range_min: 0.5, range_max: -2 },
+        },
+      },
+    ])
+    const { container } = render(<NodeInspector nodeId="fac_max_below_zero" onClose={() => {}} />)
+
+    // Identity: this render is THE fac_max_below_zero node, by exact label.
+    expect(screen.getByText('Cost Variance Floor')).toBeDefined()
+
+    expect(screen.getByText('0.5 to -2')).toBeDefined()
+    expect(screen.getByText('Between 0.5 and -2')).toBeDefined()
+
+    expect(container.textContent).not.toContain('0–1 scale')
+    expect(container.textContent).not.toContain('NaN')
+  })
+
   it('partial range (one bound only): both prior rows are suppressed — pinned as current behaviour, policy rowed (F6)', () => {
     setStore([
       {

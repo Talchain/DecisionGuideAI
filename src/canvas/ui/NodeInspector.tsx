@@ -88,7 +88,18 @@ function describePrior(prior: unknown): PriorDisplay | null {
         rangeMin: range_min,
         rangeMax: range_max,
         // Both endpoints must sit inside [0,1] to earn the scale claim.
-        normalised: range_min >= 0 && range_max <= 1,
+        // 2.495: this was `range_min >= 0 && range_max <= 1` — a ONE-SIDED
+        // bound wearing a membership test's comment. It bounded min from
+        // below and max from above and checked neither of the other two
+        // limbs, so {30, 1} rendered "30 to 1 on 0–1 scale" and {0.5, -2}
+        // rendered "0.5 to -2 on 0–1 scale". Reachable with no CEE at all:
+        // FactorExternalPanel.handleMinBlur writes
+        // `setPriorRange(parsed, rangeMax ?? parsed)` unclamped, so a user
+        // whose max is 1 typing 30 into min produces the first row verbatim.
+        // Four limbs, because each endpoint needs both bounds.
+        normalised:
+          range_min >= 0 && range_min <= 1 &&
+          range_max >= 0 && range_max <= 1,
       }
     }
   }
