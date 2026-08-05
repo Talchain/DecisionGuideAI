@@ -472,6 +472,23 @@ interface CanvasState {
    */
   importPendingServerRegistration: boolean
   /**
+   * ROADMAP 2.467 — why the last registration attempt did NOT end in a server
+   * acknowledgement, or `null` when there is nothing to report.
+   *
+   * ⚠ THIS IS A REASON, NEVER A GATE. `importPendingServerRegistration` alone
+   *   decides whether the product may affirm freshness or offer a Run; this
+   *   field only lets the affordance say something TRUE about why it is
+   *   waiting. A `null` here means "no failure recorded", which is the state
+   *   both before the first attempt and after a successful one — it is not, and
+   *   must never be read as, "the graph is registered".
+   */
+  importRegistrationFailure:
+    | 'graph_not_projectable'
+    | 'rejected'
+    | 'conflict'
+    | 'unavailable'
+    | null
+  /**
    * How many model-changing edits have been COMMITTED locally and emitted, but
    * are still sitting undispatched in the conversation dispatcher's deferral
    * buffer (see `useConversation`'s in-flight lock).
@@ -1630,6 +1647,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   analysisFreshnessDirty: false,
   // Interim 2.467: no import has happened at cold start.
   importPendingServerRegistration: false,
+  // 2.467: no registration has been attempted, so there is nothing to report.
+  importRegistrationFailure: null,
   // No edit can be awaiting dispatch before any edit has been made.
   pendingEmittedEdits: 0,
   ceeAnalysisReadyNodeIds: null,
@@ -2569,6 +2588,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // later graph-replacement site can re-derive the flag from the graph it
       // installs (including after a page reload). See the field's doc.
       importPendingServerRegistration: true,
+      // A new import is a new attempt: whatever the last one failed with no
+      // longer describes anything on screen.
+      importRegistrationFailure: null,
       // Lane 5 (Codex P0-2): a full import is a new decision context — clear the
       // target, its representation, readiness and outcome selection so the
       // imported model never runs against the previous decision's goal state.

@@ -1,0 +1,225 @@
+/**
+ * ROADMAP 2.467 — canvas → CEE wire, for the registration seam.
+ *
+ * FIXTURE PROVENANCE: `fixtures/walk-import-modified.canvas.json` is a BYTE
+ * COPY of the file a real browser actually imported during the 5 Aug P0 witness
+ * walk (`PHASE0-EVIDENCE-2026-07-28/walk-p0-witness-raw/import-modified.json`).
+ * Nothing about it was written by this lane — it is the producer's own export,
+ * relabelled by the walker on exactly one node. `walk-export-original.canvas.json`
+ * is the same model BEFORE that relabel, so the pair is the real before/after.
+ *
+ * That matters more than usual here: the defect is that CEE analysed a
+ * DIFFERENT graph from the one on screen, so a hand-written fixture would
+ * encode this lane's model of a canvas node rather than the canvas's.
+ */
+import { describe, expect, it } from 'vitest'
+import type { Edge, Node } from '@xyflow/react'
+
+import { buildRegistrationGraph } from '../buildRegistrationGraph'
+
+import IMPORTED_CANVAS from './fixtures/walk-import-modified.canvas.json'
+import ORIGINAL_CANVAS from './fixtures/walk-export-original.canvas.json'
+
+type CanvasFile = { nodes: Node[]; edges: Edge[] }
+
+const IMPORTED = IMPORTED_CANVAS as unknown as CanvasFile
+const ORIGINAL = ORIGINAL_CANVAS as unknown as CanvasFile
+
+function okGraph(result: ReturnType<typeof buildRegistrationGraph>) {
+  if (!result.ok) throw new Error(`expected ok, got refusal: ${result.reason}`)
+  return result.graph
+}
+
+function refusal(result: ReturnType<typeof buildRegistrationGraph>) {
+  if (result.ok) throw new Error('expected a refusal, got ok')
+  return result
+}
+
+/** Deep-clone so a mutation in one case cannot leak into another. */
+function clone(file: CanvasFile): CanvasFile {
+  return JSON.parse(JSON.stringify(file)) as CanvasFile
+}
+
+describe('buildRegistrationGraph — the captured canvas file', () => {
+  it('POSITIVE CONTROL: the fixture is the walk pair, and it carries the shapes this projection must handle', () => {
+    // Trap 13. Everything below about "positions are dropped" and "the sentinel
+    // survives" is vacuous if the fixture never carried a position or a sentinel.
+    expect(IMPORTED.nodes).toHaveLength(14)
+    expect(IMPORTED.edges).toHaveLength(32)
+    expect(IMPORTED.nodes.every((n) => n.position !== undefined)).toBe(true)
+    const sentinel = IMPORTED.nodes.find((n) => n.id === 'opt_alpha')
+    expect((sentinel?.data as Record<string, unknown>)?.label).toBe('ZZZ IMPORTED OPTION')
+    // The before/after pair really is a pair: one label differs, nothing else.
+    expect((ORIGINAL.nodes.find((n) => n.id === 'opt_alpha')?.data as Record<string, unknown>)?.label).toBe(
+      'Alpha Hall',
+    )
+    expect(ORIGINAL.nodes.map((n) => n.id)).toEqual(IMPORTED.nodes.map((n) => n.id))
+    // At least one node carries the canvas spelling CEE renames.
+    expect(
+      IMPORTED.nodes.some((n) => 'observedState' in ((n.data ?? {}) as Record<string, unknown>)),
+    ).toBe(true)
+  })
+
+  it('projects the real import into CEE wire shape, carrying the sentinel', () => {
+    const graph = okGraph(buildRegistrationGraph(IMPORTED.nodes, IMPORTED.edges))
+    expect(graph.nodes).toHaveLength(14)
+    expect(graph.edges).toHaveLength(32)
+    // Bound BY IDENTITY, never by a value predicate another node could satisfy.
+    const sentinel = graph.nodes.find((n) => n.id === 'opt_alpha')
+    expect(sentinel?.label).toBe('ZZZ IMPORTED OPTION')
+    expect(sentinel?.kind).toBe('option')
+  })
+
+  it('DISCRIMINATES the two captured graphs — the projection is not label-blind', () => {
+    // The whole train exists because two graphs that differ by a label were
+    // treated as one. A projection that flattened that difference would hand
+    // CEE a graph indistinguishable from the one it already has.
+    const after = okGraph(buildRegistrationGraph(IMPORTED.nodes, IMPORTED.edges))
+    const before = okGraph(buildRegistrationGraph(ORIGINAL.nodes, ORIGINAL.edges))
+    expect(JSON.stringify(after)).not.toBe(JSON.stringify(before))
+    expect(after.nodes.find((n) => n.id === 'opt_alpha')?.label).toBe('ZZZ IMPORTED OPTION')
+    expect(before.nodes.find((n) => n.id === 'opt_alpha')?.label).toBe('Alpha Hall')
+  })
+
+  it('drops layout — `scenarios.graph` carries no positions', () => {
+    const graph = okGraph(buildRegistrationGraph(IMPORTED.nodes, IMPORTED.edges))
+    const serialised = JSON.stringify(graph)
+    expect(serialised).not.toContain('"position"')
+    expect(graph.nodes.every((n) => !('position' in n))).toBe(true)
+  })
+
+  it('emits exactly ONE kind spelling per node — no `type` reaches the wire', () => {
+    const graph = okGraph(buildRegistrationGraph(IMPORTED.nodes, IMPORTED.edges))
+    expect(graph.nodes.every((n) => typeof n.kind === 'string')).toBe(true)
+    expect(graph.nodes.every((n) => !('type' in n))).toBe(true)
+  })
+
+  it('renames `observedState` to CEE`s `observed_state` and keeps its contents', () => {
+    const graph = okGraph(buildRegistrationGraph(IMPORTED.nodes, IMPORTED.edges))
+    const facAlpha = graph.nodes.find((n) => n.id === 'fac_alpha')
+    expect(facAlpha).toBeDefined()
+    expect(facAlpha).not.toHaveProperty('observedState')
+    expect(facAlpha?.observed_state).toEqual(
+      (IMPORTED.nodes.find((n) => n.id === 'fac_alpha')?.data as Record<string, unknown>)
+        .observedState,
+    )
+  })
+
+  it('maps edge endpoints to `from`/`to` — the canvas spells them `source`/`target`', () => {
+    const graph = okGraph(buildRegistrationGraph(IMPORTED.nodes, IMPORTED.edges))
+    const first = IMPORTED.edges[0]
+    expect(graph.edges[0]).toMatchObject({ from: first.source, to: first.target })
+    expect(graph.edges.every((e) => !('source' in e) && !('target' in e))).toBe(true)
+  })
+
+  it('signs the edge strength by direction and clamps it to [-1, +1]', () => {
+    const nodes = [
+      { id: 'a', type: 'factor', data: { kind: 'factor', label: 'A' } },
+      { id: 'b', type: 'goal', data: { kind: 'goal', label: 'B' } },
+    ] as unknown as Node[]
+    const negative = [
+      { id: 'e1', source: 'a', target: 'b', data: { weight: 1.5, direction: 'negative' } },
+    ] as unknown as Edge[]
+    const overWeight = [
+      { id: 'e1', source: 'a', target: 'b', data: { weight: 9, direction: 'positive' } },
+    ] as unknown as Edge[]
+
+    expect(okGraph(buildRegistrationGraph(nodes, negative)).edges[0]).toMatchObject({
+      strength: { mean: -1 },
+      effect_direction: 'negative',
+    })
+    expect(okGraph(buildRegistrationGraph(nodes, overWeight)).edges[0]).toMatchObject({
+      strength: { mean: 1 },
+    })
+  })
+})
+
+describe('buildRegistrationGraph — refusals (2.467c: disagreement is refused, absence is resolved)', () => {
+  it('REFUSES a divergent-field file and names the node BY ID', () => {
+    const file = clone(IMPORTED)
+    const node = file.nodes.find((n) => n.id === 'opt_alpha')!
+    ;(node.data as Record<string, unknown>).type = 'factor'
+
+    const r = refusal(buildRegistrationGraph(file.nodes, file.edges))
+    expect(r.reason).toBe('divergent_node_kind')
+    expect(r.nodeIds).toEqual(['opt_alpha'])
+  })
+
+  it('DISCRIMINATING PAIR: diverging a DIFFERENT node names THAT node, not opt_alpha', () => {
+    const file = clone(IMPORTED)
+    const node = file.nodes.find((n) => n.id === 'goal_turnout')!
+    ;(node.data as Record<string, unknown>).type = 'risk'
+
+    const r = refusal(buildRegistrationGraph(file.nodes, file.edges))
+    expect(r.nodeIds).toEqual(['goal_turnout'])
+    expect(r.nodeIds).not.toContain('opt_alpha')
+  })
+
+  it('DISCRIMINATING PAIR: the SAME node with an AGREEING `type` is accepted', () => {
+    // Without this half, the refusals above could be "any node carrying
+    // `data.type` is refused" rather than "a node whose spellings disagree".
+    // The captured file already carries an agreeing `data.type` on all 14
+    // nodes, which is exactly why the accepted case above passes.
+    const file = clone(IMPORTED)
+    const node = file.nodes.find((n) => n.id === 'opt_alpha')!
+    expect((node.data as Record<string, unknown>).type).toBe('option')
+    expect((node.data as Record<string, unknown>).kind).toBe('option')
+    const graph = okGraph(buildRegistrationGraph(file.nodes, file.edges))
+    expect(graph.nodes.find((n) => n.id === 'opt_alpha')?.kind).toBe('option')
+  })
+
+  it('RESOLVES absence: a node with only `data.type` keeps its meaning', () => {
+    const file = clone(IMPORTED)
+    for (const n of file.nodes) delete (n.data as Record<string, unknown>).kind
+    const graph = okGraph(buildRegistrationGraph(file.nodes, file.edges))
+    expect(graph.nodes.find((n) => n.id === 'opt_alpha')?.kind).toBe('option')
+  })
+
+  it('falls back to the ReactFlow renderer key ONLY when no semantic spelling exists', () => {
+    const file = clone(IMPORTED)
+    for (const n of file.nodes) {
+      delete (n.data as Record<string, unknown>).kind
+      delete (n.data as Record<string, unknown>).type
+    }
+    const graph = okGraph(buildRegistrationGraph(file.nodes, file.edges))
+    expect(graph.nodes.find((n) => n.id === 'goal_turnout')?.kind).toBe('goal')
+  })
+
+  it('REFUSES rather than coercing an untypeable node to `factor`', () => {
+    // The legacy turn mapper coerces. This one must not: quietly relabelling a
+    // node during a whole-graph REPLACE is how screen and server diverge.
+    const file = clone(IMPORTED)
+    const node = file.nodes.find((n) => n.id === 'fac_weather')!
+    delete (node.data as Record<string, unknown>).kind
+    delete (node.data as Record<string, unknown>).type
+    node.type = 'not-a-real-kind'
+
+    const r = refusal(buildRegistrationGraph(file.nodes, file.edges))
+    expect(r.reason).toBe('unresolvable_node_kind')
+    expect(r.nodeIds).toEqual(['fac_weather'])
+  })
+
+  it('REFUSES an empty canvas — registering emptiness would erase the server model', () => {
+    const r = refusal(buildRegistrationGraph([], []))
+    expect(r.reason).toBe('empty_graph')
+  })
+
+  it('reports DIVERGENCE ahead of UNRESOLVABLE when a file has both', () => {
+    const file = clone(IMPORTED)
+    ;(file.nodes.find((n) => n.id === 'opt_alpha')!.data as Record<string, unknown>).type = 'factor'
+    const weather = file.nodes.find((n) => n.id === 'fac_weather')!
+    delete (weather.data as Record<string, unknown>).kind
+    delete (weather.data as Record<string, unknown>).type
+    weather.type = 'nonsense'
+
+    expect(refusal(buildRegistrationGraph(file.nodes, file.edges)).reason).toBe(
+      'divergent_node_kind',
+    )
+  })
+
+  it('never mutates the canvas it projects', () => {
+    const before = JSON.stringify(IMPORTED)
+    buildRegistrationGraph(IMPORTED.nodes, IMPORTED.edges)
+    expect(JSON.stringify(IMPORTED)).toBe(before)
+  })
+})
