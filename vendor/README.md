@@ -7,6 +7,24 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
+### `talchain-schemas-0.34.0.tgz`
+
+> **⚠ BRANCH-PACKED, PRE-PUBLISH** (same trade as prior train sections; no
+> registry 0.34.0 exists until olumi-schemas PR #33 merges; merge order
+> schemas → CEE → UI). Packed with `npm pack` from olumi-schemas branch
+> `p4/transport-events-0.34` at `b883869` (full gate green, 43 files / 1446
+> tests). sha256
+> `c3db4b4e5e4458cbd11c9b924c7e529ccd0f405b2967844e30550aecf9acc559` —
+> BYTE-IDENTICAL to CEE's vendored copy by construction.
+
+**What the UI adopts here (P4 transport):** SystemEventSchema members
+`edge_adjudication` + `prior_range_edit` — the two emitters this leg ships
+(ContestedEdgeCard verdicts and inspector prior-range edits, which previously
+terminated in the client store). ⚠ Reader-first: these emitters must deploy
+AFTER CEE's 0.34.0 leg — an older CEE pin rejects the whole turn on either
+kind.
+
+
 ### `talchain-schemas-0.32.0.tgz` ← THE CURRENT PIN
 
 **Provenance: PACKED FROM THE OPEN olumi-schemas PR BRANCH, PRE-PUBLISH — stated

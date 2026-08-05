@@ -740,6 +740,14 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // representative singular (the first changed id in a batch), so keying a
   // mutation on it would mutate whichever node sorted first.
   'factor_value_edit',
+  // P4 transport (schemas 0.34.0) — the two human-judgement signals that
+  // previously terminated in the client store: the ContestedEdgeCard verdict
+  // (ModelTabBody.handleResolveContested) and the inspector prior-range edit
+  // (useInspectorMutations.setPriorRange). Carry-only: CEE persists each as a
+  // typed turn fact and writes NO graph. ⚠ Reader-first: CEE's 0.34.0 leg
+  // deploys BEFORE these emitters — an older pin rejects the whole turn.
+  'edge_adjudication',
+  'prior_range_edit',
 ] as const
 
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */

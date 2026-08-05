@@ -8,6 +8,7 @@
 import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
+import { useOptionalConversationContext } from '../../conversation/ConversationContext'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -87,6 +88,9 @@ export const EDITOR_WRITTEN_FIELDS = {
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
   const updateNode = useCanvasStore(s => s.updateNode)
+  // P4 transport — prior-range edits ride the conversation dispatcher when a
+  // provider is present; optional so isolated renders still edit locally.
+  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
   const getNode = useCallback(() => {
     return useCanvasStore.getState().nodes.find(n => n.id === nodeId)
   }, [nodeId])
@@ -213,7 +217,35 @@ export function useNodeMutations(nodeId: string) {
         prior: { ...existing, range_min: min, range_max: max },
       },
     })
-  }, [nodeId, updateNode, getNode])
+    // P4 transport (schemas 0.34.0) — the user-set range REACHES THE SERVER.
+    // This is the single seam every prior-range editor shares, so emitting
+    // here covers all callers. Best-effort AFTER the local write (an absent
+    // conversation context or failed send never breaks the local edit);
+    // fail-closed on shapes the wire's own rule would refuse (inverted or
+    // non-finite bounds build no event — never a production 422). CEE
+    // persists the event as a typed turn fact and writes NO graph: carrying
+    // the judgement is this seam's whole job; whether confirmed ranges feed
+    // the maths is a separate, explicit design decision.
+    if (!sendSystemEvent) return
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) return
+    const distribution = typeof existing?.distribution === 'string' && existing.distribution.length > 0
+      ? existing.distribution
+      : undefined
+    void Promise.resolve(
+      sendSystemEvent({
+        type: 'prior_range_edit',
+        payload: {
+          target_id: nodeId,
+          range_min: min,
+          range_max: max,
+          ...(distribution !== undefined ? { distribution } : {}),
+        },
+      }),
+    ).catch(() => {
+      // Background judgement receipt — the local edit stands; re-editing
+      // re-emits. Mirrors the other best-effort background sends.
+    })
+  }, [nodeId, updateNode, getNode, sendSystemEvent])
 
   // ── observedState sub-field mutations ──
 

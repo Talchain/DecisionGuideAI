@@ -244,6 +244,16 @@ function systemEventToPayload(args: {
       if (event === null) return null
       return { ...base, event }
     }
+    case 'edge_adjudication': {
+      const event = adaptEdgeAdjudication(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
+    case 'prior_range_edit': {
+      const event = adaptPriorRangeEdit(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
     case 'feedback_submitted': {
       // F7 (feedback thumbs = wire): map the UI's optimistic thumbs event onto
       // the typed 0.22 `feedback` system event. The emitter
@@ -330,6 +340,17 @@ type DirectGraphEditWireEvent = Extract<
 type FactorValueEditWireEvent = Extract<
   SystemEventTurnPayload['event'],
   { kind: 'factor_value_edit' }
+>
+
+// The wire judgement events (0.34, P4 transport) — derived, never hand-rolled,
+// same reason as above.
+type EdgeAdjudicationWireEvent = Extract<
+  SystemEventTurnPayload['event'],
+  { kind: 'edge_adjudication' }
+>
+type PriorRangeEditWireEvent = Extract<
+  SystemEventTurnPayload['event'],
+  { kind: 'prior_range_edit' }
 >
 
 // Narrow an optional unknown field to a FINITE number, or undefined.
@@ -475,6 +496,77 @@ function adaptFactorValueEdit(
     event.field = 'value'
   }
 
+  return event
+}
+
+// The four adjudication verdicts (0.34) — the UI's UserAction union minus the
+// unresolved `pending`. Checked here so a drifted producer refuses CLIENT-side
+// (null → unsupported) rather than as a wire 422.
+const ADJUDICATION_VERDICTS = new Set(['accepted_pass1', 'accepted_pass2', 'overridden', 'dismissed'])
+
+/**
+ * `edge_adjudication` (0.34, P4 transport) — the contested-edge verdict.
+ * Fail-closed against the wire's OWN cross-field rules so an event the root
+ * superRefine would 422 is never built: `overridden` requires a finite
+ * `resolved_strength_mean`; `dismissed` forbids one. Identity is from+to node
+ * ids (the canonical edge key); `edge_id` is informative only.
+ */
+function adaptEdgeAdjudication(
+  eventPayload: Record<string, unknown> | undefined,
+): EdgeAdjudicationWireEvent | null {
+  const from = stringField(eventPayload, 'from')
+  const to = stringField(eventPayload, 'to')
+  const verdict = stringField(eventPayload, 'verdict')
+  if (!from || !to || !ADJUDICATION_VERDICTS.has(verdict)) return null
+
+  const mean = finiteNumberField(eventPayload, 'resolved_strength_mean')
+  // Present-but-non-finite is a producer bug, not an omission — refuse rather
+  // than launder it into a value-less verdict the wire would accept.
+  if (
+    eventPayload !== undefined &&
+    'resolved_strength_mean' in eventPayload &&
+    mean === undefined
+  ) {
+    return null
+  }
+  if (verdict === 'overridden' && mean === undefined) return null
+  if (verdict === 'dismissed' && mean !== undefined) return null
+
+  const event: EdgeAdjudicationWireEvent = {
+    kind: 'edge_adjudication',
+    from,
+    to,
+    verdict: verdict as EdgeAdjudicationWireEvent['verdict'],
+  }
+  const edge_id = stringField(eventPayload, 'edge_id')
+  if (edge_id) event.edge_id = edge_id
+  if (mean !== undefined) event.resolved_strength_mean = mean
+  return event
+}
+
+/**
+ * `prior_range_edit` (0.34, P4 transport) — the user-set prior range.
+ * Fail-closed on the wire's own rule (min ≤ max) and on missing/non-finite
+ * bounds. `distribution` is forwarded only when stated — absence means "the
+ * client did not say", never "uniform".
+ */
+function adaptPriorRangeEdit(
+  eventPayload: Record<string, unknown> | undefined,
+): PriorRangeEditWireEvent | null {
+  const target_id = stringField(eventPayload, 'target_id')
+  const range_min = finiteNumberField(eventPayload, 'range_min')
+  const range_max = finiteNumberField(eventPayload, 'range_max')
+  if (!target_id || range_min === undefined || range_max === undefined) return null
+  if (range_min > range_max) return null
+
+  const event: PriorRangeEditWireEvent = {
+    kind: 'prior_range_edit',
+    target_id,
+    range_min,
+    range_max,
+  }
+  const distribution = stringField(eventPayload, 'distribution')
+  if (distribution) event.distribution = distribution
   return event
 }
 
