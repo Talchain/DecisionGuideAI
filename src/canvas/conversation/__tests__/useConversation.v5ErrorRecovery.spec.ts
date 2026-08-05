@@ -269,6 +269,37 @@ describe('V5 live-chain error recovery — non-2xx BoundaryError through the rea
     expect(last.content).not.toMatch(/please retry|try again/i)
   })
 
+  it('2.472: the witnessed server-fault ingress violation (scenario_preflight / ownership unverifiable) renders server-fault guidance through the LIVE chain — never "rephrase"', async () => {
+    // Byte-for-byte the BoundaryError CEE served during the 4 Aug outage
+    // (PHASE0-EVIDENCE-2026-07-28/rewalk-2459b-raw/run2-rewalk-wire.json).
+    // Pre-2.472 this told the user to rephrase a message that was fine.
+    stubFetchWith(422, {
+      error: 'INGRESS_CONTRACT_VIOLATION',
+      boundary: 'B1',
+      direction: 'ingress',
+      validator: 'scenario_preflight',
+      details: {
+        reason: 'scenario_ownership_unverifiable',
+        scenario_id: 'c261b74a-c7ce-4aad-96ca-04f0fdfd0fce',
+      },
+      request_id: 'd3daf877-2adb-4dde-babf-daa7d7a30d0b',
+      retryable: false,
+    })
+
+    const { last } = await sendAndGetLastMessage()
+
+    // The honest server-fault guidance, verbatim.
+    expect(last.content).toContain(
+      "Something on our side isn't working — your message was fine. Please try again in a moment.",
+    )
+    // The wording-blame untruth is gone.
+    expect(last.content).not.toMatch(/rephrase/i)
+    // The machine reason never leaks.
+    expect(last.content).not.toContain('scenario_ownership_unverifiable')
+    // Server said non-retryable — no retry chip.
+    expect(last.actionChips ?? []).toHaveLength(0)
+  })
+
   it('no envelope at all (200 with a severity-error block) → client table resolves retryability safely', async () => {
     stubFetchWith(200, {
       response_version: 2,
