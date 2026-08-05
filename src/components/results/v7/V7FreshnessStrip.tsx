@@ -39,10 +39,13 @@ export interface V7FreshnessStripProps {
 export function V7FreshnessStrip({ state: stateProp, dirty: dirtyProp }: V7FreshnessStripProps = {}) {
   const storeState = useCanvasStore(s => s.analysisFreshness)
   const storeDirty = useCanvasStore(s => s.analysisFreshnessDirty)
+  const importHold = useCanvasStore(s => s.importPendingServerRegistration)
   const state = stateProp !== undefined ? stateProp : storeState
   const dirty = dirtyProp !== undefined ? dirtyProp : storeDirty
 
-  const semantic = classifyFreshnessForDisplay(state, dirty)
+  // Interim 2.467: an unregistered-import hold reads cannot-confirm, never the
+  // "Model changed" assertion — see classifyFreshnessForDisplay's importHold.
+  const semantic = classifyFreshnessForDisplay(state, dirty, importHold)
 
   // Honest absence — no verdict to show.
   if (semantic === 'none') return null

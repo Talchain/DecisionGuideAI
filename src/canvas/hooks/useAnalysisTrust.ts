@@ -79,15 +79,20 @@ export function computeAnalysisTrust(input: {
   source: AnalysisStateSource | null | undefined
   resultsStatus: string | null | undefined
   resultsStartedAt?: number
+  /** Interim 2.467 — canvas graph is an unregistered import; see
+   *  classifyFreshnessForDisplay's `importHold`. Downgrades 'changed' to
+   *  cannot-confirm so the ReanalyseBar cannot assert "Model changed" about a
+   *  current analysis. */
+  importHold?: boolean
 }): AnalysisTrust {
-  const { freshness, dirty, source, resultsStatus, resultsStartedAt } = input
+  const { freshness, dirty, source, resultsStatus, resultsStartedAt, importHold } = input
   const orphaned = source === 'orphaned_plot_result'
   // Same effective state the strip renders — the orphan fold happens HERE,
   // not per-consumer, so adopting surfaces inherit the F11 precedence rather
   // than re-implementing (or missing) it.
   const { state: effective } = resolveTrustEffectiveState(freshness, orphaned)
   return {
-    semantic: classifyFreshnessForDisplay(effective, dirty),
+    semantic: classifyFreshnessForDisplay(effective, dirty, importHold ?? false),
     orphaned,
     isRunning: RUNNING_STATUSES.has(resultsStatus ?? ''),
     runStartedAt: resultsStartedAt,
@@ -100,6 +105,14 @@ export function useAnalysisTrust(): AnalysisTrust {
   const dirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const resultsStatus = useCanvasStore((s) => s.results?.status)
   const resultsStartedAt = useCanvasStore((s) => s.results?.startedAt)
+  const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
   const { source } = useAnalysisStateSource()
-  return computeAnalysisTrust({ freshness, dirty, source, resultsStatus, resultsStartedAt })
+  return computeAnalysisTrust({
+    freshness,
+    dirty,
+    source,
+    resultsStatus,
+    resultsStartedAt,
+    importHold,
+  })
 }

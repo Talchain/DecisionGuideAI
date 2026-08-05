@@ -227,14 +227,26 @@ export function applyDraftResult(
     goalThreshold: null,
     goalThresholdRepresentation: null,
     outcomeNodeId: null,
-    // Interim 2.467 — the ONE replacement site that does not derive, stated
-    // plainly rather than dressed as derivation. A draft graph is one CEE has
-    // just produced, so it is server-known by construction and the hold
-    // releases unconditionally. (It is also the only site where derivation
-    // would be untestable theatre: draft nodes/edges arrive WIRE-shaped and are
-    // mapped here, so a canvas-shaped imported graph can never round-trip
-    // through this path to match the marker. An equivalent mutant is not
-    // coverage — see the evidence note on M7.)
+    // Interim 2.467 — the ONE replacement site that does not derive. It
+    // releases unconditionally, and the honest argument for that is a SCOPE
+    // boundary, not provenance:
+    //
+    // ⚠ "a draft graph is server-known by construction" is FALSE, and was my
+    // second wrong justification for this line. `starters/loadStarter.ts`
+    // (applyStarter) routes a LOCAL starter fixture through this same function,
+    // and CEE has never seen that graph either. What is true is narrower: this
+    // interim defends against IMPORT-originated staleness only, and neither a
+    // CEE draft nor a starter arrives by import. A starter that is later
+    // analysed can affirm — that is the same posture as before this mitigation,
+    // not a regression it introduces, and it is disclosed as residue.
+    //
+    // ⚠ My FIRST justification ("the derivation here is an equivalent mutant —
+    // wire-shaped edges can never match") was also false at the bytes: `nodes`
+    // and `edges` in scope here are the MAPPER'S CANVAS-SHAPED OUTPUT, and
+    // `mapDraftNodeToCanvas` preserves `n.id` verbatim, so a payload carrying
+    // the imported ids yields exactly the same digest. The falsifying case is
+    // now a test, and a mutant swapping this line for the derivation BITES.
+    // An equivalent mutant must be DEMONSTRATED, never asserted.
     importPendingServerRegistration: false,
   })
 

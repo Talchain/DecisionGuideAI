@@ -1,8 +1,9 @@
 /**
  * Import-registration marker — interim 2.467 (P0 trust).
  *
- * Records, for the lifetime of the TAB, which graph identities entered the
- * canvas via a local IMPORT and have therefore never been seen by the server.
+ * Records which graph identities entered the canvas via a local IMPORT and have
+ * therefore never been seen by the server, in the SAME STORAGE SCOPE as the
+ * artefact they defend.
  * `store.importPendingServerRegistration` is DERIVED from this at every
  * graph-replacement site; it is never mirrored across a hand-maintained list of
  * "release sites".
@@ -20,20 +21,32 @@
  *     a reload re-installs it through `hydrateGraphSlice` with the same
  *     `scenario_id`, the boolean cleared, and one Rerun re-attached
  *     "Analysis reflects the current model." to CEE's pre-import graph — the
- *     witnessed FAIL frame, restored. A marker that dies with the page cannot
- *     defend a graph that survives the page: `sessionStorage` outlives a
- *     same-tab reload, which is exactly the lifetime of the hazard.
+ *     witnessed FAIL frame, restored. **A marker that dies with the page cannot
+ *     defend a graph that survives the page.**
+ *
+ *  1b. That governing sentence applies ONE LEVEL UP, and the second cut of this
+ *     module got it wrong too. `sessionStorage` dies with the TAB — but the
+ *     autosave it defends is `localStorage`, which does not. A fresh tab boots
+ *     the imported graph from that autosave (same `currentScenarioId`), finds
+ *     no marker, derives `false`, and one Rerun restores the identical FAIL
+ *     frame. The marker therefore lives in `localStorage`: **the same storage
+ *     scope as the artefact it defends.** Any future change to where the
+ *     imported graph is persisted must move this marker with it.
  *
  *  2. Deriving the flag from the graph being installed removes the defect
  *     CLASS rather than one instance. A hand-maintained release list is the
  *     dominant defect here: three sites in the first cut had no test, and a
  *     mutation run proved two of them could be deleted silently. With
- *     derivation there is ONE rule — "is the graph I am installing an
- *     imported, still-unregistered one?" — and a new graph-replacement site
- *     that forgets to ask it inherits the store's initial `false`, which is
- *     the same posture it would have had before this mitigation existed.
+ *     derivation there is ONE rule to read at the sites where the installed
+ *     graph VARIES — `hydrateGraphSlice`, `loadScenario`, `undoDraft`.
  *     (Derivation proves agreement, never completeness — so every replacement
  *     site still carries its own test and its own mutant.)
+ *
+ *     ⚠ A new graph-replacement site that forgets to set this field does NOT
+ *     "inherit a safe default": Zustand's partial `set` RETAINS the current
+ *     value, so it keeps whatever the previous graph left behind — over-holding
+ *     if it was true, and serving the P0 if it was false. There is no safe
+ *     default here; a new site must set the field explicitly.
  *
  * Identity is STRUCTURAL (node ids + edge endpoint pairs) via the established
  * `identityFromCanvasGraph` helper — deliberately NOT a second graph-hash
@@ -41,6 +54,21 @@
  * positions after a hydrate, and a relabel leaves the graph just as
  * unregistered as it was. Both make the marker MATCH more often, i.e. hold the
  * cannot-confirm posture for longer — the fail-safe direction.
+ *
+ * TWO DISCLOSED WEAKNESSES — both fail to the PRE-MITIGATION posture, i.e. to
+ * the P0, and neither is defended here because defending them is the 2.467
+ * registration train's job:
+ *
+ *  - **Storage unavailable** (private browsing, storage disabled, quota
+ *    exceeded, corrupt record): `readMarkers` returns `[]` and `writeMarkers`
+ *    silently drops the write, so the hold never arms and the false
+ *    affirmative is reachable exactly as it was before this mitigation. It
+ *    fails SILENTLY and deliberately — throwing inside a store action would
+ *    break the import itself — but silent-and-unprotected is a real gap, not a
+ *    graceful degradation.
+ *  - **`MAX_IDENTITIES` eviction**: the record keeps the most recent 50
+ *    identities and silently evicts the oldest. A session that imports more
+ *    than 50 distinct graphs loses the hold on the earliest ones.
  *
  * Superseded by the atomic import→reset→registration train (ROADMAP 2.467):
  * when a real registration handshake exists, the server's own acknowledgement
@@ -66,8 +94,11 @@ type GraphEdges = ReadonlyArray<{ source?: unknown; target?: unknown }> | undefi
 export function graphImportDigest(nodes: GraphNodes, edges: GraphEdges): string | null {
   const identity = identityFromCanvasGraph(nodes, edges)
   if (identity.nodeIds.length === 0) return null
-  // Sorted so the digest is insensitive to array order (a hydrate or a
-  // reseed may reorder without changing the model).
+  // LOAD-BEARING SORT — pinned by its own test. A hydrate or a persistence
+  // round-trip can reorder nodes/edges without changing the model; an
+  // order-sensitive digest would then MISS the match and drop the hold, which
+  // is the P0. Order-insensitivity is the whole reason the marker survives the
+  // localStorage round-trip that blocker A turns on.
   const nodePart = [...identity.nodeIds].sort().join(',')
   const edgePart = [...identity.edgePairs].sort().join(',')
   return `n:${nodePart}|e:${edgePart}`
@@ -75,7 +106,7 @@ export function graphImportDigest(nodes: GraphNodes, edges: GraphEdges): string 
 
 function readMarkers(): string[] {
   try {
-    const raw = globalThis.sessionStorage?.getItem(STORAGE_KEY)
+    const raw = globalThis.localStorage?.getItem(STORAGE_KEY)
     if (!raw) return []
     const parsed: unknown = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
@@ -88,7 +119,7 @@ function readMarkers(): string[] {
 
 function writeMarkers(next: string[]): void {
   try {
-    globalThis.sessionStorage?.setItem(STORAGE_KEY, JSON.stringify(next.slice(-MAX_IDENTITIES)))
+    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(next.slice(-MAX_IDENTITIES)))
   } catch {
     /* storage unavailable or full — see readMarkers */
   }
@@ -116,7 +147,7 @@ export function isGraphPendingImportRegistration(nodes: GraphNodes, edges: Graph
 /** Test/teardown helper — a real session drops the record when the tab closes. */
 export function clearImportRegistrationMarkers(): void {
   try {
-    globalThis.sessionStorage?.removeItem(STORAGE_KEY)
+    globalThis.localStorage?.removeItem(STORAGE_KEY)
   } catch {
     /* see readMarkers */
   }

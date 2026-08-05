@@ -258,10 +258,25 @@ export type FreshnessDisplaySemantic = 'current' | 'changed' | 'cannot_confirm' 
 export function classifyFreshnessForDisplay(
   state: AnalysisFreshnessState | null,
   dirty: boolean,
+  /**
+   * Interim 2.467: the canvas graph is an IMPORT the server has never seen, so
+   * the dirty overlay is held by the mitigation rather than by a user edit.
+   *
+   * This must NEVER classify as 'changed'. The mitigation's identity match is
+   * structural and therefore coarse: after the walk's own flow (export →
+   * relabel → import) the imported digest equals CEE's own graph, so every
+   * later install of the GENUINE server graph re-derives the hold. Asserting
+   * "Model changed. Results may be out of date." there is factually false about
+   * a current analysis — and a warning that cries wolf trains users to ignore
+   * the one that matters. Cannot-confirm is the honest reading of exactly this
+   * state: we cannot confirm the server analysed what is on the canvas.
+   */
+  importHold: boolean = false,
 ): FreshnessDisplaySemantic {
   const displayed = resolveDisplayedFreshness(state, dirty)
   if (displayed === null || displayed === 'none') return 'none'
   if (displayed === 'fresh') return 'current'
+  if (importHold) return 'cannot_confirm'
   if (displayed === 'stale') return 'changed'
   // displayed === 'unknown': it means the user definitely changed the model
   // since the run in exactly two cases, both of which require the local dirty

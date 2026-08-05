@@ -43,7 +43,13 @@ import { useAnalysisSnapshotStore } from '../stores/analysisSnapshotStore'
 import { useComparisonStore } from '../stores/comparisonStore'
 import { applyDraftResult } from '../utils/applyDraftResult'
 import { createScenario } from '../store/scenarios'
-import { clearImportRegistrationMarkers } from '../store/importRegistrationMarker'
+import {
+  clearImportRegistrationMarkers,
+  graphImportDigest,
+  markGraphImported,
+  isGraphPendingImportRegistration,
+  __readImportRegistrationMarkers,
+} from '../store/importRegistrationMarker'
 import {
   AnalysisFreshnessNotice,
   FRESHNESS_COPY,
@@ -318,10 +324,16 @@ describe('interim 2.467 — import invalidates pre-import analysis (rewalk-2459b
     expect(notice).toHaveAttribute('data-cee-freshness', 'fresh')
     expect(notice).not.toHaveAttribute('data-freshness', 'fresh')
     expect(notice).not.toHaveTextContent(FRESHNESS_COPY.fresh)
-    // Honest treatment: the model DID change since that analysis (the import),
-    // so the composed trust semantic is 'changed' and the re-analyse bar shows.
+    // Honest treatment, CORRECTED in round 3: the strip reads cannot-confirm
+    // and the "Model changed. Results may be out of date." bar does NOT render.
+    // Round 1 asserted the opposite — but that copy is an assertion about the
+    // MODEL, and the import hold cannot support it (the same identity match
+    // fires when the genuine server graph is on the canvas, where "changed" is
+    // simply false). The one Rerun still lives in the sticky AnalysisFooter, so
+    // no recovery affordance is lost.
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
-    expect(screen.getByTestId('reanalyse-bar')).toBeInTheDocument()
+    expect(notice).toHaveTextContent(FRESHNESS_COPY.unknown)
+    expect(screen.queryByTestId('reanalyse-bar')).toBeNull()
   })
 
   it("(b, order-independence) clear-then-verdict also cannot re-attach the affirmative", () => {
@@ -645,7 +657,14 @@ describe('interim 2.467 round 2 — the hold is derived from the graph, not from
     expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
   })
 
-  it('BLOCKER E: resetCanvas EMPTY-GRAPH early-return branch releases the hold', () => {
+  // ⚠ The next two cases, and `(c) the hold releases on resetCanvas`, assert
+  // release at sites where the derivation is CONSTANT `false` by construction
+  // (empty/initial graph + the empty-graph null rule). They pin that the sites
+  // release — they do NOT demonstrate derivation there, and a hardcoded `false`
+  // satisfies them, which is exactly what the source now says those lines are.
+  // The property that actually protects them is the empty-graph rule, pinned
+  // separately above.
+  it('resetCanvas EMPTY-GRAPH early-return branch releases the hold (constant site)', () => {
     seedPreImportAnalysedState()
     act(() => {
       useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
@@ -660,7 +679,7 @@ describe('interim 2.467 round 2 — the hold is derived from the graph, not from
     expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
   })
 
-  it('BLOCKER E: reset() releases the hold', () => {
+  it('reset() releases the hold (constant site — initialNodes/initialEdges are [])', () => {
     seedPreImportAnalysedState()
     act(() => {
       useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
@@ -672,26 +691,98 @@ describe('interim 2.467 round 2 — the hold is derived from the graph, not from
     expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)
   })
 
-  it('the marker lives in sessionStorage — the storage choice IS the reload fix', () => {
-    // Pinned explicitly because it is the mechanism blocker A turns on: an
-    // in-memory marker (module variable) or a localStorage one would both pass
-    // the store-level tests below — the first dies with the page (leaving the
-    // defect), the second outlives the tab (over-holding into a new session).
+  it('the marker lives in localStorage — the SAME scope as the autosave it defends', () => {
+    // ⚠ THIS IS THE ONLY THING PINNING THE STORAGE MEDIUM, and a mutation probe
+    // measured exactly that: swapping the medium left every behavioural test
+    // below GREEN (a module-level variable would pass them too) — only this
+    // key read went red. The behavioural tests prove independence from the
+    // STORE INSTANCE, not from the page or the tab, because jsdom never
+    // reloads. The real proof of the reload fix is a LIVE same-tab-reload
+    // witness on staging.
     //
-    // ⚠ Scope limit, stated rather than implied: jsdom does not reload a page,
-    // so the "reload" cases simulate it with a cold store + hydrate. They prove
-    // independence from the STORE INSTANCE; this assertion is what proves the
-    // record is in the storage that actually survives a real same-tab reload.
+    // The medium matters twice over: `sessionStorage` (the second cut) dies
+    // with the TAB while the autosave it defends is `localStorage` and does
+    // not — so a fresh tab booted the imported graph with no marker and one
+    // Rerun restored the FAIL frame. Same governing sentence as blocker A, one
+    // level up: match the scope of the artefact you are defending.
     seedPreImportAnalysedState()
     act(() => {
       useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
     })
-    const raw = globalThis.sessionStorage.getItem('olumi.import.pendingServerRegistration.v1')
+    const raw = globalThis.localStorage.getItem('olumi.import.pendingServerRegistration.v1')
     expect(raw).toBeTruthy()
     expect(raw).toContain(PRE_IMPORT_OPTION_ID) // the imported graph's own node id
     expect(
-      globalThis.localStorage.getItem('olumi.import.pendingServerRegistration.v1'),
+      globalThis.sessionStorage.getItem('olumi.import.pendingServerRegistration.v1'),
     ).toBeNull()
+  })
+
+  it('THE OVER-HOLD MUST NOT LIE: a held import renders cannot-confirm, never "Model changed"', () => {
+    // The walk's OWN flow (export → relabel → import) yields a digest equal to
+    // CEE's own graph, because identity is label-independent. Every later
+    // install of the GENUINE server graph therefore re-derives the hold. In
+    // that state the analysis really is current, so asserting "Model changed.
+    // Results may be out of date." is factually FALSE — and a warning that
+    // cries wolf trains users to ignore the one that matters. Cannot-confirm
+    // is the honest reading: we cannot confirm the server analysed this graph.
+    const imported = JSON.parse(IMPORT_MODIFIED_JSON) as { nodes: never[]; edges: never[] }
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    // The genuine server graph comes back (structurally identical → held).
+    act(() => {
+      useCanvasStore.getState().hydrateGraphSlice({
+        nodes: imported.nodes,
+        edges: imported.edges,
+        currentScenarioId: 'scn_server_known',
+      })
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+    act(() => {
+      useCanvasStore.getState().setAnalysisFreshness(SERVER_FRESH_VERDICT_AFTER_RERUN)
+    })
+
+    renderFreshnessSurfaces()
+    const notice = screen.getByTestId('analysis-freshness-notice')
+    expect(notice).toHaveTextContent(FRESHNESS_COPY.unknown) // "Cannot confirm…"
+    expect(notice).not.toHaveTextContent(FRESHNESS_COPY.stale) // never "Model changed…"
+    // The ReanalyseBar is the "Model changed. Results may be out of date."
+    // assertion — it must not render for an import hold.
+    expect(screen.queryByTestId('reanalyse-bar')).toBeNull()
+  })
+
+  it('digest .sort() is load-bearing: a REORDERED hydrate of the imported graph still holds', () => {
+    // A hydrate or a persistence round-trip can reorder nodes/edges without
+    // changing the model. An order-sensitive digest would miss the match and
+    // drop the hold — the P0, reached by a reordering that changes nothing.
+    const imported = JSON.parse(IMPORT_MODIFIED_JSON) as {
+      nodes: unknown[]
+      edges: unknown[]
+    }
+    seedPreImportAnalysedState()
+    act(() => {
+      useCanvasStore.getState().importCanvas(IMPORT_MODIFIED_JSON)
+    })
+    useCanvasStore.getState().reset()
+    act(() => {
+      useCanvasStore.getState().hydrateGraphSlice({
+        nodes: [...imported.nodes].reverse() as never,
+        edges: [...imported.edges].reverse() as never,
+      })
+    })
+    expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+  })
+
+  it('the empty-graph rule: an EMPTY import arms nothing (it is what makes the three constant sites safe)', () => {
+    // graphImportDigest returns null for an empty graph. Three release sites
+    // (resetCanvas's two branches and reset()) are constant `false` BECAUSE of
+    // this rule — break it and an empty import would make every later reset
+    // match the marker and hold forever.
+    expect(graphImportDigest([], [])).toBeNull()
+    markGraphImported([], [])
+    expect(isGraphPendingImportRegistration([], [])).toBe(false)
+    expect(__readImportRegistrationMarkers()).toEqual([])
   })
 
   it('the marker is scoped to the TAB, not to the store instance (what makes the reload case work)', () => {

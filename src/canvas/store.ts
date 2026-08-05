@@ -2792,14 +2792,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // influence is the unit cap, which resolveMeasureUnitCap gates on
       // measure.threshold === store.goalThreshold — nulling the threshold
       // breaks that, so a leaked measure can't cap a cleared value.)
-      // Interim 2.467, DERIVED: the graph is already empty, and an empty graph
-      // is never an imported one (graphImportDigest returns null for it), so
-      // this releases — stated through the same derivation as every other
-      // replacement site rather than as a hardcoded false.
-      set({
-        ...DECISION_CONTEXT_CLEAR,
-        importPendingServerRegistration: isGraphPendingImportRegistration(nodes, edges),
-      })
+      // Interim 2.467 — release. ⚠ NOT derived, and the earlier "derived, never
+      // a hardcoded false" framing was decorative HERE: this branch runs only
+      // under `nodes.length === 0 && edges.length === 0` (the guard above), and
+      // `graphImportDigest` returns null for an empty graph, so the derivation
+      // would be constant `false`. Written as the literal it provably is. The
+      // COUPLING is what matters: it is the empty-graph null rule (pinned by
+      // its own test) that makes this safe — break that rule and this line
+      // becomes wrong, silently.
+      set({ ...DECISION_CONTEXT_CLEAR, importPendingServerRegistration: false })
       return
     }
 
@@ -2825,9 +2826,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // that only agreed with the spread by coincidence.)
       analysisFreshness: null,
       analysisFreshnessDirty: false,
-      // Interim 2.467, DERIVED: resetCanvas installs an EMPTY graph, which is
-      // never an imported one — same derivation as every other site.
-      importPendingServerRegistration: isGraphPendingImportRegistration([], []),
+      // Interim 2.467 — release. ⚠ NOT derived (same correction as the
+      // empty-graph branch above): resetCanvas installs an EMPTY graph, for
+      // which the digest is null by the empty-graph rule, so a derivation here
+      // is constant `false`. Stated as the literal it is; the empty-graph rule
+      // is what keeps it correct.
+      importPendingServerRegistration: false,
       // V5 canonical analysis fact — clear on scenario reset (the fact does
       // not survive a graph reset; rerun analysis to mint a fresh one).
       v5AnalysisFact: null,
@@ -2984,11 +2988,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       _internal: { lastHistoryHash: historyHash(initialNodes, initialEdges) },
       hasCompletedFirstRun: false,
       showDraftChat: false,
-      // Interim 2.467, DERIVED from the graph this installs (the initial one).
-      importPendingServerRegistration: isGraphPendingImportRegistration(
-        initialNodes,
-        initialEdges,
-      ),
+      // Interim 2.467 — release. ⚠ NOT derived: `initialNodes`/`initialEdges`
+      // are both `[]` (store.ts, above), so the digest is null by the
+      // empty-graph rule and a derivation here is constant `false`.
+      importPendingServerRegistration: false,
     })
     // Reset AI model selections (lives in useDraftStore as of C3-5)
     useDraftStore.getState().resetAllModels()
