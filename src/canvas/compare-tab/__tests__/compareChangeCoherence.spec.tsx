@@ -273,6 +273,16 @@ describe('ROADMAP 2.578 — the labels cannot contradict each other', () => {
     )
   })
 
+  it('describes the change exactly ONCE — no prose bullet duplicating the detail row', () => {
+    const tr = valueOnlyEditTransition()
+    render(
+      <TransitionCard transition={tr} startOpen showExpert allDeltas={[tr.winnerProbDelta]} />,
+    )
+    // The same edit rendered as both a prose bullet and a detail row would make
+    // one change look like two on a surface whose whole job is counting changes.
+    expect(screen.getAllByText(/strength 0\.5 → 0\.8/)).toHaveLength(1)
+  })
+
   it('renders no change row for the untouched edge', () => {
     const tr = valueOnlyEditTransition()
     render(

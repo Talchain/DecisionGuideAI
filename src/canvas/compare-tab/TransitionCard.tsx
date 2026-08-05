@@ -47,6 +47,8 @@ export function TransitionCard({
   const [open, setOpen] = useState(startOpen)
   const cardKey = `${tr.fromRunNumber}-${tr.toRunNumber}`
   const maxAbs = Math.max(20, ...allDeltas.map(d => Math.abs(d)))
+  const hasDetail =
+    tr.changeVerdict.fieldChanges.length > 0 || tr.changeVerdict.membershipChanges.length > 0
 
   // Hover handler for edit area
   const handleEditsHover = () => {
@@ -90,24 +92,44 @@ export function TransitionCard({
             onMouseEnter={handleEditsHover}
             onMouseLeave={clearHighlight}
           >
-            {tr.edits.map((e, i) => (
-              <div key={i} className={typography.panelBody}>• {e}</div>
-            ))}
             {/*
-              ROADMAP 2.578 — the exact changed fields, by element IDENTITY.
-              This is what makes Compare an audit trail: "why did the
-              recommendation change?" is answered with "strength 0.5 → 0.8 on
-              this relationship", not with a magnitude adjective.
+              ROADMAP 2.578 — ONE description of the change, never two.
+              When the canonical diff has detail, IT is the description: the
+              exact element, the exact field, before → after, by IDENTITY. That
+              is what makes Compare an audit trail — "why did the recommendation
+              change?" answered with "strength 0.5 → 0.8 on this relationship"
+              rather than a magnitude adjective.
+              `tr.edits` carries the same facts as prose and is the fallback for
+              the cases with no detail to show (a provably identical rerun, or a
+              run whose graph was never recorded). Rendering both would print
+              every change twice.
             */}
-            {tr.changeVerdict.fieldChanges.map((c) => (
-              <div
-                key={`${c.element}-${c.id}-${c.field}`}
-                className={typography.panelMeta}
-                data-testid={`change-${c.element}-${c.id}-${c.field}`}
-              >
-                {c.label} · {fieldDisplayLabel(c.field)} {formatChangeValue(c.before)} → {formatChangeValue(c.after)}
-              </div>
-            ))}
+            {hasDetail ? (
+              <>
+                {tr.changeVerdict.membershipChanges.map((c) => (
+                  <div
+                    key={`m-${c.element}-${c.id}`}
+                    className={typography.panelBody}
+                    data-testid={`change-${c.element}-${c.id}-${c.op}`}
+                  >
+                    • {c.op === 'added' ? 'Added' : 'Removed'} {c.element} “{c.label}”
+                  </div>
+                ))}
+                {tr.changeVerdict.fieldChanges.map((c) => (
+                  <div
+                    key={`f-${c.element}-${c.id}-${c.field}`}
+                    className={typography.panelBody}
+                    data-testid={`change-${c.element}-${c.id}-${c.field}`}
+                  >
+                    • {c.label} · {fieldDisplayLabel(c.field)} {formatChangeValue(c.before)} → {formatChangeValue(c.after)}
+                  </div>
+                ))}
+              </>
+            ) : (
+              tr.edits.map((e, i) => (
+                <div key={i} className={typography.panelBody}>• {e}</div>
+              ))
+            )}
           </div>
 
           <div className="h-2" />
