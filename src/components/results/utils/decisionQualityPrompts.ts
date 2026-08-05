@@ -37,6 +37,27 @@ import { containsBannedTerm } from '../analysisHeroV17/glossaryCheck'
 export const DSK_EVIDENCE_STRENGTHS = ['weak', 'medium', 'strong'] as const
 export type DskEvidenceStrength = (typeof DSK_EVIDENCE_STRENGTHS)[number]
 
+/**
+ * 2.491 — CEE's explicit grounding verdict for a prompt (`dsk_grounding` on the
+ * wire). Closes the 2.456 asymmetry, in which a PRESENT-but-unknown claim id
+ * hard-rejected while an OMITTED id passed unvalidated AND unmarked, so an
+ * ungrounded prompt reached the user indistinguishable from an attested one
+ * (44% of live prompts, walk of 2026-08-05).
+ *
+ *  - `attested`  — the model cited a claim that resolves in the DSK bundle.
+ *  - `resolved`  — the id was omitted but the principle is byte-identical to a
+ *                  bundle claim title, so CEE resolved it FROM the bundle.
+ *                  Carries a real `dsk_claim_id`; renders the normal badge.
+ *  - `general`   — genuinely unattested. Surfaces must say so POSITIVELY.
+ *
+ * ⚠ ABSENCE IS NOT `general`. A payload with no verdict (DSK disabled, bundle
+ * load failure, or a CEE build predating 2.491) means "no verdict was made" —
+ * rendering a disclaimer there would be its own false statement. The general
+ * marker is therefore gated on the POSITIVE value, never on missing grounding.
+ */
+export const DSK_GROUNDING_STATES = ['attested', 'resolved', 'general'] as const
+export type DskGroundingState = (typeof DSK_GROUNDING_STATES)[number]
+
 export interface MappedDecisionQualityPrompt {
   principle: string
   appliesBecause: string
@@ -47,6 +68,13 @@ export interface MappedDecisionQualityPrompt {
   dskProtocolId?: string
   /** Closed-vocabulary strength, verbatim. Only ever present alongside dskClaimId. */
   evidenceStrength?: DskEvidenceStrength
+  /**
+   * 2.491 — CEE's explicit grounding verdict, carried ONLY when it is a member
+   * of the closed vocabulary above. Unlike the provenance triple this is NOT
+   * id-gated: `general` is precisely the case with no id, and it is the value
+   * that lets a surface mark the prompt honestly instead of silently.
+   */
+  groundingState?: DskGroundingState
 }
 
 function nonEmptyString(v: unknown): v is string {
@@ -102,6 +130,26 @@ export function deriveDskGrounding(
 }
 
 /**
+ * 2.491 — should this prompt be marked to the user as general guidance rather
+ * than attested decision science?
+ *
+ * TRUE only on CEE's POSITIVE `general` verdict. Deliberately NOT `!grounding`:
+ * that would fire on every payload with no verdict at all (DSK disabled, bundle
+ * load failure, pre-2.491 CEE), printing a disclaimer we have no basis for —
+ * the mirror-image of the defect this closes. Both halves must be honest, so
+ * the marker fails closed in both directions.
+ *
+ * What would have to be true for this to return TRUE while the prompt IS
+ * grounded? Only if CEE emitted `general` alongside a resolving claim id —
+ * which its policy makes unconstructible (`attested`/`resolved` are the only
+ * verdicts that can accompany an id). The pairing is pinned in CEE's
+ * `dsk-grounding-policy.test.ts` and re-pinned here against a mixed fixture.
+ */
+export function isGeneralGuidance(p: MappedDecisionQualityPrompt): boolean {
+  return p.groundingState === 'general'
+}
+
+/**
  * Map raw wire prompt entries to the UI shape. Preserves the historical
  * behaviour for the three copy fields exactly (truthy check → sanitise,
  * else '') and adds the id-gated provenance carry.
@@ -126,6 +174,14 @@ export function mapDecisionQualityPrompts(raw: ReadonlyArray<unknown>): MappedDe
       if (typeof s === 'string' && (DSK_EVIDENCE_STRENGTHS as readonly string[]).includes(s)) {
         mapped.evidenceStrength = s as DskEvidenceStrength
       }
+    }
+    // 2.491 — the grounding verdict, closed-vocabulary gated. NOT id-gated:
+    // `general` is by definition the no-id case. Anything outside the
+    // vocabulary fails closed to absent, so an unrecognised wire value renders
+    // nothing rather than an unintended claim.
+    const g = p.dsk_grounding
+    if (typeof g === 'string' && (DSK_GROUNDING_STATES as readonly string[]).includes(g)) {
+      mapped.groundingState = g as DskGroundingState
     }
     return mapped
   })

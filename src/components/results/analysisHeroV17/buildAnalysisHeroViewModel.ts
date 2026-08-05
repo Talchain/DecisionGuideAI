@@ -59,7 +59,7 @@ import { rankHeroRows } from './rowRanking'
 // AND the test scanner so what production guards against == what tests
 // catch. (Per P1.1 review feedback.)
 import { containsBannedTerm, safeInterpolatedLabel as safeLabel } from './glossaryCheck'
-import { deriveDskGrounding } from '../utils/decisionQualityPrompts'
+import { deriveDskGrounding, isGeneralGuidance } from '../utils/decisionQualityPrompts'
 // Genuine Structure + Coverage signal derivation (P1.1 round-3 review).
 import {
   deriveStructureScore,
@@ -312,11 +312,15 @@ function selectKeyQuestion(
     // attested dskClaimId ⇒ NO grounding object; strength/protocol carried
     // only when present upstream, never defaulted.
     const grounding: DskGrounding | undefined = deriveDskGrounding(dqps[0])
+    // 2.491: the same source prompt's positive `general` verdict, carried so
+    // the host can mark an unattested question instead of saying nothing.
+    const generalGuidance = isGeneralGuidance(dqps[0])
     return {
       text: dqp,
       extras: dqps.slice(1, 4).map(p => p.question).filter(q => q && !containsBannedTerm(q)),
       chips: ['High', 'Some', 'Not sure', 'Add note'],
       ...(grounding ? { grounding } : {}),
+      ...(generalGuidance ? { generalGuidance: true } : {}),
     }
   }
 
