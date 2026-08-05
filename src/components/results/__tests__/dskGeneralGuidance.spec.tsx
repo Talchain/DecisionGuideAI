@@ -1,43 +1,40 @@
 /**
- * 2.491 — the grounding badge's NEGATIVE TWIN.
+ * 2.491 — the grounding badge's NEGATIVE TWIN: the MAPPER layer.
+ *
+ * ## Scope of this file, and where the render proof lives
+ *
+ * This file covers `mapDecisionQualityPrompts` / `isGeneralGuidance` only —
+ * the wire→view rule. **The render proof is deliberately NOT here**, because
+ * this lane's first attempt put it against `HeroKeyQuestion`, which does not
+ * mount on staging (`netlify.toml:78` sets `VITE_FEATURE_ANALYSIS_HERO_PANEL
+ * = "1"`, and `ResultsBody` hosts `KeyQuestionCard` in that flag-ON arm while
+ * the V17 hero lives in the `!flag` arm). Deleting the deployed marker left
+ * those tests green — the same dark-ship row 2.466 was opened for.
+ *
+ * The render tests now live at
+ * `analysis-hero/__tests__/KeyQuestionCard.generalGuidance.spec.tsx` (the
+ * mounted host) and the mount-path guard at
+ * `__tests__/ResultsBody.keyQuestionLiveMount.spec.tsx` (the real ResultsBody
+ * under the real flag seam).
  *
  * ## RED-first signature at pristine (UI e01dbd4a)
  *
- * At pristine there is no `dsk-general-guidance` testid anywhere in the repo,
- * so every "renders the marker" case below fails with
- * `Unable to find an element by: [data-testid="dsk-general-guidance"]`.
+ * `TypeError: isGeneralGuidance is not a function`, and
+ * `expected [undefined, …] to deeply equal ['general', 'attested', …]`.
  *
- * The product statement of that failure, which is the defect: a prompt with no
- * `dsk_claim_id` rendered its question and NOTHING else. Absence-of-badge is
- * silent, and no user reads silence as "this one is improvised" — so an
- * unattested science-flavoured question was indistinguishable from an attested
- * one. Measured live 2026-08-05: 44% of decision-quality prompts.
- *
- * ## Why the positive control is mandatory here (trap 13)
- *
- * "The marker appears" is an ABSENCE-shaped claim about the other arm: it only
- * means something if the harness can also SEE the grounded case rendering
- * WITHOUT it. Every describe below therefore asserts both arms from the same
- * render, and the mixed-fixture test renders both in one tree.
+ * The product statement of that failure: a prompt with no `dsk_claim_id`
+ * rendered its question and NOTHING else. Absence-of-badge is silent, and no
+ * user reads silence as "this one is improvised" — so an unattested
+ * science-flavoured question was indistinguishable from an attested one.
+ * Measured live 2026-08-05: **52% of decision-quality prompts (16 of 31)**.
  */
 
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { HeroKeyQuestion } from '../analysisHeroV17/HeroKeyQuestion'
 import {
   mapDecisionQualityPrompts,
   isGeneralGuidance,
   deriveDskGrounding,
 } from '../utils/decisionQualityPrompts'
-import type { KeyQuestion } from '../analysisHeroV17/analysisHeroVM.types'
-
-const noop = () => {}
-
-function renderKQ(kq: KeyQuestion) {
-  return render(<HeroKeyQuestion keyQuestion={kq} onPrefillChat={noop} chatPrefillAvailable />)
-}
-
-const BASE = { chips: [] as string[], extras: [] as string[] }
 
 // ============================================================================
 // The mapper — wire verdict → view flag
@@ -109,84 +106,3 @@ describe('mapDecisionQualityPrompts carries the 2.491 verdict', () => {
   })
 })
 
-// ============================================================================
-// The render — both arms, from the same harness
-// ============================================================================
-
-describe('HeroKeyQuestion renders the general-guidance marker', () => {
-  const COPY = 'General guidance — not drawn from our attested evidence base.'
-
-  it('renders the marker and NO grounding badge for a general prompt', () => {
-    renderKQ({ ...BASE, text: 'What would make you switch?', generalGuidance: true })
-
-    expect(screen.getByTestId('dsk-general-guidance').textContent).toBe(COPY)
-    // The property that makes the marker meaningful.
-    expect(screen.queryByTestId('dsk-grounding')).toBeNull()
-  })
-
-  it('POSITIVE CONTROL: renders the badge and NO marker for a grounded prompt', () => {
-    // This is the assertion that stops the test above from passing vacuously:
-    // it proves the harness CAN see a grounded render, in the same component,
-    // with the same query.
-    renderKQ({
-      ...BASE,
-      text: 'What is the base rate?',
-      grounding: {
-        principle: 'Outside view and reference class forecasting',
-        claimId: 'DSK-T-002',
-        strength: 'strong',
-      },
-    })
-
-    expect(screen.getByTestId('dsk-grounding').textContent).toBe(
-      'Grounded in: Outside view and reference class forecasting · strong evidence',
-    )
-    expect(screen.queryByTestId('dsk-general-guidance')).toBeNull()
-  })
-
-  it('renders NEITHER when there is no verdict at all', () => {
-    renderKQ({ ...BASE, text: 'A question with no DSK verdict' })
-    expect(screen.queryByTestId('dsk-general-guidance')).toBeNull()
-    expect(screen.queryByTestId('dsk-grounding')).toBeNull()
-  })
-
-  it('binds the marker to the general question, not merely to "a question"', () => {
-    // DISCRIMINATING PAIR, render-side: two hero cards in one tree, one general
-    // and one grounded. Exactly one marker must exist, and it must sit in the
-    // general card's subtree — a marker rendered for every question would pass
-    // a naive "the marker exists" assertion and fail this one.
-    const { container } = render(
-      <div>
-        <div data-testid="host-general">
-          <HeroKeyQuestion
-            keyQuestion={{ ...BASE, text: 'general question', generalGuidance: true }}
-            onPrefillChat={noop}
-            chatPrefillAvailable
-          />
-        </div>
-        <div data-testid="host-grounded">
-          <HeroKeyQuestion
-            keyQuestion={{
-              ...BASE,
-              text: 'grounded question',
-              grounding: { principle: 'Outside view and reference class forecasting', claimId: 'DSK-T-002' },
-            }}
-            onPrefillChat={noop}
-            chatPrefillAvailable
-          />
-        </div>
-      </div>,
-    )
-
-    expect(container.querySelectorAll('[data-testid="dsk-general-guidance"]')).toHaveLength(1)
-    expect(
-      screen.getByTestId('host-general').querySelector('[data-testid="dsk-general-guidance"]'),
-    ).not.toBeNull()
-    expect(
-      screen.getByTestId('host-grounded').querySelector('[data-testid="dsk-general-guidance"]'),
-    ).toBeNull()
-    expect(
-      screen.getByTestId('host-grounded').querySelector('[data-testid="dsk-grounding"]'),
-    ).not.toBeNull()
-  })
-})

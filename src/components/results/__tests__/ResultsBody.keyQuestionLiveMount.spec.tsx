@@ -229,6 +229,90 @@ describe('2.466 mount-path proof — deployed posture (analysisHeroPanel=1), liv
     expect(document.querySelectorAll('[data-testid="dsk-grounding"]')).toHaveLength(1)
   })
 
+  /**
+   * ── 2.491: the badge's NEGATIVE TWIN, on the same mount path ──────────────
+   *
+   * This spec exists because 2.466's badge shipped dark on the V17 hero. The
+   * 2.491 lane then wrote its marker's render tests against that SAME
+   * switched-off component — the identical defect, one feature later, past this
+   * very file. These cases bind the marker to the deployed posture so it cannot
+   * happen a third time: if someone re-hosts the marker on the `!flag` arm,
+   * `DEPLOYED POSTURE` below goes RED.
+   *
+   * The walk fixture predates CEE #825, so it carries no `dsk_grounding`. The
+   * verdicts are injected into a CLONE of the real captured turn — the payload
+   * shape stays the live one, only the new key is added, exactly as #825 emits.
+   */
+  function walkTurnWithVerdicts(verdicts: readonly string[]): Record<string, unknown> {
+    const turn = structuredClone(walkTurn())
+    const blocks = turn.blocks as Record<string, unknown>[]
+    const dr = (blocks[0].enrichment as Record<string, unknown>)
+      .decision_review as Record<string, unknown>
+    const prompts = dr.decision_quality_prompts as Record<string, unknown>[]
+    // Precondition: the fixture must have the shape we think it has, or the
+    // injection silently lands nowhere and every assertion below goes vacuous.
+    if (prompts.length !== verdicts.length) {
+      throw new Error(`fixture has ${prompts.length} DQPs, got ${verdicts.length} verdicts`)
+    }
+    prompts.forEach((p, i) => {
+      p.dsk_grounding = verdicts[i]
+      if (verdicts[i] === 'general') {
+        delete p.dsk_claim_id
+        delete p.dsk_protocol_id
+        delete p.evidence_strength
+      }
+    })
+    return turn
+  }
+
+  function applyTurnToRealStore(turn: Record<string, unknown>): void {
+    const s = useCanvasStore.getState()
+    applyV5State(turn as never, {
+      ...s,
+      currentResultsHash: (s as unknown as { currentResultsHash?: string }).currentResultsHash,
+    } as never)
+  }
+
+  it('DEPLOYED POSTURE: a GENERAL verdict renders the marker on the mounted surface', () => {
+    localStorage.setItem('feature.analysisHeroPanel', '1')
+    applyTurnToRealStore(walkTurnWithVerdicts(['general', 'general']))
+    renderBody()
+
+    // The surface that actually mounts on staging.
+    expect(screen.getByTestId('key-question-card')).toBeInTheDocument()
+    expect(screen.getByTestId('key-question-text')).toHaveTextContent(WALK_Q1)
+
+    expect(screen.getByTestId('dsk-general-guidance').textContent).toBe(
+      'General guidance — not drawn from our attested evidence base.',
+    )
+    // The property that makes the marker meaningful, on the real tree.
+    expect(document.querySelectorAll('[data-testid="dsk-grounding"]')).toHaveLength(0)
+    expect(document.querySelectorAll('[data-testid="dsk-general-guidance"]')).toHaveLength(1)
+  })
+
+  it('DEPLOYED POSTURE, POSITIVE CONTROL: an ATTESTED verdict renders the badge and NO marker', () => {
+    // Same posture, same fixture, same queries — so the case above cannot be
+    // passing because the harness renders nothing.
+    localStorage.setItem('feature.analysisHeroPanel', '1')
+    applyTurnToRealStore(walkTurnWithVerdicts(['attested', 'attested']))
+    renderBody()
+
+    expect(screen.getByTestId('dsk-grounding')).toHaveAttribute('data-dsk-claim-id', 'DSK-T-002')
+    expect(document.querySelectorAll('[data-testid="dsk-general-guidance"]')).toHaveLength(0)
+  })
+
+  it('MOUNT-PATH GUARD: the marker never renders on the flag-OFF arm', () => {
+    // If a future lane moves the marker to the V17 hero (the 2.466 defect,
+    // and the 2.491 lane's first attempt), this goes RED.
+    localStorage.setItem('feature.analysisHeroPanel', '0')
+    applyTurnToRealStore(walkTurnWithVerdicts(['general', 'general']))
+    renderBody()
+
+    expect(screen.getByTestId('decision-confidence-panel')).toBeInTheDocument()
+    expect(screen.queryByTestId('key-question-card')).toBeNull()
+    expect(document.querySelectorAll('[data-testid="dsk-general-guidance"]')).toHaveLength(0)
+  })
+
   it('INVERSE CONTROL: flag OFF ⇒ the V17/legacy arm mounts and this surface does not', () => {
     localStorage.setItem('feature.analysisHeroPanel', '0')
     applyWalkTurnToRealStore()
