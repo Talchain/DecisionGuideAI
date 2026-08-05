@@ -191,6 +191,62 @@ describe('ROADMAP 2.578 — a value-only link edit is reported as exactly that',
 })
 
 // ---------------------------------------------------------------------------
+// Coverage the hash never had.
+//
+// `generateGraphHash` reads exactly three edge fields — `confidence`, `weight`,
+// `belief`. Measured against a REAL captured graph
+// (`PHASE0-EVIDENCE-2026-07-28/codex-deep-review-2026-08-05-raw/canvas-export-1785945361783.json`,
+// 34 edges): `weight` is present on 34/34, and `confidence` and `belief` on
+// 0/34. The live editable fields are `weight`, `direction`, `strengthStd`,
+// `beliefExists`, `beliefStrength`, `exists_probability` — all 34/34, and all in
+// EDGE_FIELD_REGISTRY with purpose 'stale'.
+//
+// So the old signal was blind in BOTH directions: it raised "structure changed"
+// for a weight edit, and saw NOTHING at all for a direction or uncertainty edit.
+// Deriving from the registry fixes the second half too, and these pin it.
+// ---------------------------------------------------------------------------
+
+describe('ROADMAP 2.578 — analysis-affecting edits the old hash could not see', () => {
+  function editedEdgeData(patch: Record<string, unknown>): Edge[] {
+    return edgesWithStrength(STRENGTH_BEFORE).map(e =>
+      e.id === EDITED_EDGE_ID ? { ...e, data: { ...(e.data as object), ...patch } } : e,
+    )
+  }
+
+  function transitionWith(patch: Record<string, unknown>) {
+    const before = runSnapshot(1, STRENGTH_BEFORE)
+    const after = buildAnalysisSnapshot({
+      rawV2Response: { ...RESPONSE, response_hash: 'resp-2' } as V2RunResponse,
+      report: {} as ReportV1,
+      nodes,
+      edges: editedEdgeData(patch),
+      runNumber: 2,
+      events: [],
+      previousSnapshotTimestamp: PREV_RUN_AT,
+    })
+    return deriveTransitions([before, after])[0]
+  }
+
+  it.each([
+    ['direction', 'positive', 'negative'],
+    ['strengthStd', undefined, 0.25],
+    ['beliefExists', undefined, 0.6],
+  ] as const)(
+    'a %s edit is reported as a value change on the edited edge',
+    (field, _before, after) => {
+      const tr = transitionWith({ [field]: after })
+      expect(tr.changeVerdict.kind).toBe('value_only')
+      const match = tr.changeVerdict.fieldChanges.filter(c => c.field === field)
+      expect(match).toHaveLength(1)
+      expect(match[0].id).toBe(EDITED_EDGE_ID)
+      expect(match[0].after).toBe(after)
+      expect(tr.structureChanged).toBe(false)
+      expect(tr.edits).not.toContain('Rerun (no edits)')
+    },
+  )
+})
+
+// ---------------------------------------------------------------------------
 // The coherence rule: two labels on one screen must not be able to disagree.
 // ---------------------------------------------------------------------------
 
