@@ -144,9 +144,10 @@ describe('resolveGuidance — shared guidance resolver', () => {
 describe('resolveGuidance — INGRESS_CONTRACT_VIOLATION wire-taxonomy branching (2.472)', () => {
   const SERVER_FAULT_COPY =
     "Something on our side isn't working — your message was fine. Please try again in a moment."
-  const SIGN_IN_COPY =
-    "You'll need to sign in to continue — nothing was wrong with your message. Please sign in, then send it again."
   const REPHRASE_COPY = 'Please rephrase your message and try again.'
+  // The auth class (user_jwt / sign_in_required) moved to its own describe
+  // block below when the extension was ratified — its copy constant lives
+  // there, not here.
 
   /** Byte-for-byte the BoundaryError CEE served during the witnessed outage
    *  (rewalk run2; run1 identical modulo ids). Identity-bound: this object is
