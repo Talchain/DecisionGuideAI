@@ -35,6 +35,82 @@ interface ObservedState {
   source?: string
 }
 
+/** Normalised (0–1) range end for unitless display: ≤2 dp, trailing zeros
+ *  trimmed. Mirrors FactorNode's module-private formatter of the same name. */
+function formatNormalisedRangeEnd(v: number): string {
+  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, '')
+}
+
+/**
+ * 2.468(a): honest prior display. `data.prior` is a union (PriorSchema,
+ * domain/nodes.ts): a number 0–1 OR a CEE distribution object
+ * `{distribution, range_min, range_max}` — the object form is live (written
+ * by useInspectorMutations.setPriorRange; present in drafted graphs).
+ * - number → percent, unchanged.
+ * - object with a finite range → the range in plain words. NEVER
+ *   percent-coerced: the endpoints are stored bounds, not probabilities
+ *   (same refusal as FactorNode's range formatter).
+ * - anything else → null → the prior rows do not render.
+ * Arithmetic on the object form is what produced the literal "NaN%" this
+ * replaces. Finiteness checks, not truthiness: range_min 0 must render.
+ *
+ * ⚠ THE SCALE SUFFIX IS EARNED, NEVER ASSUMED (#589 review F1). Nothing
+ * bounds the object branch: PriorDistributionSchema (nodes.ts:47-52) applies
+ * `.min(0).max(1)` to the NUMERIC branch only, and the object branch is a
+ * `.passthrough()` with no bounds. Out-of-scale endpoints are witnessed — a
+ * real CEE payload in our evidence corpus carries
+ * `fac_price {distribution:'uniform', range_min:10, range_max:30}` — and are
+ * reachable with no CEE at all, because FactorExternalPanel's blur handlers
+ * write any parseFloat-able value through setPriorRange unclamped. Saying
+ * "on 0–1 scale" over £10–£30 trades a visible NaN for a confident falsehood,
+ * which is worse: a user distrusts NaN and believes a sentence. So the suffix
+ * renders ONLY when the endpoints are actually inside [0,1]; otherwise the
+ * bare range is rendered — exactly the restraint FactorNode.tsx:365 shows by
+ * emitting `Range: a to b` with no scale claim, because it too cannot know the
+ * scale without the unit/cap path this component does not have.
+ */
+type PriorDisplay =
+  | { kind: 'percent'; fraction: number; text: string }
+  | { kind: 'range'; rangeMin: number; rangeMax: number; normalised: boolean }
+
+function describePrior(prior: unknown): PriorDisplay | null {
+  if (typeof prior === 'number' && Number.isFinite(prior)) {
+    return { kind: 'percent', fraction: prior, text: `${(prior * 100).toFixed(0)}%` }
+  }
+  if (prior !== null && typeof prior === 'object') {
+    const { range_min, range_max } = prior as { range_min?: unknown; range_max?: unknown }
+    if (
+      typeof range_min === 'number' && Number.isFinite(range_min) &&
+      typeof range_max === 'number' && Number.isFinite(range_max)
+    ) {
+      return {
+        kind: 'range',
+        rangeMin: range_min,
+        rangeMax: range_max,
+        // Both endpoints must sit inside [0,1] to earn the scale claim.
+        // 2.495: this was `range_min >= 0 && range_max <= 1` — a ONE-SIDED
+        // bound wearing a membership test's comment. It bounded min from
+        // below and max from above and checked neither of the other two
+        // limbs, so {30, 1} rendered "30 to 1 on 0–1 scale" and {0.5, -2}
+        // rendered "0.5 to -2 on 0–1 scale". Reachable with no CEE at all:
+        // FactorExternalPanel.handleMinBlur writes
+        // `setPriorRange(parsed, rangeMax ?? parsed)` unclamped, so a user
+        // whose max is 1 typing 30 into min produces the first row verbatim.
+        // Four limbs, because each endpoint needs both bounds.
+        normalised:
+          range_min >= 0 && range_min <= 1 &&
+          range_max >= 0 && range_max <= 1,
+      }
+    }
+  }
+  return null
+}
+
+/** The scale suffix, or nothing when the endpoints have not earned it. */
+function scaleSuffix(p: { normalised: boolean }): string {
+  return p.normalised ? ' on 0–1 scale' : ''
+}
+
 interface NodeInspectorProps {
   nodeId: string
   onClose: () => void
@@ -148,6 +224,9 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const currentType = (node.type || 'decision') as NodeType
   const metadata = NODE_REGISTRY[currentType] || NODE_REGISTRY.decision
   const isGoalNode = currentType === 'goal'
+
+  // 2.468(a): union-aware prior display. Null = nothing honest to say → no row.
+  const priorDisplay = describePrior(node.data?.prior)
 
 
   // S.4: State for programmatic section opening from Edit button
@@ -369,12 +448,15 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         </div>
       )}
 
-      {/* KPI row: Prior */}
-      {node.data?.prior !== undefined && (
+      {/* KPI row: Prior — 2.468(a): percent for numeric priors, the normalised
+          range in plain words for distribution priors, no row otherwise. */}
+      {priorDisplay && (
         <div className="flex items-center justify-between mt-2 px-2 py-1 bg-panel rounded border border-panel-border">
           <span className={`${typography.panelMeta} text-text-light`}>Prior</span>
           <span className={`${typography.panelBody} text-text-body tabular-nums`}>
-            {(node.data.prior * 100).toFixed(0)}%
+            {priorDisplay.kind === 'percent'
+              ? priorDisplay.text
+              : `${formatNormalisedRangeEnd(priorDisplay.rangeMin)} to ${formatNormalisedRangeEnd(priorDisplay.rangeMax)}${scaleSuffix(priorDisplay)}`}
           </span>
         </div>
       )}
@@ -561,28 +643,36 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         />
       </div>
 
-      {/* Prior bar */}
-      {node.data?.prior !== undefined && (
+      {/* Prior bar — 2.468(a): the percent bar is only honest for a numeric
+          prior. A distribution prior renders its range in plain words instead
+          (a probability bar for a value range would fake precision). */}
+      {priorDisplay && (
         <div>
           <label className={`block ${typography.panelMeta} text-text-body mb-1`}>
             Prior <span className="text-text-light">(belief before evidence)</span>
           </label>
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-panel-border rounded-full overflow-hidden">
-              <div
-                className="h-full bg-info rounded-full transition-all"
-                style={{ width: `${node.data.prior * 100}%` }}
-                role="progressbar"
-                aria-valuenow={node.data.prior}
-                aria-valuemin={0}
-                aria-valuemax={1}
-                aria-valuetext={`${(node.data.prior * 100).toFixed(0)}%`}
-              />
+          {priorDisplay.kind === 'percent' ? (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-2 bg-panel-border rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-info rounded-full transition-all"
+                  style={{ width: `${priorDisplay.fraction * 100}%` }}
+                  role="progressbar"
+                  aria-valuenow={priorDisplay.fraction}
+                  aria-valuemin={0}
+                  aria-valuemax={1}
+                  aria-valuetext={priorDisplay.text}
+                />
+              </div>
+              <span className={`${typography.panelMeta} text-text-body tabular-nums w-10 text-right`}>
+                {priorDisplay.text}
+              </span>
             </div>
-            <span className={`${typography.panelMeta} text-text-body tabular-nums w-10 text-right`}>
-              {(node.data.prior * 100).toFixed(0)}%
-            </span>
-          </div>
+          ) : (
+            <p className={`${typography.panelBody} text-text-body tabular-nums`}>
+              Between {formatNormalisedRangeEnd(priorDisplay.rangeMin)} and {formatNormalisedRangeEnd(priorDisplay.rangeMax)}{scaleSuffix(priorDisplay)}
+            </p>
+          )}
         </div>
       )}
 
