@@ -83,7 +83,12 @@ function semanticNow() {
     dirty: s.analysisFreshnessDirty,
     source: null,
     resultsStatus: 'complete',
-    importHold: false,
+    // Read from the SAME store snapshot as the two fields above, rather than a
+    // hardcoded `false` sitting next to the derived values (2.494). It resolves
+    // to false in every scenario here — this file has no import scenario — but
+    // a literal here is a mirror of store state that nothing keeps in step, and
+    // it sits one line from the snapshot that already holds the truth.
+    importHold: s.importPendingServerRegistration,
     }).semantic
 }
 

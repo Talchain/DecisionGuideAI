@@ -41,7 +41,11 @@ import path from 'node:path'
 import { useCanvasStore } from '../store'
 import { useAnalysisSnapshotStore } from '../stores/analysisSnapshotStore'
 import { useComparisonStore } from '../stores/comparisonStore'
-import { applyDraftResult } from '../utils/applyDraftResult'
+import {
+  applyDraftResult,
+  mapDraftNodeToCanvas,
+  mapDraftEdgeToCanvas,
+} from '../utils/applyDraftResult'
 import { createScenario } from '../store/scenarios'
 import {
   clearImportRegistrationMarkers,
@@ -889,19 +893,42 @@ describe('interim 2.467 round 2 — the hold is derived from the graph, not from
     const landedNodes = useCanvasStore.getState().nodes
     const landedEdges = useCanvasStore.getState().edges
     expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
+    const draftPayload = {
+      nodes: landedNodes.map((n) => ({
+        id: n.id,
+        type: (n as unknown as { type?: string }).type,
+        label: (n.data as { label?: string } | undefined)?.label,
+      })),
+      edges: landedEdges.map((e, i) => ({
+        id: e.id ?? `e-${i}`,
+        from: e.source,
+        to: e.target,
+      })),
+    }
+    // ⚠ PIN THE FIXTURE'S DISCRIMINATING PROPERTY — without this line the test
+    // cannot detect its own fixture rotting. The closing assertion
+    // (`...toBe(false)`) is satisfied by TWO different worlds: the one this
+    // test is about (the draft genuinely reproduces the imported identity, so
+    // only the literal can explain the release) and the one where the fixture
+    // has quietly stopped reproducing it (nothing to discriminate, and the
+    // assertion passes anyway). MEASURED at 2.494: changing `id: n.id` above to
+    // `id: n.id + '_ROTPROBE'` — so the draft reproduces NOTHING — left the
+    // previous version of this test GREEN. Its discriminating power was real
+    // but unguarded at rest, one refactor of `mapDraftNodeToCanvas` /
+    // `mapDraftEdgeToCanvas` or one tidy-up of this builder away from decaying
+    // into exactly the non-discriminating shape it was written to replace.
+    //
+    // So assert, through the SAME mappers `applyDraftResult` runs the payload
+    // through, that the graph we are about to install WOULD hold. The release
+    // below is then provably the literal's doing and not the fixture's failure.
+    expect(
+      isGraphPendingImportRegistration(
+        draftPayload.nodes.map((n) => mapDraftNodeToCanvas(n)),
+        draftPayload.edges.map((e, i) => mapDraftEdgeToCanvas(e, i)),
+      ),
+    ).toBe(true)
     act(() => {
-      applyDraftResult({
-        nodes: landedNodes.map((n) => ({
-          id: n.id,
-          type: (n as unknown as { type?: string }).type,
-          label: (n.data as { label?: string } | undefined)?.label,
-        })),
-        edges: landedEdges.map((e, i) => ({
-          id: e.id ?? `e-${i}`,
-          from: e.source,
-          to: e.target,
-        })),
-      } as never)
+      applyDraftResult(draftPayload as never)
     })
     // Same identity on the canvas, hold RELEASED — the discriminating outcome.
     expect(useCanvasStore.getState().importPendingServerRegistration).toBe(false)

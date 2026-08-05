@@ -245,9 +245,29 @@ export function extractReason(err: BoundaryError | undefined): string {
  *   - `user_jwt` (user-identity.ts, reason `sign_in_required`) describes
  *     SESSION state; "rephrase" is false and "our side is broken" is also
  *     false — recovery is signing in → sign-in copy.
- *   - `OrchestratorTurnPayload` (validators/b1.ts) and `V5RequestExtensions`
- *     (orchestrator-v5/boundary/request-extensions.ts) validate the payload
- *     itself — genuinely input-shaped → rephrase copy (unchanged).
+ *   - `OrchestratorTurnPayload` (validators/b1.ts) validates the turn payload
+ *     itself, the user's `message` included — genuinely input-shaped →
+ *     rephrase copy (unchanged).
+ *   - ⚠ `V5RequestExtensions` (orchestrator-v5/boundary/request-extensions.ts)
+ *     IS NOT IN THAT GROUP — and this line used to say it was, which is why
+ *     the correction is spelled out rather than silently applied (2.496).
+ *     Verified at the PRODUCER's bytes (CEE `request-extensions.ts` module
+ *     header, staging), not from this comment: it parses FOUR OPTIONAL
+ *     app-constructed extension fields — `graph_state`, `analysis_state`,
+ *     `user_id`, `selected_elements` — and carries no user text whatsoever.
+ *     "Rephrase your message" is therefore categorically false for it: the UI
+ *     built the malformed request, not the person typing. It sits in
+ *     `INGRESS_SERVER_STATE_VALIDATORS` below and resolves to the SERVER-FAULT
+ *     copy, pinned by `failureTypeRetryability.test.ts`
+ *     ("V5RequestExtensions → server-fault copy"). That set and that test are
+ *     the authority; this sentence was round-1 text that review F3's pin
+ *     correction superseded and nobody deleted.
+ *
+ *     ⚠ THE DOC WAS CORRECTED, NOT THE BEHAVIOUR. A doc block contradicting
+ *     the executable set is 2.472's own lesson one level up — an expectation
+ *     written from a reader's classification instead of the producer's
+ *     semantics. Left standing, a false one-line description is exactly how a
+ *     correct guard gets "tidied" back into the defect it was written to fix.
  *
  * ⚠ The validator set below is a documented MIRROR of CEE's producer
  * vocabulary (trap 12) with the drift direction chosen deliberately: an
