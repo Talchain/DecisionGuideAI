@@ -264,6 +264,35 @@ describe('ROADMAP 2.578 — absent evidence yields silence, never a confident la
     expect(tr.structureChanged).toBe(false)
   })
 
+  /**
+   * ⚠ ADDED BECAUSE A MUTANT SURVIVED, not because the code looked thin.
+   * Deleting the `from.source !== to.source` guard in `classifyChange` left the
+   * suite 89/89 GREEN. Reading the code explains why — `hashesAreComparable`
+   * enforces the same-source rule independently, and in the product a persisted
+   * rebuild always has `graphProjection === null`, so a cross-regime pair never
+   * reaches the projection comparison. The guard is defence-in-depth.
+   *
+   * That is an argument, and an argument is not a measurement (trap 13c: a
+   * surviving mutant is a claim either way and must be DEMONSTRATED). This test
+   * constructs the one state where the guard is the only thing standing —
+   * both ends carrying a projection, from different regimes — so the mutant now
+   * bites and the reasoning above is pinned rather than believed.
+   */
+  it('two projections from DIFFERENT regimes are not_comparable, even when both exist', () => {
+    const session = runSnapshot(1, STRENGTH_BEFORE)
+    const persistedWithGraph: AnalysisSnapshot = {
+      ...runSnapshot(2, STRENGTH_AFTER),
+      source: 'persisted',
+    }
+    const [tr] = deriveTransitions([session, persistedWithGraph])
+    expect(tr.changeVerdict.kind).toBe('not_comparable')
+    expect(tr.structureChanged).toBe(false)
+    // Control: the SAME pair within one regime IS compared — so the assertion
+    // above cannot pass merely because this fixture compares nothing.
+    const [same] = deriveTransitions([session, runSnapshot(2, STRENGTH_AFTER)])
+    expect(same.changeVerdict.kind).toBe('value_only')
+  })
+
   it('a real structural change IS reported as structural', () => {
     const before = runSnapshot(1, STRENGTH_BEFORE)
     const after = buildAnalysisSnapshot({
