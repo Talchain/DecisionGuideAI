@@ -36,6 +36,30 @@ const FAC_CAPACITY = {
   },
 }
 
+/**
+ * fac_price, from the REAL CEE payload
+ * `PHASE0-EVIDENCE-2026-07-28/replay-payload-747.json` → `graph.nodes[2]`:
+ *   { "id": "fac_price", "kind": "factor", "label": "Price",
+ *     "category": "controllable",
+ *     "prior": {"distribution":"uniform","range_min":10,"range_max":30} }
+ * The `prior` object and the id/label/kind/category are byte-copies; the
+ * envelope is re-shaped from the CEE wire form (top-level `prior`) to the
+ * canvas store form (`data.prior`), which is what mapDraftNodeToCanvas does.
+ * Endpoints 10–30 are OUTSIDE [0,1] — the witnessed counter-example to any
+ * hardcoded scale claim (#589 review F1).
+ */
+const FAC_PRICE = {
+  id: 'fac_price',
+  type: 'factor',
+  position: { x: 0, y: 0 },
+  data: {
+    category: 'controllable',
+    prior: { distribution: 'uniform', range_min: 10, range_max: 30 },
+    label: 'Price',
+    kind: 'factor',
+  },
+}
+
 /** Byte-copy of the fac_weather node from t2b-export-pristine.json. */
 const FAC_WEATHER = {
   id: 'fac_weather',
@@ -113,6 +137,56 @@ describe('NodeInspector — distribution-form priors render honestly (2.468a)', 
     const bar = screen.getByRole('progressbar')
     expect(bar.getAttribute('aria-valuenow')).toBe('0.72')
     expect(bar.getAttribute('aria-valuetext')).toBe('72%')
+    expect(container.textContent).not.toContain('NaN')
+  })
+
+  it('WITNESSED OUT-OF-SCALE payload fac_price ("Price", uniform 10–30): renders the bare range and makes NO scale claim (F1)', () => {
+    setStore([FAC_PRICE])
+    const { container } = render(<NodeInspector nodeId="fac_price" onClose={() => {}} />)
+
+    // Identity: this render is THE fac_price node from replay-payload-747.json.
+    expect(screen.getByText('Price')).toBeDefined()
+
+    // Bare range in both rows — the numbers are the stored bounds, honestly.
+    expect(screen.getByText('10 to 30')).toBeDefined()
+    expect(screen.getByText('Between 10 and 30')).toBeDefined()
+
+    // The claim the endpoints have NOT earned must appear NOWHERE on the surface.
+    expect(container.textContent).not.toContain('0–1 scale')
+    expect(container.textContent).not.toContain('NaN')
+  })
+
+  it('a single out-of-scale endpoint is enough to withhold the suffix (range_min -0.5, range_max 0.5)', () => {
+    setStore([
+      {
+        id: 'fac_delta',
+        type: 'factor',
+        position: { x: 0, y: 0 },
+        data: { label: 'Margin Delta', kind: 'factor', prior: { distribution: 'uniform', range_min: -0.5, range_max: 0.5 } },
+      },
+    ])
+    const { container } = render(<NodeInspector nodeId="fac_delta" onClose={() => {}} />)
+
+    expect(screen.getByText('Margin Delta')).toBeDefined()
+    expect(screen.getByText('-0.5 to 0.5')).toBeDefined()
+    expect(container.textContent).not.toContain('0–1 scale')
+    expect(container.textContent).not.toContain('NaN')
+  })
+
+  it('partial range (one bound only): both prior rows are suppressed — pinned as current behaviour, policy rowed (F6)', () => {
+    setStore([
+      {
+        id: 'fac_partial',
+        type: 'factor',
+        position: { x: 0, y: 0 },
+        data: { label: 'Supplier Lead Time', kind: 'factor', prior: { distribution: 'uniform', range_min: 0.3 } },
+      },
+    ])
+    const { container } = render(<NodeInspector nodeId="fac_partial" onClose={() => {}} />)
+
+    expect(screen.getByText('Supplier Lead Time')).toBeDefined()
+    expect(screen.queryByText('Prior')).toBeNull()
+    expect(screen.queryByText(/belief before evidence/)).toBeNull()
     expect(container.textContent).not.toContain('NaN')
   })
 

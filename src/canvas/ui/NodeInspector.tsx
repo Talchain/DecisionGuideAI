@@ -47,16 +47,31 @@ function formatNormalisedRangeEnd(v: number): string {
  * `{distribution, range_min, range_max}` — the object form is live (written
  * by useInspectorMutations.setPriorRange; present in drafted graphs).
  * - number → percent, unchanged.
- * - object with a finite range → the normalised range in plain words. NEVER
- *   percent-coerced: the endpoints are normalised values, not probabilities
+ * - object with a finite range → the range in plain words. NEVER
+ *   percent-coerced: the endpoints are stored bounds, not probabilities
  *   (same refusal as FactorNode's range formatter).
  * - anything else → null → the prior rows do not render.
  * Arithmetic on the object form is what produced the literal "NaN%" this
  * replaces. Finiteness checks, not truthiness: range_min 0 must render.
+ *
+ * ⚠ THE SCALE SUFFIX IS EARNED, NEVER ASSUMED (#589 review F1). Nothing
+ * bounds the object branch: PriorDistributionSchema (nodes.ts:47-52) applies
+ * `.min(0).max(1)` to the NUMERIC branch only, and the object branch is a
+ * `.passthrough()` with no bounds. Out-of-scale endpoints are witnessed — a
+ * real CEE payload in our evidence corpus carries
+ * `fac_price {distribution:'uniform', range_min:10, range_max:30}` — and are
+ * reachable with no CEE at all, because FactorExternalPanel's blur handlers
+ * write any parseFloat-able value through setPriorRange unclamped. Saying
+ * "on 0–1 scale" over £10–£30 trades a visible NaN for a confident falsehood,
+ * which is worse: a user distrusts NaN and believes a sentence. So the suffix
+ * renders ONLY when the endpoints are actually inside [0,1]; otherwise the
+ * bare range is rendered — exactly the restraint FactorNode.tsx:365 shows by
+ * emitting `Range: a to b` with no scale claim, because it too cannot know the
+ * scale without the unit/cap path this component does not have.
  */
 type PriorDisplay =
   | { kind: 'percent'; fraction: number; text: string }
-  | { kind: 'range'; rangeMin: number; rangeMax: number }
+  | { kind: 'range'; rangeMin: number; rangeMax: number; normalised: boolean }
 
 function describePrior(prior: unknown): PriorDisplay | null {
   if (typeof prior === 'number' && Number.isFinite(prior)) {
@@ -68,10 +83,21 @@ function describePrior(prior: unknown): PriorDisplay | null {
       typeof range_min === 'number' && Number.isFinite(range_min) &&
       typeof range_max === 'number' && Number.isFinite(range_max)
     ) {
-      return { kind: 'range', rangeMin: range_min, rangeMax: range_max }
+      return {
+        kind: 'range',
+        rangeMin: range_min,
+        rangeMax: range_max,
+        // Both endpoints must sit inside [0,1] to earn the scale claim.
+        normalised: range_min >= 0 && range_max <= 1,
+      }
     }
   }
   return null
+}
+
+/** The scale suffix, or nothing when the endpoints have not earned it. */
+function scaleSuffix(p: { normalised: boolean }): string {
+  return p.normalised ? ' on 0–1 scale' : ''
 }
 
 interface NodeInspectorProps {
@@ -419,7 +445,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           <span className={`${typography.panelBody} text-text-body tabular-nums`}>
             {priorDisplay.kind === 'percent'
               ? priorDisplay.text
-              : `${formatNormalisedRangeEnd(priorDisplay.rangeMin)} to ${formatNormalisedRangeEnd(priorDisplay.rangeMax)} on 0–1 scale`}
+              : `${formatNormalisedRangeEnd(priorDisplay.rangeMin)} to ${formatNormalisedRangeEnd(priorDisplay.rangeMax)}${scaleSuffix(priorDisplay)}`}
           </span>
         </div>
       )}
@@ -633,7 +659,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             </div>
           ) : (
             <p className={`${typography.panelBody} text-text-body tabular-nums`}>
-              Between {formatNormalisedRangeEnd(priorDisplay.rangeMin)} and {formatNormalisedRangeEnd(priorDisplay.rangeMax)} on 0–1 scale
+              Between {formatNormalisedRangeEnd(priorDisplay.rangeMin)} and {formatNormalisedRangeEnd(priorDisplay.rangeMax)}{scaleSuffix(priorDisplay)}
             </p>
           )}
         </div>
