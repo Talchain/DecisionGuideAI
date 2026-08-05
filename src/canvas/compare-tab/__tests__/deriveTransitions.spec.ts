@@ -145,12 +145,24 @@ describe('deriveTransitions', () => {
   })
 
   describe('structure detection', () => {
-    it('detects graph hash change', () => {
+    // ⚠ REVERSED BY ROADMAP 2.578, DELIBERATELY — this test used to assert
+    // `structureChanged === true` here, and that expectation WAS the defect.
+    // `generateGraphHash` hashes edge weight/confidence/belief, so it is a
+    // CONTENT hash: a value-only edit (`+0.50 → +0.80`) changes it. Reading its
+    // inequality as a STRUCTURE claim is how Compare came to render "Structure
+    // changed — comparison is directional only" for a link-strength edit, on the
+    // same card that said "Rerun (no edits)" (observed 2026-08-05).
+    // A hash inequality is real evidence that SOMETHING changed, and that is
+    // exactly what it is now reported as.
+    it('a hash inequality alone does NOT license a structure claim — it is a content hash', () => {
       const snapshots = [
         makeSnapshot({ runNumber: 1, graphHash: 'hash-1' }),
         makeSnapshot({ runNumber: 2, graphHash: 'hash-2' }),
       ]
-      expect(deriveTransitions(snapshots)[0].structureChanged).toBe(true)
+      const [tr] = deriveTransitions(snapshots)
+      expect(tr.structureChanged).toBe(false)
+      // …but the signal is NOT thrown away.
+      expect(tr.changeVerdict.kind).toBe('uncharacterised_change')
     })
 
     it('detects node count change', () => {
@@ -191,12 +203,29 @@ describe('deriveTransitions', () => {
       expect(deriveTransitions(snapshots)[0].structureChanged).toBe(false)
     })
 
-    it('DOES compare hashes within one regime (the guard is not a blanket off-switch)', () => {
+    // The ORIGINAL INTENT of this test — "the regime guard must not become a
+    // blanket off-switch" — is preserved exactly. What changed (ROADMAP 2.578)
+    // is only WHICH claim a same-regime inequality licenses: it proves the model
+    // moved, not that its SHAPE moved. Asserting the verdict rather than a
+    // boolean is what stops the fix from quietly discarding the signal.
+    it('DOES still compare hashes within one regime (the guard is not a blanket off-switch)', () => {
       const snapshots = [
         makeSnapshot({ runNumber: 1, source: 'persisted', graphHash: 'aag-1' }),
         makeSnapshot({ runNumber: 2, source: 'persisted', graphHash: 'aag-2' }),
       ]
-      expect(deriveTransitions(snapshots)[0].structureChanged).toBe(true)
+      const [tr] = deriveTransitions(snapshots)
+      expect(tr.changeVerdict.kind).toBe('uncharacterised_change')
+      expect(tr.structureChanged).toBe(false)
+    })
+
+    // The control for the test above: EQUAL same-regime hashes must still read
+    // as unchanged, so "uncharacterised_change" cannot be reached by any pair.
+    it('same regime, EQUAL hashes ⇒ unchanged (the inequality arm is discriminating)', () => {
+      const snapshots = [
+        makeSnapshot({ runNumber: 1, source: 'persisted', graphHash: 'aag-1' }),
+        makeSnapshot({ runNumber: 2, source: 'persisted', graphHash: 'aag-1' }),
+      ]
+      expect(deriveTransitions(snapshots)[0].changeVerdict.kind).toBe('unchanged')
     })
 
     it('an absent hash at either end is no evidence, not a change', () => {
@@ -402,11 +431,16 @@ describe('buildCumulativeTransition', () => {
     )
   })
 
+  // ROADMAP 2.578: the trigger is now a COUNT change — genuine structural
+  // evidence measured at both ends — rather than a hash inequality, which only
+  // ever proved that the model's CONTENT moved. The caveat's own wording
+  // ("Structure changed during this period") is a claim about shape, so it must
+  // be licensed by evidence about shape.
   it('includes structure change caveat', () => {
     const snapshots = [
-      makeSnapshot({ runNumber: 1, graphHash: 'hash-1' }),
-      makeSnapshot({ runNumber: 2, graphHash: 'hash-2' }),
-      makeSnapshot({ runNumber: 3, graphHash: 'hash-2' }),
+      makeSnapshot({ runNumber: 1, nodeCount: 5 }),
+      makeSnapshot({ runNumber: 2, nodeCount: 6 }),
+      makeSnapshot({ runNumber: 3, nodeCount: 6 }),
     ]
     const result = buildCumulativeTransition(snapshots)!
     expect(result.cumulativeCaveats).toContainEqual(
@@ -414,11 +448,17 @@ describe('buildCumulativeTransition', () => {
     )
   })
 
+  // ROADMAP 2.578 — the per-run `graphHash` values are now DISTINCT. They were
+  // all the fixture default, which the new classifier correctly reads as "these
+  // runs analysed an identical model", and an identical model licenses exactly
+  // one sentence ("Rerun (no edits)"), not a logged edit summary. Distinct
+  // hashes reproduce the real situation this test is about — a run that DID
+  // change — so the passthrough it pins is exercised as intended.
   it('collects all edit summaries', () => {
     const snapshots = [
-      makeSnapshot({ runNumber: 1, editSummary: 'Initial analysis' }),
-      makeSnapshot({ runNumber: 2, editSummary: 'Tightened churn' }),
-      makeSnapshot({ runNumber: 3, editSummary: 'Added regulatory risk' }),
+      makeSnapshot({ runNumber: 1, graphHash: 'h-1', editSummary: 'Initial analysis' }),
+      makeSnapshot({ runNumber: 2, graphHash: 'h-2', editSummary: 'Tightened churn' }),
+      makeSnapshot({ runNumber: 3, graphHash: 'h-3', editSummary: 'Added regulatory risk' }),
     ]
     const result = buildCumulativeTransition(snapshots)!
     expect(result.edits).toEqual(['Tightened churn', 'Added regulatory risk'])
@@ -430,10 +470,23 @@ describe('buildCumulativeTransition', () => {
 // ---------------------------------------------------------------------------
 
 describe('compareStructure', () => {
-  it('same regime, different hash ⇒ changed', () => {
+  // ⚠ REVERSED BY ROADMAP 2.578. `compareStructure` answers one question — "did
+  // the STRUCTURE change?" — and a same-regime CONTENT-hash inequality cannot
+  // answer it in either direction. 'not_comparable' is the honest verdict; the
+  // fact that something moved is carried by `changeVerdict`
+  // (`uncharacterised_change`), not smuggled into a shape claim.
+  it('same regime, different hash ⇒ not_comparable (a content hash cannot speak to shape)', () => {
     expect(compareStructure(
       makeSnapshot({ runNumber: 1, source: 'persisted', graphHash: 'aag-1' }),
       makeSnapshot({ runNumber: 2, source: 'persisted', graphHash: 'aag-2' }),
+    )).toBe('not_comparable')
+  })
+
+  // The counts arm is untouched: it IS evidence about shape, measured at both ends.
+  it('same regime, different node counts ⇒ changed (counts are shape evidence)', () => {
+    expect(compareStructure(
+      makeSnapshot({ runNumber: 1, source: 'persisted', graphHash: 'aag-1', nodeCount: 5 }),
+      makeSnapshot({ runNumber: 2, source: 'persisted', graphHash: 'aag-2', nodeCount: 6 }),
     )).toBe('changed')
   })
 
@@ -495,10 +548,13 @@ describe('compareStructure', () => {
 
 describe('buildRangeTransition', () => {
   const four = () => [
-    makeSnapshot({ runNumber: 1, winnerProbability: 50, editSummary: 'Initial analysis' }),
-    makeSnapshot({ runNumber: 2, winnerProbability: 55, editSummary: 'Tightened churn' }),
-    makeSnapshot({ runNumber: 3, winnerProbability: 61, editSummary: 'Added risk' }),
-    makeSnapshot({ runNumber: 4, winnerProbability: 74, editSummary: 'Reweighted price' }),
+    // Distinct per-run graphHash: see the note on 'collects all edit summaries'.
+    // Each leg is therefore a real change, and the logged summary is what the
+    // card shows for a graph-less run — which is what these interval tests pin.
+    makeSnapshot({ runNumber: 1, graphHash: 'h-1', winnerProbability: 50, editSummary: 'Initial analysis' }),
+    makeSnapshot({ runNumber: 2, graphHash: 'h-2', winnerProbability: 55, editSummary: 'Tightened churn' }),
+    makeSnapshot({ runNumber: 3, graphHash: 'h-3', winnerProbability: 61, editSummary: 'Added risk' }),
+    makeSnapshot({ runNumber: 4, graphHash: 'h-4', winnerProbability: 74, editSummary: 'Reweighted price' }),
   ]
 
   it('an ADJACENT pair is exactly the plain pairwise card', () => {

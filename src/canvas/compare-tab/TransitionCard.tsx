@@ -4,6 +4,7 @@ import { typography } from '../../styles/typography'
 import { GraphLink } from '../../components/results/GraphLink'
 import { highlightNode, clearHighlight } from '../utils/highlightHelpers'
 import { useCanvasStore } from '../store'
+import { fieldDisplayLabel, formatChangeValue } from './graphChangeDiff'
 import type { Transition } from './types'
 
 interface TransitionCardProps {
@@ -91,6 +92,21 @@ export function TransitionCard({
           >
             {tr.edits.map((e, i) => (
               <div key={i} className={typography.panelBody}>• {e}</div>
+            ))}
+            {/*
+              ROADMAP 2.578 — the exact changed fields, by element IDENTITY.
+              This is what makes Compare an audit trail: "why did the
+              recommendation change?" is answered with "strength 0.5 → 0.8 on
+              this relationship", not with a magnitude adjective.
+            */}
+            {tr.changeVerdict.fieldChanges.map((c) => (
+              <div
+                key={`${c.element}-${c.id}-${c.field}`}
+                className={typography.panelMeta}
+                data-testid={`change-${c.element}-${c.id}-${c.field}`}
+              >
+                {c.label} · {fieldDisplayLabel(c.field)} {formatChangeValue(c.before)} → {formatChangeValue(c.after)}
+              </div>
             ))}
           </div>
 

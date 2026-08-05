@@ -11,6 +11,18 @@ import type {
   FactorSensitivitySummary,
   StructureComparison,
 } from './types'
+import {
+  classifyGraphProjections,
+  fieldDisplayLabel,
+  formatChangeValue,
+  NOT_COMPARABLE_VERDICT,
+  UNCHARACTERISED_CHANGE_VERDICT,
+  UNDETAILED_STRUCTURAL_VERDICT,
+  NO_EDITS_SUMMARY,
+  UNCHARACTERISED_SUMMARY,
+  UNCHARACTERISED_CHANGE_SUMMARY,
+  type GraphChangeVerdict,
+} from './graphChangeDiff'
 
 // ---------------------------------------------------------------------------
 // Magnitude classification
@@ -148,12 +160,63 @@ export function compareStructure(
   from: AnalysisSnapshot,
   to: AnalysisSnapshot,
 ): StructureComparison {
-  const hashComparable = hashesAreComparable(from, to)
-  if (hashComparable && from.graphHash !== to.graphHash) return 'changed'
-  if (from.nodeCount != null && to.nodeCount != null && from.nodeCount !== to.nodeCount) return 'changed'
-  if (from.edgeCount != null && to.edgeCount != null && from.edgeCount !== to.edgeCount) return 'changed'
-  if (hashComparable) return 'unchanged'
-  return 'not_comparable'
+  // ROADMAP 2.578 — a pure projection of the ONE verdict. This function no
+  // longer holds any evidence rules of its own; that is what stops the pair
+  // view and the transition card answering differently about the same pair.
+  switch (classifyChange(from, to).kind) {
+    case 'structural':
+      return 'changed'
+    case 'value_only':
+    case 'unchanged':
+      // The VALUES moved but the shape did not — and "did the structure change?"
+      // is the only question this function answers.
+      return 'unchanged'
+    default:
+      // `uncharacterised_change` lands here too, and deliberately: knowing that
+      // something moved is not knowing that the SHAPE moved.
+      return 'not_comparable'
+  }
+}
+
+/**
+ * THE ONE CHANGE CLASSIFICATION for a pair of runs. Every label on the Compare
+ * surface reads this, and every piece of evidence is weighed here — there is no
+ * second place that decides what changed.
+ *
+ * Evidence, strongest first:
+ *  1. Cross-regime ⇒ nothing is comparable (the same guard `hashesAreComparable`
+ *     applies to hashes: a session projection and a persisted one describe
+ *     different things).
+ *  2. A projection at BOTH ends ⇒ authoritative, with per-field before/after.
+ *  3. No projection, but node/edge COUNTS measured at both ends and differing
+ *     ⇒ genuinely structural, though we cannot name the elements.
+ *  4. No projection, same-regime hashes that DIFFER ⇒ something changed;
+ *     these are CONTENT hashes, so this is not a claim about shape.
+ *  5. No projection, same-regime hashes that MATCH ⇒ unchanged (equal content
+ *     implies equal shape — the sound direction).
+ *  6. Otherwise ⇒ no claim.
+ */
+export function classifyChange(
+  from: AnalysisSnapshot,
+  to: AnalysisSnapshot,
+): GraphChangeVerdict {
+  if (from.source !== to.source) return NOT_COMPARABLE_VERDICT
+
+  const projected = classifyGraphProjections(from.graphProjection, to.graphProjection)
+  if (projected.kind !== 'not_comparable') return projected
+
+  const countsDiffer =
+    (from.nodeCount != null && to.nodeCount != null && from.nodeCount !== to.nodeCount) ||
+    (from.edgeCount != null && to.edgeCount != null && from.edgeCount !== to.edgeCount)
+  if (countsDiffer) return UNDETAILED_STRUCTURAL_VERDICT
+
+  if (hashesAreComparable(from, to)) {
+    return from.graphHash === to.graphHash
+      ? { kind: 'unchanged', fieldChanges: [], membershipChanges: [] }
+      : UNCHARACTERISED_CHANGE_VERDICT
+  }
+
+  return NOT_COMPARABLE_VERDICT
 }
 
 /**
@@ -229,8 +292,53 @@ function findConditionalWinner(
 // Build a single transition between two consecutive snapshots
 // ---------------------------------------------------------------------------
 
+/**
+ * The card's one-line edit summary, derived from the graph verdict.
+ *
+ * ⚠ THE ASYMMETRY THIS ENCODES (ROADMAP 2.578). The scenario event log is
+ * evidence of PRESENCE and never evidence of ABSENCE — an empty log is its
+ * normal state on the deployed build even after a real edit (see the note in
+ * `deriveEditSummary`). So:
+ *  · "no edits" is published ONLY when the graph projection proves the two runs
+ *    are identical — never because the log was quiet.
+ *  · when the graph proves a change, the change list is authoritative and the
+ *    log is not consulted at all.
+ *  · when no projection exists, a POSITIVE log summary ("Accepted draft
+ *    changes") is still worth showing — it asserts something happened — but the
+ *    fabricated no-edit sentinel is suppressed, and the honest
+ *    "could not be characterised" is shown instead.
+ */
+function deriveEditLines(verdict: GraphChangeVerdict, to: AnalysisSnapshot): string[] {
+  if (verdict.kind === 'unchanged') return [NO_EDITS_SUMMARY]
+
+  if (verdict.kind === 'value_only' || verdict.kind === 'structural') {
+    const lines: string[] = []
+    for (const c of verdict.membershipChanges) {
+      lines.push(`${c.op === 'added' ? 'Added' : 'Removed'} ${c.element} "${c.label}"`)
+    }
+    for (const c of verdict.fieldChanges) {
+      lines.push(
+        `${c.label}: ${fieldDisplayLabel(c.field)} ${formatChangeValue(c.before)} → ${formatChangeValue(c.after)}`,
+      )
+    }
+    return lines
+  }
+
+  // Something moved, but no graph survives to say what.
+  if (verdict.kind === 'uncharacterised_change') {
+    const logged = to.editSummary
+    return logged && logged !== NO_EDITS_SUMMARY ? [logged] : [UNCHARACTERISED_CHANGE_SUMMARY]
+  }
+
+  // not_comparable
+  const logged = to.editSummary
+  if (logged && logged !== NO_EDITS_SUMMARY) return [logged]
+  return [UNCHARACTERISED_SUMMARY]
+}
+
 function buildTransition(from: AnalysisSnapshot, to: AnalysisSnapshot): Transition {
   const delta = to.winnerProbability - from.winnerProbability
+  const changeVerdict = classifyChange(from, to)
   const { ids: affectedFactorIds, labels: affectedFactorLabels } =
     deriveAffectedFactors(from.topFactors, to.topFactors)
   const { resolved, introduced } = deriveWarningDiffs(from, to)
@@ -244,7 +352,7 @@ function buildTransition(from: AnalysisSnapshot, to: AnalysisSnapshot): Transiti
     fromRunNumber: from.runNumber,
     toRunNumber: to.runNumber,
     magnitude: classifyMagnitude(delta),
-    edits: to.editSummary ? [to.editSummary] : [],
+    edits: deriveEditLines(changeVerdict, to),
     winnerProbDelta: delta,
     // T2b: a robustness CHANGE can only be claimed when both ends were
     // actually assessed. Comparing a null against a real label would report
@@ -258,6 +366,9 @@ function buildTransition(from: AnalysisSnapshot, to: AnalysisSnapshot): Transiti
     affectedFactorIds,
     affectedFactorLabels,
     deterministicAnchor: deriveDeterministicAnchor(from, to),
+    changeVerdict,
+    // Derived from the SAME verdict the edits line above reads — that identity
+    // is the fix, not an implementation detail (ROADMAP 2.578).
     structureChanged: detectStructureChange(from, to),
     eValue,
     eValueEdge: edgeLabel,
@@ -335,18 +446,20 @@ export function buildRangeTransition(
     caveats.push(`Result flipped ${flipCount === 1 ? 'once' : `${flipCount} times`}`)
   }
 
-  // Same regime guard as the pairwise case — a cross-source or absent-ended
-  // hash pair is no evidence, not a change.
-  const structureChanged = legs.some((s, i) =>
-    hashesAreComparable(snapshots[fromIndex + i], s) && s.graphHash !== snapshots[fromIndex + i].graphHash
-  )
-  if (structureChanged) {
+  // ROADMAP 2.578 — per-leg, through the ONE classifier. This used to be a
+  // per-leg hash inequality, which is the same content-hash-as-structure defect
+  // the pairwise path carried: every value-only edit in the span raised
+  // "Structure changed during this period".
+  const legVerdicts = legs.map((s, i) => classifyChange(snapshots[fromIndex + i], s))
+  if (legVerdicts.some(v => v.kind === 'structural')) {
     caveats.push('Structure changed during this period')
   }
 
   return {
     ...base,
-    edits: legs.map(s => s.editSummary).filter(Boolean),
+    // Each leg's lines, in span order — the same derivation the pairwise card
+    // uses, so a leg cannot describe itself one way here and another way there.
+    edits: legVerdicts.flatMap((v, i) => deriveEditLines(v, legs[i])),
     isCumulative: true,
     cumulativeCaveats: caveats,
   }

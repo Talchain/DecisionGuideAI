@@ -12,6 +12,7 @@ import type { ScenarioEvent, ScenarioEventType } from '../../types/scenario'
 import { SYSTEM_MARKER_EVENT_TYPES } from '../../types/scenario'
 import type { AnalysisSnapshot, FactorSensitivitySummary, SnapshotOption } from '../compare-tab/types'
 import { generateGraphHash } from '../utils/graphHash'
+import { buildGraphProjection, NO_EDITS_SUMMARY } from '../compare-tab/graphChangeDiff'
 import { hasObservedData } from '../utils/observedStateHelpers'
 import { deriveDecisionVerdict, type DecisionVerdict } from '../../lib/decisionVerdict'
 import {
@@ -238,7 +239,15 @@ function deriveEditSummary(
       )
     : []
 
-  if (relevant.length === 0) return 'Rerun (no edits)'
+  // ⚠ ROADMAP 2.578 — THIS SENTENCE IS NO LONGER A CLAIM COMPARE WILL PUBLISH
+  // ON ITS OWN. An empty event log is evidence of nothing: on the deployed
+  // build `direct_edit` events are gated behind `isJourneyTabEnabled()` (unset
+  // ⇒ false), appended best-effort, and read from a load-time-only
+  // `_hydratedEvents` snapshot — so "no relevant events" is the log's normal
+  // state after a real edit. `buildTransition` now only surfaces this string
+  // when the GRAPH PROJECTION independently says the two runs are identical.
+  // An event log can witness presence; it can never witness absence.
+  if (relevant.length === 0) return NO_EDITS_SUMMARY
 
   // Try to extract a specific label from a single edit
   if (relevant.length === 1) {
@@ -454,6 +463,10 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     graphHash: nodes != null && edges != null ? generateGraphHash(nodes, edges) : null,
     nodeCount: nodes != null ? nodes.length : null,
     edgeCount: edges != null ? edges.length : null,
+    // ROADMAP 2.578 — same absence rule as the three fields above, stated once
+    // in BuildSnapshotParams.nodes: no graph ⇒ no projection ⇒ Compare says
+    // "cannot characterise" rather than inventing "no edits".
+    graphProjection: nodes != null && edges != null ? buildGraphProjection(nodes, edges) : null,
 
     options: extractOptions(options as V2OptionComparison[]),
     leaderVerdict: deriveRunLeaderVerdict(rawV2Response, options as V2OptionComparison[]),
