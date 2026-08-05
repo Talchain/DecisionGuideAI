@@ -46,8 +46,16 @@ import { releaseImportRegistration } from '../store/importRegistrationMarker'
 import { buildRegistrationGraph } from './buildRegistrationGraph'
 
 /**
- * Why a registration attempt did not end in an acknowledgement. Surfaced so the
- * Run affordance can say something true rather than spinning forever.
+ * Why a registration attempt did not end in an acknowledgement.
+ *
+ * ⚠ DELIBERATELY NOT STORED ON THE CANVAS STORE. A first cut kept it as a
+ *   store field; a complete manifest showed SIX references and ZERO readers —
+ *   a write-only surface, which is the shape trap 10 exists to warn about, and
+ *   which also re-rendered an unrelated pre-existing diagnostic (widening the
+ *   store's state type changes how tsc PRINTS it) and reddened the typecheck
+ *   gate's own self-test. It is a LOG reason until something actually renders
+ *   it; the honest posture the user sees is driven by
+ *   `importPendingServerRegistration` alone.
  */
 export type ImportRegistrationFailure =
   /** The canvas cannot be projected without inventing a node's meaning. */
@@ -106,7 +114,6 @@ export function useImportRegistration(): void {
         reason: projected.reason,
         nodeIds: projected.nodeIds,
       })
-      useCanvasStore.setState({ importRegistrationFailure: 'graph_not_projectable' })
       return
     }
 
@@ -134,7 +141,7 @@ export function useImportRegistration(): void {
         // The hold stays ARMED. This is the whole discipline: anything short of
         // "CEE told us it stored this" leaves the product honest about not
         // knowing, exactly as it was before this hook existed.
-        useCanvasStore.setState({ importRegistrationFailure: failure })
+        void failure
         return
       }
 
@@ -142,10 +149,7 @@ export function useImportRegistration(): void {
       // registered, and re-derive the store flag from the SAME snapshot so the
       // two cannot disagree.
       const released = releaseImportRegistration(nodes, edges)
-      useCanvasStore.setState({
-        importPendingServerRegistration: false,
-        importRegistrationFailure: null,
-      })
+      useCanvasStore.setState({ importPendingServerRegistration: false })
       logger.info('import_registration.acknowledged', {
         scenarioId,
         nodeCount: result.nodeCount,
