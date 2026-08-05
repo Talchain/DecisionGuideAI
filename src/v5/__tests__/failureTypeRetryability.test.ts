@@ -181,9 +181,13 @@ describe('resolveGuidance — INGRESS_CONTRACT_VIOLATION wire-taxonomy branching
     )
   })
 
+  // ⚠ PIN CORRECTED (review F1): this list previously asserted ALL THREE
+  // scenario_preflight reasons → server-fault copy. That was wrong for two of
+  // them and the test agreed with the code because I wrote it from my own
+  // classification instead of the producer's semantics (trap 13b — a guard
+  // agreeing with itself). Only the oracle-down reason is a server fault; the
+  // access-denied pair is routed in its own describe block below.
   it.each([
-    ['scenario_preflight', 'scenario_owned_by_other_user'],
-    ['scenario_preflight', 'scenario_requires_authenticated_owner'],
     ['scenario_preflight', 'scenario_ownership_unverifiable'],
     ['turn_commit', 'state_commit_failed_or_turn_runtime_failure'],
     ['turn_commit', 'graph_write_conflict'],
@@ -209,15 +213,33 @@ describe('resolveGuidance — INGRESS_CONTRACT_VIOLATION wire-taxonomy branching
   })
 
   it('a genuine input-shaped violation keeps the rephrase copy (positive control)', () => {
+    // OrchestratorTurnPayload is the B1 Zod validator over the turn body,
+    // which DOES carry the user's `message` — rephrasing can genuinely help,
+    // so this is the least-wrong copy and stays.
     expect(
       resolveGuidance(
         'INGRESS_CONTRACT_VIOLATION',
         ingressErr('OrchestratorTurnPayload', 'turn_id must be a UUID v4'),
       ),
     ).toBe(REPHRASE_COPY)
+  })
+
+  // ⚠ PIN CORRECTED (review F3): V5RequestExtensions used to be asserted here
+  // as a rephrase positive control. It validates ONLY app-constructed state —
+  // `graph_state`, `analysis_state`, `user_id`, `selected_elements`
+  // (request-extensions.ts:8) — and carries NO user text at all, so telling
+  // the user to rephrase their message is categorically false: the UI built
+  // the bad request, not them.
+  it('V5RequestExtensions → server-fault copy: those fields carry no user text', () => {
     expect(
       resolveGuidance('INGRESS_CONTRACT_VIOLATION', ingressErr('V5RequestExtensions')),
-    ).toBe(REPHRASE_COPY)
+    ).toBe(SERVER_FAULT_COPY)
+    expect(
+      resolveGuidance(
+        'INGRESS_CONTRACT_VIOLATION',
+        ingressErr('V5RequestExtensions', 'graph_state.nodes must be an array'),
+      ),
+    ).not.toMatch(/rephrase/i)
   })
 
   it('absent taxonomy FAILS SAFE to the rephrase copy (no error object)', () => {
@@ -252,6 +274,101 @@ describe('resolveGuidance — INGRESS_CONTRACT_VIOLATION wire-taxonomy branching
     expect(
       resolveGuidance('FEATURE_NOT_ENABLED', ingressErr('scenario_preflight')),
     ).toMatch(/not yet available/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROADMAP 2.472 — F1 (review blocker): `scenario_preflight` carries a
+// THREE-member reason union and they do NOT share a copy. Branching on the
+// validator alone collapsed them into "our side is broken, try again in a
+// moment", which for the two access-denied reasons is false in BOTH halves
+// AND prescribes an action that can never work — a worse failure than the
+// bug this lane set out to fix.
+//
+// Semantics read at the CEE bytes (`build-turn-context.ts:1183-1234`,
+// `:1326`, `:1339`, staging tip ac62fd4d), which state the branches
+// explicitly:
+//   - caller ABSENT on an owned scenario → IDOR fail-closed →
+//     `scenario_requires_authenticated_owner`  ⇒ SIGN IN
+//   - caller is a DIFFERENT user → cross-tenant attempt →
+//     `scenario_owned_by_other_user`           ⇒ NO ACCESS
+//   - ownership oracle unavailable →
+//     `scenario_ownership_unverifiable`        ⇒ OUR FAULT
+// CEE's admission NAMES the reason precisely so the UI can distinguish them.
+// ---------------------------------------------------------------------------
+describe('resolveGuidance — scenario_preflight reason union routes three ways (2.472 F1)', () => {
+  const SERVER_FAULT_COPY =
+    "Something on our side isn't working — your message was fine. Please try again in a moment."
+  const SIGN_IN_COPY =
+    "You'll need to sign in to continue — nothing was wrong with your message. Please sign in, then send it again."
+  const NO_ACCESS_COPY =
+    "This decision belongs to someone else, so you can't make changes to it — nothing you typed was the problem. Ask its owner to share it with you if you need access."
+
+  const preflightErr = (reason: string): BoundaryError => ({
+    error: 'INGRESS_CONTRACT_VIOLATION',
+    boundary: 'B1',
+    direction: 'ingress',
+    validator: 'scenario_preflight',
+    details: { reason, scenario_id: 'a9224aba-5a15-47b7-8b67-e913fa8f2a14' },
+    request_id: 'req_f1',
+    retryable: false,
+  })
+
+  it('scenario_ownership_unverifiable (the WITNESSED shape) → server-fault copy', () => {
+    expect(
+      resolveGuidance('INGRESS_CONTRACT_VIOLATION', preflightErr('scenario_ownership_unverifiable')),
+    ).toBe(SERVER_FAULT_COPY)
+  })
+
+  it('scenario_requires_authenticated_owner → SIGN-IN copy, never server-fault', () => {
+    const g = resolveGuidance(
+      'INGRESS_CONTRACT_VIOLATION',
+      preflightErr('scenario_requires_authenticated_owner'),
+    )
+    expect(g).toBe(SIGN_IN_COPY)
+    expect(g).not.toBe(SERVER_FAULT_COPY)
+    expect(g).not.toMatch(/rephrase/i)
+  })
+
+  it('scenario_owned_by_other_user → NO-ACCESS copy, never server-fault, never sign-in', () => {
+    const g = resolveGuidance(
+      'INGRESS_CONTRACT_VIOLATION',
+      preflightErr('scenario_owned_by_other_user'),
+    )
+    expect(g).toBe(NO_ACCESS_COPY)
+    expect(g).not.toBe(SERVER_FAULT_COPY)
+    expect(g).not.toBe(SIGN_IN_COPY)
+    expect(g).not.toMatch(/rephrase/i)
+  })
+
+  it('the three reasons produce THREE DISTINCT strings (the collapse this fix removes)', () => {
+    const copies = [
+      'scenario_ownership_unverifiable',
+      'scenario_requires_authenticated_owner',
+      'scenario_owned_by_other_user',
+    ].map((r) => resolveGuidance('INGRESS_CONTRACT_VIOLATION', preflightErr(r)))
+    expect(new Set(copies).size).toBe(3)
+  })
+
+  it('neither access-denied copy prescribes a futile wait-and-retry', () => {
+    for (const reason of ['scenario_requires_authenticated_owner', 'scenario_owned_by_other_user']) {
+      const g = resolveGuidance('INGRESS_CONTRACT_VIOLATION', preflightErr(reason))
+      expect(g).not.toMatch(/try again in a moment/i)
+      expect(g).not.toMatch(/isn't working/i)
+    }
+  })
+
+  it('the no-access copy blames nobody and names a real next step', () => {
+    const g = resolveGuidance('INGRESS_CONTRACT_VIOLATION', preflightErr('scenario_owned_by_other_user'))
+    expect(g).toMatch(/nothing you typed was the problem/i)
+    expect(g).toMatch(/share it with you/i)
+    expect(g).not.toMatch(/you (failed|forgot|should have)|your (mistake|error)/i)
+  })
+
+  it('an UNKNOWN future preflight reason falls back to server-fault, never to blame', () => {
+    const g = resolveGuidance('INGRESS_CONTRACT_VIOLATION', preflightErr('scenario_some_future_reason'))
+    expect(g).toBe(SERVER_FAULT_COPY)
+    expect(g).not.toMatch(/rephrase/i)
   })
 })
 

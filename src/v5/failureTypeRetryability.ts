@@ -248,8 +248,29 @@ export function extractReason(err: BoundaryError | undefined): string {
  */
 const INGRESS_REPHRASE_GUIDANCE = 'Please rephrase your message and try again.'
 
+/**
+ * ⚠ The trailing "Please try again in a moment." is DELIBERATE here, and is
+ * deliberately NOT the same thing as `RETRY_INSTRUCTION_SENTENCE` above.
+ * That regex strips retry language from the CANONICAL FAILURE_USER_TEXT when
+ * the retry CHIP is withheld, so the copy never points at an affordance the
+ * UI is not rendering. This sentence points at no affordance: it tells the
+ * user that the fault is transient and that re-sending later is worth doing,
+ * which is true for an oracle-down / commit-failed class and is the only
+ * honest next step available to them. The live-chain spec asserts zero retry
+ * chips alongside this exact string, pinning that the two coexist on purpose.
+ * It is applied ONLY to genuinely transient server faults — never to the
+ * access-denied or sign-in classes, where waiting cannot help.
+ */
 const INGRESS_SERVER_FAULT_GUIDANCE =
   "Something on our side isn't working — your message was fine. Please try again in a moment."
+
+/**
+ * Access correctly refused: the scenario has a different owner. Blames
+ * nobody, states plainly that the message was not the problem, prescribes no
+ * futile wait, and names the one action that can actually change the outcome.
+ */
+const INGRESS_NO_ACCESS_GUIDANCE =
+  "This decision belongs to someone else, so you can't make changes to it — nothing you typed was the problem. Ask its owner to share it with you if you need access."
 
 /**
  * Auth-class copy. Deliberately neutral about WHY: `auth_reason` spans
@@ -267,7 +288,36 @@ const INGRESS_SERVER_STATE_VALIDATORS: ReadonlySet<string> = new Set([
   'chip_click_dispatch',
   'draft_graph_pipeline',
   'edit_graph_pipeline',
+  // Validates ONLY app-constructed state — graph_state, analysis_state,
+  // user_id, selected_elements (request-extensions.ts:8). It carries no user
+  // text whatsoever, so "rephrase your message" is categorically false here:
+  // the UI built the malformed request, not the person typing.
+  'V5RequestExtensions',
 ])
+
+/**
+ * `scenario_preflight` is NOT one failure. Its reason is a closed 3-member
+ * union (`build-turn-context.ts:1227-1235`) whose members need three
+ * DIFFERENT copies, and CEE names the reason precisely so the UI can tell
+ * them apart:
+ *
+ *   scenario_ownership_unverifiable        the oracle is down      → OUR FAULT
+ *   scenario_requires_authenticated_owner  anonymous caller, owned scenario
+ *                                          (IDOR fail-closed)      → SIGN IN
+ *   scenario_owned_by_other_user           cross-tenant attempt    → NO ACCESS
+ *
+ * Collapsing these into the server-fault copy — as this module did until the
+ * F1 review — tells a user whose access was CORRECTLY refused that our
+ * systems are broken and that waiting will help. Both halves are false, and
+ * the prescribed action can never succeed. That is a worse failure than the
+ * bug this module was written to fix, so each member is routed explicitly and
+ * an unknown future member falls back to the (blameless) server-fault copy.
+ */
+const OWNERSHIP_REASON_GUIDANCE: Record<string, string> = {
+  scenario_ownership_unverifiable: INGRESS_SERVER_FAULT_GUIDANCE,
+  scenario_requires_authenticated_owner: INGRESS_SIGN_IN_GUIDANCE,
+  scenario_owned_by_other_user: INGRESS_NO_ACCESS_GUIDANCE,
+}
 
 const INGRESS_SIGN_IN_VALIDATOR = 'user_jwt'
 
@@ -319,9 +369,15 @@ export function resolveIngressViolationGuidance(err: BoundaryError | undefined):
       ? INGRESS_SERVER_FAULT_GUIDANCE
       : INGRESS_SIGN_IN_GUIDANCE
   }
+  const reason = extractReason(err)
+  // Ownership/access reasons are routed by REASON first: they arrive under a
+  // server-state validator but three of them are not server faults at all.
+  const ownershipCopy = OWNERSHIP_REASON_GUIDANCE[reason]
+  if (ownershipCopy !== undefined) return ownershipCopy
+
   if (
     INGRESS_SERVER_STATE_VALIDATORS.has(validator) ||
-    extractReason(err).startsWith(SCENARIO_OWNERSHIP_REASON_PREFIX)
+    reason.startsWith(SCENARIO_OWNERSHIP_REASON_PREFIX)
   ) {
     return INGRESS_SERVER_FAULT_GUIDANCE
   }
