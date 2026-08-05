@@ -251,8 +251,15 @@ const INGRESS_REPHRASE_GUIDANCE = 'Please rephrase your message and try again.'
 const INGRESS_SERVER_FAULT_GUIDANCE =
   "Something on our side isn't working — your message was fine. Please try again in a moment."
 
+/**
+ * Auth-class copy. Deliberately neutral about WHY: `auth_reason` spans
+ * "never signed in" (missing_token) and "session ended" (expired_token), so
+ * asserting either would be a fresh untruth for the other half. It blames
+ * nobody, exonerates the message explicitly, and names the next action —
+ * pinned as a property of the string, not left to review.
+ */
 const INGRESS_SIGN_IN_GUIDANCE =
-  'You need to be signed in for this — your message was fine. Please sign in and try again.'
+  "You'll need to sign in to continue — nothing was wrong with your message. Please sign in, then send it again."
 
 const INGRESS_SERVER_STATE_VALIDATORS: ReadonlySet<string> = new Set([
   'scenario_preflight',
@@ -264,7 +271,37 @@ const INGRESS_SERVER_STATE_VALIDATORS: ReadonlySet<string> = new Set([
 
 const INGRESS_SIGN_IN_VALIDATOR = 'user_jwt'
 
+/**
+ * The producer's DECLARED stable mapping key for the auth class
+ * (user-identity.ts `buildSignInRequiredError`, verbatim: "The stable UI
+ * mapping key is `details.code === 'sign_in_required'`"). Keyed on first, so
+ * a validator rename cannot silently drop this class back to "rephrase";
+ * `validator === 'user_jwt'` stays as a secondary signal for envelopes that
+ * omit the code.
+ */
+const SIGN_IN_REQUIRED_CODE = 'sign_in_required'
+
+/**
+ * The one `auth_reason` in the closed union (user-identity.ts:64-68) that is
+ * NOT the user's to fix: the verifier itself is unavailable. Telling that
+ * user to sign in prescribes an action that cannot work — precisely the
+ * defect class this row exists to remove — so it takes the server-fault copy.
+ */
+const AUTH_REASON_VERIFIER_DOWN = 'verification_unavailable'
+
 const SCENARIO_OWNERSHIP_REASON_PREFIX = 'scenario_ownership'
+
+/** Read `details.code` off a BoundaryError. Fail closed: absent/non-string → ''. */
+function extractDetailsCode(err: BoundaryError): string {
+  const code = (err.details as { code?: unknown } | undefined)?.code
+  return typeof code === 'string' ? code : ''
+}
+
+/** Read `details.auth_reason`. Fail closed: absent/non-string → ''. */
+function extractAuthReason(err: BoundaryError): string {
+  const reason = (err.details as { auth_reason?: unknown } | undefined)?.auth_reason
+  return typeof reason === 'string' ? reason : ''
+}
 
 /**
  * Route an INGRESS_CONTRACT_VIOLATION to guidance that is true for its
@@ -274,7 +311,14 @@ const SCENARIO_OWNERSHIP_REASON_PREFIX = 'scenario_ownership'
 export function resolveIngressViolationGuidance(err: BoundaryError | undefined): string {
   if (!err) return INGRESS_REPHRASE_GUIDANCE
   const validator = typeof err.validator === 'string' ? err.validator : ''
-  if (validator === INGRESS_SIGN_IN_VALIDATOR) return INGRESS_SIGN_IN_GUIDANCE
+  // Auth class first, keyed on the producer's declared stable key.
+  if (extractDetailsCode(err) === SIGN_IN_REQUIRED_CODE || validator === INGRESS_SIGN_IN_VALIDATOR) {
+    // …except when the verifier itself is what failed: that is our fault, and
+    // signing in cannot clear it.
+    return extractAuthReason(err) === AUTH_REASON_VERIFIER_DOWN
+      ? INGRESS_SERVER_FAULT_GUIDANCE
+      : INGRESS_SIGN_IN_GUIDANCE
+  }
   if (
     INGRESS_SERVER_STATE_VALIDATORS.has(validator) ||
     extractReason(err).startsWith(SCENARIO_OWNERSHIP_REASON_PREFIX)

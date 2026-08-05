@@ -145,7 +145,7 @@ describe('resolveGuidance — INGRESS_CONTRACT_VIOLATION wire-taxonomy branching
   const SERVER_FAULT_COPY =
     "Something on our side isn't working — your message was fine. Please try again in a moment."
   const SIGN_IN_COPY =
-    'You need to be signed in for this — your message was fine. Please sign in and try again.'
+    "You'll need to sign in to continue — nothing was wrong with your message. Please sign in, then send it again."
   const REPHRASE_COPY = 'Please rephrase your message and try again.'
 
   /** Byte-for-byte the BoundaryError CEE served during the witnessed outage
@@ -207,12 +207,6 @@ describe('resolveGuidance — INGRESS_CONTRACT_VIOLATION wire-taxonomy branching
     ).toBe(SERVER_FAULT_COPY)
   })
 
-  it('user_jwt (sign_in_required) → sign-in copy, never rephrase, never server-fault', () => {
-    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', ingressErr('user_jwt', 'sign_in_required'))).toBe(
-      SIGN_IN_COPY,
-    )
-  })
-
   it('a genuine input-shaped violation keeps the rephrase copy (positive control)', () => {
     expect(
       resolveGuidance(
@@ -257,6 +251,124 @@ describe('resolveGuidance — INGRESS_CONTRACT_VIOLATION wire-taxonomy branching
     expect(
       resolveGuidance('FEATURE_NOT_ENABLED', ingressErr('scenario_preflight')),
     ).toMatch(/not yet available/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROADMAP 2.472 — auth class (RATIFIED scope extension, 5 Aug).
+//
+// SOURCE OF THE WIRE SHAPE: **CEE source bytes**, not a live capture —
+// `olumi-assistants-service/src/orchestrator/user-identity.ts`
+// `buildSignInRequiredError()` read at staging tip
+// `ac62fd4d3a3a8657b4bcb58e64b0e91a1454f59f`. (Contrast the
+// scenario_preflight class above, which has BOTH source bytes and two
+// independent live captures. This class is byte-derived only; no capture in
+// PHASE0-EVIDENCE contains a user_jwt refusal. Stated so the evidence grade
+// is not overclaimed.)
+//
+// The producer's own comment declares the contract:
+//   "The stable UI mapping key is `details.code === 'sign_in_required'`
+//    (+ `details.recoverable: true`); `details.auth_reason` carries the
+//    refusal cause … `retryable: false` — retrying the same request
+//    unchanged cannot succeed; recovery is signing in."
+// So the gate below keys on `details.code` FIRST (the producer's declared
+// stable key), with `validator === 'user_jwt'` as a secondary signal.
+//
+// auth_reason is the closed union at user-identity.ts:64-68:
+//   missing_token | invalid_token | expired_token | verification_unavailable
+// The first three are genuinely "sign in". The FOURTH is not: if the
+// verifier itself is unavailable, instructing the user to sign in prescribes
+// an action that cannot work — the same defect class 2.472 exists to kill —
+// so it routes to the server-fault copy.
+// ---------------------------------------------------------------------------
+describe('resolveGuidance — auth class: sign-in copy, and the verifier-down carve-out (2.472)', () => {
+  const SERVER_FAULT_COPY =
+    "Something on our side isn't working — your message was fine. Please try again in a moment."
+  const SIGN_IN_COPY =
+    "You'll need to sign in to continue — nothing was wrong with your message. Please sign in, then send it again."
+
+  /** Byte-for-byte `buildSignInRequiredError(reason, requestId)` at ac62fd4d. */
+  const signInRequiredError = (
+    authReason: 'missing_token' | 'invalid_token' | 'expired_token' | 'verification_unavailable',
+  ): BoundaryError => ({
+    error: 'INGRESS_CONTRACT_VIOLATION',
+    boundary: 'B1',
+    direction: 'ingress',
+    validator: 'user_jwt',
+    details: {
+      reason: 'sign_in_required',
+      code: 'sign_in_required',
+      recoverable: true,
+      auth_reason: authReason,
+    },
+    request_id: 'req_signin_2472',
+    retryable: false,
+  })
+
+  it.each(['missing_token', 'invalid_token', 'expired_token'] as const)(
+    'auth_reason %s → sign-in copy, verbatim (never rephrase, never server-fault)',
+    (authReason) => {
+      const g = resolveGuidance('INGRESS_CONTRACT_VIOLATION', signInRequiredError(authReason))
+      expect(g).toBe(SIGN_IN_COPY)
+      expect(g).not.toMatch(/rephrase/i)
+      expect(g).not.toBe(SERVER_FAULT_COPY)
+    },
+  )
+
+  it('auth_reason verification_unavailable → server-fault copy: signing in cannot fix a downed verifier', () => {
+    expect(
+      resolveGuidance('INGRESS_CONTRACT_VIOLATION', signInRequiredError('verification_unavailable')),
+    ).toBe(SERVER_FAULT_COPY)
+  })
+
+  it("keys on the producer's declared stable key: details.code alone routes it, even under an unrecognised validator", () => {
+    const renamedValidator = {
+      ...signInRequiredError('expired_token'),
+      validator: 'user_jwt_v2_renamed',
+    }
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', renamedValidator)).toBe(SIGN_IN_COPY)
+  })
+
+  it('validator user_jwt alone routes it when details.code is absent (secondary signal)', () => {
+    const noCode: BoundaryError = {
+      error: 'INGRESS_CONTRACT_VIOLATION',
+      boundary: 'B1',
+      direction: 'ingress',
+      validator: 'user_jwt',
+      details: { reason: 'sign_in_required' },
+      request_id: 'req_no_code',
+      retryable: false,
+    }
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', noCode)).toBe(SIGN_IN_COPY)
+  })
+
+  it('an unknown future auth_reason still gets the sign-in copy (fail safe WITHIN the class)', () => {
+    const future = {
+      ...signInRequiredError('expired_token'),
+      details: { reason: 'sign_in_required', code: 'sign_in_required', auth_reason: 'novel_cause' },
+    } as unknown as BoundaryError
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', future)).toBe(SIGN_IN_COPY)
+  })
+
+  it('malformed auth fields never crash and stay in the sign-in class', () => {
+    const malformed = {
+      ...signInRequiredError('expired_token'),
+      details: { code: 'sign_in_required', auth_reason: { nested: true } },
+    } as unknown as BoundaryError
+    expect(resolveGuidance('INGRESS_CONTRACT_VIOLATION', malformed)).toBe(SIGN_IN_COPY)
+  })
+
+  // Condition 4 of the ratification, asserted as a property of the string
+  // rather than trusted to review: no blame, and an explicit next action.
+  it('the sign-in copy blames nobody and names what to DO', () => {
+    const g = resolveGuidance('INGRESS_CONTRACT_VIOLATION', signInRequiredError('expired_token'))
+    // Says what to do.
+    expect(g).toMatch(/sign in/i)
+    expect(g).toMatch(/send it again|try again/i)
+    // Explicitly exonerates the message.
+    expect(g).toMatch(/nothing was wrong with your message/i)
+    // Blames nobody: no "you failed/forgot/must", no rephrase instruction.
+    expect(g).not.toMatch(/rephrase|you (failed|forgot|did|should have)|invalid|your (mistake|error)/i)
   })
 })
 
