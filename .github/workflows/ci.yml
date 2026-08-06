@@ -142,32 +142,53 @@ jobs:
 
 
       # ── ROADMAP 2.649 — parity with staging-full-tests.yml ──────────────────
-      # Deliberately placed BEFORE the "Schema contract gate" step below, which
-      # is currently a LANDMINE: it fails any package.json carrying a `"file:`
-      # reference and requires @talchain/schemas to be a registry semver — but
-      # the repo now pins a VENDORED TARBALL
-      # (`file:./vendor/talchain-schemas-<v>.tgz`). That step therefore cannot
-      # pass at today's tip. It has not been red because this workflow runs only
-      # on push/PR to `main`, so it will first fire at the next promotion. Rowed
-      # separately — resolving it is a policy question (vendored vs registry
-      # pin), not a wiring change. Running the vendor checks first means they
-      # still report while that is settled.
+      # Placed BEFORE the "Schema contract gate" step below: these two verify
+      # the vendored tarball's BYTES (sha256 sidecar via
+      # scripts/check-vendor-sha.mjs) and the derived version constant, while
+      # the gate asserts the pin's SHAPE. (ROADMAP 2.662 rewrote the gate to
+      # permit the vendored pin — the registry-semver assertion it replaced
+      # could never pass at a vendored tip, and demonstrably failed at
+      # 9907cebd, run 26251187065.)
       - name: Vendored schemas tarball integrity
         run: pnpm run check:vendor
 
       - name: Vendored schemas version constant is derived, not drifted
         run: pnpm run ci:guard:schemas-version
 
+      # ── POLICY (ROADMAP 2.662, ruled 6 Aug 2026): the vendored tarball IS the
+      # contract mechanism — a sha256-asserted `npm pack` from the schemas repo,
+      # pinned as `file:./vendor/talchain-schemas-<semver>.tgz`; registry pins
+      # are NOT permitted (the registry envelope differs from the canonical
+      # npm-pack bytes — see vendor/README.md). This gate permits EXACTLY that
+      # shape and forbids every other `file:` reference. Byte integrity of the
+      # tarball against its .sha256 sidecar is `check:vendor`'s job (run above)
+      # and is deliberately not duplicated here.
       - name: Schema contract gate
         run: |
+          set -euo pipefail
           echo "Checking schema dependency contract..."
 
-          # 1. No file: references for @talchain/schemas
-          if grep -q '"file:' package.json; then
-            echo "FAIL: package.json contains file: dependency links"
-            grep '"file:' package.json
+          ALLOWED_PIN_RE='"@talchain/schemas": "file:\./vendor/talchain-schemas-[0-9]+\.[0-9]+\.[0-9]+\.tgz"'
+
+          # 1. The ONLY file: reference permitted anywhere in package.json is
+          #    the vendored @talchain/schemas pin (exact anchored shape above).
+          #    Both conditions reported separately: (1a) how many references
+          #    match the permitted shape, (1b) every reference that does not.
+          FILE_REFS="$(grep -an '"file:' package.json || true)"
+          if [ -n "$FILE_REFS" ]; then
+            ALLOWED_COUNT="$(printf '%s\n' "$FILE_REFS" | grep -acE "$ALLOWED_PIN_RE" || true)"
+            OTHER_REFS="$(printf '%s\n' "$FILE_REFS" | grep -avE "$ALLOWED_PIN_RE" || true)"
+          else
+            ALLOWED_COUNT=0
+            OTHER_REFS=""
+          fi
+          echo "OK (1a): file: references matching the vendored @talchain/schemas pin shape: $ALLOWED_COUNT"
+          if [ -n "$OTHER_REFS" ]; then
+            echo "FAIL (1b): package.json carries file: reference(s) other than the vendored @talchain/schemas pin:"
+            printf '%s\n' "$OTHER_REFS"
             exit 1
           fi
+          echo "OK (1b): no other file: references in package.json"
 
           # 2. No local fork directory
           if [ -d "packages/olumi-schemas" ]; then
@@ -175,12 +196,30 @@ jobs:
             exit 1
           fi
 
-          # 3. @talchain/schemas must be a semver version (not a path)
-          SCHEMA_VER=$(node -p "require('./package.json').dependencies['@talchain/schemas']")
-          if echo "$SCHEMA_VER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "OK: @talchain/schemas = $SCHEMA_VER (registry version)"
+          # 3. @talchain/schemas must be the vendored-tarball pin (NOT a
+          #    registry semver), and the tarball the pin names must be tracked
+          #    in the tree at the exact semver the pin states.
+          SCHEMA_DEP="$(node -p "require('./package.json').dependencies['@talchain/schemas']")"
+          if printf '%s\n' "$SCHEMA_DEP" | grep -aqE '^file:\./vendor/talchain-schemas-[0-9]+\.[0-9]+\.[0-9]+\.tgz$'; then
+            echo "OK (3a): @talchain/schemas = $SCHEMA_DEP (vendored tarball pin — the contract mechanism)"
           else
-            echo "FAIL: @talchain/schemas = $SCHEMA_VER (not a registry version)"
+            echo "FAIL (3a): @talchain/schemas = $SCHEMA_DEP"
+            echo "  Policy: the vendored tarball IS the contract mechanism. The pin must be"
+            echo "  exactly file:./vendor/talchain-schemas-<semver>.tgz. Registry semver"
+            echo "  pins are NOT permitted — the registry envelope differs from the"
+            echo "  canonical npm-pack bytes (see vendor/README.md)."
+            exit 1
+          fi
+          # Internal consistency: extract the pin's semver, rebuild the
+          # filename from it, and assert THAT path is tracked (git ls-files is
+          # NUL-safe where a filesystem grep is not). Deeper tarball integrity
+          # (sha256 sidecar) is check:vendor's job — not duplicated here.
+          PIN_SEMVER="$(printf '%s\n' "$SCHEMA_DEP" | sed -E 's|^file:\./vendor/talchain-schemas-([0-9]+\.[0-9]+\.[0-9]+)\.tgz$|\1|')"
+          PIN_TARBALL="vendor/talchain-schemas-${PIN_SEMVER}.tgz"
+          if git ls-files --error-unmatch -- "$PIN_TARBALL" >/dev/null 2>&1; then
+            echo "OK (3b): pinned tarball $PIN_TARBALL (semver $PIN_SEMVER) is tracked in the tree"
+          else
+            echo "FAIL (3b): the pin names $PIN_TARBALL but that file is not tracked in the tree"
             exit 1
           fi
 
