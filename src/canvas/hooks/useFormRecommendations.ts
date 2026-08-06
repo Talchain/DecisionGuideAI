@@ -18,8 +18,16 @@ import {
   generateFallbackFormRecommendation,
 } from '../adapters/ceeFormAdapter'
 
-/** CEE base URL - routes through PLoT which handles auth and timeout */
-const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+/**
+ * ⚠ THE BASE IS A LITERAL (ROADMAP 2.710). The former comment ("routes
+ * through PLoT which handles auth") described the env-resolved base — which
+ * pointed this CREDENTIAL-LESS call at PLoT's bearer-authenticated origin,
+ * where /suggest-edge-function is not even registered (404, measured
+ * 2026-08-03). CEE serves /assist/v1/suggest-edge-function behind the
+ * same-origin `/bff/cee` edge seam, which injects `X-Olumi-Assist-Key`
+ * server-side. Guarded by ceeSeamBinding.spec.ts.
+ */
+const CEE_BASE_URL = '/bff/cee'
 
 // Local storage key for dismissed suggestions
 const DISMISSED_SUGGESTIONS_KEY = 'canvas.formSuggestions.dismissed.v1'

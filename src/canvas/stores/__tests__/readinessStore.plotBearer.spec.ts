@@ -1,16 +1,22 @@
 /**
- * Readiness store PLoT Bearer seam — the optional env-injected Authorization
- * header must ride the graph-readiness request the store fires.
+ * Readiness store seam — ⚠ PREMISE FLIPPED BY ROADMAP 2.710, deliberately.
  *
- * This is the second of the two browser→PLoT seams (the other is the CEE
- * client's `fetchWithBase`). The store's outgoing request is assembled by
- * `deduplicatedFetch`; the store passes `plotAuthHeaders()` into it, so the
- * header is present only when VITE_PLOT_BEARER is set.
+ * This spec used to pin the OPPOSITE: that `plotAuthHeaders()` rode the
+ * graph-readiness request, because the deployed base was PLoT's
+ * bearer-authenticated origin (the env-resolved `VITE_CEE_BFF_BASE`). 2.710
+ * re-bound the store to the same-origin `/bff/cee` edge seam, which injects
+ * `X-Olumi-Assist-Key` SERVER-side — so the browser request is now
+ * credential-less BY DESIGN, and the old presence pin became a leak pin:
  *
- * The pin drives the REAL store path (`__test__.fetchReadiness`) and asserts on
- * the headers that reach the real `fetch` — not a hand-built object. Removing
- * the `plotAuthHeaders()` argument in readinessStore.ts turns the presence pin
- * red (proving this wiring is load-bearing, independently of the CEE seam).
+ *  1. the request targets the literal same-origin seam (URL pin, live path);
+ *  2. NO Authorization header rides it — even when VITE_PLOT_BEARER is set.
+ *     The bearer is a PLoT credential; attaching it to a CEE-bound
+ *     same-origin call would ship it to a service that must never see it.
+ *
+ * Drives the REAL store path (`__test__.fetchReadiness`) and asserts on what
+ * reaches the real `fetch`, exactly as the old spec did — removing the `{}`
+ * headers argument in readinessStore.ts and restoring `plotAuthHeaders()`
+ * turns pin 2 red.
  *
  * The canvas store is mocked to supply a one-node graph so `fetchReadiness`
  * proceeds to the network (it early-returns without fetching on an empty graph).
@@ -67,17 +73,24 @@ function headersOfFirstFetch(): Record<string, string> {
   return (init?.headers ?? {}) as Record<string, string>
 }
 
-describe('readinessStore PLoT Bearer seam (graph-readiness fetch)', () => {
-  it('attaches Authorization: Bearer <token> to the graph-readiness request when VITE_PLOT_BEARER is set', async () => {
+describe('readinessStore same-origin seam (2.710)', () => {
+  it('targets the literal /bff/cee seam (live path, not a dead constant)', async () => {
+    await storeTest.fetchReadiness()
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(String(fetchSpy.mock.calls[0]?.[0] ?? '')).toBe('/bff/cee/graph-readiness')
+  })
+
+  it('LEAK PIN: no Authorization header rides the request even when VITE_PLOT_BEARER is set', async () => {
     vi.stubEnv('VITE_PLOT_BEARER', 'staging-token-abc')
 
     await storeTest.fetchReadiness()
 
     expect(fetchSpy).toHaveBeenCalledTimes(1)
-    expect(headersOfFirstFetch().Authorization).toBe('Bearer staging-token-abc')
+    expect(headersOfFirstFetch()).not.toHaveProperty('Authorization')
   })
 
-  it('attaches NO Authorization header when VITE_PLOT_BEARER is unset (fail-safe)', async () => {
+  it('and none when it is unset either (credential-less by design; the edge injects the key)', async () => {
     await storeTest.fetchReadiness()
 
     expect(fetchSpy).toHaveBeenCalledTimes(1)

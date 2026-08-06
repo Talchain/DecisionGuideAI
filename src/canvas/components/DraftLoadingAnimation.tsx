@@ -154,8 +154,19 @@ export const UNSETTLED_DRAFT_NOTICE =
  * ended" covers a user stop, a timeout and a preempt, where "you stopped it"
  * would be false for two of the three.
  */
+// \u26a0 SAVE-CAVEAT ADDED BY ROADMAP 2.719. The previous wording ("The structure
+// is still here \u2014 start a new draft\u2026") was written on #751's premise that the
+// server turn always runs to completion and commits; the turn fence inverted
+// that on exactly this path (a preempting send's claim made the server refuse
+// the draft's commit) and the sentence became the phantom model's cover story
+// \u2014 fresh-journey P0 diagnosis \u00a72 R2. The current premise (CEE 2.709): the
+// commit is the COMMON case (first-write exemption), it is not knowable from
+// this side of the aborted socket, and a refused/failed commit is surfaced by
+// the SERVER at the start of the next reply on this conversation (the
+// draft-loss notice). The copy states exactly that \u2014 pinned by
+// draftLossPremise.spec.ts, governed by narrationHonesty.
 export const STOPPED_DRAFT_NOTICE =
-  'Drafting ended before your model\u2019s values arrived, so they are not final. The structure is still here \u2014 start a new draft to get a model with settled values.'
+  'Drafting ended before your model\u2019s values arrived, so they are not final \u2014 and we can\u2019t confirm from here whether this draft saved. If it didn\u2019t, your next reply in this conversation will say so. The structure is still on the canvas \u2014 start a new draft to get a model with settled values.'
 
 /**
  * ── THE THREE EARLY-STOP NOTICES ────────────────────────────────────────────

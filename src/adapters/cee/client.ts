@@ -22,25 +22,28 @@ import { devWarn } from '../../utils/debugLog'
 import { plotAuthHeaders } from '../../lib/plotAuthHeaders'
 
 /**
- * ⚠ THIS BASE RESOLVES TO **PLoT**, NOT CEE, ON EVERY DEPLOY. Despite the name
- * and the `/bff/cee` fallback, `VITE_CEE_BFF_BASE` is set in the Netlify
- * dashboard to `https://plot-lite-service-staging.onrender.com/v1/cee`, and
- * Vite inlines it at BUILD time — so no test can observe the deployed value.
- * MEASURED on build `122b847a`: the shipped constructor reads
- * `this.baseURL="https://plot-lite-service-staging.onrender.com/v1/cee"`
- * (`assets/clipboard-DeNkRSL5.js@44203`).
- *
- * It is correct ONLY for endpoints PLoT actually serves. Measured 2026-08-03,
- * with a garbage-path control on the same service (a 404 alone proves nothing;
- * a 401 next to a 404 proves registration):
- *   REGISTERED (401 "Missing bearer token"): /bias-check · /sensitivity-coach ·
- *     /graph-readiness · /prompts/warm
- *   ABSENT (404, same as the garbage control): /elicit-belief · /ask ·
- *     /suggest-edge-function · /health
- * So `biasCheck` and `sensitivityCoach` below keep this base deliberately.
- * Anything CEE-served must use `CEE_ELICIT_BASE`.
+ * ⚠ CORRECTED BY ROADMAP 2.710 — THE ENV-RESOLVED BASE IS GONE FROM THIS
+ * FILE, AND THE HISTORY IS KEPT BECAUSE IT IS THE HAZARD'S BEST TEACHER.
+ * This constant used to be `(import.meta as any).env?.VITE_CEE_BFF_BASE ||
+ * '/bff/cee'`, which the Netlify dashboard resolves to
+ * `https://plot-lite-service-staging.onrender.com/v1/cee` and Vite inlines
+ * at BUILD time (measured on build `122b847a` at
+ * `assets/clipboard-DeNkRSL5.js@44203`) — so `biasCheck` and
+ * `sensitivityCoach` shipped pointed at PLoT's bearer-authenticated origin.
+ * The 2026-08-03 measurement showed PLoT REGISTERS those two routes (401
+ * next to a garbage-path 404), and they were kept there deliberately on the
+ * VITE_PLOT_BEARER premise. The 2.710 audit re-priced that: CEE ITSELF
+ * serves /assist/v1/bias-check and /assist/v1/sensitivity-coach behind the
+ * same-origin `/bff/cee` edge seam (server-side `X-Olumi-Assist-Key`
+ * injection, the verified-working seam every other CEE-served call now
+ * rides), so nothing in this file needs the env var, the bearer, or the
+ * cross-origin hop. PLoT-direct remains ONLY where PLoT is genuinely the
+ * server: `CEE_DRAFT_ENGINE_BASE` (`VITE_CEE_DRAFT_BASE`) below.
+ * Source-guarded by ceeSeamBinding.spec.ts; the allowlist entry for
+ * VITE_CEE_BFF_BASE is removed, so `ci:guard:bundle-env` REDs if any read
+ * reappears.
  */
-const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+const CEE_BASE_URL = '/bff/cee'
 
 /**
  * The same-origin Netlify edge path for **CEE-served** routes. A LITERAL, and
@@ -52,14 +55,16 @@ const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
  * `vite.config.ts` proxies the same prefix the same way in dev.
  *
  * WHY A SECOND CONSTANT RATHER THAN A SHARED ONE. `scenarioGraph.ts` solved this
- * exact hazard for the scenario-graph read (PR #570) with its own literal. The
- * constant is not shared because the GUARD cannot be: this file must KEEP
- * `CEE_BASE_URL` for the PLoT-registered routes, so the file-scoped
- * "no VITE_CEE_BFF_BASE anywhere" assertion that protects `scenarioGraph.ts` is
- * impossible here and the guard has to be method-scoped either way. Instead of a
- * second unchecked mirror, the co-located guard DERIVES the expected value from
- * `netlify.toml`'s `cee-proxy` binding — see
- * `__tests__/client.elicitBelief.spec.ts`, "base resolution".
+ * exact hazard for the scenario-graph read (PR #570) with its own literal.
+ * ⚠ HISTORY, corrected by 2.710: this paragraph used to say the file-scoped
+ * "no VITE_CEE_BFF_BASE anywhere" guard was impossible here because
+ * `CEE_BASE_URL` had to stay env-resolved for the PLoT-registered routes.
+ * That premise is gone — `CEE_BASE_URL` is now the same literal, the env
+ * read is gone from this file, and ceeSeamBinding.spec.ts applies the
+ * file-scoped guard to this file too. The two constants remain separate
+ * only as named call-site documentation; the co-located elicit guard still
+ * DERIVES the expected value from `netlify.toml`'s `cee-proxy` binding —
+ * see `__tests__/client.elicitBelief.spec.ts`, "base resolution".
  */
 const CEE_ELICIT_BASE = '/bff/cee'
 
@@ -69,6 +74,21 @@ const CEE_ELICIT_BASE = '/bff/cee'
 // (Measured: it IS so set on staging — draft-graph is a PLoT-served route, so
 // this one is correct as it stands.)
 const CEE_DRAFT_ENGINE_BASE = (import.meta as any).env?.VITE_CEE_DRAFT_BASE || '/bff/engine/v1/cee'
+
+/**
+ * Is this base a PLoT-DIRECT (absolute, cross-origin) base — the only kind of
+ * base the env-injected `VITE_PLOT_BEARER` may ride (review F-U1)?
+ *
+ * The ONE absolute base this client can hold is the deployed
+ * `VITE_CEE_DRAFT_BASE` (PLoT's origin, baked at build). Every relative base
+ * is a same-origin `/bff/*` seam whose credential is injected SERVER-side —
+ * and the cee-proxy edge function forwards an incoming `authorization`
+ * header as the USER-token slot, so a bearer attached to those calls would
+ * impersonate a user token at CEE. Exported for the leak-pin spec.
+ */
+export function isPlotDirectBase(baseURL: string): boolean {
+  return /^https?:\/\//i.test(baseURL)
+}
 
 /**
  * Generate correlation ID for request tracking
@@ -567,15 +587,18 @@ export class CEEClient {
    * ⚠ THERE IS DELIBERATELY NO BARE `this.fetch(endpoint)` HELPER ANY MORE.
    *
    * It existed, it read as "just use this client's base", and that is exactly
-   * how `elicitBelief` shipped pointed at PLoT — `this.baseURL` is
-   * `CEE_BASE_URL`, which the Netlify dashboard sets to the absolute PLoT URL
-   * (see the constant's header). `elicitBelief` was its only caller, so removing
-   * it costs nothing and takes the trap with it: every request on this client
-   * now names its base at the call site, where the choice between "PLoT serves
-   * this" and "CEE serves this" is visible to the person writing it.
+   * how `elicitBelief` shipped pointed at PLoT — `this.baseURL` WAS
+   * `CEE_BASE_URL` in its env-resolved form, which the Netlify dashboard set
+   * to the absolute PLoT URL (see the constant's corrected header; 2.710
+   * made it the same-origin literal). `elicitBelief` was its only caller, so
+   * removing it cost nothing and took the trap with it: every request on this
+   * client names its base at the call site, where the choice between "PLoT
+   * serves this" and "CEE serves this" is visible to the person writing it.
    *
-   * `fetchIdempotent` keeps `this.baseURL` on purpose — its two callers
-   * (`biasCheck`, `sensitivityCoach`) hit PLoT-REGISTERED routes.
+   * `fetchIdempotent` keeps `this.baseURL` — since 2.710 that is the
+   * same-origin `/bff/cee` literal, so its two callers (`biasCheck`,
+   * `sensitivityCoach`) ride the credential-injecting edge seam like every
+   * other CEE-served route.
    */
 
   /** Fetch with retry — use only for idempotent/read-only endpoints (not draft-graph) */
@@ -622,9 +645,19 @@ export class CEEClient {
           'Content-Type': 'application/json',
           'x-correlation-id': correlationId,
           ...(options.headers as Record<string, string>),
-          // Optional env-injected Bearer for PLoT-direct calls. Empty {} until
-          // VITE_PLOT_BEARER is provisioned → today's behaviour, byte-for-byte.
-          ...plotAuthHeaders(),
+          // ⚠ SCOPED TO PLoT-DIRECT BASES ONLY (adversarial review F-U1 on
+          // the 2.710 PR). This used to merge `plotAuthHeaders()` into EVERY
+          // request, which was harmless while every base was PLoT — but
+          // 2.710 moved biasCheck/sensitivityCoach onto the same-origin
+          // `/bff/cee` seam, and the cee-proxy edge function forwards an
+          // incoming `authorization` header as the USER-token slot. A
+          // provisioned VITE_PLOT_BEARER would therefore have arrived at CEE
+          // masquerading as a Supabase user token. The bearer is a PLoT
+          // credential for PLoT-DIRECT calls — exactly the absolute
+          // `VITE_CEE_DRAFT_BASE` base; every same-origin `/bff/*` seam gets
+          // its credential injected server-side and must carry none from
+          // here. Leak-pinned by client.plotBearerScope.spec.ts.
+          ...(isPlotDirectBase(baseURL) ? plotAuthHeaders() : {}),
         },
         correlationId
       )
