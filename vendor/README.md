@@ -7,7 +7,59 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.35.0.tgz` ← **THE CURRENT PIN**
+### `talchain-schemas-0.37.0.tgz` ← **THE CURRENT PIN**
+
+**Provenance: PACKED FROM THE MERGED, TAGGED RELEASE.** Packed from
+`olumi-schemas` **`main` @ `685d92ec`**, tag **`v0.37.0`** (olumi-schemas #36).
+347,174 bytes. sha256:
+
+```
+835ab4b8381e1280f239de0d408c2da6790ab9f93a0a14ce6e5a389acd4dd369
+```
+
+| Claim | Status |
+|---|---|
+| the sidecar matches the checked-in bytes | ✅ `shasum -a 256 -c vendor/talchain-schemas-0.37.0.tgz.sha256` |
+| packed from the merged, tagged source | ✅ `main` @ `685d92ec`, tag `v0.37.0` |
+
+> ⚠ **THE REGISTRY ENVELOPE DIFFERS BY DESIGN — NEVER MIX IT IN.** A tarball
+> fetched from the registry carries a different outer envelope from one produced
+> by `npm pack` here, so its sha256 will not equal the value above. That is not
+> corruption and it is not a reason to "correct" this manifest: the sidecar
+> pins THESE bytes, the ones committed in this directory, and the only check it
+> is making is that the committed tarball has not been altered. Comparing it
+> against a registry download is comparing two different artefacts.
+
+**What the UI adopts here (ROADMAP 2.490 slice 2):** `DskProtocolProvenanceSchema`
+and `ExerciseBlockSchema.dsk_provenance` — the decision-science protocol
+attribution the exercise card badges. The adapter
+(`src/v5/phase3TypedBlocks.ts`) re-states that schema's three constraints
+independently, because it parses the RAW WIRE PAYLOAD rather than running the
+Zod schema; both were read at these vendored bytes and agree exactly
+(`/^DSK-P-\d{3}$/`, non-empty title, `strong|medium|weak|mixed`, all three
+required). The editable-field table (adopted at 0.35.0) is carried forward at
+**revision 2** here, above the revision-1 floor
+`editableFieldTable.pinAndParity.spec.ts` requires.
+
+> ⚠ **Bumping the pin? FOUR places move together**, and only one is derived:
+> `package.json` (the pin), `pnpm-lock.yaml` (pnpm derives it),
+> **`vendor/<tarball>.sha256` — the sidecar `scripts/check-vendor-sha.mjs`
+> reads, and pre-push check 5a fails without it**, and
+> **`src/lib/talchainSchemasVersion.ts` — HAND-MAINTAINED**, feeding
+> `schema_versions.ui_vendored_talchain_schemas` in the debug bundle. The 0.37.0
+> bump initially missed the last two: the sidecar was absent, and the constant
+> still read `0.35.0` — caught by
+> `src/lib/__tests__/talchainSchemasVersion.spec.ts`, which was the sole red in
+> this PR's first CI run. Third bump in a row that this list has bitten; it is
+> the classic hand-maintained mirror (CLAUDE.md trap 12), and the guards are the
+> only reason it fails loud.
+
+### `talchain-schemas-0.35.0.tgz` (superseded — REMOVED, section retained for history)
+
+> ⚠ **The tarball and its sidecar were DELETED in the 0.37.0 bump** (two
+> coexisting "current pin" tarballs read as ambiguous provenance). This section
+> is kept because the 0.35.0 leg's adoption note below is still the record of
+> when the editable-field table entered the UI.
 
 **Provenance: PACKED FROM THE MERGED, TAGGED, PUBLISHED RELEASE — the first
 section in this file that can say so.** Built with `npm ci && npm run build &&
@@ -32,13 +84,11 @@ could not import the table CEE has enforced its referee allowlist from since
 was itself absent from the old pin, so the UI failed *silently*. Bound by
 `src/canvas/ui/inspector-v2/__tests__/editableFieldTable.pinAndParity.spec.ts`.
 
-> ⚠ **Bumping the pin? THREE places move together**, and only one is derived:
-> `package.json` (the pin), `pnpm-lock.yaml` (pnpm derives it), and
-> **`src/lib/talchainSchemasVersion.ts` — HAND-MAINTAINED**, feeding
-> `schema_versions.ui_vendored_talchain_schemas` in the debug bundle. Forgetting
-> the third stamps a wrong contract version into every evidence bundle; its guard
-> (`src/lib/__tests__/talchainSchemasVersion.spec.ts`) is what catches you, and it
-> caught exactly this on the 0.35.0 bump.
+> ⚠ ~~**Bumping the pin? THREE places move together**~~ — **SUPERSEDED at the
+> 0.37.0 bump: it is FOUR, and the missing fourth (`vendor/<tarball>.sha256`)
+> was itself skipped here. The live checklist is in the 0.37.0 section above;
+> this one is left struck through rather than deleted so nobody re-derives the
+> short list from a historical section.**
 
 ### `talchain-schemas-0.34.0.tgz` (superseded — retained)
 
