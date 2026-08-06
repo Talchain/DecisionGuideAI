@@ -96,8 +96,19 @@ export interface ConversationMessage {
    *     exists so the bubble can say what is true. It renders an
    *     outcome-unknown marker, NOT "Not delivered", and offers no retry —
    *     retrying duplicates, because CEE keys commits on its own per-request
-   *     id, not on `payload.turn_id`. Persisted like a normal send: the user's
-   *     own words are theirs, and the server most likely holds the turn too.
+   *     id, not on `payload.turn_id`.
+   *
+   *     PERSISTENCE, stated precisely because the two stores differ and an
+   *     imprecise sentence here would be the same defect this state exists to
+   *     fix. `utils/transcriptStore.ts` — the local-first store that actually
+   *     runs (staging is `VITE_AUTH_MODE=guest`, so Supabase persistence is
+   *     inactive) — KEEPS an unconfirmed send: it excludes only 'failed' and
+   *     'pending', and the user's own words are worth keeping when the server
+   *     most likely holds the turn too. `hooks/useThreadPersistence.ts` DROPS
+   *     it: its resolution pass persists only 'sent', so anything else is
+   *     discarded like a failure. That asymmetry is left as-is deliberately —
+   *     that path is flag-gated, its `scenarios.thread` column does not exist
+   *     on the live database, and changing an inert writer cannot be witnessed.
    * `undefined` = legacy/delivered (assistant messages, V4 path, hydrated
    * history) — treated as sent everywhere.
    */
