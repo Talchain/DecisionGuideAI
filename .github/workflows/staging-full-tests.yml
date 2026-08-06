@@ -128,6 +128,22 @@ jobs:
       - name: Starter fixtures match their source captures
         run: pnpm run ci:guard:starters
 
+      # ── ROADMAP 2.649 — the vendored-pin checklist's INVISIBLE fourth item ──
+      # The vendored @talchain/schemas tarball needs a sibling
+      # `vendor/<tarball>.tgz.sha256`. Nothing in CI checked for it: `check:vendor`
+      # ran only from `dev`/`dev:sandbox` and the local pre-push gate, so a missing
+      # or corrupt sidecar passed CI green and first failed at someone's pre-push
+      # (the DSK badge car shipped exactly that omission — caught by a lane, not by
+      # CI). An alarm that only fires on one developer's machine is not an alarm.
+      - name: Vendored schemas tarball integrity
+        run: pnpm run check:vendor
+
+      # The version constant stamped into debug/evidence bundles must be DERIVED
+      # from the package.json pin, never hand-typed (CLAUDE.md trap 12). This reds
+      # if the generated file drifts from the pin.
+      - name: Vendored schemas version constant is derived, not drifted
+        run: pnpm run ci:guard:schemas-version
+
   # ── Typecheck gate self-test (positive control) ──────────────────────
   # The `tsc` job above asserts an ABSENCE ("no new type errors, no invisible
   # files"). That assertion is worth nothing unless the gate can be shown to
