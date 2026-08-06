@@ -43,6 +43,7 @@ import { useCanvasStore } from '../store'
 import { saveAutosave } from '../store/scenarios'
 import { autosaveSourceFromStore, projectAutosaveData } from '../store/autosaveProjection'
 import { withObservedStateUpdate, type ObservedStateData } from '../utils/observedStateHelpers'
+import { clearConfirmationWithdrawal } from '../utils/hydrateProvenance'
 import { unwrapInterventionValue, classifyUnit } from '../utils/labelUtils'
 import { formatValueWithUnit, formatNumber } from '../utils/formatValueWithUnit'
 
@@ -507,8 +508,18 @@ export function confirmOptimisticFactorEdit(edit: OptimisticFactorEdit): Confirm
   const obs = (readObservedState(node.data) ?? {}) as Record<string, unknown>
   if (obs.value !== edit.sentValue) return 'value_moved_on'
 
+  // ROADMAP 2.638 S2 — a new receipted claim ENDS any prior withdrawal.
+  //
+  // `withdrawUserConfirmation` records the retraction as a positive top-level
+  // marker so the boot merge cannot resurrect the claim (CEE re-sends its own
+  // `user_override` stamp on the unchanged value). That marker must not outlive
+  // the retraction: this is the one place a user claim is earned, so it is the
+  // one place the door reopens. Clearing it anywhere else — or not at all —
+  // would make a re-confirmation invisible.
   store.updateNode(edit.nodeId, {
-    data: withObservedStateUpdate(node.data, edit.reviewedStamp),
+    data: clearConfirmationWithdrawal(
+      withObservedStateUpdate(node.data, edit.reviewedStamp) as Record<string, unknown>,
+    ),
   } as never)
 
   // Persist the earned stamp NOW (L66, final-walk defect 0, P1). The stamp is

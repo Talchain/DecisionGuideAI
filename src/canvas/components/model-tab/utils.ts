@@ -10,6 +10,7 @@
  */
 
 import type { ObservedState } from './types'
+import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
 import type { EdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
 import { selectDriverDisplayModel, extractPolicyRow } from '../../../components/results/driverDisplayModel'
 import {
@@ -72,26 +73,41 @@ export function getPrimaryValue(obs: ObservedState): string | null {
 
 // ── Source mapping ────────────────────────────────────────────────────────────
 
-const SOURCE_LABELS: Record<string, string> = {
-  brief_extraction: 'From brief',
-  cee_inference: 'AI estimate',
-  user: 'User edited',
-}
-
-const SOURCE_TOOLTIPS: Record<string, string> = {
-  brief_extraction: 'Source: brief_extraction',
-  cee_inference: 'Source: cee_inference',
-  user: 'Source: user',
+/**
+ * ROADMAP 2.638 S2 — keyed on the canonical CLASS, not on three literals.
+ *
+ * The old map listed `brief_extraction`, `cee_inference` and `user` only, and
+ * its `?? source` fallback then rendered the RAW WIRE LITERAL to the user:
+ * `mapSourceToDisplay('user_confirmed')` returned the string
+ * `"user_confirmed"`. This feeds the Model tab's copy-to-clipboard text, so the
+ * leak left the estate in what a user pastes into a document.
+ *
+ * TOTAL over `ValueProvenanceKind` — a new kind is a type error, not a silent
+ * pass-through (trap 12).
+ */
+const KIND_LABELS: Record<ValueProvenanceKind, string> = {
+  brief: 'From brief',
+  ai: 'AI estimate',
+  confirmed: 'Confirmed by you',
+  edited: 'User edited',
+  assumption: 'Your assumption',
+  human: 'Set by you',
 }
 
 export function mapSourceToDisplay(source: string | undefined): string | null {
   if (!source) return null
-  return SOURCE_LABELS[source] ?? source
+  const cls = classifyValueProvenance(source)
+  return cls ? KIND_LABELS[cls.kind] : source
 }
 
+/**
+ * The raw literal, for a title attribute. Byte-identical to the map it
+ * replaced: every entry in the old `SOURCE_TOOLTIPS` was `Source: <literal>`,
+ * i.e. exactly what its own fallback produced (2.638 S2).
+ */
 export function mapSourceToTooltip(source: string | undefined): string | undefined {
   if (!source) return undefined
-  return SOURCE_TOOLTIPS[source] ?? `Source: ${source}`
+  return `Source: ${source}`
 }
 
 // ── Factor verification ─────────────────────────────────────────────────────

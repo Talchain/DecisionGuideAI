@@ -354,6 +354,8 @@ describe('"checked by you" is gated on the RECEIPT, not on the commit or the dis
     // but the completion claim must not.
     expect(factorValueEdits()).toHaveLength(1)
     expect(screen.queryByText('checked by you')).not.toBeInTheDocument()
+    expect(screen.queryByText('edited by you')).not.toBeInTheDocument()
+    expect(screen.queryByText('confirmed by you')).not.toBeInTheDocument()
     expect(observedNow().source).toBe('cee_inference')
 
     await act(async () => {
@@ -361,7 +363,11 @@ describe('"checked by you" is gated on the RECEIPT, not on the commit or the dis
       await flush()
     })
 
-    expect(screen.getByText('checked by you')).toBeInTheDocument()
+    // 2.638 S2: the claim now NAMES THE ACT. A typed value is an edit — the
+    // stronger assertion, because a row that said "confirmed" here would be
+    // crediting the user with endorsing a number they replaced.
+    expect(screen.getByText('edited by you')).toBeInTheDocument()
+    expect(screen.queryByText('confirmed by you')).not.toBeInTheDocument()
     expect(observedNow().source).toBe('user_override')
   })
 
@@ -379,7 +385,7 @@ describe('"checked by you" is gated on the RECEIPT, not on the commit or the dis
     expect(factorValueEdits()).toHaveLength(1)
     expect(observedNow().source).toBe('user_override')
     expect(observedNow().value).toBe(NEW_MODEL)
-    expect(screen.getByText('checked by you')).toBeInTheDocument()
+    expect(screen.getByText('edited by you')).toBeInTheDocument()
   })
 
   it('"Confirm as is" only stamps user_confirmed after its own receipt', async () => {
@@ -392,6 +398,8 @@ describe('"checked by you" is gated on the RECEIPT, not on the commit or the dis
     })
     expect(observedNow().source).toBe('cee_inference')
     expect(screen.queryByText('checked by you')).not.toBeInTheDocument()
+    expect(screen.queryByText('edited by you')).not.toBeInTheDocument()
+    expect(screen.queryByText('confirmed by you')).not.toBeInTheDocument()
 
     await act(async () => {
       resolveInFlight?.(undefined)
@@ -399,7 +407,10 @@ describe('"checked by you" is gated on the RECEIPT, not on the commit or the dis
     })
     expect(observedNow().source).toBe('user_confirmed')
     expect(observedNow().extractionType).toBe('explicit')
-    expect(screen.getByText('checked by you')).toBeInTheDocument()
+    // 2.638 S2: an endorsement of Olumi's own number reads as a CONFIRMATION,
+    // never as an edit — the distinction the consent witness found collapsed.
+    expect(screen.getByText('confirmed by you')).toBeInTheDocument()
+    expect(screen.queryByText('edited by you')).not.toBeInTheDocument()
   })
 
   it('a REFUSED commit (200, no receipt) reverts the optimistic number and never claims the row is checked', async () => {
@@ -416,6 +427,8 @@ describe('"checked by you" is gated on the RECEIPT, not on the commit or the dis
     expect(observedNow().raw_value).toBe(PRIOR_OBSERVED.raw_value)
     expect(observedNow().source).toBe('cee_inference')
     expect(screen.queryByText('checked by you')).not.toBeInTheDocument()
+    expect(screen.queryByText('edited by you')).not.toBeInTheDocument()
+    expect(screen.queryByText('confirmed by you')).not.toBeInTheDocument()
     expect(screen.getByText('Olumi estimate')).toBeInTheDocument()
   })
 })
@@ -478,6 +491,8 @@ describe('controls — the fix must not be satisfiable by something cheaper and 
 
     expect(observedNow().source).toBe('cee_inference')
     expect(screen.queryByText('checked by you')).not.toBeInTheDocument()
+    expect(screen.queryByText('edited by you')).not.toBeInTheDocument()
+    expect(screen.queryByText('confirmed by you')).not.toBeInTheDocument()
   })
 
   it('an ACCEPTED commit is never reverted (a fix that reverted unconditionally would pass every RED assertion)', async () => {
@@ -529,5 +544,7 @@ describe('typed-error posture on this path — pins CURRENT behaviour, inherited
     // half IS the 2.304 guarantee, and it holds in the failure direction too.
     expect(observedNow().source).toBe('cee_inference')
     expect(screen.queryByText('checked by you')).not.toBeInTheDocument()
+    expect(screen.queryByText('edited by you')).not.toBeInTheDocument()
+    expect(screen.queryByText('confirmed by you')).not.toBeInTheDocument()
   })
 })

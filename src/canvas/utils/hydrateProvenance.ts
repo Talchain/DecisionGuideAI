@@ -6,14 +6,26 @@
  * breaks the review badge in BOTH directions at once.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * WHY THE SERVER CAN NEVER SETTLE THIS BY ITSELF
+ * WHY THE SERVER CANNOT SETTLE THIS BY ITSELF
  * ─────────────────────────────────────────────────────────────────────────────
- * The stamp the UI reads is `observed_state.source`, and CEE's `ObservedStateV3`
- * types that field as `z.enum(['brief_extraction', 'cee_inference'])`. There is
- * no user-owned member, and the set-factor-value path never writes `source` at
- * all. So the server bag is STRUCTURALLY incapable of carrying "the user
- * checked this" — a merge that lets it decide the field is not resolving a
- * conflict, it is discarding evidence only the client holds.
+ * ⚠ CORRECTED 6 Aug 2026 at CEE's bytes (staging `d5b64246`), because the
+ * original reason here has EXPIRED and the conclusion now rests on a different,
+ * narrower fact. This block used to read: *"CEE's `ObservedStateV3` types
+ * `observed_state.source` as `z.enum(['brief_extraction','cee_inference'])`
+ * … the set-factor-value path never writes `source` at all … the server bag is
+ * STRUCTURALLY incapable of carrying 'the user checked this'."* **That is no
+ * longer true.** ROADMAP 2.396(b) landed the write: `set_factor_value` now
+ * merges `source: USER_EDIT_SOURCE` into the persisted `observed_state`
+ * (`orchestrator-v5/tools/handlers/set-factor-value.ts:421`) and stamps
+ * `node.provenance = 'user_set'` beside it.
+ *
+ * The conclusion survives for a SMALLER reason, and the size matters:
+ * `USER_EDIT_SOURCE` is the single literal `'user_override'`
+ * (`orchestrator/canonicalise-value-ops.ts:280`), written for a typed value and
+ * for a "confirm as is" alike. So the server can now say A PERSON TOUCHED THIS
+ * — it still cannot say WHICH ACT, and it cannot say the person later withdrew
+ * the claim. Those two facts live only in the client, so a merge that lets the
+ * server decide them is still discarding evidence only the client holds.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * THE TWO FAILURES, AND WHY THEY ARE ONE BUG
@@ -153,6 +165,101 @@ export function clearUserProvenance(data: Record<string, any>): Record<string, a
   }
   if (snapshot.top !== undefined) delete next.source
   return next
+}
+
+/**
+ * The key that records a WITHDRAWN confirmation.
+ *
+ * Top-level on `node.data`, UI-only, never on the wire — deliberately the same
+ * shape as `userReviewedStrength` below, and for the same reason: `overlayNode`
+ * merges `{...existing.data, ...mapped.data}`, so a key the mapper never emits
+ * survives every merge. An ABSENCE could not do this job (see below).
+ */
+export const CONFIRMATION_WITHDRAWN_KEY = 'userConfirmationWithdrawn'
+
+/** True when the user has withdrawn their confirmation of this node's value. */
+export function isConfirmationWithdrawn(data: unknown): boolean {
+  return (data as Record<string, unknown> | undefined)?.[CONFIRMATION_WITHDRAWN_KEY] === true
+}
+
+/**
+ * Withdraw a confirmation — ROADMAP 2.638 S2, Ruling 1's "reversible per value".
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY THE REVERSAL IS EXACT, AND WHY IT NEEDS NO SNAPSHOT
+ * ─────────────────────────────────────────────────────────────────────────────
+ * "Confirm as is" commits with `writeValue: false` — it moves no number, it
+ * only makes a claim about one. So withdrawing it has nothing to restore: the
+ * pre-confirmation state IS the current value with the claim removed. That is
+ * reversal by construction, the same property §4.3 of the design brief asks of
+ * the compute slice.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠ AND WHY A BARE `clearUserProvenance` IS NOT ENOUGH — the measured trap
+ * ─────────────────────────────────────────────────────────────────────────────
+ * CEE now DOES stamp a user-owned source server-side:
+ * `set_factor_value` writes `observed_state.source = USER_EDIT_SOURCE`, and
+ * `USER_EDIT_SOURCE = 'user_override'` (`canonicalise-value-ops.ts:280`,
+ * `set-factor-value.ts:421`, CEE staging `d5b64246`). ⚠ That falsifies this
+ * file's own header claim that "the server bag is STRUCTURALLY incapable of
+ * carrying 'the user checked this'" — true when written (2.312), landed
+ * otherwise by 2.396(b). The header is corrected in place above.
+ *
+ * The consequence for a withdrawal is precise: `restoreUserProvenance` writes
+ * back only the locations the PRE-merge snapshot HELD, so a node whose stamp we
+ * merely deleted yields an EMPTY snapshot, the server's `user_override` rides
+ * the overlay in untouched, and the badge is back on the next boot. A deletion
+ * cannot survive a merge whose default is "the server's stamp stands"; only a
+ * POSITIVE record can. Hence the key.
+ *
+ * Producer stamps are left alone — they are the server's to move, exactly as in
+ * `clearUserProvenance`.
+ *
+ * ⚠ THE NODE-LEVEL `provenance: 'user_set'` IS DELIBERATELY NOT TOUCHED, and
+ * that is a correction to the obvious design. It is CEE's field — the UI never
+ * writes it — so clearing it locally would put the client into disagreement
+ * with the wire on a value the server owns, and it would be undone by the next
+ * merge anyway. It does not need clearing: the withdrawal marker is the FIRST
+ * rung `isReviewedByUser` consults and short-circuits every rung below it,
+ * including that one. (It also cannot be deleted through the store: `updateNode`
+ * merges `{...n.data, ...updates.data}`, so a top-level key removed from the
+ * patch simply survives — a deletion is not expressible on this path. The
+ * NESTED observed-state bags are different: they are whole objects at the top
+ * level, so replacing them does remove their `source`.)
+ *
+ * Returns the SAME reference when there is nothing to withdraw.
+ */
+export function withdrawUserConfirmation(data: Record<string, any>): Record<string, any> {
+  const snapshot = captureUserProvenance(data)
+  const hadUserStamp =
+    snapshot.observed_state !== undefined ||
+    snapshot.observedState !== undefined ||
+    snapshot.top !== undefined
+  const hadNodeStamp = data?.provenance === 'user_set'
+  if (!hadUserStamp && !hadNodeStamp) return data
+
+  return { ...clearUserProvenance(data), [CONFIRMATION_WITHDRAWN_KEY]: true }
+}
+
+/**
+ * End a withdrawal.
+ *
+ * Called wherever a NEW user claim is EARNED, so the withdrawal is not a
+ * one-way door: a re-confirmation has to be believed.
+ *
+ * ⚠ Writes an explicit `false` rather than deleting the key, and the reason is
+ * measured, not stylistic: the store's `updateNode` merges
+ * `data: {...n.data, ...updates.data}`, so a deleted top-level key SURVIVES the
+ * write. A `delete` here left the marker standing and the re-confirmation
+ * invisible — caught by driving the real receipt path rather than a hand-rolled
+ * clear. `isConfirmationWithdrawn` tests `=== true`, so `false` reads exactly
+ * as "not withdrawn".
+ *
+ * Returns the SAME reference when there is no marker.
+ */
+export function clearConfirmationWithdrawal(data: Record<string, any>): Record<string, any> {
+  if (!isConfirmationWithdrawn(data)) return data
+  return { ...data, [CONFIRMATION_WITHDRAWN_KEY]: false }
 }
 
 /**
