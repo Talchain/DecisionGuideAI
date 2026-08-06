@@ -358,6 +358,26 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     if (!tabChanged && !versionChanged) return
     prevExternalTabRef.current = externalTab
     prevExternalVersionRef.current = externalTabVersion
+    // ROADMAP 2.639 — a forced activation must also make the dock VISIBLE.
+    //
+    // The aside carries `hidden` (display:none) whenever an overlay right-panel
+    // is active (`isOverlayPanelActive`, this file). Auto-dock already clears it
+    // — see the `openRightPanel('results')` on the auto-open path below, "Task F
+    // ... close overlay panels so OutputsDock becomes visible". This effect, the
+    // OTHER programmatic-navigation entry point, did not; and it is the one the
+    // 0.32.0 panel verbs (`open_panel` / `open_section`) ride, via
+    // `forceActivateOutputTab`. With the provenance or clarifier hub open the
+    // assistant "opened" a panel behind display:none: the turn reported success
+    // and nothing on screen moved.
+    //
+    // ⚠ VERSION-COUNTER PATH ONLY, deliberately. `setActiveOutputTab` does not
+    // bump `activeOutputTabVersion` (uiStore.ts), so a plain value sync leaves a
+    // hub the user opened for themselves exactly where they put it. Closing an
+    // overlay is a claim on the user's screen, and only navigation that has
+    // already decided to front the dock is entitled to make it.
+    if (versionChanged) {
+      useUIStore.getState().openRightPanel('results')
+    }
     // Validate the requested tab is enabled before navigating
     const resolvedTab = (externalTab === 'compare' && !isCompareTabEnabled())
       || (externalTab === 'journey' && !isJourneyTabEnabled())
