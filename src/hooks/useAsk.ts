@@ -207,8 +207,16 @@ export interface UseAskOptions {
 // Constants
 // =============================================================================
 
-/** CEE base URL - routes through PLoT which handles auth and timeout */
-const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+/**
+ * ⚠ THE BASE IS A LITERAL (ROADMAP 2.710). The env-resolved form pointed
+ * this CREDENTIAL-LESS call at PLoT, which does not serve /ask at all
+ * (404, measured 2026-08-03) — every deployed /ask call was dead on
+ * arrival. CEE serves /assist/v1/ask behind the same-origin `/bff/cee`
+ * edge seam (server-side `X-Olumi-Assist-Key` injection). Guarded by
+ * ceeSeamBinding.spec.ts; the `baseUrl` option below remains an explicit
+ * caller override, never an env resolution.
+ */
+const CEE_BASE_URL = '/bff/cee'
 
 /** CEE /ask endpoint */
 const ASK_ENDPOINT = `${CEE_BASE_URL}/ask`

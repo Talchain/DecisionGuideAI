@@ -23,7 +23,6 @@ import {
   ReadinessBodyUnreadableError,
   __test__ as dedupUtils,
 } from '../hooks/useGraphReadiness'
-import { plotAuthHeaders } from '../../lib/plotAuthHeaders'
 
 // Re-export types consumers need
 export type { GraphReadiness, GraphImprovement }
@@ -81,7 +80,14 @@ export class ReadinessServiceStatusError extends Error {
   }
 }
 
-const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+// ⚠ THE BASE IS A LITERAL, AND THAT IS LOAD-BEARING (ROADMAP 2.710). The
+// env-resolved form shipped this call pointed at PLoT's bearer-authenticated
+// origin (dashboard var, Vite-inlined at build); the `/bff/cee` edge seam
+// injects `X-Olumi-Assist-Key` server-side and CEE serves
+// /assist/v1/graph-readiness behind it. Same-origin now, by construction —
+// see ceeSeamBinding.spec.ts (source-level guard; runtime pins cannot see
+// this defect class).
+const CEE_BASE_URL = '/bff/cee'
 
 // ── Constants ──────────────────────────────────────────────────────
 const DEBOUNCE_DELAY = 500
@@ -482,10 +488,11 @@ async function fetchReadiness(): Promise<void> {
           `${CEE_BASE_URL}/graph-readiness`,
           payloadJson,
           correlationId,
-          // Optional env-injected Bearer for the PLoT-direct graph-readiness
-          // call. Empty {} until VITE_PLOT_BEARER is provisioned → today's
-          // behaviour, byte-for-byte.
-          plotAuthHeaders(),
+          // 2.710: no client-side credential. The same-origin `/bff/cee`
+          // edge seam injects `X-Olumi-Assist-Key` server-side; the former
+          // `plotAuthHeaders()` bearer belonged to the PLoT-direct base this
+          // call no longer rides.
+          {},
         )
         currentInflightEntry = entry
         response = await promise
@@ -499,19 +506,15 @@ async function fetchReadiness(): Promise<void> {
         // `response.json()` inside one async IIFE, so everything below lands
         // here as a single rejection:
         //   · every transport failure — connection reset, cold start, offline,
-        //     DNS, TLS, and CORS. This call IS cross-origin in the deployed
-        //     UI, and that is NOT derivable from this repo (CLAUDE.md trap 18):
-        //     `CEE_BASE_URL` defaults to the same-origin path `/bff/cee` and
-        //     nothing in the tree sets `VITE_CEE_BFF_BASE`. It is set in the
-        //     NETLIFY DASHBOARD to the absolute URL
-        //     `https://plot-lite-service-staging.onrender.com/v1/cee` and Vite
-        //     INLINES it at build time — established by a recursive crawl of
-        //     the deployed JS chunks (zero `/bff/cee` literals, four absolute
-        //     `/v1/cee` hits) and corroborated by that service's own route
-        //     counters showing live traffic to those paths. So a cold start on
-        //     Render, a CORS refusal or a TLS failure all land here in
-        //     production. The fix does not rest on that fact — same-origin
-        //     fetches reject too — but it is why the blast radius is wide;
+        //     DNS, and TLS. ⚠ HISTORY, corrected by ROADMAP 2.710: this call
+        //     WAS cross-origin in the deployed UI (the dashboard set
+        //     `VITE_CEE_BFF_BASE` to PLoT's absolute origin and Vite inlined
+        //     it — established by a crawl of the deployed chunks), which is
+        //     why CORS sat on this list and why the blast radius was wide.
+        //     The base is now the same-origin `/bff/cee` LITERAL (see the
+        //     constant's header), so the cross-origin failure class is gone
+        //     by construction — the fix below never rested on that fact;
+        //     same-origin fetches reject too;
         //   · jsdom's invalid-relative-URL TypeError, which is the single
         //     case this catch was originally written for; and
         //   · a 2xx whose body would not parse as JSON.

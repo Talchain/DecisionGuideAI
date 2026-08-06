@@ -56,8 +56,14 @@ export interface ServiceHealthInfo {
   metadata?: Record<string, unknown>
 }
 
-/** CEE base URL - routes through PLoT which handles auth */
-const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+/**
+ * ⚠ THE BASE IS A LITERAL (ROADMAP 2.710). The env-resolved form pointed
+ * this health probe at PLoT's origin, where /v1/cee/health is not
+ * registered (404, measured 2026-08-03) — so the "cee" tile measured a
+ * dead path. CEE serves /assist/v1/health behind the same-origin
+ * `/bff/cee` edge seam. Guarded by ceeSeamBinding.spec.ts.
+ */
+const CEE_BASE_URL = '/bff/cee'
 
 /**
  * Service endpoint configuration

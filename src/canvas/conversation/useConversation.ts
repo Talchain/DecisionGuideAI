@@ -506,11 +506,18 @@ export interface StreamedDraftTurnResult {
  * Run one cold draft over the streamed sibling, with a transparent fallback.
  *
  * ── THE FALLBACK, AND WHY IT IS ONE BUFFERED TURN ON THE SAME PAYLOAD ─────
- * A stream can die at any point, and #751 established that **the turn keeps
- * running and still commits when the client hangs up** ("only the frame writes
- * become no-ops") — deliberately, because aborting mid-turn could leave the
- * scenario commit half-applied. So a failed stream may or may not have
- * committed, and the client cannot tell which.
+ * A stream can die at any point, and the turn keeps RUNNING when the client
+ * hangs up (#751 — "only the frame writes become no-ops"). ⚠ Whether it then
+ * COMMITS was re-priced twice (ROADMAP 2.719): the turn fence briefly
+ * inverted #751's commit guarantee on the preempt path (a newer send's
+ * claim made the server REFUSE the draft's commit — the fresh-journey P0's
+ * phantom model), and CEE's 2.709 first-write exemption restored it for
+ * first drafts (a mid-draft claim no longer voids the scenario's only
+ * graph; an explicit Stop still does, and a draft 500 still can). So a
+ * failed stream may or may not have committed, the client cannot tell
+ * which from here — and when a commit was refused or failed, the SERVER
+ * surfaces it in the next reply on this scenario (the draft-loss notice),
+ * which is the receipt channel that does not depend on this socket.
  *
  * The buffered route resolves that ambiguity **for us**, because it is already
  * idempotent for this exact situation. Live-probed read-back control
@@ -696,12 +703,22 @@ async function runStreamedDraftTurn(args: {
       //     in either case contradicts the user's own action or races the newer
       //     turn. It would also require minting a new AbortController to defeat
       //     the very abort that was requested.
-      //   · DISCARDING the preview can destroy a committed model. Per #751 the
-      //     server turn runs to completion and commits at ~61 s, so on the 130 s
-      //     timeout path a discard's echo save would write an EMPTY graph AFTER
-      //     that commit — trading a fabrication for data loss. It also asserts
-      //     something false to the user ("you have no model") about a graph CEE
-      //     genuinely validated.
+      //   · DISCARDING the preview can destroy a committed model. ⚠ PREMISE
+      //     REWRITTEN (ROADMAP 2.719 — the old sentence here cited #751's
+      //     "runs to completion and commits" as a certainty, and the turn
+      //     fence had inverted it on exactly this preempt path, which is how
+      //     the phantom model shipped: preview kept, server graph NULL,
+      //     nothing said — fresh-journey P0 diagnosis §2 R2). The CURRENT
+      //     premise is CEE 2.709's: a first draft's commit now survives a
+      //     mid-draft claim (the fence's FIRST-WRITE EXEMPTION), an explicit
+      //     Stop still refuses it, and a draft 500 still loses it — so the
+      //     commit is LIKELY but not knowable from this side of an aborted
+      //     socket. Discarding would still destroy the committed-case model;
+      //     keeping is still right, PROVIDED the copy carries the save
+      //     caveat (STOPPED_DRAFT_NOTICE does) — because when the commit
+      //     genuinely failed, the SERVER now surfaces it in the next reply
+      //     on this scenario (CEE's DRAFT-LOSS NOTICE, invariant 6), which
+      //     is the receipt channel that does not depend on this socket.
       //
       // `unsettled` says exactly what happened: the structure is real, its
       // numbers are the frame's in-progress ones, they will not settle in this
@@ -4254,7 +4271,11 @@ export function useConversation(): UseConversationReturn {
           // ROADMAP 2.122 round 2 (review F1, adjacent) — a streamed draft that
           // already put a graph on the canvas must NOT be told "your message has
           // not gone through". It did go through: the server produced and
-          // validated a graph, and per #751 the turn continues and commits. The
+          // validated a graph, and the turn keeps running after this client
+          // stops listening (2.719 correction: whether it COMMITS is not
+          // knowable here — the fence's first-write exemption makes the
+          // commit the common case, and a refused/failed commit is surfaced
+          // by the server's draft-loss notice on the next reply). The
           // generic timeout copy, the `deliveryState: 'failed'` marker and the
           // timeout send-failure would all be false here, and would contradict
           // the honest notice the abort path is about to add. Derived from the
