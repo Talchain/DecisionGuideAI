@@ -61,34 +61,34 @@ beforeEach(() => {
 describe('CompareTabBody — freshness drives the stale compare state (CEE-sourced)', () => {
   it('CEE stale verdict → compareState "stale"', () => {
     mockCanvasState.analysisFreshness = { freshness: 'stale' }
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
     expect(stateText()).toBe('stale')
   })
 
   it('fresh verdict dirtied by a local edit (changed) → compareState "stale"', () => {
     mockCanvasState.analysisFreshness = { freshness: 'fresh' }
     mockCanvasState.analysisFreshnessDirty = true
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
     expect(stateText()).toBe('stale')
   })
 
   it('CEE-sourced unknown (cannot-confirm) → NOT "stale" (no fabrication)', () => {
     mockCanvasState.analysisFreshness = { freshness: 'unknown' }
     mockCanvasState.analysisFreshnessDirty = true
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
     expect(stateText()).not.toBe('stale')
   })
 
   it('confirmed-fresh verdict (clean) → NOT "stale"', () => {
     mockCanvasState.analysisFreshness = { freshness: 'fresh' }
     mockCanvasState.analysisFreshnessDirty = false
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
     expect(stateText()).not.toBe('stale')
   })
 
   it('no freshness verdict (null) → NOT "stale"', () => {
     mockCanvasState.analysisFreshness = null
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
     expect(stateText()).not.toBe('stale')
   })
 })

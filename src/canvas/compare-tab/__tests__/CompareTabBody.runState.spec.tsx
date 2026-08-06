@@ -86,7 +86,7 @@ beforeEach(() => {
 
 describe('F9: CompareTabBody run-state coverage', () => {
   it('positive control: idle with no snapshots shows the empty state and no run treatment', () => {
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
     expect(screen.getByTestId('compare-empty-state')).toBeInTheDocument()
     expect(screen.queryByTestId('analysis-running-banner')).not.toBeInTheDocument()
     expect(screen.queryByTestId('analysis-run-skeleton')).not.toBeInTheDocument()
@@ -94,7 +94,7 @@ describe('F9: CompareTabBody run-state coverage', () => {
 
   it('run in flight with nothing retained: skeleton replaces the empty state', () => {
     setRun('streaming', Date.now())
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
     expect(screen.getByTestId('analysis-run-skeleton')).toBeInTheDocument()
     expect(screen.queryByTestId('compare-empty-state')).not.toBeInTheDocument()
   })
@@ -102,7 +102,7 @@ describe('F9: CompareTabBody run-state coverage', () => {
   it('run in flight with snapshots retained: banner above content, content marked busy, never blanked', () => {
     mockSnapshots = TWO_SNAPSHOTS
     setRun('streaming', Date.now())
-    const { container } = render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    const { container } = render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
     expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
     expect(screen.getByTestId('compare-content')).toBeInTheDocument()
     expect(container.querySelector('[aria-busy="true"]')).not.toBeNull()
@@ -112,7 +112,7 @@ describe('F9: CompareTabBody run-state coverage', () => {
   it('settle: the treatment is gone and retained content is unmarked', () => {
     mockSnapshots = TWO_SNAPSHOTS
     setRun('complete')
-    const { container } = render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    const { container } = render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
     expect(screen.queryByTestId('analysis-running-banner')).not.toBeInTheDocument()
     expect(screen.queryByTestId('analysis-run-skeleton')).not.toBeInTheDocument()
     expect(screen.getByTestId('compare-content')).toBeInTheDocument()
@@ -121,7 +121,7 @@ describe('F9: CompareTabBody run-state coverage', () => {
 
   it('error with nothing retained: honest empty state, never skeleton-forever', () => {
     setRun('error')
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
     expect(screen.queryByTestId('analysis-run-skeleton')).not.toBeInTheDocument()
     expect(screen.getByTestId('compare-empty-state')).toBeInTheDocument()
   })
@@ -129,7 +129,7 @@ describe('F9: CompareTabBody run-state coverage', () => {
   it('contributes no aria-live region of its own (the dock announcer is the single voice)', () => {
     mockSnapshots = TWO_SNAPSHOTS
     setRun('streaming', Date.now())
-    const { container } = render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    const { container } = render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
     expect(container.querySelectorAll('[aria-live]')).toHaveLength(0)
   })
 })

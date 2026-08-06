@@ -94,7 +94,7 @@ const run = (
 
 async function renderWithRuns(rows: unknown[]) {
   listPersistedAnalysisRuns.mockResolvedValue(rows)
-  render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+  render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
   await waitFor(() => {
     expect(useAnalysisSnapshotStore.getState().snapshots.length).toBe(rows.length)
   })
@@ -297,7 +297,7 @@ describe('pick-two-runs side-by-side (2.113a slice 2)', () => {
   it('GUEST UNCHANGED: no session ⇒ no read, no picker, no side-by-side, no error', async () => {
     getSessionIdentity.mockResolvedValue({ userId: null, accessToken: null })
 
-    render(<CompareTabBody onRunAnalysis={vi.fn()} />)
+    render(<CompareTabBody onRunAnalysis={vi.fn()} expertMode={false} onToggleExpert={vi.fn()} />)
     await waitFor(() => expect(getSessionIdentity).toHaveBeenCalled())
 
     expect(listPersistedAnalysisRuns).not.toHaveBeenCalled()

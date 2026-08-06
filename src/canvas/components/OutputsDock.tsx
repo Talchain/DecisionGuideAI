@@ -2548,7 +2548,16 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               </div>
             )}
             {effectiveActiveTab === 'compare' && (
-              <CompareTabBodyV2 onRunAnalysis={handleRunAnalysis} />
+              // 2.581 — ONE expert mode for the product. The Compare pill used
+              // to own a separate `feature.compareExpert` state, so the only
+              // control in the UI whose visible text says "Expert" turned on a
+              // different thing from the `</>` toggle beside it — the measured
+              // cause of the "downside tail is scenario-dependent" report.
+              <CompareTabBodyV2
+                onRunAnalysis={handleRunAnalysis}
+                expertMode={expertMode}
+                onToggleExpert={setExpertMode}
+              />
             )}
             {effectiveActiveTab === 'diagnostics' && (
               <ModelTabBody
