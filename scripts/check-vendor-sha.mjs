@@ -12,7 +12,7 @@
  * script — do not re-implement the comparison there.
  */
 import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { resolve, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -49,7 +49,45 @@ function recoveryBlock(expected, actual) {
   ].join('\n')
 }
 
+/**
+ * ROADMAP 2.666 — fail on any vendored artefact that matches NO pin.
+ *
+ * The check above derives ONE filename from `package.json` and verifies ONLY
+ * that file, so anything else in `vendor/` is invisible to it by construction.
+ * That is how `talchain-schemas-0.32.0.tgz` and `-0.34.0.tgz` sat here long
+ * after the pin moved to 0.38.0, with `vendor/README.md`'s own "Current
+ * contents" listing 0.38.0 alone. The cost is not the bytes: three tarballs in
+ * a directory whose whole job is to be the single unambiguous source give a
+ * reader — or a script — three answers and no way to tell which is live.
+ *
+ * DERIVED, NOT LISTED: the set of permitted names comes from the same
+ * `package.json` reference the SHA check uses, so there is no allowlist to keep
+ * in step. Anything in `vendor/` that is not the pinned tarball, its `.sha256`
+ * sidecar, or documentation is an orphan.
+ */
+const PERMITTED = new Set([TARBALL_NAME, `${TARBALL_NAME}.sha256`, 'README.md'])
+
+async function checkForOrphans() {
+  const entries = await readdir(resolve(REPO_ROOT, 'vendor'))
+  const orphans = entries.filter((name) => !PERMITTED.has(name) && !name.startsWith('.'))
+  if (orphans.length > 0) {
+    fail(
+      [
+        `[check-vendor-sha] Orphaned file(s) in vendor/ — they match no pin:`,
+        ...orphans.map((o) => `  vendor/${o}`),
+        '',
+        `The pin is vendor/${TARBALL_NAME} (from package.json "@talchain/schemas").`,
+        'A vendor/ directory with more than one tarball is ambiguous about which',
+        'one is live. Remove the stale files (and update vendor/README.md):',
+        ...orphans.map((o) => `  git rm vendor/${o}`),
+      ].join('\n'),
+    )
+  }
+}
+
 async function main() {
+  await checkForOrphans()
+
   if (!existsSync(TARBALL_PATH)) {
     fail(`[check-vendor-sha] Missing tarball: ${TARBALL_PATH}\nRun: git checkout -- vendor/${TARBALL_NAME}`)
   }

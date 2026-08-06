@@ -141,63 +141,49 @@ was itself absent from the old pin, so the UI failed *silently*. Bound by
 > this one is left struck through rather than deleted so nobody re-derives the
 > short list from a historical section.**
 
-### `talchain-schemas-0.34.0.tgz` (superseded — retained)
+### ~~`talchain-schemas-0.34.0.tgz`~~ and ~~`talchain-schemas-0.32.0.tgz`~~ — **DELETED (ROADMAP 2.666)**
 
-> **⚠ BRANCH-PACKED, PRE-PUBLISH** (same trade as prior train sections; no
-> registry 0.34.0 exists until olumi-schemas PR #33 merges; merge order
-> schemas → CEE → UI). Packed with `npm pack` from olumi-schemas branch
-> `p4/transport-events-0.34` at `b883869` (full gate green, 43 files / 1446
-> tests). sha256
-> `c3db4b4e5e4458cbd11c9b924c7e529ccd0f405b2967844e30550aecf9acc559` —
-> BYTE-IDENTICAL to CEE's vendored copy by construction.
+Both tarballs and both `.sha256` sidecars were removed on 2026-08-07. They were
+labelled *"superseded — retained"*, and the retention had no reader: nothing
+referenced them, no gate checked them, and the "Current contents" section at the
+top of this file listed 0.38.0 alone — so the directory said one thing and its
+own index said another.
 
-**What the UI adopts here (P4 transport):** SystemEventSchema members
-`edge_adjudication` + `prior_range_edit` — the two emitters this leg ships
-(ContestedEdgeCard verdicts and inspector prior-range edits, which previously
-terminated in the client store). ⚠ Reader-first: these emitters must deploy
-AFTER CEE's 0.34.0 leg — an older CEE pin rejects the whole turn on either
-kind.
+**The cost was never the bytes.** `vendor/` exists to be the single unambiguous
+answer to "which schemas tarball is live". With three tarballs sitting in it, a
+reader resolving that question from a directory listing got three answers and no
+way to choose, and the one place that named a winner (this file) had already
+been caught carrying a `← THE CURRENT PIN` marker on the WRONG section for over
+a version — see the note preserved below.
 
+**This can no longer happen silently.** `scripts/check-vendor-sha.mjs` (which
+runs in CI and before `dev`) now fails on any file in `vendor/` that is not the
+pinned tarball, its `.sha256` sidecar, or this README. The permitted set is
+DERIVED from the same `package.json` reference the SHA check already uses, so
+there is no allowlist to keep in step: re-vendoring without deleting the old
+tarball REDs immediately, naming the offender. Behaviour is pinned in
+`tests/ci-guards/check-vendor-sha.orphans.spec.ts`, which runs the real script
+as a subprocess and plants a probe orphan to prove the gate can actually see one.
 
-### `talchain-schemas-0.32.0.tgz` (superseded — retained)
+> **The lesson worth keeping, verbatim from the deleted 0.32.0 section:** that
+> heading carried the marker `← THE CURRENT PIN` until 5 Aug 2026, and it was
+> ALREADY FALSE BEFORE THE 0.35.0 BUMP — the pin had been 0.34.0 since the
+> section above it was added, so the marker had been lying for at least one whole
+> version and nothing failed. It was the FOURTH hand-maintained mirror of the
+> pin and the only unguarded one; the other three (`package.json`,
+> `pnpm-lock.yaml`, `src/lib/talchainSchemasVersion.ts`) each have a check that
+> REDs on drift, which is exactly why they did not drift and it did. It is also
+> the first file a re-vendor lane reads, so it is the mirror best placed to
+> mislead.
 
-> ⚠ **This section carried the marker `← THE CURRENT PIN` until 5 Aug 2026, and
-> it was ALREADY FALSE BEFORE THE 0.35.0 BUMP:** the pin had been 0.34.0 since
-> that section was added above, so the marker had been lying for at least one
-> whole version and nothing failed. It is the FOURTH hand-maintained mirror of
-> the pin, and the only unguarded one — the other three (`package.json`,
-> `pnpm-lock.yaml`, `src/lib/talchainSchemasVersion.ts`) all have a check that
-> REDs on drift, which is precisely why this one drifted and they did not. It is
-> also the first file a re-vendor lane reads, so it is the mirror best placed to
-> mislead. Marker moved to 0.35.0 above; this heading is now inert prose.
-
-**Provenance: PACKED FROM THE OPEN olumi-schemas PR BRANCH, PRE-PUBLISH — stated
-plainly because this file keeps cataloguing exactly this situation.** Lane 2
-(P3 ui_directive panel verbs) is a THREE-REPO TRAIN with a hard merge order
-(schemas → UI → CEE): this tarball was built with `npm pack` from
-`lane2/ui-directive-panel-section-0.32.0` at commit `23f8e01b` (the 0.32.0
-version-bump PR, full gate green: 40 files / 1402 tests), BEFORE that PR merged,
-because the UI leg cannot compile against verbs its pin does not carry.
-
-```
-this repo : 472cd35d355c2292589a98f609e6ad478c9576dab179ea1ce27b06c87a5dd93a
-```
-
-| Claim | Status |
-|---|---|
-| the sidecar matches the checked-in bytes | ✅ proven — `shasum -a 256 -c vendor/talchain-schemas-0.32.0.tgz.sha256` |
-| "is the published registry release" | ❌ **NOT YET — no 0.32.0 release existed when this was written.** The schemas PR merge (orchestrator's) auto-publishes; once tag `v0.32.0` exists, re-derive: `npm pack @talchain/schemas@0.32.0` and compare shas. A mismatch (e.g. pack-time metadata) is a finding to record here, not to hide. |
-| byte-identical to what CEE deploys | Only once CEE's leg of this train merges — CEE's re-vendor copies THIS tarball's bytes (sha recorded in its own vendor README), so the two consumers of the new verbs run identical schema bytes by construction. |
-| byte-identical to what PLoT deploys | ❌ PLoT stays on 0.31.0 — verified NOT a Block-union reader at its tip `d011b99` (`ui_directive` appears once, in a test comment), so the verbs this pin adds cannot reach it. Hazard 1 says check, not assume: check PLoT's own `package.json` before citing this row. |
-
-**What it adds (Lane 2, P3):** `ui_directive` verbs `open_panel` / `open_section`
-+ optional strict `ui_target` (closed vocabularies: the 5 OutputsDock tab ids /
-the 5 ModelTabBody section ids), cross-field-enforced both directions at the
-BlockSchema union. Additive: every pre-0.32.0 payload parses byte-identically;
-a UI on THIS pin merely gains the ability to parse (and this PR, to execute) the
-new verbs. **Emission stays with CEE and lands only in CEE's own leg, after this
-one — so there is no window where a deployed consumer strict-rejects a served
-verb.** Rollback is a revert.
+*(Provenance for both, kept for the record: 0.34.0 was branch-packed pre-publish
+from olumi-schemas `p4/transport-events-0.34` @ `b883869`, sha256
+`c3db4b4e…acc559`, adding SystemEvent members `edge_adjudication` +
+`prior_range_edit`. 0.32.0 was branch-packed from
+`lane2/ui-directive-panel-section-0.32.0` @ `23f8e01b`, sha256 `472cd35d…dd93a`,
+adding `ui_directive` verbs `open_panel` / `open_section` + strict `ui_target`.
+Both are long since carried forward into 0.38.0; neither tarball is recoverable
+from this directory, and neither needs to be — git history holds the bytes.)*
 
 `src/lib/talchainSchemasVersion.ts` is bumped to `0.32.0` in lockstep (its spec
 derives the expected value from the `file:` pin in `package.json` and fails on
