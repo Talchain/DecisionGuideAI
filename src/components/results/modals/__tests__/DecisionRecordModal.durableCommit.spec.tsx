@@ -205,6 +205,48 @@ describe('durable commit — the wire', () => {
     )
   })
 
+  it.each([
+    ['an unrecognised rung', 'some_future_rung'],
+    ['a missing rung', undefined],
+    ['a non-string rung', 42],
+  ])(
+    '%s is reported as a DEFAULT rung, NEVER as user_set',
+    async (_label, rung) => {
+      // Found by a surviving mutant, which is the only reason this test
+      // exists: the fallback DIRECTION was uncovered. Claiming `user_set` for
+      // a rung we did not recognise would tell the user they chose a review
+      // date they never chose — the one direction of this error that misleads.
+      fetchMock.mockResolvedValue(
+        okResponse({
+          record_id: RECORD_ID,
+          review_date: '2026-11-04T00:00:00.000Z',
+          review_date_source: rung,
+          deduped: false,
+        }),
+      )
+      await saveModal()
+      const record = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)
+      expect(record?.remote?.reviewDateSource).toBe('default_horizon')
+      expect(record?.remote?.reviewDateSource).not.toBe('user_set')
+    },
+  )
+
+  it('a RECOGNISED user_set rung is still carried through (the fallback is not swallowing everything)', async () => {
+    // The other half of the pair: without this, a mutant that hardcoded
+    // 'default_horizon' for every response would survive the test above.
+    fetchMock.mockResolvedValue(
+      okResponse({
+        record_id: RECORD_ID,
+        review_date: '2026-12-01T00:00:00.000Z',
+        review_date_source: 'user_set',
+        deduped: false,
+      }),
+    )
+    await saveModal()
+    const record = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)
+    expect(record?.remote?.reviewDateSource).toBe('user_set')
+  })
+
   it('a 2xx with no record_id is NOT reported as saved', async () => {
     fetchMock.mockResolvedValue(okResponse({ deduped: false }, 201))
     await saveModal()
