@@ -2416,13 +2416,23 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 {/* v1.1 Contract: Engine critique shown post-run only if blockers exist
                     Note: Pre-run validation uses graphHealth, post-run uses engine critique
                     Only show if engine detected blockers that prevented clean results.
-                    RCA-C/F18: freshness-gate the render — an engine critique carries the
-                    limit that was live AT RUN TIME baked into its free-text message (e.g.
-                    "Graph too large: 16 nodes (limit: 12)"). When the analysis is not
-                    confirmed fresh (hydrated/orphaned reload, or edited since the run) that
-                    message can contradict newer live limits, so suppress it and let live
-                    graphHealth speak until a rerun mints a critique against current limits. */}
-                {!isPreRun && !analysisNotConfirmedFresh && report?.run?.critique && report.run.critique.some(c => c.severity === 'BLOCKER') && (
+
+                    ⛔ ROADMAP 2.651 — Paul's Ruling 3. The `!analysisNotConfirmedFresh`
+                    limb of this gate is RETIRED. RCA-C/F18 freshness-gated the render
+                    because an engine critique bakes the run-time limit into its free text
+                    ("Graph too large: 16 nodes (limit: 12)"), which a newer live limit
+                    could contradict. That is an argument about what the display CLAIMS,
+                    and the tab already answers it — AnalysisFreshnessNotice states "Model
+                    changed since this analysis. Re-run to update." directly above. Hiding
+                    it also hid ValidationPanel's Auto-fix, a graph MUTATION affordance,
+                    from the user's first edit onward. Staleness is a property of RESULTS,
+                    never a lock: out-of-date results are labelled, not withheld — the same
+                    doctrine the wrapper below already records ("v6 keeps stale results
+                    fully readable … No dimming, no aria-disabled lockout"). Live
+                    graphHealth still speaks in parallel; it is no longer made to speak
+                    INSTEAD. `!isPreRun` and the BLOCKER filter are untouched — both are
+                    pinned in `OutputsDock.staleEngineCritique.spec.tsx`. */}
+                {!isPreRun && report?.run?.critique && report.run.critique.some(c => c.severity === 'BLOCKER') && (
                   <div data-testid="outputs-engine-critique">
                     <ValidationPanel
                       critique={mapCritiqueToValidation(report.run.critique)}
@@ -2579,11 +2589,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     onSetFactorValue={handleTriageSetValue}
                     expertMode={expertMode}
                     nodeValueLookup={nodeValueLookup}
-                    // Lane 3 review fold: with the body now mounted at
-                    // 'error', the `!isError` escape re-enabled factor
-                    // mutations (suppressMutations = isStale || isRunning)
-                    // against a not-fresh retained display — the exact
-                    // hazard the Brief 4 Task 13 gate exists for.
+                    // ⛔ ROADMAP 2.651 — Paul's Ruling 3. This value NO LONGER
+                    // GATES ANY AFFORDANCE. `ResultsBody`'s suppression is now
+                    // `isRunning` alone; staleness is carried by the display
+                    // (`AnalysisFreshnessNotice`, and `data-freshness-confirmed`
+                    // on the wrapper above), never by withholding a control.
+                    // The prop is kept so this derivation stays visible at the
+                    // seam — re-attaching a lock to it must be a visible diff.
+                    // (The historical Lane 3 note about the `!isError` escape
+                    // "re-enabling factor mutations against a not-fresh display"
+                    // described the retired Brief 4 Task 13 gate and no longer
+                    // applies: mutations are correct on a not-fresh display.)
                     isStale={analysisNotConfirmedFresh}
                   />
                   </div>

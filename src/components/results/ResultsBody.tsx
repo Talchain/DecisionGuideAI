@@ -126,18 +126,40 @@ export const ResultsBody = memo(function ResultsBody({
       (i: { severity?: string; code?: string }) => i.code === 'GRAPH_TOO_LARGE' || i.severity === 'blocker',
     ),
   )
-  // Brief 4 Task 13 + Phase 8 P0 #4: suppress mutation affordances while
-  // results are stale so users don't edit a factor based on a display that
-  // no longer matches the analysis. Read-only affordances (focus node,
-  // hover highlights, AI discuss) remain active. Baseline/threshold
-  // handlers are declared on this component but not currently wired to
-  // the children that consume them, so we only gate the two that are.
-  // Lane 3 (SF2): the body now stays MOUNTED through a run — the same
-  // rationale gates factor mutations mid-flight (don't commit edits against
-  // a display whose run is being replaced).
-  const suppressMutations = isStale || isRunning
-  const staleOnConfirmFactor = suppressMutations ? undefined : onConfirmFactor
-  const staleOnSetFactorValue = suppressMutations ? undefined : onSetFactorValue
+  // ⛔ ROADMAP 2.651 — Paul's Ruling 3, the UI half. The `isStale` limb of this
+  // gate is RETIRED. It read `isStale || isRunning`, and because `isStale` is
+  // the dock's `analysisNotConfirmedFresh` (displayed 'stale' OR 'unknown'),
+  // and ANY analysis-affecting edit downgrades a retained 'fresh' verdict to
+  // 'unknown', the user's FIRST edit switched "Confirm AI estimate" — pillar
+  // P4's human-confirms-the-AI affordance — off for the rest of the session.
+  //
+  // The retired rationale (Brief 4 Task 13 / Phase 8 P0 #4) was "don't edit a
+  // factor based on a display that no longer matches the analysis". That is an
+  // argument about what the display CLAIMS, and the tab already answers it:
+  // `AnalysisFreshnessNotice` says "Model changed since this analysis. Re-run
+  // to update." above these cards. **Out-of-date results get labelled, never
+  // withheld — staleness is a property of RESULTS, never a lock on what the
+  // user may do.** CEE #834 built the same ruling server-side: the graph is
+  // always editable. `isStale` stays on the props so the dock's derivation
+  // remains visible at this seam and any re-introduced lock is a diff rather
+  // than a silent addition — but it MUST NOT gate an affordance.
+  //
+  // ⭐ WHAT SURVIVES, byte-identically: `isRunning`. Lane 3 (SF2) keeps the
+  // body MOUNTED through a run, and committing a factor edit against a display
+  // whose run is being replaced is a genuine hazard the ruling does not touch.
+  // Pinned + mutation-proved in `ResultsBody.staleMutationAffordances.spec.tsx`.
+  //
+  // `isStale` is kept on the props and marked INERT here rather than deleted —
+  // the same idiom `OutputsDock` uses for `realMessageCount`. Deleting it would
+  // remove the seam the dock's staleness arrives on, and with it the only
+  // mutant that can prove this lock has not come back: the spec above asserts
+  // that a body TOLD its results are stale still offers the affordance, which
+  // is unprovable if the component can no longer be told. Re-attaching a gate
+  // to this value must be a visible diff that turns those tests RED.
+  void isStale
+  const suppressMutations = isRunning
+  const runGatedOnConfirmFactor = suppressMutations ? undefined : onConfirmFactor
+  const runGatedOnSetFactorValue = suppressMutations ? undefined : onSetFactorValue
 
   // ROADMAP 1.267 — QUOTED, never re-derived. `useResultsSectionData` already
   // resolved the one verdict (`deriveDecisionVerdict`, the same instance the
@@ -257,8 +279,8 @@ export const ResultsBody = memo(function ResultsBody({
       onFocusNode={onFocusNode}
       verifiedCount={verifiedCount}
       influenceCoverage={influenceCoverage}
-      onConfirm={staleOnConfirmFactor}
-      onSetValue={staleOnSetFactorValue}
+      onConfirm={runGatedOnConfirmFactor}
+      onSetValue={runGatedOnSetFactorValue}
       expertMode={expertMode}
       nodeValueLookup={nodeValueLookup}
       onSendMessage={onSendMessage}
@@ -272,8 +294,8 @@ export const ResultsBody = memo(function ResultsBody({
       onFocusNode={onFocusNode}
       verifiedCount={verifiedCount}
       influenceCoverage={influenceCoverage}
-      onConfirm={staleOnConfirmFactor}
-      onSetValue={staleOnSetFactorValue}
+      onConfirm={runGatedOnConfirmFactor}
+      onSetValue={runGatedOnSetFactorValue}
       expertMode={expertMode}
       nodeValueLookup={nodeValueLookup}
       onSendMessage={onSendMessage}
