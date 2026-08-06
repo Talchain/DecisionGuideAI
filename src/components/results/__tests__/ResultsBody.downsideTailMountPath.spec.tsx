@@ -97,6 +97,7 @@ import {
   downsideSummaryCopy,
 } from '../utils/downsideCopy'
 import { formatRangeValue } from '../utils/formatRangeValue'
+import { useCanvasStore } from '../../../canvas/store'
 import liveDownsideTurn from '../../../v5/__tests__/fixtures/live-analysis-turn-downside-2026-08-05.json'
 
 /**
@@ -315,6 +316,9 @@ describe('2.581 — the downside tail on the mount path, fed by the reported-bro
   afterEach(() => {
     cleanup()
     localStorage.removeItem('feature.analysisHeroPanel')
+    // The canvas mode is a module singleton; leaving it flipped would leak into
+    // every later file in the same worker.
+    useCanvasStore.setState({ viewMode: 'standard' })
   })
 
   // ── LAYER 1: the wire actually carried it ────────────────────────────────
@@ -433,7 +437,7 @@ describe('2.581 — the downside tail on the mount path, fed by the reported-bro
 
   // ── The stated absence ───────────────────────────────────────────────────
 
-  it('an option the producers omitted the tail for gets a STATED reason, while its siblings keep their values', () => {
+  it('an option arriving with no tail block gets a STATED absence, while its siblings keep their values', () => {
     const withheld = 'opt_retrofit'
     renderBody(optionsFromWire([withheld]), true)
     showAllOptions()
@@ -464,6 +468,86 @@ describe('2.581 — the downside tail on the mount path, fed by the reported-bro
     for (const id of FIXTURE_OPTION_IDS) {
       const line = within(cardByIdentity(id)).getByTestId(`option-downside-unavailable-${id}`)
       expect(line.textContent ?? '').not.toMatch(/[0-9]/)
+    }
+  })
+
+  it('the stated absence BLAMES NOBODY — it cannot, because three causes are indistinguishable here', () => {
+    // `option.downside === undefined` is reached by (1) a producer omitting the
+    // block with no reason on the wire, (2) our own all-or-nothing
+    // `normaliseDownside` dropping a partially-arrived block, or (3) schema-pin
+    // skew eating the field. An earlier draft said "The engine did not return
+    // one", which attributes to the producer a fault that may be ours — the
+    // exact unearned-claim failure this whole surface exists to prevent, made
+    // by the surface itself. Rendered text is asserted (not just the constant),
+    // so a regrown attribution reds here even if it arrives via a new string.
+    renderBody(optionsFromWire([...FIXTURE_OPTION_IDS]), true)
+    showAllOptions()
+    const ATTRIBUTIONS = [
+      /\bengine\b/i,
+      /\bserver\b/i,
+      /\bfailed\b/i,
+      /\berror\b/i,
+      /\bdid not return\b/i,
+      /\bcould not (?:compute|calculate)\b/i,
+    ]
+    for (const id of FIXTURE_OPTION_IDS) {
+      const text = within(cardByIdentity(id)).getByTestId(
+        `option-downside-unavailable-${id}`,
+      ).textContent ?? ''
+      // POSITIVE CONTROL: prove we are reading the real line before asserting
+      // an absence over it — an empty string would satisfy every clause below.
+      expect(text.length, `the absence line for ${id} must have text to scan`).toBeGreaterThan(20)
+      for (const pattern of ATTRIBUTIONS) {
+        expect(text, `${id}: the absence line must not attribute a cause (${pattern})`).not.toMatch(
+          pattern,
+        )
+      }
+      // ...and the honest remainder is still there: no promise about a rerun.
+      expect(text).toMatch(/whether running it again would produce one/i)
+    }
+  })
+
+  // ── The OTHER expert mode does not reach here (2.581's second half) ──────
+
+  it('the canvas "Detailed" mode is a DIFFERENT mode: canvas.viewMode="expert" reveals no tail', () => {
+    // The product has two expert-bearing persisted modes (enumerated by both
+    // sweeps in canvas/compare-tab/__tests__/CompareTabBody.oneExpertMode.spec.tsx):
+    // `olumi.expertMode` — the Results one — and `canvas.viewMode`, typed
+    // `'standard' | 'expert'`, whose controls read "Detailed"/"Standard".
+    // A reader who presses "Detailed" looking for depth must not be told the
+    // tail is unavailable, and must not be shown it either: that control has
+    // nothing to do with this surface. Binding by IDENTITY: the canvas store's
+    // own `viewMode` field is set to the same literal the canvas nodes gate on.
+    useCanvasStore.setState({ viewMode: 'expert' })
+    // Precondition PINNED in-test: if the field is ever renamed or retyped this
+    // reds here, rather than silently degrading into a test of nothing.
+    expect(useCanvasStore.getState().viewMode, 'the canvas mode must actually be set').toBe(
+      'expert',
+    )
+
+    renderBody(optionsFromWire(), false)
+    showAllOptions()
+    for (const id of FIXTURE_OPTION_IDS) {
+      const card = cardByIdentity(id)
+      expect(within(card).queryByTestId(`option-downside-${id}`)).toBeNull()
+      expect(within(card).queryByTestId(`option-downside-unavailable-${id}`)).toBeNull()
+    }
+
+    // DISCRIMINATING CONTROL: the same render with the RESULTS expert mode on
+    // does show the tail — so the emptiness above is the canvas mode failing to
+    // reach this surface, not the harness failing to render one.
+    cleanup()
+    renderBody(optionsFromWire(), true)
+    showAllOptions()
+    for (const id of FIXTURE_OPTION_IDS) {
+      expect(
+        within(cardByIdentity(id)).getByTestId(`option-downside-${id}`).textContent,
+      ).toContain(
+        downsideSummaryCopy(
+          formatRangeValue(CAPTURED_DOWNSIDE[id].p05),
+          formatRangeValue(CAPTURED_DOWNSIDE[id].cvar_10),
+        ),
+      )
     }
   })
 })

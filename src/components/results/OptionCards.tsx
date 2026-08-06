@@ -836,14 +836,18 @@ function OptionCard({
               depth, nothing added to the default card.
 
               HONEST ABSENCE — ⚠ AMENDED BY ROADMAP 2.581. `option.downside` is
-              undefined whenever the engine could not compute the block
-              honestly. This used to render NOTHING in that case. It now
-              renders a STATED absence (`DOWNSIDE_UNAVAILABLE_COPY`) and still
-              never a number: a zero here would read as "there is no downside",
-              which is the most damaging thing this surface could say, but
-              silence is what let 2.581 be reported as the feature "appearing
-              in some sessions and not others". A reader who asked for depth
-              and cannot have it is told so.
+              undefined for reasons this component CANNOT distinguish: a
+              producer (ISL or PLoT) omitted the block with no reason on the
+              wire, OR our own `normaliseDownside` dropped a partially-arrived
+              block, OR schema-pin skew ate the field before it got here. The
+              copy therefore attributes the absence to nobody — see the long
+              note on `DOWNSIDE_UNAVAILABLE_COPY`. This used to render NOTHING
+              in that case. It now renders a STATED absence and still never a
+              number: a zero here would read as "there is no downside", which
+              is the most damaging thing this surface could say, but silence is
+              what let 2.581 be reported as the feature "appearing in some
+              sessions and not others". A reader who asked for depth and cannot
+              have it is told so.
 
               ⛔ `downside.expectedRegret` is deliberately NOT rendered. It is
               the per-option limb of the value-of-information family (the

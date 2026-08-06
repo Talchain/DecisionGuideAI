@@ -69,30 +69,48 @@ export const DOWNSIDE_TAIL_CAVEAT_COPY =
   'Where we cut off "the worst" is a working choice we have not settled yet.'
 
 /**
- * ROADMAP 2.581 — what a reader in expert mode gets when the tail is genuinely
- * absent, instead of the silence that used to be there.
+ * ROADMAP 2.581 — what a reader in expert mode gets when the tail is absent,
+ * instead of the silence that used to be there.
  *
- * WHY IT DOES NOT NAME A CAUSE, AND WHY IT DOES NOT PROMISE A RERUN. The
- * producers omit this block across at least five distinct branches and send NO
- * reason with the omission:
+ * ── WHY IT NAMES NO CAUSE AT ALL, NOT EVEN "the engine" ──────────────────────
+ * An earlier draft of this sentence read "The engine did not return one and
+ * does not say why". That was itself an unearned claim, and it is exactly the
+ * defect this surface exists to prevent — one level up, in our own copy.
  *
- *   ISL (`DownsideV2`, enforced by `OptionResultV2._downside_requires_samples`)
- *     · `outcome.percentiles_source != 'samples'` — necessary condition unmet
- *     · the threaded pre-noise joint regret absent or non-finite
- *     · `cvar_10`/`p05` non-finite on an extreme finite population
- *   PLoT (`buildDownside`, routes/v2/numeric-egress-guards.ts)
- *     · the whole `outcome` object dropped (a required stat non-finite)
- *     · any component non-finite, or `expected_regret` negative
+ * At the point this string renders, the option's `downside` is `undefined`.
+ * **That single observation has at least three causes the UI cannot tell
+ * apart:**
  *
- * A rerun with a different seed could plausibly clear the non-finite branches
- * and cannot clear the percentiles-source one — and nothing on the wire says
- * which applied. Writing "try running it again" would therefore be a claim we
- * have not earned, which is the exact failure this whole surface exists to
- * avoid. So the sentence states the absence, states that the reason is not
- * disclosed to us, and stops. Making it able to say more is producer-side work
- * (an omission-reason channel through ISL → PLoT → CEE), not a wording choice.
+ *   1. A PRODUCER omitted the block. ISL omits it (`DownsideV2`, enforced by
+ *      `OptionResultV2._downside_requires_samples`) when
+ *      `outcome.percentiles_source != 'samples'`, when the threaded pre-noise
+ *      joint regret is absent or non-finite, or when `cvar_10`/`p05` are
+ *      non-finite. PLoT omits it (`buildDownside`,
+ *      `routes/v2/numeric-egress-guards.ts`) when the whole `outcome` object
+ *      was dropped, when any component is non-finite, or when
+ *      `expected_regret` is negative. None of these puts a reason on the wire.
+ *   2. OUR OWN MAPPER dropped it. `normaliseDownside` is all-or-nothing: a
+ *      block that arrives with one component missing or non-finite becomes
+ *      `undefined` here, indistinguishable from one that never arrived.
+ *   3. SCHEMA-PIN SKEW ate it. A consumer on an older `@talchain/schemas`
+ *      silently drops fields it does not know; this repo has lost coaching,
+ *      evidence and enrichment fields that way before.
+ *
+ * Cases 2 and 3 are OUR failures, not the engine's. Saying "the engine did not
+ * return one" would attribute a fault we have not established, and would read
+ * to the user as "the compute is flaky" when the code between the compute and
+ * their screen is an equally live suspect.
+ *
+ * ── WHY IT STILL PROMISES NOTHING ABOUT A RERUN ──────────────────────────────
+ * A rerun with a different seed could plausibly clear some non-finite branches
+ * and cannot clear the percentiles-source one — and nothing anywhere says which
+ * applied. Writing "try running it again" would be a second unearned claim. So
+ * the sentence states the absence, states that we cannot account for it, and
+ * stops. Making it able to say more is producer-side work (an omission-reason
+ * channel through ISL → PLoT → CEE) plus a mapper-side one, not a wording
+ * choice.
  *
  * CONTAINS NO NUMERAL, deliberately: see rule 3 above.
  */
 export const DOWNSIDE_UNAVAILABLE_COPY =
-  'No worst-case view for this option in this run. The engine did not return one and does not say why, so we cannot tell you whether running it again would produce one.'
+  'No worst-case view for this option in this run. We cannot tell you why, or whether running it again would produce one.'
