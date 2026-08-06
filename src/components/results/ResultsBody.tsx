@@ -29,6 +29,7 @@ import { StressTestSection } from './StressTestSection'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
+import { TriageActionCardsBody } from './TriageActionCardsBody'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { WhatChangedChip } from '../../canvas/components/WhatChangedChip'
 import { StrengthenContainer } from './strengthen/StrengthenContainer'
@@ -415,6 +416,65 @@ export const ResultsBody = memo(function ResultsBody({
               double-render the grounding line. */}
           <SectionErrorBoundary section="Key question">
             <KeyQuestionCard />
+          </SectionErrorBoundary>
+          {/* ── 2.661 (P4): THE CONFIRM/SET-VALUE AFFORDANCE, ON THE ARM THE
+              DEPLOYED FLAGS ACTUALLY MOUNT ──────────────────────────────────
+              "Confirm AI estimate" + the inline value editor are P4's
+              human-confirms-the-AI affordance. Both are minted by
+              `TriageActionCardsBody` (`mapEvidenceGapsToActions` → `TriageCard`
+              → `InlineValueControls`), and until now that body was composed
+              ONLY by `DecisionConfidencePanel` and `AnalysisHeroV17` — BOTH of
+              which live in the `!isAnalysisHeroPanelEnabled()` arm below.
+              Staging bakes `VITE_FEATURE_ANALYSIS_HERO_PANEL="1"`, so on the
+              posture real users load NEITHER mounted and no staging user could
+              confirm an AI estimate after an analysis at all.
+
+              ⚠ WHY NOT "PUT IT ON THE V17 HERO" (the obvious answer, and the
+              wrong one — CLAUDE.md trap 3b, third instance in this estate):
+              `analysisHeroV17` is ALSO "1" on the deployed bundle, but V17 is
+              inside the SAME dark arm, so hosting it there would have shipped
+              the identical invisible feature a third time. Read at the bytes
+              from `assets/flags-*.js`, not from netlify.toml (trap 18).
+
+              ⚠ WHY NOT INSIDE `AnalysisHeroContainer`: that component's
+              contract is "the ONE authorised mount of the analysis hero",
+              read-only and store-free by design (enforced by its own
+              inertness spec), and `AnalysisHeroPanel` has no per-factor row —
+              only quick-links that focus a factor on canvas. Threading write
+              handlers through it would break a deliberate boundary. The triage
+              body is the surface that already IS "the factors whose estimates
+              are weak — act on them", so it mounts as the hero's sibling,
+              exactly where a user inspecting a factor's estimate acts on it.
+
+              ⭐ NO NEW WRITE PATH. Same component, same
+              `runGatedOnConfirmFactor` / `runGatedOnSetFactorValue` the legacy
+              arm passes — so the run-gating semantics #609 shipped are
+              inherited rather than re-derived (a re-derivation here is exactly
+              how the retired `isStale` lock would come back). The wrapper
+              testid makes the MOUNT PATH itself assertable, so a flag move
+              REDs `ResultsBody.confirmEstimateLiveMount.spec.tsx` instead of
+              silently darkening the affordance again. */}
+          <SectionErrorBoundary section="Decision confidence">
+            {/* `space-y-3` is the spacing context this body's ONLY other call
+                site gives it (`DecisionConfidencePanel`'s T1 card) — its root
+                is a Fragment, so without it the sub-sections butt together.
+                `empty:hidden` because that same Fragment root means a run with
+                no gaps, flip risk, conditional winners or result checks renders
+                a genuinely EMPTY div, which would still consume one `gap-4` of
+                the parent flex column. No card chrome is invented here: what
+                this surface should look like framed is a design decision, not
+                a wiring one. */}
+            <div className="space-y-3 empty:hidden" data-testid="hero-arm-triage-actions">
+              <TriageActionCardsBody
+                data={resultsSectionData}
+                onFocusNode={onFocusNode}
+                onConfirm={runGatedOnConfirmFactor}
+                onSetValue={runGatedOnSetFactorValue}
+                nodeValueLookup={nodeValueLookup}
+                onSendMessage={onSendMessage}
+                aiAffordance={aiAffordance}
+              />
+            </div>
           </SectionErrorBoundary>
         </>
       )}

@@ -23,16 +23,27 @@
  * running limb REDs only the running test.
  *
  * ⚠ SURFACE BINDING (CLAUDE.md trap 3b) — READ BEFORE ADDING A CASE.
- * `netlify.toml` `[context.staging.environment]` sets
- * `VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"`, and ResultsBody mounts the triage
- * surfaces that carry this affordance (`AnalysisHeroV17` /
- * `DecisionConfidencePanel`) ONLY inside its `!isAnalysisHeroPanelEnabled()`
- * arm. So on DEPLOYED STAGING this affordance does not render at all — the
- * arm under test here is the flag-OFF one (the `defaultValue: false` posture:
- * local dev, and production, which does not inherit the staging context).
- * The last test asserts that mount fork in BOTH directions so this file can
- * never quietly become a test about a component no deployment renders, and so
- * it fails loud the day the flag moves.
+ * `VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"` on deployed staging, and the two
+ * triage surfaces this file drives (`AnalysisHeroV17` /
+ * `DecisionConfidencePanel`) mount ONLY inside `!isAnalysisHeroPanelEnabled()`.
+ * So the arm under test HERE is the flag-OFF one (the `defaultValue: false`
+ * posture: local dev, and production, which does not inherit the staging
+ * context).
+ *
+ * ⭐ UPDATED BY ROADMAP 2.661. This header used to end "so on DEPLOYED STAGING
+ * this affordance does not render at all", and the final test PINNED that
+ * absence as intended. That was a true measurement of a REAL DEFECT — no
+ * staging user could confirm an AI estimate — and pinning it made the defect
+ * look like a decision. 2.661 restored the affordance on the flag-ON arm by
+ * mounting `TriageActionCardsBody` there directly; the final test below now
+ * asserts the fork WITHOUT asserting the absence, and the flag-ON arm's own
+ * behaviour is owned by `ResultsBody.confirmEstimateLiveMount.spec.tsx`.
+ * The lesson kept deliberately visible: a test that pins an absence is a test
+ * that will defend it.
+ *
+ * The final test still asserts the mount fork in BOTH directions so this file
+ * can never quietly become a test about a component no deployment renders,
+ * and so it fails loud the day the flag moves.
  *
  * ⚠ SCOPE (CLAUDE.md trap 3): DOM-presence and handler-call assertions only.
  * Nothing here claims anything about layout, visibility or the fold.
@@ -313,11 +324,8 @@ describe('ResultsBody — staleness never switches off a mutation affordance (2.
    * ⚠ TRAP 3b — THE MOUNT FORK ITSELF, ASSERTED IN BOTH DIRECTIONS.
    *
    * Asserted here so this file states its own scope as an executable fact
-   * rather than a comment that can rot. Flag OFF, the triage surface mounts
-   * and everything above is a real claim. Flag ON — the DEPLOYED STAGING
-   * posture per `netlify.toml` — the analysis-hero arm replaces it and
-   * carries no triage confirm affordance at all, so nothing above describes
-   * what a staging user currently sees.
+   * rather than a comment that can rot: everything above drives the flag-OFF
+   * arm, and these two tests prove WHICH component that arm mounts.
    *
    * If the flag is ever promoted, retired, or inverted, this test goes RED
    * and forces the question rather than leaving a green suite pointed at a
@@ -329,17 +337,33 @@ describe('ResultsBody — staleness never switches off a mutation affordance (2.
     expect(screen.getByTestId('decision-confidence-panel')).toBeInTheDocument()
     expect(screen.getByTestId('unified-triage-queue')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Confirm AI estimate' })).toBeInTheDocument()
+    // The flag-OFF arm must not ALSO mount 2.661's hero-arm host, or the
+    // affordance would double-render on the default/production posture.
+    expect(screen.queryByTestId('hero-arm-triage-actions')).not.toBeInTheDocument()
   })
 
-  it('mount fork — flag ON (the DEPLOYED STAGING posture) replaces it with the hero arm, which carries NO confirm affordance', () => {
+  /**
+   * ⭐ REWRITTEN BY ROADMAP 2.661 — see the header. This test previously
+   * asserted `queryByRole('Confirm AI estimate')` was ABSENT on the deployed
+   * posture. That absence was the DEFECT, not the design, and pinning it
+   * would have made restoring P4 look like a regression.
+   *
+   * What it asserts now is the part that was always true and still is: the
+   * flag-ON arm REPLACES the legacy panel. The affordance's presence and
+   * behaviour on that arm is owned by
+   * `ResultsBody.confirmEstimateLiveMount.spec.tsx`, which drives the real
+   * flag seam rather than this file's mock — so the two files cannot drift
+   * into asserting opposite things about the same posture.
+   */
+  it('mount fork — flag ON (the DEPLOYED STAGING posture) replaces the legacy panel with the hero arm', () => {
     vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
     renderBody({ isStale: false, isRunning: false })
     expect(screen.getByTestId('analysis-hero-panel')).toBeInTheDocument()
     expect(screen.queryByTestId('decision-confidence-panel')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('unified-triage-queue')).not.toBeInTheDocument()
-    // The corrected premise of ROADMAP 2.651, as an executable fact: on
-    // staging this affordance does not render, so the U1 lock currently gates
-    // a surface no staging user reaches. Promoting/retiring the flag REDs this.
-    expect(screen.queryByRole('button', { name: 'Confirm AI estimate' })).not.toBeInTheDocument()
+    // 2.661: the hero arm now hosts the affordance itself, so the confirm
+    // button IS present here — asserted by identity of its host, not merely
+    // by existence, and exactly once (no double mount across the two arms).
+    expect(screen.getByTestId('hero-arm-triage-actions')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Confirm AI estimate' })).toHaveLength(1)
   })
 })
