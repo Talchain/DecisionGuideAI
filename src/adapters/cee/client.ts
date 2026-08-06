@@ -76,6 +76,21 @@ const CEE_ELICIT_BASE = '/bff/cee'
 const CEE_DRAFT_ENGINE_BASE = (import.meta as any).env?.VITE_CEE_DRAFT_BASE || '/bff/engine/v1/cee'
 
 /**
+ * Is this base a PLoT-DIRECT (absolute, cross-origin) base — the only kind of
+ * base the env-injected `VITE_PLOT_BEARER` may ride (review F-U1)?
+ *
+ * The ONE absolute base this client can hold is the deployed
+ * `VITE_CEE_DRAFT_BASE` (PLoT's origin, baked at build). Every relative base
+ * is a same-origin `/bff/*` seam whose credential is injected SERVER-side —
+ * and the cee-proxy edge function forwards an incoming `authorization`
+ * header as the USER-token slot, so a bearer attached to those calls would
+ * impersonate a user token at CEE. Exported for the leak-pin spec.
+ */
+export function isPlotDirectBase(baseURL: string): boolean {
+  return /^https?:\/\//i.test(baseURL)
+}
+
+/**
  * Generate correlation ID for request tracking
  * Mirrors pattern from Assistants client
  */
@@ -630,9 +645,19 @@ export class CEEClient {
           'Content-Type': 'application/json',
           'x-correlation-id': correlationId,
           ...(options.headers as Record<string, string>),
-          // Optional env-injected Bearer for PLoT-direct calls. Empty {} until
-          // VITE_PLOT_BEARER is provisioned → today's behaviour, byte-for-byte.
-          ...plotAuthHeaders(),
+          // ⚠ SCOPED TO PLoT-DIRECT BASES ONLY (adversarial review F-U1 on
+          // the 2.710 PR). This used to merge `plotAuthHeaders()` into EVERY
+          // request, which was harmless while every base was PLoT — but
+          // 2.710 moved biasCheck/sensitivityCoach onto the same-origin
+          // `/bff/cee` seam, and the cee-proxy edge function forwards an
+          // incoming `authorization` header as the USER-token slot. A
+          // provisioned VITE_PLOT_BEARER would therefore have arrived at CEE
+          // masquerading as a Supabase user token. The bearer is a PLoT
+          // credential for PLoT-DIRECT calls — exactly the absolute
+          // `VITE_CEE_DRAFT_BASE` base; every same-origin `/bff/*` seam gets
+          // its credential injected server-side and must carry none from
+          // here. Leak-pinned by client.plotBearerScope.spec.ts.
+          ...(isPlotDirectBase(baseURL) ? plotAuthHeaders() : {}),
         },
         correlationId
       )
