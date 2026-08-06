@@ -21,6 +21,7 @@ import {
   NO_EDITS_SUMMARY,
   UNCHARACTERISED_SUMMARY,
   UNCHARACTERISED_CHANGE_SUMMARY,
+  type GraphChangeKind,
   type GraphChangeVerdict,
 } from './graphChangeDiff'
 
@@ -163,7 +164,25 @@ export function compareStructure(
   // ROADMAP 2.578 — a pure projection of the ONE verdict. This function no
   // longer holds any evidence rules of its own; that is what stops the pair
   // view and the transition card answering differently about the same pair.
-  switch (classifyChange(from, to).kind) {
+  return structureForChangeKind(classifyChange(from, to).kind)
+}
+
+/**
+ * The projection itself, five verdict kinds onto three structure answers.
+ *
+ * Split out (ROADMAP 2.578 F1) so a caller that has already classified a pair
+ * can obtain BOTH the verdict kind and the structure answer from ONE
+ * classification — `deriveRunPairComparison` needs both, and calling
+ * `classifyChange` twice would leave two derivations to keep in step. There is
+ * still exactly one mapping in this file, which is the property that stops the
+ * pair view and the transition card answering differently about the same pair.
+ *
+ * ⚠ THIS FUNCTION IS LOSSY BY DESIGN, and that is what the F1 review found:
+ * two of its three outputs have more than one preimage, so copy written against
+ * its RESULT cannot state a truth condition. Explanatory copy keys off the KIND.
+ */
+export function structureForChangeKind(kind: GraphChangeKind): StructureComparison {
+  switch (kind) {
     case 'structural':
       return 'changed'
     case 'value_only':

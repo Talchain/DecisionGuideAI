@@ -18,6 +18,7 @@ import { typography } from '../../styles/typography'
 import { GraphLink } from '../../components/results/GraphLink'
 import { highlightNode, clearHighlight } from '../utils/highlightHelpers'
 import { runLabel } from './runLabels'
+import { UNCHARACTERISED_CHANGE_SUMMARY, type GraphChangeKind } from './graphChangeDiff'
 import type { AnalysisSnapshot, LeaderClaim, RunPairComparison } from './types'
 
 interface RunPairCompareProps {
@@ -68,9 +69,35 @@ const STRUCTURE_TEXT: Record<RunPairComparison['structure'], string> = {
   not_comparable: 'Not comparable',
 }
 
-const STRUCTURE_DETAIL: Record<RunPairComparison['structure'], string> = {
-  changed: 'The model these runs were computed over is not the same',
+/**
+ * WHY THIS IS KEYED OFF THE VERDICT KIND AND NOT OFF `structure` (2.578 F1).
+ *
+ * `STRUCTURE_TEXT` above answers ONE question — did the shape move? — and three
+ * answers cover it. This sentence answers a different question, "why does it say
+ * that?", and there are five reasons. When 2.578 made `compareStructure` a
+ * projection of the one verdict it WIDENED two of the three preimages, and each
+ * of these sentences went on being printed for cases it was never true of:
+ *
+ *  · `'unchanged'` acquired `value_only`, so "Both runs were computed over the
+ *    same model" appeared beside the list of values that had just changed — the
+ *    +0.50 → +0.80 journey this whole row exists to fix, reappearing one surface
+ *    over.
+ *  · `'not_comparable'` acquired same-regime `uncharacterised_change`, so two
+ *    `aag_v1` hashes that were read and compared successfully were reported as
+ *    "different, incomparable identifiers" — the screen blaming a provenance
+ *    boundary for a change it had in fact measured, while the transition card
+ *    for the same pair said the model changed.
+ *
+ * `uncharacterised_change` quotes the card's own constant rather than restating
+ * it, so the two surfaces cannot drift apart (CLAUDE.md trap 12).
+ */
+const STRUCTURE_DETAIL: Record<GraphChangeKind, string> = {
+  structural: 'The model these runs were computed over is not the same',
   unchanged: 'Both runs were computed over the same model',
+  value_only: 'The model has the same shape in both runs — some of its values changed',
+  uncharacterised_change: UNCHARACTERISED_CHANGE_SUMMARY,
+  // Cross-regime, or a hash absent at one end: nothing was compared, so nothing
+  // is claimed about whether the model moved.
   not_comparable: 'These two runs record their model with different, incomparable identifiers',
 }
 
@@ -219,7 +246,7 @@ export function RunPairCompare({ comparison }: RunPairCompareProps) {
         className={`${typography.panelMeta} px-4 pb-1.5 text-text-light`}
         data-testid="structure-detail"
       >
-        {STRUCTURE_DETAIL[comparison.structure]}
+        {STRUCTURE_DETAIL[comparison.changeKind]}
       </div>
       <Row
         testId="coverage-row"

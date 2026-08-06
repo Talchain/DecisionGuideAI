@@ -35,7 +35,9 @@ import { resolve } from 'node:path'
 import type { Node, Edge } from '@xyflow/react'
 import { buildAnalysisSnapshot } from '../../stores/analysisSnapshotFactory'
 import { deriveTransitions } from '../deriveTransitions'
+import { deriveRunPairComparison } from '../deriveRunPairComparison'
 import { TransitionCard } from '../TransitionCard'
+import { RunPairCompare } from '../RunPairCompare'
 import type { AnalysisSnapshot } from '../types'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 import type { ReportV1 } from '../../../adapters/plot/types'
@@ -149,6 +151,13 @@ describe('mount path — these tests bind to a surface the deployed flags render
     const section = readFileSync(resolve(repoRoot, 'src/canvas/compare-tab/TransitionsSection.tsx'), 'utf8')
     expect(body).toContain('<TransitionsSection')
     expect(section).toContain('<TransitionCard')
+  })
+
+  // The SECOND surface this file now pins. `RunPairCompare` is the pick-two-runs
+  // side-by-side table, and it reaches a user through the same mounted body.
+  it('CompareTabBody renders RunPairCompare, the pair view pinned below', () => {
+    const body = readFileSync(resolve(repoRoot, 'src/canvas/compare-tab/CompareTabBody.tsx'), 'utf8')
+    expect(body).toContain('<RunPairCompare')
   })
 })
 
@@ -406,5 +415,123 @@ describe('ROADMAP 2.578 — absent evidence yields silence, never a confident la
     const removed = tr.changeVerdict.membershipChanges.filter(c => c.op === 'removed')
     expect(removed).toHaveLength(1)
     expect(removed[0].id).toBe(UNTOUCHED_EDGE_ID)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// F1 (adversarial review of #604) — THE PAIR VIEW'S MODEL SENTENCE.
+//
+// `compareStructure` became a pure projection of the ONE verdict, which WIDENED
+// the preimage of two of its three values. Measured at the pre-fix parent
+// `af5c5a37`, where the function read:
+//
+//     if (hashComparable && from.graphHash !== to.graphHash) return 'changed'
+//     … if (hashComparable) return 'unchanged'
+//     return 'not_comparable'
+//
+//   · `'unchanged'`      meant ONLY a same-regime hash EQUALITY. It now also
+//                        carries `value_only` — the observed +0.50 → +0.80
+//                        journey, whose CONTENT hash always differed — so the
+//                        screen said "Both runs were computed over the same
+//                        model" beside a list of the values that moved.
+//   · `'not_comparable'` meant ONLY cross-regime or an absent hash. It now also
+//                        carries same-regime `uncharacterised_change`, so the
+//                        screen blamed "different, incomparable identifiers"
+//                        for two runs whose identifiers ARE the same regime and
+//                        WERE compared — while the card said the model changed.
+//
+// Both sentences were true of their old preimage and are false of the new one.
+// The explanatory copy is therefore keyed off the VERDICT KIND, not off the
+// three-valued structure answer: `structure` answers "did the SHAPE move?" and
+// stays as it is; the sentence underneath has to answer "why does it say that?",
+// and that question has five answers, not three.
+//
+// BINDING (trap 19 / trap 13b). Every case below asserts its own PRECONDITION —
+// the comparison's `changeKind` — before asserting the copy, so a fixture that
+// silently stopped reproducing the target state cannot leave the copy assertion
+// passing for the wrong reason. The negative half of each pair names the exact
+// sentence that used to appear, so the case fails loud if the mapping regresses.
+// ---------------------------------------------------------------------------
+
+describe('ROADMAP 2.578 F1 — the pair view explains the model row from the VERDICT, not the structure answer', () => {
+  function pairFor(fromSnap: AnalysisSnapshot, toSnap: AnalysisSnapshot) {
+    return deriveRunPairComparison(fromSnap, toSnap)
+  }
+
+  function renderDetail(comparison: ReturnType<typeof deriveRunPairComparison>): string {
+    render(<RunPairCompare comparison={comparison} />)
+    return screen.getByTestId('structure-detail').textContent ?? ''
+  }
+
+  it('VALUE-ONLY: says the shape held and the values moved — never "the same model" flat', () => {
+    const comparison = pairFor(runSnapshot(1, STRENGTH_BEFORE), runSnapshot(2, STRENGTH_AFTER))
+    // Precondition, pinned in-test: this fixture really does reproduce the
+    // observed journey's verdict. Without it the copy assertion below could pass
+    // because the fixture stopped working, not because the mapping is right.
+    expect(comparison.changeKind).toBe('value_only')
+    expect(comparison.structure).toBe('unchanged')
+
+    const detail = renderDetail(comparison)
+    expect(detail).toBe('The model has the same shape in both runs — some of its values changed')
+    // The sentence the widened preimage made false.
+    expect(detail).not.toContain('Both runs were computed over the same model')
+  })
+
+  it('VALUE-ONLY: the pair view and the card agree — one says values moved, the other names them', () => {
+    const from = runSnapshot(1, STRENGTH_BEFORE)
+    const to = runSnapshot(2, STRENGTH_AFTER)
+    const comparison = pairFor(from, to)
+    expect(comparison.changeKind).toBe('value_only')
+
+    const detail = renderDetail(comparison)
+    const [tr] = deriveTransitions([from, to])
+    // The card lists the exact edit; the pair view must not be denying that any
+    // value moved on the same screen. This is the coherence rule of 2.578
+    // applied to the surface the F1 review found still breaking it.
+    expect(tr.edits.some(l => /strength 0\.5 → 0\.8/.test(l))).toBe(true)
+    expect(detail).toMatch(/values changed/)
+  })
+
+  it('UNCHANGED: a genuinely identical rerun keeps the original "same model" sentence', () => {
+    const comparison = pairFor(runSnapshot(1, STRENGTH_BEFORE), runSnapshot(2, STRENGTH_BEFORE))
+    expect(comparison.changeKind).toBe('unchanged')
+    expect(comparison.structure).toBe('unchanged')
+
+    // The DISCRIMINATING half: `unchanged` and `value_only` both project to
+    // structure `'unchanged'`, so a fix that simply swapped the sentence for the
+    // whole structure value would break this case. They must differ.
+    expect(renderDetail(comparison)).toBe('Both runs were computed over the same model')
+  })
+
+  it('STRUCTURAL: a membership change still says the model is not the same', () => {
+    const before = runSnapshot(1, STRENGTH_BEFORE)
+    const after = buildAnalysisSnapshot({
+      rawV2Response: { ...RESPONSE, response_hash: 'resp-2' } as V2RunResponse,
+      report: {} as ReportV1,
+      nodes,
+      edges: edgesWithStrength(STRENGTH_BEFORE).filter(e => e.id !== UNTOUCHED_EDGE_ID),
+      runNumber: 2,
+      events: [],
+      previousSnapshotTimestamp: PREV_RUN_AT,
+    })
+    const comparison = pairFor(before, after)
+    expect(comparison.changeKind).toBe('structural')
+    expect(comparison.structure).toBe('changed')
+    expect(renderDetail(comparison)).toBe('The model these runs were computed over is not the same')
+  })
+
+  it('CROSS-REGIME: the incomparable-identifiers sentence survives, on its own preimage', () => {
+    const session = runSnapshot(1, STRENGTH_BEFORE)
+    const otherRegime: AnalysisSnapshot = { ...runSnapshot(2, STRENGTH_AFTER), source: 'persisted' }
+    const comparison = pairFor(session, otherRegime)
+    expect(comparison.changeKind).toBe('not_comparable')
+    expect(comparison.structure).toBe('not_comparable')
+
+    // The DISCRIMINATING half for the other widened value: `not_comparable` and
+    // `uncharacterised_change` both project to structure `'not_comparable'`, and
+    // only THIS one is genuinely about incomparable identifiers.
+    expect(renderDetail(comparison)).toBe(
+      'These two runs record their model with different, incomparable identifiers',
+    )
   })
 })

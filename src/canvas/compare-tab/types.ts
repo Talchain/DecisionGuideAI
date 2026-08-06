@@ -6,7 +6,7 @@
  */
 
 import type { DecisionVerdict } from '../../lib/decisionVerdict'
-import type { GraphProjection, GraphChangeVerdict } from './graphChangeDiff'
+import type { GraphProjection, GraphChangeVerdict, GraphChangeKind } from './graphChangeDiff'
 
 // ---------------------------------------------------------------------------
 // Snapshot types
@@ -332,7 +332,25 @@ export interface RunPairComparison {
   options: OptionDelta[]
   /** Union of both runs' top factors, ordered by the strongest |elasticity|. */
   factors: FactorDelta[]
+  /**
+   * Did the model's SHAPE move? Three-valued, and a pure projection of
+   * `changeKind` below — `compareStructure` holds the one mapping.
+   */
   structure: StructureComparison
+  /**
+   * The ONE change verdict's kind for this pair (ROADMAP 2.578 F1).
+   *
+   * ⚠ WHY BOTH FIELDS EXIST. `structure` answers exactly one question — "did the
+   * shape move?" — and three answers are enough for it. The sentence the pair
+   * view prints underneath answers a different question, "why does it say that?",
+   * and there are FIVE reasons. Projecting five onto three then writing copy
+   * against the three is what made two sentences false the moment 2.578 widened
+   * the preimages: `'unchanged'` acquired `value_only` (so "the same model" ran
+   * beside a list of changed values) and `'not_comparable'` acquired same-regime
+   * `uncharacterised_change` (so "incomparable identifiers" ran beside a
+   * successful comparison). A surface that explains a verdict needs the verdict.
+   */
+  changeKind: GraphChangeKind
   fromLeader: LeaderClaim
   toLeader: LeaderClaim
   /**
