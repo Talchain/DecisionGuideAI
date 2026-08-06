@@ -20,6 +20,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 
 import { DecisionRecordModal, DECISION_RECORD_COPY } from '../DecisionRecordModal'
@@ -30,7 +31,12 @@ import {
 } from '../decisionRecordStore'
 import { useCanvasStore } from '../../../../canvas/store'
 
-const mockGetSessionIdentity = vi.fn(async () => ({
+type SessionIdentity = { userId: string | null; accessToken: string | null }
+
+// The nullable (guest) shape is part of getSessionIdentity's real contract —
+// declared here rather than inferred from the happy-path literal, so the guest
+// case is expressible without a cast.
+const mockGetSessionIdentity = vi.fn<[], Promise<SessionIdentity>>(async () => ({
   userId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
   accessToken: 'test-access-token',
 }))
@@ -86,7 +92,8 @@ function okResponse(body: Record<string, unknown>, status = 201): Response {
   } as unknown as Response
 }
 
-let fetchMock: ReturnType<typeof vi.fn>
+type FetchMock = Mock<Parameters<typeof fetch>, Promise<Response>>
+let fetchMock: FetchMock
 
 async function saveModal() {
   render(<DecisionRecordModal />)
@@ -108,7 +115,7 @@ beforeEach(() => {
     userId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     accessToken: 'test-access-token',
   })
-  fetchMock = vi.fn(async () =>
+  fetchMock = vi.fn<Parameters<typeof fetch>, Promise<Response>>(async () =>
     okResponse({
       record_id: RECORD_ID,
       review_date: '2026-12-01T00:00:00.000Z',
@@ -128,7 +135,7 @@ describe('durable commit — the wire', () => {
     await saveModal()
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('/bff/cee/decision-records/commit')
     expect(init.method).toBe('POST')
     expect((init.headers as Record<string, string>).Authorization).toBe(
@@ -164,7 +171,7 @@ describe('durable commit — the wire', () => {
 
   it('NEVER sends the local analysisHash as an anchor — that is PLoT\'s response_hash', async () => {
     await saveModal()
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     const raw = init.body as string
     // `results.hash` is annotated `// response_hash` in the canvas store; the
     // record's anchor is the aag_v1 analysis-affecting hash CEE derives from
