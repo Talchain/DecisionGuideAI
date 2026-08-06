@@ -27,6 +27,7 @@
 import type { TypedErrorTransportMeta } from '../../v5/responseRouter'
 import type { CeeRecovery } from './ceeRecovery'
 import { isRecord } from './ceeRecovery'
+import { PROXY_TIMEOUT_UNKNOWN_COPY } from './deliveryUnknown'
 
 /**
  * True when the raw non-2xx body looks like a CEE error envelope rather
@@ -70,18 +71,61 @@ export function isTransportFailure(args: {
 }
 
 /**
- * Honest copy for a transport-class failure. States what actually happened
- * (the message did not go through), what was NOT lost, and instructs a
- * retry only when the retry affordance is actually offered (same
- * copy-agrees-with-affordance rule as resolveFailureBaseCopy).
+ * ROADMAP 2.665 — is this failure one whose DELIVERY WE HAVE NOT VERIFIED?
+ *
+ * True for exactly one shape: transport-class with `network === false`, i.e. a
+ * response arrived but carried no CEE outcome (proxy `PROXY_UPSTREAM_TIMEOUT`,
+ * edge timeout). The request reached CEE, and CEE commits turns whether or not
+ * anything downstream is still listening.
+ *
+ * False for a network throw (`network === true`) — nothing left the client, so
+ * non-delivery is verified — and false for CEE-class failures, where the server
+ * answered with its own typed verdict.
+ *
+ * Derived from `isTransportFailure` rather than re-testing its conditions, so
+ * the two can never disagree about what "transport-class" means.
+ */
+export function isUnverifiedDelivery(args: {
+  hasBoundaryError: boolean
+  transportMeta: TypedErrorTransportMeta | undefined
+  recovery: CeeRecovery
+  rawBody: unknown
+}): boolean {
+  return isTransportFailure(args) && args.transportMeta?.network === false
+}
+
+/**
+ * Honest copy for a transport-class failure.
+ *
+ * ⚠ ROADMAP 2.665 — THE TWO HALVES OF THIS CLASS ARE NOT THE SAME CLAIM, and
+ * treating them as one shipped a falsehood on the half that matters.
+ *
+ *   · `meta.network === true` — the fetch threw: offline, DNS, CORS preflight.
+ *     No request ever completed, so non-delivery is VERIFIED and the original
+ *     copy is exactly right. Unchanged.
+ *   · `meta.network === false` — a NON-2xx RESPONSE ARRIVED carrying no CEE
+ *     signal, i.e. the proxy's own `PROXY_UPSTREAM_TIMEOUT` body or an edge
+ *     timeout. The request reached CEE; something downstream stopped waiting
+ *     for it. CEE goes on to complete and COMMIT that turn — live-witnessed
+ *     2026-08-07 at 123.1s — so "your message didn't go through" and "it hasn't
+ *     been added to the conversation" were both claims we had not verified and
+ *     could not verify. That half now says the outcome is unknown.
+ *
+ * This half is not hypothetical and is not a spare-time tidy-up: reconciling
+ * the client wait with CEE's 125s proxy deadline (2.665 (b)) means a long turn
+ * that used to expire client-side now arrives HERE instead. Fixing the client
+ * timeout alone would only have moved the same false sentence one branch over.
+ *
+ * A retry is never instructed on the unknown half, whatever `showRetry` says —
+ * retrying duplicates (CEE keys its commit on its own per-request id, not on
+ * `payload.turn_id`; see `deliveryUnknown.ts`).
  */
 export function buildTransportFailureCopy(
   meta: TypedErrorTransportMeta,
   showRetry: boolean,
 ): string {
-  const what = meta.network
-    ? "Your message didn't reach the server."
-    : "The server didn't respond in time, so your message didn't go through."
+  if (!meta.network) return PROXY_TIMEOUT_UNKNOWN_COPY
+  const what = "Your message didn't reach the server."
   const consequence =
     "It hasn't been added to the conversation and is marked as not delivered above. Nothing you typed was lost."
   const action = showRetry ? "Try again when you're ready." : ''

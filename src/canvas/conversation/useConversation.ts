@@ -18,7 +18,8 @@ import {
   formatRecoveryHints,
   isDisplaySafeReason,
 } from './ceeRecovery'
-import { buildTransportFailureCopy, isTransportFailure } from './transportFailure'
+import { buildTransportFailureCopy, isTransportFailure, isUnverifiedDelivery } from './transportFailure'
+import { WAIT_EXPIRY_UNKNOWN_COPY } from './deliveryUnknown'
 import { callV5Turn, getV5Endpoint, type V5CallResult } from '../../v5/v5Adapter'
 import { parseV5Response } from '../../v5/responseParser'
 import { openV5TurnStream, __streamInternals as streamTransport } from '../../v5/streamedTurnTransport'
@@ -4286,20 +4287,36 @@ export function useConversation(): UseConversationReturn {
             currentScenarioId,
           )
           if (mode === 'user' && !hidden && !streamedPreviewStanding) {
-            // Transcript honesty: we stopped waiting — the turn produced no
-            // response, so the bubble must not read as delivered.
+            // ROADMAP 2.665 — TRANSCRIPT HONESTY, CORRECTED.
+            //
+            // This branch used to mark the bubble `failed` and say "We stopped
+            // waiting, so your message has not gone through." Both were false.
+            // We stopped waiting; the SERVER did not. CEE runs the turn to
+            // completion and commits it — live-witnessed 2026-08-07, client
+            // gave up at 60.0s while the same turn returned 200 at 123.1s with
+            // its rows written. What actually happened here is UNKNOWN to this
+            // client, and it stays unknown: no status route exists to poll and
+            // `v5_conversation_turns` has zero readers in this codebase, so
+            // there is nothing to reconcile against on this render or any
+            // later one. See `deliveryUnknown.ts` for the full derivation.
+            //
+            // No retry chip: a retry DUPLICATES. CEE keys its commit on its own
+            // per-HTTP-request id, not on `payload.turn_id`, and this client
+            // sends no request-id header for it to reuse.
             if (userBubbleIdForTurn) {
-              updateMessage(userBubbleIdForTurn, { deliveryState: 'failed' })
+              updateMessage(userBubbleIdForTurn, { deliveryState: 'unconfirmed' })
             }
             if (inputForRestore) {
-              setLastSendFailure({ kind: 'timeout', retryable: true, inputText: inputForRestore })
+              // `retryable: false` — the copy-agrees-with-affordance rule. No
+              // retry is offered, so none is advertised. The text is still
+              // carried for restore-into-composer.
+              setLastSendFailure({ kind: 'timeout', retryable: false, inputText: inputForRestore })
             }
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
-              content: 'This is taking longer than expected. We stopped waiting, so your message has not gone through. Nothing you typed was lost. Try again or rephrase your message.',
+              content: WAIT_EXPIRY_UNKNOWN_COPY,
               synthetic: true,
-              actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
               timestamp: new Date(),
             })
           }
@@ -4504,9 +4521,26 @@ export function useConversation(): UseConversationReturn {
           // response (including an empty one) means the send was delivered;
           // only typed_error leaves it failed. Resolved BEFORE rendering so
           // the marker and the outcome message land in the same commit.
+          //
+          // ROADMAP 2.665: 'failed' is a CLAIM, and one shape of typed_error
+          // cannot support it. A proxy/edge timeout body (transport-class,
+          // `network === false`) means the request DID reach CEE and something
+          // downstream stopped waiting — CEE commits that turn anyway. Marking
+          // it "Not delivered" asserts something this client cannot check, so
+          // it resolves to 'unconfirmed' instead. Network throws and CEE-class
+          // errors are unchanged: both are verified.
           if (userBubbleIdForTurn) {
+            const unverified =
+              target.kind === 'typed_error' &&
+              isUnverifiedDelivery({
+                hasBoundaryError: target.boundaryError !== undefined,
+                transportMeta: target.transportMeta,
+                recovery: extractCeeRecovery(target.boundaryError ?? target.rawBody),
+                rawBody: target.rawBody,
+              })
             updateMessage(userBubbleIdForTurn, {
-              deliveryState: target.kind === 'typed_error' ? 'failed' : 'sent',
+              deliveryState:
+                target.kind !== 'typed_error' ? 'sent' : unverified ? 'unconfirmed' : 'failed',
             })
           }
 
@@ -4939,6 +4973,19 @@ export function useConversation(): UseConversationReturn {
               recovery,
               rawBody: target.rawBody,
             })
+            // ROADMAP 2.665 (I-B): a proxy/edge timeout leaves delivery
+            // UNVERIFIED, and CEE keys its commit on its own per-request id
+            // rather than on `payload.turn_id` — so "Try again" here asks the
+            // same thing a second time and writes a second turn row. The
+            // server's `retryable` marker is about whether the FAILURE is
+            // transient, not about whether re-asking is safe; on this shape it
+            // is overruled, and the copy says why instead.
+            const deliveryUnverified = isUnverifiedDelivery({
+              hasBoundaryError: target.boundaryError !== undefined,
+              transportMeta: target.transportMeta,
+              recovery,
+              rawBody: target.rawBody,
+            })
             let content: string
             if (transportFailure && target.transportMeta) {
               content = buildTransportFailureCopy(target.transportMeta, retryable)
@@ -4983,7 +5030,7 @@ export function useConversation(): UseConversationReturn {
                 .filter((s) => s.length > 0)
                 .join('\n\n')
             }
-            const retryChips: ActionChip[] = retryable && mode === 'user' && !hidden
+            const retryChips: ActionChip[] = retryable && !deliveryUnverified && mode === 'user' && !hidden
               ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
               : []
             // System turns get NO transcript bubble — the failure propagates to
@@ -5004,7 +5051,9 @@ export function useConversation(): UseConversationReturn {
             if (inputForRestore) {
               setLastSendFailure({
                 kind: transportFailure ? 'transport' : 'server',
-                retryable,
+                // Copy-agrees-with-affordance: no retry is offered on the
+                // unverified-delivery shape, so none is advertised (2.665 I-B).
+                retryable: retryable && !deliveryUnverified,
                 inputText: inputForRestore,
               })
             } else if (mode === 'system') {
@@ -6004,7 +6053,14 @@ export function useConversation(): UseConversationReturn {
         return next
       })
       // Re-send without creating a new user bubble (original is already in thread).
-      // Reuse the original client_turn_id for idempotent retry.
+      // Reuse the original client_turn_id — for CORRELATION, not for idempotency.
+      // ⚠ This comment used to claim "idempotent retry". It is not: CEE keys its
+      // commit on its own per-HTTP-request id, not on payload.turn_id (measured
+      // at CEE 0ecf5c67 — see buildPayload.ts's `retryOf` note). A retry writes a
+      // SECOND turn row. That is acceptable on the paths that still offer this
+      // affordance, because they are the ones where the turn's failure is
+      // VERIFIED; it is why the wait-expiry and proxy-timeout paths (ROADMAP
+      // 2.665, delivery unverified) no longer offer it at all.
       await sendTurn({
         message: last.message,
         mode: 'user',
@@ -6188,7 +6244,8 @@ export function useConversation(): UseConversationReturn {
     //   caught that. The argument was right; the code now matches it.
     //
     //   WHY IT IS OUT, not merely unnecessary. `retryLast` re-sends with the SAME
-    //   `client_turn_id` for idempotent replay (the `retryClientTurnId` send
+    //   `client_turn_id` (for correlation — NOT idempotent replay, see
+    //   buildPayload.ts's `retryOf` note; corrected ROADMAP 2.665) (the `retryClientTurnId` send
     //   option, consumed at sendTurn's `turnClientId` mint), and this
     //   set is add-only — nothing ever deleted from it.
     //

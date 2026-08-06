@@ -161,6 +161,21 @@ export const MessageBubble = memo(function MessageBubble({
   // Transcript honesty (trust item #3): a user send whose turn failed must
   // LOOK failed — marker + optional retry affordance on the message itself.
   const sendFailed = isUser && message.deliveryState === 'failed'
+  // ROADMAP 2.665: the third state. "Not delivered" is a claim, and after a
+  // wait expiry or a proxy timeout this client cannot make it — CEE completes
+  // and commits turns the browser stopped listening for, and nothing here can
+  // check. This marker says what is true and offers no retry (retrying asks
+  // twice; see deliveryUnknown.ts).
+  const sendUnconfirmed = isUser && message.deliveryState === 'unconfirmed'
+  const sendUnconfirmedMarker = sendUnconfirmed ? (
+    <div
+      className={`${styles.sendFailedRow} ${typography.panelMeta}`}
+      data-testid="send-unconfirmed-indicator"
+    >
+      <AlertCircle size={12} aria-hidden="true" />
+      <span>Sent — reply not received</span>
+    </div>
+  ) : null
   const sendFailedMarker = sendFailed ? (
     <div
       className={`${styles.sendFailedRow} ${typography.panelMeta}`}
@@ -200,6 +215,7 @@ export const MessageBubble = memo(function MessageBubble({
           <span className={typography.caption}>{message.displayContent ?? message.content}</span>
         </div>
         {sendFailedMarker}
+        {sendUnconfirmedMarker}
       </>
     )
   }
@@ -334,6 +350,7 @@ export const MessageBubble = memo(function MessageBubble({
         * affordance on the message itself. Cleared when a retry delivers
         * (deliveryState flips back to 'sent'). */}
       {sendFailedMarker}
+      {sendUnconfirmedMarker}
       {/* T6: persistent "Response stopped." indicator on user-cancelled turns.
         * Set by useConversation.cancelTurn(); never cleared by late chunks. */}
       {message.stoppedByUser && (

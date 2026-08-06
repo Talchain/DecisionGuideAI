@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useConversation } from '../useConversation'
+import { EXTENDED_TIMEOUT_MS } from '../../../v5/getTimeoutMs'
 import { useCanvasStore } from '../../store'
 
 // ---------------------------------------------------------------------------
@@ -201,7 +202,7 @@ describe('Scenario 4: tool suppression', () => {
 // ---------------------------------------------------------------------------
 
 describe('Scenario 5: timeout progression', () => {
-  it('shows thinking, delayed warning at 30s, error message at 60s', async () => {
+  it('shows thinking, delayed warning at 30s, notice once the wait expires', async () => {
     mockCallTurn.mockReturnValue(new Promise(() => {}))
 
     const { result } = renderHook(() => useConversation())
@@ -218,8 +219,13 @@ describe('Scenario 5: timeout progression', () => {
     act(() => { vi.advanceTimersByTime(30_000) })
     expect(result.current.longRunningHint).toBe('Thinking... 30s')
 
-    // At 60s: timeout error bubble
-    act(() => { vi.advanceTimersByTime(30_000) })
+    // Once the wait expires: the notice bubble.
+    // ⚠ ROADMAP 2.665 — this used to advance to 60s. The client no longer stops
+    // waiting before the server's own deadline (CEE clamps its turn budget to
+    // the 125s browser-proxy deadline), because stopping earlier destroys a
+    // reply CEE has already committed and nothing in this client can collect it
+    // afterwards. Advance past the real wait instead of past a stale literal.
+    act(() => { vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS) })
     expect(result.current.isThinking).toBe(false)
     const last = result.current.messages[result.current.messages.length - 1]
     expect(last.synthetic).toBe(true)
