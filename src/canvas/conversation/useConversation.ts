@@ -6053,7 +6053,14 @@ export function useConversation(): UseConversationReturn {
         return next
       })
       // Re-send without creating a new user bubble (original is already in thread).
-      // Reuse the original client_turn_id for idempotent retry.
+      // Reuse the original client_turn_id — for CORRELATION, not for idempotency.
+      // ⚠ This comment used to claim "idempotent retry". It is not: CEE keys its
+      // commit on its own per-HTTP-request id, not on payload.turn_id (measured
+      // at CEE 0ecf5c67 — see buildPayload.ts's `retryOf` note). A retry writes a
+      // SECOND turn row. That is acceptable on the paths that still offer this
+      // affordance, because they are the ones where the turn's failure is
+      // VERIFIED; it is why the wait-expiry and proxy-timeout paths (ROADMAP
+      // 2.665, delivery unverified) no longer offer it at all.
       await sendTurn({
         message: last.message,
         mode: 'user',
@@ -6237,7 +6244,8 @@ export function useConversation(): UseConversationReturn {
     //   caught that. The argument was right; the code now matches it.
     //
     //   WHY IT IS OUT, not merely unnecessary. `retryLast` re-sends with the SAME
-    //   `client_turn_id` for idempotent replay (the `retryClientTurnId` send
+    //   `client_turn_id` (for correlation — NOT idempotent replay, see
+    //   buildPayload.ts's `retryOf` note; corrected ROADMAP 2.665) (the `retryClientTurnId` send
     //   option, consumed at sendTurn's `turnClientId` mint), and this
     //   set is add-only — nothing ever deleted from it.
     //

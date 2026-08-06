@@ -52,12 +52,26 @@ export interface BuildV5PayloadInput {
     | undefined
   /**
    * Prior client_turn_id being retried. Today's UI reuses the prior
-   * client_turn_id as the new turn's `turn_id` for idempotent replay
+   * client_turn_id as the new turn's `turn_id`
    * (see useConversation.retryLast → sendTurn({retryClientTurnId})).
    * That path does NOT populate `retryOf` because `retry_of` would
    * equal `turn_id` and be redundant. The field is kept here for
    * future use if the retry flow ever switches to allocating a new
    * turn_id while referencing the prior one.
+   *
+   * ⚠ THIS DOES NOT BUY IDEMPOTENCY, AND THIS COMMENT USED TO SAY IT DID
+   * ("for idempotent replay"). Corrected at CEE's bytes, ROADMAP 2.665,
+   * staging `0ecf5c67`: CEE's commit idempotency key IS `(scenario_id,
+   * turn_id)`, but the `turn_id` it writes is CEE's OWN per-HTTP-request id
+   * — `turn-executor.ts` passes `turn_id: requestId` / `turn_id:
+   * context.request_id`, and `getOrGenerateRequestId` mints a fresh UUID
+   * whenever the request carries no `x-request-id` / `x-cee-request-id` /
+   * `x-correlation-id` header. This client sends none of them
+   * (`v5/turnAuthHeaders.ts` emits only `X-User-Id` + `Authorization`), and
+   * CEE never reads `payload.turn_id` as a dedupe key at all. Two sends of
+   * the same ask therefore commit TWO rows. Reusing the id is still useful
+   * for correlation and for the client's own bookkeeping — it is simply not
+   * a duplicate-write defence, and must not be relied on as one.
    */
   retryOf?: string | undefined
   /** Required when mode === 'system'. Internal SystemEvent shape. */
