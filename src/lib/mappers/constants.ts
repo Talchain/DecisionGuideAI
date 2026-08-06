@@ -88,7 +88,7 @@ export const COPY = {
    * @returns Formatted message with correct singular/plural
    */
   FILTERED_EDGES_TEMPLATE: (count: number): string =>
-    `${count} additional assumption${count === 1 ? '' : 's'} changed the best option in <30% of simulations`,
+    `${count} additional assumption${count === 1 ? '' : 's'} changed which option ranks first in <30% of simulations`,
 
   /**
    * Task 1: Message for hidden high-risk edges (above threshold but cut by display limit).
@@ -115,7 +115,7 @@ export const COPY = {
 
   /** Message when all assumptions below threshold */
   ALL_BELOW_THRESHOLD: (count: number, threshold: number): string =>
-    `No high-sensitivity assumptions found. ${count} assumption${count === 1 ? '' : 's'} changed the best option in <${Math.round(threshold * 100)}% of simulations.`,
+    `No high-sensitivity assumptions found. ${count} assumption${count === 1 ? '' : 's'} changed which option ranks first in <${Math.round(threshold * 100)}% of simulations.`,
 
   /** Task 3: Empty improvements message when model is in good state */
   IMPROVEMENTS_EMPTY_READY: 'No improvements identified — your model structure is sound.',

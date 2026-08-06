@@ -2915,7 +2915,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const filteredFragileEdges = filteredFragileEdgesCount > 0 ? {
       filteredCount: filteredFragileEdgesCount,
       threshold: FRAGILE_EDGE_THRESHOLD,
-      description: `${filteredFragileEdgesCount} additional ${filteredFragileEdgesCount === 1 ? 'assumption' : 'assumptions'} changed the best option in <${Math.round(FRAGILE_EDGE_THRESHOLD * 100)}% of simulations`,
+      // ROADMAP 2.724 — analysis description, not a verdict. What the
+      // simulation changed is which option came out on top; "the best option"
+      // crowned a choice. Count and threshold are unchanged.
+      description: `${filteredFragileEdgesCount} additional ${filteredFragileEdgesCount === 1 ? 'assumption' : 'assumptions'} changed which option ranks first in <${Math.round(FRAGILE_EDGE_THRESHOLD * 100)}% of simulations`,
     } : undefined
 
     // Bug 2 fix: Extract robustness level for "Good foundation" logic

@@ -915,7 +915,16 @@ export const OptionNode = memo((props: NodeProps) => {
       if (isRecommended) {
         return (
           <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip chipId="option_what_would_change" actionType="what_would_flip" label="What would change this?" message={`What would need to change for ${optionLabel} to no longer be the best choice?`} />
+            {/* ROADMAP 2.724 — CONTRASTIVE, not a verdict. This chip composes a
+                sentence that lands in the user's OWN transcript, so the old
+                "…to no longer be the best choice?" made the system put a
+                crowning claim in the user's mouth and then answer it. The
+                product recommends what to INVESTIGATE, never what to CHOOSE.
+                Asking about the ALTERNATIVE keeps the whole what_would_flip
+                question while presupposing nothing about the leader. Same
+                register as the sibling non-leader chips ("to become the
+                leader") and `winnerChipCopy.ts` (ROADMAP 1.223). */}
+            <NodeChip chipId="option_what_would_change" actionType="what_would_flip" label="What would change this?" message={`What would need to change for another option to lead instead of ${optionLabel}?`} />
             <NodeChip chipId="option_why_lead" actionType="explain_results" label="Why does this lead?" message={`Why does ${optionLabel} lead over the other options?`} />
           </div>
         )
