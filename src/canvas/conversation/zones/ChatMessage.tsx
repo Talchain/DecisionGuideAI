@@ -36,9 +36,6 @@ const CATEGORY_BORDER: Record<MessageCategory, string> = {
 interface ChatMessageProps {
   message: ConversationMessage
   isFirst: boolean
-  /** When true, suppress inline ActionChipRow (chips rendered externally by SuggestedChips) */
-  hideChips?: boolean
-  /** When true, inline chips are visible but non-interactive (historical turn) */
   onChipClick: (chip: ActionChip) => Promise<void>
   onRetry: () => void
   patchBlockStates?: Map<string, PatchBlockState>
@@ -61,7 +58,6 @@ interface ChatMessageProps {
 export const ChatMessage = memo(function ChatMessage({
   message,
   isFirst,
-  hideChips,
   onChipClick,
   onRetry,
   patchBlockStates,
@@ -103,7 +99,6 @@ export const ChatMessage = memo(function ChatMessage({
 
       <MessageBubble
         message={message}
-        hideChips={hideChips}
         onChipClick={onChipClick}
         patchBlockStates={patchBlockStates}
         patchRejections={patchRejections}
