@@ -15,7 +15,6 @@ import { ChatMessage } from './ChatMessage'
 import { SessionDivider } from '../primitives/SessionDivider'
 import { ThinkingIndicator } from './ThinkingIndicator'
 import { SuggestedChips } from './SuggestedChips'
-import { isChipRenderable } from '../chipDispatch'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
 
@@ -118,14 +117,19 @@ export const ChatThread = memo(function ChatThread({
   const failedSendRetryId =
     lastUserMsg && lastUserMsg.deliveryState === 'failed' ? lastUserMsg.id : null
 
-  // Get suggested chips from last assistant message
+  // Get suggested chips from last assistant message.
+  //
+  // `SuggestedChips` below is the SOLE render surface for `actionChips`
+  // (verified at 4fbc6451: `<ActionChipRow` has zero production render sites,
+  // and `MessageBubble` renders no chips). Until 2026-08-07 this line was
+  // followed by a `suggestedChipsWillRender` predicate feeding a `hideChips`
+  // prop down ChatMessage → MessageBubble to "suppress the inline
+  // ActionChipRow". MessageBubble declared that prop and never destructured
+  // it: the whole chain was inert, and its comments described a suppression
+  // mechanism that no longer had anything to suppress. Removed rather than
+  // re-documented — a dead guard that reads as a live one is how ROADMAP
+  // 2.668's second defect came to be diagnosed against this file at all.
   const suggestedChips = lastAssistantMsg?.actionChips ?? []
-  // Only hide inline chips when SuggestedChips will actually render something.
-  // ROADMAP 2.138: this used to be a THIRD hand-written copy of the render rule
-  // (`!!c.message`) that had already drifted from SuggestedChips' own copy
-  // (`message || prompt`). It now calls the same predicate the row calls, so the
-  // mirror cannot drift again.
-  const suggestedChipsWillRender = suggestedChips.some(isChipRenderable)
 
   return (
     <div
@@ -158,7 +162,6 @@ export const ChatThread = memo(function ChatThread({
             key={msg.id}
             message={msg}
             isFirst={i === 0}
-            hideChips={isLastAssistant && suggestedChipsWillRender}
             onChipClick={onChipClick}
             onRetry={onRetry}
             showFailedSendRetry={msg.id === failedSendRetryId}

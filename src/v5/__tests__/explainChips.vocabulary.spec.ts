@@ -67,27 +67,29 @@ describe('explain-chips vocabulary — parser → filter seam (V-P0-2)', () => {
     expect(V5_ENABLED_ACTIONS.has('explain_results')).toBe(true)
   })
 
-  it('schema-enum values the filter deliberately EXCLUDES are exactly the documented list — a new enum/emitter value forces a decision here', () => {
-    // These are schema-valid on the wire but have no chip affordance:
-    // set_factor_value/add_constraint/adjust_edge_strength/compare_options
-    // have no V5 end-to-end chip handler; explain_from_structure has no
-    // ACTION_TO_TURN_TYPE dispatch mapping yet (rendering it would promise
-    // action and deliver default routing — add filter + mapping together).
-    // analysis_readiness (added to the enum in schemas 0.20.0) is an OUTBOUND
-    // spark-send intent — the UI sends it as a spark's chip.action_type; it is
-    // never a chip CEE SUGGESTS back for us to render, so it deliberately has
-    // no V5_ENABLED_ACTIONS affordance and belongs here.
+  it('schema-enum values the filter EXCLUDES are exactly those with no dispatch mapping', () => {
+    // ⚠ CORRECTED 2026-08-07 (ROADMAP 2.668). This assertion used to pin SIX
+    // exclusions with hand-written reasons, and three of those reasons had gone
+    // FALSE while the test stayed green — the defect this file's own header
+    // warns about, committed inside the guard written to prevent it.
+    //
+    // The false claim was that set_factor_value / add_constraint /
+    // adjust_edge_strength "have no V5 end-to-end chip handler". They are CEE's
+    // three REGISTERED graph-mutation handlers (witnessed in the deployed
+    // handler registry, 2026-08-06) and the entire propose-confirm consent
+    // channel is minted from them. CEE emitted those chips; this filter deleted
+    // them on arrival, and this test certified the deletion as correct.
+    // `compare_options` was excluded on the same false ground.
+    //
+    // Two exclusions remain and both are now DERIVED rather than remembered:
+    // `explain_from_structure` and `analysis_readiness` have no
+    // ACTION_TO_TURN_TYPE mapping, so a click would fall through to the default
+    // turn type — the "promises action, delivers default routing" case the old
+    // comment named. Add the mapping and the chip lights up on its own; nobody
+    // has to remember to edit a list. The general form of this assertion lives
+    // in chipActionVocabulary.spec.ts ("excluded for a DERIVABLE reason").
     const excluded = ActionType.options.filter((t) => !V5_ENABLED_ACTIONS.has(t))
-    expect(new Set(excluded)).toEqual(
-      new Set([
-        'set_factor_value',
-        'add_constraint',
-        'adjust_edge_strength',
-        'compare_options',
-        'explain_from_structure',
-        'analysis_readiness',
-      ]),
-    )
+    expect(new Set(excluded)).toEqual(new Set(['explain_from_structure', 'analysis_readiness']))
   })
 
   it('the debug-bundle turn selector recognises the explain chip vocabulary (review fold)', () => {

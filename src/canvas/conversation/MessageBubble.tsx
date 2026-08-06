@@ -116,9 +116,16 @@ export function findNaturalTruncation(text: string): string | null {
 
 interface MessageBubbleProps {
   message: ConversationMessage
-  /** When true, suppress inline ActionChipRow (chips rendered externally by SuggestedChips) */
-  hideChips?: boolean
-  /** When true, inline ActionChipRow is visible but non-interactive (historical turn) */
+  /**
+   * ⚠ CURRENTLY UNUSED BY THIS COMPONENT — declared, never destructured. Said
+   * plainly because the neighbouring `hideChips` prop was dead in exactly the
+   * same way and its comment did not say so, which is how ROADMAP 2.668's
+   * second defect came to be diagnosed against a chain that does nothing.
+   * `SuggestedChips` (via ChatThread) is the sole render surface for
+   * `message.actionChips`. Left in place rather than removed: it is a REQUIRED
+   * prop threaded from ~19 call sites and specs, so withdrawing it is a
+   * separate tidy-up, not part of a consent fix.
+   */
   onChipClick: (chip: ActionChip) => Promise<void>
   patchBlockStates?: Map<string, PatchBlockState>
   patchRejections?: Map<string, PatchRejectionInfo>
