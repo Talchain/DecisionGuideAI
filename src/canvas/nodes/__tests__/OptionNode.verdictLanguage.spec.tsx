@@ -114,6 +114,12 @@ const baseProps = {
   positionAbsoluteY: 0,
   dragging: false,
   zIndex: 0,
+  // `NodeProps` requires the full Required<Pick<...>> set; the older sibling
+  // spec predates the typecheck ratchet and carries its omissions in the
+  // baseline. New files get them right rather than joining the baseline.
+  deletable: true,
+  selectable: true,
+  draggable: true,
 }
 
 const OPTION_LABEL = 'Hire 3 engineers'
