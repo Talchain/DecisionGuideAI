@@ -269,9 +269,12 @@ export const ConstraintNodeDataSchema = NodeDataSchema.extend({
 })
 
 /**
- * Discriminated union of all node data types
+ * The eight per-type node-data schemas, in one place. BOTH unions below are
+ * derived from this single array, so adding a node type reaches the strict
+ * union AND the migration-boundary union automatically — there is no second
+ * list to keep in sync (trap 12: derive, don't mirror).
  */
-export const AnyNodeDataSchema = z.discriminatedUnion('type', [
+const NODE_DATA_SCHEMAS = [
   GoalNodeDataSchema,
   DecisionNodeDataSchema,
   OptionNodeDataSchema,
@@ -280,7 +283,65 @@ export const AnyNodeDataSchema = z.discriminatedUnion('type', [
   OutcomeNodeDataSchema,
   ActionNodeDataSchema,
   ConstraintNodeDataSchema,
-])
+] as const
+
+/**
+ * Discriminated union of all node data types.
+ *
+ * STRICT (Zod default `unknownKeys: 'strip'`). This is the shape that backs the
+ * exported `NodeData`/`GoalNodeData`/… types and the warning-only
+ * `validateNodeData` drift check — both want a tight, fully-declared shape.
+ * Do NOT use it to parse a snapshot: see `AnyNodeDataImportSchema`.
+ */
+export const AnyNodeDataSchema = z.discriminatedUnion('type', NODE_DATA_SCHEMAS)
+
+/**
+ * ROADMAP 2.590 — the migration-boundary variant of the union above.
+ *
+ * ── The defect this exists to close ──────────────────────────────────────────
+ * `V2SnapshotSchema` (domain/migrations.ts) parsed node `data` with the STRICT
+ * union. Zod object schemas strip undeclared keys by default, so importing a
+ * real export silently destroyed every field outside the ~8-13 keys each
+ * per-type schema declares. A measured genuine export came back with
+ * `goal_mrr.data` reduced to exactly `{kind, label, provenance, type}` — target,
+ * unit and cap gone, no error anywhere. **The parser was discarding what the
+ * renderers read**: `nodes/GoalNode.tsx` reads `data.goal_threshold_raw`,
+ * `goal_threshold_unit`, `success_threshold` and `threshold_source`; not one of
+ * those is declared by any schema in the union. `nodes/BaseNode.tsx` — the
+ * shared wrapper for ALL eight renderers — reads `flagged_as_assumption`,
+ * `uncertainty`, `unknownKind` and `originalKind`, none of them declared either.
+ *
+ * ── Why permissive HERE and nowhere else ─────────────────────────────────────
+ * An import parser's job at this boundary is SHAPE VALIDATION AND MIGRATION —
+ * check the discriminant, the required fields, the version. Deciding which data
+ * fields are legitimate is not its job; the filtering was a side effect of using
+ * a strict object schema as a validator, never a designed behaviour. Every other
+ * layer of this repo already treats `node.data` as an open bag on purpose:
+ *   • `transformNodeToV2` (adapters/plot/v2/adapter.ts) uses a BLOCKLIST, and
+ *     says so — "all node.data fields pass through to PLoT EXCEPT … This ensures
+ *     V3 fields (goal_threshold_*, prior, etc.) survive without needing explicit
+ *     forwarding."
+ *   • `CanvasNodeData` (same file) declares `[key: string]: unknown`.
+ *   • `computeGraphHash` (hooks/useAutosave.ts) hashes ALL node data by default
+ *     with a small explicit ephemeral denylist.
+ *   • `ObservedStateSchema` and `EdgeDataSchema` are ALREADY `.passthrough()` —
+ *     which is precisely why nested observed state and edge data survived import
+ *     while top-level node data did not.
+ *   • UI CLAUDE.md: "Preserve unknown fields everywhere — that's how
+ *     forward-compatible data survives the version skew."
+ * The strict union was the last allowlist on an otherwise open path, and it was
+ * the only one positioned to destroy user data.
+ *
+ * Discrimination, required fields and per-field types are UNCHANGED — a node
+ * with a bad `type`, a missing `label` or an out-of-range `utility` is still
+ * rejected exactly as before. Only the silent deletion of undeclared keys stops.
+ *
+ * Round-trip survival is pinned by `__tests__/importFieldSurvival.2590.spec.ts`.
+ */
+export const AnyNodeDataImportSchema = z.discriminatedUnion(
+  'type',
+  NODE_DATA_SCHEMAS.map((schema) => schema.passthrough()) as unknown as typeof NODE_DATA_SCHEMAS,
+)
 
 export type NodeData = z.infer<typeof AnyNodeDataSchema>
 export type GoalNodeData = z.infer<typeof GoalNodeDataSchema>
