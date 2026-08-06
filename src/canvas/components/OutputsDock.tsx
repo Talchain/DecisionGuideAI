@@ -83,7 +83,15 @@ import {
 // Lazy: flag-off users never pay the v3 bundle cost.
 const PreAnalysisPanelV3 = lazy(() => import('./pre-analysis-v3'))
 import { useConversation } from '../conversation/useConversation'
-import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip, computeCeeCannotSeeModel } from '../utils/canRunAnalysis'
+import {
+  canRunAnalysis as canRunAnalysisUtil,
+  getRunButtonTooltip,
+  computeCeeCannotSeeModel,
+  readinessObjectsToRun,
+  verdictLicenceSuperseded,
+  RUN_LICENCE_SUPERSEDED_REFUSAL,
+  type ReadinessVerdictLicence,
+} from '../utils/canRunAnalysis'
 import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
@@ -126,6 +134,10 @@ import { verboseDebug } from '../../utils/verboseLog'
 import { AnalysisFooter } from '../shared/AnalysisFooter'
 import { derivePostFooterStatus, derivePostFooterMeta } from './utils/postAnalysisFooter'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
+// ROADMAP 2.635 (I-4) — read at DISPATCH time, not via a render-scope selector:
+// the whole point of the licence barrier is to see the store as it is when the
+// run actually goes out, not as it was when the gate was computed.
+import { useReadinessStore } from '../stores/readinessStore'
 import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer'
 import { DefineSuccessModal, DecisionRecordModal, HowComputedModal } from '../../components/results/modals'
 
@@ -824,7 +836,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // rather than kept alongside it.
   const runStatus = runStatusRegion({ isRunning })
 
-  const { readiness } = useGraphReadiness()
+  // ROADMAP 2.635 — `stale` feeds the gate's COPY (I-3) and `verdictAtMs`
+  // identifies WHICH verdict licensed a run (I-4).
+  const { readiness, stale: readinessStale, verdictAtMs: readinessVerdictAtMs } = useGraphReadiness()
 
   // C1 review: the orphan-banner footer suppression is GONE. It rested on a
   // premise that is false at this ref — it claimed the footer would carry
@@ -894,7 +908,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     ceeCannotSeeModel: computeCeeCannotSeeModel(nodes),
     draftStreamPhase,
     optionsNeedingValues,
+    readinessStale,
   })
+  // ROADMAP 2.635 (I-4) — the identity of the verdict this gate result was
+  // computed against, captured at the same moment so the two cannot drift.
+  const licensedByVerdict = useMemo<ReadinessVerdictLicence>(
+    () => ({ verdictAtMs: readinessVerdictAtMs, stale: readinessStale }),
+    [readinessVerdictAtMs, readinessStale],
+  )
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
   const showToast = useShowToastSafe()
@@ -936,6 +957,38 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         status: 'blocked',
         reason: 'Could not save your latest changes. Check your connection and try again.',
       }
+    }
+    // ── ROADMAP 2.635 (I-4): the run is bound to the verdict that licensed it ──
+    //
+    // The gate above was evaluated during RENDER. This callback dispatches
+    // later, and the `flushPendingSaves()` await immediately above is a real
+    // window — a fresh verdict, or a staleness mark, can land inside it. Until
+    // now nothing tied the click to the assessment that opened the gate, so a
+    // run dispatched against a SUPERSEDED verdict looked exactly like one
+    // dispatched against a current one, and a doomed run was un-attributable.
+    //
+    // The check is deliberately narrow. A moved licence alone does NOT stop the
+    // run: staleness marks flip on ordinary canvas churn, and refusing on that
+    // would hand the user a Run button that fails whenever they touched
+    // anything. It stops only the case that is actually doomed — the licence
+    // moved AND the verdict now on screen OBJECTS. That question is asked of
+    // `readinessObjectsToRun`, the gate's own rung predicate, so there is still
+    // exactly one definition of what a readiness objection is (I-5).
+    const licenceAtDispatch = useReadinessStore.getState()
+    if (
+      verdictLicenceSuperseded(licensedByVerdict, {
+        verdictAtMs: licenceAtDispatch.verdictAtMs,
+        stale: licenceAtDispatch.stale,
+      }) &&
+      readinessObjectsToRun(licenceAtDispatch.readiness)
+    ) {
+      console.warn('[OutputsDock] run licence superseded before dispatch', {
+        licensedByVerdictAtMs: licensedByVerdict.verdictAtMs,
+        licensedByStale: licensedByVerdict.stale,
+        atDispatchVerdictAtMs: licenceAtDispatch.verdictAtMs,
+        atDispatchStale: licenceAtDispatch.stale,
+      })
+      return { status: 'blocked', reason: RUN_LICENCE_SUPERSEDED_REFUSAL }
     }
     // Capture pre-analysis review progress for transition bridge
     const storeState = useCanvasStore.getState()
@@ -1015,7 +1068,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
     await runV2Analysis()
     return { status: 'v2' }
-  }, [canRunAnalysis, runBlockedTooltip, isRunning, runV2Analysis, framing, flushPendingSaves])
+  }, [canRunAnalysis, runBlockedTooltip, isRunning, runV2Analysis, framing, flushPendingSaves, licensedByVerdict])
 
   // Expose the canonical runner to other surfaces (canvas shortcut, palette).
   useEffect(() => registerCanonicalRunner(runCanonicalAnalysis), [runCanonicalAnalysis])

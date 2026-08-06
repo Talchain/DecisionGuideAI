@@ -34,6 +34,7 @@ import { useCanvasStore } from '../../store'
 import {
   clearInflightCache,
   CEE_READINESS_LEVELS,
+  ACCEPTED_READINESS_LEVELS,
 } from '../../hooks/useGraphReadiness'
 import { canRunAnalysis, getRunButtonTooltip } from '../../utils/canRunAnalysis'
 
@@ -157,10 +158,13 @@ describe('positive controls — the rest of the vocabulary is unchanged', () => 
   it.each([
     ['fair', 55],
     ['needs_work', 20],
-    // Not a CEE value — emitted only by the UI's own CEE-down fallback. Kept
-    // accepted so the fallback path (divergence 2, out of scope here) is not
-    // disturbed by this change.
-    ['strong', 85],
+    // ROADMAP 2.635 — `['strong', 85]` used to sit here, described as "not a CEE
+    // value … kept accepted so the fallback path is not disturbed". The fallback
+    // path is now DELETED (`calculateFallbackReadiness` and its last caller, the
+    // 429 arm), so `strong` has no writer and is no longer accepted. It moved to
+    // the degradation table below, which is where a value the producer cannot
+    // emit belongs.
+    ['ready', 85],
   ])('passes %s through unchanged', async (level, score) => {
     const readiness = await readinessAfterCeeSays({
       ...CEE_READY_RESPONSE,
@@ -192,6 +196,10 @@ describe('positive controls — the rest of the vocabulary is unchanged', () => 
 
   it.each([
     ['an unknown vocabulary member', 'excellent'],
+    // ROADMAP 2.635 — the retired local-fallback band. Nothing emits it now, and
+    // if anything ever did it would be a UI invention, so it degrades like any
+    // other unrecognised input rather than reaching a surface.
+    ['the retired local-fallback band', 'strong'],
     ['a value from a different lifecycle', 'close_call'],
     ['garbage', '<script>'],
     ['a non-string', 42],
@@ -218,5 +226,22 @@ describe('the accepted set is the producer vocabulary', () => {
 
   it('does not treat "strong" as a producer value', () => {
     expect(CEE_READINESS_LEVELS as readonly string[]).not.toContain('strong')
+  })
+
+  // ── ROADMAP 2.635 (I-1): the accepted set may not exceed the producer's ──
+  //
+  // Until 2.635 the accepted set was the producer's set PLUS a UI-invented
+  // member (`strong`), because the UI had a local writer that emitted it. That
+  // writer is deleted. This pins the resulting property, which is stronger than
+  // "strong is absent": the UI accepts EXACTLY what CEE can emit, so no future
+  // arm can quietly widen the vocabulary to make room for another local guess.
+  //
+  // ⚠ Deriving `ACCEPTED_READINESS_LEVELS` from `CEE_READINESS_LEVELS` proves
+  // the two AGREE; it can never prove the producer list is COMPLETE (trap 12d).
+  // Completeness of `CEE_READINESS_LEVELS` against CEE itself is a cross-repo
+  // mirror, and is asserted separately above against the CEE SHA in this file's
+  // header. The two guards are not redundant and neither supersedes the other.
+  it('accepts exactly the producer vocabulary and nothing the UI invented', () => {
+    expect([...ACCEPTED_READINESS_LEVELS].sort()).toEqual([...CEE_READINESS_LEVELS].sort())
   })
 })

@@ -300,37 +300,40 @@ describe('readinessStore — a server error is not a verdict (ROADMAP 2.339)', (
     })
   })
 
-  // ── The one limb deliberately left alone ─────────────────────────
+  // ── The limb 2.339 left alone, RETIRED in ROADMAP 2.635 ──────────
   //
-  // 429 still publishes the local fallback, with an error string that says so.
-  // It is out of scope for 2.339 (named in the PR body and rowed separately);
-  // this pin exists so its behaviour cannot drift silently while the sibling
-  // limbs are being rewritten.
-  describe('the 429 limb is unchanged and still labelled', () => {
-    it('publishes the local fallback with the rate-limit label', async () => {
+  // This block used to be titled "the 429 limb is unchanged and still
+  // labelled", and pinned the arm publishing `calculateFallbackReadiness` with
+  // the error 'Rate limited - using local validation'. 2.339's own note said it
+  // was "out of scope … rowed separately"; 2.635 is that row, and the fallback
+  // is now deleted outright. The pins are updated rather than removed, because
+  // what they were really protecting — that this arm cannot drift into
+  // fabricating a verdict — is exactly the property that now holds absolutely.
+  describe('the 429 limb publishes no verdict (ROADMAP 2.635)', () => {
+    it('reports the rate limit and publishes no verdict at all', async () => {
       mockFetch.mockResolvedValue(mock429Response())
       seedCanvasWithNodes(3)
       useReadinessStore.getState().startListening()
       await vi.runAllTimersAsync()
 
       const state = useReadinessStore.getState()
-      expect(state.readiness).not.toBeNull()
-      expect(state.error).toBe('Rate limited - using local validation')
+      expect(state.readiness).toBeNull()
+      expect(state.error).toMatch(/rate limited/i)
+      // The old string asserted an assessment had been made. It had not.
+      expect(state.error).not.toMatch(/local validation/i)
     })
 
     // ROADMAP 2.332 — `verdictAtMs` means "when `readiness` was last set from
-    // an ANSWER". The 429 arm sets `readiness` from the LOCAL heuristic, so
-    // stamping it would let a surface cite a time for a number no server
-    // produced — the fabrication class this slice closes, re-created one field
-    // over. It is explicitly nulled, and this is the pin.
-    it('does not stamp verdictAtMs on the local rate-limit fallback', async () => {
+    // an ANSWER". A 429 is not one, and there is now no local verdict for it to
+    // timestamp either.
+    it('does not stamp verdictAtMs when a 429 is the first thing that happens', async () => {
       mockFetch.mockResolvedValue(mock429Response())
       seedCanvasWithNodes(3)
       useReadinessStore.getState().startListening()
       await vi.runAllTimersAsync()
 
       const state = useReadinessStore.getState()
-      expect(state.readiness).not.toBeNull()
+      expect(state.readiness).toBeNull()
       expect(state.verdictAtMs).toBeNull()
     })
 
@@ -360,22 +363,38 @@ describe('readinessStore — a server error is not a verdict (ROADMAP 2.339)', (
       expect(state.verdictAtMs).toBeNull()
     })
 
-    it('clears a real verdict timestamp when a later 429 replaces the verdict', async () => {
+    // ⚠ ROADMAP 2.635 INVERTED THIS TEST, AND THE INVERSION IS THE POINT.
+    //
+    // It used to be `clears a real verdict timestamp when a later 429 replaces
+    // the verdict`, and it was RIGHT while the 429 arm overwrote the server's
+    // answer with the local heuristic: the verdict on screen was then a
+    // fabrication, so citing the replaced answer's time would have been false.
+    //
+    // The arm no longer replaces anything. The verdict on screen after a 429 IS
+    // the server's own last answer, so its timestamp is the true time of that
+    // answer and the footer's "Showing the check from HH:MM" is a TRUE
+    // statement. Clearing it now would be the dishonest option — it would hide
+    // the age of the verdict the user is actually looking at.
+    it('retains the real verdict AND its timestamp when a later 429 arrives', async () => {
       mockFetch.mockResolvedValue(mockOpenServerResponse())
       seedCanvasWithNodes(3)
       useReadinessStore.getState().startListening()
       await vi.runAllTimersAsync()
-      expect(useReadinessStore.getState().verdictAtMs).toEqual(expect.any(Number))
+      const stamped = useReadinessStore.getState().verdictAtMs
+      expect(stamped).toEqual(expect.any(Number))
 
-      // The 429 arm OVERWRITES the server verdict with the heuristic (its own
-      // pre-existing defect, rowed separately). What must not survive that is
-      // the timestamp of the answer it replaced.
       clearInflightCache()
       mockFetch.mockResolvedValue(mock429Response())
       useReadinessStore.getState().refresh()
       await vi.runAllTimersAsync()
 
-      expect(useReadinessStore.getState().verdictAtMs).toBeNull()
+      const state = useReadinessStore.getState()
+      // Bound by the server's own verdict, not by a boolean a local guess could
+      // also satisfy (CLAUDE.md trap 19).
+      expect(state.readiness?.can_run_analysis).toBe(true)
+      expect(state.readiness?.confidence_explanation).toBe('Ready to analyse')
+      expect(state.verdictAtMs).toBe(stamped)
+      expect(state.error).toMatch(/rate limited/i)
     })
   })
 })

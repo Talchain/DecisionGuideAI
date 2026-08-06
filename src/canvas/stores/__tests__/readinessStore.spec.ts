@@ -27,7 +27,7 @@ function mockSuccessResponse(overrides: Record<string, unknown> = {}) {
     json: () =>
       Promise.resolve({
         readiness_score: 75,
-        readiness_level: 'strong',
+        readiness_level: 'ready', // ROADMAP 2.635 — was 'strong', the local heuristic's spelling of the top band; that heuristic is deleted and the level with it. `ready` is the producer's own top band at this score.
         can_run_analysis: true,
         confidence_explanation: 'Looks good',
         improvements: [],
@@ -320,15 +320,23 @@ describe('readinessStore', () => {
       expect(state.loading).toBe(false)
     })
 
-    it('backs off on 429 and uses fallback', async () => {
+    // ROADMAP 2.635 — was `backs off on 429 and uses fallback`, asserting
+    // `readiness` was non-null and the error read "using local validation".
+    // The fallback it referred to (`calculateFallbackReadiness`) is DELETED:
+    // it always granted the run pre-first-analysis and could overwrite a
+    // server refusal. A 429 is a statement about the SERVICE, so the arm now
+    // publishes no verdict — the backoff, which is what this test is really
+    // about, is unchanged and asserted directly.
+    it('backs off on 429 and publishes no verdict', async () => {
       mockFetch.mockResolvedValue(mock429Response())
       seedCanvasWithNodes(3)
       useReadinessStore.getState().startListening()
       await vi.runAllTimersAsync()
 
       const state = useReadinessStore.getState()
-      expect(state.readiness).not.toBeNull()
-      expect(state.error).toBe('Rate limited - using local validation')
+      expect(state.readiness).toBeNull()
+      expect(state.error).toMatch(/rate limited/i)
+      expect(__test__.getModuleState().backoff.delay).toBeGreaterThan(0)
     })
   })
 

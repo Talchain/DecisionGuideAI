@@ -97,6 +97,28 @@ export const BLOCKED_REASON_COPY = {
    * claim in exactly this position.
    */
   unspecified: 'Olumi is not able to run this yet. Ask in the chat and it will explain what is missing.',
+  /**
+   * ROADMAP 2.635 (I-3) — the verdict on screen was not asked about the model
+   * on screen.
+   *
+   * Every other rung in this object is a claim ABOUT THE MODEL, composed from
+   * the verdict's structured fields. That is only honest while the verdict is
+   * current. The moment a payload-affecting mutation lands, `readinessStore`
+   * marks the verdict `stale` — and those same fields start describing a graph
+   * the user has already changed. The user follows the named remedy, the canvas
+   * mutates, and the SAME sentence naming the SAME option is still on screen,
+   * because nothing has re-asked. That is a false reason, and POC-DONE's PC1 is
+   * explicit that a false reason is what makes a dead end where a truthful
+   * "can't yet, here's why" would not.
+   *
+   * So this rung describes THE CHECK, never the graph. It names no option, no
+   * count, no goal, and it is the only member of this object that is true
+   * independent of the verdict's contents — which is precisely what qualifies
+   * it to stand in for them. It is transient by construction: the refetch it
+   * describes is already debounced and in flight.
+   */
+  staleRecheck:
+    'Your model changed since the last check. Olumi is checking again, which takes a moment.',
 } as const
 
 /** Labels longer than this are elided so the footer stays one line. */
@@ -252,11 +274,39 @@ function promiseIsLicensed(readiness: GraphReadiness | null | undefined): boolea
  * Priority is by SPECIFICITY: name the actual remedy when the structured fields
  * support it, and degrade — never to a different factual claim, only to a less
  * specific true one.
+ *
+ * @param verdictIsStale ROADMAP 2.635 (I-3) — `readinessStore.stale`: the model
+ * has changed in a way this verdict was never asked about. When true, EVERY
+ * rung below is short-circuited, because every one of them is a claim about a
+ * graph this verdict did not grade. See `BLOCKED_REASON_COPY.staleRecheck`.
+ *
+ * ⚠ It defaults to `false` — "treat as current" — which is deliberate and is
+ * the pre-2.635 behaviour, so a caller who omits it gets today's copy rather
+ * than a new one. That default is only safe because the wiring is not left to
+ * memory: `blockedReasonStaleWiring.derived.spec.ts` DERIVES the call-site
+ * manifest from source and REDs if a production caller stops passing it. A
+ * hand-remembered argument is the trap-12 mirror; a derived guard on top of a
+ * safe default is not.
  */
 export function composeReadinessBlockedReason(
   readiness: GraphReadiness | null | undefined,
   optionsNeedingValues: readonly OptionNeedingValues[] = [],
+  verdictIsStale: boolean = false,
 ): string {
+  // ── ROADMAP 2.635 (I-3): a stale verdict is not quoted as current ──
+  //
+  // First, and before any field of `readiness` is read. Each rung below draws a
+  // specific factual claim — an option's name, a count, a missing goal — from
+  // the verdict's structured fields, and those fields describe the graph as it
+  // was when the verdict was taken. Once the canvas has moved on, publishing
+  // them tells the user to do something they may have just done.
+  //
+  // Note this rung short-circuits `unspecified` too. That sentence looks
+  // claim-free, but "Olumi is not able to run this yet" still asserts the
+  // verdict's `can_run_analysis: false` as a present-tense fact about the model
+  // on screen, and that is exactly the assertion staleness invalidates.
+  if (verdictIsStale) return BLOCKED_REASON_COPY.staleRecheck
+
   const trustNames = verifyAgainstVerdict(readiness, optionsNeedingValues)
   const labelled = trustNames
     ? optionsNeedingValues
@@ -362,6 +412,13 @@ function composedPatterns(): RegExp[] {
     BLOCKED_REASON_COPY.goalMissing,
     BLOCKED_REASON_COPY.tooFewOptions,
     BLOCKED_REASON_COPY.unspecified,
+    // ROADMAP 2.635 (I-3). Omitting it here would have been the exact failure
+    // this function's docstring warns about: an unrecognised composed sentence
+    // classifies as `foreign` and the render path degrades it to the surface's
+    // non-committal fallback — so the staleness disclosure would silently
+    // vanish at the very surface it was written for. Caught by the sample-matrix
+    // spec, which is why that spec asserts coverage of every key.
+    BLOCKED_REASON_COPY.staleRecheck,
   ]
   cachedPatterns = templates.map((template) => {
     const source = escapeForRegex(template)
