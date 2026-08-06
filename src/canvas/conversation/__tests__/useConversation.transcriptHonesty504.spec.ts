@@ -30,6 +30,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useConversation } from '../useConversation'
+import { assertsNonDelivery, assertsDeliveryUnknown } from '../deliveryUnknown'
 import { useCanvasStore } from '../../store'
 
 // ---------------------------------------------------------------------------
@@ -144,7 +145,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)', () => {
-  it('504 proxy timeout: the user message is marked deliveryState failed', async () => {
+  it('504 proxy timeout: the user message is marked deliveryState unconfirmed', async () => {
     stubFetchWith(504, PROXY_504_BODY)
     const { result } = renderHook(() => useConversation())
     await act(async () => {
@@ -153,9 +154,19 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
 
     const userMsg = result.current.messages.find((m) => m.role === 'user')
     expect(userMsg).toBeDefined()
-    // The transcript marker: a turn that never got through must not look
+    // The transcript marker: a turn that did not come back must not look
     // identical to a delivered one.
-    expect(userMsg?.deliveryState).toBe('failed')
+    //
+    // ⚠ ROADMAP 2.665 — CORRECTED AT SOURCE, NOT BASELINED. This asserted
+    // 'failed', and 'failed' renders "Not delivered" — a claim this client
+    // cannot support for a PROXY timeout. The 504 body means the request
+    // REACHED CEE and the proxy stopped waiting; CEE runs that turn to
+    // completion and commits it (live-witnessed 2026-08-07: client gave up at
+    // 60.0s, server returned 200 at 123.1s with rows written). 'unconfirmed'
+    // is the honest state, and it is still visibly not-delivered-looking — see
+    // deliveryUnknownHonesty.spec.tsx for the marker and the discriminating
+    // pair that keeps a real network throw saying 'failed'.
+    expect(userMsg?.deliveryState).toBe('unconfirmed')
   })
 
   it('504 proxy timeout: failure copy is transport-honest — no false server-fault claim, no invented recovery, retry offered', async () => {
@@ -167,17 +178,21 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
 
     const last = result.current.messages[result.current.messages.length - 1]
     expect(last.role).toBe('assistant')
-    // Transport truth: the message did not go through, and nothing was lost.
-    expect(last.content).toMatch(/didn’t go through|didn't go through|didn’t reach|didn't reach/)
+    // ⚠ ROADMAP 2.665 — CORRECTED AT SOURCE. This used to require the copy to
+    // say the message "didn't go through", and to offer a Retry. Both were
+    // wrong for a PROXY 504 specifically: the request reached CEE, which
+    // completes and commits the turn regardless, so non-delivery was never
+    // verified — and the Retry asked a second time, because CEE keys its commit
+    // on its own per-request id rather than on payload.turn_id.
+    expect(assertsNonDelivery(last.content)).toBe(false)
+    expect(assertsDeliveryUnknown(last.content)).toBe(true)
     expect(last.content).toContain('Nothing you typed was lost')
     // NOT the generic server-fault claim (that is the CEE-class copy).
     expect(last.content).not.toContain('Something went wrong on our side')
     // The proxy's machine code must never render.
     expect(last.content).not.toContain('PROXY_UPSTREAM_TIMEOUT')
-    // A transport failure is retryable — affordance present.
-    expect(last.actionChips).toEqual([
-      { id: 'retry', label: 'Try again', intent: 'primary' },
-    ])
+    // No retry affordance while delivery is unverified.
+    expect(last.actionChips ?? []).toEqual([])
     expect((result.current.lastSendFailure?.inputText ?? null)).toBe('coffee subscription brief')
   })
 
@@ -191,7 +206,9 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
     expect(result.current.lastSendFailure).toEqual(
       expect.objectContaining({
         kind: 'transport',
-        retryable: true,
+        // 2.665: copy-agrees-with-affordance — no retry is offered on an
+        // unverified delivery, so none is advertised.
+        retryable: false,
         inputText: 'the brief text',
       }),
     )
@@ -241,7 +258,8 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
       await result.current.sendMessage('retry me')
     })
     const failedUser = result.current.messages.find((m) => m.role === 'user')
-    expect(failedUser?.deliveryState).toBe('failed')
+    // 2.665: a proxy 504 leaves delivery UNVERIFIED, not verified-failed.
+    expect(failedUser?.deliveryState).toBe('unconfirmed')
 
     // Leg 2: retry succeeds.
     stubFetchWith(200, SUCCESS_BODY)

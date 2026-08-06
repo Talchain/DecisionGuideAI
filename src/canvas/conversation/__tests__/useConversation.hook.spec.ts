@@ -291,7 +291,16 @@ describe('timeout progression (10s / 20s / 30s)', () => {
     expect(result.current.longRunningHint).toBe('Thinking... 30s')
   })
 
-  it('aborts and shows error at 60s', async () => {
+  it('aborts and shows a notice once the wait expires', async () => {
+    // ⚠ ROADMAP 2.665 — RENAMED AND REPOINTED, and note WHICH block this
+    // exercises: the file-level beforeEach leaves `mockIsV5Eligible` at
+    // { eligible: false }, so this is the V4 ROLLBACK path, not the block
+    // staging serves. That is precisely why the false V5 copy shipped
+    // unnoticed — the only timeout test in this file was aimed at the other
+    // branch. The V5 path is covered by the "ROADMAP 2.665" describe at the end
+    // of this file, which flips eligibility on and pins the mount.
+    // The literal 60_000 is gone because the wait is no longer 60s: the client
+    // must outlast CEE's own 125s proxy deadline.
     mockCallTurn.mockReturnValue(new Promise(() => {}))
 
     const { result } = renderHook(() => useConversation())
@@ -301,7 +310,7 @@ describe('timeout progression (10s / 20s / 30s)', () => {
     })
 
     act(() => {
-      vi.advanceTimersByTime(60_000)
+      vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS + 1_000)
     })
 
     expect(result.current.isThinking).toBe(false)
@@ -319,6 +328,7 @@ describe('timeout progression (10s / 20s / 30s)', () => {
 
 // Minimal valid V5 response (for "success" path in lastSendFailure.inputText tests)
 import { EXTENDED_TIMEOUT_MS } from '../../../v5/getTimeoutMs'
+import { NON_DELIVERY_CLAIM_PATTERNS, assertsDeliveryUnknown } from '../deliveryUnknown'
 
 const makeV5SuccessResult = (text = 'OK') => ({
   kind: 'response' as const,
@@ -3102,5 +3112,93 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
     })
     expect(mockStopV5Turn).not.toHaveBeenCalled()
     expect(result.current.messages).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROADMAP 2.665 — wait-expiry honesty on the DEPLOYED V5 path
+// ---------------------------------------------------------------------------
+//
+// ⚠ MOUNT PATH, ASSERTED IN-TEST (trap 3b). The pre-existing timeout test in
+// this file ("aborts and shows error at 60s", ~line 293) runs under the
+// file-level beforeEach, which sets `mockIsV5Eligible` to
+// `{ eligible: false, reason: 'flag_off' }` — so it exercises the V4 ROLLBACK
+// block, not the block staging serves. That is why the false copy below shipped
+// under a green suite. This describe flips eligibility ON and then PROVES the
+// V5 block ran (`mockCallV5Turn` was invoked), so the binding fails loud if the
+// dispatch ever moves.
+//
+// The defect, live-witnessed 2026-08-07
+// (PHASE0-EVIDENCE-2026-07-28/splitter-final-witness-2026-08-07.md): the client
+// stopped waiting and told the user, verbatim, "We stopped waiting, so your
+// message has not gone through" — while CEE completed and COMMITTED the same
+// turn at ~123s (200, was_rejected:true, turn rows written). The retry it
+// offered would have asked a second time: CEE's commit idempotency key is
+// `(scenario_id, turn_id)` where `turn_id` is CEE's OWN per-HTTP-request id
+// (turn-executor.ts `turn_id: requestId`), minted fresh by
+// `getOrGenerateRequestId` because this client sends no `x-request-id` /
+// `x-cee-request-id` / `x-correlation-id` header (turnAuthHeaders.ts emits only
+// `X-User-Id` + `Authorization`). Reusing `client_turn_id` buys nothing —
+// CEE never reads `payload.turn_id` as a dedupe key.
+describe('ROADMAP 2.665 — wait expiry never claims non-delivery (V5 path)', () => {
+  const SCENARIO_ID = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
+
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+    useCanvasStore.setState({ currentScenarioId: SCENARIO_ID })
+  })
+
+  /** Drive a turn that never resolves, then run the wait out. */
+  const expireTheWait = async () => {
+    mockCallV5Turn.mockReturnValue(new Promise(() => {}))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('add three options and a risk for each')
+    })
+    act(() => {
+      vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS + 1_000)
+    })
+    return result
+  }
+
+  it('dispatches through the V5 block (mount-path pin for the assertions below)', async () => {
+    const result = await expireTheWait()
+    expect(mockCallV5Turn).toHaveBeenCalled()
+    expect(result.current.isThinking).toBe(false)
+  })
+
+  it('I-A: the wait-expiry notice never states non-delivery', async () => {
+    const result = await expireTheWait()
+    const last = result.current.messages[result.current.messages.length - 1]
+    expect(last.synthetic).toBe(true)
+    for (const pattern of NON_DELIVERY_CLAIM_PATTERNS) {
+      expect(last.content).not.toMatch(pattern)
+    }
+  })
+
+  it('I-A: the wait-expiry notice says the outcome is unknown', async () => {
+    const result = await expireTheWait()
+    const last = result.current.messages[result.current.messages.length - 1]
+    expect(assertsDeliveryUnknown(last.content)).toBe(true)
+  })
+
+  it('I-A: the user bubble is not marked "Not delivered"', async () => {
+    const result = await expireTheWait()
+    const userBubble = result.current.messages.find((m) => m.role === 'user')
+    expect(userBubble).toBeDefined()
+    expect(userBubble!.deliveryState).not.toBe('failed')
+    expect(userBubble!.deliveryState).toBe('unconfirmed')
+  })
+
+  it('I-B: no blind Retry is offered while delivery is unknown', async () => {
+    const result = await expireTheWait()
+    const last = result.current.messages[result.current.messages.length - 1]
+    const chipIds = (last.actionChips ?? []).map((c) => c.id)
+    expect(chipIds).not.toContain('retry')
+  })
+
+  it('I-B: the send-failure notice does not advertise a retry affordance', async () => {
+    const result = await expireTheWait()
+    expect(result.current.lastSendFailure?.retryable).toBe(false)
   })
 })

@@ -80,15 +80,28 @@ export interface ConversationMessage {
    * state of a visible user send on the LIVE V5 path.
    *   - 'pending': dispatched, turn unresolved. Not yet persisted.
    *   - 'sent':    the turn resolved with a server response — normal history.
-   *   - 'failed':  the turn produced no assistant response (504/network
-   *     transport failure, typed error, browser timeout). Renders the
-   *     "Not delivered" marker + retry affordance and is NEVER persisted —
-   *     a turn the server never served must not be committed as if it
-   *     happened.
+   *   - 'failed':  the turn produced no assistant response AND non-delivery is
+   *     VERIFIED — the dispatch threw before anything left the client, or the
+   *     fetch itself never produced a response. Renders the "Not delivered"
+   *     marker + retry affordance and is NEVER persisted — a turn the server
+   *     never served must not be committed as if it happened.
+   *   - 'unconfirmed': ROADMAP 2.665 — the client stopped waiting, or a proxy
+   *     timeout body arrived, and the turn's fate is genuinely UNKNOWN. CEE
+   *     runs a turn to completion and COMMITS it whether or not the browser is
+   *     still listening (live-witnessed: client gave up at 60.0s, server
+   *     returned 200 at 123.1s with the turn rows written), and this client has
+   *     no way to check — no status route exists and `v5_conversation_turns`
+   *     has zero readers here. So 'failed' would be a claim we cannot support
+   *     and 'sent' would be a claim we cannot support either. This third state
+   *     exists so the bubble can say what is true. It renders an
+   *     outcome-unknown marker, NOT "Not delivered", and offers no retry —
+   *     retrying duplicates, because CEE keys commits on its own per-request
+   *     id, not on `payload.turn_id`. Persisted like a normal send: the user's
+   *     own words are theirs, and the server most likely holds the turn too.
    * `undefined` = legacy/delivered (assistant messages, V4 path, hydrated
    * history) — treated as sent everywhere.
    */
-  deliveryState?: 'pending' | 'sent' | 'failed'
+  deliveryState?: 'pending' | 'sent' | 'failed' | 'unconfirmed'
 }
 
 // ---------------------------------------------------------------------------

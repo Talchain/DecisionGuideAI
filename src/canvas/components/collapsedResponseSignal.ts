@@ -61,11 +61,20 @@ export function latestRealMessageIsAssistantReply(
 }
 
 /**
- * True when the latest REAL (non-synthetic) message is a user send whose
- * delivery FAILED (`deliveryState === 'failed'`). This is the honest ERROR
- * counterpart to `latestRealMessageIsAssistantReply`: an invisible error is
- * worse than an invisible question, so a failed turn must surface the same way
- * a clarify reply does.
+ * True when the latest REAL (non-synthetic) message is a user send that did not
+ * resolve into a delivered reply — `deliveryState` 'failed' OR 'unconfirmed'.
+ * This is the honest ERROR counterpart to `latestRealMessageIsAssistantReply`:
+ * an invisible error is worse than an invisible question, so a failed turn must
+ * surface the same way a clarify reply does.
+ *
+ * ⚠ ROADMAP 2.665 — 'unconfirmed' IS INCLUDED, AND THE OMISSION WOULD HAVE BEEN
+ * A SILENT REGRESSION. The wait-expiry path used to mark its bubble 'failed';
+ * it now marks it 'unconfirmed', because the client cannot verify non-delivery
+ * (see deliveryUnknown.ts). Had this predicate kept testing 'failed' alone, a
+ * wait expiry with the panel collapsed would have surfaced NOTHING — the exact
+ * invisible-error case this function exists to prevent, reintroduced by a state
+ * rename. An unknown outcome needs surfacing at least as much as a known
+ * failure does: the user is owed the notice either way.
  *
  * Every user-mode failure path in useConversation.ts — buildV5Payload refusal,
  * the request timeout, a typed_error response, and a thrown dispatch — marks
@@ -99,7 +108,7 @@ export function latestRealMessageIsFailedTurn(
     }
   }
   if (!latestReal || latestReal.role !== 'user') return false
-  return latestReal.deliveryState === 'failed'
+  return latestReal.deliveryState === 'failed' || latestReal.deliveryState === 'unconfirmed'
 }
 
 export interface CollapsedResponseSignalInput {

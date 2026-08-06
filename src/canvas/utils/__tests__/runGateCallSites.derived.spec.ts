@@ -155,8 +155,8 @@ describe('the 130 s timeout handler consumes the preview predicate (review F1, a
    * `stores/__tests__/draftStreamOwnership.spec.ts`; this asserts the branch
    * actually asks.
    *
-   * Without it, the handler tells a user whose graph is visibly on the canvas that
-   * "your message has not gone through" — and marks the delivered bubble failed —
+   * Without it, the handler tells a user whose graph is visibly on the canvas
+   * that the turn did not happen — and marks the delivered bubble failed —
    * directly contradicting the honest notice the abort path adds beside it.
    */
   const source = readFileSync(join(SRC, 'canvas/conversation/useConversation.ts'), 'utf8')
@@ -167,10 +167,23 @@ describe('the 130 s timeout handler consumes the preview predicate (review F1, a
     expect(source).toMatch(/!streamedPreviewStanding/)
   })
 
-  it('still contains the generic copy — the fix suppresses it, it does not delete it', () => {
-    // Positive control: a non-streamed turn's timeout must keep saying the true
-    // thing. A mutation that removed the copy entirely would be a different defect.
-    expect(source).toMatch(/your message has not gone through/i)
+  it('still renders a generic notice — the fix suppresses it, it does not delete it', () => {
+    // Positive control: a non-streamed turn's timeout must keep saying
+    // SOMETHING. A mutation that removed the notice entirely would be a
+    // different defect.
+    //
+    // ⚠ ROADMAP 2.665 — REPOINTED, AND THE OLD FORM WAS A 12b DECAY IN WAITING.
+    // This asserted the literal string "your message has not gone through",
+    // i.e. it was pinned to whatever the copy happened to be that day. When
+    // 2.665 removed that sentence as FALSE, the assertion did not fail: it was
+    // satisfied by the replacement code's own COMMENT quoting the old wording.
+    // A source-grep control that a comment can satisfy is testing nothing
+    // (trap 19 — passing on the wrong object). It now binds to the copy
+    // CONSTANT the handler actually renders, which no comment can impersonate,
+    // and the constant's wording is pinned in deliveryUnknownHonesty.spec.tsx
+    // where it can be asserted for meaning rather than for characters.
+    expect(source).toMatch(/content:\s*WAIT_EXPIRY_UNKNOWN_COPY/)
+    expect(source).toMatch(/from '\.\/deliveryUnknown'/)
   })
 })
 
