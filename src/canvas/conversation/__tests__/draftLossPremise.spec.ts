@@ -30,16 +30,46 @@ import {
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const USE_CONVERSATION = path.join(HERE, '..', 'useConversation.ts')
 
-describe('2.719 — the stopped-draft notice states the NEW premise', () => {
-  it('tells the user save-state is unconfirmed, and that a loss will be surfaced in the conversation', () => {
+describe('2.719/2.737 — the stopped-draft notice states the NEW premise', () => {
+  it('tells the user save-state is unconfirmed, and offers the action that works', () => {
     // Save-uncertainty: the client aborted the socket the receipt would have
     // arrived on, so asserting either "saved" or "not saved" would be a guess.
     expect(STOPPED_DRAFT_NOTICE).toMatch(/whether (this|your) draft saved/i)
-    // The receipt channel that does NOT depend on that socket: CEE's 2.709
-    // invariant-6 notice, carried in the next reply on this conversation.
-    expect(STOPPED_DRAFT_NOTICE).toMatch(/next reply/i)
     // The retry affordance's promise is unchanged.
     expect(STOPPED_DRAFT_NOTICE).toMatch(/start a new draft/i)
+  })
+
+  /**
+   * ROADMAP 2.737 — THIS PIN WAS INVERTED, AND THE INVERSION IS THE POINT.
+   *
+   * It used to REQUIRE `/next reply/i`: the notice had to promise that CEE
+   * would disclose a loss on the scenario's next turn. That promise was made
+   * unconditionally by the client while the server-side capability was DARK —
+   * CEE's draft-loss notice needs columns created by migration 20260806120000,
+   * which is deliberately unexecuted. So the suite was pinning a sentence the
+   * server could not honour, and it passed because it only ever asked whether
+   * the CLIENT said the words.
+   *
+   * A UI promise about server behaviour is only as true as the deployed
+   * server. Until the capability is live-witnessed, the copy must not assert
+   * it — so this pin now forbids exactly what it used to require.
+   */
+  it('2.737: makes NO unconditional promise about what the server will say next turn', () => {
+    expect(STOPPED_DRAFT_NOTICE).not.toMatch(/next reply/i)
+    expect(STOPPED_DRAFT_NOTICE).not.toMatch(/will say so/i)
+    expect(STOPPED_DRAFT_NOTICE).not.toMatch(/will tell you/i)
+    // DISCRIMINATOR (trap 13b): the pin must be able to SEE such a promise —
+    // otherwise "no promise present" could be true of any string at all. The
+    // exact withdrawn sentence, kept as a fixture, must trip every arm above.
+    const WITHDRAWN_2719_PROMISE =
+      'we can’t confirm from here whether this draft saved. If it didn’t, your next reply in this conversation will say so.'
+    expect(WITHDRAWN_2719_PROMISE).toMatch(/next reply/i)
+    expect(WITHDRAWN_2719_PROMISE).toMatch(/will say so/i)
+    // …and the ONE clause that survived the withdrawal is still present in
+    // both, so this is a narrowing of the sentence rather than a rewrite that
+    // happens to dodge the regexes.
+    expect(WITHDRAWN_2719_PROMISE).toMatch(/whether this draft saved/i)
+    expect(STOPPED_DRAFT_NOTICE).toMatch(/whether this draft saved/i)
   })
 
   it('does not assert the old #751 certainty ("still here" as a durability claim) without the save caveat', () => {
