@@ -47,7 +47,7 @@ import { StatusBar } from './model-tab/StatusBar'
 import { EntityBar } from './model-tab/EntityBar'
 import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
 import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
-import { countFactorsToVerify } from './model-tab/utils'
+import { countFactorsToVerify, mapSourceToDisplay } from './model-tab/utils'
 import { ModelAdjustments } from './model-tab/ModelAdjustments'
 import { resolveRawFactorConfidenceDisplay, type FactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
 
@@ -75,17 +75,13 @@ interface ModelTabBodyProps {
 }
 
 // ── Source mapping ────────────────────────────────────────────────────────────
-
-const SOURCE_LABELS: Record<string, string> = {
-  brief_extraction: 'From brief',
-  cee_inference: 'AI estimate',
-  user: 'User edited',
-}
-
-function mapSourceToDisplay(source: string | undefined): string | null {
-  if (!source) return null
-  return SOURCE_LABELS[source] ?? source
-}
+//
+// ROADMAP 2.638 S2 — this file used to carry its OWN copy of the three-literal
+// `SOURCE_LABELS` map, byte-identical to `model-tab/utils.ts`'s. It feeds
+// `handleCopyText`, so a source outside the three landed in the user's
+// clipboard as the raw wire literal ("user_confirmed"). The duplicate is gone;
+// the one classification authority now serves both (trap 12: derive, do not
+// mirror).
 
 const KIND_ORDER = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome'] as const
 const EMPTY_NODE_IDS = new Set<string>()

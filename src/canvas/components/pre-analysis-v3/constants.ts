@@ -204,7 +204,21 @@ export const ATTRIBUTION_COPY = {
    * brief, so the chip credits them, never Olumi.
    */
   yourTarget: 'Your target',
+  /**
+   * The generic reviewed claim, kept for the rows whose act we cannot name
+   * (no classifiable source, or CEE's act-blind `user_set`).
+   */
   checkedByYou: 'checked by you',
+  /**
+   * ROADMAP 2.638 S2 — the two acts, told apart.
+   *
+   * "confirmed" = the user read Olumi's number and put their name to it;
+   * "edited" = the user supplied the number. Both are STATUS claims: neither
+   * act changes the analysis today (the compute half is S4), and neither
+   * string may grow to imply that it does.
+   */
+  confirmedByYou: 'confirmed by you',
+  editedByYou: 'edited by you',
   needsValue: 'needs a value',
   unchecked: 'not checked yet',
   set: 'set',

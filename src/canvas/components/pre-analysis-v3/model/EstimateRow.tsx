@@ -25,9 +25,28 @@ interface EstimateRowProps {
   onToggle: (nodeId: string) => void
 }
 
+/**
+ * ROADMAP 2.638 S2 — the reviewed pill says WHICH act it is recording.
+ *
+ * "confirmed by you" (the user read Olumi's number and kept it) and "edited by
+ * you" (the user supplied one) are different claims about who authored the
+ * value, and the panel had been collapsing both into "checked by you" — the
+ * blur the consent witness reported (2.663).
+ *
+ * An unknown or machine-owned kind falls back to the generic copy rather than
+ * guessing an act, which is also what a reviewed row with no classifiable
+ * source gets. `human` deliberately keeps the generic copy: CEE's `user_set`
+ * knows a person acted and cannot say which act (see `valueProvenance`).
+ */
+function reviewedPillCopy(kind: EstimateRowModel['provenanceKind']): string {
+  if (kind === 'confirmed') return ATTRIBUTION_COPY.confirmedByYou
+  if (kind === 'edited') return ATTRIBUTION_COPY.editedByYou
+  return ATTRIBUTION_COPY.checkedByYou
+}
+
 export const EstimateRow = memo(function EstimateRow({ row, expanded, onToggle }: EstimateRowProps) {
   const pill = row.reviewed ? (
-    <Pill variant="success" size="small">{ATTRIBUTION_COPY.checkedByYou}</Pill>
+    <Pill variant="success" size="small">{reviewedPillCopy(row.provenanceKind)}</Pill>
   ) : row.needsValue ? (
     <Pill variant="warning" size="small">{ATTRIBUTION_COPY.needsValue}</Pill>
   ) : row.aiSourced ? (

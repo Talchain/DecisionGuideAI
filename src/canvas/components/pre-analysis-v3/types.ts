@@ -9,6 +9,7 @@
 
 import type { ActionTypeLiteral } from '@talchain/schemas/boundary'
 import type { PendingWireActionType } from '../../conversation/chipMeta'
+import type { ValueProvenanceKind } from '../../domain/valueProvenance'
 
 /**
  * A product-authored spark: a prefilled prompt the product sends on the
@@ -102,6 +103,18 @@ export interface EstimateRowModel {
   /** Relative weight used for the Estimates bar movement. */
   weight: number
   reviewed: boolean
+  /**
+   * WHICH act the reviewed state records — ROADMAP 2.638 S2.
+   *
+   * `reviewed` says a person owns the value; it cannot say whether they
+   * SUPPLIED the number ('edited') or read Olumi's and ENDORSED it
+   * ('confirmed'). Those are different claims and the panel had been
+   * collapsing them into one "checked by you" pill (consent witness, 2.663).
+   *
+   * Undefined when the node's source carries no known class — the row then
+   * keeps the generic copy rather than guessing an act.
+   */
+  provenanceKind?: ValueProvenanceKind
   /** True when the value's source is AI-supplied (drives the "Olumi estimate" pill). */
   aiSourced: boolean
   attribution: Attribution

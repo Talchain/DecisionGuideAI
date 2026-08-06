@@ -99,6 +99,7 @@ import {
   type ValueInputSeedBasis,
 } from '../../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../../conversation/optimisticFactorEdit'
+import { withdrawUserConfirmation } from '../../../utils/hydrateProvenance'
 import { useNodeMutations } from '../../../ui/inspector-v2/useInspectorMutations'
 import { useBeliefElicitation } from '../../../hooks/useBeliefElicitation'
 import {
@@ -361,6 +362,28 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
   }
 
   /**
+   * Withdraw a confirmation — ROADMAP 2.638 S2.
+   *
+   * NO WIRE EVENT, and that is derived, not an omission. The three system
+   * events this surface can send (`factor_value_edit` and its siblings) all
+   * ASSERT a value; none retracts a claim about one, and CEE's own stamp is
+   * act-blind, so a turn here could only re-assert what the user is
+   * withdrawing. The value is untouched — CEE's copy is already correct and
+   * needs no correction.
+   *
+   * Fails CLOSED on a missing node, exactly as `confirmAsIs` does: no node,
+   * nothing to withdraw, nothing written.
+   */
+  const unconfirm = useCallback((): void => {
+    const store = useCanvasStore.getState()
+    const node = store.nodes.find(n => n.id === row.nodeId)
+    if (!node) return
+    const nextData = withdrawUserConfirmation(node.data as Record<string, unknown>)
+    if (nextData === node.data) return
+    store.updateNode(row.nodeId, { data: nextData } as never)
+  }, [row.nodeId])
+
+  /**
    * Accept an elicited number — the SAME commit, the SAME stamp, the SAME wire
    * event as the typed field. `user_override` is right here for the reason it
    * is right there: the user chose this number, in their own words, over the
@@ -442,6 +465,45 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
           Confirm as is
         </button>
       )}
+      {/*
+        ROADMAP 2.638 S2 — UN-CONFIRM. Ruling 1's constraint is that a
+        confirmation is REVERSIBLE PER VALUE, and this is the surface that
+        accepted it, so this is where it is withdrawn.
+
+        SCOPE, derived rather than assumed. Offered for a CONFIRMED value only.
+        "Confirm as is" commits with `writeValue: false`, so it moved no number
+        and the withdrawal restores the pre-confirmation state EXACTLY, with
+        nothing to snapshot. An EDITED value is a different case: the pre-edit
+        number is captured only for the in-flight refusal path
+        (`captureOptimisticFactorEdit`) and is not retained past the receipt, so
+        an "undo" there would promise a restoration the store cannot perform.
+        The honest affordance for an edited value is the number field above.
+
+        LOCAL BY DESIGN, and that is a claim about ownership, not a shortcut.
+        CEE cannot hold this fact: `set_factor_value` stamps the single literal
+        `'user_override'` for a typed value and a confirmation alike
+        (canonicalise-value-ops.ts:280), and no wire action retracts it. The
+        withdrawal is therefore recorded where the confirm/edit distinction
+        already lives — the client — as a POSITIVE marker that survives the boot
+        merge (see `withdrawUserConfirmation`).
+      */}
+      {row.reviewed && row.provenanceKind === 'confirmed' && (
+        <button
+          type="button"
+          onClick={() => {
+            unconfirm()
+            onDone()
+          }}
+          aria-label={`Undo your confirmation of ${row.label}`}
+          className={typo(
+            'panelMeta',
+            'rounded-full border border-panel-border bg-transparent px-2.5 py-1 text-text-body outline-none transition-colors hover:bg-panel-hover focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40',
+          )}
+          data-testid="pre-analysis-v3-unconfirm"
+        >
+          Undo confirmation
+        </button>
+      )}
       {row.canEditValue && canDescribeInWords && (
         <Tooltip content="Say what you think in plain words" delay={300}>
           <PanelIconButton
@@ -468,6 +530,24 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
         </span>
       )}
       </div>
+
+      {/*
+        ⭐ THE DISCLOSURE, AND THE SENTENCE IT IS NOT ALLOWED TO BECOME.
+        Confirming records WHO STANDS BEHIND the number. It does NOT change the
+        analysis: nothing downstream reads the provenance stamp yet — the blend
+        that would make a confirmation move the maths is S4, and it is gated on
+        a science ruling. Copy that implied an effect here would be the
+        guarantee-theatre class this estate hunts, so the denial is explicit and
+        pinned by a test rather than left to a reviewer's memory.
+      */}
+      {!row.needsValue && (
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid="pre-analysis-v3-confirmation-note"
+        >
+          Confirming records that you stand behind this number. It does not change the analysis.
+        </p>
+      )}
 
       {/*
         "Say it in words" — ROADMAP 2.364. Deliberately BELOW the number field
