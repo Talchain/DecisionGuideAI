@@ -141,6 +141,23 @@ jobs:
           key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
 
+      # ── ROADMAP 2.649 — parity with staging-full-tests.yml ──────────────────
+      # Deliberately placed BEFORE the "Schema contract gate" step below, which
+      # is currently a LANDMINE: it fails any package.json carrying a `"file:`
+      # reference and requires @talchain/schemas to be a registry semver — but
+      # the repo now pins a VENDORED TARBALL
+      # (`file:./vendor/talchain-schemas-<v>.tgz`). That step therefore cannot
+      # pass at today's tip. It has not been red because this workflow runs only
+      # on push/PR to `main`, so it will first fire at the next promotion. Rowed
+      # separately — resolving it is a policy question (vendored vs registry
+      # pin), not a wiring change. Running the vendor checks first means they
+      # still report while that is settled.
+      - name: Vendored schemas tarball integrity
+        run: pnpm run check:vendor
+
+      - name: Vendored schemas version constant is derived, not drifted
+        run: pnpm run ci:guard:schemas-version
+
       - name: Schema contract gate
         run: |
           echo "Checking schema dependency contract..."
