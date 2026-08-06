@@ -1,21 +1,35 @@
 /**
- * Record-the-decision modal (prototype #decisionModal, build-ready v6).
+ * Record-the-decision modal — the elicitation end of the calibration loop
+ * (calibration R0, ROADMAP 2.727).
  *
- * Captures chosen option / confidence 0-100 / concise rationale / key
- * assumption to watch / revisit trigger-or-date into decisionRecordStore
- * (sessionStorage, scenario-keyed, with the analysed graph hash). The
- * chosen-option select is populated READ-ONLY from the live analysed
- * option set (canvas option nodes + the stable optionNumbering map) —
- * never the prototype's four hardcoded fixtures.
+ * Captures chosen option / confidence 0-100 / **what the user expects to
+ * happen** / concise rationale / key assumption to watch / revisit
+ * trigger-or-date. The chosen-option select is populated READ-ONLY from the
+ * live analysed option set (canvas option nodes + the stable optionNumbering
+ * map) — never the prototype's four hardcoded fixtures.
+ *
+ * ⭐ WHAT CHANGED IN R0: THE RECORD IS NOW DURABLE. On save, a signed-in
+ * user's chosen option, stated confidence, expectation and review date are
+ * POSTed to CEE and persisted in `decision_records` with
+ * `committed_by_user: true` and `confidence_source: 'user_stated'` — the
+ * first user-stated calibration population this product has ever had.
+ * Everything still lands in sessionStorage first, so a failed commit
+ * degrades the record from "durable" to "on this device", never to "lost".
+ *
+ * ⭐ WHY AN "EXPECTATION" FIELD RATHER THAN REUSING THE RATIONALE. The
+ * outcome is scored against `prediction.statement`, a FORWARD claim. A
+ * rationale is backward-looking justification for the choice. Scoring one as
+ * the other would be a semantic lie, and every calibration number built on it
+ * would be meaningless — so the user is asked the forward question directly.
  *
  * Fail-closed: with no completed analysis or zero option nodes the form
  * renders disabled with honest copy — capture never fabricates an option
  * set. Validation closes the prototype's Number('')===0 hole: confidence
  * must be NON-EMPTY, finite and 0-100 inclusive.
  *
- * HONESTY: no backend persistence exists (blocked on identity + Model
- * Management) — the note line says the record lives on this device for
- * this scenario.
+ * ⚠ NO ARITHMETIC ON PROBABILITIES HAPPENS HERE. The confidence goes over
+ * the wire as the raw 0–100 number the user typed; CEE owns the /100. A
+ * second place that rescales is a second place the scale can drift.
  *
  * Mount once; open from anywhere via openDecisionRecord() (the commit
  * rec's INTENDED wiring — the spec flags the prototype's 'ask' routing as
@@ -24,6 +38,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { useCanvasStore } from '../../../canvas/store'
+import { commitDecisionRecord } from '../../../services/decisionRecordCommitService'
 import { typography } from '../../../styles/typography'
 import {
   FIELD_INPUT_CLASS,
@@ -44,26 +59,48 @@ import {
 export const DECISION_RECORD_COPY = {
   title: 'Record the decision',
   subtitle: 'Capture the choice and what would justify revisiting it.',
-  prototypeNote:
-    'Prototype only. Saved on this device for this scenario. Durable saving depends on identity and Model Management.',
+  /**
+   * ⚠ THIS NOTE USED TO SAY "Prototype only … Durable saving depends on
+   * identity and Model Management." Leaving it would have been a FALSE
+   * disclosure in the other direction: for a signed-in user the choice, the
+   * confidence, the expectation and the review date now persist to their
+   * account. The note names the split precisely rather than claiming more or
+   * less than is true.
+   */
+  persistenceNote:
+    'Your choice, confidence, expectation and review date are saved to your account. The rationale, assumption and revisit trigger stay on this device for this scenario.',
+  guestNote:
+    'Signed out, so this stays on this device for this scenario and ends with the browser session. Sign in to keep a durable record.',
+  savedRemoteNote: 'Saved to your account.',
   emptyState:
     'Run an analysis first. There are no analysed options to record a decision against yet.',
   chosenOptionLabel: 'Chosen option',
   confidenceLabel: 'Confidence, 0–100',
   confidencePlaceholder: 'e.g. 70',
+  expectationLabel: 'What do you expect to happen?',
+  expectationPlaceholder: 'e.g. runway holds above 9 months through Q1',
+  expectationHelp:
+    'This is the claim we check back against — keep it something you could later call right or wrong.',
   revisitLabel: 'Revisit trigger or date',
-  revisitPlaceholder: 'e.g. runway falls below 9 months',
+  revisitPlaceholder: 'e.g. runway falls below 9 months, or 2026-12-01',
+  revisitHelp:
+    'Give a date and we set your review date to it. Give a trigger and we keep the text here and set the review date 90 days out.',
   rationaleLabel: 'Concise rationale',
   rationalePlaceholder: 'Why this is the best current choice',
   assumptionLabel: 'Key assumption to watch',
   assumptionPlaceholder: 'The assumption most likely to change the choice',
   cancel: 'Cancel',
-  save: 'Capture prototype record',
+  save: 'Record the decision',
+  saving: 'Saving…',
   confidenceError: 'Add a confidence between 0 and 100.',
+  expectationError: 'Add what you expect to happen.',
   rationaleError: 'Add a concise rationale.',
   assumptionError: 'Add the assumption most likely to change the choice.',
   revisitError: 'Add a revisit trigger or date.',
-  toastSaved: 'Prototype decision record captured in this session.',
+  toastSaved: 'Decision recorded and saved to your account.',
+  toastSavedLocal: 'Decision recorded on this device.',
+  toastSavedLocalAfterError:
+    'Decision recorded on this device — we could not save it to your account.',
 } as const
 
 interface AnalysedOption {
@@ -121,21 +158,26 @@ export function DecisionRecordModal() {
   const titleId = useId()
   const optionId = useId()
   const confidenceId = useId()
+  const expectationId = useId()
   const revisitId = useId()
   const rationaleId = useId()
   const assumptionId = useId()
   const confidenceErrorId = useId()
+  const expectationErrorId = useId()
   const revisitErrorId = useId()
   const rationaleErrorId = useId()
   const assumptionErrorId = useId()
 
   const [chosenOptionId, setChosenOptionId] = useState('')
   const [confidence, setConfidence] = useState('')
+  const [expectation, setExpectation] = useState('')
   const [revisit, setRevisit] = useState('')
   const [rationale, setRationale] = useState('')
   const [assumption, setAssumption] = useState('')
+  const [saving, setSaving] = useState(false)
   const [touched, setTouched] = useState<{
     confidence?: boolean
+    expectation?: boolean
     revisit?: boolean
     rationale?: boolean
     assumption?: boolean
@@ -148,6 +190,7 @@ export function DecisionRecordModal() {
   useEffect(() => {
     if (!isOpen) return
     saveFiredRef.current = false
+    setSaving(false)
     const scenarioKey = resolveScenarioKey(useCanvasStore.getState().currentScenarioId)
     const saved = selectDecisionRecord(useDecisionRecordStore.getState(), scenarioKey)
     if (saved) {
@@ -155,12 +198,16 @@ export function DecisionRecordModal() {
         options.some((o) => o.id === saved.optionId) ? saved.optionId : options[0]?.id ?? '',
       )
       setConfidence(String(saved.confidence))
+      // `?? ''` because records persisted before the expectation field
+      // existed are still readable — never a fabricated statement.
+      setExpectation(saved.expectation ?? '')
       setRevisit(saved.revisitTrigger)
       setRationale(saved.rationale)
       setAssumption(saved.assumptionToWatch)
     } else {
       setChosenOptionId(options[0]?.id ?? '')
       setConfidence('')
+      setExpectation('')
       setRevisit('')
       setRationale('')
       setAssumption('')
@@ -174,6 +221,7 @@ export function DecisionRecordModal() {
   const parsedConfidence = parseConfidence(confidence)
   const confidenceValid =
     Number.isFinite(parsedConfidence) && parsedConfidence >= 0 && parsedConfidence <= 100
+  const expectationValid = expectation.trim() !== ''
   const revisitValid = revisit.trim() !== ''
   const rationaleValid = rationale.trim() !== ''
   const assumptionValid = assumption.trim() !== ''
@@ -182,33 +230,94 @@ export function DecisionRecordModal() {
     hasOptions &&
     chosenOption !== null &&
     confidenceValid &&
+    expectationValid &&
     revisitValid &&
     rationaleValid &&
     assumptionValid
 
   const handleSave = () => {
     if (!valid || chosenOption === null) {
-      setTouched({ confidence: true, revisit: true, rationale: true, assumption: true })
+      setTouched({
+        confidence: true,
+        expectation: true,
+        revisit: true,
+        rationale: true,
+        assumption: true,
+      })
       return
     }
     if (saveFiredRef.current) return
     saveFiredRef.current = true
 
-    const scenarioKey = resolveScenarioKey(useCanvasStore.getState().currentScenarioId)
+    const scenarioId = useCanvasStore.getState().currentScenarioId
+    const scenarioKey = resolveScenarioKey(scenarioId)
     const record: DecisionRecord = {
       optionId: chosenOption.id,
       optionLabel: chosenOption.label,
       optionNumber: chosenOption.number,
       confidence: parsedConfidence,
+      expectation: expectation.trim(),
       rationale: rationale.trim(),
       assumptionToWatch: assumption.trim(),
       revisitTrigger: revisit.trim(),
       analysisHash,
       savedAt: Date.now(),
+      remote: null,
     }
+    // LOCAL FIRST, ALWAYS. Whatever happens on the network, the user's input
+    // is already kept — a failed commit degrades the record from "durable" to
+    // "on this device", never to "lost".
     useDecisionRecordStore.getState().saveRecord(scenarioKey, record)
-    close()
-    showToast(DECISION_RECORD_COPY.toastSaved)
+
+    // A stable per-save id: a retry of THIS save replays through CEE's dedupe
+    // branch, while a genuinely new save gets a new id and is never swallowed
+    // by the previous one.
+    const clientCommitId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${scenarioKey}:${record.savedAt}`
+
+    if (typeof scenarioId !== 'string' || scenarioId === '') {
+      // No persisted scenario ⇒ nothing CEE could anchor an owner to. Local
+      // only, said plainly.
+      close()
+      showToast(DECISION_RECORD_COPY.toastSavedLocal)
+      return
+    }
+
+    setSaving(true)
+    void commitDecisionRecord({
+      scenarioId,
+      chosenOptionId: chosenOption.id,
+      chosenOptionLabel: chosenOption.label,
+      // RAW 0–100 — CEE owns the /100 (no arithmetic on probabilities here).
+      confidence0to100: parsedConfidence,
+      expectationStatement: record.expectation ?? '',
+      revisitTriggerOrDate: record.revisitTrigger,
+      clientCommitId,
+    }).then((result) => {
+      setSaving(false)
+      if (result.status === 'saved') {
+        useDecisionRecordStore.getState().attachRemote(scenarioKey, {
+          recordId: result.recordId,
+          reviewDate: result.reviewDate,
+          reviewDateSource: result.reviewDateSource,
+        })
+        close()
+        showToast(DECISION_RECORD_COPY.toastSaved)
+        return
+      }
+      close()
+      // Two DIFFERENT local outcomes, never merged: a guest was never going
+      // to get a durable record (records require sign-in by design), while an
+      // error means we tried and failed. Telling a signed-in user the guest
+      // story would hide a real failure.
+      showToast(
+        result.status === 'guest'
+          ? DECISION_RECORD_COPY.toastSavedLocal
+          : DECISION_RECORD_COPY.toastSavedLocalAfterError,
+      )
+    })
   }
 
   return (
@@ -225,7 +334,7 @@ export function DecisionRecordModal() {
           data-testid="decision-record-note"
           className={`mt-[10px] rounded-[9px] border border-panel-border bg-panel px-[9px] py-2 ${typography.panelMeta} text-text-light`}
         >
-          {DECISION_RECORD_COPY.prototypeNote}
+          {DECISION_RECORD_COPY.persistenceNote}
         </p>
 
         {!hasOptions && (
@@ -289,7 +398,42 @@ export function DecisionRecordModal() {
             </FieldError>
           </div>
 
-          <div className="flex flex-col gap-1">
+          <div className="col-span-2 flex flex-col gap-1">
+            <FieldLabel htmlFor={expectationId}>
+              {DECISION_RECORD_COPY.expectationLabel}
+            </FieldLabel>
+            <input
+              id={expectationId}
+              data-testid="decision-record-expectation"
+              type="text"
+              placeholder={DECISION_RECORD_COPY.expectationPlaceholder}
+              value={expectation}
+              onChange={(e) => setExpectation(e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, expectation: true }))}
+              disabled={!hasOptions}
+              aria-invalid={touched.expectation === true && !expectationValid}
+              aria-describedby={
+                touched.expectation === true && !expectationValid
+                  ? expectationErrorId
+                  : undefined
+              }
+              className={FIELD_INPUT_CLASS}
+            />
+            <p
+              data-testid="decision-record-expectation-help"
+              className={`${typography.panelMeta} text-text-light`}
+            >
+              {DECISION_RECORD_COPY.expectationHelp}
+            </p>
+            <FieldError
+              id={expectationErrorId}
+              show={touched.expectation === true && !expectationValid}
+            >
+              {DECISION_RECORD_COPY.expectationError}
+            </FieldError>
+          </div>
+
+          <div className="col-span-2 flex flex-col gap-1">
             <FieldLabel htmlFor={revisitId}>{DECISION_RECORD_COPY.revisitLabel}</FieldLabel>
             <input
               id={revisitId}
@@ -306,6 +450,12 @@ export function DecisionRecordModal() {
               }
               className={FIELD_INPUT_CLASS}
             />
+            <p
+              data-testid="decision-record-revisit-help"
+              className={`${typography.panelMeta} text-text-light`}
+            >
+              {DECISION_RECORD_COPY.revisitHelp}
+            </p>
             <FieldError id={revisitErrorId} show={touched.revisit === true && !revisitValid}>
               {DECISION_RECORD_COPY.revisitError}
             </FieldError>
@@ -376,10 +526,10 @@ export function DecisionRecordModal() {
             type="button"
             data-testid="decision-record-save"
             onClick={handleSave}
-            disabled={!valid}
+            disabled={!valid || saving}
             className={PRIMARY_BUTTON_CLASS}
           >
-            {DECISION_RECORD_COPY.save}
+            {saving ? DECISION_RECORD_COPY.saving : DECISION_RECORD_COPY.save}
           </button>
         </div>
       </ModalShell>
