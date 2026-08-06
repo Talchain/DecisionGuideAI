@@ -3161,6 +3161,37 @@ describe('ROADMAP 2.665 — wait expiry never claims non-delivery (V5 path)', ()
     return result
   }
 
+  it('I-C: does NOT give up at 60s — the old budget, which discarded a committed reply', async () => {
+    // ⚠ ADDED BECAUSE A MUTANT SURVIVED. Shortening getTimeoutMs back to 60s
+    // left every other test in this describe GREEN: they advance well past any
+    // plausible wait and then assert copy, chips and state, so none of them
+    // could see the budget itself change. The wait length had guards
+    // (turnWaitCoversServerDeadline.spec.ts, getTimeoutMs.test.ts) but nothing
+    // at the surface where the loss actually happens.
+    //
+    // 60s is the exact budget the live witness measured being too short: the
+    // client abandoned the turn at 60.0s while CEE returned 200 at 123.1s.
+    // Nothing may be rendered at that point — the turn is still running.
+    mockCallV5Turn.mockReturnValue(new Promise(() => {}))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('add three options and a risk for each')
+    })
+    act(() => {
+      vi.advanceTimersByTime(61_000)
+    })
+    expect(result.current.isThinking).toBe(true)
+    expect(result.current.messages.some((m) => m.synthetic)).toBe(false)
+
+    // And it does still stop eventually — this is a "waits longer" assertion,
+    // not a "never gives up" one.
+    act(() => {
+      vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS)
+    })
+    expect(result.current.isThinking).toBe(false)
+    expect(result.current.messages.some((m) => m.synthetic)).toBe(true)
+  })
+
   it('dispatches through the V5 block (mount-path pin for the assertions below)', async () => {
     const result = await expireTheWait()
     expect(mockCallV5Turn).toHaveBeenCalled()
