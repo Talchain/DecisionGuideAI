@@ -34,7 +34,7 @@ import type {
   OptionDelta,
   RunPairComparison,
 } from './types'
-import { compareStructure } from './deriveTransitions'
+import { classifyChange, structureForChangeKind } from './deriveTransitions'
 
 // ---------------------------------------------------------------------------
 // Leader claim — quoted from the run's own verdict
@@ -214,6 +214,11 @@ export function deriveRunPairComparison(
   const fromLeader = deriveLeaderClaim(from)
   const toLeader = deriveLeaderClaim(to)
 
+  // ONE classification for this pair. `structure` is derived from it rather than
+  // re-classified, so the shape answer and the verdict the copy explains cannot
+  // come apart (ROADMAP 2.578 F1).
+  const changeKind = classifyChange(from, to).kind
+
   // A leader CHANGE is only claimable when both runs named one. Two runs that
   // both declined to name a leader have no leader to report as unchanged, and
   // a named-vs-unclaimed pair is a change in what the PRODUCER would say, not
@@ -231,7 +236,8 @@ export function deriveRunPairComparison(
     to,
     options: deriveOptionDeltas(from, to),
     factors: deriveFactorDeltas(from, to),
-    structure: compareStructure(from, to),
+    structure: structureForChangeKind(changeKind),
+    changeKind,
     fromLeader,
     toLeader,
     leaderChange,

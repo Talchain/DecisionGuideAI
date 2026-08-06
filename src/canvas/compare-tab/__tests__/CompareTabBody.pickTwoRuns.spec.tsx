@@ -65,8 +65,14 @@ vi.mock('../TransitionsSection', () => ({
   TransitionsSection: ({ transitions }: { transitions: Array<{ fromRunNumber: number; toRunNumber: number; winnerProbDelta: number; edits: string[] }> }) => (
     <div data-testid="transitions-stub">
       {transitions.map(t => (
-        <span key={`${t.fromRunNumber}-${t.toRunNumber}`} data-testid="transition-pair">
-          {t.fromRunNumber}→{t.toRunNumber}:{t.winnerProbDelta}:{t.edits.length}
+        <span key={`${t.fromRunNumber}-${t.toRunNumber}`}>
+          <span data-testid="transition-pair">
+            {t.fromRunNumber}→{t.toRunNumber}:{t.winnerProbDelta}:{t.edits.length}
+          </span>
+          {/* The card's OWN sentence for the same pair, exposed so the F1 case
+              below can assert the two surfaces agree rather than assert two
+              hand-copied strings (CLAUDE.md trap 12 — derive, never mirror). */}
+          <span data-testid="transition-edits">{t.edits.join(' | ')}</span>
         </span>
       ))}
     </div>
@@ -224,6 +230,47 @@ describe('pick-two-runs side-by-side (2.113a slice 2)', () => {
     openPicker()
     expect(within(screen.getByTestId('structure-row')).getByText('Not comparable')).toBeTruthy()
     expect(screen.getByTestId('structure-detail').textContent).toContain('incomparable identifiers')
+  })
+
+  /**
+   * ROADMAP 2.578 F1 (adversarial review of #604) — the COMMON persisted pair.
+   *
+   * Two persisted runs carry `aag_v1` hashes from the SAME regime, and a
+   * `run_analysis` fact stores no graph, so the verdict is
+   * `uncharacterised_change`: the model provably moved, and nothing survives to
+   * say how. 2.578 routed that verdict to structure `'not_comparable'` — which
+   * is right, because "something moved" is not "the SHAPE moved" — but the
+   * sentence underneath still read "different, incomparable identifiers". Both
+   * identifiers are `aag_v1`, both were read, and they compared fine. The screen
+   * blamed a provenance boundary for a change it had actually measured, while
+   * the transition card for the very same pair said the model changed.
+   *
+   * This is the default state for a signed-in user with two persisted runs, so
+   * it is exercised through the whole live chain, not through a hand-built
+   * snapshot (trap 16: a fixture you wrote yourself is not evidence).
+   */
+  it('two persisted runs whose aag hashes DIFFER say the model changed — not that the identifiers are incomparable', async () => {
+    await renderWithRuns([
+      run(1, '10', 0.5, { graphHashAtRun: 'aag-1' }),
+      run(2, '11', 0.62, { graphHashAtRun: 'aag-2' }),
+    ])
+    openPicker()
+
+    // The shape claim is unchanged and correct: nothing licenses one.
+    expect(within(screen.getByTestId('structure-row')).getByText('Not comparable')).toBeTruthy()
+
+    const detail = screen.getByTestId('structure-detail').textContent ?? ''
+    expect(detail).toBe(
+      'The model changed between these runs — the details were not recorded for this run',
+    )
+    // The sentence the widened preimage made false — it belongs to the
+    // cross-regime / absent-hash case pinned in the test above, and only there.
+    expect(detail).not.toContain('incomparable identifiers')
+
+    // DERIVED coherence: the pair view and the card are two labels on one
+    // screen, and 2.578's whole point is that they cannot disagree. Compared,
+    // not hand-copied — so a change to either sentence must change both.
+    expect(screen.getByTestId('transition-edits').textContent).toBe(detail)
   })
 
   it('goal probability and evidence coverage render "Not assessed" on a persisted pair', async () => {

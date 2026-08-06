@@ -198,9 +198,22 @@ describe('deriveRunPairComparison — factors (same draft-variance rule, on RANK
 
 // ── DEFECT 2: the cross-regime structure claim ────────────────────────────
 describe('deriveRunPairComparison — model structure', () => {
-  it('two PERSISTED runs with different aag hashes: changed', () => {
+  // ⚠ REVERSED BY ROADMAP 2.578, and for the same reason as its twin in
+  // deriveTransitions.spec.ts: `aag_v1` is an ANALYSIS-AFFECTING hash, i.e. a
+  // CONTENT hash, so its inequality proves the model moved and says nothing
+  // about the model's SHAPE. This row is the pair view's half of the defect that
+  // rendered "Structure changed" for a `+0.50 → +0.80` link edit.
+  it('two PERSISTED runs with different aag hashes: not_comparable, NOT changed', () => {
     const from = persisted({ runNumber: 1, graphHash: 'aag-1' })
     const to = persisted({ runNumber: 2, graphHash: 'aag-2' })
+    expect(deriveRunPairComparison(from, to).structure).toBe('not_comparable')
+  })
+
+  // Control: a difference the counts CAN prove is still reported as changed, so
+  // the correction above did not turn the structure row into a permanent shrug.
+  it('two PERSISTED runs with different edge counts: changed', () => {
+    const from = persisted({ runNumber: 1, graphHash: 'aag-1', edgeCount: 4 })
+    const to = persisted({ runNumber: 2, graphHash: 'aag-2', edgeCount: 6 })
     expect(deriveRunPairComparison(from, to).structure).toBe('changed')
   })
 

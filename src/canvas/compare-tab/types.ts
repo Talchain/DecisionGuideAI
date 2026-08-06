@@ -6,6 +6,7 @@
  */
 
 import type { DecisionVerdict } from '../../lib/decisionVerdict'
+import type { GraphProjection, GraphChangeVerdict, GraphChangeKind } from './graphChangeDiff'
 
 // ---------------------------------------------------------------------------
 // Snapshot types
@@ -90,6 +91,24 @@ export interface AnalysisSnapshot {
    */
   nodeCount: number | null
   edgeCount: number | null
+
+  /**
+   * The canonical, comparable projection of the graph this run was computed
+   * over (ROADMAP 2.578) — the analysis-affecting `data.*` values of every node
+   * and edge, keyed by element id, derived from the SAME `analyticalNodeFields`
+   * registry Staleness consumes. See `graphChangeDiff.ts`.
+   *
+   * This is what lets Compare report "strength 0.5 → 0.8 on THIS edge" instead
+   * of inferring an edit from an event log that is never written, or inferring
+   * a *structure* change from a *content* hash.
+   *
+   * T2b absence-preserving, and null under exactly the same rule as
+   * `graphHash` / `nodeCount` / `edgeCount`: null when the graph is not
+   * available (the persisted-run rebuild stores the analysis, not the model).
+   * A fabricated `{ nodes: [], edges: [] }` would make two rebuilt runs compare
+   * EQUAL and assert "no edits" about two models nobody looked at.
+   */
+  graphProjection: GraphProjection | null
 
   /**
    * Every option this run scored, sorted by win probability descending.
@@ -313,7 +332,25 @@ export interface RunPairComparison {
   options: OptionDelta[]
   /** Union of both runs' top factors, ordered by the strongest |elasticity|. */
   factors: FactorDelta[]
+  /**
+   * Did the model's SHAPE move? Three-valued, and a pure projection of
+   * `changeKind` below — `compareStructure` holds the one mapping.
+   */
   structure: StructureComparison
+  /**
+   * The ONE change verdict's kind for this pair (ROADMAP 2.578 F1).
+   *
+   * ⚠ WHY BOTH FIELDS EXIST. `structure` answers exactly one question — "did the
+   * shape move?" — and three answers are enough for it. The sentence the pair
+   * view prints underneath answers a different question, "why does it say that?",
+   * and there are FIVE reasons. Projecting five onto three then writing copy
+   * against the three is what made two sentences false the moment 2.578 widened
+   * the preimages: `'unchanged'` acquired `value_only` (so "the same model" ran
+   * beside a list of changed values) and `'not_comparable'` acquired same-regime
+   * `uncharacterised_change` (so "incomparable identifiers" ran beside a
+   * successful comparison). A surface that explains a verdict needs the verdict.
+   */
+  changeKind: GraphChangeKind
   fromLeader: LeaderClaim
   toLeader: LeaderClaim
   /**
@@ -353,7 +390,24 @@ export interface Transition {
   /** Labels for display */
   affectedFactorLabels: string[]
   deterministicAnchor: string
-  /** graphHash OR nodeCount/edgeCount differs */
+  /**
+   * ROADMAP 2.578 — the ONE verdict every label on this card reads.
+   *
+   * `edits` and `structureChanged` below are both DERIVED from this, which is
+   * the whole point: they used to have unrelated inputs (an event log and a
+   * content hash) and were caught rendering "Rerun (no edits)" and "Structure
+   * changed" on the same card for the same edit. Two labels with one input
+   * cannot disagree.
+   */
+  changeVerdict: GraphChangeVerdict
+  /**
+   * TRUE only for a change to the model's SHAPE — an element added or removed,
+   * an edge re-pointed, a node kind changed.
+   *
+   * ⚠ It is NOT a hash inequality. `generateGraphHash` hashes edge
+   * `weight`/`confidence`/`belief`, so reading its inequality as "structure
+   * changed" reported every value-only edit as structural (ROADMAP 2.578).
+   */
   structureChanged: boolean
   /** Lowest E-value among affected edges */
   eValue: number | null

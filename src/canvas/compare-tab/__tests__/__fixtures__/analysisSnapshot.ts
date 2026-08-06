@@ -55,6 +55,15 @@ export function makeAnalysisSnapshot(
     graphHash: 'hash-default',
     nodeCount: 5,
     edgeCount: 4,
+    /**
+     * ROADMAP 2.578. Null by default because this fixture does NOT describe a
+     * graph — it describes a run's analysis. A fabricated empty projection would
+     * make every snapshot built here compare EQUAL to every other and silently
+     * assert "no edits" across the whole suite. Specs that mean to exercise the
+     * canonical diff build real nodes/edges through `buildAnalysisSnapshot`
+     * (see `compareChangeCoherence.spec.tsx`) rather than hand-writing one here.
+     */
+    graphProjection: null,
     options: DEFAULT_SNAPSHOT_OPTIONS,
     leaderVerdict: DEFAULT_LEADER_VERDICT,
     winnerId: 'opt-a',
