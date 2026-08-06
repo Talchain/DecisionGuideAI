@@ -29,7 +29,10 @@
  * that depends on `import.meta.env`.
  */
 
-import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
+import type {
+  AnalysisResultBlock,
+  EnrichmentOutcomeStats,
+} from '@talchain/schemas/boundary'
 
 import type { ReportV1, ConfidenceLevel, CritiqueItemV1 } from '../adapters/plot/types'
 import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
@@ -158,6 +161,44 @@ function normaliseDownside(
     return undefined
   }
   return { cvar_10: cvar10, p05, expected_regret: expectedRegret }
+}
+
+// ─── Percentile provenance (ROADMAP 2.646) ─────────────────────────────
+
+/**
+ * The producer's percentile-provenance vocabulary, DERIVED from the contract
+ * rather than retyped from it — `@talchain/schemas` 0.38.0
+ * `EnrichmentOutcomeStatsSchema.percentiles_source`.
+ *
+ * The render layer derives the same alias independently
+ * (`components/results/utils/downsideCopy.ts`, which is where the full note on
+ * this field lives). Two derivations, one source of truth: `src/v5/**` does not
+ * import from `src/components/**` and this row is not the place to start, but
+ * neither copy is hand-written, so neither can drift from the contract or from
+ * the other.
+ */
+type PercentilesSource = NonNullable<EnrichmentOutcomeStats['percentiles_source']>
+
+/**
+ * Accept ONLY the producer's declared members; everything else is absence.
+ *
+ * ⚠ NEVER DEFAULTS TO `'samples'`, and the discipline is not this repo's
+ * invention — it is the same line every upstream hop holds deliberately. ISL
+ * declares a Python-side `default="samples"` on the field; PLoT's egress
+ * refuses to re-apply it ("Substituting 'samples' for a build that sent nothing
+ * would manufacture a provenance claim PLoT never received"); 0.38.0's
+ * `.describe()` states it as a contract obligation on consumers ("MUST NOT
+ * assume 'samples'"). A default here would be the estate's `?? 0` fabrication
+ * class wearing a string, and it would fail SILENT: the render site would
+ * quietly stop showing the honest engine sentence and show the vague one, on a
+ * payload that had told us exactly what happened.
+ *
+ * Written as an explicit two-member check rather than a `Set`/`includes` over a
+ * list, so the vocabulary lives in ONE place (the contract type above) and this
+ * function fails to compile if a member is removed from it.
+ */
+function narrowPercentilesSource(raw: unknown): PercentilesSource | undefined {
+  return raw === 'samples' || raw === 'unavailable' ? raw : undefined
 }
 
 // ─── Factor sensitivity normalisation ──────────────────────────────────
@@ -391,7 +432,22 @@ interface RawOptionEnrichmentEntry {
   probability_of_joint_goal?: unknown
   confidence_interval?: unknown
   expected_outcome?: unknown
-  outcome?: { mean?: unknown; p10?: unknown; p50?: unknown; p90?: unknown }
+  /**
+   * ROADMAP 2.646 — `percentiles_source` is declared here as `unknown` and
+   * NARROWED at the read below, exactly like every other member. It is the
+   * producer's percentile-provenance discriminator (`@talchain/schemas` 0.38.0
+   * `EnrichmentOutcomeStatsSchema`), and until this row it was DROPPED by this
+   * function: the outcome object below is rebuilt key-by-key, so a field this
+   * interface does not name cannot survive the rebuild even though it arrived
+   * intact on the wire.
+   */
+  outcome?: {
+    mean?: unknown
+    p10?: unknown
+    p50?: unknown
+    p90?: unknown
+    percentiles_source?: unknown
+  }
   /**
    * Provenance caveat (PLoT #204, doctrine B): present when
    * probability_of_joint_goal was scored from the constraint-target node's
@@ -865,6 +921,26 @@ export function mapV5AnalysisToReport(
       p90?: number | null
     }
     /**
+     * ROADMAP 2.646 — the producer's PERCENTILE PROVENANCE for this option's
+     * enrichment `outcome` block, carried verbatim from the wire.
+     *
+     * ⚠ DELIBERATELY A SIBLING OF `outcome`, NOT A MEMBER OF IT, and the
+     * placement is the honest one rather than the tidy one. The `outcome`
+     * object above is NOT a faithful copy of the producer's: `p10` and `p90`
+     * fall back to the confidence interval when the producer sent none (see
+     * the reads below), and the view-model hop after this one falls back again
+     * to `run.bands`. A provenance flag sitting INSIDE that object would read
+     * as certifying whichever numbers ended up in it — including ones the
+     * producer's percentile population had nothing to do with. It certifies
+     * the producer's percentile population and only that, so it rides beside
+     * the object rather than in it.
+     *
+     * NARROWED TO THE CLOSED VOCABULARY, NEVER DEFAULTED: absent in ⇒ absent
+     * out. See `downsideUnavailableCopy` for why absence must not be read as
+     * `'samples'` at the render site either.
+     */
+    percentiles_source?: PercentilesSource
+    /**
      * Provenance caveat for probability_of_joint_goal — see
      * RawOptionEnrichmentEntry.goal_fit_basis above. Carried verbatim
      * (scored_from is producer-owned open vocabulary; UI never rewrites
@@ -925,6 +1001,17 @@ export function mapV5AnalysisToReport(
     const p50 = safeFiniteNumber(outcome?.p50) ?? null
     const p90 = safeFiniteNumber(outcome?.p90) ?? ciHigh
 
+    // ROADMAP 2.646 — percentile provenance, narrowed to the producer's closed
+    // vocabulary and carried verbatim. Note the shape of this read and how it
+    // differs from every other one in this loop: there is NO fallback chain and
+    // NO coercion. `safeFiniteNumber(x) ?? ciLow` is right for a magnitude,
+    // because a missing p10 and a CI bound are two estimates of the same thing.
+    // A provenance CLAIM has no such substitute — the only honest value is the
+    // one the producer stated, so anything outside the vocabulary (absent,
+    // null, a string we do not recognise) leaves the key absent and the render
+    // site falls back to the copy that attributes the gap to nobody.
+    const percentilesSource = narrowPercentilesSource(outcome?.percentiles_source)
+
     const goalFitBasis = normaliseGoalFitBasis(enriched?.goal_fit_basis)
     const downside = normaliseDownside(enriched?.downside)
 
@@ -960,6 +1047,10 @@ export function mapV5AnalysisToReport(
       // optional field here: no silent defaults, the key is simply absent when
       // the producer had nothing honest to say.
       ...(downside !== undefined ? { downside } : {}),
+      // 2.646 — same conditional-spread idiom, same reason: absent in, absent
+      // out. A `percentiles_source: percentilesSource ?? 'samples'` here would
+      // manufacture a provenance claim from silence.
+      ...(percentilesSource !== undefined ? { percentiles_source: percentilesSource } : {}),
       outcome: {
         mean: rawMean ?? null,
         p10: p10 ?? null,

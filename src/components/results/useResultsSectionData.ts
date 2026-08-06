@@ -1609,6 +1609,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         nValidSamples,
         // 2.449 — omitted entirely when the engine had nothing honest to say.
         ...(optionDownside !== undefined ? { downside: optionDownside } : {}),
+        // 2.646 — percentile provenance, carried verbatim from the report and
+        // NOT scaled, NOT defaulted, NOT re-derived. It is the only thing that
+        // lets the absence sentence above name the engine instead of shrugging;
+        // the V5 mapper has already narrowed it to the producer's vocabulary,
+        // so this hop's whole job is to not be the one that drops it — which is
+        // exactly what it was doing before this row, by rebuilding the option
+        // object field-by-field.
+        ...(prob.percentiles_source !== undefined
+          ? { percentilesSource: prob.percentiles_source }
+          : {}),
         goalProbability,
         goalFitIsModelledBasis,
         // Which quantity `goalProbability` actually IS, carried to the render
