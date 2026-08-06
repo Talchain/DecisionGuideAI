@@ -40,6 +40,7 @@
  *    reader who has asked for depth and cannot have it is TOLD, in words, that
  *    there is nothing here. See {@link DOWNSIDE_UNAVAILABLE_COPY}.
  */
+import type { EnrichmentOutcomeStats } from '@talchain/schemas/boundary'
 
 /** Section label for the tail-risk lines on an option card. */
 export const DOWNSIDE_HEADING_COPY = 'If it goes badly'
@@ -110,7 +111,125 @@ export const DOWNSIDE_TAIL_CAVEAT_COPY =
  * channel through ISL → PLoT → CEE) plus a mapper-side one, not a wording
  * choice.
  *
+ * ⚠ THAT PRODUCER-SIDE WORK NOW EXISTS FOR **ONE** OF THE THREE CAUSES — see
+ * {@link DOWNSIDE_UNAVAILABLE_ENGINE_COPY}. This string is still what ships
+ * whenever the discriminator is ABSENT, and "absent" must never be read as
+ * "samples": see {@link downsideUnavailableCopy}.
+ *
  * CONTAINS NO NUMERAL, deliberately: see rule 3 above.
  */
 export const DOWNSIDE_UNAVAILABLE_COPY =
   'No worst-case view for this option in this run. We cannot tell you why, or whether running it again would produce one.'
+
+/**
+ * The percentile-provenance discriminator, at the UI's own boundary.
+ *
+ * Producer-owned closed vocabulary, declared identically at all three hops that
+ * touch it — ISL `OutcomeDistributionV2.percentiles_source`
+ * (`Literal["samples","unavailable"]`, `src/models/response_v2.py:234`),
+ * PLoT's egress (`routes/v2/run.ts`, the two-literal check before
+ * `built.percentiles_source = …`), and `@talchain/schemas` 0.38.0
+ * (`EnrichmentOutcomeStatsSchema.percentiles_source`, `.optional()` and
+ * deliberately never `.default()`).
+ *
+ * ⚠ DERIVED FROM THE CONTRACT, NOT RETYPED FROM IT. A hand-written
+ * `'samples' | 'unavailable'` here would be a hand-maintained mirror of a
+ * vocabulary owned by another repo (CLAUDE.md trap 12), and its drift would be
+ * silent in the worst direction: a member added upstream would be a type error
+ * at a `switch` we do not have, and a member REMOVED upstream would leave dead
+ * UI branches nobody reds on. Deriving costs one line and cannot drift.
+ *
+ * If the vocabulary ever widens, note the failure direction is the safe one:
+ * `downsideUnavailableCopy` tests for `'unavailable'` by identity, so an
+ * unrecognised new member falls through to the vague-honest sentence rather
+ * than to a claim about the engine.
+ */
+export type PercentilesSource = NonNullable<
+  EnrichmentOutcomeStats['percentiles_source']
+>
+
+/**
+ * ROADMAP 2.646 — what a reader gets when the tail is absent AND the engine
+ * has told us, on the wire, WHY.
+ *
+ * ── WHAT CHANGED, AND WHY THIS SENTENCE IS NOW EARNED ────────────────────────
+ * {@link DOWNSIDE_UNAVAILABLE_COPY} attributes the absence to nobody, because
+ * at the moment it renders the UI cannot distinguish three causes: a producer
+ * omitted the block with no reason on the wire, OUR OWN mapper dropped a
+ * partial one, or schema-pin skew ate it. That was correct — and it was a
+ * TRANSIT gap, not a knowledge gap. ISL has always known the difference and
+ * said so in `outcome.percentiles_source`; the field simply died before it
+ * reached a reader. 0.38.0 declares it, PLoT's 7-Aug egress carries it, CEE
+ * transports it untouched, and this repo now reads it.
+ *
+ * ── WHAT `'unavailable'` LETS US SAY, DERIVED FROM THE PRODUCER, NOT FROM US ─
+ * Read at ISL's bytes (`src/models/response_v2.py` @ `c25836f7`), not inherited
+ * from this repo's own commentary:
+ *
+ *   * The field's own declaration: "'unavailable' when no valid samples exist
+ *     (p10/p50/p90 will be null)" (`:234-238`).
+ *   * `OptionResultV2._downside_requires_samples` (`:412-432`) ENFORCES
+ *     `downside present ⟹ percentiles_source == 'samples'`. Its contrapositive
+ *     is what this branch stands on: on `'unavailable'`, ISL **never emitted a
+ *     downside at all**.
+ *
+ * That contrapositive is the whole prize, and it is worth stating plainly:
+ * causes 2 and 3 above are RETIRED for this case, not merely thought unlikely.
+ * Our mapper cannot have dropped a block that was never sent, and pin skew
+ * cannot have eaten one either — and skew could not have eaten the
+ * discriminator, because we are holding it. So the sentence may name the
+ * engine, which {@link DOWNSIDE_UNAVAILABLE_COPY} may not.
+ *
+ * ── WHAT IT STILL MUST NOT SAY ───────────────────────────────────────────────
+ * ⚠ NOT "no samples were drawn", and NOT anything about `mean`. ISL's
+ * `_summary_stats_absent_only_without_samples` (`:245-281`) documents in terms
+ * that an option "can legitimately have no raw `samples` array (percentiles
+ * 'unavailable') while the analyzer still computed an honest mean and std for
+ * it" — the biconditional is deliberately NOT enforced. So `'unavailable'`
+ * licenses a claim about the PERCENTILE POPULATION and the tail that is drawn
+ * from it, and nothing wider. The sentence below is scoped to exactly that.
+ *
+ * Still NOTHING about a rerun, in either direction: whether re-running would
+ * produce a usable population is not on the wire, and a guess would be the
+ * same unearned claim one register quieter.
+ *
+ * CONTAINS NO NUMERAL, deliberately: see rule 3 above.
+ */
+export const DOWNSIDE_UNAVAILABLE_ENGINE_COPY =
+  'No worst-case view for this option. The engine reported it had no usable simulated runs to draw one from, so this is the analysis reaching its limit here rather than something lost on the way to you.'
+
+/**
+ * Choose the absence sentence from the producer's discriminator.
+ *
+ * ⚠ **ABSENCE IS NOT `'samples'`, AND MUST NEVER BE DEFAULTED TO IT.** ISL
+ * declares a Python-side `default="samples"`, and every hop after it refuses to
+ * re-apply that default on purpose — PLoT states the reason in its egress
+ * ("Substituting 'samples' for a build that sent nothing would manufacture a
+ * provenance claim PLoT never received"), and 0.38.0's `.describe()` repeats
+ * it: "consumers MUST NOT assume 'samples'". This function is the last hop and
+ * holds the same line. A `?? 'samples'` here would be the estate's named
+ * fabrication class wearing a string, and it would silently downgrade the
+ * honest engine sentence to the vague one — failing SILENT and in the
+ * direction of a worse claim.
+ *
+ * Everything that is not exactly `'unavailable'` — absent, `'samples'`, or a
+ * value outside the vocabulary — keeps {@link DOWNSIDE_UNAVAILABLE_COPY}, and
+ * each for its own good reason:
+ *
+ *   * **absent** — a producer or a hop that predates 0.38.0. The UI genuinely
+ *     cannot tell its own mapper from pin skew there, which is the exact
+ *     situation the vague sentence was written for. (The 5 Aug capture this
+ *     repo tests against is such a payload, and is the live witness for it.)
+ *   * **`'samples'`** — the engine HAD a usable population and the tail is
+ *     still missing. That is the interesting residue: some component was
+ *     non-finite, or our own mapper dropped a partial block. Naming the engine
+ *     here would be false, so this case is deliberately NOT an improvement over
+ *     the status quo, and the vague sentence remains the honest one.
+ */
+export function downsideUnavailableCopy(
+  percentilesSource: PercentilesSource | undefined,
+): string {
+  return percentilesSource === 'unavailable'
+    ? DOWNSIDE_UNAVAILABLE_ENGINE_COPY
+    : DOWNSIDE_UNAVAILABLE_COPY
+}

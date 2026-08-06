@@ -7,20 +7,22 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.37.0.tgz` ← **THE CURRENT PIN**
+### `talchain-schemas-0.38.0.tgz` ← **THE CURRENT PIN**
 
 **Provenance: PACKED FROM THE MERGED, TAGGED RELEASE.** Packed from
-`olumi-schemas` **`main` @ `685d92ec`**, tag **`v0.37.0`** (olumi-schemas #36).
-347,174 bytes. sha256:
+`olumi-schemas` **`main` @ `371e18c8`**, tag **`v0.38.0`** (olumi-schemas #37),
+by `npm ci && npm run build && npm pack` in a fresh blobless clone with
+`HEAD == 371e18c8` asserted before the pack. 353,278 bytes. sha256:
 
 ```
-835ab4b8381e1280f239de0d408c2da6790ab9f93a0a14ce6e5a389acd4dd369
+761c7ec615da3390ec036c8dab4e5a7857501b1d46ff5f3f777353e2d05e55b9
 ```
 
 | Claim | Status |
 |---|---|
-| the sidecar matches the checked-in bytes | ✅ `shasum -a 256 -c vendor/talchain-schemas-0.37.0.tgz.sha256` |
-| packed from the merged, tagged source | ✅ `main` @ `685d92ec`, tag `v0.37.0` |
+| the sidecar matches the checked-in bytes | ✅ `shasum -a 256 -c vendor/talchain-schemas-0.38.0.tgz.sha256` |
+| packed from the merged, tagged source | ✅ `main` @ `371e18c8`, tag `v0.38.0` (both read from the GitHub API, not from a local ref) |
+| `check:vendor` agrees | ✅ `node scripts/check-vendor-sha.mjs` (it now also runs in CI, not only before `dev`) |
 
 > ⚠ **THE REGISTRY ENVELOPE DIFFERS BY DESIGN — NEVER MIX IT IN.** A tarball
 > fetched from the registry carries a different outer envelope from one produced
@@ -30,29 +32,78 @@ identically from a normal clone, a CI checkout, and any worktree.
 > is making is that the committed tarball has not been altered. Comparing it
 > against a registry download is comparing two different artefacts.
 
-**What the UI adopts here (ROADMAP 2.490 slice 2):** `DskProtocolProvenanceSchema`
-and `ExerciseBlockSchema.dsk_provenance` — the decision-science protocol
-attribution the exercise card badges. The adapter
-(`src/v5/phase3TypedBlocks.ts`) re-states that schema's three constraints
-independently, because it parses the RAW WIRE PAYLOAD rather than running the
-Zod schema; both were read at these vendored bytes and agree exactly
-(`/^DSK-P-\d{3}$/`, non-empty title, `strong|medium|weak|mixed`, all three
-required). The editable-field table (adopted at 0.35.0) is carried forward at
-**revision 2** here, above the revision-1 floor
-`editableFieldTable.pinAndParity.spec.ts` requires.
+**What the UI adopts here (ROADMAP 2.646) — READER BEFORE PRODUCER.** The UI
+takes 0.38.0 *before* CEE and PLoT move their own pins, so the consumer can
+never be the hop that drops a field the producers have started sending. Three
+additive cars arrive; the UI consumes ONE of them today:
 
-> ⚠ **Bumping the pin? FOUR places move together**, and only one is derived:
-> `package.json` (the pin), `pnpm-lock.yaml` (pnpm derives it),
+1. **HONEST ABSENCE on `EnrichmentOutcomeStatsSchema` — the car this repo
+   consumes.** `mean`/`p10`/`p50`/`p90` were REQUIRED and are now
+   `.optional()`, and `percentiles_source: z.enum(['samples','unavailable'])`
+   is declared. That enum is the **wire discriminator** the Results panel now
+   reads: see the long note on `DOWNSIDE_UNAVAILABLE_ENGINE_COPY`
+   (`src/components/results/utils/downsideCopy.ts`) and the carry through
+   `mapV5AnalysisToReport` → `useResultsSectionData` → `OptionCards`.
+   **NEVER `.default()` this field at any hop, and never read absence as
+   `'samples'`** — that is the `?? 0` fabrication class wearing a string, and
+   the schema's own `.describe()` says so.
+2. **`DraftGoalConstraint.value_frame`** (ROADMAP 2.266) — declared, **no UI
+   consumer**: it is a precondition for reinstating two producer-side honesty
+   gates, not a display field. Verified absent from `src/` at this bump.
+3. **Two new `ExerciseBlockSchema.exercise_kind` members** (`opportunity_cost`,
+   `implementation_intentions`). The UI is **transparent** to these by
+   construction: `phase3TypedBlocks.ts:321` parses `exercise_kind` as a
+   `nonEmptyString` pass-through discriminator and never enumerates members, so
+   no allowlist here can go short of the contract (trap 12's mirror, avoided by
+   not having one).
+
+**Type fallout of the four now-optional stats, measured not predicted: NONE.**
+`EnrichmentOutcomeStats` has zero type-level importers in UI `src/`, and the
+V5 mapper reads the block as `unknown` through `safeFiniteNumber`, so
+optionality changes nothing it does. The typecheck gate reported **0 added
+diagnostics** at this bump. Had it bitten, the fix is the **forced branch**
+(handle the absent case), **never `?? 0`**.
+
+> ⚠ **Bumping the pin? FOUR places move together — and as of ROADMAP 2.649 TWO
+> of them are derived.** `package.json` (the pin), `pnpm-lock.yaml` (pnpm
+> derives it, and it is what pins the tarball's integrity hash),
 > **`vendor/<tarball>.sha256` — the sidecar `scripts/check-vendor-sha.mjs`
 > reads, and pre-push check 5a fails without it**, and
-> **`src/lib/talchainSchemasVersion.ts` — HAND-MAINTAINED**, feeding
-> `schema_versions.ui_vendored_talchain_schemas` in the debug bundle. The 0.37.0
-> bump initially missed the last two: the sidecar was absent, and the constant
-> still read `0.35.0` — caught by
+> **`src/lib/talchainSchemasVersion.ts` — ⚠ NO LONGER HAND-MAINTAINED**: it is
+> GENERATED from the `package.json` pin by
+> `scripts/generate-schemas-version.mjs`. Run `pnpm run generate:schemas-version`;
+> `pnpm run ci:guard:schemas-version` reds on drift.
+> *(This paragraph said "HAND-MAINTAINED" until the 0.38.0 bump — it had been
+> stale since 2.649 generated the file. A bump checklist is itself a
+> hand-maintained mirror, which is the whole reason 2.649 removed a step from
+> it; if you are reading this before touching the pin, **re-derive the list
+> from `package.json`'s scripts rather than trusting this sentence**.)*
+>
+> The 0.37.0 bump initially missed the last two: the sidecar was absent, and
+> the constant still read `0.35.0` — caught by
 > `src/lib/__tests__/talchainSchemasVersion.spec.ts`, which was the sole red in
-> this PR's first CI run. Third bump in a row that this list has bitten; it is
-> the classic hand-maintained mirror (CLAUDE.md trap 12), and the guards are the
-> only reason it fails loud.
+> that PR's first CI run. Third bump in a row that this list had bitten, which
+> is what motivated generating the constant.
+
+### `talchain-schemas-0.37.0.tgz` (superseded — REMOVED, section retained for history)
+
+> ⚠ **The tarball and its sidecar were DELETED in the 0.38.0 bump**, in the same
+> commit that added 0.38.0's — two coexisting "current pin" tarballs read as
+> ambiguous provenance. Packed from `olumi-schemas` **`main` @ `685d92ec`**, tag
+> **`v0.37.0`** (olumi-schemas #36); 347,174 bytes; sha256
+> `835ab4b8381e1280f239de0d408c2da6790ab9f93a0a14ce6e5a389acd4dd369`.
+
+**What the UI adopted at 0.37.0 (ROADMAP 2.490 slice 2):**
+`DskProtocolProvenanceSchema` and `ExerciseBlockSchema.dsk_provenance` — the
+decision-science protocol attribution the exercise card badges. The adapter
+(`src/v5/phase3TypedBlocks.ts`) re-states that schema's three constraints
+independently, because it parses the RAW WIRE PAYLOAD rather than running the
+Zod schema; both were read at those vendored bytes and agree exactly
+(`/^DSK-P-\d{3}$/`, non-empty title, `strong|medium|weak|mixed`, all three
+required). The editable-field table (adopted at 0.35.0) is carried forward at
+**revision 2**, above the revision-1 floor
+`editableFieldTable.pinAndParity.spec.ts` requires — and 0.38.0 carries it
+forward again unchanged.
 
 ### `talchain-schemas-0.35.0.tgz` (superseded — REMOVED, section retained for history)
 
@@ -463,7 +514,51 @@ cp talchain-schemas-<version>.tgz \
 # 6. npm install (reinstalls from the new tarball)
 ```
 
-**Removal criterion:** delete this tarball + the vendor entry and switch
-`package.json` to a registry version (`"@talchain/schemas": "^0.3.0"`)
-once `olumi-schemas` publishes to the private npm registry. Until then,
-every consuming repo is expected to carry its own `vendor/` copy.
+## Standing policy — ⚠ THERE IS NO REMOVAL CRITERION. THE VENDORED TARBALL *IS* THE MECHANISM.
+
+> ⚠ **THIS SECTION USED TO SAY THE OPPOSITE, AND THE OPPOSITE IS NOW A CI
+> FAILURE.** It read: *"**Removal criterion:** delete this tarball + the vendor
+> entry and switch `package.json` to a registry version
+> (`"@talchain/schemas": "^0.3.0"`) once `olumi-schemas` publishes to the
+> private npm registry."* `olumi-schemas` **does** publish, so that sentence was
+> an instruction to do the thing the pipeline now rejects — a stale doc pointed
+> straight at a red gate. Ratified 6 Aug 2026 and encoded in `ci.yml`'s
+> rewritten **Schema contract gate** (PR #611): **a registry pin FAILS the
+> gate; a `file:./vendor/*.tgz` pin is what passes.**
+
+The vendored tarball is not a stopgap awaiting a registry. It is the long-term
+mechanism, for one reason: a `^x.y.z` range lets the bytes a consumer compiles
+against change without any commit in that consumer, which is precisely how the
+schema-version skew this estate keeps paying for goes unobserved. A checked-in
+tarball with a sha256 sidecar makes the contract a reviewable artefact — the
+diff shows which bytes moved, and the gate can prove nobody swapped them.
+
+**THE BYTE RULE — how a tarball here is produced, without exception.**
+
+1. Fresh blobless clone of `olumi-schemas`, checked out at the **merged, tagged**
+   commit — and `HEAD` **asserted equal** to that SHA before anything else
+   (fetching a ref is not checking it out).
+2. `npm ci && npm run build && npm pack`.
+3. **NEVER the registry artifact.** A tarball downloaded from the registry
+   carries a different outer envelope, so its sha256 will not match one packed
+   here. That is not corruption and it is not a reason to "correct" a sidecar —
+   they are two different artefacts, and only the packed one is what this repo
+   compiles against.
+4. Record the sha256 of the **committed** bytes in the sidecar, and state the
+   source commit + tag + byte count in this file.
+
+**FOUR PLACES MOVE TOGETHER on every bump** — and only two are hand-touched
+(re-derive this list from `package.json`'s scripts rather than trusting this
+sentence; a checklist is itself a hand-maintained mirror):
+
+| # | what | derived? |
+|---|---|---|
+| 1 | `package.json` — the `file:./vendor/<tarball>` pin | ✋ by hand |
+| 2 | `pnpm-lock.yaml` — pins the tarball's integrity hash | ✅ `pnpm install` |
+| 3 | `vendor/<tarball>.sha256` — read by `scripts/check-vendor-sha.mjs`, which runs in **`ci.yml`**, in **`staging-full-tests.yml`**, in the pre-push scripts, and before `pnpm dev` | ✋ by hand |
+| 4 | `src/lib/talchainSchemasVersion.ts` — feeds `schema_versions.ui_vendored_talchain_schemas` in the debug bundle | ✅ `pnpm run generate:schemas-version` (guarded by `pnpm run ci:guard:schemas-version`) |
+
+**Delete the superseded tarball AND its sidecar in the same commit that adds the
+new pair.** Two coexisting "current pin" tarballs read as ambiguous provenance,
+and the ambiguity is worst exactly when someone is trying to work out which
+bytes a shipped build was compiled against.

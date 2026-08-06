@@ -15,6 +15,7 @@ import type { DecisionVerdict } from '../../lib/decisionVerdict'
 import type { ReportV1, OptionProbability } from '../../adapters/plot/types'
 import type { V2FactorSensitivity, V2OptionComparison } from '../../adapters/plot/v2/types'
 import type { KnownFlipReason } from './utils/flipReasonVocabulary'
+import type { PercentilesSource } from './utils/downsideCopy'
 import type { MappedDecisionQualityPrompt } from './utils/decisionQualityPrompts'
 
 // Re-export M1 coaching type for component use
@@ -200,6 +201,23 @@ export interface OptionResult {
    * at all rather than a zero or a placeholder.
    */
   downside?: OptionDownside
+  /**
+   * ROADMAP 2.646 — the producer's PERCENTILE PROVENANCE for this option,
+   * carried verbatim from `enrichment.option_comparison[].outcome
+   * .percentiles_source` and used for exactly one thing: choosing which
+   * absence sentence `OptionCards` shows when {@link downside} is missing.
+   *
+   * ⚠ A SIBLING OF {@link outcome}, NOT A MEMBER OF IT, on purpose. `outcome`
+   * here is a DISPLAY object: its `p10`/`p90` may have come from the
+   * confidence interval (the V5 mapper's fallback) or from `run.bands` (this
+   * hook's), so a provenance flag inside it would read as certifying numbers
+   * the producer's percentile population never produced. It certifies that
+   * population and nothing else.
+   *
+   * ⚠ ABSENT MEANS ABSENT — never read it as `'samples'`. See
+   * `downsideUnavailableCopy`, which is the only place this field is consumed.
+   */
+  percentilesSource?: PercentilesSource
   /** Optional goal probability when no distribution data exists. */
   goalProbability?: number | null
   /** Task 2.1: Whether this option is the baseline for comparison */
@@ -1286,6 +1304,22 @@ export interface ResultsOptionProbability extends OptionProbability {
    * — never zeroed, never null.
    */
   downside?: { cvar_10: number; p05: number; expected_regret: number }
+  /**
+   * ROADMAP 2.646 — percentile provenance, wire-named and carried verbatim by
+   * the V5 mapper (which narrows it to the producer's closed vocabulary first).
+   *
+   * ⚠ THIS INTERFACE AND `mapV5AnalysisToReport`'s FUNCTION-LOCAL
+   * `ResultsOptionProbability` ARE TWINS: one describes what the mapper WRITES,
+   * this one describes what the hook READS, and nothing makes them agree except
+   * a human noticing. That is the same-named-twin shape CLAUDE.md trap 16 names
+   * (`generateGraphHash`), and it is why a field added to only one of them
+   * vanishes silently at the seam. Both moved in this row; a spec drives the
+   * REAL mapper into the REAL hook so the pair is checked by execution rather
+   * than by memory.
+   *
+   * Absent means absent — see `downsideUnavailableCopy`.
+   */
+  percentiles_source?: PercentilesSource
 }
 
 /**

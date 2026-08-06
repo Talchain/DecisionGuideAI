@@ -46,8 +46,8 @@ import { GOAL_FIT_BASIS_CAVEAT_COPY } from './utils/goalFitBasisCaveatCopy'
 import {
   DOWNSIDE_HEADING_COPY,
   DOWNSIDE_TAIL_CAVEAT_COPY,
-  DOWNSIDE_UNAVAILABLE_COPY,
   downsideSummaryCopy,
+  downsideUnavailableCopy,
 } from './utils/downsideCopy'
 import { formatRangeValue } from './utils/formatRangeValue'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
@@ -835,19 +835,29 @@ function OptionCard({
               Progressive disclosure (P5) — depth for the reader who asked for
               depth, nothing added to the default card.
 
-              HONEST ABSENCE — ⚠ AMENDED BY ROADMAP 2.581. `option.downside` is
-              undefined for reasons this component CANNOT distinguish: a
-              producer (ISL or PLoT) omitted the block with no reason on the
-              wire, OR our own `normaliseDownside` dropped a partially-arrived
-              block, OR schema-pin skew ate the field before it got here. The
-              copy therefore attributes the absence to nobody — see the long
-              note on `DOWNSIDE_UNAVAILABLE_COPY`. This used to render NOTHING
-              in that case. It now renders a STATED absence and still never a
-              number: a zero here would read as "there is no downside", which
-              is the most damaging thing this surface could say, but silence is
-              what let 2.581 be reported as the feature "appearing in some
-              sessions and not others". A reader who asked for depth and cannot
-              have it is told so.
+              HONEST ABSENCE — ⚠ AMENDED BY 2.581, THEN BY 2.605, THEN
+              NARROWED BY 2.646. `option.downside` is undefined for reasons this
+              component USED TO BE UNABLE to distinguish at all: a producer (ISL
+              or PLoT) omitted the block with no reason on the wire, OR our own
+              `normaliseDownside` dropped a partially-arrived block, OR
+              schema-pin skew ate the field before it got here. The copy
+              therefore attributed the absence to nobody — see the long note on
+              `DOWNSIDE_UNAVAILABLE_COPY`. This used to render NOTHING in that
+              case. It renders a STATED absence and still never a number: a zero
+              here would read as "there is no downside", which is the most
+              damaging thing this surface could say, but silence is what let
+              2.581 be reported as the feature "appearing in some sessions and
+              not others". A reader who asked for depth and cannot have it is
+              told so.
+
+              ⚠ 2.646 retires exactly ONE of those three causes, and only on
+              the payloads that carry the discriminator. When
+              `percentilesSource === 'unavailable'`, ISL's own invariant proves
+              it never emitted a downside — so our mapper cannot have dropped
+              one and skew cannot have eaten one, and the copy may name the
+              engine. On EVERY other payload the original three-cause problem is
+              untouched and the blame-nobody sentence is still the honest one.
+              The distinction lives in `downsideUnavailableCopy`, not here.
 
               ⛔ `downside.expectedRegret` is deliberately NOT rendered. It is
               the per-option limb of the value-of-information family (the
@@ -875,12 +885,24 @@ function OptionCard({
           ) : (
             /* 2.581 — the stated absence. Same expert block, same option
                identity, so a reader who opened this card for the tail learns
-               that there is not one rather than scanning a gap. */
+               that there is not one rather than scanning a gap.
+
+               2.646 — WHICH absence sentence is now the PRODUCER's call, not
+               ours. `downsideUnavailableCopy` reads this option's
+               `percentilesSource`, the discriminator ISL has always computed
+               and that only reached a reader once 0.38.0 declared it and PLoT
+               carried it. On 'unavailable' the copy may name the engine,
+               because ISL's own invariant (downside ⟹ percentiles_source ===
+               'samples') proves nothing was dropped between there and here.
+               Everything else — absent, 'samples' — keeps the sentence that
+               blames nobody. The choice is made in the copy module, not here,
+               so there is exactly one place to read for what a reader is told
+               and why. */
             <p
               className={`${typography.panelMeta} text-text-light mt-1`}
               data-testid={`option-downside-unavailable-${option.id}`}
             >
-              {DOWNSIDE_UNAVAILABLE_COPY}
+              {downsideUnavailableCopy(option.percentilesSource)}
             </p>
           )}
         </ExpertBlock>
