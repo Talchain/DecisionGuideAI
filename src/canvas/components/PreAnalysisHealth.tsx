@@ -100,10 +100,11 @@ const tierConfig: Record<GraphReadinessLevel, TierStyle> = {
     ...topBandStyle,
     label: 'Ready',
   },
-  strong: {
-    ...topBandStyle,
-    label: 'Strong',
-  },
+  // ROADMAP 2.635 — the `strong` entry is gone with the level itself. It was
+  // the local heuristic's spelling of the top band; that heuristic and its last
+  // caller (the 429 arm) are deleted, so no writer can produce it. The Record's
+  // exhaustiveness device is what made this a required edit rather than dead
+  // config left to rot — which is exactly why it is typed this way.
 }
 
 // Priority styling

@@ -341,6 +341,10 @@ describe('AMENDMENT A1 — the composed sentence is VETTED, never rewritten', ()
       goalMissing: [BLOCKED_REASON_COPY.goalMissing],
       tooFewOptions: [BLOCKED_REASON_COPY.tooFewOptions],
       unspecified: [BLOCKED_REASON_COPY.unspecified],
+      // ROADMAP 2.635 (I-3) — the stale rung. It is a composed sentence like any
+      // other and must classify as composed-safe, or the footer would degrade it
+      // to the non-committal fallback and the staleness disclosure would vanish.
+      staleRecheck: [BLOCKED_REASON_COPY.staleRecheck],
     }
     expect(Object.keys(samples).sort()).toEqual(Object.keys(BLOCKED_REASON_COPY).sort())
 

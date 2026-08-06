@@ -130,7 +130,9 @@ export const ConversationPanel = memo(function ConversationPanel({
   const generateInFlightRef = useRef(false)
   const wasThinkingRef = useRef(false)
   const { runV2Analysis, isRunning: isV2RunInFlight } = useV2Run()
-  const { readiness } = useGraphReadiness()
+  // ROADMAP 2.635 (I-3) — `stale` travels with the verdict into the gate, so
+  // a refusal composed here cannot quote a verdict the canvas has outgrown.
+  const { readiness, stale: readinessStale } = useGraphReadiness()
 
   // Track 2: Thread persistence (best-effort, flag-gated)
   const { onBlockAction, onChipTaken } = useThreadPersistence(scenarioId, messages)
@@ -501,7 +503,8 @@ export const ConversationPanel = memo(function ConversationPanel({
     isRunning: isAnalysisRunning,
     ceeCannotSeeModel,
     draftStreamPhase,
-  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning, ceeCannotSeeModel, draftStreamPhase])
+    readinessStale,
+  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning, ceeCannotSeeModel, draftStreamPhase, readinessStale])
 
   // In-flight takes priority over structural reasons: the composer button
   // is disabled for either cause, but the user-visible tooltip should explain

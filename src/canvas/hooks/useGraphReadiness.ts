@@ -222,31 +222,40 @@ export const CEE_READINESS_LEVELS = ['needs_work', 'fair', 'ready'] as const
 export type CeeReadinessLevel = (typeof CEE_READINESS_LEVELS)[number]
 
 /**
- * `strong` is NOT a CEE value — no CEE code path assigns it to `readiness_level`.
- * It is emitted only by the UI's own local heuristic,
- * `readinessStore.calculateFallbackReadiness`, when CEE is unreachable, and that
- * value is written straight to the store WITHOUT passing through the normaliser.
- * Accepted here so the field's type covers both writers.
+ * ── ROADMAP 2.635 (I-1): `LOCAL_FALLBACK_READINESS_LEVELS` was DELETED ──
  *
- * @deprecated Local-fallback spelling of the top band. The fallback emitting a
- * BETTER verdict than the producer (CEE down + score 85 => `strong`; CEE up +
- * score 85 => the top band) is tracked separately and deliberately untouched
- * here — see the divergence-2 row on the family-3 readiness design.
+ * It held exactly one member, `'strong'`, and its own docstring said the thing
+ * that eventually retired it: `strong` is NOT a CEE value — no CEE code path
+ * assigns it to `readiness_level`. It existed because the UI's local heuristic
+ * `readinessStore.calculateFallbackReadiness` emitted it, writing straight to
+ * the store WITHOUT passing through the normaliser. That heuristic's last caller
+ * (the 429 arm) was retired in 2.635 and the function is deleted, so `strong`
+ * now has no writer anywhere in this repo.
+ *
+ * It is removed rather than left resident because a level in the accepted set
+ * with no producer is a standing invitation to re-fabricate one — and because
+ * leaving it made the accepted set a UI invention padded onto a producer
+ * vocabulary, which is the shape that caused the original defect this whole
+ * area was opened for (CEE's `ready` silently coerced to `fair`).
+ *
+ * The old `@deprecated` note recorded the sharpest reason of all: the fallback
+ * emitted a BETTER verdict than the producer could (CEE down + score 85 =>
+ * `strong`; CEE up + score 85 => the top band). An unreachable server producing
+ * a more confident answer than a reachable one is the fabrication class
+ * inverted. It is now unreachable by construction.
  */
-export const LOCAL_FALLBACK_READINESS_LEVELS = ['strong'] as const
-export type LocalFallbackReadinessLevel = (typeof LOCAL_FALLBACK_READINESS_LEVELS)[number]
 
 /**
- * Every value `GraphReadiness.readiness_level` may hold — the producer's set
- * plus the local-fallback band. This is what the normaliser accepts; anything
- * else is unrecognised input and degrades to `fair` (loudly, in DEV).
+ * Every value `GraphReadiness.readiness_level` may hold.
+ *
+ * ⚠ This is now EXACTLY the producer's set — see the assertion in
+ * `readinessStore.ceeVocabulary.spec.ts`. Anything else is unrecognised input
+ * and degrades to `fair` (loudly, in DEV). Do not widen this with a value the
+ * UI invents: a level the producer cannot emit has no honest surface.
  */
-export const ACCEPTED_READINESS_LEVELS = [
-  ...CEE_READINESS_LEVELS,
-  ...LOCAL_FALLBACK_READINESS_LEVELS,
-] as const
+export const ACCEPTED_READINESS_LEVELS = CEE_READINESS_LEVELS
 
-export type GraphReadinessLevel = CeeReadinessLevel | LocalFallbackReadinessLevel
+export type GraphReadinessLevel = CeeReadinessLevel
 
 export type ImprovementPriority = 'high' | 'medium' | 'low'
 

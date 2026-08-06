@@ -279,15 +279,17 @@ describe('pre-analysis panel — an unchecked model is never presented as a chec
     })
   })
 
-  // ── The 429 limb: a local fallback is never cited as a check ─────
+  // ── The 429 limb: no local fallback exists to cite (ROADMAP 2.635) ─
   //
-  // This slice added a footer arm that fires on ANY non-null store error, and
-  // 429 sets one. Its verdict is the LOCAL heuristic, not a server answer — so
-  // the arm must name the rate limit and must NOT print "Showing the check
-  // from HH:MM" over a number no server produced. That would re-create the
-  // fabrication class one field over, inside the fix for it.
+  // This block used to assert `readiness` was NON-null after a 429 — the local
+  // heuristic's verdict — while insisting the surface not print "Showing the
+  // check from HH:MM" over it. That was the best available compromise while a
+  // fabricated verdict was on screen. 2.635 removed the fabrication instead:
+  // the arm publishes nothing, so the panel reaches the SAME honest
+  // never-checked surface as the transport, 404 and 5xx limbs, and the
+  // timestamp problem cannot arise because there is no local verdict.
   describe('a rate-limited check is named as one, and cites no server time', () => {
-    it('shows the rate-limit reason without claiming a timestamped check', async () => {
+    it('shows the rate-limit reason and publishes no verdict to timestamp', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 429,
@@ -299,7 +301,7 @@ describe('pre-analysis panel — an unchecked model is never presented as a chec
       renderPanel()
       await settle()
 
-      expect(useReadinessStore.getState().readiness).not.toBeNull()
+      expect(useReadinessStore.getState().readiness).toBeNull()
       expect(useReadinessStore.getState().verdictAtMs).toBeNull()
 
       const outage = screen.getByTestId('pre-analysis-v3-readiness-outage')

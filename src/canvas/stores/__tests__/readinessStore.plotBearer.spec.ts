@@ -36,7 +36,7 @@ function okReadiness() {
   return new Response(
     JSON.stringify({
       readiness_score: 75,
-      readiness_level: 'strong',
+      readiness_level: 'ready', // ROADMAP 2.635 — was 'strong', the local heuristic's spelling of the top band; that heuristic is deleted and the level with it. `ready` is the producer's own top band at this score.
       can_run_analysis: true,
       confidence_explanation: 'Good',
       improvements: [],

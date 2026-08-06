@@ -330,46 +330,26 @@ export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
 }
 
 /**
- * Calculate fallback readiness from local graph health.
+ * ── ROADMAP 2.635 (I-1): `calculateFallbackReadiness` was DELETED here ──
+ *
+ * It was a node/edge-count heuristic that returned a full `GraphReadiness` —
+ * score, level and `can_run_analysis` — composed entirely from local state. Its
+ * verdict was `can_run_analysis: blockers.length === 0`, where `blockers` came
+ * from `graphHealth`, which is `null` until an analysis has already COMPLETED.
+ * So on the pre-analysis canvas it never found a blocker and always granted the
+ * run, and it was the only writer of `readiness_level: 'strong'` — a band no
+ * CEE code path assigns to this field.
+ *
+ * Its callers were retired one at a time: the transport catch (2.319a), the 404
+ * arm (2.329), the 5xx arm (2.339), and finally the 429 arm (this row). With the
+ * last caller gone the function is deleted rather than left resident, because a
+ * resident fabricator is an invitation: the next failure arm added to this file
+ * would have reached for it exactly as the previous four did.
+ *
+ * The `'strong'` vocabulary went with it — see `useGraphReadiness.ts`. There is
+ * now no code path in this repo that can produce a readiness verdict the server
+ * did not send.
  */
-function calculateFallbackReadiness(
-  nodes: Node[],
-  edges: Edge[],
-  graphHealth: { issues?: Array<{ severity: string }> } | null,
-): GraphReadiness {
-  let score = 50
-
-  if (nodes.length > 0) score += 10
-  if (nodes.length >= 3) score += 10
-  if (nodes.length >= 5) score += 5
-  if (edges.length > 0) score += 10
-  if (edges.length >= nodes.length - 1) score += 5
-
-  const issues = graphHealth?.issues || []
-  const blockers = issues.filter((i) => i.severity === 'error' || i.severity === 'blocker')
-  const warnings = issues.filter((i) => i.severity === 'warning')
-
-  score -= blockers.length * 15
-  score -= warnings.length * 5
-  score = Math.max(0, Math.min(100, score))
-
-  let level: GraphReadiness['readiness_level'] = 'fair'
-  if (score < 40) level = 'needs_work'
-  else if (score >= 70) level = 'strong'
-
-  return {
-    readiness_score: score,
-    readiness_level: level,
-    can_run_analysis: blockers.length === 0,
-    confidence_explanation:
-      level === 'strong'
-        ? 'Your model has good structure and connections'
-        : level === 'fair'
-          ? 'Analysis available - consider improvements for better results'
-          : 'Address critical issues before running analysis',
-    improvements: [],
-  }
-}
 
 // ── Core fetch logic ───────────────────────────────────────────────
 
@@ -394,11 +374,15 @@ async function fetchReadiness(): Promise<void> {
       return
     }
 
+    // ROADMAP 2.635 — `graphHealth` is deliberately NOT destructured here any
+    // more. Its only reader in this module was `calculateFallbackReadiness`,
+    // and reading it into scope was what made a local verdict cheap to compose.
+    // The readiness question is answered by CEE against the payload below;
+    // nothing in this file needs the canvas's own health assessment.
     const canvasState = useCanvasStore.getState()
     const {
       nodes: currentNodes,
       edges: currentEdges,
-      graphHealth,
       ceeAnalysisReady: currentCeeAnalysisReady,
     } = canvasState
 
@@ -606,20 +590,41 @@ async function fetchReadiness(): Promise<void> {
             `[readinessStore] Rate limited (429), backing off for ${backoffDelay / 1000}s`,
           )
 
-          const fallback = calculateFallbackReadiness(currentNodes, currentEdges, graphHealth)
+          // ── ROADMAP 2.635 (I-1): the LAST fabrication limb, retired ──
+          //
+          // ROADMAP 2.332 left this arm publishing `calculateFallbackReadiness`
+          // and said so: "this arm's BEHAVIOUR is deliberately unchanged …
+          // retiring that is a separate row". This is that row, and the arm now
+          // does exactly what its transport / 404 / 5xx siblings do.
+          //
+          // What it used to do: publish a node/edge-count heuristic INTO
+          // `readiness`, whose verdict is `can_run_analysis: blockers.length === 0`
+          // with `blockers` drawn from `graphHealth` — `null` until an analysis
+          // has already COMPLETED. So before the first analysis there were never
+          // any blockers to find, and a rate limit did not merely RISK opening
+          // the gate: it always granted the run. And because it OVERWROTE
+          // `readiness`, it could replace a `can_run_analysis: false` the server
+          // had already given with a locally invented `true` that no consumer
+          // could distinguish from the server's own answer. It could also print
+          // `readiness_level: 'strong'` — a band NO CEE code path assigns to
+          // this field.
+          //
+          // A rate limit is a statement about the SERVICE, not about the model.
+          // So: publish no verdict, and say that. `readiness` is left EXACTLY as
+          // it was — `null` on first load (the store's own "unknown" state,
+          // which already has a rendered surface), otherwise the last answer the
+          // server actually gave, which a local guess is not entitled to
+          // replace. `verdictAtMs` stays untouched for the same reason it was
+          // explicitly nulled here before: it means "when `readiness` was last
+          // set from an ANSWER", and this is not one.
+          //
+          // The backoff above is UNCHANGED — this row retires the fabrication,
+          // not the rate-limit handling. `lastPayloadHash` is likewise still
+          // unset, so the identical graph can be re-asked once the window
+          // clears; a failure here must not be sticky.
           useReadinessStore.setState({
-            readiness: fallback,
-            error: 'Rate limited - using local validation',
+            error: 'Could not check readiness right now — the service is rate limited',
             loading: false,
-            // ROADMAP 2.332 — this arm's BEHAVIOUR is deliberately unchanged
-            // (it still publishes the labelled local fallback; retiring that is
-            // a separate row). But `verdictAtMs` means "when `readiness` was
-            // last set from an ANSWER", and this verdict is not one — it is the
-            // local heuristic. Stamping it would let a surface cite a time for
-            // a number no server produced, which is the fabrication class this
-            // whole slice exists to close. Explicitly null, so the absence is a
-            // decision rather than an oversight.
-            verdictAtMs: null,
           })
           return
         }
@@ -696,14 +701,52 @@ async function fetchReadiness(): Promise<void> {
 
       const data = response.data
 
+      // ── ROADMAP 2.635 (I-2): a 200 that does not answer is not a "yes" ──
+      //
+      // This field used to default to `true`:
+      //
+      //     typeof data.can_run_analysis === 'boolean' ? data.can_run_analysis : true
+      //
+      // `can_run_analysis` is the ONE gating field on the whole response. A 2xx
+      // whose body omits it — a partial write, a proxy that rewrote the body, a
+      // producer that renamed the field, a CEE on an older contract — therefore
+      // GRANTED the run, stamped `verdictAtMs`, and reported `error: null`.
+      // Downstream that is indistinguishable from the server's own assessment.
+      // It is the same fabrication class as the 429 arm above, spelled as a
+      // default rather than a heuristic, and strictly harder to notice because
+      // nothing about it was labelled.
+      //
+      // The fail direction is a stated decision, not a fall-through: a malformed
+      // 200 is UNKNOWN, and unknown is a state this store already has. Publish
+      // no verdict, retain whatever the server last actually said, set a
+      // truthful error. What the run GATE does with an unknown verdict is
+      // `canRunAnalysis`'s decision and is unchanged — a readiness check that
+      // cannot be obtained does not brick the Run button for a healthy user, it
+      // is disclosed. All this branch does is stop INVENTING the answer.
+      //
+      // Note the ordering: this is checked BEFORE `normalized` is built, so no
+      // half-invented verdict can exist even transiently. `lastPayloadHash` is
+      // left unset (as on the other no-verdict arms) so the identical graph can
+      // be re-asked once the service answers properly.
+      if (typeof data.can_run_analysis !== 'boolean') {
+        console.warn(
+          '[readinessStore] Readiness response carried no can_run_analysis boolean — publishing no verdict:',
+          { received: typeof data.can_run_analysis },
+        )
+        useReadinessStore.setState({
+          error: 'Could not read the readiness service response',
+          loading: false,
+        })
+        return
+      }
+
       const normalized: GraphReadiness = {
         readiness_score:
           typeof data.readiness_score === 'number'
             ? Math.max(0, Math.min(100, data.readiness_score))
             : 50,
         readiness_level: normaliseReadinessLevel(data.readiness_level),
-        can_run_analysis:
-          typeof data.can_run_analysis === 'boolean' ? data.can_run_analysis : true,
+        can_run_analysis: data.can_run_analysis,
         confidence_explanation:
           typeof data.confidence_explanation === 'string'
             ? data.confidence_explanation
@@ -1020,7 +1063,6 @@ export const selectReadinessVerdictAtMs = (state: ReadinessStoreState) => state.
 /** @internal — exposed for unit testing. Not part of public API. */
 export const __test__ = {
   fetchReadiness,
-  calculateFallbackReadiness,
   getModuleState: () => ({
     lastObservedPayload,
     lastPayloadHash,

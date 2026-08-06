@@ -192,6 +192,26 @@ export interface CanRunAnalysisParams {
    * degrades to count-based copy, which is still true.
    */
   optionsNeedingValues?: readonly OptionNeedingValues[]
+  /**
+   * ROADMAP 2.635 (I-3) — `readinessStore.stale`: true when the model has
+   * changed in a way the CURRENT `readiness` verdict was not asked about.
+   *
+   * ⚠ It affects the REASON, never `allowed`. Staleness is not evidence about
+   * runnability — it is evidence about the EVIDENCE — and per Ruling 3
+   * uncertainty must not lock the user out of their own model. So a stale
+   * verdict that blocks still blocks (its refusal is the last real answer we
+   * have) and a stale verdict that permits still permits; what changes is that
+   * the refusal stops making specific claims sourced from a verdict nobody
+   * asked about the current graph.
+   *
+   * The store has carried this flag since 2.332, and its docstring said it "is
+   * what stops a surface presenting that verdict as current". The V3 footer
+   * honoured it; this gate did not, so the blocked copy quoted a stale
+   * verdict's `options_ready`/`options_total` and option labels as if fresh —
+   * the user completes the named remedy and reads the same refusal until the
+   * refetch lands.
+   */
+  readinessStale?: boolean
 }
 
 /**
@@ -212,13 +232,81 @@ export function readinessWillScaffold(readiness: GraphReadiness | null | undefin
 }
 
 /**
+ * Does the readiness verdict OBJECT to a run? (ROADMAP 2.635, I-5.)
+ *
+ * The single definition of the gate's readiness rung. It exists because I-4
+ * needs the same question answered at DISPATCH time, and the alternative —
+ * re-typing `readiness && !readiness.can_run_analysis && !readinessWillScaffold(...)`
+ * at the dispatch barrier — is the hand-maintained mirror this codebase has been
+ * bitten by repeatedly (trap 12): the day the scaffold clause changes, one copy
+ * moves and the other silently keeps the old answer, in the permissive
+ * direction.
+ *
+ * ⚠ Note what `null` means here, because it is a DECISION and not a
+ * fall-through (I-2). A `null` verdict is UNKNOWN, and unknown does not object.
+ * The run gate stays open and the outage is DISCLOSED (the V3 footer's
+ * "Could not check readiness" rung). Failing closed on an unobtainable readiness
+ * check would brick the Run button for a healthy user whose only problem is that
+ * a side-car service is down — the SHUT dead end witnessed in ROADMAP 2.332, and
+ * exactly what POC-DONE's PC1 forbids. A truthful "we could not check, you can
+ * still run" is not a dead end; a false "you cannot run" is.
+ */
+export function readinessObjectsToRun(readiness: GraphReadiness | null | undefined): boolean {
+  return Boolean(readiness) && !readiness!.can_run_analysis && !readinessWillScaffold(readiness)
+}
+
+/**
+ * The identity of the verdict that licensed a run (ROADMAP 2.635, I-4).
+ *
+ * `verdictAtMs` is stamped only when `readiness` is set from a real ANSWER, so
+ * the pair (`verdictAtMs`, `stale`) identifies WHICH assessment the gate was
+ * computed against — including the case where no assessment exists at all.
+ */
+export interface ReadinessVerdictLicence {
+  verdictAtMs: number | null
+  stale: boolean
+}
+
+/**
+ * Has the verdict that licensed a run been SUPERSEDED since the gate opened?
+ * (ROADMAP 2.635, I-4.)
+ *
+ * The run gate is evaluated during render; the click that acts on it dispatches
+ * later, and `runCanonicalAnalysis` awaits a persistence flush in between. That
+ * await is a real window: a fresh verdict, or a staleness mark, can land inside
+ * it. Today nothing binds the click to the verdict that opened the gate, so a
+ * run dispatched against a superseded assessment is indistinguishable from one
+ * dispatched against a current one — which makes a doomed run un-attributable.
+ *
+ * This answers only the IDENTITY question. Whether a superseded licence should
+ * stop the run is the caller's decision, and it is taken by asking
+ * `readinessObjectsToRun` about the CURRENT verdict — one gate authority, asked
+ * twice, never re-implemented.
+ */
+export function verdictLicenceSuperseded(
+  licensed: ReadinessVerdictLicence,
+  current: ReadinessVerdictLicence,
+): boolean {
+  return licensed.verdictAtMs !== current.verdictAtMs || licensed.stale !== current.stale
+}
+
+/**
+ * The refusal shown when a run was licensed by a verdict that has since been
+ * replaced by a refusal. Transient and actionable by construction: the fresh
+ * verdict is already in the store, so pressing Analyse again re-evaluates
+ * against it and either runs or names the real reason.
+ */
+export const RUN_LICENCE_SUPERSEDED_REFUSAL =
+  'Your model changed while the analysis was starting. Press Analyse again to run the current model.'
+
+/**
  * Determine if analysis can run based on current state
  *
  * @param params - State from store and hooks
  * @returns CanRunAnalysisResult with allowed status and reason
  */
 export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResult {
-  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false, draftStreamPhase = 'idle', optionsNeedingValues } = params
+  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
 
   const blockingReasons: string[] = []
 
@@ -319,12 +407,15 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   // fields, in the product's own language, with the actual remedy named. It
   // never parses the engine's prose (that would just move the mirror) and never
   // asserts a fact the panel's own counts could contradict.
-  if (
-    readiness &&
-    !readiness.can_run_analysis &&
-    !readinessWillScaffold(readiness)
-  ) {
-    const composed = composeReadinessBlockedReason(readiness, optionsNeedingValues)
+  // ROADMAP 2.635 (I-5) — the rung's predicate is `readinessObjectsToRun`, so
+  // the dispatch barrier can ask the SAME question without re-implementing it.
+  if (readinessObjectsToRun(readiness)) {
+    // ROADMAP 2.635 (I-3) — the staleness mark travels WITH the verdict into
+    // the composer. It is passed through rather than pre-derived here, for the
+    // same reason `draftStreamPhase` is (2.122): a predicate re-derived at each
+    // call site is a hand-maintained mirror, and the mutant that drops one
+    // clause from it survives.
+    const composed = composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale)
     if (!blockingReasons.includes(composed)) {
       blockingReasons.push(composed)
     }
