@@ -21,7 +21,7 @@
  *     `target_refs` render together as reference pills, labels verbatim.
  */
 import { type ReactElement } from 'react'
-import { ClipboardList } from 'lucide-react'
+import { BookOpenCheck, ClipboardList } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
 import type {
@@ -55,6 +55,36 @@ export function V5ExerciseBlock({ block }: V5ExerciseBlockProps): ReactElement {
       data-freshness={block.freshness}
       className="rounded-xl border border-info/30 bg-panel p-4 space-y-2"
     >
+      {/*
+        0.37.0 (ROADMAP 2.490 slice 2) — the decision-science attribution.
+        Every visible string here is the CANONICAL BUNDLE's, carried verbatim
+        from `data/dsk/v1.json` by CEE: the protocol's own `title` and its own
+        `evidence_strength`. Nothing on this badge is authored in the UI except
+        the two static labels ("Decision-science protocol", "evidence"), which
+        make no claim about the science — they name the channel.
+
+        ⚠ That constraint is the entire point, and it is CEE #830's lesson:
+        that badge rendered `grounding.principle`, THE MODEL'S OWN PROSE, under
+        a label asserting the bundle's authority, and a type comment calling it
+        a "Sanitised DSK claim title" made the lie legible to nobody. So this
+        component must never interpolate assistant text, never map an id to a
+        friendly name of its own, and never render a partial triple — the
+        adapter guarantees all three members or none.
+      */}
+      {block.dsk_provenance && (
+        <div
+          data-testid="v5-exercise-dsk-provenance"
+          data-dsk-protocol-id={block.dsk_provenance.protocol_id}
+          data-dsk-evidence-strength={block.dsk_provenance.evidence_strength}
+          className={`${typography.panelMeta} flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-text-muted`}
+        >
+          <BookOpenCheck size={12} className="flex-none text-info" aria-hidden="true" />
+          <span>Decision-science protocol:</span>
+          <span className="text-text-body">{block.dsk_provenance.protocol_title}</span>
+          <span aria-hidden="true">·</span>
+          <span>{block.dsk_provenance.evidence_strength} evidence</span>
+        </div>
+      )}
       <div className="flex items-start gap-2">
         <ClipboardList size={16} className="flex-none mt-0.5 text-info" aria-hidden="true" />
         <div className="space-y-2 min-w-0">
