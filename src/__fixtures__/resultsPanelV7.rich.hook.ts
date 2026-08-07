@@ -193,6 +193,7 @@ export const richFixture: ResultsSectionDataReturn = {
   isError: false,
   goalLabel: 'Annual recurring revenue',
   goalNodeId: 'goal-arr',
+  voiRanking: null,
 }
 
 /** Tornado data derived from the rich fixture */

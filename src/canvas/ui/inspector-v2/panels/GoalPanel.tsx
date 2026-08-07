@@ -10,9 +10,9 @@ import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { GoalThresholdEditor } from '../../inspector/GoalThresholdEditor'
 import { GoalProgressChecklist } from '../../inspector/GoalProgressChecklist'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
+import { useAnalysisMetadata } from '../../../hooks/useAnalysisMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
-import { useStaleGuard } from '../useStaleGuard'
 import type { NodeType } from '../../../domain/nodes'
 import {
   GROUP_LABELS,
@@ -38,6 +38,12 @@ import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import type { ConditionalProbability } from '../../../../types/constraints'
 import { resolveCoaching } from '../coachingConfig'
 import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
+import { useAuth } from '../../../../contexts/AuthContext'
+import { isPersistenceActive } from '../../../../lib/persistenceActive'
+import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
+import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
+import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
+import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
@@ -50,8 +56,30 @@ export const GoalPanel = memo(function GoalPanel({
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
-  const probGoal = useCanvasStore(s => s.results?.report?.probability_of_goal)
-  const probJoint = useCanvasStore(s => s.results?.report?.probability_of_joint_goal)
+  const goalThresholdRepresentation = useCanvasStore(s => s.goalThresholdRepresentation)
+  // GOAL-PROBABILITY IDENTITY (ROADMAP 2.296 item 5 / 2.282-C2): this panel
+  // used to read both producer fields straight off the store, which made it a
+  // chooser in its own right; #496 replaced that with a `selectGoalProbability`
+  // call — over the WHOLE REPORT. The selector expects ONE option-probability
+  // record, and the live V5 mapper stores every such record under
+  // `report.option_probabilities[optionId]`, so on every real V5 payload the
+  // read returned null and the #556 possessive gate below was DARK.
+  //
+  // The panel now renders what `useNodeDisplayMetadata` gives it — the
+  // established pointer-owner for the goal surface family (it resolves
+  // `robustness.recommended_option_id` and forwards the selector's decision
+  // verbatim). Same hop the canvas GoalNode uses, so the panel and the canvas
+  // cannot state different things about one report; and when the producer
+  // designates no option (the 2.275 pointer gap), BOTH honestly show no
+  // figure rather than the panel inventing a leader.
+  //
+  // The reads themselves sit just below `displayMetadata`'s declaration.
+  //
+  // Passthrough: the REAL Monte Carlo sample count from this run's meta.n_samples
+  // (canonical reader — same source AdvancedSection's "Simulation quality" row
+  // uses). Null on the V5 conversational path (meta stripped upstream), in which
+  // case the "Based on N simulations" line is omitted rather than fabricated.
+  const { scenarioCount } = useAnalysisMetadata()
   const postAnalysisConstraints = useGoalConstraints()
   const conditionalProbabilities = useConditionalProbabilities()
   const preAnalysisConstraints = useCanvasStore(s => s.goalConstraints)
@@ -60,22 +88,122 @@ export const GoalPanel = memo(function GoalPanel({
   const goalConstraints: Array<CEEGoalConstraint & { probability?: number }> | null =
     isResultsMode ? (postAnalysisConstraints ?? preAnalysisConstraints) : preAnalysisConstraints
 
+  // UI-SEM-087: display-honesty gate (same class as UI-SEM-071/082 — gate on
+  // truth, never fabricate). Live wire-probe (parallel-briefs/S-AUDIT-2026-07-20)
+  // REFUTED the original "constraints reach nothing" premise in BOTH directions:
+  // an authenticated user's panel constraints persist (gated write-through →
+  // scenarios.graph → CEE run_analysis reads its own server graph), and a
+  // GUEST's CHAT-entered constraints also reach analysis (CEE's add_constraint
+  // handler persists server-side regardless of auth). The ONLY dead leg is the
+  // GUEST GoalPanel → client-RPC persistence hop: guest writes are scenario-id
+  // /RLS-gated and silently swallowed, so a guest's PANEL-entered constraint
+  // never reaches the server graph. So the honest condition is exactly "this
+  // session's writes don't persist" — the canonical isPersistenceActive
+  // predicate (shared with useScenario / loginDraftImport), NOT the run path.
+  // Pre-analysis only (entry is disabled in results mode, and post-analysis
+  // probabilities would contradict the note). Remove when the guest panel→graph
+  // persistence hop lands (or a producer echo confirms the constraints were used).
+  const { user, authenticated } = useAuth()
+  const constraintsInert = !isResultsMode && !isPersistenceActive(authenticated, user)
+  const hasConstraints = Array.isArray(goalConstraints) && goalConstraints.length > 0
+
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
-  const { isStale } = useStaleGuard()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'goal')
+
+  // The owner's decision, forwarded (see the identity comment above): the
+  // number, the joint figure, and which quantity the number IS.
+  const probGoal = displayMetadata.achievementProbability
+  const probJoint = displayMetadata.jointGoalProbability ?? null
+  // THE POSSESSIVE GATE (ROADMAP 2.282). The panel already refuses to be a
+  // chooser; it was still being a NARRATOR — rendering the owner's number in
+  // possessive wording the owner had explicitly forbidden
+  // (`mayUsePossessiveGoalFraming: false`). `basis` was published for exactly
+  // this and was the one field this panel destructured past.
+  //
+  // ⚠ SCOPED TO `joint_goal_substituted` ONLY. `joint_goal_constrained` is
+  // the user's own goal AND their own limits — the possessive is earned there
+  // and is untouched. The `=== 'joint_goal_substituted'` narrowing is the
+  // canvas's one vocabulary for this test (OptionNode, GoalNode) — never a
+  // re-derivation.
+  //
+  // ⚠ AND THE TWO CLAIMS BELOW ARE THE SAME NUMBER. Under substitution the
+  // selector returns `goalProbability === jointGoalProbability` by
+  // construction, so the Impact block was stating one value twice in two
+  // different voices: "N% chance of success" over "Chance of hitting every
+  // target: N%". One of those was false. They are collapsed to the honest one.
+  // ⭐ L62 (2026-08-04) — THIS IS NOW ALWAYS FALSE, AND THAT IS THE POINT.
+  // `selectGoalProbability` no longer substitutes the joint figure into the
+  // goal-fit slot at all: on that basis (`'joint_goal_withheld'`) it returns NO
+  // number, so this surface renders nothing to re-voice. The bases that still
+  // carry a number — `'goal_probability'` and `'joint_goal_constrained'` —
+  // both EARN the possessive. The narrowing goes through the owner's exported
+  // `basisWithholdsPossessive` so the four canvas/summary surfaces share ONE
+  // rule instead of four copies of a literal.
+  const goalFitSubstituted =
+    probGoal !== null && basisWithholdsPossessive(displayMetadata.achievementProbabilityBasis)
 
   const thresholdUnit = (node?.data as Record<string, unknown>)?.goal_threshold_unit as string | undefined
   const thresholdRaw = (node?.data as Record<string, unknown>)?.goal_threshold_raw as string | number | null | undefined
+
+  /**
+   * The success-target string (ROADMAP 2.315(c)).
+   *
+   * TWO THINGS THIS FIXES, AND WHY THE SECOND IS NOT REDUNDANT.
+   *
+   * 1. FORMATTING. The number used to be interpolated bare with the unit as a
+   *    trailing suffix, so an £800,000 target rendered "≥ 800000 £" even on the
+   *    good path. It now goes through `formatGoalTarget` — the shared mapping
+   *    the canvas GoalNode also uses — so one goal cannot produce two strings.
+   *
+   * 2. PROVENANCE. The number comes from the STORE scalar and the unit from
+   *    NODE data, written by two different reducers. The store gate was widened
+   *    so an attested raw payload supersedes a stored normalised guess, but that
+   *    alone does not make the pair coherent: a payload carrying a unit and NO
+   *    raw still refreshes the unit while the number stays normalised. So the
+   *    unit is applied ONLY when the number is on the scale that unit describes.
+   *    A 'normalised' 0-1 magnitude renders bare — "≥ 0.8" is thin, "≥ 0.8 £" is
+   *    false, and this surface must not assert the second.
+   *
+   *    Untagged (null) representation is treated as raw, matching the request
+   *    boundary and every other reader of this scalar.
+   *
+   * ⚠ THIS GUARD IS PANEL-ONLY. IT IS NOT AN ESTATE-WIDE INVARIANT.
+   *    Every other reader of `store.goalThreshold` renders it with NO tag check
+   *    and would happily pair a normalised magnitude with a raw unit:
+   *      · NodeInspector.tsx:334-348      (legacy inspector target line)
+   *      · SuccessTargetRow.tsx           (0 references to the tag)
+   *      · RangeVisualization, via `effectiveGoalThreshold`
+   *        (useResultsSectionData.ts:1338 — 0 references to the tag)
+   *    Harmless TODAY only because CEE #798 is raw-anchored, so a unit-bearing
+   *    payload with no raw is not representable on the wire. That is a producer
+   *    property, not a UI one. Do not read this guard as protection those
+   *    surfaces have — if the anchor ever loosens, they are the exposure.
+   *
+   * Null when the target is absent or not a finite number; the editor renders
+   * instead, rather than a sentence ending in "NaN".
+   */
+  const targetDisplay = goalThreshold == null
+    ? null
+    : formatGoalTarget(
+        goalThreshold,
+        goalThresholdRepresentation === 'normalised' ? null : thresholdUnit,
+      )
 
   // Description — conditional edit state for EmptyDescriptionPrompt pattern
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
   const [isEditingDescription, setIsEditingDescription] = useState(false)
 
-  // B.5: Add constraint form state
+  // B.5: Add constraint form state.
+  // The dropdown carries the factor's NODE ID, not its label: PLoT's constraint
+  // preflight resolves `node_id` against graph.nodes, so a label here produces
+  // CONSTRAINT_TARGET_NOT_FOUND and 422s the whole run.
   const [showAddConstraint, setShowAddConstraint] = useState(false)
-  const [newConstraintLabel, setNewConstraintLabel] = useState('')
-  const [newConstraintOperator, setNewConstraintOperator] = useState<'>=' | '<=' | '='>('>=')
+  const [newConstraintNodeId, setNewConstraintNodeId] = useState('')
+  // Operator is restricted to the two ASCII forms PLoT accepts. '=' is NOT a
+  // valid constraint operator (preflight-v2 CONSTRAINT_INVALID_OPERATOR), and
+  // @talchain/schemas DraftGoalConstraintSchema declares z.enum(['>=', '<=']).
+  const [newConstraintOperator, setNewConstraintOperator] = useState<'>=' | '<='>('>=')
   const [newConstraintValue, setNewConstraintValue] = useState('')
   const [constraintError, setConstraintError] = useState('')
 
@@ -87,15 +215,37 @@ export const GoalPanel = memo(function GoalPanel({
     })),
   [nodes])
 
-  // Already-constrained factor labels (case-insensitive)
-  const constrainedLabels = useMemo(() => {
-    if (!goalConstraints?.length) return new Set<string>()
-    return new Set(goalConstraints.map(c => c.label.toLowerCase().trim()))
+  // Already-constrained factors, keyed by node ID where the constraint carries
+  // one and by lower-cased label otherwise. Constraints minted before this panel
+  // captured node IDs (and any legacy persisted graph) carry only a label, so
+  // the label leg has to stay for the "(already constrained)" hint to keep
+  // working on those — but node ID is the identity that actually matters.
+  //
+  // `label` is optional on the wire (CEE's producer schema and the
+  // @talchain/schemas draft contract both declare it optional), so an
+  // unguarded `.toLowerCase()` throws on a perfectly valid constraint.
+  const constrainedTargets = useMemo(() => {
+    const byNodeId = new Set<string>()
+    const byLabel = new Set<string>()
+    for (const c of goalConstraints ?? []) {
+      if (c.node_id) byNodeId.add(c.node_id)
+      const l = c.label?.toLowerCase().trim()
+      if (l) byLabel.add(l)
+    }
+    return { byNodeId, byLabel }
   }, [goalConstraints])
 
   const handleAddConstraint = useCallback(() => {
     const value = parseFloat(newConstraintValue)
-    if (!newConstraintLabel) {
+    if (!newConstraintNodeId) {
+      setConstraintError(GOAL_CONSTRAINT_COPY.errorSelectFactor)
+      return
+    }
+    // The dropdown only ever offers factor node IDs, but resolve rather than
+    // trust: a stale selection whose node has since been deleted must not mint
+    // a constraint pointing at a node that is no longer in the graph.
+    const targetNode = factorNodes.find(f => f.id === newConstraintNodeId)
+    if (!targetNode) {
       setConstraintError(GOAL_CONSTRAINT_COPY.errorSelectFactor)
       return
     }
@@ -104,19 +254,31 @@ export const GoalPanel = memo(function GoalPanel({
       return
     }
     const base = preAnalysisConstraints ?? []
+    // Conforms to @talchain/schemas DraftGoalConstraintSchema (0.19.0):
+    // constraint_id and node_id are both REQUIRED and min(1); operator is
+    // z.enum(['>=', '<=']). PLoT's own preflight (validateGoalConstraints)
+    // reads exactly these fields, so anything less 422s the run.
+    //
+    // constraint_id is a UUID rather than a positional `c${n}`: the positional
+    // scheme regenerates an existing id after a delete-then-add, which PLoT
+    // rejects with CONSTRAINT_DUPLICATE_ID.
     const newConstraint: CEEGoalConstraint = {
-      id: `c${base.length + 1}`,
-      label: newConstraintLabel,
+      constraint_id: crypto.randomUUID(),
+      node_id: targetNode.id,
       operator: newConstraintOperator,
       value,
+      label: targetNode.label,
+      // The user typed this constraint into the panel themselves — it is not
+      // inferred from the brief and not a proxy for something else.
+      provenance: 'explicit',
     }
     setGoalConstraints([...base, newConstraint])
     setShowAddConstraint(false)
-    setNewConstraintLabel('')
+    setNewConstraintNodeId('')
     setNewConstraintOperator('>=')
     setNewConstraintValue('')
     setConstraintError('')
-  }, [newConstraintLabel, newConstraintOperator, newConstraintValue, preAnalysisConstraints, setGoalConstraints])
+  }, [factorNodes, newConstraintNodeId, newConstraintOperator, newConstraintValue, preAnalysisConstraints, setGoalConstraints])
 
   // Inbound connections (outcomes/risks → goal)
   const inboundConnections = useMemo(() => {
@@ -125,14 +287,12 @@ export const GoalPanel = memo(function GoalPanel({
       .map(e => {
         const sourceNode = nodes.find(n => n.id === e.source)
         const kind = (sourceNode?.type || sourceNode?.data?.kind || 'factor') as NodeType
-        const weight = e.data?.weight ?? 0
-        const direction = (e.data?.direction ?? 'positive') as 'positive' | 'negative'
         return {
           edgeId: e.id,
           nodeId: e.source,
           nodeKind: kind,
           label: String(sourceNode?.data?.label ?? e.source),
-          strength: { weight, direction },
+          strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
   }, [edges, nodes, nodeId])
@@ -186,15 +346,23 @@ export const GoalPanel = memo(function GoalPanel({
       <PanelGroup kind="input" label={GROUP_LABELS.input}>
         <PrimaryControlCard>
           {/* §4.2 Success target */}
-          {goalThreshold != null ? (
+          {targetDisplay != null ? (
             <div>
               <p className={`${typography.panelBody} text-text-body`}>
-                Success means reaching {'\u2265'} {goalThreshold}{thresholdUnit ? ` ${thresholdUnit}` : ''}
+                Success means reaching {'\u2265'} {targetDisplay}
               </p>
               {/* Contextual probability when analysis exists */}
               {typeof probGoal === 'number' ? (
                 <p className={`${typography.panelBody} text-text-body mt-1`}>
-                  {Math.round(probGoal * 100)}% chance of reaching this target based on the current model.
+                  {/* ROADMAP 2.282. Withheld arm: the shared register's
+                      compact readout verbatim, with the existing
+                      "current model" qualifier kept as a trailing clause —
+                      the only adaptation is the joining comma, which the
+                      register's own no-full-stop `phrase()` form is designed
+                      to accept. Permitted arm byte-identical. */}
+                  {goalFitSubstituted
+                    ? `${GOAL_ANCHOR_COPY.phrase(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)}, based on the current model.`
+                    : `${Math.round(probGoal * 100)}% chance of reaching this target based on the current model.`}
                 </p>
               ) : (
                 <p className={`${typography.panelMeta} text-text-light mt-1`}>
@@ -227,7 +395,7 @@ export const GoalPanel = memo(function GoalPanel({
                     ? 'border-info/30'
                     : prob >= 0.7 ? 'border-success/30' : prob >= 0.4 ? 'border-warning/30' : 'border-danger/30'
                   return (
-                    <div key={c.id ?? i} className={`px-2.5 py-1.5 bg-panel border ${colourClass} rounded-lg`}>
+                    <div key={c.constraint_id ?? c.id ?? i} className={`px-2.5 py-1.5 bg-panel border ${colourClass} rounded-lg`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className={`${typography.panelBody} text-text-body truncate`}>{c.label ?? `Constraint ${i + 1}`}</span>
                         {prob !== null && (
@@ -272,8 +440,15 @@ export const GoalPanel = memo(function GoalPanel({
                               const parsed = parseFloat(e.target.value)
                               if (Number.isNaN(parsed) || parsed === c.value) return
                               const base = preAnalysisConstraints ?? []
+                              // Identity is `constraint_id ?? id` — panel-minted
+                              // constraints carry only constraint_id, so keying
+                              // on `id` alone silently fell through to index
+                              // matching (wrong row after any reorder/delete).
+                              const identity = c.constraint_id ?? c.id
                               const updated = base.map((pc, idx) =>
-                                (c.id !== undefined ? pc.id === c.id : idx === i)
+                                (identity !== undefined
+                                  ? (pc.constraint_id ?? pc.id) === identity
+                                  : idx === i)
                                   ? { ...pc, value: parsed }
                                   : pc
                               )
@@ -286,13 +461,48 @@ export const GoalPanel = memo(function GoalPanel({
                     </div>
                   )
                 })}
-                {typeof probJoint === 'number' && (
+                {/* ROADMAP 2.283 — THE SAME SUPPRESSION #556 APPLIED TO THE
+                    IMPACT BLOCK, APPLIED HERE. This line is gated on the
+                    STORE-level `goalConstraints` (the user having defined
+                    constraints at all), which is INDEPENDENT of the basis — so
+                    on the live posture where a user HAS defined constraints and
+                    the run is substituted, it restated the very number the
+                    Impact block now suppresses, one section down. Under
+                    substitution `goalProbability === jointGoalProbability` BY
+                    CONSTRUCTION, so this was one-number-twice ACROSS sections:
+                    the reader saw two findings where the producer sent one
+                    measurement, and only one of the two framings was true.
+                    Same flag, same reason, same arm. On every other basis the
+                    two are genuinely different quantities and this line stays. */}
+                {typeof probJoint === 'number' && !goalFitSubstituted && (
                   <p className={`${typography.panelBody} text-text-body mt-1`}>
                     {GOAL_CONSTRAINT_COPY.jointProbability}: <strong>{Math.round(probJoint * 100)}%</strong>
                   </p>
                 )}
+                {/* UI-SEM-087: honest status when the constraints displayed here
+                    do not reach the engine — guest panel writes are RLS-swallowed. */}
+                {constraintsInert && (
+                  <p
+                    className={`${typography.panelMeta} text-text-light mt-1`}
+                    data-testid="constraints-inert-note"
+                  >
+                    {GOAL_CONSTRAINT_COPY.guestConstraintsNotInAnalysis}
+                  </p>
+                )}
               </div>
             </div>
+          )}
+
+          {/* UI-SEM-087: honest status at the point of ENTRY, shown only when
+              no constraint list is present to carry the note (mutually
+              exclusive with the display-surface note above — never stacked). */}
+          {constraintsInert && !hasConstraints && (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-2`}
+              data-testid="constraints-inert-note-entry"
+            >
+              {GOAL_CONSTRAINT_COPY.guestConstraintsNotInAnalysis}
+            </p>
           )}
 
           {/* B.5: Add constraint button + inline form.
@@ -311,16 +521,18 @@ export const GoalPanel = memo(function GoalPanel({
             <div className="mt-2 p-2.5 bg-panel border border-panel-border rounded-lg space-y-2" data-testid="add-constraint-form">
               {/* Factor dropdown */}
               <select
-                value={newConstraintLabel}
-                onChange={e => { setNewConstraintLabel(e.target.value); setConstraintError('') }}
+                value={newConstraintNodeId}
+                onChange={e => { setNewConstraintNodeId(e.target.value); setConstraintError('') }}
                 className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel text-text-body`}
                 aria-label={GOAL_CONSTRAINT_COPY.factorLabel}
               >
                 <option value="">{GOAL_CONSTRAINT_COPY.selectFactor}</option>
                 {factorNodes.map(f => {
-                  const alreadyConstrained = constrainedLabels.has(f.label.toLowerCase().trim())
+                  const alreadyConstrained =
+                    constrainedTargets.byNodeId.has(f.id)
+                    || constrainedTargets.byLabel.has(f.label.toLowerCase().trim())
                   return (
-                    <option key={f.id} value={f.label} disabled={alreadyConstrained}>
+                    <option key={f.id} value={f.id} disabled={alreadyConstrained}>
                       {f.label}{alreadyConstrained ? ` ${GOAL_CONSTRAINT_COPY.alreadyConstrained}` : ''}
                     </option>
                   )
@@ -330,13 +542,13 @@ export const GoalPanel = memo(function GoalPanel({
               <div className="flex items-center gap-1.5">
                 <select
                   value={newConstraintOperator}
-                  onChange={e => setNewConstraintOperator(e.target.value as '>=' | '<=' | '=')}
+                  onChange={e => setNewConstraintOperator(e.target.value as '>=' | '<=')}
                   className={`${typography.panelMeta} w-16 border border-panel-border rounded-lg px-1.5 py-1.5 bg-panel text-text-body`}
                   aria-label={GOAL_CONSTRAINT_COPY.operatorLabel}
                 >
+                  {/* No '=' option: PLoT accepts >= and <= only. */}
                   <option value=">=">{'\u2265'}</option>
                   <option value="<=">{'\u2264'}</option>
-                  <option value="=">=</option>
                 </select>
                 <input
                   type="number"
@@ -386,22 +598,57 @@ export const GoalPanel = memo(function GoalPanel({
       {isResultsMode && (
         <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
           {typeof probGoal === 'number' ? (
-            <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+            <StaleGuardBanner hasResults={isResultsMode}>
               <div className="flex items-center gap-4 py-2">
                 <ProbabilityArc value={probGoal} color="var(--success)" />
                 <div>
-                  <div className={`${typography.panelHeader}`}>{Math.round(probGoal * 100)}% chance of success</div>
-                  <div className={`${typography.panelMeta} text-text-light mt-0.5`}>Based on 1,000 simulations</div>
+                  {/* ROADMAP 2.282 — "chance of success" is a goal-attainment
+                      claim; over a substituted joint figure it takes the
+                      register's compact readout instead. */}
+                  <div className={`${typography.panelHeader}`}>
+                    {goalFitSubstituted
+                      ? GOAL_ANCHOR_COPY.phrase(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)
+                      : `${Math.round(probGoal * 100)}% chance of success`}
+                  </div>
+                  {scenarioCount != null && (
+                    <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
+                      Based on {scenarioCount.toLocaleString('en-GB')} simulations
+                    </div>
+                  )}
                   <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
-                  {typeof probJoint === 'number' && (
+                  {/* ROADMAP 2.282: suppressed under substitution because the
+                      readout above IS this number \u2014 the selector returns
+                      `goalProbability === jointGoalProbability` on that basis
+                      \u2014 and now says so in these exact words. Rendering it
+                      again would restate one value as two findings. On every
+                      other basis the two are genuinely different quantities
+                      and this line stays. */}
+                  {typeof probJoint === 'number' && !goalFitSubstituted && (
                     <div className={`${typography.panelBody} text-text-body mt-1.5`}>
-                      Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
+                      {/* ROADMAP 2.283: was a hand-typed duplicate of the string
+                          the register already renders in the Constraints section
+                          above. Two copies of one sentence in ONE file is how the
+                          two halves end up different — the defect COMPARATIVE_COPY
+                          .clause and .leadNoMagnitude were both added to prevent.
+                          The register owns the wording; call sites never re-type
+                          it. */}
+                      {GOAL_CONSTRAINT_COPY.jointProbability}: <strong>{Math.round(probJoint * 100)}%</strong>
                     </div>
                   )}
                   {techMode && (
                     <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                      System: probability_of_goal: {probGoal.toFixed(2)}
-                      {typeof probJoint === 'number' && ` \u00B7 probability_of_joint_goal: ${probJoint.toFixed(2)}`}
+                      {/* The diagnostic named the field `probability_of_goal`
+                          for a value that, under substitution, is NOT that
+                          field \u2014 the most literally false line in the block,
+                          and the one a tech-mode reader would trust most. */}
+                      {goalFitSubstituted ? (
+                        <>System: probability_of_joint_goal (substituted for absent probability_of_goal): {probGoal.toFixed(2)}</>
+                      ) : (
+                        <>
+                          System: probability_of_goal: {probGoal.toFixed(2)}
+                          {typeof probJoint === 'number' && ` \u00B7 probability_of_joint_goal: ${probJoint.toFixed(2)}`}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

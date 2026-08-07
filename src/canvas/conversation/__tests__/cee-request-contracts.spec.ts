@@ -33,6 +33,7 @@ import type {
   ExplainAnalysisStatePayload,
 } from '../../../services/turn-request-builder'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
+import { ACTION_TO_TURN_TYPE } from '../useConversation'
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
@@ -846,6 +847,28 @@ describe('T7 — Chip metadata transport', () => {
     })
     // Should not throw — validateTurnRequestBoundary would strip unknown fields
     expect(req.chip_metadata).toEqual({ action_type: 'run_analysis' })
+  })
+
+  it("Wave 1 pin: action_type 'discuss' resolves to a CONVERSATION turn so chip_metadata survives (Actions menu contract)", () => {
+    // The consolidated Actions menu dispatches methods with
+    // action_type 'discuss' + {method_id} parameters. Metadata is
+    // allowlisted ONLY on conversation turns — 'discuss' must stay OUT of
+    // ACTION_TO_TURN_TYPE (mapping it to e.g. 'explain' would silently
+    // drop the contextual-session payload). Review S7 pin.
+    expect(ACTION_TO_TURN_TYPE['discuss']).toBeUndefined()
+    const req = buildConversationTurnRequest({
+      scenario_id: SCENARIO_ID,
+      conversation_history: [],
+      message: 'Run a pre-mortem with me.',
+      graph_state: POPULATED_GRAPH,
+      chip_metadata: { action_type: 'discuss', parameters: { method_id: 'pre_mortem' } },
+    })
+    expect(req._turn_type).toBe('conversation')
+    const wire = stripTurnType(req) as Record<string, unknown>
+    expect(wire.chip_metadata).toEqual({
+      action_type: 'discuss',
+      parameters: { method_id: 'pre_mortem' },
+    })
   })
 })
 

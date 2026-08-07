@@ -15,7 +15,6 @@ import { useNodeMutations } from '../useInspectorMutations'
 import { useEditConfirmation } from '../useEditConfirmation'
 import { EditConfirmation } from '../shared/EditConfirmation'
 import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
-import { useStaleGuard } from '../useStaleGuard'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import {
@@ -27,6 +26,7 @@ import {
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
+import { InlineNumberEditor } from '../shared/InlineNumberEditor'
 import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { ImportanceBar } from '../shared/ImportanceBar'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
@@ -37,6 +37,7 @@ import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorObservableEditor } from '../editors/FactorObservableEditor'
+import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 
 export const FactorObservablePanel = memo(function FactorObservablePanel({
   nodeId,
@@ -51,7 +52,6 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
-  const { isStale } = useStaleGuard()
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
@@ -74,19 +74,13 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
   const [isEditingDescription, setIsEditingDescription] = useState(false)
 
-  // Click-to-edit value state
+  // Click-to-edit value (shared InlineNumberEditor); observation-first.
   const displayValue = rawValue ?? value
-  const [isEditingValue, setIsEditingValue] = useState(false)
-  const [draftValue, setDraftValue] = useState<string>(displayValue != null ? String(displayValue) : '')
 
-  const handleValueSave = useCallback(() => {
-    const parsed = parseFloat(draftValue)
-    if (!isNaN(parsed)) {
-      mutations.setObservedValue(parsed)
-      confirmEdit('value')
-    }
-    setIsEditingValue(false)
-  }, [draftValue, mutations, confirmEdit])
+  const handleValueSave = useCallback((parsed: number) => {
+    mutations.setObservedValue(parsed)
+    confirmEdit('value')
+  }, [mutations, confirmEdit])
 
   const formatValue = useCallback((v: number) => {
     if (unit === '\u00A3' || unit === '$' || unit === '\u20AC') return `${unit}${v.toLocaleString()}`
@@ -105,7 +99,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           nodeId: e.target,
           nodeKind: kind,
           label: String(tgt?.data?.label ?? e.target),
-          strength: { weight: e.data?.weight ?? 0, direction: (e.data?.direction ?? 'positive') as 'positive' | 'negative' },
+          strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
   }, [edges, nodes, nodeId])
@@ -160,7 +154,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
         </div>
 
         {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
-        <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+        <StaleGuardBanner hasResults={isResultsMode}>
           <div className="mt-2 space-y-2">
             <ImportanceBar
               importanceScore={displayMetadata.influence}
@@ -206,35 +200,17 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
             </div>
           )}
 
-          {/* Click-to-edit value — observation-first */}
-          {!isEditingValue ? (
-            <button
-              type="button"
-              data-testid="observable-value-display"
-              className={`${typography.panelHeader} text-xl text-left w-full cursor-text hover:bg-panel-hover rounded px-0.5 -mx-0.5 transition-colors`}
-              onClick={() => {
-                setDraftValue(String(displayValue ?? ''))
-                setIsEditingValue(true)
-              }}
-              title="Click to enter a value"
-            >
-              {displayValue != null
-                ? formatValue(displayValue)
-                : <span className={`${typography.panelMeta} text-text-light italic font-normal text-sm`}>No value set. Click to enter.</span>
-              }
-            </button>
-          ) : (
-            <input
-              type="number"
-              data-testid="observable-value-input"
-              value={draftValue}
-              autoFocus
-              onChange={e => setDraftValue(e.target.value)}
-              onBlur={handleValueSave}
-              onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
-              className={`${typography.panelHeader} text-xl w-full bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 transition-colors`}
-            />
-          )}
+          {/* Click-to-edit value — observation-first (shared InlineNumberEditor) */}
+          <InlineNumberEditor
+            readout={displayValue != null ? formatValue(displayValue) : null}
+            placeholder="No value set. Click to enter."
+            // Exact raw value (no scale conversion here) → unchanged-blur is a no-op (P1-4).
+            value={displayValue ?? null}
+            onSave={handleValueSave}
+            displayTestId="observable-value-display"
+            inputTestId="observable-value-input"
+            title="Click to enter a value"
+          />
 
           {/* Edit feedback */}
           {lastConfirmed?.field === 'value' && (

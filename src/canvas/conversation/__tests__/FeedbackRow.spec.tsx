@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { FeedbackRow } from '../FeedbackRow'
 
 describe('FeedbackRow', () => {
@@ -67,5 +67,23 @@ describe('FeedbackRow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Helpful' }))
 
     expect(onFeedback).toHaveBeenCalledTimes(1)
+  })
+
+  it('reverts the vote and re-enables the buttons when onFeedback rejects', async () => {
+    // The feedback turn failed to reach the server — the user's thumbs action
+    // must not vanish silently, so the optimistic vote is rolled back and the
+    // buttons re-enable for a retry.
+    const onFeedback = vi.fn().mockRejectedValue(new Error('send failed'))
+    render(<FeedbackRow turnId="turn-1" onFeedback={onFeedback} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Helpful' }))
+    // Optimistic disable happens synchronously on click.
+    expect(screen.getByRole('button', { name: 'Helpful' })).toBeDisabled()
+
+    // After the rejected send settles, both buttons become clickable again.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Helpful' })).not.toBeDisabled()
+    })
+    expect(screen.getByRole('button', { name: 'Not helpful' })).not.toBeDisabled()
   })
 })

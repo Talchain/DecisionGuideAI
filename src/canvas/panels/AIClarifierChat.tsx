@@ -2,6 +2,32 @@
  * AI Clarifier Chat Panel
  * Multi-turn conversational interface for drafting decision models
  * Week 3: AI Integration
+ *
+ * ⚠ STRANDED — UNREACHABLE, AND SUPERSEDED. Nothing sets `showAIClarifier` true
+ * (verified across all of src/, case-insensitive: every setter passes `false`), and
+ * the flag is not in UIPreferences/STORAGE_KEYS, so it cannot rehydrate either.
+ *
+ * How it was stranded — by ACCIDENT, not by decision. The opener shipped in 723be292
+ * (5 Dec 2025, 20:02) and was gone four minutes later, dropped by merge commit 4ce7117d
+ * (20:06) "chore: resolve merge conflicts with main", which took main's side of
+ * ReactFlowGraph.tsx and never mentions the clarifier. This panel has therefore been
+ * unreachable for effectively its entire existence. (`git log -S` will not show you this:
+ * pickaxe skips merge commits. Direct revision scan of `setShowAIClarifier(true)` in
+ * ReactFlowGraph.tsx: 723be292=1, 4ce7117d=0, 0 in every revision since.)
+ *
+ * Why it is nevertheless not worth reviving — the job moved while it was dark. The sidebar
+ * AI button outlived the binding; by its removal in 13c4c3b8 (31 Jan 2026) it read
+ * `onAiClick={() => setShowDraftChat(true)}`, and it went because DraftChat /
+ * FloatingOlumiPanelHost are mounted unconditionally at the canvas root (ReactFlowGraph,
+ * aiPanelV2 pair). Drafting chat is fully served today.
+ *
+ * Reviving this would also regress data fidelity: this panel applies CEE output via
+ * `applyClarifierGraph`, which keeps only {label, body, uncertainty} and drops
+ * observed_state, edge weight, direction and belief — the fields the V2 adapter needs to
+ * build the PLoT request. DraftChat's mapping preserves them. Wiring an opener here would
+ * hand users a second, quieter, worse drafting path.
+ *
+ * Retained (not deleted) pending the owner's ruling. See PR "stranded panels".
  */
 
 import { useState, useEffect, useRef, useCallback, memo } from 'react'

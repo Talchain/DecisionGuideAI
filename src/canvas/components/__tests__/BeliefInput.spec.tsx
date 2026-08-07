@@ -3,28 +3,55 @@
  *
  * Tests for the dual-mode belief input component that supports
  * slider and natural language input modes with CEE integration.
+ *
+ * ⭐ ROADMAP 2.364. The mock below used to name
+ * `../../../adapters/plot/httpV1Adapter` — a module whose `elicitBelief` NEVER
+ * EXISTED, on the PLoT adapter, for an engine that lives in CEE. `vi.mock`
+ * happily stubs a method onto a module that has none, so this file passed for
+ * as long as it never exercised the call: there was not one assertion about a
+ * suggestion in 27 tests. That is the vacuity class in its purest form — a
+ * mock can make a phantom look real, and only an assertion about the RESULT
+ * can tell you it is not. The suggestion cases at the bottom are the coverage
+ * that was missing; they mock the TRANSPORT (`CEEClient.elicitBelief`) and
+ * assert what renders.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import { BeliefInput } from '../BeliefInput'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 
-// Mock the httpV1Adapter
-vi.mock('../../../adapters/plot/httpV1Adapter', () => ({
-  httpV1Adapter: {
-    elicitBelief: vi.fn(),
-  },
-}))
+/** Elicitation replies the mocked CEE client answers with, in order. */
+const elicitReplies: Array<Record<string, unknown>> = []
+const elicitRequests: Array<Record<string, unknown>> = []
+
+vi.mock('../../../adapters/cee/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../adapters/cee/client')>()
+  class MockCEEClient extends actual.CEEClient {
+    async elicitBelief(input: Parameters<InstanceType<typeof actual.CEEClient>['elicitBelief']>[0]) {
+      elicitRequests.push(input as unknown as Record<string, unknown>)
+      const reply = elicitReplies.shift()
+      if (!reply) throw new Error('no elicitation reply queued')
+      return reply as unknown as Awaited<
+        ReturnType<InstanceType<typeof actual.CEEClient>['elicitBelief']>
+      >
+    }
+  }
+  return { ...actual, CEEClient: MockCEEClient }
+})
+
+import { BeliefInput } from '../BeliefInput'
 
 describe('BeliefInput', () => {
   const defaultProps = {
     value: 0.5,
     onChange: vi.fn(),
     label: 'Confidence',
+    factorContext: { nodeId: 'fac_churn_risk', nodeLabel: 'Churn risk' },
   }
 
   beforeEach(() => {
     vi.clearAllMocks()
+    elicitReplies.length = 0
+    elicitRequests.length = 0
   })
 
   describe('slider mode (default)', () => {
@@ -235,6 +262,124 @@ describe('BeliefInput', () => {
       render(<BeliefInput {...defaultProps} step={0.05} />)
       const slider = screen.getByRole('slider')
       expect(slider).toHaveAttribute('step', '0.05')
+    })
+  })
+
+  /**
+   * The coverage this file never had. Everything above proves the CHROME
+   * renders; nothing above proved a suggestion could ever appear, which is why
+   * a phantom adapter method survived here undetected.
+   */
+  describe('CEE suggestions (ROADMAP 2.364)', () => {
+    const PRETTY_LIKELY = {
+      suggested_value: 0.7,
+      confidence: 'high' as const,
+      reasoning: 'Interpreted "pretty likely" as approximately 70% probability.',
+      needs_clarification: false,
+      provenance: 'cee' as const,
+    }
+
+    const AMBIGUOUS = {
+      suggested_value: 0.75,
+      confidence: 'low' as const,
+      reasoning: '"good" could mean several things.',
+      needs_clarification: true,
+      clarifying_question: 'When you say "good", how likely do you mean?',
+      options: [
+        { label: 'Very likely', value: 0.9 },
+        { label: 'Quite likely', value: 0.75 },
+        { label: 'More likely than not', value: 0.6 },
+      ],
+      provenance: 'cee' as const,
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    async function typePhrase(phrase: string): Promise<void> {
+      fireEvent.click(screen.getByLabelText('Switch to natural language mode'))
+      fireEvent.change(screen.getByLabelText('Confidence natural language input'), {
+        target: { value: phrase },
+      })
+      await act(async () => {
+        vi.advanceTimersByTime(600)
+      })
+    }
+
+    it("sends the factor's own id and label to CEE, with target_type prior", async () => {
+      elicitReplies.push({ ...PRETTY_LIKELY })
+      render(<BeliefInput {...defaultProps} />)
+
+      await typePhrase('pretty likely')
+
+      expect(elicitRequests).toEqual([
+        {
+          node_id: 'fac_churn_risk',
+          node_label: 'Churn risk',
+          user_expression: 'pretty likely',
+          target_type: 'prior',
+        },
+      ])
+    })
+
+    it('renders the suggestion from suggested_value, and accepting applies THAT number', async () => {
+      const onChange = vi.fn()
+      elicitReplies.push({ ...PRETTY_LIKELY })
+      render(<BeliefInput {...defaultProps} onChange={onChange} />)
+
+      await typePhrase('pretty likely')
+
+      // 0.7 through the component's own formatter. No other field in the
+      // reply yields "70%", so a card rendered from the wrong field dies here.
+      expect(screen.getByTestId('suggestion-card')).toBeInTheDocument()
+      expect(screen.getByText('70%')).toBeInTheDocument()
+
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Accept suggestion: 70%'))
+      })
+      expect(onChange).toHaveBeenCalledWith(0.7)
+    })
+
+    it("renders the engine's clarifying question and its own chips; a chip applies THAT chip's value", async () => {
+      const onChange = vi.fn()
+      elicitReplies.push({ ...AMBIGUOUS })
+      render(<BeliefInput {...defaultProps} onChange={onChange} />)
+
+      await typePhrase('good')
+
+      expect(screen.getByTestId('suggestion-card-clarification')).toBeInTheDocument()
+      expect(
+        screen.getByText('When you say "good", how likely do you mean?'),
+      ).toBeInTheDocument()
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('More likely than not'))
+      })
+      expect(onChange).toHaveBeenCalledWith(0.6)
+    })
+
+    it('a failed elicitation renders an honest message and applies nothing', async () => {
+      const onChange = vi.fn()
+      render(<BeliefInput {...defaultProps} onChange={onChange} />)
+
+      await typePhrase('pretty likely')
+
+      expect(screen.getByText(/Nothing has changed/i)).toBeInTheDocument()
+      expect(screen.queryByTestId('suggestion-card')).not.toBeInTheDocument()
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('sends nothing for a phrase shorter than three characters', async () => {
+      render(<BeliefInput {...defaultProps} />)
+
+      await typePhrase('ab')
+
+      expect(elicitRequests).toHaveLength(0)
     })
   })
 

@@ -7,7 +7,7 @@
  *     (Tested by verifying COACHING contains the canonical versions.)
  */
 import { describe, it, expect } from 'vitest'
-import { COACHING, resolveCoaching, type CoachingKey } from '../coachingConfig'
+import { COACHING, resolveCoaching, resolveEdgeValuesCoaching, type CoachingKey } from '../coachingConfig'
 
 /** Every panel type (plus goal variants) must have a coaching entry. */
 const REQUIRED_KEYS: CoachingKey[] = [
@@ -55,8 +55,78 @@ describe('coachingConfig (H-series)', () => {
     expect(COACHING.optionCoverage).toContain('Consider whether')
   })
 
-  it('H4: edge weight coaching contains "generated automatically"', () => {
-    expect(COACHING.edgeWeight).toContain('generated automatically')
+  // ⚠ REPLACED, NOT DELETED. This test used to assert
+  //     expect(COACHING.edgeWeight).toContain('generated automatically')
+  // — i.e. it PINNED the over-claim. `COACHING.edgeWeight` was rendered
+  // unconditionally beneath the edge panel's strength control and the
+  // "Does this connection exist?" slider, including on a freshly drawn edge
+  // where both numbers are `USER_EDGE_DEFAULTS` and nothing generated
+  // anything, and including on a value the user had just typed. The test was
+  // doing its job (H4 is about copy living in COACHING rather than inline) but
+  // it had welded a specific false sentence into the contract. It now pins the
+  // inverse: no static entry may assert an origin at all.
+  it('H4: NO static coaching entry asserts a provenance it cannot establish', () => {
+    // Verbs of origin. Static copy cannot know where a number came from —
+    // that sentence is derived per edge by `resolveEdgeValuesCoaching`.
+    const ORIGIN_CLAIMS = [
+      'generated automatically',
+      'was generated',
+      'was estimated',
+      'was calculated',
+      'was computed',
+      'we generated',
+      'we estimated',
+    ]
+    for (const [key, text] of Object.entries(COACHING)) {
+      for (const claim of ORIGIN_CLAIMS) {
+        expect(`${key}: ${text.toLowerCase()}`).not.toContain(claim)
+      }
+    }
+  })
+
+  // POSITIVE CONTROL for the rule above: the derived resolver DOES speak an
+  // origin, and speaks a different one per source — so the absence assertion
+  // in the static set is a real constraint, not a vacuous one.
+  describe('resolveEdgeValuesCoaching — the derived disclosure', () => {
+    it('makes NO origin claim when neither value was set', () => {
+      const text = resolveEdgeValuesCoaching({ strength: null, existence: null })
+      expect(text).toContain('No strength has been set')
+      expect(text).toContain('Nobody has said how likely')
+      expect(text.toLowerCase()).not.toContain('generated')
+      expect(text.toLowerCase()).not.toContain('estimated this strength')
+    })
+
+    it('names Olumi only when the value actually came from a producer', () => {
+      const text = resolveEdgeValuesCoaching({ strength: 'cee', existence: 'cee' })
+      expect(text).toContain('Olumi estimated this strength')
+      expect(text).toContain('Olumi estimated how likely')
+    })
+
+    it('attributes a user-set value to the user, never to a generator', () => {
+      const text = resolveEdgeValuesCoaching({ strength: 'user', existence: 'user' })
+      expect(text).toContain('You set this strength')
+      expect(text).toContain('You set how likely')
+      expect(text).not.toContain('Olumi estimated')
+    })
+
+    it('distinguishes a template value from an estimate of THIS decision', () => {
+      const text = resolveEdgeValuesCoaching({ strength: 'template', existence: 'template' })
+      expect(text).toContain('came with the template')
+      expect(text).toContain('not estimated for your decision')
+    })
+
+    it('resolves the two fields INDEPENDENTLY (a set strength does not vouch for the belief)', () => {
+      const text = resolveEdgeValuesCoaching({ strength: 'user', existence: null })
+      expect(text).toContain('You set this strength')
+      expect(text).toContain('Nobody has said how likely')
+    })
+
+    it('always carries the advice half, whatever the provenance', () => {
+      for (const source of [null, 'user', 'cee', 'template'] as const) {
+        const text = resolveEdgeValuesCoaching({ strength: source, existence: source })
+        expect(text).toContain(COACHING.edgeWeight)
+      }
+    })
   })
 
   it('H4: "more recent data" phrase is in COACHING.factorObservableData', () => {

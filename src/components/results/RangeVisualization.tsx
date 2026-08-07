@@ -6,7 +6,9 @@
  *
  * Upgrades:
  * - Target line: single dashed vertical at goal_threshold, label at section bottom
- * - Per-option probability: "{pog}% hit target" or "Wins {wp}%" next to label
+ * - Per-option probability: "{pog}% hit target" or "{wp}% win probability"
+ *   (the second was described here as "Wins {wp}%" and read "Leads {wp}%" in
+ *   the code; ROADMAP 1.239 relabelled it and this line now matches) next to label
  * - User units: tick labels at axis ends using goal node's unit
  * - Top 3 cap with show more/less toggle
  * - Direction-aware driver sentence
@@ -15,8 +17,15 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
-import { formatPercent as formatPct } from '../../utils/formatPercent'
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from './utils/goalAnchorCopy'
+// `formatPct` stays for THRESHOLD/axis formatting below — those are outcome
+// VALUES in user units, not probabilities, and no display floor applies to
+// them. The probability readouts moved to their registers' primitives
+// (ROADMAP 2.333); do not route threshold values back through those.
+import { formatPercent as formatPct, formatProbabilityWithResolution } from '../../utils/formatPercent'
+import { formatGoalProbability } from './utils/displayFloors'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { formatRangeValue } from './utils/formatRangeValue'
 import type { OptionResult, OutcomeUnitType } from './types'
 
 export interface RangeVisualizationProps {
@@ -59,7 +68,18 @@ export function formatThreshold(
     return `${symbol}${Math.round(value).toLocaleString()}`
   }
   if (unit === 'percent') {
-    // Auto-detect probability form (0-2 range) vs percentage form
+    // isNormalised === false means the caller's values were denormalised into
+    // user units (useResultsSectionData scales by goal_threshold_cap) — the
+    // value IS a percentage already, however small. Render it as-is via the
+    // SHARED magnitude-tier helper OptionCards' range labels use, so hero
+    // readouts and the option cards below share one scale (a -0.37%
+    // expected shift must never inflate to "-37%").
+    if (isNormalised === false) {
+      return `${formatRangeValue(value)}%`
+    }
+    // UI-SEM-059: legacy probability-form auto-detect (|v| ≤ 2 → ×100) for
+    // callers that cannot assert isNormalised. Remove when all callers pass
+    // isNormalised explicitly.
     const displayValue = Math.abs(value) <= 2 ? value * 100 : value
     return formatPct(displayValue)
   }
@@ -114,10 +134,30 @@ function OptionRangeBar({
   // C10: Per-option probability text with fallback
   const probabilityText = (() => {
     if (option.goalProbability != null && goalThreshold != null) {
-      return `${formatPct(option.goalProbability, { fromDecimal: true })} hit target`
+      // Question A, in the house register — "hit target" named the right
+      // quantity but not the question it answers.
+      // ROADMAP 2.333: was a bare `formatPct`, so a measured 0.07% goal
+      // probability printed "0%" here while the option card beside it
+      // printed "< 1%" — the N11 contradiction on a second surface. The
+      // GOAL quantity takes the goal register's formatter, with the
+      // option's own sample count when the run carries one.
+      return GOAL_ANCHOR_COPY.phrase(
+        formatGoalProbability(option.goalProbability, option.nValidSamples),
+        option.goalFitIsSubstitutedJoint === true,
+      )
     }
     if (option.winProbability != null) {
-      return `Leads ${formatPct(option.winProbability, { fromDecimal: true })}`
+      // ROADMAP 1.239 relabelled this away from the leader VERB (`Leads
+      // {pct}`); the 2026-07-31 re-anchoring drops the un-anchored noun too.
+      // This branch renders the COMPARATIVE quantity, so it takes the
+      // comparative register — NOT the A register. Labelling it "chance of
+      // hitting your goal" would put a goal caption on a comparative number,
+      // which is the defect the confidence-ring pin exists to catch.
+      // Same fix, comparative register: the shared floored/resolution-aware
+      // comparative formatter, not a bare round.
+      return COMPARATIVE_COPY.phrase(
+        formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
+      )
     }
     // C10: Omit suffix entirely when both missing
     return null

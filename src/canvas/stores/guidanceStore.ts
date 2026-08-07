@@ -5,6 +5,7 @@
  * and tracks the currently focused item across the strip, inspector, and canvas.
  */
 import { create } from 'zustand'
+import { AlertTriangle, Lightbulb, type LucideIcon } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
 // § 1 — CEE contract types
@@ -29,11 +30,36 @@ export type GuidanceAction =
 
 export interface GuidanceItem {
   item_id: string
-  signal_code: string
-  category: GuidanceCategory
+  /**
+   * Producer `signal_code` VERBATIM when supplied — an OPEN, producer-owned
+   * SCREAMING_SNAKE vocabulary (never allowlisted, never rendered as user copy;
+   * data-* only). Absent when the producer sent none: the V5 derivation never
+   * invents one from the block type. V4-envelope guidance always carries it.
+   */
+  signal_code?: string
+  /**
+   * Producer four-value `category` VERBATIM when supplied; absent otherwise —
+   * the V5 derivation never defaults it. Rendering surfaces fall back to a
+   * neutral display treatment (or suppress the category badge), never a
+   * synthesised data value. V4-envelope guidance always carries it.
+   */
+  category?: GuidanceCategory
   source: GuidanceSource
   title: string
   detail?: string
+  /**
+   * Producer `action_label` VERBATIM when supplied; absent otherwise. The CTA
+   * label the producer authored for this item — the UI renders it verbatim and
+   * never invents its own. V4-envelope guidance always carries it.
+   */
+  actionLabel?: string
+  /**
+   * Producer `signal` display line VERBATIM when supplied; absent otherwise.
+   * User-facing producer copy (distinct from `signal_code`, which is a data-*
+   * code and never rendered) — carried today only on the deterministic
+   * stale-rerun nudge. Rendered verbatim where present, never synthesised.
+   */
+  signal?: string
   primary_action: GuidanceAction
   target_object?: GuidanceTargetObject
   /**
@@ -46,8 +72,35 @@ export interface GuidanceItem {
   valid_while?: { analysis_hash?: string; graph_hash?: string }
   fact_ids?: string[]
   citations?: string[]
-  /** 0–100, higher = more urgent */
+  /**
+   * COARSE 0-100 urgency, higher = more urgent (the producer's 0.19.0
+   * `priority` verbatim when supplied — band-granular, ties normal — else
+   * the UI's 50 fail-closed default). Budget/filter/style on it. It is NOT
+   * a display order: the display order is severity-major (`category`) then
+   * ascending `priorityRank` (Stage 2). Every ordering consumer must go
+   * through `compareGuidanceDisplayOrder` below — never hand-roll a priority
+   * sort (that is how the UI-SEM-085 `100 - rank` inversion happened).
+   */
   priority: number
+  /**
+   * The producer's 0.19.0 `priority_rank` VERBATIM: ASCENDING display
+   * ordinal, LOWER = shown FIRST, positive integers, UNBOUNDED (never
+   * invert against 100 — ranks >= 100 are routine; bands: 1-9 lifecycle,
+   * 10-99 review cards, 100-199 coaching, 200+ prompts). Equal ranks are
+   * producer-order ties. PRESENCE = the producer ranked this item; absence
+   * (pre-0.19.0 blocks, exercise blocks, V4-envelope items) = unranked, and
+   * consumers fall closed to their unranked treatment.
+   */
+  priorityRank?: number
+  /**
+   * UI-SEM-085: true ONLY when the producer emitted `priority` for this
+   * item; absent or false means `priority` is the UI's 50 default and
+   * carries NO urgency information. Set at the single defaulting site in
+   * `deriveGuidance` (src/v5/extractPhase3FromV5Response.ts) — read it, never
+   * re-derive it (a producer may legitimately send 50). Rank provenance
+   * needs no flag: `priorityRank` presence IS it.
+   */
+  priorityIsProducerSupplied?: boolean
   dsk_claim_id?: string
   evidence_strength?: EvidenceStrength
 }
@@ -73,6 +126,13 @@ export interface GuidanceState {
   _prefillChat: ((text: string) => void) | null
   /** Registered by ConversationPanel — unified action dispatch with chip_metadata */
   _dispatchAction: ((opts: { action_type?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void) | null
+  /**
+   * Identity token for the ACTIVE registration. Ownership checks must use
+   * this, never a callback identity: with the singleton conversation
+   * context, two panel hosts register the SAME sendMessage/dispatchAction
+   * function objects, so callback identity cannot discriminate hosts.
+   */
+  _registrationToken: object | null
 }
 
 export interface GuidanceActions {
@@ -82,7 +142,15 @@ export interface GuidanceActions {
   clearGuidanceItems: () => void
   /** Set the focused item. Pass null to clear. */
   setActiveGuidanceItem: (itemId: string | null) => void
-  /** Register conversation callbacks (called from ConversationPanel on mount). */
+  /**
+   * Register conversation callbacks (called from ConversationPanel on mount).
+   *
+   * Returns an unregister function. Cleanup MUST go through it: it only clears
+   * the callbacks if this registration is still the active one. Two
+   * ConversationPanel hosts can coexist (floating panel + dock Olumi tab);
+   * before this guard, whichever unmounted LAST nulled the shared callbacks
+   * and silently killed every cross-surface run/ask CTA.
+   */
   registerConversationCallbacks: (
     sendMessage: (text: string) => void,
     scrollToPatch: (patchId: string) => void,
@@ -90,7 +158,7 @@ export interface GuidanceActions {
     runAnalysis?: () => void,
     prefillChat?: (text: string) => void,
     dispatchAction?: (opts: { action_type?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void,
-  ) => void
+  ) => () => void
   /**
    * Evict items whose valid_while hashes no longer match the current state.
    *
@@ -126,6 +194,7 @@ const initialGuidanceState: GuidanceState = {
   _scrollToPatch: null,
   _dispatchAction: null,
   _prefillChat: null,
+  _registrationToken: null,
 }
 
 export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, get) => ({
@@ -152,6 +221,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
   },
 
   registerConversationCallbacks: (sendMessage, scrollToPatch, sendChip, runAnalysis, prefillChat, dispatchAction) => {
+    const token = {}
     set({
       _sendMessage: sendMessage,
       _runAnalysis: runAnalysis ?? null,
@@ -159,7 +229,26 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       _sendChip: sendChip ?? null,
       _prefillChat: prefillChat ?? null,
       _dispatchAction: dispatchAction ?? null,
+      _registrationToken: token,
     })
+    return () => {
+      // Ownership guard: only clear if OUR registration is still the active
+      // one — a newer host's registration must survive an older host's
+      // unmount. Compared by a per-registration token, NOT by callback
+      // identity: both panel hosts share the singleton conversation's
+      // function objects, so callback identity cannot tell them apart.
+      if (get()._registrationToken === token) {
+        set({
+          _sendMessage: null,
+          _runAnalysis: null,
+          _scrollToPatch: null,
+          _sendChip: null,
+          _prefillChat: null,
+          _dispatchAction: null,
+          _registrationToken: null,
+        })
+      }
+    }
   },
 
   evictStaleItems: ({ currentAnalysisHash, graphChanged = false }) => {
@@ -263,10 +352,109 @@ export function selectItemsForTarget(state: GuidanceState, targetId: string): Gu
   return state.guidanceItems.filter((i) => i.target_object?.id === targetId)
 }
 
-/** Returns the single highest-priority item (or null if empty). */
+/**
+ * Severity rank for the four-value producer `category` (Stage 2). Lower =
+ * shown first: must_fix, then should_fix, could_fix, technique. An ABSENT
+ * category sorts into ONE trailing bucket — the producer owns this field, so
+ * the UI never invents a severity for items it did not categorise; those keep
+ * their existing rank/urgency order among themselves.
+ */
+export function guidanceCategoryRank(cat: GuidanceItem['category']): number {
+  switch (cat) {
+    case 'must_fix': return 0
+    case 'should_fix': return 1
+    case 'could_fix': return 2
+    case 'technique': return 3
+    default: return 4 // absent — honest, never invented
+  }
+}
+
+/** DS v5 state channel a guidance item's `category` rides. */
+export type GuidanceTone = 'danger' | 'info'
+
+/**
+ * The single source of truth for the display TONE (colour = state, DS v5) of a
+ * guidance item's four-value producer `category`. Every surface that colours a
+ * guidance element MUST derive from this — the inspector cards and the on-canvas
+ * node coaching marker share it so the marker's tint matches the card it opens
+ * (derive, don't mirror). must_fix / should_fix ride the danger channel;
+ * could_fix / technique — and items the producer never categorised — ride the
+ * info channel (honest absence → info, never a synthesised severity).
+ */
+export function guidanceCategoryTone(cat: GuidanceItem['category']): GuidanceTone {
+  switch (cat) {
+    case 'must_fix':
+    case 'should_fix':
+      return 'danger'
+    default:
+      return 'info' // could_fix, technique, or absent — low-urgency info channel
+  }
+}
+
+/**
+ * The single source of truth for a guidance item's display ICON + tint, paired
+ * with `guidanceCategoryTone` above (icon = affordance / colour = state, DS v5).
+ * Every surface that shows a guidance icon — the inspector card
+ * (`InspectorGuidanceSection`) and the on-canvas node coaching marker
+ * (`NodeCoachingMarker`) — derives from THIS, so the marker's icon always
+ * matches the card it opens (derive, don't mirror). Tone decides both: the
+ * danger channel (must_fix / should_fix) shows AlertTriangle in `text-danger`;
+ * the info channel (could_fix, technique, and items the producer never
+ * categorised) shows Lightbulb in `text-info`. An uncategorised item therefore
+ * shows the info Lightbulb EVERYWHERE — honest absence → info, never a missing
+ * icon and never a synthesised severity.
+ */
+export function guidanceCategoryIcon(
+  cat: GuidanceItem['category'],
+): { Icon: LucideIcon; tintClass: string } {
+  return guidanceCategoryTone(cat) === 'danger'
+    ? { Icon: AlertTriangle, tintClass: 'text-danger' }
+    : { Icon: Lightbulb, tintClass: 'text-info' }
+}
+
+/**
+ * THE display-order doctrine for guidance items, in one place (0.19.0
+ * contract; UI-SEM-085 narrowed; Stage 2 severity-major).
+ *
+ * PRIMARY: the producer's `category` severity (must_fix → should_fix →
+ * could_fix → technique). This is the user-facing hierarchy — a must_fix
+ * finding outranks a should_fix one whatever their ranks. Items the producer
+ * did not categorise fall into one trailing bucket (honest absence, never a
+ * synthesised severity).
+ *
+ * WITHIN a category (and among uncategorised items): producer-ranked items
+ * come first, in ASCENDING `priorityRank` order (lower = shown first — verbatim
+ * wire semantics, never inverted). Equal ranks are producer-order ties:
+ * `Array.prototype.sort` is stable, so wire arrival order holds, which is
+ * exactly what the contract prescribes. Unranked items follow, ordered by
+ * descending coarse `priority` (the legacy urgency fallback — the contract
+ * gives us nothing better for items the producer did not rank).
+ *
+ * Every surface that orders or tops guidance items MUST use this comparator
+ * (selectTopItem, GuidanceStrip, DecisionOverviewCard, inspector sections)
+ * — two hand-rolled conventions in the same pipe is how the coaching band
+ * collapsed.
+ */
+export function compareGuidanceDisplayOrder(a: GuidanceItem, b: GuidanceItem): number {
+  const catDelta = guidanceCategoryRank(a.category) - guidanceCategoryRank(b.category)
+  if (catDelta !== 0) return catDelta
+  const aRank = typeof a.priorityRank === 'number' ? a.priorityRank : undefined
+  const bRank = typeof b.priorityRank === 'number' ? b.priorityRank : undefined
+  if (aRank !== undefined && bRank !== undefined) return aRank - bRank
+  if (aRank !== undefined) return -1
+  if (bRank !== undefined) return 1
+  return b.priority - a.priority
+}
+
+/**
+ * Returns the single item the display-order doctrine puts FIRST (or null if
+ * empty): the highest-severity `category` (must_fix first), then the lowest
+ * producer `priorityRank`, then the highest coarse `priority`. Full ties keep
+ * the earliest-arrival item.
+ */
 export function selectTopItem(state: GuidanceState): GuidanceItem | null {
   if (state.guidanceItems.length === 0) return null
   return state.guidanceItems.reduce((best, item) =>
-    item.priority > best.priority ? item : best,
+    compareGuidanceDisplayOrder(item, best) < 0 ? item : best,
   )
 }

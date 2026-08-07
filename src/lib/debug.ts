@@ -19,13 +19,13 @@
  */
 export const DEBUG_FLAGS = {
   /** Log API request/response payloads - NEVER enable in prod/demos */
-  logPayloads: import.meta.env.VITE_DEBUG_PAYLOADS === 'true',
+  logPayloads: import.meta.env?.VITE_DEBUG_PAYLOADS === 'true',
   /** Log authentication events (session info, user IDs) */
-  logAuth: import.meta.env.VITE_DEBUG_AUTH === 'true',
+  logAuth: import.meta.env?.VITE_DEBUG_AUTH === 'true',
   /** Log API calls (URLs, methods, non-sensitive headers) */
-  logApi: import.meta.env.VITE_DEBUG_API === 'true',
+  logApi: import.meta.env?.VITE_DEBUG_API === 'true',
   /** Log Supabase operations */
-  logSupabase: import.meta.env.VITE_DEBUG_SUPABASE === 'true',
+  logSupabase: import.meta.env?.VITE_DEBUG_SUPABASE === 'true',
 } as const
 
 export type DebugFlag = keyof typeof DEBUG_FLAGS

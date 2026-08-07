@@ -38,8 +38,8 @@ const STAGE_LABELS: Record<ScenarioStage, string> = {
 const STAGE_BORDER: Record<ScenarioStage, string> = {
   frame: 'var(--border-default, #EEE6D8)',
   ideate: 'var(--border-default, #EEE6D8)',
-  evaluate: 'var(--info, #2B7FA2)',
-  decide: 'var(--info, #2B7FA2)',
+  evaluate: 'var(--info, #277A9D)',
+  decide: 'var(--info, #277A9D)',
   optimise: 'var(--success, #67C89E)',
 }
 
@@ -77,7 +77,7 @@ export function useStagePill(): StagePillData {
 
     // When generating, override label + border but preserve the underlying stage
     const generatingOverlay = isGenerating
-      ? { label: 'Generating\u2026', borderColor: 'var(--info, #2B7FA2)', isGenerating: true as const }
+      ? { label: 'Generating\u2026', borderColor: 'var(--info, #277A9D)', isGenerating: true as const }
       : { isGenerating: false as const }
 
     if (shouldTrustStoredStage && isKnownStage(currentStage)) {

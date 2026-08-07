@@ -36,7 +36,93 @@
  * Combines validation state, readiness checks, and blocker detection.
  */
 
+import { draftValuesAreUnsettled, type DraftStreamPhase } from '../stores/draftStore'
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
+import { isV5CanonicalRunPath } from '../../v5/eligibility'
+import {
+  composeReadinessBlockedReason,
+  type OptionNeedingValues,
+} from './composeBlockedReason'
+
+/**
+ * CEE's refusal sentence, verbatim — the gate must show the engine's own
+ * words so panel and chat never contradict each other. If CEE rewords its
+ * refusal, this constant (and the spec pinning the raw literal) must follow.
+ */
+export const CEE_DRAFT_FIRST_REFUSAL = 'Draft or save a model first, then run analysis.'
+
+/**
+ * ROADMAP 2.122 — the refusal shown while a STREAMED draft's structure is on
+ * the canvas but its numbers have not settled.
+ *
+ * Held to the same honesty bar as the wait narration (`DraftLoadingAnimation`,
+ * `AnalysisRunningBanner`): it claims only what the client genuinely holds. The
+ * client holds a GRAPH_READY frame stamped `status: in_progress`, so "still
+ * being drafted" and "values are still settling" are facts read off the frame,
+ * not a guess off a clock. It forecasts no duration and asserts nothing about
+ * the user's decision.
+ */
+export const DRAFT_VALUES_SETTLING_REFUSAL =
+  'Your model is still being drafted — its values are still settling. Run analysis once drafting finishes.'
+
+/**
+ * ROADMAP 2.122 round 2 (adversarial review F5) — the refusal for the TERMINAL
+ * `unsettled` state, which is a different fact and needs a different sentence.
+ *
+ * Both phases used to share `DRAFT_VALUES_SETTLING_REFUSAL`, and in `unsettled`
+ * its closing clause — *"Run analysis once drafting finishes"* — **forecasts a
+ * finish that will never come**: the phase's own docstring says the values will
+ * not settle in this session. It also contradicted the transcript notice sitting
+ * directly beside it. One string, two phases, one of them false — the same
+ * honesty bar this lane applied to its own narration lines, failed in a different
+ * file.
+ *
+ * This one states the terminal fact and points at the affordance that actually
+ * works (see F3: a fresh draft, not a retry of a turn CEE will decline).
+ */
+export const DRAFT_VALUES_UNSETTLED_REFUSAL =
+  'Drafting ended before this model\u2019s values arrived, so they are not final. Start a new draft to analyse it.'
+
+/**
+ * Provenance stamps that mark a graph as INJECTED CLIENT-SIDE rather than
+ * produced by a CEE turn.
+ *
+ * `templateId` — stamped only by insertBlueprint (PLoT template insert).
+ * `starterId`  — stamped only by applyStarter (pre-drafted starter scenario,
+ *                src/canvas/starters/loadStarter.ts).
+ *
+ * No CEE draft path stamps either one, which is exactly what makes them a
+ * sound discriminator. Kept as one named list so a third injection source
+ * cannot be added without meeting this decision.
+ */
+const CLIENT_INJECTED_PROVENANCE_KEYS = ['templateId', 'starterId'] as const
+
+/**
+ * True when the canvas model is invisible to the analysis engine: the graph was
+ * injected client-side (see CLIENT_INJECTED_PROVENANCE_KEYS) AND the run would
+ * route through CEE, which analyses its own scenario state — not the canvas
+ * (#343). A V2-direct run can analyse canvas graphs, so the gate stays open off
+ * the canonical path.
+ *
+ * The V5 turn body carries no graph at all — `src/v5/buildPayload.ts` emits
+ * turn ids/stage/message/source/chip and the vendored MessageTurnPayloadSchema
+ * is `.strict()` — so CEE's only route to the nodes is its persisted scenario
+ * row, which `flushPendingGraphSave` writes ONLY when persistence is active.
+ * A guest session therefore has no server-side graph for an injected model, and
+ * refusing the run is the honest outcome: the alternative is dispatching a run
+ * that returns an answer about a graph nobody analysed.
+ *
+ * ONE home for the predicate: both gate callers (OutputsDock,
+ * ConversationPanel) consume this instead of re-deriving it.
+ */
+export function computeCeeCannotSeeModel(
+  nodes: ReadonlyArray<{ data?: Record<string, unknown> | undefined }>,
+): boolean {
+  return (
+    isV5CanonicalRunPath() &&
+    nodes.some((n) => CLIENT_INJECTED_PROVENANCE_KEYS.some((k) => n.data?.[k] != null))
+  )
+}
 
 export interface CanRunAnalysisResult {
   /** Whether analysis can be run */
@@ -69,7 +155,149 @@ export interface CanRunAnalysisParams {
   nodeCount: number
   /** Whether analysis is currently running */
   isRunning?: boolean
+  /** See computeCeeCannotSeeModel — the model exists only client-side and
+   *  the run routes through CEE, so the engine would refuse it (#343). */
+  ceeCannotSeeModel?: boolean
+  /**
+   * ROADMAP 2.122 — the streamed draft's phase, passed THROUGH rather than
+   * pre-derived by the caller.
+   *
+   * ⚠ This started life as a `draftValuesSettling: boolean` that `OutputsDock`
+   * computed. A mutation that dropped `'unsettled'` from that expression
+   * **SURVIVED the battery**, because the derivation sat in a component nothing
+   * tests while every test computed its own copy — a hand-maintained mirror of a
+   * two-clause predicate (trap 12, in miniature, in the honesty guard itself).
+   * Taking the raw phase removes the derivation from the call site entirely:
+   * there is now exactly one place that decides what "unsettled" means, and it
+   * is this function, which is tested.
+   *
+   * `settling` — GRAPH_READY has landed and the structure is on the canvas, but
+   * the turn has not completed, so the numbers are the frame's `in_progress`
+   * ones and the scenario commit has not landed.
+   * `unsettled` — terminal: the stream died after GRAPH_READY and CEE declined
+   * to re-draft, so those numbers will not settle in this session.
+   *
+   * This is a HONESTY rung, and it is the one the streamed path made necessary:
+   * the run gate is otherwise driven by `nodeCount` + readiness, neither of which
+   * knows the difference between a settled graph and a 25-second-old preview.
+   * Without it a tester is handed a live Run button at 36 s, and the run either
+   * computes on values CEE is about to change or returns `analysis_not_ready`
+   * because the commit has not happened yet.
+   */
+  draftStreamPhase?: DraftStreamPhase
+  /**
+   * Options the readiness verdict graded as not-yet-ready, with their labels
+   * (build with `selectOptionsNeedingValues`). Used ONLY to compose the
+   * user-facing reason — it never affects `allowed`. Omitted ⇒ the reason
+   * degrades to count-based copy, which is still true.
+   */
+  optionsNeedingValues?: readonly OptionNeedingValues[]
+  /**
+   * ROADMAP 2.635 (I-3) — `readinessStore.stale`: true when the model has
+   * changed in a way the CURRENT `readiness` verdict was not asked about.
+   *
+   * ⚠ It affects the REASON, never `allowed`. Staleness is not evidence about
+   * runnability — it is evidence about the EVIDENCE — and per Ruling 3
+   * uncertainty must not lock the user out of their own model. So a stale
+   * verdict that blocks still blocks (its refusal is the last real answer we
+   * have) and a stale verdict that permits still permits; what changes is that
+   * the refusal stops making specific claims sourced from a verdict nobody
+   * asked about the current graph.
+   *
+   * The store has carried this flag since 2.332, and its docstring said it "is
+   * what stops a surface presenting that verdict as current". The V3 footer
+   * honoured it; this gate did not, so the blocked copy quoted a stale
+   * verdict's `options_ready`/`options_total` and option labels as if fresh —
+   * the user completes the named remedy and reads the same refusal until the
+   * refetch lands.
+   */
+  readinessStale?: boolean
 }
+
+/**
+ * readinessWillScaffold — the single strict-boolean reader of the scaffold
+ * intent (UI-SEM-091). CEE (#612) rides `scaffold_plan.will_scaffold_options`
+ * on the readiness response, and two surfaces consume it with OPPOSITE polarity:
+ * the run GATE here (fail-closed — block unless strictly true) and the
+ * pre-analysis DISPLAY in usePreAnalysisModel (fail-safe — disclose only when
+ * strictly true). They previously read the raw field independently with `!==
+ * true` vs `=== true`, agreeing only because readinessStore normalises the
+ * field. Extracting the one `=== true` strict test guarantees the two reads
+ * can never drift: an absent/undefined scaffold_plan is uniformly false
+ * (fail-closed for the gate via `!readinessWillScaffold`, no-disclosure for the
+ * display).
+ */
+export function readinessWillScaffold(readiness: GraphReadiness | null | undefined): boolean {
+  return readiness?.scaffold_plan?.will_scaffold_options === true
+}
+
+/**
+ * Does the readiness verdict OBJECT to a run? (ROADMAP 2.635, I-5.)
+ *
+ * The single definition of the gate's readiness rung. It exists because I-4
+ * needs the same question answered at DISPATCH time, and the alternative —
+ * re-typing `readiness && !readiness.can_run_analysis && !readinessWillScaffold(...)`
+ * at the dispatch barrier — is the hand-maintained mirror this codebase has been
+ * bitten by repeatedly (trap 12): the day the scaffold clause changes, one copy
+ * moves and the other silently keeps the old answer, in the permissive
+ * direction.
+ *
+ * ⚠ Note what `null` means here, because it is a DECISION and not a
+ * fall-through (I-2). A `null` verdict is UNKNOWN, and unknown does not object.
+ * The run gate stays open and the outage is DISCLOSED (the V3 footer's
+ * "Could not check readiness" rung). Failing closed on an unobtainable readiness
+ * check would brick the Run button for a healthy user whose only problem is that
+ * a side-car service is down — the SHUT dead end witnessed in ROADMAP 2.332, and
+ * exactly what POC-DONE's PC1 forbids. A truthful "we could not check, you can
+ * still run" is not a dead end; a false "you cannot run" is.
+ */
+export function readinessObjectsToRun(readiness: GraphReadiness | null | undefined): boolean {
+  return Boolean(readiness) && !readiness!.can_run_analysis && !readinessWillScaffold(readiness)
+}
+
+/**
+ * The identity of the verdict that licensed a run (ROADMAP 2.635, I-4).
+ *
+ * `verdictAtMs` is stamped only when `readiness` is set from a real ANSWER, so
+ * the pair (`verdictAtMs`, `stale`) identifies WHICH assessment the gate was
+ * computed against — including the case where no assessment exists at all.
+ */
+export interface ReadinessVerdictLicence {
+  verdictAtMs: number | null
+  stale: boolean
+}
+
+/**
+ * Has the verdict that licensed a run been SUPERSEDED since the gate opened?
+ * (ROADMAP 2.635, I-4.)
+ *
+ * The run gate is evaluated during render; the click that acts on it dispatches
+ * later, and `runCanonicalAnalysis` awaits a persistence flush in between. That
+ * await is a real window: a fresh verdict, or a staleness mark, can land inside
+ * it. Today nothing binds the click to the verdict that opened the gate, so a
+ * run dispatched against a superseded assessment is indistinguishable from one
+ * dispatched against a current one — which makes a doomed run un-attributable.
+ *
+ * This answers only the IDENTITY question. Whether a superseded licence should
+ * stop the run is the caller's decision, and it is taken by asking
+ * `readinessObjectsToRun` about the CURRENT verdict — one gate authority, asked
+ * twice, never re-implemented.
+ */
+export function verdictLicenceSuperseded(
+  licensed: ReadinessVerdictLicence,
+  current: ReadinessVerdictLicence,
+): boolean {
+  return licensed.verdictAtMs !== current.verdictAtMs || licensed.stale !== current.stale
+}
+
+/**
+ * The refusal shown when a run was licensed by a verdict that has since been
+ * replaced by a refusal. Transient and actionable by construction: the fresh
+ * verdict is already in the store, so pressing Analyse again re-evaluates
+ * against it and either runs or names the real reason.
+ */
+export const RUN_LICENCE_SUPERSEDED_REFUSAL =
+  'Your model changed while the analysis was starting. Press Analyse again to run the current model.'
 
 /**
  * Determine if analysis can run based on current state
@@ -78,7 +306,7 @@ export interface CanRunAnalysisParams {
  * @returns CanRunAnalysisResult with allowed status and reason
  */
 export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResult {
-  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false } = params
+  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
 
   const blockingReasons: string[] = []
 
@@ -97,6 +325,39 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
       allowed: false,
       reason: 'Add some nodes to get started',
       blockingReasons: ['No nodes in graph'],
+    }
+  }
+
+  // 2.4 A streamed draft's structure is on screen but its VALUES are not
+  // settled (ROADMAP 2.122). Ordered BEFORE ceeCannotSeeModel deliberately: a
+  // GRAPH_READY preview is also not yet in CEE's scenario state, so both rungs
+  // apply, and this one names the actual situation instead of telling the user
+  // to "draft a model first" while a model is visibly being drafted.
+  // The two in-progress phases block for the same reason and say DIFFERENT things
+  // about it, because one is still in flight and one has terminally ended (F5).
+  // `draftValuesAreUnsettled` is the single classifier — a new phase must be
+  // classified there rather than defaulting to "settled".
+  if (draftValuesAreUnsettled(draftStreamPhase)) {
+    return {
+      allowed: false,
+      reason:
+        draftStreamPhase === 'unsettled'
+          ? DRAFT_VALUES_UNSETTLED_REFUSAL
+          : DRAFT_VALUES_SETTLING_REFUSAL,
+      blockingReasons: [
+        draftStreamPhase === 'unsettled'
+          ? 'Streamed draft ended without its final values'
+          : 'Streamed draft has not finished — values are still settling',
+      ],
+    }
+  }
+
+  // 2.5 Model invisible to the analysis engine (see computeCeeCannotSeeModel).
+  if (ceeCannotSeeModel) {
+    return {
+      allowed: false,
+      reason: CEE_DRAFT_FIRST_REFUSAL,
+      blockingReasons: ['Model not in Olumi scenario state (template insert)'],
     }
   }
 
@@ -122,9 +383,41 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   }
 
   // 5. Check CEE readiness
-  if (readiness && !readiness.can_run_analysis) {
-    if (!blockingReasons.includes(readiness.confidence_explanation)) {
-      blockingReasons.push(readiness.confidence_explanation || 'Graph not ready for analysis')
+  //
+  // UI-SEM-091: runnable-via-scaffold. CEE (#612) rides a scaffold intent on
+  // the readiness response — when it will draft the remaining options
+  // (scaffold_plan.will_scaffold_options), the run triggers that draft, so the
+  // graph is runnable even though can_run_analysis is false. Effective gate:
+  //   allowed = can_run_analysis || scaffold_plan.will_scaffold_options === true
+  // Fail-safe: scaffold_plan absent/undefined ⇒ this term is false, so the gate
+  // collapses to `allowed = can_run_analysis`, byte-identical to pre-scaffold.
+  //
+  // ⚠ The reason is COMPOSED, not quoted (Paul, 28 Jul). This used to push
+  // `readiness.confidence_explanation` — CEE's own refusal sentence — and that
+  // one string is what every blocked surface shows: the footer subline, the
+  // footer/rerun tooltips, the panel toast, and the ⌘Enter toast. Its wording
+  // (`V3 analysis not ready: 1 option(s) blocked: opt_extend`) carries a
+  // glossary-banned term, an internal node id, and no remedy. On the guarded
+  // surfaces the banned term had no substitution, so the guard DEGRADED to
+  // `'Add a decision, a goal and at least two options'` — a false claim about a
+  // model that already had all three; on the unguarded ⌘Enter surface the raw
+  // id leaked. Three surfaces, three different stories, none of them useful.
+  //
+  // `composeReadinessBlockedReason` renders the SAME verdict from its STRUCTURED
+  // fields, in the product's own language, with the actual remedy named. It
+  // never parses the engine's prose (that would just move the mirror) and never
+  // asserts a fact the panel's own counts could contradict.
+  // ROADMAP 2.635 (I-5) — the rung's predicate is `readinessObjectsToRun`, so
+  // the dispatch barrier can ask the SAME question without re-implementing it.
+  if (readinessObjectsToRun(readiness)) {
+    // ROADMAP 2.635 (I-3) — the staleness mark travels WITH the verdict into
+    // the composer. It is passed through rather than pre-derived here, for the
+    // same reason `draftStreamPhase` is (2.122): a predicate re-derived at each
+    // call site is a hand-maintained mirror, and the mutant that drops one
+    // clause from it survives.
+    const composed = composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale)
+    if (!blockingReasons.includes(composed)) {
+      blockingReasons.push(composed)
     }
   }
 
@@ -149,7 +442,15 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   // Analysis allowed - check for warnings
   let warning: string | undefined
 
-  // Warn if readiness is low but not blocking
+  // Warn if readiness is low but not blocking.
+  //
+  // ⚠ `fair` MUST stay an exact match. Until 2026-07-27 the readiness
+  // normaliser coerced CEE's top band (`ready`, score >= 70) to `fair`, so this
+  // branch fired for every well-formed model and the Run button's tooltip told
+  // a model CEE had just called READY to go and improve itself. `ready` and
+  // `strong` deliberately have no branch here: the correct guidance for the top
+  // band is silence, and adding a case for them would re-create the defect in a
+  // new spelling.
   if (readiness?.readiness_level === 'fair') {
     warning = 'Analysis available - consider improvements for better results'
   }

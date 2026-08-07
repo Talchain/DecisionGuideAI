@@ -14,6 +14,7 @@ import {
   getRawElasticity,
   computeNormalisedInfluences,
   computeFactorRanks,
+  selectDriverDisplayModel,
   normaliseDirection,
   getFactorDirection,
   getSemanticLabel,
@@ -21,7 +22,6 @@ import {
   mapConfidenceLevel,
   getConfidenceTier,
   deriveConfidenceTierLegacy,
-  classifySeverityLegacy,
   detectDominantFactorLegacy,
   normaliseImprovements,
   normalizeOutcomeValues,
@@ -31,6 +31,7 @@ import {
 import { useCanvasStore } from '../../../canvas/store'
 import { formatFlipRiskMessage } from '../utils/formatScenarioRatio'
 import type { RawFactorSensitivity, EdgeForDirection } from '../types'
+import { isDirectionalFactor } from '../../../lib/factorDirection'
 
 // =============================================================================
 // 1. Dynamic Normalisation Tests
@@ -261,6 +262,50 @@ describe('normaliseLabel', () => {
 // 4. Rank Computation Tests
 // =============================================================================
 
+describe('selectDriverDisplayModel (Codex R3-B1: complete-metric-set policy, shared by panel + graph)', () => {
+  it('adopts producer influence only when EVERY factor carries one', () => {
+    const model = selectDriverDisplayModel([
+      { key: 'a', influenceScore: 0.9, rawElasticity: 0.1 },
+      { key: 'b', influenceScore: 0.2, rawElasticity: 2.0 },
+    ])
+    expect(model.get('a')).toEqual({ value: 0.9, provenance: 'influence_score' })
+    expect(model.get('b')).toEqual({ value: 0.2, provenance: 'influence_score' })
+  })
+
+  it('partial coverage: EVERY factor falls back to normalised elasticity — a producer 0.9 must not outrank the elasticity-dominant factor it cannot be compared with', () => {
+    // Codex R3-B1 scenario: A has influence_score 0.9, B has NO producer score
+    // but dominant elasticity, C has influence_score 0.2. Mixing bases would
+    // rank A #1 on a producer scale B never entered. Under the policy all
+    // three resolve on the normalised-elasticity basis: B (1.0) > A > C.
+    const model = selectDriverDisplayModel([
+      { key: 'a', influenceScore: 0.9, rawElasticity: 0.4 },
+      { key: 'b', rawElasticity: 1.0 },
+      { key: 'c', influenceScore: 0.2, rawElasticity: 0.1 },
+    ])
+    expect(model.get('a')).toEqual({ value: 0.4, provenance: 'normalised_elasticity' })
+    expect(model.get('b')).toEqual({ value: 1.0, provenance: 'normalised_elasticity' })
+    expect(model.get('c')).toEqual({ value: 0.1, provenance: 'normalised_elasticity' })
+    // And the rank the surfaces crown by follows the same single basis:
+    const rankMap = computeFactorRanks([
+      { key: 'a', rawElasticity: 0.4, displayValue: model.get('a')!.value },
+      { key: 'b', rawElasticity: 1.0, displayValue: model.get('b')!.value },
+      { key: 'c', rawElasticity: 0.1, displayValue: model.get('c')!.value },
+    ])
+    expect(rankMap.get('b')).toBe(1)
+    expect(rankMap.get('a')).toBe(2)
+    expect(rankMap.get('c')).toBe(3)
+  })
+
+  it('no producer coverage at all: normalised basis for everyone', () => {
+    const model = selectDriverDisplayModel([
+      { key: 'a', rawElasticity: 2.0 },
+      { key: 'b', rawElasticity: 1.0 },
+    ])
+    expect(model.get('a')).toEqual({ value: 1.0, provenance: 'normalised_elasticity' })
+    expect(model.get('b')).toEqual({ value: 0.5, provenance: 'normalised_elasticity' })
+  })
+})
+
 describe('computeFactorRanks', () => {
   it('ranks by absolute elasticity descending', () => {
     const factors = [
@@ -379,9 +424,28 @@ describe('normaliseDirection', () => {
     expect(normaliseDirection('Negative')).toBe('negative')
   })
 
-  it('returns undefined for unknown variants', () => {
-    expect(normaliseDirection('unknown')).toBeUndefined()
-    expect(normaliseDirection('mixed')).toBeUndefined()
+  /**
+   * ⭐ SUPERSEDED 2026-08-01 (ROADMAP 2.234). Was "returns undefined for
+   * unknown variants", flattening `mixed` and `unknown` to `undefined`.
+   *
+   * That was harmless HERE — undefined reads as "no direction", and no
+   * directional glyph is drawn for it — but it meant this file and
+   * `mapV5AnalysisToReport` each owned a private answer to the same question,
+   * and the mapper's answer was to call them BOTH `'positive'`. The producer's
+   * documented domain now survives end to end; what a surface may DRAW is
+   * decided by `isDirectionalFactor`, not by whether the value is null.
+   */
+  it('carries the producer domain: `mixed` and `unknown` survive as themselves', () => {
+    expect(normaliseDirection('unknown')).toBe('unknown')
+    expect(normaliseDirection('mixed')).toBe('mixed')
+    // Neither is directional, which is what actually governs rendering.
+    expect(isDirectionalFactor(normaliseDirection('mixed'))).toBe(false)
+    expect(isDirectionalFactor(normaliseDirection('unknown'))).toBe(false)
+  })
+
+  it('an UNRECOGNISED value fails closed to `unknown`, never to a directional claim', () => {
+    expect(normaliseDirection('sideways')).toBe('unknown')
+    expect(isDirectionalFactor(normaliseDirection('sideways'))).toBe(false)
   })
 
   it('returns undefined for undefined/empty', () => {
@@ -552,34 +616,11 @@ describe('getConfidenceTier', () => {
 })
 
 // =============================================================================
-// B2: classifySeverityLegacy
+// B2: classifySeverityLegacy — DELETED with the expired severity fallback
+// (marginal-quantity honesty batch): the 0.30.0 contract omits severity when
+// switch_probability is absent; the hook no longer classifies locally. The
+// live severity behaviour is pinned in switchProbabilityPresence.spec.tsx.
 // =============================================================================
-
-describe('classifySeverityLegacy', () => {
-  it('returns critical for switch_probability > 0.7', () => {
-    expect(classifySeverityLegacy(0.71)).toBe('critical')
-    expect(classifySeverityLegacy(0.9)).toBe('critical')
-  })
-
-  it('returns error for switch_probability > 0.5 and <= 0.7', () => {
-    expect(classifySeverityLegacy(0.51)).toBe('error')
-    expect(classifySeverityLegacy(0.7)).toBe('error')
-  })
-
-  it('returns warning for switch_probability <= 0.5', () => {
-    expect(classifySeverityLegacy(0.5)).toBe('warning')
-    expect(classifySeverityLegacy(0.3)).toBe('warning')
-    expect(classifySeverityLegacy(0)).toBe('warning')
-  })
-
-  it('returns warning when flipProbability is undefined', () => {
-    expect(classifySeverityLegacy(undefined)).toBe('warning')
-  })
-
-  it('returns warning when flipProbability is null', () => {
-    expect(classifySeverityLegacy(null)).toBe('warning')
-  })
-})
 
 // =============================================================================
 // B2: deriveConfidenceTierLegacy
@@ -909,14 +950,9 @@ describe('switch_probability filtering (primary over marginal)', () => {
     expect(filtered).toHaveLength(0)
   })
 
-  it('severity derivation uses switch_probability via classifySeverityLegacy', () => {
-    // B2: Tests the actual exported legacy function (replaces stale blocker-taxonomy mirror)
-    // switch_probability is the primary field; classifySeverityLegacy receives the resolved value
-    expect(classifySeverityLegacy(0.8)).toBe('critical')  // >0.7
-    expect(classifySeverityLegacy(0.6)).toBe('error')     // >0.5
-    expect(classifySeverityLegacy(0.75)).toBe('critical')  // marginal fallback resolved by caller
-    expect(classifySeverityLegacy(0.3)).toBe('warning')   // <=0.5
-  })
+  // 'severity derivation via classifySeverityLegacy' test DELETED with the
+  // function (marginal-quantity honesty batch): severity is producer-verbatim
+  // or absent — pinned in switchProbabilityPresence.spec.tsx.
 })
 
 // =============================================================================
@@ -1228,6 +1264,143 @@ describe('useResultsSectionData runtime safety', () => {
 })
 
 // =============================================================================
+// Track S — factor value provenance survives into data.drivers
+// =============================================================================
+
+describe('useResultsSectionData — Track S value provenance into data.drivers', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({
+      results: { status: 'idle', progress: 0 } as any,
+      runMeta: {},
+      nodes: [],
+      edges: [],
+      hasCompletedFirstRun: false,
+      currentScenarioFraming: null,
+      ceeAnalysisReady: undefined,
+    })
+  })
+
+  const setReportWithFactor = (factor: Record<string, unknown>) => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          robustness: { fragile_edges: [] },
+          option_comparison: [],
+          factor_sensitivity: [factor],
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      nodes: [],
+      edges: [],
+    })
+  }
+
+  it('carries value_source / value_extraction_type / value_defaulted=true onto the driver', () => {
+    setReportWithFactor({
+      factor_id: 'fac_a',
+      label: 'Factor A',
+      sensitivity_score: 0.5,
+      value_source: 'brief_extraction',
+      value_extraction_type: 'inferred',
+      value_defaulted: true,
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+    const driver = result.current.drivers.drivers[0]
+
+    expect(driver).toBeDefined()
+    expect(driver?.valueSource).toBe('brief_extraction')
+    expect(driver?.valueExtractionType).toBe('inferred')
+    expect(driver?.valueDefaulted).toBe(true)
+  })
+
+  it('preserves explicit value_defaulted=false and leaves absent fields absent', () => {
+    setReportWithFactor({
+      factor_id: 'fac_a',
+      label: 'Factor A',
+      sensitivity_score: 0.5,
+      value_defaulted: false,
+      // value_source / value_extraction_type intentionally omitted
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+    const driver = result.current.drivers.drivers[0]
+
+    expect(driver?.valueDefaulted).toBe(false)
+    expect(driver?.valueSource).toBeUndefined()
+    expect(driver?.valueExtractionType).toBeUndefined()
+  })
+})
+
+// =============================================================================
+// Robustness glyph provenance — PLoT level must NOT drive the display-safe verdict
+// =============================================================================
+
+describe('robustness verdict provenance (glyph is not PLoT-driven)', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({
+      results: { status: 'idle', progress: 0 } as any,
+      runMeta: {},
+      nodes: [],
+      edges: [],
+      hasCompletedFirstRun: false,
+      currentScenarioFraming: null,
+      ceeAnalysisReady: undefined,
+    })
+  })
+
+  it('a PLoT robustness.level=high alone does NOT render Robust (robustnessVerdict stays undefined)', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          robustness: { level: 'high', recommendation_stability: 0.99, fragile_edges: [] },
+          option_comparison: [],
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {},
+      nodes: [],
+      edges: [],
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+
+    // The structured PLoT level is preserved for qualified/detailed display...
+    expect(result.current.recommendation.robustnessLevel).toBe('high')
+    // ...but the display-safe verdict that drives the Robust/Sensitive glyph is
+    // NOT populated from it — so the glyph renders "Robustness unknown".
+    expect(result.current.recommendation.robustnessVerdict).toBeUndefined()
+  })
+
+  it('even a UI-SEM-005 fallback (no level, high stability) does NOT populate the verdict', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          robustness: { recommendation_stability: 0.99, fragile_edges: [] }, // no level → fallback derives one
+          option_comparison: [],
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {},
+      nodes: [],
+      edges: [],
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+    expect(result.current.recommendation.robustnessVerdict).toBeUndefined()
+  })
+})
+
+// =============================================================================
 // Baseline Resolution Tests (Task 2.1)
 // =============================================================================
 
@@ -1418,7 +1591,10 @@ describe('B2: hook-level fragile edge severity', () => {
     expect(saEdge?.severity).toBe('critical')
   })
 
-  it('falls back to legacy severity when PLoT severity absent', () => {
+  it('omits severity when PLoT severity absent (no local reclassification — schemas 0.30.0)', () => {
+    // Formerly 'falls back to legacy severity when PLoT severity absent':
+    // the expired B2 fallback classified locally (0.71 → 'critical'). The
+    // contract omits severity with the quantity — absence propagates.
     useCanvasStore.setState({
       results: {
         status: 'complete',
@@ -1433,7 +1609,7 @@ describe('B2: hook-level fragile edge severity', () => {
                 from_id: 'fac_b', to_id: 'goal_1',
                 from_label: 'Factor B', to_label: 'Goal',
                 switch_probability: 0.71,
-                // No severity field — pre-B1 cached result
+                // No severity field — producer omitted it
               },
             ],
           },
@@ -1451,7 +1627,68 @@ describe('B2: hook-level fragile edge severity', () => {
     const { result } = renderHook(() => useResultsSectionData())
     const uncertainties = result.current.confidence.uncertainties
     const saEdge = uncertainties.find((u: any) => u.code === 'SENSITIVE_ASSUMPTION')
-    // 0.71 > 0.7 → legacy classifies as 'critical'
-    expect(saEdge?.severity).toBe('critical')
+    expect(saEdge).toBeDefined()
+    expect(saEdge?.severity).toBeUndefined()
+  })
+
+  it('challengeFragileEdges carries from_id AND to_id through (analysis-graph projection endpoint resolution)', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          option_comparison: [],
+          robustness: {
+            fragile_edges: [
+              {
+                edge_id: 'fac_c::goal_1',
+                from_id: 'fac_c', to_id: 'goal_1',
+                from_label: 'Factor C', to_label: 'Goal',
+                switch_probability: 0.4,
+                alternative_winner_label: 'Alt option',
+              },
+            ],
+          },
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {},
+      nodes: [
+        { id: 'goal_1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } },
+        { id: 'fac_c', type: 'factor', data: { label: 'Factor C', kind: 'factor' }, position: { x: 0, y: 0 } },
+      ] as any,
+      edges: [],
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+    const fe = result.current.confidence.challengeFragileEdges?.[0]
+    // Both endpoints must survive: the projection resolves a flip risk to its
+    // canvas edge via the from→to pair, so a dropped to_id silently disables it.
+    expect(fe?.from_id).toBe('fac_c')
+    expect(fe?.to_id).toBe('goal_1')
+  })
+})
+
+describe('Codex B2 — ranking doctrine: order and crown follow the DISPLAYED influence metric', () => {
+  it('a high-elasticity/low-influence factor no longer outranks a low-elasticity/high-influence one', () => {
+    // Codex review scenario: Investor elasticity 0.9 / influence 19%;
+    // Revenue elasticity 0.1 / influence 100%. The bar shows influence, so
+    // the order and the rank-1 crown must follow influence.
+    const rankMap = computeFactorRanks([
+      { key: 'investor', rawElasticity: 0.9, displayValue: 0.19, importanceRank: 1, label: 'Investor Confidence' },
+      { key: 'revenue', rawElasticity: 0.1, displayValue: 1.0, importanceRank: 2, label: 'Revenue' },
+    ])
+    expect(rankMap.get('revenue')).toBe(1)
+    expect(rankMap.get('investor')).toBe(2)
+  })
+
+  it('without a displayValue the elasticity fallback preserves the historical order (bar falls back too)', () => {
+    const rankMap = computeFactorRanks([
+      { key: 'a', rawElasticity: 0.9, label: 'A' },
+      { key: 'b', rawElasticity: 0.1, label: 'B' },
+    ])
+    expect(rankMap.get('a')).toBe(1)
+    expect(rankMap.get('b')).toBe(2)
   })
 })

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
+import { X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -7,8 +8,14 @@ import '@xyflow/react/dist/style.css'
 import { useCanvasStore } from './store'
 import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
+import { edgeValueSourcePatch } from './domain/edgeValueProvenance'
 import { parseRunHash } from './utils/shareLink'
 import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
+import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
+import { useEditedSinceRun } from './hooks/useEditedSinceRun'
+import { LodSync } from './components/LodSync'
+import { cameraDuration } from './utils/cameraMotion'
+import { useFocusCamera } from './hooks/useFocusCamera'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
 import { useFitViewOnLayoutVersion } from './hooks/useFitViewOnLayoutVersion'
 import { nodeTypes } from './nodes/registry'
@@ -17,6 +24,7 @@ import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
 import * as scenarios from './store/scenarios'
 import type { Scenario } from './store/scenarios'
+import { isUUID } from '../services/turn-request-builder'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
@@ -48,26 +56,31 @@ import { useOnboarding } from './onboarding/useOnboarding'
 import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
+import { commitTemplateGraphReplace } from './blueprints/commitTemplateGraph'
 import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
 // DraftChat is mounted directly below (FF off path); the aiPanelV2
 // floating-first host is mounted as a sibling when the flag is on.
-import { useResultsRun } from './hooks/useResultsRun'
+import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
-import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
+import { computeFitPadding } from './utils/computeFitPadding'
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
 import { useGuidancePulseHighlight } from './hooks/useGuidancePulseHighlight'
 import { useEscapePanel } from './hooks/useEscapePanel'
 import { loadRuns, generateGraphHash } from './store/runHistory'
+import { restoreAnalysisFromAutosave } from './store/restoreAnalysisFromAutosave'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
-import { EdgeThicknessLegend } from './components/EdgeThicknessLegend'
 import { LayoutProgressBanner } from './components/LayoutProgressBanner'
 import { handleLayoutWithRecovery } from './layout/handleLayoutWithRecovery'
 const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
 const AIClarifierChat = lazy(() => import(/* webpackChunkName: "ai-clarifier" */ './panels/AIClarifierChat').then(m => ({ default: m.AIClarifierChat })))
 // NeedleMoversOverlay removed - consolidated into DriversSignal (OutputsDock)
-// CoachingNudge and useCEECoaching removed - coaching now in GuidancePanel (OutputsDock)
+// CoachingNudge and useCEECoaching removed from this file. Coaching is now driven by
+// guidanceStore (./stores/guidanceStore.ts) and rendered by several surfaces: on-canvas via
+// CoachingCard in ./nodes/FactorNode.tsx, in-conversation via ./conversation/GuidanceStrip.tsx
+// and ./conversation/InlineBlocks.tsx, and in the dock via ./components/OlumiTabBody.tsx.
+// Not GuidancePanel.tsx — that component has no importers.
 import { DocumentsManager } from './components/DocumentsManager'
 import { ProvenanceHubTab } from './components/ProvenanceHubTab'
 import { ConnectPrompt } from './components/ConnectPrompt'
@@ -81,6 +94,7 @@ import { isAiPanelV2Enabled } from '../flags'
 import { ConversationProvider } from './conversation/ConversationContext'
 import { FloatingOlumiPanel } from './components/FloatingOlumiPanel'
 import { FirstUseComposer } from './components/FirstUseComposer'
+import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
 import { CogPopover } from './components/CogPopover'
 import { useFloatingPanelState } from './hooks/useFloatingPanelState'
 import { useUIStore } from '../stores/uiStore'
@@ -92,8 +106,10 @@ import { HighlightProvider, useHighlightContext } from './highlighting/Highlight
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 import { useAutosave } from './hooks/useAutosave'
-// Lazy-load debug panel — excludes ~6.8k lines of debug UI from the main bundle
-const LazyDebugPanel = lazy(() => import('../components/DebugPanel').then(m => ({ default: m.DebugPanel })))
+// P1 (external review round 2): the DebugPanel is mounted ONCE, gated, at the
+// app shell (src/poc/AppPoC.tsx). The duplicate lazy mount that used to live
+// here was removed — it still downloaded the ~250 KB chunk and, with ?diag,
+// rendered a second overlapping launcher.
 import { verboseWarn } from '../utils/verboseLog'
 
 type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'rf-store' | 'provider-only' | 'no-provider'
@@ -152,6 +168,12 @@ export interface BlueprintInsertResult {
 
 export interface BlueprintEventBus {
   subscribe: (fn: (blueprint: Blueprint) => BlueprintInsertResult) => () => void
+  /** Apply a blueprint through whatever subscriber is mounted. Zero listeners
+   *  ⇒ returns {} (a silent no-op) — which is why consumers must not render
+   *  insert affordances unless they were HANDED a bus by a mount that also
+   *  subscribes to it. Both live buses (the singleton and the isolation-test
+   *  stub) implement this. */
+  emit: (blueprint: Blueprint) => BlueprintInsertResult
 }
 
 interface ReactFlowGraphProps {
@@ -341,22 +363,28 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     return [...nodes, ghostNode]
   }, [nodes, resultsStatus, viewMode])
 
-  // Week 3: AI Coaching moved to GuidancePanel in OutputsDock
+  // AI coaching is rendered by the guidanceStore consumers, not here — see
+  // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.
 
-  const { getViewport, setCenter, fitView, zoomIn, zoomOut, zoomTo, screenToFlowPosition } = useReactFlow()
+  const { getViewport, fitView, zoomIn, zoomOut, zoomTo, screenToFlowPosition } = useReactFlow()
 
   // Brief 36 Fix: Stabilize ReactFlow function references via refs
   // These functions may have unstable references in some ReactFlow versions
   const getViewportRef = useRef(getViewport)
-  const setCenterRef = useRef(setCenter)
   const zoomInRef = useRef(zoomIn)
   const zoomOutRef = useRef(zoomOut)
   const zoomToRef = useRef(zoomTo)
   getViewportRef.current = getViewport
-  setCenterRef.current = setCenter
   zoomInRef.current = zoomIn
   zoomOutRef.current = zoomOut
   zoomToRef.current = zoomTo
+
+  // F1: reduced-motion guard for every imperative camera move below. Mirrored
+  // to a ref so the empty-deps camera callbacks stay reference-stable.
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const reducedMotionRef = useRef(prefersReducedMotion)
+  reducedMotionRef.current = prefersReducedMotion
+
 
   // Canvas control actions from store
   const undo = useCanvasStore(s => s.undo)
@@ -567,8 +595,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const toggleProvenanceRedaction = useCanvasStore(s => s.toggleProvenanceRedaction)
   const addDocument = useCanvasStore(s => s.addDocument)
 
-  // Results run hook
-  const { run: runAnalysis } = useResultsRun()
   useEngineLimits()
   const checkRunEligibility = useRunEligibilityCheck()
 
@@ -868,68 +894,20 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     setShowFullInspector(true)
   }, [])
 
-  // Focus node handler (for Alt+V validation cycling and Results panel drivers)
-  // Brief 36 Fix: Use refs instead of direct dependencies to prevent re-renders
-  const handleFocusNode = useCallback((nodeId: string) => {
-    const store = useCanvasStore.getState()
-    const targetNode = store.nodes.find(n => n.id === nodeId)
-
-    if (!targetNode) return
-
-    // Select node WITHOUT pushing to history (navigation-only, not structural change)
-    store.selectNodeWithoutHistory(nodeId)
-
-    // Center viewport on the node with smooth animation
-    const viewport = getViewportRef.current()
-    setCenterRef.current(targetNode.position.x, targetNode.position.y, {
-      zoom: viewport.zoom,
-      duration: 300
-    })
-  }, [])
-
-  // Focus edge handler (for Results panel drivers)
-  // Brief 36 Fix: Use refs instead of direct dependencies to prevent re-renders
-  const handleFocusEdge = useCallback((edgeId: string) => {
-    const store = useCanvasStore.getState()
-    const targetEdge = store.edges.find(e => e.id === edgeId)
-
-    if (!targetEdge) return
-
-    // Find source and target nodes
-    const sourceNode = store.nodes.find(n => n.id === targetEdge.source)
-    const targetNode = store.nodes.find(n => n.id === targetEdge.target)
-
-    if (!sourceNode || !targetNode) return
-
-    // Calculate midpoint between source and target
-    const midX = (sourceNode.position.x + targetNode.position.x) / 2
-    const midY = (sourceNode.position.y + targetNode.position.y) / 2
-
-    // Select edge (not in history, just for visual feedback)
-    useCanvasStore.setState({
-      edges: store.edges.map(e => ({
-        ...e,
-        selected: e.id === edgeId
-      }))
-    })
-
-    // Center viewport on edge midpoint with smooth animation
-    const viewport = getViewportRef.current()
-    setCenterRef.current(midX, midY, {
-      zoom: viewport.zoom,
-      duration: 300,
-    })
-  }, [])
-
-  // Register focus helpers for external use (Results panel)
-  useEffect(() => {
-    registerFocusHelpers(handleFocusNode, handleFocusEdge)
-    return () => unregisterFocusHelpers()
-  }, [handleFocusNode, handleFocusEdge])
+  // F2/F3/F4 (graph-visuals): the focus + pulse camera seam — focus node,
+  // focus edge, the registered multi-node pulse fit, and the rule that ends
+  // the focus lens on any reframe. Extracted to a hook so it can be exercised
+  // end-to-end (useFocusCamera.spec.tsx), the same reason the layout lifecycle
+  // hooks were extracted; it owns its own registrations.
+  const { onMoveStart: handleMoveStart, focusNode: handleFocusNode } = useFocusCamera()
 
   // Graph Interaction P1: Enable path highlighting based on node selection
   // Highlights causal paths from selected factor to goal, dims unrelated nodes
   usePathHighlight()
+
+  // N3 (graph-visuals): keep the edited-since-run node set in sync so nodes
+  // can wear the amber "edited since analysis" corner dot.
+  useEditedSinceRun()
 
   // Graph Lens: Compute lens visuals and push to store
   useLensFilter()
@@ -946,7 +924,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
 
     // Get latest state for graph data
-    const { nodes, edges, outcomeNodeId } = useCanvasStore.getState()
+    const { nodes, edges } = useCanvasStore.getState()
 
     // Additional validation: Check for empty graph
     if (nodes.length === 0) {
@@ -963,19 +941,23 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // Open Results panel before running
     setShowResultsPanel(true)
 
+    // Run-path convergence: this shortcut used to build its own thin legacy
+    // request (labels + unsigned weights only — no direction, beliefs,
+    // observed values or goal threshold), so ⌘Enter could disagree with the
+    // dock/chat about the winner. All visible run affordances now execute
+    // the one canonical pipeline registered by OutputsDock.
     try {
-      // Run analysis with canvas graph
-      await runAnalysis({
-        template_id: 'canvas-graph',
-        seed: 1337,
-        graph: { nodes, edges },
-        outcome_node: outcomeNodeId || undefined,
-      })
+      const outcome = await executeCanonicalRun({ source: 'canvas-shortcut' })
+      if (outcome.status === 'blocked') {
+        showToast(outcome.reason, 'warning')
+      } else if (outcome.status === 'unavailable') {
+        showToast(outcome.reason, 'error')
+      }
     } catch (err: any) {
       console.error('[ReactFlowGraph] Run analysis failed:', err)
       showToast(err?.message || 'Analysis failed. Please try again.', 'error')
     }
-  }, [checkRunEligibility, runAnalysis, setShowResultsPanel, showToast])
+  }, [checkRunEligibility, setShowResultsPanel, showToast])
 
   // M4: Health panel handlers
   const handleFixIssue = useCallback(async (issue: any) => {
@@ -1197,19 +1179,24 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           confidence: edge.probability,
           belief: edge.belief ?? edge.probability,      // v1.2: prefer belief, fallback to probability
           provenance: edge.provenance ?? 'template',    // v1.2: default to template source
+          // Set-vs-defaulted markers (domain/edgeValueProvenance.ts). A blueprint
+          // weight was authored by a template author — a real value, not a UI
+          // fallthrough — so it is 'template', NOT 'cee': it is not an estimate
+          // of THIS user's decision. Matches useBlueprintInsert.
+          ...edgeValueSourcePatch({
+            weight: edge.weight != null ? 'template' : undefined,
+          }),
           templateId: blueprint.id
         }
       }
     })
 
-    // Batch update store - REPLACE existing graph, not merge
-    // This matches the user expectation from "Start from Template" confirmation
-    const store = useCanvasStore.getState()
-    store.pushHistory()
-    useCanvasStore.setState(() => ({
-      nodes: newNodes,
-      edges: newEdges
-    }))
+    // Batch update store — REPLACE existing graph, not merge (matches the "Start
+    // from Template" confirmation). commitTemplateGraphReplace pushes one history
+    // frame, replaces the graph, AND marks the freshness overlay dirty — a retained
+    // CEE 'fresh' verdict must not survive starting-from / replacing-with a template.
+    // Covers handleConfirmReplace too (it calls insertBlueprint after pruning).
+    commitTemplateGraphReplace(newNodes, newEdges)
 
     showToast(`Started from "${blueprint.name}" template.`, 'success')
 
@@ -1431,9 +1418,18 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           nodes: autosave.nodes,
           edges: autosave.edges,
         })
-        // Clear stale scenario ID - user is now in draft mode
-        scenarios.clearCurrentScenarioId()
-        useCanvasStore.setState({ currentScenarioId: null })
+        // Scenario/thread continuity: preserve a UUID-format current-scenario ID across
+        // the refresh so the in-flight CEE conversation keeps the same scenario_id. The
+        // periodic autosave stamps this same ID into the autosave slot, so the recovered
+        // graph and the preserved conversation belong together. Only a missing or legacy
+        // (non-UUID) ID is cleared to drop into draft mode.
+        const persistedScenarioId = scenarios.getCurrentScenarioId()
+        if (persistedScenarioId && isUUID(persistedScenarioId)) {
+          useCanvasStore.setState({ currentScenarioId: persistedScenarioId })
+        } else {
+          scenarios.clearCurrentScenarioId()
+          useCanvasStore.setState({ currentScenarioId: null })
+        }
         // FIX: Do NOT clear autosave after consuming it.
         // Keep autosave data until user explicitly saves (scenario save) or next autosave cycle.
         // This ensures if browser crashes again before manual save, data can still be recovered.
@@ -1444,9 +1440,23 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           sessionStorage.setItem('autosave-recovery-dismissed', 'true')
         } catch { /* sessionStorage not available */ }
 
-        // Restore results: try scenario hash first, then fall back to graphHash matching
-        let resultsRestored = false
-        if (autosave.scenarioId) {
+        // ⭐ CANONICAL FIRST: the answer travels IN this autosave record, beside
+        // the graph it was computed over and written in the same
+        // `resultsComplete` call. See store/scenarios.ts `PersistedAnalysis`.
+        //
+        // The two paths below it are the legacy re-derivations and BOTH are
+        // dead on the deployed guest path — live-probed 26 Jul after a real
+        // conversation-driven analysis, `olumi-canvas-scenarios` and
+        // `olumi-canvas-run-history` are BOTH absent, so the scenario lookup
+        // finds no record and the graphHash scan iterates an empty array.
+        // They are kept only for records written before this shipped
+        // (an autosave with no `analysis` key), and are now strictly
+        // subordinate: a canonical hit is never overwritten by a hash guess.
+        let resultsRestored = restoreAnalysisFromAutosave(
+          autosave,
+          useCanvasStore.getState().resultsLoadHistorical,
+        )
+        if (!resultsRestored && autosave.scenarioId) {
           const savedScenario = scenarios.getScenario(autosave.scenarioId)
           if (savedScenario?.last_result_hash) {
             try {
@@ -1632,9 +1642,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const isValidConnection = useCallback((connection: Connection) => {
     if (!connection.source || !connection.target) return false
     if (isSelfLoop(connection.source, connection.target)) return false
-    const { nodes, edges } = useCanvasStore.getState()
+    const { nodes, edges, engineLimits } = useCanvasStore.getState()
     if (isDuplicateEdge(edges, connection.source, connection.target)) return false
-    if (wouldExceedLimits(nodes.length, edges.length, 0, 1)) return false
+    if (wouldExceedLimits(nodes.length, edges.length, 0, 1, engineLimits)) return false
     if (wouldCreateCycle(nodes.map(n => n.id), edges, connection.source, connection.target)) return false
     return true
   }, [])
@@ -1662,12 +1672,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       const targetNodeId = nodeEl.getAttribute('data-id')
       const sourceId = connectSourceRef.current
       if (targetNodeId && sourceId) {
-        const { nodes, edges } = useCanvasStore.getState()
+        const { nodes, edges, engineLimits } = useCanvasStore.getState()
         if (isSelfLoop(sourceId, targetNodeId)) {
           // silent — self-loops are obvious
         } else if (isDuplicateEdge(edges, sourceId, targetNodeId)) {
           showToast('This relationship already exists. Click it to adjust its strength.', 'warning')
-        } else if (wouldExceedLimits(nodes.length, edges.length, 0, 1)) {
+        } else if (wouldExceedLimits(nodes.length, edges.length, 0, 1, engineLimits)) {
           showToast(limitExceededMessage('edge_limit', edges.length), 'warning')
         } else if (wouldCreateCycle(nodes.map(n => n.id), edges, sourceId, targetNodeId)) {
           showToast('This would create a circular dependency. Causal models require one-way relationships.', 'warning')
@@ -1761,10 +1771,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Stable callbacks for CanvasViewportControls — declared unconditionally before
   // any debug-mode early returns to satisfy Rules of Hooks.
-  const handleZoomIn = useCallback(() => zoomInRef.current({ duration: 200 }), [])
-  const handleZoomOut = useCallback(() => zoomOutRef.current({ duration: 200 }), [])
-  const handleZoomReset = useCallback(() => zoomToRef.current(1, { duration: 200 }), [])
-  const handleFitView = useCallback(() => fitViewRef.current({ padding: 0.2, duration: 300 }), [])
+  const handleZoomIn = useCallback(() => zoomInRef.current({ duration: cameraDuration(200, reducedMotionRef.current) }), [])
+  const handleZoomOut = useCallback(() => zoomOutRef.current({ duration: cameraDuration(200, reducedMotionRef.current) }), [])
+  const handleZoomReset = useCallback(() => zoomToRef.current(1, { duration: cameraDuration(200, reducedMotionRef.current) }), [])
+  const handleFitView = useCallback(() => fitViewRef.current({ padding: computeFitPadding(), duration: cameraDuration(300, reducedMotionRef.current) }), [])
 
   // Canvas debug mode: 'blank' short-circuits the full canvas UI so we can
   // quickly determine whether React 185 is coming from inside the canvas
@@ -1962,6 +1972,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             onConnectEnd={onConnectEnd}
             isValidConnection={isValidConnection}
             onSelectionChange={handleSelectionChange}
+            onMoveStart={handleMoveStart}
             onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeClick={handleEdgeClick}
@@ -2005,15 +2016,14 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 </marker>
               </defs>
             </svg>
+            {/* D2: level-of-detail zoom watcher — main canvas only. */}
+            <LodSync />
           </ReactFlow>
         )}
       </div>
 
       {/* Highlight layer for Results drivers (keyed off global showResultsPanel flag) */}
       <HighlightLayer isResultsOpen={showResultsPanel} />
-
-      {/* D3: Edge thickness legend — post-analysis only */}
-      <EdgeThicknessLegend visible={resultsStatus === 'complete'} />
 
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
       {contextMenuTarget && <CanvasContextMenu target={contextMenuTarget} onClose={handleCloseContextMenu} screenToFlowPosition={screenToFlowPosition} />}
@@ -2106,7 +2116,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
               className="p-1 hover:bg-gray-100 rounded"
               aria-label="Close documents drawer"
             >
-              ✕
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
           <div className="h-full">
@@ -2119,6 +2129,43 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       )}
 
       {/* Task C: Unified right-panel orchestrator — only one overlay panel at a time */}
+
+      {/* ⚠ BOTH PANELS BELOW ARE STRANDED — no opener exists for either. Verified at
+        * the bytes across all of src/ (case-insensitive): every `setShowProvenanceHub(…)`
+        * and `setShowAIClarifier(…)` call site passes `false`. Neither flag has a
+        * true-setter. They got here by DIFFERENT routes — one deliberate, one accidental —
+        * but both are superseded today. Do not "fix" this by adding a button; read on:
+        *
+        * Provenance Hub — opener removed DELIBERATELY BY THE REPO OWNER in c80f0fe8
+        *   (29 Mar 2026) "refactor(sidebar): remove Run Analysis, Compare Runs, and
+        *   Evidence & Provenance from left menu". Independently, its data source is dead:
+        *   `addCitation` has zero callers in all of history, so `citations` is always []
+        *   and this panel renders an empty state by construction (see store.ts addCitation).
+        *   Live successor: conversation CitationLegend (InlineBlocks.tsx), V5-fed.
+        *   CLOSED 2026-07-19: this flag used to be rehydrated (uiPreferences
+        *   SHOW_PROVENANCE_HUB), so a returning user carrying a stale
+        *   `ui.showProvenanceHub=true` from a pre-c80f0fe8 build still surfaced the
+        *   empty panel. loadUIPreferences() no longer reads that key, so the panel is
+        *   now genuinely unreachable — no opener, no rehydration. The write and the
+        *   store slice are untouched; retiring the component is still the owner's call.
+        *
+        * AI Clarifier — stranded BY ACCIDENT, then overtaken by events. Its opener shipped
+        *   in 723be292 (5 Dec 2025, 20:02) and was dropped four minutes later by merge
+        *   commit 4ce7117d (20:06) "chore: resolve merge conflicts with main", which took
+        *   main's side of this file and never mentions the clarifier. (`git log -S` misses
+        *   this: pickaxe skips merge commits. Proven by direct revision scan —
+        *   `setShowAIClarifier(true)` in this file: 723be292=1, 4ce7117d=0, and 0 ever after.)
+        *   So it was not retired on purpose — but the job has since genuinely moved. The
+        *   sidebar AI button outlived the binding and by 13c4c3b8 (31 Jan 2026) read
+        *   `onAiClick={() => setShowDraftChat(true)}` before being removed as redundant;
+        *   DraftChat / FloatingOlumiPanelHost are now mounted unconditionally a few hundred
+        *   lines below (the aiPanelV2 pair). Reviving this panel would duplicate a live
+        *   surface AND SHIP A WORSE DRAFT PATH: applyClarifierGraph keeps only
+        *   {label, body, uncertainty} and drops observed_state, edge weight, direction and
+        *   belief — the fields the V2 adapter needs for PLoT.
+        *
+        * Retained pending the owner's ruling; see PR "stranded panels" for the full case.
+        */}
       {showProvenanceHub && (
         <RightPanel
           width="32rem"
@@ -2195,7 +2242,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             FF is on. */}
       <OutputsDock />
       {!isAiPanelV2Enabled() && <DraftChat />}
-      {isAiPanelV2Enabled() && <FloatingOlumiPanelHost />}
+      {isAiPanelV2Enabled() && <FloatingOlumiPanelHost blueprintEventBus={blueprintEventBus} />}
 
       {/* Expanded lenses: contextual info panel overlay */}
       <LensInfoPanel />
@@ -2206,7 +2253,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         currentEdges={edges.length}
       />
 
-      {/* Week 3: AI Coaching nudges moved to GuidancePanel in OutputsDock */}
+      {/* Coaching nudges render on the nodes themselves
+          (./nodes/FactorNode.tsx → ./components/CoachingCard.tsx), not as a canvas overlay */}
 
       {/* Reset Canvas Confirmation */}
       <BottomSheet isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} title="Start fresh?">
@@ -2244,8 +2292,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         </div>
       </BottomSheet>
 
-      {/* Debug Panel - activated via ?diag=1 in staging/dev (lazy-loaded) */}
-      <Suspense fallback={null}><LazyDebugPanel /></Suspense>
+      {/* Debug Panel is mounted once, gated, at the app shell (AppPoC) —
+          removed the duplicate mount that used to live here (P1 review round 2). */}
     </div>
     </MaybeConversationProvider>
   )
@@ -2273,7 +2321,7 @@ function MaybeConversationProvider({ children }: { children: import('react').Rea
  * The Dock-back action uses forceActivateOutputTab so the dock activates
  * the Olumi tab even when the global activeOutputTab is already 'olumi'.
  */
-function FloatingOlumiPanelHost() {
+function FloatingOlumiPanelHost({ blueprintEventBus }: { blueprintEventBus?: BlueprintEventBus }) {
   const close = useFloatingPanelState((s) => s.close)
   const [cogAnchor, setCogAnchor] = useState<HTMLElement | null>(null)
   const handleDock = useCallback(() => {
@@ -2287,7 +2335,12 @@ function FloatingOlumiPanelHost() {
   return (
     <>
       <FloatingOlumiPanel onDock={handleDock} onCogClick={handleCogClick} />
-      <FirstUseComposer onCogClick={handleCogClick} />
+      <FirstUseComposer onCogClick={handleCogClick} blueprintEventBus={blueprintEventBus} />
+      {/* Saved-example disclosure + live re-draft. Self-gates on starter
+          provenance in the graph, so it costs nothing on every other canvas.
+          Mounted HERE (inside the conversation provider) because the re-draft
+          sends a real turn through useConversationContext. */}
+      <StarterProvenanceBanner />
       <CogPopover isOpen={cogAnchor !== null} anchorEl={cogAnchor} onClose={handleCogClose} />
     </>
   )

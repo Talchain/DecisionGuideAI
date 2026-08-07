@@ -5,6 +5,7 @@
  */
 
 import type { ScenarioEvent, ScenarioEventType, ScenarioStage } from '../../types/scenario'
+import { SYSTEM_MARKER_EVENT_TYPES } from '../../types/scenario'
 import type { TimelineEntry, TimelineIconKey, TimelineColourClass } from './types'
 
 // ---------------------------------------------------------------------------
@@ -114,31 +115,45 @@ const HEADLINE_BUILDERS: Partial<Record<ScenarioEventType, HeadlineBuilder>> = {
     const verb = changeType ? humaniseChangeType(changeType) : 'edited'
     return label ? `You ${verb} ${label}` : `You ${verb}`
   },
+  /**
+   * ROADMAP 1.239 — the leader clause is DELETED, not gated.
+   *
+   * This line used to read "Analysis complete - {winner} performs best at N%"
+   * off `details.winner` / `details.probability`, with no reference to the
+   * verdict. Two independent findings retired it:
+   *
+   * 1. NO WRITER. Complete manifest for `analysis_run` event details, derived
+   *    at UI ae77248a across all of src/ excluding tests (`appendEvent(`,
+   *    `storeAnalysis(`, `persistAnalysisSuccess`) plus the RPC itself:
+   *      · canvas/hooks/useV2Run.ts        → { option_count, analysis_status }
+   *      · canvas/conversation/useConversation.ts
+   *                                        → { option_count, analysis_status, source }
+   *      · store_analysis_and_log          → passes p_details through unchanged
+   *    Every other `appendEvent` caller writes `direct_edit`. `winner`,
+   *    `probability` and `robustness` have no writer.
+   * 2. LIVE CORROBORATION. The render probe scored this surface SILENT on both
+   *    PERMITTED runs — runs where a leader existed and every other leader
+   *    surface fired. A surface silent on the runs that entitle it is not
+   *    gated, it is unreachable.
+   *
+   * Claim type, precisely: no CURRENT WRITER. Rows persisted by earlier builds
+   * are outside what this repo can prove, which is the argument for changing
+   * the READER rather than leaving it and trusting the writers.
+   *
+   * A gate was not the alternative. This function receives one event's
+   * details — no report, no `DecisionVerdict`, nothing to establish
+   * entitlement from. A gate on a key with no writer would be dead code that
+   * reads as a guarantee.
+   *
+   * The lifecycle FACT and the run-level robustness grade are not comparative
+   * and stay. The old null-probability guard goes with the clause it guarded;
+   * its contract ("a run that happened but produced no probability must not
+   * read as a clean success") is restated, and strengthened to hold for every
+   * probability, in residualComparative.analysisRunEvent.spec.ts.
+   */
   analysis_run: (d) => {
-    const winner = str(d, 'winner')
     const robust = str(d, 'robustness')
-    // Finite-zero handling (P1-2): read probability as raw value rather than
-    // `num(d, 'probability')` because the generic coercer masks null/0
-    // distinction. A finite number — including 0 — is a renderable result.
-    // null, undefined, NaN, Infinity all route to the no-probability state.
-    const rawProb = d != null && typeof d === 'object'
-      ? (d as Record<string, unknown>).probability
-      : undefined
-    const probIsFinite = typeof rawProb === 'number' && Number.isFinite(rawProb)
-    if (winner && probIsFinite) {
-      return robust
-        ? `Analysis complete - ${winner} performs best at ${rawProb}% (${robust})`
-        : `Analysis complete - ${winner} performs best at ${rawProb}%`
-    }
-    // Null-probability guard: explicit `probability` key that is null/NaN/
-    // undefined-but-present renders the explicit "finished, no probability"
-    // line so the timeline never reads as a clean success.
-    const probabilityFieldPresent =
-      d != null && typeof d === 'object' && 'probability' in (d as Record<string, unknown>)
-    if (probabilityFieldPresent && !probIsFinite) {
-      return 'Analysis finished (no probability available)'
-    }
-    return sentenceCase('analysis_run')
+    return robust ? `Analysis complete (${robust})` : sentenceCase('analysis_run')
   },
   analysis_failed: (d) => {
     const msg = str(d, 'message')
@@ -190,6 +205,12 @@ export function renderTimeline(events: ScenarioEvent[]): TimelineEntry[] {
       const to = str(event.details, 'to') as ScenarioStage
       if (to) currentStage = to
     }
+
+    // Skip system persistence markers (e.g. graph_saved autosave events),
+    // derived from the shared source of truth in types/scenario.
+    // Placed AFTER the stage-tracking update so a hidden event still cannot
+    // desync the running stage (defensive — markers never carry a stage).
+    if (SYSTEM_MARKER_EVENT_TYPES.has(event.event_type)) continue
 
     const meta = EVENT_META[event.event_type] ?? DEFAULT_META
     const buildHeadline = HEADLINE_BUILDERS[event.event_type]

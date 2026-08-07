@@ -90,7 +90,10 @@ function ConfidenceSpectrum({ items }: { items: ImprovementItem[] }) {
       </div>
       <div
         className="relative h-4 rounded-lg border border-panel-border"
-        style={{ background: 'linear-gradient(to right, rgba(255,166,86,0.12), rgba(82,163,200,0.12), rgba(103,200,158,0.12))' }}
+        // Middle stop derived from --info; the warning/success stops still match
+        // brand.css exactly (#FFA656 / #67C89E) and are left for the follow-up
+        // sweep. Only the blue had orphaned (it held the pre-D1 #52A3C8).
+        style={{ background: 'linear-gradient(to right, rgba(255,166,86,0.12), color-mix(in srgb, var(--info) 12%, transparent), rgba(103,200,158,0.12))' }}
       >
         {dots}
       </div>

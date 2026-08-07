@@ -16,22 +16,31 @@
  */
 
 import { memo, useMemo, useState, useRef, useEffect } from 'react'
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow } from '@xyflow/react'
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
 import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
 import { NodeChip } from '../nodes/shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
+import { shouldShowEdgeLabel } from './edgeLabelVisibility'
+import { computeDirectionStroke } from './directionStroke'
+import { resolvePersistentLabelPlacements, type PlacementEdge } from './edgeLabelCollision'
 import { applyEdgeVisualProps } from '../theme/edges'
-import { formatConfidence, shouldShowLabel, getEdgeConfidence, computeSignedMean } from '../domain/edges'
+import { formatConfidence, shouldShowLabel, getEdgeConfidence } from '../domain/edges'
+import {
+  resolveEdgeValueDisplay,
+  resolveEdgeSignedStrengthDisplay,
+  compareEdgeValueDisplays,
+  type EdgeValueDisplay,
+} from '../domain/edgeValueProvenance'
 import { useIsDark } from '../hooks/useTheme'
 import { getEdgeLabel } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
-import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability } from '../utils/fragileEdgeMatch'
-import { existenceCertaintyToLineStyle, calculateEdgeImportance, importanceToStrokeWidth, weightMagnitudeToStrokeWidth } from '../utils/graphDisplayCalculations'
+import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn } from '../utils/fragileEdgeMatch'
+import { existenceCertaintyToLineStyle, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { getStrengthDescription, getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
@@ -51,10 +60,14 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 // via the constant rather than a hard-coded literal.
 export const STRUCTURAL_EDGE_COLOUR = '#B8B8B8'
 
+// Stable empty set for the lens-disabled branch of the store selector —
+// a fresh Set per call would defeat useShallow's reference equality.
+const EMPTY_ID_SET: ReadonlySet<string> = new Set<string>()
+
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
   const prefersReducedMotion = usePrefersReducedMotion()
-  const { getNode, getEdges } = useReactFlow()
+  const { getNode, getEdges, getNodes } = useReactFlow()
 
   // P1 Polish: Edge label mode from Zustand store (live updates, cross-tab sync)
   const labelMode = useEdgeLabelMode(state => state.mode)
@@ -80,13 +93,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [])
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
-  const { updateEdgeData, ceeReview, resultsStatus, report, isHighlightedEdge, viewMode } = useCanvasStore(
+  const { updateEdgeData, ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, viewMode } = useCanvasStore(
     useShallow(s => ({
       updateEdgeData: s.updateEdgeData,
       ceeReview: s.runMeta.ceeReview,
       resultsStatus: s.results.status,
       report: s.results.report,
       isHighlightedEdge: s.highlightedEdges.has(id),
+      // Analysis-graph projection: this edge is a flip risk being viewed in the
+      // V7 evidence disclosure. Optional-chained so store doubles without the
+      // slice stay safe (same pattern as editedSinceRunNodeIds).
+      isAnalysisFragileEdge: s.analysisHighlight?.source === 'flip_risks' && s.analysisHighlight?.edgeIds?.has(id) === true,
       viewMode: s.viewMode,
     })),
   )
@@ -97,6 +114,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const {
     isLensDimmed, lensMode, lensSensWeight, lensQ25, lensQ75,
     isLensFragile, isLensHidden, causalEdgeParams, evidenceEdgeClass,
+    lensHiddenNodeIds, lensHiddenEdgeIds,
   } = useCanvasStore(
     useShallow(s => {
       if (!lensEnabled) {
@@ -107,6 +125,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           isLensFragile: false, isLensHidden: false,
           causalEdgeParams: null as { mean: number; std: number | null; existsProb: number | null } | null,
           evidenceEdgeClass: null as string | null,
+          lensHiddenNodeIds: EMPTY_ID_SET,
+          lensHiddenEdgeIds: EMPTY_ID_SET,
         }
       }
       const active = s.lens.active
@@ -120,6 +140,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         isLensHidden: s.lens._hiddenEdgeIds?.has(id) === true,
         causalEdgeParams: active === 'causal' ? (s.lens._causalEdgeParams?.get(id) ?? null) : null,
         evidenceEdgeClass: active === 'evidence' ? (s.lens._evidenceEdgeClass?.get(id) ?? null) : null,
+        // C2 review fix 1: the label-collision pass needs the full hidden
+        // sets — lens hiding is the app's ONLY node-hiding mechanism
+        // (BaseNode returns null; React Flow's `hidden` flag is never set).
+        lensHiddenNodeIds: (s.lens._hiddenNodeIds ?? EMPTY_ID_SET) as ReadonlySet<string>,
+        lensHiddenEdgeIds: (s.lens._hiddenEdgeIds ?? EMPTY_ID_SET) as ReadonlySet<string>,
       }
     }),
   )
@@ -155,6 +180,16 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (!isFragileEdge || !report?.robustness) return null
     const fragileEdges = report.robustness.fragile_edges || []
     return getFragileEdgeSwitchProbability(id, source, target, fragileEdges)
+  }, [isFragileEdge, report, id, source, target])
+
+  // E4 (graph-visuals): the SINGLE most fragile relationship earns a fragility
+  // badge in the default (standard) view too, so the top flip risk is visible
+  // on the map without switching to Detailed. Every fragile edge still badges
+  // in Detailed/Model view (below).
+  const isTopFragileEdge = useMemo(() => {
+    if (!isFragileEdge || !report?.robustness) return false
+    const fragileEdges = report.robustness.fragile_edges || []
+    return isTopFragileEdgeFn(id, source, target, fragileEdges)
   }, [isFragileEdge, report, id, source, target])
 
   // Extract edge data with defaults
@@ -193,83 +228,39 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [weight, style, curvature, selected, isDark]
   )
 
-  // Task A: Edge thickness based on importance (Results) or weight magnitude (Edit)
-  const edgeStrokeWidth = useMemo(() => {
-    if (!isResultsMode || !report) {
-      // D.1: Pre-run mode — stroke width encodes weight magnitude
-      return weightMagnitudeToStrokeWidth(computeSignedMean(edgeData as Record<string, unknown> | undefined))
-    }
+  // P2.9: Stroke width encodes WEIGHT MAGNITUDE in BOTH phases. Previously it
+  // switched meaning — |strength.mean| pre-run, composite importance
+  // (belief × strength × goal_sensitivity) post-run — so the one visual a user
+  // learns pre-run silently re-scaled the moment results arrived. Width is now
+  // the stable, learnable channel; post-run importance is already surfaced via
+  // the edge label, the top-3 auto-labels, and the #451 projection halo, so it
+  // no longer needs to hijack thickness. (Deliberate, Paul-approved encoding
+  // change — see PR body.)
+  // ⛔ Provenance gate. `computeSignedMean` falls back to `weight`, which the
+  // edge defaults always define, so thickness — the channel the UI explicitly
+  // TEACHES the user to read as strength — reported 2px ("Strong") for every
+  // CEE edge whose strength nobody had set. An unset edge now draws at the
+  // floor width: it still has to be drawn, and the minimum is the only width
+  // that cannot be mistaken for a measurement. Colour (grey, above) carries
+  // the "no verdict" claim; width simply stops asserting one.
+  const edgeSignedStrength = useMemo(
+    () => resolveEdgeSignedStrengthDisplay(edgeData as Record<string, unknown> | undefined),
+    [edgeData]
+  )
+  const edgeStrokeWidth = useMemo(
+    () => edgeSignedStrength.show
+      ? weightMagnitudeToStrokeWidth(edgeSignedStrength.value)
+      : UNSET_EDGE_STROKE_WIDTH,
+    [edgeSignedStrength]
+  )
 
-    // Get factor_sensitivity data
-    const factorSensitivity = report.enrichment?.sensitivity_analysis?.factors ||
-                             report.factor_sensitivity ||
-                             []
-
-    if (factorSensitivity.length === 0) {
-      return visualProps.strokeWidth // Fallback: no sensitivity data
-    }
-
-    // Find the source node's elasticity (goal_sensitivity)
-    // Fix 4: For edges from non-factor nodes (Outcome/Risk/Goal), use elasticity=1.0 fallback
-    const sourceFactor = factorSensitivity.find((f: any) => {
-      const factorId = f.factor_id || f.factorId || f.node_id || f.nodeId
-      return factorId === source
-    })
-    const goalSensitivity = sourceFactor ?
-      Math.abs(sourceFactor.elasticity ?? sourceFactor.sensitivity_score ?? sourceFactor.importance_score ?? 0) :
-      1.0 // Fallback for non-factor nodes: use 1.0 to provide meaningful variation based on belief×strength
-
-    // Calculate importance for this edge
-    const belief = edgeData?.beliefExists
-    const strength = weight // edge weight represents causal strength
-    const importance = calculateEdgeImportance(belief, strength, goalSensitivity)
-
-    // Get all edges to find max importance
-    const allEdges = getEdges()
-    const importances = allEdges.map(edge => {
-      const edgeSource = edge.source
-      const edgeData = edge.data as EdgeData | undefined
-      const sourceFactor = factorSensitivity.find((f: any) => {
-        const factorId = f.factor_id || f.factorId || f.node_id || f.nodeId
-        return factorId === edgeSource
-      })
-      const goalSens = sourceFactor ?
-        Math.abs(sourceFactor.elasticity ?? sourceFactor.sensitivity_score ?? sourceFactor.importance_score ?? 0) :
-        1.0 // Fix 4: Fallback for non-factor edges
-      const belief = edgeData?.beliefExists
-      const strength = edgeData?.weight ?? 0.5 // Aligned with DEFAULT_EDGE_DATA.weight
-      return calculateEdgeImportance(belief, strength, goalSens)
-    })
-    const maxImportance = Math.max(...importances, 0)
-
-    // Map to stroke width (1-8px range)
-    return importanceToStrokeWidth(importance, maxImportance)
-  }, [isResultsMode, report, source, edgeData?.beliefExists, weight, getEdges, edgeData?.direction])
-
-  // F.2: Direction-based stroke colour — applies both pre-run and post-run
-  // Yellow is strictly reserved for truly uninitialised edges (no direction AND no weight).
-  // If weight is defined but direction is not, use grey (not yellow).
-  const directionStroke = useMemo(() => {
-    const rawWeight = edgeData?.weight
-    // Truly uninitialised: no direction AND weight is undefined → yellow
-    if (direction === undefined && rawWeight === undefined) {
-      return 'var(--goal)'
-    }
-    // Weight defined but direction not yet set → grey (not yellow)
-    if (direction === undefined) {
-      return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300
-    }
-    // Direction set with positive weight → green
-    if (direction === 'positive' && weight > 0) {
-      return isDark ? '#bbf7d0' : '#a7f3d0' // Pastel green-200/emerald-200
-    }
-    // Direction set with negative weight → red
-    if (direction === 'negative' && weight > 0) {
-      return isDark ? '#FF6B6B' : '#ef4444' // Risk red (matches risk node border)
-    }
-    // Neutral: weight === 0 (valid user choice)
-    return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300 (grey/ink)
-  }, [direction, weight, edgeData?.weight, isDark])
+  // F.2 + E1: direction-based stroke colour (see directionStroke.ts for the
+  // CVD-aware polarity palette and the ΔE rationale). Applies pre-run and
+  // post-run; one source of truth shared with directionColour.spec.
+  const directionStroke = useMemo(
+    () => computeDirectionStroke(direction, edgeSignedStrength, isDark),
+    [direction, edgeSignedStrength, isDark],
+  )
 
   // Decision Graph Display v2: Existence certainty line style
   // Solid: >70%, Dashed: 40-70%, Dotted: <40%
@@ -448,8 +439,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Graph Editing Experience Task 9c: Persistent labels on top 3 edges
   // Pre-analysis: rank by |strength.mean|. Post-analysis: rank by composite importance.
   // Structural edges (decision→option) are excluded from ranking.
-  const isTopStrengthEdge = useMemo(() => {
-    if (isStructuralEdge) return false
+  // E3 refactor: the ranking now yields the persistent-label ID SET so both
+  // the per-edge flag AND the label-collision pass share one computation.
+  const topStrengthIds = useMemo((): Set<string> => {
     const allEdges = getEdges()
     // Filter out non-causal edges (structural + intervention) before ranking
     const causalEdges = allEdges.filter(e => {
@@ -461,7 +453,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       if (sk === 'option' && tk === 'factor') return false   // intervention
       return true
     })
-    if (causalEdges.length <= 3) return true // Show all labels if 3 or fewer causal edges
+    if (causalEdges.length <= 3) return new Set(causalEdges.map(e => e.id)) // all labelled when 3 or fewer
 
     if (isResultsMode && report) {
       // Post-analysis: use composite importance (same formula as stroke width)
@@ -478,44 +470,135 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         }
       })
       scores.sort((a, b) => b.score - a.score)
-      return new Set(scores.slice(0, 3).map(s => s.id)).has(id)
+      return new Set(scores.slice(0, 3).map(s => s.id))
     }
 
-    // Pre-analysis: rank by |strength.mean|
-    const strengths = causalEdges.map(e => ({
-      id: e.id,
-      strength: Math.abs(computeSignedMean(e.data as Record<string, unknown> | undefined)),
-    }))
-    strengths.sort((a, b) => b.strength - a.strength)
-    return new Set(strengths.slice(0, 3).map(s => s.id)).has(id)
-  }, [id, isStructuralEdge, getEdges, isResultsMode, report])
+    // Pre-analysis: rank by |strength.mean|.
+    //
+    // ⛔ Provenance gate on the ORDER. `computeSignedMean` falls back to
+    // `weight`, which the edge defaults always supply, so on an unset graph
+    // every edge scored 0.3/0.5 and the three edges granted a PERMANENT
+    // on-canvas label were chosen by iteration order and presented as the
+    // strongest three. An edge whose strength nobody set is not a candidate:
+    // unset sorts last and is then dropped, so when fewer than three edges
+    // have a sourced strength fewer than three labels are pinned — rather
+    // than filling the quota from edges we know nothing about.
+    const strengths: Array<{ id: string; magnitude: EdgeValueDisplay }> = []
+    for (const e of causalEdges) {
+      const display = resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined)
+      if (!display.show) continue
+      strengths.push({ id: e.id, magnitude: { ...display, value: Math.abs(display.value) } })
+    }
+    strengths.sort((a, b) => compareEdgeValueDisplays(a.magnitude, b.magnitude, 'desc'))
+    return new Set(strengths.slice(0, 3).map(s => s.id))
+  }, [getEdges, getNode, isResultsMode, report])
 
-  // Task 9c: Offset persistent labels away from nodes to avoid overlap
-  const persistentLabelOffset = useMemo(() => {
+  const isTopStrengthEdge = !isStructuralEdge && topStrengthIds.has(id)
+
+  // E3 part 2 (C2): subscribe to node geometry so a label re-dodges when ANY
+  // node card moves onto it (this edge's own props only change when its own
+  // endpoints move). Perf posture: only top-strength edges (max 3) compute a
+  // signature — every other edge returns '' and never re-renders from node
+  // movement. While a node is DRAGGING its position is quantised to a 10px
+  // grid, so a drag triggers a recompute roughly once per 10px of travel
+  // instead of every frame; 10px is well inside the 26px dodge STEP, so the
+  // quantisation is never visible mid-drag.
+  //
+  // C2 review fix 2: settled positions (and dimensions) feed through EXACTLY.
+  // Quantising at rest meant the final sub-bucket movement of a drag could
+  // leave a permanently stale offset — up to ~10px of clip or spurious dodge
+  // that no later event would ever fix. Settling flips `dragging` off, which
+  // changes the signature from the quantised to the exact form and costs
+  // exactly one extra recompute per drag; non-drag position/dimension changes
+  // are discrete one-off events (layout runs, measurement), so exact values
+  // add no meaningful recompute traffic there either.
+  const nodeRectsSignature = useStore((s) => {
+    if (!isTopStrengthEdge) return ''
+    let sig = ''
+    for (const n of s.nodes) {
+      // C2 review fix 1: the app hides nodes via the lens (BaseNode returns
+      // null for ids in lens._hiddenNodeIds) — those cards are invisible and
+      // must not be obstacles. React Flow's `hidden` flag is never set by
+      // this app; the filter stays as belt-and-braces.
+      if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
+      const w = n.measured?.width ?? n.width ?? 200
+      const h = n.measured?.height ?? n.height ?? 80
+      const x = n.dragging ? Math.round(n.position.x / 10) * 10 : n.position.x
+      const y = n.dragging ? Math.round(n.position.y / 10) * 10 : n.position.y
+      sig += `${n.id}:${x},${y},${w},${h};`
+    }
+    return sig
+  })
+
+  // E3: label collision avoidance. Every persistent-label edge feeds the SAME
+  // anchor basis into the shared deterministic resolver, so all edges agree
+  // on the global assignment and each applies its own offset. Only persistent
+  // (top-strength) labels participate — hover/selection labels are transient.
+  // E3 part 2: node cards are fixed obstacles in the same pass — a label must
+  // not sit under ANY card, because React Flow paints the node layer above
+  // the edge-label renderer and the overlapped label is clipped invisibly.
+  //
+  // C2 review fixes 3 + 4 (see resolvePersistentLabelPlacements): the anchor
+  // basis is the midpoint of the HANDLE points (bottom-centre → top-centre),
+  // matching where the bezier label actually renders — the node-centre
+  // midpoint diverged by (sourceHeight − targetHeight)/4 — and the Task 9c
+  // proximity nudge feeds the resolver rather than being summed afterwards,
+  // so it can never push a cleared label back under a card. The returned
+  // offset is the TOTAL displacement (nudge + collision stack).
+  const collisionOffset = useMemo(() => {
     if (!isTopStrengthEdge) return { dx: 0, dy: 0 }
-    const sn = getNode(source)
-    const tn = getNode(target)
-    if (!sn || !tn) return { dx: 0, dy: 0 }
-    // Check if midpoint is within 40px of source or target center
-    const snCx = sn.position.x + ((sn.measured?.width ?? sn.width ?? 200) / 2)
-    const snCy = sn.position.y + ((sn.measured?.height ?? sn.height ?? 80) / 2)
-    const tnCx = tn.position.x + ((tn.measured?.width ?? tn.width ?? 200) / 2)
-    const tnCy = tn.position.y + ((tn.measured?.height ?? tn.height ?? 80) / 2)
-    const distToSource = Math.sqrt((labelX - snCx) ** 2 + (labelY - snCy) ** 2)
-    const distToTarget = Math.sqrt((labelX - tnCx) ** 2 + (labelY - tnCy) ** 2)
-    if (distToSource < 40 || distToTarget < 40) {
-      // Offset perpendicular to the edge direction
-      const edgeDx = targetX - sourceX
-      const edgeDy = targetY - sourceY
-      const len = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy) || 1
-      return { dx: (-edgeDy / len) * 20, dy: (edgeDx / len) * 20 }
+    const rectOf = (n: {
+      position: { x: number; y: number }
+      measured?: { width?: number; height?: number }
+      width?: number
+      height?: number
+    }) => ({
+      x: n.position.x,
+      y: n.position.y,
+      width: n.measured?.width ?? n.width ?? 200,
+      height: n.measured?.height ?? n.height ?? 80,
+    })
+    const placementEdges: PlacementEdge[] = []
+    for (const e of getEdges()) {
+      if (!topStrengthIds.has(e.id)) continue
+      // C2 review fix 1: a lens-hidden edge renders no label (the component
+      // returns null below), so it must not occupy a label slot either.
+      if (lensHiddenEdgeIds.has(e.id)) continue
+      const sn = getNode(e.source)
+      const tn = getNode(e.target)
+      if (!sn || !tn) continue
+      placementEdges.push({ id: e.id, sourceRect: rectOf(sn), targetRect: rectOf(tn) })
     }
-    return { dx: 0, dy: 0 }
-  }, [isTopStrengthEdge, source, target, getNode, labelX, labelY, sourceX, sourceY, targetX, targetY])
+    const nodeRects = getNodes()
+      // C2 review fix 1: lens-hidden cards are invisible — not obstacles.
+      // RF `hidden` kept as belt-and-braces (never set by this app).
+      .filter((n) => !n.hidden && !lensHiddenNodeIds.has(n.id))
+      .map(rectOf)
+    return resolvePersistentLabelPlacements(placementEdges, nodeRects).get(id) ?? { dx: 0, dy: 0 }
+    // nodeRectsSignature is the recompute trigger for node movement (the
+    // whole placement is derived from node geometry, so it covers this
+    // edge's own endpoints too).
+  }, [isTopStrengthEdge, topStrengthIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, nodeRectsSignature])
 
-  // C1: Edge labels only in Detailed view, post-analysis
-  // Structural edges (decision→option, option→factor) never show causal labels
-  const showLabel = viewMode !== 'standard' && isResultsMode && !isStructuralEdge && (selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge)
+  // Total label displacement (Task 9c proximity nudge + collision stack),
+  // relative to the rendered label anchor (labelX/labelY).
+  const labelOffsetX = collisionOffset.dx
+  const labelOffsetY = collisionOffset.dy
+
+  // C1 + E2: label-visibility policy (see edgeLabelVisibility.ts). Top-strength
+  // labels surface in the default (standard) view once results exist; the
+  // interaction-driven triggers stay Detailed/Model-only.
+  const showLabel = shouldShowEdgeLabel({
+    viewMode,
+    isResultsMode,
+    isStructuralEdge,
+    isTopStrengthEdge,
+    selected: Boolean(selected),
+    isHovered,
+    hasSuggestion,
+    isFirstEdge,
+    showEdgeHint: Boolean(showEdgeHint),
+  })
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
@@ -526,7 +609,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           here so they fire regardless of whether the pointer is over the custom
           hitbox path or BaseEdge's interaction path (which renders on top in SVG
           paint order). Both paths bubble mouseenter/mouseleave to this <g>. */}
-      <g onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      <g
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        data-analysis-fragile={isAnalysisFragileEdge && !isStructuralEdge ? 'true' : undefined}
+      >
       {/* Invisible hitbox — wider than visual stroke; carries test-id and
           structural tooltip. pointer-events:stroke so the <g> receives events
           from this area even when no visual fill is present. */}
@@ -546,6 +633,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         style={{
           // Graph Interaction P1: Highlighted edges get thicker stroke
           strokeWidth: (() => {
+            const base = (() => {
             // Structural edges: fixed 1px regardless of lens / hover / highlight
             if (isStructuralEdge) return 1
             // Causal lens: thickness encodes |strength.mean|
@@ -569,6 +657,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // Hover thickening: 2px to 3px on hover
             if (isHovered) return Math.max(edgeStrokeWidth, 3)
             return isHighlightedEdge ? Math.max(edgeStrokeWidth, 3) : edgeStrokeWidth
+            })()
+            // Analysis-graph projection: a viewed flip-risk edge thickens so the
+            // warning halo below reads clearly. Composes with the direction
+            // stroke (colour is never replaced). Structural edges are never
+            // fragile-badged, so they never bump.
+            return isAnalysisFragileEdge && !isStructuralEdge ? Math.max(base, 4) : base
           })(),
           // Fix 1: Use existence certainty for line style, fallback to visual props
           // B.I.10: Pre-run incomplete edges get dashed stroke to indicate "needs attention"
@@ -602,30 +696,43 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             }
             return isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke)
           })(),
-          // Graph Lens: opacity for dimmed edges
-          // Graph Editing Experience Task 9b: Confidence opacity layered on top
-          // Structural edges always full opacity (no exists_probability gating).
+          // Opacity is a lens-only channel now. exists_probability is a SINGLE
+          // encoding — the dash (existenceCertaintyDash above), which stays
+          // legible at every zoom level and doesn't fight the analysis halo.
+          // The former Task 9b belief→opacity coupling was dropped (P2.9): two
+          // channels for one variable is exactly the encoding overload the
+          // audit flags, and a dimmed edge collided with lens dimming and the
+          // projection halo. Opacity therefore returns to a constant except for
+          // the lens's own dim/sensitivity states. Structural edges: full opacity.
           opacity: isStructuralEdge ? undefined
             : isLensDimmed ? 0.2
             : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4
-            : (() => {
-                // Task 9b: Encode exists_probability as opacity
-                const ep = beliefExists
-                if (ep === undefined || ep === null) return undefined
-                if (ep >= 0.8) return undefined // full opacity (1.0)
-                if (ep >= 0.5) return 0.7
-                return 0.4
-              })(),
-          // Graph Lens: subtle glow for high-sensitivity edges
-          filter: (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ75 !== null && lensSensWeight >= lensQ75)
-            ? 'drop-shadow(0 0 2px var(--semantic-info, #3b82f6))'
             : undefined,
+          // Graph Lens: subtle glow for high-sensitivity edges.
+          // Analysis-graph projection: a viewed flip-risk edge gets a WARNING
+          // halo (drop-shadow, a separate CSS channel) so the marker composes
+          // with the green/red direction stroke instead of replacing it — the
+          // DS "colour = state" rule, without colliding with polarity colour.
+          filter: (() => {
+            // Two independent drop-shadow signals can BOTH apply to one edge: a
+            // top-sensitivity lens edge (info glow) that is ALSO a viewed
+            // flip-risk (warning halo). CSS `filter` takes a space-separated
+            // list, so compose them rather than letting the first branch win and
+            // silently drop the flip-risk halo. Order preserved: sensitivity
+            // glow first, fragile halo second.
+            const shadows: string[] = []
+            if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ75 !== null && lensSensWeight >= lensQ75)
+              shadows.push('drop-shadow(0 0 2px var(--semantic-info, #3b82f6))')
+            if (isAnalysisFragileEdge && !isStructuralEdge)
+              shadows.push('drop-shadow(0 0 4px var(--semantic-warning, #eab308))')
+            return shadows.length > 0 ? shadows.join(' ') : undefined
+          })(),
           // Performance: use will-change for frequent updates
-          willChange: selected || isHighlightedEdge ? 'stroke, stroke-width, stroke-dasharray' : undefined,
+          willChange: selected || isHighlightedEdge || isAnalysisFragileEdge ? 'stroke, stroke-width, stroke-dasharray, filter' : undefined,
           // D.1: Smooth transitions for live styling; respect prefers-reduced-motion (§7.4)
           transition: prefersReducedMotion
             ? 'none'
-            : 'stroke 200ms ease, stroke-width 200ms ease, stroke-dasharray 300ms ease-out, opacity 300ms ease',
+            : 'stroke 200ms ease, stroke-width 200ms ease, stroke-dasharray 300ms ease-out, opacity 300ms ease, filter 200ms ease',
         }}
       />
       </g>
@@ -651,7 +758,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           >
             {causalEdgeParams.mean >= 0 ? '+' : ''}{causalEdgeParams.mean.toFixed(2)}
             {causalEdgeParams.existsProb !== null && (
-              <span style={{ color: 'var(--text-light, #908D8D)' }}>
+              <span style={{ color: 'var(--text-light, #6E6B6B)' }}>
                 {' '}({Math.round(causalEdgeParams.existsProb * 100)}%)
               </span>
             )}
@@ -682,9 +789,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {/* Direction sign indicator: Detailed view, post-analysis only.
-          Structural edges have no semantic direction — exclude defensively. */}
-      {viewMode !== 'standard' && isResultsMode && direction && lensMode !== 'causal' && !isStructuralEdge && (
+      {/* Polarity glyph (+/−): rendered whenever a non-structural edge has a
+          direction — in Standard view AND pre-run, not only Expert+results.
+          directionStroke.ts's docblock is explicit that the glyph, not the
+          green/rose colour, is what carries polarity for a red-green dichromat
+          (the palette separates WORSE than green/red under deuteranopia), so
+          colour-alone polarity pre-run/Standard was a legibility gap. Positioned
+          at the target end (targetX/Y − 18), away from the mid-path label, so it
+          collision-avoids labels exactly as before. Causal lens shows its own
+          numeric parameter label instead. Structural edges have no semantic
+          direction — excluded defensively. */}
+      {direction && lensMode !== 'causal' && !isStructuralEdge && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -694,7 +809,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               fontSize: '16px',
               fontWeight: 700,
               color: direction === 'positive' ? '#059669' : '#dc2626',
-              backgroundColor: '#F4F0EA',
+              // Chip surface = the panel token, matching the sibling edge-label
+              // chips (bg-panel) so it no longer glares on a dark canvas. Inline
+              // CSS-var idiom mirrors the other token refs in this file
+              // (e.g. the leader line's var(--border-default, #d4d4d8)); the
+              // hex is only a var() fallback, not a live literal.
+              backgroundColor: 'var(--bg-panel, #FEFEFE)',
               padding: '0 3px',
               borderRadius: '2px',
             }}
@@ -705,10 +825,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {/* Decision Graph Display v2 Task 4: Fragile edge warning badge (Results mode, Model view only) */}
-      {/* Decision view: no fragile badges (Phase 1) */}
-      {/* Structural edges are not analysed — fragility is meaningless. */}
-      {viewMode !== 'standard' && isFragileEdge && !isStructuralEdge && (
+      {/* Fragile edge warning badge. Detailed/Model view: every fragile edge.
+          E4 (graph-visuals): the default (standard) view shows the SINGLE top
+          fragile relationship so the key flip risk is on the map by default,
+          uncluttered. Structural edges are not analysed — never badged. */}
+      {(viewMode !== 'standard' ? isFragileEdge : isTopFragileEdge) && !isStructuralEdge && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -757,13 +878,28 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
+      {/* E3: hairline leader from the edge midpoint to a displaced label so a
+          dodged label still reads as belonging to its edge. SVG sibling of the
+          edge path (EdgeLabelRenderer portals to HTML, so the line lives here). */}
+      {showLabel && (Math.abs(labelOffsetX) + Math.abs(labelOffsetY)) > 12 && (
+        <line
+          x1={labelX}
+          y1={labelY}
+          x2={labelX + labelOffsetX}
+          y2={labelY + labelOffsetY}
+          stroke="var(--border-default, #d4d4d8)"
+          strokeWidth={1}
+          data-testid="edge-label-leader"
+        />
+      )}
+
       {/* C1: Edge label - only show when selected, hovered, or has pending suggestions */}
       {showLabel && (
         <EdgeLabelRenderer>
           <div
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              transform: `translate(-50%, -50%) translate(${labelX + labelOffsetX}px,${labelY + labelOffsetY}px)`,
               pointerEvents: 'all',
               padding: '3px 8px',
               borderRadius: '4px',
@@ -866,10 +1002,27 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           minWidth: '140px',
           maxWidth: '220px',
         }
-        const signedVal = direction === 'negative' ? -weight : weight
-        const strengthPct = Math.round(Math.abs(signedVal) * 100)
-        const confidencePct = Math.round((beliefExists ?? 0.8) * 100)
-        const dirLabel = signedVal >= 0 ? 'Positive' : 'Negative'
+        // PROVENANCE-GATED. `weight` (:202) and `beliefExists` (:250) both fall
+        // through to UI defaults, and the old `(beliefExists ?? 0.8)` here was a
+        // SECOND literal copy of the fabricated constant — removing the default
+        // from the schema would not have silenced this line.
+        //
+        // The direction is gated with the strength deliberately: `direction`
+        // defaults to 'positive', so "Positive" is itself a fabrication on an
+        // edge nobody characterised.
+        const strengthDisplay = resolveEdgeSignedStrengthDisplay(
+          edgeData as Record<string, unknown> | undefined,
+        )
+        const confidenceDisplay = resolveEdgeValueDisplay(
+          edgeData as Record<string, unknown> | undefined,
+          'beliefExists',
+        )
+        const signedVal = strengthDisplay.show ? strengthDisplay.value : null
+        const strengthPct = signedVal !== null ? Math.round(Math.abs(signedVal) * 100) : null
+        const confidencePct = confidenceDisplay.show
+          ? Math.round(confidenceDisplay.value * 100)
+          : null
+        const dirLabel = signedVal !== null ? (signedVal >= 0 ? 'Positive' : 'Negative') : null
         const causalPopoverStyle: React.CSSProperties = {
           ...popoverStyle,
           pointerEvents: 'all',
@@ -884,24 +1037,39 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               onMouseEnter={handlePopoverEnter}
               onMouseLeave={handlePopoverLeave}
             >
-              {/* Direction */}
-              <div className={`${typography.edgeLabel} font-bold text-text-body`}>
-                {dirLabel}
-              </div>
-              {/* Confidence */}
-              <div className={`${typography.edgeLabel} text-text-light`}>
-                {confidencePct}% confident
-              </div>
-              {/* Strength bar */}
-              <div className="flex items-center gap-1.5">
-                <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${signedVal >= 0 ? 'bg-success' : 'bg-danger'}`}
-                    style={{ width: `${Math.max(4, strengthPct)}%` }}
-                  />
+              {/* Direction — only when the strength that gives it its sign was set */}
+              {dirLabel !== null && (
+                <div className={`${typography.edgeLabel} font-bold text-text-body`}>
+                  {dirLabel}
                 </div>
-                <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{strengthPct}%</span>
-              </div>
+              )}
+              {/* Confidence */}
+              {confidencePct !== null && (
+                <div className={`${typography.edgeLabel} text-text-light`}>
+                  {confidencePct}% confident
+                </div>
+              )}
+              {/* Strength bar */}
+              {signedVal !== null && strengthPct !== null && (
+                <div className="flex items-center gap-1.5">
+                  <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${signedVal >= 0 ? 'bg-success' : 'bg-danger'}`}
+                      style={{ width: `${Math.max(4, strengthPct)}%` }}
+                    />
+                  </div>
+                  <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{strengthPct}%</span>
+                </div>
+              )}
+              {/* Nothing characterised yet — say that, rather than a number */}
+              {dirLabel === null && confidencePct === null && (
+                <div
+                  className={`${typography.edgeLabel} text-text-light`}
+                  data-testid="edge-hover-popover-unset"
+                >
+                  Strength and likelihood not set
+                </div>
+              )}
               {/* Fragile warning with switch probability */}
               {isFragileEdge && (
                 <div className={`${typography.edgeLabel} text-warning flex items-center gap-1`}>
@@ -911,8 +1079,37 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               )}
               {/* Coaching chips */}
               <div className="flex flex-col gap-1 mt-2 pt-1.5 border-t border-panel-border">
-                <NodeChip label="What evidence supports this?" message={`What evidence supports the ${dirLabel.toLowerCase()} relationship between ${srcTitle} and ${tgtTitle}?`} />
-                <NodeChip label="Adjust strength" message={`I want to adjust the strength of the relationship between ${srcTitle} and ${tgtTitle}. Current strength is ${strengthPct}%.`} />
+                {/*
+                  * LLM-FACING. These messages are dispatched to CEE verbatim via
+                  * `useGuidanceStore._dispatchAction`, so a fabricated number here
+                  * is asserted to the model as the user's own statement about
+                  * their model — worse than one on screen, because the model
+                  * cannot see the canvas to catch it.
+                  *
+                  * When nothing was set the chips still appear (the user still
+                  * wants to act) but claim nothing: no direction adjective, no
+                  * percentage.
+                  */}
+                <NodeChip
+                  chipId="edge_evidence_supports"
+                  actionType={null}
+                  label="What evidence supports this?"
+                  message={
+                    dirLabel !== null
+                      ? `What evidence supports the ${dirLabel.toLowerCase()} relationship between ${srcTitle} and ${tgtTitle}?`
+                      : `What evidence supports the relationship between ${srcTitle} and ${tgtTitle}?`
+                  }
+                />
+                <NodeChip
+                  chipId="edge_adjust_strength"
+                  actionType="adjust_edge_strength"
+                  label="Adjust strength"
+                  message={
+                    strengthPct !== null
+                      ? `I want to adjust the strength of the relationship between ${srcTitle} and ${tgtTitle}. Current strength is ${strengthPct}%.`
+                      : `I want to set the strength of the relationship between ${srcTitle} and ${tgtTitle}. It has not been set yet.`
+                  }
+                />
               </div>
             </div>
           </EdgeLabelRenderer>

@@ -10,18 +10,67 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
+import { classifyUnit, cleanFactorLabel, compactFactorLabel, formatInterventionValue, formatRawValueWithUnit, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
+import { formatInterventionChange } from '../utils/interventionDisplay'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
+import { influenceExplanation, influenceBarAriaLabel } from '../../components/results/influenceScaleCopy'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import { computeSignedMean } from '../domain/edges'
+import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
+import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
+
+/**
+ * Parse a display string that is a BARE numeric range ("0.2 to 0.8",
+ * "20 – 80", "20,000-80,000"). Anything else — prose, currency-formatted
+ * ranges ("£20,000 to £80,000"), unit-suffixed values — returns null.
+ * Used only for the prior-range dedupe in priorRangeDisplay below.
+ */
+function parseBareNumericRange(text: string): readonly [number, number] | null {
+  const m = text.trim().match(/^(-?[\d,]*\.?\d+)\s*(?:to|[–—-])\s*(-?[\d,]*\.?\d+)$/i)
+  if (!m) return null
+  const a = Number(m[1].replace(/,/g, ''))
+  const b = Number(m[2].replace(/,/g, ''))
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null
+  return [a, b]
+}
+
+/** Relative-epsilon numeric equality for the dedupe check (never string-fuzzy). */
+function nearlyEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b))
+}
+
+/**
+ * True when `text` is a bare numeric range that duplicates the prior's
+ * range_min/max — matched NUMERICALLY (lane C3), in either normalised form
+ * ("0.2 to 0.8") or cap-denormalised form ("20 to 80" with cap 100).
+ */
+function bareNumericRangeMatchesPrior(
+  text: string,
+  rangeMin: number,
+  rangeMax: number,
+  cap: number | null | undefined,
+): boolean {
+  const parsed = parseBareNumericRange(text)
+  if (!parsed) return false
+  const [a, b] = parsed
+  if (nearlyEqual(a, rangeMin) && nearlyEqual(b, rangeMax)) return true
+  if (cap != null && cap > 1 && nearlyEqual(a, rangeMin * cap) && nearlyEqual(b, rangeMax * cap)) {
+    return true
+  }
+  return false
+}
+
+/** Normalised (0–1) range end for unitless display: ≤2 dp, trailing zeros trimmed. */
+function formatNormalisedRangeEnd(v: number): string {
+  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, '')
+}
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -60,21 +109,49 @@ export const FactorNode = memo((props: NodeProps) => {
     if (isPostAnalysis) return null
     const factorNodes = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor')
     if (factorNodes.length <= 3) return 1
-    // Single O(N + E) pass: build a map of factor id → weight sum, then sort.
-    const scores = new Map<string, number>()
-    for (const f of factorNodes) scores.set(f.id, 0)
+    // ⛔ Provenance gate. This ranking decides which factors stay full-fat and
+    // which are visually quieted, and it used `computeSignedMean`, which falls
+    // back to `weight` — a constant `USER_EDGE_DEFAULTS`/`DEFAULT_EDGE_DATA`
+    // always supply. So the "structural centrality" score was out-degree × 0.3
+    // for every factor on an unset graph, and the quieting was arbitrary.
+    // Only SOURCED strengths are counted now.
+    const contributions = new Map<string, Array<Record<string, unknown> | undefined>>()
+    for (const f of factorNodes) contributions.set(f.id, [])
     for (const e of edges) {
-      if (!scores.has(e.source)) continue
+      const bucket = contributions.get(e.source)
+      if (!bucket) continue
       const target = nodes.find(n => n.id === e.target)
       if (!target) continue
       const targetKind = target.type ?? target.data?.type
       if (targetKind !== 'outcome' && targetKind !== 'risk') continue
-      const weight = Math.abs(computeSignedMean(e.data as Record<string, unknown> | undefined))
-      scores.set(e.source, (scores.get(e.source) ?? 0) + weight)
+      bucket.push(e.data as Record<string, unknown> | undefined)
     }
-    const sorted = Array.from(scores.entries()).sort((a, b) => b[1] - a[1])
-    const idx = sorted.findIndex(([id]) => id === props.id)
-    return idx < 0 ? null : idx + 1
+    const scored = Array.from(contributions.entries()).map(([id, datas]) => ({
+      id,
+      leverage: aggregateEdgeSignedStrength(datas, { magnitude: true }),
+    }))
+    // No factor has a single sourced strength ⇒ there is no ranking to be had.
+    // Same escape hatch the `<= 3` case above already uses: when we cannot
+    // rank, we quieten NOBODY rather than quietening everybody on no evidence.
+    if (!scored.some(s => s.leverage.show)) return 1
+    scored.sort((a, b) => compareEdgeValueAggregates(a.leverage, b.leverage))
+    const idx = scored.findIndex(s => s.id === props.id)
+    if (idx < 0) return null
+    const mine = scored[idx].leverage
+    if (mine.show) return idx + 1
+    // Unranked — but the two unranked states are NOT the same claim.
+    //
+    // `absent`: this factor has NO outbound edge to an outcome or risk at all.
+    // That is a STRUCTURAL fact read straight off the graph, not a number
+    // anybody had to supply, so ranking it below the measured factors invents
+    // nothing. It keeps its place at the bottom of the sort.
+    //
+    // `not_set`: the edges exist and nobody set their strengths. Here we
+    // genuinely do not know, and quieting the factor would be the same
+    // fabrication in the visual channel that this gate removes from the
+    // numeric one. Treat it as high-priority (i.e. quieten nobody) rather than
+    // demote it on evidence we do not have.
+    return mine.reason === 'absent' ? idx + 1 : 1
   }, [isPostAnalysis, nodes, edges, props.id])
 
   const priorityRank: number | null = isPostAnalysis
@@ -239,23 +316,84 @@ export const FactorNode = memo((props: NodeProps) => {
     })
   }, [observedState, cleanedLabel, nodeCategory, topLevelDisplayValue])
 
-  // Prior range for external factors (only the range values, no "Variable" prefix)
+  // Prior range for external factors (only the range values, no "Variable"
+  // prefix). Lane C3: prior.range_min/max are NORMALISED 0–1 values. Only a
+  // real-world unit (currency, %, months, …) justifies cap-denormalising and
+  // suffixing a unit; generic placeholder units ("scale", "index", …) must
+  // never render as if measured — "0.5 scale" looks measured but isn't (see
+  // GENERIC_PLACEHOLDER_UNITS doctrine in labelUtils). Classification goes
+  // through the shared classifyUnit, and real-unit formatting through the
+  // shared formatRawValueWithUnit, so this path can no longer drift from the
+  // other formatters (it previously had a local fmt() with its own hardcoded
+  // ['£','$','€','¥'] list that leaked "Range: 20 scale to 80 scale").
   const priorRangeDisplay = useMemo(() => {
     const prior = props.data?.prior as { range_min?: number; range_max?: number } | undefined
-    if (nodeCategory !== 'external' || !prior?.range_min || !prior?.range_max) return null
-    const unit = observedState?.unit && !isSuppressedUnit(observedState.unit) ? observedState.unit : null
-    if (!unit) return null
+    const rangeMin = prior?.range_min
+    const rangeMax = prior?.range_max
+    // Both endpoints must be finite numbers: `!range_min` truthiness would
+    // drop the line for range_min === 0 (a perfectly good lower bound), and
+    // Infinity/NaN must never render ("Range: Infinity to …").
+    if (
+      nodeCategory !== 'external' ||
+      typeof rangeMin !== 'number' || !Number.isFinite(rangeMin) ||
+      typeof rangeMax !== 'number' || !Number.isFinite(rangeMax)
+    ) return null
     const cap = observedState?.cap
-    const min = cap != null && cap > 1 ? prior.range_min * cap : prior.range_min
-    const max = cap != null && cap > 1 ? prior.range_max * cap : prior.range_max
-    // Format range values
-    const fmt = (v: number) => {
-      if (['£', '$', '€', '¥'].includes(unit)) return `${unit}${Math.round(v).toLocaleString('en-GB')}`
-      if (unit === '%') return `${Math.round(v * 100)}%`
-      return `${Math.round(v)} ${unit}`
+    // Internal factor_type descriptors ('binary', 'normalised', …) must never
+    // display as units — treat as unitless (same guard as valueDisplay above).
+    const rawUnit = observedState?.unit
+    const unit = rawUnit && !isSuppressedUnit(rawUnit) ? rawUnit : null
+    const { kind } = classifyUnit(unit)
+    // Only a cap > 1 can turn the normalised 0–1 prior back into real-world
+    // magnitude. Percent is the one exception: a 0–1 ratio converts to
+    // percentage points (×100) with no cap at all.
+    const canCalibrate = cap != null && cap > 1
+
+    if (kind === 'none' || kind === 'placeholder' || (kind !== 'percent' && !canCalibrate)) {
+      // No real-world calibration: cap-denormalising would fake a measurement,
+      // so render the normalised range unitless — UNLESS the node body already
+      // shows this same range via the CEE-authored display_value (numeric
+      // dedupe against both normalised and cap-denormalised forms). The
+      // display_value line wins because it is CEE-authored copy; the Range
+      // line adds nothing when it repeats the same numbers.
+      // A real unit WITHOUT a usable cap lands here too: prefixing a
+      // normalised 0–1 endpoint with "£" fakes calibration exactly like a
+      // placeholder unit would (and Math.round would grind it to "£0 to £1").
+      if (valueDisplay != null && bareNumericRangeMatchesPrior(valueDisplay, rangeMin, rangeMax, cap)) {
+        return null
+      }
+      return `Range: ${formatNormalisedRangeEnd(rangeMin)} to ${formatNormalisedRangeEnd(rangeMax)}`
     }
-    return `Range: ${fmt(min)} to ${fmt(max)}`
-  }, [nodeCategory, observedState?.unit, observedState?.cap, props.data?.prior])
+
+    // Real unit with calibration (or percent): the Range line adds calibrated
+    // information (e.g. "£20,000 to £80,000"). Denormalise via cap, then
+    // format through the shared classifyUnit-based raw formatter (symbol
+    // prefix "£20,000", ISO prefix "USD 20,000", "%" / "months" suffix).
+    const fmt = (v: number) => {
+      let denormed = canCalibrate ? v * cap : v
+      // Percent with no usable cap: the 0–1 prior is a ratio — scale to
+      // percentage points (0.2 → 20%, 1 → 100%), mirroring
+      // formatFactorDisplayValue's percent rule. Keyed on CAP PRESENCE, not
+      // value magnitude: a cap-denormalised value is already in percentage
+      // points and must never be re-scaled (cap 100, range_min 0.005
+      // denormalises to 0.5, meaning 0.5% — not 50%).
+      if (kind === 'percent' && !canCalibrate) denormed *= 100
+      // Integer rounding is only honest at magnitude ≥ 1; sub-1 calibrated
+      // values (0.5 percentage points) keep two decimal places.
+      const rounded = Math.abs(denormed) >= 1 ? Math.round(denormed) : Math.round(denormed * 100) / 100
+      return formatRawValueWithUnit(rounded, unit)
+    }
+    const rendered = `${fmt(rangeMin)} to ${fmt(rangeMax)}`
+    // Dedupe: a CEE-authored display_value that is EXACTLY the calibrated
+    // range text (e.g. "£20,000 to £80,000") makes the Range line pure
+    // repetition. Exact-string equality only — both sides must have come
+    // through the same formatter to collide, so this is numerically faithful
+    // and can never fuzzy-match prose or differently-scaled values. A bare
+    // numeric display_value ("20000 to 80000") deliberately does NOT dedupe
+    // here: the calibrated Range line still adds the unit information.
+    if (valueDisplay != null && valueDisplay.trim() === rendered) return null
+    return `Range: ${rendered}`
+  }, [nodeCategory, observedState?.unit, observedState?.cap, props.data?.prior, valueDisplay])
 
   const isInferred = observedState?.extractionType === 'inferred'
   const isExplicit = observedState?.extractionType === 'explicit'
@@ -279,8 +417,11 @@ export const FactorNode = memo((props: NodeProps) => {
   const goalConstraints = useCanvasStore(state => state.goalConstraints)
   const constraintTooltip = useMemo(() => {
     if (!isGraphBadgesEnabled() || !goalConstraints?.length) return null
+    // `label` is optional on the wire — guard before comparing, or a valid
+    // unlabelled constraint throws here and takes the node render with it.
+    const target = cleanedLabel.toLowerCase().trim()
     const matching = goalConstraints.filter(c =>
-      c.label.toLowerCase().trim() === cleanedLabel.toLowerCase().trim()
+      c.label?.toLowerCase().trim() === target
     )
     if (matching.length === 0) return null
     return matching.map(c => `Constrained: ${c.label} ${c.operator} ${c.value ?? '-'}`).join('; ')
@@ -320,11 +461,30 @@ export const FactorNode = memo((props: NodeProps) => {
   }, [props.id, observedState])
 
   const influencePct = displayMetadata.influence != null ? Math.round(displayMetadata.influence * 100) : null
+  // Already gated by the shared display policy — see useNodeDisplayMetadata.
+  // Null whenever the ruled policy says the figure is not display-safe, which
+  // is why every confidence surface on this node (pill, bar, AND the
+  // synthesised coaching line below) goes quiet together.
   const confidencePct = displayMetadata.confidence != null ? Math.round(displayMetadata.confidence * 100) : null
+  // Converged (F9): this array used to live here and NOWHERE ELSE, so
+  // `NodeInspector` — which renders the same signal — had no disclosure at all.
+  // One derivation, every surface.
+  const confidenceDisclosure = factorConfidenceDisclosure({
+    isDefaulted: displayMetadata.confidenceIsDefaulted,
+    isProvisional: displayMetadata.confidenceIsProvisional,
+  })
 
   // Graph v1.1 Task 3: synthesised one-line coaching for Standard view post-analysis
   // top-ranked factors. This replaces standalone coaching text (BiasNote etc.) on
   // the same node so there's a single source of guidance.
+  //
+  // ⛔ EVERY branch below is a CLAIM ABOUT CONFIDENCE spoken in prose — "High
+  // influence, low confidence.", "Low confidence." Fed by the ungated raw
+  // field, this node was telling the user their factor had "low confidence" on
+  // the strength of a defaulted 0.25 the Drivers panel refuses to print. The
+  // `confidencePct == null` guard was already here; what changed is that
+  // `confidencePct` is now null whenever the confidence is not display-safe, so
+  // the prose falls silent with the numbers instead of outliving them.
   const synthesisedCoaching = useMemo<{ prefix: string } | null>(() => {
     if (!isPostAnalysis || !isHighPriority) return null
     if (influencePct == null || confidencePct == null) return null
@@ -360,6 +520,8 @@ export const FactorNode = memo((props: NodeProps) => {
       chips.push(
         <NodeChip
           key="estimate"
+          chipId="factor_help_estimate"
+          actionType={null}
           label="Help me estimate this"
           message={`Help me estimate a reasonable value for ${cleanedLabel}`}
         />
@@ -368,6 +530,8 @@ export const FactorNode = memo((props: NodeProps) => {
       chips.push(
         <NodeChip
           key="external-change"
+          chipId="factor_what_if_changes"
+          actionType={null}
           label="What if this changes?"
           message={`What if ${cleanedLabel} changes? How should I plan for that?`}
         />
@@ -376,6 +540,8 @@ export const FactorNode = memo((props: NodeProps) => {
       chips.push(
         <NodeChip
           key="evidence"
+          chipId="factor_evidence_supports"
+          actionType={null}
           label="What evidence supports this?"
           message={`What evidence supports my assumption about ${cleanedLabel}?`}
         />
@@ -412,11 +578,10 @@ export const FactorNode = memo((props: NodeProps) => {
               </span>
             </div>
           ))}
-          {optionComparisonRows.overflow > 0 && (
-            <div className={`${typography.edgeLabel} text-info mt-0.5`}>
-              {optionComparisonRows.overflow} more in inspector
-            </div>
-          )}
+          <ConnRowsOverflow
+            total={optionComparisonRows.rows.length + optionComparisonRows.overflow}
+            shown={optionComparisonRows.rows.length}
+          />
         </div>
       </>
     ) : null
@@ -444,11 +609,12 @@ export const FactorNode = memo((props: NodeProps) => {
           Uncertainty here affects {outcomesAffected} outcome{outcomesAffected !== 1 ? 's' : ''}.
         </p>
       )}
-      {/* Connection list with strengths */}
+      {/* Connection list with strengths — max 3 whole rows, remainder
+          disclosed via "+N more in inspector" (audit §8 P0-5 containment). */}
       {outboundConnections.length > 0 && (
         <>
           <Sep />
-          {outboundConnections.slice(0, isDetailed ? 5 : 3).map(conn => (
+          {outboundConnections.slice(0, 3).map(conn => (
             <ConnRow
               key={conn.edgeId}
               edgeId={conn.edgeId}
@@ -457,6 +623,7 @@ export const FactorNode = memo((props: NodeProps) => {
               confidencePct={conn.confidencePct}
             />
           ))}
+          <ConnRowsOverflow total={outboundConnections.length} shown={3} />
         </>
       )}
       {/* Coaching chips — moved out of body. They appear here in the
@@ -482,32 +649,71 @@ export const FactorNode = memo((props: NodeProps) => {
       {/* Influence & Confidence bars */}
       {(influencePct != null && influencePct > 0 || confidencePct != null && confidencePct > 0) && (
         <div className="space-y-1.5 mb-1">
+          {/* Review fix 4: the detailed view renders the SAME display-model
+              number as the Standard-view pill one level up, so it carries the
+              same misread risk — on the fallback basis the top driver shows
+              100% BY CONSTRUCTION. Disclose the basis here too: `title` for
+              pointer users, and the DataBar's accessible name (its
+              role="progressbar" announces the value via aria-valuenow, so the
+              name carries the basis only). Copy from the ONE shared module, so
+              this row cannot drift from the pill or the panel. Fail-closed: no
+              provenance → generic wording, never a basis claim. */}
           {influencePct != null && influencePct > 0 && (
-            <div className="flex items-center gap-1.5">
+            <div
+              className="flex items-center gap-1.5"
+              title={influenceExplanation(displayMetadata.influenceProvenance)}
+            >
               <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Influence</span>
               <div className="flex-1 min-w-0">
-                <DataBar value={influencePct / 100} label="Influence" colour="info" />
+                <DataBar
+                  value={influencePct / 100}
+                  label={influenceBarAriaLabel(displayMetadata.influenceProvenance)}
+                  colour="info"
+                />
               </div>
               <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{influencePct}%</span>
             </div>
           )}
+          {/* Confidence — gated upstream by the shared display policy
+              (components/results/driverConfidenceDisplayPolicy): `confidencePct`
+              is null whenever the ruled policy says the figure is not fit to
+              show, so this bar simply does not render. When the policy is
+              flipped the disclosure below travels WITH the number — the bar can
+              never appear bare. */}
           {confidencePct != null && confidencePct > 0 && (
-            <div className="flex items-center gap-1.5">
+            <div
+              className="flex items-center gap-1.5"
+              title={confidenceDisclosure ?? undefined}
+            >
               <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Confidence</span>
               <div className="flex-1 min-w-0">
-                <DataBar value={confidencePct / 100} label="Confidence" colour="info" />
+                <DataBar
+                  value={confidencePct / 100}
+                  label={confidenceDisclosure ? `Confidence. ${confidenceDisclosure}` : 'Confidence'}
+                  colour="info"
+                />
               </div>
               <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{confidencePct}%</span>
+              {displayMetadata.confidenceIsDefaulted && (
+                <span
+                  className={`${typography.edgeLabel} text-text-light shrink-0`}
+                  aria-hidden="true"
+                  data-testid="factor-node-confidence-default-estimate"
+                >
+                  *
+                </span>
+              )}
             </div>
           )}
         </div>
       )}
-      {/* ConnRows (max 3 in popover, max 5 in Detailed) */}
+      {/* ConnRows — max 3 whole rows in both views, remainder disclosed via
+          "+N more in inspector" (audit §8 P0-5 containment). */}
       {outboundConnections.length > 0 && (
         <>
           <Sep />
           <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Influences:</p>
-          {outboundConnections.slice(0, isDetailed ? 5 : 3).map(conn => (
+          {outboundConnections.slice(0, 3).map(conn => (
             <ConnRow
               key={conn.edgeId}
               edgeId={conn.edgeId}
@@ -516,6 +722,7 @@ export const FactorNode = memo((props: NodeProps) => {
               confidencePct={conn.confidencePct}
             />
           ))}
+          <ConnRowsOverflow total={outboundConnections.length} shown={3} />
         </>
       )}
       {/* BiasNote (max 1) — suppressed when a synthesised coaching line is
@@ -575,12 +782,14 @@ export const FactorNode = memo((props: NodeProps) => {
           )
         })()}
       >
-        {/* Intervention highlight when option hovered. Placeholder-unit
-            factors (scale, index, score, …) and qualitative tier labels have
-            no real-world anchor, so we render directional language against
-            the observed baseline instead of the raw number. For currency /
-            percentage / time / count units we keep the formatted value.
-            Never renders a bare arrow with no trailing text. */}
+        {/* Intervention highlight when option hovered. Audit §8 P0-4: this
+            annotation routes through the SINGLE intervention formatter so it
+            can never contradict the option card's pills/popover for the same
+            input. Formattable values render "→ 60%" / "→ £70,000"; factors
+            with no real-world anchor fall back to directional language, and
+            "Does not change …" fires ONLY on exact baseline equality (the old
+            ±0.1 epsilon produced the live 0.5→0.6 contradiction). Never
+            renders a bare arrow with no trailing text. */}
         {isAffectedByHover && (() => {
           // F.6 passthrough: CEE-authored display_value wins over any UI
           // formatting or directional inference. Render verbatim. This also
@@ -596,44 +805,32 @@ export const FactorNode = memo((props: NodeProps) => {
           if (interventionValue == null) return null
           const rawUnit = observedState?.unit
           const effectiveUnit = rawUnit && !isSuppressedUnit(rawUnit) ? rawUnit : undefined
-          const unitKind = classifyUnit(effectiveUnit).kind
           // Must pass the cleaned label — compactFactorLabel expects scale
           // metadata like "(0–1 scale)" to have already been stripped (see
           // its docstring). Raw props.data.label can contain those fragments
           // and they would leak into the teal strip otherwise.
           const compactLabel = compactFactorLabel(cleanedLabel, 22)
-          const directional = placeholderDirectionLabel(
-            interventionValue,
-            observedState?.value,
-            compactLabel,
-          )
-          if (unitKind === 'placeholder') {
-            if (!directional) return null
-            return (
-              <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-                → {directional}
-              </div>
-            )
-          }
-          const formatted = formatInterventionValue(
-            interventionValue,
-            effectiveUnit,
-            observedState?.factor_type,
-            observedState?.cap,
-            observedState?.value,
-            observedState?.raw_value,
-          )
-          if (formatted && !isTierLabel(formatted)) {
-            return (
-              <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-                → {formatted}
-              </div>
-            )
-          }
-          if (!directional) return null
+          const change = formatInterventionChange({
+            baselineValue: observedState?.value,
+            targetValue: interventionValue,
+            label: compactLabel,
+            unit: effectiveUnit,
+            factorType: observedState?.factor_type,
+            cap: observedState?.cap,
+            observedValue: observedState?.value,
+            observedRawValue: observedState?.raw_value,
+          })
+          // Body selection: formatted value when available; directional
+          // sentence when only a direction is known; nothing when neither
+          // (placeholder-unit factor with unknown baseline) — never a bare
+          // arrow, never an unanchored "Changes X".
+          const body = change.changed
+            ? (change.targetText || (change.arrow ? change.text : ''))
+            : change.text
+          if (!body) return null
           return (
             <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-              → {directional}
+              → {body}
             </div>
           )
         })()}
@@ -701,11 +898,20 @@ export const FactorNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Post-analysis: MetricPills */}
-        {isPostAnalysis && (
+        {/* Post-analysis: MetricPills — the Standard-view compact influence/
+            confidence summary. Lane C4: provenance passes through so the pill
+            discloses its basis (set-relative top ≡ 100% vs absolute producer
+            score). P2.9 item 4 (factor-badge de-noise): gated to Standard only —
+            in Detailed the Layer-2 Influence/Confidence bars below carry the same
+            two numbers with more context, so the pills were a duplicate % channel
+            in the densest view. No information is lost; the bars remain. */}
+        {isPostAnalysis && !isDetailed && (
           <MetricPills
             influencePct={influencePct}
+            influenceProvenance={displayMetadata.influenceProvenance}
             confidencePct={confidencePct}
+            confidenceIsDefaulted={displayMetadata.confidenceIsDefaulted}
+            confidenceIsProvisional={displayMetadata.confidenceIsProvisional}
           />
         )}
 

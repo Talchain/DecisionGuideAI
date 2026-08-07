@@ -402,9 +402,24 @@ describe('useFormRecommendations', () => {
 
   describe('Empty edges', () => {
     it('returns empty when no edges', () => {
+      // ROADMAP 1.26 chronic-CI-red triage: `edges` MUST be a referentially
+      // stable array across mock invocations — the real zustand store
+      // returns the same `edges` reference across reads until an actual
+      // mutation. An inline `edges: []` here (the previous shape) creates a
+      // fresh array on every store read; useFormRecommendations' auto-fetch
+      // effect depends on the raw `edges` array (not just the derived
+      // edgeHash string) via its `refetch` callback, so an unstable
+      // reference makes that effect re-fire every render. On every fire,
+      // the edges.length===0 branch of refetch() calls
+      // setRecommendations([]) with a NEW empty array — React never bails
+      // out on that (different reference each time) — producing an
+      // infinite render loop that hung this spec (and, transitively, the
+      // CI full-suite job) indefinitely. Same failure class as
+      // InspectorPanel.test.tsx and usePareto.spec.ts, fixed in this lane.
+      const EMPTY_EDGES: typeof mockEdges = []
       ;(useCanvasStore as any).mockImplementation((selector: any) => {
         const state = {
-          edges: [],
+          edges: EMPTY_EDGES,
           nodes: mockNodes,
           updateEdgeData: mockUpdateEdgeData,
         }
@@ -417,6 +432,123 @@ describe('useFormRecommendations', () => {
 
       expect(result.current.recommendations).toEqual([])
       expect(mockFetch).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('ROADMAP 1.44 — unmemoized-caller infinite-fetch hazard', () => {
+    // Root cause: refetch's useCallback depended on the RAW edges/nodes
+    // array references (not just the content-based edgeHash string). A
+    // store/selector that returns a new edges/nodes array reference on
+    // every render (same values, new reference) forces a new refetch
+    // identity on every render, which re-fires the auto-fetch effect
+    // regardless of whether edgeHash actually changed. Bounded here via
+    // EXPLICIT rerender() calls (not a self-sustaining loop) to reproduce
+    // the symptom safely — see the "Empty edges" test above for why an
+    // inline-recomputed array must never be handed to renderHook directly
+    // in this file (hangs the job).
+    it('issues exactly one fetch when the store returns new edges/nodes array references (same content) across re-renders', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ recommendations: [] }),
+      })
+
+      ;(useCanvasStore as any).mockImplementation((selector: any) => {
+        const state = {
+          edges: [...mockEdges],
+          nodes: [...mockNodes],
+          updateEdgeData: mockUpdateEdgeData,
+        }
+        return selector(state)
+      })
+
+      const { rerender } = renderHook(() =>
+        useFormRecommendations({ autoFetch: true })
+      )
+
+      // Simulate an unmemoized store/selector: same logical content, a
+      // BRAND NEW array reference on every re-render — before the in-flight
+      // mount fetch has had a chance to resolve and latch lastFetchHashRef.
+      for (let i = 0; i < 5; i++) {
+        rerender()
+      }
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalled()
+      })
+
+      // Let any pending microtasks/re-renders settle.
+      await new Promise((r) => setTimeout(r, 50))
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not self-trigger extra renders on empty-edges early return across unmemoized re-renders', () => {
+      ;(useCanvasStore as any).mockImplementation((selector: any) => {
+        const state = {
+          edges: [] as typeof mockEdges,
+          nodes: [...mockNodes],
+          updateEdgeData: mockUpdateEdgeData,
+        }
+        return selector(state)
+      })
+
+      let renderCount = 0
+      const { rerender } = renderHook(() => {
+        renderCount++
+        return useFormRecommendations({ autoFetch: true })
+      })
+
+      const countAfterMount = renderCount
+      for (let i = 0; i < 5; i++) {
+        rerender()
+      }
+
+      // Each explicit rerender must cause exactly one render — the hook
+      // must not schedule an additional self-triggered render (a fresh
+      // empty-array state that's never `===` the previous one, re-firing
+      // the effect) on top of the ones the test asked for.
+      expect(renderCount).toBe(countAfterMount + 5)
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+
+    // Review follow-up (1.44): the dep-stabilisation fix above must not
+    // suppress a LEGITIMATE refetch — i.e. edges genuinely changing content,
+    // not just reference. edgeHash itself changes here, so the auto-fetch
+    // effect's `edgeHash !== lastFetchHashRef.current` guard is satisfied
+    // and a second fetch fires, mirroring usePareto.spec.ts's "refetches
+    // when options change" coverage for the equivalent hook.
+    it('still refetches when edges genuinely change content (not just reference)', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ recommendations: [] }),
+      })
+
+      let currentEdges = mockEdges
+      ;(useCanvasStore as any).mockImplementation((selector: any) => {
+        const state = {
+          edges: currentEdges,
+          nodes: mockNodes,
+          updateEdgeData: mockUpdateEdgeData,
+        }
+        return selector(state)
+      })
+
+      const { rerender } = renderHook(() => useFormRecommendations({ autoFetch: true }))
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledTimes(1)
+      })
+
+      // Genuine content change: a new edge added, so edgeHash actually differs.
+      currentEdges = [
+        ...mockEdges,
+        { id: 'edge-3', source: 'node-3', target: 'node-1', data: { functionType: 'linear' } },
+      ]
+      rerender()
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledTimes(2)
+      })
     })
   })
 })

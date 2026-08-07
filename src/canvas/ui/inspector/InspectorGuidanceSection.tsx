@@ -7,16 +7,19 @@
  */
 
 import { useRef, useCallback, useEffect, useMemo, memo } from 'react'
-import { AlertTriangle, Lightbulb } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import {
   useGuidanceStore,
+  compareGuidanceDisplayOrder,
+  guidanceCategoryTone,
+  guidanceCategoryIcon,
   type GuidanceItem,
   type GuidanceAction,
 } from '../../stores/guidanceStore'
 import { useCanvasStore } from '../../store'
 import { scrollToField } from '../../conversation/utils/scrollToField'
 import { beginInteractionChain } from '../../../lib/debug-state'
+import { focusExistingTarget } from '../../utils/focusHelpers'
 
 const MAX_VISIBLE = 2
 const FOCUS_DEBOUNCE_MS = 150
@@ -36,36 +39,19 @@ function actionLabel(action: GuidanceAction): string {
 }
 
 function cardBorderClass(category: GuidanceItem['category']): string {
-  switch (category) {
-    case 'must_fix':
-    case 'should_fix':
-      return 'border-l-danger'
-    case 'could_fix':
-    case 'technique':
-      return 'border-l-info'
-  }
-}
-
-function cardBgClass(category: GuidanceItem['category']): string {
-  switch (category) {
-    case 'must_fix':
-    case 'should_fix':
-      return 'bg-panel'
-    case 'could_fix':
-    case 'technique':
-      return 'bg-panel'
-  }
+  // V7 L1: complete borders only — the state colour rides all four sides, never
+  // a one-sided left accent. Tone derived from the single source of truth
+  // (guidanceCategoryTone) so this card and the on-canvas node marker never drift.
+  return guidanceCategoryTone(category) === 'danger' ? 'border-danger' : 'border-info'
 }
 
 function cardIcon(category: GuidanceItem['category']) {
-  switch (category) {
-    case 'must_fix':
-    case 'should_fix':
-      return <AlertTriangle size={12} className="flex-shrink-0 mt-0.5 text-danger" aria-hidden="true" />
-    case 'could_fix':
-    case 'technique':
-      return <Lightbulb size={12} className="flex-shrink-0 mt-0.5 text-info" aria-hidden="true" />
-  }
+  // Icon + tint from the single source of truth shared with the on-canvas node
+  // coaching marker (guidanceCategoryIcon) so the two never drift. An
+  // uncategorised item shows the info Lightbulb here, same as the marker (was
+  // previously no icon on the card — a live card/marker divergence).
+  const { Icon, tintClass } = guidanceCategoryIcon(category)
+  return <Icon size={12} className={`flex-shrink-0 mt-0.5 ${tintClass}`} aria-hidden="true" />
 }
 
 // ---------------------------------------------------------------------------
@@ -126,9 +112,9 @@ const GuidanceCard = memo(function GuidanceCard({
     <div
       ref={cardRef}
       className={`
-        flex items-start gap-2 p-2 rounded border-l-4
+        flex items-start gap-2 p-2 rounded border
         ${cardBorderClass(item.category)}
-        ${isActive ? `${cardBgClass(item.category)} ring-1 ring-info/40` : 'bg-panel border border-panel-border border-l-4'}
+        ${isActive ? 'bg-panel ring-1 ring-info/40' : 'bg-panel'}
         transition-colors
       `}
       onMouseEnter={handleMouseEnter}
@@ -199,12 +185,13 @@ export const InspectorGuidanceSection = memo(function InspectorGuidanceSection({
   const activeId = useGuidanceStore((s) => s.activeGuidanceItemId)
   const setActiveGuidanceItem = useGuidanceStore((s) => s.setActiveGuidanceItem)
 
-  // Sort by priority descending, show max 2
+  // Display-order doctrine (UI-SEM-085): producer rank ascending via the
+  // shared comparator (unranked fall back to urgency descending). Show max 2.
   const sorted = useMemo(
     () =>
       allItems
         .filter((i) => i.target_object?.id === elementId)
-        .sort((a, b) => b.priority - a.priority),
+        .sort(compareGuidanceDisplayOrder),
     [allItems, elementId],
   )
   const visible = sorted.slice(0, MAX_VISIBLE)
@@ -216,6 +203,13 @@ export const InspectorGuidanceSection = memo(function InspectorGuidanceSection({
   const handleAction = useCallback((item: GuidanceItem) => {
     const action = item.primary_action
     setActiveGuidanceItem(item.item_id)
+
+    // AI-to-graph slice: explicit CLICK centres the target (fail-closed).
+    // Hover/focus only ring via the pulse hook.
+    const target = item.target_object
+    if (target?.id && (target.type === 'node' || target.type === 'edge')) {
+      focusExistingTarget(target.id, target.type)
+    }
 
     const storeState = useGuidanceStore.getState()
     const sendMsg = onSendMessage ?? storeState._sendMessage ?? undefined

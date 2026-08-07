@@ -2,7 +2,9 @@
  * SuggestedChips — stagger-animated action chips after AI messages.
  *
  * Each chip fades in + slides up with 70ms delay between.
- * Up to 2 chips (DS v5 §21.4 cap). Chip base: bg-panel, border
+ * 0-3 chips (ruled doctrine D-K, closed 15 Jul: render up to 3 when CEE
+ * offers 3; render none when CEE offers none — never fabricate a filler
+ * chip; labels render verbatim as sent by CEE). Chip base: bg-panel, border
  * border-panel-border, hover:bg-panel-hover. Role metadata preserved via
  * data-chip-role and aria-label for styling/accessibility.
  *
@@ -20,26 +22,23 @@ import { logV5StateEvent } from '../../../v5/debugLog'
 import { isAiPanelV2Enabled } from '../../../flags'
 import { useAnalysisStatus } from '../../hooks/useAnalysisReady'
 import { useCanvasStore } from '../../store'
-import { useStaleGuard } from '../../ui/inspector-v2/useStaleGuard'
+import { type FreshnessDisplaySemantic } from '../../store/analysisFreshness'
+import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
+import { isChipRenderable } from '../chipDispatch'
+import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
-// not in this list are filtered out when V5 is active. On V4 this set is
+// not in this set are filtered out when V5 is active. On V4 the set is
 // unused — all chips pass through unchanged.
 //
-// Phase 2b of the V5 completion plan (2026-05-13): added `explain_results`
-// and `what_would_flip`. Backend PR olumi-assistants-service#170 emits these
-// as executable `action_type` chips and the new
-// `dispatchDeterministicChipClick` path bypasses Sonnet ORIENT (~12s saved
-// per click). Without these entries here, the V5 UI's filter below would
-// HIDE the new executable chips, defeating the latency fix entirely.
-const V5_ENABLED_ACTIONS = new Set<string>([
-  'run_analysis',
-  'edit_graph',
-  'draft_graph',
-  'explain_results',
-  'what_would_flip',
-])
+// DERIVED, not listed (ROADMAP 2.668). This used to be seven hand-written
+// strings, and the three missing ones were CEE's entire graph-mutation
+// vocabulary — so every propose-confirm consent chip CEE emitted was deleted
+// here on arrival. `chipActionVocabulary` now derives the set from the wire
+// send gate + the dispatch map; read that module for the full account.
+// Re-exported from here because this is where importers have always found it.
+export { V5_ENABLED_ACTIONS }
 
 // Chips whose action_type is in this set require analysis readiness
 // (ceeAnalysisReady.status === 'ready') before they can render. Without it,
@@ -73,24 +72,42 @@ function isRunAnalysisAffordance(chip: ActionChip): boolean {
 
 /**
  * Product rule for the run-analysis affordance under aiPanelV2:
- *   - no analysis exists       → keep chip as-is ("Run analysis")
- *   - current analysis exists  → suppress chip entirely
- *   - stale analysis exists    → relabel chip to "Rerun"
+ *   - no analysis exists            → keep chip as-is ("Run analysis")
+ *   - confirmed-current analysis    → suppress chip entirely
+ *   - stale / cannot-confirm        → relabel chip to "Rerun" (may bypass the V5
+ *                                     readiness gate — a prior analysis exists and
+ *                                     a rerun re-derives inputs from the graph)
+ *   - complete, NO freshness verdict→ keep ("Run analysis"), SUBJECT to the gate
  *
- * The decision keys off `results.status === 'complete'` (analysis has
- * produced results at least once) plus `isStale` from the stale guard.
- * This avoids the fragile `analysisState === 'current'` path which can
- * race on staging when the hash compare lags by one tick.
+ * Two positive-signal branches:
+ *   - SUPPRESS requires a CONFIRMED-CURRENT verdict (semantic === 'current').
+ *   - the readiness-gate-bypassing 'relabel-rerun' requires a REAL freshness
+ *     verdict ('changed' / 'cannot_confirm'), which implies a prior analysis that
+ *     a rerun can re-derive from the current graph.
+ * A completed analysis with NO freshness verdict ('none') gets neither: it is not
+ * confirmed current (so not suppressed — matching useStageAwarePlaceholder, which
+ * treats it as not-"latest"), but it has nothing rerunnable to justify bypassing
+ * the readiness gate. Relabelling it to "Rerun" would let a run_analysis chip
+ * survive the gate even when ceeAnalysisReady is missing, and a click then falls
+ * back to a conversation turn ("promises action, delivers chat"). So it stays a
+ * plain 'keep' chip, shown only when the readiness gate is satisfied.
+ *
+ * This replaces the legacy graph-hash stale flag (deleted 2026-07-16), whose production input
+ * `_internal.graphHash` is never written, so it never fired.
  */
 type RunAnalysisPolish = 'suppress' | 'relabel-rerun' | 'keep'
 
 function decideRunAnalysisPolish(
   resultsComplete: boolean,
-  isStale: boolean,
+  freshnessSemantic: FreshnessDisplaySemantic,
 ): RunAnalysisPolish {
-  if (!resultsComplete) return 'keep'   // no analysis yet
-  if (isStale) return 'relabel-rerun'   // graph drifted since last analysis
-  return 'suppress'                     // current analysis owns the action
+  if (!resultsComplete) return 'keep'                     // no analysis yet
+  if (freshnessSemantic === 'current') return 'suppress'  // confirmed-current owns the action
+  if (freshnessSemantic === 'changed' || freshnessSemantic === 'cannot_confirm') {
+    return 'relabel-rerun'  // real verdict: prior analysis exists → offer rerun (gate-bypassing)
+  }
+  return 'keep'  // 'none': complete but no verdict → not current, but no rerunnable
+                 // analysis to justify a gate bypass; the readiness gate decides visibility
 }
 
 interface SuggestedChipsProps {
@@ -125,11 +142,14 @@ export function SuggestedChips({
   const analysisStatus = useAnalysisStatus()
   // aiPanelV2 polish: once an analysis has been RUN (results exist), the
   // canonical place for re-running it is the Analysis/readiness panel.
-  // Decision is via `decideRunAnalysisPolish` (product rule, see helper
-  // above): no analysis → keep; current → suppress; stale → "Rerun".
-  // Keys off results.status === 'complete' rather than the fragile
-  // analysisState === 'current' path (which can race on staging).
-  const { isStale } = useStaleGuard()
+  // Decision is via `decideRunAnalysisPolish` (product rule, see helper above):
+  // no analysis → keep; confirmed-current → suppress; stale/cannot-confirm →
+  // "Rerun" (gate-bypassing); complete-but-no-verdict → keep (gate decides).
+  // `freshnessSemantic` is the composed trust semantic (useAnalysisTrust),
+  // NOT the graph-hash stale path deleted on 2026-07-16. The orphan fold
+  // means a recovered-session result with no verdict reads cannot-confirm
+  // here too, so the chip relabels to "Rerun" in step with the strip.
+  const freshnessSemantic = useAnalysisTrust().semantic
   const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
@@ -144,7 +164,7 @@ export function SuggestedChips({
   // Evaluate V5 eligibility per-render so test env overrides (vi.stubEnv)
   // are picked up correctly. import.meta.env is Vite-inlined at build time,
   // but the check is cheap and correctness matters more here.
-  const v5Active = isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
+  const v5Active = isV5Eligible({ flag: import.meta.env?.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
 
   // Compute the run-analysis product state ONCE, then both the V5
   // readiness gate (below) AND the polish-map step downstream branch on
@@ -152,15 +172,15 @@ export function SuggestedChips({
   // change to either branch from re-introducing "filtered before
   // relabel" behaviour.
   const runAnalysisPolish: RunAnalysisPolish = aiPanelV2On
-    ? decideRunAnalysisPolish(resultsComplete, isStale)
+    ? decideRunAnalysisPolish(resultsComplete, freshnessSemantic)
     : 'keep'
 
   // Filter rule (V5 active):
   //   action_type === 'run_analysis' → gated by analysisStatus === 'ready',
   //                                    EXCEPT when aiPanelV2 will relabel to
-  //                                    "Rerun" (stale), in which case the chip
-  //                                    must survive the gate so the polish can
-  //                                    apply.
+  //                                    "Rerun" (stale/cannot-confirm), in which
+  //                                    case the chip must survive the gate so the
+  //                                    polish can apply.
   //   action_type absent              → pass through (conversational)
   //   action_type in V5_ENABLED_ACTIONS but NOT readiness-gated → pass through
   //   action_type present but unknown → hide (treat as potentially executable
@@ -227,8 +247,15 @@ export function SuggestedChips({
         )
     : supported
 
-  // DS v5 §21.4: max 2 suggested action chips
-  const visible = polished.filter(c => !!(c.message || c.prompt)).slice(0, 2)
+  // Ruled doctrine D-K (closed 15 Jul): 0-3 suggested action chips — render
+  // up to 3 when offered, none when none offered (no filler). Supersedes the
+  // DS v5 §21.4 "max 2" cap; the DS doc amendment is owned by the DS-1 lane.
+  //
+  // ROADMAP 2.138: the dispatchability guard is `isChipRenderable`, shared with
+  // ActionChipRow and ChatThread. It used to be an inline `!!(message || prompt)`
+  // here, which dropped the terminal notices' `start_new_draft` chip — a chip
+  // ConversationPanel routes by id and which therefore carries no message.
+  const visible = polished.filter(isChipRenderable).slice(0, 3)
   if (visible.length === 0) return null
 
   const disabled = isThinking || isHistorical

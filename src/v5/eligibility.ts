@@ -13,6 +13,8 @@
  * Rollback is a flag flip plus redeploy.
  */
 
+import { isV5CanonicalAnalysisEnabled } from '../flags'
+
 export interface V5EligibilityInput {
   /** VITE_ENABLE_V5_ORCHESTRATOR raw string value. Exact match on 'true'. */
   flag: string | undefined
@@ -29,4 +31,18 @@ export function isV5Eligible(input: V5EligibilityInput): V5EligibilityResult {
     return { eligible: false, reason: 'flag_off' }
   }
   return { eligible: true }
+}
+
+/**
+ * The V5-canonical run path: run affordances dispatch a run_analysis chip to
+ * CEE instead of running V2 PLoT-direct. ONE home for the compound condition
+ * — it previously existed as three hand-maintained copies (OutputsDock x2,
+ * ConversationPanel), and the analysis gate's honesty depends on checking the
+ * SAME condition the runner branches on.
+ */
+export function isV5CanonicalRunPath(): boolean {
+  return (
+    isV5CanonicalAnalysisEnabled() &&
+    isV5Eligible({ flag: import.meta.env?.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
+  )
 }

@@ -8,8 +8,8 @@
  *     → applyV5State (writes ceeAnalysisReady incl. freshness)
  *     → mapV5Blocks (graph_patch → v5_graph_patch)
  *     → V5GraphPatchBlock renders friendly receipt
- *     → useAnalysisFreshnessState (mocked from store snapshot)
- *     → freshness hint surfaces when stale
+ *     → classifyFreshnessForDisplay over the CEE freshness slice (mocked)
+ *     → freshness hint surfaces when the verdict is 'changed' (stale)
  *     → no internal terms appear in the DOM
  *
  * This catches regressions in any layer in one journey-shaped test
@@ -26,7 +26,7 @@ import { applyV5State, type V5ApplicatorStore } from '../applyV5State'
 import { mapV5Blocks } from '../blocks/mapV5Blocks'
 import { RAW_ID_PATTERN } from '../../canvas/conversation/friendlyOperation'
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/conversation/types'
-import type { AnalysisFreshnessState } from '../../lib/analysisFreshnessState'
+import type { AnalysisFreshnessValue } from '../../canvas/store/analysisFreshness'
 
 // ─── Canvas-store mock ────────────────────────────────────────────────────
 //
@@ -42,27 +42,34 @@ const EDGES = [
   { id: 'edge_morale_to_outcome', source: 'fac_team_morale', target: 'goal_outcome' },
 ]
 
-vi.mock('../../canvas/store', () => ({
-  useCanvasStore: (selector: (s: { nodes: unknown; edges: unknown }) => unknown) =>
-    selector({ nodes: NODES, edges: EDGES }),
-}))
-
-// ─── Freshness hook mock ──────────────────────────────────────────────────
+// ─── Freshness mock ───────────────────────────────────────────────────────
 //
-// Each test sets the verdict the freshness derivation would produce given
-// the canvas-store ceeAnalysisReady (written by applyV5State a moment
-// earlier). We assert on whether the hint appears, not on the
-// derivation itself — the derivation is unit-tested separately.
+// Each test sets the verdict the CEE freshness slice holds. The
+// V5GraphPatchBlock hint now derives from that slice via
+// classifyFreshnessForDisplay (=== 'changed'); we assert on whether the hint
+// appears, not on the derivation itself — that is unit-tested separately.
 
-const mockFreshnessState = vi.fn<[], AnalysisFreshnessState>(() => ({
+// Drives the CEE freshness slice the component reads (analysisFreshness.freshness);
+// the component runs the real classifyFreshnessForDisplay over it.
+const mockFreshnessState = vi.fn<[], { freshness: AnalysisFreshnessValue }>(() => ({
   freshness: 'unknown',
-  reason: null,
-  recommendedAction: 'continue_editing',
-  inputsMissing: [],
 }))
 
-vi.mock('../../lib/useAnalysisFreshnessState', () => ({
-  useAnalysisFreshnessState: () => mockFreshnessState(),
+vi.mock('../../canvas/store', () => ({
+  useCanvasStore: (
+    selector: (s: {
+      nodes: unknown
+      edges: unknown
+      analysisFreshness: { freshness: string } | null
+      analysisFreshnessDirty: boolean
+    }) => unknown,
+  ) =>
+    selector({
+      nodes: NODES,
+      edges: EDGES,
+      analysisFreshness: { freshness: mockFreshnessState().freshness },
+      analysisFreshnessDirty: false,
+    }),
 }))
 
 const { V5GraphPatchBlock } = await import('../blocks/V5GraphPatchBlock')
@@ -139,12 +146,7 @@ function expectNoLeakInDOM(): void {
 
 beforeEach(() => {
   cleanup()
-  mockFreshnessState.mockReturnValue({
-    freshness: 'unknown',
-    reason: null,
-    recommendedAction: 'continue_editing',
-    inputsMissing: [],
-  })
+  mockFreshnessState.mockReturnValue({ freshness: 'unknown' })
 })
 
 // ─── Wire envelopes ───────────────────────────────────────────────────────
@@ -267,12 +269,7 @@ describe('Workstream 1 — Journey 3 wire-to-DOM (add_constraint)', () => {
   })
 
   it('V5GraphPatchBlock renders the friendly receipt + stale freshness hint', () => {
-    mockFreshnessState.mockReturnValue({
-      freshness: 'stale',
-      reason: 'graph_hash_diverged',
-      recommendedAction: 'rerun_analysis',
-      inputsMissing: [],
-    })
+    mockFreshnessState.mockReturnValue({ freshness: 'stale' })
     const envelope = journey3Envelope({ freshness: 'stale' })
     const block = mapV5Blocks(envelope.blocks)[0] as V5GraphPatchBlockType
 
@@ -289,12 +286,7 @@ describe('Workstream 1 — Journey 3 wire-to-DOM (add_constraint)', () => {
   })
 
   it('V5GraphPatchBlock suppresses freshness hint on a fresh-after-mutation turn', () => {
-    mockFreshnessState.mockReturnValue({
-      freshness: 'fresh',
-      reason: 'graph_hash_match',
-      recommendedAction: 'view_results',
-      inputsMissing: [],
-    })
+    mockFreshnessState.mockReturnValue({ freshness: 'fresh' })
     const envelope = journey3Envelope({ freshness: 'fresh' })
     const block = mapV5Blocks(envelope.blocks)[0] as V5GraphPatchBlockType
 
@@ -317,12 +309,7 @@ describe('Workstream 1 — Journey 6 wire-to-DOM (set_factor_value)', () => {
   })
 
   it('V5GraphPatchBlock renders a clean numeric-update receipt + stale hint', () => {
-    mockFreshnessState.mockReturnValue({
-      freshness: 'stale',
-      reason: 'graph_hash_diverged',
-      recommendedAction: 'rerun_analysis',
-      inputsMissing: [],
-    })
+    mockFreshnessState.mockReturnValue({ freshness: 'stale' })
     const envelope = journey6Envelope({ freshness: 'stale' })
     const block = mapV5Blocks(envelope.blocks)[0] as V5GraphPatchBlockType
 

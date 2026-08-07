@@ -131,6 +131,22 @@ describe('Conversation.module.css — all conversation blocks share the full-bor
   })
 })
 
+describe('Conversation.module.css — list markers (Tailwind preflight guard)', () => {
+  it('re-enables bullet discs/decimals on .markdownContent ul/ol', () => {
+    // Tailwind's preflight (@tailwind base) resets `ul { list-style: none }`,
+    // which hides the bullet discs even though safeRichText emits <ul><li>.
+    // The .markdownContent rules must restore list-style-type or the dots
+    // silently disappear (this is the regression this guard protects).
+    const css = readFileSync(CSS_PATH, 'utf-8')
+
+    // The standalone rules set list-style-type as their FIRST declaration; the
+    // combined `.markdownContent ul, .markdownContent ol` rule sets only
+    // margin/padding, so anchoring on `{ list-style-type` targets the right one.
+    expect(css).toMatch(/\.markdownContent ul\s*\{\s*list-style-type:\s*disc/)
+    expect(css).toMatch(/\.markdownContent ol\s*\{\s*list-style-type:\s*decimal/)
+  })
+})
+
 describe('index.css — olumi scrollbar utility', () => {
   it('defines the shared scrollbar class with the expected width and hover tokens', () => {
     const css = readFileSync(INDEX_CSS_PATH, 'utf-8')
@@ -139,7 +155,7 @@ describe('index.css — olumi scrollbar utility', () => {
     expect(css).toContain('width: 4px')
     expect(css).toContain('height: 4px')
     expect(css).toContain('var(--border-default, #EEE6D8)')
-    expect(css).toContain('var(--text-light, #908D8D)')
+    expect(css).toContain('var(--text-light, #6E6B6B)')
   })
 
   it('is applied to the AI thread and right-hand panel sources', () => {

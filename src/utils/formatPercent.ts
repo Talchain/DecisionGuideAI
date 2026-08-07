@@ -1,4 +1,31 @@
 /**
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE SUB-1% DISPLAY FLOOR (UI-SEM-057) — ONE constant, every register
+ * ─────────────────────────────────────────────────────────────────────────
+ * ⭐ RELOCATED HERE 2026-08-01 (ROADMAP 2.236). These two lived in
+ * `components/results/utils/displayFloors.ts`, which still re-exports them, so
+ * every existing importer is unchanged. They moved because the formatter that
+ * most needed them lives HERE and could not import them without a cycle
+ * (`displayFloors` imports `formatPercent`) — and the workaround for that
+ * cycle was a THIRD hand-written copy of the threshold as a literal `0.01`
+ * inside `canvas/utils/labelUtils.ts`. That copy is exactly why the floor
+ * shipped on the canvas and not in the dock.
+ *
+ * A real-browser walk on deployed staging photographed the consequence: one
+ * option, one instant, `win_probability = 0.002675`, rendered as "< 1%" on the
+ * canvas node, "0%" on the Analysis option card and "0%" on the Olumi review
+ * chip — with CEE prose saying "less than a 1% chance" immediately above the
+ * chips (`PHASE0-EVIDENCE-2026-07-28/walk-548-pixels.md` F5).
+ *
+ * The constant is a leaf value with no dependencies; its home is the module
+ * every formatter can reach.
+ */
+export const SUB_ONE_PERCENT_FLOOR = 0.01
+
+/** The rendered form of a non-zero probability below the floor. */
+export const SUB_ONE_PERCENT_READOUT = '< 1%'
+
+/**
  * Centralised formatter for percentage values in the Results panel.
  * Prevents inconsistent ~, +, ± symbols across components.
  *
@@ -49,6 +76,43 @@ export function formatProbabilityWithResolution(
   nSamples: number | null | undefined,
 ): string {
   if (nSamples === null || nSamples === undefined || !Number.isFinite(nSamples) || nSamples <= 0) {
+    // ⭐ ROADMAP 2.236 — THE FALLBACK ARM APPLIES THE SHARED FLOOR.
+    //
+    // This arm used to be a bare `formatPercent(value, { fromDecimal: true })`,
+    // so EVERY dock surface downstream of this function (option cards, V7 lens
+    // rows, the analysis hero) printed a bare "0%" for a measured non-zero
+    // probability while each call site looked locally correct. Three surfaces,
+    // one missing line — which is why the fix is here and not at any of them.
+    //
+    // ⚠ CORRECTED 2026-08-03 (ROADMAP 2.333/2.334). This comment used to say
+    // per-option `n_valid_samples` "is not on the wire", and that it was
+    // therefore "the arm staging actually takes". BOTH clauses were stale, and
+    // in the trap-2 way: they described a gate's coverage rather than deriving
+    // it, so they kept teaching every reader not to bother threading a count
+    // that had been available for weeks. `n_valid_samples` IS on the wire —
+    // `adapters/plot/v2/responseMapper.ts` maps `outcome.n_valid_samples` to
+    // `OptionResult.nValidSamples` behind a positive-integer guard, and the
+    // 2026-08-03 walk measured 10000 on every option of a live staging run.
+    //
+    // What remains TRUE is narrower, and is the only thing this arm should be
+    // read as claiming: SOME surfaces still cannot supply a count (they hold a
+    // share or a row rather than the option object), and they take this arm.
+    // Which surfaces those are is derivable, not listable here — anything
+    // passing `null`/`undefined` as `nSamples`. Do not restore a list.
+    //
+    // An exact ZERO keeps reading "0%": "came out ahead in 0% of simulated
+    // scenarios" is TRUE when the option never came out ahead, and the floor
+    // exists to stop a non-zero value being printed as zero — not to stop zero
+    // being printed. (This is the one deliberate difference from the GOAL
+    // register's `formatGoalProbability`, which floors an exact zero too so it
+    // matches the option card beside it. Different registers, same threshold.)
+    // A probability below zero is not a quantity; the canvas formatter has
+    // always clamped it and that behaviour moves here with it, rather than
+    // being lost in the delegation (caught by `labelUtils.spec.ts`'s existing
+    // "treats negative values as 0%" pin — a fix is not finished until the
+    // tests that guarded the old code still hold).
+    if (value <= 0) return '0%'
+    if (value < SUB_ONE_PERCENT_FLOOR) return SUB_ONE_PERCENT_READOUT
     return formatPercent(value, { fromDecimal: true })
   }
 

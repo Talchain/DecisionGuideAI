@@ -30,6 +30,24 @@ vi.mock('../../store', () => ({
   useCanvasStore: vi.fn((selector) => selector(makeStoreState())),
 }))
 
+// ROADMAP 1.223 — RENDER the producer's leader claim, never DERIVE one.
+// DecisionNode's "{winner} leads in N% of scenarios" headline now quotes
+// `deriveDecisionVerdict` and renders NOTHING unless a producer signal claimed
+// a leader. (The stability line and the post-analysis chips do NOT hang off it
+// — they branch on the analysis lifecycle instead, so withholding the leader
+// claim never withholds the fragility disclosure. See the over-suppression
+// guards in ownedLeaderClaim.canvas.spec.tsx.) Every post-analysis fixture
+// below needs BOTH halves the verdict requires:
+//   1. at least TWO options with win probabilities — "leading" is meaningless
+//      below two comparable options, and
+//   2. a producer signal (PLoT `computeNearTie`) naming the WIN-PROBABILITY
+//      RANK-1 option, which is what the verdict's identity gate checks.
+// `recommended_option_id` alone is NOT a leader claim any more: it answers
+// "who leads?", never "is there a leader at all?".
+const producerLeaderClaim = (winArgmaxOptionId: string) => ({
+  near_tie: { is_tie: false, top_option_id: winArgmaxOptionId },
+})
+
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank: null,
@@ -40,15 +58,10 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     stabilityPercentage: null,
     winRate: null,
     isResultsMode: false,
+    predictedOutcome: null,
+    valueOfInformation: null,
+    voiRank: null,
   })),
-}))
-
-vi.mock('../../../hooks/useCEEInsights', () => ({
-  useCEEInsights: vi.fn(() => ({ data: null })),
-}))
-
-vi.mock('../../../hooks/useISLValidation', () => ({
-  useISLValidation: vi.fn(() => ({ data: null })),
 }))
 
 // Make NodePopover transparent in tests so we can directly assert what its
@@ -164,7 +177,11 @@ describe('DecisionNode', () => {
     expect(screen.queryByText(/options? compared/)).toBeNull()
   })
 
-  // D1: Decision node must show its own label, not the recommended option label from results
+  // D1: Decision node must show its own label, not the recommended option label
+  // from results. The fixture carries a full producer leader claim so the
+  // post-analysis headline actually RENDERS — the guard is about the title not
+  // being overwritten while that headline is on screen, so a fixture that
+  // suppresses the headline would pin nothing (trap 13).
   it('renders data.label regardless of results (D1 regression guard)', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -173,12 +190,18 @@ describe('DecisionNode', () => {
           report: {
             option_probabilities: {
               'option-1': { win_probability: 0.8 },
+              'option-2': { win_probability: 0.2 },
             },
-            robustness: { recommended_option_id: 'option-1', recommendation_stability: 0.9 },
+            robustness: {
+              recommended_option_id: 'option-1',
+              recommendation_stability: 0.9,
+              ...producerLeaderClaim('option-1'),
+            },
           },
         },
         nodes: [
           { id: 'option-1', type: 'option', data: { label: 'Acquire Smaller Competitor', type: 'option' } },
+          { id: 'option-2', type: 'option', data: { label: 'Organic Growth', type: 'option' } },
         ],
       }) as any)
     )
@@ -237,7 +260,10 @@ describe('DecisionNode', () => {
     expect(screen.getByText('What could go wrong?')).toBeDefined()
   })
 
-  // Post-analysis chips: "Challenge this result" and "Compare options"
+  // Post-analysis chips: "Challenge this result" and "Compare options".
+  // Positive control against over-suppression: given the producer's own leader
+  // claim, the post-analysis body — headline, and the Detailed-view chips that
+  // hang off it — must still render.
   it('shows post-analysis chips', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -246,12 +272,18 @@ describe('DecisionNode', () => {
           report: {
             option_probabilities: {
               'option-1': { win_probability: 0.65 },
+              'option-2': { win_probability: 0.35 },
             },
-            robustness: { recommended_option_id: 'option-1', recommendation_stability: 0.8 },
+            robustness: {
+              recommended_option_id: 'option-1',
+              recommendation_stability: 0.8,
+              ...producerLeaderClaim('option-1'),
+            },
           },
         },
         nodes: [
           { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+          { id: 'option-2', type: 'option', data: { label: 'Option B', type: 'option' } },
         ],
       }) as any)
     )
@@ -259,4 +291,75 @@ describe('DecisionNode', () => {
     expect(screen.getByText('Challenge this result')).toBeDefined()
     expect(screen.getByText('Compare options')).toBeDefined()
   })
+
+  // ROADMAP 1.223 contract pin, and the mutant that guards the test above: the
+  // SAME completed run, the SAME two options, the SAME `recommended_option_id`
+  // — but the producer made no leader claim. `recommended_option_id` answers
+  // "who leads?", never "is there a leader at all?", so the canvas must not
+  // print "{winner} leads in N% of scenarios". This is the CEE #711 withheld
+  // turn: the win probabilities still ride the wire because the DATA is not
+  // withheld, only the CLAIM.
+  it('renders no winner headline when the producer made no leader claim (win probabilities alone are not a claim)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': { win_probability: 0.65 },
+              'option-2': { win_probability: 0.35 },
+            },
+            robustness: { recommended_option_id: 'option-1', recommendation_stability: 0.8 },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+          { id: 'option-2', type: 'option', data: { label: 'Option B', type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderDecision()
+    expect(screen.queryByText(/leads in \d+% of scenarios/)).toBeNull()
+    expect(screen.queryByText(/Option A/)).toBeNull()
+  })
+
+  // Identity gate: the producer DID claim a leader, but names an option the
+  // canvas no longer shows (recovered-session hazard). A claim about option X
+  // is never re-pointed at option Y, so the headline is withheld.
+  it('renders no winner headline when the producer claim names an option that is not the visible win argmax', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': { win_probability: 0.65 },
+              'option-2': { win_probability: 0.35 },
+            },
+            robustness: {
+              recommended_option_id: 'option-1',
+              recommendation_stability: 0.8,
+              ...producerLeaderClaim('option-gone'),
+            },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+          { id: 'option-2', type: 'option', data: { label: 'Option B', type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderDecision()
+    expect(screen.queryByText(/leads in \d+% of scenarios/)).toBeNull()
+  })
 })
+
+// The 'stale result decorations (audit §8 P1)' describe that lived here was
+// retired with the graph-hash stale guard (deleted 2026-07-16): its remaining
+// negative test asserted the absence of `data-stale` — an attribute NO code
+// path can produce any more — while seeding `_internal.graphHash`, a key
+// production never writes. An absence pin without a possible positive is
+// permanently green and pins nothing (trap 13). Freshness decoration now
+// belongs to the panel surfaces via the composed trust semantic
+// (useAnalysisTrust); if node-level decoration returns, pin it against that
+// source with a positive control.

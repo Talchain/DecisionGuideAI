@@ -53,6 +53,28 @@ describe('sanitizeMarkdown (safeRichText contract)', () => {
       expect(result).toContain('Line <span class="md-number">2</span>')
     })
 
+    it('converts literal bullet glyphs (• ‣ ◦) to <ul><li>, not plain text', () => {
+      const result = sanitizeMarkdown('• Option A\n• Option B')
+      expect(result).toContain('<ul>')
+      expect(result).toContain('<li>Option A</li>')
+      expect(result).toContain('<li>Option B</li>')
+      // Must NOT leak the raw glyph as prose
+      expect(result).not.toContain('•')
+    })
+
+    it('does NOT treat middle-dot (·) as a bullet — it has an inline-separator use', () => {
+      const result = sanitizeMarkdown('· not a bullet')
+      expect(result).not.toContain('<ul>')
+      expect(result).toContain('· not a bullet')
+    })
+
+    it('inserts a paragraph gap after a sentence-ending line (single newline)', () => {
+      // CEE delimits paragraphs with single newlines, so a sentence-ending line
+      // is a paragraph boundary and must get the md-gap spacer, not a tight <br>.
+      const result = sanitizeMarkdown('First paragraph ends here.\nSecond paragraph follows.')
+      expect(result).toContain('<br class="md-gap">')
+    })
+
     it('renders headings as <strong> (graceful degradation)', () => {
       // Note: mid-identifier digits (e.g. "H1") are NOT wrapped in md-number
       // — the lookbehind in convertInline excludes identifier-adjacent digits

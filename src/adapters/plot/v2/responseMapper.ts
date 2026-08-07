@@ -35,6 +35,7 @@ import type { ReportV1, CritiqueItemV1, ConfidenceLevel } from '../types'
 import type { DriversPayload, DriverItem } from '../../driversAdapter'
 import { recordDataShapeAnomaly } from '../../../lib/payload-trace-store'
 import { safeArray, safeArrayWithMeta } from '../../../lib/array-utils'
+import { PLOT_PER_OPTION_CONSTRAINTS_SUSPECT } from '../constraintTrust'
 import type {
   CeeDecisionReviewPayloadV1,
   CeeTrace,
@@ -280,6 +281,11 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
         // VOI Fix: Pass through value_of_information for driver confidence display
         value_of_information: f.value_of_information as number | undefined,
         confidence_components: f.confidence_components as V2FactorSensitivity['confidence_components'],
+        // Track S: pass through factor value provenance. Guarded extraction keeps
+        // the adapter boundary safe and preserves explicit `false` (never coerces absent).
+        value_source: typeof f.value_source === 'string' ? f.value_source : undefined,
+        value_extraction_type: typeof f.value_extraction_type === 'string' ? f.value_extraction_type : undefined,
+        value_defaulted: typeof f.value_defaulted === 'boolean' ? f.value_defaulted : undefined,
       }))
       return { factors, _source_path: 'downstream_calls.isl' }
     }
@@ -330,6 +336,11 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
         // VOI Fix: Pass through value_of_information for driver confidence display
         value_of_information: f.value_of_information as number | undefined,
         confidence_components: f.confidence_components as V2FactorSensitivity['confidence_components'],
+        // Track S: pass through factor value provenance. Guarded extraction keeps
+        // the adapter boundary safe and preserves explicit `false` (never coerces absent).
+        value_source: typeof f.value_source === 'string' ? f.value_source : undefined,
+        value_extraction_type: typeof f.value_extraction_type === 'string' ? f.value_extraction_type : undefined,
+        value_defaulted: typeof f.value_defaulted === 'boolean' ? f.value_defaulted : undefined,
       }))
       return { factors, _source_path: 'enrichment' }
     }
@@ -361,7 +372,10 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
  */
 export function mapV2ResponseToReportV1(
   v2Response: V2RunResponse,
-  meta: { seed: number; elapsed_ms?: number }
+  // seed: null when the caller has no REAL seed for this response (no
+  // engine echo / provenance). Receipts fail closed — never pass 0 as a
+  // stand-in for "unknown".
+  meta: { seed: number | null; elapsed_ms?: number }
 ): ReportV1 {
   // P0 DIAGNOSTIC: Log input to identify crash source
   if (import.meta.env.DEV) {
@@ -551,11 +565,22 @@ export function mapV2ResponseToReportV1(
         // Pass through new ISL fields when present (gated on field presence)
         ...(Array.isArray(robustnessRaw?.conditional_winners) ? { conditional_winners: robustnessRaw.conditional_winners } : {}),
         ...(Array.isArray(robustnessRaw?.inference_warnings) ? { inference_warnings: robustnessRaw.inference_warnings } : {}),
+        // Display-honesty (ROADMAP 1.6, PLoT #202): display-safe robustness
+        // verdict + producer reason pass through VERBATIM so saved/hydrated
+        // reports keep them — useResultsSectionData prefers the raw response
+        // and falls back to this mapped slot, then normalises fail-closed.
+        ...(typeof robustnessRaw?.display_verdict === 'string' ? { display_verdict: robustnessRaw.display_verdict } : {}),
+        ...(typeof robustnessRaw?.display_verdict_reason === 'string' ? { display_verdict_reason: robustnessRaw.display_verdict_reason } : {}),
       }
     })() : undefined,
     // P0 Fix: Pass through robustness_status for gating logic
     robustness_status: v2Response.robustness_status,
     run: {
+      // Lane 3 (#585 F1 follow-through): this construction was a baselined
+      // TS2741 type-lie (missing responseHash) since it was written; fixed at
+      // source with the same producer hash model_card carries, rather than
+      // re-baselined.
+      responseHash: v2Response.response_hash,
       critique,
       bands: {
         p10: ciLow,
@@ -601,6 +626,21 @@ export function mapV2ResponseToReportV1(
         const p90 = safeNumber(outcome?.p90) ?? high
 
         acc[optionId] = {
+          /**
+           * @claim-producer goal-probability
+           * @rationale This is the PLoT V2 wire→internal boundary: the point at
+           *   which `probability_of_goal` and `probability_of_joint_goal` ENTER
+           *   the UI and are written out under the internal `goal_probability`
+           *   name. It creates the fields; it does not choose a displayed claim
+           *   from them. Every display path downstream goes through
+           *   `selectGoalProbability`. The one other read in this file
+           *   (`buildRecommendationBlock`, which orders options by
+           *   `win_probability ?? probability_of_goal` to name a best option in
+           *   a summary sentence) is in the same wire pass and renders no
+           *   goal-probability figure. The count this attestation suppresses is
+           *   recorded in the baseline and ratcheted, so a NEW raw read added
+           *   here is still a RED.
+           */
           // Fix A: Only use actual probability_of_goal from V2 (when threshold was provided)
           // Never fall back to computed values - undefined means "not available"
           goal_probability: safeNumber(opt.probability_of_goal),
@@ -642,7 +682,18 @@ export function mapV2ResponseToReportV1(
             }
           })(),
           // Multi-constraint analysis (when goal_constraints were provided in request)
-          constraint_analysis: opt.constraint_analysis,
+          // Honesty gate (UI-SEM-088, seam 2): STILL SUSPECT. Unlike the
+          // headline seam (selectGoalProbability), the per-option block is NOT
+          // cleared by A3's normalisation fix — it is blocked on a separate
+          // UI-side mapper-seam defect (our read shape ≠ what PLoT emits on V5;
+          // #410's positive control was a synthetic fixture). So we omit the
+          // whole block. Downstream surfaces (TargetProbabilityBars,
+          // OptionCards' joint badge, the analysis-hero "and limits" wording via
+          // UI-SEM-056, GoalNode/OutcomeNode achievement via
+          // useNodeDisplayMetadata) all take their existing absent-constraint
+          // branch. Flip PLOT_PER_OPTION_CONSTRAINTS_SUSPECT false only when the
+          // mapper-seam work lands (see constraintTrust.ts).
+          constraint_analysis: PLOT_PER_OPTION_CONSTRAINTS_SUSPECT ? undefined : opt.constraint_analysis,
         }
         return acc
       },
@@ -697,6 +748,23 @@ export function mapV2ResponseToReportV1(
     })()),
     ...(v2Response.flip_thresholds_status ? { flip_thresholds_status: v2Response.flip_thresholds_status } : {}),
     ...(v2Response.flip_thresholds_status_reason ? { flip_thresholds_status_reason: v2Response.flip_thresholds_status_reason } : {}),
+    // Lane UI-W4 (producer consumption, PLoT #200): pass decision_brief
+    // through ADDITIVELY and verbatim so the claim-safe headline_banded
+    // surface survives a save + hydrate cycle (the selector reads the
+    // mapped report first, raw response second — same pattern as
+    // flip_thresholds above). No field is reshaped here; the fail-closed
+    // trust boundary is normalizeHeadlineBanded at the selector.
+    ...(v2Response.decision_brief ? { decision_brief: v2Response.decision_brief } : {}),
+    // Lane UI-W5 (reference-option disclosure): pass through the option ID
+    // the sensitivities / fragile edges were computed against, ADDITIVELY
+    // and verbatim, so the disclosure caption survives a save + hydrate
+    // cycle (selector reads mapped report first, raw response second —
+    // same pattern as flip_thresholds / decision_brief above). Guarded to
+    // non-empty strings only; absent → key omitted (honest absence).
+    ...(typeof v2Response.sensitivity_reference_option_id === 'string' &&
+      v2Response.sensitivity_reference_option_id.length > 0
+      ? { sensitivity_reference_option_id: v2Response.sensitivity_reference_option_id }
+      : {}),
   }
 }
 
@@ -1192,6 +1260,39 @@ export function createEnrichmentFromV2Response(v2Response: V2RunResponse): {
 /**
  * Create error report for blocked/failed responses.
  */
+/**
+ * The sentinel `response_id` stamped on a report that represents a FAILED
+ * analysis rather than a successful one.
+ *
+ * ⚠ It is exported, and `isErrorReport` below is the ONLY sanctioned way to
+ * read it. Do not compare against the literal `'error'` in a consumer: a string
+ * copied into another module is a hand-maintained mirror (CLAUDE.md trap 12),
+ * and the day this sentinel changes the copy keeps compiling and starts lying.
+ * The producer owns the predicate.
+ */
+export const ERROR_REPORT_RESPONSE_ID = 'error'
+
+/**
+ * Is this report the product of `createErrorReport` — i.e. does it represent a
+ * FAILED analysis?
+ *
+ * WHY THIS EXISTS (ROADMAP 1.68). `useV2Run.ts`'s HTTP-200-but-failed branch
+ * settles a failure through `resultsComplete`, because the results panel must
+ * render the critique list and that is the action which renders it. So "status
+ * is complete" does NOT mean "the run succeeded", and any consumer that assumes
+ * it does will record a whole failure class as a success. `OutputsDock` — the
+ * single canonical emitter of run_completed/run_failed — asks this question
+ * before choosing which event to emit.
+ *
+ * ⚠ NOT a confidence check. `confidence.level === 'low'` is a legitimate
+ * outcome of a SUCCESSFUL run; classifying on it would relabel every genuinely
+ * uncertain result as a failure. Pinned both ways in
+ * `src/lib/__tests__/runSettleClassification.spec.ts`.
+ */
+export function isErrorReport(report: ReportV1 | null | undefined): boolean {
+  return report?.meta?.response_id === ERROR_REPORT_RESPONSE_ID
+}
+
 export function createErrorReport(
   statusReason: string,
   critiques: V2Critique[],
@@ -1201,7 +1302,7 @@ export function createErrorReport(
     schema: 'report.v1',
     meta: {
       seed: meta.seed,
-      response_id: 'error',
+      response_id: ERROR_REPORT_RESPONSE_ID,
       elapsed_ms: 0,
     },
     model_card: {
@@ -1220,6 +1321,9 @@ export function createErrorReport(
     },
     drivers: [],
     run: {
+      // Lane 3: was a baselined missing-properties type-lie; the error report
+      // carries the same sentinel hash its model_card declares.
+      responseHash: 'error',
       critique: critiques.map((c) => ({
         code: c.code,
         severity: mapCritiqueSeverity(c.severity),
@@ -1383,7 +1487,7 @@ function buildRecommendationBlock(v2Response: V2RunResponse): ReviewBlock | null
       status: 'cannot_compute',
       status_reason: 'No options to compare',
       source: 'engine',
-      summary: 'Unable to determine recommendation',
+      summary: 'Not enough data to rank the options',
       priority: 1,
     }
   }

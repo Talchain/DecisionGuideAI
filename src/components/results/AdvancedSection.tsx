@@ -14,16 +14,82 @@ import { Copy, Check, AlertTriangle, Gauge, Eye } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
+import { selectHumanisedInferenceWarnings } from './utils/humaniseInferenceWarning'
 import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
-import { ExpertBlock } from './ExpertBlock'
+import { derivePostFooterStatus } from '../../canvas/components/utils/postAnalysisFooter'
+import type { RobustnessDisplayVerdict } from './types'
+import type { LensAppetite } from './utils/selectLensOption'
+import { LENS_COPY } from './utils/goalAnchorCopy'
 
 type RiskPresetKey = keyof typeof RISK_PRESETS
 
 export type RiskAppetite = 'conservative' | 'neutral' | 'aggressive'
 
+// ── D1 (ask #16): freshness_reason-as-receipt doctrine — UNRULED ────────────
+// The freshness reason code (e.g. 'graph_hash_match') is doctrine-marked
+// "debug only, never user copy". v6's receipt row would promote it. Both
+// branches are built here so the ruling picks one with a ONE-LINE change and
+// NO rebuild — and with NO runtime flag (per no-dark-launches):
+//   'omit'      → the Freshness receipt row is never rendered (fail-closed
+//                 interim default per the D1 ruling).
+//   'translate' → the row renders a curated en-GB phrase for known reason
+//                 codes only; unknown codes fail closed to omit.
+// Flip THIS constant to 'translate' to activate branch (b). The compile-time
+// union keeps both branches type-live and unit-testable (translateFreshness-
+// Reason is exercised directly) without either becoming unreachable code.
+export const FRESHNESS_RECEIPT_D1_MODE: 'omit' | 'translate' = 'omit'
+
+// Curated code → en-GB copy. Unknown/absent codes fail closed to null (row
+// omitted) — the raw wire string is NEVER surfaced (reason codes are
+// debug-only per doctrine, analysisFreshness.ts:33).
+const FRESHNESS_REASON_COPY: Readonly<Record<string, string>> = {
+  graph_hash_match: 'Graph hash match',
+  graph_hash_mismatch: 'Model changed since this analysis',
+  no_prior_analysis: 'No prior analysis',
+}
+
+/**
+ * Branch (b) translator for the D1 freshness receipt. Returns the curated
+ * phrase for a known reason code, or null for any unknown/absent code (row
+ * omitted). Never echoes the raw wire string. Exported for direct unit tests
+ * so the un-mounted branch stays covered.
+ */
+export function translateFreshnessReason(
+  reason: string | null | undefined,
+): string | null {
+  if (typeof reason !== 'string') return null
+  return FRESHNESS_REASON_COPY[reason] ?? null
+}
+
 export interface AdvancedSectionProps {
-  /** Recommendation stability (0-1) */
+  /**
+   * @deprecated Do NOT render. `recommendation_stability` is DEPRECATED and no
+   * longer emitted by the producer (vendored 0.15.0 enrichment.js:250-262 — it
+   * was byte-identical to the leader's win_probability). The receipts
+   * "Result stability" row keys on the display-safe `robustnessVerdict`
+   * instead. This prop is accepted-but-ignored solely so the negative pin can
+   * prove no recommendation_stability-sourced value is rendered.
+   */
   stability?: number | null
+  /**
+   * Display-safe robustness verdict (producer `robustness.display_verdict`,
+   * normalised fail-closed upstream). Drives the "Result stability" receipt
+   * row via `derivePostFooterStatus` — the SAME verdict contract as the
+   * (retired) post-analysis footer. Absent/undefined → "Robustness unknown".
+   */
+  robustnessVerdict?: RobustnessDisplayVerdict | null
+  /**
+   * Freshness reason code from the analysis-freshness slice (e.g.
+   * 'graph_hash_match'). Consumed only by the D1 'translate' branch of the
+   * Freshness receipt row; ignored while FRESHNESS_RECEIPT_D1_MODE is 'omit'.
+   */
+  freshnessReason?: string | null
+  /**
+   * True when `responseHash` is a device-derived local content hash (V5 path)
+   * rather than a producer/engine hash. Labels the hash row so a local hash is
+   * never read as an engine identity.
+   */
+  responseHashIsLocal?: boolean
   /** Number of simulations */
   nSamples?: number | null
   /** Seed used for reproducibility */
@@ -69,7 +135,12 @@ export interface AdvancedSectionProps {
 const PRESET_ORDER: RiskPresetKey[] = ['risk_averse', 'neutral', 'risk_seeking']
 
 export function AdvancedSection({
-  stability,
+  // `stability` (recommendation_stability) is intentionally NOT destructured —
+  // it is accepted but never rendered (see the prop's @deprecated note). The
+  // "Result stability" row uses `robustnessVerdict` below.
+  robustnessVerdict,
+  freshnessReason,
+  responseHashIsLocal,
   nSamples,
   seedUsed,
   fragileEdgeCount,
@@ -119,7 +190,14 @@ export function AdvancedSection({
     }
   }, [responseHash])
 
-  const stabilityPct = stability != null ? Math.round(stability * 100) : null
+  // Result-stability verdict for the receipts row — the display-safe
+  // `robustnessVerdict` mapped through the shared verdict contract
+  // (`derivePostFooterStatus`). NEVER the deprecated recommendation_stability.
+  const resultStabilityLabel = derivePostFooterStatus(robustnessVerdict).label
+
+  // D1 branch (b) copy — resolved once, consumed only when the mode is
+  // 'translate'. Unknown/absent reason codes → null (row omitted).
+  const freshnessReceiptCopy = translateFreshnessReason(freshnessReason)
 
   // Format identifiability for display
   const identifiabilityLabel = identifiability
@@ -131,13 +209,11 @@ export function AdvancedSection({
   // accordion. Warnings live inside the trust narrative in this section
   // per brief Task 12, so the collapse default would otherwise suppress
   // them until the user clicks.
-  const hasInferenceWarnings = (inferenceWarnings ?? []).some(
-    w => typeof w.message === 'string' && w.message.trim().length > 0,
-  )
+  const hasInferenceWarnings = selectHumanisedInferenceWarnings(inferenceWarnings).length > 0
 
   return (
     <Accordion
-      title="Advanced"
+      title="Advanced and receipts"
       defaultExpanded={hasInferenceWarnings}
       testId="accordion-advanced"
     >
@@ -203,9 +279,22 @@ export function AdvancedSection({
               <p>
                 {trustLevel && <>{trustLevel.charAt(0).toUpperCase()}{trustLevel.slice(1)} confidence. </>}
                 {trustReason && <>{trustReason.charAt(0).toUpperCase()}{trustReason.slice(1)}. </>}
-                {defaultEstimateCount != null && totalFactorCount != null && defaultEstimateCount > 0 && (
-                  <>{defaultEstimateCount} of {totalFactorCount} factors use default confidence values. </>
-                )}
+              </p>
+            )}
+
+            {/* ⛔ F10. This sentence used to live INSIDE the paragraph above,
+                so it rendered only when `trustLevel` or `trustReason` was
+                supplied — and NO CALL SITE SUPPLIES EITHER. It was therefore
+                dead twice over: its own two props were unwired, and the gate
+                enclosing it was unsatisfiable. Wiring only the counts would
+                have left it invisible, and a component-level test that passes
+                `trustLevel` would not have noticed.
+                It is an independent disclosure about the analysis's own
+                defaults; it does not depend on unrelated trust copy, so it
+                stands on its own condition. */}
+            {defaultEstimateCount != null && totalFactorCount != null && defaultEstimateCount > 0 && (
+              <p data-testid="default-estimate-disclosure">
+                {defaultEstimateCount} of {totalFactorCount} factors use default confidence values.
               </p>
             )}
 
@@ -266,12 +355,13 @@ export function AdvancedSection({
               <p className="text-warning">Structural validity: Treat results as directional only.</p>
             )}
 
-            {/* Brief 4 Task 12: inference warnings surfaced verbatim, capped
-                at 3 with Show-all overflow. One AlertTriangle per warning. */}
+            {/* Brief 4 Task 12: inference warnings, capped at 3 with Show-all
+                overflow. One AlertTriangle per warning.
+                P0-3 fold: humanised by `code` via the shared view model
+                (selectHumanisedInferenceWarnings) — never the raw producer
+                `message`, which carries internal identifiers. */}
             {(() => {
-              const relevant = (inferenceWarnings ?? []).filter(
-                w => typeof w.message === 'string' && w.message.trim().length > 0,
-              )
+              const relevant = selectHumanisedInferenceWarnings(inferenceWarnings)
               if (relevant.length === 0) return null
               const visible = showAllWarnings ? relevant : relevant.slice(0, 3)
               const hidden = relevant.length - visible.length
@@ -284,7 +374,7 @@ export function AdvancedSection({
                         className="flex items-start gap-2"
                       >
                         <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
-                        <span>{w.message}</span>
+                        <span>{w.title}</span>
                       </li>
                     ))}
                   </ul>
@@ -317,24 +407,47 @@ export function AdvancedSection({
           </div>
         </div>
 
-        {/* ── Analysis Details — expert mode only (Task 10) ──────────── */}
-        {expertMode && (
-        <ExpertBlock>
+        {/* ── Analysis details (receipts) ──────────────────────────────
+            Parity audit: the prototype's receipts are for EVERYONE — the
+            expert-mode gate hid simulations/stability/graph-size from
+            normal users. Real values only; rows fail closed when absent. */}
+        <div data-testid="analysis-receipts">
           <h4 className={`${typography.panelHeader} text-text-header mb-1`}>
             Analysis details
           </h4>
           <dl className={`grid grid-cols-2 gap-x-4 gap-y-1.5 ${typography.panelMeta}`}>
-            {stabilityPct != null && (
-              <>
-                <dt className="text-text-light">Stability</dt>
-                <dd className="text-text-header">{stabilityPct}%</dd>
-              </>
+            {/* Result stability — display-safe verdict only (never the
+                deprecated recommendation_stability %). Fail-closed: a real
+                producer verdict ('robust'|'moderate'|'fragile'|'not_assessed')
+                renders its mapped label; an ABSENT verdict renders NO row —
+                never a "Robustness unknown" placeholder row (no row beats an
+                empty-value row, per the receipts fail-closed doctrine). */}
+            {robustnessVerdict != null && (
+              <div className="contents" data-testid="receipt-result-stability">
+                <dt className="text-text-light">Result stability</dt>
+                <dd className="text-text-header">{resultStabilityLabel}</dd>
+              </div>
             )}
+            {/* Simulations — path-conditional honesty: the count renders ONLY
+                when the current run actually carries it (V2 path). On a pure
+                V5 turn `meta` is stripped upstream so nSamples is null and the
+                row is omitted — never a per-option or stale-prior-run number. */}
             {nSamples != null && (
               <>
-                <dt className="text-text-light">Simulation quality</dt>
+                {/* Row 12: label carries the real wire field name (`meta.n_samples`). */}
+                <dt className="text-text-light" title="meta.n_samples">Simulation quality</dt>
                 <dd className="text-text-header">{nSamples.toLocaleString()} simulations</dd>
               </>
+            )}
+            {/* Freshness receipt — D1 (ask #16), UNRULED. Mounted branch is
+                selected by FRESHNESS_RECEIPT_D1_MODE; default 'omit' renders
+                nothing. 'translate' renders a curated phrase for known reason
+                codes only. */}
+            {FRESHNESS_RECEIPT_D1_MODE === 'translate' && freshnessReceiptCopy && (
+              <div className="contents" data-testid="receipt-freshness">
+                <dt className="text-text-light">Freshness</dt>
+                <dd className="text-text-header">{freshnessReceiptCopy}</dd>
+              </div>
             )}
             {fragileEdgeCount != null && (
               <>
@@ -366,15 +479,22 @@ export function AdvancedSection({
             )}
             {seedUsed != null && (
               <>
-                <dt className="text-text-light">Seed</dt>
+                {/* Row 12: label carries the real wire field name (`meta.seed`). */}
+                <dt className="text-text-light" title="meta.seed">Seed</dt>
                 <dd className="text-text-header font-mono">{seedUsed}</dd>
               </>
             )}
             {responseHash && (
               <div className="contents" data-testid="advanced-hash-row">
-                <dt className="text-text-light">Hash</dt>
+                {/* Local (V5-derived) hashes are labelled so they are never
+                    read as a producer/engine identity (a local hash is a
+                    non-crypto content digest, not an engine receipt). */}
+                <dt className="text-text-light">{responseHashIsLocal ? 'Hash (local)' : 'Hash'}</dt>
                 <dd className="text-text-header flex items-center gap-1">
-                  <span className="font-mono truncate" title={responseHash}>
+                  <span
+                    className="font-mono truncate"
+                    title={responseHashIsLocal ? `${responseHash} (locally derived — not an engine hash)` : responseHash}
+                  >
                     {responseHash.slice(0, 12)}…
                   </span>
                   <button
@@ -394,8 +514,7 @@ export function AdvancedSection({
               </div>
             )}
           </dl>
-        </ExpertBlock>
-        )}
+        </div>
       </div>
     </Accordion>
   )
@@ -403,38 +522,94 @@ export function AdvancedSection({
 
 // ── RiskAppetiteFilter ──────────────────────────────────────────────────────
 // D3: Moved here from ResultsBody to avoid circular imports. Transient display
-// filter — reweights which option is surfaced as winner (p10 / win prob / p90).
+// filter over the OUTCOME DISTRIBUTION — p10 / p50 / p90.
 
 export interface RiskAppetiteFilterProps {
   value: RiskAppetite
   onChange: (next: RiskAppetite) => void
+  /**
+   * F3: does this run carry a goal ranking at all? Defaults FALSE — the safe
+   * direction. A caller that omits it gets the neutral wording rather than an
+   * assertion that a goal ranking exists, so forgetting the prop under-claims
+   * instead of over-claiming.
+   */
+  hasGoalNumbers?: boolean
 }
 
-export function RiskAppetiteFilter({ value, onChange }: RiskAppetiteFilterProps) {
+/**
+ * The stored arm values are unchanged (`conservative` / `neutral` /
+ * `aggressive`) — renaming them would churn every consumer for nothing. This
+ * maps each to the quantity it ranks, which is what the re-anchoring
+ * actually changed: the middle arm used to rank the comparative quantity and
+ * now ranks p50, so all three arms are one quantity family (§6.5 item 5).
+ */
+export const LENS_ARM = {
+  conservative: 'cautious',
+  neutral: 'middle',
+  aggressive: 'optimistic',
+} as const satisfies Record<RiskAppetite, LensAppetite>
+
+/**
+ * Arm labels NAME THE QUANTITY. "Conservative / Neutral / Aggressive"
+ * described a mood; the control ranks percentiles of the outcome
+ * distribution, and saying so is what lets a reader tell the arms apart.
+ */
+const LENS_ARM_LABEL: Record<RiskAppetite, string> = {
+  conservative: 'Cautious (p10)',
+  neutral: 'Middle (p50)',
+  aggressive: 'Optimistic (p90)',
+}
+
+export function RiskAppetiteFilter({
+  value,
+  onChange,
+  hasGoalNumbers = false,
+}: RiskAppetiteFilterProps) {
   return (
     <div data-testid="winner-by-control">
       <div className="flex items-center gap-1.5">
         {/* Eye icon signals "view filter" (what you see right now), distinguishing
             this display-only control from the persistent "Risk profile" above. */}
         <Eye size={12} className="text-text-light flex-shrink-0" aria-hidden="true" />
-        <span className={`${typography.panelMeta} text-text-light`}>Winner by:</span>
-        {(['conservative', 'neutral', 'aggressive'] as const).map(appetite => (
+        {/* Re-anchored (§6 map): "Winner by:" named an endorsement the control
+            does not confer — it re-ranks a view, and now every arm re-ranks it
+            on the same quantity. The label says which. */}
+        {/*
+          ⭐ RE-ANCHORED 2026-08-01 (ROADMAP 2.237, P1-1). "Rank by outcome:"
+          replaced "Winner by:" — correctly retiring an endorsement noun — but
+          substituted a second false claim: the control does NOT rank. It
+          highlights one card; `sortOptionsForDisplay` takes no lens argument
+          and the list order, its truncation and its ordinals are all
+          winProbability's. The label now names what the control actually does.
+        */}
+        <span className={`${typography.panelMeta} text-text-light`}>Highlight by outcome:</span>
+        {/* Driven off LENS_ARM's own keys — this was a THIRD hardcoded arm
+            list beside LENS_ARM and LENS_ARM_LABEL, and a fourth arm added to
+            those two would have rendered nowhere. `satisfies
+            Record<RiskAppetite, LensAppetite>` on LENS_ARM makes the cast a
+            derived fact rather than an assertion: the keys ARE RiskAppetite,
+            Object.keys just loses that. */}
+        {(Object.keys(LENS_ARM) as RiskAppetite[]).map(appetite => (
           <button
             key={appetite}
             type="button"
             onClick={() => onChange(appetite)}
-            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} border cursor-pointer capitalize ${
+            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} border cursor-pointer ${
               value === appetite
                 ? 'border-info/60 text-info bg-transparent'
                 : 'border-panel-border text-text-light bg-transparent hover:border-info/30 hover:text-text-body'
             }`}
           >
-            {appetite.charAt(0).toUpperCase() + appetite.slice(1)}
+            {LENS_ARM_LABEL[appetite]}
           </button>
         ))}
       </div>
+      {/* Paul's ruling 2026-07-12: honest lens framing — this control is a
+          view lens over the option cards only. Re-anchored 2026-07-31: the
+          un-anchored noun "the overall recommendation" is replaced by the
+          thing that is actually unchanged, named as a quantity. */}
       <p className={`${typography.panelMeta} text-text-light italic mt-1`}>
-        Changes how the leading option is calculated.
+        A view lens over the outcome range. {LENS_COPY.unchanged(hasGoalNumbers)}
       </p>
     </div>
   )

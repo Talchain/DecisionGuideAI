@@ -25,36 +25,13 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DebugPanelV2 } from './debug/DebugPanelV2'
+// P1 fold: the visibility decision now lives in a tiny EAGER module so the
+// LazyDebugPanel mount can be gated in ReactFlowGraph without loading this
+// heavy chunk. The component keeps re-checking (mount + popstate) as before.
+import { shouldShowDebugPanel } from './debug/debugPanelVisibility'
 
 // Window.__OLUMI_DEBUG augmentation moved to src/types/global.d.ts in Brief
 // 5.7 close-out follow-up so it is no longer co-located with this component.
-
-/**
- * Check if debug panel should be visible
- */
-function shouldShowDebugPanel(): boolean {
-  // Only in staging or development environment
-  const env = import.meta.env.VITE_APP_ENV || 'development'
-  const allowedEnvs = ['staging', 'development']
-  if (!allowedEnvs.includes(env)) return false
-
-  // Check URL parameter - handle both regular and HashRouter URLs
-  // Accepts ?diag (bare param) or ?diag=1
-  const searchParams = new URLSearchParams(window.location.search)
-  if (searchParams.has('diag')) return true
-
-  // Check hash for HashRouter query params (e.g., #/canvas?diag or #/canvas?diag=1)
-  const hashParts = window.location.hash.split('?')
-  if (hashParts.length > 1) {
-    const hashParams = new URLSearchParams(hashParts[1])
-    if (hashParams.has('diag')) return true
-  }
-
-  // Check global flag (console: window.__OLUMI_DEBUG = true)
-  if (window.__OLUMI_DEBUG === true) return true
-
-  return false
-}
 
 // Debug panel resizing constraints
 const MIN_PANEL_WIDTH = 360

@@ -10,6 +10,8 @@
  * happen in `buildAnalysisHeroViewModel`.
  */
 
+import type { DskGrounding } from '../utils/decisionQualityPrompts'
+
 export type HeroState = 'weak' | 'moderate' | 'reflect' | 'strong'
 
 export type RowCategory =
@@ -63,6 +65,14 @@ export interface HeroRow {
   chatPrompt: string
 }
 
+/**
+ * Lane 1 (P1): DSK science provenance for the main key question — see the
+ * canonical definition + `deriveDskGrounding` (the one home of the
+ * honest-absence rule) in `../utils/decisionQualityPrompts`. Re-exported here
+ * (2.466) so existing V17 imports keep working; the shape did not change.
+ */
+export type { DskGrounding } from '../utils/decisionQualityPrompts'
+
 export interface KeyQuestion {
   /** Main question text — glossary-scanned post-interpolation. */
   text: string
@@ -70,6 +80,14 @@ export interface KeyQuestion {
   extras: string[]
   /** Optional reply chips shown beneath the question. */
   chips: string[]
+  /** DSK provenance for `text`'s source prompt — see DskGrounding. */
+  grounding?: DskGrounding
+  /**
+   * 2.491 — true when CEE positively verdicted the source prompt as `general`
+   * (unattested). Renders the badge's negative twin so absence-of-badge stops
+   * being silent. Never inferred from `!grounding`: see `isGeneralGuidance`.
+   */
+  generalGuidance?: boolean
 }
 
 export interface AlsoLink {

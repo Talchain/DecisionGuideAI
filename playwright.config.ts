@@ -24,6 +24,13 @@ export default defineConfig({
     port: 5177,
     env: {
       VITE_E2E: '1',
+      // The e2e suite drives the developer scaffolding (/#/plot, /#/plc,
+      // /#/sandbox-v1) and the catch-all POC sandbox (/#/sandbox,
+      // `#/sandbox&scenario=<b64>`). Those are gated off in every deployed
+      // build by the `devRoutes` flag (src/flags.ts); the suite opts in here so
+      // it keeps testing them. Set ONLY for this local dev server — never in
+      // netlify.toml.
+      VITE_ENABLE_DEV_ROUTES: '1',
       VITE_FEATURE_SSE: '1',
       VITE_FEATURE_HINTS: '1',
       VITE_SUPABASE_URL: 'http://localhost:54321',

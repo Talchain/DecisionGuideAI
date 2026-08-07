@@ -3,15 +3,17 @@
  *
  * Priority: orchestrator GuidanceItems > static coaching text.
  * Maximum ONE coaching card visible. If a GuidanceItem exists for this element,
- * it renders instead of the static fallback. "Ask about this" pre-fills the chat
- * input via the guidance store's registered _prefillChat callback (lets the user
- * edit before sending). Falls back to _sendMessage if prefill unavailable.
+ * it renders instead of the static fallback. "Ask about this" SENDS the question
+ * to Olumi immediately (via the guidance store's registered _sendMessage) and
+ * reveals the chat. Falls back to prefilling the composer only if the send wire is
+ * unavailable.
  *
  * Replaces the separate CoachingCard + InspectorGuidanceSection pattern.
  */
 
 import { useMemo, useCallback } from 'react'
-import { useGuidanceStore } from '../../../stores/guidanceStore'
+import { useGuidanceStore, compareGuidanceDisplayOrder } from '../../../stores/guidanceStore'
+import { revealOlumiSurface } from '../../../conversation/revealOlumi'
 import { CoachingCard } from './CoachingCard'
 import { resolveAskTemplate } from '../inspectorStrings'
 
@@ -50,12 +52,13 @@ export function InspectorCoaching({
     )
     if (items.length === 0) return null
     // Direct target_object.id matches take precedence over related_elements
-    // matches. Within each group, highest priority wins.
+    // matches. Within each group, the shared display-order doctrine decides
+    // (UI-SEM-085: producer rank ascending; unranked by urgency descending).
     return [...items].sort((a, b) => {
       const aDirect = a.target_object?.id === elementId ? 1 : 0
       const bDirect = b.target_object?.id === elementId ? 1 : 0
       if (bDirect !== aDirect) return bDirect - aDirect
-      return b.priority - a.priority
+      return compareGuidanceDisplayOrder(a, b)
     })[0]
   }, [guidanceItems, elementId])
 
@@ -65,21 +68,26 @@ export function InspectorCoaching({
     [panelType, labelContext],
   )
 
-  // Pre-fill chat input (preferred) or send immediately (fallback)
-  const prefillOrSend = useCallback((text: string) => {
+  // Send the text to Olumi immediately (auto-send) and reveal the chat. Prose falls
+  // back to prefilling the composer when the send wire is unavailable; slash
+  // commands pass allowPrefillFallback:false because a prefilled '/exercise …'
+  // would sit in the composer as literal text instead of executing.
+  const sendToChat = useCallback((text: string, opts?: { allowPrefillFallback?: boolean }) => {
     const state = useGuidanceStore.getState()
-    if (state._prefillChat) {
-      state._prefillChat(text)
-    } else if (state._sendMessage) {
+    if (state._sendMessage) {
       state._sendMessage(text)
+      revealOlumiSurface()
+    } else if (opts?.allowPrefillFallback !== false && state._prefillChat) {
+      state._prefillChat(text)
+      revealOlumiSurface()
     }
   }, [])
 
-  // Handle "Ask about this" — pre-fill chat with contextual question
+  // Handle "Ask about this" — send the contextual question to Olumi
   const handleAsk = useCallback(() => {
     if (!questionText) return
-    prefillOrSend(questionText)
-  }, [questionText, prefillOrSend])
+    sendToChat(questionText)
+  }, [questionText, sendToChat])
 
   // Handle guidance item action
   const handleGuidanceAction = useCallback(() => {
@@ -88,17 +96,17 @@ export function InspectorCoaching({
 
     switch (action.type) {
       case 'discuss':
-        prefillOrSend(action.prompt)
+        sendToChat(action.prompt)
         break
       case 'run_exercise':
-        // Exercises send immediately — not a pre-fill use case
-        useGuidanceStore.getState()._sendMessage?.(`/exercise ${action.exercise}`)
+        // Slash command: send-only (no prefill fallback — see sendToChat).
+        sendToChat(`/exercise ${action.exercise}`, { allowPrefillFallback: false })
         break
       default:
         // For other action types, fall back to "Ask about this"
-        if (questionText) prefillOrSend(questionText)
+        if (questionText) sendToChat(questionText)
     }
-  }, [topGuidanceItem, questionText, prefillOrSend])
+  }, [topGuidanceItem, questionText, sendToChat])
 
   // Determine text and action
   const text = topGuidanceItem?.title

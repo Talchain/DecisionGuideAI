@@ -22,7 +22,7 @@
 import { useMemo, type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../../canvas/store'
-import { useAnalysisFreshnessState } from '../../lib/useAnalysisFreshnessState'
+import { useAnalysisTrust } from '../../canvas/hooks/useAnalysisTrust'
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/conversation/types'
 import { buildV5PatchReceipt, buildV5PatchDeps } from './v5GraphPatchDescription'
 
@@ -43,15 +43,19 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
   )
 
   // Workstream 1, Phase 3c — distinct freshness vs structural readiness.
-  // When the mutation just landed AND a prior analysis is now out of date,
-  // surface a small hint inline with the receipt so the user understands
-  // the impact without navigating to the results panel. We deliberately
-  // only surface the 'stale' verdict here; 'fresh' / 'none' / 'unknown'
+  // When the mutation just landed AND the analysis is now definitely out of
+  // date, surface a small hint inline with the receipt so the user understands
+  // the impact without navigating to the results panel.
+  //
+  // Sourced from the composed trust semantic (`useAnalysisTrust` — NOT the
+  // legacy `useAnalysisFreshnessState`, whose reducer could fabricate 'stale'
+  // from `graphEditedSinceLastRun` when wire freshness was absent/unknown).
+  // We deliberately only surface the 'changed' semantic here (CEE 'stale' OR
+  // a retained-fresh-now-dirtied); 'cannot_confirm' / 'current' / 'none'
   // would be redundant noise alongside the run/rerun chip the CEE already
   // emits.
-  const freshness = useAnalysisFreshnessState()
-  const showStaleHint =
-    receipt.status === 'applied' && freshness.freshness === 'stale'
+  const trustSemantic = useAnalysisTrust().semantic
+  const showStaleHint = receipt.status === 'applied' && trustSemantic === 'changed'
 
   const isApplied = receipt.status === 'applied'
 

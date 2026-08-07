@@ -32,10 +32,14 @@ import { graphToV1Request, computeClientHash, toCanonicalRun, type ReactFlowGrap
 import { shouldUseSync, isRetryableErrorCode, isRetryableStatus } from './v1/constants'
 import { getDiagnosticsFromCompleteEvent, getGraphCaps } from './v1/sdkHelpers'
 
+// ⚠ NAMED, LITERAL env reads only. This was `(import.meta as any)?.env || {}` —
+// a bare reference Vite cannot statically narrow, so it inlined the ENTIRE env
+// object (every VITE_* the deploy defines, with values) into this chunk. The two
+// named reads below are narrowed to exactly two literals. Pinned by
+// `scripts/ci/assert-bundle-env-allowlist.mjs`.
 const ENABLE_HTTPV1_DEBUG: boolean = (() => {
   try {
-    const env: any = (import.meta as any)?.env || {}
-    return !!(env?.DEV) && String(env?.VITE_DEBUG_HTTPV1) === '1'
+    return !!import.meta.env?.DEV && String(import.meta.env?.VITE_DEBUG_HTTPV1) === '1'
   } catch {
     return false
   }
@@ -156,14 +160,14 @@ function mapV1ResultToReport(
 
   // Use v1.2 bands for results (with fallback to legacy summary)
   // Contract v1.1: results.most_likely.outcome (nested) or result.summary.likely (legacy)
-  const conservative = canonicalRun.bands.p10
+  const conservative = canonicalRun.bands?.p10
     ?? result.results?.conservative?.outcome
     ?? result.summary?.conservative ?? 0
-  const likely = canonicalRun.bands.p50
+  const likely = canonicalRun.bands?.p50
     ?? result.results?.most_likely?.outcome
     ?? result.summary?.most_likely
     ?? result.summary?.likely ?? 0
-  const optimistic = canonicalRun.bands.p90
+  const optimistic = canonicalRun.bands?.p90
     ?? result.results?.optimistic?.outcome
     ?? result.summary?.optimistic ?? 0
   const units = result.summary?.units || 'count'
@@ -363,6 +367,54 @@ function mapV1ErrorToUI(error: V1Error): ErrorV1 {
 /**
  * Map template graph to V1 request with validation and deterministic hash
  */
+/**
+ * Extract the goal threshold from a goal node, tolerating every field name
+ * used across the app's history.
+ *
+ * GoalPanel/GoalThresholdEditor persist the user's target under
+ * `data.goal_threshold` (+ `goal_threshold_raw`) — the old value/
+ * baseline_value/target chain never read them, so a target set in the
+ * inspector silently vanished from this request and reruns could not change
+ * goal probabilities.
+ *
+ * Exported for wire-shape tests.
+ */
+export function extractGoalThreshold(goalNode: any): number | undefined {
+  const candidates = [
+    goalNode?.data?.goal_threshold,
+    goalNode?.data?.goal_threshold_raw,
+    goalNode?.data?.value,
+    goalNode?.data?.baseline_value,
+    goalNode?.data?.target,
+    goalNode?.value,
+    goalNode?.baseline_value,
+    goalNode?.target,
+  ]
+  for (const candidate of candidates) {
+    if (candidate == null) continue
+    const parsed = typeof candidate === 'string'
+      ? (candidate.trim() === '' ? undefined : Number(candidate))
+      : candidate
+    if (typeof parsed !== 'number' || isNaN(parsed)) continue // keep trying later aliases
+    // UI-SEM-058 discipline: the goal editors store thresholds in USER UNITS
+    // (raw-first) while PLoT's `goal_threshold` wire contract is normalised
+    // 0-1, and this adapter has no scale cap to convert with. Anything that
+    // cannot be proven normalised is OMITTED rather than sent at the wrong
+    // scale. NOTE the engine does NOT treat omission as "no goal analysis":
+    // PLoT V1's detectGoalThreshold falls back to node.threshold →
+    // baseline_value → 100 and still computes option_probabilities — omission
+    // defers to that server-side default rather than corrupting it with a
+    // raw client value.
+    //
+    // Deliberately FIRST-parseable-wins (then the normalised gate): the
+    // aliases name the same quantity at different ages, so if the freshest
+    // parseable alias is out of range we omit rather than fall through to an
+    // older alias whose agreement would be coincidence, not confirmation.
+    return parsed >= 0 && parsed <= 1 ? parsed : undefined
+  }
+  return undefined
+}
+
 function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {
   // Cast to ReactFlowGraph for type safety
   const rfGraph: ReactFlowGraph = {
@@ -417,8 +469,10 @@ export const httpV1Adapter = {
       // Add debug flag based on request flag or feature flag (VITE_FEATURE_COMPARE_DEBUG)
       let includeDebug = input.include_debug
       try {
-        const env: any = (import.meta as any)?.env || {}
-        if (includeDebug === undefined && String(env?.VITE_FEATURE_COMPARE_DEBUG) === '1') {
+        // ⚠ NAMED, LITERAL read. `(import.meta as any)?.env || {}` puts `env` in
+        // VALUE position, which Vite cannot narrow — it inlined the whole env
+        // object here. See `src/lib/plotAuthHeaders.ts` for the measurement.
+        if (includeDebug === undefined && String(import.meta.env?.VITE_FEATURE_COMPARE_DEBUG) === '1') {
           includeDebug = true
         }
       } catch {
@@ -446,14 +500,8 @@ export const httpV1Adapter = {
       )
       if (goalNode) {
         v1Request.goal_node = goalNode.id
-        // Extract goal_threshold from various possible data fields
-        const goalThreshold = goalNode.data?.value
-          ?? goalNode.data?.baseline_value
-          ?? goalNode.data?.target
-          ?? (goalNode as any).value
-          ?? (goalNode as any).baseline_value
-          ?? (goalNode as any).target
-        if (typeof goalThreshold === 'number' && !isNaN(goalThreshold)) {
+        const goalThreshold = extractGoalThreshold(goalNode)
+        if (goalThreshold !== undefined) {
           v1Request.goal_threshold = goalThreshold
         }
       }

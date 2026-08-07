@@ -78,7 +78,7 @@ export function DebugTray({
     })
   }
 
-  if (!import.meta.env.DEV && !import.meta.env.VITE_SHOW_DEBUG) {
+  if (!import.meta.env.DEV && !import.meta.env?.VITE_SHOW_DEBUG) {
     return null
   }
 

@@ -46,8 +46,20 @@ const INVERSE_MAP: Record<StageType, ScenarioStage> = {
   review: 'optimise',
 }
 
-export function v5StageToScenarioStage(stage: StageType): ScenarioStage {
-  return INVERSE_MAP[stage]
+/**
+ * Returns null for any value outside the canonical wire vocabulary.
+ *
+ * Fails closed by contract: schemas 0.19.0 pins `Stage` as the canonical
+ * `stage_indicator` vocabulary and directs consumers to treat an
+ * unrecognised (e.g. future) member as "no stage signal" rather than an
+ * error. The return type must therefore admit null — it previously claimed
+ * a total `ScenarioStage` while returning `undefined` for anything off the
+ * map, which would have put `undefined` into the canvas store (and, via
+ * persistence, into `scenarios.stage`, whose CHECK constraint would reject
+ * it). Both call sites write through `setCurrentStage`, which accepts null.
+ */
+export function v5StageToScenarioStage(stage: StageType): ScenarioStage | null {
+  return INVERSE_MAP[stage] ?? null
 }
 
 /**

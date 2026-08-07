@@ -29,10 +29,20 @@ vi.mock('../../stores/guidanceStore', () => ({
   ),
 }))
 
-vi.mock('../../../flags', () => ({
-  isOrchestratorRenderingV2Enabled: () => false,
-  isDeterministicCeeEnabled: () => false,
-}))
+// Preserve every real export via importOriginal — MessageBubble's transitive
+// imports (services/threadService -> lib/supabase) read other flags
+// (isE2EEnabled) that a hand-listed replacement mock silently drops,
+// crashing module init with "No isE2EEnabled export is defined on the
+// mock" (same missing-export class as the useConversation.hook.spec.ts
+// v5Adapter mock fixed in this same lane).
+vi.mock('../../../flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../flags')>()
+  return {
+    ...actual,
+    isOrchestratorRenderingV2Enabled: () => false,
+    isDeterministicCeeEnabled: () => false,
+  }
+})
 
 describe('MessageBubble — chip-initiated compact indicator', () => {
   it('renders compact indicator for chipInitiated user messages', () => {

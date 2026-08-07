@@ -21,6 +21,7 @@ import {
   constraintConfidenceColour,
   CONSTRAINT_CONFIDENCE_THRESHOLDS,
 } from '../../types/constraints'
+import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 
 export interface SuccessTargetRowProps {
   /** Current goal threshold value (null = not set) */
@@ -60,9 +61,20 @@ function ConstraintIcon({ prob }: { prob: number }) {
 
 /** Single constraint row */
 function ConstraintRow({ item }: { item: ConstraintItem }) {
-  const pct = Math.round(item.prob_satisfied * 100)
+  // ROADMAP 2.333: was `${Math.round(item.prob_satisfied * 100)}%`, so a
+  // constraint satisfied in 7 of 10000 runs printed "0%" — a measured,
+  // non-zero probability rendered as impossibility.
+  //
+  // The COMPARATIVE register is the right one here, not the goal register:
+  // constraint satisfaction is a hit frequency over simulated scenarios
+  // ("satisfied in 0 of n runs"), the same shape as "came out ahead in n of
+  // N". That means an EXACT zero deliberately keeps reading "0%" — the floor
+  // exists to stop a non-zero value printing as zero, not to stop zero
+  // printing. `null` samples: this surface holds a constraint item, not the
+  // option object, so it has no per-option count to pass; the floored
+  // fallback arm applies and understates rather than inventing a resolution.
+  const readout = formatProbabilityWithResolution(item.prob_satisfied, null)
   const colour = constraintConfidenceColour(item.prob_satisfied)
-  const isMissed = item.prob_satisfied < 0.5
 
   return (
     <div
@@ -75,7 +87,7 @@ function ConstraintRow({ item }: { item: ConstraintItem }) {
           {item.label} {renderOperator(item.operator)} {item.threshold}
         </span>
         <span className={`${typography.panelBody} ${colour} tabular-nums flex-shrink-0`}>
-          {pct}%
+          {readout}
         </span>
         {item.binding && (
           <span className={`${typography.panelMeta} text-danger flex-shrink-0`}>
@@ -83,12 +95,38 @@ function ConstraintRow({ item }: { item: ConstraintItem }) {
           </span>
         )}
       </div>
-      {/* Task M.1.2 Step 2: Display failure margin when constraint is missed */}
-      {isMissed && item.failure_margin_median != null && (
-        <p className={`${typography.panelMeta} text-warning ml-6`}>
-          Typically misses by {item.failure_margin_median} {/* TODO: Add unit from parent context if available */}
-        </p>
-      )}
+      {/*
+        ⭐ L62 (2026-08-04) — THE "TYPICALLY MISSES BY {N}" LINE IS REMOVED.
+
+        It rendered `failure_margin_median` as a DISTANCE the user is short of
+        their target. L60 showed at the bytes what that number is: PLoT
+        denormalises the constraint's shortfall by multiplying a CHANGE-frame
+        Monte-Carlo sample by the goal-threshold cap and subtracting it from the
+        LEVEL target — on the captured probe, "£200,678 short" out of
+        250000 − (p50 0.15783 × 312500). The two quantities are not in the same
+        frame, so the subtraction has no meaning, and the result is a precise,
+        confident, fabricated distance. It travelled with the same structurally
+        ≈0 probability this component's sibling surfaces now withhold
+        (`selectGoalProbability`, basis `'joint_goal_withheld'`), and it is the
+        same defect wearing units instead of a percentage.
+
+        It also shipped the number RAW with a standing `TODO: add unit`, so a
+        margin of 0.563 (a fraction) and one of 18.0 (a head-count) both
+        rendered as bare digits with no unit at all.
+
+        REINSTATEMENT TRIGGER — the same one the probability gate carries: a
+        producer-side frame attestation on the constraint channel, such that a
+        shortfall can be shown to be a distance in the user's units rather than
+        an arithmetic artefact. Nothing on the wire supplies that today.
+
+        SCOPE, STATED HONESTLY: this component is not currently mounted (the
+        hero panel supersedes it) and its `ConstraintAnalysis` input is stripped
+        by `responseMapper` while `PLOT_PER_OPTION_CONSTRAINTS_SUSPECT` holds,
+        so this line was NOT reaching users at this tip. It is removed at the
+        source anyway — it is the repo's only render of `failure_margin_median`,
+        and leaving it would mean the fabricated distance returns the moment
+        either of those two conditions changes.
+      */}
     </div>
   )
 }
@@ -148,7 +186,13 @@ export function SuccessTargetRow({
 
   // ── Multi-constraint display ──────────────────────────────────────────────
   if (hasConstraints) {
-    const jointPct = Math.round(constraintAnalysis.joint_probability * 100)
+    // Same register, same reason as the per-constraint rows above: the joint
+    // figure is "met every target in n of N runs", so it floors a non-zero
+    // value and keeps a true zero as "0%".
+    const jointReadout = formatProbabilityWithResolution(
+      constraintAnalysis.joint_probability,
+      null,
+    )
     const jointColour = constraintConfidenceColour(constraintAnalysis.joint_probability)
 
     return (
@@ -157,7 +201,7 @@ export function SuccessTargetRow({
         <div className="flex items-center justify-between min-h-[28px]">
           <span className={`${typography.panelHeader} text-text-header`}>
             Meeting all targets:{' '}
-            <span className={jointColour}>{jointPct}%</span>
+            <span className={jointColour}>{jointReadout}</span>
           </span>
           <button
             type="button"
@@ -215,6 +259,7 @@ export function SuccessTargetRow({
               disabled={isRunning}
               className={`w-[100px] px-2 py-1 ${typography.panelBody} border border-info rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info tabular-nums`}
               aria-label="Edit success target value"
+              data-testid="success-target-input"
             />
             <button
               type="button"
@@ -237,6 +282,7 @@ export function SuccessTargetRow({
             onClick={handleStartEdit}
             disabled={isRunning}
             className={`${typography.panelBody} text-info hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+            data-testid="success-target-set-button"
           >
             Set target
           </button>

@@ -2,8 +2,9 @@
  * AnalysisHeroV17 — P1 fix regression guards.
  *
  * Locks in the post-review fixes:
- *   P1.1  prefillChat must NEVER auto-send when _prefillChat is unavailable.
- *         Only the reflect-state CTA (via sendMessage) may auto-send.
+ *   P1.1  hero actions AUTO-SEND their prompt to Olumi via _sendMessage and gate
+ *         on its availability (per Paul's 2026-07-01 decision — reverses the
+ *         earlier Fix-9 'zero auto-send' directive).
  *   P1.2  Actions menu must not contain "Olumi inferred" overclaim.
  *   P1.3  When v17 renders, TriageActionCardsBody suppresses its
  *         unified-triage-queue + stability narrative + AlsoConsiderDisclosure
@@ -99,18 +100,21 @@ function gap(
   suggestion: string | undefined = 'Compare this estimate against recent data.',
 ): EvidenceGapItem {
   return {
-    factorId, factorLabel: label, confidence: 60, voi, evpiPp: voi * 50, suggestion, targetNodeId: factorId,
+    factorId, factorLabel: label, confidence: 60, voi, suggestion, targetNodeId: factorId,
   } as EvidenceGapItem
 }
 
-// ── P1.1 — prefillChat must never auto-send ────────────────────────────────
+// ── P1.1 — hero actions auto-send to Olumi ─────────────────────────────────
+// Per Paul's 2026-07-01 decision these hero prompts SEND immediately (reversing
+// the earlier Fix-9 'zero auto-send' directive) via the reliably-registered
+// _sendMessage wire; the buttons gate on _sendMessage availability.
 
-describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
+describe('AnalysisHeroV17 — P1.1: actions auto-send to Olumi', () => {
   beforeEach(() => {
     useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null })
   })
 
-  it('moderate CTA: when _prefillChat is null, CTA stays visible with "Focus key estimate" label and focuses on click (Fix 6)', () => {
+  it('moderate CTA: visible with "Check {target}" label (chat available), focuses AND sends on click', () => {
     const sendSpy = vi.fn()
     useGuidanceStore.setState({ _prefillChat: null, _sendMessage: sendSpy })
     const focusSpy = vi.fn()
@@ -124,17 +128,16 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
       />,
     )
     const cta = screen.getByTestId('hero-v17-footer-cta') as HTMLButtonElement
-    // The moderate-state CTA stays visible even when chat is closed
-    // (Fix 6) because its focus side-effect is still useful. The label
-    // flips to "Focus {target}" mirror (2026-05-21 corrections) — Row 1
-    // is 'Verify Cost', so the cleaned target is 'Cost'.
-    expect(cta.textContent).toBe('Focus Cost')
+    // Chat is available (_sendMessage present) → the moderate CTA reads
+    // "Check {target}" (Row 1 is 'Verify Cost', so the cleaned target is 'Cost').
+    // The softer "Focus {target}" label is the chat-closed variant.
+    expect(cta.textContent).toBe('Check Cost')
     fireEvent.click(cta)
     expect(focusSpy).toHaveBeenCalledWith('n_c')  // focus runs
-    expect(sendSpy).not.toHaveBeenCalled()        // never auto-sends
+    expect(sendSpy).toHaveBeenCalledTimes(1)      // and the prompt is sent
   })
 
-  it('moderate CTA: when _prefillChat IS available, focus runs THEN prefill (no auto-send)', () => {
+  it('moderate CTA: focus runs THEN the prompt is sent (via _sendMessage, not _prefillChat)', () => {
     const prefillSpy = vi.fn()
     const sendSpy = vi.fn()
     useGuidanceStore.setState({ _prefillChat: prefillSpy, _sendMessage: sendSpy })
@@ -150,13 +153,12 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
     )
     fireEvent.click(screen.getByTestId('hero-v17-footer-cta'))
     expect(focusSpy).toHaveBeenCalledWith('n_c')
-    expect(prefillSpy).toHaveBeenCalledTimes(1)
-    expect(sendSpy).not.toHaveBeenCalled()  // moderate never auto-sends
+    expect(sendSpy).toHaveBeenCalledTimes(1)
+    expect(prefillSpy).not.toHaveBeenCalled()  // auto-send, not prefill
   })
 
-  it('row AI action: when _prefillChat is null, the button is HIDDEN (Fix 6)', () => {
-    const sendSpy = vi.fn()
-    useGuidanceStore.setState({ _prefillChat: null, _sendMessage: sendSpy })
+  it('row AI action: when no chat can receive a message (_sendMessage null), the button is HIDDEN', () => {
+    useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null })
 
     render(
       <AnalysisHeroV17
@@ -165,20 +167,17 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
         fragileEdgeCount={0}
       />,
     )
-    // Fix 6 swapped the earlier disabled-button treatment for full
-    // hiding. Edit/Confirm stay visible (they don't need prefill); AI,
-    // Discuss, Add, Challenge, Brief disappear when chat is closed.
+    // Send-dependent actions (AI, Discuss, Add, Challenge, Brief) disappear when
+    // no chat can receive a message. Edit/Confirm stay (they don't need chat).
     const row = screen.getByTestId('hero-v17-input-rows').querySelector('article')
     expect(row).toBeTruthy()
     expect(row!.querySelector('[aria-label="Work through with AI"]')).toBeNull()
     expect(row!.querySelector('[aria-label="Discuss with AI"]')).toBeNull()
-    // The evidence row has a target node → Edit + Confirm should still render.
     expect(row!.querySelector('[aria-label="Edit"]')).toBeTruthy()
     expect(row!.querySelector('[aria-label="Confirm"]')).toBeTruthy()
-    expect(sendSpy).not.toHaveBeenCalled()
   })
 
-  it('REFLECT CTA: prefills via _prefillChat — does NOT auto-send (Fix 9)', () => {
+  it('REFLECT CTA: sends the challenge prompt to Olumi via _sendMessage', () => {
     const sendSpy = vi.fn()
     const prefillSpy = vi.fn()
     useGuidanceStore.setState({ _prefillChat: prefillSpy, _sendMessage: sendSpy })
@@ -197,17 +196,15 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
       />,
     )
     const cta = screen.getByTestId('hero-v17-footer-cta')
-    // Fix 9: label renamed to avoid implying a formal devil's advocacy
-    // handler (run_devils_advocacy is Needs handler in V5 contract v1.3).
     expect(cta.textContent).toBe('Test the result')
     fireEvent.click(cta)
-    // Prefill is called; sendMessage (auto-send) never fires.
-    expect(prefillSpy).toHaveBeenCalledTimes(1)
-    expect(prefillSpy.mock.calls[0][0]).toContain('Challenge the current leading option')
-    expect(sendSpy).not.toHaveBeenCalled()
+    // The challenge prompt is SENT to Olumi; _prefillChat is not used.
+    expect(sendSpy).toHaveBeenCalledTimes(1)
+    expect(sendSpy.mock.calls[0][0]).toContain('Challenge the current leading option')
+    expect(prefillSpy).not.toHaveBeenCalled()
   })
 
-  it('prefill is preferred over send when _prefillChat IS available (no double-fire)', () => {
+  it('sends via _sendMessage (not _prefillChat) when both are available (no double-fire)', () => {
     const sendSpy = vi.fn()
     const prefillSpy = vi.fn()
     useGuidanceStore.setState({ _prefillChat: prefillSpy, _sendMessage: sendSpy })
@@ -220,8 +217,8 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
       />,
     )
     fireEvent.click(screen.getByTestId('hero-v17-footer-cta'))
-    expect(prefillSpy).toHaveBeenCalledTimes(1)
-    expect(sendSpy).not.toHaveBeenCalled()
+    expect(sendSpy).toHaveBeenCalledTimes(1)
+    expect(prefillSpy).not.toHaveBeenCalled()
   })
 })
 

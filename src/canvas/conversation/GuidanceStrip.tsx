@@ -8,10 +8,13 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { X as XIcon, AlertTriangle, Lightbulb } from 'lucide-react'
 import { typography } from '../../styles/typography'
-import { useGuidanceStore, selectTopItem, type GuidanceItem, type GuidanceAction } from '../stores/guidanceStore'
+import { useGuidanceStore, selectTopItem, compareGuidanceDisplayOrder, type GuidanceItem, type GuidanceAction } from '../stores/guidanceStore'
+import { isDecisionOverviewEnabled } from '@/flags'
 import styles from './Conversation.module.css'
 import { trackGuidance, type GuidanceEventPayload } from '../../telemetry/guidanceEvents'
+import { bucketDwellMs } from '../../telemetry/measurementConfig'
 import { useCanvasStore } from '../store'
+import { focusExistingTarget } from '../utils/focusHelpers'
 import { scrollToField } from './utils/scrollToField'
 import { beginInteractionChain } from '../../lib/debug-state'
 
@@ -21,7 +24,9 @@ const FOCUS_DEBOUNCE_MS = 150
 // Category badge helpers
 // ---------------------------------------------------------------------------
 
-function categoryLabel(cat: GuidanceItem['category']): string {
+// Render helpers take a DEFINED category — the badge that calls them is
+// suppressed when the producer sent none (absent field = absent, visually too).
+function categoryLabel(cat: NonNullable<GuidanceItem['category']>): string {
   switch (cat) {
     case 'must_fix': return 'Must fix'
     case 'should_fix': return 'Should fix'
@@ -30,7 +35,7 @@ function categoryLabel(cat: GuidanceItem['category']): string {
   }
 }
 
-function categoryBadgeClass(cat: GuidanceItem['category']): string {
+function categoryBadgeClass(cat: NonNullable<GuidanceItem['category']>): string {
   switch (cat) {
     case 'must_fix': return styles.guidanceBadgeDanger
     case 'should_fix': return styles.guidanceBadgeInfo
@@ -76,6 +81,11 @@ function coachingItemType(cat: GuidanceItem['category']): GuidanceEventPayload['
     case 'could_fix':
     case 'technique':
       return 'technique_rec'
+    // Category absent (producer sent none): neutral telemetry bucket — a
+    // required enum with no "unknown" member, so this is a classification
+    // fallback for the event stream only, never user-facing copy.
+    default:
+      return 'bias_alert'
   }
 }
 
@@ -100,7 +110,26 @@ export const GuidanceStrip = memo(function GuidanceStrip({
   onScrollToPatch,
   onOpenInspector,
 }: GuidanceStripProps) {
-  const topItem = useGuidanceStore(selectTopItem)
+  // Codex SF11: when the Decision Overview card is enabled it OWNS the
+  // highest-priority discuss-type item ("Olumi's top question") — this strip
+  // must not render the same item twice. Skip exactly that item and fall to
+  // the next-highest; ownership is flag-gated so flag-off is unchanged.
+  const topItem = useGuidanceStore((s) => {
+    const base = selectTopItem(s)
+    if (!base || !isDecisionOverviewEnabled()) return base
+    const discussItems = s.guidanceItems.filter((i) => i.primary_action.type === 'discuss')
+    if (discussItems.length === 0) return base
+    // Display-order doctrine (UI-SEM-085): all "top item" picks go through
+    // compareGuidanceDisplayOrder — producer rank ascending, never a
+    // hand-rolled priority reduce.
+    const topOf = (items: GuidanceItem[]) =>
+      items.reduce((best, i) => (compareGuidanceDisplayOrder(i, best) < 0 ? i : best), items[0])
+    const overviewOwned = topOf(discussItems)
+    if (base.item_id !== overviewOwned.item_id) return base
+    const rest = s.guidanceItems.filter((i) => i.item_id !== overviewOwned.item_id)
+    if (rest.length === 0) return null
+    return topOf(rest)
+  })
   // Track the items array reference — when a new envelope arrives, the reference
   // changes and we should allow previously-dismissed items to show again.
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
@@ -117,10 +146,18 @@ export const GuidanceStrip = memo(function GuidanceStrip({
 
   // Telemetry: deduplicate COACHING_SHOWN — fire once per item_id per session
   const shownIdsRef = useRef<Set<string>>(new Set())
+  /**
+   * When the CURRENTLY-shown item was first shown. Keyed by item_id so a dwell
+   * is never attributed to a different item than the one it was timed on — the
+   * strip swaps its top item as coaching changes.
+   */
+  const shownAtRef = useRef<{ itemId: string; at: number } | null>(null)
   useEffect(() => {
     if (!topItem || topItem.item_id === dismissedId) return
     if (shownIdsRef.current.has(topItem.item_id)) return
     shownIdsRef.current.add(topItem.item_id)
+    // ROADMAP 1.68: the clock the dwell on CLICKED/DISMISSED is measured from.
+    shownAtRef.current = { itemId: topItem.item_id, at: Date.now() }
     const state = useCanvasStore.getState()
     trackGuidance('COACHING_SHOWN', {
       item_id: topItem.item_id,
@@ -164,6 +201,10 @@ export const GuidanceStrip = memo(function GuidanceStrip({
       surface: 'guidance_panel',
       scenario_id: state.currentScenarioId ?? undefined,
       profile_stage: (state.currentStage ?? undefined) as GuidanceEventPayload['profile_stage'] | undefined,
+      // Only when the dwell belongs to THIS item — never carried across a swap.
+      ...(shownAtRef.current?.itemId === topItem.item_id
+        ? { dwell_ms: bucketDwellMs(Date.now() - shownAtRef.current.at) }
+        : {}),
     })
     setDismissedId(topItem.item_id)
     onSetActive(null)
@@ -179,8 +220,19 @@ export const GuidanceStrip = memo(function GuidanceStrip({
       surface: 'guidance_panel',
       scenario_id: state.currentScenarioId ?? undefined,
       profile_stage: (state.currentStage ?? undefined) as GuidanceEventPayload['profile_stage'] | undefined,
+      // Only when the dwell belongs to THIS item — never carried across a swap.
+      ...(shownAtRef.current?.itemId === topItem.item_id
+        ? { dwell_ms: bucketDwellMs(Date.now() - shownAtRef.current.at) }
+        : {}),
     })
     onSetActive(topItem.item_id)
+
+    // AI-to-graph slice: an explicit CLICK on the guidance action centres the
+    // target (fail-closed — stale/unknown ids do nothing). Hover only rings.
+    const target = topItem.target_object
+    if (target?.id && (target.type === 'node' || target.type === 'edge')) {
+      focusExistingTarget(target.id, target.type)
+    }
 
     switch (action.type) {
       case 'open_inspector':
@@ -247,11 +299,13 @@ export const GuidanceStrip = memo(function GuidanceStrip({
       data-item-id={topItem.item_id}
       data-severity={topItem.category}
     >
-      {/* Category badge */}
-      <span className={`${styles.guidanceBadge} ${categoryBadgeClass(topItem.category)}`}>
-        {categoryIcon(topItem.category)}
-        <span>{categoryLabel(topItem.category)}</span>
-      </span>
+      {/* Category badge — suppressed when the producer sent no category */}
+      {topItem.category && (
+        <span className={`${styles.guidanceBadge} ${categoryBadgeClass(topItem.category)}`}>
+          {categoryIcon(topItem.category)}
+          <span>{categoryLabel(topItem.category)}</span>
+        </span>
+      )}
 
       {/* Title — truncated */}
       <span className={`${styles.guidanceStripTitle} ${typography.bodySmall}`}>

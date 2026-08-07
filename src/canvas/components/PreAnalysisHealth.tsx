@@ -25,7 +25,7 @@ import {
   Plus,
   ArrowRight,
 } from 'lucide-react'
-import { useGraphReadiness, type ReadinessLevel, type GraphImprovement, type ImprovementPriority, type SuggestedNodeType } from '../hooks/useGraphReadiness'
+import { useGraphReadiness, type GraphReadinessLevel, type GraphImprovement, type ImprovementPriority, type SuggestedNodeType } from '../hooks/useGraphReadiness'
 import { useCanvasStore } from '../store'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { typography } from '../../styles/typography'
@@ -54,15 +54,32 @@ interface PreAnalysisHealthProps {
   hasBlockers?: boolean
 }
 
-// Tier styling configuration
-const tierConfig: Record<ReadinessLevel, {
+interface TierStyle {
   icon: typeof CheckCircle
   bgColor: string
   borderColor: string
   textColor: string
   iconColor: string
   label: string
-}> = {
+}
+
+// The top band, styled once. CEE spells it `ready`; the UI's local CEE-down
+// fallback spells the same band `strong`. Both entries below share this object
+// so the two spellings can never drift apart visually.
+const topBandStyle: Omit<TierStyle, 'label'> = {
+  icon: CheckCircle,
+  bgColor: 'bg-mint-50',
+  borderColor: 'border-mint-200',
+  textColor: 'text-mint-800',
+  iconColor: 'text-mint-600',
+}
+
+// Tier styling configuration.
+// `Record<GraphReadinessLevel, …>` is the exhaustiveness device: a level added
+// to the vocabulary without an entry here is a COMPILE ERROR, not a silent
+// `undefined` config. Before 2026-07-27 this map had no `ready` case at all —
+// it could not, because the level never survived the normaliser.
+const tierConfig: Record<GraphReadinessLevel, TierStyle> = {
   needs_work: {
     icon: AlertTriangle,
     bgColor: 'bg-carrot-50',
@@ -79,14 +96,15 @@ const tierConfig: Record<ReadinessLevel, {
     iconColor: 'text-banana-600',
     label: 'Fair',
   },
-  strong: {
-    icon: CheckCircle,
-    bgColor: 'bg-mint-50',
-    borderColor: 'border-mint-200',
-    textColor: 'text-mint-800',
-    iconColor: 'text-mint-600',
-    label: 'Strong',
+  ready: {
+    ...topBandStyle,
+    label: 'Ready',
   },
+  // ROADMAP 2.635 — the `strong` entry is gone with the level itself. It was
+  // the local heuristic's spelling of the top band; that heuristic and its last
+  // caller (the 429 arm) are deleted, so no writer can produce it. The Record's
+  // exhaustiveness device is what made this a required edit rather than dead
+  // config left to rot — which is exactly why it is typed this way.
 }
 
 // Priority styling

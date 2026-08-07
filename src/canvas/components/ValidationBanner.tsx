@@ -65,12 +65,17 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
           >
             {firstError.message}
           </p>
+          {/* The count line carries NO colour class, deliberately. It used to
+              name the warning/danger tokens at 80% opacity, which never emitted
+              a rule (a bare var() colour cannot take an opacity modifier), so
+              it has always rendered in the inherited body colour. Those tokens
+              fall below WCAG AA as text even at FULL strength, so making them
+              solid would have introduced a contrast failure that does not
+              exist today; the dead classes were removed rather than revived.
+              A compliant colour here needs a design ruling — see the
+              channel-triple note in src/styles/brand.css. */}
           {hasMultiple && (
-            <p
-              className={`${typography.caption} mt-1 ${
-                isWarning ? 'text-warning/80' : 'text-danger/80'
-              }`}
-            >
+            <p className={`${typography.caption} mt-1`}>
               +{errors.length - 1} more {errors.length === 2 ? 'issue' : 'issues'}
             </p>
           )}
@@ -79,8 +84,8 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
               onClick={() => onFixNow(firstError)}
               className={`mt-2 ${typography.caption} font-medium underline ${
                 isWarning
-                  ? 'text-warning hover:text-warning/80'
-                  : 'text-danger hover:text-danger/80'
+                  ? 'text-warning'
+                  : 'text-danger'
               }`}
               type="button"
             >
@@ -126,12 +131,12 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
             {firstViolation.message}
           </p>
           {firstViolation.suggestion && (
-            <p className={`${typography.caption} mt-1 text-info/80`}>
+            <p className={`${typography.caption} mt-1 text-info`}>
               Suggestion: {firstViolation.suggestion}
             </p>
           )}
           {hasMultiple && (
-            <p className={`${typography.caption} mt-1 text-info/80`}>
+            <p className={`${typography.caption} mt-1 text-info`}>
               +{violations.length - 1} more {violations.length === 2 ? 'suggestion' : 'suggestions'}
             </p>
           )}
@@ -141,7 +146,7 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
           {onFixNow && (firstViolation.node_id || firstViolation.edge_id) && (
             <button
               onClick={() => onFixNow(firstViolation)}
-              className={`mt-2 ${typography.caption} font-medium underline text-info hover:text-info/80`}
+              className={`mt-2 ${typography.caption} font-medium underline text-info hover:text-info`}
               type="button"
             >
               View in canvas

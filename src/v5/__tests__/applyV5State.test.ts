@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { OlumiResponse } from '@talchain/schemas/boundary'
 import { applyV5State, type V5ApplicatorStore } from '../applyV5State'
+import liveBlockR1 from './fixtures/live-decision-review-0_30.r1-cee-76d2e1c.json'
 
 function baseResponse(overrides: Partial<OlumiResponse> = {}): OlumiResponse {
   return {
@@ -24,12 +25,16 @@ function makeStore(
   updateEdgeData: ReturnType<typeof vi.fn>
   setRunMeta: ReturnType<typeof vi.fn>
   setCeeAnalysisReady: ReturnType<typeof vi.fn>
+  setGoalConstraints: ReturnType<typeof vi.fn>
+  backfillGoalThreshold: ReturnType<typeof vi.fn>
 } {
   const setCurrentStage = vi.fn()
   const updateNode = vi.fn()
   const updateEdgeData = vi.fn()
   const setRunMeta = vi.fn()
   const setCeeAnalysisReady = vi.fn()
+  const setGoalConstraints = vi.fn()
+  const backfillGoalThreshold = vi.fn()
   return {
     store: {
       setCurrentStage,
@@ -37,6 +42,8 @@ function makeStore(
       updateEdgeData,
       setRunMeta,
       setCeeAnalysisReady,
+      setGoalConstraints,
+      backfillGoalThreshold,
       nodes,
       edges,
     },
@@ -45,6 +52,8 @@ function makeStore(
     updateEdgeData,
     setRunMeta,
     setCeeAnalysisReady,
+    setGoalConstraints,
+    backfillGoalThreshold,
   }
 }
 
@@ -175,6 +184,19 @@ describe('applyV5State — graph_patch:adjust_edge_strength', () => {
 })
 
 describe('applyV5State — analysis_result: decision_review wiring', () => {
+  /**
+   * The verbatim captured `enrichment` of a real live analysis turn (r1 of the
+   * 2.154 wire capture; see the fixture's `__source__`). Used instead of a
+   * hand-written object precisely because a hand-written one is what hid the
+   * defect this block now covers.
+   */
+  function liveEnrichment(): Record<string, unknown> {
+    return (liveBlockR1 as unknown as { enrichment: Record<string, unknown> }).enrichment
+  }
+  function liveReview(): Record<string, unknown> {
+    return liveEnrichment().decision_review as Record<string, unknown>
+  }
+
   const validEnrichment = {
     decision_review: {
       intent: 'selection',
@@ -232,9 +254,12 @@ describe('applyV5State — analysis_result: decision_review wiring', () => {
       }),
       store,
     )
-    // Must write null so stale review from a prior turn is not shown
+    // Must write null so stale review from a prior turn is not shown.
+    // ROADMAP 2.154 — BOTH review fields are cleared, not just ceeReviewV1:
+    // two different payloads share the `decision_review` key and land in two
+    // different runMeta fields, so clearing one would leave the other stale.
     expect(setRunMeta).toHaveBeenCalledOnce()
-    expect(setRunMeta).toHaveBeenCalledWith({ ceeReviewV1: null })
+    expect(setRunMeta).toHaveBeenCalledWith({ ceeReviewV1: null, decisionReview030: null })
     expect(result.deferred[0]?.reason).toBe('analysis_result_no_decision_review_in_block')
   })
 
@@ -261,11 +286,77 @@ describe('applyV5State — analysis_result: decision_review wiring', () => {
     expect(result.applied).toContain('analysis_result:decision_review:block')
     expect(result.applied).not.toContain('analysis_result:decision_review:top-level')
   })
+
+  // ── ROADMAP 2.154 — the LIVE 0.30 shape ─────────────────────────────────
+  //
+  // Everything above this line feeds a hand-written M1 REST fixture, which no
+  // live producer emits into block enrichment. These cases feed the verbatim
+  // captured bytes of a real analysis turn instead, and they are the ones that
+  // would have caught the original defect: before this lane the block below
+  // took the `else` branch and cleared both fields on every live turn.
+  it('applies the live 0.30 decision_review to runMeta.decisionReview030', () => {
+    const { store, setRunMeta } = makeStore()
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          {
+            type: 'analysis_result',
+            summary: 'Keep Current Setup (Status Quo) currently leads by 79 percentage points.',
+            leading_option_id: 'opt_status_quo',
+            win_probabilities: { 'Keep Current Setup (Status Quo)': 0.87 },
+            enrichment: liveEnrichment(),
+          },
+        ],
+      }),
+      store,
+    )
+    expect(result.applied).toContain('analysis_result:decision_review:block')
+    expect(result.deferred.map((d) => d.reason)).not.toContain(
+      'analysis_result_no_decision_review_in_block',
+    )
+    expect(setRunMeta).toHaveBeenCalledOnce()
+    const written = setRunMeta.mock.calls[0]![0] as {
+      ceeReviewV1: unknown
+      decisionReview030: { narrative_summary: string | null; hasProse: boolean } | null
+    }
+    // The 0.30 payload is NOT written to ceeReviewV1 — different payload,
+    // different type, and store.ts sanitises that field as M1.
+    expect(written.ceeReviewV1).toBeNull()
+    expect(written.decisionReview030).not.toBeNull()
+    expect(written.decisionReview030!.hasProse).toBe(true)
+    expect(written.decisionReview030!.narrative_summary).toBe(
+      liveReview().narrative_summary as string,
+    )
+  })
+
+  it('clears BOTH review fields when decision_review is null (CEE degraded marker)', () => {
+    const { store, setRunMeta } = makeStore()
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          {
+            type: 'analysis_result',
+            summary: 'A leads',
+            leading_option_id: 'opt-a',
+            win_probabilities: {},
+            enrichment: { decision_review: null },
+          },
+        ],
+      }),
+      store,
+    )
+    expect(setRunMeta).toHaveBeenCalledWith({ ceeReviewV1: null, decisionReview030: null })
+    expect(result.applied).not.toContain('analysis_result:decision_review:block')
+  })
 })
 
 describe('applyV5State — deferred operations', () => {
-  it('add_constraint is explicitly deferred as NEEDS_FIX', () => {
-    const { store } = makeStore()
+  it('add_constraint with an unmappable `after` shape defers fail-closed (never fabricates)', () => {
+    // `after` carries no operator and no numeric value — the applicator must
+    // NOT invent a constraint from it. Full add_constraint wiring (valid
+    // shapes, dedupe, coalescing, operator vocabularies) is pinned in
+    // applyV5State.addConstraint.test.ts.
+    const { store, setGoalConstraints } = makeStore()
     const result = applyV5State(
       baseResponse({
         blocks: [
@@ -281,7 +372,8 @@ describe('applyV5State — deferred operations', () => {
       }),
       store,
     )
-    expect(result.deferred[0]?.reason).toBe('add_constraint_not_wired')
+    expect(result.deferred[0]?.reason).toBe('add_constraint_unmappable_shape')
+    expect(setGoalConstraints).not.toHaveBeenCalled()
   })
 
   it('ignores render-only block kinds (text, explanation, comparison, flip_analysis)', () => {
@@ -597,5 +689,115 @@ describe('applyV5State — analysis_ready', () => {
     expect(setCeeAnalysisReady).toHaveBeenCalledTimes(1)
     expect(setCeeAnalysisReady.mock.calls[0][0].status).toBe('needs_user_mapping')
   })
+})
+
+// ROADMAP 1.22 — goal-threshold quad ingestion on the V5 "commit response"
+// path (turns that do NOT flow through applyDraftResult, e.g. follow-up
+// turns on a populated canvas). CEE sends goal_threshold_raw/unit/cap on
+// analysis_ready and goal_constraints at the response root; prior to this
+// fix, applyV5State wrote ceeAnalysisReady (so the bare normalised
+// goal_threshold synced via the store's own setCeeAnalysisReady reducer)
+// but never backfilled goal_threshold_raw/unit/cap onto the goal node's
+// data (read by GoalNode + the debug bundle's full_graph export) and never
+// ingested goal_constraints at all on this path — both showed up all-null
+// in the debug bundle even though CEE persisted real values.
+describe('applyV5State — goal-threshold quad ingestion (ROADMAP 1.22)', () => {
+  const readyOption = {
+    id: 'opt-a',
+    label: 'Option A',
+    status: 'ready',
+    interventions: {},
+  }
+
+  const goalNode = {
+    id: 'goal-1',
+    type: 'goal',
+    position: { x: 0, y: 0 },
+    data: { label: 'Goal', kind: 'goal' },
+  } as unknown as V5ApplicatorStore['nodes'][number]
+
+  function responseWith(
+    analysisReady: Record<string, unknown> | undefined,
+    extra: Record<string, unknown> = {},
+  ): OlumiResponse {
+    return baseResponse({
+      ...(analysisReady !== undefined
+        ? ({ analysis_ready: analysisReady } as unknown as Partial<OlumiResponse>)
+        : {}),
+      ...(extra as unknown as Partial<OlumiResponse>),
+    })
+  }
+
+  // The actual node.data write (and its idempotent / field-presence /
+  // node-existence guards) lives in the shared backfillGoalThresholdOntoGoalNode
+  // helper (applyDraftResult.ts — see applyDraftResult.spec.ts for that
+  // coverage) and is wired at the real call site (useConversation.ts) — NOT
+  // reimplemented here. applyV5State's own contract is just: call the
+  // injected hook with the normalised analysis_ready whenever it sets
+  // ceeAnalysisReady via this (non-inline-owned) branch. Delegating via
+  // store.backfillGoalThreshold rather than store.updateNode is deliberate:
+  // goal_threshold_raw is in ANALYTICAL_NODE_DATA_FIELDS, so updateNode
+  // would treat CEE echoing back its own just-received threshold as a user
+  // edit and invalidate the very analysis this same turn just set fresh.
+  it('calls the injected backfillGoalThreshold hook with the normalised analysis_ready', () => {
+    const { store, backfillGoalThreshold } = makeStore([goalNode])
+    applyV5State(
+      responseWith({
+        status: 'ready',
+        goal_node_id: 'goal-1',
+        options: [readyOption],
+        goal_threshold: 0.8,
+        goal_threshold_raw: 20,
+        goal_threshold_unit: '%',
+        goal_threshold_cap: 25,
+      }),
+      store,
+    )
+
+    expect(backfillGoalThreshold).toHaveBeenCalledWith(
+      expect.objectContaining({
+        goal_node_id: 'goal-1',
+        goal_threshold_raw: 20,
+        goal_threshold_unit: '%',
+        goal_threshold_cap: 25,
+      }),
+    )
+  })
+
+  it('does not call backfillGoalThreshold when analysis_ready is absent', () => {
+    const { store, backfillGoalThreshold } = makeStore([goalNode])
+    applyV5State(responseWith(undefined), store)
+    expect(backfillGoalThreshold).not.toHaveBeenCalled()
+  })
+
+  it('does not call backfillGoalThreshold when analysis_ready fails shape validation', () => {
+    const { store, backfillGoalThreshold } = makeStore([goalNode])
+    applyV5State(
+      responseWith({ status: 'ready', options: [readyOption] /* missing goal_node_id */ }),
+      store,
+    )
+    expect(backfillGoalThreshold).not.toHaveBeenCalled()
+  })
+
+  it('does not call backfillGoalThreshold when the inline-draft path will own the write', () => {
+    const { store, backfillGoalThreshold } = makeStore(/* canvas empty */ [], [])
+    applyV5State(
+      responseWith(
+        { status: 'ready', goal_node_id: 'goal-1', options: [readyOption] },
+        { draft_graph: { nodes: [{}, {}], edges: [], node_count: 2, edge_count: 0 } },
+      ),
+      store,
+    )
+    expect(backfillGoalThreshold).not.toHaveBeenCalled()
+  })
+
+  // NOTE (Codex P2-2): the former "ingests goal_constraints from the response
+  // ROOT" tests were removed with the dead root-level compat leg. responseParser
+  // demotes every unknown top-level key to the non-enumerable `__additive__`
+  // sidecar, so `response.goal_constraints` is never set on a really-parsed
+  // OlumiResponse — the old positive test only passed by fabricating a typed
+  // response that bypassed the parser. Live constraint ingestion is covered by
+  // applyV5State.addConstraint.test.ts (add_constraint graph_patch) and
+  // applyDraftResult.spec.ts / draftGoalConstraints.wire.spec.ts (draft_graph).
 })
 

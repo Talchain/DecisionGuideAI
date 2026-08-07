@@ -81,7 +81,7 @@
 }
 
 .chevronIcon {
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #6E6B6B);
   transition: transform 150ms;
 }
 
@@ -93,7 +93,7 @@
   font-size: 14px;
   font-weight: 400;
   padding: 4px 8px;
-  border: 2px solid var(--info, #2B7FA2);
+  border: 2px solid var(--info, #277A9D);
   border-radius: 6px;
   background: white;
   max-width: 200px;
@@ -274,7 +274,7 @@
 }
 
 .dropdownMenuButton svg {
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #6E6B6B);
   flex-shrink: 0;
 }
 
@@ -288,7 +288,7 @@
   padding: 8px 10px 4px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #6E6B6B);
 }
 
 /* Canvas settings (flattened in kebab menu) */
@@ -310,7 +310,7 @@
 .settingsCheckbox {
   width: 14px;
   height: 14px;
-  accent-color: var(--info, #2B7FA2);
+  accent-color: var(--info, #277A9D);
   cursor: pointer;
 }
 
@@ -328,7 +328,7 @@
   height: 4px;
   border-radius: 2px;
   background: var(--border-default, #EEE6D8);
-  accent-color: var(--info, #2B7FA2);
+  accent-color: var(--info, #277A9D);
   cursor: pointer;
 }
 
@@ -336,7 +336,7 @@
   display: flex;
   justify-content: space-between;
   font-size: 10px;
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #6E6B6B);
 }
 
 /* A.15: Stage lifecycle pill — true pill shape (999px radius, 2px border) */
@@ -387,7 +387,7 @@
   flex-shrink: 0;
   width: 14px;
   height: 14px;
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #6E6B6B);
 }
 
 .metadataLabel {
@@ -406,13 +406,13 @@
 }
 
 .metadataChip[data-status="running"] {
-  border-color: var(--info, #2B7FA2);
+  border-color: var(--info, #277A9D);
   background: var(--info-light, #BAD7E4);
   color: var(--text-header, #262626);
 }
 
 .metadataChip[data-status="running"] svg {
-  color: var(--info, #2B7FA2);
+  color: var(--info, #277A9D);
 }
 
 .metadataChip[data-status="error"] {

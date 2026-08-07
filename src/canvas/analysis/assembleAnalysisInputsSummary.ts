@@ -8,9 +8,10 @@
  * progressively if the payload exceeds the budget.
  */
 
-import type { V2RunResponse, V2OptionComparison, V2Driver, V2RobustnessActual } from '../../adapters/plot/v2/types'
+import type { V2RunResponse, V2OptionComparison, V2FactorSensitivity, V2RobustnessActual } from '../../adapters/plot/v2/types'
 import type { AnalysisInputsSummary } from '../../types/analysis-inputs-summary'
 import { ANALYSIS_INPUTS_CONTRACT_VERSION } from '../../types/analysis-inputs-summary'
+import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 
 const MAX_SERIALISED_BYTES = 2048
 const MAX_TOP_DRIVERS = 3
@@ -54,11 +55,16 @@ export function assembleAnalysisInputsSummary(
     win_probability: oc.win_probability as number,
   }))
 
-  // Top drivers — capped at MAX_TOP_DRIVERS
-  const topDrivers = buildTopDrivers(report.drivers, MAX_TOP_DRIVERS)
+  // Top drivers — capped at MAX_TOP_DRIVERS. ROADMAP 1.30b: the V2 wire
+  // never populates the legacy `drivers[]` field (verified against the
+  // captured staging fixture — `drivers: null` while `factor_sensitivity[]`
+  // carries real data); `factor_sensitivity` is the field
+  // useResultsSectionData.ts already treats as the authoritative PLoT v2
+  // driver source.
+  const topDrivers = buildTopDrivers(report.factor_sensitivity, MAX_TOP_DRIVERS)
 
-  // Sensitivity concentration: ratio of top driver contribution to sum of all
-  const sensitivityConcentration = computeSensitivityConcentration(report.drivers)
+  // Sensitivity concentration: ratio of top driver magnitude to sum of all
+  const sensitivityConcentration = computeSensitivityConcentration(report.factor_sensitivity)
 
   // Confidence band — read from decision_quality if available.
   // If decision_quality provides a level, map it; otherwise derive from data availability.
@@ -71,11 +77,14 @@ export function assembleAnalysisInputsSummary(
   // Constraints status — from first option's constraint_analysis
   const constraintsStatus = buildConstraintsStatus(report.option_comparison, MAX_CONSTRAINTS)
 
-  // Run metadata — actual response fields only, no fabrication
+  // Run metadata — actual response fields only, no fabrication. ROADMAP
+  // 1.30b: the V2 wire has no top-level `completed_at` — the real field is
+  // nested at `meta.computed_at` (confirmed against the captured staging
+  // fixture's `plot_response.meta.computed_at`; now typed on V2Meta).
   const runMetadata = {
     seed: report.meta?.seed_used ?? null,
     quality_mode: report.meta?.detail_level ?? null,
-    timestamp: (report as Record<string, unknown>).completed_at as string | null ?? null,
+    timestamp: report.meta?.computed_at ?? null,
   }
 
   let result: AnalysisInputsSummary = {
@@ -119,36 +128,52 @@ function findRecommendation(
   }
 }
 
-function buildTopDrivers(
-  drivers: V2Driver[] | undefined,
-  max: number,
-): AnalysisInputsSummary['top_drivers'] {
-  if (!drivers || drivers.length === 0) return []
-  return drivers.slice(0, max).map(d => ({
-    factor_id: d.node_id,
-    factor_label: d.label,
-    elasticity: d.contribution,
-  }))
+/** Magnitude precedence mirrors normalizeFactorSensitivity (useResultsSectionData.ts):
+ *  elasticity > sensitivity_score > sensitivity > importance_score > 0. */
+function factorMagnitude(fs: V2FactorSensitivity): number {
+  if (typeof fs.elasticity === 'number') return fs.elasticity
+  if (typeof fs.sensitivity_score === 'number') return fs.sensitivity_score
+  if (typeof fs.sensitivity === 'number') return fs.sensitivity
+  if (typeof fs.importance_score === 'number') return fs.importance_score
+  return 0
 }
 
-function computeSensitivityConcentration(drivers: V2Driver[] | undefined): number {
-  if (!drivers || drivers.length === 0) return 0
-  const total = drivers.reduce((sum, d) => sum + Math.abs(d.contribution), 0)
+function buildTopDrivers(
+  factorSensitivity: V2FactorSensitivity[] | undefined,
+  max: number,
+): AnalysisInputsSummary['top_drivers'] {
+  if (!factorSensitivity || factorSensitivity.length === 0) return []
+  return factorSensitivity
+    .map(fs => {
+      const { node_id, label } = normaliseFactorFields(fs as unknown as Record<string, unknown>)
+      return { factor_id: node_id ?? '', factor_label: label ?? '', elasticity: factorMagnitude(fs) }
+    })
+    .filter(d => d.factor_id !== '')
+    .sort((a, b) => Math.abs(b.elasticity) - Math.abs(a.elasticity))
+    .slice(0, max)
+}
+
+function computeSensitivityConcentration(factorSensitivity: V2FactorSensitivity[] | undefined): number {
+  if (!factorSensitivity || factorSensitivity.length === 0) return 0
+  const magnitudes = factorSensitivity.map(fs => Math.abs(factorMagnitude(fs)))
+  const total = magnitudes.reduce((sum, m) => sum + m, 0)
   if (total === 0) return 0
-  const topContribution = Math.abs(drivers[0].contribution)
-  return Math.round((topContribution / total) * 1000) / 1000 // 3 decimal places
+  const topMagnitude = Math.max(...magnitudes)
+  return Math.round((topMagnitude / total) * 1000) / 1000 // 3 decimal places
 }
 
 function deriveConfidenceBand(report: V2RunResponse): AnalysisInputsSummary['confidence_band'] {
-  // Prefer CEE-provided decision quality level when available
+  // Prefer CEE-provided decision quality level when available. ROADMAP
+  // 1.30b: the real field is `decision_quality.level` (DecisionQualityV3 in
+  // types/cee.ts: 'ready' | 'caution' | 'not_ready') — the prior read
+  // checked a non-existent `.overall`, so this branch never fired on any
+  // real response.
   const dq = report.decision_quality
-  if (dq && typeof dq === 'object' && 'overall' in dq) {
-    const overall = (dq as Record<string, unknown>).overall
-    if (typeof overall === 'string') {
-      if (overall === 'strong' || overall === 'high') return 'high'
-      if (overall === 'adequate' || overall === 'medium' || overall === 'moderate') return 'medium'
-      return 'low'
-    }
+  if (dq && typeof dq === 'object' && 'level' in dq) {
+    const level = (dq as Record<string, unknown>).level
+    if (level === 'ready') return 'high'
+    if (level === 'caution') return 'medium'
+    if (level === 'not_ready') return 'low'
   }
   // Fallback: computed robustness + drivers available → medium; else low
   if (report.robustness_status === 'computed' && report.drivers_status === 'computed') {

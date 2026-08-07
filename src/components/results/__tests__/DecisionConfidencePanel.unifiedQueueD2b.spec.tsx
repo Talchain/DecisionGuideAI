@@ -4,8 +4,9 @@
  * The post-analysis T1 card now ranks evidence-gap and next-action items into
  * a single EVPI-sorted stack:
  *   - Top 3 → unified queue with the first card visually emphasised
- *     (`border-info/50 bg-info/[0.02]` plus a `border-l-[3px] border-l-info`
- *     left accent per DS v5 §6.4, mirroring the pre-analysis `.ac.em`).
+ *     (a complete `border-info/50` + `bg-info/[0.02]`, mirroring the
+ *     pre-analysis `.ac.em`; V7 L1 retired the one-sided `border-l-[3px]`
+ *     left accent — the state colour now rides the complete border).
  *   - Items 4-6 → `AlsoConsiderDisclosure` (compact rows, collapsed by default).
  *   - Stability narrative renders above the queue when there is at least one
  *     item; suppressed otherwise.
@@ -36,7 +37,6 @@ function makeGap(overrides: Partial<EvidenceGapItem> = {}): EvidenceGapItem {
     factorLabel: 'Evidence Gap A',
     confidence: 50,
     voi: 0.8,
-    evpiPp: 30,
     suggestion: 'Gather data',
     targetNodeId: 'node_gap',
     ...overrides,
@@ -58,7 +58,6 @@ function makeNextAction(overrides: Partial<NextActionItem> = {}): NextActionItem
 function makeData(opts: {
   gaps?: EvidenceGapItem[]
   nextActions?: NextActionItem[]
-  topEvidenceGapsEmpty?: boolean
   recommendationStability?: number | undefined
 }): ResultsSectionDataReturn {
   const winner: OptionResult = {
@@ -109,7 +108,6 @@ function makeData(opts: {
     topImprovements: [],
     evidenceGaps: opts.gaps ?? [],
     topEvidenceGaps: opts.gaps ?? [],
-    topEvidenceGapsEmpty: opts.topEvidenceGapsEmpty,
     nextActions: opts.nextActions ?? [],
     topNextActions: opts.nextActions ?? [],
   } as ConfidenceSectionData
@@ -150,10 +148,11 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
     expect(screen.getByTestId('unified-triage-queue')).toBeInTheDocument()
     const emphasised = screen.getByTestId('unified-triage-emphasised')
     expect(emphasised).toBeInTheDocument()
-    // 5.8B hotfix Fix 10 — strengthened emphasis: border-info/50 + 3px left accent.
+    // 5.8B hotfix Fix 10 — strengthened emphasis. V7 L1: complete border only;
+    // the one-sided left accent is retired (state colour rides the complete border).
     expect(emphasised.className).toContain('border-info/50')
-    expect(emphasised.className).toContain('border-l-[3px]')
-    expect(emphasised.className).toContain('border-l-info')
+    expect(emphasised.className).not.toContain('border-l-[3px]')
+    expect(emphasised.className).not.toContain('border-l-info')
   })
 
   it('removes the legacy split sub-headers (D2b unified them into one queue)', () => {
@@ -176,31 +175,30 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
     expect(screen.queryByTestId('next-action-cards')).not.toBeInTheDocument()
   })
 
-  it('sorts items by descending evpiPp regardless of source list', () => {
+  // ⛔ The "sorts items by descending evpiPp" spec is REMOVED with the key it
+  // pinned. `evpi_percentage_points` is refuted — PLoT published 12.3 / 10.2 /
+  // 6.6 pp for three factors ISL measured at 0.0 pp in the SAME live response,
+  // via a formula that multiplies BY the top-two win-probability gap and so
+  // inverts decision theory. The queue no longer re-ranks by it.
+  it('keeps evidence gaps in the order the producer emitted them', () => {
     render(
       <DecisionConfidencePanel
         data={makeData({
           gaps: [
-            // Distinct targetNodeId per gap so the new identity-based dedup
-            // (5.8B hotfix P1.1) doesn't collapse them through the shared
-            // default `targetNodeId: 'node_gap'` from `makeGap()`.
-            makeGap({ factorId: 'g_low', factorLabel: 'Low evpi gap', evpiPp: 5, targetNodeId: 'node_low' }),
-            makeGap({ factorId: 'g_high', factorLabel: 'High evpi gap', evpiPp: 80, targetNodeId: 'node_high' }),
-          ],
-          nextActions: [
-            makeNextAction({ targetId: 'n_mid', action: 'Mid evpi action' }),
+            // Distinct targetNodeId per gap so identity-based dedup
+            // (5.8B hotfix P1.1) doesn't collapse them.
+            makeGap({ factorId: 'g_first', factorLabel: 'First emitted', targetNodeId: 'node_first' }),
+            makeGap({ factorId: 'g_second', factorLabel: 'Second emitted', targetNodeId: 'node_second' }),
           ],
         })}
       />,
     )
     const queue = screen.getByTestId('unified-triage-queue')
     const titles = Array.from(queue.querySelectorAll('p[title]')).map(el => el.getAttribute('title'))
-    // First three positions: highest evpi first, then mid (no evpi), then low.
-    expect(titles[0]).toBe('High evpi gap')
-    // Subsequent ordering is implementation defined when both evpi values are
-    // -1 (next actions carry no evpiPp); sufficient that "Low evpi gap" trails
-    // in the queue.
-    expect(titles).toContain('Low evpi gap')
+    // Positive control: both gaps reached the queue at all.
+    expect(titles).toContain('First emitted')
+    expect(titles).toContain('Second emitted')
+    expect(titles.indexOf('First emitted')).toBeLessThan(titles.indexOf('Second emitted'))
   })
 
   it('renders stability narrative with percent when items + recommendation_stability are present', () => {
@@ -214,8 +212,10 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
     )
     const narrative = screen.getByTestId('stability-narrative')
     expect(narrative).toHaveTextContent('Stability: 62%')
-    expect(narrative).toHaveTextContent('These items would most improve confidence:')
-    expect(narrative).toHaveTextContent('Ranked by evidence value')
+    expect(narrative).toHaveTextContent('Inputs worth confirming:')
+    // ⛔ "Ranked by evidence value" is gone: the queue no longer ranks by any
+    // value figure, so the label would assert something untrue.
+    expect(narrative).not.toHaveTextContent(/ranked by/i)
   })
 
   it('drops the stability prefix when recommendation_stability is missing — never NaN', () => {
@@ -228,7 +228,7 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
       />,
     )
     const narrative = screen.getByTestId('stability-narrative')
-    expect(narrative).toHaveTextContent('These items would most improve confidence:')
+    expect(narrative).toHaveTextContent('Inputs worth confirming:')
     expect(narrative).not.toHaveTextContent('Stability:')
     expect(narrative).not.toHaveTextContent('NaN')
   })
@@ -242,14 +242,16 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
     expect(screen.queryByTestId('stability-narrative')).not.toBeInTheDocument()
   })
 
-  it('renders the empty-state copy only when topEvidenceGapsEmpty AND no items', () => {
-    render(
-      <DecisionConfidencePanel
-        data={makeData({ gaps: [], nextActions: [], topEvidenceGapsEmpty: true })}
-      />,
-    )
-    expect(screen.getByText(/No high-value evidence gaps/i)).toBeInTheDocument()
-  })
+  // ⛔ The `topEvidenceGapsEmpty` empty-state spec is REMOVED with the flag.
+  // That flag could only ever be set by the `evpiPp > 0` SELECTION GATE, whose
+  // worst mode was not "misordered" but EMPTY: PLoT omits the field entirely
+  // when the top two options are tied — precisely where information is most
+  // valuable — and `?? 0` turned that absence into a confident zero, dropping
+  // every gap. The copy it drove ("No high-value evidence gaps. Your current
+  // uncertainties have minimal impact on the result.") asserted "minimal
+  // impact" on the strength of a number ISL measures at zero. Gate, flag and
+  // claim are all gone; the non-empty guarantee is pinned in
+  // evidenceGapSelection.honesty.spec.ts.
 
   it('overlays strengthen_items.detail as subtitle and actionType as a passive label when label matches', () => {
     useCanvasStore.setState({
@@ -318,10 +320,10 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
           gaps: [
             // Distinct targetNodeId per gap so identity-based dedup
             // (5.8B hotfix P1.1) doesn't collapse them via the shared default.
-            makeGap({ factorId: 'g1', factorLabel: 'Gap 1', evpiPp: 50, targetNodeId: 'node_g1' }),
-            makeGap({ factorId: 'g2', factorLabel: 'Gap 2', evpiPp: 45, targetNodeId: 'node_g2' }),
-            makeGap({ factorId: 'g3', factorLabel: 'Gap 3', evpiPp: 40, targetNodeId: 'node_g3' }),
-            makeGap({ factorId: 'g4', factorLabel: 'Gap 4', evpiPp: 35, targetNodeId: 'node_g4' }),
+            makeGap({ factorId: 'g1', factorLabel: 'Gap 1', targetNodeId: 'node_g1' }),
+            makeGap({ factorId: 'g2', factorLabel: 'Gap 2', targetNodeId: 'node_g2' }),
+            makeGap({ factorId: 'g3', factorLabel: 'Gap 3', targetNodeId: 'node_g3' }),
+            makeGap({ factorId: 'g4', factorLabel: 'Gap 4', targetNodeId: 'node_g4' }),
           ],
         })}
       />,
@@ -340,8 +342,8 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
       <DecisionConfidencePanel
         data={makeData({
           gaps: [
-            makeGap({ factorId: 'node_dup', factorLabel: 'Duplicated factor', targetNodeId: 'node_dup', evpiPp: 60 }),
-            makeGap({ factorId: 'g2', factorLabel: 'Other gap', targetNodeId: 'node_other', evpiPp: 30 }),
+            makeGap({ factorId: 'node_dup', factorLabel: 'Duplicated factor', targetNodeId: 'node_dup' }),
+            makeGap({ factorId: 'g2', factorLabel: 'Other gap', targetNodeId: 'node_other' }),
           ],
           nextActions: [
             makeNextAction({ targetId: 'node_dup', action: 'Duplicated factor', rationale: 'collides on identity' }),

@@ -1,0 +1,14 @@
+/**
+ * SWAP CONTROL — "after", DIFFERENT-field within-file swap.
+ *
+ * The `elasticity` read of swap-before.ts.fixture has been replaced by a second
+ * `sensitivity_score` read. Per-file total is UNCHANGED (2), so the count
+ * ratchet in claim-drift-baseline.tsv stays silent — asserted in the spec, not
+ * assumed. The per-(family, file, FIELD) buckets DO move, which is the sub-case
+ * claim-drift-identities.tsv blocks.
+ */
+export function afterDifferentField(d: Record<string, unknown>) {
+  const a = d.sensitivity_score
+  const b = d.sensitivity_score
+  return [a, b]
+}

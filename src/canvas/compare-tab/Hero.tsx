@@ -9,6 +9,17 @@ interface HeroProps {
   state: CompareState
   snapshots: AnalysisSnapshot[]
   showExpert: boolean
+  /**
+   * The canonical run, threaded from CompareTabBody (which already holds it
+   * for CompareFooter) and ultimately OutputsDock's `handleRunAnalysis`.
+   *
+   * REQUIRED, deliberately. The 'stale' hero's action reads "Rerun analysis"
+   * and until 2026-07-28 it was an inert `<span>` styled `cursor-pointer` —
+   * a control that looked live and dispatched nothing (ROADMAP 2.102). An
+   * optional prop would let a future call site re-create exactly that, and
+   * silently; a required one makes the compiler refuse.
+   */
+  onRunAnalysis: () => void
 }
 
 function getHeroCopy(
@@ -21,19 +32,39 @@ function getHeroCopy(
     case 'improving':
       return {
         line1: `Run ${latest.runNumber} · ${latest.winnerLabel} leads at ${latest.winnerProbability}% (was ${first.winnerProbability}% at run 1)`,
-        line2: `Confidence improving · Model ${latest.stabilityLabel}`,
+        // T2b: drop the "Model X" clause entirely when robustness was never
+        // assessed. A template literal would coerce null to the string "null"
+        // ("Model null") and TypeScript cannot catch that.
+        line2: latest.stabilityLabel != null
+          ? `Confidence improving · Model ${latest.stabilityLabel}`
+          : 'Confidence improving',
         actionPrefix: 'Calibrate ',
-        actionLink: latest.topEvpiFactor,
-        actionNodeId: latest.topEvpiFactorId,
-        detail: `${latest.topElasticity}% influence, resolving could improve confidence by ${latest.topEvpiValue}pp`,
+        actionLink: latest.topCalibrationFactor,
+        actionNodeId: latest.topCalibrationFactorId,
+        // ⛔ The clause ", resolving could improve confidence by {topEvpiValue}pp"
+        // is REMOVED. `evpi_percentage_points` is refuted by our own compute
+        // layer — ISL measures 0.0pp for the factors PLoT scores at 12.3 /
+        // 10.2 / 6.6 — and `?? 0` upstream published absence as a confident
+        // zero, so this line could read "improve confidence by 0pp" on a
+        // producer that simply sent nothing. The influence figure that remains
+        // is elasticity-derived and is the basis for choosing this factor.
+        detail: `${latest.topElasticity}% influence`,
       }
     case 'noWinner':
       return {
-        line1: `Run ${latest.runNumber} · No clear leading option (${latest.winnerLabel} ${latest.winnerProbability}%, ${latest.runnerUpLabel ?? '—'} ${latest.runnerUpProbability ?? 0}%)`,
+        // ROADMAP 2.834: `?? 0` printed "Option B 0%" — a confident measurement
+        // — for a runner-up the engine never scored. `runnerUpProbability` is
+        // declared `number | null` precisely because that absence is expected
+        // (a run with a single option has no runner-up at all).
+        line1: `Run ${latest.runNumber} · No clear leading option (${latest.winnerLabel} ${latest.winnerProbability}%, ${latest.runnerUpLabel ?? '—'} ${
+          latest.runnerUpProbability != null
+            ? `${latest.runnerUpProbability}%`
+            : 'not scored in this run'
+        })`,
         line2: 'Model improving · Result uncertain',
         actionPrefix: 'Calibrate ',
-        actionLink: latest.topEvpiFactor,
-        actionNodeId: latest.topEvpiFactorId,
+        actionLink: latest.topCalibrationFactor,
+        actionNodeId: latest.topCalibrationFactorId,
         detail: 'to separate the options',
       }
     case 'converged':
@@ -49,9 +80,19 @@ function getHeroCopy(
       const narrow = isNarrowFlip(latest)
       return {
         line1: `Run ${latest.runNumber} · Result changed: ${latest.winnerLabel} now leads at ${latest.winnerProbability}%`,
+        // ⚠ THIS USED TO READ 'Structure changed · Review the new result'
+        // (ROADMAP 2.578). The `flipped` state is `previous.winnerId !==
+        // latest.winnerId` and NOTHING ELSE — a change of leading option. It is
+        // not evidence about the model's shape, and no structure signal is in
+        // scope here at all. So the hero was asserting a cause it had never
+        // measured, on the same surface where the transition card states the
+        // structure verdict from the canonical graph diff — the two could, and
+        // would, contradict each other on a wide flip over an unchanged model.
+        // The replacement says only what this branch actually knows: the leader
+        // changed, and not narrowly.
         line2: narrow
           ? 'New leader by a narrow margin · Review the change carefully'
-          : 'Structure changed · Review the new result',
+          : 'Result changed decisively · Review the new result',
         actionPrefix: '',
         actionLink: 'Review what caused the change',
         actionNodeId: null,
@@ -70,10 +111,17 @@ function getHeroCopy(
   }
 }
 
-export function Hero({ state, snapshots, showExpert }: HeroProps) {
+export function Hero({ state, snapshots, showExpert, onRunAnalysis }: HeroProps) {
   const latest = snapshots[snapshots.length - 1]
   const first = snapshots[0]
   const copy = getHeroCopy(state, latest, first, snapshots.length)
+
+  // 'stale' is the ONLY hero state whose action is a run rather than a
+  // navigation, so it is the only one that gets a real control here. Derived
+  // from `state` in one place rather than carried as a sixth field on every
+  // `getHeroCopy` branch — a per-branch flag is a mirror five call sites must
+  // keep in step (CLAUDE.md trap 12).
+  const actionIsRerun = state === 'stale'
 
   return (
     <div className="px-4 py-3 border-b border-panel-border">
@@ -104,6 +152,20 @@ export function Hero({ state, snapshots, showExpert }: HeroProps) {
               </span>
             </GraphLink>
           </span>
+        ) : actionIsRerun ? (
+          /* ROADMAP 2.102: this was an inert <span> carrying `cursor-pointer`
+             — "Rerun analysis", styled as a live link, dispatching nothing.
+             It is now the real control, on the SAME canonical run the footer's
+             Rerun and the composer use (threaded from OutputsDock), never a
+             second pipeline. */
+          <button
+            type="button"
+            data-testid="compare-hero-rerun"
+            onClick={onRunAnalysis}
+            className={`${typography.panelHeader} text-info hover:underline cursor-pointer bg-transparent border-none p-0`}
+          >
+            {copy.actionLink}
+          </button>
         ) : (
           <span className={`${typography.panelHeader} text-info hover:underline cursor-pointer`}>
             {copy.actionLink}
@@ -117,7 +179,13 @@ export function Hero({ state, snapshots, showExpert }: HeroProps) {
       {/* Expert methodology line */}
       {showExpert && (
         <div className={`${typography.panelMeta} mt-1.5`}>
-          1,000 Monte Carlo simulations · Bootstrap stability · Seed: {latest.seedUsed} · Hash: {latest.responseHash}
+          {/* T2b: the Seed segment fails closed. React renders a null child as
+              nothing, which would leave a bare "Seed: ·" claiming a receipt
+              that does not exist. This mirrors AdvancedSection, which hides
+              its Seed row on the same fact. */}
+          1,000 Monte Carlo simulations · Bootstrap stability
+          {latest.seedUsed != null && <> · Seed: {latest.seedUsed}</>}
+          {' · '}Hash: {latest.responseHash}
         </div>
       )}
     </div>

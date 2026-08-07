@@ -5,13 +5,15 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { computeSignedMean } from '../domain/edges'
+import { resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
+import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, Sep, NodeChip, NodePopover, ScienceIcon } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -36,34 +38,26 @@ export const OutcomeNode = memo((props: NodeProps) => {
     if (!goalNode) return null
     const edge = edges.find(e => e.source === props.id && e.target === goalNode.id)
     if (!edge) return null
-    const weight = (edge.data as any)?.weight as number | undefined
-    const hasStrength = typeof (edge.data as any)?.strength_mean === 'number' || weight != null
-    const signedMean = hasStrength ? computeSignedMean(edge.data as Record<string, unknown> | undefined) : null
+    // ⛔ Provenance gate. The previous test — `strength_mean` present OR
+    // `weight != null` — could NOT fire: `DEFAULT_EDGE_DATA`/`USER_EDGE_DEFAULTS`
+    // always define `weight`, so `hasStrength` was true for every edge that
+    // exists in the product and this rendered `USER_EDGE_DEFAULTS.weight` (0.3)
+    // as a bold coloured "contribution" figure. Same shape as the F1 defect in
+    // `RelationshipsSection`: a gate whose condition is a tautology.
+    const display = resolveEdgeSignedStrengthDisplay(edge.data as Record<string, unknown> | undefined)
+    const signedMean = display.show ? display.value : null
     return {
       signedMean,
       bridgeStrengthPct: signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null,
-      contributionPct: weight != null ? Math.round(weight * 100) : null,
     }
   }, [edges, nodes, props.id])
 
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
   const inboundConnections = useNodeConnections(props.id, 'inbound')
 
-  // Pre-analysis inbound edges with strengths (for popover)
-  const preAnalysisInbound = useMemo(() => {
-    if (isPostAnalysis) return []
-    const inbound = edges.filter(e => e.target === props.id)
-    const items: { nodeLabel: string; strengthPct: number }[] = []
-    for (const edge of inbound) {
-      const sourceNode = nodes.find(n => n.id === edge.source)
-      if (!sourceNode) continue
-      const label = (sourceNode.data?.label as string) ?? 'Untitled'
-      const sm = computeSignedMean(edge.data as Record<string, unknown> | undefined)
-      items.push({ nodeLabel: label, strengthPct: Math.round(Math.abs(sm) * 100) })
-    }
-    items.sort((a, b) => b.strengthPct - a.strengthPct)
-    return items
-  }, [edges, nodes, props.id, isPostAnalysis])
+  // Pre-analysis inbound edges with strengths (for popover). Provenance-gated
+  // and shared with RiskNode — see `usePreAnalysisInbound`.
+  const { items: preAnalysisInbound, topSetItem: preAnalysisTopSet } = usePreAnalysisInbound(props.id)
 
   // Top factor for actionable guidance
   const topFactor = inboundConnections.length > 0 ? inboundConnections[0] : null
@@ -82,7 +76,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
         <>
           <Sep />
           <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Depends on:</p>
-          {/* Wireframe v4 OutcomePostDet: max 3 ConnRows in both views. */}
+          {/* Wireframe v4 OutcomePostDet: max 3 ConnRows in both views;
+              remainder disclosed via "+N more in inspector" (audit §8 P0-5). */}
           {inboundConnections.slice(0, 3).map(conn => (
             <ConnRow
               key={conn.edgeId}
@@ -92,6 +87,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
               confidencePct={conn.confidencePct}
             />
           ))}
+          <ConnRowsOverflow total={inboundConnections.length} shown={3} />
         </>
       )}
 
@@ -118,18 +114,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
   // ----- Layer 2 content: pre-analysis popover -----
   const preAnalysisPopoverContent = !isPostAnalysis && preAnalysisInbound.length > 0 ? (
     <>
-      <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
-        Driven by {preAnalysisInbound.length} factor{preAnalysisInbound.length !== 1 ? 's' : ''}.
-        {preAnalysisInbound[0] && (
-          <> Strongest: {preAnalysisInbound[0].nodeLabel} at {preAnalysisInbound[0].strengthPct}%.</>
-        )}
-      </p>
-      {preAnalysisInbound.slice(0, 5).map((item, i) => (
-        <div key={i} className={`${typography.edgeLabel} text-text-light m-0 flex justify-between gap-2`}>
-          <span className="truncate">{item.nodeLabel}</span>
-          <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
-        </div>
-      ))}
+      <PreAnalysisDrivenByLine items={preAnalysisInbound} topSetItem={preAnalysisTopSet} />
+      <PreAnalysisInboundRows items={preAnalysisInbound.slice(0, 5)} />
       {/* Polish 4 review: removed the "Are there other outcomes that matter?"
           chip — the body now carries the canonical "What strengthens this?"
           chip and the audit table allows only one chip per outcome node. */}
@@ -143,6 +129,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
     return (
       <div className="flex gap-1 flex-wrap mt-1.5">
         <NodeChip
+          chipId="outcome_what_strengthens"
+          actionType={null}
           label="What strengthens this?"
           message={`What upstream factors strengthen ${(props.data?.label as string) ?? 'this outcome'}?`}
         />
@@ -158,6 +146,20 @@ export const OutcomeNode = memo((props: NodeProps) => {
       <p className={`${typography.edgeLabel} text-text-body m-0`}>
         Achievement: {Math.round(displayMetadata.achievementProbability * 100)}%
       </p>
+      {/* Display-honesty (ROADMAP 1.6b tail — goal-fit caveat residuals): the
+          achievement-probability number above is scored from a MODELLED
+          forward-propagated outcome distribution, not a directly-elicited
+          base — same gate + shared wording as GoalNode/OptionCards'
+          caveat (GOAL_FIT_BASIS_CAVEAT_COPY), rendered adjacent to the
+          number it qualifies, never separately, never invented. */}
+      {displayMetadata.achievementProbabilityIsModelledBasis === true && (
+        <p
+          className={`${typography.edgeLabel} text-text-light m-0`}
+          data-testid="goal-fit-basis-caveat-outcome-node"
+        >
+          {GOAL_FIT_BASIS_CAVEAT_COPY}
+        </p>
+      )}
     </>
   ) : null
 
@@ -182,19 +184,21 @@ export const OutcomeNode = memo((props: NodeProps) => {
       >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
-        {/* Post-analysis: "55%" (semibold entity colour) + "of your goal" (meta) */}
-        {isPostAnalysis && bridgeEdgeData?.contributionPct != null && (
-          <div className="mt-1 inline-flex items-center gap-1">
-            <span className={`${typography.nodeLabel} font-semibold text-success`}>{bridgeEdgeData.contributionPct}%</span>
-            <span className={`${typography.edgeLabel} text-text-light`}>of your goal</span>
-          </div>
-        )}
-
-        {/* Pre-analysis: influence percentage */}
-        {!isPostAnalysis && bridgeEdgeData?.bridgeStrengthPct != null && (
+        {/* Assumed bridge-strength percentage — honest in ALL states.
+            UI-SEM-089 (display honesty — assumed input never presented as
+            computed output): this number is the STATIC graph edge weight
+            (the user's / CEE's assumed strength toward the goal), not an
+            engine-computed contribution. It previously flipped its label
+            from "assumed strength" to "of your goal" the moment
+            results.status became 'complete' — masquerading an un-computed
+            input as a computed goal contribution without any producer
+            attribution behind it. Kept as "assumed strength" pre- AND
+            post-analysis. Removal trigger: a producer supplies a typed
+            per-node goal-attribution field. */}
+        {bridgeEdgeData?.bridgeStrengthPct != null && (
           <div className="mt-1 inline-flex items-center gap-1">
             <span className={`${typography.nodeLabel} font-semibold text-success`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
-            <span className={`${typography.edgeLabel} text-text-light`}>influence</span>
+            <span className={`${typography.edgeLabel} text-text-light`}>assumed strength</span>
           </div>
         )}
 
@@ -211,17 +215,14 @@ export const OutcomeNode = memo((props: NodeProps) => {
         {isDetailed && layer2ContentPost}
         {isDetailed && detailedMetrics}
 
-        {/* Detailed pre-analysis: full inbound factor list (max 5) */}
+        {/* Detailed pre-analysis: inbound factor list — max 3 whole rows in
+            the card, remainder disclosed (audit §8 P0-5 containment). */}
         {isDetailed && !isPostAnalysis && preAnalysisInbound.length > 0 && (
           <>
             <Sep />
             <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Driven by:</p>
-            {preAnalysisInbound.slice(0, 5).map((item, i) => (
-              <div key={i} className={`${typography.edgeLabel} text-text-light m-0 flex justify-between gap-2`}>
-                <span className="truncate">{item.nodeLabel}</span>
-                <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
-              </div>
-            ))}
+            <PreAnalysisInboundRows items={preAnalysisInbound.slice(0, 3)} />
+            <ConnRowsOverflow total={preAnalysisInbound.length} shown={3} />
           </>
         )}
 

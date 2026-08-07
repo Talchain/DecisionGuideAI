@@ -14,10 +14,13 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { Node } from '@xyflow/react'
-import { Info, Check, MessageCircle } from 'lucide-react'
+import { Check, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
-import { useCanvasStore } from '../../store'
 import { SectionErrorBoundary } from '../GraphTextView'
+import { useNodeMutations } from '../../ui/inspector-v2/useInspectorMutations'
+import { useOptionalConversationContext } from '../../conversation/ConversationContext'
+import { buildFactorValueEditEvent } from '../../conversation/factorValueEdit'
+import { captureOptimisticFactorEdit } from '../../conversation/optimisticFactorEdit'
 import { Accordion } from '../../../components/results/Accordion'
 import { focusNodeById } from '../../utils/focusHelpers'
 import { formatSmartNumber, formatValueWithUnit, getPrimaryValue, countFactorsToVerify } from './utils'
@@ -28,6 +31,10 @@ import { DataBar } from '../../ui/shared/DataBar'
 import { DetailToggleContext } from './DetailToggleContext'
 import { CoachingCard } from './CoachingCard'
 import type { ObservedState, FactorInfluenceMap } from './types'
+import {
+  factorConfidenceDisclosure,
+  type FactorConfidenceDisplay,
+} from '../../../components/results/driverConfidenceDisplayPolicy'
 
 // ── Category badge ─────────────────────────────────────────────────────────────
 
@@ -108,7 +115,6 @@ function FactorCard({
   influence,
   synthesisedPrior,
   isSelected,
-  evpiPp,
   attributionStability,
   showAttributionStability,
   hasAnalysisData,
@@ -120,8 +126,6 @@ function FactorCard({
   influence: number | undefined
   synthesisedPrior?: SynthesisedPrior
   isSelected?: boolean
-  /** EVPI in percentage points (from evpi_percentage_points or VOI * 100 fallback) */
-  evpiPp?: number
   /** Attribution stability label from PLoT (when present) */
   attributionStability?: string
   /** Whether to show the stability pill — hidden when all factors share same label */
@@ -132,8 +136,16 @@ function FactorCard({
   elasticity?: number
   /** Rank flip rate from PLoT bootstrap */
   rankFlipRate?: number
-  /** Factor confidence from PLoT (0-1) */
-  factorConfidence?: number
+  /**
+   * Factor confidence RESOLVED THROUGH THE DISPLAY POLICY (F9).
+   *
+   * This was `factorConfidence?: number` — a bare number with no provenance
+   * companion, so any future caller could re-open the display fork silently,
+   * with no call to `resolveFactorConfidenceDisplay` anywhere in the diff.
+   * The policy module's own header claimed that could not happen. Taking the
+   * union makes the claim true by construction.
+   */
+  factorConfidence?: FactorConfidenceDisplay
 }) {
   const cardRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -143,7 +155,26 @@ function FactorCard({
   }, [isSelected])
   const { showDetail } = useContext(DetailToggleContext)
   const [cardExpanded, setCardExpanded] = useState(false)
-  const updateNode = useCanvasStore(s => s.updateNode)
+
+  // ROADMAP 2.121 slice 1 — the Model tab writes through the SANCTIONED setters
+  // (the `NODE_SETTER_FIELDS` manifest the writtenFields guard spec enforces),
+  // never a hand-rolled `updateNode`. The four hand-rolled handlers that used to
+  // live below spread a `data` object captured at RENDER time back over the node
+  // on every commit, and one of them (`handleRawValueSave`) wrote `raw_value`
+  // without recomputing the model-scale `value`.
+  const mutations = useNodeMutations(node.id)
+
+  // ROADMAP 2.121 slice 1 / #513 — a Model-tab value commit is a REAL TURN.
+  //
+  // Optional by design, exactly as `FactorControllablePanel` does it: the Model
+  // tab renders in surfaces that are not inside the ConversationProvider (and in
+  // unit tests), and a missing provider must degrade to "local edit only", never
+  // throw. Routing through the context's `sendSystemEvent` is also what puts
+  // these edits behind `useConversation`'s deferral buffer — an edit committed
+  // during a running analysis is queued and flushed when the in-flight lock
+  // clears, identically to an inspector edit. A private transport here would
+  // have bypassed that.
+  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
 
   const data = node.data as Record<string, unknown>
   const label = String(data?.label ?? node.id)
@@ -170,47 +201,106 @@ function FactorCard({
 
   const validateNumeric = useCallback((s: string) => !isNaN(parseFloat(s)), [])
 
-  const handleValueSave = useCallback((val: string) => {
+  /**
+   * ONE commit path for BOTH value inputs — the raw-value chip and the
+   * normalised-value chip. It used to be two handlers, and that duplication was
+   * the split-brain: the raw one wrote `raw_value` and left the model-scale
+   * `value` at its old number, so the card showed the new figure while the
+   * engine kept consuming the old one.
+   *
+   * `buildFactorValueEditEvent` owns the scale contract (`resolveValueInputSeed`
+   * decides, from the node's OWN cap/unit, whether the typed number is a
+   * user-unit magnitude or an already-model-scale one; `normaliseRawFactorValue`
+   * does the conversion). That is why one handler can serve both chips: the
+   * scale is derived from the node, not from which chip was clicked. Building
+   * the event FIRST and feeding both the store write and the wire from it is
+   * what makes the two structurally unable to disagree.
+   */
+  const handleValueCommit = useCallback((val: string) => {
     const num = parseFloat(val)
     if (isNaN(num)) return
-    updateNode(node.id, {
-      data: { ...data, observedState: { ...obs, value: num, source: 'user' } },
-    })
-  }, [node.id, data, obs, updateNode])
 
-  const handleRawValueSave = useCallback((val: string) => {
-    const num = parseFloat(val)
-    if (isNaN(num)) return
-    updateNode(node.id, {
-      data: { ...data, observedState: { ...obs, raw_value: num, source: 'user' } },
+    const event = buildFactorValueEditEvent({
+      nodeId: node.id,
+      typedValue: num,
+      // The node's data as it is BEFORE the local write — its cap/unit is what
+      // decides the scale of what the user typed.
+      nodeData: data,
     })
-  }, [node.id, data, obs, updateNode])
+    // Fail CLOSED: an unencodable edit (no id, non-finite number) writes
+    // nothing rather than committing a number the wire cannot carry.
+    if (!event) return
+    const { value: modelValue, raw_value: rawMagnitude } = event.payload as {
+      value: number
+      raw_value?: number
+    }
 
+    // ROADMAP 2.129 (b) — capture the undo BEFORE the write, from the same
+    // pre-write `data` the event was built from. The optimistic write below is
+    // what makes the canvas responsive; this is what stops it becoming a lie when
+    // CEE refuses the number (out-of-cap, live-proven: canvas showed 25 months
+    // and stamped "User edited" while the engine held 3).
+    const undo = captureOptimisticFactorEdit(node.id, modelValue, data)
+
+    // Local write first, in ONE update: value + raw_value + the provenance
+    // stamp. `source: 'user'` is preserved from the old handlers — it is what
+    // flips the pill to "User edited" and drops the factor out of the
+    // "N to verify" count.
+    mutations.setObservedValue(modelValue, rawMagnitude, { source: 'user' })
+
+    // Then the wire. Before this, the chain ENDED at the store write: the edit
+    // never reached CEE, its graph_hash never moved, and the re-run the
+    // freshness strip invited could not possibly reflect the change.
+    if (!sendSystemEvent) return
+    void Promise.resolve(
+      // The undo travels WITH the send, not around it: the dispatcher owns the
+      // reply (and the deferral buffer, so an edit made mid-analysis is resolved
+      // by the same path). A `.then` here could not see a DEFERRED edit's reply
+      // at all — that promise resolves with SEND_DEFERRED before the turn exists.
+      sendSystemEvent(event, undo ? { optimisticFactorEdit: undo } : undefined),
+    ).catch(() => {
+      // Swallowed deliberately: a genuine send failure is already recorded by
+      // the conversation's own failure channel (see FactorControllablePanel for
+      // why this catch is NOT what protects an edit made during a running
+      // analysis — the dispatcher's deferral buffer is). A server REFUSAL is not
+      // a failure and never reaches here; the dispatcher's revert handles it.
+    })
+  }, [node.id, data, mutations, sendSystemEvent])
+
+  /**
+   * Baseline is NOT the value, and no longer pretends to be.
+   *
+   * The old handler stamped `observedState.source = 'user'` on a baseline edit.
+   * `source` describes the provenance of the observed VALUE — it drives the
+   * "AI estimate" pill and the "N to verify" count — so stamping it here
+   * asserted that the user had confirmed a number they never touched. The
+   * sanctioned setter writes the baseline and nothing else, which is the honest
+   * write; the false provenance claim goes with the handler.
+   */
   const handleBaselineSave = useCallback((val: string) => {
     const num = parseFloat(val)
     if (isNaN(num)) return
-    updateNode(node.id, {
-      data: { ...data, observedState: { ...obs, baseline: num, source: 'user' } },
-    })
-  }, [node.id, data, obs, updateNode])
+    mutations.setObservedBaseline(num)
+  }, [mutations])
 
+  // `setPriorRange` commits BOTH bounds, which also closes a latent bug in the
+  // old per-bound handlers: on a SYNTHESISED prior (the displayed bounds come
+  // from the repair map, not from `data.prior`) writing one bound left
+  // `hasExplicitPrior` false, so the card kept rendering the synthesised pair
+  // and the user's edit was invisible. Both chips only render when both bounds
+  // are known, and the guard below fails closed if that ever stops holding
+  // rather than writing an `undefined` bound.
   const handlePriorMinSave = useCallback((val: string) => {
     const num = parseFloat(val)
-    if (isNaN(num)) return
-    const prior = (data?.prior as Record<string, unknown>) ?? {}
-    updateNode(node.id, {
-      data: { ...data, prior: { ...prior, range_min: num } },
-    })
-  }, [node.id, data, updateNode])
+    if (isNaN(num) || priorRangeMax === undefined) return
+    mutations.setPriorRange(num, priorRangeMax)
+  }, [mutations, priorRangeMax])
 
   const handlePriorMaxSave = useCallback((val: string) => {
     const num = parseFloat(val)
-    if (isNaN(num)) return
-    const prior = (data?.prior as Record<string, unknown>) ?? {}
-    updateNode(node.id, {
-      data: { ...data, prior: { ...prior, range_max: num } },
-    })
-  }, [node.id, data, updateNode])
+    if (isNaN(num) || priorRangeMin === undefined) return
+    mutations.setPriorRange(priorRangeMin, num)
+  }, [mutations, priorRangeMin])
 
   // Task 7: Coaching on defaulted controllable factors
   const isDefaultedControllable =
@@ -234,11 +324,14 @@ function FactorCard({
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (flashTimerRef.current) clearTimeout(flashTimerRef.current) }, [])
 
+  // Confirm changes the PROVENANCE of the existing number, not the number. It
+  // therefore has no value to put on the wire (`factor_value_edit.field` is the
+  // literal `'value'` and the contract carries no confirm event), and routes
+  // through the sanctioned source setter only. Stated plainly rather than
+  // hidden: a confirm is a local annotation today, not a turn.
   const handleConfirmValue = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    updateNode(node.id, {
-      data: { ...data, observedState: { ...obs, source: 'user' } },
-    })
+    mutations.setObservedSource('user')
     // Flash success
     setConfirmFlash(true)
     flashTimerRef.current = setTimeout(() => setConfirmFlash(false), 300)
@@ -247,7 +340,7 @@ function FactorCard({
       sessionStorage.setItem(coachingDismissKey, '1')
       setCoachingDismissed(true)
     }
-  }, [node.id, data, obs, updateNode, isDefaultedControllable, coachingDismissed, coachingDismissKey])
+  }, [mutations, isDefaultedControllable, coachingDismissed, coachingDismissKey])
 
   const uncertaintyDrivers = obs.uncertainty_drivers
 
@@ -335,7 +428,7 @@ function FactorCard({
               <InlineEdit
                 value={String(obs.raw_value ?? obs.value ?? '')}
                 displayValue={primaryValue}
-                onSave={handleRawValueSave}
+                onSave={handleValueCommit}
                 validate={validateNumeric}
                 maxWidth="max-w-[100px]"
                 numeric
@@ -347,7 +440,7 @@ function FactorCard({
                 <InlineEdit
                   value={String(obs.value ?? '')}
                   displayValue={normalisedValue}
-                  onSave={handleValueSave}
+                  onSave={handleValueCommit}
                   validate={validateNumeric}
                   maxWidth="max-w-[80px]"
                   numeric
@@ -429,18 +522,12 @@ function FactorCard({
             </div>
           )}
 
-          {/* EVPI chip (post-analysis only) — only when >= 1pp meaningful improvement */}
-          {cardExpanded && hasAnalysisData && evpiPp != null && Math.round(evpiPp) >= 1 && (
-            <div
-              className="flex items-start gap-1.5 mt-1.5 p-2 rounded-lg bg-info/[0.06] border border-info/25"
-              data-testid={`factor-${node.id}-evpi`}
-            >
-              <Info className="w-3.5 h-3.5 text-info shrink-0 mt-0.5" aria-hidden="true" />
-              <span className={`${typography.panelMeta} text-info leading-relaxed`}>
-                Worth {evpiPp}pp if resolved: your knowledge of {label} would improve confidence by {evpiPp} percentage points
-              </span>
-            </div>
-          )}
+          {/* ⛔ REMOVED: the EVPI chip — "Worth {evpiPp}pp if resolved: your
+              knowledge of {label} would improve confidence by {evpiPp}
+              percentage points". The strongest value claim the product made
+              about a single factor, and it was refuted by our own compute
+              layer: ISL measured 0.0pp for the very factors PLoT scored at
+              12.3 / 10.2 / 6.6 in the same payload. Do not reinstate. */}
         </div>
       )}
 
@@ -481,7 +568,7 @@ function FactorCard({
           )}
 
           {/* Group 2: Sensitivity — only shown when at least one sensitivity metric exists */}
-          {((uncertaintyDrivers && uncertaintyDrivers.length > 0) || evpiPp != null || elasticity != null || rankFlipRate != null || factorConfidence != null) && (
+          {((uncertaintyDrivers && uncertaintyDrivers.length > 0) || elasticity != null || rankFlipRate != null || factorConfidence?.show === true) && (
             <div className="border-t border-panel-border mt-2 pt-2">
               <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Sensitivity</div>
               {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
@@ -491,14 +578,8 @@ function FactorCard({
                 </div>
               )}
               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-                {evpiPp != null && (
-                  <>
-                    <span className={`${typography.panelMeta} text-text-light`}>EVPI</span>
-                    <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
-                      {evpiPp}pp
-                    </span>
-                  </>
-                )}
+                {/* ⛔ REMOVED: the `EVPI  {evpiPp}pp` metric row. Same refuted
+                    figure as the chip above, presented as a precise metric. */}
                 {elasticity != null && (
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Elasticity</span>
@@ -515,11 +596,16 @@ function FactorCard({
                     </span>
                   </>
                 )}
-                {factorConfidence != null && (
+                {factorConfidence?.show === true && (
                   <>
-                    <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
+                    <span
+                      className={`${typography.panelMeta} text-text-light`}
+                      title={factorConfidenceDisclosure(factorConfidence) ?? undefined}
+                    >
+                      Confidence
+                    </span>
                     <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
-                      {Math.round(factorConfidence * 100)}%
+                      {Math.round(factorConfidence.value * 100)}%
                     </span>
                   </>
                 )}
@@ -550,16 +636,14 @@ interface FactorsSectionProps {
   factorInfluence?: FactorInfluenceMap
   synthesisedPriorMap?: Map<string, SynthesisedPrior>
   selectedNodeIds?: Set<string>
-  /** EVPI map: factorId → percentage points */
-  evpiMap?: Map<string, number>
   /** Attribution stability map: factorId → level string */
   attributionStabilityMap?: Map<string, string>
   /** Elasticity map: factorId → raw elasticity */
   elasticityMap?: Map<string, number>
   /** Rank flip rate map: factorId → rate */
   rankFlipRateMap?: Map<string, number>
-  /** Factor confidence map: factorId → confidence (0-1) */
-  factorConfidenceMap?: Map<string, number>
+  /** Factor confidence map: factorId → resolved display (F9; never a bare number). */
+  factorConfidenceMap?: Map<string, FactorConfidenceDisplay>
   /** Whether post-analysis data is available */
   hasAnalysisData?: boolean
   onSendMessage?: (message: string) => void
@@ -571,7 +655,7 @@ interface FactorsSectionProps {
 
 function FactorsSectionInner({
   factorNodes, factorInfluence, synthesisedPriorMap, selectedNodeIds,
-  evpiMap, attributionStabilityMap, elasticityMap, rankFlipRateMap, factorConfidenceMap,
+  attributionStabilityMap, elasticityMap, rankFlipRateMap, factorConfidenceMap,
   hasAnalysisData, onSendMessage, isExpanded, onExpandChange,
 }: FactorsSectionProps) {
   // All hooks must run before any conditional return (Rules of Hooks)
@@ -585,15 +669,15 @@ function FactorsSectionInner({
   }, [attributionStabilityMap])
 
   const sorted = useMemo(() => {
-    // Post-analysis with EVPI data: sort by EVPI descending (gated on analysis state)
-    if (hasAnalysisData && evpiMap && evpiMap.size > 0) {
-      return [...factorNodes].sort((a, b) => {
-        const ea = evpiMap.get(a.id) ?? -1
-        const eb = evpiMap.get(b.id) ?? -1
-        return eb - ea
-      })
-    }
-    // Post-analysis with influence (no EVPI): sort by influence descending
+    // ⛔ The EVPI-descending branch that used to sit here is REMOVED. Ordering
+    // is a claim: #477 landed one commit earlier specifically to close the
+    // "NON-TEXT channels — order, bar, stroke — that still spoke the default",
+    // and an EVPI-ranked list under a visible 'ranked by EVPI' label was that
+    // exact class. Influence — PLoT's normalised impact, already the fallback
+    // whenever EVPI was absent — now orders the list in every post-analysis
+    // case, so this is the file's own pre-existing second choice, not a new
+    // ranking invented here.
+    // Post-analysis: sort by influence descending
     if (hasAnalysisData && factorInfluence && factorInfluence.size > 0) {
       return [...factorNodes].sort((a, b) => {
         const ia = factorInfluence.get(a.id) ?? -1
@@ -607,7 +691,7 @@ function FactorsSectionInner({
       const lb = String((b.data as Record<string, unknown>)?.label ?? b.id).toLowerCase()
       return la.localeCompare(lb)
     })
-  }, [factorNodes, factorInfluence, evpiMap, hasAnalysisData])
+  }, [factorNodes, factorInfluence, hasAnalysisData])
 
   const toVerifyCount = useMemo(() => countFactorsToVerify(factorNodes), [factorNodes])
 
@@ -637,7 +721,6 @@ function FactorsSectionInner({
           influence={factorInfluence?.get(node.id)}
           synthesisedPrior={synthesisedPriorMap?.get(node.id)}
           isSelected={selectedNodeIds?.has(node.id)}
-          evpiPp={evpiMap?.get(node.id)}
           attributionStability={attributionStabilityMap?.get(node.id)}
           showAttributionStability={showAttributionStability}
           elasticity={elasticityMap?.get(node.id)}

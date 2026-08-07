@@ -6,11 +6,16 @@ import { useAnalysisMetadata } from '../../canvas/hooks/useAnalysisMetadata'
 import { useStagePill } from '../../canvas/hooks/useStagePill'
 import { UserAvatarMenu } from './UserAvatarMenu'
 import { KebabMenu } from './KebabMenu'
+import { ScenarioSwitcher } from '../../canvas/components/ScenarioSwitcher'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
+// Lane 4 (P5): SHOW_ONBOARDING removed — its only dispatcher was the kebab
+// "Replay tour" item, which fired into an overlay gated off in every deploy
+// context (a control that lied). ReactFlowGraph's literal
+// 'topbar:show-onboarding' listener + gated overlay remain as dead code;
+// retire-or-revive is a rowed follow-up.
 export const HELP_EVENTS = {
-  SHOW_ONBOARDING: 'topbar:show-onboarding',
   SHOW_KEYBOARD_LEGEND: 'topbar:show-keyboard-legend',
   SHOW_INFLUENCE_EXPLAINER: 'topbar:show-influence-explainer',
   SHOW_TOAST: 'topbar:show-toast',
@@ -128,11 +133,6 @@ export const TopBar = ({
   }, [])
 
   // Help action handlers - emit custom events for ReactFlowGraph to handle
-  const handleShowOnboarding = useCallback(() => {
-    window.dispatchEvent(new CustomEvent(HELP_EVENTS.SHOW_ONBOARDING))
-    setShowMenu(false)
-  }, [])
-
   const handleShowKeyboardLegend = useCallback(() => {
     window.dispatchEvent(new CustomEvent(HELP_EVENTS.SHOW_KEYBOARD_LEGEND))
     setShowMenu(false)
@@ -205,6 +205,12 @@ export const TopBar = ({
         {!isPersisted && isDirty && saveStatus !== 'saving' && (
           <span className={styles.dirtyIndicator} aria-label="Unsaved changes" />
         )}
+
+        {/* Lane 4 (P5): scenario switching, save-as, duplicate, rename,
+            delete, and scenario export/import (.olumi.json) — previously
+            only reachable from the production-unmounted CanvasToolbar. */}
+        <div className={styles.divider} aria-hidden="true" />
+        <ScenarioSwitcher dropdownPosition="below" />
 
       </div>
 
@@ -359,7 +365,6 @@ export const TopBar = ({
           }}
           onClose={() => setShowMenu(false)}
           onStartRename={() => { setIsEditing(true); setShowMenu(false) }}
-          onShowOnboarding={handleShowOnboarding}
           onShowKeyboardLegend={handleShowKeyboardLegend}
           onShowInfluenceExplainer={handleShowInfluenceExplainer}
           menuRef={menuRef}

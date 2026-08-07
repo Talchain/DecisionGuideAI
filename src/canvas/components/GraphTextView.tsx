@@ -506,7 +506,7 @@ export function GraphTextView({
               {isExpanded && (
                 <div
                   id={`graph-section-${type}`}
-                  className="ml-6 mt-1 border-l-2 border-sand-200 pl-4"
+                  className="ml-6 mt-1 border border-sand-200 rounded py-1 pl-4 pr-2"
                 >
                   {nodeList.map(node => {
                     const label = getNodeLabel(node)

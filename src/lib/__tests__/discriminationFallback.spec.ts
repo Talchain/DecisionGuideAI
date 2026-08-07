@@ -208,4 +208,83 @@ describe('fromOptionProbabilities', () => {
     const result = fromOptionProbabilities(optionProbs)
     expect(result[0].confidence).toBe(0.9)
   })
+
+  // ── GOAL-PROBABILITY IDENTITY ────────────────────────────────────────────
+  // The discrimination verdict ("too close to call") is computed FROM these
+  // values, so a value chosen by a different rule from the one the panel
+  // displays makes the verdict contradict the numbers on screen. This function
+  // used to read `goal_probability` directly, with no joint fallback; it now
+  // reads `selectGoalProbability`'s choice.
+
+  /**
+   * ⭐ AMENDED BY L62 (2026-08-04) — AND THIS SURFACE MATTERS MORE THAN MOST.
+   *
+   * The test pinned the joint FALLBACK: no `goal_probability` ⇒ use
+   * `probability_of_joint_goal` and rank on it. `selectGoalProbability` no
+   * longer substitutes (L60 §5–§8: the joint figure on that path is
+   * P(level-or-count threshold >= change-frame sample), a structural zero), so
+   * both options are DROPPED and the discrimination verdict is computed from
+   * an empty set.
+   *
+   * That is the honest outcome and it is worth naming, because this function
+   * does not merely display a number — it feeds the "too close to call"
+   * VERDICT. Ranking options by a quantity that is ~0 for all of them by
+   * arithmetic would have produced a confident discrimination claim about
+   * noise. `analyzeDiscrimination([])` returns `discriminates: false` with
+   * "No predictions available", which is the correct thing to say when nothing
+   * scoreable arrived.
+   *
+   * The original comment's concern — never contribute NaN to the spread — is
+   * unchanged and still pinned by the sibling test below.
+   */
+  it('L62: drops options whose only figure is a withheld joint one — the verdict is not computed from a structural zero', () => {
+    const result = fromOptionProbabilities({
+      opt_1: { probability_of_joint_goal: 0.6 } as never,
+      opt_2: { probability_of_joint_goal: 0.2 } as never,
+    })
+    expect(result).toEqual([])
+
+    // …and the verdict built from that is an honest absence, not a confident
+    // "too close to call" over nothing.
+    const verdict = analyzeDiscrimination(result)
+    expect(verdict.discriminates).toBe(false)
+    expect(verdict.topOption).toBeNull()
+    expect(verdict.spread).toBe(0)
+  })
+
+  it('POSITIVE CONTROL: a real goal_probability still ranks, by identity — the drop above is not a blanket one', () => {
+    // Without this, deleting the body of `fromOptionProbabilities` would pass
+    // the test above (trap 13).
+    const result = fromOptionProbabilities({
+      opt_1: { goal_probability: 0.6 } as never,
+      opt_2: { goal_probability: 0.2 } as never,
+    })
+    // Bound by option id, never by position or value: a builder that paired
+    // the wrong label to the wrong number would satisfy a `.map(r => r.value)`
+    // assertion (CLAUDE.md trap 19).
+    const byId = new Map(result.map((r) => [r.optionId, r.value]))
+    expect(byId.get('opt_1')).toBe(60)
+    expect(byId.get('opt_2')).toBe(20)
+    expect(result.every((r) => Number.isFinite(r.value))).toBe(true)
+  })
+
+  it('drops an option with no admissible number rather than contributing NaN', () => {
+    const result = fromOptionProbabilities({
+      opt_1: { goal_probability: 0.8 },
+      opt_2: {} as never,
+    })
+    expect(result).toHaveLength(1)
+    expect(result[0].optionId).toBe('opt_1')
+  })
+
+  it('is unchanged for a fully-specified input (behaviour-preservation pin)', () => {
+    const result = fromOptionProbabilities(
+      { opt_1: { goal_probability: 0.8, confidence: 0.9 }, opt_2: { goal_probability: 0.6 } },
+      { opt_1: 'Option A', opt_2: 'Option B' },
+    )
+    expect(result).toEqual([
+      { optionId: 'opt_1', optionLabel: 'Option A', value: 80, confidence: 0.9 },
+      { optionId: 'opt_2', optionLabel: 'Option B', value: 60, confidence: undefined },
+    ])
+  })
 })

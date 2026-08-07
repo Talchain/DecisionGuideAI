@@ -81,28 +81,28 @@ const priorityConfig: Record<ActionPriority, {
     icon: AlertTriangle,
     iconColor: 'text-carrot-600',
     badgeColor: 'bg-carrot-100 text-carrot-700',
-    borderColor: 'border-l-carrot-500',
+    borderColor: 'border-danger',
     label: 'Critical',
   },
   high: {
     icon: AlertCircle,
     iconColor: 'text-banana-600',
     badgeColor: 'bg-banana-100 text-banana-700',
-    borderColor: 'border-l-banana-500',
+    borderColor: 'border-warning',
     label: 'High',
   },
   medium: {
     icon: Info,
     iconColor: 'text-sky-600',
     badgeColor: 'bg-sky-100 text-sky-700',
-    borderColor: 'border-l-sky-500',
+    borderColor: 'border-info',
     label: 'Medium',
   },
   low: {
     icon: Info,
     iconColor: 'text-ink-400',
     badgeColor: 'bg-sand-100 text-ink-600',
-    borderColor: 'border-l-sand-300',
+    borderColor: 'border-panel-border',
     label: 'Low',
   },
 }
@@ -300,7 +300,7 @@ function ActionItem({ action, fixStatus, onFocus, onAutoFix, nodes }: ActionItem
 
   return (
     <div
-      className={`px-4 py-3 border-l-4 ${config.borderColor} ${hasAffectedElements ? 'cursor-pointer hover:bg-sand-50' : ''} transition-colors`}
+      className={`px-4 py-3 border ${config.borderColor} ${hasAffectedElements ? 'cursor-pointer hover:bg-sand-50' : ''} transition-colors`}
       onClick={hasAffectedElements ? onFocus : undefined}
       role={hasAffectedElements ? 'button' : undefined}
       tabIndex={hasAffectedElements ? 0 : undefined}

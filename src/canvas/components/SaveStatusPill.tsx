@@ -64,7 +64,7 @@ export function SaveStatusPill({ isSaving, lastSavedAt, savedBy }: SaveStatusPil
   if (lastSavedAt) {
     return (
       <div
-        className={`flex items-center gap-1.5 px-2 py-1 ${typography.caption} text-success-700 bg-success-50 rounded-full`}
+        className={`flex items-center gap-1.5 px-2 py-1 ${typography.caption} text-success-700 bg-panel border border-success/30 rounded-full`}
         data-testid="save-status-saved"
         role="status"
         aria-live="polite"

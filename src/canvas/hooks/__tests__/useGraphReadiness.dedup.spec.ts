@@ -133,6 +133,39 @@ describe('graph-readiness dedup cache', () => {
     expect(r1.entry).toBe(r2.entry) // same entry object
   })
 
+  it('does not leave an unhandled rejection when the underlying fetch rejects', async () => {
+    // Regression test for #248: promise.finally()'s return value is a
+    // distinct promise that adopts the original rejection. Suppressing
+    // rejection only on the base `promise` (via .catch) is not enough —
+    // the .finally()-derived promise also needs a handler or it surfaces
+    // as an unhandled rejection (crashes vitest workers deterministically,
+    // and fires in production browsers on any real fetch failure).
+    const fetchError = new TypeError('Failed to parse URL from /bff/cee/graph-readiness')
+    fetchSpy.mockRejectedValue(fetchError)
+
+    const unhandledRejections: unknown[] = []
+    const onUnhandledRejection = (reason: unknown) => {
+      unhandledRejections.push(reason)
+    }
+    process.on('unhandledRejection', onUnhandledRejection)
+
+    try {
+      const result = deduplicatedFetch('/bff/cee/graph-readiness', '{"boom":1}', 'c1')
+
+      // The caller-visible promise still rejects — callers must still see the error.
+      await expect(result.promise).rejects.toThrow('Failed to parse URL')
+
+      // Flush the microtask/macrotask queue so Node has a chance to flag any
+      // orphaned promise (e.g. the .finally()-derived chain) as unhandled.
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(unhandledRejections).toEqual([])
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection)
+    }
+  })
+
   it('reuses in-flight request beyond 750ms dedup window', async () => {
     // Simulate a slow request that takes longer than DEDUP_WINDOW_MS (750ms)
     let resolveSlowFetch!: (res: Response) => void

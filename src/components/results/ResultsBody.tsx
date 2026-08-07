@@ -10,24 +10,35 @@
  */
 
 import { useRef, useMemo, memo, useState } from 'react'
+import { useCanvasStore } from '../../canvas/store'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { buildResultsVM } from './buildResultsVM'
-import type { GuidanceItem } from '../../canvas/stores/guidanceStore'
+import { deriveDefaultEstimateDisclosure } from './utils/defaultEstimateDisclosure'
+import { flipThresholdStatusNote } from './utils/flipThresholdStatusNote'
 import { DriversSection } from './DriversSection'
 import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
 import { WinGauge } from './WinGauge'
-import { AdvancedSection, RiskAppetiteFilter, type RiskAppetite } from './AdvancedSection'
+import { AdvancedSection, RiskAppetiteFilter, LENS_ARM, type RiskAppetite } from './AdvancedSection'
+import { selectLensOption } from './utils/selectLensOption'
+import { LENS_COPY, runHasGoalNumbers } from './utils/goalAnchorCopy'
 import { StressTestSection } from './StressTestSection'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
+import { TriageActionCardsBody } from './TriageActionCardsBody'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
-import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
-import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled } from '@/flags'
+import { WhatChangedChip } from '../../canvas/components/WhatChangedChip'
+import { StrengthenContainer } from './strengthen/StrengthenContainer'
+import { InferenceWarningStrip } from './InferenceWarningStrip'
+import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
+import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
+import { V7TopMatter } from './v7/V7TopMatter'
+import { openDefineSuccess, HowComputedTrigger } from './modals'
+import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled, isAnalysisHeroPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -45,10 +56,7 @@ export interface ResultsBodyProps {
   strengthCorrections?: StrengthCorrectionDisplay[]
   onFocusNode?: (nodeId: string) => void
   isRunning?: boolean
-  onAddStatusQuoBaseline?: () => void
   onApplyThreshold?: (threshold: number | null) => void
-  onAddBaseline?: () => void
-  onSetBaseline?: (optionId: string) => void
   nSamples?: number | null
   seedUsed?: number | null
   fragileEdgeCount?: number
@@ -59,13 +67,6 @@ export interface ResultsBodyProps {
   identifiability?: string | null
   /** Goal direction for tornado bar colouring — maximize means higher outcome = good */
   goalDirection?: 'maximize' | 'minimize'
-  /**
-   * Orchestrator guidance items for the results surface.
-   * When present (length > 0), replaces NextActionItem list in "Your next steps".
-   * Only items with target_object.type in {graph, option, framing} or no target_object
-   * are passed here — node/edge items are filtered out by the caller.
-   */
-  guidanceItems?: GuidanceItem[]
   /** Callback to activate a guidance item (sets activeGuidanceItemId in store) */
   onActivateGuidanceItem?: (itemId: string) => void
   /** Transition bridge: count of items user verified pre-analysis */
@@ -97,11 +98,8 @@ export const ResultsBody = memo(function ResultsBody({
   registerDriverRef,
   strengthCorrections = [],
   onFocusNode,
-  isRunning: _isRunning,
-  onAddStatusQuoBaseline: _onAddStatusQuoBaseline,
-  onApplyThreshold: _onApplyThreshold,
-  onAddBaseline: _onAddBaseline,
-  onSetBaseline: _onSetBaseline,
+  isRunning,
+  onApplyThreshold,
   nSamples,
   seedUsed,
   fragileEdgeCount,
@@ -111,7 +109,6 @@ export const ResultsBody = memo(function ResultsBody({
   edgeCount,
   identifiability,
   goalDirection,
-  guidanceItems: _guidanceItems,
   verifiedCount,
   influenceCoverage,
   driversExpanded,
@@ -123,31 +120,128 @@ export const ResultsBody = memo(function ResultsBody({
   nodeValueLookup,
   isStale,
 }: ResultsBodyProps) {
-  // Brief 4 Task 13 + Phase 8 P0 #4: suppress mutation affordances while
-  // results are stale so users don't edit a factor based on a display that
-  // no longer matches the analysis. Read-only affordances (focus node,
-  // hover highlights, AI discuss) remain active. Baseline/threshold
-  // handlers are declared on this component but not currently wired to
-  // the children that consume them, so we only gate the two that are.
-  const staleOnConfirmFactor = isStale ? undefined : onConfirmFactor
-  const staleOnSetFactorValue = isStale ? undefined : onSetFactorValue
+  // UI-SEM-065 input: engine blocker/approximate critiques live on
+  // graphHealth (ValidationPanel's source), not on confidence.uncertainties.
+  const engineDegradedCritique = useCanvasStore(s =>
+    (s.graphHealth?.issues ?? []).some(
+      (i: { severity?: string; code?: string }) => i.code === 'GRAPH_TOO_LARGE' || i.severity === 'blocker',
+    ),
+  )
+  // ⛔ ROADMAP 2.651 — Paul's Ruling 3, the UI half. The `isStale` limb of this
+  // gate is RETIRED. It read `isStale || isRunning`, and because `isStale` is
+  // the dock's `analysisNotConfirmedFresh` (displayed 'stale' OR 'unknown'),
+  // and ANY analysis-affecting edit downgrades a retained 'fresh' verdict to
+  // 'unknown', the user's FIRST edit switched "Confirm AI estimate" — pillar
+  // P4's human-confirms-the-AI affordance — off for the rest of the session.
+  //
+  // The retired rationale (Brief 4 Task 13 / Phase 8 P0 #4) was "don't edit a
+  // factor based on a display that no longer matches the analysis". That is an
+  // argument about what the display CLAIMS, and the tab already answers it:
+  // `AnalysisFreshnessNotice` says "Model changed since this analysis. Re-run
+  // to update." above these cards. **Out-of-date results get labelled, never
+  // withheld — staleness is a property of RESULTS, never a lock on what the
+  // user may do.** CEE #834 built the same ruling server-side: the graph is
+  // always editable. `isStale` stays on the props so the dock's derivation
+  // remains visible at this seam and any re-introduced lock is a diff rather
+  // than a silent addition — but it MUST NOT gate an affordance.
+  //
+  // ⭐ WHAT SURVIVES, byte-identically: `isRunning`. Lane 3 (SF2) keeps the
+  // body MOUNTED through a run, and committing a factor edit against a display
+  // whose run is being replaced is a genuine hazard the ruling does not touch.
+  // Pinned + mutation-proved in `ResultsBody.staleMutationAffordances.spec.tsx`.
+  //
+  // `isStale` is kept on the props and marked INERT here rather than deleted —
+  // the same idiom `OutputsDock` uses for `realMessageCount`. Deleting it would
+  // remove the seam the dock's staleness arrives on, and with it the only
+  // mutant that can prove this lock has not come back: the spec above asserts
+  // that a body TOLD its results are stale still offers the affordance, which
+  // is unprovable if the component can no longer be told. Re-attaching a gate
+  // to this value must be a visible diff that turns those tests RED.
+  void isStale
+  const suppressMutations = isRunning
+  const runGatedOnConfirmFactor = suppressMutations ? undefined : onConfirmFactor
+  const runGatedOnSetFactorValue = suppressMutations ? undefined : onSetFactorValue
 
-  // Risk appetite toggle — Conservative: highest p10, Neutral: highest win prob, Aggressive: highest p90
+  // ROADMAP 1.267 — QUOTED, never re-derived. `useResultsSectionData` already
+  // resolved the one verdict (`deriveDecisionVerdict`, the same instance the
+  // canvas reads) and returns it on `recommendation.verdict`; this body only
+  // restates it as the boolean its two withheld-gated surfaces need (the
+  // flip-threshold status note, and the UI-authored stress-test thinking
+  // patterns). Absent verdict ⇒ NOT withheld, the same convention
+  // `buildV7Lenses` and `buildHeroModel` use for a verdict-less caller, so no
+  // fixture-driven mount changes behaviour.
+  const designationsWithheld =
+    resultsSectionData.recommendation.verdict != null
+    && !resultsSectionData.recommendation.verdict.hasLeadingOption
+
+  // Outcome-view lens — all three arms rank the SAME quantity family.
   const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
 
-  const riskWinnerId = useMemo(() => {
-    const opts = resultsSectionData.recommendation.allOptions
-    if (opts.length <= 1) return resultsSectionData.recommendation.recommendedOption?.id
-    if (riskAppetite === 'conservative') {
-      const best = [...opts].sort((a, b) => (b.outcome?.p10 ?? b.p10 ?? 0) - (a.outcome?.p10 ?? a.p10 ?? 0))[0]
-      return best?.id
-    }
-    if (riskAppetite === 'aggressive') {
-      const best = [...opts].sort((a, b) => (b.outcome?.p90 ?? b.p90 ?? 0) - (a.outcome?.p90 ?? a.p90 ?? 0))[0]
-      return best?.id
-    }
-    return resultsSectionData.recommendation.recommendedOption?.id
-  }, [riskAppetite, resultsSectionData.recommendation])
+  /**
+   * ⭐ BEHAVIOUR CHANGE, accepted by Paul (§6.5 item 5). The middle arm used
+   * to feature whichever option led on the COMPARATIVE quantity while the
+   * other two arms ranked the outcome distribution — three quantities under
+   * one control that said it was one view. It now ranks p50, so cautious /
+   * middle / optimistic are p10 / p50 / p90 and nothing else.
+   *
+   * On runs where the p50 leader is not the comparative leader this changes
+   * which option the middle arm features. That is the accepted change;
+   * `utils/__tests__/selectLensOption.spec.ts` pins it on a fixture built to
+   * make the two disagree.
+   *
+   * The Codex R3-SF3 discipline is preserved inside `selectLensOption`: a
+   * missing metric is never defaulted to 0 (which let a data-less option
+   * place in the ranking), and fewer than two comparable options reports
+   * `comparable: false` rather than crowning anyone.
+   *
+   * ⚠ WHAT DID NOT CHANGE: the middle arm is still the default, un-overlaid
+   * view — `lensActive` remains `riskAppetite !== 'neutral'` below, so the
+   * middle arm's pick is derived but not painted. Making it overlay like the
+   * other two would also flip the `decisionState` / `hinge` gating that keys
+   * off the same value, which is a separate change.
+   */
+  // F3: whether this run has a goal ranking at all. The lens sentences and
+  // the filter's own disclaimer both name what the lens leaves unchanged, and
+  // on a no-target run that is NOT a goal ranking — ISL computes goal
+  // probabilities only against a threshold.
+  //
+  // Derived INSIDE the lens memo, off the same dependency, rather than beside
+  // it on every render: both are functions of the one option array, and the
+  // one answer is then threaded to every consumer (the filter's disclaimer,
+  // the lens sentences, and OptionCards) so no surface can re-derive a
+  // different one.
+  const { lensComparison, lensRunHasGoalNumbers } = useMemo(
+    () => ({
+      lensComparison: selectLensOption(
+        resultsSectionData.recommendation.allOptions,
+        LENS_ARM[riskAppetite],
+      ),
+      lensRunHasGoalNumbers: runHasGoalNumbers(resultsSectionData.recommendation.allOptions),
+    }),
+    [riskAppetite, resultsSectionData.recommendation],
+  )
+
+  // Wave 2 (§6.4): identity-anchored ordinals for the option cards — the
+  // SAME store map the hero badges consume, provided all-or-nothing (a
+  // partially registered set could render duplicate numbers next to
+  // positional ranks) and ONLY inside the rebuild flag: flag-off cards are
+  // byte-identical to today.
+  const optionNumbering = useCanvasStore(s => s.optionNumbering)
+
+  // B1 receipts: freshness reason (D1 'translate' branch input, unused while
+  // the mode is 'omit') + local-hash provenance. Read directly from the store
+  // here (same pattern as engineDegradedCritique / optionNumbering above) so
+  // the receipts wiring needs no OutputsDock prop-plumbing (V2 cluster).
+  const freshnessReason = useCanvasStore(s => s.analysisFreshness?.freshnessReason)
+  const responseHashIsLocal = useCanvasStore(
+    s => s.results?.report?.model_card?.response_hash_source === 'local',
+  )
+  const stableNumbersForCards = useMemo(() => {
+    if (!isAnalysisHeroPanelEnabled()) return undefined
+    const all = resultsSectionData.recommendation.allOptions
+    if (all.length === 0 || all.some(o => optionNumbering[o.id] == null)) return undefined
+    return optionNumbering
+  }, [optionNumbering, resultsSectionData.recommendation.allOptions])
 
   // V11: Build enriched view model — drives hero rows, colours, collapse behaviour
   // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
@@ -186,8 +280,8 @@ export const ResultsBody = memo(function ResultsBody({
       onFocusNode={onFocusNode}
       verifiedCount={verifiedCount}
       influenceCoverage={influenceCoverage}
-      onConfirm={staleOnConfirmFactor}
-      onSetValue={staleOnSetFactorValue}
+      onConfirm={runGatedOnConfirmFactor}
+      onSetValue={runGatedOnSetFactorValue}
       expertMode={expertMode}
       nodeValueLookup={nodeValueLookup}
       onSendMessage={onSendMessage}
@@ -201,8 +295,8 @@ export const ResultsBody = memo(function ResultsBody({
       onFocusNode={onFocusNode}
       verifiedCount={verifiedCount}
       influenceCoverage={influenceCoverage}
-      onConfirm={staleOnConfirmFactor}
-      onSetValue={staleOnSetFactorValue}
+      onConfirm={runGatedOnConfirmFactor}
+      onSetValue={runGatedOnSetFactorValue}
       expertMode={expertMode}
       nodeValueLookup={nodeValueLookup}
       onSendMessage={onSendMessage}
@@ -210,24 +304,221 @@ export const ResultsBody = memo(function ResultsBody({
     />
   )
 
+  // ── F10: the disclosure that existed and was wired to nothing ────────────
+  // `AdvancedSection` has rendered "{N} of {M} factors use default confidence
+  // values." since it was written, behind props NO CALL SITE PASSED —
+  // `ResultsBody` omitted both and the only other caller passes neither. The
+  // sentence the product should be showing about its own defaults was dead in
+  // the tree while five surfaces printed the defaults themselves.
+  //
+  // Derived from the SAME `isDefaultedConfidence` flag the Drivers panel's
+  // "Default estimate" pill uses (useResultsSectionData →
+  // isDefaultedConfidenceFromRaw), so the count cannot disagree with the pills
+  // it is counting. Omitted entirely when there are no drivers: "0 of 0" is
+  // not a disclosure, it is noise.
+  const defaultEstimateDisclosure = useMemo(
+    () => deriveDefaultEstimateDisclosure(resultsSectionData.drivers.drivers),
+    [resultsSectionData.drivers.drivers],
+  )
+
   return (
     <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
 
-      {/* Orphan banner — Results from a non-CEE path with no run_analysis
-          fact for the scenario. Renders only when canonical flag is ON and
-          there is no V5 fact attached. */}
-      <AnalysisOrphanBanner />
+      {/* ── P1-9 provenance: Model-Card-Lite entry point ───────────────────
+          Sits above every number it explains so "where did that number come
+          from?" is answerable without hunting. Gated on results being on
+          screen — a method note for an analysis that has not run would be
+          explaining numbers that do not exist. */}
+      <HowComputedTrigger
+        hasResults={(resultsSectionData.recommendation.allOptions?.length ?? 0) > 0}
+      />
+
+      {/* ══ V7 ASSESSMENT-MODE SCAFFOLD (V7 Lane L3) ═══════════════════════
+          Paul's ruling (V6-RESPEC-2026-07-23 §1, "Option A GO — additive,
+          never replace"): the panel renders in two stacked groups so Paul can
+          assess new V7 components against today's live panel in one scroll.
+          L3 is re-parenting + a divider ONLY — no component deleted, no logic
+          changed, no flag. The Current-view group retires once Paul signs off
+          (V6-RESPEC Paul-question P2). */}
+
+      {/* ▛ V7 (new) top group ▟ — the L4–L6 mount point. `empty:hidden` keeps
+          it out of layout until a lane fills it. L4 (V7 top matter — freshness
+          strip, sharpen line, V7 hero + signal row + max-2 chips) mounts here;
+          V7TopMatter returns null pre-analysis, so the group stays hidden until
+          analysis data exists. Reads the SAME resultsSectionData + vm the live
+          panel below consumes — additive, passthrough, no flag. */}
+      <div className="flex flex-col gap-4 empty:hidden" data-testid="v7-top-group">
+        <SectionErrorBoundary section="V7 top matter">
+          <V7TopMatter
+            resultsSectionData={resultsSectionData}
+            decisionState={vm.decisionState}
+            onFocusNode={onFocusNode}
+            onSendMessage={onSendMessage}
+          />
+        </SectionErrorBoundary>
+      </div>
+
+      {/* ── "Current view" divider ─────────────────────────────────────────
+          Plain SectionHeader-style separator (sentence case, muted, no accent
+          fill). COMPLETE border only — the four-sided neutral border obeys the
+          L1 rule (complete-borders guard); never a one-sided accent edge.
+          Everything beneath is the shipped panel, re-parented, zero logic
+          change. */}
+      <div
+        data-testid="assessment-current-view-divider"
+        className="flex items-center rounded-lg border border-panel-border bg-panel px-3 py-1.5"
+      >
+        <h3 className={`${typography.panelMeta} text-text-light`}>Current view</h3>
+      </div>
+
+      {/* ── Current view group — today's components, UNCHANGED, pushed down ──
+          Same order, same props, same stores as before L3. This wrapper only
+          re-parents them beneath the divider; the inner `gap-4` preserves the
+          exact inter-component spacing the outer container gave them. */}
+      <div className="flex flex-col gap-4" data-testid="assessment-current-view-group">
+
+      {/* Freshness/staleness — CEE analysis_ready.freshness verdict. Renders
+          nothing until a verdict exists; never asserts a state we don't hold. */}
+      {/* Freshness strip mounts in OutputsDock ABOVE the dim wrapper (Wave F-B review a) */}
+
+      {/* Roadmap 1.12 (provisional_doctrine_v0): warning-severity producer
+          inference_warnings surface as a compact honest-caveat strip beside
+          the freshness area. Producer message verbatim; info-severity stays
+          hidden; renders nothing when no warning-severity entries exist. */}
+      <InferenceWarningStrip warnings={resultsSectionData.confidence.inferenceWarnings} />
+
+      {/* Seamlessness R6 / ROADMAP 2.1 slice 1: run-over-run delta chip.
+          Client-side diff of the two most recent stored runs; self-hides on
+          first runs or zero delta; click pulses the surviving changes. */}
+      <WhatChangedChip />
+
+      {/* ── ANALYSIS HERO (answer-first lens hero) ─────────────────
+          Feature-flagged (staging-on, production-off). Read-only
+          presentation over the SAME resultsSectionData object the panels
+          below consume — mounted ABOVE the existing hero block; flag off
+          renders nothing and the tab is unchanged. */}
+      {isAnalysisHeroPanelEnabled() && (
+        <>
+          <SectionErrorBoundary section="Analysis hero">
+            <AnalysisHeroContainer
+              onDefineSuccess={openDefineSuccess}
+              data={resultsSectionData}
+              onApplyTarget={onApplyThreshold}
+            />
+          </SectionErrorBoundary>
+          {/* ── 2.466 (P1): decision-quality KEY QUESTION + DSK grounding ──
+              Fed from the LIVE turn state (runMeta.decisionReview030's
+              verbatim DQP carry), presence-gated — never from the legacy
+              m1ReviewAssumptions/reviewStatus pair that dark-shipped lane 1.
+              Hosted INSIDE this flag arm on purpose: the V17 HeroKeyQuestion
+              lives in the `!flag` arm below, so the two hosts are mutually
+              exclusive by the same fork that owns the slot — no posture can
+              double-render the grounding line. */}
+          <SectionErrorBoundary section="Key question">
+            <KeyQuestionCard />
+          </SectionErrorBoundary>
+          {/* ── 2.661 (P4): THE CONFIRM/SET-VALUE AFFORDANCE, ON THE ARM THE
+              DEPLOYED FLAGS ACTUALLY MOUNT ──────────────────────────────────
+              "Confirm AI estimate" + the inline value editor are P4's
+              human-confirms-the-AI affordance. Both are minted by
+              `TriageActionCardsBody` (`mapEvidenceGapsToActions` → `TriageCard`
+              → `InlineValueControls`), and until now that body was composed
+              ONLY by `DecisionConfidencePanel` and `AnalysisHeroV17` — BOTH of
+              which live in the `!isAnalysisHeroPanelEnabled()` arm below.
+              Staging bakes `VITE_FEATURE_ANALYSIS_HERO_PANEL="1"`, so on the
+              posture real users load NEITHER mounted and no staging user could
+              confirm an AI estimate after an analysis at all.
+
+              ⚠ WHY NOT "PUT IT ON THE V17 HERO" (the obvious answer, and the
+              wrong one — CLAUDE.md trap 3b, third instance in this estate):
+              `analysisHeroV17` is ALSO "1" on the deployed bundle, but V17 is
+              inside the SAME dark arm, so hosting it there would have shipped
+              the identical invisible feature a third time. Read at the bytes
+              from `assets/flags-*.js`, not from netlify.toml (trap 18).
+
+              ⚠ WHY NOT INSIDE `AnalysisHeroContainer`: that component's
+              contract is "the ONE authorised mount of the analysis hero",
+              read-only and store-free by design (enforced by its own
+              inertness spec), and `AnalysisHeroPanel` has no per-factor row —
+              only quick-links that focus a factor on canvas. Threading write
+              handlers through it would break a deliberate boundary. The triage
+              body is the surface that already IS "the factors whose estimates
+              are weak — act on them", so it mounts as the hero's sibling,
+              exactly where a user inspecting a factor's estimate acts on it.
+
+              ⭐ NO NEW WRITE PATH. Same component, same
+              `runGatedOnConfirmFactor` / `runGatedOnSetFactorValue` the legacy
+              arm passes — so the run-gating semantics #609 shipped are
+              inherited rather than re-derived (a re-derivation here is exactly
+              how the retired `isStale` lock would come back). The wrapper
+              testid makes the MOUNT PATH itself assertable, so a flag move
+              REDs `ResultsBody.confirmEstimateLiveMount.spec.tsx` instead of
+              silently darkening the affordance again. */}
+          <SectionErrorBoundary section="Decision confidence">
+            {/* `space-y-3` is the spacing context this body's ONLY other call
+                site gives it (`DecisionConfidencePanel`'s T1 card) — its root
+                is a Fragment, so without it the sub-sections butt together.
+                `empty:hidden` because that same Fragment root means a run with
+                no gaps, flip risk, conditional winners or result checks renders
+                a genuinely EMPTY div, which would still consume one `gap-4` of
+                the parent flex column. No card chrome is invented here: what
+                this surface should look like framed is a design decision, not
+                a wiring one. */}
+            <div className="space-y-3 empty:hidden" data-testid="hero-arm-triage-actions">
+              <TriageActionCardsBody
+                data={resultsSectionData}
+                onFocusNode={onFocusNode}
+                onConfirm={runGatedOnConfirmFactor}
+                onSetValue={runGatedOnSetFactorValue}
+                nodeValueLookup={nodeValueLookup}
+                onSendMessage={onSendMessage}
+                aiAffordance={aiAffordance}
+              />
+            </div>
+          </SectionErrorBoundary>
+        </>
+      )}
 
       {/* ── DECISION CONFIDENCE TRIAGE ────────────────────────────── */}
-      {/* Comparison mode: v17 ABOVE legacy panel. Opt-in only. */}
-      {showCompare && (
-        <SectionErrorBoundary section="Analysis hero v17">
-          {heroV17Element}
-        </SectionErrorBoundary>
+      {/* Wave 2 flag-scoped retirement: when the merged analysis panel is
+          on, the hero above OWNS this slot — mounting both would be the
+          §12.4 two-headline duplication the rebuild removes. Flag off,
+          today's panel (and the v17 comparison machinery) render exactly
+          as before; rollback is the flag. */}
+      {!isAnalysisHeroPanelEnabled() && (
+        <>
+          {/* Comparison mode: v17 ABOVE legacy panel. Opt-in only. */}
+          {showCompare && (
+            <SectionErrorBoundary section="Analysis hero v17">
+              {heroV17Element}
+            </SectionErrorBoundary>
+          )}
+          <SectionErrorBoundary section="Decision confidence">
+            {showV17 && !showCompare ? heroV17Element : decisionConfidenceElement}
+          </SectionErrorBoundary>
+        </>
       )}
-      <SectionErrorBoundary section="Decision confidence">
-        {showV17 && !showCompare ? heroV17Element : decisionConfidenceElement}
-      </SectionErrorBoundary>
+
+      {/* ── SECOND PANEL: Strengthen your model (Focus) ───────────────
+          Static / fail-closed coaching panel mounted directly after the hero.
+          coaching_summary stays gated off; no server/dynamic/readiness/bias rows.
+          Default-ON flag (kill switch); suppresses its own stale banner (the tab's
+          AnalysisFreshnessNotice owns freshness). */}
+      {/* Wave 3a: the adaptive Strengthen panel replaces the static FocusNow
+          panel INSIDE VITE_FEATURE_STRENGTHEN_PANEL; flag off, FocusNow
+          renders exactly as before (soak fallback — the focusNowPanel kill
+          switch retires at 3a acceptance). */}
+      {isStrengthenPanelEnabled() ? (
+        <SectionErrorBoundary section="Strengthen your model">
+          <StrengthenContainer data={resultsSectionData} />
+        </SectionErrorBoundary>
+      ) : (
+        isFocusNowPanelEnabled() && (
+          <SectionErrorBoundary section="Strengthen your model">
+            <FocusNowContainer />
+          </SectionErrorBoundary>
+        )
+      )}
 
       {/* Old RecommendationSection/HeroSection suppressed — triage panel replaces it */}
 
@@ -252,7 +543,50 @@ export const ResultsBody = memo(function ResultsBody({
                 relocated here from Advanced. Keeps the option-level toggle
                 co-located with the option cards it reweights. */}
             {resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null) && (
-              <RiskAppetiteFilter value={riskAppetite} onChange={setRiskAppetite} />
+              <RiskAppetiteFilter
+                value={riskAppetite}
+                onChange={setRiskAppetite}
+                hasGoalNumbers={lensRunHasGoalNumbers}
+              />
+            )}
+            {/* Paul's ruling 2026-07-12: the risk-appetite view is an
+                EXPLICITLY-LABELLED lens — it re-ranks only this section and
+                never alters the recommendation, hero, graph or AI leader. */}
+            {riskAppetite !== 'neutral' && (
+              <p
+                data-testid="risk-lens-label"
+                className={`${typography.panelMeta} text-text-light`}
+              >
+                {/*
+                  ⭐ RE-ANCHORED 2026-08-01 (ROADMAP 2.237, P1-1) — "ranked by"
+                  → "highlights".
+
+                  The sentence claimed a RE-RANKING that never happens. The
+                  option list below is ordered by `sortOptionsForDisplay`, which
+                  takes NO lens argument and sorts by `winProbability`, and the
+                  cards stamp that order as explicit ordinals. The lens reaches
+                  the cards only as a CROWN on one card. So on
+                  A(win .50, p10 10) B(win .30, p10 50) C(win .20, p10 90),
+                  clicking "Cautious (p10)" printed "ranked by the low end
+                  (p10)" over a list reading A(1), B(2) — identical to neutral —
+                  with C, the p10 leader and the lens's OWN pick, not rendered
+                  at all behind "Show all (1 more)". The user was told a ranking
+                  existed and then could not see its result.
+
+                  The copy is corrected to what the code does rather than the
+                  code changed to match the copy: highlighting IS the shipped
+                  behaviour and is a coherent feature, whereas threading the
+                  lens through the comparator would change ordering, truncation
+                  and the ordinal stamps together — a much larger behavioural
+                  change than a false sentence warrants. `LENS_COPY.unchanged`
+                  keeps its job of saying what the lens does NOT touch.
+                */}
+                {!lensComparison.comparable
+                  ? 'Not enough range data to compare options under this lens.'
+                  : riskAppetite === 'conservative'
+                    ? `Cautious view: highlights the option with the strongest low end (p10). Order below is unchanged. ${LENS_COPY.unchanged(lensRunHasGoalNumbers)}`
+                    : `Optimistic view: highlights the option with the strongest high end (p90). Order below is unchanged. ${LENS_COPY.unchanged(lensRunHasGoalNumbers)}`}
+              </p>
             )}
             {/* WinGauge — moved from hero to top of options section */}
             <WinGauge
@@ -263,22 +597,67 @@ export const ResultsBody = memo(function ResultsBody({
                   label: o.label,
                   winProbability: o.winProbability,
                   isWinner: o.isRecommended,
+                  // Re-anchoring (§6 map row 1): the figure headlines the GOAL
+                  // number and demotes the comparative one. Both anchors are
+                  // already on `OptionResult` — the gauge's prop shape simply
+                  // did not carry them, which is why it could only draw the
+                  // comparative quantity. The possessive gate travels with the
+                  // number so the label cannot assert "your goal" over a
+                  // substituted joint value.
+                  goalProbability: o.goalProbability,
+                  // ROADMAP 2.334 — the resolution the goal readouts need.
+                  nValidSamples: o.nValidSamples,
+                  goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint,
+                  // ⭐ L62 — lets the gauge tell "no target set" apart from
+                  // "a goal figure was withheld from you"; they need different
+                  // sentences and only the producer decision knows which.
+                  goalFitWithheld: o.goalFitWithheld,
                 }))}
               decisionState={vm.decisionState}
+              designationsWithheld={
+                resultsSectionData.recommendation.verdict?.hasLeadingOption === false
+              }
+              // ⭐ L65 — the same store-derived target signal the V7 goal
+              // lens gates with (`recommendation.goalThreshold`). Lets the
+              // gauge tell "no target set" from "target set, nothing scored":
+              // post-#308 the producer suppresses the frame-broken joint
+              // channel at source, so `goalFitWithheld` (which needs a joint
+              // figure to ARRIVE) can no longer see that state.
+              goalThreshold={resultsSectionData.recommendation.goalThreshold}
             />
+            {/* Codex B1: winnerId is ALWAYS the canonical leader — every leader
+                predicate (downside sentence, leader CTA/prompt) keys to it. The
+                lens selection is a separate id that only crowns/relabels its card. */}
             <OptionCards
               options={resultsSectionData.recommendation.allOptions}
-              winnerId={riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id}
+              winnerId={resultsSectionData.recommendation.recommendedOption?.id}
+              // ROADMAP 1.223: the ENTITLEMENT, kept separate from the identity
+              // above. `winnerId` deliberately still flows on a withheld turn
+              // because identity is not entitlement.
+              //
+              // ⚠ CORRECTED 27 Jul (ROADMAP 1.267): this comment used to end
+              // "it drives segment colours, the lens crown and card ordering,
+              // none of which claim anything", and row 1.306 refutes that at
+              // the screenshots. Ordering, ordinal colour and the crown ARE
+              // claims; OptionCards now gates them off this same boolean.
+              hasLeadingOption={resultsSectionData.recommendation.verdict?.hasLeadingOption}
+              lensActive={riskAppetite !== 'neutral'}
+              lensHighlightedId={riskAppetite !== 'neutral' && lensComparison.comparable ? lensComparison.id : undefined}
+              stableNumbers={stableNumbersForCards}
               onSendMessage={onSendMessage}
               hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
+              // F3: the SAME derivation the filter disclaimer and the lens
+              // sentences above use — threaded, never re-derived downstream.
+              hasGoalNumbers={lensRunHasGoalNumbers}
               storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
               cardRefMap={optionCardRefs}
               decisionState={riskAppetite === 'neutral' ? vm.decisionState : undefined}
               hinge={riskAppetite === 'neutral' ? vm.hinge : null}
               runnerId={
-                // V12.2 Fix 1: Runner-up is highest by win_probability excluding winner
+                // V12.2 Fix 1: Runner-up is highest by win_probability excluding
+                // the CANONICAL winner (Codex B1: lens never shifts this).
                 [...resultsSectionData.recommendation.allOptions]
-                  .filter(o => o.id !== (riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id))
+                  .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
                   .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
               }
               expertMode={expertMode}
@@ -314,6 +693,7 @@ export const ResultsBody = memo(function ResultsBody({
             outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
             outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
             isNormalised={resultsSectionData.recommendation.isNormalised}
+            sensitivityReferenceLabel={resultsSectionData.sensitivityReference?.optionLabel ?? null}
           />
         </SectionErrorBoundary>
       </Accordion>
@@ -330,27 +710,31 @@ export const ResultsBody = memo(function ResultsBody({
                 flip_thresholds[] as all-no-effect or partial-no-effect,
                 render one short explanatory line so absent markers do not
                 read as actionable insight. Reuses panel typography only —
-                no new colour or component. */}
-            {resultsSectionData.recommendation.flipThresholdsStatus === 'all_no_effect' && (
-              <p
-                className={`${typography.panelBody} text-text-light mb-3`}
-                data-testid="flip-thresholds-status-note"
-                role="note"
-              >
-                No single tested factor changed the leading option within the current range.
-              </p>
-            )}
-            {resultsSectionData.recommendation.flipThresholdsStatus === 'partial_no_effect' && (
-              <p
-                className={`${typography.panelBody} text-text-light mb-3`}
-                data-testid="flip-thresholds-status-note"
-                role="note"
-              >
-                {resultsSectionData.recommendation.flipThresholdsHasUnresolved
-                  ? 'Some factors did not change the leading option within the current range, and others could not be resolved.'
-                  : 'Some factors did not change the leading option within the current range.'}
-              </p>
-            )}
+                no new colour or component.
+
+                ROADMAP 1.267: the three sentences moved into
+                `flipThresholdStatusNote` — all three said "the leading
+                option", which on a withheld run asserts what CEE declined to
+                say, and as inline JSX they could not be unit-tested without
+                mounting the whole panel. One call site, one pure function,
+                pinned against the withheld/permitted fixture pair. */}
+            {(() => {
+              const note = flipThresholdStatusNote({
+                status: resultsSectionData.recommendation.flipThresholdsStatus,
+                hasUnresolved:
+                  resultsSectionData.recommendation.flipThresholdsHasUnresolved === true,
+                designationsWithheld,
+              })
+              return note == null ? null : (
+                <p
+                  className={`${typography.panelBody} text-text-light mb-3`}
+                  data-testid="flip-thresholds-status-note"
+                  role="note"
+                >
+                  {note}
+                </p>
+              )
+            })()}
             <TornadoChart
               rows={tornadoData.rows}
               expectedOutcome={tornadoData.expectedOutcome}
@@ -385,15 +769,33 @@ export const ResultsBody = memo(function ResultsBody({
                 .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
                 .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]
               const alternativeLabel = runnerUp?.label ?? 'an alternative option'
+              // Audit §8 P1 (verdict honesty): pass the SAME robustness
+              // signal the "Some analysis features unavailable … Robustness"
+              // chip uses, plus a degraded flag (partial pass or
+              // GRAPH_TOO_LARGE / blocker-severity engine critique), so the
+              // empty state can distinguish didn't-run / degraded / clean.
+              // UI-SEM-065: degraded-run derivation — remove when PLoT
+              // provides a canonical degraded/approximate flag. Blocker
+              // critiques never reach confidence.uncertainties (that list
+              // ingests WARNING-severity only), so the approximate signal is
+              // read from graphHealth — the same source ValidationPanel uses.
+              const analysisDegraded =
+                resultsSectionData.confidence.analysisStatus === 'partial'
+                || engineDegradedCritique
               return (
                 <StressTestSection
                   drivers={resultsSectionData.drivers.drivers}
                   fragileEdges={resultsSectionData.confidence.challengeFragileEdges}
                   winnerLabel={winnerLabel}
                   alternativeLabel={alternativeLabel}
+                  robustnessStatus={resultsSectionData.confidence.robustnessStatus}
+                  analysisDegraded={analysisDegraded}
                   onFocusNode={onFocusNode}
                   onSendMessage={onSendMessage}
                   expertMode={expertMode}
+                  sensitivityReferenceLabel={resultsSectionData.sensitivityReference?.optionLabel ?? null}
+                  showThinkingPatterns={!isAnalysisHeroPanelEnabled()}
+                  designationsWithheld={designationsWithheld}
                 />
               )
             })()}
@@ -410,7 +812,9 @@ export const ResultsBody = memo(function ResultsBody({
       <SectionErrorBoundary section="Advanced">
       <div>
         <AdvancedSection
-          stability={resultsSectionData.recommendation.recommendationStability}
+          robustnessVerdict={resultsSectionData.recommendation.robustnessVerdict}
+          freshnessReason={freshnessReason}
+          responseHashIsLocal={responseHashIsLocal}
           nSamples={nSamples}
           seedUsed={seedUsed}
           fragileEdgeCount={fragileEdgeCount}
@@ -426,6 +830,7 @@ export const ResultsBody = memo(function ResultsBody({
           robustnessLevel={resultsSectionData.recommendation.robustnessLevel}
           expertMode={expertMode}
           inferenceWarnings={resultsSectionData.confidence.inferenceWarnings}
+          {...defaultEstimateDisclosure}
         />
       </div>
       </SectionErrorBoundary>
@@ -461,6 +866,8 @@ export const ResultsBody = memo(function ResultsBody({
           extracted into `DevBuildMarker` so the production-vs-expert
           combination is unit-testable. */}
       <DevBuildMarker isDev={import.meta.env.DEV} expertMode={!!expertMode} sha={typeof __GIT_SHA__ !== 'undefined' ? __GIT_SHA__ : 'dev'} />
+      {/* ── end Current view group (V7 L3 assessment-mode scaffold) ── */}
+      </div>
     </div>
   )
 })
@@ -483,7 +890,7 @@ export function DevBuildMarker({
 }) {
   if (!isDev || !expertMode) return null
   return (
-    <div className={`${typography.panelMeta} text-text-light/40 text-center py-1`} data-testid="dev-build-marker">
+    <div className={`${typography.panelMeta} text-text-light text-center py-1`} data-testid="dev-build-marker">
       {sha}
     </div>
   )

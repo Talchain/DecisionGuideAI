@@ -36,10 +36,6 @@ const CATEGORY_BORDER: Record<MessageCategory, string> = {
 interface ChatMessageProps {
   message: ConversationMessage
   isFirst: boolean
-  /** When true, suppress inline ActionChipRow (chips rendered externally by SuggestedChips) */
-  hideChips?: boolean
-  /** When true, inline chips are visible but non-interactive (historical turn) */
-  historicalChips?: boolean
   onChipClick: (chip: ActionChip) => Promise<void>
   onRetry: () => void
   patchBlockStates?: Map<string, PatchBlockState>
@@ -51,13 +47,17 @@ interface ChatMessageProps {
   onProposalConfirm?: (proposalId: string) => void
   /** AI panel v2 surface — render message body at panelBody (12px). */
   compact?: boolean
+  /**
+   * Transcript honesty (trust item #3): when true, this failed user message
+   * is the one retryLast would resend — wire onRetry as the message's own
+   * retry affordance. ChatThread sets this for at most ONE message.
+   */
+  showFailedSendRetry?: boolean
 }
 
 export const ChatMessage = memo(function ChatMessage({
   message,
   isFirst,
-  hideChips,
-  historicalChips,
   onChipClick,
   onRetry,
   patchBlockStates,
@@ -68,6 +68,7 @@ export const ChatMessage = memo(function ChatMessage({
   onArtefactMessage,
   onProposalConfirm,
   compact,
+  showFailedSendRetry,
 }: ChatMessageProps) {
   const category = getMessageCategory(message)
   const borderClass = CATEGORY_BORDER[category]
@@ -98,8 +99,6 @@ export const ChatMessage = memo(function ChatMessage({
 
       <MessageBubble
         message={message}
-        hideChips={hideChips}
-        historicalChips={historicalChips}
         onChipClick={onChipClick}
         patchBlockStates={patchBlockStates}
         patchRejections={patchRejections}
@@ -109,6 +108,7 @@ export const ChatMessage = memo(function ChatMessage({
         onArtefactMessage={onArtefactMessage}
         onProposalConfirm={onProposalConfirm}
         compact={compact}
+        onRetryFailedSend={showFailedSendRetry ? onRetry : undefined}
       />
     </div>
   )

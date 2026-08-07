@@ -82,7 +82,27 @@ function inputs(
     resultsStatus: 'complete',
     report: makeFullReport(),
     ceeReviewV1: makeReview(),
+    decisionReview030: null,
     driversPayload: null,
+    ...overrides,
+  }
+}
+
+/** A 0.30 review view-model carrying prose (ROADMAP 2.154). */
+function makeReview030(
+  overrides?: Partial<NonNullable<ResultCompletenessInputs['decisionReview030']>>,
+): ResultCompletenessInputs['decisionReview030'] {
+  return {
+    narrative_summary: 'Status quo leads by a wide margin.',
+    story_headlines: [],
+    robustness_explanation: null,
+    readiness_rationale: null,
+    scenario_contexts: [],
+    // 2.466: the verbatim DQP carry — irrelevant to completeness (it is not a
+    // hasProse input; pinned by decisionReviewAdapter.dqpCarry.spec).
+    decision_quality_prompts: [],
+    produced_at: '2026-07-29T23:06:30.954Z',
+    hasProse: true,
     ...overrides,
   }
 }
@@ -175,6 +195,63 @@ describe('deriveResultCompleteness — partial source coverage', () => {
     expect(result.missing).toContain('decision_review')
   })
 
+  // ── ROADMAP 2.154 — the signal used to fire on EVERY turn ────────────────
+  //
+  // It tested `ceeReviewV1.m1_coaching.executive_summary`, a key the live V5
+  // wire does not carry at all, so `decision_review_unavailable` was true on
+  // every analysis and the user was told "Decision coaching is still being
+  // prepared for this analysis" while a real ~8-9s gpt-4.1 review sat in the
+  // same response. These cases pin that a 0.30 review now clears it, and — the
+  // half that keeps the signal non-vacuous — that it STILL fires when nothing
+  // arrived.
+  describe('the decision_review signal is satisfied by a 0.30 review too', () => {
+    it('a 0.30 review with prose clears the signal even with NO m1_coaching', () => {
+      const result = deriveResultCompleteness(
+        inputs({ ceeReviewV1: null, decisionReview030: makeReview030() }),
+      )
+      expect(result.missing).not.toContain('decision_review')
+      expect(result.reasons).not.toContain('decision_review_unavailable')
+      expect(result.status).toBe('full')
+    })
+
+    it('a 0.30 review with NO prose does NOT clear it (nothing to show is unavailable)', () => {
+      const result = deriveResultCompleteness(
+        inputs({
+          ceeReviewV1: null,
+          decisionReview030: makeReview030({ narrative_summary: null, hasProse: false }),
+        }),
+      )
+      expect(result.missing).toContain('decision_review')
+      expect(result.reasons).toContain('decision_review_unavailable')
+    })
+
+    it('NEGATIVE CONTROL — both witnesses absent still fires the signal', () => {
+      const result = deriveResultCompleteness(
+        inputs({ ceeReviewV1: null, decisionReview030: null }),
+      )
+      expect(result.missing).toContain('decision_review')
+      expect(result.reasons).toContain('decision_review_unavailable')
+    })
+
+    it('m1_coaching alone still clears it (the M1 path is untouched)', () => {
+      const result = deriveResultCompleteness(inputs({ decisionReview030: null }))
+      expect(result.missing).not.toContain('decision_review')
+    })
+
+    it('A1 framing — a MALFORMED review still fires the signal for the user', () => {
+      // Recorded because the A1 write-up first over-claimed "silently
+      // discarded". On the wrong-typed path `applyV5State` writes
+      // `decisionReview030: null`, so the user DOES get a signal here. What went
+      // dark was the OPERATOR marker — the only witness distinguishing "the
+      // producer sent nothing" from "the producer sent something broken". The
+      // user was told the review was still coming when it had arrived malformed.
+      const result = deriveResultCompleteness(
+        inputs({ ceeReviewV1: null, decisionReview030: null }),
+      )
+      expect(result.reasons).toContain('decision_review_unavailable')
+    })
+  })
+
   it('multiple gaps → status=partial with all reasons surfaced', () => {
     const report = makeFullReport()
     for (const id of Object.keys(report.option_probabilities ?? {})) {
@@ -199,8 +276,18 @@ describe('deriveResultCompleteness — partial source coverage', () => {
 })
 
 describe('deriveResultCompleteness — failed', () => {
-  it('resultsStatus=error → status=failed', () => {
+  it('DELIBERATE PIN FLIP (Lane 3 / SF2): error WITH a retained report describes THAT report, not the new run\'s failure', () => {
+    // Post-SF2 the body renders the retained previous report at status
+    // 'error'; its completeness must describe itself (a full retained
+    // report → full), not slander it as "failed/partial" for the new run
+    // that failed. The failed short-circuit now requires NO report.
     const result = deriveResultCompleteness(inputs({ resultsStatus: 'error' }))
+    expect(result.status).toBe('full')
+    expect(result.reasons).toEqual([])
+  })
+
+  it('resultsStatus=error with NO retained report → status=failed', () => {
+    const result = deriveResultCompleteness(inputs({ resultsStatus: 'error', report: null }))
     expect(result.status).toBe('failed')
     expect(result.reasons).toContain('analysis_partial')
   })

@@ -32,9 +32,11 @@ function makeStore(
   store: V5ApplicatorStore
   resultsComplete: ReturnType<typeof vi.fn>
   setRunMeta: ReturnType<typeof vi.fn>
+  setAnalysisFreshness: ReturnType<typeof vi.fn>
 } {
   const resultsComplete = vi.fn()
   const setRunMeta = vi.fn()
+  const setAnalysisFreshness = vi.fn()
   return {
     store: {
       setCurrentStage: vi.fn(),
@@ -42,6 +44,7 @@ function makeStore(
       updateEdgeData: vi.fn(),
       setRunMeta,
       setCeeAnalysisReady: vi.fn(),
+      setAnalysisFreshness,
       resultsComplete,
       nodes: [],
       edges: [],
@@ -50,6 +53,7 @@ function makeStore(
     },
     resultsComplete,
     setRunMeta,
+    setAnalysisFreshness,
   }
 }
 
@@ -251,5 +255,99 @@ describe('applyV5State — step 5: results hydration', () => {
     expect(callArgs.report.confidence.level).toBe('high')
     expect(callArgs.report.confidence.why).toContain('1 fragile edge')
     expect(callArgs.report.confidence.why).toContain('8 robust edges')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// #4: clearing the local freshness dirty overlay on a genuine new run.
+// The CEE analysis_ready contract carries no computed_at / run id, so the
+// reducer's echo-guard cannot distinguish a same-verdict rerun from an echo.
+// The reliable run identity is the analysis_result response_hash dedupe: a NEW
+// hash means a completed run. BUT the overlay is cleared ONLY when that same
+// response ALSO carries an explicit analysis_ready.freshness verdict — otherwise
+// clearing would re-show a retained 'fresh' verdict despite the new result
+// asserting no CEE freshness (false-fresh). Duplicate hash / no analysis_result
+// block (conversational echo) never clear.
+// ---------------------------------------------------------------------------
+
+describe('applyV5State — step 5: dirty overlay clear (run identity + explicit freshness)', () => {
+  it('clears the overlay when a new analysis_result hydrates WITH an explicit freshness verdict', () => {
+    const clearAnalysisFreshnessDirty = vi.fn()
+    const { store } = makeStore({ clearAnalysisFreshnessDirty, currentResultsHash: null })
+
+    applyV5State(
+      baseResponse({ blocks: [validAnalysisBlock], analysis_ready: { freshness: 'fresh' } as never }),
+      store,
+    )
+
+    expect(clearAnalysisFreshnessDirty).toHaveBeenCalledTimes(1)
+  })
+
+  it('does NOT clear the overlay when the new analysis_result carries NO freshness verdict (would be false-fresh)', () => {
+    const clearAnalysisFreshnessDirty = vi.fn()
+    const { store } = makeStore({ clearAnalysisFreshnessDirty, currentResultsHash: null })
+
+    // New result hydrates (new hash) but the response has no analysis_ready.freshness.
+    applyV5State(baseResponse({ blocks: [validAnalysisBlock] }), store)
+
+    expect(clearAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
+
+  it('does NOT clear the overlay for a duplicate analysis_result (same response_hash = echo)', () => {
+    // Discover the hydrated hash via a probe run, then re-run with currentResultsHash set to it.
+    const probeResultsComplete = vi.fn()
+    const probe = makeStore({ resultsComplete: probeResultsComplete })
+    applyV5State(
+      baseResponse({ blocks: [validAnalysisBlock], analysis_ready: { freshness: 'fresh' } as never }),
+      probe.store,
+    )
+    const hydratedHash = (probeResultsComplete.mock.calls[0]?.[0] as { hash: string }).hash
+    expect(hydratedHash).toBeTruthy()
+
+    const clearAnalysisFreshnessDirty = vi.fn()
+    const { store } = makeStore({ clearAnalysisFreshnessDirty, currentResultsHash: hydratedHash })
+    applyV5State(
+      baseResponse({ blocks: [validAnalysisBlock], analysis_ready: { freshness: 'fresh' } as never }),
+      store,
+    )
+
+    expect(clearAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
+
+  it('does NOT clear the overlay on a turn with no analysis_result block (conversational echo)', () => {
+    const clearAnalysisFreshnessDirty = vi.fn()
+    const { store } = makeStore({ clearAnalysisFreshnessDirty })
+
+    applyV5State(baseResponse({ blocks: [] }), store)
+
+    expect(clearAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Step 4: analysis_ready → freshness reducer ingress. setAnalysisFreshness is
+// called UNCONDITIONALLY every turn (retain-on-absence lives in the reducer), so
+// the slice always sees the raw payload (or undefined). Asserted directly so the
+// optional-chained call can't silently no-op (the round-3 too-loose-mock trap).
+// ---------------------------------------------------------------------------
+
+describe('applyV5State — step 4: setAnalysisFreshness ingress', () => {
+  it('routes an explicit analysis_ready.freshness verdict to the reducer', () => {
+    const { store, setAnalysisFreshness } = makeStore()
+    applyV5State(baseResponse({ analysis_ready: { freshness: 'fresh' } as never }), store)
+    expect(setAnalysisFreshness).toHaveBeenCalledTimes(1)
+    expect(setAnalysisFreshness).toHaveBeenCalledWith({ freshness: 'fresh' })
+  })
+
+  it('still routes a present payload that lacks freshness (reducer degrades to unknown)', () => {
+    const { store, setAnalysisFreshness } = makeStore()
+    applyV5State(baseResponse({ analysis_ready: { goal_node_id: 'g1' } as never }), store)
+    expect(setAnalysisFreshness).toHaveBeenCalledWith({ goal_node_id: 'g1' })
+  })
+
+  it('routes undefined when the turn carries no analysis_ready (reducer retains)', () => {
+    const { store, setAnalysisFreshness } = makeStore()
+    applyV5State(baseResponse({ blocks: [] }), store)
+    expect(setAnalysisFreshness).toHaveBeenCalledWith(undefined)
   })
 })

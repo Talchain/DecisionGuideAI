@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { OutcomePanel } from '../panels/OutcomePanel'
 import { RiskPanel } from '../panels/RiskPanel'
 import { useCanvasStore } from '../../../store'
@@ -25,7 +25,7 @@ function setOutcomeStore(overrides: Record<string, unknown> = {}) {
     edges: [
       { id: 'e1', source: 'fac1', target: 'out1', data: { weight: 0.65, direction: 'positive' } },
       { id: 'e2', source: 'fac2', target: 'out1', data: { weight: 0.3, direction: 'negative' } },
-      { id: 'e3', source: 'out1', target: 'goal1', data: { weight: 0.8 } },
+      { id: 'e3', source: 'out1', target: 'goal1', data: { weight: 0.8, weightSource: 'cee' } },
     ],
     results: { status: 'none', report: null },
     ...overrides,
@@ -160,15 +160,70 @@ describe('RiskPanel v6.2', () => {
     expect(screen.getByText('Price sensitivity')).toBeTruthy()
   })
 
-  it('shows risk exposure section title', () => {
+  // ── P1.7: probability × impact editing surface (replaces the placeholder) ──
+
+  it('shows the Likelihood and Impact input labels', () => {
     setRiskStore()
     render(<RiskPanel {...riskProps} />)
-    expect(screen.getByText('Risk exposure by option')).toBeTruthy()
+    expect(screen.getByText('Likelihood')).toBeTruthy()
+    expect(screen.getByText('Impact')).toBeTruthy()
   })
 
-  it('shows run analysis prompt pre-analysis', () => {
+  it('shows an honest "not set" state when probability/impact are absent', () => {
     setRiskStore()
     render(<RiskPanel {...riskProps} />)
-    expect(screen.getByText('Run analysis to see how this risk affects the goal.')).toBeTruthy()
+    // No fabricated 0% / low — the probability slot invites entry.
+    expect(screen.getByTestId('risk-probability-display').textContent).toMatch(/not set/i)
+    expect(screen.queryByText(/^0%$/)).toBeNull()
+  })
+
+  it('writes probability to the store when the likelihood input is edited', () => {
+    setRiskStore({ analysisFreshnessDirty: false })
+    render(<RiskPanel {...riskProps} />)
+    fireEvent.click(screen.getByTestId('risk-probability-display'))
+    const input = screen.getByTestId('risk-probability-input') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '60' } })
+    fireEvent.blur(input)
+    const node = useCanvasStore.getState().nodes.find(n => n.id === 'risk1')!
+    // 60% entered → stored on the canonical 0-1 scale.
+    expect((node.data as any).probability).toBeCloseTo(0.6, 5)
+  })
+
+  it('writes impact to the store when an impact option is chosen', () => {
+    setRiskStore({ analysisFreshnessDirty: false })
+    render(<RiskPanel {...riskProps} />)
+    fireEvent.click(screen.getByTestId('risk-impact-high'))
+    const node = useCanvasStore.getState().nodes.find(n => n.id === 'risk1')!
+    expect((node.data as any).impact).toBe('high')
+  })
+
+  it('stales the analysis (freshness dirty) after a probability edit', () => {
+    setRiskStore({ analysisFreshnessDirty: false })
+    render(<RiskPanel {...riskProps} />)
+    fireEvent.click(screen.getByTestId('risk-probability-display'))
+    const input = screen.getByTestId('risk-probability-input') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '80' } })
+    fireEvent.blur(input)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+  })
+
+  it('stales the analysis (freshness dirty) after an impact edit', () => {
+    setRiskStore({ analysisFreshnessDirty: false })
+    render(<RiskPanel {...riskProps} />)
+    fireEvent.click(screen.getByTestId('risk-impact-critical'))
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+  })
+
+  it('renders the derived severity from an existing probability × impact pair', () => {
+    setRiskStore()
+    const store = useCanvasStore.getState()
+    const node = store.nodes.find(n => n.id === 'risk1')!
+    ;(node.data as any).probability = 0.9
+    ;(node.data as any).impact = 'high'
+    useCanvasStore.setState({ nodes: [...store.nodes] })
+    render(<RiskPanel {...riskProps} />)
+    expect(screen.getByTestId('risk-probability-display').textContent).toMatch(/90%/)
+    // severity(0.9, 'high') → 'high' (impactWeight 3 × 0.9 = 2.7 ∈ [1.5,3)).
+    expect(screen.getByTestId('risk-severity-badge').textContent).toMatch(/High/)
   })
 })

@@ -279,29 +279,3 @@ export interface ContrastiveExplanationResponse {
     tradeoff: string
   }>
 }
-
-/**
- * Phase 2: Transportability
- * Cross-context validation ("Will this work in Germany?")
- */
-
-export interface TransportabilityRequest {
-  graph: {
-    nodes: Array<{ id: string; label: string; type: string }>
-    edges: Array<{ from: string; to: string }>
-  }
-  sourceContext: string       // e.g., "UK Market"
-  targetContext: string       // e.g., "Germany"
-  validationData?: unknown
-}
-
-export interface TransportabilityResponse {
-  transferable: boolean
-  confidence: number          // 0-1
-  requiredAssumptions: string[]
-  missingData: string[]
-  adaptations: Array<{
-    what: string
-    why: string
-  }>
-}

@@ -20,7 +20,11 @@ const mockSetCeeAnalysisReady = vi.fn()
 const mockSetCeePipelineTrace = vi.fn()
 const mockSetCeeQuality = vi.fn()
 const mockSetGoalConstraints = vi.fn()
+const mockSetLastAuthoritativeGraph = vi.fn()
 const mockSetDraftCoaching = vi.fn()
+const mockSetPreAnalysisSensitivity = vi.fn()
+const mockMarkAnalysisFreshnessDirty = vi.fn()
+const mockSetAnalysisFreshness = vi.fn()
 
 let storeNodes: any[] = []
 let storeEdges: any[] = []
@@ -38,10 +42,21 @@ vi.mock('../../store', () => ({
         setPendingLayout: mockSetPendingLayout,
         setOutcomeNode: mockSetOutcomeNode,
         setCeeAnalysisReady: mockSetCeeAnalysisReady,
+        markAnalysisFreshnessDirty: mockMarkAnalysisFreshnessDirty,
+        setAnalysisFreshness: mockSetAnalysisFreshness,
         setCeePipelineTrace: mockSetCeePipelineTrace,
         setCeeQuality: mockSetCeeQuality,
         setGoalConstraints: mockSetGoalConstraints,
+        // B2. NOTE: this getState() block is a HAND-MAINTAINED MIRROR of the
+        // store's action surface — a `vi.mock` factory REPLACES the module, so
+        // any action added to the store and called by applyDraftResult throws
+        // here until someone remembers to add it. That is how this line came
+        // to exist. It is left strict (no `?.()` at the call site) on purpose:
+        // a loud throw in one spec is far better than an optional call that
+        // silently no-ops the deletion-authorisation record in production.
+        setLastAuthoritativeGraph: mockSetLastAuthoritativeGraph,
         setDraftCoaching: mockSetDraftCoaching,
+        setPreAnalysisSensitivity: mockSetPreAnalysisSensitivity,
         currentScenarioId: null,
         // Diff-aware batch updater mirroring store.batchUpdateNodes. Preserves
         // identity for untouched nodes and no-ops when nothing changes.
@@ -192,6 +207,35 @@ describe('applyDraftResult', () => {
     expect(mockSetCeeAnalysisReady).toHaveBeenCalledWith(draftData.analysis_ready)
   })
 
+  it('marks the freshness overlay dirty on the draft graph replace (no false-fresh)', () => {
+    const draftData = {
+      nodes: [{ id: 'g1', kind: 'goal', label: 'Revenue' }],
+      edges: [],
+    } as any
+    applyDraftResult(draftData)
+    // Draft replaces the graph via bare setState (bypasses the edit chokepoints),
+    // so the overlay must be marked dirty — a draft after a fresh analysis must not
+    // keep showing 'fresh'.
+    expect(mockMarkAnalysisFreshnessDirty).toHaveBeenCalled()
+  })
+
+  it('routes the draft analysis_ready through the freshness reducer', () => {
+    const draftData = {
+      nodes: [{ id: 'g1', kind: 'goal', label: 'Revenue' }],
+      edges: [],
+      analysis_ready: {
+        options: [{ id: 'o1', status: 'ready', interventions: {} }],
+        goal_node_id: 'g1',
+        status: 'ready',
+        // no `freshness` — a draft is readiness, not a run; reducer degrades to unknown
+      },
+    } as any
+    applyDraftResult(draftData)
+    // The patch's analysis_ready is routed to the freshness reducer (not just
+    // setCeeAnalysisReady), carrying the same payload so a stale 'fresh' can't survive.
+    expect(mockSetAnalysisFreshness).toHaveBeenCalledWith(draftData.analysis_ready)
+  })
+
   it('returns zero counts for empty graph', () => {
     const draftData = { nodes: [], edges: [] } as any
 
@@ -199,6 +243,64 @@ describe('applyDraftResult', () => {
     expect(result.nodeCount).toBe(0)
     expect(result.edgeCount).toBe(0)
     expect(mockPushHistory).not.toHaveBeenCalled()
+  })
+
+  it('commits pre_analysis_sensitivity from analysis_ready', () => {
+    const sensitivity = {
+      factor_influence: { f1: 0.8, f2: 0.2 },
+      edge_influence: { 'f1::g1': 0.5 },
+      method: 'linear',
+    }
+    const draftData = {
+      nodes: [{ id: 'g1', kind: 'goal', label: 'Revenue' }],
+      edges: [],
+      analysis_ready: {
+        options: [{ id: 'o1', status: 'ready' }],
+        goal_node_id: 'g1',
+        status: 'ready',
+        pre_analysis_sensitivity: sensitivity,
+      },
+    } as any
+
+    applyDraftResult(draftData)
+    expect(mockSetPreAnalysisSensitivity).toHaveBeenCalledWith(sensitivity)
+  })
+
+  it('commits pre_analysis_sensitivity from the response root when analysis_ready lacks it', () => {
+    const sensitivity = {
+      factor_influence: { f1: 1 },
+      edge_influence: {},
+      method: 'linear',
+    }
+    const draftData = {
+      nodes: [{ id: 'f1', kind: 'factor', label: 'A' }],
+      edges: [],
+      pre_analysis_sensitivity: sensitivity,
+    } as any
+
+    applyDraftResult(draftData)
+    expect(mockSetPreAnalysisSensitivity).toHaveBeenCalledWith(sensitivity)
+  })
+
+  it('clears pre_analysis_sensitivity to null when the draft carries none', () => {
+    const draftData = {
+      nodes: [{ id: 'f1', kind: 'factor', label: 'A' }],
+      edges: [],
+    } as any
+
+    applyDraftResult(draftData)
+    expect(mockSetPreAnalysisSensitivity).toHaveBeenCalledWith(null)
+  })
+
+  it('clears pre_analysis_sensitivity when the payload lacks factor_influence', () => {
+    const draftData = {
+      nodes: [{ id: 'f1', kind: 'factor', label: 'A' }],
+      edges: [],
+      pre_analysis_sensitivity: { method: 'linear' },
+    } as any
+
+    applyDraftResult(draftData)
+    expect(mockSetPreAnalysisSensitivity).toHaveBeenCalledWith(null)
   })
 
   it('infers negative direction from negative weight', () => {
@@ -215,6 +317,64 @@ describe('applyDraftResult', () => {
     applyDraftResult(draftData)
     expect(storeEdges[0].data.direction).toBe('negative')
     expect(storeEdges[0].data.weight).toBe(0.7) // absolute value
+  })
+
+  /**
+   * ROADMAP 2.263 — ingestion must record WHETHER the producer stated a
+   * direction, without changing what it stores in `direction`.
+   *
+   * The stored byte is deliberately untouched (see `resolveEdgeDirectionDisplay`'s
+   * header: `direction` is persistence- and staleness-bearing and is read as a
+   * sign by four outbound adapters). What was being thrown away is the one fact
+   * the display side needs — did anyone actually SAY this? — and without it a
+   * render-side fix is impossible even in principle, because ingestion had
+   * already made a stated 'positive' and a defaulted one byte-identical.
+   *
+   * The `direction` assertions below are the CONTROL that the stored value did
+   * not move; the `directionSource` assertions are the new fact.
+   */
+  describe('direction provenance stamp', () => {
+    function ingestOneEdge(edge: Record<string, unknown>) {
+      applyDraftResult({
+        nodes: [
+          { id: 'f1', kind: 'factor', label: 'A' },
+          { id: 'g1', kind: 'goal', label: 'Goal' },
+        ],
+        edges: [{ from: 'f1', to: 'g1', weight: 0.6, ...edge }],
+      } as any)
+      return storeEdges[0].data
+    }
+
+    it('stamps cee when the producer stated a direction (POSITIVE CONTROL)', () => {
+      const data = ingestOneEdge({ effect_direction: 'positive' })
+      expect(data.directionSource).toBe('cee')
+      expect(data.direction).toBe('positive')
+    })
+
+    it('stamps cee for a stated negative direction (CONTROL)', () => {
+      const data = ingestOneEdge({ effect_direction: 'negative', weight: -0.6 })
+      expect(data.directionSource).toBe('cee')
+      expect(data.direction).toBe('negative')
+    })
+
+    it("does NOT stamp when the producer sent 'unknown'", () => {
+      const data = ingestOneEdge({ effect_direction: 'unknown' })
+      expect(data.directionSource).toBeUndefined()
+      // The stored byte is unchanged — still the fallback. That is the point:
+      // the fabrication is now DETECTABLE rather than removed from storage.
+      expect(data.direction).toBe('positive')
+    })
+
+    it('does NOT stamp when the producer omitted the field', () => {
+      const data = ingestOneEdge({})
+      expect(data.directionSource).toBeUndefined()
+      expect(data.direction).toBe('positive')
+    })
+
+    it('does NOT stamp an unrecognised direction value', () => {
+      const data = ingestOneEdge({ effect_direction: 'sideways' })
+      expect(data.directionSource).toBeUndefined()
+    })
   })
 
   it('preserves V3 edge_type, provenance_source, and exists_probability', () => {
@@ -505,7 +665,8 @@ describe('applyDraftResult', () => {
 
     applyDraftResult(draftData)
 
-    expect(mockSetGoalConstraints).toHaveBeenCalledWith(constraints)
+    // Producer sync — passes fromProducerSync so the ingestion write does not self-dirty freshness.
+    expect(mockSetGoalConstraints).toHaveBeenCalledWith(constraints, { fromProducerSync: true })
   })
 
   it('clears stale goal_constraints when V3 response has none (no-constraint draft after constrained draft)', () => {
@@ -527,7 +688,7 @@ describe('applyDraftResult', () => {
 
     applyDraftResult(draftData)
 
-    expect(mockSetGoalConstraints).toHaveBeenCalledWith(null)
+    expect(mockSetGoalConstraints).toHaveBeenCalledWith(null, { fromProducerSync: true })
   })
 
   it('clears stale is_baseline when baseline option changes', () => {

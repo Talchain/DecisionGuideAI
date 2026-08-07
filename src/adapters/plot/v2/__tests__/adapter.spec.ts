@@ -1158,7 +1158,14 @@ describe('buildV2RequestFromAnalysisReady — display metadata exclusion', () =>
 
     const { request } = buildV2RequestFromAnalysisReady(
       nodes, edges, analysisReady, [], undefined,
-      { brief: 'test brief', goalConstraints: [{ node_id: 'f1', operator: '>=', value: 40 }] }
+      {
+        brief: 'test brief',
+        // Must be a VALID constraint, or the UI-SEM-086 gate drops it and this
+        // spec silently stops covering the goal_constraints key at all.
+        goalConstraints: [
+          { constraint_id: 'c1', node_id: 'f1', operator: '>=' as const, value: 40 },
+        ],
+      }
     )
 
     // Every key on the request must be in the allowlist
@@ -1203,10 +1210,25 @@ describe('buildV2RequestFromAnalysisReady — display metadata exclusion', () =>
 })
 
 // =============================================================================
-// XOR: goal_threshold vs goal_constraints
+// goal_threshold ALONGSIDE goal_constraints (formerly an XOR)
+//
+// These three specs previously asserted that the adapter DELETES the user's
+// goal_threshold whenever any constraint exists, and they did so using a
+// hand-written constraint the UI never produces and PLoT rejects:
+//     { id: 'c1', label: 'Revenue >= 500', operator: '>=', value: 500 }
+// — no constraint_id, no node_id. That is why five defects survived here: the
+// spec blessed an invalid shape and an incorrect behaviour together.
+//
+// PLoT accepts both fields and applies the precedence itself
+// (plot-lite-service `src/routes/v2/run.ts`, Phase 1e "Precedence Routing",
+// which pushes an explicit repair entry recording that goal_threshold was
+// ignored). Deleting it client-side destroyed the user's success target before
+// the producer could route on it or report it.
+//
+// Constraints below are now the shape PLoT actually validates.
 // =============================================================================
 
-describe('XOR: goal_threshold vs goal_constraints', () => {
+describe('goal_threshold alongside goal_constraints', () => {
   const xorNodes: Node[] = [
     makeNode('f1', { label: 'Factor', kind: 'factor', value: 50 }),
     makeNode('goal', { label: 'Goal', kind: 'goal' }),
@@ -1225,14 +1247,24 @@ describe('XOR: goal_threshold vs goal_constraints', () => {
     goal_threshold: 0.8,
   }
 
-  it('removes goal_threshold when goal_constraints are present (non-empty array)', () => {
+  /** A constraint in the shape PLoT's preflight actually accepts. */
+  const validConstraint = {
+    constraint_id: 'c1',
+    node_id: 'f1',
+    label: 'Revenue floor',
+    operator: '>=' as const,
+    value: 500,
+  }
+
+  it('KEEPS goal_threshold when goal_constraints are present (non-empty array)', () => {
     const { request } = buildV2RequestFromAnalysisReady(
       xorNodes, xorEdges, xorAnalysisReady, [], undefined,
-      { goalConstraints: [{ id: 'c1', label: 'Revenue >= 500', operator: '>=', value: 500 }] }
+      { goalConstraints: [validConstraint] }
     )
 
     expect(request.goal_constraints).toHaveLength(1)
-    expect(request).not.toHaveProperty('goal_threshold')
+    // The user's success target survives. PLoT decides precedence, not the UI.
+    expect(request.goal_threshold).toBe(0.8)
   })
 
   it('preserves goal_threshold when goal_constraints is empty array', () => {
@@ -1261,35 +1293,88 @@ describe('XOR: goal_threshold vs goal_constraints', () => {
     }
     const { request } = buildV2RequestFromAnalysisReady(
       xorNodes, xorEdges, noThreshold, [], undefined,
-      { goalConstraints: [{ id: 'c1', label: 'Revenue >= 500', operator: '>=', value: 500 }] }
+      { goalConstraints: [validConstraint] }
     )
 
     expect(request.goal_constraints).toHaveLength(1)
+    // Nothing to keep — analysisReady carried no threshold.
     expect(request).not.toHaveProperty('goal_threshold')
   })
 
-  it('execute path: goal_threshold re-injected via parameter is removed when goal_constraints exist', () => {
-    // Regression test for executeV2RunWithAnalysisReady (adapter.ts:1186-1196).
-    // The builder XOR removes goal_threshold, but the execute path can re-inject
-    // it via the goalThreshold parameter. The second XOR must catch this.
+  it('drops a constraint whose node_id is absent rather than 422ing the run', () => {
+    // UI-SEM-086. This is the exact object the pre-fix GoalPanel wrote, and what
+    // sits in already-poisoned persisted graphs. Forwarding it makes PLoT emit a
+    // CONSTRAINT_TARGET_NOT_FOUND blocker on node "undefined", which 422s the
+    // WHOLE analysis — so the constraint is dropped and the run survives.
     const { request } = buildV2RequestFromAnalysisReady(
       xorNodes, xorEdges, xorAnalysisReady, [], undefined,
       { goalConstraints: [{ id: 'c1', label: 'Revenue >= 500', operator: '>=', value: 500 }] }
     )
 
-    // Builder XOR already removed goal_threshold
-    expect(request).not.toHaveProperty('goal_threshold')
+    expect(request).not.toHaveProperty('goal_constraints')
+    expect(request.goal_threshold).toBe(0.8)
+  })
 
-    // Simulate execute path: goalThreshold parameter re-injects after builder
-    request.goal_threshold = 0.8
+  it('drops a constraint whose operator PLoT rejects', () => {
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, xorAnalysisReady, [], undefined,
+      {
+        goalConstraints: [
+          // '=' is a CONSTRAINT_INVALID_OPERATOR blocker in PLoT preflight.
+          { ...validConstraint, operator: '=' as never },
+        ],
+      }
+    )
 
-    // Apply the same XOR pattern as executeV2RunWithAnalysisReady (adapter.ts:1194-1196)
-    if (Array.isArray(request.goal_constraints) && request.goal_constraints.length > 0) {
-      delete request.goal_threshold
-    }
+    expect(request).not.toHaveProperty('goal_constraints')
+  })
 
-    expect(request).not.toHaveProperty('goal_threshold')
+  it('rewrites the Unicode operator forms to the ASCII spelling PLoT accepts', () => {
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, xorAnalysisReady, [], undefined,
+      {
+        goalConstraints: [
+          // The envelope has historically carried these (see
+          // goalConstraintsEnvelope.regression.spec.ts). '≥' and '>=' are the
+          // same relation, so this is an encoding fix, not a semantic one —
+          // dropping the constraint over its spelling would lose real user
+          // intent.
+          { ...validConstraint, operator: '≥' as never },
+        ],
+      }
+    )
+
     expect(request.goal_constraints).toHaveLength(1)
+    expect(request.goal_constraints![0].operator).toBe('>=')
+  })
+
+  it('does NOT coerce strict/equality operators into the accepted pair', () => {
+    // '>' is not '>=' — rewriting it would silently change the user's
+    // constraint. These are dropped and reported, never guessed at.
+    for (const operator of ['>', '<', '=']) {
+      const { request } = buildV2RequestFromAnalysisReady(
+        xorNodes, xorEdges, xorAnalysisReady, [], undefined,
+        { goalConstraints: [{ ...validConstraint, operator: operator as never }] }
+      )
+      expect(request).not.toHaveProperty('goal_constraints')
+    }
+  })
+
+  it('drops the duplicate when two constraints share a constraint_id', () => {
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, xorAnalysisReady, [], undefined,
+      {
+        goalConstraints: [
+          validConstraint,
+          // CONSTRAINT_DUPLICATE_ID in PLoT preflight — exactly what the old
+          // positional `c${base.length + 1}` id regenerated after a delete.
+          { ...validConstraint, value: 900 },
+        ],
+      }
+    )
+
+    expect(request.goal_constraints).toHaveLength(1)
+    expect(request.goal_constraints![0].value).toBe(500)
   })
 })
 

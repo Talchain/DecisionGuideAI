@@ -212,23 +212,31 @@ describe('FactorInsights', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /insights/i }))
 
-      // Should not have the callout container (no bg-info-50 element with question)
       expect(screen.queryByText(/confident/i)).not.toBeInTheDocument()
     })
 
     it('does not render callout when confidence_question is empty string', () => {
+      // POSITIVE CONTROL FIRST. This assertion used to query '.bg-info-50' —
+      // a class FactorInsights has never rendered (it uses the documented
+      // bg-panel + border-info/30 recipe), so the count was 0 whatever the
+      // component did and the test proved nothing. Prove the selector can SEE
+      // a callout before asserting its absence.
+      const calloutSelector = '.border-info\\/30'
+
+      const { unmount } = render(<FactorInsights enrichment={enrichmentWithConfidenceQuestion} />)
+      fireEvent.click(screen.getByRole('button', { name: /insights/i }))
+      expect(document.querySelectorAll(calloutSelector).length).toBe(1)
+      unmount()
+
       const enrichmentWithEmptyQuestion: FactorEnrichment = {
         ...enrichmentWithObservationsOnly,
         confidence_question: '',
       }
 
       render(<FactorInsights enrichment={enrichmentWithEmptyQuestion} />)
-
       fireEvent.click(screen.getByRole('button', { name: /insights/i }))
 
-      // Lightbulb icon should not be present (proxy for callout not rendering)
-      const calloutElements = document.querySelectorAll('.bg-info-50')
-      expect(calloutElements.length).toBe(0)
+      expect(document.querySelectorAll(calloutSelector).length).toBe(0)
     })
   })
 

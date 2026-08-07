@@ -71,7 +71,16 @@ export type AnalysisStatus =
 
 export interface AnalysisProvenance {
   graph_hash: string        // Canonical graph hash at time of analysis
-  seed_used: number         // Actual seed from PLoT
+  /**
+   * Actual seed echoed by PLoT, or null when it echoed nothing usable (T2b).
+   *
+   * Receipts fail closed: this is a claim about what the engine did, so
+   * "unknown" must be representable. It was typed `number` while the writer
+   * fabricated a 0 to satisfy that type — the type was enforcing the lie.
+   * The column is JSONB (`scenarios.analysis_provenance`), which has no
+   * NOT NULL on this key, so null is a real wire value.
+   */
+  seed_used: number | null
   response_hash: string     // PLoT response hash
   analysed_at: string       // ISO-8601, server-assigned via to_jsonb(now())
 }
@@ -105,6 +114,10 @@ export type ScenarioEventType =
   | 'patch_dismissed'
   | 'patch_rejected'
   | 'direct_edit'
+  // Persistence marker — appended by the gated autosave write
+  // (saveGraphViaGatedPath). System-level: hidden from the Journey timeline and
+  // excluded from the edit-count summary; carries the persisted graph_hash.
+  | 'graph_saved'
   // Analysis
   | 'analysis_run'
   | 'analysis_failed'
@@ -117,6 +130,30 @@ export type ScenarioEventType =
   | 'evidence_intent'
   | 'changed_thinking'
   | 'feedback_submitted'
+
+/**
+ * SINGLE SOURCE OF TRUTH for "this event is machine persistence noise, not a
+ * user-facing activity".
+ *
+ * Events listed here are appended by the persistence layer itself (not by a
+ * user action) and would otherwise drown the surfaces that summarise activity:
+ * the gated autosave appends one `graph_saved` per debounced write, so it is
+ * ALWAYS the trailing event after any meaningful one.
+ *
+ * Every surface that summarises or renders scenario activity MUST consume this
+ * set rather than hand-listing members — a hand-maintained mirror of this list
+ * is exactly the drift class that has bitten this codebase before. Current
+ * consumers:
+ *   - canvas/journey/renderTimeline.ts   (hides them from the Journey timeline)
+ *   - pages/ScenarioListPage.tsx         (skips them when labelling last activity)
+ *   - canvas/stores/analysisSnapshotFactory.ts (excluded from the edit set)
+ *
+ * Typed as ReadonlySet<ScenarioEventType>, so a member that is not a real
+ * event type is a COMPILE error — the union above stays the source of truth.
+ */
+export const SYSTEM_MARKER_EVENT_TYPES: ReadonlySet<ScenarioEventType> = new Set<ScenarioEventType>([
+  'graph_saved',
+])
 
 // ---------------------------------------------------------------------------
 // § 2.3 — shared_briefs (public-access shape returned by get_shared_brief_by_slug)

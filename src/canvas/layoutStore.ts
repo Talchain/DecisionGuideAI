@@ -19,6 +19,8 @@ interface LayoutOptions {
   setDirection: (dir: Direction) => void
   setNodeSpacing: (spacing: number) => void
   setLayerSpacing: (spacing: number) => void
+  /** D4: apply a comfortable/compact spacing preset (persists like the setters). */
+  setDensity: (preset: LayoutDensity) => void
   setRespectLocked: (respect: boolean) => void
   setCanvasSize: (size: CanvasSize) => void
   setLayoutNodeWidth: (width: number) => void
@@ -51,6 +53,25 @@ interface LayoutOptions {
 // v3: layerSpacing reduced 90 → 48 (cumulative −47 % across two passes:
 // 90 → 68 (−25 %), then 68 → 48 (−30 %)) so tiers sit closer vertically.
 // Earlier bump: v1 → v2 changed 80/120 → 60/90.
+/**
+ * D4 (graph-visuals): comfortable / compact layout density presets. Compact
+ * trades vertical air for overview by tightening the tier (layer) spacing to
+ * the layout floor (30) — it deliberately does NOT touch node-node spacing,
+ * whose Math.max(20, …) / COLLISION_GAP floor exists to prevent horizontal
+ * overlap, so compact never risks a collision. Comfortable is the current
+ * default (nodeSpacing 15, layerSpacing 48).
+ */
+export const LAYOUT_DENSITY_PRESETS = {
+  comfortable: { nodeSpacing: 15, layerSpacing: 48 },
+  compact: { nodeSpacing: 15, layerSpacing: 30 },
+} as const
+export type LayoutDensity = keyof typeof LAYOUT_DENSITY_PRESETS
+
+/** Derive the active density from the persisted layerSpacing (no separate field). */
+export function densityOf(layerSpacing: number): LayoutDensity {
+  return layerSpacing <= LAYOUT_DENSITY_PRESETS.compact.layerSpacing ? 'compact' : 'comfortable'
+}
+
 const KEY = 'canvas-layout-options-v6'
 const KEY_V5 = 'canvas-layout-options-v5'
 const KEY_V4 = 'canvas-layout-options-v4'
@@ -141,6 +162,11 @@ export const useLayoutStore = create<LayoutOptions>((set, get) => ({
   },
   setLayerSpacing: (spacing) => {
     set({ layerSpacing: spacing })
+    persist(get())
+  },
+  setDensity: (preset) => {
+    const p = LAYOUT_DENSITY_PRESETS[preset]
+    set({ nodeSpacing: p.nodeSpacing, layerSpacing: p.layerSpacing })
     persist(get())
   },
   setRespectLocked: (respect) => {

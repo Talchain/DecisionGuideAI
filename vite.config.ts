@@ -2,6 +2,13 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+// Single source of truth for the Supabase-stub decision (unit-tested in
+// tests/ci-guards/vite.supabase-stub-decoupling.spec.ts).
+import { shouldStubSupabase } from './scripts/supabase-stub-decision.mjs';
+// Derives every VITE_* the source reads, so each one gets an explicit define and
+// no read can fall back to inlining the WHOLE env object. See the header of
+// scripts/derive-vite-env-reads.mjs for the measured mechanism.
+import { buildNarrowEnvDefines } from './scripts/derive-vite-env-reads.mjs';
 
 // ⚠️  CRITICAL: DO NOT ADD use-sync-external-store shim aliases!
 // The custom shim causes React #185 infinite loops because useCallback dependencies
@@ -17,6 +24,27 @@ export default defineConfig(({ mode, command }) => {
   const isPoc =
     env.VITE_POC_ONLY === '1' ||
     env.VITE_AUTH_MODE === 'guest';
+
+  // Front-door fix: the Supabase SDK stub is DECOUPLED from PoC mode.
+  //
+  // Historically `isPoc` did three jobs at once: mint a guest user
+  // (src/lib/poc.ts `isGuestAuth`), stub `@tanstack/react-query`, AND alias
+  // the real Supabase SDK out of the bundle. That last one made real sign-in
+  // impossible on any guest build — the stub in src/stubs/supabase-stub.mjs
+  // does not even implement `signInWithOtp` / `signInWithOAuth`, which are
+  // the only two methods src/contexts/AuthContext.tsx actually calls.
+  //
+  // `VITE_STUB_SUPABASE=0` keeps the REAL client in the bundle while leaving
+  // guest mode as the default, so:
+  //   • unauthenticated visitors still get the guest canvas (no regression),
+  //   • anyone opting in via `localStorage feature.requireLogin = 1` gets a
+  //     working magic-link sign-in instead of a silent no-op.
+  //
+  // Default (unset) preserves today's behaviour exactly: stub whenever isPoc.
+  // The two Supabase aliases move TOGETHER — aliasing `@supabase/gotrue-js`
+  // to `export default {}` while leaving the real supabase-js in place would
+  // break the real client, which imports GoTrueClient from it.
+  const stubSupabase = shouldStubSupabase(env);
 
   // Proxy config only applies to serve/preview, not build
   const isServing = command === 'serve';
@@ -57,6 +85,22 @@ export default defineConfig(({ mode, command }) => {
   return {
   plugins: [react()],
   define: {
+    // ⚠ SECURITY-LOAD-BEARING. Pins every VITE_* the source READS but that is NOT
+    // SET in this build to literal `undefined`.
+    //
+    // Without these, Vite has no specific define for an unset variable, so the
+    // longest match esbuild can make is `import.meta.env` — and it substitutes the
+    // ENTIRE env object, with every variable's VALUE, into that chunk. ONE read of
+    // ONE unset variable poisons a whole chunk, with either `.` or `?.`. Measured
+    // 2026-07-28: four chunks were each carrying all 40 build-time variables
+    // because of a single unset read (`VITE_PLOT_PROXY_BASE` — unset on the real
+    // deploy too — plus `VITE_DEBUG_BUNDLE_V2` and `VITE_FEATURE_COMPARE_DEBUG`).
+    //
+    // `undefined` (not `''`) is what those reads already evaluate to at runtime, so
+    // this changes NO behaviour — including under `??`, where `''` would differ.
+    // Verified by `pnpm run ci:guard:bundle-env`, which reds if any VITE_* key is
+    // baked into the bundle that no source file reads.
+    ...buildNarrowEnvDefines(path.resolve(__dirname, 'src'), env),
     __BUILD_ID__: JSON.stringify(process.env.BUILD_ID || new Date().toISOString()),
     __GIT_SHA__: JSON.stringify(
       (() => { try { return execSync('git rev-parse --short=7 HEAD', { encoding: 'utf-8' }).trim() } catch { return 'unknown' } })()
@@ -66,10 +110,15 @@ export default defineConfig(({ mode, command }) => {
     alias: [
       // @ → src/ path alias (used by 60+ files)
       { find: /^@\//, replacement: path.resolve(__dirname, 'src') + '/' },
-      // POC/test stubs for guest mode
-      ...(isPoc ? [
+      // POC/test stubs for guest mode.
+      // Supabase pair is gated on `stubSupabase` (see above) so real sign-in
+      // can be restored without un-stubbing anything else; react-query stays
+      // on `isPoc` and is unaffected by the front-door fix.
+      ...(stubSupabase ? [
         { find: '@supabase/supabase-js', replacement: path.resolve(__dirname, 'src/stubs/supabase-stub.mjs') },
         { find: '@supabase/gotrue-js',   replacement: path.resolve(__dirname, 'src/stubs/gotrue-stub.mjs') },
+      ] : []),
+      ...(isPoc ? [
         { find: '@tanstack/react-query', replacement: path.resolve(__dirname, 'src/stubs/react-query-stub.mjs') },
       ] : []),
       // ⚠️  NO use-sync-external-store aliases - use real package with dedupe only!
@@ -85,7 +134,26 @@ export default defineConfig(({ mode, command }) => {
     outDir: 'dist',
     assetsDir: 'assets',
     emptyOutDir: true,
-    sourcemap: true,
+    // Source maps are NOT published. `sourcemap: true` emitted 77 `.js.map`
+    // files (~21 MB) into `dist/`, and Netlify serves `dist/` verbatim — so
+    // the full unminified source of the app was publicly downloadable from
+    // the deployed site.
+    //
+    // Nothing consumed them. Verified before flipping this:
+    //   * no `@sentry/vite-plugin`, no `sentry-cli`, no `SENTRY_AUTH_TOKEN`
+    //     / `SENTRY_ORG` / `SENTRY_PROJECT`, no `sourcemaps upload` step
+    //     anywhere in the repo (workflows, netlify.toml, scripts, package.json);
+    //   * every bundle script that walks `dist/` filters `.map` OUT
+    //     (measure-bundle, report-chunks, ci-bundle-budget, verify-bundle-budget);
+    //   * `netlify/edge-functions/csp-nonce.ts` lists `/*.map` only as an
+    //     excludedPath, i.e. it declines to touch them;
+    //   * `src/lib/monitoring.ts` only calls `Sentry.init` when
+    //     `VITE_SENTRY_DSN` is set, and it is not set for the staging build.
+    //
+    // If a monitoring consumer is ever added, use `'hidden'` (emit maps for
+    // upload, omit the `//# sourceMappingURL=` comment) rather than `true`,
+    // and add the upload step in the same change.
+    sourcemap: false,
     minify: 'terser',
     terserOptions: {
       compress: {

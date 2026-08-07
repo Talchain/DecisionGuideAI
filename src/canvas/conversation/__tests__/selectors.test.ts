@@ -33,12 +33,18 @@ function makeInput(overrides: Partial<ConversationStatusInput> = {}): Conversati
     nodeCount: 0,
     resultsStatus: 'idle',
     hasCompletedFirstRun: false,
-    graphEditedSinceLastRun: false,
+    trustSemantic: 'none',
     guidance: {
       guidanceItems: [],
       activeGuidanceItemId: null,
       _sendMessage: null,
       _scrollToPatch: null,
+      inspectorDeepLinkField: null,
+      _runAnalysis: null,
+      _sendChip: null,
+      _prefillChat: null,
+      _dispatchAction: null,
+      _registrationToken: null,
     },
     messages: [],
     patchBlockStates: new Map(),
@@ -102,7 +108,7 @@ describe('selectConversationStatus', () => {
     const items = [makeGuidanceItem()]
     const result = selectConversationStatus(makeInput({
       nodeCount: 5,
-      guidance: { guidanceItems: items, activeGuidanceItemId: null, _sendMessage: null, _scrollToPatch: null },
+      guidance: { guidanceItems: items, activeGuidanceItemId: null, _sendMessage: null, _scrollToPatch: null, inspectorDeepLinkField: null, _runAnalysis: null, _sendChip: null, _prefillChat: null, _dispatchAction: null, _registrationToken: null },
     }))
     expect(result.status).toBe('graph_ready')
     expect(result.ctaKind).toBe('view_issues')
@@ -133,23 +139,23 @@ describe('selectConversationStatus', () => {
     expect(result.status).toBe('analysis_running')
   })
 
-  it('returns analysis_ready when complete and not stale', () => {
+  it('returns analysis_ready when complete and freshness is current', () => {
     const result = selectConversationStatus(makeInput({
       nodeCount: 3,
       resultsStatus: 'complete',
       hasCompletedFirstRun: true,
-      graphEditedSinceLastRun: false,
+      trustSemantic: 'current',
     }))
     expect(result.status).toBe('analysis_ready')
     expect(result.ctaKind).toBe('view_results')
   })
 
-  it('returns analysis_stale when graph edited since last run', () => {
+  it('returns analysis_stale when the CEE freshness verdict is stale (changed)', () => {
     const result = selectConversationStatus(makeInput({
       nodeCount: 3,
       resultsStatus: 'complete',
       hasCompletedFirstRun: true,
-      graphEditedSinceLastRun: true,
+      trustSemantic: 'changed',
     }))
     expect(result.status).toBe('analysis_stale')
     expect(result.ctaKind).toBe('view_results')
@@ -193,7 +199,7 @@ describe('selectConversationStatus', () => {
     ]
     const result = selectConversationStatus(makeInput({
       nodeCount: 3,
-      guidance: { guidanceItems: items, activeGuidanceItemId: null, _sendMessage: null, _scrollToPatch: null },
+      guidance: { guidanceItems: items, activeGuidanceItemId: null, _sendMessage: null, _scrollToPatch: null, inspectorDeepLinkField: null, _runAnalysis: null, _sendChip: null, _prefillChat: null, _dispatchAction: null, _registrationToken: null },
     }))
     expect(result.topGuidanceItem?.item_id).toBe('high')
     expect(result.guidanceCount).toBe(3)
@@ -203,7 +209,7 @@ describe('selectConversationStatus', () => {
     // graph_ready with guidance → view_issues
     expect(selectConversationStatus(makeInput({
       nodeCount: 3,
-      guidance: { guidanceItems: [makeGuidanceItem()], activeGuidanceItemId: null, _sendMessage: null, _scrollToPatch: null },
+      guidance: { guidanceItems: [makeGuidanceItem()], activeGuidanceItemId: null, _sendMessage: null, _scrollToPatch: null, inspectorDeepLinkField: null, _runAnalysis: null, _sendChip: null, _prefillChat: null, _dispatchAction: null, _registrationToken: null },
     })).ctaKind).toBe('view_issues')
 
     // patch_pending → review_patch
@@ -217,7 +223,7 @@ describe('selectConversationStatus', () => {
       nodeCount: 3,
       resultsStatus: 'complete',
       hasCompletedFirstRun: true,
-      graphEditedSinceLastRun: false,
+      trustSemantic: 'current',
     })).ctaKind).toBe('view_results')
 
     // brief_ready → view_brief
@@ -233,63 +239,35 @@ describe('selectConversationStatus', () => {
     })).ctaKind).toBeNull()
   })
 
-  // P0 V5 golden-path repair (Wave 3 wiring): wire freshness wins over
-  // local edit signal. Pin the precedence so future changes don't drift
-  // back to local-only derivation.
-  describe('wire freshness precedence (Wave 3)', () => {
-    it('wireFreshness="stale" → analysis_stale even when local says no edits', () => {
-      const result = selectConversationStatus(
-        makeInput({
-          nodeCount: 5,
-          resultsStatus: 'complete',
-          hasCompletedFirstRun: true,
-          graphEditedSinceLastRun: false,
-          wireFreshness: 'stale',
-        }),
-      )
-      expect(result.status).toBe('analysis_stale')
+  // Single source of truth: staleness is the composed trust semantic
+  // (useAnalysisTrust, supplied by the caller) being 'changed'. Pin the
+  // mapping so it never drifts back to independently deriving stale from
+  // graphEditedSinceLastRun or from a re-derivation of the freshness slice.
+  describe('trust semantic (single composed source)', () => {
+    const complete = { nodeCount: 5, resultsStatus: 'complete' as const, hasCompletedFirstRun: true }
+
+    it("'changed' (CEE stale, or a retained-fresh dirtied upstream) → analysis_stale", () => {
+      expect(
+        selectConversationStatus(makeInput({ ...complete, trustSemantic: 'changed' })).status,
+      ).toBe('analysis_stale')
     })
 
-    it('wireFreshness="fresh" → analysis_ready even when local says edited', () => {
-      // Pre-Wave-3, the local signal alone would have flagged this as
-      // stale. The wire is authoritative — the round-trip already
-      // absorbed the edit.
-      const result = selectConversationStatus(
-        makeInput({
-          nodeCount: 5,
-          resultsStatus: 'complete',
-          hasCompletedFirstRun: true,
-          graphEditedSinceLastRun: true,
-          wireFreshness: 'fresh',
-        }),
-      )
-      expect(result.status).toBe('analysis_ready')
+    it("'current' → analysis_ready", () => {
+      expect(
+        selectConversationStatus(makeInput({ ...complete, trustSemantic: 'current' })).status,
+      ).toBe('analysis_ready')
     })
 
-    it('wireFreshness="unknown" or absent → falls back to local edit signal', () => {
-      // Unknown is CEE saying "I couldn't decide". Local signal then
-      // takes over, preserving pre-Wave-3 behaviour for legacy turns.
-      const stale = selectConversationStatus(
-        makeInput({
-          nodeCount: 5,
-          resultsStatus: 'complete',
-          hasCompletedFirstRun: true,
-          graphEditedSinceLastRun: true,
-          wireFreshness: 'unknown',
-        }),
-      )
-      expect(stale.status).toBe('analysis_stale')
+    it("'cannot_confirm' → analysis_ready, NOT analysis_stale (no fabrication)", () => {
+      expect(
+        selectConversationStatus(makeInput({ ...complete, trustSemantic: 'cannot_confirm' })).status,
+      ).toBe('analysis_ready')
+    })
 
-      const ready = selectConversationStatus(
-        makeInput({
-          nodeCount: 5,
-          resultsStatus: 'complete',
-          hasCompletedFirstRun: true,
-          graphEditedSinceLastRun: false,
-          wireFreshness: null,
-        }),
-      )
-      expect(ready.status).toBe('analysis_ready')
+    it("'none' + complete → analysis_ready", () => {
+      expect(
+        selectConversationStatus(makeInput({ ...complete, trustSemantic: 'none' })).status,
+      ).toBe('analysis_ready')
     })
   })
 })

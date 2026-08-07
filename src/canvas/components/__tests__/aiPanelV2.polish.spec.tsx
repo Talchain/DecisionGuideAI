@@ -38,9 +38,6 @@ vi.mock('../../store', () => ({
 vi.mock('../../hooks/useStageAwarePlaceholder', () => ({
   useStageAwarePlaceholder: () => 'Ask about this model…',
 }))
-vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
-  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
-}))
 vi.mock('../../hooks/useSelectionContext', () => ({
   useSelectionContext: () => null,
 }))
@@ -66,7 +63,6 @@ vi.mock('../../conversation/useConversation', async () => {
         messages: conversationMockState.messages,
         isThinking: conversationMockState.isThinking,
         longRunningHint: null,
-        lastFailedInput: null,
         sendMessage,
         sendSystemEvent,
         sendChip,
@@ -128,11 +124,14 @@ describe('Item 4 — AIInputBar generating state (isThinking + empty canvas)', (
     canvasMockState.nodes = []
   })
 
-  it('shows "Generating your decision model…" placeholder and disables typing during a generate turn', () => {
+  it('shows the gently-flashing generation status in the composer and disables typing during a generate turn', () => {
     conversationMockState.isThinking = true
     render(<AIInputBar variant="first-use" hideChevron testId="gen" onCogClick={() => {}} />, { wrapper: Wrapper })
     const textarea = screen.getByTestId('gen-textarea') as HTMLTextAreaElement
-    expect(textarea.placeholder).toBe('Generating your decision model…')
+    // The placeholder is cleared so the pulsing status overlay owns the text
+    // box; the first-stage message renders in that status line instead.
+    expect(textarea.placeholder).toBe('')
+    expect(screen.getByTestId('gen-generating')).toHaveTextContent('Drafting your decision model…')
     expect(textarea).toBeDisabled()
     expect(textarea).toHaveAttribute('aria-disabled', 'true')
     // Cog + send must also lock during generation so the user can't open
@@ -143,6 +142,25 @@ describe('Item 4 — AIInputBar generating state (isThinking + empty canvas)', (
     const send = screen.getByTestId('gen-send')
     expect(send).toBeDisabled()
     expect(send).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('escalates the status message through all stages as time elapses', () => {
+    vi.useFakeTimers()
+    try {
+      conversationMockState.isThinking = true
+      render(<AIInputBar variant="first-use" hideChevron testId="gen" onCogClick={() => {}} />, { wrapper: Wrapper })
+      const status = screen.getByTestId('gen-generating')
+      expect(status).toHaveTextContent('Drafting your decision model…')
+      act(() => { vi.advanceTimersByTime(20_000) })
+      expect(status).toHaveTextContent('Still drafting your decision model…')
+      act(() => { vi.advanceTimersByTime(25_000) })
+      expect(status).toHaveTextContent('Still drafting — complex decisions can take a while…')
+      // The final line holds — it must still be true at the client timeout.
+      act(() => { vi.advanceTimersByTime(60_000) })
+      expect(status).toHaveTextContent('Still drafting — complex decisions can take a while…')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('locks the chevron on the strip variant during a generate turn', () => {

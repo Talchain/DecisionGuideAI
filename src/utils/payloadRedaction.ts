@@ -65,7 +65,7 @@ const DEFAULT_OPTIONS: Required<RedactionOptions> = {
 function getDebugLlmRawMaxChars(): number {
   const envValue =
     import.meta.env.DEBUG_LLM_RAW_MAX_CHARS ??
-    import.meta.env.VITE_DEBUG_LLM_RAW_MAX_CHARS
+    import.meta.env?.VITE_DEBUG_LLM_RAW_MAX_CHARS
   const parsed = Number(envValue)
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 8000
 }
@@ -101,7 +101,7 @@ export function shouldCaptureDetailedPayload(): boolean {
   return (
     import.meta.env.DEV ||
     import.meta.env.MODE === 'staging' ||
-    import.meta.env.VITE_APP_ENV === 'staging'
+    import.meta.env?.VITE_APP_ENV === 'staging'
   )
 }
 

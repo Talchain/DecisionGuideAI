@@ -14,7 +14,8 @@
  *  - When flag is OFF, OUTPUT_TABS contains no 'olumi' tab (legacy path).
  *  - When flag is ON (default), OUTPUT_TABS contains 'olumi'.
  *  - Surfaces that should be invisible without an active selection /
- *    stale analysis (SelectionPill, StaleAnalysisBadge) still render
+ *    stale analysis (SelectionPill) still render — StaleAnalysisBadge
+ *    retired in Wave F-B (the freshness strip is the sole stale owner)
  *    nothing in the default state.
  *
  * We do NOT mount full OutputsDock here — the surrounding canvas store
@@ -44,15 +45,10 @@ vi.mock('../../utils/markdown', () => ({
 
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { SelectionPill } from '../SelectionPill'
-import { StaleAnalysisBadge } from '../StaleAnalysisBadge'
 
 // SelectionPill reads from canvas store; mock the selection context to null.
 vi.mock('../../hooks/useSelectionContext', () => ({
   useSelectionContext: () => null,
-}))
-// StaleAnalysisBadge reads useStaleGuard; mock to not-stale.
-vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
-  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
 }))
 // useV2Run pulls in heavy deps — mock minimal shape used by StaleAnalysisBadge.
 vi.mock('../../hooks/useV2Run', () => ({
@@ -89,11 +85,6 @@ describe('aiPanelV2 default (round-12: default-ON, rollback via localStorage="fa
     expect(container.firstChild).toBeNull()
   })
 
-  it('StaleAnalysisBadge renders nothing when analysis is not stale', () => {
-    const { container } = render(<StaleAnalysisBadge />)
-    expect(container.firstChild).toBeNull()
-  })
-
   it('FloatingPanelState defaults to closed (panel does not auto-mount)', () => {
     expect(useFloatingPanelState.getState().isOpen).toBe(false)
   })
@@ -123,8 +114,8 @@ describe('aiPanelV2 default (round-12: default-ON, rollback via localStorage="fa
       const { getOutputTabsForParity } = await import('../OutputsDock')
       const ids = getOutputTabsForParity().map((t) => t.id)
       expect(ids).toContain('olumi')
-      // Olumi appears at the end (last position).
-      expect(ids[ids.length - 1]).toBe('olumi')
+      // Olumi appears at the start (first position).
+      expect(ids[0]).toBe('olumi')
     })
   })
 })

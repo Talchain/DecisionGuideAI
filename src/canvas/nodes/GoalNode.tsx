@@ -22,16 +22,21 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
+import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
+import { basisWithholdsPossessive } from '../../components/results/utils/selectGoalProbability'
+import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
-import { isCurrencyUnit } from '../utils/labelUtils'
 import { NodeChip, NodePopover, ScienceIcon } from './shared'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
+import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
+import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 
 export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
@@ -46,6 +51,15 @@ export const GoalNode = memo((props: NodeProps) => {
   // per-option win_probability means the engine finished but produced no
   // probability. We must not render "Analysis complete" copy in that case.
   const hasAnyProbability = useHasAnyRealProbability()
+  // F5a (Codex review): the rerun prompt must be driven by the ACTUAL freshness
+  // state — the same composed trust surface AnalysisFreshnessNotice reads — never
+  // by value absence. A completed CURRENT run can legitimately carry no goal
+  // probability (producer returned none), and demanding a rerun then contradicts
+  // the panel's "Analysis reflects the current model". Only a genuinely
+  // changed/stale model ('changed' semantic) warrants "Rerun the analysis".
+  const analysisChanged = useAnalysisTrust().semantic === 'changed'
+  // Audit §8 P1: canvas result decorations mirror the panels' freshness
+  // verdict (opacity + title only — no layout shift).
 
   const robustnessData = useMemo(() => {
     if (!isPostAnalysis || !report) return null
@@ -57,7 +71,22 @@ export const GoalNode = memo((props: NodeProps) => {
     return { stability, level }
   }, [report, isPostAnalysis])
 
-  const thresholdRaw = props.data?.goal_threshold_raw as string | number | null | undefined
+  // ROADMAP 1.1 fix (6b-goal-capture evidence, finding b): the pre-analysis-v3
+  // Hero's Success-target field commits via setGoalThresholdAndUpdateNode,
+  // which writes `success_threshold` + `threshold_source: 'user'` onto the
+  // goal node's data (see computeSuccessState.ts, the Hero's own selector,
+  // which already treats this as the highest-priority "is set" signal). This
+  // node's badge previously checked `goal_threshold_raw` ONLY — a CEE-backfilled
+  // field (applyDraftResult.ts) that a Hero-only commit never populates — so
+  // the canvas badge kept reading "no target" even after the Hero (or a
+  // reconciled CEE round-trip) set one. Mirror computeSuccessState's priority:
+  // a user-set success_threshold counts as "set" first; fall back to the
+  // CEE-derived goal_threshold_raw.
+  const userThreshold = props.data?.threshold_source === 'user'
+    ? (props.data?.success_threshold as number | null | undefined)
+    : undefined
+  const ceeThresholdRaw = props.data?.goal_threshold_raw as string | number | null | undefined
+  const thresholdRaw = userThreshold != null ? userThreshold : ceeThresholdRaw
   const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
   const hasThreshold = thresholdRaw != null && String(thresholdRaw).trim() !== ''
 
@@ -86,10 +115,67 @@ export const GoalNode = memo((props: NodeProps) => {
 
   const hasConstraintDefaultWarning = useMemo(() => {
     if (!isPostAnalysis || !report) return false
-    const warnings = (report as any)?.inference_warnings ?? (report as any)?.robustness?.inference_warnings
+    // R-6: the ONE dual-slot reader (root first, then the legacy `robustness`
+    // nesting). This was a fourth private copy of that fallback, in its own cast
+    // style; the shared reader carries the 773-fact measurement showing the
+    // legacy slot is 0/773, which is why reading only one slot renders
+    // permanently empty with nothing red.
+    const warnings = readInferenceWarnings(report as never)
     if (!Array.isArray(warnings)) return false
     return warnings.some((w: any) => w.code === 'CONSTRAINT_NODE_DEFAULT_BASE')
   }, [report, isPostAnalysis])
+
+  // THE POSSESSIVE GATE (ROADMAP 2.283) — the last live un-gated possessive
+  // surface in the estate.
+  //
+  // `basis === 'joint_goal_substituted'` means this number is P(all
+  // constraints jointly satisfied) STANDING IN for an absent
+  // `probability_of_goal`. "chance of reaching target" then names a question
+  // the number does not answer — witnessed on staging as a ~100x
+  // understatement rendered in the possessive voice (#556). Six sibling
+  // surfaces already withhold the possessive in this state; this node could
+  // not, because `useNodeDisplayMetadata` read the basis and discarded it.
+  // 2.283 forwards it; this is the consumer.
+  //
+  // ⚠ SCOPED TO `joint_goal_substituted`, NEVER to "the figure is joint".
+  // `joint_goal_constrained` is the user's own goal AND their own limits —
+  // the possessive is EARNED there and is untouched (the ROADMAP 1.49 case).
+  // The expression is byte-identical to `OptionNode`'s, deliberately.
+  // ⭐ L62 (2026-08-04) — THIS IS NOW ALWAYS FALSE, AND THAT IS THE POINT.
+  // `selectGoalProbability` no longer substitutes the joint figure into the
+  // goal-fit slot at all: on that basis (`'joint_goal_withheld'`) it returns NO
+  // number, so this surface renders nothing to re-voice. The bases that still
+  // carry a number — `'goal_probability'` and `'joint_goal_constrained'` —
+  // both EARN the possessive. The narrowing goes through the owner's exported
+  // `basisWithholdsPossessive` so the four canvas/summary surfaces share ONE
+  // rule instead of four copies of a literal.
+  const goalFitSubstituted =
+    displayMetadata.achievementProbability !== null &&
+    basisWithholdsPossessive(displayMetadata.achievementProbabilityBasis)
+  // The readout, built ONCE above both arms so the withheld and permitted
+  // wordings can never show different numbers for the same run.
+  //
+  // ⭐ ROADMAP 2.333 — THE EXACT-ZERO DIVERGENCE, CLOSED.
+  // This was the node's own literal, and its sub-1% predicate carried a
+  // `> 0 &&` carve-out the dock surfaces do not have. The consequence was
+  // narrow and live: for an EXACT zero the carve-out fell through to
+  // `Math.round(0 * 100)`, so the canvas node said "0% chance of reaching
+  // target" while the option card beside it said "< 1%" about the same
+  // number. `displayFloors.ts` carried a standing correction recording this
+  // as the open, opposite convention.
+  //
+  // It now calls the goal register's shared formatter, so the canvas and the
+  // dock state one thing. Non-zero sub-1% values are unaffected — they read
+  // "< 1%" here exactly as they always did.
+  //
+  // No sample count is passed: `useNodeDisplayMetadata` carries the
+  // probability and its basis, not `n_valid_samples`, so this surface takes
+  // the floored fallback arm. That is the honest option — threading a count
+  // this hook does not hold would mean inventing one.
+  const achievementReadout =
+    displayMetadata.achievementProbability === null
+      ? null
+      : formatGoalProbability(displayMetadata.achievementProbability)
 
   // Border: dashed warning for no target, dashed by stability for post-analysis
   const goalBorderOverride = useMemo(() => {
@@ -102,16 +188,24 @@ export const GoalNode = memo((props: NodeProps) => {
     }
   }, [hasThreshold, robustnessData])
 
-  // Format threshold display
+  // Format threshold display.
+  //
+  // ROADMAP 2.315(c): the unit-string → unit-kind mapping that used to live
+  // inline here now lives in `formatGoalTarget`, unchanged in behaviour. It was
+  // moved because Inspector v2's GoalPanel needed the SAME mapping and had none
+  // (it interpolated the number bare with the unit as a suffix — "800000 £"),
+  // and the staging walk saw the two surfaces print different strings for one
+  // goal. Sharing the mapping makes agreement structural rather than a
+  // convention someone has to remember (CLAUDE.md #12). Percent rounding,
+  // 'count' suppression and currency prefixing are all as they were; the only
+  // behavioural difference is that a unit is now TRIMMED before classification,
+  // the same direction the U2 fix took when it retired this site's local
+  // `'%' | 'percent' | 'percentage'` copy.
   const thresholdDisplay = useMemo(() => {
     if (!hasThreshold) return null
     const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
     if (Number.isNaN(raw)) return String(thresholdRaw)
-    const u = typeof thresholdUnit === 'string' ? thresholdUnit.toLowerCase() : ''
-    if (u === '%' || u === 'percent' || u === 'percentage') return formatTargetValue(Math.round(raw), 'percent')
-    if (u === 'count' || u === '') return formatTargetValue(raw)
-    if (thresholdUnit && isCurrencyUnit(thresholdUnit)) return formatTargetValue(raw, 'currency', thresholdUnit)
-    return `${raw.toLocaleString()} ${thresholdUnit}`
+    return formatGoalTarget(raw, thresholdUnit) ?? String(thresholdRaw)
   }, [hasThreshold, thresholdRaw, thresholdUnit])
 
   // Science icons (spec Section 4.1)
@@ -140,9 +234,11 @@ export const GoalNode = memo((props: NodeProps) => {
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = hasLayer2 ? (
     <>
-      {/* Stability bar */}
+      {/* Stability bar — stale-dimmed when the model changed since the run */}
       {stabilityValue !== null && (
-        <div className="mb-1">
+        <div
+          className={`mb-1`}
+        >
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className={`${typography.edgeLabel} text-text-light`}>Decision stability</span>
             <span className={`${typography.edgeLabel} text-text-body`}>{Math.round(stabilityValue * 100)}%</span>
@@ -190,13 +286,22 @@ export const GoalNode = memo((props: NodeProps) => {
       {hasThreshold && (
         <div className="flex gap-1 flex-wrap mt-1.5">
           {displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
-            <NodeChip label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
+            <NodeChip chipId="goal_why_so_low" actionType="explain_results" label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
           )}
-          <NodeChip label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
+          <NodeChip chipId="goal_target_realistic" actionType={null} label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
         </div>
       )}
     </>
   ) : null
+
+  // Rendered identically by the two no-target branches below (post-analysis
+  // and pre-analysis). They are mutually exclusive on `isPostAnalysis`, so one
+  // element serves both.
+  const helpSetTargetChip = (
+    <div className="mt-1.5">
+      <NodeChip chipId="goal_help_set_target" actionType={null} label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
+    </div>
+  )
 
   return (
     <div
@@ -228,17 +333,21 @@ export const GoalNode = memo((props: NodeProps) => {
                 ? 'Analysis complete. Set a target to see your chances.'
                 : 'Analysis finished. Set a target and check the graph for incomplete inputs.'}
             </p>
-            <div className="mt-1.5">
-              <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
-            </div>
+            {helpSetTargetChip}
           </>
         )}
 
-        {/* No target, pre-analysis: chip only (spec says no body text for incomplete goals) */}
+        {/* No target, pre-analysis: the "goal gap". Surface the missing target
+            clearly (Paul-authored copy — brief primary + A1 secondary), then keep
+            the existing coaching chip. */}
         {!hasThreshold && !isPostAnalysis && (
-          <div className="mt-1.5">
-            <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
-          </div>
+          <>
+            <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>Goal target missing</p>
+            <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
+              Add a measurable success target, e.g. metric, threshold or deadline
+            </p>
+            {helpSetTargetChip}
+          </>
         )}
 
         {/* With target: display it */}
@@ -248,14 +357,61 @@ export const GoalNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Post-analysis: achievement probability */}
-        {displayMetadata.isResultsMode && displayMetadata.achievementProbability !== null && (
+        {/* Audit §8 P1 goal-state matrix: target SET + analysis ran + no
+            probability for it (target set after the run, or the run produced
+            none). The old branches ignored this quadrant, leaving a card
+            that showed a target with no path to a probability. No new CTA —
+            the edit affordance and Run flows already exist elsewhere.
+            F5a (Codex review): the copy is driven by the freshness/dirty state,
+            not by value absence — a CURRENT run that simply produced no goal
+            probability shows the honest absent-state copy (never a rerun demand
+            that would contradict the panel's "reflects the current model"); only
+            a genuinely changed model prompts a rerun. */}
+        {/* ROADMAP 2.275: the third arm. Witnessed on staging `a27cadf7`
+            (witness-2267 §6b/§11a) — this node asserted "This run did not
+            produce a goal probability" while the Analysis→Goal-fit sub-tab
+            rendered "< 1%" for all four options from the same report, both
+            simultaneously visible at 1280×800.
+
+            Both statements were individually defensible: no goal probability
+            is attributable to the NODE (the run designates no leading option),
+            yet per-option goal-fit figures genuinely exist. The defect was
+            that the node spoke as though "goal probability" were one thing and
+            flatly denied it. It now acknowledges the figures it can see and
+            says where to read them — no number is invented here, and no option
+            is designated. */}
+        {hasThreshold && isPostAnalysis && displayMetadata.achievementProbability === null && (
+          <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>
+            {analysisChanged
+              ? 'Target set. Rerun the analysis to update your results.'
+              : displayMetadata.goalFitAvailable
+                ? 'Target set. No overall goal probability for this run — see Goal fit for each option’s chance.'
+                : 'Target set. This run did not produce a goal probability.'}
+          </p>
+        )}
+
+        {/* Post-analysis: achievement probability.
+            UI-SEM-082 (Lane 4, Paul ruled; extends UI-SEM-071 doctrine): gate on
+            the target being SET (hasThreshold) — never on producer value presence
+            alone. The producer synthesises an auto_goal_threshold and returns a
+            goal_probability even when the USER set no target (UI-SEM-071 class),
+            so without this gate the "N% chance of reaching target" line would
+            crown a target the user never set AND co-render with the "Set a target
+            to see your chances" invitation above. hasThreshold makes the two
+            mutually exclusive by construction. */}
+        {hasThreshold && displayMetadata.isResultsMode && displayMetadata.achievementProbability !== null && (
           <div className={`${typography.nodeLabel} mt-1 ${
             displayMetadata.achievementProbability < 0.10 ? 'text-danger' : 'text-text-body'
           }`}>
-            {displayMetadata.achievementProbability > 0 && displayMetadata.achievementProbability < 0.01
-              ? '< 1'
-              : Math.round(displayMetadata.achievementProbability * 100)}% chance of reaching target
+            {/* ROADMAP 2.283: the withheld arm is the shared register's PHRASE
+                form verbatim — the same wording the results panel, the hero,
+                the V7 goal lens and OptionNode render for this basis. The
+                permitted arm is byte-identical to the string it replaced;
+                migrating the healthy path off "reaching target" is a separate
+                copy decision and is NOT smuggled in here. */}
+            {goalFitSubstituted
+              ? GOAL_ANCHOR_COPY.phrase(achievementReadout ?? '', goalFitSubstituted)
+              : `${achievementReadout} chance of reaching target`}
             {hasConstraintDefaultWarning && (
               <span
                 className={`${typography.edgeLabel} ml-1 bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 inline-flex items-center justify-center`}
@@ -267,8 +423,28 @@ export const GoalNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Actionable guidance for low probability */}
-        {isPostAnalysis && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
+        {/* Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): the
+            achievement-probability number above is scored from a MODELLED
+            forward-propagated outcome distribution, not a directly-elicited
+            base — same gate + shared wording as OptionCards' caveat
+            (GOAL_FIT_BASIS_CAVEAT_COPY), rendered adjacent to the number it
+            qualifies, never separately, never invented. */}
+        {hasThreshold &&
+          displayMetadata.isResultsMode &&
+          displayMetadata.achievementProbability !== null &&
+          displayMetadata.achievementProbabilityIsModelledBasis === true && (
+            <p
+              className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+              data-testid="goal-fit-basis-caveat-node"
+            >
+              {GOAL_FIT_BASIS_CAVEAT_COPY}
+            </p>
+          )}
+
+        {/* Actionable guidance for low probability (UI-SEM-082: gated on
+            hasThreshold too — no "Target may be ambitious" against an
+            auto-threshold the user never set). */}
+        {hasThreshold && isPostAnalysis && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
           <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
             Target may be ambitious.{' '}
             <button
@@ -303,7 +479,7 @@ export const GoalNode = memo((props: NodeProps) => {
             first-time users. */}
         {hasThreshold && !isPostAnalysis && (
           <div className="mt-1.5">
-            <NodeChip label="Run analysis" message="Run the analysis now" />
+            <NodeChip chipId="goal_run_analysis" actionType="run_analysis" label="Run analysis" message="Run the analysis now" />
           </div>
         )}
 

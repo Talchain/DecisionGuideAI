@@ -36,6 +36,35 @@ export interface DeduplicatedResponse {
   retryAfterHeader: string | null
 }
 
+/**
+ * The server answered, but its body could not be read as JSON.
+ *
+ * This type exists to keep two different facts apart at the ONE catch site
+ * that sees both. `deduplicatedFetch` performs the `fetch()` and the
+ * `response.json()` inside a single async IIFE, so a caller awaiting the
+ * returned promise cannot otherwise distinguish "I never reached the server"
+ * from "I reached it and could not read its reply". Neither is a readiness
+ * verdict — but they are different things to report, and conflating them is
+ * how a transport failure came to be presented as a model assessment
+ * (ROADMAP 2.319a).
+ *
+ * Transport rejections are deliberately NOT wrapped: they propagate exactly
+ * as `fetch()` threw them, so a caller can still read the underlying cause.
+ */
+export class ReadinessBodyUnreadableError extends Error {
+  /** HTTP status of the response whose body would not parse. */
+  readonly status: number
+  /** The original `response.json()` rejection. */
+  readonly parseError: unknown
+
+  constructor(status: number, parseError: unknown) {
+    super(`Readiness response body was not readable JSON (HTTP ${status})`)
+    this.name = 'ReadinessBodyUnreadableError'
+    this.status = status
+    this.parseError = parseError
+  }
+}
+
 interface InflightEntry {
   promise: Promise<DeduplicatedResponse>
   timestamp: number
@@ -58,6 +87,7 @@ function deduplicatedFetch(
   url: string,
   payloadJson: string,
   correlationId: string,
+  extraHeaders: Record<string, string> = {},
 ): { promise: Promise<DeduplicatedResponse>; entry: InflightEntry; isReused: boolean } {
   const cacheKey = `${url}:${payloadJson}`
   const existing = inflightCache.get(cacheKey)
@@ -78,12 +108,21 @@ function deduplicatedFetch(
       headers: {
         'Content-Type': 'application/json',
         'X-Request-ID': correlationId,
+        ...extraHeaders,
       },
       body: payloadJson,
       signal: controller.signal,
     })
     if (response.ok) {
-      const data = await response.json()
+      // Tag a parse failure so the caller can tell it from a transport
+      // failure. Both mean "no verdict", but only one of them means the
+      // server was never reached — see ReadinessBodyUnreadableError.
+      let data: unknown
+      try {
+        data = await response.json()
+      } catch (parseErr) {
+        throw new ReadinessBodyUnreadableError(response.status, parseErr)
+      }
       return {
         ok: true,
         status: response.status,
@@ -106,16 +145,22 @@ function deduplicatedFetch(
 
   const entry: InflightEntry = { promise, timestamp: Date.now(), controller, refCount: 1, settled: false }
   inflightCache.set(cacheKey, entry)
-  // Suppress unhandled rejection — callers still get the rejection via `promise`
+  // Suppress unhandled rejection — callers still get the rejection via `promise`.
+  // `.finally()` returns a NEW, distinct promise that adopts the original's
+  // rejection (it does not swallow errors). That derived promise must also
+  // have a rejection handler, or it surfaces as its own unhandled rejection
+  // independently of the `.catch(() => {})` above (#248).
   promise.catch(() => {})
-  promise.finally(() => {
-    entry.settled = true
-    setTimeout(() => {
-      if (inflightCache.get(cacheKey) === entry) {
-        inflightCache.delete(cacheKey)
-      }
-    }, DEDUP_WINDOW_MS)
-  })
+  promise
+    .finally(() => {
+      entry.settled = true
+      setTimeout(() => {
+        if (inflightCache.get(cacheKey) === entry) {
+          inflightCache.delete(cacheKey)
+        }
+      }, DEDUP_WINDOW_MS)
+    })
+    .catch(() => {})
 
   return { promise, entry, isReused: false }
 }
@@ -142,7 +187,76 @@ export const __test__ = { deduplicatedFetch, releaseInflightEntry }
 
 // ── Types (re-exported for all consumers) ──────────────────────────
 
-export type ReadinessLevel = 'needs_work' | 'fair' | 'strong'
+// ── PRE-ANALYSIS readiness vocabulary ──────────────────────────────
+//
+// ⚠ THIS IS NOT THE POST-ANALYSIS CONFIDENCE TIER. `EnrichmentConfidenceTier`
+// (`strong | fair | needs_work`, @talchain/schemas dist/boundary/enrichment.d.ts)
+// answers "how much should you trust the answer we just produced?". The field
+// below answers "is this model complete enough to analyse?" — a different claim
+// at a different point in the lifecycle, produced by a different service.
+//
+// Until 2026-07-27 the allowlist in readinessStore's normaliser was the
+// POST-analysis tier's member list applied to this PRE-analysis field. The two
+// sets overlap on `fair` and `needs_work` and differ on exactly one member, so
+// the mistranslation was invisible on two thirds of all inputs and silently
+// coerced CEE's top band (`ready`) to `fair` on EVERY graph scoring >= 70.
+// Keep the two vocabularies named apart so that cannot recur.
+
+/**
+ * The levels CEE emits for `readiness_level` on POST /assist/v1/graph-readiness.
+ *
+ * ⚠ CROSS-REPO MIRROR — it cannot be derived from this repo, because the
+ * pre-analysis readiness surface does not travel through `@talchain/schemas`.
+ * Read at the bytes from olumi-assistants-service `staging`
+ * `b35d09debc0c6843dbcbf7f28a4676810d77c278`:
+ *   - `src/cee/graph-readiness/types.ts:8`
+ *       `export type ReadinessLevel = "ready" | "fair" | "needs_work";`
+ *   - `src/routes/assist.v1.graph-readiness.ts:29` (V1) and `:169` (V3), both
+ *       `readiness_level: "ready" | "fair" | "needs_work";`
+ *   - `src/cee/graph-readiness/index.ts:198-201` assigns `"ready"` at
+ *       `score >= READINESS_THRESHOLDS.ready` (70, `constants.ts:30-31`).
+ * A producer-side change to this set is NOT visible from here; the durable fix
+ * is a boundary-contract test deriving both sides at their real SHAs.
+ */
+export const CEE_READINESS_LEVELS = ['needs_work', 'fair', 'ready'] as const
+export type CeeReadinessLevel = (typeof CEE_READINESS_LEVELS)[number]
+
+/**
+ * ── ROADMAP 2.635 (I-1): `LOCAL_FALLBACK_READINESS_LEVELS` was DELETED ──
+ *
+ * It held exactly one member, `'strong'`, and its own docstring said the thing
+ * that eventually retired it: `strong` is NOT a CEE value — no CEE code path
+ * assigns it to `readiness_level`. It existed because the UI's local heuristic
+ * `readinessStore.calculateFallbackReadiness` emitted it, writing straight to
+ * the store WITHOUT passing through the normaliser. That heuristic's last caller
+ * (the 429 arm) was retired in 2.635 and the function is deleted, so `strong`
+ * now has no writer anywhere in this repo.
+ *
+ * It is removed rather than left resident because a level in the accepted set
+ * with no producer is a standing invitation to re-fabricate one — and because
+ * leaving it made the accepted set a UI invention padded onto a producer
+ * vocabulary, which is the shape that caused the original defect this whole
+ * area was opened for (CEE's `ready` silently coerced to `fair`).
+ *
+ * The old `@deprecated` note recorded the sharpest reason of all: the fallback
+ * emitted a BETTER verdict than the producer could (CEE down + score 85 =>
+ * `strong`; CEE up + score 85 => the top band). An unreachable server producing
+ * a more confident answer than a reachable one is the fabrication class
+ * inverted. It is now unreachable by construction.
+ */
+
+/**
+ * Every value `GraphReadiness.readiness_level` may hold.
+ *
+ * ⚠ This is now EXACTLY the producer's set — see the assertion in
+ * `readinessStore.ceeVocabulary.spec.ts`. Anything else is unrecognised input
+ * and degrades to `fair` (loudly, in DEV). Do not widen this with a value the
+ * UI invents: a level the producer cannot emit has no honest surface.
+ */
+export const ACCEPTED_READINESS_LEVELS = CEE_READINESS_LEVELS
+
+export type GraphReadinessLevel = CeeReadinessLevel
+
 export type ImprovementPriority = 'high' | 'medium' | 'low'
 
 export type SuggestedNodeType = 'risk' | 'outcome' | 'option' | 'factor' | 'evidence' | 'goal' | 'decision'
@@ -166,12 +280,45 @@ export interface GraphImprovement {
   current_score?: number
 }
 
+/**
+ * CEE graph-readiness scaffold intent (CEE #612). When the engine will draft
+ * the remaining options for the user, it rides this alongside the readiness
+ * verdict so the UI can offer the run rather than false-block it.
+ * Not a @talchain/schemas type — it is a CEE endpoint-response shape, typed
+ * UI-side (verify the wire field name against A1's contract before widening).
+ */
+export interface ScaffoldPlan {
+  /** True when CEE will draft the remaining options on run. */
+  will_scaffold_options: boolean
+  /** How many options CEE will draft. Present only when will_scaffold_options. */
+  option_count?: number
+}
+
 export interface GraphReadiness {
   readiness_score: number // 0-100
-  readiness_level: ReadinessLevel
+  readiness_level: GraphReadinessLevel
   can_run_analysis: boolean
   confidence_explanation: string
   improvements: GraphImprovement[]
+  /**
+   * UI-SEM-091 input. Optional — absent on older CEE builds and on the local
+   * 404/429 fallback, so its absence is fail-safe: the gate collapses to
+   * `allowed = can_run_analysis`, byte-identical to pre-scaffold behaviour.
+   */
+  scaffold_plan?: ScaffoldPlan
+  /**
+   * V3 structured verdict fields. The blocked-state copy is composed from
+   * THESE, never from `confidence_explanation` prose — see
+   * `utils/composeBlockedReason.ts` for why (the guard-degrades-to-a-false-fact
+   * defect, Paul 28 Jul).
+   *
+   * All optional: absent on older CEE builds, on the legacy V1/V2 response, and
+   * on the local 404/429 fallback. Every reader must degrade to LESS SPECIFIC
+   * TRUE copy when they are missing, never to a different claim.
+   */
+  options_ready?: number
+  options_total?: number
+  goal_node_valid?: boolean
 }
 
 // ── Hook (thin wrapper) ────────────────────────────────────────────
@@ -185,6 +332,10 @@ export function useGraphReadiness() {
   const readiness = useReadinessStore((s) => s.readiness)
   const loading = useReadinessStore((s) => s.loading)
   const error = useReadinessStore((s) => s.error)
+  // ROADMAP 2.332: a retained verdict can outlive the model it graded, so the
+  // surface needs to know both that it has, and when it was taken.
+  const stale = useReadinessStore((s) => s.stale)
+  const verdictAtMs = useReadinessStore((s) => s.verdictAtMs)
   const refresh = useReadinessStore((s) => s.refresh)
 
   // Ref-counted: startListening increments, returned cleanup decrements.
@@ -194,5 +345,5 @@ export function useGraphReadiness() {
     return unsub
   }, [])
 
-  return { readiness, loading, error, refresh }
+  return { readiness, loading, error, stale, verdictAtMs, refresh }
 }

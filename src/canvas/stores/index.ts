@@ -51,11 +51,15 @@ export {
   type GuidanceSource,
   type EvidenceStrength,
   type GuidanceTargetObject,
+  type GuidanceTone,
   selectGuidanceItems,
   selectActiveGuidanceItemId,
   selectActiveItem,
   selectItemsForTarget,
   selectTopItem,
+  compareGuidanceDisplayOrder,
+  guidanceCategoryRank,
+  guidanceCategoryTone,
 } from './guidanceStore'
 
 // Graph readiness store (consolidated from useGraphReadiness hook)
@@ -66,6 +70,9 @@ export {
   selectReadiness,
   selectReadinessLoading,
   selectReadinessError,
+  // ROADMAP 2.332 — the verdict's own freshness, alongside the verdict.
+  selectReadinessStale,
+  selectReadinessVerdictAtMs,
 } from './readinessStore'
 
 /**

@@ -1,9 +1,20 @@
 /**
  * KebabMenu — restructured "More" dropdown menu for the top bar.
  *
- * Groups: Decision (Rename, Export, Reset canvas) | View (Fullscreen) |
- * Help (Replay tour, Keyboard shortcuts, How influence works) |
+ * Groups: Decision (Rename, Export, Import, Snapshots, Reset canvas) |
+ * View (Fullscreen) | Help (Keyboard shortcuts, How influence works) |
  * Canvas settings (flattened toggles).
+ *
+ * Lane 4 (P5): Export routes to the REAL ImportExportDialog (it was a
+ * console.warn stub — a visible control that did nothing). Import ships
+ * alongside it so the export dialog's own "editable and re-importable"
+ * claim stays true, and Snapshots reconnects SnapshotManager (previously
+ * only reachable from the production-unmounted CanvasToolbar). "Replay
+ * tour" was REMOVED: it dispatched into an overlay gated on a flag that is
+ * off in every deploy context, and the tour content itself describes
+ * surfaces that do not exist in the deployed UI.
+ *
+ * Requires ToastProvider in an ancestor (the dialogs use useToast).
  */
 
 import { useState, useCallback } from 'react'
@@ -11,14 +22,17 @@ import {
   MoreVertical,
   Pencil,
   Download,
+  Upload,
+  Camera,
   RotateCcw,
   Maximize,
-  BookOpen,
   Keyboard,
   HelpCircle,
 } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import { ConfirmDialog } from '../../canvas/components/ConfirmDialog'
+import { ImportExportDialog } from '../../canvas/components/ImportExportDialog'
+import { SnapshotManager } from '../../canvas/components/SnapshotManager'
 import { useSettingsStore } from '../../canvas/settingsStore'
 import { useCanvasStore } from '../../canvas/store'
 import styles from './TopBar.module.css'
@@ -28,7 +42,6 @@ interface KebabMenuProps {
   onToggle: () => void
   onClose: () => void
   onStartRename: () => void
-  onShowOnboarding: () => void
   onShowKeyboardLegend: () => void
   onShowInfluenceExplainer: () => void
   menuRef: React.RefObject<HTMLDivElement | null>
@@ -39,12 +52,14 @@ export function KebabMenu({
   onToggle,
   onClose,
   onStartRename,
-  onShowOnboarding,
   onShowKeyboardLegend,
   onShowInfluenceExplainer,
   menuRef,
 }: KebabMenuProps) {
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [activeDialog, setActiveDialog] = useState<
+    'export' | 'import' | 'snapshots' | null
+  >(null)
 
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
 
@@ -62,9 +77,21 @@ export function KebabMenu({
   } = useSettingsStore()
 
   const handleExport = useCallback(() => {
-    console.warn('Export')
+    setActiveDialog('export')
     onClose()
   }, [onClose])
+
+  const handleImport = useCallback(() => {
+    setActiveDialog('import')
+    onClose()
+  }, [onClose])
+
+  const handleSnapshots = useCallback(() => {
+    setActiveDialog('snapshots')
+    onClose()
+  }, [onClose])
+
+  const closeDialog = useCallback(() => setActiveDialog(null), [])
 
   const handleResetCanvas = useCallback(() => {
     setShowResetConfirm(true)
@@ -119,9 +146,30 @@ export function KebabMenu({
               role="menuitem"
               className={styles.dropdownMenuButton}
               onClick={handleExport}
+              data-testid="kebab-export"
             >
               <Download size={14} aria-hidden="true" />
               <span>Export</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.dropdownMenuButton}
+              onClick={handleImport}
+              data-testid="kebab-import"
+            >
+              <Upload size={14} aria-hidden="true" />
+              <span>Import</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.dropdownMenuButton}
+              onClick={handleSnapshots}
+              data-testid="kebab-snapshots"
+            >
+              <Camera size={14} aria-hidden="true" />
+              <span>Snapshots</span>
             </button>
             <button
               type="button"
@@ -151,15 +199,6 @@ export function KebabMenu({
 
             {/* Help group */}
             <div className={styles.dropdownMenuLabel}>Help</div>
-            <button
-              type="button"
-              role="menuitem"
-              className={styles.dropdownMenuButton}
-              onClick={onShowOnboarding}
-            >
-              <BookOpen size={14} aria-hidden="true" />
-              <span>Replay tour</span>
-            </button>
             <button
               type="button"
               role="menuitem"
@@ -267,6 +306,23 @@ export function KebabMenu({
           onCancel={() => setShowResetConfirm(false)}
         />
       )}
+
+      {/* Lane 4 (P5): the real capability dialogs, portal-rendered by
+          BottomSheet. Each renders null while closed. */}
+      <ImportExportDialog
+        isOpen={activeDialog === 'export'}
+        onClose={closeDialog}
+        mode="export"
+      />
+      <ImportExportDialog
+        isOpen={activeDialog === 'import'}
+        onClose={closeDialog}
+        mode="import"
+      />
+      <SnapshotManager
+        isOpen={activeDialog === 'snapshots'}
+        onClose={closeDialog}
+      />
     </>
   )
 }

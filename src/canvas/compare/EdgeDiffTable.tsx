@@ -302,6 +302,19 @@ export function computeEdgeDiffs(
     else if (!eA && eB) status = 'added'
     else status = 'removed'
 
+    // ⚠ DEAD TODAY, P0 ON REVIVE (F12) — DELIBERATELY NOT CHANGED HERE.
+    // `?? 1.0` fabricates a MAXIMUM edge weight for an absent value, which is a
+    // worse fabrication than the 0.5/0.3 defaults this codebase has been
+    // hunting: it renders as "1.00" in the exported decision brief
+    // (`export/decisionBrief.ts`) and feeds `deltaWeight` below, so it moves a
+    // number as well as a label. It is unreachable at runtime — `CompareView`,
+    // the only mount, has ZERO importers (verified at staging tip a8ca3b66) —
+    // and it is arithmetic, not display, so fixing it is a NUMERIC-BEHAVIOUR
+    // change and out of the display-honesty mandate.
+    // BEFORE REVIVING CompareView: route these through
+    // `canvas/domain/edgeValueProvenance.resolveEdgeValueDisplay` and decide
+    // what a diff against an unset value should say — almost certainly "—",
+    // not a delta computed from 1.0.
     const weightA = eA?.data?.weight ?? 1.0
     const weightB = eB?.data?.weight ?? 1.0
     const beliefA = eA?.data?.belief ?? weightA

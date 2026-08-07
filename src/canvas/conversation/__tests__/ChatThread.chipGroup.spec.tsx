@@ -44,9 +44,11 @@ beforeEach(() => {
 // Fixtures
 // ---------------------------------------------------------------------------
 
+let seq = 0
 function makeMsg(overrides: Partial<ConversationMessage> = {}): ConversationMessage {
+  seq += 1
   return {
-    id: 'msg-1',
+    id: `msg-${seq}`,
     role: 'assistant',
     content: 'Hello',
     timestamp: new Date(),
@@ -115,5 +117,41 @@ describe('ChatThread: chip grouping', () => {
     )
 
     expect(screen.queryByTestId('response-chip-group')).not.toBeInTheDocument()
+  })
+
+  // Pins WHICH assistant message owns the chips. The two fixtures above hold
+  // a single assistant message, so first-of-role and last-of-role are
+  // indistinguishable there — a mutation taking the FIRST assistant message
+  // passed them both. This fixture separates the two.
+  it('takes chips from the LAST assistant message, not the first', () => {
+    const messages = [
+      makeMsg({ content: 'older reply', actionChips: [{ ...chip, id: 'stale', label: 'Stale chip' }] }),
+      makeMsg({ role: 'user', content: 'follow-up question' }),
+      makeMsg({ content: 'newest reply', actionChips: [{ ...chip, id: 'fresh', label: 'Fresh chip' }] }),
+    ]
+    render(
+      <ChatThread
+        messages={messages}
+        isThinking={false}
+        longRunningHint={null}
+        nodeCount={1}
+        patchBlockStates={new Map()}
+        patchRejections={new Map()}
+        onChipClick={noop}
+        onPatchAccept={vi.fn()}
+        onPatchDismiss={vi.fn()}
+        onFeedback={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    )
+
+    const chips = screen.getByTestId('suggested-chips')
+    expect(chips.textContent).toContain('Fresh chip')
+    expect(chips.textContent).not.toContain('Stale chip')
+
+    // ...and the group wraps the NEWEST assistant message, not the older one.
+    const group = screen.getByTestId('response-chip-group')
+    expect(group.textContent).toContain('newest reply')
+    expect(group.textContent).not.toContain('older reply')
   })
 })

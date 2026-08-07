@@ -26,18 +26,26 @@ import type { Edge, Node } from '@xyflow/react'
 import { AlertTriangle, Link as LinkIcon, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
+import { useEdgeMutations } from '../../ui/inspector-v2/useInspectorMutations'
 import { SectionErrorBoundary } from '../GraphTextView'
 import { Accordion } from '../../../components/results/Accordion'
 import { getDisplayEdgeId } from '../../utils/edgeIdentity'
 import { focusEdgeById } from '../../utils/focusHelpers'
 import { NON_EVIDENCE_PROVENANCE } from '../../utils/evidenceCoverage'
-import { strengthSemanticLabel } from './utils'
+import { strengthSemanticLabel, directionToneClass, signedScalarText } from './utils'
 import { InlineEdit } from './InlineEdit'
 import { DetailToggleContext } from './DetailToggleContext'
 import { StrengthBar } from '../../ui/inspector/StrengthBar'
 import { ContestedEdgeCard } from './ContestedEdgeCard'
 import { CoachingCard } from './CoachingCard'
 import type { ValidationMetadata, UserAction } from '../../domain/validation'
+import {
+  resolveEdgeValueDisplay,
+  resolveEdgeSignedStrengthDisplay,
+  resolveEdgeDirectionDisplay,
+  compareEdgeValueDisplays,
+  type EdgeValueSource,
+} from '../../domain/edgeValueProvenance'
 
 /** Repair display entry for edge detail */
 export interface EdgeRepairDisplay {
@@ -59,7 +67,7 @@ interface RelationshipsSectionProps {
   /** Whether robustness data is available (analysis has run) */
   hasRobustnessData?: boolean
   /** Called when user resolves a contested edge. Provided by ModelTabBody. */
-  onResolveContested?: (edgeId: string, action: UserAction, customMean?: number) => void
+  onResolveContested?: (edgeId: string, action: UserAction, customMean?: number, directionSource?: EdgeValueSource | null) => void
   /** Map of edge ID → E-value from ISL robustness */
   edgeEValueMap?: Map<string, number>
   /** Map of edge ID → repairs applied from PLoT */
@@ -103,10 +111,16 @@ function EdgeCard({
     }
   }, [isSelected])
   const { showDetail } = useContext(DetailToggleContext)
-  const updateEdge = useCanvasStore(s => s.updateEdge)
 
   const edgeId = getDisplayEdgeId(edge)
   const data = edge.data as Record<string, unknown>
+
+  // ROADMAP 2.121 slice 1 — sanctioned edge setters (`EDGE_SETTER_FIELDS`),
+  // not hand-rolled `updateEdge` calls spreading a render-time `data`. The
+  // `*Source` provenance markers ride along inside the setters, in the same
+  // update as the value they describe, which is the property the old handlers
+  // maintained by convention and these maintain by construction.
+  const mutations = useEdgeMutations(edgeId)
 
   // Bidirectional row → graph hover highlight. Unmount cleanup guards against
   // tab-switch-while-hovered where onMouseLeave never fires.
@@ -135,22 +149,61 @@ function EdgeCard({
   const fromLabel = String((sourceNode?.data as Record<string, unknown>)?.label ?? edge.source)
   const toLabel = String((targetNode?.data as Record<string, unknown>)?.label ?? edge.target)
 
-  // Read raw values — treat absent fields as truly unset (no silent defaults)
-  const rawWeight = data?.weight as number | undefined
-  const rawDirection = data?.direction as string | undefined
-  const safeDirection: 'positive' | 'negative' =
-    rawDirection === 'negative' ? 'negative' : rawDirection === 'positive' ? 'positive' : 'positive'
-  const strengthStd = data?.strengthStd ?? data?.strength_std
+  // PROVENANCE-GATED READ, not a presence check.
+  //
+  // This block used to read `rawWeight !== undefined`. `DEFAULT_EDGE_DATA` and
+  // `USER_EDGE_DEFAULTS` ALWAYS define `weight` and `beliefExists`, so that
+  // test was true for every edge that exists in the product and the "Not set"
+  // branches below were statically unreachable — while the comment here
+  // claimed the opposite. A drawn edge rendered `+0.30`, `Moderate positive`,
+  // `p0.80` and a GREEN 80% "Likelihood" bar, all UI defaults, under a tooltip
+  // attributing the confidence to the user.
+  //
+  // `resolveEdgeValueDisplay` cannot hand back a number without a source, so
+  // the fabrication is no longer expressible here.
+  const strengthDisplay = resolveEdgeSignedStrengthDisplay(data)
+  const likelihoodDisplay = resolveEdgeValueDisplay(data, 'beliefExists')
 
-  const hasStrength = rawWeight !== undefined
-  const signedMean = hasStrength ? (safeDirection === 'negative' ? -rawWeight! : rawWeight!) : undefined
+  /**
+   * ROADMAP 2.263. This was:
+   *
+   *   const safeDirection = rawDirection === 'negative' ? 'negative'
+   *                       : rawDirection === 'positive' ? 'positive' : 'positive'
+   *
+   * — a three-branch ternary whose two live branches both ended at
+   * `'positive'`, so an edge whose producer said `'unknown'` or said nothing
+   * rendered as a positive effect: green label, green `+`, green half of the
+   * StrengthBar, and the `+` toggle lit as though someone had chosen it.
+   *
+   * `resolveEdgeDirectionDisplay` is the one owner of that answer, and its
+   * `show: false` arm has no direction to read, so no surface below can fall
+   * back to `'positive'` by accident.
+   */
+  const directionDisplay = resolveEdgeDirectionDisplay(data)
+  /**
+   * ROADMAP 2.296 C4 — the σ/±/Std surfaces are PROVENANCE-GATED, like every
+   * other number on this card. The raw read this replaces
+   * (`data?.strengthStd ?? data?.strength_std`) displayed
+   * `USER_EDGE_DEFAULTS.strengthStd = 0.15` — a constant nobody measured — as
+   * a measured uncertainty on three surfaces (inline σ, ±, the detail Std
+   * row). The registry (`edgeValueProvenance.ts`) names `strengthStd` as
+   * exactly this gap and deliberately declares NO back-compat fallback for a
+   * raw `strength_std`: a producer std is displayable only once its ingestion
+   * site stamps it (as `applyDraftResult` and the inspector's `setStd`
+   * already do). Consequence, stated openly: the legacy raw-spelling read leg
+   * is gone — an unstamped `strength_std` renders nothing rather than
+   * laundering the default.
+   */
+  const strengthStdDisplay = resolveEdgeValueDisplay(data, 'strengthStd')
+  const strengthStd = strengthStdDisplay.show ? strengthStdDisplay.value : undefined
 
-  // Likelihood — absent means unset, not 70%
-  // Canvas store canonical name — CEE ingestion normalises to beliefExists
-  const rawBelief = data?.beliefExists ?? data?.confidence ?? data?.belief
-  const hasLikelihood = rawBelief !== undefined
-  const beliefExists = hasLikelihood ? (rawBelief as number) : undefined
-  const likelihoodPct = hasLikelihood ? Math.round(beliefExists! * 100) : undefined
+  const hasStrength = strengthDisplay.show
+  const rawWeight = strengthDisplay.show ? Math.abs(strengthDisplay.value) : undefined
+  const signedMean = strengthDisplay.show ? strengthDisplay.value : undefined
+
+  const hasLikelihood = likelihoodDisplay.show
+  const beliefExists = likelihoodDisplay.show ? likelihoodDisplay.value : undefined
+  const likelihoodPct = likelihoodDisplay.show ? Math.round(likelihoodDisplay.value * 100) : undefined
 
   const likelihoodColour = likelihoodPct === undefined
     ? 'bg-panel-border'
@@ -175,21 +228,37 @@ function EdgeCard({
     return !isNaN(n) && n >= 0 && n <= 100
   }, [])
 
+  /**
+   * The weight chip edits the MAGNITUDE (0–2); direction is the separate toggle
+   * beside it. So the write says exactly that: `preserveDirection` — never a
+   * direction re-derived from a sign this chip does not own.
+   *
+   * The first version of this fix DID smuggle the direction through the sign
+   * (`safeDirection === 'negative' ? -n : n`) and that was a proven regression:
+   * `-0 >= 0` is `true`, so committing weight `0` on a negative edge flipped it
+   * positive, and `safeDirection` coerces an ABSENT direction to 'positive', so
+   * a magnitude-only edit fabricated a direction claim on an edge that carried
+   * none. Both are gone because the sign is no longer load-bearing here.
+   *
+   * The user typed this number, so it stops being a default (see
+   * canvas/domain/edgeValueProvenance.ts); `setStrength` writes
+   * `weightSource: 'user'` in the same update as the value.
+   */
   const handleWeightSave = useCallback((val: string) => {
     const n = parseFloat(val)
     if (isNaN(n) || n < 0 || n > 2) return
-    updateEdge(edgeId, { data: { ...data, weight: n } })
-  }, [edgeId, data, updateEdge])
+    mutations.setStrength(n, { preserveDirection: true })
+  }, [mutations])
 
   const handleDirectionToggle = useCallback((dir: 'positive' | 'negative') => {
-    updateEdge(edgeId, { data: { ...data, direction: dir } })
-  }, [edgeId, data, updateEdge])
+    mutations.setDirection(dir)
+  }, [mutations])
 
   const handleLikelihoodSave = useCallback((val: string) => {
     const pct = parseFloat(val)
     if (isNaN(pct) || pct < 0 || pct > 100) return
-    updateEdge(edgeId, { data: { ...data, beliefExists: pct / 100 } })
-  }, [edgeId, data, updateEdge])
+    mutations.setExistsProbability(pct / 100)
+  }, [mutations])
 
   return (
     <div
@@ -240,13 +309,13 @@ function EdgeCard({
       {!cardExpanded && (
         <div className="flex items-center gap-2 flex-wrap" data-testid={`edge-${edgeId}-summary`}>
           {signedMean !== undefined && (
-            <span className={`${typography.panelMeta} ${signedMean >= 0 ? 'text-success' : 'text-danger'}`}>
-              {strengthSemanticLabel(signedMean)}
+            <span className={`${typography.panelMeta} ${directionToneClass(directionDisplay)}`}>
+              {strengthSemanticLabel(signedMean, directionDisplay)}
             </span>
           )}
           {signedMean !== undefined && (
             <span className={`${typography.panelMeta} text-text-body font-mono`}>
-              {signedMean >= 0 ? '+' : ''}{signedMean.toFixed(2)}
+              {signedScalarText(signedMean, directionDisplay, 2)}
             </span>
           )}
           {showDetail && strengthStd !== undefined && (
@@ -290,7 +359,7 @@ function EdgeCard({
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handleDirectionToggle('positive') }}
                     className={`px-2 py-0.5 ${typography.panelMeta} transition-colors ${
-                      safeDirection === 'positive'
+                      directionDisplay.show && directionDisplay.direction === 'positive'
                         ? 'bg-success/20 text-success border-r border-panel-border'
                         : 'text-text-light hover:bg-panel border-r border-panel-border'
                     }`}
@@ -302,7 +371,7 @@ function EdgeCard({
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handleDirectionToggle('negative') }}
                     className={`px-2 py-0.5 ${typography.panelMeta} transition-colors ${
-                      safeDirection === 'negative'
+                      directionDisplay.show && directionDisplay.direction === 'negative'
                         ? 'bg-danger/20 text-danger'
                         : 'text-text-light hover:bg-panel'
                     }`}
@@ -311,7 +380,10 @@ function EdgeCard({
                     −
                   </button>
                 </div>
-                <StrengthBar weight={rawWeight!} direction={safeDirection} />
+                <StrengthBar
+                  weight={rawWeight!}
+                  direction={directionDisplay.show ? directionDisplay.direction : undefined}
+                />
               </>
             ) : (
               <span
@@ -324,8 +396,8 @@ function EdgeCard({
           </div>
           {signedMean !== undefined && (
             <div className="mt-1">
-              <span className={`${typography.panelMeta} ${signedMean >= 0 ? 'text-success' : 'text-danger'}`}>
-                {strengthSemanticLabel(signedMean)}
+              <span className={`${typography.panelMeta} ${directionToneClass(directionDisplay)}`}>
+                {strengthSemanticLabel(signedMean, directionDisplay)}
               </span>
               {strengthStd !== undefined && (
                 <span className={`${typography.panelMeta} text-text-light ml-1`}>
@@ -389,7 +461,7 @@ function EdgeCard({
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Signed effect</span>
                     <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
-                      {signedMean >= 0 ? '+' : ''}{signedMean.toFixed(3)}
+                      {signedScalarText(signedMean, directionDisplay, 3)}
                     </span>
                   </>
                 )}
@@ -560,12 +632,16 @@ function RelationshipsSectionInner({
       const bSwitchProb = fragileEdgeSwitchProbMap.get(bId) ?? -1
       if (aSwitchProb !== bSwitchProb) return bSwitchProb - aSwitchProb
 
-      const aData = a.data as Record<string, unknown>
-      const bData = b.data as Record<string, unknown>
-      // Missing weight → sort last (-Infinity in descending order)
-      const aWeight = aData?.weight != null ? (aData.weight as number) : -Infinity
-      const bWeight = bData?.weight != null ? (bData.weight as number) : -Infinity
-      return bWeight - aWeight
+      // ⛔ Provenance gate on the ORDER. #473 gated this section's colour,
+      // width, StrengthBar and band label — the SORT was the one channel left,
+      // and its `!= null` guard was a tautology, so a card whose own body reads
+      // "Not set" still ranked above a measured one. Unset now sorts last for
+      // real, via the shared comparator rather than a sentinel.
+      return compareEdgeValueDisplays(
+        resolveEdgeValueDisplay(a.data as Record<string, unknown> | undefined, 'weight'),
+        resolveEdgeValueDisplay(b.data as Record<string, unknown> | undefined, 'weight'),
+        'desc',
+      )
     })
   }, [nonContestedEdges, fragileEdgeSwitchProbMap])
 
@@ -656,7 +732,18 @@ function RelationshipsSectionInner({
       {/* Coaching: fragile relationships warning */}
       {fragileEdgeIds.size > 0 && (
         <CoachingCard sectionId="relationships-fragile">
-          Fragile relationships could change the recommendation. Review the strongest ones first.
+          {/*
+            ⭐ RE-ANCHORED 2026-08-01 (ROADMAP 2.213 / walk finding F2). Read
+            "Fragile relationships could change the recommendation." — "the
+            recommendation" is the exact noun the no-recommendations doctrine
+            retires, and this line survived PR 548's sweep because it is UI static
+            copy on the Model tab (0 occurrences in the wire) rather than
+            anything the producer sends. Witnessed rendering in BOTH walk
+            scenarios. The replacement states the same fact about the data
+            without the retired noun: what fragility can change is which option
+            comes out ahead, not an endorsement the product does not make.
+          */}
+          Fragile relationships could change which option leads. Review the strongest ones first.
         </CoachingCard>
       )}
 

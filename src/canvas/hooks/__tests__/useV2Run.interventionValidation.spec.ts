@@ -204,7 +204,23 @@ describe('Pre-run intervention validation', () => {
     expect(result.current.error).toContain('Option B')
   })
 
-  it('tracks failure with MISSING_INTERVENTIONS code', async () => {
+  // ⚠ INVERTED BY ROADMAP 1.68. This test used to assert that this hook calls
+  // `trackRunFailed`. It no longer does, and the assertion is flipped rather
+  // than deleted — the flip is the pin.
+  //
+  // WHY: `OutputsDock.tsx` also emitted run_completed/run_failed, from a
+  // store-status-transition effect, and it CONSUMES this hook — so every run
+  // fired both, with two disjoint payload shapes. OutputsDock won as the single
+  // canonical emitter on COVERAGE: it watches the store, so it also covers
+  // `useResultsRun`, `applyV5State.ts:1064` and `useConversation.ts:3144/:3251`
+  // — the CEE-driven analysis path, which never touches this hook.
+  //
+  // THE SIGNAL IS NOT LOST, and that is what the second half asserts: this hook
+  // writes the MISSING_INTERVENTIONS error to the store, and that store
+  // transition is exactly what OutputsDock emits `run_failed` from. Deleting
+  // this test outright would have left "does the failure still get recorded?"
+  // unanswered.
+  it('does NOT emit run_failed itself — it writes the store, and OutputsDock emits', async () => {
     setupCanvasWithOptions({
       analysisReady: {
         goal_node_id: 'goal-1',
@@ -220,11 +236,19 @@ describe('Pre-run intervention validation', () => {
       await result.current.runV2Analysis()
     })
 
-    expect(mockTrackRunFailed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error_code: 'MISSING_INTERVENTIONS',
-      }),
-    )
+    expect(
+      mockTrackRunFailed,
+      'useV2Run emitted run_failed again. OutputsDock consumes this hook and emits the ' +
+        'same event from a store-transition effect, so this would double-count every ' +
+        'failed run — and with a different payload shape.',
+    ).not.toHaveBeenCalled()
+
+    // The signal survives: the store carries the code OutputsDock emits from.
+    expect(
+      useCanvasStore.getState().results.error?.code,
+      'the MISSING_INTERVENTIONS failure reached neither the telemetry seam nor the store — ' +
+        'that is a lost signal, not a relocated one',
+    ).toBe('MISSING_INTERVENTIONS')
   })
 
   it('attaches affectedOptions to the store error so the UI can render coached recovery', async () => {
@@ -291,6 +315,43 @@ describe('Pre-run intervention validation', () => {
     expect(storeError?.affectedOptions).toEqual([
       { id: 'opt-1', label: 'Option A' },
     ])
+  })
+
+  it('promotes PLoT 422 GRAPH_TOO_COMPLEX critique so the density wall gets its honest copy (1.54)', async () => {
+    setupCanvasWithOptions({
+      analysisReady: {
+        goal_node_id: 'goal-1',
+        status: 'ready',
+        options: [
+          { id: 'opt-1', label: 'Option A', status: 'ready', interventions: { 'fac-1': 0.5 } },
+        ],
+      },
+    })
+
+    mockExecute.mockResolvedValueOnce({
+      analysis_status: 'blocked',
+      status_reason: 'Graph too complex to analyse',
+      critiques: [
+        {
+          code: 'GRAPH_TOO_COMPLEX',
+          severity: 'blocker',
+          // Producer message leaks engine budget maths — the UI entry's copy
+          // must be used instead (asserted via the code promotion; the
+          // userFriendlyErrors mapping is pinned in its own spec).
+          message: '24 causal nodes × 40 causal edges = 960, above the maximum of 600…',
+          affected_nodes: [],
+        },
+      ],
+      request_id: 'req-test-complexity',
+    })
+
+    const { result } = renderHook(() => useV2Run())
+    await act(async () => {
+      await result.current.runV2Analysis()
+    })
+
+    const storeError = useCanvasStore.getState().results.error
+    expect(storeError?.code).toBe('GRAPH_TOO_COMPLEX')
   })
 
   it('still renders the coached state when PLoT critique references stale option ids (id fallback)', async () => {

@@ -9,7 +9,7 @@
  * - review_card alert variant renders with the alert class (Task 4 regression guard)
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
 import { adaptCEEBlock, deriveProposalItemFromOperation } from '../useConversation'
@@ -21,15 +21,20 @@ import type {
   BriefBlock,
   ReviewCardBlock,
   CommentaryBlock,
+  ModelReceiptBlockType,
 } from '../types'
-import { isOrchestratorRenderingV2Enabled } from '../../../flags'
+import { isOrchestratorRenderingV2Enabled, isPreAnalysisEnrichedEnabled } from '../../../flags'
 
-// Mock the flag so we can assert ungated behaviour explicitly.
+// Mock the flag so we can assert ungated behaviour explicitly. isPreAnalysis-
+// EnrichedEnabled is added as a bare vi.fn() (no factory return value — vitest
+// config has mockReset:true, which wipes factory-level mockReturnValue); the
+// model_receipt describe below sets it per-test in a scoped beforeEach.
 vi.mock('../../../flags', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../flags')>()
   return {
     ...actual,
     isOrchestratorRenderingV2Enabled: vi.fn().mockReturnValue(true),
+    isPreAnalysisEnrichedEnabled: vi.fn(),
   }
 })
 
@@ -352,5 +357,47 @@ describe('deriveProposalItemFromOperation — edge label resolution (DS v5 §21.
     )
     expect(item!.description).toBe('Update factor')
     expect(item!.elementLabel).toBeUndefined()
+  })
+})
+
+// -----------------------------------------------------------------------------
+// model_receipt — "no coaching summary = no card" render gate (F1 PR B)
+// preAnalysisEnriched is forced on in the flags mock above, so these tests
+// exercise the coaching guard, not the flag guard.
+// -----------------------------------------------------------------------------
+
+describe('InlineBlocks — model_receipt coaching render gate', () => {
+  // Force the pre-analysis flag on for these tests (mockReset wipes the factory
+  // value, so set it here, after the per-test reset).
+  beforeEach(() => {
+    vi.mocked(isPreAnalysisEnrichedEnabled).mockReturnValue(true)
+  })
+
+  const base: Omit<ModelReceiptBlockType, 'coachingSummary'> = {
+    type: 'model_receipt',
+    factorCount: 2,
+    edgeCount: 1,
+    optionCount: 1,
+    goalLabel: 'Profit',
+    topInsight: null,
+    topEvidenceGap: null,
+    readiness: 'ready',
+    adjustments: [],
+  }
+
+  it('renders the card when coaching summary is present', () => {
+    const block: ModelReceiptBlockType = { ...base, coachingSummary: 'Assess team expertise first.' }
+    render(<InlineBlocks blocks={[block]} />)
+    expect(screen.getByTestId('model-receipt-block')).toBeInTheDocument()
+  })
+
+  it('renders no card when coaching summary is missing or blank', () => {
+    const missing: ModelReceiptBlockType = { ...base, coachingSummary: null }
+    const { rerender } = render(<InlineBlocks blocks={[missing]} />)
+    expect(screen.queryByTestId('model-receipt-block')).not.toBeInTheDocument()
+
+    const blank: ModelReceiptBlockType = { ...base, coachingSummary: '   ' }
+    rerender(<InlineBlocks blocks={[blank]} />)
+    expect(screen.queryByTestId('model-receipt-block')).not.toBeInTheDocument()
   })
 })

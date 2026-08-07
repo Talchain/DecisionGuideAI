@@ -113,20 +113,134 @@ describe('EdgePanel v6.2 — your input group', () => {
 })
 
 describe('EdgePanel v6.2 — evidence group', () => {
-  it('shows no-evidence state with provenance message', () => {
+  // The permanently-empty "No evidence yet" placeholder was removed (honesty
+  // sweep): DraftChat strips per-edge provenance upstream, so it rendered a
+  // fixed note for every edge that never reflected real evidence.
+  it('does NOT render the removed no-evidence placeholder', () => {
     setStore()
     render(<EdgePanel {...panelProps} />)
-    expect(screen.getByText('No evidence yet')).toBeTruthy()
-    expect(screen.getByText(/Olumi estimated this from your brief/)).toBeTruthy()
+    expect(screen.queryByText('No evidence yet')).toBeNull()
+    expect(screen.queryByText(/Olumi estimated this from your brief/)).toBeNull()
+  })
+
+  it('omits the Evidence group entirely for a non-contested edge', () => {
+    setStore()
+    const { container } = render(<EdgePanel {...panelProps} />)
+    expect(container.querySelector('[data-panel-group="evidence"]')).toBeNull()
+  })
+
+  it('renders the Evidence group with the live contested-validation calibration', () => {
+    // The contested-validation surface is live (CEE multi-pass disagreement on
+    // edge.data.validation) — it must survive the note removal.
+    const contestedValidation = {
+      status: 'contested',
+      contested_reasons: ['raw_magnitude'],
+      pass1: { strength_mean: 0.35, strength_std: 0.15, exists_probability: 0.82 },
+      pass2: {
+        strength_mean: 0.62,
+        strength_std: 0.2,
+        exists_probability: 0.7,
+        reasoning: 'Second pass read the brief as a stronger link.',
+        basis: 'domain_prior',
+        needs_user_input: true,
+      },
+      max_divergence: 0.27,
+      distance_to_goal: 1,
+      evoi_rank: null,
+      evoi_impact: null,
+      surfaced: true,
+      was_shown: false,
+      user_action: 'pending',
+      resolved_value: null,
+      resolved_by: 'default',
+    }
+    setStore({
+      edges: [
+        {
+          id: 'e1',
+          source: 'fac1',
+          target: 'out1',
+          data: {
+            weight: 0.35,
+            direction: 'positive',
+            beliefExists: 0.82,
+            strengthStd: 0.15,
+            validation: contestedValidation,
+          },
+        },
+      ],
+    })
+    const { container } = render(<EdgePanel {...panelProps} />)
+    expect(container.querySelector('[data-panel-group="evidence"]')).not.toBeNull()
+    expect(screen.getByText('Needs your judgement')).toBeTruthy()
+    expect(screen.getByText(/Second pass read the brief as a stronger link/)).toBeTruthy()
   })
 })
 
 describe('EdgePanel v6.2 — coaching', () => {
-  it('renders static coaching fallback when no guidance items', () => {
+  // ⚠ ASSERTION REPLACED, TEST KEPT. This used to assert
+  //     expect(screen.getByText(/generated automatically/)).toBeTruthy()
+  // against the DEFAULT fixture edge — which carries no provenance stamp at
+  // all. So the test was pinning the panel telling the user a number had been
+  // "generated automatically" when nothing had generated it. The subject of
+  // the test (does the static fallback render at all, when no guidance item
+  // matches?) is unchanged; only the sentence it expects is now the honest one.
+  it('renders the static coaching fallback when no guidance items — and claims NO origin for an unstamped edge', () => {
     setStore()
     useGuidanceStore.setState({ _prefillChat: vi.fn() })
     render(<EdgePanel {...panelProps} />)
-    expect(screen.getByText(/generated automatically/)).toBeTruthy()
+    expect(screen.getByText(/No strength has been set for this connection yet/)).toBeTruthy()
+    expect(screen.queryByText(/generated automatically/)).toBeNull()
+  })
+
+  // POSITIVE CONTROL — the disclosure is not simply switched off: a stamped
+  // edge DOES get an origin sentence, and it names the right origin.
+  it('names the producer when the edge values really did come from one', () => {
+    setStore({
+      edges: [
+        {
+          id: 'e1',
+          source: 'fac1',
+          target: 'out1',
+          data: {
+            weight: 0.35,
+            direction: 'positive',
+            beliefExists: 0.82,
+            strengthStd: 0.15,
+            weightSource: 'cee',
+            beliefExistsSource: 'cee',
+          },
+        },
+      ],
+    })
+    useGuidanceStore.setState({ _prefillChat: vi.fn() })
+    render(<EdgePanel {...panelProps} />)
+    expect(screen.getByText(/Olumi estimated this strength/)).toBeTruthy()
+    expect(screen.queryByText(/No strength has been set/)).toBeNull()
+  })
+
+  it('attributes a user-set strength to the user, not to a generator', () => {
+    setStore({
+      edges: [
+        {
+          id: 'e1',
+          source: 'fac1',
+          target: 'out1',
+          data: {
+            weight: 0.35,
+            direction: 'positive',
+            beliefExists: 0.82,
+            strengthStd: 0.15,
+            weightSource: 'user',
+            beliefExistsSource: 'user',
+          },
+        },
+      ],
+    })
+    useGuidanceStore.setState({ _prefillChat: vi.fn() })
+    render(<EdgePanel {...panelProps} />)
+    expect(screen.getByText(/You set this strength/)).toBeTruthy()
+    expect(screen.queryByText(/Olumi estimated/)).toBeNull()
   })
 
   it('renders orchestrator guidance when matching item exists', () => {

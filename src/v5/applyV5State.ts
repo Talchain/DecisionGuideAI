@@ -12,10 +12,24 @@
  * Scope:
  *   1. stage_indicator → canvas.currentStage
  *   2. graph_patch (applied) → canvas store mutation for set_factor_value,
- *      adjust_edge_strength. add_constraint is a NEEDS_FIX marker (no 1:1
- *      UI store target yet; constraints live on node prior fields and
- *      require a canonical source of truth from CEE).
- *   3. analysis_result.enrichment.decision_review → runMeta.ceeReviewV1.
+ *      adjust_edge_strength, and add_constraint. add_constraint maps `after`
+ *      into a CEEGoalConstraint and UPSERTS it (by constraint id) into the
+ *      canvas `goalConstraints` slice via setGoalConstraints — the SAME slice
+ *      GoalPanel's "Add constraint" flow writes. A patch that carries the
+ *      constraint_id of one already stored REPLACES it in place (CEE edits a
+ *      constraint's value/label/unit while retaining its id — see
+ *      add-constraint.ts); only a deep-semantic no-op (all fields equal after
+ *      normalisation) writes nothing. Also: ui_directive verbs
+ *      (highlight / focus / open_inspector on graph targets; 0.32.0 adds
+ *      open_panel / open_section on `ui_target`) — the AI's "point at the
+ *      graph" and "open this surface" gestures, each reusing the seam its
+ *      user-driven equivalent uses.
+ *   3. analysis_result.enrichment.decision_review → runMeta. TWO different
+ *      payloads share that key and go to two different fields: the live 0.30
+ *      shape → `runMeta.decisionReview030`, the M1 REST shape →
+ *      `runMeta.ceeReviewV1` (inert on live turns — see decisionReviewAdapter).
+ *      BOTH are written on every analysis turn, value or null, so neither can
+ *      go stale behind the other (ROADMAP 2.154).
  *      Block enrichment is the canonical source. A secondary check on a
  *      non-schema top-level enrichment field (future CEE extension) is
  *      gated behind a runtime presence check so it safely no-ops today.
@@ -33,11 +47,17 @@ import type { OlumiResponse, StageType } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
 import type { ReportV1 } from '../adapters/plot/types'
-import type { CEEAnalysisReady } from '../adapters/cee/types'
+import type { CEEAnalysisReady, CEEGoalConstraint } from '../adapters/cee/types'
 import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
-import { extractDecisionReview } from './decisionReviewAdapter'
+import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
+import { focusNodeById, focusEdgeById } from '../canvas/utils/focusHelpers'
+import { useUIStore, type OutputTab } from '../stores/uiStore'
+import {
+  readDecisionReviewWireState,
+  type DecisionReview030,
+} from './decisionReviewAdapter'
 import { mapV5AnalysisToReport } from './mapV5AnalysisToReport'
 import { v5StageToScenarioStage } from './stageMapper'
 
@@ -54,9 +74,70 @@ export interface V5ApplicatorStore {
   nodes: Node[]
   edges: Edge[]
   /** Partial merge into runMeta — only provided fields are updated. */
-  setRunMeta: (meta: { ceeReviewV1: CeeDecisionReviewPayloadV1 | null }) => void
+  setRunMeta: (meta: {
+    ceeReviewV1: CeeDecisionReviewPayloadV1 | null
+    /** ROADMAP 2.154 — the 0.30 review view-model, or null to evict. */
+    decisionReview030: DecisionReview030 | null
+  }) => void
   /** Write (or clear) the CEE analysis_ready payload that gates the run. */
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
+  /**
+   * Optional: write goal_constraints (ROADMAP 1.22). On the V5 path this
+   * applicator writes via `add_constraint` graph_patch blocks only, UPSERTING
+   * by constraint id (step 2) — additive/replace, never a clear (a turn with no
+   * constraint patch leaves the slice untouched; there is no V5 clear signal to
+   * gate on). The other live source, CEE's `draft_graph.goal_constraints`, is
+   * owned by applyDraftResult, not here.
+   */
+  setGoalConstraints?: (
+    constraints: CEEGoalConstraint[] | null,
+    opts?: { fromProducerSync?: boolean },
+  ) => void
+  /**
+   * Current goal constraints, read to UPSERT an `add_constraint` graph_patch's
+   * constraint (replace by id, or append when new) without dropping the ones
+   * already present. Snapshot-frozen at apply time (the applicator receives a
+   * spread of getState()), so multiple add_constraint patches in one turn are
+   * coalesced into a single setGoalConstraints write after the block loop —
+   * reading this field again after a mid-loop set would return the stale
+   * pre-turn value.
+   */
+  goalConstraints?: CEEGoalConstraint[] | null
+  /**
+   * Optional: select a node without a history entry — the SAME seam a user
+   * click uses to open/retarget inspector-v2 (store.ts). Wired for the
+   * `open_inspector` ui_directive verb; selection only, no viewport move.
+   */
+  selectNodeWithoutHistory?: (nodeId: string) => void
+  /** Optional: select an edge without a history entry (edge inspector). */
+  selectEdgeWithoutHistory?: (edgeId: string) => void
+  /**
+   * Optional: backfill goal_threshold_raw/unit/cap onto the goal node's data
+   * (ROADMAP 1.22). Wired at the real call site to the shared
+   * `backfillGoalThresholdOntoGoalNode` helper (applyDraftResult.ts) — that
+   * helper writes via a direct store.setState, NOT store.updateNode, because
+   * `goal_threshold_raw` is in ANALYTICAL_NODE_DATA_FIELDS (analyticalChange.ts):
+   * routing this backfill through updateNode would treat CEE echoing back the
+   * threshold on its OWN just-received analysis_ready as a user edit and
+   * invalidate the very analysis this applicator just marked fresh two lines
+   * above. Injected (rather than called as a bare import) so applyV5State's
+   * own unit tests stay isolated from the real canvas store.
+   */
+  backfillGoalThreshold?: (analysisReady: {
+    goal_node_id?: string
+    goal_threshold_raw?: number | null
+    goal_threshold_unit?: string | null
+    goal_threshold_cap?: number | null
+  }) => void
+  /** Optional: update the freshness slice from a raw response.analysis_ready (retain / order / never absence→fresh). */
+  setAnalysisFreshness?: (rawAnalysisReady: unknown) => void
+  /** Optional: clear the local dirty overlay when a genuinely new analysis run completes (new analysis_result response_hash). */
+  clearAnalysisFreshnessDirty?: () => void
+  /** Optional (F10): a genuinely new analysis_result landed with NO explicit
+   *  freshness verdict on the response — overwrite the freshness slice to
+   *  unknown/run_completed_without_verdict instead of retaining a pre-run
+   *  'stale' over the run's own results. */
+  noteRunCompletedWithoutVerdict?: () => void
   /**
    * Results hydration (V5-exclusive path). When the response carries an
    * analysis_result block, the applicator builds a ReportV1 via
@@ -76,6 +157,10 @@ export interface V5ApplicatorStore {
     resultsSource?: 'direct' | 'conversation'
     enrichment?: unknown
     rawV2Response?: unknown
+    /** ROADMAP 2.350: the analysis_result block's own enrichment, for the
+     *  Compare tab's in-session snapshot capture. NOT the V2-shaped
+     *  `enrichment` slot above, which this path clears. */
+    v5Enrichment?: unknown
   }) => void
   /**
    * Current results hash for dedupe. When the new analysis hash matches
@@ -231,6 +316,130 @@ function inlinePathWillOwnAnalysisReadyWrite(
   return wouldPassStrictAttachContract(normalisedAnalysisReady)
 }
 
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0
+}
+
+/**
+ * Resolve an `add_constraint` patch operator, tolerant of both wire
+ * vocabularies: the schema/DraftGoalConstraint form ('>=' / '<=') and the
+ * chip-parameter form ('at_least' / 'at_most', chipParameters.ts). Returns
+ * null when neither maps — the caller then fail-closes the whole patch.
+ */
+function resolveConstraintOperator(
+  operatorRaw: unknown,
+  constraintTypeRaw: unknown,
+): '>=' | '<=' | null {
+  if (operatorRaw === '>=' || operatorRaw === '<=') return operatorRaw
+  if (constraintTypeRaw === 'at_least') return '>='
+  if (constraintTypeRaw === 'at_most') return '<='
+  return null
+}
+
+/**
+ * Map an `add_constraint` graph_patch's `after` record (untyped on the wire)
+ * into a CEEGoalConstraint — the shape the canvas `goalConstraints` slice and
+ * PLoT's preflight both read. UI-is-a-passthrough: never coerce a value, never
+ * fabricate an operator. Returns null (→ deferred, an A1 ask if it recurs)
+ * when a node id, a valid operator, OR a finite numeric value cannot be
+ * resolved.
+ *
+ * node_id resolution order: explicit `after.node_id`, then `after.target_id`,
+ * then the patch's own `target_id` (the constrained node). constraint_id
+ * prefers the wire value; when absent it is derived deterministically as CEE's
+ * own `constraint_<node_id>_<min|max>` scheme so a re-applied identical patch
+ * dedupes by id (idempotency — no crypto/random, which would defeat it).
+ */
+function normaliseAddConstraintPatch(
+  after: Record<string, unknown> | null,
+  patchTargetId: string | undefined,
+): CEEGoalConstraint | null {
+  if (!after || typeof after !== 'object') return null
+
+  const nodeId = isNonEmptyString(after.node_id)
+    ? after.node_id
+    : isNonEmptyString(after.target_id)
+      ? after.target_id
+      : isNonEmptyString(patchTargetId)
+        ? patchTargetId
+        : undefined
+  if (!nodeId) return null
+
+  const operator = resolveConstraintOperator(after.operator, after.constraint_type)
+  if (!operator) return null
+
+  const value = after.value
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+
+  const constraint_id = isNonEmptyString(after.constraint_id)
+    ? after.constraint_id
+    : isNonEmptyString(after.id)
+      ? after.id
+      : `constraint_${nodeId}_${operator === '>=' ? 'min' : 'max'}`
+
+  const constraint: CEEGoalConstraint = {
+    constraint_id,
+    node_id: nodeId,
+    operator,
+    value,
+  }
+  if (isNonEmptyString(after.label)) constraint.label = after.label
+  if (isNonEmptyString(after.unit)) constraint.unit = after.unit
+  if (isNonEmptyString(after.source_quote)) constraint.source_quote = after.source_quote
+  if (typeof after.confidence === 'number' && Number.isFinite(after.confidence)) {
+    constraint.confidence = after.confidence
+  }
+  if (
+    after.provenance === 'explicit' ||
+    after.provenance === 'inferred' ||
+    after.provenance === 'proxy'
+  ) {
+    constraint.provenance = after.provenance
+  }
+  return constraint
+}
+
+/**
+ * Constraint identity for dedupe/idempotency: a shared constraint_id/id, OR the
+ * same (node_id, operator, value) triple. The triple check keeps a re-applied
+ * patch that carries NO constraint_id idempotent even though a fresh derived id
+ * would otherwise differ across fires.
+ */
+function constraintsSameIdentity(a: CEEGoalConstraint, b: CEEGoalConstraint): boolean {
+  const aId = a.constraint_id ?? a.id
+  const bId = b.constraint_id ?? b.id
+  if (aId && bId && aId === bId) return true
+  return (
+    a.node_id != null &&
+    a.node_id === b.node_id &&
+    a.operator === b.operator &&
+    a.value === b.value
+  )
+}
+
+/**
+ * Deep-semantic equality for an UPSERT no-op check. Two constraints are equal
+ * only when every content field matches after normalisation (undefined treated
+ * as absent). Identity alone is NOT sufficient: CEE edits a constraint in place
+ * retaining its constraint_id, so a value/label/unit change shares identity but
+ * differs in content and MUST write. This gate lets an exact re-send (byte-
+ * identical echo / double-fire) coalesce to zero writes while a genuine update
+ * still lands.
+ */
+function constraintsDeepEqual(a: CEEGoalConstraint, b: CEEGoalConstraint): boolean {
+  return (
+    (a.constraint_id ?? a.id) === (b.constraint_id ?? b.id) &&
+    a.node_id === b.node_id &&
+    a.operator === b.operator &&
+    a.value === b.value &&
+    (a.label ?? undefined) === (b.label ?? undefined) &&
+    (a.unit ?? undefined) === (b.unit ?? undefined) &&
+    (a.source_quote ?? undefined) === (b.source_quote ?? undefined) &&
+    (a.confidence ?? undefined) === (b.confidence ?? undefined) &&
+    (a.provenance ?? undefined) === (b.provenance ?? undefined)
+  )
+}
+
 type V5Block = OlumiResponse['blocks'][number]
 
 export interface ApplyV5StateResult {
@@ -274,7 +483,37 @@ function normaliseStage(
 
 /**
  * Extract and apply decision_review from an enrichment dict to runMeta.
- * Returns true when applied; false when enrichment is absent or invalid.
+ * Returns true when a review of EITHER recognised shape was applied; false
+ * when the key is absent, degraded (`null`) or malformed.
+ *
+ * ROADMAP 2.154 — two shapes share this key and they go to two different
+ * runMeta fields. Both are written on every call so neither can go stale behind
+ * the other: a turn carrying a 0.30 review evicts a prior turn's M1 review via
+ * the `: null` ternary below, and vice versa.
+ *
+ * ⚠ A previous version of this comment claimed the eviction was "load-bearing,
+ * not hygiene" and that it justified keeping the adapter's M1 branch. The
+ * second half was **backwards and is withdrawn** (A3): eviction here does not
+ * depend on that branch. Returning `false` sends the caller to its `else` arm,
+ * which clears BOTH fields unconditionally — so if the M1 branch did not exist,
+ * an M1-shaped payload would be evicted MORE aggressively, not less. The branch
+ * SUPPRESSES eviction for that case by retaining the payload. See
+ * `decisionReviewAdapter.ts`'s header for the honest (weaker) rationale.
+ *
+ * The eviction itself is still worth having and is unaffected by any of that:
+ * `runMeta.ceeReviewV1` has live producers OUTSIDE this path, so a stale review
+ * from one of them must not outlive the turn that replaced it.
+ *
+ * ⚠ THE PRODUCER MANIFEST IS NOT REPEATED HERE. It lives in exactly one place —
+ * the `| site | route | reaches runMeta? | payload |` table in
+ * `decisionReviewAdapter.ts`'s header — and this comment holds a POINTER, not a
+ * copy. That is not tidiness: that manifest was **wrong twice**, once naming a
+ * dead site as live and once omitting the real writer, and it was only corrected
+ * by tracing each candidate to the store boundary. A second copy with its own
+ * line numbers is a hand-maintained mirror of a list whose entire history is
+ * silent drift (CLAUDE.md trap 12), and it would drift in the direction that
+ * reads as green — a reader consulting the nearer copy and finding it plausible.
+ * If you need to know which sites reach `runMeta`, read the table.
  */
 function applyDecisionReviewToRunMeta(
   enrichment: Record<string, unknown> | undefined,
@@ -282,9 +521,12 @@ function applyDecisionReviewToRunMeta(
   source: 'block' | 'top-level',
 ): boolean {
   if (!enrichment) return false
-  const reviewV1 = extractDecisionReview(enrichment)
-  if (!reviewV1) return false
-  store.setRunMeta({ ceeReviewV1: reviewV1 })
+  const state = readDecisionReviewWireState(enrichment)
+  if (state.kind !== 'v0_30' && state.kind !== 'm1') return false
+  store.setRunMeta({
+    ceeReviewV1: state.kind === 'm1' ? state.review : null,
+    decisionReview030: state.kind === 'v0_30' ? state.review : null,
+  })
   if (source === 'top-level' && import.meta.env.DEV) {
     console.warn('[V5] decision_review applied from top-level enrichment fallback')
   }
@@ -354,6 +596,19 @@ export function applyV5State(
   for (const block of response.blocks) {
     blockTypeCounts[block.type] = (blockTypeCounts[block.type] ?? 0) + 1
   }
+  // Seamlessness R2: V5 graph_patch blocks arrive already applied
+  // server-side — the exact "AI edited your graph silently" moment. Collect
+  // the targets that actually apply below and pulse once after the loop.
+  const pulsedNodeIds: string[] = []
+  const pulsedEdgeIds: string[] = []
+  // add_constraint patches are collected here and flushed to
+  // setGoalConstraints ONCE after the loop: the store snapshot's
+  // goalConstraints is frozen at apply time, so a per-patch read-modify-write
+  // would drop every constraint but the last.
+  const pendingConstraints: CEEGoalConstraint[] = []
+  // R4 dispatcher rate limit: the producer contract is at most ONE
+  // ui_directive per turn — the UI enforces it defensively; extras defer.
+  let uiDirectiveExecuted = false
   for (const block of response.blocks) {
     if (block.type === 'graph_patch') {
       if (block.status !== 'applied') continue
@@ -387,6 +642,7 @@ export function applyV5State(
             } as typeof node.data,
           })
           applied.push(`graph_patch:set_factor_value:${target}`)
+          pulsedNodeIds.push(target)
           break
         }
         case 'adjust_edge_strength': {
@@ -403,18 +659,70 @@ export function applyV5State(
           // CEE's adjust_edge_strength carries weight/direction in `after`.
           store.updateEdgeData(target, after as Record<string, unknown>)
           applied.push(`graph_patch:adjust_edge_strength:${target}`)
+          pulsedEdgeIds.push(target)
           break
         }
         case 'add_constraint': {
-          // Not wired yet — constraints live on goal node prior fields.
-          // A translator from CEE's constraint shape → prior.range_min/
-          // range_max / threshold is deferred until CEE + UI agree on the
-          // canonical source of truth.
-          deferred.push({
-            reason: 'add_constraint_not_wired',
-            block,
-            detail: 'Constraint application deferred; see walkthrough NEEDS_FIX.',
-          })
+          // Constraints live in the canvas `goalConstraints` slice (the same
+          // one GoalPanel writes via setGoalConstraints) — NOT on goal-node
+          // prior fields as the old NEEDS_FIX marker assumed. Map `after` →
+          // CEEGoalConstraint and queue it; the loop flushes all queued
+          // constraints in one setGoalConstraints call afterwards.
+          if (typeof store.setGoalConstraints !== 'function') {
+            deferred.push({
+              reason: 'add_constraint_store_lacks_setter',
+              block,
+              detail: 'Applicator store has no setGoalConstraints; constraint not applied.',
+            })
+            break
+          }
+          const constraint = normaliseAddConstraintPatch(
+            block.after as Record<string, unknown> | null,
+            target,
+          )
+          if (!constraint) {
+            // Fail-closed: the `after` record could not resolve a node id, a
+            // valid operator, and a finite value. Never fabricate — surface it.
+            deferred.push({
+              reason: 'add_constraint_unmappable_shape',
+              block,
+              detail: 'after did not resolve to node_id + operator + finite value.',
+            })
+            break
+          }
+          // UPSERT by identity (P1-3). CEE updates an existing goal constraint
+          // in place, retaining its constraint_id (add-constraint.ts) — so a
+          // matching id is NOT a duplicate to skip; it is an edit to apply. Look
+          // up the current value for this identity (queued-this-turn wins over
+          // the store snapshot, so coalesced patches settle on the last write).
+          //   - deep-equal existing  → no-op, write nothing (exact re-send / echo)
+          //   - different content    → replace it (value/label/unit update)
+          //   - no existing          → new constraint
+          const priorConstraints = store.goalConstraints ?? []
+          const pendingIdx = pendingConstraints.findIndex((c) =>
+            constraintsSameIdentity(c, constraint),
+          )
+          const existing =
+            pendingIdx >= 0
+              ? pendingConstraints[pendingIdx]
+              : priorConstraints.find((c) => constraintsSameIdentity(c, constraint))
+          if (existing && constraintsDeepEqual(existing, constraint)) {
+            // Deep-semantic no-op: identical content already present/queued.
+            deferred.push({
+              reason: 'add_constraint_noop_skipped',
+              block,
+              detail: constraint.constraint_id ?? constraint.node_id ?? target,
+            })
+            break
+          }
+          if (pendingIdx >= 0) {
+            // Coalesce: a later patch for the same identity supersedes the
+            // earlier queued one (last-write-wins within the turn).
+            pendingConstraints[pendingIdx] = constraint
+          } else {
+            pendingConstraints.push(constraint)
+          }
+          applied.push(`graph_patch:add_constraint:${constraint.node_id ?? target}`)
           break
         }
         default: {
@@ -426,10 +734,155 @@ export function applyV5State(
           })
         }
       }
+    } else if (block.type === 'ui_directive') {
+      // R4 UI half: execute the AI's "point at the graph" directives at the
+      // once-per-envelope side-effect site — never render-driven, so
+      // re-renders cannot re-fire them. Five verbs are wired, each reusing
+      // the SAME seam its user-driven equivalent uses (the AI can point at the
+      // graph and open the surfaces the user can open, never do something the
+      // user cannot):
+      //   - highlight      → the coalesced applied-edit pulse (one 2s static
+      //                       ring, fail-closed in-graph filter, no viewport
+      //                       or selection change) — the AI cannot hijack what
+      //                       the user is doing.
+      //   - focus          → focusNodeById / focusEdgeById, the guidance
+      //                       click-to-focus seam (centre viewport + select +
+      //                       brief glow). Single-target.
+      //   - open_inspector → selectNodeWithoutHistory / selectEdgeWithoutHistory,
+      //                       the user-selection seam that opens/retargets
+      //                       inspector-v2. Selection only, no camera move.
+      //                       Single-target.
+      //   - open_panel     → useUIStore.forceActivateOutputTab(tab) — the
+      //                       open+activate seam auto-dock / Dock-back use
+      //                       (0.32.0, P3). Dispatches on `ui_target`
+      //                       {kind:'tab'}, not graph targets. Gated tabs
+      //                       degrade inside the dock (disabled compare/
+      //                       journey/olumi redirect to results).
+      //   - open_section   → useUIStore.requestModelTabSection(section) +
+      //                       forceActivateOutputTab('diagnostics') — the
+      //                       assistant variant of PreAnalysisPanel's
+      //                       "See all relationships" handoff (0.32.0, P3).
+      //                       Dispatches on `ui_target` {kind:'model_section'}.
+      // Unknown verbs (a newer producer) defer fail-closed. duration_ms is a
+      // producer hint not yet honoured (the highlight ring is a fixed 2s).
+      // Every verb is fail-closed on its target: an off-canvas / unknown graph
+      // id is recorded not-found and never executed, and a panel verb with a
+      // missing or verb-mismatched ui_target defers without executing (keeps
+      // applied[] truthful and mirrors the graph_patch path's honesty).
+      const targets = Array.isArray(block.targets) ? block.targets : []
+      const verb = block.verb
+      const verbSupported =
+        verb === 'highlight' || verb === 'focus' || verb === 'open_inspector'
+      const isPanelVerb = verb === 'open_panel' || verb === 'open_section'
+      if (isPanelVerb) {
+        // 0.32.0 panel gestures — dispatch on ui_target. The schema's
+        // cross-field rule guarantees a verb-matching ui_target on anything
+        // that parsed, but the handler stays independently fail-closed (the
+        // same defensive posture as the graph verbs' in-graph filter).
+        const uiTarget = (block as { ui_target?: { kind?: unknown; id?: unknown } }).ui_target
+        if (uiTarget === undefined || uiTarget === null || typeof uiTarget !== 'object') {
+          deferred.push({ reason: 'ui_directive_missing_ui_target', block })
+        } else if (uiDirectiveExecuted) {
+          deferred.push({
+            reason: 'ui_directive_rate_limited',
+            block,
+            detail: 'producer contract is one directive per turn',
+          })
+        } else if (verb === 'open_panel' && uiTarget.kind === 'tab') {
+          uiDirectiveExecuted = true
+          useUIStore.getState().forceActivateOutputTab(uiTarget.id as OutputTab)
+          applied.push(`ui_directive:open_panel:${String(uiTarget.id)}`)
+        } else if (verb === 'open_section' && uiTarget.kind === 'model_section') {
+          uiDirectiveExecuted = true
+          useUIStore.getState().requestModelTabSection(String(uiTarget.id))
+          useUIStore.getState().forceActivateOutputTab('diagnostics')
+          applied.push(`ui_directive:open_section:${String(uiTarget.id)}`)
+        } else {
+          deferred.push({
+            reason: 'ui_directive_ui_target_kind_mismatch',
+            block,
+            detail: `verb ${verb} with ui_target kind ${String(uiTarget.kind)}`,
+          })
+        }
+      } else if (!verbSupported) {
+        deferred.push({
+          reason: 'ui_directive_verb_deferred',
+          block,
+          detail: String(verb),
+        })
+      } else if (targets.length === 0) {
+        deferred.push({ reason: 'ui_directive_no_targets', block })
+      } else if (uiDirectiveExecuted) {
+        deferred.push({
+          reason: 'ui_directive_rate_limited',
+          block,
+          detail: 'producer contract is one directive per turn',
+        })
+      } else {
+        uiDirectiveExecuted = true
+        // focus / open_inspector act on a SINGLE target (the viewport centres
+        // on one element / the inspector opens one element); highlight pulses
+        // every resolvable target.
+        let singleTargetActioned = false
+        for (const t of targets) {
+          if (!t?.id) continue
+          const isEdge = t.kind === 'edge'
+          const exists = isEdge
+            ? store.edges.some((e) => e.id === t.id)
+            : store.nodes.some((n) => n.id === t.id)
+          if (!exists) {
+            deferred.push({
+              reason: 'ui_directive_target_not_found',
+              block,
+              detail: t.id,
+            })
+            continue
+          }
+          if (verb === 'highlight') {
+            if (isEdge) pulsedEdgeIds.push(t.id)
+            else pulsedNodeIds.push(t.id)
+            applied.push(`ui_directive:highlight:${t.id}`)
+            continue
+          }
+          // focus / open_inspector: act on the first resolvable target only;
+          // later targets are extraneous for a viewport/panel verb — record
+          // them as ignored so applied[] stays truthful.
+          if (singleTargetActioned) {
+            deferred.push({
+              reason: 'ui_directive_extra_target_ignored',
+              block,
+              detail: t.id,
+            })
+            continue
+          }
+          if (verb === 'focus') {
+            if (isEdge) focusEdgeById(t.id)
+            else focusNodeById(t.id)
+            applied.push(`ui_directive:focus:${t.id}`)
+            singleTargetActioned = true
+          } else {
+            // open_inspector
+            const selectFn = isEdge
+              ? store.selectEdgeWithoutHistory
+              : store.selectNodeWithoutHistory
+            if (typeof selectFn === 'function') {
+              selectFn(t.id)
+              applied.push(`ui_directive:open_inspector:${t.id}`)
+              singleTargetActioned = true
+            } else {
+              deferred.push({
+                reason: 'ui_directive_open_inspector_store_lacks_setter',
+                block,
+                detail: t.id,
+              })
+            }
+          }
+        }
+      }
     } else if (block.type === 'analysis_result') {
       // Block-level enrichment is the canonical source for decision_review.
-      // Always write ceeReviewV1 — either the extracted value or null — so
-      // stale review content from a prior turn cannot persist when the new
+      // Always write BOTH review fields — either the extracted value or null —
+      // so stale review content from a prior turn cannot persist when the new
       // response carries no valid decision_review. The top-level fallback
       // below may still overwrite null if top-level enrichment is present.
       const blockEnrichment = block.enrichment
@@ -437,18 +890,41 @@ export function applyV5State(
       if (appliedFromBlock) {
         applied.push('analysis_result:decision_review:block')
       } else {
-        // No valid review in block enrichment — clear explicitly so stale
-        // data from a previous analysis turn is not shown.
-        store.setRunMeta({ ceeReviewV1: null })
+        // No review of either recognised shape in block enrichment — clear
+        // explicitly so data from a previous analysis turn is not shown. This
+        // is the by-design path for the enricher's soft-fail skips and for
+        // CEE's `decision_review: null` degraded marker; it is not an error.
+        store.setRunMeta({ ceeReviewV1: null, decisionReview030: null })
         deferred.push({
           reason: 'analysis_result_no_decision_review_in_block',
           block,
-          detail: 'No valid decision_review in block enrichment; ceeReviewV1 cleared (top-level fallback may still apply).',
+          detail: 'No valid decision_review in block enrichment; ceeReviewV1 and decisionReview030 cleared (top-level fallback may still apply).',
         })
       }
     }
     // Other block kinds (text, error, explanation, comparison, flip_analysis)
     // are render-only — no side effects.
+  }
+  if (pulsedNodeIds.length > 0 || pulsedEdgeIds.length > 0) {
+    pulseAppliedTargets({ nodeIds: pulsedNodeIds, edgeIds: pulsedEdgeIds })
+  }
+  // Flush any add_constraint patches in ONE setGoalConstraints write (see
+  // pendingConstraints declaration). fromProducerSync: true — a CEE-applied
+  // constraint is a producer sync, not a user edit; the response's own
+  // analysis_ready.freshness verdict governs staleness, so the write must not
+  // self-dirty the freshness overlay. Upsert semantics (P1-3): each pending
+  // constraint REPLACES a stored one of the same identity in place (preserving
+  // order) or is appended when new — a same-id edit updates rather than
+  // duplicates. No-ops never reach this list, so a pending constraint always
+  // represents a real add or change.
+  if (pendingConstraints.length > 0) {
+    const merged = [...(store.goalConstraints ?? [])]
+    for (const pc of pendingConstraints) {
+      const idx = merged.findIndex((c) => constraintsSameIdentity(c, pc))
+      if (idx >= 0) merged[idx] = pc
+      else merged.push(pc)
+    }
+    store.setGoalConstraints?.(merged, { fromProducerSync: true })
   }
   const blockAppliedCount = applied.length - appliedCountBeforeBlocks
   logV5StateStep({
@@ -456,7 +932,9 @@ export function applyV5State(
     step_name: 'graph_patches_and_block_effects',
     input_keys: Object.keys(blockTypeCounts),
     output_keys:
-      blockAppliedCount > 0 ? ['nodes', 'edges', 'runMeta.ceeReviewV1'] : [],
+      blockAppliedCount > 0
+        ? ['nodes', 'edges', 'runMeta.ceeReviewV1', 'runMeta.decisionReview030']
+        : [],
     applied: blockAppliedCount > 0,
     skip_reason: blockAppliedCount === 0 ? 'no_applicable_blocks' : undefined,
   })
@@ -479,7 +957,7 @@ export function applyV5State(
         step_number: 3,
         step_name: 'top_level_enrichment_fallback',
         input_keys: ['enrichment.decision_review'],
-        output_keys: ok ? ['runMeta.ceeReviewV1'] : [],
+        output_keys: ok ? ['runMeta.ceeReviewV1', 'runMeta.decisionReview030'] : [],
         applied: ok,
         skip_reason: ok ? undefined : 'decision_review_extraction_failed',
       })
@@ -515,6 +993,17 @@ export function applyV5State(
   // Stale-turn guard lives at the top of applyV5State (before step 1) so
   // it covers stage, graph_patch, and runMeta writes as well as this step.
   const rawAnalysisReady = (response as { analysis_ready?: unknown }).analysis_ready
+  // Freshness slice: retain on absence, order by computed_at, never absence→fresh.
+  // Independent of ceeAnalysisReady (which clears on analyse-turns-without-analysis_ready).
+  store.setAnalysisFreshness?.(rawAnalysisReady)
+
+  // NOTE: there is intentionally no response-ROOT goal_constraints read here.
+  // Constraints reach the store via the two LIVE paths only: CEE's
+  // `draft_graph.goal_constraints` (applyDraftResult) and `add_constraint`
+  // graph_patch blocks (upserted in step 2 above). A former root-level compat
+  // leg was dead — responseParser demotes every unknown top-level key to the
+  // non-enumerable `__additive__` sidecar, so `response.goal_constraints` is
+  // never set on a really-parsed OlumiResponse (Codex P2-2, removed).
   if (rawAnalysisReady !== undefined) {
     const normalised = normaliseV5AnalysisReady(rawAnalysisReady)
     if (normalised) {
@@ -529,6 +1018,18 @@ export function applyV5State(
           output_keys: ['ceeAnalysisReady'],
           applied: true,
         })
+
+        // ROADMAP 1.22 — backfill goal_threshold_raw/unit/cap onto the goal
+        // node's data. setCeeAnalysisReady above already syncs the bare
+        // normalised goal_threshold into store.goalThreshold (store.ts
+        // reducer), but GoalNode + the debug bundle's full_graph export read
+        // raw/unit/cap from node.data directly (mirrors
+        // backfillGoalThresholdOntoGoalNode, the applyDraftResult/
+        // mirrorAnalysisReady equivalent for the inline-draft and
+        // graph_patch-block paths — this is the V5 top-level-response
+        // equivalent, which had no backfill at all before this fix).
+        store.backfillGoalThreshold?.(normalised)
+        applied.push('analysis_ready:goal_threshold_backfill_requested')
       } else {
         logV5StateStep({
           step_number: 4,
@@ -620,8 +1121,56 @@ export function applyV5State(
           // cleared rather than left to a stale prior write.
           enrichment: null,
           rawV2Response: null,
+          // ROADMAP 2.350 — the block's OWN enrichment, for the Compare tab's
+          // in-session capture ONLY.
+          //
+          // ⚠ THIS IS DELIBERATELY A SEPARATE PARAM FROM `enrichment` ABOVE,
+          // AND MUST STAY ONE. That slot is V2-SHAPED and is being cleared on
+          // purpose — folding this value into it would repopulate a V2 slot
+          // the V5 path has explicitly emptied since it shipped, and every
+          // consumer reading it would start seeing a shape it was never
+          // written for. This param is read by exactly one thing: the snapshot
+          // capture at the bottom of `resultsComplete`.
+          //
+          // Why it is needed at all: that capture was gated on
+          // `rawV2Response`, which this call passes as null — so the gate
+          // never opened on the live wire, for any tier, and Compare's only
+          // other feed skips guests by design. A guest with two completed runs
+          // saw an empty state telling them to run an analysis they had
+          // already run twice. See `canvas/stores/v5RunSnapshotFactory.ts`.
+          v5Enrichment: analysisBlock.enrichment ?? null,
         })
         applied.push('analysis_result:results_hydrated')
+        // Reliable run identity: a NEW analysis_result response_hash (hash !==
+        // prevHash) means a genuinely new analysis completed — not a re-delivered
+        // analysis_ready echo. Clear the local dirty overlay so a real rerun
+        // resolves the verdict even when the analysis_ready payload is byte-
+        // identical (the CEE contract carries no computed_at / run id on
+        // analysis_ready, so the reducer's echo-guard alone cannot distinguish a
+        // rerun from an echo).
+        //
+        // BUT only clear when THIS response also carries an explicit
+        // analysis_ready.freshness verdict. A new analysis_result with NO CEE
+        // freshness would otherwise un-dirty a RETAINED prior 'fresh' verdict and
+        // re-show false-fresh — so without a freshness verdict we keep the overlay
+        // dirty (the retained 'fresh' stays displayed as cannot-confirm).
+        const ar =
+          rawAnalysisReady && typeof rawAnalysisReady === 'object'
+            ? (rawAnalysisReady as { freshness?: unknown })
+            : null
+        const hasExplicitFreshness =
+          !!ar &&
+          typeof ar.freshness === 'string' &&
+          (['fresh', 'stale', 'unknown', 'none'] as const).includes(ar.freshness as 'fresh')
+        if (hasExplicitFreshness) {
+          store.clearAnalysisFreshnessDirty?.()
+        } else {
+          // F10: the run completed but the engine said nothing about
+          // freshness. A retained pre-run 'stale' would keep rendering
+          // "Model changed since this analysis" OVER the results this very
+          // run produced (Paul's 16-Jul session). Unknown, honestly.
+          store.noteRunCompletedWithoutVerdict?.()
+        }
         logV5StateStep({
           step_number: 5,
           step_name: 'results_hydration',
@@ -698,3 +1247,4 @@ function isStaleTurn(options?: ApplyV5StateOptions): boolean {
   if (!current || !incoming) return false
   return incoming !== current
 }
+

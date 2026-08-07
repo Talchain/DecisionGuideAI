@@ -99,6 +99,29 @@ export const ErrorBanner = memo<ErrorBannerProps>(({
           {error.hint && (
             <p className="text-sm mt-1 opacity-90">{error.hint}</p>
           )}
+          {/*
+            ⚠ DELIBERATE — do NOT "fix" this in an honesty/leak sweep.
+            Paul has confirmed the Reference ID is a support affordance: it is
+            meant to be user-visible in production, in a role="alert" banner,
+            with no dev guard. Removing it removes the only handle a user has
+            when they report a failed run. It has been flagged as an internal-
+            identifier leak before; it is not one.
+
+            WHAT IT ACTUALLY IS (traced 2026-07-25 — read this before assuming):
+            NOT the CEE top-level `request_id`. This value comes from PLoT's
+            ERROR payload: `v1/sseClient.ts:505` probes
+            `data.request_id || data.requestId || details?.request_id ||
+            details?.requestId`, that lands on `EngineError.requestId`, and
+            `httpV1Adapter.ts:357` maps it to `error.request_id`. The name it
+            wears here is the adapter's, not the wire's.
+
+            The CEE-side distinction matters because CEE PR #689 removed a
+            top-level `request_id` from the field-coverage allowlist as a FALSE
+            claim — so a reader who assumes this banner shows that field will
+            conclude the banner is broken. It shows PLoT's engine request id.
+            The four-way probe above means the exact producing key is not
+            pinned; that has NOT been traced to a single PLoT emit site.
+          */}
           {error.request_id && (
             <p className="text-xs mt-1 text-gray-700">
               Reference ID: <span className="font-mono">{error.request_id}</span>

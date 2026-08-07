@@ -166,7 +166,7 @@ export function DecisionReadinessBadge({
 
           {/* Expand/collapse chevron */}
           {hasDetails && (
-            <span className="text-ink-900/40">
+            <span className="text-ink-900">
               {isExpanded ? (
                 <ChevronUp className="w-4 h-4" aria-hidden="true" />
               ) : (
@@ -180,7 +180,7 @@ export function DecisionReadinessBadge({
       {/* Composed badges row */}
       {(identifiability || evidenceCoverage) && (
         <div className="flex items-center gap-2 px-3 pb-2 border-t border-current/10">
-          <span className={`${typography.caption} text-ink-900/50 pt-2`}>
+          <span className={`${typography.caption} text-ink-900 pt-2`}>
             Model checks:
           </span>
           <div className="flex items-center gap-2 pt-2">

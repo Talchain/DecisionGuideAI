@@ -216,6 +216,66 @@ describe('SuggestedChips readiness gate', () => {
   })
 })
 
+// The aiPanelV2 'relabel-rerun' polish bypasses the readiness gate so a stale /
+// cannot-confirm analysis can still offer "Rerun". A completed analysis with NO
+// freshness verdict must NOT get that bypass (there is no rerunnable analysis —
+// a click would fall back to a conversation turn), while a real cannot-confirm
+// verdict (rerun-after-edit) still must.
+describe('SuggestedChips readiness gate — complete results, no freshness verdict (no bypass)', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+    try { localStorage.setItem('feature.aiPanelV2', 'true') } catch { /* jsdom */ }
+    // Completed run, readiness MISSING (ceeAnalysisReady null → analysisStatus !== 'ready').
+    useCanvasStore.setState({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      results: { status: 'complete', graphHash: 'h' } as any,
+      analysisFreshness: null,
+      analysisFreshnessDirty: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ceeAnalysisReady: null as any,
+    })
+  })
+  afterEach(() => {
+    try { localStorage.removeItem('feature.aiPanelV2') } catch { /* jsdom */ }
+    vi.unstubAllEnvs()
+    useCanvasStore.setState({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      results: { status: 'idle' } as any,
+      analysisFreshness: null,
+      analysisFreshnessDirty: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ceeAnalysisReady: null as any,
+    })
+  })
+
+  it('HIDES run_analysis when complete + no freshness verdict + readiness missing (does not bypass the gate)', () => {
+    render(
+      <SuggestedChips
+        chips={[makeChip({ id: 'nv', action_type: 'run_analysis' })]}
+        onChipClick={vi.fn()}
+      />,
+    )
+    // No verdict → polish 'keep' → subject to the gate → filtered (status !== ready).
+    expect(screen.queryByTestId('suggested-chip-nv')).toBeNull()
+  })
+
+  it('STILL bypasses for a real cannot-confirm verdict (rerun-after-edit) even when readiness is missing', () => {
+    // A retained 'fresh' verdict downgraded by a local edit = cannot-confirm. The
+    // graph was analysis-ready; a rerun re-derives inputs, so the bypass is correct.
+    useCanvasStore.getState().setAnalysisFreshness({ freshness: 'fresh', freshness_reason: 'graph_hash_match' })
+    useCanvasStore.getState().markAnalysisFreshnessDirty()
+    render(
+      <SuggestedChips
+        chips={[makeChip({ id: 'cc', action_type: 'run_analysis', label: 'Run analysis' })]}
+        onChipClick={vi.fn()}
+      />,
+    )
+    const chip = screen.getByTestId('suggested-chip-cc')
+    expect(chip).toBeInTheDocument()
+    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
+  })
+})
+
 describe('SuggestedChips double-click safety', () => {
   beforeEach(() => {
     vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')

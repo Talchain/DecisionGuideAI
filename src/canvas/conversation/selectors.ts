@@ -10,6 +10,7 @@ import { selectTopItem } from '../stores/guidanceStore'
 import type { GuidanceState } from '../stores/guidanceStore'
 import type { ConversationMessage, GraphPatchBlock } from './types'
 import type { PatchBlockState } from './useConversation'
+import type { FreshnessDisplaySemantic } from '../store/analysisFreshness'
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -50,18 +51,14 @@ export interface ConversationStatusInput {
   resultsStatus: 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
   /** Whether analysis has completed at least once this session */
   hasCompletedFirstRun: boolean
-  /** Whether the graph has been structurally edited since the last completed analysis */
-  graphEditedSinceLastRun: boolean
   /**
-   * P0 V5 golden-path repair (Wave 3 wiring): authoritative wire-side
-   * freshness verdict from the most recent CEE turn response. When
-   * present and informative ('fresh' | 'stale'), takes precedence over
-   * `graphEditedSinceLastRun` — the wire is computed against the
-   * canonical graph hash at the time analysis ran, so it's the
-   * authoritative answer when both signals disagree. `null` /
-   * undefined / 'unknown' / 'none' fall back to the local signal.
+   * The composed trust semantic (`useAnalysisTrust().semantic`) — the single
+   * source the visible "Results outdated" status derives from (=== 'changed').
+   * The caller supplies it from the composed hook so this surface can never
+   * drift from the freshness strip: it never independently derives stale from
+   * the local edit flag, and a CEE-unknown verdict never fabricates 'outdated'.
    */
-  wireFreshness?: 'fresh' | 'stale' | 'unknown' | 'none' | null
+  trustSemantic: FreshnessDisplaySemantic
   /** Guidance store state snapshot */
   guidance: GuidanceState
   /** Conversation messages */
@@ -132,23 +129,18 @@ export function selectConversationStatus(input: ConversationStatusInput): Conver
     nodeCount,
     resultsStatus,
     hasCompletedFirstRun,
-    graphEditedSinceLastRun,
-    wireFreshness,
+    trustSemantic,
     guidance,
     messages,
     patchBlockStates,
   } = input
 
-  // P0 V5 golden-path repair (Wave 3 wiring): authoritative staleness
-  // signal. Wire freshness wins when present and informative; local
-  // edit signal is fallback. Eliminates the disagreement between
-  // surfaces that pre-Wave-3 derived staleness independently.
-  const isStale =
-    wireFreshness === 'fresh'
-      ? false
-      : wireFreshness === 'stale'
-        ? true
-        : graphEditedSinceLastRun
+  // Single source of truth: the composed trust semantic. 'changed' (CEE
+  // 'stale' OR a retained-fresh-now-dirtied) is the only state that renders
+  // "Results outdated"; 'cannot_confirm' (CEE-unknown / orphan fold) and
+  // 'current'/'none' do not — so this surface never fabricates stale, and
+  // never independently derives it from `graphEditedSinceLastRun`.
+  const isStale = trustSemantic === 'changed'
 
   const topGuidanceItem = selectTopItem(guidance)
   const guidanceCount = guidance.guidanceItems.length
@@ -171,8 +163,8 @@ export function selectConversationStatus(input: ConversationStatusInput): Conver
     return { status: 'brief_ready', topGuidanceItem, guidanceCount, ctaKind: 'view_brief' }
   }
 
-  // Analysis completed — check staleness via the unified isStale signal
-  // above (wire freshness wins, local edit signal is fallback).
+  // Analysis completed — check staleness via the composed isStale signal
+  // above (trustSemantic === 'changed'; no local-flag fallback).
   if (hasCompletedFirstRun && resultsStatus === 'complete') {
     if (isStale) {
       return { status: 'analysis_stale', topGuidanceItem, guidanceCount, ctaKind: 'view_results' }

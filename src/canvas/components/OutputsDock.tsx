@@ -23,13 +23,24 @@
  * - Slow-run feedback messages (20s/40s thresholds)
  */
 
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, XCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
+import { useEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
+import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, XCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
+import { AnalysisRunningBanner } from './AnalysisRunningBanner'
+import { AnalysisRunAnnouncer } from './AnalysisRunAnnouncer'
+import { runStatusRegion } from './analysisRunStatus'
+import { registerCanonicalRunner, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
+import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
+import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt } from '../store'
+import { resolveDisplayedFreshness } from '../store/analysisFreshness'
+import { getScenario } from '../store/scenarios'
+import { AnalysisFreshnessNotice } from '../../components/results/AnalysisFreshnessNotice'
+import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
+import { isDecisionOverviewEnabled } from '../../flags'
+import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
 import {
   trackCompareOpened,
@@ -37,34 +48,61 @@ import {
   trackAutoFixSuccess,
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
-import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5CanonicalAnalysisEnabled, isAnalysisHeroV17Enabled } from '../../flags'
+import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isPreAnalysisV3Enabled } from '../../flags'
 import { OlumiTabBody } from './OlumiTabBody'
 import { PersistentInputStrip } from './PersistentInputStrip'
 import { SelectionPill } from './SelectionPill'
-import { StaleAnalysisBadge } from './StaleAnalysisBadge'
 import { CogPopover } from './CogPopover'
 import { useConversationContext, useOptionalConversationContext } from '../conversation/ConversationContext'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
+import { dockHostsOlumi } from './olumiSurface'
+import {
+  shouldAutoExpandDockForResponse,
+  latestRealMessageIsAssistantReply,
+  latestRealMessageIsFailedTurn,
+} from './collapsedResponseSignal'
+import {
+  countAnalysisReviewBlocks,
+  shouldReturnToOlumiAfterRun,
+} from './runReturnSignal'
+import { scrollAnalysisResultIntoView } from './scrollAnalysisResultIntoView'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
-import { isV5Eligible } from '../../v5/eligibility'
-import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
-import { countFactorsToVerify } from './model-tab/utils'
+import { isV5CanonicalRunPath } from '../../v5/eligibility'
+import { countFactorsToVerify, deriveFactorInfluenceMap } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
 import { deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
 import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
 import { PreAnalysisPanel } from './pre-analysis'
+import {
+  computeInfluenceCoverage,
+  isTransitionBridgeReviewed,
+} from './pre-analysis-v3/selectors/computeInfluenceCoverage'
+// Lazy: flag-off users never pay the v3 bundle cost.
+const PreAnalysisPanelV3 = lazy(() => import('./pre-analysis-v3'))
 import { useConversation } from '../conversation/useConversation'
-import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
+import {
+  canRunAnalysis as canRunAnalysisUtil,
+  getRunButtonTooltip,
+  computeCeeCannotSeeModel,
+  readinessObjectsToRun,
+  verdictLicenceSuperseded,
+  RUN_LICENCE_SUPERSEDED_REFUSAL,
+  type ReadinessVerdictLicence,
+} from '../utils/canRunAnalysis'
+import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
-import { useV2Run, type V2RunPersistence } from '../hooks/useV2Run'
+// ROADMAP 2.109: the goal-threshold normalisation helpers and the
+// success-measure/scenario-key lookups left with the retired chip parameter —
+// only the goal-node resolver is still used (the atomic target commit).
+import { useV2Run, resolveActiveGoalNodeId, type V2RunPersistence } from '../hooks/useV2Run'
 import { useScenario } from '../../hooks/useScenario'
-import { focusNodeById } from '../utils/focusHelpers'
-import { withObservedStateUpdate } from '../utils/observedStateHelpers'
+import { focusExistingTarget } from '../utils/focusHelpers'
+import { normaliseRawFactorValue, withObservedStateUpdate } from '../utils/observedStateHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
 import { CompareTabBody as CompareTabBodyV2 } from '../compare-tab/CompareTabBody'
@@ -74,7 +112,7 @@ import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { ResultsBody } from '../../components/results/ResultsBody'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import type { GuidanceItem } from '../stores/guidanceStore'
+import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { getStrengthCorrections } from '../../adapters/plot/v2/adapter'
 // P0.6: User-friendly error messages
@@ -85,7 +123,7 @@ import { useDegeneracyDismissal } from './DegeneracyWarning'
 import { ResultsPanelSkeleton } from './ResultsPanelSkeleton'
 // P0.8: Instrumentation
 import { trackRunStarted, trackRunCompleted, trackRunFailed } from '../../lib/resultsInstrumentation'
-import { useComparisonDetection } from '../hooks/useComparisonDetection'
+import { isErrorReport } from '../../adapters/plot/v2/responseMapper'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useRobustness } from '../hooks/useRobustness'
 import { mapRobustness } from '../../lib/mappers/mapRobustness'
@@ -95,9 +133,13 @@ import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import { verboseDebug } from '../../utils/verboseLog'
 import { AnalysisFooter } from '../shared/AnalysisFooter'
 import { derivePostFooterStatus, derivePostFooterMeta } from './utils/postAnalysisFooter'
-import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
-import { useAnalysisStateSource } from '../hooks/useAnalysisStateSource'
+// ROADMAP 2.635 (I-4) — read at DISPATCH time, not via a render-scope selector:
+// the whole point of the licence barrier is to see the store as it is when the
+// run actually goes out, not as it was when the gate was computed.
+import { useReadinessStore } from '../stores/readinessStore'
+import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer'
+import { DefineSuccessModal, DecisionRecordModal, HowComputedModal } from '../../components/results/modals'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -160,6 +202,25 @@ export function readPersistedActiveDockTab(): OutputsDockTab | null {
 }
 
 /**
+ * Render-time read of the persisted dock OPEN-state from sessionStorage.
+ * Mirrors readPersistedActiveDockTab so FloatingOlumiPanel can decide whether
+ * the dock is actually hosting Olumi (dockHostsOlumi) without a render-time
+ * dependency on OutputsDock's component state. Returns null when sessionStorage
+ * is unavailable or the persisted payload is missing/invalid.
+ */
+export function readPersistedDockOpen(): boolean | null {
+  if (typeof sessionStorage === 'undefined') return null
+  try {
+    const raw = sessionStorage.getItem(OUTPUTS_DOCK_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<OutputsDockState>
+    return typeof parsed?.isOpen === 'boolean' ? parsed.isOpen : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Pure helper for the toggle-open click handler.
  *
  * Returns the next persisted `state.isOpen` value based on the user's CURRENT
@@ -192,11 +253,24 @@ export function deriveNextDockIsOpen(isFirstUse: boolean, storedIsOpen: boolean)
  *  required for the gating to reflect the new flag state. */
 export function getOutputTabsForParity(): { id: OutputsDockTab; label: string }[] {
   return [
+    // Olumi leads the strip as the first (leftmost) tab by product decision —
+    // keep it first. The default-SELECTED tab is independent: it stays
+    // 'results' (Analysis) via the state initialiser, not array position.
+    ...(isAiPanelV2Enabled() ? [{ id: 'olumi' as const, label: 'Olumi' }] : []),
     { id: 'results', label: 'Analysis' },
     ...(isCompareTabEnabled() ? [{ id: 'compare' as const, label: 'Compare' }] : []),
+    // ⚠ IDENTITY TRAP — READ THIS BEFORE WRITING A TEST AGAINST "THE MODEL TAB".
+    // The tab a user (and every brief, roadmap row and bug report) calls "Model"
+    // has id `'diagnostics'`, not `'model'`. There is no tab whose id is 'model'.
+    // A spec that queries `'model'` — by id, by testid, or by `getByRole('tab',
+    // { name: ... })` against the wrong string — binds to NOTHING and passes
+    // vacuously, and this is the most-touched surface in the product. The live
+    // testid is `outputs-dock-tab-diagnostics` (see the tab strip below); bind to
+    // that, or to the exact label 'Model' — never to a guessed id. Recorded here
+    // rather than in a doc because the next lane reads the code (ROADMAP 2.474;
+    // trap 19 — bind by identity, never by a value another object could satisfy).
     { id: 'diagnostics', label: 'Model' },
     ...(isJourneyTabEnabled() ? [{ id: 'journey' as const, label: 'Journey' }] : []),
-    ...(isAiPanelV2Enabled() ? [{ id: 'olumi' as const, label: 'Olumi' }] : []),
   ]
 }
 
@@ -296,6 +370,26 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     if (!tabChanged && !versionChanged) return
     prevExternalTabRef.current = externalTab
     prevExternalVersionRef.current = externalTabVersion
+    // ROADMAP 2.639 — a forced activation must also make the dock VISIBLE.
+    //
+    // The aside carries `hidden` (display:none) whenever an overlay right-panel
+    // is active (`isOverlayPanelActive`, this file). Auto-dock already clears it
+    // — see the `openRightPanel('results')` on the auto-open path below, "Task F
+    // ... close overlay panels so OutputsDock becomes visible". This effect, the
+    // OTHER programmatic-navigation entry point, did not; and it is the one the
+    // 0.32.0 panel verbs (`open_panel` / `open_section`) ride, via
+    // `forceActivateOutputTab`. With the provenance or clarifier hub open the
+    // assistant "opened" a panel behind display:none: the turn reported success
+    // and nothing on screen moved.
+    //
+    // ⚠ VERSION-COUNTER PATH ONLY, deliberately. `setActiveOutputTab` does not
+    // bump `activeOutputTabVersion` (uiStore.ts), so a plain value sync leaves a
+    // hub the user opened for themselves exactly where they put it. Closing an
+    // overlay is a claim on the user's screen, and only navigation that has
+    // already decided to front the dock is entitled to make it.
+    if (versionChanged) {
+      useUIStore.getState().openRightPanel('results')
+    }
     // Validate the requested tab is enabled before navigating
     const resolvedTab = (externalTab === 'compare' && !isCompareTabEnabled())
       || (externalTab === 'journey' && !isJourneyTabEnabled())
@@ -313,7 +407,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const { showDebug } = useDebugShortcut()
 
   // Phase 2 Sprint 1B: Slow-run UX feedback (20s/40s thresholds)
-  const [slowRunMessage, setSlowRunMessage] = useState<string | null>(null)
   const runStartTimeRef = useRef<number | null>(null)
 
   // Transition bridge: snapshot of pre-analysis review progress captured at run time
@@ -323,7 +416,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const [warningsDismissed, setWarningsDismissed] = useState(false)
   // P2: Degraded/partial state banner dismissal
   const [degradedBannerDismissed, setDegradedBannerDismissed] = useState(false)
-  const comparison = useComparisonDetection()
   const scenarioComparison = useScenarioComparison()
 
   // Brief 25: Fetch robustness data for sensitivity, VoI, robustness bounds
@@ -368,23 +460,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
   const applyAutoFixChanges = useCanvasStore(s => s.applyAutoFixChanges)
-  // P0 Results Brief: Store actions for Status Quo baseline creation
-  const addNode = useCanvasStore(s => s.addNode)
-  const updateNode = useCanvasStore(s => s.updateNode)
-  const addEdge = useCanvasStore(s => s.addEdge)
-  const setCeeAnalysisReady = useCanvasStore(s => s.setCeeAnalysisReady)
   // P2: Success target affordance - threshold update
   const setGoalThreshold = useCanvasStore(s => s.setGoalThreshold)
-  // Guidance items for results surface — filter to graph/option/framing targets only
-  const allGuidanceItems = useGuidanceStore(s => s.guidanceItems)
   const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
-  const resultsGuidanceItems = useMemo<GuidanceItem[]>(() => {
-    if (allGuidanceItems.length === 0) return []
-    return allGuidanceItems.filter((item) => {
-      const t = item.target_object?.type
-      return !t || t === 'graph' || t === 'option' || t === 'framing'
-    })
-  }, [allGuidanceItems])
 
   // Derived values from runMeta
   const diagnostics = runMeta.diagnostics
@@ -422,6 +500,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // logic); intentionally does NOT participate in isFirstUse.
   void realMessageCount
 
+  // Visual open state: first-use forces the collapsed rail WITHOUT writing the
+  // persisted preference (a returning user with an empty canvas must still get
+  // the rail). Defined once here and reused by the docked-Olumi close-effect
+  // below, the --dock-right-offset effect, and render.
+  const effectiveIsOpen = isFirstUse ? false : state.isOpen
+
   // Round 3 UX correction: clicking the Olumi tab CLOSES the floating panel
   // and shows the docked Olumi conversation (see handleTabClick). For the
   // non-click paths (programmatic setActiveOutputTab, persisted state on
@@ -438,17 +522,103 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   useEffect(() => {
     if (state.activeTab !== 'olumi') lastNonOlumiTabRef.current = state.activeTab
   }, [state.activeTab])
-  // Close the floating panel whenever the docked Olumi tab becomes active
-  // (covers programmatic + restored-state paths that bypass handleTabClick).
-  // The singleton ConversationContext preserves draft + message state, so
-  // closing here is purely a surface switch with no data loss.
+  // Retire the floating/hero Olumi surface ONLY when the docked composer will
+  // actually take over — i.e. dockHostsOlumi: the Olumi tab is selected AND the
+  // dock is showing its body (effectiveIsOpen), not the empty-canvas/collapsed
+  // rail. Closing it whenever the tab is merely selected (the old behaviour)
+  // strands the user with zero composers on the rail. The singleton
+  // ConversationContext preserves draft + message state, so this is a clean
+  // surface switch with no data loss. Single source of truth: olumiSurface.ts.
   useEffect(() => {
-    if (state.activeTab !== 'olumi') return
+    if (!dockHostsOlumi({ dockEffectiveOpen: effectiveIsOpen, dockTab: state.activeTab })) return
     if (useFloatingPanelState.getState().isOpen) {
       useFloatingPanelState.getState().close()
     }
-  }, [state.activeTab])
+  }, [state.activeTab, effectiveIsOpen])
+  // Symmetric RE-ENGAGE (empty-canvas never-zero guarantee). When the dock is
+  // NOT hosting the Olumi composer (collapsed rail or a non-Olumi tab) and no
+  // surface is open, an EMPTY canvas must re-open the first-use hero. Without
+  // this, opening the dock to Olumi and then collapsing it strands the user
+  // with zero composers: the close-effect above retired the hero, and
+  // FirstUseComposer's one-shot auto-open won't re-fire. Empty-canvas only — a
+  // populated canvas keeps the deliberate "collapsed; reopen from the rail"
+  // state (resolveOlumiSurface → 'none'). A user-opened floating panel (isOpen
+  // already true) is left untouched. Mirrors the close-effect; together they
+  // keep exactly one Olumi composer on an empty canvas. SoT: olumiSurface.ts.
+  useEffect(() => {
+    if (hasGraphContent) return
+    if (dockHostsOlumi({ dockEffectiveOpen: effectiveIsOpen, dockTab: state.activeTab })) return
+    if (!useFloatingPanelState.getState().isOpen) {
+      useFloatingPanelState.getState().open('system-first-use')
+    }
+  }, [hasGraphContent, state.activeTab, effectiveIsOpen])
   const openFloatingByUser = useFloatingPanelState((s) => s.open)
+
+  // First-touch response signal (collapsed-dock defect). On the empty-canvas
+  // first-use journey the dock is the collapsed rail and the floating hero
+  // (FirstUseComposer) — which has NO transcript — is the entry point. When the
+  // user sends a brief and CEE replies with a clarify_v2 question + chips (a
+  // conversational turn that drafts no graph), that response renders ONLY in the
+  // collapsed Olumi tab: the user typed, the spinner ended, and nothing visibly
+  // happened. A DRAFT turn masks the same gap (canvas populates + the 0→N
+  // reposition force-activates Analysis); a clarify turn adds no nodes, so
+  // neither fires. Surface it by docking the Olumi tab — the same rail-override
+  // drop + tab-dock the user's own chevron-expand performs (toggleOpen).
+  //
+  // The same gap swallows a FAILED turn: when the send times out / errors, the
+  // "Not delivered" marker + Retry + recovery guidance render only inside the
+  // collapsed dock (the user typed, waited, and saw nothing). An invisible error
+  // is worse than an invisible question, so a failed turn surfaces the same way
+  // (latestRealMessageIsFailedTurn) — a distinct predicate, never a loosening of
+  // the assistant-reply scan.
+  //
+  // The decision + both message scans are pure/tested helpers
+  // (collapsedResponseSignal.ts); this effect only gathers inputs and, on the
+  // true→false isThinking EDGE of a live send, acts. The edge is the reliable
+  // "user's own composer send" discriminator — hydration/session-resume set
+  // isThinking=false without a preceding true, so a page load never trips it,
+  // and a background/system failure (which adds no user bubble) surfaces nothing.
+  const conversationIsThinking = conversationCtxForFirstUse?.isThinking ?? false
+  const prevConversationThinkingRef = useRef(conversationIsThinking)
+  const conversationMessagesRef = useRef(conversationCtxForFirstUse?.messages)
+  conversationMessagesRef.current = conversationCtxForFirstUse?.messages
+  const floatingPanelIsOpen = useFloatingPanelState((s) => s.isOpen)
+  const floatingPanelSource = useFloatingPanelState((s) => s.source)
+  const floatingPanelMinimised = useFloatingPanelState((s) => s.isMinimised)
+  useEffect(() => {
+    const wasThinking = prevConversationThinkingRef.current
+    prevConversationThinkingRef.current = conversationIsThinking
+    const thinkingSettled = wasThinking && !conversationIsThinking
+    // A floating panel showing its own transcript already displays the reply —
+    // the transcript-less first-use hero (source 'system-first-use') does not.
+    const floatingTranscriptVisible =
+      floatingPanelIsOpen && !floatingPanelMinimised && floatingPanelSource !== 'system-first-use'
+    const surface = shouldAutoExpandDockForResponse({
+      aiPanelV2On,
+      thinkingSettled,
+      dockCollapsed: !effectiveIsOpen,
+      hasGraphContent,
+      floatingTranscriptVisible,
+      hasAssistantReply: latestRealMessageIsAssistantReply(conversationMessagesRef.current),
+      hasFailedTurn: latestRealMessageIsFailedTurn(conversationMessagesRef.current),
+    })
+    if (!surface) return
+    // Same override the user's explicit rail-expand uses: drop the first-use
+    // rail lock for the session and dock the Olumi tab. The close-effect above
+    // then retires the first-use hero, leaving exactly one Olumi surface.
+    userExplicitlyOpenedRailRef.current = true
+    setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
+    useUIStore.getState().setActiveOutputTab('olumi' as OutputTab)
+  }, [
+    conversationIsThinking,
+    aiPanelV2On,
+    effectiveIsOpen,
+    hasGraphContent,
+    floatingPanelIsOpen,
+    floatingPanelSource,
+    floatingPanelMinimised,
+    setState,
+  ])
 
   // Round-14: coordinates a user-initiated float-out from ANY trigger
   // (the OlumiTabBody float-out icon, the persistent strip's chevron, the
@@ -495,6 +665,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   )
 
   const resultsStatus = useCanvasStore(selectResultsStatus)
+  // Wave1-L2: the run's TRUE start, so the banner narrates the age of the RUN
+  // rather than the age of the banner (survives remounts and tab switches).
+  const resultsStartedAt = useCanvasStore(selectResultsStartedAt)
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
   const resultsSource = useCanvasStore(selectResultsSource)
@@ -519,11 +692,31 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     persistAnalysisSuccess,
     persistAnalysisFailure,
     isPersistenceActive: _isPersistenceActive,
+    flushPendingSaves,
   } = useScenario()
 
-  // C.1b: Show stale banner whenever graph is edited after a completed run,
-  // regardless of whether Supabase persistence is active (canvas store is unconditional)
-  const analysisStale = useCanvasStore(s => s.graphEditedSinceLastRun)
+  // Results-surface staleness is driven by the CEE freshness slice (the single
+  // source of truth) via the same fresh→unknown dirty rule as AnalysisFreshnessNotice
+  // — NOT by the local `graphEditedSinceLastRun` flag, which fabricated 'stale' and
+  // could contradict the CEE-only notice (e.g. a validated patch + CEE 'fresh' showed
+  // "reflects the current model" alongside "may not reflect your current graph").
+  // The results may be outdated when the displayed verdict is 'stale' (CEE) or
+  // 'unknown' (cannot-confirm: a local edit downgraded a fresh verdict, or CEE
+  // could not determine freshness). 'fresh'/'none'/null → not stale.
+  const ceeFreshness = useCanvasStore(s => s.analysisFreshness)
+  const freshnessDirty = useCanvasStore(s => s.analysisFreshnessDirty)
+  const displayedFreshness = resolveDisplayedFreshness(ceeFreshness, freshnessDirty)
+  const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
+  // Anchor-run-control (Paul, 21-Jul): the sticky bottom AnalysisFooter is the
+  // SOLE Rerun owner in every post-run state — it carries the robustness
+  // verdict AND the Rerun action together, and being OUTSIDE the scroller it is
+  // the tab's most reliable always-visible recovery affordance. The freshness
+  // strip (AnalysisFreshnessNotice) still states fresh/stale/unknown but no
+  // longer renders a Rerun, so there is exactly one Rerun and no duplicate.
+  // Within the not-fresh window, distinguish a model that definitely CHANGED since
+  // the run (CEE 'stale' or a local edit that downgraded a retained 'fresh') from a
+  // CANNOT-CONFIRM state where CEE could not determine freshness — so the stale
+  // banner never claims "you've updated the model" for a CEE-sourced 'unknown'.
 
   // Build persistence object only when Supabase persistence is active
   const v2Persistence = useMemo<V2RunPersistence | undefined>(() => {
@@ -536,11 +729,24 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
   }, [_isPersistenceActive, setAnalysisRunning, resetAnalysisStatus, persistAnalysisSuccess, persistAnalysisFailure])
 
-  // P0-UI: V2 run hook for /v2/run endpoint
-  const { runV2Analysis, cancelRun } = useV2Run(v2Persistence)
+  // P0-UI: V2 run hook for /v2/run endpoint. isRunning is the hook's OWN
+  // in-flight flag (true only during a V2 request) — 1.16i gates the Cancel
+  // button on it because cancelRun can only abort the V2 request; rendering
+  // Cancel for a V5 analysing turn would be a dead control.
+  const { runV2Analysis, cancelRun, isRunning: isV2RunInFlight } = useV2Run(v2Persistence)
 
   // Results Panel Redesign: Section data hook for RecommendationSection, DriversSection, ConfidenceSection
   const resultsSectionData = useResultsSectionData()
+  // Wave 1: decision title for the overview card — same source as the
+  // ScenarioSwitcher header (scenario name; null when unsaved/untitled).
+  // Memoised: getScenario parses the whole scenarios localStorage blob, so
+  // it must never run per render (review B1); flag-off renders skip it via
+  // the mount-site gate below.
+  const overviewScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const overviewTitle = useMemo(
+    () => (isDecisionOverviewEnabled() && overviewScenarioId ? (getScenario(overviewScenarioId)?.name ?? null) : null),
+    [overviewScenarioId],
+  )
 
   // Tornado chart: Derive per-factor outcome bounds from driver influence and recommended option range.
   // Each factor's contribution to the outcome swing is proportional to its normalised influence.
@@ -559,13 +765,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     const downRange = expected - p10  // distance from expected to pessimistic
     const upRange = p90 - expected    // distance from expected to optimistic
 
-    // Build rows from top drivers, sorted by influence descending
+    // Codex final-audit B1: order + size by the SHARED display influence
+    // (driverDisplayModel) — the same number the panel, hero and graph badge
+    // use — so this chart can never contradict them under partial coverage.
+    const infl = (d: (typeof drv.drivers)[number]) =>
+      d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence
     const rows: TornadoRow[] = [...drv.drivers]
-      .filter(d => (d.influenceScore ?? d.normalisedInfluence) > 0.01)
-      .sort((a, b) => (b.influenceScore ?? b.normalisedInfluence) - (a.influenceScore ?? a.normalisedInfluence))
+      .filter(d => infl(d) > 0.01)
+      .sort((a, b) => infl(b) - infl(a))
       .slice(0, 5) // Cap at 5 rows for readability
       .map(d => {
-        const influence = d.influenceScore ?? d.normalisedInfluence
+        const influence = infl(d)
         // NOTE: lowOutcome/highOutcome represent outcome at the factor's low/high
         // raw value, NOT "worse/better" from the user's perspective.
         // For negative-direction factors (e.g. churn), low factor value = better
@@ -618,19 +828,76 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   })
 
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
-  const { readiness } = useGraphReadiness()
 
-  // V17 + orphan-banner suppression: when the top Refresh-analysis banner is
-  // visible (V5 canonical-analysis flag on with no V5 fact), the bottom
-  // AnalysisFooter would carry duplicate stale messaging. Gate is V17-only
-  // so the legacy DecisionConfidencePanel path is unaffected.
-  const { showOrphanBanner } = useAnalysisStateSource()
-  const suppressAnalysisFooterForOrphanBanner = isAnalysisHeroV17Enabled() && showOrphanBanner
+  // Wave1-L2 (seam D-M): exactly ONE run-status region, now mounted for
+  // EVERY in-flight run rather than only when a previous report is on
+  // screen — a first run used to be silent until 20s. See
+  // analysisRunStatus.ts for why the dock's own slow-run copy was deleted
+  // rather than kept alongside it.
+  const runStatus = runStatusRegion({ isRunning })
+
+  // ROADMAP 2.635 — `stale` feeds the gate's COPY (I-3) and `verdictAtMs`
+  // identifies WHICH verdict licensed a run (I-4).
+  const { readiness, stale: readinessStale, verdictAtMs: readinessVerdictAtMs } = useGraphReadiness()
+
+  // C1 review: the orphan-banner footer suppression is GONE. It rested on a
+  // premise that is false at this ref — it claimed the footer would carry
+  // "duplicate stale messaging", but the footer's label comes from
+  // `derivePostFooterStatus(robustnessVerdict)`, which only ever emits
+  // robustness copy ('Stable result' / 'Sensitive to assumptions' /
+  // 'Robustness not assessed' / 'Robustness unknown') and never freshness.
+  // Its meta is the producer's robustness reason. Neither duplicates the
+  // banner's "Refresh analysis · Coaching may be out of date".
+  //
+  // The suppression's only REAL effect was CTA dedupe against the banner's
+  // own "Run analysis" — and the footer already carries its own robustness
+  // verdict + producer meta (never freshness copy), so suppressing the whole
+  // footer would have deleted the verdict + the anchor's Rerun, which the
+  // anchor-run-control fix says must STAY.
+  //
+  // It must not come back as an action-level gate either. AnalysisOrphanBanner
+  // (deleted in the F11 fold) mounted inside ResultsBody — INSIDE the
+  // scroller — so it scrolled away. Letting a scrolling surface suppress the
+  // footer's action would recreate the exact zero-affordance blocker this
+  // lane fixed: the footer is the tab's only always-visible Rerun owner (it
+  // sits outside the scroller) and must never yield its action.
+  //
+  // Net: banner + footer can coexist — which is precisely what the base
+  // already did on the legacy path, deliberately ("the legacy
+  // DecisionConfidencePanel path stays unaffected"). All paths now agree.
 
   // Unified run gating — same function used by ConversationPanel/ChatComposer.
   const hasValidationBlockers = useCanvasStore(s =>
     s.graphHealth?.issues?.some((i: { severity: string }) => i.severity === 'error' || i.severity === 'blocker') ?? false
   )
+
+  // Options the readiness verdict graded as not-yet-ready, joined to the labels
+  // the user actually sees. Feeds ONLY the blocked-state COPY (never `allowed`)
+  // so the panel can name the real remedy instead of showing the engine's
+  // refusal sentence. `ceeAnalysisReady` is the very payload readinessStore
+  // sends as `analysis_ready`, so this is the verdict's own input, not a second
+  // source of truth.
+  const ceeAnalysisReadyForCopy = useCanvasStore(s => s.ceeAnalysisReady)
+  const optionsNeedingValues = useMemo(() => {
+    const labelById = new Map<string, string>()
+    for (const n of nodes) {
+      const data = n.data as Record<string, unknown> | undefined
+      if (typeof data?.label === 'string') labelById.set(n.id, data.label)
+    }
+    return selectOptionsNeedingValues(ceeAnalysisReadyForCopy, labelById)
+  }, [ceeAnalysisReadyForCopy, nodes])
+
+  // ROADMAP 2.122 — the run gate must stay shut while a streamed draft's
+  // structure is on the canvas but its numbers have not settled. The PHASE is
+  // handed to the gate unexamined: which phases count as unsettled is
+  // `canRunAnalysis`'s decision to make, in one tested place, not a two-clause
+  // expression re-derived at every call site. (A mutant that dropped one clause
+  // from an earlier version of that expression, right here, survived the
+  // battery — nothing tested this component's copy of the rule.)
+  // Review F2: scoped to the OPEN scenario — an unsettled draft on another
+  // scenario must not reach this gate at all. `draftStreamPhaseFor` owns that
+  // decision; re-deriving it here is what M15/M16 punished.
+  const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, overviewScenarioId))
 
   const runGateResult = canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
@@ -638,9 +905,20 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     hasBlockers: hasValidationBlockers,
     nodeCount: nodes.length,
     isRunning,
+    ceeCannotSeeModel: computeCeeCannotSeeModel(nodes),
+    draftStreamPhase,
+    optionsNeedingValues,
+    readinessStale,
   })
+  // ROADMAP 2.635 (I-4) — the identity of the verdict this gate result was
+  // computed against, captured at the same moment so the two cannot drift.
+  const licensedByVerdict = useMemo<ReadinessVerdictLicence>(
+    () => ({ verdictAtMs: readinessVerdictAtMs, stale: readinessStale }),
+    [readinessVerdictAtMs, readinessStale],
+  )
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
+  const showToast = useShowToastSafe()
 
   // Handle Run button click
   //
@@ -653,68 +931,134 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // (per correction 1).
   //
   // When the canonical flag is off, behaviour is unchanged: direct V2.
-  const handleRunAnalysis = useCallback(async () => {
-    if (!canRunAnalysis) return
+  //
+  // Run-path convergence: this is THE canonical runner. It is registered in
+  // canonicalRunRegistry so every other visible run affordance (canvas
+  // ⌘Enter, command palette) executes this exact pipeline instead of
+  // building its own request. It never no-ops silently: a blocked gate
+  // returns the human-readable reason for the caller to surface.
+  const runCanonicalAnalysis = useCallback(async (opts?: CanonicalRunOptions): Promise<CanonicalRunOutcome> => {
+    if (isRunning) return { status: 'already-running' }
+    if (!canRunAnalysis) {
+      return { status: 'blocked', reason: runBlockedTooltip || 'Analysis is not available right now.' }
+    }
+    // F1 barrier: an authenticated user who edits then presses Analyse within
+    // the 1500ms autosave debounce would otherwise dispatch a canonical V5 run
+    // (scenario_id only, no graph on the wire) that CEE resolves against the
+    // PREVIOUS persisted graph. Flush any pending/dirty save and AWAIT it before
+    // dispatch. No-op for guests/inactive persistence (their runs carry the
+    // graph and are gated elsewhere). A failed flush must NOT proceed to a run
+    // of a stale persisted graph — abort with a surfaced reason.
+    try {
+      await flushPendingSaves()
+    } catch (err) {
+      console.error('[OutputsDock] pre-run save flush failed; aborting run:', err)
+      return {
+        status: 'blocked',
+        reason: 'Could not save your latest changes. Check your connection and try again.',
+      }
+    }
+    // ── ROADMAP 2.635 (I-4): the run is bound to the verdict that licensed it ──
+    //
+    // The gate above was evaluated during RENDER. This callback dispatches
+    // later, and the `flushPendingSaves()` await immediately above is a real
+    // window — a fresh verdict, or a staleness mark, can land inside it. Until
+    // now nothing tied the click to the assessment that opened the gate, so a
+    // run dispatched against a SUPERSEDED verdict looked exactly like one
+    // dispatched against a current one, and a doomed run was un-attributable.
+    //
+    // The check is deliberately narrow. A moved licence alone does NOT stop the
+    // run: staleness marks flip on ordinary canvas churn, and refusing on that
+    // would hand the user a Run button that fails whenever they touched
+    // anything. It stops only the case that is actually doomed — the licence
+    // moved AND the verdict now on screen OBJECTS. That question is asked of
+    // `readinessObjectsToRun`, the gate's own rung predicate, so there is still
+    // exactly one definition of what a readiness objection is (I-5).
+    const licenceAtDispatch = useReadinessStore.getState()
+    if (
+      verdictLicenceSuperseded(licensedByVerdict, {
+        verdictAtMs: licenceAtDispatch.verdictAtMs,
+        stale: licenceAtDispatch.stale,
+      }) &&
+      readinessObjectsToRun(licenceAtDispatch.readiness)
+    ) {
+      console.warn('[OutputsDock] run licence superseded before dispatch', {
+        licensedByVerdictAtMs: licensedByVerdict.verdictAtMs,
+        licensedByStale: licensedByVerdict.stale,
+        atDispatchVerdictAtMs: licenceAtDispatch.verdictAtMs,
+        atDispatchStale: licenceAtDispatch.stale,
+      })
+      return { status: 'blocked', reason: RUN_LICENCE_SUPERSEDED_REFUSAL }
+    }
     // Capture pre-analysis review progress for transition bridge
     const storeState = useCanvasStore.getState()
-    const storeNodes = storeState.nodes
-    const reviewedIds = new Set<string>()
-    let verifiedCount = 0
-    for (const node of storeNodes) {
-      const nd = node.data as Record<string, unknown>
-      if (nd.kind !== 'factor' && node.type !== 'factor') continue
-      const os = (nd.observedState ?? nd.observed_state) as Record<string, unknown> | undefined
-      const source = os?.source as string | undefined
-      if (source === 'user_confirmed' || source === 'user_assumption' || source === 'user_override' || source === 'user_edited') {
-        reviewedIds.add(node.id)
-        verifiedCount++
-      }
-    }
-    // Compute influence coverage from pre-analysis sensitivity data
-    let influenceCoverage = 0
-    const sensitivity = storeState.preAnalysisSensitivity as { factor_influence?: Record<string, number> } | null
-    if (sensitivity?.factor_influence) {
-      let reviewedSum = 0
-      let totalSum = 0
-      for (const [id, influence] of Object.entries(sensitivity.factor_influence)) {
-        totalSum += influence
-        if (reviewedIds.has(id)) reviewedSum += influence
-      }
-      influenceCoverage = totalSum > 0 ? reviewedSum / totalSum : 0
-    }
+    const { verifiedCount, influenceCoverage } = computeInfluenceCoverage(
+      storeState.nodes,
+      storeState.preAnalysisSensitivity?.factor_influence ?? null,
+      isTransitionBridgeReviewed,
+    )
     transitionBridgeRef.current = { verifiedCount, influenceCoverage }
+    // Telemetry counts come from the store snapshot, NOT from render-scope
+    // arrays: listing nodes/edges in this callback's deps re-minted the
+    // closure (and re-registered the canonical runner) on every drag frame
+    // and keystroke, for data only read at run time.
+    const optionCount = storeState.nodes.filter((n) => n.type === 'option').length
     // P0.8: Track run started
     trackRunStarted({
-      option_count: comparison.optionNodes.length,
-      node_count: nodes.length,
-      edge_count: edges.length,
+      option_count: optionCount,
+      node_count: storeState.nodes.length,
+      edge_count: storeState.edges.length,
     })
     // P0: Log graph used for observability
     console.warn('[GRAPH_USED_FOR_RUN]', {
-      node_count: nodes.length,
-      edge_count: edges.length,
-      option_count: comparison.optionNodes.length,
+      node_count: storeState.nodes.length,
+      edge_count: storeState.edges.length,
+      option_count: optionCount,
       template_id: (framing as any)?.templateId || 'canvas-graph',
     })
 
     // Canonical V5 chip-action path. Mirrors what suggested chips do for
     // action_type:'run_analysis' — same chip metadata, same dispatcher.
-    const canonical = isV5CanonicalAnalysisEnabled() &&
-      isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
+    const canonical = isV5CanonicalRunPath()
     if (canonical) {
       const dispatch = useGuidanceStore.getState()._dispatchAction
       if (dispatch) {
+        // ROADMAP 2.109 — the `goal_threshold` CHIP PARAMETER IS RETIRED.
+        // This block used to re-attach the store threshold to every plain run.
+        // It is deleted because the parameter was a WRITE-ONLY channel: at CEE
+        // staging tip `1ba181e7` the complete manifest of non-test
+        // `chip.parameters` readers is two sites — the `add_option` ingress
+        // (`route-v2.ts:2684`) and the typed-chip mutation pre-route
+        // (`turn-executor.ts:4536`, reader map = set_factor_value /
+        // adjust_edge_strength / add_constraint) — and NEITHER is
+        // `run_analysis`. The `run_analysis` handler contains zero occurrences
+        // of `parameters` or `goal_threshold`.
+        //
+        // The user's target reaches CEE through the GRAPH (`goal_threshold_raw`,
+        // persisted on the goal node), which is the channel that actually closed
+        // the defect. DO NOT re-introduce this write: a second writer racing the
+        // raw-anchored graph channel is the split-brain class, and it would
+        // serve a value nothing reads.
+        //
+        // The generic `parameters` passthrough deliberately SURVIVES — node
+        // chips ship `chip_id` provenance through it.
+        const parameters = opts?.parameters
         // Fire-and-forget — the dispatcher streams the response and
         // routeV5Response handles all state mutations. We deliberately do
         // NOT await: the OutputsDock UI subscribes to canvas store status
         // for spinner state.
         dispatch({
           action_type: 'run_analysis',
+          // Wave F-B: caller-supplied chip parameters (e.g. `chip_id`
+          // provenance from a node chip) ride the canonical dispatch — no
+          // surface builds its own pipeline. The former `goal_threshold`
+          // example is gone with the parameter itself (ROADMAP 2.109).
+          ...(parameters ? { parameters } : {}),
           label: 'Run analysis',
           message: 'Run analysis',
           source: 'chip',
         })
-        return
+        return { status: 'dispatched' }
       }
       if (import.meta.env.DEV) {
         console.warn(
@@ -723,63 +1067,19 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       }
     }
     await runV2Analysis()
-  }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length])
+    return { status: 'v2' }
+  }, [canRunAnalysis, runBlockedTooltip, isRunning, runV2Analysis, framing, flushPendingSaves, licensedByVerdict])
 
-  // P0 Results Brief: Add Status Quo baseline option
-  // Creates a new option node with is_baseline=true, empty interventions, and connects it to a decision node
-  const addStatusQuoBaseline = useCallback(() => {
-    // Find a decision node to connect to (or any node if no decision exists)
-    const decisionNode = nodes.find(n => n.type === 'decision')
-    const anchorNode = decisionNode || nodes[0]
-    if (!anchorNode) {
-      console.warn('[OutputsDock] Cannot add Status Quo baseline: no nodes to connect to')
-      return
+  // Expose the canonical runner to other surfaces (canvas shortcut, palette).
+  useEffect(() => registerCanonicalRunner(runCanonicalAnalysis), [runCanonicalAnalysis])
+
+  const handleRunAnalysis = useCallback(async () => {
+    const outcome = await runCanonicalAnalysis()
+    if (outcome.status === 'blocked') {
+      showToast(outcome.reason, 'warning')
     }
+  }, [runCanonicalAnalysis, showToast])
 
-    // Position the new node offset from the anchor
-    const newPosition = {
-      x: (anchorNode.position?.x || 200) + 200,
-      y: (anchorNode.position?.y || 200) + 50,
-    }
-
-    // Create the option node
-    addNode(newPosition, 'option')
-
-    // Get the newly created node (it's the last one added)
-    const newNodes = useCanvasStore.getState().nodes
-    const newNode = newNodes[newNodes.length - 1]
-    if (!newNode) return
-
-    // Update the node data to mark it as a baseline with Status Quo label
-    updateNode(newNode.id, {
-      data: {
-        ...newNode.data,
-        label: 'Status Quo',
-        kind: 'option',
-        is_baseline: true,
-        interventions: {},
-        status: 'ready',
-      },
-    })
-
-    // Connect the new option to the decision node (if we have a decision)
-    if (decisionNode) {
-      addEdge({
-        source: decisionNode.id,
-        target: newNode.id,
-        type: 'default',
-        data: {
-          ...DEFAULT_EDGE_DATA,
-          confidence: 0, // No confidence needed for decision→option edge
-        },
-      })
-    }
-
-    // Invalidate CEE analysis ready cache so next run re-extracts options
-    setCeeAnalysisReady(null)
-
-    console.warn('[OutputsDock] Added Status Quo baseline option:', newNode.id)
-  }, [nodes, addNode, updateNode, addEdge, setCeeAnalysisReady])
 
   // P2 Task 1: Handle threshold change and trigger re-run.
   //
@@ -792,52 +1092,53 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // OFF → direct V2.
   const lastThresholdRerunAtRef = useRef<number>(0)
   const handleApplyThreshold = useCallback((threshold: number | null) => {
-    setGoalThreshold(threshold)
+    const store = useCanvasStore.getState()
+    // Codex final-audit B2 — atomic store + goal-node commit (the bare
+    // setGoalThreshold updated only the global value, leaving the goal node
+    // showing "target missing" after an apply). Lane 5: one shared
+    // goal-node resolution (validated to exist).
+    const goalNodeId = resolveActiveGoalNodeId(store)
+    if (goalNodeId) store.setGoalThresholdAndUpdateNode(goalNodeId, threshold)
+    else setGoalThreshold(threshold)
     const now = Date.now()
     if (now - lastThresholdRerunAtRef.current < 500) return
     lastThresholdRerunAtRef.current = now
-    const canonical = isV5CanonicalAnalysisEnabled() &&
-      isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
-    if (canonical) {
-      const dispatch = useGuidanceStore.getState()._dispatchAction
-      if (dispatch) {
-        dispatch({
-          action_type: 'run_analysis',
-          parameters: threshold !== null ? { goal_threshold: threshold } : undefined,
-          label: 'Run analysis',
-          message: 'Run analysis',
-          source: 'chip',
-        })
-        return
+    // Wave F-B: the threshold rerun goes through the canonical runner like
+    // every other run affordance — same gate, same V5/V2 routing. The V2
+    // fallback reads store.goalThreshold (UI-SEM-058), already set above.
+    //
+    // ROADMAP 2.109 — the `goal_threshold` chip parameter is RETIRED (it had
+    // no CEE reader for `run_analysis`; see the note in dispatchRunAnalysis).
+    // The atomic store + goal-node commit above is what carries the user's
+    // target to CEE, through the graph's `goal_threshold_raw`. The
+    // normalisation that used to build the chip parameter is deleted with it.
+    void runCanonicalAnalysis({
+      source: 'apply-threshold',
+    }).then((outcome) => {
+      // Review (b): the hero copy promises "Applying runs the analysis
+      // again" — a gated outcome must say why instead of silently saving
+      // the threshold without a rerun.
+      if (outcome.status === 'blocked') showToast(outcome.reason)
+      else if (outcome.status === 'already-running') {
+        showToast('Analysis is already running. Your target is saved; rerun when it finishes.')
       }
-      if (import.meta.env.DEV) {
-        console.warn(
-          '[OutputsDock] canonical flag is on but _dispatchAction is not registered; falling back to V2 for threshold rerun.',
-        )
-      }
-    }
-    runV2Analysis()
-  }, [setGoalThreshold, runV2Analysis])
+    })
+  }, [setGoalThreshold, runCanonicalAnalysis, showToast])
 
-  // C1: Baseline addition does NOT trigger rerun — mutates draft only.
-  // User must manually rerun to generate comparison data.
-  const handleAddBaseline = useCallback(() => {
-    addStatusQuoBaseline()
-  }, [addStatusQuoBaseline])
-
-  // Set an existing option as the baseline by ID — clears is_baseline on all others first.
-  const handleSetBaseline = useCallback((optionId: string) => {
-    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.kind === 'option')
-    for (const n of optionNodes) {
-      if (n.data?.is_baseline && n.id !== optionId) {
-        updateNode(n.id, { data: { ...n.data, is_baseline: false } })
-      }
-    }
-    const target = optionNodes.find(n => n.id === optionId)
-    if (target) {
-      updateNode(optionId, { data: { ...target.data, is_baseline: true } })
-    }
-  }, [nodes, updateNode])
+  // Lane 3 (SF2) perf — evidence-demanded (rerunContinuity render-count pin):
+  // with the body mounted through a run, unstable prop identities defeated
+  // ResultsBody's memo on every SSE tick. The focus handler is stable; the
+  // corrections snapshot re-reads when a new report lands (its collection
+  // cadence — the adapter records them during request building).
+  const handleFocusResultNode = useCallback((nodeId: string) => {
+    // Fail closed on stale/unknown ids — result payloads can reference
+    // elements that no longer exist on this canvas (deleted nodes,
+    // recovered sessions with different ids).
+    if (!focusExistingTarget(nodeId, 'node')) return
+    setHighlightedNodes([nodeId])
+    setTimeout(() => setHighlightedNodes([]), 3000)
+  }, [setHighlightedNodes])
+  const strengthCorrectionsForRun = useMemo(() => getStrengthCorrections(), [report])
 
   // Handle auto-fix for validation issues
   const handleAutoFix = useCallback(async (item: CritiqueItem): Promise<boolean> => {
@@ -887,8 +1188,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   }, [nodes, edges, applyAutoFixChanges])
 
   const canonicalBands = report?.run?.bands ?? null
-  const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results.likely ?? null
-  const hasInlineSummary = Boolean(report && resultsStatus === 'complete')
+  // #353: `.results` must be optional-chained too — a Supabase-hydrated
+  // report can lack the bands block entirely (the hydration invariant checks
+  // only `status === 'complete' && report`), and the unguarded read
+  // hard-crashed the whole canvas. Fail closed to null (verdict below
+  // already treats null as "no value"); never fabricate a number.
+  const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results?.likely ?? null
+  // Lane 3 (SF2): the retained report keeps RENDERING through every status —
+  // resultsStart/resultsAnalysing/resultsError/resultsCancelled all preserve
+  // `results.report` by contract ("so UI doesn't flash empty"), but the old
+  // `status === 'complete'` gate unmounted the whole body on every rerun,
+  // wiping subtree state (hero lens choice, the goal-lens auto-switch's
+  // transition ref, accordions) and making four shipped surfaces dead code
+  // (strip running copy + completion toast, running-banner copy, error
+  // stale-banner, footer loading state). Run/err state is conveyed by the
+  // banner + strip + aria-busy, never by blanking the results.
+  const hasInlineSummary = Boolean(report)
   const goalDirection = getGoalDirection(framing, nodes)
   const isError = resultsStatus === 'error'
 
@@ -925,14 +1240,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   const decisionReadiness = report?.decision_readiness || readinessFromConfidence
   const recommendationStability = (report as any)?.robustness?.recommendation_stability ?? (report as any)?.robustness?.ranking_stability
-  // Brief 5.8B D8: footer status + meta re-skinned to the wireframe via the
-  // pure helper (./utils/postAnalysisFooter.ts). The helper owns the
-  // wireframe stability bands + evidence-gap derivation so the logic can be
-  // unit-tested in isolation. The legacy `getStabilityClassification`
-  // heroLabel ("Stability sensitive") was the orphan-text source D6
-  // flagged — superseded by the deterministic strings here.
-  const postFooterStatus = derivePostFooterStatus(recommendationStability)
-  const POST_FOOTER_ICONS = { check: CheckCircle, warning: AlertTriangle, danger: XCircle } as const
+  // Footer status is driven by the display-safe robustness verdict ONLY
+  // (single-source rule — the same `robustnessVerdict` field that drives the
+  // certified "Robustness unknown" glyph), NEVER by raw recommendation_stability.
+  // The verdict is now the producer's own robustness.display_verdict (PLoT
+  // #202, consumed lane 35 fix 3), normalised fail-closed in the hook; when
+  // it is absent (older PLoT builds) the footer keeps the neutral
+  // "Robustness unknown" state instead of a green "Stable result" derived
+  // from raw stability (which contradicted the glyph on the same tab). Raw
+  // stability is retained only as neutral metadata in derivePostFooterMeta
+  // below. See ./utils/postAnalysisFooter.ts + ROBUSTNESS-VERDICT-CONTRACT.
+  const postFooterStatus = derivePostFooterStatus(resultsSectionData.recommendation.robustnessVerdict)
+  const POST_FOOTER_ICONS = { check: CheckCircle, warning: AlertTriangle, unknown: HelpCircle } as const
   const postRunFooter = {
     icon: POST_FOOTER_ICONS[postFooterStatus.icon],
     iconClass: postFooterStatus.iconClass,
@@ -940,6 +1259,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   }
   const postRunMetaText = derivePostFooterMeta({
     stability: recommendationStability,
+    // Same display-safe verdict as the status above: without a determinate
+    // verdict the "{N}% stability" segment is suppressed —
+    // "Robustness unknown · 59% stability" contradicted itself (and the raw
+    // number is numerically the leader's win probability, not a robustness
+    // verdict). Suppress, never relabel.
+    robustnessVerdict: resultsSectionData.recommendation.robustnessVerdict,
+    // Producer-owned reason phrase, rendered verbatim as the leading meta
+    // segment (never authored in the UI).
+    robustnessVerdictReason: resultsSectionData.recommendation.robustnessVerdictReason,
     reviewCards: resultsSectionData.confidence.topEvidenceGaps ?? resultsSectionData.confidence.evidenceGaps ?? [],
   })
 
@@ -960,7 +1288,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     const nd = node.data as Record<string, unknown>
     const existing = (nd?.observedState ?? nd?.observed_state ?? {}) as Record<string, unknown>
     const cap = (existing.cap as number | null) ?? null
-    const normalised = cap != null && cap > 0 ? rawValue / cap : rawValue
+    const normalised = normaliseRawFactorValue(rawValue, cap)
     updateNode(nodeId, {
       data: withObservedStateUpdate(node.data, {
         raw_value: rawValue,
@@ -1036,20 +1364,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   const ceeQuality = useCanvasStore(s => s.ceeQuality)
 
-  const factorInfluenceMap = useMemo(() => {
-    const factors =
-      (report as any)?.enrichment?.sensitivity_analysis?.factors ??
-      (report as any)?.factor_sensitivity ??
-      []
-    if (!Array.isArray(factors) || factors.length === 0) return undefined
-    const map = new Map<string, number>()
-    for (const f of factors) {
-      const id: string | undefined = f.factor_id ?? f.factorId ?? f.node_id ?? f.nodeId
-      const score: number | undefined = f.elasticity ?? f.sensitivity_score ?? f.importance_score
-      if (id && score !== undefined) map.set(id, score)
-    }
-    return map.size > 0 ? map : undefined
-  }, [report])
+  // ROADMAP 1.7: influence_score (producer-owned, ISL/PLoT) takes priority
+  // over elasticity/sensitivity_score/importance_score — see
+  // deriveFactorInfluenceMap doctrine comment (model-tab/utils.ts).
+  const factorInfluenceMap = useMemo(() => deriveFactorInfluenceMap(report), [report])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -1106,6 +1424,21 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const lastDockOpenRef = useRef<number>(0)
   const prevAutoSwitchStatusRef = useRef(resultsStatus)
 
+  // ROADMAP 2.204 — the bookkeeping the post-run RETURN effect below reads.
+  // Kept next to the effect that creates the situation, so the two halves of
+  // "we moved them / we move them back" are read together.
+  //   - activeTabRef mirrors the selected tab for the effects that carry an
+  //     exhaustive-deps disable (their closures over `state` are stale by
+  //     construction; the ref is not).
+  //   - runAutoSwitchedToAnalysisRef records that THIS run is what moved the
+  //     user off their tab. Only a run that actually switched earns a return.
+  //   - userInteractedSinceRunRef records deliberate engagement with the dock
+  //     since the run started (see the capture handlers on the <aside>).
+  const activeTabRef = useRef(state.activeTab)
+  activeTabRef.current = state.activeTab
+  const runAutoSwitchedToAnalysisRef = useRef(false)
+  const userInteractedSinceRunRef = useRef(false)
+
   useEffect(() => {
     const prevStatus = prevAutoSwitchStatusRef.current
     prevAutoSwitchStatusRef.current = resultsStatus
@@ -1131,6 +1464,25 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
     lastDockOpenRef.current = now
 
+    // ROADMAP 2.204: record the navigation this effect is ABOUT to perform.
+    // Placed after the debounce so the record can never claim a switch that
+    // did not happen. A run start also CLEARS the interaction record — the Run
+    // control is itself a click inside the dock, and the click that started the
+    // run must not be read as "the user is busy on this tab".
+    // ⚠ An ASSIGNMENT, never a conditional set. As an `if` this record was
+    // only ever raised and never lowered, so it survived a run that produced
+    // no block (error / cancel / the useV2Run path): the user sat on Analysis,
+    // ran again FROM Analysis — a run that switched nothing and earns no
+    // return — and was yanked on the new arrival by the FIRST run's stale
+    // record, contradicting this record's own stated invariant. Reachable
+    // because `resultsSettle` lands a reportless run on 'idle'
+    // (store.ts:3359-3365), which makes the next run's `wasInactive` true.
+    // Assigning both ways means the record always describes THIS run.
+    if (statusTransitioned) {
+      userInteractedSinceRunRef.current = false
+      runAutoSwitchedToAnalysisRef.current = activeTabRef.current !== 'results'
+    }
+
     // Task F: Auto-open results — close overlay panels so OutputsDock becomes visible
     useUIStore.getState().openRightPanel('results')
 
@@ -1148,6 +1500,119 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // We intentionally depend on both triggers. setState from useDockState is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultsStatus, showResultsPanel])
+
+  // ROADMAP 2.204 — RETURN the user to the surface the run produced.
+  //
+  // The effect above navigates AWAY on run start; this one is its counterpart.
+  // The turn that completes the analysis puts its output — the decision-review
+  // card and the turn's review/coaching cards — in the OLUMI tab, whose wrapper
+  // is `hidden` while Analysis is fronted (see the wrapper at the bottom of this
+  // file). Live-proven 31 Jul: it stayed at 0 px² for a 180 s poll with the
+  // analysis complete and never self-revealed, so a tester who clicks Run and
+  // stays put never sees it.
+  //
+  // The trigger is the ARRIVAL of a new analysis-result block, not
+  // `resultsStatus === 'complete'`: the non-conversational run path completes
+  // the results store while putting nothing in the Olumi tab, and returning a
+  // user to an empty surface is worse than leaving them. Decision rules and the
+  // full rationale live in runReturnSignal.ts; this effect only gathers inputs.
+  const reviewBlockCount = useMemo(
+    () => countAnalysisReviewBlocks(conversationCtxForFirstUse?.messages),
+    [conversationCtxForFirstUse?.messages],
+  )
+  const prevReviewBlockCountRef = useRef(reviewBlockCount)
+  // ROADMAP 2.204-R3 — the arrival raises a token here; the effect BELOW spends
+  // it, once the tab is actually fronted. See that effect for why it cannot be
+  // done in this one.
+  const [resultScrollToken, setResultScrollToken] = useState(0)
+  useEffect(() => {
+    const previousCount = prevReviewBlockCountRef.current
+    prevReviewBlockCountRef.current = reviewBlockCount
+    const shouldReturn = shouldReturnToOlumiAfterRun({
+      aiPanelV2On,
+      runAutoSwitchedToAnalysis: runAutoSwitchedToAnalysisRef.current,
+      dockTab: state.activeTab,
+      dockEffectiveOpen: effectiveIsOpen,
+      userInteractedSinceRun: userInteractedSinceRunRef.current,
+      reviewContentArrived: reviewBlockCount > previousCount,
+    })
+    if (!shouldReturn) return
+    // ROADMAP 2.204-R3 — the scroll rides the RETURN's own decision, verbatim.
+    //
+    // It was briefly a second predicate that widened the tab clause to admit
+    // `dockTab === 'olumi'`. That widening was withdrawn: derived at the bytes,
+    // the we-moved-them record has exactly ONE raise (the merged auto-switch
+    // effect above, which in the same breath schedules `activeTab: 'results'`),
+    // and every other write clears or spends it. So "record true AND tab already
+    // Olumi" is reachable only through a stale render closure — the batched
+    // flush pinned by this file's ADV-3 spec — where it is harmful, not
+    // beneficial. There is no shape in which the widened clause helps, so there
+    // is no clause. One decision, no mirror to drift.
+    setResultScrollToken((token) => token + 1)
+    // Spend the record: one return per run, never a repeat.
+    runAutoSwitchedToAnalysisRef.current = false
+    setState(prev => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
+    useUIStore.getState().setActiveOutputTab('olumi' as OutputTab)
+    // The same bookkeeping handleTabClick performs for any non-Results tab.
+    // `showResultsPanel` is the merged effect's SECOND trigger, so leaving it
+    // true here would let that effect pull the user straight back on the next
+    // results-status change.
+    if (showResultsPanel) setShowResultsPanel(false)
+  }, [
+    reviewBlockCount,
+    aiPanelV2On,
+    state.activeTab,
+    effectiveIsOpen,
+    showResultsPanel,
+    setShowResultsPanel,
+    setState,
+  ])
+
+  // ROADMAP 2.204-R3 — land the returned tester ON the card, not 2,248 px above
+  // it.
+  //
+  // ## Why this is a SECOND effect and not two lines in the one above
+  // The effect above decides to return and calls `setState({activeTab:'olumi'})`.
+  // At that moment the DOM still has `hidden` (`display: none`) on the Olumi
+  // wrapper — React has not re-rendered yet — and an element inside a
+  // `display: none` subtree has no layout box, so a `scrollIntoView` issued there
+  // does nothing. That is precisely the defect being fixed: ChatThread's own
+  // smart-scroll already fires in that commit and is silently swallowed (see
+  // runReturnSignal.ts and the spec's THE CAUSE test, which measures it). This
+  // effect depends on `state.activeTab`, so it runs after the commit that
+  // REMOVED `hidden` — the first moment the card can actually be scrolled.
+  //
+  // ## Why a token, spent once
+  // `state.activeTab` changes on every manual tab click too. Without a token
+  // that is spent, every later click back to Olumi would re-scroll the user onto
+  // the card — a yank, and exactly the failure mode 2.204's discipline exists to
+  // prevent. The token is raised only by an arrival that passed that discipline,
+  // and each token scrolls at most once.
+  //
+  // ## ⚠ Why the token is marked handled BEFORE the tab guard, not after
+  // Because a never-yank verdict has a SHELF LIFE. Every gate the raise passed —
+  // "the user has not interacted", "we moved them here" — was true in the commit
+  // that raised the token and says nothing about any later commit. So a token
+  // that cannot be spent on the very next commit must be DISCARDED, never
+  // carried: parked, it would discharge on the user's own next visit to the
+  // Olumi tab, minutes later, possibly in a different scenario, after they had
+  // wheeled and toured tabs. Marking first makes the token strictly
+  // single-shot — spent by being used, or spent by expiring — so its verdict can
+  // never outlive the flush it was formed in.
+  //
+  // Reachability of the unspendable case is not hypothetical: React 18 batches
+  // the block's arrival and the results completion into ONE flush, and the
+  // merged auto-switch effect above runs first within it, so this effect can see
+  // a tab value that is already superseded. Pinned by the ADV-3 / ADV-4 cases in
+  // OutputsDock.runReturnsToOlumi.spec.tsx.
+  const handledResultScrollTokenRef = useRef(0)
+  useEffect(() => {
+    if (resultScrollToken === 0) return
+    if (handledResultScrollTokenRef.current === resultScrollToken) return
+    handledResultScrollTokenRef.current = resultScrollToken
+    if (state.activeTab !== 'olumi') return
+    scrollAnalysisResultIntoView()
+  }, [resultScrollToken, state.activeTab])
 
   // Effect: Switch to compare tab when showComparePanel flag is set
   useEffect(() => {
@@ -1168,39 +1633,25 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     setShowComparePanel(false)
   }, [showComparePanel, setState, setShowComparePanel])
 
-  // Phase 2 Sprint 1B: Track elapsed time and show slow-run messages at 20s/40s
-  // Cleanup ensures timers are always cleared on unmount or status change
+  // Run-duration clock, kept ONLY for the `duration_ms` telemetry on the
+  // completed/failed event below.
+  //
+  // The 20s/40s slow-run MESSAGE this effect used to set is gone.
+  // AnalysisRunningBanner is now the single narration for every run (see
+  // analysisRunStatus.ts) and derives its own elapsed time from the store's
+  // true run start, so a second interval here would be a second stage table
+  // to keep in sync — exactly the drift that left the first-run copy saying
+  // "Taking longer than expected..." at 20s, a wait that is entirely typical.
   useEffect(() => {
     const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
     if (isRunning) {
-      // Start tracking time when run begins
       if (runStartTimeRef.current === null) {
         runStartTimeRef.current = Date.now()
-        setSlowRunMessage(null)
       }
-
-      // Check elapsed time every 5 seconds
-      const intervalId = setInterval(() => {
-        if (runStartTimeRef.current === null) return
-
-        const elapsedMs = Date.now() - runStartTimeRef.current
-        const elapsedSeconds = Math.floor(elapsedMs / 1000)
-
-        if (elapsedSeconds >= 40) {
-          setSlowRunMessage('Still working...')
-        } else if (elapsedSeconds >= 20) {
-          setSlowRunMessage('Taking longer than expected...')
-        }
-      }, 5000)
-
-      // Cleanup: always clear interval on unmount or status change
-      return () => clearInterval(intervalId)
     } else {
       // Clear tracking when run completes/errors/cancels/navigates away
       runStartTimeRef.current = null
-      setSlowRunMessage(null)
-      // No cleanup function needed when not running (no interval to clear)
     }
   }, [resultsStatus])
 
@@ -1210,14 +1661,41 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     const prevStatus = prevResultsStatus.current
     prevResultsStatus.current = resultsStatus
 
-    // Detect transition to 'complete'
-    if (resultsStatus === 'complete' && prevStatus !== 'complete' && report) {
-      trackRunCompleted({
-        confidence_level: report.confidence?.level as 'high' | 'medium' | 'low' ?? 'medium',
-        drivers_informative: areDriversInformative(report.drivers_payload),
-        trace_id: runMeta?.correlationIdHeader ?? undefined,
-        duration_ms: runStartTimeRef.current ? Date.now() - runStartTimeRef.current : undefined,
-      })
+    // Detect transition to 'complete'. Lane 3 review fold: a resultless
+    // settle restores the RETAINED report at 'complete' — that is not a run
+    // completion, and the flag exists to distinguish exactly this.
+    if (
+      resultsStatus === 'complete' &&
+      prevStatus !== 'complete' &&
+      report &&
+      !useCanvasStore.getState().results.settledWithoutNewReport
+    ) {
+      // ⚠ 'complete' DOES NOT MEAN 'succeeded' — ROADMAP 1.68.
+      //
+      // `useV2Run.ts:846-866` (the HTTP-200-but-failed branch) settles a
+      // FAILURE through `resultsComplete`, because that is the action which
+      // renders the critique list the user needs to see. Emitting
+      // run_completed here unconditionally recorded a whole failure class as a
+      // success — while the same block persisted `ANALYSIS_FAILED` to Supabase,
+      // so the database and the analytics disagreed.
+      //
+      // `isErrorReport` is owned by the module that BUILDS the error report,
+      // so no sentinel string is copied into this file. Exactly one event still
+      // fires per settle, so the single-emitter invariant is unchanged.
+      if (isErrorReport(report)) {
+        // The code is exact, not inferred: `useV2Run`'s branch is the only
+        // producer of error reports and it declares ANALYSIS_FAILED. A second
+        // producer reds `runSettleClassification.spec.ts`, which is the signal
+        // to carry the code on the report instead.
+        trackRunFailed({ error_code: 'ANALYSIS_FAILED' })
+      } else {
+        trackRunCompleted({
+          confidence_level: report.confidence?.level as 'high' | 'medium' | 'low' ?? 'medium',
+          drivers_informative: areDriversInformative(report.drivers_payload),
+          trace_id: runMeta?.correlationIdHeader ?? undefined,
+          duration_ms: runStartTimeRef.current ? Date.now() - runStartTimeRef.current : undefined,
+        })
+      }
     }
 
     // Detect transition to 'error'
@@ -1298,7 +1776,20 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     })
   }
 
+  // ROADMAP 2.204: any deliberate interaction inside the dock stands the
+  // post-run return down. Ref-only — deliberately not state, so it cannot
+  // re-render the dock on every keystroke.
+  const markDockInteraction = useCallback(() => {
+    userInteractedSinceRunRef.current = true
+  }, [])
+
   const handleTabClick = (tab: OutputsDockTab) => {
+    // ROADMAP 2.204: an explicit tab choice is the strongest "leave me where I
+    // put myself" signal there is, so it spends the auto-switch record outright
+    // rather than relying on the pointer/key capture above (which a keyboard
+    // activation via click() would not produce).
+    runAutoSwitchedToAnalysisRef.current = false
+    userInteractedSinceRunRef.current = true
     // UX correction (round 3): clicking the Olumi tab ALWAYS docks the
     // conversation into the right panel. If the floating panel is open,
     // close it first so the conversation surface is unambiguous. The
@@ -1368,10 +1859,20 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     window.addEventListener('mouseup', handleUp)
   }
 
-  // AI panel v2: stale-aware warning indicator on the Results tab label.
+  // AI panel v2: freshness indicator on the Results tab label. Driven by the CEE
+  // freshness verdict + local dirty overlay (displayedFreshness), NOT the legacy
+  // graph-hash stale path deleted on 2026-07-16 (_internal.graphHash is never
+  // written, so its isStale could never fire and would contradict the
+  // CEE-derived Results state).
   // Strictly FF-gated — no behaviour change when FF_AI_PANEL_V2 is off.
-  const { isStale } = useStaleGuard()
-  const showResultsTabStaleWarning = isAiPanelV2Enabled() && isStale
+  //
+  // It MUST distinguish a genuine CEE 'stale' verdict (warning glyph + stale label)
+  // from the cannot-confirm overlay state ('unknown' — produced when local edits
+  // downgrade a retained 'fresh'), which gets a NEUTRAL glyph + neutral label,
+  // mirroring AnalysisFreshnessNotice. Rendering the stale glyph/label for
+  // cannot-confirm would fabricate 'stale', which the overlay never does.
+  const { reallyStale: resultsTabReallyStale, showIcon: showResultsTabFreshnessIcon } =
+    deriveResultsTabFreshness(isAiPanelV2Enabled(), displayedFreshness)
 
   // Task C: Panel coordination — hide OutputsDock when an overlay panel is active
   const activeRightPanel = useUIStore(s => s.activeRightPanel)
@@ -1387,10 +1888,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // When an overlay panel is active, keep mounted (preserve scroll position,
   // tab state, effect continuity) but hide visually via CSS.
 
-  // Effective open state: when aiPanelV2 first-use, force collapsed rail
-  // without writing to the persisted state.isOpen — otherwise a returning
-  // user with an empty canvas would see the rail forever.
-  const effectiveIsOpen = isFirstUse ? false : state.isOpen
+  // effectiveIsOpen is defined once near isFirstUse (above) and reused here.
 
   const asideStyle: React.CSSProperties = {
     position: 'fixed',
@@ -1410,12 +1908,62 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   }
 
   return (
+    <>
+      {/* F9: THE single aria-live region for run start/settle, mounted once
+          at the dock call site so it survives tab switches and speaks for
+          runs dispatched from ANY tab. It is a SIBLING of the aside, not a
+          child (review-folds C3): the aside hides with the `hidden` class
+          while an overlay panel is active, and display:none removes its
+          whole subtree from the accessibility tree — the announcer must
+          keep speaking exactly then. It yields while the Analysis tab is
+          fronted (except a first-run settle) — that tab's own furniture
+          (narration banner, completion toast, error alert) already
+          announces there. Rule: runAnnouncementForTransition in
+          analysisRunStatus.ts. */}
+      <AnalysisRunAnnouncer
+        analysisTabFronted={effectiveIsOpen && effectiveActiveTab === 'results'}
+      />
     <aside
       className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
       style={asideStyle}
       aria-label="Outputs dock"
       data-testid="outputs-dock"
+      // ROADMAP 2.204: the honest "the user is engaged here" signal for the
+      // post-run return. Capture phase on the dock ROOT, so any pointerdown,
+      // keydown or wheel anywhere inside it counts — the tab strip, every
+      // Analysis-tab control, the composer, and the scroll region. DERIVED
+      // from real events rather than an enumerated list of controls, which
+      // would rot the moment one is added and read green while it did
+      // (trap 12). Read-only ref writes: no state, no re-render, no
+      // interference with any handler.
+      //
+      // ⚠ WHEEL, NOT SCROLL — and the distinction is load-bearing. The dock
+      // body is `overflow-y-auto`, so scroll-reading the Analysis tab while a
+      // run finishes is the most likely waiting behaviour there is, and a
+      // pointer/key pair cannot see it: that user was yanked mid-read.
+      // `onScrollCapture` would be the wrong repair — ChatThread's
+      // useSmartScroll fires `scrollIntoView` programmatically
+      // (useSmartScroll.ts:33), emitting a `scroll` event with no user behind
+      // it, which would stand the return down for exactly the passive tester
+      // this row exists to serve. `wheel` only fires for a real gesture, so
+      // passive waiting still fires nothing.
+      onPointerDownCapture={markDockInteraction}
+      onKeyDownCapture={markDockInteraction}
+      onWheelCapture={markDockInteraction}
     >
+      {/* Parity P7a: the Work-through-it-with-Olumi drawer mounts ONCE at the
+          dock root (fixed-position overlay) so asks routed from ANY tab —
+          graph node sparkles included — surface visibly instead of
+          auto-sending into a conversation the user cannot see. */}
+      <AskOlumiDrawer />
+      {/* Round-2 wiring: the parity modals mount once at the same root so
+          openDefineSuccess()/openDecisionRecord() work from any surface. */}
+      <DefineSuccessModal />
+      <DecisionRecordModal />
+      {/* P1-9: Model-Card-Lite. Mounted at the same root so
+          openHowComputed() works from the results header (and, later, from a
+          number's own affordance) without prop drilling. */}
+      <HowComputedModal />
       {effectiveIsOpen && (
         <div
           aria-hidden="true"
@@ -1432,7 +1980,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             <button
               type="button"
               onClick={toggleOpen}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header/70 hover:bg-panel`}
+              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header hover:bg-panel`}
               aria-label={effectiveIsOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
             >
               {effectiveIsOpen ? '>' : '<'}
@@ -1460,22 +2008,30 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                     effectiveActiveTab === tab.id
                       ? 'text-info border-b-2 border-info'
-                      : 'text-text-header/70 hover:bg-panel hover:text-text-header border-b-2 border-transparent'
+                      : 'text-text-header hover:bg-panel border-b-2 border-transparent'
                   }`}
                   style={
                     effectiveActiveTab === tab.id
-                      ? { backgroundColor: 'rgba(82,163,200,0.15)' }
+                      ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' }
                       : undefined
                   }
                 >
-                  <span className={`inline-flex items-center gap-1${tab.id === 'results' && showResultsTabStaleWarning ? ' text-warning' : ''}`}>
+                  <span className={`inline-flex items-center gap-1${tab.id === 'results' && resultsTabReallyStale ? ' text-warning' : ''}`}>
                     {tab.label}
-                    {tab.id === 'results' && showResultsTabStaleWarning && (
-                      <AlertTriangle
-                        className="w-3 h-3 text-warning"
-                        aria-label="Analysis is stale"
-                        data-testid="results-tab-stale-icon"
-                      />
+                    {tab.id === 'results' && showResultsTabFreshnessIcon && (
+                      resultsTabReallyStale ? (
+                        <AlertTriangle
+                          className="w-3 h-3 text-warning"
+                          aria-label="Analysis is stale"
+                          data-testid="results-tab-stale-icon"
+                        />
+                      ) : (
+                        <HelpCircle
+                          className="w-3 h-3 text-text-light"
+                          aria-label="Cannot confirm whether this analysis is current."
+                          data-testid="results-tab-cannot-confirm-icon"
+                        />
+                      )
                     )}
                     {tab.id === 'diagnostics' && factorsToVerify > 0 && (
                       <span
@@ -1508,7 +2064,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             <button
               type="button"
               onClick={toggleOpen}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header/70 hover:bg-panel`}
+              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header hover:bg-panel`}
               aria-label={effectiveIsOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
             >
               {effectiveIsOpen ? '>' : '<'}
@@ -1541,9 +2097,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   effectiveActiveTab === tab.id
                     ? 'text-info border-info'
-                    : 'text-text-header/70 bg-panel border-panel-border hover:bg-panel hover:text-text-header'
+                    : 'text-text-header bg-panel border-panel-border hover:bg-panel'
                 }`}
-                style={effectiveActiveTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
+                style={effectiveActiveTab === tab.id ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' } : undefined}
                 aria-label={tab.label}
                 title={tab.label}
               >
@@ -1555,7 +2111,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       )}
 
       {effectiveIsOpen && (
-        <div className={`flex-1 min-h-0 ${typography.caption} text-text-header/70 ${effectiveActiveTab === 'results' || effectiveActiveTab === 'olumi' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
+        <div className={`flex-1 min-h-0 ${typography.caption} text-text-header ${effectiveActiveTab === 'results' || effectiveActiveTab === 'olumi' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
             {effectiveActiveTab === 'results' && (
               <div className="flex-1 min-h-0 flex flex-col">
                 {aiPanelV2On && transitionReceipt === 'model-drafted' ? (
@@ -1595,7 +2151,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       } catch {
                         /* non-critical: focus is best-effort */
                       }
-                      focusNodeById(optionId)
+                      focusExistingTarget(optionId, 'option')
                     }
 
                     return (
@@ -1712,7 +2268,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       }`}>
                         {friendlyError.headline}
                       </div>
-                      <div className={`${typography.caption} text-text-header/80`}>
+                      <div className={`${typography.caption} text-text-header`}>
                         {friendlyError.explanation}
                       </div>
                       <div className="flex flex-col gap-2 mt-1">
@@ -1766,7 +2322,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                           )}
                         </div>
                         {/* Task P.3.5: Coaching text for repeated failures */}
-                        <p className={`${typography.caption} text-text-header/70`}>
+                        <p className={`${typography.caption} text-text-header`}>
                           If analysis keeps failing, try simplifying to 8-10 of the most important factors.
                         </p>
                       </div>
@@ -1787,32 +2343,47 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 {/* v7: Rerun + Compare buttons moved to sticky footer below */}
                 {/* Pre-run state: Show consolidated guidance and Run button */}
                 {isPreRun && nodes.length > 0 && (
-                  <div className="flex-1 min-h-0 flex flex-col" data-testid="outputs-pre-run">
-                    {/* Pre-Analysis Panel - M1 rebuild with new component architecture */}
-                    {/* Goal node selector and threshold are now inside AnalysisSettings accordion */}
-                    <PreAnalysisPanel
-                      onAnalyse={handleRunAnalysis}
-                      isAnalysing={isRunning}
-                      blockedReason={runBlockedTooltip}
-                      onSendMessage={sendMessage}
-                      expertMode={expertMode}
-                    />
-                  </div>
+                  isPreAnalysisV3Enabled() ? (
+                    /* Pre-analysis panel v3 (flag preAnalysisV3): outcome-centred
+                       panel, lazy-loaded so flag-off users pay no bundle cost.
+                       Reinstatement: flag off restores the legacy branch below,
+                       byte-identical. See docs/pre-analysis-panel-solution-design-v1.md §14. */
+                    <div className="flex-1 min-h-0 flex flex-col" data-testid="outputs-pre-run-v3">
+                      <Suspense fallback={null}>
+                        <PreAnalysisPanelV3
+                          onAnalyse={handleRunAnalysis}
+                          isAnalysing={isRunning}
+                          canRun={canRunAnalysis}
+                          blockedReason={runBlockedTooltip}
+                        />
+                      </Suspense>
+                    </div>
+                  ) : (
+                    <div className="flex-1 min-h-0 flex flex-col" data-testid="outputs-pre-run">
+                      {/* Pre-Analysis Panel - M1 rebuild with new component architecture */}
+                      {/* Goal node selector and threshold are now inside AnalysisSettings accordion */}
+                      <PreAnalysisPanel
+                        onAnalyse={handleRunAnalysis}
+                        isAnalysing={isRunning}
+                        blockedReason={runBlockedTooltip}
+                        onSendMessage={sendMessage}
+                        expertMode={expertMode}
+                      />
+                    </div>
+                  )
                 )}
-                {/* Phase 2 Sprint 1B: Slow-run UX feedback */}
-                {slowRunMessage && (
-                  <div
-                    className="flex items-center gap-2 px-3 py-2 bg-info-bg border border-info/30 rounded text-text-header"
-                    role="status"
-                    aria-live="polite"
-                    data-testid="slow-run-message"
-                  >
-                    <Clock className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                    <span className={`${typography.caption} text-text-header`}>{slowRunMessage}</span>
-                  </div>
-                )}
-                {/* I.2b: Cancel button during active analysis */}
-                {isRunning && (
+                {/* 1.16i + first-five-minutes: visible staged processing for
+                    the WHOLE analysis turn, on every run. It renders above
+                    the retained report when there is one and above the
+                    results skeleton when there is not — a first run is no
+                    longer silent for its first 20 seconds. The skeleton
+                    below is decorative so this stays the one live region. */}
+                {runStatus === 'banner' && <AnalysisRunningBanner startedAt={resultsStartedAt} />}
+                {/* I.2b: Cancel button during active analysis — gated on the
+                    V2 hook's own in-flight flag (1.16i): cancelRun only
+                    aborts the V2 request, so it must not render for a V5
+                    analysing turn. */}
+                {isV2RunInFlight && (
                   <div className="flex justify-end px-3">
                     <button
                       type="button"
@@ -1844,7 +2415,23 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     reliability assessment. Keeping import for potential future use in Compare tab. */}
                 {/* v1.1 Contract: Engine critique shown post-run only if blockers exist
                     Note: Pre-run validation uses graphHealth, post-run uses engine critique
-                    Only show if engine detected blockers that prevented clean results */}
+                    Only show if engine detected blockers that prevented clean results.
+
+                    ⛔ ROADMAP 2.651 — Paul's Ruling 3. The `!analysisNotConfirmedFresh`
+                    limb of this gate is RETIRED. RCA-C/F18 freshness-gated the render
+                    because an engine critique bakes the run-time limit into its free text
+                    ("Graph too large: 16 nodes (limit: 12)"), which a newer live limit
+                    could contradict. That is an argument about what the display CLAIMS,
+                    and the tab already answers it — AnalysisFreshnessNotice states "Model
+                    changed since this analysis. Re-run to update." directly above. Hiding
+                    it also hid ValidationPanel's Auto-fix, a graph MUTATION affordance,
+                    from the user's first edit onward. Staleness is a property of RESULTS,
+                    never a lock: out-of-date results are labelled, not withheld — the same
+                    doctrine the wrapper below already records ("v6 keeps stale results
+                    fully readable … No dimming, no aria-disabled lockout"). Live
+                    graphHealth still speaks in parallel; it is no longer made to speak
+                    INSTEAD. `!isPreRun` and the BLOCKER filter are untouched — both are
+                    pinned in `OutputsDock.staleEngineCritique.spec.tsx`. */}
                 {!isPreRun && report?.run?.critique && report.run.critique.some(c => c.severity === 'BLOCKER') && (
                   <div data-testid="outputs-engine-critique">
                     <ValidationPanel
@@ -1903,7 +2490,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     but previous results are still visible */}
                 {isError && report && (
                   <div
-                    className="flex items-center gap-2 px-3 py-2 bg-warning-bg border border-warning/30 rounded"
+                    className="flex items-center gap-2 px-3 py-2 bg-panel border border-warning/30 rounded"
                     role="status"
                     data-testid="stale-results-banner"
                   >
@@ -1913,40 +2500,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     </span>
                   </div>
                 )}
-                {/* Brief 4 Task 13: top-level stale card.
-                    Full border-warning/30 + bg-warning/5; the results body
-                    below dims to 0.6 so the user sees stale data but can't
-                    miss that it's stale. Scroll and selection remain usable
-                    (no pointer-events:none) — only mutation affordances are
-                    disabled inside ResultsBody via aria-disabled. */}
-                {analysisStale && !isError && report && (
-                  <div
-                    className="px-3 py-2.5 rounded-lg border border-warning/30"
-                    style={{ backgroundColor: 'rgb(255 166 86 / 0.05)' }}
-                    role="status"
-                    data-testid="graph-stale-banner"
-                  >
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-1" aria-hidden="true" />
-                      <div className="flex-1 min-w-0">
-                        <p className={`${typography.panelHeader} text-text-header`}>
-                          You've updated the model since this analysis ran
-                        </p>
-                        <p className={`${typography.panelBody} text-text-light`}>
-                          Results may not reflect your current graph.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleRunAnalysis}
-                        disabled={isRunning || !canRunAnalysis}
-                        className={`${typography.panelBody} bg-primary text-text-on-color rounded-md px-3 py-1 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0`}
-                      >
-                        Rerun analysis
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Wave F-B (brief §5.2): the top-level stale banner is RETIRED —
+                    AnalysisFreshnessNotice (mounted below in this tab's
+                    scroller, above the results body) is the sole freshness
+                    owner and carries the one Rerun. The 0.6 dim on the
+                    results body (below) stays, driven by the same canonical
+                    verdict. */}
                 {/* A.9: Conversation-triggered analysis indicator — auto-dismisses after 5s */}
                 {convIndicatorVisible && !isPreRun && report && (
                   <div
@@ -1969,28 +2528,48 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     Legacy blocks (InsightsPanel, AdvancedSettings, variance warning) removed
                     from Results tab — they are not in the v7 prototype.
                     ====================================================================== */}
+                {/* Wave 1: Decision overview — the orientation surface, first
+                    in the canonical hierarchy (brief §3). Mount-site gated
+                    (house pattern, review B1): flag-off renders NOTHING and
+                    pays no subscription or parsing cost. */}
+                {isDecisionOverviewEnabled() && !isPreRun && hasInlineSummary && resultsSectionData && (
+                  <DecisionOverviewCard title={overviewTitle} />
+                )}
+                {/* The freshness strip states fresh/stale/unknown (informational
+                    only — the anchor footer below owns the Rerun). It mounts
+                    ABOVE the dim wrapper at full opacity so the freshness signal
+                    never sits inside an aria-disabled region. */}
+                {!isPreRun && hasInlineSummary && resultsSectionData && (
+                  <AnalysisFreshnessNotice />
+                )}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <div
-                    style={{ opacity: analysisStale && !isError ? 0.6 : 1 }}
-                    aria-disabled={analysisStale && !isError ? true : undefined}
+                    // Parity audit: v6 keeps stale results fully readable —
+                    // the freshness strip above carries the warning and the
+                    // recovery action. No dimming, no aria-disabled lockout;
+                    // data-freshness-confirmed preserves the signal for tests.
+                    // Lane 3 review fold: the historical `!isError` escape
+                    // existed for banner mutual-exclusion when the body only
+                    // mounted at 'complete'; with the body now mounted at
+                    // 'error' it stamped confirmed='true' over an unconfirmed
+                    // display (a false test/debug signal) and unlocked
+                    // mutations below.
+                    data-freshness-confirmed={analysisNotConfirmedFresh ? 'false' : 'true'}
                     data-testid="results-body-stale-wrapper"
+                    // Lane 3 (SF2): run-in-flight is MARKED, not blanked —
+                    // v6 doctrine (content stays readable, no dim/lockout).
+                    aria-busy={isRunning || undefined}
+                    data-run-status={resultsStatus}
                   >
                   <ResultsBody
                     resultsSectionData={resultsSectionData}
                     tornadoData={tornadoData}
                     highlightedDriverId={highlightedDriverId}
                     registerDriverRef={registerDriverRef}
-                    strengthCorrections={getStrengthCorrections()}
-                    onFocusNode={(nodeId) => {
-                      setHighlightedNodes([nodeId])
-                      focusNodeById(nodeId)
-                      setTimeout(() => setHighlightedNodes([]), 3000)
-                    }}
+                    strengthCorrections={strengthCorrectionsForRun}
+                    onFocusNode={handleFocusResultNode}
                     isRunning={isRunning}
-                    onAddStatusQuoBaseline={addStatusQuoBaseline}
                     onApplyThreshold={handleApplyThreshold}
-                    onAddBaseline={handleAddBaseline}
-                    onSetBaseline={handleSetBaseline}
                     nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
                     seedUsed={(report as any)?.meta?.seed}
                     fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
@@ -2000,7 +2579,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     edgeCount={edges.length}
                     identifiability={report?.model_card?.identifiability_tag}
                     goalDirection={goalDirection}
-                    guidanceItems={resultsGuidanceItems}
                     onActivateGuidanceItem={setActiveGuidanceItem}
                     verifiedCount={transitionBridgeRef.current.verifiedCount}
                     influenceCoverage={transitionBridgeRef.current.influenceCoverage}
@@ -2011,16 +2589,36 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     onSetFactorValue={handleTriageSetValue}
                     expertMode={expertMode}
                     nodeValueLookup={nodeValueLookup}
-                    isStale={analysisStale && !isError}
+                    // ⛔ ROADMAP 2.651 — Paul's Ruling 3. This value NO LONGER
+                    // GATES ANY AFFORDANCE. `ResultsBody`'s suppression is now
+                    // `isRunning` alone; staleness is carried by the display
+                    // (`AnalysisFreshnessNotice`, and `data-freshness-confirmed`
+                    // on the wrapper above), never by withholding a control.
+                    // The prop is kept so this derivation stays visible at the
+                    // seam — re-attaching a lock to it must be a visible diff.
+                    // (The historical Lane 3 note about the `!isError` escape
+                    // "re-enabling factor mutations against a not-fresh display"
+                    // described the retired Brief 4 Task 13 gate and no longer
+                    // applies: mutations are correct on a not-fresh display.)
+                    isStale={analysisNotConfirmedFresh}
                   />
                   </div>
                 )}
                 </div>
                 {/* Brief 5.4 Phase 11: "Create decision brief" placeholder removed.
-                    "Rerun analysis" is the sole primary action in AnalysisFooter.
-                    V17 power pass: suppressed when the top Refresh-analysis banner
-                    is showing — avoids double stale messaging. */}
-                {!isPreRun && hasInlineSummary && resultsSectionData && !suppressAnalysisFooterForOrphanBanner && (
+                    Anchor-run-control (Paul, 21-Jul): the sticky bottom anchor
+                    is the SOLE Rerun owner. It shows the robustness verdict AND
+                    the Rerun action ALONGSIDE each other — never the verdict in
+                    place of the run control (Paul's finding: "the bottom anchor
+                    shows the verdict in the slot where the run-analysis control
+                    should be"). The footer is the tab's most reliable
+                    always-visible owner — it sits OUTSIDE the scroller, so it
+                    can never scroll away. The freshness strip above keeps
+                    stating fresh/stale/unknown but no longer carries a Rerun, so
+                    there is exactly one Rerun and no duplicate. See the
+                    orphan-banner note above for why nothing else may suppress
+                    this footer. */}
+                {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <AnalysisFooter
                     statusIcon={postRunFooter.icon}
                     statusIconClassName={postRunFooter.iconClass}
@@ -2039,7 +2637,16 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               </div>
             )}
             {effectiveActiveTab === 'compare' && (
-              <CompareTabBodyV2 onRunAnalysis={handleRunAnalysis} />
+              // 2.581 — ONE expert mode for the product. The Compare pill used
+              // to own a separate `feature.compareExpert` state, so the only
+              // control in the UI whose visible text says "Expert" turned on a
+              // different thing from the `</>` toggle beside it — the measured
+              // cause of the "downside tail is scenario-dependent" report.
+              <CompareTabBodyV2
+                onRunAnalysis={handleRunAnalysis}
+                expertMode={expertMode}
+                onToggleExpert={setExpertMode}
+              />
             )}
             {effectiveActiveTab === 'diagnostics' && (
               <ModelTabBody
@@ -2089,7 +2696,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         {aiPanelV2On && effectiveIsOpen ? (
           <div className="flex-shrink-0" data-testid="ai-panel-footer-stack">
             <SelectionPill />
-            <StaleAnalysisBadge />
+            {/* Wave F-B: StaleAnalysisBadge retired — third stale surface in
+                one dock, and its rerun bypassed the canonical runner. The
+                freshness strip owns stale + Rerun. */}
             <PersistentInputStrip
               isOlumiTabActive={effectiveActiveTab === 'olumi'}
               onOpenFloating={floatOutToWindow}
@@ -2146,5 +2755,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
         {/* Legacy v7 sticky footer removed — superseded by AnalysisFooter above */}
     </aside>
+    </>
   )
 }

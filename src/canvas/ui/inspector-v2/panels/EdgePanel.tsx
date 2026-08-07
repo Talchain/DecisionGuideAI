@@ -6,7 +6,7 @@
  */
 
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
 import { useEditConfirmation } from '../useEditConfirmation'
@@ -18,9 +18,7 @@ import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { useEdgeMutations } from '../useInspectorMutations'
-import { useStaleGuard } from '../useStaleGuard'
 import {
-  SECTION_TITLES,
   GROUP_LABELS,
   INLINE_LABELS,
   EDGE_LINK_NOTICES,
@@ -36,12 +34,16 @@ import { UncertaintyBand } from '../shared/UncertaintyBand'
 import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
 import { isEdgeFragile, getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
-import { extractCausalClaims, claimTypeLabel } from '../../../adapters/causalClaimsAdapter'
-import { trackGuidance } from '../../../../telemetry/guidanceEvents'
-import { resolveCoaching } from '../coachingConfig'
+import { resolveEdgeValuesCoaching } from '../coachingConfig'
+import {
+  edgeValueBand,
+  edgeValueSource,
+  resolveEdgeValueDisplay,
+  withLiveEdgeValue,
+  type EdgeValueBand,
+} from '../../../domain/edgeValueProvenance'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
-import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 
 // ─── Slider component for confidence and uncertainty ───────────────
@@ -109,17 +111,37 @@ function InspectorSlider({
   )
 }
 
-// ─── Confidence threshold colour ───────────────────────────────────
-function thresholdColor(v: number): string {
-  if (v >= 0.7) return 'text-success'
-  if (v >= 0.4) return 'text-warning'
-  return 'text-danger'
+// ─── Existence band → channel tokens ───────────────────────────────
+//
+// ⛔ These used to be `thresholdColor(v: number)` / `thresholdTrackVar(v:
+// number)`: three branches each, `>= 0.7` green / `>= 0.4` amber / else red,
+// and NO branch that could express "nobody set this". `beliefExists` falls
+// through to `EDGE_CONSTRAINTS.beliefExists.default` (0.7) when absent and
+// `USER_EDGE_DEFAULTS` pins it at 0.8 when the user simply drew the edge — so
+// BOTH unset states banded GREEN, directly beneath this panel's own coaching
+// sentence "Nobody has said how likely this connection is to exist yet."
+// #472/#473 gated the number; the colour carried the same claim wordlessly,
+// and pre-attentively, which makes it the harder one to disbelieve.
+//
+// The input is now `EdgeValueBand`, which is derived from `EdgeValueDisplay`
+// and therefore cannot be produced without a provenance verdict — a future
+// caller has no way to ask for "the colour of 0.7, source unknown". `Record`
+// rather than `switch`: adding a band is a type error here, not a silent
+// inheritance of a neighbour's colour.
+const EXISTENCE_BAND_TEXT: Record<EdgeValueBand, string> = {
+  unset: 'text-text-light',
+  low: 'text-danger',
+  moderate: 'text-warning',
+  high: 'text-success',
 }
 
-function thresholdTrackVar(v: number): string {
-  if (v >= 0.7) return 'var(--success)'
-  if (v >= 0.4) return 'var(--warning)'
-  return 'var(--danger)'
+// `undefined` ⇒ `InspectorSlider` renders no fill overlay at all. An unset
+// value gets a plain track, not a grey bar sized to a number nobody chose.
+const EXISTENCE_BAND_TRACK: Record<EdgeValueBand, string | undefined> = {
+  unset: undefined,
+  low: 'var(--danger)',
+  moderate: 'var(--warning)',
+  high: 'var(--success)',
 }
 
 export const EdgePanel = memo(function EdgePanel({
@@ -138,7 +160,6 @@ export const EdgePanel = memo(function EdgePanel({
   const edge = edgeId ? edges.find(e => e.id === edgeId) : undefined
   const mutations = useEdgeMutations(edgeId ?? '')
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
-  const { isStale } = useStaleGuard()
 
   // Source/target nodes
   const sourceNode = useMemo(() => nodes.find(n => n.id === edge?.source), [nodes, edge?.source])
@@ -152,6 +173,21 @@ export const EdgePanel = memo(function EdgePanel({
   const isOrganisational = sourceKind === 'decision' && targetKind === 'option'
   const isIntervention = sourceKind === 'option' && targetKind === 'factor'
 
+  // ⛔ PROVENANCE DISCLOSURE. The coaching card under this group used to say
+  // "This value was generated automatically." unconditionally. On a freshly
+  // drawn edge nothing generated either value — they are USER_EDGE_DEFAULTS —
+  // and on an edge the user had just adjusted the sentence was false in the
+  // other direction. A disclosure that answers "where did this come from?"
+  // with a fixed string is a stronger over-claim than the number it sits
+  // under, so it is now derived from the edge's actual stamps.
+  const edgeValuesCoaching = useMemo(
+    () => resolveEdgeValuesCoaching({
+      strength: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight'),
+      existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
+    }),
+    [edge?.data],
+  )
+
   // UI-SEM-029: Edge weight/direction defaults for display (0.5 / 'positive').
   const weight = edge?.data?.weight ?? 0.5
   const direction = edge?.data?.direction ?? 'positive'
@@ -163,6 +199,22 @@ export const EdgePanel = memo(function EdgePanel({
   const [localStrength, setLocalStrength] = useState(signedValue)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
+
+  // Existence band for the colour + track-fill channels. Provenance comes from
+  // the STORE (the only thing that knows whether anyone set this); the value
+  // comes from the live slider, so the colour bands the number on screen rather
+  // than one a debounce tick behind it. `withLiveEdgeValue` cannot upgrade an
+  // unset verdict, so this composition cannot fabricate a source.
+  const existenceBand: EdgeValueBand = useMemo(
+    () =>
+      edgeValueBand(
+        withLiveEdgeValue(
+          resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
+          localBelief,
+        ),
+      ),
+    [edge?.data, localBelief],
+  )
 
   // Fragility check
   const isFragile = useMemo(() => {
@@ -245,7 +297,7 @@ export const EdgePanel = memo(function EdgePanel({
           {/* ── Context group ─────────────────────────────────── */}
           {isFragile && isResultsMode && (
             <PanelGroup kind="context" label={GROUP_LABELS.context}>
-              <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+              <StaleGuardBanner hasResults={isResultsMode}>
                 <div className="bg-panel border border-danger/30 p-2.5 rounded-lg">
                   <div className={`${typography.panelBody} font-medium text-danger flex items-center gap-1`}>
                     <AlertTriangle size={13} className="text-danger" />
@@ -328,11 +380,11 @@ export const EdgePanel = memo(function EdgePanel({
                     max={1}
                     step={0.05}
                     onChange={handleBeliefChange}
-                    trackFillColor={thresholdTrackVar(localBelief)}
+                    trackFillColor={EXISTENCE_BAND_TRACK[existenceBand]}
                     aria-label="Connection existence probability"
                   />
                 </div>
-                <span className={`${typography.panelBody} min-w-[32px] text-right ${thresholdColor(localBelief)}`}>
+                <span data-testid="edge-existence-readout" className={`${typography.panelBody} min-w-[32px] text-right ${EXISTENCE_BAND_TEXT[existenceBand]}`}>
                   {Math.round(localBelief * 100)}%
                 </span>
               </div>
@@ -369,34 +421,26 @@ export const EdgePanel = memo(function EdgePanel({
             <InspectorCoaching
               elementId={edgeId}
               panelType="edge"
-              fallbackText={resolveCoaching('edgeWeight', { factorName: sourceLabel })}
+              fallbackText={edgeValuesCoaching}
               labelContext={{ label: `${sourceLabel} \u2192 ${targetLabel}`, sourceLabel, targetLabel }}
             />
           </PanelGroup>
 
           {/* ── Evidence group ─────────────────────────────────── */}
-          <PanelGroup kind="evidence" label={GROUP_LABELS.evidence}>
-            {/* Per-edge provenance is stripped by DraftChat (known limitation).
-                Default to fixed copy for all edges until un-stripped. */}
-            <div className="bg-panel border border-panel-border rounded-lg p-2.5">
-              <span
-                className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
-                style={{ border: '1px solid var(--warning)4D' }}
-              >
-                {EDGE_COPY.noEvidenceTitle}
-              </span>
-              <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
-                {EDGE_COPY.noEvidenceBody}
-              </p>
-            </div>
-
-            {/* Calibration — contested validation */}
-            {(() => {
-              const validation = (edge?.data as Record<string, unknown>)?.validation as
-                import('../../../../canvas/domain/validation').ValidationMetadata | undefined
-              if (!validation || validation.status !== 'contested') return null
-              return (
-                <div className="mt-2 bg-panel border border-warning/30 rounded-lg p-2.5">
+          {/* The generic "No evidence yet" note was removed: DraftChat strips
+              per-edge provenance upstream, so it rendered a fixed placeholder
+              for EVERY edge — never real evidence. Re-add an evidence surface
+              here when DraftChat stops stripping edge provenance. The
+              contested-validation calibration below is live (CEE multi-pass
+              disagreement, edge.data.validation) so the group renders only when
+              an edge is actually contested. */}
+          {(() => {
+            const validation = (edge?.data as Record<string, unknown>)?.validation as
+              import('../../../../canvas/domain/validation').ValidationMetadata | undefined
+            if (!validation || validation.status !== 'contested') return null
+            return (
+              <PanelGroup kind="evidence" label={GROUP_LABELS.evidence}>
+                <div className="bg-panel border border-warning/30 rounded-lg p-2.5">
                   <div className={`${typography.panelBody} font-medium text-warning flex items-center gap-1`}>
                     <AlertTriangle size={13} className="text-warning" />
                     {EDGE_COPY.needsYourJudgement}
@@ -431,9 +475,9 @@ export const EdgePanel = memo(function EdgePanel({
                     </span>
                   )}
                 </div>
-              )
-            })()}
-          </PanelGroup>
+              </PanelGroup>
+            )
+          })()}
 
           {/* ── Expert-only model detail ───────────────────────── */}
           <TechnicalDisclosure visible={techMode} label={INLINE_LABELS.modelDetail}>
@@ -457,80 +501,3 @@ export const EdgePanel = memo(function EdgePanel({
     </div>
   )
 })
-
-// ---------------------------------------------------------------------------
-// CausalClaimsSection — Scientific basis for an edge (Phase 2A)
-// ---------------------------------------------------------------------------
-
-const MAX_CLAIMS_VISIBLE = 3
-
-/** @internal Exported for testing only */
-export function CausalClaimsSection({ edgeId, edgeData }: { edgeId: string; edgeData: Record<string, unknown> }) {
-  const claims = useMemo(() => extractCausalClaims(edgeData), [edgeData])
-  const [expanded, setExpanded] = useState(false)
-
-  const visible = expanded ? claims : claims.slice(0, MAX_CLAIMS_VISIBLE)
-  const remaining = claims.length - MAX_CLAIMS_VISIBLE
-
-  const handleExpand = () => {
-    setExpanded(true)
-    const state = useCanvasStore.getState()
-    trackGuidance('CAUSAL_CLAIM_EXPANDED', {
-      item_id: edgeId,
-      item_type: 'claim',
-      surface: 'inspector',
-      scenario_id: state.currentScenarioId ?? undefined,
-      profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
-    })
-  }
-
-  return (
-    <>
-      <InlineSectionLabel>{SECTION_TITLES.scientificBasis.label}</InlineSectionLabel>
-
-      {claims.length === 0 ? (
-        <p className={`${typography.panelMeta} text-text-light`}>
-          No scientific claims attached to this relationship.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {visible.map((claim) => (
-            <div key={`${claim.claim_type}-${claim.statement.slice(0, 40)}`} className="bg-panel border border-panel-border rounded-lg p-2.5 space-y-1">
-              <span
-                className={`${typography.panelMeta} font-medium inline-flex items-center px-1.5 py-0.5 rounded-full bg-transparent border border-info/30 text-text-body`}
-              >
-                {claimTypeLabel(claim.claim_type)}
-              </span>
-              <p className={`${typography.panelBody} text-text-body`}>{claim.statement}</p>
-              {claim.source && (
-                <p className={`${typography.panelMeta} text-text-light`}>{claim.source}</p>
-              )}
-            </div>
-          ))}
-
-          {remaining > 0 && !expanded && (
-            <button
-              type="button"
-              onClick={handleExpand}
-              className={`${typography.panelMeta} text-info hover:underline inline-flex items-center gap-1`}
-            >
-              and {remaining} more
-              <ChevronDown className="w-3 h-3" aria-hidden="true" />
-            </button>
-          )}
-
-          {expanded && remaining > 0 && (
-            <button
-              type="button"
-              onClick={() => setExpanded(false)}
-              className={`${typography.panelMeta} text-info hover:underline inline-flex items-center gap-1`}
-            >
-              Show fewer
-              <ChevronRight className="w-3 h-3" aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      )}
-    </>
-  )
-}

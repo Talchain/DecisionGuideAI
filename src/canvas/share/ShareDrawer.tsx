@@ -117,7 +117,7 @@ export function ShareDrawer({ isOpen, onClose, seed: propSeed, hash: propHash }:
   useEffect(() => {
     if (!isOpen || !hash) return
 
-    const allowlistEnabled = String(import.meta.env.VITE_FEATURE_SHARE_ALLOWLIST) === '1'
+    const allowlistEnabled = String(import.meta.env?.VITE_FEATURE_SHARE_ALLOWLIST) === '1'
     if (!allowlistEnabled) {
       setAllowlistStatus('unknown')
       return
@@ -205,7 +205,7 @@ export function ShareDrawer({ isOpen, onClose, seed: propSeed, hash: propHash }:
         </div>
 
         {/* Allowlist Status */}
-        {String(import.meta.env.VITE_FEATURE_SHARE_ALLOWLIST) === '1' && hash && (
+        {String(import.meta.env?.VITE_FEATURE_SHARE_ALLOWLIST) === '1' && hash && (
           <div className="mb-4">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">Allowlist Status:</span>

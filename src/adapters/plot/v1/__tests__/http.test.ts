@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { health, runSync, cancel, clearCapabilitiesCache } from '../http'
 import type { V1RunRequest, V1HealthResponse, V1SyncRunResponse } from '../types'
+// Pin VITE_PLOT_PROXY_BASE so the '/api/plot/v1/...' URL assertions below
+// hold in both environments — locally .env.local commonly sets it to
+// '/api/plot', while CI leaves it unset (falls back to '/bff/engine').
+// Same failure mode centralised in tests/setup/msw-env.ts after ChatGPT
+// review P0.1 (2026-04-18, determinism.test.ts); this spec pre-dated the
+// helper and had drifted back onto the untracked-.env.local dependency.
+import { pinPlotProxyBase } from '../../../../../tests/setup/msw-env'
+
+pinPlotProxyBase()
 
 // Sprint N P1: Helper to mock the /version capabilities endpoint
 const mockCapabilitiesResponse = () => ({

@@ -89,15 +89,15 @@ export default function ScenarioDrawer({ open, onClose, restoreFocusRef, seed, b
         <h2 className="font-semibold text-base mb-2 text-ink-900">Scenarios</h2>
 
         <div className="space-y-2">
-          <label className="text-sm text-ink-900/80 flex flex-col gap-1">
+          <label className="text-sm text-ink-900 flex flex-col gap-1">
             <span>Name</span>
             <input ref={firstRef} data-testid="scenario-name" type="text" className="px-2 py-1 border rounded" value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-          <label className="text-sm text-ink-900/80 flex flex-col gap-1">
+          <label className="text-sm text-ink-900 flex flex-col gap-1">
             <span>Description (optional)</span>
             <textarea data-testid="scenario-desc" className="px-2 py-1 border rounded" rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} />
           </label>
-          <label className="flex items-center gap-2 text-sm text-ink-900/80">
+          <label className="flex items-center gap-2 text-sm text-ink-900">
             <input type="checkbox" data-testid="scenario-remember" checked={remember} onChange={(e) => { setRememberState(e.target.checked); try { setRemember(e.target.checked) } catch {} }} />
             <span>Remember last template</span>
           </label>

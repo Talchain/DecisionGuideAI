@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { transformEdgeToV2, uiOptionToV2Option, buildV2RequestFromAnalysisReady } from '../../../../src/adapters/plot/v2/adapter'
+import { normaliseGoalThresholdForRequest, resolveGoalThresholdCap } from '../../../../src/canvas/hooks/useV2Run'
 import { useCanvasStore } from '../../../../src/canvas/store'
 import type { Edge, Node } from '@xyflow/react'
 import type { CEEAnalysisReady } from '../../../../src/adapters/cee/types'
@@ -65,18 +66,22 @@ describe('Inspector ↔ Adapter contracts (B.I.13)', () => {
   })
 
   /**
-   * Test 3: store.setGoalThreshold(200) → store.goalThreshold === 200 → request.goal_threshold === 200
+   * Test 3: store.setGoalThreshold(raw) → store.goalThreshold (raw user units)
+   * → useV2Run's UI-SEM-058 conversion → request.goal_threshold (normalised 0-1)
    *
    * Full contract path:
-   * 1. GoalThresholdEditor writes to store.setGoalThreshold()
-   * 2. useV2Run reads store.goalThreshold
-   * 3. executeV2RunWithAnalysisReady receives goalThreshold param
-   * 4. Line 1189-1190: request.goal_threshold = goalThreshold (overrides builder value)
+   * 1. GoalThresholdEditor writes RAW user units to store.setGoalThreshold()
+   * 2. useV2Run reads store.goalThreshold and resolves the scale cap
+   *    (resolveGoalThresholdCap: analysis_ready, then goal-node data)
+   * 3. normaliseGoalThresholdForRequest converts raw/cap → normalised 0-1
+   * 4. executeV2RunWithAnalysisReady applies the override (number sets,
+   *    null clears the builder's baked value, undefined leaves it standing)
    *
-   * This test verifies store write AND adapter request construction boundary.
+   * This test exercises the REAL conversion helpers, not a hand-simulated
+   * passthrough — the raw store value must never reach the request verbatim.
    */
-  it('setGoalThreshold(200) → store → adapter request.goal_threshold === 200', () => {
-    // Step 1: Verify store write
+  it('setGoalThreshold(200, cap 1000) → store raw → request.goal_threshold 0.2 (normalised)', () => {
+    // Step 1: Verify store write (raw user units)
     useCanvasStore.setState({ goalThreshold: null })
     useCanvasStore.getState().setGoalThreshold(200)
     expect(useCanvasStore.getState().goalThreshold).toBe(200)
@@ -84,7 +89,7 @@ describe('Inspector ↔ Adapter contracts (B.I.13)', () => {
     // Step 2: Build a request via buildV2RequestFromAnalysisReady with analysisReady
     // that has NO goal_threshold — simulates CEE not setting one
     const nodes: Node[] = [
-      { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal', kind: 'goal' } },
+      { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal', kind: 'goal', goal_threshold_cap: 1000 } },
       { id: 'f1', type: 'factor', position: { x: 100, y: 0 }, data: { label: 'Factor', kind: 'factor' } },
     ]
     const edges: Edge[] = [
@@ -99,15 +104,24 @@ describe('Inspector ↔ Adapter contracts (B.I.13)', () => {
 
     const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
 
-    // Step 3: Simulate executeV2RunWithAnalysisReady's goalThreshold override (lines 1189-1190)
-    // This is the exact code path: if (goalThreshold !== undefined) { request.goal_threshold = goalThreshold }
+    // Step 3: The REAL request-boundary path (UI-SEM-058): resolve the cap
+    // (goal-node data here), normalise raw/cap, then apply the override the
+    // way executeV2RunWithAnalysisReady does.
     const goalThreshold = useCanvasStore.getState().goalThreshold
-    if (goalThreshold !== undefined && goalThreshold !== null) {
-      request.goal_threshold = goalThreshold
+    const cap = resolveGoalThresholdCap(analysisReady, nodes, 'g1')
+    expect(cap).toBe(1000)
+    const normalised = normaliseGoalThresholdForRequest(goalThreshold, cap)
+    if (normalised !== undefined) {
+      request.goal_threshold = normalised
     }
 
-    expect(request.goal_threshold).toBe(200)
+    expect(request.goal_threshold).toBeCloseTo(0.2, 10)
     expect(request.goal_node_id).toBe('g1')
+
+    // Unresolvable case: no cap anywhere and raw > 1 → the helper refuses to
+    // pass the raw value through (undefined), so a store threshold can never
+    // reach PLoT unconverted.
+    expect(normaliseGoalThresholdForRequest(200, undefined)).toBeUndefined()
 
     // Clean up
     useCanvasStore.setState({ goalThreshold: null })

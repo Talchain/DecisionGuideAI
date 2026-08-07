@@ -11,7 +11,48 @@
  * Usage:
  * - Always use CSS variables, never raw hex values
  * - Use semantic tokens in components
- * - Borders: Use rgba() with main color at 0.3 opacity
+ * - Borders: `border-{colour}/30` (see THE CHANNEL-TRIPLE FORM below)
+ *
+ * ============================================================
+ * THE CHANNEL-TRIPLE FORM — read before editing any colour
+ * ============================================================
+ *
+ * Semantic colours are declared as their CHANNELS, with the colour derived
+ * from them:
+ *
+ *     --info-rgb: 39 122 157;
+ *     --info: rgb(var(--info-rgb));
+ *
+ * The TRIPLE is the single source of truth. The hex form is derived, so the
+ * two can never disagree — do not "helpfully" restore a literal hex and leave
+ * the triple behind, and never state the same colour in both places.
+ *
+ * WHY. Tailwind can only apply an opacity modifier to a colour it can
+ * decompose into channels. Against a bare `var(--info)`, Tailwind 3.4 emits
+ * NO RULE AT ALL for `border-info/30` — no warning, no error, no fallback
+ * declaration. The element silently keeps whatever colour it would otherwise
+ * have had, which for a border is preflight's `#e5e7eb`. That is exactly what
+ * happened: the outlined-pill recipe this design system documents as canonical
+ * had never emitted a single rule for any semantic colour, so the colour
+ * channel that carries "how it's doing" was dropped product-wide.
+ *
+ * The triple lets tailwind.config.js hand Tailwind
+ * `rgb(var(--info-rgb) / <alpha-value>)`, which emits. Every existing
+ * `var(--info)` reference is unaffected — it resolves to the same colour.
+ *
+ * WHAT ENFORCES IT. tests/ci-guards/semantic-colour-alpha.spec.ts compiles the
+ * REAL Tailwind config and fails if any opacity-modified utility used in src/
+ * emits nothing; it carries its own negative control, so reverting a colour to
+ * the bare `var()` form turns it red. A colour that is NOT used with a modifier
+ * anywhere may stay a plain literal — the guard derives the list from usage,
+ * so the day it is used with a modifier, it fails loud rather than silently
+ * rendering nothing.
+ *
+ * READERS OF THIS FILE. Five parsers recover token values from this file (the
+ * artefact-template mirror, the --text-light contrast pin, the brand-token AA
+ * suite, the ghost-outline pin and the css-var census). They all resolve the
+ * triple form through ONE shared implementation, src/styles/channelTriple.mjs
+ * — extend that, never a local regex, or they will come to disagree.
  */
 
 :root {
@@ -20,9 +61,29 @@
      ============================================ */
 
   /* Text Colors */
-  --text-header: #262626;
+  --text-header-rgb: 38 38 38;
+  --text-header: rgb(var(--text-header-rgb));
   --text-body: #3F3F3E;
-  --text-light: #908D8D;
+  /* Muted / meta text.
+     A11y: this was #908D8D, which was NOT a legal text colour at any size —
+     3.26:1 on --bg-panel and 2.90:1 on --bg-canvas against SC 1.4.3's 4.5:1,
+     with zero of its ~785 live sites qualifying for the large-text exemption
+     (that needs >=24px, or >=18.66px bold; the largest muted site is 20px).
+     Retinted to #6E6B6B: 5.23:1 on --bg-panel, 4.65:1 on --bg-canvas, both
+     preserving this token's warm cast (R = G+3, B = G).
+     WHY NOT LIGHTER. #706D6D is the lightest value that clears 4.5:1 on both
+     grounds (5.08 / 4.51), and it was rejected DELIBERATELY: 4.51 clears the
+     bar by 0.33%, which is close enough that a third-party checker rounding
+     differently, or a one-step tweak to --bg-canvas, would flip a compliance
+     CLAIM. #6E6B6B clears by 3.33% — 10x the headroom — and the two extra
+     steps cost ΔE2000 0.77, below the ~1.0 just-noticeable difference, so
+     nothing is lost in quietness. --bg-canvas is the binding ground; darken
+     it, or lighten this token far, and SC 1.4.3 breaks.
+     tests/ci-guards/text-light-contrast.spec.ts DERIVES both sides from this
+     file and pins the MARGIN, not just the bar, so it goes red if either
+     moves. Do not hand-edit this value without re-running that guard. */
+  --text-light-rgb: 110 107 107;
+  --text-light: rgb(var(--text-light-rgb));
   --text-on-color: #FFFFFF;
 
   /* Legacy aliases (for gradual migration) */
@@ -36,9 +97,12 @@
      ============================================ */
 
   --bg-canvas: #F4F0EA;
-  --bg-panel: #FEFEFE;
-  --bg-panel-hover: #FEF9F3;
-  --border-default: #EEE6D8;
+  --bg-panel-rgb: 254 254 254;
+  --bg-panel: rgb(var(--bg-panel-rgb));
+  --bg-panel-hover-rgb: 254 249 243;
+  --bg-panel-hover: rgb(var(--bg-panel-hover-rgb));
+  --border-default-rgb: 238 230 216;
+  --border-default: rgb(var(--border-default-rgb));
 
   /* Legacy aliases */
   --canvas-25: var(--bg-canvas);
@@ -53,36 +117,78 @@
      SEMANTIC COLORS (Two-Shade System)
      Each has: Main (text/icons) + Light (backgrounds)
      Borders: Use main color at 30% opacity
+
+     EXACTLY TWO SHADES. There is no third "-bg" tint (D2, DS delta audit
+     2026-07-16). --danger-bg/--success-bg/--info-bg/--warning-bg used to
+     exist here, undocumented and contradicting the ratified two-shade law.
+     They were barely perceptible (1.04–1.07:1 against the panel ground) and
+     duplicated the documented recipe. For a tinted container use:
+         bg-panel  +  border-{colour}/30
      ============================================ */
 
   /* Danger / Risk / Critical (Red) */
-  --danger: #EA7B4B;
-  --danger-light: #FFB393;
-  --danger-bg: #FFF5F0;
+  --danger-rgb: 234 123 75;
+  --danger: rgb(var(--danger-rgb));
+  --danger-light-rgb: 255 179 147;
+  --danger-light: rgb(var(--danger-light-rgb));
   /* Border: rgba(234, 123, 75, 0.3) */
 
   /* Success / Outcome / Positive (Green) */
-  --success: #67C89E;
-  --success-light: #B8E2D0;
-  --success-bg: #F0FAF5;
+  --success-rgb: 103 200 158;
+  --success: rgb(var(--success-rgb));
+  --success-light-rgb: 184 226 208;
+  --success-light: rgb(var(--success-light-rgb));
   /* Border: rgba(103, 200, 158, 0.3) */
 
   /* Info / Decision / Navigation (Blue)
-     A11y: Updated to #52A3C8 for WCAG AA 3:1 UI-component contrast on white.
+     CANONICAL VALUE — #277A9D is the single source of truth for info blue and
+     is aliased by --primary, --sky-500, --semantic-info, --focus-color,
+     --link-color and --chart-1. Do not introduce a second value: this token
+     previously carried THREE documented values (#52A3C8 here, #2B7FA2 in
+     DESIGN_SYSTEM.md, #63ADCF in the v5 spec), which is why the quick-ref
+     colour table could not be trusted.
+
+     A11y (ROADMAP 1.51). MEASURE AGAINST THE GROUND THE TEXT IS PAINTED ON,
+     NOT AGAINST WHITE. The first attempt at this fix chose #2B7FA2 because it
+     computes to 4.51:1 on pure #FFFFFF — but almost nothing in this product is
+     painted on pure white. On --bg-panel (#FEFEFE), the surface info-blue text
+     overwhelmingly DOES sit on, #2B7FA2 computed to 4.47:1, and on
+     --bg-panel-hover (#FEF9F3) to 4.30:1. It failed SC 1.4.3 on both. A 0.03
+     miss that measuring against white cannot see.
+
+     #277A9D clears 4.5:1 on every ground where --info is used as TEXT:
+         #FFFFFF pure white ................ 4.82:1
+         --bg-panel      #FEFEFE ........... 4.78:1
+         bg-panel/95 over canvas #FDFDFD ... 4.74:1   (dock, edge labels)
+         --bg-panel-hover #FEF9F3 .......... 4.60:1   <- the binding ground
+     On --bg-canvas (#F4F0EA) it computes to 4.25:1. That ground is deliberately
+     held to the 3:1 SC 1.4.11 bar, not 4.5:1: info blue is never used as TEXT
+     on the canvas. The only info-blue on the raw canvas ground is non-text
+     glyphs — the AuthGuard/AuthCallback spinners, the StarterDecisions arrow
+     and the selected-edge arrowhead — all of which are UI components. Forcing
+     4.5:1 there would darken the brand blue by roughly twice as much for no
+     text-legibility gain.
+
+     The ratios are RECOMPUTED from this token against the ground tokens, never
+     hardcoded, in src/styles/__tests__/brand-tokens.spec.ts — that test fails
+     if this value, or any of those ground tokens, moves below AA.
      Light shade kept for canvas node fills and selection backgrounds. */
-  --info: #52A3C8;
-  --info-light: #BAD7E4;
-  --info-bg: #F0F7FB;
-  /* Border: rgba(82, 163, 200, 0.3) */
+  --info-rgb: 39 122 157;
+  --info: rgb(var(--info-rgb));
+  --info-light-rgb: 186 215 228;
+  --info-light: rgb(var(--info-light-rgb));
+  /* Border: rgba(39, 122, 157, 0.3) */
 
   /* Warning (Orange) - Separate from Danger */
-  --warning: #FFA656;
-  --warning-light: #FCC798;
-  --warning-bg: #FFF8F0;
+  --warning-rgb: 255 166 86;
+  --warning: rgb(var(--warning-rgb));
+  --warning-light-rgb: 252 199 152;
+  --warning-light: rgb(var(--warning-light-rgb));
   /* Border: rgba(255, 166, 86, 0.3) */
 
   /* Border emphasis (stronger than --border-default) */
-  --border-emphasis: #DDD4C4;
+  --border-emphasis-rgb: 221 212 196;
+  --border-emphasis: rgb(var(--border-emphasis-rgb));
 
   /* Neutral track fill (for empty progress-bar tracks and similar
      "outline of a container" surfaces). Reads as clearly neutral
@@ -95,18 +201,44 @@
      ============================================ */
 
   /* Goal (Yellow) - Primary actions */
-  --goal: #F5C433;
-  --goal-light: #F4DB92;
+  /* Causal-edge polarity (E1, 2026-07-11 — Paul-selected).
+     Rose over amber for negative: amber is reserved for the warning/fragility
+     family (C2 ruling). ΔE-validated in NORMAL vision (CIE76): rose sits 99.7
+     from the positive green, 66.9 from amber, 48.4 from the risk border
+     #EA7B4B — the old #ef4444 negative sat at 27.6, the collision E1 fixed.
+     Dark negative clears the dark risk border #FF6B6B. NOT CVD-validated:
+     the later measurement (cvdContrast.ts, polarityContrast.spec) found this
+     pair separates WORSE for a red-green dichromat than the green/red it
+     replaced (ΔE2000 11.7 vs 28.3 worst-case) — the +/− glyph, not the hue,
+     carries polarity for those viewers. Yellow (--goal) stays reserved for
+     truly uninitialised edges; neutral grey for weight-set-but-no-direction
+     and the deliberate weight=0 choice. */
+  --edge-positive: #62B290;
+  --edge-negative: #D6336C;
+  --edge-neutral: #D4D4D8;
+  --edge-positive-dark: #BBF7D0;
+  --edge-negative-dark: #F06595;
+  --edge-neutral-dark: #A1A1AA;
+
+  --goal-rgb: 245 196 51;
+
+  --goal: rgb(var(--goal-rgb));
+  --goal-light-rgb: 244 219 146;
+  --goal-light: rgb(var(--goal-light-rgb));
   /* Border: rgba(245, 196, 51, 0.3) */
 
   /* Option (Purple) */
-  --option: #AAA7E4;
-  --option-light: #DDDCF5;
+  --option-rgb: 170 167 228;
+  --option: rgb(var(--option-rgb));
+  --option-light-rgb: 221 220 245;
+  --option-light: rgb(var(--option-light-rgb));
   /* Border: rgba(170, 167, 228, 0.3) */
 
   /* Factor (Stone) */
-  --factor: #B0A899;
-  --factor-light: #EEE6D8;
+  --factor-rgb: 176 168 153;
+  --factor: rgb(var(--factor-rgb));
+  --factor-light-rgb: 238 230 216;
+  --factor-light: rgb(var(--factor-light-rgb));
   /* Border: rgba(176, 168, 153, 0.3) */
 
   /* ============================================
@@ -132,31 +264,40 @@
      (Derived from main colors)
      ============================================ */
 
-  /* Primary (Info Blue — v5 §3.10: hover shifts to success green "ready to act") */
-  --primary: #52A3C8;
+  /* Primary (Info Blue — v5 §3.10: hover shifts to success green "ready to act")
+     --primary is the canonical info blue; --primary-hover/-active are the
+     DELIBERATE green shift documented in v5 §3.10 and are left unchanged. */
+  --primary-rgb: var(--info-rgb);
+  --primary: rgb(var(--primary-rgb));
   --primary-hover: #67C89E;
   --primary-active: #5AA88A;
-  --primary-disabled: rgba(82, 163, 200, 0.4);
+  --primary-disabled: rgb(var(--info-rgb) / 0.4);
 
   /* Danger */
   --danger-hover: #D96A3A;
   --danger-active: #C85A2A;
-  --danger-disabled: rgba(234, 123, 75, 0.4);
+  --danger-disabled: rgb(var(--danger-rgb) / 0.4);
 
-  /* Info — derived from updated --info (#52A3C8) */
+  /* Info — hover/active for the canonical --info (#277A9D). Both stay darker
+     than the base (5.69:1 and 6.75:1 on white, vs the base's 4.82:1) so the
+     progression still reads in the right direction. Darkening the base to
+     #277A9D compressed the base->hover step from 6.33 to 4.45 ΔE2000, which
+     leaves it above the ~2.3 just-noticeable threshold AND very close to the
+     hover->active step (4.23) — the ramp is now more evenly spaced than it
+     was, so these two values are deliberately left unchanged. */
   --info-hover: #236E8E;
   --info-active: #1D6280;
-  --info-disabled: rgba(82, 163, 200, 0.4);
+  --info-disabled: rgb(var(--info-rgb) / 0.4);
 
   /* Success */
   --success-hover: #5AB88D;
   --success-active: #4DA87C;
-  --success-disabled: rgba(103, 200, 158, 0.4);
+  --success-disabled: rgb(var(--success-rgb) / 0.4);
 
   /* Warning */
   --warning-hover: #E89545;
   --warning-active: #D18534;
-  --warning-disabled: rgba(255, 166, 86, 0.4);
+  --warning-disabled: rgb(var(--warning-rgb) / 0.4);
 
   /* ============================================
      FOCUS & ACCESSIBILITY
@@ -243,12 +384,26 @@
      CHART COLORS (Data Visualization)
      ============================================ */
 
+  /* Series 1-4 reuse entity colours, which is legitimate: those series ARE
+     those entities on the charts that render them. Series 5-6 are ORDINAL —
+     they name nothing, so they must alias nothing. They previously aliased
+     --warning and --danger, which meant a neutral 5th data series rendered in
+     the colour that means "warning" everywhere else in the product (D3, DS
+     delta audit 2026-07-16).
+
+     The two new hues are literal, deliberately not var() indirection, so the
+     "aliases nothing" property is structural rather than a convention. Values
+     chosen by search under protan/deutan simulation (Vienot-Brettel-Mollon
+     1999), not by eye — see the PR body for the full dE2000 matrix. Both sit
+     in the low-lightness band the existing four leave empty (L* 31 and 37 vs
+     50/74/81/71), because red-green deficiency collapses hue onto a
+     blue-yellow axis and LIGHTNESS is the separation that survives it. */
   --chart-1: var(--info);
   --chart-2: var(--success);
   --chart-3: var(--goal);
   --chart-4: var(--option);
-  --chart-5: var(--warning);
-  --chart-6: var(--danger);
+  --chart-5: #12514C;  /* deep teal  — ordinal only, aliases nothing */
+  --chart-6: #4B5E00;  /* deep olive — ordinal only, aliases nothing */
 }
 
 /* ============================================

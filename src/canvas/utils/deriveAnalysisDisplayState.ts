@@ -25,8 +25,15 @@ export interface DeriveAnalysisDisplayStateInput {
   ceeAnalysisReadyStatus: string | undefined
   /** True when results.report is non-null (populated run response). */
   hasReport: boolean
-  /** Canvas-store flag: true when the graph was edited after the last run. */
-  graphEditedSinceLastRun: boolean
+  /**
+   * True when the analysis is DEFINITELY out of date — the shared CEE freshness
+   * display semantic (`classifyFreshnessForDisplay`) is 'changed' (CEE 'stale'
+   * OR a retained-fresh-now-dirtied by a local edit). Sourced via the hook from
+   * the CEE freshness slice + dirty overlay, NOT the local `graphEditedSinceLastRun`
+   * flag — so 'cannot_confirm' (CEE-unknown) never fabricates a 'Results may be
+   * outdated' claim here (it falls through to the neutral 'complete' completion fact).
+   */
+  analysisChanged: boolean
 }
 
 export interface AnalysisDisplayCTA {
@@ -56,11 +63,21 @@ export interface AnalysisDisplayStateView {
  * readiness (CEE response in flight, slice transiently null during scenario
  * load). A genuinely complete prior result should remain visible during
  * those windows.
+ *
+ * 'blocked' (Lane UI-W5, CEE #358 defensive leg): CEE's documented
+ * semantics are "validation failure prevents analysis — invalid graph
+ * structure". The empty-options synthesis on legacy/unparseable reloads is
+ * rejected by the V5 normaliser before it reaches this helper (store slice
+ * cleared → status undefined), but the Ep2 readiness path can emit
+ * 'blocked' WITH populated options, which the lenient normaliser passes
+ * through — without this entry that state would render green "Analysis
+ * complete" whenever a prior report is held. Rendering-level mapping only.
  */
 const EXPLICIT_NOT_READY_STATUSES: ReadonlySet<string> = new Set([
   'needs_encoding',
   'needs_user_mapping',
   'needs_user_input',
+  'blocked',
 ])
 
 function isExplicitNotReady(status: string | undefined): boolean {
@@ -71,11 +88,13 @@ function isExplicitNotReady(status: string | undefined): boolean {
  * Precedence (first match wins):
  *   1. Explicit non-ready CEE status (needs_encoding / needs_user_mapping /
  *      needs_user_input) → 'not_ready' even when a prior report exists.
- *   2. hasReport && !graphEditedSinceLastRun → 'complete'
+ *   2. hasReport && !analysisChanged → 'complete'
  *      Works even when readiness is briefly absent (undefined / 'missing'),
- *      because a populated, current report stands on its own — readiness
- *      gating only matters before a successful run lands.
- *   3. hasReport && graphEditedSinceLastRun → 'results_stale'
+ *      because a populated report stands on its own — readiness gating only
+ *      matters before a successful run lands. 'Analysis complete' is a completion
+ *      fact, not a currentness claim, so this is also the correct neutral
+ *      fallback for the CEE-unknown 'cannot_confirm' case (which is NOT 'changed').
+ *   3. hasReport && analysisChanged → 'results_stale'
  *   4. ceeAnalysisReadyStatus === 'ready' (no report) → 'ready_to_analyse'
  *   5. else (no report, no readiness signal) → 'not_ready'
  *
@@ -88,7 +107,7 @@ function isExplicitNotReady(status: string | undefined): boolean {
 export function deriveAnalysisDisplayState(
   input: DeriveAnalysisDisplayStateInput,
 ): AnalysisDisplayStateView {
-  const { ceeAnalysisReadyStatus, hasReport, graphEditedSinceLastRun } = input
+  const { ceeAnalysisReadyStatus, hasReport, analysisChanged } = input
 
   if (isExplicitNotReady(ceeAnalysisReadyStatus)) {
     return {
@@ -100,7 +119,7 @@ export function deriveAnalysisDisplayState(
     }
   }
 
-  if (hasReport && !graphEditedSinceLastRun) {
+  if (hasReport && !analysisChanged) {
     return {
       state: 'complete',
       headline: 'Analysis complete',
@@ -110,7 +129,7 @@ export function deriveAnalysisDisplayState(
     }
   }
 
-  if (hasReport && graphEditedSinceLastRun) {
+  if (hasReport && analysisChanged) {
     return {
       state: 'results_stale',
       headline: 'Results may be outdated',

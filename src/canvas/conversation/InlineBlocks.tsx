@@ -3,11 +3,16 @@
  *
  * Supports all ConversationBlock types. Unknown block_type values render
  * a neutral fallback card — never crash.
- * Max 4 visible per turn with "Show more" toggle (graph_patch proposed blocks
- * always stay visible — budget is enforced upstream in useConversation).
+ * Max 4 NON-phase-3 blocks visible per turn with "Show more" toggle
+ * (graph_patch proposed blocks always stay visible — budget is enforced
+ * upstream in useConversation). Phase-3 cards are governed instead by the
+ * pacing group in phase3Pacing.ts (PHASE3_DEFAULT_EXPANDED, 6 since
+ * ROADMAP 2.211-②), never by the legacy budget.
  */
 
-import { useState, useCallback, memo } from 'react'
+import { useState, useCallback, useMemo, memo, useRef } from 'react'
+import type { RefObject } from 'react'
+import { flushSync } from 'react-dom'
 import { Lightbulb, AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Wand2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -40,11 +45,18 @@ import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/A
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
 import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
+import { computePhase3Pacing, isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
+import { GraphVocabularyLegend } from './GraphVocabularyLegend'
 import { V5AnalysisResultBlock } from '../../v5/blocks/V5AnalysisResultBlock'
 import { V5GraphPatchBlock } from '../../v5/blocks/V5GraphPatchBlock'
 import { V5ExplanationBlock } from '../../v5/blocks/V5ExplanationBlock'
 import { V5ComparisonBlock } from '../../v5/blocks/V5ComparisonBlock'
 import { V5FlipAnalysisBlock } from '../../v5/blocks/V5FlipAnalysisBlock'
+import { V5ReviewCardBlock } from '../../v5/blocks/V5ReviewCardBlock'
+import { V5CoachingBlock } from '../../v5/blocks/V5CoachingBlock'
+import { V5EvidenceBlock } from '../../v5/blocks/V5EvidenceBlock'
+import { V5ExerciseBlock } from '../../v5/blocks/V5ExerciseBlock'
+import { V5HeldProposalBlock } from '../../v5/blocks/V5HeldProposalBlock'
 import { V5UnsupportedBlock } from '../../v5/blocks/V5UnsupportedBlock'
 import { safeRichText, plainTextPreview } from '../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../flags'
@@ -83,6 +95,19 @@ function resolveBlockBadgeDotClass(block: ConversationBlock): string | null {
     case 'flip_analysis': return styles.blockBadgeDotDanger
     case 'proposal': return styles.blockBadgeDotGoal
     case 'exercise': return styles.blockBadgeDotInfo
+    // Track C slice 1: typed Phase 3 blocks — severity drives the dot colour
+    // for review cards (visual channel only); coaching is always info.
+    case 'v5_review_card':
+      return block.severity === 'info' ? styles.blockBadgeDotInfo : styles.blockBadgeDotDanger
+    case 'v5_coaching': return styles.blockBadgeDotInfo
+    // Track C slice 2 (Lane UI-W4 C): evidence follows the review-card
+    // severity rule; exercise carries no severity → always info (matching
+    // the legacy 'exercise' dot above).
+    case 'v5_evidence':
+      return block.severity === 'info' ? styles.blockBadgeDotInfo : styles.blockBadgeDotDanger
+    case 'v5_exercise': return styles.blockBadgeDotInfo
+    // R8: held proposal is an info-channel proposal card (matches its border).
+    case 'v5_held_proposal': return styles.blockBadgeDotInfo
     default: return null
   }
 }
@@ -118,16 +143,128 @@ export const InlineBlocks = memo(function InlineBlocks({
   assistantTextWordCount = 0,
 }: InlineBlocksProps) {
   const [showAll, setShowAll] = useState(false)
+  // F16: phase-3 card pacing — flood turns default to the top
+  // PHASE3_DEFAULT_EXPANDED phase-3 cards expanded (6 since ROADMAP
+  // 2.211-②), the remainder behind ONE count affordance.
+  const [showAllPhase3, setShowAllPhase3] = useState(false)
 
-  const visible = showAll ? blocks : blocks.slice(0, MAX_VISIBLE_BLOCKS_PER_TURN)
-  const hasOverflow = blocks.length > MAX_VISIBLE_BLOCKS_PER_TURN
-  const hiddenCount = blocks.length - MAX_VISIBLE_BLOCKS_PER_TURN
+  const pacing = useMemo(() => computePhase3Pacing(blocks), [blocks])
+
+  // Legacy per-turn budget over the NON-phase-3 blocks only: the phase-3
+  // cards always carry their own budget (the pacing group), exactly as this
+  // module's header declares ("the pacing group is the phase-3 budget").
+  //
+  // ⚠ The exclusion used to be conditional on `pacing.pacingActive`, and
+  // ROADMAP 2.211-② turned that into a DEAD BAND. The legacy cap is 4
+  // (MAX_VISIBLE_BLOCKS_PER_TURN). While the default-expanded cap was 3 the
+  // two could not collide — pacing switched on at 4 phase-3 cards, and any
+  // smaller group fitted inside the legacy 4. At a cap of 6, turns carrying
+  // 5 or 6 phase-3 cards no longer activate pacing, fell back into the
+  // legacy budget, and rendered FOUR cards behind "Show N more blocks" —
+  // i.e. the ruled constant would read 6 while the user saw 4, on precisely
+  // the turn sizes the ruling was meant to open up. Making the exclusion
+  // unconditional is what makes the ruled number true; it is monotone
+  // (a block can only become visible, never hidden), and it raises no flood
+  // ceiling, because the pacing group caps phase-3 cards at 6 regardless.
+  //
+  // Bias-signal cards are exempt (review-folds C1) — but only the FIRST
+  // DRAFT_BIAS_SIGNAL_CARD_CAP of them (/simplify item 5), from the ONE
+  // exempt set computePhase3Pacing already derived, so this budget and the
+  // pacing budget cannot disagree. Bias cards beyond the cap fall through to
+  // the normal budget path.
+  const { hiddenByBudget, hasOverflow, hiddenCount } = useMemo(() => {
+    const budgetIndices: number[] = []
+    for (let i = 0; i < blocks.length; i++) {
+      if (pacing.biasSignalExemptIndices.has(i)) continue
+      if (isPhase3CardBlock(blocks[i])) continue
+      budgetIndices.push(i)
+    }
+    return {
+      hiddenByBudget: new Set(
+        showAll ? [] : budgetIndices.slice(MAX_VISIBLE_BLOCKS_PER_TURN),
+      ),
+      hasOverflow: budgetIndices.length > MAX_VISIBLE_BLOCKS_PER_TURN,
+      hiddenCount: budgetIndices.length - MAX_VISIBLE_BLOCKS_PER_TURN,
+    }
+  }, [blocks, pacing, showAll])
   // DS v5 §21.2: block type badge dots are always on (no v2 flag gate).
   const showBadgeDots = true
 
+  const phase3Collapsed = pacing.pacingActive && !showAllPhase3
+
+  // THE visibility rule — one predicate, both consumers (/simplify item 4).
+  // The render guard below and the legend gate were De Morgan duals of this
+  // and could drift apart.
+  const isBlockHidden = useCallback(
+    (i: number) => hiddenByBudget.has(i) || (phase3Collapsed && pacing.collapsedIndices.has(i)),
+    [hiddenByBudget, phase3Collapsed, pacing],
+  )
+
+  // C13: the graph-vocabulary legend gates on a phase-3 card being
+  // CURRENTLY RENDERED — never on mere presence in the turn (a legend for
+  // cards hidden behind the pacing collapse or the legacy budget explained
+  // vocabulary the user could not see).
+  const phase3Rendered = blocks.some((b, i) => isPhase3CardBlock(b) && !isBlockHidden(i))
+
+  // C11: citations can point at collapsed content. Handed to the
+  // commentary renderer only while something is actually collapsed, so a
+  // genuinely dangling citation stays a no-op.
+  const revealHiddenBlocks = useCallback(() => {
+    setShowAllPhase3(true)
+    setShowAll(true)
+  }, [])
+  const hasCollapsedContent = phase3Collapsed || hiddenByBudget.size > 0
+
+  // Citation targets are numbered 1-based PER TURN, so in a thread with
+  // several assistant turns on screen every turn carries its own
+  // data-citation-target="1", "2", … A document-wide lookup would resolve to
+  // the FIRST match in document order — the oldest turn's block — and scroll
+  // the user away from the turn they clicked in. The handler resolves inside
+  // this container only, so a citation lands in its own turn or nowhere.
+  const blockContainerRef = useRef<HTMLDivElement>(null)
+
   return (
-    <div className={styles.blockContainer}>
-      {visible.map((block, i) => {
+    <div className={styles.blockContainer} ref={blockContainerRef}>
+      {pacing.pacingActive && (
+        // Static sr-only summary of the collapsed count. Deliberately NOT
+        // a live region (C4): the toggle's accessible name already carries
+        // the count, and revealed cards entering ChatThread's role=log
+        // announce their own addition — a nested role=status here replayed
+        // the text on unhide and double-announced every toggle.
+        <span className="sr-only">
+          {phase3Collapsed
+            ? `${pacing.collapsedCount} more coaching and review cards collapsed`
+            : `Showing all ${pacing.phase3Count} coaching and review cards`}
+        </span>
+      )}
+      {blocks.map((block, i) => {
+        // The single phase-3 count affordance sits at the position of the
+        // first collapsed card, so reading order is preserved exactly.
+        const affordance =
+          pacing.pacingActive && i === pacing.affordanceIndex ? (
+            <button
+              type="button"
+              className={styles.phase3PacingToggle}
+              onClick={() => setShowAllPhase3((v) => !v)}
+              aria-expanded={showAllPhase3}
+              aria-label={
+                showAllPhase3
+                  ? 'Show fewer coaching and review cards'
+                  : `Show ${pacing.collapsedCount} more coaching and review card${pacing.collapsedCount !== 1 ? 's' : ''}`
+              }
+            >
+              {showAllPhase3 ? (
+                <><ChevronUp size={12} aria-hidden="true" /> Show less</>
+              ) : (
+                <><ChevronDown size={12} aria-hidden="true" /> Show {pacing.collapsedCount} more</>
+              )}
+            </button>
+          ) : null
+
+        if (isBlockHidden(i)) {
+          return affordance ? <div key={i}>{affordance}</div> : null
+        }
+
         const badgeDotClass = showBadgeDots ? resolveBlockBadgeDotClass(block) : null
         return (
           // data-citation-target is 1-based; CitationRef.index matches this
@@ -138,6 +275,7 @@ export const InlineBlocks = memo(function InlineBlocks({
             className={badgeDotClass ? styles.blockWithBadge : undefined}
             {...(block.type === 'graph_patch' ? { 'data-patch-id': block.patch_id } : {})}
           >
+            {affordance}
             {badgeDotClass && <span className={badgeDotClass} data-testid="block-badge-dot" aria-hidden="true" />}
             <BlockRenderer
               block={block}
@@ -149,6 +287,8 @@ export const InlineBlocks = memo(function InlineBlocks({
               onArtefactMessage={onArtefactMessage}
               onProposalConfirm={onProposalConfirm}
               assistantTextWordCount={assistantTextWordCount}
+              onRevealHiddenBlocks={hasCollapsedContent ? revealHiddenBlocks : undefined}
+              blockContainerRef={blockContainerRef}
             />
           </div>
         )
@@ -164,6 +304,9 @@ export const InlineBlocks = memo(function InlineBlocks({
           {showAll ? 'Show less' : `Show ${hiddenCount} more`}
         </button>
       )}
+      {/* F16: graph-vocabulary legend affordance near the phase-3 cards —
+          only when at least one is currently rendered (C13). */}
+      {phase3Rendered && <GraphVocabularyLegend />}
     </div>
   )
 })
@@ -182,6 +325,10 @@ interface BlockRendererProps {
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
   assistantTextWordCount?: number
+  /** C11: reveal collapsed pacing/budget content (present only while something is collapsed). */
+  onRevealHiddenBlocks?: () => void
+  /** Scope for citation-target lookups — the emitting turn's own block container. */
+  blockContainerRef: RefObject<HTMLDivElement | null>
 }
 
 function BlockRenderer({
@@ -194,10 +341,19 @@ function BlockRenderer({
   onArtefactMessage,
   onProposalConfirm,
   assistantTextWordCount = 0,
+  onRevealHiddenBlocks,
+  blockContainerRef,
 }: BlockRendererProps) {
   switch (block.type) {
     case 'commentary':
-      return <CommentaryBlockRenderer block={block} assistantTextWordCount={assistantTextWordCount} />
+      return (
+        <CommentaryBlockRenderer
+          block={block}
+          assistantTextWordCount={assistantTextWordCount}
+          onRevealHiddenBlocks={onRevealHiddenBlocks}
+          blockContainerRef={blockContainerRef}
+        />
+      )
 
     case 'review_card':
       return (
@@ -230,6 +386,11 @@ function BlockRenderer({
 
     case 'model_receipt':
       if (!isPreAnalysisEnrichedEnabled()) return null
+      // No coaching summary = no card (brief invariant). The construction gate
+      // (maybeBuildModelReceiptBlock) already enforces this on the live path;
+      // guard the render path too so a coaching-less block (e.g. a hydrated or
+      // legacy one) can never show a headline/nudge shell.
+      if (!block.coachingSummary?.trim()) return null
       return <ModelReceiptBlock data={block} />
 
     case 'evidence':
@@ -281,20 +442,57 @@ function BlockRenderer({
     case 'v5_flip_analysis':
       return <V5FlipAnalysisBlock block={block} />
 
+    // Track C slice 1 (D-5): 0.13.x-typed Phase 3 blocks. All copy is
+    // producer-owned and rendered verbatim (provisional_doctrine_v0).
+    case 'v5_review_card':
+      return <V5ReviewCardBlock block={block} />
+
+    case 'v5_coaching':
+      // Leg 3 (bias coaching): bias-signal coaching renders through the
+      // SAME V5CoachingBlock with the DS-recipe variant (neutral bg +
+      // coloured left border, bias-signal-card testids) — one structure,
+      // so producer fields (action_label pill included) can never drop on
+      // one fork (review-folds C10+R1).
+      return (
+        <V5CoachingBlock
+          block={block}
+          variant={isBiasSignalCoachingBlock(block) ? 'bias_signal' : 'default'}
+        />
+      )
+
+    // Track C slice 2 (Lane UI-W4 C): 0.13.1-typed evidence + exercise.
+    // Same doctrine — producer copy verbatim, enum tokens data-* only.
+    case 'v5_evidence':
+      return <V5EvidenceBlock block={block} />
+
+    case 'v5_exercise':
+      return <V5ExerciseBlock block={block} />
+
+    // R8 (roadmap 2.27): held CEE mutation → honest confirm/dismiss card.
+    case 'v5_held_proposal':
+      return <V5HeldProposalBlock block={block} />
+
     case 'v5_unsupported':
       return <V5UnsupportedBlock block={block} />
 
     default: {
-      // Unknown block type — suppress from user view, log for diagnostics
+      // Unknown block type (seamlessness R7): schema-version skew is the
+      // platform's #1 hazard, and a silent drop reads as the AI saying less
+      // than it said. Render the honest fallback card instead of null.
+      // Telemetry event name kept — it now means "fallback card shown".
       const rawType = (block as { type: string }).type
       if (import.meta.env.DEV) {
-        console.warn('[InlineBlocks] Suppressed unknown block type:', rawType, block)
+        console.warn('[InlineBlocks] Unknown block type (fallback card shown):', rawType, block)
       }
       if (!_trackedUnknownBlockTypes.has(rawType)) {
         _trackedUnknownBlockTypes.add(rawType)
         trackEvent('unknown_block_type_suppressed', { block_type: rawType })
       }
-      return null
+      return (
+        <V5UnsupportedBlock
+          block={{ type: 'v5_unsupported', blockType: rawType, raw: block }}
+        />
+      )
     }
   }
 }
@@ -304,28 +502,59 @@ function BlockRenderer({
 // ---------------------------------------------------------------------------
 
 
+/** Scroll to and pulse-highlight a citation target element. */
+function scrollToCitationTarget(target: Element): void {
+  if ('scrollIntoView' in target && typeof target.scrollIntoView === 'function') {
+    target.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+  target.classList.add(styles.citationHighlightPulse)
+  setTimeout(() => {
+    target.classList.remove(styles.citationHighlightPulse)
+  }, 1000)
+}
+
 const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
   block,
   assistantTextWordCount = 0,
+  onRevealHiddenBlocks,
+  blockContainerRef,
 }: {
   block: CommentaryBlockType
   /** Word count of the assistant_text in the same turn — used for default expand logic */
   assistantTextWordCount?: number
+  /** C11: reveal collapsed pacing/budget content (present only while something is collapsed). */
+  onRevealHiddenBlocks?: () => void
+  /** Scope for citation-target lookups — the emitting turn's own block container. */
+  blockContainerRef: RefObject<HTMLDivElement | null>
 }) {
   const renderingV2 = isOrchestratorRenderingV2Enabled()
 
   const handleCitationClick = useCallback((index: number) => {
-    // Scroll to the referenced block element by citation index
-    const target = document.querySelector(`[data-citation-target="${index}"]`)
-    if (!target) return
-    if ('scrollIntoView' in target && typeof target.scrollIntoView === 'function') {
-      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    // CitationRef.index is 1-based WITHIN THE TURN, and every rendered turn
+    // emits its own data-citation-target="1", "2", … A document-wide lookup
+    // resolves to the first match in document order — the OLDEST turn's
+    // block — so a citation clicked in turn 5 scrolled the user to turn 1.
+    // Scoped to the emitting turn's container: a citation lands in its own
+    // turn or nowhere. Fails CLOSED when the container is not mounted — a
+    // document-wide fallback here would silently reinstate the cross-turn bug.
+    const scope = blockContainerRef.current
+    if (!scope) return
+    const target = scope.querySelector(`[data-citation-target="${index}"]`)
+    if (target) {
+      scrollToCitationTarget(target)
+      return
     }
-    target.classList.add(styles.citationHighlightPulse)
-    setTimeout(() => {
-      target.classList.remove(styles.citationHighlightPulse)
-    }, 1000)
-  }, [])
+    // C11: the target may sit behind the phase-3 pacing collapse or the
+    // legacy per-turn budget (collapsed blocks render no
+    // data-citation-target node). When collapsed content exists, reveal it
+    // and flush the commit synchronously, so the retried lookup sees the
+    // revealed node in this same click handler. Fail silent only when the
+    // target is STILL missing (a genuinely dangling citation).
+    if (!onRevealHiddenBlocks) return
+    flushSync(onRevealHiddenBlocks)
+    const revealed = scope.querySelector(`[data-citation-target="${index}"]`)
+    if (revealed) scrollToCitationTarget(revealed)
+  }, [onRevealHiddenBlocks, blockContainerRef])
 
   const toneClass =
     block.tone === 'warning'
@@ -944,7 +1173,7 @@ function FlipAnalysisBlockRenderer({ block }: { block: FlipAnalysisBlockType }) 
       )}
       {block.flip_conditions.map((fc, i) => (
         <div key={`${fc.assumption}-${i}`} style={{ padding: '6px 0', borderBottom: i < block.flip_conditions.length - 1 ? '1px solid var(--border-default)' : 'none' }}>
-          <span className={typography.panelBody} style={{ fontWeight: 600 }}>{fc.assumption}</span>
+          <span className={`${typography.panelBody} font-semibold`}>{fc.assumption}</span>
           <div className={typography.panelMeta} style={{ color: 'var(--text-light)', marginTop: 2 }}>
             {fc.current_value && `Currently ${fc.current_value} · `}{fc.direction} past {fc.flip_threshold}
             {fc.alternative_winner && ` → ${fc.alternative_winner}`}

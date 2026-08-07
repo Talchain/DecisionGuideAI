@@ -59,17 +59,28 @@
         // Add data-testid for E2E tests
         if (safeEl) safeEl.setAttribute('data-testid', 'safe-screen');
         
-        // Health check (only if safe screen is visible)
+        // Health check. This inline script runs during parse, so the safe
+        // screen is still on screen here; `healthEl` is static markup and is
+        // always present.
+        //
+        // NO FALLBACK PROBE. There used to be a `/bff/engine/health` retry in
+        // the .catch(). It was a provable duplicate: public/_redirects sends
+        // BOTH `/engine/*` (line 7) and `/bff/engine/*` (line 4) to the same
+        // host, and netlify.toml's only engine rule (line 154) sends
+        // `/bff/engine/*` there too — so the retry re-issued the byte-identical
+        // request that had just failed, costing a second round-trip (worst
+        // case, a second Render cold-start wait) on every page load, for a
+        // <pre> the app hides milliseconds later. Any per-environment redirect
+        // swap applies to both prefixes equally, so they cannot diverge.
+        // (The pre-#395 fallback was a hardcoded cross-origin host — CSP-blocked,
+        // so it was rejected at zero network cost. Making it same-origin made it
+        // real. Deleted 2026-07-20.)
         var healthEl = document.getElementById('poc-health');
         if (healthEl) {
           fetch(edge + '/health').then(function(r){ return r.json(); }).then(function(d){
             healthEl.textContent = 'OK via proxy\n' + JSON.stringify(d, null, 2);
-          }).catch(function(){
-            fetch('https://plot-lite-service.onrender.com/health').then(function(r){ return r.json(); }).then(function(d){
-              healthEl.textContent = 'OK via direct\n' + JSON.stringify(d, null, 2);
-            }).catch(function(e2){
-              healthEl.textContent = 'FAIL\n' + String(e2);
-            });
+          }).catch(function(e){
+            healthEl.textContent = 'FAIL\n' + String(e);
           });
         }
       })();

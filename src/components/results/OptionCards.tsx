@@ -3,7 +3,10 @@
  *
  * - Ordinal colour marker + option name + win percentage text (D17: "#N of M" prefix removed)
  * - 1-2 line contextual description (story headline or fallback)
- * - "Hits target" stat row: horizontal bar + percentage (conditional on target set)
+ * - "Hits target" stat row: horizontal bar + percentage (conditional on target set).
+ *   ROADMAP 2.282: that possessive wording is WITHHELD when the number is a
+ *   substituted joint figure (`goalFitIsSubstitutedJoint`) — see the possessive
+ *   gate in `OptionCard`.
  * V12.4: Per-card "Wins" bars removed; win % shown as text in card header.
  * Brief 5.8B D3: per-rank palette (V14.2: border-2 border-success/60 / border-info/60 /
  *   border-option/60) collapsed to a 2-state hierarchy — winner cards carry
@@ -18,13 +21,35 @@
 import { useRef, useState, useCallback, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import {
-  formatPercent as formatPct,
+  COMPARATIVE_COPY,
+  GOAL_ANCHOR_COPY,
+  LENS_COPY,
+  isFiniteProbability,
+  runHasGoalNumbers,
+} from './utils/goalAnchorCopy'
+// NOTE (ROADMAP 2.333): the bare `formatPercent` import is GONE from this
+// file. It survived here as `formatPct` for exactly one caller — `StatBar`'s
+// internal readout — and that caller is the N11 defect. Every number this
+// module renders now goes through its register's shared primitive. Re-adding
+// a bare percent formatter here is how the two strings drift apart again.
+import {
   formatProbabilityWithResolution,
   isAboveSimulationResolution,
   isBelowSimulationResolution,
 } from '../../utils/formatPercent'
 import { ExpertBlock } from './ExpertBlock'
 import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
+import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
+import { OptionRangeBar, computeOptionScale, isFiniteNumber, type OptionScale } from './shared/OptionRangeBar'
+import { formatGoalProbability } from './utils/displayFloors'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from './utils/goalFitBasisCaveatCopy'
+import {
+  DOWNSIDE_HEADING_COPY,
+  DOWNSIDE_TAIL_CAVEAT_COPY,
+  downsideSummaryCopy,
+  downsideUnavailableCopy,
+} from './utils/downsideCopy'
+import { formatRangeValue } from './utils/formatRangeValue'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
 import { isGraphLensEnabled } from '../../flags'
@@ -36,12 +61,63 @@ import {
 import { buildSegmentColorMap, WIN_GAUGE_COLORS } from './WinGauge'
 import Tooltip from '../Tooltip'
 import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
+import { openAskOlumi } from './coaching/askOlumiStore'
 
 export interface OptionCardsProps {
   options: OptionResult[]
   winnerId?: string
+  /**
+   * ROADMAP 1.223 — `DecisionVerdict.hasLeadingOption`, the single boolean any
+   * surface must gate on before asserting a leading option exists.
+   *
+   * Deliberately SEPARATE from `winnerId`, which stays populated on a withheld
+   * turn: `winnerId` is an IDENTITY, and identity still drives the lens crown
+   * and node focus. This flag is the ENTITLEMENT.
+   *
+   * ⚠ CORRECTED 27 Jul (ROADMAP 1.267). This doc used to end "…still drives
+   * segment colours, the lens crown and card ordering, NONE OF WHICH CLAIM
+   * ANYTHING", and that sentence was wrong. Row 1.306 records the confirming
+   * screenshots and names it: "the G-UI-1 closure treated client-side
+   * ordering as benign when it is the designation channel." Ordering,
+   * ordinal swatches and rank-derived colour are claims wearing numbers, so
+   * they are now gated too — see `designationsWithheld` below. This flag
+   * still gates the comparative SENTENCES; the two are separate because a
+   * sentence and a sort fail differently and a single flag hid that for four
+   * slices.
+   *
+   * `undefined` ⇒ legacy behaviour, matching the same concession
+   * `certaintyCopy` and `buildV7Headline` make for callers/fixtures predating
+   * the shared verdict. The one live caller (ResultsBody) always supplies it.
+   */
+  hasLeadingOption?: boolean
+  /** Paul's ruling 2026-07-12: when the risk-appetite lens is active the
+   * crowned card presents as lens-strongest, never as THE recommendation. */
+  lensActive?: boolean
+  /** Codex B1: the lens-selected option id. The lens CROWN (styling + lens
+   * copy) follows this id; every LEADER predicate (downside sentence, leader
+   * CTA/prompt, hinge winner copy) stays keyed to the CANONICAL winnerId so
+   * a lens can never hand another option the recommendation's semantics. */
+  lensHighlightedId?: string
+  /** Wave 2 (§6.4): identity-anchored ordinals keyed by option id; a chip
+   * renders only when provided AND the id has a number — the provider
+   * (ResultsBody) supplies the map all-or-nothing behind the flag. */
+  stableNumbers?: Readonly<Record<string, number | null>>
   /** Whether a goal threshold is set (controls "Hits target" row visibility) */
   hasGoalThreshold?: boolean
+  /**
+   * F3 — whether this run carries a goal ranking at all, threaded from the
+   * caller rather than re-derived here. `ResultsBody` already derives it once
+   * for `RiskAppetiteFilter` and the lens sentences; taking the SAME answer
+   * means the card's lens copy and the disclaimer above it cannot disagree
+   * about whether a goal ranking exists.
+   *
+   * Optional, and OMITTED falls back to deriving it from `options` — the same
+   * legacy concession `hasLeadingOption` above documents. Direct-render
+   * callers (specs, and any surface predating this prop) keep byte-identical
+   * behaviour; a hard `false` default would have silently swapped the lens
+   * sentence on them.
+   */
+  hasGoalNumbers?: boolean
   /** Story headlines keyed by option ID (M1 coaching) */
   storyHeadlines?: Record<string, string>
   /** Ref map for flash animation: optionId → ref */
@@ -71,14 +147,24 @@ export interface OptionCardsProps {
 }
 
 /** Fallback description when no story headline is available */
-function fallbackDescription(option: OptionResult, totalOptions: number): string {
+function fallbackDescription(
+  option: OptionResult,
+  totalOptions: number,
+  hasLeadingOption?: boolean,
+): string {
+  // ROADMAP 1.223: both leader-presupposing strings below are withheld when
+  // the producer made no leader claim. Returning '' suppresses the line
+  // entirely (the caller renders nothing) rather than substituting invented
+  // copy — the card still shows the option's label, its win probability and
+  // its bar, so no DATA is lost. Only the claim is.
+  const noLeader = hasLeadingOption === false
   if (option.isRecommended && totalOptions > 1) {
-    return 'Top-performing option based on current estimates.'
+    return noLeader ? '' : 'Top-performing option based on current estimates.'
   }
   if (option.isBaseline) {
     return 'Baseline for comparison.'
   }
-  return 'Compare against the leading option.'
+  return noLeader ? '' : 'Compare against the leading option.'
 }
 
 /**
@@ -92,17 +178,124 @@ function hingeAwareDescription(
   isRunnerUp: boolean,
   hinge: HingeInfo | null | undefined,
   winnerWinProbability?: number | null,
+  lensActive = false,
+  hasLeadingOption?: boolean,
+  /** Run-level: does ANY option carry a goal number? Gates the lens sentence. */
+  hasGoalNumbers = false,
 ): string {
+  // ROADMAP 1.223: every string in this function is comparative — it either
+  // names an option as the leader ("Highest leading-option likelihood"),
+  // measures against one ("Behind by N percentage points"), or DENIES one
+  // ("Statistically tied with the leading option"). On a turn where the
+  // producer withheld the leader claim the UI is entitled to none of the
+  // three: the denial is not a safe default, it is a second unearned claim,
+  // and it is the same silence-not-denial rule this roadmap row applies at
+  // `deriveDecisionVerdict`. So the whole line is withheld ('' ⇒ the caller
+  // renders nothing) and the card falls back to label + win % + bar, which
+  // are DATA and stay.
+  //
+  // The lens branch is exempt by construction: it describes the risk-appetite
+  // LENS ("strongest under this lens"), which is a per-view argmax over data
+  // on screen, not the producer's designation — the same distinction that
+  // keeps the hero's per-lens crown alive.
+  const noLeader = hasLeadingOption === false
+
+  // ROADMAP 1.239 — ONE gate, ABOVE the branch table.
+  //
+  // #493 placed `if (noLeader) return ''` INSIDE three of the branches and
+  // stated, deliberately, that two lines needed no gate because they "name a
+  // factor and this option, never a leader":
+  //
+  //   runner-up: "If {factor} shifts, this option overtakes"
+  //   baseline:  "Lowest risk but lowest expected outcome"
+  //
+  // A1 has since ruled the class in scope, and both are comparative after all.
+  // "Overtakes" is transitive with the object suppressed — there is nothing to
+  // overtake unless something is ahead — and it renders on the runner-up card
+  // while the front-runner's own sentence is (correctly) withheld, so it points
+  // at the silent card by elimination. "Lowest expected outcome" is a
+  // superlative over the option set: an ordering claim, and the ordering is
+  // exactly what the producer withheld.
+  //
+  // Both returned BEFORE the scattered gates, so the gate was present and
+  // simply unreachable for those branches. Hoisting it is therefore an
+  // ORDERING fix, and ordering is the instrument this arc settled on (#491:
+  // a boolean guard on an OPTIONAL input silently restores the defect for any
+  // caller that omits it; ordering has no such failure mode). It also removes
+  // the three duplicated gates, so a branch added later cannot be born
+  // ungated the way these two were.
+  //
+  // The lens branch stays ABOVE the gate — the one carve-out, and the reason
+  // this is not simply the first line of the function.
+  //
+  // ⭐ CHALLENGED AND UPHELD, 2026-08-01 (ROADMAP 2.238 review). A reviewer read
+  // `:436-437`'s "a withheld run crowns nothing. The lens crown goes too" as
+  // governing THIS sentence, making the carve-out look like a live
+  // self-contradiction, and I agreed and moved the gate above this branch. That
+  // was WRONG, and the check that settles it is the `designationsWithheld` prop
+  // doc introduced by the very same commit (#501, ROADMAP 1.267), which
+  // enumerates its own scope: "the ordinal rank swatch, the crowned border, and
+  // the leader colour on the 'Hits target' bar. NEVER THE VALUES THEMSELVES."
+  // That comment annotates `const crowned` — the styling designation. It never
+  // reached this sentence.
+  //
+  // So the two rulings do not conflict; they govern different channels:
+  //   · #501 / 1.267 — STYLING designations derived from the producer's
+  //     ordering (border, rank swatch, bar colour) go on a withheld run.
+  //   · #494 / 1.239 — THIS sentence stays, because it is a per-view argmax
+  //     over outcome values already on screen, not the producer's designation,
+  //     and its companion clause explicitly disclaims the main ranking. #494
+  //     also names the risk of gating it: the over-suppression class this arc
+  //     had already had to fix once in DecisionNode.
+  //
+  // `residualComparative.optionCards.spec.ts` pins the carve-out deliberately
+  // and is what caught the attempted removal. Do not gate this branch without
+  // re-adjudicating 1.239 on the record.
+  if (isWinner && lensActive) {
+    return `Ahead on this outcome view. ${LENS_COPY.unchanged(hasGoalNumbers)}`
+  }
+  if (noLeader) return ''
+
   if (isWinner) {
+    /**
+     * The winner's comparative claim, in ONE place for all three variants.
+     *
+     * ⚠ F1 — an ABSENT comparative probability must never become a measured
+     * one. This read `option.winProbability ?? 0` and then applied the
+     * simulation-resolution floor, so a designated leader carrying no
+     * comparative probability got "Came out ahead in <0.02% of simulated
+     * scenarios" — a precise-looking, entirely invented measurement, on the
+     * card the user trusts most. Reachable: the `decisionState` arm at the
+     * render site calls this with no presence check (its sibling arm does).
+     *
+     * Same class as the two defects the previous pass fixed, and the same
+     * remedy — `phraseNoMagnitude`, built for exactly this. Derived once here
+     * so a fourth variant cannot be born ungated.
+     */
+    const claim =
+      isFiniteProbability(option.winProbability)
+        ? COMPARATIVE_COPY.phrase(
+            formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
+          )
+        : COMPARATIVE_COPY.leadNoMagnitude
+
+    // F2 — both hinge variants carried the retired un-anchored superlative
+    // ("Highest leading-option likelihood"): no basis, no number. Only the
+    // third sibling had been re-anchored. They keep the hinge clause, which
+    // is the whole point of the variant.
     if (hinge?.reason === 'fragile_edge') {
-      return `Highest leading-option likelihood but depends on ${hinge.label}`
+      return `${claim}, but this depends on ${hinge.label}`
     }
     if (hinge?.reason === 'heuristic' || hinge?.reason === 'voi') {
-      return `Highest leading-option likelihood. ${hinge.label} has the widest uncertainty.`
+      return `${claim}. ${hinge.label} has the widest uncertainty.`
     }
-    return 'Highest leading-option likelihood across simulated scenarios'
+    return claim
   }
   if (isRunnerUp) {
+    // ROADMAP 1.239: reachable only on a permitted turn now — see the gate
+    // above. The conditional-flip line is honest copy where a leader HAS been
+    // designated; it is the designation it presupposes, not the factor it
+    // names, that made it unrenderable on a withheld one.
     if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === option.label) {
       return `If ${hinge.label} shifts, this option overtakes`
     }
@@ -116,7 +309,11 @@ function hingeAwareDescription(
     }
     return 'Close competitor'
   }
-  // Task 9: Status quo / baseline — specific copy
+  // Task 9: Status quo / baseline — specific copy. ROADMAP 1.239 corrects the
+  // note that used to sit here ("non-comparative … so it is not gated"): both
+  // halves are superlatives OVER THE OPTION SET, not descriptions of this
+  // option in isolation, so the line asserts an ordering. It now sits below
+  // the single hoisted gate with everything else.
   if (option.isBaseline) {
     return 'Lowest risk but lowest expected outcome'
   }
@@ -131,17 +328,67 @@ function hingeAwareDescription(
   return 'Compare against the leading option'
 }
 
-/** Horizontal bar segment for stat rows */
+/**
+ * Horizontal bar segment for stat rows.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * ⭐ THIS COMPONENT HOLDS NO FORMATTER (ROADMAP 2.333) — N11
+ * ─────────────────────────────────────────────────────────────────────────
+ * It used to render its readout with a bare
+ * `formatPercent(value, { fromDecimal: true })`. On one card, one render, one
+ * value (`goalProbability` 0.0007), that printed "0%" — about two centimetres
+ * from the low-goal badge, which applied the sub-1% floor and printed "< 1%".
+ * The same card also disagreed with itself on the comparative register: the
+ * header win readout went through `formatProbabilityWithResolution` ("0.3%")
+ * while the "Wins" row here printed "0%" for the same number.
+ *
+ * The fix is the PROP, not a better formatter. Teaching this component the
+ * right rule would have corrected those strings and preserved the shape that
+ * produced them — a component deriving a readout from a raw value, beside a
+ * caller deriving its own readout from the same raw value. The card now
+ * computes each register's readout ONCE and passes it to every surface that
+ * shows it, so the two strings CANNOT be computed twice and therefore cannot
+ * differ. N11 is impossible by construction rather than merely absent.
+ *
+ * `value` is still taken, and is still the raw probability: the BAR is
+ * geometry and must keep drawing from the number, including its
+ * `Math.max(2, …)` minimum-visibility floor. Geometry and readout are
+ * deliberately different things here — the visual floor is honest (a 2% bar
+ * for a 0.07% value is a "present but tiny" affordance, not a claim), whereas
+ * a floored NUMBER is a false statement.
+ */
 function StatBar({
   value,
+  readout,
   label,
   isLeader,
   color,
   neutralised = false,
   segmentColor,
+  testId,
 }: {
   value: number | null | undefined
-  label: string
+  /**
+   * The rendered readout, computed ONCE by the card for this register and
+   * shared with every other surface that states the same number. Required —
+   * there is no fallback formatter here, because a fallback is how the two
+   * strings drifted apart in the first place.
+   */
+  readout: string
+  /** Identity anchor for tests: the readout element's `data-testid`. */
+  testId?: string
+  /**
+   * Inline label for the 72px caption column, or `null` for none.
+   *
+   * ROADMAP 2.282: `null` is how the goal row renders its WITHHELD state. The
+   * withheld label (`GOAL_ANCHOR_COPY.label(true)`, 45 characters) cannot live
+   * in a fixed 72px column at 11px — it would wrap to four or five lines — so
+   * that state hoists the label to a full-width caption ABOVE the bar, which
+   * is exactly the shape `WinGauge`'s goal block already uses for the same
+   * register string. The column is omitted rather than emptied so no blank
+   * 72px gutter is left behind.
+   */
+  label: string | null
   isLeader: boolean
   color: 'success' | 'info'
   /** V11: When true, use stone colours for all bars (indeterminate state) */
@@ -167,9 +414,11 @@ function StatBar({
 
   return (
     <div className="flex items-center gap-2">
-      <span className={`${typography.panelMeta} text-text-light w-[72px] flex-shrink-0`}>
-        {label}
-      </span>
+      {label != null && (
+        <span className={`${typography.panelMeta} text-text-light w-[72px] flex-shrink-0`}>
+          {label}
+        </span>
+      )}
       <div className="flex-1 h-2 bg-panel-border/30 rounded-full overflow-hidden">
         <div
           className={`h-2 rounded-full transition-all ${barColorClass}`}
@@ -179,110 +428,64 @@ function StatBar({
           }}
         />
       </div>
-      <span className={`${typography.panelMeta} text-text-body tabular-nums w-[36px] text-right flex-shrink-0`}>
-        {formatPct(value, { fromDecimal: true })}
+      <span
+        className={`${typography.panelMeta} text-text-body tabular-nums w-[36px] text-right flex-shrink-0`}
+        data-testid={testId}
+      >
+        {readout}
       </span>
     </div>
   )
 }
 
-/**
- * Format range bar values with reasonable precision.
- * No decimal places for values > 100, 1 dp for values > 10, 2 dp otherwise.
- * TODO: PLoT should provide outcome_unit for proper display.
- */
-function formatRangeValue(v: number): string {
-  const abs = Math.abs(v)
-  const decimals = abs > 100 ? 0 : abs > 10 ? 1 : 2
-  return v.toLocaleString(undefined, { maximumFractionDigits: decimals, minimumFractionDigits: 0 })
-}
-
-/**
- * OptionRangeBar — thin 4px bar showing p10-to-p90 range with dot at median.
- *
- * All option range bars share the same [globalMin, globalMax] scale
- * for visual comparability between options. The bar fill width
- * represents each option's range within the shared scale.
- */
-function OptionRangeBar({
-  p10,
-  p50,
-  p90,
-  globalMin,
-  globalMax,
-}: {
-  p10: number
-  p50?: number
-  p90: number
-  globalMin: number
-  globalMax: number
-}) {
-  const span = globalMax - globalMin
-  if (span <= 0) return null
-
-  const leftPct = ((p10 - globalMin) / span) * 100
-  const widthPct = ((p90 - p10) / span) * 100
-  const dotPct = p50 != null ? ((p50 - globalMin) / span) * 100 : undefined
-
-  return (
-    <div data-testid="option-range-bar">
-      <div className="relative" style={{ height: 4, background: 'var(--border-default)', borderRadius: 2 }}>
-        <div
-          className="absolute top-0 h-full rounded-sm"
-          style={{
-            left: `${leftPct}%`,
-            width: `${Math.max(2, widthPct)}%`,
-            background: 'rgba(82,163,200,0.3)',
-          }}
-        />
-        {dotPct != null && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 rounded-full"
-            style={{
-              left: `${dotPct}%`,
-              width: 8,
-              height: 8,
-              background: 'var(--info)',
-              border: '1.5px solid var(--bg-panel)',
-              transform: `translate(-50%, -50%)`,
-            }}
-          />
-        )}
-      </div>
-      <div className={`flex justify-between mt-0.5 ${typography.panelMeta}`}>
-        <span className="text-text-light">{formatRangeValue(p10)}</span>
-        {p50 != null && (
-          <span className="text-text-header">{formatRangeValue(p50)}</span>
-        )}
-        <span className="text-text-light">{formatRangeValue(p90)}</span>
-      </div>
-    </div>
-  )
-}
+// Range values format via the shared magnitude-tiered helper
+// (utils/formatRangeValue) — the same rule formatThreshold's user-unit
+// percent branch uses, so card labels and hero readouts share one scale.
+// TODO: PLoT should provide outcome_unit for proper display.
+//
+// OptionRangeBar + the [globalMin, globalMax] scale now live in the shared
+// ./shared/OptionRangeBar module (consumed here and by the V7 lens group) so
+// the two surfaces cannot drift.
 
 /** Single option card */
 function OptionCard({
   option,
   isWinner,
+  isLensCrowned = false,
+  cardLensActive = false,
   totalOptions,
   hasGoalThreshold,
   description,
   cardRef,
   neutralised = false,
+  designationsWithheld = false,
   sortedRank,
+  stableNumber = null,
   segmentFillColor,
   onClick,
-  globalMin = 0,
-  globalMax = 1,
+  scale = null,
   onSendMessage,
   onFocusNode,
   expertMode = false,
   confidenceTier,
   recommendationStability,
   leadingOptionDownsideFlag,
+  hasLeadingOption,
 }: {
   option: OptionResult
   isWinner: boolean
+  /** ROADMAP 1.223 — see OptionCardsProps. Gates the comparative SENTENCES. */
+  hasLeadingOption?: boolean
+  /**
+   * ROADMAP 1.267 — gates the non-prose DESIGNATIONS on this card: the
+   * ordinal rank swatch, the crowned border, and the leader colour on the
+   * "Hits target" bar. Never the values themselves.
+   */
+  designationsWithheld?: boolean
+  /** Codex B1: lens crown restyles only — leader predicates stay on isWinner. */
+  isLensCrowned?: boolean
+  /** True when the risk-appetite lens is non-neutral (suppresses the canonical crown styling). */
+  cardLensActive?: boolean
   totalOptions: number
   hasGoalThreshold: boolean
   description: string
@@ -291,13 +494,20 @@ function OptionCard({
   neutralised?: boolean
   /** V14.2: 1-indexed rank derived from win probability sort order */
   sortedRank?: number
+  /** Wave 2 (§6.4): identity-anchored ordinal — rendered as an "Option N"
+   * chip so the same option keeps its number across rerun rank flips. */
+  stableNumber?: number | null
   /** Task 6b: CSS colour string for coloured fill bar (matches wins segment) */
   segmentFillColor?: string
   onClick?: () => void
-  /** Global min p10 across all options for shared range bar scale */
-  globalMin?: number
-  /** Global max p90 across all options for shared range bar scale */
-  globalMax?: number
+  /**
+   * The shared range-bar axis across all options, or `null` when no option
+   * carries a full p10/p90 range. ROADMAP 2.800b — this used to be a
+   * `globalMin = 0, globalMax = 1` pair whose DEFAULTS were themselves invented
+   * numbers: a card rendered without a scale drew its bar against a fabricated
+   * [0, 1] axis. There is no default axis now; absent means no bar.
+   */
+  scale?: OptionScale | null
   onSendMessage?: (text: string) => void
   onFocusNode?: (nodeId: string) => void
   expertMode?: boolean
@@ -317,13 +527,101 @@ function OptionCard({
   // every other card stays neutral with `border-panel-border`. The richer
   // palette competed with the WinGauge segment colours one row above and
   // pulled visual weight away from the queue's emphasised first card.
-  const borderClass = neutralised
+  // Codex B1: under a lens, the CROWN styling follows the lens selection and
+  // the canonical leader drops to a neutral border (never two crowns); the
+  // canonical leader keeps every SEMANTIC leader predicate below regardless.
+  // ROADMAP 1.267: a withheld run crowns nothing. The lens crown goes too —
+  // it is a second designation, not an exemption from the first.
+  //
+  // ⭐ SCOPE MADE EXPLICIT, 2026-08-01 (ROADMAP 2.238 review). "The lens crown"
+  // here means THE STYLING — this `crowned` flag and the `rank` swatch below —
+  // exactly as the `designationsWithheld` prop doc from the same commit states:
+  // "the ordinal rank swatch, the crowned border, and the leader colour on the
+  // 'Hits target' bar. Never the values themselves."
+  //
+  // It does NOT govern the lens SENTENCE in `hingeAwareDescription`, which is
+  // deliberately exempt under ROADMAP 1.239 (#494) as a per-view argmax over
+  // on-screen values. A reviewer and I both read this comment as covering the
+  // sentence and briefly "fixed" a contradiction that does not exist; the note
+  // is added here so the next reader does not repeat it. The two rulings
+  // co-exist because they govern different channels.
+  const crowned = designationsWithheld ? false : cardLensActive ? isLensCrowned : isWinner
+  const borderClass = neutralised || !crowned
     ? 'border border-panel-border'
-    : isWinner
-      ? 'border border-success/30'
-      : 'border border-panel-border'
-  // V14.2: Prefer sort-derived rank, fallback to option.rank or winner inference
-  const rank = sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
+    : 'border border-success/30'
+  // V14.2: Prefer sort-derived rank, fallback to option.rank or winner inference.
+  // ROADMAP 1.267: withheld ⇒ no rank at all. Note the fallback chain is
+  // itself three ordinal designations stacked — `sortedRank` is the position
+  // in the probability sort, `option.rank` is documented "1 = best", and
+  // `isWinner ? 1` hands rank 1 to the winner outright — so the suppression
+  // has to sit above the whole chain, not inside one arm of it.
+  const rank = designationsWithheld
+    ? undefined
+    : sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // THE POSSESSIVE GATE (ROADMAP 2.282) — this card was the one unwired
+  // consumer of a mitigation six sibling surfaces already honour.
+  //
+  // `selectGoalProbability` publishes `basis`. When it is
+  // ⚠ L62 (2026-08-04): the basis named below was renamed
+  // `'joint_goal_withheld'` AND now carries no number at all, so this card
+  // renders no goal figure in that state and the branch is unreachable. The
+  // paragraph is kept as the record of what it guarded. On the basis
+  // `'joint_goal_withheld'` the number in `option.goalProbability` is
+  // P(all constraints jointly satisfied) STANDING IN for an absent
+  // `probability_of_goal` — it answers a DIFFERENT question from the one
+  // "target" asserts, and the selector's `mayUsePossessiveGoalFraming` is
+  // false. `useResultsSectionData` carries that decision here as
+  // `goalFitIsSubstitutedJoint`; it is READ, never re-derived at this render
+  // site (types.ts states the rule; `WinGauge`, `DecisionConfidencePanel`,
+  // `RangeVisualization`, `buildHeroModel`, `buildV7Headline` and
+  // `V7LensGroup` all read it the same way).
+  //
+  // Witnessed live on staging 2026-08-01: with the frame unstamped, this card
+  // rendered "Hits target" / "< 1% likely to reach target" over the joint
+  // figure while the V7 goal lens BESIDE IT rendered the withheld wording for
+  // the same number — two contradictory claims about one value in one render.
+  // The withheld number is 0.0054 (answers "is the uplift >= £6M?") where the
+  // user asked "is the uplift >= £2M?" (~0.55).
+  //
+  // This is a COPY switch, never a value transform: the bar length, the
+  // percentage readout and the leader colour are all untouched.
+  const goalFitSubstituted = option.goalFitIsSubstitutedJoint === true
+
+  // ───────────────────────────────────────────────────────────────────────
+  // ⭐ ONE READOUT PER REGISTER PER CARD (ROADMAP 2.333) — N11
+  // ───────────────────────────────────────────────────────────────────────
+  // Every surface on this card that states a number states one of exactly
+  // these two strings. Not "computes it the same way" — states the SAME
+  // string, because there is only one.
+  //
+  // Both go through their register's shared primitive with the option's own
+  // `nValidSamples`, which the response mapper already carries off
+  // `outcome.n_valid_samples`. Passing it to only ONE of them is the
+  // half-fix that leaves a card printing a resolved figure in the header and
+  // a floored one in the row below, so both take it or neither does.
+  const goalReadout = formatGoalProbability(
+    option.goalProbability as number,
+    option.nValidSamples,
+  )
+  // Byte-identical to the expression the header readout has always used
+  // (:609 before this change) — now hoisted so the header and the "Wins" row
+  // are literally the same value rather than two evaluations of one rule.
+  const winsReadout = formatProbabilityWithResolution(
+    option.winProbability as number,
+    option.nValidSamples,
+  )
+
+  // The low-goal badge's VISIBILITY gate. It used to also carry its own
+  // inline copy of the sub-1% floor — a hand-copy of `formatGoalProbability`
+  // rather than a call to it, and the direct source of the "0%" beside
+  // "< 1%" contradiction. The threshold below is a display DECISION (when is
+  // a goal probability low enough to warrant a warning affordance) and stays;
+  // the FORMATTING is gone, and the badge now renders `goalReadout`.
+  const showLowGoalBadge =
+    typeof option.goalProbability === 'number' && option.goalProbability < 0.10
+  const lowGoalReadout = showLowGoalBadge ? goalReadout : null
 
   return (
     <div
@@ -352,6 +650,14 @@ function OptionCard({
             style={{ backgroundColor: WIN_GAUGE_COLORS[Math.min(rank - 1, WIN_GAUGE_COLORS.length - 1)] }}
           />
         )}
+        {stableNumber != null && (
+          <span
+            data-testid={`stable-number-${option.id}`}
+            className={`${typography.panelMeta} text-text-light flex-shrink-0`}
+          >
+            Option {stableNumber}
+          </span>
+        )}
         <Tooltip content="Hover highlights on canvas. Click opens inspector.">
           {/* Brief 5.1 Task 7: card title strips the trailing "(Status Quo)"
               suffix when the Baseline pill below already carries the same
@@ -374,30 +680,39 @@ function OptionCard({
                 ? 'This option did not lead in any of the simulation runs, so its true chance may be below the current resolution.'
                 : isAboveSimulationResolution(option.winProbability, option.nValidSamples)
                   ? 'This option led in every simulation run, so its display value reflects the current simulation resolution.'
-                  : `Leads in ${formatProbabilityWithResolution(option.winProbability, option.nValidSamples)} of simulated scenarios`
+                  : COMPARATIVE_COPY.phrase(winsReadout)
             }
           >
             <span
               className={`${typography.panelHeader} text-text-header tabular-nums flex-shrink-0`}
               data-testid={`win-pct-${option.id}`}
             >
-              {formatProbabilityWithResolution(option.winProbability, option.nValidSamples)}
+              {winsReadout}
             </span>
           </Tooltip>
         )}
       </div>
 
-      {/* Description: story headline or fallback */}
-      <p className={`${typography.panelBody} text-text-light line-clamp-2`}>
-        {description}
-      </p>
+      {/* Description: story headline or fallback. Empty ⇒ the comparative
+          sentence was withheld (ROADMAP 1.223); render nothing rather than an
+          empty paragraph that still occupies a line. */}
+      {description ? (
+        <p className={`${typography.panelBody} text-text-light line-clamp-2`}>
+          {description}
+        </p>
+      ) : null}
 
       {/* Task 6b: Coloured fill bar matching wins-bar segment colour */}
       {option.winProbability != null && segmentFillColor && !neutralised && (
         <div
           className="w-full rounded-full overflow-hidden"
           style={{ height: 5, backgroundColor: 'var(--border-default, #EEE6D8)' }}
-          title={`Leading-option probability: ${formatProbabilityWithResolution(option.winProbability, option.nValidSamples)}`}
+          // Re-anchored: this bar is drawn from the COMPARATIVE quantity, so
+          // it takes the comparative register. The §6 map proposed the A
+          // register here on the grounds that `goalProbability` is in scope —
+          // but the BAR is not the goal number, and a goal caption over a
+          // comparative fill is the mislabel map row 3 forbids.
+          title={COMPARATIVE_COPY.phrase(winsReadout)}
         >
           <div
             className="h-full rounded-full transition-all duration-300"
@@ -413,7 +728,7 @@ function OptionCard({
           option when its lower simulated range includes meaningful downside.
           Reuses the existing outlined-pill pattern (border-info/30) — no new
           colour or component primitive. */}
-      {isWinner && leadingOptionDownsideFlag === true && !neutralised && (
+      {isWinner && hasLeadingOption !== false && leadingOptionDownsideFlag === true && !neutralised && (
         <p
           className={`${typography.panelMeta} text-text-light`}
           data-testid={`leading-option-downside-${option.id}`}
@@ -425,25 +740,71 @@ function OptionCard({
       {/* Stat rows */}
       {hasGoalThreshold && (
         <div className="space-y-1.5">
+          {/* ROADMAP 2.282 — the withheld arm of the goal-row caption. The
+              register string is 45 characters, so it is hoisted to a
+              full-width line above the bar instead of the StatBar's 72px
+              column; `WinGauge`'s goal block renders the SAME register string
+              in the SAME shape (`win-gauge-goal-heading`), so this is the
+              established layout for this copy, not a new one. Rendered only
+              when the basis is substituted — the permitted arm keeps the
+              card's shipped inline "Hits target" label unchanged. */}
+          {goalFitSubstituted && option.goalProbability != null && (
+            <p
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid={`goal-fit-substituted-label-${option.id}`}
+            >
+              {GOAL_ANCHOR_COPY.label(goalFitSubstituted)}
+            </p>
+          )}
           <StatBar
             value={option.goalProbability}
-            label="Hits target"
-            isLeader={isWinner}
+            // The SAME string the low-goal badge below renders. This is the
+            // N11 fix at its call site: one readout, two surfaces.
+            readout={goalReadout}
+            testId={`goal-readout-${option.id}`}
+            // The possessive "Hits target" names the user's OWN target, which
+            // a substituted joint figure does not answer — so that arm is
+            // withheld and the caption above carries the honest name instead.
+            // `null` omits the column rather than emptying it (see StatBar).
+            label={goalFitSubstituted ? null : 'Hits target'}
+            // ROADMAP 1.267: the bar length stays (it is the goal
+            // probability); only the leader COLOUR is withheld.
+            isLeader={isWinner && !designationsWithheld}
             color="info"
             neutralised={neutralised}
           />
-          {/* T6 fix: Warning badge when goal probability is very low (<10%) */}
-          {typeof option.goalProbability === 'number' && option.goalProbability < 0.10 && (
+          {/* T6 fix: Warning badge when goal probability is very low (<10%).
+              ROADMAP 2.282: the badge is the register's COMPACT READOUT slot
+              — "number first, no full stop" — so the withheld arm is
+              `GOAL_ANCHOR_COPY.phrase(...)` verbatim, no adapted wording. The
+              permitted arm keeps the shipped sentence byte-for-byte. The two
+              arms are mutually exclusive by construction: one boolean, one
+              ternary, one readout. */}
+          {lowGoalReadout != null && (
             <div className="flex items-center gap-1.5">
               <span
                 className={`${typography.panelMeta} inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-danger/30 text-text-body`}
                 data-testid={`low-goal-warning-${option.id}`}
               >
-                {option.goalProbability < 0.01
-                  ? '< 1% likely to reach target'
-                  : `${Math.round(option.goalProbability * 100)}% likely to reach target`}
+                {goalFitSubstituted
+                  ? GOAL_ANCHOR_COPY.phrase(lowGoalReadout, goalFitSubstituted)
+                  : `${lowGoalReadout} likely to reach target`}
               </span>
             </div>
+          )}
+          {/* Display-honesty (ROADMAP 1.6b, doctrine B / PLoT #204): the
+              "Hits target" number above is scored from a MODELLED
+              forward-propagated outcome distribution, not a
+              directly-elicited base — the caveat renders adjacent to the
+              number it qualifies, never separately (never invented; the
+              wording mirrors the honesty rule verbatim). */}
+          {option.goalFitIsModelledBasis === true && (
+            <p
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid={`goal-fit-basis-caveat-${option.id}`}
+            >
+              {GOAL_FIT_BASIS_CAVEAT_COPY}
+            </p>
           )}
         </div>
       )}
@@ -451,19 +812,104 @@ function OptionCard({
       {/* Range bar: p10 / p50 / p90 visual — expert mode only */}
       {expertMode && (
         <ExpertBlock>
-          {option.outcome && typeof option.outcome.p10 === 'number' && typeof option.outcome.p90 === 'number' ? (
+          {scale !== null && isFiniteNumber(option.outcome?.p10) && isFiniteNumber(option.outcome?.p90) ? (
             <OptionRangeBar
               p10={option.outcome.p10}
-              p50={option.outcome.p50 ?? option.outcome.mean ?? undefined}
+              // ROADMAP 2.800a — the MEDIAN, or nothing; never `?? mean`. Same
+              // rule as the V7 lens bar, which shares this component.
+              p50={option.outcome.p50 ?? undefined}
               p90={option.outcome.p90}
-              globalMin={globalMin}
-              globalMax={globalMax}
+              globalMin={scale.globalMin}
+              globalMax={scale.globalMax}
             />
           ) : option.outcome?.mean != null ? (
             <p className={`${typography.panelMeta} text-text-light`}>
               Expected: {option.outcome.mean.toLocaleString()}
             </p>
           ) : null}
+
+          {/* ROADMAP 2.449 — DOWNSIDE / TAIL RISK. "And if this goes badly,
+              how badly?" The engine has computed this since #91/#92; it died
+              in PLoT's option builder and no user has ever seen it.
+
+              Sits inside the SAME expert block as the range bar, immediately
+              below it, because these two numbers extend that exact bar
+              downward: same simulated runs, same units, same axis, same
+              formatter (`formatRangeValue`, so the tail cannot render on a
+              different precision rule than the range it belongs to).
+              Progressive disclosure (P5) — depth for the reader who asked for
+              depth, nothing added to the default card.
+
+              HONEST ABSENCE — ⚠ AMENDED BY 2.581, THEN BY 2.605, THEN
+              NARROWED BY 2.646. `option.downside` is undefined for reasons this
+              component USED TO BE UNABLE to distinguish at all: a producer (ISL
+              or PLoT) omitted the block with no reason on the wire, OR our own
+              `normaliseDownside` dropped a partially-arrived block, OR
+              schema-pin skew ate the field before it got here. The copy
+              therefore attributed the absence to nobody — see the long note on
+              `DOWNSIDE_UNAVAILABLE_COPY`. This used to render NOTHING in that
+              case. It renders a STATED absence and still never a number: a zero
+              here would read as "there is no downside", which is the most
+              damaging thing this surface could say, but silence is what let
+              2.581 be reported as the feature "appearing in some sessions and
+              not others". A reader who asked for depth and cannot have it is
+              told so.
+
+              ⚠ 2.646 retires exactly ONE of those three causes, and only on
+              the payloads that carry the discriminator. When
+              `percentilesSource === 'unavailable'`, ISL's own invariant proves
+              it never emitted a downside — so our mapper cannot have dropped
+              one and skew cannot have eaten one, and the copy may name the
+              engine. On EVERY other payload the original three-cause problem is
+              untouched and the blame-nobody sentence is still the honest one.
+              The distinction lives in `downsideUnavailableCopy`, not here.
+
+              ⛔ `downside.expectedRegret` is deliberately NOT rendered. It is
+              the per-option limb of the value-of-information family (the
+              whole-decision EVPI is exactly its minimum across options), and
+              the estate's no-EVPI-display doctrine licenses a ranking with NO
+              magnitudes there — the same doctrine that removed the EVPI
+              percentage-point pill from TriageCard. Showing it is a doctrine
+              ruling, not a wiring gap. */}
+          {option.downside !== undefined ? (
+            <div className="mt-1" data-testid={`option-downside-${option.id}`}>
+              <p className={`${typography.panelMeta} text-text-light`}>
+                <span className="font-medium">{DOWNSIDE_HEADING_COPY}</span>{' '}
+                {downsideSummaryCopy(
+                  formatRangeValue(option.downside.p05),
+                  formatRangeValue(option.downside.cvar10),
+                )}
+              </p>
+              <p
+                className={`${typography.panelMeta} text-text-light`}
+                data-testid={`option-downside-caveat-${option.id}`}
+              >
+                {DOWNSIDE_TAIL_CAVEAT_COPY}
+              </p>
+            </div>
+          ) : (
+            /* 2.581 — the stated absence. Same expert block, same option
+               identity, so a reader who opened this card for the tail learns
+               that there is not one rather than scanning a gap.
+
+               2.646 — WHICH absence sentence is now the PRODUCER's call, not
+               ours. `downsideUnavailableCopy` reads this option's
+               `percentilesSource`, the discriminator ISL has always computed
+               and that only reached a reader once 0.38.0 declared it and PLoT
+               carried it. On 'unavailable' the copy may name the engine,
+               because ISL's own invariant (downside ⟹ percentiles_source ===
+               'samples') proves nothing was dropped between there and here.
+               Everything else — absent, 'samples' — keeps the sentence that
+               blames nobody. The choice is made in the copy module, not here,
+               so there is exactly one place to read for what a reader is told
+               and why. */
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1`}
+              data-testid={`option-downside-unavailable-${option.id}`}
+            >
+              {downsideUnavailableCopy(option.percentilesSource)}
+            </p>
+          )}
         </ExpertBlock>
       )}
 
@@ -475,7 +921,14 @@ function OptionCard({
           data-testid="option-constraint-badge"
         >
           {jointProbabilityLabel(option.constraintAnalysis.joint_probability)}{' '}
-          {Math.round(option.constraintAnalysis.joint_probability * 100)}%
+          {/* ROADMAP 2.333: was a bare `Math.round(... * 100)%`. This is the
+              SAME joint-constraint quantity `SuccessTargetRow` and
+              `TargetProbabilityBars` render, so leaving it rounded here would
+              have created a fresh "one number, two answers" pair with the
+              surfaces this slice just fixed. Comparative register (met every
+              target in n of N runs), hence `null` samples and an exact zero
+              still reading "0%". */}
+          {formatProbabilityWithResolution(option.constraintAnalysis.joint_probability, null)}
         </p>
       )}
 
@@ -491,11 +944,18 @@ function OptionCard({
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
-                onSendMessage(winnerChipPrompt(isWinner, option.label))
+                // Codex finding 6: exploratory question-shaped CTA — prefill the
+                // Ask-Olumi drawer (editable draft, user presses Send) instead of
+                // auto-sending into a possibly-hidden conversation.
+                openAskOlumi({
+                  context: `About "${option.label}"`,
+                  draft: winnerChipPrompt(isWinner, option.label, hasLeadingOption),
+                  label: winnerChipLabel(isWinner, confidenceTier, recommendationStability, hasLeadingOption),
+                })
               }}
               className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
             >
-              {winnerChipLabel(isWinner, confidenceTier, recommendationStability)}
+              {winnerChipLabel(isWinner, confidenceTier, recommendationStability, hasLeadingOption)}
             </button>
           )}
           {!option.isBaseline && onFocusNode && (
@@ -519,7 +979,11 @@ function OptionCard({
 export function OptionCards({
   options,
   winnerId,
+  lensActive = false,
+  lensHighlightedId,
+  stableNumbers,
   hasGoalThreshold = false,
+  hasGoalNumbers: hasGoalNumbersProp,
   storyHeadlines,
   cardRefMap,
   decisionState,
@@ -531,6 +995,7 @@ export function OptionCards({
   confidenceTier,
   recommendationStability,
   leadingOptionDownsideFlag,
+  hasLeadingOption,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -539,40 +1004,100 @@ export function OptionCards({
   // V11: Indeterminate neutralisation — stone colours, no success border
   const neutralised = decisionState === 'indeterminate'
 
+  // ROADMAP 1.267 — DESIGNATION vs DATA. Read from the entitlement boolean
+  // this component already receives; nothing new is derived. `=== false`
+  // (not `!hasLeadingOption`) keeps the documented legacy concession: an
+  // `undefined` prop is a caller predating the shared verdict, not a
+  // withheld run, and behaves byte-identically to before.
+  //
+  // Deliberately NOT folded into `neutralised`, though the two suppress an
+  // overlapping set of styles: `neutralised` also drops the win-probability
+  // FILL BAR entirely (line ~459), and that bar is DATA. Reusing it would
+  // have deleted a computed fact the ruling explicitly protects — the
+  // over-suppression failure mode, arrived at by trying to save a flag.
+  const designationsWithheld = hasLeadingOption === false
+
   // V11: Conditional "Hits target" — hide unless EVERY option has goalProbability
   const allGoalProbability = options.every(o => o.goalProbability != null)
   const showHitsTarget = hasGoalThreshold && allGoalProbability
 
-  // V14.2: Sort by win probability descending (same order as WinGauge segments)
-  // Only use winProbability when ALL options have it — mixed coverage would
-  // treat missing values as 0, producing false rankings. Fall back to expected.
-  const allHaveWinProb = options.length > 0 && options.every(o => o.winProbability != null)
-  const sorted = [...options].sort((a, b) => {
-    if (allHaveWinProb) return (b.winProbability ?? 0) - (a.winProbability ?? 0)
-    return (b.expected ?? b.goalProbability ?? -Infinity) - (a.expected ?? a.goalProbability ?? -Infinity)
-  })
+  // V14.2: Sort by win probability descending (same order as WinGauge segments).
+  // Shared with the analysis hero via sortOptionsForDisplay so both surfaces
+  // number and order options identically. WITHHELD: canonical order instead
+  // (ROADMAP 1.267) — `options` already arrives canonical from the hook, and
+  // passing the flag here stops this leaf re-imposing the ranking.
+  const sorted = sortOptionsForDisplay(options, { designationsWithheld })
 
-  // Range bar global scale: shared [globalMin, globalMax] across all options
-  // so bar widths are visually comparable. Falls back to mean when percentiles absent.
-  const globalMin = Math.min(
-    ...options.map(o => o.outcome?.p10 ?? o.outcome?.mean ?? 0),
-  )
-  const globalMax = Math.max(
-    ...options.map(o => o.outcome?.p90 ?? o.outcome?.mean ?? 0),
-  )
+  // Range bar shared axis across all options so bar widths are visually
+  // comparable — the same `computeOptionScale` the V7 lens uses. `null` when no
+  // option carries a full range, in which case no card draws a bar either
+  // (ROADMAP 2.800b).
+  const scale = computeOptionScale(options)
 
   // Brief 5.8B D3 collapsed the per-rank border palette to a 2-state
   // (winner / non-winner) hierarchy, so `buildSegmentBorderClassMap` /
   // `WIN_GAUGE_BORDER_CLASSES` are no longer consumed here. The segment
   // colour map below is still used for coloured fill bars (Task 6b).
+  // F3: run-level goal presence. Taken from the CALLER when it has one
+  // (ResultsBody derives it once for the filter disclaimer and the lens
+  // sentences), so the card copy and the sentence above it read one answer.
+  // Only a caller that supplies none falls back to deriving it here.
+  const hasGoalNumbers = hasGoalNumbersProp ?? runHasGoalNumbers(options)
   const segmentColorMap = buildSegmentColorMap(options, winnerId, decisionState)
 
   // Brief 3 ST2: Truncate to top 2 whenever there are more than 2 options
   const TOP_N = 2
   const shouldTruncate = sorted.length > TOP_N
   const [showAllOptions, setShowAllOptions] = useState(false)
-  const visibleOptions = shouldTruncate && !showAllOptions ? sorted.slice(0, TOP_N) : sorted
-  const hiddenCount = sorted.length - TOP_N
+  const truncated = shouldTruncate && !showAllOptions ? sorted.slice(0, TOP_N) : sorted
+  //
+  // ⭐ ROADMAP 2.237 — THE LENS PICK IS ALWAYS RENDERED.
+  //
+  // The panel above says "highlights the option with the strongest low end
+  // (p10)". The list is ordered by `winProbability`, so the lens's own pick
+  // routinely sits OUTSIDE the top 2 — on the sweep's fixture the p10 leader
+  // was third and rendered nowhere, behind "Show all (1 more)". The user was
+  // told which option the lens picked and then could not see it: a claim that
+  // cannot be checked is the same defect as a claim that is wrong.
+  //
+  // Appended rather than promoted: promoting it would re-order the list, which
+  // is precisely the ranking the copy must NOT claim.
+  const lensPickHidden =
+    lensActive &&
+    lensHighlightedId != null &&
+    !truncated.some((o) => o.id === lensHighlightedId) &&
+    sorted.some((o) => o.id === lensHighlightedId)
+  const visibleOptions = lensPickHidden
+    ? [...truncated, ...sorted.filter((o) => o.id === lensHighlightedId)]
+    : truncated
+  // Derived from what is actually rendered — `sorted.length - TOP_N` would say
+  // "1 more" while that one was already on screen.
+  const hiddenCount = sorted.length - visibleOptions.length
+
+  // ⭐ B1 (ROADMAP 2.237) — THE TOGGLE MUST NOT PROMISE WHAT IT CANNOT DELIVER.
+  //
+  // Re-deriving `hiddenCount` above was necessary but not sufficient: the
+  // button's own render condition was still `shouldTruncate`, so on the
+  // three-option appended state it rendered "Show all (0 more)" — and clicking
+  // it changed nothing, because the card set was already complete; only the
+  // label flipped to "Show fewer". A control claiming to reveal something and
+  // revealing nothing is exactly the defect class this PR exists to remove,
+  // freshly created BY this PR, on its own headline fixture.
+  //
+  // `showAllOptions ||` is load-bearing and is the reason this is not simply
+  // `hiddenCount > 0`: once expanded, `hiddenCount` is 0 by construction, so
+  // the bare predicate would delete the "Show fewer" control and strand the
+  // user in the expanded state with no way back.
+  const canRevealMore = hiddenCount > 0
+  const showToggle = shouldTruncate && (showAllOptions || canRevealMore)
+
+  // ⚠ TRUE rank, not the render position. `sortedRank` used to be the map index
+  // (`index + 1`), which was correct only while `visibleOptions` was always a
+  // PREFIX of `sorted`. It no longer is: an appended lens pick would have been
+  // stamped "3" whatever its real standing, i.e. a fabricated ordinal — the
+  // exact placeholder-where-a-quantity-belongs class. The rank now comes from
+  // the ordering itself.
+  const rankById = new Map(sorted.map((o, i) => [o.id, i + 1]))
 
   // Graph Lens: reverse panel sync — click option card to toggle lens isolation
   const lensEnabled = isGraphLensEnabled()
@@ -602,30 +1127,69 @@ export function OptionCards({
         // V11.2 Fix 2: VM hinge-aware descriptions take priority when decisionState available.
         // When decisionState is absent (e.g. non-neutral risk appetite), still use
         // hingeAwareDescription over fallbackDescription if win probabilities exist —
-        // keeps gap-based specificity. Story headlines still take priority when present.
+        // keeps gap-based specificity. Story headlines still take priority when present,
+        // EXCEPT on the lens-crowned card: Paul's ruling requires the crowned card to
+        // say it is lens-strongest, never THE recommendation — a coaching headline
+        // there would restate the neutral recommendation under a non-neutral lens.
         const winnerOpt = options.find(o => o.id === winnerId)
-        const description = decisionState
-          ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability)
-          : headline
-            ? headline
-            : (winnerOpt?.winProbability != null || option.winProbability != null)
-              ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability)
-              : fallbackDescription(option, options.length)
+        // Codex B1: isWinner = the CANONICAL leader (drives leader predicates);
+        // the lens crown is a separate identity that only restyles + relabels.
+        //
+        // ⭐ ROADMAP 2.238 (P1-2) — THE `?? winnerId` FALLBACK IS REMOVED.
+        //
+        // It read `lensActive && option.id === (lensHighlightedId ?? winnerId)`.
+        // `lensHighlightedId` is null exactly when the lens has no comparable
+        // data — the same memo that makes the panel above print "Not enough
+        // range data to compare options under this lens." So on any run whose
+        // bands carry p10/p50 but no p90, clicking "Optimistic (p90)" printed
+        // that sentence AND crowned the COMPARATIVE winner with "Ahead on this
+        // outcome view" plus the success border: a comparative result
+        // attributed to an outcome view that had just declared itself
+        // unavailable. Both lines read one memo, so it was deterministic, not a
+        // race.
+        //
+        // This is `buildV7Headline`'s defect exactly — the SUBJECT of the claim
+        // is not the SOURCE of the number — and the rule is the same one
+        // `selectGoalLeader` enforces for the goal crown: if the metric a claim
+        // NAMES has no complete data, do not crown. `selectLensOption` already
+        // documents this at `:69-73` ("an absence, never a fallback to a
+        // different quantity"); the doctrine was written and then not applied
+        // at the one call site that mattered.
+        const isLensCrowned = lensActive && lensHighlightedId != null && option.id === lensHighlightedId
+        const description = isLensCrowned
+          ? hingeAwareDescription(option, true, isRunnerUp, hinge, winnerOpt?.winProbability, true, hasLeadingOption, hasGoalNumbers)
+          : decisionState
+            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption, hasGoalNumbers)
+            : headline
+              ? headline
+              : (winnerOpt?.winProbability != null || option.winProbability != null)
+                ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption, hasGoalNumbers)
+                : fallbackDescription(option, options.length, hasLeadingOption)
 
-        const segmentFillColor = segmentColorMap[option.id]
+        // ROADMAP 1.267: the fill bar's LENGTH is the win probability (data,
+        // kept) but its COLOUR is the rank palette — WIN_GAUGE_COLORS[0] is
+        // commented "Winner — mint-500". On a withheld run the bar still
+        // draws, in one neutral colour for every option: the measurement
+        // survives, the ranking does not.
+        const segmentFillColor = designationsWithheld
+          ? 'var(--factor)'
+          : segmentColorMap[option.id]
         return (
           <OptionCard
             key={option.id}
             option={option}
             isWinner={isWinner}
+            isLensCrowned={isLensCrowned}
+            cardLensActive={lensActive}
             totalOptions={options.length}
             hasGoalThreshold={showHitsTarget}
             description={description}
             neutralised={neutralised}
-            sortedRank={index + 1}
+            designationsWithheld={designationsWithheld}
+            sortedRank={rankById.get(option.id) ?? index + 1}
+            stableNumber={stableNumbers?.[option.id] ?? null}
             segmentFillColor={segmentFillColor}
-            globalMin={globalMin}
-            globalMax={globalMax}
+            scale={scale}
             onClick={lensEnabled && resultsComplete ? () => handleLensClick(option.id) : undefined}
             cardRef={(el) => {
               const currentMap = refMap.current
@@ -642,15 +1206,16 @@ export function OptionCards({
             confidenceTier={confidenceTier}
             recommendationStability={recommendationStability}
             leadingOptionDownsideFlag={leadingOptionDownsideFlag}
+            hasLeadingOption={hasLeadingOption}
           />
         )
       })}
       {/* Brief 5.8B hotfix: wrap disclosure + approach link in flex-col so they
           never collapse onto the same visual line. gap-1 = 4px (mt-1 equivalent). */}
-      {(shouldTruncate || onSendMessage) && (
+      {(showToggle || onSendMessage) && (
         <div className="flex flex-col gap-1">
           {/* Brief 3 ST2: Show all / show fewer toggle (when 3+ options) */}
-          {shouldTruncate && (
+          {showToggle && (
             <button
               type="button"
               onClick={() => setShowAllOptions(prev => !prev)}
@@ -663,12 +1228,16 @@ export function OptionCards({
             </button>
           )}
           {/* Brief 5.8B D3 step 3: "What if I tried a different approach?" link.
-              Routes the prompt through the existing onSendMessage pathway so the
-              conversation panel reuses the same coaching loop the AI chips use. */}
+              Codex finding 6: exploratory CTA — prefills the Ask-Olumi drawer
+              (editable draft, user presses Send) rather than auto-sending. */}
           {onSendMessage && (
             <button
               type="button"
-              onClick={() => onSendMessage('What if I tried a different approach? Suggest one or two alternative options I could compare against the current set.')}
+              onClick={() => openAskOlumi({
+                context: 'Explore a different approach',
+                draft: 'What if I tried a different approach? Suggest one or two alternative options I could compare against the current set.',
+                label: 'A different approach',
+              })}
               className={`self-start ${typography.panelBody} text-info hover:underline cursor-pointer`}
               data-testid="option-cards-different-approach"
             >

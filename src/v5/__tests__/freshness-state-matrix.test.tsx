@@ -34,32 +34,38 @@ import { HeroQualifier } from '../../components/results/HeroQualifier'
 import {
   deriveAnalysisFreshnessState,
   type AnalysisFreshnessInputs,
-} from '../../lib/analysisFreshnessState'
+} from './helpers/legacyFreshnessDerivation'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/conversation/types'
 
-// ─── Mock the canvas store + freshness hook for V5GraphPatchBlock ────────
+// ─── Mock the canvas store (CEE freshness slice) for V5GraphPatchBlock ────
 
 vi.mock('../../canvas/store', () => ({
-  useCanvasStore: (selector: (s: { nodes: unknown; edges: unknown }) => unknown) =>
-    selector({ nodes: [], edges: [] }),
+  useCanvasStore: (
+    selector: (s: {
+      nodes: unknown
+      edges: unknown
+      analysisFreshness: { freshness: string } | null
+      analysisFreshnessDirty: boolean
+    }) => unknown,
+  ) =>
+    // The V5GraphPatchBlock hint now derives from the CEE freshness slice via
+    // classifyFreshnessForDisplay; mirror the controllable verdict into the slice.
+    selector({
+      nodes: [],
+      edges: [],
+      analysisFreshness: { freshness: mockFreshnessState().freshness },
+      analysisFreshnessDirty: false,
+    }),
 }))
 
-const mockFreshnessState = vi.fn(() => ({
-  freshness: 'unknown' as 'unknown' | 'fresh' | 'stale' | 'none',
-  reason: null as string | null,
-  recommendedAction: 'continue_editing' as
-    | 'view_results'
-    | 'rerun_analysis'
-    | 'run_analysis'
-    | 'add_options'
-    | 'continue_editing'
-    | null,
-  inputsMissing: [] as ReadonlyArray<keyof AnalysisFreshnessInputs>,
-}))
-
-vi.mock('../../lib/useAnalysisFreshnessState', () => ({
-  useAnalysisFreshnessState: () => mockFreshnessState(),
+// Drives the CEE freshness slice the V5GraphPatchBlock describe reads
+// (analysisFreshness.freshness, via the useCanvasStore mock above). The
+// HeroQualifier describe passes `freshness` as a prop, and the legacy-derivation
+// describe calls deriveAnalysisFreshnessState directly — so no component here
+// consumes the useAnalysisFreshnessState hook, and it is intentionally NOT mocked.
+const mockFreshnessState = vi.fn<[], { freshness: 'unknown' | 'fresh' | 'stale' | 'none' }>(() => ({
+  freshness: 'unknown',
 }))
 
 const { V5GraphPatchBlock } = await import('../blocks/V5GraphPatchBlock')
@@ -185,19 +191,7 @@ describe('V5GraphPatchBlock — receipt hint surfaces ONLY the stale state disti
     [FreshnessVerdict, 'visible' | 'absent']
   >) {
     it(`freshness=${verdict} → receipt freshness hint ${outcome}`, () => {
-      mockFreshnessState.mockReturnValue({
-        freshness: verdict,
-        reason: verdict === 'stale' ? 'graph_hash_diverged' : null,
-        recommendedAction:
-          verdict === 'stale'
-            ? 'rerun_analysis'
-            : verdict === 'fresh'
-              ? 'view_results'
-              : verdict === 'none'
-                ? 'run_analysis'
-                : 'continue_editing',
-        inputsMissing: [],
-      })
+      mockFreshnessState.mockReturnValue({ freshness: verdict })
       render(<V5GraphPatchBlock block={APPLIED_PATCH} />)
       const hint = screen.queryByTestId('v5-change-freshness-hint')
       if (outcome === 'visible') {
@@ -258,19 +252,7 @@ describe('freshness verdicts produce distinct user-facing outcomes (no collapse)
 
     for (const v of verdicts) {
       cleanup()
-      mockFreshnessState.mockReturnValue({
-        freshness: v,
-        reason: v === 'stale' ? 'graph_hash_diverged' : null,
-        recommendedAction:
-          v === 'stale'
-            ? 'rerun_analysis'
-            : v === 'fresh'
-              ? 'view_results'
-              : v === 'none'
-                ? 'run_analysis'
-                : 'continue_editing',
-        inputsMissing: [],
-      })
+      mockFreshnessState.mockReturnValue({ freshness: v })
       render(<V5GraphPatchBlock block={APPLIED_PATCH} />)
       const hint = screen.queryByTestId('v5-change-freshness-hint')
       const hintText = hint ? hint.textContent ?? '' : 'NO_HINT'

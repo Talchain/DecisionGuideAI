@@ -34,6 +34,7 @@ const mocks = {
   setPendingLayout: vi.fn(),
   setOutcomeNode: vi.fn(),
   pushHistory: vi.fn(),
+  markAnalysisFreshnessDirty: vi.fn(),
 }
 
 vi.mock('../../store', () => ({
@@ -44,6 +45,7 @@ vi.mock('../../store', () => ({
       setPendingLayout: mocks.setPendingLayout,
       setOutcomeNode: mocks.setOutcomeNode,
       pushHistory: mocks.pushHistory,
+      markAnalysisFreshnessDirty: mocks.markAnalysisFreshnessDirty,
     }),
     setState: (update: any) => {
       if (update.nodes !== undefined) storeState.nodes = update.nodes
@@ -134,6 +136,100 @@ describe('sortPatchOperations', () => {
 // ---------------------------------------------------------------------------
 // applyAutoApplyPatch — node insertion
 // ---------------------------------------------------------------------------
+
+describe('applyAutoApplyPatch — freshness dirty overlay (#3 auto-apply path)', () => {
+  it('marks the freshness overlay dirty after an op-replay graph mutation', () => {
+    const patch = makePatchBlock([
+      op('add_node', 'factor-1', { kind: 'factor', label: 'Market size' }),
+    ])
+    applyAutoApplyPatch(patch)
+    // Auto-apply / op-replay bypasses the edit chokepoints (bare setState), so the
+    // overlay must be marked dirty here; applyAnalysisReadyPatch (run after accept)
+    // clears it iff the patch supplies a fresh new verdict.
+    expect(mocks.markAnalysisFreshnessDirty).toHaveBeenCalled()
+  })
+
+  it('does NOT dirty when the op batch is a no-op (all ops skipped → nothing mutated)', () => {
+    // A fully-rejected / no-op batch must not create a spurious persistent 'unknown'.
+    const patch = makePatchBlock([
+      { op: 'add_node', target_id: '', data: { kind: 'factor', label: 'No ID' } }, // skipped (empty id)
+    ])
+    const result = applyAutoApplyPatch(patch)
+    expect(result.addedNodeCount).toBe(0)
+    expect(result.modifiedIds).toHaveLength(0)
+    expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
+
+  it('marks dirty on a modify-only batch that changes an ANALYTICAL field (no adds) — pins the OR-guard disjunct', () => {
+    storeState.nodes = [
+      { id: 'fac-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price', kind: 'factor', observedState: { value: 100 } } },
+    ]
+    const patch = makePatchBlock([
+      // observed_state is analysis-affecting (the V2 adapter forwards it to PLoT).
+      op('update_node', 'fac-1', { observed_state: { value: 200 } }),
+    ])
+    const result = applyAutoApplyPatch(patch)
+    expect(result.addedNodeCount).toBe(0)
+    expect(result.modifiedIds.length).toBeGreaterThan(0)
+    expect(mocks.markAnalysisFreshnessDirty).toHaveBeenCalled()
+  })
+
+  // P1: cosmetic-only edits are NOT analysis-affecting — a label/body rename must
+  // not fabricate a persistent 'unknown'. The shared analyticalChange taxonomy
+  // excludes label, so the patch path matches the store edit chokepoints exactly.
+  it('does NOT dirty a label-only (cosmetic) update_node despite modifiedIds > 0', () => {
+    storeState.nodes = [
+      { id: 'fac-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price', kind: 'factor' } },
+    ]
+    const patch = makePatchBlock([op('update_node', 'fac-1', { label: 'Unit price' })])
+    const result = applyAutoApplyPatch(patch)
+    expect(result.modifiedIds.length).toBeGreaterThan(0) // id was pushed...
+    expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled() // ...but only cosmetic
+  })
+
+  // P1: a re-normalised structured field that is a NEW object reference with
+  // IDENTICAL content (e.g. CEE re-emitting the same observed_state, keys reordered)
+  // is a shallow-reference difference, not a value change — semantic comparison must
+  // treat it as a no-op so it does not over-dirty.
+  it('does NOT dirty a same-content observed_state re-send (shallow-reference, not a value change)', () => {
+    storeState.nodes = [
+      { id: 'fac-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price', kind: 'factor', observedState: { value: 100, unit: 'USD' } } },
+    ]
+    // New object literal, identical content, keys in a different order.
+    const patch = makePatchBlock([op('update_node', 'fac-1', { observed_state: { unit: 'USD', value: 100 } })])
+    const result = applyAutoApplyPatch(patch)
+    expect(result.modifiedIds.length).toBeGreaterThan(0)
+    expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
+
+  // P1: dirty must reflect an ACTUAL graph delta, not the inflated modifiedIds
+  // (every update/remove op pushes an id before confirming a real change).
+  it('does NOT dirty a same-value update_node (no real delta despite modifiedIds > 0)', () => {
+    storeState.nodes = [
+      { id: 'fac-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price', kind: 'factor' } },
+    ]
+    const patch = makePatchBlock([op('update_node', 'fac-1', { label: 'Price' })]) // same value
+    const result = applyAutoApplyPatch(patch)
+    expect(result.modifiedIds.length).toBeGreaterThan(0) // id was pushed...
+    expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled() // ...but nothing changed
+  })
+
+  it('does NOT dirty an update_node for an absent target', () => {
+    storeState.nodes = []
+    const patch = makePatchBlock([op('update_node', 'ghost', { label: 'X' })])
+    const result = applyAutoApplyPatch(patch)
+    expect(result.modifiedIds.length).toBeGreaterThan(0)
+    expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
+
+  it('does NOT dirty a remove_node for an absent target', () => {
+    storeState.nodes = []
+    const patch = makePatchBlock([{ op: 'remove_node', target_id: 'ghost', data: {} }])
+    const result = applyAutoApplyPatch(patch)
+    expect(result.modifiedIds.length).toBeGreaterThan(0)
+    expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
+})
 
 describe('applyAutoApplyPatch — node insertion', () => {
   it('inserts nodes with correct IDs and types from kind field', () => {

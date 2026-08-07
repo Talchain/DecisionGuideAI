@@ -1,5 +1,6 @@
 // POC: minimal, dependency-light safe UI that can't fail
 import React from 'react'
+import { plotFetch } from '../lib/plotFetch'
 
 export default function SafeMode() {
   const [engine, setEngine] = React.useState<{ ok?: boolean; json?: any; err?: string }>({})
@@ -18,7 +19,7 @@ export default function SafeMode() {
     ;(async () => {
       for (const u of urls) {
         try {
-          const r = await fetch(u, { cache: 'no-store', mode: 'cors' })
+          const r = await plotFetch(u, { cache: 'no-store', mode: 'cors' })
           const j = await r.json()
           setEngine({ ok: true, json: j })
           if (import.meta.env.DEV) {

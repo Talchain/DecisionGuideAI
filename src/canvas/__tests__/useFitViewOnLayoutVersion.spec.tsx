@@ -3,20 +3,29 @@
  * (src/canvas/hooks/useFitViewOnLayoutVersion.ts).
  *
  * Each successful `applyLayout` bumps `layoutVersion`. The hook
- * schedules exactly one RAF-synced `fitView({ padding: 0.2, duration: 400 })`
- * per bump. `layoutVersion === 0` is the "no layout yet" state and must
- * not trigger fitView.
+ * schedules exactly one RAF-synced
+ * `fitView({ padding: computeFitPadding(), duration: 400 })` per bump.
+ * `layoutVersion === 0` is the "no layout yet" state and must not trigger
+ * fitView. `computeFitPadding` is mocked here to a sentinel — its own correctness
+ * is covered by computeFitPadding.spec.ts; this spec locks the cadence + duration.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useCanvasStore } from '../store'
 import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
+import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 
 const fitViewSpy = vi.fn()
 
+const FIT_PADDING = { top: '10px', right: '20px', bottom: '10px', left: '20px' }
+
 vi.mock('@xyflow/react', () => ({
   useReactFlow: () => ({ fitView: fitViewSpy }),
+}))
+
+vi.mock('../utils/computeFitPadding', () => ({
+  computeFitPadding: () => FIT_PADDING,
 }))
 
 describe('useFitViewOnLayoutVersion', () => {
@@ -47,7 +56,7 @@ describe('useFitViewOnLayoutVersion', () => {
     rafSpy.mockRestore()
   })
 
-  it('schedules RAF and invokes fitView with the production contract on layoutVersion increment', () => {
+  it('schedules RAF and invokes fitView with the panel-aware contract on layoutVersion increment', () => {
     let rafCallback: (() => void) | null = null
     const rafSpy = vi
       .spyOn(globalThis, 'requestAnimationFrame')
@@ -70,7 +79,13 @@ describe('useFitViewOnLayoutVersion', () => {
     })
 
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
-    expect(fitViewSpy).toHaveBeenCalledWith({ padding: 0.2, duration: 400 })
+    // The legibility floor joined this contract on 25 Jul 2026 — see
+    // autoFitLegibility.spec.tsx for why it exists and what guards it.
+    expect(fitViewSpy).toHaveBeenCalledWith({
+      padding: FIT_PADDING,
+      minZoom: LABEL_LEGIBLE_ZOOM,
+      duration: 400,
+    })
 
     rafSpy.mockRestore()
   })

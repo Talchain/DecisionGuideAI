@@ -181,12 +181,25 @@ describe('InspectorPanel', () => {
 
   describe('Validation', () => {
     it('shows error when belief ≥ 0.7 but provenance is empty', async () => {
+      // Build the modified edge ONCE, outside the mock factory. The real
+      // zustand store returns a referentially-stable `edges` array/object
+      // across reads until an actual mutation occurs; a factory that
+      // re-spreads a fresh `{ ...mockEdge, data: {...} }` on every call
+      // (as this test previously did) makes `selectedEdge` a new object
+      // identity on every render. InspectorPanel's "load edge data" effect
+      // depends on `[selectedEdge]` and unconditionally calls
+      // `setValidationErrors([])` (a fresh array each time) — with an
+      // unstable `selectedEdge` that never satisfies Object.is, the effect
+      // re-fires every render, producing an infinite render loop that hung
+      // this spec (and the CI full-suite job) indefinitely. Root-caused
+      // during ROADMAP 1.26 chronic-CI-red triage.
+      const editedEdge = {
+        ...mockEdge,
+        data: { ...mockEdge.data, belief: 0.7, provenance: '' }
+      }
       mockUseCanvasStore.mockImplementation((selector: any) => {
         const state = {
-          edges: [{
-            ...mockEdge,
-            data: { ...mockEdge.data, belief: 0.7, provenance: '' }
-          }],
+          edges: [editedEdge],
           selection: { nodeIds: new Set(), edgeIds: new Set(['e1']) },
           updateEdge: mockUpdateEdge
         }

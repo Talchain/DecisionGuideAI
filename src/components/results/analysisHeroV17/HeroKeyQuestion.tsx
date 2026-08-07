@@ -56,6 +56,34 @@ export function HeroKeyQuestion({ keyQuestion, onPrefillChat, chatPrefillAvailab
       >
         {keyQuestion.text}
       </p>
+      {/* Lane 1 (P1): DSK science-provenance grounding line. Rendered ONLY
+          when the prompt behind the question attested a dsk_claim_id upstream
+          (see selectKeyQuestion) — no grounding object, no badge, no default.
+          Plain DOM text (screen-reader readable, not colour-only); the claim
+          and protocol ids ride as data-* attributes, never as user copy. */}
+      {keyQuestion.grounding && (
+        <p
+          className={`${typography.panelMeta} text-text-light break-words`}
+          data-testid="dsk-grounding"
+          data-dsk-claim-id={keyQuestion.grounding.claimId}
+          data-dsk-protocol-id={keyQuestion.grounding.protocolId}
+        >
+          Grounded in: {keyQuestion.grounding.principle}
+          {keyQuestion.grounding.strength ? ` · ${keyQuestion.grounding.strength} evidence` : ''}
+        </p>
+      )}
+      {/* 2.491: the badge's negative twin. Absence of a grounding line used to
+          be SILENT, so an unattested prompt read exactly like an attested one.
+          Rendered only on CEE's positive `general` verdict — never inferred
+          from missing grounding (see isGeneralGuidance). */}
+      {keyQuestion.generalGuidance && (
+        <p
+          className={`${typography.panelMeta} text-text-light break-words`}
+          data-testid="dsk-general-guidance"
+        >
+          General guidance — not drawn from our attested evidence base.
+        </p>
+      )}
       {/* Chips are prefill-only. The whole card is hidden upstream when
           chat is unavailable (see the early return above), so chips are
           always meaningfully clickable when this block renders. */}

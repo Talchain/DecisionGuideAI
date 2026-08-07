@@ -66,9 +66,6 @@ vi.mock('../../conversation/ConversationPanel', () => ({
 vi.mock('../../hooks/useStageAwarePlaceholder', () => ({
   useStageAwarePlaceholder: () => 'Ask',
 }))
-vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
-  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
-}))
 
 vi.mock('../../conversation/useConversation', async () => {
   const { useState } = await import('react')
@@ -83,7 +80,6 @@ vi.mock('../../conversation/useConversation', async () => {
         ],
         isThinking: false,
         longRunningHint: null,
-        lastFailedInput: null,
         sendMessage,
         sendSystemEvent: vi.fn(),
         sendChip: vi.fn(),

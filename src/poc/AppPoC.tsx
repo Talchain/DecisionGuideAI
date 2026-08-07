@@ -7,12 +7,17 @@ import { HashRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
 import { feature } from '../lib/pocFlags'
+import DevRoutesGuard from '../components/auth/DevRoutesGuard'
 import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
 import { initMonitoring } from '../lib/monitoring'
 import GraphCanvas from '../components/GraphCanvas'
 import RouteLoadingFallback from '../components/RouteLoadingFallback'
 import { CanvasErrorBoundary } from '../canvas/ErrorBoundary'
 import { AuthProvider } from '../contexts/AuthContext'
+// P1 (external review round 2): gate the DebugPanel MOUNT on the ?diag/env check
+// so the ~250 KB chunk downloads only when diagnostics are requested. This is the
+// SINGLE mount — the duplicate ReactFlowGraph mount was removed.
+import { useShouldShowDebugPanel } from '../components/debug/debugPanelVisibility'
 
 // Lazy-loaded routes for code splitting
 const CanvasMVP = lazy(() => import('../routes/CanvasMVP'))
@@ -41,6 +46,8 @@ const DebugPanel = lazy(() => import('../components/DebugPanel'))
 
 // C.1a: Scenario persistence routes
 const ScenarioListPage = lazy(() => import('../pages/ScenarioListPage'))
+// Internal hero fixture gallery — flag-gated (staging-on/prod-off), unlinked.
+const HeroGallery = lazy(() => import('../routes/HeroGallery'))
 const SharedBriefPage = lazy(() => import('../pages/SharedBriefPage'))
 const LoginPage = lazy(() => import('../components/auth/LoginPage'))
 const AuthCallback = lazy(() => import('../components/auth/AuthCallback'))
@@ -98,6 +105,8 @@ const queryClient: any = (QueryClient && typeof QueryClient === 'function')
   : {}
 
 export default function AppPoC() {
+  // P1: the single, gated DebugPanel mount lives here (the app shell).
+  const showDebugPanel = useShouldShowDebugPanel()
   const [build, setBuild] = useState('(unknown)')
   const [edge, setEdge] = useState('/engine')
   const [streamMode, setStreamMode] = useState<'off' | 'simulated'>('off')
@@ -109,7 +118,6 @@ export default function AppPoC() {
   const [components, setComponents] = useState<{
     SandboxStreamPanel?: any
     EngineAuditPanel?: any
-    Whiteboard?: any
   }>({})
 
 
@@ -303,12 +311,6 @@ export default function AppPoC() {
       } catch (e) {
         console.warn('POC: EngineAuditPanel not available', e)
       }
-      try {
-        const mod = await import('../components/Whiteboard')
-        loaded.Whiteboard = mod.default
-      } catch (e) {
-        console.warn('POC: Whiteboard not available', e)
-      }
       setComponents(loaded)
     })()
   }, [])
@@ -421,7 +423,7 @@ export default function AppPoC() {
     }
   }
 
-  const { SandboxStreamPanel, EngineAuditPanel, Whiteboard } = components
+  const { SandboxStreamPanel, EngineAuditPanel } = components
   const canUndo = hist.undo.length > 0
   const canRedo = hist.redo.length > 0
   const viewNodes = useMemo(
@@ -828,20 +830,8 @@ export default function AppPoC() {
                 </div>
               )}
 
-              {Whiteboard && (
-                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
-                  <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 600 }}>Whiteboard</h3>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
-                    POC: Live collaboration disabled; using local doc
-                  </div>
-                  <Suspense fallback={<div>Loading...</div>}>
-                    <Whiteboard />
-                  </Suspense>
-                </div>
-              )}
-
               {/* POC: Component status */}
-              {!SandboxStreamPanel && !EngineAuditPanel && !Whiteboard && (
+              {!SandboxStreamPanel && !EngineAuditPanel && (
                 <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
                   <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 600 }}>Real Components</h3>
                   <div style={{ fontSize: '14px', color: '#6b7280' }}>
@@ -895,15 +885,19 @@ export default function AppPoC() {
       <QueryClientProvider client={queryClient}>
         <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthProvider>
-            {/* PR #156 follow-up — debug-export UI mount.
-                Lazy-loaded so the production entry chunk stays untouched.
-                Self-gated by `shouldShowDebugPanel()` (staging-only +
-                `?diag` URL param OR `window.__OLUMI_DEBUG = true`).
-                Renders `null` outside the activation window so it has
-                zero visible cost for normal users. */}
-            <Suspense fallback={null}>
-              <DebugPanel />
-            </Suspense>
+            {/* PR #156 follow-up — debug-export UI mount. P1 (external review
+                round 2): the MOUNT is now gated on useShouldShowDebugPanel() so
+                React.lazy fetches the ~250 KB chunk ONLY when ?diag is set —
+                previously it was mounted unconditionally (self-gated internally),
+                so the chunk downloaded for every visitor and, with ?diag, a
+                duplicate launcher (also mounted by ReactFlowGraph, now removed)
+                overlapped this one. The panel keeps its own gate as defence in
+                depth. This is the single mount, at the app shell. */}
+            {showDebugPanel && (
+              <Suspense fallback={null}>
+                <DebugPanel />
+              </Suspense>
+            )}
             <Suspense fallback={<RouteLoadingFallback />}>
               <CanvasErrorBoundary>
                 <Routes>
@@ -922,13 +916,40 @@ export default function AppPoC() {
                   <Route path="/templates" element={<DecisionTemplates />} />
                 </Route>
 
-                {/* Dev/POC routes */}
-                <Route path="/plot" element={<PlotWorkspace />} />
-                <Route path="/plot-legacy" element={<PlotShowcase />} />
-                <Route path="/plc" element={<PlcLab />} />
-                <Route path="/sandbox-v1" element={<SandboxV1 />} />
-                <Route path="/test" element={<MainSandboxContent />} />
-                <Route path="*" element={<MainSandboxContent />} />
+                {/* Dev/POC routes — ALL behind the `devRoutes` flag, declared
+                    ONCE by the pathless layout route below (the same shape as
+                    AuthGuard above; see components/auth/DevRoutesGuard.tsx for
+                    why `/` and not `/canvas`). Off in every deployed build, so
+                    a tester cannot reach developer scaffolding by URL. Adding a
+                    dev route means adding a CHILD here — there is no per-route
+                    wrapper left to forget. */}
+                <Route element={<DevRoutesGuard />}>
+                  {/* Internal fixture gallery for the analysis hero — typed
+                      example states only (visible fixture banner on every
+                      panel); ALSO self-gated on `heroFixtureGallery`
+                      (staging-on/prod-off) inside the component, and unlinked. */}
+                  <Route path="/dev/hero-gallery" element={<HeroGallery />} />
+                  <Route path="/plot" element={<PlotWorkspace />} />
+                  <Route path="/plot-legacy" element={<PlotShowcase />} />
+                  <Route path="/plc" element={<PlcLab />} />
+                  <Route path="/sandbox-v1" element={<SandboxV1 />} />
+                  <Route path="/test" element={<MainSandboxContent />} />
+                  {/* Catch-all. This used to render the POC sandbox, so a tester
+                      who mistyped a URL landed on developer scaffolding. It now
+                      lands on the scenario list — somewhere real, and read-only.
+                      The sandbox remains the catch-all only when `devRoutes` is
+                      on, which is what the Playwright suite runs with
+                      (playwright.config.ts webServer): a large share of the e2e
+                      specs reach a gated route, and `gotoSandbox()` plus
+                      `#/sandbox&scenario=<b64>` can ONLY be served by the
+                      catch-all — that hash is a single path segment, so no
+                      explicit route can ever match it.
+
+                      NESTING IT HERE DOES NOT CHANGE ITS PRECEDENCE: a pathless
+                      parent contributes no path segment, so the branch's joined
+                      path is `/*` either way and its rank score is unchanged. */}
+                  <Route path="*" element={<MainSandboxContent />} />
+                </Route>
                 </Routes>
               </CanvasErrorBoundary>
             </Suspense>

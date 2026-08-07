@@ -79,6 +79,13 @@ import {
   findAnalysisProducingPlotTurn,
   type PlotTraceTier,
 } from '../../../lib/analysisProducingPlotTurn'
+// ROADMAP 1.31 (Brief I): most-recent-N V5 CEE turn capture, INCLUDING
+// LLM-authored conversation turns (chat/clarify/draft), independent of
+// the single-turn analysis-producing selector above. See module docs.
+import {
+  selectRecentConversationTurns,
+  type RecentConversationTurnsResult,
+} from '../../../lib/recentConversationTurns'
 import {
   isV5TurnEndpoint,
   matchServiceCaseInsensitive,
@@ -87,6 +94,16 @@ import {
 } from '../../../lib/v5TraceMatching'
 import { useGateStore, type GateName, type GateStatus } from '../../../lib/gate-state'
 import { getClientBuild } from '../../../lib/version-cache'
+// V5-canonical enrichment lift (evidence-tooling fix, bundle 45c9b625,
+// 2026-07-07): under V5 canonical mode the browser never fetches PLoT/ISL
+// directly, so payloads.plot_response is honestly null and the PLoT-shaped
+// evidence lives at cee_response.blocks[analysis_result].enrichment. The
+// diagnostic checks below read the lift via this shared resolver so they
+// stop reporting structural false negatives on the canonical path.
+import {
+  resolveScientificEvidence,
+  type EvidenceSource,
+} from '../../../lib/v5EmbeddedEvidence'
 
 // =============================================================================
 // Types
@@ -291,8 +308,16 @@ export interface DiagnosticChecks {
   downstream_calls_path_found: string | null
   /** All paths checked for downstream_calls */
   downstream_calls_paths_checked: string[]
-  /** Source of ISL data */
-  isl_data_source: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'none'
+  /**
+   * Source of ISL data.
+   *
+   * `cee_enrichment_extraction` (V5-canonical path, 2026-07-07): ISL-derived
+   * analysis fields were lifted from the CEE turn response's embedded
+   * `analysis_result.enrichment` (either a real ISL body carried in the
+   * enrichment sidecar/downstream_calls, or the PLoT-shaped projection's
+   * ISL-characteristic fields). There was no browser-visible ISL call.
+   */
+  isl_data_source: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'cee_enrichment_extraction' | 'none'
   /** Whether CEE trace is present */
   cee_trace_present: boolean
   /** Whether CEE is in degraded mode */
@@ -359,6 +384,27 @@ export interface DiagnosticChecks {
   response_hash_present: boolean
   /** conditional_probabilities present and non-empty */
   mca_computed: boolean
+  /**
+   * Provenance of the effective PLoT-shaped body the plot-layer checks above
+   * read from (additive, 2026-07-07):
+   *   - 'top_level'    — raw `payloads.plot_response` capture (legacy/direct path)
+   *   - 'cee_embedded' — lifted from the CEE turn's `analysis_result.enrichment`
+   *                      (V5-canonical path; exact path in `evidence_resolution`)
+   *   - 'unavailable'  — no PLoT-shaped body anywhere; plot-layer checks are
+   *                      structurally false, not observed-false
+   * Absent on bundles exported before this field existed.
+   */
+  plot_evidence_source?: EvidenceSource
+  /**
+   * Factor-level EVPI/VOI surface (additive, 2026-07-07): true when the
+   * effective factor_sensitivity carries a finite `value_of_information` or
+   * `evpi_percentage_points` on any entry. Distinct from `evpi_present`
+   * (which keeps its historical meaning: ISL `factor_evpi` array non-empty)
+   * because on the V5-canonical wire EVPI travels per-factor, not as an ISL
+   * top-level array — pinning the old check alone made the EVPI question
+   * structurally false on canonical bundles.
+   */
+  plot_factor_voi_fields_present?: boolean
 }
 
 export interface CeeTraceData {
@@ -673,6 +719,29 @@ export interface SchemaVersions {
   consistency_status: SchemaVersionConsistencyStatus
   /** Populated only when `consistency_status === 'unknown'`. */
   unknown_reason?: SchemaVersionUnknownReason
+  /**
+   * Version of the UI's vendored `@talchain/schemas` pin (additive,
+   * 2026-07-07). Populated at export time from the build-time constant
+   * `TALCHAIN_SCHEMAS_VENDORED_VERSION` (drift-guarded against the
+   * package.json tarball pin by `talchainSchemasVersion.spec.ts`) — NOT
+   * from wire payloads, so it is present even when no service echoes a
+   * schema_version (the all-null case bundle 45c9b625 exhibited).
+   * Deliberately excluded from the six-way `consistency_status`
+   * computation, which keeps its wire-only semantics.
+   */
+  ui_vendored_talchain_schemas?: string
+  /**
+   * Service build identifiers where available (additive, 2026-07-07).
+   * Mirrors `bundle.builds` into this block so version-skew triage reads
+   * from a single place; null per service when the build id was not
+   * observable in the captured payloads.
+   */
+  build_ids?: {
+    ui: string | null
+    cee: string | null
+    plot: string | null
+    isl: string | null
+  }
 }
 
 /**
@@ -1108,6 +1177,21 @@ export interface DebugData {
 
   /** CEE diagnostic trace from _diagnostic_trace envelope field. Passthrough — UI must not transform. */
   diagnostic_trace: Record<string, unknown> | null
+
+  /**
+   * Recent conversation turns (ROADMAP 1.31, Brief I) — the most-recent
+   * N V5 CEE turns of ANY kind (chat, clarify, draft, chip), each
+   * carrying `assistant_text` + served prompt identity when present.
+   * Independent of `payloads.cee_request`/`cee_response` (which stay
+   * pinned to the single analysis-producing turn via
+   * `findLatestAnalysisProducingCeeTurn`, unchanged) — this field exists
+   * so a bundle from a scenario with real conversation carries at least
+   * one LLM-authored turn even when no analysis-producing turn ran.
+   * Optional (like `payload_trace_store_summary`) so pre-existing
+   * `DebugData` test fixtures that don't set it keep compiling — the
+   * bundle assembler defaults to an empty result when absent.
+   */
+  recent_conversation_turns?: RecentConversationTurnsResult
 }
 
 /**
@@ -1713,6 +1797,24 @@ function extractBuildVersions(
       ((provenanceSource.commit as string) ? `@${(provenanceSource.commit as string).slice(0, 7)}` : '')
     : null
 
+  // Lane UI-W4 B (PLoT #200): the PLoT response now carries an
+  // always-present `_meta.evidence` with the deployed PLoT build and the
+  // ISL build passthrough. Used as the LAST fallback for both services —
+  // ISL is called by PLoT (never directly by the UI), so
+  // `payloads.isl_response` is normally null and `builds.isl` was the
+  // "isl: null" half of the diligence gap. Strict string reads; absence
+  // stays an honest null.
+  const plotEvidence = (plot?._meta as Record<string, unknown> | undefined)
+    ?.evidence as Record<string, unknown> | undefined
+  const evidencePlotBuild =
+    typeof plotEvidence?.plot_build === 'string' && plotEvidence.plot_build.length > 0
+      ? plotEvidence.plot_build
+      : null
+  const evidenceIslBuild =
+    typeof plotEvidence?.isl_build === 'string' && plotEvidence.isl_build.length > 0
+      ? plotEvidence.isl_build
+      : null
+
   return {
     ui: getClientBuild() || null,
     cee: ceeVersionFromEngine
@@ -1720,10 +1822,12 @@ function extractBuildVersions(
     plot: (plot?.meta as Record<string, unknown>)?.build as string
       ?? (plot?.trace as Record<string, unknown>)?.build as string
       ?? (plot?.build as string)
+      ?? evidencePlotBuild
       ?? null,
     isl: (isl?._metadata as Record<string, unknown>)?.isl_version as string
       ?? (isl?._metadata as Record<string, unknown>)?.version as string
       ?? (isl?.version as string)
+      ?? evidenceIslBuild
       ?? null,
   }
 }
@@ -1810,6 +1914,43 @@ function findLlmRawPath(ceeResponse: unknown): string | null {
 }
 
 /**
+ * Resolve the CEE diagnostic trace from the available surfaces (pure,
+ * exported for tests).
+ *
+ * Priority:
+ *   1. `storeTrace` — canvas store `runMeta.ceeDiagnosticTrace` (streaming path)
+ *   2. `ceeResponseBody._diagnostic_trace` — legacy top-level location
+ *   3. `ceeResponseBody.__additive__._diagnostic_trace` — V5 parser sidecar.
+ *      The V5 response parser demotes unknown top-level keys (including
+ *      `_diagnostic_trace`) into the `__additive__` sidecar before strict
+ *      validation, and `v5Adapter` promotes that sidecar to an enumerable
+ *      key on the trace-store clone. Captured V5-canonical bodies therefore
+ *      carry the trace ONLY under `__additive__` — bundle 45c9b625 reported
+ *      `_unavailable_reason: 'CEE diagnostic trace not present in response'`
+ *      while the trace sat exactly there.
+ */
+export function readCeeDiagnosticTrace(
+  storeTrace: Record<string, unknown> | null | undefined,
+  ceeResponseBody: unknown,
+): Record<string, unknown> | null {
+  if (storeTrace) return storeTrace
+  if (!ceeResponseBody || typeof ceeResponseBody !== 'object') return null
+  const body = ceeResponseBody as Record<string, unknown>
+  const topLevel = body._diagnostic_trace
+  if (topLevel && typeof topLevel === 'object' && !Array.isArray(topLevel)) {
+    return topLevel as Record<string, unknown>
+  }
+  const additive = body.__additive__
+  if (additive && typeof additive === 'object' && !Array.isArray(additive)) {
+    const sidecarTrace = (additive as Record<string, unknown>)._diagnostic_trace
+    if (sidecarTrace && typeof sidecarTrace === 'object' && !Array.isArray(sidecarTrace)) {
+      return sidecarTrace as Record<string, unknown>
+    }
+  }
+  return null
+}
+
+/**
  * Extract diagnostic checks from payloads.
  *
  * In the orchestrator flow the CEE response is an OrchestratorResponseEnvelopeV2
@@ -1824,10 +1965,22 @@ export function extractDiagnosticChecks(
   plotResponse: unknown,
   ceeResponse: unknown,
   islResponse: unknown,
-  islDataSource: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'none',
+  islDataSource: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'cee_enrichment_extraction' | 'none',
   canvasNodes?: Array<{ id: string; type?: string; data?: Record<string, unknown> }>,
   canvasEdges?: Array<{ id: string; source: string; target: string; data?: Record<string, unknown> }>,
   diagnosticTrace?: Record<string, unknown> | null,
+  /**
+   * V5-canonical enrichment lift (2026-07-07): the PLoT-shaped body resolved
+   * by `resolveScientificEvidence` plus its provenance. When `plotSource ===
+   * 'cee_embedded'` the plot-layer checks below read `plotBody` in place of
+   * the (null) raw `plotResponse`. A raw top-level capture always wins —
+   * the resolver only classifies `cee_embedded` when top-level was null.
+   * Optional so legacy call sites / fixture replays keep pre-lift behaviour.
+   */
+  liftedPlotEvidence?: {
+    plotBody: Record<string, unknown> | null
+    plotSource: EvidenceSource
+  } | null,
 ): DiagnosticChecks {
   const plot = plotResponse as Record<string, unknown> | null | undefined
   const cee = ceeResponse as Record<string, unknown> | null | undefined
@@ -1836,12 +1989,19 @@ export function extractDiagnosticChecks(
   const hasDownstreamCalls = findDownstreamCallsPath(plotResponse) !== null
 
   // CEE trace: try legacy paths on CEE response body, then fall back to
-  // envelope._diagnostic_trace (orchestrator flow) or _route_metadata.
+  // envelope._diagnostic_trace (orchestrator flow), the V5 parser's
+  // additive sidecar (`__additive__._diagnostic_trace` — the parser demotes
+  // unknown top-level keys there, which is where the trace ACTUALLY lives
+  // on captured V5-canonical bodies; bundle 45c9b625 reported
+  // cee_trace_present:false while the trace sat under __additive__), or
+  // _route_metadata.
   const ceeTrace = cee?.ceeTrace as Record<string, unknown>
     ?? cee?.trace as Record<string, unknown>
     ?? (cee?.meta as Record<string, unknown>)?.trace as Record<string, unknown>
+  const additiveSidecar = cee?.__additive__ as Record<string, unknown> | undefined
   const envelopeDiagTrace = diagnosticTrace
     ?? (cee?._diagnostic_trace as Record<string, unknown> | undefined)
+    ?? (additiveSidecar?._diagnostic_trace as Record<string, unknown> | undefined)
   const hasTraceData = !!ceeTrace || !!envelopeDiagTrace
     || !!(cee?._route_metadata)
 
@@ -1890,16 +2050,44 @@ export function extractDiagnosticChecks(
     downstreamIslRobustnessEvs.length > 0 ||
     downstreamIslTopLevelEvs.length > 0
 
+  // Effective PLoT-shaped body: raw top-level capture wins; the V5-canonical
+  // enrichment lift substitutes ONLY when the raw capture is absent and the
+  // resolver classified the lifted body as `cee_embedded`. Provenance is
+  // surfaced on `plot_evidence_source` so a reviewer can tell which surface
+  // the plot-layer checks below actually read.
+  const liftedPlotBody =
+    liftedPlotEvidence?.plotSource === 'cee_embedded'
+      ? liftedPlotEvidence.plotBody
+      : null
+  const plotEffective: Record<string, unknown> | null =
+    asRecord(plot) ?? liftedPlotBody
+  const plotFromLift = asRecord(plot) === null && liftedPlotBody !== null
+  const plotEvidenceSource: EvidenceSource =
+    asRecord(plot) !== null
+      ? 'top_level'
+      : plotFromLift
+        ? 'cee_embedded'
+        : 'unavailable'
+
   // PLoT public layer: primary path is `robustness.edge_e_values`, fallback is top-level.
-  const plotEdgeEValuesRobustness = Array.isArray((plot?.robustness as Record<string, unknown> | undefined)?.edge_e_values)
-    ? (plot!.robustness as Record<string, unknown>).edge_e_values as unknown[]
+  const plotEdgeEValuesRobustness = Array.isArray((plotEffective?.robustness as Record<string, unknown> | undefined)?.edge_e_values)
+    ? (plotEffective!.robustness as Record<string, unknown>).edge_e_values as unknown[]
     : []
-  const plotEdgeEValuesTopLevel = Array.isArray(plot?.edge_e_values) ? plot.edge_e_values as unknown[] : []
+  const plotEdgeEValuesTopLevel = Array.isArray(plotEffective?.edge_e_values) ? plotEffective.edge_e_values as unknown[] : []
   const plotPublicHasEdgeEValues = plotEdgeEValuesRobustness.length > 0 || plotEdgeEValuesTopLevel.length > 0
 
-  // UI / enrichment layer mirrors `extractPlotEnrichment` (exportBundle.ts:511):
-  // it reads `plot.robustness.edge_e_values`. If PLoT public has none, UI has none.
-  const uiEdgeEValuesAvailable = plotEdgeEValuesRobustness.length > 0
+  // UI / enrichment layer. Two consumption paths, mirrored per-source:
+  //   - raw top-level plot_response (legacy/direct): `extractPlotEnrichment`
+  //     reads `plot.robustness.edge_e_values` only — keep that mirror.
+  //   - CEE-embedded enrichment (V5-canonical): the UI consumes the block via
+  //     `mapV5AnalysisToReport`, which lifts BOTH `robustness.edge_e_values`
+  //     AND top-level `enrichment.edge_e_values` into the report
+  //     (mapV5AnalysisToReport.ts:428-443, 541-543) — so either probe means
+  //     the UI genuinely has e-values available. Bundle 45c9b625 carried 6
+  //     entries at enrichment top level while this check said false.
+  const uiEdgeEValuesAvailable = plotFromLift
+    ? plotPublicHasEdgeEValues
+    : plotEdgeEValuesRobustness.length > 0
 
   // Legacy alias: prior `e_values_present` pointed at `isl?.edge_e_values`
   // (top-level only), which silently returned false post-A1 when ISL moved
@@ -1910,7 +2098,19 @@ export function extractDiagnosticChecks(
   const islFactorEvpi = Array.isArray(isl?.factor_evpi) ? isl.factor_evpi as unknown[] : []
 
   // PLoT factor_sensitivity — used for bootstrap source check
-  const plotFactorSensitivity = Array.isArray(plot?.factor_sensitivity) ? plot.factor_sensitivity as Record<string, unknown>[] : []
+  const plotFactorSensitivity = Array.isArray(plotEffective?.factor_sensitivity) ? plotEffective.factor_sensitivity as Record<string, unknown>[] : []
+
+  // Factor-level EVPI/VOI fields (V5-canonical EVPI surface). Presence of a
+  // finite value_of_information / evpi_percentage_points on any entry —
+  // value-agnostic (a computed 0 is still data). `evpi_present` keeps its
+  // historical ISL `factor_evpi` meaning; this is the additive per-factor
+  // signal.
+  const plotFactorVoiFieldsPresent = plotFactorSensitivity.some((f) => {
+    const voi = f.value_of_information
+    const evpiPp = f.evpi_percentage_points
+    return (typeof voi === 'number' && Number.isFinite(voi))
+      || (typeof evpiPp === 'number' && Number.isFinite(evpiPp))
+  })
 
   const hasBootstrapSource = plotFactorSensitivity.some(
     (f) => isBootstrapConfidenceSource(f.confidence_source)
@@ -2042,6 +2242,8 @@ export function extractDiagnosticChecks(
     epsilon_std_present: hasEpsilonStd,
     response_hash_present: responseHash.length > 0,
     mca_computed: conditionalProbs.length > 0,
+    plot_evidence_source: plotEvidenceSource,
+    plot_factor_voi_fields_present: plotFactorVoiFieldsPresent,
   }
 }
 
@@ -3720,6 +3922,10 @@ export function useDebugData(): DebugData {
       currentScenarioId,
       resultsHash,
     )
+    // ROADMAP 1.31 (Brief I): independent multi-turn capture. Does NOT
+    // feed `payloads.cee_request`/`cee_response` — those stay pinned to
+    // `analysisProducing.selected` above, unchanged.
+    const recentConversationTurns = selectRecentConversationTurns(tracedPayloads)
     // Fallback path: when the analysis-producing V5 selector returns
     // undefined, fall through to `findBestPayload` so V1 / non-analysis
     // V5 turns still surface honestly.
@@ -3958,7 +4164,7 @@ export function useDebugData(): DebugData {
       : null
 
     // Determine ISL data source
-    let islDataSource: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'none' = 'none'
+    let islDataSource: DiagnosticChecks['isl_data_source'] = 'none'
 
     // Build ISL service call data from both sources
     const directIslCall = islPayload ? payloadToServiceCall(islPayload) : null
@@ -4061,6 +4267,67 @@ export function useDebugData(): DebugData {
       }
     }
 
+    // V5-canonical enrichment lift (evidence-tooling fix, bundle 45c9b625):
+    // resolve the PLoT-shaped evidence embedded in the CEE turn response.
+    // Body preference mirrors exportBundle's scientific-validation call:
+    // the recovered earlier CEE turn wins when the conversational turn is
+    // prose-only; otherwise the captured conversational response (direct,
+    // then downstream). The resolver is pure and never fabricates — when
+    // no analysis_result block exists everything stays null/'unavailable'.
+    const conversationalCeeBody =
+      ceePayload?.response?.body ?? ceeFromPlot?.[0]?.response ?? null
+    const ceeBodyForEvidenceLift =
+      analysisEvidenceTraceSource === 'recovered_earlier_cee_turn' &&
+      analysisEvidenceCeeResponseBody !== null &&
+      analysisEvidenceCeeResponseBody !== undefined
+        ? analysisEvidenceCeeResponseBody
+        : conversationalCeeBody
+    const liftedEvidence = resolveScientificEvidence(
+      {
+        plot_request: plotPayload?.request?.body ?? null,
+        plot_response: plotPayload?.response?.body ?? null,
+        isl_request: islServiceCall?.request ?? null,
+        isl_response: islResponse ?? null,
+      },
+      ceeBodyForEvidenceLift,
+    )
+
+    // Extend the ISL fallback chain with the enrichment lift. Preference:
+    // a REAL embedded ISL body (enrichment `_meta.payloads.isl_response`
+    // sidecar or `downstream_calls.isl.response`) over the PLoT-shaped
+    // projection's ISL-characteristic fields. Both carry the explicit
+    // `cee_enrichment_extraction` data-source label so reviewers can never
+    // mistake the lift for a browser-visible ISL capture.
+    if (!islResponse) {
+      if (liftedEvidence.resolution.isl_response.source === 'cee_embedded') {
+        islResponse = {
+          ...(liftedEvidence.bodies.isl_response as Record<string, unknown>),
+          _source: 'cee_enrichment_extraction',
+        }
+        islDataSource = 'cee_enrichment_extraction'
+      } else if (
+        liftedEvidence.resolution.plot_response.source === 'cee_embedded' &&
+        liftedEvidence.bodies.plot_response !== null
+      ) {
+        const liftedPlotBody = liftedEvidence.bodies.plot_response
+        if (
+          'option_comparison' in liftedPlotBody ||
+          'factor_sensitivity' in liftedPlotBody ||
+          'robustness' in liftedPlotBody
+        ) {
+          islResponse = {
+            option_comparison: liftedPlotBody.option_comparison,
+            factor_sensitivity: liftedPlotBody.factor_sensitivity,
+            robustness: liftedPlotBody.robustness,
+            constraint_analysis: liftedPlotBody.constraint_analysis,
+            analysis_status: liftedPlotBody.analysis_status,
+            _source: 'cee_enrichment_extraction',
+          }
+          islDataSource = 'cee_enrichment_extraction'
+        }
+      }
+    }
+
     // Build payloads bundle
     const payloadBundle: PayloadBundle = {
       cee_request: ceePayload?.request?.body,
@@ -4086,16 +4353,19 @@ export function useDebugData(): DebugData {
     )
 
     // CEE diagnostic trace — passthrough from envelope._diagnostic_trace.
-    // Priority: canvas store (streaming path) > CEE response body (non-streaming path).
-    // Computed early so extractDiagnosticChecks can use it as fallback.
+    // Priority: canvas store (streaming path) > CEE response body (top-level
+    // legacy path, then the V5 parser's `__additive__` sidecar). See
+    // `readCeeDiagnosticTrace` for the sidecar rationale.
     const diagnostic_trace: Record<string, unknown> | null =
-      runMeta?.ceeDiagnosticTrace
-      ?? (payloadBundle.cee_response && typeof payloadBundle.cee_response === 'object'
-        ? ((payloadBundle.cee_response as Record<string, unknown>)._diagnostic_trace as Record<string, unknown> | undefined) ?? null
-        : null)
+      readCeeDiagnosticTrace(
+        runMeta?.ceeDiagnosticTrace,
+        payloadBundle.cee_response,
+      )
 
     // Extract diagnostic checks — pass canvas store nodes/edges and diagnostic trace
     // so orchestrator-flow envelopes (no top-level graph data) still produce correct checks.
+    // The lifted plot evidence keeps the plot-layer checks truthful on the
+    // V5-canonical path where payloads.plot_response is always null.
     const diagnostics = extractDiagnosticChecks(
       payloadBundle.plot_response,
       payloadBundle.cee_response,
@@ -4104,6 +4374,10 @@ export function useDebugData(): DebugData {
       nodes as Array<{ id: string; type?: string; data?: Record<string, unknown> }>,
       edges as Array<{ id: string; source: string; target: string; data?: Record<string, unknown> }>,
       diagnostic_trace,
+      {
+        plotBody: liftedEvidence.bodies.plot_response,
+        plotSource: liftedEvidence.resolution.plot_response.source,
+      },
     )
 
     // Extract CEE trace data
@@ -4309,6 +4583,10 @@ export function useDebugData(): DebugData {
 
       // CEE diagnostic trace (passthrough)
       diagnostic_trace,
+
+      // ROADMAP 1.31 (Brief I): recent conversation turns, incl.
+      // LLM-authored text + prompt identity.
+      recent_conversation_turns: recentConversationTurns,
     }
   }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap, currentScenarioId, resultsHash])
 }

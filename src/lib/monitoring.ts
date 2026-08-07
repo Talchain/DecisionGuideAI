@@ -4,9 +4,41 @@ import { onCLS, onLCP, onINP, type Metric } from 'web-vitals'
 import { logger } from './logger'
 import type { MonitoringConfig, HotjarWindow, SentryContext } from '../types/monitoring'
 import { initPostHog } from './posthog'
+import { trackMeasurement } from '../telemetry/measurementEvents'
+import { resolveParticipantTag } from '../telemetry/measurementConfig'
 
-export function resolveMonitoringConfig(env = import.meta.env): MonitoringConfig {
-  const environment = env.MODE || 'production'
+/**
+ * The named env values this module reads, captured as LITERAL
+ * `import.meta.env?.VITE_…` reads.
+ *
+ * ⚠ Do NOT collapse this back to a bare `import.meta.env` reference (the previous
+ * default parameter was `env = import.meta.env`). Vite cannot statically narrow a
+ * bare reference, so it inlined the ENTIRE env object — every `VITE_*` the deploy
+ * defines, with its value — into this module's chunk. Named reads are narrowed to
+ * exactly the five values below. Pinned by
+ * `scripts/ci/assert-bundle-env-allowlist.mjs`.
+ *
+ * The injectable `env` parameter is preserved verbatim: it is the unit-test seam
+ * (`resolveMonitoringConfig({ MODE: 'production', … })`), and callers that pass an
+ * explicit env are unaffected.
+ */
+function monitoringEnvDefaults(): Record<string, unknown> {
+  return {
+    MODE: import.meta.env?.MODE,
+    VITE_SENTRY_DSN: import.meta.env?.VITE_SENTRY_DSN,
+    VITE_HOTJAR_ID: import.meta.env?.VITE_HOTJAR_ID,
+    VITE_ENABLE_WEB_VITALS: import.meta.env?.VITE_ENABLE_WEB_VITALS,
+    VITE_RELEASE_VERSION: import.meta.env?.VITE_RELEASE_VERSION,
+  }
+}
+
+export function resolveMonitoringConfig(
+  env: Record<string, unknown> = monitoringEnvDefaults(),
+): MonitoringConfig {
+  // Cast, not a behaviour change: the parameter type widened from Vite's
+  // `ImportMetaEnv` to `Record<string, unknown>` when the bare-`import.meta.env`
+  // default was replaced with named reads. `|| 'production'` is preserved verbatim.
+  const environment = (env.MODE as string | undefined) || 'production'
   const isProdLike = environment !== 'development' && environment !== 'test'
   const dsn = env.VITE_SENTRY_DSN as string | undefined
   const hotjarId = env.VITE_HOTJAR_ID as string | undefined
@@ -144,6 +176,25 @@ export function initMonitoring(): void {
   initWebVitals()
   initHotjar()
   initPostHog()
+
+  // ── session_started (ROADMAP 1.68) ──────────────────────────────────────
+  //
+  // The anchor every duration measure is relative to. Paired with the
+  // re-routed `run_completed` it gives time-to-first-insight for free.
+  //
+  // Emitted AFTER initPostHog so the SDK is initialised — `trackEvent` returns
+  // early otherwise and this would be the first event silently lost.
+  //
+  // NEVER-CAPTURE: no user id, no email, no display name. `participant_tag` is
+  // a pseudonym from `measurementConfig` (null while the vocabulary is empty,
+  // which is the shipped state), and the two env values are non-secret deploy
+  // labels already on the bundle allowlist. Named LITERAL reads, per this
+  // module's own narrowing rule above.
+  trackMeasurement('session_started', {
+    participant_tag: resolveParticipantTag(),
+    build_id: (import.meta.env?.VITE_BUILD_ID as string | undefined) ?? 'unknown',
+    auth_mode: (import.meta.env?.VITE_AUTH_MODE as string | undefined) ?? 'unknown',
+  })
 }
 
 export function isMonitoringEnabled(): boolean {

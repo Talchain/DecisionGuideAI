@@ -79,20 +79,20 @@ export function DraftStreamPanel({
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-sky-500" />
-            <span className="text-ink-900/70">
+            <span className="text-ink-900">
               <strong>{nodeCount}</strong> nodes
             </span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-sun-500" />
-            <span className="text-ink-900/70">
+            <span className="text-ink-900">
               <strong>{edgeCount}</strong> edges
             </span>
           </div>
         </div>
 
         {/* Recent events */}
-        <div className="max-h-32 overflow-y-auto space-y-1 text-xs text-ink-900/70">
+        <div className="max-h-32 overflow-y-auto space-y-1 text-xs text-ink-900">
           {events.slice(-5).map((event, i) => (
             <div key={i} className="py-1">
               {event.type === 'node' && `+ Node: ${event.data.label}`}

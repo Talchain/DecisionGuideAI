@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback } from 'react'
+import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
@@ -6,12 +6,13 @@ import type { RiskImpact } from '../domain/nodes'
 import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { computeSignedMean } from '../domain/edges'
+import { resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
+import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, Sep, NodeChip, NodePopover, ScienceIcon } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 
 export const RiskNode = memo((props: NodeProps) => {
@@ -44,34 +45,26 @@ export const RiskNode = memo((props: NodeProps) => {
     if (!goalNode) return null
     const edge = edges.find(e => e.source === props.id && e.target === goalNode.id)
     if (!edge) return null
-    const weight = (edge.data as any)?.weight as number | undefined
-    const hasStrength = typeof (edge.data as any)?.strength_mean === 'number' || weight != null
-    const signedMean = hasStrength ? computeSignedMean(edge.data as Record<string, unknown> | undefined) : null
+    // ⛔ Provenance gate. The previous test — `strength_mean` present OR
+    // `weight != null` — could NOT fire: `DEFAULT_EDGE_DATA`/`USER_EDGE_DEFAULTS`
+    // always define `weight`, so `hasStrength` was true for every edge that
+    // exists in the product and this rendered `USER_EDGE_DEFAULTS.weight` (0.3)
+    // as a bold coloured "contribution" figure. Same shape as the F1 defect in
+    // `RelationshipsSection`: a gate whose condition is a tautology.
+    const display = resolveEdgeSignedStrengthDisplay(edge.data as Record<string, unknown> | undefined)
+    const signedMean = display.show ? display.value : null
     return {
       signedMean,
       bridgeStrengthPct: signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null,
-      contributionPct: weight != null ? Math.round(weight * 100) : null,
     }
   }, [edges, nodes, props.id])
 
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
   const inboundConnections = useNodeConnections(props.id, 'inbound')
 
-  // Pre-analysis inbound edges with strengths (for popover)
-  const preAnalysisInbound = useMemo(() => {
-    if (isPostAnalysis) return []
-    const inbound = edges.filter(e => e.target === props.id)
-    const items: { nodeLabel: string; strengthPct: number }[] = []
-    for (const edge of inbound) {
-      const sourceNode = nodes.find(n => n.id === edge.source)
-      if (!sourceNode) continue
-      const label = (sourceNode.data?.label as string) ?? 'Untitled'
-      const sm = computeSignedMean(edge.data as Record<string, unknown> | undefined)
-      items.push({ nodeLabel: label, strengthPct: Math.round(Math.abs(sm) * 100) })
-    }
-    items.sort((a, b) => b.strengthPct - a.strengthPct)
-    return items
-  }, [edges, nodes, props.id, isPostAnalysis])
+  // Pre-analysis inbound edges with strengths (for popover). Provenance-gated
+  // and shared with OutcomeNode — see `usePreAnalysisInbound`.
+  const { items: preAnalysisInbound, topSetItem: preAnalysisTopSet } = usePreAnalysisInbound(props.id)
 
   // Top factor for actionable guidance
   const topFactor = inboundConnections.length > 0 ? inboundConnections[0] : null
@@ -80,12 +73,14 @@ export const RiskNode = memo((props: NodeProps) => {
   // directly; they live in popovers (Standard) or inline in Detailed view.
   const riskChips = useMemo(() => (
     <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?`} />
-      <NodeChip label="Add mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}`} />
+      <NodeChip chipId="risk_what_reduces" actionType={null} label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?`} />
+      <NodeChip chipId="risk_add_mitigation" actionType={null} label="Add mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}`} />
     </div>
   ), [cleanedLabel])
 
-  // Severity badge (Detailed view, independent of isPostAnalysis — derived from node probability/impact)
+  // Severity badge — derived from node probability × impact via calculateRiskSeverity
+  // (the existing probability×impact derivation, reused not re-added). P1.7: now
+  // rendered in the always-visible Standard body (Layer 1), not Expert/popover-only.
   const detailedMetrics = severity ? (
     <div
       className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-1.5 py-0.5 ${typography.edgeLabel} mb-1`}
@@ -93,6 +88,19 @@ export const RiskNode = memo((props: NodeProps) => {
     >
       {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
     </div>
+  ) : null
+
+  // The defining probability × impact pair (P1.7). Honest absence: each half only
+  // renders when its value exists — never a fabricated 0% or default impact. The
+  // percentage is display formatting of the 0-1 probability (same untagged pattern
+  // as confidence display in lib/format.ts), not a semantic transform.
+  const probabilityPct = typeof probability === 'number' ? Math.round(probability * 100) : null
+  const exposureReadout = [
+    probabilityPct != null ? `${probabilityPct}% likely` : null,
+    impact ? `${impact.charAt(0).toUpperCase()}${impact.slice(1)} impact` : null,
+  ].filter(Boolean).join(' · ')
+  const riskExposureLine = exposureReadout ? (
+    <div className={`${typography.edgeLabel} text-text-light mt-1`}>{exposureReadout}</div>
   ) : null
 
   // ----- Layer 2 content: post-analysis (shared between popover and Detailed inline) -----
@@ -103,7 +111,8 @@ export const RiskNode = memo((props: NodeProps) => {
         <>
           <Sep />
           <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Depends on:</p>
-          {/* Wireframe v4: max 3 ConnRows in both views. */}
+          {/* Wireframe v4: max 3 ConnRows in both views; remainder disclosed
+              via "+N more in inspector" (audit §8 P0-5). */}
           {inboundConnections.slice(0, 3).map(conn => (
             <ConnRow
               key={conn.edgeId}
@@ -113,6 +122,7 @@ export const RiskNode = memo((props: NodeProps) => {
               confidencePct={conn.confidencePct}
             />
           ))}
+          <ConnRowsOverflow total={inboundConnections.length} shown={3} />
         </>
       )}
 
@@ -144,18 +154,8 @@ export const RiskNode = memo((props: NodeProps) => {
   // ----- Layer 2 content: pre-analysis popover -----
   const preAnalysisPopoverContent = !isPostAnalysis && preAnalysisInbound.length > 0 ? (
     <>
-      <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
-        Driven by {preAnalysisInbound.length} factor{preAnalysisInbound.length !== 1 ? 's' : ''}.
-        {preAnalysisInbound[0] && (
-          <> Strongest: {preAnalysisInbound[0].nodeLabel} at {preAnalysisInbound[0].strengthPct}%.</>
-        )}
-      </p>
-      {preAnalysisInbound.slice(0, 5).map((item, i) => (
-        <div key={i} className={`${typography.edgeLabel} text-text-light m-0 flex justify-between gap-2`}>
-          <span className="truncate">{item.nodeLabel}</span>
-          <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
-        </div>
-      ))}
+      <PreAnalysisDrivenByLine items={preAnalysisInbound} topSetItem={preAnalysisTopSet} />
+      <PreAnalysisInboundRows items={preAnalysisInbound.slice(0, 5)} />
       {/* Polish 4 review: removed the "Are there other risks?" /
           "What's the worst case?" chips. The body now carries the canonical
           pair ("What reduces this?" + "Add mitigation") in both phases — the
@@ -186,44 +186,47 @@ export const RiskNode = memo((props: NodeProps) => {
       >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
-        {/* Post-analysis: "30%" (semibold entity colour) + "goal drag" (meta) */}
-        {isPostAnalysis && bridgeEdgeData?.contributionPct != null && (
+        {/* Assumed bridge-strength percentage — honest in ALL states.
+            UI-SEM-089 (display honesty — assumed input never presented as
+            computed output): this number is the STATIC graph edge weight
+            (the assumed drag toward the goal), not an engine-computed
+            contribution. It previously flipped its label from "assumed
+            strength" to "goal drag" the moment results.status became
+            'complete' — masquerading an un-computed input as a computed
+            goal contribution without any producer attribution behind it.
+            Kept as "assumed strength" pre- AND post-analysis. Removal
+            trigger: a producer supplies a typed per-node goal-attribution
+            field. */}
+        {bridgeEdgeData?.bridgeStrengthPct != null && (
           <div className="mt-1 inline-flex items-center gap-1">
-            <span className={`${typography.nodeLabel} font-semibold text-danger`}>{bridgeEdgeData.contributionPct}%</span>
-            <span className={`${typography.edgeLabel} text-text-light`}>goal drag</span>
+            <span className={`${typography.nodeLabel} font-semibold text-danger`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
+            <span className={`${typography.edgeLabel} text-text-light`}>assumed strength</span>
           </div>
         )}
 
-        {/* Pre-analysis: influence percentage */}
-        {!isPostAnalysis && bridgeEdgeData?.bridgeStrengthPct != null && (
-          <div className="mt-1 inline-flex items-center gap-1">
-            <span className={`${typography.nodeLabel} font-semibold text-danger`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
-            <span className={`${typography.edgeLabel} text-text-light`}>influence</span>
-          </div>
-        )}
+        {/* Severity badge + probability × impact pair — visible in STANDARD view
+            (P1.7). Both are derived/read straight from node data; no fabrication
+            when data is absent. */}
+        {detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
+        {riskExposureLine}
 
         {/* Coaching chips moved to popovers — see `riskChips` useMemo above
             and the popover branches at the bottom of this file. In Detailed
             view they appear inline beneath layer-2 content. */}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
-            Graph v1.1 Task 4: align with wireframe v4. Severity badge is a
-            state indicator (not coaching text) so it's retained alongside the
-            percentage + chips already in Layer 1. */}
-        {isDetailed && detailedMetrics}
+            Graph v1.1 Task 4: align with wireframe v4. The severity badge now
+            lives in Layer 1 (Standard-visible, P1.7) so it is NOT repeated here. */}
         {isDetailed && layer2ContentPost}
 
-        {/* Detailed pre-analysis: full inbound factor list (max 5) */}
+        {/* Detailed pre-analysis: inbound factor list — max 3 whole rows in
+            the card, remainder disclosed (audit §8 P0-5 containment). */}
         {isDetailed && !isPostAnalysis && preAnalysisInbound.length > 0 && (
           <>
             <Sep />
             <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Driven by:</p>
-            {preAnalysisInbound.slice(0, 5).map((item, i) => (
-              <div key={i} className={`${typography.edgeLabel} text-text-light m-0 flex justify-between gap-2`}>
-                <span className="truncate">{item.nodeLabel}</span>
-                <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
-              </div>
-            ))}
+            <PreAnalysisInboundRows items={preAnalysisInbound.slice(0, 3)} />
+            <ConnRowsOverflow total={preAnalysisInbound.length} shown={3} />
           </>
         )}
 
@@ -247,7 +250,8 @@ export const RiskNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
-          {detailedMetrics}
+          {/* Severity badge lives in Layer 1 (Standard-visible, P1.7) — the popover
+              carries only the post-analysis detail + coaching chips. */}
           {layer2ContentPost}
           {riskChips}
         </NodePopover>

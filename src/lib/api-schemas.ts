@@ -40,6 +40,40 @@ export const CEEDraftResponseSchema = z.object({
 }).passthrough()
 
 // =============================================================================
+// CEE Belief Elicitation Response Schema (ROADMAP 2.364)
+// =============================================================================
+
+/**
+ * Mirror of CEE's `CEEElicitBeliefResponseV1Schema`
+ * (`olumi-assistants-service/src/schemas/ceeResponses.ts`, read at `staging`
+ * 2026-08-03). `passthrough()` on both sides, so a field CEE adds is carried,
+ * not dropped — and the bounds are copied EXACTLY (`suggested_value` and each
+ * option `value` are `z.number().min(0).max(1)`), because a probability outside
+ * [0,1] is the one shape the UI must never render or commit.
+ *
+ * This schema is OBSERVATIONAL (warn-parse, the `CEEDraftResponseSchema`
+ * pattern). The HARD refusal on an out-of-range `suggested_value` lives in
+ * `CEEClient.elicitBelief`, because a warning that is only logged would still
+ * let a poisoned number reach the commit path.
+ */
+export const CEEElicitBeliefResponseSchema = z.object({
+  suggested_value: z.number().min(0).max(1),
+  confidence: z.enum(['high', 'medium', 'low']),
+  reasoning: z.string(),
+  needs_clarification: z.boolean(),
+  clarifying_question: z.string().optional(),
+  options: z
+    .array(
+      z.object({
+        label: z.string(),
+        value: z.number().min(0).max(1),
+      })
+    )
+    .optional(),
+  provenance: z.literal('cee'),
+}).passthrough()
+
+// =============================================================================
 // PLoT V1 Run Response Schema (minimal - only critical UI fields)
 // =============================================================================
 

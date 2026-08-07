@@ -91,7 +91,7 @@ export function PanelShell({
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-panel-border bg-panel rounded-tl-2xl">
         <div className="flex items-center gap-2">
-          {icon && <span className="text-text-header/70">{icon}</span>}
+          {icon && <span className="text-text-header">{icon}</span>}
           <h3 className={`${typography.panelHeader} text-text-header`}>{title}</h3>
           {chips}
         </div>

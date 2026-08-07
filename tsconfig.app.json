@@ -27,5 +27,15 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  // Derived, not enumerated — `pnpm run typecheck` compiles this project and
+  // scripts/ci/typecheck-gate.sh then PROVES, against `git ls-files`, that no
+  // tracked source file escaped it. Narrowing `include`, or adding an `exclude`
+  // that hides tracked files, fails that gate loudly. Do not hand-list files
+  // here; that is the defect this replaced (see the script header).
+  "include": ["src"],
+  // Only ever excludes files git also ignores, so a local tree and a CI
+  // checkout typecheck the same set. `**/* 2.ts` is the Finder/iCloud copy
+  // cruft .gitignore warns about — it would otherwise be compiled locally and
+  // never in CI, producing errors that exist on one machine only.
+  "exclude": ["**/* 2.ts", "**/* 2.tsx"]
 }

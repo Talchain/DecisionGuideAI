@@ -10,6 +10,7 @@ import { ChevronDown } from 'lucide-react'
 import { NodeShape } from '../primitives/NodeShape'
 import type { NodeType } from '../../domain/nodes'
 import { FlipDropdown } from '../../../components/ui/FlipDropdown'
+import { typography } from '../../../styles/typography'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mode definitions
@@ -48,7 +49,7 @@ export function ThinkingModeChip({ selectedMode, onClick }: ThinkingModeChipProp
       type="button"
       onClick={onClick}
       aria-haspopup="true"
-      className="top-bar-chip cursor-pointer"
+      className={`top-bar-chip cursor-pointer ${typography.panelBody} font-medium`} /* F3 snap: 13px/500 → panelBody 12px + medium */
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -59,8 +60,6 @@ export function ThinkingModeChip({ selectedMode, onClick }: ThinkingModeChipProp
         background: 'transparent',
         border: '1px solid var(--border-default, #EEE6D8)',
         color: 'var(--text-body, #3F3F3E)',
-        fontSize: 13,
-        fontWeight: 500,
         whiteSpace: 'nowrap' as const,
         transition: 'all 100ms',
       }}
@@ -107,15 +106,16 @@ export function ThinkingModeDropdown({
     >
       {/* Header */}
       <div className="flex items-center" style={{ gap: 8, marginBottom: 12 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-header, #262626)' }}>Thinking mode</span>
+        {/* F3 snap: 13px/600 → panelHeader 14px/600 */}
+        <span className={typography.panelHeader} style={{ color: 'var(--text-header, #262626)' }}>Thinking mode</span>
+        {/* F3 snap: 10px badge → panelMeta 11px */}
         <span
+          className={typography.panelMeta}
           style={{
-            fontSize: 10,
-            color: 'var(--text-light, #908D8D)',
+            color: 'var(--text-light, #6E6B6B)',
             padding: '2px 8px',
             borderRadius: 999,
             border: '1px solid var(--border-default, #EEE6D8)',
-            lineHeight: 1.4,
           }}
         >
           Coming soon
@@ -140,7 +140,7 @@ export function ThinkingModeDropdown({
               padding: '9px 11px',
               borderRadius: 12,
               border: mode.enabled && isSelected
-                ? '1px solid rgba(82,163,200,0.4)'
+                ? '1px solid color-mix(in srgb, var(--info) 40%, transparent)'
                 : '1px solid var(--border-default, #EEE6D8)',
               background: mode.enabled && isSelected ? 'var(--bg-panel-hover, #FEF9F3)' : 'transparent',
               marginBottom: 4,
@@ -163,15 +163,15 @@ export function ThinkingModeDropdown({
               <NodeShape kind={mode.shapeKind} size={14} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-header, #262626)' }}>{mode.label}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-light, #908D8D)', marginTop: 1, lineHeight: 1.35 }}>{mode.description}</div>
+              <div className={`${typography.panelBody} font-semibold`} style={{ color: 'var(--text-header, #262626)' }}>{mode.label}</div>
+              <div className={typography.panelMeta} style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 1 }}>{mode.description}</div>
             </div>
           </button>
         )
       })}
 
       {/* Footer */}
-      <p style={{ fontSize: 11, color: 'var(--text-light, #908D8D)', marginTop: 8, lineHeight: 1.45 }}>
+      <p className={typography.panelMeta} style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 8 }}>
         Select the depth of reasoning for your analysis. Available in an upcoming release.
       </p>
 

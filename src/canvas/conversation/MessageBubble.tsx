@@ -19,13 +19,14 @@
 import { memo, useState, useMemo, useRef } from 'react'
 import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
+import { AnswerBody } from './AnswerBody'
 import { InlineBlocks } from './InlineBlocks'
-import { ChevronDown, ChevronUp, ListPlus, AlignLeft } from 'lucide-react'
-import { BaseRateChipRow } from './BaseRateChipRow'
+import { AlertCircle, ChevronDown, ChevronUp, ListPlus, AlignLeft, RefreshCw } from 'lucide-react'
 import { FeedbackRow } from './FeedbackRow'
 import { StalenessPill, type StalenessFreshness } from './StalenessPill'
-import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled, isAiPanelV2Enabled } from '../../flags'
+import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled, isAiPanelV2Enabled, isReasoningDisclosureEnabled } from '../../flags'
 import { useCanvasStore } from '../store'
+import { isSelfContradictoryStale } from '../store/analysisFreshness'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
 import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
@@ -115,10 +116,16 @@ export function findNaturalTruncation(text: string): string | null {
 
 interface MessageBubbleProps {
   message: ConversationMessage
-  /** When true, suppress inline ActionChipRow (chips rendered externally by SuggestedChips) */
-  hideChips?: boolean
-  /** When true, inline ActionChipRow is visible but non-interactive (historical turn) */
-  historicalChips?: boolean
+  /**
+   * ⚠ CURRENTLY UNUSED BY THIS COMPONENT — declared, never destructured. Said
+   * plainly because the neighbouring `hideChips` prop was dead in exactly the
+   * same way and its comment did not say so, which is how ROADMAP 2.668's
+   * second defect came to be diagnosed against a chain that does nothing.
+   * `SuggestedChips` (via ChatThread) is the sole render surface for
+   * `message.actionChips`. Left in place rather than removed: it is a REQUIRED
+   * prop threaded from ~19 call sites and specs, so withdrawing it is a
+   * separate tidy-up, not part of a consent fix.
+   */
   onChipClick: (chip: ActionChip) => Promise<void>
   patchBlockStates?: Map<string, PatchBlockState>
   patchRejections?: Map<string, PatchRejectionInfo>
@@ -135,11 +142,18 @@ interface MessageBubbleProps {
    * preserve FF-off behaviour.
    */
   compact?: boolean
+  /**
+   * Transcript honesty (trust item #3): retry handler for a FAILED user
+   * message (deliveryState 'failed'). Wired by ChatThread only for the
+   * message retryLast would actually resend (the last user message) —
+   * older failed attempts show the "Not delivered" marker without the
+   * affordance. Ignored for non-failed or assistant messages.
+   */
+  onRetryFailedSend?: () => void
 }
 
 export const MessageBubble = memo(function MessageBubble({
   message,
-  historicalChips = false,
   patchBlockStates,
   patchRejections,
   onPatchAccept,
@@ -148,8 +162,48 @@ export const MessageBubble = memo(function MessageBubble({
   onArtefactMessage,
   onProposalConfirm,
   compact = false,
+  onRetryFailedSend,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
+  // Transcript honesty (trust item #3): a user send whose turn failed must
+  // LOOK failed — marker + optional retry affordance on the message itself.
+  const sendFailed = isUser && message.deliveryState === 'failed'
+  // ROADMAP 2.665: the third state. "Not delivered" is a claim, and after a
+  // wait expiry or a proxy timeout this client cannot make it — CEE completes
+  // and commits turns the browser stopped listening for, and nothing here can
+  // check. This marker says what is true and offers no retry (retrying asks
+  // twice; see deliveryUnknown.ts).
+  const sendUnconfirmed = isUser && message.deliveryState === 'unconfirmed'
+  const sendUnconfirmedMarker = sendUnconfirmed ? (
+    <div
+      className={`${styles.sendFailedRow} ${typography.panelMeta}`}
+      data-testid="send-unconfirmed-indicator"
+    >
+      <AlertCircle size={12} aria-hidden="true" />
+      <span>Sent — reply not received</span>
+    </div>
+  ) : null
+  const sendFailedMarker = sendFailed ? (
+    <div
+      className={`${styles.sendFailedRow} ${typography.panelMeta}`}
+      data-testid="send-failed-indicator"
+    >
+      <AlertCircle size={12} aria-hidden="true" />
+      <span>Not delivered</span>
+      {onRetryFailedSend && (
+        <button
+          type="button"
+          className={`${styles.sendFailedRetryButton} ${typography.panelMeta}`}
+          onClick={onRetryFailedSend}
+          data-testid="send-failed-retry"
+          aria-label="Retry sending this message"
+        >
+          <RefreshCw size={12} aria-hidden="true" />
+          Retry
+        </button>
+      )}
+    </div>
+  ) : null
 
   // Defensive guard: never render the [system] sentinel as a user bubble
   if (isUser && message.content === SYSTEM_MESSAGE_SENTINEL) return null
@@ -163,9 +217,13 @@ export const MessageBubble = memo(function MessageBubble({
   // Chip-initiated user messages render as a compact pill, not a full bubble
   if (isUser && message.chipInitiated) {
     return (
-      <div className={styles.chipActionIndicator} data-testid="chip-action-indicator">
-        <span className={typography.caption}>{message.displayContent ?? message.content}</span>
-      </div>
+      <>
+        <div className={styles.chipActionIndicator} data-testid="chip-action-indicator">
+          <span className={typography.caption}>{message.displayContent ?? message.content}</span>
+        </div>
+        {sendFailedMarker}
+        {sendUnconfirmedMarker}
+      </>
     )
   }
 
@@ -184,23 +242,48 @@ export const MessageBubble = memo(function MessageBubble({
     ? message.content
     : extractFromRawJson(message.content)
 
-  // Progressive disclosure: truncate at natural boundaries (paragraph / sentence)
+  // F1 (answer-shape progressive disclosure): when a well-formed answer-shape
+  // sidecar is present on a settled assistant turn, the structured view
+  // (headline + ≤3 bullets + Show-more detail) OWNS the body in place of the
+  // free-text render. Absent / malformed / streaming / user → falls through to
+  // the free-text render below, byte-for-byte unchanged (no regression).
+  const showStructuredAnswer = !isUser && !isStreaming && Boolean(message.answerShape)
+
+  // Progressive disclosure (free-text path): truncate at natural boundaries
+  // (paragraph / sentence). Suppressed when the structured answer view owns the
+  // body — its own Show-more governs disclosure there.
   const canTruncate = !isUser
     && !isStreaming
     && !message.synthetic
+    && !showStructuredAnswer
     && (!message.blocks || message.blocks.length === 0)
   const truncatedContent = canTruncate ? findNaturalTruncation(displayContent) : null
   const [expanded, setExpanded] = useState(false)
 
+  // ROADMAP 1.42: Show-reasoning progressive disclosure — collapsed by default.
+  const [reasoningExpanded, setReasoningExpanded] = useState(false)
+
   // Freshness pill: derive from the first graph_patch block whose
   // analysis_ready.freshness is 'stale' or 'unknown'. Fresh/none/absent → no pill.
   // User messages and the streaming-thinking placeholder bypass this branch.
+  // Verdict semantics: a 'stale' verdict whose own payload carries IDENTICAL
+  // at-run/current hashes is self-contradictory — it must never render the
+  // factual "model changed" pill; it downgrades to the cannot-confirm
+  // 'unknown' pill (same rule as the Results freshness strip).
   const stalenessFreshness = useMemo<StalenessFreshness | null>(() => {
     if (isUser || !message.blocks) return null
     for (const block of message.blocks) {
       if (block.type !== 'graph_patch') continue
-      const f = (block as GraphPatchBlock).analysis_ready?.freshness
-      if (f === 'stale' || f === 'unknown') return f
+      const ar = (block as GraphPatchBlock).analysis_ready as
+        | { freshness?: string; graph_hash_at_run?: unknown; current_graph_hash?: unknown }
+        | undefined
+      const f = ar?.freshness
+      if (f === 'stale') {
+        return isSelfContradictoryStale(f, ar?.graph_hash_at_run, ar?.current_graph_hash)
+          ? 'unknown'
+          : 'stale'
+      }
+      if (f === 'unknown') return f
     }
     return null
   }, [isUser, message.blocks])
@@ -224,39 +307,63 @@ export const MessageBubble = memo(function MessageBubble({
     )
   }
 
+  // Body text className — identical in the structured-answer branch and the
+  // free-text branch below. Hoisted to one const so the two render paths can
+  // never drift; rebuilding it verbatim in both was pure duplication.
+  const bodyClassName = `${compact ? typography.panelBody : typography.chatProse} ${styles.markdownContent} ${
+    compact ? styles.markdownContentCompact : ''
+  } ${isProvisional ? styles.provisionalText : ''} ${
+    !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''
+  }`
+
   return (
     <>
     {stalenessFreshness && <StalenessPill freshness={stalenessFreshness} />}
     <div
-      className={isUser ? styles.messageBubbleUser : styles.messageBubbleAssistant}
+      className={
+        isUser
+          ? `${styles.messageBubbleUser}${sendFailed ? ` ${styles.messageBubbleUserFailed}` : ''}`
+          : styles.messageBubbleAssistant
+      }
       data-testid={`message-${message.role}`}
+      data-delivery-state={isUser ? message.deliveryState : undefined}
     >
-      <div
-        className={`${compact ? typography.panelBody : typography.body} ${styles.markdownContent} ${
-          compact ? styles.markdownContentCompact : ''
-        } ${isProvisional ? styles.provisionalText : ''} ${
-          !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''
-        }`}
-        data-streaming={isStreaming || undefined}
-        // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
-        dangerouslySetInnerHTML={{
-          __html: safeRichText(
-            truncatedContent && !expanded ? truncatedContent : displayContent,
-          ) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
-        }}
-      />
+      {showStructuredAnswer && message.answerShape ? (
+        <div
+          className={bodyClassName}
+          data-testid="message-answer-structured"
+        >
+          <AnswerBody answer={message.answerShape} compact={compact} />
+        </div>
+      ) : (
+        <div
+          className={bodyClassName}
+          data-streaming={isStreaming || undefined}
+          // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
+          dangerouslySetInnerHTML={{
+            __html: safeRichText(
+              truncatedContent && !expanded ? truncatedContent : displayContent,
+            ) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
+          }}
+        />
+      )}
       {hasToolLoading && (
         <div className={styles.toolLoadingState} data-testid="tool-loading-state">
           <span className={styles.toolLoadingDot} />
           {message.toolLoadingState}
         </div>
       )}
+      {/* Transcript honesty (trust item #3): failed-send marker + retry
+        * affordance on the message itself. Cleared when a retry delivers
+        * (deliveryState flips back to 'sent'). */}
+      {sendFailedMarker}
+      {sendUnconfirmedMarker}
       {/* T6: persistent "Response stopped." indicator on user-cancelled turns.
         * Set by useConversation.cancelTurn(); never cleared by late chunks. */}
       {message.stoppedByUser && (
         <div
           className={typography.panelMeta}
-          style={{ color: 'var(--text-light, #908D8D)', marginTop: 4 }}
+          style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 4 }}
           data-testid="response-stopped-indicator"
         >
           Response stopped.
@@ -274,6 +381,32 @@ export const MessageBubble = memo(function MessageBubble({
           {expanded ? <><ChevronUp size={12} /> Show less</> : <><ChevronDown size={12} /> Show more</>}
         </button>
       )}
+      {/* ROADMAP 1.42: Show-reasoning progressive disclosure — Paul ruled
+        * VERBATIM-with-label. Collapsed by default; renders nothing when
+        * reasoning is absent (sporadic CEE field) or the flag is off
+        * (defense in depth — useConversation also gates attachment). Plain
+        * text via a text node (no dangerouslySetInnerHTML, no markdown
+        * pipeline) so the panel can never execute injected markup. */}
+      {!isUser && message.reasoning && isReasoningDisclosureEnabled() && (
+        <>
+          <button
+            type="button"
+            className={styles.inlineDisclosureToggle}
+            onClick={() => setReasoningExpanded(v => !v)}
+            data-testid="message-show-reasoning"
+            aria-expanded={reasoningExpanded}
+            aria-label={reasoningExpanded ? 'Hide model reasoning' : 'Show model reasoning'}
+          >
+            {reasoningExpanded ? <><ChevronUp size={12} /> Hide reasoning</> : <><ChevronDown size={12} /> Show reasoning</>}
+          </button>
+          {reasoningExpanded && (
+            <div className={styles.reasoningPanel} data-testid="message-reasoning-panel">
+              <p className={styles.reasoningPanelHeading}>Model reasoning (verbatim)</p>
+              <p className={styles.reasoningPanelBody}>{message.reasoning}</p>
+            </div>
+          )}
+        </>
+      )}
       {message.insights && message.insights.length > 0 && isDeterministicCeeEnabled() && (
         <InsightsStrip insights={message.insights} onSendMessage={onArtefactMessage} />
       )}
@@ -288,13 +421,6 @@ export const MessageBubble = memo(function MessageBubble({
           onArtefactMessage={onArtefactMessage}
           onProposalConfirm={onProposalConfirm}
           assistantTextWordCount={displayContent.trim().split(/\s+/).filter(Boolean).length}
-        />
-      )}
-      {!isUser && message.baseRateChips && !historicalChips && onArtefactMessage && (
-        <BaseRateChipRow
-          chipSet={message.baseRateChips}
-          onSendMessage={onArtefactMessage}
-          disabled={isStreaming}
         />
       )}
       {/* Explain more + Summarise are AI Panel v2 affordances only — MessageBubble

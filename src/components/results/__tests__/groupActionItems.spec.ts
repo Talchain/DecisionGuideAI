@@ -586,3 +586,70 @@ describe('groupActionItems', () => {
     })
   })
 })
+
+// ─── Lane 1 (P1): DSK science-provenance carry on Group 4 (premortem) ───────
+//
+// Structured M2DecisionQualityPromptInput entries may carry DSK provenance
+// (dskClaimId / dskProtocolId / evidenceStrength — already id-gated at the
+// data layer). Group 4's mapping must carry it through to the ActionItem so
+// the card can render a grounding line — and must carry NOTHING for entries
+// without a claim id (the honest-absence rule). NOTE (corrected premise,
+// 2026-08-04): no production caller passes `preMortem` today — this is the
+// seam contract, unit-tested here; the wiring decision is the orchestrator's.
+describe('groupActionItems — DSK provenance carry (Lane 1)', () => {
+  // Fixture-identical entries (live captures r1/r3, CEE 76d2e1c); assertions
+  // bind by IDENTITY to the literal DSK ids.
+  const R1_ENTRY = {
+    principle: 'Consider-the-opposite as a debiasing strategy',
+    appliesBecause: 'Keep Current Setup (Status Quo) leads by a wide margin.',
+    question: 'What would make you switch to HubSpot instead of keeping the current setup?',
+    dskClaimId: 'DSK-T-003',
+    dskProtocolId: 'DSK-P-003',
+    evidenceStrength: 'medium' as const,
+  }
+  const R3_NO_ID_ENTRY = {
+    principle: 'Consider-the-opposite',
+    appliesBecause: 'HubSpot is the only challenger under plausible conditions.',
+    question: 'What would make you seriously consider switching from Keep Current Setup (Status Quo) to HubSpot?',
+  }
+
+  it('carries claim id, protocol id, and strength verbatim onto the Group 4 ActionItem (DSK-T-003)', () => {
+    const groups = groupActionItems({
+      fragileEdges: [],
+      evidenceGaps: [],
+      preMortem: [R1_ENTRY],
+    })
+    expect(groups[3].key).toBe('premortem')
+    const item = groups[3].items[0]
+    expect(item.title).toBe('Consider-the-opposite as a debiasing strategy')
+    expect(item.dskClaimId).toBe('DSK-T-003')
+    expect(item.dskProtocolId).toBe('DSK-P-003')
+    expect(item.evidenceStrength).toBe('medium')
+  })
+
+  it('the REAL live no-id entry (r3[0]) carries NO provenance fields — in-suite control: the id-bearing item in the same run', () => {
+    const groups = groupActionItems({
+      fragileEdges: [],
+      evidenceGaps: [],
+      preMortem: [R3_NO_ID_ENTRY, R1_ENTRY],
+    })
+    const negative = groups[3].items[0]
+    expect(negative.title).toBe('Consider-the-opposite') // identity: THE no-id fixture entry
+    expect(negative.dskClaimId).toBeUndefined()
+    expect(negative.dskProtocolId).toBeUndefined()
+    expect(negative.evidenceStrength).toBeUndefined()
+    // Positive control in the SAME run (proves the suite can see provenance):
+    expect(groups[3].items[1].dskClaimId).toBe('DSK-T-003')
+    expect(groups[3].items[1].evidenceStrength).toBe('medium')
+  })
+
+  it('legacy string[] preMortem entries are unaffected and carry no provenance', () => {
+    const groups = groupActionItems({
+      fragileEdges: [],
+      evidenceGaps: [],
+      preMortem: ['What if the market shrinks?'],
+    })
+    expect(groups[3].items[0].title).toBe('What if the market shrinks?')
+    expect(groups[3].items[0].dskClaimId).toBeUndefined()
+  })
+})

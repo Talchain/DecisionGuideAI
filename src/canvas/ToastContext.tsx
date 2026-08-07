@@ -104,6 +104,18 @@ export function useShowToast() {
   return context.showToast
 }
 
+const noopShowToast: (message: string, type?: Toast['type'], action?: Toast['action']) => void = () => {}
+
+/**
+ * Like useShowToast, but no-ops outside a ToastProvider. For components that
+ * must also render in headless hosts (unit tests, storybook shells) where
+ * surfacing a toast is best-effort rather than essential.
+ */
+export function useShowToastSafe() {
+  const context = useContext(ToastActionsContext)
+  return context?.showToast ?? noopShowToast
+}
+
 const TOAST_ICONS = {
   success: CheckCircle,
   error:   XCircle,
@@ -111,7 +123,9 @@ const TOAST_ICONS = {
   warning: AlertTriangle,
 } as const
 
-// Maps toast type to the semantic CSS variable for the left border colour
+// Maps toast type to the semantic CSS variable for the complete border colour
+// (V7 L2: a complete border carries the severity colour on all four sides —
+// the one-sided `borderLeft` accent was retired under Paul's categorical rule).
 const TOAST_BORDER_COLOR: Record<Toast['type'], string> = {
   success: 'var(--success)',
   error:   'var(--danger)',
@@ -127,10 +141,10 @@ const TOAST_ICON_CLASS: Record<Toast['type'], string> = {
 }
 
 const TOAST_ACTION_CLASS: Record<Toast['type'], string> = {
-  success: 'text-success hover:text-success/80',
-  error:   'text-danger hover:text-danger/80',
-  info:    'text-info hover:text-info/80',
-  warning: 'text-warning hover:text-warning/80',
+  success: 'text-success',
+  error:   'text-danger',
+  info:    'text-info hover:text-info',
+  warning: 'text-warning',
 }
 
 function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) {
@@ -144,7 +158,7 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
           <div
             key={toast.id}
             className="bg-panel rounded-lg shadow-2 flex items-center gap-3 px-4 py-3 max-w-[360px] animate-slideDown"
-            style={{ borderLeft: `3px solid ${TOAST_BORDER_COLOR[toast.type]}` }}
+            style={{ border: `1px solid ${TOAST_BORDER_COLOR[toast.type]}` }}
             role="alert"
           >
             <Icon className={`w-4 h-4 flex-shrink-0 ${TOAST_ICON_CLASS[toast.type]}`} aria-hidden="true" />

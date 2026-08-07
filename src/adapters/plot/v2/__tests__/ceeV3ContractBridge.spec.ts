@@ -1037,10 +1037,14 @@ describe('goal_constraints pass-through via buildV2RequestFromAnalysisReady', ()
       options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
       goal_node_id: 'outcome_revenue',
     }
+    // Each constraint names a node that EXISTS in the graph above. The previous
+    // fixture ('MRR', 'Churn rate', 'NPS') carried labels and no node_id at all,
+    // so it asserted pass-through of a shape PLoT rejects with
+    // CONSTRAINT_TARGET_NOT_FOUND — the defect this spec was meant to guard.
     const goalConstraints = [
-      { id: 'c1', label: 'MRR', operator: '>=' as const, value: 50000 },
-      { id: 'c2', label: 'Churn rate', operator: '<=' as const, value: 0.05 },
-      { id: 'c3', label: 'NPS', operator: '>=' as const, value: 40 },
+      { constraint_id: 'c1', node_id: 'factor_price', label: 'MRR', operator: '>=' as const, value: 50000 },
+      { constraint_id: 'c2', node_id: 'outcome_revenue', label: 'Churn rate', operator: '<=' as const, value: 0.05 },
+      { constraint_id: 'c3', node_id: 'factor_price', label: 'NPS', operator: '>=' as const, value: 40 },
     ]
 
     const { request } = buildV2RequestFromAnalysisReady(
@@ -1051,12 +1055,13 @@ describe('goal_constraints pass-through via buildV2RequestFromAnalysisReady', ()
     expect(request.goal_constraints).toBeDefined()
     expect(request.goal_constraints).toHaveLength(3)
     expect(request.goal_constraints![0]).toEqual({
-      id: 'c1',
+      constraint_id: 'c1',
+      node_id: 'factor_price',
       label: 'MRR',
       operator: '>=',
       value: 50000,
     })
-    expect(request.goal_constraints![2].id).toBe('c3')
+    expect(request.goal_constraints![2].constraint_id).toBe('c3')
   })
 
   it('omits goal_constraints from request when not provided in options', () => {

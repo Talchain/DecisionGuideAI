@@ -1,30 +1,28 @@
 /**
- * V5 parser — `suggested_actions[].action_type` alias normalisation.
+ * V5 parser — `suggested_actions[].action_type` alias mechanism.
  *
- * Live CEE staging response (debug bundle b82c89dd, 2026-05-21) carried
- * `suggested_actions[0].action_type = "explain_results"` (plural). The
- * vendored @talchain/schemas@0.8.1 `ActionType` enum only accepts the
- * singular `"explain_result"`, so strict validation rejected the entire
- * response with `parse_failure_kind: 'schema_mismatch'`, even though the
- * backend pipeline (CEE→PLoT→decision_review) completed successfully.
+ * HISTORY: under @talchain/schemas@0.8.1 the enum only accepted the singular
+ * `explain_result`, so a live CEE response carrying the plural (debug bundle
+ * b82c89dd, 2026-05-21) failed strict validation and the parser gained a
+ * plural→singular rewrite. Under schemas 0.15 the enum accepts BOTH forms,
+ * the plural is the backend's native handler ID, and the rewrite actively
+ * HID the "Explain the result" chip from the plural-keyed V5 filter
+ * (V-P0-2, wire-verified live 2026-07-13). The alias table is now EMPTY —
+ * these tests pin the passthrough plus the retained mechanism contracts
+ * (strictness for truly-unknown values; no input mutation). The composed
+ * parser→filter seam is pinned in explainChips.vocabulary.spec.ts.
  *
- * The parser now rewrites known runtime aliases (only the
- * explain_results → explain_result entry today) pre-validation, mirroring
- * the existing ACTION_TO_TURN_TYPE alias map in useConversation.ts. The
- * rewrite is lossless: both forms route to the same backend handler.
- *
- * This spec exercises the trimmed live fixture end-to-end and locks down
- * the eleven brief assertions:
- *   1.  Trimmed fixture parses to kind:'response' (no longer parse_error)
+ * Assertions over the trimmed live fixture:
+ *   1.  Trimmed fixture parses to kind:'response' (plural is schema-valid)
  *   2.  analysis_result block preserved with summary / leading_option_id /
  *       win_probabilities intact
  *   3.  analysis_ready.status === 'ready' + passthrough keys preserved
  *   4.  Phase 3 sidecar carries all 10 review_card+coaching blocks
  *   5.  A Phase 3 coaching block does not break parsing (verified by 1+4)
- *   6.  suggested_actions[0].action_type normalised to 'explain_result';
- *       suggested_actions[1].action_type unchanged ('what_would_flip')
- *   7.  Sidecar `action_type_aliases_applied` records the rewrite
- *   8.  An unknown action_type (not in allowlist) still fails strict
+ *   6.  suggested_actions[0].action_type PASSES THROUGH as the plural
+ *       (pin flip); suggested_actions[1] unchanged ('what_would_flip')
+ *   7.  No `action_type_aliases_applied` sidecar entry (pin flip)
+ *   8.  An unknown action_type (not in the schema enum) still fails strict
  *       validation — strictness preserved
  *   9.  extractPhase3FromV5Response recovers ≥1 review_card rawBlock
  *   10. composePhase3BridgedBlocks (PR #175 bridge) appends review_card
@@ -40,17 +38,16 @@ import {
   ADDITIVE_EXTENSIONS_KEY,
   PHASE3_SIDECAR_BLOCKS_KEY,
   ACTION_TYPE_ALIASES_APPLIED_KEY,
-  type ActionTypeAliasRewrite,
 } from '../responseParser'
 import { extractPhase3FromV5Response } from '../extractPhase3FromV5Response'
 
 // NOTE: end-to-end bridge wiring assertions (10a + 10b in the brief) live
 // in `src/canvas/conversation/__tests__/phase3ReviewCardBridge.liveFixture.spec.ts`.
-// Importing `composePhase3BridgedBlocks` from useConversation.ts here would
-// drag the entire conversation/adapter graph into the tsconfig.ci.json
-// typecheck scope (which is intentionally scoped to src/v5/**), surfacing
-// pre-existing type errors in unrelated files. Keeping this spec parser-
-// focused preserves the CI scope.
+// Importing `composePhase3BridgedBlocks` from useConversation.ts here used to
+// drag the conversation/adapter graph into the narrow tsconfig.ci.json scope
+// and surface unrelated pre-existing errors. That gate is gone — the whole tree
+// is typechecked and those errors are frozen in
+// scripts/ci/typecheck-baseline.txt — so this split is now for focus, not CI.
 
 // ─── Fixture loader ─────────────────────────────────────────────────────
 
@@ -130,31 +127,30 @@ describe('parseV5Response — action_type alias normalisation', () => {
     expect(typeof aCoaching?.coaching_kind).toBe('string')
   })
 
-  it('(6) suggested_actions[0].action_type is normalised to "explain_result"; [1] unchanged', async () => {
+  it('(6) DELIBERATE PIN FLIP (V-P0-2): suggested_actions[0] keeps the schema-valid PLURAL; [1] unchanged', async () => {
+    // Under schemas 0.8.1 the plural failed validation and had to be
+    // rewritten to the singular. The 0.15 enum accepts both forms and the
+    // plural is the backend's native handler ID — the rewrite hid the chip
+    // from the plural-keyed V5 filter (live evidence 2026-07-13). The alias
+    // table is now empty; the plural must pass through untouched.
     const result = await parseV5Response(makeResponse(loadFixture()))
     if (result.kind !== 'response') throw new Error('expected response')
     const sa = result.response.suggested_actions
     expect(sa.length).toBe(2)
-    expect(sa[0].action_type).toBe('explain_result')
+    expect(sa[0].action_type).toBe('explain_results')
     expect(sa[0].id).toBe('chip_action_explain_results') // id preserved unchanged
     expect(sa[1].action_type).toBe('what_would_flip')
   })
 
-  it('(7) sidecar records action_type_aliases_applied with from/to/index', async () => {
+  it('(7) DELIBERATE PIN FLIP (V-P0-2): no alias rewrites are recorded — the table is empty under schemas 0.15', async () => {
     const result = await parseV5Response(makeResponse(loadFixture()))
     if (result.kind !== 'response') throw new Error('expected response')
     const sidecar = (result.response as { [ADDITIVE_EXTENSIONS_KEY]?: Record<string, unknown> })[
       ADDITIVE_EXTENSIONS_KEY
     ]
-    expect(sidecar).toBeDefined()
-    const rewrites = sidecar?.[ACTION_TYPE_ALIASES_APPLIED_KEY] as ActionTypeAliasRewrite[]
-    expect(rewrites).toBeDefined()
-    expect(rewrites).toHaveLength(1)
-    expect(rewrites[0]).toEqual({
-      index: 0,
-      from: 'explain_results',
-      to: 'explain_result',
-    })
+    // Sidecar may exist for Phase 3 blocks, but the alias-applied key must
+    // be absent when no rewrite occurred.
+    expect(sidecar?.[ACTION_TYPE_ALIASES_APPLIED_KEY]).toBeUndefined()
   })
 
   it('(8) strictness preserved: unknown action_type (not in allowlist) still fails schema validation', async () => {
@@ -243,13 +239,11 @@ describe('parseV5Response — no rewrites when no aliases present', () => {
 // ─── Contract: parser does NOT mutate the raw input ─────────────────────
 
 describe('parseV5Response — raw input is never mutated', () => {
-  it('after a successful parse with alias rewrite, the original input retains the pre-alias value', async () => {
-    // Hold a reference to the parsed fixture object so we can re-inspect
-    // it after parsing. The parser receives a Response built from
-    // JSON.stringify(fixture); even so, the contract is that any object
-    // surface the parser handles internally must be cloned before
-    // rewriting. This test locks down that contract from the caller's
-    // perspective: the fixture object visible here is untouched.
+  it('the original input object is untouched by parsing (debug-bundle fidelity contract)', async () => {
+    // The alias table is empty under schemas 0.15 so no rewrite occurs, but
+    // the no-input-mutation contract still guards the mechanism: if a future
+    // genuine-drift entry is added, the parser must clone before rewriting,
+    // never reach back into the caller's reference.
     const fixture = loadFixture() as {
       suggested_actions: Array<Record<string, unknown>>
     }
@@ -259,14 +253,8 @@ describe('parseV5Response — raw input is never mutated', () => {
     expect(result.kind).toBe('response')
     if (result.kind !== 'response') return
 
-    // Parsed surface carries the canonical value.
-    expect(result.response.suggested_actions[0].action_type).toBe('explain_result')
-
-    // Original fixture object STILL holds the pre-alias plural value —
-    // the parser must not reach back and rewrite the caller's reference,
-    // either directly or via shared sub-object references. If a future
-    // change starts mutating the input in place, this assertion fails
-    // immediately and the debug-bundle fidelity contract is protected.
+    // Passthrough: the parsed surface carries the producer's value as-is.
+    expect(result.response.suggested_actions[0].action_type).toBe('explain_results')
     expect(fixture.suggested_actions[0].action_type).toBe('explain_results')
   })
 })

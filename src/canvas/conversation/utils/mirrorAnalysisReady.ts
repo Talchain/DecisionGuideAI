@@ -47,6 +47,15 @@ export function applyAnalysisReadyPatch(
 ): void {
   useCanvasStore.getState().setCeeAnalysisReady(patch.ceeAnalysisReady)
 
+  // Freshness source of truth: a patch's analysis_ready.freshness must flow
+  // through the freshness reducer, not be silently dropped. When it carries a
+  // verdict, the reducer applies it (and clears the dirty overlay that the graph
+  // mutation set); when it lacks one, the reducer leaves the retained verdict +
+  // dirty overlay in place so the patch shows "cannot confirm" rather than a
+  // stale "fresh". Mirrors the V5 ingress at applyV5State. Optional-chained so
+  // partial store doubles in tests don't break.
+  useCanvasStore.getState().setAnalysisFreshness?.(patch.ceeAnalysisReady)
+
   const backfillResult = backfillInterventionsOntoOptionNodes(patch.ceeAnalysisReady)
   if (backfillResult.interventionBackfilledCount > 0) {
     logger.warn('analysis_ready.intervention_backfill', {

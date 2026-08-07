@@ -12,12 +12,13 @@
  * - Merged improvements with deduplication
  */
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { safeArray } from '../../lib/array-utils'
 import { useCanvasStore } from '../../canvas/store'
 import { THRESHOLDS, LIMITS } from '../../lib/mappers/constants'
 import { useShallow } from 'zustand/react/shallow'
 import { findNodeMatches, type Driver } from '../../canvas/utils/driverMatching'
+import { isDefaultedConfidenceFromRaw } from './driverConfidenceDisplayPolicy'
 import type { Node } from '@xyflow/react'
 import type {
   DecisionResultData,
@@ -40,6 +41,7 @@ import type {
   WinnerDeterminedBy,
   RobustnessLevel,
   RobustnessLabel,
+  RobustnessDisplayVerdict,
   ResultsReport,
   ResultsCanvasNodeData,
   ResultsCanvasEdgeData,
@@ -47,14 +49,28 @@ import type {
   ConfidenceFormulaVersion,
   ConfidenceCalibrationStatus,
   ConfidenceInputQuality,
+  ConfidenceProvenance,
 } from './types'
-import { normalizeAutoNoiseProvenance } from './types'
+import { normalizeAutoNoiseProvenance, normalizeHeadlineBanded } from './types'
+import {
+  normaliseFactorDirection,
+  polarityToFactorDirection,
+  type FactorDirection,
+} from '../../lib/factorDirection'
+import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
+import { mapDecisionQualityPrompts } from './utils/decisionQualityPrompts'
 import { humaniseCritique } from './utils/humaniseCritique'
+import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
+import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
+import { readInferenceWarnings } from './utils/readInferenceWarnings'
 import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
+import { computeNormalisedInfluences, selectDriverDisplayModel } from './driverDisplayModel'
+import { classifyUnit } from '../../utils/unitClassifier'
+import { buildVoiRanking, type VoiRanking } from './voi/voiRanking'
 
 // =============================================================================
 // Winner Selection Helper
@@ -295,31 +311,18 @@ export function isValidConfidenceProvenance(value: unknown): value is {
 }
 
 /**
- * Derive `isDefaultedConfidence` from a normalised factor sensitivity row.
- *
- * Tracks ISL-side bootstrap degeneracy (sampling_stability detected as 0,
- * indicating ISL emitted a placeholder) — NOT PLoT-side `fallback_degenerate`,
- * which is a different concept. Audit A1-PRIMARY: the source-name list accepts
- * BOTH legacy values ('isl', 'isl_default') AND the new honest enum
- * ('plot_unified_from_isl_bootstrap') so the derivation survives both deploy
- * directions (old PLoT + new UI, and new PLoT + old UI).
- *
- * Exported for direct unit testing of cross-version compat behaviour.
+ * Re-exported from `driverConfidenceDisplayPolicy`, where the rule now lives
+ * alongside the display gate that consumes it (one small module the canvas can
+ * import without pulling in this hook file). Kept exported here so existing
+ * importers and the cross-version compat unit tests are unaffected — there is
+ * exactly ONE implementation, not two.
  */
-export function isDefaultedConfidenceFromRaw(raw: {
-  confidenceSource?: string
-  samplingStability?: number | null
-}): boolean {
-  return (
-    raw.confidenceSource === 'isl'
-    || raw.confidenceSource === 'isl_default'
-    || raw.confidenceSource === 'plot_unified_from_isl_bootstrap'
-  )
-    && raw.samplingStability === 0
-}
+export { isDefaultedConfidenceFromRaw }
 
 export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, string>): UiFactorSensitivity {
-  if (raw == null || typeof raw !== 'object') return { factorId: '', label: 'Unknown factor', elasticity: 0, direction: 'positive' as const, confidence: null, importanceRank: 0 }
+  // ROADMAP 2.234: the empty row's direction is `null`, not `'positive'` — a
+  // row with no producer data at all cannot carry a causal claim.
+  if (raw == null || typeof raw !== 'object') return { factorId: '', label: 'Unknown factor', elasticity: 0, direction: null, confidence: null, importanceRank: 0 }
   const typed = raw as Record<string, unknown>
   const nf = normaliseFactorFields(typed)
   const rawId = nf.node_id
@@ -335,12 +338,21 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
   const confidence = typeof typed.confidence === 'number'
     ? typed.confidence
     : null
-  const direction = typed.direction
-    ? (String(typed.direction).toLowerCase() === 'negative' ? 'negative' : 'positive')
-    : elasticity >= 0 ? 'positive' : 'negative'
+  // ROADMAP 2.234 — THE DUPLICATE COLLAPSE, REMOVED. This read
+  //   `typed.direction ? (lower === 'negative' ? 'negative' : 'positive')
+  //                    : elasticity >= 0 ? 'positive' : 'negative'`
+  // — the same two-value narrowing `mapV5AnalysisToReport` had, written a
+  // second time, so `mixed` and `unknown` became `positive` HERE TOO and a fix
+  // in one file would have left the other lying. Both now call the one shared
+  // normalizer, and neither infers a direction from a magnitude.
+  const direction = normaliseFactorDirection(typed.direction)
 
   // ISL influence_score (0-1) - structural causal influence
   const influenceScore = typeof typed.influence_score === 'number' ? typed.influence_score : undefined
+
+  // Producer influence_rank (1 = most influential). Additive passthrough;
+  // roadmap 1.7 (provisional_doctrine_v0: influence ≠ sensitivity).
+  const influenceRank = typeof typed.influence_rank === 'number' ? typed.influence_rank : undefined
 
   // ISL zero_reason - explains why sensitivity is zero for intervention factors
   const zeroReason = typed.zero_reason as UiFactorSensitivity['zeroReason']
@@ -384,6 +396,19 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
       }
     : undefined
 
+  // Track S: factor value provenance — preserve only when present. Strict typeof
+  // guards keep an explicit `false` and never coerce an absent value → false.
+  const valueSource = typeof typed.value_source === 'string' ? typed.value_source : undefined
+  const valueExtractionType = typeof typed.value_extraction_type === 'string' ? typed.value_extraction_type : undefined
+  const valueDefaulted = typeof typed.value_defaulted === 'boolean' ? typed.value_defaulted : undefined
+
+  // Producer worth_investigating flag — STRICT read: only an explicit wire
+  // `true` (snake_case from PLoT or camelCase from UI-side transforms) sets
+  // it; never derived from EVPI locally (that would fake producer provenance
+  // in the Strengthen panel's source line). Additive passthrough.
+  const worthInvestigating =
+    typed.worth_investigating === true || typed.worthInvestigating === true ? true : undefined
+
   return {
     factorId: rawId ?? label,
     label,
@@ -392,17 +417,265 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
     confidence,
     importanceRank: typeof typed.importance_rank === 'number' ? typed.importance_rank : 0,
     influenceScore,
+    influenceRank,
     zeroReason,
     valueOfInformation,
     flipRiskCategory,
     confidenceSource,
     samplingStability,
     confidenceProvenance,
+    valueSource,
+    valueExtractionType,
+    valueDefaulted,
     attributionStability: (typed.attribution_stability === 'high' || typed.attribution_stability === 'moderate' || typed.attribution_stability === 'low' || typed.attribution_stability === 'negligible') ? typed.attribution_stability : undefined,
     rankFlipRate: typeof typed.rank_flip_rate === 'number' ? typed.rank_flip_rate : undefined,
     evpi: typeof typed.evpi === 'number' ? typed.evpi : undefined,
-    evpiPercentagePoints: typeof typed.evpi_percentage_points === 'number' ? typed.evpi_percentage_points : undefined,
+    worthInvestigating,
   }
+}
+
+/**
+ * Build the set of factor ids the producer explicitly flagged worth
+ * investigating in `robustness.value_of_information`. STRICT read: only rows
+ * with an explicit `worth_investigating === true` count — no EVPI-derived
+ * default here (the canvas islRobustnessAdapter's `?? evpi > 0.05` fallback
+ * is a different, labelled path). Matching rule: factor id only (node_id /
+ * parameter_id), never label — same discipline as factor enrichments.
+ * Exported for direct unit testing. Additive (worth_investigating threading).
+ */
+export function buildWorthInvestigatingIdSet(voiSuggestions: unknown): Set<string> {
+  const ids = new Set<string>()
+  if (!Array.isArray(voiSuggestions)) return ids
+  for (const raw of voiSuggestions) {
+    if (raw == null || typeof raw !== 'object') continue
+    const v = raw as Record<string, unknown>
+    if (v.worth_investigating !== true) continue
+    if (typeof v.node_id === 'string' && v.node_id.length > 0) ids.add(v.node_id)
+    if (typeof v.parameter_id === 'string' && v.parameter_id.length > 0) ids.add(v.parameter_id)
+  }
+  return ids
+}
+
+// =============================================================================
+// Shared driver policy feed (C4 fix 2 — ONE row feed for every surface)
+// =============================================================================
+
+/** Policy input for one merged driver row (same index as `rawFactors`). */
+export interface DriverPolicyRow {
+  /** Canonical factor key (getFactorKey over the normalised row). */
+  key: string
+  /** Producer influence score — snake-case wire field only; undefined when absent. */
+  influenceScore: number | undefined
+  /**
+   * Resolved magnitude (normaliseFactorSensitivity chain; 0 when absent).
+   * UNSIGNED — always `Math.abs`'d at construction. Consumers rank on this
+   * field with a comparator that sorts it as given, so the sign must not
+   * survive into the feed: it would order equal-magnitude drivers by
+   * direction on one surface and by magnitude on another. Read `rawFactors`
+   * for the signed wire value when disclosing direction.
+   */
+  rawElasticity: number
+  /** Factor confidence (0-1) when the wire carried one. */
+  confidence: number | null
+  /**
+   * True when `confidence` above is a producer PLACEHOLDER rather than a
+   * computed figure (`isDefaultedConfidenceFromRaw`). Carried on the shared
+   * feed so the canvas surfaces resolve the SAME verdict as the Drivers panel
+   * for the same report — previously the panel derived it and the canvas hook
+   * could not see it at all, which is how the canvas ended up printing a
+   * defaulted 0.25 the panel refuses to show.
+   */
+  confidenceIsDefaulted: boolean
+  /** PLoT's confidence disclosure object, when the wire carried a valid one. */
+  confidenceProvenance: ConfidenceProvenance | undefined
+  /** value_of_information (snake or camel wire field) when present. */
+  valueOfInformation: number | undefined
+}
+
+export interface DriverPolicyFeed {
+  /** Merged + de-duped raw rows (sources 1-5, panel reference order). */
+  rawFactors: RawFactorSensitivity[]
+  /** True when source 1 resolved via the untyped enrichment passthrough. */
+  usedEnrichmentFallback: boolean
+  /** Policy input per raw row (same index as rawFactors). */
+  policyRows: DriverPolicyRow[]
+  /** THE resolved display model every surface renders AND ranks from. */
+  displayModel: ReturnType<typeof selectDriverDisplayModel>
+}
+
+const EMPTY_DRIVER_POLICY_FEED: DriverPolicyFeed = Object.freeze({
+  rawFactors: [],
+  usedEnrichmentFallback: false,
+  policyRows: [],
+  displayModel: new Map(),
+})
+
+/**
+ * Untyped `enrichment.sensitivity_analysis.factors` passthrough. NOT declared
+ * on ReportV1 — every reader of it (this feed, OptionNode, StyledEdge) probes
+ * it speculatively, and no writer in the repo puts `enrichment` ON a report
+ * (the store keeps it as a SIBLING of `report`, and every resultsComplete
+ * caller passes the two separately). We nonetheless keep it as the source-1
+ * fallback rather than delete it: proving it unreachable across every
+ * hydration path (live map, conversation envelope, V5 apply, history restore)
+ * is a negative we cannot fully evidence, and keeping it costs nothing —
+ * because it now lives in the SHARED feed, reachable or not, BOTH surfaces
+ * resolve the identical rows and the basis cannot fork.
+ */
+function readEnrichmentFactors(report: ResultsReport): unknown[] | null {
+  const probe = report as { enrichment?: { sensitivity_analysis?: { factors?: unknown } } }
+  const factors = probe.enrichment?.sensitivity_analysis?.factors
+  return Array.isArray(factors) ? factors : null
+}
+
+/*
+ * `readInferenceWarnings` — the dual-slot reader this file introduced — now lives
+ * at `./utils/readInferenceWarnings.ts` and is IMPORTED above (R-6). It was
+ * file-private here, which meant the three copies in `src/canvas` could not adopt
+ * it even though the reason it exists is the hazard those copies embody. Its full
+ * rationale, the 773-fact measurement, the load-bearing-cast warning and the note
+ * on which copies were deliberately NOT migrated all moved with it.
+ */
+
+/** Labels play no part in policy keys/metrics (getFactorKey resolves ids
+ * before labels, and the label-map fallback needs an id anyway), so the feed
+ * normalises with an empty map; the panel re-normalises with the real
+ * nodeLabelMap for display labels only. */
+const EMPTY_NODE_LABEL_MAP = new Map<string, string>()
+
+/** Per-report memo (C4 review: memoise per REPORT, not per node — the canvas
+ * hook runs once per node and must not rebuild the merge each time). */
+const driverPolicyFeedCache = new WeakMap<object, DriverPolicyFeed>()
+
+/**
+ * The panel's five-source row merge, extracted VERBATIM into a pure function
+ * so the Drivers panel and the canvas hook (useNodeDisplayMetadata) consume
+ * the SAME rows (build-brief §12.4 single-selector doctrine).
+ *
+ * C4 fix 2 (adversarial review, verifier-reproduced): sharing the policy
+ * FUNCTION (selectDriverDisplayModel) was not enough — the hook fed it a
+ * private factor_sensitivity-only feed that DROPPED metric-less rows
+ * (extractPolicyRow), while the panel's merge KEEPS them. The coverage
+ * verdict (producer scores adopted only when EVERY row carries one) then
+ * flipped per surface, so the canvas pill disclosed "absolute" while the
+ * panel disclosed "relative, top always 100%" for the SAME report. The feed
+ * being shared makes that fork impossible.
+ *
+ * Note the merge deliberately KEEPS rows with no finite metric: their absence
+ * of a producer score IS the signal that flips the whole set onto the
+ * comparable fallback basis.
+ */
+export function selectDriverPolicyFeed(
+  report: ResultsReport | null | undefined,
+): DriverPolicyFeed {
+  if (!report || typeof report !== 'object') return EMPTY_DRIVER_POLICY_FEED
+  const cached = driverPolicyFeedCache.get(report)
+  if (cached) return cached
+
+  // Collect raw factors from multiple sources (moved from the drivers memo)
+  const rawFactors: RawFactorSensitivity[] = []
+
+  // Source 1: factor_sensitivity (PLoT v2), else the untyped enrichment
+  // passthrough. Precedence (certified array FIRST, enrichment only when the
+  // certified array is empty) is the canvas hook's existing rule and the same
+  // one OptionNode/StyledEdge apply — preserved here verbatim so folding the
+  // hook onto this feed changes no behaviour, and so the panel stops being
+  // the only surface blind to the fallback.
+  const certifiedFactors = (report.factor_sensitivity ?? []) as RawFactorSensitivity[]
+  const enrichmentFactors = certifiedFactors.length === 0 ? readEnrichmentFactors(report) : null
+  const usedEnrichmentFallback = enrichmentFactors !== null && enrichmentFactors.length > 0
+  const factorSensitivity: RawFactorSensitivity[] = certifiedFactors.length > 0
+    ? certifiedFactors
+    : ((enrichmentFactors ?? []) as RawFactorSensitivity[])
+  factorSensitivity.forEach((f) => rawFactors.push(f))
+
+  // Precompute keys in a Set for O(1) duplicate detection
+  const seenKeys = new Set<string>()
+  rawFactors.forEach((f, index) => seenKeys.add(getFactorKey(f, index)))
+
+  // Source 2: drivers array (legacy) — canonical de-dupe via getFactorKey
+  const legacyDrivers = report.drivers || []
+  legacyDrivers.forEach((d, idx: number) => {
+    const candidate: RawFactorSensitivity = {
+      node_id: d.nodeId,
+      id: (d as { id?: string }).id,
+      label: d.label,
+      sensitivity: d.contribution,
+      // ROADMAP 2.234: `neutral` must come back as a NON-directional value.
+      // `d.polarity === 'down' ? 'negative' : 'positive'` turned every neutral
+      // driver into a positive causal claim on the way back through this
+      // legacy reconstruction.
+      direction: polarityToFactorDirection(d.polarity) ?? undefined,
+    }
+    const key = getFactorKey(candidate, rawFactors.length + idx)
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key)
+      rawFactors.push(candidate)
+    }
+  })
+
+  // Source 3: drivers_payload
+  const driversPayload = report.drivers_payload?.drivers || []
+  driversPayload.forEach((pd: RawFactorSensitivity, idx: number) => {
+    const key = getFactorKey(pd, rawFactors.length + idx)
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key)
+      rawFactors.push(pd)
+    }
+  })
+
+  // Source 4: sensitivity.factors (alternative path)
+  const sensitivityFactors = report.sensitivity?.factors || []
+  sensitivityFactors.forEach((sf, idx: number) => {
+    const key = getFactorKey(sf as RawFactorSensitivity, rawFactors.length + idx)
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key)
+      rawFactors.push(sf as RawFactorSensitivity)
+    }
+  })
+
+  // Source 5: factors array (direct)
+  const directFactors = report.factors || []
+  directFactors.forEach((df, idx: number) => {
+    const key = getFactorKey(df as RawFactorSensitivity, rawFactors.length + idx)
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key)
+      rawFactors.push(df as RawFactorSensitivity)
+    }
+  })
+
+  const policyRows: DriverPolicyRow[] = rawFactors.map((f, index) => {
+    const norm = normalizeFactorSensitivity(f, EMPTY_NODE_LABEL_MAP)
+    return {
+      key: getFactorKey(norm, index),
+      influenceScore: norm.influenceScore,
+      // Math.abs is load-bearing, not defensive: this field is a MAGNITUDE
+      // (see DriverPolicyRow), and the sole consumer ranks on it via
+      // compareByDisplayModel, whose tie-break sorts the number as given. A
+      // signed value here silently re-opens the very fork this feed closes —
+      // two surfaces agreeing on the basis AND the displayed value, then
+      // ordering equal-magnitude drivers differently by sign. The panel abs's
+      // its own copy before ranking, and extractPolicyRow (the sibling
+      // producer feeding the same comparator) abs's too; this keeps all
+      // feeders on one semantics. Direction is NOT lost — surfaces that
+      // disclose it read the signed wire row from `rawFactors`.
+      rawElasticity: Math.abs(getRawElasticity(norm)),
+      confidence: norm.confidence,
+      // Derived from the SAME normalised row the confidence itself came from,
+      // by the SAME function the panel uses — not a second reading of the wire.
+      confidenceIsDefaulted: isDefaultedConfidenceFromRaw({
+        confidenceSource: norm.confidenceSource,
+        samplingStability: norm.samplingStability,
+      }),
+      confidenceProvenance: norm.confidenceProvenance,
+      valueOfInformation: norm.valueOfInformation,
+    }
+  })
+
+  const displayModel = selectDriverDisplayModel(policyRows)
+  const feed: DriverPolicyFeed = { rawFactors, usedEnrichmentFallback, policyRows, displayModel }
+  driverPolicyFeedCache.set(report, feed)
+  return feed
 }
 
 // =============================================================================
@@ -417,60 +690,40 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
  * When NO real elasticity data (all ~0): returns all 0 - UI uses hasMagnitudeData
  * flag to show direction-only view instead.
  */
-function computeNormalisedInfluences(
-  factors: Array<{ key: string; rawElasticity: number }>
-): Map<string, number> {
-  const result = new Map<string, number>()
-
-  if (factors.length === 0) {
-    return result
-  }
-
-  // Extract absolute values
-  const absoluteValues = factors.map(f => Math.abs(f.rawElasticity))
-  const actualMax = Math.max(...absoluteValues)
-
-  // If no meaningful elasticity data, set all to 0
-  // The hasMagnitudeData flag will trigger direction-only display
-  if (actualMax < 0.001) {
-    factors.forEach(f => result.set(f.key, 0))
-    return result
-  }
-
-  // Normalise each factor relative to the max (top = 100%, others proportional)
-  factors.forEach(f => {
-    const normalised = Math.min(1, Math.abs(f.rawElasticity) / actualMax)
-    result.set(f.key, normalised)
-  })
-
-  return result
-}
 
 // =============================================================================
 // Factor Rank Computation (CRITICAL: Single-Pass with Map)
 // =============================================================================
+
 
 /**
  * Compute ranks for all factors based on absolute elasticity.
  * Returns map of factorKey -> rank (1-indexed)
  */
 function computeFactorRanks(
-  factors: Array<{ key: string; rawElasticity: number; importanceRank?: number; label?: string }>
+  factors: Array<{ key: string; rawElasticity: number; displayValue?: number; importanceRank?: number; label?: string }>
 ): Map<string, number> {
-  // Sort by absolute elasticity descending with tie-breakers
+  // Codex B2: sort by the DISPLAYED influence metric (producer
+  // influence_score, else the elasticity-derived fallback the bar shows) so
+  // the row order and the rank-1 "Top driver" crown always agree with the
+  // visible Influence bar. Elasticity remains the first tie-break.
   const sorted = [...factors].sort((a, b) => {
+    const aDisp = a.displayValue ?? Math.abs(a.rawElasticity)
+    const bDisp = b.displayValue ?? Math.abs(b.rawElasticity)
+    if (bDisp !== aDisp) return bDisp - aDisp
+
     const aVal = Math.abs(a.rawElasticity)
     const bVal = Math.abs(b.rawElasticity)
 
-    // Primary: higher elasticity first
+    // Tie-break 1: higher elasticity first
     if (bVal !== aVal) return bVal - aVal
 
-    // Tie-breaker 1: importance_rank (lower = more important)
+    // Tie-break 2: importance_rank (lower = more important)
     const aRank = a.importanceRank ?? Infinity
     const bRank = b.importanceRank ?? Infinity
     if (aRank !== bRank) return aRank - bRank
 
-    // Tie-breaker 2: label alphabetical
+    // Tie-break 3: label alphabetical
     return (a.label ?? '').localeCompare(b.label ?? '')
   })
 
@@ -524,24 +777,18 @@ function normalizeOutcomeValues(
 // =============================================================================
 
 /**
- * Normalise direction variants to canonical enum.
+ * Normalise direction variants to the canonical domain.
+ *
+ * ⚠ ROADMAP 2.234: delegates to the one shared normalizer. It used to hold its
+ * own alias table and return `undefined` for `mixed`/`unknown` — which read as
+ * "no direction" and was harmless HERE, but meant this file and
+ * `mapV5AnalysisToReport` each owned a private answer to the same question.
+ * The alias sets are unchanged (they were merged into the shared module), so
+ * no payload that used to normalise stops normalising; what changes is that
+ * `mixed` and `unknown` now survive as themselves instead of being flattened.
  */
 function normaliseDirection(direction: string | undefined): DriverDirection | undefined {
-  if (!direction) return undefined
-
-  const normalised = String(direction).toLowerCase().trim()
-
-  // Positive variants
-  if (['positive', 'increases', '+', 'increase', 'up'].includes(normalised)) {
-    return 'positive'
-  }
-
-  // Negative variants
-  if (['negative', 'decreases', '-', 'decrease', 'down'].includes(normalised)) {
-    return 'negative'
-  }
-
-  return undefined
+  return normaliseFactorDirection(direction) ?? undefined
 }
 
 /**
@@ -574,13 +821,19 @@ function getFactorDirection(
   edges: EdgeForDirection[],
   goalNodeId: string | undefined,
   outcomeNodeIds: string[],
-  factorDirection?: string
+  // ROADMAP 2.234: the caller now passes an already-normalised
+  // `FactorDirection | null`, and `string` is still accepted for the canvas-edge
+  // and legacy callers. Note the priority rule is UNCHANGED and is now
+  // load-bearing in a second way: a producer that said `mixed` or `unknown` is
+  // an ANSWER, so it short-circuits here and the canvas-edge fallbacks below do
+  // NOT run. Only genuine absence falls through to the graph's own metadata.
+  factorDirection?: FactorDirection | string | null
 ): DriverDirection | undefined {
   // 1. API factor_sensitivity.direction (PRIMARY SOURCE)
   // The analysis engine computes direction based on sensitivity analysis,
   // which is more accurate than static canvas edge metadata.
   if (factorDirection) {
-    return normaliseDirection(factorDirection)
+    return normaliseFactorDirection(factorDirection) ?? undefined
   }
 
   // 2. Canvas edge to goal (FALLBACK when API direction unavailable)
@@ -718,20 +971,11 @@ function getConfidenceTier(
 // B2 Deprecation Fallbacks — Remove after 2026-05-12
 // =============================================================================
 
-/**
- * Classify fragile edge severity from switch_probability thresholds.
- * UI-SEM-012: >0.7 critical, >0.5 error, else warning.
- * @deprecated Remove after 2026-05-12 — PLoT B1 now provides severity on fragile_edges items.
- */
-function classifySeverityLegacy(
-  flipProbability: number | undefined | null
-): 'critical' | 'error' | 'warning' {
-  if (typeof flipProbability === 'number') {
-    if (flipProbability > 0.7) return 'critical'
-    if (flipProbability > 0.5) return 'error'
-  }
-  return 'warning'
-}
+// classifySeverityLegacy (B2 severity fallback, "Remove after 2026-05-12")
+// DELETED with its expired call site: the 0.30.0 contract requires severity
+// to be OMITTED when the producer omits it, never re-derived locally — least
+// of all from `switch ?? marginal_switch_probability`, which classified a
+// verdict from a substituted quantity.
 
 /**
  * Detect dominant factor via local heuristic: top driver influence > 0.5
@@ -740,13 +984,13 @@ function classifySeverityLegacy(
  * @deprecated Remove after 2026-05-12 — PLoT B1 now provides dominant_factor on the response.
  */
 function detectDominantFactorLegacy(
-  nonZeroImpactDrivers: Array<{ factorKey: string; factorLabel: string; influenceScore?: number; normalisedInfluence?: number }>
+  nonZeroImpactDrivers: Array<{ factorKey: string; factorLabel: string; displayInfluence?: number; influenceScore?: number; normalisedInfluence?: number }>
 ): { dominantFactorId: string; dominantFactorLabel: string } | undefined {
   if (nonZeroImpactDrivers.length < 2) return undefined
   const top1 = nonZeroImpactDrivers[0]
   const top2 = nonZeroImpactDrivers[1]
-  const top1Influence = top1.influenceScore ?? top1.normalisedInfluence
-  const top2Influence = top2.influenceScore ?? top2.normalisedInfluence
+  const top1Influence = top1.displayInfluence ?? top1.influenceScore ?? top1.normalisedInfluence
+  const top2Influence = top2.displayInfluence ?? top2.influenceScore ?? top2.normalisedInfluence
   if (typeof top1Influence !== 'number' || typeof top2Influence !== 'number') return undefined
   const isDominant = top1Influence > 0.5 && (top2Influence > 0 ? top1Influence / top2Influence > 2 : true)
   if (isDominant) {
@@ -873,6 +1117,24 @@ export interface ResultsSectionDataReturn {
    * `autoNoiseProvenance?.applied && autoNoiseProvenance?.isProvisional`.
    */
   autoNoiseProvenance: import('./types').AutoNoiseProvenance | null
+  /**
+   * Lane UI-W5 (reference-option disclosure): the option the edge/factor
+   * sensitivities and fragile edges were computed against, resolved to a
+   * canvas label where possible. `null` when the producer did not
+   * disclose it (older PLoT/ISL builds); `optionLabel` null when the id
+   * no longer resolves on this canvas (caption suppressed, fail-closed).
+   */
+  sensitivityReference: { optionId: string; optionLabel: string | null } | null
+  /**
+   * V7-C slice 1 (ROADMAP 2.141): the value-of-information ranking read from
+   * `enrichment.factor_evppi` — ISL's real Strong–Oakley regression EVPPI,
+   * carried as PRODUCER RANK ORDER plus the `below_resolution` band and
+   * NOTHING ELSE. `null` means the honest gate renders: the block was absent,
+   * null, empty, malformed, or its rank-1 row could not be named. Never a
+   * heuristic substitute — this replaces the retired `gap.voi` regime, it does
+   * not fall back to it. See `voi/voiRanking.ts` for why so little is carried.
+   */
+  voiRanking: VoiRanking | null
 }
 
 export function useResultsSectionData(): ResultsSectionDataReturn {
@@ -893,6 +1155,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     rawFlipThresholdsStatus,
     rawFlipThresholdsStatusReason,
     rawMetaNSamples,
+    rawHeadlineBanded,
+    rawSensitivityReferenceOptionId,
+    rawRobustnessDisplayVerdict,
+    rawRobustnessDisplayVerdictReason,
   } = useCanvasStore(
     useShallow((s) => ({
       results: s.results,
@@ -934,6 +1200,31 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Display-honesty: root meta.n_samples used as fallback resolution
       // source when an option lacks per-option n_valid_samples.
       rawMetaNSamples: s.rawV2Response?.meta?.n_samples ?? null,
+      // Lane UI-W4 (producer consumption, PLoT #200): producer leader-
+      // confidence band. Extracted narrowly (never subscribe to the whole
+      // raw response); the mapped report is preferred below, this raw slot
+      // is the fresh-run fallback — same pattern as rawV2FlipThresholds.
+      rawHeadlineBanded:
+        s.rawV2Response?.decision_brief?.headline_banded ?? null,
+      // Lane UI-W5 (reference-option disclosure): option ID the
+      // sensitivities / fragile edges were computed against. Extracted
+      // narrowly; mapped report preferred below, this raw slot is the
+      // fresh-run fallback — same pattern as rawHeadlineBanded.
+      rawSensitivityReferenceOptionId:
+        s.rawV2Response?.sensitivity_reference_option_id ?? null,
+      // Display-honesty (lane 35 fix 3, ROADMAP 1.6; producer PLoT #202):
+      // display-safe robustness verdict + producer-owned reason. Extracted
+      // narrowly (never subscribe to the whole raw response); this raw slot
+      // is the fresh-run source, the mapped report is the saved/hydrated
+      // fallback below — same pattern as rawFlipThresholdsStatus. The
+      // fields are additive and untyped in the vendored @talchain/schemas
+      // 0.13.1 pin (0.14.0 types the envelope; the pin bump is a separate
+      // rollout step), so they are declared on the repo's own
+      // V2RobustnessActual wire type and normalised FAIL-CLOSED below.
+      rawRobustnessDisplayVerdict:
+        s.rawV2Response?.robustness?.display_verdict ?? null,
+      rawRobustnessDisplayVerdictReason:
+        s.rawV2Response?.robustness?.display_verdict_reason ?? null,
     }))
   )
 
@@ -1002,8 +1293,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     const unitLower = String(rawUnit).toLowerCase()
 
-    // Percentage variants
-    if (unitLower === '%' || unitLower === 'percent' || unitLower === 'percentage') {
+    // Percentage variants — U2: routed through classifyUnit, the single source
+    // of truth, instead of a local `'%' | 'percent' | 'percentage'` copy.
+    // Identical for those three literals, and additionally correct for the
+    // whitespace forms this site missed (it lowercased but never trimmed).
+    //
+    // NOTE this is the read of `observedState.unit` that C2 named as the "third
+    // divergence" and deferred: the goal node's OBSERVED unit and its
+    // `goal_threshold_unit` are two different fields, and this hook prefers the
+    // former while computeSuccessState reads only the latter. Which field wins is
+    // a doctrine question about what the outcome axis measures, NOT a formatting
+    // one, so it is deliberately still open — U2 makes the two agree on how to
+    // RECOGNISE a percent unit, which is all a single-source-of-truth change can
+    // honestly claim. Flagged, not silently folded.
+    if (classifyUnit(String(rawUnit)).kind === 'percent') {
       return { outcomeUnit: 'percent' as const, outcomeUnitSymbol: undefined }
     }
 
@@ -1038,14 +1341,25 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // CEE analysis_ready has goal_threshold_raw in user units
     if (typeof ceeAnalysisReady?.goal_threshold_raw === 'number') return ceeAnalysisReady.goal_threshold_raw
     const data = goalNode?.data as ResultsCanvasNodeData | undefined
+    // data.goal_threshold is the node's NORMALISED 0-1 value (GoalSection
+    // reads it as thresholdNorm) while this memo's contract is user units:
+    // convert ×cap when a cap exists — same rule as the store CEE sync — so
+    // a normalised fallback can never masquerade as raw and paint the
+    // target line at 0.8 on a 0-25 axis.
+    const nodeGoalThreshold =
+      typeof data?.goal_threshold === 'number'
+        ? goalThresholdCap != null && goalThresholdCap > 0
+          ? data.goal_threshold * goalThresholdCap
+          : data.goal_threshold
+        : null
     return data?.goal_threshold_raw
-      ?? data?.goal_threshold
+      ?? nodeGoalThreshold
       ?? data?.observedState?.value
       ?? data?.observed_state?.value
       ?? data?.success_threshold
       ?? data?.threshold
       ?? null
-  }, [goalThreshold, goalNode, ceeAnalysisReady])
+  }, [goalThreshold, goalNode, ceeAnalysisReady, goalThresholdCap])
 
   const nodeLabelMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -1057,6 +1371,69 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
     return map
   }, [nodes])
+
+  /**
+   * V7-C slice 1 (ROADMAP 2.141) — the value-of-information ranking.
+   *
+   * `report.factor_evppi` is the mapper's verbatim carry of the wire array
+   * (`src/v5/mapV5AnalysisToReport.ts`). Everything the surface is licensed to
+   * show is decided in `buildVoiRanking`, a pure function; this memo supplies
+   * only the canvas label resolution it cannot do itself.
+   *
+   * Label resolution is `nodeLabelMap` — an EXACT id lookup that already drops
+   * blank labels. Deliberately NOT the drivers' `findNodeMatches` fuzzy-label
+   * fallback: a `factor_evppi` row carries no `factor_label` at all (design
+   * §1a), so there is nothing to fuzzy-match, and inventing a match from an id
+   * is how a raw id becomes an id-shaped name. An id we cannot resolve is a row
+   * we drop.
+   */
+  const voiRanking = useMemo(
+    () =>
+      buildVoiRanking({
+        rows: report?.factor_evppi,
+        inferenceWarnings: readInferenceWarnings(report),
+        // ⚠ THIS PRODUCER CANNOT YET EMIT `canFocus: false`, AND THAT IS AN
+        // HONEST LIMITATION, NOT A BUG. `nodeLabelMap` is built FROM the canvas
+        // nodes, so any id it resolves is by construction a node that exists and
+        // can be focused — the two outcomes here are "a focusable label" or
+        // `null` (row dropped). The field is kept rather than collapsed because
+        // it genuinely varies for the disclosure's OTHER row families (drivers
+        // and flip risks both compute `canFocus` from a target that may be
+        // absent), and because a second label source — a resolver that names a
+        // factor it cannot focus — is the case slice 2+ introduces. Until then,
+        // the `canFocus: false` branch in the reader and the view is UNEXERCISED
+        // BY THIS CALLER: it is covered only by the unit fixtures that pass
+        // `false` directly. Do not read its render-level pin as live-path proof.
+        resolveLabel: (factorId) => {
+          const label = nodeLabelMap.get(factorId)
+          return label === undefined ? null : { label, canFocus: true }
+        },
+      }),
+    [report, nodeLabelMap],
+  )
+
+  // Lane UI-W5 (reference-option disclosure): resolve the disclosed
+  // reference-option ID to its canvas label for the shared
+  // SensitivityReferenceCaption. Mapped report preferred (survives
+  // save + hydrate), raw response is the fresh-run fallback — same
+  // precedence as flip_thresholds / headline_banded. Fail-closed:
+  // absent field → null (no caption); id that no longer resolves to a
+  // canvas label → optionLabel null (caption suppressed rather than
+  // leaking an internal id as user copy). provisional_doctrine_v0.
+  const sensitivityReference = useMemo<
+    { optionId: string; optionLabel: string | null } | null
+  >(() => {
+    const fromReport = report?.sensitivity_reference_option_id
+    const raw =
+      typeof fromReport === 'string' && fromReport.length > 0
+        ? fromReport
+        : typeof rawSensitivityReferenceOptionId === 'string' &&
+            rawSensitivityReferenceOptionId.length > 0
+          ? rawSensitivityReferenceOptionId
+          : null
+    if (!raw) return null
+    return { optionId: raw, optionLabel: nodeLabelMap.get(raw) ?? null }
+  }, [report, rawSensitivityReferenceOptionId, nodeLabelMap])
 
   // Get outcome node IDs for direction derivation
   const outcomeNodeIds = useMemo(
@@ -1130,9 +1507,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const rawExpected =
         prob.expected_outcome ?? prob.expected ?? optionOutcome.mean ?? optionBands.p50 ?? null
 
-      // Extract percentiles (p10/p50/p90) — p50 is true median, NOT expected
+      // Extract percentiles (p10/p50/p90) — p50 is the true median, NOT expected.
+      //
+      // ⚠ ROADMAP 2.800a — `rawP50` used to end `?? rawExpected`, i.e. a missing
+      // MEDIAN was filled with the MEAN. The comment above already said they are
+      // different quantities, and the line below it did the substitution anyway.
+      // `OptionOutcome`'s own declaration is explicit: "mean (expected) and p50
+      // (median) are semantically different for skewed distributions" — and a
+      // robustness Monte-Carlo distribution is exactly where they diverge.
+      // The `optionBands.p50` step stays: that is the SAME statistic from a
+      // second source, not a different one wearing its name.
       const rawP10 = optionOutcome.p10 ?? optionBands.p10 ?? null
-      const rawP50 = optionOutcome.p50 ?? optionBands.p50 ?? rawExpected
+      const rawP50 = optionOutcome.p50 ?? optionBands.p50 ?? null
       const rawP90 = optionOutcome.p90 ?? optionBands.p90 ?? null
 
       // Normalize all 4 values together with single scale decision
@@ -1156,18 +1542,45 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const scaledP50 = norm.p50 != null ? norm.p50 * scale : null
       const scaledP90 = norm.p90 != null ? norm.p90 * scale : null
 
+      // ROADMAP 2.449 — tail-risk block. `cvar_10` and `p05` are declared by
+      // the producer to be in the SAME units as outcome.mean/p10 with NO
+      // normalisation of their own, so they ride THIS option's scale decision
+      // — the same one, taken once above. Scaling them independently (or not
+      // at all) would plot the tail against a different ruler than the range
+      // it is the tail OF, and "the worst decile sits below p10" would stop
+      // being readable on screen.
+      //
+      // Absent stays absent: no zero, no placeholder, no partial object. The
+      // mapper has already enforced the producer's all-or-nothing rule.
+      const rawDownside = prob.downside
+      const optionDownside = rawDownside !== undefined
+        ? {
+            cvar10: rawDownside.cvar_10 * scale,
+            p05: rawDownside.p05 * scale,
+            // Carried, never displayed — see OptionDownside.expectedRegret.
+            expectedRegret: rawDownside.expected_regret * scale,
+          }
+        : undefined
+
       // T6 P0-3: Prefer probability_of_joint_goal (constrained) when constraints exist,
-      // fall back to goal_probability (unconstrained)
-      const jointGoalProb = typeof (prob as any).probability_of_joint_goal === 'number'
-        ? (prob as any).probability_of_joint_goal as number
-        : null
-      const unconstrained = typeof prob.goal_probability === 'number'
-        ? prob.goal_probability
-        : null
-      const hasConstraints = prob.constraint_analysis?.constraints?.length > 0
-      const goalProbability = hasConstraints && jointGoalProb != null
-        ? jointGoalProb
-        : unconstrained
+      // fall back to goal_probability (unconstrained).
+      // Staging trust review: when ISL auto-derives the goal threshold as a
+      // constraint (constraint_probabilities.auto_goal_threshold), the run
+      // carries probability_of_joint_goal but NO goal_probability and NO
+      // constraint_analysis — the joint value IS the goal probability there,
+      // so it is the final fallback. Discarding it hid the run's most
+      // decision-relevant fact (every option at 0% chance of the target).
+      // ROADMAP 1.49: extracted to selectGoalProbability (utils/) so every
+      // surface (this hook, OptionNode's badge) shares one fallback chain
+      // instead of re-deriving it.
+      // GOAL-PROBABILITY IDENTITY: the selector owns the whole decision —
+      // which quantity may be shown, and with what provenance. The caveat
+      // flag was previously re-derived HERE from the selector's `isJoint`
+      // plus a local `goal_fit_basis` read, and the canvas hook derived the
+      // same pair independently; the two disagreed live. Read them, never
+      // re-derive them.
+      const goalDecision = selectGoalProbability(prob as GoalProbabilityInput)
+      const { goalProbability, goalFitIsModelledBasis } = goalDecision
 
       // Display-honesty: per-option valid sample count for resolution-aware
       // probability formatting. Fallback chain prefers per-option signal,
@@ -1203,7 +1616,33 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         isRecommended: false, // Will be set immutably below
         winProbability: prob.win_probability,
         nValidSamples,
+        // 2.449 — omitted entirely when the engine had nothing honest to say.
+        ...(optionDownside !== undefined ? { downside: optionDownside } : {}),
+        // 2.646 — percentile provenance, carried verbatim from the report and
+        // NOT scaled, NOT defaulted, NOT re-derived. It is the only thing that
+        // lets the absence sentence above name the engine instead of shrugging;
+        // the V5 mapper has already narrowed it to the producer's vocabulary,
+        // so this hop's whole job is to not be the one that drops it — which is
+        // exactly what it was doing before this row, by rebuilding the option
+        // object field-by-field.
+        ...(prob.percentiles_source !== undefined
+          ? { percentilesSource: prob.percentiles_source }
+          : {}),
         goalProbability,
+        goalFitIsModelledBasis,
+        // Which quantity `goalProbability` actually IS, carried to the render
+        // layer so prose can name it honestly (see types.ts).
+        //
+        // ⭐ L62: reads the owner's published PERMISSION on a present number
+        // rather than testing a basis literal. Always false today — the
+        // substitution is withheld at source, so anything rendered here earns
+        // the possessive.
+        goalFitIsSubstitutedJoint:
+          goalDecision.goalProbability != null && !goalDecision.mayUsePossessiveGoalFraming,
+        // ⭐ L62: "a goal number was WITHHELD" — distinct from "there is no
+        // goal number", which is also the no-target state. Forwarded from the
+        // owner, never re-derived.
+        goalFitWithheld: goalDecision.jointSubstitutionWithheld,
         // Multi-constraint analysis (from ISL when goal_constraints were provided)
         constraintAnalysis: prob.constraint_analysis,
       }
@@ -1217,12 +1656,49 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       backendRecommendedId
     )
 
-    // Sort by expected value descending for display order (independent of winner selection)
-    const sortedOptions = [...unsortedOptions].sort((a, b) => {
-      const aValue = a.expected ?? a.goalProbability ?? -Infinity
-      const bValue = b.expected ?? b.goalProbability ?? -Infinity
-      return bValue - aValue
-    })
+    // SINGLE VERDICT (2026-07-25): the ONE answer to "is there a leading
+    // option?", derived from the SAME `report` object the canvas reads — not
+    // re-derived from this hook's mapped fields, so canvas and panel cannot
+    // drift apart. Every surface asserting or denying a leading option quotes
+    // this. See src/lib/decisionVerdict.ts.
+    //
+    // HOISTED above the display sort (ROADMAP 1.267): the ordering decision
+    // needs the verdict, and the verdict needs only `report` / `optionNodes` /
+    // `rawHeadlineBanded`, all of which are already in scope here. Computed
+    // ONCE and returned as `verdict` below — deriving it twice would be a
+    // second authority, which is the defect decisionVerdict exists to prevent.
+    const leaderVerdict = deriveDecisionVerdict(
+      report as DecisionVerdictReportLike | null | undefined,
+      {
+        visibleOptionIds: new Set(optionNodes.map((n) => n.id)),
+        rawHeadlineBanded,
+      },
+    )
+
+    // ROADMAP 1.267 — THE ORDER DESIGNATION IS AUTHORED HERE.
+    //
+    // This line is where the CANONICAL order dies. `unsortedOptions` is
+    // built from `optionNodes` (`nodes.filter(kind === 'option')`), i.e. the
+    // canvas graph's own option order — the user's creation order. Every
+    // downstream surface re-sorts `allOptions`, but they were all re-sorting
+    // an array that had ALREADY been ranked here, so gating only the leaf
+    // call sites would have changed nothing. The canonical order has to
+    // survive this line or it is not available to anyone.
+    //
+    // Derived ONCE, here, and passed to the leaf sorts via `allOptions`
+    // already being canonical — plus explicitly to each of them, so a leaf
+    // cannot silently re-impose a ranking.
+    const designationsWithheld = !leaderVerdict.hasLeadingOption
+
+    // Order by the SHARED display sort (win probability when every option
+    // carries one, else expected value — sortOptionsForDisplay), independent
+    // of winner selection. This must be the same comparator the rendering
+    // surfaces use (OptionCards, WinGauge, analysis hero): the staging trust
+    // review found badge "4" rendering ABOVE badge "3" because ordinals were
+    // seeded from an expected-value order while every list sorted by win
+    // probability — one metric per surface, so allOptions order, ordinal
+    // registration order and row order must be one.
+    const sortedOptions = sortOptionsForDisplay(unsortedOptions, { designationsWithheld })
 
     // Task 2.1: Resolve baseline option with precedence (PLoT > user > heuristic)
     // Note: userSelectedBaselineId would come from state if we add baseline selection UI
@@ -1322,6 +1798,33 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Task 1.7: Get goal text from framing
     const goalText = currentScenarioFraming?.goal || undefined
 
+    // Display-safe robustness verdict consumption (lane 35 fix 3,
+    // ROADMAP 1.6; producer PLoT #202). Raw response first (fresh run),
+    // mapped report as the saved/hydrated fallback — same chain as
+    // flipThresholdsStatus. FAIL-CLOSED: only the four producer enum
+    // tokens populate the verdict; an absent field (older PLoT build) or
+    // an unrecognised token leaves it undefined so every surface keeps
+    // the honest "Robustness unknown" state. The reason is the
+    // producer's own display phrase, carried VERBATIM (never authored
+    // here) and never exposed without its verdict.
+    const rawDisplayVerdict =
+      rawRobustnessDisplayVerdict ?? robustness?.display_verdict
+    const robustnessVerdict: RobustnessDisplayVerdict | undefined =
+      rawDisplayVerdict === 'robust' ||
+      rawDisplayVerdict === 'moderate' ||
+      rawDisplayVerdict === 'fragile' ||
+      rawDisplayVerdict === 'not_assessed'
+        ? rawDisplayVerdict
+        : undefined
+    const rawDisplayVerdictReason =
+      rawRobustnessDisplayVerdictReason ?? robustness?.display_verdict_reason
+    const robustnessVerdictReason: string | undefined =
+      robustnessVerdict != null &&
+      typeof rawDisplayVerdictReason === 'string' &&
+      rawDisplayVerdictReason.trim() !== ''
+        ? rawDisplayVerdictReason
+        : undefined
+
     // C2: Defensive adaptor for flip_thresholds — PLoT hasn't confirmed final location.
     // Check mapped report paths first, then fall back to rawV2FlipThresholds (extracted
     // from raw V2 response in the store selector). Simplify once PLoT confirms location.
@@ -1336,14 +1839,58 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return {
           label: nf.label ?? nodeLabelMap.get(nf.node_id ?? '') ?? nf.node_id ?? 'Unknown',
           node_id: nf.node_id ?? '',
-          current_value: typeof ft.current_value === 'number' ? ft.current_value : 0,
+          current_value: typeof ft.current_value === 'number' ? ft.current_value : null, // Codex B3: preserve absence — never a fabricated 0 baseline
           flip_value: typeof ft.flip_value === 'number' ? ft.flip_value : null,
           flip_reason: ft.flip_reason,
           unit: ft.unit,
           alternative_winner_label: ft.alternative_winner_label ?? ft.alt_winner_label,
         }
       })
-      .filter((ft: FlipThreshold) => ft.flip_reason !== 'timeout' && ft.flip_reason !== 'isl_error')
+      // ROADMAP 2.280 — THE REASON FILTER THAT USED TO SIT HERE IS DELETED.
+      //
+      // It was `.filter(ft => ft.flip_reason !== 'timeout' && ft.flip_reason
+      // !== 'isl_error')`, and it was believed dead ("the union has no overlap
+      // with live tokens"). Half true: `isl_error` is never emitted as a flip
+      // reason, so that arm was inert — but `timeout` IS a real producer token
+      // (`flip-threshold-status.ts:86`), so this line fires on the LIVE
+      // VOCABULARY.
+      //
+      // ⚠ PRECISION, because the difference matters to anyone re-deriving this:
+      // that is a claim about the token set the producer can emit, established
+      // at the bytes in PLoT. It is NOT a witnessed capture — none of the
+      // captures in `PHASE0-EVIDENCE-2026-07-28/` carries a `timeout` row (all
+      // witnessed zero-flip rows are `structurally_invariant`). So the
+      // corruption below is REACHABLE, not observed. Do not restate it as
+      // "witnessed on staging".
+      //
+      // And firing was worse than not firing. It deleted probe-failure rows
+      // BEFORE `classifyFlipEvidence` could count them, so a run of one
+      // `timeout` plus two `no_effect_within_bounds` lost the timeout row and
+      // the remainder — all null-valued, all attesting — classified as
+      // `flips_absent`. The panel then stated that the producer had PROVED no
+      // flip exists, on a run where one factor was never measured at all.
+      //
+      // Removing it is display-neutral. THE COMPLETE CONSUMER MANIFEST of
+      // `recommendation.flipThresholds`, each verified at the bytes — an
+      // absence claim needs the whole list, and a PARTIAL manifest is the
+      // trap-14 seed (this comment shipped review with two of the four
+      // missing):
+      //   · `ConfidenceSection.tsx:1061` (`FlipThresholdCards`) — already
+      //     applies its own `.filter(ft => ft.flip_value != null)`, so it never
+      //     rendered these rows.
+      //   · `buildHeroModel.ts:286` — `usableFlips`, filters `flip_value != null`.
+      //   · `buildHeroModel.ts:983` — `evidenceFlipRisks`, returns null on
+      //     `flip_value == null`.
+      //   · `TornadoChart` — accepts `flipThresholds` and deliberately renders
+      //     none (`TornadoChart.tsx:135-138`: the flip marker was removed as an
+      //     invalid coordinate mapping).
+      // Every one of them already drops null-valued rows, so the rows this
+      // filter used to delete were invisible to all four. The ONLY consumer
+      // whose answer changes is the classifier, which is the one that was wrong.
+      //
+      // Probe-failure rows are now routed away from attested absence by
+      // `flipReasonVocabulary`, which does it by MEANING and covers the
+      // unknown-token case this filter's hard-coded pair never could.
 
     return {
       recommendedOption,
@@ -1361,8 +1908,21 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       winProbability,
       // Task 1.4: How winner was determined
       determinedBy,
-      // Task 1.5: Robustness level and label
+      // Task 1.5: Robustness level and label. `robustnessLevel` is STRUCTURED
+      // DATA (PLoT report.robustness.level, or the UI-SEM-005 fallback) — kept for
+      // qualified/detailed display, NOT for the binary glyph.
       robustnessLevel,
+      // Display-safe robustness verdict for the Robust/Sensitive glyph —
+      // the producer's OWN display_verdict (PLoT #202), normalised
+      // fail-closed above. PLoT `report.robustness.level` is deliberately
+      // NOT a display-safe verdict (PLoT-level semantics are not
+      // contractually safe to binarise), so it still must not drive the
+      // glyph; when display_verdict is absent (older PLoT builds) this is
+      // undefined and the glyph keeps "Robustness unknown".
+      // (ROBUSTNESS-VERDICT-CONTRACT — consumer landed lane 35 fix 3.)
+      robustnessVerdict,
+      // The producer's own reason phrase, rendered verbatim downstream.
+      robustnessVerdictReason,
       robustnessLabel,
       // Task 1.7: Goal text from framing
       goalText,
@@ -1371,6 +1931,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       baselineOutcome,
       // Near-tie detection: when top options are too close to call
       nearTie,
+      // SINGLE VERDICT — derived once above (hoisted so the display sort can
+      // read it too, ROADMAP 1.267) and quoted here. One derivation, one
+      // answer, no mirror.
+      verdict: leaderVerdict,
       // Task 6: Flip thresholds for tipping points visualisation
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
       // Display-honesty: PLoT-side classification of flip_thresholds[].
@@ -1394,6 +1958,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       flipThresholdsHasUnresolved: Boolean(
         rawFlipThresholdsStatusReason
           ?? (report as { flip_thresholds_status_reason?: string } | null | undefined)?.flip_thresholds_status_reason,
+      ),
+      // Lane UI-W4 (producer consumption, PLoT #200): producer leader-
+      // confidence band from decision_brief.headline_banded. Normalised
+      // fail-closed at this trust boundary (unknown band tokens / missing
+      // leader id → null → the hero's UI-SEM-060 fallback banding applies).
+      // Fallback chain mirrors flipThresholdsStatus above: mapped report
+      // first (saved / hydrated results survive), raw response second
+      // (fresh runs on older cached reports).
+      headlineBanded: normalizeHeadlineBanded(
+        (report as { decision_brief?: { headline_banded?: unknown } } | null | undefined)
+          ?.decision_brief?.headline_banded
+          ?? rawHeadlineBanded,
       ),
       /**
        * UI-SEM-050: Leading-option downside flag.
@@ -1481,7 +2057,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const critiques = report?.run?.critique || []
         const hasWarningCritiques = critiques.some((c: any) =>
           c.severity === 'WARNING' || c.severity === 'BLOCKER' ||
-          c.severity === 'warning' || c.severity === 'blocker'
+          c.severity === 'warning' || c.severity === 'blocker' ||
+          // UI-SEM-069 bridge: advisories emitted as severity 'IMPROVEMENT'
+          // with semantic_severity 'WARNING' are ingested into uncertainties
+          // below (see the same check on the uncertainties list); hasWarnings
+          // must agree or the panel shows "ready, no warnings" while the
+          // uncertainties list simultaneously shows warnings.
+          c.semantic_severity === 'WARNING'
         )
         // Check for fragile edges
         const fragileEdges = safeArray(report?.robustness?.fragile_edges)
@@ -1489,7 +2071,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -1497,19 +2079,21 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   const drivers = useMemo<DriversSectionData>(() => {
     const driversStatus = report?.drivers_status || 'unavailable'
 
-    // Collect raw factors from multiple sources
-    const rawFactors: RawFactorSensitivity[] = []
+    // C4 fix 2: the row merge lives in selectDriverPolicyFeed — THE one feed
+    // this panel and the canvas hook (useNodeDisplayMetadata) both read, so
+    // the coverage verdict (and therefore the disclosed basis) cannot fork
+    // between the two surfaces for the same report.
+    const feed = selectDriverPolicyFeed(report)
+    const rawFactors = feed.rawFactors
 
-    // Source 1: factor_sensitivity (PLoT v2)
-    const factorSensitivity = report?.factor_sensitivity || []
-
-    // P0 DIAGNOSTIC: Log raw factor_sensitivity data to verify field mapping
+    // P0 DIAGNOSTIC: Log the resolved source-1 rows to verify field mapping
     // Fix 3: Guard window access for SSR, Fix 5: Gate behind debug toggle
-    if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG && factorSensitivity.length > 0) {
-      console.warn('[useResultsSectionData] Raw factor_sensitivity from PLoT:', {
-        count: factorSensitivity.length,
-        sample: factorSensitivity[0],
-        allFields: factorSensitivity.map((f: any) => ({
+    if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG && rawFactors.length > 0) {
+      console.warn('[useResultsSectionData] Merged driver rows:', {
+        count: rawFactors.length,
+        sample: rawFactors[0],
+        usedEnrichmentFallback: feed.usedEnrichmentFallback,
+        allFields: rawFactors.map((f: any) => ({
           node_id: f.node_id,
           label: f.label,
           sensitivity_score: f.sensitivity_score,
@@ -1520,60 +2104,6 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         })),
       })
     }
-
-    factorSensitivity.forEach((f: any) => rawFactors.push(f))
-
-    // Fix 2: Precompute keys in a Set for O(1) duplicate detection
-    const seenKeys = new Set<string>()
-    rawFactors.forEach((f, index) => seenKeys.add(getFactorKey(f, index)))
-
-    // Source 2: drivers array (legacy)
-    // Fix 2: Use getFactorKey for canonical de-dupe (not d.nodeId || d.id)
-    const legacyDrivers = report?.drivers || []
-    legacyDrivers.forEach((d: any, idx: number) => {
-      const candidate: RawFactorSensitivity = {
-        node_id: d.nodeId,
-        id: d.id,
-        label: d.label,
-        sensitivity: d.contribution,
-        direction: d.polarity === 'down' ? 'negative' : 'positive',
-      }
-      const key = getFactorKey(candidate, rawFactors.length + idx)
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key)
-        rawFactors.push(candidate)
-      }
-    })
-
-    // Source 3: drivers_payload
-    const driversPayload = report?.drivers_payload?.drivers || []
-    driversPayload.forEach((pd: any, idx: number) => {
-      const key = getFactorKey(pd, rawFactors.length + idx)
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key)
-        rawFactors.push(pd)
-      }
-    })
-
-    // Source 4: sensitivity.factors (alternative path)
-    const sensitivityFactors = report?.sensitivity?.factors || []
-    sensitivityFactors.forEach((sf: any, idx: number) => {
-      const key = getFactorKey(sf, rawFactors.length + idx)
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key)
-        rawFactors.push(sf)
-      }
-    })
-
-    // Source 5: factors array (direct)
-    const directFactors = report?.factors || []
-    directFactors.forEach((df: any, idx: number) => {
-      const key = getFactorKey(df, rawFactors.length + idx)
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key)
-        rawFactors.push(df)
-      }
-    })
 
     if (rawFactors.length === 0) {
       return {
@@ -1592,6 +2122,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       raw: f,
       key: getFactorKey(f, index),
       rawElasticity: getRawElasticity(f),
+      influenceScore: f.influenceScore,
       importanceRank: f.importanceRank,
       label: f.label,
     }))
@@ -1599,8 +2130,28 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Step 2: Compute dynamic normalisation
     const normalisedMap = computeNormalisedInfluences(factorsWithKeys)
 
-    // Step 3: Compute ranks
-    const rankMap = computeFactorRanks(factorsWithKeys)
+    // Step 3: Compute ranks by the DISPLAYED metric (Codex B2 doctrine fix:
+    // the surface says "Influence", so the order and the rank-1 crown follow
+    // the same number the bar renders. Codex R3-B1 tightens this to a
+    // complete-metric-set policy: producer influence_score is used only when
+    // EVERY factor carries one — a partial set would rank a mixture of
+    // producer scores and elasticity-normalised fallbacks, which are not
+    // comparable. Under partial coverage every factor displays and ranks by
+    // normalisedInfluence instead, so the whole surface shares one basis.
+    // Codex R3-B1: display value + provenance from the ONE shared policy
+    // (driverDisplayModel) — the same function the graph badge consumes.
+    // C4 fix 2: read the model off the shared FEED rather than recomputing it
+    // from this panel's own rows. Sharing the policy function alone still let
+    // the verdict fork, because each surface fed it a different row set; the
+    // keys are identical (getFactorKey resolves ids before labels, so the
+    // feed's label-free normalisation yields the same key per row).
+    const displayModel = feed.displayModel
+    const rankMap = computeFactorRanks(
+      factorsWithKeys.map((f) => ({
+        ...f,
+        displayValue: displayModel.get(f.key)?.value ?? 0,
+      })),
+    )
 
     // Step 4: Derive edges for direction mapping
     const edgesForDirection: EdgeForDirection[] = edges.map(e => ({
@@ -1619,13 +2170,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     fragileEdgesRaw.forEach((fe: any) => {
       const fromId = fe.from_id ?? fe.fromId ?? fe.source
       if (fromId) {
-        // Bug fix: use switch_probability as primary (direct flip probability from ISL)
-        // Fall back to marginal_switch_probability only if switch_probability missing
+        // Presence branch (schemas 0.30.0; same class as #543): ONLY a
+        // measured switch_probability populates switchProbability.
+        // marginal_switch_probability is a DIFFERENT Monte Carlo, never a
+        // fallback — the coalesce here fed buildHeroModel's "NN% switch"
+        // meta + MagnitudeBar (staging-ON analysis hero) a marginal value
+        // under switch-probability wording (#543 adv-review F1). Absence
+        // propagates: the hero flip row renders its sentence with no meta
+        // and no bar, and the topFlipRisk quick link / DriversSection
+        // microline gates simply don't fire. The invariant mirror
+        // (src/test/__tests__/invariants/ui/fragile-edge-selection.test.ts)
+        // already documents exactly these semantics.
         const newProb = typeof fe.switch_probability === 'number'
           ? fe.switch_probability
-          : typeof fe.marginal_switch_probability === 'number'
-            ? fe.marginal_switch_probability
-            : undefined
+          : undefined
         const existing = fragileEdgesMap.get(fromId)
         const existingProb = existing?.switchProbability
 
@@ -1642,6 +2200,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         }
       }
     })
+
+    // Step 4b-2 (additive): producer worth_investigating ids from the
+    // robustness VOI suggestions — joined onto driver rows by factor id only.
+    // (value_of_information is not declared on the narrowed robustness type;
+    // the helper validates every row itself.)
+    const voiWorthInvestigatingIds = buildWorthInvestigatingIdSet(
+      (report?.robustness as { value_of_information?: unknown } | undefined)?.value_of_information,
+    )
 
     // Step 4c: Build enrichments lookup (CEE-generated insights)
     // Matching rule: Use factor_id only (never match by label)
@@ -1744,6 +2310,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           normalisedInfluence,
           // ISL influence_score (0-1) - use directly for Influence column
           influenceScore: f.raw.influenceScore,
+          // Codex R3-B1: single display basis (see DriverItem.displayInfluence)
+          displayInfluence: displayModel.get(f.key)?.value ?? 0,
+          // Lane 2 review fold: basis marker so absolute-claim surfaces
+          // (Triage dominance nudge) can distinguish a producer causal share
+          // from a set-relative fallback value.
+          displayProvenance: displayModel.get(f.key)?.provenance,
+          // Producer influence_rank passthrough (roadmap 1.7, provisional_doctrine_v0)
+          influenceRank: f.raw.influenceRank,
           // ISL zero_reason - explains why sensitivity is zero
           zeroReason: f.raw.zeroReason,
           rank,
@@ -1770,7 +2344,6 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           attributionStability: f.raw.attributionStability,
           rankFlipRate: f.raw.rankFlipRate,
           evpi: f.raw.evpi,
-          evpiPercentagePoints: f.raw.evpiPercentagePoints,
           // V14.2: Default estimate pill — derivation extracted to
           // `isDefaultedConfidenceFromRaw` so cross-version compat behaviour
           // is unit-testable in isolation. See audit A1-PRIMARY.
@@ -1780,6 +2353,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           }),
           // Audit A1-PRIMARY: plumb provenance through for the column-header marker.
           confidenceProvenance: f.raw.confidenceProvenance,
+          // Track S: factor value provenance — carried into the driver model for
+          // verification only (exposed via the __OLUMI_DEBUG diagnostic, not the DOM).
+          valueSource: f.raw.valueSource,
+          valueExtractionType: f.raw.valueExtractionType,
+          valueDefaulted: f.raw.valueDefaulted,
+          // Producer worth_investigating flag (additive): explicit true on the
+          // factor_sensitivity row, or the robustness VOI suggestion matched
+          // by factor id. Strict — absent unless the producer said true.
+          worthInvestigating:
+            f.raw.worthInvestigating === true
+              || voiWorthInvestigatingIds.has(factorNodeId)
+              || voiWorthInvestigatingIds.has(f.key)
+              ? true
+              : undefined,
         }
       })
       .sort((a, b) => a.rank - b.rank) // Sort by rank
@@ -1789,7 +2376,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // These are filtered from default view but included in "See all factors"
     const ZERO_IMPACT_THRESHOLD = 0.01
     const isZeroImpact = (d: DriverItem) => {
-      const influence = d.influenceScore ?? d.normalisedInfluence
+      const influence = d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence
       // Bug fix: Handle undefined influence - treat as zero if missing
       const effectiveInfluence = typeof influence === 'number' ? influence : 0
       // v7.2: Zero impact = influence < 0.01 (confidence not checked)
@@ -1900,9 +2487,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             : 'Unable to assess model quality.',
     }
 
-    // Get warnings as uncertainties from critiques
+    // Get warnings as uncertainties from critiques.
+    // UI-SEM-069: severity taxonomy bridge — PLoT emits advisories as
+    // severity 'IMPROVEMENT' with semantic_severity 'WARNING' (e.g.
+    // GRAPH_DENSE, ISL_UNCERTAIN); keying on severity alone silently
+    // dropped every one of them. Remove when PLoT unifies the taxonomy.
     const critiques = report?.run?.critique || []
-    const warnings = critiques.filter((c: any) => c.severity === 'WARNING')
+    const warnings = critiques.filter(
+      (c: any) => c.severity === 'WARNING' || c.semantic_severity === 'WARNING',
+    )
 
     // V14.3b: Internal-token guard — messages matching this are NOT safe for JSX render.
     const CRITIQUE_INTERNAL_PATTERN = /constraint_|observed_state|intercept=|node_id=|edge_id=|fac_[a-z_]+|opt_[a-z_]+|goal_[a-z_]+|blocks_analysis/i
@@ -2026,10 +2619,27 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Only show stable template when fragile_edges is genuinely empty (length === 0)
     // =========================================================================
     const topFragileEdgeData = (() => {
-      // Sort ALL fragile edges by switch_probability descending, pick top one
+      // Sort ALL fragile edges: measured switch_probability desc; unmeasured
+      // LAST, producer order preserved.
+      //
+      // ADJUDICATED (#543 adv-review F2, marginal-quantity honesty batch):
+      // selection is presence-first. The contract (schemas 0.30.0,
+      // EnrichmentRobustnessEdgeSchema.switch_probability) requires consumers
+      // to "omit any value derived from it (severity, visible, RANKING
+      // POSITION) rather than derive one from a substitute", and
+      // plot-lite-service#294 shipped this exact comparator for the coaching
+      // fragile-edge rank — same doctrine, same shape, cross-service.
+      // Previously the marginal quantity could PICK the top edge (`switch ??
+      // marginal ?? -Infinity`) even though every render surface now refuses
+      // to display it (#543): with {marginal-only 0.9, measured 0.4} the 0.9
+      // edge won and rendered numberless while a displayable measurement sat
+      // on the sibling. A measured value — including a measured 0 — outranks
+      // any unmeasured edge; -Infinity is an ordering sentinel only and never
+      // leaves the comparator (two unmeasured edges compare NaN → treated as
+      // equal, so the stable sort keeps producer order).
       const allSortedByRisk = [...dedupedFragileEdges].sort((a: any, b: any) => {
-        const bProb = b.switch_probability ?? b.marginal_switch_probability ?? -Infinity
-        const aProb = a.switch_probability ?? a.marginal_switch_probability ?? -Infinity
+        const aProb = typeof a.switch_probability === 'number' ? a.switch_probability : Number.NEGATIVE_INFINITY
+        const bProb = typeof b.switch_probability === 'number' ? b.switch_probability : Number.NEGATIVE_INFINITY
         return bProb - aProb
       })
       const fe = allSortedByRisk[0]
@@ -2100,7 +2710,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         toLabel: targetName,
         alternativeWinnerLabel,
         alternativeWinnerId: altWinnerId,
-        switchProbability: fe.switch_probability ?? fe.marginal_switch_probability,
+        // Presence branch (schemas 0.30.0; UI half of plot-lite-service#294):
+        // switch_probability ABSENT means NOT COMPUTED — the producer omits it
+        // rather than derive one from a substitute. marginal_switch_probability
+        // is a DIFFERENT Monte Carlo (P(flip | only this edge varies)), never a
+        // fallback: coalescing it here rendered a fabricated "(NN% probability)"
+        // in T1FlipRiskCallout, whose own `!= null` branch already degrades
+        // honestly when the number is absent.
+        switchProbability: typeof fe.switch_probability === 'number' ? fe.switch_probability : undefined,
         // Task C: Flag for HeroSection to show generic bullet when labels unresolved
         labelsResolved,
       }
@@ -2217,13 +2834,21 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const friendlyMessage = fe.description ||
         `If "${edgeLabel}" changes significantly, "${alternativeWinnerLabel}" could become the better choice`
 
-      // UI-SEM-012: Read PLoT-classified severity (B1+); fall back to local heuristic for pre-B1 cached results.
-      const severity: 'critical' | 'error' | 'warning' =
+      // UI-SEM-012: PLoT-classified severity (B1+), carried VERBATIM or
+      // omitted. Contract (schemas 0.30.0, EnrichmentRobustnessEdgeSchema):
+      // severity is "ABSENT when switch_probability is absent — a severity
+      // derived from a substituted probability is a fabricated verdict, so
+      // the producer omits both together". Absence propagates: no local
+      // reclassification. (The expired pre-B1 deprecation fallback — window
+      // ended 2026-05-12 — classified locally from
+      // `switch ?? marginal_switch_probability` and rendered the fabricated
+      // verdict as ConfidenceSection's "Critical assumption" label; an
+      // absent severity now gets that section's default styling and no
+      // verdict text.)
+      const severity: 'critical' | 'error' | 'warning' | undefined =
         (fe.severity === 'critical' || fe.severity === 'error' || fe.severity === 'warning')
           ? fe.severity
-          // DEPRECATION FALLBACK: Remove after 2026-05-12
-          // Pre-B1 cached results lack severity field; compute locally via classifySeverityLegacy.
-          : classifySeverityLegacy(fe.switch_probability ?? fe.marginal_switch_probability)
+          : undefined
 
       // Look up factor confidence from driver items for confidence pill display
       const factorConfidence = (() => {
@@ -2299,7 +2924,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const filteredFragileEdges = filteredFragileEdgesCount > 0 ? {
       filteredCount: filteredFragileEdgesCount,
       threshold: FRAGILE_EDGE_THRESHOLD,
-      description: `${filteredFragileEdgesCount} additional ${filteredFragileEdgesCount === 1 ? 'assumption' : 'assumptions'} changed the best option in <${Math.round(FRAGILE_EDGE_THRESHOLD * 100)}% of simulations`,
+      // ROADMAP 2.724 — analysis description, not a verdict. What the
+      // simulation changed is which option came out on top; "the best option"
+      // crowned a choice. Count and threshold are unchanged.
+      description: `${filteredFragileEdgesCount} additional ${filteredFragileEdgesCount === 1 ? 'assumption' : 'assumptions'} changed which option ranks first in <${Math.round(FRAGILE_EDGE_THRESHOLD * 100)}% of simulations`,
     } : undefined
 
     // Bug 2 fix: Extract robustness level for "Good foundation" logic
@@ -2345,43 +2973,79 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           return true
         })
 
-        // Default sort (full evidenceGaps list): EVPI → VOI. Preserves
-        // existing consumers that iterate all gaps (e.g. debug/admin views).
-        const sortedGaps = uniqueGaps.sort((a: any, b: any) => {
-          const aEvpi = typeof a.evpi === 'number' ? a.evpi : -1
-          const bEvpi = typeof b.evpi === 'number' ? b.evpi : -1
-          if (aEvpi >= 0 && bEvpi >= 0) return bEvpi - aEvpi
-          const aVoi = typeof a.voi_score === 'number' ? a.voi_score : typeof a.voi === 'number' ? a.voi : 0
-          const bVoi = typeof b.voi_score === 'number' ? b.voi_score : typeof b.voi === 'number' ? b.voi : 0
-          return bVoi - aVoi
-        })
+        // ⛔ NO CLIENT-SIDE RE-RANK. The producer's emission order is kept.
+        //
+        // This list used to be sorted EVPI → VOI here, and then the top-3 slice
+        // below re-sorted by `evpi_percentage_points`. Both are gone. The
+        // quantity is not merely uncalibrated, it is REFUTED: replayed live on
+        // 2026-07-25 against PLoT 1dd45b6a → ISL 3aea011c, PLoT published
+        // `evpi_percentage_points: 12.3` for *Market Receptivity to Feature*
+        // while ISL, in the SAME response one level away, measured that same
+        // factor at `p_win_delta_percentage_points: 0.0` and
+        // `factor_evppi: 0.0`. Same for 10.2 and 6.6 on decision a4b32ee2.
+        //
+        // The formula (PLoT coaching/evidence-gaps.ts:75) is
+        // `voi × winProbSpread × 100`, multiplying BY the top-two
+        // win-probability gap — which INVERTS decision theory. ISL measures the
+        // near-tied decision as worth 16× the foregone one; PLoT ranks them
+        // opposite.
+        //
+        // Losing this sort is not a downgrade. `winProbSpread` is a SINGLE
+        // PER-RESPONSE SCALAR, so within one response "by evpi_pp desc" and
+        // "by voi desc" are the SAME ordering — and "by voi desc" is exactly
+        // what PLoT already emits. Preserving producer order therefore
+        // reproduces the previous on-screen order on live data, without the UI
+        // depending on, or asserting, the refuted figure.
+        //
+        // Do NOT reinstate a sort here. If an ordering claim is ever wanted
+        // again it must come from a quantity our own compute layer corroborates.
+        const orderedGaps = uniqueGaps
 
         // Map to UI format (defensive: accept both voi_score/voi field names)
-        const evidenceGaps = sortedGaps.map((gap: any) => ({
+        const evidenceGaps = orderedGaps.map((gap: any) => ({
           factorId: gap.factor_id,
           factorLabel: gap.factor_label ?? gap.factor_id,
-          confidence: gap.confidence ?? 0,
+          // ⛔ No absence-fabrication. `?? 0` used to turn "the producer sent
+          // no confidence" into "the producer said zero", which the triage
+          // card then spoke as "This factor has 0% confidence."
+          confidence: typeof gap.confidence === 'number' && Number.isFinite(gap.confidence)
+            ? gap.confidence
+            : null,
           voi: gap.voi_score ?? gap.voi ?? 0,
           evpi: typeof gap.evpi === 'number' ? gap.evpi : undefined,
-          evpiPp: typeof gap.evpi_percentage_points === 'number' ? gap.evpi_percentage_points : undefined,
           suggestion: gap.suggestion ?? '',
           targetNodeId: gap.target_node_id,
         }))
 
-        // Brief 4 Task 9 (revised per review): filter to positive EVPI
-        // percentage points FIRST, then sort by evpi_pp descending, then take
-        // the top 3. Sort-key mismatch previously let a gap with high `evpi`
-        // but zero `evpi_pp` rank ahead of a meaningful 1pp gap.
-        const positiveEvpi = evidenceGaps
-          .filter(g => (g.evpiPp ?? 0) > 0)
-          .sort((a, b) => (b.evpiPp ?? 0) - (a.evpiPp ?? 0))
-        const topEvidenceGaps = positiveEvpi.slice(0, 3)
-        const topEvidenceGapsEmpty = evidenceGaps.length > 0 && positiveEvpi.length === 0
+        // ⛔ NO SECOND SELECTION GATE. The producer's set IS the selection.
+        //
+        // This was `.filter(g => (g.evpiPp ?? 0) > 0)` — and it was not an
+        // ordering, it decided MEMBERSHIP. Its worst mode was not
+        // "misordered", it was EMPTY: PLoT's `computeEvpiPercentagePoints`
+        // returns undefined when `winProbSpread <= 0`, so on a PERFECT TIE
+        // between the top two options — precisely where information is most
+        // valuable — PLoT omits the field, `?? 0` turned that absence into a
+        // confident zero, `0 > 0` was false, and EVERY suggested evidence gap
+        // vanished. A user with a genuinely close decision saw none.
+        //
+        // What selects now: PLoT's own membership decision, which is
+        // `non-lever ∧ top-k by ISL importance_rank ∧ confidence < 0.7`
+        // (coaching/evidence-gaps.ts). That is defensible in words — "a factor
+        // that matters to the result, that we are not confident about" — and
+        // contains no EVPI. The UI simply stops stacking a second, refuted
+        // numeric gate on top of it. No replacement number is introduced;
+        // substituting one unvalidated figure for another is the mistake this
+        // whole track exists to stop.
+        //
+        // `topEvidenceGapsEmpty` went with the gate: it could only ever be true
+        // because of that filter, and the copy it drove ("No high-value
+        // evidence gaps. Your current uncertainties have minimal impact on the
+        // result.") was itself an EVPI claim.
+        const topEvidenceGaps = evidenceGaps.slice(0, 3)
 
         return {
           evidenceGaps,
           topEvidenceGaps,
-          topEvidenceGapsEmpty,
         }
       })(),
       // Task 5 (M1 Coaching): Next actions - sorted by priority, deduped against fragile edges
@@ -2524,11 +3188,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       m2DecisionQualityPrompts: (() => {
         const prompts = safeArray(m1ReviewAssumptions?.decision_quality_prompts)
         if (prompts.length === 0) return undefined
-        return prompts.map((p: any) => ({
-          principle: p.principle ? sanitizeCoachingText(p.principle) : '',
-          appliesBecause: p.applies_because ? sanitizeCoachingText(p.applies_because) : '',
-          question: p.question ? sanitizeCoachingText(p.question) : '',
-        }))
+        // Lane 1 (P1): single mapping site — carries DSK provenance
+        // (dskClaimId/dskProtocolId/evidenceStrength) id-gated, alongside the
+        // historical sanitised copy fields. See utils/decisionQualityPrompts.
+        return mapDecisionQualityPrompts(prompts)
       })(),
       m2EvidenceEnhancements: (() => {
         const raw = m1ReviewAssumptions?.evidence_enhancements as
@@ -2568,7 +3231,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         }))
       })(),
       inferenceWarnings: (() => {
-        const raw = safeArray((report as any)?.inference_warnings ?? (report as any)?.robustness?.inference_warnings)
+        const raw = safeArray(readInferenceWarnings(report))
         // Surface all inference warnings (previously gated on specific codes)
         const relevant = raw.filter((w: any) => typeof w?.code === 'string')
         if (relevant.length === 0) return undefined
@@ -2579,6 +3242,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             affected_nodes: nodeIds,
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
+            // Roadmap 1.12: producer severity carried verbatim (never
+            // defaulted). Warning-severity entries surface on the Analysis
+            // tab; info-severity stays hidden there.
+            severity: typeof w.severity === 'string' ? w.severity : undefined,
           }
         })
       })(),
@@ -2627,6 +3294,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           return {
             edge_id: fe.edge_id ? String(fe.edge_id) : undefined,
             from_id: fe.from_id ?? fe.fromId ?? fe.source ?? undefined,
+            // to_id passthrough (mirrors from_id): the analysis-graph projection
+            // resolves a flip risk to its canvas edge via the from→to endpoint
+            // pair. Pure passthrough — no default, no inference.
+            to_id: fe.to_id ?? fe.toId ?? fe.target ?? undefined,
             from_label: String(fe.from_label),
             to_label: String(fe.to_label),
             switch_probability: Number(fe.switch_probability),
@@ -2647,7 +3318,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return enriched
       })(),
     }
-  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap])
+    // runMeta?.ceeReviewV1 is a genuine input (graphReadiness, evidence
+    // quality, bias/quality/improvement guidance all read it); the CEE review
+    // lands asynchronously after `report`, so omitting it froze the tier at
+    // its pre-review value. The sibling `completeness` memo already lists it.
+  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1])
 
   // ==========================================================================
   // Improvements Section Data (Legacy - now merged into confidence)
@@ -2670,23 +3345,82 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         resultsStatus,
         report: report ?? null,
         ceeReviewV1: runMeta?.ceeReviewV1 ?? null,
+        // ROADMAP 2.154 — a genuine input, and a genuine dep: the 0.30 review
+        // lands via setRunMeta AFTER `report` is written (shallow merge, same
+        // `report` identity), so omitting it from the dep list would leave the
+        // `decision_review_unavailable` qualifier stuck on until the next
+        // unrelated report change.
+        decisionReview030: runMeta?.decisionReview030 ?? null,
         driversPayload: report?.drivers_payload ?? null,
       }),
-    [resultsStatus, report, runMeta?.ceeReviewV1],
+    [resultsStatus, report, runMeta?.ceeReviewV1, runMeta?.decisionReview030],
   )
 
-  return {
-    recommendation,
-    drivers,
-    confidence,
-    improvements,
-    isLoading,
-    isError,
-    goalLabel,
-    goalNodeId,
-    completeness,
-    autoNoiseProvenance,
-  }
+  // Wave F-A: register option ids for identity-anchored ordinals the first
+  // time each id appears (append-only merge; per-scenario continuity —
+  // hydrateGraphSlice resets). Ordinals are display continuity only.
+  // Codex SF10: never reconstruct ids from a separator-joined string — the
+  // accepted schema does not forbid any character in an id, so ANY separator
+  // can split a legitimate id into fragments that register wrongly. The dep
+  // key is canonical JSON (collision-free) and the ORIGINAL array registers.
+  // Registration goes through sortOptionsForDisplay explicitly (allOptions
+  // already carries that order, but first-seen ordinals are frozen forever,
+  // so the seeding order must be guaranteed at the registration site, not
+  // inherited): badge numbers then match the order every list renders in.
+  //
+  // ROADMAP 1.267 — AND THE SEEDING ORDER IS ITSELF A DESIGNATION. Because
+  // first-seen ordinals are frozen FOREVER, seeding them from a probability
+  // sort means `Option 1` permanently records who led on the very first run.
+  // "Identity-anchored" only ever meant stable against LATER rank flips, not
+  // free of the first ranking. So a withheld first run seeds in canonical
+  // order — otherwise this slice would suppress the badge on the withheld
+  // screen while quietly minting the same designation into a store that a
+  // later permitted run then displays.
+  const optionIds = sortOptionsForDisplay(recommendation.allOptions, {
+    designationsWithheld: recommendation.verdict != null && !recommendation.verdict.hasLeadingOption,
+  }).map((o) => o.id)
+  const optionIdsKey = JSON.stringify(optionIds)
+  useEffect(() => {
+    if (optionIds.length === 0) return
+    useCanvasStore.getState().registerOptionNumbering(optionIds)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- optionIdsKey is the canonical value key for optionIds
+  }, [optionIdsKey])
+
+  // Lane 3 (SF2) perf — EVIDENCE-DEMANDED (rerunContinuity render-count
+  // pin): with the results body mounted through a run, a fresh return
+  // object here defeated ResultsBody's memo on every SSE progress tick.
+  // The constituent fields are themselves memoised; stabilising the
+  // envelope stops per-tick subtree re-renders.
+  return useMemo(
+    () => ({
+      recommendation,
+      drivers,
+      confidence,
+      improvements,
+      isLoading,
+      isError,
+      goalLabel,
+      goalNodeId,
+      completeness,
+      autoNoiseProvenance,
+      sensitivityReference,
+      voiRanking,
+    }),
+    [
+      recommendation,
+      drivers,
+      confidence,
+      improvements,
+      isLoading,
+      isError,
+      goalLabel,
+      goalNodeId,
+      completeness,
+      autoNoiseProvenance,
+      sensitivityReference,
+      voiRanking,
+    ],
+  )
 }
 
 export default useResultsSectionData
@@ -2701,6 +3435,7 @@ export {
   getRawElasticity,
   computeNormalisedInfluences,
   computeFactorRanks,
+  selectDriverDisplayModel,
   normalizeOutcomeValues,
   normaliseDirection,
   getFactorDirection,
@@ -2709,7 +3444,6 @@ export {
   mapConfidenceLevel,
   getConfidenceTier,
   deriveConfidenceTierLegacy,
-  classifySeverityLegacy,
   detectDominantFactorLegacy,
   normaliseImprovements,
 }

@@ -35,7 +35,7 @@ export function ComparisonTableSection() {
   if (nodes.length === 0) {
     return (
       <div className="p-4">
-        <p className={`${typography.body} text-ink-900/50 text-center py-8`}>
+        <p className={`${typography.body} text-ink-900 text-center py-8`}>
           Add nodes to your graph to enable scenario comparison
         </p>
       </div>

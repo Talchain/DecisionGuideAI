@@ -105,7 +105,11 @@ export function useCanvasKeyboardShortcuts({
     }
 
     // T: Open Templates panel
-    if (e.key === 't' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+    // 'T' with shiftKey false is CapsLock — the first-run screen advertises
+    // this key ("Press T for all templates"), so it must work with CapsLock
+    // on. Shift+T stays excluded via !e.shiftKey; typing in inputs stays
+    // inert via the target guard above.
+    if ((e.key === 't' || e.key === 'T') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       e.preventDefault()
       const state = useCanvasStore.getState()
       const { showTemplatesPanel, openTemplatesPanel } = state

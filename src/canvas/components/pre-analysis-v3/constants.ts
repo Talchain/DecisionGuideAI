@@ -1,0 +1,537 @@
+/**
+ * Pre-analysis panel v3 — bar labels, thresholds and all user-facing copy.
+ *
+ * Copy rules: communication glossary v1 (model not graph; factor, option,
+ * goal, outcome, risk; connection not edge; no "recommended", "winner",
+ * "blocked", "well framed"), British English, sentence case, no em dashes.
+ * Every string here is scanned by the glossary test in
+ * signals/__tests__/registry.spec.ts.
+ */
+
+import type { BarKey, BarState, SparkPrompt } from './types'
+
+export type { SparkPrompt } from './types'
+
+/**
+ * Bar labels — single constants object by design. The alternative set
+ * ("The question" / "Options" / "Risks" / "Your input") is a pending product
+ * decision; switching is a one-line change here. "Scenarios" was rejected on
+ * glossary grounds (reserved for simulation language).
+ */
+export const BAR_LABELS: Record<BarKey, string> = {
+  frame: 'Frame',
+  options: 'Options',
+  risks: 'Risks',
+  estimates: 'Estimates',
+}
+
+/**
+ * UI-SEM-051: bar state colour thresholds (display formatting). Semantic
+ * state only: warning below 0.40, success at or above 0.75, neutral
+ * "building" between. Keep — display formatting (legitimate).
+ */
+export const BAR_STATE_THRESHOLDS = { warning: 0.4, success: 0.75 } as const
+
+/** Compact state cues per bar state (no percentages; counts stay in the tooltip). */
+export const BAR_STATE_WORDS: Record<BarState, string> = {
+  warning: 'low',
+  building: 'medium',
+  success: 'good',
+}
+
+export function barStateFor(fill: number): BarState {
+  if (fill >= BAR_STATE_THRESHOLDS.success) return 'success'
+  if (fill < BAR_STATE_THRESHOLDS.warning) return 'warning'
+  return 'building'
+}
+
+/**
+ * UI-SEM-052: bar fill denominators (display formatting). Honest-fill rule:
+ * bars count live signals only; affordances never inflate fill. Options and
+ * risks saturate at three (documented product-tunable constants, not service
+ * data); the frame bar is thirds over its three live components; the
+ * estimates bar is influence-weighted coverage with a structural
+ * degree-plus-one fallback weight so unconnected estimates still count.
+ * Keep — display formatting (legitimate).
+ */
+export const OPTIONS_SATURATION_COUNT = 3
+export const RISKS_SATURATION_COUNT = 3
+export const DEGREE_FALLBACK_BASE_WEIGHT = 1
+
+/**
+ * UI-SEM-053: segment quantisation of bar fill (display formatting). Each bar
+ * renders as a vertical stack of GAUGE_SEGMENTS discrete segments; the lit
+ * count is round(fill * segments), clamped to [1, segments] for any positive
+ * fill and 0 when the bar is empty — an empty gauge reads as "nothing yet",
+ * mirroring an empty continuous bar (no state colour shown at zero, same as
+ * today). Discrete steps make the level easier to read at a glance than a
+ * continuous height. Keep — display formatting (legitimate).
+ */
+export const GAUGE_SEGMENTS = 4
+
+export function litSegments(fill: number, segments: number = GAUGE_SEGMENTS): number {
+  if (!(fill > 0)) return 0
+  return Math.min(segments, Math.max(1, Math.round(fill * segments)))
+}
+
+/** Sharpen shows this many rows by default; the rest sit behind "Show N more". */
+export const SHARPEN_DEFAULT_VISIBLE = 2
+
+// ---------------------------------------------------------------------------
+// Copy
+// ---------------------------------------------------------------------------
+
+export const PANEL_COPY = {
+  eyebrow: 'Before analysis',
+  sharpenTitle: 'Sharpen your thinking',
+  sharpenMeta: (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`,
+  yourDecisionTitle: 'Your decision',
+  showMore: (n: number) => `Show ${n} more`,
+  showFewer: 'Show fewer',
+  expandAll: 'Expand all',
+  collapseAll: 'Collapse all',
+  advancedTitle: 'Advanced',
+  advancedMeta: 'analysis set-up',
+  advancedRelationshipNote: 'More technical relationship detail will appear here when available.',
+  bestNextStep: 'Best next step',
+} as const
+
+/**
+ * Singularise the "option(s)" noun for the two scaffold-copy sites
+ * (LADDER_COPY.run_scaffold and FOOTER_COPY.scaffoldSub). One helper so the
+ * two identical `n === 1 ? 'option' : 'options'` ternaries can never drift.
+ */
+const pluralOptions = (n: number): string => (n === 1 ? 'option' : 'options')
+
+export const LADDER_COPY = {
+  set_goal: 'Set the goal this decision serves, so every option can be judged against it.',
+  set_success: 'Define what success means here, so the analysis can judge the options.',
+  calibrate_top: (label: string) =>
+    `Check ${label}, it may matter most to the analysis.`,
+  readiness_fallback: 'Analysis is not available yet.',
+  run_first: 'Run your first analysis, then stress-test what it depends on.',
+  /**
+   * UI-SEM-091: runnable-via-scaffold rung copy. Discloses that Olumi will
+   * draft the remaining options on run, so the offer to run is honest.
+   */
+  run_scaffold: (n: number) =>
+    `Run your first analysis. Olumi will draft the remaining ${n} ${pluralOptions(n)}.`,
+  run_scaffold_nocount: 'Run your first analysis. Olumi will draft the remaining options.',
+} as const
+
+export const SIGNAL_COPY = {
+  goalMissing: {
+    lead: 'No goal set yet.',
+    emphasis: 'Name the outcome this decision serves.',
+    rationale:
+      'Outcome framing: a goal stated as an outcome, not an action, lets every option be compared on what it achieves.',
+  },
+  successMissing: {
+    lead: 'Success is not defined yet.',
+    emphasis: 'A success measure lets the analysis judge every option against it.',
+    rationale:
+      'Success measures: a concrete target turns a vague aim into something the analysis can score options against.',
+  },
+  optionBreadthOne: {
+    lead: 'Only one option so far.',
+    emphasis: 'Add an alternative so the analysis has something to compare.',
+  },
+  optionBreadth: (n: number) => ({
+    lead: `You are comparing ${n === 2 ? 'two' : String(n)} options.`,
+    emphasis: 'A materially different route widens the comparison.',
+  }),
+  optionRationale:
+    'Option generation: comparing only similar routes narrows what the analysis can see. A structurally different option often reveals a better or lower-regret path.',
+  riskNone: {
+    lead: 'No risks captured yet.',
+    emphasis: 'A pre-mortem typically surfaces failure modes before they arrive.',
+  },
+  riskCount: (n: number, allOlumi: boolean) => ({
+    lead: `${n === 1 ? 'One risk' : `${n} risks`} captured${allOlumi ? ", all Olumi's so far" : ''}.`,
+    emphasis: 'A pre-mortem typically surfaces failure modes you have not listed.',
+  }),
+  riskRationale:
+    'Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.',
+  estimates: (n: number, topLabel: string | null) => ({
+    lead: `Olumi estimated ${n === 1 ? 'one value' : `${n} values`} from your brief.`,
+    emphasis: topLabel
+      ? `Check ${topLabel} first, it may matter most.`
+      : 'Replacing them with your judgement usually helps the analysis.',
+  }),
+  estimatesRationale:
+    'Checking estimates: replacing the highest-influence estimates with your judgement usually helps the analysis. Influence comes from a quick structural pass of your model.',
+  ceeBiasRationale:
+    'A reflective check from Olumi, based on the structure of your model. Worth a thought, not a verdict.',
+} as const
+
+/**
+ * ROADMAP 2.376 — the contested-relationship surface.
+ *
+ * Plain language by ruling: no "contested", no "validation", no "pass 1/pass 2", no divergence
+ * number. The user is told that Olumi looked twice and the two looks did not agree about one
+ * named connection, and where to settle it. The per-reason sentences are NOT duplicated here:
+ * they are `getContestedReasonLabel` in `model-tab/strengthBands.ts`, the single source of
+ * truth the Model tab's own cards already render (trap 12 — a second copy of five sentences
+ * is a hand-maintained mirror). `contestedReasonsSweep.spec` scans those five through the
+ * same banned-terms matcher this object is scanned with.
+ *
+ * NO RESOLVE COPY HERE, DELIBERATELY. This section is DISPLAY-ONLY: the pre-analysis panel's
+ * contested resolve handler was deleted in the Brief 4 Task 6 dead-code sweep, and the only
+ * live adjudication surface is the Model tab. `reviewCta` therefore promises navigation, not
+ * a fix, and phrases it the way the legacy panel's own model-tab link does.
+ */
+export const CONTESTED_COPY = {
+  title: 'Where our reviews disagree',
+  meta: (n: number) => `${n} ${n === 1 ? 'connection' : 'connections'}`,
+  lead: 'Olumi looked at this model twice and the two looks did not agree here. Your judgement is worth more than either.',
+  /** Row title reads "How <source> affects <target>" — a noun phrase, not a claim. */
+  rowLeadIn: 'How',
+  rowConnective: 'affects',
+  /** Reached only if a connection is flagged with no stated reason. Claims nothing specific. */
+  reasonFallback: 'Our reviews did not settle on the same estimate here.',
+  showDetail: 'Show detail',
+  hideDetail: 'Hide detail',
+  reviewCta: 'Settle these in the model tab',
+} as const
+
+export const ATTRIBUTION_COPY = {
+  olumiNoticed: 'Olumi noticed',
+  olumiPrefix: 'Olumi:',
+  olumiEstimate: 'Olumi estimate',
+  /**
+   * User-set success target (lane 35 fix 2): the stored goal constraint
+   * carries provenance 'explicit' — the user stated this number in their
+   * brief, so the chip credits them, never Olumi.
+   */
+  yourTarget: 'Your target',
+  /**
+   * The generic reviewed claim, kept for the rows whose act we cannot name
+   * (no classifiable source, or CEE's act-blind `user_set`).
+   */
+  checkedByYou: 'checked by you',
+  /**
+   * ROADMAP 2.638 S2 — the two acts, told apart.
+   *
+   * "confirmed" = the user read Olumi's number and put their name to it;
+   * "edited" = the user supplied the number. Both are STATUS claims: neither
+   * act changes the analysis today (the compute half is S4), and neither
+   * string may grow to imply that it does.
+   */
+  confirmedByYou: 'confirmed by you',
+  editedByYou: 'edited by you',
+  needsValue: 'needs a value',
+  unchecked: 'not checked yet',
+  set: 'set',
+  needsSetting: 'needs setting',
+} as const
+
+export const RANK_LABEL_COPY = {
+  top: 'check first',
+  next: 'check next',
+  lower: 'lower priority',
+} as const
+
+export const MODEL_VIEW_COPY = {
+  frameGroup: 'Frame',
+  frameCoach: 'Is the goal an outcome rather than an action, and is this the right question?',
+  optionsGroup: 'Options',
+  optionsCoach: 'Are these materially different routes to the goal?',
+  optionsAddPlaceholder: 'Add another option',
+  risksGroup: 'Risks and upside',
+  risksCoach: 'What could go wrong, and what could go better than expected?',
+  risksAddPlaceholder: 'Add a risk',
+  estimatesGroup: 'What this depends on',
+  estimatesCoach:
+    "Ranked by likely influence on your goal. Replace Olumi's estimates with your judgement, starting at the top.",
+  estimatesCoachFallback:
+    'Ordered by how connected each factor is in your model. Replace estimates with your judgement, starting at the top.',
+  estimatesMeta: (checked: number, checkable: number, needValues: number) =>
+    `${checked} of ${checkable} checked${
+      needValues > 0 ? ` · ${needValues === 1 ? '1 needs a value' : `${needValues} need values`}` : ''
+    }`,
+  goalRow: (label: string) => `Goal: ${label}`,
+  successRow: 'Success measure',
+} as const
+
+export const FOOTER_COPY = {
+  ready: 'Analysis available',
+  readySubSuccessUnset: 'First pass will be provisional until success is defined',
+  readySubEstimates: 'Checking top estimates usually sharpens the result',
+  readySubAllSet: 'Ready when you are',
+  notReady: 'Not ready for analysis yet',
+  /**
+   * ⚠ Last-resort subline. It must make NO factual claim about the model.
+   *
+   * This was `'Add a decision, a goal and at least two options'` until 28 Jul.
+   * It is the fallback `guardCeeText` degrades to, and it was shown to a user
+   * whose model had a decision, a goal and FIVE options — the panel said "5
+   * options" two lines above it. A fallback in this position is reached exactly
+   * when we do NOT know the cause, so it is the one place a specific claim can
+   * never be justified. The honesty guard was manufacturing a dishonest
+   * sentence.
+   *
+   * The real reason is now composed from the readiness verdict's structured
+   * fields (`utils/composeBlockedReason.ts`) and this string is reached only
+   * when even that has nothing specific to say.
+   */
+  notReadySubFallback: 'Olumi is not able to run this yet. Ask in the chat and it will explain what is missing.',
+  /**
+   * UI-SEM-091: runnable-via-scaffold subline. Shown when readiness reports
+   * not-runnable but CEE (#612) will draft the remaining options — replaces the
+   * not-ready copy so the footer never contradicts the enabled run button.
+   */
+  scaffoldSub: (n: number) =>
+    `Olumi will draft the remaining ${n} ${pluralOptions(n)}`,
+  scaffoldSubNoCount: 'Olumi will draft the remaining options',
+  running: 'Analysis running',
+  runningSub: 'Hold on while the first pass completes',
+  analyse: 'Analyse first pass',
+
+  // ── ROADMAP 2.332 / 2.339 — the readiness check itself failed ─────
+  //
+  // Closing the interim #564 merged on record: "an unreachable or missing
+  // readiness service is invisible: no readiness assessment, no error, Run
+  // stays enabled." The store had been made honest — a transport failure, a
+  // 404 and a 5xx all publish no verdict and set a truthful `error` — but the
+  // only component rendering that state, `PreAnalysisHealth`, has zero
+  // non-test importers. Meanwhile THIS footer read the outage as good news and
+  // printed `ready` ("Analysis available") about a model nothing had assessed.
+  //
+  // These three lines are what the footer says instead. Each states only what
+  // we hold: that the check did not complete, and — where a prior server
+  // verdict is being retained — that it is being shown and when it was taken.
+  // None of them asserts anything about the model, and none of them changes
+  // the run gate: the verdict stays the server's, and visibility is the whole
+  // deliverable.
+  /** No timestamped server answer stands behind what is on screen. */
+  readinessUnchecked: 'Could not check readiness',
+  /** Something is on screen, but the latest check did not complete. */
+  readinessRecheckFailed: 'Could not re-check readiness',
+  /** A timestamped server answer is retained, and the model HAS moved since. */
+  readinessStale: 'Your model changed since this readiness check',
+  /**
+   * Every subline names the CAUSE — the store's own account of the failure,
+   * which is composed in this repo and never carries a response body. A footer
+   * that says only "could not check" tells the user nothing they can act on.
+   */
+  readinessSub: (reason: string) => `${reason}.`,
+  /**
+   * …and, where a timestamped SERVER answer is being retained, says so with
+   * the time it was taken. "Showing an older answer" is then a statement with
+   * a timestamp rather than a vague hedge.
+   */
+  readinessRetainedSub: (reason: string, takenAt: string) =>
+    `${reason}. Showing the check from ${takenAt}.`,
+  readinessRetry: 'Retry readiness check',
+} as const
+
+/**
+ * Safe coaching fallbacks for CEE text degraded by the runtime glossary
+ * guard (signals/ceeTextGuard.ts). Each line still reads as coaching with
+ * Olumi attribution at the render site — never a dead or empty row.
+ */
+export const CEE_FALLBACK_COPY = {
+  /** Hero slot renders "Olumi:" + this text. Generic fallback. */
+  heroCoaching: 'something in this set-up is worth a closer look before analysis.',
+  /** Category-aware hero fallbacks (chosen from the original coaching's theme
+   *  when it cannot be sanitised in place). All render after the "Olumi:"
+   *  prefix and assert no verdict, only that something is worth a look. */
+  heroFraming: 'a framing pattern here is worth a closer look before analysis.',
+  heroAssumption: 'an assumption here is worth a closer look before analysis.',
+  heroComparison: 'a comparison pattern here is worth a closer look before analysis.',
+  /** Bias row renders "Olumi noticed" + this text. */
+  biasRow: 'a pattern worth checking before you run the analysis.',
+} as const
+
+export const FIELD_FEEDBACK_COPY = {
+  successFormatHint: 'Enter a number, like 20 or 15%',
+  successNeedsGoalHint: 'Set the goal first, then define success',
+  goalEmptyHint: 'Enter a name for the goal',
+  numberHint: 'Enter a number, like 20 or 15%',
+  modelSizeLimit: 'The model is at its size limit',
+  saved: 'Saved',
+  olumiUnavailable: 'Olumi is unavailable right now. Open the Olumi panel and try again.',
+  addValue: 'Add value',
+  check: 'Check',
+  edit: 'Edit',
+  /**
+   * Range refusal for normalised-scale-only factors (journey-walk gap #3):
+   * no cap, no unit, no raw-value anchor — the committed number IS the
+   * model-scale value, so a magnitude like £60,000 would paint 6000000%.
+   * Mirrors the NL path's honest refusal vocabulary ("recorded without a
+   * unit").
+   */
+  normalisedRangeHint:
+    'This factor is recorded without a unit on a 0–1 scale. Enter a value between 0 and 1.',
+} as const
+
+export const HERO_COPY = {
+  goalFieldLabel: 'Goal',
+  successFieldLabel: 'Success',
+  successPlaceholder: 'What would count as success?',
+  goalPlaceholder: 'What outcome do you want?',
+  decisionFallback: 'Your decision',
+  saveSuccess: 'Save success measure',
+  pressureTestDecision: 'Ask Olumi: is this the right question, and does it fit your wider goals?',
+  pressureTestGoal: 'Olumi can help reframe this as the outcome you want, so every option is comparable',
+  defineSuccess: 'Olumi can help define a measurable success target',
+} as const
+
+/**
+ * Actions overflow menu — named methods, every item a SparkPrompt with
+ * EXPLICIT wire intent.
+ *
+ * History: this registry previously attached NO intent ("routing happens
+ * from the message text") — a deliberate choice to avoid emitting dead-end
+ * intents. That choice was reversed on A1's meta-decision diagnosis
+ * (2026-07-20): CEE re-infers anonymous text with a draft-shape regex, and
+ * on an empty canvas EVERY spark here matched it — the "Prepare first
+ * analysis" spark was captured as a decision BRIEF and the drafter modelled
+ * the meta-decision ("should we run the analysis?") instead of coaching.
+ * The product knows the intent at authoring time; discarding it and
+ * re-inferring by regex IS the defect mechanism.
+ *
+ * `action_type` is the wire intent: a @talchain/schemas ActionType enum
+ * value (strict at CEE ingress — out-of-enum values 422), a declared
+ * pending value (PENDING_WIRE_ACTION_TYPES in conversation/chipMeta.ts —
+ * mapped now but WITHHELD from the wire by buildV5Payload's send gate until
+ * the value is BOTH re-vendored AND CEE-accepted), or `null` when no honest
+ * entry exists — we do NOT force a wrong one. Every spark still ships its
+ * identity as `chip.parameters.spark_id`, the deterministic hook CEE's
+ * routing half keys on. The contract test in
+ * __tests__/sparkIntentContract.spec.ts validates values against the enum
+ * itself (derived, never a hand-kept list).
+ *
+ * `analysis_readiness` means "assess/coach readiness for analysis". It went
+ * fully live on 2026-07-20 (schemas 0.20.0 re-vendor + CEE #578 / A1 deploy
+ * confirmation) and now SENDS. It is mapped ONLY where that is the spark's
+ * honest intent — elicitation/reflection sparks whose readiness link is
+ * incidental stay null rather than being recast as analysis-gate conversations.
+ */
+export type ActionsMenuItem = SparkPrompt
+
+export const ACTIONS_MENU = [
+  {
+    id: 'pressure_test_frame',
+    label: 'Pressure-test the frame',
+    prompt: 'Is this the right question to be asking, and does it fit my wider goals?',
+    // Frame-challenge coaching. explain_from_structure EXPLAINS the model;
+    // this spark challenges it — no honest vocabulary entry.
+    action_type: null,
+  },
+  {
+    id: 'widen_options',
+    label: 'Widen the options',
+    prompt: 'Suggest materially different options that work through a different mechanism from the ones I already have.',
+    // Option-elicitation coaching; the boundary enum has no add_option.
+    action_type: null,
+  },
+  {
+    id: 'outside_view',
+    label: 'Take the outside view',
+    prompt: 'Take the outside view on this decision: what do similar decisions and base rates suggest?',
+    // Base-rate coaching — no vocabulary entry.
+    action_type: null,
+  },
+  {
+    id: 'pre_mortem',
+    label: 'Run a pre-mortem',
+    prompt: 'Run a pre-mortem with me: imagine this choice failed a year from now. What went wrong?',
+    // Failure-imagination coaching — no vocabulary entry.
+    action_type: null,
+  },
+  {
+    id: 'risks_upside',
+    label: 'Find risks and upside',
+    prompt: 'What risks and best-case upsides are missing from my model?',
+    // Gap-elicitation coaching (what is MISSING) — explain_* describes what
+    // is present; no honest entry.
+    action_type: null,
+  },
+  {
+    id: 'calibrate_estimates',
+    label: 'Check estimates',
+    prompt: 'Help me check the estimates that matter most to the analysis.',
+    // Analysis-preparation coaching: "the estimates that matter most to
+    // the ANALYSIS" is readiness-directed — the readiness capability's
+    // estimate-gap signals are the honest answer. NOT what_would_flip
+    // (post-analysis sensitivity; its deterministic handler demands prior
+    // analysis facts). Live since the 0.20.0 re-vendor + CEE acceptance
+    // (2026-07-20) — now sends.
+    action_type: 'analysis_readiness',
+  },
+  {
+    id: 'compare_view',
+    label: 'Compare my view with Olumi',
+    prompt: 'Compare my view of this decision with yours. Where do we differ, and why?',
+    // compare_options compares DECISION OPTIONS, not the user's view vs the
+    // model's — stamping it would misdeclare the intent.
+    action_type: null,
+  },
+  {
+    id: 'prepare_first_analysis',
+    label: 'Prepare first analysis',
+    prompt: 'What should I check before running the first analysis?',
+    // THE readiness spark (A1's defect reproduction) — the verbatim intent
+    // analysis_readiness was coined for. NOT run_analysis, which would RUN
+    // the analysis the user is asking how to prepare for — the exact
+    // wrongness class this metadata exists to kill. Live since the 0.20.0
+    // re-vendor + CEE acceptance (2026-07-20) — now sends.
+    action_type: 'analysis_readiness',
+  },
+] as const satisfies ReadonlyArray<ActionsMenuItem>
+
+/** The ids ACTIONS_MENU actually declares — derived, so it cannot go stale. */
+type ActionsMenuId = (typeof ACTIONS_MENU)[number]['id']
+
+/**
+ * Look an ACTIONS_MENU entry up by id.
+ *
+ * The parameter is the DERIVED id union, so a typo or a removed menu entry is
+ * a COMPILE error, not a runtime surprise. The throw is unreachable given that
+ * constraint — it exists only to discharge `.find`'s `| undefined` without an
+ * assertion that would silently pass `undefined` through if the constraint
+ * were ever loosened.
+ */
+function fromActionsMenu(id: ActionsMenuId): SparkPrompt {
+  const entry = ACTIONS_MENU.find(item => item.id === id)
+  if (!entry) throw new Error(`SPARK_PROMPTS: no ACTIONS_MENU entry for id "${id}"`)
+  return entry
+}
+
+/**
+ * The sparks the panel surfaces directly (hero, model section, signal registry).
+ *
+ * DERIVED from ACTIONS_MENU by id — five of these entries used to be
+ * byte-identical COPIES of menu entries, including the `action_type`
+ * adjudication. That made every intent decision a two-place edit with nothing
+ * checking the two agreed: `sparkIntentContract.spec.ts` asserted id-uniqueness
+ * WITHIN each collection but never that a shared id carried the same
+ * label/prompt/action_type in both, so a one-sided edit shipped green. The
+ * `analysis_readiness` mapping is exactly the kind of adjudication that must
+ * never diverge between the menu and the panel.
+ *
+ * Only the two sparks with NO menu equivalent are declared inline below.
+ */
+export const SPARK_PROMPTS = {
+  widenOptions: fromActionsMenu('widen_options'),
+  preMortem: fromActionsMenu('pre_mortem'),
+  calibrate: fromActionsMenu('calibrate_estimates'),
+  pressureTestFrame: fromActionsMenu('pressure_test_frame'),
+  findRisks: fromActionsMenu('risks_upside'),
+  // --- panel-only sparks: no ACTIONS_MENU counterpart ---
+  defineSuccess: {
+    id: 'define_success',
+    label: 'Define success with Olumi',
+    prompt: 'Help me define a measurable success target for this goal.',
+    // Goal-target coaching; set_factor_value is a validated mutation, not
+    // a conversation — no honest entry.
+    action_type: null,
+  },
+  reflectBias: {
+    id: 'reflect_bias',
+    label: 'Talk it through with Olumi',
+    prompt: 'You flagged a possible blind spot in how my model leans. Help me think it through.',
+    action_type: null,
+  },
+} satisfies Record<string, SparkPrompt>

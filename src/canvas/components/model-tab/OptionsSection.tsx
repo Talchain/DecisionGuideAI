@@ -11,7 +11,7 @@ import { useCallback, useContext, useMemo } from 'react'
 import type { Node } from '@xyflow/react'
 import { ArrowRight, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
-import { useCanvasStore } from '../../store'
+import { useNodeMutations } from '../../ui/inspector-v2/useInspectorMutations'
 import { SectionErrorBoundary } from '../GraphTextView'
 import { Accordion } from '../../../components/results/Accordion'
 import { focusNodeById } from '../../utils/focusHelpers'
@@ -169,7 +169,9 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
   hasAnalysisData?: boolean
 }) {
   const { showDetail } = useContext(DetailToggleContext)
-  const updateNode = useCanvasStore(s => s.updateNode)
+  // ROADMAP 2.121 slice 1 — sanctioned setter (`NODE_SETTER_FIELDS.setIntervention`),
+  // not a hand-rolled updateNode that spread a render-time `option.data`.
+  const mutations = useNodeMutations(option.id)
 
   const label = String(option.data?.label ?? option.id)
   const interventions = buildInterventions(option, allNodes)
@@ -188,21 +190,46 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
     return Math.abs(iv.currentValue - baseline) < 0.001
   })
 
+  // An intervention target is not a factor value, so there is no
+  // value-carrying wire event for it: `factor_value_edit.field` is the literal
+  // `'value'` and it is the only value-bearing edit the contract supports. This
+  // edit therefore reaches CEE only as the debounced `direct_graph_edit` ping —
+  // stated here rather than implied, and rowed as open question 1 in the design
+  // doc. What slice 1 fixes is the WRITE: it goes through the manifest setter.
   const handleInterventionSave = useCallback((factorId: string, val: string) => {
     const num = parseFloat(val)
     if (isNaN(num)) return
-    const existing = (option.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
-    updateNode(option.id, {
-      data: {
-        ...option.data,
-        interventions: { ...existing, [factorId]: num },
-      },
-    })
-  }, [option, updateNode])
+    mutations.setIntervention(factorId, num)
+  }, [mutations])
 
   return (
     <div className="bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0" data-testid={`option-card-${option.id}`}>
-      {/* Option name + win probability */}
+      {/*
+        Option name.
+
+        ⛔ ROADMAP 2.263 — DO NOT PUT A PROBABILITY BACK IN THIS SLOT.
+
+        This used to render `· {N}% win` from
+        `conditionalWinners[0].lowBucket.winProbability`. Three defects in one
+        line, and the removal is the fix for all three:
+
+        1. THE NUMBER WAS CONDITIONAL, THE SLOT IS NOT. `lowBucket.winProbability`
+           is conditional on the splitting factor sitting BELOW `split_value`. It
+           sat next to the option's name with no condition attached, so it read as
+           the option's probability. The condition appears only in the separate
+           takeover card below, which states a different fact. Relabelling could
+           not fix it: an unconditional slot cannot honestly host a conditional
+           number, so the number leaves rather than gets a caption.
+        2. `[0]` WAS ARBITRARY. An option with several conditional-winner entries
+           silently showed whichever the producer happened to serialise first.
+        3. ABSENCE WAS ASYMMETRIC. Only an option that won SOME low bucket got a
+           number; its rival showed nothing, reading as "this one is 63%, the
+           other is unknown" when the other is the complement in the same bucket.
+
+        It was also a 2.214 vocabulary survivor — a bare "win" anchored to
+        neither of the two sanctioned questions. The conditional structure is
+        still rendered below, WITH its condition, in the takeover card.
+      */}
       <div className="flex items-baseline gap-1 mb-1.5">
         <button
           type="button"
@@ -211,22 +238,30 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
         >
           {label}
         </button>
-        {hasAnalysisData && conditionalWinners?.[0]?.lowBucket.winProbability != null && (
-          <span className={`${typography.panelMeta} text-text-light ml-1`}>
-            · {Math.round(conditionalWinners[0].lowBucket.winProbability * 100)}% win
-          </span>
-        )}
       </div>
 
       {/* Conditional winner card (post-analysis only).
-          Cards are attached to the lowBucket winner (overall winner).
-          The highBucket winner is who takes over when the factor exceeds splitValue. */}
+          ROADMAP 2.296 C3 — NO "overall" CLAIM MAY BE MINTED HERE. This card
+          used to attach every entry to the LOW-bucket winner and print "Leads
+          overall, but when {factor} exceeds {split}, {other} takes over". ISL's
+          conditional winners establish ONLY which option wins below and above a
+          median split of one factor; neither bucket winner is necessarily the
+          global leader, so "Leads overall" was a claim the producer never made,
+          handed to whichever option won the low bucket. Each winner's card now
+          states its own bucket's fact, neutrally, and nothing else. */}
       {hasAnalysisData && conditionalWinners && conditionalWinners.map((cw, i) => {
-        // Determine which option takes over: it's the one NOT on this card
-        const takesOverLabel = cw.lowBucket.winnerId === option.id
-          ? cw.highBucket.winnerLabel
-          : cw.lowBucket.winnerLabel
-        if (!takesOverLabel) return null
+        const splitDisplay = cw.splitUnit
+          ? formatValueWithUnit(cw.splitValue, cw.splitUnit)
+          : formatSmartNumber(cw.splitValue)
+        // Exactly one of these holds per card: same-winner entries are
+        // filtered out at the map (they state nothing about leadership
+        // change), and the map only attaches an entry to its bucket winners.
+        const statement = cw.lowBucket.winnerId === option.id
+          ? `Leads when ${cw.factorLabel} is below ${splitDisplay}`
+          : cw.highBucket.winnerId === option.id
+            ? `Leads when ${cw.factorLabel} is above ${splitDisplay}`
+            : null
+        if (!statement) return null
         return (
           <div
             key={`cw-${i}`}
@@ -234,7 +269,7 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
             data-testid={`conditional-winner-${option.id}`}
           >
             <span className={`${typography.panelMeta} text-warning leading-relaxed`}>
-              Leads overall, but when {cw.factorLabel} exceeds {cw.splitUnit ? formatValueWithUnit(cw.splitValue, cw.splitUnit) : formatSmartNumber(cw.splitValue)}, {takesOverLabel} takes over
+              {statement}
             </span>
           </div>
         )
@@ -353,21 +388,51 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
   )
 }
 
+/**
+ * ROADMAP 2.263 — the empty guard is NOT in this component any more.
+ *
+ * `if (optionNodes.length === 0) return null` sat above the two `useMemo`s
+ * below, so the hook count went 0 → 2 the moment options arrived from the draft.
+ * It is now in the wrapper, which has no hooks, so the transition mounts this
+ * component instead of bailing out mid-render. Do not reintroduce an early
+ * return above a hook here.
+ *
+ * ⚠ THIS ONE WAS COMPLETELY SILENT, AND THAT IS THE ARGUMENT FOR THE LINT RULE.
+ * The 2.263 audit predicted a `Rendered more hooks than during the previous
+ * render.` throw. Measured by mutation on React 18.3.1: the defect produced NO
+ * throw, NO console warning, and a correct render, in BOTH directions. The
+ * reason is that ZERO hooks ran before the guard, so the earlier render
+ * recorded an empty hook list and React silently accepts hooks being added to
+ * it. (`GoalSection`, which called two hooks before its guard, at least warned.)
+ *
+ * So nothing at runtime could have told us this was here — no crash, no log, no
+ * failing test. `react-hooks/rules-of-hooks`, enabled as an error by this same
+ * row, is what makes this class of defect visible at all; it is a
+ * code-integrity guard, not crash prevention.
+ */
 function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAnalysisData, onSendMessage, isExpanded, onExpandChange }: OptionsSectionProps) {
-  if (optionNodes.length === 0) return null
-
-  // Build per-option conditional winner lookup (match on option ID, not label)
+  // Build per-option conditional winner lookup (match on option ID, not label).
+  //
+  // ROADMAP 2.296 C3 — attach each entry to BOTH bucket winners, not to the
+  // low-bucket winner as a fabricated "default option". Each option's card
+  // then states the one conditional fact the producer established about IT
+  // ("leads below the split" / "leads above the split"). Entries whose two
+  // buckets name the SAME winner are skipped: they state nothing about
+  // leadership change (the same filter the results panel's
+  // ConditionalWinnerCards applies).
   const optionWinnerMap = useMemo(() => {
     if (!conditionalWinners) return new Map<string, ConditionalWinner[]>()
     const map = new Map<string, ConditionalWinner[]>()
+    const attach = (winnerOptionId: string | undefined, cw: ConditionalWinner) => {
+      if (!winnerOptionId) return
+      const existing = map.get(winnerOptionId) ?? []
+      existing.push(cw)
+      map.set(winnerOptionId, existing)
+    }
     for (const cw of conditionalWinners) {
-      // Attach to the option that wins in the low bucket (the "default" winner)
-      const winnerOptionId = cw.lowBucket.winnerId
-      if (winnerOptionId) {
-        const existing = map.get(winnerOptionId) ?? []
-        existing.push(cw)
-        map.set(winnerOptionId, existing)
-      }
+      if (cw.lowBucket.winnerId === cw.highBucket.winnerId) continue
+      attach(cw.lowBucket.winnerId, cw)
+      attach(cw.highBucket.winnerId, cw)
     }
     return map
   }, [conditionalWinners])
@@ -467,6 +532,8 @@ function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAna
 }
 
 export function OptionsSection(props: OptionsSectionProps) {
+  // Absence guard in the hook-free wrapper — see `OptionsSectionInner`'s header.
+  if (props.optionNodes.length === 0) return null
   return (
     <SectionErrorBoundary section="options">
       <OptionsSectionInner {...props} />

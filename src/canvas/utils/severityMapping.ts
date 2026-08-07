@@ -77,7 +77,7 @@ export interface SeverityDisplay {
 export const SEVERITY_DISPLAY: Record<DraftWarningSeverity, SeverityDisplay> = {
   blocker: {
     label: 'Blocker',
-    bg: 'bg-danger-bg',
+    bg: 'bg-panel',
     border: 'border-danger/30',
     text: 'text-text-header',
     icon: 'text-danger',
@@ -87,7 +87,7 @@ export const SEVERITY_DISPLAY: Record<DraftWarningSeverity, SeverityDisplay> = {
   },
   high: {
     label: 'High',
-    bg: 'bg-danger-bg',
+    bg: 'bg-panel',
     border: 'border-danger/30',
     text: 'text-text-header',
     icon: 'text-danger',
@@ -97,7 +97,7 @@ export const SEVERITY_DISPLAY: Record<DraftWarningSeverity, SeverityDisplay> = {
   },
   medium: {
     label: 'Medium',
-    bg: 'bg-warning-bg',
+    bg: 'bg-panel',
     border: 'border-warning/30',
     text: 'text-text-header',
     icon: 'text-warning',
@@ -126,7 +126,7 @@ export const SEVERITY_DISPLAY: Record<DraftWarningSeverity, SeverityDisplay> = {
  * @example
  * const display = getSeverityDisplay('blocker')
  * // display.label === 'Blocker'
- * // display.bg === 'bg-danger-bg'
+ * // display.bg === 'bg-panel'
  * // display.blocksAnalysis === true
  */
 export function getSeverityDisplay(severity: DraftWarningSeverity): SeverityDisplay {
@@ -372,21 +372,21 @@ export interface SeverityClasses {
 
 const SEVERITY_CLASS_MAP: Record<'error' | 'warning' | 'info', SeverityClasses> = {
   error: {
-    container: 'border-danger/30 bg-danger-bg',
+    container: 'border-danger/30 bg-panel',
     icon: 'text-danger',
     text: 'text-text-header',
     caption: 'text-text-body',
     button: 'bg-danger hover:bg-danger-hover',
   },
   warning: {
-    container: 'border-warning/30 bg-warning-bg',
+    container: 'border-warning/30 bg-panel',
     icon: 'text-warning',
     text: 'text-text-header',
     caption: 'text-text-body',
     button: 'bg-warning hover:bg-warning-hover',
   },
   info: {
-    container: 'border-info/30 bg-info-bg',
+    container: 'border-info/30 bg-panel',
     icon: 'text-info',
     text: 'text-text-header',
     caption: 'text-text-body',

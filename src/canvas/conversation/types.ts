@@ -5,8 +5,9 @@
  * messages, blocks, chips, turn requests/responses, and system events.
  */
 
-import type { ScenarioStage } from '../../types/scenario'
+import type { StageType } from '@talchain/schemas/boundary'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
+import type { AnswerShape } from './answerShape'
 
 // ---------------------------------------------------------------------------
 // § 1 — Conversation messages
@@ -44,9 +45,6 @@ export interface ConversationMessage {
   toolLoadingState?: string | null
   /** Deterministic CEE insights — rendered between assistant_text and chips */
   insights?: Insight[]
-  /** Base rate elicitation chips derived from MISSING_BASE_RATE guidance items.
-   *  Ephemeral — consumed on click, never persisted in conversation history. */
-  baseRateChips?: BaseRateChipSet
   /** When true, this user message was initiated by a pill/chip click.
    *  Renders as a compact action indicator instead of a full user bubble. */
   chipInitiated?: boolean
@@ -56,16 +54,65 @@ export interface ConversationMessage {
    * persist — late chunks arriving after abort MUST NOT clear it.
    */
   stoppedByUser?: boolean
-}
-
-/** A set of frequency-framed chips for a single factor's base rate elicitation */
-export interface BaseRateChipSet {
-  /** Factor name from guidance item target_label (fallback: "This factor") */
-  factorLabel: string
-  /** Guidance item_id — used to dismiss guidance after user responds */
-  itemId: string
-  /** Factor node ID from guidance target_object.id — used for action routing */
-  factorId?: string
+  /**
+   * ROADMAP 1.42 (Show-reasoning progressive disclosure — verbatim, labelled):
+   * CEE's `_reasoning` additive-extension sidecar field, verbatim plain text.
+   * Only populated when VITE_FEATURE_REASONING_DISCLOSURE is on and the field
+   * is a non-empty string (length-capped, see useConversation). Never fed into
+   * `content` — rendered separately, unprocessed, behind a collapsed toggle.
+   * Ephemeral: excluded from thread persistence (session-only).
+   */
+  reasoning?: string
+  /**
+   * F1 (Paul's #1, answer-shape progressive disclosure): CEE's answer-shape
+   * sidecar (confirmed contract — top-level `_answer_shape` on the V5 body,
+   * { headline, bullets, detail }), parsed + fail-closed by
+   * `extractAnswerShapeSidecar` (answerShape.ts). When present the bubble
+   * renders a concise headline + ≤3 bullets with the long tail behind a
+   * "Show more" toggle; when absent the bubble renders `content` exactly as
+   * today (no regression). No flag — auto-lights-up when the sidecar lands on
+   * the wire. Ephemeral: derived from the live turn, NOT persisted — hydrated
+   * history falls back to the full-text render (same treatment as `reasoning`).
+   */
+  answerShape?: AnswerShape
+  /**
+   * Transcript honesty (dress-rehearsal trust item #3, 2026-07-20): delivery
+   * state of a visible user send on the LIVE V5 path.
+   *   - 'pending': dispatched, turn unresolved. Not yet persisted.
+   *   - 'sent':    the turn resolved with a server response — normal history.
+   *   - 'failed':  the turn produced no assistant response AND non-delivery is
+   *     VERIFIED — the dispatch threw before anything left the client, or the
+   *     fetch itself never produced a response. Renders the "Not delivered"
+   *     marker + retry affordance and is NEVER persisted — a turn the server
+   *     never served must not be committed as if it happened.
+   *   - 'unconfirmed': ROADMAP 2.665 — the client stopped waiting, or a proxy
+   *     timeout body arrived, and the turn's fate is genuinely UNKNOWN. CEE
+   *     runs a turn to completion and COMMITS it whether or not the browser is
+   *     still listening (live-witnessed: client gave up at 60.0s, server
+   *     returned 200 at 123.1s with the turn rows written), and this client has
+   *     no way to check — no status route exists and `v5_conversation_turns`
+   *     has zero readers here. So 'failed' would be a claim we cannot support
+   *     and 'sent' would be a claim we cannot support either. This third state
+   *     exists so the bubble can say what is true. It renders an
+   *     outcome-unknown marker, NOT "Not delivered", and offers no retry —
+   *     retrying duplicates, because CEE keys commits on its own per-request
+   *     id, not on `payload.turn_id`.
+   *
+   *     PERSISTENCE, stated precisely because the two stores differ and an
+   *     imprecise sentence here would be the same defect this state exists to
+   *     fix. `utils/transcriptStore.ts` — the local-first store that actually
+   *     runs (staging is `VITE_AUTH_MODE=guest`, so Supabase persistence is
+   *     inactive) — KEEPS an unconfirmed send: it excludes only 'failed' and
+   *     'pending', and the user's own words are worth keeping when the server
+   *     most likely holds the turn too. `hooks/useThreadPersistence.ts` DROPS
+   *     it: its resolution pass persists only 'sent', so anything else is
+   *     discarded like a failure. That asymmetry is left as-is deliberately —
+   *     that path is flag-gated, its `scenarios.thread` column does not exist
+   *     on the live database, and changing an inert writer cannot be witnessed.
+   * `undefined` = legacy/delivered (assistant messages, V4 path, hydrated
+   * history) — treated as sent everywhere.
+   */
+  deliveryState?: 'pending' | 'sent' | 'failed' | 'unconfirmed'
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +156,11 @@ export type ConversationBlock =
   | V5ExplanationBlock
   | V5ComparisonBlock
   | V5FlipAnalysisBlock
+  | V5ReviewCardBlock
+  | V5CoachingBlock
+  | V5EvidenceBlock
+  | V5ExerciseBlock
+  | V5HeldProposalBlock
   | V5UnsupportedBlock
 
 /**
@@ -174,6 +226,148 @@ export interface V5FlipAnalysisBlock {
 }
 
 /**
+ * Target reference carried on 0.13.x Phase 3 blocks (review_card /
+ * coaching). Fields are the producer's typed shape verbatim; `kind` is
+ * widened to string so future producer kinds pass through without a UI
+ * release (unknown kinds render the label exactly the same way).
+ */
+export interface V5BlockTargetRef {
+  id: string
+  label: string
+  kind: string
+}
+
+/** 0.13.x Phase 3 block freshness enum (producer-owned). */
+export type V5Phase3Freshness = 'fresh' | 'stale' | 'pending' | 'failed'
+
+/**
+ * Track C slice 1 (D-5): typed review_card conversation block mirroring the
+ * 0.13.x ReviewCardBlockSchema render-relevant fields EXACTLY. All copy
+ * (title, body, target_refs labels, action_label) is producer-owned and
+ * rendered verbatim — the UI adds no labels and no interpretation
+ * (provisional_doctrine_v0). Distinct from the legacy `review_card`
+ * ConversationBlock, which carries the V4-era tone/variant shape.
+ */
+export interface V5ReviewCardBlock {
+  type: 'v5_review_card'
+  block_id: string
+  title: string
+  body: string
+  severity: 'info' | 'warning' | 'critical'
+  card_kind: string
+  target_refs: V5BlockTargetRef[]
+  priority_rank: number
+  freshness: V5Phase3Freshness
+  action_intent?: string
+  action_label?: string
+}
+
+/**
+ * Track C slice 1 (D-5): typed coaching conversation block mirroring the
+ * 0.13.x CoachingBlockSchema render-relevant fields EXACTLY. Same
+ * verbatim-copy contract as V5ReviewCardBlock (provisional_doctrine_v0).
+ *
+ * priority_rank / freshness are OPTIONAL: producer-adapted blocks always
+ * carry them (adaptTypedCoachingBlock fails closed without them), but the
+ * UI-side draft bias-signal bridge (draftBiasSignalBlocks.ts) builds
+ * v5_coaching blocks from wire coaching.bias_signals, which carry neither —
+ * requiring them here forced the bridge to FABRICATE both (review-folds
+ * 2026-07-17, Conv1). Absent values render nothing (no data-freshness
+ * attribute) and sort after every ranked block.
+ */
+export interface V5CoachingBlock {
+  type: 'v5_coaching'
+  block_id: string
+  title: string
+  body: string
+  coaching_kind: string
+  source: string
+  target_refs: V5BlockTargetRef[]
+  priority_rank?: number
+  freshness?: V5Phase3Freshness
+  action_intent?: string
+  action_label?: string
+  /**
+   * The PRODUCER-AUTHORED turn text this block's action chip dispatches
+   * VERBATIM (schemas 0.31.0 `CoachingBlockSchema.action_prompt`; ROADMAP
+   * 2.225). PRESENCE is what makes the pill interactive — absence renders
+   * the display-only pill, and the UI never composes a prompt from
+   * `action_label` or `action_intent`. Carried only on CoachingBlock:
+   * 0.31.0 deliberately withholds it from ReviewCardBlock/EvidenceBlock.
+   */
+  action_prompt?: string
+}
+
+/**
+ * Track C slice 2 (Lane UI-W4 C): typed evidence conversation block
+ * mirroring the 0.13.1 EvidenceBlockSchema render-relevant fields EXACTLY.
+ * Same verbatim-copy contract as V5ReviewCardBlock
+ * (provisional_doctrine_v0): every rendered string is the producer's;
+ * `current_confidence` is a pass-through discriminator (data-* only, not
+ * enum-narrowed so future producer values ride through); `severity` drives
+ * the visual channel only and stays enum-narrowed. Distinct from the
+ * legacy V4-era `EvidenceBlock` ConversationBlock (different shape).
+ * `factor_ref` is optional here (render-relevant naming comes from
+ * `factor_label` / target_refs per §1.3 — renderers prefer the primary
+ * factor target_refs label on conflict).
+ */
+export interface V5EvidenceBlock {
+  type: 'v5_evidence'
+  block_id: string
+  factor_label: string
+  factor_ref?: V5BlockTargetRef
+  target_refs: V5BlockTargetRef[]
+  current_confidence: string
+  evidence_gap: string
+  suggested_technique: string
+  impact_if_gathered: string
+  priority_rank: number
+  severity: 'info' | 'warning' | 'critical'
+  freshness: V5Phase3Freshness
+  action_intent?: string
+  action_label?: string
+}
+
+/**
+ * Track C slice 2 (Lane UI-W4 C): typed exercise conversation block
+ * mirroring the 0.13.1 ExerciseBlockSchema render-relevant fields EXACTLY.
+ * Per the v1.3 contract the exercise block carries NO priority_rank (not
+ * hero eligible) and NO title — every prose field is optional and rendered
+ * producer-verbatim when present; the adapter fails closed when none is.
+ * `exercise_kind` is a pass-through discriminator (data-* only). Distinct
+ * from the legacy V4-era `ExerciseBlock` ConversationBlock.
+ */
+/**
+ * 0.37.0 — the canonical DSK protocol an exercise card is an instance of,
+ * mirroring schemas' `DskProtocolProvenanceSchema`. ATOMIC by contract: the id
+ * never travels without the title and strength that make it checkable against
+ * `data/dsk/v1.json`. The adapter enforces the same rule independently, because
+ * it parses the raw wire payload rather than the Zod schema.
+ */
+export interface V5DskProtocolProvenance {
+  protocol_id: string
+  protocol_title: string
+  evidence_strength: 'strong' | 'medium' | 'weak' | 'mixed'
+}
+
+export interface V5ExerciseBlock {
+  type: 'v5_exercise'
+  block_id: string
+  exercise_kind: string
+  /** Absent = this exercise claims no DSK protocol. Never "unknown protocol". */
+  dsk_provenance?: V5DskProtocolProvenance
+  failure_scenario?: string
+  warning_signs?: string[]
+  mitigation?: string
+  reference_class?: string
+  counter_case?: string
+  review_trigger?: string
+  target_element_ref?: V5BlockTargetRef
+  target_refs: V5BlockTargetRef[]
+  freshness: V5Phase3Freshness
+}
+
+/**
  * Placeholder for V5 block kinds the UI doesn't render yet (explanation,
  * comparison, flip_analysis render full blocks; this is reserved for future
  * CEE block types to land safely without UI crashing).
@@ -182,6 +376,58 @@ export interface V5UnsupportedBlock {
   type: 'v5_unsupported'
   blockType: string
   raw: unknown
+}
+
+/**
+ * R8 (seamless-workspace, roadmap 2.27): a held CEE graph mutation surfaced
+ * as an honest, non-error-styled card (0.18.0 HeldProposalBlockSchema). CEE's
+ * graph-management referee gate holds a structural/tunable mutation pending
+ * the user's go-ahead and emits this block INSTEAD of the error-styled block
+ * the 1.43 fix retired.
+ *
+ * Render-relevant fields only. `summary` is CEE's display-safe description of
+ * the change (rendered verbatim). `reason_code` is code-keyed by design —
+ * mapped to the UI's OWN user-facing copy so the internal-doctrine-prose leak
+ * 1.43 flagged cannot recur; widened to `string` here so a future
+ * held-reachable code passes through to the generic copy without a UI release
+ * (same forward-compat rule as V5BlockTargetRef.kind).
+ *
+ * `confirm` / `decline` are RESOLVED at map time from the response's top-level
+ * `suggested_actions[]` (the schema's `confirm_action_id` / `decline_action_id`
+ * are refs into that array; the block never embeds its own action objects).
+ * The card dispatches `confirm.message` through the existing chip-send seam —
+ * the change is applied by CEE server-side on that turn (single-writer
+ * doctrine, post-#364), never by a client-minted mutation path. `decline` is
+ * optional: CEE does not emit a dedicated decline chip today (the decline path
+ * is free-text), so its absence drives a local-only dismiss.
+ *
+ * Internal identifiers (`proposal_id`, `mutation_class`, `reason_code`, the
+ * `held_proposal` type token) NEVER render as user-facing copy.
+ */
+export interface V5HeldProposalAction {
+  /** Producer-owned chip label (rendered verbatim on the confirm affordance). */
+  label: string
+  /** Message dispatched to CEE when the affordance is taken (the apply turn). */
+  message: string
+  /**
+   * 0.19.0 `Action.detail` — the producer's COMPLETE sentence, emitted exactly
+   * when it had to clamp `label` to chip length, and absent when `label`
+   * already says everything. It is the consent record and the accessible name
+   * for a held proposal: a control the user consents through may not be named
+   * by a string that stops mid-word (ROADMAP 2.474 residual (a)).
+   */
+  detail?: string
+}
+
+export interface V5HeldProposalBlock {
+  type: 'v5_held_proposal'
+  /** CEE-internal held handle (gmh_…). Carried for telemetry/data-* only, never rendered. */
+  proposal_id: string
+  summary: string
+  mutation_class: 'structural' | 'tunable'
+  reason_code: string
+  confirm: V5HeldProposalAction
+  decline?: V5HeldProposalAction
 }
 
 // ---------------------------------------------------------------------------
@@ -377,13 +623,16 @@ export interface EvidenceBlock {
   query: string
 }
 
-// Phase 2B: Model receipt block — structured summary after graph generation
+// Phase 2B: Model receipt block — structured summary after graph generation.
+// F1 PR B: action-first pre-analysis card. `coachingSummary` is the CEE-owned
+// (analysis_ready.coaching_summary) main content; DGAI adds only static chrome.
 export interface ModelReceiptBlockType {
   type: 'model_receipt'
   factorCount: number
   edgeCount: number
   optionCount: number
   goalLabel: string | null
+  coachingSummary: string | null
   topInsight: string | null
   topEvidenceGap: string | null
   readiness: 'ready' | 'blocked' | 'incomplete' | 'unknown'
@@ -497,17 +746,59 @@ export const MAX_SUGGESTED_ACTIONS = 3
 /** Max visible blocks per assistant turn before "Show more" toggle */
 export const MAX_VISIBLE_BLOCKS_PER_TURN = 4
 
+/**
+ * UI-SEM-084: ratified cap — at most two bias-signal coaching cards render
+ * budget-exempt per turn (display budget only; never transforms a value).
+ *
+ * Defined HERE, alongside the other render budgets, because it has two
+ * consumers that must not import each other: the draft bridge
+ * (draftBiasSignalBlocks, which stops emitting past the cap) and the render
+ * layer (phase3Pacing/InlineBlocks, which exempts only the first N from the
+ * visibility budgets). Before /simplify item 5 the cap lived only in the
+ * bridge, so PRODUCER bias blocks — which the bridge stands down for — were
+ * exempt from both budgets and capped by nothing.
+ */
+export const DRAFT_BIAS_SIGNAL_CARD_CAP = 2
+
 // ---------------------------------------------------------------------------
 // § 4 — System events (type-defined now, wired in follow-up PR)
 // ---------------------------------------------------------------------------
 
+/**
+ * Event types accepted by CEE's v3 Zod schema — safe to send over the wire.
+ *
+ * DERIVED, NOT MIRRORED (CLAUDE.md trap 12). This const array is the SINGLE
+ * source: the `WireSystemEventType` union below is derived from it, and
+ * `systemEvents.ts` builds its send-allowlist Set from the same array rather
+ * than re-typing the members. Before ROADMAP 1.346 those were two hand-kept
+ * lists, and the runtime one was the silent one — an event type present in the
+ * union but missing from the Set is dropped BEFORE the network by
+ * `serializeSystemEvent`, with a DEV-only console warning and no test failure.
+ * That is precisely the drift that reads as green. One array, one truth.
+ */
+export const WIRE_SYSTEM_EVENT_TYPES = [
+  'direct_graph_edit',
+  'direct_analysis_run',
+  'patch_accepted',
+  'patch_dismissed',
+  'feedback_submitted',
+  // ROADMAP 1.346 — the value-carrying inspector edit. A SIBLING of
+  // direct_graph_edit, not a value on it: direct_graph_edit's target_id is a
+  // representative singular (the first changed id in a batch), so keying a
+  // mutation on it would mutate whichever node sorted first.
+  'factor_value_edit',
+  // P4 transport (schemas 0.34.0) — the two human-judgement signals that
+  // previously terminated in the client store: the ContestedEdgeCard verdict
+  // (ModelTabBody.handleResolveContested) and the inspector prior-range edit
+  // (useInspectorMutations.setPriorRange). Carry-only: CEE persists each as a
+  // typed turn fact and writes NO graph. ⚠ Reader-first: CEE's 0.34.0 leg
+  // deploys BEFORE these emitters — an older pin rejects the whole turn.
+  'edge_adjudication',
+  'prior_range_edit',
+] as const
+
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */
-export type WireSystemEventType =
-  | 'direct_graph_edit'
-  | 'direct_analysis_run'
-  | 'patch_accepted'
-  | 'patch_dismissed'
-  | 'feedback_submitted'
+export type WireSystemEventType = (typeof WIRE_SYSTEM_EVENT_TYPES)[number]
 
 /** Event types used only within the UI — never sent to CEE. */
 export type InternalSystemEventType = 'session_resume' | 'undo_draft'
@@ -599,10 +890,25 @@ export const MAX_HISTORY_PAIRS = 5
 /**
  * CEE stage_indicator wire format — may be a plain string or an object.
  * The object form includes confidence and source metadata from the orchestrator.
+ *
+ * The stage vocabulary here is the CANONICAL WIRE enum `StageType` from
+ * `@talchain/schemas` (`frame | analyse | decide | review`) — NOT the UI/DB
+ * lifecycle enum `ScenarioStage` (`frame | ideate | evaluate | decide |
+ * optimise`, pinned by the `scenarios.stage` CHECK constraint). The two
+ * vocabularies overlap only on `frame` and `decide`.
+ *
+ * This was previously declared as `ScenarioStage` — a hand-maintained mirror
+ * that mis-stated the producer's enum. Because the wrong type still
+ * type-checked at the ingestion call site, it SILENCED the compiler at the
+ * one place that needed to map, letting the raw wire value be written into
+ * the store unmapped. Schemas 0.19.0 documents this exact drift on the
+ * `Stage` enum: consumers MUST derive from `StageType`, never re-declare.
+ *
+ * Translate to/from `ScenarioStage` via `src/v5/stageMapper.ts`.
  */
 export type StageIndicatorWire =
-  | ScenarioStage
-  | { stage: ScenarioStage; confidence?: string; source?: string }
+  | StageType
+  | { stage: StageType; confidence?: string; source?: string }
 
 export interface OrchestratorResponseEnvelopeV2 {
   /** Response format version. 2 = deterministic (plain text, typed blocks). Absent = legacy XML path. */

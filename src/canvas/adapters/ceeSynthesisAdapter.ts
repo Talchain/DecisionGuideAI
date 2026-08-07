@@ -113,7 +113,7 @@ export function transformISLToCEESynthesis(
       sensitivity: s.sensitivity_score,
       direction: mapDirection(s.direction),
       impact_description: s.flip_threshold
-        ? `Flips recommendation at ${s.flip_threshold.toFixed(2)}`
+        ? `Changes which option is most likely to hit your goal at ${s.flip_threshold.toFixed(2)}`
         : undefined,
     }))
   }
@@ -146,7 +146,10 @@ export function transformISLToCEESynthesis(
   if (robustnessResult.label) {
     request.robustness = [{
       recommendation_id: 'primary',
-      recommendation_label: 'Current recommendation',
+      // Re-anchored: this value is SENT TO CEE, where it seeds the reply
+      // vocabulary. A bare endorsement noun taught CEE that the product HAS a
+      // recommendation; naming the quantity teaches it the anchored form.
+      recommendation_label: 'Current leading option by goal probability',
       robustness_score: robustnessLabelToScore(robustnessResult.label),
     }]
     request.recommendation_label = robustnessResult.label

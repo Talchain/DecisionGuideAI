@@ -5,11 +5,14 @@
  * Outcome/Risk nodes use direction='inbound' for "Depends on:" section.
  *
  * Gate: returns [] pre-analysis (resultsStatus !== 'complete').
- * Confidence: exists_probability ?? beliefExists, scaled to 0-100. Null when missing.
+ * Confidence: exists_probability ?? beliefExists, scaled to 0-100. Null when
+ * missing OR when nothing set it — a UI default is not a measurement, so it is
+ * reported as unknown rather than rendered (see the gate below).
  */
 import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import type { NodeType } from '../domain/nodes'
+import { isEdgeValueSet } from '../domain/edgeValueProvenance'
 
 export interface ConnRowData {
   edgeId: string
@@ -45,10 +48,18 @@ export function useNodeConnections(
       const label = (connectedNode.data?.label as string) ?? 'Untitled'
       const data = edge.data as Record<string, unknown> | undefined
 
-      // Confidence: prefer exists_probability, fall back to beliefExists
+      // Confidence: prefer exists_probability, fall back to beliefExists.
+      //
+      // ⛔ Provenance gate. `DEFAULT_EDGE_DATA`/`USER_EDGE_DEFAULTS` pin
+      // beliefExists = 0.8, so before this gate EVERY edge reported a
+      // confidence and ConnRow rendered a hardcoded constant as
+      // "80% conf." with aria "80% confidence the link exists" — a UI default
+      // spoken as a measurement. We now emit a number ONLY when something
+      // actually set it (canvas/domain/edgeValueProvenance.ts); otherwise
+      // `confidencePct` stays null and ConnRow renders no figure at all.
       const existsProb = typeof data?.exists_probability === 'number' ? data.exists_probability : null
       const beliefExists = typeof data?.beliefExists === 'number' ? data.beliefExists : null
-      const raw = existsProb ?? beliefExists
+      const raw = isEdgeValueSet(data, 'beliefExists') ? (existsProb ?? beliefExists) : null
 
       rows.push({
         edgeId: edge.id,

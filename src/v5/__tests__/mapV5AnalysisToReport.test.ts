@@ -20,6 +20,39 @@ const baseBlock = (overrides: Partial<AnalysisResultBlock> = {}): AnalysisResult
   ...overrides,
 })
 
+describe('mapV5AnalysisToReport — decision_brief passthrough (Codex SF7/R3-SF5)', () => {
+  it('carries enrichment.decision_brief verbatim onto the widened report (live V5 path)', () => {
+    const decisionBrief = {
+      headline_banded: {
+        band: 'clearly_ahead',
+        leader_id: 'opt_a',
+        robustness_gated: false,
+      },
+    }
+    const block = baseBlock({
+      win_probabilities: { opt_a: 0.8, opt_b: 0.2 },
+      enrichment: { decision_brief: decisionBrief } as never,
+    })
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> &
+      Record<string, unknown>
+    expect(report.decision_brief).toEqual(decisionBrief)
+  })
+
+  it('absent decision_brief leaves no key on the report (no fabricated band)', () => {
+    const block = baseBlock({ enrichment: {} as never })
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> &
+      Record<string, unknown>
+    expect('decision_brief' in report).toBe(false)
+  })
+
+  it('non-object decision_brief is dropped, not passed through', () => {
+    const block = baseBlock({ enrichment: { decision_brief: 'clearly_ahead' } as never })
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> &
+      Record<string, unknown>
+    expect('decision_brief' in report).toBe(false)
+  })
+})
+
 describe('mapV5AnalysisToReport — option IDs and probabilities', () => {
   it('option_probabilities keys match win_probabilities keys exactly (no synthesised opt_0/opt_1)', () => {
     const block = baseBlock({
@@ -162,7 +195,20 @@ describe('mapV5AnalysisToReport — factor sensitivity (dual shape, alias set)',
     expect(byLabel.get('ISL')?.factor_id).toBe('fac_isl')
   })
 
-  it('direction defaults to sign of magnitude when missing', () => {
+  /**
+   * ⭐ SUPERSEDED 2026-08-01 (ROADMAP 2.234). This test was titled "direction
+   * defaults to sign of magnitude when missing" and it PINNED THE DEFECT: the
+   * mapper inferred a causal direction from `rawMagnitude >= 0`, and because
+   * the magnitude fields it picks from are ordinarily non-negative, every
+   * `mixed`, `unknown` and absent direction became a positive claim — an "up"
+   * arrow and the sentence "increases the outcome" over a direction the
+   * producer never asserted.
+   *
+   * There is no default any more. The MAGNITUDE half of the old assertions is
+   * unchanged and kept, because that half was always right and this must not
+   * read as "the mapper stopped carrying the values".
+   */
+  it('direction is NOT inferred from the sign of a magnitude (absence stays absence)', () => {
     const block = baseBlock({
       enrichment: {
         factor_sensitivity: [
@@ -173,13 +219,17 @@ describe('mapV5AnalysisToReport — factor sensitivity (dual shape, alias set)',
     })
 
     const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
-      factor_sensitivity?: Array<{ factor_id: string; sensitivity: number; direction: string }>
+      factor_sensitivity?: Array<{ factor_id: string; sensitivity: number; direction?: string }>
     }
     const byId = new Map(report.factor_sensitivity!.map((f) => [f.factor_id, f]))
-    expect(byId.get('fac_pos')?.direction).toBe('positive')
-    expect(byId.get('fac_pos')?.sensitivity).toBe(0.3) // absolute value
-    expect(byId.get('fac_neg')?.direction).toBe('negative')
-    expect(byId.get('fac_neg')?.sensitivity).toBe(0.2) // absolute value
+    // Neither row carried a producer direction, so neither gets one.
+    expect(byId.get('fac_pos')?.direction ?? null).toBeNull()
+    expect(byId.get('fac_neg')?.direction ?? null).toBeNull()
+    // UNCHANGED — magnitudes are still carried, still absolute.
+    expect(byId.get('fac_pos')?.sensitivity).toBe(0.3)
+    expect(byId.get('fac_neg')?.sensitivity).toBe(0.2)
+    // And neither becomes a directional driver glyph.
+    expect(report.drivers.map((d) => d.polarity)).toEqual(['neutral', 'neutral'])
   })
 
   it('entries missing both id and magnitude are dropped, never defaulted', () => {
@@ -212,13 +262,24 @@ describe('mapV5AnalysisToReport — factor sensitivity (dual shape, alias set)',
 })
 
 describe('mapV5AnalysisToReport — drivers + confidence derivation', () => {
-  it('drivers derived from top 5 factors by absolute sensitivity', () => {
+  /**
+   * ⭐ SUPERSEDED 2026-08-01 (ROADMAP 2.235). Was "drivers derived from top 5
+   * factors by absolute sensitivity", asserting `drivers[0]` is `fac_7` — the
+   * BIGGEST number. That is a ranking the UI is not entitled to compute: PLoT
+   * owns the canonical order, attests it, and appends ISL-only rows without a
+   * global re-sort precisely because the magnitudes are incommensurable.
+   *
+   * The drivers are still the FIRST FIVE and their strengths/polarities are
+   * unchanged; only the question "first five of what order?" is answered
+   * differently — the producer's, not ours.
+   */
+  it('drivers are the producer\'s first five rows, in the producer\'s order', () => {
     const block = baseBlock({
       enrichment: {
         factor_sensitivity: Array.from({ length: 8 }, (_, i) => ({
           factor_id: `fac_${i}`,
           factor_label: `Factor ${i}`,
-          sensitivity: 0.1 + i * 0.1, // 0.1, 0.2, ..., 0.8
+          sensitivity: 0.1 + i * 0.1, // 0.1, 0.2, ..., 0.8 — ASCENDING on the wire
           direction: 'positive',
         })),
       },
@@ -226,11 +287,16 @@ describe('mapV5AnalysisToReport — drivers + confidence derivation', () => {
 
     const report = mapV5AnalysisToReport(block)
     expect(report.drivers).toHaveLength(5)
-    // Sorted descending by sensitivity, so top driver is fac_7
-    expect(report.drivers[0].label).toBe('Factor 7')
+    // The producer sent fac_0 first, so fac_0 is the top driver — even though
+    // it carries the SMALLEST magnitude. That is the whole point.
+    expect(report.drivers[0].label).toBe('Factor 0')
+    expect(report.drivers[0].nodeId).toBe('fac_0')
+    expect(report.drivers.map((d) => d.nodeId)).toEqual([
+      'fac_0', 'fac_1', 'fac_2', 'fac_3', 'fac_4',
+    ])
+    // UNCHANGED — direction and strength still derive from the row itself.
     expect(report.drivers[0].polarity).toBe('up')
-    expect(report.drivers[0].strength).toBe('high') // 0.8 >= 0.7
-    expect(report.drivers[0].nodeId).toBe('fac_7')
+    expect(report.drivers[0].strength).toBe('low') // 0.1 < 0.3
   })
 
   it('confidence level "high" when robust:fragile edge ratio >= 0.7', () => {
@@ -380,7 +446,22 @@ describe('mapV5AnalysisToReport — enrichment.option_comparison hydrates outcom
     expect(opt.outcome).toEqual({ mean: 12.5, p10: 8.0, p50: 12.0, p90: 17.0 })
   })
 
-  it('confidence_interval midpoint fills `expected` when outcome.mean is absent', () => {
+  // ⚠ AMENDED BY ROADMAP 2.800a. This test used to also assert
+  // `outcome.p10 === 10` and `outcome.p90 === 20` — i.e. it pinned the
+  // CONFIDENCE-INTERVAL bounds being written into the PERCENTILE slots as
+  // intended behaviour. That substitution is the defect 2.800a removed: a CI
+  // bounds an estimate's precision, a p10/p90 pair describes the outcome's
+  // spread, and the surface rendered one under the other's name with no
+  // disclosure. The percentile half now lives in
+  // `mapV5AnalysisToReport.percentileProvenance.spec.ts`, asserting null.
+  //
+  // The `expected` half is DELIBERATELY UNCHANGED and still pinned here: a CI
+  // midpoint standing in for the mean is a central-tendency estimate standing in
+  // for another central-tendency estimate — a materially weaker claim than a
+  // percentile wearing a CI's name — and the identical use on the HEADLINE path
+  // (`headlineCI`) is outside 2.800's scope. Changing one and not the other
+  // would leave this file less coherent, not more. Rowed separately.
+  it('confidence_interval midpoint fills `expected` when outcome.mean is absent, but NEVER the percentiles', () => {
     const block = baseBlock({
       win_probabilities: { opt_a: 0.5 },
       enrichment: {
@@ -395,8 +476,8 @@ describe('mapV5AnalysisToReport — enrichment.option_comparison hydrates outcom
     }
     const opt = report.option_probabilities!.opt_a
     expect(opt.expected).toBe(15)
-    expect(opt.outcome?.p10).toBe(10)
-    expect(opt.outcome?.p90).toBe(20)
+    expect(opt.outcome?.p10).toBeNull()
+    expect(opt.outcome?.p90).toBeNull()
   })
 
   it('outcome quantiles are null (not 0) when enrichment has no option_comparison', () => {
@@ -922,7 +1003,9 @@ describe('mapV5AnalysisToReport — deterministic hash + minimal envelope', () =
 
     const report = mapV5AnalysisToReport(block)
     expect(report.schema).toBe('report.v1')
-    expect(report.meta.seed).toBe(0)
+    // Receipts fail closed: the V5 contract carries no seed field, so a
+    // caller-less mapping must carry null (row hides), never a fabricated 0.
+    expect(report.meta.seed).toBeNull()
     expect(report.meta.response_id).toMatch(/^v5:[0-9a-f]{16}$/)
     expect(report.model_card.response_hash).toBe(report.meta.response_id)
     expect(report.confidence.level).toBe('medium')
@@ -1010,5 +1093,256 @@ describe('mapV5AnalysisToReport — deterministic hash + minimal envelope', () =
 
     const report = mapV5AnalysisToReport(block, { seed: 42 })
     expect(report.meta.seed).toBe(42)
+  })
+})
+
+// ROADMAP 1.6b (claim-integrity, shared-seam UI lane): display_verdict,
+// display_verdict_reason, confidence_tier, and goal_fit_basis are all
+// ON-WIRE on Seam A (CEE compose.ts P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP
+// carries `robustness` and `confidence_tier` whole) but were previously
+// never read by this mapper — the live conversational path showed
+// "Robustness unknown" / the legacy confidence cascade / no goal-fit
+// caveat regardless of what the producer sent. UI-BOUNDARY-DATA-INVENTORY.md
+// §3.4/§3.5/§3.2/§4.
+describe('mapV5AnalysisToReport — display_verdict / confidence_tier / goal_fit_basis (ROADMAP 1.6b)', () => {
+  it('a live-shaped fixture carrying all four fields survives the mapper verbatim', () => {
+    const block = baseBlock({
+      win_probabilities: { opt_a: 0.6, opt_b: 0.4 },
+      enrichment: {
+        confidence_tier: 'fair',
+        robustness: {
+          fragile_edges: [],
+          robust_edges: [],
+          is_robust: true,
+          level: 'high',
+          display_verdict: 'robust',
+          display_verdict_reason: 'No edge flips the winner within the tested range.',
+        },
+        option_comparison: [
+          {
+            option_id: 'opt_a',
+            win_probability: 0.6,
+            probability_of_joint_goal: 0.42,
+            goal_fit_basis: {
+              scored_from: 'modelled_outcome_distribution',
+              node_ids: ['node_budget'],
+            },
+          },
+          { option_id: 'opt_b', win_probability: 0.4 },
+        ],
+      },
+    })
+
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      confidence_tier?: string
+      robustness?: { display_verdict?: string; display_verdict_reason?: string }
+      option_probabilities?: Record<
+        string,
+        { goal_fit_basis?: { scored_from?: string; node_ids?: string[] } }
+      >
+    }
+
+    expect(report.confidence_tier).toBe('fair')
+    expect(report.robustness?.display_verdict).toBe('robust')
+    expect(report.robustness?.display_verdict_reason).toBe(
+      'No edge flips the winner within the tested range.',
+    )
+    expect(report.option_probabilities?.opt_a?.goal_fit_basis).toEqual({
+      scored_from: 'modelled_outcome_distribution',
+      node_ids: ['node_budget'],
+    })
+    // The unqualified option must NOT acquire a fabricated caveat.
+    expect(report.option_probabilities?.opt_b?.goal_fit_basis).toBeUndefined()
+  })
+
+  it('a fixture WITHOUT the four fields produces honest absence — no invention, no crash', () => {
+    const block = baseBlock({
+      win_probabilities: { opt_a: 1 },
+      enrichment: {
+        robustness: { fragile_edges: [], robust_edges: [] },
+        option_comparison: [{ option_id: 'opt_a', win_probability: 1 }],
+      },
+    })
+
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      confidence_tier?: string
+      robustness?: { display_verdict?: string; display_verdict_reason?: string }
+      option_probabilities?: Record<string, { goal_fit_basis?: unknown }>
+    }
+
+    expect(report.confidence_tier).toBeUndefined()
+    expect(report.robustness?.display_verdict).toBeUndefined()
+    expect(report.robustness?.display_verdict_reason).toBeUndefined()
+    expect(report.option_probabilities?.opt_a?.goal_fit_basis).toBeUndefined()
+  })
+
+  it('non-string display_verdict / confidence_tier values are dropped, not coerced', () => {
+    const block = baseBlock({
+      enrichment: {
+        confidence_tier: 42,
+        robustness: { fragile_edges: [], robust_edges: [], display_verdict: null },
+      },
+    })
+
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      confidence_tier?: string
+      robustness?: { display_verdict?: string }
+    }
+
+    expect(report.confidence_tier).toBeUndefined()
+    expect(report.robustness?.display_verdict).toBeUndefined()
+  })
+
+  it('goal_fit_basis with only scored_from (no node_ids) is preserved partially, not dropped wholesale', () => {
+    const block = baseBlock({
+      enrichment: {
+        option_comparison: [
+          {
+            option_id: 'opt_a',
+            probability_of_joint_goal: 0.1,
+            goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+          },
+        ],
+      },
+    })
+
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_probabilities?: Record<
+        string,
+        { goal_fit_basis?: { scored_from?: string; node_ids?: string[] } }
+      >
+    }
+
+    expect(report.option_probabilities?.opt_a?.goal_fit_basis).toEqual({
+      scored_from: 'modelled_outcome_distribution',
+    })
+  })
+
+  it('constraints_status: forward-compatible passthrough when present, absent by default (NOT on CEE keep-list today)', () => {
+    // Documents the residual: CEE's compose.ts P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP
+    // does not include constraints_status, so a real Seam-A payload never
+    // carries it — this fixture simulates a FUTURE keep-list extension to
+    // prove the mapper is ready without overclaiming today's wire shape.
+    const withStatus = mapV5AnalysisToReport(
+      baseBlock({ enrichment: { constraints_status: 'unavailable' } }),
+    ) as ReturnType<typeof mapV5AnalysisToReport> & { constraints_status?: string }
+    expect(withStatus.constraints_status).toBe('unavailable')
+
+    const withoutStatus = mapV5AnalysisToReport(
+      baseBlock({ enrichment: { robustness: { fragile_edges: [], robust_edges: [] } } }),
+    ) as ReturnType<typeof mapV5AnalysisToReport> & { constraints_status?: string }
+    expect(withoutStatus.constraints_status).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// T2 — receipts fail closed (no fabricated Seed / Stable-edges defaults)
+//
+// Doctrine (AdvancedSection.tsx "Analysis details" receipts): real values
+// only; rows fail closed when absent. The mapper must therefore preserve
+// ABSENCE — a missing seed becomes null (not 0) and missing robustness
+// arrays stay off the report (not []) — while an honest producer-sent
+// zero/empty value still flows through and displays.
+// ---------------------------------------------------------------------------
+
+describe('mapV5AnalysisToReport — receipts fail closed (no fabricated defaults)', () => {
+  it('no options.seed → meta.seed is null (V5 contract carries no seed; Seed row hides)', () => {
+    const report = mapV5AnalysisToReport(baseBlock({}))
+    expect(report.meta.seed).toBeNull()
+  })
+
+  it('options.seed 0 is an honest value and is preserved (not confused with absence)', () => {
+    const report = mapV5AnalysisToReport(baseBlock({}), { seed: 0 })
+    expect(report.meta.seed).toBe(0)
+  })
+
+  it('robustness present without robust_edges/fragile_edges → keys ABSENT, not fabricated []', () => {
+    const report = mapV5AnalysisToReport(
+      baseBlock({ enrichment: { robustness: { ranking_stability: 0.9 } } as never }),
+    ) as ReturnType<typeof mapV5AnalysisToReport> & {
+      robustness?: Record<string, unknown>
+    }
+    expect(report.robustness).toBeDefined()
+    expect('robust_edges' in report.robustness!).toBe(false)
+    expect('fragile_edges' in report.robustness!).toBe(false)
+  })
+
+  it('malformed (non-array) robust_edges/fragile_edges → keys ABSENT, not coerced to []', () => {
+    const report = mapV5AnalysisToReport(
+      baseBlock({
+        enrichment: {
+          robustness: {
+            ranking_stability: 0.5,
+            robust_edges: 'not-an-array',
+            fragile_edges: { nope: true },
+          },
+        } as never,
+      }),
+    ) as ReturnType<typeof mapV5AnalysisToReport> & {
+      robustness?: Record<string, unknown>
+    }
+    expect(report.robustness).toBeDefined()
+    expect('robust_edges' in report.robustness!).toBe(false)
+    expect('fragile_edges' in report.robustness!).toBe(false)
+  })
+
+  it('producer-sent EMPTY arrays are honest zeros: keys present with length 0 (row shows 0)', () => {
+    const report = mapV5AnalysisToReport(
+      baseBlock({
+        enrichment: { robustness: { fragile_edges: [], robust_edges: [] } } as never,
+      }),
+    ) as ReturnType<typeof mapV5AnalysisToReport> & {
+      robustness?: { fragile_edges?: unknown[]; robust_edges?: unknown[] }
+    }
+    expect(report.robustness?.robust_edges).toEqual([])
+    expect(report.robustness?.fragile_edges).toEqual([])
+  })
+})
+
+describe('mapV5AnalysisToReport — F12: response_hash_algo labelled truthfully', () => {
+  // The local digest is FNV-1a 64-bit (deriveBlockHash), NOT SHA-256. The
+  // model_card.response_hash_algo must name the algorithm actually used, paired
+  // with the correct source. Invariant over the algorithm/source pairs:
+  //   - no producer hash  → locally-derived FNV-1a → algo 'fnv1a-64', source 'local'
+  //   - producer hash     → carried verbatim        → algo 'sha256',   source 'producer'
+  it('no producer hash → algo "fnv1a-64" + source "local" (the local content digest)', () => {
+    const block = baseBlock({ win_probabilities: { opt_a: 0.7, opt_b: 0.3 } })
+    const report = mapV5AnalysisToReport(block)
+    expect(report.model_card.response_hash_algo).toBe('fnv1a-64')
+    expect(report.model_card.response_hash_source).toBe('local')
+    // The local digest carries the deriveBlockHash `v5:` prefix — proving it is
+    // the FNV-1a path, never a real SHA-256 hex string.
+    expect(report.model_card.response_hash.startsWith('v5:')).toBe(true)
+  })
+
+  it('never labels the local FNV-1a digest as "sha256"', () => {
+    const report = mapV5AnalysisToReport(baseBlock({ win_probabilities: { opt_a: 0.5, opt_b: 0.5 } }))
+    expect(report.model_card.response_hash_algo).not.toBe('sha256')
+  })
+
+  it('producer-supplied hash → carried verbatim, algo "sha256" + source "producer"', () => {
+    const producerHash = 'a'.repeat(64)
+    const report = mapV5AnalysisToReport(
+      baseBlock({ win_probabilities: { opt_a: 0.6, opt_b: 0.4 } }),
+      { responseHash: producerHash },
+    )
+    expect(report.model_card.response_hash).toBe(producerHash)
+    expect(report.model_card.response_hash_algo).toBe('sha256')
+    expect(report.model_card.response_hash_source).toBe('producer')
+  })
+
+  it('invariant: algo and source agree across both pairs (fnv1a-64↔local, sha256↔producer)', () => {
+    const cases: Array<{ responseHash?: string; algo: string; source: string }> = [
+      { algo: 'fnv1a-64', source: 'local' },
+      { responseHash: 'b'.repeat(64), algo: 'sha256', source: 'producer' },
+    ]
+    for (const c of cases) {
+      const report = mapV5AnalysisToReport(
+        baseBlock({ win_probabilities: { opt_a: 0.55, opt_b: 0.45 } }),
+        c.responseHash ? { responseHash: c.responseHash } : {},
+      )
+      expect(report.model_card.response_hash_algo).toBe(c.algo)
+      expect(report.model_card.response_hash_source).toBe(c.source)
+    }
   })
 })

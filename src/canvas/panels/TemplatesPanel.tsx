@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import type { Node, Edge } from '@xyflow/react'
 import { Search, Layout } from 'lucide-react'
 import { plot, adapterName } from '../../adapters/plot'
 import { typography } from '../../styles/typography'
@@ -14,9 +15,12 @@ import { TemplateAbout } from './TemplateAbout'
 import { PlotHealthPill } from '../../adapters/plot/v1/components/PlotHealthPill'
 import { AdapterStatusBanner } from './AdapterStatusBanner'
 import { PanelShell } from './_shared/PanelShell'
-import { coerceNodes, toUiKind, type BackendNode } from '../adapters/backendKinds'
+import { coerceNodes, type BackendNode } from '../adapters/backendKinds'
+import { useShowToastSafe } from '../ToastContext'
 import { PanelSection } from './_shared/PanelSection'
 import { useCanvasStore } from '../store'
+import { loadTemplateBlueprint, confirmReplaceCanvas, fetchTemplateList, TEMPLATE_LOAD_FAILED_MESSAGE } from '../blueprints/loadTemplateBlueprint'
+import { commitGraphMutation } from '../mutations/commitGraphMutation'
 import { createScenario, saveScenarios, loadScenarios, setCurrentScenarioId } from '../store/scenarios'
 import { TemplateSkeleton } from '../components/TemplateSkeleton'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
@@ -40,7 +44,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   const [templateVersion, setTemplateVersion] = useState<string | undefined>(undefined)
   const [showDevControls, setShowDevControls] = useState(false)
   const [seed, setSeed] = useState<string>('1337')
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
   const panelRef = useRef<HTMLDivElement>(null)
 
   const { loading, progress, canCancel, result, error, run, cancel, clearError } = useTemplatesRun()
@@ -49,27 +53,11 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   useEffect(() => {
     setTemplatesLoading(true)
     setTemplatesLoadError(null)
-    plot.templates()
-      .then(list => {
-        // Guard for both { items: [...] } and legacy [...] array formats
-        let templates: any[] = []
-
-        if (Array.isArray(list)) {
-          // Legacy format: direct array
-          templates = list
-        } else if (list && Array.isArray(list.items)) {
-          // New format: wrapped in items
-          templates = list.items
-        } else {
-          if (import.meta.env.DEV) {
-            console.error('❌ Invalid templates response:', list)
-          }
-          setTemplatesLoadError('Invalid response from templates service')
-          setBlueprints([])
-          setTemplatesLoading(false)
-          return
-        }
-
+    fetchTemplateList()
+      .then(templates => {
+        // fetchTemplateList owns the array-vs-{items} envelope guard — ONE
+        // copy, in the shared module, instead of the three hand-maintained
+        // ones this replaced. It always resolves to a plain array.
         setBlueprints(templates.map(t => ({
           id: t.id,
           name: t.name,
@@ -122,29 +110,18 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   }, [isOpen])
 
   // Toast notification helper (must be declared before handleInsert/handleMerge)
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg)
-    setTimeout(() => setToastMessage(null), 3000)
-  }, [])
+  // One toast system (DS: Canonical State Copy / severity owns persistence).
+  // This panel ran its own 3s-fixed local toast for years — the second
+  // dialect the ToastContext consolidation retires. Safe variant: no-ops
+  // if a mount ever lacks the provider rather than crashing the panel.
+  const showToast = useShowToastSafe()
 
   // Retry loading templates after failure
   const retryLoadTemplates = useCallback(() => {
     setTemplatesLoading(true)
     setTemplatesLoadError(null)
-    plot.templates()
-      .then(list => {
-        let templates: any[] = []
-        if (Array.isArray(list)) {
-          templates = list
-        } else if (list && Array.isArray(list.items)) {
-          templates = list.items
-        } else {
-          setTemplatesLoadError('Invalid response from templates service')
-          setBlueprints([])
-          setTemplatesLoading(false)
-          return
-        }
-
+    fetchTemplateList()
+      .then(templates => {
         setBlueprints(templates.map(t => ({
           id: t.id,
           name: t.name,
@@ -162,60 +139,16 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   }, [])
 
   const handleInsert = useCallback(async (templateId: string) => {
-    // P0-6: Confirm before starting from template (replaces canvas)
-    const state = useCanvasStore.getState()
-    const hasUnsavedChanges = state.isDirty || state.nodes.length > 0
-
-    if (hasUnsavedChanges) {
-      const confirm = window.confirm(
-        'Start from Template will replace your current canvas. Any unsaved changes will be lost. Continue?'
-      )
-      if (!confirm) {
-        return
-      }
+    // P0-6: Confirm before starting from template (replaces canvas).
+    // Shared with the first-run starter strip via confirmReplaceCanvas().
+    if (!confirmReplaceCanvas()) {
+      return
     }
 
     try {
-      // Fetch template from API (works for both mock and httpv1)
-      const templateDetail = await plot.template(templateId)
-
-      // Validate graph structure (graph is typed as 'unknown' in TemplateDetail)
-      const graph = templateDetail.graph as any
-      if (!graph || typeof graph !== 'object') {
-        throw new Error(`Template ${templateId} has invalid graph structure`)
-      }
-
-      if (!Array.isArray(graph.nodes)) {
-        throw new Error(`Template ${templateId} graph.nodes is not an array`)
-      }
-
-      // S1-MAP: Convert backend graph to Blueprint format using kind mapping shim
-      const blueprintNodes = (graph.nodes || []).map((node: any, index: number) => ({
-        id: node.id,
-        label: node.label || node.id,
-        kind: toUiKind(node.kind), // S1-MAP: Safe kind mapping with fallback
-        body: node.body, // v1.2: preserve body text
-        position: node.position || { x: 200 + (index % 3) * 250, y: 100 + Math.floor(index / 3) * 200 }, // Grid layout if no position
-      }))
-
-      // Backend edges may not have IDs, generate them
-      const blueprintEdges = (graph.edges || []).map((edge: any) => ({
-        id: edge.id || `${edge.from}-${edge.to}`, // Generate ID if missing
-        from: edge.from,
-        to: edge.to,
-        probability: edge.probability,
-        weight: edge.weight,
-        belief: edge.belief,          // v1.2: epistemic confidence
-        provenance: edge.provenance,  // v1.2: source tracking
-      }))
-
-      const blueprint: Blueprint = {
-        id: templateDetail.id,
-        name: templateDetail.name,
-        description: templateDetail.description,
-        nodes: blueprintNodes,
-        edges: blueprintEdges,
-      }
+      // Shared fetch → validate → toUiKind → position-fallback path. Same
+      // loader the first-run starter strip uses; extracted from here.
+      const { blueprint, templateDetail, graph } = await loadTemplateBlueprint(templateId)
 
       if (onInsertBlueprint) {
         onInsertBlueprint(blueprint)
@@ -241,7 +174,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       if (import.meta.env.DEV) {
         console.error('Failed to load template:', err)
       }
-      showToast('Failed to load template.')
+      showToast(TEMPLATE_LOAD_FAILED_MESSAGE, 'error')
     }
   }, [onInsertBlueprint])
 
@@ -324,9 +257,10 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         }
       })
 
-      // Directly append to store
-      state.pushHistory()
-      useCanvasStore.setState(currentState => ({
+      // Directly append to store via the shared graph-mutation commit so this
+      // analysis-affecting structural change dirties the freshness overlay
+      // (a bare setState would leave a retained CEE 'fresh' verdict falsely intact).
+      commitGraphMutation(currentState => ({
         nodes: [...currentState.nodes, ...newNodes],
         edges: [...currentState.edges, ...newEdges]
       }))
@@ -336,7 +270,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       if (import.meta.env.DEV) {
         console.error('Failed to merge template:', err)
       }
-      showToast('Failed to merge template.')
+      showToast('Failed to merge template.', 'error')
     }
   }, [showToast])
 
@@ -344,7 +278,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     if (!selectedBlueprintId) return
     let seedNum = parseInt(seed, 10)
     if (isNaN(seedNum) || seedNum < 1) {
-      showToast('Please enter a valid seed (≥1)')
+      showToast('Please enter a valid seed (≥1)', 'warning')
       trackRunAttempt({ canRun: false, reason: 'validation', message: '' })
       return
     }
@@ -393,7 +327,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     // User cancelled or entered empty name
     if (!name || !name.trim()) {
       if (name === '') {
-        showToast('Scenario name cannot be empty.')
+        showToast('Scenario name cannot be empty.', 'warning')
       }
       return
     }
@@ -407,7 +341,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     if (duplicate) {
       const overwrite = window.confirm(`A scenario named "${trimmedName}" already exists. Overwrite it?`)
       if (!overwrite) {
-        showToast('Scenario save cancelled.')
+        showToast('Scenario save cancelled.', 'warning')
         return
       }
       // Remove the duplicate before saving new one
@@ -505,9 +439,10 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         }
       })
 
-      // Directly append to store bypassing existing template check
-      state.pushHistory()
-      useCanvasStore.setState(currentState => ({
+      // Directly append to store (bypassing existing-template check) via the
+      // shared graph-mutation commit so this analysis-affecting structural change
+      // dirties the freshness overlay rather than leaving a retained 'fresh' verdict.
+      commitGraphMutation(currentState => ({
         nodes: [...currentState.nodes, ...newNodes],
         edges: [...currentState.edges, ...newEdges]
       }))
@@ -844,16 +779,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
             </div>
           )}
 
-            {/* Toast */}
-            {toastMessage && (
-              <div
-                role="status"
-                aria-live="polite"
-                className={`absolute bottom-4 left-0 right-0 mx-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-panel ${typography.panelBody}`}
-              >
-                {toastMessage}
-              </div>
-            )}
+
           </div>
         </PanelShell>
       </div>

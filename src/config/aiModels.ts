@@ -108,8 +108,8 @@ export const AI_MODELS: readonly AIModel[] = FALLBACK_MODELS.map((m) => ({
  * Fetch available models from the models-proxy endpoint
  */
 export async function fetchModels(): Promise<ModelsResponse> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl) {
     throw new Error('VITE_SUPABASE_URL is not configured');

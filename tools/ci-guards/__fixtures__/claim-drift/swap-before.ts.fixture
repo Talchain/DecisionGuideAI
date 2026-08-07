@@ -1,0 +1,17 @@
+/**
+ * SWAP CONTROL — the "before" state. PINNED; never regenerated, never derived
+ * from a live registration (trap 12b: a control pinned to "whatever is current"
+ * hollows itself out the first time current moves).
+ *
+ * Two raw reads of the pinned elasticity family, one of each owned field, in
+ * one file. The two "after" fixtures beside this one each perform a
+ * fix-one-add-one against it WITHOUT changing the per-file total, which is
+ * exactly the state that leaves claim-drift-baseline.tsv untouched.
+ *
+ * Not a .ts file: fixtures are compiled by nothing and linted by nothing.
+ */
+export function beforeState(d: Record<string, unknown>) {
+  const a = d.elasticity
+  const b = d.sensitivity_score
+  return [a, b]
+}

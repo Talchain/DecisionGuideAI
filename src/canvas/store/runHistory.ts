@@ -1,4 +1,12 @@
 /**
+ * ⚠ ANALYSIS-TAB BRIEF §19 (docs-designs/ANALYSIS-TAB-BUILD-2026-07-12):
+ * this local run history (client graph hashes + graph snapshots "for
+ * computing deltas") must NEVER back a "What changed" surface or any
+ * freshness signal — versioned comparison is producer-owned and absent
+ * from every contract today. WhatChangedChip (the one consumer of the
+ * delta idea) retires with the merged Analysis panel. Do not wire this in.
+ */
+/**
  * Run History Storage
  *
  * Local-first storage for the last 20 analysis runs.
@@ -36,6 +44,22 @@ export interface StoredRun {
   ceeTrace?: CeeTraceMeta | null
   ceeError?: CeeErrorViewModel | null
 }
+
+/**
+ * What `resultsLoadHistorical` actually needs to put an answer back on screen.
+ *
+ * A `StoredRun` satisfies this, so widening the store action to accept it is
+ * source-compatible with every existing caller. It exists because the canonical
+ * autosave snapshot (store/scenarios.ts `PersistedAnalysis`) has NO seed on the
+ * live V5 path and no `adapter` / `graphHash` / `summary` — those three are
+ * run-history bookkeeping, not things the Results panel reads. Requiring them
+ * would have meant fabricating values, and a fabricated seed forks the graph
+ * hash (CLAUDE.md trap #10).
+ */
+export type RestorableRun = Pick<
+  StoredRun,
+  'id' | 'ts' | 'hash' | 'report' | 'drivers' | 'ceeReview' | 'ceeTrace' | 'ceeError'
+> & { seed?: number }
 
 export const STORAGE_KEY = 'olumi-canvas-run-history' // Exported for cross-tab listening
 const MAX_RUNS = 20

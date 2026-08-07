@@ -22,18 +22,22 @@ import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
 import { OptionPreview } from './OptionPreview'
 import { SharpenYourThinking } from './SharpenYourThinking'
+import { GoalTargetNudge } from './GoalTargetNudge'
 import { AnalysisSettings } from './AnalysisSettings'
 import { deriveExpertiseGroups } from './hooks/deriveExpertiseGroups'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById } from '../../utils/focusHelpers'
-import { withObservedStateUpdate } from '../../utils/observedStateHelpers'
+import { normaliseRawFactorValue, withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
+import { biasSignal, resolveBiasSignal } from '../../shared/biasSignalTitles'
+import type { KnownBiasCode } from '../../shared/biasSignalTitles'
 import { useDraftStore } from '../../stores/draftStore'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, Link as LinkIcon } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, ShieldAlert, EyeOff, Link as LinkIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { getCausalEdges } from '../../domain/edgeUtils'
 import type { EdgeData } from '../../domain/edges'
@@ -73,43 +77,6 @@ import { WhatOlumiAddedSection } from './WhatOlumiAddedSection'
 
 /** AI source provenance labels */
 const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'engine'])
-
-/**
- * Icon + title lookup for CEE bias type strings.
- * Defined at module scope so the biasTriggers useMemo dependency array stays stable.
- *
- * Two key spaces are supported because CEE has two field conventions in flight:
- *   1. Lowercase `type` (existing CEEBiasFinding.type field) — anchoring,
- *      framing, confidence, confirmation, blind_spots
- *   2. Uppercase `code` (newer schema variant — AUTHORITY_BIAS, etc.) — these
- *      need explicit mapping per the brief.
- *
- * Any unrecognised key falls back to BIAS_FALLBACK (EyeOff) per the brief.
- */
-const BIAS_TYPE_ICON: Record<string, { icon: typeof Frame; title: string }> = {
-  // Lowercase type values (existing field convention)
-  framing:           { icon: Frame,  title: 'Narrow framing' },
-  framing_bias:      { icon: Frame,  title: 'Narrow framing' },
-  narrow_framing:    { icon: Frame,  title: 'Narrow framing' },
-  anchoring:         { icon: Anchor, title: 'Anchoring' },
-  anchoring_bias:    { icon: Anchor, title: 'Anchoring' },
-  confidence:        { icon: Gauge,  title: 'Overconfidence' },
-  overconfidence:    { icon: Gauge,  title: 'Overconfidence' },
-  optimism_bias:     { icon: Gauge,  title: 'Optimism bias' },
-  blind_spots:       { icon: EyeOff, title: 'Blind spots' },
-  status_quo_bias:   { icon: EyeOff, title: 'Status quo bias' },
-  confirmation:      { icon: Frame,  title: 'Confirmation bias' },
-  confirmation_bias: { icon: Frame,  title: 'Confirmation bias' },
-  authority_bias:    { icon: Anchor, title: 'Authority bias' },
-  availability_bias: { icon: Frame,  title: 'Availability bias' },
-  sunk_cost:         { icon: Anchor, title: 'Sunk cost' },
-  // Uppercase code values (newer schema)
-  AUTHORITY_BIAS:    { icon: Anchor, title: 'Authority bias' },
-  CONFIRMATION_BIAS: { icon: Gauge,  title: 'Confirmation bias' },
-  SUNK_COST:         { icon: Anchor, title: 'Sunk cost' },
-  NARROW_FRAMING:    { icon: Frame,  title: 'Narrow framing' },
-  STATUS_QUO_BIAS:   { icon: EyeOff, title: 'Status quo bias' },
-}
 
 /**
  * Entity-ID prefixes that must NEVER appear in user-facing copy. If a CEE bug
@@ -161,7 +128,7 @@ export function safeBiasTitle(token: string): string | null {
 }
 
 /** Generic fallback for unrecognised bias codes per the brief. */
-const BIAS_FALLBACK: { icon: typeof Frame; title: string } = {
+const BIAS_FALLBACK: { icon: LucideIcon; title: string } = {
   icon: EyeOff,
   title: 'Bias detected',
 }
@@ -212,8 +179,7 @@ export function mapDraftBiasSignalToTrigger(
 ): NormalisedBiasTrigger | null {
   const explanation = signal.detail.trim()
   if (!explanation) return null
-  const lookupKey = signal.type.toLowerCase()
-  const matched = BIAS_TYPE_ICON[lookupKey] ?? BIAS_TYPE_ICON[signal.type]
+  const matched = resolveBiasSignal(signal.type)
   const safeTitle = matched ? null : safeBiasTitle(signal.type)
   const config = matched ?? (safeTitle ? { icon: BIAS_FALLBACK.icon, title: safeTitle } : BIAS_FALLBACK)
   const targetId = signal.target ?? null
@@ -337,7 +303,7 @@ type RawBiasFinding = {
 
 export interface NormalisedBiasTrigger {
   id: string
-  icon: typeof Frame
+  icon: LucideIcon
   title: string
   subtitle: string
   fullExplanation: string
@@ -372,9 +338,11 @@ export function normaliseCeeBiasFinding(
   idx: number,
   resolveLabel: (id: string) => string | null,
 ): NormalisedBiasTrigger | null {
-  // Lookup key: prefer uppercase `code`, fall back to lowercase `type`.
+  // Lookup key: prefer `code`, fall back to `type` — the registry resolver
+  // is case-insensitive, so both wire conventions (uppercase code,
+  // lowercase type) land on the same entry.
   const lookupKey = raw.code || raw.type || ''
-  const config = BIAS_TYPE_ICON[lookupKey] ?? BIAS_FALLBACK
+  const config = resolveBiasSignal(lookupKey) ?? BIAS_FALLBACK
 
   // Subtitle text: prefer `explanation` (newer schema), fall back to `description`.
   const fullExplanation = (raw.explanation || raw.description || '').trim()
@@ -838,7 +806,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
             return (
               <div
                 key={entry.card.key}
-                className={emphasised ? 'rounded-[10px] border border-info/50 border-l-[3px] border-l-info bg-info/[0.02]' : ''}
+                className={emphasised ? 'rounded-[10px] border border-info/50 bg-info/[0.02]' : ''}
                 data-testid={emphasised ? 't1-triage-emphasised' : undefined}
               >
                 <TriageCard
@@ -1086,25 +1054,12 @@ export function PreAnalysisPanel({
     setHighlightedEdges([])
   }, [setHighlightedNodes, setHighlightedEdges])
 
-  // Goal change handler - update both ceeAnalysisReady AND outcomeNodeId for run pipeline
+  // Goal change handler — one atomic goal-context transition (P0-1 review
+  // round 2): invalidate the previous goal's producer target on readiness,
+  // select the new goal, and re-derive the scalar from it. The store action is
+  // the single source so select / mark-as-goal / delete stay consistent.
   const handleGoalChange = useCallback((goalId: string) => {
-    const { ceeAnalysisReady, setCeeAnalysisReady, setOutcomeNode } = useCanvasStore.getState()
-
-    // Update outcomeNodeId for run pipeline (useV2Run reads this)
-    setOutcomeNode(goalId)
-
-    // Update ceeAnalysisReady for pre-analysis data
-    if (ceeAnalysisReady) {
-      setCeeAnalysisReady({ ...ceeAnalysisReady, goal_node_id: goalId })
-    } else {
-      // Create minimal ceeAnalysisReady with the selected goal
-      // options: [] is required by type - run pipeline uses outcomeNodeId anyway
-      setCeeAnalysisReady({
-        status: undefined,
-        goal_node_id: goalId,
-        options: [],
-      })
-    }
+    useCanvasStore.getState().reselectGoalNode(goalId)
   }, [])
 
   // Threshold change handler - update both goal node data AND goalThreshold store field
@@ -1230,7 +1185,7 @@ export function PreAnalysisPanel({
     const node = nodes.find(n => n.id === nodeId)
     if (!node) return
 
-    const normalised = cap != null && cap > 0 ? rawValue / cap : rawValue
+    const normalised = normaliseRawFactorValue(rawValue, cap)
     updateNode(nodeId, {
       data: withObservedStateUpdate(node.data, {
         raw_value: rawValue,
@@ -1249,7 +1204,16 @@ export function PreAnalysisPanel({
     // computeSignedMean falls through to weight + direction (the canvas schema path).
     // Mark `userReviewedStrength: true` so `buildPriorityProgress` recognises
     // the edge as confirmed in the top-3 priority counter (pre-analysis-power-v2).
-    updateEdgeData(edgeId, { weight: value, strength_mean: undefined, userReviewedStrength: true })
+    //
+    // ⛔ `weightSource: 'user'` is REQUIRED here, not decorative. This handler
+    // fires when the user explicitly picks Weakly / Moderately / Strongly in
+    // `KeyRelationships`, i.e. the one case where the number genuinely came
+    // from a person. Without the stamp that real choice is indistinguishable
+    // from `USER_EDGE_DEFAULTS.weight`, so every downstream surface keeps
+    // saying "Not set" while the picker shows the chosen band highlighted —
+    // the two channels contradicting each other, which is the whole defect
+    // family. Mirrors `useInspectorMutations.setStrength`.
+    updateEdgeData(edgeId, { weight: value, strength_mean: undefined, userReviewedStrength: true, weightSource: 'user' })
   }, [])
 
   // Brief 5.8A D3b/D3c — bundle of T1 handlers. Stable identity so the
@@ -1457,12 +1421,21 @@ export function PreAnalysisPanel({
     // no target factor — these are graph-level signals that do not anchor to
     // a single node).
 
-    const pushDeterministic = (
-      id: string,
-      icon: typeof Frame,
-      title: string,
-      explanation: string,
-    ) => {
+    /**
+     * A deterministic trigger's identity. `{ code }` derives BOTH channels —
+     * title and icon — from the ONE bias registry, so the two can never
+     * drift apart at a call site (/simplify item 3). The explicit
+     * `{ id, title, icon }` arm is for non-bias graph signals:
+     * `missing_risks` is a graph-signal label, NOT a bias code, and is
+     * deliberately kept out of the registry.
+     */
+    type DeterministicTriggerSpec =
+      | { code: KnownBiasCode }
+      | { id: string; title: string; icon: LucideIcon }
+
+    const pushDeterministic = (spec: DeterministicTriggerSpec, explanation: string) => {
+      const { id, title, icon } =
+        'code' in spec ? { id: spec.code, ...biasSignal(spec.code) } : spec
       triggers.push({
         id,
         icon,
@@ -1479,20 +1452,20 @@ export function PreAnalysisPanel({
     // 1. Narrow framing: fewer than 2 non-baseline options
     const nonBaselineOptions = data.optionPreviews.filter(o => !o.isBaseline)
     if (nonBaselineOptions.length < 2) {
+      // Title AND icon from the one registry; the explanation copy stays
+      // local to this trigger.
       pushDeterministic(
-        'narrow_framing',
-        Frame,
-        'Narrow framing',
+        { code: 'narrow_framing' },
         'Consider structurally different approaches. What would a competitor do?',
       )
     }
 
     // 2. Missing risks: 0 or 1 risk nodes
     if (data.nodesByKind.risk.length <= 1) {
+      // Non-bias graph signal — explicit label + icon, deliberately not a
+      // registry entry.
       pushDeterministic(
-        'missing_risks',
-        ShieldAlert,
-        'Missing risks',
+        { id: 'missing_risks', title: 'Missing risks', icon: ShieldAlert },
         'Your model has few risks. Consider what could go wrong with each option.',
       )
     }
@@ -1516,9 +1489,7 @@ export function PreAnalysisPanel({
           if (source && AI_SOURCES.has(source) && (!drivers || drivers.length === 0)) {
             const label = (nd.label as string) ?? topFactorId
             pushDeterministic(
-              'overconfidence',
-              Gauge,
-              'Overconfidence',
+              { code: 'overconfidence' },
               `${label} drives most of the outcome but has no supporting evidence. Validate it before relying on it.`,
             )
           }
@@ -1559,9 +1530,7 @@ export function PreAnalysisPanel({
           }
           if (allNarrow && hasValidFactor) {
             pushDeterministic(
-              'anchoring',
-              Anchor,
-              'Anchoring',
+              { code: 'anchoring' },
               'Your options are similar. Try a wider range of approaches.',
             )
           }
@@ -1721,7 +1690,7 @@ export function PreAnalysisPanel({
   const pickedKey = startHereSignal ? `${startHereSignal.kind}:${startHereSignal.id}` : null
   const signalCount = allReviewNextSignals.length
   useEffect(() => {
-    if (import.meta.env.VITE_DEBUG_PREANALYSIS !== '1') return
+    if (import.meta.env?.VITE_DEBUG_PREANALYSIS !== '1') return
     // eslint-disable-next-line no-console
     console.debug('[PreAnalysis] pickStartHere', {
       signalCount,
@@ -2042,7 +2011,7 @@ export function PreAnalysisPanel({
             detail and is hidden from non-expert users. */}
         {isFailed && lastDraftError && (
           <div
-            className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-danger px-4 py-2.5"
+            className="rounded-md bg-panel border border-danger px-4 py-2.5"
             data-testid="draft-error-card"
           >
             <p className={`${typography.panelHeader} text-danger`}>Draft failed</p>
@@ -2137,6 +2106,21 @@ export function PreAnalysisPanel({
               />
             </SectionErrorBoundary>
           )}
+
+          {/* Success-target elicitation nudge. When a draft has landed with a
+              goal but no success target, this is the single always-visible,
+              value-framed pointer into the EXISTING target-setter (routes via
+              handleSetTargetFocus — the same seam SharpenYourThinking uses).
+              It unlocks the honestly-gated Goal-fit lens (buildHeroModel
+              UI-SEM-071/072; buildV7Lenses goalThreshold==null gate). Presence
+              /absence only — vanishes the instant a target is set, never blocks
+              analysis (target stays optional). Sits above the T1 readiness card
+              so it lands where the eye already is post-draft. */}
+          <GoalTargetNudge
+            hasGoalNode={hasGoalNode}
+            hasSuccessTarget={hasGoalTarget}
+            onSetTarget={handleSetTargetFocus}
+          />
 
           {/* Brief 5.8A D3a: T1 "Decision readiness" card. The .sc wrapper
               hosts the ring + 4 dimension bars (ModelHealthCard compact mode),

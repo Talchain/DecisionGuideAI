@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { Stage } from '@talchain/schemas/boundary'
 import { scenarioStageToV5Stage, deriveV5Stage, v5StageToScenarioStage } from '../stageMapper'
 
 describe('scenarioStageToV5Stage', () => {
@@ -79,5 +80,27 @@ describe('v5StageToScenarioStage — inverse mapping', () => {
     ['review', 'optimise'],
   ] as const)('%s → %s', (input, expected) => {
     expect(v5StageToScenarioStage(input)).toBe(expected)
+  })
+
+  // The canonical wire vocabulary is exactly frame|analyse|decide|review
+  // (schemas 0.19.0 `Stage`). Anything else — a future member, or a UI/DB
+  // `ScenarioStage` value mistaken for a wire value — must fail CLOSED to
+  // null ("no stage signal"), never leak undefined into the canvas store.
+  it.each(['ideate', 'evaluate', 'optimise', 'analyze', ''] as const)(
+    'fails closed to null for non-canonical %j',
+    (input) => {
+      expect(v5StageToScenarioStage(input as never)).toBeNull()
+    },
+  )
+
+  // Derived from the vendored enum rather than a hand-listed mirror, so a
+  // future member added in schemas surfaces here instead of drifting silently.
+  it('covers exactly the canonical Stage vocabulary', () => {
+    expect([...Stage.options].sort()).toEqual(
+      ['analyse', 'decide', 'frame', 'review'],
+    )
+    for (const member of Stage.options) {
+      expect(v5StageToScenarioStage(member)).not.toBeNull()
+    }
   })
 })

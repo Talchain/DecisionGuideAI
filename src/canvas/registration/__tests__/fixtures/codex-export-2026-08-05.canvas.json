@@ -1,0 +1,2122 @@
+{
+  "version": 2,
+  "timestamp": 1785945361781,
+  "nodes": [
+    {
+      "id": "dec_mrr_growth",
+      "type": "decision",
+      "position": {
+        "x": 392,
+        "y": 24
+      },
+      "data": {
+        "provenance": "ai_inferred",
+        "label": "MRR Growth Strategy to £250k",
+        "kind": "decision",
+        "type": "decision"
+      }
+    },
+    {
+      "id": "fac_budget_spend",
+      "type": "factor",
+      "position": {
+        "x": 24,
+        "y": 482
+      },
+      "data": {
+        "category": "controllable",
+        "display_value": "£0",
+        "provenance": "from_brief",
+        "label": "Growth Budget Deployed",
+        "kind": "factor",
+        "observedState": {
+          "value": 0,
+          "unit": "£",
+          "source": "brief_extraction",
+          "raw_value": 0,
+          "cap": 120000,
+          "extractionType": "explicit",
+          "factor_type": "cost",
+          "uncertainty_drivers": [
+            "Not provided"
+          ]
+        },
+        "type": "factor"
+      }
+    },
+    {
+      "id": "fac_churn_rate",
+      "type": "factor",
+      "position": {
+        "x": 116,
+        "y": 690
+      },
+      "data": {
+        "category": "external",
+        "prior": {
+          "distribution": "uniform",
+          "range_min": 0.25,
+          "range_max": 0.75
+        },
+        "extractionType": "inferred",
+        "display_value": "0.25 to 0.75",
+        "provenance": "ai_inferred",
+        "label": "Monthly Churn Rate",
+        "kind": "factor",
+        "type": "factor"
+      }
+    },
+    {
+      "id": "fac_conversion_rate",
+      "type": "factor",
+      "position": {
+        "x": 208,
+        "y": 482
+      },
+      "data": {
+        "category": "observable",
+        "display_value": "0.5",
+        "provenance": "ai_inferred",
+        "label": "Conversion Rate",
+        "kind": "factor",
+        "observedState": {
+          "value": 0.5,
+          "source": "cee_inference",
+          "extractionType": "inferred"
+        },
+        "type": "factor"
+      }
+    },
+    {
+      "id": "fac_lead_volume",
+      "type": "factor",
+      "position": {
+        "x": 576,
+        "y": 482
+      },
+      "data": {
+        "category": "observable",
+        "display_value": "0.5",
+        "provenance": "ai_inferred",
+        "label": "Lead Volume",
+        "kind": "factor",
+        "observedState": {
+          "value": 0.5,
+          "source": "cee_inference",
+          "extractionType": "inferred"
+        },
+        "type": "factor"
+      }
+    },
+    {
+      "id": "fac_onboarding_capacity",
+      "type": "factor",
+      "position": {
+        "x": 668,
+        "y": 690
+      },
+      "data": {
+        "category": "observable",
+        "display_value": "0.5",
+        "provenance": "ai_inferred",
+        "label": "Onboarding Capacity",
+        "kind": "factor",
+        "observedState": {
+          "value": 0.5,
+          "source": "cee_inference",
+          "extractionType": "inferred"
+        },
+        "type": "factor"
+      }
+    },
+    {
+      "id": "fac_partner_channel",
+      "type": "factor",
+      "position": {
+        "x": 392,
+        "y": 482
+      },
+      "data": {
+        "category": "controllable",
+        "encoding_map": {
+          "0": "No partner programme",
+          "1": "Partner channel active"
+        },
+        "display_value": "Low (0)",
+        "provenance": "ai_inferred",
+        "label": "Partner Channel Programme",
+        "kind": "factor",
+        "observedState": {
+          "value": 0,
+          "source": "cee_inference",
+          "extractionType": "inferred",
+          "factor_type": "other",
+          "uncertainty_drivers": [
+            "Not provided"
+          ]
+        },
+        "type": "factor"
+      }
+    },
+    {
+      "id": "fac_sales_headcount",
+      "type": "factor",
+      "position": {
+        "x": 760,
+        "y": 482
+      },
+      "data": {
+        "category": "controllable",
+        "encoding_map": {
+          "0": "No new sales hires",
+          "1": "Two new sales reps hired"
+        },
+        "display_value": "Low (0)",
+        "provenance": "ai_inferred",
+        "label": "Sales Headcount Investment",
+        "kind": "factor",
+        "observedState": {
+          "value": 0,
+          "source": "cee_inference",
+          "extractionType": "inferred",
+          "factor_type": "other",
+          "uncertainty_drivers": [
+            "Not provided"
+          ]
+        },
+        "type": "factor"
+      }
+    },
+    {
+      "id": "fac_sales_ramp",
+      "type": "factor",
+      "position": {
+        "x": 484,
+        "y": 690
+      },
+      "data": {
+        "category": "external",
+        "prior": {
+          "distribution": "uniform",
+          "range_min": 0.3,
+          "range_max": 0.8
+        },
+        "display_value": "0.3 to 0.8",
+        "provenance": "ai_inferred",
+        "label": "Sales Ramp Time",
+        "kind": "factor",
+        "type": "factor"
+      }
+    },
+    {
+      "id": "fac_self_serve",
+      "type": "factor",
+      "position": {
+        "x": 300,
+        "y": 690
+      },
+      "data": {
+        "category": "controllable",
+        "encoding_map": {
+          "0": "No self-serve tier",
+          "1": "Self-serve tier live"
+        },
+        "display_value": "Low (0)",
+        "provenance": "ai_inferred",
+        "label": "Self-Serve Tier Launch",
+        "kind": "factor",
+        "observedState": {
+          "value": 0,
+          "source": "cee_inference",
+          "extractionType": "inferred",
+          "factor_type": "other",
+          "uncertainty_drivers": [
+            "Not provided"
+          ]
+        },
+        "type": "factor"
+      }
+    },
+    {
+      "id": "goal_mrr",
+      "type": "goal",
+      "position": {
+        "x": 392,
+        "y": 1285
+      },
+      "data": {
+        "goal_threshold": 0.8,
+        "goal_threshold_raw": 250000,
+        "goal_threshold_unit": "£",
+        "goal_threshold_cap": 312500,
+        "goal_threshold_frame": "level",
+        "provenance": "ai_inferred",
+        "label": "Reach £250k Monthly Recurring Revenue",
+        "kind": "goal",
+        "observedState": {
+          "value": 0.576,
+          "baseline": 0.576,
+          "unit": "£",
+          "source": "brief_extraction",
+          "raw_value": 180000,
+          "cap": 312500
+        },
+        "type": "goal"
+      }
+    },
+    {
+      "id": "opt_hire_sales",
+      "type": "option",
+      "position": {
+        "x": 300,
+        "y": 204
+      },
+      "data": {
+        "interventions": {
+          "fac_sales_headcount": 1,
+          "fac_budget_spend": 0.83
+        },
+        "is_baseline": false,
+        "provenance": "ai_inferred",
+        "label": "Hire Two Sales Reps",
+        "kind": "option",
+        "interventionKeys": [
+          "fac_sales_headcount",
+          "fac_budget_spend"
+        ],
+        "type": "option"
+      }
+    },
+    {
+      "id": "opt_partner",
+      "type": "option",
+      "position": {
+        "x": 116,
+        "y": 204
+      },
+      "data": {
+        "interventions": {
+          "fac_partner_channel": 1,
+          "fac_budget_spend": 0.6
+        },
+        "is_baseline": false,
+        "provenance": "ai_inferred",
+        "label": "Invest in Partner Channel",
+        "kind": "option",
+        "interventionKeys": [
+          "fac_partner_channel",
+          "fac_budget_spend"
+        ],
+        "type": "option"
+      }
+    },
+    {
+      "id": "opt_self_serve",
+      "type": "option",
+      "position": {
+        "x": 484,
+        "y": 204
+      },
+      "data": {
+        "interventions": {
+          "fac_self_serve": 1,
+          "fac_budget_spend": 0.5
+        },
+        "is_baseline": false,
+        "provenance": "ai_inferred",
+        "label": "Launch Self-Serve Tier",
+        "kind": "option",
+        "interventionKeys": [
+          "fac_self_serve",
+          "fac_budget_spend"
+        ],
+        "type": "option"
+      }
+    },
+    {
+      "id": "opt_status_quo",
+      "type": "option",
+      "position": {
+        "x": 668,
+        "y": 204
+      },
+      "data": {
+        "interventions": {
+          "fac_sales_headcount": 0,
+          "fac_self_serve": 0,
+          "fac_partner_channel": 0,
+          "fac_budget_spend": 0
+        },
+        "is_baseline": true,
+        "provenance": "ai_inferred",
+        "label": "Keep Current Approach (Status Quo)",
+        "kind": "option",
+        "interventionKeys": [
+          "fac_sales_headcount",
+          "fac_self_serve",
+          "fac_partner_channel",
+          "fac_budget_spend"
+        ],
+        "type": "option"
+      }
+    },
+    {
+      "id": "out_mrr_retention",
+      "type": "outcome",
+      "position": {
+        "x": 484,
+        "y": 942
+      },
+      "data": {
+        "provenance": "ai_inferred",
+        "label": "MRR Retained from Existing Base",
+        "kind": "outcome",
+        "type": "outcome"
+      }
+    },
+    {
+      "id": "out_new_mrr",
+      "type": "outcome",
+      "position": {
+        "x": 300,
+        "y": 942
+      },
+      "data": {
+        "provenance": "ai_inferred",
+        "label": "New MRR Generated",
+        "kind": "outcome",
+        "type": "outcome"
+      }
+    },
+    {
+      "id": "risk_budget_overrun",
+      "type": "risk",
+      "position": {
+        "x": 208,
+        "y": 1116
+      },
+      "data": {
+        "provenance": "ai_inferred",
+        "label": "Budget Overrun Pressure",
+        "kind": "risk",
+        "type": "risk"
+      }
+    },
+    {
+      "id": "risk_onboarding_failure",
+      "type": "risk",
+      "position": {
+        "x": 576,
+        "y": 1116
+      },
+      "data": {
+        "provenance": "ai_inferred",
+        "label": "Onboarding Failure Rate",
+        "kind": "risk",
+        "type": "risk"
+      }
+    },
+    {
+      "id": "risk_slow_ramp",
+      "type": "risk",
+      "position": {
+        "x": 392,
+        "y": 1116
+      },
+      "data": {
+        "provenance": "ai_inferred",
+        "label": "Slow Sales Ramp Delay",
+        "kind": "risk",
+        "type": "risk"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-0",
+      "source": "dec_mrr_growth",
+      "target": "opt_hire_sales",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-1",
+      "source": "dec_mrr_growth",
+      "target": "opt_partner",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-2",
+      "source": "dec_mrr_growth",
+      "target": "opt_self_serve",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-3",
+      "source": "dec_mrr_growth",
+      "target": "opt_status_quo",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-4",
+      "source": "fac_budget_spend",
+      "target": "out_new_mrr",
+      "type": "styled",
+      "data": {
+        "weight": 0.24358974358974356,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.85,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.09743589743589742,
+        "exists_probability": 0.85,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.3,
+            "strength_std": 0.12,
+            "exists_probability": 0.85
+          },
+          "pass2": {
+            "strength_mean": 0.25,
+            "strength_std": 0.1,
+            "exists_probability": 0.9,
+            "reasoning": "Budget deployed is a core driver of new MRR but must share influence with leads, conversion, and ramp effects.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.28500000000000003,
+            "strength_std": 0.1,
+            "exists_probability": 0.8400000000000001
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.029999999999999916,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-5",
+      "source": "fac_budget_spend",
+      "target": "risk_budget_overrun",
+      "type": "styled",
+      "data": {
+        "weight": 0.5,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.88,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.12,
+        "exists_probability": 0.88,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "strength_band_change"
+          ],
+          "pass1": {
+            "strength_mean": 0.5,
+            "strength_std": 0.12,
+            "exists_probability": 0.88
+          },
+          "pass2": {
+            "strength_mean": 0.8,
+            "strength_std": 0.1,
+            "exists_probability": 0.9,
+            "reasoning": "Higher budget spend approaches the £120k limit, raising the probability of overrunning.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.8350000000000001,
+            "strength_std": 0.1,
+            "exists_probability": 0.8400000000000001
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.6700000000000002,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-6",
+      "source": "fac_churn_rate",
+      "target": "out_mrr_retention",
+      "type": "styled",
+      "data": {
+        "weight": 0.6,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.92,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "negative",
+        "strengthStd": 0.12,
+        "exists_probability": 0.92,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": -0.6,
+            "strength_std": 0.12,
+            "exists_probability": 0.92
+          },
+          "pass2": {
+            "strength_mean": -0.8,
+            "strength_std": 0.1,
+            "exists_probability": 0.99,
+            "reasoning": "Monthly churn is the primary determinant of how much MRR is retained from the existing base.",
+            "basis": "brief_explicit",
+            "needs_user_input": false,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": -0.765,
+            "strength_std": 0.1,
+            "exists_probability": 0.9299999999999999
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.33000000000000007,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-7",
+      "source": "fac_conversion_rate",
+      "target": "out_new_mrr",
+      "type": "styled",
+      "data": {
+        "weight": 0.20299145299145296,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.85,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.08119658119658119,
+        "exists_probability": 0.85,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "strength_band_change"
+          ],
+          "pass1": {
+            "strength_mean": 0.25,
+            "strength_std": 0.1,
+            "exists_probability": 0.85
+          },
+          "pass2": {
+            "strength_mean": 0.3,
+            "strength_std": 0.1,
+            "exists_probability": 0.99,
+            "reasoning": "Conversion rate directly scales new MRR by determining what fraction of leads close.",
+            "basis": "brief_explicit",
+            "needs_user_input": false,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.33499999999999996,
+            "strength_std": 0.1,
+            "exists_probability": 0.9299999999999999
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.3333333333333333,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-8",
+      "source": "fac_lead_volume",
+      "target": "out_new_mrr",
+      "type": "styled",
+      "data": {
+        "weight": 0.32478632478632474,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.9,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.08119658119658119,
+        "exists_probability": 0.9,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.4,
+            "strength_std": 0.1,
+            "exists_probability": 0.9
+          },
+          "pass2": {
+            "strength_mean": 0.35,
+            "strength_std": 0.1,
+            "exists_probability": 0.99,
+            "reasoning": "Lead volume is a key lever for new MRR since more leads proportionally drive more sales.",
+            "basis": "brief_explicit",
+            "needs_user_input": false,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.385,
+            "strength_std": 0.1,
+            "exists_probability": 0.9299999999999999
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.030000000000000027,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-9",
+      "source": "fac_onboarding_capacity",
+      "target": "out_mrr_retention",
+      "type": "styled",
+      "data": {
+        "weight": 0.3,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.85,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.1,
+        "exists_probability": 0.85,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "strength_band_change"
+          ],
+          "pass1": {
+            "strength_mean": 0.3,
+            "strength_std": 0.1,
+            "exists_probability": 0.85
+          },
+          "pass2": {
+            "strength_mean": 0.2,
+            "strength_std": 0.1,
+            "exists_probability": 0.99,
+            "reasoning": "Greater onboarding capacity helps ensure smooth customer setup, improving retention.",
+            "basis": "brief_explicit",
+            "needs_user_input": false,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.23500000000000001,
+            "strength_std": 0.1,
+            "exists_probability": 0.9299999999999999
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.3333333333333333,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-10",
+      "source": "fac_onboarding_capacity",
+      "target": "risk_onboarding_failure",
+      "type": "styled",
+      "data": {
+        "weight": 0.55,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.9,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "negative",
+        "strengthStd": 0.12,
+        "exists_probability": 0.9,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "strength_band_change"
+          ],
+          "pass1": {
+            "strength_mean": -0.55,
+            "strength_std": 0.12,
+            "exists_probability": 0.9
+          },
+          "pass2": {
+            "strength_mean": -0.7,
+            "strength_std": 0.1,
+            "exists_probability": 0.99,
+            "reasoning": "More onboarding capacity reduces the likelihood of customers failing during setup.",
+            "basis": "brief_explicit",
+            "needs_user_input": false,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": -0.6649999999999999,
+            "strength_std": 0.1,
+            "exists_probability": 0.9299999999999999
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.3333333333333333,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-11",
+      "source": "fac_partner_channel",
+      "target": "fac_conversion_rate",
+      "type": "styled",
+      "data": {
+        "weight": 0.18,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.7,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.1,
+        "exists_probability": 0.7,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.18,
+            "strength_std": 0.1,
+            "exists_probability": 0.7
+          },
+          "pass2": {
+            "strength_mean": 0.2,
+            "strength_std": 0.15,
+            "exists_probability": 0.8,
+            "reasoning": "Partner referrals tend to convert slightly above average, boosting overall conversion.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.23500000000000001,
+            "strength_std": 0.15,
+            "exists_probability": 0.74
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.11000000000000004,
+          "distance_to_goal": 2,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-12",
+      "source": "fac_partner_channel",
+      "target": "fac_lead_volume",
+      "type": "styled",
+      "data": {
+        "weight": 0.28,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.78,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.14,
+        "exists_probability": 0.78,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "raw_magnitude"
+          ],
+          "pass1": {
+            "strength_mean": 0.28,
+            "strength_std": 0.14,
+            "exists_probability": 0.78
+          },
+          "pass2": {
+            "strength_mean": 0.45,
+            "strength_std": 0.15,
+            "exists_probability": 0.9,
+            "reasoning": "A partner program can supply a substantial new stream of qualified leads.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.485,
+            "strength_std": 0.15,
+            "exists_probability": 0.8400000000000001
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.4099999999999999,
+          "distance_to_goal": 2,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-13",
+      "source": "fac_sales_headcount",
+      "target": "fac_lead_volume",
+      "type": "styled",
+      "data": {
+        "weight": 0.45,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.9,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.12,
+        "exists_probability": 0.9,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.45,
+            "strength_std": 0.12,
+            "exists_probability": 0.9
+          },
+          "pass2": {
+            "strength_mean": 0.35,
+            "strength_std": 0.1,
+            "exists_probability": 0.9,
+            "reasoning": "Additional sales hires typically generate more outreach and inbound leads.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.385,
+            "strength_std": 0.1,
+            "exists_probability": 0.8400000000000001
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.13,
+          "distance_to_goal": 2,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-14",
+      "source": "fac_sales_headcount",
+      "target": "risk_slow_ramp",
+      "type": "styled",
+      "data": {
+        "weight": 0.4465811965811966,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.92,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.11367521367521369,
+        "exists_probability": 0.92,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.55,
+            "strength_std": 0.14,
+            "exists_probability": 0.92
+          },
+          "pass2": {
+            "strength_mean": 0.4,
+            "strength_std": 0.1,
+            "exists_probability": 0.9,
+            "reasoning": "Each new hire introduces ramp-up risk, increasing the overall slow-ramp probability.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.43500000000000005,
+            "strength_std": 0.1,
+            "exists_probability": 0.8400000000000001
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.22999999999999998,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-15",
+      "source": "fac_sales_ramp",
+      "target": "out_new_mrr",
+      "type": "styled",
+      "data": {
+        "weight": 0.1786324786324786,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.8,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "negative",
+        "strengthStd": 0.08119658119658119,
+        "exists_probability": 0.8,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": -0.22,
+            "strength_std": 0.1,
+            "exists_probability": 0.8
+          },
+          "pass2": {
+            "strength_mean": -0.1,
+            "strength_std": 0.05,
+            "exists_probability": 0.99,
+            "reasoning": "Longer sales ramp delays revenue recognition, slightly reducing new MRR within the horizon.",
+            "basis": "brief_explicit",
+            "needs_user_input": false,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": -0.065,
+            "strength_std": 0.05,
+            "exists_probability": 0.9299999999999999
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.31,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-16",
+      "source": "fac_sales_ramp",
+      "target": "risk_slow_ramp",
+      "type": "styled",
+      "data": {
+        "weight": 0.5034188034188034,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.88,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.11367521367521369,
+        "exists_probability": 0.88,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": 0.62,
+            "strength_std": 0.14,
+            "exists_probability": 0.88
+          },
+          "pass2": {
+            "strength_mean": 0.6,
+            "strength_std": 0.1,
+            "exists_probability": 0.99,
+            "reasoning": "Longer ramp times directly heighten the risk of overall slow sales ramp.",
+            "basis": "brief_explicit",
+            "needs_user_input": false,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.635,
+            "strength_std": 0.1,
+            "exists_probability": 0.9299999999999999
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.030000000000000027,
+          "distance_to_goal": 1,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-17",
+      "source": "fac_self_serve",
+      "target": "fac_lead_volume",
+      "type": "styled",
+      "data": {
+        "weight": 0.35,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.82,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.14,
+        "exists_probability": 0.82,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "strength_band_change"
+          ],
+          "pass1": {
+            "strength_mean": 0.35,
+            "strength_std": 0.14,
+            "exists_probability": 0.82
+          },
+          "pass2": {
+            "strength_mean": 0.2,
+            "strength_std": 0.15,
+            "exists_probability": 0.85,
+            "reasoning": "A self-serve tier typically generates incremental inbound sign-up leads.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.23500000000000001,
+            "strength_std": 0.15,
+            "exists_probability": 0.79
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.3333333333333333,
+          "distance_to_goal": 2,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-18",
+      "source": "fac_self_serve",
+      "target": "fac_onboarding_capacity",
+      "type": "styled",
+      "data": {
+        "weight": 0.2,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.75,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "negative",
+        "strengthStd": 0.1,
+        "exists_probability": 0.75,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "sign_flip",
+            "strength_band_change"
+          ],
+          "pass1": {
+            "strength_mean": -0.2,
+            "strength_std": 0.1,
+            "exists_probability": 0.75
+          },
+          "pass2": {
+            "strength_mean": 0.5,
+            "strength_std": 0.15,
+            "exists_probability": 0.8,
+            "reasoning": "Self-serve reduces manual onboarding load, effectively freeing capacity.",
+            "basis": "domain_prior",
+            "needs_user_input": true,
+            "lint_corrected": false
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.535,
+            "strength_std": 0.15,
+            "exists_probability": 0.74
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 1,
+          "distance_to_goal": 2,
+          "sign_unstable": true,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": []
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-19",
+      "source": "opt_hire_sales",
+      "target": "fac_budget_spend",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-20",
+      "source": "opt_hire_sales",
+      "target": "fac_sales_headcount",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-21",
+      "source": "opt_partner",
+      "target": "fac_budget_spend",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-22",
+      "source": "opt_partner",
+      "target": "fac_partner_channel",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-23",
+      "source": "opt_self_serve",
+      "target": "fac_budget_spend",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-24",
+      "source": "opt_self_serve",
+      "target": "fac_self_serve",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-25",
+      "source": "opt_status_quo",
+      "target": "fac_budget_spend",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-26",
+      "source": "opt_status_quo",
+      "target": "fac_partner_channel",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-27",
+      "source": "opt_status_quo",
+      "target": "fac_sales_headcount",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-28",
+      "source": "opt_status_quo",
+      "target": "fac_self_serve",
+      "type": "styled",
+      "data": {
+        "weight": 1,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 1,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.01,
+        "exists_probability": 1,
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-29",
+      "source": "out_mrr_retention",
+      "target": "goal_mrr",
+      "type": "styled",
+      "data": {
+        "weight": 0.35,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.92,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.1,
+        "exists_probability": 0.92,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "strength_band_change"
+          ],
+          "pass1": {
+            "strength_mean": 0.35,
+            "strength_std": 0.1,
+            "exists_probability": 0.92
+          },
+          "pass2": {
+            "strength_mean": 0.18181818181818182,
+            "strength_std": 0.1,
+            "exists_probability": 0.9,
+            "reasoning": "Retained MRR contributes directly to achieving the revenue goal.",
+            "basis": "structural_inference",
+            "needs_user_input": true,
+            "lint_corrected": true
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.21681818181818183,
+            "strength_std": 0.1,
+            "exists_probability": 0.8400000000000001
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.3333333333333333,
+          "distance_to_goal": 0,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "LINT_BUDGET_RESCALE",
+              "edge_key": "out_mrr_retention->goal_mrr",
+              "before": 0.4,
+              "after": 0.18181818181818182
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-30",
+      "source": "out_new_mrr",
+      "target": "goal_mrr",
+      "type": "styled",
+      "data": {
+        "weight": 0.55,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.95,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "positive",
+        "strengthStd": 0.1,
+        "exists_probability": 0.95,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "existence_boundary_crossing"
+          ],
+          "pass1": {
+            "strength_mean": 0.55,
+            "strength_std": 0.1,
+            "exists_probability": 0.95
+          },
+          "pass2": {
+            "strength_mean": 0.36363636363636365,
+            "strength_std": 0.1,
+            "exists_probability": 0.9,
+            "reasoning": "New MRR is the main driver for reaching the £250k target by the deadline.",
+            "basis": "structural_inference",
+            "needs_user_input": true,
+            "lint_corrected": true
+          },
+          "pass2_adjusted": {
+            "strength_mean": 0.3986363636363637,
+            "strength_std": 0.1,
+            "exists_probability": 0.8400000000000001
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.3333333333333333,
+          "distance_to_goal": 0,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "LINT_BUDGET_RESCALE",
+              "edge_key": "out_new_mrr->goal_mrr",
+              "before": 0.8,
+              "after": 0.36363636363636365
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-31",
+      "source": "risk_budget_overrun",
+      "target": "goal_mrr",
+      "type": "styled",
+      "data": {
+        "weight": 0.18,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.82,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "negative",
+        "strengthStd": 0.08,
+        "exists_probability": 0.82,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": -0.18,
+            "strength_std": 0.08,
+            "exists_probability": 0.82
+          },
+          "pass2": {
+            "strength_mean": -0.13636363636363635,
+            "strength_std": 0.1,
+            "exists_probability": 0.9,
+            "reasoning": "Budget overrun risk detracts from the ability to sustain growth investments.",
+            "basis": "structural_inference",
+            "needs_user_input": true,
+            "lint_corrected": true
+          },
+          "pass2_adjusted": {
+            "strength_mean": -0.10136363636363635,
+            "strength_std": 0.1,
+            "exists_probability": 0.8400000000000001
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.1572727272727273,
+          "distance_to_goal": 0,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "LINT_BUDGET_RESCALE",
+              "edge_key": "risk_budget_overrun->goal_mrr",
+              "before": -0.3,
+              "after": -0.13636363636363635
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-32",
+      "source": "risk_onboarding_failure",
+      "target": "goal_mrr",
+      "type": "styled",
+      "data": {
+        "weight": 0.3,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.9,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "negative",
+        "strengthStd": 0.1,
+        "exists_probability": 0.9,
+        "validation": {
+          "status": "contested",
+          "contested_reasons": [
+            "strength_band_change"
+          ],
+          "pass1": {
+            "strength_mean": -0.3,
+            "strength_std": 0.1,
+            "exists_probability": 0.9
+          },
+          "pass2": {
+            "strength_mean": -0.18181818181818182,
+            "strength_std": 0.1,
+            "exists_probability": 0.9,
+            "reasoning": "Onboarding failures undermine retention and thus the overall revenue goal.",
+            "basis": "structural_inference",
+            "needs_user_input": true,
+            "lint_corrected": true
+          },
+          "pass2_adjusted": {
+            "strength_mean": -0.14681818181818182,
+            "strength_std": 0.1,
+            "exists_probability": 0.8400000000000001
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.3333333333333333,
+          "distance_to_goal": 0,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "LINT_BUDGET_RESCALE",
+              "edge_key": "risk_onboarding_failure->goal_mrr",
+              "before": -0.4,
+              "after": -0.18181818181818182
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    },
+    {
+      "id": "e-33",
+      "source": "risk_slow_ramp",
+      "target": "goal_mrr",
+      "type": "styled",
+      "data": {
+        "weight": 0.25,
+        "style": "solid",
+        "curvature": 0.15,
+        "pathType": "bezier",
+        "kind": "decision-probability",
+        "functionType": "linear",
+        "beliefExists": 0.88,
+        "beliefStrength": 0.5,
+        "schemaVersion": 4,
+        "direction": "negative",
+        "strengthStd": 0.1,
+        "exists_probability": 0.88,
+        "validation": {
+          "status": "agreed",
+          "contested_reasons": [],
+          "pass1": {
+            "strength_mean": -0.25,
+            "strength_std": 0.1,
+            "exists_probability": 0.88
+          },
+          "pass2": {
+            "strength_mean": -0.13636363636363635,
+            "strength_std": 0.1,
+            "exists_probability": 0.9,
+            "reasoning": "Slow ramp risk delays revenue contribution and jeopardizes meeting the target.",
+            "basis": "structural_inference",
+            "needs_user_input": true,
+            "lint_corrected": true
+          },
+          "pass2_adjusted": {
+            "strength_mean": -0.10136363636363635,
+            "strength_std": 0.1,
+            "exists_probability": 0.8400000000000001
+          },
+          "bias_correction": {
+            "strength_mean_offset": 0.035,
+            "strength_std_offset": 0,
+            "exists_probability_offset": -0.06
+          },
+          "max_divergence": 0.2972727272727273,
+          "distance_to_goal": 0,
+          "sign_unstable": false,
+          "pass2_missing": false,
+          "evoi_rank": null,
+          "evoi_impact": null,
+          "was_shown": false,
+          "user_action": "pending",
+          "resolved_value": null,
+          "resolved_by": "default",
+          "validation_lint_log": [
+            {
+              "code": "LINT_BUDGET_RESCALE",
+              "edge_key": "risk_slow_ramp->goal_mrr",
+              "before": -0.3,
+              "after": -0.13636363636363635
+            }
+          ]
+        },
+        "beliefExistsSource": "cee",
+        "weightSource": "cee",
+        "strengthStdSource": "cee",
+        "directionSource": "cee",
+        "provenanceDisplay": "ai_inferred"
+      }
+    }
+  ]
+}

@@ -40,15 +40,10 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     stabilityPercentage: null,
     winRate: null,
     isResultsMode: false,
+    predictedOutcome: null,
+    valueOfInformation: null,
+    voiRank: null,
   })),
-}))
-
-vi.mock('../../../hooks/useCEEInsights', () => ({
-  useCEEInsights: vi.fn(() => ({ data: null })),
-}))
-
-vi.mock('../../../hooks/useISLValidation', () => ({
-  useISLValidation: vi.fn(() => ({ data: null })),
 }))
 
 import { useCanvasStore } from '../../store'
@@ -86,6 +81,9 @@ describe('GoalNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: false,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
   })
 
@@ -111,9 +109,60 @@ describe('GoalNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
-    renderGoal()
+    // UI-SEM-082: the probability only renders with a user target set.
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
     expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
+  })
+
+  // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): modelled-basis
+  // caveat, same gate/wording as OptionCards' goal_fit_basis caveat.
+  it('renders the modelled-basis caveat adjacent to the number when flagged', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.73,
+      achievementProbabilityIsModelledBasis: true,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    // UI-SEM-082: caveat renders adjacent to the probability, which needs a target.
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    expect(screen.getByTestId('goal-fit-basis-caveat-node')).toHaveTextContent(
+      "Modelled from the target's projected outcome distribution, not a directly-set starting value.",
+    )
+  })
+
+  it('renders no caveat when the flag is absent (honest default)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.73,
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    // UI-SEM-082: target set so the probability renders — this pins that the
+    // caveat is absent because the FLAG is false, not because the whole block
+    // is gated away.
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
+    expect(screen.queryByTestId('goal-fit-basis-caveat-node')).toBeNull()
   })
 
   // T10: Stability bar
@@ -300,6 +349,35 @@ describe('GoalNode', () => {
 
   it('shows coaching prompt when goal_threshold_raw is whitespace-only', () => {
     renderGoal({ goal_threshold_raw: '   ' })
+    expect(screen.queryByText(/Target:/)).toBeNull()
+    expect(screen.getByText(/Help me set a target/)).toBeDefined()
+  })
+
+  // ROADMAP 1.1 fix (6b-goal-capture evidence, finding b): the pre-analysis-v3
+  // Hero's Success-target field writes `success_threshold` +
+  // `threshold_source: 'user'` onto the goal node's data (setGoalThresholdAndUpdateNode)
+  // — never `goal_threshold_raw` (that field is CEE-backfilled only, see
+  // applyDraftResult.ts). The badge previously checked goal_threshold_raw
+  // ONLY, so it kept reading "no target" even after the Hero set one. This
+  // mirrors the Hero's own selector (computeSuccessState.ts), which already
+  // treats a user-set success_threshold as "set".
+  it('treats a Hero-set success_threshold (threshold_source=user) as a set target, no goal_threshold_raw needed', () => {
+    renderGoal({ success_threshold: 15, threshold_source: 'user', goal_threshold_raw: null })
+    expect(screen.getByText(/Target:/)).toBeDefined()
+    expect(screen.queryByText(/Help me set a target/)).toBeNull()
+  })
+
+  it('post-analysis: Hero-set success_threshold suppresses the "Analysis complete. Set a target" badge', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({ results: { status: 'complete', report: {} } }) as any)
+    )
+    renderGoal({ success_threshold: 15, threshold_source: 'user', goal_threshold_raw: null })
+    expect(screen.queryByText('Analysis complete. Set a target to see your chances.')).toBeNull()
+    expect(screen.getByText(/Target:/)).toBeDefined()
+  })
+
+  it('does not treat success_threshold as set when threshold_source is not user (e.g. CEE default)', () => {
+    renderGoal({ success_threshold: 15, threshold_source: undefined, goal_threshold_raw: null })
     expect(screen.queryByText(/Target:/)).toBeNull()
     expect(screen.getByText(/Help me set a target/)).toBeDefined()
   })
@@ -609,3 +687,260 @@ describe('GoalNode', () => {
     expect(screen.getByText(/Help me set a target/)).toBeDefined()
   })
 })
+
+// ─── Audit §8 P1: goal-state copy matrix (threshold × probability) ──────────
+describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState() as any))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: false,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+  })
+
+  it('target unset + no probability (pre-analysis): keeps the set-a-target coaching', () => {
+    renderGoal()
+    expect(screen.getByText('Goal target missing')).toBeDefined()
+    expect(screen.getByText('Help me set a target')).toBeDefined()
+    expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+  })
+
+  // F5a (Codex review): a CURRENT run (no genuine 'changed'/'stale' freshness)
+  // that simply produced no goal probability must NOT demand a rerun — that
+  // contradicted the panel's "Analysis reflects the current model". It shows the
+  // honest absent-state copy instead.
+  it('target SET + no probability + CURRENT run: honest absent-state copy, NOT a rerun demand', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+        // No genuine change signal: freshness fresh, overlay clean → 'current'.
+        analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+        analysisFreshnessDirty: false,
+      }) as any)
+    )
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    expect(screen.getByText('Target set. This run did not produce a goal probability.')).toBeDefined()
+    expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+    // The live bug: card said "Analysis complete. Set a target to see your
+    // chances." while a target was set. Must never render here.
+    expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()
+    expect(screen.queryByText('Help me set a target')).toBeNull()
+  })
+
+  /**
+   * ROADMAP 2.275 — the witnessed same-screen contradiction.
+   *
+   * On staging `a27cadf7` (witness-2267 §6b, pixels confirmed in §11a) this
+   * node rendered "Target set. This run did not produce a goal probability."
+   * while the Analysis→Goal-fit sub-tab rendered "< 1%" for all four options,
+   * both in viewport at 1280×800. The per-option figures were real
+   * (`probability_of_joint_goal` + `goal_fit_basis`); only the NODE-level
+   * figure was absent, because the run designates no leading option.
+   *
+   * The node must stop denying what the same report holds — without inventing
+   * a number and without designating an option.
+   */
+  it('target SET + no node-level probability BUT per-option goal fit exists: acknowledges it, never denies it', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      goalFitAvailable: true,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    } as any)
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+        analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+        analysisFreshnessDirty: false,
+      }) as any)
+    )
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+
+    // The flat denial is the defect — it must be gone.
+    expect(screen.queryByText('Target set. This run did not produce a goal probability.')).toBeNull()
+    expect(
+      screen.getByText(/No overall goal probability for this run — see Goal fit for each option/),
+    ).toBeDefined()
+    // No fabricated number, no designated option.
+    expect(screen.queryByText(/% chance of reaching target/)).toBeNull()
+    expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+  })
+
+  it('keeps the flat absent-state copy when the run really carries no goal figure anywhere', () => {
+    // Negative control for the branch above: goalFitAvailable false ⇒ the
+    // original honest denial is still correct and must survive.
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+        analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+        analysisFreshnessDirty: false,
+      }) as any)
+    )
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    expect(screen.getByText('Target set. This run did not produce a goal probability.')).toBeDefined()
+    expect(screen.queryByText(/see Goal fit/)).toBeNull()
+  })
+
+  // Positive control: a GENUINELY stale/changed model (freshness 'stale' →
+  // 'changed' semantic) DOES warrant the rerun prompt.
+  it('target SET + no probability + CHANGED model: shows the rerun demand', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+        analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_changed' },
+        analysisFreshnessDirty: true,
+      }) as any)
+    )
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    expect(screen.getByText('Target set. Rerun the analysis to update your results.')).toBeDefined()
+    expect(screen.queryByText(/This run did not produce a goal probability/)).toBeNull()
+    expect(screen.queryByText('Help me set a target')).toBeNull()
+  })
+
+  it('target set + probability available: probability rendering wins, no rerun line', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.73,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+      }) as any)
+    )
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
+    expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+    expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()
+  })
+
+  // Lane 4 (Paul ruled: GATE ON USER TARGET) — UI-SEM-082, extends UI-SEM-071.
+  // The producer can synthesise an auto_goal_threshold and return a
+  // goal_probability even when the USER set no target (the selector adopts
+  // probability_of_joint_goal — UI-SEM-071 class). The card must NOT crown a
+  // "chance of reaching target" against a target the user never set, and the
+  // "Set a target" invitation and the probability line must NEVER co-render.
+  it('target unset + probability available (auto-threshold): probability SUPPRESSED, invitation shown (mutual exclusivity)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.4,
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: { option_comparison: [{ option_id: 'o1', win_probability: 0.5 }] },
+        },
+      }) as any)
+    )
+    renderGoal() // no goal_threshold_raw / success_threshold → hasThreshold === false
+    // Invitation shown…
+    expect(screen.getByText('Analysis complete. Set a target to see your chances.')).toBeDefined()
+    // …and the goal-fit claim SUPPRESSED — the two strings never co-render.
+    expect(screen.queryByText(/chance of reaching target/)).toBeNull()
+    expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+  })
+
+  it('target unset + low auto-probability: the "Target may be ambitious" guidance is also suppressed', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.05, // < 0.10 would trigger the guidance if ungated
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        // A report with a real per-option win_probability so the invitation
+        // copy is the "Analysis complete" variant (hasAnyProbability === true).
+        results: {
+          status: 'complete',
+          report: { option_comparison: [{ option_id: 'o1', win_probability: 0.5 }] },
+        },
+      }) as any)
+    )
+    renderGoal() // hasThreshold === false
+    expect(screen.getByText('Analysis complete. Set a target to see your chances.')).toBeDefined()
+    expect(screen.queryByText(/chance of reaching target/)).toBeNull()
+    expect(screen.queryByText(/Target may be ambitious/)).toBeNull()
+  })
+
+  it('mutual-exclusivity invariant: with a user target the probability shows and the invitation is absent', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.4,
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+      }) as any)
+    )
+    renderGoal({ goal_threshold_raw: '60', goal_threshold_unit: '%' }) // hasThreshold === true
+    expect(screen.getByText(/40.*% chance of reaching target/)).toBeDefined()
+    expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()
+  })
+})
+
+// ─── Audit §8 P1: stale treatment on the stability bar ──────────────────────
+// The 'stale stability bar (audit §8 P1)' describe that lived here was
+// retired with the graph-hash stale guard (deleted 2026-07-16): its remaining
+// negative test asserted the absence of `data-stale` — an attribute NO code
+// path can produce any more — while seeding `_internal.graphHash`, a key
+// production never writes. An absence pin without a possible positive is
+// permanently green and pins nothing (trap 13). Freshness decoration now
+// belongs to the panel surfaces via the composed trust semantic
+// (useAnalysisTrust); if node-level decoration returns, pin it against that
+// source with a positive control.

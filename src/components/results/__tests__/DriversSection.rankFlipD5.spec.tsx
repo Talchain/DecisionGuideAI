@@ -43,16 +43,19 @@ function makeData(drivers: DriverItem[]): DriversSectionData {
   }
 }
 
-describe('DriversSection — Brief 5.8B D5 visible "Ranking may shift" row', () => {
-  it('renders the row when rankFlipRate >= 0.15', () => {
+describe('DriversSection — "Ranking may shift" row hidden (fragility → fragile-factors section)', () => {
+  it('does NOT render the row even when rankFlipRate >= 0.15', () => {
     render(
       <DriversSection
         data={makeData([makeDriver({ rankFlipRate: 0.32 })])}
       />,
     )
-    const row = screen.getByTestId('driver-ranking-shift-factor-1')
-    expect(row).toBeInTheDocument()
-    expect(row).toHaveTextContent('Ranking may shift 32%')
+    // "Ranking may shift" is a fragility/ranking-shift claim; per the
+    // single-source rule it belongs in the fragile-factors section, not the
+    // influence-only driver section (SHOW_FRAGILITY_IN_DRIVER_SECTION). So the
+    // row stays hidden even when rankFlipRate >= 0.15.
+    expect(screen.queryByTestId('driver-ranking-shift-factor-1')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Ranking may shift/i)).not.toBeInTheDocument()
   })
 
   it('omits the row when rankFlipRate < 0.15', () => {

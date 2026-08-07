@@ -10,8 +10,8 @@ import type { NodeType, OptionNodeData } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
+import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
-import { useStaleGuard } from '../useStaleGuard'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
@@ -31,6 +31,9 @@ import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { OptionAdvancedEditor } from '../editors/OptionAdvancedEditor'
 import { ResultsLink } from '../shared/ResultsLink'
+import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../../../lib/decisionVerdict'
+import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
+import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 
 export const OptionPanel = memo(function OptionPanel({
   nodeId,
@@ -44,10 +47,21 @@ export const OptionPanel = memo(function OptionPanel({
   const isResultsMode = resultsStatus === 'complete'
   const optionComparison = useCanvasStore(s => s.results?.report?.option_comparison)
   const storyHeadlines = useCanvasStore(s => s.results?.report?.story_headlines)
+  // SINGLE VERDICT: the shared "is there a leading option?" answer, derived
+  // from the same PLoT report the canvas badge and results panel read.
+  const resultsReport = useCanvasStore(s => s.results?.report)
+
+  const verdict = useMemo(
+    () => deriveDecisionVerdict(resultsReport as DecisionVerdictReportLike | null | undefined, {
+      visibleOptionIds: new Set(
+        nodes.filter(n => n.type === 'option' || n.data?.type === 'option').map(n => n.id),
+      ),
+    }),
+    [resultsReport, nodes],
+  )
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
-  const { isStale } = useStaleGuard()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
 
   // Description — EmptyDescriptionPrompt pattern
@@ -124,7 +138,7 @@ export const OptionPanel = memo(function OptionPanel({
           nodeId: e.target,
           nodeKind: kind,
           label: String(tgt.data?.label ?? e.target),
-          strength: { weight: e.data?.weight ?? 0, direction: (e.data?.direction ?? 'positive') as 'positive' | 'negative' },
+          strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
       .filter(Boolean) as Array<{
@@ -132,7 +146,7 @@ export const OptionPanel = memo(function OptionPanel({
         nodeId: string
         nodeKind: NodeType
         label: string
-        strength: { weight: number; direction: 'positive' | 'negative' }
+        strength: EdgeValueDisplay
       }>
   }, [edges, nodes, nodeId, interventionIds])
 
@@ -316,7 +330,7 @@ export const OptionPanel = memo(function OptionPanel({
           || (allOptions.length > 1 && allOptions.some(o => o.winPct != null))
         return (
         <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
-          <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+          <StaleGuardBanner hasResults={isResultsMode}>
             {hasImpactContent ? (
             <div>
               {/* Win probability hero */}
@@ -334,13 +348,38 @@ export const OptionPanel = memo(function OptionPanel({
 
               {/* Comparative context */}
               {displayMetadata.winRate !== null && allOptions.length > 1 && (() => {
+                // The NUMBER, for the pp arithmetic below.
                 const myPct = Math.round(displayMetadata.winRate * 100)
+                // The STRING, from the shared formatter the hero readout at
+                // the top of this panel already uses. Hand-formatting it a
+                // second time is how one surface came to print "0%" where the
+                // other printed "< 1%" for the same win rate, three lines
+                // apart in one panel.
+                const myReadout = formatWinProbability(displayMetadata.winRate)
                 const leader = allOptions.reduce((best, o) => (o.winPct ?? 0) > (best.winPct ?? 0) ? o : best, allOptions[0])
                 const leaderPct = leader.winPct ?? 0
                 const gap = leaderPct - myPct
                 if (leader.isCurrent) {
-                  return <p className={`${typography.panelBody} text-success mt-1`}>Currently the leading option.</p>
+                  // SINGLE VERDICT (2026-07-25): the inspector may only say
+                  // "the leading option" when the shared verdict says one
+                  // exists. Previously this fired on being the local win-max,
+                  // so it could assert a leader in the same session where the
+                  // results panel said "no clear leading option".
+                  if (verdict.hasLeadingOption === false) return null
+                  return (
+                    <p className={`${typography.panelBody} text-success mt-1`}>
+                      {COMPARATIVE_COPY.sentence(myReadout)}
+                    </p>
+                  )
                 }
+                // ROADMAP 1.223: both remaining branches presuppose a leading
+                // option — one names it ("the leading option"), one names the
+                // option that is ahead ("Behind {label} by Npp"). Each was
+                // ungated, firing off the local win-max and its own 5pp/10pp
+                // threshold, so on a withheld turn they reinstated exactly the
+                // claim the branch above had just declined to make. Same gate,
+                // same silent-omission convention.
+                if (verdict.hasLeadingOption === false) return null
                 if (gap <= 5) {
                   return <p className={`${typography.panelBody} text-text-body mt-1`}>Within {gap}pp of the leading option. Small model changes could shift this.</p>
                 }

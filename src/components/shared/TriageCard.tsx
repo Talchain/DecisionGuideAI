@@ -49,8 +49,14 @@ export interface TriageCardProps {
   category: TriageCardCategory
   /** Optional influence score 0-1 for influence bar */
   influence?: number | null
-  /** Optional EVOI impact (percentage points) */
-  evoiImpact?: number | null
+  /**
+   * ⛔ `evoiImpact` DELETED — do not reinstate.
+   * It rendered `{n.toFixed(1)}pp` on BOTH card variants, fed from
+   * `evidence_gaps[].evpi_percentage_points` — a figure ISL measures at 0.0
+   * for the very factors PLoT scores at 12.3 / 10.2 / 6.6, produced by a
+   * formula that multiplies BY the top-two win-probability gap and so
+   * inverts decision theory.
+   */
   /** Variant: 'default' for full card, 'compact' for quick-fix row */
   variant?: 'default' | 'compact'
   /** Action config */
@@ -305,7 +311,7 @@ function InlineValueControls({
 
 // ── Compact variant (quick-fix rows, ranks 4-6) ─────────────────────────────
 
-function CompactTriageCard({ title, ordinal, category, badgeColor, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, onUpdateEdgeStrength, sourcePill, subtitle, disclosureLabels }: TriageCardProps) {
+function CompactTriageCard({ title, ordinal, category, badgeColor, influence, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, onUpdateEdgeStrength, sourcePill, subtitle, disclosureLabels }: TriageCardProps) {
   const influencePct = influence != null ? Math.round(influence * 100) : null
   const resolvedBadgeColor = badgeColor ?? BADGE_COLORS[category]
   const isEdge = action?.targetType === 'edge'
@@ -343,15 +349,8 @@ function CompactTriageCard({ title, ordinal, category, badgeColor, influence, ev
             <span className={`${typography.panelMeta} text-text-light`}>{influencePct}%</span>
           </div>
         )}
-        {/* Brief 4 Phase 8 P1 #2 applied to compact variant too: surfaced
-            evidence-gap cards ranked 4+ live in the compact AlsoConsider
-            disclosure. They need the Npp pill for the same reason the
-            default variant does — motivates the Set-value action. */}
-        {evoiImpact != null && (
-          <span className={`shrink-0 px-1.5 py-0.5 rounded-full border border-info/30 ${typography.panelMeta} text-text-body`}>
-            {evoiImpact.toFixed(1)}pp
-          </span>
-        )}
+        {/* ⛔ REMOVED: the `{evoiImpact.toFixed(1)}pp` pill. See the prop
+            comment on TriageCardProps. */}
       </div>
       {/* Row 2: subtitle (truncating) on the left, edge quick-select OR action
           icons on the right. The subtitle is new in this variant — it was
@@ -415,7 +414,6 @@ export function TriageCard(props: TriageCardProps) {
     subtitle,
     category,
     influence,
-    evoiImpact,
     variant = 'default',
     action,
     editorConfig,
@@ -493,15 +491,8 @@ export function TriageCard(props: TriageCardProps) {
             <span className={`${typography.panelMeta} text-text-light tabular-nums`}>{influencePct}%</span>
           </div>
         )}
-        {/* EVPI percentage-point pill — always visible on surfaced gap cards
-            (Brief 4 Task 9 + P1 #2). The prior gate suppressed the pill when
-            an influence% existed, but evidence cards need the Npp signal to
-            motivate the "Set value" action regardless of influence weight. */}
-        {evoiImpact != null && (
-          <span className={`shrink-0 px-1.5 py-0.5 rounded-full border border-info/30 ${typography.panelMeta} text-text-body`}>
-            {evoiImpact.toFixed(1)}pp
-          </span>
-        )}
+        {/* ⛔ REMOVED: the EVPI percentage-point pill. See the prop comment
+            on TriageCardProps. */}
       </div>
 
       {/* Coaching line + value controls — stacked.

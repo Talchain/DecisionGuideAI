@@ -10,6 +10,9 @@
  */
 
 import type { ObservedState } from './types'
+import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
+import type { EdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
+import { selectDriverDisplayModel, extractPolicyRow } from '../../../components/results/driverDisplayModel'
 import {
   GENERIC_PLACEHOLDER_UNITS,
   CURRENCY_SYMBOLS,
@@ -70,26 +73,41 @@ export function getPrimaryValue(obs: ObservedState): string | null {
 
 // ── Source mapping ────────────────────────────────────────────────────────────
 
-const SOURCE_LABELS: Record<string, string> = {
-  brief_extraction: 'From brief',
-  cee_inference: 'AI estimate',
-  user: 'User edited',
-}
-
-const SOURCE_TOOLTIPS: Record<string, string> = {
-  brief_extraction: 'Source: brief_extraction',
-  cee_inference: 'Source: cee_inference',
-  user: 'Source: user',
+/**
+ * ROADMAP 2.638 S2 — keyed on the canonical CLASS, not on three literals.
+ *
+ * The old map listed `brief_extraction`, `cee_inference` and `user` only, and
+ * its `?? source` fallback then rendered the RAW WIRE LITERAL to the user:
+ * `mapSourceToDisplay('user_confirmed')` returned the string
+ * `"user_confirmed"`. This feeds the Model tab's copy-to-clipboard text, so the
+ * leak left the estate in what a user pastes into a document.
+ *
+ * TOTAL over `ValueProvenanceKind` — a new kind is a type error, not a silent
+ * pass-through (trap 12).
+ */
+const KIND_LABELS: Record<ValueProvenanceKind, string> = {
+  brief: 'From brief',
+  ai: 'AI estimate',
+  confirmed: 'Confirmed by you',
+  edited: 'User edited',
+  assumption: 'Your assumption',
+  human: 'Set by you',
 }
 
 export function mapSourceToDisplay(source: string | undefined): string | null {
   if (!source) return null
-  return SOURCE_LABELS[source] ?? source
+  const cls = classifyValueProvenance(source)
+  return cls ? KIND_LABELS[cls.kind] : source
 }
 
+/**
+ * The raw literal, for a title attribute. Byte-identical to the map it
+ * replaced: every entry in the old `SOURCE_TOOLTIPS` was `Source: <literal>`,
+ * i.e. exactly what its own fallback produced (2.638 S2).
+ */
 export function mapSourceToTooltip(source: string | undefined): string | undefined {
   if (!source) return undefined
-  return SOURCE_TOOLTIPS[source] ?? `Source: ${source}`
+  return `Source: ${source}`
 }
 
 // ── Factor verification ─────────────────────────────────────────────────────
@@ -105,4 +123,93 @@ export function countFactorsToVerify(factorNodes: ReadonlyArray<{ data: unknown 
 
 // ── Strength semantic labels ──────────────────────────────────────────────────
 // Re-export from strengthBands.ts (canonical thresholds from validation_ui_data_contract_v1.1).
-export { getStrengthLabel as strengthSemanticLabel } from './strengthBands'
+export { getDirectionalStrengthLabel as strengthSemanticLabel } from './strengthBands'
+
+// ── Direction-gated display helpers (ROADMAP 2.263) ──────────────────────────
+//
+// The COLOUR and the LEADING SIGN are direction claims that carry no words, and
+// they leaked the same fabrication the label did: `signedMean >= 0` painted an
+// undirected edge green and printed `+0.30`, because `resolveEdgeSignedStrength
+// Display` hands back `+|weight|` when nothing states a direction. Both now ask
+// the resolver, so an unstated direction reads as a plain neutral magnitude.
+
+/**
+ * Tone class for a direction claim. Neutral unless the direction is STATED —
+ * green/red are verdicts and an unstated direction has no verdict to report.
+ */
+export function directionToneClass(direction: EdgeDirectionDisplay): string {
+  if (!direction.show) return 'text-text-light'
+  return direction.direction === 'negative' ? 'text-danger' : 'text-success'
+}
+
+/**
+ * A signed scalar rendered only as signed as the evidence allows.
+ *
+ * Stated direction → the sign is meaningful, so `+0.30` / `-0.30`.
+ * Unstated        → print the MAGNITUDE with no sign at all. A bare `+` is a
+ *                   claim, and `-` would be a different one; the honest render
+ *                   of "we have a size but not a direction" is the size.
+ */
+export function signedScalarText(
+  value: number,
+  direction: EdgeDirectionDisplay,
+  digits: number,
+): string {
+  if (!direction.show) return Math.abs(value).toFixed(digits)
+  return `${value >= 0 ? '+' : ''}${value.toFixed(digits)}`
+}
+
+// ── Factor influence (model-tab factor cards) ───────────────────────────────
+
+/**
+ * Derive a factor_id → influence score map for the model-tab "factor cards
+ * sorted by influence" (FactorsSection) — THROUGH the shared display policy.
+ *
+ * Lane 2 (Codex R3-B1 class): this function previously adopted the producer
+ * `influence_score` PER-FACTOR with elasticity-flavoured fallbacks — under
+ * partial producer coverage that mixes two incomparable bases in one
+ * ranking, and the model-tab card could contradict the graph badge for the
+ * SAME node (useNodeDisplayMetadata already ranks via selectDriverDisplayModel).
+ * Now both feed the one policy: producer influence_score is adopted only
+ * when EVERY factor carries it (complete-metric-set); otherwise every factor
+ * falls back to per-set normalised |elasticity|.
+ *
+ * ROADMAP 1.7 note (superseded in the partial case, honoured in the complete
+ * case): a pinned/intervention-overridden factor carries sensitivity 0 while
+ * being the model's most influential — with COMPLETE producer coverage (the
+ * normal staging path) its influence_score still wins, values unchanged.
+ * Under PARTIAL coverage the policy's no-mixed-basis rule wins, matching the
+ * badge/panel/hero/tornado — the trade-off the repo accepted in PR #292/#301.
+ *
+ * Absence semantics preserved: never derived, never defaulted — a factor
+ * row with NO finite metric at all is simply absent from the map.
+ */
+export function deriveFactorInfluenceMap(report: unknown): Map<string, number> | undefined {
+  if (report == null || typeof report !== 'object') return undefined
+  const r = report as Record<string, unknown>
+  const enrichment = r.enrichment as Record<string, unknown> | undefined
+  const sensitivityAnalysis = enrichment?.sensitivity_analysis as Record<string, unknown> | undefined
+  // Source precedence matches the graph badge (useNodeDisplayMetadata):
+  // certified factor_sensitivity FIRST, the untyped enrichment passthrough
+  // as fallback (Lane 2 review fold — the two surfaces must rank the same
+  // row-set for the same node).
+  const factors = (r.factor_sensitivity as unknown[] | undefined) ??
+    (sensitivityAnalysis?.factors as unknown[] | undefined) ??
+    []
+  if (!Array.isArray(factors) || factors.length === 0) return undefined
+
+  // Rows come from the SHARED extractor (panel-parity field semantics) so
+  // the coverage-complete verdict cannot skew per surface.
+  const rows = factors
+    .map((raw) => extractPolicyRow(raw))
+    .filter((row): row is NonNullable<ReturnType<typeof extractPolicyRow>> => row != null)
+  if (rows.length === 0) return undefined
+
+  const displayModel = selectDriverDisplayModel(rows)
+  const map = new Map<string, number>()
+  for (const row of rows) {
+    const entry = displayModel.get(row.key)
+    if (entry) map.set(row.key, entry.value)
+  }
+  return map.size > 0 ? map : undefined
+}

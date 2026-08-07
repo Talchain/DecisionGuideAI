@@ -4,8 +4,6 @@
  * E1: Enables programmatic tab switching from results components
  * (tornado chart, driver rows) to the Model tab.
  *
- * D2: Hover highlight state for bidirectional canvas-panel linking.
- *
  * Task C: Right-panel orchestration — only one right-side panel is visible
  * at a time. Opening a panel auto-closes any other open panel.
  */
@@ -31,8 +29,6 @@ export interface UIStoreState {
    *  tab value didn't change (e.g. global already 'results' but dock had
    *  another tab persisted in localStorage). */
   activeOutputTabVersion: number
-  /** D2: Element ID currently hovered in a panel (for canvas highlight) */
-  hoveredElementId: string | null
   /** Task C: Which right-side panel is currently open (mutual exclusion) */
   activeRightPanel: RightPanelMode
   /**
@@ -50,7 +46,6 @@ export interface UIStoreActions {
    *  auto-dock and Dock-back when we cannot rely on a value-diff to trigger
    *  the sync. */
   forceActivateOutputTab: (tab: OutputTab) => void
-  setHoveredElementId: (id: string | null) => void
   /** Open a right panel (closes any other). Pass null to close all. */
   openRightPanel: (mode: RightPanelMode) => void
   /** Close the active right panel */
@@ -62,14 +57,12 @@ export interface UIStoreActions {
 export const useUIStore = create<UIStoreState & UIStoreActions>((set) => ({
   activeOutputTab: 'results',
   activeOutputTabVersion: 0,
-  hoveredElementId: null,
   activeRightPanel: null,
   pendingModelTabSection: null,
 
   setActiveOutputTab: (tab) => set({ activeOutputTab: tab }),
   forceActivateOutputTab: (tab) =>
     set((s) => ({ activeOutputTab: tab, activeOutputTabVersion: s.activeOutputTabVersion + 1 })),
-  setHoveredElementId: (id) => set({ hoveredElementId: id }),
   openRightPanel: (mode) => set({ activeRightPanel: mode }),
   closeRightPanel: () => set({ activeRightPanel: null }),
   requestModelTabSection: (sectionId) => set({ pendingModelTabSection: sectionId }),
@@ -77,5 +70,4 @@ export const useUIStore = create<UIStoreState & UIStoreActions>((set) => ({
 
 // Selectors
 export const selectActiveOutputTab = (s: UIStoreState) => s.activeOutputTab
-export const selectHoveredElementId = (s: UIStoreState) => s.hoveredElementId
 export const selectActiveRightPanel = (s: UIStoreState) => s.activeRightPanel

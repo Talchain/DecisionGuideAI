@@ -17,8 +17,9 @@ import {
   isSuccessfulAnalysis,
   validateV2RunResponseFull,
   sanitizeV2RunResponse,
-  reconcileOptionsWithCanvasNodes,
+  reconcileOptionsWithCanvasNodesDetailed,
   flattenInterventions,
+  clearStrengthCorrections,
   type V2AdapterConfig,
   type V2RunError,
   type V2RunResponse,
@@ -31,7 +32,36 @@ import {
   synthesizeCeeReviewFromV2,
   synthesizeCeeTraceFromV2,
 } from '../../adapters/plot/v2/responseMapper'
-import { trackRunCompleted, trackRunFailed, trackEmptyComputedResults } from '../../lib/resultsInstrumentation'
+// ⚠ RUN-SPINE TELEMETRY DELIBERATELY DOES NOT LIVE HERE — ROADMAP 1.68.
+//
+// This hook used to call `trackRunCompleted` once and `trackRunFailed` four
+// times. `OutputsDock.tsx` ALSO emits both, from a store-status-transition
+// effect — and OutputsDock consumes this very hook (`OutputsDock.tsx:696`), so
+// both always fired: TWO `run_completed` per run, with two DISJOINT payload
+// shapes (this hook sent `{duration_ms, option_count, has_drivers, request_id}`;
+// OutputsDock sends the declared `{confidence_level, drivers_informative,
+// trace_id, duration_ms}`). One event name with two shapes is the precise
+// defect the measurement design rejected `metrics.ts` for, and it was live.
+//
+// OutputsDock won as the single canonical emitter, on COVERAGE — not on
+// seniority. It observes the results STORE, so it fires for every run path:
+// this hook, `useResultsRun.ts`, `applyV5State.ts:1064` and
+// `useConversation.ts:3144/:3251`. The last two are the CEE-driven analysis
+// path, which never goes through this hook — so deleting OutputsDock's emitters
+// instead would have silently dropped the platform's primary analysis path.
+// `<OutputsDock />` is mounted unconditionally at `ReactFlowGraph.tsx:2243` and
+// collapses via CSS, so its effect is always live.
+//
+// A per-run dedup latch inside the seam was considered and REJECTED: there is
+// no reliable per-run identity in the store to key it on. `results.runId` is
+// written only by `resultsConnecting`, whose sole caller is
+// `useResultsRun.ts:85`; `results.startedAt` is written only by `resultsStart`,
+// called from this hook and `useResultsRun` but NOT from the CEE path. Keying a
+// latch on either would work in tests and fail silently on the path that
+// matters most.
+//
+// Pinned by `src/lib/__tests__/runSpineSingleEmission.spec.ts`.
+import { trackEmptyComputedResults } from '../../lib/resultsInstrumentation'
 import { generateGraphHash } from '../store/runHistory'
 import { trackTypedError } from '../../lib/telemetry'
 import { ApiError, NetworkError, ProcessingError, isApiError } from '../../lib/api-errors'
@@ -42,6 +72,11 @@ import { useGateStore, updateRobustnessGate, updateRobustnessGateFromV2 } from '
 import { buildRawErrorData, hashStackTrace } from '../../utils/payloadRedaction'
 import { extractM1ReviewFromV2, extractM1CoachingFromV2 } from '../../hooks/hydrateAnalysis'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
+import {
+  useSuccessMeasureStore,
+  selectSuccessMeasure,
+} from '../../components/results/modals/successMeasureStore'
+import { resolveScenarioKey } from '../../components/results/modals/scenarioKey'
 
 /**
  * P0 Fix: Derive a stable numeric seed from a string.
@@ -55,6 +90,188 @@ function deriveNumericSeedFromString(input: string): number {
   }
   // Convert to positive number in reasonable seed range (0 - 999999)
   return Math.abs(hash) % 1000000
+}
+
+/**
+ * Re-exported from './resolveSeedUsed'. It was moved to a pure leaf module so a
+ * second caller could import it without being blanked by the hand-listed
+ * `vi.mock` factories that replace THIS module wholesale in a dozen specs (and
+ * without dragging the whole hook's dependency graph into their chunk). One
+ * implementation, unchanged behaviour.
+ */
+import { resolveSeedUsed } from './resolveSeedUsed'
+export { resolveSeedUsed }
+
+
+/**
+ * UI-SEM-058: raw → normalised goal-threshold conversion for the PLoT request.
+ *
+ * store.goalThreshold holds USER UNITS by default (raw), but since Lane 5 its
+ * representation is carried explicitly by store.goalThresholdRepresentation
+ * ('raw' | 'normalised' | null) — a CEE bare-sync can store an already-0-1
+ * value tagged 'normalised', in which case resolveChipGoalThreshold
+ * short-circuits and never divides by a cap. PLoT's `goal_threshold` contract
+ * is normalised 0-1 (adapter.ts request builder). Convert raw/cap when the CEE
+ * cap exists.
+ * Without a cap, raw ≡ normalised only when the value already lies in [0,1].
+ * Anything that cannot be proven normalised is OMITTED (returns undefined)
+ * so the request builder's own `analysisReady.goal_threshold` (already
+ * normalised) stands — a missing threshold degrades to "no probability_of_goal",
+ * never to a corrupt analysis. Format conversion only (same class as UI-SEM-001).
+ */
+export function normaliseGoalThresholdForRequest(
+  raw: number | null | undefined,
+  cap: unknown,
+): number | undefined {
+  if (raw == null || !Number.isFinite(raw)) return undefined
+  const capNumber = typeof cap === 'number' && Number.isFinite(cap) && cap > 0 ? cap : null
+  let normalised = capNumber != null ? raw / capNumber : raw
+  // Floating-point guard: a threshold set exactly at the cap must normalise
+  // to 1.0 even when the division lands one ULP above it — a legitimate
+  // 100% target must never be dropped over the last bit of a float.
+  if (normalised > 1 && normalised < 1 + 1e-9) normalised = 1
+  if (normalised < 0 || normalised > 1) {
+    console.warn(
+      '[useV2Run] goal threshold override omitted — cannot prove normalised form',
+      { raw, cap: capNumber, normalised },
+    )
+    return undefined
+  }
+  return normalised
+}
+
+/**
+ * Lane 5 (Codex P1) — the ONE goal-node resolution used for request
+ * construction, cap lookup and threshold commitment across V2 and V5, so the
+ * legs can never resolve different nodes. Precedence: the CEE-certified
+ * `analysis_ready.goal_node_id`, then the store's `outcomeNodeId`, then the
+ * first goal node — but each candidate is validated to EXIST in the current
+ * graph, so a stale `outcomeNodeId` (retained across a scenario replacement)
+ * is skipped rather than silently resolved to a reseeded-away id.
+ *
+ * Before this, the V2 cap used `outcomeNodeId` while the adapter + V5 chip
+ * preferred `analysis_ready.goal_node_id`: with divergent ids and caps, V2
+ * could normalise against one node's cap while the request named the other.
+ */
+export function resolveActiveGoalNodeId(state: {
+  ceeAnalysisReady?: { goal_node_id?: string | null } | null
+  outcomeNodeId?: string | null
+  nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>
+}): string | null {
+  const exists = (id: string | null | undefined): id is string =>
+    !!id && state.nodes.some((n) => n.id === id)
+  if (exists(state.ceeAnalysisReady?.goal_node_id)) return state.ceeAnalysisReady!.goal_node_id!
+  if (exists(state.outcomeNodeId)) return state.outcomeNodeId!
+  const goalNode = state.nodes.find(
+    (n) => n.type === 'goal' || (n.data as { type?: string } | undefined)?.type === 'goal',
+  )
+  return goalNode?.id ?? null
+}
+
+/**
+ * Resolve the goal-threshold scale cap for the request boundary using the
+ * SAME fallback chain the display path uses (useResultsSectionData
+ * goalThresholdCap: analysis_ready first, then the goal node's data — CEE
+ * fields are spread onto the node by DraftChat). Without the node fallback
+ * the two boundaries could disagree: the display would denormalise outcomes
+ * against a node-held cap while the request boundary, blind to it, dropped
+ * the user's threshold override.
+ */
+export function resolveGoalThresholdCap(
+  analysisReady: { goal_threshold_cap?: unknown } | null,
+  nodes: ReadonlyArray<{ id: string; data?: unknown }>,
+  goalNodeId: string | null | undefined,
+): number | undefined {
+  const goalNode = goalNodeId ? nodes.find((n) => n.id === goalNodeId) : undefined
+  const data = goalNode?.data as
+    | { goal_threshold_cap?: unknown; threshold_cap?: unknown; scale_max?: unknown }
+    | undefined
+  for (const candidate of [
+    analysisReady?.goal_threshold_cap,
+    data?.goal_threshold_cap,
+    data?.threshold_cap,
+    data?.scale_max,
+  ]) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0) {
+      return candidate
+    }
+  }
+  return undefined
+}
+
+/**
+ * UI-SEM-081 — unit-derived goal-threshold cap. A "%" unit stated by the USER
+ * (Define-success unit picker / saved success measure) is a definitional cap
+ * of 100 — user input, not fabrication. Every other unit has no definitional
+ * scale, so no cap is invented (fail-closed omission stands). Consulted only
+ * as the LAST resort after the producer/node cap chain (UI-SEM-058).
+ */
+export function capForUnit(unit: string | null | undefined): number | undefined {
+  return typeof unit === 'string' && unit.trim() === '%' ? 100 : undefined
+}
+
+/**
+ * UI-SEM-081 provenance guard (adversarial-review blocker fold): the saved
+ * measure's unit may cap ONLY a store threshold that provably CAME from that
+ * measure (identical raw value). The store field can hold values from other
+ * writers in other scales — CEE-sync writes capless NORMALISED values into it
+ * (store.ts bare-sync), and the field survives scenario switches while the
+ * measure is scenario-keyed — so pairing the measure's "%" with a foreign
+ * store value ships a silently wrong wire number (0.6 → 0.006, a 100× target
+ * shrink). No provenance → no unit cap (fail closed).
+ */
+export function resolveMeasureUnitCap(
+  measure: { threshold: number; unit: string } | null | undefined,
+  rawThreshold: number | null | undefined,
+): number | undefined {
+  if (!measure || rawThreshold == null) return undefined
+  return measure.threshold === rawThreshold ? capForUnit(measure.unit) : undefined
+}
+
+/**
+ * UI-SEM-058 (V5 leg) — normalise a goal_threshold for a CANONICAL/V5 chip
+ * parameter. The store holds RAW user units; the V2 request builder converts
+ * at its boundary, but the V5 path (buildPayload) forwards chip parameters
+ * VERBATIM. So any chip that carries goal_threshold must carry the NORMALISED
+ * 0-1 form, and OMIT it when normalisation cannot be proven — a raw value on
+ * the V5 wire is silently ignored by PLoT while it retains a stale target
+ * (Codex final-audit B3: entering 60% shipped goal_threshold:60, HTTP 200,
+ * old 0.53 retained, all lenses unavailable). Returns undefined → the caller
+ * must omit the parameter (fail closed), never send raw.
+ *
+ * ctx.unitCap (UI-SEM-081) is consulted only when the producer/node chain
+ * yields no cap — live staging drafts carry neither `goal_threshold_cap` nor
+ * `scale_max`, which silently swallowed every %-unit target (V-P0-1,
+ * 2026-07-13 wire evidence).
+ *
+ * ctx.representation (Lane 5, Codex P0-1) makes the value's UNITS EXPLICIT
+ * rather than inferred from cap availability. A value tagged 'normalised'
+ * (the store's bare-sync writes CEE's already-0-1 goal_threshold) is passed
+ * through iff ∈[0,1] and NEVER divided by any cap — inferring "raw because a
+ * cap exists" divided a normalised 0.6 by the node's cap 100 → 0.006. A
+ * 'raw' or absent tag keeps the cap-chain conversion (backward compatible).
+ */
+export function resolveChipGoalThreshold(
+  rawThreshold: number | null | undefined,
+  ctx: {
+    analysisReady: { goal_threshold_cap?: unknown } | null
+    nodes: ReadonlyArray<{ id: string; data?: unknown }>
+    goalNodeId: string | null | undefined
+    unitCap?: number
+    representation?: 'raw' | 'normalised' | null
+  },
+): number | undefined {
+  // Lane 5: an explicitly-normalised value is already 0-1 — validate and
+  // pass through, never apply a cap (cap division is a raw→normalised op).
+  if (ctx.representation === 'normalised') {
+    return normaliseGoalThresholdForRequest(rawThreshold, undefined)
+  }
+  const chainCap = resolveGoalThresholdCap(ctx.analysisReady, ctx.nodes, ctx.goalNodeId)
+  const unitCap =
+    typeof ctx.unitCap === 'number' && Number.isFinite(ctx.unitCap) && ctx.unitCap > 0
+      ? ctx.unitCap
+      : undefined
+  return normaliseGoalThresholdForRequest(rawThreshold, chainCap ?? unitCap)
 }
 
 /**
@@ -152,7 +369,8 @@ export interface V2RunPersistence {
   persistAnalysisSuccess: (
     analysis: unknown,
     graphHash: string,
-    seedUsed: number,
+    /** T2b: null when the engine did not echo a usable seed — never a fabricated 0. */
+    seedUsed: number | null,
     responseHash: string,
     details?: Record<string, unknown>,
   ) => Promise<void>
@@ -192,6 +410,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       edges,
       outcomeNodeId,
       goalThreshold,
+      goalThresholdRepresentation,
       currentScenarioFraming: framing,
       ceeAnalysisReady,
       ceeAnalysisReadyNodeIds,
@@ -206,6 +425,11 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       captureErrorDetail,
     } = useCanvasStore.getState()
     const lastDraftDescription = useDraftStore.getState().lastDraftDescription
+    // Lane 3 review fold: the strength-corrections buffer is module-level
+    // and was never cleared, so the per-report snapshot (OutputsDock, keyed
+    // on [report]) accumulated duplicate rows across runs. Each V2 run
+    // records only its OWN corrections.
+    clearStrengthCorrections()
 
     console.info('[constraint-trace] run-snapshot', {
       source: 'useV2Run',
@@ -295,7 +519,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
     try {
       // Get V2 adapter config
       const config: V2AdapterConfig = {
-        baseUrl: import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine',
+        baseUrl: import.meta.env?.VITE_PLOT_PROXY_BASE || '/bff/engine',
         timeout: 120000,
         signal: controller.signal,
       }
@@ -319,9 +543,10 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
               reason: staleCheck.reason,
             })
           }
-          // Clear stale analysis_ready and goal_constraints from store
+          // Clear stale analysis_ready and goal_constraints from store.
+          // System run-prep cleanup, not a user edit → do not self-dirty freshness.
           setCeeAnalysisReady(null)
-          setGoalConstraints(null)
+          setGoalConstraints(null, { fromProducerSync: true })
           effectiveAnalysisReady = null
           effectiveGoalConstraints = null
         }
@@ -345,12 +570,27 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         // hide all fallback usage because they return early below before the
         // second reconcile call ever happens. See
         // adapters/plot/v2/adapter.ts:ReconcileOptionsHookOptions.
-        const optionsToValidate = reconcileOptionsWithCanvasNodes(
-          effectiveAnalysisReady,
-          nodes as any,
-          currentNodeIds,
-          { silent: true, phase: 'pre_run_check', scenarioId: framing?.scenario_id ?? null },
-        )
+        // DETAILED form. The plain `reconcileOptionsWithCanvasNodes` returns only
+        // the options, and its canvas-backfill branches have ALREADY discarded any
+        // unusable entry by then — so a gate reading the options alone is
+        // structurally unable to see a partial loss on those branches. The detailed
+        // form reports what the walk removed. See ReconcileOptionsResult.
+        const { options: optionsToValidate, unusableByOptionId } =
+          reconcileOptionsWithCanvasNodesDetailed(
+            effectiveAnalysisReady,
+            nodes as any,
+            currentNodeIds,
+            { silent: true, phase: 'pre_run_check', scenarioId: framing?.scenario_id ?? null },
+          )
+
+        // Node labels for naming a target the way the user sees it on the canvas,
+        // not by node id — the convention PR #499 set for the same disposal.
+        const labelByNodeId = new Map<string, string>()
+        for (const n of nodes as any[]) {
+          const l = (n?.data as Record<string, unknown> | undefined)?.label
+          if (typeof l === 'string' && l.trim().length > 0) labelByNodeId.set(n.id, l)
+        }
+        const targetName = (id: string) => labelByNodeId.get(id) ?? id
 
         // Identify offending options directly by id (not label) so duplicate
         // labels do not collapse two distinct options into one entry.
@@ -358,33 +598,66 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         // for the human message but loses identity — we re-walk the reconciled
         // list with the same usability rule (flattenInterventions, the single
         // canonical "is this a usable map?" check) and key by opt.id.
-        const affectedOptions: Array<{ id: string; label: string }> = []
+        //
+        // TWO failure modes, one affordance. Both end as MISSING_INTERVENTIONS +
+        // affectedOptions, which OutputsDock renders as the amber "Options need
+        // their effects mapped" banner with a focus button per option:
+        //
+        //   EMPTY   — no usable intervention at all. Pre-existing behaviour,
+        //             wording unchanged.
+        //   PARTIAL — some usable, at least one authored-but-unusable. NEW. This
+        //             used to run: the option was quietly shrunk to its usable
+        //             entries and the user got a confident answer about a graph
+        //             they never authored. Blocking is the doctrine — what gets
+        //             analysed is never silently altered — and blocking BEFORE the
+        //             request is built is what turns the adapter's typed throw
+        //             into an unreachable invariant rather than a crash.
+        const emptyOptions: Array<{ id: string; label: string }> = []
+        const partialOptions: Array<{ id: string; label: string; targets: string[] }> = []
         for (const opt of optionsToValidate) {
+          const label = opt.label || opt.id
           if (Object.keys(flattenInterventions(opt.interventions)).length === 0) {
-            affectedOptions.push({ id: opt.id, label: opt.label || opt.id })
+            emptyOptions.push({ id: opt.id, label })
+            continue
+          }
+          const unusable = unusableByOptionId.get(opt.id)
+          if (unusable && unusable.length > 0) {
+            partialOptions.push({ id: opt.id, label, targets: unusable })
           }
         }
 
+        const affectedOptions: Array<{ id: string; label: string }> = [
+          ...emptyOptions,
+          ...partialOptions.map((o) => ({ id: o.id, label: o.label })),
+        ]
+
         if (affectedOptions.length > 0) {
-          const labels = affectedOptions.map((o) => o.label)
-          const message =
-            affectedOptions.length === 1
-              ? `Option "${labels[0]}" needs intervention values before analysis can run.`
-              : `Options ${labels.map((o) => `"${o}"`).join(', ')} need intervention values before analysis can run.`
+          const labels = emptyOptions.map((o) => o.label)
+          const emptyMessage =
+            emptyOptions.length === 0
+              ? ''
+              : emptyOptions.length === 1
+                ? `Option "${labels[0]}" needs intervention values before analysis can run.`
+                : `Options ${labels.map((o) => `"${o}"`).join(', ')} need intervention values before analysis can run.`
+          const partialMessage = partialOptions
+            .map((o) => {
+              const named = o.targets.map((t) => `"${targetName(t)}"`).join(', ')
+              const noun = o.targets.length === 1 ? 'an effect' : 'effects'
+              return `Option "${o.label}" has ${noun} on ${named} with no usable value. Set a number for each, or remove them, before analysis can run.`
+            })
+            .join(' ')
+          const message = [emptyMessage, partialMessage].filter(Boolean).join(' ')
 
           if (import.meta.env.DEV) {
             console.warn('[useV2Run] Pre-run validation failed: missing interventions', {
               missingOptions: labels,
+              partiallyUnusableOptions: partialOptions.map((o) => ({
+                option: o.label,
+                targets: o.targets,
+              })),
               usingAnalysisReady: !!effectiveAnalysisReady,
             })
           }
-
-          trackRunFailed({
-            error_code: 'MISSING_INTERVENTIONS',
-            error_message: message,
-            duration_ms: Date.now() - startTime,
-            request_id: requestId,
-          })
 
           resultsError({
             code: 'MISSING_INTERVENTIONS',
@@ -421,14 +694,52 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       // P0 Fix: Pass computed seed to avoid hardcoded "42" default
       // Audit F-01: framing removed from PLoT request (PLoT rejects it with 400).
       // P0 Fix: Include brief for PLoT context
+      // Lane 5: the V2 leg resolves the threshold through the SAME function as
+      // the V5 chip legs (resolveChipGoalThreshold) so the two can never
+      // disagree — same goal-node resolution (validated to exist), same cap
+      // chain (analysis_ready → node → saved-measure unit, provenance-guarded),
+      // and the same representation short-circuit (a bare-synced 'normalised'
+      // value passes through, never divided by the node cap → the 0.6/100 =
+      // 0.006 live corruption). UI-SEM-058/081 semantics preserved.
+      // Lane 5 (Codex P1): resolve the goal node ONCE and use it for BOTH the
+      // cap lookup and the request's outcome/goal node, so the threshold can
+      // never be normalised against one node's cap while the request names
+      // another. Prefers analysis_ready.goal_node_id (what the adapter also
+      // prefers), validates existence, falls back to outcome/first-goal.
+      const activeGoalNodeId = resolveActiveGoalNodeId(useCanvasStore.getState())
+      const measureForScenario = selectSuccessMeasure(
+        useSuccessMeasureStore.getState(),
+        resolveScenarioKey(useCanvasStore.getState().currentScenarioId),
+      )
+      const normalisedGoalThreshold = resolveChipGoalThreshold(goalThreshold, {
+        analysisReady: effectiveAnalysisReady as { goal_threshold_cap?: unknown } | null,
+        nodes,
+        goalNodeId: activeGoalNodeId,
+        unitCap: resolveMeasureUnitCap(measureForScenario, goalThreshold),
+        representation: goalThresholdRepresentation,
+      })
+      // A store threshold that EXISTS but cannot be proven normalised must
+      // CLEAR the request threshold (null → adapter deletes the builder's
+      // baked analysisReady.goal_threshold): the baked value predates the
+      // user's edit, and computing probability_of_goal against a replaced
+      // target silently misleads. No store value at all (undefined) leaves
+      // the builder's value standing.
+      const requestGoalThreshold =
+        normalisedGoalThreshold !== undefined
+          ? normalisedGoalThreshold
+          : goalThreshold != null && Number.isFinite(goalThreshold)
+            ? null
+            : undefined
+
       const result = await executeV2RunWithAnalysisReady(
         config,
         nodes,
         edges,
         effectiveAnalysisReady,
-        outcomeNodeId,
+        // Lane 5 (Codex P1): the SAME resolved goal node the cap used above.
+        activeGoalNodeId ?? outcomeNodeId,
         requestId,
-        goalThreshold ?? undefined,
+        requestGoalThreshold,
         seed,
         lastDraftDescription || undefined,
         effectiveGoalConstraints,
@@ -495,17 +806,20 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         // entirely, we have nothing to render and fall back to the generic
         // VALIDATION_BLOCKED path — which is what happens for cycles, missing
         // goal, and other unrelated 422s.
+        // ROADMAP 1.54 (density wall): GRAPH_TOO_COMPLEX gets its own code so
+        // userFriendlyErrors renders the honest simplify-your-model copy —
+        // the producer's message names engine budget maths and must not be
+        // echoed (its raw text stays in the debug panel).
+        const complexityBlocked = (errorResult.critiques || []).some(
+          (c) => c.code === 'GRAPH_TOO_COMPLEX',
+        )
         const promotedCode =
           affectedOptions && affectedOptions.length > 0
             ? interventionCritiques[0].code
-            : 'VALIDATION_BLOCKED'
+            : complexityBlocked
+              ? 'GRAPH_TOO_COMPLEX'
+              : 'VALIDATION_BLOCKED'
 
-        trackRunFailed({
-          error_code: promotedCode,
-          error_message: errorResult.status_reason,
-          duration_ms: elapsed_ms,
-          request_id: requestId,
-        })
 
         resultsError({
           code: promotedCode,
@@ -538,12 +852,6 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
           })
         }
 
-        trackRunFailed({
-          error_code: 'ANALYSIS_FAILED',
-          error_message: 'Analysis could not complete',
-          duration_ms: elapsed_ms,
-          request_id: requestId,
-        })
 
         // Create error report with critiques
         const errorReport = createErrorReport(
@@ -679,14 +987,6 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
           }
         }
 
-        trackRunCompleted({
-          duration_ms: elapsed_ms,
-          option_count: successResult.option_comparison?.length ?? 0,
-          // Check edge_sensitivity since that's what PLoT actually returns
-          has_drivers: (successResult.edge_sensitivity?.length ?? successResult.drivers?.length ?? 0) > 0,
-          request_id: requestId,
-        })
-
         // Pass synthesized CEE V1 data to store so Decision Review panel can display content
         resultsComplete({
           report,
@@ -706,10 +1006,36 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
 
         // C.1b: Persist analysis results to Supabase (non-blocking)
         if (persistence) {
-          const seedUsed = successResult.meta?.seed_used
-            ? (parseInt(successResult.meta.seed_used, 10) || 0)
-            : (seed ?? 0)
-          const graphHash = generateGraphHash(nodes, edges, seedUsed)
+          // T2b: the seed has TWO sinks here, and they answer DIFFERENT questions.
+          //
+          // 1. `seedUsed` is the RECEIPT: "what seed did the engine say it used?"
+          //    Unknown must stay unknown (null) — see resolveSeedUsed. This is
+          //    what lands in Supabase provenance and is read back by
+          //    hydrateAnalysis on reload, so a fabricated 0 here becomes a
+          //    real-looking "Seed 0" row (the exact bug PR #326 removed from
+          //    the read path).
+          //
+          // 2. `seedForHash` is a RUN IDENTITY for the graph hash, not a claim
+          //    about the engine. When the engine did not echo a usable seed we
+          //    fall back to the seed we actually SENT (`seed` is always a real
+          //    number by this point — derived from framing.seed, else hashed
+          //    from scenario_id, else a timestamp fallback; see deriveSeed
+          //    just below the goal validation), because
+          //    that is the seed a replay would resend. Falling back to the
+          //    requested seed here is strictly more honest than the old code,
+          //    which hashed a fabricated 0 whenever the echo was malformed.
+          //
+          // The hash's seed component cannot itself distinguish a real 0 from
+          // "unknown" — computeClientHash (adapters/plot/v1/mapper.ts:256) does
+          // `seed: seed || 0`, collapsing null/undefined/NaN/0 to the same
+          // canonical value. Fixing that means changing hash semantics for the
+          // replay gate (pinned by adapters/__tests__/wave2-replay-gate.spec.ts)
+          // and for two out-of-lane call sites (store.ts:2904,
+          // ReactFlowGraph.tsx:1532/1611), so it is deliberately left alone and
+          // ledgered rather than changed casually here.
+          const seedUsed = resolveSeedUsed(successResult.meta?.seed_used)
+          const seedForHash = seedUsed ?? seed
+          const graphHash = generateGraphHash(nodes, edges, seedForHash)
           persistence.persistAnalysisSuccess(
             successResult,
             graphHash,
@@ -812,12 +1138,17 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       }
 
       // P0 race fix: If this run was superseded, do not mutate shared state.
-      // Telemetry tracking (trackRunFailed, trackTypedError) is still safe — it's fire-and-forget.
+      // `trackTypedError` below is still safe — it's fire-and-forget. (The
+      // `trackRunFailed` this comment used to name moved to OutputsDock; see
+      // the run-spine note at the top of this file.)
       if (!isActiveRun) {
         return
       }
 
-      const elapsed_ms = Date.now() - startTime
+      // `elapsed_ms` was computed here only to be passed to `trackRunFailed`,
+      // which no longer emits from this hook. Removed rather than left unused:
+      // a dead duration is how a future reader concludes the timing is still
+      // being measured here when it is measured in OutputsDock.
       const message = err instanceof Error ? err.message : 'Unknown error'
 
       if (import.meta.env.DEV) {
@@ -850,12 +1181,6 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       // Track typed error for observability
       trackTypedError(typedError)
 
-      trackRunFailed({
-        error_code: errorCode,
-        error_message: message,
-        duration_ms: elapsed_ms,
-        request_id: requestId,
-      })
 
       resultsError({
         code: errorCode,

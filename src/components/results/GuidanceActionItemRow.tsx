@@ -47,7 +47,9 @@ const CATEGORY_CONFIG: Record<GuidanceCategory, {
 }
 
 export function GuidanceActionItemRow({ item, onActivate }: GuidanceActionItemRowProps) {
-  const config = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.should_fix
+  // Category absent (producer sent none) → neutral display styling. This is a
+  // visual fallback (icon/colours), never a synthesised category value.
+  const config = (item.category ? CATEGORY_CONFIG[item.category] : undefined) ?? CATEGORY_CONFIG.should_fix
   const { icon: Icon, textColor, bgColor, borderColor } = config
 
   return (

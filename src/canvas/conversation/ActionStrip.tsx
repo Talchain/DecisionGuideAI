@@ -7,6 +7,7 @@
 
 import { useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../store'
+import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { selectConversationStatus } from './selectors'
 import type { ConversationStatusInput, CtaKind } from './selectors'
@@ -72,13 +73,11 @@ export function ActionStrip({ messages, patchBlockStates, onNavigate }: ActionSt
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const resultsStatus = useCanvasStore((s) => s.results.status)
   const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun)
-  const graphEditedSinceLastRun = useCanvasStore((s) => s.graphEditedSinceLastRun)
-  // P0 V5 golden-path repair (Wave 3 wiring): wire freshness signal
-  // from the most recent CEE turn. When present, takes precedence over
-  // the local edit signal so this surface stays in sync with whatever
-  // the wire said — eliminating the multi-surface drift the brief
-  // flagged.
-  const wireFreshness = useCanvasStore((s) => s.ceeAnalysisReady?.freshness ?? null)
+  // Freshness comes from the composed trust semantic (useAnalysisTrust), NOT
+  // the dead/local `graphEditedSinceLastRun` flag — so the "Results outdated"
+  // badge stays in sync with the rest of the analysis trust surface and never
+  // independently fabricates stale.
+  const trustSemantic = useAnalysisTrust().semantic
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
   const activeGuidanceItemId = useGuidanceStore((s) => s.activeGuidanceItemId)
 
@@ -87,12 +86,11 @@ export function ActionStrip({ messages, patchBlockStates, onNavigate }: ActionSt
     nodeCount,
     resultsStatus,
     hasCompletedFirstRun,
-    graphEditedSinceLastRun,
-    wireFreshness,
-    guidance: { guidanceItems, activeGuidanceItemId, _sendMessage: null, _scrollToPatch: null },
+    trustSemantic,
+    guidance: { guidanceItems, activeGuidanceItemId, inspectorDeepLinkField: null, _sendMessage: null, _scrollToPatch: null, _runAnalysis: null, _sendChip: null, _prefillChat: null, _dispatchAction: null, _registrationToken: null },
     messages,
     patchBlockStates,
-  }), [nodeCount, resultsStatus, hasCompletedFirstRun, graphEditedSinceLastRun, wireFreshness, guidanceItems, activeGuidanceItemId, messages, patchBlockStates])
+  }), [nodeCount, resultsStatus, hasCompletedFirstRun, trustSemantic, guidanceItems, activeGuidanceItemId, messages, patchBlockStates])
 
   const { status, topGuidanceItem, guidanceCount, ctaKind } = useMemo(
     () => selectConversationStatus(input),
@@ -142,9 +140,11 @@ export function ActionStrip({ messages, patchBlockStates, onNavigate }: ActionSt
       >
         {topGuidanceItem && (
           <>
-            <span className={CATEGORY_STYLES[topGuidanceItem.category] ?? styles.guidanceBadgeInfo}>
-              {topGuidanceItem.category.replace('_', ' ')}
-            </span>
+            {topGuidanceItem.category && (
+              <span className={CATEGORY_STYLES[topGuidanceItem.category] ?? styles.guidanceBadgeInfo}>
+                {topGuidanceItem.category.replace('_', ' ')}
+              </span>
+            )}
             <span className={styles.actionStripTitle}>
               {topGuidanceItem.title}
             </span>

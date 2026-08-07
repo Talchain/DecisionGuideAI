@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
 import { render } from '@testing-library/react'
+import { stripComments } from '../../../../../tests/helpers/stripSourceComments'
 import {
   findBannedTerm,
   GLOSSARY_BANNED_TERMS,
@@ -68,7 +69,6 @@ function makeData(overrides: {
     factorLabel: label,
     confidence: 60,
     voi: 0.5 - i * 0.1,
-    evpiPp: 25,
     suggestion: 'Compare this estimate against recent data.',
     targetNodeId: `n_${i}`,
   } as EvidenceGapItem))
@@ -352,10 +352,14 @@ describe('AnalysisHeroV17 — glossary compliance (source files)', () => {
    */
   function extractCandidateStrings(source: string): string[] {
     const out: string[] = []
-    // Remove single-line and block comments first.
-    const noComments = source
-      .replace(/\/\*[\s\S]*?\*\//g, ' ')
-      .replace(/\/\/.*$/gm, ' ')
+    // Remove comments first. CONVERGED (#386/#403) onto the shared literal-aware
+    // stripComments: the previous naive `/\/\*…\*\//` + `/\/\/.*$/` pair
+    // mishandled literals — a `//` inside a `'http://…'` string, or a `/*`
+    // inside a quoted example, corrupted real copy and could HIDE a banned term
+    // that followed it. stripComments keeps string/template/regex literals as
+    // code (so their contents are still extracted below) and only blanks true
+    // comments, preserving offsets.
+    const noComments = stripComments(source, '.tsx')
     // Pull out double-quoted, single-quoted, and template-literal contents.
     const literalRe = /'([^'\\]*(?:\\.[^'\\]*)*)'|"([^"\\]*(?:\\.[^"\\]*)*)"|`([^`\\]*(?:\\.[^`\\]*)*)`/g
     let m: RegExpExecArray | null
@@ -382,6 +386,19 @@ describe('AnalysisHeroV17 — glossary compliance (source files)', () => {
   function isAllowedLiteral(literal: string): boolean {
     return HARD_CODED_SOURCE_ALLOWLIST.some(re => re.test(literal))
   }
+
+  it('convergence both directions: strip keeps a banned term after a // inside a string; ignores comment-only terms', () => {
+    // The naive `/\/\/.*$/` strip used to truncate a URL string at the `//`,
+    // dropping (and hiding) anything after it. The shared literal-aware strip
+    // keeps the whole string, so a banned term following an in-string `//`
+    // is still extracted and would be caught:
+    const kept = extractCandidateStrings(`const s = 'see http://x then the winner is here'`)
+    expect(kept.some((x) => x.includes('winner'))).toBe(true)
+    // The other direction: a banned term that lives ONLY in a comment is not
+    // a user-facing string and is not extracted:
+    const commentOnly = extractCandidateStrings('// the winner note\nconst ok = "fine"')
+    expect(commentOnly.some((x) => x.includes('winner'))).toBe(false)
+  })
 
   it('no hard-coded user-facing string in v17 hero source files contains a banned term', () => {
     const heroDir = join(__dirname, '..')

@@ -8,7 +8,7 @@
  * - confirmation_required: true (or absent) shows Apply/Cancel buttons
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
 import type { ProposalBlock } from '../types'
@@ -262,5 +262,121 @@ describe('ProposalBlockRenderer — render matrix (all states)', () => {
       expect(screen.queryByTestId('proposal-apply')).not.toBeInTheDocument()
       expect(screen.queryByTestId('proposal-cancel')).not.toBeInTheDocument()
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// R3 (UI-SEAMLESSNESS-REVIEW) — target badge click-to-focus.
+//
+// ProposalBlock.changes[].target is a bare string (no id, no kind), so it
+// resolves against the canvas via the RATIFIED string-target rule:
+// exact node/edge id match, else UNIQUE exact node-label match (trimmed,
+// case-sensitive), else the badge stays today's inert <span>. Resolution
+// happens at render time (labels drift while proposals sit on screen).
+// Uses the REAL focusHelpers singleton with registered spies.
+// ---------------------------------------------------------------------------
+
+import { registerFocusHelpers } from '../../utils/focusHelpers'
+import { useCanvasStore } from '../../store'
+
+describe('ProposalBlockRenderer — target badge click-to-focus (R3)', () => {
+  const focusNode = vi.fn()
+  const focusEdge = vi.fn()
+  let unregister: () => void
+
+  beforeEach(() => {
+    focusNode.mockClear()
+    focusEdge.mockClear()
+    unregister = registerFocusHelpers(focusNode, focusEdge)
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'node_reg_risk', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Regulatory Risk' } } as any,
+        { id: 'node_other', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Something Else' } } as any,
+      ],
+      edges: [{ id: 'e7', source: 'node_reg_risk', target: 'node_other' } as any],
+    })
+  })
+
+  afterEach(() => {
+    unregister()
+    useCanvasStore.setState({ nodes: [], edges: [] })
+  })
+
+  function renderProposal(target: string) {
+    const block = makeProposal({
+      changes: [{ operation: 'add', target, detail: 'Change detail' }],
+    })
+    render(<InlineBlocks blocks={[block as unknown as ConversationBlock]} />)
+  }
+
+  it('exact node-id target renders a clickable badge; click focuses the node', () => {
+    renderProposal('node_reg_risk')
+    const btn = screen.getByRole('button', { name: /highlight node_reg_risk on the canvas/i })
+    fireEvent.click(btn)
+    expect(focusNode).toHaveBeenCalledWith('node_reg_risk')
+  })
+
+  it('exact edge-id target focuses the edge', () => {
+    renderProposal('e7')
+    fireEvent.click(screen.getByRole('button', { name: /highlight e7 on the canvas/i }))
+    expect(focusEdge).toHaveBeenCalledWith('e7')
+  })
+
+  it('UNIQUE exact label match resolves to the labelled node', () => {
+    renderProposal('Regulatory Risk')
+    fireEvent.click(screen.getByRole('button', { name: /highlight regulatory risk on the canvas/i }))
+    expect(focusNode).toHaveBeenCalledWith('node_reg_risk')
+  })
+
+  it('label matching is trimmed: surrounding whitespace on the target still resolves', () => {
+    renderProposal('  Regulatory Risk  ')
+    fireEvent.click(screen.getByRole('button'))
+    expect(focusNode).toHaveBeenCalledWith('node_reg_risk')
+  })
+
+  it('label matching is case-sensitive: a case-mismatched target stays an inert span', () => {
+    renderProposal('regulatory risk')
+    expect(screen.queryByRole('button', { name: /highlight/i })).not.toBeInTheDocument()
+    expect(screen.getByText('regulatory risk')).toBeInTheDocument()
+    expect(focusNode).not.toHaveBeenCalled()
+  })
+
+  it('AMBIGUOUS label (two nodes share it) stays an inert span — no guessing', () => {
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'node_reg_risk', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Regulatory Risk' } } as any,
+        { id: 'node_dupe', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Regulatory Risk' } } as any,
+      ],
+      edges: [],
+    })
+    renderProposal('Regulatory Risk')
+    expect(screen.queryByRole('button', { name: /highlight/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Regulatory Risk')).toBeInTheDocument()
+    expect(focusNode).not.toHaveBeenCalled()
+  })
+
+  it('unresolvable target stays an inert span with the copy verbatim', () => {
+    renderProposal('Ghost Target')
+    expect(screen.queryByRole('button', { name: /highlight/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Ghost Target')).toBeInTheDocument()
+  })
+
+  it('resolution is render-time: renaming the node away de-links the badge', () => {
+    const block = makeProposal({
+      changes: [{ operation: 'add', target: 'Regulatory Risk', detail: 'Change detail' }],
+    })
+    const { rerender } = render(
+      <InlineBlocks blocks={[block as unknown as ConversationBlock]} />,
+    )
+    expect(screen.getByRole('button', { name: /highlight regulatory risk/i })).toBeInTheDocument()
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'node_reg_risk', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Renamed Risk' } } as any,
+      ],
+      edges: [],
+    })
+    rerender(<InlineBlocks blocks={[block as unknown as ConversationBlock]} />)
+    expect(screen.queryByRole('button', { name: /highlight regulatory risk/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Regulatory Risk')).toBeInTheDocument()
   })
 })

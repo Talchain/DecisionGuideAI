@@ -11,7 +11,7 @@
  * documented at the call site below.
  */
 
-import type { DecisionState } from '../types'
+import type { DecisionState, RobustnessDisplayVerdict } from '../types'
 import type { HeroState } from './analysisHeroVM.types'
 
 export interface StateSelectionInputs {
@@ -32,6 +32,16 @@ export interface StateSelectionInputs {
   biasFindings: number
   /** Optional framing-check flag — defaults to false in v1 (data not plumbed yet). */
   framingFlag: boolean
+  /**
+   * Display-safe robustness verdict (`data.recommendation.robustnessVerdict`
+   * — the producer's robustness.display_verdict, PLoT #202, consumed lane 35
+   * fix 3). REQUIRED for the confident 'strong' posture — raw `stability`
+   * alone must never unlock "Ready to brief"/"Create decision brief"
+   * (single-source rule, see ROBUSTNESS-VERDICT-CONTRACT). Absent on older
+   * PLoT builds → 'strong' is unreachable and the hero falls back to the
+   * neutral 'moderate'/'reflect' posture.
+   */
+  robustnessVerdict?: RobustnessDisplayVerdict | null
 }
 
 export function selectHeroState(input: StateSelectionInputs): HeroState {
@@ -44,6 +54,7 @@ export function selectHeroState(input: StateSelectionInputs): HeroState {
     optionCount,
     biasFindings,
     framingFlag,
+    robustnessVerdict,
   } = input
 
   // 1. WEAK — no clear winner, low-stability with many gaps, many gaps,
@@ -53,8 +64,20 @@ export function selectHeroState(input: StateSelectionInputs): HeroState {
   if (evidenceGapCount >= 4) return 'weak'
   if (optionCount < 2) return 'weak'
 
-  // 2. STRONG — high stability, ≤1 evidence gap, no fragile connections.
-  if (stability !== null && stability >= 0.85 && evidenceGapCount <= 1 && fragileEdgeCount === 0) {
+  // 2. STRONG — confident "ready to brief" posture. Gated on the display-safe
+  //    robustness verdict (`robustnessVerdict === 'robust'` — the producer's
+  //    own display_verdict, PLoT #202) IN ADDITION to the quality signals:
+  //    high stability + ≤1 evidence gap + no fragile edges. Raw stability
+  //    alone must NOT unlock the confident posture (single-source rule —
+  //    ROBUSTNESS-VERDICT-CONTRACT); when the producer field is absent
+  //    (older PLoT builds) this branch stays unreachable and the hero falls
+  //    back to the neutral 'moderate'/'reflect' posture instead of
+  //    over-claiming "Ready to brief" from an uncertified stability number.
+  if (
+    robustnessVerdict === 'robust' &&
+    stability !== null && stability >= 0.85 &&
+    evidenceGapCount <= 1 && fragileEdgeCount === 0
+  ) {
     return 'strong'
   }
 

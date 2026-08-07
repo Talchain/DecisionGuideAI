@@ -18,7 +18,7 @@ import {
   type BoundaryError,
 } from '@talchain/schemas/boundary'
 
-import { extractReason, resolveGuidance } from './failureTypeRetryability'
+import { extractReason, resolveFenceRefusalCopy, resolveGuidance } from './failureTypeRetryability'
 
 export interface TypedErrorRendererProps {
   code: FailureTypeLiteral
@@ -42,6 +42,11 @@ function resolveUserText(code: FailureTypeLiteral): string {
     case 'UPSTREAM_UNAVAILABLE':
     case 'LLM_UNAVAILABLE':
     case 'INTERNAL_ERROR':
+    case 'GRAPH_DIVERGED':
+      // GRAPH_DIVERGED joined BoundaryErrorCode in @talchain/schemas 0.22.0 (the
+      // analysed graph drifted from the live one). Its canonical copy is authored
+      // in the vendored FAILURE_USER_TEXT table, so it renders through the same
+      // data-driven path as every other code.
       return FAILURE_USER_TEXT[code]
     default: {
       const _exhaustive: never = code
@@ -52,8 +57,14 @@ function resolveUserText(code: FailureTypeLiteral): string {
 
 export function TypedErrorRenderer(props: TypedErrorRendererProps): ReactElement {
   const { code, requestId, severity = 'error', boundaryError } = props
-  const text = resolveUserText(code)
-  const guidance = resolveGuidance(code)
+  // Fence-aware (journey-walk gap #2): a fence-class GRAPH_DIVERGED
+  // (details.conflict_category 'turn_fence_*') is a write refusal, never
+  // staleness — same resolution as useConversation's typed_error branch.
+  const fenceCopy = code === 'GRAPH_DIVERGED' ? resolveFenceRefusalCopy(boundaryError) : null
+  const text = fenceCopy ?? resolveUserText(code)
+  // 2.472: taxonomy-aware — an ingress violation whose validator/reason names
+  // server state gets server-fault guidance, never "rephrase your message".
+  const guidance = resolveGuidance(code, boundaryError)
   const reason = extractReason(boundaryError)
 
   return (

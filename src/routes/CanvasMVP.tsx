@@ -7,6 +7,7 @@ import { useParams } from 'react-router-dom'
 import ReactFlowGraph from '../canvas/ReactFlowGraph'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintEventBus } from '../canvas/blueprints/eventBus'
+import { ToastProvider } from '../canvas/ToastContext'
 import { useCanvasStore } from '../canvas/store'
 import { useResultsRun } from '../canvas/hooks/useResultsRun'
 import { useDebugShortcut } from '../canvas/hooks/useDebugShortcut'
@@ -16,6 +17,8 @@ import { TopBar } from '../components/layout/TopBar'
 import { getScenario } from '../canvas/store/scenarios'
 import { buildShareLink } from '../canvas/utils/shareLink'
 import { useScenario } from '../hooks/useScenario'
+import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
+import { useImportRegistration } from '../canvas/registration/useImportRegistration'
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 
@@ -65,6 +68,23 @@ export default function CanvasMVP() {
       })
     }
   }, [scenarioIdFromRoute, isPersistenceActive, loadSupabaseScenario])
+
+  // ROADMAP 2.312 piece 3: merge the SERVER's copy of this scenario's graph
+  // over the locally-restored canvas — values from CEE, layout from local.
+  //
+  // ⚠ NOT gated on `isPersistenceActive`. That flag is false for every guest
+  // session by construction (`lib/persistenceActive.ts`), and guest is the tier
+  // that ships — gating on it would leave this doing nothing for every real
+  // user. It does not apply here in any case: that flag governs the UI's own
+  // Supabase writes, whereas this read goes through CEE, which holds the
+  // service credential the browser deliberately does not have.
+  useServerGraphHydration(scenarioIdFromRoute)
+
+  // ROADMAP 2.467: register a locally-imported graph with CEE so the analysis
+  // describes the model on screen. Mounted BESIDE the hydration hook on
+  // purpose — the two are the same seam read in both directions, and the
+  // hydration merge refuses while this one still has the hold armed.
+  useImportRegistration()
 
   // Track canvas opened event
   useEffect(() => {
@@ -235,6 +255,11 @@ export default function CanvasMVP() {
   }, [isPersistenceActive, createSharedBrief])
 
   return (
+    // ToastProvider at route level so surfaces OUTSIDE ReactFlowGraph
+    // (TemplatesPanel above all) share the one toast system. RFG keeps its
+    // own inner provider — nested providers simply scope to their subtree,
+    // so RFG-originated toasts render exactly as before.
+    <ToastProvider>
     <div style={{ height: '100vh', width: '100vw', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <TopBar
         scenarioTitle={scenarioTitle}
@@ -280,5 +305,6 @@ export default function CanvasMVP() {
         )}
       </div>
     </div>
+    </ToastProvider>
   )
 }

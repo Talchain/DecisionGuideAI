@@ -7,11 +7,19 @@
  * - colour (not color)
  * - behaviour (not behavior)
  * - optimise (not optimize)
+ *
+ * SCOPE: user-facing copy only. Comments and JSDoc are stripped before scanning
+ * (shared literal-aware tokeniser, tests/helpers/stripSourceComments), so a
+ * design-note that merely mentions an American spelling does not redden the guard
+ * — the #386 comment-scanning-footgun fix, applied here. See the
+ * "comment-aware scanning" describe block for the both-directions mutation proof.
  */
 
-import { describe, it, expect } from 'vitest'
-import { readFileSync, readdirSync } from 'fs'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync } from 'fs'
 import { join } from 'path'
+import { tmpdir } from 'os'
+import { stripComments } from '../../../tests/helpers/stripSourceComments'
 
 describe('S4-COPY: British English Verification', () => {
   // American spellings that should be British
@@ -89,7 +97,19 @@ describe('S4-COPY: British English Verification', () => {
    * Find American spellings in user-facing strings
    */
   function findAmericanSpellings(filePath: string): Array<{ line: number; text: string; american: string; british: string }> {
-    const content = readFileSync(filePath, 'utf-8')
+    const raw = readFileSync(filePath, 'utf-8')
+    // Comments are NOT user-facing copy. Strip them (literal-aware, comment chars
+    // → spaces so line numbers stay accurate) BEFORE the scan, so a design-note or
+    // JSDoc that merely MENTIONS an American spelling — e.g. the wire field name
+    // `analyze_sentiment` documented in ceeRecovery.ts — can never redden this
+    // guard. This is the same footgun PR #386 fixed in the alpha-emission guard;
+    // both now share tests/helpers/stripSourceComments. String, template and JSX
+    // literals survive stripping, so genuinely rendered copy is still scanned.
+    // Markdown/README files carry no code comments and are user-facing prose end
+    // to end, so they are scanned whole.
+    const content = /\.(tsx?|jsx?|css)$/.test(filePath)
+      ? stripComments(raw, filePath)
+      : raw
     const lines = content.split('\n')
     const violations: Array<{ line: number; text: string; american: string; british: string }> = []
 
@@ -397,6 +417,66 @@ describe('S4-COPY: British English Verification', () => {
       }
 
       expect(violations.length).toBe(0)
+    })
+  })
+
+  /**
+   * MUTATION PROOF (both directions), the #386 discipline applied to this guard.
+   *
+   * The guard's INPUT is now comment-stripped, so two things must hold at once:
+   *   (i)  a real American spelling in RENDERED copy (a string literal / JSX text
+   *        that reaches the UI) is still caught — the positive control, without
+   *        which every "no violations" assertion above is vacuous; and
+   *   (ii) a bare American spelling that lives ONLY inside a comment / JSDoc no
+   *        longer trips it (the footgun that forced ceeRecovery.ts to spell its
+   *        example `analyze_sentiment` to dodge the guard).
+   *
+   * These call the real `findAmericanSpellings` against tiny on-disk files, so
+   * they exercise the exact read → strip → scan path the guard uses in CI.
+   */
+  describe('comment-aware scanning (footgun parity with #386)', () => {
+    let dir: string
+    beforeAll(() => {
+      dir = mkdtempSync(join(tmpdir(), 'british-english-guard-'))
+    })
+    afterAll(() => rmSync(dir, { recursive: true, force: true }))
+
+    const scan = (name: string, source: string) => {
+      const p = join(dir, name)
+      writeFileSync(p, source)
+      return findAmericanSpellings(p)
+    }
+
+    it('POSITIVE CONTROL: an American spelling in a user-facing STRING LITERAL is caught', () => {
+      const v = scan('violation.tsx', "export const label = 'Analyze results'\n")
+      expect(v.map((x) => x.american)).toContain('analyze')
+    })
+
+    it('a bare "analyze" that lives ONLY in a // line comment does not trip', () => {
+      const v = scan(
+        'line-comment.tsx',
+        '// we deliberately analyze producer prose upstream\nexport const A = 1\n',
+      )
+      expect(v).toEqual([])
+    })
+
+    it('a bare "analyze" in a /* */ block comment / JSDoc does not trip', () => {
+      const v = scan(
+        'block-comment.tsx',
+        '/**\n * We do not analyze producer prose here — see the note below.\n' +
+          ' * A wire field name like `analyze_sentiment` stays verbatim.\n */\n' +
+          'export const B = 2\n',
+      )
+      expect(v).toEqual([])
+    })
+
+    it('a genuine violation SURVIVES when a comment on the same line is stripped', () => {
+      // The string literal is user-facing (RED); the trailing comment that also
+      // says "optimize" is stripped (not counted). Proves stripping is surgical.
+      const v = scan('mixed.tsx', "export const t = 'Customize your view' // optimize later\n")
+      const words = v.map((x) => x.american)
+      expect(words).toContain('customize')
+      expect(words).not.toContain('optimize')
     })
   })
 })

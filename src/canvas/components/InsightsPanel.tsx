@@ -401,7 +401,7 @@ export function InsightsPanel({
                 Key Insight
               </span>
               {hasDetails && (
-                <span className="text-ink-900/40">
+                <span className="text-ink-900">
                   {isExpanded ? (
                     <ChevronUp className="w-4 h-4" aria-hidden="true" />
                   ) : (
@@ -452,7 +452,7 @@ export function InsightsPanel({
                   return (
                     <li
                       key={key}
-                      className={`${typography.bodySmall} text-ink-900/80 list-disc`}
+                      className={`${typography.bodySmall} text-ink-900 list-disc`}
                     >
                       {risk}
                     </li>
@@ -483,7 +483,7 @@ export function InsightsPanel({
                 {caveats.map((caveat) => (
                   <li
                     key={caveat.id}
-                    className={`${typography.bodySmall} text-ink-900/80 list-disc`}
+                    className={`${typography.bodySmall} text-ink-900 list-disc`}
                   >
                     {caveat.content}
                   </li>
@@ -537,7 +537,7 @@ export function InsightsPanel({
                       <button
                         type="button"
                         onClick={isInteractive ? handleClick : undefined}
-                        className={`${typography.bodySmall} text-ink-900/80 text-left ${
+                        className={`${typography.bodySmall} text-ink-900 text-left ${
                           isInteractive ? 'underline decoration-dotted hover:text-success' : ''
                         }`}
                         disabled={!isInteractive}

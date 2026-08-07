@@ -56,8 +56,6 @@ jobs:
         with:
           node-version-file: .nvmrc
           registry-url: https://npm.pkg.github.com
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Cache node_modules
         id: cache-nm
@@ -89,7 +87,7 @@ jobs:
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   security-audit:
-    name: Security Audit (npm)
+    name: Security Audit (pnpm)
     needs: install
     runs-on: ubuntu-latest
     steps:
@@ -105,8 +103,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -115,6 +111,8 @@ jobs:
           key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Audit for high/critical vulnerabilities
+        # pnpm audit --prod --audit-level high — fails the job on any prod-tree
+        # high/critical advisory. Moderate/low are surfaced but do not block.
         run: pnpm run security:audit
 
   # ── Static analysis ────────────────────────────────────────────────────
@@ -135,8 +133,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -145,16 +141,54 @@ jobs:
           key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
 
+      # ── ROADMAP 2.649 — parity with staging-full-tests.yml ──────────────────
+      # Placed BEFORE the "Schema contract gate" step below: these two verify
+      # the vendored tarball's BYTES (sha256 sidecar via
+      # scripts/check-vendor-sha.mjs) and the derived version constant, while
+      # the gate asserts the pin's SHAPE. (ROADMAP 2.662 rewrote the gate to
+      # permit the vendored pin — the registry-semver assertion it replaced
+      # could never pass at a vendored tip, and demonstrably failed at
+      # 9907cebd, run 26251187065.)
+      - name: Vendored schemas tarball integrity
+        run: pnpm run check:vendor
+
+      - name: Vendored schemas version constant is derived, not drifted
+        run: pnpm run ci:guard:schemas-version
+
+      # ── POLICY (ROADMAP 2.662, ruled 6 Aug 2026): the vendored tarball IS the
+      # contract mechanism — a sha256-asserted `npm pack` from the schemas repo,
+      # pinned as `file:./vendor/talchain-schemas-<semver>.tgz`; registry pins
+      # are NOT permitted (the registry envelope differs from the canonical
+      # npm-pack bytes — see vendor/README.md). This gate permits EXACTLY that
+      # shape and forbids every other `file:` reference. Byte integrity of the
+      # tarball against its .sha256 sidecar is `check:vendor`'s job (run above)
+      # and is deliberately not duplicated here.
       - name: Schema contract gate
         run: |
+          set -euo pipefail
           echo "Checking schema dependency contract..."
 
-          # 1. No file: references for @talchain/schemas
-          if grep -q '"file:' package.json; then
-            echo "FAIL: package.json contains file: dependency links"
-            grep '"file:' package.json
+          ALLOWED_PIN_RE='"@talchain/schemas": "file:\./vendor/talchain-schemas-[0-9]+\.[0-9]+\.[0-9]+\.tgz"'
+
+          # 1. The ONLY file: reference permitted anywhere in package.json is
+          #    the vendored @talchain/schemas pin (exact anchored shape above).
+          #    Both conditions reported separately: (1a) how many references
+          #    match the permitted shape, (1b) every reference that does not.
+          FILE_REFS="$(grep -an '"file:' package.json || true)"
+          if [ -n "$FILE_REFS" ]; then
+            ALLOWED_COUNT="$(printf '%s\n' "$FILE_REFS" | grep -acE "$ALLOWED_PIN_RE" || true)"
+            OTHER_REFS="$(printf '%s\n' "$FILE_REFS" | grep -avE "$ALLOWED_PIN_RE" || true)"
+          else
+            ALLOWED_COUNT=0
+            OTHER_REFS=""
+          fi
+          echo "OK (1a): file: references matching the vendored @talchain/schemas pin shape: $ALLOWED_COUNT"
+          if [ -n "$OTHER_REFS" ]; then
+            echo "FAIL (1b): package.json carries file: reference(s) other than the vendored @talchain/schemas pin:"
+            printf '%s\n' "$OTHER_REFS"
             exit 1
           fi
+          echo "OK (1b): no other file: references in package.json"
 
           # 2. No local fork directory
           if [ -d "packages/olumi-schemas" ]; then
@@ -162,12 +196,30 @@ jobs:
             exit 1
           fi
 
-          # 3. @talchain/schemas must be a semver version (not a path)
-          SCHEMA_VER=$(node -p "require('./package.json').dependencies['@talchain/schemas']")
-          if echo "$SCHEMA_VER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "OK: @talchain/schemas = $SCHEMA_VER (registry version)"
+          # 3. @talchain/schemas must be the vendored-tarball pin (NOT a
+          #    registry semver), and the tarball the pin names must be tracked
+          #    in the tree at the exact semver the pin states.
+          SCHEMA_DEP="$(node -p "require('./package.json').dependencies['@talchain/schemas']")"
+          if printf '%s\n' "$SCHEMA_DEP" | grep -aqE '^file:\./vendor/talchain-schemas-[0-9]+\.[0-9]+\.[0-9]+\.tgz$'; then
+            echo "OK (3a): @talchain/schemas = $SCHEMA_DEP (vendored tarball pin — the contract mechanism)"
           else
-            echo "FAIL: @talchain/schemas = $SCHEMA_VER (not a registry version)"
+            echo "FAIL (3a): @talchain/schemas = $SCHEMA_DEP"
+            echo "  Policy: the vendored tarball IS the contract mechanism. The pin must be"
+            echo "  exactly file:./vendor/talchain-schemas-<semver>.tgz. Registry semver"
+            echo "  pins are NOT permitted — the registry envelope differs from the"
+            echo "  canonical npm-pack bytes (see vendor/README.md)."
+            exit 1
+          fi
+          # Internal consistency: extract the pin's semver, rebuild the
+          # filename from it, and assert THAT path is tracked (git ls-files is
+          # NUL-safe where a filesystem grep is not). Deeper tarball integrity
+          # (sha256 sidecar) is check:vendor's job — not duplicated here.
+          PIN_SEMVER="$(printf '%s\n' "$SCHEMA_DEP" | sed -E 's|^file:\./vendor/talchain-schemas-([0-9]+\.[0-9]+\.[0-9]+)\.tgz$|\1|')"
+          PIN_TARBALL="vendor/talchain-schemas-${PIN_SEMVER}.tgz"
+          if git ls-files --error-unmatch -- "$PIN_TARBALL" >/dev/null 2>&1; then
+            echo "OK (3b): pinned tarball $PIN_TARBALL (semver $PIN_SEMVER) is tracked in the tree"
+          else
+            echo "FAIL (3b): the pin names $PIN_TARBALL but that file is not tracked in the tree"
             exit 1
           fi
 
@@ -220,6 +272,43 @@ jobs:
       - name: Design System v5 drift (report-only soak)
         run: pnpm run ci:guard:ds
 
+  # ── Typecheck gate self-test (positive control) ──────────────────────
+  # PARITY WITH staging-full-tests.yml. The `tsc` job above asserts an ABSENCE
+  # ("no new type errors, no invisible files"). That assertion is worth nothing
+  # unless the gate can be shown to detect a PRESENCE — the gate it replaced was
+  # green for months while loading 9% of src, and nobody had ever watched it go
+  # red. #470 wired this self-test into the Staging Gate but not into ci.yml, so
+  # the `TypeScript` check required on `main` was running an unproven gate.
+  # Its own job so it runs in parallel and costs no serial time.
+  typecheck-selftest:
+    name: Typecheck Gate Self-Test
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # The self-test derives the source set with `git ls-files`, so it needs a
+      # real checkout (actions/checkout gives one) and a clean working tree.
+      - name: Prove the typecheck gate actually bites
+        run: pnpm run typecheck:selftest
+
   # ── Unit tests + coverage (merged — was two separate jobs running tests twice) ──
   vitest:
     name: Tests + Coverage
@@ -238,8 +327,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -285,8 +372,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -320,8 +405,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -340,6 +423,19 @@ jobs:
 
       - name: Bundle Policy (safe chunks React-free)
         run: pnpm run ci:bundle-policy
+
+      # Reds if the built bundle bakes a VITE_* variable that no source file
+      # reads (the signature of a wholesale `import.meta.env` inline), or one
+      # that is not in the declared allow-list. Deliberately NOT part of
+      # `build:ci`: that is what Netlify runs, and a false red there would break
+      # staging deploys for every lane. This gates the MERGE, not the DEPLOY.
+      - name: Bundle env allow-list (no unread VITE_* baked into the bundle)
+        run: pnpm run ci:guard:bundle-env
+
+      # Reds if src/lib/flagEnv.ts has fallen behind src/flags.ts — a missing
+      # key would make that flag silently resolve to its defaultValue.
+      - name: flagEnv freshness (derived from src/flags.ts + netlify.toml)
+        run: pnpm run ci:guard:flag-env
 
   # ── E2E Chromium (sharded across 4 runners) ───────────────────────────
   e2e-chromium:
@@ -367,8 +463,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -426,8 +520,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
@@ -459,8 +551,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
@@ -491,8 +581,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
@@ -546,8 +634,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4

@@ -54,6 +54,11 @@ export async function commitValidatedMutation(
           // PLoT validated but didn't return full graph — apply locally
           localApply()
         }
+        // Every context-menu mutation is a user model edit → dirty the freshness
+        // overlay. Covers localApply paths that bare-setState (e.g. insert-factor-
+        // between) and the validated-graph branch; idempotent for callers whose
+        // localApply already dirties via a store action.
+        markFreshnessDirty()
         return { success: true }
       } else {
         // PLoT rejected the mutation
@@ -68,5 +73,11 @@ export async function commitValidatedMutation(
 
   // Phase 2: Local application (current behaviour for all mutations)
   localApply()
+  markFreshnessDirty()
   return { success: true }
+}
+
+/** Mark the freshness overlay dirty (optional-chained for partial test store doubles). */
+function markFreshnessDirty(): void {
+  useCanvasStore.getState().markAnalysisFreshnessDirty?.()
 }

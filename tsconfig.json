@@ -1,7 +1,19 @@
 {
+  // ⚠ SOLUTION STUB — this file compiles NOTHING.
+  //
+  // `"files": []` plus `references` is the standard Vite/TS solution layout: it
+  // exists so editors and `tsc -b` can discover the real projects. But
+  // `tsc -p tsconfig.json --noEmit` loads zero files and exits 0 on ANY tree,
+  // however broken. It is not a check, and it has been mistaken for one here
+  // before. Do not add it to a gate.
+  //
+  // THE GATE IS `pnpm run typecheck` → scripts/ci/typecheck-gate.sh, which
+  // compiles tsconfig.app.json + tsconfig.tooling.json and additionally proves,
+  // against `git ls-files`, that no tracked TypeScript file escaped them.
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.tooling.json" },
     { "path": "./tsconfig.node.json" }
   ]
 }

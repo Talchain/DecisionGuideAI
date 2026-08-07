@@ -32,8 +32,10 @@
  *
  * IMPORTANT — per v5-canonical-analysis brief correction 3:
  *   `analysis_ready` alone is NOT proof of a successful run_analysis fact.
- *   Callers must use `hasRunAnalysisFact === true` OR the explicit
- *   `analysisFreshness === 'fresh'` signal — never readiness alone.
+ *   Callers must use `deriveV5AnalysisFactUpdate` (which composes the
+ *   explicit `has_run_analysis_fact` flag with the analysis_result-block run
+ *   signal — F10: "ran" and "current" are different questions) — never
+ *   readiness alone, and never the freshness verdict.
  */
 import type { OlumiResponse } from '@talchain/schemas/boundary'
 
@@ -68,16 +70,72 @@ export interface Phase3RawBlock {
  * need the full fidelity. */
 export interface DerivedGuidanceItem {
   item_id: string
-  signal_code: string
-  category: 'must_fix' | 'should_fix' | 'could_fix' | 'technique'
+  /**
+   * The producer's `signal_code` VERBATIM when emitted — an OPEN,
+   * producer-owned SCREAMING_SNAKE vocabulary (MISSING_BASE_RATE,
+   * PRE_MORTEM, …). Never allowlisted, never rendered as user copy (data-*
+   * only). Absent when the producer sent none: the UI does NOT invent a code
+   * from the block type ('coaching'/'review_card' are block classes, not
+   * codes).
+   */
+  signal_code?: string
+  /**
+   * The producer's four-value `category` VERBATIM when emitted; absent when
+   * the producer sent none. Passthrough — never defaulted to 'should_fix',
+   * never synthesised from `severity`.
+   */
+  category?: 'must_fix' | 'should_fix' | 'could_fix' | 'technique'
   source: 'analysis' | 'structural' | 'prompt'
   title: string
   detail?: string
+  /**
+   * The producer's `action_label` VERBATIM when supplied; absent otherwise.
+   * Passthrough — the UI never authors a CTA label of its own from it. Stage 1
+   * carried the raw block but this derived field was missing, so every
+   * downstream consumer (the Strengthen mapper) fell back to boilerplate.
+   */
+  actionLabel?: string
+  /**
+   * The producer's `signal` display line VERBATIM when supplied; absent
+   * otherwise. Distinct from `signal_code` (a data-* code, never copy): this
+   * IS user-facing producer copy, carried today only on the deterministic
+   * stale-rerun nudge. Rendered verbatim where present, never synthesised.
+   */
+  signal?: string
   primary_action: { type: 'discuss'; prompt: string }
   target_object?: { type: 'node' | 'edge' | 'option' | 'graph' | 'framing'; id?: string; label?: string }
   related_elements?: Array<{ id?: string; type?: string; label?: string }>
   valid_while?: { analysis_hash?: string; graph_hash?: string }
+  /**
+   * COARSE 0-100 urgency, HIGHER = more urgent — the producer's 0.19.0
+   * `priority` VERBATIM when emitted (band-granular, derived 1:1 from
+   * `category` producer-side; ties are expected and normal), else the 50
+   * fail-closed default. Budget/filter/style on it. It is NOT a display
+   * order — order by `priorityRank` (the contract says so explicitly) — and
+   * it is NEVER derived from `priority_rank` (an order is not a score; that
+   * derivation was the UI-SEM-085 `100 - rank` defect).
+   */
   priority: number
+  /**
+   * The producer's 0.19.0 `priority_rank` VERBATIM: an ASCENDING display
+   * ordinal, LOWER = shown FIRST. Positive integers, UNBOUNDED — never
+   * invert it against 100 (ranks >= 100 are routine; bands: 1-9 lifecycle,
+   * 10-99 review cards, 100-199 coaching, 200+ prompts). Unique only WITHIN
+   * a band: equal ranks are producer-order ties. PRESENCE of this field is
+   * the "producer ranked this block" fact — absent means the producer sent
+   * no ordering (pre-0.19.0 blocks, exercise blocks, malformed ranks) and
+   * consumers fall closed to their unranked treatment.
+   */
+  priorityRank?: number
+  /**
+   * UI-SEM-085 disclosure carrier. True ONLY when the producer emitted
+   * `priority` on the block; false when `priority` is the UI's 50 default.
+   * Set at the single defaulting site in `deriveGuidance` — downstream
+   * consumers MUST read this flag rather than re-deriving it (a second
+   * derivation is a second invention; a producer may legitimately send 50).
+   * NOTE: rank provenance needs no flag — `priorityRank` presence IS it.
+   */
+  priorityIsProducerSupplied: boolean
 }
 
 export interface Phase3Extraction {
@@ -187,6 +245,46 @@ function collectFromContainer(
 }
 
 /**
+ * Map one target_refs entry onto the legacy GuidanceItem target vocabulary
+ * ('node' | 'edge' | 'option' | 'graph' | 'framing').
+ *
+ * Two emission conventions exist:
+ *   1. The wire contract (TargetRefSchema §0.1, strict `{id,label,kind}`,
+ *      kind ∈ factor|option|edge|goal|risk|constraint|outcome). All
+ *      non-edge, non-option kinds are nodes on the canvas — same collapse
+ *      as focusByTarget/TargetRefPill. Unknown kinds fail closed
+ *      (undefined) rather than guessing.
+ *   2. The legacy `type` convention (node|edge|option|graph|framing),
+ *      kept as the fallback when `kind` is absent.
+ * When `kind` is present it wins — a ref that names the contract field is
+ * a contract ref, whatever else rides along.
+ */
+function guidanceTargetType(
+  ref: Record<string, unknown>,
+): NonNullable<DerivedGuidanceItem['target_object']>['type'] | undefined {
+  if (typeof ref.kind === 'string') {
+    // Any string `kind` — including empty — marks a contract ref: unknown
+    // or empty kinds fail closed here, never fall back to legacy `type`.
+    const kind = ref.kind
+    if (kind === 'edge') return 'edge'
+    if (kind === 'option') return 'option'
+    if (
+      kind === 'factor' || kind === 'goal' || kind === 'risk' ||
+      kind === 'constraint' || kind === 'outcome'
+    ) {
+      return 'node'
+    }
+    return undefined
+  }
+  const ttype = safeString(ref.type)
+  if (ttype === 'node' || ttype === 'edge' || ttype === 'option' ||
+      ttype === 'graph' || ttype === 'framing') {
+    return ttype
+  }
+  return undefined
+}
+
+/**
  * Derive a GuidanceItem from a Phase 3 block. Lossless: the raw block stays
  * in Phase3Extraction.rawBlocks, so consumers who need freshness /
  * action_intent / priority_rank / target_refs / graph_hash_at_generation
@@ -194,6 +292,49 @@ function collectFromContainer(
  *
  * Returns null when the block carries no usable headline text (we do not
  * fabricate copy).
+ */
+/**
+ * UI-SEM-085 (NARROWED, 0.19.0) — `deriveGuidance` is THE ONE wire→internal
+ * mapping site for guidance-block priority semantics. The 0.19.0 contract
+ * (vendored tarball, boundary/blocks JSDoc — authoritative) states:
+ *
+ *   - `priority_rank`: ASCENDING ordinal, LOWER = shown FIRST. Positive
+ *     integers, UNBOUNDED — "never invert it against 100 (ranks >= 100 are
+ *     routine)". Bands encode block class (1-9 lifecycle, 10-99 review
+ *     cards, 100-199 coaching, 200+ prompts); equal ranks are
+ *     producer-order ties. REQUIRED on review_card/coaching/evidence
+ *     blocks; absent by contract on exercise blocks.
+ *   - `priority` (optional): COARSE 0-100 urgency, HIGHER = more urgent,
+ *     band-granular (derived 1:1 from `category` producer-side; ties
+ *     normal). NOT a display order — order by `priority_rank`; budget,
+ *     filter and style by `priority`/`category`.
+ *   - `category` (optional): four-value code-keyed class.
+ *
+ * Mapping decisions (each field on its own contract terms, no inversions):
+ *   - `priorityRank` ← `priority_rank` VERBATIM (positive integers only;
+ *     malformed ranks fail closed to absent = unranked). Its PRESENCE is the
+ *     "producer ranked this" fact consumed by every ordering surface.
+ *   - `priority` ← `priority` VERBATIM (clamped [0,100] for safety) when
+ *     emitted, else the 50 fail-closed default — now the RARE path (0.19.0
+ *     CEE emits `priority` on every guidance block; pre-0.19.0 blocks and
+ *     malformed payloads still default). NEVER derived from `priority_rank`:
+ *     the historic `100 - rank` inversion assumed a bounded 1..N ordinal, so
+ *     every rank >= 100 clamped to 0 and the whole coaching band collapsed
+ *     into one tie broken by wire array order (the UI-SEM-085 defect,
+ *     confirmed by an external Codex review).
+ *   - `category` ← wire `category` when canonical, else ABSENT. Passthrough:
+ *     the producer owns this field (real on every 0.19.0 guidance block); a
+ *     non-canonical or omitted value stays undefined — never synthesised from
+ *     `severity`, never defaulted to 'should_fix'.
+ *   - `signal_code` ← wire `signal_code` VERBATIM, else ABSENT. Passthrough:
+ *     an OPEN, producer-owned SCREAMING_SNAKE vocabulary. The UI never invents
+ *     one from `block.type` ('coaching'/'review_card' are block classes, not
+ *     codes — they never matched real codes like MISSING_BASE_RATE), never
+ *     allowlists the set, and never renders codes as user copy.
+ *
+ * Residual UI-authored fields: `source`→`'analysis'` and the `priority` 50
+ * fail-closed default (disclosed by `priorityIsProducerSupplied`). Copy is
+ * never fabricated (title-less blocks return null below).
  */
 function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   const r = block.raw
@@ -205,15 +346,33 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   if (!title) return null
   const detail = safeString(r.detail) ?? safeString(r.body) ?? safeString(r.message)
 
-  // Category — accept the four canonical values or fall back to should_fix
-  // for evidence/review_card surfaces (which expect attention without being
-  // blockers). Coaching defaults to should_fix.
-  const rawCategory = safeString(r.category) ?? safeString(r.severity)
-  const category: DerivedGuidanceItem['category'] =
+  // Category — the producer's code-keyed four-value class VERBATIM. Passthrough:
+  // an absent or non-canonical `category` stays undefined. The producer owns
+  // this field (real on every 0.19.0 guidance block); the UI never synthesises
+  // it from `severity` nor falls closed to a 'should_fix' default.
+  const rawCategory = safeString(r.category)
+  const category: DerivedGuidanceItem['category'] | undefined =
     rawCategory === 'must_fix' || rawCategory === 'should_fix' ||
     rawCategory === 'could_fix' || rawCategory === 'technique'
       ? rawCategory
-      : 'should_fix'
+      : undefined
+
+  // signal_code — the producer's OPEN, SCREAMING_SNAKE code VERBATIM when
+  // emitted; absent otherwise. Passthrough: the UI never invents one from
+  // `block.type` (block classes are not codes), never allowlists the set.
+  const signal_code = safeString(r.signal_code)
+
+  // action_label — the producer's CTA label VERBATIM when supplied; absent
+  // otherwise. Passthrough only (never UI-authored). Stage 1 preserved it on
+  // the raw block but dropped it from this derived shape, so the Strengthen
+  // mapper always fell back to boilerplate.
+  const actionLabel = safeString(r.action_label)
+
+  // signal — the producer's user-facing display line VERBATIM when supplied;
+  // absent otherwise. NOT `signal_code` (that is a data-* code, never copy):
+  // this is producer copy, carried today only on the deterministic stale-rerun
+  // nudge. Rendered verbatim where present, never synthesised.
+  const signal = safeString(r.signal)
 
   // Source — analysis when emitted as part of a run_analysis turn,
   // structural for graph-shaped advice. Fall back to analysis.
@@ -223,19 +382,26 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
       ? rawSource
       : 'analysis'
 
-  // priority: prefer CEE-emitted numeric, fall back to priority_rank
-  // ordering (1 = highest → 100, descending). Default 50.
-  const explicit = safeNumber(r.priority)
+  // priority_rank — VERBATIM, no inversion, no bound (see the contract note
+  // on the function doc). Positive integers only; anything else fails closed
+  // to absent, which every ordering consumer treats as unranked.
   const rank = safeNumber(r.priority_rank)
+  const priorityRank =
+    rank !== undefined && Number.isInteger(rank) && rank >= 1 ? rank : undefined
+  // priority — VERBATIM coarse urgency (0-100, higher = more urgent) when
+  // the producer emitted one; 50 fail-closed default otherwise. NEVER
+  // derived from priority_rank (an order is not a score — that derivation
+  // was the `100 - rank` coaching-band-collapse defect).
+  // UI-SEM-085: the SINGLE defaulting site. This flag is the only place the
+  // producer-supplied/UI-defaulted distinction is decided — never recompute it
+  // downstream from `priority === 50` (a producer may legitimately send 50).
+  const explicit = safeNumber(r.priority)
+  const priorityIsProducerSupplied = explicit !== undefined
   const priority =
-    explicit !== undefined
-      ? Math.max(0, Math.min(100, Math.round(explicit)))
-      : rank !== undefined
-        ? Math.max(0, Math.min(100, 100 - rank))
-        : 50
+    explicit !== undefined ? Math.max(0, Math.min(100, Math.round(explicit))) : 50
 
-  // target_object: prefer explicit, else read first entry from target_refs
-  // when emitted in that convention.
+  // target_object: prefer explicit, else read the first target_refs entry —
+  // contract `kind` or legacy `type` convention, via guidanceTargetType.
   let target_object: DerivedGuidanceItem['target_object']
   if (isPlainObject(r.target_object)) {
     const t = r.target_object
@@ -251,9 +417,8 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   } else if (Array.isArray(r.target_refs) && r.target_refs.length > 0) {
     const first = r.target_refs[0]
     if (isPlainObject(first)) {
-      const ttype = safeString(first.type)
-      if (ttype === 'node' || ttype === 'edge' || ttype === 'option' ||
-          ttype === 'graph' || ttype === 'framing') {
+      const ttype = guidanceTargetType(first)
+      if (ttype) {
         target_object = {
           type: ttype,
           ...(safeString(first.id) ? { id: safeString(first.id) } : {}),
@@ -264,15 +429,18 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   }
 
   // related_elements: pass through additional target_refs beyond the first.
+  // `type` carries the mapped vocabulary (contract kind or legacy type);
+  // unmappable refs keep their id/label so id-based matching still works.
   let related_elements: DerivedGuidanceItem['related_elements']
   if (Array.isArray(r.target_refs) && r.target_refs.length > 1) {
     related_elements = []
     for (let i = 1; i < r.target_refs.length; i++) {
       const ref = r.target_refs[i]
       if (!isPlainObject(ref)) continue
+      const mapped = guidanceTargetType(ref)
       related_elements.push({
         ...(safeString(ref.id) ? { id: safeString(ref.id) } : {}),
-        ...(safeString(ref.type) ? { type: safeString(ref.type) } : {}),
+        ...(mapped ? { type: mapped } : {}),
         ...(safeString(ref.label) ? { label: safeString(ref.label) } : {}),
       })
     }
@@ -292,22 +460,44 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
     }
   }
 
-  // primary_action — derived from action_intent + suggested follow-up
-  // prompt. Default to 'discuss' with the block's headline as the prompt.
-  const intentPrompt = safeString(r.action_intent) ?? safeString(r.suggested_prompt) ?? title
+  // primary_action.prompt — the text GuidanceStrip SUBMITS AS A TURN
+  // (`case 'discuss'` → `onSendMessage(action.prompt, ...)`). So every member
+  // of this chain must be producer-authored PROSE.
+  //
+  // ⚠ `action_intent` USED TO LEAD THIS CHAIN AND THAT WAS THE DEFECT
+  // (ROADMAP 2.225). It is a raw ENUM TOKEN — `gather_evidence`,
+  // `confirm_factor` — so clicking the guidance action sent the literal
+  // string "gather_evidence" to CEE as if the user had typed it. Machine
+  // tokens ride as data-* in this codebase; they are never user copy, and
+  // never user speech. It is dropped from the chain entirely (it remains on
+  // the raw block for readers that legitimately want the token).
+  //
+  // `action_prompt` (schemas 0.31.0) now leads: producer-authored turn text,
+  // dispatched verbatim. `title` is REQUIRED, so the chain always resolves
+  // and `primary_action` stays required — no consumer needs an optional
+  // guard, and no item is silently stripped of its affordance.
+  const intentPrompt = safeString(r.action_prompt) ?? safeString(r.suggested_prompt) ?? title
 
   return {
     item_id: block.id,
-    signal_code: safeString(r.signal_code) ?? block.type,
-    category,
+    // signal_code / category: producer-owned passthrough — included only when
+    // the producer supplied them; absent stays absent, never invented.
+    ...(signal_code ? { signal_code } : {}),
+    ...(category ? { category } : {}),
     source,
     title,
     ...(detail ? { detail } : {}),
+    // action_label / signal: producer-owned passthrough — included only when
+    // the producer supplied them; absent stays absent, never invented.
+    ...(actionLabel ? { actionLabel } : {}),
+    ...(signal ? { signal } : {}),
     primary_action: { type: 'discuss', prompt: intentPrompt },
     ...(target_object ? { target_object } : {}),
     ...(related_elements ? { related_elements } : {}),
     ...(valid_while ? { valid_while } : {}),
     priority,
+    ...(priorityRank !== undefined ? { priorityRank } : {}),
+    priorityIsProducerSupplied,
   }
 }
 
@@ -406,9 +596,14 @@ export function extractPhase3FromV5Response(
  * Convenience predicate: does this V5 response carry signals that an
  * analysis turn completed and produced a persisted fact?
  *
- * Per correction 3: rely on hasRunAnalysisFact when CEE emits it; otherwise
- * accept analysisFreshness === 'fresh' AND presence of an analysis_result
- * block as a conservative fallback. analysis_ready alone is NOT sufficient.
+ * Rely on hasRunAnalysisFact when CEE emits it; otherwise the presence of an
+ * analysis_result block IS the run signal — regardless of the freshness
+ * verdict. F10 (Paul's 16-Jul session): the old fallback also required
+ * freshness === 'fresh', so a run turn whose own response carried a 'stale'
+ * verdict minted NO fact → the orphan banner stacked on top of the freshness
+ * strip for the very run the user just watched complete. "Ran" and
+ * "current" are different questions; this predicate answers only the first.
+ * analysis_ready alone is still NOT sufficient.
  */
 export function v5ResponseHasRunAnalysisFact(
   response: OlumiResponse | OlumiResponseWithExtensions,
@@ -417,8 +612,53 @@ export function v5ResponseHasRunAnalysisFact(
   const ext = extraction ?? extractPhase3FromV5Response(response)
   if (ext.hasRunAnalysisFact === true) return true
   if (ext.hasRunAnalysisFact === false) return false
-  if (ext.analysisFreshness === 'fresh') {
-    return response.blocks.some((b) => b.type === 'analysis_result')
+  return response.blocks.some((b) => b.type === 'analysis_result')
+}
+
+/**
+ * The ONE decision for what a V5 response does to the `v5AnalysisFact`
+ * slice. Pure — the production mint site (useConversation) applies the
+ * returned action verbatim, so tests can pin the mint→classify seam against
+ * THIS function instead of hand-mirroring the write.
+ *
+ *   - 'set': the composed run gate (`v5ResponseHasRunAnalysisFact`) passed.
+ *     `hasRunAnalysisFact` on the returned fields is the COMPOSED answer
+ *     (always true here), NOT CEE's raw nullable flag — writing the raw null
+ *     re-opened the ran-vs-current split one layer up, because
+ *     `classifyAnalysisStateSource` read the fact's own flag and disbelieved
+ *     a stale-verdict run it had just watched complete (F10).
+ *   - 'clear': CEE explicitly denied the fact (`has_run_analysis_fact=false`)
+ *     or declared 'none' — a legitimate clear, not a blind one.
+ *   - 'retain': the response carries no signal either way; conversational
+ *     turns must not wipe a prior analysis fact.
+ */
+export type V5AnalysisFactUpdate =
+  | {
+      action: 'set'
+      hasRunAnalysisFact: true
+      freshness: AnalysisFreshness | null
+      freshnessReason: string | null
+      rawBlocks: Phase3RawBlock[]
+    }
+  | { action: 'clear' }
+  | { action: 'retain' }
+
+export function deriveV5AnalysisFactUpdate(
+  response: OlumiResponse | OlumiResponseWithExtensions,
+  extraction?: Phase3Extraction,
+): V5AnalysisFactUpdate {
+  const ext = extraction ?? extractPhase3FromV5Response(response)
+  if (v5ResponseHasRunAnalysisFact(response, ext)) {
+    return {
+      action: 'set',
+      hasRunAnalysisFact: true,
+      freshness: ext.analysisFreshness,
+      freshnessReason: ext.freshnessReason,
+      rawBlocks: ext.rawBlocks,
+    }
   }
-  return false
+  if (ext.hasRunAnalysisFact === false || ext.analysisFreshness === 'none') {
+    return { action: 'clear' }
+  }
+  return { action: 'retain' }
 }

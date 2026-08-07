@@ -8,8 +8,6 @@ import type {
   ISLConformalRequest,
   ContrastiveExplanationRequest,
   ContrastiveExplanationResponse,
-  TransportabilityRequest,
-  TransportabilityResponse,
 } from './types'
 import { withObservabilityHeaders, recordBffResponse, recordBffError } from '../../lib/observability-headers'
 import { useGateStore } from '../../lib/gate-state'
@@ -107,9 +105,13 @@ export class ISLClient {
         headers,
       })
 
-      clearTimeout(timeoutId)
-
-      // Record response for observability
+      // NOTE: the abort timer is deliberately NOT cleared here. `fetch` resolves
+      // as soon as the HEADERS arrive, so clearing it at this point left both
+      // `response.json()` reads below unprotected: a headers-then-body stall
+      // (the Netlify-edge hang class this project has hit before) left this
+      // promise pending forever, so callers never reached their catch/finally.
+      // The timer is cleared in the `finally` instead, once the body read has
+      // completed or thrown. Mirrors the runV2 fix in #367.
       recordBffResponse(correlationId, url, response, startTime)
 
       if (!response.ok) {
@@ -122,10 +124,12 @@ export class ISLClient {
         )
       }
 
-      return response.json()
+      // `await`, not a bare `return` of the promise: without it the try block
+      // exits before the body has been read, so the body read would escape both
+      // the catch (no AbortError → ISLError mapping, no recordBffError) and the
+      // finally's timer (cleared while the read was still in flight).
+      return await response.json()
     } catch (error) {
-      clearTimeout(timeoutId)
-
       // Record error for observability
       recordBffError(correlationId, url, startTime, error)
 
@@ -133,6 +137,13 @@ export class ISLClient {
         throw new ISLError('Request timeout', 408, undefined, correlationId)
       }
       throw error
+    } finally {
+      // Cleared here, and only here — after the body read has settled on every
+      // path (success, HTTP error, abort). An abort raised mid-body rejects the
+      // body read with an AbortError, which the catch above maps to the same
+      // ISLError('Request timeout', 408) a headers-phase timeout already
+      // produced — no new error shape.
+      clearTimeout(timeoutId)
     }
   }
 
@@ -200,18 +211,6 @@ export class ISLClient {
     request: ContrastiveExplanationRequest
   ): Promise<ContrastiveExplanationResponse> {
     return this.fetch<ContrastiveExplanationResponse>('/explain/contrastive', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    })
-  }
-
-  /**
-   * Phase 2: Transportability - Check if model transfers to different context
-   */
-  async checkTransportability(
-    request: TransportabilityRequest
-  ): Promise<TransportabilityResponse> {
-    return this.fetch<TransportabilityResponse>('/transport', {
       method: 'POST',
       body: JSON.stringify(request),
     })

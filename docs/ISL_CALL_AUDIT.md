@@ -168,7 +168,33 @@ These hooks were audited but do NOT call ISL directly:
 |------|-----------------|-------|
 | `useISLSynthesis` | `/bff/cee/isl-synthesis` | Calls CEE, not ISL |
 | `useConditionalRecommendations` | `/bff/engine/v1/analysis/conditional-recommend` | Calls PLoT |
-| `useSequentialAnalysis` | `/bff/engine/v1/analysis/sequential` | Calls PLoT |
+| `useSequentialAnalysis` | `/bff/engine/v1/analysis/sequential` — **route DELETED 26 Jul 2026** | **DEAD CODE — calls nothing.** See the note below. |
+
+> **⚠ `useSequentialAnalysis` is dead, and its endpoint no longer exists (recorded 28 Jul 2026).**
+>
+> This row previously read *"Calls PLoT"* with no qualification, which described a
+> live call. It is not one, on either side of the wire:
+>
+> - **The endpoint is gone.** PLoT deleted `POST /v1/analysis/sequential` (and
+>   `/v1/analysis/policy-tree`) on 26 Jul 2026 as vacuous — ISL owns the real
+>   sequential capability. Live-probed 28 Jul 2026 at PLoT staging tip `05529e42`:
+>   `GET`+`POST /v1/analysis/sequential` → **404**, against positive control
+>   `POST /v1/run` → 401 and negative control `POST /v1/does-not-exist-xyz` → 404.
+> - **Nothing reaches the call anyway.** `useSequentialAnalysis` has exactly one
+>   importer, `src/canvas/components/SequentialView/index.tsx`, and `SequentialView`
+>   has **zero** importers outside its own directory — no JSX renderer, no barrel
+>   re-export, no `lazy()`/dynamic import, and no registry or lookup-table mount.
+>   The pair is a closed, orphaned loop.
+> - **Confirmed against the deployed bundle**, not just the source: all 70 JS chunks
+>   of `staging--olumi.netlify.app` were crawled (5.4 MB, zero fetch failures);
+>   `analysis/sequential` and the hook's own `[useSequentialAnalysis]` log tag appear
+>   in **0** chunks, while positive controls `pre-analysis-sensitivity`,
+>   `graph-readiness`, `v1/templates` and `bff/engine` were all found. The absence is
+>   measured, not assumed.
+>
+> **Consequence: there is no user-visible breakage and nothing to fix urgently.**
+> Disposition (archive under the repo's `archive/dead-*-<YYYY-MM>/` precedent, or
+> delete) is rowed as separate work and deliberately NOT done here.
 
 ---
 

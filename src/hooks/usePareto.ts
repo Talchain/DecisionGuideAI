@@ -12,6 +12,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { plotFetch } from '../lib/plotFetch'
 
 const PARETO_ENDPOINT = '/bff/engine/v1/analysis/pareto'
 const REQUEST_TIMEOUT_MS = 10000
@@ -87,13 +88,37 @@ export function usePareto({
   // Create hash of request params to detect changes
   const requestHash = JSON.stringify({ options, criteria })
 
+  // ROADMAP 1.44 — "latest ref" pattern: fetchPareto reads options/criteria
+  // via these refs (kept fresh every render) instead of closing over the raw
+  // arrays directly. That keeps fetchPareto's identity keyed ONLY on
+  // requestHash (a content-based primitive), so an unmemoized caller that
+  // recreates the options/criteria array on every render (same values, new
+  // reference — a routine pattern, not unique to any one caller) no longer
+  // forces a new fetchPareto identity — and therefore no longer re-fires the
+  // auto-fetch effect below on every render.
+  const optionsRef = useRef(options)
+  optionsRef.current = options
+  const criteriaRef = useRef(criteria)
+  criteriaRef.current = criteria
+
   const fetchPareto = useCallback(async () => {
+    const options = optionsRef.current
+    const criteria = criteriaRef.current
+
     // Validation: Need ≥3 options and ≥2 criteria for meaningful Pareto analysis
     if (options.length < 3) {
       setFrontier([])
       setDominated([])
       setDominancePairs([])
       setError(null)
+      // Latch the hash even on early return — otherwise an unmemoized
+      // caller (new options/criteria array reference every render, same
+      // content) keeps this guard permanently unsatisfied: every render
+      // recreates fetchPareto, the effect re-fires, this branch re-runs,
+      // and the fresh `[]` literals above (never `===` the previous ones)
+      // trigger another render — an infinite loop with no network calls
+      // involved at all.
+      lastRequestHashRef.current = requestHash
       return
     }
 
@@ -102,6 +127,7 @@ export function usePareto({
       setDominated([])
       setDominancePairs([])
       setError(null)
+      lastRequestHashRef.current = requestHash
       return
     }
 
@@ -135,7 +161,7 @@ export function usePareto({
 
       const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
-      const response = await fetch(PARETO_ENDPOINT, {
+      const response = await plotFetch(PARETO_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -192,7 +218,13 @@ export function usePareto({
     } finally {
       setIsLoading(false)
     }
-  }, [options, criteria, requestHash])
+    // ROADMAP 1.44: deps are requestHash ONLY (a content-based primitive) —
+    // NOT the raw options/criteria arrays. options/criteria are read via
+    // optionsRef/criteriaRef above so this callback's identity is stable
+    // whenever the caller's array content is unchanged, even if the caller
+    // passes a new array reference (e.g. `.filter()`/`.map()`/spread) on
+    // every render.
+  }, [requestHash])
 
   // Auto-fetch when enabled and params change
   useEffect(() => {

@@ -233,6 +233,52 @@ describe('PreAnalysisPanel', () => {
     mockLastDraftError = null
   })
 
+  describe('Success-target nudge', () => {
+    it('renders the nudge when a drafted graph has a goal but no success target', () => {
+      // createMockData defaults: 1 goal node, successThreshold null.
+      mockUsePreAnalysisData.mockReturnValue(createMockData())
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.getByTestId('goal-target-nudge')).toBeInTheDocument()
+    })
+
+    it('hides the nudge once a success target is set', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({ successThreshold: 60 }))
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.queryByTestId('goal-target-nudge')).not.toBeInTheDocument()
+    })
+
+    it('does not render the nudge when there is no goal node', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        nodesByKind: {
+          goal: [],
+          decision: [],
+          option: [
+            { id: 'o1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+            { id: 'o2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2' } },
+          ],
+          factor: [],
+          risk: [],
+          outcome: [],
+        },
+        goalNode: null,
+      }))
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.queryByTestId('goal-target-nudge')).not.toBeInTheDocument()
+    })
+
+    it('CTA reaches the real setter seam (selectNodeWithoutHistory on the goal)', () => {
+      // Seam test: clicking the nudge CTA routes into the EXISTING target-
+      // setting flow via handleSetTargetFocus → selectNodeWithoutHistory +
+      // focusNodeById on the goal node (opens the inspector Goal panel's
+      // GoalThresholdEditor). Proves the affordance reaches the real setter,
+      // not a second editor.
+      mockUsePreAnalysisData.mockReturnValue(createMockData())
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      fireEvent.click(screen.getByTestId('goal-target-nudge-cta'))
+      expect(mockSelectNodeWithoutHistory).toHaveBeenCalledWith('g1')
+    })
+  })
+
   describe('State Transitions', () => {
     it('renders null when canvas is empty', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
@@ -546,10 +592,11 @@ describe('PreAnalysisPanel', () => {
       const emphasised = screen.getByTestId('t1-triage-emphasised')
       expect(emphasised).toBeInTheDocument()
       // Matches the post-analysis emphasis treatment (DecisionConfidencePanel
-      // unified-triage-emphasised) — border-info/50 + 3px left accent.
+      // unified-triage-emphasised). V7 L1: complete border-info/50 only; the
+      // one-sided left accent is retired (state colour rides the complete border).
       expect(emphasised.className).toContain('border-info/50')
-      expect(emphasised.className).toContain('border-l-[3px]')
-      expect(emphasised.className).toContain('border-l-info')
+      expect(emphasised.className).not.toContain('border-l-[3px]')
+      expect(emphasised.className).not.toContain('border-l-info')
     })
   })
 

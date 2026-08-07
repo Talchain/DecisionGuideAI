@@ -44,6 +44,13 @@
 # promoted.
 # =============================================================================
 [context.staging.environment]
+  # Supabase publishable (anon-class) key — PUBLIC BY DESIGN (Supabase: "can be
+  # safely shared publicly"). Set here 4 Aug 2026 after the project's key family
+  # was revoked (Supabase secret-scanning enforcement; ROADMAP 2.471): the
+  # dashboard-set VITE_SUPABASE_ANON_KEY went stale, and this file is the
+  # config-as-source-of-truth surface for staging builds (Codex B4 precedent).
+  # The SECRET key never goes in any repo file.
+  VITE_SUPABASE_ANON_KEY = "sb_publishable_Bhx6ZBWU7aLGmTfEedg60g_O5P1SQ-T"
   # aiPanelV2 — floating-first Olumi UX (PR #148 + PR #149).
   # Enabled on staging for manual testing. Promote to production by
   # adding to `[build.environment]` ONLY after sign-off.
@@ -64,6 +71,90 @@
   # closed by default and the debug panel refuses to render.
   VITE_APP_ENV = "staging"
 
+  # Analysis hero panel — answer-first lens hero above the existing
+  # Analysis-tab hero (read-only, feature-flagged). Enabled on staging for
+  # QA; promote to production by adding to `[build.environment]` ONLY after
+  # sign-off. See src/flags.ts `analysisHeroPanel`.
+  VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"
+
+  # Analysis-tab rebuild Wave 1 (Decision overview + Actions menu). Paul
+  # enabled this via the Netlify UI on 2026-07-12 and accepted the surface
+  # live; recorded here so the repo config matches deployed reality (Codex
+  # B4: config-as-source-of-truth). Promote to production by adding to
+  # [build.environment] ONLY after sign-off.
+  VITE_FEATURE_DECISION_OVERVIEW = "1"
+
+  # Analysis-tab rebuild Wave 3 (Strengthen your model — adaptive coaching
+  # recommendations). The parity audit found the surface fully merged but
+  # DARK on staging because this promotion was missed at merge time. Promote
+  # to production by adding to [build.environment] ONLY after sign-off.
+  VITE_FEATURE_STRENGTHEN_PANEL = "1"
+
+  # Front door (real sign-in) — keep the REAL Supabase SDK in the staging
+  # bundle. Without this, vite.config.ts aliases @supabase/supabase-js to
+  # src/stubs/supabase-stub.mjs on every guest build, and that stub does not
+  # implement signInWithOtp/signInWithOAuth at all — so sign-in cannot work
+  # no matter what the requireLogin flag says (the runbook in src/flags.ts
+  # `requireLogin` documents exactly this trap).
+  #
+  # This does NOT turn guest mode off: VITE_AUTH_MODE stays "guest", so
+  # unauthenticated visitors still land on the guest canvas exactly as today
+  # and the other workstreams' staging QA is unaffected. It only makes real
+  # sign-in POSSIBLE for anyone who opts in per-browser with
+  # `localStorage.setItem('feature.requireLogin', '1')`.
+  #
+  # Staging-scoped deliberately — production (main) inherits only from
+  # [build.environment] and keeps the stub. Promote to [build.environment]
+  # ONLY after sign-off.
+  VITE_STUB_SUPABASE = "0"
+
+  # Hero fixture gallery — internal-only /dev/hero-gallery route rendering
+  # prototype hero states from typed fixtures (visible internal-preview
+  # banner on every instance). Staging-only for design review; never add to
+  # `[build.environment]`. See src/flags.ts `heroFixtureGallery`.
+  VITE_FEATURE_HERO_FIXTURE_GALLERY = "1"
+
+  # ---------------------------------------------------------------------------
+  # Dashboard-set flags recorded 2026-07-28 (ROADMAP 2.107).
+  #
+  # These three were set through the NETLIFY DASHBOARD and appeared nowhere in
+  # this file, while all three default OFF in src/flags.ts. Any lane reading
+  # flags.ts or netlify.toml to decide what a staging tester sees therefore got
+  # the wrong answer, and the flag-off code paths looked DEAD when they were
+  # LIVE — that mis-scoped two dispatches on 2026-07-28.
+  #
+  # The values below are TRANSCRIBED FROM THE SERVED BUNDLE, not assumed:
+  # staging--olumi.netlify.app/assets/flags-BOFkajto.js (deploy of tip
+  # c86da6a4), which carries Vite's baked `import.meta.env` literal. They are
+  # byte-identical to what is already deployed, so recording them changes no
+  # behaviour — it only stops the repo lying about it.
+  #
+  # ⚠ Recording a flag here does NOT make this file authoritative. Dashboard
+  # variables still override it and remain invisible to this repo. Derive the
+  # truth instead of trusting these lines: `pnpm flags:check`.
+  # (tools/ci-guards/flag-deployment-drift.mjs — reads the deployed bundle.)
+  #
+  # That check found 13 dashboard-set divergences on 2026-07-28, not 3. The
+  # other 10 are deliberately NOT transcribed here: hand-copying them would
+  # rebuild the mirror this work exists to retire. Run `pnpm flags:check` for
+  # the current derived list.
+  #
+  # Promote any of these to production by adding to [build.environment] ONLY
+  # after sign-off.
+  # ---------------------------------------------------------------------------
+
+  # V5 canonical analysis path — routes every user-visible analysis trigger
+  # through the V5 chip-action dispatch so CEE persists a run_analysis fact.
+  # See src/flags.ts `v5CanonicalAnalysis`.
+  VITE_V5_CANONICAL_ANALYSIS = "true"
+
+  # Compare tab — renders live on staging today. See src/flags.ts `compareTab`.
+  VITE_FEATURE_COMPARE_TAB = "1"
+
+  # Pre-analysis v3 — `pre-analysis-v3-analyse` is the live pre-run CTA on
+  # staging today. See src/flags.ts `preAnalysisV3`.
+  VITE_FEATURE_PRE_ANALYSIS_V3 = "1"
+
 # =============================================================================
 # Security Headers (P0 - Enterprise Compliance)
 # =============================================================================
@@ -78,8 +169,11 @@
   #   Tailwind and component libraries inject runtime styles that cannot use nonces
   # connect-src: Pinned to specific Render subdomains (tightened from *.onrender.com).
   # In production, all service calls route through /bff/* (same-origin) via Netlify redirects/edge functions.
-  # These explicit entries cover local dev overrides (VITE_CEE_DRAFT_BASE, VITE_ISL_BFF_BASE).
-  Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://plot-lite-service-staging.onrender.com https://olumi-assistants-service.onrender.com https://cee-staging.onrender.com https://isl-staging.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
+  # These explicit entries cover local dev overrides (VITE_CEE_DRAFT_BASE).
+  # isl-staging removed (login 3.4 item 4): the browser has no legitimate
+  # direct ISL path — all ISL traffic is same-origin /bff/isl via the edge
+  # proxy (adapters/isl/client.ts), which browser CSP does not govern.
+  Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://plot-lite-service-staging.onrender.com https://olumi-assistants-service.onrender.com https://cee-staging.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
   # Prevent clickjacking
   X-Frame-Options = "DENY"
   # Prevent MIME sniffing
@@ -110,24 +204,25 @@
   status = 200
   force = true
 
-# CEE (Assistants) Service - graph-readiness endpoint
-# Routes /bff/cee/* → https://olumi-assistants-service.onrender.com/assist/v1/*
-# Required for Results Panel confidence tier display
-[[redirects]]
-  from = "/bff/cee/*"
-  to = "https://olumi-assistants-service.onrender.com/assist/v1/:splat"
-  status = 200
-  force = true
-  headers = {X-Olumi-Assist-Key = "${ASSIST_API_KEY}"}
-
-# CEE fallback route for /v1/cee/* path pattern
-# Handles requests when VITE_CEE_BFF_BASE points to /v1/cee instead of /bff/cee
-[[redirects]]
-  from = "/v1/cee/*"
-  to = "https://olumi-assistants-service.onrender.com/assist/v1/:splat"
-  status = 200
-  force = true
-  headers = {X-Olumi-Assist-Key = "${ASSIST_API_KEY}"}
+# CEE (Assistants) Service — ROADMAP 2.317.
+#
+# There is deliberately NO [[redirects]] rule for /bff/cee/* here. Two used to
+# live at this spot (/bff/cee/* and a /v1/cee/* "fallback"), both pointing at
+# olumi-assistants-service.onrender.com with a header-injection block. BOTH WERE
+# UNREACHABLE ON EVERY DEPLOY: Netlify processes public/_redirects before
+# netlify.toml redirects, and public/_redirects ends in the SPA catch-all
+# `/*  /index.html  200`, so /bff/cee/health returned HTTP 200 text/html — the
+# SPA index — instead of reaching CEE. They also named a host running a
+# different, older build than CEE staging, so they were wrong twice over.
+#
+# The seam is now served by the `cee-proxy` edge function (registered below),
+# which outranks the _redirects catch-all and can inject the auth header that a
+# redirect rule cannot inject without putting the key somewhere the browser can
+# read. Do not re-add a redirect rule here: it would be dead on arrival, and a
+# second declaration of the same path in a second config file is exactly how
+# this defect was born. See tests/ci-guards/netlify-bff-route-precedence.spec.ts,
+# which fails if any /bff/* proxy path is declared only in a place the catch-all
+# outranks.
 
 # =============================================================================
 # Edge Functions (security-critical functions listed first for audit clarity)
@@ -151,3 +246,12 @@
 [[edge_functions]]
   function = "orchestrator-proxy"
   path = "/bff/orchestrate/*"
+
+# CEE (Assistants) proxy - handles auth header injection for /bff/cee/*
+# Requires ASSIST_API_KEY env var in Netlify dashboard (already provisioned;
+# the same var orchestrator-proxy reads). An edge function rather than a
+# redirect because _redirects cannot inject request headers and a netlify.toml
+# redirect is outranked by the _redirects SPA catch-all — see ROADMAP 2.317.
+[[edge_functions]]
+  function = "cee-proxy"
+  path = "/bff/cee/*"

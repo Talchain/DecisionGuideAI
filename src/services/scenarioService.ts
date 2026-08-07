@@ -13,8 +13,19 @@
  * idempotency control with the caller.
  */
 
+import type { Node, Edge } from '@xyflow/react'
 import { supabase } from '../lib/supabase'
 import { clearSuppressedScenarioId } from './threadService'
+// Seedless structural+data graph hash. Deliberately the seedless twin
+// (`canvas/utils/graphHash`), NOT the seed-bearing analysis hash in
+// `canvas/store/runHistory`: a persisted-graph event records WHAT graph state
+// was written, independent of any run/seed. Both are pure (type-only imports +
+// a pure edge-key fn), so importing here introduces no React/store dependency.
+import { generateGraphHash } from '../canvas/utils/graphHash'
+// B3: the canonical `scenarios.graph` payload shape. Pure builder — no store
+// or React dependency, consistent with this module's constraints.
+import { buildPersistedGraph } from '../canvas/utils/persistedGraph'
+import type { CEEGoalConstraint } from '../adapters/cee/types'
 import type {
   ScenarioRow,
   ScenarioListItem,
@@ -146,17 +157,48 @@ export async function loadScenario(
 }
 
 // ---------------------------------------------------------------------------
-// 4. saveGraph (direct UPDATE, no event — §6.1)
+// 4. saveGraphViaGatedPath (apply_patch_and_log RPC — the ONE gated graph write)
+//
+// Trust-spine board #2: this REPLACES the former `saveGraph`, which wrote
+// `scenarios.graph` via a RAW `UPDATE` with no event and no hash — a second,
+// unaudited mutation path. Every Supabase write to `scenarios.graph` now goes
+// through the single gated RPC that atomically (a) writes the graph and
+// (b) appends a `graph_saved` event carrying the graph hash. There is no
+// second writer: `apply_patch_and_log` is the sole client-side graph writer.
+//
+// The event hash is DERIVED here from the exact graph being written (never
+// mirrored from a caller-supplied value), so the recorded hash always
+// describes the persisted bytes.
 // ---------------------------------------------------------------------------
 
-export async function saveGraph(
+export async function saveGraphViaGatedPath(
   scenarioId: string,
-  graph: unknown,
+  graph: { nodes: Node[]; edges: Edge[] },
+  eventId: string,
+  turnId?: string,
+  /**
+   * B3: the scenario's validated hard constraints, persisted INTO the same
+   * `scenarios.graph` payload. Passed through the SAME single gated RPC — this
+   * adds a key to the payload, it does not add a write path (the
+   * single-gated-mutation-path property from PR #364 is unchanged).
+   *
+   * Omitted/null/empty writes the historical `{ nodes, edges }` bytes exactly.
+   */
+  goalConstraints?: CEEGoalConstraint[] | null,
 ): Promise<void> {
-  const { error } = await supabase
-    .from('scenarios')
-    .update({ graph })
-    .eq('id', scenarioId)
+  const { error } = await supabase.rpc('apply_patch_and_log', {
+    p_scenario_id: scenarioId,
+    p_graph: buildPersistedGraph(graph.nodes, graph.edges, goalConstraints),
+    p_event_id: eventId,
+    p_event_type: 'graph_saved',
+    p_details: {},
+    // Hash stays over { nodes, edges } ONLY. It is compared against CEE's own
+    // graph hash, so widening the hashed surface here would fork the two
+    // definitions and make every scenario read as changed. Constraints ride
+    // the column, not the hash.
+    p_hashes: { graph_hash: generateGraphHash(graph.nodes, graph.edges) },
+    p_turn_id: turnId ?? null,
+  })
 
   if (error) {
     throw new ScenarioPersistenceError(
@@ -261,7 +303,13 @@ export async function storeAnalysis(
   scenarioId: string,
   analysis: unknown,
   graphHash: string,
-  seedUsed: number,
+  /**
+   * T2b: null when the engine did not echo a usable seed. The RPC param
+   * `p_seed_used INTEGER` has no NOT NULL and no default, and
+   * `analysis_provenance` is JSONB, so a null lands as JSON `null` — an
+   * honest "unknown" that hydrateAnalysis reads back as null.
+   */
+  seedUsed: number | null,
   responseHash: string,
   eventId: string,
   details?: Record<string, unknown>,

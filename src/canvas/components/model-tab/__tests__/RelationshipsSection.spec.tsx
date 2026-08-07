@@ -6,6 +6,8 @@ import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { RelationshipsSection } from '../RelationshipsSection'
 import type { Edge, Node } from '@xyflow/react'
+import { USER_EDGE_DEFAULTS } from '../../../domain/edges'
+import { edgeValueSourcePatch } from '../../../domain/edgeValueProvenance'
 
 // jsdom does not implement scrollIntoView
 beforeAll(() => {
@@ -24,6 +26,12 @@ const { mockUpdateEdge, mockStoreState } = vi.hoisted(() => {
       setHighlightedEdges,
       setHighlightedNodes,
       highlightedEdges,
+      // ROADMAP 2.121 slice 1: edge edits commit through
+      // `useEdgeMutations`, which reads the edge back out of
+      // `useCanvasStore.getState().edges` before writing — that read is what
+      // stops a commit resurrecting a stale render-time `data` blob. Any test
+      // that drives an edge edit must put the edge here.
+      edges: [] as unknown[],
     },
   }
 })
@@ -57,6 +65,19 @@ function makeNode(id: string, label: string): Node {
   return { id, type: 'factor', position: { x: 0, y: 0 }, data: { label } }
 }
 
+/**
+ * An edge whose strength and likelihood were actually CHARACTERISED.
+ *
+ * The stamps are not decoration — they are what makes this fixture a model of
+ * a real edge. The card is provenance-gated, so an unstamped edge renders
+ * "Not set" no matter what numbers `data` carries. Before the F1 fix these
+ * tests passed WITHOUT the stamps, which is precisely the bug: the component
+ * could not tell a value somebody set from one that fell through a default,
+ * and the tests inherited that blindness.
+ *
+ * For the unstamped case — a freshly drawn edge — see the
+ * `USER_EDGE_DEFAULTS` describe block below.
+ */
 function makeEdge(id: string, source: string, target: string, opts: {
   weight?: number
   direction?: string
@@ -72,11 +93,70 @@ function makeEdge(id: string, source: string, target: string, opts: {
       direction: opts.direction ?? 'positive',
       beliefExists: opts.beliefExists ?? 0.7,
       provenance: opts.provenance ?? 'assumption',
+      // ROADMAP 2.263 — `direction` joined the provenance registry, so this
+      // fixture stamps it for the same reason it stamps the other two: it
+      // models an edge somebody actually CHARACTERISED. Without the stamp the
+      // card correctly reports "direction not stated", which is the honest
+      // reading of a bare `direction: 'positive'` and exactly the defect the
+      // row fixed. The unstamped case has its own fixture below and its own
+      // spec in `edgeDirectionHonesty.spec.tsx`.
+      ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user', direction: 'user' }),
     },
   }
 }
 
 const nodes = [makeNode('f1', 'Factor A'), makeNode('f2', 'Factor B')]
+
+/** An edge exactly as a user drag produces it: numbers present, no stamps. */
+function makeUnstampedEdge(id: string, source: string, target: string, weight: number): Edge {
+  return {
+    id,
+    source,
+    target,
+    data: { ...USER_EDGE_DEFAULTS, weight, provenance: 'assumption' },
+  } as Edge
+}
+
+/**
+ * ORDER is a channel too, and it was the last one leaking here.
+ *
+ * #473 gated this section's colour, width, StrengthBar and band label. The
+ * SORT still read `aData?.weight != null ? weight : -Infinity` — a TAUTOLOGY,
+ * because `USER_EDGE_DEFAULTS`/`DEFAULT_EDGE_DATA` always define `weight`. So
+ * the `-Infinity` arm was dead and a card whose own body says "Not set" ranked
+ * above a measured one purely on its default.
+ *
+ * CLAIM TYPE: rendered ORDER — the sequence of `edge-card-*` testids in the
+ * DOM. Not visibility, not layout.
+ */
+describe('RelationshipsSection — sort order is provenance-gated', () => {
+  function renderedOrder(): string[] {
+    return Array.from(document.querySelectorAll('[data-testid^="edge-card-"]')).map(
+      el => el.getAttribute('data-testid') as string,
+    )
+  }
+
+  it('ranks an unset edge BELOW a measured one, even when its default is larger', () => {
+    // The unset edge's fabricated weight (0.9) beats the measured one (0.2).
+    // Under the old sentinel it sorted first; "we measured a small effect"
+    // must outrank "nobody has said".
+    const edges = [
+      makeUnstampedEdge('unset', 'f1', 'f2', 0.9),
+      makeEdge('measured', 'f2', 'f1', { weight: 0.2 }),
+    ]
+    render(<RelationshipsSection edges={edges} nodes={nodes} />)
+    expect(renderedOrder()).toEqual(['edge-card-measured', 'edge-card-unset'])
+  })
+
+  it('still orders two MEASURED edges by weight descending (discrimination)', () => {
+    const edges = [
+      makeEdge('weak', 'f1', 'f2', { weight: 0.2 }),
+      makeEdge('strong', 'f2', 'f1', { weight: 0.9 }),
+    ]
+    render(<RelationshipsSection edges={edges} nodes={nodes} />)
+    expect(renderedOrder()).toEqual(['edge-card-strong', 'edge-card-weak'])
+  })
+})
 
 describe('RelationshipsSection', () => {
   it('renders empty state when no causal edges', () => {
@@ -144,6 +224,67 @@ describe('RelationshipsSection', () => {
     expect(screen.queryByTestId('edge-e-ul-likelihood-unset')).not.toBeInTheDocument()
   })
 
+  // ── F1: the gate that could not fire ──────────────────────────────────
+  //
+  // The two "Not set" tests above build `data` with the field literally
+  // absent. That state does not exist in the product: every edge is
+  // constructed by spreading DEFAULT_EDGE_DATA or USER_EDGE_DEFAULTS, both of
+  // which ALWAYS define `weight` and `beliefExists`. So the old read gate
+  // (`rawWeight !== undefined`) was true for every real edge and the "Not set"
+  // branches were statically unreachable on the canvas — while the comment
+  // above them claimed "treat absent fields as truly unset (no silent
+  // defaults)".
+  //
+  // These tests use the SHAPE THE PRODUCT ACTUALLY BUILDS.
+  describe('a freshly drawn edge (USER_EDGE_DEFAULTS) — nothing was characterised', () => {
+    function drawnEdge(id = 'e-drawn'): Edge {
+      return { id, source: 'f1', target: 'f2', data: { ...USER_EDGE_DEFAULTS } }
+    }
+
+    it('does NOT speak the defaulted strength', () => {
+      render(<RelationshipsSection edges={[drawnEdge()]} nodes={nodes} />)
+      fireEvent.click(screen.getByTestId('edge-card-e-drawn'))
+      expect(screen.getByTestId('edge-e-drawn-strength-notset')).toHaveTextContent('Not set')
+    })
+
+    it('does NOT speak the defaulted likelihood, nor draw the reassuring green bar', () => {
+      render(<RelationshipsSection edges={[drawnEdge()]} nodes={nodes} />)
+      fireEvent.click(screen.getByTestId('edge-card-e-drawn'))
+      expect(screen.getByTestId('edge-e-drawn-likelihood-notset')).toHaveTextContent('Not set')
+      // 0.8 lands in the >= 70 band, so the old code rendered `bg-success`:
+      // a reassuring signal about a relationship nobody has characterised.
+      expect(document.querySelector('.bg-success')).toBeNull()
+    })
+
+    it('does not render a percentage anywhere on the card', () => {
+      render(<RelationshipsSection edges={[drawnEdge()]} nodes={nodes} />)
+      fireEvent.click(screen.getByTestId('edge-card-e-drawn'))
+      expect(screen.getByTestId('edge-card-e-drawn').textContent ?? '').not.toMatch(/\d+%/)
+    })
+
+    it('POSITIVE CONTROL: the same card DOES speak the values once they are stamped', () => {
+      // Without this the assertions above would pass on a component that
+      // rendered "Not set" unconditionally.
+      const stamped: Edge = {
+        id: 'e-stamped',
+        source: 'f1',
+        target: 'f2',
+        data: {
+          ...USER_EDGE_DEFAULTS,
+          weight: 0.8,
+          beliefExists: 0.9,
+          direction: 'positive',
+          ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }),
+        },
+      }
+      render(<RelationshipsSection edges={[stamped]} nodes={nodes} />)
+      fireEvent.click(screen.getByTestId('edge-card-e-stamped'))
+      expect(screen.queryByTestId('edge-e-stamped-strength-notset')).toBeNull()
+      expect(screen.queryByTestId('edge-e-stamped-likelihood-notset')).toBeNull()
+      expect(screen.getByTestId('edge-card-e-stamped').textContent ?? '').toMatch(/90%/)
+    })
+  })
+
   it('does not write defaults when rendering missing values', () => {
     mockUpdateEdge.mockClear()
     const edgeMissing: Edge = { id: 'e-m', source: 'f1', target: 'f2', data: { direction: 'positive' } }
@@ -174,8 +315,10 @@ describe('RelationshipsSection', () => {
     expect(screen.getByTestId('edge-e1-likelihood-display')).toHaveTextContent('85')
   })
 
-  it('calls updateEdge when likelihood is edited', () => {
+  it('writes the belief through the sanctioned setter when likelihood is edited', () => {
+    mockUpdateEdge.mockClear()
     const edges = [makeEdge('e1', 'f1', 'f2', { beliefExists: 0.7 })]
+    mockStoreState.edges = edges
     render(<RelationshipsSection edges={edges} nodes={nodes} />)
     // Click to expand card (progressive disclosure)
     fireEvent.click(screen.getByTestId('edge-card-e1'))
@@ -215,7 +358,10 @@ describe('RelationshipsSection', () => {
   it('reads beliefExists (canonical store name)', () => {
     const edgeWithBelief: Edge = {
       id: 'e-ep', source: 'f1', target: 'f2',
-      data: { weight: 0.7, direction: 'positive', beliefExists: 0.73, provenance: 'assumption' },
+      data: {
+        weight: 0.7, direction: 'positive', beliefExists: 0.73, provenance: 'assumption',
+        ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }),
+      },
     }
     render(<RelationshipsSection edges={[edgeWithBelief]} nodes={nodes} />)
     // Click to expand card (progressive disclosure)
@@ -250,9 +396,18 @@ import { DetailToggleContext } from '../DetailToggleContext'
 
 describe('RelationshipsSection — expert inline data', () => {
   it('shows σ and p on compact row when expert mode ON', () => {
+    // ROADMAP 2.296 C4: `strengthStd` joined the provenance gate, so this
+    // fixture now stamps it — the same evolution this file's own header
+    // documents for weight/belief ("the stamps are what make this fixture a
+    // model of a real edge"). Unstamped, 0.15 is the USER_EDGE_DEFAULTS
+    // fallthrough and correctly renders nothing; the unstamped case has its
+    // own spec in `relationshipsSectionStdProvenance.spec.tsx`.
     const edgeWithStd: Edge = {
       id: 'e1', source: 'f1', target: 'f2',
-      data: { weight: 0.5, direction: 'positive', beliefExists: 0.8, strengthStd: 0.15, provenance: 'assumption' },
+      data: {
+        weight: 0.5, direction: 'positive', beliefExists: 0.8, strengthStd: 0.15, provenance: 'assumption',
+        ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user', strengthStd: 'user' }),
+      },
     }
     render(
       <DetailToggleContext.Provider value={{ showDetail: true }}>
@@ -266,7 +421,10 @@ describe('RelationshipsSection — expert inline data', () => {
   it('hides σ and p on compact row when expert mode OFF', () => {
     const edgeWithStd: Edge = {
       id: 'e1', source: 'f1', target: 'f2',
-      data: { weight: 0.5, direction: 'positive', beliefExists: 0.8, strengthStd: 0.15, provenance: 'assumption' },
+      data: {
+        weight: 0.5, direction: 'positive', beliefExists: 0.8, strengthStd: 0.15, provenance: 'assumption',
+        ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }),
+      },
     }
     render(
       <DetailToggleContext.Provider value={{ showDetail: false }}>

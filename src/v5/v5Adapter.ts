@@ -28,9 +28,9 @@ import {
 export type V5CallResult = V5ParseResult;
 
 function resolveEndpoint(): string {
-  const override = import.meta.env.VITE_V5_ENDPOINT as string | undefined;
+  const override = import.meta.env?.VITE_V5_ENDPOINT as string | undefined;
   if (override && override.length > 0) return override;
-  const base = import.meta.env.VITE_ORCHESTRATOR_BASE as string | undefined;
+  const base = import.meta.env?.VITE_ORCHESTRATOR_BASE as string | undefined;
   if (base && base.length > 0) return `${base}/orchestrate/v2/turn`;
   return '/bff/orchestrate/v2/turn';
 }
@@ -52,7 +52,10 @@ export async function callV5Turn(
   const requestId = crypto.randomUUID();
   const requestedAt = Date.now();
 
-  // TODO: redact auth headers when auth is enabled
+  // Auth headers are already redacted downstream: the trace store runs
+  // headers through redactPayload, whose default sensitiveKeys include
+  // 'authorization' (case-insensitive) plus free-form Bearer/JWT scrubbing
+  // (src/utils/payloadRedaction.ts) — verified in the PR #268 review.
   recordRequestPayload({
     id: requestId,
     endpoint: url,

@@ -10,9 +10,13 @@
  *
  * Decision table (top-down, first match wins):
  *
- *   1. recommendationStability < 0.70
+ *   1. verdict.separation === 'tied'   (SINGLE VERDICT, 2026-07-25)
  *      → "no clear leading option, the result is sensitive to your estimates"
  *      (sub: "{winner} leads slightly more often", caveat: null)
+ *      The tie call belongs to `deriveDecisionVerdict`, which reads PLoT's
+ *      own `robustness.near_tie`. This rule used to fire on
+ *      `recommendationStability < 0.70`, denying a 52-point lead because it
+ *      was fragile — see the block comment at the rule itself.
  *
  *   2. analysisStatus === 'partial'
  *      → "Some analysis steps did not complete"
@@ -58,7 +62,9 @@
  */
 
 import type { M1CoachingReadiness } from '../../../types/cee'
+import type { DecisionVerdict } from '../../../lib/decisionVerdict'
 import type { ConfidenceTier } from '../types'
+import { COMPARATIVE_COPY } from './goalAnchorCopy'
 
 export interface CertaintyCopyInput {
   winnerLabel: string
@@ -74,6 +80,25 @@ export interface CertaintyCopyInput {
    * without over-confident language.
    */
   winProbabilityGap?: number
+  /**
+   * SINGLE VERDICT: the shared answer to "is there a leading option?"
+   * (`src/lib/decisionVerdict.ts`), derived from the same PLoT report the
+   * canvas reads. This is the ONLY input entitled to make Rule 1 deny a
+   * leading option — and the only one entitled to let Rules 4-7 assert one.
+   *
+   * REQUIRED (ROADMAP 1.267). It used to be optional, and the withheld branch
+   * below guarded on `verdict != null`: so a caller passing `undefined` did
+   * not get silence, it got the four leader-asserting rules underneath. The
+   * live callers always passed a verdict, which is exactly what made the hole
+   * invisible — it was reachable only from fixtures and future call sites,
+   * i.e. from the code nobody had written yet.
+   *
+   * A caller that genuinely has no verdict passes `NO_CLAIM_VERDICT`
+   * (exported from `src/lib/decisionVerdict.ts`) and gets the withheld
+   * headline. Fail-closed is the ratified direction: a report indistinguishable
+   * from a withheld one must be treated as withheld (decisionVerdict.ts).
+   */
+  verdict: DecisionVerdict
 }
 
 export interface CertaintyCopy {
@@ -130,6 +155,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     analysisStatus,
     optionCount,
     winProbabilityGap,
+    verdict,
   } = input
 
   // Brief 5.2 Task 1: "by N points" suffix preserves the numeric lead in the
@@ -142,6 +168,28 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
       ? ` by ${Math.round(winProbabilityGap)} point${Math.round(winProbabilityGap) === 1 ? '' : 's'}`
       : ''
 
+  /**
+   * The re-anchored leader sentence — the comparative quantity, named, with
+   * NO magnitude. Replaces `"{winner} is the leading option"` at all three
+   * sites (an endorsement noun with no basis and no number).
+   *
+   * ⚠ F4 — WHY THERE IS NO MAGNITUDE-BEARING ARM HERE, adjudicated.
+   * The first draft added `winProbability` to this input and branched on it.
+   * That arm was DEAD: the sole caller (`DecisionConfidencePanel`) passes
+   * only `winProbabilityGap`, never the absolute probability, so the branch
+   * could not execute on any live path — and it carried the mid-sentence
+   * casing defect (§10.2) precisely because nothing exercised it. Its spec
+   * even advertised coverage that did not exist.
+   *
+   * Deleted rather than wired: Paul's ruling DEMOTES the comparative number
+   * below the goal number, so a magnitude-free comparative sentence on this
+   * surface is the CORRECT behaviour, not a gap. Threading the probability
+   * here would have added a live claim the ruling does not want. Where the
+   * magnitude IS wanted (`OptionCards`, the hero headline) the register's
+   * `phrase`/`clause` forms supply it.
+   */
+  const aheadHeadline = `${winnerLabel} ${COMPARATIVE_COPY.phraseNoMagnitude}`
+
   if (analysisStatus === 'partial') {
     return {
       headline: 'Some analysis steps did not complete',
@@ -151,18 +199,86 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     }
   }
 
-  if (recommendationStability != null && recommendationStability < 0.70) {
+  // SINGLE VERDICT (2026-07-25) — Rule 1 rewritten.
+  //
+  // It used to read `recommendationStability < 0.70` → "no clear leading
+  // option ... {winner} leads slightly more often". That is a CATEGORY ERROR
+  // and it produced the worst defect the end-to-end journey lane found: on a
+  // run where the winner held 72% against 20%, this printed "no clear leading
+  // option" and "leads slightly more often" about a **52-point lead**, while
+  // the canvas four inches away badged the same option "Leading option".
+  //
+  // Low stability means the ranking is FRAGILE, not that the options are
+  // TIED. Those are two different facts and the product must not trade one
+  // for the other. Whether a leading option exists is now answered in exactly
+  // one place — `deriveDecisionVerdict`, from PLoT's own `robustness.near_tie`
+  // — and every surface quotes it. Fragility keeps its own separate voice
+  // (the stability label, the footer, and the uncertainty calibration line
+  // this panel already renders beneath the headline).
+  //
+  // 'unknown' separation licenses SILENCE, never a denial: with fewer than
+  // two comparable options there is nothing to be close about.
+  if (verdict.separation === 'tied') {
     return {
       headline: 'no clear leading option, the result is sensitive to your estimates',
-      sub: `${winnerLabel} leads slightly more often`,
+      // ROADMAP 1.223: this used to carry `${winnerLabel} leads slightly more
+      // often` — a leader claim printed directly beneath a denial of one, and
+      // the exact contradictory pair this module's own header cites as the
+      // original defect. `buildV7Headline` dropped its copy of this sentence;
+      // dropping it here too is what makes that fix consistent rather than
+      // partial. A denial does not get a leader for a companion.
+      sub: null,
       caveat: null,
       conservative: true,
     }
   }
 
+  // ORDER IS LOAD-BEARING: the single-option branch MUST come before the
+  // 'unknown' branch below.
+  //
+  // `deriveDecisionVerdict` returns the `unknown` verdict for TWO different
+  // reasons (decisionVerdict.ts): the producer withheld the leader claim, AND
+  // "fewer than two comparable options" — which every healthy single-option
+  // run satisfies by construction. They need different copy, and the first cut
+  // of ROADMAP 1.223 conflated them: with the 'unknown' branch placed above
+  // this one, a perfectly good one-option run rendered "the analysis did not
+  // put an option forward", which is simply untrue there — nothing was
+  // withheld, there was only ever one option to put forward.
+  //
+  // Ordering, rather than `&& optionCount > 1` on the branch below, is
+  // deliberate: `optionCount` is OPTIONAL on this input, so a caller that
+  // omits it would make that guard false and drop a genuinely withheld turn
+  // through to the leader-asserting rules at the bottom of this function —
+  // the original defect, silently restored. Ordering has no such failure mode.
   if (optionCount === 1) {
     return {
       headline: `${winnerLabel} is your only option`,
+      sub: null,
+      caveat: null,
+      conservative: true,
+    }
+  }
+
+  // ROADMAP 1.223 — the 'unknown' case, which the comment above always said
+  // licenses silence but which no branch actually handled: every rule below
+  // asserts a leading option ("is the leading option", "currently leads",
+  // "leads by N points"), and 'unknown' fell straight through to them.
+  //
+  // Reached only for a MULTI-option run (the branch above claimed the
+  // single-option case), so 'unknown' here means the producer WITHHELD the
+  // leader claim (CEE #711 drops `headline_banded` and nulls
+  // `leading_option_id` on a withheld constraint verdict) or sent none at all.
+  // Either way the panel has no authority to name a leader — and equally none
+  // to deny one, so this is not routed into the tied copy above. The
+  // uncertainty, stability and driver surfaces beneath it are untouched and
+  // keep their own voices.
+  // ROADMAP 1.267: the `verdict != null` guard is GONE with the optional
+  // parameter. It was not defensive — it was the fall-through: `undefined`
+  // made this condition false and delivered the caller to "{winner} is the
+  // leading option" four rules below.
+  if (!verdict.hasLeadingOption && verdict.separation === 'unknown') {
+    return {
+      headline: 'the analysis did not put an option forward',
       sub: null,
       caveat: null,
       conservative: true,
@@ -192,7 +308,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   // headline, but conservative (coaching overrides still blocked).
   if (coachingReadiness === 'close_call') {
     return {
-      headline: `${winnerLabel} is the leading option`,
+      headline: aheadHeadline,
       sub: null,
       caveat: null,
       conservative: true,
@@ -201,7 +317,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
 
   if (confidenceTier === 'strong' && coachingReadiness === 'ready') {
     return {
-      headline: `${winnerLabel} is the leading option`,
+      headline: aheadHeadline,
       sub: null,
       caveat: null,
       conservative: false,
@@ -211,7 +327,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   // When a gap is available, "leads by N points" gives the numeric lead.
   // When no gap, fall back to the definitive form to avoid the bare "leads".
   return {
-    headline: gapSuffix ? `${winnerLabel} leads${gapSuffix}` : `${winnerLabel} is the leading option`,
+    headline: gapSuffix ? `${winnerLabel} leads${gapSuffix}` : aheadHeadline,
     sub: null,
     caveat: null,
     conservative: true,

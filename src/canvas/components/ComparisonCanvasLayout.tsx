@@ -11,7 +11,10 @@ import { X, Link2, Link2Off, Maximize2, Plus, Minus, RefreshCw, Equal, Target } 
 import { useCanvasStore } from '../store'
 import { useComparisonStore } from '../stores/comparisonStore'
 import { MiniCanvas } from './MiniCanvas'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
+import { cameraDuration } from '../utils/cameraMotion'
 import { typography } from '../../styles/typography'
+import { classifyUnit } from '../utils/labelUtils'
 import type { ComparisonResult } from '../snapshots/types'
 
 /**
@@ -27,7 +30,12 @@ function formatOutcome(value: number, unit?: string): string {
   const rounded = Math.abs(value) >= 100 ? Math.round(value) : Number(value.toFixed(1))
 
   // Format based on unit type
-  if (unit === '%' || unit === 'percent' || unit === 'percentage') {
+  // U2: percent recognition routed through classifyUnit (the single source of
+  // truth) instead of a local three-literal copy. Identical for those literals,
+  // and additionally correct for the case and whitespace forms this site missed
+  // — it was the ONE copy that never lowercased, so `'Percent'` fell through to
+  // the trailing-suffix branch below and rendered "10 Percent".
+  if (classifyUnit(unit).kind === 'percent') {
     return `${rounded}%`
   }
   if (unit === '£' || unit === 'GBP') {
@@ -197,7 +205,7 @@ function ComparisonStatsBar({ comparison }: { comparison: ComparisonResult | nul
       count: removed,
       icon: Minus,
       color: 'text-danger-600',
-      bgColor: 'bg-danger-50',
+      bgColor: 'bg-panel',
     },
     {
       label: 'Modified',
@@ -364,6 +372,11 @@ export function ComparisonCanvasLayout() {
   const [syncEnabled, setSyncEnabled] = useState(true)
   const instancesRef = useRef<Array<ReactFlowInstance | null>>([])
 
+  // F1: reduced-motion guard for the comparison "fit all" camera move.
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const reducedMotionRef = useRef(prefersReducedMotion)
+  reducedMotionRef.current = prefersReducedMotion
+
   const setInstance = useCallback((index: number) => (instance: ReactFlowInstance) => {
     instancesRef.current[index] = instance
   }, [])
@@ -381,7 +394,7 @@ export function ComparisonCanvasLayout() {
 
   const fitAll = useCallback(() => {
     instancesRef.current.forEach((instance) => {
-      instance?.fitView({ padding: 0.12, duration: 200 })
+      instance?.fitView({ padding: 0.12, duration: cameraDuration(200, reducedMotionRef.current) })
     })
   }, [])
 

@@ -91,10 +91,12 @@ describe('compactFactorLabel', () => {
   it('returns the canonical short form for known wireframe phrases', () => {
     expect(compactFactorLabel('Technical leadership presence')).toBe('leadership')
     expect(compactFactorLabel('Technical leadership in place')).toBe('leadership')
-    expect(compactFactorLabel('Developer headcount capacity')).toBe('dev headcount')
-    expect(compactFactorLabel('Developer headcount level')).toBe('dev headcount')
+    // Concise sentence-case form (node label minus the suffix); fits the 20–22
+    // char chip/factor budgets used by every real caller.
+    expect(compactFactorLabel('Developer headcount capacity')).toBe('Developer headcount')
+    expect(compactFactorLabel('Developer headcount level')).toBe('Developer headcount')
     // Polish 4 Task 2: "added" variant from staging screenshots.
-    expect(compactFactorLabel('Developer headcount added')).toBe('dev headcount')
+    expect(compactFactorLabel('Developer headcount added')).toBe('Developer headcount')
     expect(compactFactorLabel('Monthly recurring revenue')).toBe('MRR')
     expect(compactFactorLabel('Advertising spend')).toBe('ad spend')
   })
@@ -114,6 +116,16 @@ describe('compactFactorLabel', () => {
   it('lookup is case-insensitive', () => {
     expect(compactFactorLabel('TECHNICAL LEADERSHIP PRESENCE')).toBe('leadership')
     expect(compactFactorLabel('technical leadership presence')).toBe('leadership')
+  })
+
+  // Contract lock (Codex review): a lookup hit returns its canonical form
+  // VERBATIM and is NOT bounded by maxLength — the form is authored to be brief
+  // and truncating it would corrupt it. maxLength caps only the fallback path.
+  it('returns lookup canonical forms verbatim, ignoring maxLength', () => {
+    // 'Developer headcount' is 19 chars; even with maxLength 15 the lookup wins.
+    expect(compactFactorLabel('Developer headcount capacity', 15)).toBe('Developer headcount')
+    // 'MRR' is short regardless of cap.
+    expect(compactFactorLabel('Monthly recurring revenue', 15)).toBe('MRR')
   })
 
   it('strips known generic suffixes when no lookup matches', () => {

@@ -17,8 +17,16 @@
  * ```
  */
 
-// CEE base URL - prompts/warm endpoint lives on CEE service, not PLoT
-const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+// ⚠ THE BASE IS A LITERAL, AND THAT IS LOAD-BEARING (ROADMAP 2.710). This
+// module is CREDENTIAL-LESS BY DESIGN: the `/bff/cee` Netlify edge seam
+// injects `X-Olumi-Assist-Key` server-side. The house-style env-resolved
+// form (`import.meta.env.VITE_CEE_BFF_BASE || '/bff/cee'`) shipped this
+// exact call pointed at PLoT's bearer-authenticated origin (the dashboard
+// sets the var; Vite inlines it at BUILD time), so every page load's warm-up
+// 401'd — the fresh-journey audit's S5, wire-witnessed 2026-08-06. Guarded
+// source-level by ceeSeamBinding.spec.ts; a runtime pin cannot see this
+// defect class (both forms evaluate to the fallback under vitest).
+const CEE_BASE_URL = '/bff/cee'
 
 /** Whether preload has been successfully completed */
 let preloadComplete = false

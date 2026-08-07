@@ -1,35 +1,92 @@
 /**
- * ReanalyseBar — unit tests
+ * ReanalyseBar — unit tests.
+ *
+ * The bar now derives visibility from the CEE freshness slice + local dirty
+ * overlay (shared `classifyFreshnessForDisplay` === 'changed'), NOT the local
+ * `graphEditedSinceLastRun` flag. The real classifier runs against the mocked
+ * store slices.
  */
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ReanalyseBar } from '../ReanalyseBar'
 
-let mockGraphEditedSinceLastRun = false
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mockFreshness: any = null
+let mockDirty = false
 
 vi.mock('../../../store', () => ({
   useCanvasStore: vi.fn((selector: (s: unknown) => unknown) =>
-    selector({ graphEditedSinceLastRun: mockGraphEditedSinceLastRun })
+    selector({ analysisFreshness: mockFreshness, analysisFreshnessDirty: mockDirty })
   ),
 }))
 
 describe('ReanalyseBar', () => {
-  it('renders nothing when graphEditedSinceLastRun is false', () => {
-    mockGraphEditedSinceLastRun = false
+  it('renders nothing when the analysis is confirmed current (fresh, clean)', () => {
+    mockFreshness = { freshness: 'fresh' }
+    mockDirty = false
     const { container } = render(<ReanalyseBar />)
     expect(container.firstChild).toBeNull()
   })
 
-  it('renders bar when graphEditedSinceLastRun is true', () => {
-    mockGraphEditedSinceLastRun = true
+  it('renders nothing when there is no freshness verdict', () => {
+    mockFreshness = null
+    mockDirty = false
+    const { container } = render(<ReanalyseBar />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('renders nothing for a CEE cannot-confirm (unknown) verdict — never fabricates "changed"', () => {
+    mockFreshness = { freshness: 'unknown' }
+    mockDirty = false
+    const { container } = render(<ReanalyseBar />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('renders the bar on a genuine CEE stale verdict', () => {
+    mockFreshness = { freshness: 'stale' }
+    mockDirty = false
     render(<ReanalyseBar />)
     expect(screen.getByTestId('reanalyse-bar')).toBeInTheDocument()
     expect(screen.getByText(/Model changed/)).toBeInTheDocument()
   })
 
+  it('renders the bar when a retained fresh verdict is dirtied by a local edit (changed)', () => {
+    mockFreshness = { freshness: 'fresh' }
+    mockDirty = true
+    render(<ReanalyseBar />)
+    expect(screen.getByTestId('reanalyse-bar')).toBeInTheDocument()
+  })
+
+  /**
+   * ROADMAP 2.129 (a). Live-proven FAIL: after CEE APPLIED a Model-tab edit the
+   * bar was ABSENT (15 samples / 70 s), so the tab offered NO re-analyse control
+   * at all — while a REJECTED edit did render it. The applied reply's
+   * `analysis_ready` is readiness-only (`{status, computed_at, options,
+   * goal_node_id}`), which the slice degrades to 'unknown' — and an 'unknown'
+   * that came from SILENCE, over a model the user just changed, is "changed",
+   * not "can't confirm". See store/__tests__/freshnessOnAppliedEdit.spec.ts for
+   * the store-level replay of the captured payloads.
+   */
+  it('renders the bar AND the re-run control after an applied edit (silent verdict + local edit)', () => {
+    mockFreshness = { freshness: 'unknown', freshnessReason: 'payload_carried_no_freshness_verdict' }
+    mockDirty = true
+    render(<ReanalyseBar />)
+    expect(screen.getByTestId('reanalyse-bar')).toBeInTheDocument()
+    expect(screen.getByTestId('reanalyse-button')).toBeInTheDocument()
+    expect(screen.getByText(/Model changed/)).toBeInTheDocument()
+  })
+
+  it('still renders nothing for that same silent verdict with NO local edit', () => {
+    mockFreshness = { freshness: 'unknown', freshnessReason: 'payload_carried_no_freshness_verdict' }
+    mockDirty = false
+    const { container } = render(<ReanalyseBar />)
+    expect(container.firstChild).toBeNull()
+  })
+
   it('calls onReanalyse when button is clicked', () => {
-    mockGraphEditedSinceLastRun = true
+    mockFreshness = { freshness: 'stale' }
+    mockDirty = false
     const onReanalyse = vi.fn()
     render(<ReanalyseBar onReanalyse={onReanalyse} />)
 
@@ -38,7 +95,8 @@ describe('ReanalyseBar', () => {
   })
 
   it('re-analyse button is disabled when onReanalyse is not provided', () => {
-    mockGraphEditedSinceLastRun = true
+    mockFreshness = { freshness: 'stale' }
+    mockDirty = false
     render(<ReanalyseBar />)
     const btn = screen.getByTestId('reanalyse-button')
     expect(btn).toBeDisabled()

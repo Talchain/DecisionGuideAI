@@ -1,147 +1,20 @@
 /**
- * V12.2 Fix 3 & Fix 5: Factor label resolution
- * Tests for resolving raw factor IDs to human-readable labels
+ * V12.2 Fix 5: Factor label resolution in humaniseCritique.
+ *
+ * The former "Fix 3" describe block (4 mounts) was DELETED, not ported, when
+ * the dead `ChallengeSection` wrapper was removed. Its subject was
+ * `ChallengeSection`'s own `resolveFactorLabel` + `ChallengeCard` — a THIRD
+ * independent id-prettifying fallback (noted as such in
+ * tests/contracts/cee-rendering-claims.contract.test.tsx) that had zero
+ * production mounts and died with the component. It never exercised
+ * `FragileEdgeGroupCard`: none of the four mounts passed `fragileEdges` at
+ * all. The live id→label surfaces (useResultsSectionData, humaniseCritique)
+ * keep their own coverage, including everything below.
  */
 
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { ChallengeSection } from '../ChallengeSection'
 import { humaniseCritique } from '../utils/humaniseCritique'
-import type { ActionItem } from '../utils/groupActionItems'
-import type { UncertaintyItem, DriverItem } from '../types'
-
-// ─── Fix 3: Bias finding affected_elements resolution ──────────────────────
-
-describe('Fix 3: Bias finding affected_elements shows factor labels', () => {
-  it('resolves factor ID to label from evidence gaps', () => {
-    const biasFindings: ActionItem[] = [
-      {
-        id: 'bias-1',
-        title: 'Anchoring bias detected',
-        affectedNodeIds: ['fac_engineering_capacity'],
-        source: 'model',
-      },
-    ]
-
-    const evidenceGaps: UncertaintyItem[] = [
-      {
-        code: 'EVIDENCE_GAP',
-        message: 'Missing data',
-        factorId: 'fac_engineering_capacity',
-        factorLabel: 'Engineering Capacity',
-        targetNodeId: 'fac_engineering_capacity',
-        voi: 0.5,
-      },
-    ]
-
-    render(
-      <ChallengeSection
-        biasFindings={biasFindings}
-        preMortemItems={[]}
-        evidenceGaps={evidenceGaps}
-        drivers={[]}
-      />
-    )
-
-    // Should show resolved label, not raw ID
-    expect(screen.getByText('Engineering Capacity')).toBeInTheDocument()
-    expect(screen.queryByText('fac_engineering_capacity')).not.toBeInTheDocument()
-  })
-
-  it('resolves factor ID to label from drivers when not in evidence gaps', () => {
-    const biasFindings: ActionItem[] = [
-      {
-        id: 'bias-1',
-        title: 'Confirmation bias detected',
-        affectedNodeIds: ['fac_market_size'],
-        source: 'model',
-      },
-    ]
-
-    const drivers: DriverItem[] = [
-      {
-        factorKey: 'fac_market_size',
-        factorLabel: 'Market Size',
-        matchedNodeId: 'fac_market_size',
-        normalisedInfluence: 0.8,
-        rawElasticity: 0.3,
-        label: 'high',
-        confidence: 0.7,
-      },
-    ]
-
-    render(
-      <ChallengeSection
-        biasFindings={biasFindings}
-        preMortemItems={[]}
-        evidenceGaps={[]}
-        drivers={drivers}
-      />
-    )
-
-    expect(screen.getByText('Market Size')).toBeInTheDocument()
-    expect(screen.queryByText('fac_market_size')).not.toBeInTheDocument()
-  })
-
-  it('falls back to derived label when ID not in lookup data', () => {
-    const biasFindings: ActionItem[] = [
-      {
-        id: 'bias-1',
-        title: 'Bias detected',
-        affectedNodeIds: ['fac_integration_complexity'],
-        source: 'model',
-      },
-    ]
-
-    render(
-      <ChallengeSection
-        biasFindings={biasFindings}
-        preMortemItems={[]}
-        evidenceGaps={[]}
-        drivers={[]}
-      />
-    )
-
-    // Should derive label: fac_integration_complexity → Integration Complexity
-    expect(screen.getByText('Integration Complexity')).toBeInTheDocument()
-    expect(screen.queryByText('fac_integration_complexity')).not.toBeInTheDocument()
-  })
-
-  it('handles multiple affected elements', () => {
-    const biasFindings: ActionItem[] = [
-      {
-        id: 'bias-1',
-        title: 'Multiple factors affected',
-        affectedNodeIds: ['fac_revenue', 'fac_cost', 'fac_market_share'],
-        source: 'model',
-      },
-    ]
-
-    const evidenceGaps: UncertaintyItem[] = [
-      {
-        code: 'EVIDENCE_GAP',
-        message: 'Missing data',
-        factorId: 'fac_revenue',
-        factorLabel: 'Revenue',
-        targetNodeId: 'fac_revenue',
-        voi: 0.5,
-      },
-    ]
-
-    render(
-      <ChallengeSection
-        biasFindings={biasFindings}
-        preMortemItems={[]}
-        evidenceGaps={evidenceGaps}
-        drivers={[]}
-      />
-    )
-
-    expect(screen.getByText('Revenue')).toBeInTheDocument()
-    expect(screen.getByText('Cost')).toBeInTheDocument()
-    expect(screen.getByText('Market Share')).toBeInTheDocument()
-  })
-})
+import type { UncertaintyItem } from '../types'
 
 // ─── Fix 5: Constraint investigate items name the factor ───────────────────
 

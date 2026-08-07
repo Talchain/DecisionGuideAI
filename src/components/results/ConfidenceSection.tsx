@@ -238,8 +238,8 @@ function UncertaintyRow({
   }, [onFocus])
 
   // v7.4 Task 7: Use group-based styling instead of severity-based
-  // Group 1 (high-risk): danger-bg with danger border
-  // Group 2 (refinement): warning-bg with warning border
+  // Group 1 (high-risk): bg-panel with danger border
+  // Group 2 (refinement): bg-panel with warning border
   const severity = item.severity || 'warning'
   const baseSeverityConfig = SEVERITY_CONFIG[severity]
 
@@ -374,6 +374,18 @@ function UncertaintyRow({
                 <div className={`${typography.panelBody} text-text-light mt-1`}>
                   {item.threshold.variable && (
                     <p>
+                      {/*
+                        ⚠ LATENT TRAP ARMED BY THE 2.234 WIDENING (R8). This is a
+                        BINARY read of `threshold.direction`, whose type is now
+                        `DriverDirection` = the producer's full domain — so
+                        `mixed`/`unknown` would render "rises above", a
+                        directional claim the producer declined to make. BLAST
+                        RADIUS IS ZERO TODAY: this component has no non-test
+                        mounts and its sole producer
+                        (`useResultsSectionData:2770`) still coerces with
+                        `?? 'positive'`. Both rowed. Recorded so whoever mounts
+                        this does not inherit the defect silently.
+                      */}
                       If {stripEncodingNotation(item.threshold.variable)}{' '}
                       {item.threshold.direction === 'positive' ? 'drops below' : 'rises above'}{' '}
                       {item.threshold.value}
@@ -516,7 +528,7 @@ export function ConfidenceSection({
       {decisionState && hinge && (
         <div
           id="mvs-card"
-          className="bg-panel p-4 border border-success/30 border-l-[3px] border-l-success rounded-lg shadow-1" /* §6.4 coaching accent card — p-4 intentional (border-l-[3px]) */
+          className="bg-panel p-4 border border-success/30 rounded-lg shadow-1" /* §6.4 coaching accent card — p-4 intentional; complete border, one-sided accent retired (V7 L1) */
           data-testid="voi-promoted-block"
         >
           <div className="flex items-start gap-2 mb-1">
@@ -865,11 +877,12 @@ export function ConfidenceSection({
                                   {actionItem.subtitle}
                                 </p>
                               )}
-                              {typeof actionItem.evpiPp === 'number' && actionItem.evpiPp > 0 && (
-                                <p className={`${typography.panelMeta} text-info mt-0.5`}>
-                                  Resolving could improve confidence by up to {Math.round(actionItem.evpiPp)}pp
-                                </p>
-                              )}
+                              {/* ⛔ REMOVED: "Resolving could improve confidence by up to
+                                  {Math.round(actionItem.evpiPp)}pp". The figure was
+                                  `evpi_percentage_points`, which our own compute layer
+                                  contradicts — ISL measured 0.0pp for the very factors PLoT
+                                  scored at 12.3 / 10.2 / 6.6. Do not reinstate a percentage-point
+                                  claim here. See tests/contracts/no-evpi-display.contract.test.ts. */}
                               {(actionItem.whatCouldHappen || actionItem.whatToDo) && (
                                 <WhyThisMatters
                                   whatCouldHappen={actionItem.whatCouldHappen}
@@ -1047,8 +1060,9 @@ function FlipThresholdCards({
     return [...thresholds]
       .filter(ft => ft.flip_value != null)
       .sort((a, b) => {
-        const marginA = Math.abs((a.flip_value ?? a.current_value) - a.current_value)
-        const marginB = Math.abs((b.flip_value ?? b.current_value) - b.current_value)
+        // Codex B3: no baseline → no margin; sort those last (unknown distance).
+        const marginA = a.current_value != null ? Math.abs((a.flip_value ?? a.current_value) - a.current_value) : Number.POSITIVE_INFINITY
+        const marginB = b.current_value != null ? Math.abs((b.flip_value ?? b.current_value) - b.current_value) : Number.POSITIVE_INFINITY
         return marginA - marginB
       })
   }, [thresholds])
@@ -1073,11 +1087,11 @@ function FlipThresholdCards({
         Changes that would flip the result
       </p>
       {visible.map((ft, idx) => {
-        const margin = ft.flip_value != null ? Math.abs(ft.flip_value - ft.current_value) : null
+        const margin = ft.flip_value != null && ft.current_value != null ? Math.abs(ft.flip_value - ft.current_value) : null
         // Progress: how far current_value is from flip_value on a 0-100 scale.
         // Uses the range [min(current,flip), max(current,flip)] to avoid negative/zero issues.
         const progressPct = (() => {
-          if (ft.flip_value == null || margin == null || margin === 0) return 50
+          if (ft.flip_value == null || ft.current_value == null || margin == null || margin === 0) return 50
           const lo = Math.min(ft.current_value, ft.flip_value)
           const hi = Math.max(ft.current_value, ft.flip_value)
           const range = hi - lo
@@ -1108,7 +1122,10 @@ function FlipThresholdCards({
             onKeyDown={canFocus ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } } : undefined}
           >
             <p className={`${typography.panelHeader} text-text-header`}>
-              {ft.label}: changes from {formatVal(ft.current_value)} to {formatVal(ft.flip_value!)} would flip the result
+              {/* Codex B3: with no producer baseline, never claim "changes from 0". */}
+              {ft.current_value != null
+                ? `${ft.label}: changes from ${formatVal(ft.current_value)} to ${formatVal(ft.flip_value!)} would flip the result`
+                : `${ft.label}: reaching ${formatVal(ft.flip_value!)} would flip the result`}
             </p>
             {ft.alternative_winner_label && (
               <p className={`${typography.panelMeta} text-text-light mt-0.5`}>

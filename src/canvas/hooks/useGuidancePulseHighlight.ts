@@ -53,6 +53,10 @@ export function useGuidancePulseHighlight(): void {
       }
 
       // Apply ring to new target and fire telemetry (once per item_id within 2s)
+      // NOTE: no viewport centring here — activeGuidanceItemId is ALSO set on
+      // hover/focus (GuidanceStrip, InspectorGuidanceSection), and panning on
+      // hover hijacks the canvas. Explicit CLICK handlers centre the target
+      // via focusExistingTarget themselves.
       if (newTargetId) {
         applyRing(newTargetId, newCategory ?? 'could_fix')
 

@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useConversation } from '../useConversation'
+import { EXTENDED_TIMEOUT_MS } from '../../../v5/getTimeoutMs'
 import { useCanvasStore } from '../../store'
 
 // ---------------------------------------------------------------------------
@@ -46,6 +47,16 @@ vi.mock('../../../flags', async () => {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  // This spec exercises the V4 non-streaming path (it mocks turnService's
+  // callOrchestratorTurn and forces isOrchestratorStreamingEnabled=false).
+  // Routing to V4 is gated on VITE_ENABLE_V5_ORCHESTRATOR !== 'true' (read via
+  // import.meta.env in useConversation.sendTurn, NOT via the flags module the
+  // mock above replaces). CI leaves the var unset so the V4 path runs and the
+  // mock is hit; a local .env.local that sets it to 'true' routes every turn to
+  // the unmocked V5 dispatch instead, which fails with "message didn't reach the
+  // server" (12/12 red locally, green in CI). Pin it off so the path under test
+  // is env-independent.
+  vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'false')
   vi.useFakeTimers()
   mockCallTurn.mockReset()
   mockTrackEvent.mockReset()
@@ -61,6 +72,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.unstubAllEnvs()
   vi.useRealTimers()
 })
 
@@ -190,7 +202,7 @@ describe('Scenario 4: tool suppression', () => {
 // ---------------------------------------------------------------------------
 
 describe('Scenario 5: timeout progression', () => {
-  it('shows thinking, delayed warning at 30s, error message at 60s', async () => {
+  it('shows thinking, delayed warning at 30s, notice once the wait expires', async () => {
     mockCallTurn.mockReturnValue(new Promise(() => {}))
 
     const { result } = renderHook(() => useConversation())
@@ -207,8 +219,13 @@ describe('Scenario 5: timeout progression', () => {
     act(() => { vi.advanceTimersByTime(30_000) })
     expect(result.current.longRunningHint).toBe('Thinking... 30s')
 
-    // At 60s: timeout error bubble
-    act(() => { vi.advanceTimersByTime(30_000) })
+    // Once the wait expires: the notice bubble.
+    // ⚠ ROADMAP 2.665 — this used to advance to 60s. The client no longer stops
+    // waiting before the server's own deadline (CEE clamps its turn budget to
+    // the 125s browser-proxy deadline), because stopping earlier destroys a
+    // reply CEE has already committed and nothing in this client can collect it
+    // afterwards. Advance past the real wait instead of past a stale literal.
+    act(() => { vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS) })
     expect(result.current.isThinking).toBe(false)
     const last = result.current.messages[result.current.messages.length - 1]
     expect(last.synthetic).toBe(true)

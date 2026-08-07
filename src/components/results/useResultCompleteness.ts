@@ -27,6 +27,7 @@
 import type { ReportV1 } from '../../adapters/plot/types'
 import type { DriversPayload } from '../../adapters/driversAdapter'
 import type { CeeDecisionReviewPayloadV1 } from '../../adapters/cee/types'
+import type { DecisionReview030 } from '../../v5/decisionReviewAdapter'
 
 import type { CompletenessReasonCode } from './copy/freshnessReasons'
 
@@ -49,11 +50,22 @@ export type ResultCompleteness = {
 
 export type ResultCompletenessInputs = {
   /**
-   * Local results lifecycle status. `failed` short-circuits to
-   * status='failed' regardless of source coverage; `idle` and `running`
-   * return status='full' with no missing keys (no result to evaluate).
+   * Local results lifecycle status. `error` short-circuits to
+   * status='failed' only when no retained report is displayed (post-SF2
+   * the body renders the previous report at 'error' — its completeness
+   * describes itself); pre-report states return status='full' with no
+   * missing keys (no result to evaluate).
    */
-  resultsStatus: 'idle' | 'running' | 'complete' | 'error' | undefined
+  resultsStatus:
+    | 'idle'
+    | 'running'
+    | 'preparing'
+    | 'connecting'
+    | 'streaming'
+    | 'cancelled'
+    | 'complete'
+    | 'error'
+    | undefined
   /**
    * The ReportV1 the UI is rendering. Null when no analysis has run.
    */
@@ -64,6 +76,14 @@ export type ResultCompletenessInputs = {
    * onto `report`.
    */
   ceeReviewV1: CeeDecisionReviewPayloadV1 | null | undefined
+  /**
+   * ROADMAP 2.154 — the 0.30 `decision_review` view-model from a V5 analysis
+   * turn, which `applyV5State` writes to `runMeta.decisionReview030`. Carried
+   * separately from `ceeReviewV1` because the two are different payloads with
+   * different producers; the `decision_review` completeness signal below is
+   * satisfied by EITHER, and was previously blind to this one.
+   */
+  decisionReview030: DecisionReview030 | null | undefined
   /**
    * Drivers payload (separate from `report.drivers` per the trace).
    */
@@ -84,16 +104,24 @@ const FULL: ResultCompleteness = {
 export function deriveResultCompleteness(
   inputs: ResultCompletenessInputs,
 ): ResultCompleteness {
-  // Status `error` short-circuits to failed; idle/running mean we have
-  // nothing to evaluate yet, so report `full` with no missing keys.
-  if (inputs.resultsStatus === 'error') {
+  // Status `error` short-circuits to failed ONLY when there is nothing on
+  // screen — post-SF2 the body renders the RETAINED previous report at
+  // 'error', and that report's completeness must describe ITSELF, not the
+  // new run's failure (Lane 3 review fold: the legacy confidence panel was
+  // rendering "Analysis returned partial results" over a fully-complete
+  // retained analysis). idle/running mean we have nothing to evaluate yet,
+  // so report `full` with no missing keys.
+  if (inputs.resultsStatus === 'error' && !inputs.report) {
     return {
       status: 'failed',
       missing: [],
       reasons: ['analysis_partial'],
     }
   }
-  if (inputs.resultsStatus !== 'complete' || !inputs.report) {
+  if (
+    (inputs.resultsStatus !== 'complete' && inputs.resultsStatus !== 'error') ||
+    !inputs.report
+  ) {
     return FULL
   }
 
@@ -198,17 +226,35 @@ export function deriveResultCompleteness(
     }
   }
 
-  // Field 6 — decision review / coaching. The trace identified this
-  // as optional enrichment that may legitimately be absent. We flag
-  // it so consumers can render the curated fallback block instead of
+  // Field 6 — decision review. Optional enrichment that may legitimately be
+  // absent; flagged so consumers render the curated fallback block instead of
   // a silent omission.
+  //
+  // ⚠ ROADMAP 2.154 — THIS SIGNAL USED TO FIRE ON EVERY SINGLE TURN. It
+  // tested ONE optional sub-field of ONE shape: `ceeReviewV1.m1_coaching
+  // .executive_summary`. On the live V5 path `m1_coaching` does not exist at
+  // all — CEE sends the 0.30 `decision_review` payload, which has no
+  // `m1_coaching` key — so `hasCoaching` was false on every analysis, and the
+  // user was told "Decision coaching is still being prepared for this
+  // analysis" (freshnessReasons.ts) while a real ~8-9s gpt-4.1 review sat in
+  // the same response. A signal that is always true carries no information,
+  // and its name promised something much broader than what it measured.
+  //
+  // The signal now means what it says: no decision review reached the UI in
+  // ANY recognised shape. Either witness clears it — the 0.30 view-model
+  // `applyV5State` writes to `runMeta.decisionReview030` (with renderable
+  // prose), or the M1 coaching block on `ceeReviewV1` (still live via
+  // `synthesizeCeeReviewFromV2`).
   const coaching = inputs.ceeReviewV1?.m1_coaching as
     | { executive_summary?: { headline?: unknown; paragraph?: unknown } }
     | undefined
   const hasCoaching =
     typeof coaching?.executive_summary?.headline === 'string' ||
     typeof coaching?.executive_summary?.paragraph === 'string'
-  if (!hasCoaching) {
+  // `hasProse` and not mere presence: a 0.30 review can validly carry no
+  // prose, and a review with nothing to show is, for this signal, unavailable.
+  const hasReview030Prose = inputs.decisionReview030?.hasProse === true
+  if (!hasCoaching && !hasReview030Prose) {
     missing.add('decision_review')
     reasons.add('decision_review_unavailable')
   }

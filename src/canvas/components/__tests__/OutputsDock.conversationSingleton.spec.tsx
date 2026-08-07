@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
 import type { ReactNode } from 'react'
 
 // Heavy-import stubs — must precede any OutputsDock evaluation.
@@ -47,6 +47,8 @@ const flagState = { aiPanelV2: false }
 vi.mock('../../../flags', () => ({
   isTelemetryEnabled: () => false,
   isCompareEnabled: () => false,
+  isRequireLoginEnabled: () => false, // login 3.4 — lib/poc.ts reads it
+  isDecisionOverviewEnabled: () => false, // Wave 1 — OutputsDock mount gate reads it
   isOrchestratorV2Enabled: () => false,
   isLegacyDirectRunEnabled: () => true,
   isJourneyTabEnabled: () => false,
@@ -54,6 +56,10 @@ vi.mock('../../../flags', () => ({
   isAiPanelV2Enabled: () => flagState.aiPanelV2,
   isV5CanonicalAnalysisEnabled: () => false,
   isAnalysisHeroV17Enabled: () => false,
+  // C1: OutputsDock's orphan-banner footer suppression now also reads the
+  // analysisHeroPanel flag (both hero paths suppress the footer).
+  isAnalysisHeroPanelEnabled: () => false,
+  isPreAnalysisV3Enabled: () => false,
 }))
 
 // THE counter: every time the real useConversation hook executes, we
@@ -64,7 +70,6 @@ const stableConversation = {
   messages: [] as any[],
   isThinking: false,
   longRunningHint: null as any,
-  lastFailedInput: null as any,
   sendMessage: vi.fn(),
   sendSystemEvent: vi.fn(),
   sendChip: vi.fn(),
@@ -83,9 +88,6 @@ vi.mock('../../conversation/useConversation', () => ({
 
 // Stale guard + stage placeholder — unused outputs, but the dock body
 // transitively touches them via the strip / Olumi tab body.
-vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
-  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
-}))
 // PreAnalysisPanel pulls in ToastProvider + readiness fetches that fail
 // outside the full app shell. Stub it to a placeholder so the dock can
 // expand for tests that require non-empty canvas state.
@@ -189,7 +191,16 @@ describe('Olumi tab click while floating is open', () => {
     const { fireEvent } = await import('@testing-library/react')
     const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
     const { useUIStore } = await import('../../../stores/uiStore')
+    const { useCanvasStore } = await import('../../store')
     const { OutputsDock } = await import('../OutputsDock')
+
+    // Populated canvas so the dock can ACTUALLY host Olumi (dockHostsOlumi=true)
+    // — only then does clicking Olumi retire the floating. On the empty-canvas
+    // first-use rail the dock can't host it and the surface is re-engaged
+    // instead (covered separately below). Explicit so the test isn't
+    // order-dependent on a leaked canvas state.
+    useCanvasStore.getState().resetCanvas()
+    useCanvasStore.getState().addNode(undefined, 'decision')
 
     // Pre-state: Analysis tab is active in the global store, and the
     // floating panel is open.
@@ -198,15 +209,16 @@ describe('Olumi tab click while floating is open', () => {
     useFloatingPanelState.getState().open('user')
     expect(useFloatingPanelState.getState().isOpen).toBe(true)
 
-    const { findByLabelText } = render(
+    const { findByTestId } = render(
       <Wrapper>
         <OutputsDock />
       </Wrapper>,
     )
 
-    // Round-3 UX correction: tab labels are text-only, no "Olumi is open"
-    // accessible state. Find by the plain label.
-    const olumiTab = (await findByLabelText('Olumi')) as HTMLElement
+    // On a populated canvas the dock is expanded and the tab strip renders the
+    // text-only Olumi tab (no aria-label) — find it by testid (the rail's
+    // icon-button label query only applies to the collapsed first-use rail).
+    const olumiTab = (await findByTestId('outputs-dock-tab-olumi')) as HTMLElement
     expect(olumiTab).toBeTruthy()
     fireEvent.click(olumiTab)
 
@@ -215,18 +227,23 @@ describe('Olumi tab click while floating is open', () => {
     // the surface switch (no data loss).
     expect(useFloatingPanelState.getState().isOpen).toBe(false)
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+
+    useCanvasStore.getState().resetCanvas() // cleanup for any later tests
   })
 
-  it('persisted activeTab=olumi + floating open → floating closes, docked surface activates (round-3 guard)', async () => {
-    // Round-3 UX correction: when the dock restores from persisted state
-    // with activeTab=olumi AND floating happens to be open, the duplicate-
-    // readable-surface invariant requires one of the two to give. The new
-    // policy: docked Olumi wins, floating closes (see the guard effect in
-    // OutputsDockBody). The singleton ConversationContext preserves draft
-    // + messages across the close, so nothing is lost.
+  it('persisted activeTab=olumi + floating open on a POPULATED canvas → floating closes, docked surface hosts (no duplicate)', async () => {
+    // When the dock restores activeTab=olumi AND a floating surface happens to
+    // be open, the duplicate-readable-surface invariant requires one to give.
+    // Policy: the docked Olumi composer wins and the floating retires — but ONLY
+    // because the dock can actually host it here (populated canvas → not the
+    // first-use rail), i.e. dockHostsOlumi=true. The singleton
+    // ConversationContext preserves draft + messages, so nothing is lost.
     const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+    const { useCanvasStore } = await import('../../store')
     const { OutputsDock } = await import('../OutputsDock')
 
+    useCanvasStore.getState().resetCanvas()
+    useCanvasStore.getState().addNode(undefined, 'decision') // populated → dock can host Olumi
     try {
       sessionStorage.setItem(
         'canvas.outputsDock.v1',
@@ -242,20 +259,24 @@ describe('Olumi tab click while floating is open', () => {
       </Wrapper>,
     )
 
-    // Allow the guard effect to run.
+    // Allow the close-effect to run; dockHostsOlumi=true → it retires the floating.
     await new Promise((r) => setTimeout(r, 50))
     expect(useFloatingPanelState.getState().isOpen).toBe(false)
+    useCanvasStore.getState().resetCanvas() // cleanup for any later tests
   })
 
-  it('programmatic activeTab=olumi while floating open → guard effect closes floating', async () => {
-    // Round-3 UX correction: the guard effect at OutputsDockBody fires
-    // whenever activeTab becomes 'olumi' and the floating panel is open,
-    // closing the latter so the duplicate-readable-surface invariant holds.
-    // (The empty-canvas case here renders the dock in rail mode, so we
-    // only assert the store state, not the docked body's visibility.)
+  it('persisted activeTab=olumi + floating open on the first-use rail → floating STAYS (dock cannot host; no dead-state)', async () => {
+    // Regression guard for the reported bug. On an EMPTY canvas the dock is the
+    // collapsed first-use rail (effectiveIsOpen=false) and cannot show the
+    // docked Olumi composer → dockHostsOlumi=false. The close-effect must NOT
+    // retire the floating/hero surface here — doing so leaves ZERO composers
+    // (the Olumi logo + text box flashing then vanishing — the reported bug).
+    // See olumiSurface.ts (resolveOlumiSurface / dockHostsOlumi).
     const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+    const { useCanvasStore } = await import('../../store')
     const { OutputsDock } = await import('../OutputsDock')
 
+    useCanvasStore.getState().resetCanvas() // force empty canvas → first-use rail
     try {
       sessionStorage.setItem(
         'canvas.outputsDock.v1',
@@ -271,10 +292,17 @@ describe('Olumi tab click while floating is open', () => {
       </Wrapper>,
     )
 
+    // Allow the close-effect to run; it must NOT close the floating surface.
     await new Promise((r) => setTimeout(r, 50))
-    // Floating panel is now closed. The guard ran on first render.
-    expect(useFloatingPanelState.getState().isOpen).toBe(false)
+    expect(useFloatingPanelState.getState().isOpen).toBe(true)
   })
+
+  // NOTE: the former 'programmatic activeTab=olumi while floating open → guard
+  // closes floating' test asserted the OLD behaviour on an empty-canvas rail —
+  // i.e. it pinned the dead-state bug (close the only composer while the dock
+  // cannot host one). Its scenario is now covered correctly by the two tests
+  // above: the docked composer wins ONLY on a populated canvas; on the
+  // first-use rail the floating surface must stay. See olumiSurface.ts.
 
   it('Olumi tab button carries the plain "Olumi" label (text-only, round-3 UX)', async () => {
     const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')

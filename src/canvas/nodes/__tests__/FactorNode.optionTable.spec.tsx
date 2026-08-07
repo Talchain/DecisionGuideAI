@@ -24,14 +24,6 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(),
 }))
 
-vi.mock('../../../hooks/useCEEInsights', () => ({
-  useCEEInsights: vi.fn(() => ({ data: null })),
-}))
-
-vi.mock('../../../hooks/useISLValidation', () => ({
-  useISLValidation: vi.fn(() => ({ data: null })),
-}))
-
 vi.mock('../../hooks/useScienceIcons', () => ({
   useScienceIcons: vi.fn(() => []),
 }))
@@ -208,7 +200,8 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     expect(within(popover).queryByText('Opt D')).toBeNull()
     expect(within(popover).queryByText('Opt E')).toBeNull()
     // Overflow link
-    expect(within(popover).getByText('2 more in inspector')).toBeDefined()
+    // Overflow copy now comes from the shared ConnRowsOverflow component
+    expect(within(popover).getByText('+2 more in inspector')).toBeDefined()
   })
 
   it('Post Standard: status quo (is_baseline) row reads "no change" even when its intervention equals the baseline value', () => {

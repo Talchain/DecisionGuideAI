@@ -10,13 +10,23 @@
 import { NodeShape } from '../primitives/NodeShape'
 import type { BriefElement } from '../hooks/useBriefSignals'
 import type { BriefElementKind } from '../primitives/NodeShape'
+import { typography } from '../../../styles/typography'
 
-/** Map brief element kinds to their DS v4 entity border colours. */
+/**
+ * Map brief element kinds to their DS v4 entity border colours.
+ *
+ * `constraints` is DERIVED from --info; the other four restate the token's
+ * current hex as a channel triple. Those four still AGREE with brand.css today
+ * (goal #F5C433, options #AAA7E4, metric #67C89E, risks #EA7B4B) — `constraints`
+ * is the one that did not: it held the pre-D1 blue #52A3C8 and had silently
+ * orphaned from --info, which is why only it is converted here. The remaining
+ * four are the same latent shape and are tracked for the follow-up sweep.
+ */
 const ENTITY_BORDERS: Record<BriefElementKind, string> = {
   goal:        'rgba(245,196,51,0.4)',
   options:     'rgba(170,167,228,0.4)',
   metric:      'rgba(103,200,158,0.4)',
-  constraints: 'rgba(82,163,200,0.4)',
+  constraints: 'color-mix(in srgb, var(--info) 40%, transparent)',
   risks:       'rgba(234,123,75,0.4)',
 }
 
@@ -46,6 +56,7 @@ export function BriefGuidanceStrip({ elements, onElementClick }: BriefGuidanceSt
             transition-all duration-200
             focus-visible:ring-2 focus-visible:ring-info focus-visible:outline-none
             hover:bg-panel-hover
+            ${typography.panelMeta} font-medium
           `}
           style={{
             gap: 4,
@@ -56,11 +67,9 @@ export function BriefGuidanceStrip({ elements, onElementClick }: BriefGuidanceSt
               ? `1px solid ${ENTITY_BORDERS[el.kind]}`
               : '1px solid var(--border-default, #EEE6D8)',
             opacity: el.detected ? 1 : 0.5,
-            fontSize: 11,
-            fontWeight: 500,
             color: el.detected
               ? 'var(--text-body, #3F3F3E)'
-              : 'var(--text-light, #908D8D)',
+              : 'var(--text-light, #6E6B6B)',
           }}
           title={el.coachingTip}
           aria-label={`${el.label}: ${el.detected ? 'detected' : 'not detected'}`}
@@ -71,7 +80,7 @@ export function BriefGuidanceStrip({ elements, onElementClick }: BriefGuidanceSt
               <NodeShape kind={el.kind} size={10} />
             </span>
           ) : (
-            <span className="flex-shrink-0" style={{ width: 7, height: 7, borderRadius: 999, border: '1.5px solid var(--text-light, #908D8D)' }} />
+            <span className="flex-shrink-0" style={{ width: 7, height: 7, borderRadius: 999, border: '1.5px solid var(--text-light, #6E6B6B)' }} />
           )}
           <span>{el.label}</span>
         </button>

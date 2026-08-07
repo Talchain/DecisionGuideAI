@@ -7,9 +7,15 @@
  */
 
 import { useCanvasStore } from '../../store'
-import { DEFAULT_EDGE_DATA } from '../../domain/edges'
+import { DEFAULT_EDGE_DATA, readValidationMetadata } from '../../domain/edges'
+import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
+import { edgeProvenanceDisplayPatch } from '../../utils/draftIngestion'
 import { saveAutosave } from '../../store/scenarios'
+import { projectAutosaveData, autosaveSourceFromStore } from '../../store/autosaveProjection'
+import { pulseAppliedTargets } from '../../utils/appliedEditPulse'
+import { extractTargetIdsFromPatch } from './extractTargetIds'
 import { validateNodesBatch } from '../../domain/nodes'
+import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from '../../domain/analyticalChange'
 import type { PatchOperation, GraphPatchBlock } from '../types'
 import type { EffectDirection, CEEAnalysisReady, CEEInterventionV3 } from '../../../adapters/cee/types'
 
@@ -92,6 +98,12 @@ function buildEdge(op: PatchOperation) {
 
   // Weight priority: strength.mean > strength_mean > weight > default
   const strength = d.strength as Record<string, unknown> | undefined
+  // Derived from the SAME three probes the priority chain below uses, so it
+  // cannot drift: true exactly when the UI-default branch was NOT taken.
+  const wireSuppliedStrength =
+    typeof strength?.mean === 'number'
+    || typeof d.strength_mean === 'number'
+    || typeof d.weight === 'number'
   const rawWeight: number =
     typeof strength?.mean === 'number'
       ? strength.mean
@@ -135,6 +147,21 @@ function buildEdge(op: PatchOperation) {
       ? Math.max(0, Math.min(1, d.exists_probability as number))
       : undefined
 
+  // Two-pass validation metadata (ROADMAP 2.146) — HOP 2 OF 3, and the reason
+  // this line exists at all is that this function is the hand-mirrored twin of
+  // mapDraftEdgeToCanvas. Adding `validation` only there would have produced the
+  // worst kind of bug: contested markers present after a fresh draft and silently
+  // GONE after the next `edit_graph` receipt touching the edge, with no error
+  // anywhere.
+  //
+  // For THIS field the twins can no longer disagree: both call the one
+  // `readValidationMetadata` (S2-7), which lives with the schema slot and
+  // DEFAULT_EDGE_DATA it depends on and carries the opaque-passthrough rationale
+  // and the boundary-cast disclosure that used to be duplicated here. The mirror
+  // spec (edgeValidationMapperMirror.spec.ts) stays as belt for the fields that
+  // are still extracted twice.
+  const validation = readValidationMetadata(d.validation)
+
   return {
     id: op.target_id,
     source,
@@ -151,6 +178,50 @@ function buildEdge(op: PatchOperation) {
       ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
       ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
+      ...(validation !== undefined ? { validation } : {}),
+      // Set-vs-defaulted markers — see domain/edgeValueProvenance.ts. Omitted
+      // when the patch carried no value, so an operation that supplies neither
+      // leaves the edge honestly marked as unset rather than claiming a
+      // producer estimate.
+      //
+      // ⚠ `strengthStd` WAS MISSING FROM THIS CALL and hop 1 passed it. Found by
+      // the whole-`data` parity assertion in
+      // src/canvas/utils/__tests__/edgeValidationMapperMirror.spec.ts, which was
+      // written because pinning ONE field's lockstep says nothing about the next
+      // field — and this was the next field. `strengthStd` is one of the three
+      // `EDGE_PROVENANCED_FIELDS` (domain/edgeValueProvenance.ts:75), so a receipt
+      // carrying `strength.std` wrote the VALUE with no stamp and every display
+      // surface that reads the stamp treated a real CEE estimate as never set:
+      // the inverse of the laundering `edgeProvenanceLaundering.sourceScan.spec.ts`
+      // guards, arriving through the mirror instead of through a spread.
+      // ROADMAP 2.263 — the THIRD ingestion path, and the one that nearly got
+      // away. The row's brief named two (`DraftChat`, `applyDraftResult`); this
+      // graph_patch hop carries a byte-identical `directionFromData ?? (rawWeight
+      // < 0 ? 'negative' : 'positive')` collapse and was found only because
+      // `edgeValidationMapperMirror.spec.ts` flagged `directionSource` as an
+      // undisclosed divergence between the two hops in the FULL suite. Scoped
+      // runs never touched it. Exactly the "never say ALL consumers" hazard
+      // `src/lib/factorDirection.ts`'s own rule 5 warns about.
+      ...edgeValueSourcePatch({
+        beliefExists: beliefExists !== undefined ? 'cee' : undefined,
+        weight: wireSuppliedStrength ? 'cee' : undefined,
+        strengthStd: strengthStd !== undefined ? 'cee' : undefined,
+        direction: directionFromData !== undefined ? 'cee' : undefined,
+      }),
+      // CEE display provenance (snake_case → camelCase). Distinct from
+      // `provenance_source` above.
+      //
+      // ⚠ ALSO MISSING FROM THIS HOP, found by the same parity assertion: hop 1
+      // applied this patch and hop 2 did not, so a receipt's `provenance_display`
+      // was dropped outright. Adjudicated at the bytes rather than waved through
+      // as "the receipt cannot carry it": `provenance_display` appears NOWHERE in
+      // the pinned @talchain/schemas 0.30.0, `DraftGraphBlockSchema.edges` is
+      // `z.array(z.unknown())`, and this hop's carrier `PatchOperation.data` is
+      // `Record<string, unknown>` (canvas/conversation/types.ts:464). Both hops
+      // read an open bag; only one of them looked. Sharing hop 1's helper also
+      // shares its CLOSED vocabulary gate (from_brief / ai_inferred / user_set),
+      // so an unrecognised value still maps to nothing.
+      ...edgeProvenanceDisplayPatch(d),
     },
   }
 }
@@ -352,15 +423,63 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
 
   // 8. Autosave for crash resilience
   try {
-    const current = useCanvasStore.getState()
-    saveAutosave({
-      timestamp: Date.now(),
-      scenarioId: current.currentScenarioId || undefined,
-      nodes: current.nodes,
-      edges: current.edges,
-    })
+    // Shared projection — previously this literal omitted ceeAnalysisReady and
+    // selectedGoalNode, and saveAutosave REPLACES, so every applied patch
+    // stripped both from the last good autosave.
+    saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
   } catch {
     // Non-critical
+  }
+
+  // Op-replay graph mutation bypasses the edit chokepoints (bare setState), so
+  // mark the freshness overlay dirty (see applyValidatedGraph). The accept flow's
+  // applyAnalysisReadyPatch clears it iff the patch supplies a fresh new verdict.
+  //
+  // Dirty ONLY on an ACTUAL, ANALYSIS-AFFECTING graph delta. `modifiedIds` is
+  // inflated (every update/remove op pushes an id before confirming the target
+  // exists or a value changed), so it cannot drive dirtying. Two over-dirty traps
+  // to avoid:
+  //   1. absent targets / same-value re-sends → no real change.
+  //   2. cosmetic (label/body) edits, or a re-normalised structured field that is
+  //      a new object reference with IDENTICAL content (e.g. CEE re-emitting the
+  //      same observed_state) → not analysis-affecting.
+  // Both are handled by the SHARED analysis-affecting taxonomy (domain/
+  // analyticalChange) with SEMANTIC (by-value) comparison — the same predicate the
+  // store edit chokepoints use, so the patch path can never diverge from them.
+  // Adds and present-target removals are inherently structural (topology change).
+  // Optional-chained markDirty so partial store doubles in tests don't break.
+  const hadRealAdd = newNodes.length > 0 || newEdges.length > 0
+  const hadRealRemove =
+    existingNodes.some((n) => removeNodeIds.has(n.id)) ||
+    existingEdges.some((e) => removeEdgeIds.has(e.id))
+  const hadRealNodeUpdate = existingNodes.some((n) => {
+    const u = nodeUpdates.get(n.id)
+    return !!u && hasAnalyticalNodeChange(n, { data: u })
+  })
+  const hadRealEdgeUpdate = existingEdges.some((e) => {
+    const u = edgeUpdates.get(e.id)
+    if (!u) return false
+    const { _rewireSource, _rewireTarget, ...dataUpdate } = u as Record<string, unknown>
+    const endpointUpdates = {
+      ...(typeof _rewireSource === 'string' ? { source: _rewireSource } : {}),
+      ...(typeof _rewireTarget === 'string' ? { target: _rewireTarget } : {}),
+      data: dataUpdate,
+    }
+    return hasAnalyticalEdgeChange(e, endpointUpdates)
+  })
+  const mutated = hadRealAdd || hadRealRemove || hadRealNodeUpdate || hadRealEdgeUpdate
+  if (mutated) {
+    useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+  }
+
+  // Seamlessness R2: the canvas acknowledges applied AI edits with the same
+  // 2s highlight the "Reveal changes" button fires — pulse the op targets
+  // (removed/absent ids are filtered fail-closed at flush inside the util).
+  // Suppressed for full drafts (>=3 added nodes, the same threshold the
+  // full_draft auto-collapse signal uses) — pulsing an entire freshly
+  // drafted graph is noise, not acknowledgement.
+  if (result.addedNodeCount < 3) {
+    pulseAppliedTargets(extractTargetIdsFromPatch(patchBlock.operations))
   }
 
   return result
@@ -374,7 +493,10 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
  * at the mutation boundary. Caller is responsible for wrapping in
  * beginExternalGraphMutation / endExternalGraphMutation when needed.
  */
-export function applyValidatedGraph(validated: { nodes: unknown[]; edges: unknown[] }): void {
+export function applyValidatedGraph(
+  validated: { nodes: unknown[]; edges: unknown[] },
+  appliedOps?: PatchOperation[],
+): void {
   const store = useCanvasStore.getState()
   store.pushHistory()
   useCanvasStore.setState({
@@ -382,6 +504,17 @@ export function applyValidatedGraph(validated: { nodes: unknown[]; edges: unknow
     edges: validated.edges as any,
   })
   validateNodesBatch(validated.nodes as any)
+  // Seamlessness R2 (see applyAutoApplyPatch): when the caller supplies the
+  // accepted patch's operations, pulse their targets. The full-graph replace
+  // itself carries no op list, so legacy callers without ops are unchanged.
+  if (appliedOps && appliedOps.length > 0) {
+    pulseAppliedTargets(extractTargetIdsFromPatch(appliedOps))
+  }
+  // This full-graph replace bypasses the edit chokepoints (bare setState), so the
+  // freshness overlay must be marked dirty here. applyAnalysisReadyPatch (called
+  // after accept) clears it iff the patch supplies a fresh new verdict.
+  // Optional-chained so partial store doubles in tests don't break.
+  useCanvasStore.getState().markAnalysisFreshnessDirty?.()
 }
 
 // ---------------------------------------------------------------------------

@@ -51,6 +51,7 @@ export {
   executeV2RunWithAnalysisReady,
   extractOptionsFromNodes,
   reconcileOptionsWithCanvasNodes,
+  reconcileOptionsWithCanvasNodesDetailed,
   uiOptionToV2Option,
   ceeOptionToUIOption,
   ceeOptionToV2Option,
@@ -62,7 +63,9 @@ export {
   validateAllEdges,
   validateOptionsHaveInterventions,
   flattenInterventions,
+  clearStrengthCorrections,
   EdgeValidationError,
+  InterventionValidationError,
 } from './adapter'
 
 export type { V2AdapterConfig, BuildV2RequestOptions } from './adapter'

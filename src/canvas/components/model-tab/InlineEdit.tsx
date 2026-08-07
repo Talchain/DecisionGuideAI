@@ -14,10 +14,35 @@ import { typography } from '../../../styles/typography'
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Has the user actually CHANGED the value?
+ *
+ * Adversarial review F4: this was a bare string compare, while the inspector's
+ * equivalent guard compares PARSED NUMBERS. So on a numeric chip, re-typing the
+ * same number in another lexical form — `3e4` for `30000`, `0.40` for `0.4` —
+ * read as a change on the Model tab and as a no-op in the inspector. On a factor
+ * value that means an emitted `factor_value_edit` claiming a change that wasn't
+ * one, plus a `source` flip to 'user'. The two surfaces have to speak at the
+ * same moments; that equivalence is the whole point of the parity spec.
+ *
+ * Numeric comparison applies only when the field IS numeric AND both sides parse
+ * to finite numbers — otherwise it falls back to the string compare, so a
+ * partially-typed or non-numeric entry behaves exactly as before.
+ */
+function hasChanged(draft: string, savedValue: string, numeric: boolean): boolean {
+  if (numeric) {
+    const a = parseFloat(draft)
+    const b = parseFloat(savedValue)
+    if (Number.isFinite(a) && Number.isFinite(b)) return a !== b
+  }
+  return draft !== savedValue
+}
+
 export function useInlineEdit(
   savedValue: string,
   onSave: (val: string) => void,
   validate?: (val: string) => boolean,
+  numeric = false,
 ) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(savedValue)
@@ -33,8 +58,8 @@ export function useInlineEdit(
     if (validate && !validate(draft)) { setInvalid(true); return }
     setInvalid(false)
     setEditing(false)
-    if (draft !== savedValue) onSave(draft)
-  }, [draft, savedValue, onSave, validate])
+    if (hasChanged(draft, savedValue, numeric)) onSave(draft)
+  }, [draft, savedValue, onSave, validate, numeric])
 
   const cancel = useCallback(() => {
     setDraft(savedValue)
@@ -91,7 +116,7 @@ export function InlineEdit({
   }, [onSave])
 
   const { editing, draft, invalid, setDraft, startEdit, commit, cancel, handleKeyDown } =
-    useInlineEdit(value, wrappedOnSave, validate)
+    useInlineEdit(value, wrappedOnSave, validate, numeric)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFocus = useCallback(() => {

@@ -164,6 +164,74 @@ describe('SnapshotManager', () => {
     confirmSpy.mockRestore()
   })
 
+  /**
+   * F1 (adversarial review of PR #582): Restore calls store.importCanvas,
+   * which replaces the whole graph AND wipes undo history (store.ts:2467),
+   * even when the canvas is not dirty — so Restore must ALWAYS confirm.
+   * Assertions bind to the confirm's exact copy, and the destructive action
+   * must NOT run until accepted.
+   */
+  it('restore requires confirmation and does nothing when declined (F1)', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const importCanvasMock = vi.fn()
+    ;(store.useCanvasStore as unknown as { getState: () => unknown }).getState =
+      vi.fn(() => ({ importCanvas: importCanvasMock }))
+
+    vi.mocked(persist.listSnapshots).mockReturnValue([
+      { key: 'snap-1', timestamp: 1697500000000, size: 1024 },
+    ])
+    vi.mocked(persist.loadSnapshot).mockReturnValue({
+      version: 1,
+      timestamp: 1697500000000,
+      nodes: [{ id: '1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Node 1' } }],
+      edges: []
+    })
+    Storage.prototype.getItem = vi.fn(() => 'Test Snapshot')
+
+    renderWithToast(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
+
+    fireEvent.click(screen.getByText('Restore'))
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Restore this snapshot? This will replace your current canvas and clear undo history.'
+    )
+    expect(importCanvasMock).not.toHaveBeenCalled()
+    expect(mockOnClose).not.toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
+  })
+
+  it('restore replaces the canvas after confirmation (F1)', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const importCanvasMock = vi.fn()
+    ;(store.useCanvasStore as unknown as { getState: () => unknown }).getState =
+      vi.fn(() => ({ importCanvas: importCanvasMock }))
+
+    const snapshotData = {
+      version: 1,
+      timestamp: 1697500000000,
+      nodes: [{ id: '1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Node 1' } }],
+      edges: []
+    }
+    vi.mocked(persist.listSnapshots).mockReturnValue([
+      { key: 'snap-1', timestamp: 1697500000000, size: 1024 },
+    ])
+    vi.mocked(persist.loadSnapshot).mockReturnValue(snapshotData)
+    Storage.prototype.getItem = vi.fn(() => 'Test Snapshot')
+
+    renderWithToast(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
+
+    fireEvent.click(screen.getByText('Restore'))
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Restore this snapshot? This will replace your current canvas and clear undo history.'
+    )
+    expect(importCanvasMock).toHaveBeenCalledWith(JSON.stringify(snapshotData))
+    expect(mockOnClose).toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
+  })
+
   it('shows snapshot count indicator', () => {
     const mockSnapshots = [
       { key: 'snap-1', timestamp: 1697500000000, size: 1024 },
