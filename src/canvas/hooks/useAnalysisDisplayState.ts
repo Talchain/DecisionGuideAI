@@ -11,29 +11,37 @@
  */
 
 import { useCanvasStore } from '../store'
-import { classifyFreshnessForDisplay } from '../store/analysisFreshness'
 import {
   deriveAnalysisDisplayState,
   type AnalysisDisplayStateView,
 } from '../utils/deriveAnalysisDisplayState'
+import { useAnalysisTrust } from './useAnalysisTrust'
 
 export function useAnalysisDisplayState(): AnalysisDisplayStateView {
   // Defensive optional chaining: legacy test fixtures mock a partial store
   // shape that omits `results`. The runtime store always provides it.
   const ceeAnalysisReadyStatus = useCanvasStore((s) => s.ceeAnalysisReady?.status)
   const hasReport = useCanvasStore((s) => s.results?.report != null)
-  // "Results may be outdated" must reflect the CEE freshness verdict + local
-  // dirty overlay (the shared display semantic being 'changed'), NOT the local
-  // `graphEditedSinceLastRun` flag — so a CEE-sourced 'unknown' (cannot-confirm)
-  // never fabricates a stale claim here.
-  const analysisFreshness = useCanvasStore((s) => s.analysisFreshness)
-  const analysisFreshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
-  const analysisChanged =
-    classifyFreshnessForDisplay(analysisFreshness, analysisFreshnessDirty) === 'changed'
+  // "Results may be outdated" must reflect the composed trust answer
+  // (`useAnalysisTrust`), NOT the local `graphEditedSinceLastRun` flag — so a
+  // CEE-sourced 'unknown' (cannot-confirm) never fabricates a stale claim
+  // here.
+  //
+  // RCA-D1: an orphaned result (a report hydrated on reload with no live-capture
+  // fact for the scenario) must NOT read as green "Analysis complete" — the same
+  // state already surfaces the strip's "can't confirm this is current" variant,
+  // and a green completion hero alongside it is a self-contradiction.
+  // deriveAnalysisDisplayState deliberately treats a CEE 'unknown' verdict as
+  // the neutral completion fact, so the semantic alone can't route this; OR in
+  // the trust composition's orphan flag (it never fires for a genuine run,
+  // which mints a fact via deriveV5AnalysisFactUpdate) and reuse the existing
+  // 'results_stale' branch ("Results may be outdated · Rerun").
+  const trust = useAnalysisTrust()
+  const notConfirmedCurrent = trust.semantic === 'changed' || trust.orphaned
 
   return deriveAnalysisDisplayState({
     ceeAnalysisReadyStatus,
     hasReport,
-    analysisChanged,
+    analysisChanged: notConfirmedCurrent,
   })
 }

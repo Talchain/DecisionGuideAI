@@ -12,7 +12,6 @@
 
 import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
-import { useShallow } from 'zustand/shallow'
 import { usePreRunValidation, type ValidationBlocker } from './usePreRunValidation'
 import { useGraphReadiness } from './useGraphReadiness'
 import type { Node, Edge } from '@xyflow/react'
@@ -504,9 +503,12 @@ export interface PreAnalysisData {
  * Hook that provides normalised pre-analysis data
  */
 export function usePreAnalysisData(): PreAnalysisData {
-  // Store data
-  const nodes = useCanvasStore(useShallow(s => s.nodes))
-  const edges = useCanvasStore(useShallow(s => s.edges))
+  // Store data — individual field selectors (React #185 guard): the store only
+  // replaces the nodes/edges array when a node/edge object actually changes
+  // (applyNodeChanges/applyEdgeChanges), so the reference is stable between real
+  // changes and the default Object.is equality is sufficient — no useShallow needed.
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const ceeQuality = useCanvasStore(s => s.ceeQuality)
   const ceeExtendedWarnings = useCanvasStore(s => s.ceeExtendedWarnings)

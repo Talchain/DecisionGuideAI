@@ -17,6 +17,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ModelTabBody } from '../ModelTabBody'
 import type { Node, Edge } from '@xyflow/react'
+import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -34,8 +35,17 @@ let mockCeePipelineTrace: unknown = null
 const mockSetHighlightedNodes = vi.fn()
 const mockSetHighlightedEdges = vi.fn()
 
+// ROADMAP 2.121 slice 1: the section components commit through
+// `useNodeMutations` / `useEdgeMutations`, which read the element back out of
+// `useCanvasStore.getState()` before writing — that read is what stops a commit
+// resurrecting a stale render-time `data` blob. A test that drives an edit must
+// put the element here as well as passing it as a prop.
+const mockGraph: { nodes: unknown[]; edges: unknown[] } = { nodes: [], edges: [] }
+
 function getMockState() {
   return {
+    nodes: mockGraph.nodes,
+    edges: mockGraph.edges,
     updateNode: mockUpdateNode,
     updateEdge: mockUpdateEdge,
     ceePipelineTrace: mockCeePipelineTrace,
@@ -101,6 +111,11 @@ function makeEdge(
       strengthStd: opts.strengthStd ?? 0.125,
       provenance: opts.provenance ?? 'assumption',
       direction: opts.direction ?? 'positive',
+      // A characterised edge is a STAMPED edge — the RelationshipsSection card
+      // is provenance-gated, so an unstamped fixture renders "Not set" no
+      // matter what numbers it carries. ROADMAP 2.263 put `direction` under the
+      // same gate: unstamped, it renders "direction not stated".
+      ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user', direction: 'user' }),
     },
   }
 }
@@ -190,7 +205,9 @@ describe('Inline edit — Enter/Escape/blur (value field)', () => {
   // Use factor value field for inline edit tests
 
   it('commits on blur', () => {
+    mockUpdateNode.mockClear()
     const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
+    mockGraph.nodes = nodes
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
 
     const displayEl = screen.getByTestId('factor-f1-value-display')
@@ -211,7 +228,9 @@ describe('Inline edit — Enter/Escape/blur (value field)', () => {
   })
 
   it('commits on Enter', () => {
+    mockUpdateNode.mockClear()
     const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
+    mockGraph.nodes = nodes
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
 
     const displayEl = screen.getByTestId('factor-f1-value-display')
@@ -225,7 +244,9 @@ describe('Inline edit — Enter/Escape/blur (value field)', () => {
   })
 
   it('cancels on Escape without calling updateNode', () => {
+    mockUpdateNode.mockClear()
     const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
+    mockGraph.nodes = nodes
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
 
     const displayEl = screen.getByTestId('factor-f1-value-display')
@@ -336,11 +357,11 @@ describe('Golden UI test — headline numbers regression guard', () => {
   // Causal edges (between factors + goal)
   const e1: Edge = {
     id: 'e1', source: 'f1', target: 'g1',
-    data: { weight: 0.8, strengthStd: 0.1, provenance: 'user_study', direction: 'positive', beliefExists: 0.85 },
+    data: { weight: 0.8, strengthStd: 0.1, provenance: 'user_study', direction: 'positive', beliefExists: 0.85, ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }) },
   }
   const e2: Edge = {
     id: 'e2', source: 'f2', target: 'g1',
-    data: { weight: 0.6, strengthStd: 0.15, provenance: 'assumption', direction: 'negative', beliefExists: 0.90 },
+    data: { weight: 0.6, strengthStd: 0.15, provenance: 'assumption', direction: 'negative', beliefExists: 0.90, ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }) },
   }
   // Organisational edges (to/from decision+options — excluded from causal)
   const e3: Edge = { id: 'e3', source: 'd1', target: 'opt_a', data: {} }
@@ -372,7 +393,7 @@ describe('Golden UI test — headline numbers regression guard', () => {
     // Canvas store canonical name — CEE ingestion normalises to beliefExists
     const edgeWithExistsProb: Edge = {
       id: 'e-ep', source: 'f1', target: 'g1',
-      data: { weight: 0.7, strengthStd: 0.1, provenance: 'assumption', direction: 'positive', beliefExists: 0.73 },
+      data: { weight: 0.7, strengthStd: 0.1, provenance: 'assumption', direction: 'positive', beliefExists: 0.73, ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }) },
     }
     render(
       <ModelTabBody
@@ -519,7 +540,7 @@ describe('DS-4: Likelihood bars use evaluative threshold colours', () => {
     const nodes = [makeFactorNode('f1', 'A'), makeFactorNode('f2', 'B')]
     const edges: import('@xyflow/react').Edge[] = [{
       id: 'e1', source: 'f1', target: 'f2',
-      data: { weight: 0.5, strengthStd: 0.1, direction: 'positive', beliefExists: 0.3 },
+      data: { weight: 0.5, strengthStd: 0.1, direction: 'positive', beliefExists: 0.3, ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }) },
     }]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
     // Edge cards are collapsed by default — click to expand
@@ -593,6 +614,50 @@ describe('NF-1: Copy as JSON button', () => {
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
     expect(screen.getByTestId('model-copy-json')).toBeInTheDocument()
     expect(screen.getByTestId('model-copy-json')).toHaveTextContent('JSON')
+  })
+
+  // ── F7 ──────────────────────────────────────────────────────────────────
+  // The copied payload lands on the user's clipboard, where nothing
+  // downstream can tell a chosen 0.3 from `USER_EDGE_DEFAULTS.weight`. The
+  // numbers may still be exported — this is a data export, not a display
+  // surface — but the provenance has to travel with them.
+  describe('F7: the exported edge carries its provenance', () => {
+    function copyAndParse(edges: Edge[]) {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true,
+      })
+      const nodes = [makeFactorNode('f1', 'A'), makeFactorNode('f2', 'B')]
+      render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
+      fireEvent.click(screen.getByTestId('model-copy-json'))
+      expect(writeText).toHaveBeenCalledTimes(1)
+      return JSON.parse(writeText.mock.calls[0][0] as string)
+    }
+
+    it('POSITIVE CONTROL: stamps a value somebody set', () => {
+      // makeEdge stamps 'user' on both fields.
+      const payload = copyAndParse([makeEdge('e1', 'f1', 'f2', { weight: 0.42 })])
+      expect(payload.edges).toHaveLength(1)
+      expect(payload.edges[0].weight).toBe(0.42)
+      expect(payload.edges[0].weightSource).toBe('user')
+    })
+
+    it('exports the number but marks it UNSOURCED when nothing set it', () => {
+      const unstamped: Edge = {
+        id: 'e1',
+        source: 'f1',
+        target: 'f2',
+        data: { weight: 0.3, beliefExists: 0.8, direction: 'positive' },
+      }
+      const payload = copyAndParse([unstamped])
+      // The row is still exported — the relationship is real…
+      expect(payload.edges).toHaveLength(1)
+      expect(payload.edges[0].weight).toBe(0.3)
+      // …and the consumer can now tell that nobody chose these numbers.
+      expect(payload.edges[0].weightSource).toBeNull()
+      expect(payload.edges[0].beliefExistsSource).toBeNull()
+    })
   })
 })
 

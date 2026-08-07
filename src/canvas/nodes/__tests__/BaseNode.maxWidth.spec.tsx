@@ -35,14 +35,6 @@ vi.mock('../../store', () => ({
   ),
 }))
 
-vi.mock('../../../hooks/useCEEInsights', () => ({
-  useCEEInsights: vi.fn(() => ({ data: null })),
-}))
-
-vi.mock('../../../hooks/useISLValidation', () => ({
-  useISLValidation: vi.fn(() => ({ data: null })),
-}))
-
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank: null,

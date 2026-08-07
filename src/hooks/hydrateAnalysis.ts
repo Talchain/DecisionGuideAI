@@ -103,11 +103,16 @@ export function hydrateAnalysisFromV2Response(
 
   const v2Response = sanitizeV2RunResponse(rawAnalysis as V2RunResponse)
 
-  // Derive seed: prefer provenance (numeric), fallback to response meta (string→number)
-  const seedUsed: number = provenance?.seed_used
-    ?? (v2Response.meta?.seed_used
-      ? (parseInt(String(v2Response.meta.seed_used), 10) || 0)
-      : 0)
+  // Derive seed: prefer provenance (numeric), fallback to response meta
+  // (string→number). Receipts fail closed (T2): no real value → null —
+  // never a fabricated 0. In particular, a malformed meta.seed_used parses
+  // to NaN and becomes null (the old `|| 0` swallowed the NaN into a
+  // fabricated seed that displayed as "Seed 0").
+  const parsedMetaSeed = v2Response.meta?.seed_used != null
+    ? Number.parseInt(String(v2Response.meta.seed_used), 10)
+    : Number.NaN
+  const seedUsed: number | null = provenance?.seed_used
+    ?? (Number.isFinite(parsedMetaSeed) ? parsedMetaSeed : null)
 
   // Map V2RunResponse → ReportV1
   const report = mapV2ResponseToReportV1(v2Response, { seed: seedUsed })
@@ -134,7 +139,10 @@ export function hydrateAnalysisFromV2Response(
     results: {
       status: 'complete',
       progress: 100,
-      seed: seedUsed,
+      // Store slot uses undefined for absence (ResultsState.seed?: number);
+      // the store's own guards (`!= null` / `!== undefined`) then skip
+      // seed-dependent bookkeeping instead of recording a fabricated 0.
+      seed: seedUsed ?? undefined,
       hash: responseHash,
       report,
       enrichment: enrichment ?? undefined,

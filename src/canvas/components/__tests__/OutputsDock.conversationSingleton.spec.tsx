@@ -47,6 +47,8 @@ const flagState = { aiPanelV2: false }
 vi.mock('../../../flags', () => ({
   isTelemetryEnabled: () => false,
   isCompareEnabled: () => false,
+  isRequireLoginEnabled: () => false, // login 3.4 — lib/poc.ts reads it
+  isDecisionOverviewEnabled: () => false, // Wave 1 — OutputsDock mount gate reads it
   isOrchestratorV2Enabled: () => false,
   isLegacyDirectRunEnabled: () => true,
   isJourneyTabEnabled: () => false,
@@ -54,6 +56,9 @@ vi.mock('../../../flags', () => ({
   isAiPanelV2Enabled: () => flagState.aiPanelV2,
   isV5CanonicalAnalysisEnabled: () => false,
   isAnalysisHeroV17Enabled: () => false,
+  // C1: OutputsDock's orphan-banner footer suppression now also reads the
+  // analysisHeroPanel flag (both hero paths suppress the footer).
+  isAnalysisHeroPanelEnabled: () => false,
   isPreAnalysisV3Enabled: () => false,
 }))
 
@@ -65,7 +70,6 @@ const stableConversation = {
   messages: [] as any[],
   isThinking: false,
   longRunningHint: null as any,
-  lastFailedInput: null as any,
   sendMessage: vi.fn(),
   sendSystemEvent: vi.fn(),
   sendChip: vi.fn(),
@@ -84,9 +88,6 @@ vi.mock('../../conversation/useConversation', () => ({
 
 // Stale guard + stage placeholder — unused outputs, but the dock body
 // transitively touches them via the strip / Olumi tab body.
-vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
-  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
-}))
 // PreAnalysisPanel pulls in ToastProvider + readiness fetches that fail
 // outside the full app shell. Stub it to a placeholder so the dock can
 // expand for tests that require non-empty canvas state.

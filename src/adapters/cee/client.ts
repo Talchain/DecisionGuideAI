@@ -7,19 +7,88 @@ import type {
   CEEv3Response,
   CeePipelineTrace,
   CEEDraftCoaching,
+  BeliefElicitSuggestion,
 } from './types'
 import { isCEEv2Response, isCEEv3Response, isCeePipelineTrace } from './types'
 import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffResponsePayload } from '../../lib/observability-headers'
 import { useGateStore } from '../../lib/gate-state'
-import { CEEDraftResponseSchema, warnOnInvalidApiResponse } from '../../lib/api-schemas'
+import {
+  CEEDraftResponseSchema,
+  CEEElicitBeliefResponseSchema,
+  warnOnInvalidApiResponse,
+} from '../../lib/api-schemas'
 import { withRetry } from '../../lib/fetchWithRetry'
 import { devWarn } from '../../utils/debugLog'
+import { plotAuthHeaders } from '../../lib/plotAuthHeaders'
 
-const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+/**
+ * ⚠ CORRECTED BY ROADMAP 2.710 — THE ENV-RESOLVED BASE IS GONE FROM THIS
+ * FILE, AND THE HISTORY IS KEPT BECAUSE IT IS THE HAZARD'S BEST TEACHER.
+ * This constant used to be `(import.meta as any).env?.VITE_CEE_BFF_BASE ||
+ * '/bff/cee'`, which the Netlify dashboard resolves to
+ * `https://plot-lite-service-staging.onrender.com/v1/cee` and Vite inlines
+ * at BUILD time (measured on build `122b847a` at
+ * `assets/clipboard-DeNkRSL5.js@44203`) — so `biasCheck` and
+ * `sensitivityCoach` shipped pointed at PLoT's bearer-authenticated origin.
+ * The 2026-08-03 measurement showed PLoT REGISTERS those two routes (401
+ * next to a garbage-path 404), and they were kept there deliberately on the
+ * VITE_PLOT_BEARER premise. The 2.710 audit re-priced that: CEE ITSELF
+ * serves /assist/v1/bias-check and /assist/v1/sensitivity-coach behind the
+ * same-origin `/bff/cee` edge seam (server-side `X-Olumi-Assist-Key`
+ * injection, the verified-working seam every other CEE-served call now
+ * rides), so nothing in this file needs the env var, the bearer, or the
+ * cross-origin hop. PLoT-direct remains ONLY where PLoT is genuinely the
+ * server: `CEE_DRAFT_ENGINE_BASE` (`VITE_CEE_DRAFT_BASE`) below.
+ * Source-guarded by ceeSeamBinding.spec.ts; the allowlist entry for
+ * VITE_CEE_BFF_BASE is removed, so `ci:guard:bundle-env` REDs if any read
+ * reappears.
+ */
+const CEE_BASE_URL = '/bff/cee'
+
+/**
+ * The same-origin Netlify edge path for **CEE-served** routes. A LITERAL, and
+ * deliberately NOT `CEE_BASE_URL` — see the hazard above.
+ *
+ * `/bff/cee/*` is owned by `netlify/edge-functions/cee-proxy.ts`, which rewrites
+ * the prefix to `/assist/v1` and injects `X-Olumi-Assist-Key` server-side (the
+ * key stays in the Netlify edge runtime and never enters the bundle);
+ * `vite.config.ts` proxies the same prefix the same way in dev.
+ *
+ * WHY A SECOND CONSTANT RATHER THAN A SHARED ONE. `scenarioGraph.ts` solved this
+ * exact hazard for the scenario-graph read (PR #570) with its own literal.
+ * ⚠ HISTORY, corrected by 2.710: this paragraph used to say the file-scoped
+ * "no VITE_CEE_BFF_BASE anywhere" guard was impossible here because
+ * `CEE_BASE_URL` had to stay env-resolved for the PLoT-registered routes.
+ * That premise is gone — `CEE_BASE_URL` is now the same literal, the env
+ * read is gone from this file, and ceeSeamBinding.spec.ts applies the
+ * file-scoped guard to this file too. The two constants remain separate
+ * only as named call-site documentation; the co-located elicit guard still
+ * DERIVES the expected value from `netlify.toml`'s `cee-proxy` binding —
+ * see `__tests__/client.elicitBelief.spec.ts`, "base resolution".
+ */
+const CEE_ELICIT_BASE = '/bff/cee'
+
 // CEE Draft Engine base URL
 // On staging, can be set to direct PLoT URL to bypass Netlify proxy (which times out at ~28s)
 // Example: VITE_CEE_DRAFT_BASE=https://plot-lite-service-staging.onrender.com/v1/cee
+// (Measured: it IS so set on staging — draft-graph is a PLoT-served route, so
+// this one is correct as it stands.)
 const CEE_DRAFT_ENGINE_BASE = (import.meta as any).env?.VITE_CEE_DRAFT_BASE || '/bff/engine/v1/cee'
+
+/**
+ * Is this base a PLoT-DIRECT (absolute, cross-origin) base — the only kind of
+ * base the env-injected `VITE_PLOT_BEARER` may ride (review F-U1)?
+ *
+ * The ONE absolute base this client can hold is the deployed
+ * `VITE_CEE_DRAFT_BASE` (PLoT's origin, baked at build). Every relative base
+ * is a same-origin `/bff/*` seam whose credential is injected SERVER-side —
+ * and the cee-proxy edge function forwards an incoming `authorization`
+ * header as the USER-token slot, so a bearer attached to those calls would
+ * impersonate a user token at CEE. Exported for the leak-pin spec.
+ */
+export function isPlotDirectBase(baseURL: string): boolean {
+  return /^https?:\/\//i.test(baseURL)
+}
 
 /**
  * Generate correlation ID for request tracking
@@ -481,12 +550,28 @@ export function adaptDraftResponse(raw: unknown): CEEDraftResponse {
 const ENDPOINT_TIMEOUTS: Record<string, number> = {
   // draft-graph needs 150s: OpenAI can take 64-71s, plus CEE processing
   '/draft-graph': 150000,
+  // elicit-belief is a DETERMINISTIC lexicon+regex parse with no LLM call and
+  // no network fan-out, behind a debounced keystroke. The 150s default meant a
+  // cold start or a headers-then-body stall left the user staring at a text
+  // box for two and a half minutes with no answer and no error (#572 review).
+  // 20s is generous for a Render cold start and short enough that "it didn't
+  // work" arrives while the user is still looking at the field.
+  '/elicit-belief': 20000,
 }
 
 // Audit F-67: Default timeout set to 150s — above CEE's 135s route timeout.
 // Prevents silent hangs while allowing CEE sufficient processing time.
 // Surfaces timeout as user-visible CEEError (408) via AbortController in fetchWithBase.
 const DEFAULT_CEE_TIMEOUT = 150000
+
+/**
+ * A probability, as `observed_state.value` defines one: a finite number in
+ * [0,1]. The ONE place this bound is spelled on the client, so the
+ * `suggested_value` check and the chip check cannot drift apart.
+ */
+function isProbability(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+}
 
 export class CEEClient {
   private baseURL: string
@@ -498,9 +583,23 @@ export class CEEClient {
     this.timeout = config.timeout ?? DEFAULT_CEE_TIMEOUT
   }
 
-  private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    return this.fetchWithBase<T>(this.baseURL, endpoint, options)
-  }
+  /**
+   * ⚠ THERE IS DELIBERATELY NO BARE `this.fetch(endpoint)` HELPER ANY MORE.
+   *
+   * It existed, it read as "just use this client's base", and that is exactly
+   * how `elicitBelief` shipped pointed at PLoT — `this.baseURL` WAS
+   * `CEE_BASE_URL` in its env-resolved form, which the Netlify dashboard set
+   * to the absolute PLoT URL (see the constant's corrected header; 2.710
+   * made it the same-origin literal). `elicitBelief` was its only caller, so
+   * removing it cost nothing and took the trap with it: every request on this
+   * client names its base at the call site, where the choice between "PLoT
+   * serves this" and "CEE serves this" is visible to the person writing it.
+   *
+   * `fetchIdempotent` keeps `this.baseURL` — since 2.710 that is the
+   * same-origin `/bff/cee` literal, so its two callers (`biasCheck`,
+   * `sensitivityCoach`) ride the credential-injecting edge seam like every
+   * other CEE-served route.
+   */
 
   /** Fetch with retry — use only for idempotent/read-only endpoints (not draft-graph) */
   private async fetchIdempotent<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -546,6 +645,19 @@ export class CEEClient {
           'Content-Type': 'application/json',
           'x-correlation-id': correlationId,
           ...(options.headers as Record<string, string>),
+          // ⚠ SCOPED TO PLoT-DIRECT BASES ONLY (adversarial review F-U1 on
+          // the 2.710 PR). This used to merge `plotAuthHeaders()` into EVERY
+          // request, which was harmless while every base was PLoT — but
+          // 2.710 moved biasCheck/sensitivityCoach onto the same-origin
+          // `/bff/cee` seam, and the cee-proxy edge function forwards an
+          // incoming `authorization` header as the USER-token slot. A
+          // provisioned VITE_PLOT_BEARER would therefore have arrived at CEE
+          // masquerading as a Supabase user token. The bearer is a PLoT
+          // credential for PLoT-DIRECT calls — exactly the absolute
+          // `VITE_CEE_DRAFT_BASE` base; every same-origin `/bff/*` seam gets
+          // its credential injected server-side and must carry none from
+          // here. Leak-pinned by client.plotBearerScope.spec.ts.
+          ...(isPlotDirectBase(baseURL) ? plotAuthHeaders() : {}),
         },
         correlationId
       )
@@ -556,9 +668,15 @@ export class CEEClient {
         headers,
       })
 
-      clearTimeout(timeoutId)
-
-      // Record response for observability
+      // NOTE: the abort timer is deliberately NOT cleared here. `fetch` resolves
+      // as soon as the HEADERS arrive, so clearing it at this point left both
+      // `response.json()` reads below unprotected: a headers-then-body stall
+      // (the Netlify-edge hang class this project has hit before) left this
+      // promise pending forever, so the draft and coaching surfaces awaiting
+      // this client sat in a pending state with no escape control — the exact
+      // failure the F-67 headers-phase timeout was added to prevent, reachable
+      // one phase later. The timer is cleared in the `finally` instead, once the
+      // body read has completed or thrown. Mirrors the runV2 fix in #367.
       recordBffResponse(correlationId, url, response, startTime)
 
       if (!response.ok) {
@@ -585,8 +703,6 @@ export class CEEClient {
       recordBffResponsePayload(correlationId, response, body, startTime)
       return body
     } catch (error) {
-      clearTimeout(timeoutId)
-
       // Record error for observability
       recordBffError(correlationId, url, startTime, error)
 
@@ -594,6 +710,13 @@ export class CEEClient {
         throw new CEEError('Request timeout', 408, undefined, correlationId)
       }
       throw error
+    } finally {
+      // Cleared here, and only here — after the body read has settled on every
+      // path (success, HTTP error, abort). An abort raised mid-body rejects the
+      // body read with an AbortError, which the catch above maps to the same
+      // CEEError('Request timeout', 408) a headers-phase timeout already
+      // produced — no new error shape.
+      clearTimeout(timeoutId)
     }
   }
 
@@ -822,6 +945,111 @@ export class CEEClient {
   }
 
   /**
+   * Turn a phrase about a factor into a number — ROADMAP 2.364.
+   *
+   * Endpoint: `POST /elicit-belief` on `CEE_ELICIT_BASE`, which the `cee-proxy`
+   * edge function rewrites to `/assist/v1/elicit-belief` and signs with
+   * `X-Olumi-Assist-Key` server-side (`netlify/edge-functions/cee-proxy.ts`;
+   * `netlify.toml` binds it to `/bff/cee/*`).
+   *
+   * ⚠ THIS PARAGRAPH IS A CORRECTION, AND THE OLD ONE IS WHY THE CAPABILITY WAS
+   * DARK FOR A DAY. It used to read "on this client's own base … no absolute
+   * service URL is built here on purpose". That was true of the SOURCE and false
+   * of the ARTEFACT: the client's own base is `CEE_BASE_URL`, which the Netlify
+   * dashboard sets to the absolute PLoT URL, and PLoT does not serve this route.
+   * Every word a user typed got `POST https://plot-lite-service-staging.onrender.com/v1/cee/elicit-belief`
+   * → 404 → "I couldn't read that as a number." (wire-witnessed 2026-08-03,
+   * `PHASE0-EVIDENCE-2026-07-28/journey-witness-2026-08-04d.md` target 1; the
+   * 404 discriminated from an auth artefact by a garbage-path control on the
+   * same service and by four sibling `/v1/cee/*` routes answering 401.)
+   *
+   * The co-located spec's mock-fetch pin asserted `/bff/cee/elicit-belief` and
+   * PASSED throughout, because Vite inlines `import.meta.env.VITE_*` at
+   * transform time and vitest only ever sees the fallback. A runtime test cannot
+   * see this class of defect; the source-level guard in that spec can.
+   *
+   * THE REQUEST IS A CONTRACT PIN, NOT A CONVENIENCE SHAPE. CEE's
+   * `CEEElicitBeliefInput` is `.strict()` (`olumi-assistants-service/
+   * src/schemas/cee.ts`, read at `staging`), so ONE unrecognised key 400s the
+   * whole call. The parameter list below is that schema, field for field, and
+   * the co-located spec asserts the emitted body's keys EXACTLY — an added key
+   * fails RED here before it can fail loudly in a user's face.
+   *
+   * NOT `fetchIdempotent`: the retry wrapper is for read-only endpoints, and
+   * this one is rate-limited per key (60/min). A debounced keystroke retrying
+   * itself three times burns the caller's budget on input they have already
+   * replaced.
+   *
+   * REFUSAL, not a warning, on an out-of-range `suggested_value`. The response
+   * is warn-parsed like every other CEE response, but a probability outside
+   * [0,1] is the one shape that must not reach `handleAccept` — it would be
+   * committed as `observed_state.value`, which is defined on [0,1]. So the
+   * bound is enforced HERE, at the boundary, by throwing.
+   */
+  async elicitBelief(input: {
+    /** The factor's id. ID-ADDRESSED, like every other mutation on this seam. */
+    node_id: string
+    node_label: string
+    /** The user's own words ("pretty likely", "about 70%", "3 in 4"). */
+    user_expression: string
+    target_type: 'prior' | 'edge_weight'
+    context_id?: string
+  }): Promise<BeliefElicitSuggestion> {
+    const body: Record<string, unknown> = {
+      node_id: input.node_id,
+      node_label: input.node_label,
+      user_expression: input.user_expression,
+      target_type: input.target_type,
+    }
+    // Omitted rather than sent as undefined: `JSON.stringify` drops undefined
+    // values, but building the key conditionally says so at the source.
+    if (input.context_id !== undefined) body.context_id = input.context_id
+
+    // `fetchWithBase(CEE_ELICIT_BASE, …)`, NOT `this.fetch(…)`: the latter
+    // closes over `this.baseURL`, which is the PLoT base on every deploy.
+    const raw = await this.fetchWithBase<unknown>(CEE_ELICIT_BASE, '/elicit-belief', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+
+    warnOnInvalidApiResponse(CEEElicitBeliefResponseSchema, raw, 'CEE elicit-belief')
+
+    const parsed = raw as { suggested_value?: unknown; options?: unknown } | null
+    if (!isProbability(parsed?.suggested_value)) {
+      throw new CEEError(
+        'That estimate came back in a form we could not use, so nothing has changed.',
+        502,
+        raw,
+      )
+    }
+
+    // THE CHIPS ARE COMMITTABLE TOO — so they get the SAME hard bound, not the
+    // observational one. `warnOnInvalidApiResponse` logs and continues, so
+    // before this check a malformed 200 carrying `options: [{label:'X',
+    // value: 7.5}]` alongside a valid `suggested_value` passed the client,
+    // rendered a chip, and committed 7.5 as `observed_state.value` on click —
+    // contradicting this file's own stated invariant that an out-of-range
+    // probability must never render or commit (#572 review). CEE's schema
+    // bounds them and its engine is deterministic; this is the boundary
+    // holding its own line rather than trusting the far side to.
+    if (parsed?.options !== undefined) {
+      const options = Array.isArray(parsed.options) ? parsed.options : null
+      if (
+        options === null ||
+        !options.every(o => isProbability((o as { value?: unknown } | null)?.value))
+      ) {
+        throw new CEEError(
+          'That estimate came back in a form we could not use, so nothing has changed.',
+          502,
+          raw,
+        )
+      }
+    }
+
+    return raw as BeliefElicitSuggestion
+  }
+
+  /**
    * Check for cognitive biases in a decision graph
    * Endpoint: POST /bias-check (proxy adds /assist/v1 prefix)
    *
@@ -875,17 +1103,5 @@ export class CEEClient {
       message: 'Real-time feedback is temporarily unavailable.',
       suggestions: [],
     }
-  }
-
-  /**
-   * @deprecated Use biasCheck() or sensitivityCoach() instead.
-   * Keeping for backward compatibility with useCEEInsights hook.
-   */
-  async analyzeInsights(graph: {
-    nodes: Array<{ id: string; label: string; type: string }>
-    edges: Array<{ from: string; to: string }>
-  }): Promise<CEEInsightsResponse> {
-    // Delegate to biasCheck which is the correct endpoint
-    return this.biasCheck(graph)
   }
 }

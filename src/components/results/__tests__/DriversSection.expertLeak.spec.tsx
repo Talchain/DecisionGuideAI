@@ -117,13 +117,18 @@ describe('DriversSection: Brief 5.1 Task 1 — expert leak regression', () => {
     expect(labels[2]).toMatch(/^influence:/)
 
     // Structural: the block is wrapped in the info-tinted ExpertBlock.
-    // ExpertBlock uses an inline background-color style rather than a
-    // class we can match directly, so assert the DS rgba string is
-    // present on a parent.
+    // ExpertBlock uses an inline background-color style rather than a class we
+    // can match directly, so assert its tint is present on a parent.
+    //
+    // This used to match the channel triple '99, 173, 207' — the superseded
+    // #63ADCF blue. ExpertBlock's tint now DERIVES from --info via color-mix,
+    // so match the token reference instead: a retint of --info then cannot
+    // break this leak test, and the test can no longer keep passing while the
+    // wrapper silently renders a colour the product has abandoned.
     let cursor: HTMLElement | null = block
     let foundExpertWrapper = false
     while (cursor) {
-      if ((cursor.style.backgroundColor ?? '').includes('99, 173, 207')) {
+      if ((cursor.style.backgroundColor ?? '').includes('var(--info)')) {
         foundExpertWrapper = true
         break
       }

@@ -181,6 +181,7 @@ export const normalisedFixture: ResultsSectionDataReturn = {
   isError: false,
   goalLabel: 'Revenue growth',
   goalNodeId: 'goal-revenue',
+  voiRanking: null,
 }
 
 /** Tornado data derived from the normalised fixture */

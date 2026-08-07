@@ -155,7 +155,7 @@ export function EmptyState({
           <h1 className={`${typography.h1} text-ink-900 mb-2`}>
             Start your decision canvas
           </h1>
-          <p className={`${typography.body} text-ink-900/70`}>
+          <p className={`${typography.body} text-ink-900`}>
             Pick a starting template that fits your situation, or start from scratch to build your own model.
           </p>
         </div>
@@ -199,7 +199,7 @@ export function EmptyState({
               </h2>
 
               {/* Description */}
-              <p className={`${typography.body} text-ink-900/70 mb-3`}>
+              <p className={`${typography.body} text-ink-900 mb-3`}>
                 {sanitizeLabel(template.description)}
               </p>
 
@@ -209,7 +209,7 @@ export function EmptyState({
                   {template.tags.map(tag => (
                     <span
                       key={tag}
-                      className={`px-2 py-0.5 ${typography.caption} rounded bg-sand-100 text-ink-900/70`}
+                      className={`px-2 py-0.5 ${typography.caption} rounded bg-sand-100 text-ink-900`}
                     >
                       {sanitizeLabel(tag)}
                     </span>
@@ -237,7 +237,7 @@ export function EmptyState({
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="w-16 h-16 mb-4 rounded-full bg-sky-50 flex items-center justify-center">
                 <svg
-                  className="w-8 h-8 text-ink-900/40"
+                  className="w-8 h-8 text-ink-900"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -254,7 +254,7 @@ export function EmptyState({
               <h2 className={`${typography.h4} text-ink-900 mb-2`}>
                 Start from Scratch
               </h2>
-              <p className={`${typography.body} text-ink-900/70`}>
+              <p className={`${typography.body} text-ink-900`}>
                 Build your own decision graph
               </p>
             </div>
@@ -262,7 +262,7 @@ export function EmptyState({
         </div>
 
         {/* Keyboard hints */}
-        <div className={`text-center ${typography.body} text-ink-900/60`}>
+        <div className={`text-center ${typography.body} text-ink-900`}>
           <kbd className="px-2 py-1 bg-sand-100 rounded mr-1">←</kbd>
           <kbd className="px-2 py-1 bg-sand-100 rounded mr-2">→</kbd>
           to navigate
@@ -278,7 +278,7 @@ export function EmptyState({
         <div className="text-center mt-6">
           <button
             onClick={handleDismiss}
-            className={`${typography.body} text-ink-900/60 hover:text-ink-900 underline`}
+            className={`${typography.body} text-ink-900 underline`}
           >
             Don't show this again
           </button>

@@ -17,6 +17,7 @@ import {
   selectItemsForTarget,
   selectTopItem,
   selectActiveItem,
+  compareGuidanceDisplayOrder,
   type GuidanceItem,
 } from '../guidanceStore'
 
@@ -188,6 +189,57 @@ describe('guidanceStore — selectTopItem', () => {
   it('returns null when items array is empty', () => {
     const top = selectTopItem(useGuidanceStore.getState())
     expect(top).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// compareGuidanceDisplayOrder — Stage 2 severity-major doctrine
+// ---------------------------------------------------------------------------
+
+describe('guidanceStore — compareGuidanceDisplayOrder (Stage 2 severity-major)', () => {
+  it('orders by category first: must_fix beats should_fix even with a HIGHER rank', () => {
+    // rank favours should_fix (12 < 101); only category-major puts must_fix
+    // first. Mutation: drop the category comparator → should_fix first → RED.
+    const mustFix = makeItem({ item_id: 'mf', category: 'must_fix', priorityRank: 101 })
+    const shouldFix = makeItem({ item_id: 'sf', category: 'should_fix', priorityRank: 12 })
+    const sorted = [shouldFix, mustFix].sort(compareGuidanceDisplayOrder)
+    expect(sorted.map((i) => i.item_id)).toEqual(['mf', 'sf'])
+    const top = selectTopItem({ ...useGuidanceStore.getState(), guidanceItems: [shouldFix, mustFix] })
+    expect(top?.item_id).toBe('mf')
+  })
+
+  it('sorts the full four-value ladder must_fix, should_fix, could_fix, technique', () => {
+    const items = [
+      makeItem({ item_id: 'tech', category: 'technique', priorityRank: 1 }),
+      makeItem({ item_id: 'cf', category: 'could_fix', priorityRank: 1 }),
+      makeItem({ item_id: 'mf', category: 'must_fix', priorityRank: 1 }),
+      makeItem({ item_id: 'sf', category: 'should_fix', priorityRank: 1 }),
+    ]
+    expect([...items].sort(compareGuidanceDisplayOrder).map((i) => i.item_id)).toEqual([
+      'mf',
+      'sf',
+      'cf',
+      'tech',
+    ])
+  })
+
+  it('within a category, ascending priorityRank still decides (verbatim, stable)', () => {
+    const a = makeItem({ item_id: 'a', category: 'must_fix', priorityRank: 150 })
+    const b = makeItem({ item_id: 'b', category: 'must_fix', priorityRank: 101 })
+    expect([a, b].sort(compareGuidanceDisplayOrder).map((i) => i.item_id)).toEqual(['b', 'a'])
+  })
+
+  it('an absent category sorts into ONE trailing bucket, its order otherwise unchanged', () => {
+    // A categorised item leads; the two uncategorised items keep their own
+    // rank order among themselves (never reordered by a severity they lack).
+    const cat = makeItem({ item_id: 'cat', category: 'could_fix', priorityRank: 200 })
+    const un1 = makeItem({ item_id: 'un1', category: undefined, priorityRank: 5 })
+    const un2 = makeItem({ item_id: 'un2', category: undefined, priorityRank: 9 })
+    expect([un2, cat, un1].sort(compareGuidanceDisplayOrder).map((i) => i.item_id)).toEqual([
+      'cat',
+      'un1',
+      'un2',
+    ])
   })
 })
 

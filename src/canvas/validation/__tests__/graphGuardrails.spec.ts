@@ -128,9 +128,11 @@ describe('resolveGraphLimits', () => {
   })
 
   it('takes the minimum of static cap and engine limit per axis', () => {
+    // nodes: engine (30) < static (50) → engine wins.
+    // edges: engine equals the static cap (100) → same value either way.
     expect(resolveGraphLimits({ nodes: { max: 30 }, edges: { max: 100 } })).toEqual({
       maxNodes: 30,
-      maxEdges: MAX_EDGES,
+      maxEdges: 100,
     })
   })
 

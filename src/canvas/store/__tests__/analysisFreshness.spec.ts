@@ -7,6 +7,7 @@ import {
   deriveAnalysisFreshnessUpdate,
   resolveDisplayedFreshness,
   classifyFreshnessForDisplay,
+  isSelfContradictoryStale,
   type AnalysisFreshnessState,
 } from '../analysisFreshness'
 
@@ -109,6 +110,44 @@ describe('deriveAnalysisFreshnessUpdate', () => {
       computedAt: '2026-06-23T10:00:00.000Z',
     })
   })
+
+  it('echo guard survives the run-completion overwrite: an echo of the SUPERSEDED verdict is a no-op', () => {
+    // The run-completion write (noteRunCompletedWithoutVerdict) replaces the
+    // stored verdict without a CEE payload and records what it replaced in
+    // supersededVerdict. The guard compares against the last CEE payload —
+    // both the stored verdict AND the superseded one — otherwise a
+    // byte-identical pre-run 'stale' echoed on the next conversational turn
+    // reads as NEW and resurrects "model changed" over the results the run
+    // just produced.
+    const preRunStale: AnalysisFreshnessState = {
+      freshness: 'stale',
+      freshnessReason: 'analysed_options_diverged',
+      graphHashAtRun: '595d1a7b7ec9272b',
+      currentGraphHash: '595d1a7b7ec9272b',
+      computedAt: undefined,
+    }
+    const afterRun: AnalysisFreshnessState = {
+      freshness: 'unknown',
+      freshnessReason: 'run_completed_without_verdict',
+      supersededVerdict: preRunStale,
+    }
+    const echoed = deriveAnalysisFreshnessUpdate(afterRun, {
+      freshness: 'stale',
+      freshness_reason: 'analysed_options_diverged',
+      graph_hash_at_run: '595d1a7b7ec9272b',
+      current_graph_hash: '595d1a7b7ec9272b',
+    })
+    expect(echoed).toBe(afterRun) // no-op: the run's honest 'unknown' stands
+
+    // POSITIVE CONTROL: a genuinely NEW verdict after the run write applies.
+    const genuinelyNew = deriveAnalysisFreshnessUpdate(afterRun, {
+      freshness: 'fresh',
+      freshness_reason: 'graph_hash_match',
+      current_graph_hash: 'new-hash',
+    })
+    expect(genuinelyNew).not.toBe(afterRun)
+    expect(genuinelyNew?.freshness).toBe('fresh')
+  })
 })
 
 describe('resolveDisplayedFreshness (local dirty overlay display rule)', () => {
@@ -133,6 +172,56 @@ describe('resolveDisplayedFreshness (local dirty overlay display rule)', () => {
     expect(resolveDisplayedFreshness(stale, false)).toBe('stale')
   })
 
+  // Verdict semantics (brief item 1, first acceptance bullet — a16a0e82):
+  // a 'stale' verdict whose OWN payload carries identical at-run/current
+  // hashes is self-contradictory; the display must be the cannot-confirm
+  // variant, never the factual "model changed" claim. Keyed on hash
+  // EQUALITY — semantic, not a pin of buggy-era engine frequency: it stays
+  // correct after the engine-side guard fix (it simply stops firing).
+  describe('self-contradictory stale (identical hashes) downgrades to cannot-confirm', () => {
+    const contradictory = prev({
+      freshness: 'stale',
+      freshnessReason: 'analysed_options_diverged',
+      graphHashAtRun: '595d1a7b7ec9272b',
+      currentGraphHash: '595d1a7b7ec9272b',
+    })
+
+    it('identical hashes → displayed unknown (cannot-confirm), dirty or not', () => {
+      expect(resolveDisplayedFreshness(contradictory, false)).toBe('unknown')
+      expect(resolveDisplayedFreshness(contradictory, true)).toBe('unknown')
+      expect(classifyFreshnessForDisplay(contradictory, false, false)).toBe('cannot_confirm')
+      expect(classifyFreshnessForDisplay(contradictory, true, false)).toBe('cannot_confirm')
+    })
+
+    it('POSITIVE CONTROL: differing hashes keep the factual stale/changed claim', () => {
+      const genuine = prev({
+        freshness: 'stale',
+        graphHashAtRun: '595d1a7b7ec9272b',
+        currentGraphHash: 'a-different-hash',
+      })
+      expect(resolveDisplayedFreshness(genuine, false)).toBe('stale')
+      expect(classifyFreshnessForDisplay(genuine, false, false)).toBe('changed')
+    })
+
+    it('missing or empty hashes are NOT a contradiction (verdict trusted)', () => {
+      expect(resolveDisplayedFreshness(prev({ freshness: 'stale' }), false)).toBe('stale')
+      expect(
+        resolveDisplayedFreshness(
+          prev({ freshness: 'stale', graphHashAtRun: 'only-one-side' }),
+          false,
+        ),
+      ).toBe('stale')
+      expect(isSelfContradictoryStale('stale', '', '')).toBe(false)
+      expect(isSelfContradictoryStale('stale', undefined, undefined)).toBe(false)
+    })
+
+    it('the rule never touches non-stale verdicts', () => {
+      expect(isSelfContradictoryStale('fresh', 'h', 'h')).toBe(false)
+      expect(isSelfContradictoryStale('unknown', 'h', 'h')).toBe(false)
+      expect(isSelfContradictoryStale('none', 'h', 'h')).toBe(false)
+    })
+  })
+
   it('leaves unknown / none verdicts untouched regardless of dirty', () => {
     for (const f of ['unknown', 'none'] as const) {
       const s = prev({ freshness: f })
@@ -155,27 +244,27 @@ describe('resolveDisplayedFreshness (local dirty overlay display rule)', () => {
 
 describe('classifyFreshnessForDisplay (copy semantic across AI-panel surfaces)', () => {
   it('no verdict → none', () => {
-    expect(classifyFreshnessForDisplay(null, false)).toBe('none')
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'none' }), false)).toBe('none')
+    expect(classifyFreshnessForDisplay(null, false, false)).toBe('none')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'none' }), false, false)).toBe('none')
   })
 
   it('clean fresh → current', () => {
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'fresh' }), false)).toBe('current')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'fresh' }), false, false)).toBe('current')
   })
 
   it('CEE stale → changed', () => {
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'stale' }), true)).toBe('changed')
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'stale' }), false)).toBe('changed')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'stale' }), true, false)).toBe('changed')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'stale' }), false, false)).toBe('changed')
   })
 
   it('dirty-overlay downgrade of a retained fresh → changed (user definitely edited)', () => {
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'fresh' }), true)).toBe('changed')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'fresh' }), true, false)).toBe('changed')
   })
 
   it('CEE-sourced unknown → cannot_confirm, NEVER changed (no false "you edited" claim)', () => {
     // A present analysis_ready with missing/invalid freshness degrades to 'unknown'
     // (deriveAnalysisFreshnessUpdate). That is cannot-confirm, not a user edit.
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'unknown' }), false)).toBe('cannot_confirm')
-    expect(classifyFreshnessForDisplay(prev({ freshness: 'unknown' }), true)).toBe('cannot_confirm')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'unknown' }), false, false)).toBe('cannot_confirm')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'unknown' }), true, false)).toBe('cannot_confirm')
   })
 })

@@ -30,9 +30,9 @@ export default {
         // TEXT COLORS
         // ============================================
         text: {
-          header: 'var(--text-header)',
+          header: 'rgb(var(--text-header-rgb) / <alpha-value>)',
           body: 'var(--text-body)',
-          light: 'var(--text-light)',
+          light: 'rgb(var(--text-light-rgb) / <alpha-value>)',
           'on-color': 'var(--text-on-color)',
         },
 
@@ -43,14 +43,14 @@ export default {
           DEFAULT: 'var(--bg-canvas)',
         },
         panel: {
-          DEFAULT: 'var(--bg-panel)',
-          hover: 'var(--bg-panel-hover)',
-          border: 'var(--border-default)',
+          DEFAULT: 'rgb(var(--bg-panel-rgb) / <alpha-value>)',
+          hover: 'rgb(var(--bg-panel-hover-rgb) / <alpha-value>)',
+          border: 'rgb(var(--border-default-rgb) / <alpha-value>)',
         },
 
         // Border emphasis
         border: {
-          emphasis: 'var(--border-emphasis)',
+          emphasis: 'rgb(var(--border-emphasis-rgb) / <alpha-value>)',
         },
 
         // Neutral track fill (empty progress bars, container outlines)
@@ -60,13 +60,13 @@ export default {
 
         // Legacy neutral (for gradual migration)
         ink: {
-          900: 'var(--text-header)',
+          900: 'rgb(var(--text-header-rgb) / <alpha-value>)',
         },
         paper: {
-          50: 'var(--bg-panel)',
+          50: 'rgb(var(--bg-panel-rgb) / <alpha-value>)',
         },
         sand: {
-          200: 'var(--border-default)',
+          200: 'rgb(var(--border-default-rgb) / <alpha-value>)',
         },
 
         // ============================================
@@ -75,68 +75,60 @@ export default {
 
         // Danger / Risk / Critical (Red)
         danger: {
-          DEFAULT: 'var(--danger)',
-          light: 'var(--danger-light)',
-          bg: 'var(--danger-bg)',
+          DEFAULT: 'rgb(var(--danger-rgb) / <alpha-value>)',
+          light: 'rgb(var(--danger-light-rgb) / <alpha-value>)',
           hover: 'var(--danger-hover)',
           active: 'var(--danger-active)',
           disabled: 'var(--danger-disabled)',
           // Legacy numeric aliases for backward compatibility
-          50: 'var(--danger-bg)',
-          100: 'var(--danger-light)',
-          200: 'var(--danger-light)',
-          500: 'var(--danger)',
+          100: 'rgb(var(--danger-light-rgb) / <alpha-value>)',
+          200: 'rgb(var(--danger-light-rgb) / <alpha-value>)',
+          500: 'rgb(var(--danger-rgb) / <alpha-value>)',
           600: 'var(--danger-hover)',
           700: 'var(--danger-active)',
         },
 
         // Success / Outcome / Positive (Green)
         success: {
-          DEFAULT: 'var(--success)',
-          light: 'var(--success-light)',
-          bg: 'var(--success-bg)',
+          DEFAULT: 'rgb(var(--success-rgb) / <alpha-value>)',
+          light: 'rgb(var(--success-light-rgb) / <alpha-value>)',
           hover: 'var(--success-hover)',
           active: 'var(--success-active)',
           disabled: 'var(--success-disabled)',
           // Legacy numeric aliases for backward compatibility
-          50: 'var(--success-bg)',
-          100: 'var(--success-light)',
-          200: 'var(--success-light)',
-          500: 'var(--success)',
+          100: 'rgb(var(--success-light-rgb) / <alpha-value>)',
+          200: 'rgb(var(--success-light-rgb) / <alpha-value>)',
+          500: 'rgb(var(--success-rgb) / <alpha-value>)',
           600: 'var(--success-hover)',
           700: 'var(--success-active)',
         },
 
         // Info / Decision / Navigation (Blue)
         info: {
-          DEFAULT: 'var(--info)',
-          light: 'var(--info-light)',
-          bg: 'var(--info-bg)',
+          DEFAULT: 'rgb(var(--info-rgb) / <alpha-value>)',
+          light: 'rgb(var(--info-light-rgb) / <alpha-value>)',
           hover: 'var(--info-hover)',
           active: 'var(--info-active)',
           disabled: 'var(--info-disabled)',
           // Legacy numeric aliases for backward compatibility
-          50: 'var(--info-bg)',
-          100: 'var(--info-light)',
-          200: 'var(--info-light)',
-          500: 'var(--info)',
+          100: 'rgb(var(--info-light-rgb) / <alpha-value>)',
+          200: 'rgb(var(--info-light-rgb) / <alpha-value>)',
+          500: 'rgb(var(--info-rgb) / <alpha-value>)',
           600: 'var(--info-hover)',
           700: 'var(--info-active)',
         },
 
         // Warning (Orange) - Separate from Danger
         warning: {
-          DEFAULT: 'var(--warning)',
-          light: 'var(--warning-light)',
-          bg: 'var(--warning-bg)',
+          DEFAULT: 'rgb(var(--warning-rgb) / <alpha-value>)',
+          light: 'rgb(var(--warning-light-rgb) / <alpha-value>)',
           hover: 'var(--warning-hover)',
           active: 'var(--warning-active)',
           disabled: 'var(--warning-disabled)',
           // Legacy numeric aliases for backward compatibility
-          50: 'var(--warning-bg)',
-          100: 'var(--warning-light)',
-          200: 'var(--warning-light)',
-          500: 'var(--warning)',
+          100: 'rgb(var(--warning-light-rgb) / <alpha-value>)',
+          200: 'rgb(var(--warning-light-rgb) / <alpha-value>)',
+          500: 'rgb(var(--warning-rgb) / <alpha-value>)',
           600: 'var(--warning-hover)',
           700: 'var(--warning-active)',
         },
@@ -147,38 +139,38 @@ export default {
 
         // Goal (Yellow) - Entity colour only (v4: decoupled from primary)
         goal: {
-          DEFAULT: 'var(--goal)',
-          light: 'var(--goal-light)',
+          DEFAULT: 'rgb(var(--goal-rgb) / <alpha-value>)',
+          light: 'rgb(var(--goal-light-rgb) / <alpha-value>)',
           hover: '#E5B523',  // Goal-specific hover (10% darker yellow)
           // Legacy numeric aliases
-          50: 'var(--goal-light)',
-          500: 'var(--goal)',
+          50: 'rgb(var(--goal-light-rgb) / <alpha-value>)',
+          500: 'rgb(var(--goal-rgb) / <alpha-value>)',
         },
 
         // Option (Purple)
         option: {
-          DEFAULT: 'var(--option)',
-          light: 'var(--option-light)',
+          DEFAULT: 'rgb(var(--option-rgb) / <alpha-value>)',
+          light: 'rgb(var(--option-light-rgb) / <alpha-value>)',
           // Legacy numeric aliases
-          50: 'var(--option-light)',
-          400: 'var(--option)',
-          500: 'var(--option)',
+          50: 'rgb(var(--option-light-rgb) / <alpha-value>)',
+          400: 'rgb(var(--option-rgb) / <alpha-value>)',
+          500: 'rgb(var(--option-rgb) / <alpha-value>)',
         },
 
         // Factor (Stone)
         factor: {
-          DEFAULT: 'var(--factor)',
-          light: 'var(--factor-light)',
+          DEFAULT: 'rgb(var(--factor-rgb) / <alpha-value>)',
+          light: 'rgb(var(--factor-light-rgb) / <alpha-value>)',
           // Legacy numeric aliases
-          50: 'var(--factor-light)',
-          500: 'var(--factor)',
+          50: 'rgb(var(--factor-light-rgb) / <alpha-value>)',
+          500: 'rgb(var(--factor-rgb) / <alpha-value>)',
         },
 
         // ============================================
         // PRIMARY (Maps to Info Blue — v5 §3.10)
         // ============================================
         primary: {
-          DEFAULT: 'var(--primary)',
+          DEFAULT: 'rgb(var(--primary-rgb) / <alpha-value>)',
           hover: 'var(--primary-hover)',
           active: 'var(--primary-active)',
           disabled: 'var(--primary-disabled)',
@@ -205,22 +197,22 @@ export default {
         // (For backward compatibility during migration)
         // ============================================
         sun: {
-          500: 'var(--goal)',
+          500: 'rgb(var(--goal-rgb) / <alpha-value>)',
         },
         mint: {
-          400: 'var(--success)',
-          500: 'var(--success)',
+          400: 'rgb(var(--success-rgb) / <alpha-value>)',
+          500: 'rgb(var(--success-rgb) / <alpha-value>)',
         },
         sky: {
-          200: 'var(--info-light)',
-          500: 'var(--info)',
+          200: 'rgb(var(--info-light-rgb) / <alpha-value>)',
+          500: 'rgb(var(--info-rgb) / <alpha-value>)',
           600: 'var(--info-hover)',
         },
         carrot: {
-          500: 'var(--danger)',
+          500: 'rgb(var(--danger-rgb) / <alpha-value>)',
         },
         lilac: {
-          400: 'var(--option)',
+          400: 'rgb(var(--option-rgb) / <alpha-value>)',
         },
       },
 

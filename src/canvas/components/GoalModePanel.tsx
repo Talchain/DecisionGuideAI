@@ -63,7 +63,7 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
           </div>
           <button
             onClick={onClose}
-            className="text-ink-900/60 hover:text-ink-900 transition-colors"
+            className="text-ink-900 transition-colors"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -137,7 +137,11 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
         {data && (
           <div className="space-y-3 pt-3 border-t border-sand-200">
             <div className="flex items-center justify-between">
-              <h4 className={typography.h4}>Recommended Path</h4>
+              {/* ROADMAP 2.724 — the system describes the path it computed; it
+                  does not prescribe it. The feasibility badge beside this
+                  heading carries the honest qualifier, so no information is
+                  lost by dropping "Recommended". */}
+              <h4 className={typography.h4}>Path to goal</h4>
               <span
                 className={`
                   ${typography.caption} px-2 py-1 rounded
@@ -179,7 +183,7 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
                   </div>
 
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`${typography.body} text-ink-900/70`}>
+                    <span className={`${typography.body} text-ink-900`}>
                       {step.currentValue} → {step.targetValue}
                     </span>
                     <TrendingUp className="w-4 h-4 text-mint-600" />
@@ -190,7 +194,7 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
                   </div>
 
                   {step.impact.sideEffects.length > 0 && (
-                    <div className={`${typography.caption} text-ink-900/60`}>
+                    <div className={`${typography.caption} text-ink-900`}>
                       Side effects: {step.impact.sideEffects[0].nodeLabel}
                       {step.impact.sideEffects[0].expectedChange > 0 ? ' +' : ' '}
                       {step.impact.sideEffects[0].expectedChange.toFixed(1)}

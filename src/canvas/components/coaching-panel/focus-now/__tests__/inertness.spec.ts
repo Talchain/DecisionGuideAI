@@ -21,6 +21,7 @@
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
+import { stripComments } from '../../../../../../tests/helpers/stripSourceComments'
 
 const SRC = resolve(process.cwd(), 'src')
 const MODULE_DIR = join(SRC, 'canvas', 'components', 'coaching-panel', 'focus-now')
@@ -57,7 +58,13 @@ function isUnderModule(p: string): boolean {
 /** Offending specifiers in `content` that resolve into (or path-match) the module. */
 export function findFocusNowImports(content: string, importerFile: string): string[] {
   const offenders: string[] = []
-  for (const m of content.matchAll(SPEC_RE)) {
+  // stripComments blanks comments but KEEPS string literals as code, so a
+  // commented-out `import … from './focus-now'` no longer false-reds
+  // (the #386/#403 footgun) while a real import specifier — which IS a string
+  // literal — is still captured. blankNonCode would blank the specifier body
+  // and make the guard blind to every relative import, so it is the wrong tool
+  // here (reclassified from the #403 manifest's "blankNonCode class").
+  for (const m of stripComments(content, importerFile).matchAll(SPEC_RE)) {
     const spec = m[1]
     const resolved = resolveSpec(spec, importerFile)
     if ((resolved && isUnderModule(resolved)) || PATH_RE.test(spec)) offenders.push(spec)
@@ -142,6 +149,11 @@ describe('Focus Now inertness', () => {
     ['similarly-named relative sibling', PARENT, "import x from './focus-now-helpers'"],
     ['similarly-named aliased sibling', PARENT, "import x from '@/canvas/components/coaching-panel/focus-now-helpers'"],
     ['unrelated relative path elsewhere', join(SRC, 'foo', 'bar.ts'), "import './focus-now'"],
+    // #386/#403 comment-strip: commented-out imports of the module no longer
+    // false-red. The live forms above ('FLAGS …') still fire — both directions.
+    ['//-commented module import', PARENT, "// import { FocusNowPanel } from './focus-now'"],
+    ['block-commented module import', PARENT, "/* import { FocusRow } from './focus-now/FocusRowCard' */"],
+    ['//-commented aliased module import', PARENT, "// import x from '@/canvas/components/coaching-panel/focus-now'"],
   ])('does NOT flag: %s', (_label, importer, code) => {
     expect(findFocusNowImports(code, importer)).toEqual([])
   })

@@ -9,34 +9,73 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
 import { setCurrentScenarioId } from '../store/scenarios'
-import { useDraftStore } from '../stores/draftStore'
+import { useDraftStore, streamedPreviewStandingFor } from '../stores/draftStore'
 import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, streamOrchestratorTurn, OrchestratorError } from './turnService'
-import { callV5Turn, getV5Endpoint } from '../../v5/v5Adapter'
+import {
+  buildFailureRender,
+  extractCeeRecovery,
+  formatRecoveryHints,
+  isDisplaySafeReason,
+} from './ceeRecovery'
+import { buildTransportFailureCopy, isTransportFailure, isUnverifiedDelivery } from './transportFailure'
+import { WAIT_EXPIRY_UNKNOWN_COPY } from './deliveryUnknown'
+import { callV5Turn, getV5Endpoint, type V5CallResult } from '../../v5/v5Adapter'
+import { parseV5Response } from '../../v5/responseParser'
+import { openV5TurnStream, __streamInternals as streamTransport } from '../../v5/streamedTurnTransport'
+import { streamStageFrames } from '../../v5/streamedDraftFrames'
+import { consumeStreamedDraftTurn } from '../../v5/consumeStreamedDraftTurn'
 import { routeV5Response } from '../../v5/responseRouter'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
 import { isV5Eligible } from '../../v5/eligibility'
 import { buildV5Payload } from '../../v5/buildPayload'
 import {
-  isRetryable as isV5ErrorRetryable,
   checkRetryableAgreement,
   extractReason as extractV5ErrorReason,
   resolveGuidance as resolveV5ErrorGuidance,
+  resolveRetryable as resolveV5Retryable,
+  resolveFailureCopyForError,
 } from '../../v5/failureTypeRetryability'
 import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
-import { deriveV5Stage } from '../../v5/stageMapper'
+import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
+import { ACTION_TO_TURN_TYPE } from './actionTurnTypes'
+import { deriveV5Stage, v5StageToScenarioStage } from '../../v5/stageMapper'
 import { applyV5State } from '../../v5/applyV5State'
 import {
   extractPhase3FromV5Response,
-  v5ResponseHasRunAnalysisFact,
+  deriveV5AnalysisFactUpdate,
   type Phase3RawBlock,
+  type DerivedGuidanceItem,
 } from '../../v5/extractPhase3FromV5Response'
-import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
-import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled } from '../../flags'
+import {
+  adaptTypedReviewCardBlock,
+  adaptTypedCoachingBlock,
+  adaptTypedEvidenceBlock,
+  adaptTypedExerciseBlock,
+} from '../../v5/phase3TypedBlocks'
+// Track C slice 1 (D-5): the bridge counts every Phase 3 block it does NOT
+// surface (malformed / no renderer / legacy suppression). Counting only —
+// recordDroppedContent never throws and never changes composition output.
+import { recordDroppedContent } from '../../lib/droppedContentCounter'
+import { buildChipMeta, toLegacyChipMetadata, type ChipMeta } from './chipMeta'
+import { START_NEW_DRAFT_CHIP_ID } from './chipDispatch'
+import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
+import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
+import { extractAnswerShapeSidecar } from './answerShape'
+// Leg 3 blocker fix: the wire->camelCase coaching mapper lives in the CEE
+// client adapter (DraftChat/useRetryDraft path); the V5 inline-draft seam
+// reuses it so one mapper owns the coaching wire shape.
+import { mapDraftCoachingFromResponse } from '../../adapters/cee/client'
 import { maybeBuildModelReceiptBlock } from '../adapters/modelCardAdapter'
+import { buildDraftBiasSignalBlocks } from './draftBiasSignalBlocks'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 import { useResultsStore } from '../stores/resultsStore'
 import { hydrateMessagesFromThread, formatSessionBoundary } from './utils/hydrateThread'
+import {
+  loadTranscript,
+  saveTranscript,
+  formatTruncationNotice,
+} from './utils/transcriptStore'
 import { appendThreadEntries, createSnapshot } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
 import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
@@ -65,15 +104,34 @@ import type {
   CommentaryBlock,
   ProposalReviewItem,
   RelatedElementRef,
-  BaseRateChipSet,
   ReviewCardBlock,
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
 import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
-import { loadScenario as loadScenarioFromDb } from '../../services/scenarioService'
-import { applyDraftResult } from '../utils/applyDraftResult'
-import { getUserId } from '../../lib/supabase'
+import { loadScenario as loadScenarioFromDb, storeAnalysis } from '../../services/scenarioService'
+import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
+import {
+  UNSETTLED_DRAFT_NOTICE,
+  STOPPED_DRAFT_NOTICE,
+  EARLY_STOP_NOT_SAVED_NOTICE,
+  EARLY_STOP_ALREADY_SAVED_NOTICE,
+  EARLY_STOP_UNCONFIRMED_NOTICE,
+} from '../components/DraftLoadingAnimation'
+import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
+import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
+import { getSessionIdentity } from '../../lib/supabase'
+import { trackEvent } from '../../lib/posthog'
+import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
+import {
+  confirmOptimisticFactorEdit,
+  describeRebaseDivergence,
+  detectSilentRebase,
+  mergeOptimisticFactorEdit,
+  responseAppliedFactorEdit,
+  revertOptimisticFactorEdit,
+  type OptimisticFactorEdit,
+} from './optimisticFactorEdit'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -282,6 +340,453 @@ export function inferLoadingHint(message: string, _nodeCount: number, turnType?:
   return 'Thinking\u2026'
 }
 
+// ---------------------------------------------------------------------------
+// ROADMAP 2.122 / 1.204 M1 \u2014 the streamed cold draft
+// ---------------------------------------------------------------------------
+
+/**
+ * The recovery chip on the two unsettled-draft notices (adversarial review F3).
+ *
+ * Deliberately NOT `retry`. `retryLast` re-sends the same message onto the SAME
+ * scenario, whose canvas is now non-empty — so it is a buffered turn, and CEE's
+ * continuation guard (live-proven to key on the scenario's committed state)
+ * DECLINES to re-draft it: prose, no `draft_graph`. Each click removed the
+ * notice, re-sent, received "already drafted with four options…" and left the gate
+ * shut. The Supabase re-fetch branch cannot rescue it either — it additionally
+ * requires `stage:analyse` in the applied set, which a decline's prose does not
+ * produce, so signed-in users were no better off than guests.
+ *
+ * Once a scenario has a committed turn, the ONLY thing that can produce settled
+ * numbers is a draft on a FRESH scenario. That is what `startNewDraft` does, and
+ * it is what the copy now promises.
+ *
+ * ROADMAP 2.138: the id now lives in `chipDispatch.ts`, beside the render
+ * predicate that has to know about it — the chip carries no `message` (there is
+ * nothing to send; `startNewDraft` sends `lastUserInputRef` on a fresh scenario),
+ * so every chip row filtered it out and the notice named a remedy it gave no
+ * button for. Re-exported here so existing importers are unaffected.
+ */
+export { START_NEW_DRAFT_CHIP_ID, RETRY_CHIP_ID } from './chipDispatch'
+
+/**
+ * Terminal stop-notice copy, keyed by the server-derived outcome (R-16, fence
+ * rider on #534). A RECORD, not a ternary chain: when a fourth
+ * `TurnStopOutcomeKind` arrives, this table is a COMPILE ERROR until the new
+ * outcome names its copy — the nested ternary it replaces would have silently
+ * routed a fourth kind to its final else branch. The three constants stay
+ * individually exported from `DraftLoadingAnimation`:
+ * `narrationHonesty.invariant.spec.ts` derives its manifest from that module's
+ * `*_NOTICE` exports, and this table only CONSUMES them.
+ */
+const EARLY_STOP_NOTICE_BY_OUTCOME: Record<TurnStopOutcomeKind, string> = {
+  not_saved: EARLY_STOP_NOT_SAVED_NOTICE,
+  already_saved: EARLY_STOP_ALREADY_SAVED_NOTICE,
+  unconfirmed: EARLY_STOP_UNCONFIRMED_NOTICE,
+}
+
+export interface StreamedDraftEligibility {
+  turnType: TurnType
+  derivedStage: string
+  isSystemEvent: boolean
+  /** Canvas node count read BEFORE the request, not after. */
+  nodeCountAtDispatch: number
+}
+
+/**
+ * Is this the ONE turn shape the streamed sibling exists for \u2014 a cold draft?
+ *
+ * FAIL-CLOSED, deliberately: anything that does not match keeps today's buffered
+ * turn, unchanged. The cost of a false negative is one draft that is 20 s slower;
+ * the cost of a false positive is a non-draft turn on a route built for drafts.
+ *
+ *   - **`explicit_generate`** \u2014 the Draft/Generate affordances' own turn type.
+ *   - **a plain `conversation` turn at stage `frame`** \u2014 the composer's first
+ *     message on an empty canvas, which CEE dispatches `draft_graph` for.
+ *   - **The canvas must be EMPTY at dispatch.** A populated canvas means a
+ *     continuation turn, which CEE's own continuation guard refuses to draft for
+ *     \u2014 so there would be no GRAPH_READY frame to consume and nothing to gain,
+ *     while the streamed route's measured ~5.5 s completion overhead would still
+ *     be paid.
+ *   - **Never a system event.** Graph edits, patch accepts and factor-value
+ *     writes are not drafts; they must keep the buffered path byte for byte.
+ *
+ * \u26a0 THE `turnType === 'conversation'` CONJUNCT IS LOAD-BEARING, AND MY FIRST
+ * VERSION OMITTED IT. The predicate read `explicit_generate || stage === 'frame'`,
+ * which looked right \u2014 `getTimeoutMs` grants its extended budget on exactly that
+ * disjunction \u2014 and was wrong, because **`deriveV5Stage` returns `'frame'` for
+ * ANY turn on an empty canvas**, including `run_analysis`. So a Run click on an
+ * empty canvas was being dispatched to the draft stream. Caught by an existing
+ * spec (`useConversation.hook.spec.ts`'s preempt test), not by me: I had reused
+ * a disjunction from a function whose purpose (choose a timeout) tolerates being
+ * over-broad, in a function whose purpose (choose a route) does not. Pinned now
+ * by `streamedDraftTurn.spec.ts`.
+ */
+export function streamedDraftEligible(p: StreamedDraftEligibility): boolean {
+  if (p.isSystemEvent) return false
+  if (p.nodeCountAtDispatch !== 0) return false
+  if (p.turnType === 'explicit_generate') return true
+  return p.turnType === 'conversation' && p.derivedStage === 'frame'
+}
+
+/** Thrown inside `onGraphReady` when the user has switched scenario mid-draft. */
+class PreviewNotApplicableError extends Error {}
+
+/**
+ * Thrown when a streamed draft ENDS WITHOUT A TERMINAL INGEST while a
+ * GRAPH_READY preview is standing on the canvas — adversarial review F1, and its
+ * round-2 residual R2-F1.
+ *
+ * Two entry points, one meaning:
+ *   · the STREAM is aborted after GRAPH_READY (Stop button, the 130 s client
+ *     timeout, or a preempting turn);
+ *   · the buffered FALLBACK is aborted or fails after the stream already
+ *     rendered — the residual the round-2 review found, whose dominant trigger
+ *     (the 130 s budget killing a ~55 s fallback) needs no user action at all.
+ *
+ * `name` is deliberately `'AbortError'` so every existing abort handler in
+ * `sendTurn` keeps treating it as the abort it is (silent, no transport-failure
+ * bubble, no `deliveryState: 'failed'` on a message that genuinely reached the
+ * server). The marker property is what lets the catch add the ONE thing the abort
+ * path was missing: an honest notice about the graph now sitting on the canvas.
+ */
+class StreamedDraftAbortedWithPreviewError extends Error {
+  readonly name = 'AbortError'
+  readonly abortedWithPreview = true
+}
+
+/** Does a parsed turn result carry a draft graph with anything in it? */
+function resultCarriesDraftGraph(result: V5CallResult): boolean {
+  if (result.kind !== 'response') return false
+  const graph = (result.response as { draft_graph?: { nodes?: unknown[] } }).draft_graph
+  return Array.isArray(graph?.nodes) && graph!.nodes!.length > 0
+}
+
+/**
+ * Remove EXACTLY the preview's own elements from the canvas.
+ *
+ * Used when the terminal frame is an error (`status_code >= 400`): the preview
+ * was rendered on the promise of a turn that then failed, so it must not stay.
+ * Filtering by the preview's own ids rather than clearing the canvas is
+ * deliberate — anything the user created in the intervening ~25 s survives.
+ */
+function discardStreamedPreview(preview: { nodes?: unknown[]; edges?: unknown[] }): void {
+  const previewNodeIds = new Set(
+    (preview.nodes ?? [])
+      .map((n) => (typeof n === 'object' && n !== null ? (n as { id?: unknown }).id : undefined))
+      .filter((id): id is string => typeof id === 'string'),
+  )
+  if (previewNodeIds.size === 0) return
+  const state = useCanvasStore.getState()
+  useCanvasStore.setState({
+    nodes: state.nodes.filter((n) => !previewNodeIds.has(n.id)),
+    edges: state.edges.filter((e) => !previewNodeIds.has(e.source) && !previewNodeIds.has(e.target)),
+    lastAuthoritativeGraph: null,
+  })
+}
+
+export interface StreamedDraftTurnResult {
+  /** The SAME shape the buffered path produces. Ingested identically. */
+  result: V5CallResult
+  /**
+   * True when the nodes now on the canvas are this turn's own GRAPH_READY
+   * preview — the signal that lets the terminal ingest take the fresh-draft
+   * branch rather than mistaking its own preview for an applied-edit receipt.
+   */
+  previewOwnsCanvas: boolean
+  /**
+   * True in the one honest-failure case: the stream died after GRAPH_READY, the
+   * buffered fallback found the turn already committed, and CEE declined to
+   * re-draft — so the structure on screen is real and its numbers will never
+   * settle in this session.
+   */
+  unsettled: boolean
+}
+
+/**
+ * Run one cold draft over the streamed sibling, with a transparent fallback.
+ *
+ * ── THE FALLBACK, AND WHY IT IS ONE BUFFERED TURN ON THE SAME PAYLOAD ─────
+ * A stream can die at any point, and the turn keeps RUNNING when the client
+ * hangs up (#751 — "only the frame writes become no-ops"). ⚠ Whether it then
+ * COMMITS was re-priced twice (ROADMAP 2.719): the turn fence briefly
+ * inverted #751's commit guarantee on the preempt path (a newer send's
+ * claim made the server REFUSE the draft's commit — the fresh-journey P0's
+ * phantom model), and CEE's 2.709 first-write exemption restored it for
+ * first drafts (a mid-draft claim no longer voids the scenario's only
+ * graph; an explicit Stop still does, and a draft 500 still can). So a
+ * failed stream may or may not have committed, the client cannot tell
+ * which from here — and when a commit was refused or failed, the SERVER
+ * surfaces it in the next reply on this scenario (the draft-loss notice),
+ * which is the receipt channel that does not depend on this socket.
+ *
+ * The buffered route resolves that ambiguity **for us**, because it is already
+ * idempotent for this exact situation. Live-probed read-back control
+ * (`cee2-live-latency.md` §commit semantics): firing the ordinary buffered turn
+ * on a scenario whose graph is already committed makes CEE reload its own
+ * persisted graph and **decline to re-draft**, describing the committed model
+ * ("already drafted with four options…", 200, no `draft_graph`); on a
+ * never-drafted scenario the same request drafts normally (positive control:
+ * a fresh `scenario_id` got "I need a single decision question to start",
+ * `contains_already_drafted: false`). So one buffered POST is simultaneously
+ * "draft if not drafted" and "read back if drafted".
+ *
+ * That is why the fallback re-sends the SAME `build.payload` — same `turn_id`,
+ * same `scenario_id`, no new scenario, no second stream. It is a RE-ENTERED
+ * turn, the shape the product already uses, and CEE's own continuation guard
+ * decides which of the two it is. There is no branch here that can double-commit.
+ *
+ * ── THE THREE OUTCOMES, ALL HONEST ───────────────────────────────────────
+ *  1. fallback DRAFTS (`draft_graph` present) — ordinary end state, identical to
+ *     a buffered cold draft. Provably the only possible outcome when the failure
+ *     preceded GRAPH_READY, because the commit runs *after* the pipeline emits
+ *     that frame, so no-GRAPH_READY implies no-commit.
+ *  2. fallback DECLINES and a preview is on screen — the turn committed. The
+ *     prose the user reads ("already drafted…") matches the graph they can see,
+ *     so nothing contradicts anything; but the numbers are the frame's
+ *     `in_progress` ones. Reported as `unsettled`: the run gate stays shut and
+ *     the caller states the situation plainly. **The alternative — clearing the
+ *     phase and letting the model read as finished — is the fabrication this
+ *     branch exists to refuse.**
+ *  3. fallback DECLINES and no preview — indistinguishable from today's
+ *     "conversational reply to a brief". Nothing new.
+ */
+async function runStreamedDraftTurn(args: {
+  payload: Parameters<typeof callV5Turn>[0]
+  turnClientId: string
+  scenarioIdAtDispatch: string | null
+  headers: Record<string, string>
+  signal: AbortSignal
+}): Promise<StreamedDraftTurnResult> {
+  const { payload, turnClientId, scenarioIdAtDispatch, headers, signal } = args
+  useDraftStore.getState().setDraftStreamPhase('drafting', turnClientId, scenarioIdAtDispatch)
+
+  // ⚠ THERE IS DELIBERATELY NO LOCAL `previewRendered` FLAG.
+  //
+  // There was one, and it was a MIRROR of `outcome.renderedGraph` — two
+  // variables tracking one fact, which is trap 12 at function scope. It also
+  // hollowed the render callback's own contract: the consumer records
+  // `renderedGraph` unless the callback THROWS, so with a second flag in play a
+  // mutant that made the scenario guard `return` silently (leaving
+  // `renderedGraph` non-null for a graph that was never drawn) SURVIVED the
+  // battery — the mirror absorbed the inconsistency. `renderedGraph` is now the
+  // single answer to "is one of my previews on the canvas".
+  const fallbackToBuffered = async (
+    reason: string,
+    previewOnCanvas: boolean,
+  ): Promise<StreamedDraftTurnResult> => {
+    if (import.meta.env.DEV) {
+      console.warn(`[sendTurn V5] streamed draft abandoned (${reason}); falling back to the buffered turn`)
+    }
+
+    // ═══ ROUND-2 RE-REVIEW, R2-F1 ═══════════════════════════════════════════
+    // The fallback itself can be killed, and until this branch existed that
+    // resurrected the ORIGINAL F1 fabrication one level deeper.
+    //
+    // Sequence: the stream dies post-GRAPH_READY on any transport blip in the
+    // ~25 s window → this fallback issues a ~55 s buffered turn → the turn is
+    // aborted mid-flight. The AbortError propagated PLAIN, so
+    // `abortedWithPreview` was never set, the outer catch stayed silent by
+    // design, and the finally's ownership guard saw phase `settling` (not
+    // `unsettled`) and actively cleared it to `idle` — preview standing, gate
+    // OPEN, nothing said.
+    //
+    // ⚠ AND THE DOMINANT TRIGGER NEEDS NO USER ACTION: the 130 s wall-clock
+    // budget kills the fallback by itself whenever the stream dies at ≥75 s,
+    // because a ~55 s buffered turn cannot fit in what is left. On that path the
+    // round-2 timeout-copy suppression fires correctly and makes the outcome
+    // MORE silent, not less — no timeout copy, no notice, no phase.
+    //
+    // Routed to the SAME `unsettled` + notice path the stream-abort branch takes,
+    // for the same reason: the structure on the canvas is real, its values never
+    // arrived, and that is true whichever of the two aborts killed the fallback.
+    //
+    // The catch is deliberately not narrowed to `AbortError`. `callV5Turn`
+    // converts network failures into a `parse_error` RESULT rather than a throw,
+    // so a non-abort throw here is near-unreachable — but if one ever occurs the
+    // honest statement is identical (drafting ended, values never arrived), and
+    // an unmarked standing preview would be the very defect this branch exists
+    // to close. Fail-closed toward honesty.
+    let result: V5CallResult
+    try {
+      result = await callV5Turn(payload, { signal, headers })
+    } catch (e) {
+      if (previewOnCanvas) {
+        useDraftStore
+          .getState()
+          .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
+        throw new StreamedDraftAbortedWithPreviewError(
+          `buffered fallback ended without a terminal ingest: ${(e as Error)?.message ?? 'unknown'}`,
+        )
+      }
+      // Nothing rendered, so there is nothing to mark and nothing to say.
+      useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+      throw e
+    }
+
+    const drafted = resultCarriesDraftGraph(result)
+    if (drafted) {
+      // Outcome 1. The buffered body carries the whole graph, so the terminal
+      // ingest replaces whatever the preview put up.
+      useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+      return { result, previewOwnsCanvas: previewOnCanvas, unsettled: false }
+    }
+    if (previewOnCanvas) {
+      // Outcome 2 — the honest failure. Phase stays non-idle so the run gate
+      // stays shut; `previewOwnsCanvas` is false because there is no graph in
+      // this response to apply over the preview.
+      useDraftStore
+        .getState()
+        .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
+      return { result, previewOwnsCanvas: false, unsettled: true }
+    }
+    // Outcome 3.
+    useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+    return { result, previewOwnsCanvas: false, unsettled: false }
+  }
+
+  let res: Response
+  try {
+    res = await openV5TurnStream(payload, { headers, signal })
+  } catch (e) {
+    // The stream never opened, so nothing ran server-side and nothing committed.
+    if ((e as Error)?.name === 'AbortError' || signal.aborted) {
+      useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+      throw e
+    }
+    // Nothing streamed, so no preview can exist.
+    return fallbackToBuffered(`open failed: ${(e as Error)?.message ?? 'unknown'}`, false)
+  }
+
+  const outcome = await consumeStreamedDraftTurn(streamStageFrames(res), {
+    onGraphReady: (graph) => {
+      // Scenario guard, same rule the buffered ingest applies: a response whose
+      // scenario is no longer the open one must not write to the canvas.
+      // THROWING (rather than returning) is load-bearing — the consumer records
+      // `renderedGraph: null` only when the callback throws, and a silent return
+      // would leave it believing a graph is on screen when none is.
+      if (useCanvasStore.getState().currentScenarioId !== scenarioIdAtDispatch) {
+        throw new PreviewNotApplicableError('scenario changed during the streamed draft')
+      }
+      // The frame carries no `analysis_ready`, so `applyDraftResult`'s existing
+      // `hasAnalysisReady` gate skips every analysis side-effect: no readiness,
+      // no freshness verdict, no coaching, no quality, no interventions. The
+      // honesty constraint holds by construction of a gate that already existed.
+      // `skipAutosave` (review F1): the preview must not reach localStorage. The
+      // phase that marks it unsettled is in-memory and does not survive a reload,
+      // so a persisted preview would come back unmarked with an open gate.
+      applyDraftResult({ nodes: graph.nodes ?? [], edges: graph.edges ?? [] } as never, {
+        skipAutosave: true,
+      })
+      useDraftStore
+        .getState()
+        .setDraftStreamPhase('settling', turnClientId, scenarioIdAtDispatch)
+    },
+  })
+
+  if (outcome.kind === 'abandoned') {
+    if (outcome.reason === 'aborted' || signal.aborted) {
+      // ═══ ADVERSARIAL REVIEW F1 — the abort hole ═══════════════════════════
+      //
+      // This branch used to set the phase to `idle` and rethrow, and the outer
+      // catch is silent for aborts by design. So a Stop click after GRAPH_READY
+      // left every preview node on the canvas with the run gate OPEN, the phase
+      // `idle` and no notice — an unsettled draft presented as a finished model,
+      // one click from the exact fabrication M4/M7 exist to prevent, on an
+      // affordance rendered for the whole settling window.
+      //
+      // The fix is `unsettled`, and the two alternatives were both rejected on
+      // evidence rather than taste (full reasoning in the evidence file):
+      //
+      //   · re-using the DIED-STREAM FALLBACK is wrong for the dominant abort
+      //     causes. Stop is a user instruction not to continue and preempt means
+      //     a newer turn owns the canvas — issuing a fresh ~55 s buffered request
+      //     in either case contradicts the user's own action or races the newer
+      //     turn. It would also require minting a new AbortController to defeat
+      //     the very abort that was requested.
+      //   · DISCARDING the preview can destroy a committed model. ⚠ PREMISE
+      //     REWRITTEN (ROADMAP 2.719 — the old sentence here cited #751's
+      //     "runs to completion and commits" as a certainty, and the turn
+      //     fence had inverted it on exactly this preempt path, which is how
+      //     the phantom model shipped: preview kept, server graph NULL,
+      //     nothing said — fresh-journey P0 diagnosis §2 R2). The CURRENT
+      //     premise is CEE 2.709's: a first draft's commit now survives a
+      //     mid-draft claim (the fence's FIRST-WRITE EXEMPTION), an explicit
+      //     Stop still refuses it, and a draft 500 still loses it — so the
+      //     commit is LIKELY but not knowable from this side of an aborted
+      //     socket. Discarding would still destroy the committed-case model;
+      //     keeping is still right, PROVIDED the copy carries the save
+      //     caveat (STOPPED_DRAFT_NOTICE does) — because when the commit
+      //     genuinely failed, the SERVER now surfaces it in the next reply
+      //     on this scenario (CEE's DRAFT-LOSS NOTICE, invariant 6), which
+      //     is the receipt channel that does not depend on this socket.
+      //
+      // `unsettled` says exactly what happened: the structure is real, its
+      // numbers are the frame's in-progress ones, they will not settle in this
+      // session, and the gate is shut until a new draft. The stranded-row half of
+      // the review's finding is answered separately and more strongly, at
+      // `shouldPersistGraphForScenario` — the UI never writes an unsettled graph
+      // to either store, so there is no row to strand.
+      if (outcome.renderedGraph !== null) {
+        useDraftStore
+          .getState()
+          .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
+        throw new StreamedDraftAbortedWithPreviewError('streamed draft aborted after GRAPH_READY')
+      }
+      // Nothing was rendered, so there is nothing to mark and nothing to say.
+      // Inventing a marker here would be its own fabrication.
+      useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+      const abort = new Error('streamed draft aborted')
+      abort.name = 'AbortError'
+      throw abort
+    }
+    return fallbackToBuffered(`${outcome.reason}: ${outcome.detail}`, outcome.renderedGraph !== null)
+  }
+
+  // `renderedGraph` is non-null only when the render callback ACCEPTED the frame
+  // — a rejected preview (scenario switched away) must not have its element ids
+  // stripped out of whatever scenario the user moved to.
+  let previewOwnsCanvas = outcome.renderedGraph !== null
+  if (outcome.discardPreview && outcome.renderedGraph) {
+    discardStreamedPreview(outcome.renderedGraph)
+    previewOwnsCanvas = false
+  }
+
+  if (import.meta.env.DEV && outcome.identityDrift) {
+    // Not a failure — the terminal frame is authoritative and the wholesale
+    // replacement below resolves it. Logged because a recurring drift would mean
+    // the server's two projections had come apart, which is worth knowing.
+    console.warn('[sendTurn V5] GRAPH_READY / COMPLETE identity drift:', outcome.identityDrift)
+  }
+
+  // Byte-equivalent terminal ingest: the frame's `payload` IS the buffered body,
+  // so it goes back through the buffered path's own parser.
+  const result = await parseV5Response(
+    streamTransport.terminalPayloadToResponse(outcome.terminalPayload, outcome.statusCode),
+  )
+
+  // ═══ ADVERSARIAL REVIEW F4 ══════════════════════════════════════════════
+  // A 200 terminal frame that carries NO extractable `draft_graph` while a
+  // preview is standing is the FAILURE path, not a success. `discardPreview`
+  // only fires on `status_code >= 400`, so this used to leave a phantom preview
+  // on the canvas with the gate OPEN, the phase `idle` and no notice.
+  //
+  // It is not a malice-only shape: it is the client shadow of the ROWED server
+  // salvage gap — a truncation-salvaged turn is precisely a 200 whose graph may
+  // be absent or reduced. Node-level divergence was already handled well
+  // (wholesale replace); graph-ABSENT divergence was the unhandled rung.
+  //
+  // Treated as `unsettled` rather than discarded, for the same reason as F1: the
+  // rendered structure came from a validated GRAPH_READY frame and is real, so
+  // deleting it asserts something false while marking it states the truth.
+  if (previewOwnsCanvas && !resultCarriesDraftGraph(result)) {
+    useDraftStore.getState().setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
+    return { result, previewOwnsCanvas: false, unsettled: true }
+  }
+
+  useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+  return { result, previewOwnsCanvas, unsettled: false }
+}
+
 /**
  * Fields to strip from node.data before sending to CEE.
  *
@@ -361,8 +866,31 @@ export function stripDiagnostics(text: string): string {
   return cleaned.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n').trimEnd()
 }
 
-/** Build a user-facing error message from a caught error */
-export function buildErrorMessage(err: unknown): string {
+export interface BuildErrorMessageOptions {
+  /**
+   * Whether a "Try again" affordance will actually be rendered alongside this
+   * copy. Defaults to `true` (fail open — today's behaviour and copy).
+   *
+   * When `false` the caller has decided, from the CEE `retryable` marker, that
+   * no retry control will exist. The copy must then NOT instruct the user to
+   * retry: an instruction with no control to carry it out is a dead end. Each
+   * retry-directive base below has a non-retry-directive counterpart that
+   * states what happened and names an action the user can still take without a
+   * retry button (refresh, wait, rephrase and send a new message).
+   */
+  canRetry?: boolean
+}
+
+/**
+ * Build a user-facing error message from a caught error.
+ *
+ * `opts.canRetry === false` selects the non-retry-directive copy variants. See
+ * BuildErrorMessageOptions and ./ceeRecovery — `buildFailureRender` is the
+ * single composition point that decides `canRetry` from the wire and calls
+ * back into this function, so the two can never disagree.
+ */
+export function buildErrorMessage(err: unknown, opts?: BuildErrorMessageOptions): string {
+  const canRetry = opts?.canRetry !== false
   // Always log structured detail for development console output (never rendered).
   if (err instanceof OrchestratorError) {
     if (import.meta.env.DEV) {
@@ -374,21 +902,34 @@ export function buildErrorMessage(err: unknown): string {
     }
   }
   if (!(err instanceof OrchestratorError)) {
-    return 'Something went wrong. Try again or rephrase your message.'
+    return canRetry
+      ? 'Something went wrong. Try again or rephrase your message.'
+      : 'Something went wrong. Rephrasing your message may help.'
   }
   // DEV-only ref suffix to aid debugging; never in production bundles.
   const ref = import.meta.env.DEV && err.requestId ? ` [ref: ${err.requestId}]` : ''
   switch (true) {
     case err.status === 401:
-      return `Authentication error.${ref} Please refresh and try again.`
+      return canRetry
+        ? `Authentication error.${ref} Please refresh and try again.`
+        : `Authentication error.${ref} Please refresh the page to continue.`
     case err.status === 429:
-      return `Too many requests.${ref} Please wait a moment and try again.`
+      return canRetry
+        ? `Too many requests.${ref} Please wait a moment and try again.`
+        : `Too many requests.${ref} Please wait a moment before sending another message.`
     case err.status === 400:
+      // No retry directive in either variant: "rephrase your message" is an
+      // action the user can always take from the composer, with or without a
+      // retry chip. Single copy on purpose.
       return `Request error.${ref} Try rephrasing your message.`
     case err.status !== undefined && err.status >= 500:
-      return `Service temporarily unavailable.${ref} Please try again shortly.`
+      return canRetry
+        ? `Service temporarily unavailable.${ref} Please try again shortly.`
+        : `Service temporarily unavailable.${ref} Please wait a moment before continuing.`
     default:
-      return `Something went wrong.${ref} Try again or rephrase your message.`
+      return canRetry
+        ? `Something went wrong.${ref} Try again or rephrase your message.`
+        : `Something went wrong.${ref} Rephrasing your message may help.`
   }
 }
 
@@ -500,27 +1041,6 @@ export function extractAssistantText(raw: string): string {
 }
 
 /**
- * Extract a BaseRateChipSet from guidance items for the MISSING_BASE_RATE signal.
- * Returns the highest-priority match (lowest number = highest priority), or undefined.
- * Exported for unit testing.
- */
-export function extractBaseRateChipSet(
-  items: GuidanceItem[] | undefined | null,
-): BaseRateChipSet | undefined {
-  if (!Array.isArray(items) || items.length === 0) return undefined
-  const matches = items
-    .filter((g) =>
-      g.signal_code === 'MISSING_BASE_RATE'
-      && g.primary_action?.type === 'discuss',
-    )
-    .sort((a, b) => (a.priority ?? 100) - (b.priority ?? 100))
-  const top = matches[0]
-  if (!top) return undefined
-  const label = top.target_object?.label || 'This factor'
-  return { factorLabel: label, itemId: top.item_id, factorId: top.target_object?.id }
-}
-
-/**
  * Normalise a single patch operation from CEE wire format to UI PatchOperation.
  *
  * CEE sends operations in two formats:
@@ -624,18 +1144,86 @@ export function normaliseAnalysisReady(raw: unknown): CEEAnalysisReady | undefin
 
 export function attachAnalysisReadyToInlineDraftGraph(
   draftGraph: unknown,
-  responseAnalysisReady: unknown,
+  // The FULL parsed V5 response (review-folds A3: this used to be three
+  // all-optional-unknown positional params — analysis_ready,
+  // goal_constraints, response — where the first two were literally reads
+  // off the third at the call site, an invisible-transposition hazard).
+  // Everything this helper needs lives on the response:
+  //  - `analysis_ready` (strict surface) — attached below, mirroring the
+  //    original behaviour.
+  //  - `goal_constraints` (ROADMAP 1.22 residual, filed alongside UI PR
+  //    #250): CEE places it at the response ROOT as a SIBLING of
+  //    `draft_graph`, never nested inside it. applyDraftResult only reads
+  //    goal_constraints off the object it is handed, so without this
+  //    attachment the "no constraints" branch fired on every inline-draft
+  //    turn and cleared the store even when the root carried real
+  //    constraints.
+  //  - `coaching` (Leg 3 blocker fix, PR #356 review): also at the
+  //    response ROOT. At the pinned boundary schema (0.15.0) the strict
+  //    OlumiResponseSchema declares NO `coaching` key, so the parser
+  //    demotes it to the non-enumerable `__additive__` sidecar (it must
+  //    NOT be added to KNOWN_OLUMI_TOP_LEVEL_KEYS — the schema is
+  //    .strict(), so routing an undeclared key into strict validation
+  //    would fail the whole parse; formalising `coaching` at the root is a
+  //    @talchain/schemas ask, tracked in the PR record). The read checks
+  //    the formal root key first (should the schema ever declare it),
+  //    falls back to the sidecar, maps the wire shape through
+  //    mapDraftCoachingFromResponse, and attaches the post-adapter
+  //    `draftCoaching` field that applyDraftResult already reads and
+  //    commits to the store. Absent/malformed coaching attaches nothing,
+  //    so applyDraftResult's existing "new draft clears stale coaching"
+  //    semantics are preserved unchanged.
+  parsedResponse?: unknown,
 ): Record<string, unknown> | undefined {
   if (draftGraph == null || typeof draftGraph !== 'object') return undefined
 
   const graph = draftGraph as Record<string, unknown>
-  if (graph.analysis_ready != null) return graph
+  const responseAnalysisReady = (
+    parsedResponse as { analysis_ready?: unknown } | null | undefined
+  )?.analysis_ready
+  const responseGoalConstraints = (
+    parsedResponse as { goal_constraints?: unknown } | null | undefined
+  )?.goal_constraints
+
+  // Only attach when the inline object doesn't already carry its own
+  // goal_constraints AND the root genuinely has a non-empty array — a
+  // straight passthrough, never fabricated. An absent/empty root value is
+  // left unattached so applyDraftResult's existing "no constraints on this
+  // new draft" clear semantics are preserved unchanged.
+  const hasOwnGoalConstraints = Array.isArray(graph.goal_constraints)
+  const rootGoalConstraints =
+    !hasOwnGoalConstraints && Array.isArray(responseGoalConstraints) && responseGoalConstraints.length > 0
+      ? responseGoalConstraints
+      : undefined
+
+  const graphWithConstraints = rootGoalConstraints
+    ? { ...graph, goal_constraints: rootGoalConstraints }
+    : graph
+
+  // Root coaching → post-adapter draftCoaching (see the parameter note
+  // above). Attach only when the inline object doesn't already carry its
+  // own and the mapping yields a real payload (mapDraftCoachingFromResponse
+  // is fail-closed: null for absent/non-object input).
+  const rootCoaching =
+    (parsedResponse as { coaching?: unknown } | null | undefined)?.coaching ??
+    (parsedResponse as OlumiResponseWithExtensions | null | undefined)?.[
+      ADDITIVE_EXTENSIONS_KEY
+    ]?.['coaching']
+  const mappedCoaching =
+    graphWithConstraints.draftCoaching == null
+      ? mapDraftCoachingFromResponse(rootCoaching)
+      : null
+  const graphWithCoaching = mappedCoaching
+    ? { ...graphWithConstraints, draftCoaching: mappedCoaching }
+    : graphWithConstraints
+
+  if (graphWithCoaching.analysis_ready != null) return graphWithCoaching
 
   const normalised = normaliseAnalysisReady(responseAnalysisReady)
-  if (!normalised) return graph
+  if (!normalised) return graphWithCoaching
 
   return {
-    ...graph,
+    ...graphWithCoaching,
     analysis_ready: normalised,
   }
 }
@@ -644,6 +1232,38 @@ function asOptionalString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : undefined
+}
+
+/**
+ * ROADMAP 1.42 (Show-reasoning progressive disclosure — verbatim, labelled):
+ * `_reasoning` is an unknown top-level key at the pinned schema (0.13.1), so
+ * the parser's `splitAdditiveExtensions`/`splitBlocksTolerance` demote it into
+ * the non-enumerable `ADDITIVE_EXTENSIONS_KEY` sidecar (responseParser.ts)
+ * rather than validating it on the strict OlumiResponse surface. Read it from
+ * there. Defensive: only a non-empty string is accepted, and it is capped at
+ * REASONING_MAX_CHARS with a disclosed truncation suffix — CEE is a separate
+ * service on its own deploy cadence and this field carries no contract yet.
+ */
+const REASONING_MAX_CHARS = 20000
+const REASONING_TRUNCATION_SUFFIX = '\n\n[reasoning truncated]'
+
+function extractReasoningSidecar(response: unknown): string | undefined {
+  // 0.15.0 formalises `reasoning` on the strict surface; CEE still emits the
+  // legacy `_reasoning` sidecar today. Prefer the formal field, fall back to
+  // the sidecar — both verbatim, so the migration can never blank the panel.
+  const formal = (response as { reasoning?: unknown })?.reasoning
+  const additive = (response as OlumiResponseWithExtensions)?.[ADDITIVE_EXTENSIONS_KEY]
+  const raw = typeof formal === 'string' ? formal : additive?.['_reasoning']
+  if (typeof raw !== 'string') return undefined
+  // Verbatim: only whitespace-only strings are rejected as "empty"; the
+  // accepted string itself is never trimmed/altered (Paul's ruling —
+  // VERBATIM-with-label — the rendered panel must match CEE byte-for-byte,
+  // short of the disclosed truncation below).
+  if (raw.trim().length === 0) return undefined
+  if (raw.length > REASONING_MAX_CHARS) {
+    return raw.slice(0, REASONING_MAX_CHARS) + REASONING_TRUNCATION_SUFFIX
+  }
+  return raw
 }
 
 function humaniseToken(token: string): string {
@@ -823,6 +1443,51 @@ function extractRawBlockType(block: unknown): string | null {
  * Returns null when title or body would be empty — the bridge refuses to
  * render an empty card. No fallback copy, no semantic rewriting.
  */
+/**
+ * Map a derived Phase 3 guidance item onto the GuidanceStore's `GuidanceItem`.
+ *
+ * EXPORTED SO THE PASSTHROUGH IS TESTABLE. This was an anonymous inline
+ * `.map()` inside the turn handler, which is why the defect below survived:
+ * nothing could assert on it without driving the whole hook.
+ *
+ * ⚠ `actionLabel` AND `signal` WERE DOCUMENTED AND SILENTLY DROPPED
+ * (ROADMAP 2.225). The store's own contract says of each: "Producer
+ * `action_label` VERBATIM when supplied" / "Producer `signal` display line
+ * VERBATIM when supplied" — and the V5 derivation dutifully produced both,
+ * and this mapper listed neither, so every V5-derived guidance item reached
+ * the store with the producer's CTA label and signal line missing. The store
+ * doc was describing a field the V5 path could never deliver. This is the
+ * boundary-field silent-drop hazard in miniature, inside one file.
+ *
+ * Every field here is producer-owned passthrough: carried only when supplied,
+ * never invented, never defaulted, never recomputed.
+ */
+export function toStoreGuidanceItem(g: DerivedGuidanceItem): GuidanceItem {
+  return {
+    item_id: g.item_id,
+    // signal_code / category are producer-owned passthrough: carry
+    // them only when the producer supplied them, never invented.
+    ...(g.signal_code ? { signal_code: g.signal_code } : {}),
+    ...(g.category ? { category: g.category } : {}),
+    source: g.source,
+    title: g.title,
+    ...(g.detail ? { detail: g.detail } : {}),
+    // The two restored fields. Same passthrough discipline as the rest.
+    ...(g.actionLabel ? { actionLabel: g.actionLabel } : {}),
+    ...(g.signal ? { signal: g.signal } : {}),
+    primary_action: g.primary_action,
+    ...(g.target_object ? { target_object: g.target_object } : {}),
+    ...(g.related_elements ? { related_elements: g.related_elements } : {}),
+    ...(g.valid_while ? { valid_while: g.valid_while } : {}),
+    priority: g.priority,
+    // UI-SEM-085 (narrowed): carry the producer's verbatim rank
+    // and the priority-provenance fact through unchanged — never
+    // recomputed, never inverted here.
+    ...(typeof g.priorityRank === 'number' ? { priorityRank: g.priorityRank } : {}),
+    priorityIsProducerSupplied: g.priorityIsProducerSupplied,
+  }
+}
+
 export function adaptPhase3ReviewCard(
   raw: Record<string, unknown>,
 ): ReviewCardBlock | null {
@@ -901,50 +1566,244 @@ export function selectTopPhase3ReviewCard(
 }
 
 /**
- * composePhase3BridgedBlocks — pure composition of the Phase 3 review_card
- * bridge applied at the V5 assistant-turn rendering site.
+ * composePhase3BridgedBlocks — composition of the Phase 3 rendering bridge
+ * applied at the V5 assistant-turn rendering site (Track C slice 1,
+ * approved D-5; provisional_doctrine_v0).
  *
  * Inputs:
  *   - factPresent: whether the current response carries a successful
- *     run_analysis fact (computed by v5ResponseHasRunAnalysisFact).
+ *     run_analysis fact (deriveV5AnalysisFactUpdate action === 'set'). Gates
+ *     ONLY the legacy review_card fallback below — 0.13.x-typed blocks are
+ *     per-turn producer content and render on the turn CEE emitted them
+ *     (coaching legitimately arrives on draft turns, which carry no
+ *     run_analysis fact).
  *   - phase3RawBlocks: verbatim Phase 3 blocks harvested by
  *     extractPhase3FromV5Response.
  *   - mappedBlocks: V5 schema-strict blocks already produced by mapV5Blocks.
  *
  * Returns the final ordered blocks array for the assistant turn:
- *   [...mappedBlocks, ...top-1 review_card when eligible]
+ *   [...mappedBlocks,
+ *    ...schema-typed coaching/review_card (producer priority_rank asc,
+ *       ties by harvest order; deduped by block_id),
+ *    ...legacy top-1 review_card fallback when eligible]
  *
- * Eligibility:
- *   - factPresent must be true (gates out conversational follow-ups and stale
- *     responses).
- *   - At least one rawBlock of type 'review_card' must adapt to a usable
- *     ReviewCardBlock (non-empty title + body).
- *   - No review_card is already present in mappedBlocks (defensive dedupe;
- *     mapV5Blocks does not emit review_card today, so this branch is
- *     unreachable in practice. If a future V5 schema change makes
- *     mapV5Blocks emit a legitimately different review_card alongside a
- *     Phase 3 candidate, refine this check to dedupe by block_id rather
- *     than by type so both surfaces remain available.).
+ * Typed path (slice 1 + slice 2): raw blocks of type 'coaching' /
+ * 'review_card' (slice 1, D-5) and 'evidence' / 'exercise' (slice 2,
+ * Lane UI-W4 C) that adapt cleanly against the 0.13.x typed shapes render
+ * as first-class v5_* blocks — exactly the typed fields, all copy
+ * producer-verbatim. Fail-closed: a malformed block (including a
+ * content-less exercise — schema-shaped but with no producer prose) is
+ * COUNTED (dropped-content counter, 'malformed_phase3_block_suppressed')
+ * and suppressed; it never crashes composition and never renders with
+ * invented fields.
  *
- * Cap: 1 review_card (top by priority_rank, ties by harvest order).
+ * Ordering: producer priority_rank ascending across all typed blocks.
+ * The exercise type carries NO priority_rank per the v1.3 contract (not
+ * hero eligible). ROADMAP 2.211 §2 gives it a DERIVED position instead of
+ * the +Infinity it used to take — see EXERCISE_RANK_AFTER_REVIEW_CARDS.
  *
- * Evidence and coaching rawBlocks are intentionally NOT surfaced:
- *   - evidence: v1.3 shape mismatch with EvidenceBlockRenderer (tracked as a
- *     follow-up issue).
- *   - coaching: no InlineBlocks renderer; remains in GuidanceStore.
+ * Legacy fallback (unchanged behaviour): review_card blocks that are NOT
+ * 0.13.x-shaped go through the original bridge — factPresent gate, top-1
+ * cap by priority_rank, adaptPhase3ReviewCard defaults, dedupe against an
+ * existing legacy review_card in mappedBlocks. Legacy cards not surfaced
+ * are counted ('legacy_review_card_suppressed').
  */
+/**
+ * ROADMAP 2.211 §2 — where the turn's selected lens exercise sits.
+ *
+ * ## The defect
+ * The exercise is the companion card the capability layer's selected lens
+ * emits. It carries no `priority_rank` (the v1.3 contract declares the type
+ * not hero-eligible), so composition gave it +Infinity and it sorted LAST —
+ * behind the `Show N more` affordance in a phase-3 stack measured live at
+ * 8-14 cards (`probe-premortem-live.md` §4 Q2), where a collapsed card
+ * renders `null` and is not in the DOM at all. Two clicks from view on the
+ * turns where it was emitted at all.
+ *
+ * ## The adjudication (orchestrator, 1 Aug; `LENS-EMISSION-2211` §2)
+ * The turn's SELECTED lens is by definition the system's chosen most-useful
+ * insight, so it ranks directly after the review cards — a finite rank, and
+ * explicitly NOT a change to `PHASE3_DEFAULT_EXPANDED` or to the lens set.
+ *
+ * ## Why DERIVED from the turn, and not a constant
+ * This file's standing doctrine is producer-owned ordering — "No new ranking
+ * is invented" (`selectTopPhase3ReviewCard`), "ties preserve harvest order.
+ * No new ranking is invented" (the sort below). A hard-coded UI rank would
+ * invent one, and would be a hand-maintained mirror of CEE's live bands
+ * (measured: evidence 41 < review_card 71-74 < coaching 101-202): the day a
+ * band moved, the constant would silently invert the ruling and every test
+ * would stay green (platform trap 12). Anchoring to THIS TURN's highest
+ * review-card rank expresses the ruling's own words — *directly after the
+ * review cards* — in the producer's units, and cannot drift.
+ *
+ * The offset only has to break the tie with the anchor itself; producer ranks
+ * are integers on every observed payload, so a half-step lands strictly
+ * between the last review card and whatever the producer ranked next.
+ *
+ * When the turn carries no review card there is no anchor, and the v1.3
+ * convention stands unchanged rather than a number being made up. That is not
+ * a live case: the exercise derives its permission from a surviving review
+ * card (`LENS-EMISSION-2211` §3).
+ */
+export const EXERCISE_RANK_AFTER_REVIEW_CARDS = 0.5
+
 export function composePhase3BridgedBlocks(
   factPresent: boolean,
   phase3RawBlocks: readonly Phase3RawBlock[],
   mappedBlocks: readonly ConversationBlock[],
 ): ConversationBlock[] {
-  if (!factPresent) return [...mappedBlocks]
-  const topReview = selectTopPhase3ReviewCard(phase3RawBlocks)
-  if (!topReview) return [...mappedBlocks]
+  const out: ConversationBlock[] = [...mappedBlocks]
+
+  // ── Typed path: 0.13.x coaching + review_card + evidence + exercise ───
+  const typed: Array<{ block: ConversationBlock; rank: number; order: number }> = []
+  // Exercises are held back until every review card on the turn has been
+  // adapted — their rank is derived from the set, so it cannot be known while
+  // the set is still being built. `order` is taken from the same counter, so
+  // harvest order among them is preserved exactly as before.
+  const exercises: Array<{ block: ConversationBlock; order: number }> = []
+  const legacyReviewCandidates: Phase3RawBlock[] = []
+  const seenTypedBlockIds = new Set<string>(
+    mappedBlocks.flatMap((b) =>
+      (b.type === 'v5_review_card' || b.type === 'v5_coaching' ||
+       b.type === 'v5_evidence' || b.type === 'v5_exercise') ? [b.block_id] : [],
+    ),
+  )
+  let order = 0
+  for (const rb of phase3RawBlocks) {
+    if (rb.type === 'review_card') {
+      const adapted = adaptTypedReviewCardBlock(rb.raw)
+      if (adapted) {
+        if (!seenTypedBlockIds.has(adapted.block_id)) {
+          seenTypedBlockIds.add(adapted.block_id)
+          typed.push({ block: adapted, rank: adapted.priority_rank, order: order++ })
+        }
+        continue
+      }
+      // Not 0.13.x-shaped — hand to the legacy bridge below.
+      legacyReviewCandidates.push(rb)
+      continue
+    }
+    if (rb.type === 'coaching') {
+      const adapted = adaptTypedCoachingBlock(rb.raw)
+      if (adapted) {
+        if (!seenTypedBlockIds.has(adapted.block_id)) {
+          seenTypedBlockIds.add(adapted.block_id)
+          typed.push({ block: adapted, rank: adapted.priority_rank, order: order++ })
+        }
+        continue
+      }
+      // Fail-closed: malformed coaching → counted + suppressed, never crash.
+      recordDroppedContent({
+        blockType: 'coaching',
+        source: 'phase3_block_bridge',
+        rationale: 'malformed_phase3_block_suppressed',
+      })
+      continue
+    }
+    if (rb.type === 'evidence') {
+      // Slice 2 (Lane UI-W4 C): evidence renders first-class; carries its
+      // producer priority_rank into the shared ordering.
+      const adapted = adaptTypedEvidenceBlock(rb.raw)
+      if (adapted) {
+        if (!seenTypedBlockIds.has(adapted.block_id)) {
+          seenTypedBlockIds.add(adapted.block_id)
+          typed.push({ block: adapted, rank: adapted.priority_rank, order: order++ })
+        }
+        continue
+      }
+      recordDroppedContent({
+        blockType: 'evidence',
+        source: 'phase3_block_bridge',
+        rationale: 'malformed_phase3_block_suppressed',
+      })
+      continue
+    }
+    if (rb.type === 'exercise') {
+      // Slice 2 (Lane UI-W4 C): exercise renders first-class. The v1.3
+      // contract declares NO priority_rank on this type (not hero
+      // eligible); ROADMAP 2.211 §2 derives its position from the turn's
+      // review cards after this loop. Content-less blocks fail closed in
+      // the adapter and are counted like any other malformed block.
+      const adapted = adaptTypedExerciseBlock(rb.raw)
+      if (adapted) {
+        if (!seenTypedBlockIds.has(adapted.block_id)) {
+          seenTypedBlockIds.add(adapted.block_id)
+          exercises.push({ block: adapted, order: order++ })
+        }
+        continue
+      }
+      recordDroppedContent({
+        blockType: 'exercise',
+        source: 'phase3_block_bridge',
+        rationale: 'malformed_phase3_block_suppressed',
+      })
+      continue
+    }
+  }
+  // ROADMAP 2.211 §2: place the turn's exercise(s) directly after its review
+  // cards, in the producer's own units. Derived from the adapted set at this
+  // point, never from a remembered or hard-coded number — see
+  // EXERCISE_RANK_AFTER_REVIEW_CARDS.
+  if (exercises.length > 0) {
+    let reviewAnchor: number | null = null
+    const raiseAnchor = (rank: number): void => {
+      if (!Number.isFinite(rank)) return
+      if (reviewAnchor === null || rank > reviewAnchor) reviewAnchor = rank
+    }
+    // BOTH sources, not just `typed`. A review card the turn also emitted as a
+    // top-level block is already in mappedBlocks, and the block_id dedupe above
+    // keeps the raw copy OUT of `typed` — so a `typed`-only scan would find no
+    // anchor on exactly the turns carrying the most review content, fall back
+    // to +Infinity, and put the exercise back behind coaching. That is the
+    // 2.211 defect restored by omission (EDGE-A, review 1 Aug).
+    for (const block of mappedBlocks) {
+      if (block.type === 'v5_review_card') raiseAnchor(block.priority_rank)
+    }
+    for (const t of typed) {
+      if (t.block.type === 'v5_review_card') raiseAnchor(t.rank)
+    }
+    const exerciseRank =
+      reviewAnchor === null
+        ? Number.POSITIVE_INFINITY
+        : reviewAnchor + EXERCISE_RANK_AFTER_REVIEW_CARDS
+    for (const exercise of exercises) {
+      typed.push({ block: exercise.block, rank: exerciseRank, order: exercise.order })
+    }
+  }
+
+  // Producer-owned ordering: priority_rank ascending (lower = higher
+  // priority, per CEE v1.3 §0); ties preserve harvest order. No new
+  // ranking is invented.
+  typed.sort((a, b) => a.rank - b.rank || a.order - b.order)
+  out.push(...typed.map((t) => t.block))
+
+  // ── Legacy fallback: pre-0.13.x review_card bridge (unchanged rules) ──
+  const countLegacySuppressed = (n: number): void => {
+    if (n <= 0) return
+    recordDroppedContent({
+      blockType: 'review_card',
+      source: 'phase3_block_bridge',
+      rationale: 'legacy_review_card_suppressed',
+      count: n,
+    })
+  }
+  if (legacyReviewCandidates.length === 0) return out
+  if (!factPresent) {
+    countLegacySuppressed(legacyReviewCandidates.length)
+    return out
+  }
+  const topReview = selectTopPhase3ReviewCard(legacyReviewCandidates)
+  if (!topReview) {
+    countLegacySuppressed(legacyReviewCandidates.length)
+    return out
+  }
   const adapted = adaptPhase3ReviewCard(topReview.raw)
-  if (!adapted) return [...mappedBlocks]
-  if (mappedBlocks.some((b) => b.type === 'review_card')) return [...mappedBlocks]
-  return [...mappedBlocks, adapted]
+  if (!adapted || mappedBlocks.some((b) => b.type === 'review_card')) {
+    countLegacySuppressed(legacyReviewCandidates.length)
+    return out
+  }
+  countLegacySuppressed(legacyReviewCandidates.length - 1)
+  return [...out, adapted]
 }
 
 export function adaptCEEBlock(raw: unknown): ConversationBlock {
@@ -1247,41 +2106,33 @@ export interface PatchRejectionInfo {
   violations?: string[]
 }
 
-/** Deterministic action_type → turn type mapping. Falls back to 'conversation' for unknown actions. Exported for tests. */
-export const ACTION_TO_TURN_TYPE: Record<string, Exclude<TurnType, 'system_event'>> = {
-  run_analysis: 'run_analysis',
-  // V5 backend handler ID is the PLURAL `explain_results` (see backend
-  // `src/orchestrator-v5/handlers/chip-click-dispatch.ts:137-141` whitelist +
-  // `src/orchestrator-v5/compose/chip-generator.ts` chip emission, post-
-  // Phase-2b). Singular `explain_result` retained as a legacy alias because
-  // the chip-generator's `promptChip(...)` used it as a discriminator string
-  // for years and existing chip surfaces still emit it; either form must
-  // reach the same 'explain' turn type so dispatch is consistent and the
-  // deterministic chip-click bypass fires regardless of which alias the
-  // chip carries.
-  explain_result: 'explain',
-  explain_results: 'explain',
-  compare_options: 'explain',
-  what_would_flip: 'explain',
-  challenge_assumption: 'conversation',
-  set_factor_value: 'conversation',
-  add_factor: 'conversation',
-  add_option: 'conversation',
-  add_constraint: 'conversation',
-  adjust_edge_strength: 'conversation',
-  remove_factor: 'conversation',
-  set_goal_target: 'conversation',
-  run_premortem: 'explain',
-  draft_graph: 'explicit_generate',
-}
+/**
+ * Deterministic action_type → turn type mapping. Falls back to 'conversation'
+ * for unknown actions.
+ *
+ * MOVED to `./actionTurnTypes` (2026-08-07, ROADMAP 2.668) so the chip RENDER
+ * gate can derive from it without importing this hook module. Re-exported here
+ * unchanged — this is the same object, not a copy, so no mirror exists.
+ */
+export { ACTION_TO_TURN_TYPE }
 
 /** Source surface for action dispatch — used for logging and telemetry */
 export type ActionSource = 'chip' | 'insight' | 'canvas_coaching' | 'pre_analysis' | 'guidance' | 'inspector' | 'base_rate'
 
 /** Options for the unified action dispatch function */
 export interface DispatchActionOpts {
-  /** Deterministic action type for CEE routing */
+  /**
+   * First-class chip identity (0.22 `chip.id`). Optional — when omitted,
+   * buildChipMeta lifts it from `parameters.chip_id` / `parameters.spark_id`.
+   */
+  id?: string
+  /** Deterministic action type for CEE routing (11-member `ActionType`) */
   action_type?: string
+  /**
+   * Typed authored intent (0.22 `chip.intent`, incl. `add_option`). Withheld
+   * from the wire unless CEE accepts it (buildV5Payload's CEE_ACCEPTED_INTENTS).
+   */
+  intent?: string
   /** Structured parameters for action execution */
   parameters?: Record<string, unknown>
   /** Display label for the action indicator and aria */
@@ -1309,12 +2160,177 @@ function resolveUserTurnType(
   return 'conversation'
 }
 
+/**
+ * Structured record of the most recent visible user send that failed
+ * (transcript honesty, trust item #3). This fires for EVERY failed visible
+ * user send — including the ones no transcript shows — so
+ * point-of-failure surfaces with no visible transcript (the first-use hero)
+ * can show feedback instead of failing silently. Cleared on the next
+ * visible user dispatch, clearHistory, and scenario switch.
+ */
+export interface SendFailureNotice {
+  /**
+   * 'transport': no CEE body reached the UI (proxy 504, network throw) —
+   *   the turn never produced a server outcome.
+   * 'timeout':   the browser's own timer aborted the wait.
+   * 'server':    the server received the turn and failed it (typed error /
+   *   empty response).
+   */
+  kind: 'transport' | 'timeout' | 'server'
+  /** Whether the retry affordance is being offered for this failure. */
+  retryable: boolean
+  /** The submitted input text, for restore-into-composer affordances. */
+  inputText: string
+}
+
+/**
+ * SystemEventSendError — the rejection `sendTurn` raises when a SYSTEM-mode
+ * turn (feedback / patch_accepted / patch_dismissed / direct_graph_edit) fails
+ * to reach or complete at the server: a network reject, a 4xx/5xx, a parse
+ * failure, or a thrown dispatch error.
+ *
+ * CONTRACT — system-event send-failure propagation (why this exists):
+ *   System turns have NO transcript surface of their own. They never render a
+ *   user bubble, and (post-fix) they never render a synthetic assistant error
+ *   bubble either — an out-of-context "Something went wrong" in the chat for a
+ *   background feedback/patch/graph-edit turn is noise, and it matches V4's
+ *   established "system failures are silent in the transcript" behaviour. The
+ *   ONLY honest way for such a failure to surface is for its dispatcher to
+ *   react. So `sendSystemEvent` (which `await`s `sendTurn` in system mode)
+ *   rejects with this error, letting each caller reach for its OWN existing
+ *   affordance:
+ *     • FeedbackRow        → revert the optimistic thumbs vote (its `catch`)
+ *     • handlePatchAccept  → the existing NETWORK_ERROR retry card
+ *     • background dispatchers (graph-edit / patch_dismissed) → best-effort log
+ *
+ *   Rethrow (not a returned result) is deliberate: PR #435's FeedbackRow does
+ *   `try { await onFeedback() } catch { revert }`, and `handleFeedback` returns
+ *   the `sendSystemEvent` promise unchanged — a rejection is what reverts the
+ *   vote with ZERO churn to that just-landed code. A resolved `{ ok: false }`
+ *   would silently pass FeedbackRow's `catch`.
+ *
+ *   USER-mode turns NEVER throw: they keep rendering their in-transcript
+ *   synthetic bubble + `setLastSendFailure` exactly as before. This asymmetry
+ *   is the whole point and is pinned by regression tests.
+ */
+/**
+ * `sendTurn`'s argument, named so the deferral buffer can hold one verbatim.
+ * Extracted from the inline signature it used to carry — no members changed.
+ */
+export interface SendTurnOpts {
+  message: string
+  /** Text shown in conversation bubble (defaults to message) */
+  displayText?: string
+  systemEvent?: SystemEvent
+  mode: 'user' | 'system'
+  /** When true, send the request but don't show a user bubble (e.g. programmatic "run it") */
+  hidden?: boolean
+  /** When true, skip adding a user bubble but keep error handling active (retry path) */
+  skipUserBubble?: boolean
+  /** Reuse a previous client_turn_id for idempotent retry */
+  retryClientTurnId?: string
+  source?: string
+  sourceSurface?: string
+  parentChainId?: string | null
+  initiatedBy?: 'user' | 'automatic'
+  rightPanelAccidentallySubmittedComposerContent?: boolean
+  turnType?: Exclude<TurnType, 'system_event'>
+  /** Deterministic chip metadata forwarded for CEE action routing */
+  chipMeta?: ChipMeta
+  /** When true, render the user bubble as a compact action indicator */
+  chipInitiated?: boolean
+  /**
+   * ROADMAP 2.129 (b) — how to UNDO the optimistic local write this system event
+   * announces, if the server refuses it.
+   *
+   * NOT part of the wire payload. It rides here because the deferral buffer holds
+   * a `SendTurnOpts` verbatim, so an edit queued behind a running analysis is
+   * resolved by the same code path as one dispatched immediately — a refusal of a
+   * DEFERRED edit must revert too, and the caller's promise resolved with
+   * `SEND_DEFERRED` long before the reply existed.
+   */
+  optimisticFactorEdit?: OptimisticFactorEdit
+}
+
+/** One send held back by the in-flight lock. */
+interface DeferredSystemSend {
+  /** Dedup identity. See `enqueueDeferredSystemSend` for why it omits `field`. */
+  key: string
+  opts: SendTurnOpts
+  /**
+   * The scenario this edit was made in, captured at ENQUEUE. Dispatch reads the
+   * current scenario fresh, so an entry that outlives a scenario switch would
+   * otherwise be sent against the wrong decision's graph.
+   */
+  scenarioId: string | null
+  /** Flush-dispatch failures so far — bounds retrying (see MAX_FLUSH_ATTEMPTS). */
+  attempts: number
+  /**
+   * True while THIS entry is mid-dispatch.
+   *
+   * Required by peek-don't-shift: `sendTurn` releases the in-flight lock in its
+   * `finally`, which runs BEFORE its promise resolves — so the drain re-enters
+   * while the entry is still in the buffer and would send it a second time.
+   * (Observed: one queued edit dispatched twice.) Removing the entry up front
+   * would fix that but reinstates the destroy-the-edit-on-early-return class
+   * this restructure exists to kill, so the entry stays and is marked instead.
+   */
+  dispatching?: boolean
+}
+
+/**
+ * How many times a queued send is re-dispatched before we stop retrying it
+ * automatically. A failing flush takes the lock and releases it again, which
+ * re-enters the drain — so without a cap a persistently-failing edit would spin.
+ * The entry is KEPT after the cap (the server still has not seen it, so the
+ * dirty hold remains truthful); it simply stops being retried until the user
+ * commits a new value for that factor.
+ */
+const MAX_FLUSH_ATTEMPTS = 3
+
+/**
+ * What `sendTurn` returns when the in-flight lock stopped it from dispatching.
+ *
+ * WHY THIS EXISTS (ROADMAP 1.346 concurrent path). The blocked branch used to
+ * be a bare `return`: DEV-only `console.warn`, promise RESOLVES, no
+ * `SystemEventSendError`, nothing at all in production. A caller doing
+ * `void send(...).catch(...)` therefore could not tell a dispatched turn from a
+ * dropped one — the drop is not a rejection. For an inspector value edit that
+ * meant the edit was committed locally, never sent, and then blessed as fresh
+ * by the next completed turn's verdict.
+ *
+ * A resolve carrying a SENTINEL (rather than a rejection) is deliberate for the
+ * DEFERRED case: the edit is not lost, it is queued, so rejecting would tell
+ * dispatchers like FeedbackRow to revert an optimistic UI that is in fact still
+ * on its way. `SystemEventSendError` remains the channel for genuine failures
+ * — network, 4xx/5xx, parse — which is a different thing and stays different.
+ */
+export const SEND_DEFERRED = 'send_deferred' as const
+/** Blocked and NOT queued (retry-class callers). Detectable, never silent. */
+export const SEND_BLOCKED = 'send_blocked' as const
+export type SendTurnOutcome = typeof SEND_DEFERRED | typeof SEND_BLOCKED | undefined
+
+export class SystemEventSendError extends Error {
+  /** 'transport': nothing reached the server (network / proxy timeout).
+   *  'server':    the server received the turn and failed it (typed error). */
+  readonly kind: 'transport' | 'server'
+  constructor(kind: 'transport' | 'server', options?: { cause?: unknown }) {
+    super(`System event send failed (${kind})`)
+    this.name = 'SystemEventSendError'
+    this.kind = kind
+    if (options?.cause !== undefined) {
+      ;(this as Error & { cause?: unknown }).cause = options.cause
+    }
+  }
+}
+
 export interface UseConversationReturn {
   messages: ConversationMessage[]
   isThinking: boolean
   longRunningHint: string | null
   /** The user's last input text, restored on error so they can edit and resend */
-  lastFailedInput: string | null
+  /** Most recent visible-user-send failure, all classes. Null when none. */
+  lastSendFailure: SendFailureNotice | null
   sendMessage: (text: string, opts?: {
     hidden?: boolean
     turnType?: Exclude<TurnType, 'system_event'>
@@ -1331,7 +2347,19 @@ export interface UseConversationReturn {
     debugParentChainId?: string | null
     debugInitiatedBy?: 'user' | 'automatic'
     debugSourceSurface?: string
-  }) => Promise<void>
+    /**
+     * ROADMAP 2.129 (b) — the undo for the optimistic local write that
+     * accompanies a `factor_value_edit`. The dispatcher reverts it when the
+     * reply carries no applied patch receipt for the target. Callers that write
+     * optimistically MUST pass this; without it a server refusal leaves the
+     * canvas showing a number (and a "User edited" stamp) the engine declined.
+     */
+    optimisticFactorEdit?: OptimisticFactorEdit
+    // Resolves to SEND_DEFERRED when the in-flight lock queued the send instead
+    // of dispatching it, so a caller can tell "queued" from "sent" — the old
+    // `Promise<void>` made those two indistinguishable, which is how an
+    // inspector edit made during an analysis was lost in silence.
+  }) => Promise<SendTurnOutcome>
   sendChip: (chip: ActionChip) => Promise<void>
   /** Unified action dispatch — routes all pill/chip/action triggers through a single path with proper metadata */
   dispatchAction: (opts: DispatchActionOpts) => Promise<void>
@@ -1344,6 +2372,11 @@ export interface UseConversationReturn {
    * accept, reject, or mutate any patch state.
    */
   cancelTurn: () => void
+  /**
+   * Start a fresh draft on a fresh scenario — the recovery affordance for an
+   * unsettled streamed draft (review F3). See `START_NEW_DRAFT_CHIP_ID`.
+   */
+  startNewDraft: () => Promise<void>
   /** GraphPatchBlock state map (keyed by `${turnId}:${patchId}`) */
   patchBlockStates: Map<string, PatchBlockState>
   setPatchBlockState: (key: string, state: PatchBlockState) => void
@@ -1362,7 +2395,7 @@ export function useConversation(): UseConversationReturn {
   const isThinkingRef = useRef(false)
   useEffect(() => { isThinkingRef.current = isThinking }, [isThinking])
   const [longRunningHint, setLongRunningHint] = useState<string | null>(null)
-  const [lastFailedInput, setLastFailedInput] = useState<string | null>(null)
+  const [lastSendFailure, setLastSendFailure] = useState<SendFailureNotice | null>(null)
   const [patchBlockStates, setPatchBlockStates] = useState<Map<string, PatchBlockState>>(new Map())
   const [patchRejections, setPatchRejectionsMap] = useState<Map<string, PatchRejectionInfo>>(new Map())
 
@@ -1375,10 +2408,30 @@ export function useConversation(): UseConversationReturn {
   // run from clobbering a newer run's ownership. See the preempt block in
   // sendTurn for the rationale (v5-ui-exclusive-path brief, Phase 8a review).
   const inFlightGenerationRef = useRef(0)
+
+  /**
+   * Deferral buffer for SYSTEM-mode sends blocked by the in-flight lock.
+   *
+   * Ordinary use hits this constantly: the lock is held for a whole analysis
+   * round trip, so ANY inspector edit made while an analysis runs was
+   * previously dropped outright. Order is preserved across distinct targets;
+   * for `factor_value_edit` the entry is REPLACED per target_id, because the
+   * last value the user committed is the only one that is true — replaying an
+   * intermediate typo would end with the wrong number persisted. Every other
+   * event kind appends, since those are notifications and dropping one is a
+   * real loss.
+   */
+  const deferredSystemSendsRef = useRef<DeferredSystemSend[]>([])
+  const flushingDeferredRef = useRef(false)
   const longRunningTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval>>()
   const lastUserInputRef = useRef<{ message: string; clientTurnId?: string }>({ message: '' })
+  // Transcript honesty (trust item #3): id of the most recent VISIBLE user
+  // bubble. Written when the V5 path adds a user bubble; read by the
+  // retryLast/skipUserBubble path so a retry re-pends and (on the next
+  // outcome) re-marks the ORIGINAL bubble instead of minting a duplicate.
+  const lastVisibleUserBubbleIdRef = useRef<string | null>(null)
   // Tracks the client_turn_id of the most-recently-dispatched V5 turn of ANY
   // kind — visible, hidden, or system. Used by applyV5State's stale-turn
   // guard so that hidden and system responses are NOT falsely treated as
@@ -1386,6 +2439,24 @@ export function useConversation(): UseConversationReturn {
   // Updated at dispatch time at every sendTurn site; read in the response
   // handler to decide whether the arriving response is the current turn.
   const activeV5TurnIdRef = useRef<string | null>(null)
+  // 1.16i: client turn id of the in-flight run_analysis turn, when one is.
+  // Set at V5 run dispatch, cleared in that turn's finally. Read by the
+  // swallow guard so a run re-click neither preempt-aborts the running
+  // analysis nor mints a fresh turn id (which would defeat CEE's coalescing).
+  const activeRunTurnIdRef = useRef<string | null>(null)
+  // Stop-fence (Codex P0): the ids that went ON THE WIRE for the in-flight turn.
+  // Captured at dispatch rather than re-derived in cancelTurn, because the
+  // server tombstone is keyed on (scenario_id, turn_id) and re-deriving would
+  // name the CURRENT scenario — which may no longer be the one this turn was
+  // sent for. A tombstone written against the wrong pair fences nothing and
+  // reports success.
+  const inFlightTurnIdentityRef = useRef<{ scenarioId: string; turnId: string } | null>(null)
+  // The turn ids the user EXPLICITLY stopped. This is what distinguishes a user
+  // Stop from an internal cancellation (timeout, preempt, scenario switch):
+  // cancelTurn owns the terminal notice for these, and sendTurn's abort branch
+  // must not add a second one. Without the distinction, either the early Stop
+  // stays silent (the defect) or a stop-with-preview gets two notices.
+  const explicitlyStoppedTurnIdsRef = useRef<Set<string>>(new Set())
   // Mirror messages state into a ref so buildRequest always reads the latest
   // committed value — avoids stale closure when addMessage + buildRequest run
   // in the same synchronous block (React batches the state update).
@@ -1428,8 +2499,97 @@ export function useConversation(): UseConversationReturn {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Clear conversation when scenario changes (with Track 3 thread hydration)
+  // ── Returning-user continuity ──────────────────────────────────────────
+  // Build the restored view of a stored transcript: the real turns, a
+  // truncation disclosure when (and only when) something was dropped, and a
+  // session-boundary divider marking where the previous session ended.
+  const buildRestoredMessages = useCallback(
+    (restored: NonNullable<ReturnType<typeof loadTranscript>>): ConversationMessage[] => {
+      const out: ConversationMessage[] = []
+      if (restored.droppedCount > 0) {
+        out.push({
+          id: `transcript-truncated-${crypto.randomUUID().slice(0, 8)}`,
+          role: 'assistant',
+          content: '',
+          timestamp: restored.messages[0]?.timestamp ?? new Date(),
+          synthetic: true,
+          sessionDivider: formatTruncationNotice(restored.droppedCount),
+        })
+      }
+      out.push(...restored.messages)
+      // Collapse consecutive boundaries. Each return appends a divider and the
+      // divider is itself persisted, so opening a decision five times without
+      // saying anything stacked five "Session resumed" lines with nothing
+      // between them (seen live 25 Jul). A boundary is only information when
+      // there is something on BOTH sides of it: if the restored history already
+      // ends with a divider, that divider IS this boundary — replace its
+      // timestamp rather than adding another.
+      const last = out[out.length - 1]
+      const endsWithDivider = last != null && typeof last.sessionDivider === 'string'
+      if (endsWithDivider) {
+        out[out.length - 1] = {
+          ...last,
+          timestamp: new Date(),
+          sessionDivider: formatSessionBoundary(new Date()),
+        }
+      } else {
+        out.push({
+          id: `boundary-${crypto.randomUUID().slice(0, 8)}`,
+          role: 'assistant',
+          content: '',
+          timestamp: new Date(),
+          synthetic: true,
+          sessionDivider: formatSessionBoundary(new Date()),
+        })
+      }
+      return out
+    },
+    [],
+  )
+
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
+
+  // MOUNT-TIME restore. This is the path a returning user actually takes and
+  // the one that was missing: on a reload the canvas store initialises
+  // `currentScenarioId` SYNCHRONOUSLY from localStorage
+  // (`store.ts` — `currentScenarioId: scenarios.getCurrentScenarioId()`), so
+  // the id never changes and the scenario-switch effect below NEVER FIRES.
+  // Nothing hydrated the panel, `messages` stayed `[]`, and `OlumiTabBody`
+  // rendered `olumi-tab-empty` — the first-use placeholder — over a fully
+  // restored 19-node model. Verified live on staging 25 Jul 2026.
+  const didMountRestoreRef = useRef(false)
+  useEffect(() => {
+    if (didMountRestoreRef.current) return
+    if (!scenarioId) return
+    didMountRestoreRef.current = true
+    // Only restore into a genuinely empty panel — never over live messages.
+    if (messagesRef.current.length > 0) return
+    try {
+      const restored = loadTranscript(scenarioId)
+      // Only a transcript from an EARLIER page load is something to restore.
+      // One this page load wrote is either already on screen or was cleared
+      // on purpose; replaying it would duplicate the live conversation and
+      // mint a "Session resumed" divider mid-session.
+      if (!restored || !restored.fromPreviousSession) return
+      const next = buildRestoredMessages(restored)
+      messagesRef.current = next
+      setMessages(next)
+    } catch (err) {
+      console.error('[useConversation] Transcript restore failed — starting fresh', err)
+    }
+  }, [scenarioId, buildRestoredMessages])
+
+  // Persist the transcript whenever it changes, so the next session can
+  // restore it. Guest sessions never reach Supabase (`isPersistenceActive` is
+  // false under `VITE_AUTH_MODE=guest`) and the graph itself already rides
+  // localStorage, so the transcript rides the same lifecycle.
+  useEffect(() => {
+    if (!scenarioId) return
+    if (messages.length === 0) return
+    saveTranscript(scenarioId, messages)
+  }, [messages, scenarioId])
+
+  // Clear conversation when scenario changes (with Track 3 thread hydration)
   const prevScenarioRef = useRef(scenarioId)
   useEffect(() => {
     if (scenarioId !== prevScenarioRef.current) {
@@ -1442,6 +2602,23 @@ export function useConversation(): UseConversationReturn {
       if (wasNull && scenarioId) {
         if (import.meta.env.DEV) {
           console.debug('[useConversation] Skipping reset — initial scenario_id assignment:', scenarioId)
+        }
+        // The reset must still be skipped (it would wipe an in-flight turn),
+        // but an EMPTY panel here is the other reload shape — the id arrived
+        // after mount rather than at store-init. Restoring is safe precisely
+        // because there is nothing in flight to protect.
+        if (messagesRef.current.length === 0) {
+          didMountRestoreRef.current = true
+          try {
+            const restored = loadTranscript(scenarioId)
+            if (restored && restored.fromPreviousSession) {
+              const next = buildRestoredMessages(restored)
+              messagesRef.current = next
+              setMessages(next)
+            }
+          } catch (err) {
+            console.error('[useConversation] Transcript restore failed — starting fresh', err)
+          }
         }
         return
       }
@@ -1474,7 +2651,7 @@ export function useConversation(): UseConversationReturn {
             setIsThinking(false)
             useDraftStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
-            setLastFailedInput(null)
+            setLastSendFailure(null)
 
             // Persist session boundary entry (best-effort)
             if (isThreadPersistEnabled()) {
@@ -1498,7 +2675,7 @@ export function useConversation(): UseConversationReturn {
             setIsThinking(false)
             useDraftStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
-            setLastFailedInput(null)
+            setLastSendFailure(null)
           } finally {
             // Clear from store to prevent re-hydration (even on error)
             useCanvasStore.setState({ _hydratedThread: null })
@@ -1507,15 +2684,31 @@ export function useConversation(): UseConversationReturn {
         }
       }
 
-      messagesRef.current = []
+      // A real scenario switch. The CEE session state belongs to the scenario
+      // we are leaving, so it always clears — but the conversation we are
+      // switching TO gets restored when one is stored, so returning to a
+      // decision shows what was left there rather than a blank slate.
       sessionStateRef.current = null
-      setMessages([])
       setIsThinking(false)
       useDraftStore.getState().setIsGenerating(false)
       setLongRunningHint(null)
-      setLastFailedInput(null)
+      setLastSendFailure(null)
+
+      let restoredForSwitch: ConversationMessage[] | null = null
+      if (scenarioId) {
+        try {
+          const restored = loadTranscript(scenarioId)
+          if (restored && restored.fromPreviousSession) {
+            restoredForSwitch = buildRestoredMessages(restored)
+          }
+        } catch (err) {
+          console.error('[useConversation] Transcript restore failed — starting fresh', err)
+        }
+      }
+      messagesRef.current = restoredForSwitch ?? []
+      setMessages(restoredForSwitch ?? [])
     }
-  }, [scenarioId])
+  }, [scenarioId, buildRestoredMessages])
 
   const addMessage = useCallback((msg: ConversationMessage) => {
     setMessages((prev) => {
@@ -1593,7 +2786,7 @@ export function useConversation(): UseConversationReturn {
       clientTurnId?: string
       turnType: TurnType
       systemEventWire?: WireSystemEvent
-      chipMeta?: { action_type: string; parameters?: Record<string, unknown> }
+      chipMeta?: ChipMeta
     }): TurnRequestPayload => {
       const store = useCanvasStore.getState()
       const { nodeIds, edgeIds } = store.selection
@@ -1871,7 +3064,9 @@ export function useConversation(): UseConversationReturn {
             graph_state: graphState,
             selected_elements: selectedElements,
             analysis_state: analysisState,
-            chip_metadata: opts.chipMeta,
+            // V4 wire requires action_type on chip_metadata; identity-only
+            // meta (parameters without action_type) is V5-only.
+            chip_metadata: toLegacyChipMetadata(opts.chipMeta),
             client_turn_id: opts.clientTurnId,
           })
         }
@@ -1924,7 +3119,9 @@ export function useConversation(): UseConversationReturn {
         graph_state: graphState,
         selected_elements: selectedElements,
         analysis_state: analysisState,
-        chip_metadata: opts.chipMeta,
+        // V4 wire requires action_type on chip_metadata; identity-only
+        // meta (parameters without action_type) is V5-only.
+        chip_metadata: toLegacyChipMetadata(opts.chipMeta),
         client_turn_id: opts.clientTurnId,
       })
     },
@@ -1996,11 +3193,23 @@ export function useConversation(): UseConversationReturn {
 
       // Update stage if provided. CEE sends either a plain string or
       // { stage, confidence, source } — extract the stage string.
+      //
+      // The extracted value is in the CANONICAL WIRE vocabulary
+      // (`frame | analyse | decide | review`) and MUST be mapped to the UI/DB
+      // `ScenarioStage` lifecycle vocabulary before it reaches the store —
+      // `currentStage` is persisted to `scenarios.stage`, whose CHECK
+      // constraint admits only `frame | ideate | evaluate | decide | optimise`.
+      // This previously wrote the raw wire value straight through (the
+      // mis-typed `StageIndicatorWire` hid it from the compiler), so a
+      // canonical `analyse` landed as an unrecognised stage: `useStagePill`
+      // failed its `isKnownStage` check and silently fell back to local
+      // derivation. Mirrors the V5 path in `applyV5State.ts`, which already
+      // maps correctly.
       if (envelope.stage_indicator) {
         const raw = envelope.stage_indicator
         const stage = typeof raw === 'string' ? raw : raw.stage
         if (stage) {
-          useCanvasStore.getState().setCurrentStage(stage)
+          useCanvasStore.getState().setCurrentStage(v5StageToScenarioStage(stage))
         }
       }
 
@@ -2033,7 +3242,15 @@ export function useConversation(): UseConversationReturn {
             // Apply the same validate → sanitize → map pipeline as the direct path
             validateV2RunResponseFull(raw) // soft warnings only; don't block on them
             const result = sanitizeV2RunResponse(raw)
-            const seedUsed = typeof store.results.seed === 'number' ? store.results.seed : 0
+            // Receipts fail closed (T2): the only real seed for THIS
+            // response is the engine echo (meta.seed_used). A fabricated 0
+            // and a stale store.results.seed left over from a previous
+            // direct run are both provenance lies — no echo → null → the
+            // Seed receipt row hides.
+            const echoedSeed = result.meta?.seed_used != null
+              ? Number.parseInt(String(result.meta.seed_used), 10)
+              : Number.NaN
+            const seedUsed = Number.isFinite(echoedSeed) ? echoedSeed : null
             const report = mapV2ResponseToReportV1(result, { seed: seedUsed })
             // SAFETY: V2-derived enrichment has sensitivity_analysis.edges/factors with
             // {elasticity, importance_rank} instead of PLoTEdgeSensitivity shape.
@@ -2059,6 +3276,51 @@ export function useConversation(): UseConversationReturn {
                 source: 'conversation',
               },
             })
+
+            // Journey step 8 — reload persistence. resultsComplete above only
+            // hydrates the IN-SESSION results slice; it does NOT write the
+            // scenario row's analysis columns. The standalone Run path persists
+            // via persistAnalysisSuccess (useV2Run.ts:997 → storeAnalysis), so a
+            // Run-button answer survives a reload — but a conversation-driven
+            // analysis (the actual user journey) never reached that call, so
+            // loadScenario found analysis_status !== 'ready' on reload and the
+            // user's answer was lost while the graph (autosaved on its own
+            // subscription) survived. Persist the same V2RunResponse through the
+            // same store_analysis_and_log RPC the Run path uses, so the existing
+            // hydrateAnalysisFromV2Response → resultsHydrateFromSupabase path
+            // restores it on reload — with the honest 'unknown' freshness that
+            // path already stamps, never a fabricated 'fresh'
+            // (store.resultsHydrateFromSupabase). Seed provenance is the same
+            // T2b null-safe echo used for the mapper above — no fabricated 0.
+            //
+            // Best-effort and fire-and-forget, mirroring the createSnapshot call
+            // below and the "always-on normalised persistence" contract
+            // (threadService header): the write is gated on a scenario id, and a
+            // guest / unauthenticated call fails the RPC's row-level security and
+            // is swallowed here rather than surfacing to the user.
+            if (store.currentScenarioId) {
+              const analysisGraphHash = generateGraphHash(store.nodes, store.edges)
+              void storeAnalysis(
+                store.currentScenarioId,
+                raw,
+                analysisGraphHash,
+                seedUsed,
+                result.response_hash,
+                crypto.randomUUID(),
+                {
+                  option_count: Array.isArray(raw.option_comparison)
+                    ? raw.option_comparison.length
+                    : 0,
+                  analysis_status: raw.analysis_status,
+                  source: 'conversation',
+                },
+                envelope.client_turn_id ?? undefined,
+              ).catch((err) => {
+                if (import.meta.env.DEV) {
+                  console.warn('[handleEnvelope] Supabase analysis persistence failed', err)
+                }
+              })
+            }
 
             // BIL Phase 1: cache assembled analysis summary for subsequent turn requests.
             // Always-on persistence — not gated behind BIL preview flag.
@@ -2408,7 +3670,7 @@ export function useConversation(): UseConversationReturn {
         /would leave a node that/i,
       ]
       if (STRUCTURAL_VIOLATION_PATTERNS.some((p) => p.test(assistantText))) {
-        if (import.meta.env.DEV || import.meta.env.VITE_VERBOSE_LOG === 'true') {
+        if (import.meta.env.DEV || import.meta.env?.VITE_VERBOSE_LOG === 'true') {
           console.warn('[useConversation] Task4: Suppressed raw structural violation text:', assistantText.slice(0, 200))
         }
         assistantText = "I wasn't able to make that change safely. Let me try a simpler approach."
@@ -2438,10 +3700,6 @@ export function useConversation(): UseConversationReturn {
       const insights = isV2Format && Array.isArray(rawEnvelope.insights)
         ? rawEnvelope.insights as import('./types').Insight[]
         : undefined
-
-      // Extract base rate elicitation chips from MISSING_BASE_RATE guidance items.
-      // One factor per turn — take only the highest-priority match (lowest number).
-      const baseRateChips = extractBaseRateChipSet(envelope.guidance_items)
 
       // Guard: skip or filter non-conversational assistant turns.
       // Covers empty responses, error fallback text, system sentinels.
@@ -2487,7 +3745,6 @@ export function useConversation(): UseConversationReturn {
           blocks: hasBlocks ? orderedBlocks : undefined,
           actionChips: chips.length > 0 ? chips : undefined,
           insights,
-          baseRateChips,
           isStreaming: false,
           isProvisional: false,
           toolLoadingState: null,
@@ -2500,7 +3757,6 @@ export function useConversation(): UseConversationReturn {
           blocks: hasBlocks ? orderedBlocks : undefined,
           actionChips: chips.length > 0 ? chips : undefined,
           insights,
-          baseRateChips,
           timestamp: new Date(),
           clientTurnId: envelope.client_turn_id,
         }
@@ -2530,30 +3786,107 @@ export function useConversation(): UseConversationReturn {
   // sendTurn — shared core for user messages and system events
   // ---------------------------------------------------------------------------
 
+  /**
+   * Publish the buffer's length so the freshness overlay cannot clear while an
+   * edit is still undispatched. DERIVED from the array itself at every
+   * mutation — never a separately-incremented counter, which would drift and
+   * (on an over-decrement) silently re-enable the false "fresh".
+   */
+  /**
+   * Publish the hold count — SCENARIO-SCOPED.
+   *
+   * Only entries belonging to the CURRENTLY-OPEN scenario count. An edit queued
+   * against scenario A must not hold scenario B's freshness overlay dirty: that
+   * would manufacture a "model changed" banner in a decision the user never
+   * touched, and `noteRunCompletedWithoutVerdict` assigns dirty straight from
+   * this count, so a leaked value there is a fabricated verdict, not just a
+   * cosmetic slip.
+   *
+   * Still DERIVED from the buffer at every mutation, never incremented.
+   */
+  const publishPendingEditCount = useCallback(() => {
+    const scenarioNow = useCanvasStore.getState().currentScenarioId ?? null
+    const modelEdits = deferredSystemSendsRef.current.filter(
+      (d) => d.opts.systemEvent?.type === 'factor_value_edit' && d.scenarioId === scenarioNow,
+    ).length
+    useCanvasStore.getState().setPendingEmittedEdits?.(modelEdits)
+  }, [])
+
+  /** Human-readable identity of a queued edit, for the honest-discard notice. */
+  const describeDeferred = useCallback((entry: DeferredSystemSend): string => {
+    const pl = entry.opts.systemEvent?.payload as Record<string, unknown> | undefined
+    const target = typeof pl?.target_id === 'string' ? pl.target_id : 'a factor'
+    const label =
+      useCanvasStore.getState().nodes.find((n) => n.id === target)?.data?.label ?? target
+    const shown = typeof pl?.raw_value === 'number' ? pl.raw_value : pl?.value
+    return `${String(label)}${shown != null ? ` (${String(shown)})` : ''}`
+  }, [])
+
+  const enqueueDeferredSystemSend = useCallback((opts: SendTurnOpts) => {
+    const ev = opts.systemEvent
+    const targetId = typeof ev?.payload?.target_id === 'string' ? ev.payload.target_id : null
+    // LAST-WRITE-WINS per target, but ONLY for the value-carrying edit: if the
+    // user typed 20000, then corrected it to 25000 before the lock cleared,
+    // 25000 is the truth and replaying 20000 after it would persist the wrong
+    // number. Every other event kind appends — they are notifications, and
+    // collapsing two of them loses information rather than superseding it.
+    //
+    // ⚠ THE KEY DELIBERATELY OMITS `field`. That is safe ONLY because the
+    // contract's `field` is the literal 'value' — the single edited field — so
+    // every factor_value_edit for one target is genuinely superseding. If that
+    // literal is ever widened to a union (e.g. 'baseline'), edits to DIFFERENT
+    // fields of the same factor would collapse into one and the last one would
+    // silently erase the other. Widening `field` therefore REQUIRES adding it
+    // to this key.
+    const key =
+      ev?.type === 'factor_value_edit' && targetId
+        ? `factor_value_edit:${targetId}`
+        : `${String(ev?.type)}:${deferredSystemSendsRef.current.length}:${Date.now()}:${Math.random()}`
+
+    // Stamp the scenario at ENQUEUE time. Dispatch reads the scenario fresh, so
+    // without this an edit queued in A would flush into whatever decision
+    // happens to be open when the lock clears.
+    const scenarioId = useCanvasStore.getState().currentScenarioId ?? null
+    const entry: DeferredSystemSend = { key, opts, scenarioId, attempts: 0 }
+
+    const existing = deferredSystemSendsRef.current.findIndex((d) => d.key === key)
+    if (existing >= 0) {
+      // Replace IN PLACE so ordering across DISTINCT targets is preserved —
+      // moving the entry to the tail would reorder edits to other factors.
+      // `attempts` resets deliberately: this is a NEW value, not a retry of the
+      // failed one, so it deserves a full set of attempts.
+      //
+      // ROADMAP 2.129 (b): the revert SNAPSHOT does NOT follow last-write-wins.
+      // 3→25 then 25→30, both still undispatched, means the server has seen
+      // neither and still holds 3 — so a refusal of 30 must restore 3, not the
+      // intermediate 25 the server never held. The value being sent is the new
+      // one; the state to restore is the ORIGINAL one.
+      entry.opts = {
+        ...entry.opts,
+        optimisticFactorEdit: mergeOptimisticFactorEdit(
+          deferredSystemSendsRef.current[existing].opts.optimisticFactorEdit,
+          entry.opts.optimisticFactorEdit,
+        ),
+      }
+      deferredSystemSendsRef.current[existing] = entry
+    } else {
+      deferredSystemSendsRef.current.push(entry)
+    }
+    if (import.meta.env.DEV) {
+      console.warn(`[sendTurn] system send DEFERRED behind in-flight lock (${key}); will flush when the lock clears`)
+    }
+    publishPendingEditCount()
+  }, [publishPendingEditCount])
+
+  /**
+   * Assigned after `sendTurn` exists (the flush dispatches through it, and
+   * `sendTurn` in turn triggers the flush when it releases the lock — the ref
+   * breaks that definition cycle without reordering the file).
+   */
+  const flushDeferredSystemSendsRef = useRef<() => void>(() => {})
+
   const sendTurn = useCallback(
-    async (opts: {
-      message: string
-      /** Text shown in conversation bubble (defaults to message) */
-      displayText?: string
-      systemEvent?: SystemEvent
-      mode: 'user' | 'system'
-      /** When true, send the request but don't show a user bubble (e.g. programmatic "run it") */
-      hidden?: boolean
-      /** When true, skip adding a user bubble but keep error handling active (retry path) */
-      skipUserBubble?: boolean
-      /** Reuse a previous client_turn_id for idempotent retry */
-      retryClientTurnId?: string
-      source?: string
-      sourceSurface?: string
-      parentChainId?: string | null
-      initiatedBy?: 'user' | 'automatic'
-      rightPanelAccidentallySubmittedComposerContent?: boolean
-      turnType?: Exclude<TurnType, 'system_event'>
-      /** Deterministic chip metadata forwarded for CEE action routing */
-      chipMeta?: { action_type: string; parameters?: Record<string, unknown> }
-      /** When true, render the user bubble as a compact action indicator */
-      chipInitiated?: boolean
-    }) => {
+    async (opts: SendTurnOpts): Promise<SendTurnOutcome> => {
       const {
         message,
         systemEvent,
@@ -2572,21 +3905,52 @@ export function useConversation(): UseConversationReturn {
         chipInitiated,
       } = opts
 
+      // 1.16i swallow guard: a run_analysis (re-)click while a run turn is
+      // ALREADY in flight is swallowed — no preempt-abort of the running
+      // analysis, no fresh turn id, one telemetry event. This is what stops
+      // the re-click storm (each old re-click aborted the in-flight request
+      // and minted a new client_turn_id, defeating CEE's coalescing). A
+      // non-run turn in flight is NOT swallowed — the user may still
+      // deliberately preempt a chat turn with a run (pre-existing rule).
+      const isRunAnalysisSend =
+        !systemEvent && resolveUserTurnType(source, hidden, turnType) === 'run_analysis'
+      if (inFlightRef.current && isRunAnalysisSend && activeRunTurnIdRef.current) {
+        trackEvent('run_click_swallowed', {
+          inflight_turn_id: activeRunTurnIdRef.current,
+          source: source ?? 'unknown',
+        })
+        if (import.meta.env.DEV) {
+          console.warn('[sendTurn] Run re-click swallowed — analysis turn already in flight')
+        }
+        return
+      }
+
       // Synchronous in-flight lock — prevents duplicate dispatch from rapid
       // double-clicks before React re-renders the isThinking state guard.
       //
       // v5-ui-exclusive-path brief: when flag is on AND the new caller is
       // a user-initiated free-text / chip send (not a retry or system
       // event), abort the in-flight V5 request rather than drop the send.
-      // Retry/system-event callers still queue (blocked) because they
-      // shouldn't preempt a user's active turn.
+      //
+      // ⚠ THIS COMMENT USED TO SAY "Retry/system-event callers still queue
+      // (blocked)". THAT WAS FALSE, and the falsehood was load-bearing: NO
+      // queue existed anywhere (grep-confirmed) — the branch was a bare
+      // `return`, so a system-event send made during any in-flight turn was
+      // DROPPED, silently, with the promise resolving as if it had been sent.
+      // Because the analysis lock is held for a whole run round trip, an
+      // inspector edit during an analysis was ALWAYS lost, and the completing
+      // run's own verdict then cleared the dirty overlay and affirmed the
+      // stale numbers as fresh. A queue now genuinely exists (see
+      // `deferredSystemSendsRef`) and this comment describes it truthfully.
+      // Retry callers still do not preempt a user's active turn, but they are
+      // now told so via a sentinel rather than a silent resolve.
       //
       // Generation token prevents the aborted run's finally block from
       // clearing the lock while a newer run is executing. Each run
       // captures its own token at dispatch and only clears the lock in
       // its finally if its token still matches the current generation.
       if (inFlightRef.current) {
-        const v5FlagOn = import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR === 'true'
+        const v5FlagOn = import.meta.env?.VITE_ENABLE_V5_ORCHESTRATOR === 'true'
         const isUserPreempt =
           v5FlagOn
           && opts.mode === 'user'
@@ -2595,9 +3959,25 @@ export function useConversation(): UseConversationReturn {
         if (isUserPreempt) {
           if (import.meta.env.DEV) console.warn('[sendTurn] Preempting in-flight V5 request for new user send')
           abortRef.current?.abort()
+          // The aborted turn only clears isThinkingRef in its async finally,
+          // which runs AFTER the aborted fetch settles. Clear it synchronously
+          // here so this preempting send is not immediately blocked by the
+          // isThinking guard below — otherwise the in-flight turn is aborted
+          // AND the user's new message is silently dropped, contradicting the
+          // preempt design ("abort the in-flight request rather than drop the
+          // send"). The aborted run's late finally is ownership-guarded
+          // (generation token + active-turn ref) so it cannot clobber this
+          // newer turn's lock or analysing state.
+          isThinkingRef.current = false
+        } else if (opts.mode === 'system' && opts.systemEvent) {
+          // DEFER, do not drop. Returns a sentinel so the caller can tell this
+          // apart from a dispatched turn — the old bare `return` could not be
+          // distinguished from success by any caller, in prod or in a test.
+          enqueueDeferredSystemSend(opts)
+          return SEND_DEFERRED
         } else {
           if (import.meta.env.DEV) console.warn('[sendTurn] Blocked by in-flight lock (rapid double-click?)')
-          return
+          return SEND_BLOCKED
         }
       }
       inFlightRef.current = true
@@ -2607,6 +3987,12 @@ export function useConversation(): UseConversationReturn {
       const releaseInFlightLockIfOwned = () => {
         if (inFlightGenerationRef.current === inFlightGeneration) {
           inFlightRef.current = false
+          // The lock is the ONLY thing that was blocking the deferred sends, so
+          // draining here is what makes the buffer a queue rather than a
+          // graveyard. Every return/finally path already funnels through this
+          // helper, which is why the flush is attached to it rather than to one
+          // exit site (there are eight).
+          flushDeferredSystemSendsRef.current()
         }
       }
 
@@ -2618,6 +4004,36 @@ export function useConversation(): UseConversationReturn {
       // reads this ref, not lastUserInputRef, so hidden/system responses
       // are not dropped just because the user did not type.
       activeV5TurnIdRef.current = turnClientId
+      // Stop-fence: capture the stop identity HERE, at the point every turn kind
+      // passes through, not only in the V5 branch. The V5 branch refines it below
+      // once `currentScenarioId` is definitively resolved (it can MINT a scenario
+      // id), but a capture that only existed there would leave the legacy
+      // streaming path unable to name its turn to the server — and the symptom
+      // would be the honest-but-useless "could not confirm" notice on every stop,
+      // indistinguishable from a real outage. Caught by the hook spec, which
+      // drives the streaming path.
+      {
+        // ── `inFlightTurnIdentityRef` — COMPLETE MANIFEST (#534 round-3, F5b;
+        //    R-17: sites named by SYMBOL, not line number — line refs drift with
+        //    every edit above them, symbols don't) ──
+        //   new    the `useRef<{ scenarioId, turnId } | null>(null)` declaration,
+        //          directly above `explicitlyStoppedTurnIdsRef`
+        //   WRITE  here — the dispatch-time capture, every turn kind, before
+        //          setIsThinking(true)
+        //   WRITE  the V5 refinement (the `Stop-fence: refine the dispatch-time
+        //          capture` block just before `buildV5Payload` — may mint a
+        //          scenario id). ⚠ THAT SITE HAS ZERO COVERAGE IN THIS PR: every
+        //          stop-fence test in this branch drives the LEGACY streaming
+        //          seam, so only the write here is exercised. Stated rather than
+        //          implied.
+        //   READ   cancelTurn (`const identity = inFlightTurnIdentityRef.current`),
+        //          the only reader.
+        //   No other reference. There is no delete: this write is the reset.
+        const scenarioAtDispatch = useCanvasStore.getState().currentScenarioId
+        inFlightTurnIdentityRef.current = scenarioAtDispatch
+          ? { scenarioId: scenarioAtDispatch, turnId: turnClientId }
+          : null
+      }
       const triggerSurface = pendingContext?.triggerSurface ?? mapTriggerSurface(source, mode, hidden === true, systemEvent)
       const resolvedSourceSurface = sourceSurface ?? pendingContext?.sourceSurface ?? mapSourceSurface(triggerSurface, mode)
       const interactionStateBefore = pendingContext?.stateBefore ?? createInteractionSnapshot(messages.length)
@@ -2641,11 +4057,11 @@ export function useConversation(): UseConversationReturn {
       // is off (rollback path).
       //
       // This block owns the full request lifecycle: AbortController, timeout
-      // timer, long-running hint, recordUserAction, lastFailedInput. System
+      // timer, long-running hint, recordUserAction, lastSendFailure. System
       // events never render a user bubble — enforced via
       // `mode === 'system'`, not the incidental `hidden` flag.
       const v5Eligibility = isV5Eligible({
-        flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR,
+        flag: import.meta.env?.VITE_ENABLE_V5_ORCHESTRATOR,
       })
       if (v5Eligibility.eligible) {
         const isSystemEvent = mode === 'system'
@@ -2676,7 +4092,7 @@ export function useConversation(): UseConversationReturn {
             },
           })
           lastUserInputRef.current = { message, clientTurnId: turnClientId }
-          setLastFailedInput(null)
+          setLastSendFailure(null)
         } else if (hidden && source === 'right_panel_action') {
           recordUserAction({
             actionType: 'clicked run analysis',
@@ -2686,16 +4102,32 @@ export function useConversation(): UseConversationReturn {
 
         // User bubble — HARD RULE: system events never get one, and `hidden`
         // turns skip the bubble too. See docs/v5/ui-outbound-payload-coverage.md.
+        //
+        // Transcript honesty (trust item #3): the bubble starts
+        // deliveryState 'pending' and this turn's outcome resolves it to
+        // 'sent' or 'failed' — a send lost to a 504 must not sit in the
+        // transcript looking identical to a delivered one. A retryLast
+        // re-dispatch (skipUserBubble) re-pends the ORIGINAL bubble so the
+        // failed marker clears for the new attempt without a duplicate.
+        let userBubbleIdForTurn: string | null = null
         if (addUserBubble) {
+          userBubbleIdForTurn = crypto.randomUUID()
+          lastVisibleUserBubbleIdRef.current = userBubbleIdForTurn
           addMessage({
-            id: crypto.randomUUID(),
+            id: userBubbleIdForTurn,
             role: 'user',
             content: displayText ?? message,
             displayContent: displayText,
             submittedPrompt: message,
             timestamp: new Date(),
+            deliveryState: 'pending',
             ...(chipInitiated ? { chipInitiated: true } : {}),
           })
+        } else if (skipUserBubble && mode === 'user' && !hidden) {
+          userBubbleIdForTurn = lastVisibleUserBubbleIdRef.current
+          if (userBubbleIdForTurn) {
+            updateMessage(userBubbleIdForTurn, { deliveryState: 'pending' })
+          }
         }
 
         // Lazy UUID allocation — mirrors V4 buildRequest above.
@@ -2717,6 +4149,17 @@ export function useConversation(): UseConversationReturn {
           ? 'system_event'
           : resolveUserTurnType(source, hidden, turnType)
 
+        // 1.16i: authoritative analysing state — set synchronously at run
+        // dispatch so every isRunning gate (OutputsDock, ConversationPanel)
+        // and the visible processing furniture hold for the whole turn.
+        // Settled in this turn's finally; a landed analysis_result flips
+        // 'complete' via applyV5State before the settle no-ops.
+        const isRunAnalysisTurn = resolvedTurnType === 'run_analysis'
+        if (isRunAnalysisTurn) {
+          useCanvasStore.getState().resultsAnalysing()
+          activeRunTurnIdRef.current = turnClientId
+        }
+
         // Derive stage from canvas state (UI-SEM-020 pattern). turn_class
         // stays advisory ('frame') — CEE types.ts notes propose/decide/review
         // are unreachable placeholders and yield UnhandledTurnClassError.
@@ -2729,6 +4172,11 @@ export function useConversation(): UseConversationReturn {
           isAnalysisComplete:
             canvasSnap.results.status === 'complete' || canvasSnap.hasCompletedFirstRun,
         })
+        // Stop-fence: refine the dispatch-time capture with the id that is
+        // actually going on the wire — this branch may have minted a scenario.
+        inFlightTurnIdentityRef.current = currentScenarioId
+          ? { scenarioId: currentScenarioId, turnId: turnClientId }
+          : inFlightTurnIdentityRef.current
         const build = buildV5Payload({
           turnId: turnClientId,
           scenarioId: currentScenarioId,
@@ -2742,9 +4190,40 @@ export function useConversation(): UseConversationReturn {
         })
 
         if (!build.ok) {
-          // buildV5Payload refused — missing message or unsupported system
-          // event. Surface a typed error rather than a malformed request.
+          // buildV5Payload refused. Surface a typed error rather than a
+          // malformed request.
+          //
+          // ⚠ The `mode === 'user'` branch below is currently UNREACHABLE, and
+          // a 2026-07-20 review that mapped this as "the exit that sets no
+          // failure notice" missed why. buildV5Payload can fail three ways:
+          //   · 'missing_message'          — mode 'user' only, and the guard at
+          //     the top of this block (`if (mode === 'user' && !message.trim())`)
+          //     already returned, so it never gets here;
+          //   · 'unsupported_system_event' — reachable only via
+          //     buildSystemEventPayload, i.e. mode === 'system', which fails
+          //     this very `mode === 'user'` test;
+          //   · 'unencodable_graph_edit'   — F6, mode === 'system' only (see the
+          //     retryable branch immediately below).
+          // So for a user send this is dead, and adding a failure notice here
+          // would be dead code. Left in place as a defensive backstop; if a
+          // third refusal reason is ever added for user mode, it MUST raise a
+          // SendFailureNotice — the hero has no transcript to show the
+          // synthetic bubble below.
+          //
+          // F6: a batch direct_graph_edit whose ids yield no encodable
+          // representative target is a RETRYABLE failure (mode === 'system').
+          // Route it through the failed-event path (setLastSendFailure) so it is
+          // NOT a silent drop and the DEV-only warning below is no longer its
+          // only trace. `kind: 'transport'` — nothing reached CEE; `inputText`
+          // stays '' (a system event has no composer text to restore).
+          if (build.reason === 'unencodable_graph_edit') {
+            setLastSendFailure({ kind: 'transport', retryable: true, inputText: '' })
+          }
           if (mode === 'user' && !hidden) {
+            // Nothing was dispatched — the bubble must not read as sent.
+            if (userBubbleIdForTurn) {
+              updateMessage(userBubbleIdForTurn, { deliveryState: 'failed' })
+            }
             const msg = build.reason === 'missing_message'
               ? 'Please enter a message.'
               : "This action isn't supported yet. Try a different approach."
@@ -2789,14 +4268,54 @@ export function useConversation(): UseConversationReturn {
           setIsThinking(false)
           useDraftStore.getState().setIsGenerating(false)
           setLongRunningHint(null)
-          if (inputForRestore) setLastFailedInput(inputForRestore)
-          if (mode === 'user' && !hidden) {
+          // ROADMAP 2.122 round 2 (review F1, adjacent) — a streamed draft that
+          // already put a graph on the canvas must NOT be told "your message has
+          // not gone through". It did go through: the server produced and
+          // validated a graph, and the turn keeps running after this client
+          // stops listening (2.719 correction: whether it COMMITS is not
+          // knowable here — the fence's first-write exemption makes the
+          // commit the common case, and a refused/failed commit is surfaced
+          // by the server's draft-loss notice on the next reply). The
+          // generic timeout copy, the `deliveryState: 'failed'` marker and the
+          // timeout send-failure would all be false here, and would contradict
+          // the honest notice the abort path is about to add. Derived from the
+          // store, so it cannot disagree with the phase machine.
+          const streamedPreviewStanding = streamedPreviewStandingFor(
+            useDraftStore.getState(),
+            turnClientId,
+            currentScenarioId,
+          )
+          if (mode === 'user' && !hidden && !streamedPreviewStanding) {
+            // ROADMAP 2.665 — TRANSCRIPT HONESTY, CORRECTED.
+            //
+            // This branch used to mark the bubble `failed` and say "We stopped
+            // waiting, so your message has not gone through." Both were false.
+            // We stopped waiting; the SERVER did not. CEE runs the turn to
+            // completion and commits it — live-witnessed 2026-08-07, client
+            // gave up at 60.0s while the same turn returned 200 at 123.1s with
+            // its rows written. What actually happened here is UNKNOWN to this
+            // client, and it stays unknown: no status route exists to poll and
+            // `v5_conversation_turns` has zero readers in this codebase, so
+            // there is nothing to reconcile against on this render or any
+            // later one. See `deliveryUnknown.ts` for the full derivation.
+            //
+            // No retry chip: a retry DUPLICATES. CEE keys its commit on its own
+            // per-HTTP-request id, not on `payload.turn_id`, and this client
+            // sends no request-id header for it to reuse.
+            if (userBubbleIdForTurn) {
+              updateMessage(userBubbleIdForTurn, { deliveryState: 'unconfirmed' })
+            }
+            if (inputForRestore) {
+              // `retryable: false` — the copy-agrees-with-affordance rule. No
+              // retry is offered, so none is advertised. The text is still
+              // carried for restore-into-composer.
+              setLastSendFailure({ kind: 'timeout', retryable: false, inputText: inputForRestore })
+            }
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
-              content: 'This is taking longer than expected. Try again or rephrase your message.',
+              content: WAIT_EXPIRY_UNKNOWN_COPY,
               synthetic: true,
-              actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
               timestamp: new Date(),
             })
           }
@@ -2831,13 +4350,71 @@ export function useConversation(): UseConversationReturn {
           setLongRunningHint(null)
         }
 
+        // System-event send-failure carrier. Populated ONLY on a system-mode
+        // failure (typed error / thrown dispatch), then rethrown AFTER the
+        // `finally` settles lifecycle state so `sendSystemEvent` — and through
+        // it FeedbackRow / handlePatchAccept / the graph-edit dispatcher — can
+        // react. See the SystemEventSendError contract above. Never set for
+        // user-mode turns, which surface in-transcript and return void.
+        let systemSendFailure: SystemEventSendError | null = null
+
+        // ROADMAP 2.122 — set by the streamed path (see below). `…OwnsCanvas`
+        // says "the nodes on the canvas are this turn's own GRAPH_READY
+        // preview", which is what lets the terminal ingest take the fresh-draft
+        // branch instead of mistaking its own preview for an applied-edit
+        // receipt. `…Unsettled` says the values will not settle in this session.
+        let streamedPreviewOwnsCanvas = false
+        let streamedUnsettled = false
+
         try {
-          // Resolve user ID once — used for both the X-User-Id request header
-          // and the post-response graph re-fetch auth guard. A single call
-          // avoids two getSession() round-trips per turn.
-          const v5UserId = await getUserId()
-          const v5Headers: Record<string, string> = v5UserId ? { 'X-User-Id': v5UserId } : {}
-          const v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
+          // Resolve session identity once — X-User-Id + Authorization Bearer
+          // (login 3.4 UI half) and the post-response graph re-fetch auth
+          // guard. A single call avoids two getSession() round-trips per turn.
+          const v5Identity = await getSessionIdentity()
+          const v5UserId = v5Identity.userId
+          const v5Headers: Record<string, string> = buildTurnAuthHeaders(v5Identity)
+
+          // ═══════════════════════════════════════════════════════════════════
+          // ROADMAP 2.122 / 1.204 M1 — THE STREAMED COLD DRAFT
+          // ═══════════════════════════════════════════════════════════════════
+          //
+          // A cold draft turn goes to the streamed sibling
+          // (`<turn endpoint>/stream`, CEE #751) so the validated graph reaches
+          // the canvas at ~36 s instead of ~55–61 s. Live-measured on deployed
+          // staging (`PHASE0-EVIDENCE-2026-07-28/cee2-live-latency.md`, 3 runs):
+          // DRAFTING 271 ms · GRAPH_READY 35.8 s median (33.7–39.9 s) ·
+          // COACHING_READY 59.2 s · COMPLETE 60.9 s, genuinely streamed through
+          // both Cloudflare and Render, CORS clean, and the turn COMMITS exactly
+          // as the buffered one does.
+          //
+          // Eligibility is deliberately narrow — see `streamedDraftEligible`.
+          //
+          // Everything below the `if` is unchanged: `v5Result` is the SAME
+          // `V5CallResult` shape either way, because the streamed terminal frame
+          // carries the buffered body verbatim and goes back through
+          // `parseV5Response`. No second ingest exists to keep in step.
+          const useStreamedDraft = streamedDraftEligible({
+            turnType: resolvedTurnType,
+            derivedStage,
+            isSystemEvent,
+            nodeCountAtDispatch: canvasSnap.nodes.length,
+          })
+
+          let v5Result: V5CallResult
+          if (useStreamedDraft) {
+            const streamed = await runStreamedDraftTurn({
+              payload: build.payload,
+              turnClientId,
+              scenarioIdAtDispatch: currentScenarioId,
+              headers: v5Headers,
+              signal: controller.signal,
+            })
+            v5Result = streamed.result
+            streamedPreviewOwnsCanvas = streamed.previewOwnsCanvas
+            streamedUnsettled = streamed.unsettled
+          } else {
+            v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
+          }
           clearLifecycleTimers()
 
           // Race guard: if the controller was aborted while the fetch was in
@@ -2852,6 +4429,119 @@ export function useConversation(): UseConversationReturn {
           }
 
           const target = routeV5Response(v5Result)
+
+          // ROADMAP 2.129 (b) — resolve the OPTIMISTIC value write against what
+          // the server actually did with it.
+          //
+          // A refusal is not a failure: CEE answers 200 with plain prose ("Value
+          // 25 months exceeds the factor's cap of 6 months. I haven't changed
+          // anything."), `blocks: []`, no `analysis_ready`, no `graph_hash`. The
+          // promise resolves, so no `catch` anywhere can see it — which is why
+          // the canvas kept showing 25 months, stamped "User edited", while the
+          // engine held 3 and every re-run returned byte-identical numbers.
+          //
+          // Guards, in order of what they protect:
+          //   • a response body must exist — a `typed_error` is a FAILURE, and
+          //     failures are the deferral buffer's business (it retries and, at
+          //     the attempt cap, raises an honest transcript notice). Reverting
+          //     here would race that.
+          //   • the turn must still be the active one. A response whose turn has
+          //     been superseded must not write state — the same stale-turn rule
+          //     `applyV5State` enforces, and a late revert is a silent overwrite
+          //     of newer truth.
+          //   • the revert itself stands down unless the node still holds the
+          //     number this turn sent (see `revertOptimisticFactorEdit`).
+          const optimisticEdit = opts.optimisticFactorEdit
+          if (
+            optimisticEdit &&
+            systemEvent?.type === 'factor_value_edit' &&
+            target.kind !== 'typed_error' &&
+            activeV5TurnIdRef.current === turnClientId
+          ) {
+            const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId)
+            if (!applied) {
+              const outcome = revertOptimisticFactorEdit(optimisticEdit)
+              if (import.meta.env.DEV) {
+                console.warn(
+                  `[sendTurn] CEE did not apply the edit to ${optimisticEdit.nodeId}; optimistic write ${outcome}`,
+                )
+              }
+            } else {
+              // ROADMAP 2.304 — the OTHER half of the same decision. The
+              // reviewed stamp ("checked by you") is a claim about what the
+              // ENGINE holds, so it is written here, against the receipt, and
+              // nowhere else. Callers that pass no stamp (Model tab, inspector)
+              // are unaffected: `confirmOptimisticFactorEdit` returns
+              // 'no_stamp' and writes nothing.
+              const outcome = confirmOptimisticFactorEdit(optimisticEdit)
+              if (import.meta.env.DEV && outcome === 'value_moved_on') {
+                console.warn(
+                  `[sendTurn] receipt for ${optimisticEdit.nodeId} arrived after the value moved on; reviewed stamp withheld`,
+                )
+              }
+
+              // ROADMAP 2.312 — THE SILENT REBASE, said out loud.
+              //
+              // The canvas does not hydrate from the server on boot (measured:
+              // the whole boot manifest fetches no graph), so the number the
+              // user typed over can be one the engine stopped holding. The
+              // receipt is the first and only moment the engine's OWN base for
+              // this edit becomes visible to the client — so it is the moment
+              // the divergence is checkable, and it is checked here.
+              //
+              // AFTER the confirm, deliberately. The value and its "checked by
+              // you" stamp are both TRUE — the engine applied the number the
+              // user chose — so neither is withheld. What was untrue is the
+              // implicit claim that the canvas matched the engine, and that is
+              // what this corrects. Reverting instead would swap a silent wrong
+              // base for a silently discarded edit.
+              //
+              // `detectSilentRebase` reports only what it can prove and returns
+              // null otherwise, so the common case (canvas in step with the
+              // engine) adds no message and no behaviour change at all.
+              const divergence = detectSilentRebase(optimisticEdit, target.response)
+              if (divergence) {
+                const factorLabel = String(
+                  useCanvasStore.getState().nodes.find((n) => n.id === divergence.nodeId)?.data
+                    ?.label ?? divergence.nodeId,
+                )
+                addMessage({
+                  id: crypto.randomUUID(),
+                  role: 'assistant',
+                  synthetic: true,
+                  timestamp: new Date(),
+                  content: describeRebaseDivergence(divergence, factorLabel),
+                })
+              }
+            }
+          }
+
+          // Transcript honesty: resolve this turn's user bubble. Any server
+          // response (including an empty one) means the send was delivered;
+          // only typed_error leaves it failed. Resolved BEFORE rendering so
+          // the marker and the outcome message land in the same commit.
+          //
+          // ROADMAP 2.665: 'failed' is a CLAIM, and one shape of typed_error
+          // cannot support it. A proxy/edge timeout body (transport-class,
+          // `network === false`) means the request DID reach CEE and something
+          // downstream stopped waiting — CEE commits that turn anyway. Marking
+          // it "Not delivered" asserts something this client cannot check, so
+          // it resolves to 'unconfirmed' instead. Network throws and CEE-class
+          // errors are unchanged: both are verified.
+          if (userBubbleIdForTurn) {
+            const unverified =
+              target.kind === 'typed_error' &&
+              isUnverifiedDelivery({
+                hasBoundaryError: target.boundaryError !== undefined,
+                transportMeta: target.transportMeta,
+                recovery: extractCeeRecovery(target.boundaryError ?? target.rawBody),
+                rawBody: target.rawBody,
+              })
+            updateMessage(userBubbleIdForTurn, {
+              deliveryState:
+                target.kind !== 'typed_error' ? 'sent' : unverified ? 'unconfirmed' : 'failed',
+            })
+          }
 
           if (target.kind === 'text_only' || target.kind === 'blocks') {
             // Apply side-effects (stage, graph_patch mutations) BEFORE the
@@ -2878,6 +4568,14 @@ export function useConversation(): UseConversationReturn {
               {
                 ...v5StoreSnapshot,
                 currentResultsHash: v5StoreSnapshot.results?.hash ?? null,
+                // ROADMAP 1.22: wire the shared backfill helper (writes via
+                // a direct store.setState, not updateNode — see the
+                // V5ApplicatorStore.backfillGoalThreshold doc comment for
+                // why: updateNode's analytical-field-change guard would
+                // otherwise treat CEE echoing its own just-received
+                // threshold back as a user edit and invalidate the fresh
+                // analysis this same turn just set).
+                backfillGoalThreshold: backfillGoalThresholdOntoGoalNode,
               },
               {
                 turnClientId,
@@ -2908,22 +4606,28 @@ export function useConversation(): UseConversationReturn {
             // states (scenario switch in store.ts; orphan classification
             // computed by useAnalysisStateSource).
             //
-            // Per correction 3: the v5AnalysisFact slice is only written
-            // when CEE emitted real run_analysis fact signals (an
-            // analysis_result block plus freshness='fresh' or explicit
-            // has_run_analysis_fact=true). Generic readiness is never a
-            // substitute.
+            // Per correction 3 (as amended by F10): the v5AnalysisFact slice
+            // is only written when the response carries real run signals —
+            // explicit has_run_analysis_fact=true, OR an analysis_result
+            // block regardless of the freshness verdict (a stale-verdict run
+            // still RAN; "ran" and "current" are different questions).
+            // Generic readiness is never a substitute. The whole decision —
+            // set (with the COMPOSED hasRunAnalysisFact, never CEE's raw
+            // nullable flag) / clear / retain — lives in
+            // deriveV5AnalysisFactUpdate so the mint→classify seam is pinned
+            // against the production path.
             const phase3 = extractPhase3FromV5Response(target.response)
-            const factPresent = v5ResponseHasRunAnalysisFact(target.response, phase3)
-            if (factPresent) {
+            const factUpdate = deriveV5AnalysisFactUpdate(target.response, phase3)
+            const factPresent = factUpdate.action === 'set'
+            if (factUpdate.action === 'set') {
               const analysisHash = useCanvasStore.getState().results?.hash ?? null
               useCanvasStore.getState().setV5AnalysisFact({
                 scenarioId: useCanvasStore.getState().currentScenarioId,
                 analysisHash,
-                hasRunAnalysisFact: phase3.hasRunAnalysisFact,
-                freshness: phase3.analysisFreshness,
-                freshnessReason: phase3.freshnessReason,
-                rawBlocks: phase3.rawBlocks.map((b) => ({
+                hasRunAnalysisFact: factUpdate.hasRunAnalysisFact,
+                freshness: factUpdate.freshness,
+                freshnessReason: factUpdate.freshnessReason,
+                rawBlocks: factUpdate.rawBlocks.map((b) => ({
                   type: b.type,
                   raw: b.raw,
                   id: b.id,
@@ -2931,15 +4635,14 @@ export function useConversation(): UseConversationReturn {
                 })),
                 writtenAt: Date.now(),
               })
-            } else if (phase3.hasRunAnalysisFact === false ||
-                       phase3.analysisFreshness === 'none') {
+            } else if (factUpdate.action === 'clear') {
               // CEE explicitly says "no successful run_analysis fact" — this
               // is a legitimate clear (not a blind one). Drop the slice.
               useCanvasStore.getState().setV5AnalysisFact(null)
             }
-            // else: response carries no signal either way — leave the
-            // existing fact slice untouched. Conversational turns must not
-            // wipe a prior analysis fact.
+            // else ('retain'): response carries no signal either way — leave
+            // the existing fact slice untouched. Conversational turns must
+            // not wipe a prior analysis fact.
 
             // Populate GuidanceStore from derived Phase 3 items ONLY when
             // the response carries them. Empty Phase 3 on a conversational
@@ -2947,20 +4650,9 @@ export function useConversation(): UseConversationReturn {
             // V4 envelope path's guidance writes and erase legitimate
             // coaching from a prior turn.
             if (phase3.guidanceItems.length > 0) {
-              const guidance: GuidanceItem[] = phase3.guidanceItems.map((g) => ({
-                item_id: g.item_id,
-                signal_code: g.signal_code,
-                category: g.category,
-                source: g.source,
-                title: g.title,
-                ...(g.detail ? { detail: g.detail } : {}),
-                primary_action: g.primary_action,
-                ...(g.target_object ? { target_object: g.target_object } : {}),
-                ...(g.related_elements ? { related_elements: g.related_elements } : {}),
-                ...(g.valid_while ? { valid_while: g.valid_while } : {}),
-                priority: g.priority,
-              }))
-              useGuidanceStore.getState().setGuidanceItems(guidance)
+              useGuidanceStore
+                .getState()
+                .setGuidanceItems(phase3.guidanceItems.map(toStoreGuidanceItem))
             }
 
             // Primary path: inline graph in response.draft_graph (CEE v0.8.0+).
@@ -2968,11 +4660,32 @@ export function useConversation(): UseConversationReturn {
             // This ensures draft_graph is applied even if applyV5State didn't emit
             // 'stage:analyse' (e.g. stage was already at analyse, or stage tracking
             // diverged). Works in guest mode — no auth required.
-            const canvasIsEmpty = useCanvasStore.getState().nodes.length === 0
+            // ROADMAP 2.122 — "empty" now means "empty, OR holding only THIS
+            // turn's own GRAPH_READY preview".
+            //
+            // This is the seam the streamed path would have failed silently at.
+            // The emptiness test runs AFTER the await, so with a preview on
+            // screen it reads false and the terminal graph would route into the
+            // applied-edit-receipt branch (`reconcileAppliedGraph`) below.
+            // Reconcile gets the NODES right — and performs none of
+            // `applyDraftResult`'s side-effects: no `setCeeAnalysisReady`, no
+            // `setAnalysisFreshness`, no `commitDraftCoachingToStore`, no
+            // `goal_constraints`, no quality, no pre-analysis sensitivity. The
+            // canvas would look correct while coaching and the run affordance
+            // never unlocked, under a green suite. Pinned by
+            // `streamedDraftTurn.spec.ts`; mutant M2 restores the narrow test.
+            const canvasIsEmpty =
+              useCanvasStore.getState().nodes.length === 0 || streamedPreviewOwnsCanvas
             const scenarioIdAtDispatch = currentScenarioId
+            // The helper reads analysis_ready, the response-root
+            // goal_constraints (ROADMAP 1.22 residual) and the sidecar-borne
+            // root `coaching` (Leg 3) off the full parsed response
+            // internally — see its doc comment. Seam pinned by
+            // draftBiasSignalBlocks.seam.spec.ts — keep the spec's driveSeam
+            // wiring in step with this call.
             const inlineGraph = attachAnalysisReadyToInlineDraftGraph(
               target.response.draft_graph,
-              (target.response as { analysis_ready?: unknown }).analysis_ready,
+              target.response,
             )
             const inlineNodeCount = (inlineGraph?.nodes as unknown[] | undefined)?.length ?? 0
 
@@ -2983,10 +4696,60 @@ export function useConversation(): UseConversationReturn {
             let draftAppliedThisTurn = false
             if (inlineGraph && inlineNodeCount > 0 && canvasIsEmpty) {
               if (useCanvasStore.getState().currentScenarioId === scenarioIdAtDispatch) {
-                applyDraftResult(inlineGraph as any)
+                // ROADMAP 2.122 — when this apply is RESOLVING this turn's own
+                // GRAPH_READY preview, the preview already pushed the pre-draft
+                // state to history. Pushing again would put the intermediate
+                // preview graph on the undo stack, making undo one step deeper
+                // than the buffered path's. Skipping here leaves the undo stack
+                // identical.
+                applyDraftResult(inlineGraph as any, { skipHistory: streamedPreviewOwnsCanvas })
                 draftAppliedThisTurn = true
                 if (import.meta.env.DEV) {
                   console.log('[sendTurn V5] graph applied from inline response:', inlineNodeCount, 'nodes')
+                }
+              }
+            } else if (inlineGraph && inlineNodeCount > 0 && !canvasIsEmpty) {
+              // POC Lane C (edit-journey display closure): applied-edit
+              // receipt ingestion. CEE #414/#424 attach the FULL committed
+              // post-mutation graph to applied-edit receipts via the same
+              // top-level draft_graph field, post-commit only. The V5 payload
+              // carries NO graph_state (buildPayload.ts — CEE's
+              // extensions.graphState is null on every V5 turn), so what
+              // keeps a fresh-draft draft_graph away from a non-empty canvas
+              // is CEE's continuation guard (route-v2 isDraftGraphShape
+              // requires no prior committed turns on the scenario) — plus the
+              // client-side zero-overlap guard inside reconcileAppliedGraph
+              // for the residual misfire (fresh scenario_id + populated canvas
+              // + first brief-shaped message).
+              //
+              // B2 (Codex deep review, 2026-07-18): this reconcile is ATOMIC —
+              // adds, UPDATES and deletions. It used to be additive-only, on
+              // the stated belief that "value updates arrive separately as
+              // graph_patch blocks". That belief was FALSE for the edit_graph
+              // path: a successful edit returns `blocks: []`
+              // (edit-graph-dispatch.ts:832-833) and the receipt's draft_graph
+              // is the entire committed post-state. So a confirmed "set Spend
+              // to 250" left the canvas on 100, and the debounced autosave
+              // then wrote that 100 back over CEE's committed 250. Layout
+              // stays canvas-owned throughout — CEE's node schema has no
+              // position field. See reconcileAppliedGraph's header.
+              if (useCanvasStore.getState().currentScenarioId === scenarioIdAtDispatch) {
+                const merged = reconcileAppliedGraph(inlineGraph as any)
+                if (
+                  import.meta.env.DEV &&
+                  (merged.addedNodeCount > 0 ||
+                    merged.addedEdgeCount > 0 ||
+                    merged.updatedNodeCount > 0 ||
+                    merged.updatedEdgeCount > 0 ||
+                    merged.removedNodeCount > 0 ||
+                    merged.removedEdgeCount > 0)
+                ) {
+                  console.log(
+                    '[sendTurn V5] applied-edit receipt reconciled into canvas:',
+                    `+${merged.addedNodeCount}n/+${merged.addedEdgeCount}e`,
+                    `~${merged.updatedNodeCount}n/~${merged.updatedEdgeCount}e`,
+                    `-${merged.removedNodeCount}n/-${merged.removedEdgeCount}e`,
+                  )
                 }
               }
             } else if (!inlineGraph && stateApply.applied.includes('stage:analyse') && canvasIsEmpty) {
@@ -3038,13 +4801,19 @@ export function useConversation(): UseConversationReturn {
             }
 
             const mappedBlocks =
-              target.kind === 'blocks' ? mapV5Blocks(target.response.blocks) : []
+              target.kind === 'blocks'
+                // Pass suggested_actions so the held-proposal mapper (R8) can
+                // resolve confirm_action_id / decline_action_id refs into the
+                // {label, message} the card dispatches through the chip seam.
+                ? mapV5Blocks(target.response.blocks, target.response.suggested_actions)
+                : []
 
-            // Phase 3 review_card bridge — surface CEE-produced post-analysis
-            // review_card prose in the AI panel after Run analysis. Reuses the
-            // existing ReviewCardBlockRenderer; no schema / parser / CEE change.
-            // Gating, cap, dedupe, and evidence/coaching exclusion documented
-            // on composePhase3BridgedBlocks above.
+            // Phase 3 rendering bridge (Track C slice 1, D-5) — surface
+            // CEE-produced 0.13.x coaching + review_card blocks as typed
+            // conversation blocks (producer copy verbatim), with the legacy
+            // top-1 review_card fallback for pre-0.13.x shapes. Malformed /
+            // renderer-less blocks are counted + suppressed (fail-closed).
+            // Full rules documented on composePhase3BridgedBlocks above.
             const finalBlocks = composePhase3BridgedBlocks(
               factPresent,
               phase3.rawBlocks,
@@ -3061,26 +4830,99 @@ export function useConversation(): UseConversationReturn {
               isDraftTurn: draftAppliedThisTurn,
               store: useCanvasStore.getState(),
             })
-            const renderBlocks = receipt ? [...finalBlocks, receipt] : finalBlocks
+
+            // Leg 3 (bias coaching, BIAS-COACHING-PROPOSAL-2026-07-16 §2
+            // FRAME beat): bridge the draft response's coaching.bias_signals
+            // into ≤2 typed v5_coaching blocks with coaching_kind
+            // 'bias_signal'. The coaching arrives at the response ROOT
+            // (demoted to the __additive__ sidecar at the pinned 0.15.0
+            // schema); attachAnalysisReadyToInlineDraftGraph maps it onto
+            // the inline graph as `draftCoaching`, and applyDraftResult
+            // committed it to the store synchronously above — on any other
+            // path (no fresh draft applied) the store slice is stale, which
+            // is why the isDraftTurn gate below is load-bearing. Same gate
+            // pattern as the model receipt: fires only on the turn that
+            // applied a fresh draft graph. Fail-closed throughout
+            // (absent/empty/unknown/malformed/ungrounded entries render
+            // nothing); producer-typed bias coaching in finalBlocks
+            // suppresses the bridge entirely. Seam pinned end to end by
+            // draftBiasSignalBlocks.seam.spec.ts.
+            const biasSignalBlocks = buildDraftBiasSignalBlocks({
+              isDraftTurn: draftAppliedThisTurn,
+              store: useCanvasStore.getState(),
+              existingBlocks: finalBlocks,
+            })
+            const renderBlocks = [
+              ...finalBlocks,
+              ...(receipt ? [receipt] : []),
+              ...biasSignalBlocks,
+            ]
 
             // V5 suggested_actions → ActionChip. CEE caps count server-side;
-            // UI additionally caps rendering per DS v5 §21.4 in SuggestedChips.
+            // UI additionally caps rendering at 3 in SuggestedChips (ruled
+            // doctrine D-K, closed 15 Jul: 0-3 chips, no fabricated filler).
             // action_type when present drives deterministic routing on next click.
-            const actionChips: ActionChip[] = target.response.suggested_actions.map((a) => ({
-              id: a.id,
-              label: a.label,
-              intent: 'primary',
-              message: a.message,
-              ...(a.action_type ? { action_type: a.action_type } : {}),
-            }))
+            //
+            // F4 (single confirm owner): on a held-proposal turn the held card
+            // (V5HeldProposalBlock, from mappedBlocks above) is the SOLE owner
+            // of the confirm/decline affordance it resolves via
+            // confirm_action_id / decline_action_id. buildSuggestedActionChips
+            // drops exactly those consumed ids from the generic chip row so the
+            // user sees the confirm once — keyed on the block's referenced ids,
+            // never on action_type. Off the held-proposal path the chip row is
+            // unchanged (no held_proposal block ⇒ nothing suppressed).
+            const actionChips: ActionChip[] = buildSuggestedActionChips(
+              target.response.blocks,
+              target.response.suggested_actions,
+            )
+            // ROADMAP 1.42 (Show-reasoning progressive disclosure — verbatim,
+            // labelled): CEE MAY carry a top-level `_reasoning` string. At the
+            // pinned schema (0.13.1) this unknown key is auto-demoted by the
+            // parser's additive-extensions sidecar (responseParser.ts) rather
+            // than validated — read it from there, never from the strict
+            // OlumiResponse surface. Sporadic field: accept only a non-empty
+            // string, defensively length-capped. NEVER merged into `content`
+            // (that feeds extractFromRawJson/truncation) — attached as its own
+            // field, rendered separately, verbatim.
+            const reasoning = isReasoningDisclosureEnabled()
+              ? extractReasoningSidecar(target.response)
+              : undefined
+            // F1 (Paul's #1, answer-shape progressive disclosure): CEE ships an
+            // answer-shape sidecar (confirmed: top-level `_answer_shape` on the
+            // V5 body, { headline, bullets, detail }) UNCONDITIONALLY (no UI
+            // flag). The parser demotes that top-level key into
+            // target.response[__additive__] exactly like `_reasoning`;
+            // extractAnswerShapeSidecar reads it there and fail-closes to null
+            // on absent/malformed, so the bubble renders `content` as today
+            // until the sidecar lands on the wire, then auto-lights-up. NEVER
+            // merged into `content` (attached as its own field, rendered by
+            // AnswerBody). See answerShape.ts for the full contract note.
+            const answerShape = extractAnswerShapeSidecar(target.response)
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
               content: target.response.assistant_text,
               ...(renderBlocks.length > 0 ? { blocks: renderBlocks } : {}),
               ...(actionChips.length > 0 ? { actionChips } : {}),
+              ...(reasoning ? { reasoning } : {}),
+              ...(answerShape ? { answerShape } : {}),
               timestamp: new Date(),
             })
+
+            // ROADMAP 2.122 — the streamed draft's one honest-failure state.
+            //
+            // The stream died after GRAPH_READY, the buffered fallback found the
+            // turn already committed, and CEE declined to re-draft — so the graph
+            // on the canvas is real but its numbers are the frame's `in_progress`
+            // ones and no settled copy will reach this session. CEE's own prose
+            // (which just rendered above) will say the model is already drafted,
+            // and it is; without this notice the user would be left with a
+            // silently-blocked Run button and no explanation for it.
+            //
+            // Says only what is known: the graph is visible, the connection
+            // dropped before the values arrived, drafting again gets them. No
+            // duration forecast, no verdict — held to the same bar as the wait
+            // narration and pinned by `narrationHonesty.invariant.spec.ts`.
           } else if (target.kind === 'empty') {
             // Blank-response guard: no text, no blocks, no chips from CEE.
             addMessage({
@@ -3093,60 +4935,295 @@ export function useConversation(): UseConversationReturn {
                 : [],
               timestamp: new Date(),
             })
-            if (inputForRestore) setLastFailedInput(inputForRestore)
+            if (inputForRestore) {
+              // Delivered but produced nothing — the hero must still show
+              // feedback rather than fail silently (server class).
+              setLastSendFailure({ kind: 'server', retryable: true, inputText: inputForRestore })
+            }
           } else {
-            // Typed error. Layer server reason beneath the canonical text;
-            // offer Try again chip when the error is retryable (client table
-            // is authoritative; DEV warning fires if server disagrees).
+            // Typed error — the LIVE V5 error surface (Codex F6 fix; #383's
+            // recovery rendering was wired only to the dead V4 handleEnvelope
+            // path, which this branch's `return` makes unreachable).
+            //
+            // Authority order: the server's `retryable` marker on the error
+            // envelope is authoritative (BoundaryError.retryable is typed +
+            // required; CEE computes it per-failure, so INTERNAL_ERROR is NOT
+            // uniformly retryable). The client table covers only its absence
+            // (200-response error blocks / parse errors carry no envelope).
             if (target.boundaryError) {
               checkRetryableAgreement(target.boundaryError)
             }
-            const retryable = isV5ErrorRetryable(target.code)
-            const canonicalText = FAILURE_USER_TEXT[target.code]
-            const reason = extractV5ErrorReason(target.boundaryError)
-            const guidance = resolveV5ErrorGuidance(target.code)
-            // Layer: canonical taxonomy text → server reason (if any) →
-            // code-specific guidance (non-retryable only). Retryable errors
-            // omit guidance because the Try again chip serves that role.
-            const content = [canonicalText, reason, guidance]
-              .filter((s) => s.length > 0)
-              .join('\n\n')
-            const retryChips: ActionChip[] = retryable && mode === 'user' && !hidden
+            // extractCeeRecovery reads the typed 0.19.0 recovery shapes:
+            // nested `details.recovery` ({ hints, suggestion }) on the live
+            // BoundaryError wire, flat `recovery_suggestion` on
+            // CeeTypedError-shaped bodies (via rawBody), plus the server
+            // retryable marker. Fail closed on every field.
+            const recovery = extractCeeRecovery(target.boundaryError ?? target.rawBody)
+            const retryable = resolveV5Retryable(target.code, recovery.retryable)
+            // Transcript honesty (trust item #3): the rehearsal's 504s carry
+            // NO CEE body — the proxy timeout JSON is not a server-processing
+            // fault, and "Something went wrong on our side" was a false
+            // claim for that class. A parse_error-originated target with
+            // zero CEE signal renders transport-honest copy instead, and
+            // never invents a recovery suggestion.
+            const transportFailure = isTransportFailure({
+              hasBoundaryError: target.boundaryError !== undefined,
+              transportMeta: target.transportMeta,
+              recovery,
+              rawBody: target.rawBody,
+            })
+            // ROADMAP 2.665 (I-B): a proxy/edge timeout leaves delivery
+            // UNVERIFIED, and CEE keys its commit on its own per-request id
+            // rather than on `payload.turn_id` — so "Try again" here asks the
+            // same thing a second time and writes a second turn row. The
+            // server's `retryable` marker is about whether the FAILURE is
+            // transient, not about whether re-asking is safe; on this shape it
+            // is overruled, and the copy says why instead.
+            const deliveryUnverified = isUnverifiedDelivery({
+              hasBoundaryError: target.boundaryError !== undefined,
+              transportMeta: target.transportMeta,
+              recovery,
+              rawBody: target.rawBody,
+            })
+            let content: string
+            if (transportFailure && target.transportMeta) {
+              content = buildTransportFailureCopy(target.transportMeta, retryable)
+            } else {
+              // CEE-class — layered content, each layer display-honest:
+              //   1. canonical taxonomy text, stripped of retry instructions
+              //      when the retry affordance is withheld;
+              //   2. the CEE recovery suggestion (specific what-to-do) when
+              //      present; otherwise the wire reason ONLY when it reads as
+              //      prose — machine reasons (draft_graph_cee_timeout) never
+              //      render to users;
+              //   3. recovery hints as bullets;
+              //   4. generic code-keyed guidance only when no specific
+              //      suggestion filled the what-next slot (non-retryable codes
+              //      only — the Try again chip serves that role otherwise).
+              // Fence-aware (journey-walk gap #2): a fence-class GRAPH_DIVERGED
+              // (details.conflict_category 'turn_fence_*') is a write refusal,
+              // never staleness — it gets honest "nothing changed" copy instead
+              // of the canonical re-run banner. See resolveFenceRefusalCopy.
+              const baseCopy = resolveFailureCopyForError(
+                target.code,
+                retryable,
+                target.boundaryError,
+              )
+              const reason = extractV5ErrorReason(target.boundaryError)
+              const reasonLayer =
+                recovery.suggestion === undefined && isDisplaySafeReason(reason) ? reason : ''
+              const guidance =
+                recovery.suggestion === undefined
+                  ? // 2.472: taxonomy-aware — a server-state ingress violation
+                    // (e.g. scenario_preflight/ownership) gets server-fault
+                    // guidance, never "rephrase your message".
+                    resolveV5ErrorGuidance(target.code, target.boundaryError)
+                  : ''
+              content = [
+                baseCopy,
+                recovery.suggestion ?? '',
+                reasonLayer,
+                formatRecoveryHints(recovery.hints),
+                guidance,
+              ]
+                .filter((s) => s.length > 0)
+                .join('\n\n')
+            }
+            const retryChips: ActionChip[] = retryable && !deliveryUnverified && mode === 'user' && !hidden
               ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
               : []
+            // System turns get NO transcript bubble — the failure propagates to
+            // the dispatcher instead (see SystemEventSendError). Gating here
+            // matches the empty/catch/timeout branches, which already user-gate
+            // their bubbles, and keeps V4 parity ("system failures are silent
+            // in the transcript"). User-mode rendering is unchanged.
+            if (mode === 'user') {
+              addMessage({
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                synthetic: true,
+                content,
+                actionChips: retryChips,
+                timestamp: new Date(),
+              })
+            }
+            if (inputForRestore) {
+              setLastSendFailure({
+                kind: transportFailure ? 'transport' : 'server',
+                // Copy-agrees-with-affordance: no retry is offered on the
+                // unverified-delivery shape, so none is advertised (2.665 I-B).
+                retryable: retryable && !deliveryUnverified,
+                inputText: inputForRestore,
+              })
+            } else if (mode === 'system') {
+              // inputForRestore is null for system turns; record the failure so
+              // it is rethrown after `finally` and the dispatcher can react.
+              systemSendFailure = new SystemEventSendError(
+                transportFailure ? 'transport' : 'server',
+              )
+            }
+          }
+
+          // ═══ ROADMAP 2.122 round 2 — the unsettled-draft notice ═══════════
+          //
+          // Emitted for EVERY response class, deliberately outside the
+          // `target.kind` chain. It was inside the text_only/blocks branch, and
+          // review F4 exposed why that is wrong: a terminal frame that fails
+          // strict validation routes to `typed_error`, so the canvas kept a
+          // standing preview and a shut gate with NOTHING said — the same
+          // silently-blocked Run button F1 is about. The notice is a statement
+          // about the CANVAS, not about the response's shape, so it belongs where
+          // every branch reaches it.
+          //
+          // Says only what is known: the structure is visible, drafting ended
+          // before its values arrived, a new draft gets the finished model. No
+          // duration forecast, no verdict — held to the same bar as the wait
+          // narration and pinned by `narrationHonesty.invariant.spec.ts`.
+          if (streamedUnsettled && mode === 'user' && !hidden) {
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
               synthetic: true,
-              content,
-              actionChips: retryChips,
+              content: UNSETTLED_DRAFT_NOTICE,
+              // F3: NOT `retry`. `retryLast` re-sends onto the SAME scenario,
+              // whose canvas is now non-empty, so it is a buffered turn CEE's
+              // continuation guard DECLINES — the old chip could not deliver the
+              // numbers its own copy promised, on any auth tier.
+              actionChips: [
+                { id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' },
+              ],
               timestamp: new Date(),
             })
-            if (retryable && inputForRestore) setLastFailedInput(inputForRestore)
           }
         } catch (err) {
           clearLifecycleTimers()
           const isAbort = (err as Error).name === 'AbortError'
-          // Timeout-triggered aborts render their own bubble (above). User
-          // stops and concurrent cancellations are silent by design.
-          if (!isAbort && mode === 'user' && !hidden) {
+
+          // ═══ ADVERSARIAL REVIEW F1 ════════════════════════════════════════
+          // An abort that left a GRAPH_READY preview standing is the ONE abort
+          // that must not be silent: the canvas now holds real structure whose
+          // numbers are not final, and without a word the user reads it as a
+          // finished model beside a Run button. `runStreamedDraftTurn` has already
+          // moved the phase to `unsettled` (so the gate is shut); this adds the
+          // sentence, and the affordance that can actually deliver on it (F3 —
+          // `retryLast` provably cannot, because CEE's continuation guard declines
+          // to re-draft a committed scenario).
+          // Stop-fence: an EXPLICIT user Stop is handled by `cancelTurn`, which
+          // emits exactly one terminal notice keyed on the server's answer. This
+          // branch keeps its own notice for the aborts that are NOT a user stop
+          // — the 130 s client timeout and preempts — where "you stopped this"
+          // would be false and no stop request was ever sent.
+          if (
+            (err as { abortedWithPreview?: boolean })?.abortedWithPreview &&
+            mode === 'user' &&
+            !hidden &&
+            !explicitlyStoppedTurnIdsRef.current.has(turnClientId)
+          ) {
+            // ⚠ ROWED RESIDUAL — THIS SET IS ADD-ONLY AND `retryLast` REUSES IDS.
+            //   Complete manifest of `explicitlyStoppedTurnIdsRef` at this commit:
+            //   one `new`, this read, one `add` in cancelTurn. No `delete`. So once
+            //   a turn id has been explicitly stopped, a LATER attempt with the
+            //   SAME id (retryLast reuses client_turn_id via the
+            //   `retryClientTurnId` send option, consumed at sendTurn's
+            //   `turnClientId` mint) stays marked, and an abort of that attempt
+            //   that was NOT a user
+            //   stop — the 130 s timeout, a preempt — has its STOPPED_DRAFT_NOTICE
+            //   suppressed here: preview standing, run gate shut, nothing said.
+            //
+            //   NOT FIXED IN THIS COMMIT, DELIBERATELY. I wrote the one-line
+            //   `delete(turnClientId)` at dispatch and could not pin it: in this
+            //   harness a stream that dies without a user stop routes to the
+            //   BUFFERED FALLBACK, not to this branch, so my first test for it
+            //   asserted a notice that path never emits. Shipping an unpinnable
+            //   line is the defect this lane has already been caught on twice
+            //   (CEE #759 A1; the guard removed above), so the hazard is rowed with
+            //   its mechanism instead of patched blind. A pin needs a preempt or a
+            //   real timeout driving the abort seam without cancelTurn.
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
               synthetic: true,
-              content: 'Something went wrong sending your message. Try again.',
+              content: STOPPED_DRAFT_NOTICE,
+              actionChips: [{ id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' }],
+              timestamp: new Date(),
+            })
+          }
+          // Timeout-triggered aborts render their own bubble (above). User
+          // stops and concurrent cancellations are silent by design.
+          if (!isAbort && mode === 'user' && !hidden) {
+            // Transcript honesty: the dispatch itself threw — nothing
+            // reached the server, so the bubble must not read as sent.
+            if (userBubbleIdForTurn) {
+              updateMessage(userBubbleIdForTurn, { deliveryState: 'failed' })
+            }
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              synthetic: true,
+              content: "Your message didn't reach the server, so it has not been added to the conversation. Nothing you typed was lost. Try again.",
               actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
               timestamp: new Date(),
             })
-            if (inputForRestore) setLastFailedInput(inputForRestore)
+            if (inputForRestore) {
+              setLastSendFailure({ kind: 'transport', retryable: true, inputText: inputForRestore })
+            }
+          }
+          if (!isAbort && mode === 'system') {
+            // A system turn threw before/around the network (e.g. a fetch
+            // reject re-raised by callV5Turn, or an internal error). Propagate
+            // to the dispatcher — an aborted turn (user stop / timeout) is not
+            // a failure and is excluded above.
+            systemSendFailure = new SystemEventSendError('transport', { cause: err })
           }
           if (import.meta.env.DEV && !isAbort) {
             console.warn('[sendTurn V5] Dispatch error:', err)
           }
         } finally {
           setIsThinking(false)
+          // Mirror it into the ref SYNCHRONOUSLY — see the identical line in
+          // the V4 finally below for the full reasoning. Short version:
+          // `isThinkingRef` is effect-synced, so it still reads `true` on the
+          // microtask that drains the deferred-send queue, and `sendTurn`'s
+          // early `isThinkingRef` guard would drop the queued edit. This is not
+          // a new source of truth — the line above sets the same value and the
+          // effect will set it again; this only removes the one-render lag.
+          isThinkingRef.current = false
           useDraftStore.getState().setIsGenerating(false)
+          // ROADMAP 2.122 — every-exit settle for the streamed draft phase
+          // (abort, timeout, thrown dispatch, a `return` from the abort guard).
+          // OWNERSHIP GUARD, same rule as the run slot below: only clear while
+          // this turn still owns the phase, so a preempted turn's late finally
+          // cannot wipe a NEWER draft's `settling`. `unsettled` is deliberately
+          // NOT cleared — it is a terminal state that must outlive its turn,
+          // because the numbers on the canvas stay unsettled until a re-draft.
+          {
+            const draftState = useDraftStore.getState()
+            if (
+              draftState.draftStreamTurnId === turnClientId &&
+              draftState.draftStreamPhase !== 'unsettled'
+            ) {
+              draftState.setDraftStreamPhase('idle', null, null)
+            }
+          }
           releaseInFlightLockIfOwned()
+          // 1.16i: every-exit settle for the analysing state (success
+          // without an analysis_result, typed error, thrown error, abort,
+          // timeout). No-ops when applyV5State already flipped 'complete'.
+          // OWNERSHIP GUARD: settle only while this turn still owns the run
+          // slot — a preempt-aborted run's late finally must never settle a
+          // NEWER run turn's 'preparing' (that run manages its own exit).
+          if (isRunAnalysisTurn && activeRunTurnIdRef.current === turnClientId) {
+            activeRunTurnIdRef.current = null
+            useCanvasStore.getState().resultsSettle()
+          }
+        }
+        // Rethrow a system-mode send failure AFTER `finally` has settled the
+        // lifecycle. This is the seam that makes silent system-event drops
+        // impossible: sendSystemEvent's `await` now rejects, so its callers
+        // react. The abort-discard `return` inside the try bypasses this (an
+        // aborted turn never sets systemSendFailure). User turns never set it.
+        if (systemSendFailure) {
+          throw systemSendFailure
         }
         return
       }
@@ -3173,7 +5250,7 @@ export function useConversation(): UseConversationReturn {
             },
           })
           lastUserInputRef.current = { message, clientTurnId: turnClientId }
-          setLastFailedInput(null)
+          setLastSendFailure(null)
 
           if (!skipUserBubble) {
             addMessage({
@@ -3231,8 +5308,6 @@ export function useConversation(): UseConversationReturn {
         }, 5_000)
       }, LONG_RUNNING_THRESHOLD_MS)
 
-      // Dynamic timeout — hidden sends must not restore input or show retry chips
-      const inputForRestore = (mode === 'user' && !hidden) ? message : null
       timeoutTimerRef.current = setTimeout(() => {
         controller.abort()
         clearTimeout(longRunningTimerRef.current)
@@ -3240,7 +5315,6 @@ export function useConversation(): UseConversationReturn {
         setIsThinking(false)
         useDraftStore.getState().setIsGenerating(false)
         setLongRunningHint(null)
-        if (inputForRestore) setLastFailedInput(inputForRestore)
         // Only visible user sends show a timeout error bubble.
         // Hidden sends and system events time out silently (matches catch block).
         if (mode === 'user' && !hidden) {
@@ -3526,9 +5600,24 @@ export function useConversation(): UseConversationReturn {
         if ((err as Error).name === 'AbortError') return // timeout already handled
 
         if (mode === 'user' && !hidden) {
-          setLastFailedInput(message)
 
-          const errorMessage = buildErrorMessage(err)
+          // A1 brief item 2 — failure recovery on screen. A non-2xx CEE turn
+          // throws OrchestratorError carrying the CEE error envelope in
+          // `err.body`. Read its retryable marker + specific recovery
+          // suggestion (see ./ceeRecovery for wire provenance + the schema
+          // ask) so we (a) surface the suggestion alongside the generic copy
+          // and (b) hide "Try again" when the failure is explicitly
+          // non-retryable — a retry that cannot work. The base copy is built
+          // *from* that same retry decision, so we never tell the user to try
+          // again while withholding the control. Fail open: absent suggestion →
+          // generic copy; absent marker → keep retry + today's copy.
+          const { content: errorMessage, showRetry } = buildFailureRender(
+            (canRetry) => buildErrorMessage(err, { canRetry }),
+            err,
+          )
+          const retryChips: ActionChip[] = showRetry
+            ? [{ id: 'retry', label: 'Try again', intent: 'primary' as const }]
+            : []
 
           // If the streaming path pre-created a message, reuse it instead
           // of creating a duplicate.
@@ -3539,7 +5628,7 @@ export function useConversation(): UseConversationReturn {
               isProvisional: false,
               toolLoadingState: null,
               synthetic: true,
-              actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' as const }],
+              actionChips: retryChips,
             })
             streamingMsgIdRef.current = null
           } else {
@@ -3548,7 +5637,7 @@ export function useConversation(): UseConversationReturn {
               role: 'assistant',
               content: errorMessage,
               synthetic: true,
-              actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+              actionChips: retryChips,
               timestamp: new Date(),
             })
           }
@@ -3594,6 +5683,15 @@ export function useConversation(): UseConversationReturn {
         }
         cleanupStreamRefs()
         setIsThinking(false)
+        // Mirror it into the ref SYNCHRONOUSLY. `isThinkingRef` is normally
+        // effect-synced from the React state, so it stays `true` until React
+        // re-renders — and `sendTurn` has an early `isThinkingRef.current`
+        // guard that returns without dispatching. A queued system send flushed
+        // from the release below would therefore hit that guard and be dropped,
+        // which is the very defect the queue exists to fix, one layer down.
+        // This assignment is not a new source of truth: the line above sets the
+        // same value, and the effect will set it again.
+        isThinkingRef.current = false
         useDraftStore.getState().setIsGenerating(false)
         setLongRunningHint(null)
         releaseInFlightLockIfOwned()
@@ -3601,6 +5699,167 @@ export function useConversation(): UseConversationReturn {
     },
     [addMessage, updateMessage, buildRequest, handleEnvelope, scheduleStreamFlush, cleanupStreamRefs],
   )
+
+  /**
+   * Surface a queued edit that will NOT be applied, in the transcript.
+   *
+   * The SystemEventSendError contract says system turns render no synthetic
+   * bubble, and that is right for BACKGROUND notifications (feedback, patch
+   * acks, graph-edit notices) — an out-of-context "Something went wrong" for
+   * those is noise. A `factor_value_edit` is a different animal: the user
+   * deliberately changed a number and the canvas is now showing it. If that
+   * change is never going to reach the server, saying nothing reproduces the
+   * exact lie this roadmap item exists to kill — canvas shows the new value,
+   * the analysis reflects the old one, and nothing tells the user which is
+   * real. So value edits, and only value edits, get a line.
+   *
+   * `setLastSendFailure` is deliberately NOT used: its rendered copy is
+   * composer-specific ("Your text ... is back in the box above"), which would
+   * be actively false about an inspector edit.
+   */
+  const noticeForUnsentEdit = useCallback((entry: DeferredSystemSend, reason: 'failed' | 'discarded') => {
+    if (entry.opts.systemEvent?.type !== 'factor_value_edit') return
+    const what = describeDeferred(entry)
+    addMessage({
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      synthetic: true,
+      timestamp: new Date(),
+      content:
+        reason === 'failed'
+          ? `Your change to ${what} hasn't reached the server. The analysis still reflects the previous value — re-enter it to try again.`
+          : `An unsent change to ${what} was discarded when the decision changed. It was never applied to the analysis.`,
+    })
+  }, [addMessage, describeDeferred])
+
+  /**
+   * Drop every queued entry belonging to a DIFFERENT scenario than the one now
+   * open, telling the user what was dropped.
+   *
+   * Dispatch resolves the scenario id FRESH at send time, so an entry that
+   * outlived a scenario switch would be sent against the wrong decision's
+   * graph — a silent cross-scenario mutation. Discarding it visibly is the
+   * honest outcome; carrying it across is not.
+   */
+  const pruneForeignScenarioSends = useCallback(() => {
+    const scenarioNow = useCanvasStore.getState().currentScenarioId ?? null
+    const keep: DeferredSystemSend[] = []
+    for (const entry of deferredSystemSendsRef.current) {
+      if (entry.scenarioId === scenarioNow) { keep.push(entry); continue }
+      noticeForUnsentEdit(entry, 'discarded')
+      if (import.meta.env.DEV) {
+        console.warn(`[sendTurn] discarding queued send from another scenario (${entry.key})`)
+      }
+    }
+    deferredSystemSendsRef.current = keep
+    publishPendingEditCount()
+  }, [noticeForUnsentEdit, publishPendingEditCount])
+
+  /**
+   * Drain the deferral buffer, one turn at a time.
+   *
+   * Dispatched ASYNCHRONOUSLY (microtask) because this runs from inside the
+   * releasing turn's `finally`: calling `sendTurn` synchronously there would
+   * re-enter it while that frame is still unwinding. One entry per pass — the
+   * dispatched turn takes the lock again and re-enters this drain from its own
+   * release, which walks the rest of the queue in order.
+   *
+   * PEEK, DON'T SHIFT. The entry stays in the buffer until a dispatch is
+   * actually ACCEPTED. An earlier version removed it first, which made every
+   * early return between the removal and the network call — including
+   * `sendTurn`'s own bare-returning `isThinkingRef` guard — a
+   * destroy-the-edit exit. Those are all synced today, but "correct only while
+   * four other call sites stay in sync" is exactly the fragility this file's
+   * own history warns about, and the failure mode is a silently lost edit.
+   * Holding the entry until acceptance removes the class rather than the
+   * instances.
+   */
+  const flushDeferredSystemSends = useCallback(() => {
+    if (flushingDeferredRef.current) return
+    if (inFlightRef.current) return
+    if (deferredSystemSendsRef.current.length === 0) return
+    flushingDeferredRef.current = true
+    queueMicrotask(async () => {
+      flushingDeferredRef.current = false
+      if (inFlightRef.current) return
+
+      pruneForeignScenarioSends()
+
+      // First entry still worth trying. Entries past the attempt cap are KEPT
+      // (the server has not seen them, so the dirty hold stays truthful) but
+      // skipped, so one failing edit cannot starve the ones behind it.
+      const next = deferredSystemSendsRef.current.find(
+        (d) => !d.dispatching && d.attempts < MAX_FLUSH_ATTEMPTS,
+      )
+      if (!next) return
+
+      next.dispatching = true
+      try {
+        const outcome = await sendTurn(next.opts)
+        if (outcome === SEND_DEFERRED || outcome === SEND_BLOCKED) {
+          // Never dispatched — something else took the lock first. Leave it
+          // queued and do NOT count it as a failure; the next release retries.
+          next.dispatching = false
+          return
+        }
+        // Accepted. Only now is it safe to forget.
+        deferredSystemSendsRef.current = deferredSystemSendsRef.current.filter((d) => d !== next)
+        publishPendingEditCount()
+      } catch {
+        // A GENUINE failure (network / 4xx / 5xx / parse) of a DEFERRED edit.
+        //
+        // This rejection has NO listener: the panel's promise already resolved
+        // with SEND_DEFERRED, and a system turn renders no bubble and sets no
+        // `lastSendFailure` (`inputForRestore` is null). Swallowing it would
+        // rebuild the exact terminal state the queue was written to prevent —
+        // canvas showing the new value, server holding the old one, the next
+        // verdict blessing it, and the same-value guard blocking any retype.
+        // So: keep the entry, RE-DIRTY, re-hold the count, and say so.
+        next.attempts += 1
+        next.dispatching = false
+        useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+        publishPendingEditCount()
+        if (next.attempts >= MAX_FLUSH_ATTEMPTS) noticeForUnsentEdit(next, 'failed')
+        if (import.meta.env.DEV) {
+          console.warn(`[sendTurn] deferred send FAILED (${next.key}), attempt ${next.attempts}/${MAX_FLUSH_ATTEMPTS}`)
+        }
+      }
+    })
+  }, [sendTurn, publishPendingEditCount, pruneForeignScenarioSends, noticeForUnsentEdit])
+
+  // Keep the ref used by `releaseInFlightLockIfOwned` pointing at the live
+  // implementation (see the ref's declaration for why the indirection exists).
+  flushDeferredSystemSendsRef.current = flushDeferredSystemSends
+
+  // Scenario switch — prune queued sends belonging to the decision we just
+  // left.
+  //
+  // ORDERING NOTE (load-bearing): the scenario-switch effect that clears
+  // `messages` is declared far EARLIER in this hook, and React runs a
+  // component's effects in declaration order — so that wipe happens first and
+  // the discard notice added below survives it. Moving this effect above the
+  // message-clearing one would silently swallow the notice, which is the whole
+  // point of raising it. Without this the count leaks into the new scenario (manufacturing a
+  // "model changed" banner there, since noteRunCompletedWithoutVerdict assigns
+  // dirty straight from it) and the entry itself would eventually flush against
+  // the wrong graph.
+  const prevScenarioForQueueRef = useRef<string | null | undefined>(undefined)
+  useEffect(() => {
+    const now = scenarioId ?? null
+    if (prevScenarioForQueueRef.current === undefined) { prevScenarioForQueueRef.current = now; return }
+    if (prevScenarioForQueueRef.current === now) return
+    prevScenarioForQueueRef.current = now
+    pruneForeignScenarioSends()
+  }, [scenarioId, pruneForeignScenarioSends])
+
+  // Unmount — the buffer dies with the hook but `pendingEmittedEdits` lives in
+  // the STORE, so leaving it set strands a permanent "model changed" that
+  // nothing can ever clear: the INVERSE of the defect this hold exists to fix,
+  // and worse because no edit is pending at all. Clear it on the way out.
+  useEffect(() => () => {
+    deferredSystemSendsRef.current = []
+    useCanvasStore.getState().setPendingEmittedEdits?.(0)
+  }, [])
 
   // ---------------------------------------------------------------------------
   // Public API: sendMessage, sendSystemEvent, sendChip
@@ -3640,6 +5899,7 @@ export function useConversation(): UseConversationReturn {
       debugParentChainId?: string | null
       debugInitiatedBy?: 'user' | 'automatic'
       debugSourceSurface?: string
+      optimisticFactorEdit?: OptimisticFactorEdit
     }) => {
       // No-op when orchestrator V2 is OFF
       if (!isOrchestratorV2Enabled()) return
@@ -3661,7 +5921,11 @@ export function useConversation(): UseConversationReturn {
         payloadSummary: event.payload,
       })
 
-      await sendTurn({
+      // Return the outcome so a caller can distinguish DISPATCHED from
+      // DEFERRED. Genuine failures still REJECT (SystemEventSendError), so the
+      // existing `try/catch` dispatchers (FeedbackRow's optimistic revert, the
+      // patch-accept retry card) are untouched.
+      return await sendTurn({
         message: SYSTEM_MESSAGE_SENTINEL,
         systemEvent: event,
         mode: 'system',
@@ -3670,6 +5934,7 @@ export function useConversation(): UseConversationReturn {
         parentChainId: opts?.debugParentChainId,
         initiatedBy: opts?.debugInitiatedBy ?? 'automatic',
         sourceSurface: opts?.debugSourceSurface,
+        optimisticFactorEdit: opts?.optimisticFactorEdit,
       })
     },
     [sendTurn],
@@ -3693,9 +5958,12 @@ export function useConversation(): UseConversationReturn {
         payloadSummary: { label: opts.label, source: opts.source, action_type: opts.action_type },
       })
 
-      const chipMeta = opts.action_type
-        ? { action_type: opts.action_type, ...(opts.parameters ? { parameters: opts.parameters } : {}) }
-        : undefined
+      // Chip metadata construction lives in the pure chipMeta module (the
+      // seam the spark/node-chip intent contract specs exercise). It travels
+      // whenever EITHER field is present — see buildChipMeta's doc: identity
+      // parameters (chip_id / spark_id) must reach the wire even when no
+      // honest action_type exists (A1 meta-decision diagnosis, 2026-07-20).
+      const chipMeta = buildChipMeta(opts)
 
       // Resolve turn type: deterministic map first, then keyword heuristic for legacy chips
       let turnType: Exclude<TurnType, 'system_event'> = 'conversation'
@@ -3744,8 +6012,12 @@ export function useConversation(): UseConversationReturn {
 
       const messageToSend = chip.message || chip.prompt
       if (messageToSend) {
-        // Delegate to dispatchAction for unified metadata handling
+        // Delegate to dispatchAction for unified metadata handling.
+        // Thread the chip's first-class identity (`chip.id` on the 0.22 wire) —
+        // NOT `chip.intent`, which is the UI *styling* intent ('primary' |
+        // 'secondary' | 'undo'), a different concept from the wire `Intent` set.
         await dispatchAction({
+          id: chip.id,
           action_type: chip.action_type,
           parameters: chip.parameters,
           label: chip.label,
@@ -3780,7 +6052,14 @@ export function useConversation(): UseConversationReturn {
         return next
       })
       // Re-send without creating a new user bubble (original is already in thread).
-      // Reuse the original client_turn_id for idempotent retry.
+      // Reuse the original client_turn_id — for CORRELATION, not for idempotency.
+      // ⚠ This comment used to claim "idempotent retry". It is not: CEE keys its
+      // commit on its own per-HTTP-request id, not on payload.turn_id (measured
+      // at CEE 0ecf5c67 — see buildPayload.ts's `retryOf` note). A retry writes a
+      // SECOND turn row. That is acceptable on the paths that still offer this
+      // affordance, because they are the ones where the turn's failure is
+      // VERIFIED; it is why the wait-expiry and proxy-timeout paths (ROADMAP
+      // 2.665, delivery unverified) no longer offer it at all.
       await sendTurn({
         message: last.message,
         mode: 'user',
@@ -3791,6 +6070,47 @@ export function useConversation(): UseConversationReturn {
     }
   }, [sendTurn])
 
+  /**
+   * ROADMAP 2.122 round 2 (adversarial review F3) — start a genuinely FRESH
+   * draft, on a fresh scenario.
+   *
+   * The recovery affordance on an unsettled draft. `retryLast` cannot serve this
+   * role: the old scenario has a committed turn, so CEE's continuation guard
+   * declines to re-draft it no matter how many times it is asked. `resetCanvas`
+   * clears the graph AND `currentScenarioId` (`store.ts` →
+   * `scenarios.clearCurrentScenarioId()`), so `sendTurn` mints a fresh UUID and
+   * CEE sees a scenario with no prior turns — the one condition under which it
+   * will draft.
+   *
+   * The phase is released explicitly rather than left to the new turn: the new
+   * scenario must not inherit the old one's `unsettled` gate even for the moment
+   * before its own `drafting` write lands.
+   */
+  const startNewDraft = useCallback(async () => {
+    const last = lastUserInputRef.current
+    if (!last.message) return
+    recordUserAction({
+      actionType: 'clicked chip',
+      payloadSummary: { raw_message: last.message, chip_id: START_NEW_DRAFT_CHIP_ID },
+    })
+    // Drop the notice bubble the chip came from (same rule as retryLast).
+    setMessages((prev) => {
+      const tail = prev[prev.length - 1]
+      const next = tail?.synthetic ? prev.slice(0, -1) : prev
+      messagesRef.current = next
+      return next
+    })
+    useCanvasStore.getState().resetCanvas()
+    useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+    await sendTurn({
+      message: last.message,
+      mode: 'user',
+      skipUserBubble: true,
+      turnType: 'explicit_generate',
+      source: 'retry',
+    })
+  }, [sendTurn])
+
   const clearHistory = useCallback(() => {
     messagesRef.current = []
     sessionStateRef.current = null
@@ -3798,7 +6118,7 @@ export function useConversation(): UseConversationReturn {
     setIsThinking(false)
     useDraftStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
-    setLastFailedInput(null)
+    setLastSendFailure(null)
     setPatchBlockStates(new Map())
     setPatchRejectionsMap(new Map())
     abortRef.current?.abort()
@@ -3864,13 +6184,144 @@ export function useConversation(): UseConversationReturn {
     setIsThinking(false)
     useDraftStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
-  }, [updateMessage, cleanupStreamRefs])
+
+    // ═══ STOP-FENCE (Codex P0) — TELL THE SERVER, THEN TELL THE USER ════════
+    //
+    // The abort above is local and always was. CEE deliberately does not cancel
+    // a turn when the client hangs up (the deliberate no-cancel-on-disconnect
+    // block in CEE's `streamed-turn-sse.ts`), so until
+    // this call existed the stopped turn ran to completion and COMMITTED.
+    // Reproduced on staging: a draft stopped at +4.0s ran its full 52.7s,
+    // committed, and overwrote the graph of a different turn the user sent at
+    // +5.0s (`PHASE0-EVIDENCE-2026-07-28/fix-stop-fence.md`).
+    //
+    // ⚠ THE NOTICE IS UNCONDITIONAL. It is emitted whether or not a streaming
+    //   message or a graph preview exists yet — which supersedes the "early Stop
+    //   is silent by design" record in #527's liveproof. The silence WAS the
+    //   mechanism: an empty composer after Stop reads as "nothing happened", so
+    //   the user types again on the same scenario while the cancelled turn is
+    //   still in flight. Exactly one notice is emitted per stop; sendTurn's
+    //   abort branch stands down for these turn ids.
+    //
+    // ⚠ THE COPY IS CHOSEN BY THE SERVER'S ANSWER, NOT GUESSED. A stop we could
+    //   not deliver says so; a turn that had already committed says so. The one
+    //   thing none of the three does is predict what the fence will do.
+    const identity = inFlightTurnIdentityRef.current
+    // One helper for both stop notices (R-15, fence rider on #534): the two
+    // emit sites were byte-identical apart from the copy, with the chip
+    // rationale on only one of them. The rationale, ONCE, for both (review F3,
+    // unchanged): the chip is `Start a new draft`, NOT `retry` — `retryLast`
+    // re-sends onto the SAME scenario, which CEE's continuation guard declines
+    // once that scenario has a committed turn, and after a stop we may not
+    // know whether it has one.
+    const emitStopNotice = (content: string) => {
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        synthetic: true,
+        content,
+        actionChips: [{ id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' }],
+        timestamp: new Date(),
+      })
+    }
+    if (!identity) {
+      // No wire identity means the turn never reached dispatch (or the scenario
+      // id was absent), so there is nothing the server could tombstone. Still
+      // say something — a Stop the user pressed is never silent.
+      emitStopNotice(EARLY_STOP_UNCONFIRMED_NOTICE)
+      return
+    }
+    // ⚠ NO `has(...)` EARLY RETURN HERE, AND THE HISTORY MATTERS — AMENDMENT A2
+    //   (#534 review, round 2).
+    //
+    //   The #534 review asked for
+    //   `if (explicitlyStoppedTurnIdsRef.current.has(identity.turnId)) return`.
+    //   I added it, then argued it should be declined, then REPORTED it as
+    //   declined — and the removal never shipped: my own mutation harness ran
+    //   `git checkout -- .` and reverted the edit plus its test, so the guard was
+    //   live at 2462a689 while the record said it was gone. The round-2 verify
+    //   caught that. The argument was right; the code now matches it.
+    //
+    //   WHY IT IS OUT, not merely unnecessary. `retryLast` re-sends with the SAME
+    //   `client_turn_id` (for correlation — NOT idempotent replay, see
+    //   buildPayload.ts's `retryOf` note; corrected ROADMAP 2.665) (the `retryClientTurnId` send
+    //   option, consumed at sendTurn's `turnClientId` mint), and this
+    //   set is add-only — nothing ever deleted from it.
+    //
+    //   `explicitlyStoppedTurnIdsRef` — COMPLETE MANIFEST, derived at THIS head
+    //   (#534 round-3, F5a; the round-2 record said "two reads", which was true of
+    //   the pre-fix tree and stale the moment the guard came out. R-17: sites
+    //   named by SYMBOL — the old ":6011 ADD" line ref had ALREADY drifted to a
+    //   different line by the time it was replaced, which is the rider's whole
+    //   argument):
+    //     new   the `useRef<Set<string>>(new Set())` declaration
+    //     READ  sendTurn's abort branch — the
+    //           `!explicitlyStoppedTurnIdsRef.current.has(turnClientId)`
+    //           conjunct of the `abortedWithPreview` guard, suppressing
+    //           STOPPED_DRAFT_NOTICE for a turn cancelTurn has already spoken
+    //           for. The ONE read.
+    //     ADD   the `.add(identity.turnId)` directly below this comment, in
+    //           cancelTurn.
+    //   No delete, no reset, and now only one reader.
+    //
+    //   So with the guard,
+    //   stop → retry → stop hits `has(...)` and returns early: NO tombstone and
+    //   NO terminal notice. A user who stops a retried draft gets exactly the
+    //   silence this P0 exists to eliminate, and the stopped turn's write is then
+    //   never fenced.
+    //
+    //   WHY NOT "keep the guard and delete the id on reuse" instead: that makes
+    //   the guard unreachable again (any dispatch that re-arms `isThinking` also
+    //   refreshes the identity, so `identity.turnId` is never already in the set),
+    //   i.e. an unpinnable line that reads as a guarantee — CEE #759's finding A1,
+    //   reproduced on purpose. Removing it keeps every remaining line reachable
+    //   and pinned.
+    //
+    //   WHAT ACTUALLY PROVIDES EXACTLY-ONCE, measured and pinned:
+    //     · double press → `if (!isThinkingRef.current) return` at the top of this
+    //       handler (guard F/G), synchronously set false before any await.
+    //   (An earlier version of this list also named "the clear below" — which the
+    //   very next comment says is GONE. Self-contradicting; removed on the round-3
+    //   verify. What guards a stale identity is the dispatch-time refresh, below.)
+    explicitlyStoppedTurnIdsRef.current.add(identity.turnId)
+    //   ⚠ AND THE `inFlightTurnIdentityRef.current = null` CLEAR IS ALSO GONE,
+    //   BY THE SAME RULE. The round-2 verify asked me to pin it. I could not:
+    //   removing it REDs nothing, measured, because the identity is REFRESHED at
+    //   the top of every dispatch (the dispatch-time capture in sendTurn — the
+    //   F5b manifest's "WRITE here" site) to either this turn's pair or `null`
+    //   before anything can read it — so a stale PREVIOUS-turn pair is
+    //   structurally impossible and the clear had no independent effect.
+    //
+    //   It was harmless, unlike the guard. But "harmless and inert" is the shape
+    //   that has now cost this lane several review findings, and keeping a line
+    //   that reads as a protection while doing nothing is what a reader would later
+    //   trust.
+    //
+    //   ⚠ THE "IS PINNED" CLAIM I MADE HERE WAS FALSE WHEN WRITTEN. It cited a test
+    //   that the round-3 verify proved VACUOUS: under a write-only-if-empty mutant
+    //   (the exact stale-pair hazard) it stayed green, because its
+    //   `setState({currentScenarioId: null})` tripped the scenario-change effect
+    //   that clears the conversation, so its second Stop never ran and the
+    //   assertion passed by ABSENCE. The deletion was still correct; the
+    //   justification was not.
+    //   It is now real: the invariant — a Stop never tombstones a PREVIOUS turn's
+    //   id — is pinned on the mechanism that provides it, the dispatch-time
+    //   refresh in sendTurn (the F5b manifest's "WRITE here" site), by "stop A →
+    //   send B → stop B: the second tombstone names B, never
+    //   A", in which BOTH stops are asserted to have executed.
+    void stopV5Turn(identity).then((result) => {
+      // R-16: copy chosen by TABLE lookup — `EARLY_STOP_NOTICE_BY_OUTCOME`
+      // (module scope) is `Record<TurnStopOutcomeKind, string>`, so a fourth
+      // outcome kind is a compile error here, never a silent fallthrough.
+      emitStopNotice(EARLY_STOP_NOTICE_BY_OUTCOME[result.kind])
+    })
+  }, [updateMessage, cleanupStreamRefs, addMessage])
 
   return {
     messages,
     isThinking,
     longRunningHint,
-    lastFailedInput,
+    lastSendFailure,
     sendMessage,
     sendSystemEvent,
     sendChip,
@@ -3878,6 +6329,7 @@ export function useConversation(): UseConversationReturn {
     clearHistory,
     retryLast,
     cancelTurn,
+    startNewDraft,
     patchBlockStates,
     setPatchBlockState,
     patchRejections,

@@ -1204,8 +1204,8 @@ function createReproducibilityBundle(
   return {
     meta: {
       exportedAt: new Date().toISOString(),
-      environment: String(import.meta.env.VITE_APP_ENV || 'development'),
-      uiBuild: String(import.meta.env.VITE_BUILD_ID || 'dev'),
+      environment: String(import.meta.env?.VITE_APP_ENV || 'development'),
+      uiBuild: String(import.meta.env?.VITE_BUILD_ID || 'dev'),
       sessionId: `session-${Date.now()}`,
     },
     llm: ceePipelineTrace ? {

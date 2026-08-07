@@ -81,6 +81,7 @@ export const minimalFixture: ResultsSectionDataReturn = {
   isError: false,
   goalLabel: 'Success metric',
   goalNodeId: 'goal-success',
+  voiRanking: null,
 }
 
 /** Tornado data for minimal fixture — empty since no drivers */

@@ -615,7 +615,20 @@ interface DecisionReviewData {
 const REVIEW_SUCCESS_STATUSES = new Set(['complete', 'success', 'passed'])
 const REVIEW_FAILURE_STATUSES = new Set(['failed', 'error'])
 
-function extractDecisionReview(data: DebugData): { data: DecisionReviewData | null; status: SectionStatus } {
+/**
+ * ROADMAP 2.154 rider — RENAMED from `extractDecisionReview`.
+ *
+ * That name collided with `src/v5/decisionReviewAdapter.ts`'s exported
+ * `extractDecisionReview`, and the two answer completely different questions
+ * over completely different inputs: this one reads PLoT's `review_status` /
+ * `review_warnings` / `review_failure_codes` off a captured debug bundle, while
+ * the v5 one validates a `decision_review` payload off a live turn's block
+ * enrichment. The collision was not theoretical — a symbol grep for
+ * `extractDecisionReview` during the 2.154 derivation hit this local first, and
+ * a same-named-twin conflation is exactly what let the v5 adapter's false
+ * docstring survive as long as it did. Named for what it reads.
+ */
+function extractPlotReviewStatus(data: DebugData): { data: DecisionReviewData | null; status: SectionStatus } {
   const plotResponse = data.payloads.plot_response as Record<string, unknown> | undefined
   if (!plotResponse) {
     return { data: null, status: 'unavailable' }
@@ -703,7 +716,7 @@ export function ContractIntegrityTab({ data }: ContractIntegrityTabProps) {
   const repairsResult = useMemo(() => extractRepairs(data), [data])
   const validationStatus = useMemo(() => deriveValidationStatus(data), [data])
   const constraintPipelineResult = useMemo(() => extractConstraintPipeline(data), [data])
-  const decisionReviewResult = useMemo(() => extractDecisionReview(data), [data])
+  const decisionReviewResult = useMemo(() => extractPlotReviewStatus(data), [data])
   const critiquesResult = useMemo(() => extractCritiques(data), [data])
   const enrichmentCalledCount = data.pipeline.enrich?.called_count
   const enrichmentCallStatus = deriveEnrichmentCallStatus(enrichmentCalledCount)

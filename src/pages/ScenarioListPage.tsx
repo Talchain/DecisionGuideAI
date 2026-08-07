@@ -13,9 +13,11 @@ import {
   Pin, MoreVertical, Copy, Archive, ArchiveRestore,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { GuestDraftImportBanner } from '../components/auth/GuestDraftImportBanner'
 import { useScenario } from '../hooks/useScenario'
 import * as scenarioService from '../services/scenarioService'
 import type { ScenarioListItem, ScenarioStage, AnalysisStatus, ScenarioEvent } from '../types/scenario'
+import { SYSTEM_MARKER_EVENT_TYPES } from '../types/scenario'
 import { Skeleton } from '../components/Skeleton'
 import { formatRelativeTime } from '../utils/formatRelativeTime'
 import { UserAvatarMenu } from '../components/layout/UserAvatarMenu'
@@ -73,14 +75,42 @@ function formatLastActivity(events: ScenarioEvent[] | null | undefined, updatedA
   if (!events || events.length === 0) {
     return `Created ${formatRelativeTime(updatedAt)}`
   }
-  const lastEvent = events[events.length - 1]
+  // Walk back past system persistence markers to the last event that represents
+  // real user activity. The gated autosave appends a `graph_saved` marker after
+  // EVERY graph write, so it is almost always the trailing event — reading
+  // events[length-1] blindly would collapse every card to the generic
+  // "Updated X ago" and silently lose "Model drafted…" / "Model updated…".
+  // The skip-set is derived from the shared source of truth, never hand-listed.
+  let lastEvent: ScenarioEvent | undefined
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (!SYSTEM_MARKER_EVENT_TYPES.has(events[i].event_type)) {
+      lastEvent = events[i]
+      break
+    }
+  }
+  // Only markers (e.g. a freshly-autosaved scenario with no other activity):
+  // fall back to the relative time of the newest marker.
+  if (!lastEvent) {
+    return `Updated ${formatRelativeTime(events[events.length - 1].timestamp ?? updatedAt)}`
+  }
   const details = lastEvent.details ?? {}
 
   switch (lastEvent.event_type) {
     case 'analysis_run':
-      if (details.winner && details.probability != null) {
-        return `Analysis run — ${details.winner} led at ${Math.round(Number(details.probability) * 100)}%`
-      }
+      // ROADMAP 1.239: was `Analysis run — ${details.winner} led at N%`, gated
+      // on `details.winner` alone and never on the verdict. Deleted rather
+      // than gated, for the reason set out in full at renderTimeline.ts's
+      // `analysis_run` template: `details.winner` has no writer in this build,
+      // and this page holds `ScenarioEvent[]` and nothing else at render time
+      // — no report, so no `DecisionVerdict`, so no entitlement to consult.
+      // There is no gate to write here, only a claim to stop making.
+      //
+      // The probe's 0-count for this surface is VACUOUS, not clean: its
+      // session was anonymous and the page rendered only the signed-out
+      // prompt. Whether any persisted row carries a `winner` is still
+      // UNVERIFIED LIVE and needs an authenticated-session probe;
+      // residualComparative.scenarioList.spec.tsx supplies the component-level
+      // pin the probe could not.
       return 'Analysis run'
     case 'graph_drafted':
       return `Model drafted with ${details.node_count ?? '?'} factors`
@@ -333,7 +363,11 @@ export default function ScenarioListPage() {
     }
   }
 
-  // Guest mode — redirect to login
+  // Guest mode — offer sign-in (primary) and a guest path into the canvas
+  // (secondary). Guest mode is the POC's primary flow and #/canvas works fully
+  // as guest, so this branch must never be a dead end. The guest copy
+  // deliberately promises nothing about persistence — the sign-in copy above
+  // it already frames signing in as the way to save.
   if (!isPersistenceActive) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-canvas p-8">
@@ -342,12 +376,20 @@ export default function ScenarioListPage() {
           <p className={`${typography.body} text-text-body mt-4`}>
             Sign in to save and manage your decisions.
           </p>
-          <button
-            onClick={() => navigate('/login')}
-            className={`${typography.button} mt-6 px-6 py-3 rounded-pill bg-primary text-text-on-color shadow-1 hover:bg-primary-hover transition-all duration-fast`}
-          >
-            Sign in
-          </button>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <button
+              onClick={() => navigate('/login')}
+              className={`${typography.button} px-6 py-3 rounded-pill bg-primary text-text-on-color shadow-1 hover:bg-primary-hover transition-all duration-fast`}
+            >
+              Sign in
+            </button>
+            <button
+              onClick={() => navigate('/canvas')}
+              className={`${typography.button} px-6 py-3 rounded-pill border border-[rgba(38,38,38,0.16)] text-text-body hover:bg-panel-hover transition-colors duration-fast`}
+            >
+              Continue without an account
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -366,6 +408,13 @@ export default function ScenarioListPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-6 pb-12 sm:px-8">
+        {/* Login 3.4: one-time guest-draft import offer (flag-gated dark).
+            Above the first-run ternary deliberately — a guest who signs in
+            fresh has zero scenarios, so the draft offer must survive the
+            welcome state. NO wrapper element: the banner returns null when
+            no offer is due, so flag-off renders zero extra DOM (review S1 —
+            an unconditional wrapper shifted the first-run state 16px). */}
+        <GuestDraftImportBanner />
         {isFirstRun ? (
           /* ---- First-run welcome ---- */
           <div className="text-center py-20" data-testid="first-run">

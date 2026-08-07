@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { isEdgeFragile, getFragileEdgeSwitchProbability, type FragileEdgeCandidate } from '../fragileEdgeMatch'
+import { isEdgeFragile, getFragileEdgeSwitchProbability, isTopFragileEdge, type FragileEdgeCandidate } from '../fragileEdgeMatch'
 
 const ABOVE = 0.42
 const AT_THRESHOLD = 0.15 // Spec Section 6.3: threshold = 0.15
@@ -78,6 +78,47 @@ describe('getFragileEdgeSwitchProbability', () => {
   })
 })
 
+// ─── Presence branch (schemas 0.30.0; marginal-quantity honesty batch) ──────
+//
+// getFragileEdgeSwitchProbability is a DISPLAY accessor: its value renders as
+// "NN% flip risk" (EdgePanel context + tech disclosure) and "Sensitive · NN%"
+// (StyledEdge badge/popover). switch_probability ABSENT means NOT COMPUTED,
+// and marginal_switch_probability is a DIFFERENT Monte Carlo — never a
+// fallback for a rendered number. The MATCHING tier (isEdgeFragile /
+// isTopFragileEdge) deliberately keeps marginal eligibility — that is
+// visibility, not a displayed quantity (rowed follow-up).
+
+describe('getFragileEdgeSwitchProbability — presence branch on the MEASURED quantity', () => {
+  it('PIN: a marginal-only entry yields NO display value (never the marginal substitute)', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edge_id: 'e1', marginal_switch_probability: 0.42 }]
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeNull()
+  })
+
+  it('PIN: a camelCase marginal-only entry yields NO display value either', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edgeId: 'e1', marginalSwitchProbability: 0.42 }]
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeNull()
+  })
+
+  it('CONTROL: a measured value renders, never displaced by a larger marginal', () => {
+    const fragile: FragileEdgeCandidate[] = [
+      { edge_id: 'e1', switch_probability: 0.42, marginal_switch_probability: 0.99 },
+    ]
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeCloseTo(0.42)
+  })
+
+  it('CONTROL: a measured 0 is a measurement below the floor — null, and never falls through to marginal', () => {
+    const fragile: FragileEdgeCandidate[] = [
+      { edge_id: 'e1', switch_probability: 0, marginal_switch_probability: 0.9 },
+    ]
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeNull()
+  })
+
+  it('CONTROL: the camelCase MEASURED shape still renders', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edgeId: 'e1', switchProbability: 0.42 }]
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeCloseTo(0.42)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // QA Brief G-series — fragile edge threshold boundary cases
 // ---------------------------------------------------------------------------
@@ -112,3 +153,42 @@ describe('fragileEdgeMatch — QA Brief G-series boundary cases', () => {
     expect(Math.round((prob ?? 0) * 100)).toBe(42)
   })
 })
+
+describe('isTopFragileEdge — E4 single default-view fragility badge', () => {
+  const set: FragileEdgeCandidate[] = [
+    { edge_id: 'e1', switch_probability: 0.35 },
+    { edge_id: 'e2', switch_probability: 0.62 },
+    { edge_id: 'e3', switch_probability: 0.4 },
+  ]
+
+  it('is true only for the highest-switch-probability fragile edge', () => {
+    expect(isTopFragileEdge('e2', 'a', 'b', set)).toBe(true)
+    expect(isTopFragileEdge('e1', 'a', 'b', set)).toBe(false)
+    expect(isTopFragileEdge('e3', 'a', 'b', set)).toBe(false)
+  })
+
+  it('ignores entries below the visibility floor when picking the top', () => {
+    const withBelowFloor: FragileEdgeCandidate[] = [
+      { edge_id: 'e1', switch_probability: 0.9 } as FragileEdgeCandidate, // below floor? no — 0.9 is above
+    ]
+    // A single above-floor entry is the top.
+    expect(isTopFragileEdge('e1', 'a', 'b', withBelowFloor)).toBe(true)
+    // An edge that is only below-floor is never the top.
+    expect(isTopFragileEdge('e9', 'x', 'y', [{ edge_id: 'e9', switch_probability: 0.1 }])).toBe(false)
+  })
+
+  it('returns false when nothing is fragile above the floor', () => {
+    expect(isTopFragileEdge('e1', 'a', 'b', [])).toBe(false)
+    expect(isTopFragileEdge('e1', 'a', 'b', [{ edge_id: 'e1', switch_probability: 0.05 }])).toBe(false)
+  })
+
+  it('matches by source/target pair when edge_id is absent', () => {
+    const bySrcTgt: FragileEdgeCandidate[] = [
+      { from_id: 'a', to_id: 'b', switch_probability: 0.7 },
+      { from_id: 'c', to_id: 'd', switch_probability: 0.5 },
+    ]
+    expect(isTopFragileEdge('anyid', 'a', 'b', bySrcTgt)).toBe(true)
+    expect(isTopFragileEdge('anyid', 'c', 'd', bySrcTgt)).toBe(false)
+  })
+})
+

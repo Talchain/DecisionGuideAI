@@ -26,11 +26,16 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
+import {
+  selectGoalProbability,
+  type GoalProbabilityInput,
+} from '../../components/results/utils/selectGoalProbability'
 import { useISLConformal } from '../../hooks/useISLConformal'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { buildRichGraphPayload, getRecommendedOptionInterventions } from '../utils/graphPayload'
 import { type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
+import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { computeBaselineComparison } from '../utils/baselineComparison'
 // P0.2: Precision display for confidence-aware outcome formatting
 import { getPrecisionDisplay } from '../../lib/precisionDisplay'
@@ -65,6 +70,15 @@ interface GoalProbabilityData {
   winProbability?: number
   /** Success threshold (when provided by user) */
   threshold?: number
+  /**
+   * ROADMAP 2.283 — the possessive gate, same basis and same register as the
+   * six surfaces #556 gated and the seventh (GoalNode) gated here.
+   * True ⇔ `selectGoalProbability(...).basis === 'joint_goal_substituted'`,
+   * i.e. the number is P(all constraints jointly satisfied) STANDING IN for an
+   * absent `probability_of_goal`, so "chance of reaching X for YOUR GOAL"
+   * names a question it does not answer.
+   */
+  isSubstitutedJoint: boolean
 }
 
 /** P0.5: Comparative delta between options */
@@ -274,13 +288,33 @@ export function DecisionSummary({
       const currentOptionId = optionNodesList[0]?.id
       if (currentOptionId && report.option_probabilities[currentOptionId]) {
         const prob = report.option_probabilities[currentOptionId]
-        goalProbability = {
-          probability: prob.goal_probability,
-          confidence: prob.confidence,
-          goalLabel,
-          winProbability: prob.win_probability,
-          threshold: goalThreshold ?? undefined,
-        }
+        // GOAL-PROBABILITY IDENTITY: read the chosen claim, never re-derive it.
+        // This site used to take `prob.goal_probability` with NO joint fallback
+        // — the exact shape #496 repaired elsewhere — so on a run whose goal
+        // threshold ISL auto-derived (goal_probability absent,
+        // probability_of_joint_goal present) this card rendered `NaN%` while
+        // OptionCards, the hero and GoalNode rendered the joint figure. One
+        // chooser, and it is not this file.
+        const decision = selectGoalProbability(prob as GoalProbabilityInput)
+        goalProbability =
+          decision.goalProbability !== null
+            ? {
+                probability: decision.goalProbability,
+                confidence: prob.confidence,
+                goalLabel,
+                winProbability: prob.win_probability,
+                threshold: goalThreshold ?? undefined,
+                // Read off the same decision the number came from — never
+                // re-derived, and never inferred from the value.
+                //
+                // ⭐ L62: reads the owner's published PERMISSION rather than a
+                // basis literal. Since the substitution is now withheld
+                // outright (no number on that basis), every number that
+                // reaches this branch earns the possessive and this is false —
+                // by construction, not by assertion.
+                isSubstitutedJoint: !decision.mayUsePossessiveGoalFraming,
+              }
+            : null
       }
     }
 
@@ -403,6 +437,20 @@ export function DecisionSummary({
         {summaryData.goalProbability && (
           <div className="space-y-1 mb-2">
             <p className={`${typography.bodySmall} text-ink-600`}>
+              {/* ROADMAP 2.283 — THE POSSESSIVE GATE. Under substitution BOTH
+                  permitted arms below name the user's goal ("… for {goal}",
+                  "achieving {goal}") over a number that is not a goal
+                  probability, so the whole sentence is replaced by the shared
+                  register's phrase form — the same wording seven sibling
+                  surfaces render for this basis. No copy invented here; the
+                  permitted arms are byte-identical to what they replaced. */}
+              {summaryData.goalProbability.isSubstitutedJoint ? (
+                GOAL_ANCHOR_COPY.phrase(
+                  `${Math.round(summaryData.goalProbability.probability * 100)}%`,
+                  true,
+                )
+              ) : (
+                <>
               <span className="font-semibold">
                 {Math.round(summaryData.goalProbability.probability * 100)}%
               </span>{' '}
@@ -418,6 +466,8 @@ export function DecisionSummary({
                 <>
                   achieving{' '}
                   <span className="font-medium">{summaryData.goalProbability.goalLabel}</span>
+                </>
+              )}
                 </>
               )}
               {summaryData.goalProbability.confidence < 0.7 && (

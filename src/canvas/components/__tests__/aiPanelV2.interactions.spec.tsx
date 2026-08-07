@@ -66,7 +66,6 @@ vi.mock('../../conversation/useConversation', async () => {
         messages,
         isThinking: false,
         longRunningHint: null,
-        lastFailedInput: null,
         sendMessage,
         sendSystemEvent,
         sendChip,
@@ -80,9 +79,6 @@ vi.mock('../../conversation/useConversation', async () => {
   }
 })
 
-vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
-  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
-}))
 
 vi.mock('../../hooks/useStageAwarePlaceholder', () => ({
   useStageAwarePlaceholder: () => 'Ask about this model…',

@@ -22,6 +22,7 @@
 // ============================================================================
 
 import { makeFlag, diagnoseFlagState } from './lib/flagFactory'
+import { FLAG_ENV } from './lib/flagEnv'
 
 // ============================================================================
 // FLAG CONFIGURATIONS (centralized, type-safe)
@@ -340,6 +341,30 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_ANALYSIS_HERO_PANEL',
     storageKey: 'feature.analysisHeroPanel',
   },
+  // Hero fixture gallery — INTERNAL-ONLY route (/#/dev/hero-gallery —
+  // AppPoC hash router) rendering
+  // the full prototype hero states from typed fixtures (provenance
+  // 'fixture'; every instance carries a visible internal-preview banner).
+  // Fixture data is blocked from all normal product routes: the gallery is
+  // the ONLY module allowed to import the fixture models (hygiene-tested,
+  // fixtureIsolation.spec — which also pins the netlify flag matrix:
+  // staging-on, production and deploy previews OFF).
+  // STANDING INTERNAL TOOL — owner: Paul (Talchain). Review/removal point:
+  // when the producer unlock set closes (issues 211/212/217/219/220/221)
+  // or at hero GA sign-off, whichever comes first — the gallery either
+  // retires or its states graduate to live coverage.
+  // Enable locally: localStorage.setItem('feature.heroFixtureGallery', '1')
+  //
+  // ⚠ SINCE tester-safe routing: this flag alone NO LONGER makes the route
+  // reachable. `/dev/hero-gallery` now sits behind `devRoutes` at the ROUTE
+  // (src/poc/AppPoC.tsx) as well as behind this flag inside the component, so
+  // the netlify staging `VITE_FEATURE_HERO_FIXTURE_GALLERY = "1"` is necessary
+  // but not sufficient. To open the gallery on staging:
+  //   localStorage.setItem('feature.devRoutes', '1')   // then reload
+  heroFixtureGallery: {
+    envKey: 'VITE_FEATURE_HERO_FIXTURE_GALLERY',
+    storageKey: 'feature.heroFixtureGallery',
+  },
   // AI panel v2 — floating-first Olumi UX.
   // When OFF: existing DraftChat (legacy floating canvas overlay) + standalone
   // OutputsDock render unchanged.
@@ -374,6 +399,70 @@ const FLAGS_CONFIG = {
   v5CanonicalAnalysis: {
     envKey: 'VITE_V5_CANONICAL_ANALYSIS',
     storageKey: 'feature.v5CanonicalAnalysis',
+  },
+  // ROADMAP 1.42: Show-reasoning progressive disclosure — verbatim, labelled.
+  // When ON: assistant messages carrying a `_reasoning` string (CEE additive
+  // extension, sidecar-parsed by responseParser at schema pin 0.13.1) render a
+  // collapsed-by-default "Show reasoning" toggle. Verbatim plain text, never
+  // fed through the markdown/content pipeline. Off by default — sporadic CEE
+  // field, no contract guarantee yet.
+  reasoningDisclosure: {
+    envKey: 'VITE_FEATURE_REASONING_DISCLOSURE',
+    storageKey: 'feature.reasoningDisclosure',
+  },
+  // Login 3.4 UI half: when ON, no guest user is minted (lib/poc.ts
+  // isGuestAuth) and unauthenticated visitors land on LoginPage via the
+  // already-mounted AuthGuard. Default OFF — the live flip is Paul-gated
+  // (UX approval + integration verify); flag-off is pinned byte-identical
+  // to guest-mode-today in lib/__tests__/poc.requireLogin.spec.ts.
+  // ⚠ FLIP RUNBOOK: this flag alone is NOT sufficient in a guest-env
+  // BUILD — vite.config.ts aliases @supabase/supabase-js to a stub when
+  // VITE_AUTH_MODE=guest at build time (staging's netlify.toml pins it),
+  // so flag-on there renders LoginPage but sign-in silently no-ops. The
+  // real flip needs the build env switched to real-auth (VITE_AUTH_MODE
+  // unset/real + real Supabase env) IN ADDITION to this flag.
+  requireLogin: {
+    envKey: 'VITE_REQUIRE_LOGIN',
+    storageKey: 'feature.requireLogin',
+  },
+  // Analysis-tab rebuild Wave 1 (DEV-PLAN-2026-07-12): the Decision overview
+  // card + consolidated Actions menu. Default OFF; staging-on by netlify.toml
+  // promotion after wave acceptance; flag-off is byte-identical (pinned).
+  decisionOverview: {
+    envKey: 'VITE_FEATURE_DECISION_OVERVIEW',
+    storageKey: 'feature.decisionOverview',
+  },
+  // Analysis-tab rebuild Wave 3a (DEV-PLAN-2026-07-12): the Strengthen your
+  // model adaptive panel (brief §8) replacing FocusNow inside this flag.
+  // Default OFF; staging-on by netlify.toml after wave acceptance; the
+  // focusNowPanel kill switch retires at acceptance.
+  strengthenPanel: {
+    envKey: 'VITE_FEATURE_STRENGTHEN_PANEL',
+    storageKey: 'feature.strengthenPanel',
+  },
+  // Developer route estate — the scaffolding surfaces in src/poc/AppPoC.tsx
+  // that are NOT the product. The authoritative list is the children of the
+  // one `<Route element={<DevRoutesGuard/>}>` layout route there; do not mirror
+  // it here (a second copy of the list is the trap-12 defect, and this comment
+  // has already drifted once).
+  //
+  // When OFF, every one of those URLs renders <Navigate to="/" replace/> — the
+  // SCENARIO LIST, deliberately not /canvas, because an open canvas is a live
+  // writer. A tester who mistypes a URL lands somewhere real and read-only.
+  // (This line said `/canvas` while the code said `/` — corrected 30 Jul.)
+  //
+  // ⚠ DELIBERATELY OFF IN EVERY DEPLOYED BUILD. `VITE_ENABLE_DEV_ROUTES` is not
+  // set in netlify.toml for any context and must not be — staging IS the tester
+  // surface. The env key exists because it is how this repo's flags are shaped,
+  // and because the Playwright suite needs it (playwright.config.ts webServer),
+  // not because a deploy should ever set it.
+  //
+  // To reach the scaffolding in YOUR OWN browser, on any environment:
+  //   localStorage.setItem('feature.devRoutes', '1')   // then reload
+  // That override is per-browser, so it cannot leak to a tester.
+  devRoutes: {
+    envKey: 'VITE_ENABLE_DEV_ROUTES',
+    storageKey: 'feature.devRoutes',
   },
 } as const
 
@@ -441,9 +530,15 @@ const flags = {
   analysisHeroV17: makeFlag(FLAGS_CONFIG.analysisHeroV17),
   analysisHeroCompare: makeFlag(FLAGS_CONFIG.analysisHeroCompare),
   analysisHeroPanel: makeFlag(FLAGS_CONFIG.analysisHeroPanel),
+  heroFixtureGallery: makeFlag(FLAGS_CONFIG.heroFixtureGallery),
   focusNowPanel: makeFlag(FLAGS_CONFIG.focusNowPanel),
   aiPanelV2: makeFlag(FLAGS_CONFIG.aiPanelV2),
   v5CanonicalAnalysis: makeFlag(FLAGS_CONFIG.v5CanonicalAnalysis),
+  reasoningDisclosure: makeFlag(FLAGS_CONFIG.reasoningDisclosure),
+  requireLogin: makeFlag(FLAGS_CONFIG.requireLogin),
+  decisionOverview: makeFlag(FLAGS_CONFIG.decisionOverview),
+  strengthenPanel: makeFlag(FLAGS_CONFIG.strengthenPanel),
+  devRoutes: makeFlag(FLAGS_CONFIG.devRoutes),
 }
 
 // Export with original naming convention for backward compatibility
@@ -506,11 +601,17 @@ export const isDeterministicCeeEnabled = flags.deterministicCee
 export const isAnalysisHeroV17Enabled = flags.analysisHeroV17
 export const isAnalysisHeroCompareEnabled = flags.analysisHeroCompare
 export const isAnalysisHeroPanelEnabled = flags.analysisHeroPanel
+export const isHeroFixtureGalleryEnabled = flags.heroFixtureGallery
 export const isFocusNowPanelEnabled = flags.focusNowPanel
 export const isAiPanelV2Enabled = flags.aiPanelV2
 export const isV5CanonicalAnalysisEnabled = flags.v5CanonicalAnalysis
 export const diagnoseV5CanonicalAnalysis = () =>
   diagnoseFlagState(FLAGS_CONFIG.v5CanonicalAnalysis)
+export const isReasoningDisclosureEnabled = flags.reasoningDisclosure
+export const isRequireLoginEnabled = flags.requireLogin
+export const isDecisionOverviewEnabled = flags.decisionOverview
+export const isStrengthenPanelEnabled = flags.strengthenPanel
+export const isDevRoutesEnabled = flags.devRoutes
 
 
 // ============================================================================
@@ -518,29 +619,39 @@ export const diagnoseV5CanonicalAnalysis = () =>
 // ============================================================================
 
 // PoC-aware flags system - defaults to ON when VITE_POC_ONLY=1
-const env = (import.meta as any)?.env
-const isPoc = env?.VITE_POC_ONLY === '1'
+//
+// ⚠ NAMED, LITERAL env reads only. This was `const env = (import.meta as any)?.env`,
+// which puts the env object in VALUE position — Vite cannot statically narrow that,
+// so it inlined the ENTIRE env object (every VITE_* the deploy defines, with its
+// value) into the flags chunk. See `src/lib/plotAuthHeaders.ts` for the measurement
+// and `scripts/ci/assert-bundle-env-allowlist.mjs` for the regression pin.
+const isPoc = import.meta.env?.VITE_POC_ONLY === '1'
 
 // Helper: returns true if explicitly enabled OR (PoC mode AND not explicitly disabled)
 const on = (v?: string) => v === '1' || (isPoc && v !== '0')
 
 // PoC-aware flags - default to ON in PoC mode
 export const pocFlags = {
-  sse: on(env?.VITE_FEATURE_SSE),
-  orchestratorStreaming: on(env?.VITE_FEATURE_ORCHESTRATOR_STREAMING),
-  scenarioSandbox: on(env?.VITE_FEATURE_SCENARIO_SANDBOX),
+  sse: on(import.meta.env?.VITE_FEATURE_SSE),
+  orchestratorStreaming: on(import.meta.env?.VITE_FEATURE_ORCHESTRATOR_STREAMING),
+  scenarioSandbox: on(import.meta.env?.VITE_FEATURE_SCENARIO_SANDBOX),
 }
 
-// Debug helper: dump all flags for inspection
+// Debug helper: dump the DECLARED FLAG env for inspection.
+//
+// ⚠ `raw` is FLAG_ENV (the declared flag keys), NOT the whole environment. It
+// used to be `{ ...env }` over `(import.meta as any)?.env` — which both forced
+// Vite to inline every VITE_* the deploy defines into this chunk AND handed the
+// caller every one of those values, credentials included, from a debug helper.
 export function dumpFlags() {
-  const isPoc = env?.VITE_POC_ONLY === '1'
-  const on = (v?: string) => v === '1' || (isPoc && v !== '0')
+  const isPocNow = import.meta.env?.VITE_POC_ONLY === '1'
+  const onNow = (v?: unknown) => v === '1' || (isPocNow && v !== '0')
   return {
-    raw: { ...env },
+    raw: { ...FLAG_ENV },
     resolved: {
-      isPoc,
-      sse: on(env?.VITE_FEATURE_SSE),
-      sandbox: on(env?.VITE_FEATURE_SCENARIO_SANDBOX),
+      isPoc: isPocNow,
+      sse: onNow(FLAG_ENV.VITE_FEATURE_SSE),
+      sandbox: onNow(FLAG_ENV.VITE_FEATURE_SCENARIO_SANDBOX),
     }
   }
 }

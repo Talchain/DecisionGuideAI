@@ -12,6 +12,7 @@
 import type { UncertaintyItem, EvidenceGapItem } from '../types'
 import type { ConstraintAnalysis } from '../../../types/constraints'
 import { stripEncodingNotation, sanitizeCoachingText } from './cleanFactorLabel'
+import type { DskEvidenceStrength } from './decisionQualityPrompts'
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -37,8 +38,14 @@ export interface ActionItem {
   whatToDo?: string
   /** V12 B4: Node IDs for graph links (from M2 bias finding affected_elements) */
   affectedNodeIds?: string[]
-  /** ISL EVPI: expected improvement in percentage points (gated on presence) */
-  evpiPp?: number
+  /**
+   * Lane 1 (P1): DSK science provenance, carried from the source prompt.
+   * Present ONLY when attested upstream by a `dsk_claim_id` — an item without
+   * these fields is "not grounded", and render surfaces must show NO badge.
+   */
+  dskClaimId?: string
+  dskProtocolId?: string
+  evidenceStrength?: DskEvidenceStrength
 }
 
 export interface ActionGroup {
@@ -142,11 +149,20 @@ export interface M2BiasFindingInput {
   linkedCritiqueCode: string
 }
 
-/** V12: M2 decision quality prompt (real PLoT shape) */
+/**
+ * V12: M2 decision quality prompt (real PLoT shape).
+ * Lane 1 (P1): optional DSK provenance — already id-gated at the data layer
+ * (`utils/decisionQualityPrompts`): these fields are present ONLY when the
+ * wire entry attested a `dsk_claim_id`. Group 4 carries them through to the
+ * ActionItem verbatim; absence stays absence (never defaulted here either).
+ */
 export interface M2DecisionQualityPromptInput {
   principle: string
   appliesBecause: string
   question: string
+  dskClaimId?: string
+  dskProtocolId?: string
+  evidenceStrength?: DskEvidenceStrength
 }
 
 /** V12: M2 evidence enhancement per factor */
@@ -257,16 +273,13 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
   // Exclude evidence gaps whose dedup key matches Group 1 OR excluded factors
   const group2Items: ActionItem[] = evidenceGaps
     .filter(gap => !group1Keys.has(gap.factorId) && !excludeSet.has(gap.factorId))
-    .sort((a, b) => {
-      // Prefer evpi_percentage_points, then evpi (absolute), then VOI
-      const aPp = (a as any).evpiPp as number | undefined
-      const bPp = (b as any).evpiPp as number | undefined
-      if (typeof aPp === 'number' && typeof bPp === 'number') return bPp - aPp
-      const aEvpi = (a as any).evpi as number | undefined
-      const bEvpi = (b as any).evpi as number | undefined
-      if (typeof aEvpi === 'number' && typeof bEvpi === 'number') return bEvpi - aEvpi
-      return b.voi - a.voi
-    })
+    // ⛔ NO RE-RANK. The primary key was `evpi_percentage_points`, a figure
+    // ISL measures at 0.0 for the very factors PLoT scores at 12.3 / 10.2 /
+    // 6.6 in the same payload, computed by multiplying BY the top-two
+    // win-probability gap — which inverts decision theory. The `voi` fallback
+    // is the same quantity rescaled (evpi_pp = voi × a per-response scalar),
+    // so re-sorting by it would only launder the claim. The producer's own
+    // emission order is preserved instead.
     .map((gap, voiRank) => {
       // V12: Enrich with M2 evidence enhancements when available
       const enhancement = evidenceEnhancements?.[gap.factorId]
@@ -283,7 +296,6 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
         source: 'model' as const,
         whatCouldHappen: enhancement?.decision_hygiene,
         whatToDo: enhancement?.specific_action,
-        evpiPp: typeof gap.evpiPp === 'number' ? gap.evpiPp : undefined,
       }
     })
 
@@ -329,13 +341,23 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
     if (typeof item === 'string') {
       return { id: `premortem-${i}`, title: sanitizeCoachingText(item), source: 'brief' as const }
     }
-    // Structured M2 decision quality prompt — fields sanitized at data layer
+    // Structured M2 decision quality prompt — fields sanitized at data layer.
+    // Lane 1 (P1): DSK provenance carried verbatim when attested (id-gated
+    // upstream; re-gated here so a malformed caller cannot smuggle a
+    // strength without a claim id).
     return {
       id: `dqp-${i}`,
       title: item.principle,
       subtitle: item.question,
       whatCouldHappen: item.appliesBecause,
       source: 'model' as const,
+      ...(item.dskClaimId
+        ? {
+            dskClaimId: item.dskClaimId,
+            ...(item.dskProtocolId ? { dskProtocolId: item.dskProtocolId } : {}),
+            ...(item.evidenceStrength ? { evidenceStrength: item.evidenceStrength } : {}),
+          }
+        : {}),
     }
   })
 

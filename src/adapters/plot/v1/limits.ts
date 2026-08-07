@@ -7,13 +7,14 @@
  */
 
 import type { V1LimitsResponse } from './types'
+import { plotFetch } from '../../../lib/plotFetch'
 
 /**
  * Get proxy base URL, aligned with http.ts pattern
  * Defaults to /bff/engine to go through hardened proxy (CORS, auth, rate limits)
  */
 const getProxyBase = (): string => {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
+  return import.meta.env?.VITE_PLOT_PROXY_BASE || '/bff/engine'
 }
 
 const CACHE_KEY = 'plot_limits_cache'
@@ -89,13 +90,18 @@ export async function fetchLimits(): Promise<V1LimitsResponse> {
   const timeoutId = setTimeout(() => controller.abort(), 5000)
 
   try {
-    const response = await fetch(`${base}/v1/limits`, {
+    const response = await plotFetch(`${base}/v1/limits`, {
       method: 'GET',
       signal: controller.signal,
     })
 
-    clearTimeout(timeoutId)
-
+    // NOTE: the abort timer is deliberately NOT cleared here. `fetch` resolves
+    // as soon as the HEADERS arrive, so clearing it at this point left the
+    // `response.json()` below unprotected: a headers-then-body stall (the
+    // Netlify-edge hang class this project has hit before) left this promise
+    // pending forever, so every caller awaiting the engine limits hung with no
+    // escape. The timer is cleared in the `finally` instead, once the body read
+    // has completed or thrown. Mirrors the runV2 fix in #367.
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`)
     }
@@ -119,13 +125,11 @@ export async function fetchLimits(): Promise<V1LimitsResponse> {
 
     return data
   } catch (err) {
-    clearTimeout(timeoutId)
-
     // Return defaults if fetch fails
     const fallback: V1LimitsResponse = {
       schema: 'limits.v1',
       max_nodes: 50,
-      max_edges: 200,
+      max_edges: 100,
       max_body_kb: 96,
       rate_limit_rpm: 60,
       flags: { scm_lite: 1 },
@@ -136,6 +140,13 @@ export async function fetchLimits(): Promise<V1LimitsResponse> {
     }
 
     return fallback
+  } finally {
+    // Cleared here, and only here — after the body read has settled on every
+    // path (success, HTTP error, abort). An abort raised mid-body rejects the
+    // body read with an AbortError, which the existing catch already turns into
+    // the same defaults a headers-phase timeout already produced — no new error
+    // shape, and fetchLimits still never throws.
+    clearTimeout(timeoutId)
   }
 }
 

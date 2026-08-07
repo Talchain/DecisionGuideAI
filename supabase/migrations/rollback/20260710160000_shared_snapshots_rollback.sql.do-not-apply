@@ -1,0 +1,34 @@
+-- ============================================================
+-- shared_snapshots — break-glass rollback companion
+-- Matches: 20260710160000_shared_snapshots.sql
+-- Status: DO NOT APPLY automatically.
+-- ============================================================
+--
+-- The `.do-not-apply` suffix ensures migration tooling skips this file
+-- (convention imported from olumi-assistants-service/supabase/migrations/
+-- rollback/ — this is DGAI's first rollback companion). Apply manually
+-- only when the share feature must be withdrawn.
+--
+-- Effect of applying: every outstanding share link goes dead immediately
+-- (viewer RPC dropped + rows destroyed). That is the intended semantics
+-- of a share-feature withdrawal — no export step is warranted: all
+-- content in shared_snapshots is a copy of scenario state that lives on
+-- in `scenarios` / `scenario_snapshots`.
+--
+-- The forward migration touched NO existing table, so rollback is
+-- self-contained: drop the two RPCs, then the table (policies + indexes
+-- go with it).
+--
+-- After applying: Supabase auto-reloads the PostgREST schema cache on
+-- DDL; if a stale-cache symptom is seen, force a reload with
+--   NOTIFY pgrst, 'reload schema';
+-- ============================================================
+
+-- 1. Drop the RPCs (exact signatures — no overloads exist by design).
+DROP FUNCTION IF EXISTS public.create_shared_snapshot(
+  uuid, jsonb, jsonb, text, text, bigint, timestamptz
+);
+DROP FUNCTION IF EXISTS public.get_shared_snapshot_by_slug(text);
+
+-- 2. Drop the table (RLS policies and indexes go with it).
+DROP TABLE IF EXISTS public.shared_snapshots;

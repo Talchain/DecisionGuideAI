@@ -15,7 +15,11 @@ import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
 import { getObservedState } from '../../../utils/observedStateHelpers'
 import { isAiSource } from '../../pre-analysis/utils/isAiSource'
-import { isReviewedByUser } from '../../pre-analysis/utils/isReviewedByUser'
+import { isReviewedByUser, resolveReviewSource } from '../../pre-analysis/utils/isReviewedByUser'
+import {
+  classifyNodeProvenance,
+  classifyValueProvenance,
+} from '../../../domain/valueProvenance'
 import type { Attribution, EstimateRowModel, RankingResult, RankLabel } from '../types'
 
 function rankLabelFor(position: number): RankLabel {
@@ -50,6 +54,20 @@ export function buildEstimateRows(
       const reviewed = isReviewedByUser(node)
       const aiSourced = isAiSource(typeof observed.source === 'string' ? observed.source : null)
 
+      // ROADMAP 2.638 S2 — WHICH act the reviewed state records.
+      //
+      // Resolved through `resolveReviewSource`, the SAME chain (and the same
+      // precedence) `isReviewedByUser` walks, so the pill can never name an act
+      // the predicate did not see. Falls through to the node-level
+      // `provenance` rung, which classifies to 'human': CEE writes `user_set`
+      // for a typed value and a confirmation alike, so it is honest about not
+      // knowing the act rather than guessing one.
+      const nodeProvenance = typeof data.provenance === 'string' ? data.provenance : null
+      const provenanceKind = (
+        classifyValueProvenance(resolveReviewSource(node)) ??
+        classifyNodeProvenance(nodeProvenance)
+      )?.kind
+
       const needsValue =
         displayText == null && rawUnwrapped == null && valueUnwrapped == null
 
@@ -67,6 +85,7 @@ export function buildEstimateRows(
         rankLabel,
         weight: ranking.weights[id] ?? 0,
         reviewed,
+        ...(provenanceKind ? { provenanceKind } : {}),
         aiSourced,
         attribution: reviewed
           ? currentUser ?? { kind: 'person', displayName: 'You' }

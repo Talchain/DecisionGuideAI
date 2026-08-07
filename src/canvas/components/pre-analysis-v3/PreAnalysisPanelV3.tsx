@@ -15,9 +15,11 @@ import { guardCeeText } from './signals/ceeTextGuard'
 import { usePreAnalysisModel } from './hooks/usePreAnalysisModel'
 import { useConversationActions } from './hooks/useConversationActions'
 import { useSensitivityRanking } from './hooks/useSensitivityRanking'
+import { GoalTargetNudge } from '../pre-analysis/GoalTargetNudge'
 import { PanelHeader } from './header/PanelHeader'
 import { HeroSection, GOAL_INPUT_ID, SUCCESS_INPUT_ID } from './hero/HeroSection'
 import { SharpenSection } from './sharpen/SharpenSection'
+import { ContestedSection } from './contested/ContestedSection'
 import { YourDecisionSection } from './model/YourDecisionSection'
 import { AdvancedSection } from './advanced/AdvancedSection'
 import { PanelFooter } from './footer/PanelFooter'
@@ -102,7 +104,7 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
           }))
           break
         case 'send_prompt':
-          sendPrompt(action.label, action.prompt)
+          sendPrompt(action.spark)
           break
         case 'run_analysis':
           runOrExplain()
@@ -117,6 +119,24 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
       {/* No flex-1: content sits at natural height (footer follows it), and
           shrinks to keep the footer visible only when it overflows. */}
       <div className="min-h-0 overflow-y-auto">
+        {/* Success-target elicitation nudge (also mounted in the legacy
+            PreAnalysisPanel). On the deployed staging build the V3 panel is
+            the LIVE surface (flags baked via the Netlify dashboard env, not
+            netlify.toml), so the nudge must live here too or it is dark. Same
+            gating as the legacy mount — a goal exists AND no success target is
+            set — expressed in V3 model terms (hero.goal / hero.success.isSet).
+            Routes into the V3 panel's OWN setter seam: focus the inline
+            success field by id, the same route handleLadderAct('set_success')
+            and handleSignalAction('focus_success_field') use — no second
+            editor. Unlocks the honestly-gated Goal-fit lens; vanishes the
+            instant a target is set; never blocks analysis. */}
+        <div className="px-4 pt-4">
+          <GoalTargetNudge
+            hasGoalNode={model.hero.goal != null}
+            hasSuccessTarget={model.hero.success.isSet}
+            onSetTarget={() => document.getElementById(SUCCESS_INPUT_ID)?.focus()}
+          />
+        </div>
         <PanelHeader bars={model.bars} onAction={sendPrompt} />
         <HeroSection
           hero={model.hero}
@@ -129,6 +149,14 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
           onSendPrompt={sendPrompt}
           onAction={handleSignalAction}
         />
+        {/* ROADMAP 2.376 — connections CEE's two validation passes disagreed about.
+            Placed between Sharpen and Your decision on purpose: it is a "worth checking
+            before you run" item like Sharpen's, but it is about the MODEL's connections
+            rather than the framing, so it introduces the model section rather than
+            interrupting the coaching. It is deliberately ABOVE Advanced — a differentiator
+            no other tool shows should not be filed behind a collapsed set-up disclosure.
+            Renders nothing at all when no connection is contested, which is most models. */}
+        <ContestedSection rows={model.contested} />
         <YourDecisionSection model={model} onSendPrompt={sendPrompt} estimateFocus={estimateFocus} />
         <AdvancedSection advanced={model.advanced} />
       </div>
@@ -138,6 +166,10 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
         isAnalysing={isAnalysing}
         canRun={canRun}
         blockedReason={blockedReason}
+        // ROADMAP 2.332 / 2.339 — when the readiness CHECK failed, this footer
+        // is the surface that used to claim "Analysis available" about a model
+        // nothing had assessed. It says so instead. Run authority is unchanged.
+        readinessCheck={model.readinessCheck}
       />
     </div>
   )

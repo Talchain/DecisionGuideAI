@@ -33,10 +33,44 @@ vi.mock('../../store', () => ({
   useCanvasStore: vi.fn((selector) => selector(makeStoreState())),
 }))
 
+// ROADMAP 1.223 — RENDER the producer's leader claim, never DERIVE one.
+// `deriveDecisionVerdict` no longer bands raw win probabilities into a leader
+// verdict, so a fixture carrying only `option_probabilities` licenses NO leader
+// surface at all. Every fixture below that expects the "Leading option" badge
+// (or any other leader-gated copy) therefore carries an explicit producer
+// signal, and every fixture that expects the badge to be ABSENT carries one too
+// — otherwise the absence assertion passes by testing nothing (trap 13).
+//
+// `near_tie` is PLoT's own answer to "is there a clear leader?"
+// (`computeNearTie`, threshold 0.10). Its `top_option_id` names the
+// WIN-PROBABILITY RANK-1 option, and that is what the verdict's identity gate
+// checks it against — NOT `recommended_option_id`. A producer claim about
+// option X is never re-pointed at option Y.
+const producerLeaderClaim = (winArgmaxOptionId: string) => ({
+  near_tie: { is_tie: false, top_option_id: winArgmaxOptionId },
+})
+
+// UI-SEM-088 gate: OptionNode's "chance of target" badge routes through
+// selectGoalProbability, which reads this constant. Mutable getter so the
+// suite can pin both the gate-ON suppression and the gate-OFF positive control.
+// UI-SEM-088 seam 1: OptionNode's badge flows through selectGoalProbability,
+// which reads PLOT_JOINT_HEADLINE_SUSPECT. `suspect` drives that flag; the mock
+// also exports the seam-2 constant (whole-module replacement) fixed to its
+// current default.
+const mockTrust = vi.hoisted(() => ({ suspect: true }))
+vi.mock('../../../adapters/plot/constraintTrust', () => ({
+  get PLOT_JOINT_HEADLINE_SUSPECT() {
+    return mockTrust.suspect
+  },
+  PLOT_PER_OPTION_CONSTRAINTS_SUSPECT: true,
+}))
+
 vi.mock('../../layoutStore', () => ({
-  useLayoutStore: vi.fn((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
-    selector({ layoutNodeWidth: null })
-  ),
+  // Partial store state: only layoutNodeWidth is read by OptionNode. The
+  // double-cast confines the mock to that shape without exporting the
+  // store's internal LayoutOptions type.
+  useLayoutStore: vi.fn(((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+    selector({ layoutNodeWidth: null })) as unknown as (...args: never[]) => unknown),
 }))
 
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
@@ -49,20 +83,20 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     stabilityPercentage: null,
     winRate: null,
     isResultsMode: false,
+    predictedOutcome: null,
+    valueOfInformation: null,
+    voiRank: null,
   })),
-}))
-
-vi.mock('../../../hooks/useCEEInsights', () => ({
-  useCEEInsights: vi.fn(() => ({ data: null })),
-}))
-
-vi.mock('../../../hooks/useISLValidation', () => ({
-  useISLValidation: vi.fn(() => ({ data: null })),
 }))
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { useLayoutStore } from '../../layoutStore'
+// ROADMAP 2.282 — the REAL chooser and the REAL copy register, so the
+// possessive-gate tests below pin the shipped predicate and the shipped
+// wording rather than a restatement of either.
+import { selectGoalProbability } from '../../../components/results/utils/selectGoalProbability'
+import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 const baseProps = {
   id: 'option-1',
@@ -86,6 +120,7 @@ const renderOption = (data: Record<string, unknown> = {}) =>
 describe('OptionNode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockTrust.suspect = true // UI-SEM-088 gate ON by default; positive-control tests opt out locally
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState() as any))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -96,10 +131,12 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: false,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
-    vi.mocked(useLayoutStore).mockImplementation((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
-      selector({ layoutNodeWidth: null }) as any
-    )
+    vi.mocked(useLayoutStore).mockImplementation(((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+      selector({ layoutNodeWidth: null })) as never)
   })
 
   it('renders label', () => {
@@ -119,7 +156,7 @@ describe('OptionNode', () => {
     expect(screen.queryByText(/win probability/)).toBeNull()
   })
 
-  it('shows win probability in results mode', () => {
+  it('shows the comparative readout in results mode (re-anchored: was "{N}% win probability")', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -129,12 +166,17 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.72,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     renderOption()
-    expect(screen.getByText('72% win probability')).toBeDefined()
+    expect(screen.getByText('Came out ahead in 72% of simulated scenarios')).toBeDefined()
   })
 
-  // T7: Leading option badge
+  // T7: Leading option badge. Post-1.223 this is the POSITIVE CONTROL against
+  // over-suppression: with the producer's own leader claim on the report, the
+  // badge must still render on the option that claim names.
   it('shows Leading option badge for highest winRate option', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -145,6 +187,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.72,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     // Set up store with report using option_probabilities (the field responseMapper populates)
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
@@ -156,6 +201,8 @@ describe('OptionNode', () => {
               'option-1': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
               'option-2': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
             },
+            // Producer claim: option-1 (the win argmax) leads.
+            robustness: producerLeaderClaim('option-1'),
           },
         },
         nodes: [
@@ -168,6 +215,10 @@ describe('OptionNode', () => {
     expect(screen.getByText('Leading option')).toBeDefined()
   })
 
+  // Discrimination pin: the producer claim names option-2, and the rendered
+  // node is option-1. The badge must follow the claim's identity, not merely
+  // the presence of a claim — so this stays RED if the badge ever fires on
+  // "some leader exists" without checking WHICH option.
   it('does not show Leading option badge for non-highest option', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -178,6 +229,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.28,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -188,6 +242,8 @@ describe('OptionNode', () => {
               'option-1': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
               'option-2': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
             },
+            // A leading option DOES exist on this run — it just isn't this node.
+            robustness: producerLeaderClaim('option-2'),
           },
         },
         nodes: [
@@ -198,6 +254,80 @@ describe('OptionNode', () => {
     )
     renderOption()
     expect(screen.queryByText('Leading option')).toBeNull()
+  })
+
+  // Cross-surface parity: the badge follows the backend recommendation
+  // (recommended_option_id) so it agrees with the Results Panel, which honours
+  // it first. Win-max is only the fallback when no recommendation is sent.
+  //
+  // Post-1.223 these two tests separate the two questions the verdict keeps
+  // apart. ENTITLEMENT ("is there a leader at all?") comes from the producer
+  // signal, whose `top_option_id` describes the WIN-PROBABILITY RANK-1 option.
+  // IDENTITY ("who is it?") is then redirected by `recommended_option_id`.
+  // So both fixtures name the win argmax in `near_tie` and the recommendation
+  // in `recommended_option_id`, and they deliberately disagree.
+  it('does not badge the win-max option when the backend recommends another (recommended_option_id wins)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
+      achievementProbability: null, stabilityPercentage: null, winRate: 0.72, isResultsMode: true,
+      predictedOutcome: null, valueOfInformation: null, voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': { win_probability: 0.72 },
+              'option-2': { win_probability: 0.28 },
+            },
+            // Entitlement: the producer says the win argmax (option-1) leads.
+            // Identity: the producer recommends option-2 instead.
+            robustness: { recommended_option_id: 'option-2', ...producerLeaderClaim('option-1') },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+          { id: 'option-2', type: 'option', data: { type: 'option' } },
+        ],
+      }) as any)
+    )
+    // Rendered node is option-1 (the win-max leader) but the backend recommends option-2.
+    renderOption()
+    expect(screen.queryByText('Leading option')).toBeNull()
+  })
+
+  it('badges the recommended option even when it is not the win-max leader (recommended_option_id wins)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
+      achievementProbability: null, stabilityPercentage: null, winRate: 0.28, isResultsMode: true,
+      predictedOutcome: null, valueOfInformation: null, voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': { win_probability: 0.28 },
+              'option-2': { win_probability: 0.72 },
+            },
+            // Entitlement: the producer's claim describes the win argmax, which
+            // is option-2 here — naming option-1 would NOT apply (identity gate)
+            // and the badge would vanish from both nodes. Identity: the producer
+            // recommends option-1, so the badge lands on the rendered node.
+            robustness: { recommended_option_id: 'option-1', ...producerLeaderClaim('option-2') },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+          { id: 'option-2', type: 'option', data: { type: 'option' } },
+        ],
+      }) as any)
+    )
+    // Rendered node is option-1, recommended by the backend despite a lower win.
+    renderOption()
+    expect(screen.getByText('Leading option')).toBeDefined()
   })
 
   // T8: Intervention chips
@@ -369,9 +499,8 @@ describe('OptionNode', () => {
   // P1-4: layoutNodeWidth propagation — OptionNode must not override layoutNodeWidth
   // with a hardcoded maxWidth prop, so the store-driven width governs BaseNode sizing.
   it('P1-4: OptionNode respects layoutNodeWidth from store (no hardcoded 238px override)', () => {
-    vi.mocked(useLayoutStore).mockImplementation((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
-      selector({ layoutNodeWidth: 180 }) as any
-    )
+    vi.mocked(useLayoutStore).mockImplementation(((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+      selector({ layoutNodeWidth: 180 })) as never)
     const { container } = renderOption()
     // BaseNode's root div carries an inline maxWidth style. In this test no
     // intervention chips are rendered (ceeAnalysisReady is null), so the only
@@ -388,7 +517,7 @@ describe('OptionNode', () => {
   })
 
   // V2: Win probability number uses text-text-body (neutral, no coloured text in node body)
-  it('win probability text uses text-text-body class (not text-success or text-option)', () => {
+  it('comparative readout uses text-text-body class (not text-success or text-option)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -398,6 +527,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.72,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -417,13 +549,17 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    const percentEl = screen.getByText('72% win probability')
+    const percentEl = screen.getByText('Came out ahead in 72% of simulated scenarios')
     expect(percentEl.className).toContain('text-text-body')
     expect(percentEl.className).not.toContain('text-success')
     expect(percentEl.className).not.toContain('text-option')
   })
 
   // V3: Leading option badge uses text-text-body (WCAG AA contrast on bg-success-light)
+  //
+  // Producer signal here is `decision_brief.headline_banded` rather than
+  // `near_tie`, so the canvas badge is pinned against BOTH producer authorities
+  // somewhere in this suite, not just the first one.
   it('Leading option badge uses text-text-body (not text-success)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -434,6 +570,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.72,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -443,6 +582,13 @@ describe('OptionNode', () => {
             option_probabilities: {
               'option-1': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
               'option-2': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
+            },
+            decision_brief: {
+              headline_banded: {
+                band: 'clearly_ahead',
+                leader_option_id: 'option-1',
+                robustness_gated: false,
+              },
             },
           },
         },
@@ -492,9 +638,13 @@ describe('OptionNode', () => {
   })
 
   // G2: Qualitative factors show percentage instead of tier labels (v1.1 polish)
+  // Rendered via the post-analysis Detailed "What this option changes:" list —
+  // the pre-analysis Detailed "Interventions:" list was removed as a duplicate
+  // of the delta pills (audit §8 P1).
   it('shows percentage for qualitative factor (no unit, factor_type "quality")', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -520,6 +670,7 @@ describe('OptionNode', () => {
   it('shows numeric value for factor with unit even if factor_type is qualitative', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -543,6 +694,7 @@ describe('OptionNode', () => {
   it('formats intervention value correctly when value is nested object {value: N}', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -565,6 +717,7 @@ describe('OptionNode', () => {
     // CEE-provided display_value must win over the numeric formatter.
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -588,6 +741,7 @@ describe('OptionNode', () => {
     // new gate does not break the legacy formatter path.
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -617,6 +771,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.7,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -659,6 +816,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.7,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -686,13 +846,15 @@ describe('OptionNode', () => {
     expect(screen.queryByText('added 5')).toBeNull()
   })
 
-  it('passthrough: displayValue is NOT mutated by stripEcho in Detailed inline pre-analysis list', () => {
-    // Detailed view (viewMode='expert', !isPostAnalysis, !isBaseline) routes
-    // through the Layer 2 inline render path around line 1011. Must also
-    // bypass stripEcho for the CEE string.
+  it('passthrough: displayValue is NOT mutated by stripEcho in Detailed inline list', () => {
+    // Detailed view (viewMode='expert', post-analysis, !isBaseline) routes
+    // through the Layer 2 inline "What this option changes:" list (the
+    // pre-analysis "Interventions:" duplicate was removed — audit §8 P1).
+    // Must bypass stripEcho for the CEE string.
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         viewMode: 'expert',
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -753,6 +915,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     renderOption()
     expect(screen.queryByText(/win probability/)).toBeNull()
@@ -768,6 +933,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.8,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -783,7 +951,15 @@ describe('OptionNode', () => {
   })
 
   it('shows Leading option badge when a non-canvas option has higher rate in report', () => {
-    // P0-2: only visible canvas option IDs count when computing max
+    // P0-2: only visible canvas option IDs count when computing max.
+    //
+    // Post-1.223 the fixture also pins WHICH argmax the producer's identity gate
+    // is checked against. `near_tie.top_option_id` names option-1, the argmax
+    // among VISIBLE options — the visible filter runs before the argmax is
+    // taken. Drop that filter and rank 1 becomes option-hidden (0.95), the
+    // producer claim no longer applies, the verdict falls to `unknown`, and the
+    // badge disappears — so this stays a real pin on the filter, not just on
+    // the badge.
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -793,6 +969,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.72,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -805,6 +984,8 @@ describe('OptionNode', () => {
               'option-1': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
               'option-2': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
             },
+            // Names the argmax AMONG VISIBLE OPTIONS, not option-hidden.
+            robustness: producerLeaderClaim('option-1'),
           },
         },
         nodes: [
@@ -829,6 +1010,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 1.0,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -848,10 +1032,26 @@ describe('OptionNode', () => {
     expect(screen.queryByText('Leading option')).toBeNull()
   })
 
-  // V3: Intervention details render in expert overlay without chip styling
+  // V3: Intervention details render in expert overlay without chip styling.
+  // Post-analysis Detailed list ("What this option changes:") — the
+  // pre-analysis "Interventions:" duplicate was removed (audit §8 P1).
   it('intervention details in expert overlay have no chip styling (P1)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.6,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -932,11 +1132,226 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.02,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     const { container } = renderOption()
     const bar = container.querySelector('.bg-option.rounded-full') as HTMLElement | null
     expect(bar).not.toBeNull()
     expect(bar?.style.width).toBe('max(4px, 2%)')
+  })
+
+  // ROADMAP 1.49 — the "chance of target" badge must use the SAME
+  // goal_probability / probability_of_joint_goal fallback as
+  // useResultsSectionData (consumed by OptionCards/hero/GoalNode), not a
+  // narrower goal_probability-only read. On a constrained-goal run where
+  // ISL/PLoT populate probability_of_joint_goal but NOT goal_probability
+  // (constraint_analysis present with constraints — the joint figure IS the
+  // number every other surface shows), the badge must still render using
+  // that joint value rather than silently disappearing.
+  // UI-SEM-088 gate ON: on a constrained-goal run where only the (suspect)
+  // joint figure is present, selectGoalProbability suppresses it, so the badge
+  // shows no number rather than a possibly-inverted one.
+  const makeConstrainedJointOnlyStore = () =>
+    makeStoreState({
+      goalThreshold: 0.6, // UI-SEM-082: a user target is set so the badge would render
+      results: {
+        status: 'complete',
+        report: {
+          option_probabilities: {
+            'option-1': {
+              confidence: 0.5,
+              win_probability: 0.5,
+              probability_of_joint_goal: 0.05,
+              constraint_analysis: { constraints: [{ id: 'c1' }], joint_probability: 0.05 },
+            },
+          },
+        },
+      },
+      nodes: [
+        { id: 'option-1', type: 'option', data: { type: 'option' } },
+      ],
+    })
+
+  const mockResultsModeMetadata = () =>
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.5,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+
+  it('gate ON: suppresses the "chance of target" badge when only the suspect joint figure is present', () => {
+    mockTrust.suspect = true
+    mockResultsModeMetadata()
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeConstrainedJointOnlyStore() as any)
+    )
+    renderOption()
+    expect(screen.queryByText(/chance of target\./)).toBeNull()
+  })
+
+  it('POSITIVE CONTROL (gate OFF): shows "chance of target" badge from probability_of_joint_goal when goal_probability is absent', () => {
+    mockTrust.suspect = false
+    mockResultsModeMetadata()
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeConstrainedJointOnlyStore() as any)
+    )
+    renderOption()
+    // 5% < 10% threshold → the warning line renders with the joint value,
+    // matching what OptionCards/hero derive via useResultsSectionData.
+    expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // THE POSSESSIVE GATE (ROADMAP 2.282)
+  //
+  // The two tests above are the CONSTRAINED case (`constraint_analysis`
+  // present ⇒ basis `joint_goal_constrained`), where the joint figure covers
+  // the user's own goal AND their own limits and the possessive "chance of
+  // target" is EARNED. The tests below are the SUBSTITUTED case — the same
+  // joint number with no constraint analysis, standing in for a
+  // `probability_of_goal` ISL refused to compute (witnessed live on staging
+  // 2026-08-01: unstamped `goal_threshold_frame`). There the possessive names
+  // a question the number does not answer, and the selector says so with
+  // `mayUsePossessiveGoalFraming: false`.
+  //
+  // The pair is the point: the SAME 0.05-ish joint value must keep the
+  // possessive in one fixture and lose it in the other, so a fix that simply
+  // deleted the possessive copy fails the constrained test above.
+  //
+  // RED-first: both fail at `fef179ce`.
+  const makeSubstitutedJointStore = () =>
+    makeStoreState({
+      goalThreshold: 0.8, // UI-SEM-082: a user target is set
+      results: {
+        status: 'complete',
+        report: {
+          option_probabilities: {
+            'option-1': {
+              confidence: 0.5,
+              win_probability: 0.5,
+              // The witnessed shape: the joint figure arrives, the goal
+              // figure does not, and there is NO constraint_analysis — so the
+              // selector's third branch fires and substitutes.
+              probability_of_joint_goal: 0.0054,
+              goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+            },
+          },
+        },
+      },
+      nodes: [{ id: 'option-1', type: 'option', data: { type: 'option' } }],
+    })
+
+  it('control: the substituted fixture really does drive the selector to `joint_goal_substituted` (not `joint_goal_constrained`)', () => {
+    // Anti-vacuity (trap 13). If this fixture ever stopped being the
+    // substituted case, the two copy tests below would pass by testing
+    // nothing — and they would be indistinguishable from a real fix.
+    mockTrust.suspect = false
+    const substituted = selectGoalProbability({
+      probability_of_joint_goal: 0.0054,
+      goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+    })
+    expect(substituted.basis).toBe('joint_goal_withheld')
+    expect(substituted.mayUsePossessiveGoalFraming).toBe(false)
+    // ⭐ L62: and the number is withheld, not merely re-voiced — which is what
+    // makes the render assertion below an ABSENCE rather than a rewording.
+    expect(substituted.goalProbability).toBeNull()
+
+    // …and the neighbouring fixture is genuinely the OTHER basis.
+    const constrained = selectGoalProbability({
+      probability_of_joint_goal: 0.05,
+      constraint_analysis: { constraints: [{ id: 'c1' }] },
+    })
+    expect(constrained.basis).toBe('joint_goal_constrained')
+    expect(constrained.mayUsePossessiveGoalFraming).toBe(true)
+  })
+
+  /**
+   * ⭐ AMENDED BY L62. ROADMAP 2.282 renamed the badge; L60 showed the VALUE
+   * was the untruth, so the badge is now absent entirely on this basis.
+   * The possessive assertion is kept verbatim — it must still not appear — and
+   * the "renamed, same value" half is replaced by its opposite.
+   */
+  it('L62: renders NO goal badge at all when the only figure is a joint one standing in for an absent goal probability', () => {
+    mockTrust.suspect = false
+    mockResultsModeMetadata()
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeSubstitutedJointStore() as any)
+    )
+    const { container } = renderOption()
+    expect(screen.queryByText(/chance of target\./)).toBeNull()
+    // Neither voice, and no number — the withheld wording is gone too, because
+    // there is nothing left for it to caption.
+    expect(container.textContent ?? '').not.toContain(GOAL_ANCHOR_COPY.label(true))
+    expect(container.textContent ?? '').not.toContain('< 1%')
+  })
+
+  it('positive control: the CONSTRAINED joint figure KEEPS the possessive wording (the gate is basis-scoped, not joint-scoped)', () => {
+    mockTrust.suspect = false
+    mockResultsModeMetadata()
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeConstrainedJointOnlyStore() as any)
+    )
+    renderOption()
+    expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+    expect(screen.queryByText(new RegExp(GOAL_ANCHOR_COPY.label(true).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))))
+      .toBeNull()
+  })
+
+  // Lane 4 fold (UI-SEM-082, extends UI-SEM-071): the "chance of target" badge
+  // is a goal-fit claim — it must gate on the USER target. Without a target the
+  // producer still returns a joint/goal probability (auto_goal_threshold), and
+  // the panel twin OptionCards already suppresses this (hasGoalThreshold). The
+  // canvas node must match, or it contradicts the GoalNode beside it (which
+  // suppresses its own "chance of reaching target" when no target is set).
+  it('SUPPRESSES the "chance of target" badge when the user set no target (auto-threshold)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: 0.5,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        goalThreshold: null, // the user set no target
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': {
+                confidence: 0.5,
+                win_probability: 0.5,
+                probability_of_joint_goal: 0.05,
+                constraint_analysis: { constraints: [{ id: 'c1' }], joint_probability: 0.05 },
+              },
+            },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    // No target → the goal-fit badge must not render (matches GoalNode + OptionCards).
+    expect(screen.queryByText(/chance of target\./)).toBeNull()
   })
 })
 
@@ -946,14 +1361,14 @@ describe('OptionNode', () => {
 describe('OptionNode — QA Brief C-series', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockTrust.suspect = true // UI-SEM-088 gate ON by default; positive-control tests opt out locally
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState() as any))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
       achievementProbability: null, stabilityPercentage: null, winRate: null, isResultsMode: false,
     })
-    vi.mocked(useLayoutStore).mockImplementation((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
-      selector({ layoutNodeWidth: null }) as any
-    )
+    vi.mocked(useLayoutStore).mockImplementation(((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+      selector({ layoutNodeWidth: null })) as never)
   })
 
   // C2: Baseline option shows "No changes from current state" (all interventions match baseline)
@@ -1004,6 +1419,7 @@ describe('OptionNode — QA Brief C-series', () => {
   it('C4: qualitative factor intervention shows no delta arrow', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -1066,6 +1482,7 @@ describe('OptionNode — QA Brief C-series', () => {
   it('C6: multiple interventions render multiple chips (up to top 3)', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -1396,15 +1813,51 @@ describe('OptionNode — QA Brief C-series', () => {
       expect(differentiatorP!.textContent!.toLowerCase()).not.toContain('scale')
     })
 
-    it('uses "Does not change" when scale-unit intervention is within ±0.1 of baseline', () => {
+    it('says "Increases" for a small real shift (0.05) — "Does not change" needs exact equality', () => {
+      // Audit §8 P0-4: the old ±0.1 display epsilon rendered "Does not
+      // change" for genuinely different values (0.5→0.55, and the live
+      // 0.5→0.6 boundary case). The single formatter reserves "Does not
+      // change" for exact equality only.
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
             options: [
-              // Option A sits 0.05 above baseline (< 0.1 threshold);
+              // Option A sits 0.05 above baseline — a real change;
               // Option B is far below. Shared factor → differentiator fires
               // for A via the neutral branch.
               { id: 'option-1', interventions: { 'factor-1': 0.55 } },
+              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Hold Steady', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Cut Back', type: 'option' } },
+            {
+              id: 'factor-1',
+              type: 'factor',
+              data: {
+                label: 'Marketing Expertise',
+                observedState: { unit: 'scale', value: 0.5 },
+              },
+            },
+          ],
+          viewMode: 'standard',
+        }) as any),
+      )
+      renderOption({ label: 'Hold Steady' })
+      const matches = screen.queryAllByText(/marketing expertise/i)
+      const differentiatorP = matches.find(el => el.tagName === 'P')
+      expect(differentiatorP).toBeDefined()
+      expect(differentiatorP!.textContent).toMatch(/^Increases /)
+    })
+
+    it('uses "Does not change" ONLY when the intervention exactly equals the baseline', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              // Option A matches the baseline exactly; Option B is far below.
+              { id: 'option-1', interventions: { 'factor-1': 0.5 } },
               { id: 'option-2', interventions: { 'factor-1': 0.1 } },
             ],
           },
@@ -1502,5 +1955,390 @@ describe('OptionNode — QA Brief C-series', () => {
       // Unique factor → "Headcount is the key difference" (simple sentence)
       expect(screen.getByText(/headcount is the key difference/i)).toBeDefined()
     })
+  })
+})
+
+// ─── Graph coaching audit §8 (P0-4/P0-5/P1) — display coherence ─────────────
+describe('OptionNode — display coherence (audit §8)', () => {
+  const resultsMetadata = (winRate: number | null) => ({
+    sensitivityRank: null,
+    influence: null,
+    confidence: null,
+    inSensitivityAnalysis: false,
+    achievementProbability: null,
+    achievementProbabilityIsModelledBasis: false,
+    stabilityPercentage: null,
+    winRate,
+    isResultsMode: true,
+    predictedOutcome: null,
+    valueOfInformation: null,
+    voiRank: null,
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockTrust.suspect = true // UI-SEM-088 gate ON by default; positive-control tests opt out locally
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState() as any))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(null))
+    vi.mocked(useLayoutStore).mockImplementation(((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+      selector({ layoutNodeWidth: null })) as never)
+  })
+
+  // Item 3a: duplicate win-rate phrasing removed from the status-quo card
+  it('status-quo card renders the comparative readout once and never "win rate across simulations"', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.28))
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+      }) as any)
+    )
+    renderOption({ label: 'Status Quo', is_baseline: true })
+    expect(screen.getByText('Came out ahead in 28% of simulated scenarios')).toBeDefined()
+    expect(screen.queryByText(/win rate across simulations/i)).toBeNull()
+    expect(screen.getByText('Current baseline. No changes to factors.')).toBeDefined()
+  })
+
+  // Item 3c: identical "Behind:" reasons on multiple non-leading options are
+  // suppressed on all of them (non-differentiating copy)
+  it('suppresses "Behind:" when another non-leading option shares the identical reason', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2))
+    const report = {
+      // ROADMAP 1.239: the producer signal is REQUIRED here, not decorative.
+      // "Behind:" now needs an entitled leader, so without it this test would
+      // go on passing while proving nothing about the identical-reason rule it
+      // exists to pin — the absence would be caused by the withheld gate
+      // instead. Trap 13, arriving via a change in a different file.
+      robustness: { recommended_option_id: 'option-3', ...producerLeaderClaim('option-3') },
+      option_probabilities: {
+        'option-1': { win_probability: 0.2 },
+        'option-2': { win_probability: 0.2 },
+        'option-3': { win_probability: 0.6 },
+      },
+      // No factor_sensitivity → both losers would read "fewer key changes"
+    }
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+          { id: 'option-2', type: 'option', data: { label: 'Option B', type: 'option' } },
+          { id: 'option-3', type: 'option', data: { label: 'Option C', type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderOption({ label: 'Option A' })
+    expect(screen.queryByText(/Behind:/)).toBeNull()
+  })
+
+  it('keeps "Behind:" when the reason differs from the other non-leading option', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2))
+    const report = {
+      // ROADMAP 1.239: producer signal — this fixture means "there is a leader".
+      robustness: { recommended_option_id: 'option-3', ...producerLeaderClaim('option-3') },
+      option_probabilities: {
+        'option-1': { win_probability: 0.2 },
+        'option-2': { win_probability: 0.2 },
+        'option-3': { win_probability: 0.6 },
+      },
+    }
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+          // Sibling loser is the baseline → its reason is "no changes from
+          // current state", which differs from option-1's "fewer key changes".
+          { id: 'option-2', type: 'option', data: { label: 'Status Quo', type: 'option', is_baseline: true } },
+          { id: 'option-3', type: 'option', data: { label: 'Option C', type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderOption({ label: 'Option A' })
+    expect(screen.getByText(/Behind: fewer key changes/)).toBeDefined()
+  })
+
+  // P0-2 (external review 2026-07-14): the loser's "Behind:" top factor must be
+  // ranked via the SHARED policy off CERTIFIED factor_sensitivity — not off the
+  // untyped enrichment passthrough, and not by a chain that omits `sensitivity`.
+  it('ranks the "Behind:" factor off certified factor_sensitivity via the shared policy, not enrichment', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2))
+    const report = {
+      // ROADMAP 1.239: producer signal — this fixture means "there is a leader".
+      robustness: { recommended_option_id: 'option-3', ...producerLeaderClaim('option-3') },
+      option_probabilities: {
+        'option-1': { win_probability: 0.2 },
+        'option-3': { win_probability: 0.6 },
+      },
+      // Certified magnitude lives ONLY under `sensitivity` (the V5 shape); the
+      // winner intervenes on certA. The untyped enrichment names a DIFFERENT
+      // factor (enrX) with a larger importance_score — it must NOT win.
+      factor_sensitivity: [
+        { factor_id: 'certA', sensitivity: 0.8 },
+        { factor_id: 'certB', sensitivity: 0.2 },
+      ],
+      enrichment: { sensitivity_analysis: { factors: [{ factor_id: 'enrX', importance_score: 0.9 }] } },
+    }
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report },
+        ceeAnalysisReady: {
+          options: [
+            { id: 'option-3', interventions: { certA: 0.5 } },
+            { id: 'option-1', interventions: {} },
+          ],
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+          // Baseline sibling → its reason differs, so option-1's reason is not suppressed.
+          { id: 'option-2', type: 'option', data: { label: 'Status Quo', type: 'option', is_baseline: true } },
+          { id: 'option-3', type: 'option', data: { label: 'Option C', type: 'option' } },
+          { id: 'certA', type: 'factor', data: { label: 'Budget' } },
+          { id: 'enrX', type: 'factor', data: { label: 'Marketing' } },
+        ],
+      }) as any)
+    )
+    renderOption({ label: 'Option A' })
+    // Names certA (certified, sensitivity-ranked #1). RED before the fix:
+    // enrichment ranked first → enrX, which the winner doesn't intervene on →
+    // "Behind: fewer key changes".
+    expect(screen.getByText(/Behind: no budget added/i)).toBeDefined()
+    expect(screen.queryByText(/marketing/i)).toBeNull()
+  })
+
+  // Item 6: stale treatment on result decorations
+
+  // Item 7: per-option intervention list containment
+  it('caps the "What this option changes:" list at 3 rows with "+N more in inspector"', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.5))
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: {
+              'factor-1': 0.9,
+              'factor-2': 0.8,
+              'factor-3': 0.7,
+              'factor-4': 0.6,
+              'factor-5': 0.55,
+            },
+          }],
+        },
+        nodes: [
+          { id: 'factor-1', data: { label: 'Alpha', observedState: { unit: 'fraction' } } },
+          { id: 'factor-2', data: { label: 'Bravo', observedState: { unit: 'fraction' } } },
+          { id: 'factor-3', data: { label: 'Charlie', observedState: { unit: 'fraction' } } },
+          { id: 'factor-4', data: { label: 'Delta', observedState: { unit: 'fraction' } } },
+          { id: 'factor-5', data: { label: 'Echo', observedState: { unit: 'fraction' } } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    // Exactly the top-3 rows render, whole (labels visible)…
+    expect(screen.getByText('Alpha')).toBeDefined()
+    expect(screen.getByText('Bravo')).toBeDefined()
+    expect(screen.getByText('Charlie')).toBeDefined()
+    // …the 4th and 5th do not…
+    expect(screen.queryByText('Delta')).toBeNull()
+    expect(screen.queryByText('Echo')).toBeNull()
+    // …and the overflow line reports the correct remainder.
+    expect(screen.getByText('+2 more in inspector')).toBeDefined()
+  })
+
+  it('shows no overflow line when 3 or fewer interventions exist', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.5))
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: { 'factor-1': 0.9, 'factor-2': 0.8 },
+          }],
+        },
+        nodes: [
+          { id: 'factor-1', data: { label: 'Alpha', observedState: { unit: 'fraction' } } },
+          { id: 'factor-2', data: { label: 'Bravo', observedState: { unit: 'fraction' } } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    expect(screen.getByText('Alpha')).toBeDefined()
+    expect(screen.getByText('Bravo')).toBeDefined()
+    expect(screen.queryByText(/more in inspector/)).toBeNull()
+  })
+
+  // Item 3b: Detailed pre-analysis no longer duplicates pills with an
+  // "Interventions:" list
+  it('Detailed pre-analysis card renders delta pills without a duplicate "Interventions:" list', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: false,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        viewMode: 'expert',
+        ceeAnalysisReady: {
+          options: [{ id: 'option-1', interventions: { 'factor-1': 0.8 } }],
+        },
+        nodes: [
+          { id: 'factor-1', data: { label: 'Budget', observedState: { unit: 'fraction', value: 0.4 } } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    // Pills render the from→to data…
+    expect(screen.getByText('40% → 80%')).toBeDefined()
+    // …and the duplicated inline list is gone.
+    expect(screen.queryByText('Interventions:')).toBeNull()
+  })
+
+  it('Wave 4 / §6.4: renders the identity-anchored stable option number badge when registered', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({ optionNumbering: { 'option-1': 2 } }) as any),
+    )
+    renderOption()
+    const badge = screen.getByTestId('option-stable-number-option-1')
+    expect(badge).toHaveTextContent('2')
+    expect(badge).toHaveAttribute('aria-label', 'Option 2')
+  })
+
+  it('renders no stable-number badge before the option is registered', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({ optionNumbering: {} }) as any),
+    )
+    renderOption()
+    expect(screen.queryByTestId('option-stable-number-option-1')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Lane 2 — winsVia honesty (live 2026-07-13 contradiction): the leader node
+// claimed "Leads via Design Change Scope, the #1 driver" while the SAME
+// screen's drivers panel ranked that factor 4th at 17% (real #1: Pricing
+// Page Clarity, 100%). winsVia ranked by raw elasticity, option-scoped —
+// then asserted a GLOBAL rank. It must rank via the shared display policy
+// and only claim "#1 driver" when the chosen factor IS the policy's #1.
+// ---------------------------------------------------------------------------
+
+describe('OptionNode — winsVia ranks via the display policy and never overclaims (Lane 2)', () => {
+  const FACTOR_NODES = [
+    { id: 'fac_clarity', type: 'factor', data: { label: 'Pricing Page Clarity', type: 'factor' } },
+    { id: 'fac_scope', type: 'factor', data: { label: 'Design Change Scope', type: 'factor' } },
+    { id: 'option-1', type: 'option', data: { label: 'Keep Current Page', type: 'option' } },
+    { id: 'option-2', type: 'option', data: { label: 'Full Redesign', type: 'option' } },
+  ]
+
+  const winsViaState = (opts: {
+    factors: unknown[]
+    interventions: Record<string, number>
+  }) =>
+    makeStoreState({
+      nodes: FACTOR_NODES,
+      results: {
+        status: 'complete',
+        report: {
+          // ROADMAP 1.223: `winsVia` is leader copy, so it only renders when the
+          // PRODUCER has claimed a leader — the UI may no longer band the win
+          // probabilities into one itself. The claim names option-1, which is
+          // both the win argmax (identity gate) and the recommendation. The
+          // win split is incidental to what this block asserts (which FACTOR
+          // winsVia names, and whether it may claim "#1 driver"); it stays at
+          // 0.70/0.29 — widened from 0.54/0.45 in the 2026-07-25 SINGLE VERDICT
+          // change, because that 9pp gap sat inside PLoT's own near-tie
+          // threshold (0.10).
+          robustness: { recommended_option_id: 'option-1', ...producerLeaderClaim('option-1') },
+          option_probabilities: {
+            'option-1': { win_probability: 0.70 },
+            'option-2': { win_probability: 0.29 },
+          },
+          factor_sensitivity: opts.factors,
+        },
+      },
+      ceeAnalysisReady: {
+        goal_node_id: 'goal_1',
+        options: [
+          { id: 'option-1', label: 'Keep Current Page', interventions: opts.interventions },
+          { id: 'option-2', label: 'Full Redesign', interventions: {} },
+        ],
+      },
+    })
+
+  const mountLeader = (state: ReturnType<typeof makeStoreState>) => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(state as any))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.54,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    } as never)
+    renderOption()
+  }
+
+  it('does NOT claim "#1 driver" when the leader\'s lever is not the policy #1 (live repro)', () => {
+    mountLeader(
+      winsViaState({
+        factors: [
+          // Complete producer coverage: policy adopts influence_score.
+          // Global #1 = fac_clarity (1.0); the leader only intervenes on
+          // fac_scope (0.17, rank 4-ish).
+          { factor_id: 'fac_clarity', influence_score: 1.0, elasticity: 0.9 },
+          { factor_id: 'fac_scope', influence_score: 0.17, elasticity: 0.93 },
+        ],
+        interventions: { fac_scope: 0 },
+      }),
+    )
+    expect(screen.getByText(/Leads via/)).toBeInTheDocument()
+    expect(screen.getByText('Design Change Scope')).toBeInTheDocument()
+    expect(screen.queryByText(/the #1 driver/)).toBeNull()
+    expect(screen.getByText(/its biggest lever/)).toBeInTheDocument()
+  })
+
+  it('claims "#1 driver" only when the lever IS the policy #1', () => {
+    mountLeader(
+      winsViaState({
+        factors: [
+          { factor_id: 'fac_clarity', influence_score: 1.0, elasticity: 0.9 },
+          { factor_id: 'fac_scope', influence_score: 0.17, elasticity: 0.93 },
+        ],
+        interventions: { fac_clarity: 1 },
+      }),
+    )
+    expect(screen.getByText('Pricing Page Clarity')).toBeInTheDocument()
+    expect(screen.getByText(/the #1 driver/)).toBeInTheDocument()
+  })
+
+  it('ranks candidate levers by the POLICY value, not raw elasticity', () => {
+    mountLeader(
+      winsViaState({
+        factors: [
+          // Complete coverage: policy = influence_score. Raw elasticity
+          // order is scope > clarity (0.93 > 0.9) — the OLD code picked by
+          // that and would choose fac_scope; the policy picks fac_clarity.
+          { factor_id: 'fac_clarity', influence_score: 1.0, elasticity: 0.9 },
+          { factor_id: 'fac_scope', influence_score: 0.17, elasticity: 0.93 },
+        ],
+        interventions: { fac_clarity: 1, fac_scope: 0 },
+      }),
+    )
+    expect(screen.getByText('Pricing Page Clarity')).toBeInTheDocument()
+    expect(screen.queryByText('Design Change Scope')).toBeNull()
   })
 })

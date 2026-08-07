@@ -15,7 +15,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { StressTestSection } from '../StressTestSection'
 import type { DriverItem } from '../types'
-import type { ChallengeFragileEdge } from '../ChallengeSection'
+import type { ChallengeFragileEdge } from '../FragileEdgeGroupCard'
 
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -74,6 +74,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[makeFragile()]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.getByText('Stress-test your decision')).toBeInTheDocument()
@@ -87,6 +88,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const preview = screen.getByTestId('stress-test-preview')
@@ -102,6 +104,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const preview = screen.getByTestId('stress-test-preview')
@@ -118,6 +121,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.getByTestId('stress-test-sensitive-subsection')).toBeInTheDocument()
@@ -140,6 +144,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.getByText('Sensitive assumptions (3)')).toBeInTheDocument()
@@ -153,13 +158,18 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.queryByTestId('stress-test-sensitive-subsection')).not.toBeInTheDocument()
       expect(screen.queryByText(/Sensitive assumptions/)).not.toBeInTheDocument()
     })
 
-    it('"What if this changes?" chip routes the prompt through onSendMessage', () => {
+    it('"What if this changes?" chip prefills the Ask-Olumi drawer instead of auto-sending', async () => {
+      // Codex finding 6: exploratory CTA routes through openAskOlumi (prefilled
+      // editable draft) — it must NOT call the threaded onSendMessage.
+      const { useAskOlumiStore } = await import('../coaching/askOlumiStore')
+      useAskOlumiStore.getState().close()
       const onSendMessage = vi.fn()
       render(
         <StressTestSection
@@ -167,12 +177,15 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
           onSendMessage={onSendMessage}
         />,
       )
       fireEvent.click(screen.getByText('What if this changes?'))
-      expect(onSendMessage).toHaveBeenCalledTimes(1)
-      expect(onSendMessage.mock.calls[0][0]).toMatch(/Customer churn rate/)
+      expect(onSendMessage).not.toHaveBeenCalled()
+      const state = useAskOlumiStore.getState()
+      expect(state.isOpen).toBe(true)
+      expect(state.draft).toMatch(/Customer churn rate/)
     })
   })
 
@@ -184,6 +197,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.getByText('Thinking patterns (2)')).toBeInTheDocument()
@@ -198,16 +212,28 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const card = screen.getByTestId('stress-test-disconfirmation')
       expect(card).toHaveTextContent(
-        'What could make you switch your recommendation from Option A to Option B?',
+        'What would have to change for Option B to become more likely than Option A to hit your goal?',
       )
       expect(card).toHaveTextContent('Explore this challenge')
     })
 
-    it('Disconfirmation context line appears when topDriverConfidence < 0.5', () => {
+    // ⚠ INVERTED, NOT DELETED (F5a). This test asserted that a driver
+    // confidence of 0.3 made the card say "…which has limited evidence." —
+    // i.e. it pinned the defect. `factor_sensitivity[].confidence` is `0.25`
+    // with `sampling_stability: 0` in both real staging captures, and the
+    // ruled policy (DISPLAY_SAFE_DRIVER_CONFIDENCE) is that the value has no
+    // display-safe source, so the sentence was an evidence claim about a
+    // number nobody measured. The gate the test was checking still exists and
+    // is proven at the template level in
+    // `utils/__tests__/stressTestTemplates.spec.ts` (with the policy seam
+    // open); what this component-level test now pins is the PRODUCT's
+    // behaviour, which is silence.
+    it('F5a: makes NO evidence claim from a low driver confidence the policy hides', () => {
       const lowConfTop = makeDriver({
         factorKey: 'fac_low',
         factorLabel: 'Customer churn rate',
@@ -220,12 +246,16 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const card = screen.getByTestId('stress-test-disconfirmation')
+      // NON-VACUOUS: the card renders and still asks its question…
       expect(card).toHaveTextContent(
-        'The analysis depends on Customer churn rate, which has limited evidence.',
+        'What would have to change for Option B to become more likely than Option A to hit your goal?',
       )
+      // …it just no longer characterises the evidence behind the top driver.
+      expect(card).not.toHaveTextContent('limited evidence')
     })
 
     it('Disconfirmation context line is suppressed when topDriverConfidence >= 0.5', () => {
@@ -235,6 +265,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const card = screen.getByTestId('stress-test-disconfirmation')
@@ -249,6 +280,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const card = screen.getByTestId('stress-test-outside-view')
@@ -273,12 +305,40 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           ]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.getByTestId('stress-test-fragile-subsection')).toBeInTheDocument()
       expect(screen.getByText('Fragile factors (2)')).toBeInTheDocument()
       // Same alt-winner → one grouped card.
       expect(screen.getByTestId('fragile-alt-winner')).toHaveTextContent('Option B')
+    })
+
+    // PORTED from ChallengeSection.fragileRows.spec.tsx when the dead
+    // ChallengeSection wrapper was deleted. This assertion is about the
+    // CALLER, not the card: stripStatusQuoSuffixForDisplay runs in the
+    // grouping reduce (StressTestSection.tsx:289-292), and the card renders
+    // whatever altWinnerLabel it is handed. Re-pointing it at
+    // FragileEdgeGroupCard would have made it vacuous — the test would have
+    // had to pre-strip the label itself and then assert the strip happened.
+    // Mounted here it exercises the only production path that performs it.
+    it('D11: strips "(Status Quo)" suffix from the alt-winner in the card header', () => {
+      render(
+        <StressTestSection
+          drivers={[TOP_FACTOR]}
+          fragileEdges={[
+            makeFragile({
+              alternative_winner_label: 'Continue Without Dedicated Support (Status Quo)',
+            }),
+          ]}
+          winnerLabel="Option A"
+          alternativeLabel="Option B"
+          designationsWithheld={false}
+        />,
+      )
+      const altWinner = screen.getByTestId('fragile-alt-winner')
+      expect(altWinner.textContent).toBe('Continue Without Dedicated Support')
+      expect(document.body.textContent).not.toContain('(Status Quo)')
     })
 
     it('omits fragile subsection entirely when no fragile edges', () => {
@@ -288,6 +348,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.queryByTestId('stress-test-fragile-subsection')).not.toBeInTheDocument()
@@ -296,7 +357,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
   })
 
   describe('Empty state', () => {
-    it('renders the fallback copy when no sensitive + no fragile (only thinking patterns)', () => {
+    it('renders the ran-clean copy when robustness computed + no sensitive + no fragile', () => {
       const lowFlipDriver = makeDriver({ rankFlipRate: 0.05 })
       render(
         <StressTestSection
@@ -304,11 +365,62 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
+          robustnessStatus="computed"
         />,
       )
       expect(
         screen.getByText('No sensitivity or fragility signals fired. Your model is currently consistent.'),
       ).toBeInTheDocument()
+    })
+
+    // Audit §8 P1 (verdict honesty): didn't-run / degraded / clean are
+    // three different truths and must not share the "consistent" claim.
+    it('says robustness did not run (not "consistent") when robustness_status is unavailable', () => {
+      render(
+        <StressTestSection
+          drivers={[]}
+          fragileEdges={[]}
+          winnerLabel="Option A"
+          alternativeLabel="Option B"
+          designationsWithheld={false}
+          robustnessStatus="unavailable"
+        />,
+      )
+      expect(screen.getByTestId('stress-test-didnt-run')).toHaveTextContent(
+        "Robustness analysis didn't run for this pass, so fragility hasn't been checked.",
+      )
+      expect(screen.queryByText(/currently consistent/)).not.toBeInTheDocument()
+    })
+
+    it('makes no clean claim when robustness_status is absent entirely', () => {
+      render(
+        <StressTestSection
+          drivers={[]}
+          fragileEdges={[]}
+          winnerLabel="Option A"
+          alternativeLabel="Option B"
+          designationsWithheld={false}
+        />,
+      )
+      expect(screen.getByTestId('stress-test-didnt-run')).toBeInTheDocument()
+      expect(screen.queryByText(/currently consistent/)).not.toBeInTheDocument()
+    })
+
+    it('does not claim consistency for a degraded/approximate pass', () => {
+      render(
+        <StressTestSection
+          drivers={[]}
+          fragileEdges={[]}
+          winnerLabel="Option A"
+          alternativeLabel="Option B"
+          designationsWithheld={false}
+          robustnessStatus="computed"
+          analysisDegraded
+        />,
+      )
+      expect(screen.getByTestId('stress-test-degraded')).toHaveTextContent(/approximations/)
+      expect(screen.queryByText(/currently consistent/)).not.toBeInTheDocument()
     })
 
     it('does NOT render the fallback copy when sensitive or fragile fired', () => {
@@ -318,6 +430,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(
@@ -334,6 +447,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[makeFragile({ edge_id: 'e1', from_id: 'node_a' })]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const html = container.innerHTML

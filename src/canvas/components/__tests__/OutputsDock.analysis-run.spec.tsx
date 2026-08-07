@@ -1,10 +1,27 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
+import { getCanonicalRunner } from '../../analysis/canonicalRunRegistry'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { _clearTraces, getInteractionChains } from '../../../lib/debug-state'
+// 34edc1fd ("conversation singleton + explicit first-use submit signal",
+// 2026-05-19) made OutputsDockProviderHost consume useConversationContext,
+// which throws outside a <ConversationProvider>. This spec pre-dated (or
+// was never updated for) that requirement and rendered <OutputsDock />
+// bare — same drift class fixed elsewhere in this lane. Matches the
+// established wrapper pattern in OutputsDock.conversationSingleton.spec.tsx.
+import { ConversationProvider } from '../../conversation/ConversationContext'
+import { useSuccessMeasureStore } from '../../../components/results/modals/successMeasureStore'
+
+function renderOutputsDock() {
+  return render(
+    <ConversationProvider>
+      <OutputsDock />
+    </ConversationProvider>,
+  )
+}
 
 const {
   mockIsOrchestratorV2Enabled,
@@ -18,7 +35,7 @@ const {
   mockIsOrchestratorV2Enabled: vi.fn(() => true),
   mockIsLegacyDirectRunEnabled: vi.fn(() => false),
   mockIsV5CanonicalAnalysisEnabled: vi.fn(() => false),
-  mockIsV5Eligible: vi.fn(() => ({ eligible: false, reason: 'flag_off' })),
+  mockIsV5Eligible: vi.fn((_input?: { flag: string | undefined }) => ({ eligible: false, reason: 'flag_off' })),
   mockUseV2Run: vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })),
   mockShowToast: vi.fn(),
   mockUsePreAnalysisData: vi.fn(() => ({})),
@@ -45,13 +62,32 @@ vi.mock('../../../flags', async (importOriginal) => {
   }
 })
 
-vi.mock('../../../v5/eligibility', () => ({
-  isV5Eligible: mockIsV5Eligible,
-}))
+vi.mock('../../../v5/eligibility', async (importOriginal) => {
+  // Spread the real module (repo rule: a hand-listed factory silently drops
+  // every export added later — this exact mock shipped that failure once).
+  // isV5CanonicalRunPath re-derives from THIS file's mocked flags + stub so
+  // tests that toggle either mock drive the canonical path like production.
+  const actual = await importOriginal<typeof import('../../../v5/eligibility')>()
+  const flags = await import('../../../flags')
+  return {
+    ...actual,
+    isV5Eligible: mockIsV5Eligible,
+    isV5CanonicalRunPath: () =>
+      flags.isV5CanonicalAnalysisEnabled() &&
+      mockIsV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible,
+  }
+})
 
-vi.mock('../../hooks/useV2Run', () => ({
-  useV2Run: () => mockUseV2Run(),
-}))
+vi.mock('../../hooks/useV2Run', async (importOriginal) => {
+  // Spread the real module: OutputsDock also imports the pure goal-threshold
+  // helpers (resolveChipGoalThreshold / capForUnit) from here — only the hook
+  // itself is mocked.
+  const actual = await importOriginal<typeof import('../../hooks/useV2Run')>()
+  return {
+    ...actual,
+    useV2Run: () => mockUseV2Run(),
+  }
+})
 
 vi.mock('../../ToastContext', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../ToastContext')>()
@@ -153,32 +189,39 @@ describe('OutputsDock analyse convergence', () => {
     vi.useRealTimers()
     vi.restoreAllMocks()
     _clearTraces()
+    // Lane 1b review fold (test hygiene): these leak across tests via module
+    // state / sessionStorage if only reset in test bodies — an assertion
+    // failure would skip the cleanup.
+    useCanvasStore.setState({ goalThreshold: null } as never)
+    useSuccessMeasureStore.getState()._reset()
   })
 
-  it('dispatches direct V2 run instead of the shared conversation callback', () => {
+  it('dispatches direct V2 run instead of the shared conversation callback', async () => {
     const runViaConversation = vi.fn()
     const runV2Analysis = vi.fn()
 
     mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
     useGuidanceStore.setState({ _runAnalysis: runViaConversation } as any)
 
-    render(<OutputsDock />)
+    renderOutputsDock()
 
     fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-    expect(runV2Analysis).toHaveBeenCalledTimes(1)
+    // The run now awaits the pre-dispatch save flush (F1 barrier) before
+    // reaching the V2/dispatch path, so the spy resolves on a later microtask.
+    await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
     expect(runViaConversation).not.toHaveBeenCalled()
   })
 
-  it('runs directly without opening the AI panel or warning toast when no conversation callback is registered', () => {
+  it('runs directly without opening the AI panel or warning toast when no conversation callback is registered', async () => {
     const runV2Analysis = vi.fn()
     mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
 
-    render(<OutputsDock />)
+    renderOutputsDock()
 
     fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-    expect(runV2Analysis).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
     expect(mockShowToast).not.toHaveBeenCalled()
     expect(useCanvasStore.getState().showDraftChat).toBe(false)
     expect(
@@ -187,14 +230,14 @@ describe('OutputsDock analyse convergence', () => {
   })
 
   it('does not emit a warning on unmount before analyse is clicked', () => {
-    const { unmount } = render(<OutputsDock />)
+    const { unmount } = renderOutputsDock()
     unmount()
 
     expect(mockShowToast).not.toHaveBeenCalled()
   })
 
   describe('v5 canonical analysis routing (v5-canonical-analysis brief)', () => {
-    it('fires chip-shaped dispatchAction with action_type=run_analysis when canonical flag is on AND V5 eligible', () => {
+    it('fires chip-shaped dispatchAction with action_type=run_analysis when canonical flag is on AND V5 eligible', async () => {
       const dispatchAction = vi.fn()
       const runV2Analysis = vi.fn()
       mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
@@ -203,12 +246,12 @@ describe('OutputsDock analyse convergence', () => {
 
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
 
-      render(<OutputsDock />)
+      renderOutputsDock()
       fireEvent.click(screen.getByTestId('outputs-run-button'))
 
       // Correction 8: exact chip/action payload shape — action_type
       // 'run_analysis', source 'chip', no free-text LLM route.
-      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      await waitFor(() => expect(dispatchAction).toHaveBeenCalledTimes(1))
       const call = dispatchAction.mock.calls[0][0]
       expect(call.action_type).toBe('run_analysis')
       expect(call.source).toBe('chip')
@@ -222,7 +265,7 @@ describe('OutputsDock analyse convergence', () => {
       expect(runV2Analysis).not.toHaveBeenCalled()
     })
 
-    it('falls back to direct V2 when canonical flag is off (control case)', () => {
+    it('falls back to direct V2 when canonical flag is off (control case)', async () => {
       const dispatchAction = vi.fn()
       const runV2Analysis = vi.fn()
       mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
@@ -231,14 +274,14 @@ describe('OutputsDock analyse convergence', () => {
 
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
 
-      render(<OutputsDock />)
+      renderOutputsDock()
       fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-      expect(runV2Analysis).toHaveBeenCalledTimes(1)
+      await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
       expect(dispatchAction).not.toHaveBeenCalled()
     })
 
-    it('falls back to direct V2 when canonical flag is on but V5 is not eligible', () => {
+    it('falls back to direct V2 when canonical flag is on but V5 is not eligible', async () => {
       const dispatchAction = vi.fn()
       const runV2Analysis = vi.fn()
       mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
@@ -247,14 +290,14 @@ describe('OutputsDock analyse convergence', () => {
 
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
 
-      render(<OutputsDock />)
+      renderOutputsDock()
       fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-      expect(runV2Analysis).toHaveBeenCalledTimes(1)
+      await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
       expect(dispatchAction).not.toHaveBeenCalled()
     })
 
-    it('falls back to direct V2 when canonical flag is on but no _dispatchAction is registered', () => {
+    it('falls back to direct V2 when canonical flag is on but no _dispatchAction is registered', async () => {
       const runV2Analysis = vi.fn()
       mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
@@ -264,10 +307,10 @@ describe('OutputsDock analyse convergence', () => {
       // mounted or registered.
       useGuidanceStore.setState({ _dispatchAction: null } as any)
 
-      render(<OutputsDock />)
+      renderOutputsDock()
       fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-      expect(runV2Analysis).toHaveBeenCalledTimes(1)
+      await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
     })
   })
 
@@ -298,18 +341,205 @@ describe('OutputsDock analyse convergence', () => {
       },
     } as any)
 
-    render(<OutputsDock />)
+    renderOutputsDock()
 
     const footer = screen.getByTestId('results-analysis-footer')
     expect(footer).toBeInTheDocument()
     // Robustness trust fix (ROBUSTNESS-VERDICT-CONTRACT): raw
     // recommendation_stability (0.87) with NO display-safe robustnessVerdict no
     // longer renders a positive "Stable result" verdict — the footer stays
-    // neutral ("Robustness unknown"), matching the certified glyph. The raw %
-    // is retained only as neutral metadata.
+    // neutral ("Robustness unknown"), matching the certified glyph.
+    //
+    // cb16e329 ("stop raw-stability robustness overclaims", 2026-06-27)
+    // tightened this further: the raw "{N}% stability" segment is now
+    // suppressed entirely alongside an indeterminate verdict — a bare
+    // "Robustness unknown · 87% stability" still contradicted itself,
+    // and the number is the leader's win probability, not a robustness
+    // verdict — so it no longer renders as neutral metadata either.
     expect(footer).not.toHaveTextContent('Stable result')
     expect(footer).toHaveTextContent('Robustness unknown')
-    expect(footer).toHaveTextContent('87%')
+    expect(footer).not.toHaveTextContent('87%')
     expect(screen.queryByText('Compare available in the tab bar')).not.toBeInTheDocument()
+  })
+
+  describe('Wave 1: Decision overview mount', () => {
+    const fakeReport: any = {
+      results: { conservative: 10, likely: 20, optimistic: 30, units: 'percent', unitSymbol: '%' },
+      run: { bands: { p10: 10, p50: 20, p90: 30 } },
+    }
+    function seedPostRun() {
+      const baseResults = useCanvasStore.getState().results
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'complete', report: fakeReport },
+      } as any)
+    }
+
+    it('flag OFF: no overview card (byte-identical)', () => {
+      localStorage.removeItem('feature.decisionOverview')
+      seedPostRun()
+      renderOutputsDock()
+      expect(screen.queryByTestId('decision-overview')).not.toBeInTheDocument()
+    })
+
+    it('flag ON: the overview mounts FIRST, above the freshness strip (canonical hierarchy)', () => {
+      localStorage.setItem('feature.decisionOverview', '1')
+      const baseResults = useCanvasStore.getState().results
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'complete', report: fakeReport },
+        analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_changed', computedAt: 1 },
+      } as any)
+      renderOutputsDock()
+      const overview = screen.getByTestId('decision-overview')
+      const strip = screen.getByTestId('analysis-freshness-notice')
+      expect(overview.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      localStorage.removeItem('feature.decisionOverview')
+    })
+  })
+
+  describe('Wave F-B: one freshness owner — duplicate stale surfaces retired', () => {
+    const fakeReport: any = {
+      results: { conservative: 10, likely: 20, optimistic: 30, units: 'percent', unitSymbol: '%' },
+      run: { bands: { p10: 10, p50: 20, p90: 30 } },
+    }
+
+    it('stale analysis shows NO graph-stale-banner and NO ai-panel stale badge (the strip owns it)', () => {
+      const baseResults = useCanvasStore.getState().results
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'complete', report: fakeReport },
+        analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_changed', computedAt: 1 },
+        analysisFreshnessDirty: false,
+      } as any)
+      renderOutputsDock()
+      expect(screen.queryByTestId('graph-stale-banner')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('ai-panel-stale-badge')).not.toBeInTheDocument()
+    })
+
+    it('the canonical runner forwards parameters into the V5 chip dispatch (threshold rerun fold)', async () => {
+      const dispatchAction = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+
+      renderOutputsDock()
+      const runner = getCanonicalRunner()
+      expect(runner).not.toBeNull()
+      await runner!({ source: 'test', parameters: { goal_threshold: 42 } })
+
+      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      expect(dispatchAction.mock.calls[0][0]).toMatchObject({
+        action_type: 'run_analysis',
+        parameters: { goal_threshold: 42 },
+      })
+    })
+
+    // ROADMAP 2.109 — three tests were REMOVED here, not weakened. They pinned
+    // the store re-attach block (`dispatchRunAnalysis` merging the saved
+    // threshold into `chip.parameters.goal_threshold`), which is DELETED: the
+    // parameter had no CEE reader for `run_analysis`, so it was a write-only
+    // channel. Their subject no longer exists, and a retitled survivor would
+    // have been a false claim that the channel is live.
+    //   - 'a plain canonical run ATTACHES the saved store threshold when provable'
+    //   - 'a CEE-synced NORMALISED store value is never ÷100 by the measure unit'
+    //   - 'an UNRELATED caller parameter (chip_id) does NOT suppress the store threshold'
+    // The replacement absence pin (with its positive control) lives in
+    // OutputsDock.goalThresholdChipParamRetired.spec.tsx, which also pins that
+    // `chip_id` provenance still rides the surviving passthrough.
+
+    it('Lane 1b: explicit caller parameters are never overridden by the store threshold', async () => {
+      const dispatchAction = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      useCanvasStore.setState({ goalThreshold: 60 } as any)
+
+      renderOutputsDock()
+      const runner = getCanonicalRunner()
+      await runner!({ source: 'test', parameters: { goal_threshold: 0.25 } })
+
+      expect(dispatchAction.mock.calls[0][0]).toMatchObject({
+        parameters: { goal_threshold: 0.25 },
+      })
+    })
+
+    it('ROADMAP 2.109: a plain canonical run carries NO parameters at all', async () => {
+      // Was 'an unprovable store threshold stays OMITTED (fail closed)'. The
+      // omission is no longer conditional on provability — the store re-attach
+      // block is deleted, so a plain run never carries a threshold either way.
+      // Retitled rather than removed because the assertion is still the live
+      // contract for a caller-less run.
+      const dispatchAction = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      useSuccessMeasureStore.getState()._reset()
+      useCanvasStore.setState({ goalThreshold: 60, ceeAnalysisReady: null } as any)
+
+      renderOutputsDock()
+      const runner = getCanonicalRunner()
+      await runner!({ source: 'freshness-strip' })
+
+      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      expect(dispatchAction.mock.calls[0][0].parameters).toBeUndefined()
+    })
+  })
+
+  describe('1.16i: visible processing during an analysing turn', () => {
+    const fakeReport: any = {
+      results: { conservative: 10, likely: 20, optimistic: 30, units: 'percent', unitSymbol: '%' },
+      run: { bands: { p10: 10, p50: 20, p90: 30 } },
+    }
+
+    function seedPreparingWithReport() {
+      const baseResults = useCanvasStore.getState().results
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'preparing', report: fakeReport },
+      } as any)
+    }
+
+    it('shows the running banner while status is preparing with a prior report on screen', () => {
+      seedPreparingWithReport()
+      renderOutputsDock()
+      expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
+    })
+
+    it('shows NO dead Cancel button for a V5 analysing turn (no V2 run in flight)', () => {
+      seedPreparingWithReport()
+      renderOutputsDock()
+      expect(screen.queryByTestId('cancel-analysis-button')).not.toBeInTheDocument()
+    })
+
+    it('a Run click during an analysing turn dispatches nothing (gate holds)', () => {
+      const dispatchAction = vi.fn()
+      const runV2Analysis = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() } as any)
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      seedPreparingWithReport()
+
+      renderOutputsDock()
+      const rerun = screen.queryByTestId('outputs-run-button')
+      if (rerun) fireEvent.click(rerun)
+
+      expect(dispatchAction).not.toHaveBeenCalled()
+      expect(runV2Analysis).not.toHaveBeenCalled()
+    })
+
+    it('banner absent when analysis is complete (control)', () => {
+      const baseResults = useCanvasStore.getState().results
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'complete', report: fakeReport },
+      } as any)
+      renderOutputsDock()
+      expect(screen.queryByTestId('analysis-running-banner')).not.toBeInTheDocument()
+    })
   })
 })

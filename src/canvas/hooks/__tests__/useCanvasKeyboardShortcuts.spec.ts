@@ -203,6 +203,28 @@ describe('useCanvasKeyboardShortcuts', () => {
       expect(state.showTemplatesPanel).toBe(true)
     })
 
+    it('opens the panel for CapsLock T too (key "T", shiftKey false) — the first screen advertises this key', () => {
+      // The first-run starter strip renders "Press T for all templates". With
+      // CapsLock engaged the event is key 'T' with shiftKey FALSE — a
+      // lowercase-only match makes the screen's only advertised shortcut a
+      // silent no-op. Shift+T (key 'T', shiftKey true) must stay excluded.
+      useCanvasStore.setState({ showTemplatesPanel: false })
+
+      renderHook(() => useCanvasKeyboardShortcuts({}))
+
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'T', shiftKey: false }))
+      expect(useCanvasStore.getState().showTemplatesPanel).toBe(true)
+    })
+
+    it('still ignores Shift+T (key "T" with shiftKey true)', () => {
+      useCanvasStore.setState({ showTemplatesPanel: false })
+
+      renderHook(() => useCanvasKeyboardShortcuts({}))
+
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'T', shiftKey: true }))
+      expect(useCanvasStore.getState().showTemplatesPanel).toBe(false)
+    })
+
     it('is idempotent - does not call openTemplatesPanel if already open', () => {
       // Set panel as already open
       useCanvasStore.setState({ showTemplatesPanel: true })

@@ -117,7 +117,11 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     const current = edge?.data ?? DEFAULT_EDGE_DATA
     const absWeight = Math.abs(newSignedValue)
     const direction = newSignedValue >= 0 ? 'positive' : 'negative'
-    updateEdge(edgeId, { data: { ...current, weight: absWeight, direction } })
+    // The user dragged a SIGNED slider, so they stated the direction; the
+    // stamp rides with the value (ROADMAP 2.263).
+    updateEdge(edgeId, {
+      data: { ...current, weight: absWeight, direction, directionSource: 'user' },
+    })
     setAnnouncement(`Effect on target set to ${newSignedValue.toFixed(2)}`)
   }, [edgeId, edge?.data, updateEdge])
 

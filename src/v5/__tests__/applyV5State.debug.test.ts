@@ -90,12 +90,16 @@ describe('applyV5State [v5-state] debug logging', () => {
 
   it('reports skip_reason when a step is a no-op', () => {
     vi.stubEnv('VITE_V5_STATE_DEBUG', 'true')
-    // Conversational turn with no analysis_ready → step 4 skips with reason
+    // Conversational turn with no analysis_ready → step 4 skips with reason.
+    // Canonical non-analyse wire stage (was 'ideate' — retired UI/DB vocab that
+    // normaliseStage rejects). The skip_reason assertion below is load-bearing on
+    // the turn being NON-analyse; 'frame' and the old 'ideate' both satisfy that,
+    // but 'frame' is the recognised canonical value rather than a rejected one.
     const conversational = {
       turn_id: 't2',
       assistant_text: 'hi',
       blocks: [],
-      stage_indicator: { stage: 'ideate', confidence: 'high', source: 'inferred' },
+      stage_indicator: { stage: 'frame', confidence: 'high', source: 'inferred' },
     } as unknown as OlumiResponse
     applyV5State(conversational, makeStore())
     const step4 = (infoSpy.mock.calls as unknown[][])

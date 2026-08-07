@@ -63,8 +63,15 @@ vi.mock('../../../adapters/plot/v2', () => ({
     Array.isArray(analysisReady?.options) ? analysisReady.options : [],
 }))
 
+// T2 (receipts fail closed): capture the mapper's options so tests can pin
+// the seed provenance handleEnvelope derives for THIS response. vi.hoisted
+// because vi.mock factories are hoisted above module-level const init.
+const { mockMapV2ResponseToReportV1 } = vi.hoisted(() => ({
+  mockMapV2ResponseToReportV1: vi.fn(() => ({ id: 'mock-report', graph_quality: null })),
+}))
+
 vi.mock('../../../adapters/plot/v2/responseMapper', () => ({
-  mapV2ResponseToReportV1: () => ({ id: 'mock-report', graph_quality: null }),
+  mapV2ResponseToReportV1: mockMapV2ResponseToReportV1,
   createEnrichmentFromV2Response: () => null,
   synthesizeCeeReviewFromV2: () => null,
   synthesizeCeeTraceFromV2: () => null,
@@ -98,8 +105,28 @@ const mockResultsComplete = vi.fn()
 const mockResultsError = vi.fn()
 
 beforeEach(() => {
+  // Pin the V5-orchestrator flag OFF for this spec.
+  //
+  // These tests exercise `handleEnvelope` — the results-store wiring on the
+  // legacy V4/V2 orchestrator path (`callOrchestratorTurn`, which the spec
+  // mocks above). `sendTurn` in useConversation.ts branches FIRST on
+  // `isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR })`:
+  // when that flag is 'true', every turn routes to the V5 exclusive path
+  // (`callV5Turn` in ../../v5/v5Adapter) which this spec does NOT mock —
+  // so the real fetch throws, the turn is classed a transport failure, and
+  // handleEnvelope never runs (all envelope-path spies see 0 calls).
+  //
+  // The flag's value is environment-dependent, which is what made this spec
+  // order/env-dependent: CI sets Supabase env but NOT this flag (undefined →
+  // V4 path → green), while a local fresh-clone lane copies `.env.local`
+  // (needed for Supabase env) which ALSO sets VITE_ENABLE_V5_ORCHESTRATOR=true
+  // → V5 path → red. Pinning the flag here makes the intended V4 path
+  // deterministic regardless of ambient env or sibling env-stub leakage.
+  // afterEach restores via unstubAllEnvs so we never leak 'false' to siblings.
+  vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'false')
   vi.useFakeTimers()
   mockCallTurn.mockReset()
+  mockMapV2ResponseToReportV1.mockClear()
   mockResultsComplete.mockReset()
   mockResultsError.mockReset()
 
@@ -118,6 +145,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllEnvs()
 })
 
 // ---------------------------------------------------------------------------
@@ -296,5 +324,96 @@ describe('A.9 — provenance preservation', () => {
     // TypeScript ensures this is correct — the type test is a compile-time guarantee.
     // Check the selector exists and returns the right type
     expect(typeof storeActions.resultsComplete).toBe('function')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// T2 — receipts fail closed: seed provenance on the envelope path
+//
+// The Seed receipt row must show the seed of THIS analysis response or
+// nothing at all. The only real source on the envelope path is the engine
+// echo (analysis_response.meta.seed_used). A fabricated 0 and a stale
+// store seed left over from a previous run are both provenance lies.
+// ---------------------------------------------------------------------------
+
+describe('receipts fail closed — envelope seed provenance', () => {
+  it('engine echo meta.seed_used is parsed and passed to the mapper as the real seed', async () => {
+    const v2Response = {
+      ...makeV2Response('hash-seed-echo'),
+      meta: { seed_used: '4242' },
+    }
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Analysis complete.',
+      analysis_response: v2Response,
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('Run the analysis')
+    })
+
+    expect(mockMapV2ResponseToReportV1).toHaveBeenCalledTimes(1)
+    const options = mockMapV2ResponseToReportV1.mock.calls[0][1] as { seed: number | null }
+    expect(options.seed).toBe(4242)
+  })
+
+  it('no engine echo → seed null (never a fabricated 0)', async () => {
+    const v2Response = makeV2Response('hash-no-echo') // no meta at all
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Analysis complete.',
+      analysis_response: v2Response,
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('Run the analysis')
+    })
+
+    expect(mockMapV2ResponseToReportV1).toHaveBeenCalledTimes(1)
+    const options = mockMapV2ResponseToReportV1.mock.calls[0][1] as { seed: number | null }
+    expect(options.seed).toBeNull()
+  })
+
+  it('a stale store seed from a previous run is NOT attributed to this response', async () => {
+    // Seed 7 belongs to some earlier direct run; this envelope response
+    // carries no echo, so its seed is unknown → null.
+    useCanvasStore.setState({
+      results: { status: 'complete', hash: 'old-hash', seed: 7 } as any,
+    } as any)
+
+    const v2Response = makeV2Response('hash-stale-store')
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Analysis complete.',
+      analysis_response: v2Response,
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('Run the analysis')
+    })
+
+    expect(mockMapV2ResponseToReportV1).toHaveBeenCalledTimes(1)
+    const options = mockMapV2ResponseToReportV1.mock.calls[0][1] as { seed: number | null }
+    expect(options.seed).toBeNull()
+  })
+
+  it('malformed echo (non-numeric seed_used) → null, never 0', async () => {
+    const v2Response = {
+      ...makeV2Response('hash-bad-echo'),
+      meta: { seed_used: 'garbage' },
+    }
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Analysis complete.',
+      analysis_response: v2Response,
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('Run the analysis')
+    })
+
+    expect(mockMapV2ResponseToReportV1).toHaveBeenCalledTimes(1)
+    const options = mockMapV2ResponseToReportV1.mock.calls[0][1] as { seed: number | null }
+    expect(options.seed).toBeNull()
   })
 })

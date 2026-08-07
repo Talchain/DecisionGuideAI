@@ -188,7 +188,7 @@ export function BlockersSection({
                       <ul className="mt-1 space-y-0.5">
                         {display.suggestedActions.map((action) => (
                           <li key={action} className={`${typography.panelMeta} text-text-light flex items-center gap-1`}>
-                            <span className="text-text-light/50">&bull;</span>
+                            <span className="text-text-light">&bull;</span>
                             {action}
                           </li>
                         ))}
@@ -353,7 +353,7 @@ function ConstraintGroupCard({ items }: { items: EnrichedBlocker[] }) {
             <ul className="mt-1 space-y-0.5" data-testid="constraint-group-list">
               {constraintLabels.map((label, idx) => (
                 <li key={idx} className={`${typography.panelMeta} text-text-light flex items-center gap-1`}>
-                  <span className="text-text-light/50">&bull;</span>
+                  <span className="text-text-light">&bull;</span>
                   {label}
                 </li>
               ))}

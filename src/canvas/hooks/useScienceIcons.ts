@@ -9,12 +9,14 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { useNodeDisplayMetadata } from './useNodeDisplayMetadata'
 import {
-  FileQuestion, Sparkles, Unlink, Frame, ShieldAlert, EyeOff, Anchor, Gauge,
+  FileQuestion, Sparkles, Unlink, Frame, ShieldAlert, Anchor, Gauge,
 } from 'lucide-react'
+import { biasSignal } from '../shared/biasSignalTitles'
 import type { ComponentType } from 'react'
 import type { NodeType } from '../domain/nodes'
 import { computeSignedMean } from '../domain/edges'
 import { unwrapInterventionValue } from '../utils/labelUtils'
+import { isReviewedSource } from '../components/pre-analysis/utils/isReviewedByUser'
 
 export interface ScienceIconDef {
   id: string
@@ -60,8 +62,16 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         })
       }
 
-      // 2. Olumi estimate
-      if (extractionType === 'inferred') {
+      // 2. Olumi estimate — journey-walk gap #3 (third contradicting
+      // surface): gating on `extractionType === 'inferred'` ALONE kept this
+      // claim alive after a user override (commitValue sets source
+      // 'user_override' but never touches extractionType), so the canvas said
+      // "Olumi estimated this value" about a factor the sidebar called
+      // "checked by you". The user-ownership question is answered by the
+      // canonical reviewed-source predicate — the SAME one the sidebar pill
+      // derives from — never a second hand-kept source list (trap 12).
+      const source = observedState?.source as string | undefined
+      if (extractionType === 'inferred' && !isReviewedSource(source)) {
         icons.push({
           id: 'olumi-estimate',
           icon: Sparkles,
@@ -172,10 +182,15 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
       // 6. Status quo bias
       const isBaseline = (nodeData as any)?.is_baseline === true
       if (isBaseline) {
+        // BOTH channels — name AND icon — from the one registry entry, so
+        // the icon can no longer drift from the title it sits beside
+        // (review-folds C15; /simplify item 3). Rendered output is
+        // byte-identical to the old literals.
+        const statusQuo = biasSignal('status_quo_bias')
         icons.push({
           id: 'status-quo-bias',
-          icon: EyeOff,
-          tooltip: 'Status quo bias: inaction risks often underestimated.',
+          icon: statusQuo.icon,
+          tooltip: `${statusQuo.title}: inaction risks often underestimated.`,
           action: 'What could go wrong with doing nothing?',
           colour: 'text-warning',
           priority: 6,

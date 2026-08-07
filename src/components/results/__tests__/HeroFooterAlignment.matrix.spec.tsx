@@ -31,6 +31,7 @@ import { ResultsFooter } from '../ResultsFooter'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { ConfidenceTier, OptionResult, DecisionResultData, ConfidenceSectionData, DriversSectionData, ImprovementsSectionData } from '../types'
 import type { M1CoachingReadiness } from '../../../types/cee'
+import { deriveDecisionVerdict } from '../../../lib/decisionVerdict'
 
 interface MatrixCase {
   label: string
@@ -45,16 +46,23 @@ interface MatrixCase {
   expectFooterContains: string
   /** Phrases that must NOT appear in the footer. */
   forbidFooter?: string[]
+  /** Win probabilities driving the SINGLE VERDICT. Defaults to a clear lead. */
+  wins?: { winner: number; runnerUp: number }
 }
 
-function makeData(tier: ConfidenceTier, readiness: M1CoachingReadiness, stability: number): ResultsSectionDataReturn {
+function makeData(
+  tier: ConfidenceTier,
+  readiness: M1CoachingReadiness,
+  stability: number,
+  wins: { winner: number; runnerUp: number } = { winner: 0.80, runnerUp: 0.20 },
+): ResultsSectionDataReturn {
   const winner: OptionResult = {
     id: 'opt-a',
     label: 'Option A',
     expectedValue: 0.8,
     p10: 0.6,
     p90: 0.95,
-    winProbability: 0.80,
+    winProbability: wins.winner,
     goalProbability: 0.8,
   } as OptionResult
   const runnerUp: OptionResult = {
@@ -63,7 +71,7 @@ function makeData(tier: ConfidenceTier, readiness: M1CoachingReadiness, stabilit
     expectedValue: 0.5,
     p10: 0.3,
     p90: 0.7,
-    winProbability: 0.20,
+    winProbability: wins.runnerUp,
     goalProbability: 0.4,
   } as OptionResult
 
@@ -76,6 +84,32 @@ function makeData(tier: ConfidenceTier, readiness: M1CoachingReadiness, stabilit
     recommendationStability: stability,
     robustnessLevel: 'high',
     coachingReadiness: readiness,
+    // SINGLE VERDICT: still derived by the REAL product function from the same
+    // win probabilities the fixture gives the options — never hand-written, so
+    // this matrix cannot pin a verdict the product would not produce.
+    //
+    // ROADMAP 1.223: `deriveDecisionVerdict` no longer infers a leader from the
+    // gap — the PRODUCER states it and the UI quotes it. So the fixture must
+    // now supply the producer signal too. `near_tie` here stands in for PLoT's
+    // `computeNearTie` (threshold 0.10) applied to these very numbers, so the
+    // matrix keeps exercising both sides of the tie call: the default 0.80 vs
+    // 0.20 row is a leader, the 0.52 vs 0.48 row is a tie.
+    verdict: deriveDecisionVerdict({
+      option_probabilities: {
+        'opt-a': { win_probability: wins.winner },
+        'opt-b': { win_probability: wins.runnerUp },
+      },
+      robustness: {
+        recommended_option_id: 'opt-a',
+        near_tie: {
+          is_tie: wins.winner - wins.runnerUp < 0.10,
+          top_option_id: 'opt-a',
+          second_option_id: 'opt-b',
+          gap: wins.winner - wins.runnerUp,
+          threshold: 0.1,
+        },
+      },
+    }),
   }
 
   const drivers: DriversSectionData = {
@@ -113,6 +147,7 @@ function makeData(tier: ConfidenceTier, readiness: M1CoachingReadiness, stabilit
     isLoading: false,
     isError: false,
     goalLabel: 'Maximise success',
+    voiRanking: null,
   }
 }
 
@@ -125,7 +160,10 @@ const matrix: MatrixCase[] = [
     tier: 'strong',
     readiness: 'ready',
     stability: 0.95,
-    expectHeroContains: 'Option A is the leading option',
+    // SUPERSEDED 2026-07-31: `"{winner} is the leading option"` is retired —
+    // an endorsement noun with no basis and no number. The ROW is unchanged;
+    // only the sentence it expects moved to the comparative register.
+    expectHeroContains: 'Option A came out ahead',
     expectFooterContains: 'Stable result',
     forbidFooter: ['Stability sensitive'],
   },
@@ -180,37 +218,55 @@ const matrix: MatrixCase[] = [
     tier: 'strong',
     readiness: 'close_call',
     stability: 0.90,
-    expectHeroContains: 'Option A is the leading option',
+    // SUPERSEDED 2026-07-31: `"{winner} is the leading option"` is retired —
+    // an endorsement noun with no basis and no number. The ROW is unchanged;
+    // only the sentence it expects moved to the comparative register.
+    expectHeroContains: 'Option A came out ahead',
     forbidHero: ['Option A currently leads'],
     expectFooterContains: 'Stable result',
     forbidFooter: ['Stability sensitive'],
   },
   {
-    label: 'Rule 1 — unstable (stability < 0.70): hero "no clear leading option", footer "Sensitive to assumptions"',
+    // SINGLE VERDICT (2026-07-25) — REWRITTEN. This row used to assert that
+    // stability 0.55 makes the hero say "no clear leading option". With a
+    // 60-point win gap that is false, and it was exactly the contradiction the
+    // end-to-end journey lane caught on staging. The honest pairing is: the
+    // hero reports the LEAD (separation), the footer reports the FRAGILITY
+    // (robustness) — two different facts, each in its own voice, no denial.
+    label: 'clear lead + low stability: hero must NOT deny a leader; footer still "Sensitive to assumptions"',
     tier: 'strong',
     readiness: 'ready',
     stability: 0.55,
-    expectHeroContains: 'no clear leading option',
-    forbidHero: ['is the leading option'],
+    expectHeroContains: 'Option A',
+    forbidHero: ['no clear leading option', 'leads slightly more often'],
     expectFooterContains: 'Sensitive to assumptions',
   },
   {
-    // Rule 1 boundary — hero fires on stability < 0.70. Footer: fair + 0.40
-    // enters the §2.7 soft gate (tier ∈ {needs_work, fair} AND stab < 0.85),
-    // so the override fires regardless of the numeric-classification label.
-    // Hero + footer both read pessimistic, which is coherent.
-    label: 'Rule 1 boundary — stability 0.40 + fair tier: hero "no clear leading option", footer "Stability sensitive" via soft gate',
+    label: 'clear lead + very low stability + fair tier: hero must NOT deny a leader; footer "Stability sensitive" via soft gate',
     tier: 'fair',
     readiness: 'ready',
     stability: 0.40,
-    expectHeroContains: 'no clear leading option',
+    expectHeroContains: 'Option A',
+    forbidHero: ['no clear leading option'],
     expectFooterContains: 'Stability sensitive',
+  },
+  {
+    // The case where the denial is TRUE: the top two options are inside PLoT's
+    // own near-tie threshold (0.10). Positive control for the row above — it
+    // proves the hero can still print the denial when it is warranted.
+    label: 'TIED run (52% vs 48%): hero DOES say "no clear leading option"',
+    tier: 'strong',
+    readiness: 'ready',
+    stability: 0.55,
+    wins: { winner: 0.52, runnerUp: 0.48 },
+    expectHeroContains: 'no clear leading option',
+    expectFooterContains: 'Sensitive to assumptions',
   },
 ]
 
 describe('Hero ↔ Footer alignment — tier × readiness × stability matrix', () => {
   it.each(matrix)('$label', (testCase) => {
-    const data = makeData(testCase.tier, testCase.readiness, testCase.stability)
+    const data = makeData(testCase.tier, testCase.readiness, testCase.stability, testCase.wins)
     const panel = render(<DecisionConfidencePanel data={data} />)
 
     const panelText = panel.container.textContent ?? ''

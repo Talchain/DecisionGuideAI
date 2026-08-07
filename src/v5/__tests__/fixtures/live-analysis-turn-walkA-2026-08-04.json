@@ -1,0 +1,1978 @@
+{
+ "__source__": "PHASE0-EVIDENCE-2026-07-28/walk-train-raw/runA/wire-postrun-2-res.txt (walk-train post-deploy 2026-08-04, run A rerun turn)",
+ "__captured_at__": "2026-08-04 (walk-train postdeploy run A; CEE staging build_sha 92d8f0a per _diagnostic_trace)",
+ "__captured_against__": "cee-staging /proxy/v5/turn — full analysis turn body, verbatim",
+ "__notes__": "Live-shaped V5 turn: 13 blocks, blocks[0]=analysis_result whose enrichment.decision_review.decision_quality_prompts carries 2 cited prompts (DSK-T-002/strong, DSK-T-003/medium). Strip the __*__ provenance keys before feeding to applyV5State (ROADMAP 2.466 mount-path proof).",
+ "response_version": 2,
+ "assistant_text": "Build Self-Serve Tier currently leads by 2 percentage points, but the analysis treats this as a close call. The result is not yet robust — no single factor we tested would change the order on its own, but the margin is not settled.\n\nYour first analysis is ready. Take a moment to explore the leading option and the factors shaping it before acting on the result.",
+ "blocks": [
+  {
+   "type": "analysis_result",
+   "summary": "Build Self-Serve Tier currently leads by 2 percentage points, but the analysis treats this as a close call. The result is not yet robust — no single factor we tested would change the order on its own, but the margin is not settled.",
+   "leading_option_id": "opt_selfserve",
+   "win_probabilities": {
+    "Invest in Content Marketing": 0.13358333333333333,
+    "Hire Two Sales Reps": 0.3932833333333334,
+    "Build Self-Serve Tier": 0.418,
+    "Continue Current Approach (Status Quo)": 0.055133333333333326
+   },
+   "enrichment": {
+    "option_comparison": [
+     {
+      "option_id": "opt_content",
+      "option_label": "Invest in Content Marketing",
+      "id": "opt_content",
+      "label": "Invest in Content Marketing",
+      "outcome": {
+       "mean": -0.01067021579778853,
+       "std": 0.13886817125115214,
+       "p10": -0.18656609793401685,
+       "p50": -0.014330512187799162,
+       "p90": 0.16877675507099613,
+       "n_samples": 10000,
+       "n_valid_samples": 10000,
+       "validity_ratio": 1
+      },
+      "status": "computed",
+      "probability_of_goal": 0.014,
+      "win_probability": 0.13358333333333333
+     },
+     {
+      "option_id": "opt_sales",
+      "option_label": "Hire Two Sales Reps",
+      "id": "opt_sales",
+      "label": "Hire Two Sales Reps",
+      "outcome": {
+       "mean": 0.0791921406514565,
+       "std": 0.17012350040405352,
+       "p10": -0.15447370174744543,
+       "p50": 0.08860609900396578,
+       "p90": 0.2938302266477073,
+       "n_samples": 10000,
+       "n_valid_samples": 10000,
+       "validity_ratio": 1
+      },
+      "status": "computed",
+      "probability_of_goal": 0.0426,
+      "win_probability": 0.3932833333333334
+     },
+     {
+      "option_id": "opt_selfserve",
+      "option_label": "Build Self-Serve Tier",
+      "id": "opt_selfserve",
+      "label": "Build Self-Serve Tier",
+      "outcome": {
+       "mean": 0.10365165242275737,
+       "std": 0.16334496391165723,
+       "p10": -0.0927495641520505,
+       "p50": 0.08970923462244683,
+       "p90": 0.3210112815326157,
+       "n_samples": 10000,
+       "n_valid_samples": 10000,
+       "validity_ratio": 1
+      },
+      "status": "computed",
+      "probability_of_goal": 0.0534,
+      "win_probability": 0.418
+     },
+     {
+      "option_id": "opt_status_quo",
+      "option_label": "Continue Current Approach (Status Quo)",
+      "id": "opt_status_quo",
+      "label": "Continue Current Approach (Status Quo)",
+      "outcome": {
+       "mean": 0.0002057980926592864,
+       "std": 0.03590280029938509,
+       "p10": -0.042262688862862184,
+       "p50": -5.029978954537384e-05,
+       "p90": 0.04297811268845663,
+       "n_samples": 10000,
+       "n_valid_samples": 10000,
+       "validity_ratio": 1
+      },
+      "status": "computed",
+      "probability_of_goal": 0.0046,
+      "win_probability": 0.055133333333333326
+     }
+    ],
+    "factor_sensitivity": [
+     {
+      "factor_id": "fac_churn_trend",
+      "factor_label": "Churn Trend",
+      "influence_score": 0.9914611005692598,
+      "influence_rank": 2,
+      "sensitivity_score": -0.17416666666666666,
+      "elasticity": 0.9914611005692598,
+      "direction": "negative",
+      "importance_rank": 1,
+      "value_of_information": 0,
+      "confidence": 0.4369,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0.25
+      },
+      "source": "graph",
+      "flip_risk_category": "correlated",
+      "attribution_stability": "low",
+      "elasticity_std": 0.1074575,
+      "rank_flip_rate": 0.35,
+      "stability_method": "bootstrap_20",
+      "value_defaulted": true,
+      "importance_basis": "graph_structural",
+      "driver_label": "biggest",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false
+     },
+     {
+      "factor_id": "fac_market_competition",
+      "factor_label": "Competitive Intensity",
+      "influence_score": 0.908918406072106,
+      "influence_rank": 3,
+      "sensitivity_score": -0.15966666666666665,
+      "elasticity": 0.908918406072106,
+      "direction": "negative",
+      "importance_rank": 2,
+      "value_of_information": 0,
+      "confidence": 0.4347,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0.25
+      },
+      "source": "graph",
+      "flip_risk_category": "correlated",
+      "attribution_stability": "low",
+      "elasticity_std": 0.08372704,
+      "rank_flip_rate": 0.35,
+      "stability_method": "bootstrap_20",
+      "value_defaulted": true,
+      "importance_basis": "graph_structural",
+      "driver_label": "strong",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false
+     },
+     {
+      "factor_id": "fac_budget",
+      "factor_label": "Available Growth Budget",
+      "influence_score": 0.4953093688485343,
+      "influence_rank": 5,
+      "sensitivity_score": 0.08700934579439254,
+      "elasticity": 0.4953093688485343,
+      "direction": "positive",
+      "importance_rank": 3,
+      "value_of_information": 0,
+      "confidence": 0.44120000000000004,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0.25
+      },
+      "source": "graph",
+      "flip_risk_category": "correlated",
+      "attribution_stability": "low",
+      "elasticity_std": 0.04513734,
+      "rank_flip_rate": 0.35,
+      "stability_method": "bootstrap_20",
+      "value_defaulted": true,
+      "importance_basis": "graph_structural",
+      "driver_label": "moderate",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false
+     },
+     {
+      "factor_id": "fac_current_arr",
+      "factor_label": "Current ARR",
+      "influence_score": 0.34155597722960146,
+      "influence_rank": 6,
+      "sensitivity_score": 0.06,
+      "elasticity": 0.34155597722960146,
+      "direction": "positive",
+      "importance_rank": 4,
+      "value_of_information": 0,
+      "confidence": 0.43975,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0.25
+      },
+      "source": "graph",
+      "flip_risk_category": "correlated",
+      "attribution_stability": "low",
+      "elasticity_std": 0.03384965,
+      "rank_flip_rate": 0.45,
+      "stability_method": "bootstrap_20",
+      "value_defaulted": true,
+      "importance_basis": "graph_structural",
+      "driver_label": "moderate",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false
+     },
+     {
+      "factor_id": "fac_selfserve",
+      "factor_label": "Self-Serve Product Tier",
+      "influence_score": 1,
+      "influence_rank": 1,
+      "sensitivity_score": 0,
+      "elasticity": 0,
+      "direction": "positive",
+      "importance_rank": 5,
+      "value_of_information": 0,
+      "confidence": 0.3,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0
+      },
+      "zero_reason": "intervention_override",
+      "source": "graph",
+      "flip_risk_category": "correlated",
+      "attribution_stability": "negligible",
+      "elasticity_std": 0,
+      "rank_flip_rate": 0.1,
+      "stability_method": "bootstrap_20",
+      "importance_basis": "graph_structural",
+      "driver_label": "strong",
+      "range_derivation_source": "default"
+     },
+     {
+      "factor_id": "fac_sales_headcount",
+      "factor_label": "Sales Headcount Expansion",
+      "influence_score": 0.5163241057653087,
+      "influence_rank": 4,
+      "sensitivity_score": 0,
+      "elasticity": 0,
+      "direction": "positive",
+      "importance_rank": 6,
+      "value_of_information": 0,
+      "confidence": 0.3,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0
+      },
+      "zero_reason": "intervention_override",
+      "source": "graph",
+      "flip_risk_category": "correlated",
+      "attribution_stability": "negligible",
+      "elasticity_std": 0,
+      "rank_flip_rate": 0.1,
+      "stability_method": "bootstrap_20",
+      "importance_basis": "graph_structural",
+      "driver_label": "strong",
+      "range_derivation_source": "default"
+     },
+     {
+      "factor_id": "fac_content_spend",
+      "factor_label": "Content Marketing Investment",
+      "influence_score": 0.09786483179343487,
+      "influence_rank": 7,
+      "sensitivity_score": 0,
+      "elasticity": 0,
+      "direction": "negative",
+      "importance_rank": 7,
+      "value_of_information": 0,
+      "confidence": 0.3,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0
+      },
+      "zero_reason": "intervention_override",
+      "source": "graph",
+      "flip_risk_category": "isolated",
+      "attribution_stability": "negligible",
+      "elasticity_std": 0,
+      "rank_flip_rate": 0.1,
+      "stability_method": "bootstrap_20",
+      "importance_basis": "graph_structural",
+      "driver_label": "minor",
+      "range_derivation_source": "default"
+     }
+    ],
+    "robustness": {
+     "fragile_edges": [
+      {
+       "edge_id": "fac_selfserve->out_product_led_growth",
+       "from_id": "fac_selfserve",
+       "to_id": "out_product_led_growth",
+       "switch_probability": 0.5455612045365663,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Self-Serve Product Tier",
+       "to_label": "Product-Led Growth Conversion",
+       "severity": "error",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "out_product_led_growth->goal_arr",
+       "from_id": "out_product_led_growth",
+       "to_id": "goal_arr",
+       "switch_probability": 0.5284,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Product-Led Growth Conversion",
+       "to_label": "Reach £1M ARR",
+       "severity": "error",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_sales_headcount->risk_budget_overrun",
+       "from_id": "fac_sales_headcount",
+       "to_id": "risk_budget_overrun",
+       "switch_probability": 0.5036,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Sales Headcount Expansion",
+       "to_label": "Budget Overrun Risk",
+       "severity": "error",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_sales_headcount->risk_time_to_revenue",
+       "from_id": "fac_sales_headcount",
+       "to_id": "risk_time_to_revenue",
+       "switch_probability": 0.4476894639556377,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Sales Headcount Expansion",
+       "to_label": "Time to Revenue Delay",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "out_organic_leads->goal_arr",
+       "from_id": "out_organic_leads",
+       "to_id": "goal_arr",
+       "switch_probability": 0.4452,
+       "marginal_switch_probability": 0.01,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Organic Lead Volume",
+       "to_label": "Reach £1M ARR",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_content_spend->out_organic_leads",
+       "from_id": "fac_content_spend",
+       "to_id": "out_organic_leads",
+       "switch_probability": 0.4312,
+       "marginal_switch_probability": 0.06,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Content Marketing Investment",
+       "to_label": "Organic Lead Volume",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "risk_time_to_revenue->goal_arr",
+       "from_id": "risk_time_to_revenue",
+       "to_id": "goal_arr",
+       "switch_probability": 0.4116,
+       "marginal_switch_probability": 0.17,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Time to Revenue Delay",
+       "to_label": "Reach £1M ARR",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_market_competition->out_new_pipeline",
+       "from_id": "fac_market_competition",
+       "to_id": "out_new_pipeline",
+       "switch_probability": 0.4108,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Competitive Intensity",
+       "to_label": "New Sales Pipeline Generated",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_budget->risk_budget_overrun",
+       "from_id": "fac_budget",
+       "to_id": "risk_budget_overrun",
+       "switch_probability": 0.4064,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Available Growth Budget",
+       "to_label": "Budget Overrun Risk",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_market_competition->risk_churn_acceleration",
+       "from_id": "fac_market_competition",
+       "to_id": "risk_churn_acceleration",
+       "switch_probability": 0.4016949152542373,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Competitive Intensity",
+       "to_label": "Churn Acceleration Risk",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_churn_trend->risk_churn_acceleration",
+       "from_id": "fac_churn_trend",
+       "to_id": "risk_churn_acceleration",
+       "switch_probability": 0.398,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Churn Trend",
+       "to_label": "Churn Acceleration Risk",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_current_arr->out_new_pipeline",
+       "from_id": "fac_current_arr",
+       "to_id": "out_new_pipeline",
+       "switch_probability": 0.3916,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Current ARR",
+       "to_label": "New Sales Pipeline Generated",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_content_spend->risk_budget_overrun",
+       "from_id": "fac_content_spend",
+       "to_id": "risk_budget_overrun",
+       "switch_probability": 0.3790780141843972,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Content Marketing Investment",
+       "to_label": "Budget Overrun Risk",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_content_spend->risk_time_to_revenue",
+       "from_id": "fac_content_spend",
+       "to_id": "risk_time_to_revenue",
+       "switch_probability": 0.3512,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Content Marketing Investment",
+       "to_label": "Time to Revenue Delay",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "risk_churn_acceleration->goal_arr",
+       "from_id": "risk_churn_acceleration",
+       "to_id": "goal_arr",
+       "switch_probability": 0.3476,
+       "marginal_switch_probability": 0.17,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Churn Acceleration Risk",
+       "to_label": "Reach £1M ARR",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_selfserve->risk_time_to_revenue",
+       "from_id": "fac_selfserve",
+       "to_id": "risk_time_to_revenue",
+       "switch_probability": 0.3172,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Self-Serve Product Tier",
+       "to_label": "Time to Revenue Delay",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_selfserve->risk_churn_acceleration",
+       "from_id": "fac_selfserve",
+       "to_id": "risk_churn_acceleration",
+       "switch_probability": 0.3148,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Self-Serve Product Tier",
+       "to_label": "Churn Acceleration Risk",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "risk_budget_overrun->goal_arr",
+       "from_id": "risk_budget_overrun",
+       "to_id": "goal_arr",
+       "switch_probability": 0.2828,
+       "marginal_switch_probability": 0.31,
+       "alternative_winner_id": "opt_sales",
+       "from_label": "Budget Overrun Risk",
+       "to_label": "Reach £1M ARR",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Hire Two Sales Reps"
+      },
+      {
+       "edge_id": "fac_sales_headcount->out_new_pipeline",
+       "from_id": "fac_sales_headcount",
+       "to_id": "out_new_pipeline",
+       "switch_probability": 0.2148,
+       "alternative_winner_id": "opt_content",
+       "from_label": "Sales Headcount Expansion",
+       "to_label": "New Sales Pipeline Generated",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Invest in Content Marketing"
+      },
+      {
+       "edge_id": "out_new_pipeline->goal_arr",
+       "from_id": "out_new_pipeline",
+       "to_id": "goal_arr",
+       "switch_probability": 0.1892,
+       "alternative_winner_id": "opt_content",
+       "from_label": "New Sales Pipeline Generated",
+       "to_label": "Reach £1M ARR",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Invest in Content Marketing"
+      }
+     ],
+     "robust_edges": [],
+     "is_robust": false,
+     "level": "very_low",
+     "confidence": 0.418,
+     "confidence_basis": "recommendation_stability_uncalibrated",
+     "recommended_option_id": "opt_selfserve",
+     "recommended_option_label": "Build Self-Serve Tier",
+     "near_tie": {
+      "is_tie": true,
+      "top_option_id": "opt_selfserve",
+      "second_option_id": "opt_sales",
+      "tied_option_ids": [
+       "opt_selfserve",
+       "opt_sales"
+      ],
+      "gap": 0.02471666666666661,
+      "threshold": 0.1
+     },
+     "display_verdict": "fragile",
+     "display_verdict_reason": "none of the factors we could test changed which option leads on its own, but this result scored low on our other robustness checks"
+    },
+    "decision_review": {
+     "narrative_summary": "Build Self-Serve Tier leads by a narrow margin of about 2 percentage points, but this result depends heavily on uncertain assumptions about churn and competition. The analysis is not settled enough to act on without better evidence.",
+     "story_headlines": {
+      "opt_selfserve": "Build Self-Serve Tier comes out ahead when product-led growth drives conversions efficiently despite competition and churn risk.",
+      "opt_sales": "Hire Two Sales Reps could become the leader if sales hiring reliably accelerates growth or if churn and market competition data shift.",
+      "opt_content": "Spend on Content Marketing positions the business for organic lead growth but struggles to outpace other options given current uncertainties."
+     },
+     "robustness_explanation": {
+      "summary": "The ordering holds in only about 42% of variations based on current estimates, signalling substantial instability in the result.",
+      "primary_risk": "The link from Self-Serve Product Tier to Product-Led Growth Conversion is the biggest threat to the result's stability.",
+      "stability_factors": [
+       "Assumed impact of Self-Serve Product Tier on conversion rates anchors the current lead.",
+       "Allocation of growth budget impacts which strategic bet looks most effective."
+      ],
+      "fragility_factors": [
+       "The link from Self-Serve Product Tier to Product-Led Growth Conversion could easily flip the result.",
+       "The link from Competitive Intensity to New Sales Pipeline Generated may undermine the expected advantage."
+      ]
+     },
+     "readiness_rationale": "Major gaps in evidence for Churn Trend and Competitive Intensity prevent a firm conclusion. Uncertainties about how Self-Serve and sales hires affect growth keep this decision open.",
+     "evidence_enhancements": {
+      "fac_churn_trend": {
+       "specific_action": "Collect recent monthly churn data segmented by customer cohort, and compare with historical patterns to clarify the churn trend.",
+       "rationale": "This will clarify if rising churn could undermine any growth strategy and determine whether retention efforts are urgent.",
+       "evidence_type": "internal_data",
+       "decision_hygiene": "Have team members independently estimate churn before reviewing the new data."
+      },
+      "fac_market_competition": {
+       "specific_action": "Conduct targeted competitor interviews and review industry reports to map new entrants and their offers.",
+       "rationale": "Understanding shifts in competitive intensity may reveal threats to growth assumptions in each scenario.",
+       "evidence_type": "market_research",
+       "decision_hygiene": "Document current beliefs about key competitors before gathering new information."
+      },
+      "fac_budget": {
+       "specific_action": "Run a detailed review of available funds versus planned hires and marketing commitments for the next 12 months.",
+       "rationale": "This will make explicit how each option fits within the £150,000 cap without overstretching cash.",
+       "evidence_type": "internal_data",
+       "decision_hygiene": "List all projected outflows before calculating if each plan is financially feasible."
+      }
+     },
+     "scenario_contexts": {
+      "fac_selfserve->out_product_led_growth": {
+       "trigger_description": "If the Self-Serve Product Tier does not significantly improve Product-Led Growth Conversion, or adoption lags...",
+       "consequence": "then Hire Two Sales Reps overtakes Build Self-Serve Tier as the leading option."
+      },
+      "fac_content_spend->out_organic_leads": {
+       "trigger_description": "If Content Marketing Investment produces a sharp rise in Organic Lead Volume...",
+       "consequence": "then Hire Two Sales Reps overtakes Build Self-Serve Tier in this scenario."
+      }
+     },
+     "flip_thresholds": [],
+     "bias_findings": [],
+     "key_assumptions": [
+      "The link from Self-Serve Product Tier to Product-Led Growth Conversion assumes new users will convert at expected rates.",
+      "Competitive Intensity is assumed to remain stable and not worsen unexpectedly.",
+      "Current ARR is assumed to provide a reliable base for future projections."
+     ],
+     "decision_quality_prompts": [
+      {
+       "question": "What external data would most shift your confidence in the Self-Serve Product Tier as a growth channel?",
+       "principle": "Outside view and reference class forecasting",
+       "applies_because": "The outcome is highly uncertain due to provisional estimates on churn and competition; looking outward could ground expectations.",
+       "dsk_claim_id": "DSK-T-002",
+       "evidence_strength": "strong",
+       "dsk_protocol_id": "DSK-P-002"
+      },
+      {
+       "question": "What would make you switch to Hire Two Sales Reps instead of building a Self-Serve Product Tier?",
+       "principle": "Consider-the-opposite as a debiasing strategy",
+       "applies_because": "Build Self-Serve Tier currently leads by a slim margin, so considering what could justify switching is especially valuable.",
+       "dsk_claim_id": "DSK-T-003",
+       "evidence_strength": "medium",
+       "dsk_protocol_id": "DSK-P-003"
+      }
+     ],
+     "produced_at": "2026-08-04T13:56:03.240Z"
+    },
+    "option_comparison_status": "computed",
+    "edge_e_values": [
+     {
+      "edge_id": "fac_content_spend::out_organic_leads",
+      "from_id": "fac_content_spend",
+      "to_id": "out_organic_leads",
+      "from_label": "Content Marketing Investment",
+      "to_label": "Organic Lead Volume",
+      "e_value": 2.0721,
+      "flip_direction": "increase",
+      "current_mean": 0.45,
+      "flip_mean": 0.932428,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 4,
+       "band_min": 0.48105,
+       "band_median": 0.655057,
+       "band_max": 0.901371,
+       "band_width": 0.420321,
+       "seed_flip_means": [
+        null,
+        null,
+        0.48105,
+        0.718237,
+        null,
+        null,
+        null,
+        0.901371,
+        null,
+        0.591877
+       ]
+      }
+     },
+     {
+      "edge_id": "fac_content_spend::risk_budget_overrun",
+      "from_id": "fac_content_spend",
+      "to_id": "risk_budget_overrun",
+      "from_label": "Content Marketing Investment",
+      "to_label": "Budget Overrun Risk",
+      "e_value": 2.3446,
+      "flip_direction": "decrease",
+      "current_mean": 0.19532710280373833,
+      "flip_mean": -0.457962,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 6,
+       "band_min": -0.920855,
+       "band_median": -0.279978,
+       "band_max": 0.355745,
+       "band_width": 1.2766,
+       "seed_flip_means": [
+        -0.771199,
+        null,
+        0.211243,
+        0.355745,
+        -0.920855,
+        null,
+        -0.856728,
+        null,
+        null,
+        0.295438
+       ]
+      }
+     },
+     {
+      "edge_id": "fac_content_spend::risk_time_to_revenue",
+      "from_id": "fac_content_spend",
+      "to_id": "risk_time_to_revenue",
+      "from_label": "Content Marketing Investment",
+      "to_label": "Time to Revenue Delay",
+      "e_value": 1,
+      "flip_direction": "decrease",
+      "current_mean": 0.4,
+      "flip_mean": -0.148763,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 7,
+       "band_min": -0.569774,
+       "band_median": -0.246188,
+       "band_max": 0.371696,
+       "band_width": 0.94147,
+       "seed_flip_means": [
+        null,
+        -0.439977,
+        -0.246188,
+        0.242059,
+        null,
+        null,
+        -0.569774,
+        -0.023757,
+        -0.278432,
+        0.371696
+       ]
+      }
+     },
+     {
+      "edge_id": "fac_sales_headcount::out_new_pipeline",
+      "from_id": "fac_sales_headcount",
+      "to_id": "out_new_pipeline",
+      "from_label": "Sales Headcount Expansion",
+      "to_label": "New Sales Pipeline Generated",
+      "e_value": 1.1208,
+      "flip_direction": "increase",
+      "current_mean": 0.55,
+      "flip_mean": 0.616449,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 8,
+       "band_min": 0.114181,
+       "band_median": 0.548167,
+       "band_max": 0.904638,
+       "band_width": 0.790457,
+       "seed_flip_means": [
+        0.378831,
+        0.179037,
+        0.742558,
+        null,
+        0.299901,
+        null,
+        0.900519,
+        0.114181,
+        0.904638,
+        0.717502
+       ]
+      }
+     },
+     {
+      "edge_id": "fac_sales_headcount::risk_budget_overrun",
+      "from_id": "fac_sales_headcount",
+      "to_id": "risk_budget_overrun",
+      "from_label": "Sales Headcount Expansion",
+      "to_label": "Budget Overrun Risk",
+      "e_value": 1,
+      "flip_direction": "decrease",
+      "current_mean": 0.44392523364485986,
+      "flip_mean": 0.324251,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 9,
+       "band_min": -0.694322,
+       "band_median": 0.378965,
+       "band_max": 0.955001,
+       "band_width": 1.649323,
+       "seed_flip_means": [
+        -0.694322,
+        0.614563,
+        0.378965,
+        -0.508908,
+        0.955001,
+        0.597944,
+        0.675569,
+        null,
+        -0.106814,
+        0.240221
+       ]
+      }
+     },
+     {
+      "edge_id": "fac_sales_headcount::risk_time_to_revenue",
+      "from_id": "fac_sales_headcount",
+      "to_id": "risk_time_to_revenue",
+      "from_label": "Sales Headcount Expansion",
+      "to_label": "Time to Revenue Delay",
+      "e_value": 1,
+      "flip_direction": "decrease",
+      "current_mean": 0.2,
+      "flip_mean": 0.068943,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 5,
+       "band_min": -0.271911,
+       "band_median": -0.025341,
+       "band_max": 0.499051,
+       "band_width": 0.770962,
+       "seed_flip_means": [
+        null,
+        0.374068,
+        null,
+        null,
+        null,
+        null,
+        0.499051,
+        -0.025341,
+        -0.271911,
+        -0.135178
+       ]
+      }
+     },
+     {
+      "edge_id": "fac_selfserve::out_product_led_growth",
+      "from_id": "fac_selfserve",
+      "to_id": "out_product_led_growth",
+      "from_label": "Self-Serve Product Tier",
+      "to_label": "Product-Led Growth Conversion",
+      "e_value": 1,
+      "flip_direction": "decrease",
+      "current_mean": 0.48,
+      "flip_mean": 0.378111,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 5,
+       "band_min": -0.330146,
+       "band_median": 0.149054,
+       "band_max": 0.845331,
+       "band_width": 1.175477,
+       "seed_flip_means": [
+        -0.330146,
+        null,
+        0.149054,
+        0.845331,
+        null,
+        0.726944,
+        null,
+        null,
+        0.011798,
+        null
+       ]
+      }
+     },
+     {
+      "edge_id": "fac_selfserve::risk_churn_acceleration",
+      "from_id": "fac_selfserve",
+      "to_id": "risk_churn_acceleration",
+      "from_label": "Self-Serve Product Tier",
+      "to_label": "Churn Acceleration Risk",
+      "e_value": 1,
+      "flip_direction": "increase",
+      "current_mean": -0.25333333333333335,
+      "flip_mean": -0.137079,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 9,
+       "band_min": -0.940859,
+       "band_median": -0.543707,
+       "band_max": 0.117674,
+       "band_width": 1.058533,
+       "seed_flip_means": [
+        1e-06,
+        -0.605863,
+        null,
+        -0.549001,
+        -0.940859,
+        -0.12414,
+        -0.543707,
+        -0.361571,
+        0.117674,
+        -0.686663
+       ]
+      }
+     },
+     {
+      "edge_id": "fac_selfserve::risk_time_to_revenue",
+      "from_id": "fac_selfserve",
+      "to_id": "risk_time_to_revenue",
+      "from_label": "Self-Serve Product Tier",
+      "to_label": "Time to Revenue Delay",
+      "e_value": 1.351,
+      "flip_direction": "increase",
+      "current_mean": 0.35,
+      "flip_mean": 0.472865,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 8,
+       "band_min": -0.242061,
+       "band_median": 0.073255,
+       "band_max": 0.950465,
+       "band_width": 1.192526,
+       "seed_flip_means": [
+        0.950465,
+        -0.008567,
+        -1e-06,
+        -0.242061,
+        null,
+        null,
+        -0.156197,
+        0.454943,
+        0.375074,
+        0.14651
+       ]
+      }
+     },
+     {
+      "edge_id": "out_new_pipeline::goal_arr",
+      "from_id": "out_new_pipeline",
+      "to_id": "goal_arr",
+      "from_label": "New Sales Pipeline Generated",
+      "to_label": "Reach £1M ARR",
+      "e_value": 1.1208,
+      "flip_direction": "increase",
+      "current_mean": 0.5,
+      "flip_mean": 0.560408,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 6,
+       "band_min": 0.119608,
+       "band_median": 0.49654,
+       "band_max": 0.808047,
+       "band_width": 0.688439,
+       "seed_flip_means": [
+        null,
+        0.119608,
+        0.808047,
+        null,
+        0.218099,
+        0.562507,
+        0.430572,
+        null,
+        null,
+        0.726201
+       ]
+      }
+     },
+     {
+      "edge_id": "out_organic_leads::goal_arr",
+      "from_id": "out_organic_leads",
+      "to_id": "goal_arr",
+      "from_label": "Organic Lead Volume",
+      "to_label": "Reach £1M ARR",
+      "e_value": 2.0721,
+      "flip_direction": "increase",
+      "current_mean": 0.35,
+      "flip_mean": 0.725222,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 5,
+       "band_min": 0.29368,
+       "band_median": 0.510327,
+       "band_max": 0.941652,
+       "band_width": 0.647972,
+       "seed_flip_means": [
+        0.315961,
+        null,
+        0.941652,
+        0.510327,
+        null,
+        0.794583,
+        null,
+        null,
+        null,
+        0.29368
+       ]
+      }
+     },
+     {
+      "edge_id": "out_product_led_growth::goal_arr",
+      "from_id": "out_product_led_growth",
+      "to_id": "goal_arr",
+      "from_label": "Product-Led Growth Conversion",
+      "to_label": "Reach £1M ARR",
+      "e_value": 1,
+      "flip_direction": "decrease",
+      "current_mean": 0.4,
+      "flip_mean": 0.315093,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 7,
+       "band_min": -0.017769,
+       "band_median": 0.434064,
+       "band_max": 0.788147,
+       "band_width": 0.805916,
+       "seed_flip_means": [
+        null,
+        0.762884,
+        null,
+        0.634927,
+        0.788147,
+        0.434064,
+        null,
+        -0.017769,
+        0.013122,
+        0.398283
+       ]
+      }
+     },
+     {
+      "edge_id": "risk_budget_overrun::goal_arr",
+      "from_id": "risk_budget_overrun",
+      "to_id": "goal_arr",
+      "from_label": "Budget Overrun Risk",
+      "to_label": "Reach £1M ARR",
+      "e_value": 1,
+      "flip_direction": "increase",
+      "current_mean": -0.28,
+      "flip_mean": -0.204517,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 8,
+       "band_min": -0.48899,
+       "band_median": -0.032017,
+       "band_max": 0.785533,
+       "band_width": 1.274523,
+       "seed_flip_means": [
+        null,
+        0.785533,
+        -0.323732,
+        0.65942,
+        null,
+        -0.167792,
+        -0.48899,
+        0.109578,
+        0.058203,
+        -0.122236
+       ]
+      }
+     },
+     {
+      "edge_id": "risk_churn_acceleration::goal_arr",
+      "from_id": "risk_churn_acceleration",
+      "to_id": "goal_arr",
+      "from_label": "Churn Acceleration Risk",
+      "to_label": "Reach £1M ARR",
+      "e_value": 1,
+      "flip_direction": "increase",
+      "current_mean": -0.35,
+      "flip_mean": -0.189385,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 6,
+       "band_min": -0.472247,
+       "band_median": -0.232718,
+       "band_max": 0.197635,
+       "band_width": 0.669882,
+       "seed_flip_means": [
+        1e-06,
+        null,
+        -0.234501,
+        null,
+        null,
+        -0.230936,
+        -0.434096,
+        -0.472247,
+        0.197635,
+        null
+       ]
+      }
+     },
+     {
+      "edge_id": "risk_time_to_revenue::goal_arr",
+      "from_id": "risk_time_to_revenue",
+      "to_id": "goal_arr",
+      "from_label": "Time to Revenue Delay",
+      "to_label": "Reach £1M ARR",
+      "e_value": 1.7561,
+      "flip_direction": "decrease",
+      "current_mean": -0.3,
+      "flip_mean": -0.526827,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 7,
+       "band_min": -0.399351,
+       "band_median": 0.07848,
+       "band_max": 0.761326,
+       "band_width": 1.160677,
+       "seed_flip_means": [
+        null,
+        0.014347,
+        1e-06,
+        null,
+        null,
+        0.315716,
+        0.761326,
+        -0.399351,
+        0.237015,
+        0.07848
+       ]
+      }
+     }
+    ],
+    "inference_warnings": [
+     {
+      "code": "EDGE_E_VALUE_NON_FINITE_DROPPED",
+      "message": "5 edge E-value entries were omitted from edge_e_values: 5 carried no finite E-value from the analysis engine (an unflippable edge, whose current and flip means coincide, has no evidence ratio). edge_e_values is shorter because those entries could not be represented, not because they were computed empty. All other analyses are unaffected.",
+      "severity": "info"
+     }
+    ],
+    "confidence_tier": "needs_work",
+    "flip_thresholds": [
+     {
+      "factor_id": "fac_budget",
+      "factor_label": "Available Growth Budget",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     },
+     {
+      "factor_id": "fac_churn_trend",
+      "factor_label": "Churn Trend",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     },
+     {
+      "factor_id": "fac_content_spend",
+      "factor_label": "Content Marketing Investment",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     },
+     {
+      "factor_id": "fac_current_arr",
+      "factor_label": "Current ARR",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     },
+     {
+      "factor_id": "fac_market_competition",
+      "factor_label": "Competitive Intensity",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     },
+     {
+      "factor_id": "fac_sales_headcount",
+      "factor_label": "Sales Headcount Expansion",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     },
+     {
+      "factor_id": "fac_selfserve",
+      "factor_label": "Self-Serve Product Tier",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     }
+    ],
+    "decision_brief": {
+     "brief_id": "b7630de3-5271-4ced-9756-bbbb623e64bb",
+     "version": "1",
+     "created_at": "2026-08-04T13:55:50.414Z",
+     "headline": "Build Self-Serve Tier currently leads, but the outcome is highly uncertain. Key uncertainty: Churn Trend has high impact but low evidence quality. Gather evidence on Churn Trend before deciding.",
+     "options": [
+      {
+       "option_id": "opt_selfserve",
+       "label": "Build Self-Serve Tier",
+       "win_probability": 0.418,
+       "rank": 1
+      },
+      {
+       "option_id": "opt_sales",
+       "label": "Hire Two Sales Reps",
+       "win_probability": 0.3932833333333334,
+       "rank": 2
+      },
+      {
+       "option_id": "opt_content",
+       "label": "Invest in Content Marketing",
+       "win_probability": 0.13358333333333333,
+       "rank": 3
+      },
+      {
+       "option_id": "opt_status_quo",
+       "label": "Continue Current Approach (Status Quo)",
+       "win_probability": 0.055133333333333326,
+       "rank": 4
+      }
+     ],
+     "top_drivers": [
+      {
+       "factor_label": "Churn Trend",
+       "sensitivity": 0.9914611005692598,
+       "direction": "negative"
+      },
+      {
+       "factor_label": "Competitive Intensity",
+       "sensitivity": 0.908918406072106,
+       "direction": "negative"
+      },
+      {
+       "factor_label": "Available Growth Budget",
+       "sensitivity": 0.4953093688485343,
+       "direction": "positive"
+      },
+      {
+       "factor_label": "Current ARR",
+       "sensitivity": 0.34155597722960146,
+       "direction": "positive"
+      }
+     ],
+     "key_assumptions": [
+      "Churn Trend",
+      "Competitive Intensity",
+      "Available Growth Budget"
+     ],
+     "what_would_change": [
+      "Product-Led Growth Conversion → Reach £1M ARR",
+      "Organic Lead Volume → Reach £1M ARR",
+      "Time to Revenue Delay → Reach £1M ARR",
+      "Competitive Intensity → New Sales Pipeline Generated",
+      "Available Growth Budget → Budget Overrun Risk",
+      "Competitive Intensity → Churn Acceleration Risk",
+      "Churn Trend → Churn Acceleration Risk",
+      "Current ARR → New Sales Pipeline Generated",
+      "Churn Acceleration Risk → Reach £1M ARR",
+      "Budget Overrun Risk → Reach £1M ARR"
+     ],
+     "robustness": "fragile",
+     "warnings": [
+      {
+       "code": "INFLUENTIAL_EXTERNALS",
+       "message": "External factors Churn Trend, Competitive Intensity significantly affect your outcome but are inherently uncertain. How might you bound these?",
+       "severity": "warning"
+      },
+      {
+       "code": "M2_UNAVAILABLE",
+       "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+       "severity": "warning"
+      }
+     ],
+     "headline_banded": {
+      "text": "Build Self-Serve Tier leads, but the top options are very close.",
+      "band": "very_close",
+      "leader_option_id": "opt_selfserve",
+      "leader_label": "Build Self-Serve Tier",
+      "runner_up_option_id": "opt_sales",
+      "runner_up_label": "Hire Two Sales Reps",
+      "win_probability_gap": 0.02471666666666661,
+      "robustness_gated": false,
+      "doctrine": "provisional_doctrine_v0"
+     },
+     "defaulted_assumptions": [
+      {
+       "factor_label": "Available Growth Budget",
+       "note": "No starting value was provided for \"Available Growth Budget\" — the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+       "source": "value_defaulted",
+       "doctrine": "provisional_doctrine_v0"
+      },
+      {
+       "factor_label": "Churn Trend",
+       "note": "No starting value was provided for \"Churn Trend\" — the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+       "source": "value_defaulted",
+       "doctrine": "provisional_doctrine_v0"
+      },
+      {
+       "factor_label": "Current ARR",
+       "note": "No starting value was provided for \"Current ARR\" — the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+       "source": "value_defaulted",
+       "doctrine": "provisional_doctrine_v0"
+      },
+      {
+       "factor_label": "Competitive Intensity",
+       "note": "No starting value was provided for \"Competitive Intensity\" — the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+       "source": "value_defaulted",
+       "doctrine": "provisional_doctrine_v0"
+      }
+     ],
+     "robustness_caveat": {
+      "text": "This ranking was fragile under the perturbations tested — small changes to assumptions could change which option leads.",
+      "basis": "is_robust",
+      "doctrine": "provisional_doctrine_v0"
+     },
+     "warning_codes": [],
+     "analysis_summary": {
+      "leading_option": "Build Self-Serve Tier",
+      "win_probability": 0.418,
+      "robustness_band": "fragile"
+     }
+    },
+    "factor_evppi": [
+     {
+      "factor_id": "fac_budget",
+      "evppi": 2.9e-05,
+      "evppi_raw": 2.9e-05,
+      "baseline_max_expected_utility": 0.103652,
+      "conditional_max_expected_utility": 0.10368,
+      "units": "outcome",
+      "method": "regression_evppi_v1",
+      "regression_degree": 4,
+      "n_samples": 10000,
+      "clamped_low": false,
+      "clamped_high": false,
+      "noise_floor": 0.000256,
+      "status": "below_resolution",
+      "correlation_active": false
+     },
+     {
+      "factor_id": "fac_current_arr",
+      "evppi": 6e-06,
+      "evppi_raw": 6e-06,
+      "baseline_max_expected_utility": 0.103652,
+      "conditional_max_expected_utility": 0.103658,
+      "units": "outcome",
+      "method": "regression_evppi_v1",
+      "regression_degree": 4,
+      "n_samples": 10000,
+      "clamped_low": false,
+      "clamped_high": false,
+      "noise_floor": 0.000385,
+      "status": "below_resolution",
+      "correlation_active": false
+     },
+     {
+      "factor_id": "fac_market_competition",
+      "evppi": 2e-06,
+      "evppi_raw": 2e-06,
+      "baseline_max_expected_utility": 0.103652,
+      "conditional_max_expected_utility": 0.103653,
+      "units": "outcome",
+      "method": "regression_evppi_v1",
+      "regression_degree": 4,
+      "n_samples": 10000,
+      "clamped_low": false,
+      "clamped_high": false,
+      "noise_floor": 0.000156,
+      "status": "below_resolution",
+      "correlation_active": false
+     },
+     {
+      "factor_id": "fac_churn_trend",
+      "evppi": 1e-06,
+      "evppi_raw": 1e-06,
+      "baseline_max_expected_utility": 0.103652,
+      "conditional_max_expected_utility": 0.103652,
+      "units": "outcome",
+      "method": "regression_evppi_v1",
+      "regression_degree": 4,
+      "n_samples": 10000,
+      "clamped_low": false,
+      "clamped_high": false,
+      "noise_floor": 0.000179,
+      "status": "below_resolution",
+      "correlation_active": false
+     }
+    ],
+    "decision_evpi": 0.09581049392821846,
+    "p_win_sensitivity": [
+     {
+      "factor_id": "fac_budget",
+      "p_win_delta": 0.017458,
+      "p_win_delta_percentage_points": 1.75,
+      "current_metric": 0.411625,
+      "perfect_metric": 0.429083,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_selfserve",
+      "p_win_delta": 0.015042,
+      "p_win_delta_percentage_points": 1.5,
+      "current_metric": 0.411625,
+      "perfect_metric": 0.426667,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_market_competition",
+      "p_win_delta": 0.000792,
+      "p_win_delta_percentage_points": 0.08,
+      "current_metric": 0.411625,
+      "perfect_metric": 0.412417,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_content_spend",
+      "p_win_delta": 0,
+      "p_win_delta_percentage_points": 0,
+      "current_metric": 0.411625,
+      "perfect_metric": 0.411042,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": true,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_sales_headcount",
+      "p_win_delta": 0,
+      "p_win_delta_percentage_points": 0,
+      "current_metric": 0.411625,
+      "perfect_metric": 0.404208,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": true,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_churn_trend",
+      "p_win_delta": 0,
+      "p_win_delta_percentage_points": 0,
+      "current_metric": 0.411625,
+      "perfect_metric": 0.407458,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": true,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_current_arr",
+      "p_win_delta": 0,
+      "p_win_delta_percentage_points": 0,
+      "current_metric": 0.411625,
+      "perfect_metric": 0.400292,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": true,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     }
+    ]
+   },
+   "computed_against_hash": "3f56b0e6b056c7b5"
+  },
+  {
+   "block_id": "4567391d-cbf0-5089-ac1b-fe28c14974af",
+   "signal_id": "review:narrative:3f56b0e6b056c7b5",
+   "created_at": "2026-08-04T13:56:03.700Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "3f56b0e6b056c7b5",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "narrative",
+   "title": "How the analysis reads",
+   "body": "Build Self-Serve Tier leads by a narrow margin of about 2 percentage points, but this result depends heavily on uncertain assumptions about churn and competition. The analysis is not settled enough to act on without better evidence.",
+   "severity": "info",
+   "target_refs": [],
+   "priority_rank": 10,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ANALYSIS_NARRATIVE"
+  },
+  {
+   "block_id": "bdf44224-577e-5775-9323-b9eb82b4160a",
+   "signal_id": "review:robustness:3f56b0e6b056c7b5",
+   "created_at": "2026-08-04T13:56:03.700Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "3f56b0e6b056c7b5",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "robustness",
+   "title": "How robust is this?",
+   "body": "The ordering holds in only about 42% of variations based on current estimates, signalling substantial instability in the result.",
+   "severity": "warning",
+   "target_refs": [],
+   "priority_rank": 50,
+   "category": "should_fix",
+   "priority": 70,
+   "signal_code": "FRAGILE_RESULT"
+  },
+  {
+   "block_id": "3d875b16-9596-52c5-8e12-8ebf945d465c",
+   "signal_id": "review:evidence_priority:fac_churn_trend:3f56b0e6b056c7b5",
+   "created_at": "2026-08-04T13:56:03.700Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "3f56b0e6b056c7b5",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "evidence_priority",
+   "title": "Highest-leverage evidence gap: Churn Trend",
+   "body": "This will clarify if rising churn could undermine any growth strategy and determine whether retention efforts are urgent.",
+   "severity": "info",
+   "target_refs": [
+    {
+     "id": "fac_churn_trend",
+     "label": "Churn Trend",
+     "kind": "factor"
+    }
+   ],
+   "priority_rank": 60,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "EVIDENCE_GAP",
+   "action_intent": "gather_evidence",
+   "action_label": "Strengthen this evidence"
+  },
+  {
+   "block_id": "fa258379-0114-5e07-a4d0-f0de8fbb6da7",
+   "signal_id": "review:assumption:1:3f56b0e6b056c7b5",
+   "created_at": "2026-08-04T13:56:03.700Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "3f56b0e6b056c7b5",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "assumption",
+   "title": "A load-bearing assumption",
+   "body": "Competitive Intensity is assumed to remain stable and not worsen unexpectedly.",
+   "severity": "info",
+   "target_refs": [],
+   "priority_rank": 71,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK"
+  },
+  {
+   "block_id": "607d410f-baa4-5c44-9ece-380e77fe93b5",
+   "signal_id": "review:assumption:2:3f56b0e6b056c7b5",
+   "created_at": "2026-08-04T13:56:03.700Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "3f56b0e6b056c7b5",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "assumption",
+   "title": "A load-bearing assumption",
+   "body": "Current ARR is assumed to provide a reliable base for future projections.",
+   "severity": "info",
+   "target_refs": [],
+   "priority_rank": 72,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK"
+  },
+  {
+   "block_id": "5495fa12-0869-5586-8125-6fd1684fcbd8",
+   "signal_id": "coach:assumption:1:3f56b0e6b056c7b5",
+   "created_at": "2026-08-04T13:56:03.700Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "3f56b0e6b056c7b5",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "assumption_check",
+   "title": "An assumption to check",
+   "body": "Competitive Intensity is assumed to remain stable and not worsen unexpectedly.",
+   "source": "decision_review",
+   "target_refs": [
+    {
+     "id": "fac_market_competition",
+     "label": "Competitive Intensity",
+     "kind": "factor"
+    }
+   ],
+   "priority_rank": 101,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK",
+   "action_intent": "confirm_factor",
+   "action_label": "Confirm this assumption",
+   "action_prompt": "Help me pressure-test this assumption before I rely on it."
+  },
+  {
+   "block_id": "0d65f536-513a-5962-80f6-08f4ae1a110c",
+   "signal_id": "coach:assumption:2:3f56b0e6b056c7b5",
+   "created_at": "2026-08-04T13:56:03.700Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "3f56b0e6b056c7b5",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "assumption_check",
+   "title": "An assumption to check",
+   "body": "Current ARR is assumed to provide a reliable base for future projections.",
+   "source": "decision_review",
+   "target_refs": [
+    {
+     "id": "fac_current_arr",
+     "label": "Current ARR",
+     "kind": "factor"
+    }
+   ],
+   "priority_rank": 102,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK",
+   "action_intent": "confirm_factor",
+   "action_label": "Confirm this assumption",
+   "action_prompt": "Help me pressure-test this assumption before I rely on it."
+  },
+  {
+   "block_id": "765a5dc6-d32b-5d31-8b1b-5359986c01dc",
+   "signal_id": "evidence:fac_churn_trend:3f56b0e6b056c7b5",
+   "created_at": "2026-08-04T13:56:03.700Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "3f56b0e6b056c7b5",
+   "freshness": "fresh",
+   "type": "evidence",
+   "factor_label": "Churn Trend",
+   "factor_ref": {
+    "id": "fac_churn_trend",
+    "label": "Churn Trend",
+    "kind": "factor"
+   },
+   "target_refs": [
+    {
+     "id": "fac_churn_trend",
+     "label": "Churn Trend",
+     "kind": "factor"
+    }
+   ],
+   "current_confidence": "medium",
+   "evidence_gap": "This will clarify if rising churn could undermine any growth strategy and determine whether retention efforts are urgent.",
+   "suggested_technique": "Internal data: Collect recent monthly churn data segmented by customer cohort, and compare with historical patterns to clarify the churn trend.",
+   "impact_if_gathered": "Have team members independently estimate churn before reviewing the new data.",
+   "priority_rank": 1,
+   "severity": "info",
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "EVIDENCE_GAP",
+   "action_intent": "gather_evidence",
+   "action_label": "Strengthen this evidence"
+  },
+  {
+   "block_id": "3a526ab4-1f49-5628-a166-01a2acbc17dd",
+   "signal_id": "evidence:fac_market_competition:3f56b0e6b056c7b5",
+   "created_at": "2026-08-04T13:56:03.700Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "3f56b0e6b056c7b5",
+   "freshness": "fresh",
+   "type": "evidence",
+   "factor_label": "Competitive Intensity",
+   "factor_ref": {
+    "id": "fac_market_competition",
+    "label": "Competitive Intensity",
+    "kind": "factor"
+   },
+   "target_refs": [
+    {
+     "id": "fac_market_competition",
+     "label": "Competitive Intensity",
+     "kind": "factor"
+    }
+   ],
+   "current_confidence": "medium",
+   "evidence_gap": "Understanding shifts in competitive intensity may reveal threats to growth assumptions in each scenario.",
+   "suggested_technique": "Market research: Conduct targeted competitor interviews and review industry reports to map new entrants and their offers.",
+   "impact_if_gathered": "Document current beliefs about key competitors before gathering new information.",
+   "priority_rank": 2,
+   "severity": "info",
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "EVIDENCE_GAP",
+   "action_intent": "gather_evidence",
+   "action_label": "Strengthen this evidence"
+  },
+  {
+   "block_id": "3e41ea95-58f8-5c3e-933a-38e74cbf9b37",
+   "signal_id": "evidence:fac_budget:3f56b0e6b056c7b5",
+   "created_at": "2026-08-04T13:56:03.700Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "3f56b0e6b056c7b5",
+   "freshness": "fresh",
+   "type": "evidence",
+   "factor_label": "Available Growth Budget",
+   "factor_ref": {
+    "id": "fac_budget",
+    "label": "Available Growth Budget",
+    "kind": "factor"
+   },
+   "target_refs": [
+    {
+     "id": "fac_budget",
+     "label": "Available Growth Budget",
+     "kind": "factor"
+    }
+   ],
+   "current_confidence": "medium",
+   "evidence_gap": "This will make explicit how each option fits within the £150,000 cap without overstretching cash.",
+   "suggested_technique": "Internal data: Run a detailed review of available funds versus planned hires and marketing commitments for the next 12 months.",
+   "impact_if_gathered": "List all projected outflows before calculating if each plan is financially feasible.",
+   "priority_rank": 3,
+   "severity": "info",
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "EVIDENCE_GAP",
+   "action_intent": "gather_evidence",
+   "action_label": "Strengthen this evidence"
+  },
+  {
+   "block_id": "c56c14ac-2efd-56ae-85ab-88a13ce75ada",
+   "signal_id": "coach:lens:sensitivity_flip_risk:sensitivity_flip_risk:3f56b0e6b056c7b5",
+   "created_at": "2026-08-04T13:56:03.700Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "3f56b0e6b056c7b5",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "strengthen",
+   "title": "Strengthen your model: size up the key driver",
+   "body": "This factor moves the result more than any other. The analysis swept its whole tested range and the ranking never changed, so what is still open is the size of the gap, not the order. Pressure-testing this factor tells you how much of the margin rests on it.",
+   "source": "deterministic_signal",
+   "target_refs": [],
+   "priority_rank": 15,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "STRENGTHEN_ITEM"
+  },
+  {
+   "type": "ui_directive",
+   "verb": "focus",
+   "targets": [
+    {
+     "id": "fac_content_spend",
+     "label": "Content Marketing Investment",
+     "kind": "factor"
+    }
+   ]
+  }
+ ],
+ "suggested_actions": [
+  {
+   "id": "chip_action_explain_results",
+   "label": "Explain the result",
+   "message": "Please explain the analysis result in plain language.",
+   "action_type": "explain_results"
+  },
+  {
+   "id": "chip_action_what_would_flip",
+   "label": "What could change the outcome?",
+   "message": "What could change the outcome of this analysis?",
+   "action_type": "what_would_flip"
+  },
+  {
+   "id": "chip_prompt_validate_decision",
+   "label": "What should we validate?",
+   "message": "What should we validate or research to build confidence in this decision?"
+  }
+ ],
+ "insights": [],
+ "stage_indicator": "analyse",
+ "analysis_ready": {
+  "options": [
+   {
+    "option_id": "opt_content",
+    "label": "Invest in Content Marketing",
+    "status": "ready",
+    "interventions": {
+     "fac_selfserve": 0,
+     "fac_content_spend": 1,
+     "fac_sales_headcount": 0
+    },
+    "is_baseline": false
+   },
+   {
+    "option_id": "opt_sales",
+    "label": "Hire Two Sales Reps",
+    "status": "ready",
+    "interventions": {
+     "fac_selfserve": 0,
+     "fac_content_spend": 0,
+     "fac_sales_headcount": 1
+    },
+    "is_baseline": false
+   },
+   {
+    "option_id": "opt_selfserve",
+    "label": "Build Self-Serve Tier",
+    "status": "ready",
+    "interventions": {
+     "fac_selfserve": 1,
+     "fac_content_spend": 0,
+     "fac_sales_headcount": 0
+    },
+    "is_baseline": false
+   },
+   {
+    "option_id": "opt_status_quo",
+    "label": "Continue Current Approach (Status Quo)",
+    "status": "ready",
+    "interventions": {
+     "fac_selfserve": 0,
+     "fac_content_spend": 0,
+     "fac_sales_headcount": 0
+    },
+    "is_baseline": true
+   }
+  ],
+  "goal_node_id": "goal_arr",
+  "status": "ready",
+  "goal_threshold": 0.8,
+  "goal_threshold_raw": 1000000,
+  "goal_threshold_unit": "£",
+  "goal_threshold_cap": 1250000,
+  "computed_at": "2026-08-04T13:55:43.918Z",
+  "freshness": "fresh",
+  "freshness_reason": "graph_hash_match",
+  "graph_hash_at_run": "3f56b0e6b056c7b5",
+  "current_graph_hash": "3f56b0e6b056c7b5"
+ },
+ "graph_hash": "3f56b0e6b056c7b5",
+ "_diagnostic_trace": {
+  "llm_calls": [
+   {
+    "role": "decision_review",
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "input_tokens": 11082,
+    "output_tokens": 1080,
+    "cache_read_tokens": null,
+    "cache_creation_tokens": null,
+    "latency_ms": 12723,
+    "stop_reason": null,
+    "thinking_enabled": false,
+    "error": null
+   }
+  ],
+  "prompt_identity": [],
+  "zone2_assembly": null,
+  "tool_policy": null,
+  "provider_resolution": [],
+  "structured_output_config": null,
+  "streaming_metrics": null,
+  "fallback_trace": [],
+  "benchmarking": {
+   "total_duration_ms": 21850,
+   "substage_timings": {
+    "finalisation_ms": 5
+   }
+  },
+  "correlation_ids": {
+   "request_id": "23744ee0-fe91-474e-83ce-d5d8d340827b",
+   "scenario_id": "5681768f-ba57-4553-8c66-0c7d0639c3f0",
+   "turn_id": "d177f1c3-bc2f-465c-9e69-dee98efb03c8",
+   "graph_hash": "99f8642903aaf4be",
+   "response_hash": "ec59f7b9d7cb"
+  },
+  "environment": {
+   "build_sha": "92d8f0a",
+   "environment": "staging"
+  },
+  "exit_path": "chip_click",
+  "trace_version": 1,
+  "claim_safety": {
+   "may_name_leading_option": true,
+   "verdict_provenance": null,
+   "withheld_projection_reason": null
+  }
+ }
+}

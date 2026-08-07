@@ -10,8 +10,14 @@
 
 import { useRef, useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { useCanvasStore, selectResultsStatus } from '../store'
+import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import type { ActionChip, GraphPatchBlock } from './types'
+import {
+  RETRY_CHIP_ID,
+  START_NEW_DRAFT_CHIP_ID,
+  type LocallyRoutedChipId,
+} from './chipDispatch'
 import type { UseConversationReturn } from './useConversation'
 import { applyAutoApplyPatch, applyValidatedGraph } from './utils/applyPatch'
 import { buildAnalysisReadyPatch, applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
@@ -26,11 +32,10 @@ import { prefillInto } from './prefillTarget'
 import type { BriefReadiness } from './hooks/useBriefSignals'
 import { useThreadPersistence } from './hooks/useThreadPersistence'
 import { beginInteractionChain, getUiSurfaceState, recordCrossSurfaceEvent, recordInteractionEvent, recordUserAction, type InteractionStateSnapshot } from '../../lib/debug-state'
-import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
+import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip, computeCeeCannotSeeModel } from '../utils/canRunAnalysis'
 import { useV2Run } from '../hooks/useV2Run'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
-import { isV5CanonicalAnalysisEnabled } from '../../flags'
-import { isV5Eligible } from '../../v5/eligibility'
+import { isV5CanonicalRunPath } from '../../v5/eligibility'
 
 interface ConversationPanelProps {
   conversation: UseConversationReturn
@@ -108,7 +113,7 @@ export const ConversationPanel = memo(function ConversationPanel({
 }: ConversationPanelProps) {
   const {
     messages, isThinking, longRunningHint,
-    sendMessage, sendSystemEvent, sendChip, dispatchAction, retryLast,
+    sendMessage, sendSystemEvent, sendChip, dispatchAction, retryLast, startNewDraft,
     patchBlockStates, setPatchBlockState,
     patchRejections, setPatchRejection,
   } = conversation
@@ -125,7 +130,9 @@ export const ConversationPanel = memo(function ConversationPanel({
   const generateInFlightRef = useRef(false)
   const wasThinkingRef = useRef(false)
   const { runV2Analysis, isRunning: isV2RunInFlight } = useV2Run()
-  const { readiness } = useGraphReadiness()
+  // ROADMAP 2.635 (I-3) — `stale` travels with the verdict into the gate, so
+  // a refusal composed here cannot quote a verdict the canvas has outgrown.
+  const { readiness, stale: readinessStale } = useGraphReadiness()
 
   // Track 2: Thread persistence (best-effort, flag-gated)
   const { onBlockAction, onChipTaken } = useThreadPersistence(scenarioId, messages)
@@ -133,7 +140,24 @@ export const ConversationPanel = memo(function ConversationPanel({
   // ── Chip handler ──────────────────────────────────────────────────────
   const handleChipClick = useCallback(
     async (chip: ActionChip): Promise<void> => {
-      if (chip.id === 'retry') { retryLast(); return }
+      // Chips routed BY ID to a local handler. These never reach `sendChip`, so
+      // they carry no `message` — which is why the chip rows have to be told
+      // about them (`isChipRenderable`, ROADMAP 2.138); before that, the
+      // `start_new_draft` chip existed on every terminal notice and rendered on
+      // none of them.
+      //
+      // Typed as `Record<LocallyRoutedChipId, …>` deliberately: adding an id to
+      // that union without wiring a handler here is a TYPECHECK ERROR, not a
+      // chip that silently does nothing. (ROADMAP 2.122 round 2 / review F3:
+      // `start_new_draft` goes to a handler that CAN deliver what its label
+      // says — `retryLast` provably cannot, because CEE declines to re-draft a
+      // committed scenario.)
+      const localRoutes: Record<LocallyRoutedChipId, () => void | Promise<void>> = {
+        [RETRY_CHIP_ID]: retryLast,
+        [START_NEW_DRAFT_CHIP_ID]: startNewDraft,
+      }
+      const localRoute = (localRoutes as Record<string, (() => void | Promise<void>) | undefined>)[chip.id]
+      if (localRoute) { await localRoute(); return }
       await sendChip(chip)
 
       // Track 2: mark suggested action as taken
@@ -145,7 +169,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         onChipTaken(lastAssistant.id, chip.id)
       }
     },
-    [sendChip, retryLast, messages, onChipTaken],
+    [sendChip, retryLast, startNewDraft, messages, onChipTaken],
   )
 
   // ── Artefact action handler ─────────────────────────────────────────
@@ -167,9 +191,43 @@ export const ConversationPanel = memo(function ConversationPanel({
     [sendMessage],
   )
 
+  // Best-effort system-event dispatch: for background acks (patch_dismissed,
+  // and — via useGraphEditEvents — direct_graph_edit) whose failure has no
+  // user-facing surface. sendSystemEvent now REJECTS on a failed POST
+  // (SystemEventSendError), so we must consume the rejection here to avoid an
+  // unhandled promise rejection. Mirrors the existing best-effort `.catch()`
+  // pattern for background events; not a silent drop for the failures that DO
+  // own a surface (feedback → FeedbackRow revert, patch accept → NETWORK_ERROR).
+  const sendSystemEventBestEffort = useCallback(
+    (event: Parameters<typeof sendSystemEvent>[0]) => {
+      // Promise.resolve() coerces the return so a non-thenable stub can't throw.
+      void Promise.resolve(sendSystemEvent(event)).catch((err) => {
+        if (import.meta.env.DEV) {
+          console.warn('[ConversationPanel] Best-effort system event failed:', event.type, err)
+        }
+      })
+    },
+    [sendSystemEvent],
+  )
+
   // ── Patch handlers (unchanged from previous version) ──────────────────
   const handlePatchAccept = useCallback(
     async (stateKey: string, block: GraphPatchBlock) => {
+      // Notify CEE that the user accepted — AFTER the patch has been applied
+      // optimistically. sendSystemEvent now rejects on a failed POST, so surface
+      // that via the EXISTING NETWORK_ERROR retry affordance (block returns to
+      // 'proposed' so the "Try again" control renders) rather than dropping the
+      // failure silently. No new UI surface — same card as the validate-path
+      // catch below. The applied graph stays applied; retry re-confirms.
+      const notifyPatchAccepted = (payload: Record<string, unknown>) => {
+        void Promise.resolve(sendSystemEvent({ type: 'patch_accepted', payload })).catch(() => {
+          setPatchBlockState(stateKey, 'proposed')
+          setPatchRejection(stateKey, {
+            code: 'NETWORK_ERROR',
+            message: 'Failed to apply — try again',
+          })
+        })
+      }
       const chainId = beginInteractionChain({
         triggerSurface: 'proposal_accept',
         sourceSurface: 'ai_panel',
@@ -212,7 +270,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             code: 'UNSUPPORTED_OPERATION',
             message: `Unsupported operation: ${unknownOps[0].op}`,
           })
-          sendSystemEvent({
+          sendSystemEventBestEffort({
             type: 'patch_dismissed',
             payload: { patch_id: block.patch_id, reason: 'unsupported_operation' },
           })
@@ -232,7 +290,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             try {
               if (validatedGraph?.nodes && validatedGraph?.edges) {
                 // Runs warning-only schema validation at the mutation boundary.
-                applyValidatedGraph({ nodes: validatedGraph.nodes, edges: validatedGraph.edges })
+                applyValidatedGraph({ nodes: validatedGraph.nodes, edges: validatedGraph.edges }, block.operations)
               } else {
                 if (import.meta.env.DEV) {
                   console.warn('[olumi] op-replay fallback: PLoT did not return full graph, applying operations individually')
@@ -272,13 +330,10 @@ export const ConversationPanel = memo(function ConversationPanel({
               useGuidanceStore.getState().clearItemsByTargetIds(allIds)
             }
 
-            sendSystemEvent({
-              type: 'patch_accepted',
-              payload: {
-                patch_id: block.patch_id,
-                operations: block.operations,
-                applied_graph_hash: typeof result.graph_hash === 'string' ? result.graph_hash : undefined,
-              },
+            notifyPatchAccepted({
+              patch_id: block.patch_id,
+              operations: block.operations,
+              applied_graph_hash: typeof result.graph_hash === 'string' ? result.graph_hash : undefined,
             })
 
             // Track 2: persist block state change
@@ -294,7 +349,7 @@ export const ConversationPanel = memo(function ConversationPanel({
               message: result.message ?? 'Patch validation failed',
               violations,
             })
-            sendSystemEvent({
+            sendSystemEventBestEffort({
               type: 'patch_dismissed',
               payload: { patch_id: block.patch_id, reason: 'validation_failed' },
             })
@@ -333,13 +388,10 @@ export const ConversationPanel = memo(function ConversationPanel({
             useGuidanceStore.getState().clearItemsByTargetIds(ids)
           }
 
-          sendSystemEvent({
-            type: 'patch_accepted',
-            payload: {
-              patch_id: block.patch_id,
-              operations: block.operations,
-              applied_graph_hash: undefined,
-            },
+          notifyPatchAccepted({
+            patch_id: block.patch_id,
+            operations: block.operations,
+            applied_graph_hash: undefined,
           })
 
           // Track 2: persist block state change
@@ -353,7 +405,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         })
       }
     },
-    [setPatchBlockState, setPatchRejection, sendSystemEvent, onBlockAction],
+    [setPatchBlockState, setPatchRejection, sendSystemEvent, sendSystemEventBestEffort, onBlockAction],
   )
 
   const handlePatchDismiss = useCallback(
@@ -371,7 +423,7 @@ export const ConversationPanel = memo(function ConversationPanel({
       setPatchBlockState(stateKey, 'dismissed')
       const message = messages.find((candidate) => candidate.id && stateKey.startsWith(`${candidate.id}:`))
       const patchId = message?.id ? stateKey.slice(message.id.length + 1) : stateKey
-      sendSystemEvent({
+      sendSystemEventBestEffort({
         type: 'patch_dismissed',
         payload: { patch_id: patchId },
       })
@@ -380,16 +432,19 @@ export const ConversationPanel = memo(function ConversationPanel({
       const turnId = extractTurnIdFromStateKey(stateKey, patchId)
       void onBlockAction(turnId, patchId, 'dismissed', `Dismissed suggestion`)
     },
-    [messages.length, setPatchBlockState, sendSystemEvent, onBlockAction],
+    [messages.length, setPatchBlockState, sendSystemEventBestEffort, onBlockAction],
   )
 
   const handleFeedback = useCallback(
-    (turnId: string, rating: 'up' | 'down') => {
+    // Return the send promise so FeedbackRow can revert its optimistic vote if
+    // the feedback turn fails to reach the server (the thumbs re-enable for
+    // retry — no new surface). The typed 0.22 mapping lives in buildV5Payload
+    // (feedback_submitted -> feedback wire event); this is the emitter half.
+    (turnId: string, rating: 'up' | 'down') =>
       sendSystemEvent({
         type: 'feedback_submitted',
         payload: { turn_id: turnId, rating },
-      })
-    },
+      }),
     [sendSystemEvent],
   )
 
@@ -425,13 +480,31 @@ export const ConversationPanel = memo(function ConversationPanel({
   })
   const isAnalysisRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
+  // Boolean selector: recomputes on store writes but only re-renders on a
+  // flip. Same honest gate as OutputsDock — without it this surface's run
+  // button re-created the exact panel-vs-engine contradiction #343 fixed.
+  const ceeCannotSeeModel = useCanvasStore((s) => computeCeeCannotSeeModel(s.nodes))
+  // ROADMAP 2.122 — this surface is a run affordance too, so it needs the
+  // streamed-draft honesty rung for the same reason OutputsDock does: between
+  // GRAPH_READY (~36 s) and COMPLETE (~61 s) the canvas holds a graph whose
+  // numbers are the frame's `in_progress` ones and whose scenario commit has not
+  // landed. Missing it here would have re-created, on a second surface, exactly
+  // the panel-vs-engine contradiction the comment above records #343 fixing.
+  // Found by a surviving mutant, not by me.
+  // Review F2: scoped to the OPEN scenario. An unsettled draft on scenario A used
+  // to block Run on every other scenario with a false reason. `draftStreamPhaseFor`
+  // is the one place that decides ownership — never re-derived at a call site.
+  const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, scenarioId))
   const runGateResult = useMemo(() => canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
     readiness,
     hasBlockers,
     nodeCount,
     isRunning: isAnalysisRunning,
-  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning])
+    ceeCannotSeeModel,
+    draftStreamPhase,
+    readinessStale,
+  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning, ceeCannotSeeModel, draftStreamPhase, readinessStale])
 
   // In-flight takes priority over structural reasons: the composer button
   // is disabled for either cause, but the user-visible tooltip should explain
@@ -468,10 +541,7 @@ export const ConversationPanel = memo(function ConversationPanel({
     // are on, route through the existing chip-action dispatch so CEE
     // persists a run_analysis fact. Mirrors OutputsDock.handleRunAnalysis.
     // Same exact payload shape as suggested chips — never free-text.
-    if (
-      isV5CanonicalAnalysisEnabled() &&
-      isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
-    ) {
+    if (isV5CanonicalRunPath()) {
       void dispatchAction({
         action_type: 'run_analysis',
         label: 'Run analysis',
@@ -493,16 +563,37 @@ export const ConversationPanel = memo(function ConversationPanel({
     // caller-supplied override still wins when provided.
     const prefillChat = prefillChatOverride
       ?? ((text: string) => prefillInto(composerRef.current, setDraft, text))
-    useGuidanceStore.getState().registerConversationCallbacks(
-      sendMessage,
-      handleScrollToPatch,
-      sendChipByLabelMessage,
-      handleRunAnalysis,
-      prefillChat,
-      dispatchAction,
-    )
+    // The returned unregister is ownership-guarded (see guidanceStore): it
+    // only clears the shared callbacks if THIS registration is still the
+    // active one (token compare — callback identities are shared via the
+    // conversation singleton, so they cannot discriminate hosts). The old
+    // unconditional null-out here meant that with two hosts mounted
+    // (floating panel + dock Olumi tab), whichever unmounted last killed the
+    // survivor's live registration — silently breaking every cross-surface
+    // run/ask CTA until a chat panel was reopened.
+    const register = () =>
+      useGuidanceStore.getState().registerConversationCallbacks(
+        sendMessage,
+        handleScrollToPatch,
+        sendChipByLabelMessage,
+        handleRunAnalysis,
+        prefillChat,
+        dispatchAction,
+      )
+    let unregister = register()
+    // Survivor takeover: when ANOTHER host unmounts and legitimately clears
+    // its own (later) registration, the shared callbacks go null while this
+    // panel is still mounted. Re-register so cross-surface CTAs keep a live
+    // dispatcher — the guarded unregister above makes this loop-free (the
+    // subscription only fires on an actual null transition).
+    const unsubscribe = useGuidanceStore.subscribe((state) => {
+      if (state._registrationToken === null) {
+        unregister = register()
+      }
+    })
     return () => {
-      useGuidanceStore.setState({ _sendMessage: null, _runAnalysis: null, _sendChip: null, _scrollToPatch: null, _prefillChat: null, _dispatchAction: null })
+      unsubscribe()
+      unregister()
     }
   }, [sendMessage, handleScrollToPatch, sendChip, handleRunAnalysis, dispatchAction, prefillChatOverride, setDraft])
 
@@ -592,7 +683,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             width: 28, height: 28,
             background: 'transparent',
             border: 'none',
-            color: 'var(--text-light, #908D8D)',
+            color: 'var(--text-light, #6E6B6B)',
             cursor: 'pointer',
             transition: 'all 150ms',
           }}

@@ -206,6 +206,7 @@ function makeGoldenData(): ResultsSectionDataReturn {
     isLoading: false,
     isError: false,
     goalLabel: 'Revenue',
+    voiRanking: null,
   }
 }
 

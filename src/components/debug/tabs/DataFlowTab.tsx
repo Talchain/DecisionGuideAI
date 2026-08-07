@@ -558,6 +558,9 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
               {data.diagnostics.isl_data_source === 'direct_capture' && '✓ ISL Data Path Confirmed'}
               {data.diagnostics.isl_data_source === 'plot_response_extraction' &&
                 '✓ ISL Data Extracted from PLoT Response'}
+              {/* provisional_doctrine_v0: debug-panel wording, not ratified copy */}
+              {data.diagnostics.isl_data_source === 'cee_enrichment_extraction' &&
+                '✓ ISL Data Lifted from CEE-Embedded Enrichment'}
             </div>
             <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
               {data.diagnostics.isl_data_source === 'none' &&
@@ -568,6 +571,8 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
                 'ISL data captured directly via payload trace store'}
               {data.diagnostics.isl_data_source === 'plot_response_extraction' &&
                 'ISL fields extracted from top-level PLoT response body (no downstream_calls.isl)'}
+              {data.diagnostics.isl_data_source === 'cee_enrichment_extraction' &&
+                'ISL-derived fields lifted from the CEE turn response analysis_result enrichment (V5-canonical path: no browser-visible PLoT/ISL calls)'}
             </div>
           </div>
 

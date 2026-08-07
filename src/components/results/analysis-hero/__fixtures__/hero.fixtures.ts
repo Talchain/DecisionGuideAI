@@ -73,6 +73,8 @@ export interface MakeHeroDataOptions {
   recommendation?: Partial<DecisionResultData>
   options?: OptionResult[]
   topDriverLabel?: string | null
+  /** Wave 2 (§6.5): merge-override for the drivers section (quick links). */
+  drivers?: Partial<DriversSectionData>
   completeness?: ResultCompleteness
   isLoading?: boolean
   isError?: boolean
@@ -115,6 +117,7 @@ export function makeHeroData(opts: MakeHeroDataOptions = {}): ResultsSectionData
     driversStatus: 'computed',
     totalCount: topDrivers.length,
     hasMagnitudeData: topDrivers.length > 0,
+    ...opts.drivers,
   }
 
   const confidence = {

@@ -25,9 +25,28 @@ interface EstimateRowProps {
   onToggle: (nodeId: string) => void
 }
 
+/**
+ * ROADMAP 2.638 S2 — the reviewed pill says WHICH act it is recording.
+ *
+ * "confirmed by you" (the user read Olumi's number and kept it) and "edited by
+ * you" (the user supplied one) are different claims about who authored the
+ * value, and the panel had been collapsing both into "checked by you" — the
+ * blur the consent witness reported (2.663).
+ *
+ * An unknown or machine-owned kind falls back to the generic copy rather than
+ * guessing an act, which is also what a reviewed row with no classifiable
+ * source gets. `human` deliberately keeps the generic copy: CEE's `user_set`
+ * knows a person acted and cannot say which act (see `valueProvenance`).
+ */
+function reviewedPillCopy(kind: EstimateRowModel['provenanceKind']): string {
+  if (kind === 'confirmed') return ATTRIBUTION_COPY.confirmedByYou
+  if (kind === 'edited') return ATTRIBUTION_COPY.editedByYou
+  return ATTRIBUTION_COPY.checkedByYou
+}
+
 export const EstimateRow = memo(function EstimateRow({ row, expanded, onToggle }: EstimateRowProps) {
   const pill = row.reviewed ? (
-    <Pill variant="success" size="small">{ATTRIBUTION_COPY.checkedByYou}</Pill>
+    <Pill variant="success" size="small">{reviewedPillCopy(row.provenanceKind)}</Pill>
   ) : row.needsValue ? (
     <Pill variant="warning" size="small">{ATTRIBUTION_COPY.needsValue}</Pill>
   ) : row.aiSourced ? (
@@ -38,8 +57,30 @@ export const EstimateRow = memo(function EstimateRow({ row, expanded, onToggle }
   )
 
   const action = row.reviewed ? (
-    <span className="inline-flex h-7 w-7 items-center justify-center" aria-hidden>
-      <Check className="h-3.5 w-3.5 text-success" />
+    // Journey-walk gap #3 (dead-end half): once "checked by you", the Check
+    // button vanished and a wrong checked value could not be repaired from
+    // the surface that accepted it. The tick stays (the state is truthful);
+    // an Edit affordance reopens the same drill-in.
+    <span className="inline-flex items-center gap-1">
+      <span className="inline-flex h-7 w-4 items-center justify-center" aria-hidden>
+        <Check className="h-3.5 w-3.5 text-success" />
+      </span>
+      <Tooltip content="Edit the value you checked" delay={300}>
+        <button
+          type="button"
+          onClick={() => onToggle(row.nodeId)}
+          aria-expanded={expanded}
+          aria-label={`Edit your estimate for ${row.label}`}
+          className={typo(
+            'panelMeta',
+            'inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-panel-border bg-transparent px-2 py-1 text-text-body outline-none transition-colors hover:bg-panel-hover focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40',
+          )}
+          data-testid={`pre-analysis-v3-edit-${row.nodeId}`}
+        >
+          <Pencil className="h-3 w-3" aria-hidden />
+          {FIELD_FEEDBACK_COPY.edit}
+        </button>
+      </Tooltip>
     </span>
   ) : row.needsValue ? (
     <button

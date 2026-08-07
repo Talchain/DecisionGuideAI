@@ -7,6 +7,31 @@
  * See docs/pre-analysis-panel-solution-design-v1.md.
  */
 
+import type { ActionTypeLiteral } from '@talchain/schemas/boundary'
+import type { PendingWireActionType } from '../../conversation/chipMeta'
+import type { ValueProvenanceKind } from '../../domain/valueProvenance'
+
+/**
+ * A product-authored spark: a prefilled prompt the product sends on the
+ * user's behalf, carrying EXPLICIT intent metadata on the wire. See the
+ * registry doc in constants.ts (SparkPrompt history + A1 meta-decision
+ * diagnosis, 2026-07-20) for why intent is mandatory.
+ */
+export interface SparkPrompt {
+  /** Stable registry id — ships on the wire as chip.parameters.spark_id. */
+  id: string
+  label: string
+  prompt: string
+  /**
+   * Wire intent decision: a fully-live schema ActionType value (published AND
+   * CEE-accepted, so sent), a signed-off pending value (mapped but withheld by
+   * the send gate until the value is both re-vendored AND CEE-accepted — see
+   * PendingWireActionType, currently empty), or null when no honest value
+   * exists (coaching/readiness sparks).
+   */
+  action_type: ActionTypeLiteral | PendingWireActionType | null
+}
+
 /**
  * Collaboration-ready source attribution: a named person or Olumi, never a
  * you-versus-AI binary. Single user today; personId arrives with collaboration.
@@ -78,6 +103,18 @@ export interface EstimateRowModel {
   /** Relative weight used for the Estimates bar movement. */
   weight: number
   reviewed: boolean
+  /**
+   * WHICH act the reviewed state records — ROADMAP 2.638 S2.
+   *
+   * `reviewed` says a person owns the value; it cannot say whether they
+   * SUPPLIED the number ('edited') or read Olumi's and ENDORSED it
+   * ('confirmed'). Those are different claims and the panel had been
+   * collapsing them into one "checked by you" pill (consent witness, 2.663).
+   *
+   * Undefined when the node's source carries no known class — the row then
+   * keeps the generic copy rather than guessing an act.
+   */
+  provenanceKind?: ValueProvenanceKind
   /** True when the value's source is AI-supplied (drives the "Olumi estimate" pill). */
   aiSourced: boolean
   attribution: Attribution
@@ -114,14 +151,14 @@ export interface SignalDetection {
   /** Primary action target — absent on resolved confirmations. */
   action?: PanelAction
   /** Optional ask-Olumi spark (prefilled prompt, sent immediately). */
-  spark?: { label: string; prompt: string }
+  spark?: SparkPrompt
 }
 
 export type PanelAction =
   | { type: 'focus_success_field' }
   | { type: 'focus_goal_field' }
   | { type: 'open_estimates'; nodeId?: string }
-  | { type: 'send_prompt'; label: string; prompt: string }
+  | { type: 'send_prompt'; spark: SparkPrompt }
   | { type: 'run_analysis' }
 
 export type SignalStatus = 'live' | 'resolved'
@@ -139,6 +176,14 @@ export interface LadderInput {
   canRunAnalysis: boolean | null
   /** CEE-authored explanation, mirrored verbatim when present. */
   readinessExplanation: string | null
+  /**
+   * UI-SEM-091: CEE (#612) will draft the remaining options on run, so the
+   * graph is runnable despite a closed readiness gate. Undefined ⇒ pre-scaffold
+   * behaviour (the readiness_blocker rung still gates). See computeLadder.
+   */
+  willScaffoldOptions?: boolean
+  /** Options CEE will draft; drives the disclosure copy when present. */
+  scaffoldOptionCount?: number
 }
 
 export interface BarsInput {

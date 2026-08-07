@@ -9,6 +9,11 @@
  * - RecommendationCard to adjust messaging
  */
 
+import {
+  selectGoalProbability,
+  type GoalProbabilityInput,
+} from '../components/results/utils/selectGoalProbability'
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -274,10 +279,24 @@ export function fromOptionProbabilities(
     return []
   }
 
-  return Object.entries(optionProbabilities).map(([id, data]) => ({
-    optionId: id,
-    optionLabel: optionLabels[id] || id,
-    value: Math.round(data.goal_probability * 100),
-    confidence: data.confidence,
-  }))
+  // GOAL-PROBABILITY IDENTITY: the discrimination verdict ("these options are
+  // too close to call") is computed FROM these values, so a value chosen by a
+  // different rule from the one the panel displays makes the verdict contradict
+  // the numbers the user is looking at. Read the owner's choice.
+  //
+  // An option the owner finds no admissible number for is DROPPED rather than
+  // contributing `NaN` to the spread (which is what `Math.round(undefined * 100)`
+  // used to do, silently poisoning min/max).
+  return Object.entries(optionProbabilities).flatMap(([id, data]) => {
+    const decision = selectGoalProbability(data as GoalProbabilityInput)
+    if (decision.goalProbability === null) return []
+    return [
+      {
+        optionId: id,
+        optionLabel: optionLabels[id] || id,
+        value: Math.round(decision.goalProbability * 100),
+        confidence: data.confidence,
+      },
+    ]
+  })
 }

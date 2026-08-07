@@ -20,6 +20,8 @@ import { useReactFlow, type Node } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import type { Highlight, HighlightGroup } from '../../types/primitives'
 import { mapHighlightIds } from '../../lib/idMapping'
+import { usePrefersReducedMotion } from './usePrefersReducedMotion'
+import { cameraDuration } from '../utils/cameraMotion'
 
 /**
  * Hook return type
@@ -85,6 +87,13 @@ export function useHighlightDispatch(): UseHighlightDispatchReturn {
   // ReactFlow viewport controls
   const { fitView, setCenter, getNodes } = useReactFlow()
 
+  // F1: honour reduced-motion on the panning camera moves below. Mirrored to
+  // a ref so the memoised callbacks stay dependency-stable (they already use
+  // the empty-deps + latest-value pattern for the same reason).
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const reducedMotionRef = useRef(prefersReducedMotion)
+  reducedMotionRef.current = prefersReducedMotion
+
   // Track timeouts for auto-clear
   const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
@@ -108,7 +117,7 @@ export function useHighlightDispatch(): UseHighlightDispatchReturn {
         fitView({
           nodes: targetNodes,
           padding: 0.2,
-          duration: 300,
+          duration: cameraDuration(300, reducedMotionRef.current),
           maxZoom: 1.5, // Don't zoom in too much
         })
       }
@@ -145,7 +154,7 @@ export function useHighlightDispatch(): UseHighlightDispatchReturn {
       const avgX = connectedNodes.reduce((sum, n) => sum + n.position.x, 0) / connectedNodes.length
       const avgY = connectedNodes.reduce((sum, n) => sum + n.position.y, 0) / connectedNodes.length
 
-      setCenter(avgX, avgY, { duration: 300, zoom: 1 })
+      setCenter(avgX, avgY, { duration: cameraDuration(300, reducedMotionRef.current), zoom: 1 })
     } catch (error) {
       // ReactFlow might not be ready, ignore error
       if (import.meta.env.DEV) {

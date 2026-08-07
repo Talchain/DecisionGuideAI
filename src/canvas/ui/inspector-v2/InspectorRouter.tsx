@@ -12,7 +12,8 @@ import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
 import { useNodeMutations } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
-import { getEdgeConfidence } from '../../domain/edges'
+import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
+import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
 
 // Panel imports — lazy would be premature, these are small
 import { EdgePanel } from './panels/EdgePanel'
@@ -137,8 +138,12 @@ export const InspectorRouter = memo(function InspectorRouter({
     const targetLabel = String(targetNode?.data?.label ?? edge.target)
     const edgeLabel = `${sourceLabel} \u2192 ${targetLabel}`
 
-    // Edge confidence from beliefExists
-    const ep = getEdgeConfidence(edge.data as Record<string, unknown> | undefined)
+    // Edge confidence from beliefExists — PROVENANCE-GATED.
+    // `getEdgeConfidence` returns the raw field, which is `0.8` on any edge the
+    // user merely drew. Rendering that as a "high · 80%" badge presents a UI
+    // default as a measurement.
+    const epDisplay = resolveEdgeValueDisplay(edge.data as Record<string, unknown> | undefined, 'beliefExists')
+    const ep = epDisplay.show ? epDisplay.value : null
     const edgeConfidenceLevel = ep !== null ? (ep >= 0.7 ? 'high' as const : ep >= 0.4 ? 'medium' as const : 'low' as const) : undefined
     const confidencePct = ep !== null ? Math.round(ep * 100) : undefined
 
@@ -193,9 +198,16 @@ export const InspectorRouter = memo(function InspectorRouter({
     // Derive from inbound edge confidence average
     const inboundEdges = edges.filter(e => e.target === nodeId)
     if (inboundEdges.length > 0) {
+      // PROVENANCE-GATED, and this one is worse than the edge case: an
+      // AVERAGE reads as far more evidentiary than a single field. On a freshly
+      // drawn graph every inbound edge returned the same `0.8`, so the goal
+      // node showed "high · 80%" — a synthetic aggregate of a constant.
+      // Unset edges are EXCLUDED from the mean rather than counted as 0.8; when
+      // none of the inbound edges was characterised there is no badge at all.
       const confidences = inboundEdges
-        .map(e => getEdgeConfidence(e.data as Record<string, unknown> | undefined))
-        .filter((v): v is number => v !== null)
+        .map(e => resolveEdgeValueDisplay(e.data as Record<string, unknown> | undefined, 'beliefExists'))
+        .filter((d): d is { show: true; value: number; source: EdgeValueSource } => d.show)
+        .map(d => d.value)
       if (confidences.length > 0) {
         const avg = confidences.reduce((a, b) => a + b, 0) / confidences.length
         const level = (avg >= 0.7 ? 'high' : avg >= 0.4 ? 'medium' : 'low') as const

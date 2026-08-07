@@ -21,8 +21,10 @@ import { InspectorGuidanceSection } from './inspector/InspectorGuidanceSection'
 import { typography } from '../../styles/typography'
 import { detectBaseline } from '../utils/baselineDetection'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
-import { formatWinProbability } from '../utils/labelUtils'
+import { formatWinProbability, classifyUnit } from '../utils/labelUtils'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 
 interface ObservedState {
   value: number
@@ -31,6 +33,82 @@ interface ObservedState {
   baseline?: number
   unit?: string
   source?: string
+}
+
+/** Normalised (0–1) range end for unitless display: ≤2 dp, trailing zeros
+ *  trimmed. Mirrors FactorNode's module-private formatter of the same name. */
+function formatNormalisedRangeEnd(v: number): string {
+  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, '')
+}
+
+/**
+ * 2.468(a): honest prior display. `data.prior` is a union (PriorSchema,
+ * domain/nodes.ts): a number 0–1 OR a CEE distribution object
+ * `{distribution, range_min, range_max}` — the object form is live (written
+ * by useInspectorMutations.setPriorRange; present in drafted graphs).
+ * - number → percent, unchanged.
+ * - object with a finite range → the range in plain words. NEVER
+ *   percent-coerced: the endpoints are stored bounds, not probabilities
+ *   (same refusal as FactorNode's range formatter).
+ * - anything else → null → the prior rows do not render.
+ * Arithmetic on the object form is what produced the literal "NaN%" this
+ * replaces. Finiteness checks, not truthiness: range_min 0 must render.
+ *
+ * ⚠ THE SCALE SUFFIX IS EARNED, NEVER ASSUMED (#589 review F1). Nothing
+ * bounds the object branch: PriorDistributionSchema (nodes.ts:47-52) applies
+ * `.min(0).max(1)` to the NUMERIC branch only, and the object branch is a
+ * `.passthrough()` with no bounds. Out-of-scale endpoints are witnessed — a
+ * real CEE payload in our evidence corpus carries
+ * `fac_price {distribution:'uniform', range_min:10, range_max:30}` — and are
+ * reachable with no CEE at all, because FactorExternalPanel's blur handlers
+ * write any parseFloat-able value through setPriorRange unclamped. Saying
+ * "on 0–1 scale" over £10–£30 trades a visible NaN for a confident falsehood,
+ * which is worse: a user distrusts NaN and believes a sentence. So the suffix
+ * renders ONLY when the endpoints are actually inside [0,1]; otherwise the
+ * bare range is rendered — exactly the restraint FactorNode.tsx:365 shows by
+ * emitting `Range: a to b` with no scale claim, because it too cannot know the
+ * scale without the unit/cap path this component does not have.
+ */
+type PriorDisplay =
+  | { kind: 'percent'; fraction: number; text: string }
+  | { kind: 'range'; rangeMin: number; rangeMax: number; normalised: boolean }
+
+function describePrior(prior: unknown): PriorDisplay | null {
+  if (typeof prior === 'number' && Number.isFinite(prior)) {
+    return { kind: 'percent', fraction: prior, text: `${(prior * 100).toFixed(0)}%` }
+  }
+  if (prior !== null && typeof prior === 'object') {
+    const { range_min, range_max } = prior as { range_min?: unknown; range_max?: unknown }
+    if (
+      typeof range_min === 'number' && Number.isFinite(range_min) &&
+      typeof range_max === 'number' && Number.isFinite(range_max)
+    ) {
+      return {
+        kind: 'range',
+        rangeMin: range_min,
+        rangeMax: range_max,
+        // Both endpoints must sit inside [0,1] to earn the scale claim.
+        // 2.495: this was `range_min >= 0 && range_max <= 1` — a ONE-SIDED
+        // bound wearing a membership test's comment. It bounded min from
+        // below and max from above and checked neither of the other two
+        // limbs, so {30, 1} rendered "30 to 1 on 0–1 scale" and {0.5, -2}
+        // rendered "0.5 to -2 on 0–1 scale". Reachable with no CEE at all:
+        // FactorExternalPanel.handleMinBlur writes
+        // `setPriorRange(parsed, rangeMax ?? parsed)` unclamped, so a user
+        // whose max is 1 typing 30 into min produces the first row verbatim.
+        // Four limbs, because each endpoint needs both bounds.
+        normalised:
+          range_min >= 0 && range_min <= 1 &&
+          range_max >= 0 && range_max <= 1,
+      }
+    }
+  }
+  return null
+}
+
+/** The scale suffix, or nothing when the endpoints have not earned it. */
+function scaleSuffix(p: { normalised: boolean }): string {
+  return p.normalised ? ' on 0–1 scale' : ''
 }
 
 interface NodeInspectorProps {
@@ -147,6 +225,9 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const metadata = NODE_REGISTRY[currentType] || NODE_REGISTRY.decision
   const isGoalNode = currentType === 'goal'
 
+  // 2.468(a): union-aware prior display. Null = nothing honest to say → no row.
+  const priorDisplay = describePrior(node.data?.prior)
+
 
   // S.4: State for programmatic section opening from Edit button
   const [requestOpenSection, setRequestOpenSection] = useState<'assumptions' | null>(null)
@@ -165,6 +246,19 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
     displayMetadata.confidence !== null &&
     displayMetadata.influence >= 0.7 &&
     displayMetadata.confidence < 0.5
+
+  // ⛔ F9 (latent flip hazard). `displayMetadata.confidence` is already gated
+  // by the shared policy, so both the card above and the bar below are
+  // unreachable today ONLY because the hook returns null. The moment
+  // `DISPLAY_SAFE_DRIVER_CONFIDENCE` is flipped they light up — and, unlike
+  // FactorNode and MetricPills, they carried NO disclosure, so a defaulted
+  // 0.25 would have been spoken bare as "low confidence". The module header's
+  // promise that flipping the constant lights everything up "WITH disclosure"
+  // did not hold for this file. It does now.
+  const confidenceDisclosure = factorConfidenceDisclosure({
+    isDefaulted: displayMetadata.confidenceIsDefaulted,
+    isProvisional: displayMetadata.confidenceIsProvisional,
+  })
 
   // F.4: Context label — find nearest meaningful parent for context line
   // Any connected node of a different kind can provide context (not just decision/goal)
@@ -322,7 +416,13 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             const unit = (node?.data as Record<string, unknown>)?.goal_threshold_unit
               ?? ((node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined)?.unit
             const unitStr = typeof unit === 'string' ? unit.toLowerCase() : ''
-            if (unitStr === '%' || unitStr === 'percent' || unitStr === 'percentage') return formatTargetValue(goalThreshold, 'percent')
+            // U2: percent recognition routed through classifyUnit (the single
+            // source of truth) instead of a local three-literal copy. Identical
+            // for those literals, and additionally correct for the whitespace
+            // form this site missed (`.toLowerCase()` without `.trim()`).
+            if (classifyUnit(typeof unit === 'string' ? unit : null).kind === 'percent') {
+              return formatTargetValue(goalThreshold, 'percent')
+            }
             if (unitStr && unitStr !== 'count') return formatTargetValue(goalThreshold, 'currency', typeof unit === 'string' ? unit : undefined)
             return formatTargetValue(goalThreshold)
           })()}
@@ -348,12 +448,15 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         </div>
       )}
 
-      {/* KPI row: Prior */}
-      {node.data?.prior !== undefined && (
+      {/* KPI row: Prior — 2.468(a): percent for numeric priors, the normalised
+          range in plain words for distribution priors, no row otherwise. */}
+      {priorDisplay && (
         <div className="flex items-center justify-between mt-2 px-2 py-1 bg-panel rounded border border-panel-border">
           <span className={`${typography.panelMeta} text-text-light`}>Prior</span>
           <span className={`${typography.panelBody} text-text-body tabular-nums`}>
-            {(node.data.prior * 100).toFixed(0)}%
+            {priorDisplay.kind === 'percent'
+              ? priorDisplay.text
+              : `${formatNormalisedRangeEnd(priorDisplay.rangeMin)} to ${formatNormalisedRangeEnd(priorDisplay.rangeMax)}${scaleSuffix(priorDisplay)}`}
           </span>
         </div>
       )}
@@ -373,7 +476,10 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           {hasCoachingCard ? (
             <div className={`flex items-start gap-1.5 p-2 bg-panel border border-warning/30 rounded ${typography.panelMeta} text-warning mb-2`}>
               <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
-              <span>High influence but low confidence. Consider gathering more data to reduce uncertainty.</span>
+              <span>
+                High influence but low confidence. Consider gathering more data to reduce uncertainty.
+                {confidenceDisclosure && <> ({confidenceDisclosure}.)</>}
+              </span>
             </div>
           ) : (
             <>
@@ -406,8 +512,20 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               {displayMetadata.confidence !== null && (
                 <div className="mb-2">
                   <div className="flex justify-between items-center mb-1">
-                    <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
-                    <span className={`${typography.panelMeta} text-text-body`}>
+                    <span
+                      className={`${typography.panelMeta} text-text-light`}
+                      title={confidenceDisclosure ?? undefined}
+                    >
+                      Confidence
+                    </span>
+                    <span
+                      className={`${typography.panelMeta} text-text-body`}
+                      aria-label={
+                        confidenceDisclosure
+                          ? `${Math.round(displayMetadata.confidence * 100)}% confidence. ${confidenceDisclosure}`
+                          : undefined
+                      }
+                    >
                       {Math.round(displayMetadata.confidence * 100)}%
                     </span>
                   </div>
@@ -439,12 +557,29 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {isGoalNode && displayMetadata.isResultsMode && (
         <div className="mt-3 pt-2 border-t border-panel-border">
           {displayMetadata.achievementProbability !== null ? (
-            <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
-              <span className={`${typography.panelMeta} text-text-light`}>Goal probability</span>
-              <span className={`${typography.panelBody} text-text-body tabular-nums`}>
-                {Math.round(displayMetadata.achievementProbability * 100)}%
-              </span>
-            </div>
+            <>
+              <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
+                <span className={`${typography.panelMeta} text-text-light`}>Goal probability</span>
+                <span className={`${typography.panelBody} text-text-body tabular-nums`}>
+                  {Math.round(displayMetadata.achievementProbability * 100)}%
+                </span>
+              </div>
+              {/* Display-honesty (ROADMAP 1.6b tail — goal-fit caveat
+                  residuals): the goal-probability readout above is scored
+                  from a MODELLED forward-propagated outcome distribution,
+                  not a directly-elicited base — same gate + shared wording
+                  as GoalNode/OptionCards/OutcomeNode's caveat
+                  (GOAL_FIT_BASIS_CAVEAT_COPY), rendered adjacent to the
+                  number it qualifies, never separately, never invented. */}
+              {displayMetadata.achievementProbabilityIsModelledBasis === true && (
+                <p
+                  className={`${typography.panelMeta} text-text-light mt-1 px-2`}
+                  data-testid="goal-fit-basis-caveat-inspector"
+                >
+                  {GOAL_FIT_BASIS_CAVEAT_COPY}
+                </p>
+              )}
+            </>
           ) : displayMetadata.stabilityPercentage !== null ? (
             <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
               <span className={`${typography.panelMeta} text-text-light`}>Result stability</span>
@@ -508,28 +643,36 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         />
       </div>
 
-      {/* Prior bar */}
-      {node.data?.prior !== undefined && (
+      {/* Prior bar — 2.468(a): the percent bar is only honest for a numeric
+          prior. A distribution prior renders its range in plain words instead
+          (a probability bar for a value range would fake precision). */}
+      {priorDisplay && (
         <div>
           <label className={`block ${typography.panelMeta} text-text-body mb-1`}>
             Prior <span className="text-text-light">(belief before evidence)</span>
           </label>
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-panel-border rounded-full overflow-hidden">
-              <div
-                className="h-full bg-info rounded-full transition-all"
-                style={{ width: `${node.data.prior * 100}%` }}
-                role="progressbar"
-                aria-valuenow={node.data.prior}
-                aria-valuemin={0}
-                aria-valuemax={1}
-                aria-valuetext={`${(node.data.prior * 100).toFixed(0)}%`}
-              />
+          {priorDisplay.kind === 'percent' ? (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-2 bg-panel-border rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-info rounded-full transition-all"
+                  style={{ width: `${priorDisplay.fraction * 100}%` }}
+                  role="progressbar"
+                  aria-valuenow={priorDisplay.fraction}
+                  aria-valuemin={0}
+                  aria-valuemax={1}
+                  aria-valuetext={priorDisplay.text}
+                />
+              </div>
+              <span className={`${typography.panelMeta} text-text-body tabular-nums w-10 text-right`}>
+                {priorDisplay.text}
+              </span>
             </div>
-            <span className={`${typography.panelMeta} text-text-body tabular-nums w-10 text-right`}>
-              {(node.data.prior * 100).toFixed(0)}%
-            </span>
-          </div>
+          ) : (
+            <p className={`${typography.panelBody} text-text-body tabular-nums`}>
+              Between {formatNormalisedRangeEnd(priorDisplay.rangeMin)} and {formatNormalisedRangeEnd(priorDisplay.rangeMax)}{scaleSuffix(priorDisplay)}
+            </p>
+          )}
         </div>
       )}
 

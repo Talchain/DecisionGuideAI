@@ -15,11 +15,19 @@ beforeAll(() => {
 
 const mockUpdateNode = vi.fn()
 
-vi.mock('../../../store', () => ({
-  useCanvasStore: vi.fn((selector: (s: unknown) => unknown) =>
-    selector({ updateNode: mockUpdateNode })
-  ),
-}))
+// ROADMAP 2.121 slice 1: factor edits commit through `useNodeMutations`, which
+// reads the node back out of `useCanvasStore.getState()` before writing — that
+// read is what stops a commit resurrecting a stale render-time `data` blob. Any
+// test that drives an edit must put the node in `mockGraph`.
+const mockGraph: { nodes: unknown[]; edges: unknown[] } = { nodes: [], edges: [] }
+
+vi.mock('../../../store', () => {
+  const useCanvasStore = Object.assign(
+    vi.fn((selector: (s: unknown) => unknown) => selector({ updateNode: mockUpdateNode })),
+    { getState: () => ({ ...mockGraph, updateNode: mockUpdateNode }) },
+  )
+  return { useCanvasStore }
+})
 
 vi.mock('../../../utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -133,7 +141,9 @@ describe('FactorsSection', () => {
   })
 
   it('auto-tags source: user when value is edited', () => {
+    mockUpdateNode.mockClear()
     const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
+    mockGraph.nodes = nodes
     render(<FactorsSection factorNodes={nodes} />)
 
     const displayEl = screen.getByTestId('factor-f1-value-display')
@@ -209,56 +219,36 @@ describe('FactorsSection', () => {
     expect(card.className).not.toMatch(/ring-1/)
   })
 
-  // ── EVPI chip tests ─────────────────────────────────────────────────────────
+  // ── EVPI chip tests — REMOVED ───────────────────────────────────────────────
+  //
+  // Six specs lived here pinning the "Worth {n}pp if resolved" chip, its
+  // >= 1pp rounding gate, and an EVPI-descending sort. All six pinned a
+  // REFUTED quantity: replayed live 2026-07-25, PLoT published
+  // evpi_percentage_points 12.3 / 10.2 / 6.6 for three factors ISL measured at
+  // p_win_delta_percentage_points 0.0 in the SAME response. The chip, the row,
+  // the sort and its visible "ranked by EVPI" label are all gone; the absence
+  // is pinned in evpiSurfacesRemoved.canvas.honesty.spec.tsx.
+  //
+  // The ordering behaviour that REPLACED the EVPI sort is pinned here, because
+  // this is the file that owns FactorsSection's sort.
 
-  it('renders EVPI chip when evpiMap has data and hasAnalysisData is true', () => {
-    const nodes = [makeFactorNode('f1', 'Ad spend')]
-    const evpiMap = new Map([['f1', 8]])
-    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
-    // EVPI chip is gated behind card expansion (progressive disclosure)
-    fireEvent.click(screen.getByTestId('factor-card-f1'))
-    expect(screen.getByTestId('factor-f1-evpi')).toBeInTheDocument()
-    expect(screen.getByText(/Worth 8pp if resolved/)).toBeInTheDocument()
-  })
-
-  it('does not render EVPI chip when evpiMap is empty', () => {
-    const nodes = [makeFactorNode('f1', 'Ad spend')]
-    render(<FactorsSection factorNodes={nodes} evpiMap={new Map()} hasAnalysisData />)
-    expect(screen.queryByTestId('factor-f1-evpi')).not.toBeInTheDocument()
-  })
-
-  it('does not render EVPI chip pre-analysis', () => {
-    const nodes = [makeFactorNode('f1', 'Ad spend')]
-    const evpiMap = new Map([['f1', 8]])
-    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData={false} />)
-    expect(screen.queryByTestId('factor-f1-evpi')).not.toBeInTheDocument()
-  })
-
-  it('does not render EVPI chip when pp rounds to 0', () => {
-    const nodes = [makeFactorNode('f1', 'Ad spend')]
-    const evpiMap = new Map([['f1', 0.4]])
-    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
-    expect(screen.queryByTestId('factor-f1-evpi')).not.toBeInTheDocument()
-  })
-
-  it('renders EVPI chip when pp rounds to exactly 1', () => {
-    const nodes = [makeFactorNode('f1', 'Ad spend')]
-    const evpiMap = new Map([['f1', 1]])
-    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
-    fireEvent.click(screen.getByTestId('factor-card-f1'))
-    expect(screen.getByTestId('factor-f1-evpi')).toBeInTheDocument()
-  })
-
-  it('sorts by EVPI descending when evpiMap has data', () => {
+  it('sorts by influence descending post-analysis', () => {
     const nodes = [
-      makeFactorNode('f1', 'Low EVPI'),
-      makeFactorNode('f2', 'High EVPI'),
+      makeFactorNode('f1', 'Low influence'),
+      makeFactorNode('f2', 'High influence'),
     ]
-    const evpiMap = new Map([['f1', 3], ['f2', 12]])
-    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
+    const influence = new Map([['f1', 0.3], ['f2', 0.9]])
+    render(<FactorsSection factorNodes={nodes} factorInfluence={influence} hasAnalysisData />)
     const cards = screen.getAllByTestId(/^factor-card-/)
     expect(cards[0]).toHaveAttribute('data-testid', 'factor-card-f2')
     expect(cards[1]).toHaveAttribute('data-testid', 'factor-card-f1')
+  })
+
+  it('falls back to alphabetical pre-analysis', () => {
+    const nodes = [makeFactorNode('f2', 'Zebra'), makeFactorNode('f1', 'Apple')]
+    render(<FactorsSection factorNodes={nodes} />)
+    const cards = screen.getAllByTestId(/^factor-card-/)
+    expect(cards[0]).toHaveAttribute('data-testid', 'factor-card-f1')
   })
 
   // ── Attribution stability tests ─────────────────────────────────────────────
@@ -487,9 +477,10 @@ describe('FactorsSection', () => {
     expect(screen.getByTestId('factor-f1-confirm')).toBeInTheDocument()
   })
 
-  it('calls updateNode with source: user on confirm click', () => {
+  it('writes source: user on confirm click', () => {
     mockUpdateNode.mockClear()
     const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5, source: 'cee_inference' })]
+    mockGraph.nodes = nodes
     render(<FactorsSection factorNodes={nodes} />)
     fireEvent.click(screen.getByTestId('factor-f1-confirm'))
     expect(mockUpdateNode).toHaveBeenCalledWith(
@@ -505,6 +496,7 @@ describe('FactorsSection', () => {
   it('auto-dismisses coaching when confirm is clicked on defaulted factor', () => {
     mockStorage.clear()
     const nodes = [makeFactorNode('f1', 'Tech Lead', { value: 0, source: 'cee_inference', category: 'controllable' })]
+    mockGraph.nodes = nodes
     render(<FactorsSection factorNodes={nodes} />)
     expect(screen.getByTestId('factor-f1-coaching')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('factor-f1-confirm'))

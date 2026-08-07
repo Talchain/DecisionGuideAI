@@ -64,3 +64,76 @@ describe('computeSuccessState — value-scale guard on the success measure', () 
     expect(s.scaleAmbiguous).toBe(false)
   })
 })
+
+describe('computeSuccessState — explicit-provenance targets are user-set, not Olumi estimates (lane 35 fix 2)', () => {
+  // CEE stores goal constraints with provenance 'explicit' when the USER
+  // stated the target in their own brief (CEE schemas/assist.ts:
+  // explicit | inferred | proxy). Labelling that number "Olumi estimate"
+  // misattributes the user's own target to Olumi.
+  const CEE_DERIVED_GOAL = {
+    goal_threshold: 0.8,
+    goal_threshold_raw: 20,
+    goal_threshold_unit: '%',
+    goal_threshold_cap: 25,
+  }
+
+  it('an explicit-provenance constraint matching the displayed value attributes to the user', () => {
+    const s = computeSuccessState(goalNode(CEE_DERIVED_GOAL), null, null, [
+      { id: 'c1', label: 'Delivery output up 20%', operator: '>=', value: 20, provenance: 'explicit' },
+    ])
+    expect(s.isSet).toBe(true)
+    expect(s.displayText).toBe('20%')
+    expect(s.attribution).toEqual({ kind: 'person', displayName: 'You' })
+  })
+
+  it('a named current user is credited when available', () => {
+    const s = computeSuccessState(goalNode(CEE_DERIVED_GOAL), null, { kind: 'person', displayName: 'Paul' }, [
+      { id: 'c1', label: 'Delivery output up 20%', operator: '>=', value: 20, provenance: 'explicit' },
+    ])
+    expect(s.attribution).toEqual({ kind: 'person', displayName: 'Paul' })
+  })
+
+  it('inferred provenance keeps the Olumi attribution', () => {
+    const s = computeSuccessState(goalNode(CEE_DERIVED_GOAL), null, null, [
+      { id: 'c1', label: 'Delivery output up 20%', operator: '>=', value: 20, provenance: 'inferred' },
+    ])
+    expect(s.attribution).toEqual({ kind: 'olumi' })
+  })
+
+  it('no provenance field keeps the Olumi attribution (defaulted values stay Olumi)', () => {
+    const s = computeSuccessState(goalNode(CEE_DERIVED_GOAL), null, null, [
+      { id: 'c1', label: 'Delivery output up 20%', operator: '>=', value: 20 },
+    ])
+    expect(s.attribution).toEqual({ kind: 'olumi' })
+  })
+
+  it('an explicit constraint whose value differs from the displayed value never claims user-set (fail-closed)', () => {
+    // The displayed 20 is NOT the user's stated 15 — claiming "your target"
+    // would misattribute in the other direction.
+    const s = computeSuccessState(goalNode(CEE_DERIVED_GOAL), null, null, [
+      { id: 'c1', label: 'Churn under 15%', operator: '<=', value: 15, provenance: 'explicit' },
+    ])
+    expect(s.attribution).toEqual({ kind: 'olumi' })
+  })
+
+  it('malformed constraint entries are ignored without crashing', () => {
+    const s = computeSuccessState(goalNode(CEE_DERIVED_GOAL), null, null, [
+      null,
+      42,
+      'explicit',
+      { provenance: 'explicit' },
+    ] as unknown[])
+    expect(s.attribution).toEqual({ kind: 'olumi' })
+  })
+
+  it('the user-typed branch still wins over constraints entirely', () => {
+    const s = computeSuccessState(
+      goalNode({ threshold_source: 'user', success_threshold: 25, goal_threshold_unit: '%' }),
+      null,
+      null,
+      [{ id: 'c1', label: 'x', operator: '>=', value: 20, provenance: 'inferred' }],
+    )
+    expect(s.displayText).toBe('25%')
+    expect(s.attribution).toEqual({ kind: 'person', displayName: 'You' })
+  })
+})

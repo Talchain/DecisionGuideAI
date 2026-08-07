@@ -13,7 +13,6 @@ interface StatusBarProps {
   factorsToVerify: number
   fragileEdgeCount: number
   contestedCount: number
-  evpiMap: Map<string, number>
   recommendationStability: number | null | undefined
   hasAnalysisData: boolean
 }
@@ -34,7 +33,6 @@ export function StatusBar({
   factorsToVerify,
   fragileEdgeCount,
   contestedCount,
-  evpiMap,
   recommendationStability,
   hasAnalysisData,
 }: StatusBarProps) {
@@ -72,19 +70,11 @@ export function StatusBar({
       })
     }
 
-    // EVPI summary: sum of top 3 values
-    if (evpiMap.size > 0) {
-      const sorted = [...evpiMap.values()].sort((a, b) => b - a)
-      const top3Sum = sorted.slice(0, 3).reduce((s, v) => s + v, 0)
-      if (top3Sum > 0) {
-        segments.push({
-          key: 'evpi',
-          dotColour: 'bg-info',
-          label: `${Math.round(top3Sum)}pp via EVPI`,
-          scrollTarget: 'model-factors-section',
-        })
-      }
-    }
+    // ⛔ REMOVED: the `"{X}pp via EVPI"` segment, which SUMMED the top three
+    // `evpi_percentage_points` values into a single headline figure. Each
+    // addend is refuted — ISL measured 0.0pp for the factors PLoT scored at
+    // 12.3 / 10.2 / 6.6 in the same payload — so the sum inherited every
+    // defect and compounded them. Do not reinstate.
 
     // Stability
     if (recommendationStability != null) {

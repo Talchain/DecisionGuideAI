@@ -80,7 +80,6 @@ function makeData(opts: FullStateOpts = { withFragile: true, withDominant: true,
     factorLabel: 'Evidence Gap A',
     confidence: 70,
     voi: 0.5,
-    evpiPp: 25,
     suggestion: 'Gather data',
     targetNodeId: 'node_g',
   } : undefined

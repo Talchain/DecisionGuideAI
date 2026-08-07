@@ -12,7 +12,6 @@ import { FactorNode } from './FactorNode'
 import { RiskNode } from './RiskNode'
 import { OutcomeNode } from './OutcomeNode'
 import { ActionNode } from './ActionNode'
-import { ConstraintNode } from './ConstraintNode'
 import { GhostOptionNode } from './GhostOptionNode'
 
 /**
@@ -27,9 +26,10 @@ export const nodeTypes: NodeTypes = {
   risk: RiskNode,
   outcome: OutcomeNode,
   action: ActionNode,
-  // NOTE: ConstraintNode is registered but CEE/PLoT never emits type:'constraint' canvas nodes.
-  // This entry prevents a ReactFlow "unknown node type" warning if stale data arrives.
-  // Constraints render as GoalNode badge data, not as standalone nodes. See NodeTypeEnum JSDoc.
-  constraint: ConstraintNode,
+  // NOTE: no 'constraint' renderer. CEE/PLoT never emit type:'constraint' canvas
+  // nodes — constraints surface as GoalNode badge data (store.goalConstraints +
+  // results.report.goal_constraints), not standalone nodes. The dead ConstraintNode
+  // renderer was removed (honesty sweep). See NodeTypeEnum JSDoc. Re-add a renderer
+  // here only alongside a design review that introduces constraint-node emission.
   'ghost-option': GhostOptionNode,
 }

@@ -29,6 +29,7 @@ import { recordUiSurfaceState } from '../../../lib/debug-state'
 import type { BriefElementKind } from '../primitives/NodeShape'
 import type { BriefReadiness } from '../hooks/useBriefSignals'
 import type { UseConversationReturn } from '../useConversation'
+import { typography } from '../../../styles/typography'
 import type { ScenarioStage } from '../../../types/scenario'
 
 // ChatTopBar is removed (Tranche 1 item 30); GenerateState now lives here.
@@ -233,8 +234,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
         {/* 3b. BIL summary line (flag-gated, soft guidance only) */}
         {bilSummaryLine && (
           <p
-            className="text-text-light"
-            style={{ fontSize: 11, lineHeight: 1.4, margin: 0, padding: '0 2px' }}
+            className={`text-text-light ${typography.panelMeta}`}
+            style={{ margin: 0, padding: '0 2px' }}
             role="status"
             aria-live="polite"
             data-testid="bil-summary"
@@ -246,8 +247,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
         {/* 3c. Causal framing coaching tip (weak framing + sufficient text) */}
         {bilResult?.causal_framing_score === 'weak' && debouncedValue.length > 50 && (
           <p
-            className="text-text-light"
-            style={{ fontSize: 11, lineHeight: 1.4, margin: 0, padding: '0 2px', fontStyle: 'italic' }}
+            className={`text-text-light ${typography.panelMeta}`}
+            style={{ margin: 0, padding: '0 2px', fontStyle: 'italic' }}
             data-testid="bil-causal-tip"
           >
             Tip: describe how factors cause outcomes, not just list them.
@@ -289,7 +290,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             style={{
               width: 34, height: 34, borderRadius: '50%',
               marginBottom: 2, background: 'transparent',
-              border: 'none', color: 'var(--text-light, #908D8D)', cursor: 'pointer',
+              border: 'none', color: 'var(--text-light, #6E6B6B)', cursor: 'pointer',
               transition: 'all 150ms',
             }}
             data-testid="composer-attach-button"
@@ -305,7 +306,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             style={{
               width: 34, height: 34, borderRadius: '50%',
               marginBottom: 2, background: 'transparent',
-              border: 'none', color: 'var(--text-light, #908D8D)',
+              border: 'none', color: 'var(--text-light, #6E6B6B)',
               cursor: 'not-allowed', opacity: 0.5, transition: 'all 150ms',
             }}
             data-testid="composer-voice-button"
@@ -327,7 +328,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
                 marginBottom: 2,
                 background: 'transparent',
                 border: 'none',
-                color: 'var(--text-light, #908D8D)',
+                color: 'var(--text-light, #6E6B6B)',
                 cursor: runDisabled ? 'not-allowed' : 'pointer',
                 opacity: runDisabled ? 0.5 : 1,
                 transition: 'all 150ms',
@@ -347,10 +348,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             disabled={isThinking}
             rows={1}
             aria-label="Message input"
-            className="flex-1 bg-transparent border-none outline-none resize-none text-text-body placeholder:text-text-light"
+            className={`flex-1 bg-transparent border-none outline-none resize-none text-text-body placeholder:text-text-light ${typography.bodySmall}`}
             style={{
-              fontSize: 14,
-              lineHeight: 1.5,
               fontFamily: 'inherit',
               padding: '12px 4px',
               minHeight: 88,
@@ -409,7 +408,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
                 borderRadius: '50%',
                 marginBottom: 2,
                 transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-                background: composer.canSend ? 'var(--primary, #2B7FA2)' : 'var(--bg-panel-hover, #FEF9F3)',
+                background: composer.canSend ? 'var(--primary, #277A9D)' : 'var(--bg-panel-hover, #FEF9F3)',
                 border: composer.canSend ? 'none' : '1px solid var(--border-default, #E8E5E1)',
                 boxShadow: composer.canSend ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
                 cursor: composer.canSend ? 'pointer' : 'default',
@@ -419,7 +418,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
               <ArrowUp
                 className="w-[15px] h-[15px]"
                 strokeWidth={2.2}
-                style={{ stroke: composer.canSend ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)' }}
+                style={{ stroke: composer.canSend ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #6E6B6B)' }}
                 aria-hidden="true"
               />
             </button>
@@ -466,7 +465,7 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
       onClick={onClick}
       data-active={isActive || undefined}
       data-loading={isLoading || undefined}
-      className="inline-gen-btn flex-shrink-0"
+      className={`inline-gen-btn flex-shrink-0 ${typography.panelMeta} font-semibold`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -475,13 +474,11 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
         padding: '0 10px',
         borderRadius: 999,
         marginLeft: 'auto',
-        fontSize: 11,
-        fontWeight: 600,
         whiteSpace: 'nowrap' as const,
         transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-        background: (isActive || isLoading) ? 'var(--primary, #2B7FA2)' : 'transparent',
+        background: (isActive || isLoading) ? 'var(--primary, #277A9D)' : 'transparent',
         border: (isActive || isLoading) ? 'none' : '1px solid rgba(176,168,153,0.3)',
-        color: (isActive || isLoading) ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)',
+        color: (isActive || isLoading) ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #6E6B6B)',
         boxShadow: (isActive || isLoading) ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
         opacity: (isActive || isLoading) ? 1 : 0.55,
         cursor: isActive ? 'pointer' : isLoading ? 'wait' : 'default',
@@ -498,7 +495,7 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
         <Play
           className="w-[11px] h-[11px] flex-shrink-0"
           strokeWidth={2}
-          style={{ stroke: isActive ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)' }}
+          style={{ stroke: isActive ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #6E6B6B)' }}
           aria-hidden="true"
         />
       )}

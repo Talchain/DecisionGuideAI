@@ -20,6 +20,11 @@ import { useMemo, memo, useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, ChevronDown, ChevronRight, HelpCircle, X } from 'lucide-react'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
+import {
+  resolveEvidenceGapConfidenceDisplay,
+  evidenceGapGenericText,
+  evidenceGapSourcePill,
+} from './utils/evidenceGapConfidenceDisplay'
 import { dedupTriageItems } from './utils/dedupTriageItems'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
@@ -36,6 +41,7 @@ import { safeInterpolatedLabel } from './analysisHeroV17/glossaryCheck'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
+import { openAskOlumi } from './coaching/askOlumiStore'
 import { useCanvasStore } from '@/canvas/store'
 import {
   buildStrengthenOverlayMap,
@@ -107,7 +113,6 @@ interface MappedActionItem {
   subtitle: string | undefined
   category: TriageCardCategory
   influence: number | null
-  evoiImpact: number | null
   action: TriageCardAction | undefined
   targetNodeId: string | undefined
   editorConfig: ScientificEditorProps | null
@@ -128,12 +133,7 @@ function applyOverlayToItem(
   }
 }
 
-// Source pill mapping based on confidence level
-function getSourcePill(confidence: number): { label: string; borderClass: string } {
-  if (confidence <= 0) return { label: 'No data', borderClass: 'border-danger/30' }
-  if (confidence < 40) return { label: 'AI estimate', borderClass: 'border-info/30' }
-  return { label: 'Estimated', borderClass: 'border-warning/30' }
-}
+
 
 function mapEvidenceGapsToActions(
   data: ResultsSectionDataReturn,
@@ -149,9 +149,12 @@ function mapEvidenceGapsToActions(
     const currentCap = nodeMeta?.cap ?? null
     // Post-analysis body precedence (coaching → generic fallback) goes
     // through the shared resolver so pre- and post-analysis agree.
+    // ⛔ F6 gate. `gap.confidence` was fabricated as `?? 0` upstream and this
+    // sentence asserted it: "This factor has 0% confidence."
+    const confidenceDisplay = resolveEvidenceGapConfidenceDisplay(gap.confidence)
     const { text: detail } = resolveTriageBodyText({
       coaching: gap.suggestion,
-      generic: `This factor has ${gap.confidence}% confidence. Improving it could change the result.`,
+      generic: evidenceGapGenericText(confidenceDisplay),
     })
     return {
       key: `gap-${gap.factorId}-${i}`,
@@ -160,7 +163,6 @@ function mapEvidenceGapsToActions(
       subtitle: undefined,
       category: 'add_evidence' as const,
       influence: gap.voi > 0 ? gap.voi : null,
-      evoiImpact: gap.evpiPp ?? null,
       action: {
         kind: 'set_value' as const,
         label: 'Set value',
@@ -176,7 +178,7 @@ function mapEvidenceGapsToActions(
         onSave: (rawValue: number) => onSetValue(targetId, rawValue),
         onCancel: () => {},
       } : null,
-      sourcePill: getSourcePill(gap.confidence),
+      sourcePill: evidenceGapSourcePill(confidenceDisplay),
       passiveLabels: undefined,
     }
   })
@@ -191,7 +193,6 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
     subtitle: undefined,
     category: 'strengthen' as const,
     influence: null,
-    evoiImpact: null,
     action: action.targetId ? {
       kind: 'edit' as const,
       label: 'Edit',
@@ -311,10 +312,27 @@ function T1DominantNudge({
 }) {
   const drivers = data.drivers
   const topDriver = drivers.topDrivers?.[0] ?? drivers.drivers?.[0]
+  // Lane 2 (policy): gate and phrase the nudge on the SAME display influence
+  // the panel/hero/graph/tornado show (driverDisplayModel via the stamped
+  // displayInfluence) — a raw-score read here claimed dominance the panel's
+  // own bars contradicted under partial producer coverage (Codex R3-B1 class).
   const topInfluence = topDriver
-    ? (topDriver.influenceScore ?? topDriver.normalisedInfluence ?? 0)
+    ? (topDriver.displayInfluence ?? topDriver.influenceScore ?? topDriver.normalisedInfluence ?? 0)
     : 0
-  const showNudge = topInfluence >= 0.8
+  // Review fold: "drives NN% of the outcome" is an ABSOLUTE causal claim —
+  // honest only on the producer influence_score basis. Under partial
+  // coverage the display value is set-relative (top driver ≡ 1.0 by
+  // construction), so the nudge would fire on EVERY such run claiming
+  // "100% of the outcome", contradicting the V17 dominance gate
+  // (UI-SEM-040, deliberately absolute) on the same screen. No provenance
+  // marker (legacy fixture) falls back to "a finite raw producer score
+  // exists" — the pre-fold absolute semantic.
+  const absoluteBasis = topDriver
+    ? (topDriver.displayProvenance
+        ? topDriver.displayProvenance === 'influence_score'
+        : typeof topDriver.influenceScore === 'number')
+    : false
+  const showNudge = absoluteBasis && topInfluence >= 0.8
   const rawLabel = drivers.dominantFactorLabel ?? topDriver?.factorLabel ?? ''
   const dominantLabel = cleanFactorLabel(rawLabel).label
   if (!showNudge || !dominantLabel) return null
@@ -369,13 +387,19 @@ function T1DominantNudge({
           Validate
         </button>
       )}
-      {/* (Round-5 P1.1) Research chip dispatches `onSendMessage` — auto-send.
-          v17 hero has zero auto-send paths, so the chip is suppressed when
-          useV17Copy is true. Legacy panel still renders it. */}
+      {/* (Round-5 P1.1) Research chip is exploratory/question-shaped. Codex
+          finding 6: prefill the Ask-Olumi drawer (editable draft, user presses
+          Send) instead of auto-sending. Suppressed under v17 copy (which has its
+          own affordances); the legacy panel still renders it. Gated on
+          onSendMessage as the "chat is available" signal. */}
       {!useV17Copy && onSendMessage && (
         <button
           type="button"
-          onClick={() => onSendMessage(`Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`)}
+          onClick={() => openAskOlumi({
+            context: `Research ${dominantLabel}`,
+            draft: `Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`,
+            label: 'Research',
+          })}
           className={`flex-shrink-0 px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
           aria-label={`Research ${dominantLabel}`}
         >
@@ -395,31 +419,51 @@ function T1DominantNudge({
 function T1ChecksFooter({
   data,
   aiAffordance,
-  useV17Copy = false,
 }: {
   data: ResultsSectionDataReturn
   aiAffordance?: ReactNode
-  useV17Copy?: boolean
 }) {
-  const hasWinner = !!data.recommendation.recommendedOption
+  // SINGLE VERDICT (2026-07-25): this check used to be presence-only
+  // (`!!recommendedOption`), and `determineWinnerSelection` always returns a
+  // winner when any option exists — so the footer could tick "Winner" in the
+  // same panel whose headline said "no clear leading option". It now quotes
+  // the shared verdict (src/lib/decisionVerdict.ts), the same one the
+  // headline and the canvas badge use. Absent verdict (older fixtures) falls
+  // back to the historic presence check rather than silently reading false.
+  const verdict = data.recommendation.verdict
+  const hasWinner = verdict
+    ? verdict.hasLeadingOption
+    : !!data.recommendation.recommendedOption
   // Robustness glyph: driven ONLY by the display-safe robustness verdict
   // (`robustnessVerdict`) — never PLoT `report.robustness.level`, never the
   // UI-SEM-005 stability fallback, never a recommendationStability threshold.
-  // No display-safe verdict exists in the contract today, so this is undefined
-  // and the glyph renders "Robustness unknown". See ROBUSTNESS-VERDICT-CONTRACT.
+  // The verdict is the producer's own robustness.display_verdict (PLoT #202,
+  // consumed lane 35 fix 3), normalised fail-closed upstream. 'not_assessed'
+  // is the producer's stated absence and renders the neutral glyph with the
+  // producer's meaning; a missing field (older PLoT builds) keeps the
+  // "Robustness unknown" state. See ROBUSTNESS-VERDICT-CONTRACT.
   const robustnessVerdict = data.recommendation.robustnessVerdict
-  const robustOk = robustnessVerdict === 'high'
-  const robustKnown = robustnessVerdict != null
+  const robustOk = robustnessVerdict === 'robust'
+  // Determinate = a real robust/sensitive claim exists. Explicit allowlist —
+  // 'not_assessed' and unknown values must never render as "Sensitive".
+  const robustKnown =
+    robustnessVerdict === 'robust' ||
+    robustnessVerdict === 'moderate' ||
+    robustnessVerdict === 'fragile'
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
   const evidenceWeak = gaps.some(g => typeof g.confidence === 'number' && g.confidence < 50)
   const evidenceKnown = gaps.length > 0
   const addressed = gaps.filter(g => typeof g.confidence === 'number' && g.confidence >= 50).length
   const total = gaps.length
 
-  // v17 mode uses glossary-compliant labels; legacy mode keeps the original
-  // copy so the eight pre-existing DCP spec files still pass.
-  const winnerOkLabel = useV17Copy ? 'Has leading option' : 'Winner'
-  const winnerNotOkLabel = useV17Copy ? 'No clear leader' : 'No winner'
+  // §6.2g: the legacy arm ("Winner" / "No winner") is DELETED, not
+  // re-anchored. `useV17Copy` already selected the glossary-compliant labels
+  // on every live path; the legacy strings survived only as the false arm of
+  // a ternary, and dead copy beside a live selector is an invitation to
+  // re-wire it. `useV17Copy` itself is left in place — it gates more than
+  // these two labels.
+  const winnerOkLabel = 'Has leading option'
+  const winnerNotOkLabel = 'No clear leader'
 
   return (
     <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
@@ -434,7 +478,16 @@ function T1ChecksFooter({
           ok={robustOk}
           unknown={!robustKnown}
           okLabel="Robust"
-          notOkLabel={robustKnown ? 'Sensitive' : 'Robustness unknown'}
+          notOkLabel={
+            robustKnown
+              ? 'Sensitive'
+              : robustnessVerdict === 'not_assessed'
+                ? 'Robustness not assessed'
+                : 'Robustness unknown'
+          }
+          // Producer-owned reason phrase, verbatim (native tooltip) — never
+          // authored in the UI, never shown without its verdict.
+          title={data.recommendation.robustnessVerdictReason}
           dataTestid="checks-robust"
         />
         <ChecksGlyph
@@ -459,6 +512,7 @@ function ChecksGlyph({
   okLabel,
   notOkLabel,
   unknown = false,
+  title,
   dataTestid,
 }: {
   ok: boolean
@@ -470,6 +524,8 @@ function ChecksGlyph({
    * "X" — an unknown is not a failure.
    */
   unknown?: boolean
+  /** Optional native tooltip — producer-supplied text rendered verbatim. */
+  title?: string
   dataTestid: string
 }) {
   const Icon = unknown ? HelpCircle : ok ? Check : X
@@ -479,7 +535,7 @@ function ChecksGlyph({
   const colour = unknown ? 'text-text-light' : ok ? 'text-success' : 'text-danger'
   const label = unknown ? notOkLabel : ok ? okLabel : notOkLabel
   return (
-    <span className="inline-flex items-center gap-1" data-testid={dataTestid}>
+    <span className="inline-flex items-center gap-1" data-testid={dataTestid} title={title}>
       <Icon size={12} className={`${colour} flex-shrink-0`} aria-hidden="true" />
       <span>{label}</span>
     </span>
@@ -506,13 +562,25 @@ function StabilityNarrative({
     typeof stabilityScore === 'number' && Number.isFinite(stabilityScore)
       ? Math.round(stabilityScore * 100)
       : null
+  // ⛔ Two claims removed here, both of which the queue can no longer support.
+  //
+  // "Ranked by evidence value" was a VISIBLE ordering claim, and the only thing
+  // that ever ordered this queue by value was `evpi_percentage_points` — a
+  // figure ISL measures at 0.0 for the factors PLoT scores at 12.3 / 10.2 /
+  // 6.6, produced by multiplying BY the top-two win-probability gap, which
+  // inverts decision theory. The queue is now in the producer's emission order
+  // and asserts no ranking, so the label would be false.
+  //
+  // "These items would most improve confidence" was a SUPERLATIVE resting on
+  // the same figure. What the product can still defend is membership, not rank:
+  // these are the factors the engine judged important and is not confident
+  // about. So the copy states that, and nothing more.
   const lede = stabilityPct != null
-    ? `Stability: ${stabilityPct}%. These items would most improve confidence:`
-    : 'These items would most improve confidence:'
+    ? `Stability: ${stabilityPct}%. Inputs worth confirming:`
+    : 'Inputs worth confirming:'
   return (
     <div className="flex flex-col gap-0.5" data-testid="stability-narrative">
       <p className={`${typography.panelBody} text-text-body`}>{lede}</p>
-      <p className={`${typography.panelMeta} text-text-light`}>Ranked by evidence value</p>
     </div>
   )
 }
@@ -559,7 +627,6 @@ function AlsoConsiderDisclosure({
               subtitle={item.subtitle}
               category={item.category}
               influence={item.influence}
-              evoiImpact={item.evoiImpact}
               action={item.action}
               variant="compact"
               editorConfig={item.editorConfig}
@@ -619,12 +686,13 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
     const merged = [...gaps, ...next].map(item =>
       applyOverlayToItem(item, findStrengthenOverlay(item, strengthenOverlayMap)),
     )
-    merged.sort((a, b) => {
-      const aEvoi = a.evoiImpact ?? -1
-      const bEvoi = b.evoiImpact ?? -1
-      if (aEvoi !== bEvoi) return bEvoi - aEvoi
-      return (b.influence ?? 0) - (a.influence ?? 0)
-    })
+    // The primary sort key here was the EVPI percentage-point figure.
+    // Removed: our own compute layer contradicts it (ISL measures 0.0pp for
+    // the factors PLoT scores at 12.3 / 10.2 / 6.6) and the ordering it
+    // induces is inverted against ISL. Gaps now arrive in the producer's own
+    // order; the surviving `influence` tie-break is PLoT's normalised impact,
+    // which is not a function of the discredited confidence figure.
+    merged.sort((a, b) => (b.influence ?? 0) - (a.influence ?? 0))
     // Dedup by canonical factor identity (targetNodeId) after sort so the
     // highest-ranked occurrence survives. See `dedupTriageItems` for the rule
     // (targetNodeId first, normalised-title fallback).
@@ -683,19 +751,21 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
           here would duplicate the surface. The other body blocks
           (flip-risk, conditional scenarios, dominant nudge, T1 checks
           footer) are contextual signals and stay rendered. */}
-      {!suppressTriageQueue && (top3.length > 0 || data.confidence.topEvidenceGapsEmpty) && (
+      {!suppressTriageQueue && top3.length > 0 && (
         <div className="border-t border-panel-border pt-3 space-y-2">
           <StabilityNarrative
             itemCount={top3.length}
             stabilityScore={stabilityScore}
           />
 
-          {top3.length === 0 && data.confidence.topEvidenceGapsEmpty && (
-            <p className={`${typography.panelBody} text-text-light`}>
-              No high-value evidence gaps. Your current uncertainties have minimal impact on the result.
-            </p>
-          )}
-
+          {/* ⛔ REMOVED: the "No high-value evidence gaps. Your current
+              uncertainties have minimal impact on the result." empty state.
+              It was reachable ONLY via `topEvidenceGapsEmpty`, which was set
+              when every gap failed the `evpiPp > 0` filter — including on a
+              perfect tie, where PLoT emits no figure at all and information is
+              MOST valuable. The copy asserted "minimal impact" on the strength
+              of a number ISL measures at zero for the same factors. Both the
+              flag and the claim are gone. */}
           {top3.length > 0 && (
             <div className="flex flex-col gap-1.5" data-testid="unified-triage-queue">
               {top3.map((item, i) => {
@@ -703,7 +773,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
                 return (
                   <div
                     key={item.key}
-                    className={emphasised ? 'rounded-[10px] border border-info/50 border-l-[3px] border-l-info bg-info/[0.02]' : ''}
+                    className={emphasised ? 'rounded-[10px] border border-info/50 bg-info/[0.02]' : ''}
                     data-testid={emphasised ? 'unified-triage-emphasised' : undefined}
                   >
                     <TriageCard
@@ -714,7 +784,6 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
                       subtitle={item.subtitle}
                       category={item.category}
                       influence={item.influence}
-                      evoiImpact={item.evoiImpact}
                       action={item.action}
                       editorConfig={item.editorConfig}
                       sourcePill={item.sourcePill}
@@ -754,7 +823,12 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
       />
 
       {/* 4. T1 checks footer — Brief 5.8B D2c step 3. */}
-      <T1ChecksFooter data={data} aiAffordance={aiAffordance} useV17Copy={useV17Copy} />
+      {/* §6.2g: the footer no longer takes `useV17Copy` — its only use was
+          selecting between the v17 labels and the legacy "Winner" / "No
+          winner" pair, and the legacy arm is deleted. The prop is dropped
+          rather than left unread: an unused gate is the next reader's
+          invitation to re-wire the dead branch. */}
+      <T1ChecksFooter data={data} aiAffordance={aiAffordance} />
     </>
   )
 })

@@ -17,33 +17,82 @@ import { SourceProvenancePill } from './SourceProvenancePill'
 import { InlineEdit } from './InlineEdit'
 import { formatSmartNumber, formatValueWithUnit } from './utils'
 import { DetailToggleContext } from './DetailToggleContext'
+import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../../components/results/utils/goalFitBasisCaveatCopy'
+import { formatGoalProbability } from '../../../components/results/utils/displayFloors'
+import type { GoalFitRow } from './buildGoalFitRows'
 
 interface GoalSectionProps {
   goalNode: Node | undefined
   onSendMessage?: (message: string) => void
+  /**
+   * Per-option goal-fit rows (journey-walk §10.4 tab parity). Built by
+   * `buildGoalFitRows` in ModelTabBody — complete-field gated (null unless
+   * EVERY option carries an admissible figure), one chooser
+   * (`selectGoalProbability`), producer order. Rendered only when the card
+   * also shows a target: the figures answer "chance of reaching the target",
+   * so they never render on a card that displays no target.
+   */
+  goalFitRows?: GoalFitRow[] | null
 }
 
-function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
+/**
+ * ROADMAP 2.263 — `goalNode` is REQUIRED here, and that is the hooks fix.
+ *
+ * This component used to take `Node | undefined` and early-return `null` at the
+ * top, ABOVE two `useCallback`s further down. React counts hooks per mounted
+ * instance, so the moment the goal node arrived from the draft the count went
+ * 2 → 4 — a Rules-of-Hooks violation on the exact transition every first-time
+ * tester sits through during the draft wait.
+ *
+ * ⚠ WHAT IT ACTUALLY DID, MEASURED — the 2.263 audit predicted React would THROW
+ * `Rendered more hooks than during the previous render.` It does not. On React
+ * 18.3.1 it logs `"React has detected a change in the order of Hooks called by
+ * X."` via console.error and RECOVERS, rendering the content; the reverse
+ * (4 → 2) transition produced no console output at all. So this was undefined
+ * behaviour on React's own terms, NOT the section-breaking crash the audit
+ * described — the fix is warranted, the crash story was not. Measured by
+ * mutation; see `__tests__/modelTabHooksOrderTransition.spec.tsx`.
+ *
+ * The guard moved UP into the wrapper, which has no hooks of its own, so the
+ * unmount happens instead of a mid-render bail-out. Narrowing the prop is what
+ * stops the guard being reintroduced here: there is no `undefined` left to test.
+ */
+function GoalSectionInner({ goalNode, onSendMessage, goalFitRows }: GoalSectionProps & { goalNode: Node }) {
   const { showDetail } = useContext(DetailToggleContext)
-  const updateNode = useCanvasStore(s => s.updateNode)
-
-  if (!goalNode) return null
+  // ROADMAP 2.121 slice 1 — the ONE production writer of a user success target
+  // (this file's own comment below has always named it). Every other
+  // success-target editor in the product already commits through it:
+  // GoalThresholdEditor, HeroSection, PreAnalysisPanel, OutputsDock.
+  const setGoalThresholdAndUpdateNode = useCanvasStore(s => s.setGoalThresholdAndUpdateNode)
 
   const data = goalNode.data as Record<string, unknown>
   const label = String(data.label ?? goalNode.id)
 
-  // Success threshold — prefer raw value with unit, fall back to normalised
+  // Success threshold — representation contract (store.ts getGoalContext,
+  // computeSuccessState, the ONLY production writer setGoalThresholdAndUpdateNode):
+  // `success_threshold` under threshold_source 'user' is RAW user units, never 0–1.
+  // Priority mirrors computeSuccessState: user raw → CEE raw anchor → normalised.
+  // (Dress-rehearsal 2026-07-20: routing a user raw value through the ×100
+  // normalised branch rendered the 50012 mis-parse as "5,001,200% likelihood".)
   const rawThreshold = data.goal_threshold_raw as number | undefined
   const thresholdUnit = data.goal_threshold_unit as string | undefined
-  const thresholdNorm = data.success_threshold as number | undefined ?? data.goal_threshold as number | undefined
   const thresholdSource = data.threshold_source as string | undefined
+  const userRawThreshold = thresholdSource === 'user' && typeof data.success_threshold === 'number'
+    ? data.success_threshold as number
+    : undefined
+  const thresholdNorm = (typeof data.goal_threshold === 'number' ? data.goal_threshold as number : undefined)
+    ?? (thresholdSource !== 'user' && typeof data.success_threshold === 'number'
+      ? data.success_threshold as number
+      : undefined)
+  const effectiveRaw = userRawThreshold ?? rawThreshold
 
   const thresholdCap = data.goal_threshold_cap as number | undefined
 
-  const displayThreshold = rawThreshold !== undefined && thresholdUnit
-    ? formatValueWithUnit(rawThreshold, thresholdUnit)
-    : rawThreshold !== undefined
-      ? String(formatSmartNumber(rawThreshold))
+  const displayThreshold = effectiveRaw !== undefined && thresholdUnit
+    ? formatValueWithUnit(effectiveRaw, thresholdUnit)
+    : effectiveRaw !== undefined
+      ? formatSmartNumber(effectiveRaw)
       : thresholdNorm !== undefined
         ? `${formatSmartNumber(thresholdNorm * 100)}% likelihood`
         : null
@@ -51,23 +100,35 @@ function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
   // Feasibility warning: shown when target is within 15% of the model's upper bound.
   // This is a presentation heuristic (not a semantic transform) — no UI-SEM tag.
   // Rationale: targets near the cap are harder to achieve and may yield unreliable results.
-  const showFeasibilityWarning = rawThreshold !== undefined && thresholdCap !== undefined
-    && thresholdCap > 0 && rawThreshold > thresholdCap * 0.85
+  const showFeasibilityWarning = effectiveRaw !== undefined && thresholdCap !== undefined
+    && thresholdCap > 0 && effectiveRaw > thresholdCap * 0.85
 
+  /**
+   * ROADMAP 2.121 slice 1 — a target edit here now moves the number the run
+   * path actually forwards.
+   *
+   * The hand-rolled write this replaces set `goal_threshold_raw` and stamped
+   * `threshold_source: 'user'` — and stopped there. Two consequences, both live:
+   *
+   *   1. The GLOBAL `goalThreshold` scalar never moved, so the number the run
+   *      path forwards was still the pre-edit one.
+   *   2. `success_threshold` never moved either — and the display priority
+   *      twelve lines above prefers `success_threshold` the moment
+   *      `threshold_source` is 'user'. Stamping the source while leaving the
+   *      number made a STALE value OUTRANK the one the user had just typed. The
+   *      edit could render as no change at all.
+   *
+   * `setGoalThresholdAndUpdateNode` is the atomic store+node pair: scalar,
+   * `success_threshold`, `threshold_source`, `threshold_confirmed: false`, and
+   * `invalidateAnalysisReady` in one action. No `opts.unit` is passed — the old
+   * handler did not touch the unit and neither does this one; the action leaves
+   * an existing (CEE-backfilled) unit alone.
+   */
   const handleThresholdSave = useCallback((val: string) => {
     const num = parseFloat(val)
     if (isNaN(num)) return
-    // Store the raw value directly — no conversion here.
-    // The V2 adapter is responsible for deriving normalised values from raw_value + unit.
-    updateNode(goalNode.id, {
-      data: {
-        ...data,
-        goal_threshold_raw: num,
-        threshold_source: 'user',
-        threshold_confirmed: false,
-      },
-    })
-  }, [goalNode.id, data, updateNode])
+    setGoalThresholdAndUpdateNode(goalNode.id, num)
+  }, [goalNode.id, setGoalThresholdAndUpdateNode])
 
   const validateThreshold = useCallback((s: string) => {
     const n = parseFloat(s)
@@ -96,7 +157,7 @@ function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
         <span className={`${typography.panelMeta} text-text-light`}>Target:</span>
         {displayThreshold !== null ? (
           <InlineEdit
-            value={rawThreshold !== undefined ? String(rawThreshold) : String((thresholdNorm ?? 0) * 100)}
+            value={effectiveRaw !== undefined ? String(effectiveRaw) : String((thresholdNorm ?? 0) * 100)}
             displayValue={displayThreshold}
             onSave={handleThresholdSave}
             validate={validateThreshold}
@@ -124,6 +185,40 @@ function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
       {displayThreshold === null && (
         <div className="mt-1" data-testid="goal-threshold-coaching">
           <span className={`${typography.panelMeta} text-text-light`}>Set a success target to help the analysis measure your options</span>
+        </div>
+      )}
+
+      {/* Per-option goal fit (journey-walk §10.4 tab parity). Register-only
+          copy: GOAL_ANCHOR_COPY.phrase carries the possessive gate (the
+          substituted-joint basis withholds "your goal"); formatGoalProbability
+          is the shared floor+formatter (sub-1% renders "< 1%", never "0%");
+          the caveat is doctrine B — adjacent whenever a figure rides the
+          modelled-outcome-distribution basis. Rows are complete-field gated
+          upstream (buildGoalFitRows) and render only beside a displayed
+          target. */}
+      {displayThreshold !== null && goalFitRows && goalFitRows.length > 0 && (
+        <div className="mt-2 space-y-0.5" data-testid="goal-fit-parity">
+          {goalFitRows.map(row => (
+            <div key={row.id} className={`${typography.panelMeta} text-text-body`}>
+              <span className="text-text-header">{row.label}</span>
+              {' — '}
+              {GOAL_ANCHOR_COPY.phrase(
+                // ROADMAP 2.334: the row's own sample count. Without it these
+                // five figures all rendered "< 1%" and the ordering the rows
+                // already carried could not be read off them.
+                formatGoalProbability(row.probability, row.nValidSamples),
+                row.isSubstitutedJoint,
+              )}
+            </div>
+          ))}
+          {goalFitRows.some(row => row.modelledBasis) && (
+            <p
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid="goal-fit-modelled-caveat"
+            >
+              {GOAL_FIT_BASIS_CAVEAT_COPY}
+            </p>
+          )}
         </div>
       )}
 
@@ -184,10 +279,23 @@ function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
   )
 }
 
-export function GoalSection({ goalNode }: GoalSectionProps) {
+export function GoalSection({ goalNode, onSendMessage, goalFitRows }: GoalSectionProps) {
+  // The absence guard lives HERE, in a component with no hooks, so an arriving
+  // or departing goal node mounts/unmounts the inner component rather than
+  // changing its hook count mid-render. See `GoalSectionInner`'s header.
+  //
+  // ROADMAP 2.296 C1: this wrapper MUST forward every prop the inner
+  // component renders on. The #553 rewrite narrowed it to `goalNode` alone,
+  // and because `GoalSectionInner` gates the "Discuss with AI" action on
+  // `onSendMessage`, the action silently vanished from the goal card while
+  // ModelTabBody kept supplying the callback. Pinned by
+  // `__tests__/ModelTabBody.goalDiscuss.spec.tsx` through the REAL
+  // ModelTabBody→GoalSection path — the hop this defect lived in.
+  // `goalFitRows` is pinned the same way by ModelTabBody.goalFitParity.spec.tsx.
+  if (!goalNode) return null
   return (
     <SectionErrorBoundary section="goal">
-      <GoalSectionInner goalNode={goalNode} />
+      <GoalSectionInner goalNode={goalNode} onSendMessage={onSendMessage} goalFitRows={goalFitRows} />
     </SectionErrorBoundary>
   )
 }

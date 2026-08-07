@@ -84,12 +84,20 @@ const CLASSES = [
       /\.(ts|tsx)$/.test(p) && !isTest(p) &&
       !under(p, 'components/debug') && !under(p, 'poc') && !under(p, 'canvas/theme'),
     lineTokens: (line) => {
+      // Comments are NOT colour usage: the unstripped detector counted issue
+      // refs (#343, #202 — valid 3-digit "hex") and documented-rationale hues
+      // in comments as production drift; all 65 "net-new" hexes in the July
+      // soak were this false positive. Skip block-comment lines and strip
+      // trailing line comments — a hex that survives is in live code.
+      const t = line.trimStart()
+      if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*') || t.startsWith('{/*')) return []
+      const code = line.replace(/(^|[\s{(,;])\/\/.*$/, '$1')
       const out = []
       let m
       HEX.lastIndex = 0
-      while ((m = HEX.exec(line)) !== null) {
+      while ((m = HEX.exec(code)) !== null) {
         // Scoping decision #1: var(--token, #hex) fallbacks are excluded.
-        if (/var\(--[\w-]+,\s*$/.test(line.slice(0, m.index))) continue
+        if (/var\(--[\w-]+,\s*$/.test(code.slice(0, m.index))) continue
         out.push(m[0].toUpperCase())
       }
       return out

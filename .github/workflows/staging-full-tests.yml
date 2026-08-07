@@ -1,9 +1,24 @@
-# Full test suite for staging pushes.
+# Full test suite for staging pushes and PRs into staging.
 #
 # The local pre-push hook (scripts/validate-prepush.sh) runs only fast checks
 # (typecheck, lint on changed files, smoke tests). This workflow runs the
-# complete 6,900+ test suite after every push to staging, so regressions are
-# caught before any merge to main.
+# complete 6,900+ test suite on every push to staging and every PR targeting
+# staging, so regressions are caught before any merge to main.
+#
+# Sharding (ROADMAP 1.26, chronic-CI-red fix): the vitest job runs as a
+# 4-way matrix (`--shard=N/4`), each shard on its own runner. This is
+# defence-in-depth against a single job's memory/wall-clock ceiling — the
+# chronic red's proximate cause was actually a genuine infinite-render-loop
+# hang in one spec (tests/canvas/panels/InspectorPanel.test.tsx, root-caused
+# + fixed same lane: a test mock recreated a fresh edge object on every
+# store read, so the component's "load edge data" effect — keyed on that
+# object's identity — re-fired every render and never stabilised), not OOM.
+# But a single ~15-20 min unsharded job is a much easier failure mode to
+# misdiagnose from outside (hang vs OOM vs genuine failure all look similar
+# in a truncated log) than four independent ~2 min shards, and the hang had
+# also been masking ~11 genuine, unrelated pre-existing failures (stale
+# ratchets/fixtures/mocks, same lane) that only a completed run's summary
+# could surface. See docs/ops/vitest-full-suite-oom-diagnosis.md Option C.
 #
 # Branch protection: configure "Staging Gate" as a required status check on
 # main to block merges when any job fails. (Requires repo admin access.)
@@ -12,6 +27,8 @@ name: Staging Tests
 
 on:
   push:
+    branches: [ staging ]
+  pull_request:
     branches: [ staging ]
 
 permissions:
@@ -30,6 +47,7 @@ env:
   VITE_FEATURE_SSE: "0"
   VITE_EDGE_GATEWAY_URL: "http://localhost:3001"
   VITE_PLOT_LITE_BASE_URL: "/plot-lite"
+  SHARD_COUNT: 4
 
 jobs:
   # ── Install & cache (shared by all downstream jobs) ──────────────────
@@ -50,8 +68,6 @@ jobs:
         with:
           node-version-file: .nvmrc
           registry-url: https://npm.pkg.github.com
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Cache node_modules
         id: cache-nm
@@ -84,8 +100,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -99,9 +113,46 @@ jobs:
       - name: Type check
         run: pnpm run typecheck
 
-  # ── Full test suite ──────────────────────────────────────────────────
-  vitest:
-    name: Full Test Suite
+      # Runs the SAME React #185 (Zustand selector) guard as ci.yml's main-only
+      # `tsc` job. Without this, the guard first fires at staging→main promotion,
+      # i.e. the alarm goes off at the worst possible moment. Enforcing here (it
+      # is green) so a regression is caught on the staging path before promotion.
+      - name: React 185 guard (Zustand selectors)
+        run: pnpm run ci:guard:zustand
+
+      # Starter scenarios are REAL captured CEE drafts. This re-derives the
+      # shipped fixtures + manifest from the committed source captures and
+      # byte-compares. Without it, the fixtures, the card copy and the redraft
+      # brief are three hand-maintainable mirrors that would drift green — the
+      # exact defect class CLAUDE.md trap 12 names. Fails the gate on drift.
+      - name: Starter fixtures match their source captures
+        run: pnpm run ci:guard:starters
+
+      # ── ROADMAP 2.649 — the vendored-pin checklist's INVISIBLE fourth item ──
+      # The vendored @talchain/schemas tarball needs a sibling
+      # `vendor/<tarball>.tgz.sha256`. Nothing in CI checked for it: `check:vendor`
+      # ran only from `dev`/`dev:sandbox` and the local pre-push gate, so a missing
+      # or corrupt sidecar passed CI green and first failed at someone's pre-push
+      # (the DSK badge car shipped exactly that omission — caught by a lane, not by
+      # CI). An alarm that only fires on one developer's machine is not an alarm.
+      - name: Vendored schemas tarball integrity
+        run: pnpm run check:vendor
+
+      # The version constant stamped into debug/evidence bundles must be DERIVED
+      # from the package.json pin, never hand-typed (CLAUDE.md trap 12). This reds
+      # if the generated file drifts from the pin.
+      - name: Vendored schemas version constant is derived, not drifted
+        run: pnpm run ci:guard:schemas-version
+
+  # ── Typecheck gate self-test (positive control) ──────────────────────
+  # The `tsc` job above asserts an ABSENCE ("no new type errors, no invisible
+  # files"). That assertion is worth nothing unless the gate can be shown to
+  # detect a PRESENCE — the gate it replaced was green for months while loading
+  # 9% of src, and nobody had ever watched it go red. This job deliberately
+  # breaks the tree four ways and asserts the gate fails each time (and passes
+  # when clean). Its own job so it runs in parallel and costs no serial time.
+  typecheck-selftest:
+    name: Typecheck Gate Self-Test
     needs: install
     runs-on: ubuntu-latest
     steps:
@@ -117,8 +168,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -126,9 +175,135 @@ jobs:
           path: node_modules
           key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
-      # Bounded so a teardown hang (mode A) fails fast at 35 min instead of
-      # running to GitHub's 6-hour default. Normal runtime is ~15 min (≈45s
-      # tests + ≈850s teardown — see docs/ops/vitest-full-suite-oom-diagnosis.md).
+      # The self-test derives the source set with `git ls-files`, so it needs a
+      # real checkout (actions/checkout gives one) and a clean working tree.
+      - name: Prove the typecheck gate actually bites
+        run: pnpm run typecheck:selftest
+
+  # ── Security audit ───────────────────────────────────────────────────
+  # Staging is the live PoC — the dependency-audit gate must run where deploys
+  # actually happen (the #404 precedent: alarms fire on the staging path, not
+  # only at promotion). Mirrors ci.yml's security-audit job.
+  security-audit:
+    name: Security Audit (pnpm)
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Audit for high/critical vulnerabilities
+        # pnpm audit --prod --audit-level high — fails on any prod-tree
+        # high/critical advisory. Moderate/low surfaced but non-blocking.
+        run: pnpm run security:audit
+
+  # ── Flag deployment drift (REPORTING ONLY — never blocks) ─────────────
+  # Reads the DEPLOYED staging bundle and prints which feature flags actually
+  # resolve ON there, versus what src/flags.ts and netlify.toml claim. Netlify
+  # DASHBOARD variables override both and are invisible to this repo, which is
+  # why the repo files cannot answer "what does a tester see?" — on 2026-07-28
+  # that gap mis-scoped two dispatches, and the check found 13 divergences.
+  #
+  # ⚠ THIS JOB MUST NEVER BLOCK, and is deliberately absent from the
+  # "Staging Gate" aggregator's required-results list at the end of this file.
+  # Flipping a dashboard flag is a NORMAL operation; reddening the gate for it
+  # would turn this into the broken alarm it exists to replace — a red everyone
+  # learns to ignore (trap 7). The script exits 0 on divergences by design, and
+  # continue-on-error covers even a crash or a network blip.
+  #
+  # ⚠ SCOPE: it reports the CURRENTLY-DEPLOYED staging site. On a PR that is the
+  # PRE-MERGE state — it is NOT a prediction of what this PR will deploy.
+  flag-drift:
+    name: Flag Deployment Drift (report only)
+    needs: install
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # If staging is unreachable the script reports UNVERIFIED and names every
+      # flag it could not check. It never prints a green it has not earned.
+      - name: Compare deployed flags against repo config
+        run: |
+          pnpm run flags:check | tee flag-drift.txt
+          {
+            echo '### Flag deployment drift — deployed staging vs repo config'
+            echo ''
+            echo 'The **DEPLOYED** column is the truth. `flags.ts` / `netlify.toml` are advisory:'
+            echo 'Netlify dashboard variables override both and this repo cannot see them.'
+            echo ''
+            echo '```'
+            cat flag-drift.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── Full test suite (sharded 4-way) ───────────────────────────────────
+  vitest:
+    name: Full Test Suite (shard ${{ matrix.shard }}/${{ strategy.job-total }})
+    needs: install
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # Bounded so a teardown hang (mode A) or a genuine JS-side hang (e.g.
+      # an infinite render loop — the actual chronic-red root cause, see
+      # workflow header) fails fast instead of running to GitHub's 6-hour
+      # default. Each shard carries ~1/4 the files, so 15 min is generous
+      # headroom over the ~4-5 min a healthy shard takes.
       #
       # We capture vitest's REAL exit code (PIPESTATUS[0], not tee's) and force
       # the step to exit 0 so the "Evaluate" step below is the single pass/fail
@@ -136,41 +311,60 @@ jobs:
       # exit_code echo never runs and steps.vitest.outputs.exit_code is empty —
       # that empty value is how Evaluate distinguishes a timeout/kill from a
       # completed-but-non-zero run.
-      - name: Run full test suite
+      # --no-color plus NO_COLOR/FORCE_COLOR=0 belt-and-suspenders the CLI flag
+      # against a runner env that forces color (GitHub Actions' terminal
+      # sometimes reports as a TTY to child processes). The sed pass after
+      # tee is a second, independent backstop: even if colour leaks through
+      # some path we haven't seen, the file the Evaluate step parses (and the
+      # artifact a human downloads) is guaranteed plain text. Without this,
+      # a genuinely-green shard's "Test Files ... passed" summary line is
+      # broken up by embedded ANSI escape codes and the single-line regex
+      # below never matches it — a real PASS misreported as a parse failure.
+      - name: Run test suite (shard ${{ matrix.shard }}/${{ env.SHARD_COUNT }})
         id: vitest
-        timeout-minutes: 35
+        timeout-minutes: 15
         run: |
           set +e
-          pnpm exec vitest run --reporter=verbose 2>&1 | tee vitest-output.txt
+          pnpm exec vitest run --reporter=verbose --no-color --shard=${{ matrix.shard }}/${{ env.SHARD_COUNT }} 2>&1 | tee vitest-output.raw.txt
           code=${PIPESTATUS[0]}
+          sed -E 's/\x1b\[[0-9;]*m//g' vitest-output.raw.txt > vitest-output.txt
           echo "exit_code=${code}" >> "$GITHUB_OUTPUT"
           echo "vitest exited with code ${code}"
           exit 0
         env:
           NODE_OPTIONS: "--max-old-space-size=7168"
+          NO_COLOR: "1"
+          FORCE_COLOR: "0"
 
       # Preserve the test log on every outcome (pass, fail, timeout, cancel) so
       # a hung/cancelled run is still diagnosable. Test log only — no secrets or
       # environment dumps. Placed before Evaluate so it survives a non-zero gate.
+      # Per-shard name (upload-artifact v4 requires unique names within a run).
       - name: Upload vitest output
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vitest-output
+          name: vitest-output-shard-${{ matrix.shard }}
           path: vitest-output.txt
           if-no-files-found: warn
           retention-days: 14
 
-      # Single pass/fail arbiter for the Full Test Suite job. Combines:
+      # Single pass/fail arbiter for this shard. Combines:
       #  - timeout/kill detection (empty exit_code from the step above),
       #  - genuine test-failure detection (failed counts in the summary),
       #  - defence-in-depth against bail-like under-reporting (file-count
       #    thresholds — vitest hitting --bail=N marks queued-but-never-started
-      #    files as "skipped"; healthy suite skips ~4, the 2026-04-18 audit saw
-      #    ~653), and
+      #    files as "skipped"; a healthy shard skips ~0-2, scaled down from the
+      #    unsharded suite's ~4 baseline / ~653 audited-bad case), and
       #  - tolerance for the KNOWN teardown ERR_WORKER_OUT_OF_MEMORY signature
       #    (mode B) — and ONLY that signature — when zero tests failed.
       # if: always() so it still fires when vitest exits non-zero or is killed.
+      #
+      # min_total is NOT checked per-shard (an uneven-but-valid file split
+      # across 4 shards could legitimately put one shard under any fixed
+      # floor) — the cross-shard total is checked once in the "Full Test
+      # Suite Summary" job below, against the same 700-file floor the
+      # unsharded job used.
       - name: Evaluate test results
         if: always()
         env:
@@ -187,18 +381,20 @@ jobs:
             exit 1
           fi
           # Empty exit_code => the step was killed before it could report its
-          # exit (35-min timeout or runner cancellation). Mode A.
+          # exit (15-min timeout or runner cancellation). Mode A.
           if [ -z "${VITEST_EXIT}" ]; then
-            echo "::error::Full Test Suite did not complete — it timed out (35 min) or was cancelled before reporting. This is a CI hang, not a test failure; inspect the 'vitest-output' artifact to see how far it got."
+            echo "::error::Shard ${{ matrix.shard }} did not complete — it timed out (15 min) or was cancelled before reporting. This is a CI hang, not a test failure; inspect the 'vitest-output-shard-${{ matrix.shard }}' artifact to see how far it got."
             tail -30 vitest-output.txt || true
             exit 1
           fi
-          # Summary line shape: " Test Files  14 failed | 734 passed | 4 skipped (755)"
-          summary=$(grep -oE '^\s*Test Files +[0-9]+ failed \| [0-9]+ passed \| [0-9]+ skipped \([0-9]+\)' vitest-output.txt | tail -1)
-          # Fallback shape when no failures: " Test Files 734 passed | 4 skipped (738)"
-          if [ -z "$summary" ]; then
-            summary=$(grep -oE '^\s*Test Files +[0-9]+ passed \| [0-9]+ skipped \([0-9]+\)' vitest-output.txt | tail -1)
-          fi
+          # Summary line shape (both the "failed" and "skipped" clauses are
+          # OPTIONAL — vitest omits a clause entirely when its count is zero,
+          # it does NOT print "0 skipped"):
+          #   " Test Files  14 failed | 734 passed | 4 skipped (755)"  (failures + skipped)
+          #   " Test Files  14 failed | 734 passed (748)"              (failures, 0 skipped)
+          #   " Test Files  734 passed | 4 skipped (738)"              (0 failures, skipped)
+          #   " Test Files  734 passed (734)"                          (0 failures, 0 skipped)
+          summary=$(grep -oE '^\s*Test Files +([0-9]+ failed \| )?[0-9]+ passed( \| [0-9]+ skipped)? \([0-9]+\)' vitest-output.txt | tail -1)
           if [ -z "$summary" ]; then
             echo "::error::could not parse 'Test Files' summary from vitest output (crash before summary?). Exit code was ${VITEST_EXIT}."
             tail -30 vitest-output.txt
@@ -214,22 +410,11 @@ jobs:
           tests_failed=${tests_failed:-0}
           has_oom=$(grep -c 'ERR_WORKER_OUT_OF_MEMORY' vitest-output.txt || true)
           has_oom=${has_oom:-0}
-          min_total=700
-          max_skipped=50
-          echo "exit=${VITEST_EXIT} files_failed=${files_failed} tests_failed=${tests_failed} total=${total} skipped=${skipped} oom=${has_oom} (thresholds: total>=${min_total}, skipped<=${max_skipped})"
+          echo "exit=${VITEST_EXIT} files_failed=${files_failed} tests_failed=${tests_failed} total=${total} skipped=${skipped} oom=${has_oom}"
           fail=0
           # Genuine test failures are NEVER tolerated.
           if [ "${files_failed}" -gt 0 ] || [ "${tests_failed}" -gt 0 ]; then
             echo "::error::Test failures detected: ${files_failed} file(s), ${tests_failed} test(s). This is a real failure, not an infra issue."
-            fail=1
-          fi
-          # Defence-in-depth against bail-like under-reporting / over-exclusion.
-          if [ "${total}" -lt "${min_total}" ]; then
-            echo "::error::Discovered ${total} test files, below minimum ${min_total}. Likely cause: config exclusions expanded or files removed from src/tests."
-            fail=1
-          fi
-          if [ "${skipped}" -gt "${max_skipped}" ]; then
-            echo "::error::${skipped} test files reported as skipped (max ${max_skipped}). Likely cause: --bail=N reintroduced (see docs/ui/ci-test-coverage-audit.md §1) or large it.skip() block added."
             fail=1
           fi
           # A non-zero exit with zero failures is tolerated ONLY for the known
@@ -253,6 +438,76 @@ jobs:
           fi
           exit $fail
 
+  # ── Full Test Suite Summary (cross-shard defence-in-depth) ────────────
+  # The per-shard "Evaluate test results" step catches genuine failures and
+  # hangs within each shard; this job catches the one thing that requires
+  # seeing all shards together — silent under-collection (e.g. an exclusion
+  # pattern or --bail reintroduced) that a single shard's local count can't
+  # detect on its own. Runs even if a shard failed (if: always()) so its
+  # own errors don't mask the real per-shard failure already surfaced.
+  vitest-summary:
+    name: Full Test Suite Summary
+    needs: vitest
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all shard outputs
+        if: needs.vitest.result != 'skipped'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vitest-output-shard-*
+          path: shard-outputs
+          merge-multiple: false
+
+      - name: Sum cross-shard totals
+        if: needs.vitest.result != 'skipped'
+        run: |
+          set +e
+          min_total=700
+          max_skipped=50
+          total_sum=0
+          skipped_sum=0
+          missing=0
+          for f in shard-outputs/*/vitest-output.txt; do
+            [ -f "$f" ] || { missing=1; continue; }
+            # Both the "failed" and "skipped" clauses are OPTIONAL — vitest
+            # omits a clause entirely when its count is zero (see the
+            # per-shard "Evaluate test results" step above for the full
+            # shape breakdown).
+            summary=$(grep -oE '^\s*Test Files +([0-9]+ failed \| )?[0-9]+ passed( \| [0-9]+ skipped)? \([0-9]+\)' "$f" | tail -1)
+            if [ -z "$summary" ]; then
+              echo "::warning::could not parse a Test Files summary from $f (shard likely timed out/crashed — already caught by that shard's own Evaluate step)."
+              continue
+            fi
+            t=$(echo "$summary" | grep -oE '\([0-9]+\)' | tr -d '()')
+            s=$(echo "$summary" | grep -oE '[0-9]+ skipped' | grep -oE '[0-9]+')
+            total_sum=$((total_sum + t))
+            skipped_sum=$((skipped_sum + s))
+          done
+          echo "Cross-shard total=${total_sum} skipped=${skipped_sum} (thresholds: total>=${min_total}, skipped<=${max_skipped})"
+          fail=0
+          if [ "${missing}" -eq 1 ]; then
+            echo "::error::One or more shard output artifacts were missing entirely."
+            fail=1
+          fi
+          if [ "${total_sum}" -lt "${min_total}" ]; then
+            echo "::error::Discovered ${total_sum} test files across all shards, below minimum ${min_total}. Likely cause: config exclusions expanded or files removed from src/tests."
+            fail=1
+          fi
+          if [ "${skipped_sum}" -gt "${max_skipped}" ]; then
+            echo "::error::${skipped_sum} test files reported as skipped across all shards (max ${max_skipped}). Likely cause: --bail=N reintroduced (see docs/ui/ci-test-coverage-audit.md §1) or large it.skip() block added."
+            fail=1
+          fi
+          exit $fail
+
+      - name: Shard matrix result
+        run: |
+          echo "vitest matrix result: ${{ needs.vitest.result }}"
+          if [ "${{ needs.vitest.result }}" != "success" ]; then
+            echo "::error::At least one shard did not succeed — see that shard's job log/artifact for the reason (hang, OOM, or genuine failure)."
+            exit 1
+          fi
+
   # ── Build ────────────────────────────────────────────────────────────
   build:
     name: Production Build
@@ -271,8 +526,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -286,28 +539,40 @@ jobs:
   # ── Gate (single required check for branch protection) ───────────────
   gate:
     name: Staging Gate
-    needs: [tsc, vitest, build]
+    needs: [tsc, typecheck-selftest, vitest, vitest-summary, build]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Check all jobs passed
         run: |
           echo "Job results:"
-          echo "  tsc:    ${{ needs.tsc.result }}"
-          echo "  vitest: ${{ needs.vitest.result }}"
-          echo "  build:  ${{ needs.build.result }}"
+          echo "  tsc:                 ${{ needs.tsc.result }}"
+          echo "  typecheck-selftest:  ${{ needs.typecheck-selftest.result }}"
+          echo "  vitest:              ${{ needs.vitest.result }}"
+          echo "  vitest-summary:      ${{ needs.vitest-summary.result }}"
+          echo "  build:               ${{ needs.build.result }}"
           if [ "${{ needs.tsc.result }}" != "success" ] || \
+             [ "${{ needs.typecheck-selftest.result }}" != "success" ] || \
              [ "${{ needs.vitest.result }}" != "success" ] || \
+             [ "${{ needs.vitest-summary.result }}" != "success" ] || \
              [ "${{ needs.build.result }}" != "success" ]; then
             echo "::error::Staging Gate failed — one or more jobs did not succeed (see results above)."
-            # The Full Test Suite job is the authority on test outcome: its
-            # "Evaluate test results" step prints a precise reason and the
-            # 'vitest-output' artifact preserves the log on every outcome.
-            # A timeout/hang ('failure'/'cancelled' with an "did not complete"
-            # error), an OOM-tolerated pass ('success' + a ::warning::), and a
-            # genuine test failure all look different there — check it first.
+            # The Full Test Suite job (4-way shard matrix) is the authority on
+            # test outcome: each shard's "Evaluate test results" step prints a
+            # precise reason and its 'vitest-output-shard-N' artifact preserves
+            # the log on every outcome; vitest-summary catches cross-shard
+            # under-collection. A timeout/hang ('failure'/'cancelled' with an
+            # "did not complete" error), an OOM-tolerated pass ('success' + a
+            # ::warning::), and a genuine test failure all look different
+            # there — check the specific shard's log first.
             if [ "${{ needs.vitest.result }}" != "success" ]; then
-              echo "::error::vitest is '${{ needs.vitest.result }}'. Open the Full Test Suite job logs + download the 'vitest-output' artifact to tell a CI hang/timeout apart from a real test failure."
+              echo "::error::vitest is '${{ needs.vitest.result }}'. Open the failing shard's job log + download its 'vitest-output-shard-N' artifact to tell a CI hang/timeout apart from a real test failure."
+            fi
+            if [ "${{ needs.vitest-summary.result }}" != "success" ]; then
+              echo "::error::vitest-summary is '${{ needs.vitest-summary.result }}' — cross-shard test-file count fell below the floor, or a shard artifact was missing. Open its job log."
+            fi
+            if [ "${{ needs.typecheck-selftest.result }}" != "success" ]; then
+              echo "::error::typecheck-selftest is '${{ needs.typecheck-selftest.result }}' — the typecheck gate did NOT go red when it should have. Treat every 'typecheck clean' claim on this branch as UNPROVEN until it passes."
             fi
             exit 1
           fi

@@ -1,7 +1,9 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { AlertCircle } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
+import type { SendFailureNotice } from '../conversation/useConversation'
 import { useFloatingPanelState, canAutoDock } from '../hooks/useFloatingPanelState'
 import { useUIStore } from '../../stores/uiStore'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -10,10 +12,23 @@ import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
 import { registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { measureDockInset, clampPositionToViewport } from './FloatingOlumiPanel'
 import { ThinkingIndicator } from '../conversation/zones/ThinkingIndicator'
+import { StarterDecisions } from './StarterDecisions'
+import type { BlueprintEventBus } from '../ReactFlowGraph'
 
 interface FirstUseComposerProps {
   /** Cog popover handler. Receives the cog button element for anchoring. */
   onCogClick: (anchorEl: HTMLElement) => void
+  /**
+   * Presence of the blueprint bus is the "this is the PRIMARY canvas mount"
+   * signal, and it gates the starter strip.
+   *
+   * It no longer feeds the strip: starters are pre-drafted CEE graphs applied
+   * through `applyStarter`, not blueprint emits (P1-2). The gate is retained
+   * deliberately — only the primary canvas passes a bus; PlotWorkspace and the
+   * sandbox canvas pass none, and those mounts must not offer a first-run
+   * starter strip. Dropping the gate would newly surface starter cards on both.
+   */
+  blueprintEventBus?: BlueprintEventBus
 }
 
 /** Hero container sizing — round-11 UX correction.
@@ -29,6 +44,29 @@ interface FirstUseComposerProps {
  */
 const PANEL_WIDTH = 960
 const PANEL_MARGIN = 16
+
+/**
+ * Point-of-failure copy for the hero (dress-rehearsal trust item #3,
+ * paired defect). The hero is the ONE Olumi surface with no visible
+ * transcript — before this notice, a failed draft send reset the composer
+ * to pristine while the only error copy rendered inside the collapsed
+ * outputs dock, so the user's text appeared to vanish into silence.
+ * Transport failures (the rehearsal's 4/4 proxy 504s) get transport-honest
+ * copy — never the false "server processing" claim, never an invented
+ * recovery suggestion.
+ */
+function heroFailureCopy(failure: SendFailureNotice): string {
+  switch (failure.kind) {
+    case 'transport':
+      return "That didn't get through. The server didn't respond, so no model was drafted. Your text wasn't lost. It's back in the box above; send it again when you're ready."
+    case 'timeout':
+      return "That took too long, so we stopped waiting. No model was drafted. Your text wasn't lost. It's back in the box above; send it again when you're ready."
+    case 'server':
+      return failure.retryable
+        ? "Something went wrong on our side and your brief couldn't be processed. Your text wasn't lost. It's back in the box above; try rephrasing or send it again."
+        : "Something went wrong on our side and your brief couldn't be processed. Your text wasn't lost. It's back in the box above."
+  }
+}
 
 /** Reposition margin when post-graph auto-anchoring the floating panel. */
 const REPOSITION_EDGE_MARGIN = 16
@@ -54,9 +92,9 @@ const REPOSITION_EDGE_MARGIN = 16
  * Reduced motion: the auto-reposition fires synchronously without the
  * 300ms slide delay.
  */
-export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: FirstUseComposerProps) {
+export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blueprintEventBus }: FirstUseComposerProps) {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
-  const { messages, isThinking } = useConversationContext()
+  const { messages, isThinking, lastSendFailure, draft, setDraft } = useConversationContext()
   const realMessageCount = messages.filter((m) => !m.synthetic).length
   // Round-12: during the first-use generating window (user submitted a
   // brief, no graph yet) the composer freezes, its placeholder swaps to
@@ -68,6 +106,27 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
   // indicator unmounts as soon as the first graph appears (nodeCount > 0
   // → hero unmounts entirely).
   const isGenerating = isThinking && nodeCount === 0
+
+  // Trust item #3 (paired defect): when the send fails while the hero is
+  // the active surface, the failure must be visible HERE — not only in the
+  // collapsed dock's transcript. Notice below the composer + the user's
+  // text restored into it, so nothing reads as vanished.
+  const showSendFailure = lastSendFailure !== null && !isGenerating
+
+  // Restore the failed text into the composer once per failure instance —
+  // never clobber text the user has already retyped.
+  const restoredForFailureRef = useRef<SendFailureNotice | null>(null)
+  useEffect(() => {
+    if (!lastSendFailure) {
+      restoredForFailureRef.current = null
+      return
+    }
+    if (restoredForFailureRef.current === lastSendFailure) return
+    restoredForFailureRef.current = lastSendFailure
+    if (draft.trim() === '' && lastSendFailure.inputText) {
+      setDraft(lastSendFailure.inputText)
+    }
+  }, [lastSendFailure, draft, setDraft])
 
   const isOpen = useFloatingPanelState((s) => s.isOpen)
   const source = useFloatingPanelState((s) => s.source)
@@ -218,6 +277,18 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
         top: '50%',
         transform: 'translateY(-50%)',
         gap: 24,
+        // The container is fixed + centred, so it cannot scroll with the page.
+        // Adding the starter strip made it ~214px taller, which on a short
+        // viewport (e.g. 1280x600) pushed the logo off the top and put
+        // "Press T for all templates" permanently out of reach — unreachable,
+        // not merely ugly. Cap the height to the viewport and let the panel
+        // scroll internally; on tall viewports this is inert.
+        // dvh, not vh: on mobile browsers with dynamic toolbars 100vh is the
+        // LARGE viewport, so a vh cap fits under it while the bottom rows sit
+        // behind the toolbar with no way to scroll to them — the same
+        // unreachable-content defect this cap exists to fix.
+        maxHeight: `calc(100dvh - ${PANEL_MARGIN * 2}px)`,
+        overflowY: 'auto',
       }}
     >
       {/* Olumi logo — round-11 UX: just the logo and the textbox on the
@@ -263,6 +334,28 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
           </div>
         ) : null}
       </div>
+      {/* Trust item #3: send-failure notice at the point of failure. Plain
+          visible content — deliberately NOT a live region (the
+          conversation's role="log" owner announces; adding aria-live here
+          would violate the single-live-region invariant). Hidden while a
+          new attempt is generating; cleared by the next dispatch. */}
+      {showSendFailure && lastSendFailure ? (
+        <div
+          data-testid="first-use-send-failure"
+          className="w-full max-w-2xl flex items-start gap-2 rounded-lg bg-panel border border-danger/30 px-3 py-2.5"
+        >
+          <AlertCircle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <p className="text-sm text-text-body m-0">{heroFailureCopy(lastSendFailure)}</p>
+        </div>
+      ) : null}
+      {/* Starter decisions — the second way in, COMPLEMENTING the composer
+          above (type, or pick a worked example). Suppressed during the
+          generating window: the user has already committed a brief, so
+          offering to replace it would be noise. Renders nothing at all when
+          none of the featured templates resolve, leaving the hero exactly as
+          it was. Gated on the bus so mounts without an insert pipeline never
+          show cards that cannot work. */}
+      {!isGenerating && blueprintEventBus ? <StarterDecisions /> : null}
     </div>,
     document.body,
   )

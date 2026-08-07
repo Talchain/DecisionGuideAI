@@ -90,6 +90,7 @@ function makeData(overrides: {
     isLoading: false,
     isError: false,
     goalLabel: 'Revenue',
+    voiRanking: null,
   }
 }
 

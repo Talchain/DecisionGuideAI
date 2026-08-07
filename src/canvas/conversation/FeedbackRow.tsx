@@ -11,13 +11,15 @@
  */
 
 import { useState, memo } from 'react'
+import { useCanvasStore } from '../store'
+import { trackMeasurement } from '../../telemetry/measurementEvents'
 
 const feedbackBtnFocusClass = 'feedback-btn'
 
 interface FeedbackRowProps {
   /** clientTurnId echoed from orchestrator envelope; undefined for synthetic messages */
   turnId: string | undefined
-  onFeedback: (turnId: string, rating: 'up' | 'down') => void
+  onFeedback: (turnId: string, rating: 'up' | 'down') => void | Promise<void>
 }
 
 export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: FeedbackRowProps) {
@@ -26,10 +28,38 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
   // Don't render for synthetic messages (no canonical turn ID to send)
   if (turnId === undefined) return null
 
-  const handleVote = (rating: 'up' | 'down') => {
+  const handleVote = async (rating: 'up' | 'down') => {
     if (voted !== null) return // Already voted
-    setVoted(rating)
-    onFeedback(turnId, rating)
+    setVoted(rating) // Optimistic: disable the buttons immediately.
+
+    // ── turn_feedback (ROADMAP 1.68) ────────────────────────────────────────
+    //
+    // These thumbs already route a feedback turn to CEE and reach PostHog
+    // NEVER — so the closest existing proxy for turn-level endorsement or
+    // rejection has been invisible to measurement. Mirrored here, alongside
+    // the existing send, not instead of it.
+    //
+    // Emitted on the USER'S ACT, before the network call, so a failed send is
+    // still a recorded judgement — reverting the optimistic vote reverts the
+    // BUTTON, not the fact that the tester pressed it.
+    //
+    // NEVER-CAPTURE: no turnId (it joins to the stored transcript, and the
+    // transcript is the user's text) and no message content — the rating and
+    // the scenario ID only.
+    trackMeasurement('turn_feedback', {
+      rating,
+      scenario_id: useCanvasStore.getState().currentScenarioId ?? null,
+    })
+
+    try {
+      await onFeedback(turnId, rating)
+    } catch {
+      // The feedback turn failed to reach the server. Revert the optimistic
+      // vote so the thumbs re-enable — the user's action must not vanish
+      // silently; they can rate again. No new surface (mirrors the panel's
+      // existing failed-send handling, e.g. handlePatchAccept's retry path).
+      setVoted(null)
+    }
   }
 
   return (
@@ -60,7 +90,7 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
           borderRadius: '6px',
           cursor: voted !== null ? 'default' : 'pointer',
           opacity: voted !== null && voted !== 'up' ? 0.3 : 1,
-          color: voted === 'up' ? 'var(--success, #67C89E)' : 'var(--text-light, #908D8D)',
+          color: voted === 'up' ? 'var(--success, #67C89E)' : 'var(--text-light, #6E6B6B)',
           transition: 'none',
         }}
       >
@@ -87,7 +117,7 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
           borderRadius: '6px',
           cursor: voted !== null ? 'default' : 'pointer',
           opacity: voted !== null && voted !== 'down' ? 0.3 : 1,
-          color: voted === 'down' ? 'var(--danger, #EA7B4B)' : 'var(--text-light, #908D8D)',
+          color: voted === 'down' ? 'var(--danger, #EA7B4B)' : 'var(--text-light, #6E6B6B)',
           transition: 'none',
         }}
       >
@@ -98,11 +128,11 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
       </button>
       <style>{`
         .feedback-btn:focus-visible {
-          outline: 2px solid var(--info, #2B7FA2);
+          outline: 2px solid var(--info, #277A9D);
           outline-offset: 2px;
         }
         .feedback-btn:not(:disabled):hover {
-          color: var(--info, #52A3C8);
+          color: var(--info, #277A9D);
         }
       `}</style>
     </div>

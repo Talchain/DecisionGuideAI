@@ -19,6 +19,9 @@ import { HeroQualifier } from './HeroQualifier'
 import { useCanvasStore } from '@/canvas/store'
 import { resolveDisplayedFreshness } from '@/canvas/store/analysisFreshness'
 import { buildCertaintyCopy } from './utils/certaintyCopy'
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY, isFiniteProbability } from './utils/goalAnchorCopy'
+import { NO_CLAIM_VERDICT } from '@/lib/decisionVerdict'
+import { calibrateUncertaintyCopy } from './utils/uncertaintyCalibration'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { TriageActionCardsBody } from './TriageActionCardsBody'
@@ -140,21 +143,48 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     </Tooltip>
   ) : undefined
 
-  // Post-analysis ring shows winner's win probability directly. The readiness
-  // composite (Structure/Evidence/Coverage/Verified) is pre-analysis-only.
-  const winProbability = data.recommendation.recommendedOption?.winProbability
-  const hasWinProbability = typeof winProbability === 'number' && Number.isFinite(winProbability)
-  const winProbabilityScore = hasWinProbability ? Math.round(winProbability! * 100) : null
+  // ── Post-analysis ring: ONE quantity, and its caption names THAT quantity
+  //
+  // ⭐ RE-ANCHORED 2026-07-31 (§6 map row 3). The ring was filled from the
+  // winner's COMPARATIVE number and captioned "win probability" — a number
+  // that answers neither of the two questions the product may answer, given
+  // the most prominent position on the panel.
+  //
+  // It now prefers the GOAL number (question A). The comparative number is
+  // the fallback when the run carried no success target, because ISL
+  // computes a goal probability only when a threshold was supplied.
+  //
+  // ⚠ THE SCORE AND THE CAPTION MOVE TOGETHER, ALWAYS. They are derived from
+  // one `ringClaim` object below rather than from two independent
+  // expressions, so it is not possible to relabel the caption while the arc
+  // stays filled from the other quantity — which would have a user reading a
+  // goal figure off a comparative arc, strictly worse than the defect being
+  // fixed. `__tests__/reanchor.confidenceRing.spec.tsx` is the pin, and the
+  // lane's mutation-check reverts exactly that pairing.
+  const ringWinner = data.recommendation.recommendedOption
+  const goalProbability = ringWinner?.goalProbability
+  const winProbability = ringWinner?.winProbability
+
+  const ringClaim: { value: number; caption: string } | null = isFiniteProbability(goalProbability)
+    ? {
+        value: goalProbability,
+        caption: GOAL_ANCHOR_COPY.label(ringWinner?.goalFitIsSubstitutedJoint === true),
+      }
+    : isFiniteProbability(winProbability)
+      ? { value: winProbability, caption: COMPARATIVE_COPY.label }
+      : null
+
+  const winProbabilityScore = ringClaim ? Math.round(ringClaim.value * 100) : null
 
   // ringDimensions is required by the DecisionHealthRing prop contract even
   // in 'single' mode (it's used for the composite fallback / a11y label).
-  // Pass the win-probability value across so any aria-label computation is
-  // consistent with the score shown.
+  // Pass the SAME value the arc is filled from across, so any aria-label
+  // computation is consistent with the score shown.
   const ringDimensions: DecisionHealthRingDimensions = {
-    structure: hasWinProbability ? winProbability! : 0,
-    evidence: hasWinProbability ? winProbability! : 0,
-    coverage: hasWinProbability ? winProbability! : 0,
-    verified: hasWinProbability ? winProbability! : 0,
+    structure: ringClaim?.value ?? 0,
+    evidence: ringClaim?.value ?? 0,
+    coverage: ringClaim?.value ?? 0,
+    verified: ringClaim?.value ?? 0,
   }
 
   // Headline from coaching data, with a tier-calibrated fallback so the
@@ -202,6 +232,21 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       analysisStatus: data.recommendation.analysisStatus,
       optionCount: data.recommendation.allOptions.length,
       winProbabilityGap,
+      // SINGLE VERDICT: the shared "is there a leading option?" answer,
+      // derived from the same PLoT report the canvas badge reads.
+      //
+      // ROADMAP 1.267: `buildCertaintyCopy` now REQUIRES it, and this is the
+      // one place the hook's optional field is resolved. `verdict` is absent
+      // only on the hook's pre-first-run early return, which also returns
+      // `recommendedOption: null` — so the `if (!winner) return null` above
+      // already claimed that path and the fallback is unreachable in
+      // production. It is still spelled NO_CLAIM_VERDICT rather than left to
+      // an optional parameter, because "unreachable today" is how the
+      // original hole was argued too: the honest fallback is silence, and
+      // returning null here would be WORSE than silence — a null `certainty`
+      // hands the headline to `coachingHeadline` below, which is exactly the
+      // producer copy that says "clear leader".
+      verdict: data.recommendation.verdict ?? NO_CLAIM_VERDICT,
     })
   }, [
     data.recommendation.recommendedOption,
@@ -211,6 +256,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     data.recommendation.allOptions.length,
     data.confidence.tier.tier,
     winProbabilityGap,
+    data.recommendation.verdict,
   ])
 
   // Brief 5.2 follow-up (ChatGPT P0 #1): the earlier gate was too narrow —
@@ -251,7 +297,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     ]
   }, [readinessDimensions])
 
-  // Stability indicator renders adjacent to the win-probability ring. Suppressed
+  // Stability indicator renders adjacent to the ring. Suppressed
   // when the field is missing — never emits "Stability: NaN%".
   const stabilityScore = data.recommendation.recommendationStability
   const stabilityIndicator = useMemo(() => {
@@ -266,6 +312,23 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       </p>
     )
   }, [stabilityScore])
+
+  // Sci-4B: verbal uncertainty calibration — maps the wire robustness band
+  // (recommendation.robustnessLevel/robustnessLabel) + the winner's outcome
+  // interval to a fixed verbal-framing sentence. Honest-render: renders
+  // nothing when the wire carries no robustness signal at all (see
+  // calibrateUncertaintyCopy / UI-SEM-073).
+  const winnerOutcome = data.recommendation.recommendedOption?.outcome
+  const uncertaintyCopy = useMemo(
+    () =>
+      calibrateUncertaintyCopy({
+        robustnessLevel: data.recommendation.robustnessLevel,
+        robustnessLabel: data.recommendation.robustnessLabel,
+        p10: winnerOutcome?.p10 ?? null,
+        p90: winnerOutcome?.p90 ?? null,
+      }),
+    [data.recommendation.robustnessLevel, data.recommendation.robustnessLabel, winnerOutcome],
+  )
 
   return (
     <div className="space-y-4 animate-fade-in" data-testid="decision-confidence-panel">
@@ -294,7 +357,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           coaching={healthHeaderCoaching}
           overrideScore={winProbabilityScore}
           mode="single"
-          ringCaption={hasWinProbability ? 'win probability' : undefined}
+          ringCaption={ringClaim?.caption}
           secondaryIndicator={stabilityIndicator}
           qualifier={
             // Qualifier precedence: a genuine CEE 'stale' verdict is the
@@ -315,6 +378,17 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           noCardWrapper
           titleAdornment={autoNoiseAdornment}
         />
+
+        {/* Sci-4B: calibrated verbal uncertainty framing, rendered near the
+            hero headline. Absent when the wire carries no robustness signal. */}
+        {uncertaintyCopy && (
+          <p
+            className={`${typography.panelMeta} text-text-light`}
+            data-testid="uncertainty-calibration-copy"
+          >
+            {uncertaintyCopy.text}
+          </p>
+        )}
 
         {/* Action-card body — extracted to TriageActionCardsBody for reuse by AnalysisHeroV17. */}
         <TriageActionCardsBody

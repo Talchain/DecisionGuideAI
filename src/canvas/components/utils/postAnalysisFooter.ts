@@ -9,17 +9,26 @@
  * a positive/negative robustness verdict may ONLY come from the display-safe
  * `robustnessVerdict` (the same field that drives the certified
  * "Robustness unknown" glyph) — NEVER from raw `recommendation_stability` /
- * `ranking_stability`. No display-safe verdict exists in the contract today,
- * so `robustnessVerdict` is undefined and the footer stays NEUTRAL
- * ("Robustness unknown") — matching the glyph rather than contradicting it
- * with a green "Stable result" derived from raw stability.
- *   - robustnessVerdict 'high'                      → success "Stable result"
- *   - robustnessVerdict 'moderate' | 'low' | 'very_low' → warning "Sensitive to assumptions"
- *   - robustnessVerdict missing / undefined         → neutral "Robustness unknown"
+ * `ranking_stability`. The verdict is the producer's own
+ * `robustness.display_verdict` (PLoT #202, consumed lane 35 fix 3),
+ * normalised fail-closed upstream:
+ *   - robustnessVerdict 'robust'                → success "Stable result"
+ *   - robustnessVerdict 'moderate' | 'fragile'  → warning "Sensitive to assumptions"
+ *   - robustnessVerdict 'not_assessed'          → neutral "Robustness not assessed"
+ *     (the producer's own stated absence — rendered as stated, not upgraded
+ *     and not blurred into the UI's "unknown")
+ *   - missing / undefined (older PLoT builds)   → neutral "Robustness unknown"
  *
- * Meta (unchanged): raw stability is retained ONLY as neutral metadata
- * ("{N}% stability"), never as a verdict.
- *   - "{N}% stability" — appended when stability is finite
+ * Meta (F7 — display honesty): the raw `stability` number is NEVER rendered.
+ * It is the legacy `recommendation_stability` field, which is in fact the
+ * LEADER'S WIN PROBABILITY (see the field note where the hook populates it),
+ * not a stability/robustness measure — so "{N}% stability" mislabelled a win
+ * probability as stability. The numeric segment has been removed entirely
+ * (previously it was gated to a determinate verdict; now it never renders).
+ * Only the display-safe verdict/reason and the evidence-gap text survive:
+ *   - the producer's `robustnessVerdictReason` — leading segment, VERBATIM
+ *     (producer-owned display phrase; never authored in the UI, never shown
+ *     without its verdict)
  *   - "Evidence gaps remain" — appended when any review-card confidence < 50%
  *   - "Evidence strong"      — appended when there are gaps AND none weak
  *   - omitted entirely when there are no review cards at all
@@ -29,7 +38,7 @@
  * The caller maps the name back to a `LucideIcon`.
  */
 
-import type { RobustnessLevel } from '@/components/results/types'
+import type { RobustnessDisplayVerdict } from '@/components/results/types'
 
 export type PostFooterIcon = 'check' | 'warning' | 'unknown'
 
@@ -42,6 +51,23 @@ export interface PostFooterStatus {
 export interface PostFooterMetaInput {
   stability: number | null | undefined
   /**
+   * The SAME display-safe verdict that drives `derivePostFooterStatus`.
+   * Gates the "{N}% stability" segment: without a determinate verdict the
+   * footer status is "Robustness unknown"/"Robustness not assessed", and a
+   * raw stability percentage beside it would contradict that admission — so
+   * the segment is suppressed unless the verdict is 'robust' | 'moderate' |
+   * 'fragile'. Runtime-safe like the status: anything other than the exact
+   * enum values suppresses.
+   */
+  robustnessVerdict: RobustnessDisplayVerdict | null | undefined
+  /**
+   * The producer's own display reason for the verdict
+   * (`robustness.display_verdict_reason`) — rendered VERBATIM as the leading
+   * meta segment. Ignored when no verdict exists (the hook never populates
+   * it without one, and this helper re-checks).
+   */
+  robustnessVerdictReason?: string | null
+  /**
    * Subset of `ResultsSectionDataReturn.confidence.topEvidenceGaps` (or
    * `evidenceGaps`) — only the `confidence` field is needed for the
    * "Evidence gaps remain" decision.
@@ -52,9 +78,7 @@ export interface PostFooterMetaInput {
 /**
  * Derive the footer status from the display-safe robustness verdict ONLY.
  * Raw stability must never reach this function — it is surfaced separately as
- * neutral metadata via `derivePostFooterMeta`. With no display-safe verdict in
- * the contract today the verdict is undefined and the footer renders the
- * neutral "Robustness unknown" state, in lock-step with the certified glyph.
+ * neutral metadata via `derivePostFooterMeta`.
  *
  * RUNTIME-SAFE (allowlist, not catch-all): ONLY the known display-safe verdict
  * enum values produce a verdict. Type safety alone is not enough — if a raw
@@ -66,36 +90,62 @@ export interface PostFooterMetaInput {
  * malformed) returns "Robustness unknown".
  */
 export function derivePostFooterStatus(
-  robustnessVerdict: RobustnessLevel | null | undefined,
+  robustnessVerdict: RobustnessDisplayVerdict | null | undefined,
 ): PostFooterStatus {
-  if (robustnessVerdict === 'high') {
+  if (robustnessVerdict === 'robust') {
     return { icon: 'check', iconClass: 'text-success', label: 'Stable result' }
   }
-  // Known display-safe non-high verdicts → sensitive, mirroring the certified
-  // glyph's "Sensitive" label. Explicit allowlist (NOT a non-high catch-all)
-  // so unexpected runtime values cannot reach this positive-ish branch.
-  if (
-    robustnessVerdict === 'moderate' ||
-    robustnessVerdict === 'low' ||
-    robustnessVerdict === 'very_low'
-  ) {
+  // Known display-safe sensitive verdicts → warning, mirroring the certified
+  // glyph's "Sensitive" label. Explicit allowlist (NOT a non-robust
+  // catch-all) so unexpected runtime values cannot reach this branch.
+  if (robustnessVerdict === 'moderate' || robustnessVerdict === 'fragile') {
     return { icon: 'warning', iconClass: 'text-warning', label: 'Sensitive to assumptions' }
+  }
+  // The producer explicitly said robustness was not assessed — state THAT,
+  // verbatim in meaning, rather than the vaguer "unknown".
+  if (robustnessVerdict === 'not_assessed') {
+    return { icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness not assessed' }
   }
   // undefined / null / unknown string / number / malformed → neutral.
   return { icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness unknown' }
 }
 
-export function derivePostFooterMeta({ stability, reviewCards }: PostFooterMetaInput): string | null {
-  const stabPct =
-    typeof stability === 'number' && Number.isFinite(stability)
-      ? Math.round(stability * 100)
-      : null
+export function derivePostFooterMeta({
+  // `stability` is intentionally NOT destructured/read — see the F7 note
+  // below. It remains on `PostFooterMetaInput` for caller compatibility.
+  robustnessVerdict,
+  robustnessVerdictReason,
+  reviewCards,
+}: PostFooterMetaInput): string | null {
+  // F7 (display honesty): the "{N}% stability" numeric segment is REMOVED.
+  // `stability` here is the legacy `recommendation_stability` field, which
+  // this file's own header comment documents is in fact the LEADER'S WIN
+  // PROBABILITY, not a robustness/stability measure — so rendering it as
+  // "{N}% stability" mislabels a win probability as stability (same doctrine
+  // #407 applied to the Advanced receipts). Only the display-safe
+  // verdict/reason and the evidence-gap text survive. The `stability` input
+  // is retained on the interface for caller compatibility but no longer read.
+  // Removal trigger: PLoT supplies a genuine numeric robustness/stability
+  // field distinct from the win probability.
+  const verdictKnown =
+    robustnessVerdict === 'robust' ||
+    robustnessVerdict === 'moderate' ||
+    robustnessVerdict === 'fragile' ||
+    robustnessVerdict === 'not_assessed'
   const evidenceWeak = reviewCards.some(g => typeof g.confidence === 'number' && g.confidence < 50)
   const evidenceText = reviewCards.length === 0
     ? null
     : (evidenceWeak ? 'Evidence gaps remain' : 'Evidence strong')
   const parts: string[] = []
-  if (stabPct != null) parts.push(`${stabPct}% stability`)
+  // Producer reason VERBATIM, first — but only beside a known verdict (never
+  // render a robustness sentence the status line cannot vouch for).
+  if (
+    verdictKnown &&
+    typeof robustnessVerdictReason === 'string' &&
+    robustnessVerdictReason.trim() !== ''
+  ) {
+    parts.push(robustnessVerdictReason)
+  }
   if (evidenceText) parts.push(evidenceText)
   return parts.length > 0 ? parts.join(' · ') : null
 }

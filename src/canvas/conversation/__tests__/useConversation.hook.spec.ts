@@ -2,7 +2,7 @@
  * Hook-level tests for useConversation
  *
  * Tests timeout progression (10s/20s/30s), input restore on error,
- * and lastFailedInput cleanup on clearHistory/scenario switch.
+ * and lastSendFailure.inputText cleanup on clearHistory/scenario switch.
  *
  * Uses vi.useFakeTimers() + renderHook from @testing-library/react.
  */
@@ -10,6 +10,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useConversation } from '../useConversation'
+import {
+  EARLY_STOP_NOT_SAVED_NOTICE,
+  EARLY_STOP_ALREADY_SAVED_NOTICE,
+  EARLY_STOP_UNCONFIRMED_NOTICE,
+} from '../../components/DraftLoadingAnimation'
+import { START_NEW_DRAFT_CHIP_ID } from '../chipDispatch'
 import { useCanvasStore } from '../../store'
 import { getCurrentScenarioId } from '../../store/scenarios'
 import { useResultsStore } from '../../stores/resultsStore'
@@ -60,14 +66,95 @@ const mockCallV5Turn = vi.fn()
 
 vi.mock('../../../v5/v5Adapter', () => ({
   callV5Turn: (...args: unknown[]) => mockCallV5Turn(...args),
+  // getV5Endpoint is called unconditionally in bindRequestToInteraction on
+  // every V5 send path (useConversation.ts ~L2967); an incomplete mock
+  // leaves it undefined and throws "getV5Endpoint is not a function" —
+  // same pattern fixed in the sibling useConversation.reasoning.spec.ts
+  // (5bc479cf).
+  getV5Endpoint: () => 'https://cee.test/orchestrate/v2/turn',
+}))
+
+// Stop-fence (Codex P0): the server-visible explicit Stop. Mocked here so the
+// notice-copy assertions below drive off the OUTCOME rather than a live fetch —
+// which is the whole point of the three-state answer.
+type StopFenceResult = {
+  kind: 'not_saved' | 'already_saved' | 'unconfirmed'
+  reason?: string
+}
+const mockStopV5Turn = vi.fn(
+  (..._args: unknown[]): Promise<StopFenceResult> => Promise.resolve({ kind: 'not_saved' }),
+)
+vi.mock('../../../v5/stopTurn', () => ({
+  stopV5Turn: (...args: unknown[]) => mockStopV5Turn(...args),
+  getV5StopEndpoint: () => 'https://cee.test/proxy/v5/turn/stop',
+  STOP_ACK_BUDGET_MS: 5000,
+}))
+
+// Mock V5 eligibility so the V5-specific describe blocks below (which
+// exercise the V5 sendTurn branch) don't silently depend on the developer's
+// untracked .env.local setting VITE_ENABLE_V5_ORCHESTRATOR=true — on a clean
+// checkout isV5Eligible() resolves to false, sendMessage never enters the V5
+// branch, and mockCallV5Turn/mockLoadScenario are never invoked (same root
+// cause diagnosed + fixed for useConversation.reasoning.spec.ts in 5bc479cf).
+// Defaults to false (V4 path) so the many V4-oriented blocks above are
+// unaffected; the V5-only blocks below flip it on for their scope.
+const mockIsV5Eligible = vi.fn<[{ flag: string | undefined }], { eligible: boolean; reason?: string }>()
+
+vi.mock('../../../v5/eligibility', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../v5/eligibility')>()
+  const flags = await import('../../../flags')
+  return {
+    ...actual,
+    isV5Eligible: (...args: unknown[]) => mockIsV5Eligible(...(args as [{ flag: string | undefined }])),
+    isV5CanonicalRunPath: () =>
+      flags.isV5CanonicalAnalysisEnabled() &&
+      mockIsV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible,
+  }
+})
+
+// 1.16i: telemetry sink for the run-click swallow guard.
+const mockTrackEvent = vi.fn()
+vi.mock('../../../lib/posthog', () => ({
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
 }))
 
 // Mock Supabase getUserId: vi.fn() so tests can reconfigure per-scenario.
 // Default: null (no auth session in test environment).
 const mockGetUserId = vi.fn<[], Promise<string | null>>()
 
+// Login 3.4: token knob for the getSessionIdentity bridge — tests that
+// exercise the Bearer path set .value; everything else runs token-less.
+const mockAccessToken = { value: null as string | null }
+
+// ROADMAP 2.122 — `sendMessage` on an EMPTY canvas is now dispatched to the
+// STREAMED turn sibling first (`<endpoint>/stream`, CEE #751), with a
+// transparent fallback to the buffered turn on any stream failure.
+//
+// This spec's subject is the BUFFERED chain, so the streamed sibling is stubbed
+// unreachable — which is not an artificial construction: it is exactly the state
+// of a deployment where the streamed route is absent or refusing, and the
+// fallback it triggers is the behaviour under test elsewhere
+// (`streamedDraftTurn.spec.ts`). With the sibling unreachable the buffered path
+// runs exactly once, which is what this spec's request-count pins measure.
+vi.mock('../../../v5/streamedTurnTransport', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../v5/streamedTurnTransport')>()
+  return {
+    ...actual,
+    openV5TurnStream: async () => {
+      throw new TypeError('Failed to fetch')
+    },
+  }
+})
+
 vi.mock('../../../lib/supabase', () => ({
   getUserId: (...args: unknown[]) => mockGetUserId(...args as []),
+  // Login 3.4: useConversation resolves identity via getSessionIdentity
+  // (userId + access token in one getSession call). Backed by the same
+  // mock so each test's userId intent carries over.
+  getSessionIdentity: async () => ({
+    userId: (await mockGetUserId()) ?? null,
+    accessToken: mockAccessToken.value,
+  }),
 }))
 
 // Mock scenarioService loadScenario: vi.fn() so tests can return graph data.
@@ -112,7 +199,10 @@ beforeEach(() => {
   // V5 adapter: default to hanging (matches the V4 mockCallTurn pattern used by timeout tests)
   mockCallV5Turn.mockReset()
   mockCallV5Turn.mockReturnValue(new Promise(() => {}))
-  // V5 eligibility is mocked in the factory with default false (V4 path)
+  // V5 eligibility defaults to false (V4 path); the V5-only describe blocks
+  // below override this in their own beforeEach.
+  mockIsV5Eligible.mockReset()
+  mockIsV5Eligible.mockReturnValue({ eligible: false, reason: 'flag_off' })
   // Auth + DB: default to no session / no DB row
   mockGetUserId.mockReset()
   mockGetUserId.mockResolvedValue(null)
@@ -201,7 +291,16 @@ describe('timeout progression (10s / 20s / 30s)', () => {
     expect(result.current.longRunningHint).toBe('Thinking... 30s')
   })
 
-  it('aborts and shows error at 60s', async () => {
+  it('aborts and shows a notice once the wait expires', async () => {
+    // ⚠ ROADMAP 2.665 — RENAMED AND REPOINTED, and note WHICH block this
+    // exercises: the file-level beforeEach leaves `mockIsV5Eligible` at
+    // { eligible: false }, so this is the V4 ROLLBACK path, not the block
+    // staging serves. That is precisely why the false V5 copy shipped
+    // unnoticed — the only timeout test in this file was aimed at the other
+    // branch. The V5 path is covered by the "ROADMAP 2.665" describe at the end
+    // of this file, which flips eligibility on and pins the mount.
+    // The literal 60_000 is gone because the wait is no longer 60s: the client
+    // must outlast CEE's own 125s proxy deadline.
     mockCallTurn.mockReturnValue(new Promise(() => {}))
 
     const { result } = renderHook(() => useConversation())
@@ -211,7 +310,7 @@ describe('timeout progression (10s / 20s / 30s)', () => {
     })
 
     act(() => {
-      vi.advanceTimersByTime(60_000)
+      vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS + 1_000)
     })
 
     expect(result.current.isThinking).toBe(false)
@@ -227,7 +326,10 @@ describe('timeout progression (10s / 20s / 30s)', () => {
 // Input restore on error
 // ---------------------------------------------------------------------------
 
-// Minimal valid V5 response (for "success" path in lastFailedInput tests)
+// Minimal valid V5 response (for "success" path in lastSendFailure.inputText tests)
+import { EXTENDED_TIMEOUT_MS } from '../../../v5/getTimeoutMs'
+import { NON_DELIVERY_CLAIM_PATTERNS, assertsDeliveryUnknown } from '../deliveryUnknown'
+
 const makeV5SuccessResult = (text = 'OK') => ({
   kind: 'response' as const,
   response: {
@@ -240,8 +342,20 @@ const makeV5SuccessResult = (text = 'OK') => ({
   },
 })
 
-describe('input restore on error (lastFailedInput)', () => {
-  it('sets lastFailedInput on network error', async () => {
+describe('input restore on error (lastSendFailure.inputText)', () => {
+  // Flipped to the V5 path deliberately. This block used to assert on
+  // `lastFailedInput`, which the V4 branch set and which has now been deleted
+  // (zero readers; `lastSendFailure.inputText` carries the same payload and IS
+  // consumed, by FirstUseComposer). `lastSendFailure` is only ever CLEARED in
+  // the V4 branch — every set site lives inside the V5 block — so keeping these
+  // on V4 would assert against a signal that path never raises. V5 is also the
+  // deployed path, so this converts five dead-branch tests into live-branch
+  // ones rather than dropping the coverage.
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+  })
+
+  it('sets lastSendFailure.inputText on network error', async () => {
     mockCallTurn.mockRejectedValue(new Error('Network error'))
     mockCallV5Turn.mockRejectedValue(new Error('Network error'))
 
@@ -251,10 +365,10 @@ describe('input restore on error (lastFailedInput)', () => {
       await result.current.sendMessage('my important question')
     })
 
-    expect(result.current.lastFailedInput).toBe('my important question')
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBe('my important question')
   })
 
-  it('sets lastFailedInput on timeout', async () => {
+  it('sets lastSendFailure.inputText on timeout', async () => {
     mockCallTurn.mockReturnValue(new Promise(() => {}))
     // mockCallV5Turn already hangs by default from beforeEach
 
@@ -265,13 +379,16 @@ describe('input restore on error (lastFailedInput)', () => {
     })
 
     act(() => {
-      vi.advanceTimersByTime(60_000)
+      // Derived from the production constant, not a hard-coded 60_000: on the
+      // V5 path an empty canvas derives stage 'frame', which selects the
+      // EXTENDED (130s) budget, so a 60s advance never reaches the timeout.
+      vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS + 1_000)
     })
 
-    expect(result.current.lastFailedInput).toBe('timeout question')
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBe('timeout question')
   })
 
-  it('clears lastFailedInput on next successful send', async () => {
+  it('clears lastSendFailure.inputText on next successful send', async () => {
     // First call fails
     mockCallTurn.mockRejectedValueOnce(new Error('fail'))
     mockCallV5Turn.mockRejectedValueOnce(new Error('fail'))
@@ -289,16 +406,16 @@ describe('input restore on error (lastFailedInput)', () => {
     await act(async () => {
       await result.current.sendMessage('first attempt')
     })
-    expect(result.current.lastFailedInput).toBe('first attempt')
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBe('first attempt')
 
     // Second send — succeeds
     await act(async () => {
       await result.current.sendMessage('second attempt')
     })
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
   })
 
-  it('clears lastFailedInput on clearHistory', async () => {
+  it('clears lastSendFailure.inputText on clearHistory', async () => {
     mockCallTurn.mockRejectedValue(new Error('fail'))
     mockCallV5Turn.mockRejectedValue(new Error('fail'))
 
@@ -307,15 +424,15 @@ describe('input restore on error (lastFailedInput)', () => {
     await act(async () => {
       await result.current.sendMessage('failing message')
     })
-    expect(result.current.lastFailedInput).toBe('failing message')
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBe('failing message')
 
     act(() => {
       result.current.clearHistory()
     })
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
   })
 
-  it('clears lastFailedInput on scenario switch', async () => {
+  it('clears lastSendFailure.inputText on scenario switch', async () => {
     mockCallTurn.mockRejectedValue(new Error('fail'))
     mockCallV5Turn.mockRejectedValue(new Error('fail'))
 
@@ -324,14 +441,14 @@ describe('input restore on error (lastFailedInput)', () => {
     await act(async () => {
       await result.current.sendMessage('failing message')
     })
-    expect(result.current.lastFailedInput).toBe('failing message')
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBe('failing message')
 
     // Simulate scenario switch
     act(() => {
       useCanvasStore.setState({ currentScenarioId: 'b1b1b1b1-c2c2-4d3d-9e4e-f5f5f5f5f5f5' })
     })
 
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
   })
 })
 
@@ -1224,7 +1341,11 @@ describe('handleEnvelope — CEE wire shape handling', () => {
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Here is your model.',
       client_turn_id: 'resp-stage-obj',
-      stage_indicator: { stage: 'ideate', confidence: 'high', source: 'inferred' },
+      // Canonical WIRE vocabulary (schemas `Stage`): frame|analyse|decide|review.
+      // This fixture previously sent 'ideate' — a UI/DB `ScenarioStage` value
+      // that the wire never emits — and asserted it was written through
+      // unmapped, pinning the drift instead of catching it.
+      stage_indicator: { stage: 'analyse', confidence: 'high', source: 'inferred' },
     })
 
     const { result } = renderHook(() => useConversation())
@@ -1232,7 +1353,8 @@ describe('handleEnvelope — CEE wire shape handling', () => {
       await result.current.sendMessage('build model')
     })
 
-    expect(setCurrentStage).toHaveBeenCalledWith('ideate')
+    // wire 'analyse' → UI 'evaluate'
+    expect(setCurrentStage).toHaveBeenCalledWith('evaluate')
   })
 
   it('handles plain string stage_indicator', async () => {
@@ -1242,7 +1364,8 @@ describe('handleEnvelope — CEE wire shape handling', () => {
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Running analysis.',
       client_turn_id: 'resp-stage-str',
-      stage_indicator: 'evaluate',
+      // Canonical WIRE value (was 'evaluate' — a UI/DB value, never on the wire).
+      stage_indicator: 'review',
     })
 
     const { result } = renderHook(() => useConversation())
@@ -1250,7 +1373,8 @@ describe('handleEnvelope — CEE wire shape handling', () => {
       await result.current.sendMessage('run analysis')
     })
 
-    expect(setCurrentStage).toHaveBeenCalledWith('evaluate')
+    // wire 'review' → UI 'optimise'
+    expect(setCurrentStage).toHaveBeenCalledWith('optimise')
   })
 
   it('skips stage update when stage_indicator is absent', async () => {
@@ -1410,7 +1534,7 @@ describe('hidden send lifecycle', () => {
   })
 
   // TODO: streaming path produces synthetic error for hidden sends — needs separate fix
-  it.skip('does not set lastFailedInput on hidden send error', async () => {
+  it.skip('does not set lastSendFailure.inputText on hidden send error', async () => {
     mockCallTurn.mockRejectedValue(new Error('Network error'))
 
 
@@ -1420,13 +1544,13 @@ describe('hidden send lifecycle', () => {
       await result.current.sendMessage('run it', { hidden: true })
     })
 
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
     // No error bubble should appear
     const syntheticMessages = result.current.messages.filter(m => m.synthetic)
     expect(syntheticMessages).toHaveLength(0)
   })
 
-  it('does not set lastFailedInput on hidden send timeout', async () => {
+  it('does not set lastSendFailure.inputText on hidden send timeout', async () => {
     mockCallTurn.mockReturnValue(new Promise(() => {}))
 
     const { result } = renderHook(() => useConversation())
@@ -1439,7 +1563,7 @@ describe('hidden send lifecycle', () => {
       vi.advanceTimersByTime(60_000)
     })
 
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
     // No timeout error bubble
     const syntheticMessages = result.current.messages.filter(m => m.synthetic)
     expect(syntheticMessages).toHaveLength(0)
@@ -1536,7 +1660,7 @@ describe('hidden send lifecycle', () => {
     const userMsgs = result.current.messages.filter(m => m.role === 'user')
     expect(userMsgs).toHaveLength(1)
     expect(userMsgs[0].content).toBe('my question')
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
   })
 
   it('records generate_model trigger source and request summary', async () => {
@@ -1823,18 +1947,35 @@ describe('cancelTurn — T6 Stop button', () => {
 
     const assistantMessages = result.current.messages.filter((m) => m.role === 'assistant')
     expect(assistantMessages.length).toBeGreaterThan(0)
-    const last = assistantMessages[assistantMessages.length - 1]
+    // AMENDED by the stop-fence lane (Codex P0): `cancelTurn` now ALWAYS appends
+    // one terminal notice, so "the last assistant message" is the NOTICE, not the
+    // stopped stream. This test is about the stopped stream, so it names it —
+    // asserting against `last` would have silently started testing the notice's
+    // fields and passed while N8 itself regressed.
+    const stopped = assistantMessages.find((m) => m.stoppedByUser === true)
+    expect(stopped, 'the stopped streaming message must still be present').toBeDefined()
 
     // N8 regression: content must NOT be overwritten with the stuck-stream
     // recovery placeholder. The partial text the user saw must be preserved.
-    expect(last.content).not.toContain('The response was interrupted')
+    expect(stopped!.content).not.toContain('The response was interrupted')
+    // NOT asserting the partial text is present: I added that and it FAILED —
+    // in this harness the streamed text is still in the RAF buffer when Stop
+    // lands, so `content` is ''. The original test only ever claimed the
+    // negative, and inventing the positive here would have been a guarantee the
+    // code does not make.
     // No Try again chip — the user intentionally stopped.
-    const retryChip = last.actionChips?.find((c) => c.id === 'retry')
-    expect(retryChip).toBeUndefined()
+    expect(stopped!.actionChips?.find((c) => c.id === 'retry')).toBeUndefined()
     // Stopped indicator marker intact.
-    expect(last.stoppedByUser).toBe(true)
-    expect(last.isStreaming).toBe(false)
-    expect(last.isProvisional).toBe(false)
+    expect(stopped!.isStreaming).toBe(false)
+    expect(stopped!.isProvisional).toBe(false)
+
+    // And the terminal notice sits AFTER it, exactly once — the stopped stream
+    // and the notice are two different messages doing two different jobs.
+    const notices = assistantMessages.filter((m) => m.synthetic)
+    expect(notices).toHaveLength(1)
+    expect(assistantMessages.indexOf(notices[0])).toBeGreaterThan(
+      assistantMessages.indexOf(stopped!),
+    )
   })
 
   it('F: cancelTurn is idempotent when isThinking is false (not a no-op after first turn)', async () => {
@@ -1985,6 +2126,7 @@ describe('V5 graph re-fetch on analyse response', () => {
   }
 
   beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
     mockCallV5Turn.mockResolvedValue(makeAnalyseResult())
     useCanvasStore.setState({
       currentScenarioId: SCENARIO_ID,
@@ -2106,6 +2248,7 @@ describe('V5 inline graph from response.draft_graph', () => {
   })
 
   beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
     useCanvasStore.setState({
       currentScenarioId: SCENARIO_ID,
       nodes: [],
@@ -2202,10 +2345,182 @@ describe('V5 inline graph from response.draft_graph', () => {
 })
 
 // ---------------------------------------------------------------------------
+// V5 applied-edit receipt ingestion on a NON-EMPTY canvas (POC Lane C,
+// WEEKEND-SPRINT-PLAN-2026-07-11). CEE #414/#424 attach the FULL committed
+// post-mutation graph to applied-edit receipts via the EXISTING top-level
+// `draft_graph` wire field. The fresh-draft dispatch on the CEE side is gated
+// on `graphState == null` (route-v2 isDraftGraphShape), and this client always
+// sends graph_state, so draft_graph arriving while the canvas is non-empty is
+// unambiguously an applied-edit receipt — the UI must ingest the additions or
+// a confirmed added factor does not appear until reload.
+// ---------------------------------------------------------------------------
+
+describe('V5 applied-edit receipt ingestion (draft_graph on a non-empty canvas)', () => {
+  const SCENARIO_ID = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
+
+  /** Canvas state before the edit turn: goal + factor, one edge. */
+  const EXISTING_NODES = [
+    {
+      id: 'goal-1',
+      type: 'goal',
+      position: { x: 400, y: 40 },
+      data: { kind: 'goal', label: 'Revenue' },
+    },
+    {
+      id: 'factor-1',
+      type: 'factor',
+      position: { x: 40, y: 200 },
+      data: { kind: 'factor', label: 'Spend', observedState: { value: 100 } },
+    },
+  ]
+  const EXISTING_EDGES = [
+    {
+      id: 'e1',
+      source: 'factor-1',
+      target: 'goal-1',
+      type: 'styled',
+      data: { weight: 0.7, direction: 'positive' },
+    },
+  ]
+
+  /**
+   * The applied-edit receipt: full post-mutation graph = the two existing
+   * nodes + the newly added factor and its edge (CEE wire shape: kind/from/to).
+   */
+  const APPLIED_RECEIPT_GRAPH = {
+    nodes: [
+      { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+      { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 100 } },
+      { id: 'factor-2', kind: 'factor', label: 'Churn rate', observed_state: { value: 0.05 } },
+    ],
+    edges: [
+      { id: 'e1', from: 'factor-1', to: 'goal-1', weight: 0.7 },
+      { id: 'factor-2::goal-1::0', from: 'factor-2', to: 'goal-1', weight: -0.4 },
+    ],
+    node_count: 3,
+    edge_count: 2,
+  }
+
+  const makeAppliedEditReceipt = (graph = APPLIED_RECEIPT_GRAPH) => ({
+    kind: 'response' as const,
+    response: {
+      response_version: 2,
+      assistant_text: "Added 'Churn rate' and linked it to Revenue.",
+      blocks: [] as unknown[],
+      suggested_actions: [] as unknown[],
+      insights: [] as unknown[],
+      stage_indicator: 'frame',
+      draft_graph: graph,
+    },
+  })
+
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+    useCanvasStore.setState({
+      currentScenarioId: SCENARIO_ID,
+      nodes: EXISTING_NODES as any,
+      edges: EXISTING_EDGES as any,
+      results: { status: 'idle' } as any,
+      currentScenarioLastResultHash: null,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    })
+  })
+
+  it('ingests a confirmed added factor + edge from the applied-edit receipt (no reload required)', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+    mockCallV5Turn.mockResolvedValue(makeAppliedEditReceipt())
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('add a churn rate factor that hurts revenue')
+    })
+
+    const nodes = useCanvasStore.getState().nodes
+    const edges = useCanvasStore.getState().edges
+    // RED today: draft_graph ingestion is gated on canvasIsEmpty, so the
+    // confirmed added factor never reaches the canvas until a full reload.
+    expect(nodes.map((n) => n.id)).toContain('factor-2')
+    expect(edges.some((e) => e.source === 'factor-2' && e.target === 'goal-1')).toBe(true)
+    // Additive merge only — existing elements are untouched, nothing duplicated.
+    expect(nodes).toHaveLength(3)
+    expect(edges).toHaveLength(2)
+  })
+
+  it('preserves existing node positions and local data on merge (additive, never a replace)', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+    mockCallV5Turn.mockResolvedValue(makeAppliedEditReceipt())
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('add a churn rate factor that hurts revenue')
+    })
+
+    const factor1 = useCanvasStore.getState().nodes.find((n) => n.id === 'factor-1') as any
+    expect(factor1?.position).toEqual({ x: 40, y: 200 })
+    expect(factor1?.data?.label).toBe('Spend')
+  })
+
+  it('is a no-op when the receipt graph carries nothing new (value-only receipt)', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+    // Receipt whose graph matches the canvas exactly (e.g. a value edit whose
+    // graph_patch block already merged via applyV5State).
+    mockCallV5Turn.mockResolvedValue(
+      makeAppliedEditReceipt({
+        nodes: [
+          { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+          { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 250 } },
+        ],
+        edges: [{ id: 'e1', from: 'factor-1', to: 'goal-1', weight: 0.7 }],
+        node_count: 2,
+        edge_count: 1,
+      }),
+    )
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('set spend to 250')
+    })
+
+    const nodes = useCanvasStore.getState().nodes
+    expect(nodes).toHaveLength(2)
+    // No duplicate edge either.
+    expect(useCanvasStore.getState().edges).toHaveLength(1)
+  })
+
+  it('skips the merge when the scenario changed between dispatch and response', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+    let resolveTurn!: (v: unknown) => void
+    mockCallV5Turn.mockReturnValue(new Promise((res) => { resolveTurn = res }))
+
+    const { result } = renderHook(() => useConversation())
+    let sendPromise!: Promise<unknown>
+    await act(async () => {
+      sendPromise = result.current.sendMessage('add a churn rate factor')
+    })
+
+    // Scenario switch while the turn is in-flight.
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: 'different-scenario-uuid-here' })
+    })
+
+    resolveTurn(makeAppliedEditReceipt())
+    await act(async () => {
+      await sendPromise
+    })
+
+    expect(useCanvasStore.getState().nodes.map((n) => n.id)).not.toContain('factor-2')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // V1 leakage regression test (Task 7)
 // ---------------------------------------------------------------------------
 
 describe('V1 leakage regression — V5 flag prevents V4 streaming path', () => {
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+  })
+
   it('calls callV5Turn and does NOT call mockStreamTurn when V5 flag is on', async () => {
     const V5_TEXT = 'V5 exclusive response'
     mockCallV5Turn.mockResolvedValue(makeV5SuccessResult(V5_TEXT))
@@ -2232,5 +2547,689 @@ describe('V1 leakage regression — V5 flag prevents V4 streaming path', () => {
     const assistantMsg = result.current.messages.find((m) => m.role === 'assistant')
     expect(assistantMsg).toBeDefined()
     expect(assistantMsg?.content).toBe(V5_TEXT)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Login 3.4 — turn auth headers through the real hook (PR #268 review S4:
+// the pure buildTurnAuthHeaders unit alone could not catch a regression
+// that drops the Bearer from the actual turn call)
+// ---------------------------------------------------------------------------
+
+describe('login 3.4 — V5 turn auth headers', () => {
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+  })
+
+  afterEach(() => {
+    mockAccessToken.value = null
+  })
+
+  it('sends Authorization Bearer alongside X-User-Id when a session exists', async () => {
+    mockGetUserId.mockResolvedValue('user-abc')
+    mockAccessToken.value = 'tok-123'
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult('ok'))
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('auth header pin')
+    })
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    const opts = mockCallV5Turn.mock.calls[0][1] as { headers?: Record<string, string> }
+    expect(opts.headers).toMatchObject({
+      'X-User-Id': 'user-abc',
+      Authorization: 'Bearer tok-123',
+    })
+  })
+
+  it('sends NO auth headers for a guest (no session) — byte-identical pin', async () => {
+    mockGetUserId.mockResolvedValue(null)
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult('ok'))
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('guest header pin')
+    })
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    const opts = mockCallV5Turn.mock.calls[0][1] as { headers?: Record<string, string> }
+    expect(opts.headers).toEqual({})
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 1.16i — rerun UX integrity: authoritative analysing state + swallow guard
+// (re-plan Program A lane A1; Paul's extended acceptance = visible processing
+// for the whole turn, and re-clicks must not abort/re-mint the in-flight run)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Lane 1 seam pin — dispatchAction chip parameters reach the REAL V5 payload
+// (this dispatch→payload link was the untested hop in the July-13 P0 chain:
+// coverage stopped at the runner-mock boundary on one side and a hand-built
+// payload on the other).
+// ---------------------------------------------------------------------------
+
+describe('dispatchAction — chip parameters ride the real V5 payload', () => {
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+    useCanvasStore.getState().resultsReset()
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
+  })
+
+  it('forwards parameters.goal_threshold verbatim into payload.chip', async () => {
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.dispatchAction({
+        action_type: 'run_analysis',
+        parameters: { goal_threshold: 0.2 },
+        label: 'Run analysis',
+        message: 'Run analysis',
+        source: 'chip' as const,
+      })
+    })
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    const payload = mockCallV5Turn.mock.calls[0][0] as {
+      chip?: { action_type?: string; parameters?: Record<string, unknown> }
+    }
+    expect(payload.chip).toEqual({
+      action_type: 'run_analysis',
+      parameters: { goal_threshold: 0.2 },
+    })
+  })
+
+  it('a dispatch WITHOUT parameters builds a chip with NO parameters key (omission survives to the payload)', async () => {
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.dispatchAction({
+        action_type: 'run_analysis',
+        label: 'Run analysis',
+        message: 'Run analysis',
+        source: 'chip' as const,
+      })
+    })
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    const payload = mockCallV5Turn.mock.calls[0][0] as { chip?: Record<string, unknown> }
+    expect(payload.chip).toBeDefined()
+    expect(payload.chip).not.toHaveProperty('parameters')
+  })
+
+  it('an identity-only dispatch (parameters, no action_type) still ships chip.parameters — the null-intent spark/chip case (A1 meta-decision diagnosis, 2026-07-20)', async () => {
+    // Before buildChipMeta, dispatchAction gated chip metadata on
+    // action_type presence, silently stripping identity-only chips: the
+    // product-authored spark then travelled as anonymous text and CEE's
+    // draft-shape regex misread it as a decision brief. This pin exercises
+    // the REAL dispatchAction → REAL buildV5Payload chain (only the network
+    // runner is mocked), so reverting the construction goes RED here.
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.dispatchAction({
+        parameters: { spark_id: 'prepare_first_analysis' },
+        label: 'Prepare first analysis',
+        message: 'What should I check before running the first analysis?',
+        source: 'chip' as const,
+      })
+    })
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    const payload = mockCallV5Turn.mock.calls[0][0] as {
+      source?: string
+      chip?: { action_type?: string; parameters?: Record<string, unknown> }
+    }
+    expect(payload.source).toBe('chip')
+    expect(payload.chip).toBeDefined()
+    expect(payload.chip?.parameters).toEqual({ spark_id: 'prepare_first_analysis' })
+    // No action_type fabricated for a null-intent chip.
+    expect(payload.chip && 'action_type' in payload.chip).toBe(false)
+  })
+})
+
+describe('1.16i — rerun UX integrity', () => {
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+    mockTrackEvent.mockReset()
+    useCanvasStore.getState().resultsReset()
+  })
+
+  const RUN_ACTION = {
+    action_type: 'run_analysis',
+    label: 'Run analysis',
+    message: 'Run analysis',
+    source: 'chip' as const,
+  }
+
+  it('sets results.status=preparing at dispatch and settles on a text-only envelope', async () => {
+    let resolveTurn!: (v: unknown) => void
+    mockCallV5Turn.mockReturnValue(new Promise((res) => { resolveTurn = res }))
+
+    const { result } = renderHook(() => useConversation())
+    let dispatchPromise!: Promise<void>
+    act(() => {
+      dispatchPromise = result.current.dispatchAction(RUN_ACTION)
+    })
+
+    // The authoritative analysing state is set synchronously at dispatch —
+    // this is what makes isRunning true for the whole 20-30s turn.
+    expect(useCanvasStore.getState().results.status).toBe('preparing')
+
+    resolveTurn(makeV5SuccessResult('no analysis result this turn'))
+    await act(async () => { await dispatchPromise })
+
+    // Text-only envelope + no prior report → settles to idle, never stuck.
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+  })
+
+  it('swallows a run re-click while a run is in flight: one request, no abort, telemetry', async () => {
+    let resolveTurn!: (v: unknown) => void
+    mockCallV5Turn.mockReturnValue(new Promise((res) => { resolveTurn = res }))
+
+    const { result } = renderHook(() => useConversation())
+    let firstDispatch!: Promise<void>
+    act(() => {
+      firstDispatch = result.current.dispatchAction(RUN_ACTION)
+    })
+    expect(useCanvasStore.getState().results.status).toBe('preparing')
+
+    // Re-click while in flight: must NOT preempt-abort, must NOT mint a
+    // second turn — swallowed with telemetry.
+    await act(async () => {
+      await result.current.dispatchAction(RUN_ACTION)
+    })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(mockTrackEvent).toHaveBeenCalledWith('run_click_swallowed', expect.any(Object))
+
+    // The first turn still completes normally (it was not aborted).
+    const V5_TEXT = 'first run completed'
+    resolveTurn(makeV5SuccessResult(V5_TEXT))
+    await act(async () => { await firstDispatch })
+    expect(result.current.messages.some((m) => m.role === 'assistant' && m.content === V5_TEXT)).toBe(true)
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+  })
+
+  it('a failed run settles the analysing state (never stuck preparing)', async () => {
+    mockCallV5Turn.mockRejectedValue(new Error('boom'))
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.dispatchAction(RUN_ACTION)
+    })
+
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+  })
+
+  it('non-run turns never touch the analysing state', async () => {
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult('plain answer'))
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('a plain question')
+    })
+
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+    expect(mockTrackEvent).not.toHaveBeenCalledWith('run_click_swallowed', expect.any(Object))
+  })
+
+  it('a preempting user send aborts the in-flight run AND is itself dispatched (not dropped)', async () => {
+    // Regression fix: previously the preempt aborted run A but the new send then
+    // hit the isThinking guard (isThinkingRef stayed true until A's async
+    // finally) and was silently dropped — the in-flight turn killed AND the
+    // user's message lost, contradicting the preempt design ("abort rather than
+    // drop"). The fix clears isThinkingRef synchronously in the preempt branch
+    // so the new send proceeds; A's late finally is ownership-guarded and never
+    // clobbers the newer turn.
+    //
+    // The preempt rule reads import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR at CALL
+    // time — stub it for this test only so the plain send preempts.
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+    let resolveA!: (v: unknown) => void
+    mockCallV5Turn.mockReturnValueOnce(new Promise((res) => { resolveA = res })) // run A: pending
+    mockCallV5Turn.mockResolvedValueOnce(makeV5SuccessResult('C answer'))         // chatC: resolves
+
+    const { result } = renderHook(() => useConversation())
+
+    let runA!: Promise<void>
+    act(() => { runA = result.current.dispatchAction(RUN_ACTION) })
+    expect(useCanvasStore.getState().results.status).toBe('preparing')
+
+    // Preempting user send: aborts run A AND is dispatched (the fix).
+    await act(async () => {
+      await result.current.sendMessage('changed my mind, question first')
+    })
+
+    // NOT dropped: chatC reached the orchestrator (run A + chatC = 2 calls) and
+    // the user's message is in the transcript.
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    expect(
+      result.current.messages.some(
+        (m) => m.role === 'user' && m.content === 'changed my mind, question first',
+      ),
+    ).toBe(true)
+
+    // A's stale response lands; the ownership-guarded finally settles A's own
+    // slot without clobbering chatC.
+    resolveA(makeV5SuccessResult('stale A response'))
+    await act(async () => { await runA })
+
+    vi.unstubAllEnvs()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STOP-FENCE (Codex P0) — the explicit Stop is server-visible, and never silent
+//
+// The defect this closes, reproduced on staging
+// (PHASE0-EVIDENCE-2026-07-28/fix-stop-fence.md): Stop aborted only the local
+// controller, CEE ran the turn to completion and committed it, and the user —
+// who saw an empty composer and assumed nothing had happened — sent another turn
+// on the same scenario. The stopped draft committed 163ms after the new one and
+// overwrote its graph.
+//
+// So there are two claims here, and they are separate tests because they can
+// regress independently:
+//   1. the server is TOLD (with the ids that went on the wire);
+//   2. the user is TOLD, ALWAYS, exactly once, in words chosen by the answer.
+// ═══════════════════════════════════════════════════════════════════════════
+describe('cancelTurn — stop-fence: the server is told, and so is the user', () => {
+  beforeEach(() => {
+    localStorage.setItem('feature.orchestratorStreaming', '1')
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
+    mockStopV5Turn.mockReset()
+    mockStopV5Turn.mockResolvedValue({ kind: 'not_saved' })
+  })
+  afterEach(() => {
+    localStorage.removeItem('feature.orchestratorStreaming')
+  })
+
+  /** A stream that yields nothing at all, then hangs — an EARLY stop, before
+   *  any streaming message or graph preview exists. This is the case #527's
+   *  liveproof recorded as "silent by design", and the case that made the
+   *  corruption reachable. */
+  function configureSilentHangingStream() {
+    // Yielding NOTHING is the case under test: an early Stop, before a single
+    // frame has arrived. A decoy yield would make it a different scenario.
+    // eslint-disable-next-line require-yield -- see above; the empty stream IS the case
+    mockStreamTurn.mockImplementation(async function* (_req: unknown, signal: AbortSignal) {
+      await new Promise<never>((_, reject) => {
+        if (signal.aborted) {
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+          return
+        }
+        signal.addEventListener('abort', () => {
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+        }, { once: true })
+      })
+    })
+  }
+
+  async function stopAnEarlyDraft(outcome: StopFenceResult) {
+    mockStopV5Turn.mockResolvedValue(outcome)
+    configureSilentHangingStream()
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('Should we restructure the on-call rotation next quarter?')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    return result
+  }
+
+  it('sends the stop to the server with the ids that went ON THE WIRE', async () => {
+    const result = await stopAnEarlyDraft({ kind: 'not_saved' })
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+    const identity = mockStopV5Turn.mock.calls[0][0] as { scenarioId: string; turnId: string }
+    // The tombstone is keyed on (scenario_id, turn_id); a stop naming any other
+    // pair fences nothing and still reports success.
+    expect(typeof identity.scenarioId).toBe('string')
+    expect(identity.scenarioId.length).toBeGreaterThan(0)
+    expect(typeof identity.turnId).toBe('string')
+    expect(identity.turnId.length).toBeGreaterThan(0)
+    expect(result.current.messages.length).toBeGreaterThan(0)
+  })
+
+  it('an EARLY stop is NOT silent — one terminal notice + a working chip, with no preview on the canvas', async () => {
+    const result = await stopAnEarlyDraft({ kind: 'not_saved' })
+    const synthetic = result.current.messages.filter((m) => m.synthetic)
+    expect(synthetic).toHaveLength(1)
+    expect(synthetic[0].content).toBe(EARLY_STOP_NOT_SAVED_NOTICE)
+    expect(synthetic[0].actionChips?.map((c) => c.id)).toEqual([START_NEW_DRAFT_CHIP_ID])
+    // NOT `retry`: retryLast re-sends onto the same scenario, which CEE's
+    // continuation guard declines once that scenario has a committed turn.
+    expect(synthetic[0].actionChips?.some((c) => c.id === 'retry')).toBe(false)
+  })
+
+  it('says the draft had ALREADY been saved when the server says so', async () => {
+    const result = await stopAnEarlyDraft({ kind: 'already_saved' })
+    const synthetic = result.current.messages.filter((m) => m.synthetic)
+    expect(synthetic).toHaveLength(1)
+    expect(synthetic[0].content).toBe(EARLY_STOP_ALREADY_SAVED_NOTICE)
+  })
+
+  it('admits it cannot tell when the stop was not acknowledged', async () => {
+    // A 200-only boolean would have collapsed this state into "cancelled", which
+    // is the one thing the copy must never claim without evidence.
+    const result = await stopAnEarlyDraft({ kind: 'unconfirmed', reason: 'transport' })
+    const synthetic = result.current.messages.filter((m) => m.synthetic)
+    expect(synthetic).toHaveLength(1)
+    expect(synthetic[0].content).toBe(EARLY_STOP_UNCONFIRMED_NOTICE)
+  })
+
+  // ⚠ THE "EXACTLY ONE NOTICE" PIN IS NOT HERE, AND THAT IS A CORRECTION.
+  //   I wrote it here first, attaching `abortedWithPreview` to the AbortError this
+  //   file's mocked `streamOrchestratorTurn` throws. It passed — and then SURVIVED
+  //   the mutation that makes sendTurn's abort branch fire unconditionally
+  //   (U6 in the lane's mutation table). The reason: this harness drives the
+  //   LEGACY streaming seam, and the `abortedWithPreview` catch lives on the V5
+  //   streamed path, so the flag was never read. A green test asserting nothing —
+  //   trap 13, in the test written to prevent a double notice.
+  //   The real pin lives in `streamedDraftTurn.spec.ts`, which drives the V5
+  //   stream through `openV5TurnStream` and therefore reaches that branch. It
+  //   bites U6.
+
+  // ══ AMENDMENT A2 — THE DOUBLE PRESS ═══════════════════════════════════════
+  //
+  // Measured BEFORE the fix (probes recorded in the evidence file): a double press
+  // did not re-fire even then, because the handler's `if (!isThinkingRef.current)
+  // return` bails. So these tests are NOT a RED-first pin on a live defect and are
+  // not presented as one — they pin the CONTRACT ("exactly one stop, exactly one
+  // notice, per turn id") so that it stops depending on how the isThinking
+  // lifecycle happens to be sequenced. The mutation that removes the id guard is
+  // therefore expected to SURVIVE these two while biting the third; that
+  // asymmetry is the honest result and it is recorded, not hidden.
+  it('two SYNCHRONOUS presses send ONE stop and emit ONE notice', async () => {
+    configureSilentHangingStream()
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('Draft the on-call rotation decision')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+    expect(result.current.messages.filter((m) => m.synthetic)).toHaveLength(1)
+  })
+
+  it('a second press AFTER the round trip has resolved sends no second stop', async () => {
+    configureSilentHangingStream()
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('Draft the on-call rotation decision')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+    expect(result.current.messages.filter((m) => m.synthetic)).toHaveLength(1)
+  })
+
+  // ══ PIN 1 (#534 round-2 verify) — THE RETRY PATH, WHICH WAS SILENT AT HEAD ══
+  //
+  // This test was written in round 2, reported as shipped, and then DESTROYED by
+  // my own mutation harness (`git checkout -- .`) along with the guard removal it
+  // justified. The round-2 verify found the guard still live at 2462a689 and this
+  // hazard with it. It is the pin for the guard's ABSENCE: restore the
+  // `has(...)` early return and this goes RED.
+  //
+  // `retryLast` re-sends with the SAME client_turn_id (:2096 / :3867 / :5791), so
+  // with the guard the second Stop hits `has(...)` and returns early — no
+  // tombstone, no notice, and the stopped turn's write never fenced.
+  it('stop → retryLast → stop: the tombstone AND the notice both fire again', async () => {
+    configureSilentHangingStream()
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('Draft the on-call rotation decision')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+    const firstId = (mockStopV5Turn.mock.calls[0][0] as { turnId: string }).turnId
+
+    // The retry reuses the id — that is the whole point of the hazard.
+    configureSilentHangingStream()
+    await act(async () => {
+      void result.current.retryLast()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // (a) the server IS told, with the same id, a second time.
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(2)
+    expect((mockStopV5Turn.mock.calls[1][0] as { turnId: string }).turnId).toBe(firstId)
+    // (b) and the user IS told. ONE notice is visible rather than two because
+    // `retryLast` deliberately drops the trailing synthetic message it was
+    // retried FROM — measured, then checked, before this assertion was written.
+    const notices = result.current.messages.filter((m) => m.synthetic)
+    expect(notices).toHaveLength(1)
+    expect(notices[0].content).toBe(EARLY_STOP_NOT_SAVED_NOTICE)
+    expect(notices[0].actionChips?.map((c) => c.id)).toEqual([START_NEW_DRAFT_CHIP_ID])
+  })
+
+  // ══ PIN 3 (rebuilt, #534 round-3) — THE DISPATCH-TIME IDENTITY REFRESH ══════
+  //
+  // ⚠ MY PREVIOUS VERSION OF THIS TEST WAS VACUOUS, and the round-3 verify proved
+  //   it: under a "write only-if-empty" mutant — the exact stale-pair hazard — it
+  //   stayed green, because `useCanvasStore.setState({currentScenarioId: null})`
+  //   trips the scenario-change effect that CLEARS the conversation, so the second
+  //   Stop never executed at all and my assertion passed BY ABSENCE. Third
+  //   generation of trap 13 in this lane, in the pin I offered as justification for
+  //   a deletion.
+  //
+  // Rebuilt so BOTH stops actually happen, with a real scenario id throughout, and
+  // the assertion is about which turn the second tombstone NAMES. Under the
+  // only-if-empty mutant the second stop names turn A and this REDs.
+  it('stop A → send B → stop B: the second tombstone names B, never A', async () => {
+    configureSilentHangingStream()
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('turn A — the on-call rotation decision')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+
+    // Turn B, same scenario, dispatched normally. Nothing is reset between them —
+    // the refresh at dispatch is the only thing that can move the identity.
+    configureSilentHangingStream()
+    await act(async () => {
+      result.current.sendMessage('turn B — a different question entirely')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // Both stops happened — asserted explicitly, because "the second one silently
+    // never ran" is precisely how the previous version of this test passed.
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(2)
+    const [first, second] = mockStopV5Turn.mock.calls.map(
+      (c) => c[0] as { scenarioId: string; turnId: string },
+    )
+    expect(second.turnId).not.toBe(first.turnId)
+    expect(second.scenarioId).toBe(first.scenarioId)
+  })
+
+  it('an idle Stop click never contacts the server', async () => {
+    // cancelTurn's isThinking guard: no turn, no tombstone. A stop request for a
+    // turn that does not exist would create a fence row for a turn_id nobody
+    // claimed.
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    expect(mockStopV5Turn).not.toHaveBeenCalled()
+    expect(result.current.messages).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROADMAP 2.665 — wait-expiry honesty on the DEPLOYED V5 path
+// ---------------------------------------------------------------------------
+//
+// ⚠ MOUNT PATH, ASSERTED IN-TEST (trap 3b). The pre-existing timeout test in
+// this file ("aborts and shows error at 60s", ~line 293) runs under the
+// file-level beforeEach, which sets `mockIsV5Eligible` to
+// `{ eligible: false, reason: 'flag_off' }` — so it exercises the V4 ROLLBACK
+// block, not the block staging serves. That is why the false copy below shipped
+// under a green suite. This describe flips eligibility ON and then PROVES the
+// V5 block ran (`mockCallV5Turn` was invoked), so the binding fails loud if the
+// dispatch ever moves.
+//
+// The defect, live-witnessed 2026-08-07
+// (PHASE0-EVIDENCE-2026-07-28/splitter-final-witness-2026-08-07.md): the client
+// stopped waiting and told the user, verbatim, "We stopped waiting, so your
+// message has not gone through" — while CEE completed and COMMITTED the same
+// turn at ~123s (200, was_rejected:true, turn rows written). The retry it
+// offered would have asked a second time: CEE's commit idempotency key is
+// `(scenario_id, turn_id)` where `turn_id` is CEE's OWN per-HTTP-request id
+// (turn-executor.ts `turn_id: requestId`), minted fresh by
+// `getOrGenerateRequestId` because this client sends no `x-request-id` /
+// `x-cee-request-id` / `x-correlation-id` header (turnAuthHeaders.ts emits only
+// `X-User-Id` + `Authorization`). Reusing `client_turn_id` buys nothing —
+// CEE never reads `payload.turn_id` as a dedupe key.
+describe('ROADMAP 2.665 — wait expiry never claims non-delivery (V5 path)', () => {
+  const SCENARIO_ID = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
+
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+    useCanvasStore.setState({ currentScenarioId: SCENARIO_ID })
+  })
+
+  /** Drive a turn that never resolves, then run the wait out. */
+  const expireTheWait = async () => {
+    mockCallV5Turn.mockReturnValue(new Promise(() => {}))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('add three options and a risk for each')
+    })
+    act(() => {
+      vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS + 1_000)
+    })
+    return result
+  }
+
+  it('I-C: does NOT give up at 60s — the old budget, which discarded a committed reply', async () => {
+    // ⚠ ADDED BECAUSE A MUTANT SURVIVED. Shortening getTimeoutMs back to 60s
+    // left every other test in this describe GREEN: they advance well past any
+    // plausible wait and then assert copy, chips and state, so none of them
+    // could see the budget itself change. The wait length had guards
+    // (turnWaitCoversServerDeadline.spec.ts, getTimeoutMs.test.ts) but nothing
+    // at the surface where the loss actually happens.
+    //
+    // 60s is the exact budget the live witness measured being too short: the
+    // client abandoned the turn at 60.0s while CEE returned 200 at 123.1s.
+    // Nothing may be rendered at that point — the turn is still running.
+    mockCallV5Turn.mockReturnValue(new Promise(() => {}))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('add three options and a risk for each')
+    })
+    act(() => {
+      vi.advanceTimersByTime(61_000)
+    })
+    expect(result.current.isThinking).toBe(true)
+    expect(result.current.messages.some((m) => m.synthetic)).toBe(false)
+
+    // And it does still stop eventually — this is a "waits longer" assertion,
+    // not a "never gives up" one.
+    act(() => {
+      vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS)
+    })
+    expect(result.current.isThinking).toBe(false)
+    expect(result.current.messages.some((m) => m.synthetic)).toBe(true)
+  })
+
+  it('dispatches through the V5 block (mount-path pin for the assertions below)', async () => {
+    const result = await expireTheWait()
+    expect(mockCallV5Turn).toHaveBeenCalled()
+    expect(result.current.isThinking).toBe(false)
+  })
+
+  it('I-A: the wait-expiry notice never states non-delivery', async () => {
+    const result = await expireTheWait()
+    const last = result.current.messages[result.current.messages.length - 1]
+    expect(last.synthetic).toBe(true)
+    for (const pattern of NON_DELIVERY_CLAIM_PATTERNS) {
+      expect(last.content).not.toMatch(pattern)
+    }
+  })
+
+  it('I-A: the wait-expiry notice says the outcome is unknown', async () => {
+    const result = await expireTheWait()
+    const last = result.current.messages[result.current.messages.length - 1]
+    expect(assertsDeliveryUnknown(last.content)).toBe(true)
+  })
+
+  it('I-A: the user bubble is not marked "Not delivered"', async () => {
+    const result = await expireTheWait()
+    const userBubble = result.current.messages.find((m) => m.role === 'user')
+    expect(userBubble).toBeDefined()
+    expect(userBubble!.deliveryState).not.toBe('failed')
+    expect(userBubble!.deliveryState).toBe('unconfirmed')
+  })
+
+  it('I-B: no blind Retry is offered while delivery is unknown', async () => {
+    const result = await expireTheWait()
+    const last = result.current.messages[result.current.messages.length - 1]
+    const chipIds = (last.actionChips ?? []).map((c) => c.id)
+    expect(chipIds).not.toContain('retry')
+  })
+
+  it('I-B: the send-failure notice does not advertise a retry affordance', async () => {
+    const result = await expireTheWait()
+    expect(result.current.lastSendFailure?.retryable).toBe(false)
   })
 })

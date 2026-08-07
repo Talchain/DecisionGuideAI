@@ -102,6 +102,19 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
   const handleImport = (autoFix: boolean) => {
     if (!importPreview) return
 
+    // F1 (PR #582 adversarial review, gate corrected by the delta re-review):
+    // store.importCanvas replaces the whole graph AND wipes undo history
+    // (past/future emptied), so the clobber is unrecoverable where
+    // localStorage autosave is disabled. Gate on NON-EMPTY canvas, not
+    // `isDirty` — that flag is hollow (ordinary node/edge edits and CEE
+    // draft-apply never set it), and the copy states what actually happens.
+    if (
+      (nodes.length > 0 || edges.length > 0) &&
+      !window.confirm('Import this file? This will replace your current canvas and clear undo history.')
+    ) {
+      return
+    }
+
     let jsonToImport = importPreview
 
     if (autoFix) {

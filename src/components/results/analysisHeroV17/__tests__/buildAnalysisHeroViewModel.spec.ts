@@ -16,7 +16,7 @@ import type {
   EvidenceGapItem,
   OptionResult,
   FragileEdgeItem,
-  RobustnessLevel,
+  RobustnessDisplayVerdict,
 } from '../../types'
 
 function makeOption(id: string, label: string, winProb: number): OptionResult {
@@ -32,6 +32,12 @@ function makeData(overrides: {
   dimensions?: { evidence: number; robustness: number; clarity: number }
   bias?: Array<{ type: string; description: string }>
   dqp?: string[]
+  /**
+   * Lane 1 (P1): full decision-quality-prompt objects (the mapped UI shape,
+   * incl. optional DSK provenance). Takes precedence over `dqp` when set —
+   * used by the DSK-grounding tests to feed fixture-identical entries.
+   */
+  dqpFull?: ConfidenceSectionData['m2DecisionQualityPrompts']
   /**
    * Review status surfaced on `data.confidence.reviewStatus`. The Key
    * question card requires `'complete'` to render — defaulted to that
@@ -60,7 +66,7 @@ function makeData(overrides: {
    * either (ROBUSTNESS-VERDICT-CONTRACT). Undefined by default to mirror the
    * live contract (no display-safe verdict today).
    */
-  robustnessVerdict?: RobustnessLevel
+  robustnessVerdict?: RobustnessDisplayVerdict
 } = {}): ResultsSectionDataReturn {
   const winner = overrides.winnerLabel === null
     ? null
@@ -107,7 +113,7 @@ function makeData(overrides: {
       affectedElements: [],
       linkedCritiqueCode: '',
     })),
-    m2DecisionQualityPrompts: overrides.dqp?.map(q => ({
+    m2DecisionQualityPrompts: overrides.dqpFull ?? overrides.dqp?.map(q => ({
       principle: 'test',
       appliesBecause: 'test',
       question: q,
@@ -197,7 +203,6 @@ function gap(
     factorLabel: label,
     confidence: 50,
     voi,
-    evpiPp: voi * 50,
     suggestion,
     targetNodeId: factorId,
   } as EvidenceGapItem
@@ -261,8 +266,8 @@ describe('buildAnalysisHeroViewModel', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         // Trust fix: the confident 'strong' posture now also requires the
-        // display-safe robustnessVerdict === 'high' (ROBUSTNESS-VERDICT-CONTRACT).
-        data: makeData({ stability: 0.9, robustnessVerdict: 'high' }),
+        // display-safe robustnessVerdict === 'robust' (ROBUSTNESS-VERDICT-CONTRACT).
+        data: makeData({ stability: 0.9, robustnessVerdict: 'robust' }),
         vm: makeVm({ decisionState: 'robust', evidenceLevel: 'good' }),
       })
       expect(vm.state).toBe('strong')
@@ -491,6 +496,108 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.keyQuestion?.text).toBe('What evidence would change your view?')
     })
 
+    /**
+     * ── 2.491: the `generalGuidance` JOIN ────────────────────────────────
+     *
+     * `buildKeyQuestion` maps the selected prompt's `groundingState` onto the
+     * VM's `generalGuidance` flag. That join is invisible to any render test —
+     * deleting `...(generalGuidance ? { generalGuidance: true } : {})` was
+     * demonstrated to SURVIVE the whole suite. These cases are what make that
+     * deletion bite.
+     *
+     * (The V17 hero is the flag-OFF arm and does not mount on staging; the
+     * DEPLOYED proof is KeyQuestionCard.generalGuidance.spec.tsx plus the
+     * mount-path guard in ResultsBody.keyQuestionLiveMount.spec.tsx. This join
+     * still needs pinning: an unpinned branch is an unpinned branch.)
+     */
+    it('2.491 — sets generalGuidance from the SELECTED prompt\'s general verdict', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          stability: 0.7,
+          dqpFull: [
+            {
+              principle: 'Consider-the-opposite',
+              appliesBecause: 'x',
+              question: 'What would make you switch?',
+              groundingState: 'general',
+            },
+          ] as never,
+        }),
+        vm: makeVm({ decisionState: 'sensitive' }),
+      })
+      // POSITIVE CONTROL for the join: prove a card exists before asserting a
+      // flag on it, or a null card passes vacuously.
+      expect(vm.keyQuestion).not.toBeNull()
+      expect(vm.keyQuestion?.text).toBe('What would make you switch?')
+      expect(vm.keyQuestion?.generalGuidance).toBe(true)
+      expect(vm.keyQuestion?.grounding).toBeUndefined()
+    })
+
+    it('2.491 — does NOT set generalGuidance for an attested prompt (discriminating half)', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          stability: 0.7,
+          dqpFull: [
+            {
+              principle: 'Outside view and reference class forecasting',
+              appliesBecause: 'x',
+              question: 'What is the base rate?',
+              dskClaimId: 'DSK-T-002',
+              evidenceStrength: 'strong',
+              groundingState: 'attested',
+            },
+          ] as never,
+        }),
+        vm: makeVm({ decisionState: 'sensitive' }),
+      })
+      expect(vm.keyQuestion?.generalGuidance).toBeUndefined()
+      expect(vm.keyQuestion?.grounding?.claimId).toBe('DSK-T-002')
+    })
+
+    it('2.491 — no verdict on the wire ⇒ no flag (absence is not "general")', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          stability: 0.7,
+          dqpFull: [
+            { principle: 'Consider-the-opposite', appliesBecause: 'x', question: 'A question' },
+          ] as never,
+        }),
+        vm: makeVm({ decisionState: 'sensitive' }),
+      })
+      expect(vm.keyQuestion).not.toBeNull()
+      expect(vm.keyQuestion?.generalGuidance).toBeUndefined()
+    })
+
+    it('2.491 — binds to prompt[0], not to "any prompt in the list"', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          stability: 0.7,
+          dqpFull: [
+            {
+              principle: 'Outside view and reference class forecasting',
+              appliesBecause: 'x',
+              question: 'attested first',
+              dskClaimId: 'DSK-T-002',
+              groundingState: 'attested',
+            },
+            {
+              principle: 'Consider-the-opposite',
+              appliesBecause: 'x',
+              question: 'general second',
+              groundingState: 'general',
+            },
+          ] as never,
+        }),
+        vm: makeVm({ decisionState: 'sensitive' }),
+      })
+      expect(vm.keyQuestion?.text).toBe('attested first')
+      expect(vm.keyQuestion?.generalGuidance).toBeUndefined()
+    })
+
     it('hides the card when reviewStatus !== "complete" even if a clean DQP is present (in-progress / stale guard)', () => {
       // Upstream selector exposes m2DecisionQualityPrompts even during a
       // partial review. Without the reviewStatus gate the card would
@@ -546,7 +653,7 @@ describe('buildAnalysisHeroViewModel', () => {
         ...STD_ARGS,
         data: makeData({
           stability: 0.9,
-          robustnessVerdict: 'high',
+          robustnessVerdict: 'robust',
           dqp: ['What evidence would change your view?'],
         }),
         vm: makeVm({ decisionState: 'robust', evidenceLevel: 'good' }),
@@ -675,18 +782,19 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.resultLine).toBe('Tech Lead comes out ahead most often.')
     })
 
-    it('result line appends the sensitivity caveat ONLY from a non-"high" display-safe verdict + a fragile edge', () => {
-      // Authorised path: a known non-'high' robustnessVerdict means the result
-      // is sensitive; with a concrete fragile edge to point at, the caveat
-      // fires. This is the single-source replacement for the old raw-stability
-      // gate (ROBUSTNESS-VERDICT-CONTRACT).
+    it('result line appends the sensitivity caveat ONLY from a sensitive display-safe verdict + a fragile edge', () => {
+      // Authorised path: the producer's own 'moderate'/'fragile'
+      // display_verdict means the result is sensitive; with a concrete
+      // fragile edge to point at, the caveat fires. This is the
+      // single-source replacement for the old raw-stability gate
+      // (ROBUSTNESS-VERDICT-CONTRACT).
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({
           winnerLabel: 'Tech Lead',
           tier: 'fair',
           stability: 0.74,
-          robustnessVerdict: 'low',
+          robustnessVerdict: 'fragile',
           fragile: {
             fromId: 'n_h',
             fromLabel: 'Hiring rate',
@@ -701,14 +809,39 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.resultLine).toBe('Tech Lead comes out ahead most often, but the result is sensitive to assumptions.')
     })
 
-    it('result line stays neutral when the display-safe verdict is "high", even with a fragile edge', () => {
+    it('result line stays neutral when the display-safe verdict is "robust", even with a fragile edge', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({
           winnerLabel: 'Tech Lead',
           tier: 'fair',
           stability: 0.74,
-          robustnessVerdict: 'high',
+          robustnessVerdict: 'robust',
+          fragile: {
+            fromId: 'n_h',
+            fromLabel: 'Hiring rate',
+            toId: 'n_o',
+            toLabel: 'Outcome',
+            switchProbability: 0.42,
+            alternativeWinnerLabel: 'Two Developers',
+          } as FragileEdgeItem,
+        }),
+        vm: makeVm(),
+      })
+      expect(vm.resultLine).toBe('Tech Lead comes out ahead most often.')
+    })
+
+    it('result line stays neutral on "not_assessed" — a stated absence is never a sensitivity claim', () => {
+      // The producer explicitly said robustness was NOT computed; deriving
+      // "sensitive to assumptions" from that would fabricate a claim (the
+      // retired `!= null && !== 'high'` logic would have fired here).
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          winnerLabel: 'Tech Lead',
+          tier: 'fair',
+          stability: 0.74,
+          robustnessVerdict: 'not_assessed',
           fragile: {
             fromId: 'n_h',
             fromLabel: 'Hiring rate',
@@ -747,7 +880,7 @@ describe('buildAnalysisHeroViewModel', () => {
         tier: 'fair',
         // Display-safe verdict drives the sensitivity nuance now (not raw
         // stability) — a genuinely sensitive but corroborated-dominant result.
-        robustnessVerdict: 'low',
+        robustnessVerdict: 'fragile',
         drivers,
         dominantFactorId: 'n_tl',
         dominantFactorLabel: 'Technical Leadership',
@@ -786,7 +919,7 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(row1.reason).toBe('If the estimate changes for Hiring rate, the leading option could change.')
     })
 
-    it('hero result line carries the sensitivity nuance (display-safe "low" verdict + fragile edge)', () => {
+    it('hero result line carries the sensitivity nuance (display-safe "fragile" verdict + fragile edge)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeCanonicalFixture(),
@@ -1243,7 +1376,7 @@ describe('buildAnalysisHeroViewModel', () => {
     it('strong → create-decision-brief (prefill)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
-        data: makeData({ stability: 0.9, robustnessVerdict: 'high' }),
+        data: makeData({ stability: 0.9, robustnessVerdict: 'robust' }),
         vm: makeVm({ decisionState: 'robust', evidenceLevel: 'good' }),
       })
       expect(vm.footerCta.kind).toBe('create-decision-brief')
@@ -1289,7 +1422,7 @@ describe('buildAnalysisHeroViewModel', () => {
     it('strong: caveats + next closest + revisit trigger (3 safe items, renders normally)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
-        data: makeData({ stability: 0.9, robustnessVerdict: 'high' }),
+        data: makeData({ stability: 0.9, robustnessVerdict: 'robust' }),
         vm: makeVm({ decisionState: 'robust', evidenceLevel: 'good' }),
       })
       const labels = vm.alsoLinks.map(l => l.label)
@@ -1390,5 +1523,113 @@ describe('buildAnalysisHeroViewModel', () => {
       })
       expect(vm.checkedCount).toBeNull()
     })
+  })
+})
+
+// ─── Lane 1 (P1): DSK science-provenance grounding on the key question ──────
+//
+// `selectKeyQuestion` reads `m2DecisionQualityPrompts[0]`. When that entry is
+// grounded in a Decision Science Knowledge claim (attested by `dskClaimId`),
+// the VM carries a `grounding` object for the card to render; when it is not,
+// the VM carries NONE — never a default, never an inferred strength.
+// Entries are fixture-identical (live captures r1/r3, CEE 76d2e1c) and
+// assertions bind by IDENTITY to the literal DSK ids.
+describe('keyQuestion DSK grounding (Lane 1)', () => {
+  const R1_ENTRY = {
+    principle: 'Consider-the-opposite as a debiasing strategy',
+    appliesBecause: 'Keep Current Setup (Status Quo) leads by a wide margin.',
+    question: 'What would make you switch to HubSpot instead of keeping the current setup?',
+    dskClaimId: 'DSK-T-003',
+    dskProtocolId: 'DSK-P-003',
+    evidenceStrength: 'medium' as const,
+  }
+  // r3[0] — the REAL no-id entry captured from live staging (the negative).
+  const R3_NO_ID_ENTRY = {
+    principle: 'Consider-the-opposite',
+    appliesBecause: 'HubSpot is the only challenger under plausible conditions.',
+    question: 'What would make you seriously consider switching from Keep Current Setup (Status Quo) to HubSpot?',
+  }
+  const R3_ID_ENTRY = {
+    principle: 'Outside view and reference class forecasting',
+    appliesBecause: 'Confidence in adoption risk is provisional.',
+    question: 'What is the base rate for user adoption success when mid-size teams move from status quo systems to new CRMs?',
+    dskClaimId: 'DSK-T-002',
+    dskProtocolId: 'DSK-P-002',
+    evidenceStrength: 'strong' as const,
+  }
+
+  it('r1[0] (DSK-T-003): grounding carried with claim id, protocol id, strength, principle — all verbatim', () => {
+    const vm = buildAnalysisHeroViewModel({
+      ...STD_ARGS,
+      data: makeData({ stability: 0.7, dqpFull: [R1_ENTRY] }),
+      vm: makeVm({ decisionState: 'sensitive' }),
+    })
+    expect(vm.keyQuestion?.text).toBe(R1_ENTRY.question)
+    expect(vm.keyQuestion?.grounding).toEqual({
+      principle: 'Consider-the-opposite as a debiasing strategy',
+      claimId: 'DSK-T-003',
+      protocolId: 'DSK-P-003',
+      strength: 'medium',
+    })
+  })
+
+  it('r3 in fixture order: main question is the REAL no-id entry → NO grounding (in-suite positive control: reordered run below)', () => {
+    const vm = buildAnalysisHeroViewModel({
+      ...STD_ARGS,
+      data: makeData({ stability: 0.7, dqpFull: [R3_NO_ID_ENTRY, R3_ID_ENTRY] }),
+      vm: makeVm({ decisionState: 'sensitive' }),
+    })
+    // The question still renders — honesty about provenance never suppresses content.
+    expect(vm.keyQuestion?.text).toBe(R3_NO_ID_ENTRY.question)
+    expect(vm.keyQuestion?.grounding).toBeUndefined()
+  })
+
+  it('positive control for the absence test: DSK-T-002 first → grounding present with strong strength', () => {
+    const vm = buildAnalysisHeroViewModel({
+      ...STD_ARGS,
+      data: makeData({ stability: 0.7, dqpFull: [R3_ID_ENTRY, R3_NO_ID_ENTRY] }),
+      vm: makeVm({ decisionState: 'sensitive' }),
+    })
+    expect(vm.keyQuestion?.grounding).toEqual({
+      principle: 'Outside view and reference class forecasting',
+      claimId: 'DSK-T-002',
+      protocolId: 'DSK-P-002',
+      strength: 'strong',
+    })
+  })
+
+  it('adversarial mapped shape: strength WITHOUT claim id → no grounding (VM never invents attestation)', () => {
+    const vm = buildAnalysisHeroViewModel({
+      ...STD_ARGS,
+      data: makeData({
+        stability: 0.7,
+        dqpFull: [{ ...R3_NO_ID_ENTRY, evidenceStrength: 'strong' } as never],
+      }),
+      vm: makeVm({ decisionState: 'sensitive' }),
+    })
+    expect(vm.keyQuestion?.text).toBe(R3_NO_ID_ENTRY.question)
+    expect(vm.keyQuestion?.grounding).toBeUndefined()
+  })
+
+  it('claim id present, strength absent → grounding WITHOUT strength (never defaulted)', () => {
+    const vm = buildAnalysisHeroViewModel({
+      ...STD_ARGS,
+      data: makeData({
+        stability: 0.7,
+        dqpFull: [{ ...R1_ENTRY, evidenceStrength: undefined }],
+      }),
+      vm: makeVm({ decisionState: 'sensitive' }),
+    })
+    expect(vm.keyQuestion?.grounding?.claimId).toBe('DSK-T-003')
+    expect(vm.keyQuestion?.grounding?.strength).toBeUndefined()
+  })
+
+  it('reviewStatus gate still hides the whole card — grounding never leaks past it', () => {
+    const vm = buildAnalysisHeroViewModel({
+      ...STD_ARGS,
+      data: makeData({ stability: 0.7, dqpFull: [R1_ENTRY], reviewStatus: 'in_progress' }),
+      vm: makeVm({ decisionState: 'sensitive' }),
+    })
+    expect(vm.keyQuestion).toBeNull()
   })
 })

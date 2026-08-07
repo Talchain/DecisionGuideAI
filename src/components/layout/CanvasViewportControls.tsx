@@ -6,10 +6,11 @@
  */
 
 import { memo } from 'react'
-import { ZoomOut, ZoomIn, Maximize2, LayoutGrid } from 'lucide-react'
+import { ZoomOut, ZoomIn, Maximize2, LayoutGrid, Rows3, Rows4 } from 'lucide-react'
 import { useStore } from '@xyflow/react'
 import Tooltip from '../Tooltip'
 import { CanvasLegendPopover } from '../../canvas/components/CanvasLegendPopover'
+import { useLayoutStore, densityOf } from '../../canvas/layoutStore'
 
 interface CanvasViewportControlsProps {
   onZoomIn: () => void
@@ -28,6 +29,16 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
 }: CanvasViewportControlsProps) {
   const zoom = useStore(s => s.transform[2])
   const zoomPct = `${Math.round(zoom * 100)}%`
+
+  // D4: comfortable/compact density is derived from the persisted tier spacing.
+  const layerSpacing = useLayoutStore(s => s.layerSpacing)
+  const setDensity = useLayoutStore(s => s.setDensity)
+  const density = densityOf(layerSpacing)
+  const nextDensity = density === 'compact' ? 'comfortable' : 'compact'
+  const toggleDensity = () => {
+    setDensity(nextDensity)
+    onAutoArrange() // re-run layout with the new spacing
+  }
 
   return (
     <nav
@@ -102,6 +113,22 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
           onClick={onAutoArrange}
         >
           <LayoutGrid size={16} aria-hidden="true" />
+        </button>
+      </Tooltip>
+
+      {/* D4: layout density — comfortable ⇄ compact (tighter tier spacing) */}
+      <Tooltip content={density === 'compact' ? 'Comfortable spacing' : 'Compact spacing'}>
+        <button
+          type="button"
+          className="w-7 h-7 inline-flex items-center justify-center rounded-full text-text-light hover:text-text-body transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
+          aria-label={`Layout density: ${density}. Switch to ${nextDensity}.`}
+          aria-pressed={density === 'compact'}
+          data-testid="layout-density-toggle"
+          onClick={toggleDensity}
+        >
+          {density === 'compact'
+            ? <Rows3 size={16} aria-hidden="true" />
+            : <Rows4 size={16} aria-hidden="true" />}
         </button>
       </Tooltip>
 

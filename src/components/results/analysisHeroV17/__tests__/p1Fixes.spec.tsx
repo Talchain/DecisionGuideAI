@@ -100,7 +100,7 @@ function gap(
   suggestion: string | undefined = 'Compare this estimate against recent data.',
 ): EvidenceGapItem {
   return {
-    factorId, factorLabel: label, confidence: 60, voi, evpiPp: voi * 50, suggestion, targetNodeId: factorId,
+    factorId, factorLabel: label, confidence: 60, voi, suggestion, targetNodeId: factorId,
   } as EvidenceGapItem
 }
 

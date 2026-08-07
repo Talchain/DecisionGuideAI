@@ -28,10 +28,11 @@ import { EstimateRow } from './EstimateRow'
 import { SUCCESS_INPUT_ID } from '../hero/HeroSection'
 import type { NodeType } from '../../../domain/nodes'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
+import type { SparkPrompt } from '../types'
 
 interface YourDecisionSectionProps {
   model: PreAnalysisModel
-  onSendPrompt: (label: string, prompt: string) => void
+  onSendPrompt: (spark: SparkPrompt) => void
   /** Bumped by the ladder to open and reveal a specific estimate row. */
   estimateFocus: { nodeId: string; seq: number } | null
 }
@@ -119,9 +120,9 @@ const AddRow = memo(function AddRow({
   placeholder: string
   /** Distinct accessible name for the + button (the input owns the placeholder name). */
   addLabel: string
-  spark: { label: string; prompt: string }
+  spark: SparkPrompt
   onAdd: (label: string) => boolean
-  onSendPrompt: (label: string, prompt: string) => void
+  onSendPrompt: (spark: SparkPrompt) => void
   testId: string
 }) {
   const [draft, setDraft] = useState('')
@@ -162,7 +163,7 @@ const AddRow = memo(function AddRow({
         <PanelIconButton
           variant="ai"
           aria-label={spark.label}
-          onClick={() => onSendPrompt(spark.label, spark.prompt)}
+          onClick={() => onSendPrompt(spark)}
         >
           <Sparkles className="h-3.5 w-3.5" aria-hidden />
         </PanelIconButton>
@@ -367,7 +368,11 @@ export const YourDecisionSection = memo(function YourDecisionSection({
                   setExpandedEstimate(current => (current === nodeId ? null : nodeId))
                 }
               />
-              {expandedEstimate === row.nodeId && !row.reviewed && (
+              {/* Walk gap #3 (dead-end half): the old `&& !row.reviewed` guard
+                  locked a wrong checked value out of the editor that accepted
+                  it. Reviewed rows now reopen the same drill-in via the row's
+                  Edit affordance. */}
+              {expandedEstimate === row.nodeId && (
                 <CalibrateDrillIn row={row} onDone={() => setExpandedEstimate(null)} />
               )}
             </div>

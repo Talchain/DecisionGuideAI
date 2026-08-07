@@ -415,9 +415,9 @@ describe('toCanonicalRun - v1.2 Response Normalization', () => {
     const canonical = toCanonicalRun(response)
 
     expect(canonical.responseHash).toBe('abc123')
-    expect(canonical.bands.p10).toBe(1000)
-    expect(canonical.bands.p50).toBe(5000)
-    expect(canonical.bands.p90).toBe(10000)
+    expect(canonical.bands!.p10).toBe(1000)
+    expect(canonical.bands!.p50).toBe(5000)
+    expect(canonical.bands!.p90).toBe(10000)
   })
 
   it('falls back to legacy results.*.outcome format', () => {
@@ -435,9 +435,9 @@ describe('toCanonicalRun - v1.2 Response Normalization', () => {
     const canonical = toCanonicalRun(response)
 
     expect(canonical.responseHash).toBe('legacy123')
-    expect(canonical.bands.p10).toBe(1000)
-    expect(canonical.bands.p50).toBe(5000)
-    expect(canonical.bands.p90).toBe(10000)
+    expect(canonical.bands!.p10).toBe(1000)
+    expect(canonical.bands!.p50).toBe(5000)
+    expect(canonical.bands!.p90).toBe(10000)
   })
 
   it('prefers v1.2 format over legacy when both present', () => {
@@ -463,9 +463,9 @@ describe('toCanonicalRun - v1.2 Response Normalization', () => {
     const canonical = toCanonicalRun(response)
 
     expect(canonical.responseHash).toBe('v1.2-hash')
-    expect(canonical.bands.p10).toBe(2000)
-    expect(canonical.bands.p50).toBe(6000)
-    expect(canonical.bands.p90).toBe(12000)
+    expect(canonical.bands!.p10).toBe(2000)
+    expect(canonical.bands!.p50).toBe(6000)
+    expect(canonical.bands!.p90).toBe(12000)
   })
 
   it('returns null for missing bands', () => {
@@ -478,9 +478,9 @@ describe('toCanonicalRun - v1.2 Response Normalization', () => {
     const canonical = toCanonicalRun(response)
 
     expect(canonical.responseHash).toBe('partial123')
-    expect(canonical.bands.p10).toBeNull()
-    expect(canonical.bands.p50).toBeNull()
-    expect(canonical.bands.p90).toBeNull()
+    expect(canonical.bands!.p10).toBeNull()
+    expect(canonical.bands!.p50).toBeNull()
+    expect(canonical.bands!.p90).toBeNull()
   })
 
   it('extracts confidence when present', () => {

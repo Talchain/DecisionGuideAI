@@ -265,12 +265,57 @@ export type CEEEdgeOrigin = 'user' | 'ai' | 'default'
  * Passed through to PLoT /v2/run so ISL can compute joint goal probability.
  */
 export interface CEEGoalConstraint {
-  /** Constraint-specific identifier (e.g. "c1"), NOT a graph node ID */
-  id: string
-  label: string
-  operator: '>=' | '<=' | '>' | '<' | '='
+  /**
+   * Constraint-specific identifier (e.g. "c1"), NOT a graph node ID.
+   *
+   * OPTIONAL because this interface carries constraints from two different
+   * seams. Constraints extracted at DRAFT time (CEE `draft_graph
+   * .goal_constraints`, @talchain/schemas `DraftGoalConstraintSchema`) identify
+   * themselves with `constraint_id` and carry no `id` at all. Read `id`
+   * defensively; prefer `constraint_id ?? id` when you need an identity.
+   */
+  id?: string
+  /**
+   * Human-readable label.
+   *
+   * OPTIONAL, and genuinely absent in practice: CEE's own producer schema
+   * (`src/schemas/assist.ts` GoalConstraintSchema) declares
+   * `label: z.string().optional()`, as does the wire contract. Guard every
+   * read — `c.label.toLowerCase()` throws on a perfectly valid constraint.
+   */
+  label?: string
+  /**
+   * SCHEMA-AUTHORITATIVE (@talchain/schemas 0.19.0 `DraftGoalConstraintSchema`):
+   * `z.enum(['>=', '<='])`, documented "ASCII only — CEE normalises away '<',
+   * '>' and the Unicode forms". PLoT's own preflight agrees: any other operator
+   * is a CONSTRAINT_INVALID_OPERATOR blocker (`validation/preflight-v2.ts`).
+   *
+   * This union previously also admitted '>' | '<' | '=', which let the GoalPanel
+   * offer an '=' the producer cannot accept. Narrowed to match the contract.
+   * Runtime drift is still gated, not assumed away — see UI-SEM-086
+   * (`prepareGoalConstraintsForRequest`), which re-checks the operator at the
+   * wire boundary rather than trusting this type.
+   */
+  operator: '>=' | '<='
   value: number
   probability?: number | null
+
+  // ── Draft-seam fields (CEE draft_graph.goal_constraints, schemas 0.18.0) ──
+  // Present on constraints extracted from the brief at draft time; absent on
+  // the PLoT run-request shape. Declared so the draft payload is typed rather
+  // than riding as an anonymous cast.
+  /** Unique constraint identifier (CEE: `constraint_<node_id>_<min|max>`). */
+  constraint_id?: string
+  /** Graph node this constraint binds to. Resolves against the drafted nodes. */
+  node_id?: string
+  /** Unit if known ('£', '%', 'fraction', ...). */
+  unit?: string
+  /** Verbatim span from the brief that produced this constraint. */
+  source_quote?: string
+  /** Extraction confidence (0-1). Regex path: 0.85 explicit / 0.6 inferred. */
+  confidence?: number
+  /** How the constraint was obtained — drives UI provenance display. */
+  provenance?: 'explicit' | 'inferred' | 'proxy'
 }
 
 /**
@@ -675,4 +720,43 @@ export function isCeePipelineTrace(value: unknown): value is CeePipelineTrace {
     typeof v.total_duration_ms === 'number' &&
     Array.isArray(v.stages)
   )
+}
+
+// =============================================================================
+// Belief elicitation (ROADMAP 2.364)
+// =============================================================================
+
+/**
+ * One clarification chip CEE offers when a phrase is ambiguous
+ * ("good" → "Very likely (90%)" / "Quite likely (75%)" / "More likely than
+ * not (60%)"). `value` is a probability in [0,1], same scale as
+ * `suggested_value`.
+ */
+export interface BeliefElicitOption {
+  label: string
+  /** Probability in [0,1]. */
+  value: number
+}
+
+/**
+ * CEE's answer to "what number does this phrase mean?" — the UI-local mirror of
+ * CEE's `CEEElicitBeliefResponseV1T`.
+ *
+ * `suggested_value` is a PROBABILITY in [0,1] — i.e. already the MODEL scale
+ * `observed_state.value` holds. It is never a user-unit magnitude, and the UI
+ * must not convert it into one: see `factorValueEdit.ts` (`'model_scale'` seed
+ * basis) for why the inversion belongs to the server.
+ *
+ * The engine is deterministic (lexicon + regex, no LLM call) — so this is a
+ * sub-second preview, not a generation.
+ */
+export interface BeliefElicitSuggestion {
+  /** Probability in [0,1]. */
+  suggested_value: number
+  confidence: 'high' | 'medium' | 'low'
+  reasoning: string
+  needs_clarification: boolean
+  clarifying_question?: string
+  options?: BeliefElicitOption[]
+  provenance: 'cee'
 }

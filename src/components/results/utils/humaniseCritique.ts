@@ -29,6 +29,43 @@ export interface HumanisedCritique {
   factorId?: string
 }
 
+// ─── CEE-owned display-copy codes ────────────────────────────────────────────
+
+/**
+ * Codes whose USER-FACING COPY is owned by CEE's critique pipeline
+ * (`olumi-assistants-service/src/orchestrator-v5/compose/sanitise-enrichment.ts`
+ * at `d2cdd99b`): the 10 S-bucket codes (CEE REPLACES the message with
+ * Paul-approved copy, 2026-04-30, labels resolved CEE-side) + the 3 U-bucket
+ * codes (producer plain-English `user_message` shipped as-is). For these, a
+ * clean `userMessage` outranks any UI template — the UI must not restate an
+ * approved disclosure in its own words.
+ *
+ * ⚠ HAND-MAINTAINED MIRROR of CEE's bucket table (CLAUDE.md trap 12),
+ * accepted deliberately for Car 1 and guarded two ways: (1) the sentinel
+ * corpus test in `__tests__/projectedCritiques.reach.spec.ts` walks every
+ * entry; (2) Car 2 (schemas seam-split, ROADMAP 2.293) is the rowed home for
+ * exporting this set from `@talchain/schemas` so both sides derive it.
+ * D-bucket codes never reach the browser (dropped by CEE's projection), so
+ * they are deliberately not listed.
+ */
+export const CEE_OWNED_CRITIQUE_CODES: ReadonlySet<string> = new Set([
+  // S bucket (approved replacement copy)
+  'EMPTY_INTERVENTIONS',
+  'INVALID_INTERVENTION_TARGET',
+  'NO_EFFECTIVE_PATH_TO_GOAL',
+  'IDENTICAL_OPTIONS',
+  'GRAPH_DISCONNECTED',
+  'OPTION_NO_INTERVENTIONS',
+  'LOW_EFFECTIVE_SAMPLES',
+  'DEGENERATE_OPTION_ZERO_VARIANCE',
+  'HIGH_TIE_RATE',
+  'SAMPLES_REDUCED_FOR_COMPLEXITY',
+  // U bucket (producer plain-English user_message, shipped as-is)
+  'NO_OPTIONS',
+  'INSUFFICIENT_OPTIONS',
+  'DEGENERATE_OUTCOMES',
+])
+
 // ─── Code → template map ─────────────────────────────────────────────────────
 
 type TemplateFactory = (factorLabel: string) => Omit<HumanisedCritique, 'factorId' | 'displayText'>
@@ -118,6 +155,83 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     description: 'Not all factor ranges are derived from the same source. Results may be less consistent.',
     suggestion: 'Review factor data sources',
   }),
+  // ROADMAP 1.12 — warning surfacing. Producer WARNING-severity code (PLoT
+  // constraint-reliability.ts): a goal constraint's target could not be
+  // scaled/evaluated reliably (default-range threshold and/or a defaulted
+  // base), so PLoT withholds goal-fit probabilities for the run rather than
+  // emit a meaningless number. Doctrine rule 6 (defaulted-value disclosure):
+  // names the concrete, actionable fix — set a value/range — never quotes
+  // the withheld number itself.
+  CONSTRAINT_TARGET_UNRELIABLE: (label) => ({
+    title: `${label}'s success target can't be evaluated reliably`,
+    description: 'The value needed to assess this target is missing or unscaled, so goal-fit results were withheld for this run rather than shown as a meaningless number.',
+    suggestion: `Set a value or range for ${label}`,
+  }),
+  // 1.52 follow-up — producer WARNING-severity codes (PLoT constraint
+  // direction detection) distinct from CONSTRAINT_TARGET_UNRELIABLE: there
+  // the target *value* is the problem; here the target's *direction*
+  // (higher-is-better vs lower-is-better) is the problem. SUSPECT = PLoT
+  // couldn't confirm the direction so goal-fit isn't shown for this option.
+  // ASSUMED = PLoT proceeded with an assumed direction (goal-fit shown but
+  // built on an unconfirmed assumption). Same pattern as the 1.12 fix
+  // (PR #250): a code-keyed template naming the concrete, actionable fix,
+  // never quoting internal field names.
+  CONSTRAINT_DIRECTION_SUSPECT: (label) => ({
+    title: `${label}'s target direction couldn't be confirmed`,
+    description: "The direction of your target (whether higher or lower is better) couldn't be confirmed for this option, so its goal-fit isn't shown.",
+    suggestion: `Review the target direction for ${label}`,
+  }),
+  // ROADMAP 1.54 density wall (PLoT #209): dense graphs now analyse at an
+  // adaptively reduced Monte Carlo depth instead of 500ing. The producer
+  // message names both sample depths; the template keeps the honest
+  // substance (reduced precision, results still complete) without quoting
+  // engine internals.
+  SAMPLES_REDUCED_FOR_COMPLEXITY: () => ({
+    title: 'Analysis ran at reduced precision',
+    description: 'This model is dense, so the analysis ran with fewer simulation samples than standard. Results shown were computed at this reduced depth, and probabilities may be slightly less stable than usual.',
+    suggestion: 'Remove weaker or duplicate influences to restore full precision',
+  }),
+  // Blocker sibling of the above: past the engine's ceiling even at the
+  // minimum reliable depth the run is refused up front. FORWARD-PROVISIONING:
+  // the 422-blocked path renders via userFriendlyErrors' GRAPH_TOO_COMPLEX
+  // entry (useV2Run promotes the critique code) — blocker critiques do not
+  // currently flow through this humaniser; the template exists so the copy
+  // stays consistent if that routing ever changes.
+  GRAPH_TOO_COMPLEX: () => ({
+    title: 'Model too complex to analyse',
+    description: "This model has more factors and connections than the analysis engine can compute reliably, so the analysis wasn't run rather than returning unstable numbers.",
+    suggestion: 'Remove weaker or duplicate influences, or split the decision into smaller models, then re-run',
+  }),
+  CONSTRAINT_DIRECTION_ASSUMED: (label) => ({
+    title: `${label}'s target direction was assumed`,
+    description: "The direction of your target (whether higher or lower is better) wasn't confirmed, so it was assumed for this run. Goal-fit results for this option may be less reliable.",
+    suggestion: `Confirm the target direction for ${label}`,
+  }),
+  // ROADMAP 2.300 item 1 (extends 2.271) — ISL's two goal-threshold refusal
+  // codes (robustness_analyzer_v2.py `_resolve_goal_threshold`, fail-closed:
+  // probability_of_goal is OMITTED rather than guessed, the warning names
+  // why). Without templates these goal-level refusals fell to the generic
+  // FACTOR-framed fallback ("Review this factor's inputs"), mislabelling the
+  // condition. Both templates deliberately ignore the resolved label: the
+  // condition is about the GOAL's target/baseline, and the fallback label
+  // ("This factor") would be a category error when affectedNodes is absent.
+  //
+  // NOT_CONVERTIBLE's producer reasons include missing_goal_baseline (no
+  // recorded current level — the tester-reachable case) plus structural ones
+  // (goal pinned by an intervention, root goal, parameter uncertainty on the
+  // goal, auto-noise), so the description states the withhold factually and
+  // the suggestion names the user-actionable remedy without claiming it is
+  // the only cause.
+  GOAL_THRESHOLD_NOT_CONVERTIBLE: () => ({
+    title: "Your goal's target couldn't be measured for this run",
+    description: 'The target couldn\'t be compared with where the goal stands today — for example when no current level is recorded for it — so goal-fit results were withheld rather than guessed.',
+    suggestion: 'State the current level for your goal',
+  }),
+  GOAL_THRESHOLD_FRAME_UNSPECIFIED: () => ({
+    title: "Your goal's target could mean a level or a change",
+    description: "The target doesn't say whether it's a level to reach or a change from today, so goal-fit results were withheld for this run rather than guessed.",
+    suggestion: 'Restate the target as a level to reach or a change from your current level',
+  }),
 }
 
 // ─── Internal token detection ────────────────────────────────────────────────
@@ -177,6 +291,36 @@ export function humaniseCritique(
   nodeLabels?: Map<string, string>,
 ): HumanisedCritique {
   const { label: factorLabel, factorId } = resolveFactorLabel(item, nodeLabels)
+
+  // Lane 3 (ROADMAP 2.358): for the codes whose display copy is OWNED by
+  // CEE's critique pipeline, a clean `userMessage` wins over any UI template.
+  // For S-bucket codes that text is the Paul-approved 2026-04-30 copy
+  // rendered CEE-side with resolved labels — a UI template rewriting it is a
+  // surface stating its own version of an approved claim (pass-condition 2
+  // class; SAMPLES_REDUCED_FOR_COMPLEXITY was live in both maps). Scope is
+  // DELIBERATELY narrow: for every other code the V14.3 template-first
+  // contract stands (templates carry label-resolved titles + CTA
+  // suggestions that generic engine copy lacks — pinned in
+  // humaniseCritique.spec.ts "template takes precedence"), and templates
+  // still serve owned-code rows that arrive WITHOUT user_message (the
+  // reduced-precision safety net). Contaminated userMessage falls through to
+  // template/generic exactly as before (positive-control-pinned).
+  if (
+    CEE_OWNED_CRITIQUE_CODES.has(item.code) &&
+    item.userMessage &&
+    !INTERNAL_TOKEN_REGEX.test(item.userMessage)
+  ) {
+    return {
+      title: item.userMessage,
+      description: 'Review this factor to improve result accuracy.',
+      displayText: item.userMessage,
+      // Wire-carried remediation (projected `suggestion` → mapper
+      // `suggested_fix` → consumer `suggestion`) rides along when present —
+      // no auto-generated CTA is invented for producer rows without one.
+      ...(item.suggestion ? { suggestion: item.suggestion } : {}),
+      factorId,
+    }
+  }
 
   // Try mapped template
   const template = CODE_TEMPLATES[item.code]

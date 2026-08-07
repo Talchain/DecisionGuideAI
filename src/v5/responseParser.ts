@@ -47,6 +47,11 @@ import {
   type OlumiResponse,
   type BoundaryError,
 } from '@talchain/schemas/boundary';
+// Track C Step 1 (approved D-5): session-scoped dropped-content counter.
+// Counting only — never alters parse results or rendering. The per-turn
+// truth stays in the `unknown_blocks` sidecar below; the counter aggregates
+// across turns for the debug export + a console.info observability line.
+import { recordDroppedContent } from '../lib/droppedContentCounter';
 
 /** Sidecar key used to carry additive extensions on a parsed OlumiResponse. */
 export const ADDITIVE_EXTENSIONS_KEY = '__additive__' as const;
@@ -128,24 +133,24 @@ export const PHASE3_TOLERATED_BLOCK_TYPES: ReadonlySet<Phase3ToleratedBlockType>
 /**
  * Allowlist of known CEE→schema drift in `suggested_actions[].action_type`.
  *
- * The vendored `@talchain/schemas@0.8.1` `ActionType` enum is the SINGULAR
- * `explain_result`, but CEE V5 chip-generator emits the PLURAL
- * `explain_results` (per the Phase-2b handler whitelist documented in
- * `useConversation.ts` ACTION_TO_TURN_TYPE). DGAI's runtime dispatch already
- * aliases both forms to the same `'explain'` turn type, and CEE's backend
- * handler accepts both, so this is a lossless meaning-preserving rewrite
- * applied BEFORE strict schema validation so the parse succeeds.
- *
- * Intentionally tiny and explicit. Any future drift requires explicit
- * entry — broad tolerance is NOT acceptable. Truly unknown action_type
- * values still fail strict validation.
+ * EMPTY under schemas 0.15 — deliberately. The single historical entry
+ * (`explain_results` → `explain_result`) existed because the 0.8.1 enum
+ * lacked the plural and strict validation rejected the whole response. The
+ * 0.15 `ActionType` enum accepts BOTH forms, the V5 backend handler ID is
+ * the PLURAL (see ACTION_TO_TURN_TYPE in useConversation.ts — the singular
+ * is its "legacy alias"), and the SuggestedChips V5 filter keys on the
+ * plural — so the rewrite had become actively harmful: it converted the
+ * producer's canonical value into one the filter hid, silently swallowing
+ * the "Explain the result" chip on live staging (V-P0-2, wire-verified
+ * 2026-07-13). The mechanism is retained for future GENUINE drift (a value
+ * the schema rejects); any entry requires explicit addition — broad
+ * tolerance is NOT acceptable. Truly unknown action_type values still fail
+ * strict validation.
  *
  * Keys are aliases CEE may emit; values are the canonical schema-accepted
  * forms.
  */
-const SUGGESTED_ACTION_TYPE_ALIASES: Readonly<Record<string, string>> = {
-  explain_results: 'explain_result',
-} as const;
+const SUGGESTED_ACTION_TYPE_ALIASES: Readonly<Record<string, string>> = {} as const;
 
 /**
  * A single rewrite recorded by normaliseSuggestedActionTypeAliases for the
@@ -171,17 +176,38 @@ export type OlumiResponseWithExtensions = OlumiResponse & {
   readonly [ADDITIVE_EXTENSIONS_KEY]?: Readonly<Record<string, unknown>>;
 };
 
-/** Top-level keys the strict OlumiResponseSchema declares. */
-const KNOWN_OLUMI_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set([
-  'response_version',
-  'assistant_text',
-  'blocks',
-  'suggested_actions',
-  'insights',
-  'stage_indicator',
-  'draft_graph',
-  'analysis_ready',
-]);
+/**
+ * Top-level keys the strict OlumiResponseSchema declares — DERIVED from the
+ * schema itself, never restated.
+ *
+ * This used to be a hand-written list, and its docstring made exactly the
+ * claim above while being FALSE: at the vendored 0.22.0 pin the schema
+ * declared 13 keys and the list allowed 9. The four it silently withheld —
+ * `framing_question`, `decision_classification`, `framing_quality`,
+ * `graph_hash` — are precisely the fields the contract added so consumers
+ * could STOP deriving verdicts client-side. Because everything outside this
+ * set is demoted to the non-enumerable `__additive__` sidecar, each of them
+ * would have read `undefined` off the typed response FOREVER, including
+ * after CEE started emitting them, and the silence would have been
+ * indistinguishable from the producer sending nothing.
+ *
+ * `OlumiResponseSchema` is a plain `z.object(...).strict()`, so `.shape` is
+ * directly enumerable and this derivation stays correct across re-vendors
+ * with no human in the loop. Do NOT convert this back into a literal list:
+ * this repo's dominant defect is the hand-maintained mirror, whose drift
+ * always reads green. (CEE performs the same derivation in
+ * `tests/contract/cee-egress-wire-surface-pin.test.ts`.)
+ *
+ * Note this admits DECLARED keys only. An UNDECLARED root key (e.g.
+ * `coaching`, which the schema still does not declare at 0.22.0) must keep
+ * going to the sidecar — the schema is `.strict()`, so routing an undeclared
+ * key into validation would fail the entire parse. Deriving cannot admit
+ * one; hand-adding could, which is why hand-adding is the hazard here.
+ * Pinned end-to-end in `responseParser.declaredKeysReachStrict.spec.ts`.
+ */
+const KNOWN_OLUMI_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set(
+  Object.keys(OlumiResponseSchema.shape),
+);
 
 /**
  * Split a raw response into the known surface (validated by zod) and a map
@@ -226,6 +252,15 @@ const LEGACY_SCHEMA_KNOWN_BLOCK_TYPES: ReadonlySet<string> = new Set([
   'comparison',
   'flip_analysis',
   'draft_graph',
+  // 0.15.0 wave (re-vendor lane): schema-known and now fully handled — both are
+  // LIVE (R8 + R4 landed; #539/C3). `held_proposal` maps to the R8 held-proposal
+  // card (mapV5Blocks → 'v5_held_proposal' → V5HeldProposalBlock; it fails closed
+  // to v5_unsupported only on a drifted block whose confirm ref cannot resolve).
+  // `ui_directive` is dispatched by the R4 dispatcher in applyV5State (highlight
+  // verbs → targets); the chat mapper returns null because a directive is an
+  // advisory presentation hint, not a chat card.
+  'held_proposal',
+  'ui_directive',
 ]);
 
 /**
@@ -622,17 +657,27 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
       unknownBlockTypes = split.unknownTypes
       unknownBlockCount = split.unknownCount
       unknownBlocksByType = split.unknownByType
+      // Track C Step 1 (D-5): count-and-log each dropped unknown block type.
+      // recordDroppedContent never throws and never mutates parse state.
+      for (const [blockType, count] of Object.entries(split.unknownByType)) {
+        recordDroppedContent({
+          blockType,
+          source: 'v5_response_parser',
+          rationale: 'unknown_block_type_dropped_pre_validation',
+          count,
+        })
+      }
     }
   }
 
-  // Tolerance step 3 (action_type alias drift): the runtime dispatch map
-  // (`ACTION_TO_TURN_TYPE` in useConversation.ts) already aliases known
-  // CEE-side action_type plurals to their canonical schema forms (e.g.
-  // 'explain_results' → 'explain_result'). Apply the same normalisation
-  // pre-validation so the strict schema enum accepts the response. Allowlist
-  // is intentionally tiny; any future drift requires explicit entry. Raw
-  // input is not mutated; rewrites are stashed on the sidecar for the debug
-  // bundle to surface faithfully.
+  // Tolerance step 3 (action_type alias drift): rewrite values the STRICT
+  // SCHEMA REJECTS to their schema-accepted forms. The table is EMPTY under
+  // schemas 0.15 (see SUGGESTED_ACTION_TYPE_ALIASES) — do NOT re-add entries
+  // for values the enum already accepts: rewriting a schema-valid form
+  // breaks downstream consumers keyed on the producer's vocabulary (V-P0-2:
+  // the plural→singular entry hid the explain chip from the V5 filter).
+  // Raw input is not mutated; any rewrites are stashed on the sidecar for
+  // the debug bundle to surface faithfully.
   const aliasNorm = normaliseSuggestedActionTypeAliases(knownForValidation)
   knownForValidation = aliasNorm.known
   const aliasRewrites = aliasNorm.rewrites

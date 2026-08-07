@@ -10,8 +10,10 @@
 import { useEffect, useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { useGraphReadiness } from '../../../hooks/useGraphReadiness'
+import { readinessWillScaffold } from '../../../utils/canRunAnalysis'
 import { isReviewedByUser } from '../../pre-analysis/utils/isReviewedByUser'
 import { computeBars, type BarsModel } from '../selectors/computeBars'
+import { computeContestedRows, type ContestedRowModel } from '../selectors/computeContestedRows'
 import { computeEstimateRanking } from '../selectors/computeEstimateRanking'
 import { computeGraphFacts, computeProvenanceCounts } from '../selectors/graphFacts'
 import { computeInfluenceCoverage } from '../selectors/computeInfluenceCoverage'
@@ -50,6 +52,19 @@ export interface PreAnalysisModel {
   }
   options: Array<{ nodeId: string; label: string }>
   risks: Array<{ nodeId: string; label: string; attribution: Attribution }>
+  /**
+   * ROADMAP 2.376 — connections CEE's two validation passes disagreed about, as words.
+   *
+   * Sourced from `useCanvasStore(s => s.edges)`, the same store slice every other v3 slice
+   * reads and the same one the legacy panel's `usePreAnalysisData` reads. That is not an
+   * assumption: `applyDraftResult` writes CEE's per-edge validation metadata onto
+   * `edge.data.validation` at ingest (`utils/applyDraftResult.ts:139,157`, via
+   * `readValidationMetadata`), so the metadata reaches this tree by construction — there is
+   * no separate legacy-only data path to bridge.
+   *
+   * EMPTY ARRAY IS THE NORMAL CASE and renders nothing at all.
+   */
+  contested: ContestedRowModel[]
   advanced: {
     factorCount: number
     connectionCount: number
@@ -63,6 +78,28 @@ export interface PreAnalysisModel {
     headline: string
     subline: string
   }
+  /**
+   * ROADMAP 2.332 / 2.339 — the state of the readiness CHECK, as distinct from
+   * the readiness VERDICT.
+   *
+   * `null` whenever the last check completed: the footer then renders exactly
+   * what it always did, and this slice adds nothing to the panel. It is
+   * non-null only when the store holds a truthful failure — an unreachable
+   * service, a missing route, or a server error — which is precisely the state
+   * that was invisible before this slice existed.
+   *
+   * `verdictRetained` distinguishes "we have never had an answer" from "we are
+   * showing you an older one", and `stale` distinguishes an older answer that
+   * still describes this model from one the model has outgrown. Nothing here
+   * gates the run: the verdict remains the server's.
+   */
+  readinessCheck: {
+    message: string
+    verdictRetained: boolean
+    stale: boolean
+    verdictAtMs: number | null
+    retry: () => void
+  } | null
 }
 
 export function usePreAnalysisModel(): PreAnalysisModel {
@@ -70,10 +107,20 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   const edges = useCanvasStore(s => s.edges)
   const draftCoaching = useCanvasStore(s => s.draftCoaching)
   const analysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  // Stored goal constraints (CEE response root, ingested verbatim by
+  // DraftChat/applyDraftResult) — the provenance carrier for the
+  // success-target attribution (lane 35 fix 2).
+  const goalConstraints = useCanvasStore(s => s.goalConstraints)
   const sensitivity = useCanvasStore(s => s.preAnalysisSensitivity)
   const currentBriefText = useCanvasStore(s => s.currentBriefText)
   const scenarioId = useCanvasStore(s => s.currentScenarioId)
-  const { readiness } = useGraphReadiness()
+  const {
+    readiness,
+    error: readinessError,
+    stale: readinessStale,
+    verdictAtMs: readinessVerdictAtMs,
+    refresh: refreshReadiness,
+  } = useGraphReadiness()
   const seen = useSignalSessionStore(s => s.seen)
   const markSeen = useSignalSessionStore(s => s.markSeen)
   const ensureScenario = useSignalSessionStore(s => s.ensureScenario)
@@ -93,8 +140,9 @@ export function usePreAnalysisModel(): PreAnalysisModel {
         facts.goalNode,
         (analysisReady as Record<string, unknown> | null) ?? null,
         null,
+        goalConstraints,
       ),
-    [facts.goalNode, analysisReady],
+    [facts.goalNode, analysisReady, goalConstraints],
   )
 
   const provenance = useMemo(
@@ -147,6 +195,13 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     [decisionPresent, facts, success.isSet, coverage.influenceCoverage, rowCounts],
   )
 
+  // UI-SEM-091: runnable-via-scaffold. CEE (#612) rides a scaffold intent on
+  // the readiness response; when it will draft the remaining options the graph
+  // is runnable despite can_run_analysis being false. Both the footer and the
+  // ladder disclose it instead of showing the not-ready copy.
+  const willScaffoldOptions = readinessWillScaffold(readiness)
+  const scaffoldOptionCount = readiness?.scaffold_plan?.option_count
+
   const ladder = useMemo(
     () =>
       computeLadder({
@@ -157,8 +212,10 @@ export function usePreAnalysisModel(): PreAnalysisModel {
         readinessExplanation: readiness?.confidence_explanation
           ? guardCeeText(readiness.confidence_explanation, LADDER_COPY.readiness_fallback).text
           : null,
+        willScaffoldOptions,
+        scaffoldOptionCount,
       }),
-    [facts.goalNode, success.isSet, top, readiness],
+    [facts.goalNode, success.isSet, top, readiness, willScaffoldOptions, scaffoldOptionCount],
   )
 
   const narrowFramingDetail = useMemo(() => {
@@ -260,8 +317,27 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     [nodes],
   )
 
-  const canRun = readiness ? readiness.can_run_analysis : null
+  // ROADMAP 2.376 — contested connections. Keyed on the store's own nodes/edges so one
+  // commit (a resolve in the Model tab, a re-draft) updates this section in the same pass as
+  // every other slice.
+  const contested = useMemo(() => computeContestedRows(nodes, edges), [nodes, edges])
+
+  // UI-SEM-091: effective runnable ORs the scaffold intent, so advanced.canRun
+  // and the footer agree with the run gate (canRunAnalysis util).
+  const canRun = readiness ? readiness.can_run_analysis || willScaffoldOptions : null
   const footer = useMemo(() => {
+    // UI-SEM-091: readiness reports not-runnable, but CEE will draft the
+    // remaining options — disclose the draft, never the not-ready copy.
+    if (readiness?.can_run_analysis === false && willScaffoldOptions) {
+      return {
+        dot: 'warning' as const,
+        headline: FOOTER_COPY.ready,
+        subline:
+          typeof scaffoldOptionCount === 'number'
+            ? FOOTER_COPY.scaffoldSub(scaffoldOptionCount)
+            : FOOTER_COPY.scaffoldSubNoCount,
+      }
+    }
     if (canRun === false) {
       const explanation = readiness?.confidence_explanation?.trim()
       return {
@@ -284,7 +360,15 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       headline: FOOTER_COPY.ready,
       subline: top ? FOOTER_COPY.readySubEstimates : FOOTER_COPY.readySubAllSet,
     }
-  }, [canRun, success.isSet, top, readiness?.confidence_explanation])
+  }, [
+    canRun,
+    willScaffoldOptions,
+    scaffoldOptionCount,
+    success.isSet,
+    top,
+    readiness?.can_run_analysis,
+    readiness?.confidence_explanation,
+  ])
 
   // Memoised slices so the memo()'d sections actually bail out when their
   // inputs are unchanged (a fresh object tree every render defeats them).
@@ -323,6 +407,25 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     [facts.factorNodes.length, edges.length, readiness?.readiness_score, canRun, provenance],
   )
 
+  // ROADMAP 2.332 / 2.339. `error` is set ONLY by the store's honest failure
+  // arms — transport rejection (2.319a), 404 (2.329) and every other non-ok
+  // status (2.339). The 429 arm sets an error too, but it also publishes a
+  // labelled local fallback, so it is a verdict-bearing state and reaches the
+  // retained arm rather than the never-checked one, which is the truth.
+  const readinessCheck = useMemo(
+    () =>
+      readinessError
+        ? {
+            message: readinessError,
+            verdictRetained: readiness != null,
+            stale: readinessStale,
+            verdictAtMs: readinessVerdictAtMs,
+            retry: refreshReadiness,
+          }
+        : null,
+    [readinessError, readiness, readinessStale, readinessVerdictAtMs, refreshReadiness],
+  )
+
   return useMemo(
     () => ({
       hero,
@@ -332,9 +435,23 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       estimates,
       options,
       risks,
+      contested,
       advanced,
       footer,
+      readinessCheck,
     }),
-    [hero, bars, ladder, derived.sharpen, estimates, options, risks, advanced, footer],
+    [
+      hero,
+      bars,
+      ladder,
+      derived.sharpen,
+      estimates,
+      options,
+      risks,
+      contested,
+      advanced,
+      footer,
+      readinessCheck,
+    ],
   )
 }

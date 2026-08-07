@@ -1130,3 +1130,70 @@ describe('B2: PLoT classified field pass-through', () => {
     expect(fragileEdges[1]).toEqual({ edge_id: 'e2' })
   })
 })
+
+describe('Lane UI-W4: decision_brief pass-through (PLoT #200)', () => {
+  // Bundle-shaped producer surface (PLoT src/types/decision-brief.ts,
+  // BriefBandedHeadline) — passed through VERBATIM so headline_banded
+  // survives a save + hydrate cycle; the fail-closed trust boundary is
+  // normalizeHeadlineBanded at the selector, not the mapper.
+  const DECISION_BRIEF = {
+    brief_id: 'brief-1',
+    version: '1',
+    headline: 'Option Alpha leads.',
+    headline_banded: {
+      text: 'Option Alpha is clearly ahead of Option Beta.',
+      band: 'clearly_ahead',
+      leader_option_id: 'opt_alpha',
+      leader_label: 'Option Alpha',
+      runner_up_option_id: 'opt_beta',
+      runner_up_label: 'Option Beta',
+      win_probability_gap: 0.31,
+      robustness_gated: false,
+      doctrine: 'provisional_doctrine_v0',
+    },
+    robustness: 'robust',
+  }
+
+  it('passes decision_brief through verbatim (headline_banded intact)', () => {
+    const v2Response = makeSuccessResponse({ decision_brief: DECISION_BRIEF as any })
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+    expect((report as any).decision_brief).toEqual(DECISION_BRIEF)
+    expect((report as any).decision_brief.headline_banded.band).toBe('clearly_ahead')
+  })
+
+  it('omits decision_brief when absent from the V2 response (no fabricated key)', () => {
+    const report = mapV2ResponseToReportV1(makeSuccessResponse(), { seed: 42 })
+    expect('decision_brief' in (report as any)).toBe(false)
+  })
+})
+
+describe('Lane UI-W5: sensitivity_reference_option_id pass-through (reference-option disclosure)', () => {
+  it('passes sensitivity_reference_option_id through verbatim when present', () => {
+    const v2Response = makeSuccessResponse({
+      sensitivity_reference_option_id: 'opt1',
+    })
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+    expect((report as any).sensitivity_reference_option_id).toBe('opt1')
+  })
+
+  it('omits the key when absent from the V2 response (honest absence — no fabricated baseline)', () => {
+    const report = mapV2ResponseToReportV1(makeSuccessResponse(), { seed: 42 })
+    expect('sensitivity_reference_option_id' in (report as any)).toBe(false)
+  })
+
+  it('omits the key when the wire value is an empty string (guarded pass-through)', () => {
+    const v2Response = makeSuccessResponse({
+      sensitivity_reference_option_id: '' as unknown as string,
+    })
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+    expect('sensitivity_reference_option_id' in (report as any)).toBe(false)
+  })
+
+  it('omits the key when the wire value is not a string (trust boundary)', () => {
+    const v2Response = makeSuccessResponse({
+      sensitivity_reference_option_id: 42 as unknown as string,
+    })
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+    expect('sensitivity_reference_option_id' in (report as any)).toBe(false)
+  })
+})

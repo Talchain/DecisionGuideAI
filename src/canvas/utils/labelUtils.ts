@@ -50,9 +50,11 @@
  *    - Status: do not extend. New code should use formatFactorDisplayValue.
  *
  * Local shadows that intentionally exist (do NOT consolidate without redesign):
- *   - OptionNode.tsx::formatChipValue — composes formatFactorDisplayValue with
- *     a fallback through formatInterventionValue. Cannot be moved into labelUtils
- *     without dragging factor-display logic in.
+ *   - (none currently) — OptionNode.tsx::formatChipValue moved to
+ *     src/canvas/utils/interventionDisplay.ts::formatInterventionTargetText
+ *     (audit §8 P0-4 single intervention formatter). All option-intervention
+ *     surfaces (pills, popover lists, FactorNode hover annotation) now share
+ *     that one chain.
  *
  * Removed shadows (Polish 4 follow-up):
  *   - OptionsSection.tsx::formatInterventionValue — replaced with formatRawValueWithUnit.
@@ -162,10 +164,23 @@ export function compactFactorLabel(label: string, maxLength = 15): string {
  */
 export function formatWinProbability(rawProb: number): string {
   if (!Number.isFinite(rawProb)) return '—'
-  if (rawProb <= 0) return '0%'
-  if (rawProb < 0.01) return '< 1%'
-  if (rawProb >= 0.995) return '100%'
-  return `${Math.round(rawProb * 100)}%`
+  // ⭐ ROADMAP 2.236 — DELEGATES; it no longer owns a private copy of the rule.
+  //
+  // This function was CORRECT and the dock was wrong, but it was correct by
+  // holding its own literal `0.01` and its own `'< 1%'` — a second
+  // implementation of the shared floor, invisible to anyone reading
+  // `displayFloors.ts`. That invisibility is exactly how the dock came to ship
+  // without it: one option, one instant, "< 1%" here and "0%" on the option
+  // card (walk-548-pixels.md F5). The threshold and the readout now come from
+  // the one owner.
+  //
+  // ⚠ CORRECTED (2.236 review): this claimed "same behaviour as before for every
+  // input". Not quite — OUT OF DOMAIN it differs: the old local rule clamped
+  // anything >= 0.995 to "100%", so 1.5 rendered "100%" and now renders "150%".
+  // No caller can supply a probability above 1, so there is no live regression —
+  // but "every input" was an overclaim, and an overclaim in a comment is the
+  // same defect class as one in copy.
+  return formatProbabilityWithResolution(rawProb, undefined)
 }
 
 /**
@@ -304,7 +319,9 @@ export {
 } from '@/utils/unitClassifier'
 export type { UnitClass } from '@/utils/unitClassifier'
 
+import { formatProbabilityWithResolution } from '@/utils/formatPercent'
 import { GENERIC_PLACEHOLDER_UNITS, classifyUnit } from '@/utils/unitClassifier'
+import { interventionNumericValue } from '@/utils/interventionValue'
 
 function isGenericPlaceholderUnit(unit: string | null | undefined): boolean {
   if (unit == null) return false
@@ -322,6 +339,12 @@ export const PLACEHOLDER_DIRECTION_EPSILON = 0.1
  * Direction-only phrasing for placeholder-unit factors, where the raw number
  * ("0.33 scale") carries no meaning for a user. Returns null if the baseline
  * is unknown — callers should render nothing in that case.
+ *
+ * @deprecated Audit §8 P0-4: the ±0.1 epsilon here rendered "Does not change"
+ * for genuinely different values (live 0.5→0.6 contradiction). Live surfaces
+ * now use `describeInterventionDirection` in
+ * src/canvas/utils/interventionDisplay.ts (exact-equality no-change). Kept
+ * only for backwards compatibility; do not add new callers.
  */
 export function placeholderDirectionLabel(
   interventionValue: number,
@@ -375,7 +398,14 @@ function sanitiseUnit(unit: string | undefined): string | undefined {
   return isSuppressedUnit(unit) ? undefined : unit
 }
 
-function toFiniteNumber(value: unknown): number | null {
+/**
+ * Coerce a wire value to a finite number, or `null`.
+ *
+ * Exported because `observed_state.raw_value` is typed `number | string | null`
+ * and every consumer that probes it with a bare `typeof x === 'number'`
+ * silently discards the string form — the defect this helper exists to stop.
+ */
+export function toFiniteNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value)
@@ -601,32 +631,26 @@ export interface UnwrappedIntervention {
 }
 
 export function unwrapInterventionValue(raw: unknown): UnwrappedIntervention {
-  // Scalar form (legacy).
-  if (typeof raw === 'number') {
-    return { value: Number.isFinite(raw) ? raw : null, displayValue: null }
-  }
-  // Object form ({ value, display_value?, ... }) — CEE V3 shape, but also
-  // used for observed_state metadata fields (obs.value, obs.raw_value, etc.)
-  // which may arrive as scalar or wrapped.
-  if (raw != null && typeof raw === 'object') {
-    // Strict numeric check on `.value` — no Number(...) coercion, since
-    // `Number(null) === 0` and `Number('foo') === NaN` cause subtle bugs.
-    let value: number | null = null
-    if ('value' in raw) {
-      const v = (raw as { value: unknown }).value
-      if (typeof v === 'number' && Number.isFinite(v)) value = v
+  // The numeric half is NOT decided here. `interventionNumericValue`
+  // (src/utils/interventionValue.ts) is the one predicate shared with
+  // flattenInterventions and the PLoT request edge, so a display can never
+  // consider a value usable that the wire rejects, or vice versa. Its rule is
+  // the strict one this function has always applied: a finite number, bare or
+  // at `.value`, with no Number(...) coercion.
+  const value = interventionNumericValue(raw)
+
+  // display_value is a CEE-authored label and is independent of numeric
+  // usability — it may be present when `value` is null.
+  let displayValue: string | null = null
+  if (raw != null && typeof raw === 'object' && 'display_value' in raw) {
+    const dv = (raw as { display_value: unknown }).display_value
+    if (typeof dv === 'string') {
+      const trimmed = dv.trim()
+      if (trimmed.length > 0) displayValue = trimmed
     }
-    let displayValue: string | null = null
-    if ('display_value' in raw) {
-      const dv = (raw as { display_value: unknown }).display_value
-      if (typeof dv === 'string') {
-        const trimmed = dv.trim()
-        if (trimmed.length > 0) displayValue = trimmed
-      }
-    }
-    return { value, displayValue }
   }
-  return { value: null, displayValue: null }
+
+  return { value, displayValue }
 }
 
 /**

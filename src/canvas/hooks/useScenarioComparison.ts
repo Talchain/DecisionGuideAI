@@ -402,7 +402,7 @@ export function useScenarioComparison(): UseScenarioComparisonReturn {
 
         // 7. Call PLoT /v2/run with full graph + both options
         const config: V2AdapterConfig = {
-          baseUrl: import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine',
+          baseUrl: import.meta.env?.VITE_PLOT_PROXY_BASE || '/bff/engine',
           timeout: 120000,
         }
 

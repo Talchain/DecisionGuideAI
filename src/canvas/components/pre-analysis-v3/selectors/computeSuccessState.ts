@@ -30,6 +30,22 @@ export interface SuccessState {
   scaleAmbiguous: boolean
 }
 
+/**
+ * The wire spells the percent unit as the WORD 'percent' (CEE's
+ * `goal_threshold_unit`). `classifyUnit` NOW RECOGNISES IT — the word forms
+ * were folded into its existing `kind: 'percent'` branch in U2 (see
+ * `PERCENT_UNIT_SPELLINGS` in src/utils/unitClassifier.ts).
+ *
+ * HISTORY, because the reasoning was wrong the first time and the record should
+ * say so: C2 added a LOCAL `normaliseUnitForDisplay` here rather than widening
+ * `classifyUnit`, on the grounds that the classifier was "a primitive with many
+ * other consumers and its own tests". That made this the FIFTH live recogniser
+ * of the same word, and the six had already drifted apart — the graph-patch
+ * receipt's copy never learned `'percentage'` at all. Having many consumers and
+ * its own tests is the argument for widening the primitive ONCE, guarded, not
+ * for cloning it. All six copies are retired; the parity is pinned by
+ * src/utils/__tests__/percentWordSingleSource.spec.ts.
+ */
 function formatWithUnit(value: number, unit: string | null): string {
   const formatted = Math.abs(value) >= 1000 ? value.toLocaleString('en-GB') : String(value)
   if (!unit) return formatted
@@ -41,10 +57,38 @@ function formatWithUnit(value: number, unit: string | null): string {
   return `${formatted} ${canonical || unit}`
 }
 
+/**
+ * Lane 35 fix 2 (claim integrity): does the displayed CEE-derived value match
+ * a stored goal constraint the USER stated in their brief?
+ *
+ * CEE marks goal constraints with provenance 'explicit' when the user's own
+ * words carried the number ("keeping churn under 4%" — CEE schemas/assist.ts:
+ * explicit | inferred | proxy). A display anchor derived from an explicit
+ * constraint is the user's own target — labelling it "Olumi estimate"
+ * misattributes it. FAIL-CLOSED matching: the claim "this number is yours"
+ * requires an exact value match on an 'explicit'-provenance entry; anything
+ * else (inferred/proxy/missing provenance, value mismatch, malformed entry)
+ * keeps the Olumi attribution. The constraint objects are stored verbatim
+ * from the CEE response root (DraftChat/applyDraftResult), so `provenance`
+ * is read defensively — it is not part of the UI's CEEGoalConstraint type.
+ */
+function matchesExplicitConstraint(
+  value: number,
+  goalConstraints: readonly unknown[] | null | undefined,
+): boolean {
+  if (!Array.isArray(goalConstraints)) return false
+  return goalConstraints.some((c) => {
+    if (c == null || typeof c !== 'object') return false
+    const entry = c as Record<string, unknown>
+    return entry.provenance === 'explicit' && typeof entry.value === 'number' && entry.value === value
+  })
+}
+
 export function computeSuccessState(
   goalNode: Node | null,
   analysisReady: Record<string, unknown> | null,
   currentUser: Attribution | null,
+  goalConstraints?: readonly unknown[] | null,
 ): SuccessState {
   const unset: SuccessState = {
     isSet: false,
@@ -82,12 +126,18 @@ export function computeSuccessState(
       ? (analysisReady.goal_threshold_raw as number)
       : undefined)
   if (rawCandidate != null) {
+    // Attribution honesty (lane 35 fix 2): a display anchor whose value the
+    // user stated in their brief (explicit-provenance stored constraint) is
+    // the USER's target; only derived/defaulted values are Olumi's.
+    const userStated = matchesExplicitConstraint(rawCandidate, goalConstraints)
     return {
       isSet: true,
       displayText: formatWithUnit(rawCandidate, unit),
       rawValue: rawCandidate,
       unit,
-      attribution: { kind: 'olumi' },
+      attribution: userStated
+        ? (currentUser ?? { kind: 'person', displayName: 'You' })
+        : { kind: 'olumi' },
       scaleAmbiguous: false,
     }
   }

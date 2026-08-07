@@ -26,11 +26,19 @@ vi.mock('posthog-js', () => ({
   },
 }))
 
-// Canvas store mock — stable getState returning simple stubs
+// Canvas store mock — stable getState returning simple stubs.
+// nodes/edges included (both empty) because GuidanceStrip's click handler
+// calls focusHelpers.focusExistingTarget(), which destructures
+// `{ nodes, edges }` off getState() unconditionally — without them here it
+// threw "Cannot read properties of undefined (reading 'some')" as an
+// uncaught, unhandled error (assertions still passed since the throw
+// happens in a fire-and-forget click callback, but it failed vitest's exit
+// code and would have failed CI's non-OOM-signature check). ROADMAP 1.26
+// chronic-CI-red triage.
 vi.mock('../../canvas/store', () => ({
   useCanvasStore: Object.assign(
     vi.fn(() => null),
-    { getState: vi.fn(() => ({ currentScenarioId: 'scenario-1', currentStage: 'ideate' })) },
+    { getState: vi.fn(() => ({ currentScenarioId: 'scenario-1', currentStage: 'ideate', nodes: [], edges: [] })) },
   ),
 }))
 
@@ -104,11 +112,30 @@ describe('Event taxonomy', () => {
     }
   })
 
-  it('trackGuidance no-ops when isTelemetryEnabled returns false', () => {
+  // ⚠ INVERTED BY ROADMAP 1.68. This test used to assert the OPPOSITE:
+  // "trackGuidance no-ops when isTelemetryEnabled returns false". That gate is
+  // deleted, so the assertion is deliberately flipped rather than removed — the
+  // flip is the pin.
+  //
+  // Why the gate went: `flags.telemetry` reads `VITE_FEATURE_TELEMETRY`, which
+  // has no `defaultValue` and so resolves FALSE (`src/lib/flagFactory.ts`), and
+  // the variable is absent from netlify.toml. All 12 guidance_* events were
+  // therefore dark on staging INDEPENDENTLY of whether PostHog was configured —
+  // and those events ARE ROADMAP 1.68's challenge-acceptance/dismissal signal,
+  // measurable only once, during the user-testing window. Standing doctrine:
+  // no env-var gates, no dark launches. The only remaining no-op condition is
+  // "PostHog is not initialised", which is `trackEvent`'s own guard.
+  it('trackGuidance is NOT gated by isTelemetryEnabled — the flag gate is deleted (1.68)', () => {
     const spy = vi.spyOn(flags, 'isTelemetryEnabled').mockReturnValue(false)
     mockCapture.mockClear()
     trackGuidance('COACHING_SHOWN', { item_id: 'x', item_type: 'bias_alert', surface: 'guidance_panel' })
-    expect(mockCapture).not.toHaveBeenCalled()
+    expect(
+      mockCapture,
+      'a guidance event was suppressed while isTelemetryEnabled() was false — the ' +
+        'VITE_FEATURE_TELEMETRY gate has been reintroduced. It defaults FALSE and is ' +
+        'unset in netlify.toml, so reinstating it re-darkens all 12 guidance_* events ' +
+        'during the one window in which they can be measured.',
+    ).toHaveBeenCalledTimes(1)
     spy.mockRestore()
   })
 

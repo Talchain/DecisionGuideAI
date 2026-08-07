@@ -4,7 +4,7 @@
  * Groups: Context → Options (input) → Connections
  */
 
-import { memo, useState, useMemo } from 'react'
+import { memo, useState, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
@@ -25,6 +25,8 @@ import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { DecisionAdvancedEditor } from '../editors/DecisionAdvancedEditor'
+import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
+import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 
 export const DecisionPanel = memo(function DecisionPanel({
   nodeId,
@@ -37,9 +39,23 @@ export const DecisionPanel = memo(function DecisionPanel({
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const optionComparison = useCanvasStore(s => s.results?.report?.option_comparison)
+  const addNodeWithEdge = useCanvasStore(s => s.addNodeWithEdge)
+  const focusNode = useCanvasStore(s => s.selectNodeWithoutHistory)
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
+
+  // Create a new option node linked to this decision, then focus it in the
+  // inspector. Same store action the canvas context-menu "Add option" uses
+  // (addNodeWithEdge(pos, 'option', decisionId, 'from-target') → edge
+  // decision → option). addNodeWithEdge enforces the node/edge limits and
+  // no-ops at the cap (returns a LimitExceeded object rather than a string).
+  const handleAddOption = useCallback(() => {
+    if (!node) return
+    const pos = { x: node.position.x + 80, y: node.position.y + 120 }
+    const result = addNodeWithEdge(pos, 'option', node.id, 'from-target')
+    if (typeof result === 'string') focusNode(result)
+  }, [node, addNodeWithEdge, focusNode])
 
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
   const [isEditingDescription, setIsEditingDescription] = useState(false)
@@ -94,7 +110,7 @@ export const DecisionPanel = memo(function DecisionPanel({
           nodeId: otherId,
           nodeKind: kind,
           label: String(otherNode.data?.label ?? otherId),
-          strength: { weight: e.data?.weight ?? 0, direction: (e.data?.direction ?? 'positive') as 'positive' | 'negative' },
+          strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
       .filter(Boolean) as Array<{
@@ -102,7 +118,7 @@ export const DecisionPanel = memo(function DecisionPanel({
         nodeId: string
         nodeKind: NodeType
         label: string
-        strength: { weight: number; direction: 'positive' | 'negative' }
+        strength: EdgeValueDisplay
       }>
   }, [edges, nodes, nodeId])
 
@@ -186,9 +202,11 @@ export const DecisionPanel = memo(function DecisionPanel({
               )}
             </div>
           ))}
-          {/* "+ Add option" stub — no mutations.addOption() exists; preserves existing non-functional behaviour */}
+          {/* Creates a real option node linked to this decision and focuses it. */}
           <button
             type="button"
+            onClick={handleAddOption}
+            data-testid="decision-add-option"
             className={`${typography.panelMeta} w-full py-2 -mx-3 px-3 text-info border-t border-dashed border-panel-border hover:bg-panel-hover transition-colors`}
           >
             + Add option

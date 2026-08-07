@@ -40,12 +40,12 @@
 }
 
 .headerCollapseIcon {
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #6E6B6B);
   flex-shrink: 0;
 }
 
 .headerIcon {
-  color: var(--primary, #2B7FA2);
+  color: var(--primary, #277A9D);
   flex-shrink: 0;
 }
 
@@ -60,7 +60,7 @@
 
 .headerDescription {
   font-size: 12px;
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #6E6B6B);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -74,7 +74,7 @@
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #6E6B6B);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 150ms, color 150ms;
@@ -86,12 +86,12 @@
 }
 
 .headerExpandBtn:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #277A9D);
   outline-offset: 2px;
 }
 
 .header:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #277A9D);
   outline-offset: -2px;
 }
 
@@ -138,7 +138,7 @@
 }
 
 .actionChip:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #277A9D);
   outline-offset: 2px;
 }
 
@@ -194,7 +194,7 @@
   width: 32px;
   height: 32px;
   border-radius: 6px;
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #6E6B6B);
   cursor: pointer;
   transition: background 150ms, color 150ms;
 }
@@ -205,7 +205,7 @@
 }
 
 .maximisedCloseBtn:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #277A9D);
   outline-offset: 2px;
 }
 

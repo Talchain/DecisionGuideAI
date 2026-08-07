@@ -124,8 +124,10 @@ describe('Item 19 — DraftChat resize handle', () => {
     expect(src).toMatch(/data-testid="draft-chat-resize-handle"/)
     expect(src).toMatch(/left-0/)
     expect(src).toMatch(/width: 4\b/)
-    // Confirm the clamp range the brief specifies (360–600, not 320–1014).
-    expect(src).toMatch(/Math\.max\(360,\s*Math\.min\(600,/)
+    // Confirm the clamp range (360–800, not 320–1014). Upper bound raised
+    // 600 -> 800 in ebb6e652 ("Increase AI panel default width from 480px
+    // to 800px, upper constraint from 600px to 800px", 2026-04-22).
+    expect(src).toMatch(/Math\.max\(360,\s*Math\.min\(800,/)
     // Confirm the 1.44 render multiplier was removed (storage == rendered).
     expect(src).not.toMatch(/\*\s*1\.44\b/)
   })

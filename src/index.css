@@ -96,7 +96,7 @@
   }
 
   .olumi-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: var(--text-light, #908D8D);
+    background: var(--text-light, #6E6B6B);
   }
 }
 
@@ -376,7 +376,7 @@
 /* Canvas Focus Animation */
 .node-focused,
 .react-flow__node.node-focused {
-  outline: 3px solid var(--sky-500, #2B7FA2);
+  outline: 3px solid var(--sky-500, #277A9D);
   outline-offset: 4px;
   animation: focus-pulse 0.6s ease-in-out;
   z-index: 1000;
@@ -384,7 +384,7 @@
 
 .edge-focused,
 .react-flow__edge.edge-focused path {
-  stroke: var(--sky-500, #2B7FA2) !important;
+  stroke: var(--sky-500, #277A9D) !important;
   stroke-width: 3px !important;
   animation: focus-pulse 0.6s ease-in-out;
 }
@@ -408,6 +408,47 @@
   }
   100% {
     box-shadow: 0 0 0 0 rgba(14, 165, 233, 0);
+  }
+}
+
+/* N2 (graph-visuals): a gentle real pulse when the AI points at a node
+   (applied edits, what-changed, R4 directives). Uses the info/AI colour
+   (--info #277A9D) so it does not overload the goal channel, and its OWN
+   keyframe — it must NOT reuse pulse-fade, which powers .animate-pulse on
+   15+ skeleton/status components. The Tailwind ring on the node stays
+   visible; this only adds the expanding halo. Reduced-motion drops the
+   animation and leaves the static ring, so the highlight is still legible.
+
+   The opening stop is DERIVED from --info via color-mix rather than restating
+   the hue: this keyframe previously hardcoded rgba(82,163,200,·) — the PRE-D1
+   blue — as a channel triple, so it survived every hex-based sweep and drifted
+   away from the token while this very comment claimed it was #277A9D.
+
+   The fade-out stops are plain `transparent`, not a 0-alpha info. color-mix
+   cannot express "this hue at zero alpha" (mixing 0% of a colour yields
+   transparent BLACK, losing the hue), and it does not need to: CSS Color 4
+   mandates PREMULTIPLIED interpolation for animated colours, so fading to
+   `transparent` is visually identical to fading to rgba(info, 0) — no grey/black
+   halo. Do not "restore" a hue here; it would only re-introduce a literal. */
+@keyframes ai-highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--info) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.ai-highlight-pulse {
+  animation: ai-highlight-pulse 1.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-highlight-pulse {
+    animation: none;
   }
 }
 
@@ -489,16 +530,16 @@
  * ---------------------------------------------------------------------------*/
 
 .guidance-pulse-ring > * {
-  outline: 2.5px solid var(--info, #2B7FA2);
+  outline: 2.5px solid var(--info, #277A9D);
   outline-offset: 3px;
   border-radius: 8px;
   animation: guidance-pulse 600ms ease-out 1 forwards;
 }
 
 .react-flow__edge.guidance-pulse-ring .react-flow__edge-path {
-  stroke: var(--info, #2B7FA2);
+  stroke: var(--info, #277A9D);
   stroke-width: 3;
-  filter: drop-shadow(0 0 3px var(--info, #2B7FA2));
+  filter: drop-shadow(0 0 3px var(--info, #277A9D));
   animation: guidance-edge-pulse 600ms ease-out 1 forwards;
 }
 
@@ -508,11 +549,11 @@
     outline-width: 4px;
   }
   30% {
-    outline-color: var(--info, #2B7FA2);
+    outline-color: var(--info, #277A9D);
     outline-width: 4px;
   }
   100% {
-    outline-color: var(--info, #2B7FA2);
+    outline-color: var(--info, #277A9D);
     outline-width: 2.5px;
   }
 }
@@ -541,7 +582,7 @@
 
 /* should_fix variant — info colour (advisory, not critical) */
 .guidance-pulse-ring[data-guidance-category="should_fix"] > * {
-  outline-color: var(--info, #2B7FA2);
+  outline-color: var(--info, #277A9D);
   animation-name: guidance-pulse;
 }
 
@@ -563,7 +604,7 @@
 @media (prefers-reduced-motion: reduce) {
   .guidance-pulse-ring > * {
     animation: none;
-    outline: 2.5px solid var(--info, #2B7FA2);
+    outline: 2.5px solid var(--info, #277A9D);
     outline-offset: 3px;
   }
 
@@ -572,7 +613,7 @@
   }
 
   .guidance-pulse-ring[data-guidance-category="should_fix"] > * {
-    outline-color: var(--info, #2B7FA2);
+    outline-color: var(--info, #277A9D);
   }
 
   .react-flow__edge.guidance-pulse-ring .react-flow__edge-path {

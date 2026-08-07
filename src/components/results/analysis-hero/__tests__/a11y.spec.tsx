@@ -10,21 +10,14 @@ import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { buildHeroModel } from '../buildHeroModel'
 import type { HeroChartModel, HeroStatusModel } from '../heroTypes'
 import { FULL_COMPLETENESS, makeHeroData } from '../__fixtures__/hero.fixtures'
+import { collectRerunControls } from '../../../../../tests/helpers/rerunControls'
 
 function chartModel(): HeroChartModel {
   return buildHeroModel(makeHeroData()) as HeroChartModel
 }
 
-function renderPanel(model: HeroChartModel | HeroStatusModel, isStale = false) {
-  return render(
-    <AnalysisHeroPanel
-      model={model}
-      isStale={isStale}
-      onRerun={() => {}}
-      rerunDisabled={false}
-      focusPanelMounted={false}
-    />,
-  )
+function renderPanel(model: HeroChartModel | HeroStatusModel) {
+  return render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
 }
 
 async function expectNoViolations(container: HTMLElement) {
@@ -56,10 +49,15 @@ describe('AnalysisHero — accessibility', () => {
     renderPanel(chartModel())
     const tablist = screen.getByRole('tablist')
     expect(tablist).toHaveAccessibleName('Results lens')
+    // Full prototype strip: four tabs; unavailable lenses stay focusable
+    // and selectable (their panel explains itself), never aria-disabled
+    // dead ends.
     const tabs = screen.getAllByRole('tab')
-    expect(tabs).toHaveLength(2)
+    expect(tabs).toHaveLength(4)
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
-    expect(tabs[1]).toHaveAttribute('aria-selected', 'false')
+    for (const tab of tabs.slice(1)) {
+      expect(tab).toHaveAttribute('aria-selected', 'false')
+    }
     const panel = screen.getByRole('tabpanel')
     expect(panel).toHaveAttribute('aria-labelledby', tabs[0].id)
   })
@@ -81,7 +79,7 @@ describe('AnalysisHero — accessibility', () => {
     // Goal lens leader = the recommended option (row 2).
     const leaderRow = screen.getByRole('button', { name: /Upskill the team/ })
     expect(leaderRow).toHaveAttribute('aria-current', 'true')
-    expect(leaderRow).toHaveTextContent('Leads on this view')
+    expect(leaderRow).toHaveTextContent('Highest on this view')
     const otherRow = screen.getByRole('button', { name: /Two developers/ })
     expect(otherRow).not.toHaveAttribute('aria-current')
   })
@@ -101,16 +99,37 @@ describe('AnalysisHero — accessibility', () => {
 
   it('every transform-animated element opts out under prefers-reduced-motion', () => {
     const { container } = renderPanel(chartModel())
+    // The default goal lens draws no tracks (v6) — the animated marks live
+    // on the outcome lens, so check there.
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
     const animated = container.querySelectorAll('[class*="transition-transform"]')
     expect(animated.length).toBeGreaterThan(0)
     for (const el of animated) {
-      expect(el.className).toContain('motion-reduce:transition-none')
+      // getAttribute (not className): SVG elements report SVGAnimatedString.
+      expect(el.getAttribute('class')).toContain('motion-reduce:transition-none')
     }
   })
 
-  it('stale chart area is hidden from interaction but the re-run control is operable', async () => {
-    const { container } = renderPanel(chartModel(), true)
-    expect(screen.getByTestId('hero-rerun')).toBeEnabled()
+  it('the hero section is labelled Analysis and the rows container names its lens table', () => {
+    renderPanel(chartModel())
+    expect(screen.getByRole('region', { name: 'Analysis' })).toBeInTheDocument()
+    // Goal lens (default here): the rows group carries the per-lens name.
+    expect(screen.getByRole('group', { name: 'Goal fit by option' })).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
+    expect(screen.getByRole('group', { name: 'Expected outcome by option' })).toBeInTheDocument()
+  })
+
+  it('content stays operable (v6 — no inert lockout) and no hero-side rerun control exists (C1)', async () => {
+    // RETIRED PIN: the hero's stale Re-run pill is removed — the freshness
+    // strip owns the one Rerun; the panel is staleness-agnostic.
+    const { container } = renderPanel(chartModel())
+    // Re-anchored (C1 review): this asserted `queryByTestId('hero-rerun')`
+    // was absent, but that testid exists nowhere in source — it asserted the
+    // absence of something that could never be present, so it could never
+    // fail. Sweep the rendered hero for a run control of ANY name/testid.
+    expect(collectRerunControls(container)).toEqual(new Set())
+    // No aria-disabled/inert wrapper: rows and tabs remain in the a11y tree.
+    expect(screen.getByTestId('hero-lens-tab-goal')).toBeEnabled()
     await expectNoViolations(container)
   })
 })

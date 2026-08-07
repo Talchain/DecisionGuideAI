@@ -1,0 +1,64 @@
+# Tracked TypeScript files that NO typecheck project compiles.
+#
+# Consumed by scripts/ci/typecheck-gate.sh (phase 1). The check is BIDIRECTIONAL:
+#   * a tracked .ts/.tsx/.mts/.cts file that no project loads and is NOT listed
+#     here FAILS the gate;
+#   * an entry listed here that IS loaded, or no longer exists, ALSO FAILS.
+# So this list cannot drift green in either direction, and it is PER FILE on
+# purpose — a directory glob would silently swallow every future addition, which
+# is precisely the defect this gate was built to kill.
+#
+# Adding a line here is a deliberate, reviewable admission that the gate does not
+# check that file. Prefer covering the file instead.
+#
+# ── archive/ — quarantined dead code, kept only as a historical record.
+# Each directory has a README explaining why the component was removed. These
+# are not built, not imported, and not shipped; typechecking them would add
+# noise to the baseline for code nobody may edit. A NEW file added under
+# archive/ fails the gate until it is listed here, which is the intended
+# friction.
+archive/dead-canvas-components-2026-07/CanvasEmptyState.tsx
+archive/dead-canvas-components-2026-07/DecisionReviewPanel.tsx
+archive/dead-canvas-components-2026-07/DetailedAnalysisSection.tsx
+archive/dead-canvas-components-2026-07/DriversSignal.tsx
+archive/dead-canvas-components-2026-07/EmptyStateOverlay.tsx
+archive/dead-canvas-components-2026-07/InputsDock.tsx
+archive/dead-canvas-components-2026-07/MultiGoalParetoPanel.tsx
+archive/dead-canvas-components-2026-07/OutcomesSignal.tsx
+archive/dead-canvas-components-2026-07/__tests__/DecisionReviewPanel.dom.spec.tsx
+archive/dead-canvas-components-2026-07/__tests__/DecisionReviewPanel.spec.tsx
+archive/dead-canvas-components-2026-07/__tests__/EmptyStateOverlay.test.tsx
+archive/dead-canvas-components-2026-07/__tests__/InputsDock.dom.spec.tsx
+archive/dead-canvas-components-2026-07/__tests__/OutcomesSignal.spec.tsx
+archive/dead-canvas-theme-2026-07/nodes.ts
+archive/dead-recommendation-subtree-2026-07/canvas/components/ConditionalGuidance/index.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/ConditionalGuidance/types.ts
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/AssumptionsSection.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/ConstraintViolationsSection.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/DriversSection.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/ExpandableSection.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/ParetoMiniChart.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/RobustnessBlock.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/RobustnessIndicator.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/TradeoffsSection.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/__tests__/ParetoMiniChart.spec.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/__tests__/RecommendationCard.spec.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/__tests__/RobustnessBlock.spec.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/__tests__/RobustnessIndicator.spec.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/components/RecommendationCard/index.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/hooks/__tests__/useRecommendation.plotBearer.spec.tsx
+archive/dead-recommendation-subtree-2026-07/canvas/hooks/useConditionalRecommendations.ts
+archive/dead-recommendation-subtree-2026-07/canvas/hooks/useRecommendation.ts
+archive/dead-recommendation-subtree-2026-07/canvas/utils/__tests__/cleanInsightText.spec.ts
+archive/dead-recommendation-subtree-2026-07/canvas/utils/__tests__/coherenceCheck.spec.ts
+archive/dead-recommendation-subtree-2026-07/canvas/utils/cleanInsightText.ts
+archive/dead-recommendation-subtree-2026-07/canvas/utils/coherenceCheck.ts
+archive/dead-ui-components-2026-07/KPIHeadline.tsx
+archive/dead-ui-components-2026-07/StabilityGauge.tsx
+archive/dead-ui-components-2026-07/__tests__/StabilityGauge.test.tsx
+#
+# ── .tmp/ — scratch config that was committed by accident. A tsconfig glob
+# cannot reach a dot-directory anyway. It should be deleted from the repo; until
+# someone confirms nothing references it, it is declared here rather than left
+# to pass silently.
+.tmp/vitest-outputsdock.config.ts

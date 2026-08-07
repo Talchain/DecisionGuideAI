@@ -4,6 +4,18 @@
  * Validates that every turn type the UI can send matches the structural
  * contract CEE expects. Uses the actual builder functions with representative
  * data — not hand-crafted minimal payloads.
+ *
+ * PROVENANCE (2026-07-20 re-sync — see contracts/cee/README.md for source SHA):
+ * CEE exports turn-request/system-event/analysis-state/graph-state from
+ * src/orchestrator/route-schemas.ts, which validates POST /orchestrate/v1/turn —
+ * a surface that returns 410 on live deploys (V4 disabled; live turns go to
+ * /orchestrate/v2/turn, validated by @talchain/schemas/boundary). These tests
+ * therefore pin the LEGACY builder surface (src/services/turn-request-builder)
+ * against CEE's CURRENT export of that same legacy surface; the live V5 payload
+ * path (src/v5/buildPayload.ts) is a different shape and is not covered here.
+ * Where the current export has diverged from what the legacy builders emit,
+ * the divergence is pinned explicitly as KNOWN DIVERGENCE below rather than
+ * papered over — see the PR body / cross-repo ask.
  */
 import { describe, test, expect } from 'vitest'
 import Ajv from 'ajv'
@@ -200,7 +212,13 @@ describe('Turn request contract', () => {
     expect(valid).toBe(true)
   })
 
-  test('conversation turn with selected_elements validates', () => {
+  test('KNOWN DIVERGENCE: builder emits selected_elements — the current CEE export no longer models it', () => {
+    // The pre-resync mirror accepted selected_elements on conversation turns.
+    // CEE's current export has no such property and rejects unknown keys
+    // (additionalProperties: false), so a selection-bearing legacy turn no
+    // longer validates. The builder still emits it (pinned below). Fails loud
+    // if CEE re-adds the field (first expect flips) or if the builder stops
+    // sending it (property assertion fails). See PR body / cross-repo ask.
     const request = wirePayload(buildConversationTurnRequest({
       scenario_id: VALID_UUID,
       conversation_history: [...conversationHistory],
@@ -209,7 +227,13 @@ describe('Turn request contract', () => {
       selected_elements: { node_ids: ['fac_price'], edge_ids: [] },
     }))
 
-    const valid = validateTurnRequest(request)
+    expect(request).toHaveProperty('selected_elements') // producer still emits it
+    expect(validateTurnRequest(request)).toBe(false) // current export rejects it
+
+    // Positive control: the rejection is exactly this field — stripping it validates.
+    const withoutSelection: Record<string, unknown> = { ...(request as Record<string, unknown>) }
+    delete withoutSelection.selected_elements
+    const valid = validateTurnRequest(withoutSelection)
     if (!valid) console.error('Validation errors:', validateTurnRequest.errors)
     expect(valid).toBe(true)
   })
@@ -291,7 +315,16 @@ describe('Turn request contract', () => {
     expect(valid).toBe(true)
   })
 
-  test('system_event turn (patch_accepted) validates against CEE schema', () => {
+  // KNOWN DIVERGENCE (system_event shape): the legacy builder wraps events as
+  // { type, payload }; CEE's current export models system_event as an anyOf of
+  // envelope-bearing variants { event_type, event_id, timestamp, details }
+  // (additionalProperties: false). A legacy-shaped system_event turn therefore
+  // no longer validates. Each test pins BOTH sides: the builder still emits the
+  // legacy shape (rejected), and the same turn with a schema-shaped event
+  // validates (positive control proving the rejection is exactly this field).
+  // Fails loud if either side moves. See PR body / cross-repo ask.
+
+  test('KNOWN DIVERGENCE: system_event turn (patch_accepted) — legacy {type,payload} rejected, schema shape accepted', () => {
     const request = wirePayload(buildSystemEventTurnRequest({
       scenario_id: VALID_UUID,
       conversation_history: [...conversationHistory],
@@ -301,12 +334,23 @@ describe('Turn request contract', () => {
     }))
 
     expect(request).toHaveProperty('system_event')
-    const valid = validateTurnRequest(request)
+    expect(validateTurnRequest(request)).toBe(false) // legacy {type,payload} shape
+
+    const schemaShaped = {
+      ...(request as Record<string, unknown>),
+      system_event: {
+        event_type: 'patch_accepted',
+        event_id: 'evt_patch_1',
+        timestamp: '2026-07-20T12:00:00Z',
+        details: { patch_id: 'blk_graph_patch_7e2a2e78', operations: [] },
+      },
+    }
+    const valid = validateTurnRequest(schemaShaped)
     if (!valid) console.error('Validation errors:', validateTurnRequest.errors)
     expect(valid).toBe(true)
   })
 
-  test('system_event turn (direct_graph_edit) validates', () => {
+  test('KNOWN DIVERGENCE: system_event turn (direct_graph_edit) — legacy {type,payload} rejected, schema shape accepted', () => {
     const request = wirePayload(buildSystemEventTurnRequest({
       scenario_id: VALID_UUID,
       conversation_history: [...conversationHistory],
@@ -315,12 +359,23 @@ describe('Turn request contract', () => {
       system_event: { type: 'direct_graph_edit', payload: { changed_node_ids: ['fac_price'] } },
     }))
 
-    const valid = validateTurnRequest(request)
+    expect(validateTurnRequest(request)).toBe(false) // legacy {type,payload} shape
+
+    const schemaShaped = {
+      ...(request as Record<string, unknown>),
+      system_event: {
+        event_type: 'direct_graph_edit',
+        event_id: 'evt_edit_1',
+        timestamp: '2026-07-20T12:00:00Z',
+        details: { changed_node_ids: ['fac_price'], changed_edge_ids: [], operations: [] },
+      },
+    }
+    const valid = validateTurnRequest(schemaShaped)
     if (!valid) console.error('Validation errors:', validateTurnRequest.errors)
     expect(valid).toBe(true)
   })
 
-  test('R11: system_event turn omits analysis_state', () => {
+  test('R11: system_event turn omits analysis_state (legacy event shape divergence pinned)', () => {
     const request = wirePayload(buildSystemEventTurnRequest({
       scenario_id: VALID_UUID,
       conversation_history: [...conversationHistory],
@@ -329,9 +384,22 @@ describe('Turn request contract', () => {
       system_event: { type: 'feedback_submitted', payload: { rating: 'positive' } },
     }))
 
+    // The R11 pin — builder behaviour, independent of the schema divergence.
     expect(request).toHaveProperty('system_event')
     expect(request).not.toHaveProperty('analysis_state')
-    const valid = validateTurnRequest(request)
+
+    expect(validateTurnRequest(request)).toBe(false) // legacy {type,payload} shape
+
+    const schemaShaped = {
+      ...(request as Record<string, unknown>),
+      system_event: {
+        event_type: 'feedback_submitted',
+        event_id: 'evt_feedback_1',
+        timestamp: '2026-07-20T12:00:00Z',
+        details: { turn_id: 'turn-1', rating: 'up' }, // rating enum: up | down
+      },
+    }
+    const valid = validateTurnRequest(schemaShaped)
     if (!valid) console.error('Validation errors:', validateTurnRequest.errors)
     expect(valid).toBe(true)
   })
@@ -380,7 +448,8 @@ describe('Turn request contract', () => {
     expect(valid).toBe(true)
   })
 
-  test('explain turn with selected_elements validates', () => {
+  test('KNOWN DIVERGENCE: explain turn with selected_elements — current CEE export rejects the field', () => {
+    // Same divergence as the conversation-turn pin above, on the explain path.
     const request = wirePayload(buildExplainTurnRequest({
       scenario_id: VALID_UUID,
       conversation_history: [...conversationHistory],
@@ -390,8 +459,13 @@ describe('Turn request contract', () => {
       analysis_state: analysisState,
     }))
 
-    expect(request).toHaveProperty('selected_elements')
-    const valid = validateTurnRequest(request)
+    expect(request).toHaveProperty('selected_elements') // producer still emits it
+    expect(validateTurnRequest(request)).toBe(false) // current export rejects it
+
+    // Positive control: stripping exactly this field validates.
+    const withoutSelection: Record<string, unknown> = { ...(request as Record<string, unknown>) }
+    delete withoutSelection.selected_elements
+    const valid = validateTurnRequest(withoutSelection)
     if (!valid) console.error('Validation errors:', validateTurnRequest.errors)
     expect(valid).toBe(true)
   })
@@ -467,18 +541,20 @@ describe('Graph state contract', () => {
 // Per-turn oneOf discrimination: forbidden field rejection
 // ---------------------------------------------------------------------------
 
-describe('Turn request schema rejects forbidden fields', () => {
-  // Note: JSON Schema oneOf matches any structurally valid variant.
-  // A payload with message + graph_state + generate_model matches ExplicitGenerateTurn.
-  // A payload with message + graph_state + system_event matches SystemEventTurn.
-  // The oneOf catches STRUCTURALLY IMPOSSIBLE combinations (e.g. a payload matching
-  // NO variant, or matching MULTIPLE variants simultaneously).
-  // Intent-level discrimination (e.g. "this was meant to be conversation but has
-  // generate_model") is enforced by the builder + _turn_type boundary validator.
+describe('Turn request schema discrimination (current export)', () => {
+  // SCHEMA MODEL CHANGE (2026-07-20 re-sync): the pre-resync mirror was a oneOf
+  // of per-turn-type variants with mutual-exclusion rules (run_analysis forbids
+  // message, etc.). CEE's CURRENT export retired the variant model: a single
+  // flat object, required = [scenario_id, client_turn_id], every other field
+  // optional, unknown keys rejected (additionalProperties: false). The
+  // exclusivity pins below are therefore FLIPPED and retitled to state what the
+  // schema now enforces — intent-level turn discrimination lives solely in the
+  // builder + _turn_type boundary validator now. Each flip is deliberate, not
+  // an appeasement: the old expectation pinned mirror-only strictness that the
+  // producer no longer exports.
 
-  test('run_analysis turn with message matches no variant (rejected)', () => {
-    // run_analysis forbids message; other variants that require message also require
-    // fields run_analysis doesn't have. This creates a true multi-variant mismatch.
+  test('VARIANT EXCLUSIVITY RETIRED: run_analysis-shaped payload with message is accepted by the current export', () => {
+    // Pre-resync: message was forbidden on run_analysis (matched no variant).
     const payload = {
       scenario_id: VALID_UUID,
       client_turn_id: VALID_UUID,
@@ -487,17 +563,11 @@ describe('Turn request schema rejects forbidden fields', () => {
       analysis_inputs: analysisInputs,
       message: 'should not be here',
     }
-    // ConversationOrExplainTurn: has analysis_inputs (forbidden)
-    // ExplicitGenerateTurn: has analysis_inputs (forbidden)
-    // RunAnalysisTurn: has message (forbidden)
-    // SystemEventTurn: no system_event (missing required)
-    // PatchFollowupTurn: has message (forbidden)
-    // ClarificationResponseTurn: has graph_state (forbidden)
-    // → matches no variant
-    expect(validateTurnRequest(payload)).toBe(false)
+    expect(validateTurnRequest(payload)).toBe(true)
   })
 
-  test('run_analysis turn with analysis_state is rejected', () => {
+  test('VARIANT EXCLUSIVITY RETIRED: run_analysis-shaped payload with analysis_state is accepted by the current export', () => {
+    // Pre-resync: analysis_state was forbidden alongside analysis_inputs.
     const payload = {
       scenario_id: VALID_UUID,
       client_turn_id: VALID_UUID,
@@ -506,14 +576,12 @@ describe('Turn request schema rejects forbidden fields', () => {
       analysis_inputs: analysisInputs,
       analysis_state: analysisState,
     }
-    // RunAnalysisTurn forbids analysis_state
-    // No other variant requires analysis_inputs
-    expect(validateTurnRequest(payload)).toBe(false)
+    expect(validateTurnRequest(payload)).toBe(true)
   })
 
-  test('clarification_response with graph_state matches ConversationOrExplainTurn (oneOf routes correctly)', () => {
-    // A payload with message + graph_state routes to ConversationOrExplainTurn, not
-    // ClarificationResponseTurn. This is correct oneOf behavior.
+  test('message + graph_state payload validates', () => {
+    // Pre-resync this pinned oneOf routing (ConversationOrExplainTurn); under
+    // the flat model it is simply a valid payload.
     const payload = {
       scenario_id: VALID_UUID,
       client_turn_id: VALID_UUID,
@@ -521,10 +589,14 @@ describe('Turn request schema rejects forbidden fields', () => {
       message: 'answer',
       graph_state: graphState,
     }
-    expect(validateTurnRequest(payload)).toBe(true) // matches ConversationOrExplainTurn
+    expect(validateTurnRequest(payload)).toBe(true)
   })
 
-  test('payload with both analysis_inputs and system_event matches no variant', () => {
+  test('malformed system_event ({type} only) is rejected', () => {
+    // Pre-resync this passed via variant exclusivity ("matches no variant").
+    // It still fails today, but for a different reason: the system_event value
+    // does not match any event variant (legacy {type} shape — see the KNOWN
+    // DIVERGENCE pins above). Kept as a negative pin on the event sub-schema.
     const payload = {
       scenario_id: VALID_UUID,
       client_turn_id: VALID_UUID,
@@ -534,11 +606,10 @@ describe('Turn request schema rejects forbidden fields', () => {
       analysis_inputs: analysisInputs,
       system_event: { type: 'direct_graph_edit' },
     }
-    // Every variant forbids at least one of these
     expect(validateTurnRequest(payload)).toBe(false)
   })
 
-  test('payload with generate_model + system_event matches no variant', () => {
+  test('generate_model with malformed system_event is rejected (event sub-schema, not exclusivity)', () => {
     const payload = {
       scenario_id: VALID_UUID,
       client_turn_id: VALID_UUID,
@@ -573,10 +644,9 @@ describe('Turn request schema rejects forbidden fields', () => {
     expect(validateTurnRequest(payload)).toBe(false)
   })
 
-  test('non-UUID scenario_id is rejected', () => {
+  test('missing client_turn_id is rejected (newly required by the current export)', () => {
     const payload = {
-      scenario_id: 'not-a-uuid',
-      client_turn_id: VALID_UUID,
+      scenario_id: VALID_UUID,
       conversation_history: [...conversationHistory],
       message: 'hello',
       graph_state: graphState,
@@ -584,13 +654,30 @@ describe('Turn request schema rejects forbidden fields', () => {
     expect(validateTurnRequest(payload)).toBe(false)
   })
 
-  test('payload with no message and no graph_state matches no variant', () => {
+  test('UUID FORMAT NOT ENFORCED: non-UUID scenario_id is accepted by the current export (length bounds only)', () => {
+    // Pre-resync the mirror enforced format: uuid and this was a rejection pin.
+    // The current export types scenario_id as a plain string (minLength 1,
+    // maxLength 200) — malformed-id rejection, if any, now happens beyond this
+    // schema. Both bounds pinned so a re-tightening fails loud here.
+    const payload = {
+      scenario_id: 'not-a-uuid',
+      client_turn_id: VALID_UUID,
+      conversation_history: [...conversationHistory],
+      message: 'hello',
+      graph_state: graphState,
+    }
+    expect(validateTurnRequest(payload)).toBe(true)
+    expect(validateTurnRequest({ ...payload, scenario_id: '' })).toBe(false) // minLength 1 still bites
+  })
+
+  test('EXCLUSIVITY RETIRED: payload with neither message nor graph_state is accepted (only scenario_id + client_turn_id required)', () => {
+    // Pre-resync: matched no variant. The flat model has no such floor.
     const payload = {
       scenario_id: VALID_UUID,
       client_turn_id: VALID_UUID,
       conversation_history: [...conversationHistory],
     }
-    expect(validateTurnRequest(payload)).toBe(false)
+    expect(validateTurnRequest(payload)).toBe(true)
   })
 })
 
@@ -768,17 +855,41 @@ describe('RF → CEE node/edge transform contract', () => {
 })
 
 describe('System event contract', () => {
-  test('all wire event types validate', () => {
-    const types = ['direct_graph_edit', 'direct_analysis_run', 'patch_accepted', 'patch_dismissed', 'feedback_submitted'] as const
-    for (const type of types) {
-      const event = { type, payload: {} }
+  // SCHEMA MODEL CHANGE (2026-07-20 re-sync): the standalone SystemEventSchema
+  // export is now an anyOf of five { event_type, event_id, timestamp, details }
+  // variants (additionalProperties: false) — not the legacy { type, payload }
+  // wrapper the UI's legacy builder emits. Minimal valid details per variant
+  // are taken from the export's own required lists.
+
+  test('all wire event types validate (schema-shaped)', () => {
+    const events = [
+      { event_type: 'patch_accepted', details: { operations: [] } },
+      { event_type: 'patch_dismissed', details: {} },
+      { event_type: 'direct_graph_edit', details: { changed_node_ids: [], changed_edge_ids: [], operations: [] } },
+      { event_type: 'direct_analysis_run', details: {} },
+      { event_type: 'feedback_submitted', details: { turn_id: 'turn-1', rating: 'up' } }, // rating enum: up | down
+    ]
+    for (const partial of events) {
+      const event = { event_id: `evt_${partial.event_type}`, timestamp: '2026-07-20T12:00:00Z', ...partial }
       const valid = validateSystemEvent(event)
-      if (!valid) console.error(`${type} failed:`, validateSystemEvent.errors)
+      if (!valid) console.error(`${partial.event_type} failed:`, validateSystemEvent.errors)
       expect(valid).toBe(true)
     }
   })
 
+  test('KNOWN DIVERGENCE: legacy {type,payload} event shape no longer validates', () => {
+    // The legacy builder wraps events as { type, payload } — pinned rejected
+    // against the current export. Goes red if CEE restores the legacy shape.
+    expect(validateSystemEvent({ type: 'patch_accepted', payload: {} })).toBe(false)
+  })
+
   test('unknown event type fails', () => {
-    expect(validateSystemEvent({ type: 'unknown_event' })).toBe(false)
+    const event = {
+      event_type: 'unknown_event',
+      event_id: 'evt_unknown',
+      timestamp: '2026-07-20T12:00:00Z',
+      details: {},
+    }
+    expect(validateSystemEvent(event)).toBe(false)
   })
 })

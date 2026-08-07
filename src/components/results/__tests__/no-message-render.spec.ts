@@ -20,6 +20,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'fs'
 import { join, relative } from 'path'
+import { stripComments } from '../../../../tests/helpers/stripSourceComments'
 
 const RESULTS_DIR = join(__dirname, '..')
 
@@ -103,6 +104,19 @@ const SAFE_PATTERNS = [
 ]
 
 /**
+ * Unsafe `.message` renders in `content`, comments stripped first so a
+ * commented-out `{item.message}` or a JSX block comment mentioning `.message`
+ * can no longer false-red (the #386/#403 footgun). String and TEMPLATE literals are
+ * KEPT as code — a real `{`${w.message}`}` interpolation still trips, so this
+ * uses stripComments, not the string-blanking blankNonCode. filePath only
+ * steers .css vs .js dispatch (scanned files are .tsx).
+ */
+function findMessageRenders(content: string, filePath: string): string[] {
+  const matches = stripComments(content, filePath).match(JSX_MESSAGE_RENDER) || []
+  return matches.filter((match) => !SAFE_PATTERNS.some((safe) => safe.test(match)))
+}
+
+/**
  * V14.3b: Files that render .message BUT have runtime defence-in-depth filtering.
  * Map of basename → regex that MUST be present in the file source for the exemption
  * to hold. If someone removes the runtime filter, this test starts failing — keeping
@@ -114,17 +128,39 @@ const SAFE_PATTERNS = [
  */
 const DEFENCE_IN_DEPTH_FILES: Record<string, RegExp> = {
   'WarningBanner.tsx': /INTERNAL_PATTERN\.test\(/,
-  // ChallengeSection.tsx: InferenceWarningCard renders warning.message with a
-  // hardcoded fallback (Inference warning: ${code}). The message comes from ISL
-  // inference warnings, not PLoT critique data — structurally different type.
-  // Guard: the fallback pattern must be present.
-  'ChallengeSection.tsx': /Inference warning.*warning\.code/,
-  // AdvancedSection.tsx: renders w.message inside the trust-narrative region
-  // for ISL inference warnings (added commit b462f7e6, 2026-04-17). Same
-  // exception class as ChallengeSection — these are ISL inference warnings,
-  // not PLoT critique data. Guard: the message must have been filtered for
-  // non-empty strings before render.
-  'AdvancedSection.tsx': /typeof w\.message === 'string' && w\.message\.trim\(\)\.length > 0/,
+  // ChallengeSection.tsx: exemption REMOVED with the file (dead-code sweep,
+  // 2026-07-27). Worth recording WHY, because this entry was already a stale
+  // mirror before the file died: it attested to an `InferenceWarningCard`
+  // rendering `warning.message`, but Brief 4 Task 12 had moved inference
+  // warnings out to ConfidenceSection, leaving ZERO occurrences of the
+  // attested pattern `/Inference warning.*warning\.code/` in the source. The
+  // exemption survived only because it is consulted lazily — the file no
+  // longer rendered `.message`, so `guard.test(content)` was never called and
+  // the false attestation never fired. Had any `.message` render returned to
+  // that file, the exemption would have thrown rather than exempted.
+  // The lesson is the map's shape, not this key: DEFENCE_IN_DEPTH_FILES is a
+  // hand-maintained mirror with no stale-entry check, so an entry whose
+  // subject changes underneath it rots silently. Entries must be re-read
+  // against their file, not trusted.
+  // AdvancedSection.tsx: exemption REMOVED (P0-3 fold, external review
+  // 2026-07-14). It previously rendered raw `w.message` for ISL inference
+  // warnings behind a non-empty-string filter — but that filter does NOT
+  // sanitise internal identifiers (e.g. `constraint_fac_… observed_state.value
+  // intercept=0`), so the "ISL warnings are structurally safe" rationale was
+  // false. It now humanises by `code` via the shared view model
+  // (selectHumanisedInferenceWarnings) and holds zero `.message` access, so the
+  // scanner enforces the invariant with no exemption.
+  // InferenceWarningStrip.tsx: the JSX itself renders ONLY humaniseCritique's
+  // sanitised `.title` (never `.message`) — fixed here after the PR #236
+  // regression that rendered `w.message` verbatim. The two remaining matches
+  // the naive brace scanner still flags are non-render code: the
+  // severity+non-empty-message VISIBILITY FILTER (selectWarningSeverityEntries)
+  // and the small object literal that hands `message` to humaniseCritique as
+  // an *input* — humaniseCritique never echoes raw `.message` back out except
+  // through its own internal-token guard. Presence of the filter's literal
+  // predicate is the attestation that the filter (not a raw render) is what
+  // the scanner is tripping on.
+  'InferenceWarningStrip.tsx': /typeof w\.message === 'string' && w\.message\.trim\(\)\.length > 0/,
 }
 
 /** V14.3b: Additional files that render warning/critique-like data */
@@ -142,12 +178,10 @@ describe('V14.3: No .message renders in results components', () => {
 
     it(`${fileName} does not render critique .message in JSX`, () => {
       const content = readFileSync(filePath, 'utf-8')
-      const matches = content.match(JSX_MESSAGE_RENDER) || []
-
-      // Filter out known safe patterns
-      const unsafe = matches.filter(match =>
-        !SAFE_PATTERNS.some(safe => safe.test(match)),
-      )
+      // Scan with comments stripped; attestations below still read RAW content
+      // (a defence-in-depth filter's literal predicate can legitimately live in
+      // a string, which stripComments keeps — but raw is unambiguous).
+      const unsafe = findMessageRenders(content, filePath)
 
       if (unsafe.length > 0) {
         // V14.3b: Files with runtime defence-in-depth get a conditional pass —
@@ -174,4 +208,42 @@ describe('V14.3: No .message renders in results components', () => {
       }
     })
   }
+})
+
+/**
+ * Both-directions mutation proof for the comment-strip (#386/#403 remediation).
+ * Real renders still trip; comment-borne mentions no longer do. Mutation-checked
+ * (2026-07-20): removing the strip turns the commented-out cases RED while every
+ * "STILL catches" case stays green.
+ */
+describe('V14.3 — detector contract (RED power preserved)', () => {
+  it('STILL catches a live {item.message} render', () => {
+    expect(findMessageRenders('<span>{item.message}</span>', 'x.tsx').length).toBeGreaterThan(0)
+  })
+
+  it('STILL catches a renamed variable {firstWarning.message}', () => {
+    expect(findMessageRenders('<p>{firstWarning.message}</p>', 'x.tsx').length).toBeGreaterThan(0)
+  })
+
+  it('STILL catches a template-literal render {`${w.message}`} (blankNonCode would miss this)', () => {
+    // Keeping template literals as code is why this guard uses stripComments.
+    expect(findMessageRenders('<p>{`prefix ${w.message}`}</p>', 'x.tsx').length).toBeGreaterThan(0)
+  })
+
+  it('does NOT flag the SAFE patterns (error.message / .test / console)', () => {
+    expect(findMessageRenders('<p>{error.message}</p>', 'x.tsx')).toEqual([])
+    expect(findMessageRenders('{INTERNAL.test(w.message)}', 'x.tsx')).toEqual([])
+  })
+
+  it('does NOT trip on a `//`-commented render', () => {
+    expect(findMessageRenders('// <span>{item.message}</span>', 'x.tsx')).toEqual([])
+  })
+
+  it('does NOT trip on a render inside a JSX {/* … */} comment', () => {
+    expect(findMessageRenders('<div>{/* was {item.message} */}</div>', 'x.tsx')).toEqual([])
+  })
+
+  it('does NOT trip on a render inside a /* block comment */', () => {
+    expect(findMessageRenders('/* <span>{w.message}</span> */', 'x.tsx')).toEqual([])
+  })
 })

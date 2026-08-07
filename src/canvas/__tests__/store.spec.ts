@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useCanvasStore } from '../store'
 import { __resetTelemetryCounters, __getTelemetryCounters } from '../../lib/telemetry'
+import { classifyFreshnessForDisplay } from '../store/analysisFreshness'
 
 function seedDemoGraph() {
   useCanvasStore.setState({
@@ -466,6 +467,56 @@ describe('Canvas Store', () => {
 
       expect(useCanvasStore.getState().hasCompletedFirstRun).toBe(true)
     })
+
+    // RCA-D1/RCA-C: a hydrated snapshot has no live-capture proof of currentness,
+    // so both hydrate paths mark the freshness verdict 'unknown' (cannot-confirm)
+    // — never 'fresh' (false green "complete"), never 'stale' (over-claims a
+    // change the user may not have made).
+    it('resultsLoadHistorical marks analysisFreshness unknown (cannot-confirm)', () => {
+      const { resultsLoadHistorical, reset } = useCanvasStore.getState()
+      reset()
+      const now = Date.now()
+      const fakeRun: any = {
+        id: 'run-fresh', ts: now, seed: 1, hash: 'h-fresh', adapter: 'auto',
+        summary: '', graphHash: 'gh',
+        report: {
+          schema: 'report.v1',
+          meta: { seed: 1, response_id: 'r', elapsed_ms: 1 },
+          model_card: { response_hash: 'h-fresh', response_hash_algo: 'sha256', normalized: true },
+          results: {},
+        },
+        drivers: [], graph: { nodes: [], edges: [] }, ceeReview: null, ceeTrace: null, ceeError: null,
+      }
+
+      resultsLoadHistorical(fakeRun)
+
+      expect(useCanvasStore.getState().analysisFreshness?.freshness).toBe('unknown')
+      expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+    })
+
+    it('resultsHydrateFromSupabase marks analysisFreshness unknown (cannot-confirm)', () => {
+      const { resultsHydrateFromSupabase, reset } = useCanvasStore.getState()
+      reset()
+
+      resultsHydrateFromSupabase({
+        results: {
+          status: 'complete',
+          progress: 100,
+          runId: 'sb-1',
+          seed: 2,
+          hash: 'h-sb',
+          report: {
+            schema: 'report.v1',
+            meta: { seed: 2, response_id: 'sb', elapsed_ms: 1 },
+            model_card: { response_hash: 'h-sb', response_hash_algo: 'sha256', normalized: true },
+            results: {},
+          },
+        },
+        runMeta: {},
+      } as any)
+
+      expect(useCanvasStore.getState().analysisFreshness?.freshness).toBe('unknown')
+    })
   })
 
   describe('graphHealth from engine graph_quality', () => {
@@ -859,6 +910,81 @@ describe('Canvas Store', () => {
 
       // goalConstraints was never set — must still be null
       expect(useCanvasStore.getState().goalConstraints).toBeNull()
+    })
+  })
+
+  // F2a (Codex review): a USER constraint edit is analysis-affecting (constraints
+  // are sent to PLoT, same class as the goal threshold), so it must dirty the
+  // freshness overlay every trust surface reads — otherwise the results keep
+  // claiming "Analysis reflects the current model" after a hard constraint change.
+  // The `classifyFreshnessForDisplay` calls below pass `importHold` from the
+  // SAME store snapshot (`s`) as the other two arguments, rather than a
+  // hardcoded `false` (2.494). It resolves to false throughout — this file has
+  // no import scenario — but a literal sitting beside two derived reads is a
+  // mirror of store state that nothing keeps in step. Reading it makes these
+  // assertions measure the composed state the surfaces actually see.
+  describe('F2a: constraint edits dirty analysis freshness', () => {
+    const FRESH = { freshness: 'fresh' as const, freshnessReason: 'graph_hash_match' }
+
+    beforeEach(() => {
+      useCanvasStore.getState().reset()
+      // reset() deliberately does NOT clear goalConstraints (F8) — normalise it
+      // here so each case starts from a known baseline.
+      // A retained CEE 'fresh' verdict with a clean overlay renders as 'current'.
+      useCanvasStore.setState({
+        goalConstraints: null,
+        analysisFreshness: FRESH,
+        analysisFreshnessDirty: false,
+      })
+    })
+
+    it('a user constraint edit dirties freshness → display downgrades fresh→changed', () => {
+      // Precondition (positive control): fresh + not-dirty reads as 'current'.
+      let s = useCanvasStore.getState()
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty, s.importPendingServerRegistration)).toBe('current')
+
+      // User edit via the GoalPanel path (no fromProducerSync opt-out).
+      useCanvasStore.getState().setGoalConstraints([
+        { id: 'c1', operator: '<=', value: 4 },
+      ] as any)
+
+      s = useCanvasStore.getState()
+      expect(s.analysisFreshnessDirty).toBe(true)
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty, s.importPendingServerRegistration)).toBe('changed')
+    })
+
+    it('a no-op set (identical content) does NOT dirty freshness', () => {
+      const constraints = [{ id: 'c1', operator: '<=', value: 4 }] as any
+      useCanvasStore.setState({ goalConstraints: constraints })
+      // Re-set with a byte-identical (but new-reference) array.
+      useCanvasStore.getState().setGoalConstraints([{ id: 'c1', operator: '<=', value: 4 }] as any)
+
+      const s = useCanvasStore.getState()
+      expect(s.analysisFreshnessDirty).toBe(false)
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty, s.importPendingServerRegistration)).toBe('current')
+    })
+
+    it('null→null is a no-op and does NOT dirty freshness', () => {
+      useCanvasStore.getState().setGoalConstraints(null)
+      expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+    })
+
+    it('a producer-sync write ({ fromProducerSync: true }) does NOT dirty freshness', () => {
+      useCanvasStore.getState().setGoalConstraints(
+        [{ id: 'c1', operator: '<=', value: 4 }] as any,
+        { fromProducerSync: true },
+      )
+      const s = useCanvasStore.getState()
+      expect(s.analysisFreshnessDirty).toBe(false)
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty, s.importPendingServerRegistration)).toBe('current')
+    })
+
+    it('clearing a real constraint (array→null) dirties freshness', () => {
+      useCanvasStore.setState({ goalConstraints: [{ id: 'c1', operator: '<=', value: 4 }] as any })
+      useCanvasStore.getState().setGoalConstraints(null)
+      const s = useCanvasStore.getState()
+      expect(s.analysisFreshnessDirty).toBe(true)
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty, s.importPendingServerRegistration)).toBe('changed')
     })
   })
 

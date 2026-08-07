@@ -70,6 +70,20 @@ function makeData(opts: FixtureOpts = {}): ResultsSectionDataReturn {
     robustnessLevel: 'high',
     coachingReadiness: 'ready',
     coachingReadinessDimensions: { evidence: 0.8, robustness: 0.75, clarity: 0.85 },
+    // ROADMAP 1.267: this fixture is about COMPLETENESS qualifiers on a run
+    // that has a recommended option, so it must now say that a leading option
+    // is permitted. Without a verdict the panel resolves NO_CLAIM_VERDICT and
+    // renders the withheld headline — correct behaviour, wrong scenario.
+    // Note the partial-source case deliberately nulls the runner-up's
+    // winProbability; the verdict is a PRODUCER claim and is unaffected by
+    // that, which is the point of keeping the two separate.
+    verdict: {
+      leaderId: 'opt-a',
+      separation: 'clear',
+      hasLeadingOption: true,
+      gapPp: 50,
+      source: 'producer_near_tie',
+    },
   } as DecisionResultData
 
   const drivers: DriversSectionData = {

@@ -1,6 +1,23 @@
 /**
  * M5: Provenance Hub Tab
  * Shows all citations and document connections
+ *
+ * ⚠ STRANDED, AND EMPTY BY CONSTRUCTION. Two independent reasons, either sufficient:
+ *
+ * 1. No opener. Nothing sets `showProvenanceHub` true; the entry point was removed
+ *    deliberately by the repo owner in c80f0fe8 (29 Mar 2026), "remove Run Analysis,
+ *    Compare Runs, and Evidence & Provenance from left menu".
+ * 2. No data. The `citations` prop comes from the canvas store, whose `addCitation`
+ *    action has NEVER been called — zero call sites in src/, zero commits in the repo's
+ *    entire history (`git log --all -S'addCitation('`). The M5 milestone shipped this UI
+ *    and the document-upload half, but never built citation production. So this renders
+ *    "0 citations from N documents" and the empty state, always.
+ *
+ * Do not wire an opener without first wiring a producer — an opener alone ships a button
+ * to an empty box. The live citation surface today is the conversation CitationLegend
+ * (src/canvas/conversation/InlineBlocks.tsx), fed from the V5 stream.
+ *
+ * Retained (not deleted) pending the owner's ruling. See PR "stranded panels".
  */
 
 import { useState } from 'react'
@@ -180,7 +197,7 @@ function CitationCard({
       </button>
 
       {/* Snippet */}
-      <div className={`${typography.body} text-gray-700 italic border-l-2 border-option/30 pl-3 mb-2`}>
+      <div className={`${typography.body} text-gray-700 italic border border-option/30 rounded px-3 py-1.5 mb-2`}>
         "{snippet}"
       </div>
 

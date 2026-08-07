@@ -6,12 +6,27 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
+import { focusExistingTarget } from '../utils/focusHelpers'
+import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, isCountUnit, formatWinProbability, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
-import { formatFactorDisplayValue, readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
+import {
+  describeInterventionDirection,
+  formatInterventionChange,
+  formatInterventionTargetText,
+  isInterventionNoChange,
+} from '../utils/interventionDisplay'
+import { readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
-import { NodeChip, ActionIcons, BriefIcon, MetricPills, NodePopover, ScienceIcon } from './shared'
+import { NodeChip, ActionIcons, BriefIcon, NodePopover, ScienceIcon } from './shared'
+import {
+  selectGoalProbability,
+  basisWithholdsPossessive,
+} from '../../components/results/utils/selectGoalProbability'
+import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 
 /** Truncate text at word boundary to avoid mid-word cuts. */
 function truncateAtWord(text: string, maxLength: number): string {
@@ -25,6 +40,131 @@ function truncateAtWord(text: string, maxLength: number): string {
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 function stripFactorSuffixes(label: string): string {
   return label.replace(KNOWN_SUFFIXES, '').trim()
+}
+
+/**
+ * Pure "Behind:" reason for a non-leading option. Extracted from the memo so
+ * the same computation can run for sibling options: when the reason string is
+ * identical across multiple non-leading options it differentiates nothing and
+ * is suppressed on all of them (audit §8 P1 — "Behind: fewer key changes"
+ * rendered verbatim on every loser).
+ */
+interface BehindReasonContext {
+  recommendedOptionId: string | undefined
+  hasSensitivity: boolean
+  topFactorId: string | undefined
+  strippedLabel: string | null
+  winnerInterventions: Record<string, unknown>
+  /** cee identity the context was built against — revalidated on read */
+  ceeRef: unknown
+}
+
+/**
+ * Report-level invariants for the "Behind:" reasons, computed ONCE per
+ * analysis report (WeakMap-cached on report identity) instead of per option
+ * per render: the sensitivity sort, top-factor label resolution and winner
+ * lookup are identical for every option card, and each card's memo also
+ * scans its siblings — without this cache that was O(options² · factors
+ * log factors) per drag frame. Factor labels are resolved at first build;
+ * a post-analysis rename shows the prior label until the next run, which
+ * the stale-decoration treatment already flags.
+ */
+const behindContextCache = new WeakMap<object, BehindReasonContext>()
+
+function getBehindReasonContext(
+  report: any,
+  ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown> }[] } | null,
+  nodes: readonly { id: string; type?: string; data?: any }[],
+): BehindReasonContext {
+  const cached = behindContextCache.get(report)
+  if (cached && cached.ceeRef === ceeAnalysisReady) return cached
+
+  const recommendedOptionId = report?.robustness?.recommended_option_id as string | undefined
+  // P0-2 (external review 2026-07-14): certified factor_sensitivity FIRST
+  // (matching winsVia + the graph badge), the untyped enrichment passthrough
+  // only as fallback — never the reverse.
+  const sensitivity = report?.factor_sensitivity ?? report?.enrichment?.sensitivity_analysis?.factors ?? []
+  const hasSensitivity = Array.isArray(sensitivity) && sensitivity.length > 0
+
+  let topFactorId: string | undefined
+  let strippedLabel: string | null = null
+  if (hasSensitivity) {
+    // Rank via the SHARED driver policy (extractPolicyRow + selectDriverDisplayModel
+    // + compareByDisplayModel) so the loser's "Behind:" top factor is chosen on
+    // the SAME basis as winsVia / the Drivers panel. The prior chain ranked by
+    // raw |importance_score ?? elasticity ?? sensitivity_score| — OMITTING
+    // `sensitivity` (the V5 magnitude key) and preferring importance — so it
+    // could crown a different driver than the panel under partial coverage.
+    const rows = (sensitivity as unknown[])
+      .map((f: unknown) => extractPolicyRow(f))
+      .filter((r: ReturnType<typeof extractPolicyRow>): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
+    const model = selectDriverDisplayModel(rows)
+    const ranked = rows
+      .map((r) => ({ key: r.key, elasticity: r.rawElasticity, value: model.get(r.key)?.value ?? 0 }))
+      .sort(compareByDisplayModel)
+    topFactorId = ranked[0] && ranked[0].value > 0 ? ranked[0].key : undefined
+    if (topFactorId) {
+      const topFactorRaw = (sensitivity as any[]).find(
+        f => (f.factor_id || f.factorId || f.node_id || f.nodeId) === topFactorId,
+      )
+      const rawLabel = (topFactorRaw?.label ?? topFactorRaw?.node_label) as string | undefined
+      const factorNode = nodes.find(n => n.id === topFactorId)
+      const factorLabel = rawLabel
+        ?? (factorNode ? (cleanFactorLabel((factorNode.data?.label as string) ?? '') || (factorNode.data?.label as string)) : null)
+        ?? null
+      strippedLabel = factorLabel ? (stripFactorSuffixes(factorLabel) || factorLabel) : null
+    }
+  }
+
+  const winnerCee = ceeAnalysisReady?.options?.find(opt => opt.id === recommendedOptionId)
+  const context: BehindReasonContext = {
+    recommendedOptionId,
+    hasSensitivity,
+    topFactorId,
+    strippedLabel,
+    winnerInterventions: winnerCee?.interventions ?? {},
+    ceeRef: ceeAnalysisReady,
+  }
+  if (report && typeof report === 'object') behindContextCache.set(report, context)
+  return context
+}
+
+function computeBehindReason(
+  optionId: string,
+  isBaseline: boolean,
+  report: any,
+  ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown> }[] } | null,
+  nodes: readonly { id: string; type?: string; data?: any }[],
+): string | null {
+  if (isBaseline) return 'no changes from current state'
+  if (!report) return null
+
+  const ctx = getBehindReasonContext(report, ceeAnalysisReady, nodes)
+  if (!ctx.recommendedOptionId) return null
+  if (!ctx.hasSensitivity) return 'fewer key changes'
+  if (!ctx.topFactorId || !ctx.strippedLabel) return 'fewer key changes'
+
+  const thisCee = ceeAnalysisReady?.options?.find(opt => opt.id === optionId)
+  const thisInterventions = thisCee?.interventions ?? {}
+
+  const winnerHasFactor = ctx.topFactorId in ctx.winnerInterventions
+  const thisHasFactor = ctx.topFactorId in thisInterventions
+
+  if (winnerHasFactor && !thisHasFactor) {
+    return `no ${ctx.strippedLabel.toLowerCase()} added`
+  }
+
+  if (winnerHasFactor && thisHasFactor) {
+    // unwrapInterventionValue returns null for malformed entries; treat
+    // those as "no comparable value" and skip the lower-than message.
+    const { value: winnerVal } = unwrapInterventionValue(ctx.winnerInterventions[ctx.topFactorId])
+    const { value: thisVal } = unwrapInterventionValue(thisInterventions[ctx.topFactorId])
+    if (winnerVal != null && thisVal != null && Math.abs(winnerVal - thisVal) >= 1e-6) {
+      return `${ctx.strippedLabel.toLowerCase()} lower`
+    }
+  }
+
+  return 'fewer key changes'
 }
 
 /**
@@ -142,9 +282,10 @@ function computeAllDifferentiators(
       const unit = (factorNode?.data?.unit as string | undefined) ?? obs?.unit
       const effectiveUnit = unit && !isSuppressedUnit(unit) ? unit : undefined
       const unitKind = classifyUnit(effectiveUnit).kind
+      // Audit §8 P0-4: "Does not change" fires ONLY on exact equality with the
+      // baseline (shared formatter semantics) — never a ±0.1 display epsilon.
       const directional = (): string =>
-        placeholderDirectionLabel(myValue, observedBaselineFor(factorId), compactLabel)
-          ?? `Does not change ${compactLabel}`
+        describeInterventionDirection(observedBaselineFor(factorId), myValue, compactLabel)
       if (unitKind === 'placeholder') {
         candidateLabels.set(optionId, directional())
       } else {
@@ -204,41 +345,10 @@ function stripEcho(label: string, displayValue: string): string {
   return displayValue
 }
 
-/** Format an intervention value contextually, avoiding banned "On"/"Off" content. */
-function formatChipValue(chip: { label: string; value: number; displayValue?: string; unit?: string; factorType?: string; cap?: number; observedValue?: number; observedRawValue?: string | number }): string {
-  // CEE-provided display_value wins over any UI-side formatting.
-  if (chip.displayValue) return chip.displayValue
-  // Denormalize intervention value when cap is available (intervention values are 0-1 normalized)
-  const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : null
-  let rawValue: number | string | null = null
-  if (effectiveUnit && chip.cap != null && chip.cap > 1) {
-    const raw = chip.value * chip.cap
-    // Clean float-precision artefacts (e.g. 16.080000000000002): count/headcount
-    // units render as whole numbers; other units keep ≤2 decimals. Display-only —
-    // underlying value/cap and denormalisation semantics are unchanged.
-    rawValue = isCountUnit(effectiveUnit) ? Math.round(raw) : Math.round(raw * 100) / 100
-  }
-  const contextual = formatFactorDisplayValue({
-    label: chip.label,
-    value: chip.value,
-    raw_value: rawValue,
-    unit: effectiveUnit,
-    factor_type: chip.factorType ?? null,
-    cap: chip.cap ?? null,
-  })
-  if (contextual) return contextual
-  // Fallback: prefer numeric formatting over qualitative tier labels and raw normalised values
-  const fallback = formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
-  // Tier labels and raw normalised decimals → percentage
-  if (isTierLabel(fallback)) {
-    return `${Math.round(chip.value * 100)}%`
-  }
-  // Raw normalised number (no unit, value in [0,1] like "0.15" or "0.85") → percentage
-  if (!effectiveUnit && chip.value >= 0 && chip.value <= 1 && /^0\.\d+$/.test(fallback)) {
-    return `${Math.round(chip.value * 100)}%`
-  }
-  return fallback
-}
+// Value formatting for intervention chips lives in the shared single
+// formatter (src/canvas/utils/interventionDisplay.ts — audit §8 P0-4).
+// The former local formatChipValue moved there as formatInterventionTargetText
+// so every option-intervention surface renders identical statements.
 
 interface InterventionChip {
   factorId: string
@@ -276,25 +386,48 @@ export const OptionNode = memo((props: NodeProps) => {
   const nodes = useCanvasStore(state => state.nodes)
   const resultsReport = useCanvasStore(state => state.results.report)
   const resultsStatus = useCanvasStore(state => state.results.status)
+  // Wave 4 / §6.4: the identity-anchored option number (Wave F-A store),
+  // rendered on the canvas node so it matches the Analysis panel's "Option N"
+  // chip. Subscribed (not the outside-React snapshot) so it re-renders when the
+  // numbering registers. undefined until analysis registers this option.
+  const stableOptionNumber = useCanvasStore(state => state.optionNumbering?.[props.id])
   const isPostAnalysis = resultsStatus === 'complete'
+  // Canvas result decorations carry no freshness treatment of their own:
+  // the graph-hash stale guard that once drove a dim + "Model changed" title
+  // here was deleted on 2026-07-16 (its hash keys had zero write sites, so
+  // it could never fire). Freshness verdicts render on the panel surfaces
+  // via the composed trust semantic (useAnalysisTrust).
 
+  // SINGLE VERDICT (2026-07-25): the canvas no longer decides for itself
+  // whether a leading option exists. It quotes `deriveDecisionVerdict` — the
+  // one module entitled to answer that — computed from the SAME PLoT report
+  // the results panel reads. Before this, the badge asked only "WHO leads?"
+  // (producer recommendation, else win-probability argmax) with no gate for
+  // "is there a leader at all", so it fired on 100% of completed runs while
+  // the panel independently printed "no clear leading option" beside it. See
+  // src/lib/decisionVerdict.ts for the full diagnosis.
+  const verdict = useMemo(() => {
+    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
+    return deriveDecisionVerdict(resultsReport as DecisionVerdictReportLike | null, {
+      visibleOptionIds: new Set(optionNodes.map(n => n.id)),
+    })
+  }, [nodes, resultsReport])
+
+  /** True only when this node is the leader AND a leading option exists at all. */
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false
-    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
-    if (optionNodes.length < 2) return false
-    const visibleOptionIds = new Set(optionNodes.map(n => n.id))
-    const report = resultsReport as any
-    const optionProbabilities: Record<string, { win_probability?: number }> = report?.option_probabilities ?? {}
-    const allRates = Object.entries(optionProbabilities)
-      .filter(([id]) => visibleOptionIds.has(id))
-      .map(([, v]) => typeof v?.win_probability === 'number' ? v.win_probability : null)
-      .filter((v): v is number => v !== null)
-    if (allRates.length === 0) return false
-    const maxRate = Math.max(...allRates)
-    return displayMetadata.winRate >= maxRate - 0.0001
-  }, [displayMetadata.isResultsMode, displayMetadata.winRate, nodes, resultsReport])
+    return verdict.hasLeadingOption && verdict.leaderId === props.id
+  }, [displayMetadata.isResultsMode, displayMetadata.winRate, verdict, props.id])
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
+  // UI-SEM-082 (Lane 4): the "chance of target" badge is a goal-fit claim, so it
+  // gates on the USER target (store goalThreshold) — never on producer value
+  // presence. The producer returns a joint/goal probability even with no user
+  // target (auto_goal_threshold, UI-SEM-071 class); the panel twin OptionCards
+  // already suppresses via hasGoalThreshold, and the GoalNode beside this option
+  // suppresses its own "chance of reaching target" when no target is set. This
+  // keeps the canvas node consistent with both.
+  const goalThreshold = useCanvasStore(state => state.goalThreshold)
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)
   const viewMode = useCanvasStore(state => state.viewMode)
   const isDetailed = viewMode === 'expert'
@@ -305,23 +438,33 @@ export const OptionNode = memo((props: NodeProps) => {
   // missing. Returns null when not in close-call territory or pre-analysis.
   const closeCallGapPp = useMemo<number | null>(() => {
     if (!isPostAnalysis || isRecommended) return null
+    // ROADMAP 1.239: "Close call: within N percentage points" measures a
+    // distance to `verdict.leaderId`, and identity SURVIVES a withheld turn by
+    // design (decisionVerdict.ts returns leaderId and gapPp; only the
+    // entitlement is withheld). So the line would print a gap to a leader the
+    // producer declined to name — the same inverse-form claim as "Behind:".
+    //
+    // The render probe scored this SILENT on its withheld runs, which is not
+    // evidence of a gate: that run's gap was 0.346, far outside the 5pp
+    // window below. Empirically silent, never gated — a withheld run with a
+    // close race fires it. Found while verifying the "Behind:" line at the
+    // bytes rather than dispatched, and gated here as defence in depth.
+    if (!verdict.hasLeadingOption) return null
+    // SINGLE VERDICT: `isRecommended` is now false for the front-runner too
+    // when no leading option exists (a tied run). Without this guard the
+    // front-runner would compute a zero gap against itself and render
+    // "Close call: within 1 percentage point" on its own card.
+    if (verdict.leaderId === props.id) return null
     const report = resultsReport as any
     const probs: Record<string, { win_probability?: number }> | undefined = report?.option_probabilities
     if (!probs) return null
     const thisWin = probs[props.id]?.win_probability
     if (typeof thisWin !== 'number') return null
-    let leaderWin: number | null = null
-    const recommendedId = report?.robustness?.recommended_option_id as string | undefined
-    if (recommendedId && typeof probs[recommendedId]?.win_probability === 'number') {
-      leaderWin = probs[recommendedId]!.win_probability!
-    } else {
-      // Fallback: scan for max
-      for (const id in probs) {
-        const w = probs[id]?.win_probability
-        if (typeof w === 'number' && (leaderWin == null || w > leaderWin)) leaderWin = w
-      }
-    }
-    if (leaderWin == null) return null
+    // SINGLE VERDICT: leader identity comes from the shared verdict, not a
+    // second local resolution of `recommended_option_id`-else-argmax.
+    const leaderId = verdict.leaderId
+    const leaderWin = leaderId != null ? probs[leaderId]?.win_probability : undefined
+    if (typeof leaderWin !== 'number') return null
     const gap = leaderWin - thisWin
     if (gap < 0 || gap > 0.05) return null
     // Floor to at least 1pp so the line never reads "within 0 percentage
@@ -329,9 +472,9 @@ export const OptionNode = memo((props: NodeProps) => {
     // early return (within-0.0001 tolerance), but rounding can still produce
     // 0 from a small positive gap like 0.004.
     return Math.max(1, Math.round(gap * 100))
-  }, [isPostAnalysis, isRecommended, resultsReport, props.id])
+  }, [isPostAnalysis, isRecommended, verdict, resultsReport, props.id])
 
-  const interventionChips = useMemo<InterventionChip[]>(() => {
+  const allInterventionChips = useMemo<InterventionChip[]>(() => {
     // Primary: ceeAnalysisReady.options[optionId].interventions
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
     let interventionEntries: [string, unknown][] = []
@@ -386,9 +529,17 @@ export const OptionNode = memo((props: NodeProps) => {
         }]
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
-      // Brief scope 7: cap visible chips at 4 (was 3).
-      .slice(0, 4)
   }, [ceeAnalysisReady, props.id, nodes])
+
+  // Brief scope 7: Layer-1 pills cap visible chips at 4. The post-analysis
+  // "What this option changes:" block needs the FULL built list so its
+  // "+N more in inspector" count reflects every renderable change — counting
+  // from the raw key total advertised hidden no-change/malformed entries as
+  // "more", and counting from this sliced list under-reported N.
+  const interventionChips = useMemo<InterventionChip[]>(
+    () => allInterventionChips.slice(0, 4),
+    [allInterventionChips],
+  )
 
   const hasInterventions = useMemo(() => {
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
@@ -465,9 +616,21 @@ export const OptionNode = memo((props: NodeProps) => {
         // a one-sided or fabricated value, and never a throw.
         if (baseline === undefined) return null
 
-        const diff = c.value - baseline
-        if (Math.abs(diff) < 1e-6) return null // no change
-        const direction: 'up' | 'down' = diff > 0 ? 'up' : 'down'
+        // Single-formatter no-change semantics (audit §8 P0-4): a chip is
+        // omitted as "no change" ONLY on exact equality with the baseline.
+        const change = formatInterventionChange({
+          baselineValue: baseline,
+          targetValue: c.value,
+          label: shortLabel,
+          unit: c.unit,
+          factorType: c.factorType,
+          cap: c.cap,
+          observedValue: c.observedValue,
+          observedRawValue: c.observedRawValue,
+          targetDisplayValue: c.displayValue,
+        })
+        if (!change.changed) return null // no change
+        const direction: 'up' | 'down' = change.arrow ?? 'up'
 
         // Scope A — binary/encoded factor with payload display labels on BOTH
         // sides. Fires ONLY when: the pair is strictly {0,1}; the intervention
@@ -488,15 +651,13 @@ export const OptionNode = memo((props: NodeProps) => {
           return { factorId: c.factorId, label: shortLabel, direction, fromTo: `${baselineLabel} → ${c.displayValue}` }
         }
 
-        // Format BOTH sides with the existing trusted formatter (real-world
-        // where the payload supports it — same helper the post-analysis list
+        // Both sides come from the shared formatter (real-world display units
+        // where the payload supports it — same chain the post-analysis list
         // uses). When either side can't be formatted to real-world, fall back
         // to normalised percentages for BOTH sides — the only safe shared
         // scale. No new denormalisation logic is introduced.
-        const targetFormatted = formatChipValue(c)
-        const baselineFormatted = formatChipValue({ ...c, value: baseline, displayValue: undefined })
-        const fromTo = baselineFormatted && targetFormatted
-          ? `${baselineFormatted} → ${targetFormatted}`
+        const fromTo = change.baselineText && change.targetText
+          ? `${change.baselineText} → ${change.targetText}`
           : `${Math.round(baseline * 100)}% → ${Math.round(c.value * 100)}%`
 
         return { factorId: c.factorId, label: shortLabel, direction, fromTo }
@@ -547,26 +708,48 @@ export const OptionNode = memo((props: NodeProps) => {
   const winsVia = useMemo(() => {
     if (!isPostAnalysis || !isRecommended || !resultsReport) return null
     const report = resultsReport as any
-    const sensitivity = report?.enrichment?.sensitivity_analysis?.factors ?? report?.factor_sensitivity ?? []
+    // Source precedence matches the graph badge (useNodeDisplayMetadata):
+    // certified factor_sensitivity FIRST, the untyped enrichment passthrough
+    // as fallback — so this card can never rank a different row-set than the
+    // badge on the same canvas (Lane 2 review fold).
+    const sensitivity = report?.factor_sensitivity ?? report?.enrichment?.sensitivity_analysis?.factors ?? []
     if (!Array.isArray(sensitivity) || sensitivity.length === 0) return null
 
-    const rankedFactors = [...sensitivity]
-      .map((f: any) => ({
-        id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined,
-        score: Math.abs(f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0),
+    // Lane 2 (policy + honesty): rank via the SHARED driver display policy —
+    // this previously ranked by raw |elasticity| (option-scoped) and then
+    // asserted a GLOBAL "#1 driver", crowning a factor the same screen's
+    // drivers panel ranked 4th at 17% (live 2026-07-13). Rows come from the
+    // SHARED extractor so the coverage verdict cannot skew per surface. The
+    // copy may claim "#1 driver" ONLY when the chosen lever IS the policy's
+    // global #1 (shared tie-break, non-zero); otherwise it is honestly the
+    // option's biggest lever.
+    const rows = sensitivity
+      .map((f: unknown) => extractPolicyRow(f))
+      .filter((r: ReturnType<typeof extractPolicyRow>): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
+    if (rows.length === 0) return null
+
+    const displayModel = selectDriverDisplayModel(rows)
+    const ranked = rows
+      .map((r) => ({
+        id: r.key,
+        value: displayModel.get(r.key)?.value ?? 0,
+        elasticity: r.rawElasticity,
+        key: r.key,
       }))
-      .sort((a, b) => b.score - a.score)
+      .sort(compareByDisplayModel)
+    const globalTopId = ranked[0] && ranked[0].value > 0 ? ranked[0].id : null
 
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
     const interventionKeys = new Set(Object.keys(ceeOption?.interventions ?? {}))
 
-    for (const f of rankedFactors) {
-      if (f.id && interventionKeys.has(f.id)) {
+    for (const f of ranked) {
+      if (interventionKeys.has(f.id)) {
         const factorNode = nodes.find(n => n.id === f.id)
         if (factorNode) {
           return {
             id: f.id,
             label: cleanFactorLabel((factorNode.data?.label as string) ?? '') || ((factorNode.data?.label as string) ?? ''),
+            isGlobalTop: globalTopId !== null && f.id === globalTopId,
           }
         }
       }
@@ -574,75 +757,114 @@ export const OptionNode = memo((props: NodeProps) => {
     return null
   }, [isPostAnalysis, isRecommended, resultsReport, ceeAnalysisReady, props.id, nodes])
 
-  // Goal probability for warning
-  const goalProbability = useMemo(() => {
+  // Goal probability for warning.
+  // ROADMAP 1.49: uses the shared selectGoalProbability fallback chain (same
+  // one useResultsSectionData applies for OptionCards/hero/GoalNode) so this
+  // badge can't show a different number than those surfaces on a
+  // constrained-goal run.
+  //
+  // Goal-probability IDENTITY: the WHOLE decision is kept, not just the
+  // number. This site previously took `.goalProbability` and discarded the
+  // provenance, so the badge rendered a joint-basis figure with no caveat
+  // while OptionCards, the hero and GoalNode rendered the same figure WITH
+  // one. The caveat now travels with the number to every surface showing it.
+  const goalDecision = useMemo(() => {
     if (!isPostAnalysis || !resultsReport) return null
     const report = resultsReport as any
     const optionProbs = report?.option_probabilities?.[props.id]
-    return typeof optionProbs?.goal_probability === 'number' ? optionProbs.goal_probability : null
+    return selectGoalProbability(optionProbs)
   }, [isPostAnalysis, resultsReport, props.id])
+  const goalProbability = goalDecision?.goalProbability ?? null
 
-  // "Behind:" reason for non-winner options (including status quo)
+  // THE POSSESSIVE GATE (ROADMAP 2.282). `basis === 'joint_goal_substituted'`
+  // means this number is P(all constraints jointly satisfied) STANDING IN for
+  // an absent `probability_of_goal`, so the possessive "chance of target"
+  // names a question it does not answer. Read off the owner's own published
+  // decision — the same expression `useResultsSectionData` uses to set
+  // `OptionResult.goalFitIsSubstitutedJoint` — never re-derived here.
+  //
+  // ⚠ SCOPED TO `joint_goal_substituted`, NOT to "the figure is joint".
+  // `joint_goal_constrained` is the user's own goal AND the user's own
+  // limits, where the possessive is EARNED and stays. `OptionNode.spec.tsx`'s
+  // ROADMAP 1.49 positive control is exactly that constrained case and must
+  // keep rendering "chance of target."
+  //
+  // ⭐ L62 (2026-08-04) — THIS IS NOW ALWAYS FALSE, AND THAT IS THE FIX.
+  // `selectGoalProbability` no longer substitutes: on that basis it returns NO
+  // number (`'joint_goal_withheld'`, `goalProbability: null`), so a badge is
+  // never rendered in the withheld state and there is nothing left to re-voice.
+  // The bases that still carry a number — `'goal_probability'` and
+  // `'joint_goal_constrained'` — both EARN the possessive, which is why this
+  // reads the owner's own published permission rather than re-testing a basis
+  // literal: if the owner ever re-permits a number it forbids the possessive
+  // for, this lights up again without an edit here.
+  const goalFitSubstituted =
+    goalDecision?.goalProbability != null && basisWithholdsPossessive(goalDecision.basis)
+  // The badge readout, built ONCE above both arms so the withheld and
+  // permitted wordings cannot show different numbers for the same option.
+  // Byte-identical to the literal it replaces (`'< '` + digits + `%`).
+  const goalBadgeReadout =
+    goalProbability !== null && goalProbability < 0.10
+      ? `< ${goalProbability < 0.01 ? '1' : Math.round(goalProbability * 100)}%`
+      : null
+
+  // "Behind:" reason for non-winner options (including status quo).
+  // Computed via the pure helper so this option's reason can be compared
+  // against its non-leading siblings: an identical reason on multiple losers
+  // differentiates nothing, so it renders on none of them (audit §8 P1).
   const behindReason = useMemo<string | null>(() => {
     if (!isPostAnalysis || isRecommended) return null
-    if (isBaselineOption) return 'no changes from current state'
+    // ROADMAP 1.239: "Behind:" is an explicit comparative designation, and on a
+    // withheld turn it was rendering on EVERY option — including the one the
+    // numbers put on top. `isRecommended` is `hasLeadingOption && leaderId ===
+    // id`, so with the claim withheld no option is the leader and the only
+    // gate this line had (`!isRecommended`) is satisfied by all of them. The
+    // probe measured exactly that: 30 occurrences withheld against 20
+    // permitted, i.e. 3 options rather than 2 non-leaders. Everything behind,
+    // nothing ahead.
+    //
+    // A1's ruling is why it is in scope at all: a comparative designation is a
+    // leader claim in inverse form. Gating (rather than reordering, the
+    // instrument this arc prefers) because there is no branch order that
+    // expresses it — the entitlement is a property of the run, not of this
+    // node's position in a chain. `verdict.hasLeadingOption` is a required
+    // boolean computed in this component, never an optional prop, so it
+    // carries none of the omitted-input risk that made #491 choose ordering.
+    if (!verdict.hasLeadingOption) return null
     const report = resultsReport as any
-    if (!report) return null
+    const myReason = computeBehindReason(props.id, isBaselineOption, report, ceeAnalysisReady, nodes)
+    if (!myReason) return null
 
-    const recommendedOptionId = report?.robustness?.recommended_option_id as string | undefined
-    if (!recommendedOptionId) return null
-
-    const sensitivity = report?.enrichment?.sensitivity_analysis?.factors ?? report?.factor_sensitivity ?? []
-    if (!Array.isArray(sensitivity) || sensitivity.length === 0) return 'fewer key changes'
-
-    const rankedFactors = [...sensitivity]
-      .map((f: any) => ({
-        id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined,
-        label: (f.label ?? f.node_label) as string | undefined,
-        score: Math.abs(f.importance_score ?? f.elasticity ?? f.sensitivity_score ?? 0),
-      }))
-      .sort((a, b) => b.score - a.score)
-
-    const topFactor = rankedFactors[0]
-    if (!topFactor?.id) return 'fewer key changes'
-
-    const factorNode = nodes.find(n => n.id === topFactor.id)
-    const factorLabel = topFactor.label
-      ?? (factorNode ? (cleanFactorLabel((factorNode.data?.label as string) ?? '') || (factorNode.data?.label as string)) : null)
-      ?? null
-
-    if (!factorLabel) return 'fewer key changes'
-
-    const winnerCee = ceeAnalysisReady?.options?.find(opt => opt.id === recommendedOptionId)
-    const thisCee = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
-
-    const winnerInterventions = winnerCee?.interventions ?? {}
-    const thisInterventions = thisCee?.interventions ?? {}
-
-    const winnerHasFactor = topFactor.id in winnerInterventions
-    const thisHasFactor = topFactor.id in thisInterventions
-
-    const strippedLabel = stripFactorSuffixes(factorLabel) || factorLabel
-
-    if (winnerHasFactor && !thisHasFactor) {
-      return `no ${strippedLabel.toLowerCase()} added`
+    const probs: Record<string, { win_probability?: number }> = report?.option_probabilities ?? {}
+    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
+    const rates = optionNodes
+      .map(n => probs[n.id]?.win_probability)
+      .filter((v): v is number => typeof v === 'number')
+    const maxRate = rates.length > 0 ? Math.max(...rates) : null
+    // Mirrors isRecommended: a sibling is the leader when its win probability
+    // is within tolerance of the maximum. Missing win probability ⇒ non-leader
+    // (such options also render "Behind:" copy).
+    // UI-SEM-067: leader tolerance + identical-reason suppression (display gate).
+    const isLeader = (id: string): boolean => {
+      const w = probs[id]?.win_probability
+      return maxRate != null && typeof w === 'number' && w >= maxRate - 0.0001
     }
-
-    if (winnerHasFactor && thisHasFactor) {
-      // unwrapInterventionValue returns null for malformed entries; treat
-      // those as "no comparable value" and skip the lower-than message.
-      const { value: winnerVal } = unwrapInterventionValue(winnerInterventions[topFactor.id])
-      const { value: thisVal } = unwrapInterventionValue(thisInterventions[topFactor.id])
-      if (winnerVal != null && thisVal != null && Math.abs(winnerVal - thisVal) >= 1e-6) {
-        return `${strippedLabel.toLowerCase()} lower`
-      }
-    }
-
-    return 'fewer key changes'
-  }, [isPostAnalysis, isRecommended, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes])
+    const hasDuplicate = optionNodes.some(n => {
+      if (n.id === props.id || isLeader(n.id)) return false
+      const explicit = (n.data as any)?.is_baseline as boolean | null | undefined
+      const siblingIsBaseline = explicit ?? detectBaseline((n.data?.label as string) ?? '').isBaseline
+      return computeBehindReason(n.id, siblingIsBaseline, report, ceeAnalysisReady, nodes) === myReason
+    })
+    return hasDuplicate ? null : myReason
+  }, [isPostAnalysis, isRecommended, verdict, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes])
 
   const handleWinsViaClick = useCallback(() => {
     if (!winsVia) return
+    // AI-to-graph convergence: same fail-closed focus + transient ring as
+    // the panel affordances — centre the driver and highlight it; stale or
+    // unknown ids do nothing (recovered sessions can carry result ids that
+    // no longer exist on this canvas).
+    if (!focusExistingTarget(winsVia.id, 'node')) return
     const store = useCanvasStore.getState()
     store.setHighlightedNodes([winsVia.id])
     setTimeout(() => store.setHighlightedNodes([]), 3000)
@@ -685,16 +907,25 @@ export const OptionNode = memo((props: NodeProps) => {
         // Baseline chips already pre-existed inside layer2Content; keep them.
         return (
           <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip label="Why does this win/lose?" message={`Why does the status quo (${optionLabel}) win or lose compared to other options?`} />
-            <NodeChip label="Risks of inaction" message="What are the risks of choosing to do nothing?" />
+            <NodeChip chipId="option_why_win_lose" actionType="explain_results" label="Why is this ahead or behind on your goal?" message={`Why does the status quo (${optionLabel}) do better or worse against my goal than the other options?`} />
+            <NodeChip chipId="option_risks_of_inaction" actionType={null} label="Risks of inaction" message="What are the risks of choosing to do nothing?" />
           </div>
         )
       }
       if (isRecommended) {
         return (
           <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip label="What would change this?" message={`What would need to change for ${optionLabel} to no longer be the best choice?`} />
-            <NodeChip label="Why does this lead?" message={`Why does ${optionLabel} lead over the other options?`} />
+            {/* ROADMAP 2.724 — CONTRASTIVE, not a verdict. This chip composes a
+                sentence that lands in the user's OWN transcript, so the old
+                "…to no longer be the best choice?" made the system put a
+                crowning claim in the user's mouth and then answer it. The
+                product recommends what to INVESTIGATE, never what to CHOOSE.
+                Asking about the ALTERNATIVE keeps the whole what_would_flip
+                question while presupposing nothing about the leader. Same
+                register as the sibling non-leader chips ("to become the
+                leader") and `winnerChipCopy.ts` (ROADMAP 1.223). */}
+            <NodeChip chipId="option_what_would_change" actionType="what_would_flip" label="What would change this?" message={`What would need to change for another option to lead instead of ${optionLabel}?`} />
+            <NodeChip chipId="option_why_lead" actionType="explain_results" label="Why does this lead?" message={`Why does ${optionLabel} lead over the other options?`} />
           </div>
         )
       }
@@ -704,11 +935,13 @@ export const OptionNode = memo((props: NodeProps) => {
           <div className="flex gap-1 flex-wrap mt-1.5">
             {closeCallGapPp != null && (
               <NodeChip
+                chipId="option_what_would_change_close_call"
+                actionType="what_would_flip"
                 label="What would change this?"
                 message={`What would need to change for ${optionLabel} to become the leader?`}
               />
             )}
-            <NodeChip label="What would make this lead?" message={`What would need to change for ${optionLabel} to lead?`} />
+            <NodeChip chipId="option_what_would_make_lead" actionType="what_would_flip" label="What would make this lead?" message={`What would need to change for ${optionLabel} to lead?`} />
           </div>
         )
       }
@@ -718,7 +951,7 @@ export const OptionNode = memo((props: NodeProps) => {
     if (!isBaselineOption) {
       return (
         <div className="flex gap-1 flex-wrap mt-1.5">
-          <NodeChip label="What could go wrong?" message={`What could go wrong if we choose ${optionLabel}?`} />
+          <NodeChip chipId="option_what_could_go_wrong" actionType={null} label="What could go wrong?" message={`What could go wrong if we choose ${optionLabel}?`} />
         </div>
       )
     }
@@ -728,11 +961,18 @@ export const OptionNode = memo((props: NodeProps) => {
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = useMemo(() => (
     <>
-      {/* Goal probability warning (< 10%) -- post-analysis only */}
-      {isPostAnalysis && goalProbability !== null && goalProbability < 0.10 && (
+      {/* Goal probability warning (< 10%) -- post-analysis only.
+          UI-SEM-082: gated on a USER target (goalThreshold != null) so it never
+          crowns a target the user never set, matching GoalNode + OptionCards. */}
+      {goalThreshold != null && isPostAnalysis && goalBadgeReadout != null && (
         <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-          {'< '}
-          {goalProbability < 0.01 ? '1' : Math.round(goalProbability * 100)}% chance of target.{' '}
+          {/* ROADMAP 2.282: the withheld arm is the shared register's SENTENCE
+              form verbatim (phrase + full stop) — the same wording the results
+              panel, the hero and the V7 goal lens render for this basis. The
+              permitted arm is byte-identical to the string it replaced. */}
+          {goalFitSubstituted
+            ? GOAL_ANCHOR_COPY.sentence(goalBadgeReadout, goalFitSubstituted)
+            : `${goalBadgeReadout} chance of target.`}{' '}
           <button
             type="button"
             className={`${typography.edgeLabel} text-danger underline cursor-pointer nodrag nopan`}
@@ -744,23 +984,48 @@ export const OptionNode = memo((props: NodeProps) => {
         </p>
       )}
 
+      {/* Display-honesty (ROADMAP 1.6b, claim-integrity): the number above is
+          scored from a MODELLED forward-propagated outcome distribution, not
+          a directly-set base. Same gate and same shared wording as
+          OptionCards / GoalNode / OutcomeNode / NodeInspector — the flag is
+          read off the shared selector, never re-derived, so no surface can
+          show this number with the caveat while another shows it bare. */}
+      {goalThreshold != null && isPostAnalysis && goalProbability !== null && goalProbability < 0.10 &&
+        goalDecision?.goalFitIsModelledBasis === true && (
+        <p
+          className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+          data-testid={`goal-fit-basis-caveat-option-node-${props.id}`}
+        >
+          {GOAL_FIT_BASIS_CAVEAT_COPY}
+        </p>
+      )}
+
       {/* "What this option changes:" intervention list (never for baseline) */}
-      {!isBaselineOption && interventionChips.length > 0 && (() => {
-        const chipsWithMeta = interventionChips.map(chip => {
+      {!isBaselineOption && allInterventionChips.length > 0 && (() => {
+        const chipsWithMeta = allInterventionChips.map(chip => {
           const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
-          const isNoChange = baselineNorm !== undefined && Math.abs(chip.value - baselineNorm) < 1e-6
+          // Shared no-change semantics: exact equality only (audit §8 P0-4).
+          const isNoChange = isInterventionNoChange(baselineNorm, chip.value)
           return { chip, isNoChange }
         })
         const allNoChange = chipsWithMeta.length > 0 && chipsWithMeta.every(c => c.isNoChange)
         if (allNoChange) return <p className={`${typography.edgeLabel} text-text-light m-0`}>No changes from current state</p>
 
+        // Card containment (audit §8 P0-5): max 3 rows inline; the remainder
+        // is disclosed via a plain "+N more in inspector" line — rows stay
+        // whole, no CSS clipping.
+        const renderableChips = chipsWithMeta.filter(c => !c.isNoChange)
+        const visibleChips = renderableChips.slice(0, 3)
+        // N counts only chips that WOULD render — hidden no-change chips and
+        // dropped malformed entries are not "more" changes to see.
+        const moreInInspector = Math.max(0, renderableChips.length - visibleChips.length)
+
         return (
           <>
             <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>What this option changes:</p>
             <div className="flex flex-col gap-0.5">
-              {chipsWithMeta.map(({ chip, isNoChange }) => {
-                if (isNoChange) return null
-                const targetFormatted = formatChipValue(chip)
+              {visibleChips.map(({ chip }) => {
+                const targetFormatted = formatInterventionTargetText(chip)
                 let deltaDisplay: string | null = null
                 // Skip delta arithmetic when CEE provided a qualitative displayValue
                 // for the target — pairing "Doubled capacity" with "(+70%)" produces
@@ -779,9 +1044,9 @@ export const OptionNode = memo((props: NodeProps) => {
                         const pct = ((denormedTarget - denormedBaseline) / Math.abs(denormedBaseline)) * 100
                         const sign = pct >= 0 ? '+' : ''
                         // Strip displayValue — it describes the target intervention, not the baseline.
-                        const baselineFormatted = formatChipValue({ ...chip, value: baselineNorm, displayValue: undefined })
+                        const baselineFormatted = formatInterventionTargetText({ ...chip, value: baselineNorm, displayValue: undefined })
                         // Polish 4 review fix: only build the delta string when
-                        // both formatChipValue calls produced meaningful output.
+                        // both formatter calls produced meaningful output.
                         // Otherwise we'd render " → ()" for scale-unit factors
                         // (empty baselineFormatted + empty targetFormatted).
                         if (baselineFormatted && targetFormatted) {
@@ -816,20 +1081,21 @@ export const OptionNode = memo((props: NodeProps) => {
                 )
               })}
             </div>
+            {moreInInspector > 0 && (
+              <p className={`${typography.edgeLabel} text-text-light m-0 mt-0.5`}>
+                +{moreInInspector} more in inspector
+              </p>
+            )}
           </>
         )
       })()}
 
-      {/* Status quo fallback — current baseline, no interventions */}
+      {/* Status quo fallback — current baseline, no interventions.
+          Audit §8 P1: the "{X}% win rate across simulations" line duplicated
+          the shared "{X}% win probability" body line with different phrasing
+          for the same datum — removed; the body line is the single rendering. */}
       {isBaselineOption && (
-        <>
-          <p className={`${typography.nodeLabel} text-text-body m-0`}>Current baseline. No changes to factors.</p>
-          {isPostAnalysis && displayMetadata.winRate !== null && (
-            <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-              {formatWinProbability(displayMetadata.winRate ?? 0)} win rate across simulations
-            </p>
-          )}
-        </>
+        <p className={`${typography.nodeLabel} text-text-body m-0`}>Current baseline. No changes to factors.</p>
       )}
 
       {isOptionFromCee && !isBaselineOption && (
@@ -842,7 +1108,7 @@ export const OptionNode = memo((props: NodeProps) => {
           in this inline layer-2 block. Body never renders chips directly. */}
       {optionChips}
     </>
-  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, interventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, displayMetadata.winRate, optionChips])
+  ), [isPostAnalysis, goalThreshold, goalProbability, goalBadgeReadout, goalFitSubstituted, goalDecision, props.id, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, totalInterventionCount, optionChips])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {
@@ -872,7 +1138,7 @@ export const OptionNode = memo((props: NodeProps) => {
         {interventionChips.length > 0 && (
           <div className="flex flex-col gap-0.5">
             {interventionChips.map(chip => {
-              const targetFormatted = formatChipValue(chip)
+              const targetFormatted = formatInterventionTargetText(chip)
               // F.6 passthrough: skip echo stripping for CEE display_value.
               const echoStripped = chip.displayValue
                 ? chip.displayValue
@@ -917,7 +1183,9 @@ export const OptionNode = memo((props: NodeProps) => {
     >
       {/* Winner badge -- top-right */}
       {isRecommended && (
-        <span className={`absolute -top-2 -right-2 z-10 ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}>
+        <span
+          className={`absolute -top-2 -right-2 z-10 ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
+        >
           Leading option
         </span>
       )}
@@ -925,8 +1193,18 @@ export const OptionNode = memo((props: NodeProps) => {
         {...props}
         nodeType="option"
         icon={metadata.icon}
-        headerSlot={scienceIcons.length > 0 ? (
+        lodKeepLabel={isRecommended}
+        headerSlot={(stableOptionNumber != null || scienceIcons.length > 0) ? (
           <span className="inline-flex items-center gap-1">
+            {stableOptionNumber != null && (
+              <span
+                data-testid={`option-stable-number-${props.id}`}
+                aria-label={`Option ${stableOptionNumber}`}
+                className={`${typography.panelMeta} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
+              >
+                {stableOptionNumber}
+              </span>
+            )}
             {scienceIcons.map(si => (
               <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
             ))}
@@ -937,9 +1215,11 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* Win probability bar (post-analysis, both views) */}
         {displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
-          <div className="mt-1.5 mb-1">
+          <div
+            className={`mt-1.5 mb-1`}
+          >
             <div className={`${typography.nodeLabel} text-text-body`}>
-              {formatWinProbability(displayMetadata.winRate)} win probability
+              {COMPARATIVE_COPY.phrase(formatWinProbability(displayMetadata.winRate))}
             </div>
             <div className="h-1 bg-panel-border rounded-full overflow-hidden mt-0.5">
               <div
@@ -962,7 +1242,7 @@ export const OptionNode = memo((props: NodeProps) => {
             >
               {winsVia.label.length > 22 ? `${winsVia.label.slice(0, 22)}...` : winsVia.label}
             </button>
-            , the #1 driver
+            {winsVia.isGlobalTop ? ', the #1 driver' : ', its biggest lever'}
           </p>
         )}
 
@@ -1023,15 +1303,12 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Post-analysis: status quo bias -- MetricPills with EyeOff bias */}
-        {isPostAnalysis && isBaselineOption && (
-          <MetricPills
-            biasType="status-quo"
-            biasTip="Status quo bias: inaction risks often underestimated."
-            biasLinkLabel="Explore risks of inaction"
-            biasLinkMessage="What are the risks of choosing to do nothing?"
-          />
-        )}
+        {/* Status-quo bias coaching lives on the header ScienceIcon now — one
+            bias-coaching surface per node (bias-coaching slice, proposal
+            2026-07-16 §1.5(2)). useScienceIcons emits `status-quo-bias` for
+            baseline options (pre- and post-analysis), and the ScienceIcon
+            popover carries the "discuss with AI" turn the retired node-level
+            BiasIcon twin used to provide. No second bias surface is mounted. */}
 
         {/* Coaching chips moved into popover (Standard) / Detailed inline
             layer-2. See `optionChips` useMemo above and the popover branches
@@ -1040,31 +1317,19 @@ export const OptionNode = memo((props: NodeProps) => {
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) ===== */}
         {showLayer2Inline && !isPostAnalysis && !isBaselineOption && (
           <>
-            {/* Detailed pre-analysis: full intervention list + completeness */}
-            {interventionChips.length > 0 && (
-              <>
-                <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>Interventions:</p>
-                <div className="flex flex-col gap-0.5">
-                  {interventionChips.map(chip => {
-                    const targetFormatted = formatChipValue(chip)
-                    // F.6 passthrough: skip echo stripping for CEE display_value.
-                    const echoStripped = chip.displayValue
-                      ? chip.displayValue
-                      : (targetFormatted ? stripEcho(chip.label, targetFormatted) : '')
-                    return (
-                      <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                        <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>
-                        {echoStripped && (
-                          <>
-                            <span className="text-text-light"> → </span>
-                            <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
-                          </>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </>
+            {/* Audit §8 P1: the Detailed pre-analysis "Interventions:" list
+                duplicated the delta pills above (identical from→to data on
+                one card) — removed. The pills are the single pre-analysis
+                rendering; the full list remains in the inspector and in the
+                post-analysis "What this option changes:" section. */}
+            {/* Unknown-baseline fallback: delta pills need a known baseline,
+                so without one this card would show NOTHING about its
+                interventions in Detailed view. Surface the count + where to
+                look instead of going silent. */}
+            {structuredDeltas.length === 0 && hasInterventions && (
+              <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
+                Changes {totalInterventionCount} factor{totalInterventionCount === 1 ? '' : 's'} — open the inspector for targets
+              </p>
             )}
             {completenessText && (
               <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>{completenessText}</p>

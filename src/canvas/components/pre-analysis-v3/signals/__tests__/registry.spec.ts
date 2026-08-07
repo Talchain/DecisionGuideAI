@@ -9,10 +9,12 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
+import { stripComments } from '../../../../../../tests/helpers/stripSourceComments'
 import { SIGNAL_REGISTRY, type SignalDetectionInput } from '../registry'
 import {
   ACTIONS_MENU,
   ATTRIBUTION_COPY,
+  CONTESTED_COPY,
   FOOTER_COPY,
   HERO_COPY,
   LADDER_COPY,
@@ -23,6 +25,7 @@ import {
   SPARK_PROMPTS,
 } from '../../constants'
 import { findBannedTerm } from '../../../../../test/glossaryBannedTerms'
+import { BLOCKED_REASON_COPY } from '../../../../utils/composeBlockedReason'
 
 function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionInput {
   return {
@@ -122,7 +125,13 @@ describe('boundary rules — static source assertions over the v3 directory', ()
       if (entry.isDirectory()) {
         if (entry.name !== '__tests__') collect(full)
       } else if (/\.(ts|tsx)$/.test(entry.name)) {
-        sources.push(fs.readFileSync(full, 'utf8'))
+        // stripComments blanks comments but KEEPS strings as code, so a comment
+        // mentioning a dead-end intent no longer false-reds (the #386/#403
+        // footgun) while a real `intent: 'confirm_factor'` string literal or a
+        // `x['readiness_level']` bracket-key read is still caught. blankNonCode
+        // would blank those strings and go blind to a real intent reference, so
+        // it is the wrong tool (reclassified from the "blankNonCode class").
+        sources.push(stripComments(fs.readFileSync(full, 'utf8'), entry.name))
       }
     }
   }
@@ -142,6 +151,16 @@ describe('boundary rules — static source assertions over the v3 directory', ()
   it('never uses dangerouslySetInnerHTML', () => {
     expect(blob.includes('dangerouslySetInnerHTML')).toBe(false)
   })
+
+  it('comment-strip both directions: comment mentions ignored, string/bracket-key still caught', () => {
+    const strip = (s: string) => stripComments(s, 'x.ts')
+    // A comment mentioning a dead-end intent is blanked → not scanned:
+    expect(strip('// never add confirm_factor here').includes('confirm_factor')).toBe(false)
+    // A real intent STRING literal is kept and still caught:
+    expect(strip("const intent = 'confirm_factor'").includes('confirm_factor')).toBe(true)
+    // A bracket-key read of the banned enum survives (why we keep strings):
+    expect(strip("const r = data['readiness_level']").includes('readiness_level')).toBe(true)
+  })
 })
 
 describe('glossary — every copy string passes the banned-terms scan', () => {
@@ -156,7 +175,12 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
     }
   }
   push('PANEL_COPY', PANEL_COPY)
-  push('LADDER_COPY', { ...LADDER_COPY, calibrate_top: LADDER_COPY.calibrate_top('Tech lead impact') })
+  push('LADDER_COPY', {
+    ...LADDER_COPY,
+    calibrate_top: LADDER_COPY.calibrate_top('Tech lead impact'),
+    // UI-SEM-091: invoke the runnable-via-scaffold rung so its copy is scanned.
+    run_scaffold: LADDER_COPY.run_scaffold(2),
+  })
   push('SIGNAL_COPY', {
     ...SIGNAL_COPY,
     optionBreadth: SIGNAL_COPY.optionBreadth(2),
@@ -167,7 +191,28 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
   push('ATTRIBUTION_COPY', ATTRIBUTION_COPY)
   push('RANK_LABEL_COPY', RANK_LABEL_COPY)
   push('MODEL_VIEW_COPY', { ...MODEL_VIEW_COPY, estimatesMeta: MODEL_VIEW_COPY.estimatesMeta(1, 6, 0), goalRow: MODEL_VIEW_COPY.goalRow('Increase output') })
-  push('FOOTER_COPY', FOOTER_COPY)
+  // UI-SEM-091: invoke the runnable-via-scaffold subline so its copy is scanned.
+  push('FOOTER_COPY', { ...FOOTER_COPY, scaffoldSub: FOOTER_COPY.scaffoldSub(2) })
+  // The composed blocked-state copy (Paul 28 Jul) — every rung invoked so the
+  // sweep sees the actual sentences a blocked user is shown, not the factories.
+  // The interpolated option label is guarded separately by safeInterpolatedLabel.
+  // Both arms of the A3 promise switch are swept: dropping "…and the analysis
+  // can run" changes the sentence, so the shortened form is copy in its own
+  // right and must pass the same scan.
+  push('BLOCKED_REASON_COPY', {
+    ...BLOCKED_REASON_COPY,
+    oneOption: BLOCKED_REASON_COPY.oneOption('Buy a vendor platform', true),
+    oneOptionNoPromise: BLOCKED_REASON_COPY.oneOption('Buy a vendor platform', false),
+    twoOptions: BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Build in house', true),
+    twoOptionsNoPromise: BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Build in house', false),
+    manyOptionsSingular: BLOCKED_REASON_COPY.manyOptions(1, true),
+    manyOptionsSingularNoPromise: BLOCKED_REASON_COPY.manyOptions(1, false),
+    manyOptions: BLOCKED_REASON_COPY.manyOptions(3, true),
+    manyOptionsNoPromise: BLOCKED_REASON_COPY.manyOptions(3, false),
+  })
+  // ROADMAP 2.376 — the contested surface's own copy, with its one factory invoked so the
+  // sentence a user is shown is scanned rather than the function that builds it.
+  push('CONTESTED_COPY', { ...CONTESTED_COPY, meta: CONTESTED_COPY.meta(2) })
   push('HERO_COPY', HERO_COPY)
   push('ACTIONS_MENU', ACTIONS_MENU)
   push('SPARK_PROMPTS', SPARK_PROMPTS)

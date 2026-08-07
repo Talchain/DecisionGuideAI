@@ -84,7 +84,6 @@ function makeData(opts: FixtureOpts = { withFragile: true, withDominant: true, w
     factorLabel: 'Evidence Gap A',
     confidence: 70,
     voi: 0.5,
-    evpiPp: 25,
     suggestion: 'Gather data',
     targetNodeId: 'node_g',
   } : undefined
@@ -101,7 +100,7 @@ function makeData(opts: FixtureOpts = { withFragile: true, withDominant: true, w
     // populates this from PLoT — set here so this rendered-HTML regression guard
     // keeps exercising the populated "Robust" glyph; see the provenance test in
     // useResultsSectionData.spec.ts).
-    robustnessVerdict: 'high',
+    robustnessVerdict: 'robust',
     coachingReadiness: 'ready',
     coachingReadinessDimensions: { evidence: 0.8, robustness: 0.75, clarity: 0.85 },
   } as DecisionResultData
@@ -223,6 +222,7 @@ describe('DecisionConfidencePanel — TriageActionCardsBody extraction regressio
       [
         "div#confidence-health-header",
         "p#hero-stability-indicator",
+        "p#uncertainty-calibration-copy",
         "div#t1-flip-risk-callout",
         "div#stability-narrative",
         "div#unified-triage-queue",
@@ -253,6 +253,7 @@ describe('DecisionConfidencePanel — TriageActionCardsBody extraction regressio
       [
         "div#confidence-health-header",
         "p#hero-stability-indicator",
+        "p#uncertainty-calibration-copy",
         "div#t1-checks-footer",
         "span#checks-winner",
         "span#checks-robust",
@@ -331,6 +332,49 @@ describe('DecisionConfidencePanel — TriageActionCardsBody extraction regressio
   // is class+style stripped, leaving structure / text / attribute /
   // aria-* content. Asserting current rendering matches the file proves
   // pre/post equivalence retroactively. Drift in either direction fails.
+  //
+  // The rich fixture was re-captured (chronic-CI-red triage, ROADMAP 1.26)
+  // to absorb two legitimate, subsequent DOM changes it had gone stale
+  // against: PR #145 (cf361994) dropped "recommendation" from the
+  // dominant-nudge copy ("the recommendation could change" → "the result
+  // could change"), and ba8927ab added a `flex justify-end` wrapper div
+  // around the triage-card icon group for narrow-panel layout. Neither
+  // is an extraction regression — both landed on `main`/`staging` well
+  // after the extraction commit, went uncaught while the full suite was
+  // truncating before its summary, and are now the new frozen baseline.
+  //
+  // Both fixtures (rich + sparse) were re-captured again for Sci-4B: a new
+  // `<p data-testid="uncertainty-calibration-copy">` renders between the
+  // health header and the action-card body whenever the wire carries a
+  // robustness signal (see calibrateUncertaintyCopy). Not an extraction
+  // regression — a deliberate new feature addition.
+  //
+  // RE-CAPTURED AGAIN for the EVPI removal. Two deliberate deletions show up in
+  // the rich fixture, and both are the point of that change:
+  //   · `<span>25.0pp</span>` — the TriageCard percentage-point pill, fed from
+  //     `evidence_gaps[].evpi_percentage_points`. Replayed live 2026-07-25,
+  //     PLoT published 12.3 / 10.2 / 6.6 pp for three factors ISL measured at
+  //     0.0 pp in the SAME response.
+  //   · `<p>Ranked by evidence value</p>` — a VISIBLE ordering claim the queue
+  //     can no longer support, plus the lede's superlative ("would most improve
+  //     confidence" → "Inputs worth confirming").
+  // Not an extraction regression.
+  //
+  // RE-CAPTURED AGAIN for the win-terminology RE-ANCHORING (Paul's ruling,
+  // 2026-07-31, §6). The diff against the previous baseline is EXACTLY TWO
+  // TEXT NODES in each fixture — derived by diffing the captures, not assumed:
+  //   · the ring caption `<p>win probability</p>` → `<p>Chance of hitting your
+  //     goal</p>` (map row 3 — the ring now reads the GOAL quantity, and its
+  //     caption moves WITH the score, never independently)
+  //   · the checks-footer label `<span>Winner</span>` → `<span>Has leading
+  //     option</span>` (§6.2g — the legacy arm is deleted, so the compliant
+  //     label renders on every path)
+  // NO structural change: not one element, attribute or nesting level moved,
+  // which is precisely what this guard exists to detect. Note the ring SCORE
+  // reads 70% in both captures — this fixture's option carries the same value
+  // for both quantities, so the score move is invisible HERE; it is pinned on a
+  // fixture built to make them diverge in reanchor.confidenceRing.spec.tsx.
+  // Not an extraction regression.
 
   it('rich state: current rendering matches the literal pre-extraction baseline fixture', () => {
     const { container } = render(<DecisionConfidencePanel data={makeData()} onSendMessage={() => {}} />)

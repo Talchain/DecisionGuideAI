@@ -73,6 +73,20 @@ function makeData(opts: FixtureOpts): ResultsSectionDataReturn {
     // Use `in` so callers can explicitly set `coachingReadiness: undefined`
     // to simulate missing readiness (Brief 5.2 follow-up non-caveat tests).
     coachingReadiness: 'coachingReadiness' in opts ? opts.coachingReadiness : 'ready',
+    // ROADMAP 1.267. This fixture depicts a 97.4% / 2.4% run — a 95-point
+    // lead — and every assertion below is about the copy for a run where a
+    // leading option EXISTS. That precondition used to be implicit: the
+    // fixture omitted `verdict`, `buildCertaintyCopy`'s parameter was
+    // optional, and the leader-asserting rules were reached by default.
+    // The panel now resolves an absent verdict to NO_CLAIM_VERDICT (silence),
+    // so the run this fixture means has to say so.
+    verdict: {
+      leaderId: 'opt-a',
+      separation: 'clear',
+      hasLeadingOption: true,
+      gapPp: 95,
+      source: 'producer_near_tie',
+    },
   }
 
   const drivers: DriversSectionData = {
@@ -101,7 +115,6 @@ function makeData(opts: FixtureOpts): ResultsSectionDataReturn {
       factorLabel: 'Value of Strategic Work',
       confidence: 55,
       voi: 0.6,
-      evpiPp: 40,
       suggestion: 'Gather evidence',
     }],
     nextActions: [],
@@ -122,6 +135,7 @@ function makeData(opts: FixtureOpts): ResultsSectionDataReturn {
     isLoading: false,
     isError: false,
     goalLabel: 'Maximise success',
+    voiRanking: null,
   }
 }
 

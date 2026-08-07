@@ -13,12 +13,23 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { Save, Copy, Edit2, Trash2, ChevronDown, Folder, AlertCircle, Download, Upload } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { loadScenarios, getScenario, type Scenario, importScenarioFromFile } from '../store/scenarios'
+import { markGraphImported } from '../store/importRegistrationMarker'
 import { SaveStatusPill } from './SaveStatusPill'
 import { exportScenario } from '../export/exportScenario'
 import { useToast } from '../ToastContext'
 import { typography } from '../../styles/typography'
 
-export function ScenarioSwitcher() {
+interface ScenarioSwitcherProps {
+  /**
+   * Which side of the trigger the dropdown opens on.
+   * 'above' (default) suits a bottom-anchored toolbar; 'below' is for the
+   * fixed TopBar mount (Lane 4 P5), where opening upward would leave the
+   * viewport.
+   */
+  dropdownPosition?: 'above' | 'below'
+}
+
+export function ScenarioSwitcher({ dropdownPosition = 'above' }: ScenarioSwitcherProps = {}) {
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const isDirty = useCanvasStore(s => s.isDirty)
   const isSaving = useCanvasStore(s => s.isSaving)
@@ -166,6 +177,23 @@ export function ScenarioSwitcher() {
       const result = importScenarioFromFile(content, nodes, edges)
 
       if (result.success && result.scenario) {
+        // ROADMAP 2.467/2.483 — THE SECOND IMPORT ROUTE, and until now the
+        // unguarded one. This path never touches `store.importCanvas`, so
+        // `markGraphImported` was never called and `loadScenario`'s derivation
+        // returned FALSE: a graph the server has never seen was installed with
+        // the hold OFF, and one Rerun could re-attach an affirmative to CEE's
+        // own pre-import model. Marked HERE, before `loadScenario` derives the
+        // flag from the graph it installs — the ordering is the whole point.
+        //
+        // The graph is read back from the scenario the import just created,
+        // because `importScenarioFromFile` RESEEDS node ids: marking the file's
+        // original ids would compute a digest for a graph that never reaches
+        // the canvas, and the hold would silently never match.
+        const created = getScenario(result.scenario.id)
+        if (created?.graph) {
+          markGraphImported(created.graph.nodes, created.graph.edges)
+        }
+
         // Load the imported scenario
         loadScenario(result.scenario.id)
         showToast(`Imported "${result.scenario.name}" successfully`, 'success')
@@ -194,6 +222,7 @@ export function ScenarioSwitcher() {
           type="button"
           aria-expanded={isOpen}
           aria-haspopup="true"
+          data-testid="scenario-switcher-trigger"
         >
           <Folder className="w-4 h-4 text-gray-500" />
           <span className="max-w-[150px] truncate">
@@ -210,8 +239,9 @@ export function ScenarioSwitcher() {
         {/* Dropdown menu */}
         {isOpen && (
           <div
-            className="absolute bottom-full left-0 mb-1 w-72 bg-white border border-gray-200 rounded-lg shadow-panel z-50"
+            className={`absolute ${dropdownPosition === 'below' ? 'top-full mt-1' : 'bottom-full mb-1'} left-0 w-72 bg-white border border-gray-200 rounded-lg shadow-panel z-50`}
             role="menu"
+            data-testid="scenario-switcher-menu"
           >
             {/* Current scenario actions */}
             <div className="p-2 border-b border-gray-200">
@@ -258,7 +288,7 @@ export function ScenarioSwitcher() {
                       </button>
                       <button
                         onClick={() => handleDelete(currentScenarioId)}
-                        className={`px-3 py-2 ${typography.body} text-danger-600 hover:bg-danger-50 rounded transition-colors`}
+                        className={`px-3 py-2 ${typography.body} text-danger-600 hover:bg-panel-hover rounded transition-colors`}
                         type="button"
                         role="menuitem"
                         title="Delete"
@@ -310,7 +340,7 @@ export function ScenarioSwitcher() {
                           key={scenario.id}
                           onClick={() => handleLoadScenario(scenario.id)}
                           className={`w-full text-left px-4 py-2 ${typography.body} hover:bg-gray-100 transition-colors ${
-                            scenario.id === currentScenarioId ? 'bg-info-50 text-info-700 font-medium' : 'text-gray-700'
+                            scenario.id === currentScenarioId ? 'bg-panel-hover text-info-700 font-medium' : 'text-gray-700'
                           }`}
                           type="button"
                           role="menuitem"
@@ -343,7 +373,7 @@ export function ScenarioSwitcher() {
                           key={scenario.id}
                           onClick={() => handleLoadScenario(scenario.id)}
                           className={`w-full text-left px-4 py-2 ${typography.body} hover:bg-gray-100 transition-colors ${
-                            scenario.id === currentScenarioId ? 'bg-info-50 text-info-700 font-medium' : 'text-gray-700'
+                            scenario.id === currentScenarioId ? 'bg-panel-hover text-info-700 font-medium' : 'text-gray-700'
                           }`}
                           type="button"
                           role="menuitem"

@@ -26,7 +26,7 @@ describe('sortOptionsForDisplay', () => {
       { id: 'opt_status_quo', winProbability: 0.3795, expected: -0.018 },
       { id: 'opt_hire_fulltime', winProbability: 0.38725, expected: -0.367 },
     ]
-    expect(ids(sortOptionsForDisplay(options))).toEqual([
+    expect(ids(sortOptionsForDisplay(options, { designationsWithheld: false }))).toEqual([
       'opt_hire_fulltime',
       'opt_status_quo',
       'opt_virtual',
@@ -42,7 +42,7 @@ describe('sortOptionsForDisplay', () => {
       { id: 'b', winProbability: Number.NaN, expected: 30 },
       { id: 'c', winProbability: 0.1, expected: 20 },
     ]
-    expect(ids(sortOptionsForDisplay(options))).toEqual(['b', 'c', 'a'])
+    expect(ids(sortOptionsForDisplay(options, { designationsWithheld: false }))).toEqual(['b', 'c', 'a'])
   })
 
   it('falls back to expected descending when ANY option lacks win probability (no fabricated ranking)', () => {
@@ -51,7 +51,7 @@ describe('sortOptionsForDisplay', () => {
       { id: 'b', winProbability: null, expected: 30 },
       { id: 'c', winProbability: 0.1, expected: 20 },
     ]
-    expect(ids(sortOptionsForDisplay(options))).toEqual(['b', 'c', 'a'])
+    expect(ids(sortOptionsForDisplay(options, { designationsWithheld: false }))).toEqual(['b', 'c', 'a'])
   })
 
   it('uses goalProbability as the expected fallback, and -Infinity last', () => {
@@ -60,7 +60,7 @@ describe('sortOptionsForDisplay', () => {
       { id: 'b', expected: null, goalProbability: 0.6 },
       { id: 'c', expected: null, goalProbability: null },
     ]
-    expect(ids(sortOptionsForDisplay(options))).toEqual(['b', 'a', 'c'])
+    expect(ids(sortOptionsForDisplay(options, { designationsWithheld: false }))).toEqual(['b', 'a', 'c'])
   })
 
   it('keeps input order on ties (stable sort — deterministic numbering)', () => {
@@ -69,7 +69,7 @@ describe('sortOptionsForDisplay', () => {
       { id: 'second', winProbability: 0.5 },
       { id: 'third', winProbability: 0.5 },
     ]
-    expect(ids(sortOptionsForDisplay(options))).toEqual(['first', 'second', 'third'])
+    expect(ids(sortOptionsForDisplay(options, { designationsWithheld: false }))).toEqual(['first', 'second', 'third'])
   })
 
   it('does not mutate the input array and handles empty input', () => {
@@ -78,8 +78,8 @@ describe('sortOptionsForDisplay', () => {
       { id: 'b', winProbability: 0.9 },
     ]
     const before = [...options]
-    sortOptionsForDisplay(options)
+    sortOptionsForDisplay(options, { designationsWithheld: false })
     expect(options).toEqual(before)
-    expect(sortOptionsForDisplay([])).toEqual([])
+    expect(sortOptionsForDisplay([], { designationsWithheld: false })).toEqual([])
   })
 })

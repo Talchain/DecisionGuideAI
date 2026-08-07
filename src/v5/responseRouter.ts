@@ -34,6 +34,38 @@ import type { OlumiResponse, FailureTypeLiteral, BoundaryError } from '@talchain
 
 import type { V5CallResult } from './v5Adapter';
 
+/**
+ * Parse-failure metadata forwarded on typed_error targets that originated
+ * from a `parse_error` (transcript honesty, trust item #3). A parse_error
+ * means NO typed CEE body reached the UI — the failure may be pure
+ * transport (proxy 504 `PROXY_UPSTREAM_TIMEOUT`, Netlify edge timeout HTML,
+ * a thrown network TypeError). Consumers combine this with the absence of
+ * any CEE recovery signal to render transport-honest copy ("your message
+ * didn't go through") instead of the false server-fault claim
+ * ("Something went wrong on our side").
+ */
+/**
+ * Reduced 2026-07-20 to the one field anything actually reads. `httpStatus`,
+ * `source` and `parseFailureKind` were written here and read NOWHERE — a
+ * complete reader sweep across `src` (including co-located `__tests__`) and
+ * `tests` found zero consumers, with the `network` read at
+ * transportFailure.ts:85 as the positive control proving the sweep could see
+ * a reader. The object is never spread, stringified, logged or attached to a
+ * message, so there was no whole-object passthrough keeping them alive
+ * either; useConversation only forwards it, and transportFailure reads
+ * `network` alone. Debug export already reconstructs `parse_failure_kind`
+ * independently from the raw CEE envelope
+ * (components/debug/utils/exportBundle.ts), so diagnostics lose nothing.
+ */
+export interface TypedErrorTransportMeta {
+  /**
+   * True when the request never produced a response at all (fetch threw:
+   * offline, DNS, CORS preflight). The strongest "didn't reach the server"
+   * signal.
+   */
+  network: boolean;
+}
+
 export type RenderTarget =
   | { kind: 'text_only'; response: OlumiResponse }
   | { kind: 'blocks'; response: OlumiResponse }
@@ -43,6 +75,21 @@ export type RenderTarget =
       code: FailureTypeLiteral;
       requestId?: string;
       boundaryError?: BoundaryError;
+      /**
+       * Raw non-2xx JSON body when the parse failed to be a BoundaryError.
+       * 0.19.0 types the CEE error envelope (`CeeTypedErrorSchema`, root
+       * export) with `retryable` + flat `recovery_suggestion` + nested
+       * `recovery` — an envelope of THAT shape is not a BoundaryError, so
+       * without this passthrough its typed recovery data would be dropped
+       * here and the user shown a generic INTERNAL_ERROR. Consumers read it
+       * defensively via ceeRecovery.extractCeeRecovery (fail closed).
+       */
+      rawBody?: unknown;
+      /**
+       * Present exactly when this typed_error came from a parse_error (no
+       * BoundaryError envelope on the wire). See TypedErrorTransportMeta.
+       */
+      transportMeta?: TypedErrorTransportMeta;
     };
 
 export function routeV5Response(result: V5CallResult): RenderTarget {
@@ -55,7 +102,16 @@ export function routeV5Response(result: V5CallResult): RenderTarget {
     };
   }
   if (result.kind === 'parse_error') {
-    return { kind: 'typed_error', code: 'INTERNAL_ERROR' };
+    return {
+      kind: 'typed_error',
+      code: 'INTERNAL_ERROR',
+      ...(result.raw !== undefined ? { rawBody: result.raw } : {}),
+      transportMeta: {
+        // The fetch-threw parse_error (v5Adapter catch) is the only one
+        // with no http_status — every parseV5Response branch stamps one.
+        network: result.http_status === undefined,
+      },
+    };
   }
 
   // Happy path: an OlumiResponse.

@@ -62,11 +62,11 @@ interface GuidanceCardProps {
   autoFixStatus?: AutoFixStatus
 }
 
-// Severity styles with left border for visual hierarchy
+// Severity styles with complete border for visual hierarchy (V7 L1: complete borders only)
 const severityStyles: Record<GuidanceSeverity, string> = {
-  blocker: 'border-l-4 border-l-carrot-500 border border-carrot-200 bg-paper-50',
-  warning: 'border-l-4 border-l-banana-500 border border-banana-200 bg-paper-50',
-  info: 'border-l-4 border-l-sky-500 border border-sky-200 bg-sky-50',
+  blocker: 'border border-carrot-200 bg-paper-50',
+  warning: 'border border-banana-200 bg-paper-50',
+  info: 'border border-sky-200 bg-sky-50',
 }
 
 const typeIcons: Record<GuidanceType, typeof Lightbulb> = {

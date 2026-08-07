@@ -244,21 +244,21 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
         >
           {/* Empty state or multi-selection message */}
           {!selectedEdge && (
-            <div className="flex flex-col items-center justify-center py-12 text-center text-text-header/70">
+            <div className="flex flex-col items-center justify-center py-12 text-center text-text-header">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-panel">
-                <Settings className="w-6 h-6 text-text-header/50" aria-hidden="true" />
+                <Settings className="w-6 h-6 text-text-header" aria-hidden="true" />
               </div>
               {hasMultipleEdges ? (
                 <>
                   <p className={typography.panelHeader}>Multiple edges selected</p>
-                  <p className={`mt-1 ${typography.panelMeta} text-text-header/60`}>
+                  <p className={`mt-1 ${typography.panelMeta} text-text-header`}>
                     Inspector only supports editing one edge at a time. Select a single edge to continue.
                   </p>
                 </>
               ) : (
                 <>
                   <p className={typography.panelHeader}>Select an edge to inspect</p>
-                  <p className={`mt-1 ${typography.panelMeta} text-text-header/60`}>
+                  <p className={`mt-1 ${typography.panelMeta} text-text-header`}>
                     Click an edge on the canvas to view and edit its metadata.
                   </p>
                 </>

@@ -4,6 +4,7 @@
  */
 
 import type { NodeType, FactorCategory } from '../../domain/nodes'
+import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
 
 // ─── Section titles (spec §3.1) ────────────────────────────────────
 export const SECTION_TITLES = {
@@ -23,8 +24,6 @@ export const SECTION_TITLES = {
   fragility:           { label: 'Sensitive assumptions',           icon: 'AlertTriangle'  },
   connections:         { label: 'Connections',                   icon: 'GitBranch'      },
   predictedRange:      { label: 'Predicted range by option',     icon: 'BarChart3'      },
-  riskExposure:        { label: 'Risk exposure by option',       icon: 'BarChart3'      },
-  scientificBasis:     { label: 'Scientific basis',              icon: 'Beaker'         },
   investigationValue:  { label: 'Value of investigation',        icon: 'TrendingUp'     },
 } as const
 
@@ -66,17 +65,54 @@ export const BADGE_TOOLTIPS: Record<string, string> = {
   inferred:     'This value was estimated because it wasn\'t stated explicitly',
 }
 
+/**
+ * ROADMAP 2.638 S2 — the user-owned arm of both label functions, derived.
+ *
+ * These three inspector panels are DEPLOYED-MOUNTED (`USE_INSPECTOR_V2` is a
+ * hardcoded `true`; no flag gates them), and before this both functions sent
+ * every user-owned source they did not literally list to their DEFAULT arm:
+ * `getExtractionLabel('user_confirmed')` returned **"Estimated by Olumi"** —
+ * the machine claiming a number the user had explicitly confirmed — and
+ * `getProvenanceLabel('user_confirmed')` leaked the raw wire literal as
+ * "Source: user_confirmed".
+ *
+ * The map is TOTAL over `ValueProvenanceKind`: adding a kind to the canonical
+ * classification is a type error here, never a silent fallback (trap 12). The
+ * copy register is this surface's own — sentences, not the Model tab's terse
+ * pills — which is why the kind, not the string, is what is shared.
+ *
+ * "Confirmed by you" states a STATUS and nothing else. Confirming does not
+ * change the analysis today (that is the compute slice, S4) and the copy must
+ * not imply it does.
+ */
+const USER_OWNED_LABEL: Record<ValueProvenanceKind, string | null> = {
+  confirmed: 'Confirmed by you',
+  edited: 'Set by you',
+  assumption: 'Your assumption',
+  human: 'Set by you',
+  // Producer kinds keep each function's own pre-existing copy — see below.
+  brief: null,
+  ai: null,
+}
+
+/** The user-owned label for a source, or null when the producer owns it. */
+function userOwnedLabelFor(source: string): string | null {
+  const cls = classifyValueProvenance(source)
+  if (!cls?.userOwned) return null
+  return USER_OWNED_LABEL[cls.kind]
+}
+
 // ─── Provenance labels (spec §3.4) ────────────────────────────────
 export function getProvenanceLabel(source?: string): string {
   if (!source) return 'No evidence yet'
+  const userOwned = userOwnedLabelFor(source)
+  if (userOwned) return userOwned
   switch (source) {
     case 'brief_extraction': return 'Generated from your brief'
     case 'explicit':         return 'From your brief'
     case 'cee_inference':    return 'Estimated by Olumi'
     case 'inferred':         return 'Estimated by Olumi'
     case 'cee_repair':       return 'Generated from your brief (adjusted during validation)'
-    case 'user':             return 'Set by you'
-    case 'user_calibration': return 'Set by you'
     case 'ai-suggested':     return 'Generated from your brief'
     case 'default':          return 'No evidence yet'
     default:                 return source.startsWith('evidence:') ? `Based on ${source.slice(9)}` : `Source: ${source}`
@@ -86,10 +122,10 @@ export function getProvenanceLabel(source?: string): string {
 /** Extraction type user-facing labels */
 export function getExtractionLabel(source?: string): string {
   if (!source) return 'Estimated by Olumi'
+  const userOwned = userOwnedLabelFor(source)
+  if (userOwned) return userOwned
   switch (source) {
     case 'brief_extraction': return 'From your brief'
-    case 'user':             return 'Set by you'
-    case 'user_calibration': return 'Set by you'
     default:                 return 'Estimated by Olumi'
   }
 }
@@ -149,8 +185,13 @@ export const INLINE_LABELS = {
   seeContributions: 'See all contributions',
   seeSensitivity: 'See sensitivity analysis',
   runAnalysisOutcome: 'Run analysis to see predicted outcome ranges per option.',
-  runAnalysisRisk: 'Run analysis to see how this risk affects the goal.',
-  riskExposurePlaceholder: 'Risk exposure data will be displayed here when available from analysis results.',
+  // Risk probability × impact editing surface (P1.7).
+  riskLikelihood: 'Likelihood',
+  riskImpact: 'Impact',
+  riskNotSet: 'Not set. Click to enter.',
+  riskImpactNotSet: 'Not set.',
+  riskSeverity: 'Severity',
+  riskExposureHint: 'Likelihood and impact define this risk. Editing them re-runs cleanly against the analysis.',
   fineTune: 'Fine-tune',
   fineTuneUncertainty: 'Fine-tune uncertainty',
   modelDetail: 'Model detail',
@@ -182,8 +223,6 @@ export const EDGE_COPY = {
   sensitiveContext: 'Small changes here could shift which option performs best.',
   flipRiskTooltip: (pct: number) =>
     `If this edge's strength changes significantly, there is a ${pct}% probability the leading option would change.`,
-  noEvidenceBody: 'Olumi estimated this from your brief. Providing evidence would improve trust.',
-  noEvidenceTitle: 'No evidence yet',
   sliderMinUnlikely: 'Unlikely',
   sliderMaxVeryLikely: 'Very likely',
   sliderMinPrecise: 'Precise',
@@ -286,4 +325,14 @@ export const GOAL_CONSTRAINT_COPY = {
   addConstraintButton: '+ Add constraint',
   runForProbability:   'Run the simulation to see the probability of reaching this target.',
   targetUnlocks:       'Adding a specific target unlocks probability calculations.',
+  // Canonical State Copy (see DESIGN_SYSTEM.md): honest status for GUEST
+  // sessions. A guest's canvas graph lives only in the browser — the client
+  // RPC write path is RLS-gated and silently swallows a guest's writes, so a
+  // constraint typed into THIS panel never reaches the server graph that CEE's
+  // run_analysis reads. The working alternative is chat: CEE's add_constraint
+  // handler persists server-side regardless of auth, so a guest's chat-entered
+  // constraints ARE analysed. Authenticated users' panel edits persist too, so
+  // they never see this. Owned here; pinned as a raw literal in specs.
+  guestConstraintsNotInAnalysis:
+    "In guest mode, constraints added here aren't included in the analysis. Add them in chat instead.",
 } as const

@@ -72,17 +72,55 @@ describe('visual-regression scaffold (Brief 5)', () => {
     )
     const snap = captureByTestId(container, 'winner-by-control')
 
-    // Updated copy (5.8B hotfix Fix 9) + testid present.
-    expect(snap).toContain('Winner by:')
-    expect(snap).toContain('Changes how the leading option is calculated.')
-    expect(snap).toContain('Conservative')
-    expect(snap).toContain('Neutral')
-    expect(snap).toContain('Aggressive')
+    // Updated copy (Paul's ruling 2026-07-12: explicitly-labelled lens) + testid present.
+    //
+    // ⭐ SUPERSEDED 2026-07-31 (re-anchoring, §6.2a + §6.5 item 5). Three
+    // expectations moved, and each names what it replaced:
+    //   · 'Winner by:'  → 'Rank by outcome:'  — the control confers no
+    //     endorsement; it re-ranks a view, and now every arm re-ranks it on
+    //     the SAME quantity.
+    //     ⛔ SUPERSEDED AGAIN 2026-08-01 (ROADMAP 2.237): 'Rank by outcome:'
+    //     → 'Highlight by outcome:'. The 2026-07-31 note above is wrong on the
+    //     facts — the control does NOT re-rank anything.
+    //     `sortOptionsForDisplay` takes no lens argument; the list is ordered,
+    //     truncated and numbered by `winProbability`, and the lens reaches the
+    //     cards only as a crown on one card. The first re-anchoring correctly
+    //     retired an endorsement noun and substituted a second false claim.
+    //   · the lens sentence drops the un-anchored noun 'the overall
+    //     recommendation' for the quantity that is actually unchanged.
+    //   · the arm labels name their percentile instead of a mood, because
+    //     the middle arm now ranks p50 rather than the comparative quantity.
+    expect(snap).toContain('Highlight by outcome:')
+    // The twice-retired labels must not survive anywhere in this control.
+    expect(snap).not.toContain('Rank by outcome:')
+    // F3: the sentence names what the lens leaves unchanged, and that depends
+    // on whether the run HAS a goal ranking. This render passes no
+    // `hasGoalNumbers`, so it exercises the safe default — the neutral
+    // wording. The goal-bearing arm is asserted immediately below, so both
+    // sides of the gate are covered here rather than one being assumed.
+    expect(snap).toContain('A view lens over the outcome range. The comparative ranking above is unchanged.')
+    expect(snap).not.toContain('goal ranking')
+    expect(snap).toContain('Cautious (p10)')
+    expect(snap).toContain('Middle (p50)')
+    expect(snap).toContain('Optimistic (p90)')
+    // The retired label must not survive anywhere in this control.
+    expect(snap).not.toContain('Winner by:')
     // Legacy copy absent from rendered output.
     expect(snap).not.toContain('Risk appetite:')
 
+    // The other side of the F3 gate: with goal numbers present the sentence
+    // names the goal ranking. Without this the assertion above would pass on
+    // a component that had simply lost the goal wording altogether.
+    const withGoal = captureByTestId(
+      render(
+        React.createElement(RiskAppetiteFilter, { value: 'neutral', onChange, hasGoalNumbers: true }),
+      ).container,
+      'winner-by-control',
+    )
+    expect(withGoal).toContain('A view lens over the outcome range. The goal ranking above is unchanged.')
+
     // Wiring sanity: clicking a pill fires the change handler with the key.
-    fireEvent.click(within(container).getByRole('button', { name: /aggressive/i }))
+    fireEvent.click(within(container).getByRole('button', { name: /optimistic/i }))
     expect(onChange).toHaveBeenCalledWith('aggressive')
   })
 
@@ -155,9 +193,10 @@ describe('visual-regression scaffold (Brief 5)', () => {
     const root = container.querySelector('[data-testid="tornado-chart"]')!
     const snap = normaliseDomSnapshot(root.outerHTML)
 
-    // Brief 5.4 Phase 16: intro copy updated to exploration-only (removed "Drag to preview" which implied apply/rerun)
+    // Codex final-audit B1: intro copy made honest — the bars are a proportional
+    // illustration (option spread x influence), not producer per-factor forecasts.
     expect(snap).toContain(
-      'Win-likelihood range if this factor turns out weaker or stronger than expected. Drag the bars to explore how outcomes shift.',
+      'Illustrative range for each factor: the recommended option’s overall spread scaled by that factor’s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.',
     )
     // Legend relocated above the first bar
     expect(snap).toContain('data-testid="tornado-legend"')

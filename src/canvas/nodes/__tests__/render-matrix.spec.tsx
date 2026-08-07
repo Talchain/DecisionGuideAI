@@ -29,18 +29,17 @@ vi.mock('@xyflow/react', async () => {
   return { ...actual, Handle: () => null }
 })
 
-vi.mock('../../../hooks/useCEEInsights', () => ({
-  useCEEInsights: vi.fn(() => ({ data: null })),
-}))
-vi.mock('../../../hooks/useISLValidation', () => ({
-  useISLValidation: vi.fn(() => ({ data: null })),
-}))
 vi.mock('../../layoutStore', () => ({
   useLayoutStore: vi.fn((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
     selector({ layoutNodeWidth: null })
   ),
 }))
-vi.mock('../../../flags', () => ({
+// Spread the real flags module so newly-added flags (e.g. any flag GoalNode
+// transitively reads through useAnalysisTrust → useAnalysisStateSource) never go
+// silently absent and throw at render — see CLAUDE.md #12 (derive, don't mirror).
+// Only the three flags this suite deliberately pins are overridden to false.
+vi.mock('../../../flags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../flags')>()),
   isGraphBadgesEnabled: vi.fn(() => false),
   isCrossHighlightEnabled: vi.fn(() => false),
   isGraphLensEnabled: vi.fn(() => false),
@@ -166,11 +165,16 @@ describe('Render matrix — FactorNode × view × phase', () => {
       { id: 'factor-4', type: 'factor', data: { type: 'factor', label: 'F4' } },
       { id: 'outcome-1', type: 'outcome', data: { type: 'outcome', label: 'Revenue' } },
     ],
+    // `weightSource` is REQUIRED on every edge here: the pre-analysis priority
+    // ranking is provenance-gated, and with no sourced strength anywhere there
+    // is no ranking, so no factor is quieted and the low-priority case below
+    // could not be reached at all. These are the weights the ranking is
+    // supposed to read.
     edges: [
-      { id: 'e1', source: 'factor-1', target: 'outcome-1', data: { weight: 1, direction: 'positive' } },
-      { id: 'e2', source: 'factor-2', target: 'outcome-1', data: { weight: 0.1, direction: 'positive' } },
-      { id: 'e3', source: 'factor-3', target: 'outcome-1', data: { weight: 0.1, direction: 'positive' } },
-      { id: 'e4', source: 'factor-4', target: 'outcome-1', data: { weight: 0.1, direction: 'positive' } },
+      { id: 'e1', source: 'factor-1', target: 'outcome-1', data: { weight: 1, direction: 'positive', weightSource: 'cee' } },
+      { id: 'e2', source: 'factor-2', target: 'outcome-1', data: { weight: 0.1, direction: 'positive', weightSource: 'cee' } },
+      { id: 'e3', source: 'factor-3', target: 'outcome-1', data: { weight: 0.1, direction: 'positive', weightSource: 'cee' } },
+      { id: 'e4', source: 'factor-4', target: 'outcome-1', data: { weight: 0.1, direction: 'positive', weightSource: 'cee' } },
     ],
   })
 
@@ -416,7 +420,18 @@ describe('Render matrix — OptionNode × view × phase', () => {
       ],
     },
     report: {
-      robustness: { recommended_option_id: 'option-2' },
+      robustness: {
+        recommended_option_id: 'option-2',
+        // ROADMAP 1.239: the close-call line and the "Behind:" reason now both
+        // require an ENTITLED leader, not merely an identified one. This
+        // fixture has always MEANT "this run has a leader" — it just never
+        // said so, and the deleted win-probability derivation was supplying
+        // the entitlement for it. Adding the producer's own near-tie verdict
+        // makes the fixture state what it means, and keeps the gap-10pp
+        // negative test below honest: without it that test would pass because
+        // the claim is withheld, not because 10pp is outside the 5pp window.
+        near_tie: { is_tie: false, top_option_id: 'option-2' },
+      },
       option_probabilities: {
         'option-1': { win_probability: 0.50 - gapPp / 100 },
         'option-2': { win_probability: 0.50 },
@@ -469,7 +484,12 @@ describe('Render matrix — OptionNode × view × phase', () => {
       ],
       edges: [],
       report: {
-        robustness: { recommended_option_id: 'option-2' },
+        // ROADMAP 1.239: producer signal supplied for the same reason as
+        // `closeCallTopology` above — this fixture means "there is a leader".
+        robustness: {
+          recommended_option_id: 'option-2',
+          near_tie: { is_tie: false, top_option_id: 'option-2' },
+        },
         option_probabilities: {
           'option-1': { win_probability: 0.496 },
           'option-2': { win_probability: 0.500 },
@@ -618,30 +638,48 @@ describe('Render matrix — DecisionNode chip audit', () => {
     } as any)
   })
 
-  // A decision with at least one option so the pre-analysis branch renders.
-  // Post-analysis branch needs a `report.robustness.recommended_option_id`
-  // pointing at an actual option node so the headline computes. Includes a
-  // missing-value factor + an inferred factor so the legacy pill code (now
-  // removed) would have rendered "1 gap" / "1 estimate" pills — used to assert
-  // the pills are gone.
+  // A decision with options so the pre-analysis branch renders.
+  //
+  // Post-analysis branch: ROADMAP 1.223 routes the "{winner} leads in N% of
+  // scenarios" headline through `deriveDecisionVerdict`, and the ENTIRE
+  // post-analysis body hangs off that headline — the Detailed stability line
+  // and the Detailed post chips included. `recommended_option_id` is no longer
+  // sufficient: it answers "who leads?", never "is there a leader at all?".
+  // The verdict needs both halves —
+  //   · TWO comparable options (below two, "leading" has no meaning), and
+  //   · a producer leader claim (PLoT `computeNearTie`) naming the
+  //     win-probability RANK-1 option, which is what its identity gate checks.
+  // The pre-analysis cells are unaffected: `report` is null there, and the
+  // second option keeps optionCount below the 3 that triage rule 4 keys on.
+  //
+  // Includes a missing-value factor + an inferred factor so the legacy pill
+  // code (now removed) would have rendered "1 gap" / "1 estimate" pills — used
+  // to assert the pills are gone.
   const decisionTopology = (viewMode: ViewMode, phase: Phase, stability?: number): MatrixState => ({
     viewMode,
     phase,
     nodes: [
       { id: 'decision-1', type: 'decision', data: { label: 'Hiring decision', type: 'decision' } },
       { id: 'option-1', type: 'option', data: { label: 'Hire 3', type: 'option' } },
+      { id: 'option-2', type: 'option', data: { label: 'Hire none', type: 'option' } },
       { id: 'factor-missing', type: 'factor', data: { type: 'factor', label: 'Cost', category: 'controllable' } },
       { id: 'factor-inferred', type: 'factor', data: { type: 'factor', label: 'Demand', category: 'controllable', observedState: { value: 0.5, extractionType: 'inferred' } } },
     ],
     edges: [
       { id: 'e1', source: 'decision-1', target: 'option-1', data: {} },
+      { id: 'e2', source: 'decision-1', target: 'option-2', data: {} },
     ],
     report: phase === 'post' ? {
       robustness: {
         recommended_option_id: 'option-1',
         recommendation_stability: stability ?? 0.93,
+        // option-1 is the win argmax, so the producer's claim applies to it.
+        near_tie: { is_tie: false, top_option_id: 'option-1' },
       },
-      option_probabilities: { 'option-1': { win_probability: 0.7 } },
+      option_probabilities: {
+        'option-1': { win_probability: 0.7 },
+        'option-2': { win_probability: 0.3 },
+      },
     } : null,
   })
 
@@ -1106,5 +1144,129 @@ describe('OptionNode — is_baseline rendering', () => {
     applyStore(optionOnlyTopology('standard', 'pre', data))
     renderOption(data)
     expect(screen.queryByText(/No changes to factors/i)).toBeNull()
+  })
+})
+
+describe('N1 — per-type selection ring', () => {
+  const nodeState = (highlightedIds: string[] = []) => ({
+    hoveredOptionId: null,
+    nodes: [],
+    edges: [],
+    ceeAnalysisReady: null,
+    results: { status: 'idle', report: null },
+    highlightedNodes: new Set(highlightedIds),
+    dimmedNodeIds: new Set(),
+    lens: { _dimmedNodeIds: new Set(), _hiddenNodeIds: new Set(), active: 'full' },
+    goalThreshold: null,
+    goalConstraints: [],
+    setHoveredOption: vi.fn(),
+    runMeta: { ceeReview: null },
+    viewMode: 'expert',
+  })
+  const applyState = (highlightedIds: string[] = []) =>
+    vi.mocked(useCanvasStore).mockImplementation((sel: any) => sel(nodeState(highlightedIds)))
+
+  // @xyflow/react NodeProps require these; baseFactorProps predates that.
+  const selProps = { ...baseFactorProps, selected: true, draggable: false, selectable: true, deletable: true }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
+      achievementProbability: null, stabilityPercentage: null, winRate: null, isResultsMode: false,
+    } as any)
+  })
+
+  it('a selected factor node wears the factor-type ring, not the old hardcoded info ring', () => {
+    applyState()
+    render(<ReactFlowProvider><FactorNode {...selProps} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    const group = screen.getAllByRole('group')[0]
+    expect(group.className).toContain('ring-factor/50')
+    expect(group.className).not.toContain('ring-info')
+  })
+
+  it('a selected risk node wears the danger-type ring', () => {
+    applyState()
+    render(<ReactFlowProvider><RiskNode {...selProps} id="risk-1" type="risk" data={{ label: 'Attrition' }} /></ReactFlowProvider>)
+    const group = screen.getAllByRole('group')[0]
+    expect(group.className).toContain('ring-danger/50')
+  })
+
+  it('selected + AI-highlighted: the highlight ring wins, the per-type selection ring is suppressed', () => {
+    applyState(['factor-1'])
+    render(<ReactFlowProvider><FactorNode {...selProps} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    const group = screen.getAllByRole('group')[0]
+    // N2: the AI-highlight ring is the info/AI hue (not goal) and wins over selection.
+    expect(group.className).toContain('ring-info/60')
+    expect(group.className).not.toContain('ring-factor/50')
+  })
+
+  it('N2: an AI-highlighted node gets the real pulse class (reduced-motion-safe in CSS)', () => {
+    applyState(['factor-1'])
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    const group = screen.getAllByRole('group')[0]
+    expect(group.className).toContain('ai-highlight-pulse')
+    expect(group.className).toContain('ring-info/60')
+  })
+
+  it('N3: a node in editedSinceRunNodeIds wears the amber edited dot', () => {
+    vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
+      sel({ ...nodeState([]), editedSinceRunNodeIds: new Set(['factor-1']) }),
+    )
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    expect(screen.getByTestId('edited-since-run-factor-1')).toBeInTheDocument()
+  })
+
+  it('N3: the edited dot carries the ratified accessible name (screen readers, not just hover)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
+      sel({ ...nodeState([]), editedSinceRunNodeIds: new Set(['factor-1']) }),
+    )
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    // A bare span with only `title` has no accessible name for most screen
+    // readers — the ratified N3 spec requires the dot itself to announce
+    // "Edited since the last analysis".
+    expect(screen.getByRole('img', { name: 'Edited since the last analysis' })).toBe(
+      screen.getByTestId('edited-since-run-factor-1'),
+    )
+  })
+
+  it('N3: no edited dot when the node is not in the set (and no crash without the slice)', () => {
+    applyState([])
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    expect(screen.queryByTestId('edited-since-run-factor-1')).toBeNull()
+  })
+
+  it('D2: at LOD zoom a factor node hides its title and body (shape only)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
+      sel({ ...nodeState([]), lodActive: true }),
+    )
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    const title = screen.getAllByTestId('node-title')[0]
+    expect(title).toHaveStyle({ visibility: 'hidden' })
+  })
+
+  it('D2: at LOD zoom a goal node keeps a boosted, visible title', () => {
+    vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
+      sel({ ...nodeState([]), lodActive: true }),
+    )
+    render(<ReactFlowProvider><GoalNode {...selProps} id="goal-1" type="goal" selected={false} data={{ label: 'Ship the roadmap' }} /></ReactFlowProvider>)
+    const title = screen.getAllByTestId('node-title')[0]
+    expect(title).not.toHaveStyle({ visibility: 'hidden' })
+    expect(title.className).toContain('font-semibold')
+  })
+
+  it('D2: at normal zoom titles render exactly as before (no LOD classes)', () => {
+    applyState([])
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    const title = screen.getAllByTestId('node-title')[0]
+    expect(title).not.toHaveStyle({ visibility: 'hidden' })
+    expect(title.className).not.toContain('text-lg')
+  })
+
+  it('N2: a non-highlighted node has no pulse', () => {
+    applyState([])
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    const group = screen.getAllByRole('group')[0]
+    expect(group.className).not.toContain('ai-highlight-pulse')
   })
 })

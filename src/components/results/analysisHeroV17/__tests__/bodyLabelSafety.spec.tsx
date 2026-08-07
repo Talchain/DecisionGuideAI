@@ -199,8 +199,11 @@ describe('TriageActionCardsBody — composed-body label safety', () => {
       const nudge = screen.getByTestId('t1-dominant-nudge') as HTMLElement
       expect(nudge.getAttribute('aria-label')).toContain(BANNED_FACTOR_LABEL)
       expect(nudge.getAttribute('title')).toContain(BANNED_FACTOR_LABEL)
-      // And the legacy trailing sentence still uses "recommendation".
-      expect(nudge.getAttribute('title')).toMatch(/recommendation could change/i)
+      // The legacy trailing sentence dropped "recommendation" in PR #145
+      // ("drop 'recommendation' from 5 remaining user-facing strings",
+      // cf361994) — the legacy branch now reads "the result could change"
+      // (v17 mode instead reads "the leading option could change").
+      expect(nudge.getAttribute('title')).toMatch(/the result could change/i)
     })
   })
 
@@ -295,7 +298,11 @@ describe('TriageActionCardsBody — composed-body label safety', () => {
       const cards = screen.getByTestId('conditional-winner-cards') as HTMLElement
       const headerHelp = cards.querySelector('span[title]') as HTMLElement | null
       expect(headerHelp).not.toBeNull()
-      expect(headerHelp!.getAttribute('title')).toMatch(/recommendation/i)
+      // PR #145 (cf361994) retired "the recommendation" from this legacy
+      // header tooltip too — both branches are now glossary-safe, the
+      // legacy branch just uses the less pointed "the result" phrasing
+      // (see ConditionalWinnerCards.tsx headerHelpText).
+      expect(headerHelp!.getAttribute('title')).toMatch(/factors that change the result/i)
       // Prose still contains the raw factor label.
       expect(cards.textContent).toContain(BANNED_CONDITIONAL_FACTOR_LABEL)
       // Above/Below footer still contains the raw bucket labels.

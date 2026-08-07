@@ -70,4 +70,51 @@ describe('computeLadder — deterministic priority ladder', () => {
   it('loading readiness (null) never gates the ladder', () => {
     expect(computeLadder(input({ canRunAnalysis: null })).kind).toBe('run_first')
   })
+
+  // UI-SEM-091: runnable-via-scaffold — the readiness gate is closed but CEE
+  // will draft the remaining options, so offer the run and disclose the draft.
+  describe('runnable-via-scaffold (UI-SEM-091)', () => {
+    it('skips the readiness blocker and offers the run, disclosing the option count', () => {
+      const step = computeLadder(
+        input({
+          canRunAnalysis: false,
+          readinessExplanation: 'Two options still need to be drafted.',
+          willScaffoldOptions: true,
+          scaffoldOptionCount: 2,
+        }),
+      )
+      expect(step.kind).toBe('run_first')
+      expect(step.copy).toContain('draft the remaining 2 options')
+      // The CEE refusal copy must NOT be shown in this state.
+      expect(step.copy).not.toContain('Two options still need to be drafted.')
+    })
+
+    it('falls back to count-free disclosure copy when option_count is absent', () => {
+      const step = computeLadder(
+        input({ canRunAnalysis: false, willScaffoldOptions: true }),
+      )
+      expect(step.kind).toBe('run_first')
+      expect(step.copy).toBe('Run your first analysis. Olumi will draft the remaining options.')
+    })
+
+    // Positive control: without the scaffold flag the readiness blocker still
+    // fires (byte-identical to pre-scaffold behaviour).
+    it('still shows the readiness blocker when willScaffoldOptions is absent', () => {
+      const step = computeLadder(
+        input({ canRunAnalysis: false, readinessExplanation: 'Two options still need to be drafted.' }),
+      )
+      expect(step.kind).toBe('readiness_blocker')
+      expect(step.copy).toBe('Two options still need to be drafted.')
+    })
+
+    // Precedence: foundational rungs still outrank the scaffold-run offer.
+    it('goal/success/estimate rungs still precede the scaffold run', () => {
+      const scaffold = { canRunAnalysis: false as const, willScaffoldOptions: true, scaffoldOptionCount: 2 }
+      expect(computeLadder(input({ ...scaffold, goalPresent: false, successSet: false })).kind).toBe('set_goal')
+      expect(computeLadder(input({ ...scaffold, successSet: false })).kind).toBe('set_success')
+      expect(
+        computeLadder(input({ ...scaffold, topUncalibrated: { id: 'f1', label: 'X' } })).kind,
+      ).toBe('calibrate_top')
+    })
+  })
 })

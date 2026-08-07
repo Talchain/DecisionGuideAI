@@ -5,6 +5,7 @@
 
 import { z } from 'zod'
 import type { ValidationMetadata } from './validation'
+import { EdgeValueSourceEnum } from './edgeValueProvenance'
 
 /**
  * Edge style options for visualisation
@@ -227,6 +228,41 @@ export const EdgeDataSchema = z.object({
   /** Raw exists probability from CEE V3 (preserved alongside beliefExists) */
   exists_probability: z.number().min(0).max(1).optional(),
 
+  // Set-vs-defaulted markers. ABSENT MEANS DEFAULTED — see
+  // ./edgeValueProvenance.ts for the full rationale. Stamped only where the
+  // value demonstrably came from a named source, so a construction site that
+  // does nothing is correct by default and forgetting to stamp can only
+  // under-disclose, never over-claim. Do NOT add these to DEFAULT_EDGE_DATA or
+  // USER_EDGE_DEFAULTS.
+  /** Where `beliefExists` came from. Absent ⇒ nobody set it (UI default). */
+  beliefExistsSource: EdgeValueSourceEnum.optional(),
+  /** Where `weight` came from. Absent ⇒ nobody set it (UI default). */
+  weightSource: EdgeValueSourceEnum.optional(),
+  /**
+   * Where `strengthStd` came from. Absent ⇒ nobody set it (UI default).
+   *
+   * `USER_EDGE_DEFAULTS.strengthStd = 0.15` below, so a user-drawn edge carries
+   * a fabricated uncertainty that `KeyRelationships` rendered as a "Moderate
+   * confidence" dot. Unlike `weight`/`beliefExists` there is no producer-only
+   * raw field to fall back on — see the note in `edgeValueSource`.
+   */
+  strengthStdSource: EdgeValueSourceEnum.optional(),
+  /**
+   * Where `direction` came from. Absent ⇒ nobody stated it (UI default).
+   *
+   * ROADMAP 2.263. `USER_EDGE_DEFAULTS.direction = 'positive'` below, and BOTH
+   * draft ingestion paths fall through to `'positive'` when the producer omits
+   * `effect_direction` or sends the declared contract value `'unknown'` — so
+   * the field is present and plausible on edges nobody characterised, which is
+   * exactly the trap the other three markers exist for. The Model tab rendered
+   * those as "Strong positive effect".
+   *
+   * The raw CEE spelling `effect_direction` serves as back-compat evidence for
+   * graphs saved before this marker (nothing in the UI fabricates it) — see
+   * `edgeValueSource`.
+   */
+  directionSource: EdgeValueSourceEnum.optional(),
+
   // Phase 3: Non-linear edge functions
   functionType: EdgeFunctionTypeEnum.default('linear'),   // How input transforms to output
   functionParams: EdgeFunctionParamsSchema.optional(),    // Parameters for non-linear functions
@@ -275,8 +311,59 @@ export type EdgeData = z.infer<typeof EdgeDataSchema> & {
 }
 
 /**
+ * S2-7 — read `validation` off a wire edge, for BOTH hand-mirrored ingestion
+ * mappers. ONE implementation, so the lockstep is structural for this field.
+ *
+ * WHY IT LIVES HERE. This module owns the two halves the read depends on: the
+ * schema slot (`validation: z.unknown().optional()` above — the UI deliberately
+ * does not re-declare CEE's shape), and `DEFAULT_EDGE_DATA`, whose deliberate
+ * ABSENCE of a `validation` entry is load-bearing (`overlayEdge` in
+ * mergeAppliedGraph.ts treats a mapped value equal to the mapper baseline as "the
+ * wire did not supply this", so a non-undefined default here would silently stop
+ * validation metadata from ever overlaying onto an existing edge). A reader of
+ * that slot belongs beside the slot.
+ *
+ * WHAT IT REPLACES. `mapDraftEdgeToCanvas` (applyDraftResult.ts, hop 1) and
+ * `buildEdge` (conversation/utils/applyPatch.ts, hop 2) are hand-mirrored twins,
+ * and each carried its own copy of this four-line extraction under its own
+ * ~15-line comment explaining that the copies must stay byte-equivalent. Both
+ * comments were right about the hazard and both were the hazard: two copies of a
+ * rule whose whole content is "these two must agree" (CLAUDE.md trap 12). The
+ * mirror spec (`edgeValidationMapperMirror.spec.ts`) STAYS as belt — it pins the
+ * two hops through their public entry points, and it now also pins whole-`data`
+ * parity, so it catches the NEXT field to drift rather than only this one.
+ *
+ * ⚠ THE CAST IS A DECLARED BOUNDARY ASSUMPTION, NOT A VALIDATED NARROWING, and
+ * centralising it does not upgrade it. The wire schema is `z.unknown().optional()`
+ * on purpose while the canvas `data` bag types the field `ValidationMetadata` so
+ * consumers can read it; every consumer null-guards before use (`StyledEdge`
+ * requires `status`, `user_action` AND a non-null `max_divergence` before it
+ * styles anything; `RelationshipsSection` requires `status` + `user_action`), so a
+ * malformed payload degrades to "not contested" rather than throwing.
+ * Runtime-validating the shape here would be a mirror of a contract that already
+ * lives in two repos.
+ *
+ * ⚠ `null` IS ABSENT, NOT A VALUE. A cleared field must OMIT the key rather than
+ * write `null`, for the `DEFAULT_EDGE_DATA` reason above — `undefined` is what
+ * both mappers then spread away.
+ */
+export function readValidationMetadata(
+  wireValidation: unknown,
+): ValidationMetadata | undefined {
+  return wireValidation !== undefined && wireValidation !== null
+    ? (wireValidation as ValidationMetadata)
+    : undefined
+}
+
+/**
  * Default edge data for new edges (used by adapters, CEE, PLoT as fallback).
  * Keep weight at 0.5 for backward compatibility with downstream services.
+ *
+ * ⛔ These numbers are ASSUMPTIONS, not measurements. Deliberately carries NO
+ * `beliefExistsSource` / `weightSource`: an edge built from these defaults has
+ * had nothing set, and every display surface must be able to see that (see
+ * ./edgeValueProvenance.ts). Adding a source stamp here would launder every
+ * fallthrough into a claim.
  */
 export const DEFAULT_EDGE_DATA: EdgeData = {
   weight: 0.5,
@@ -295,6 +382,11 @@ export const DEFAULT_EDGE_DATA: EdgeData = {
  * Graph Editing Experience Task 6a: Defaults for user-created edges only.
  * More conservative starting point that encourages calibration.
  * Not used by adapters/CEE/PLoT (those keep DEFAULT_EDGE_DATA for compatibility).
+ *
+ * ⛔ Same rule as DEFAULT_EDGE_DATA: NO source stamps. Drawing an edge is not
+ * the same as estimating its strength or its likelihood of existing — until the
+ * user actually sets those, the surfaces must say so rather than report 0.8/0.3
+ * as if the user had chosen them.
  */
 export const USER_EDGE_DEFAULTS: EdgeData = {
   weight: 0.3,            // Moderate starting strength (encourages calibration)

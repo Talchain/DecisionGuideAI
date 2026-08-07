@@ -351,7 +351,12 @@ export function useModelActionApply(): UseModelActionApplyReturn {
               ...existingEdge?.data,
               ...(action.payload.label !== undefined && { label: action.payload.label }),
               ...(action.payload.confidence !== undefined && { confidence: action.payload.confidence }),
-              ...(action.payload.weight !== undefined && { weight: action.payload.weight }),
+              // A producer-proposed weight is a real estimate, so stamp it as
+              // such alongside the value (canvas/domain/edgeValueProvenance.ts).
+              ...(action.payload.weight !== undefined && {
+                weight: action.payload.weight,
+                weightSource: 'cee' as const,
+              }),
               ...(action.payload.kind !== undefined && { kind: action.payload.kind }),
             }
           }

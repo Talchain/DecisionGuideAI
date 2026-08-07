@@ -15,8 +15,11 @@ import { TypedErrorRenderer } from '../TypedErrorRenderer';
 describe('TypedErrorRenderer — one render per FailureType', () => {
   const codes = FailureType.options as readonly FailureTypeLiteral[];
 
-  it('enumerates all eight failure types', () => {
-    expect(codes.length).toBe(8);
+  it('enumerates all nine failure types', () => {
+    // 0.22.0 added GRAPH_DIVERGED to BoundaryErrorCode/FailureType (8 → 9).
+    // The per-code render loop below covers it via the vendored
+    // FAILURE_USER_TEXT table.
+    expect(codes.length).toBe(9);
   });
 
   for (const code of codes) {
@@ -131,5 +134,111 @@ describe('TypedErrorRenderer — Phase 4 retryability + reason passthrough', () 
   it('no retry button rendered — the chip on the message bubble handles retry UX', () => {
     render(<TypedErrorRenderer code="UPSTREAM_TIMEOUT" />);
     expect(screen.queryByRole('button', { name: /try again/i })).toBeNull();
+  });
+});
+
+describe('TypedErrorRenderer — fence-class GRAPH_DIVERGED (journey-walk gap #2)', () => {
+  it('a turn_fence conflict_category renders honest write-refusal copy, never the staleness banner', () => {
+    render(
+      <TypedErrorRenderer
+        code="GRAPH_DIVERGED"
+        boundaryError={{
+          error: 'GRAPH_DIVERGED',
+          boundary: 'B1',
+          direction: 'egress',
+          validator: 'turn_commit',
+          details: {
+            phase: 'commit',
+            fence_verdict: 'unclaimed',
+            conflict_category: 'turn_fence_unclaimed',
+            recovery_action: 'retry_later',
+          },
+          request_id: 'req-walk-409',
+          retryable: false,
+        }}
+      />,
+    );
+    const text = screen.getByTestId('typed-error-text').textContent ?? '';
+    expect(text).not.toContain('Your decision has changed');
+    expect(text).not.toContain('Re-run the analysis');
+    expect(text).toMatch(/nothing in your decision changed/i);
+  });
+
+  it('a non-fence GRAPH_DIVERGED keeps the canonical staleness copy (positive control)', () => {
+    render(
+      <TypedErrorRenderer
+        code="GRAPH_DIVERGED"
+        boundaryError={{
+          error: 'GRAPH_DIVERGED',
+          boundary: 'B1',
+          direction: 'egress',
+          validator: 'turn_commit',
+          details: {
+            phase: 'commit',
+            conflict_category: 'analysis_affecting_conflict',
+            recovery_action: 'refresh_and_reconfirm',
+          },
+          request_id: 'req-cas-409',
+          retryable: false,
+        }}
+      />,
+    );
+    expect(screen.getByTestId('typed-error-text').textContent).toBe(
+      FAILURE_USER_TEXT.GRAPH_DIVERGED,
+    );
+  });
+});
+
+describe('TypedErrorRenderer — ingress-violation guidance branches on wire taxonomy (2.472)', () => {
+  it('the witnessed outage shape (scenario_preflight / ownership unverifiable) renders the server-fault copy, not rephrase', () => {
+    render(
+      <TypedErrorRenderer
+        code="INGRESS_CONTRACT_VIOLATION"
+        boundaryError={{
+          error: 'INGRESS_CONTRACT_VIOLATION',
+          boundary: 'B1',
+          direction: 'ingress',
+          validator: 'scenario_preflight',
+          details: {
+            reason: 'scenario_ownership_unverifiable',
+            scenario_id: 'c261b74a-c7ce-4aad-96ca-04f0fdfd0fce',
+          },
+          request_id: 'd3daf877-2adb-4dde-babf-daa7d7a30d0b',
+          retryable: false,
+        }}
+      />,
+    );
+    const guidance = screen.getByTestId('typed-error-guidance').textContent ?? '';
+    expect(guidance).toBe(
+      "Something on our side isn't working — your message was fine. Please try again in a moment.",
+    );
+    expect(guidance).not.toMatch(/rephrase/i);
+  });
+
+  it('without a boundaryError the guidance fails safe to the rephrase copy (positive control)', () => {
+    render(<TypedErrorRenderer code="INGRESS_CONTRACT_VIOLATION" />);
+    expect(screen.getByTestId('typed-error-guidance').textContent).toBe(
+      'Please rephrase your message and try again.',
+    );
+  });
+
+  it('an input-shaped violation (OrchestratorTurnPayload) keeps the rephrase copy (positive control)', () => {
+    render(
+      <TypedErrorRenderer
+        code="INGRESS_CONTRACT_VIOLATION"
+        boundaryError={{
+          error: 'INGRESS_CONTRACT_VIOLATION',
+          boundary: 'B1',
+          direction: 'ingress',
+          validator: 'OrchestratorTurnPayload',
+          details: { reason: 'turn_id must be a UUID v4' },
+          request_id: 'req_input_shaped',
+          retryable: false,
+        }}
+      />,
+    );
+    expect(screen.getByTestId('typed-error-guidance').textContent).toBe(
+      'Please rephrase your message and try again.',
+    );
   });
 });

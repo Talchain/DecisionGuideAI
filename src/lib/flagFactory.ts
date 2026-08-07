@@ -1,6 +1,8 @@
 // src/lib/flagFactory.ts
 // Typed factory for creating feature flag functions with minimal duplication
 
+import { FLAG_ENV } from './flagEnv'
+
 export interface FlagConfig {
   envKey: string          // e.g., 'VITE_FEATURE_SSE'
   storageKey: string      // e.g., 'feature.sseStreaming'
@@ -23,15 +25,29 @@ export interface FlagConfig {
  * })
  * ```
  */
-// Eagerly snapshot all env vars at module load time. Vite's dev mode may not
-// resolve dynamic property access (`env[key]`) inside closures reliably — the
-// `(import.meta as any)` cast can strip Vite's HMR proxy. By capturing the
-// full object once with a literal `import.meta.env` reference, we guarantee
-// Vite performs its compile-time replacement correctly. Subsequent lookups via
-// `envSnapshot[key]` are plain JS property access on a real object.
+// Eagerly snapshot the declared flag env vars at module load time. Vite's dev
+// mode may not resolve dynamic property access (`env[key]`) inside closures
+// reliably — the `(import.meta as any)` cast can strip Vite's HMR proxy. Each
+// entry in FLAG_ENV is a LITERAL `import.meta.env?.VITE_X` read, so Vite performs
+// its compile-time replacement correctly. Subsequent lookups via
+// `envSnapshot[key]` are plain JS property access on a real object, exactly as
+// before.
+//
+// ⚠ THIS WAS `{ ...import.meta.env }` AND MUST NOT GO BACK.
+// Vite cannot statically narrow a spread, so it inlined the ENTIRE env object —
+// every `VITE_*` the deploy defines, WITH ITS VALUE — into the flags chunk. That
+// is how a bundle reader got 100+ variables, including credentials the flags
+// system has no relationship to, out of one asset. FLAG_ENV is GENERATED from
+// `src/flags.ts` + `netlify.toml` (`pnpm run generate:flag-env`) so the key set is
+// derived rather than hand-listed, and `pnpm run ci:guard:flag-env` reds if it
+// drifts — a missing key would make that flag silently resolve to its
+// defaultValue.
+//
+// Behaviour is unchanged: an unset key reads `undefined` here where it was
+// previously ABSENT, and every consumer below treats those identically.
 let envSnapshot: Record<string, unknown> = {}
 try {
-  envSnapshot = { ...import.meta.env }
+  envSnapshot = FLAG_ENV
 } catch {
   // SSR or test environment where import.meta.env is unavailable
 }

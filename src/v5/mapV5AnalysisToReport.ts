@@ -29,11 +29,73 @@
  * that depends on `import.meta.env`.
  */
 
-import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
+import type {
+  AnalysisResultBlock,
+  EnrichmentOutcomeStats,
+} from '@talchain/schemas/boundary'
 
-import type { ReportV1, ConfidenceLevel } from '../adapters/plot/types'
+import type { ReportV1, ConfidenceLevel, CritiqueItemV1 } from '../adapters/plot/types'
+import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
+import {
+  factorDirectionToPolarity,
+  normaliseFactorDirection,
+  type FactorDirection,
+} from '../lib/factorDirection'
 
 // ─── Helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Projected-critique severity → the consumer union (CritiqueItemV1.severity,
+ * adapters/plot/types.ts:304). The CEE→UI wire carries the lowercase V2 union
+ * 'info'|'warning'|'error'|'blocker'; the Results consumers filter on the
+ * UPPERCASE V4 values (useResultsSectionData.ts:2454 matches 'WARNING' only),
+ * so a lowercase pass-through would silently drop every projected row from
+ * the uncertainties list. 'error' folds into 'BLOCKER' (the union has no
+ * ERROR member); unknown/absent severities fold to 'INFO' — conservative:
+ * an unclassifiable disclosure must not inflate the warning banner.
+ */
+function mapProjectedCritiqueSeverity(v: unknown): CritiqueItemV1['severity'] {
+  const s = typeof v === 'string' ? v.toLowerCase() : ''
+  if (s === 'warning') return 'WARNING'
+  if (s === 'error' || s === 'blocker') return 'BLOCKER'
+  return 'INFO'
+}
+
+/**
+ * Map CEE-projected critique rows to the canonical `run.critique` slot shape.
+ * Keeps ONLY rows with a non-empty `code` AND a non-empty `user_message` —
+ * the projection guarantees both on every surviving row, and a row without
+ * display-safe copy has nothing honest to render (`message` never arrives on
+ * this wire; it is withheld internal wording). `message` is populated FROM
+ * `user_message` so every existing consumer of the slot renders the
+ * display-safe copy; `user_message` also rides along verbatim for the
+ * humaniser's userMessage-first path.
+ */
+function mapProjectedCritiques(
+  raw: unknown[],
+): Array<CritiqueItemV1 & { user_message: string }> {
+  const out: Array<CritiqueItemV1 & { user_message: string }> = []
+  for (const r of raw) {
+    if (!isPlainObject(r)) continue
+    const code = safeString(r.code)
+    const userMessage = safeString(r.user_message)
+    if (!code || !userMessage) continue
+    const item: CritiqueItemV1 & { user_message: string } = {
+      severity: mapProjectedCritiqueSeverity(r.severity),
+      message: userMessage,
+      user_message: userMessage,
+      code,
+    }
+    const nodeId = Array.isArray(r.affected_node_ids)
+      ? safeString(r.affected_node_ids[0])
+      : undefined
+    if (nodeId) item.node_id = nodeId
+    const suggestion = safeString(r.suggestion)
+    if (suggestion) item.suggested_fix = suggestion
+    out.push(item)
+  }
+  return out
+}
 
 function safeString(v: unknown): string | undefined {
   return typeof v === 'string' && v.length > 0 ? v : undefined
@@ -47,13 +109,144 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v != null && typeof v === 'object' && !Array.isArray(v)
 }
 
+/**
+ * Normalise a raw `goal_fit_basis` entry (PLoT #204, doctrine B).
+ * `.passthrough()` on the schema side — only `scored_from` (open-vocab
+ * string) and `node_ids` (string array) are read; unknown extra keys are
+ * dropped rather than carried opaquely, matching this mapper's "narrowed,
+ * never opaque" convention for nested objects (see the option_comparison
+ * shape below). Returns undefined when neither field is present.
+ */
+function normaliseGoalFitBasis(
+  raw: { scored_from?: unknown; node_ids?: unknown } | undefined,
+): { scored_from?: string; node_ids?: string[] } | undefined {
+  if (!raw) return undefined
+  const scoredFrom = safeString(raw.scored_from)
+  const nodeIds = Array.isArray(raw.node_ids)
+    ? raw.node_ids.filter((v): v is string => typeof v === 'string')
+    : undefined
+  if (scoredFrom === undefined && nodeIds === undefined) return undefined
+  return {
+    ...(scoredFrom !== undefined ? { scored_from: scoredFrom } : {}),
+    ...(nodeIds !== undefined ? { node_ids: nodeIds } : {}),
+  }
+}
+
+/**
+ * ROADMAP 2.449 — normalise the per-option DOWNSIDE / tail-risk block.
+ *
+ * ALL-OR-NOTHING, and that is the PRODUCER's rule rather than a local
+ * invention: ISL declares `cvar_10`, `p05` and `expected_regret` as required
+ * floats on `DownsideV2` and omits the whole block — "Omitted, never null" —
+ * rather than ship a partial one; PLoT's `buildDownside` mirrors that at
+ * egress. So a partial block arriving here is a broken contract, not a
+ * half-answer, and the only honest reading of it is absence.
+ *
+ * NEVER substitutes a zero. A fabricated 0 in a tail-risk statistic does not
+ * read as "unknown" — it reads as "there is no downside", which is the most
+ * damaging direction this defect class can take.
+ *
+ * A MEASURED ZERO IS NOT AN ABSENCE: the option that wins every simulated draw
+ * has `expected_regret === 0` by construction, so this tests finiteness, never
+ * truthiness.
+ */
+function normaliseDownside(
+  raw: { cvar_10?: unknown; p05?: unknown; expected_regret?: unknown } | undefined,
+): { cvar_10: number; p05: number; expected_regret: number } | undefined {
+  if (!isPlainObject(raw)) return undefined
+  const cvar10 = safeFiniteNumber(raw.cvar_10)
+  const p05 = safeFiniteNumber(raw.p05)
+  const expectedRegret = safeFiniteNumber(raw.expected_regret)
+  if (cvar10 === undefined || p05 === undefined || expectedRegret === undefined) {
+    return undefined
+  }
+  return { cvar_10: cvar10, p05, expected_regret: expectedRegret }
+}
+
+// ─── Percentile provenance (ROADMAP 2.646) ─────────────────────────────
+
+/**
+ * The producer's percentile-provenance vocabulary, DERIVED from the contract
+ * rather than retyped from it — `@talchain/schemas` 0.38.0
+ * `EnrichmentOutcomeStatsSchema.percentiles_source`.
+ *
+ * The render layer derives the same alias independently
+ * (`components/results/utils/downsideCopy.ts`, which is where the full note on
+ * this field lives). Two derivations, one source of truth: `src/v5/**` does not
+ * import from `src/components/**` and this row is not the place to start, but
+ * neither copy is hand-written, so neither can drift from the contract or from
+ * the other.
+ */
+type PercentilesSource = NonNullable<EnrichmentOutcomeStats['percentiles_source']>
+
+/**
+ * Accept ONLY the producer's declared members; everything else is absence.
+ *
+ * ⚠ NEVER DEFAULTS TO `'samples'`, and the discipline is not this repo's
+ * invention — it is the same line every upstream hop holds deliberately. ISL
+ * declares a Python-side `default="samples"` on the field; PLoT's egress
+ * refuses to re-apply it ("Substituting 'samples' for a build that sent nothing
+ * would manufacture a provenance claim PLoT never received"); 0.38.0's
+ * `.describe()` states it as a contract obligation on consumers ("MUST NOT
+ * assume 'samples'"). A default here would be the estate's `?? 0` fabrication
+ * class wearing a string, and it would fail SILENT: the render site would
+ * quietly stop showing the honest engine sentence and show the vague one, on a
+ * payload that had told us exactly what happened.
+ *
+ * Written as an explicit two-member check rather than a `Set`/`includes` over a
+ * list, so the vocabulary lives in ONE place (the contract type above) and this
+ * function fails to compile if a member is removed from it.
+ */
+function narrowPercentilesSource(raw: unknown): PercentilesSource | undefined {
+  return raw === 'samples' || raw === 'unavailable' ? raw : undefined
+}
+
 // ─── Factor sensitivity normalisation ──────────────────────────────────
 
 interface NormalisedFactor {
   factor_id: string
   factor_label: string
   sensitivity: number // absolute magnitude
-  direction: 'positive' | 'negative'
+  /**
+   * The producer's direction, carried VERBATIM across the contract's full
+   * domain, or `null` when the producer sent none (ROADMAP 2.234).
+   *
+   * ⚠ This used to be `'positive' | 'negative'` with a sign fallback, and the
+   * narrowing was a false-claim generator: `sensitivity` above is an absolute
+   * magnitude, so `mixed`, `unknown` and absent all collapsed to `'positive'`
+   * → `polarity: 'up'` → "increases the outcome". Never infer direction from
+   * a magnitude; see `src/lib/factorDirection.ts`.
+   */
+  direction: FactorDirection | null
+  /**
+   * Producer influence_score (0-1) — structural causal influence, a DISTINCT
+   * measure from sensitivity (roadmap 1.7; provisional_doctrine_v0:
+   * influence ≠ sensitivity). Additive passthrough only — never derived,
+   * never defaulted; absent when the producer omitted it.
+   */
+  influence_score?: number
+  /** Producer influence_rank (1 = most influential). Additive passthrough. */
+  influence_rank?: number
+  /**
+   * Producer zero_reason (e.g. 'intervention_override' for pinned factors).
+   * Additive passthrough so the DriversSection can show influence WITHOUT
+   * sensitivity-flavoured copy for pinned factors.
+   */
+  zero_reason?: string
+  /**
+   * EVPI family (value-of-information), producer-owned. P0 F5: the live V5
+   * mapper previously stripped all four before the store, so the EVPI/VoI
+   * surfaces went dark on the conversational path (the V4 mapper preserves
+   * them — responseMapper.ts:281,336 — and ModelTabBody.tsx:209-217 renders
+   * the EVPI map from `evpi_percentage_points` ?? `value_of_information * 100`;
+   * useResultsSectionData.ts:358 reads `value_of_information`). Additive
+   * passthrough only — never derived, never defaulted, never scaled; a real
+   * 0 is data (a below-resolution EVPI), an absent field stays absent.
+   */
+  value_of_information?: number
+  evpi_percentage_points?: number
+  evpi_method?: string
+  evpi_status?: string
 }
 
 /**
@@ -89,18 +282,44 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   const factorLabel =
     safeString(entry.factor_label) ?? safeString(entry.label) ?? factorId
 
-  const explicitDirection =
-    entry.direction === 'positive' || entry.direction === 'negative'
-      ? entry.direction
-      : undefined
-  const direction: 'positive' | 'negative' =
-    explicitDirection ?? (rawMagnitude >= 0 ? 'positive' : 'negative')
+  // ROADMAP 2.234 — the producer's direction, or nothing. The line that used
+  // to sit here read
+  //   `explicitDirection ?? (rawMagnitude >= 0 ? 'positive' : 'negative')`
+  // and `rawMagnitude` is picked from `sensitivity_score ?? sensitivity ??
+  // elasticity ?? importance_score`, which are ordinarily NON-NEGATIVE — so
+  // every `mixed`, every `unknown` and every absent direction silently became
+  // a positive causal claim. There is no inference here any more.
+  const direction = normaliseFactorDirection(entry.direction)
+
+  // Roadmap 1.7 (provisional_doctrine_v0): influence_score / influence_rank /
+  // zero_reason are producer-owned fields carried through verbatim. No
+  // derivation, no defaults — undefined when absent so downstream consumers
+  // can distinguish "not provided" from any real value.
+  const influenceScore = safeFiniteNumber(entry.influence_score)
+  const influenceRank = safeFiniteNumber(entry.influence_rank)
+  const zeroReason = safeString(entry.zero_reason)
+
+  // P0 F5: EVPI family (value-of-information) carried through verbatim. No
+  // derivation, no defaults, no scaling — safeFiniteNumber(0) === 0 preserves
+  // a real below-resolution EVPI, while an absent field yields undefined so
+  // the conditional spread omits the key (fail closed).
+  const valueOfInformation = safeFiniteNumber(entry.value_of_information)
+  const evpiPercentagePoints = safeFiniteNumber(entry.evpi_percentage_points)
+  const evpiMethod = safeString(entry.evpi_method)
+  const evpiStatus = safeString(entry.evpi_status)
 
   return {
     factor_id: factorId,
     factor_label: factorLabel,
     sensitivity: Math.abs(rawMagnitude),
     direction,
+    ...(influenceScore !== undefined ? { influence_score: influenceScore } : {}),
+    ...(influenceRank !== undefined ? { influence_rank: influenceRank } : {}),
+    ...(zeroReason !== undefined ? { zero_reason: zeroReason } : {}),
+    ...(valueOfInformation !== undefined ? { value_of_information: valueOfInformation } : {}),
+    ...(evpiPercentagePoints !== undefined ? { evpi_percentage_points: evpiPercentagePoints } : {}),
+    ...(evpiMethod !== undefined ? { evpi_method: evpiMethod } : {}),
+    ...(evpiStatus !== undefined ? { evpi_status: evpiStatus } : {}),
   }
 }
 
@@ -137,11 +356,32 @@ function collectFactors(enrichment: Record<string, unknown>): NormalisedFactor[]
     }
   }
 
-  return Array.from(byId.values()).sort((a, b) => {
-    const diff = b.sensitivity - a.sensitivity
-    if (diff !== 0) return diff
-    return a.factor_id.localeCompare(b.factor_id)
-  })
+  // ⭐ PRODUCER ORDER IS PRESERVED (ROADMAP 2.235, cheap half).
+  //
+  // This used to end with
+  //   `.sort((a, b) => b.sensitivity - a.sensitivity || a.factor_id.localeCompare(b.factor_id))`
+  // and that sort was a claim the UI is not entitled to make. PLoT owns the
+  // one canonical order and says so in its own source: "ISL measures · PLoT
+  // orders + attests · CEE permits + projects · UI renders WITHOUT reordering"
+  // (`plot-lite-service/src/lib/driver-order.ts:1-14`). The emitted
+  // `factor_sensitivity[]` order IS the ranking, and on a mixed graph/ISL run
+  // PLoT appends the ISL-only rows WITHOUT a global re-sort precisely because
+  // `influence_score`, `sensitivity_score` and `elasticity` are
+  // incommensurable — so re-sorting by magnitude ranked unlike quantities
+  // against each other and then crowned the top five as Drivers. The audit's
+  // payload `[graph A=.2, graph B=.1, ISL-only C=.9]` rendered `C, A, B`.
+  //
+  // A `Map` preserves INSERTION order, and `set` on an existing key does not
+  // move it — so the de-dupe above keeps a row at its top-level position even
+  // when a per-result copy wins on magnitude. Insertion order here is
+  // top-level rows first, then per-result rows, which is the producer's own
+  // precedence.
+  //
+  // ⚠ SCOPE. This preserves the order; it does not VERIFY it. Typing and
+  // transporting `driver_order` and failing closed when `ranked_factor_ids`
+  // disagrees with the transported rows is a schemas → CEE → UI train, rowed
+  // separately. Nothing here checks the producer's attestation.
+  return Array.from(byId.values())
 }
 
 // ─── Confidence derivation ─────────────────────────────────────────────
@@ -192,7 +432,42 @@ interface RawOptionEnrichmentEntry {
   probability_of_joint_goal?: unknown
   confidence_interval?: unknown
   expected_outcome?: unknown
-  outcome?: { mean?: unknown; p10?: unknown; p50?: unknown; p90?: unknown }
+  /**
+   * ROADMAP 2.646 — `percentiles_source` is declared here as `unknown` and
+   * NARROWED at the read below, exactly like every other member. It is the
+   * producer's percentile-provenance discriminator (`@talchain/schemas` 0.38.0
+   * `EnrichmentOutcomeStatsSchema`), and until this row it was DROPPED by this
+   * function: the outcome object below is rebuilt key-by-key, so a field this
+   * interface does not name cannot survive the rebuild even though it arrived
+   * intact on the wire.
+   */
+  outcome?: {
+    mean?: unknown
+    p10?: unknown
+    p50?: unknown
+    p90?: unknown
+    percentiles_source?: unknown
+  }
+  /**
+   * Provenance caveat (PLoT #204, doctrine B): present when
+   * probability_of_joint_goal was scored from the constraint-target node's
+   * MODELLED forward-propagated outcome distribution rather than a
+   * directly-elicited base. `.passthrough()` on the schema side — carried
+   * verbatim, never derived. UI-BOUNDARY-DATA-INVENTORY.md §3.2/§5.
+   */
+  goal_fit_basis?: { scored_from?: unknown; node_ids?: unknown }
+  /**
+   * ROADMAP 2.449 — per-option DOWNSIDE / tail-risk block. Produced by ISL
+   * (`DownsideV2`) and forwarded verbatim by PLoT. All three values are in the
+   * SAME units as `outcome.mean` / `outcome.p10`, on the same axis and with no
+   * normalisation of their own — so the Results hook must apply the SAME
+   * denormalisation scale it applies to the percentile family, or the tail
+   * would be plotted against a different ruler than the range it belongs to.
+   *
+   * ABSENT (key omitted) whenever the producer could not compute the block
+   * honestly. Never `null`, never zeroed — see `normaliseDownside`.
+   */
+  downside?: { cvar_10?: unknown; p05?: unknown; expected_regret?: unknown }
 }
 
 interface ResolvedOptionEntry {
@@ -230,11 +505,347 @@ function resolveOptionEntries(
   return out
 }
 
+/**
+ * Fallback id↔label source: `enrichment.decision_brief.options[]`, whose
+ * entries carry `option_id` + `label`. Used ONLY when `option_comparison` is
+ * absent (it can be — the wire carries a sibling `option_comparison_status`
+ * precisely because that array is not guaranteed). Both sources are supplied
+ * by the producer on the same payload, so this is a fallback chain over
+ * derived data, NOT a second hand-maintained mapping.
+ */
+function resolveDecisionBriefOptions(
+  enrichment: Record<string, unknown> | undefined,
+): ResolvedOptionIdentity[] {
+  const brief = isPlainObject(enrichment?.decision_brief)
+    ? (enrichment!.decision_brief as Record<string, unknown>)
+    : undefined
+  const raw = brief?.options
+  if (!Array.isArray(raw)) return []
+  const out: ResolvedOptionIdentity[] = []
+  for (const entry of raw) {
+    if (!isPlainObject(entry)) continue
+    const optionId = safeString(entry.option_id) ?? safeString(entry.id)
+    if (!optionId) continue
+    out.push({ optionId, label: safeString(entry.label) ?? safeString(entry.option_label) })
+  }
+  return out
+}
+
+interface ResolvedOptionIdentity {
+  optionId: string
+  label: string | undefined
+}
+
+/**
+ * Resolve every `block.win_probabilities` KEY that denotes the leading option.
+ *
+ * The two fields live in DIFFERENT IDENTITY SPACES. `leading_option_id` is an
+ * option ID (`opt_mac`); `win_probabilities` is keyed by option LABEL
+ * (`"Standardise on MacBook Pro"`) on real staging payloads — the same fact
+ * `resolveOptionEntries` above was written for. Comparing a map key to
+ * `leading_option_id` directly therefore matches NOTHING whenever the producer
+ * keys by label: no error, no warning, the leader simply never gets marked.
+ * That is an UNDER-claim, and it made the leader treatment in
+ * V5AnalysisResultBlock unreachable in production.
+ *
+ * Callers iterating `Object.entries(win_probabilities)` test membership of this
+ * set instead, so they work under EITHER keying without having to know which
+ * one the producer used. The id↔label pairing is derived from the same wire
+ * payload (`enrichment.option_comparison[]`, falling back to
+ * `enrichment.decision_brief.options[]`) — there is no second mapping for
+ * anyone to keep in sync.
+ *
+ * Fails closed in both directions — this must never become an OVER-claim:
+ *   - `leadingOptionId` null/absent/empty → EMPTY set → no key is a leader.
+ *     This is the withheld-turn contract; CEE sends `leading_option_id: null`
+ *     when the leader is suppressed and no pill may be marked.
+ *   - a leader label shared by more than one option → the label is omitted.
+ *     A label-keyed Record cannot disambiguate two options sharing a label;
+ *     marking both pills as leader is false precision, marking neither is an
+ *     honest miss. Same rule, same reason as the `labelIsUnique` guard used
+ *     for option_probabilities below.
+ */
+/**
+ * The option rows to emit, in the mapper's own precedence order.
+ *
+ * Path A — `enrichment.option_comparison` is present: one row per entry,
+ * keyed by canonical option_id.
+ * Path B — absent: one row per `block.win_probabilities` key, verbatim (those
+ * keys may be labels; the Results-panel lookup then honestly misses).
+ */
+function optionIterator(
+  resolvedOptions: ResolvedOptionEntry[],
+  winProbs: Record<string, number>,
+): Array<{ optionId: string; enriched: RawOptionEnrichmentEntry | undefined; label: string | undefined }> {
+  return resolvedOptions.length > 0
+    ? resolvedOptions.map((r) => ({
+        optionId: r.optionId,
+        enriched: r.enriched,
+        label: r.optionLabel,
+      }))
+    : Object.keys(winProbs).map((k) => ({ optionId: k, enriched: undefined, label: undefined }))
+}
+
+/**
+ * option_id → win probability, resolved in ONE place from the three producer
+ * locations, in precedence order:
+ *   1. `enrichment.option_comparison[*].win_probability` (canonical)
+ *   2. `block.win_probabilities[option_id]` (block keyed by id)
+ *   3. `block.win_probabilities[option_label]` (block keyed by label — real
+ *      staging behaviour) — ONLY when that label is unique among the
+ *      option_comparison entries. Duplicate labels with no per-entry value
+ *      collapse to ABSENT rather than to a shared number: a label-keyed
+ *      Record cannot disambiguate two options that share a label, and
+ *      rendering both at the same probability is false precision, not an
+ *      honest miss.
+ *
+ * A key is present in the returned map only when a finite value resolved, so
+ * callers keep their `!== undefined` emit guards and never write a default.
+ *
+ * Extracted (ROADMAP 1.267) because this rule previously existed TWICE in
+ * this file — once here and once, by hand, in the inspector's
+ * `option_comparison` build, whose comment said "Mirror the duplicate-label
+ * guard". A rule a human must remember to keep in sync is the repo's dominant
+ * defect class; the verdict derivation below would have made it a third copy.
+ */
+function resolveWinProbabilitiesById(
+  candidates: WinProbabilityCandidate[],
+  winProbs: Record<string, number>,
+): Map<string, number> {
+  const labelOccurrences = new Map<string, number>()
+  for (const c of candidates) {
+    if (c.optionLabel !== undefined) {
+      labelOccurrences.set(c.optionLabel, (labelOccurrences.get(c.optionLabel) ?? 0) + 1)
+    }
+  }
+  const labelIsUnique = (label: string | undefined): label is string =>
+    label !== undefined && (labelOccurrences.get(label) ?? 0) === 1
+
+  const out = new Map<string, number>()
+  for (const { optionId, optionLabel, ownWinProbability } of candidates) {
+    const winProb =
+      ownWinProbability ??
+      safeFiniteNumber(winProbs[optionId]) ??
+      (labelIsUnique(optionLabel) ? safeFiniteNumber(winProbs[optionLabel]) : undefined)
+    if (winProb !== undefined) out.set(optionId, winProb)
+  }
+  return out
+}
+
+/**
+ * One option as the win-probability join sees it: its canonical id, its label
+ * (for the duplicate-label guard) and the producer's OWN per-entry
+ * probability when one was sent. Narrower than `ResolvedOptionEntry` on
+ * purpose — the join reads three fields, and the verdict view assembles
+ * candidates from `decision_brief.options[]`, which is not an
+ * `option_comparison` entry and must not have to pretend to be one.
+ */
+interface WinProbabilityCandidate {
+  optionId: string
+  optionLabel: string | undefined
+  ownWinProbability: number | undefined
+}
+
+/** Candidates from the mapper's own precedence order (paths A and B). */
+function winProbabilityCandidates(
+  resolvedOptions: ResolvedOptionEntry[],
+  winProbs: Record<string, number>,
+): WinProbabilityCandidate[] {
+  return optionIterator(resolvedOptions, winProbs).map(({ optionId, enriched, label }) => ({
+    optionId,
+    optionLabel: label,
+    ownWinProbability: safeFiniteNumber(enriched?.win_probability),
+  }))
+}
+
+/**
+ * The `decision_brief.options[]` entry for one option id, narrowed to the
+ * single field the win-probability join reads. Returns `undefined` when the
+ * brief carries no probability for it, so the join falls through to the
+ * block's own map rather than inventing a value.
+ */
+function briefWinProbability(
+  enrichment: Record<string, unknown> | undefined,
+  optionId: string,
+): number | undefined {
+  const brief = isPlainObject(enrichment?.decision_brief)
+    ? (enrichment!.decision_brief as Record<string, unknown>)
+    : undefined
+  const raw = Array.isArray(brief?.options) ? brief!.options : []
+  for (const entry of raw) {
+    if (!isPlainObject(entry)) continue
+    const id = safeString(entry.option_id) ?? safeString(entry.id)
+    if (id !== optionId) continue
+    return safeFiniteNumber(entry.win_probability)
+  }
+  return undefined
+}
+
+/**
+ * The `DecisionVerdictReportLike` view of a V5 analysis block — everything
+ * `deriveDecisionVerdict` reads, and nothing else.
+ *
+ * ## Why this exists rather than `deriveDecisionVerdict(mapV5AnalysisToReport(block))`
+ *
+ * `mapV5AnalysisToReport`'s `report.robustness` is an explicit KEEP-LIST and
+ * `near_tie` is not on it — deliberately, and documented as such in
+ * `src/lib/__fixtures__/ownedLeaderClaim.fixtures.ts`. So the mapped report
+ * cannot see PLoT's own tie verdict even though the RAW enrichment this
+ * function reads carries it (`enrichment.robustness.near_tie`, present on the
+ * captured staging bundle at `src/v5/__tests__/fixtures/`). Deriving the
+ * verdict from the raw block therefore uses a STRICTLY richer signal than
+ * deriving it from the mapped report, and does not depend on the keep-list.
+ *
+ * ## Identity space
+ *
+ * Both producer signals (`near_tie.top_option_id`,
+ * `headline_banded.leader_option_id`) are option IDs, so the probabilities
+ * handed to `deriveDecisionVerdict` must be id-keyed too — otherwise its
+ * identity gate compares an id to a label, never matches, and silently
+ * withholds every run. That join is `resolveWinProbabilitiesById`, the same
+ * one the report itself uses.
+ *
+ * The id↔label source falls back to `decision_brief.options[]` exactly as
+ * `resolveLeaderKeys` does, and for the same reason: the verdict decides
+ * WHETHER a leader may be marked and `resolveLeaderKeys` decides WHICH key
+ * it is, so the two MUST resolve identity from the same chain. When they
+ * disagreed, a payload carrying only the brief fallback resolved a leader key
+ * and no verdict — silently withholding a designation the producer permitted.
+ */
+export function buildV5VerdictReportLike(block: {
+  win_probabilities?: Record<string, number> | null
+  enrichment?: unknown
+}): DecisionVerdictReportLike {
+  const enrichment = isPlainObject(block.enrichment) ? block.enrichment : undefined
+  const winProbs = block.win_probabilities ?? {}
+
+  // Same fallback chain as `resolveLeaderKeys`; NOT applied to the report
+  // mapper itself, whose `option_probabilities` keying is a separate,
+  // already-pinned contract (path B keys by win_probabilities verbatim).
+  const fromComparison = resolveOptionEntries(enrichment)
+  const candidates: WinProbabilityCandidate[] =
+    fromComparison.length > 0
+      ? winProbabilityCandidates(fromComparison, winProbs)
+      : resolveDecisionBriefOptions(enrichment).map((identity) => ({
+          optionId: identity.optionId,
+          optionLabel: identity.label,
+          // The brief's own per-option win probability, when it sent one —
+          // the same producer payload, read through the same precedence the
+          // join applies to an option_comparison entry.
+          ownWinProbability: briefWinProbability(enrichment, identity.optionId),
+        }))
+
+  // No id↔label source at all ⇒ fall back to the mapper's path B (the
+  // win_probabilities keys verbatim), so a block with neither producer array
+  // still yields probabilities. They will be LABEL-keyed, the id-space
+  // producer signals will not apply, and the verdict fails closed — which is
+  // the correct outcome, reached without a special case.
+  const winById = resolveWinProbabilitiesById(
+    candidates.length > 0 ? candidates : winProbabilityCandidates([], winProbs),
+    winProbs,
+  )
+
+  const option_probabilities: Record<string, { win_probability?: number | null }> = {}
+  for (const [optionId, win] of winById) {
+    option_probabilities[optionId] = { win_probability: win }
+  }
+
+  const robustnessRaw = isPlainObject(enrichment?.robustness) ? enrichment!.robustness : undefined
+  const briefRaw = isPlainObject(enrichment?.decision_brief)
+    ? (enrichment!.decision_brief as Record<string, unknown>)
+    : undefined
+
+  return {
+    option_probabilities,
+    // Passed through UNNORMALISED on purpose: `deriveDecisionVerdict` reads
+    // both fail-closed (a malformed `near_tie` falls to the next authority,
+    // an unknown band token yields no claim), so re-validating here would be
+    // a second, divergent gate on the same bytes.
+    robustness: robustnessRaw
+      ? {
+          recommended_option_id:
+            typeof robustnessRaw.recommended_option_id === 'string'
+              ? robustnessRaw.recommended_option_id
+              : null,
+          near_tie: robustnessRaw.near_tie,
+        }
+      : null,
+    decision_brief: briefRaw
+      ? ({ headline_banded: briefRaw.headline_banded } as DecisionVerdictReportLike['decision_brief'])
+      : null,
+  }
+}
+
+export function resolveLeaderKeys(
+  enrichment: Record<string, unknown> | undefined,
+  leadingOptionId: string | null | undefined,
+): ReadonlySet<string> {
+  if (typeof leadingOptionId !== 'string' || leadingOptionId === '') {
+    return new Set<string>()
+  }
+  // The id itself always counts: some paths/fixtures DO key by option_id.
+  const keys = new Set<string>([leadingOptionId])
+
+  const fromComparison: ResolvedOptionIdentity[] = resolveOptionEntries(enrichment).map((r) => ({
+    optionId: r.optionId,
+    label: r.optionLabel,
+  }))
+  const identities =
+    fromComparison.length > 0 ? fromComparison : resolveDecisionBriefOptions(enrichment)
+
+  const labelOccurrences = new Map<string, number>()
+  for (const identity of identities) {
+    if (identity.label !== undefined) {
+      labelOccurrences.set(identity.label, (labelOccurrences.get(identity.label) ?? 0) + 1)
+    }
+  }
+
+  const leaderLabel = identities.find((i) => i.optionId === leadingOptionId)?.label
+  if (leaderLabel !== undefined && (labelOccurrences.get(leaderLabel) ?? 0) === 1) {
+    keys.add(leaderLabel)
+  }
+  return keys
+}
+
+/**
+ * option_id → human label, derived from the SAME payload the caller is
+ * rendering: `enrichment.option_comparison` first, falling back to
+ * `enrichment.decision_brief.options` (that array is not guaranteed — the wire
+ * carries a sibling `option_comparison_status` precisely because of it).
+ *
+ * Reuses the two resolvers `resolveLeaderKeys` uses, so this is one derivation
+ * chain over producer data with two callers, NOT a second hand-maintained
+ * mapping. Ids with no resolvable label are simply absent from the map; the
+ * caller decides what to show instead (ROADMAP 2.154 renders the raw id, which
+ * is honest rather than blank).
+ */
+export function resolveOptionLabelById(
+  enrichment: Record<string, unknown> | undefined,
+): ReadonlyMap<string, string> {
+  const out = new Map<string, string>()
+  const fromComparison = resolveOptionEntries(enrichment)
+  const identities: ResolvedOptionIdentity[] =
+    fromComparison.length > 0
+      ? fromComparison.map((r) => ({ optionId: r.optionId, label: r.optionLabel }))
+      : resolveDecisionBriefOptions(enrichment)
+  for (const identity of identities) {
+    if (identity.label !== undefined && identity.label !== '' && !out.has(identity.optionId)) {
+      out.set(identity.optionId, identity.label)
+    }
+  }
+  return out
+}
+
 // ─── Public mapper ─────────────────────────────────────────────────────
 
 export interface MapV5AnalysisOptions {
-  /** Seed used for the run. Defaults to 0 when caller has none. */
-  seed?: number
+  /**
+   * Seed used for the run. The V5 contract carries NO seed field, so when
+   * the caller has no real value the report carries null and the Seed
+   * receipt row fails closed (hides). Never default to 0 — a fabricated
+   * seed is a provenance lie (T2 receipts-honesty).
+   */
+  seed?: number | null
   /**
    * Optional override for response_hash. When omitted the hash is derived
    * deterministically from the block (summary + leading_option_id +
@@ -259,15 +870,22 @@ export function mapV5AnalysisToReport(
   block: AnalysisResultBlock,
   options: MapV5AnalysisOptions = {},
 ): ReportV1 {
-  const seed = options.seed ?? 0
+  // Receipts fail closed: no real seed → null (Seed row hides), never 0.
+  // NOTE: meta.seed does NOT feed the deriveBlockHash `v5:` digest — that
+  // hashes summary/leading_option_id/win_probabilities/enrichment only —
+  // so this change cannot perturb dedupe or hash stability.
+  const seed = options.seed ?? null
   const enrichment = isPlainObject(block.enrichment) ? block.enrichment : undefined
 
-  // Factor sensitivity — collected and ranked once; reused for drivers + factor_sensitivity passthrough.
+  // Factor sensitivity — collected once IN PRODUCER ORDER (ROADMAP 2.235);
+  // reused for drivers + factor_sensitivity passthrough.
   const factors = enrichment ? collectFactors(enrichment) : []
   const drivers = factors.slice(0, 5).map((f) => ({
     label: f.factor_label,
-    polarity:
-      f.direction === 'positive' ? ('up' as const) : ('down' as const),
+    // ROADMAP 2.234: `mixed` / `unknown` / absent take the neutral affordance
+    // the driver surfaces already ship, never the "up" arrow they used to get
+    // from a magnitude's sign.
+    polarity: factorDirectionToPolarity(f.direction),
     strength:
       f.sensitivity >= 0.7
         ? ('high' as const)
@@ -302,6 +920,48 @@ export function mapV5AnalysisToReport(
       p50?: number | null
       p90?: number | null
     }
+    /**
+     * ROADMAP 2.646 — the producer's PERCENTILE PROVENANCE for this option's
+     * enrichment `outcome` block, carried verbatim from the wire.
+     *
+     * ⚠ DELIBERATELY A SIBLING OF `outcome`, NOT A MEMBER OF IT.
+     *
+     * ⚠⚠ AND THE ORIGINAL REASON HAS BEEN REMOVED RATHER THAN WORKED AROUND
+     * (ROADMAP 2.800a). This note used to read: "The `outcome` object above is
+     * NOT a faithful copy of the producer's: `p10` and `p90` fall back to the
+     * confidence interval when the producer sent none… A provenance flag
+     * sitting INSIDE that object would read as certifying whichever numbers
+     * ended up in it." That was the right diagnosis with the wrong remedy — the
+     * honesty badge was moved AWAY from the substitution instead of the
+     * substitution being deleted, so the percentile numbers themselves carried
+     * no disclosure to anyone. The CI fallback is now gone (see the reads
+     * below): `outcome.p10/p50/p90` are the producer's own or they are null.
+     *
+     * The sibling placement STANDS on a narrower and still-true ground: the
+     * view-model hop after this one may still source percentiles from
+     * `run.bands`, a second source for the same statistic, and this flag
+     * certifies the producer's percentile POPULATION and only that.
+     *
+     * NARROWED TO THE CLOSED VOCABULARY, NEVER DEFAULTED: absent in ⇒ absent
+     * out. See `downsideUnavailableCopy` for why absence must not be read as
+     * `'samples'` at the render site either.
+     */
+    percentiles_source?: PercentilesSource
+    /**
+     * Provenance caveat for probability_of_joint_goal — see
+     * RawOptionEnrichmentEntry.goal_fit_basis above. Carried verbatim
+     * (scored_from is producer-owned open vocabulary; UI never rewrites
+     * it). Render sites MUST show this alongside the joint-goal number
+     * per the honesty rule in UI-BOUNDARY-DATA-INVENTORY.md §5.
+     */
+    goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
+    /**
+     * ROADMAP 2.449 — per-option tail-risk view, in `outcome`'s units.
+     * Present only when the producer emitted all three components as finite
+     * numbers; ABSENT otherwise (never zeroed). Consumers must apply the same
+     * denormalisation scale as the percentile family.
+     */
+    downside?: { cvar_10: number; p05: number; expected_regret: number }
   }
   const option_probabilities: Record<string, ResultsOptionProbability> = {}
 
@@ -320,29 +980,14 @@ export function mapV5AnalysisToReport(
   // Path B (no option_comparison): emit entries keyed by win_probabilities
   // keys verbatim. Honest miss in the Results panel when those keys are
   // labels.
-  const labelOccurrences = new Map<string, number>()
-  for (const r of resolvedOptions) {
-    if (r.optionLabel !== undefined) {
-      labelOccurrences.set(r.optionLabel, (labelOccurrences.get(r.optionLabel) ?? 0) + 1)
-    }
-  }
-  const labelIsUnique = (label: string | undefined): label is string =>
-    label !== undefined && (labelOccurrences.get(label) ?? 0) === 1
+  const iterator = optionIterator(resolvedOptions, winProbs)
+  const winProbabilityById = resolveWinProbabilitiesById(
+    winProbabilityCandidates(resolvedOptions, winProbs),
+    winProbs,
+  )
 
-  const iterator: Array<{ optionId: string; enriched: RawOptionEnrichmentEntry | undefined; label: string | undefined }> =
-    resolvedOptions.length > 0
-      ? resolvedOptions.map((r) => ({
-          optionId: r.optionId,
-          enriched: r.enriched,
-          label: r.optionLabel,
-        }))
-      : Object.keys(winProbs).map((k) => ({ optionId: k, enriched: undefined, label: undefined }))
-
-  for (const { optionId, enriched, label } of iterator) {
-    const winProb =
-      safeFiniteNumber(enriched?.win_probability) ??
-      safeFiniteNumber(winProbs[optionId]) ??
-      (labelIsUnique(label) ? safeFiniteNumber(winProbs[label]) : undefined)
+  for (const { optionId, enriched } of iterator) {
+    const winProb = winProbabilityById.get(optionId)
 
     const ci = Array.isArray(enriched?.confidence_interval)
       ? enriched.confidence_interval
@@ -359,11 +1004,58 @@ export function mapV5AnalysisToReport(
     const rawExpected = safeFiniteNumber(enriched?.expected_outcome)
     const expected = rawMean ?? rawExpected ?? ciMid ?? undefined
 
-    const p10 = safeFiniteNumber(outcome?.p10) ?? ciLow
+    // ⚠ ROADMAP 2.800a — PERCENTILES ARE THE PRODUCER'S OR THEY ARE ABSENT.
+    // These reads used to end `?? ciLow` / `?? ciHigh`, putting a
+    // CONFIDENCE-INTERVAL bound into a percentile's slot, rendered under the
+    // percentile's name with no disclosure to the reader. They are different
+    // quantities answering different questions — an interval is a statement
+    // about an ESTIMATE's precision, a p10/p90 pair a statement about the
+    // OUTCOME's spread — so the substitution misstated exactly what this
+    // surface exists to communicate.
+    //
+    // The producer settles it: PLoT's V2 option builder carries no
+    // `confidence_interval` at all ("expected_outcome and confidence_interval
+    // (V1 legacy) removed from V2 response. Use outcome.mean and [outcome.p10,
+    // outcome.p90] instead."), CEE synthesises none, and the string appears in
+    // ZERO captured payloads. So this fallback was DEAD ON THE LIVE WIRE and
+    // ARMED: the contract still permits the field, so a producer re-adding it
+    // would have silently started shipping mislabelled percentiles.
+    const p10 = safeFiniteNumber(outcome?.p10) ?? null
     const p50 = safeFiniteNumber(outcome?.p50) ?? null
-    const p90 = safeFiniteNumber(outcome?.p90) ?? ciHigh
+    const p90 = safeFiniteNumber(outcome?.p90) ?? null
+
+    // ROADMAP 2.646 — percentile provenance, narrowed to the producer's closed
+    // vocabulary and carried verbatim: NO fallback chain and NO coercion.
+    //
+    // ⚠ CORRECTED BY ROADMAP 2.800a. This note used to justify the surrounding
+    // fallbacks: "`safeFiniteNumber(x) ?? ciLow` is right for a magnitude,
+    // because a missing p10 and a CI bound are two estimates of the same thing."
+    // They are not. A confidence interval bounds an ESTIMATE's precision; a
+    // p10/p90 pair describes the OUTCOME's spread. Treating them as
+    // interchangeable is the substitution this row removed — the percentile
+    // reads above now have no fallback either, so the contrast this comment
+    // once drew no longer exists: NOTHING in this loop substitutes a different
+    // quantity for a missing one.
+    //
+    // The rule that remains, and now covers every field here: the only honest
+    // value is the one the producer stated, so anything outside the vocabulary
+    // (absent, null, a string we do not recognise) leaves the key absent and the
+    // render site falls back to the copy that attributes the gap to nobody.
+    const percentilesSource = narrowPercentilesSource(outcome?.percentiles_source)
+
+    const goalFitBasis = normaliseGoalFitBasis(enriched?.goal_fit_basis)
+    const downside = normaliseDownside(enriched?.downside)
 
     option_probabilities[optionId] = {
+      /**
+       * @claim-producer goal-probability
+       * @rationale This is the V5/CEE enrichment wire→internal boundary where
+       *   `probability_of_goal` and `probability_of_joint_goal` ENTER the UI and
+       *   are written out under the internal `goal_probability` name. It creates
+       *   the fields; it does not choose a displayed claim from them — no
+       *   percentage, no basis, no caveat is decided here. Display goes through
+       *   `selectGoalProbability`. Suppressed count is baselined and ratcheted.
+       */
       // No silent defaults — undefined when missing.
       ...(safeFiniteNumber(enriched?.probability_of_goal) !== undefined
         ? { goal_probability: safeFiniteNumber(enriched?.probability_of_goal) }
@@ -375,9 +1067,21 @@ export function mapV5AnalysisToReport(
             ),
           }
         : {}),
+      // Provenance caveat for probability_of_joint_goal — see
+      // normaliseGoalFitBasis. Carried alongside the number it qualifies;
+      // render sites must show both together (UI-BOUNDARY-DATA-INVENTORY §5).
+      ...(goalFitBasis !== undefined ? { goal_fit_basis: goalFitBasis } : {}),
       confidence: 0.5,
       ...(winProb !== undefined ? { win_probability: winProb } : {}),
       ...(expected !== undefined ? { expected } : {}),
+      // 2.449 — tail-risk block. Same conditional-spread idiom as every other
+      // optional field here: no silent defaults, the key is simply absent when
+      // the producer had nothing honest to say.
+      ...(downside !== undefined ? { downside } : {}),
+      // 2.646 — same conditional-spread idiom, same reason: absent in, absent
+      // out. A `percentiles_source: percentilesSource ?? 'samples'` here would
+      // manufacture a provenance claim from silence.
+      ...(percentilesSource !== undefined ? { percentiles_source: percentilesSource } : {}),
       outcome: {
         mean: rawMean ?? null,
         p10: p10 ?? null,
@@ -391,14 +1095,40 @@ export function mapV5AnalysisToReport(
   const robustnessRaw = isPlainObject(enrichment?.robustness)
     ? enrichment!.robustness
     : undefined
+
+  // P0 F6: edge E-values. PLoT emits `edge_e_values` at the TOP LEVEL of
+  // enrichment (enrichment.edge_e_values); the legacy nested copy
+  // (enrichment.robustness.edge_e_values) is no longer populated on the live
+  // V5 wire (A3 Codex compute-wave, 19 Jul 2026). Every UI consumer reads
+  // `report.robustness.edge_e_values` (useAnalysisResults.ts:54,
+  // ModelTabBody.tsx:238, useResultsSectionData.ts:2491/2958,
+  // analysisSnapshotFactory.ts:115), so it must be sourced from the REAL wire
+  // location — top-level first (real), the nested copy as a legacy fallback,
+  // and fail closed (omit) when neither carries a non-empty array. An empty
+  // array is treated as "no data" so a stale/empty top-level does not mask a
+  // populated legacy copy.
+  const topLevelEdgeEValuesRaw = enrichment?.edge_e_values
+  const nestedEdgeEValuesRaw = robustnessRaw?.edge_e_values
+  const robustnessEdgeEValues =
+    Array.isArray(topLevelEdgeEValuesRaw) && topLevelEdgeEValuesRaw.length > 0
+      ? topLevelEdgeEValuesRaw
+      : Array.isArray(nestedEdgeEValuesRaw) && nestedEdgeEValuesRaw.length > 0
+        ? nestedEdgeEValuesRaw
+        : undefined
+
   const robustness = robustnessRaw
     ? {
-        fragile_edges: Array.isArray(robustnessRaw.fragile_edges)
-          ? robustnessRaw.fragile_edges
-          : [],
-        robust_edges: Array.isArray(robustnessRaw.robust_edges)
-          ? robustnessRaw.robust_edges
-          : [],
+        // Receipts fail closed (T2): preserve ABSENCE. Keys are emitted
+        // only when the producer sent a real array — a producer-sent []
+        // is an honest "none stable/fragile" (row shows 0), while an
+        // absent or malformed field stays off the report so counts read
+        // undefined and receipt rows hide. Never coerce absence to [].
+        ...(Array.isArray(robustnessRaw.fragile_edges)
+          ? { fragile_edges: robustnessRaw.fragile_edges }
+          : {}),
+        ...(Array.isArray(robustnessRaw.robust_edges)
+          ? { robust_edges: robustnessRaw.robust_edges }
+          : {}),
         ...(safeFiniteNumber(robustnessRaw.ranking_stability) !== undefined
           ? { ranking_stability: safeFiniteNumber(robustnessRaw.ranking_stability) }
           : {}),
@@ -425,11 +1155,32 @@ export function mapV5AnalysisToReport(
         ...(Array.isArray(robustnessRaw.flip_thresholds)
           ? { flip_thresholds: robustnessRaw.flip_thresholds }
           : {}),
-        ...(Array.isArray(robustnessRaw.edge_e_values)
-          ? { edge_e_values: robustnessRaw.edge_e_values }
+        // P0 F6: sourced from the real wire location (top-level first, nested
+        // legacy fallback) so report.robustness.edge_e_values — the slot every
+        // edge consumer reads — is populated from PLoT's top-level emit.
+        ...(robustnessEdgeEValues !== undefined
+          ? { edge_e_values: robustnessEdgeEValues }
           : {}),
         ...(Array.isArray(robustnessRaw.conditional_winners)
           ? { conditional_winners: robustnessRaw.conditional_winners }
+          : {}),
+        // Display-honesty (ROADMAP 1.6b; producer PLoT #202): display-safe
+        // verdict + producer-owned reason, rendered VERBATIM. ON-WIRE on
+        // Seam A (CEE compose.ts keep-list carries `robustness` whole) but
+        // previously dropped here — the whole conversational path fell to
+        // "Robustness unknown". useResultsSectionData.ts already reads
+        // report.robustness.display_verdict as its Seam-B-absent fallback
+        // (rawRobustnessDisplayVerdict ?? robustness?.display_verdict), so
+        // populating this slot is sufficient — no render-site change needed.
+        ...(safeString(robustnessRaw.display_verdict) !== undefined
+          ? { display_verdict: safeString(robustnessRaw.display_verdict) }
+          : {}),
+        ...(safeString(robustnessRaw.display_verdict_reason) !== undefined
+          ? {
+              display_verdict_reason: safeString(
+                robustnessRaw.display_verdict_reason,
+              ),
+            }
           : {}),
       }
     : undefined
@@ -438,10 +1189,100 @@ export function mapV5AnalysisToReport(
   const topLevelFlipThresholds = Array.isArray(enrichment?.flip_thresholds)
     ? (enrichment!.flip_thresholds as unknown[])
     : undefined
+  // Codex SF7: the producer leader-confidence band (PLoT #200,
+  // decision_brief.headline_banded) was preserved by the V2 mapper but
+  // DROPPED here — so the hero always fell back to UI-SEM-060 banding on
+  // the live V5 path. Pass it through verbatim (same pattern as
+  // flip_thresholds); the selector normalises fail-closed.
+  const decisionBrief =
+    enrichment && typeof (enrichment as Record<string, unknown>).decision_brief === 'object'
+      ? (enrichment as Record<string, unknown>).decision_brief
+      : undefined
   const topLevelEdgeEValues = Array.isArray(enrichment?.edge_e_values)
     ? (enrichment!.edge_e_values as unknown[])
     : undefined
   const conditionalProbabilities = enrichment?.conditional_probabilities
+
+  // Roadmap 1.12: producer inference_warnings ({ code, message, severity })
+  // pass through verbatim so the Analysis tab can surface warning-severity
+  // entries. Top-level `enrichment.inference_warnings` is the live V5 wire
+  // location (captured bundle olumi-debug-45c9b625-20260707); the V4 mapper
+  // reads the same field from robustness (responseMapper.ts:563) and the
+  // selector accepts both slots. Passthrough only — the UI never rewrites
+  // codes, messages, or severities.
+  const inferenceWarnings = Array.isArray(enrichment?.inference_warnings)
+    ? (enrichment!.inference_warnings as unknown[])
+    : undefined
+
+  // Critiques transport, UI leg (ROADMAP 2.358; schemas 0.31.0 / CEE #786).
+  // CEE's `projectCritiquesForTransport` (sanitise-enrichment.ts:690 at
+  // d2cdd99b) ships rows with `user_message` (display-safe; S-bucket = the
+  // Paul-approved 2026-04-30 copy, rendered CEE-side) and NO `message`
+  // (withheld internal wording). Until this read existed, every transported
+  // critique died here — the last hop before the browser (trap 16: the only
+  // prior `run.critique` writer was the DEAD V4 `envelope.analysis_response`
+  // path). Absence-preserving: key absent ⇒ no `run` minted; producer-sent
+  // `[]` ⇒ present-and-empty (honest "nothing to disclose").
+  const rawCritiques = Array.isArray(enrichment?.critiques)
+    ? (enrichment!.critiques as unknown[])
+    : undefined
+
+  // V7-C slice 1 (ROADMAP 2.141): the VOI family. schemas 0.30.0 adds these
+  // FOUR keys to `CEE_UI_ENRICHMENT_KEEP_LIST` and CEE #754 mirrors them onto
+  // `P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP`, so they now arrive on
+  // `blocks[0].enrichment` at the browser (live-probed 30 Jul). Until this read
+  // existed they died one hop before the store.
+  //
+  // FOUR, NOT THREE: `correlation_model` is the DISCRIMINATOR for an absent
+  // `p_win_sensitivity` — ISL suppresses that array under active correlation
+  // and names it in `correlation_model.suppressed_attributions` ("absent from
+  // the response, not null"). Carrying the question without the answer is the
+  // shape the design's §6 correction exists to prevent.
+  //
+  // Slice 1 DISPLAYS `factor_evppi` only, as a ranking with no magnitudes; the
+  // other three are transported and unread so the display half needs no second
+  // cross-repo train. Transport is claim-inert — the claim cage is the reader
+  // (`components/results/voi/voiRanking.ts`), which carries no number at all.
+  //
+  // Verbatim + absence-preserving, exactly like `inference_warnings` above: a
+  // producer-sent `[]` is an honest "no factor survived" and is carried as
+  // such, while absent/null/malformed stays OFF the report so the reader's
+  // honest gate fires instead of a fabricated ranking. Rows are NOT narrowed
+  // here — the audit legs (`noise_floor`, `clamped_*`, `method`, the utility
+  // legs) reach the debug bundle intact, and the reader decides what it is
+  // licensed to use.
+  const factorEvppi = Array.isArray(enrichment?.factor_evppi)
+    ? (enrichment!.factor_evppi as unknown[])
+    : undefined
+  const decisionEvpi = safeFiniteNumber(enrichment?.decision_evpi)
+  const pWinSensitivity = Array.isArray(enrichment?.p_win_sensitivity)
+    ? (enrichment!.p_win_sensitivity as unknown[])
+    : undefined
+  const correlationModel = isPlainObject(enrichment?.correlation_model)
+    ? enrichment!.correlation_model
+    : undefined
+
+  // Display-honesty (ROADMAP 1.6b; producer PLoT #202): top-level
+  // producer-classified confidence tier. ON-WIRE on Seam A (`confidence_tier`
+  // is one of the 11 keys in CEE's P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP
+  // compose.ts keep-list) but previously never read here, so
+  // useResultsSectionData's getConfidenceTier(report?.confidence_tier, ...)
+  // always fell to the legacy readiness cascade on the conversational path.
+  // Carried verbatim; the consumer already gates to the closed
+  // strong/fair/needs_work union before trusting it.
+  const confidenceTier = safeString(enrichment?.confidence_tier)
+
+  // constraints_status (PLoT #205): per-run constraint-evaluation feature
+  // status. Read defensively for forward-compatibility, but AS OF THIS
+  // LANE it is NOT on the CEE→UI wire for Seam A — constraints_status is
+  // absent from CEE's compose.ts P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP
+  // (verified against the 11-key list; only reaches the UI today via the
+  // Seam-B raw V2 response, see useConversation.ts:1925 which reads it for
+  // CEE-context building, not user display). This line is a no-op until a
+  // CEE lane adds constraints_status to the keep-list — tracked as a
+  // residual (UI-BOUNDARY-DATA-INVENTORY.md §4 item 5). Kept here so no
+  // further UI change is needed once that lands.
+  const constraintsStatus = safeString(enrichment?.constraints_status)
 
   // Deterministic response_hash when caller has none. Stable across identical
   // blocks so the store's hash-dedupe in resultsComplete works.
@@ -511,7 +1352,20 @@ export function mapV5AnalysisToReport(
     },
     model_card: {
       response_hash: responseHash,
-      response_hash_algo: 'sha256',
+      // F12 (truthful labelling): `deriveBlockHash` below is FNV-1a 64-bit, not
+      // SHA-256. When a producer hash is supplied it is carried verbatim (its
+      // own algorithm, assumed 'sha256' per the producer paths); otherwise the
+      // hash is the locally-derived FNV-1a digest and MUST be labelled as such
+      // so the receipts never misrepresent the algorithm. NOTE: this is a
+      // labelling fix only — deliberately NOT a switch to real SHA-256
+      // (async/web-crypto churn, out of scope).
+      response_hash_algo: options.responseHash ? 'sha256' : 'fnv1a-64',
+      // Provenance for the receipts hash row: when the caller supplied a
+      // producer hash it is 'producer'; otherwise `responseHash` is the
+      // locally-derived `deriveBlockHash` digest (the V5 contract carries no
+      // engine hash) and must be labelled 'local' so the UI never presents it
+      // as an engine identity.
+      response_hash_source: options.responseHash ? 'producer' : 'local',
       normalized: true,
     },
     // Type lies (number, not number | null) — V4 does the same. Downstream
@@ -535,12 +1389,68 @@ export function mapV5AnalysisToReport(
       factor_id: f.factor_id,
       factor_label: f.factor_label,
       sensitivity: f.sensitivity,
-      direction: f.direction,
+      // ROADMAP 2.234: absence stays absence — the key is omitted rather than
+      // written as a default, exactly like the additive passthroughs below, so
+      // a consumer can still tell "the producer said nothing" from "the
+      // producer said unknown".
+      ...(f.direction !== null ? { direction: f.direction } : {}),
+      // Roadmap 1.7 additive passthrough (provisional_doctrine_v0):
+      // influence_score / influence_rank / zero_reason reach the store so
+      // the DriversSection "Influence" column renders the PRODUCER's
+      // influence measure instead of falling back to a UI-normalised
+      // sensitivity (influence ≠ sensitivity). Omitted when absent.
+      ...(f.influence_score !== undefined ? { influence_score: f.influence_score } : {}),
+      ...(f.influence_rank !== undefined ? { influence_rank: f.influence_rank } : {}),
+      ...(f.zero_reason !== undefined ? { zero_reason: f.zero_reason } : {}),
+      // P0 F5: EVPI family reaches the store so ModelTabBody's EVPI map
+      // (evpi_percentage_points ?? value_of_information * 100) and the
+      // useResultsSectionData value_of_information read light up on the V5
+      // path. Omitted when absent (no fabricated 0).
+      ...(f.value_of_information !== undefined ? { value_of_information: f.value_of_information } : {}),
+      ...(f.evpi_percentage_points !== undefined ? { evpi_percentage_points: f.evpi_percentage_points } : {}),
+      ...(f.evpi_method !== undefined ? { evpi_method: f.evpi_method } : {}),
+      ...(f.evpi_status !== undefined ? { evpi_status: f.evpi_status } : {}),
     }))
   }
   if (robustness) widened.robustness = robustness
   if (topLevelFlipThresholds) widened.flip_thresholds = topLevelFlipThresholds
+  if (decisionBrief != null) widened.decision_brief = decisionBrief
   if (topLevelEdgeEValues) widened.edge_e_values = topLevelEdgeEValues
+  if (confidenceTier !== undefined) widened.confidence_tier = confidenceTier
+  if (constraintsStatus !== undefined) widened.constraints_status = constraintsStatus
+  if (inferenceWarnings) widened.inference_warnings = inferenceWarnings
+  // Critiques transport, UI leg (ROADMAP 2.358) — mint the canonical
+  // `run.critique` slot the Results consumers already read
+  // (useResultsSectionData.ts:2015/:2453, OutputsDock.tsx:2423,
+  // usePreAnalysisData.ts:616; useUnifiedActions.ts:229 re-enables
+  // honestly). `responseHash` is the report's own hash — one identity, not
+  // a second derivation.
+  //
+  // ⚠ NO `bands` KEY — EVER (review #585 F1, executable-proven). A bands
+  // object of nulls is a TRUTHY value, and two readers branch on object
+  // truthiness (`canonicalBands ? canonicalBands.p50 :
+  // report?.results?.likely` at OutputsDock.tsx:1188-1194; the
+  // `if (bands)` early-return in share/decisionSummary.ts:28-37) — a
+  // null-bands object would have nulled a REAL mostLikelyValue on exactly
+  // the turns this reader lights up. True absence, not presence-shaped
+  // absence: `report.run?.bands` stays undefined and every fallback chain
+  // fires exactly as before this PR.
+  //
+  // Minted only when at least one row SURVIVES mapping (review F7): CEE's
+  // projection never emits an empty `critiques` array on the wire, so a
+  // present-and-empty slot would pin a producer behaviour that does not
+  // exist; `[]`/all-malformed input leaves `run` absent, same as no key.
+  if (rawCritiques) {
+    const critique = mapProjectedCritiques(rawCritiques)
+    if (critique.length > 0) {
+      report.run = { responseHash, critique }
+    }
+  }
+  // VOI family (V7-C slice 1) — see the derivation block above.
+  if (factorEvppi) widened.factor_evppi = factorEvppi
+  if (decisionEvpi !== undefined) widened.decision_evpi = decisionEvpi
+  if (pWinSensitivity) widened.p_win_sensitivity = pWinSensitivity
+  if (correlationModel !== undefined) widened.correlation_model = correlationModel
   if (conditionalProbabilities !== undefined) {
     widened.conditional_probabilities = conditionalProbabilities
   }
@@ -586,15 +1496,14 @@ export function mapV5AnalysisToReport(
       ({ optionId, optionLabel, enriched }) => {
         const entry: InspectorOptionComparison = { option_id: optionId }
         if (optionLabel) entry.option_label = optionLabel
-        // Mirror the duplicate-label guard from the option_probabilities
-        // resolution: labels shared by multiple option_comparison entries
-        // must NOT use the label-keyed winProbs fallback, because the
-        // OutcomePanel would render multiple rows at the same numeric
-        // probability — false precision from ambiguous source data.
-        const winProb =
-          safeFiniteNumber(enriched.win_probability) ??
-          safeFiniteNumber(winProbs[optionId]) ??
-          (labelIsUnique(optionLabel) ? safeFiniteNumber(winProbs[optionLabel]) : undefined)
+        // The duplicate-label guard used to be MIRRORED here, by hand, from
+        // the option_probabilities resolution above ("Mirror the
+        // duplicate-label guard…" — a hand-maintained copy of a rule, which
+        // is the defect class, not the fix). Both now read the SAME resolved
+        // map, so the OutcomePanel rows and the report's option_probabilities
+        // cannot disagree about a win probability, and a change to the
+        // three-place lookup lands in one place.
+        const winProb = winProbabilityById.get(optionId)
         if (winProb !== undefined) entry.win_probability = winProb
         const expected = safeFiniteNumber(enriched.expected_outcome)
         if (expected !== undefined) entry.expected_outcome = expected

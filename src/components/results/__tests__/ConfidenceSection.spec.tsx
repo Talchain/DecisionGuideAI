@@ -361,7 +361,11 @@ describe('ConfidenceSection', () => {
         filteredFragileEdges: {
           filteredCount: 3,
           threshold: 0.3,
-          description: '3 additional assumptions changed the best option in <30% of simulations',
+          // Kept in sync with the producer's copy (ROADMAP 2.724 retired "the
+          // best option"). Note what this fixture demonstrates: the assertion
+          // below matches ConfidenceSection's OWN composed sentence, never this
+          // `description` — the field has no reader.
+          description: '3 additional assumptions changed which option ranks first in <30% of simulations',
         },
       }
 

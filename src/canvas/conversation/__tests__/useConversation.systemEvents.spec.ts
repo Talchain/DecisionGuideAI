@@ -13,6 +13,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useConversation, SYSTEM_MESSAGE_SENTINEL } from '../useConversation'
 import { useCanvasStore } from '../../store'
+import type { WireSystemEvent } from '../types'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -44,6 +45,14 @@ vi.mock('../../../flags', () => ({
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  // Pin V5-orchestrator flag OFF — same root cause as PR #460 and the three
+  // named specs in this sweep. This spec mocks the legacy V4 turn path
+  // (`callOrchestratorTurn`) but does NOT mock V5; with the fresh-clone
+  // `.env.local` setting VITE_ENABLE_V5_ORCHESTRATOR=true, sendTurn routes every
+  // turn to the unmocked V5 path (`callV5Turn`) → real fetch throws → the V4
+  // spy never fires. Pinning the flag makes the intended V4 path deterministic;
+  // afterEach restores via unstubAllEnvs so nothing leaks to siblings.
+  vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'false')
   vi.useFakeTimers()
   mockCallTurn.mockReset()
   flagValue = true
@@ -60,6 +69,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllEnvs()
 })
 
 // ---------------------------------------------------------------------------
@@ -163,7 +173,7 @@ describe('sendSystemEvent', () => {
     expect(result.current.messages).toHaveLength(0)
   })
 
-  it('does not set lastFailedInput on system event failure', async () => {
+  it('does not set lastSendFailure.inputText on system event failure', async () => {
     mockCallTurn.mockRejectedValue(new Error('fail'))
 
     const { result } = renderHook(() => useConversation())
@@ -176,7 +186,7 @@ describe('sendSystemEvent', () => {
     })
 
     // System events should NOT restore input
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
   })
 
   it('processes blocks and stage_indicator from envelope', async () => {
@@ -184,7 +194,9 @@ describe('sendSystemEvent', () => {
       assistant_text: 'Analysis complete.',
       blocks: [{ type: 'fact', label: 'Winner', value: 'Option A' }],
       suggested_actions: [{ id: 'explore', label: 'Explore', intent: 'primary', message: 'explore options' }],
-      stage_indicator: 'evaluate',
+      // Canonical WIRE vocabulary (schemas `Stage`): frame|analyse|decide|review.
+      // Was 'evaluate' — a UI/DB `ScenarioStage` value the wire never emits.
+      stage_indicator: 'analyse',
       client_turn_id: 'resp-4',
     })
 
@@ -204,6 +216,7 @@ describe('sendSystemEvent', () => {
     expect(msg.blocks).toHaveLength(1)
     expect(msg.blocks![0].type).toBe('fact')
     expect(msg.actionChips).toHaveLength(1)
+    // wire 'analyse' → UI 'evaluate'
     expect(setCurrentStage).toHaveBeenCalledWith('evaluate')
   })
 
@@ -260,7 +273,17 @@ describe('sendSystemEvent', () => {
     const { result } = renderHook(() => useConversation())
 
     await act(async () => {
-      await result.current.sendSystemEvent({ type: 'session_resume', payload: {} })
+      // DELIBERATE type violation, and the cast is the point of the test rather
+      // than a workaround for it. `session_resume` is an InternalSystemEventType,
+      // so the compiler already refuses it at every call site — but the runtime
+      // pre-filter is a SECOND, independent guard, and it is the one that holds
+      // when an event arrives from somewhere the types do not cover (persisted
+      // state, a hydrated thread, a JS caller). Casting through `unknown` is how
+      // this test reaches the runtime guard at all; without it the assertion
+      // below could only ever be vacuous.
+      await result.current.sendSystemEvent(
+        { type: 'session_resume', payload: {} } as unknown as WireSystemEvent,
+      )
     })
 
     // Pre-filter drops session_resume before sendTurn — no network call

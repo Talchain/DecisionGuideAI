@@ -307,6 +307,37 @@ export interface V2RobustnessActual {
   ranking_stability?: number
   /** Recommendation stability - how often recommendation stays winner (0-1) */
   recommendation_stability?: number
+  /**
+   * The following are read live by useResultsSectionData / OptionNode and were
+   * previously untyped (`as string` casts / `?? nearTie` fallbacks), so a
+   * producer rename returned undefined with no compiler signal. Declared
+   * optional here for compile-time protection; the runtime reads and their
+   * fallbacks are unchanged.
+   */
+  /** Backend's own recommended option id (preferred winner source over win-max). */
+  recommended_option_id?: string
+  /** Categorical robustness level, when PLoT provides it (else the UI derives one). */
+  level?: string
+  /** Human-readable robustness label, when PLoT provides it. */
+  label?: string
+  /**
+   * Near-tie detail object (snake_case) plus its camelCase alias — the selector
+   * reads is_tie / top_option_id / second_option_id / tied_option_ids / gap /
+   * threshold off it, so it is a Record, not a boolean flag.
+   */
+  near_tie?: Record<string, unknown>
+  nearTie?: Record<string, unknown>
+  /**
+   * Display-safe robustness verdict + producer-owned reason (PLoT #202,
+   * ROADMAP 1.6). Additive wire fields; the vendored @talchain/schemas pin
+   * (0.13.1) predates them (0.14.0 types the enrichment envelope — the pin
+   * bump is a separate rollout step), so they are declared here on the
+   * repo's OWN V2 wire type — same tagged-passthrough convention as `level`
+   * / `label` above. Typed `string` (not the enum) at the trust boundary:
+   * useResultsSectionData normalises FAIL-CLOSED to the four known tokens.
+   */
+  display_verdict?: string
+  display_verdict_reason?: string
   /** Tipping-point analysis: how much each factor must change to flip the recommendation */
   flip_thresholds?: Array<{
     node_id?: string
@@ -328,6 +359,13 @@ export interface V2Meta {
   n_samples: number
   detail_level: string
   latency_ms: number
+  /**
+   * ISO 8601 timestamp when analysis computation completed. ROADMAP 1.30b:
+   * confirmed against the captured staging fixture's
+   * `plot_response.meta.computed_at` (golden-path-staging-2026-04-05.json).
+   * Absent on older/cached responses — never fabricated.
+   */
+  computed_at?: string
 }
 
 // ============================================================================
@@ -456,6 +494,41 @@ export interface V2RunResponse {
     is_provisional: boolean
     calibration_status: string
   }
+
+  /**
+   * Decision brief assembled by PLoT (DecisionBriefV1). Additive consumption
+   * (Lane UI-W4, PLoT #200): the UI reads ONLY the claim-safe
+   * `headline_banded` surface (the producer leg of UI-SEM-060 leader-claim
+   * banding); everything else passes through untouched. Typed loose on the
+   * wire — `normalizeHeadlineBanded` is the fail-closed trust boundary.
+   * Absent on older PLoT builds and when brief assembly was skipped.
+   */
+  decision_brief?: {
+    /**
+     * Leader claim banded by win-probability gap. Band tokens on the wire:
+     * 'very_close' | 'slightly_ahead' | 'clearly_ahead' ('clearly_ahead' is
+     * never emitted without established robustness; downgrades carry
+     * robustness_gated: true). Typed as an open record — enum narrowing
+     * happens in the normaliser so future producer tokens degrade to the
+     * UI fallback instead of crashing.
+     */
+    headline_banded?: Record<string, unknown>
+    [key: string]: unknown
+  }
+
+  /**
+   * Reference-option disclosure (additive, Lane UI-W5; PLoT lane W4,
+   * ISL build 9a22a1a+): the option ID that edge sensitivity, factor
+   * sensitivity, and the fragile-edge classification were computed
+   * against (ISL currently uses the FIRST option in the request).
+   * Emitted at the /v2/run response root as a verbatim passthrough of
+   * the ISL envelope field (see plot-lite-service routes/v2/run.ts —
+   * omitted when the deployed ISL did not disclose it, honest absence).
+   * Disclosure only: the UI surfaces a caption naming this option where
+   * sensitivities / fragile edges render; absent field → no caption,
+   * never a UI-invented baseline. provisional_doctrine_v0.
+   */
+  sensitivity_reference_option_id?: string
 
   /**
    * Display-honesty: top-level flip_thresholds[] array as emitted by

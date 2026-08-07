@@ -73,14 +73,16 @@ function ThicknessSwatch({ width }: { width: number }) {
   )
 }
 
-// Thickness = influence. Stroke widths mirror importanceToStrokeWidth() in
-// graphDisplayCalculations.ts (normalised importance [0,1] → [1,8]): Weak ≈ 0.15
-// → 2, Moderate ≈ 0.5 → 4.5, Strong ≈ 1.0 → 8. Folded in from the former
-// standalone EdgeThicknessLegend so the two bottom-left legends are now one key.
+// Thickness = effect strength (weight magnitude), the same meaning in both
+// phases (P2.9 — thickness no longer switches to composite importance after a
+// run). Stroke widths mirror weightMagnitudeToStrokeWidth() in
+// graphDisplayCalculations.ts: |mean| < 0.4 → 1.5, ≥ 0.4 → 2, ≥ 0.7 → 3.
+// Folded in from the former standalone EdgeThicknessLegend so the two
+// bottom-left legends are now one key.
 const THICKNESS_ROWS: LegendRow[] = [
-  { label: 'Weak influence', swatch: <ThicknessSwatch width={2} /> },
-  { label: 'Moderate influence', swatch: <ThicknessSwatch width={4.5} /> },
-  { label: 'Strong influence', swatch: <ThicknessSwatch width={8} /> },
+  { label: 'Weak effect', swatch: <ThicknessSwatch width={1.5} /> },
+  { label: 'Moderate effect', swatch: <ThicknessSwatch width={2} /> },
+  { label: 'Strong effect', swatch: <ThicknessSwatch width={3} /> },
 ]
 
 const DIRECTION_ROWS: LegendRow[] = [

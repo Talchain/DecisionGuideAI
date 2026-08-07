@@ -7,11 +7,16 @@
  * "Coaching over gates" philosophy - users see clear decision guidance.
  */
 
+import type { FactorDirection } from '../../lib/factorDirection'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import type { ConstraintAnalysis } from '../../types/constraints'
 import type { M1CoachingReadiness } from '../../types/cee'
+import type { DecisionVerdict } from '../../lib/decisionVerdict'
 import type { ReportV1, OptionProbability } from '../../adapters/plot/types'
 import type { V2FactorSensitivity, V2OptionComparison } from '../../adapters/plot/v2/types'
+import type { KnownFlipReason } from './utils/flipReasonVocabulary'
+import type { PercentilesSource } from './utils/downsideCopy'
+import type { MappedDecisionQualityPrompt } from './utils/decisionQualityPrompts'
 
 // Re-export M1 coaching type for component use
 export type { M1CoachingReadiness }
@@ -63,8 +68,30 @@ export interface GoalConstraint {
 // Flip Threshold Types (Task 6 — Tipping Points)
 // =============================================================================
 
-/** Reason why a flip value could not be determined */
-export type FlipReason = 'no_bracket' | 'timeout' | 'isl_error'
+/**
+ * Why a flip value is what it is (ROADMAP 2.280).
+ *
+ * ⚠ THIS WAS `'no_bracket' | 'timeout' | 'isl_error'` AND HAD ESSENTIALLY ZERO
+ * OVERLAP WITH THE WIRE. `no_bracket` has zero occurrences in the producer;
+ * `isl_error` exists there only as a transport-error envelope field, never as a
+ * flip reason; only `timeout` was real. The tokens the live wire actually
+ * carries (`found`, `no_effect_within_bounds`, `structurally_invariant`) were
+ * absent from the union entirely — so anything narrowing on this type was
+ * narrowing on fiction.
+ *
+ * ⚠ AND IT STAYS OPEN. The pinned contract types this field as a bare string
+ * and warns against matching it, and PLoT passes unknown ISL tokens through
+ * verbatim. A closed union here would re-commit the same error with a longer
+ * list. `KnownFlipReason` gives call sites autocomplete and exhaustiveness over
+ * what this build KNOWS; the `(string & {})` arm keeps every other token
+ * assignable, so an unrecognised value is a runtime classification question —
+ * answered conservatively in `flipReasonVocabulary` — and never a type error
+ * that tempts someone to cast it away.
+ *
+ * Never test this string inline. Use `flipReasonVocabulary`'s predicates: they
+ * are written so an unknown token lands on the safe side.
+ */
+export type FlipReason = KnownFlipReason | (string & {})
 
 /** A single tipping-point entry from PLoT's robustness.flip_thresholds */
 export interface FlipThreshold {
@@ -72,8 +99,10 @@ export interface FlipThreshold {
   label: string
   /** Canvas node ID for click-to-focus */
   node_id: string
-  /** Current assumed value of the factor */
-  current_value: number
+  /** Current assumed value of the factor — null when the producer did not
+   * supply one (Codex B3: a defaulted 0 fabricated flip DIRECTION and
+   * "changes from 0" copy; with no baseline, direction is unknowable). */
+  current_value: number | null
   /** Value at which the recommendation changes (null if undetermined) */
   flip_value: number | null
   /** Why flip_value is null */
@@ -104,6 +133,44 @@ export interface OptionOutcome {
   p90: number | null
 }
 
+/**
+ * ROADMAP 2.449 — the DOWNSIDE / tail-risk view of an option's simulated
+ * outcome distribution, ready for display: both magnitudes have already been
+ * put on the SAME scale as `OptionOutcome.p10/p50/p90`.
+ *
+ * Present only when the whole block survived the producer's all-or-nothing
+ * emission rule and the boundary guards; there is deliberately NO partial
+ * shape, and no field is ever defaulted to 0 — a zero in a tail statistic
+ * reads as "there is no downside".
+ */
+export interface OptionDownside {
+  /**
+   * Mean of the worst 10% of simulated outcomes (a tail average, so it sits
+   * at or below `outcome.p10` by construction).
+   *
+   * ⚠ The 10% cut-off is a WORKING DEFAULT at the producer, explicitly not a
+   * ratified convention. Any surface showing this number must say so — see
+   * `DOWNSIDE_TAIL_CAVEAT_COPY` in OptionCards.
+   */
+  cvar10: number
+  /** 5th percentile — extends the p10/p50/p90 family downward. */
+  p05: number
+  /**
+   * How much better this decision would have gone, on average, had the true
+   * outcome been known in advance and the best option chosen each time.
+   *
+   * ⛔ CARRIED, NOT DISPLAYED. This is the per-option limb of the
+   * value-of-information family (the whole-decision EVPI is exactly the
+   * MINIMUM of these across options), and the estate's standing
+   * no-EVPI-display doctrine licenses a ranking with NO magnitudes for that
+   * family — it is why the EVPI percentage-point pill was removed from
+   * TriageCard. Rendering this magnitude is a doctrine ruling, not a wiring
+   * gap. It is carried here so a licensed surface does not have to re-plumb
+   * four services; every render site must leave it alone until then.
+   */
+  expectedRegret: number
+}
+
 export interface OptionResult {
   id: string
   label: string
@@ -127,6 +194,30 @@ export interface OptionResult {
    * Source value only — display formatting happens at render time.
    */
   nValidSamples?: number
+  /**
+   * ROADMAP 2.449 — tail-risk view of this option's simulated outcomes,
+   * already scaled onto the same axis as `outcome`. ABSENT (undefined) when
+   * the engine could not compute it honestly; render sites must show nothing
+   * at all rather than a zero or a placeholder.
+   */
+  downside?: OptionDownside
+  /**
+   * ROADMAP 2.646 — the producer's PERCENTILE PROVENANCE for this option,
+   * carried verbatim from `enrichment.option_comparison[].outcome
+   * .percentiles_source` and used for exactly one thing: choosing which
+   * absence sentence `OptionCards` shows when {@link downside} is missing.
+   *
+   * ⚠ A SIBLING OF {@link outcome}, NOT A MEMBER OF IT, on purpose. `outcome`
+   * here is a DISPLAY object: its `p10`/`p90` may have come from the
+   * confidence interval (the V5 mapper's fallback) or from `run.bands` (this
+   * hook's), so a provenance flag inside it would read as certifying numbers
+   * the producer's percentile population never produced. It certifies that
+   * population and nothing else.
+   *
+   * ⚠ ABSENT MEANS ABSENT — never read it as `'samples'`. See
+   * `downsideUnavailableCopy`, which is the only place this field is consumed.
+   */
+  percentilesSource?: PercentilesSource
   /** Optional goal probability when no distribution data exists. */
   goalProbability?: number | null
   /** Task 2.1: Whether this option is the baseline for comparison */
@@ -137,6 +228,46 @@ export interface OptionResult {
   rank?: number
   /** Multi-constraint analysis: per-option constraint satisfaction from ISL */
   constraintAnalysis?: ConstraintAnalysis
+  /**
+   * Display-honesty (ROADMAP 1.6b): true when the rendered `goalProbability`
+   * IS the joint-goal number AND its producer-owned `goal_fit_basis.scored_from`
+   * is 'modelled_outcome_distribution' — i.e. the number was scored from a
+   * MODELLED forward-propagated outcome distribution rather than a
+   * directly-elicited base. Render sites showing `goalProbability` MUST
+   * surface a caveat when this is true (UI-BOUNDARY-DATA-INVENTORY.md §5).
+   */
+  goalFitIsModelledBasis?: boolean
+  /**
+   * Goal-probability IDENTITY: true when the rendered `goalProbability` is
+   * `probability_of_joint_goal` STANDING IN for an absent `goal_probability`.
+   *
+   * ⚠ L62 (2026-08-04): this is now ALWAYS FALSE on every live payload, and
+   * the field is retained only so the surfaces that branch on it keep
+   * compiling. `selectGoalProbability` no longer substitutes — the joint
+   * figure is withheld from the goal-fit slot entirely (see that module's L62
+   * block for why the wire cannot justify the substitution). A rendered
+   * `goalProbability` is therefore always a quantity that earns the
+   * possessive. Retiring this field and the substituted-voice copy it selects
+   * is a follow-up; it is NOT done here because it touches a dozen surfaces
+   * and this change is a P0 truth fix, not a refactor.
+   *
+   * Set from `!selectGoalProbability(...).mayUsePossessiveGoalFraming` on a
+   * present number; never re-derived at a render site.
+   */
+  goalFitIsSubstitutedJoint?: boolean
+  /**
+   * ⭐ L62 — true when this run DID carry a `probability_of_joint_goal` and the
+   * selector refused to put it in the goal-fit slot (basis
+   * `'joint_goal_withheld'`).
+   *
+   * The distinction it carries is one no other field can: `goalProbability`
+   * being null means "no goal number", which is ALSO the state of a run where
+   * the user set no target. Those need different sentences — offering "Set a
+   * success target" to someone who set one is its own small untruth. Surfaces
+   * read this to choose `GOAL_ANCHOR_COPY.notScored` over
+   * `GOAL_ANCHOR_COPY.noTarget`.
+   */
+  goalFitWithheld?: boolean
 }
 
 /** Outcome unit type for formatting - from goal node observed_state.unit */
@@ -153,6 +284,16 @@ export type RobustnessLevel = 'high' | 'moderate' | 'low' | 'very_low'
 
 /** Robustness label from PLoT (label field - alternative naming) */
 export type RobustnessLabel = 'robust' | 'moderate' | 'fragile'
+
+/**
+ * Display-safe robustness verdict — the PLoT `robustness.display_verdict`
+ * wire enum (PLoT #202, ROADMAP 1.6). Producer-owned meaning; the UI renders
+ * it verbatim and never derives it from raw facts. 'not_assessed' is the
+ * producer's own stated absence (robustness not computed) — distinct from
+ * the field being absent entirely (older PLoT builds → undefined →
+ * "Robustness unknown").
+ */
+export type RobustnessDisplayVerdict = 'robust' | 'moderate' | 'fragile' | 'not_assessed'
 
 /**
  * DecisionResultData (renamed from RecommendationSectionData — Brief 5.4 closeout item 9).
@@ -189,13 +330,21 @@ export interface DecisionResultData {
   robustnessLevel?: RobustnessLevel
   /**
    * Display-safe robustness verdict that drives the binary Robust/Sensitive
-   * glyph. Sourced ONLY from an explicit display-safe robustness verdict — never
-   * from PLoT `report.robustness.level` and never from the UI-SEM-005 stability
-   * fallback. No such display-safe field exists in the CEE/UI contract today, so
-   * this is currently always `undefined` → the glyph renders "Robustness unknown".
-   * See the "display-safe robustness verdict contract" follow-up (ROBUSTNESS-VERDICT-CONTRACT).
+   * glyph. Sourced ONLY from the producer's explicit display-safe verdict —
+   * PLoT `robustness.display_verdict` (#202, ROADMAP 1.6) — never from raw
+   * `report.robustness.level` and never from the UI-SEM-005 stability
+   * fallback. Normalised FAIL-CLOSED in useResultsSectionData: only the four
+   * wire enum tokens populate it; absent field / unknown token → undefined →
+   * every surface keeps the honest "Robustness unknown" state.
+   * (ROBUSTNESS-VERDICT-CONTRACT — consumer side landed lane 35 fix 3.)
    */
-  robustnessVerdict?: RobustnessLevel
+  robustnessVerdict?: RobustnessDisplayVerdict
+  /**
+   * Producer-owned display reason accompanying `robustnessVerdict`
+   * (PLoT `robustness.display_verdict_reason`). Rendered VERBATIM — the UI
+   * never authors robustness prose. Never populated without its verdict.
+   */
+  robustnessVerdictReason?: string
   /** Robustness label from PLoT (fallback when level missing) */
   robustnessLabel?: RobustnessLabel
   /** Goal text from scenario framing */
@@ -206,6 +355,13 @@ export interface DecisionResultData {
   baselineOutcome?: number | null
   /** Near-tie detection: when top options are too close to call */
   nearTie?: NearTieInfo
+  /**
+   * SINGLE VERDICT: the ONE answer to "is there a leading option?", derived by
+   * `src/lib/decisionVerdict.ts` from the same PLoT report the canvas reads.
+   * Every surface that asserts or denies a leading option must gate on this
+   * and must not compute its own. See that module for the diagnosis.
+   */
+  verdict?: DecisionVerdict
   /** Task 6: Flip thresholds for tipping points visualisation */
   flipThresholds?: FlipThreshold[]
   /**
@@ -232,6 +388,16 @@ export interface DecisionResultData {
    * @see UI-SEM-050
    */
   leadingOptionDownsideFlag?: boolean
+  /**
+   * Producer leader-confidence band from PLoT `decision_brief.headline_banded`
+   * (Lane UI-W4, PLoT #200) — normalised fail-closed via
+   * `normalizeHeadlineBanded`. When present AND naming the hero's headline
+   * leader, it drives the banded leader copy (buildHeroModel); the UI-SEM-060
+   * win-probability banding remains ONLY as the absent-producer fallback.
+   * `null`/absent on older PLoT builds, single-option runs (< 2 ranked
+   * options), and malformed payloads.
+   */
+  headlineBanded?: HeadlineBanded | null
 
   // ==========================================================================
   // M1 Coaching Fields (deterministic, not LLM-generated)
@@ -289,10 +455,20 @@ export interface DecisionResultData {
 export type DriverSemanticLabel = 'biggest' | 'strong' | 'moderate' | 'minor'
 
 /**
- * Canonical direction after normalisation.
- * 'positive' = increases goal, 'negative' = decreases goal
+ * Canonical direction after normalisation — the PRODUCER's full documented
+ * domain (`src/lib/factorDirection.ts`).
+ *
+ * 'positive' = increases goal · 'negative' = decreases goal ·
+ * 'mixed' / 'unknown' = the producer measured the factor but declined to
+ * assert a single direction.
+ *
+ * ⚠ WIDENED 2026-08-01 (ROADMAP 2.234). This was `'positive' | 'negative'`,
+ * and that narrowing is what turned `mixed`/`unknown`/absent into "up" arrows
+ * and the sentence "increases the outcome". Only the two directional members
+ * license directional rendering — ask `isDirectionalFactor`, never
+ * `direction != null`.
  */
-export type DriverDirection = 'positive' | 'negative'
+export type DriverDirection = FactorDirection
 
 // =============================================================================
 // Confidence Provenance (audit A1-PRIMARY)
@@ -404,6 +580,21 @@ export function normalizeAutoNoiseProvenance(raw: unknown): AutoNoiseProvenance 
   }
 }
 
+// ─── Producer leader-confidence band (Lane UI-W4, PLoT #200) ────────────────
+//
+// MOVED (2026-07-25, SINGLE VERDICT lane): `HeadlineBanded` and
+// `normalizeHeadlineBanded` now live in `src/lib/decisionVerdict.ts`, next to
+// the one function entitled to turn producer signals into a leader verdict.
+// `src/lib` must not import from `src/components`, and duplicating the
+// normaliser here would be exactly the hand-maintained mirror this programme
+// keeps getting bitten by. Re-exported so every existing import site
+// (`useResultsSectionData`, the normaliser spec) keeps working unchanged.
+export type { HeadlineBandedBand, HeadlineBanded } from '../../lib/decisionVerdict'
+export { normalizeHeadlineBanded } from '../../lib/decisionVerdict'
+// `export ... from` re-exports without binding the names locally, and this
+// file references both below.
+import type { HeadlineBanded } from '../../lib/decisionVerdict'
+
 export interface DriverItem {
   /** Canonical identifier: node_id ?? factor_id ?? id ?? normalised(label) */
   factorKey: string
@@ -415,6 +606,21 @@ export interface DriverItem {
   normalisedInfluence: number
   /** ISL influence_score (0-1) - structural causal influence, used for Influence column */
   influenceScore?: number
+  /** Codex R3-B1: the value every surface displays AND ranks by, resolved under the
+   *  complete-metric-set policy — producer influenceScore only when EVERY ranked factor
+   *  carries one (a single comparable basis), otherwise normalisedInfluence for every
+   *  factor. Consumers must render/sort this, not influenceScore ?? normalisedInfluence,
+   *  which mixes bases under partial producer coverage. Optional only for legacy
+   *  fixtures — the live pipeline always sets it. */
+  displayInfluence?: number
+  /** Which basis produced displayInfluence ('influence_score' = absolute producer
+   *  scale; 'normalised_elasticity' = set-relative). Lane 2 review fold: surfaces
+   *  making ABSOLUTE claims ("drives NN% of the outcome") must gate on this —
+   *  a set-relative 1.0 is "largest in this set", not a causal share. Optional
+   *  only for legacy fixtures — the live pipeline always sets it. */
+  displayProvenance?: 'influence_score' | 'normalised_elasticity'
+  /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
+  influenceRank?: number
   /** ISL zero_reason - explains why sensitivity is zero for intervention factors */
   zeroReason?: ZeroReasonCode
   /** 1-indexed rank by absolute elasticity */
@@ -458,14 +664,24 @@ export interface DriverItem {
   rankFlipRate?: number
   /** ISL EVPI: expected value of perfect information */
   evpi?: number
-  /** ISL EVPI: expected improvement in percentage points */
-  evpiPercentagePoints?: number
+  /**
+   * ⛔ `evpiPercentagePoints` DELETED. Its only reader was the Strengthen
+   * "Knowing this better could shift the result by about {N} percentage
+   * points" line plus a UI-invented `> 5pp` selection threshold — both removed.
+   * See tests/contracts/no-evpi-display.contract.test.ts.
+   */
   /** Track S: provenance of the factor value. Optional; absent on pre-Track-S payloads. */
   valueSource?: string
   /** Track S: how the value was obtained (explicit / inferred / …). Optional. */
   valueExtractionType?: string
   /** Track S: true when the value was assumed/defaulted. Distinct from isDefaultedConfidence (a confidence signal). */
   valueDefaulted?: boolean
+  /** Producer worth_investigating flag for this factor (from the
+   * factor_sensitivity row or the robustness value_of_information suggestion
+   * matched by factor id). Strict producer read — only an explicit `true`
+   * sets it; absent otherwise. Additive; consumed by the Strengthen panel's
+   * VOI trigger so its source line can honestly cite the engine. */
+  worthInvestigating?: boolean
 }
 
 export interface DriversSectionData {
@@ -553,14 +769,32 @@ export interface FilteredItemsDisclosure {
 export interface EvidenceGapItem {
   factorId: string
   factorLabel: string
-  /** Confidence (0-100) */
-  confidence: number
+  /**
+   * Confidence (0-100), or `null` when the producer sent none.
+   *
+   * ⚠ This was `number`, fabricated at the mapper with `gap.confidence ?? 0`.
+   * `0` is a VALUE, and the triage card asserted it as one —
+   * "This factor has 0% confidence." plus a "No data" pill computed from
+   * `confidence <= 0`. Absence must suppress the sentence, not print a zero:
+   * "we were not told" and "we were told zero" are different facts and the
+   * user cannot tell them apart from a rendered 0. Nullable so every consumer
+   * has to decide, and so a future `?? 0` is a visible act.
+   */
+  confidence: number | null
   /** Value of Information (0-1) - higher = more impactful to investigate */
   voi: number
   /** ISL EVPI: expected value of perfect information (absolute units) — gated on presence */
   evpi?: number
-  /** ISL EVPI: expected improvement in percentage points — for display text */
-  evpiPp?: number
+  /**
+   * ⛔ `evpiPp` DELETED — do not reinstate.
+   *
+   * `evpi_percentage_points` is refuted, not merely uncalibrated: PLoT
+   * publishes 12.3pp for a factor ISL measures at 0.0pp in the same payload,
+   * and the formula multiplies BY the top-two win-probability gap, inverting
+   * decision theory. It was rendered to users in eight places and used as a
+   * SELECTION GATE that emptied the evidence-gap list on a near-tie.
+   * See tests/contracts/no-evpi-display.contract.test.ts.
+   */
   suggestion: string
   /** Node ID for canvas focus (may differ from factorId) */
   targetNodeId?: string
@@ -610,6 +844,12 @@ export interface InferenceWarning {
   affected_labels?: string[]
   /** Human-readable message */
   message?: string
+  /**
+   * Producer severity ('info' | 'warning' | …) carried verbatim. Roadmap
+   * 1.12: warning-severity entries surface on the Analysis tab; info stays
+   * hidden. Optional/additive — absent when the producer omitted it.
+   */
+  severity?: string
 }
 
 export interface ConfidenceSectionData {
@@ -658,13 +898,16 @@ export interface ConfidenceSectionData {
 
   /** M1 Coaching evidence gaps - areas where more data would improve decision confidence */
   evidenceGaps?: EvidenceGapItem[]
-  /** M1 Coaching top evidence gaps (max 3, sorted by VOI, filtered by EVPI > 0) */
-  topEvidenceGaps?: EvidenceGapItem[]
   /**
-   * True when evidenceGaps existed but none had positive EVPI percentage points.
-   * Drives an empty-state card instead of an empty silent section.
+   * M1 Coaching top evidence gaps — the first 3 of `evidenceGaps`, in the
+   * producer's emission order. No client-side selection gate and no
+   * client-side re-rank: PLoT already selects (non-lever ∧ top-k by ISL
+   * `importance_rank` ∧ confidence < 0.7) and emits in its own order.
+   *
+   * `topEvidenceGapsEmpty` was deleted with the EVPI gate that was its only
+   * cause. It can no longer arise: this list is empty iff `evidenceGaps` is.
    */
-  topEvidenceGapsEmpty?: boolean
+  topEvidenceGaps?: EvidenceGapItem[]
   /** M1 Coaching next actions - prioritised recommendations */
   nextActions?: NextActionItem[]
   /** M1 Coaching top next actions (max 3, sorted by priority) */
@@ -697,12 +940,14 @@ export interface ConfidenceSectionData {
     affectedElements: string[]
     linkedCritiqueCode: string
   }>
-  /** V12: M2 decision quality prompts (structured) */
-  m2DecisionQualityPrompts?: Array<{
-    principle: string
-    appliesBecause: string
-    question: string
-  }>
+  /**
+   * V12: M2 decision quality prompts (structured). Lane 1 (P1): the entry
+   * shape is owned by `utils/decisionQualityPrompts` (single mapping site) and
+   * carries optional id-gated DSK provenance — dskClaimId / dskProtocolId /
+   * evidenceStrength are present ONLY when the wire entry attested a
+   * `dsk_claim_id`; absence means "not grounded", never "unknown default".
+   */
+  m2DecisionQualityPrompts?: MappedDecisionQualityPrompt[]
   /** V12: M2 evidence enhancements per factor_id */
   m2EvidenceEnhancements?: Record<string, { specific_action: string; decision_hygiene: string }>
   /** V12: M2 narrative summary paragraph */
@@ -719,7 +964,7 @@ export interface ConfidenceSectionData {
   /** ISL edge_e_values — sensitivity measure per edge */
   edgeEValues?: Array<{ edge_id: string; e_value: number }>
   /** Fragile edges from robustness — for ChallengeSection Model structure subgroup */
-  challengeFragileEdges?: Array<{ edge_id?: string; from_id?: string; from_label: string; to_label: string; switch_probability: number }>
+  challengeFragileEdges?: Array<{ edge_id?: string; from_id?: string; to_id?: string; from_label: string; to_label: string; switch_probability: number }>
 }
 
 // =============================================================================
@@ -763,6 +1008,8 @@ export interface RawFactorSensitivity {
   importance_score?: number
   /** ISL influence_score (0-1) - structural causal influence */
   influence_score?: number
+  /** Producer influence_rank (1 = most influential). Additive passthrough; roadmap 1.7 (provisional_doctrine_v0). */
+  influence_rank?: number
   /** ISL zero_reason - explains why sensitivity is zero for intervention factors */
   zero_reason?: ZeroReasonCode
   direction?: string
@@ -793,11 +1040,18 @@ export interface UiFactorSensitivity {
   factorId: string
   label: string
   elasticity: number
-  direction: 'positive' | 'negative'
+  /**
+   * The producer's direction across its full domain, or `null` when the
+   * producer sent none (ROADMAP 2.234). Was `'positive' | 'negative'`, which
+   * could only be satisfied by inventing one.
+   */
+  direction: FactorDirection | null
   confidence: number | null
   importanceRank: number
   /** ISL influence_score (0-1) - structural causal influence */
   influenceScore?: number
+  /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
+  influenceRank?: number
   /** ISL zero_reason - explains why sensitivity is zero */
   zeroReason?: ZeroReasonCode
   /** ISL value_of_information (0-1) - whether gathering more data could change the decision */
@@ -817,13 +1071,16 @@ export interface UiFactorSensitivity {
   attributionStability?: 'high' | 'moderate' | 'low' | 'negligible'
   rankFlipRate?: number
   evpi?: number
-  evpiPercentagePoints?: number
   /** Track S: provenance of the factor value. Optional; absent on pre-Track-S payloads. */
   valueSource?: string
   /** Track S: how the value was obtained (explicit / inferred / …). Optional. */
   valueExtractionType?: string
   /** Track S: true when the value was assumed/defaulted. Distinct from isDefaultedConfidence (a confidence signal). */
   valueDefaulted?: boolean
+  /** Producer worth_investigating flag (strict read: only an explicit wire
+   * `true` sets it; never derived from EVPI locally). Additive — threads the
+   * engine flag through to the Strengthen VOI trigger. */
+  worthInvestigating?: boolean
 }
 
 // =============================================================================
@@ -913,8 +1170,13 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
   // V2 pass-through fields from responseMapper
   factor_sensitivity?: V2FactorSensitivity[]
   robustness?: {
-    fragile_edges: Array<Record<string, unknown>>
-    robust_edges: Array<Record<string, unknown>>
+    // Optional (T2 receipts-honesty): the V5 mapper preserves ABSENCE —
+    // keys exist only when the producer sent an array ([] = honest "none",
+    // absent = "engine said nothing" → receipt rows fail closed). The V4
+    // mapper still always emits both when robustness is present, because
+    // the V2 wire contract requires them (V2RobustnessActual).
+    fragile_edges?: Array<Record<string, unknown>>
+    robust_edges?: Array<Record<string, unknown>>
     ranking_stability?: number
     recommendation_stability?: number
     is_robust?: boolean
@@ -922,7 +1184,26 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
     recommended_option_id?: string
     near_tie?: Record<string, unknown>
     nearTie?: Record<string, unknown>
+    /**
+     * Display-safe verdict + producer reason (PLoT #202, ROADMAP 1.6) —
+     * mapped-report slot of the responseMapper passthrough; normalised
+     * fail-closed in useResultsSectionData.
+     */
+    display_verdict?: string
+    display_verdict_reason?: string
     flip_thresholds?: Array<Record<string, unknown>>
+    // ⚠ `inference_warnings` is DELIBERATELY NOT DECLARED HERE, even though the
+    // V4/V2 mapper nests it in this slot. Adding a member to this INLINE object
+    // type changes the elided-member counter TypeScript prints inside four
+    // unrelated baselined diagnostics in `useResultsSectionData.ts`
+    // ("… 8 more …" → "… 9 more …"), which makes the typecheck gate emit its
+    // identity-diff notice on a clean tree — and `typecheck:selftest`'s green
+    // control asserts that notice does NOT appear on a clean tree. So declaring
+    // it here reds a required check for a purely cosmetic reason.
+    // `readInferenceWarnings()` in `useResultsSectionData.ts` reads this slot
+    // through one narrow cast instead, and it is the LEGACY slot regardless:
+    // measured 0/773 on live staging facts (root 773/773) — see
+    // `canvas/stores/persistedRunSnapshotFactory.ts`.
     _truncation?: {
       fragile_truncated: boolean
       fragile_total: number
@@ -944,14 +1225,48 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
   analysis_state?: string
   /** PLoT-classified confidence tier (B2, optional for cached pre-B1 results) */
   confidence_tier?: 'strong' | 'fair' | 'needs_work'
+  /**
+   * Constraint-evaluation feature status (PLoT #205). NOT on the CEE→UI
+   * Seam-A wire today (absent from compose.ts's keep-list) — declared here
+   * so the mapper's forward-compatible passthrough is typed; expect
+   * undefined until a CEE lane adds it to the keep-list.
+   */
+  constraints_status?: 'computed' | 'unavailable' | 'skipped' | 'error'
   /** PLoT-classified dominant factor (B2, optional for cached pre-B1 results) */
   dominant_factor?: { factor_id: string; factor_label: string }
+  /**
+   * Reference-option disclosure (Lane UI-W5): option ID the sensitivities /
+   * fragile edges were computed against. Mapper pass-through of the /v2/run
+   * root field; absent on older PLoT/ISL builds. provisional_doctrine_v0.
+   */
+  sensitivity_reference_option_id?: string
   drivers_error?: string
   sensitivity?: { factors?: Array<Record<string, unknown>>; error?: string }
   isl_error?: string
   downstream_calls?: unknown
   factors?: Array<Record<string, unknown>>
   factor_enrichments?: Array<Record<string, unknown>>
+  /**
+   * V7-C slice 1 (ROADMAP 2.141): the mapper's verbatim carry of
+   * `enrichment.factor_evppi` (`src/v5/mapV5AnalysisToReport.ts`).
+   *
+   * `unknown[]` ON PURPOSE — the ROW shape is validated at the one reader
+   * (`voi/voiRanking.ts`) against the pinned `EnrichmentFactorEvppiEntrySchema`,
+   * never here. What matters is that the KEY is declared: while it was absent,
+   * every read of it needed `(report as unknown as Record<string, unknown>)`,
+   * and a mistyped key inside that cast yields `undefined` — so the honest gate
+   * would render forever with nothing red anywhere. Declaring the key is what
+   * makes the typo a compile error instead of a silent permanent gate.
+   */
+  factor_evppi?: unknown[]
+  /**
+   * ISL `inference_warnings[]` — the enrichment-ROOT slot. Same reasoning as
+   * `factor_evppi`: declared so readers do not cast, entries left `unknown`
+   * because each reader validates the codes it cares about. Read it through
+   * `readInferenceWarnings()` in `useResultsSectionData.ts`, which also covers
+   * the legacy `robustness.inference_warnings` slot.
+   */
+  inference_warnings?: unknown[]
 }
 
 /**
@@ -969,6 +1284,42 @@ export interface ResultsOptionProbability extends OptionProbability {
   }
   bands?: { p10?: number | null; p50?: number | null; p90?: number | null }
   constraint_analysis?: ConstraintAnalysis
+  /**
+   * Provenance caveat for probability_of_joint_goal (PLoT #204, doctrine
+   * B): present when the joint-goal number was scored from the
+   * constraint-target node's MODELLED forward-propagated outcome
+   * distribution rather than a directly-elicited base. `scored_from` is
+   * producer-owned open vocabulary (currently always
+   * 'modelled_outcome_distribution'). Render sites that show the
+   * joint-goal number MUST surface this caveat alongside it — see
+   * UI-BOUNDARY-DATA-INVENTORY.md §5.
+   */
+  goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
+  /**
+   * ROADMAP 2.449 — per-option tail-risk view from ISL, forwarded by PLoT.
+   * Values are in the SAME units and on the SAME axis as `outcome.mean` /
+   * `outcome.p10` (no normalisation of their own), so any consumer that scales
+   * the percentile family MUST scale these identically. Present only when the
+   * producer emitted all three components as finite numbers; absent otherwise
+   * — never zeroed, never null.
+   */
+  downside?: { cvar_10: number; p05: number; expected_regret: number }
+  /**
+   * ROADMAP 2.646 — percentile provenance, wire-named and carried verbatim by
+   * the V5 mapper (which narrows it to the producer's closed vocabulary first).
+   *
+   * ⚠ THIS INTERFACE AND `mapV5AnalysisToReport`'s FUNCTION-LOCAL
+   * `ResultsOptionProbability` ARE TWINS: one describes what the mapper WRITES,
+   * this one describes what the hook READS, and nothing makes them agree except
+   * a human noticing. That is the same-named-twin shape CLAUDE.md trap 16 names
+   * (`generateGraphHash`), and it is why a field added to only one of them
+   * vanishes silently at the seam. Both moved in this row; a spec drives the
+   * REAL mapper into the REAL hook so the pair is checked by execution rather
+   * than by memory.
+   *
+   * Absent means absent — see `downsideUnavailableCopy`.
+   */
+  percentiles_source?: PercentilesSource
 }
 
 /**

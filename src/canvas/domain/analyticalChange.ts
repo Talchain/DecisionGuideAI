@@ -14,21 +14,17 @@
  */
 
 import type { Edge, Node } from '@xyflow/react'
+import { STALE_NODE_FIELDS, STALE_EDGE_FIELDS } from './analyticalNodeFields'
 
-export const ANALYTICAL_NODE_DATA_FIELDS = [
-  'observedState', 'interventions', 'is_baseline',
-  'prior', 'kind', 'success_threshold', 'goalThreshold',
-  // goal_threshold_raw is the user-edited goal target (GoalSection inline edit +
-  // inspector); the V2 adapter derives the PLoT goal_threshold from it, so a change
-  // IS analysis-affecting.
-  'goal_threshold_raw', 'goal_threshold',
-] as const
+// The 'stale' (analysis-affecting) subset now DERIVES from the single
+// analyticalNodeFields registry — the same source the autosave persist dirty-gate
+// derives from. Adding a field there with the 'stale' purpose reaches this consumer
+// automatically; analyticalNodeFields.registry.spec.ts fails loud on any drift.
+// The `probability`/`impact` (risk P1.7, #453) and `success_threshold`/
+// `goal_threshold_raw` (#457) inclusions live in the registry's per-field notes.
+export const ANALYTICAL_NODE_DATA_FIELDS = STALE_NODE_FIELDS
 
-export const ANALYTICAL_EDGE_FIELDS = [
-  'weight', 'direction', 'strengthStd',
-  'confidence', 'beliefExists', 'beliefStrength', 'belief',
-  'exists_probability',
-] as const
+export const ANALYTICAL_EDGE_FIELDS = STALE_EDGE_FIELDS
 
 /** Key-order-insensitive deep equality for small JSON-safe analytical values. */
 export function deepEqual(a: unknown, b: unknown): boolean {

@@ -8,6 +8,7 @@
  */
 
 import { typography } from '../../styles/typography'
+import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { evaluativeVar } from '../../styles/evaluative'
 import type { ConstraintAnalysis } from '../../types/constraints'
 import Tooltip from '../Tooltip'
@@ -38,7 +39,13 @@ export function TargetProbabilityBars({
     <div className="flex flex-col gap-1.5 mb-2" data-testid="target-probability-bars">
       {/* Individual constraint rows */}
       {validConstraints.map(c => {
+        // Bar geometry keeps the rounded integer (visual `Math.max(2, pct)`
+        // floor is honest); the READOUT goes through the comparative
+        // register's formatter so a target met in 7 of 10000 runs no longer
+        // prints "0%" here while `SuccessTargetRow` prints "< 1%" for the
+        // same number (ROADMAP 2.333).
         const pct = Math.round(c.prob_satisfied * 100)
+        const readout = formatProbabilityWithResolution(c.prob_satisfied, null)
         return (
           <Tooltip key={c.node_id} content="Probability of meeting this target">
             <div className={`flex items-center gap-2 ${typography.panelMeta}`}>
@@ -58,7 +65,7 @@ export function TargetProbabilityBars({
                 />
               </div>
               <span className={`${typography.panelMeta} text-text-header flex-shrink-0 text-right`} style={{ minWidth: 28 }}>
-                {pct}%
+                {readout}
               </span>
             </div>
           </Tooltip>
@@ -88,7 +95,7 @@ export function TargetProbabilityBars({
               />
             </div>
             <span className={`${typography.panelHeader} text-text-header flex-shrink-0 text-right`} style={{ minWidth: 28 }}>
-              {Math.round(jointProbability * 100)}%
+              {formatProbabilityWithResolution(jointProbability, null)}
             </span>
           </div>
         </Tooltip>

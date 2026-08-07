@@ -22,7 +22,7 @@
 import { useState, useCallback, useEffect, useRef, type ChangeEvent } from 'react'
 import { AlertTriangle as TriangleAlert, Check, HelpCircle, Info, Minus } from 'lucide-react'
 import type { DriversSectionData, DriverItem, DriverSemanticLabel } from './types'
-import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { focusExistingTarget } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
@@ -33,8 +33,19 @@ import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
 import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
 import { ExpertBlock } from './ExpertBlock'
+import { SensitivityReferenceCaption } from './SensitivityReferenceCaption'
+import {
+  INFLUENCE_EXPLANATION_GENERIC,
+  INFLUENCE_EXPLANATION_RELATIVE,
+  INFLUENCE_EXPLANATION_ABSOLUTE,
+  INFLUENCE_RANKING_EXPLAINER_GENERIC,
+  INFLUENCE_RANKING_EXPLAINER_RELATIVE,
+  INFLUENCE_SCALE_CAPTION,
+} from './influenceScaleCopy'
 import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
+import { DISPLAY_SAFE_DRIVER_CONFIDENCE } from './driverConfidenceDisplayPolicy'
+import { openAskOlumi } from './coaching/askOlumiStore'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -56,6 +67,11 @@ interface DriversSectionProps {
   onSendMessage?: (text: string) => void
   /** Whether expert mode is active (shows technical details) */
   expertMode?: boolean
+  /**
+   * Lane UI-W5 (reference-option disclosure): resolved label of the option
+   * the sensitivities were computed against. Null/absent → no caption.
+   */
+  sensitivityReferenceLabel?: string | null
 }
 
 // Bar colors — use design system tokens, no hex literals
@@ -73,7 +89,12 @@ const BAR_COLORS = {
 // certified display-safe driver-confidence source exists; the gated Confidence
 // column + glyph + tooltip signals below then light up, and the grid widens to
 // match via gridCols().
-const DISPLAY_SAFE_DRIVER_CONFIDENCE = false
+//
+// ⚠ The constant now lives in ./driverConfidenceDisplayPolicy and is IMPORTED,
+// not re-declared. It used to be private to this file while three canvas
+// surfaces + the Model tab read the identical `factor_sensitivity[].confidence`
+// with no gate at all — this panel refused to print a number the canvas printed
+// bare, from the same report. One binding makes that fork unrepresentable.
 
 // Fragility ("could change the result") belongs in the fragile-factors section,
 // NOT the driver section. Acceptance: driver section = "this matters most";
@@ -96,11 +117,16 @@ function gridCols(showConfidence: boolean): string {
 }
 const GRID_COLS = gridCols(DISPLAY_SAFE_DRIVER_CONFIDENCE)
 
-// Zero reason display messages - explains why sensitivity is zero
-const ZERO_REASON_MESSAGES: Record<string, string> = {
-  intervention_override: 'Directly controlled by your options',
-  disconnected: 'No causal path to goal',
-  zero_outcome_diff: "Changes don't affect outcome",
+// Zero-reason badge labels — the producer suppresses a factor's sensitivity and
+// stamps WHY (zero_reason). D-U ruling: surface that reason as a VISIBLE badge on
+// the row, not a hover-only tooltip, so an influence bar with no sensitivity is
+// never left unexplained. Display/label only — the badge reflects the producer's
+// stamp verbatim; it never fabricates or recomputes a value (a suppressed value
+// shows the badge, never a 0).
+const ZERO_REASON_BADGE_LABELS: Record<string, string> = {
+  intervention_override: 'Controlled by your options',
+  disconnected: 'No path to the goal',
+  zero_outcome_diff: "Doesn't change the outcome",
 }
 
 /**
@@ -223,7 +249,7 @@ function ContestedDriverQuickSelect({ driver }: { driver: DriverItem }) {
             padding: '4px 10px',
             borderRadius: '999px',
             border: `1px solid ${selectedIndex === i ? 'var(--info)' : 'var(--border-default)'}`,
-            background: selectedIndex === i ? 'rgba(82,163,200,0.1)' : 'transparent',
+            background: selectedIndex === i ? 'color-mix(in srgb, var(--info) 10%, transparent)' : 'transparent',
             cursor: 'pointer',
           }}
         >
@@ -252,6 +278,52 @@ function ContestedDriverQuickSelect({ driver }: { driver: DriverItem }) {
 }
 
 // Individual driver row - Compact 2-line structure
+/**
+ * The elasticity tooltip sentence — the ONE place deciding whether a driver's
+ * magnitude is presented WITH a direction (ROADMAP 2.234, R3).
+ *
+ * Exported and pure so the rule can be pinned directly. It previously lived
+ * inline inside a hover-only `Tooltip`, which is exactly why it went on
+ * rendering `mixed`/`unknown`/absent identically to `positive` long after the
+ * mapper stopped fabricating directions: nothing could see it without a hover.
+ *
+ * ⚠ THIS IS THE ONLY LIVE DRIVER SURFACE. `factorDirection.ts` used to justify
+ * "the renderers already handle neutral" by citing `KeyDriversPanel`,
+ * `DriverChips` and `InsightsPanel` — all three have ZERO non-test JSX mounts.
+ * `DriversSection` (`ResultsBody.tsx:559`) is the one a tester sees.
+ *
+ * UI-SEM-046: the ×10 / floor-1 scaling is presentational amplification of the
+ * 0-1 elasticity, unchanged.
+ */
+export function elasticityShiftCopy(driver: DriverItem): string | null {
+  if (!(driver.rawElasticity > 0.001)) return null
+  const shiftPercent = Math.max(1, Math.round(driver.rawElasticity * 10))
+  const binary = isBinaryFactor(driver.factorLabel)
+
+  // Only the two directional states license a signed claim. `mixed`, `unknown`
+  // and absence are PRESENT answers that withhold a direction, so `!= null`
+  // would be the wrong question here.
+  const directional = driver.direction === 'positive' || driver.direction === 'negative'
+  if (!directional) {
+    // ⚠ NEW COPY — TWO STRINGS, both for founder sign-off (an earlier note said
+    // "one string"; they share the ` — direction not reported` suffix but are
+    // two distinct user-visible sentences, and the em-dash is U+2014):
+    //   1. `Higher values tend to shift outcome by {N}% — direction not reported`
+    //   2. `When true, outcome tends to shift by {N}% — direction not reported`
+    // No existing register covers a magnitude whose direction the producer
+    // declined to assert. The magnitude is producer data and stays; only the
+    // implied sign goes.
+    return binary
+      ? `When true, outcome tends to shift by ${shiftPercent}% — direction not reported`
+      : `Higher values tend to shift outcome by ${shiftPercent}% — direction not reported`
+  }
+
+  const sign = driver.direction === 'negative' ? '-' : ''
+  return binary
+    ? `When true, outcome tends to shift by ${sign}${shiftPercent}%`
+    : `Higher values tend to shift outcome by ${sign}${shiftPercent}%`
+}
+
 function DriverRow({
   driver,
   onFocus,
@@ -298,7 +370,7 @@ function DriverRow({
       : 'neutral'
 
   // Use ISL influence_score (0-1) directly for Sensitivity column
-  const sensitivityValue = driver.influenceScore ?? driver.normalisedInfluence
+  const sensitivityValue = driver.displayInfluence ?? driver.influenceScore ?? driver.normalisedInfluence
   const hasSensitivityData = sensitivityValue != null && sensitivityValue >= 0
 
   // Confidence value (0-1)
@@ -318,15 +390,18 @@ function DriverRow({
         : null
   const showQualityHint = typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
   const hasEnrichment = driver.enrichment && hasEnrichmentContent(driver.enrichment)
-  const hasZeroReason = driver.zeroReason && ZERO_REASON_MESSAGES[driver.zeroReason]
+  // Producer zero_reason stamp → visible badge label (rendered in the row body,
+  // NOT the tooltip). Undefined when the producer left no stamp.
+  const leverBadgeLabel = driver.zeroReason ? ZERO_REASON_BADGE_LABELS[driver.zeroReason] : undefined
   // Task 7c: ranking shift + technique added to tooltip — must be computed before this line
   // (rankingShiftWarn and techniqueSuggestion are computed after this block, so use inline checks)
   // The (i) info icon must appear only when the tooltip has VISIBLE content.
   // Confidence/evidence/fragility lines (decisionChangeRisk, rankingShiftWarn,
   // qualityHint) are gated off today, so they contribute to the icon only when
-  // their gate is on. Enrichment + zero-reason (an influence explanation) are
-  // always-visible. The technique chip moved out of the tooltip to a body chip.
-  const hasTooltipContent = hasEnrichment || hasZeroReason
+  // their gate is on. Enrichment is always-visible. The zero-reason (lever)
+  // explanation moved OUT of the tooltip to a visible body badge (D-U); the
+  // technique chip likewise moved out to a body chip.
+  const hasTooltipContent = hasEnrichment
     || (DISPLAY_SAFE_DRIVER_CONFIDENCE && showQualityHint)
     || (SHOW_FRAGILITY_IN_DRIVER_SECTION && (
           !!decisionChangeRisk
@@ -342,7 +417,10 @@ function DriverRow({
       if (onFocus) {
         onFocus(nodeId)
       } else {
-        focusNodeById(nodeId)
+        // Fail closed: driver factorKey may not be a canvas node id
+        // (recovered sessions / deleted nodes) — do nothing rather than
+        // pan to nowhere.
+        focusExistingTarget(nodeId, 'node')
       }
     }
   }, [driver.canFocus, driver.matchedNodeId, driver.factorKey, onFocus])
@@ -358,17 +436,10 @@ function DriverRow({
     if (!hasTooltipContent && isTooltipOpen) setIsTooltipOpen(false)
   }, [hasTooltipContent, isTooltipOpen])
 
-  // v7.5 T7: Softened tooltip copy
-  const tooltipElasticityCopy = driver.rawElasticity > 0.001
-    ? (() => {
-        const shiftPercent = Math.max(1, Math.round(driver.rawElasticity * 10))
-        const sign = driver.direction === 'negative' ? '-' : ''
-        if (isBinaryFactor(driver.factorLabel)) {
-          return `When true, outcome tends to shift by ${sign}${shiftPercent}%`
-        }
-        return `Higher values tend to shift outcome by ${sign}${shiftPercent}%`
-      })()
-    : null
+  // v7.5 T7: Softened tooltip copy. The RULE lives in `elasticityShiftCopy`
+  // (exported, unit-pinned) — it was previously reachable only through a
+  // hover-only Tooltip, which is how it kept a fabricated direction so long.
+  const tooltipElasticityCopy = elasticityShiftCopy(driver)
 
   // Task 7c: ranking shift and technique suggestion for tooltip
   const rankingShiftWarn = (() => {
@@ -384,7 +455,7 @@ function DriverRow({
   })()
 
   const techniqueSuggestion = (() => {
-    const influence = driver.influenceScore ?? driver.normalisedInfluence
+    const influence = driver.displayInfluence ?? driver.influenceScore ?? driver.normalisedInfluence
     const conf = typeof driver.confidence === 'number' ? driver.confidence : null
     if (typeof influence !== 'number' || conf === null) return null
     return influence > 0.6 && conf < 0.5 ? 'Try: reference class forecasting' : null
@@ -410,13 +481,9 @@ function DriverRow({
           Could benefit from more evidence
         </p>
       )}
-      {/* Zero reason */}
-      {hasZeroReason && (
-        <p className="flex items-center gap-1">
-          <span aria-hidden="true">ℹ️</span>
-          {ZERO_REASON_MESSAGES[driver.zeroReason!]}
-        </p>
-      )}
+      {/* Zero reason moved OUT of the tooltip to a visible body badge (D-U): a
+          suppressed-sensitivity factor must SHOW why (e.g. "Controlled by your
+          options"), never hide the reason behind hover on the top row only. */}
       {/* Ranking shift warning (tooltip variant) — HIDDEN: a ranking-shift /
           fragility claim. Fragility ("could change the result") belongs in the
           fragile-factors section, not the driver section
@@ -613,13 +680,26 @@ function DriverRow({
         // prominence, NOT confidence/quality (outlined, text-text-body per DS).
         const emphasised = driver.semanticLabel === 'biggest' || driver.semanticLabel === 'strong'
         return (
-          <div className="flex items-center gap-1.5 px-3 pb-1">
+          <div className="flex items-center gap-1.5 px-3 pb-1 flex-wrap">
             <span
               className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full bg-transparent text-text-body border ${emphasised ? 'border-info/30' : 'border-panel-border'}`}
               data-testid={`driver-influence-pill-${driver.factorKey}`}
             >
               {pillText}
             </span>
+            {/* Lever badge (D-U): visible, on every row (not tooltip / not
+                top-only). Honours the producer's zero_reason stamp — display
+                only, no value is fabricated or recomputed. */}
+            {leverBadgeLabel && (
+              <span
+                className={`${typography.panelMeta} inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-transparent text-text-light border border-panel-border`}
+                data-testid={`driver-lever-badge-${driver.factorKey}`}
+                title={leverBadgeLabel}
+              >
+                <Info className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                {leverBadgeLabel}
+              </span>
+            )}
             {/* No inline action here: the pill is an influence LABEL only. Per-factor
                 discussion is the bottom-right DiscussWithAiButton sparkle (kept as the
                 single, app-consistent "discuss this factor" affordance); node focus is
@@ -637,7 +717,7 @@ function DriverRow({
           <div className={`${typography.panelMeta} text-text-light flex gap-3`}>
             <span>elasticity: {typeof driver.rawElasticity === 'number' ? driver.rawElasticity.toFixed(3) : '-'}</span>
             <span>stability: {driver.attributionStability ?? '-'}</span>
-            <span>influence: {typeof (driver.influenceScore ?? driver.normalisedInfluence) === 'number' ? ((driver.influenceScore ?? driver.normalisedInfluence)! * 100).toFixed(1) + '%' : '-'}</span>
+            <span>influence: {typeof (driver.displayInfluence ?? driver.influenceScore ?? driver.normalisedInfluence) === 'number' ? ((driver.displayInfluence ?? driver.influenceScore ?? driver.normalisedInfluence)! * 100).toFixed(1) + '%' : '-'}</span>
           </div>
         </ExpertBlock>
       )}
@@ -665,9 +745,13 @@ function DriverRow({
             type="button"
             data-testid={`driver-technique-chip-${driver.factorKey}`}
             onClick={() => {
-              onSendMessage(
-                `${techniqueSuggestion} could help with "${cleanedLabel}". How would you apply it here?`,
-              )
+              // Codex finding 6: exploratory CTA — prefill the Ask-Olumi drawer
+              // (editable draft, user presses Send), never auto-send.
+              openAskOlumi({
+                context: `${techniqueSuggestion} for "${cleanedLabel}"`,
+                draft: `${techniqueSuggestion} could help with "${cleanedLabel}". How would you apply it here?`,
+                label: techniqueSuggestion,
+              })
             }}
             className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
             aria-label={`Discuss ${techniqueSuggestion.replace(/^Try:\s*/i, '')} for ${cleanedLabel}`}
@@ -679,7 +763,8 @@ function DriverRow({
 
       {/* "Ranking may shift N%" — HIDDEN: a ranking-shift / fragility claim.
           Fragility ("could change the result") belongs in the fragile-factors
-          section, not the driver section (SHOW_FRAGILITY_IN_DRIVER_SECTION). */}
+          section, not the driver section (SHOW_FRAGILITY_IN_DRIVER_SECTION).
+          UI-SEM-045: rank-flip warning visibility gate (>=0.15 rankFlipRate). */}
       {SHOW_FRAGILITY_IN_DRIVER_SECTION && typeof driver.rankFlipRate === 'number' && driver.rankFlipRate >= 0.15 && (
         <p
           className={`${typography.panelMeta} text-warning px-3 pb-1.5 -mt-0.5`}
@@ -758,6 +843,7 @@ export function DriversSection({
   isNormalised: _isNormalised,
   onSendMessage,
   expertMode,
+  sensitivityReferenceLabel,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const { drivers, driversStatus, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
@@ -820,7 +906,7 @@ export function DriversSection({
   // This ensures badge count, card rendering, "Show more/fewer", and tornado all use the same filtered set
   const INFLUENCE_THRESHOLD = 0.01
   const visibleDrivers = drivers.filter(d => {
-    const influence = d.influenceScore ?? d.normalisedInfluence
+    const influence = d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence
     return typeof influence === 'number' && influence >= INFLUENCE_THRESHOLD
   })
 
@@ -848,10 +934,74 @@ export function DriversSection({
   // place. DriversSection still surfaces per-row sensitivity / confidence;
   // the cross-driver dominance signal is owned by T1.
 
+  // Lane C4 (influence-scale disclosure): the shared display model
+  // (driverDisplayModel.selectDriverDisplayModel) resolves ONE basis for the
+  // entire ranked set — so any stamped row's `displayProvenance` describes
+  // the whole panel. On the fallback basis ('normalised_elasticity') the
+  // displayed value is per-set normalised |elasticity| and the top driver
+  // shows 100% BY CONSTRUCTION — that must be disclosed (the "Relative
+  // influence" wording was dropped in v7.10 T9). On the producer basis
+  // ('influence_score') the value is an absolute structural-causal-influence
+  // score from the producer (see the DriverItem type) — say that instead. No stamp
+  // (legacy fixtures / cached payloads) → fail-closed: keep the generic
+  // wording; never claim a basis the pipeline did not stamp. Derived from the
+  // FULL drivers list (same belt-and-braces as anyConfidenceProvisional).
+  const influenceBasisStamped: 'relative' | 'absolute' | 'unknown' =
+    drivers.some(d => d.displayProvenance === 'normalised_elasticity')
+      ? 'relative'
+      : drivers.some(d => d.displayProvenance === 'influence_score')
+        ? 'absolute'
+        : 'unknown'
+  // Review fix 1 (degenerate-state false caption): never claim "the top
+  // driver always shows 100%" when the claim has nothing to point at. In the
+  // degenerate state (max magnitude below the data layer's 0.001 floor)
+  // every normalised value is 0 — rows keep the fallback provenance stamp,
+  // but the >=0.01 visibility filter empties the rendered list, so the
+  // caption/explainer would assert a 100% top driver over ZERO rows.
+  // hasMagnitudeData is the data layer's own flag for that floor;
+  // visibleDrivers.length is the belt-and-braces for any other all-hidden
+  // set. Fail closed to the generic wording (same doctrine as the unstamped
+  // branch).
+  const influenceBasis: 'relative' | 'absolute' | 'unknown' =
+    influenceBasisStamped === 'relative' && (!hasMagnitudeData || visibleDrivers.length === 0)
+      ? 'unknown'
+      : influenceBasisStamped
+  // Copy comes from the ONE shared module (influenceScaleCopy) the canvas
+  // pill consumes too — surfaces cannot drift (review fix 3: the strings are
+  // also policed there for the DS em-dash ban).
+  const influenceTooltipContent =
+    influenceBasis === 'relative'
+      ? INFLUENCE_EXPLANATION_RELATIVE
+      : influenceBasis === 'absolute'
+        ? INFLUENCE_EXPLANATION_ABSOLUTE
+        : INFLUENCE_EXPLANATION_GENERIC
+
   return (
     <div className="space-y-4">
-      {/* Ranking explainer */}
-      <p className={`${typography.panelMeta} text-text-light`}>Ranked by how much each factor affects the outcome</p>
+      {/* Ranking explainer — carries the relative framing on the fallback basis (C4) */}
+      <p className={`${typography.panelMeta} text-text-light`}>
+        {influenceBasis === 'relative'
+          ? INFLUENCE_RANKING_EXPLAINER_RELATIVE
+          : INFLUENCE_RANKING_EXPLAINER_GENERIC}
+      </p>
+
+      {/* Lane UI-W5: reference-option disclosure — renders nothing when the
+          producer did not disclose a reference option (fail-closed). */}
+      <SensitivityReferenceCaption optionLabel={sensitivityReferenceLabel} />
+
+      {/* Lane C4: relative-scale caption — visible (not hover-only) whenever
+          the fallback basis is active, following the SensitivityReferenceCaption
+          idiom (role="note", panelMeta). Absent on the producer basis and on
+          unstamped legacy payloads. */}
+      {influenceBasis === 'relative' && (
+        <p
+          role="note"
+          data-testid="influence-scale-caption"
+          className={`${typography.panelMeta} text-text-light`}
+        >
+          {INFLUENCE_SCALE_CAPTION}
+        </p>
+      )}
 
       {/* Brief 5 Task 2: headers + rows share one wrapper so column positions
           are structural, not visual-approximation. Headers mirror the row grid
@@ -862,8 +1012,10 @@ export function DriversSection({
         <div className={`grid ${GRID_COLS} gap-2 items-center px-3 pb-3`}>
           {/* Empty cell for factor name column */}
           <div aria-hidden="true" />
-          {/* v7.10 T9: Renamed "Relative influence" → "Influence" for brevity */}
-          <Tooltip content="Influence: how much this factor affects the outcome">
+          {/* v7.10 T9 renamed "Relative influence" → "Influence" for brevity;
+              lane C4 restores the relative-scale disclosure in the tooltip
+              (basis-aware — see influenceTooltipContent above). */}
+          <Tooltip content={influenceTooltipContent}>
             <div
               className={`${typography.panelBody} text-text-light text-right cursor-help`}
             >
@@ -906,7 +1058,7 @@ export function DriversSection({
 
         {/* v7.10 T9: Equal-influence note when all visible drivers are within ±0.01 */}
         {visibleDrivers.length >= 2 && (() => {
-          const scores = visibleDrivers.map(d => d.influenceScore ?? d.normalisedInfluence ?? 0)
+          const scores = visibleDrivers.map(d => d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence ?? 0)
           const max = Math.max(...scores)
           const min = Math.min(...scores)
           return (max - min) <= 0.01 ? (

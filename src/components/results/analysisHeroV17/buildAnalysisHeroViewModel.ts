@@ -59,6 +59,7 @@ import { rankHeroRows } from './rowRanking'
 // AND the test scanner so what production guards against == what tests
 // catch. (Per P1.1 review feedback.)
 import { containsBannedTerm, safeInterpolatedLabel as safeLabel } from './glossaryCheck'
+import { deriveDskGrounding, isGeneralGuidance } from '../utils/decisionQualityPrompts'
 // Genuine Structure + Coverage signal derivation (P1.1 round-3 review).
 import {
   deriveStructureScore,
@@ -72,6 +73,7 @@ import type {
   DimensionSegment,
   HeroRow,
   HeroState,
+  DskGrounding,
   KeyQuestion,
   FooterCheck,
   FooterCta,
@@ -158,16 +160,17 @@ function buildResultLine(data: ResultsSectionDataReturn): string {
   const label = safeLabel(winner.label, 'The leading option')
   // Sensitivity caveat is gated on the display-safe robustness verdict ONLY —
   // never raw recommendation_stability (single-source rule, see
-  // ROBUSTNESS-VERDICT-CONTRACT). A known non-'high' verdict means the result
-  // is sensitive; with a concrete fragile edge also present we append the
-  // clarifying clause so the headline isn't read as unconditional. No
-  // display-safe verdict exists in the contract today → the verdict is
-  // undefined → the caveat never fires and the headline stays neutral
+  // ROBUSTNESS-VERDICT-CONTRACT). The verdict is the producer's own
+  // robustness.display_verdict (PLoT #202, consumed lane 35 fix 3).
+  // EXPLICIT sensitive allowlist: only the producer's 'moderate'/'fragile'
+  // verdicts carry a sensitivity claim — 'not_assessed' states that
+  // robustness was NOT computed, so deriving "sensitive to assumptions"
+  // from it would fabricate a claim; with the field absent (older PLoT
+  // builds) the caveat never fires and the headline stays neutral
   // ("…comes out ahead most often."), in lock-step with the certified
-  // "Robustness unknown" glyph rather than deriving a sensitivity claim from
-  // an uncertified stability number.
+  // "Robustness unknown" glyph.
   const verdict = data?.recommendation?.robustnessVerdict
-  const verdictSensitive = verdict != null && verdict !== 'high'
+  const verdictSensitive = verdict === 'moderate' || verdict === 'fragile'
   const hasFragile = !!(
     data?.confidence?.topFragileEdge ?? data?.confidence?.m1CoachingTopFragileEdge
   )
@@ -240,16 +243,22 @@ function buildDependencyLine(data: ResultsSectionDataReturn): string | null {
   const top1 = sorted[0]
   if (!top1 || top1.factorKey !== id) return null
 
-  // Dominance gate.
+  // Dominance gate (UI-SEM-040): deliberately reads the RAW metrics —
+  // absolute producer-scale threshold (0.5) and top-1:top-2 ratio (2.0) are
+  // GATE semantics, not display ranking, so the driverDisplayModel policy
+  // does not apply. This is the attestation the no-raw-influence-read
+  // tripwire keys on; if this gate is rewritten, re-decide the exemption.
   let isDominant = false
   if (typeof top1.influenceScore === 'number' && Number.isFinite(top1.influenceScore)) {
     // Absolute scale (ISL structural causal influence): 0.5 floor.
+    // eslint-disable-next-line driver-policy/no-raw-influence-fallback -- UI-SEM-040 dominance GATE: absolute producer-scale threshold, not display ranking
     isDominant = top1.influenceScore >= 0.5
   } else {
     // Relative-only data: require a clear gap between top-1 and top-2.
     const ni1 = top1.normalisedInfluence
     if (!Number.isFinite(ni1) || ni1 <= 0) return null
     const top2 = sorted[1]
+    // eslint-disable-next-line driver-policy/no-raw-influence-fallback -- UI-SEM-040 dominance GATE: top-1:top-2 ratio over the raw metric, not display ranking
     const ni2 = top2?.normalisedInfluence ?? 0
     if (ni2 > 0) {
       isDominant = (ni1 / ni2) >= 2.0
@@ -296,10 +305,22 @@ function selectKeyQuestion(
   const dqps = data?.confidence?.m2DecisionQualityPrompts ?? []
   const dqp = dqps[0]?.question
   if (dqp && !containsBannedTerm(dqp)) {
+    // Lane 1 (P1): DSK grounding for the main question's source prompt —
+    // id-gate + glossary re-gate now live in ONE place, shared with the
+    // lens-hero KeyQuestionCard (2.466): utils/decisionQualityPrompts
+    // .deriveDskGrounding. Behaviour is the extracted verbatim rule: no
+    // attested dskClaimId ⇒ NO grounding object; strength/protocol carried
+    // only when present upstream, never defaulted.
+    const grounding: DskGrounding | undefined = deriveDskGrounding(dqps[0])
+    // 2.491: the same source prompt's positive `general` verdict, carried so
+    // the host can mark an unattested question instead of saying nothing.
+    const generalGuidance = isGeneralGuidance(dqps[0])
     return {
       text: dqp,
       extras: dqps.slice(1, 4).map(p => p.question).filter(q => q && !containsBannedTerm(q)),
       chips: ['High', 'Some', 'Not sure', 'Add note'],
+      ...(grounding ? { grounding } : {}),
+      ...(generalGuidance ? { generalGuidance: true } : {}),
     }
   }
 

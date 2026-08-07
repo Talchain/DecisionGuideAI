@@ -125,6 +125,16 @@ const ERROR_MESSAGES: Record<string, Omit<UserFriendlyError, 'canRetry'>> = {
     severity: 'warning',
   },
 
+  // ROADMAP 1.54 density wall (PLoT #209): graph refused at the engine's
+  // complexity ceiling. Own entry so the copy is ours — the producer
+  // message names node×edge budget maths and is debug-panel-only.
+  'GRAPH_TOO_COMPLEX': {
+    headline: 'Model too complex to analyse',
+    explanation: 'This model has more factors and connections than the analysis engine can compute reliably. Remove weaker or duplicate influences, or split the decision into smaller models, then re-run.',
+    actionText: 'Simplify Model',
+    severity: 'warning',
+  },
+
   // Validation errors from backend (422)
   'VALIDATION_BLOCKED': {
     headline: 'Model needs adjustment',

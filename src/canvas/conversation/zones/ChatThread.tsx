@@ -97,13 +97,39 @@ export const ChatThread = memo(function ChatThread({
       showEmptyState, isThinking, nodeCount, hasFinalizedAssistant, messages.length, !!streamingText)
   }
 
-  // Get suggested chips from last assistant message
-  const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
+  // Transcript honesty (trust item #3): the retry affordance on a failed
+  // user message is wired ONLY for the message retryLast would actually
+  // resend — the LAST user message. Older failed attempts keep the
+  // "Not delivered" marker without a retry button (clicking retry there
+  // would resend different text than the bubble shows).
+  // One backwards pass captures both last-of-role messages. Previously this
+  // was two `[...messages].reverse().find(...)` chains — two full array copies
+  // plus two reverses per render, on a path that runs ~60x/sec once streaming
+  // is enabled.
+  let lastUserMsg: ConversationMessage | undefined
+  let lastAssistantMsg: ConversationMessage | undefined
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (!lastUserMsg && m.role === 'user') lastUserMsg = m
+    if (!lastAssistantMsg && m.role === 'assistant') lastAssistantMsg = m
+    if (lastUserMsg && lastAssistantMsg) break
+  }
+  const failedSendRetryId =
+    lastUserMsg && lastUserMsg.deliveryState === 'failed' ? lastUserMsg.id : null
+
+  // Get suggested chips from last assistant message.
+  //
+  // `SuggestedChips` below is the SOLE render surface for `actionChips`
+  // (verified at 4fbc6451: `<ActionChipRow` has zero production render sites,
+  // and `MessageBubble` renders no chips). Until 2026-08-07 this line was
+  // followed by a `suggestedChipsWillRender` predicate feeding a `hideChips`
+  // prop down ChatMessage → MessageBubble to "suppress the inline
+  // ActionChipRow". MessageBubble declared that prop and never destructured
+  // it: the whole chain was inert, and its comments described a suppression
+  // mechanism that no longer had anything to suppress. Removed rather than
+  // re-documented — a dead guard that reads as a live one is how ROADMAP
+  // 2.668's second defect came to be diagnosed against this file at all.
   const suggestedChips = lastAssistantMsg?.actionChips ?? []
-  // Only hide inline chips when SuggestedChips will actually render something.
-  // SuggestedChips filters out chips without a message field (e.g. retry chips),
-  // so hideChips must mirror that filter — otherwise retry chips vanish entirely.
-  const suggestedChipsWillRender = suggestedChips.some(c => !!c.message)
 
   return (
     <div
@@ -136,10 +162,9 @@ export const ChatThread = memo(function ChatThread({
             key={msg.id}
             message={msg}
             isFirst={i === 0}
-            hideChips={isLastAssistant && suggestedChipsWillRender}
-            historicalChips={!isLastAssistant}
             onChipClick={onChipClick}
             onRetry={onRetry}
+            showFailedSendRetry={msg.id === failedSendRetryId}
             patchBlockStates={patchBlockStates}
             patchRejections={patchRejections}
             onPatchAccept={onPatchAccept}

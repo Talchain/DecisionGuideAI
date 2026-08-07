@@ -13,7 +13,9 @@ import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
+import { edgeValueSourcePatch, stripEdgeValueSourceKeys } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
+import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { hasAnalysisReady, isCeePipelineTrace } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
 import { commitDraftCoachingToStore, edgeProvenanceDisplayPatch } from '../utils/draftIngestion'
@@ -42,7 +44,7 @@ function useOrchestratorV2Flag(): boolean {
     if (ls != null) return !(ls === '0' || ls === 'false')
   } catch {}
   // Direct env access with literal key — Vite can resolve this
-  const env = import.meta.env.VITE_ENABLE_ORCHESTRATOR_V2
+  const env = import.meta.env?.VITE_ENABLE_ORCHESTRATOR_V2
   return env === 'true' || env === '1' || env === true
 }
 
@@ -608,12 +610,36 @@ export function DraftChat() {
         type: 'styled' as const,
         data: {
           ...DEFAULT_EDGE_DATA,
-          ...edgeRest,                             // spread-first: preserve unknown CEE edge fields
+          // ⛔ F11. `edgeRest` is UNTRUSTED wire remainder and it spreads FIRST,
+        // so any `weightSource` / `beliefExistsSource` the wire happened to
+        // carry survived whenever `edgeValueSourcePatch` below omitted that
+        // key — which is exactly the case where the wire sent no value. The
+        // marker would have outlived the number it describes. Stripped from a
+        // list DERIVED from EDGE_PROVENANCED_FIELDS, so it cannot rot the way
+        // the hand-listed destructure above did.
+        ...stripEdgeValueSourceKeys(edgeRest),   // spread-first: preserve unknown CEE edge fields
           weight,
           pathType: 'bezier' as const,
           confidence,
           // P0 Fix: Use belief_exists (structural certainty) for beliefExists, fallback to belief (confidence)
           beliefExists: beliefExistsValue ?? confidence,
+          // Set-vs-defaulted markers (canvas/domain/edgeValueProvenance.ts).
+          // `weightSource` here is the LOCAL string above, which records which
+          // wire probe won — 'default' means the UI filled it in, so that case
+          // is deliberately NOT stamped.
+          // `direction` is stamped ONLY when the producer actually stated a
+          // direction (ROADMAP 2.263). `directionFromEdge` is `undefined` for
+          // BOTH the omitted case and the declared contract value `'unknown'`,
+          // which is exactly the set of edges the fallback below fabricates a
+          // `'positive'` for. The stored `direction` value is unchanged — see
+          // `resolveEdgeDirectionDisplay`'s header for why this is a read-side
+          // gate and not an ingestion rewrite.
+          ...edgeValueSourcePatch({
+            beliefExists: (beliefExistsValue ?? confidence) !== undefined ? 'cee' : undefined,
+            weight: weightSource !== 'default' ? 'cee' : undefined,
+            strengthStd: strengthStd !== undefined ? 'cee' : undefined,
+            direction: directionFromEdge !== undefined ? 'cee' : undefined,
+          }),
           provenance: provenanceText,
           // Brief v2.2: New edge properties
           ...(direction ? { direction } : {}),
@@ -670,12 +696,9 @@ export function DraftChat() {
     // This eliminates the vulnerability window where AI drafts could be lost
     try {
       const currentState = useCanvasStore.getState()
-      saveAutosave({
-        timestamp: Date.now(),
-        scenarioId: currentState.currentScenarioId || undefined,
-        nodes: currentState.nodes,
-        edges: currentState.edges,
-      })
+      // Shared projection — previously this literal omitted ceeAnalysisReady
+      // and selectedGoalNode, and saveAutosave REPLACES rather than merges.
+      saveAutosave(projectAutosaveData(autosaveSourceFromStore(currentState)))
       if (import.meta.env.DEV) {
         console.warn('[DraftChat] Immediate autosave after draft applied', {
           nodes: currentState.nodes.length,
@@ -1050,7 +1073,7 @@ export function DraftChat() {
                 disabled={!canSubmit}
                 className="absolute right-1 bottom-0 p-2 rounded-full transition-colors"
                 style={{
-                  backgroundColor: canSubmit ? 'var(--primary, #2B7FA2)' : '#E8E5E1',
+                  backgroundColor: canSubmit ? 'var(--primary, #277A9D)' : '#E8E5E1',
                   color: canSubmit ? '#FFFFFF' : '#9B9B9B',
                   cursor: canSubmit ? 'pointer' : 'not-allowed'
                 }}
@@ -1446,7 +1469,7 @@ export function DraftChat() {
                   style={{
                     right: '12px',
                     bottom: '12px',
-                    backgroundColor: canSubmit ? 'var(--primary, #2B7FA2)' : '#E8E5E1',
+                    backgroundColor: canSubmit ? 'var(--primary, #277A9D)' : '#E8E5E1',
                     color: canSubmit ? '#FFFFFF' : '#9B9B9B',
                     cursor: canSubmit ? 'pointer' : 'not-allowed'
                   }}

@@ -82,6 +82,18 @@ export function useThreadPersistence(
   const persistedIdsRef = useRef<Set<string>>(new Set())
   const messageToEntryIdRef = useRef<Map<string, string>>(new Map())
   const prevMessageCountRef = useRef(0)
+  // Transcript honesty (trust item #3): user messages observed while
+  // deliveryState === 'pending' are DEFERRED — persisted only if/when they
+  // resolve to 'sent'. A turn the server never served ('failed', or still
+  // pending at teardown) must never be committed to storage as if it
+  // happened: before this, a user turn was written as entry_status
+  // 'complete' ~2s after the bubble appeared, two minutes before a 504
+  // could even come back, so storage contradicted the served history.
+  const deferredPendingIdsRef = useRef<Set<string>>(new Set())
+  // Message ids that have been through user-message persistence already
+  // (dispatch-time or resolution-time) — the resolution pass runs on every
+  // messages change, so it needs its own idempotency guard.
+  const handledMessageIdsRef = useRef<Set<string>>(new Set())
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const consecutiveFailuresRef = useRef(0)
   const cachedUserIdRef = useRef<string | undefined>(undefined)
@@ -137,21 +149,110 @@ export function useThreadPersistence(
     [scheduleFlush],
   )
 
-  // Observe new messages via count diff
+  // Observe messages: new arrivals via count diff, plus a resolution pass
+  // for deferred pending user messages (trust item #3 — a user turn is
+  // committed only once its delivery is known 'sent').
   useEffect(() => {
     if (!scenarioId) return
-    if (messages.length <= prevMessageCountRef.current) {
-      prevMessageCountRef.current = messages.length
-      return
-    }
-
-    const newMessages = messages.slice(prevMessageCountRef.current)
+    const newMessages =
+      messages.length > prevMessageCountRef.current
+        ? messages.slice(prevMessageCountRef.current)
+        : []
     prevMessageCountRef.current = messages.length
 
-    // Process new messages async (need user ID)
+    // Track every currently-pending visible user send — new dispatches AND
+    // failed bubbles re-pended by a retry.
+    //
+    // This does NOT need a full-transcript walk. A user message can only
+    // BECOME 'pending' in two places, both in useConversation's dispatch
+    // block (~3120-3136):
+    //   1. a fresh dispatch (`addUserBubble`) — appends a new bubble, so it
+    //      always arrives in `newMessages`;
+    //   2. a retryLast re-pend (`skipUserBubble`) — always targets
+    //      `lastVisibleUserBubbleIdRef`, which is only ever assigned the id of
+    //      a just-added bubble, i.e. the LAST user-role message. (ChatThread
+    //      wires its retry affordance off this same derivation.)
+    // So the candidate set is `newMessages` + that one message. A third case
+    // would have to mutate deliveryState from outside that block; there is
+    // none.
+    const trackIfPending = (msg: ConversationMessage) => {
+      if (msg.role !== 'user') return
+      if (msg.deliveryState === 'pending' && !handledMessageIdsRef.current.has(msg.id)) {
+        deferredPendingIdsRef.current.add(msg.id)
+      }
+    }
+    for (const msg of newMessages) trackIfPending(msg)
+    // The retry re-pend target: the last user-role message. Scans back only
+    // over the trailing non-user messages, not the transcript.
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i]
+      if (msg.role === 'user') {
+        trackIfPending(msg)
+        break
+      }
+    }
+
+    // Bail out before the resolution walk when there is provably nothing to
+    // do. With no deferred ids the resolution pass below is a no-op (it is
+    // gated on the same condition) and `resolvedUserMessages` stays empty, so
+    // this returns exactly where the check at the end of this block would —
+    // it just skips a full-transcript walk to get there. Restores the O(1)
+    // early return that the pre-deferral version had as a length compare.
+    if (newMessages.length === 0 && deferredPendingIdsRef.current.size === 0) return
+
+    // Resolution pass: deferred messages whose delivery state has settled.
+    // 'sent' → persist now; 'failed' → drop for good (never committed —
+    // matches the served history, which lacks the failed turn).
+    const resolvedUserMessages: ConversationMessage[] = []
+    if (deferredPendingIdsRef.current.size > 0) {
+      for (const msg of messages) {
+        if (!deferredPendingIdsRef.current.has(msg.id)) continue
+        if (msg.deliveryState === 'pending') continue
+        deferredPendingIdsRef.current.delete(msg.id)
+        if (msg.deliveryState === 'sent') resolvedUserMessages.push(msg)
+      }
+    }
+
+    if (newMessages.length === 0 && resolvedUserMessages.length === 0) return
+
+    // Process async (need user ID)
     void (async () => {
       const userId = await resolveUserId()
       const legacyEnabled = isThreadPersistEnabled()
+
+      const persistUserMessage = (msg: ConversationMessage) => {
+        if (handledMessageIdsRef.current.has(msg.id)) return
+        handledMessageIdsRef.current.add(msg.id)
+        const entryId = crypto.randomUUID()
+        messageToEntryIdRef.current.set(msg.id, entryId)
+
+        // Legacy thread path (flag-gated)
+        if (legacyEnabled) {
+          enqueue({
+            entry_id: entryId,
+            entry_schema_version: 1,
+            role: 'user',
+            origin: 'conversation',
+            actor_user_id: userId,
+            entry_status: 'complete',
+            user_message: msg.content,
+            turn_id: msg.clientTurnId,
+            redaction_state: 'full',
+          })
+        }
+
+        // Normalised turn (always-on, best-effort, fire-and-forget)
+        // Skip if scenario not persisted to Supabase
+        if (useCanvasStore.getState().scenarioPersistedToDb) {
+          void insertConversationTurn({
+            scenarioId,
+            role: 'user',
+            content: msg.content,
+            clientTurnId: msg.clientTurnId,
+            snapshotId: useResultsStore.getState().results.lastSnapshotId ?? undefined,
+          })
+        }
+      }
 
       for (const msg of newMessages) {
         // Skip synthetic messages (welcome, error, undo confirmations)
@@ -166,37 +267,17 @@ export function useThreadPersistence(
           continue
         }
 
-        const entryId = crypto.randomUUID()
-        messageToEntryIdRef.current.set(msg.id, entryId)
-
         if (msg.role === 'user') {
-          // Legacy thread path (flag-gated)
-          if (legacyEnabled) {
-            enqueue({
-              entry_id: entryId,
-              entry_schema_version: 1,
-              role: 'user',
-              origin: 'conversation',
-              actor_user_id: userId,
-              entry_status: 'complete',
-              user_message: msg.content,
-              turn_id: msg.clientTurnId,
-              redaction_state: 'full',
-            })
-          }
-
-          // Normalised turn (always-on, best-effort, fire-and-forget)
-          // Skip if scenario not persisted to Supabase
-          if (useCanvasStore.getState().scenarioPersistedToDb) {
-            void insertConversationTurn({
-              scenarioId,
-              role: 'user',
-              content: msg.content,
-              clientTurnId: msg.clientTurnId,
-              snapshotId: useResultsStore.getState().results.lastSnapshotId ?? undefined,
-            })
-          }
+          // Trust item #3: an unresolved send is deferred (tracked above);
+          // a failed one is never committed. Only known-delivered messages
+          // — 'sent', or legacy/V4 messages with no deliveryState — persist
+          // at observation time.
+          if (msg.deliveryState === 'pending' || msg.deliveryState === 'failed') continue
+          persistUserMessage(msg)
         } else if (msg.role === 'assistant') {
+          const entryId = crypto.randomUUID()
+          messageToEntryIdRef.current.set(msg.id, entryId)
+
           // Legacy thread path (flag-gated)
           if (legacyEnabled) {
             const blocks = msg.blocks?.map(toPersistedBlock)
@@ -240,6 +321,11 @@ export function useThreadPersistence(
           }
         }
       }
+
+      // Deferred user sends whose delivery just resolved 'sent'.
+      for (const msg of resolvedUserMessages) {
+        persistUserMessage(msg)
+      }
     })()
   }, [messages, scenarioId, enqueue, resolveUserId])
 
@@ -266,6 +352,8 @@ export function useThreadPersistence(
   useEffect(() => {
     persistedIdsRef.current.clear()
     messageToEntryIdRef.current.clear()
+    deferredPendingIdsRef.current.clear()
+    handledMessageIdsRef.current.clear()
     prevMessageCountRef.current = 0
     bufferRef.current = []
     consecutiveFailuresRef.current = 0

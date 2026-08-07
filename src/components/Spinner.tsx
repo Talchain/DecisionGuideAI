@@ -27,7 +27,7 @@ export function Spinner({ size = 'md', label, className = '' }: SpinnerProps) {
         aria-hidden="true"
       />
       {label && (
-        <span className={`${typography.caption} text-ink-900/70`}>
+        <span className={`${typography.caption} text-ink-900`}>
           {label}
         </span>
       )}

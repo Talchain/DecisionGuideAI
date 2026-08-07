@@ -58,7 +58,6 @@ function makeGap(overrides: Partial<EvidenceGapItem> = {}): EvidenceGapItem {
     factorLabel: 'Evidence Gap A',
     confidence: 70,
     voi: 0.5,
-    evpiPp: 25,
     suggestion: 'Gather data',
     targetNodeId: 'node_g',
     ...overrides,
@@ -107,7 +106,7 @@ function makeData(opts: MakeOpts = {}): ResultsSectionDataReturn {
     // tests set it to simulate a future display-safe robustness contract.
     robustnessLevel: 'robustnessLevel' in opts ? opts.robustnessLevel : 'high',
     robustnessVerdict:
-      'robustnessVerdict' in opts ? opts.robustnessVerdict : 'high',
+      'robustnessVerdict' in opts ? opts.robustnessVerdict : 'robust',
     coachingReadiness: 'ready',
   } as DecisionResultData
 
@@ -239,6 +238,72 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
     expect(screen.queryByTestId('t1-dominant-nudge')).not.toBeInTheDocument()
   })
 
+  it('Lane 2 (policy divergence): nudge gates on displayInfluence, not raw influenceScore — raw 0.95 / display 0.6 → suppressed', () => {
+    // Under partial producer coverage the shared driverDisplayModel falls
+    // back to normalised elasticity for EVERY driver; the panel bar shows
+    // displayInfluence. A nudge keyed on the raw score would then claim a
+    // dominance the same panel's bars contradict (the tornado had exactly
+    // this bug — Codex final-audit B1).
+    render(
+      <DecisionConfidencePanel
+        data={makeData({
+          drivers: [
+            makeDriver({
+              influenceScore: 0.95,
+              displayInfluence: 0.6,
+              displayProvenance: 'normalised_elasticity',
+            }),
+          ],
+          dominantFactorLabel: 'Pricing',
+        })}
+      />,
+    )
+    expect(screen.queryByTestId('t1-dominant-nudge')).not.toBeInTheDocument()
+  })
+
+  it('Lane 2 (review fold): a SET-RELATIVE display value never fires the absolute dominance claim — display 1.0 (partial coverage) → suppressed', () => {
+    // Under partial coverage the top driver's display value is 1.0 BY
+    // CONSTRUCTION (set-normalised). "Drives 100% of the outcome" from that
+    // basis is a fabricated causal share — and would contradict the V17
+    // dominance gate (UI-SEM-040, absolute) on the same screen.
+    render(
+      <DecisionConfidencePanel
+        data={makeData({
+          drivers: [
+            makeDriver({
+              influenceScore: 0.3,
+              displayInfluence: 1.0,
+              displayProvenance: 'normalised_elasticity',
+            }),
+          ],
+          dominantFactorLabel: 'Pricing',
+          dominantFactorId: 'node_pricing',
+        })}
+      />,
+    )
+    expect(screen.queryByTestId('t1-dominant-nudge')).not.toBeInTheDocument()
+  })
+
+  it('Lane 2 (review fold): the absolute claim fires on the PRODUCER basis — display 0.85 with influence_score provenance → "85% of the outcome"', () => {
+    render(
+      <DecisionConfidencePanel
+        data={makeData({
+          drivers: [
+            makeDriver({
+              influenceScore: 0.85,
+              displayInfluence: 0.85,
+              displayProvenance: 'influence_score',
+            }),
+          ],
+          dominantFactorLabel: 'Pricing',
+          dominantFactorId: 'node_pricing',
+        })}
+      />,
+    )
+    const nudge = screen.getByTestId('t1-dominant-nudge')
+    expect(nudge).toHaveTextContent(/85% of the outcome/)
+  })
+
   it('DriversSection no longer renders any dominant-factor warning (legacy testid is gone)', () => {
     const drivers: DriverItem[] = [makeDriver({ influenceScore: 0.95 })]
     const driversData: DriversSectionData = {
@@ -267,13 +332,13 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
       />,
     )
     expect(screen.getByTestId('t1-checks-footer')).toBeInTheDocument()
-    expect(screen.getByTestId('checks-winner')).toHaveTextContent('Winner')
+    expect(screen.getByTestId('checks-winner')).toHaveTextContent('Has leading option')
     expect(screen.getByTestId('checks-robust')).toHaveTextContent('Robust')
     expect(screen.getByTestId('checks-evidence')).toHaveTextContent('Evidence covered')
     expect(screen.getByTestId('checks-addressed')).toHaveTextContent('1/1 addressed')
   })
 
-  it('flips Robust to "Sensitive" when the display-safe verdict is not high', () => {
+  it('flips Robust to "Sensitive" on a sensitive display-safe verdict', () => {
     // The glyph follows the display-safe robustnessVerdict, not a UI-local
     // recommendationStability threshold or the structured PLoT level.
     render(
@@ -302,11 +367,22 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
 
   it('renders Robust (success) and Sensitive (danger) distinctly from unknown', () => {
     const { rerender } = render(
-      <DecisionConfidencePanel data={makeData({ robustnessVerdict: 'high' })} />,
+      <DecisionConfidencePanel data={makeData({ robustnessVerdict: 'robust' })} />,
     )
     expect(glyphIconClass('checks-robust')).toContain('text-success')
     rerender(<DecisionConfidencePanel data={makeData({ robustnessVerdict: 'moderate' })} />)
     expect(glyphIconClass('checks-robust')).toContain('text-danger')
+  })
+
+  it('renders "Robustness not assessed" as a NEUTRAL state for the producer\'s stated absence (never "Sensitive")', () => {
+    render(
+      <DecisionConfidencePanel
+        data={makeData({ robustnessVerdict: 'not_assessed' })}
+      />,
+    )
+    expect(screen.getByTestId('checks-robust')).toHaveTextContent('Robustness not assessed')
+    expect(glyphIconClass('checks-robust')).toContain('text-text-light')
+    expect(glyphIconClass('checks-robust')).not.toContain('text-danger')
   })
 
   it('ignores the structured PLoT/fallback robustnessLevel for the glyph (renders unknown)', () => {

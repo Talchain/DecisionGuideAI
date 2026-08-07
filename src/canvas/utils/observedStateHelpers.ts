@@ -112,6 +112,32 @@ export function isFactorNeedsInput(nodeData: unknown): boolean {
 }
 
 /**
+ * Convert a raw, real-world factor figure into the normalised model-space
+ * `value` the engine consumes.
+ *
+ * This is the rule every value-edit path in the UI applies, and this is its
+ * ONLY implementation — call it, never re-type it.
+ *
+ * Deliberately NOT documented here: a list of the call sites. The previous
+ * version of this docstring kept one, it drifted (it named two of the three
+ * inline copies and missed the triage path in OutputsDock), and the drift read
+ * as green because nothing checked it. The convergence is enforced instead by
+ * a guard in `__tests__/observedStateHelpers.spec.ts` that derives the file set
+ * from `git ls-files` and fails loud when the rule is re-inlined anywhere.
+ *
+ * A missing, non-finite or non-positive cap means "no honest scale exists", in
+ * which case the typed number IS the model-space value — the same fallback the
+ * existing call sites take. Never throws; a non-finite raw value is returned
+ * unchanged so the caller's own finite-number guard is the single rejection
+ * point rather than a silent coercion here.
+ */
+export function normaliseRawFactorValue(rawValue: number, cap: number | undefined | null): number {
+  if (!Number.isFinite(rawValue)) return rawValue
+  if (typeof cap !== 'number' || !Number.isFinite(cap) || cap <= 0) return rawValue
+  return rawValue / cap
+}
+
+/**
  * Build a node data patch that writes observed_state updates to BOTH keys.
  * Spreads existing state, then overlays the updates.
  *

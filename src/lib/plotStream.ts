@@ -3,7 +3,7 @@
  * Flag: VITE_UI_STREAM_CANARY=1
  */
 
-const API_BASE = import.meta.env.VITE_PLOT_API_BASE_URL || 'https://plot-api.example.com'
+const API_BASE = import.meta.env?.VITE_PLOT_API_BASE_URL || 'https://plot-api.example.com'
 const RETRY_MS = 1500
 const KEEPALIVE_INTERVAL_MS = 15000
 
@@ -91,5 +91,5 @@ export class PlotStreamClient {
 }
 
 export function isStreamCanaryEnabled(): boolean {
-  return import.meta.env.VITE_UI_STREAM_CANARY === '1'
+  return import.meta.env?.VITE_UI_STREAM_CANARY === '1'
 }

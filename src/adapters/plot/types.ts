@@ -14,13 +14,36 @@ export interface OptionProbability {
 export interface ReportV1 {
   schema: 'report.v1'
   meta: {
-    seed: number
+    /**
+     * Seed the engine actually used, or null when no real value exists
+     * (e.g. the V5 contract carries no seed field). Receipts fail closed:
+     * consumers hide the Seed row on null rather than fabricating 0.
+     */
+    seed: number | null
     response_id: string
     elapsed_ms: number
   }
   model_card: {
     response_hash: string
-    response_hash_algo: 'sha256'
+    /**
+     * Digest algorithm behind `response_hash`. `'sha256'` on the producer /
+     * PLoT paths (V1/V2). `'fnv1a-64'` on the V5 conversational path, where the
+     * UI derives a LOCAL, non-crypto content digest (FNV-1a 64-bit — see
+     * `deriveBlockHash` in mapV5AnalysisToReport.ts) because the V5 contract
+     * carries no engine hash. F12: this field previously read `'sha256'` on the
+     * V5 path too, which misrepresented the algorithm actually used.
+     */
+    response_hash_algo: 'sha256' | 'fnv1a-64'
+    /**
+     * Provenance of `response_hash`. `'producer'` = the engine's own hash
+     * (V2/PLoT path, carried verbatim). `'local'` = a device-derived content
+     * hash the UI computed because the producer sent none (V5 conversational
+     * path — a non-crypto digest, NOT an engine identity). Receipts label the
+     * local case explicitly so the hash is never read as a producer identity.
+     * Absent on older reports → treated as producer (never mislabels a real
+     * engine hash as local).
+     */
+    response_hash_source?: 'producer' | 'local'
     normalized: true
     // P0 Engine Features (optional - may not be present in all responses)
     // identifiability_tag can be enum OR string (from top-level identifiability field)
@@ -294,7 +317,16 @@ export interface CritiqueItemV1 {
  */
 export type CanonicalRun = {
   responseHash: string
-  bands: { p10: number | null; p50: number | null; p90: number | null }
+  /**
+   * OPTIONAL since lane 3 (#585 review F1): a `run` minted for critiques
+   * only must OMIT this key entirely. A bands object of nulls is a TRUTHY
+   * value — two readers branch on object truthiness (`canonicalBands ?
+   * canonicalBands.p50 : results.likely` at OutputsDock.tsx and the
+   * `if (bands)` early-return in share/decisionSummary.ts) and would skip
+   * their real `report.results.*` fallbacks, nulling a real number.
+   * True absence, never presence-shaped absence.
+   */
+  bands?: { p10: number | null; p50: number | null; p90: number | null }
   confidence?: { level?: string; reason?: string; score?: number }
   critique?: CritiqueItemV1[]
 }

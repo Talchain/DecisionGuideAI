@@ -22,14 +22,35 @@ import { devWarn } from '../../utils/debugLog'
 /**
  * All canvas node type identifiers.
  *
- * NOTE — 'constraint': schema-defined and has a ConstraintNode renderer + registry entry,
+ * NOTE — 'constraint': schema-defined (kept for wire tolerance / ref resolution),
  * but CEE/PLoT never emits canvas nodes with type 'constraint'. Constraints surface as
  * badge data on GoalNode (store.goalConstraints + results.report.goal_constraints), not as
- * standalone canvas nodes. The ConstraintNode rendering path is dead in production.
- * Do not add CEE-driven constraint node emission without a design review.
+ * standalone canvas nodes. The dead ConstraintNode renderer + its registry entry were
+ * removed (honesty sweep) — there is no 'constraint' ReactFlow renderer.
+ * Do not add CEE-driven constraint node emission (or re-add a renderer) without a design review.
  */
 export const NodeTypeEnum = z.enum(['goal', 'decision', 'option', 'factor', 'risk', 'outcome', 'action', 'constraint'])
 export type NodeType = z.infer<typeof NodeTypeEnum>
+
+/**
+ * Prior — either a plain probability (0..1) or the CEE distribution object
+ * (`{ distribution, range_min, range_max }`) that external factors carry.
+ *
+ * The object form is a first-class LIVE shape: written by
+ * useInspectorMutations (range edits), read by FactorNode/DecisionNode range
+ * displays, FactorExternalEditor/Panel and observedStateHelpers. Real canvas
+ * exports carry it (walk-582 fixtures, 2.463), so the import schema must
+ * accept it. `.passthrough()` matches the ObservedStateSchema/
+ * InterventionSchema convention for CEE-sourced value objects (additive CEE
+ * fields must survive the parse).
+ */
+export const PriorDistributionSchema = z.object({
+  distribution: z.string().optional(),
+  range_min: z.number().optional(),
+  range_max: z.number().optional(),
+}).passthrough()
+export const PriorSchema = z.union([z.number().min(0).max(1), PriorDistributionSchema])
+export type Prior = z.infer<typeof PriorSchema>
 
 /**
  * Base node data schema (v3)
@@ -43,7 +64,7 @@ export const NodeDataSchema = z.object({
 
   // v1.2 API fields (optional, for backend interop)
   kind: z.enum(['goal', 'decision', 'option', 'factor', 'risk', 'outcome', 'action', 'constraint']).optional(), // Backend node classification
-  prior: z.number().min(0).max(1).optional(), // Probability (0..1)
+  prior: PriorSchema.optional(), // Probability (0..1) or CEE distribution object
   utility: z.number().min(-1).max(1).optional(), // Relative payoff (-1..+1)
   body: z.string().max(2000).optional(), // Longer text (distinct from description)
 
@@ -133,6 +154,14 @@ export const OptionNodeDataSchema = NodeDataSchema.extend({
     z.string(),
     z.union([z.number(), InterventionSchema]),
   ).nullable().optional(),
+  /**
+   * Derived cache of Object.keys(interventions) — written by every live
+   * creation path (mapDraftNodeToCanvas, applyPatch buildNode, plot adapter)
+   * and present on every real export. Kept in the schema so export → import
+   * round-trips losslessly (2.463); readers should still derive from
+   * `interventions` where possible.
+   */
+  interventionKeys: z.array(z.string()).nullable().optional(),
 })
 
 /**
@@ -175,6 +204,13 @@ export const FactorNodeDataSchema = NodeDataSchema.extend({
   observedState: ObservedStateSchema.nullable().optional(),
   /** CEE wire-shape top-level display text (mirrored in ObservedStateSchema for legacy reads). */
   display_value: z.string().nullable().optional(),
+  /**
+   * CEE value-encoding legend (e.g. { "0": "Not selected", "1": "Alpha Hall
+   * selected" }) — present on every drafted binary factor in real exports
+   * (walk-582 fixtures, 2.463). In the schema so export → import round-trips
+   * losslessly; numeric values tolerated defensively.
+   */
+  encoding_map: z.record(z.string(), z.union([z.string(), z.number()])).nullable().optional(),
 })
 
 /**
@@ -233,9 +269,12 @@ export const ConstraintNodeDataSchema = NodeDataSchema.extend({
 })
 
 /**
- * Discriminated union of all node data types
+ * The eight per-type node-data schemas, in one place. BOTH unions below are
+ * derived from this single array, so adding a node type reaches the strict
+ * union AND the migration-boundary union automatically — there is no second
+ * list to keep in sync (trap 12: derive, don't mirror).
  */
-export const AnyNodeDataSchema = z.discriminatedUnion('type', [
+const NODE_DATA_SCHEMAS = [
   GoalNodeDataSchema,
   DecisionNodeDataSchema,
   OptionNodeDataSchema,
@@ -244,7 +283,65 @@ export const AnyNodeDataSchema = z.discriminatedUnion('type', [
   OutcomeNodeDataSchema,
   ActionNodeDataSchema,
   ConstraintNodeDataSchema,
-])
+] as const
+
+/**
+ * Discriminated union of all node data types.
+ *
+ * STRICT (Zod default `unknownKeys: 'strip'`). This is the shape that backs the
+ * exported `NodeData`/`GoalNodeData`/… types and the warning-only
+ * `validateNodeData` drift check — both want a tight, fully-declared shape.
+ * Do NOT use it to parse a snapshot: see `AnyNodeDataImportSchema`.
+ */
+export const AnyNodeDataSchema = z.discriminatedUnion('type', NODE_DATA_SCHEMAS)
+
+/**
+ * ROADMAP 2.590 — the migration-boundary variant of the union above.
+ *
+ * ── The defect this exists to close ──────────────────────────────────────────
+ * `V2SnapshotSchema` (domain/migrations.ts) parsed node `data` with the STRICT
+ * union. Zod object schemas strip undeclared keys by default, so importing a
+ * real export silently destroyed every field outside the ~8-13 keys each
+ * per-type schema declares. A measured genuine export came back with
+ * `goal_mrr.data` reduced to exactly `{kind, label, provenance, type}` — target,
+ * unit and cap gone, no error anywhere. **The parser was discarding what the
+ * renderers read**: `nodes/GoalNode.tsx` reads `data.goal_threshold_raw`,
+ * `goal_threshold_unit`, `success_threshold` and `threshold_source`; not one of
+ * those is declared by any schema in the union. `nodes/BaseNode.tsx` — the
+ * shared wrapper for ALL eight renderers — reads `flagged_as_assumption`,
+ * `uncertainty`, `unknownKind` and `originalKind`, none of them declared either.
+ *
+ * ── Why permissive HERE and nowhere else ─────────────────────────────────────
+ * An import parser's job at this boundary is SHAPE VALIDATION AND MIGRATION —
+ * check the discriminant, the required fields, the version. Deciding which data
+ * fields are legitimate is not its job; the filtering was a side effect of using
+ * a strict object schema as a validator, never a designed behaviour. Every other
+ * layer of this repo already treats `node.data` as an open bag on purpose:
+ *   • `transformNodeToV2` (adapters/plot/v2/adapter.ts) uses a BLOCKLIST, and
+ *     says so — "all node.data fields pass through to PLoT EXCEPT … This ensures
+ *     V3 fields (goal_threshold_*, prior, etc.) survive without needing explicit
+ *     forwarding."
+ *   • `CanvasNodeData` (same file) declares `[key: string]: unknown`.
+ *   • `computeGraphHash` (hooks/useAutosave.ts) hashes ALL node data by default
+ *     with a small explicit ephemeral denylist.
+ *   • `ObservedStateSchema` and `EdgeDataSchema` are ALREADY `.passthrough()` —
+ *     which is precisely why nested observed state and edge data survived import
+ *     while top-level node data did not.
+ *   • UI CLAUDE.md: "Preserve unknown fields everywhere — that's how
+ *     forward-compatible data survives the version skew."
+ * The strict union was the last allowlist on an otherwise open path, and it was
+ * the only one positioned to destroy user data.
+ *
+ * Discrimination, required fields and per-field types are UNCHANGED — a node
+ * with a bad `type`, a missing `label` or an out-of-range `utility` is still
+ * rejected exactly as before. Only the silent deletion of undeclared keys stops.
+ *
+ * Round-trip survival is pinned by `__tests__/importFieldSurvival.2590.spec.ts`.
+ */
+export const AnyNodeDataImportSchema = z.discriminatedUnion(
+  'type',
+  NODE_DATA_SCHEMAS.map((schema) => schema.passthrough()) as unknown as typeof NODE_DATA_SCHEMAS,
+)
 
 export type NodeData = z.infer<typeof AnyNodeDataSchema>
 export type GoalNodeData = z.infer<typeof GoalNodeDataSchema>

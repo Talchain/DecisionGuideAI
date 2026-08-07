@@ -148,7 +148,7 @@ describe('InspectorRouter', () => {
         { id: 'g1', type: 'goal', data: { label: 'Target', kind: 'goal' }, position: { x: 100, y: 0 } },
       ],
       [
-        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.65, direction: 'positive' } },
+        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.65, direction: 'positive', weightSource: 'cee' } },
       ],
     )
     render(<InspectorRouter nodeId="out1" edgeId={null} onClose={onClose} />)
@@ -172,7 +172,7 @@ describe('InspectorRouter', () => {
         { id: 'g1', type: 'goal', data: { label: 'Target', kind: 'goal' }, position: { x: 100, y: 0 } },
       ],
       [
-        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.5, direction: 'positive' } },
+        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.5, direction: 'positive', weightSource: 'cee' } },
       ],
     )
     // results status is 'idle' — pre-analysis
@@ -187,7 +187,7 @@ describe('InspectorRouter', () => {
         { id: 'g1', type: 'goal', data: { label: 'Target', kind: 'goal' }, position: { x: 100, y: 0 } },
       ],
       [
-        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.5, direction: 'positive' } },
+        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.5, direction: 'positive', weightSource: 'cee' } },
       ],
     )
     useCanvasStore.setState({ results: { status: 'complete' } } as never)
@@ -247,5 +247,85 @@ describe('InspectorRouter', () => {
     expect(screen.getByText('CHF')).toBeTruthy()
     const valueInput = container.querySelector('input[type="number"]') as HTMLInputElement | null
     expect(valueInput!.value).toBe('1000')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// F3 — the ConfidenceBadge spoke the UI default, and AVERAGED it
+// ---------------------------------------------------------------------------
+//
+// This path is live: `InspectorModal.tsx:16` is `const USE_INSPECTOR_V2 = true`.
+// `getEdgeConfidence` returns `beliefExists` raw — `0.8` on an edge the user
+// merely drew — so clicking a fresh edge showed a "high · 80%" badge.
+//
+// The node case is worse: the badge is the MEAN of inbound edge confidence, so
+// on a freshly drawn graph every inbound edge contributed the same 0.8 and the
+// goal node showed "high · 80%" — a synthetic aggregate of a constant. An
+// aggregate reads as far more evidentiary than a single field.
+describe('InspectorRouter — confidence badges are provenance-gated', () => {
+  const onClose = vi.fn()
+  const drawn = { weight: 0.3, direction: 'positive', beliefExists: 0.8 }
+  const characterised = { ...drawn, beliefExists: 0.8, beliefExistsSource: 'user' }
+
+  function graph(edgeData: Record<string, unknown>) {
+    return {
+      nodes: [
+        { id: 'f1', type: 'factor', data: { label: 'Price', kind: 'factor' }, position: { x: 0, y: 0 } },
+        { id: 'g1', type: 'goal', data: { label: 'Revenue target', kind: 'goal' }, position: { x: 0, y: 0 } },
+      ],
+      edges: [{ id: 'e1', source: 'f1', target: 'g1', data: edgeData }],
+    }
+  }
+
+  it('POSITIVE CONTROL: a characterised edge DOES show its confidence badge', () => {
+    const g = graph(characterised)
+    setStoreState(g.nodes, g.edges)
+    render(<InspectorRouter nodeId={null} edgeId="e1" onClose={onClose} />)
+    expect(screen.getByTestId('inspector-confidence-badge').textContent ?? '').toMatch(/80%/)
+  })
+
+  it('shows NO confidence badge for an edge nobody characterised', () => {
+    const g = graph(drawn)
+    setStoreState(g.nodes, g.edges)
+    render(<InspectorRouter nodeId={null} edgeId="e1" onClose={onClose} />)
+    // Scoped to the header BADGE — the F3 finding. The panel body's
+    // "Does this connection exist?" slider is a separate ungated surface,
+    // recorded as a new finding rather than silently folded in here.
+    expect(screen.queryByTestId('inspector-confidence-badge')).toBeNull()
+  })
+
+  it('POSITIVE CONTROL: the goal node DOES average characterised inbound edges', () => {
+    const g = graph(characterised)
+    setStoreState(g.nodes, g.edges)
+    render(<InspectorRouter nodeId="g1" edgeId={null} onClose={onClose} />)
+    expect(screen.getByTestId('inspector-confidence-badge').textContent ?? '').toMatch(/80%/)
+  })
+
+  it('does NOT synthesise a node-level aggregate out of defaulted edges', () => {
+    const g = graph(drawn)
+    setStoreState(g.nodes, g.edges)
+    render(<InspectorRouter nodeId="g1" edgeId={null} onClose={onClose} />)
+    expect(screen.queryByTestId('inspector-confidence-badge')).toBeNull()
+  })
+
+  it('averages ONLY the characterised edges, never counting a default as 0.8', () => {
+    setStoreState(
+      [
+        { id: 'f1', type: 'factor', data: { label: 'Price', kind: 'factor' }, position: { x: 0, y: 0 } },
+        { id: 'f2', type: 'factor', data: { label: 'Demand', kind: 'factor' }, position: { x: 0, y: 0 } },
+        { id: 'g1', type: 'goal', data: { label: 'Revenue target', kind: 'goal' }, position: { x: 0, y: 0 } },
+      ],
+      [
+        { id: 'e1', source: 'f1', target: 'g1', data: { beliefExists: 0.4, beliefExistsSource: 'user' } },
+        // Unstamped: must be EXCLUDED from the mean, not folded in as 0.8.
+        { id: 'e2', source: 'f2', target: 'g1', data: { beliefExists: 0.8 } },
+      ],
+    )
+    render(<InspectorRouter nodeId="g1" edgeId={null} onClose={onClose} />)
+    const text = screen.getByTestId('inspector-confidence-badge').textContent ?? ''
+    // Mean of the one characterised edge = 0.4 → 40%. Folding the default in
+    // would give (0.4 + 0.8) / 2 = 0.6 → 60%.
+    expect(text).toMatch(/40%/)
+    expect(text).not.toMatch(/60%/)
   })
 })

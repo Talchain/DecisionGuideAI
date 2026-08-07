@@ -100,7 +100,11 @@ export function InterventionRow({
           </button>
         </div>
         {delta != null && showNumericSurface && (
-          <span className={`${typography.panelMeta} ${deltaColor}`}>
+          <span
+            className={`${typography.panelMeta} ${deltaColor}`}
+            title="Change vs baseline"
+            aria-label={`${Math.abs(delta).toFixed(0)}% change vs baseline`}
+          >
             {deltaSign} {Math.abs(delta).toFixed(0)}%
           </span>
         )}

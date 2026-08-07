@@ -35,6 +35,27 @@ describe('humaniseCritique', () => {
       expect(result.factorId).toBe('fac_rev')
     })
 
+    // ROADMAP 1.54 density wall (PLoT #209): two new producer codes must have
+    // code-keyed templates (the 1.12 pattern) instead of the generic fallback.
+    it('SAMPLES_REDUCED_FOR_COMPLEXITY discloses the reduced-precision run honestly', () => {
+      const result = humaniseCritique(makeItem({ code: 'SAMPLES_REDUCED_FOR_COMPLEXITY' }))
+      expect(result.title).toBe('Analysis ran at reduced precision')
+      expect(result.description).toContain('fewer simulation samples')
+      expect(result.description).toMatch(/less stable/i)
+      expect(result.suggestion).toMatch(/connections|influences/i)
+      expect(result.displayText).not.toBeNull()
+    })
+
+    it('GRAPH_TOO_COMPLEX names the structural fix, never the internal budget maths', () => {
+      const result = humaniseCritique(makeItem({ code: 'GRAPH_TOO_COMPLEX' }))
+      expect(result.title).toBe('Model too complex to analyse')
+      expect(result.description).toMatch(/connections|complexity/i)
+      expect(result.suggestion).toMatch(/remove|reduce/i)
+      // Never leak engine internals into user copy
+      expect(result.description).not.toMatch(/node.?edge product|complexity budget|n_samples/i)
+      expect(result.displayText).not.toBeNull()
+    })
+
     it('LOW_EVIDENCE', () => {
       const result = humaniseCritique(makeItem({ code: 'LOW_EVIDENCE' }))
       expect(result.title).toBe('Limited evidence available')
@@ -64,6 +85,93 @@ describe('humaniseCritique', () => {
     it('EMPTY_COMPUTED_RESULTS', () => {
       const result = humaniseCritique(makeItem({ code: 'EMPTY_COMPUTED_RESULTS' }))
       expect(result.title).toBe('Analysis returned limited results')
+    })
+
+    // ROADMAP 1.12 — warning surfacing. CONSTRAINT_TARGET_UNRELIABLE is a
+    // producer WARNING-severity code (PLoT constraint-reliability.ts, lane
+    // P0-C2) naming a goal-fit target whose probabilities were withheld
+    // because the underlying value is unscaled/missing. Before this fix it
+    // had no CODE_TEMPLATES entry, so it fell through to the safe-but-vague
+    // generic fallback ("Review this factor's inputs") — technically honest
+    // but not the meaningful warning the roadmap item calls for.
+    it('CONSTRAINT_TARGET_UNRELIABLE with resolved label', () => {
+      const labels = new Map([['fac_churn', 'Customer churn']])
+      const result = humaniseCritique(
+        makeItem({ code: 'CONSTRAINT_TARGET_UNRELIABLE', affectedNodes: ['fac_churn'] }),
+        labels,
+      )
+      expect(result.title).toContain('Customer churn')
+      expect(result.title).not.toBe("Review this factor's inputs")
+      expect(result.description.length).toBeGreaterThan(0)
+      expect(result.suggestion).toContain('Customer churn')
+      expect(result.factorId).toBe('fac_churn')
+      // Never the raw producer message (V14.3 guard) even though it's mapped.
+      expect(result.title).not.toContain('observed_state')
+      expect(result.title).not.toContain('constraint_fac_churn_max')
+    })
+
+    it('CONSTRAINT_TARGET_UNRELIABLE falls back to "This factor" without a resolved label (no fabricated name)', () => {
+      const result = humaniseCritique(makeItem({ code: 'CONSTRAINT_TARGET_UNRELIABLE', affectedNodes: undefined }))
+      expect(result.title).toContain('This factor')
+    })
+
+    // 1.52 follow-up — CONSTRAINT_DIRECTION_SUSPECT/ASSUMED are new PLoT
+    // warning codes distinct from CONSTRAINT_TARGET_UNRELIABLE: the target
+    // *value* isn't the problem here, the target's *direction* (higher-is-
+    // better vs lower-is-better) couldn't be confirmed (SUSPECT) or was
+    // assumed without confirmation (ASSUMED). Before this fix neither had a
+    // CODE_TEMPLATES entry, so both fell through to the generic unmapped-code
+    // fallback ("Review this factor's inputs") instead of a meaningful,
+    // direction-specific warning.
+    it('CONSTRAINT_DIRECTION_SUSPECT with resolved label', () => {
+      const labels = new Map([['fac_churn', 'Customer churn']])
+      const result = humaniseCritique(
+        makeItem({ code: 'CONSTRAINT_DIRECTION_SUSPECT', affectedNodes: ['fac_churn'] }),
+        labels,
+      )
+      expect(result.title).toContain('Customer churn')
+      expect(result.title).not.toBe("Review this factor's inputs")
+      expect(result.description).toContain("couldn't be confirmed")
+      expect(result.description.length).toBeGreaterThan(0)
+      expect(result.suggestion).toContain('Customer churn')
+      expect(result.factorId).toBe('fac_churn')
+      expect(result.title).not.toContain('observed_state')
+      expect(result.title).not.toContain('constraint_fac_churn_max')
+    })
+
+    it('CONSTRAINT_DIRECTION_SUSPECT falls back to "This factor" without a resolved label (no fabricated name)', () => {
+      const result = humaniseCritique(makeItem({ code: 'CONSTRAINT_DIRECTION_SUSPECT', affectedNodes: undefined }))
+      expect(result.title).toContain('This factor')
+    })
+
+    it('CONSTRAINT_DIRECTION_ASSUMED with resolved label', () => {
+      const labels = new Map([['fac_rev', 'Revenue']])
+      const result = humaniseCritique(
+        makeItem({ code: 'CONSTRAINT_DIRECTION_ASSUMED', affectedNodes: ['fac_rev'] }),
+        labels,
+      )
+      expect(result.title).toContain('Revenue')
+      expect(result.title).not.toBe("Review this factor's inputs")
+      expect(result.description).toContain('assumed')
+      expect(result.description.length).toBeGreaterThan(0)
+      expect(result.suggestion).toContain('Revenue')
+      expect(result.factorId).toBe('fac_rev')
+      expect(result.title).not.toContain('observed_state')
+    })
+
+    it('CONSTRAINT_DIRECTION_ASSUMED falls back to "This factor" without a resolved label (no fabricated name)', () => {
+      const result = humaniseCritique(makeItem({ code: 'CONSTRAINT_DIRECTION_ASSUMED', affectedNodes: undefined }))
+      expect(result.title).toContain('This factor')
+    })
+
+    it('CONSTRAINT_DIRECTION_SUSPECT and CONSTRAINT_DIRECTION_ASSUMED are distinct from CONSTRAINT_TARGET_UNRELIABLE', () => {
+      const labels = new Map([['fac_churn', 'Customer churn']])
+      const unreliable = humaniseCritique(makeItem({ code: 'CONSTRAINT_TARGET_UNRELIABLE', affectedNodes: ['fac_churn'] }), labels)
+      const suspect = humaniseCritique(makeItem({ code: 'CONSTRAINT_DIRECTION_SUSPECT', affectedNodes: ['fac_churn'] }), labels)
+      const assumed = humaniseCritique(makeItem({ code: 'CONSTRAINT_DIRECTION_ASSUMED', affectedNodes: ['fac_churn'] }), labels)
+      expect(suspect.title).not.toBe(unreliable.title)
+      expect(assumed.title).not.toBe(unreliable.title)
+      expect(suspect.title).not.toBe(assumed.title)
     })
   })
 

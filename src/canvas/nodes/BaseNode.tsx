@@ -16,9 +16,7 @@ import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, ty
 import { useEditPreviewStore } from '../stores/editPreviewStore'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
-import { NodeBadge } from '../components/NodeBadge'
-import { useCEEInsights } from '../../hooks/useCEEInsights'
-import { useISLValidation } from '../../hooks/useISLValidation'
+import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
 import { NODE_CARD_MAX_W } from '../utils/nodeLayoutConstants'
@@ -47,6 +45,9 @@ interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
   icon: LucideIcon
   children?: ReactNode
+  /** D2: keep this node's title readable at level-of-detail zoom even though
+   * it is not a goal/decision (e.g. the leading option). */
+  lodKeepLabel?: boolean
   maxWidth?: number
   headerSlot?: ReactNode
   /** Override border colour + style classes (e.g. 'border-info border-dashed'). Replaces entity colour. */
@@ -58,7 +59,7 @@ interface BaseNodeProps extends NodeProps {
  * Includes connection handles and accessibility attributes
  * Click chevron icon to expand/collapse description
  */
-export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, borderClassOverride }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, borderClassOverride, lodKeepLabel = false }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   const description = typeof data?.description === 'string' ? data.description : undefined
 
@@ -69,15 +70,27 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const [isExpanded, setIsExpanded] = useState(false)
   const updateNodeInternals = useUpdateNodeInternals()
 
-  // Phase 2: Badge system integration
-  const { data: ceeInsights } = useCEEInsights()
-  const { data: islValidation } = useISLValidation()
-
   // Phase 3: Node highlighting
   // React #185 FIX: Return primitive boolean from selector to prevent re-renders
   // on every store update. Selecting the entire Set causes infinite loops since
   // Set references change on each store update.
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
+  // N3: edited since the last analysis run (amber corner dot; undefined-safe
+  // for node-spec store doubles without the slice).
+  const isEditedSinceRun = useCanvasStore(s => s.editedSinceRunNodeIds?.has(id) === true)
+  // Analysis-graph projection: this node is a key driver being viewed in the V7
+  // evidence disclosure. Primitive-boolean selector (React #185) + optional
+  // chaining so store doubles without the slice stay safe.
+  const isAnalysisDriver = useCanvasStore(
+    s => s.analysisHighlight?.source === 'drivers' && s.analysisHighlight?.nodeIds?.has(id) === true,
+  )
+  // D2: level-of-detail — at low zoom nodes simplify to their coloured shape;
+  // only goal / decision / explicitly-kept nodes (the leading option) keep a
+  // readable title. Undefined-safe for spec store doubles without the slice.
+  const lodActive = useCanvasStore(s => s.lodActive === true)
+  const lodKeepsTitle = nodeType === 'goal' || nodeType === 'decision' || lodKeepLabel
+  const lodHideTitle = lodActive && !lodKeepsTitle
+  const lodBoostTitle = lodActive && lodKeepsTitle
 
   // Graph Interaction P1: Node dimming for path highlighting
   // Nodes not on the highlighted path are dimmed (opacity ~0.4)
@@ -109,40 +122,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
   // Decision Graph Display v2: Get Results-mode display metadata
   const displayMetadata = useNodeDisplayMetadata(id, nodeType)
-
-  const ceeWarnings = ceeInsights?.structural_health.warnings || []
-  const islAffected = islValidation?.suggestions.some(suggestion =>
-    suggestion.affectedNodes.includes(id)
-  ) || false
-
-  // Open diagnostics tab in OutputsDock using DOM click pattern
-  // (Same approach as DegradedBanner.tsx for consistency - avoids undefined store methods)
-  const handleBadgeClick = () => {
-    try {
-      const btn = document.querySelector('[data-testid="outputs-dock-tab-diagnostics"]') as HTMLButtonElement | null
-      if (btn) {
-        btn.click()
-        btn.focus()
-        return
-      }
-      // Fallback: update sessionStorage so OutputsDock opens on next render
-      if (typeof sessionStorage !== 'undefined') {
-        const existingRaw = sessionStorage.getItem('canvas.outputsDock.v1')
-        let next: { isOpen: boolean; activeTab: string } = { isOpen: true, activeTab: 'diagnostics' }
-        if (existingRaw) {
-          try {
-            const parsed = JSON.parse(existingRaw)
-            next = { ...parsed, isOpen: true, activeTab: 'diagnostics' }
-          } catch {
-            // ignore parse errors
-          }
-        }
-        sessionStorage.setItem('canvas.outputsDock.v1', JSON.stringify(next))
-      }
-    } catch {
-      // noop - badge click is best-effort
-    }
-  }
 
   // Phase 2: Uncertain node styling
   const isUncertain = Number(data?.uncertainty ?? 0) > 0.4
@@ -260,16 +239,24 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       aria-expanded={description ? isExpanded : undefined}
       {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
       {...(nodeType === 'factor' && data?.category === 'external' ? { title: 'Outside your control' } : {})}
+      {...(isAnalysisDriver ? { 'data-analysis-driver': 'true' } : {})}
       className={`
         relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} shadow-1
         ${isCausalLens ? (causalBorderClass ?? '') : isIncomplete ? 'border-warning border-dashed' : borderClassOverride ?? `${colors.border} ${borderStyle}`}
         transition-all duration-200
         cursor-default
-        ${selected ? 'ring-2 ring-info ring-offset-2' : ''}
-        ${isHighlighted ? 'ring-4 ring-goal/50' : ''}
+        ${selected && !isHighlighted ? `${colors.selected} ring-offset-2` : ''}
+        ${isHighlighted ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-60' : ''}
       `}
       style={{
+        // Analysis-graph projection: an info RING around a viewed driver node.
+        // outline is a separate CSS channel from box-shadow, so it composes with
+        // the selection / hover rings and shadow-1 instead of clobbering them;
+        // it wraps all four sides (never a one-sided accent) and uses the info
+        // state token. Animates via the div's transition-all.
+        outline: isAnalysisDriver ? '2px solid var(--semantic-info)' : undefined,
+        outlineOffset: isAnalysisDriver ? '3px' : undefined,
         backgroundColor: evidenceBgStyle ?? 'var(--bg-panel)',
         // Footer padding reserved only on node types that actually render
         // ActionIcons (factor, option). Other types keep symmetric padding.
@@ -287,14 +274,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
-      {/* Phase 2: Node badges for CEE/ISL warnings */}
-      <NodeBadge
-        nodeId={id}
-        ceeWarnings={ceeWarnings}
-        islAffected={islAffected}
-        onClick={handleBadgeClick}
-      />
-
       {/* Context menu: Assumption flag badge (Hard rule 3 — UI-only annotation) */}
       {Boolean(data?.flagged_as_assumption) && (
         <div
@@ -345,16 +324,61 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         </div>
       )}
 
-      {/* Sensitivity rank badge — top-right (Results mode, top 3 factors) */}
-      {typeof displayMetadata.sensitivityRank === 'number' && (
-        <span
-          className={`absolute -top-2 -right-2 z-10 ${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center shadow-sm`}
-          style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
-          title={`Key driver #${displayMetadata.sensitivityRank}: ranked by influence on the outcome`}
-        >
-          #{displayMetadata.sensitivityRank}
-        </span>
-      )}
+      {/* Top-right corner STACK — a single absolutely-positioned flex row that
+          OWNS this corner so the sensitivity-rank badge, the edited-since-run
+          dot and the coaching marker never collide. All three previously
+          rendered independently in this same corner (rank + coaching at
+          `-top-2 -right-2 z-10`; the edited dot at `-top-1 -right-1`, default
+          z), so the coaching marker fully covered the edited dot when both were
+          present (Codex P2, browser-confirmed) — the same class of same-corner
+          overlap the P1-5 rank/coaching fix addressed. They are now static flex
+          siblings here, ordered smallest-in-the-middle for legibility: rank
+          FIRST (reads "key driver #N"), then the small 10px edited-since-run
+          freshness dot, then the interactive coaching marker anchored at the
+          corner (rightmost — the easiest click target). The row is anchored by
+          its right edge and grows leftward, keeping all three inside the top
+          band (no title overlap) and off the node's right side; siblings never
+          overlap, so each stays visible and the coaching button stays
+          clickable. Each child self-gates, so the container is empty (0×0,
+          inert) when none applies. */}
+      <div
+        data-testid={`node-corner-stack-${id}`}
+        className="absolute -top-2 -right-2 z-10 flex items-center gap-1"
+      >
+        {/* Sensitivity rank badge — Results mode, top 3 factors. */}
+        {typeof displayMetadata.sensitivityRank === 'number' && (
+          <span
+            data-testid={`sensitivity-rank-${id}`}
+            className={`${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center shadow-sm`}
+            style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
+            title={`Key driver #${displayMetadata.sensitivityRank}: ranked by influence on the outcome`}
+          >
+            #{displayMetadata.sensitivityRank}
+          </span>
+        )}
+
+        {/* N3 (graph-visuals): amber corner dot — this node was edited since the
+            last analysis run (device-local diff vs the run snapshot; the
+            freshness strip stays the single freshness owner, this is WHERE).
+            Amber = the warning family per Paul's C2 hue ruling. A static flex
+            child here (no absolute/offset of its own) so it sits beside — never
+            under — the coaching marker. `shrink-0` keeps the 10px dot round. */}
+        {isEditedSinceRun && (
+          <span
+            data-testid={`edited-since-run-${id}`}
+            role="img"
+            aria-label="Edited since the last analysis"
+            title="Edited since the last analysis"
+            className="shrink-0 h-2.5 w-2.5 rounded-full bg-warning border border-canvas"
+          />
+        )}
+
+        {/* On-canvas coaching marker — renders ONLY when a live guidance item
+            names this node (target_object.id). Replaces the permanently-empty
+            CEE/ISL NodeBadge (23-Jul audit G3). Click opens the same guidance
+            surface the inspector uses. */}
+        <NodeCoachingMarker nodeId={id} />
+      </div>
 
       {/* Node header — shape + title on same row (spec Section 3.2) */}
       {!isCausalLens && (
@@ -376,7 +400,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           {/* line-clamp-3: cap title to 3 lines with ellipsis so ELK can
               rely on uniform-ish node heights. `break-words` preserved so
               long unbroken tokens still wrap before clamping. */}
-          <div className={`${typography.nodeTitle} text-text-body break-words line-clamp-3`}>
+          <div
+            data-testid="node-title"
+            className={
+              lodBoostTitle
+                ? 'text-lg font-semibold text-text-header break-words line-clamp-2'
+                : `${typography.nodeTitle} text-text-body break-words line-clamp-3`
+            }
+            style={lodHideTitle ? { visibility: 'hidden' } : undefined}
+          >
             {label}
           </div>
         </div>
@@ -431,9 +463,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         />
       )}
 
-      {/* Optional children (description, metrics, etc.) — hidden in causal/evidence lens */}
+      {/* Optional children (description, metrics, etc.) — hidden in causal/evidence lens.
+          D2: at level-of-detail zoom the body hides via visibility (box keeps
+          its dimensions so ELK/edge anchors stay stable) — the node reads as
+          its coloured shape. */}
       {!isCausalLens && !isEvidenceLens && children ? (
-        <div className="text-left">
+        <div className="text-left" style={lodActive ? { visibility: 'hidden' } : undefined} data-lod-hidden={lodActive || undefined}>
           {children as ReactNode}
         </div>
       ) : null}

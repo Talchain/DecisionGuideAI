@@ -17,7 +17,6 @@
 
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
-import { useShallow } from 'zustand/shallow'
 import { CURRENCY_SYMBOLS, classifyUnit, unwrapInterventionValue } from '../../../utils/labelUtils'
 import type { Node, Edge } from '@xyflow/react'
 import type { BiasType } from '../primitives/BiasIcon'
@@ -43,6 +42,12 @@ import { diversifyTriageItems } from '../utils/diversifyTriageItems'
 // and the pre-analysis priority-progress counter (`buildPriorityProgress`)
 // share one `observed_state.source ∈ user_*` contract — no drift.
 import { isReviewedByUser } from '../utils/isReviewedByUser'
+// `selectSurfacedContestedEdges` is the SINGLE source of truth for which contested edges
+// this panel shows: eligibility (honouring `surfaced` when CEE sends it, eligible when
+// absent) plus the client-side one-per-target-node cap. Both consumers below derive from
+// it — they used to be two hand-written filters with the same predicate spelled two
+// different ways. See that module for the CEE supersession note.
+import { selectSurfacedContestedEdges } from '../utils/selectSurfacedContestedEdges'
 // `isAiSourceFromNode` extracted to ../utils/isAiSource.ts; mirrors the
 // isReviewedByUser pattern. Field-level fallback fixes the legacy
 // object-level `observed_state ?? observedState` bug that produced
@@ -136,11 +141,14 @@ export interface ImprovementItem {
    * subtitle when the CEE `hint` is absent. Populated by usePreAnalysisData
    * from m1_coaching.evidence_gaps and the graph structure. Consumers
    * should pick the first populated field in the priority order:
-   * voi → evpiPp → downstreamDegree.
+   * voi → downstreamDegree.
+   *
+   * ⛔ `evpiPp` removed — it fed "Resolving could improve confidence by {pp}pp"
+   * in mapImprovementToTriageCard. The figure is `evpi_percentage_points`, which
+   * ISL measures at 0.0 for the very factors PLoT scores at 12.3 / 10.2 / 6.6.
    */
   sensitivityContext?: {
     voi?: number
-    evpiPp?: number
     downstreamDegree?: number
   }
 }
@@ -594,9 +602,12 @@ function hasNegativeStrength(edge: Edge): boolean {
  */
 export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData {
   // M2 merge point: _coaching parameter will be used when CEE CoachingPayload is available
-  // Store selectors
-  const nodes = useCanvasStore(useShallow(s => s.nodes))
-  const edges = useCanvasStore(useShallow(s => s.edges))
+  // Store selectors — individual field selectors (React #185 guard): the store
+  // only replaces the nodes/edges array when a node/edge object actually changes
+  // (applyNodeChanges/applyEdgeChanges), so the reference is stable between real
+  // changes and the default Object.is equality is sufficient — no useShallow needed.
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const m1ReviewAssumptions = useCanvasStore(s => s.runMeta?.m1ReviewAssumptions)
   const m1AssumptionsLedger = useCanvasStore(s => s.runMeta?.m1Coaching?.assumptions_ledger as Array<{ severity: string; message: string }> | undefined)
@@ -647,6 +658,11 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
     return nodesByKind.goal[0] ?? null
   }, [nodes, ceeAnalysisReady?.goal_node_id, nodesByKind.goal])
+
+  // Contested edges this panel will show: eligible, capped one-per-target-node, deterministic.
+  // Computed ONCE and consumed by both the `verify` improvement items and the `contestedEdges`
+  // calibration cards, so the two surfaces cannot drift apart (trap 12).
+  const surfacedContestedEdges = useMemo(() => selectSurfacedContestedEdges(edges), [edges])
 
   // Build improvements by category
   const improvementsByCategory = useMemo(() => {
@@ -812,10 +828,10 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       }
 
       // Brief 4 Task 8: derive deterministic context for the mapper's fallback
-      // subtitle. VoI + EVPI come from m1 coaching when present; downstream
-      // degree is always available from the graph.
+      // subtitle. VoI comes from m1 coaching when present; downstream degree
+      // is always available from the graph.
       const factorEvidenceGap = Array.isArray(m1EvidenceGaps)
-        ? (m1EvidenceGaps as Array<{ factor_id?: string; voi_score?: number; voi?: number; evpi_percentage_points?: number }>).find(
+        ? (m1EvidenceGaps as Array<{ factor_id?: string; voi_score?: number; voi?: number }>).find(
           g => g.factor_id === factor.id,
         )
         : undefined
@@ -825,9 +841,6 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         voi: typeof factorInfluence === 'number'
           ? factorInfluence
           : (factorEvidenceGap?.voi_score ?? factorEvidenceGap?.voi),
-        evpiPp: typeof factorEvidenceGap?.evpi_percentage_points === 'number'
-          ? factorEvidenceGap.evpi_percentage_points
-          : undefined,
         downstreamDegree: downstreamDegree > 0 ? downstreamDegree : undefined,
       }
 
@@ -876,14 +889,12 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     // === CONTESTED EDGES (highest priority in reviewAssumptions) ===
-    // Filter edges with contested validation that CEE surfaced for user review
-    for (const edge of edges) {
+    // Selection (eligibility + one-per-target-node cap) is derived ONCE in
+    // `surfacedContestedEdges`; this loop only renders it. The predicate used to be inlined
+    // here as `if (!validation.surfaced) continue`, which dropped every edge CEE actually
+    // sends — see utils/selectSurfacedContestedEdges.ts.
+    for (const { edge, validation } of surfacedContestedEdges) {
       const data = edge.data as { validation?: ValidationMetadata; label?: string } | undefined
-      const validation = data?.validation
-      if (!validation) continue
-      if (validation.status !== 'contested') continue
-      if (!validation.surfaced) continue
-      if (validation.user_action !== 'pending') continue
 
       const sourceNode = nodes.find(n => n.id === edge.source)
       const targetNode = nodes.find(n => n.id === edge.target)
@@ -1030,20 +1041,11 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return result
-  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.options, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions, preAnalysisSensitivity])
+  }, [nodes, edges, surfacedContestedEdges, nodesByKind, ceeAnalysisReady?.options, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions, preAnalysisSensitivity])
 
-  // Contested edges with full validation metadata for calibration card rendering
-  const contestedEdges = useMemo(() => {
-    return edges
-      .filter(e => {
-        const v = (e.data as { validation?: ValidationMetadata } | undefined)?.validation
-        return v?.status === 'contested' && v?.surfaced && v?.user_action === 'pending'
-      })
-      .map(e => ({
-        edge: e,
-        validation: (e.data as { validation: ValidationMetadata }).validation,
-      }))
-  }, [edges])
+  // Contested edges with full validation metadata for calibration card rendering.
+  // Same derived selection the verify items use — see `surfacedContestedEdges` above.
+  const contestedEdges = surfacedContestedEdges
 
   // Total improvements
   const totalImprovements = useMemo(() => {

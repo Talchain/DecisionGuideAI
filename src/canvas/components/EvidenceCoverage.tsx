@@ -133,7 +133,7 @@ export function EvidenceCoverage({
         </div>
 
         {/* Count label */}
-        <div className={`${typography.caption} text-ink-900/60`}>
+        <div className={`${typography.caption} text-ink-900`}>
           {evidencedCount} of {totalCount} edges documented
         </div>
       </div>

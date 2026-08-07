@@ -30,11 +30,14 @@ function makeValidResponse(overrides?: Partial<V2RunResponse>): V2RunResponse {
       },
     ],
     critiques: [],
-    drivers: [
-      { node_id: 'f1', label: 'Revenue growth', contribution: 0.45, direction: 'positive' as const },
-      { node_id: 'f2', label: 'Market share', contribution: 0.30, direction: 'positive' as const },
-      { node_id: 'f3', label: 'Customer churn', contribution: 0.15, direction: 'negative' as const },
-      { node_id: 'f4', label: 'Brand value', contribution: 0.10, direction: 'positive' as const },
+    // ROADMAP 1.30b: `drivers[]` is a legacy field the V2 wire never
+    // populates (see the fix comment in assembleAnalysisInputsSummary.ts) —
+    // real driver data ships as `factor_sensitivity[]`.
+    factor_sensitivity: [
+      { factor_id: 'f1', factor_label: 'Revenue growth', elasticity: 0.45, direction: 'positive' as const },
+      { factor_id: 'f2', factor_label: 'Market share', elasticity: 0.30, direction: 'positive' as const },
+      { factor_id: 'f3', factor_label: 'Customer churn', elasticity: -0.15, direction: 'negative' as const },
+      { factor_id: 'f4', factor_label: 'Brand value', elasticity: 0.10, direction: 'positive' as const },
     ],
     robustness: {
       fragile_edges: [],
@@ -134,13 +137,13 @@ describe('assembleAnalysisInputsSummary', () => {
   it('handles oversized payload via progressive truncation', () => {
     // Create a response with many drivers having very long labels
     const longDrivers = Array.from({ length: 3 }, (_, i) => ({
-      node_id: `f${i}`,
-      label: `A very long factor label that is designed to push the payload over the 2KB limit ${'x'.repeat(200)}`,
-      contribution: 0.3 - i * 0.05,
+      factor_id: `f${i}`,
+      factor_label: `A very long factor label that is designed to push the payload over the 2KB limit ${'x'.repeat(200)}`,
+      elasticity: 0.3 - i * 0.05,
       direction: 'positive' as const,
     }))
 
-    const response = makeValidResponse({ drivers: longDrivers })
+    const response = makeValidResponse({ factor_sensitivity: longDrivers })
     const result = assembleAnalysisInputsSummary(response)
 
     // Should either truncate successfully or return null, but never exceed 2KB
@@ -154,7 +157,7 @@ describe('assembleAnalysisInputsSummary', () => {
     const result = assembleAnalysisInputsSummary(makeValidResponse())
     expect(result).not.toBeNull()
 
-    // Top driver contribution = 0.45, total = 0.45 + 0.30 + 0.15 + 0.10 = 1.0
+    // Top driver elasticity magnitude = 0.45, total = 0.45 + 0.30 + 0.15 + 0.10 = 1.0
     expect(result!.sensitivity_concentration).toBe(0.45)
   })
 
@@ -185,11 +188,113 @@ describe('assembleAnalysisInputsSummary', () => {
   })
 
   it('handles empty drivers gracefully', () => {
-    const response = makeValidResponse({ drivers: [] })
+    const response = makeValidResponse({ factor_sensitivity: [] })
     const result = assembleAnalysisInputsSummary(response)
     expect(result).not.toBeNull()
     expect(result!.top_drivers).toEqual([])
     expect(result!.sensitivity_concentration).toBe(0)
+  })
+
+  // ── ROADMAP 1.30b — structurally-empty reads (wire-accuracy fix) ─────────
+  //
+  // The V2 wire never carries the legacy `drivers[]` field (verified against
+  // the captured staging fixture src/test/fixtures/golden-path-staging-
+  // 2026-04-05.json: `drivers: null` while `factor_sensitivity[]` is
+  // populated — factor_sensitivity is the field useResultsSectionData.ts
+  // already treats as the authoritative PLoT v2 source), a top-level
+  // `completed_at` (real field is nested at `meta.computed_at` — confirmed
+  // against the same fixture's `plot_response.meta.computed_at`), or a
+  // `decision_quality.overall` (the real CEE field is `.level`, enum
+  // 'ready'|'caution'|'not_ready' — DecisionQualityV3 in types/cee.ts; the
+  // function's OWN doc comment already said "if decision_quality provides a
+  // level" while the code checked for `overall`). Before this fix all three
+  // silently produced empty/fallback output on every real response.
+  describe('wire-accurate field reads (ROADMAP 1.30b)', () => {
+    it('builds top_drivers from factor_sensitivity (the field the V2 wire actually carries), not the never-populated legacy drivers field', () => {
+      const response = makeValidResponse({
+        drivers: undefined,
+        factor_sensitivity: [
+          { factor_id: 'fac_a', factor_label: 'Factor A', elasticity: 0.5, importance_rank: 1 },
+          { factor_id: 'fac_b', factor_label: 'Factor B', sensitivity_score: 0.3, importance_rank: 2 },
+          { factor_id: 'fac_c', factor_label: 'Factor C', sensitivity: 0.1, importance_rank: 3 },
+        ],
+      })
+      const result = assembleAnalysisInputsSummary(response)
+      expect(result).not.toBeNull()
+      expect(result!.top_drivers).toEqual([
+        { factor_id: 'fac_a', factor_label: 'Factor A', elasticity: 0.5 },
+        { factor_id: 'fac_b', factor_label: 'Factor B', elasticity: 0.3 },
+        { factor_id: 'fac_c', factor_label: 'Factor C', elasticity: 0.1 },
+      ])
+    })
+
+    it('computes sensitivity_concentration from factor_sensitivity magnitudes', () => {
+      const response = makeValidResponse({
+        drivers: undefined,
+        factor_sensitivity: [
+          { factor_id: 'fac_a', factor_label: 'Factor A', elasticity: 0.6 },
+          { factor_id: 'fac_b', factor_label: 'Factor B', elasticity: 0.3 },
+          { factor_id: 'fac_c', factor_label: 'Factor C', elasticity: 0.1 },
+        ],
+      })
+      const result = assembleAnalysisInputsSummary(response)
+      expect(result).not.toBeNull()
+      // top magnitude 0.6 / total 1.0
+      expect(result!.sensitivity_concentration).toBe(0.6)
+    })
+
+    it('returns empty top_drivers and zero concentration when factor_sensitivity is absent (never fabricates from the dead drivers field)', () => {
+      const response = makeValidResponse({ drivers: undefined, factor_sensitivity: undefined })
+      const result = assembleAnalysisInputsSummary(response)
+      expect(result).not.toBeNull()
+      expect(result!.top_drivers).toEqual([])
+      expect(result!.sensitivity_concentration).toBe(0)
+    })
+
+    it('reads run_metadata.timestamp from meta.computed_at (the real V2 wire field)', () => {
+      const response = makeValidResponse({
+        meta: {
+          seed_used: '42',
+          n_samples: 10000,
+          detail_level: 'deep',
+          latency_ms: 1200,
+          computed_at: '2026-07-08T12:00:00.000Z',
+        } as any,
+      })
+      const result = assembleAnalysisInputsSummary(response)
+      expect(result).not.toBeNull()
+      expect(result!.run_metadata.timestamp).toBe('2026-07-08T12:00:00.000Z')
+    })
+
+    it('leaves run_metadata.timestamp null when meta carries no computed_at (honest absence, no fabrication)', () => {
+      const response = makeValidResponse({
+        meta: { seed_used: '42', n_samples: 10000, detail_level: 'deep', latency_ms: 1200 },
+      })
+      const result = assembleAnalysisInputsSummary(response)
+      expect(result).not.toBeNull()
+      expect(result!.run_metadata.timestamp).toBeNull()
+    })
+
+    it.each([
+      ['ready', 'high'],
+      ['caution', 'medium'],
+      ['not_ready', 'low'],
+    ] as const)('derives confidence_band=%s from decision_quality.level=%s (the real CEE field)', (level, band) => {
+      const response = makeValidResponse({
+        decision_quality: { level, headline: 'x' } as any,
+      })
+      const result = assembleAnalysisInputsSummary(response)
+      expect(result).not.toBeNull()
+      expect(result!.confidence_band).toBe(band)
+    })
+
+    it('falls back to data-availability derivation when decision_quality is absent', () => {
+      const response = makeValidResponse({ decision_quality: undefined })
+      const result = assembleAnalysisInputsSummary(response)
+      expect(result).not.toBeNull()
+      // robustness_status + drivers_status both 'computed' on the default fixture
+      expect(result!.confidence_band).toBe('medium')
+    })
   })
 
   it('returns up to MAX_CONSTRAINTS valid constraints even when empty-label entries appear before them', () => {

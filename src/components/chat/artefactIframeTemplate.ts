@@ -20,8 +20,17 @@ const TEMPLATE_PREFIX = `<!DOCTYPE html>
       --border-default: #EEE6D8;
       --text-header: #262626;
       --text-body: #3F3F3E;
-      --text-light: #908D8D;
-      --primary: #2B7FA2;
+      /* Literal, deliberately: this is the iframe-local DEFINITION of
+         --text-light, not a reference to the parent document's. Custom
+         properties do not cross a document boundary, so a var() here would
+         resolve to nothing and artefact body copy would silently lose its
+         colour. Held equal to brand.css by
+         artefact-template-token-mirror.spec.ts and pinned as WCAG-legal by
+         text-light-contrast.spec.ts, so the raw hex is recorded as a
+         deliberate exception in tools/ci-guards/ds-compliance-baseline.json
+         rather than tokenised. */
+      --text-light: #6E6B6B;
+      --primary: #277A9D;
       --primary-hover: #67C89E;
       --danger: #EA7B4B;
       --success: #67C89E;
@@ -67,9 +76,19 @@ const TEMPLATE_PREFIX = `<!DOCTYPE html>
       outline: none;
       transition: border-color 200ms;
     }
+    /* The focus ring DERIVES from --primary, which this template declares in its
+       own :root above (custom properties cannot cross the iframe's document
+       boundary, so the copy is load-bearing — see
+       tests/ci-guards/artefact-template-token-mirror.spec.ts). It previously
+       restated the pre-D1 blue rgba(82,163,200,·) as a channel triple, so the
+       ring disagreed with the border-color on the very same rule. Deriving it
+       puts the ring under that guard's existing pin transitively, without
+       adding a new token to the mirror. color-mix is a CSS function, not a
+       fetched resource, so the default-src 'none' policy does not affect it.
+       (No backticks in this comment: it lives inside a JS template literal.) */
     input:focus, select:focus {
       border-color: var(--primary);
-      box-shadow: 0 0 0 2px rgba(82, 163, 200, 0.15);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent);
     }
 
     table {

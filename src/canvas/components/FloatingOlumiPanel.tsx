@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useRef,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
 import { MessageSquare, Minus, PanelRight } from 'lucide-react'
@@ -826,6 +827,14 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // Position is initialised on open via setInitialPosition, so this should
   // never fall back to 50%/50% in normal flow. Defensive fallback kept for
   // edge cases (SSR rehydrate, etc.).
+  //
+  // Run-path convergence: the full panel stays MOUNTED (display:none) while
+  // minimised. ConversationPanel's registration in guidanceStore is what
+  // powers every cross-surface run/ask CTA — unmounting it here used to kill
+  // "Analyse first pass"/"Try Again" the moment the user minimised the chat.
+  // display:none removes the hidden panel from paint, focus order and the
+  // accessibility tree, so the pill remains the only perceivable surface.
+  let pillEl: ReactNode = null
   if (isMinimised) {
     // Clamp the pill anchor too — a stored position from when the panel
     // was full-sized may sit too close to the right/bottom edge for the
@@ -834,7 +843,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
     const dockInset = measureDockInset()
     const pillPos = position ? clampPillPositionToViewport(position, vw, vh, dockInset) : null
-    return createPortal(
+    pillEl = (
       <button
         type="button"
         onClick={restore}
@@ -850,12 +859,13 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       >
         <MessageSquare className="w-3.5 h-3.5 text-text-light" aria-hidden="true" />
         <span className={typo('panelMeta', 'text-text-body')}>Olumi</span>
-      </button>,
-      document.body,
+      </button>
     )
   }
 
   return createPortal(
+    <>
+    {pillEl}
     <div
       ref={containerRef}
       role="dialog"
@@ -871,6 +881,8 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         height: 550,
         left: 0,
         top: 0,
+        // Keep-mounted-while-minimised (see pill comment above).
+        display: isMinimised ? 'none' : undefined,
         // Round-10: overflow is `visible` (not hidden) so the side tab can
         // extend OUTSIDE the panel's left edge. Inner regions
         // (conversation list, composer) have their own overflow handling.
@@ -1029,7 +1041,8 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
           className="absolute right-0.5 bottom-0.5 w-1.5 h-1.5 border-r-2 border-b-2 border-text-light opacity-60"
         />
       </div>
-    </div>,
+    </div>
+    </>,
     document.body,
   )
 })

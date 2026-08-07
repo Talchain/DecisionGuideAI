@@ -30,9 +30,12 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Check TypeScript
+# Check TypeScript.
+# Was `npx tsc --noEmit --project tsconfig.json` — a solution stub with
+# `"files": []`, which compiles nothing and exits 0 on any tree. That is not a
+# check. Call the real gate.
 echo "Running TypeScript checks..."
-npx tsc --noEmit --project tsconfig.json
+npm run typecheck
 if [ $? -ne 0 ]; then
   echo "❌ TypeScript errors found"
   exit 1

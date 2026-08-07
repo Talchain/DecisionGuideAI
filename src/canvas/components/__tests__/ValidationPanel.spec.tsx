@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { ValidationPanel, type CritiqueItem } from '../ValidationPanel'
+import { useCanvasStore } from '../../store'
 
 describe('ValidationPanel', () => {
 
@@ -410,6 +411,48 @@ describe('ValidationPanel', () => {
 
       // Content should be visible again
       expect(screen.getByText('Critical error')).toBeInTheDocument()
+    })
+  })
+
+  // Audit §8 P1 (verdict honesty): the blocker suffix must reflect whether
+  // analysis was actually blocked for the current run.
+  describe('blocker suffix honesty (audit §8 P1)', () => {
+    const setResultsStatus = (status: string) => {
+      act(() => {
+        useCanvasStore.setState({
+          results: { ...(useCanvasStore.getState() as any).results, status },
+        } as any)
+      })
+    }
+
+    afterEach(() => {
+      setResultsStatus('idle')
+    })
+
+    it('says "(blocks analysis)" when no results rendered for the current run', () => {
+      setResultsStatus('idle')
+      render(<ValidationPanel critique={[
+        { level: 'blocker', message: 'Graph too large: 16 nodes (limit: 12)', code: 'GRAPH_TOO_LARGE' },
+      ]} />)
+      expect(screen.getByText('(blocks analysis)')).toBeInTheDocument()
+      expect(screen.queryByText('(results marked approximate)')).not.toBeInTheDocument()
+    })
+
+    it('says "(results marked approximate)" when results exist alongside blockers', () => {
+      setResultsStatus('complete')
+      render(<ValidationPanel critique={[
+        { level: 'blocker', message: 'Graph too large: 16 nodes (limit: 12)', code: 'GRAPH_TOO_LARGE' },
+      ]} />)
+      expect(screen.getByText('(results marked approximate)')).toBeInTheDocument()
+      expect(screen.queryByText('(blocks analysis)')).not.toBeInTheDocument()
+    })
+
+    it('leaves the warning section description unchanged in both states', () => {
+      setResultsStatus('complete')
+      render(<ValidationPanel critique={[
+        { level: 'warning', message: 'Edge strength looks extreme', code: 'EXTREME_STRENGTH' },
+      ]} />)
+      expect(screen.getByText('(suggested)')).toBeInTheDocument()
     })
   })
 

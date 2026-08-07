@@ -33,7 +33,10 @@ vi.mock('@xyflow/react', async () => {
     useReactFlow: () => ({
       getNode: () => null,
       getEdges: () => [],
+      getNodes: () => [],
     }),
+    // E3 part 2: StyledEdge subscribes to node geometry via the store
+    useStore: (selector: any) => selector({ nodes: [] }),
   }
 })
 
@@ -74,7 +77,7 @@ vi.mock('../../hooks/usePrefersReducedMotion', () => ({
   usePrefersReducedMotion: () => false,
 }))
 
-vi.mock('../../flags', () => ({
+vi.mock('../../../flags', () => ({
   isGraphLensEnabled: () => false,
 }))
 
@@ -83,7 +86,13 @@ vi.mock('../../utils/fragileEdgeMatch', () => ({
   getFragileEdgeSwitchProbability: () => null,
 }))
 
-vi.mock('../../utils/graphDisplayCalculations', () => ({
+vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
+  // ⛔ importOriginal-SPREAD, not a hand-listed replacement. A `vi.mock`
+  // factory REPLACES the module, so every export added after this mock was
+  // written silently vanished — adding `UNSET_EDGE_STROKE_WIDTH` took 49 tests
+  // down across seven files at once. The spread makes the mock derive from the
+  // real module and override only what it means to stub.
+  ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
   existenceCertaintyToLineStyle: () => null,
   calculateEdgeImportance: () => 0.5,
   importanceToStrokeWidth: () => 2,
@@ -146,6 +155,48 @@ function renderEdge(data: Record<string, unknown>) {
   return capturedStyle!
 }
 
+// ── The three-way pin's negative arms (ROADMAP 2.146) ───────────────────────
+//
+// ⚠ THESE NEGATIVE ARMS USED TO BE VACUOUS, and the slice that finally fed this
+// component real data is what exposed it. Four cases below asserted
+// `expect(style.stroke).not.toContain('--semantic-info')` — but the contested
+// branch in StyledEdge emits `--semantic-warning`, never `--semantic-info`
+// (`--semantic-info` belongs to the *highlighted* branch). So those assertions
+// passed for edges that WERE styled contested: they were measuring nothing.
+// Classic broken alarm — the arm that is supposed to prove "an uncontested edge
+// looks untouched" could not fail.
+//
+// Replaced with a DIFFERENTIAL assertion instead of a second hand-written copy of
+// the component's colour/dash formula (that would be a mirror, and it would drift
+// the first time the formula is tuned): render the same edge data with and
+// without its `validation` key and require the two to be byte-identical on every
+// style channel the contested branch can touch. That is literally the brief's
+// third arm — "absent `validation` renders exactly as today" — and it fails the
+// moment contested styling leaks onto an edge that should not have it.
+
+/** Every style channel the contested branch in StyledEdge can write. */
+function contestedStyleSignature(s: React.CSSProperties) {
+  return { stroke: s.stroke, strokeDasharray: s.strokeDasharray }
+}
+
+/** The same edge data with its `validation` key removed — the control render. */
+function withoutValidation(data: Record<string, unknown>): Record<string, unknown> {
+  const copy = { ...data }
+  delete copy.validation
+  return copy
+}
+
+/**
+ * Assert `data` renders IDENTICALLY to the same data with `validation` removed.
+ * Returns both signatures so a caller can add a sharper assertion on top.
+ */
+function expectStyledAsIfNoValidation(data: Record<string, unknown>) {
+  const withValidation = contestedStyleSignature(renderEdge(data))
+  const control = contestedStyleSignature(renderEdge(withoutValidation(data)))
+  expect(withValidation).toEqual(control)
+  return { withValidation, control }
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 describe('StyledEdge — contested visual styling', () => {
@@ -188,61 +239,68 @@ describe('StyledEdge — contested visual styling', () => {
     expect(style.strokeDasharray).toBe('2.7 3')
   })
 
+  it('POSITIVE CONTROL: a contested edge does NOT render as if validation were absent', () => {
+    // Without this, every negative arm below could pass by comparing two
+    // identically-broken renders. This proves the differential helper CAN fail.
+    const data = {
+      weight: 0.5,
+      direction: 'positive',
+      validation: makeValidation({ max_divergence: 0.6 }),
+    }
+    const withValidation = contestedStyleSignature(renderEdge(data))
+    const control = contestedStyleSignature(renderEdge(withoutValidation(data)))
+
+    expect(withValidation).not.toEqual(control)
+    expect(withValidation.stroke).toContain('--semantic-warning')
+    expect(control.stroke).not.toContain('--semantic-warning')
+  })
+
   it('resolved contested edge reverts to standard non-contested style', () => {
-    const style = renderEdge({
+    const { withValidation } = expectStyledAsIfNoValidation({
       weight: 0.5,
       direction: 'positive',
       beliefExists: 0.8,
       validation: makeValidation({ user_action: 'accepted_pass2' }),
     })
-
-    // Should NOT have info colour — falls back to direction-based stroke
-    expect(style.stroke).not.toContain('--semantic-info')
-    // Should NOT have contested dash; with beliefExists set, existenceCertainty returns null (mocked)
-    // so it falls back to visualProps.strokeDasharray (undefined)
-    expect(style.strokeDasharray).toBeUndefined()
+    // Kept from the original case: with beliefExists set, existenceCertainty
+    // returns null (mocked) so the dash falls back to visualProps (undefined).
+    expect(withValidation.strokeDasharray).toBeUndefined()
   })
 
   it('missing max_divergence on contested edge falls back to non-contested style', () => {
     const validation = makeValidation()
     delete (validation as any).max_divergence
-    const style = renderEdge({
+    expectStyledAsIfNoValidation({
       weight: 0.5,
       direction: 'positive',
       validation,
     })
-
-    // Should NOT render contested styling when max_divergence is absent
-    expect(style.stroke).not.toContain('--semantic-info')
   })
 
   it('null max_divergence on contested edge falls back to non-contested style', () => {
-    const style = renderEdge({
+    expectStyledAsIfNoValidation({
       weight: 0.5,
       direction: 'positive',
       validation: makeValidation({ max_divergence: null }),
     })
-
-    expect(style.stroke).not.toContain('--semantic-info')
   })
 
   it('absent validation renders standard style', () => {
-    const style = renderEdge({
+    // Degenerate arm of the same differential: with no `validation` key the two
+    // renders are the same input, so this pins that the component does not read
+    // anything else off the key's absence.
+    expectStyledAsIfNoValidation({
       weight: 0.5,
       direction: 'positive',
     })
-
-    expect(style.stroke).not.toContain('--semantic-info')
   })
 
   it('agreed validation status renders standard style', () => {
-    const style = renderEdge({
+    expectStyledAsIfNoValidation({
       weight: 0.5,
       direction: 'positive',
       validation: makeValidation({ status: 'agreed' }),
     })
-
-    expect(style.stroke).not.toContain('--semantic-info')
   })
 
   it('max_divergence 0 produces minimal dash width (1.5) and gap (4)', () => {

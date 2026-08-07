@@ -109,7 +109,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
       {/* Header */}
       <div className="px-4 py-3 border-b border-sand-200 bg-paper-50">
         <h3 className={`${typography.body} font-semibold text-ink-900`}>Documents</h3>
-        <p className={`${typography.caption} text-ink-900/70 mt-1`}>
+        <p className={`${typography.caption} text-ink-900 mt-1`}>
           {documents.length} document{documents.length !== 1 ? 's' : ''}
           {searchQuery && filteredAndSorted.length !== documents.length && (
             <span> ({filteredAndSorted.length} filtered)</span>
@@ -181,8 +181,8 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
       >
-        <Upload className="w-8 h-8 mx-auto mb-2 text-ink-900/50" aria-hidden="true" />
-        <p className={`${typography.body} text-ink-900/80 mb-2`}>
+        <Upload className="w-8 h-8 mx-auto mb-2 text-ink-900" aria-hidden="true" />
+        <p className={`${typography.body} text-ink-900 mb-2`}>
           Drag and drop files here, or click to browse
         </p>
         <label className={`inline-block px-4 py-2 bg-info-500 text-text-on-color rounded-md cursor-pointer hover:bg-info-600 ${typography.button}`}>
@@ -196,7 +196,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
             data-testid="documents-file-input"
           />
         </label>
-        <p className={`${typography.caption} text-ink-900/60 mt-2`}>
+        <p className={`${typography.caption} text-ink-900 mt-2`}>
           Supports: PDF, TXT, MD, CSV (max 1MB each, 25K chars total)
         </p>
       </div>
@@ -204,22 +204,22 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
       {/* Documents list */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
         {documents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center text-ink-900/70">
+          <div className="flex flex-col items-center justify-center py-10 text-center text-ink-900">
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sky-50">
               <FileText className="w-6 h-6 text-sky-600" aria-hidden="true" />
             </div>
             <p className={`${typography.body} font-medium`}>No documents yet</p>
-            <p className={`mt-1 ${typography.caption} text-ink-900/60`}>
+            <p className={`mt-1 ${typography.caption} text-ink-900`}>
               Attach research, specs, or data Olumi should consider.
             </p>
           </div>
         ) : filteredAndSorted.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center text-ink-900/70">
+          <div className="flex flex-col items-center justify-center py-10 text-center text-ink-900">
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sand-50">
-              <Search className="w-6 h-6 text-ink-900/50" aria-hidden="true" />
+              <Search className="w-6 h-6 text-ink-900" aria-hidden="true" />
             </div>
             <p className={`${typography.body} font-medium`}>No documents match '{searchQuery}'</p>
-            <p className={`mt-1 ${typography.caption} text-ink-900/60`}>Try a different search term</p>
+            <p className={`mt-1 ${typography.caption} text-ink-900`}>Try a different search term</p>
           </div>
         ) : (
           filteredAndSorted.map((doc) => (

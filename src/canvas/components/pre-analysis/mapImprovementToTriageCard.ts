@@ -60,18 +60,20 @@ function deriveStructuralContext(item: ImprovementItem): string | undefined {
 
 /**
  * Deterministic sensitivity-context subtitle — used only when CEE has no
- * richer coaching string. Priority: influence → EVPI → graph degree. Every
- * value traces to data already in the envelope or the canvas graph.
+ * richer coaching string. Priority: influence → graph degree. Every value
+ * traces to data already in the envelope or the canvas graph.
+ *
+ * ⛔ The EVPI rung between them is REMOVED. It emitted "Resolving could improve
+ * confidence by {pp}pp" from `evpi_percentage_points` — a figure our own
+ * compute layer contradicts (ISL: 0.0pp for factors PLoT scores at 12.3 /
+ * 10.2 / 6.6) via a formula that multiplies BY the top-two win-probability
+ * gap, inverting decision theory. Do not reinstate.
  */
 function deriveSensitivityContext(item: ImprovementItem): string | undefined {
   const ctx = item.sensitivityContext
   if (!ctx) return undefined
   if (typeof ctx.voi === 'number' && ctx.voi > 0.5) {
     return `Drives ${Math.round(ctx.voi * 100)}% of outcome variance`
-  }
-  if (typeof ctx.evpiPp === 'number' && ctx.evpiPp > 0.3) {
-    const pp = Math.round(ctx.evpiPp * 10) / 10
-    return `Resolving could improve confidence by ${pp}pp`
   }
   if (typeof ctx.downstreamDegree === 'number' && ctx.downstreamDegree > 0) {
     const suffix = ctx.downstreamDegree === 1 ? 'relationship' : 'relationships'

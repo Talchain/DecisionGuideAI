@@ -162,9 +162,10 @@ describe('DriversSection — influence-only guard', () => {
   })
 
   it('does NOT render the decision-flip line even with the tooltip OPEN (decisionChangeRisk gated)', () => {
-    // Force the (i) info icon to appear via a zero-reason line (an influence
-    // explanation that is always visible), so we can open the top-driver tooltip
-    // and prove the fragility/decision-flip line is gated off inside it.
+    // Force the (i) info icon to appear via enrichment (an always-visible
+    // influence explanation), so we can open the top-driver tooltip and prove
+    // the fragility/decision-flip line is gated off inside it. (The zero-reason
+    // lever line now renders as a visible body badge, not in the tooltip — D-U.)
     render(
       <DriversSection
         data={makeData([
@@ -174,7 +175,12 @@ describe('DriversSection — influence-only guard', () => {
             influenceScore: 0.9,
             flipRiskCategory: 'isolated',
             fragileEdgeInfo: { switchProbability: 0.35, alternativeWinnerLabel: 'Option B' },
-            zeroReason: 'disconnected',
+            enrichment: {
+              factor_id: 'fac',
+              factor_label: 'fac',
+              observations: ['An always-visible enrichment observation'],
+              perspectives: [],
+            },
           } as DriverItem),
         ])}
         goalLabel="test"
@@ -182,10 +188,32 @@ describe('DriversSection — influence-only guard', () => {
     )
     // Open the tooltip via the info button.
     fireEvent.click(screen.getByRole('button', { name: /more information/i }))
-    // The tooltip is open (the influence zero-reason line shows)...
-    expect(screen.getByText(/No causal path to goal/i)).toBeInTheDocument()
+    // The tooltip is open (the enrichment "Insights" disclosure shows)...
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+    expect(screen.getByText('Insights')).toBeInTheDocument()
     // ...but the decision-flip / fragility line is hidden.
     expect(screen.queryByText(/becomes the better choice/i)).toBeNull()
     expect(screen.queryByText(/can change which option is best/i)).toBeNull()
+  })
+
+  it('renders the zero-reason lever explanation as a VISIBLE badge, not inside the tooltip (D-U)', () => {
+    render(
+      <DriversSection
+        data={makeData([
+          makeDriver({
+            factorKey: 'fac',
+            semanticLabel: 'biggest',
+            influenceScore: 0.9,
+            zeroReason: 'intervention_override',
+          } as DriverItem),
+        ])}
+        goalLabel="test"
+      />,
+    )
+    // The badge is visible without any hover/click.
+    const badge = screen.getByTestId('driver-lever-badge-fac')
+    expect(badge).toHaveTextContent(/controlled by your options/i)
+    // No tooltip trigger is forced into existence by the zero-reason alone.
+    expect(screen.queryByRole('button', { name: /more information/i })).toBeNull()
   })
 })

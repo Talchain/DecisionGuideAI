@@ -90,7 +90,6 @@ function gap(
     factorLabel: label,
     confidence: 50,
     voi,
-    evpiPp: voi * 50,
     suggestion,
     targetNodeId: factorId,
   } as EvidenceGapItem
@@ -408,7 +407,6 @@ describe('rankHeroRows — V17 power pass: strict generic-row rule on evidence g
       factorLabel: 'Engineering Capacity',
       confidence: 50,
       voi: 0.6,
-      evpiPp: 30,
       targetNodeId: 'n_e',
     } as EvidenceGapItem
     const rows = rankHeroRows(
@@ -447,7 +445,6 @@ describe('rankHeroRows — V17 power pass: strict generic-row rule on evidence g
       factorLabel: 'Missing',
       confidence: 50,
       voi: 0.5,
-      evpiPp: 25,
       targetNodeId: 'n_m',
     } as EvidenceGapItem
     const rows = rankHeroRows(

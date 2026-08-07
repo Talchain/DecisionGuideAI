@@ -16,12 +16,19 @@ import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 import { PreAnalysisPanelV3 } from '../PreAnalysisPanelV3'
+import { SUCCESS_INPUT_ID } from '../hero/HeroSection'
 import { ToastProvider } from '../../../ToastContext'
 import { useCanvasStore } from '../../../store'
 import { useReadinessStore } from '../../../stores/readinessStore'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useSignalSessionStore } from '../signals/signalSessionStore'
 import type { PreAnalysisSensitivity } from '../../../../adapters/cee/types'
+import {
+  BLOCKED_REASON_COPY,
+  composeReadinessBlockedReason,
+  selectOptionsNeedingValues,
+} from '../../../utils/composeBlockedReason'
+import type { GraphReadiness } from '../../../hooks/useGraphReadiness'
 
 function node(
   id: string,
@@ -76,6 +83,7 @@ function seedGraph(opts: { successSet?: boolean; reviewedAll?: boolean } = {}) {
     draftCoaching: null,
     currentBriefText: null,
     goalThreshold: null,
+    goalConstraints: null,
   })
 }
 
@@ -83,7 +91,7 @@ function seedReadiness(canRun = true, explanation = 'Looks consistent.') {
   useReadinessStore.setState({
     readiness: {
       readiness_score: 72,
-      readiness_level: 'strong',
+      readiness_level: 'ready', // ROADMAP 2.635 — was 'strong', the local heuristic's spelling of the top band; that heuristic is deleted and the level with it. `ready` is the producer's own top band at this score.
       can_run_analysis: canRun,
       confidence_explanation: explanation,
       improvements: [],
@@ -226,6 +234,29 @@ describe('single source of truth — one success commit updates everything', () 
     expect(screen.getByLabelText('Success measure')).toHaveValue('20%')
     expect(screen.getByTestId('pre-analysis-v3-hero')).toHaveTextContent('Olumi estimate')
   })
+
+  it('an explicit-provenance stored goal constraint relabels the chip user-set (lane 35 fix 2)', () => {
+    // The user STATED the target in their brief: CEE stored the goal
+    // constraint with provenance 'explicit' and derived goal_threshold_raw
+    // from it. "Olumi estimate" would misattribute the user's own number.
+    seedGraph({ successSet: true })
+    useCanvasStore.setState({
+      goalConstraints: [
+        {
+          id: 'c1',
+          label: 'Delivery output up 20%',
+          operator: '>=',
+          value: 20,
+          provenance: 'explicit',
+        } as never,
+      ],
+    })
+    renderPanel()
+    expect(screen.getByLabelText('Success measure')).toHaveValue('20%')
+    const hero = screen.getByTestId('pre-analysis-v3-hero')
+    expect(hero).toHaveTextContent('Your target')
+    expect(hero).not.toHaveTextContent('Olumi estimate')
+  })
 })
 
 describe('render-if-live coaching', () => {
@@ -296,8 +327,20 @@ describe('signal resolution', () => {
   })
 })
 
+/**
+ * ROADMAP 2.304 slice 1 — these two now pin the RECEIPT-GATED rule.
+ *
+ * The drill-in's commit is a `factor_value_edit` turn, and the reviewed stamp
+ * (`user_override` / `user_confirmed`) is written only when CEE's applied
+ * `graph_patch` receipt comes back. This panel is rendered here with NO
+ * ConversationProvider, so no turn is dispatched and no receipt can arrive:
+ * the NUMBER moves (optimistic write) and the CLAIM does not. That is the
+ * defect being closed — the old assertions passed against a stamp the engine
+ * had never seen. The receipt path itself is driven end-to-end, against the
+ * real dispatcher, in `model/__tests__/calibrateDrillInReceipt.spec.tsx`.
+ */
 describe('calibrate flow (canonical observed-state writes)', () => {
-  it('saving a value writes raw_value + user_override and moves the estimates bar', () => {
+  it('saving a value writes raw_value but withholds the reviewed stamp until a receipt', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
     fireEvent.click(screen.getByRole('button', { name: /What this depends on/ }))
@@ -310,14 +353,16 @@ describe('calibrate flow (canonical observed-state writes)', () => {
     const f1 = useCanvasStore.getState().nodes.find(n => n.id === 'f1')!
     const observed = (f1.data as { observedState?: Record<string, unknown> }).observedState!
     expect(observed.raw_value).toBe(40)
-    expect(observed.source).toBe('user_override')
+    expect(observed.source).toBe('cee_inference')
 
+    // The bar counts CHECKED rows, so it cannot move on an unreceipted commit
+    // either — the two now agree, which is the point.
     expect(screen.getByTestId('pre-analysis-v3-bar-estimates')).toHaveAccessibleName(
-      'Estimates: medium. 1 of 3 checked',
+      'Estimates: low. 0 of 3 checked',
     )
   })
 
-  it('confirm as is writes user_confirmed without touching the value', () => {
+  it('confirm as is leaves the value alone and withholds user_confirmed until a receipt', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
     fireEvent.click(screen.getByRole('button', { name: /What this depends on/ }))
@@ -326,7 +371,7 @@ describe('calibrate flow (canonical observed-state writes)', () => {
 
     const f1 = useCanvasStore.getState().nodes.find(n => n.id === 'f1')!
     const observed = (f1.data as { observedState?: Record<string, unknown> }).observedState!
-    expect(observed.source).toBe('user_confirmed')
+    expect(observed.source).toBe('cee_inference')
     expect(observed.raw_value).toBe(30)
   })
 })
@@ -359,6 +404,25 @@ describe('footer readiness', () => {
     const footer = screen.getByTestId('pre-analysis-v3-footer')
     expect(footer).toHaveTextContent('Not ready for analysis yet')
     expect(footer).toHaveTextContent('Two options need target values before analysis.')
+  })
+
+  // UI-SEM-091: readiness reports not-runnable, but CEE will draft the
+  // remaining options — the footer discloses the draft, never the not-ready
+  // copy, so it agrees with the (enabled) run gate.
+  it('discloses the scaffold draft instead of the not-ready copy when CEE will draft the options', () => {
+    seedReadiness(false, 'Two options need target values before analysis.')
+    useReadinessStore.setState({
+      readiness: {
+        ...useReadinessStore.getState().readiness!,
+        scaffold_plan: { will_scaffold_options: true, option_count: 2 },
+      },
+    })
+    // canRun mirrors the run gate (canRunAnalysis util), which ORs the scaffold.
+    renderPanel({ canRun: true })
+    const footer = screen.getByTestId('pre-analysis-v3-footer')
+    expect(footer).toHaveTextContent('Olumi will draft the remaining 2 options')
+    expect(footer).not.toHaveTextContent('Not ready for analysis yet')
+    expect(footer).not.toHaveTextContent('Two options need target values before analysis.')
   })
 
   it('the analyse button obeys the external gate authority (canRun)', () => {
@@ -412,6 +476,79 @@ describe('no silent failures (diagnose-and-fix pass)', () => {
     fireEvent.click(save)
     expect(useCanvasStore.getState().goalThreshold).toBe(25)
     expect(screen.getByText('Saved')).toBeInTheDocument()
+  })
+
+  // ROADMAP 1.1 fix (Gate 3 blocker, acceptance-evidence/6b-goal-capture):
+  // the Hero's success-target commit above is a LOCAL-ONLY canvas-store
+  // write — it never reached CEE, so a later "Analyse first pass" ran
+  // against CEE's own server-side graph (no threshold) and Goal fit never
+  // unlocked. Saving success must also sync the target to CEE via the same
+  // add_constraint mechanism the working chat path already proves out
+  // (6B evidence clause 3), silently (hidden: true — no chat bubble, since
+  // the user already confirmed via the Hero's own Save button).
+  it('saving a success target also syncs it to CEE via a hidden add_constraint dispatch', () => {
+    const dispatchAction = vi.fn()
+    useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+    renderPanel()
+    const input = screen.getByLabelText('Success measure')
+    fireEvent.change(input, { target: { value: 'ship 25% faster' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save success' }))
+
+    expect(dispatchAction).toHaveBeenCalledTimes(1)
+    const call = dispatchAction.mock.calls[0][0]
+    expect(call.action_type).toBe('add_constraint')
+    expect(call.source).toBe('chip')
+    expect(call.hidden).toBe(true)
+    expect(typeof call.parameters?.description).toBe('string')
+    expect(call.parameters.description.length).toBeGreaterThan(0)
+    // The descriptive text the user typed should ride along verbatim so
+    // Sonnet has the richest signal to interpret into a real constraint.
+    expect(call.message).toContain('ship 25% faster')
+  })
+
+  // Dress-rehearsal 2026-07-20 regression: the digit-strip parser turned
+  // "Reach £500k incremental ARR within 12 months of launch" into 50012
+  // ("£500k" lost its k multiplier → 500; "12 months" concatenated on),
+  // which rendered as "Target: 50,012" on the goal node and
+  // "5,001,200% likelihood" in the Model tab. The commit must extract the
+  // currency amount the user actually stated — never digit-concatenate.
+  it('a descriptive sentence with a currency amount commits that amount, never digit-concatenation', () => {
+    const dispatchAction = vi.fn()
+    useGuidanceStore.setState({ _dispatchAction: dispatchAction } as never)
+    renderPanel()
+    const input = screen.getByLabelText('Success measure')
+    fireEvent.change(input, {
+      target: { value: 'Reach £500k incremental ARR within 12 months of launch' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save success' }))
+
+    expect(useCanvasStore.getState().goalThreshold).toBe(500000)
+    const goal = useCanvasStore.getState().nodes.find(n => n.id === 'g1')
+    const goalData = goal?.data as { success_threshold?: number; goal_threshold_unit?: string }
+    expect(goalData?.success_threshold).toBe(500000)
+    expect(goalData?.goal_threshold_unit).toBe('£')
+    // The committed value flows back down in the user's own unit.
+    expect(input).toHaveValue('£500,000')
+    // The verbatim sentence still rides to CEE.
+    expect(dispatchAction.mock.calls[0][0].message).toContain('£500k')
+  })
+
+  it('a timeframe number is never fabricated into the target (fail closed with the hint)', () => {
+    renderPanel()
+    const input = screen.getByLabelText('Success measure')
+    fireEvent.change(input, { target: { value: 'double revenue within 12 months' } })
+    fireEvent.blur(input)
+    expect(useCanvasStore.getState().goalThreshold).toBeNull()
+    expect(screen.getByText('Enter a number, like 20 or 15%')).toBeInTheDocument()
+  })
+
+  it('does not throw when saving a success target with no _dispatchAction registered (graceful degradation)', () => {
+    useGuidanceStore.setState({ _dispatchAction: null } as any)
+    renderPanel()
+    const input = screen.getByLabelText('Success measure')
+    fireEvent.change(input, { target: { value: '25' } })
+    expect(() => fireEvent.click(screen.getByRole('button', { name: 'Save success' }))).not.toThrow()
+    expect(useCanvasStore.getState().goalThreshold).toBe(25)
   })
 
   it('rows without a value get an Add value affordance, no check tick, and the meta counts them', () => {
@@ -593,6 +730,125 @@ describe('assessment-pass regressions', () => {
     expect(footer).toHaveTextContent('Two factors in the decision model need values')
   })
 
+  // ⚠ Paul's journey, 28 Jul — the surface he actually saw.
+  //
+  // He added an option by chat on a model with a decision, a goal and five
+  // options. The footer read:
+  //
+  //     Not ready for analysis yet
+  //     Add a decision, a goal and at least two options
+  //
+  // …two lines below the panel's own "5 options · 3 risks · 6 estimates". The
+  // engine's reason contained the banned word "blocked", `guardCeeText` found no
+  // substitution and degraded to that fallback — an honesty guard emitting a
+  // false statement of fact. The gate now hands the footer COMPOSED copy
+  // (utils/composeBlockedReason.ts), and the fallback claims nothing.
+  it("the blocked footer names the real reason and never tells a five-option model to add options", () => {
+    renderPanel({
+      canRun: false,
+      blockedReason: BLOCKED_REASON_COPY.oneOption(
+        'Partner with a specialist consultancy',
+        true,
+      ),
+    })
+    const footer = screen.getByTestId('pre-analysis-v3-footer')
+    expect(footer).toHaveTextContent('Not ready for analysis yet')
+    expect(footer).toHaveTextContent(
+      '"Partner with a specialist consultancy" has no effect values yet. Tell Olumi what it changes and the analysis can run.',
+    )
+    // The false claim, and the developer-facing string that preceded it.
+    expect(footer).not.toHaveTextContent('Add a decision, a goal and at least two options')
+    expect(footer).not.toHaveTextContent('V3 analysis not ready')
+    expect(footer).not.toHaveTextContent('opt_')
+  })
+
+  it('the composed reason survives the guard verbatim (it is glossary-clean by construction)', () => {
+    // If the composer ever emitted a banned term the guard would silently
+    // replace the whole sentence with the fallback — the failure mode this
+    // whole change exists to remove. Pinned here, at the render.
+    for (const reason of [
+      BLOCKED_REASON_COPY.oneOption('Buy a vendor platform', true),
+      BLOCKED_REASON_COPY.oneOption('Buy a vendor platform', false),
+      BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Build in house', true),
+      BLOCKED_REASON_COPY.manyOptions(3, true),
+      BLOCKED_REASON_COPY.manyOptions(3, false),
+      BLOCKED_REASON_COPY.goalMissing,
+      BLOCKED_REASON_COPY.tooFewOptions,
+      BLOCKED_REASON_COPY.unspecified,
+    ]) {
+      const { unmount } = renderPanel({ canRun: false, blockedReason: reason })
+      expect(screen.getByTestId('pre-analysis-v3-footer')).toHaveTextContent(reason)
+      unmount()
+    }
+  })
+
+  // ══════════════════════════════════════════════════════════════════════
+  // AMENDMENT A1 (adversarial review of #520, 28 Jul) — EXECUTED FINDING.
+  //
+  // The footer passed the COMPOSED sentence through `guardCeeText`, which
+  // PREFERS IN-PLACE SUBSTITUTION and enforces terms the composer's own label
+  // vet does not (node/nodes/edge/edges/graphs). Proven at the bytes: an option
+  // the user named "Move billing to edge computing" rendered in the footer as
+  // "Move billing to CONNECTION computing" — a label that exists on no canvas —
+  // while the unguarded ⌘Enter toast and dock tooltip showed the real one.
+  // Three surfaces, three stories: the very class this PR exists to remove.
+  //
+  // These two go through the REAL composer, not a hand-written string.
+  // ══════════════════════════════════════════════════════════════════════
+  describe('the blocked footer never rewrites the user’s own option label', () => {
+    const verdict: GraphReadiness = {
+      readiness_score: 90,
+      readiness_level: 'ready',
+      can_run_analysis: false,
+      confidence_explanation: 'V3 analysis not ready: 1 option(s) blocked: opt_edge',
+      improvements: [],
+      scaffold_plan: { will_scaffold_options: false },
+      options_ready: 1,
+      options_total: 2,
+      goal_node_valid: true,
+    }
+
+    const composedFor = (label: string) =>
+      composeReadinessBlockedReason(
+        verdict,
+        selectOptionsNeedingValues({
+          options: [
+            { id: 'opt_keep', label: 'Keep billing where it is', status: 'ready' },
+            { id: 'opt_edge', label, status: 'needs_encoding' },
+          ],
+        }),
+      )
+
+    it('renders the EXACT label the user typed, even when it carries "edge"', () => {
+      const label = 'Move billing to edge computing'
+      const reason = composedFor(label)
+      expect(reason).toContain(label) // the composer quotes it verbatim…
+
+      renderPanel({ canRun: false, blockedReason: reason })
+      const footer = screen.getByTestId('pre-analysis-v3-footer')
+      // …and so does the footer. This is the assertion that was RED.
+      expect(footer).toHaveTextContent(`"${label}" has no effect values yet.`)
+      expect(footer).not.toHaveTextContent('connection computing')
+      expect(footer).not.toHaveTextContent('Olumi is not able to run this yet')
+    })
+
+    it('a long label whose truncation would expose a banned word degrades WHOLE', () => {
+      // The review's second executed proof: 'graphite' passes the vet, the cut
+      // lands after "graph", and the guard rewrote it to "… model…". The honest
+      // answer is the count — never a mutated variant of the user's words.
+      const label = `${'x'.repeat(41)} graphite dashboards consolidation`
+      const reason = composedFor(label)
+
+      renderPanel({ canRun: false, blockedReason: reason })
+      const footer = screen.getByTestId('pre-analysis-v3-footer')
+      const text = footer.textContent ?? ''
+      expect(footer).toHaveTextContent('1 option has no effect values yet')
+      expect(text).not.toContain('x'.repeat(41)) // no fragment of the label at all
+      expect(text).not.toMatch(/\bgraph\b/i) // no banned fragment
+      expect(text).not.toContain('model…') // the mutated variant the review proved
+    })
+  })
+
   it('the run rung explains itself instead of silently no-opping when the dock gate is closed', () => {
     // Readiness says runnable and everything is set, so the ladder reads
     // "run first" — but the dock gate is closed (e.g. a validation blocker).
@@ -635,5 +891,40 @@ describe('assessment-pass regressions', () => {
     const bar = screen.getByTestId('pre-analysis-v3-bar-estimates')
     expect(bar).toHaveAccessibleName('Estimates: No estimates yet')
     expect(bar).not.toHaveTextContent('medium')
+  })
+})
+
+describe('Success-target nudge (V3)', () => {
+  it('renders the nudge when a drafted graph has a goal but no success target', () => {
+    // beforeEach seeds seedGraph(): goal g1 present, no goal_threshold →
+    // success unset. The V3 panel is the LIVE staging surface, so the nudge
+    // must be present here (regression guard for the dark-nudge defect).
+    renderPanel()
+    expect(screen.getByTestId('goal-target-nudge')).toBeInTheDocument()
+  })
+
+  it('hides the nudge once a success target is set', () => {
+    seedGraph({ successSet: true })
+    renderPanel()
+    expect(screen.queryByTestId('goal-target-nudge')).not.toBeInTheDocument()
+  })
+
+  it('does not render the nudge when there is no goal node', () => {
+    useCanvasStore.setState({
+      nodes: useCanvasStore
+        .getState()
+        .nodes.filter(n => (n.data as { kind?: string }).kind !== 'goal'),
+    })
+    renderPanel()
+    expect(screen.queryByTestId('goal-target-nudge')).not.toBeInTheDocument()
+  })
+
+  it('CTA reaches the V3 setter seam (focuses the inline success field)', () => {
+    // Same route handleLadderAct('set_success') / handleSignalAction(
+    // 'focus_success_field') use — focus the inline success field by id. No
+    // second editor.
+    renderPanel()
+    fireEvent.click(screen.getByTestId('goal-target-nudge-cta'))
+    expect(document.getElementById(SUCCESS_INPUT_ID)).toHaveFocus()
   })
 })

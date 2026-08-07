@@ -20,6 +20,7 @@ const mockSetCeeAnalysisReady = vi.fn()
 const mockSetCeePipelineTrace = vi.fn()
 const mockSetCeeQuality = vi.fn()
 const mockSetGoalConstraints = vi.fn()
+const mockSetLastAuthoritativeGraph = vi.fn()
 const mockSetDraftCoaching = vi.fn()
 const mockSetPreAnalysisSensitivity = vi.fn()
 const mockMarkAnalysisFreshnessDirty = vi.fn()
@@ -46,6 +47,14 @@ vi.mock('../../store', () => ({
         setCeePipelineTrace: mockSetCeePipelineTrace,
         setCeeQuality: mockSetCeeQuality,
         setGoalConstraints: mockSetGoalConstraints,
+        // B2. NOTE: this getState() block is a HAND-MAINTAINED MIRROR of the
+        // store's action surface — a `vi.mock` factory REPLACES the module, so
+        // any action added to the store and called by applyDraftResult throws
+        // here until someone remembers to add it. That is how this line came
+        // to exist. It is left strict (no `?.()` at the call site) on purpose:
+        // a loud throw in one spec is far better than an optional call that
+        // silently no-ops the deletion-authorisation record in production.
+        setLastAuthoritativeGraph: mockSetLastAuthoritativeGraph,
         setDraftCoaching: mockSetDraftCoaching,
         setPreAnalysisSensitivity: mockSetPreAnalysisSensitivity,
         currentScenarioId: null,
@@ -308,6 +317,64 @@ describe('applyDraftResult', () => {
     applyDraftResult(draftData)
     expect(storeEdges[0].data.direction).toBe('negative')
     expect(storeEdges[0].data.weight).toBe(0.7) // absolute value
+  })
+
+  /**
+   * ROADMAP 2.263 — ingestion must record WHETHER the producer stated a
+   * direction, without changing what it stores in `direction`.
+   *
+   * The stored byte is deliberately untouched (see `resolveEdgeDirectionDisplay`'s
+   * header: `direction` is persistence- and staleness-bearing and is read as a
+   * sign by four outbound adapters). What was being thrown away is the one fact
+   * the display side needs — did anyone actually SAY this? — and without it a
+   * render-side fix is impossible even in principle, because ingestion had
+   * already made a stated 'positive' and a defaulted one byte-identical.
+   *
+   * The `direction` assertions below are the CONTROL that the stored value did
+   * not move; the `directionSource` assertions are the new fact.
+   */
+  describe('direction provenance stamp', () => {
+    function ingestOneEdge(edge: Record<string, unknown>) {
+      applyDraftResult({
+        nodes: [
+          { id: 'f1', kind: 'factor', label: 'A' },
+          { id: 'g1', kind: 'goal', label: 'Goal' },
+        ],
+        edges: [{ from: 'f1', to: 'g1', weight: 0.6, ...edge }],
+      } as any)
+      return storeEdges[0].data
+    }
+
+    it('stamps cee when the producer stated a direction (POSITIVE CONTROL)', () => {
+      const data = ingestOneEdge({ effect_direction: 'positive' })
+      expect(data.directionSource).toBe('cee')
+      expect(data.direction).toBe('positive')
+    })
+
+    it('stamps cee for a stated negative direction (CONTROL)', () => {
+      const data = ingestOneEdge({ effect_direction: 'negative', weight: -0.6 })
+      expect(data.directionSource).toBe('cee')
+      expect(data.direction).toBe('negative')
+    })
+
+    it("does NOT stamp when the producer sent 'unknown'", () => {
+      const data = ingestOneEdge({ effect_direction: 'unknown' })
+      expect(data.directionSource).toBeUndefined()
+      // The stored byte is unchanged — still the fallback. That is the point:
+      // the fabrication is now DETECTABLE rather than removed from storage.
+      expect(data.direction).toBe('positive')
+    })
+
+    it('does NOT stamp when the producer omitted the field', () => {
+      const data = ingestOneEdge({})
+      expect(data.directionSource).toBeUndefined()
+      expect(data.direction).toBe('positive')
+    })
+
+    it('does NOT stamp an unrecognised direction value', () => {
+      const data = ingestOneEdge({ effect_direction: 'sideways' })
+      expect(data.directionSource).toBeUndefined()
+    })
   })
 
   it('preserves V3 edge_type, provenance_source, and exists_probability', () => {
@@ -598,7 +665,8 @@ describe('applyDraftResult', () => {
 
     applyDraftResult(draftData)
 
-    expect(mockSetGoalConstraints).toHaveBeenCalledWith(constraints)
+    // Producer sync — passes fromProducerSync so the ingestion write does not self-dirty freshness.
+    expect(mockSetGoalConstraints).toHaveBeenCalledWith(constraints, { fromProducerSync: true })
   })
 
   it('clears stale goal_constraints when V3 response has none (no-constraint draft after constrained draft)', () => {
@@ -620,7 +688,7 @@ describe('applyDraftResult', () => {
 
     applyDraftResult(draftData)
 
-    expect(mockSetGoalConstraints).toHaveBeenCalledWith(null)
+    expect(mockSetGoalConstraints).toHaveBeenCalledWith(null, { fromProducerSync: true })
   })
 
   it('clears stale is_baseline when baseline option changes', () => {

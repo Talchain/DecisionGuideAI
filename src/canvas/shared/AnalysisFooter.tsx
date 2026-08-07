@@ -7,8 +7,14 @@ export interface AnalysisFooterProps {
   statusIconClassName?: string
   statusText: string
   metaText?: ReactNode
-  actionLabel: string
-  onAction: () => void
+  /**
+   * Action button label. OPTIONAL as of lane C1: omit BOTH `actionLabel`
+   * and `onAction` to render a STATUS-ONLY footer (status + meta, no
+   * button) — used on the Analysis tab while the freshness strip owns the
+   * one Rerun (brief §2.2: never repeat the same action across surfaces).
+   */
+  actionLabel?: string
+  onAction?: () => void
   actionDisabled?: boolean
   actionLoading?: boolean
   actionAriaLabel?: string
@@ -81,28 +87,31 @@ export function AnalysisFooter({
             ) : null}
           </div>
         )}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={onAction}
-            disabled={actionDisabled}
-            aria-disabled={actionDisabled ? 'true' : 'false'}
-            aria-label={actionAriaLabel ?? actionLabel}
-            title={actionTitle}
-            data-action-variant={actionVariant}
-            className={`
-              min-h-8 rounded-full px-4 ${typography.panelBody}
-              inline-flex items-center justify-center gap-2 transition-colors
-              ${variantClasses}
-              focus-visible:outline-none focus-visible:ring-2
-              focus-visible:ring-info focus-visible:ring-offset-2
-              disabled:cursor-not-allowed disabled:opacity-40
-            `}
-          >
-            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-            {actionLabel}
-          </button>
-        </div>
+        {actionLabel != null && onAction != null && (
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={onAction}
+              disabled={actionDisabled}
+              aria-disabled={actionDisabled ? 'true' : 'false'}
+              aria-label={actionAriaLabel ?? actionLabel}
+              title={actionTitle}
+              data-action-variant={actionVariant}
+              data-testid={`${testId}-action`}
+              className={`
+                min-h-8 rounded-full px-4 ${typography.panelBody}
+                inline-flex items-center justify-center gap-2 transition-colors
+                ${variantClasses}
+                focus-visible:outline-none focus-visible:ring-2
+                focus-visible:ring-info focus-visible:ring-offset-2
+                disabled:cursor-not-allowed disabled:opacity-40
+              `}
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+              {actionLabel}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

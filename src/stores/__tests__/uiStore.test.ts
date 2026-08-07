@@ -10,7 +10,6 @@ describe('uiStore', () => {
     // Reset store to default state
     useUIStore.setState({
       activeOutputTab: 'results',
-      hoveredElementId: null,
       activeRightPanel: null,
     })
   })
@@ -29,16 +28,6 @@ describe('uiStore', () => {
       useUIStore.getState().setActiveOutputTab(tab)
       expect(useUIStore.getState().activeOutputTab).toBe(tab)
     }
-  })
-
-  it('setHoveredElementId sets and clears', () => {
-    expect(useUIStore.getState().hoveredElementId).toBeNull()
-
-    useUIStore.getState().setHoveredElementId('node-123')
-    expect(useUIStore.getState().hoveredElementId).toBe('node-123')
-
-    useUIStore.getState().setHoveredElementId(null)
-    expect(useUIStore.getState().hoveredElementId).toBeNull()
   })
 })
 
