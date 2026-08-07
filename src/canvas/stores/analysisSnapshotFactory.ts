@@ -476,7 +476,20 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     winnerProbability: Math.round((winner?.win_probability ?? 0) * 100),
     runnerUpId: runnerUp?.option_id ?? null,
     runnerUpLabel: runnerUp?.option_label ?? null,
-    runnerUpProbability: runnerUp ? Math.round((runnerUp.win_probability ?? 0) * 100) : null,
+    // ROADMAP 2.834 — this line had TWO absence paths and only one was honest.
+    // `runnerUp ? … : null` correctly reports "there is no runner-up", but the
+    // inner `win_probability ?? 0` published a confident 0% for a runner-up
+    // that EXISTS and simply was not scored. The snapshot is a persistence
+    // surface, so that fabricated 0 outlived the run and replayed on the
+    // compare tab in every later session.
+    //
+    // The type is unchanged (`number | null`, types.ts:144) — absence was
+    // already first-class here, so no consumer contract moves. `winnerProbability`
+    // above deliberately keeps its `?? 0`: it is non-nullable and is consumed
+    // ARITHMETICALLY by deriveCompareState, so making it nullable would change
+    // which hero copy fires (out of scope, ROADMAP 2.835).
+    runnerUpProbability:
+      runnerUp?.win_probability != null ? Math.round(runnerUp.win_probability * 100) : null,
 
     recommendationStability: stability,
     stabilityLabel: stability != null ? deriveStabilityLabel(stability) : null,

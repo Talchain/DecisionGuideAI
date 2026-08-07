@@ -52,7 +52,15 @@ function getHeroCopy(
       }
     case 'noWinner':
       return {
-        line1: `Run ${latest.runNumber} · No clear leading option (${latest.winnerLabel} ${latest.winnerProbability}%, ${latest.runnerUpLabel ?? '—'} ${latest.runnerUpProbability ?? 0}%)`,
+        // ROADMAP 2.834: `?? 0` printed "Option B 0%" — a confident measurement
+        // — for a runner-up the engine never scored. `runnerUpProbability` is
+        // declared `number | null` precisely because that absence is expected
+        // (a run with a single option has no runner-up at all).
+        line1: `Run ${latest.runNumber} · No clear leading option (${latest.winnerLabel} ${latest.winnerProbability}%, ${latest.runnerUpLabel ?? '—'} ${
+          latest.runnerUpProbability != null
+            ? `${latest.runnerUpProbability}%`
+            : 'not scored in this run'
+        })`,
         line2: 'Model improving · Result uncertain',
         actionPrefix: 'Calibrate ',
         actionLink: latest.topCalibrationFactor,

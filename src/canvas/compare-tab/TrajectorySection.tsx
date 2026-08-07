@@ -66,15 +66,49 @@ function ExpertTable({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
   )
 }
 
-function TrajectoryChart({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
-  const hasGoal = snapshots.some(s => s.goalProbability != null)
+export interface TrajectoryDatum {
+  run: number
+  winner: number
+  /** null ⇒ this run had no runner-up, or the engine did not score it. */
+  runnerUp: number | null
+  /** null ⇒ goal attainment was not assessed for this run. */
+  goal: number | null
+}
 
-  const data = snapshots.map(s => ({
+/**
+ * The chart series, absence-preserving (ROADMAP 2.834).
+ *
+ * `runnerUp` was `?? 0`, which drew a flat line along the axis for a run whose
+ * runner-up was never scored — a measurement the engine did not make, in the
+ * most credible form the UI has. A reader doubts a printed number; a plotted
+ * series reads as observation. `goal` was already honest (`?? undefined`) two
+ * lines away, so this only brings `runnerUp` to the standard its neighbour
+ * already met.
+ *
+ * Recharts leaves a GAP for a null y-value (`connectNulls` defaults false), so
+ * an unscored run breaks the line instead of pinning it to zero.
+ *
+ * Exported so the series can be asserted directly: jsdom cannot prove anything
+ * about a rendered chart (CLAUDE.md trap 3), and a test that renders recharts
+ * under jsdom would be pinning nothing.
+ */
+export function buildTrajectoryData(snapshots: AnalysisSnapshot[]): TrajectoryDatum[] {
+  return snapshots.map(s => ({
     run: s.runNumber,
     winner: s.winnerProbability,
-    runnerUp: s.runnerUpProbability ?? 0,
-    goal: s.goalProbability ?? undefined,
+    runnerUp: s.runnerUpProbability,
+    goal: s.goalProbability,
   }))
+}
+
+function TrajectoryChart({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
+  const data = buildTrajectoryData(snapshots)
+
+  // Derived from the SERIES rather than re-deriving a predicate over the
+  // snapshots: one source of truth for "is there anything to draw", so a
+  // change to the series cannot leave the line-visibility guard behind.
+  const hasGoal = data.some(d => d.goal != null)
+  const hasRunnerUp = data.some(d => d.runnerUp != null)
 
   // Find flip points
   const flipRuns = snapshots
@@ -114,14 +148,16 @@ function TrajectoryChart({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
           dot={{ r: 3 }}
           activeDot={{ r: 5 }}
         />
-        <Line
-          type="monotone"
-          dataKey="runnerUp"
-          stroke="var(--chart-4)"
-          strokeWidth={2}
-          dot={{ r: 3 }}
-          activeDot={{ r: 5 }}
-        />
+        {hasRunnerUp && (
+          <Line
+            type="monotone"
+            dataKey="runnerUp"
+            stroke="var(--chart-4)"
+            strokeWidth={2}
+            dot={{ r: 3 }}
+            activeDot={{ r: 5 }}
+          />
+        )}
         {hasGoal && (
           <Line
             type="monotone"

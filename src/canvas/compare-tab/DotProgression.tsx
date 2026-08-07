@@ -11,8 +11,68 @@ interface DotProgressionProps {
 interface OptionRow {
   label: string
   nodeId: string | null
-  values: number[]
+  /** null ⇒ not scored in this run. Never coerced to 0 (ROADMAP 2.834). */
+  values: (number | null)[]
   colour: string // Tailwind colour class
+}
+
+/**
+ * What a run that was never scored shows instead of a number.
+ *
+ * The surface already owns this idiom — `NOT_ASSESSED` in TrajectorySection
+ * and RunPairCompare, and `—` on ComparisonCanvasLayout. In this row the cell
+ * is a few characters wide, so it takes the em-dash form, with the full
+ * sentence on the title so the meaning is reachable without widening the row.
+ */
+const NOT_SCORED = '—'
+const NOT_SCORED_TITLE = 'Not scored in this run'
+
+/**
+ * One run's cell in a progression row — the ONE place absence is rendered.
+ *
+ * Both rows (options and target) previously carried their own `?? 0`, so the
+ * fix had to land twice or land inconsistently. Rendering both through this
+ * component means a later row cannot reintroduce the fabrication by omission
+ * (CLAUDE.md trap 12 — derive, don't mirror).
+ *
+ * An unscored run draws a HOLLOW dot: a filled dot on a progression reads as
+ * "measured here", which is the same claim the fabricated number made.
+ */
+function ProgressionCell({
+  value,
+  colour,
+  isLast,
+  showConnector,
+}: {
+  value: number | null
+  colour: string
+  isLast: boolean
+  showConnector: boolean
+}) {
+  const scored = value != null
+  const size = isLast ? 9 : 7
+
+  return (
+    <div className="inline-flex items-center">
+      {showConnector && <div className={`w-6 h-0.5 ${colour} opacity-30`} />}
+      <div
+        className={`rounded-full ${scored ? colour : ''}`}
+        style={{
+          width: size,
+          height: size,
+          opacity: isLast ? 1 : 0.6,
+          ...(scored ? {} : { border: '1px dashed var(--text-muted)' }),
+        }}
+        {...(scored ? {} : { 'data-testid': 'compare-dot-unscored', title: NOT_SCORED_TITLE })}
+      />
+      <span
+        className={`${typography.panelMeta} tabular-nums ml-0.5 mr-0.5`}
+        {...(scored ? {} : { title: NOT_SCORED_TITLE })}
+      >
+        {scored ? `${value}%` : NOT_SCORED}
+      </span>
+    </div>
+  )
 }
 
 export function DotProgression({ snapshots }: DotProgressionProps) {
@@ -33,7 +93,10 @@ export function DotProgression({ snapshots }: DotProgressionProps) {
     rows.push({
       label: latest.runnerUpLabel ?? '',
       nodeId: latest.runnerUpId,
-      values: snapshots.map(s => s.runnerUpProbability ?? 0),
+      // `latest.runnerUpId` gates whether the ROW exists, using the LATEST run
+      // only — it says nothing about the earlier runs plotted along it, which
+      // is how `?? 0` printed "0%" for runs that had no runner-up at all.
+      values: snapshots.map(s => s.runnerUpProbability),
       colour: 'bg-option',
     })
   }
@@ -72,29 +135,15 @@ export function DotProgression({ snapshots }: DotProgressionProps) {
               row.label
             )}
           </span>
-          {row.values.map((val, ri) => {
-            const isLast = ri === snapshots.length - 1
-            return (
-              <div key={ri} className="inline-flex items-center">
-                {ri > 0 && (
-                  <div
-                    className={`w-6 h-0.5 ${row.colour} opacity-30`}
-                  />
-                )}
-                <div
-                  className={`rounded-full ${row.colour}`}
-                  style={{
-                    width: isLast ? 9 : 7,
-                    height: isLast ? 9 : 7,
-                    opacity: isLast ? 1 : 0.6,
-                  }}
-                />
-                <span className={`${typography.panelMeta} tabular-nums ml-0.5 mr-0.5`}>
-                  {val}%
-                </span>
-              </div>
-            )
-          })}
+          {row.values.map((val, ri) => (
+            <ProgressionCell
+              key={ri}
+              value={val}
+              colour={row.colour}
+              isLast={ri === snapshots.length - 1}
+              showConnector={ri > 0}
+            />
+          ))}
         </div>
       ))}
 
@@ -104,28 +153,19 @@ export function DotProgression({ snapshots }: DotProgressionProps) {
           <span className={`${typography.panelBody} font-medium w-[68px] flex-shrink-0 flex items-center gap-0.5`}>
             <Target size={10} className="text-goal" /> Target
           </span>
-          {snapshots.map((s, ri) => {
-            const isLast = ri === snapshots.length - 1
-            const val = s.goalProbability ?? 0
-            return (
-              <div key={ri} className="inline-flex items-center">
-                {ri > 0 && (
-                  <div className="w-6 h-0.5 bg-goal opacity-30" />
-                )}
-                <div
-                  className="rounded-full bg-goal"
-                  style={{
-                    width: isLast ? 9 : 7,
-                    height: isLast ? 9 : 7,
-                    opacity: isLast ? 1 : 0.6,
-                  }}
-                />
-                <span className={`${typography.panelMeta} tabular-nums ml-0.5 mr-0.5`}>
-                  {val}%
-                </span>
-              </div>
-            )
-          })}
+          {snapshots.map((s, ri) => (
+            // `hasGoal` decides whether this ROW is drawn at all; it never said
+            // anything about the individual runs along it, so a run with no
+            // goal assessment used to print a fabricated "0%" inside an
+            // honestly-gated row.
+            <ProgressionCell
+              key={ri}
+              value={s.goalProbability}
+              colour="bg-goal"
+              isLast={ri === snapshots.length - 1}
+              showConnector={ri > 0}
+            />
+          ))}
         </div>
       )}
     </div>
