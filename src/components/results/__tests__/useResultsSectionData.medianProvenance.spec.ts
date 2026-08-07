@@ -49,8 +49,23 @@ const OPTION_NODES = [
 
 /**
  * A V5 analysis block whose first option carries a MEAN and a full p10/p90 range
- * but NO p50 — ISL's reachable partial-outcome shape — and whose second option
- * carries a real median as the in-tree positive control.
+ * but NO p50, and whose second option carries a real median as the in-tree
+ * positive control.
+ *
+ * ⚠ THIS SHAPE IS CONSTRUCTED TO ISOLATE THE EXPRESSION UNDER TEST, AND IS NOT
+ * CLAIMED TO BE ONE ISL EMITS. ISL populates p10/p50/p90 as a FAMILY — either
+ * all three from the sample set (`percentiles_source: 'samples'`) or none
+ * (`'unavailable'`) — so "p10 and p90 but no p50" is not in the producer's
+ * output domain, and saying otherwise would be exactly the fixture-outside-the-
+ * producer's-domain error this estate keeps paying for.
+ *
+ * What IS reachable, and what this pin is actually about: `p50` absent at all.
+ * The removed `?? rawExpected` fired on that alone, and `OptionResult.outcome
+ * .p50` has consumers far beyond the range bar's dot — `getExpectedValue` (whose
+ * value `goalAnchorCopy` labels "Most likely outcome"), `selectLensOption`,
+ * `useResultCompleteness`, and the p50 sort in this very hook. The mean did not
+ * merely misplace a glyph; it travelled into copy, selection and ordering. The
+ * p10/p90 here just keep the fixture a realistic comparison row.
  */
 const BLOCK = {
   type: 'analysis_result',
