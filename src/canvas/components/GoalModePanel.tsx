@@ -137,7 +137,11 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
         {data && (
           <div className="space-y-3 pt-3 border-t border-sand-200">
             <div className="flex items-center justify-between">
-              <h4 className={typography.h4}>Recommended Path</h4>
+              {/* ROADMAP 2.724 — the system describes the path it computed; it
+                  does not prescribe it. The feasibility badge beside this
+                  heading carries the honest qualifier, so no information is
+                  lost by dropping "Recommended". */}
+              <h4 className={typography.h4}>Path to goal</h4>
               <span
                 className={`
                   ${typography.caption} px-2 py-1 rounded

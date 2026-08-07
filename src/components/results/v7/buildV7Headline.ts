@@ -9,7 +9,10 @@
  *
  *   · "{winner} performs best"        — M1 winner headline
  *     (src/components/debug/utils/exportBundle.ts `deriveHeroHeadline`;
- *      src/canvas/components/ResultsPanel/OptionComparisonReveal.tsx)
+ *      the second citation, canvas/components/ResultsPanel/
+ *      OptionComparisonReveal.tsx, was DELETED by ROADMAP 2.724 — it was an
+ *      unmounted "Best option" trophy badge, so it never evidenced a
+ *      production string in the first place)
  *   · "{winner} is your only option"  — single-option form
  *     (src/components/results/utils/certaintyCopy.ts rule 3)
  *   · "No clear leading option"       — indeterminate / GAP form

@@ -11,7 +11,12 @@
 
 // Panel components
 export { KeyDriversPanel } from './KeyDriversPanel'
-export { OptionComparisonReveal } from './OptionComparisonReveal'
+// OptionComparisonReveal DELETED (ROADMAP 2.724): it rendered a Trophy icon +
+// literal "Best option" badge — a SYSTEM VERDICT the doctrine bans — and had
+// ZERO render sites (barrel-exported only; `<OptionComparisonReveal` appeared
+// nowhere in src/, and its "Best option" string was absent from the deployed
+// staging bundle at tip a81121d1). Unmounted verdict copy is a loaded weapon,
+// not dead weight: a remount would have shipped it.
 
 // Sub-components for Panel 2
 export { SensitivityList } from './SensitivityList'
