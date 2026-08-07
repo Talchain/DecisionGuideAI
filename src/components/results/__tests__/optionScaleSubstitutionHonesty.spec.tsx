@@ -363,11 +363,21 @@ describe('2.800a — median honesty: an absent p50 is NEVER the mean', () => {
     expect(barLabels('a', 'Skewed option')).toEqual(['0', '80', '100'])
   })
 
-  it('the caption that promises a median is only shown over bars that have one', () => {
-    // The lens prints "Dots show the median. Bars show the realistic range
-    // (10th to 90th percentile)." Pinned here so the copy and the substitution
-    // fix cannot drift apart: the sentence is a claim about every dot drawn
-    // above it.
+  it('the caption still claims the dots ARE the median — which is why the substitution had to go', () => {
+    // This pins the COPY, not a conditional rendering rule. The lens prints
+    // "Dots show the median. Bars show the realistic range (10th to 90th
+    // percentile)." above the rows, and that sentence is what makes a
+    // substituted dot a false statement rather than a mislabelled glyph.
+    //
+    // Pinned so the two cannot drift apart in either direction: if someone
+    // later softens this wording to something a mean could satisfy, this reds
+    // and the reviewer has to decide deliberately rather than by accident.
+    //
+    // ⚠ SCOPE, stated plainly so the name cannot overclaim: this does NOT
+    // assert that the caption is suppressed when no dot is drawn. It is not —
+    // a run where no option carries a p50 still prints the sentence over
+    // dotless bars. That is a cosmetic incoherence, not a false statistic, and
+    // it is left for its own change rather than widened into this one.
     renderBody([opt('a', 'Skewed option', { mean: 20, p10: 0, p50: 80, p90: 100, win: 0.6 })])
 
     expect(screen.getByText(V7_LENS_COPY.outcome.caption)).toBeTruthy()
