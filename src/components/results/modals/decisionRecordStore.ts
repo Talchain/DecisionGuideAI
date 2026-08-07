@@ -1,21 +1,57 @@
 /**
- * decisionRecordStore — the prototype-only decision record captured by the
+ * decisionRecordStore — the decision record captured by the
  * Record-the-decision modal (prototype #decisionModal, build-ready v6).
  *
- * HONESTY CONTRACT: NO backend persistence exists — durable saving is
- * blocked on identity + Model Management (the prototype's own disclaimer).
- * Records live in sessionStorage on THIS device for THIS scenario and die
- * with the browser session. Any surface rendering a "Decision recorded"
- * state from this store must label it accordingly.
+ * ⭐ HONESTY CONTRACT, REWRITTEN FOR CALIBRATION R0 — AND THE OLD ONE WAS
+ * BECOMING FALSE IN THE OTHER DIRECTION. It used to read "NO backend
+ * persistence exists — durable saving is blocked on identity + Model
+ * Management". That is no longer true for a signed-in user: the chosen
+ * option, the user's stated confidence, their expectation and the review date
+ * now persist durably in CEE's `decision_records` under owner-only RLS. What
+ * is STILL local-only is the set of fields the shared contract has no home
+ * for — `rationale`, `assumptionToWatch` and a non-date `revisitTrigger`
+ * (`DecisionRecordDecisionSchema`/`…PredictionSchema` are `.strict()`).
+ *
+ * So the split, exactly:
+ *   DURABLE (signed in)  chosen option · confidence · expectation ·
+ *                        review date · the analysed graph anchor
+ *   THIS DEVICE ONLY     rationale · assumption to watch · the revisit
+ *                        trigger TEXT (a trigger is not a date)
+ *   GUESTS               everything stays local, by design — decision
+ *                        records require sign-in (CEE refuses an unowned
+ *                        scenario with DR001).
+ *
+ * A surface rendering a "Decision recorded" state must label which of those
+ * it is showing; `DecisionRecord.remote` is how it can tell.
  *
  * Persistence mirrors strengthenStore: zustand + manual, version-keyed
- * sessionStorage, keyed per scenario id. The analysed graph hash
- * (results.hash at capture time) is stored so later surfaces can say
- * whether the record still matches the current analysis.
+ * sessionStorage, keyed per scenario id.
+ *
+ * ⚠ `analysisHash` IS NOT THE DURABLE RECORD'S ANCHOR AND MUST NEVER BE SENT
+ * AS ONE. It is `results.hash`, annotated `// response_hash` in the canvas
+ * store — PLoT's response hash, a different regime from the
+ * `aag_v1:sha256:` analysis-affecting graph hash the record is anchored to.
+ * CEE derives that anchor server-side from its OWN run_analysis fact. This
+ * field stays for local "does the record still match what's on screen"
+ * comparisons only.
  */
 import { create } from 'zustand'
 
 import { resolveScenarioKey } from './scenarioKey'
+
+/**
+ * Proof that this record reached CEE — the durable half. `null` while the
+ * record is local-only (guest, offline, or a failed commit), so no surface
+ * can claim "saved to your account" without the record id that says so.
+ */
+export interface DecisionRecordRemote {
+  /** `decision_records.record_id` — the durable identity. */
+  recordId: string
+  /** ISO timestamptz stored on the record. */
+  reviewDate: string
+  /** Which rung of CEE's ladder set it — `user_set` means the user chose it. */
+  reviewDateSource: 'user_set' | 'default_horizon' | 'default_horizon_after_unparsed_trigger'
+}
 
 export interface DecisionRecord {
   /** Canvas node id of the chosen option (from the analysed option set). */
@@ -26,6 +62,17 @@ export interface DecisionRecord {
   optionNumber: number | null
   /** 0-100 inclusive. Validated non-empty at capture (the prototype's Number('')===0 hole is closed). */
   confidence: number
+  /**
+   * The user's FORWARD-LOOKING claim — "What do you expect to happen?" — and
+   * the only field the eventual outcome is scored against.
+   *
+   * ⚠ DELIBERATELY NOT `rationale`. A rationale is backward-looking
+   * justification for the choice; scoring it as if it were a prediction would
+   * be a semantic lie, and a calibration number built on it would be
+   * meaningless. Optional on the type only because records persisted before
+   * this field existed are still readable.
+   */
+  expectation?: string
   rationale: string
   assumptionToWatch: string
   /** Free text: a trigger condition or a date ("Revisit trigger or date"). */
@@ -33,6 +80,8 @@ export interface DecisionRecord {
   /** results.hash of the completed analysis on screen at capture time, if any. */
   analysisHash: string | null
   savedAt: number
+  /** Set once the record is durable in CEE; null while local-only. */
+  remote?: DecisionRecordRemote | null
 }
 
 export interface DecisionRecordState {
@@ -41,6 +90,12 @@ export interface DecisionRecordState {
   open: () => void
   close: () => void
   saveRecord: (scenarioKey: string, record: DecisionRecord) => void
+  /**
+   * Promote an already-saved local record to DURABLE once CEE has confirmed
+   * the write. A no-op when no record exists for the key — a remote marker
+   * with no record behind it would be a claim about nothing.
+   */
+  attachRemote: (scenarioKey: string, remote: DecisionRecordRemote) => void
   /** Test/reset seam — clears memory AND storage. */
   _reset: () => void
   /** Test seam — re-reads sessionStorage (simulates a reload). */
@@ -78,6 +133,14 @@ export const useDecisionRecordStore = create<DecisionRecordState>((set, get) => 
 
   saveRecord: (scenarioKey, record) => {
     const byScenario = { ...get().byScenario, [scenarioKey]: record }
+    persist(byScenario)
+    set({ byScenario })
+  },
+
+  attachRemote: (scenarioKey, remote) => {
+    const existing = get().byScenario[scenarioKey]
+    if (!existing) return
+    const byScenario = { ...get().byScenario, [scenarioKey]: { ...existing, remote } }
     persist(byScenario)
     set({ byScenario })
   },
