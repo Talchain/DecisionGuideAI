@@ -1,5 +1,27 @@
 # `/bff/engine` browser-504 — Lane B diagnosis (2026-07-05, afternoon)
 
+> ## Status appended 2026-08-08 at merge (R1 PR-disposition pass) — read this first
+>
+> **This is FROZEN evidence from 2026-07-05. Two of its claims were re-derived on 2026-08-08;
+> one still holds and one is now FALSE.**
+>
+> - ✅ **Still holds — `/bff/engine` is live and healthy, and the 504 does not reproduce.**
+>   `GET https://staging--olumi.netlify.app/bff/engine/health` → **HTTP 200, `application/json`,
+>   0.41s, HTTP/2**, serving PLoT `build: 1b36c34` (= PLoT `staging` tip). No 504 recurrence is
+>   recorded anywhere in `HANDOVER-LOG.md` or `PHASE0-EVIDENCE-2026-07-28/` in the intervening
+>   month. The runbook below therefore remains **recurrence insurance**, which is the only thing
+>   it ever claimed to be.
+> - ❌ **NOW FALSE — the "separate PLoT CORS item" is FIXED.** The row below that reads
+>   *"PLoT CORS preflight omits `x-olumi-sdk` (separate fault, still present)"* is stale.
+>   At `plot-lite-service` `staging` tip `1b36c34a`, **`src/createServer.ts:382`** lists
+>   `'x-olumi-sdk'` in `allowedHeaders`. Do not action that row, and do not re-run its
+>   verification snippet as if it were open.
+>
+> The leading hypothesis (external Netlify-edge/QUIC transport fault) was **never proven** and is
+> not proven now — the morning session's negotiated protocol was never captured, and nothing since
+> has re-tested it. It remains most-probable, not established.
+
+
 **Outcome: the fault no longer reproduces.** The morning's demo-blocking failure (browser
 POSTs to `/bff/engine/v1/run` 504 at ~30s, 5/5, while curl succeeded in <1s) cleared before
 any code change was made. Per the lane's pivot rule, **no speculative fix was shipped**.
