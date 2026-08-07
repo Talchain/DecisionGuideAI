@@ -1507,9 +1507,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const rawExpected =
         prob.expected_outcome ?? prob.expected ?? optionOutcome.mean ?? optionBands.p50 ?? null
 
-      // Extract percentiles (p10/p50/p90) — p50 is true median, NOT expected
+      // Extract percentiles (p10/p50/p90) — p50 is the true median, NOT expected.
+      //
+      // ⚠ ROADMAP 2.800a — `rawP50` used to end `?? rawExpected`, i.e. a missing
+      // MEDIAN was filled with the MEAN. The comment above already said they are
+      // different quantities, and the line below it did the substitution anyway.
+      // `OptionOutcome`'s own declaration is explicit: "mean (expected) and p50
+      // (median) are semantically different for skewed distributions" — and a
+      // robustness Monte-Carlo distribution is exactly where they diverge.
+      // The `optionBands.p50` step stays: that is the SAME statistic from a
+      // second source, not a different one wearing its name.
       const rawP10 = optionOutcome.p10 ?? optionBands.p10 ?? null
-      const rawP50 = optionOutcome.p50 ?? optionBands.p50 ?? rawExpected
+      const rawP50 = optionOutcome.p50 ?? optionBands.p50 ?? null
       const rawP90 = optionOutcome.p90 ?? optionBands.p90 ?? null
 
       // Normalize all 4 values together with single scale decision

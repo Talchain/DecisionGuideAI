@@ -924,16 +924,23 @@ export function mapV5AnalysisToReport(
      * ROADMAP 2.646 — the producer's PERCENTILE PROVENANCE for this option's
      * enrichment `outcome` block, carried verbatim from the wire.
      *
-     * ⚠ DELIBERATELY A SIBLING OF `outcome`, NOT A MEMBER OF IT, and the
-     * placement is the honest one rather than the tidy one. The `outcome`
-     * object above is NOT a faithful copy of the producer's: `p10` and `p90`
-     * fall back to the confidence interval when the producer sent none (see
-     * the reads below), and the view-model hop after this one falls back again
-     * to `run.bands`. A provenance flag sitting INSIDE that object would read
-     * as certifying whichever numbers ended up in it — including ones the
-     * producer's percentile population had nothing to do with. It certifies
-     * the producer's percentile population and only that, so it rides beside
-     * the object rather than in it.
+     * ⚠ DELIBERATELY A SIBLING OF `outcome`, NOT A MEMBER OF IT.
+     *
+     * ⚠⚠ AND THE ORIGINAL REASON HAS BEEN REMOVED RATHER THAN WORKED AROUND
+     * (ROADMAP 2.800a). This note used to read: "The `outcome` object above is
+     * NOT a faithful copy of the producer's: `p10` and `p90` fall back to the
+     * confidence interval when the producer sent none… A provenance flag
+     * sitting INSIDE that object would read as certifying whichever numbers
+     * ended up in it." That was the right diagnosis with the wrong remedy — the
+     * honesty badge was moved AWAY from the substitution instead of the
+     * substitution being deleted, so the percentile numbers themselves carried
+     * no disclosure to anyone. The CI fallback is now gone (see the reads
+     * below): `outcome.p10/p50/p90` are the producer's own or they are null.
+     *
+     * The sibling placement STANDS on a narrower and still-true ground: the
+     * view-model hop after this one may still source percentiles from
+     * `run.bands`, a second source for the same statistic, and this flag
+     * certifies the producer's percentile POPULATION and only that.
      *
      * NARROWED TO THE CLOSED VOCABULARY, NEVER DEFAULTED: absent in ⇒ absent
      * out. See `downsideUnavailableCopy` for why absence must not be read as
@@ -997,19 +1004,43 @@ export function mapV5AnalysisToReport(
     const rawExpected = safeFiniteNumber(enriched?.expected_outcome)
     const expected = rawMean ?? rawExpected ?? ciMid ?? undefined
 
-    const p10 = safeFiniteNumber(outcome?.p10) ?? ciLow
+    // ⚠ ROADMAP 2.800a — PERCENTILES ARE THE PRODUCER'S OR THEY ARE ABSENT.
+    // These reads used to end `?? ciLow` / `?? ciHigh`, putting a
+    // CONFIDENCE-INTERVAL bound into a percentile's slot, rendered under the
+    // percentile's name with no disclosure to the reader. They are different
+    // quantities answering different questions — an interval is a statement
+    // about an ESTIMATE's precision, a p10/p90 pair a statement about the
+    // OUTCOME's spread — so the substitution misstated exactly what this
+    // surface exists to communicate.
+    //
+    // The producer settles it: PLoT's V2 option builder carries no
+    // `confidence_interval` at all ("expected_outcome and confidence_interval
+    // (V1 legacy) removed from V2 response. Use outcome.mean and [outcome.p10,
+    // outcome.p90] instead."), CEE synthesises none, and the string appears in
+    // ZERO captured payloads. So this fallback was DEAD ON THE LIVE WIRE and
+    // ARMED: the contract still permits the field, so a producer re-adding it
+    // would have silently started shipping mislabelled percentiles.
+    const p10 = safeFiniteNumber(outcome?.p10) ?? null
     const p50 = safeFiniteNumber(outcome?.p50) ?? null
-    const p90 = safeFiniteNumber(outcome?.p90) ?? ciHigh
+    const p90 = safeFiniteNumber(outcome?.p90) ?? null
 
     // ROADMAP 2.646 — percentile provenance, narrowed to the producer's closed
-    // vocabulary and carried verbatim. Note the shape of this read and how it
-    // differs from every other one in this loop: there is NO fallback chain and
-    // NO coercion. `safeFiniteNumber(x) ?? ciLow` is right for a magnitude,
-    // because a missing p10 and a CI bound are two estimates of the same thing.
-    // A provenance CLAIM has no such substitute — the only honest value is the
-    // one the producer stated, so anything outside the vocabulary (absent,
-    // null, a string we do not recognise) leaves the key absent and the render
-    // site falls back to the copy that attributes the gap to nobody.
+    // vocabulary and carried verbatim: NO fallback chain and NO coercion.
+    //
+    // ⚠ CORRECTED BY ROADMAP 2.800a. This note used to justify the surrounding
+    // fallbacks: "`safeFiniteNumber(x) ?? ciLow` is right for a magnitude,
+    // because a missing p10 and a CI bound are two estimates of the same thing."
+    // They are not. A confidence interval bounds an ESTIMATE's precision; a
+    // p10/p90 pair describes the OUTCOME's spread. Treating them as
+    // interchangeable is the substitution this row removed — the percentile
+    // reads above now have no fallback either, so the contrast this comment
+    // once drew no longer exists: NOTHING in this loop substitutes a different
+    // quantity for a missing one.
+    //
+    // The rule that remains, and now covers every field here: the only honest
+    // value is the one the producer stated, so anything outside the vocabulary
+    // (absent, null, a string we do not recognise) leaves the key absent and the
+    // render site falls back to the copy that attributes the gap to nobody.
     const percentilesSource = narrowPercentilesSource(outcome?.percentiles_source)
 
     const goalFitBasis = normaliseGoalFitBasis(enriched?.goal_fit_basis)

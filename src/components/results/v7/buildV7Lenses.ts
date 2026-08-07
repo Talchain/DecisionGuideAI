@@ -30,7 +30,7 @@
 import type { OptionResult, DriverItem, ConditionalWinner } from '../types'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { VoiRanking } from '../voi/voiRanking'
-import { computeOptionScale } from '../shared/OptionRangeBar'
+import { computeOptionScale, type OptionScale } from '../shared/OptionRangeBar'
 import { hasCompleteGoalField, selectGoalLeader } from '../utils/selectGoalLeader'
 
 /** One flip-risk row — the challengeFragileEdges slice, unchanged. */
@@ -76,9 +76,13 @@ export interface V7OutcomeLens {
   available: boolean
   /** Options to render (recommendation.allOptions), unchanged. */
   options: OptionResult[]
-  /** Shared display scale — computed exactly as OptionCards (UI-SEM-free). */
-  globalMin: number
-  globalMax: number
+  /**
+   * Shared display axis — the same `computeOptionScale` the option cards use.
+   * `null` when no option carries a full range, i.e. when there is no axis to
+   * draw against (ROADMAP 2.800b: the degenerate case is stated, never a
+   * plausible-looking `[0, 0]`).
+   */
+  scale: OptionScale | null
   /** True when any option carries a full p10/p90 range (gates the caption). */
   hasRange: boolean
   winnerId?: string
@@ -161,22 +165,24 @@ export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
   const winnerId = designationsWithheld ? undefined : recommendation.recommendedOption?.id
 
   // ── Likely outcome ─────────────────────────────────────────────────────
-  const hasRange = options.some(
-    (o) => typeof o.outcome?.p10 === 'number' && typeof o.outcome?.p90 === 'number',
-  )
   const hasWin = options.some(
     (o) => typeof o.winProbability === 'number' && Number.isFinite(o.winProbability),
   )
-  // Shared [globalMin, globalMax] scale — computeOptionScale is the exact
-  // OptionCards formula (p10/p90 with mean fallback), so the V7 bars and the
-  // cards below share one scale.
-  const { globalMin, globalMax } = computeOptionScale(options)
+  // Shared display axis — the same `computeOptionScale` the option cards use, so
+  // the V7 bars and the cards below cannot land on different rulers.
+  //
+  // ROADMAP 2.800b — `hasRange` is now DERIVED from the axis rather than
+  // re-deriving the same predicate a second time. The two used to be independent
+  // spellings of "some option has both a p10 and a p90" and could drift; a lens
+  // that captioned "Bars show the realistic range" while the axis said there was
+  // no range is exactly the kind of disagreement nobody would notice.
+  const scale = computeOptionScale(options)
+  const hasRange = scale !== null
 
   const outcome: V7OutcomeLens = {
     available: options.length > 0 && (hasRange || hasWin),
     options,
-    globalMin,
-    globalMax,
+    scale,
     hasRange,
     winnerId,
   }

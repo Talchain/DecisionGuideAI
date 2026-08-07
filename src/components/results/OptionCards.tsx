@@ -40,7 +40,7 @@ import {
 import { ExpertBlock } from './ExpertBlock'
 import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
-import { OptionRangeBar, computeOptionScale } from './shared/OptionRangeBar'
+import { OptionRangeBar, computeOptionScale, isFiniteNumber, type OptionScale } from './shared/OptionRangeBar'
 import { formatGoalProbability } from './utils/displayFloors'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from './utils/goalFitBasisCaveatCopy'
 import {
@@ -463,8 +463,7 @@ function OptionCard({
   stableNumber = null,
   segmentFillColor,
   onClick,
-  globalMin = 0,
-  globalMax = 1,
+  scale = null,
   onSendMessage,
   onFocusNode,
   expertMode = false,
@@ -501,10 +500,14 @@ function OptionCard({
   /** Task 6b: CSS colour string for coloured fill bar (matches wins segment) */
   segmentFillColor?: string
   onClick?: () => void
-  /** Global min p10 across all options for shared range bar scale */
-  globalMin?: number
-  /** Global max p90 across all options for shared range bar scale */
-  globalMax?: number
+  /**
+   * The shared range-bar axis across all options, or `null` when no option
+   * carries a full p10/p90 range. ROADMAP 2.800b — this used to be a
+   * `globalMin = 0, globalMax = 1` pair whose DEFAULTS were themselves invented
+   * numbers: a card rendered without a scale drew its bar against a fabricated
+   * [0, 1] axis. There is no default axis now; absent means no bar.
+   */
+  scale?: OptionScale | null
   onSendMessage?: (text: string) => void
   onFocusNode?: (nodeId: string) => void
   expertMode?: boolean
@@ -809,13 +812,15 @@ function OptionCard({
       {/* Range bar: p10 / p50 / p90 visual — expert mode only */}
       {expertMode && (
         <ExpertBlock>
-          {option.outcome && typeof option.outcome.p10 === 'number' && typeof option.outcome.p90 === 'number' ? (
+          {scale !== null && isFiniteNumber(option.outcome?.p10) && isFiniteNumber(option.outcome?.p90) ? (
             <OptionRangeBar
               p10={option.outcome.p10}
-              p50={option.outcome.p50 ?? option.outcome.mean ?? undefined}
+              // ROADMAP 2.800a — the MEDIAN, or nothing; never `?? mean`. Same
+              // rule as the V7 lens bar, which shares this component.
+              p50={option.outcome.p50 ?? undefined}
               p90={option.outcome.p90}
-              globalMin={globalMin}
-              globalMax={globalMax}
+              globalMin={scale.globalMin}
+              globalMax={scale.globalMax}
             />
           ) : option.outcome?.mean != null ? (
             <p className={`${typography.panelMeta} text-text-light`}>
@@ -1023,10 +1028,11 @@ export function OptionCards({
   // passing the flag here stops this leaf re-imposing the ranking.
   const sorted = sortOptionsForDisplay(options, { designationsWithheld })
 
-  // Range bar global scale: shared [globalMin, globalMax] across all options
-  // so bar widths are visually comparable. Falls back to mean when percentiles
-  // absent (computeOptionScale — the same formula the V7 lens shares).
-  const { globalMin, globalMax } = computeOptionScale(options)
+  // Range bar shared axis across all options so bar widths are visually
+  // comparable — the same `computeOptionScale` the V7 lens uses. `null` when no
+  // option carries a full range, in which case no card draws a bar either
+  // (ROADMAP 2.800b).
+  const scale = computeOptionScale(options)
 
   // Brief 5.8B D3 collapsed the per-rank border palette to a 2-state
   // (winner / non-winner) hierarchy, so `buildSegmentBorderClassMap` /
@@ -1183,8 +1189,7 @@ export function OptionCards({
             sortedRank={rankById.get(option.id) ?? index + 1}
             stableNumber={stableNumbers?.[option.id] ?? null}
             segmentFillColor={segmentFillColor}
-            globalMin={globalMin}
-            globalMax={globalMax}
+            scale={scale}
             onClick={lensEnabled && resultsComplete ? () => handleLensClick(option.id) : undefined}
             cardRef={(el) => {
               const currentMap = refMap.current

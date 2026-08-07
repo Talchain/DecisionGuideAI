@@ -446,7 +446,22 @@ describe('mapV5AnalysisToReport — enrichment.option_comparison hydrates outcom
     expect(opt.outcome).toEqual({ mean: 12.5, p10: 8.0, p50: 12.0, p90: 17.0 })
   })
 
-  it('confidence_interval midpoint fills `expected` when outcome.mean is absent', () => {
+  // ⚠ AMENDED BY ROADMAP 2.800a. This test used to also assert
+  // `outcome.p10 === 10` and `outcome.p90 === 20` — i.e. it pinned the
+  // CONFIDENCE-INTERVAL bounds being written into the PERCENTILE slots as
+  // intended behaviour. That substitution is the defect 2.800a removed: a CI
+  // bounds an estimate's precision, a p10/p90 pair describes the outcome's
+  // spread, and the surface rendered one under the other's name with no
+  // disclosure. The percentile half now lives in
+  // `mapV5AnalysisToReport.percentileProvenance.spec.ts`, asserting null.
+  //
+  // The `expected` half is DELIBERATELY UNCHANGED and still pinned here: a CI
+  // midpoint standing in for the mean is a central-tendency estimate standing in
+  // for another central-tendency estimate — a materially weaker claim than a
+  // percentile wearing a CI's name — and the identical use on the HEADLINE path
+  // (`headlineCI`) is outside 2.800's scope. Changing one and not the other
+  // would leave this file less coherent, not more. Rowed separately.
+  it('confidence_interval midpoint fills `expected` when outcome.mean is absent, but NEVER the percentiles', () => {
     const block = baseBlock({
       win_probabilities: { opt_a: 0.5 },
       enrichment: {
@@ -461,8 +476,8 @@ describe('mapV5AnalysisToReport — enrichment.option_comparison hydrates outcom
     }
     const opt = report.option_probabilities!.opt_a
     expect(opt.expected).toBe(15)
-    expect(opt.outcome?.p10).toBe(10)
-    expect(opt.outcome?.p90).toBe(20)
+    expect(opt.outcome?.p10).toBeNull()
+    expect(opt.outcome?.p90).toBeNull()
   })
 
   it('outcome quantiles are null (not 0) when enrichment has no option_comparison', () => {

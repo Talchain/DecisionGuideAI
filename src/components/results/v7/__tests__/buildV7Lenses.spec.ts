@@ -72,15 +72,24 @@ describe('buildV7Lenses — passthrough lens + evidence model (V7 L5)', () => {
       expect(m.outcome.hasRange).toBe(false)
     })
 
-    it('computes the shared scale exactly like OptionCards (p10/p90 with mean fallback)', () => {
+    it('computes the shared scale exactly like OptionCards, over the options that render a bar', () => {
+      // ROADMAP 2.800b — the axis is now an object or `null`, and it spans only
+      // options carrying BOTH a finite p10 and p90. It used to fold
+      // `?? mean ?? 0` over every option, so an unscored one dragged the axis to
+      // zero and silently rescaled every real bar.
       const m = buildV7Lenses(
         data({
           allOptions: [opt('a', 'A', { p10: 10, p50: 20, p90: 30 }), opt('b', 'B', { p10: 5, p50: 12, p90: 25 })],
         }),
       )
       expect(m.outcome.hasRange).toBe(true)
-      expect(m.outcome.globalMin).toBe(5)
-      expect(m.outcome.globalMax).toBe(30)
+      expect(m.outcome.scale).toEqual({ globalMin: 5, globalMax: 30 })
+    })
+
+    it('has no axis at all when no option carries a full range', () => {
+      const m = buildV7Lenses(data({ allOptions: [opt('a', 'A', { win: 0.7 }), opt('b', 'B', { win: 0.3 })] }))
+      expect(m.outcome.scale).toBeNull()
+      expect(m.outcome.hasRange).toBe(false)
     })
 
     it('is unavailable when no option carries a win probability or a range', () => {
