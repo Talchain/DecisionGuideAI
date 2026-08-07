@@ -31,7 +31,7 @@ import { formatProbabilityWithResolution } from '@/utils/formatPercent'
 import { loadRuns, type StoredRun } from '@/canvas/store/runHistory'
 import * as runsBus from '@/canvas/store/runsBus'
 import type { OptionResult } from '../types'
-import { OptionRangeBar } from '../shared/OptionRangeBar'
+import { OptionRangeBar, isFiniteNumber, type OptionScale } from '../shared/OptionRangeBar'
 import type { V7LensesModel } from './buildV7Lenses'
 import { V7_LENS_COPY } from './v7LensCopy'
 import { formatGoalProbability } from '../utils/displayFloors'
@@ -50,13 +50,12 @@ export interface V7LensGroupProps {
 function OutcomeRow({
   option,
   isWinner,
-  globalMin,
-  globalMax,
+  scale,
 }: {
   option: OptionResult
   isWinner: boolean
-  globalMin: number
-  globalMax: number
+  /** The shared axis, or null when no option in the set carries a full range. */
+  scale: OptionScale | null
 }) {
   const win =
     typeof option.winProbability === 'number' && Number.isFinite(option.winProbability)
@@ -64,7 +63,9 @@ function OutcomeRow({
       : null
   const p10 = option.outcome?.p10
   const p90 = option.outcome?.p90
-  const hasRange = typeof p10 === 'number' && typeof p90 === 'number'
+  // One shared finiteness predicate with the axis, so a value that cannot be a
+  // bound cannot become a bar either (a NaN would otherwise plot as `NaN%`).
+  const hasRange = isFiniteNumber(p10) && isFiniteNumber(p90)
   return (
     <div className="space-y-1" data-testid="v7-outcome-row" data-option-id={option.id}>
       <div className="flex items-baseline justify-between gap-2">
@@ -80,13 +81,19 @@ function OutcomeRow({
           </span>
         )}
       </div>
-      {hasRange && (
+      {hasRange && scale !== null && (
         <OptionRangeBar
-          p10={p10 as number}
-          p50={option.outcome?.p50 ?? option.outcome?.mean ?? undefined}
-          p90={p90 as number}
-          globalMin={globalMin}
-          globalMax={globalMax}
+          p10={p10}
+          // ROADMAP 2.800a — the MEDIAN, or nothing. This read used to be
+          // `p50 ?? mean`, which put the arithmetic mean in the median's slot
+          // whenever the producer sent no p50 — under a caption that tells the
+          // reader "Dots show the median." The two differ exactly where it
+          // matters: on a skewed distribution, which is what a robustness
+          // Monte-Carlo run produces. Absent p50 ⇒ no dot, no middle label.
+          p50={option.outcome?.p50 ?? undefined}
+          p90={p90}
+          globalMin={scale.globalMin}
+          globalMax={scale.globalMax}
           data-testid="v7-range-bar"
         />
       )}
@@ -256,8 +263,7 @@ export function V7LensGroup({ model }: V7LensGroupProps) {
                   key={o.id}
                   option={o}
                   isWinner={o.id === model.outcome.winnerId}
-                  globalMin={model.outcome.globalMin}
-                  globalMax={model.outcome.globalMax}
+                  scale={model.outcome.scale}
                 />
               ))}
               {model.outcome.hasRange && (
