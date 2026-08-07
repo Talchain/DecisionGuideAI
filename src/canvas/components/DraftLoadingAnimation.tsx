@@ -161,12 +161,30 @@ export const UNSETTLED_DRAFT_NOTICE =
 // the draft's commit) and the sentence became the phantom model's cover story
 // \u2014 fresh-journey P0 diagnosis \u00a72 R2. The current premise (CEE 2.709): the
 // commit is the COMMON case (first-write exemption), it is not knowable from
-// this side of the aborted socket, and a refused/failed commit is surfaced by
-// the SERVER at the start of the next reply on this conversation (the
-// draft-loss notice). The copy states exactly that \u2014 pinned by
+// this side of the aborted socket. The copy states exactly that \u2014 pinned by
 // draftLossPremise.spec.ts, governed by narrationHonesty.
+//
+// \u26a0\u26a0 ROADMAP 2.737 WITHDREW THE RECEIPT PROMISE, and the withdrawal is the
+// lesson. This sentence used to end: "If it didn't, your next reply in this
+// conversation will say so." That is a promise about the SERVER, made
+// unconditionally by the CLIENT \u2014 and the server could not keep it. CEE's
+// draft-loss notice needs columns created by migration 20260806120000, which
+// is deliberately UNEXECUTED, so for every deploy state between #751 and that
+// migration the promise was simply false. Worse, ROADMAP 2.735 then found
+// that when the notice DOES light up it was firing for draft failures that
+// never produced a graph \u2014 so the promised receipt would itself have carried
+// a false claim.
+//
+// Our co-ship rule ("CEE PR then UI PR") was necessary and NOT SUFFICIENT: a
+// merged server PR is not a live server CAPABILITY. The honest fix, and the
+// one that needs no flag (Paul's standing no-env-var-gates rule), is to state
+// the weaker thing that is true at EVERY deploy state and let the receipt be
+// a bonus when it arrives: we cannot confirm the save from here, and here is
+// the action that works regardless. When the migration has executed and the
+// notice is live-witnessed, restoring a stronger sentence is a separate,
+// evidenced change \u2014 not an assumption baked in ahead of the capability.
 export const STOPPED_DRAFT_NOTICE =
-  'Drafting ended before your model\u2019s values arrived, so they are not final \u2014 and we can\u2019t confirm from here whether this draft saved. If it didn\u2019t, your next reply in this conversation will say so. The structure is still on the canvas \u2014 start a new draft to get a model with settled values.'
+  'Drafting ended before your model\u2019s values arrived, so they are not final \u2014 and we can\u2019t confirm from here whether this draft saved. The structure is still on the canvas \u2014 start a new draft to get a model with settled values.'
 
 /**
  * ── THE THREE EARLY-STOP NOTICES ────────────────────────────────────────────
