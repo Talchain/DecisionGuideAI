@@ -55,12 +55,15 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
-    # Target the main branch
-    target-branch: "main"
+    # Target the integration branch: `main` is frozen (Netlify deploys run off
+    # `staging`), so dependabot PRs against `main` change nothing the product runs.
+    target-branch: "staging"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
+    # Target the integration branch (see npm entry above).
+    target-branch: "staging"
     schedule:
       interval: "weekly"
       day: "monday"
