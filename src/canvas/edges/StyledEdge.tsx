@@ -43,7 +43,6 @@ import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn } from '../utils/fragileEdgeMatch'
 import { existenceCertaintyToLineStyle, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
-import { getStrengthDescription, getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
@@ -402,13 +401,21 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // the ones CEE sent a negative `strength.mean` for. The glyph beside it was
   // already announcing "Effect direction: negative" at the time.
   //
+  // ⭐ ROADMAP 2.950 — AND THE LABEL'S STRENGTH ADJECTIVE, FROM THE SAME
+  // RESOLVED VALUE THE STROKE WIDTH READS. `weight` (:209) falls through to
+  // `0.5` — `DEFAULT_EDGE_DATA.weight`, a UI constant — so the label asserted
+  // "Moderate" for edges whose strength nobody set, directly beside the
+  // direction clause that had just learned to refuse. `edgeSignedStrength`
+  // (:283) is the one owner of "may this surface speak a strength?", already
+  // consulted by the stroke width; the label now reads the same answer.
+  //
   // Computed ONCE here rather than twice inline in the JSX below, because the
   // accessible name is built from it: `aria-label` REPLACES descendant text for
   // assistive tech, so a name that omitted the description announced something
   // different from what was on screen.
   const edgeDescription = useMemo(
-    () => getEdgeLabel(weight, belief, directionDisplay, labelMode),
-    [weight, belief, directionDisplay, labelMode],
+    () => getEdgeLabel(edgeSignedStrength, belief, directionDisplay, labelMode),
+    [edgeSignedStrength, belief, directionDisplay, labelMode],
   )
   const ariaLabel = `Edge from ${srcTitle} to ${tgtTitle}${confText}, ${edgeDescription.label}`
 
@@ -422,8 +429,29 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }
 
   // P0-9: Handle edge data update from popover
+  //
+  // ⭐ ROADMAP 2.950 — the strength stamp, CONDITIONAL on the value moving.
+  // `EdgeEditPopover` live-previews on a 120 ms debounce, INCLUDING an initial
+  // fire with the SEED values the moment it opens. Stamping every fire would
+  // launder the `weight` default into a user claim just by opening the popover
+  // — the exact failure `edgeValueProvenance.ts` exists to prevent — while
+  // never stamping would leave the (now provenance-gated) label saying "not
+  // set" about a strength the user just chose. So: stamp `weightSource:
+  // 'user'` only when the written weight differs from the one on screen, and
+  // clear any producer `strength_mean` with it — the resolver prefers the
+  // pre-signed mean, so a stale one would keep speaking over the user's number
+  // (same shape as `PreAnalysisPanel`'s user override, :1216).
+  //
+  // `belief` is deliberately NOT stamped: it is the legacy confidence field,
+  // not the provenanced `beliefExists` channel, and stamping
+  // `beliefExistsSource` for it would claim a value the beliefExists reader
+  // would then resolve from the DEFAULTED `beliefExists: 0.8` instead.
   const handleEdgeUpdate = (edgeId: string, updatedData: { weight: number; belief: number }) => {
-    updateEdgeData(edgeId, updatedData)
+    if (updatedData.weight !== weight) {
+      updateEdgeData(edgeId, { ...updatedData, strength_mean: undefined, weightSource: 'user' })
+    } else {
+      updateEdgeData(edgeId, updatedData)
+    }
   }
 
   // C1: Handle hover for edge label visibility + T1: delayed hover popover

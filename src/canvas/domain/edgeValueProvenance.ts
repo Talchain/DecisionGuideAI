@@ -164,6 +164,12 @@ export function edgeValueSource(
   //
   // `'unknown'` is deliberately NOT evidence: it is the producer declining to
   // state one, which `resolveEdgeDirectionDisplay` reports as its own reason.
+  // Scope of that arm, derived (ROADMAP 2.950): a wire `'unknown'` reaches this
+  // resolver only via `v5/applyV5State.ts:660`'s verbatim `adjust_edge_strength`
+  // merge or via persisted graphs — all three draft ingestion hops strip the
+  // `effect_direction` key (pinned by `edgeValidationMapperMirror.spec.ts`'s
+  // shared-drop corpus), so on those paths the refusal arrives as an unstamped
+  // `direction` and resolves `not_set` rather than `unknown`.
   if (
     field === 'direction' &&
     (data.effect_direction === 'positive' || data.effect_direction === 'negative')
@@ -518,9 +524,12 @@ export function resolveEdgeSignedStrengthDisplay(
     // Listed by name so the follow-up row is honest about its size rather than
     // implying a single stray call site:
     //   · nodes/shared/EdgePills.tsx:71        `direction: signed >= 0 ? 'up' : 'down'`
-    //   · inspector-v2/inspectorStrings.ts:106 `getStrengthDescription` — builds
-    //     the literal string "Strong positive" from `signedValue >= 0`, and is
-    //     rendered by `edges/StyledEdge.tsx:45`
+    //   · ~~inspector-v2 `getStrengthDescription`~~ — RETIRED (ROADMAP 2.950).
+    //     This entry claimed it was "rendered by `edges/StyledEdge.tsx:45`";
+    //     verified at the bytes, that was STALE — StyledEdge imported it and
+    //     never called it, and no other production caller existed, so the
+    //     function was DELETED rather than gated (see its tombstone in
+    //     inspectorStrings.ts).
     //   · inspector-v2/shared/ConnectionRow.tsx:99   bar tone `signedValue >= 0 ? 'bg-success' : 'bg-danger'`
     //   · inspector-v2/shared/ConnectionRow.tsx:106  `signedValue > 0 ? '+' : ''`
     //   · inspector-v2/shared/ConnectionRow.tsx:110  `signedValue >= 0 ? '+' : '−'`

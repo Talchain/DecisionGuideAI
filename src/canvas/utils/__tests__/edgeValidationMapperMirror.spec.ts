@@ -29,6 +29,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 import { mapDraftEdgeToCanvas } from '../applyDraftResult'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
+import { resolveEdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
 
 // ── The wire shape CEE's validation pipeline emits (abridged to the fields the
 //    UI's render surface and card actually read). Not a re-declaration of the
@@ -303,6 +304,77 @@ describe('edge data — the two hand-mirrored mappers build the SAME bag', () =>
     // both divergences this assertion originally recorded were adjudicated as
     // defects and fixed in the same change — see the two describes below.
     expect(KNOWN_HOP_DIVERGENCES.map(([k]) => k)).toEqual([])
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// `effect_direction: 'unknown'` — THE SHARED-DROP SEMANTICS, PINNED (ROADMAP
+// 2.950 ride-along; the corpus above carried only `'negative'`).
+//
+// `'unknown'` is a DECLARED @talchain/schemas 0.30.0 contract member — the
+// producer explicitly declining to state a direction. Both mappers treat it
+// identically to an OMITTED direction, by construction: their extraction
+// accepts only `'positive' | 'negative'`, neither blind-spreads the wire, so
+// the raw `effect_direction` key does not survive into `data` at all, the
+// stored `direction` is the sign-of-mean fallback, and NO `directionSource` is
+// stamped — which is what routes `resolveEdgeDirectionDisplay` to `not_set`.
+// (`reason: 'unknown'` is reachable only where the raw spelling survives:
+// `v5/applyV5State.ts:660`'s verbatim merge and persisted graphs — see the
+// scope note in domain/edgeValueProvenance.ts.)
+//
+// Pinning this here matters because the two hops could drift APART on it in
+// either direction — one starting to stamp `'unknown'` as a stated direction
+// (a fabrication), or one starting to preserve the raw key while the other
+// drops it (a divergence invisible to every single-hop test).
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("edge data — the two mappers agree on effect_direction: 'unknown' (shared drop)", () => {
+  const WIRE_EDGE_UNKNOWN_DIR = { ...WIRE_EDGE_FULL, effect_direction: 'unknown' }
+
+  beforeEach(() => {
+    seedPatchStore()
+  })
+
+  it('both hops build the SAME bag for an unknown-direction edge', () => {
+    const drafted = mapDraftEdgeToCanvas({ ...WIRE_EDGE_UNKNOWN_DIR }, 0)
+    applyAutoApplyPatch(addEdgePatch({ ...WIRE_EDGE_UNKNOWN_DIR }) as any)
+    const patched = storeEdges[0]
+
+    const keys = new Set([...Object.keys(drafted.data), ...Object.keys(patched.data)])
+    expect(keys.size).toBeGreaterThan(10)
+
+    const differing = [...keys]
+      .filter((k) => JSON.stringify(drafted.data[k]) !== JSON.stringify(patched.data[k]))
+      .sort()
+    expect(differing).toEqual([])
+  })
+
+  it("neither hop stores the raw 'unknown', stamps a source, or fabricates a STATED direction", () => {
+    // POSITIVE CONTROL (trap 13) for every absence below: the SAME wire edge
+    // with a stated direction produces the key's stamped counterpart, so these
+    // assertions measure a real drop rather than measuring nothing.
+    const statedControl = mapDraftEdgeToCanvas({ ...WIRE_EDGE_FULL }, 0)
+    expect(statedControl.data.directionSource).toBe('cee')
+    expect(WIRE_EDGE_UNKNOWN_DIR.effect_direction).toBe('unknown')
+
+    const drafted = mapDraftEdgeToCanvas({ ...WIRE_EDGE_UNKNOWN_DIR }, 0)
+    applyAutoApplyPatch(addEdgePatch({ ...WIRE_EDGE_UNKNOWN_DIR }) as any)
+    const patched = storeEdges[0]
+
+    for (const [hop, data] of [['draft', drafted.data], ['patch', patched.data]] as const) {
+      // The raw spelling is dropped — the explicit-refusal arm of the resolver
+      // is unreachable on these paths, by construction.
+      expect(data, `${hop}: effect_direction`).not.toHaveProperty('effect_direction')
+      // The stored direction is the sign-of-mean FALLBACK (mean 0.42 → positive),
+      // unstamped…
+      expect(data.direction, `${hop}: direction`).toBe('positive')
+      expect(data, `${hop}: directionSource`).not.toHaveProperty('directionSource')
+      // …so the one owner refuses to state it, with the shared-drop verdict.
+      expect(
+        resolveEdgeDirectionDisplay(data as Record<string, unknown>),
+        `${hop}: resolver verdict`,
+      ).toEqual({ show: false, reason: 'not_set' })
+    }
   })
 })
 
