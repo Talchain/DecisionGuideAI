@@ -13,4 +13,4 @@
  * the test suite. Editing this value by hand is how a wrong contract version
  * gets stamped into evidence bundles.
  */
-export const TALCHAIN_SCHEMAS_VENDORED_VERSION = '0.38.0' as const
+export const TALCHAIN_SCHEMAS_VENDORED_VERSION = '0.39.0' as const
