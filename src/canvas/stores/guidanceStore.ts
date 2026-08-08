@@ -101,8 +101,77 @@ export interface GuidanceItem {
    * needs no flag: `priorityRank` presence IS it.
    */
   priorityIsProducerSupplied?: boolean
+  /**
+   * DSK science provenance, producer-owned passthrough (the same field family
+   * the decision_quality_prompts wire path carries — see
+   * `components/results/utils/decisionQualityPrompts.ts`). PRESENCE of
+   * `dsk_claim_id` is the attestation; an item without it is "not grounded in
+   * a cited DSK claim" and every surface must render NO badge for it — never
+   * a default id, never an inferred strength. `dsk_protocol_id` only ever
+   * travels alongside the claim id. Wire truth (derived 2026-08-08 from the
+   * golden-journey captures): CEE emits these on decision_quality_prompts and
+   * exercise dsk_provenance TODAY, and on NO guidance-bearing block yet
+   * (0/185 coaching blocks) — the display contract below is ready for the
+   * CEE-side emission (ROADMAP 2.456) and renders honest absence meanwhile.
+   * Surfaces MUST derive the badge through `deriveGuidanceDskProvenance`
+   * below, never read these fields directly (one home for the honesty rule).
+   */
   dsk_claim_id?: string
+  dsk_protocol_id?: string
   evidence_strength?: EvidenceStrength
+}
+
+/**
+ * The store's own closed evidence-strength vocabulary, runtime form of the
+ * `EvidenceStrength` type above (this path's wire contract includes 'mixed';
+ * deliberately NOT the dqp path's three-word set — each path gates on its own
+ * declared vocabulary, see decisionQualityPrompts.DSK_EVIDENCE_STRENGTHS).
+ */
+export const GUIDANCE_EVIDENCE_STRENGTHS = ['strong', 'medium', 'weak', 'mixed'] as const
+
+/**
+ * DSK science provenance for a guidance item's badge — the VIEW shape every
+ * rendering surface consumes. Present ONLY when the item attested a
+ * `dsk_claim_id`. Ids ride as data-* attributes, never as user copy.
+ */
+export interface GuidanceDskProvenance {
+  /** DSK claim id verbatim, e.g. "DSK-B-003" — data-* only, never copy. */
+  claimId: string
+  /** DSK protocol id, e.g. "DSK-P-002", when cited — data-* only. */
+  protocolId?: string
+  /** Closed-vocabulary evidence strength, verbatim, when attested. */
+  strength?: EvidenceStrength
+}
+
+/**
+ * The ONE home of the guidance DSK badge honesty rule (the
+ * `deriveDskGrounding` rule, applied to this wire path):
+ *   - id-gate AS A UNIT: no non-empty string `dsk_claim_id` ⇒ NO provenance
+ *     object, whatever else the item carries — a strength without an attested
+ *     claim is not evidence of anything;
+ *   - `dsk_protocol_id` carried only when a non-empty string, only alongside
+ *     the claim id;
+ *   - `evidence_strength` carried VERBATIM only when a member of the closed
+ *     vocabulary above; anything else fails closed to absent. The store holds
+ *     verbatim-passthrough objects TypeScript never runtime-checked (the V4
+ *     envelope path stores wire items as-is), so every gate here is a RUNTIME
+ *     check — the type is not the guard.
+ */
+export function deriveGuidanceDskProvenance(
+  item: GuidanceItem,
+): GuidanceDskProvenance | undefined {
+  const claimId = item.dsk_claim_id
+  if (typeof claimId !== 'string' || claimId.length === 0) return undefined
+  const protocolId = item.dsk_protocol_id
+  const strength = item.evidence_strength
+  return {
+    claimId,
+    ...(typeof protocolId === 'string' && protocolId.length > 0 ? { protocolId } : {}),
+    ...(typeof strength === 'string' &&
+    (GUIDANCE_EVIDENCE_STRENGTHS as readonly string[]).includes(strength)
+      ? { strength }
+      : {}),
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -7,12 +7,14 @@
  */
 
 import { useRef, useCallback, useEffect, useMemo, memo } from 'react'
+import { BookOpenCheck } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import {
   useGuidanceStore,
   compareGuidanceDisplayOrder,
   guidanceCategoryTone,
   guidanceCategoryIcon,
+  deriveGuidanceDskProvenance,
   type GuidanceItem,
   type GuidanceAction,
 } from '../../stores/guidanceStore'
@@ -108,6 +110,16 @@ const GuidanceCard = memo(function GuidanceCard({
     onSetActive(null)
   }, [onSetActive])
 
+  // DSK science provenance (Lane 1, P1 — "surface the science"). Derived
+  // through the store's single rule home: no attested dsk_claim_id ⇒
+  // undefined ⇒ NO badge — absence renders exactly as before this feature.
+  // Vocabulary/design reuses the two existing grounding badges
+  // (KeyQuestionCard's dsk-grounding line, V5ExerciseBlock's dsk-provenance
+  // line): ids as data-* attributes NEVER user copy (CEE #830's lesson), a
+  // static label that names the channel without interpolating model prose,
+  // and the closed-vocabulary strength verbatim.
+  const dsk = deriveGuidanceDskProvenance(item)
+
   return (
     <div
       ref={cardRef}
@@ -138,6 +150,21 @@ const GuidanceCard = memo(function GuidanceCard({
             style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' }}
           >
             {item.detail}
+          </p>
+        )}
+        {dsk && (
+          <p
+            className={`${typography.panelMeta} flex flex-wrap items-center gap-x-1 text-text-muted mt-1`}
+            data-testid="guidance-dsk-badge"
+            data-dsk-claim-id={dsk.claimId}
+            {...(dsk.protocolId ? { 'data-dsk-protocol-id': dsk.protocolId } : {})}
+            {...(dsk.strength ? { 'data-dsk-evidence-strength': dsk.strength } : {})}
+          >
+            <BookOpenCheck size={12} className="flex-none text-info" aria-hidden="true" />
+            <span>
+              Grounded in decision science
+              {dsk.strength ? ` · ${dsk.strength} evidence` : ''}
+            </span>
           </p>
         )}
         <button

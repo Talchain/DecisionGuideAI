@@ -1,0 +1,1572 @@
+{
+ "response_version": 2,
+ "assistant_text": "Pilot HubSpot with Sales Pod First currently leads by 56 percentage points, but treat this as provisional: the link between CRM Capability Level and Sales Team Productivity is fragile.\n\nYour first analysis is ready. Take a moment to explore the leading option and the factors shaping it before acting on the result.",
+ "blocks": [
+  {
+   "type": "analysis_result",
+   "summary": "Pilot HubSpot with Sales Pod First currently leads by 56 percentage points, but treat this as provisional: the link between CRM Capability Level and Sales Team Productivity is fragile.",
+   "leading_option_id": "opt_phased",
+   "win_probabilities": {
+    "Pilot HubSpot with Sales Pod First": 0.7517333333333333,
+    "Keep Current CRM (Status Quo)": 0.05263333333333334,
+    "Switch to HubSpot": 0.1956333333333333
+   },
+   "enrichment": {
+    "option_comparison": [
+     {
+      "option_id": "opt_phased",
+      "option_label": "Pilot HubSpot with Sales Pod First",
+      "id": "opt_phased",
+      "label": "Pilot HubSpot with Sales Pod First",
+      "outcome": {
+       "mean": 0.21273282566698662,
+       "std": 0.11323008899711237,
+       "p10": 0.03754137763383802,
+       "p50": 0.2215121728521588,
+       "p90": 0.35026531182406756,
+       "n_samples": 10000,
+       "n_valid_samples": 10000,
+       "validity_ratio": 1,
+       "percentiles_source": "samples"
+      },
+      "status": "computed",
+      "win_probability": 0.7517333333333333,
+      "downside": {
+       "cvar_10": 0.001977885842126342,
+       "p05": 0.005395489835225334,
+       "expected_regret": 0.010112956181572123
+      }
+     },
+     {
+      "option_id": "opt_status_quo",
+      "option_label": "Keep Current CRM (Status Quo)",
+      "id": "opt_status_quo",
+      "label": "Keep Current CRM (Status Quo)",
+      "outcome": {
+       "mean": 0.141862986157796,
+       "std": 0.07999545636547237,
+       "p10": 0.02489005818733937,
+       "p50": 0.14607816694117176,
+       "p90": 0.23987111781721987,
+       "n_samples": 10000,
+       "n_valid_samples": 10000,
+       "validity_ratio": 1,
+       "percentiles_source": "samples"
+      },
+      "status": "computed",
+      "win_probability": 0.05263333333333334,
+      "downside": {
+       "cvar_10": -0.004245402963476499,
+       "p05": 0.0009343801194862812,
+       "expected_regret": 0.08098279569076279
+      }
+     },
+     {
+      "option_id": "opt_switch_hubspot",
+      "option_label": "Switch to HubSpot",
+      "id": "opt_switch_hubspot",
+      "label": "Switch to HubSpot",
+      "outcome": {
+       "mean": 0.11071979502233835,
+       "std": 0.1762878988390498,
+       "p10": -0.12845755830863326,
+       "p50": 0.1177497204570669,
+       "p90": 0.33192820289757463,
+       "n_samples": 10000,
+       "n_valid_samples": 10000,
+       "validity_ratio": 1,
+       "percentiles_source": "samples"
+      },
+      "status": "computed",
+      "win_probability": 0.1956333333333333,
+      "downside": {
+       "cvar_10": -0.21196713979064802,
+       "p05": -0.19846816998900374,
+       "expected_regret": 0.1121259868262204
+      }
+     }
+    ],
+    "factor_sensitivity": [
+     {
+      "factor_id": "fac_adoption_risk",
+      "factor_label": "User Adoption Uncertainty",
+      "influence_score": 0.39841449603624,
+      "influence_rank": 3,
+      "sensitivity_score": -0.1759,
+      "elasticity": 0.39841449603624,
+      "direction": "negative",
+      "importance_rank": 1,
+      "value_of_information": 0,
+      "confidence": 0.44215,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0.25
+      },
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "attribution_stability": "low",
+      "elasticity_std": 0.00356893,
+      "rank_flip_rate": 0.3,
+      "stability_method": "bootstrap_20",
+      "value_defaulted": true,
+      "importance_basis": "graph_structural",
+      "driver_label": "biggest",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false,
+      "range_derivation_source": "default"
+     },
+     {
+      "factor_id": "fac_team_size",
+      "factor_label": "Sales Team Size",
+      "influence_score": 0.2944507361268403,
+      "influence_rank": 5,
+      "sensitivity_score": 0.13,
+      "elasticity": 0.2944507361268403,
+      "direction": "positive",
+      "importance_rank": 2,
+      "value_of_information": 0,
+      "confidence": 0.44345,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0.25
+      },
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "attribution_stability": "low",
+      "elasticity_std": 0.00343288,
+      "rank_flip_rate": 0.1,
+      "stability_method": "bootstrap_20",
+      "value_defaulted": true,
+      "importance_basis": "graph_structural",
+      "driver_label": "moderate",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false,
+      "range_derivation_source": "default"
+     },
+     {
+      "factor_id": "fac_annual_crm_cost",
+      "factor_label": "Annual CRM Licence Cost",
+      "influence_score": 0.23782559456398636,
+      "influence_rank": 6,
+      "sensitivity_score": -0.105,
+      "elasticity": 0.23782559456398636,
+      "direction": "negative",
+      "importance_rank": 3,
+      "value_of_information": 0,
+      "confidence": 0.4405,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0.25
+      },
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "attribution_stability": "low",
+      "elasticity_std": 0.00308367,
+      "rank_flip_rate": 0.5,
+      "stability_method": "bootstrap_20",
+      "value_defaulted": true,
+      "importance_basis": "graph_structural",
+      "driver_label": "moderate",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false,
+      "range_derivation_source": "default"
+     },
+     {
+      "factor_id": "fac_crm_capability",
+      "factor_label": "CRM Capability Level",
+      "influence_score": 1,
+      "influence_rank": 1,
+      "sensitivity_score": 0,
+      "elasticity": 0,
+      "direction": "positive",
+      "importance_rank": 4,
+      "value_of_information": 0,
+      "confidence": 0.3,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0
+      },
+      "zero_reason": "intervention_override",
+      "source": "graph",
+      "flip_risk_category": "correlated",
+      "attribution_stability": "negligible",
+      "elasticity_std": 0,
+      "rank_flip_rate": 0.05,
+      "stability_method": "bootstrap_20",
+      "value_source": "cee_inference",
+      "value_extraction_type": "inferred",
+      "importance_basis": "graph_structural",
+      "driver_label": "strong",
+      "range_derivation_source": "explicit_cap"
+     },
+     {
+      "factor_id": "fac_disruption",
+      "factor_label": "Migration Disruption",
+      "influence_score": 0.6342015855039638,
+      "influence_rank": 2,
+      "sensitivity_score": 0,
+      "elasticity": 0,
+      "direction": "negative",
+      "importance_rank": 5,
+      "value_of_information": 0,
+      "confidence": 0.3,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0
+      },
+      "zero_reason": "intervention_override",
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "attribution_stability": "negligible",
+      "elasticity_std": 0,
+      "rank_flip_rate": 0.05,
+      "stability_method": "bootstrap_20",
+      "value_source": "cee_inference",
+      "value_extraction_type": "inferred",
+      "importance_basis": "graph_structural",
+      "driver_label": "strong",
+      "range_derivation_source": "inferred_spread"
+     },
+     {
+      "factor_id": "fac_switch_cost",
+      "factor_label": "One-Off Switching Cost",
+      "influence_score": 0.30577576443941107,
+      "influence_rank": 4,
+      "sensitivity_score": 0,
+      "elasticity": 0,
+      "direction": "negative",
+      "importance_rank": 6,
+      "value_of_information": 0,
+      "confidence": 0.3,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0
+      },
+      "zero_reason": "intervention_override",
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "attribution_stability": "negligible",
+      "elasticity_std": 0,
+      "rank_flip_rate": 0.05,
+      "stability_method": "bootstrap_20",
+      "value_source": "brief_extraction",
+      "value_extraction_type": "explicit",
+      "importance_basis": "graph_structural",
+      "driver_label": "moderate",
+      "range_derivation_source": "explicit_cap"
+     }
+    ],
+    "robustness": {
+     "fragile_edges": [
+      {
+       "edge_id": "fac_crm_capability->out_sales_productivity",
+       "from_id": "fac_crm_capability",
+       "to_id": "out_sales_productivity",
+       "switch_probability": 0.1668,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_status_quo",
+       "from_label": "CRM Capability Level",
+       "to_label": "Sales Team Productivity",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Keep Current CRM (Status Quo)"
+      },
+      {
+       "edge_id": "out_sales_productivity->goal_crm",
+       "from_id": "out_sales_productivity",
+       "to_id": "goal_crm",
+       "switch_probability": 0.14,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_switch_hubspot",
+       "from_label": "Sales Team Productivity",
+       "to_label": "Maximise Sales Productivity Within Budget",
+       "severity": "warning",
+       "visible": false,
+       "alternative_winner_label": "Switch to HubSpot"
+      }
+     ],
+     "robust_edges": [
+      {
+       "edge_id": "fac_adoption_risk->risk_adoption_failure",
+       "from_id": "fac_adoption_risk",
+       "to_id": "risk_adoption_failure",
+       "from_label": "User Adoption Uncertainty",
+       "to_label": "CRM Adoption Failure",
+       "alternative_winner_id": null,
+       "alternative_winner_label": null
+      },
+      {
+       "edge_id": "fac_disruption->risk_adoption_failure",
+       "from_id": "fac_disruption",
+       "to_id": "risk_adoption_failure",
+       "from_label": "Migration Disruption",
+       "to_label": "CRM Adoption Failure",
+       "alternative_winner_id": null,
+       "alternative_winner_label": null
+      },
+      {
+       "edge_id": "fac_disruption->risk_transition_drag",
+       "from_id": "fac_disruption",
+       "to_id": "risk_transition_drag",
+       "from_label": "Migration Disruption",
+       "to_label": "Transition Productivity Drag",
+       "alternative_winner_id": null,
+       "alternative_winner_label": null
+      },
+      {
+       "edge_id": "fac_switch_cost->out_budget_headroom",
+       "from_id": "fac_switch_cost",
+       "to_id": "out_budget_headroom",
+       "from_label": "One-Off Switching Cost",
+       "to_label": "Budget Headroom",
+       "alternative_winner_id": null,
+       "alternative_winner_label": null
+      },
+      {
+       "edge_id": "out_budget_headroom->goal_crm",
+       "from_id": "out_budget_headroom",
+       "to_id": "goal_crm",
+       "from_label": "Budget Headroom",
+       "to_label": "Maximise Sales Productivity Within Budget",
+       "alternative_winner_id": null,
+       "alternative_winner_label": null
+      }
+     ],
+     "is_robust": true,
+     "level": "moderate",
+     "confidence": 0.7517333333333333,
+     "confidence_basis": "recommendation_stability_uncalibrated",
+     "recommended_option_id": "opt_phased",
+     "recommended_option_label": "Pilot HubSpot with Sales Pod First",
+     "near_tie": {
+      "is_tie": false,
+      "top_option_id": "opt_phased",
+      "second_option_id": "opt_switch_hubspot",
+      "tied_option_ids": [
+       "opt_phased"
+      ],
+      "gap": 0.5560999999999999,
+      "threshold": 0.1
+     },
+     "display_verdict": "moderate",
+     "display_verdict_reason": "none of the factors we could test changed which option leads on its own, and this result mostly held up under the other changes we tested"
+    },
+    "decision_review": {
+     "narrative_summary": "Pilot HubSpot with Sales Pod First leads by a substantial 56 percentage points, but the result depends on how user adoption unfolds in practice. User Adoption Uncertainty is the main fragility that could affect this outcome.",
+     "story_headlines": {
+      "opt_phased": "Piloting HubSpot allows a gradual rollout, likely managing disruption and budgets while testing adoption.",
+      "opt_switch_hubspot": "A full switch to HubSpot could come out ahead if adoption across the whole team proves smoother and faster than estimated.",
+      "opt_status_quo": "Keeping the current CRM avoids migration cost and risks, but leaves overall sales productivity gains uncertain."
+     },
+     "robustness_explanation": {
+      "summary": "The ordering holds in about 75% of variations, reflecting moderate stability but clear dependence on several uncertain factors.",
+      "primary_risk": "User Adoption Uncertainty is the main risk, as low adoption could undermine the benefits of piloting HubSpot.",
+      "stability_factors": [
+       "The link from Sales Team Size to overall results supports the consistency of outcomes across different scenarios.",
+       "Piloting first reduces one-off switching cost and exposure to disruption."
+      ],
+      "fragility_factors": [
+       "The link from User Adoption Uncertainty to Sales Team Productivity could shift the advantage if adoption rates differ from expectations.",
+       "The relationship from Annual CRM Licence Cost to budget management may affect results if costs are underestimated."
+      ]
+     },
+     "readiness_rationale": "The comparison is well supported as modelled, with piloting HubSpot leading. However, user adoption uncertainty and cost assumptions remain open questions that should be checked before proceeding.",
+     "evidence_enhancements": {
+      "fac_adoption_risk": {
+       "specific_action": "Survey or interview sales staff to estimate likely adoption rates and barriers for HubSpot in your team.",
+       "rationale": "Adoption rates have strong potential to swing the outcome, as insufficient adoption would limit productivity gains from HubSpot.",
+       "evidence_type": "internal_data",
+       "decision_hygiene": "Estimate likely adoption before looking at external benchmarks."
+      },
+      "fac_team_size": {
+       "specific_action": "Validate your actual active sales team headcount for the next quarter, factoring in any hiring or attrition.",
+       "rationale": "The model is sensitive to team size, which affects cost per user and real productivity uplift.",
+       "evidence_type": "internal_data",
+       "decision_hygiene": "Write down your forecast for team size before reviewing payroll data."
+      },
+      "fac_annual_crm_cost": {
+       "specific_action": "Request formal quotes or contracts from both current and potential CRM providers to confirm licence costs.",
+       "rationale": "Licence costs directly affect budget fit and could alter the comparison if actual costs differ from assumptions.",
+       "evidence_type": "market_research",
+       "decision_hygiene": "Note your expected figure before reviewing supplier quotes."
+      }
+     },
+     "scenario_contexts": {
+      "fac_crm_capability->out_sales_productivity": {
+       "trigger_description": "If the impact of CRM Capability Level on Sales Team Productivity is weaker than modelled,",
+       "consequence": "then Keep Current CRM (Status Quo) could overtake Pilot HubSpot with Sales Pod First."
+      },
+      "out_sales_productivity->goal_crm": {
+       "trigger_description": "If the link from Sales Team Productivity to Maximise Sales Productivity Within Budget turns out stronger than estimated,",
+       "consequence": "then Switch to HubSpot could overtake Pilot HubSpot with Sales Pod First."
+      }
+     },
+     "flip_thresholds": [],
+     "bias_findings": [],
+     "key_assumptions": [
+      "The relationship from User Adoption Uncertainty to Sales Team Productivity captures how quickly and thoroughly the team will embrace new tools.",
+      "The sales team size estimate is relevant for licence and operational costs over the next quarter.",
+      "Annual CRM licence cost estimates for both current and proposed systems reflect actual contract terms."
+     ],
+     "decision_quality_prompts": [
+      {
+       "question": "What would make you switch to Switch to HubSpot rather than just piloting with a sales pod?",
+       "principle": "Consider-the-opposite as a debiasing strategy",
+       "applies_because": "Pilot HubSpot with Sales Pod First has a clear lead, so stress-testing what could shift preference to Switch to HubSpot may reveal blind spots.",
+       "dsk_claim_id": "DSK-T-003",
+       "evidence_strength": "medium",
+       "dsk_protocol_id": "DSK-P-003",
+       "dsk_grounding": "attested"
+      },
+      {
+       "question": "What is the base rate for successful CRM rollouts in similar sales teams?",
+       "principle": "Outside view and reference class forecasting",
+       "applies_because": "Several factors are provisional or estimated, so grounding assumptions in outcomes from comparable organisations can mitigate over-optimism.",
+       "dsk_claim_id": "DSK-T-002",
+       "evidence_strength": "strong",
+       "dsk_protocol_id": "DSK-P-002",
+       "dsk_grounding": "attested"
+      }
+     ],
+     "pre_mortem": {
+      "failure_scenario": "The pilot fails because user adoption of HubSpot is lower than expected, leading to minimal productivity gains and leaving the team frustrated by new processes.",
+      "warning_signs": [
+       "Early user feedback highlights persistent resistance or confusion with the new system.",
+       "Ongoing costs or resource needs exceed those planned in the model."
+      ],
+      "mitigation": "Commit to close monitoring and rapid feedback collection from the pilot team, so rollout can be paused or adjusted quickly.",
+      "grounded_in": [
+       "fac_adoption_risk"
+      ],
+      "review_trigger": "Reconvene if adoption survey or pilot metrics diverge from model forecasts before next planning cycle."
+     },
+     "produced_at": "2026-08-08T15:59:37.248Z"
+    },
+    "option_comparison_status": "computed",
+    "edge_e_values": [
+     {
+      "edge_id": "fac_crm_capability::out_sales_productivity",
+      "from_id": "fac_crm_capability",
+      "to_id": "out_sales_productivity",
+      "from_label": "CRM Capability Level",
+      "to_label": "Sales Team Productivity",
+      "e_value": 1,
+      "flip_direction": "decrease",
+      "current_mean": 0.55,
+      "flip_mean": -0.10138,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 10,
+       "band_min": -0.203937,
+       "band_median": -0.047738,
+       "band_max": 0.095819,
+       "band_width": 0.299756,
+       "seed_flip_means": [
+        0.095819,
+        -0.128339,
+        -0.1181,
+        -1e-06,
+        1.2e-05,
+        -0.203937,
+        -0.095475,
+        -0.128688,
+        1.8e-05,
+        3.9e-05
+       ]
+      }
+     },
+     {
+      "edge_id": "fac_disruption::risk_adoption_failure",
+      "from_id": "fac_disruption",
+      "to_id": "risk_adoption_failure",
+      "from_label": "Migration Disruption",
+      "to_label": "CRM Adoption Failure",
+      "e_value": 1.8901,
+      "flip_direction": "decrease",
+      "current_mean": 0.25,
+      "flip_mean": -0.472531,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 8,
+       "band_min": -0.876679,
+       "band_median": -0.409866,
+       "band_max": 0.688883,
+       "band_width": 1.565562,
+       "seed_flip_means": [
+        0.688883,
+        -0.488721,
+        -0.179568,
+        null,
+        -0.223982,
+        -0.331011,
+        -0.660339,
+        -0.616643,
+        -0.876679,
+        null
+       ]
+      }
+     },
+     {
+      "edge_id": "fac_disruption::risk_transition_drag",
+      "from_id": "fac_disruption",
+      "to_id": "risk_transition_drag",
+      "from_label": "Migration Disruption",
+      "to_label": "Transition Productivity Drag",
+      "e_value": 1,
+      "flip_direction": "decrease",
+      "current_mean": 0.6,
+      "flip_mean": 0.151155,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 10,
+       "band_min": -0.667784,
+       "band_median": 0.060544,
+       "band_max": 0.240321,
+       "band_width": 0.908105,
+       "seed_flip_means": [
+        0.240321,
+        -0.667784,
+        -0.1205,
+        0.203114,
+        -0.129135,
+        0.16868,
+        0.051456,
+        0.05849,
+        0.062598,
+        0.137592
+       ]
+      }
+     },
+     {
+      "edge_id": "out_sales_productivity::goal_crm",
+      "from_id": "out_sales_productivity",
+      "to_id": "goal_crm",
+      "from_label": "Sales Team Productivity",
+      "to_label": "Maximise Sales Productivity Within Budget",
+      "e_value": 1,
+      "flip_direction": "decrease",
+      "current_mean": 0.65,
+      "flip_mean": -0.119814,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 8,
+       "band_min": -0.217867,
+       "band_median": 5e-06,
+       "band_max": 0.210616,
+       "band_width": 0.428483,
+       "seed_flip_means": [
+        0.210616,
+        null,
+        -0.147982,
+        -1e-06,
+        1e-05,
+        -0.217867,
+        null,
+        -0.189991,
+        4e-05,
+        4.9e-05
+       ]
+      }
+     },
+     {
+      "edge_id": "risk_adoption_failure::goal_crm",
+      "from_id": "risk_adoption_failure",
+      "to_id": "goal_crm",
+      "from_label": "CRM Adoption Failure",
+      "to_label": "Maximise Sales Productivity Within Budget",
+      "e_value": 3.1717,
+      "flip_direction": "increase",
+      "current_mean": -0.28,
+      "flip_mean": 0.888063,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 8,
+       "band_min": -0.788476,
+       "band_median": 0.313537,
+       "band_max": 0.916747,
+       "band_width": 1.705223,
+       "seed_flip_means": [
+        -0.788476,
+        1e-06,
+        0.148583,
+        0.916747,
+        0.478491,
+        null,
+        -7.2e-05,
+        0.622856,
+        0.686361,
+        null
+       ]
+      }
+     },
+     {
+      "edge_id": "risk_transition_drag::goal_crm",
+      "from_id": "risk_transition_drag",
+      "to_id": "goal_crm",
+      "from_label": "Transition Productivity Drag",
+      "to_label": "Maximise Sales Productivity Within Budget",
+      "e_value": 1,
+      "flip_direction": "increase",
+      "current_mean": -0.35,
+      "flip_mean": -0.088173,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 9,
+       "band_min": -0.164086,
+       "band_median": -0.042531,
+       "band_max": 0.315949,
+       "band_width": 0.480035,
+       "seed_flip_means": [
+        null,
+        0.315949,
+        0.080397,
+        -0.10823,
+        0.091447,
+        -0.164086,
+        -0.031567,
+        -0.042531,
+        -0.044777,
+        -0.113284
+       ]
+      }
+     }
+    ],
+    "inference_warnings": [
+     {
+      "code": "EDGE_E_VALUE_NON_FINITE_DROPPED",
+      "message": "7 edge E-value entries were omitted from edge_e_values: 7 carried no finite E-value from the analysis engine (an unflippable edge, whose current and flip means coincide, has no evidence ratio). edge_e_values is shorter because those entries could not be represented, not because they were computed empty. All other analyses are unaffected.",
+      "severity": "info"
+     }
+    ],
+    "confidence_tier": "strong",
+    "flip_thresholds": [
+     {
+      "factor_id": "fac_adoption_risk",
+      "factor_label": "User Adoption Uncertainty",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     },
+     {
+      "factor_id": "fac_annual_crm_cost",
+      "factor_label": "Annual CRM Licence Cost",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     },
+     {
+      "factor_id": "fac_crm_capability",
+      "factor_label": "CRM Capability Level",
+      "current_value": 40,
+      "flip_value": null,
+      "unit": "scale",
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true,
+      "value_scale": "display",
+      "current_display": "40 scale"
+     },
+     {
+      "factor_id": "fac_disruption",
+      "factor_label": "Migration Disruption",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     },
+     {
+      "factor_id": "fac_switch_cost",
+      "factor_label": "One-Off Switching Cost",
+      "current_value": 0,
+      "flip_value": null,
+      "unit": "\u00a3",
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true,
+      "value_scale": "display",
+      "current_display": "0 \u00a3"
+     },
+     {
+      "factor_id": "fac_team_size",
+      "factor_label": "Sales Team Size",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     }
+    ],
+    "decision_brief": {
+     "brief_id": "fd4b8110-fc86-4b86-922c-b0290c0c8dfe",
+     "version": "1",
+     "created_at": "2026-08-08T15:59:20.995Z",
+     "headline": "Pilot HubSpot with Sales Pod First currently leads by 56 points, but the model is not yet strong enough for an unqualified decision. Treat this as a provisional lead until the fragile assumptions are checked. Validate the fragile assumptions before treating this as a decision.",
+     "options": [
+      {
+       "option_id": "opt_phased",
+       "label": "Pilot HubSpot with Sales Pod First",
+       "win_probability": 0.7517333333333333,
+       "rank": 1
+      },
+      {
+       "option_id": "opt_switch_hubspot",
+       "label": "Switch to HubSpot",
+       "win_probability": 0.1956333333333333,
+       "rank": 2
+      },
+      {
+       "option_id": "opt_status_quo",
+       "label": "Keep Current CRM (Status Quo)",
+       "win_probability": 0.05263333333333334,
+       "rank": 3
+      }
+     ],
+     "top_drivers": [
+      {
+       "factor_label": "User Adoption Uncertainty",
+       "sensitivity": 0.39841449603624,
+       "direction": "negative"
+      },
+      {
+       "factor_label": "Sales Team Size",
+       "sensitivity": 0.2944507361268403,
+       "direction": "positive"
+      },
+      {
+       "factor_label": "Annual CRM Licence Cost",
+       "sensitivity": 0.23782559456398636,
+       "direction": "negative"
+      }
+     ],
+     "key_assumptions": [
+      "User Adoption Uncertainty",
+      "Sales Team Size",
+      "Annual CRM Licence Cost"
+     ],
+     "what_would_change": [
+      "Sales Team Productivity \u2192 Maximise Sales Productivity Within Budget"
+     ],
+     "robustness": "moderate",
+     "warnings": [
+      {
+       "code": "INFLUENTIAL_EXTERNALS",
+       "message": "External factors User Adoption Uncertainty, Sales Team Size significantly affect your outcome but are inherently uncertain. How might you bound these?",
+       "severity": "warning"
+      },
+      {
+       "code": "M2_UNAVAILABLE",
+       "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+       "severity": "warning"
+      },
+      {
+       "code": "SCALE_MISMATCH_WARNING",
+       "message": "Intervention values span wide range (max is ~160\u00d7 min). Large magnitudes may dominate outcomes.",
+       "severity": "warning"
+      }
+     ],
+     "headline_banded": {
+      "text": "Pilot HubSpot with Sales Pod First is clearly ahead.",
+      "band": "clearly_ahead",
+      "leader_option_id": "opt_phased",
+      "leader_label": "Pilot HubSpot with Sales Pod First",
+      "runner_up_option_id": "opt_switch_hubspot",
+      "runner_up_label": "Switch to HubSpot",
+      "win_probability_gap": 0.5560999999999999,
+      "robustness_gated": false,
+      "doctrine": "provisional_doctrine_v0"
+     },
+     "defaulted_assumptions": [
+      {
+       "factor_label": "User Adoption Uncertainty",
+       "note": "No starting value was provided for \"User Adoption Uncertainty\" \u2014 the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+       "source": "value_defaulted",
+       "doctrine": "provisional_doctrine_v0"
+      },
+      {
+       "factor_label": "Annual CRM Licence Cost",
+       "note": "No starting value was provided for \"Annual CRM Licence Cost\" \u2014 the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+       "source": "value_defaulted",
+       "doctrine": "provisional_doctrine_v0"
+      },
+      {
+       "factor_label": "Sales Team Size",
+       "note": "No starting value was provided for \"Sales Team Size\" \u2014 the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+       "source": "value_defaulted",
+       "doctrine": "provisional_doctrine_v0"
+      }
+     ],
+     "robustness_caveat": {
+      "text": "This ranking held up under the perturbations tested. That is not a guarantee \u2014 defaulted or uncertain inputs can still change the result.",
+      "basis": "is_robust",
+      "doctrine": "provisional_doctrine_v0"
+     },
+     "warning_codes": [],
+     "analysis_summary": {
+      "leading_option": "Pilot HubSpot with Sales Pod First",
+      "win_probability": 0.7517333333333333,
+      "robustness_band": "moderate"
+     }
+    },
+    "factor_evppi": [
+     {
+      "factor_id": "fac_adoption_risk",
+      "evppi": 0,
+      "evppi_raw": 0,
+      "baseline_max_expected_utility": 0.212733,
+      "conditional_max_expected_utility": 0.212733,
+      "units": "outcome",
+      "method": "regression_evppi_v1",
+      "regression_degree": 4,
+      "n_samples": 10000,
+      "clamped_low": false,
+      "clamped_high": false,
+      "noise_floor": 1e-06,
+      "status": "below_resolution",
+      "correlation_active": false
+     },
+     {
+      "factor_id": "fac_annual_crm_cost",
+      "evppi": 0,
+      "evppi_raw": 0,
+      "baseline_max_expected_utility": 0.212733,
+      "conditional_max_expected_utility": 0.212733,
+      "units": "outcome",
+      "method": "regression_evppi_v1",
+      "regression_degree": 4,
+      "n_samples": 10000,
+      "clamped_low": false,
+      "clamped_high": false,
+      "noise_floor": 0,
+      "status": "resolved",
+      "correlation_active": false
+     },
+     {
+      "factor_id": "fac_team_size",
+      "evppi": 0,
+      "evppi_raw": 0,
+      "baseline_max_expected_utility": 0.212733,
+      "conditional_max_expected_utility": 0.212733,
+      "units": "outcome",
+      "method": "regression_evppi_v1",
+      "regression_degree": 4,
+      "n_samples": 10000,
+      "clamped_low": false,
+      "clamped_high": false,
+      "noise_floor": 3e-06,
+      "status": "below_resolution",
+      "correlation_active": false
+     }
+    ],
+    "decision_evpi": 0.010112956181572123,
+    "p_win_sensitivity": [
+     {
+      "factor_id": "fac_annual_crm_cost",
+      "p_win_delta": 0.019167,
+      "p_win_delta_percentage_points": 1.92,
+      "current_metric": 0.7475,
+      "perfect_metric": 0.766667,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_adoption_risk",
+      "p_win_delta": 0.01325,
+      "p_win_delta_percentage_points": 1.32,
+      "current_metric": 0.7475,
+      "perfect_metric": 0.76075,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_switch_cost",
+      "p_win_delta": 0.009,
+      "p_win_delta_percentage_points": 0.9,
+      "current_metric": 0.7475,
+      "perfect_metric": 0.7565,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_team_size",
+      "p_win_delta": 0.009,
+      "p_win_delta_percentage_points": 0.9,
+      "current_metric": 0.7475,
+      "perfect_metric": 0.7565,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_crm_capability",
+      "p_win_delta": 0.008917,
+      "p_win_delta_percentage_points": 0.89,
+      "current_metric": 0.7475,
+      "perfect_metric": 0.756417,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_disruption",
+      "p_win_delta": 0.004667,
+      "p_win_delta_percentage_points": 0.47,
+      "current_metric": 0.7475,
+      "perfect_metric": 0.752167,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     }
+    ]
+   },
+   "computed_against_hash": "27e97e8e072b8bec"
+  },
+  {
+   "block_id": "4440b6a7-f373-567c-8c4b-38f46328b785",
+   "signal_id": "review:narrative:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "narrative",
+   "title": "How the analysis reads",
+   "body": "Pilot HubSpot with Sales Pod First leads by a substantial 56 percentage points, but the result depends on how user adoption unfolds in practice. User Adoption Uncertainty is the main fragility that could affect this outcome.",
+   "severity": "info",
+   "target_refs": [],
+   "priority_rank": 10,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ANALYSIS_NARRATIVE"
+  },
+  {
+   "block_id": "2ac3d62a-9082-54fa-b0bd-853026f5fe7f",
+   "signal_id": "review:pre_mortem:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "pre_mortem",
+   "title": "If things go wrong",
+   "body": "Imagine this decision has failed: The pilot fails because user adoption of HubSpot is lower than expected, leading to minimal productivity gains and leaving the team frustrated by new processes.",
+   "severity": "warning",
+   "target_refs": [
+    {
+     "id": "fac_adoption_risk",
+     "label": "User Adoption Uncertainty",
+     "kind": "factor"
+    }
+   ],
+   "priority_rank": 20,
+   "category": "should_fix",
+   "priority": 70,
+   "signal_code": "PRE_MORTEM",
+   "action_intent": "run_pre_mortem",
+   "action_label": "Run a pre-mortem"
+  },
+  {
+   "block_id": "08691ec5-7cce-5ab0-831c-6c80085c22b3",
+   "signal_id": "review:robustness:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "robustness",
+   "title": "How robust is this?",
+   "body": "The ordering holds in about 75% of variations, reflecting moderate stability but clear dependence on several uncertain factors.",
+   "severity": "warning",
+   "target_refs": [],
+   "priority_rank": 50,
+   "category": "should_fix",
+   "priority": 70,
+   "signal_code": "FRAGILE_RESULT"
+  },
+  {
+   "block_id": "c371530d-5842-5447-aa7f-9fa204b6a910",
+   "signal_id": "review:evidence_priority:fac_adoption_risk:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "evidence_priority",
+   "title": "Highest-leverage evidence gap: User Adoption Uncertainty",
+   "body": "Adoption rates have strong potential to swing the outcome, as insufficient adoption would limit productivity gains from HubSpot.",
+   "severity": "info",
+   "target_refs": [
+    {
+     "id": "fac_adoption_risk",
+     "label": "User Adoption Uncertainty",
+     "kind": "factor"
+    }
+   ],
+   "priority_rank": 60,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "EVIDENCE_GAP",
+   "action_intent": "gather_evidence",
+   "action_label": "Strengthen this evidence"
+  },
+  {
+   "block_id": "7f8eb83e-e9fd-569c-9dcb-6288d1f8f7cd",
+   "signal_id": "review:assumption:1:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "assumption",
+   "title": "A load-bearing assumption",
+   "body": "The relationship from User Adoption Uncertainty to Sales Team Productivity captures how quickly and thoroughly the team will embrace new tools.",
+   "severity": "info",
+   "target_refs": [],
+   "priority_rank": 71,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK"
+  },
+  {
+   "block_id": "acfe5d00-c199-5c45-a166-f68e56e633a8",
+   "signal_id": "review:assumption:2:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "assumption",
+   "title": "A load-bearing assumption",
+   "body": "The sales team size estimate is relevant for licence and operational costs over the next quarter.",
+   "severity": "info",
+   "target_refs": [],
+   "priority_rank": 72,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK"
+  },
+  {
+   "block_id": "ee5a9ff2-884e-5dd5-b494-9e14a9964a5c",
+   "signal_id": "review:assumption:3:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "assumption",
+   "title": "A load-bearing assumption",
+   "body": "Annual CRM licence cost estimates for both current and proposed systems reflect actual contract terms.",
+   "severity": "info",
+   "target_refs": [],
+   "priority_rank": 73,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK"
+  },
+  {
+   "block_id": "00446040-dcb4-50dc-b6e5-2c4e79da6c51",
+   "signal_id": "coach:assumption:1:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "assumption_check",
+   "title": "An assumption to check",
+   "body": "The relationship from User Adoption Uncertainty to Sales Team Productivity captures how quickly and thoroughly the team will embrace new tools.",
+   "source": "decision_review",
+   "target_refs": [
+    {
+     "id": "fac_adoption_risk",
+     "label": "User Adoption Uncertainty",
+     "kind": "factor"
+    },
+    {
+     "id": "out_sales_productivity",
+     "label": "Sales Team Productivity",
+     "kind": "outcome"
+    }
+   ],
+   "priority_rank": 101,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK",
+   "action_intent": "confirm_factor",
+   "action_label": "Confirm this assumption",
+   "action_prompt": "Help me pressure-test this assumption before I rely on it."
+  },
+  {
+   "block_id": "2738ad66-82ad-5b27-adbc-ef1fc2bad379",
+   "signal_id": "coach:assumption:2:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "assumption_check",
+   "title": "An assumption to check",
+   "body": "The sales team size estimate is relevant for licence and operational costs over the next quarter.",
+   "source": "decision_review",
+   "target_refs": [
+    {
+     "id": "fac_team_size",
+     "label": "Sales Team Size",
+     "kind": "factor"
+    }
+   ],
+   "priority_rank": 102,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK",
+   "action_intent": "confirm_factor",
+   "action_label": "Confirm this assumption",
+   "action_prompt": "Help me pressure-test this assumption before I rely on it."
+  },
+  {
+   "block_id": "05db232d-50b0-540e-b933-1b0be2e6788a",
+   "signal_id": "coach:assumption:3:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "assumption_check",
+   "title": "An assumption to check",
+   "body": "Annual CRM licence cost estimates for both current and proposed systems reflect actual contract terms.",
+   "source": "decision_review",
+   "target_refs": [
+    {
+     "id": "fac_annual_crm_cost",
+     "label": "Annual CRM Licence Cost",
+     "kind": "factor"
+    }
+   ],
+   "priority_rank": 103,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK",
+   "action_intent": "confirm_factor",
+   "action_label": "Confirm this assumption",
+   "action_prompt": "Help me pressure-test this assumption before I rely on it."
+  },
+  {
+   "block_id": "8117f6f0-f2a7-5bae-91e8-d9341e585a5f",
+   "signal_id": "coach:calibration:1:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "calibration_prompt",
+   "title": "Consider-the-opposite as a debiasing strategy prompt",
+   "body": "What would make you switch to Switch to HubSpot rather than just piloting with a sales pod?",
+   "source": "decision_review",
+   "target_refs": [
+    {
+     "id": "opt_switch_hubspot",
+     "label": "Switch to HubSpot",
+     "kind": "option"
+    }
+   ],
+   "priority_rank": 201,
+   "category": "technique",
+   "priority": 30,
+   "signal_code": "CALIBRATION_PROMPT",
+   "action_intent": "start_guided_chat",
+   "action_label": "Try this prompt",
+   "action_prompt": "What would make you switch to Switch to HubSpot rather than just piloting with a sales pod?"
+  },
+  {
+   "block_id": "12a99bb7-c1d2-5bf5-beed-c18dc4a3f819",
+   "signal_id": "coach:calibration:2:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "calibration_prompt",
+   "title": "Outside view and reference class forecasting prompt",
+   "body": "What is the base rate for successful CRM rollouts in similar sales teams?",
+   "source": "decision_review",
+   "target_refs": [],
+   "priority_rank": 202,
+   "category": "technique",
+   "priority": 30,
+   "signal_code": "CALIBRATION_PROMPT",
+   "action_intent": "start_guided_chat",
+   "action_label": "Try this prompt",
+   "action_prompt": "What is the base rate for successful CRM rollouts in similar sales teams?"
+  },
+  {
+   "block_id": "73e31daf-8a42-5260-9c13-e209b70f70ba",
+   "signal_id": "evidence:fac_adoption_risk:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "evidence",
+   "factor_label": "User Adoption Uncertainty",
+   "factor_ref": {
+    "id": "fac_adoption_risk",
+    "label": "User Adoption Uncertainty",
+    "kind": "factor"
+   },
+   "target_refs": [
+    {
+     "id": "fac_adoption_risk",
+     "label": "User Adoption Uncertainty",
+     "kind": "factor"
+    }
+   ],
+   "current_confidence": "medium",
+   "evidence_gap": "Adoption rates have strong potential to swing the outcome, as insufficient adoption would limit productivity gains from HubSpot.",
+   "suggested_technique": "Internal data: Survey or interview sales staff to estimate likely adoption rates and barriers for HubSpot in your team.",
+   "impact_if_gathered": "Estimate likely adoption before looking at external benchmarks.",
+   "priority_rank": 1,
+   "severity": "info",
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "EVIDENCE_GAP",
+   "action_intent": "gather_evidence",
+   "action_label": "Strengthen this evidence"
+  },
+  {
+   "block_id": "8945b259-7340-5e7d-a932-2aed653673fd",
+   "signal_id": "evidence:fac_team_size:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "evidence",
+   "factor_label": "Sales Team Size",
+   "factor_ref": {
+    "id": "fac_team_size",
+    "label": "Sales Team Size",
+    "kind": "factor"
+   },
+   "target_refs": [
+    {
+     "id": "fac_team_size",
+     "label": "Sales Team Size",
+     "kind": "factor"
+    }
+   ],
+   "current_confidence": "medium",
+   "evidence_gap": "The model is sensitive to team size, which affects cost per user and real productivity uplift.",
+   "suggested_technique": "Internal data: Validate your actual active sales team headcount for the next quarter, factoring in any hiring or attrition.",
+   "impact_if_gathered": "Write down your forecast for team size before reviewing payroll data.",
+   "priority_rank": 2,
+   "severity": "info",
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "EVIDENCE_GAP",
+   "action_intent": "gather_evidence",
+   "action_label": "Strengthen this evidence"
+  },
+  {
+   "block_id": "113ace2c-dd13-54c9-8b1c-68093c9ba318",
+   "signal_id": "evidence:fac_annual_crm_cost:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "evidence",
+   "factor_label": "Annual CRM Licence Cost",
+   "factor_ref": {
+    "id": "fac_annual_crm_cost",
+    "label": "Annual CRM Licence Cost",
+    "kind": "factor"
+   },
+   "target_refs": [
+    {
+     "id": "fac_annual_crm_cost",
+     "label": "Annual CRM Licence Cost",
+     "kind": "factor"
+    }
+   ],
+   "current_confidence": "medium",
+   "evidence_gap": "Licence costs directly affect budget fit and could alter the comparison if actual costs differ from assumptions.",
+   "suggested_technique": "Market research: Request formal quotes or contracts from both current and potential CRM providers to confirm licence costs.",
+   "impact_if_gathered": "Note your expected figure before reviewing supplier quotes.",
+   "priority_rank": 3,
+   "severity": "info",
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "EVIDENCE_GAP",
+   "action_intent": "gather_evidence",
+   "action_label": "Strengthen this evidence"
+  },
+  {
+   "block_id": "60417ffd-88a4-5e57-a840-aef4e4fd2ae9",
+   "signal_id": "coach:lens:consider_opposite:consider_opposite:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "strengthen",
+   "title": "Strengthen your model: argue the other side",
+   "body": "One option is clearly ahead here. Before you commit, spend a few minutes making the strongest honest case against it \u2014 if that case falls apart, the choice has earned more trust; if it holds up, you have found something worth checking first.",
+   "source": "deterministic_signal",
+   "target_refs": [],
+   "priority_rank": 15,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "STRENGTHEN_ITEM"
+  },
+  {
+   "block_id": "c3683223-2330-5431-b911-fe01086f2ecf",
+   "signal_id": "exercise:consider_opposite:27e97e8e072b8bec",
+   "created_at": "2026-08-08T15:59:37.262Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "27e97e8e072b8bec",
+   "freshness": "fresh",
+   "type": "exercise",
+   "exercise_kind": "consider_opposite",
+   "counter_case": "Take the opposite view for a moment: assume the option in front turns out to be the wrong choice. What would have to be true for that to happen? Write down the strongest argument against it, and note what evidence would confirm or rule out that argument.",
+   "target_refs": [
+    {
+     "id": "opt_phased",
+     "label": "Pilot HubSpot with Sales Pod First",
+     "kind": "option"
+    }
+   ],
+   "dsk_provenance": {
+    "protocol_id": "DSK-P-003",
+    "protocol_title": "Disconfirmation exercise",
+    "evidence_strength": "medium"
+   }
+  },
+  {
+   "type": "ui_directive",
+   "verb": "highlight",
+   "targets": [
+    {
+     "id": "opt_phased",
+     "label": "Pilot HubSpot with Sales Pod First",
+     "kind": "option"
+    }
+   ]
+  }
+ ],
+ "suggested_actions": [
+  {
+   "id": "chip_action_explain_results",
+   "label": "Explain the result",
+   "message": "Please explain the analysis result in plain language.",
+   "action_type": "explain_results"
+  },
+  {
+   "id": "chip_action_what_would_flip",
+   "label": "What could change the outcome?",
+   "message": "What could change the outcome of this analysis?",
+   "action_type": "what_would_flip"
+  },
+  {
+   "id": "chip_prompt_validate_decision",
+   "label": "What should we validate?",
+   "message": "What should we validate or research to build confidence in this decision?"
+  }
+ ],
+ "insights": [],
+ "stage_indicator": "frame",
+ "analysis_ready": {
+  "options": [
+   {
+    "option_id": "opt_phased",
+    "label": "Pilot HubSpot with Sales Pod First",
+    "status": "ready",
+    "interventions": {
+     "fac_disruption": 0,
+     "fac_switch_cost": 0.5,
+     "fac_crm_capability": 0.6
+    },
+    "is_baseline": false
+   },
+   {
+    "option_id": "opt_status_quo",
+    "label": "Keep Current CRM (Status Quo)",
+    "status": "ready",
+    "interventions": {
+     "fac_disruption": 0,
+     "fac_switch_cost": 0,
+     "fac_crm_capability": 0.4
+    },
+    "is_baseline": true
+   },
+   {
+    "option_id": "opt_switch_hubspot",
+    "label": "Switch to HubSpot",
+    "status": "ready",
+    "interventions": {
+     "fac_disruption": 1,
+     "fac_switch_cost": 1,
+     "fac_crm_capability": 0.8
+    },
+    "is_baseline": false
+   }
+  ],
+  "goal_node_id": "goal_crm",
+  "status": "ready",
+  "computed_at": "2026-08-08T15:59:15.964Z",
+  "freshness": "fresh",
+  "freshness_reason": "graph_hash_match",
+  "graph_hash_at_run": "27e97e8e072b8bec",
+  "current_graph_hash": "27e97e8e072b8bec"
+ },
+ "graph_hash": "27e97e8e072b8bec",
+ "_diagnostic_trace": {
+  "llm_calls": [
+   {
+    "role": "decision_review",
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "input_tokens": 10655,
+    "output_tokens": 1243,
+    "cache_read_tokens": null,
+    "cache_creation_tokens": null,
+    "latency_ms": 16222,
+    "stop_reason": null,
+    "thinking_enabled": false,
+    "error": null
+   }
+  ],
+  "prompt_identity": [],
+  "zone2_assembly": null,
+  "tool_policy": null,
+  "provider_resolution": [],
+  "structured_output_config": null,
+  "streaming_metrics": null,
+  "fallback_trace": [],
+  "benchmarking": {
+   "total_duration_ms": 23037,
+   "substage_timings": {
+    "finalisation_ms": 2
+   }
+  },
+  "correlation_ids": {
+   "request_id": "2a2ffc29-cef5-4bfc-8498-6be5d925e9e3",
+   "scenario_id": "31c8ee2f-33f4-47ec-954a-cf686ba945ef",
+   "turn_id": "6db2313c-a905-4182-84d1-e66ab5e05f6e",
+   "graph_hash": "a13884ca986599b1",
+   "response_hash": "f2495830afad"
+  },
+  "environment": {
+   "build_sha": "060e9ed",
+   "environment": "staging"
+  },
+  "exit_path": "chip_click",
+  "trace_version": 1,
+  "claim_safety": {
+   "may_name_leading_option": true,
+   "verdict_provenance": null,
+   "withheld_projection_reason": null
+  }
+ }
+}
