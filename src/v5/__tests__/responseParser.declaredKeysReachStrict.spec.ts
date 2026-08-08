@@ -85,6 +85,29 @@ const SCHEMA_VALID_SAMPLES: Readonly<Record<string, unknown>> = {
   decision_classification: { stakes: 'high' },
   framing_quality: 'thin',
   graph_hash: 'abc123def456',
+  // 0.39.0-new (schemas car 3). DERIVED FROM THE PRODUCER'S SEMANTICS, not
+  // from what a run-delta "ought" to look like (trap 13c): `RunDeltaSchema`
+  // is a `superRefine`, so a shape that merely satisfies the field types can
+  // still fail to parse. This sample satisfies the C1 fabrication rule —
+  // `C1_attributable` REQUIRES seed_equal && !hash_equal &&
+  // builds_equal === 'equal' && n_equal — and carries `edit_list`, which is
+  // legal only on a !hash_equal pair. Verified by executing
+  // `RunDeltaSchema.safeParse` (VALID), with a negative control flipping
+  // `seed_equal` to false (INVALID), so this sample is known to exercise the
+  // refinement rather than merely to pass the field types.
+  run_delta: {
+    attribution_case: 'C1_attributable',
+    pair_provenance: {
+      seed_equal: true,
+      hash_equal: false,
+      builds_equal: 'equal',
+      n_equal: true,
+    },
+    leader: { changed: false, noise_verdict: 'within_noise' },
+    win_probabilities: [],
+    flip_thresholds: [],
+    edit_list: ['nodes.0.belief'],
+  },
 }
 
 const DECLARED_KEYS: readonly string[] = Object.keys(OlumiResponseSchema.shape)
