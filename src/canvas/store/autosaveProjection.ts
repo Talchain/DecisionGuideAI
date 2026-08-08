@@ -75,6 +75,13 @@ export interface AutosaveProjectionSource {
    * analysis of a graph whose option nodes no longer exist must not survive.
    */
   analysis: AutosaveData['analysis'] | undefined
+  /**
+   * The scenario's hard constraints (ROADMAP 2.932). Required like every other
+   * field here — `saveAutosave` REPLACES, so a caller that omitted constraints
+   * would strip them from the last good autosave, which is the exact silent-loss
+   * this field exists to close. `null` means "persist no constraint".
+   */
+  goalConstraints: AutosaveData['goalConstraints'] | undefined
 }
 
 /**
@@ -110,6 +117,12 @@ export interface AutosaveStoreSlice {
    * — see the PR body; it is not resolved here.
    */
   selectedGoalNode?: string | null
+  /**
+   * The store's hard constraints (ROADMAP 2.932). Camel-case here (the store
+   * spelling); the projection persists it under the same `goalConstraints`
+   * autosave key. Typed off AutosaveData so the two cannot drift.
+   */
+  goalConstraints?: AutosaveData['goalConstraints']
   /**
    * The results slice. Structural and narrow: only what decides whether there
    * is an answer worth persisting, and what identifies it.
@@ -174,6 +187,7 @@ export function autosaveSourceFromStore(
     ceeAnalysisReady: (state.ceeAnalysisReady ?? undefined) as AutosaveData['ceeAnalysisReady'],
     selectedGoalNode: state.selectedGoalNode ?? null,
     analysis: analysisSnapshotFromStore(state),
+    goalConstraints: state.goalConstraints ?? null,
     ...overrides,
   }
 }
@@ -202,5 +216,12 @@ export function projectAutosaveData(
     // key and an explicit null the same on read, but the diff at each call site
     // stays readable.
     analysis: source.analysis ?? null,
+    // ROADMAP 2.932: emit only when non-empty, so a constraint-free autosave is
+    // byte-identical to the historical payload (no new key on every record).
+    // Absent/empty ⇒ omit the key ⇒ the restore resolves it to null (clears).
+    goalConstraints:
+      Array.isArray(source.goalConstraints) && source.goalConstraints.length > 0
+        ? source.goalConstraints
+        : undefined,
   }
 }

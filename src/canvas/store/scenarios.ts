@@ -13,8 +13,9 @@
  */
 
 import type { Node, Edge } from '@xyflow/react'
-import type { CEEAnalysisReady } from '../../adapters/cee/types'
+import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import type { ReportV1 } from '../../adapters/plot/types'
+import { buildPersistedGraph, type PersistedGraph } from '../utils/persistedGraph'
 
 export interface ScenarioFraming {
   title?: string          // Decision or question
@@ -33,10 +34,16 @@ export interface Scenario {
   updatedAt: number // timestamp ms
   source_template_id?: string // template this was created from
   source_template_version?: string // template version
-  graph: {
-    nodes: Node[]
-    edges: Edge[]
-  }
+  /**
+   * The persisted graph. Carries an OPTIONAL top-level `goal_constraints`
+   * (snake_case, the CEE wire spelling — see persistedGraph.ts), mirroring the
+   * authenticated `scenarios.graph` JSONB column so a guest scenario save
+   * round-trips hard constraints instead of silently dropping them
+   * (ROADMAP 2.932). Absent on records written before that shipped — additive,
+   * so an old `{ nodes, edges }` graph still loads (readPersistedGoalConstraints
+   * returns null for an absent key).
+   */
+  graph: PersistedGraph<Node, Edge>
   last_result_hash?: string // Most recent analysis hash for this scenario
   last_run_at?: string // ISO timestamp of last analysis run for this scenario
   last_run_seed?: string // Seed used for last analysis run
@@ -305,6 +312,13 @@ export function createScenario(params: {
   last_run_seed?: string
   ceeAnalysisReady?: CEEAnalysisReady | null
   ceeAnalysisReadyNodeIds?: string[] | null
+  /**
+   * The scenario's hard constraints, persisted into `graph.goal_constraints`
+   * (ROADMAP 2.932). Omitted keeps the historical `{ nodes, edges }` bytes
+   * exactly — buildPersistedGraph only emits the key when there is something to
+   * persist, so a constraint-free scenario is byte-unchanged.
+   */
+  goalConstraints?: CEEGoalConstraint[] | null
 }): Scenario {
   const now = Date.now()
   const { nodes, edges } = deepCloneGraph(params.nodes, params.edges)
@@ -315,10 +329,7 @@ export function createScenario(params: {
     updatedAt: now,
     source_template_id: params.source_template_id,
     source_template_version: params.source_template_version,
-    graph: {
-      nodes,
-      edges
-    },
+    graph: buildPersistedGraph(nodes, edges, params.goalConstraints),
     last_result_hash: params.last_result_hash,
     last_run_at: params.last_run_at,
     last_run_seed: params.last_run_seed,
@@ -351,10 +362,10 @@ export function updateScenario(id: string, updates: Partial<Omit<Scenario, 'id' 
 
   if (updates.graph) {
     const { nodes, edges } = deepCloneGraph(updates.graph.nodes, updates.graph.edges)
-    nextUpdates.graph = {
-      nodes,
-      edges,
-    }
+    // Preserve the constraints the caller put on the graph (ROADMAP 2.932).
+    // buildPersistedGraph emits the key only when non-empty, so a
+    // constraint-free update keeps the historical `{ nodes, edges }` bytes.
+    nextUpdates.graph = buildPersistedGraph(nodes, edges, updates.graph.goal_constraints)
   }
 
   scenarios[index] = {
@@ -608,6 +619,14 @@ export interface AutosaveData {
     user_questions?: string[]
   } | null
   selectedGoalNode?: string | null
+  /**
+   * The scenario's hard constraints (ROADMAP 2.932). Absent on records written
+   * before this shipped — additive, so an old autosave still loads and the
+   * restore resolves an absent value to null (clears rather than throws). The
+   * projection emits this only when non-empty, so a constraint-free autosave is
+   * byte-unchanged.
+   */
+  goalConstraints?: CEEGoalConstraint[] | null
 }
 
 // P2: Track last autosave payload to skip identical writes

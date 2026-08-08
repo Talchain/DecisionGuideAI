@@ -48,6 +48,7 @@ import type { LimitsV1 } from '../adapters/plot/types'
 import type { ScenarioStage, ScenarioEvent } from '../types/scenario'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { identityFromCanvasGraph } from './utils/graphIdentity'
+import { buildPersistedGraph, readPersistedGoalConstraints } from './utils/persistedGraph'
 import {
   markGraphImported,
   isGraphPendingImportRegistration,
@@ -3827,6 +3828,21 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Restore results from run history if this scenario has a last run
     tryRestoreResultsFromHistory(scenario.last_result_hash, get().resultsLoadHistorical)
 
+    // ROADMAP 2.932: restore the scenario's persisted hard constraints — or
+    // CLEAR them when the record has none, so a previous decision's constraints
+    // never ride the newly-loaded scenario. readPersistedGoalConstraints returns
+    // null for an absent/empty/malformed value (fail-open on the untyped JSONB),
+    // which is exactly the clear signal.
+    //
+    // ⚠ MUST BE THE LAST WORD ON goalConstraints IN THIS METHOD. setCeeAnalysisReady(null)
+    // above runs READINESS_CLEAR_FIELDS, which nulls goalConstraints — so a
+    // restore placed before it is silently clobbered on every scenario whose
+    // ceeAnalysisReady is absent or stale (the common case). fromProducerSync: a
+    // scenario load is not a user edit, and freshness was already nulled above.
+    get().setGoalConstraints(readPersistedGoalConstraints(scenario.graph), {
+      fromProducerSync: true,
+    })
+
     return true
     } finally {
       // A.7: End suppression after hydration is complete (always, even on throw)
@@ -3845,6 +3861,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastRunSeed,
       ceeAnalysisReady,
       ceeAnalysisReadyNodeIds,
+      goalConstraints,
     } = get()
 
     // P0-2: Set saving state
@@ -3863,7 +3880,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         // Update existing scenario (ID preserved)
         scenarios.updateScenario(currentScenarioId!, {
           name,
-          graph: { nodes, edges },
+          // ROADMAP 2.932: persist the hard constraints INTO the graph JSONB,
+          // the same shape (and snake-case key) the authenticated DB path uses,
+          // so a guest scenario save round-trips them instead of dropping them.
+          graph: buildPersistedGraph(nodes, edges, goalConstraints),
           framing: currentScenarioFraming || undefined,
           last_result_hash: currentScenarioLastResultHash || undefined,
           last_run_at: currentScenarioLastRunAt || undefined,
@@ -3901,6 +3921,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           id: currentScenarioId ?? undefined,
           nodes,
           edges,
+          // ROADMAP 2.932: persist the hard constraints on the new record too.
+          goalConstraints,
           framing: currentScenarioFraming || undefined,
           last_result_hash: currentScenarioLastResultHash || undefined,
           last_run_at: currentScenarioLastRunAt || undefined,
@@ -5446,6 +5468,9 @@ registerCrashSnapshotProvider(() => {
     // The answer rides the crash flush too — a crash after a completed analysis
     // must not be the one path that silently drops it.
     analysis: analysisSnapshotFromStore(s),
+    // ROADMAP 2.932: the constraints ride the crash flush too, at parity with
+    // the 30s timer — a crash must not be the one path that drops them.
+    goalConstraints: s.goalConstraints ?? null,
   }
 })
 

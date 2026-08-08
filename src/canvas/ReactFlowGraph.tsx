@@ -1417,6 +1417,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         useCanvasStore.getState().hydrateGraphSlice({
           nodes: autosave.nodes,
           edges: autosave.edges,
+          // ROADMAP 2.932: restore the persisted hard constraints on a guest
+          // reload. `?? null` is load-bearing — an old autosave with no
+          // constraints key must CLEAR, not inherit the previous session's.
+          goalConstraints: autosave.goalConstraints ?? null,
         })
         // Scenario/thread continuity: preserve a UUID-format current-scenario ID across
         // the refresh so the in-flight CEE conversation keeps the same scenario_id. The

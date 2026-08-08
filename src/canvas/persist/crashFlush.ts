@@ -56,6 +56,13 @@ export interface CrashSnapshot {
    * boundary's "your work is auto-saved" promise now covers.
    */
   analysis: AutosaveData['analysis'] | undefined
+  /**
+   * The scenario's hard constraints (ROADMAP 2.932). Required for the same
+   * REPLACE reason: a crash flush that omitted it would strip the user's
+   * constraints out of the last good autosave. Flows straight through the
+   * `...snapshot` spread in flushWorkToAutosave.
+   */
+  goalConstraints: AutosaveData['goalConstraints'] | undefined
 }
 
 export type CrashSnapshotProvider = () => CrashSnapshot | null

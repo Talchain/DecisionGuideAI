@@ -162,6 +162,11 @@ describe('projectAutosaveData — every source field reaches the payload', () =>
       resultsSource: 'conversation',
       report: { summary: 'parity' } as never,
     },
+    // ROADMAP 2.932 — a NON-EMPTY value so the "every field reaches the payload"
+    // loop below actually exercises the constraint projection (the projection
+    // omits an empty array, which would satisfy toBeDefined() while proving
+    // nothing).
+    goalConstraints: [{ constraint_id: 'c_parity', operator: '<=', value: 5000 }],
   }
 
   it('projects every field of a fully-populated source', () => {

@@ -136,7 +136,7 @@ import {
   mapDraftEdgeToCanvas,
   mapDraftNodeToCanvas,
 } from './applyDraftResult'
-import type { CEEDraftResponse, CEEv2Response, CEEv3Response } from '../../adapters/cee/types'
+import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response } from '../../adapters/cee/types'
 
 /**
  * Horizontal gap between the current bounding box and the added column.
@@ -581,6 +581,72 @@ export function reconcileAppliedGraph(
     nodeIds: [...wireNodeById.keys()],
     edgePairs: [...wireEdgeByPair.keys()],
   })
+
+  // ROADMAP 2.932 (Codex MF2) — commit the receipt's goal_constraints.
+  //
+  // The receipt's draft_graph carries goal_constraints the same way the
+  // fresh-draft path does — nested per @talchain/schemas, or lifted from the
+  // response root onto this very object by attachAnalysisReadyToInlineDraftGraph
+  // (useConversation), which is the SAME object applyDraftResult reads. Before
+  // this, reconcile committed ONLY nodes and edges, so a populated-canvas turn
+  // that returned constraints left the store on the previous value — the
+  // completed canvas showed "No limits on record" and the NEXT analysis (which
+  // reads store.goalConstraints) omitted them. That is the silent-loss the row
+  // is about.
+  //
+  // Runs BEFORE the `!changed` early-return: a terminal analysis turn typically
+  // leaves the graph structurally identical while still carrying the
+  // constraints, so gating this on a node/edge change would drop exactly the
+  // case the defect describes.
+  //
+  // ABSENCE DOES NOT CLEAR. This module's whole contract is "the wire WINS on
+  // keys it carries, the canvas KEEPS keys the wire omits" (see overlayNode) —
+  // an applied-edit receipt is not the wholesale replacement a fresh draft is,
+  // so a receipt that merely does not re-send constraints must not become a NEW
+  // way to lose them (the exact failure class this row closes). Non-empty array
+  // → adopt; absent / empty / non-array → leave the store as-is. fromProducerSync
+  // because these are CEE's authoritative post-state and must not self-dirty the
+  // freshness verdict the same response already set.
+  const receiptGoalConstraints = (draftData as { goal_constraints?: unknown }).goal_constraints
+  if (Array.isArray(receiptGoalConstraints) && receiptGoalConstraints.length > 0) {
+    const constraints = receiptGoalConstraints as CEEGoalConstraint[]
+    useCanvasStore.getState().setGoalConstraints(constraints, { fromProducerSync: true })
+    // R2: the staging MF2 witness traces constraints by these logs; without one
+    // here the reconcile commit is invisible to it. Matches applyDraftResult's
+    // and useV2Run's `[constraint-trace]` shape.
+    logger.info('[constraint-trace] store-write', {
+      source: 'reconcileAppliedGraph',
+      count: constraints.length,
+      constraint_ids: constraints.map((c) => c.constraint_id),
+    })
+
+    // F1 (adversarial review) — PERSIST HERE, AND NOT LEFT TO THE 30s TIMER OR
+    // TO THE COMMIT BELOW. On this module's canonical case — a terminal analysis
+    // turn that leaves the graph structurally identical — `changed` is false and
+    // the early return below is taken, so the post-commit `saveAutosave` at the
+    // end of this function NEVER RUNS. Nothing else covers it either:
+    //   - applyV5State runs BEFORE this reconcile (useConversation.ts:4566 vs
+    //     :4737), so its resultsComplete-driven write at store.ts:3365 persists
+    //     the store's PRE-COMMIT constraints;
+    //   - the 30s timer's dirty check is `computeGraphHash(nodes, edges)`, which
+    //     is constraint-blind and skips (the identical hazard store.ts:3348's
+    //     comment warns about for the analysis payload);
+    //   - the complete saveAutosave writer manifest has no site that fires after
+    //     a no-op commit.
+    // Result before this write: the store held the constraints, the autosave did
+    // not, and the guest reload hydrated `?? null` — cleared. It also keeps a
+    // REVISED set from leaving the superseded one in the record.
+    //
+    // Deliberately unconditional rather than gated on `!changed`: a predicate
+    // here would be one more thing to get wrong, and on the changed path the
+    // post-commit write simply supersedes this one (saveAutosave skips an
+    // identical payload, so the cost is bounded).
+    try {
+      saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
+    } catch {
+      // Non-critical — never let a persistence failure break the reconcile.
+    }
+  }
 
   if (!changed) return result
 
