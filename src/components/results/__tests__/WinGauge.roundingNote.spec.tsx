@@ -117,17 +117,34 @@ describe('WinGauge — rounding note (ROADMAP 2.580 member 1)', () => {
   it('FAILS CLOSED when any share prints as a sub-resolution bound', () => {
     // `< 1%` carries no derivable total, so the component must claim nothing
     // rather than state a sum that excludes an unknown quantity.
+    //
+    // ⚠ THE SHARES ARE CHOSEN, NOT ARBITRARY, and the choice is the test.
+    // A real partition summing to 1 with one sub-1% member usually rounds back
+    // to exactly 100 whichever rule you use, so an absence assertion over it
+    // proves nothing: a mutant that swapped the floored readout for a plain
+    // `Math.round` SURVIVED such a fixture (it printed '1%' where the legend
+    // printed '< 1%', and the totals coincided at 100 anyway).
+    //
+    // These four sum to exactly 1.0 and separate the two rules:
+    //   floored (what the legend prints): 34 + 34 + 32 + '< 1%'  → no total
+    //   plain Math.round:                 34 + 34 + 32 +   1     → 101
+    // so the component must render NOTHING while the wrong rule renders a
+    // confident "total 101%". The absence below is now discriminating.
     render(
       <WinGauge
         shares={[
-          { id: 'a', label: 'A', winProbability: 0.5, isWinner: true, goalProbability: null },
-          { id: 'b', label: 'B', winProbability: 0.4949, isWinner: false, goalProbability: null },
-          { id: 'c', label: 'C', winProbability: 0.0051, isWinner: false, goalProbability: null },
+          { id: 'a', label: 'A', winProbability: 0.336, isWinner: true, goalProbability: null },
+          { id: 'b', label: 'B', winProbability: 0.336, isWinner: false, goalProbability: null },
+          { id: 'c', label: 'C', winProbability: 0.322, isWinner: false, goalProbability: null },
+          { id: 'd', label: 'D', winProbability: 0.006, isWinner: false, goalProbability: null },
         ]}
       />,
     )
     const block = screen.getByTestId('win-gauge-comparative-block')
+    // Precondition pinned IN-TEST: the bound really is on screen, and the
+    // three whole percentages really do sum to something other than 100.
     expect(within(block).getByText(/^<\s?1%$/)).toBeInTheDocument()
+    expect(sumRenderedLegendPercents()).toBe(100)
     expect(screen.queryByTestId(ODDS_ROUNDING_NOTE_TESTID)).not.toBeInTheDocument()
   })
 
