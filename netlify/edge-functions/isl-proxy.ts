@@ -19,7 +19,6 @@ const ISL_TARGET = 'https://isl-staging.onrender.com'
 // SECURITY: CORS allow-list (never use wildcard in production)
 const ALLOWED_ORIGINS = [
   'https://decisionguide.ai',
-  'https://app.olumi.app',
   'https://decision-guide-ai.netlify.app',  // Netlify main
   'https://staging--olumi.netlify.app',     // Staging environment
   'http://localhost:5173',  // Dev only
