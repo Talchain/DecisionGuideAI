@@ -18,7 +18,7 @@ import { useMemo } from 'react'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { DecisionState } from '../types'
 import { V7FreshnessStrip } from './V7FreshnessStrip'
-import { V7SharpenLine, type V7SharpenInput } from './V7SharpenLine'
+import { V7SharpenLine, type V7SharpenInput, type V7BriefQuote } from './V7SharpenLine'
 import { V7Hero } from './V7Hero'
 import { V7LensGroup } from './V7LensGroup'
 import { V7EvidenceDisclosure } from './V7EvidenceDisclosure'
@@ -52,7 +52,22 @@ export function V7TopMatter({
     label: gap.factorLabel,
     nodeId: gap.targetNodeId,
   }))
-  const briefWording = recommendation.goalText ?? resultsSectionData.goalLabel ?? null
+  // The brief quote carries its PROVENANCE, not just a string (ROADMAP 2.993).
+  // `goalText` is the user's own framing goal — `useResultsSectionData` reads it
+  // straight from `currentScenarioFraming.goal`, the same bytes `composeBriefText`
+  // puts into the brief this app submits. `goalLabel` is OUR derivation of the
+  // same idea (sanitised, node-label-sourced, re-phrased, or the literal "your
+  // goal"), and the old `goalText ?? goalLabel` fallback made the line say
+  // "You wrote:" about text the user never wrote. It is still handed over —
+  // labelled honestly — so the refusal lives in the component on the live path
+  // and a future re-attribution has to be a visible diff there.
+  const userGoalText = recommendation.goalText?.trim()
+  const derivedGoalLabel = resultsSectionData.goalLabel?.trim()
+  const briefQuote: V7BriefQuote | null = userGoalText
+    ? { text: userGoalText, source: 'user_brief' }
+    : derivedGoalLabel
+      ? { text: derivedGoalLabel, source: 'derived_label' }
+      : null
 
   // L5 lens group + evidence disclosure — passthrough over the SAME
   // resultsSectionData the live panel consumes. The lens model is built ONCE
@@ -64,7 +79,7 @@ export function V7TopMatter({
   return (
     <div className="flex flex-col gap-4" data-testid="v7-top-matter">
       <V7FreshnessStrip />
-      <V7SharpenLine briefWording={briefWording} inputs={sharpenInputs} onFocusNode={onFocusNode} />
+      <V7SharpenLine briefQuote={briefQuote} inputs={sharpenInputs} onFocusNode={onFocusNode} />
       <V7Hero
         recommendation={recommendation}
         decisionState={decisionState}
