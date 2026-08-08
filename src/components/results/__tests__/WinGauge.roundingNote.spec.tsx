@@ -131,6 +131,40 @@ describe('WinGauge — rounding note (ROADMAP 2.580 member 1)', () => {
     expect(screen.queryByTestId(ODDS_ROUNDING_NOTE_TESTID)).not.toBeInTheDocument()
   })
 
+  it('reads the LEGEND\'s own readouts — not a second call to the formatter', () => {
+    // ⚠ THIS FIXTURE IS A SOURCE-BINDING PROBE, NOT A WIRE-REALISTIC RUN, and
+    // it is labelled so deliberately (CLAUDE.md trap 16-inverse: a fixture you
+    // wrote yourself is not evidence about the wire). Its shares do not sum to
+    // 1; its only job is to make the formatter's two arms DISAGREE, because
+    // that is the one condition under which "note and legend are one source"
+    // is falsifiable at all.
+    //
+    // `formatProbabilityWithResolution(0.995, null)` → '100%'  (the legend's arm)
+    // `formatProbabilityWithResolution(0.995, 4000)` → '99.5%' (any other arm)
+    //
+    // So if the note is ever re-derived from the shares instead of read from
+    // `legendEntries`, it sees a decimal, fails closed, and disappears — while
+    // the legend above it still prints two whole percentages totalling 102.
+    // Without this case the binding is a guard agreeing with itself: a mutant
+    // that swaps the note onto a different formatter arm SURVIVED every other
+    // assertion in this file.
+    render(
+      <WinGauge
+        shares={[
+          { id: 'a', label: 'Option A', winProbability: 0.995, isWinner: true, goalProbability: null },
+          { id: 'b', label: 'Option B', winProbability: 0.02, isWinner: false, goalProbability: null },
+        ]}
+      />,
+    )
+
+    // Precondition pinned IN-TEST: the legend really is printing two wholes.
+    expect(sumRenderedLegendPercents()).toBe(102)
+
+    expect(screen.getByTestId(ODDS_ROUNDING_NOTE_TESTID).textContent).toBe(
+      'These are rounded to whole percentages, so they total 102%, not 100%.',
+    )
+  })
+
   it('lives inside the comparative block, beside the numbers it describes', () => {
     render(<WinGauge shares={sharesTotalling99()} />)
     const block = screen.getByTestId('win-gauge-comparative-block')
