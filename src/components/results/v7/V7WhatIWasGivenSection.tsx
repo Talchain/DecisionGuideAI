@@ -53,7 +53,17 @@ const COPY = {
   givenHeading: 'What you gave me',
   usedHeading: 'What I used',
   estimatedHeading: 'What I estimated',
-  estimatedLead: "You didn't give me a figure for these, so I estimated them. If you know a better number, tell me and I'll use yours.",
+  // ⚠ THE PREVIOUS WORDING WAS FALSE ON OUR OWN FIXTURE, and it is worth
+  // stating why. It read "You didn't give me a figure for these" — but B1's
+  // brief says "our NRR is 112%", and the panel showed 112% under "not
+  // modelled yet" while listing Net Revenue Retention here, led by that
+  // sentence. CEE answers "does this factor's number trace to the brief?";
+  // the copy asserted "did you give me a figure for this?" — a DIFFERENT
+  // question about the user's input (trap 21: two questions under one
+  // number). The derivation was right; the sentence was wrong. It now claims
+  // only what the derivation actually establishes: these numbers are ours.
+  estimatedLead:
+    "The numbers behind these are mine, not yours. If you have better ones, tell me and I'll use them.",
   notYetHeading: 'Not modelled yet',
   notYetLead: 'These are in your brief but not in the model. Add any that matter.',
   consideredLead: 'I also considered these and left them out:',
@@ -77,6 +87,26 @@ const NOT_TRACKED_COPY: Readonly<Record<string, string>> = {
   qualitative_constraints_and_rules: 'rules you wrote in words rather than numbers',
   stated_confidence_and_self_flagged_weakness: 'how sure you said you were',
   statements_the_drafting_model_did_not_report_discarding: 'anything else I left out silently',
+}
+
+/**
+ * ⚠ A CROSS-REPO HAND-MAINTAINED MIRROR, and it fails SAFE. `NOT_TRACKED_COPY`
+ * is keyed on a vocabulary CEE owns, so the day CEE adds a class this map does
+ * not know it, and the previous `?? c` fallback rendered the raw snake_case
+ * code — defeating the tone guard the moment the producer moved. An unknown
+ * code now collapses into one honest catch-all instead of leaking an
+ * identifier onto the screen, and the caveat stays truthful either way.
+ */
+function notTrackedCopy(codes: readonly string[]): string {
+  const known: string[] = []
+  let unknown = 0
+  for (const c of codes) {
+    const copy = NOT_TRACKED_COPY[c]
+    if (copy === undefined) unknown += 1
+    else if (!known.includes(copy)) known.push(copy)
+  }
+  if (unknown > 0) known.push('and some other things I set aside')
+  return known.join('; ')
 }
 
 function Rows({
@@ -154,10 +184,14 @@ export function V7WhatIWasGivenSection({ onSendMessage }: V7WhatIWasGivenSection
   const considered =
     manifest?.declaredExclusions.status === 'reported' ? manifest.declaredExclusions.items : []
 
+  // Counts come from the manifest's own tallies, NOT from `items.length`:
+  // `items` is capped (`truncated`) while `total` is not, so counting rendered
+  // rows against an uncapped total silently under-reports on a long brief.
+  const notYetCount = tally === null ? 0 : tally.absent + tally.proseOnly
   const subtitle =
     tally === null
       ? "I can't show this yet"
-      : `${notYet.length} of ${tally.total} figures you mentioned aren't in the model yet`
+      : `${notYetCount} of ${tally.total} figures you mentioned aren't in the model yet`
 
   const addMessage = (item: NotModelledItem) =>
     onSendMessage?.(`Please add "${item.literal}" from my brief to the model.`)
@@ -291,7 +325,7 @@ export function V7WhatIWasGivenSection({ onSendMessage }: V7WhatIWasGivenSection
               className={`${typography.panelMeta} text-text-light`}
             >
               {COPY.caveatLead}{' '}
-              {manifest.notTracked.map((c) => NOT_TRACKED_COPY[c] ?? c).join('; ')}.
+              {notTrackedCopy(manifest.notTracked)}.
             </p>
           )}
         </div>

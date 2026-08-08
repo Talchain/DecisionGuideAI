@@ -34,187 +34,218 @@
           "literal": "£4m",
           "kind": "money",
           "char_offset": 27,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": "out_opex_savings"
         },
         {
           "literal": "Q2 2027",
           "kind": "period",
           "char_offset": 53,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "240 heads",
           "kind": "count",
           "char_offset": 222,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£31m",
           "kind": "money",
           "char_offset": 233,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£1.8m",
           "kind": "money",
           "char_offset": 260,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "Q3 2027",
           "kind": "period",
           "char_offset": 292,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": null
         },
         {
           "literal": "£4m",
           "kind": "money",
           "char_offset": 326,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": "out_opex_savings"
         },
         {
           "literal": "£2.5m",
           "kind": "money",
           "char_offset": 359,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "Q2",
           "kind": "period",
           "char_offset": 388,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "62 people",
           "kind": "count",
           "char_offset": 407,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£2.9m",
           "kind": "money",
           "char_offset": 418,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": "fac_offshore_scale"
         },
         {
           "literal": "40%",
           "kind": "percent",
           "char_offset": 457,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": null
         },
         {
           "literal": "45 roles",
           "kind": "count",
           "char_offset": 471,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": null
         },
         {
           "literal": "£1.1m",
           "kind": "money",
           "char_offset": 483,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "3.3 in six months",
           "kind": "count",
           "char_offset": 576,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "34%",
           "kind": "percent",
           "char_offset": 702,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "6 weeks",
           "kind": "count",
           "char_offset": 750,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£800k",
           "kind": "money",
           "char_offset": 787,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "£600k",
           "kind": "money",
           "char_offset": 944,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "March 2027",
           "kind": "date",
           "char_offset": 967,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "70 people",
           "kind": "count",
           "char_offset": 979,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "15%",
           "kind": "percent",
           "char_offset": 1108,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "12 months",
           "kind": "count",
           "char_offset": 1223,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "58 heads",
           "kind": "count",
           "char_offset": 1322,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£31m",
           "kind": "money",
           "char_offset": 1391,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "8%",
           "kind": "percent",
           "char_offset": 1409,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "2%",
           "kind": "percent",
           "char_offset": 1458,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "3-day",
           "kind": "count",
           "char_offset": 1525,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "10%",
           "kind": "percent",
           "char_offset": 1629,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "January 2027",
           "kind": "date",
           "char_offset": 1953,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": null
         },
         {
           "literal": "Q3 2027",
           "kind": "period",
           "char_offset": 1996,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": null
         }
       ]
     },

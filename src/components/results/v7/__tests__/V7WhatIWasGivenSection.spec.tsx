@@ -355,6 +355,102 @@ describe('THE REGISTER — product, not diagnostics', () => {
   })
 })
 
+describe('the copy claims only what the derivation establishes', () => {
+  it('never says the user gave no figure — B1 states NRR 112% and it is listed', () => {
+    // ⚠ REGRESSION FOR A FALSE SENTENCE. The lead read "You didn't give me a
+    // figure for these" while B1's brief says "our NRR is 112%" and the panel
+    // showed 112% under "not modelled yet" — with Net Revenue Retention listed
+    // here, under that sentence. CEE answers "does this factor's number trace
+    // to the brief?"; the copy asserted "did you give me a figure for this?" —
+    // a different question about the user's own input (trap 21).
+    const cold = coldReadOf(b1Fixture as never)
+    expect(cold.brief_text, 'PRECONDITION: the brief states a figure').toContain('112%')
+
+    seedFrom(b1Fixture as never)
+    const { container } = render(<V7WhatIWasGivenSection />)
+    openPanel()
+
+    // The precondition that makes the old sentence false: the factor is listed
+    // AND the user did state a figure for it.
+    expect(
+      screen.getByTestId('what-i-was-given-estimated').querySelector('[data-node-id="fac_nrr"]'),
+    ).not.toBeNull()
+
+    const text = container.textContent ?? ''
+    expect(text).not.toContain("You didn't give me a figure")
+    expect(text).not.toContain('you did not give me a figure')
+    // What it may claim: the numbers are ours.
+    expect(text).toContain('The numbers behind these are mine, not yours')
+  })
+})
+
+describe('counts come from the manifest, not from the rendered rows', () => {
+  it('a truncated item list does not shrink the headline count', () => {
+    // `items` is capped by CEE (`truncated`); `total` is not. Counting rendered
+    // rows against an uncapped total silently under-reports on a long brief —
+    // understating the very gap this panel exists to show.
+    const manifest = parseNotModelled({
+      schema: 'not_modelled.v1',
+      status: 'derived',
+      unavailable_reason: null,
+      quantities: {
+        total: 50,
+        in_model: 10,
+        prose_only: 5,
+        absent: 35,
+        truncated: true,
+        items: [
+          { literal: '£1m', kind: 'money', char_offset: 0, verdict: 'absent', matched_node_id: null },
+        ],
+      },
+      declared_exclusions: { status: 'none_reported', items: [] },
+      inferred_factors: { status: 'derived', items: [] },
+      not_tracked: [],
+    })
+    expect(manifest?.quantities?.truncated).toBe(true)
+
+    useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
+      briefText: 'A long brief.',
+      manifest,
+    })
+    render(<V7WhatIWasGivenSection />)
+    // 35 absent + 5 prose-only = 40, NOT the 1 row actually rendered.
+    expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
+      "40 of 50 figures you mentioned aren't in the model yet",
+    )
+  })
+})
+
+describe('an unknown untracked code never leaks onto the screen', () => {
+  it('collapses a class this repo has no copy for into an honest catch-all', () => {
+    // A cross-repo hand-maintained mirror that fails SAFE: the day CEE adds a
+    // class, the old `?? code` fallback rendered raw snake_case and walked
+    // straight through the tone guard.
+    const manifest = parseNotModelled({
+      schema: 'not_modelled.v1',
+      status: 'derived',
+      unavailable_reason: null,
+      quantities: { total: 0, in_model: 0, prose_only: 0, absent: 0, truncated: false, items: [] },
+      declared_exclusions: { status: 'none_reported', items: [] },
+      inferred_factors: { status: 'derived', items: [] },
+      not_tracked: ['corrections_and_second_thoughts', 'some_future_class_v2'],
+    })
+    useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
+      briefText: 'A brief.',
+      manifest,
+    })
+    render(<V7WhatIWasGivenSection />)
+    openPanel()
+
+    const caveat = screen.getByTestId('what-i-was-given-caveat')
+    expect(caveat.textContent).toContain('changes of mind')
+    expect(caveat.textContent).not.toContain('some_future_class_v2')
+    expect(caveat.textContent).toContain('and some other things I set aside')
+  })
+})
+
 describe('the caveat travels with the findings', () => {
   it('names the loss classes the check cannot see', () => {
     seedFrom(b1Fixture as never)

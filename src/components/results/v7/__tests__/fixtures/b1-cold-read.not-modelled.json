@@ -25,160 +25,185 @@
     },
     "quantities": {
       "total": 25,
-      "in_model": 5,
+      "in_model": 4,
       "prose_only": 4,
-      "absent": 16,
+      "absent": 17,
       "truncated": false,
       "items": [
         {
           "literal": "85-person",
           "kind": "count",
           "char_offset": 148,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£11.2m",
           "kind": "money",
           "char_offset": 177,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "28%",
           "kind": "percent",
           "char_offset": 203,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "9%",
           "kind": "percent",
           "char_offset": 254,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "70%",
           "kind": "percent",
           "char_offset": 319,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "£20m",
           "kind": "money",
           "char_offset": 408,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": null
         },
         {
           "literal": "FY28",
           "kind": "period",
           "char_offset": 427,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": null
         },
         {
           "literal": "78%",
           "kind": "percent",
           "char_offset": 468,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "€400m",
           "kind": "money",
           "char_offset": 500,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "14 months",
           "kind": "count",
           "char_offset": 692,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "€250k",
           "kind": "money",
           "char_offset": 719,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "6 local hires",
           "kind": "count",
           "char_offset": 762,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "€900k",
           "kind": "money",
           "char_offset": 782,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£3.1m",
           "kind": "money",
           "char_offset": 817,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£100k",
           "kind": "money",
           "char_offset": 878,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "60%",
           "kind": "percent",
           "char_offset": 1017,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "40%",
           "kind": "percent",
           "char_offset": 1057,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "8 people",
           "kind": "count",
           "char_offset": 1283,
-          "verdict": "in_model"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£1.5m",
           "kind": "money",
           "char_offset": 1368,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": "fac_marketing_spend"
         },
         {
           "literal": "112%",
           "kind": "percent",
           "char_offset": 1565,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£16m",
           "kind": "money",
           "char_offset": 1620,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£15.8m",
           "kind": "money",
           "char_offset": 1699,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "FY28",
           "kind": "period",
           "char_offset": 1709,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": null
         },
         {
           "literal": "Q2",
           "kind": "period",
           "char_offset": 1850,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "12 months",
           "kind": "count",
           "char_offset": 1876,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         }
       ]
     },

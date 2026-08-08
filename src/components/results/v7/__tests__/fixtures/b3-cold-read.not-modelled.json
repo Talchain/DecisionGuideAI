@@ -34,169 +34,197 @@
           "literal": "15%",
           "kind": "percent",
           "char_offset": 222,
-          "verdict": "in_model"
+          "verdict": "in_model",
+          "matched_node_id": null
         },
         {
           "literal": "22%",
           "kind": "percent",
           "char_offset": 417,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "30%",
           "kind": "percent",
           "char_offset": 424,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "15 AEs",
           "kind": "count",
           "char_offset": 467,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£15",
           "kind": "money",
           "char_offset": 538,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "40,000 seats",
           "kind": "count",
           "char_offset": 560,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£7.2m",
           "kind": "money",
           "char_offset": 583,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "100%",
           "kind": "percent",
           "char_offset": 611,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "25%",
           "kind": "percent",
           "char_offset": 637,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£1.8m",
           "kind": "money",
           "char_offset": 670,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "4 engineers",
           "kind": "count",
           "char_offset": 695,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "6 months",
           "kind": "count",
           "char_offset": 711,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "6 engineers",
           "kind": "count",
           "char_offset": 749,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "8 months",
           "kind": "count",
           "char_offset": 765,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         },
         {
           "literal": "£3 ",
           "kind": "money",
           "char_offset": 920,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "60%",
           "kind": "percent",
           "char_offset": 1185,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "9 years",
           "kind": "count",
           "char_offset": 1231,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "30%",
           "kind": "percent",
           "char_offset": 1395,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "10 engineers",
           "kind": "count",
           "char_offset": 1519,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "12 months",
           "kind": "count",
           "char_offset": 1533,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "12 months",
           "kind": "count",
           "char_offset": 1818,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£2m",
           "kind": "money",
           "char_offset": 1917,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£1.2m",
           "kind": "money",
           "char_offset": 1967,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "14 May 2027",
           "kind": "date",
           "char_offset": 2099,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "25%",
           "kind": "percent",
           "char_offset": 2264,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "10%",
           "kind": "percent",
           "char_offset": 2345,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£700k",
           "kind": "money",
           "char_offset": 2353,
-          "verdict": "absent"
+          "verdict": "absent",
+          "matched_node_id": null
         },
         {
           "literal": "£1.8m",
           "kind": "money",
           "char_offset": 2377,
-          "verdict": "prose_only"
+          "verdict": "prose_only",
+          "matched_node_id": null
         }
       ]
     },
