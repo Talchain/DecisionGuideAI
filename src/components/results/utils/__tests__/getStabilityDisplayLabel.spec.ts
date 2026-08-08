@@ -25,11 +25,11 @@ describe('getStabilityDisplayLabel — tier × stability gate (Brief 5.5 §2.7)'
 
   describe('pass-through: strong tier retains numeric classification at every stability', () => {
     it.each([
-      [0.97, 'Stable result'],
-      [0.85, 'Stable result'],
-      [0.80, 'Mostly stable'],
-      [0.55, 'Sensitive to assumptions'],
-      [0.30, 'Highly sensitive'],
+      [0.97, 'Stable ranking'],
+      [0.85, 'Stable ranking'],
+      [0.80, 'Mostly stable ranking'],
+      [0.55, 'Ranking sensitive to assumptions'],
+      [0.30, 'Ranking highly sensitive'],
     ])('stability %s → heroLabel "%s" (strong tier, any readiness)', (stability, expected) => {
       const result = getStabilityDisplayLabel({
         classification: getStabilityClassification(stability),
@@ -43,25 +43,25 @@ describe('getStabilityDisplayLabel — tier × stability gate (Brief 5.5 §2.7)'
   })
 
   describe('stability override — tier ∈ {needs_work, fair} at stability ≥ 0.85 → pass-through', () => {
-    it('needs_work + stability 0.97 → "Stable result" (stability override)', () => {
+    it('needs_work + stability 0.97 → "Stable ranking" (stability override)', () => {
       const stability = 0.97
       const result = getStabilityDisplayLabel({
         classification: getStabilityClassification(stability),
         confidenceTier: 'needs_work',
         recommendationStability: stability,
       })
-      expect(result?.heroLabel).toBe('Stable result')
+      expect(result?.heroLabel).toBe('Stable ranking')
       expect(result?.overriddenByTier).toBe(false)
     })
 
-    it('fair + stability 0.90 → "Stable result"', () => {
+    it('fair + stability 0.90 → "Stable ranking"', () => {
       const stability = 0.90
       const result = getStabilityDisplayLabel({
         classification: getStabilityClassification(stability),
         confidenceTier: 'fair',
         recommendationStability: stability,
       })
-      expect(result?.heroLabel).toBe('Stable result')
+      expect(result?.heroLabel).toBe('Stable ranking')
       expect(result?.overriddenByTier).toBe(false)
     })
   })
@@ -105,7 +105,7 @@ describe('getStabilityDisplayLabel — tier × stability gate (Brief 5.5 §2.7)'
       ['needs_framing' as const],
       ['low' as const],
       ['not_ready' as const],
-    ])('strong tier + weak readiness %s at stability 0.95 → "Stable result" (readiness never overrides)', (readiness) => {
+    ])('strong tier + weak readiness %s at stability 0.95 → "Stable ranking" (readiness never overrides)', (readiness) => {
       const stability = 0.95
       const result = getStabilityDisplayLabel({
         classification: getStabilityClassification(stability),
@@ -113,7 +113,7 @@ describe('getStabilityDisplayLabel — tier × stability gate (Brief 5.5 §2.7)'
         coachingReadiness: readiness,
         recommendationStability: stability,
       })
-      expect(result?.heroLabel).toBe('Stable result')
+      expect(result?.heroLabel).toBe('Stable ranking')
       expect(result?.overriddenByTier).toBe(false)
     })
   })
@@ -123,7 +123,7 @@ describe('getStabilityDisplayLabel — tier × stability gate (Brief 5.5 §2.7)'
       classification: getStabilityClassification(0.9),
       recommendationStability: 0.9,
     })
-    expect(result?.heroLabel).toBe('Stable result')
+    expect(result?.heroLabel).toBe('Stable ranking')
     expect(result?.overriddenByTier).toBe(false)
   })
 
@@ -133,7 +133,7 @@ describe('getStabilityDisplayLabel — tier × stability gate (Brief 5.5 §2.7)'
       coachingReadiness: 'close_call',
       recommendationStability: 0.9,
     })
-    expect(result?.heroLabel).toBe('Stable result')
+    expect(result?.heroLabel).toBe('Stable ranking')
     expect(result?.overriddenByTier).toBe(false)
   })
 })

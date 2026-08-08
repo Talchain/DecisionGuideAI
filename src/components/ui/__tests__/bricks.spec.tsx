@@ -38,8 +38,8 @@ describe('Button — the DS single-treatment button', () => {
 
 describe('Pill — outlined only, ink text (DS law)', () => {
   it('is always bg-transparent with text-text-body, colour only on the border', () => {
-    render(<Pill tone="success" dot>Stable result</Pill>)
-    const p = screen.getByText('Stable result')
+    render(<Pill tone="success" dot>Stable ranking</Pill>)
+    const p = screen.getByText('Stable ranking')
     expect(p.className).toContain('bg-transparent')
     expect(p.className).toContain('text-text-body')
     expect(p.className).toContain('border-success/40')

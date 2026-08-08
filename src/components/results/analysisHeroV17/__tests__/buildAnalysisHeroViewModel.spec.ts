@@ -1442,7 +1442,7 @@ describe('buildAnalysisHeroViewModel', () => {
   })
 
   // ── Polish pass: grounded stability/sensitivity wording ────────────────
-  // The hero used to show "Stable result" alongside a generic "Sensitive"
+  // The hero used to show "Stable ranking" alongside a generic "Sensitive"
   // footer check at 0.7–0.85 stability, which read contradictory. The
   // grounded rule below ties both labels to whether a fragile/sensitive
   // factor is actually present in the data.

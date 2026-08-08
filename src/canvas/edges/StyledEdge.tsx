@@ -30,6 +30,7 @@ import { formatConfidence, shouldShowLabel, getEdgeConfidence } from '../domain/
 import {
   resolveEdgeValueDisplay,
   resolveEdgeSignedStrengthDisplay,
+  resolveEdgeDirectionDisplay,
   compareEdgeValueDisplays,
   type EdgeValueDisplay,
 } from '../domain/edgeValueProvenance'
@@ -215,6 +216,29 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const belief = edgeData?.belief      // v1.2
   const provenance = edgeData?.provenance  // v1.2
   const direction = edgeData?.direction as 'positive' | 'negative' | undefined  // v2.2
+
+  // ⭐ ROADMAP 2.580 member 2 — THE POLARITY GLYPH'S OWN, GATED, DIRECTION.
+  //
+  // `direction` above is the RAW field and it defaults: `USER_EDGE_DEFAULTS`
+  // writes `'positive'` with no source stamp, and the template/blueprint/CEE
+  // -apply paths build from `DEFAULT_EDGE_DATA`, which has no `direction` key
+  // at all. Reading it raw made the canvas draw a green "+" — a positive
+  // causal claim — on edges whose direction nobody ever stated.
+  //
+  // `resolveEdgeDirectionDisplay` is the one owner of that answer (rule 4 of
+  // its module header, ROADMAP 2.263). It was applied to the three Model-tab
+  // consumers and not to this file, so the Model tab said "direction not
+  // stated" while the graph beside it drew a "+". The hover popover below
+  // (:1010) was already gated and its comment names this exact hazard.
+  //
+  // Kept SEPARATE from `direction` deliberately: the raw field still drives
+  // the stroke colour and the outbound adapters, and changing those is a
+  // different decision with different consumers. This constant is the DISPLAY
+  // CLAIM only.
+  const directionDisplay = resolveEdgeDirectionDisplay(
+    edgeData as Record<string, unknown> | undefined,
+  )
+  const statedDirection = directionDisplay.show ? directionDisplay.direction : null
 
   // Count outgoing edges from source node for visibility logic
   const outgoingEdgeCount = useMemo(() => {
@@ -799,7 +823,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           collision-avoids labels exactly as before. Causal lens shows its own
           numeric parameter label instead. Structural edges have no semantic
           direction — excluded defensively. */}
-      {direction && lensMode !== 'causal' && !isStructuralEdge && (
+      {/* ⭐ ROADMAP 2.580 member 2: gated on `statedDirection`, not on the raw
+          `direction` field — see the derivation at the top of this component.
+          An unstated / declined / unrecognised direction renders NOTHING here;
+          the graph says less rather than something it was never told. */}
+      {statedDirection && lensMode !== 'causal' && !isStructuralEdge && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -808,7 +836,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               pointerEvents: 'none',
               fontSize: '16px',
               fontWeight: 700,
-              color: direction === 'positive' ? '#059669' : '#dc2626',
+              color: statedDirection === 'positive' ? '#059669' : '#dc2626',
               // Chip surface = the panel token, matching the sibling edge-label
               // chips (bg-panel) so it no longer glares on a dark canvas. Inline
               // CSS-var idiom mirrors the other token refs in this file
@@ -818,9 +846,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               padding: '0 3px',
               borderRadius: '2px',
             }}
-            aria-label={`Effect direction: ${direction}`}
+            aria-label={`Effect direction: ${statedDirection}`}
           >
-            {direction === 'positive' ? '+' : '−'}
+            {statedDirection === 'positive' ? '+' : '−'}
           </div>
         </EdgeLabelRenderer>
       )}

@@ -2,7 +2,7 @@
  * OutputsDock — the bottom anchor keeps the run-analysis control (Paul, 21-Jul).
  *
  * Paul's finding: opening the canvas onto a completed analysis, "the bottom
- * anchor panel shows the robustness verdict ('Sensitive to assumptions…') in
+ * anchor panel shows the robustness verdict ('Ranking sensitive to assumptions…') in
  * the slot where the RUN-ANALYSIS control should be — instead of the
  * functionality to run the analysis."
  *
@@ -103,7 +103,7 @@ function ensureMatchMedia() {
 }
 
 // robustness.recommendation_stability 0.42 → a display-safe 'fragile'/'moderate'
-// verdict → the "Sensitive to assumptions" footer label Paul reported. The exact
+// verdict → the "Ranking sensitive to assumptions" footer label Paul reported. The exact
 // verdict token is derived upstream; the point of THIS pin is that whatever the
 // verdict, the anchor also carries the run control.
 const fakeReport: Record<string, unknown> = {
@@ -170,7 +170,7 @@ describe('OutputsDock — the bottom anchor keeps the run-analysis control (anch
 
     const footer = screen.getByTestId('results-analysis-footer')
     // The robustness verdict still lives in the anchor (never removed)…
-    expect(footer).toHaveTextContent(/Sensitive to assumptions|Stable result|Robustness/)
+    expect(footer).toHaveTextContent(/Ranking sensitive to assumptions|Stable ranking|Robustness/)
     // …ALONGSIDE the run control, not in place of it.
     const action = screen.getByTestId('results-analysis-footer-action')
     expect(action).toBeInTheDocument()

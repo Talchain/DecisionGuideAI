@@ -20,7 +20,7 @@ export interface ResultsFooterProps {
   /**
    * Brief 5.2 Task 1: weak tier forces "Stability sensitive" even at high
    * numeric stability. Without these, an evidence-weak analysis with
-   * stability 0.97 reads as "Stable result · 97%" — over-confident.
+   * stability 0.97 reads as "Stable ranking · 97%" — over-confident.
    */
   confidenceTier?: ConfidenceTier
   coachingReadiness?: M1CoachingReadiness

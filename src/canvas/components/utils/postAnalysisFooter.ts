@@ -12,8 +12,27 @@
  * `ranking_stability`. The verdict is the producer's own
  * `robustness.display_verdict` (PLoT #202, consumed lane 35 fix 3),
  * normalised fail-closed upstream:
- *   - robustnessVerdict 'robust'                → success "Stable result"
- *   - robustnessVerdict 'moderate' | 'fragile'  → warning "Sensitive to assumptions"
+ *   - robustnessVerdict 'robust'                → success "Stable ranking"
+ *   - robustnessVerdict 'moderate' | 'fragile'  → warning "Ranking sensitive to
+ *     assumptions"
+ *
+ * ⭐ ROADMAP 2.580 member 3 — WHY THE LABELS NAME THE RANKING.
+ *
+ * The verdict is derived from `recommendation_stability`, which ISL declares
+ * as "P(same recommendation across samples)" and reports as "{winner} wins in
+ * {x:.0%} of sampled scenarios". What held is the ORDER, in a finite sample —
+ * not "the result". Codex (5 Aug 2026) saw "Stable result" beside 19 sensitive
+ * assumptions and zero stable edges, and the sensitive assumptions were
+ * exactly the numbers that did not hold. The labels now say which claim is
+ * being made; the mapping, the fail-closed allowlist and the verdict source
+ * are untouched.
+ *
+ * ⚠ THE LEADING META SEGMENT IS STILL THE PRODUCER'S, VERBATIM. PLoT authors
+ * "this result held up under the changes we tested"
+ * (`src/routes/v2/robustness-display-verdict.ts:62`), and rewording a
+ * producer-owned display phrase in the consumer is exactly the divergence this
+ * file's single-source rule exists to prevent. That half is a PLoT patch spec,
+ * not a UI change — see the PR body.
  *   - robustnessVerdict 'not_assessed'          → neutral "Robustness not assessed"
  *     (the producer's own stated absence — rendered as stated, not upgraded
  *     and not blurred into the UI's "unknown")
@@ -84,7 +103,7 @@ export interface PostFooterMetaInput {
  * enum values produce a verdict. Type safety alone is not enough — if a raw
  * stability number (e.g. 0.87), a stringified number, or any other malformed
  * value accidentally reaches this helper at runtime, it must fall NEUTRAL,
- * never fabricate a "Sensitive to assumptions"/"Stable result" claim from an
+ * never fabricate a "Ranking sensitive to assumptions"/"Stable ranking" claim from an
  * uncertified source. So the only branches that emit a verdict are the exact
  * enum matches; everything else (undefined, null, unknown string, number,
  * malformed) returns "Robustness unknown".
@@ -93,13 +112,13 @@ export function derivePostFooterStatus(
   robustnessVerdict: RobustnessDisplayVerdict | null | undefined,
 ): PostFooterStatus {
   if (robustnessVerdict === 'robust') {
-    return { icon: 'check', iconClass: 'text-success', label: 'Stable result' }
+    return { icon: 'check', iconClass: 'text-success', label: 'Stable ranking' }
   }
   // Known display-safe sensitive verdicts → warning, mirroring the certified
   // glyph's "Sensitive" label. Explicit allowlist (NOT a non-robust
   // catch-all) so unexpected runtime values cannot reach this branch.
   if (robustnessVerdict === 'moderate' || robustnessVerdict === 'fragile') {
-    return { icon: 'warning', iconClass: 'text-warning', label: 'Sensitive to assumptions' }
+    return { icon: 'warning', iconClass: 'text-warning', label: 'Ranking sensitive to assumptions' }
   }
   // The producer explicitly said robustness was not assessed — state THAT,
   // verbatim in meaning, rather than the vaguer "unknown".

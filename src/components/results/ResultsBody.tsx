@@ -664,6 +664,14 @@ export const ResultsBody = memo(function ResultsBody({
               confidenceTier={resultsSectionData.confidence.tier.tier}
               recommendationStability={resultsSectionData.recommendation.recommendationStability}
               leadingOptionDownsideFlag={resultsSectionData.recommendation.leadingOptionDownsideFlag}
+              // ROADMAP 2.580 member 4 — the SAME unit trio already threaded to
+              // DriversSection (:693) and TornadoChart (:741), reaching the
+              // option cards' downside tail for the first time. `isNormalised`
+              // travels with it so a normalised 0-1 score cannot be labelled
+              // in the goal's unit.
+              outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
+              outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
+              isNormalised={resultsSectionData.recommendation.isNormalised}
             />
             {/* TippingPoints removed — superseded by TornadoChart (Brief 5.4 Phase 1) */}
           </div>

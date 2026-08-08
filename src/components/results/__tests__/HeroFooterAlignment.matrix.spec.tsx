@@ -8,14 +8,14 @@
  *
  * Matrix expectations (all values derived from §2.7):
  *   - strong + ready + high stability → hero "is the leading option",
- *     footer "Stable result"
+ *     footer "Stable ranking"
  *   - needs_work + high stability → stability override: hero "leads"
- *     (confident fallback), footer "Stable result"
+ *     (confident fallback), footer "Stable ranking"
  *   - strong + weak readiness (any stability) → readiness never softens;
- *     hero "leads", footer "Stable result" at high stability, "Sensitive
+ *     hero "leads", footer "Stable ranking" at high stability, "Sensitive
  *     to assumptions" at low (numeric pass-through)
  *   - fair + high stability → stability override: hero "leads", footer
- *     "Stable result"
+ *     "Stable ranking"
  *   - fair + low stability → soft: hero "currently leads", footer
  *     "Stability sensitive"
  *   - needs_work + low stability → soft: hero "currently leads", footer
@@ -164,19 +164,19 @@ const matrix: MatrixCase[] = [
     // an endorsement noun with no basis and no number. The ROW is unchanged;
     // only the sentence it expects moved to the comparative register.
     expectHeroContains: 'Option A came out ahead',
-    expectFooterContains: 'Stable result',
+    expectFooterContains: 'Stable ranking',
     forbidFooter: ['Stability sensitive'],
   },
   {
     // §2.7: needs_work + high stability → stability override → confident fallback.
-    // Hero emits "Option A leads" (no "currently"); footer honours numeric "Stable result".
+    // Hero emits "Option A leads" (no "currently"); footer honours numeric "Stable ranking".
     label: '§2.7 — needs_work + high stability: stability override to confident fallback',
     tier: 'needs_work',
     readiness: 'ready',
     stability: 0.97,
     expectHeroContains: 'Option A leads',
     forbidHero: ['currently leads', 'clear leader', 'advantage', 'is the leading option'],
-    expectFooterContains: 'Stable result',
+    expectFooterContains: 'Stable ranking',
     forbidFooter: ['Stability sensitive'],
   },
   {
@@ -187,7 +187,7 @@ const matrix: MatrixCase[] = [
     stability: 0.95,
     expectHeroContains: 'Option A leads',
     forbidHero: ['currently leads', 'clear leader', 'is the leading option'],
-    expectFooterContains: 'Stable result',
+    expectFooterContains: 'Stable ranking',
     forbidFooter: ['Stability sensitive'],
   },
   {
@@ -198,7 +198,7 @@ const matrix: MatrixCase[] = [
     stability: 0.90,
     expectHeroContains: 'Option A leads',
     forbidHero: ['Option A currently leads', 'is the leading option'],
-    expectFooterContains: 'Stable result',
+    expectFooterContains: 'Stable ranking',
     forbidFooter: ['Stability sensitive'],
   },
   {
@@ -210,7 +210,7 @@ const matrix: MatrixCase[] = [
     expectHeroContains: 'Option A currently leads',
     forbidHero: ['is the leading option'],
     expectFooterContains: 'Stability sensitive',
-    forbidFooter: ['Stable result'],
+    forbidFooter: ['Stable ranking'],
   },
   {
     // close_call readiness is orthogonal — definitive copy, stability passes through.
@@ -223,7 +223,7 @@ const matrix: MatrixCase[] = [
     // only the sentence it expects moved to the comparative register.
     expectHeroContains: 'Option A came out ahead',
     forbidHero: ['Option A currently leads'],
-    expectFooterContains: 'Stable result',
+    expectFooterContains: 'Stable ranking',
     forbidFooter: ['Stability sensitive'],
   },
   {
@@ -233,13 +233,13 @@ const matrix: MatrixCase[] = [
     // end-to-end journey lane caught on staging. The honest pairing is: the
     // hero reports the LEAD (separation), the footer reports the FRAGILITY
     // (robustness) — two different facts, each in its own voice, no denial.
-    label: 'clear lead + low stability: hero must NOT deny a leader; footer still "Sensitive to assumptions"',
+    label: 'clear lead + low stability: hero must NOT deny a leader; footer still "Ranking sensitive to assumptions"',
     tier: 'strong',
     readiness: 'ready',
     stability: 0.55,
     expectHeroContains: 'Option A',
     forbidHero: ['no clear leading option', 'leads slightly more often'],
-    expectFooterContains: 'Sensitive to assumptions',
+    expectFooterContains: 'Ranking sensitive to assumptions',
   },
   {
     label: 'clear lead + very low stability + fair tier: hero must NOT deny a leader; footer "Stability sensitive" via soft gate',
@@ -260,7 +260,7 @@ const matrix: MatrixCase[] = [
     stability: 0.55,
     wins: { winner: 0.52, runnerUp: 0.48 },
     expectHeroContains: 'no clear leading option',
-    expectFooterContains: 'Sensitive to assumptions',
+    expectFooterContains: 'Ranking sensitive to assumptions',
   },
 ]
 
@@ -339,7 +339,7 @@ describe('Hero ↔ Footer alignment — tier × readiness × stability matrix', 
       const footerText = screen.getByTestId('results-footer').textContent ?? ''
       if (expectSoft) {
         expect(footerText).toContain('Stability sensitive')
-        expect(footerText).not.toContain('Stable result')
+        expect(footerText).not.toContain('Stable ranking')
       } else {
         expect(footerText).not.toContain('Stability sensitive')
       }
