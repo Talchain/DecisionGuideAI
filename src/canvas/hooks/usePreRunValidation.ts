@@ -143,6 +143,55 @@ function validateGoalNode(
 }
 
 /**
+ * Whether a CEE option is resolved for run purposes.
+ *
+ * Baseline options ("do nothing") correctly carry empty interventions, so they
+ * are exempt from the intervention requirement.
+ *
+ * ROADMAP 2.924 — this is the SINGLE predicate behind both the soft-bypass gate
+ * and the user-facing copy derived from it. Deriving the sentence from the same
+ * predicate that closed the gate is what stops the two drifting: the message can
+ * never name a different set of options than the one the gate objected to.
+ */
+function isCeeOptionResolved(option: {
+  status?: string
+  label?: string
+  interventions?: Record<string, unknown>
+}): boolean {
+  if (option.status !== 'ready') return false
+  if (detectBaseline(option.label ?? '').isBaseline) return true
+  return Object.keys(option.interventions || {}).length > 0
+}
+
+/**
+ * Truthful description of what the un-resolved options actually need.
+ *
+ * ROADMAP 2.924 — the previous copy asserted a CAUSE it could not know ("Some
+ * options have categorical values that need encoding") on a capture where the
+ * option carried NO values at all (`interventions: {}`, chat-added). These
+ * sentences name the OBSERVABLE state instead, which stays true across the whole
+ * domain that reaches them: an option with no interventions has certainly not had
+ * its values set, whatever upstream reason CEE had for downgrading the status.
+ */
+function describeUnresolvedOptions(
+  status: string,
+  unresolved: Array<{ label?: string }>
+): string {
+  const soleLabel = unresolved.length === 1 ? (unresolved[0]?.label ?? '').trim() : ''
+  const subject = soleLabel ? `"${soleLabel}"` : `${unresolved.length} options`
+  const verb = soleLabel ? 'needs' : 'need'
+
+  if (status === 'needs_user_mapping') {
+    const object = soleLabel ? 'it affects' : 'they affect'
+    return `${subject} ${verb} to say which factors ${object} before analysis can run.`
+  }
+
+  // needs_encoding
+  const possessive = soleLabel ? 'its' : 'their'
+  return `${subject} ${verb} ${possessive} values set as numbers before analysis can run.`
+}
+
+/**
  * Validate overall analysis_ready status.
  *
  * analysis_ready is the SINGLE SOURCE OF TRUTH for run gating.
@@ -200,18 +249,41 @@ function validateOverallStatus(
     // Baseline options correctly have empty interventions ("do nothing").
     // Exclude them from the intervention requirement in the soft bypass check.
     const allOptionsResolved = isSoftStatus && (ceeAnalysisReady.options?.every(
-      o => {
-        if (o.status !== 'ready') return false
-        const isBaseline = detectBaseline(o.label ?? '').isBaseline
-        return isBaseline || Object.keys(o.interventions || {}).length > 0
-      }
+      isCeeOptionResolved
     ) ?? false)
 
     if (!allOptionsResolved) {
-      const statusMessages: Record<string, string> = {
-        needs_user_mapping: 'Options are missing intervention values. Re-draft your model to resolve.',
-        needs_encoding: 'Some options have categorical values that need encoding',
-      }
+      // ROADMAP 2.924 — the options the gate actually objected to, derived from
+      // the SAME predicate as the gate above so the sentence and the gate cannot
+      // disagree about which options are unresolved.
+      const unresolvedOptions = (ceeAnalysisReady.options ?? []).filter(
+        o => !isCeeOptionResolved(o)
+      )
+      const firstUnresolved = unresolvedOptions[0]
+
+      // Truthful copy only for the two soft statuses this branch has words for.
+      // A recognised-but-unhandled status (i.e. 'unknown') keeps the generic
+      // sentence AND the re-draft remedy below — re-drafting is the right move
+      // there, and no option of the user's is named to preserve.
+      const message =
+        isSoftStatus && unresolvedOptions.length > 0
+          ? describeUnresolvedOptions(ceeAnalysisReady.status, unresolvedOptions)
+          : 'Analysis not ready'
+
+      // ROADMAP 2.924 — NON-DESTRUCTIVE REMEDY. This branch fires on options the
+      // user may have just added in chat; `retry_draft` would DISCARD them.
+      // `configure_option` routes to the product's existing working path — the
+      // same action OPTIONS_NEED_MAPPING and EMPTY_INTERVENTIONS already emit,
+      // which opens that option in the inspector instead of replacing the model.
+      const unresolvedLabel = (firstUnresolved?.label ?? '').trim()
+      const remedy: NonNullable<ValidationBlocker['action']> =
+        isSoftStatus && firstUnresolved
+          ? {
+              type: 'configure_option',
+              label: unresolvedLabel ? `Configure "${unresolvedLabel}"` : 'Configure options',
+              optionId: firstUnresolved.id,
+            }
+          : { type: 'retry_draft', label: 'Retry Draft' }
 
       // Layer 1 gate relaxation (amendment #1): When interventions ARE populated
       // but allOptionsResolved failed (e.g. some options still need mapping),
@@ -224,14 +296,17 @@ function validateOverallStatus(
         // Downgrade to warning — interventions exist but status disagrees
         warnings.push({
           code: 'ANALYSIS_NOT_READY',
-          message: statusMessages[ceeAnalysisReady.status] || 'Analysis not ready',
-          suggestion: 'Some options have interventions but the model flagged issues. Consider re-drafting.',
+          message,
+          suggestion:
+            remedy.type === 'configure_option'
+              ? `${remedy.label} to set the values that are still missing — re-drafting would replace the options you already have.`
+              : 'Some options have interventions but the model flagged issues. Consider re-drafting.',
         })
       } else {
         blockers.push({
           code: 'ANALYSIS_NOT_READY',
-          message: statusMessages[ceeAnalysisReady.status] || 'Analysis not ready',
-          action: { type: 'retry_draft', label: 'Retry Draft' },
+          message,
+          action: remedy,
         })
       }
     }
