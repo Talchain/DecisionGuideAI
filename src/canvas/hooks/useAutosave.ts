@@ -198,6 +198,9 @@ export function useAutosave() {
               // computeGraphHash(nodes, edges) and a completed analysis changes
               // neither, so it skips. `resultsComplete` does the real write.
               analysis: analysisSnapshotFromStore(useCanvasStore.getState()),
+              // ROADMAP 2.932: read at WRITE time from the store (like analysis
+              // above), so the periodic autosave carries the current constraints.
+              goalConstraints: useCanvasStore.getState().goalConstraints ?? null,
             },
             now,
           ),

@@ -289,6 +289,7 @@ describe('a completed analysis survives leaving the canvas and returning', () =>
         computedAt: new Date().toISOString(),
         report: { summary: 'x' } as unknown as ReportV1,
       },
+      goalConstraints: null,
     })
     saveAutosave(data)
 

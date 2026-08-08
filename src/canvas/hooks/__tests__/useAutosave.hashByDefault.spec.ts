@@ -94,6 +94,7 @@ describe('Codex P1-1 — hash-by-default persists previously-lost user fields', 
           // all-required contract.
           analysis: null,
           selectedGoalNode: null,
+          goalConstraints: null,
         })
         clearAutosave()
         saveAutosave(payload)

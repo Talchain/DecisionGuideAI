@@ -136,7 +136,7 @@ import {
   mapDraftEdgeToCanvas,
   mapDraftNodeToCanvas,
 } from './applyDraftResult'
-import type { CEEDraftResponse, CEEv2Response, CEEv3Response } from '../../adapters/cee/types'
+import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response } from '../../adapters/cee/types'
 
 /**
  * Horizontal gap between the current bounding box and the added column.
@@ -581,6 +581,38 @@ export function reconcileAppliedGraph(
     nodeIds: [...wireNodeById.keys()],
     edgePairs: [...wireEdgeByPair.keys()],
   })
+
+  // ROADMAP 2.932 (Codex MF2) — commit the receipt's goal_constraints.
+  //
+  // The receipt's draft_graph carries goal_constraints the same way the
+  // fresh-draft path does — nested per @talchain/schemas, or lifted from the
+  // response root onto this very object by attachAnalysisReadyToInlineDraftGraph
+  // (useConversation), which is the SAME object applyDraftResult reads. Before
+  // this, reconcile committed ONLY nodes and edges, so a populated-canvas turn
+  // that returned constraints left the store on the previous value — the
+  // completed canvas showed "No limits on record" and the NEXT analysis (which
+  // reads store.goalConstraints) omitted them. That is the silent-loss the row
+  // is about.
+  //
+  // Runs BEFORE the `!changed` early-return: a terminal analysis turn typically
+  // leaves the graph structurally identical while still carrying the
+  // constraints, so gating this on a node/edge change would drop exactly the
+  // case the defect describes.
+  //
+  // ABSENCE DOES NOT CLEAR. This module's whole contract is "the wire WINS on
+  // keys it carries, the canvas KEEPS keys the wire omits" (see overlayNode) —
+  // an applied-edit receipt is not the wholesale replacement a fresh draft is,
+  // so a receipt that merely does not re-send constraints must not become a NEW
+  // way to lose them (the exact failure class this row closes). Non-empty array
+  // → adopt; absent / empty / non-array → leave the store as-is. fromProducerSync
+  // because these are CEE's authoritative post-state and must not self-dirty the
+  // freshness verdict the same response already set.
+  const receiptGoalConstraints = (draftData as { goal_constraints?: unknown }).goal_constraints
+  if (Array.isArray(receiptGoalConstraints) && receiptGoalConstraints.length > 0) {
+    useCanvasStore
+      .getState()
+      .setGoalConstraints(receiptGoalConstraints as CEEGoalConstraint[], { fromProducerSync: true })
+  }
 
   if (!changed) return result
 
