@@ -242,11 +242,30 @@ export function enrichBlocker(blocker: ValidationBlocker): EnrichedBlocker {
   }
 
   // ANALYSIS_NOT_READY: pass through status-specific message from validation
-  // (e.g., "Some options have categorical values that need encoding")
+  // (e.g., '"Grow via partnerships" needs its values set as numbers before
+  // analysis can run.')
   if (blocker.code === 'ANALYSIS_NOT_READY' && blocker.message) {
     display = {
       ...display,
       description: blocker.message,
+    }
+  }
+
+  // ROADMAP 2.924 — when the producer named a NON-DESTRUCTIVE remedy, the card
+  // must not also offer "Retry Draft": BlockersSection gates that button on
+  // `display.supportsRetry` (keyed by CODE), not on the blocker's own action, so
+  // changing the action alone would leave the destructive button rendering.
+  // Re-drafting discards options the user added in chat.
+  //
+  // Narrow by construction: this fires only on ANALYSIS_NOT_READY blockers that
+  // carry `configure_option`. The unrecognised-status and needs_user_input paths
+  // still emit `retry_draft` and keep their retry button, and no other blocker
+  // code is touched.
+  if (blocker.code === 'ANALYSIS_NOT_READY' && blocker.action?.type === 'configure_option') {
+    display = {
+      ...display,
+      supportsRetry: false,
+      suggestedActions: [blocker.action.label],
     }
   }
 

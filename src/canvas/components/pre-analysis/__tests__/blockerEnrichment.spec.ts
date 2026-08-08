@@ -111,14 +111,18 @@ describe('enrichBlocker', () => {
   it('passes through status-specific message for ANALYSIS_NOT_READY', () => {
     const blocker: ValidationBlocker = {
       code: 'ANALYSIS_NOT_READY',
-      message: 'Some options have categorical values that need encoding',
+      // ROADMAP 2.924 — this fixture used to carry the false "categorical
+      // values" sentence. The test is about PASSTHROUGH, so the string is
+      // incidental; it now carries the truthful copy so the repo no longer
+      // re-seeds the wrong wording to anyone grepping for it.
+      message: '"Grow via partnerships" needs its values set as numbers before analysis can run.',
       action: { type: 'retry_draft', label: 'Retry Draft' },
     }
 
     const enriched = enrichBlocker(blocker)
 
     // Description should be the specific message, not the generic BLOCKER_DISPLAY description
-    expect(enriched.display.description).toBe('Some options have categorical values that need encoding')
+    expect(enriched.display.description).toBe('"Grow via partnerships" needs its values set as numbers before analysis can run.')
     expect(enriched.display.title).toBe('Analysis not ready')
   })
 
