@@ -228,6 +228,71 @@ describe('the caveat travels with the findings', () => {
   })
 })
 
+describe('the parser refuses to vouch for what it cannot read', () => {
+  // Found by a surviving mutant: substituting an empty manifest for an
+  // unparseable one left the whole suite GREEN. That substitution IS the
+  // three-zeros lie, one layer below the component — a future
+  // `not_modelled.v2`, a truncated payload, or a malformed row would all have
+  // rendered as "nothing was dropped". Each case below is a DIFFERENT reason to
+  // refuse, so the guard cannot pass by rejecting everything for one reason.
+  it.each([
+    ['no field at all', undefined],
+    ['a foreign schema discriminator', { schema: 'not_modelled.v2', status: 'derived' }],
+    ['no schema discriminator', { status: 'derived', quantities: { total: 0 } }],
+    [
+      'derived but carrying no tally (self-contradictory)',
+      { schema: 'not_modelled.v1', status: 'derived', quantities: null, not_tracked: [] },
+    ],
+    [
+      'a malformed item — one bad row must not silently shorten the list',
+      {
+        schema: 'not_modelled.v1',
+        status: 'derived',
+        quantities: {
+          total: 1,
+          in_model: 0,
+          prose_only: 0,
+          absent: 1,
+          truncated: false,
+          items: [{ literal: '£4m', kind: 'money', verdict: 'absent' }], // no char_offset
+        },
+        not_tracked: [],
+      },
+    ],
+    [
+      'a non-integer tally',
+      {
+        schema: 'not_modelled.v1',
+        status: 'derived',
+        quantities: { total: 1.5, in_model: 0, prose_only: 0, absent: 1, truncated: false, items: [] },
+        not_tracked: [],
+      },
+    ],
+  ])('returns null for %s', (_why, payload) => {
+    expect(parseNotModelled(payload)).toBeNull()
+  })
+
+  it('a payload it cannot read reaches the user as "we cannot tell you"', () => {
+    // The end-to-end consequence of the above, at the surface.
+    useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
+      briefText: 'We need £4m out by March 2027.',
+      manifest: parseNotModelled({ schema: 'not_modelled.v2', status: 'derived' }),
+    })
+    render(<V7WhatIWasGivenSection />)
+    expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
+      'We cannot show what was left out',
+    )
+  })
+
+  it('POSITIVE CONTROL — the parser does accept a well-formed manifest', () => {
+    // Without this, every assertion above could pass on a parser that returns
+    // null unconditionally (trap 13: an absence test must first prove it can
+    // see a presence).
+    expect(parseNotModelled(coldReadOf(b1Fixture as never).not_modelled)).not.toBeNull()
+  })
+})
+
 describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
   it('no manifest at all (the live case today) says so explicitly', () => {
     // CEE has not deployed the field. The brief is on file; the manifest is
