@@ -1485,6 +1485,21 @@ export function toStoreGuidanceItem(g: DerivedGuidanceItem): GuidanceItem {
     // recomputed, never inverted here.
     ...(typeof g.priorityRank === 'number' ? { priorityRank: g.priorityRank } : {}),
     priorityIsProducerSupplied: g.priorityIsProducerSupplied,
+    // DSK claim provenance (ROADMAP 2.962) — the SECOND of the two hops that
+    // silently dropped this family, and the same defect class the header
+    // above records for `actionLabel`/`signal`: the store's `GuidanceItem`
+    // has declared these fields since #633 and this mapper listed none, so
+    // every V5-derived item reached the store ungrounded no matter what the
+    // producer attested.
+    //
+    // Straight passthrough by design. The gate lives at the single site in
+    // `deriveGuidance` (contract `DskClaimProvenanceSchema`, applied to the
+    // atomic wire object as a unit); re-deriving it here would be a second
+    // rule home for one fact — and `deriveGuidanceDskProvenance` in the store
+    // is already the independent re-gate the render reads through.
+    ...(g.dsk_claim_id ? { dsk_claim_id: g.dsk_claim_id } : {}),
+    ...(g.dsk_protocol_id ? { dsk_protocol_id: g.dsk_protocol_id } : {}),
+    ...(g.evidence_strength ? { evidence_strength: g.evidence_strength } : {}),
   }
 }
 
