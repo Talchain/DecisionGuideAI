@@ -34,6 +34,7 @@ import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { WhatChangedChip } from '../../canvas/components/WhatChangedChip'
 import { StrengthenContainer } from './strengthen/StrengthenContainer'
 import { InferenceWarningStrip } from './InferenceWarningStrip'
+import { CritiqueWarningStrip } from './CritiqueWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
 import { V7TopMatter } from './v7/V7TopMatter'
@@ -386,6 +387,17 @@ export const ResultsBody = memo(function ResultsBody({
           the freshness area. Producer message verbatim; info-severity stays
           hidden; renders nothing when no warning-severity entries exist. */}
       <InferenceWarningStrip warnings={resultsSectionData.confidence.inferenceWarnings} />
+
+      {/* Lane 3 Car 1 residual (ROADMAP 2.358 closure): WARNING-severity
+          engine critiques — the rows #585's mapper leg lands in
+          report.run.critique — surface as a compact honest-disclosure strip
+          beside the inference-warning strip. CEE-owned copy verbatim
+          (humaniseCritique precedence); renders nothing when no warning
+          critiques exist. Mounted in this UNCONDITIONAL group on purpose:
+          both hero-flag postures show it (trap 3b — a disclosure hosted on
+          a flag arm ships dark on the posture that matters). BLOCKER rows
+          keep their own surface (ValidationPanel via OutputsDock). */}
+      <CritiqueWarningStrip critiques={resultsSectionData.confidence.humanisedCritiques} />
 
       {/* Seamlessness R6 / ROADMAP 2.1 slice 1: run-over-run delta chip.
           Client-side diff of the two most recent stored runs; self-hides on

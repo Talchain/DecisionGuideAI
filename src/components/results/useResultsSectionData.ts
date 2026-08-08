@@ -2933,9 +2933,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Bug 2 fix: Extract robustness level for "Good foundation" logic
     const robustnessLevel = report?.robustness?.level as RobustnessLevel | undefined
 
-    // P0.1: Humanise non-SENSITIVE_ASSUMPTION critiques for attention banner
+    // P0.1: Humanise non-SENSITIVE_ASSUMPTION critiques for attention banner.
+    // Lane 3 Car 1 residual: `code` travels WITH the humanised copy so the
+    // rendering surface (CritiqueWarningStrip) binds each entry to its
+    // critique by identity — not by the positional index-pairing
+    // ConfidenceSection used, which a filter change silently mis-joins.
     const plotCritiques = uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
-    const humanisedCritiques = plotCritiques.map(item => humaniseCritique(item, nodeLabelMap))
+    const humanisedCritiques = plotCritiques.map(item => ({
+      code: item.code,
+      ...humaniseCritique(item, nodeLabelMap),
+    }))
 
     return {
       tier: tierInfo,

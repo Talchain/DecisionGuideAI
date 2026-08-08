@@ -1,0 +1,1530 @@
+{
+ "__source__": "PHASE0-EVIDENCE-2026-07-28/golden-journey-runs/20260808T141709Z-fresh-extended-45b553-raw/step-T5B_REANALYSE.json (body), source step sha256 33fddbbfe3ffbfa3...",
+ "__captured_at__": "2026-08-08 (golden fresh-journey run 20260808T141709Z-fresh-extended-45b553)",
+ "__captured_against__": "cee-staging /proxy/v5/turn - full turn body, verbatim",
+ "__notes__": "Live V5 re-analysis turn: blocks[0]=analysis_result whose enrichment.critiques carries EXACTLY ONE row - code DEGENERATE_OUTCOMES, severity warning, source isl, user_message populated, message EMPTY STRING, NO affected_node_ids. The first golden-journey capture family to carry critique bytes on the live wire (4 of 12 runs on 2026-08-08, T5B/T6 steps only). Strip the __*__ provenance keys before use. PINNED to this historical capture - never refresh to track a current payload.",
+ "response_version": 2,
+ "assistant_text": "Keep Current CRM (Status Quo) currently leads by 73 percentage points. 'Migrate to Salesforce' was left out of this comparison because it is currently indistinguishable from 'Keep Current CRM (Status Quo)' \u2014 its result is that option's result. To score it separately, say 'Help me configure Migrate to Salesforce.'\n\nKeep Current CRM (Status Quo) still leads after this re-run, and its lead has widened by about 1 percentage point.",
+ "blocks": [
+  {
+   "type": "analysis_result",
+   "summary": "Keep Current CRM (Status Quo) currently leads by 73 percentage points. 'Migrate to Salesforce' was left out of this comparison because it is currently indistinguishable from 'Keep Current CRM (Status Quo)' \u2014 its result is that option's result. To score it separately, say 'Help me configure Migrate to Salesforce.'",
+   "leading_option_id": "opt_status_quo",
+   "win_probabilities": {
+    "Switch to HubSpot": 0.11043333333333334,
+    "Pilot HubSpot with Core Sales Team First": 0.047433333333333334,
+    "Keep Current CRM (Status Quo)": 0.8421333333333332
+   },
+   "enrichment": {
+    "option_comparison": [
+     {
+      "option_id": "opt_hubspot",
+      "option_label": "Switch to HubSpot",
+      "id": "opt_hubspot",
+      "label": "Switch to HubSpot",
+      "outcome": {
+       "mean": -4616.702892314599,
+       "std": 3553.483550108031,
+       "p10": -9235.981922196186,
+       "p50": -4426.956943835327,
+       "p90": 0.03939803877057468,
+       "n_samples": 10000,
+       "n_valid_samples": 10000,
+       "validity_ratio": 1,
+       "percentiles_source": "samples"
+      },
+      "status": "computed",
+      "win_probability": 0.11043333333333334,
+      "downside": {
+       "cvar_10": -11525.59847760122,
+       "p05": -10893.868745868223,
+       "expected_regret": 0.14541716936618135
+      }
+     },
+     {
+      "option_id": "opt_phased",
+      "option_label": "Pilot HubSpot with Core Sales Team First",
+      "id": "opt_phased",
+      "label": "Pilot HubSpot with Core Sales Team First",
+      "outcome": {
+       "mean": -4616.623583575553,
+       "std": 3553.466425929861,
+       "p10": -9235.923470791226,
+       "p50": -4426.880626143273,
+       "p90": 0.09443716525039574,
+       "n_samples": 10000,
+       "n_valid_samples": 10000,
+       "validity_ratio": 1,
+       "percentiles_source": "samples"
+      },
+      "status": "computed",
+      "win_probability": 0.047433333333333334,
+      "downside": {
+       "cvar_10": -11525.49163247348,
+       "p05": -10893.744496763586,
+       "expected_regret": 0.0661084303205947
+      }
+     },
+     {
+      "option_id": "opt_status_quo",
+      "option_label": "Keep Current CRM (Status Quo)",
+      "id": "opt_status_quo",
+      "label": "Keep Current CRM (Status Quo)",
+      "outcome": {
+       "mean": -4616.56505037921,
+       "std": 3553.449199416276,
+       "p10": -9235.881911866776,
+       "p50": -4426.83206342394,
+       "p90": 0.12366224894711288,
+       "n_samples": 10000,
+       "n_valid_samples": 10000,
+       "validity_ratio": 1,
+       "percentiles_source": "samples"
+      },
+      "status": "computed",
+      "win_probability": 0.8421333333333332,
+      "downside": {
+       "cvar_10": -11525.405307360037,
+       "p05": -10893.637306664732,
+       "expected_regret": 0.007575233977575621
+      }
+     }
+    ],
+    "factor_sensitivity": [
+     {
+      "factor_id": "fac_adoption_risk",
+      "factor_label": "User Adoption Uncertainty",
+      "influence_score": 0.41596093218767377,
+      "influence_rank": 3,
+      "sensitivity_score": -0.15576388888888887,
+      "elasticity": 0.41596093218767377,
+      "direction": "negative",
+      "importance_rank": 1,
+      "value_of_information": 0,
+      "confidence": 0.3,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0
+      },
+      "source": "graph",
+      "flip_risk_category": "correlated",
+      "attribution_stability": "negligible",
+      "elasticity_std": 1.9e-07,
+      "rank_flip_rate": 0.15,
+      "stability_method": "bootstrap_20",
+      "value_defaulted": true,
+      "importance_basis": "graph_structural",
+      "driver_label": "biggest",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false
+     },
+     {
+      "factor_id": "fac_team_size",
+      "factor_label": "Sales Team Size",
+      "influence_score": 0.27483464177536,
+      "influence_rank": 5,
+      "sensitivity_score": 0.10291666666666664,
+      "elasticity": 0.27483464177536,
+      "direction": "positive",
+      "importance_rank": 2,
+      "value_of_information": 0,
+      "confidence": 0.3,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0
+      },
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "attribution_stability": "negligible",
+      "elasticity_std": 1.4e-07,
+      "rank_flip_rate": 0.2,
+      "stability_method": "bootstrap_20",
+      "value_defaulted": true,
+      "importance_basis": "graph_structural",
+      "driver_label": "moderate",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false
+     },
+     {
+      "factor_id": "fac_annual_crm_cost",
+      "factor_label": "Annual CRM Running Cost",
+      "influence_score": 0.2403412251962663,
+      "influence_rank": 6,
+      "sensitivity_score": -0.09,
+      "elasticity": 0.2403412251962663,
+      "direction": "negative",
+      "importance_rank": 3,
+      "value_of_information": 0,
+      "confidence": 0.4595,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0.25
+      },
+      "source": "graph",
+      "flip_risk_category": "correlated",
+      "attribution_stability": "low",
+      "elasticity_std": 0.44008814,
+      "rank_flip_rate": 0,
+      "stability_method": "bootstrap_20",
+      "value_source": "user_override",
+      "importance_basis": "graph_structural",
+      "driver_label": "moderate",
+      "evpi_percentage_points": 0,
+      "evpi_method": "heuristic",
+      "evidence_hint": false
+     },
+     {
+      "factor_id": "fac_crm_capability",
+      "factor_label": "CRM Capability Level",
+      "influence_score": 1,
+      "influence_rank": 1,
+      "sensitivity_score": 0,
+      "elasticity": 0,
+      "direction": "positive",
+      "importance_rank": 4,
+      "value_of_information": 0,
+      "confidence": 0.3,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0
+      },
+      "zero_reason": "intervention_override",
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "attribution_stability": "negligible",
+      "elasticity_std": 0,
+      "rank_flip_rate": 0.05,
+      "stability_method": "bootstrap_20",
+      "value_source": "cee_inference",
+      "value_extraction_type": "inferred",
+      "importance_basis": "graph_structural",
+      "driver_label": "strong",
+      "range_derivation_source": "default"
+     },
+     {
+      "factor_id": "fac_disruption",
+      "factor_label": "Team Disruption During Transition",
+      "influence_score": 0.7059405328552883,
+      "influence_rank": 2,
+      "sensitivity_score": 0,
+      "elasticity": 0,
+      "direction": "negative",
+      "importance_rank": 5,
+      "value_of_information": 0,
+      "confidence": 0.3,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0
+      },
+      "zero_reason": "intervention_override",
+      "source": "graph",
+      "flip_risk_category": "correlated",
+      "attribution_stability": "negligible",
+      "elasticity_std": 0,
+      "rank_flip_rate": 0.05,
+      "stability_method": "bootstrap_20",
+      "value_source": "cee_inference",
+      "value_extraction_type": "inferred",
+      "importance_basis": "graph_structural",
+      "driver_label": "strong",
+      "range_derivation_source": "default"
+     },
+     {
+      "factor_id": "fac_switch_cost",
+      "factor_label": "One-Off Switching Cost",
+      "influence_score": 0.3605118377943995,
+      "influence_rank": 4,
+      "sensitivity_score": 0,
+      "elasticity": 0,
+      "direction": "negative",
+      "importance_rank": 6,
+      "value_of_information": 0,
+      "confidence": 0.3,
+      "confidence_source": "plot_unified_from_isl_bootstrap",
+      "confidence_provenance": {
+       "computation_source": "plot_unified_from_isl_bootstrap",
+       "formula_version": "plot_unified_v3",
+       "is_provisional": true,
+       "calibration_status": "provisional_pending_pilot_calibration",
+       "input_quality": "standard"
+      },
+      "confidence_components": {
+       "structural_certainty": 0.5,
+       "sampling_stability": 0
+      },
+      "zero_reason": "intervention_override",
+      "source": "graph",
+      "flip_risk_category": "negligible",
+      "attribution_stability": "negligible",
+      "elasticity_std": 0,
+      "rank_flip_rate": 0.05,
+      "stability_method": "bootstrap_20",
+      "value_source": "brief_extraction",
+      "value_extraction_type": "explicit",
+      "importance_basis": "graph_structural",
+      "driver_label": "moderate",
+      "range_derivation_source": "default"
+     }
+    ],
+    "robustness": {
+     "fragile_edges": [
+      {
+       "edge_id": "out_budget_headroom->goal_crm",
+       "from_id": "out_budget_headroom",
+       "to_id": "goal_crm",
+       "switch_probability": 0.2336,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_hubspot",
+       "from_label": "Budget Headroom",
+       "to_label": "Maximise Sales Productivity Within Budget",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Switch to HubSpot"
+      },
+      {
+       "edge_id": "fac_disruption->risk_transition_drag",
+       "from_id": "fac_disruption",
+       "to_id": "risk_transition_drag",
+       "switch_probability": 0.192,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_hubspot",
+       "from_label": "Team Disruption During Transition",
+       "to_label": "Productivity Loss During Transition",
+       "severity": "warning",
+       "visible": true,
+       "alternative_winner_label": "Switch to HubSpot"
+      },
+      {
+       "edge_id": "risk_adoption_failure->goal_crm",
+       "from_id": "risk_adoption_failure",
+       "to_id": "goal_crm",
+       "switch_probability": 0.1416,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_hubspot",
+       "from_label": "Low CRM Adoption Rate",
+       "to_label": "Maximise Sales Productivity Within Budget",
+       "severity": "warning",
+       "visible": false,
+       "alternative_winner_label": "Switch to HubSpot"
+      },
+      {
+       "edge_id": "fac_adoption_risk->out_sales_productivity",
+       "from_id": "fac_adoption_risk",
+       "to_id": "out_sales_productivity",
+       "switch_probability": 0.1116,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_hubspot",
+       "from_label": "User Adoption Uncertainty",
+       "to_label": "Sales Team Productivity",
+       "severity": "warning",
+       "visible": false,
+       "alternative_winner_label": "Switch to HubSpot"
+      },
+      {
+       "edge_id": "fac_annual_crm_cost->out_budget_headroom",
+       "from_id": "fac_annual_crm_cost",
+       "to_id": "out_budget_headroom",
+       "switch_probability": 0.1036,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_hubspot",
+       "from_label": "Annual CRM Running Cost",
+       "to_label": "Budget Headroom",
+       "severity": "warning",
+       "visible": false,
+       "alternative_winner_label": "Switch to HubSpot"
+      },
+      {
+       "edge_id": "out_sales_productivity->goal_crm",
+       "from_id": "out_sales_productivity",
+       "to_id": "goal_crm",
+       "switch_probability": 0.0728,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_hubspot",
+       "from_label": "Sales Team Productivity",
+       "to_label": "Maximise Sales Productivity Within Budget",
+       "severity": "warning",
+       "visible": false,
+       "alternative_winner_label": "Switch to HubSpot"
+      },
+      {
+       "edge_id": "risk_transition_drag->goal_crm",
+       "from_id": "risk_transition_drag",
+       "to_id": "goal_crm",
+       "switch_probability": 0.0364,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_hubspot",
+       "from_label": "Productivity Loss During Transition",
+       "to_label": "Maximise Sales Productivity Within Budget",
+       "severity": "warning",
+       "visible": false,
+       "alternative_winner_label": "Switch to HubSpot"
+      },
+      {
+       "edge_id": "fac_crm_capability->out_sales_productivity",
+       "from_id": "fac_crm_capability",
+       "to_id": "out_sales_productivity",
+       "switch_probability": 0.034,
+       "marginal_switch_probability": 0,
+       "alternative_winner_id": "opt_hubspot",
+       "from_label": "CRM Capability Level",
+       "to_label": "Sales Team Productivity",
+       "severity": "warning",
+       "visible": false,
+       "alternative_winner_label": "Switch to HubSpot"
+      }
+     ],
+     "robust_edges": [
+      {
+       "edge_id": "fac_crm_capability->risk_adoption_failure",
+       "from_id": "fac_crm_capability",
+       "to_id": "risk_adoption_failure",
+       "from_label": "CRM Capability Level",
+       "to_label": "Low CRM Adoption Rate",
+       "alternative_winner_id": null,
+       "alternative_winner_label": null
+      },
+      {
+       "edge_id": "fac_switch_cost->out_budget_headroom",
+       "from_id": "fac_switch_cost",
+       "to_id": "out_budget_headroom",
+       "from_label": "One-Off Switching Cost",
+       "to_label": "Budget Headroom",
+       "alternative_winner_id": null,
+       "alternative_winner_label": null
+      }
+     ],
+     "is_robust": true,
+     "level": "high",
+     "confidence": 0.8421333333333332,
+     "confidence_basis": "recommendation_stability_uncalibrated",
+     "recommended_option_id": "opt_status_quo",
+     "recommended_option_label": "Keep Current CRM (Status Quo)",
+     "near_tie": {
+      "is_tie": false,
+      "top_option_id": "opt_status_quo",
+      "second_option_id": "opt_hubspot",
+      "tied_option_ids": [
+       "opt_status_quo"
+      ],
+      "gap": 0.7316999999999998,
+      "threshold": 0.1
+     },
+     "display_verdict": "robust",
+     "display_verdict_reason": "this result held up under the changes we tested"
+    },
+    "decision_review": {
+     "narrative_summary": "Keep Current CRM (Status Quo) leads by about 73 percentage points, with a settled advantage on your model. This holds while the link from Budget Headroom to Maximise Sales Productivity Within Budget remains robust.",
+     "story_headlines": {
+      "opt_hubspot": "Switch to HubSpot offers potential productivity gains but depends on successful adoption and fitting the budget.",
+      "opt_phased": "Piloting with the core team reduces immediate risk but comes second, lacking a decisive cost or productivity argument.",
+      "opt_status_quo": "Keep Current CRM (Status Quo) leads because it avoids transition costs and preserves budget predictability."
+     },
+     "robustness_explanation": {
+      "summary": "The ordering holds in about 84% of variations, supported by stable links around budget and transition costs.",
+      "primary_risk": "The link from Budget Headroom to Maximise Sales Productivity Within Budget is the key area where results could shift.",
+      "stability_factors": [
+       "Annual CRM Running Cost keeps outcome expectations consistent.",
+       "User Adoption Uncertainty is not strongly destabilising in most modelled cases."
+      ],
+      "fragility_factors": [
+       "The link from Budget Headroom to Maximise Sales Productivity Within Budget could shift if cost dynamics or productivity expectations change.",
+       "The relationship from Team Disruption During Transition to Productivity Loss During Transition could affect the lead."
+      ]
+     },
+     "readiness_rationale": "Your numbers settle the case for now: cost control and predictable performance keep the current system ahead. However, some modelled relationships\u2014like budget headroom's impact\u2014should be watched in case assumptions evolve.",
+     "evidence_enhancements": {
+      "fac_adoption_risk": {
+       "specific_action": "Run a user sentiment and process mapping exercise to estimate likely CRM adoption rates if switching.",
+       "rationale": "Knowing how willingly the sales team would embrace HubSpot directly impacts whether any switch drives productivity as intended.",
+       "evidence_type": "internal_data",
+       "decision_hygiene": "Ask team leaders for confidential input before aggregating survey results."
+      },
+      "fac_team_size": {
+       "specific_action": "Audit present and planned team headcount over the next year to validate expected CRM usage and associated license needs.",
+       "rationale": "Accurate team size projections make CRM cost scenarios firmer and reduce model uncertainty.",
+       "evidence_type": "internal_data",
+       "decision_hygiene": "Have HR and sales ops independently produce their own headcount forecasts before comparing notes."
+      },
+      "fac_annual_crm_cost": {
+       "specific_action": "Request up-to-date pricing and support escalation quotes from both providers to ground cost expectations.",
+       "rationale": "Firming up real annual cost figures eliminates hidden overrun risk and sharpens budget trade-offs.",
+       "evidence_type": "market_research",
+       "decision_hygiene": "Document all received quotes and request like-for-like breakdowns to ensure a fair comparison."
+      }
+     },
+     "scenario_contexts": {
+      "out_budget_headroom->goal_crm": {
+       "trigger_description": "If cost pressures increase or budget flexibility tightens, the relationship from Budget Headroom to Maximise Sales Productivity Within Budget may tip the balance.",
+       "consequence": "Switch to HubSpot overtakes Keep Current CRM (Status Quo) if this cost-productivity dynamic moves."
+      },
+      "fac_disruption->risk_transition_drag": {
+       "trigger_description": "If Team Disruption During Transition is higher than forecast, its link to Productivity Loss During Transition could weigh the result.",
+       "consequence": "Switch to HubSpot could overtake Keep Current CRM (Status Quo) if disruption is handled well."
+      }
+     },
+     "flip_thresholds": [],
+     "bias_findings": [],
+     "key_assumptions": [
+      "Budget Headroom captures all major costs, including potential hidden expenses and unplanned integration fees.",
+      "The model assumes CRM adoption rates will not differ significantly between options beyond what is captured under User Adoption Uncertainty.",
+      "Productivity Loss During Transition is based on typical change management durations, not unusually rapid or delayed rollouts."
+     ],
+     "decision_quality_prompts": [
+      {
+       "question": "What evidence would persuade you to switch to Switch to HubSpot, despite current cost concerns?",
+       "principle": "Consider-the-opposite",
+       "applies_because": "Keep Current CRM (Status Quo) leads convincingly, so it\u2019s worth seeking out scenarios or data that could challenge the modelled result.",
+       "dsk_grounding": "general"
+      }
+     ],
+     "pre_mortem": {
+      "failure_scenario": "The switch fails because Budget Headroom was tighter than expected, leading to resource strain and reduced sales productivity.",
+      "warning_signs": [
+       "Unforeseen CRM add-on or support charges emerge post-migration.",
+       "Sales reps voice difficulty adapting adoption practices early in transition."
+      ],
+      "mitigation": "Obtain detailed, binding CRM pricing and map all major transition risks with the team before committing.",
+      "grounded_in": [
+       "out_budget_headroom->goal_crm"
+      ],
+      "review_trigger": "Reconvene if projected budget constraints change before launch."
+     },
+     "produced_at": "2026-08-08T14:19:32.054Z"
+    },
+    "option_comparison_status": "computed",
+    "edge_e_values": [
+     {
+      "edge_id": "fac_disruption::out_sales_productivity",
+      "from_id": "fac_disruption",
+      "to_id": "out_sales_productivity",
+      "from_label": "Team Disruption During Transition",
+      "to_label": "Sales Team Productivity",
+      "e_value": 1.1881,
+      "flip_direction": "increase",
+      "current_mean": -0.17592592592592593,
+      "flip_mean": 0.20902,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 8,
+       "band_min": -0.386598,
+       "band_median": 0.079529,
+       "band_max": 0.641013,
+       "band_width": 1.027611,
+       "seed_flip_means": [
+        null,
+        -0.386598,
+        -0.209264,
+        0.153106,
+        0.005951,
+        0.001889,
+        0.626286,
+        null,
+        0.484458,
+        0.641013
+       ]
+      }
+     },
+     {
+      "edge_id": "fac_disruption::risk_transition_drag",
+      "from_id": "fac_disruption",
+      "to_id": "risk_transition_drag",
+      "from_label": "Team Disruption During Transition",
+      "to_label": "Productivity Loss During Transition",
+      "e_value": 1,
+      "flip_direction": "decrease",
+      "current_mean": 0.6,
+      "flip_mean": -0.384428,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 8,
+       "band_min": -0.893761,
+       "band_median": -0.018541,
+       "band_max": 0.824831,
+       "band_width": 1.718592,
+       "seed_flip_means": [
+        -0.469244,
+        0.571048,
+        0.824831,
+        -0.017221,
+        -0.019861,
+        0.179726,
+        -0.501173,
+        null,
+        null,
+        -0.893761
+       ]
+      }
+     },
+     {
+      "edge_id": "fac_switch_cost::out_budget_headroom",
+      "from_id": "fac_switch_cost",
+      "to_id": "out_budget_headroom",
+      "from_label": "One-Off Switching Cost",
+      "to_label": "Budget Headroom",
+      "e_value": 1,
+      "flip_direction": "increase",
+      "current_mean": -0.45,
+      "flip_mean": 0.020814,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 9,
+       "band_min": -0.487307,
+       "band_median": 0.187301,
+       "band_max": 0.635673,
+       "band_width": 1.12298,
+       "seed_flip_means": [
+        0.247726,
+        -0.209174,
+        null,
+        0.187301,
+        -0.487307,
+        -0.407605,
+        0.349317,
+        0.00927,
+        0.635673,
+        0.543064
+       ]
+      }
+     },
+     {
+      "edge_id": "out_budget_headroom::goal_crm",
+      "from_id": "out_budget_headroom",
+      "to_id": "goal_crm",
+      "from_label": "Budget Headroom",
+      "to_label": "Maximise Sales Productivity Within Budget",
+      "e_value": 1,
+      "flip_direction": "decrease",
+      "current_mean": 0.3,
+      "flip_mean": -0.013877,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 9,
+       "band_min": -0.314572,
+       "band_median": -0.120776,
+       "band_max": 0.219087,
+       "band_width": 0.533659,
+       "seed_flip_means": [
+        -0.178634,
+        null,
+        0.137498,
+        -0.120776,
+        0.219087,
+        0.138184,
+        -0.255075,
+        -0.004436,
+        -0.214473,
+        -0.314572
+       ]
+      }
+     },
+     {
+      "edge_id": "risk_transition_drag::goal_crm",
+      "from_id": "risk_transition_drag",
+      "to_id": "goal_crm",
+      "from_label": "Productivity Loss During Transition",
+      "to_label": "Maximise Sales Productivity Within Budget",
+      "e_value": 1,
+      "flip_direction": "increase",
+      "current_mean": -0.25,
+      "flip_mean": 0.160179,
+      "stability": {
+       "n_seeds": 10,
+       "n_seeds_flipped": 7,
+       "band_min": -0.17847,
+       "band_median": 0.314289,
+       "band_max": 0.73847,
+       "band_width": 0.91694,
+       "seed_flip_means": [
+        0.314289,
+        null,
+        -0.17847,
+        0.009603,
+        null,
+        -0.051921,
+        0.370975,
+        null,
+        0.73847,
+        0.541925
+       ]
+      }
+     }
+    ],
+    "inference_warnings": [
+     {
+      "code": "EDGE_E_VALUE_NON_FINITE_DROPPED",
+      "message": "8 edge E-value entries were omitted from edge_e_values: 8 carried no finite E-value from the analysis engine (an unflippable edge, whose current and flip means coincide, has no evidence ratio). edge_e_values is shorter because those entries could not be represented, not because they were computed empty. All other analyses are unaffected.",
+      "severity": "info"
+     }
+    ],
+    "confidence_tier": "strong",
+    "flip_thresholds": [
+     {
+      "factor_id": "fac_adoption_risk",
+      "factor_label": "User Adoption Uncertainty",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     },
+     {
+      "factor_id": "fac_annual_crm_cost",
+      "factor_label": "Annual CRM Running Cost",
+      "current_value": 64000,
+      "flip_value": null,
+      "unit": "\u00a3",
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     },
+     {
+      "factor_id": "fac_crm_capability",
+      "factor_label": "CRM Capability Level",
+      "current_value": 0.4,
+      "flip_value": null,
+      "unit": "scale",
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true,
+      "value_scale": "display",
+      "current_display": "0.4 scale"
+     },
+     {
+      "factor_id": "fac_disruption",
+      "factor_label": "Team Disruption During Transition",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     },
+     {
+      "factor_id": "fac_switch_cost",
+      "factor_label": "One-Off Switching Cost",
+      "current_value": 0,
+      "flip_value": null,
+      "unit": "\u00a3",
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true,
+      "value_scale": "display",
+      "current_display": "0 \u00a3"
+     },
+     {
+      "factor_id": "fac_team_size",
+      "factor_label": "Sales Team Size",
+      "current_value": 0,
+      "flip_value": null,
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "flip_reason": "structurally_invariant",
+      "iterations_used": 0,
+      "probes_used": 0,
+      "no_flip_in_range": true
+     }
+    ],
+    "decision_brief": {
+     "brief_id": "957f2bda-8449-4757-895c-23b6fd213584",
+     "version": "1",
+     "created_at": "2026-08-08T14:19:21.896Z",
+     "headline": "Keep Current CRM (Status Quo) currently leads by 73 points, but the model is not yet strong enough for an unqualified decision. Treat this as a provisional lead until the fragile assumptions are checked. Validate the fragile assumptions before treating this as a decision.",
+     "options": [
+      {
+       "option_id": "opt_status_quo",
+       "label": "Keep Current CRM (Status Quo)",
+       "win_probability": 0.8421333333333332,
+       "rank": 1
+      },
+      {
+       "option_id": "opt_hubspot",
+       "label": "Switch to HubSpot",
+       "win_probability": 0.11043333333333334,
+       "rank": 2
+      },
+      {
+       "option_id": "opt_phased",
+       "label": "Pilot HubSpot with Core Sales Team First",
+       "win_probability": 0.047433333333333334,
+       "rank": 3
+      }
+     ],
+     "top_drivers": [
+      {
+       "factor_label": "User Adoption Uncertainty",
+       "sensitivity": 0.41596093218767377,
+       "direction": "negative"
+      },
+      {
+       "factor_label": "Sales Team Size",
+       "sensitivity": 0.27483464177536,
+       "direction": "positive"
+      },
+      {
+       "factor_label": "Annual CRM Running Cost",
+       "sensitivity": 0.2403412251962663,
+       "direction": "negative"
+      }
+     ],
+     "key_assumptions": [
+      "User Adoption Uncertainty",
+      "Sales Team Size",
+      "Annual CRM Running Cost"
+     ],
+     "what_would_change": [
+      "Budget Headroom \u2192 Maximise Sales Productivity Within Budget",
+      "Low CRM Adoption Rate \u2192 Maximise Sales Productivity Within Budget",
+      "User Adoption Uncertainty \u2192 Sales Team Productivity",
+      "Annual CRM Running Cost \u2192 Budget Headroom",
+      "Sales Team Productivity \u2192 Maximise Sales Productivity Within Budget",
+      "Productivity Loss During Transition \u2192 Maximise Sales Productivity Within Budget"
+     ],
+     "robustness": "robust",
+     "warnings": [
+      {
+       "code": "DEGENERATE_OUTCOMES",
+       "message": "All options produce nearly identical outcomes",
+       "severity": "warning"
+      },
+      {
+       "code": "IDENTICAL_OPTIONS_DEDUPED",
+       "message": "Option 'Migrate to Salesforce' has identical interventions to 'Keep Current CRM (Status Quo)' and was removed. Analysis proceeds with deduplicated options.",
+       "severity": "warning"
+      },
+      {
+       "code": "INFLUENTIAL_EXTERNALS",
+       "message": "External factors User Adoption Uncertainty, Sales Team Size significantly affect your outcome but are inherently uncertain. How might you bound these?",
+       "severity": "warning"
+      },
+      {
+       "code": "M2_UNAVAILABLE",
+       "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+       "severity": "warning"
+      }
+     ],
+     "headline_banded": {
+      "text": "Keep Current CRM (Status Quo) is clearly ahead.",
+      "band": "clearly_ahead",
+      "leader_option_id": "opt_status_quo",
+      "leader_label": "Keep Current CRM (Status Quo)",
+      "runner_up_option_id": "opt_hubspot",
+      "runner_up_label": "Switch to HubSpot",
+      "win_probability_gap": 0.7316999999999998,
+      "robustness_gated": false,
+      "doctrine": "provisional_doctrine_v0"
+     },
+     "defaulted_assumptions": [
+      {
+       "factor_label": "User Adoption Uncertainty",
+       "note": "No starting value was provided for \"User Adoption Uncertainty\" \u2014 the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+       "source": "value_defaulted",
+       "doctrine": "provisional_doctrine_v0"
+      },
+      {
+       "factor_label": "Sales Team Size",
+       "note": "No starting value was provided for \"Sales Team Size\" \u2014 the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+       "source": "value_defaulted",
+       "doctrine": "provisional_doctrine_v0"
+      }
+     ],
+     "robustness_caveat": {
+      "text": "This ranking held up under the perturbations tested. That is not a guarantee \u2014 defaulted or uncertain inputs can still change the result.",
+      "basis": "is_robust",
+      "doctrine": "provisional_doctrine_v0"
+     },
+     "warning_codes": [],
+     "analysis_summary": {
+      "leading_option": "Keep Current CRM (Status Quo)",
+      "win_probability": 0.8421333333333332,
+      "robustness_band": "robust"
+     }
+    },
+    "factor_evppi": [
+     {
+      "factor_id": "fac_annual_crm_cost",
+      "evppi": 0,
+      "evppi_raw": 0,
+      "baseline_max_expected_utility": -4616.56505,
+      "conditional_max_expected_utility": -4616.56505,
+      "units": "outcome",
+      "method": "regression_evppi_v1",
+      "regression_degree": 4,
+      "n_samples": 10000,
+      "clamped_low": false,
+      "clamped_high": false,
+      "noise_floor": 0,
+      "status": "below_resolution",
+      "correlation_active": false
+     },
+     {
+      "factor_id": "fac_adoption_risk",
+      "evppi": 0,
+      "evppi_raw": 0,
+      "baseline_max_expected_utility": -4616.56505,
+      "conditional_max_expected_utility": -4616.56505,
+      "units": "outcome",
+      "method": "regression_evppi_v1",
+      "regression_degree": 4,
+      "n_samples": 10000,
+      "clamped_low": true,
+      "clamped_high": false,
+      "noise_floor": 0,
+      "status": "below_resolution",
+      "correlation_active": false
+     },
+     {
+      "factor_id": "fac_team_size",
+      "evppi": 0,
+      "evppi_raw": 0,
+      "baseline_max_expected_utility": -4616.56505,
+      "conditional_max_expected_utility": -4616.56505,
+      "units": "outcome",
+      "method": "regression_evppi_v1",
+      "regression_degree": 4,
+      "n_samples": 10000,
+      "clamped_low": true,
+      "clamped_high": false,
+      "noise_floor": 0,
+      "status": "below_resolution",
+      "correlation_active": false
+     }
+    ],
+    "decision_evpi": 0.007575233977575621,
+    "p_win_sensitivity": [
+     {
+      "factor_id": "fac_team_size",
+      "p_win_delta": 0.014167,
+      "p_win_delta_percentage_points": 1.42,
+      "current_metric": 0.838,
+      "perfect_metric": 0.852167,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_annual_crm_cost",
+      "p_win_delta": 0.005333,
+      "p_win_delta_percentage_points": 0.53,
+      "current_metric": 0.838,
+      "perfect_metric": 0.843333,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_disruption",
+      "p_win_delta": 0.005167,
+      "p_win_delta_percentage_points": 0.52,
+      "current_metric": 0.838,
+      "perfect_metric": 0.843167,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_adoption_risk",
+      "p_win_delta": 0.002,
+      "p_win_delta_percentage_points": 0.2,
+      "current_metric": 0.838,
+      "perfect_metric": 0.84,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_crm_capability",
+      "p_win_delta": 0.001167,
+      "p_win_delta_percentage_points": 0.12,
+      "current_metric": 0.838,
+      "perfect_metric": 0.839167,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": false,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     },
+     {
+      "factor_id": "fac_switch_cost",
+      "p_win_delta": 0,
+      "p_win_delta_percentage_points": 0,
+      "current_metric": 0.838,
+      "perfect_metric": 0.833,
+      "metric_type": "p_win_recommended",
+      "method": "p_win_delta_at_mean_v1",
+      "n_samples": 2000,
+      "status": "below_resolution",
+      "clamped": true,
+      "noise_floor": 0.03099,
+      "noise_floor_method": "z95_worst_case_bernoulli_diff",
+      "labelling_doctrine": "provisional_doctrine_v0"
+     }
+    ],
+    "critiques": [
+     {
+      "id": "critique_4032892324f5",
+      "code": "DEGENERATE_OUTCOMES",
+      "severity": "warning",
+      "source": "isl",
+      "blocks_analysis": false,
+      "suggestion": "Check that options specify different intervention values and that intervention targets are connected to the goal with non-zero effect",
+      "user_message": "An issue was detected in your model (DEGENERATE_OUTCOMES). Check the advanced details for more information.",
+      "message": ""
+     }
+    ]
+   },
+   "computed_against_hash": "dc4a4786d374f0a6"
+  },
+  {
+   "block_id": "97640ddb-63c6-576f-8805-1eadaf730597",
+   "signal_id": "review:narrative:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "narrative",
+   "title": "How the analysis reads",
+   "body": "Keep Current CRM (Status Quo) leads by about 73 percentage points, with a settled advantage on your model. This holds while the link from Budget Headroom to Maximise Sales Productivity Within Budget remains robust.",
+   "severity": "info",
+   "target_refs": [],
+   "priority_rank": 10,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ANALYSIS_NARRATIVE"
+  },
+  {
+   "block_id": "06c508b3-6af7-54f4-98df-868bb334d5b3",
+   "signal_id": "review:robustness:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "robustness",
+   "title": "How robust is this?",
+   "body": "The ordering holds in about 84% of variations, supported by stable links around budget and transition costs.",
+   "severity": "warning",
+   "target_refs": [],
+   "priority_rank": 50,
+   "category": "should_fix",
+   "priority": 70,
+   "signal_code": "FRAGILE_RESULT"
+  },
+  {
+   "block_id": "de004713-7b57-5753-87d2-b514aedafa1b",
+   "signal_id": "review:evidence_priority:fac_adoption_risk:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "evidence_priority",
+   "title": "Highest-leverage evidence gap: User Adoption Uncertainty",
+   "body": "Knowing how willingly the sales team would embrace HubSpot directly impacts whether any switch drives productivity as intended.",
+   "severity": "info",
+   "target_refs": [
+    {
+     "id": "fac_adoption_risk",
+     "label": "User Adoption Uncertainty",
+     "kind": "factor"
+    }
+   ],
+   "priority_rank": 60,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "EVIDENCE_GAP",
+   "action_intent": "gather_evidence",
+   "action_label": "Strengthen this evidence"
+  },
+  {
+   "block_id": "48f62181-c392-54e4-b73b-7ef70a5b9c94",
+   "signal_id": "review:assumption:1:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "assumption",
+   "title": "A load-bearing assumption",
+   "body": "Budget Headroom captures all major costs, including potential hidden expenses and unplanned integration fees.",
+   "severity": "info",
+   "target_refs": [],
+   "priority_rank": 71,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK"
+  },
+  {
+   "block_id": "555914a8-1f8b-5300-8055-d3bb68c9cb3a",
+   "signal_id": "review:assumption:2:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "assumption",
+   "title": "A load-bearing assumption",
+   "body": "The model assumes CRM adoption rates will not differ significantly between options beyond what is captured under User Adoption Uncertainty.",
+   "severity": "info",
+   "target_refs": [],
+   "priority_rank": 72,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK"
+  },
+  {
+   "block_id": "40c2d4f4-ee6c-5fc6-9ead-bc50b72925b3",
+   "signal_id": "review:assumption:3:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "review_card",
+   "card_kind": "assumption",
+   "title": "A load-bearing assumption",
+   "body": "Productivity Loss During Transition is based on typical change management durations, not unusually rapid or delayed rollouts.",
+   "severity": "info",
+   "target_refs": [],
+   "priority_rank": 73,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK"
+  },
+  {
+   "block_id": "0495f4b6-4ff1-509b-9710-35a5c0f15cb0",
+   "signal_id": "coach:assumption:1:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "assumption_check",
+   "title": "An assumption to check",
+   "body": "Budget Headroom captures all major costs, including potential hidden expenses and unplanned integration fees.",
+   "source": "decision_review",
+   "target_refs": [
+    {
+     "id": "out_budget_headroom",
+     "label": "Budget Headroom",
+     "kind": "outcome"
+    }
+   ],
+   "priority_rank": 101,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK",
+   "action_intent": "confirm_factor",
+   "action_label": "Confirm this assumption",
+   "action_prompt": "Help me pressure-test this assumption before I rely on it."
+  },
+  {
+   "block_id": "e90780de-bcc7-5e8d-811e-ac8f71b63ef1",
+   "signal_id": "coach:assumption:2:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "assumption_check",
+   "title": "An assumption to check",
+   "body": "The model assumes CRM adoption rates will not differ significantly between options beyond what is captured under User Adoption Uncertainty.",
+   "source": "decision_review",
+   "target_refs": [
+    {
+     "id": "fac_adoption_risk",
+     "label": "User Adoption Uncertainty",
+     "kind": "factor"
+    }
+   ],
+   "priority_rank": 102,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK",
+   "action_intent": "confirm_factor",
+   "action_label": "Confirm this assumption",
+   "action_prompt": "Help me pressure-test this assumption before I rely on it."
+  },
+  {
+   "block_id": "2b35059c-a4de-54ec-8f26-61a2885c0fe7",
+   "signal_id": "coach:assumption:3:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "assumption_check",
+   "title": "An assumption to check",
+   "body": "Productivity Loss During Transition is based on typical change management durations, not unusually rapid or delayed rollouts.",
+   "source": "decision_review",
+   "target_refs": [
+    {
+     "id": "risk_transition_drag",
+     "label": "Productivity Loss During Transition",
+     "kind": "risk"
+    }
+   ],
+   "priority_rank": 103,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "ASSUMPTION_CHECK",
+   "action_intent": "confirm_factor",
+   "action_label": "Confirm this assumption",
+   "action_prompt": "Help me pressure-test this assumption before I rely on it."
+  },
+  {
+   "block_id": "2245ba27-ba0e-5e3c-a0fb-5e7fd3056c95",
+   "signal_id": "coach:calibration:1:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "calibration_prompt",
+   "title": "Consider-the-opposite prompt",
+   "body": "What evidence would persuade you to switch to Switch to HubSpot, despite current cost concerns?",
+   "source": "decision_review",
+   "target_refs": [
+    {
+     "id": "opt_hubspot",
+     "label": "Switch to HubSpot",
+     "kind": "option"
+    }
+   ],
+   "priority_rank": 201,
+   "category": "technique",
+   "priority": 30,
+   "signal_code": "CALIBRATION_PROMPT",
+   "action_intent": "start_guided_chat",
+   "action_label": "Try this prompt",
+   "action_prompt": "What evidence would persuade you to switch to Switch to HubSpot, despite current cost concerns?"
+  },
+  {
+   "block_id": "e2d31c00-246b-57cd-8e73-f31816be1806",
+   "signal_id": "evidence:fac_adoption_risk:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "evidence",
+   "factor_label": "User Adoption Uncertainty",
+   "factor_ref": {
+    "id": "fac_adoption_risk",
+    "label": "User Adoption Uncertainty",
+    "kind": "factor"
+   },
+   "target_refs": [
+    {
+     "id": "fac_adoption_risk",
+     "label": "User Adoption Uncertainty",
+     "kind": "factor"
+    }
+   ],
+   "current_confidence": "low",
+   "evidence_gap": "Knowing how willingly the sales team would embrace HubSpot directly impacts whether any switch drives productivity as intended.",
+   "suggested_technique": "Internal data: Run a user sentiment and process mapping exercise to estimate likely CRM adoption rates if switching.",
+   "impact_if_gathered": "Ask team leaders for confidential input before aggregating survey results.",
+   "priority_rank": 1,
+   "severity": "critical",
+   "category": "must_fix",
+   "priority": 90,
+   "signal_code": "EVIDENCE_GAP",
+   "action_intent": "gather_evidence",
+   "action_label": "Strengthen this evidence"
+  },
+  {
+   "block_id": "a802dba8-c011-5a49-8f82-64817d57601d",
+   "signal_id": "evidence:fac_team_size:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "evidence",
+   "factor_label": "Sales Team Size",
+   "factor_ref": {
+    "id": "fac_team_size",
+    "label": "Sales Team Size",
+    "kind": "factor"
+   },
+   "target_refs": [
+    {
+     "id": "fac_team_size",
+     "label": "Sales Team Size",
+     "kind": "factor"
+    }
+   ],
+   "current_confidence": "low",
+   "evidence_gap": "Accurate team size projections make CRM cost scenarios firmer and reduce model uncertainty.",
+   "suggested_technique": "Internal data: Audit present and planned team headcount over the next year to validate expected CRM usage and associated license needs.",
+   "impact_if_gathered": "Have HR and sales ops independently produce their own headcount forecasts before comparing notes.",
+   "priority_rank": 2,
+   "severity": "warning",
+   "category": "should_fix",
+   "priority": 70,
+   "signal_code": "EVIDENCE_GAP",
+   "action_intent": "gather_evidence",
+   "action_label": "Strengthen this evidence"
+  },
+  {
+   "block_id": "11096b79-0100-5b29-926c-880f7590b4dc",
+   "signal_id": "evidence:fac_annual_crm_cost:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "evidence",
+   "factor_label": "Annual CRM Running Cost",
+   "factor_ref": {
+    "id": "fac_annual_crm_cost",
+    "label": "Annual CRM Running Cost",
+    "kind": "factor"
+   },
+   "target_refs": [
+    {
+     "id": "fac_annual_crm_cost",
+     "label": "Annual CRM Running Cost",
+     "kind": "factor"
+    }
+   ],
+   "current_confidence": "medium",
+   "evidence_gap": "Firming up real annual cost figures eliminates hidden overrun risk and sharpens budget trade-offs.",
+   "suggested_technique": "Market research: Request up-to-date pricing and support escalation quotes from both providers to ground cost expectations.",
+   "impact_if_gathered": "Document all received quotes and request like-for-like breakdowns to ensure a fair comparison.",
+   "priority_rank": 3,
+   "severity": "info",
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "EVIDENCE_GAP",
+   "action_intent": "gather_evidence",
+   "action_label": "Strengthen this evidence"
+  },
+  {
+   "block_id": "2448562e-286c-5f41-8933-20b436ad2206",
+   "signal_id": "coach:lens:what_if_counterfactual:what_if_counterfactual:dc4a4786d374f0a6",
+   "created_at": "2026-08-08T14:19:32.107Z",
+   "source_handler": "decision_review_enricher",
+   "graph_hash_at_generation": "dc4a4786d374f0a6",
+   "freshness": "fresh",
+   "type": "coaching",
+   "coaching_kind": "strengthen",
+   "title": "Strengthen your model: try a what-if on the key driver",
+   "body": "One factor shapes this result more than the others. Trying a what-if on that driver \u2014 seeing how the leading option changes as it moves \u2014 shows how much the choice hangs on it.",
+   "source": "deterministic_signal",
+   "target_refs": [],
+   "priority_rank": 15,
+   "category": "could_fix",
+   "priority": 50,
+   "signal_code": "STRENGTHEN_ITEM"
+  },
+  {
+   "type": "ui_directive",
+   "verb": "focus",
+   "targets": [
+    {
+     "id": "fac_crm_capability",
+     "label": "CRM Capability Level",
+     "kind": "factor"
+    }
+   ]
+  }
+ ],
+ "suggested_actions": [
+  {
+   "id": "chip_prompt_configure_option",
+   "label": "Configure Migrate to Salesforce",
+   "message": "Help me configure Migrate to Salesforce."
+  },
+  {
+   "id": "chip_action_explain_results",
+   "label": "Explain the result",
+   "message": "Please explain the analysis result in plain language.",
+   "action_type": "explain_results"
+  },
+  {
+   "id": "chip_action_what_would_flip",
+   "label": "What could change the outcome?",
+   "message": "What could change the outcome of this analysis?",
+   "action_type": "what_would_flip"
+  }
+ ],
+ "insights": [],
+ "stage_indicator": "frame",
+ "analysis_ready": {
+  "options": [
+   {
+    "option_id": "opt_hubspot",
+    "label": "Switch to HubSpot",
+    "status": "ready",
+    "interventions": {
+     "fac_disruption": 0.7,
+     "fac_switch_cost": 1,
+     "fac_crm_capability": 0.8
+    },
+    "is_baseline": false
+   },
+   {
+    "option_id": "opt_phased",
+    "label": "Pilot HubSpot with Core Sales Team First",
+    "status": "ready",
+    "interventions": {
+     "fac_disruption": 0.3,
+     "fac_switch_cost": 0.5,
+     "fac_crm_capability": 0.6
+    },
+    "is_baseline": false
+   },
+   {
+    "option_id": "opt_status_quo",
+    "label": "Keep Current CRM (Status Quo)",
+    "status": "ready",
+    "interventions": {
+     "fac_disruption": 0,
+     "fac_switch_cost": 0,
+     "fac_crm_capability": 0.4
+    },
+    "is_baseline": true
+   },
+   {
+    "option_id": "opt_salesforce",
+    "label": "Migrate to Salesforce",
+    "status": "needs_encoding",
+    "interventions": {},
+    "is_baseline": false
+   }
+  ],
+  "goal_node_id": "goal_crm",
+  "status": "needs_encoding",
+  "computed_at": "2026-08-08T14:19:16.598Z",
+  "freshness": "fresh",
+  "freshness_reason": "graph_hash_match",
+  "graph_hash_at_run": "dc4a4786d374f0a6",
+  "current_graph_hash": "dc4a4786d374f0a6"
+ },
+ "graph_hash": "dc4a4786d374f0a6",
+ "_diagnostic_trace": {
+  "llm_calls": [
+   {
+    "role": "decision_review",
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "input_tokens": 11144,
+    "output_tokens": 1108,
+    "cache_read_tokens": null,
+    "cache_creation_tokens": null,
+    "latency_ms": 10131,
+    "stop_reason": null,
+    "thinking_enabled": false,
+    "error": null
+   }
+  ],
+  "prompt_identity": [],
+  "zone2_assembly": null,
+  "tool_policy": null,
+  "provider_resolution": [],
+  "structured_output_config": null,
+  "streaming_metrics": null,
+  "fallback_trace": [],
+  "benchmarking": {
+   "total_duration_ms": 17170,
+   "substage_timings": {
+    "finalisation_ms": 4
+   }
+  },
+  "correlation_ids": {
+   "request_id": "d97726d6-f070-414b-9691-b782c56be006",
+   "scenario_id": "af81ce5a-3fbf-416e-a31f-d66ba620e440",
+   "turn_id": "9e667749-240f-45b4-b4c4-fa9167594c67",
+   "graph_hash": "fd8815c18ca2c0bf",
+   "response_hash": "3d8d1dfee4d6"
+  },
+  "environment": {
+   "build_sha": "060e9ed",
+   "environment": "staging"
+  },
+  "exit_path": "chip_click",
+  "trace_version": 1,
+  "claim_safety": {
+   "may_name_leading_option": true,
+   "verdict_provenance": null,
+   "withheld_projection_reason": null
+  }
+ }
+}

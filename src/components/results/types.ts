@@ -914,8 +914,10 @@ export interface ConfidenceSectionData {
   topNextActions?: NextActionItem[]
   /** M1 Coaching assumptions from ledger */
   assumptions?: AssumptionItem[]
-  /** Humanised critique items for attention banner (non-SENSITIVE_ASSUMPTION only) */
-  humanisedCritiques?: Array<{ title: string; description: string; displayText: string | null; suggestion?: string; factorId?: string }>
+  /** Humanised critique items for attention banner (non-SENSITIVE_ASSUMPTION only).
+   *  `code` is the entry's identity anchor (Lane 3 Car 1: CritiqueWarningStrip
+   *  binds by it — never by positional pairing). */
+  humanisedCritiques?: Array<{ code?: string; title: string; description: string; displayText: string | null; suggestion?: string; factorId?: string }>
 
   // ==========================================================================
   // V12: M1 Coaching Top Fragile Edge + M2 Fields
