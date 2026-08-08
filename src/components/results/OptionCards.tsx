@@ -49,11 +49,11 @@ import {
   downsideSummaryCopy,
   downsideUnavailableCopy,
 } from './utils/downsideCopy'
-import { formatRangeValue } from './utils/formatRangeValue'
+import { formatDownsideValue } from './utils/formatDownsideValue'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
 import { isGraphLensEnabled } from '../../flags'
-import type { OptionResult, DecisionState, HingeInfo, ConfidenceTier } from './types'
+import type { OptionResult, DecisionState, HingeInfo, ConfidenceTier, OutcomeUnitType } from './types'
 import {
   constraintConfidenceColour,
   jointProbabilityLabel,
@@ -144,6 +144,25 @@ export interface OptionCardsProps {
    * in the lower simulated range.
    */
   leadingOptionDownsideFlag?: boolean
+  /**
+   * ⭐ ROADMAP 2.580 member 4 — THE OUTCOME AXIS'S UNIT, for the downside tail.
+   *
+   * Codex (5 Aug 2026): "downside values were unitless even when the user's
+   * goal was hours". The unit is not in the analysis payload — `downside` is
+   * three bare numbers and `EnrichmentOutcomeStats` declares no unit field —
+   * it comes from the GOAL NODE via `useResultsSectionData`. `ResultsBody`
+   * already threaded it to `DriversSection` and `TornadoChart` and not here.
+   *
+   * `isNormalised` travels WITH the unit and is not optional garnish: when the
+   * run has no `goal_threshold_cap` the magnitudes are PLoT's normalised 0-1
+   * scores, and attaching "hours" to those would be a new false claim rather
+   * than a fix. See `formatDownsideValue`.
+   */
+  outcomeUnit?: OutcomeUnitType
+  /** Currency symbol, or the raw unit string for a `count` unit ("hours"). */
+  outcomeUnitSymbol?: string
+  /** True when option magnitudes are normalised 0-1 scores, not user units. */
+  isNormalised?: boolean
 }
 
 /** Fallback description when no story headline is available */
@@ -471,6 +490,9 @@ function OptionCard({
   recommendationStability,
   leadingOptionDownsideFlag,
   hasLeadingOption,
+  outcomeUnit,
+  outcomeUnitSymbol,
+  isNormalised,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -521,6 +543,10 @@ function OptionCard({
    * in the lower simulated range. Display-only.
    */
   leadingOptionDownsideFlag?: boolean
+  /** ROADMAP 2.580 member 4 - see `OptionCardsProps`. Display-only. */
+  outcomeUnit?: OutcomeUnitType
+  outcomeUnitSymbol?: string
+  isNormalised?: boolean
 }) {
   // Brief 5.8B D3: per-rank palette (success / info / option / panel-border)
   // collapsed to a 2-state hierarchy — winner cards get `border-success/30`,
@@ -875,9 +901,21 @@ function OptionCard({
             <div className="mt-1" data-testid={`option-downside-${option.id}`}>
               <p className={`${typography.panelMeta} text-text-light`}>
                 <span className="font-medium">{DOWNSIDE_HEADING_COPY}</span>{' '}
+                {/* ROADMAP 2.580 member 4: the magnitudes still go through
+                    `formatRangeValue` (unchanged precision); the unit is
+                    attached only when the goal stated one AND the values are
+                    on the goal's scale. */}
                 {downsideSummaryCopy(
-                  formatRangeValue(option.downside.p05),
-                  formatRangeValue(option.downside.cvar10),
+                  formatDownsideValue(option.downside.p05, {
+                    unit: outcomeUnit,
+                    unitSymbol: outcomeUnitSymbol,
+                    isNormalised,
+                  }),
+                  formatDownsideValue(option.downside.cvar10, {
+                    unit: outcomeUnit,
+                    unitSymbol: outcomeUnitSymbol,
+                    isNormalised,
+                  }),
                 )}
               </p>
               <p
@@ -996,6 +1034,9 @@ export function OptionCards({
   recommendationStability,
   leadingOptionDownsideFlag,
   hasLeadingOption,
+  outcomeUnit,
+  outcomeUnitSymbol,
+  isNormalised,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -1206,6 +1247,9 @@ export function OptionCards({
             confidenceTier={confidenceTier}
             recommendationStability={recommendationStability}
             leadingOptionDownsideFlag={leadingOptionDownsideFlag}
+            outcomeUnit={outcomeUnit}
+            outcomeUnitSymbol={outcomeUnitSymbol}
+            isNormalised={isNormalised}
             hasLeadingOption={hasLeadingOption}
           />
         )

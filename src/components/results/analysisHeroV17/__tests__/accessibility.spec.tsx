@@ -372,8 +372,8 @@ describe('AnalysisHeroV17 — result-context pill copy never returns (post-remov
   const PILL_LABELS = [
     'Fragile result',
     'Moderate stability',
-    'Stable result',
-    'Mostly stable',
+    'Stable ranking',
+    'Mostly stable ranking',
     'Highly stable',
     'Evidence limited',
     'Evidence moderate',

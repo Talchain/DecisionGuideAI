@@ -10,7 +10,7 @@
  * absent (older PLoT builds) the footer renders the neutral "Robustness
  * unknown" state, in lock-step with the certified glyph
  * (TriageActionCardsBody `checks-robust`) — so the Analysis tab can never
- * show a green "Stable result" beside a neutral "Robustness unknown".
+ * show a green "Stable ranking" beside a neutral "Robustness unknown".
  *
  * These render the ACTUAL presentational AnalysisFooter (the live footer
  * component, env-free) the way OutputsDock wires it (metaPlacement="stacked",
@@ -56,7 +56,7 @@ describe('AnalysisFooter — raw stability cannot render a positive robustness v
     const { container } = renderFooter(undefined)
     const footer = screen.getByTestId('results-analysis-footer')
     expect(footer).toHaveTextContent('Robustness unknown')
-    expect(footer).not.toHaveTextContent('Stable result')
+    expect(footer).not.toHaveTextContent('Stable ranking')
     // No green/check success styling anywhere in the neutral footer.
     expect(container.querySelector('.text-success')).toBeNull()
     expect(container.querySelector('.lucide-check-circle')).toBeNull()
@@ -71,25 +71,25 @@ describe('AnalysisFooter — raw stability cannot render a positive robustness v
     // signature makes this structural: it accepts only RobustnessDisplayVerdict.
     const status = derivePostFooterStatus(undefined)
     expect(status).toEqual({ icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness unknown' })
-    expect(status.label).not.toBe('Stable result')
+    expect(status.label).not.toBe('Stable ranking')
   })
 
-  it('the ONLY path to a positive green "Stable result" is robustnessVerdict === "robust"', () => {
+  it('the ONLY path to a positive green "Stable ranking" is robustnessVerdict === "robust"', () => {
     const { container } = renderFooter('robust')
     const footer = screen.getByTestId('results-analysis-footer')
-    expect(footer).toHaveTextContent('Stable result')
+    expect(footer).toHaveTextContent('Stable ranking')
     // Positive verdict → success styling is allowed (stacked mode applies
     // statusIconClassName to both icon and label).
     expect(container.querySelector('.text-success')).not.toBeNull()
     expect(container.querySelector('.lucide-check-circle')).not.toBeNull()
   })
 
-  it('sensitive producer verdicts → warning "Sensitive to assumptions" (no success styling)', () => {
+  it('sensitive producer verdicts → warning "Ranking sensitive to assumptions" (no success styling)', () => {
     for (const v of ['moderate', 'fragile'] as const) {
       const { container } = renderFooter(v)
       const footer = screen.getByTestId('results-analysis-footer')
-      expect(footer).toHaveTextContent('Sensitive to assumptions')
-      expect(footer).not.toHaveTextContent('Stable result')
+      expect(footer).toHaveTextContent('Ranking sensitive to assumptions')
+      expect(footer).not.toHaveTextContent('Stable ranking')
       expect(container.querySelector('.text-success')).toBeNull()
       cleanup()
     }
@@ -99,8 +99,8 @@ describe('AnalysisFooter — raw stability cannot render a positive robustness v
     const { container } = renderFooter('not_assessed')
     const footer = screen.getByTestId('results-analysis-footer')
     expect(footer).toHaveTextContent('Robustness not assessed')
-    expect(footer).not.toHaveTextContent('Stable result')
-    expect(footer).not.toHaveTextContent('Sensitive to assumptions')
+    expect(footer).not.toHaveTextContent('Stable ranking')
+    expect(footer).not.toHaveTextContent('Ranking sensitive to assumptions')
     expect(container.querySelector('.text-success')).toBeNull()
     expect(container.querySelector('.lucide-help-circle')).not.toBeNull()
   })
@@ -108,13 +108,13 @@ describe('AnalysisFooter — raw stability cannot render a positive robustness v
   it('runtime-safe: a raw stability NUMBER that slips through at runtime → neutral footer, no verdict styling', () => {
     // Defense-in-depth (rendered): even if 0.87 reached the wired helper at
     // runtime, the footer must render neutral "Robustness unknown" — never a
-    // green "Stable result" nor an amber "Sensitive to assumptions" from an
+    // green "Stable ranking" nor an amber "Ranking sensitive to assumptions" from an
     // uncertified raw value.
     const { container } = renderFooter(0.87 as unknown as RobustnessDisplayVerdict)
     const footer = screen.getByTestId('results-analysis-footer')
     expect(footer).toHaveTextContent('Robustness unknown')
-    expect(footer).not.toHaveTextContent('Stable result')
-    expect(footer).not.toHaveTextContent('Sensitive to assumptions')
+    expect(footer).not.toHaveTextContent('Stable ranking')
+    expect(footer).not.toHaveTextContent('Ranking sensitive to assumptions')
     expect(container.querySelector('.text-success')).toBeNull()
     expect(container.querySelector('.lucide-check-circle')).toBeNull()
     expect(container.querySelector('.lucide-help-circle')).not.toBeNull()
@@ -124,7 +124,7 @@ describe('AnalysisFooter — raw stability cannot render a positive robustness v
     const { container } = renderFooter('high' as unknown as RobustnessDisplayVerdict)
     const footer = screen.getByTestId('results-analysis-footer')
     expect(footer).toHaveTextContent('Robustness unknown')
-    expect(footer).not.toHaveTextContent('Stable result')
+    expect(footer).not.toHaveTextContent('Stable ranking')
     expect(container.querySelector('.text-success')).toBeNull()
   })
 })
@@ -136,8 +136,8 @@ describe('footer ↔ certified glyph consistency (single source)', () => {
   //   not_assessed                                                → "Robustness not assessed"
   //   undefined/null                                              → "Robustness unknown"
   // The footer MUST agree: positive iff the glyph is positive; otherwise the
-  // footer must NOT render a positive "Stable result". This proves the two
-  // sibling surfaces can never contradict (e.g. green "Stable result" beside a
+  // footer must NOT render a positive "Stable ranking". This proves the two
+  // sibling surfaces can never contradict (e.g. green "Stable ranking" beside a
   // neutral "Robustness unknown" glyph on the same Analysis tab).
   const ALL: Array<RobustnessDisplayVerdict | null | undefined> = [
     undefined, null, 'robust', 'moderate', 'fragile', 'not_assessed',
@@ -147,11 +147,11 @@ describe('footer ↔ certified glyph consistency (single source)', () => {
     for (const v of ALL) {
       const status = derivePostFooterStatus(v)
       const glyphPositive = v === 'robust'
-      const footerPositive = status.label === 'Stable result' && status.icon === 'check'
+      const footerPositive = status.label === 'Stable ranking' && status.icon === 'check'
       expect(footerPositive).toBe(glyphPositive)
       if (!glyphPositive) {
-        // Glyph neutral/sensitive → footer must not be a positive "Stable result".
-        expect(status.label).not.toBe('Stable result')
+        // Glyph neutral/sensitive → footer must not be a positive "Stable ranking".
+        expect(status.label).not.toBe('Stable ranking')
         expect(status.iconClass).not.toContain('success')
       }
     }

@@ -65,20 +65,20 @@ describe('AdvancedSection', () => {
   // ── B1 receipts: Result-stability row keyed on the display-safe verdict ──
   // (premise 1) — NEVER the deprecated recommendation_stability. The mapping
   // is the shared ROBUSTNESS-VERDICT-CONTRACT (derivePostFooterStatus).
-  it('renders "Stable result" for a robust display verdict', () => {
+  it('renders "Stable ranking" for a robust display verdict', () => {
     render(<AdvancedSection robustnessVerdict="robust" />)
     fireEvent.click(screen.getByText('Advanced and receipts'))
     const row = screen.getByTestId('receipt-result-stability')
     expect(row).toHaveTextContent('Result stability')
-    expect(row).toHaveTextContent('Stable result')
+    expect(row).toHaveTextContent('Stable ranking')
   })
 
-  it('renders "Sensitive to assumptions" for moderate and fragile verdicts', () => {
+  it('renders "Ranking sensitive to assumptions" for moderate and fragile verdicts', () => {
     const { rerender } = render(<AdvancedSection robustnessVerdict="moderate" />)
     fireEvent.click(screen.getByText('Advanced and receipts'))
-    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Sensitive to assumptions')
+    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Ranking sensitive to assumptions')
     rerender(<AdvancedSection robustnessVerdict="fragile" />)
-    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Sensitive to assumptions')
+    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Ranking sensitive to assumptions')
   })
 
   it('renders "Robustness not assessed" for the producer not_assessed verdict', () => {
@@ -111,7 +111,7 @@ describe('AdvancedSection', () => {
     // Nor the old "Stability" dt label.
     expect(screen.queryByText('Stability')).not.toBeInTheDocument()
     // The honest verdict row is what shows instead.
-    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Stable result')
+    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Stable ranking')
   })
 
   it('renders convergence sample count', () => {
@@ -275,7 +275,7 @@ describe('AdvancedSection', () => {
     )
     fireEvent.click(screen.getByText('Advanced and receipts'))
 
-    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Stable result')
+    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Stable ranking')
     expect(screen.getByText('5,000 simulations')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByText('8')).toBeInTheDocument()

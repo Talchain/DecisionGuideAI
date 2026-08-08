@@ -18,39 +18,42 @@ describe('getStabilityClassification', () => {
     expect(getStabilityClassification(null)).toBeNull()
   })
 
-  it('classifies >= 0.85 as high / "Stable result"', () => {
+  it('classifies >= 0.85 as high / "Stable ranking"', () => {
     const c = getStabilityClassification(0.85)!
     expect(c.level).toBe('high')
-    expect(c.heroLabel).toBe('Stable result')
+    expect(c.heroLabel).toBe('Stable ranking')
     expect(c.badgeLabel).toBe('Robust')
     expect(c.colorClass).toBe('text-success')
     expect(c.borderClass).toBe('border-success/30')
     expect(c.coaching).toBeNull()
   })
 
-  it('classifies 0.70–0.84 as moderate / "Mostly stable"', () => {
+  it('classifies 0.70–0.84 as moderate / "Mostly stable ranking"', () => {
     for (const v of [0.70, 0.75, 0.80, 0.84]) {
       const c = getStabilityClassification(v)!
       expect(c.level).toBe('moderate')
-      expect(c.heroLabel).toBe('Mostly stable')
+      expect(c.heroLabel).toBe('Mostly stable ranking')
       expect(c.badgeLabel).toBe('Moderate')
     }
   })
 
-  it('classifies 0.40–0.69 as low / "Sensitive to assumptions"', () => {
+  it('classifies 0.40–0.69 as low / "Ranking sensitive to assumptions"', () => {
     for (const v of [0.40, 0.50, 0.69]) {
       const c = getStabilityClassification(v)!
       expect(c.level).toBe('low')
-      expect(c.heroLabel).toBe('Sensitive to assumptions')
+      expect(c.heroLabel).toBe('Ranking sensitive to assumptions')
       expect(c.badgeLabel).toBe('Sensitive')
     }
   })
 
-  it('classifies < 0.40 as very_low / "Highly sensitive"', () => {
+  it('classifies < 0.40 as very_low / "Ranking highly sensitive"', () => {
     for (const v of [0.0, 0.15, 0.39]) {
       const c = getStabilityClassification(v)!
       expect(c.level).toBe('very_low')
-      expect(c.heroLabel).toBe('Highly sensitive')
+      expect(c.heroLabel).toBe('Ranking highly sensitive')
+      // ROADMAP 2.580 member 3 scoped the HERO family to the ranking; the
+      // `badgeLabel` register is a separate map (`lib/mappers/constants.ts`,
+      // `components/results/constants.ts`) and is deliberately unchanged here.
       expect(c.badgeLabel).toBe('Highly sensitive')
     }
   })
@@ -59,7 +62,7 @@ describe('getStabilityClassification', () => {
   it('stability=0.72 produces consistent moderate classification', () => {
     const c = getStabilityClassification(0.72)!
     expect(c.level).toBe('moderate')
-    expect(c.heroLabel).toBe('Mostly stable')
+    expect(c.heroLabel).toBe('Mostly stable ranking')
     expect(c.badgeLabel).toBe('Moderate')
     expect(c.colorClass).toBe('text-success')
     expect(c.borderClass).toBe('border-info/30')
@@ -71,7 +74,7 @@ describe('getStabilityClassification', () => {
     const c = getStabilityClassification(0.818)!
     expect(c.level).toBe('moderate')
     expect(c.badgeLabel).toBe('Moderate')
-    expect(c.heroLabel).toBe('Mostly stable')
+    expect(c.heroLabel).toBe('Mostly stable ranking')
   })
 })
 

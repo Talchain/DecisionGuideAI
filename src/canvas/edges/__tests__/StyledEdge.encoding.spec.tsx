@@ -134,6 +134,22 @@ const RESULTS_REPORT = {
 const styleOf = (container: HTMLElement) =>
   ((container.querySelector('[data-testid="base-edge"]') as unknown as HTMLElement).style)
 
+/**
+ * ⚠ FIXTURES UPDATED, ROADMAP 2.580 member 2 (not a baseline absorption).
+ *
+ * These fixtures used to carry `direction` with NO provenance — byte-identical
+ * to the shape an edge NOBODY characterised carries
+ * (`USER_EDGE_DEFAULTS.direction = 'positive'`, no source stamp). So the pins
+ * read "the glyph renders for a directed edge" while in fact also asserting
+ * "the glyph renders for a DEFAULTED one" — the fabrication Codex saw as "the
+ * displayed graph encoded a POSITIVE relationship".
+ *
+ * The item-1 claim these tests exist for — the glyph shows in Standard view
+ * and pre-run, not only Expert+results — is UNCHANGED and still pinned below.
+ * The fixtures now STATE the direction they were always meant to describe.
+ * The unstated cases are pinned separately, and as ABSENCES, in
+ * `StyledEdge.directionProvenance.spec.tsx`.
+ */
 describe('StyledEdge — polarity glyph legibility (item 1)', () => {
   beforeEach(() => {
     for (const k of Object.keys(nodeKinds)) delete nodeKinds[k]
@@ -144,7 +160,7 @@ describe('StyledEdge — polarity glyph legibility (item 1)', () => {
 
   it('renders the + glyph in Standard view, pre-run, for a positive causal edge', () => {
     const { container } = render(
-      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'positive', beliefExists: 0.8 }} />
+      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'positive', directionSource: 'user', beliefExists: 0.8 }} />
     )
     const glyph = container.querySelector('[aria-label="Effect direction: positive"]')
     expect(glyph).not.toBeNull()
@@ -153,7 +169,7 @@ describe('StyledEdge — polarity glyph legibility (item 1)', () => {
 
   it('renders the − glyph in Standard view, pre-run, for a negative causal edge', () => {
     const { container } = render(
-      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'negative', beliefExists: 0.8 }} />
+      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'negative', directionSource: 'user', beliefExists: 0.8 }} />
     )
     const glyph = container.querySelector('[aria-label="Effect direction: negative"]')
     expect(glyph).not.toBeNull()
@@ -164,7 +180,7 @@ describe('StyledEdge — polarity glyph legibility (item 1)', () => {
     nodeKinds.src = 'decision'
     nodeKinds.tgt = 'option'
     const { container } = render(
-      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'positive', beliefExists: 0.8 }} />
+      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'positive', directionSource: 'user', beliefExists: 0.8 }} />
     )
     expect(container.querySelector('[aria-label="Effect direction: positive"]')).toBeNull()
   })

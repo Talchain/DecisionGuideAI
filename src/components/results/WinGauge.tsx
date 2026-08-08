@@ -40,6 +40,7 @@ import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY, isFiniteProbability } from './utils/goalAnchorCopy'
 import { formatGoalProbability } from './utils/displayFloors'
 import { formatProbabilityWithResolution } from '../../utils/formatPercent'
+import { deriveOddsRoundingNote, ODDS_ROUNDING_NOTE_TESTID } from './utils/oddsRoundingNote'
 import Tooltip from '../Tooltip'
 import type { DecisionState } from './types'
 
@@ -266,6 +267,25 @@ export function WinGauge({
     colorById[s.id] = colors[Math.min(i, colors.length - 1)]
   })
 
+  // ⭐ ROADMAP 2.580 member 1 — ONE evaluation of the legend readout.
+  //
+  // The legend below and the rounding note beneath it must state the same
+  // numbers, and "compute it the same way twice" is how they stop doing that
+  // (CLAUDE.md trap 12). So the readouts are built ONCE, here, and both
+  // consumers read this array. There is no second call to the formatter.
+  //
+  // The `clamped <= 0` skip is the ROADMAP 2.236 rule, moved but unchanged: a
+  // genuine zero is omitted from the legend, and it contributes zero to the
+  // total, so omitting it cannot move the note's arithmetic.
+  const legendEntries = sorted
+    .map((share) => {
+      const clamped = Math.max(0, Math.min(1, share.winProbability))
+      return { share, clamped, displayReadout: formatProbabilityWithResolution(clamped, null) }
+    })
+    .filter(({ clamped }) => clamped > 0)
+
+  const roundingNote = deriveOddsRoundingNote(legendEntries.map(e => e.displayReadout))
+
   // ── The goal block (question A) ────────────────────────────────────────
   // Ranked by the goal quantity itself, independently of the comparative
   // sort above — the two rankings disagree on real runs, and that
@@ -455,32 +475,37 @@ export function WinGauge({
         </div>
         {/* Legend — coloured dot + truncated name + percentage */}
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
-          {sorted.map((share) => {
-            const clamped = Math.max(0, Math.min(1, share.winProbability))
-            // ⭐ ROADMAP 2.236 — TWO defects on this line, both from rounding
-            // before deciding.
-            //
-            // It read `Math.round(clamped * 100)` and then `if (displayPct <= 0)
-            // return null`. So an option with a real, measured 0.19% chance was
-            // not merely printed as "0%" — it was DELETED from the legend
-            // entirely, while the canvas node beside it said "< 1%". The skip is
-            // now on the RAW value, so only a genuine zero is omitted, and the
-            // readout goes through the shared floored formatter.
-            if (clamped <= 0) return null
-            const displayReadout = formatProbabilityWithResolution(clamped, null)
-            return (
-              <span key={share.id} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-light`}>
-                <span
-                  className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: colorById[share.id] }}
-                  aria-hidden="true"
-                />
-                <span className="truncate max-w-[120px]">{stripEncodingNotation(share.label)}</span>
-                <span className="tabular-nums">{displayReadout}</span>
-              </span>
-            )
-          })}
+          {legendEntries.map(({ share, displayReadout }) => (
+            <span key={share.id} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-light`}>
+              <span
+                className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: colorById[share.id] }}
+                aria-hidden="true"
+              />
+              <span className="truncate max-w-[120px]">{stripEncodingNotation(share.label)}</span>
+              <span className="tabular-nums">{displayReadout}</span>
+            </span>
+          ))}
         </div>
+        {/* ⭐ ROADMAP 2.580 member 1 — the rounding note.
+            Codex, 5 Aug 2026: the option percentages totalled 99% in one run
+            and 101% in another "with no explanation". Each share is rounded
+            independently, so the partition need not close; that is fine, but
+            printing it silently is the product claiming a set of figures is a
+            distribution when the arithmetic on screen says otherwise.
+            Derived from `legendEntries` — the SAME strings printed above, not
+            a second evaluation of the formatting rule — so the note cannot
+            drift from the numbers it describes. Absent when the wholes total
+            100, and absent when any readout is a bound or carries decimals
+            (see `deriveOddsRoundingNote`: no total is derivable there). */}
+        {roundingNote !== null && (
+          <p
+            className={`${typography.panelMeta} text-text-light mt-1`}
+            data-testid={ODDS_ROUNDING_NOTE_TESTID}
+          >
+            {roundingNote}
+          </p>
+        )}
       </div>
     </div>
   )

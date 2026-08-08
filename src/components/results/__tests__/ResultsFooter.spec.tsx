@@ -16,8 +16,8 @@ function getFooterText(): string {
 }
 
 describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
-  describe('strong tier + high numeric stability → "Stable result"', () => {
-    it('97% stability renders "Stable result · 97%"', () => {
+  describe('strong tier + high numeric stability → "Stable ranking"', () => {
+    it('97% stability renders "Stable ranking · 97%"', () => {
       render(
         <ResultsFooter
           stability={0.97}
@@ -26,14 +26,14 @@ describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
         />,
       )
       const text = getFooterText()
-      expect(text).toContain('Stable result')
+      expect(text).toContain('Stable ranking')
       expect(text).toContain('97%')
       expect(text).not.toContain('Stability sensitive')
     })
   })
 
   describe('§2.7 stability override — tier ∈ {needs_work, fair} at stability ≥ 0.85 → numeric pass-through', () => {
-    it('needs_work + 97% stability → "Stable result" (stability override)', () => {
+    it('needs_work + 97% stability → "Stable ranking" (stability override)', () => {
       render(
         <ResultsFooter
           stability={0.97}
@@ -42,12 +42,12 @@ describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
         />,
       )
       const text = getFooterText()
-      expect(text).toContain('Stable result')
+      expect(text).toContain('Stable ranking')
       expect(text).not.toContain('Stability sensitive')
       expect(text).toContain('97%')
     })
 
-    it('fair + 90% stability → "Stable result" (stability override)', () => {
+    it('fair + 90% stability → "Stable ranking" (stability override)', () => {
       render(
         <ResultsFooter
           stability={0.90}
@@ -56,7 +56,7 @@ describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
         />,
       )
       const text = getFooterText()
-      expect(text).toContain('Stable result')
+      expect(text).toContain('Stable ranking')
       expect(text).not.toContain('Stability sensitive')
     })
   })
@@ -67,7 +67,7 @@ describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
       ['needs_framing' as const],
       ['low' as const],
       ['not_ready' as const],
-    ])('strong + weak readiness %s at 95%% stability → "Stable result" (readiness never softens)', (readiness) => {
+    ])('strong + weak readiness %s at 95%% stability → "Stable ranking" (readiness never softens)', (readiness) => {
       render(
         <ResultsFooter
           stability={0.95}
@@ -76,7 +76,7 @@ describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
         />,
       )
       const text = getFooterText()
-      expect(text).toContain('Stable result')
+      expect(text).toContain('Stable ranking')
       expect(text).not.toContain('Stability sensitive')
     })
   })
@@ -92,7 +92,7 @@ describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
       )
       const text = getFooterText()
       expect(text).toContain('Stability sensitive')
-      expect(text).not.toContain('Stable result')
+      expect(text).not.toContain('Stable ranking')
     })
 
     it('fair + 78% stability → "Stability sensitive" (new per §2.7)', () => {
@@ -109,7 +109,7 @@ describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
   })
 
   describe('passthrough at low numeric stability', () => {
-    it('strong tier + 0.55 stability → "Sensitive to assumptions"', () => {
+    it('strong tier + 0.55 stability → "Ranking sensitive to assumptions"', () => {
       render(
         <ResultsFooter
           stability={0.55}
@@ -118,7 +118,7 @@ describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
         />,
       )
       const text = getFooterText()
-      expect(text).toContain('Sensitive to assumptions')
+      expect(text).toContain('Ranking sensitive to assumptions')
     })
 
     it('weak tier + 0.3 stability still reads "Stability sensitive" (unified wording)', () => {
@@ -137,7 +137,7 @@ describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
     it('no tier / no readiness → numeric label', () => {
       render(<ResultsFooter stability={0.9} />)
       const text = getFooterText()
-      expect(text).toContain('Stable result')
+      expect(text).toContain('Stable ranking')
     })
   })
 

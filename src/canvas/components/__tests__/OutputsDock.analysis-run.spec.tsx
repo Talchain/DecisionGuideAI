@@ -347,7 +347,7 @@ describe('OutputsDock analyse convergence', () => {
     expect(footer).toBeInTheDocument()
     // Robustness trust fix (ROBUSTNESS-VERDICT-CONTRACT): raw
     // recommendation_stability (0.87) with NO display-safe robustnessVerdict no
-    // longer renders a positive "Stable result" verdict — the footer stays
+    // longer renders a positive "Stable ranking" verdict — the footer stays
     // neutral ("Robustness unknown"), matching the certified glyph.
     //
     // cb16e329 ("stop raw-stability robustness overclaims", 2026-06-27)
@@ -356,7 +356,7 @@ describe('OutputsDock analyse convergence', () => {
     // "Robustness unknown · 87% stability" still contradicted itself,
     // and the number is the leader's win probability, not a robustness
     // verdict — so it no longer renders as neutral metadata either.
-    expect(footer).not.toHaveTextContent('Stable result')
+    expect(footer).not.toHaveTextContent('Stable ranking')
     expect(footer).toHaveTextContent('Robustness unknown')
     expect(footer).not.toHaveTextContent('87%')
     expect(screen.queryByText('Compare available in the tab bar')).not.toBeInTheDocument()

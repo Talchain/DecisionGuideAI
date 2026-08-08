@@ -8,10 +8,31 @@
  * buildResultsVM (DecisionState), GoalNode (badge).
  *
  * Thresholds align with ISL robustness protocol:
- *   >= 0.85  high      — "Stable result"
- *   >= 0.70  moderate  — "Mostly stable"
- *   >= 0.40  low       — "Sensitive to assumptions"
- *   <  0.40  very_low  — "Highly sensitive"
+ *   >= 0.85  high      — "Stable ranking"
+ *   >= 0.70  moderate  — "Mostly stable ranking"
+ *   >= 0.40  low       — "Ranking sensitive to assumptions"
+ *   <  0.40  very_low  — "Ranking highly sensitive"
+ *
+ * ⭐ ROADMAP 2.580 member 3 — WHAT THIS NUMBER IS, AND WHAT THE COPY MAY CLAIM.
+ *
+ * Read at the producer (ISL `staging`), not inferred here:
+ *   `RobustnessResultV2.recommendation_stability`  →  "P(same recommendation
+ *     across samples)"                        (src/models/robustness_v2.py)
+ *   `_build_robustness_interpretation`          →  "{winner} wins in {x:.0%}
+ *     of sampled scenarios"        (src/services/robustness_analyzer_v2.py)
+ *
+ * So the quantity is THE SHARE OF SAMPLED SCENARIOS IN WHICH THE SAME OPTION
+ * CAME OUT ON TOP: a statement about the RANKING, over a FINITE SAMPLE.
+ *
+ * The copy used to say "Stable result" / "Result stays the same even if
+ * estimates are off". Codex (5 Aug 2026) saw that beside 19 sensitive
+ * assumptions and zero stable edges — two over-claims stacked:
+ *   (a) "the result" — every number, when only the ORDER was measured; the
+ *       sensitive assumptions are exactly the numbers that did NOT hold;
+ *   (b) "even if estimates are off" — an unbounded universal over all possible
+ *       estimate errors, drawn from a finite sample of scenarios.
+ * The wording below states the ranking scope and the sample, and nothing else.
+ * `stabilityRankingScope.spec.ts` pins both properties at every tier.
  */
 
 import type { RobustnessLevel } from './mappers/types'
@@ -21,7 +42,7 @@ export interface StabilityClassification {
   level: RobustnessLevel
   /** User-facing label for trust/robustness badge (e.g., "Robust") */
   badgeLabel: string
-  /** User-facing label for hero stability tier (e.g., "Stable result") */
+  /** User-facing label for hero stability tier (e.g., "Stable ranking") */
   heroLabel: string
   /** Short explanatory text for the hero section */
   heroShortText: string
@@ -51,9 +72,9 @@ export function getStabilityClassification(
     return {
       level: 'high',
       badgeLabel: 'Robust',
-      heroLabel: 'Stable result',
-      heroShortText: 'Even if estimates are off',
-      heroExpandedText: 'Result stays the same even if estimates are off.',
+      heroLabel: 'Stable ranking',
+      heroShortText: 'Across sampled scenarios',
+      heroExpandedText: 'The same option led in nearly every scenario we sampled. Individual estimates can still be off.',
       coaching: null,
       colorClass: 'text-success',
       borderClass: 'border-success/30',
@@ -64,10 +85,10 @@ export function getStabilityClassification(
     return {
       level: 'moderate',
       badgeLabel: 'Moderate',
-      heroLabel: 'Mostly stable',
-      heroShortText: 'Under most assumptions',
-      heroExpandedText: 'Result stays the same under most assumptions.',
-      coaching: 'The analysis is consistent under most assumptions. A few edge cases could shift the outcome.',
+      heroLabel: 'Mostly stable ranking',
+      heroShortText: 'In most sampled scenarios',
+      heroExpandedText: 'The same option led in most of the scenarios we sampled.',
+      coaching: 'The leading option was the same in most of the scenarios we sampled. A few edge cases could change it.',
       colorClass: 'text-success',
       borderClass: 'border-info/30',
     }
@@ -77,10 +98,10 @@ export function getStabilityClassification(
     return {
       level: 'low',
       badgeLabel: 'Sensitive',
-      heroLabel: 'Sensitive to assumptions',
+      heroLabel: 'Ranking sensitive to assumptions',
       heroShortText: 'Review key inputs',
-      heroExpandedText: 'Result changes under different assumptions. Review key inputs.',
-      coaching: 'Result changes under different assumptions. Small changes could shift the result.',
+      heroExpandedText: 'Which option leads changed across the scenarios we sampled. Review key inputs.',
+      coaching: 'Which option leads changed across the scenarios we sampled. Small changes could change it again.',
       colorClass: 'text-warning',
       borderClass: 'border-factor/30',
     }
@@ -89,10 +110,10 @@ export function getStabilityClassification(
   return {
     level: 'very_low',
     badgeLabel: 'Highly sensitive',
-    heroLabel: 'Highly sensitive',
+    heroLabel: 'Ranking highly sensitive',
     heroShortText: 'Treat as directional',
-    heroExpandedText: 'Small changes in assumptions change the result. Treat as directional.',
-    coaching: 'Small changes in assumptions change the result. Consider strengthening key assumptions before committing.',
+    heroExpandedText: 'Which option leads changed often across the scenarios we sampled. Treat as directional.',
+    coaching: 'Which option leads changed often across the scenarios we sampled. Consider strengthening key assumptions before committing.',
     colorClass: 'text-danger',
     borderClass: 'border-factor/30',
   }

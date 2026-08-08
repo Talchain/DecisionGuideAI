@@ -19,20 +19,20 @@ describe('derivePostFooterStatus — display-safe verdict only (robustness trust
   // ONLY from the display-safe `robustnessVerdict`, never from raw
   // recommendation_stability. So the helper takes the verdict, not a number.
 
-  it('verdict "robust" → success "Stable result" (the ONLY path to a positive verdict)', () => {
+  it('verdict "robust" → success "Stable ranking" (the ONLY path to a positive verdict)', () => {
     expect(derivePostFooterStatus('robust')).toEqual({
       icon: 'check',
       iconClass: 'text-success',
-      label: 'Stable result',
+      label: 'Stable ranking',
     })
   })
 
-  it('verdict "moderate" | "fragile" → warning "Sensitive to assumptions"', () => {
+  it('verdict "moderate" | "fragile" → warning "Ranking sensitive to assumptions"', () => {
     for (const v of ['moderate', 'fragile'] as const) {
       expect(derivePostFooterStatus(v)).toEqual({
         icon: 'warning',
         iconClass: 'text-warning',
-        label: 'Sensitive to assumptions',
+        label: 'Ranking sensitive to assumptions',
       })
     }
   })
@@ -55,11 +55,11 @@ describe('derivePostFooterStatus — display-safe verdict only (robustness trust
     }
   })
 
-  it('trust fix: an ABSENT display-safe verdict never renders "Stable result" nor a green/check positive icon', () => {
-    // Previously raw stability ≥ 0.85 rendered a green "Stable result" that
+  it('trust fix: an ABSENT display-safe verdict never renders "Stable ranking" nor a green/check positive icon', () => {
+    // Previously raw stability ≥ 0.85 rendered a green "Stable ranking" that
     // contradicted the neutral robustness glyph.
     const status = derivePostFooterStatus(undefined)
-    expect(status.label).not.toBe('Stable result')
+    expect(status.label).not.toBe('Stable ranking')
     expect(status.icon).not.toBe('check')
     expect(status.iconClass).not.toContain('success')
     expect(status.label).toBe('Robustness unknown')
@@ -70,7 +70,7 @@ describe('derivePostFooterStatus — runtime-safe: unexpected values fall NEUTRA
   // Type safety is necessary but NOT sufficient. If a raw stability number
   // (e.g. 0.87), a stringified number, or any malformed value accidentally
   // reaches the helper at runtime, it must fall neutral — NEVER fabricate a
-  // "Sensitive to assumptions"/"Stable result" claim from an uncertified source.
+  // "Ranking sensitive to assumptions"/"Stable ranking" claim from an uncertified source.
   const NEUTRAL = { icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness unknown' } as const
   const UNEXPECTED: Array<[string, unknown]> = [
     ['raw number 0.87', 0.87],
@@ -91,8 +91,8 @@ describe('derivePostFooterStatus — runtime-safe: unexpected values fall NEUTRA
   it.each(UNEXPECTED)('%s → neutral "Robustness unknown", no verdict / no positive styling', (_label, value) => {
     const status = derivePostFooterStatus(value as unknown as RobustnessDisplayVerdict)
     expect(status).toEqual(NEUTRAL)
-    expect(status.label).not.toBe('Stable result')
-    expect(status.label).not.toBe('Sensitive to assumptions')
+    expect(status.label).not.toBe('Stable ranking')
+    expect(status.label).not.toBe('Ranking sensitive to assumptions')
     expect(status.icon).not.toBe('check')
     expect(status.icon).not.toBe('warning')
     expect(status.iconClass).not.toContain('success')

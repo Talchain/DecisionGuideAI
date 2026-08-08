@@ -844,7 +844,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // premise that is false at this ref — it claimed the footer would carry
   // "duplicate stale messaging", but the footer's label comes from
   // `derivePostFooterStatus(robustnessVerdict)`, which only ever emits
-  // robustness copy ('Stable result' / 'Sensitive to assumptions' /
+  // robustness copy ('Stable ranking' / 'Ranking sensitive to assumptions' /
   // 'Robustness not assessed' / 'Robustness unknown') and never freshness.
   // Its meta is the producer's robustness reason. Neither duplicates the
   // banner's "Refresh analysis · Coaching may be out of date".
@@ -1246,7 +1246,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // The verdict is now the producer's own robustness.display_verdict (PLoT
   // #202, consumed lane 35 fix 3), normalised fail-closed in the hook; when
   // it is absent (older PLoT builds) the footer keeps the neutral
-  // "Robustness unknown" state instead of a green "Stable result" derived
+  // "Robustness unknown" state instead of a green "Stable ranking" derived
   // from raw stability (which contradicted the glyph on the same tab). Raw
   // stability is retained only as neutral metadata in derivePostFooterMeta
   // below. See ./utils/postAnalysisFooter.ts + ROBUSTNESS-VERDICT-CONTRACT.
