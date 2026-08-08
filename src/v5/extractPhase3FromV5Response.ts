@@ -38,6 +38,7 @@
  *   readiness alone, and never the freshness verdict.
  */
 import type { OlumiResponse } from '@talchain/schemas/boundary'
+import { DskClaimProvenanceSchema } from '@talchain/schemas/boundary'
 
 import {
   ADDITIVE_EXTENSIONS_KEY,
@@ -136,6 +137,34 @@ export interface DerivedGuidanceItem {
    * NOTE: rank provenance needs no flag — `priorityRank` presence IS it.
    */
   priorityIsProducerSupplied: boolean
+  /**
+   * DSK CLAIM PROVENANCE (schemas 0.39.0, ROADMAP 2.962) — projected from the
+   * block's ATOMIC `dsk_claim_provenance` object, gated AS A UNIT against
+   * `DskClaimProvenanceSchema` at the single site below.
+   *
+   * ⚠ THE WIRE SHAPE IS ATOMIC; THESE THREE FIELDS ARE A VIEW PROJECTION, not
+   * a re-flattening of the contract. The contract forbids flat siblings on
+   * coaching/review_card blocks ("ATOMIC STRICT TRIPLE, NEVER FLAT SIBLINGS",
+   * CEE #830: an id must never travel without the title and strength that make
+   * it verifiable against `data/dsk/v1.json`). The names here match the
+   * store's `GuidanceItem` view fields — which predate 0.39.0 and mirror the
+   * separate, still-flat `decision_quality_prompts` family — so hop 2
+   * (`toStoreGuidanceItem`) stays a straight passthrough. Do NOT read flat
+   * siblings off a coaching block: a producer emitting them is emitting a
+   * shape the contract rejects, and this path fails it closed.
+   *
+   * `claim_title` is consumed BY the gate as the verifiability anchor and is
+   * deliberately NOT projected: no surface renders it, and carrying an
+   * unconsumed field would be dark work. The gate is what enforces that an id
+   * never arrives here without one.
+   *
+   * PRESENCE of `dsk_claim_id` is the attestation; absence means "not grounded
+   * in a cited DSK claim" and every surface renders no badge. Never defaulted,
+   * never inferred, never partially carried.
+   */
+  dsk_claim_id?: string
+  dsk_protocol_id?: string
+  evidence_strength?: 'strong' | 'medium' | 'weak' | 'mixed'
 }
 
 export interface Phase3Extraction {
@@ -478,6 +507,29 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   // guard, and no item is silently stripped of its affordance.
   const intentPrompt = safeString(r.action_prompt) ?? safeString(r.suggested_prompt) ?? title
 
+  // DSK claim provenance (schemas 0.39.0) — the ONE gate site for this path.
+  //
+  // THE CONTRACT IS THE GATE: `DskClaimProvenanceSchema.safeParse` rather than
+  // hand-rolled field checks, so the closed evidence-strength vocabulary and
+  // the claim-ARM narrowing (`DSK-B-…`/`DSK-T-…` only, so a protocol or
+  // trigger id cannot masquerade as the claim a card cites) are DERIVED from
+  // the producer's schema, never mirrored here. A mirror of a vocabulary is
+  // the drift defect this estate keeps paying for.
+  //
+  // GATED AS A UNIT, FAIL CLOSED: the schema is `.strict()` and requires the
+  // whole triple, so a partial object — most importantly a bare `claim_id`,
+  // the exact shape the atomic doctrine exists to forbid — carries NOTHING.
+  // Absence is the honest outcome and is never a default.
+  //
+  // ⚠ SKEW NOTE (hazard 1): because the parse is strict, an object carrying a
+  // field added by a LATER schemas version fails closed here until this repo's
+  // pin catches up — the badge goes dark rather than rendering a grounding
+  // claim from bytes this pin cannot fully verify. That direction is chosen
+  // deliberately: this is a trust surface, and a silent unverified attestation
+  // is worse than an absent badge.
+  const claimProvenance = DskClaimProvenanceSchema.safeParse(r.dsk_claim_provenance)
+  const dsk = claimProvenance.success ? claimProvenance.data : undefined
+
   return {
     item_id: block.id,
     // signal_code / category: producer-owned passthrough — included only when
@@ -498,6 +550,15 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
     priority,
     ...(priorityRank !== undefined ? { priorityRank } : {}),
     priorityIsProducerSupplied,
+    // DSK provenance: projected only when the atomic object passed the gate
+    // above, as a unit. `protocol_id` rides only alongside its claim anchor.
+    ...(dsk
+      ? {
+          dsk_claim_id: dsk.claim_id,
+          ...(dsk.protocol_id ? { dsk_protocol_id: dsk.protocol_id } : {}),
+          evidence_strength: dsk.evidence_strength,
+        }
+      : {}),
   }
 }
 
