@@ -609,9 +609,43 @@ export function reconcileAppliedGraph(
   // freshness verdict the same response already set.
   const receiptGoalConstraints = (draftData as { goal_constraints?: unknown }).goal_constraints
   if (Array.isArray(receiptGoalConstraints) && receiptGoalConstraints.length > 0) {
-    useCanvasStore
-      .getState()
-      .setGoalConstraints(receiptGoalConstraints as CEEGoalConstraint[], { fromProducerSync: true })
+    const constraints = receiptGoalConstraints as CEEGoalConstraint[]
+    useCanvasStore.getState().setGoalConstraints(constraints, { fromProducerSync: true })
+    // R2: the staging MF2 witness traces constraints by these logs; without one
+    // here the reconcile commit is invisible to it. Matches applyDraftResult's
+    // and useV2Run's `[constraint-trace]` shape.
+    logger.info('[constraint-trace] store-write', {
+      source: 'reconcileAppliedGraph',
+      count: constraints.length,
+      constraint_ids: constraints.map((c) => c.constraint_id),
+    })
+
+    // F1 (adversarial review) — PERSIST HERE, AND NOT LEFT TO THE 30s TIMER OR
+    // TO THE COMMIT BELOW. On this module's canonical case — a terminal analysis
+    // turn that leaves the graph structurally identical — `changed` is false and
+    // the early return below is taken, so the post-commit `saveAutosave` at the
+    // end of this function NEVER RUNS. Nothing else covers it either:
+    //   - applyV5State runs BEFORE this reconcile (useConversation.ts:4566 vs
+    //     :4737), so its resultsComplete-driven write at store.ts:3365 persists
+    //     the store's PRE-COMMIT constraints;
+    //   - the 30s timer's dirty check is `computeGraphHash(nodes, edges)`, which
+    //     is constraint-blind and skips (the identical hazard store.ts:3348's
+    //     comment warns about for the analysis payload);
+    //   - the complete saveAutosave writer manifest has no site that fires after
+    //     a no-op commit.
+    // Result before this write: the store held the constraints, the autosave did
+    // not, and the guest reload hydrated `?? null` — cleared. It also keeps a
+    // REVISED set from leaving the superseded one in the record.
+    //
+    // Deliberately unconditional rather than gated on `!changed`: a predicate
+    // here would be one more thing to get wrong, and on the changed path the
+    // post-commit write simply supersedes this one (saveAutosave skips an
+    // identical payload, so the cost is bounded).
+    try {
+      saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
+    } catch {
+      // Non-critical — never let a persistence failure break the reconcile.
+    }
   }
 
   if (!changed) return result
