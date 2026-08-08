@@ -69,7 +69,9 @@ import liveBody from './fixtures/cee-draft-500-recovery-wire-20260808.json'
 
 const mockOpenStream = vi.fn()
 const mockCallV5Turn = vi.fn()
-const mockStopV5Turn = vi.fn(() => Promise.resolve({ kind: 'not_saved' as const }))
+const mockStopV5Turn = vi.fn((..._args: unknown[]) =>
+  Promise.resolve({ kind: 'not_saved' as const }),
+)
 
 vi.mock('../../../v5/stopTurn', () => ({
   stopV5Turn: (...args: unknown[]) => mockStopV5Turn(...args),
