@@ -40,6 +40,8 @@ import { USER_EDGE_DEFAULTS } from '../domain/edges'
 import {
   resolveEdgeValueDisplay,
   resolveEdgeSignedStrengthDisplay,
+  resolveEdgeDirectionDisplay,
+  type EdgeDirectionDisplay,
   compareEdgeValueDisplays,
   compareEdgeValueAggregates,
   aggregateEdgeSignedStrength,
@@ -211,12 +213,24 @@ describe('AGGREGATE — a rank built from nothing is not a rank', () => {
 })
 
 describe('STROKE COLOUR — computeDirectionStroke', () => {
+  // ⭐ ROADMAP 2.928 member b — the first parameter is now an
+  // `EdgeDirectionDisplay`, resolved by `resolveEdgeDirectionDisplay`, not the
+  // raw `direction` field. `stated()` below is the only way to express a
+  // licensed claim; a defaulted `'positive'` is no longer expressible.
+  const stated = (direction: 'positive' | 'negative'): EdgeDirectionDisplay => ({
+    show: true,
+    direction,
+    source: 'user',
+  })
+
   it('gives an edge drawn through the product NO verdict colour', () => {
     const data = drawEdgeThroughProduct()
-    const display = resolveEdgeSignedStrengthDisplay(data)
     const stroke = computeDirectionStroke(
-      data.direction as 'positive' | 'negative' | undefined,
-      display,
+      // Both channels resolved from the SAME edge data the product produced —
+      // no hand-supplied direction, which is what let the old call site pass
+      // the fabricated default in.
+      resolveEdgeDirectionDisplay(data),
+      resolveEdgeSignedStrengthDisplay(data),
       false,
     )
     // The defaulted `direction: 'positive'` must NOT reach the green.
@@ -224,14 +238,28 @@ describe('STROKE COLOUR — computeDirectionStroke', () => {
     expect(stroke).toBe('var(--edge-neutral)')
   })
 
+  it('gives NO verdict colour even once the STRENGTH has been set', () => {
+    // ROADMAP 2.928: the reachable half-fix state. Setting the strength in the
+    // inspector stamps `weightSource` and leaves `direction` unstamped, which
+    // used to unlock the green while the glyph stayed correctly hidden.
+    const data = { ...drawEdgeThroughProduct(), weightSource: 'user' }
+    const stroke = computeDirectionStroke(
+      resolveEdgeDirectionDisplay(data),
+      resolveEdgeSignedStrengthDisplay(data),
+      false,
+    )
+    expect(resolveEdgeSignedStrengthDisplay(data).show).toBe(true) // precondition
+    expect(stroke).toBe('var(--edge-neutral)')
+  })
+
   it('still discriminates when the strength IS sourced', () => {
     const set: EdgeValueDisplay = { show: true, value: 0.6, source: 'user' }
-    expect(computeDirectionStroke('positive', set, false)).toBe('var(--edge-positive)')
-    expect(computeDirectionStroke('negative', set, false)).toBe('var(--edge-negative)')
-    expect(computeDirectionStroke('positive', set, true)).toBe('var(--edge-positive-dark)')
+    expect(computeDirectionStroke(stated('positive'), set, false)).toBe('var(--edge-positive)')
+    expect(computeDirectionStroke(stated('negative'), set, false)).toBe('var(--edge-negative)')
+    expect(computeDirectionStroke(stated('positive'), set, true)).toBe('var(--edge-positive-dark)')
     // weight 0 is a valid user choice → neutral, unchanged.
     expect(
-      computeDirectionStroke('positive', { show: true, value: 0, source: 'user' }, false),
+      computeDirectionStroke(stated('positive'), { show: true, value: 0, source: 'user' }, false),
     ).toBe('var(--edge-neutral)')
   })
 })

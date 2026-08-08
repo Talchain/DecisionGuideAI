@@ -1,4 +1,4 @@
-import type { EdgeValueDisplay } from '../domain/edgeValueProvenance'
+import type { EdgeDirectionDisplay, EdgeValueDisplay } from '../domain/edgeValueProvenance'
 
 /**
  * directionStroke — the single source of truth for a causal edge's polarity
@@ -62,26 +62,56 @@ import type { EdgeValueDisplay } from '../domain/edgeValueProvenance'
  * we are entitled to make. Minting a new "unset" edge hue is a design-system
  * change and belongs to a design owner, not to this lane.
  */
+/**
+ * ⛔⛔ THE DIRECTION IS PROVENANCE-GATED TOO (ROADMAP 2.928 member b).
+ * ------------------------------------------------------------------
+ * This used to take a raw `direction: 'positive' | 'negative' | undefined`,
+ * read straight off `edgeData.direction` — the field `USER_EDGE_DEFAULTS`
+ * fabricates as `'positive'` with no source stamp, and that CEE ingestion
+ * writes as `'positive'` even when the producer sent `effect_direction:
+ * 'unknown'` (an explicit refusal, and a declared 0.30.0 contract member).
+ *
+ * ROADMAP 2.580 member 2 fixed the +/− GLYPH by routing it through
+ * `resolveEdgeDirectionDisplay` — and left this function on the raw field. So
+ * an edge whose direction nobody stated lost its glyph and KEPT ITS GREEN
+ * STROKE: the second cue withdrawn, the primary one still asserting. Read the
+ * header above — "the +/− glyph is the second cue; these hues are the primary"
+ * — and note that for a red-green dichromat the glyph was the RELIABLE channel.
+ * Removing it while the hue kept claiming was worse than either half alone.
+ *
+ * Taking an `EdgeDirectionDisplay` is the same fix the strength parameter
+ * already carries: there is no argument that means "'positive', source
+ * unknown", so the defaulted case cannot be passed by accident and cannot be
+ * forgotten. Drift between the glyph and the stroke is now a TYPE error rather
+ * than a silent repaint.
+ *
+ * ⚠ WHY THIS IS NOT SIMPLY THE GLYPH'S RULE. The two channels answer different
+ * questions and must not be collapsed (CLAUDE.md trap 21). The glyph asks "did
+ * anyone STATE a direction?". The stroke asks that AND "did anyone SET a
+ * strength?", because grey is already this module's no-verdict colour for an
+ * unset strength. A stated direction over an unset strength therefore draws a
+ * glyph on a grey line — correct, not drift, and a guard asserting the two
+ * channels always agree would be wrong. See the spec's fixture table.
+ */
 export function computeDirectionStroke(
-  direction: 'positive' | 'negative' | undefined,
+  direction: EdgeDirectionDisplay,
   strength: EdgeValueDisplay,
   isDark: boolean,
 ): string {
   const neutral = isDark ? 'var(--edge-neutral-dark)' : 'var(--edge-neutral)'
-  // Nobody set this strength → no verdict. Must come FIRST: a defaulted
-  // `direction: 'positive'` would otherwise paint it green below.
+  // Nobody set this strength → no verdict.
   if (!strength.show) return neutral
+  // Nobody STATED this direction — defaulted, absent, explicitly declined, or
+  // an unrecognised value that failed closed. The resolver owns that answer and
+  // this function does not re-derive it.
+  if (!direction.show) return neutral
   const weight = Math.abs(strength.value)
-  // Weight defined but direction not yet set → grey (not yellow)
-  if (direction === undefined) return neutral
-  // Direction set with positive weight → green
-  if (direction === 'positive' && weight > 0) {
+  // Neutral: weight === 0 (a valid user choice, not a missing value)
+  if (weight === 0) return neutral
+  // Direction stated with positive weight → green
+  if (direction.direction === 'positive') {
     return isDark ? 'var(--edge-positive-dark)' : 'var(--edge-positive)'
   }
-  // Direction set with negative weight → rose (E1: distinct from amber warning)
-  if (direction === 'negative' && weight > 0) {
-    return isDark ? 'var(--edge-negative-dark)' : 'var(--edge-negative)'
-  }
-  // Neutral: weight === 0 (valid user choice)
-  return neutral
+  // Direction stated with negative weight → rose (E1: distinct from amber warning)
+  return isDark ? 'var(--edge-negative-dark)' : 'var(--edge-negative)'
 }
