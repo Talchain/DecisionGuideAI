@@ -21,7 +21,6 @@ const openai = new OpenAI({
 // SECURITY: CORS allow-list (never use wildcard in production)
 const ALLOWED_ORIGINS = [
   "https://decisionguide.ai",
-  "https://app.olumi.app",
   "http://localhost:5173",  // Dev only
   "http://localhost:4173",  // Preview builds
 ];
