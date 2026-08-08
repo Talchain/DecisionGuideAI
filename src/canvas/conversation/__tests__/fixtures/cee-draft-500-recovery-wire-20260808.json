@@ -1,0 +1,65 @@
+{
+  "error": "INTERNAL_ERROR",
+  "boundary": "B1",
+  "direction": "egress",
+  "validator": "draft_graph_pipeline",
+  "details": {
+    "retryable": true,
+    "reason": "draft_graph_cee_graph_invalid",
+    "stage": "frame",
+    "validation_error_codes": [
+      "MISSING_BRIDGE",
+      "NO_PATH_TO_GOAL",
+      "NO_PATH_TO_GOAL",
+      "NO_PATH_TO_GOAL",
+      "NO_PATH_TO_GOAL",
+      "NO_PATH_TO_GOAL",
+      "NO_PATH_TO_GOAL",
+      "NO_EFFECT_PATH",
+      "NO_EFFECT_PATH",
+      "NO_EFFECT_PATH"
+    ],
+    "last_phase": "deterministic_enforcement",
+    "recovery": {
+      "suggestion": "Part of the drafted decision model was left unconnected to your goal, so it was rejected instead of being shown to you — this is usually transient. Try again.",
+      "hints": [
+        "Retrying the same brief usually succeeds",
+        "If it keeps happening, state the outcome you are optimising for explicitly",
+        "Naming how each consideration affects that outcome helps the model connect them"
+      ]
+    },
+    "recovery_suggestion": "Part of the drafted decision model was left unconnected to your goal, so it was rejected instead of being shown to you — this is usually transient. Try again.",
+    "pipeline_error_code": "CEE_GRAPH_INVALID"
+  },
+  "request_id": "7c230f38-200e-40d8-a67d-5e656479ef13",
+  "retryable": true,
+  "_diagnostic_trace": {
+    "llm_calls": [],
+    "prompt_identity": [],
+    "zone2_assembly": null,
+    "tool_policy": null,
+    "provider_resolution": [],
+    "structured_output_config": null,
+    "streaming_metrics": null,
+    "fallback_trace": [],
+    "benchmarking": {
+      "total_duration_ms": 23198,
+      "substage_timings": {}
+    },
+    "correlation_ids": {
+      "request_id": "7c230f38-200e-40d8-a67d-5e656479ef13",
+      "scenario_id": "7fce44ee-f488-4f8c-a1b1-bc2a74688dbb",
+      "turn_id": "96c0cc5a-5638-4752-9409-1812c1db9845"
+    },
+    "retry": {
+      "timed_out": false,
+      "error_type": "Error"
+    },
+    "environment": {
+      "build_sha": "129fa7b",
+      "environment": "staging"
+    },
+    "exit_path": "draft_graph_error",
+    "trace_version": 1
+  }
+}
