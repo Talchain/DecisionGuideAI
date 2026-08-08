@@ -14,7 +14,9 @@ import {
 import { biasSignal } from '../shared/biasSignalTitles'
 import type { ComponentType } from 'react'
 import type { NodeType } from '../domain/nodes'
-import { computeSignedMean } from '../domain/edges'
+// `computeSignedMean` was imported here with ZERO call sites (verified at the
+// bytes, ROADMAP 2.954) — removed rather than left as an invitation to wire a
+// fourth raw-signed channel (#629's `getStrengthDescription` precedent).
 import { unwrapInterventionValue } from '../utils/labelUtils'
 import { isReviewedSource } from '../components/pre-analysis/utils/isReviewedByUser'
 

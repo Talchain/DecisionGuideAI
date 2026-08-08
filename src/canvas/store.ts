@@ -5,7 +5,7 @@ import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportC
 import { setsEqual, mapsEqual } from './store/utils'
 import { assignStableOptionNumbers } from './store/stableOptionNumbers'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
-import { edgeValueSourcePatch } from './domain/edgeValueProvenance'
+import { edgeValueSourcePatch, type CausalLensEdgeParams } from './domain/edgeValueProvenance'
 import { NODE_REGISTRY, type NodeType, type NodeData } from './domain/nodes'
 import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from './domain/analyticalChange'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
@@ -124,7 +124,7 @@ function createDefaultLensState() {
     // Expanded lenses (Brief 5)
     _hiddenNodeIds: new Set<string>(),
     _hiddenEdgeIds: new Set<string>(),
-    _causalEdgeParams: new Map<string, { mean: number; std: number | null; existsProb: number | null }>(),
+    _causalEdgeParams: new Map<string, CausalLensEdgeParams>(),
     _evidenceNodeClass: new Map<string, 'grounded' | 'assumed' | 'none' | 'na'>(),
     _evidenceEdgeClass: new Map<string, 'evidence' | 'assumed' | 'unknown'>(),
   }
@@ -604,7 +604,7 @@ interface CanvasState {
     // Expanded lenses (Brief 5)
     _hiddenNodeIds: Set<string>
     _hiddenEdgeIds: Set<string>
-    _causalEdgeParams: Map<string, { mean: number; std: number | null; existsProb: number | null }>
+    _causalEdgeParams: Map<string, CausalLensEdgeParams>
     _evidenceNodeClass: Map<string, 'grounded' | 'assumed' | 'none' | 'na'>
     _evidenceEdgeClass: Map<string, 'evidence' | 'assumed' | 'unknown'>
   }
@@ -942,7 +942,7 @@ interface CanvasState {
     fragileEdgeIds: Set<string>
     hiddenNodeIds?: Set<string>
     hiddenEdgeIds?: Set<string>
-    causalEdgeParams?: Map<string, { mean: number; std: number | null; existsProb: number | null }>
+    causalEdgeParams?: Map<string, CausalLensEdgeParams>
     evidenceNodeClass?: Map<string, 'grounded' | 'assumed' | 'none' | 'na'>
     evidenceEdgeClass?: Map<string, 'evidence' | 'assumed' | 'unknown'>
   }) => void
@@ -4769,7 +4769,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setLensVisuals: (visuals) => {
     const { lens } = get()
     const EMPTY = new Set<string>()
-    const EMPTY_CEP = new Map<string, { mean: number; std: number | null; existsProb: number | null }>()
+    const EMPTY_CEP = new Map<string, CausalLensEdgeParams>()
     const EMPTY_ENC = new Map<string, 'grounded' | 'assumed' | 'none' | 'na'>()
     const EMPTY_EEC = new Map<string, 'evidence' | 'assumed' | 'unknown'>()
     // Skip no-op updates to avoid re-renders (use setsEqual/mapsEqual for collection comparison)

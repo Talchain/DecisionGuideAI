@@ -12,6 +12,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
 import type { LensMode } from '../store'
+import type { CausalLensEdgeParams } from '../domain/edgeValueProvenance'
 
 /** Causal lens panel: shows variable/edge count, model summary, and edge table */
 function CausalPanel() {
@@ -28,7 +29,7 @@ function CausalPanel() {
   // Build edge table data with source/target labels
   const edgeTableRows = useMemo(() => {
     const nodeMap = new Map(nodes.map(n => [n.id, (n.data as Record<string, unknown>)?.label as string ?? n.id]))
-    const rows: Array<{ from: string; to: string; mean: number; std: number | null; existsProb: number | null }> = []
+    const rows: Array<{ from: string; to: string } & CausalLensEdgeParams> = []
     for (const [edgeId, params] of causalEdgeParams) {
       const edge = edges.find(e => e.id === edgeId)
       if (!edge) continue
@@ -81,7 +82,16 @@ function CausalPanel() {
                 <tr key={i} style={{ borderTop: '1px solid var(--border-default, #EEE6D8)' }}>
                   <td style={{ padding: '2px 4px', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.from}>{r.from}</td>
                   <td style={{ padding: '2px 4px', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.to}>{r.to}</td>
-                  <td style={{ padding: '2px 4px' }}>{r.mean >= 0 ? '+' : ''}{r.mean.toFixed(2)}</td>
+                  {/* ROADMAP 2.954 — provenance-gated Mean: an unset strength
+                      renders this table's own absent-quantity mark (the em
+                      dash its Std / P(exists) cells use), never the `+0.50`
+                      default; the sign renders only from the STATED direction
+                      ('−' U+2212, `formatNumericLabel`'s sign). */}
+                  <td style={{ padding: '2px 4px', color: r.magnitude === null ? 'var(--text-light, #6E6B6B)' : undefined }}>
+                    {r.magnitude !== null
+                      ? `${r.direction === 'positive' ? '+' : r.direction === 'negative' ? '−' : ''}${r.magnitude.toFixed(2)}`
+                      : '—'}
+                  </td>
                   <td style={{ padding: '2px 4px', color: r.std === null ? 'var(--text-light, #6E6B6B)' : undefined }}>{r.std !== null ? r.std.toFixed(2) : '\u2014'}</td>
                   <td style={{ padding: '2px 4px', color: r.existsProb === null ? 'var(--text-light, #6E6B6B)' : undefined }}>{r.existsProb !== null ? `${Math.round(r.existsProb * 100)}%` : '\u2014'}</td>
                 </tr>

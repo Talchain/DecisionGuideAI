@@ -10,7 +10,7 @@
 import { useMemo, useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { computeOptionPaths } from '../utils/computeOptionPaths'
-import { computeSignedMean } from '../domain/edges'
+import { resolveCausalLensEdgeParams, type CausalLensEdgeParams } from '../domain/edgeValueProvenance'
 import type { FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
 
 // ─── Sensitivity helpers ─────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ interface LensVisuals {
   // Expanded lenses (Brief 5)
   hiddenNodeIds?: Set<string>
   hiddenEdgeIds?: Set<string>
-  causalEdgeParams?: Map<string, { mean: number; std: number | null; existsProb: number | null }>
+  causalEdgeParams?: Map<string, CausalLensEdgeParams>
   evidenceNodeClass?: Map<string, 'grounded' | 'assumed' | 'none' | 'na'>
   evidenceEdgeClass?: Map<string, 'evidence' | 'assumed' | 'unknown'>
 }
@@ -212,7 +212,7 @@ export function useLensFilter(): void {
     if (lensActive === 'causal') {
       const hiddenNodeIds = new Set<string>()
       const hiddenEdgeIds = new Set<string>()
-      const causalEdgeParams = new Map<string, { mean: number; std: number | null; existsProb: number | null }>()
+      const causalEdgeParams = new Map<string, CausalLensEdgeParams>()
 
       // Hide organisational nodes (decision, option, constraint) — they don't participate in inference
       for (const node of nodes) {
@@ -229,12 +229,17 @@ export function useLensFilter(): void {
           continue
         }
 
-        // P0-5 fix: use canonical values from graph store only — null when absent (no synthetic defaults)
+        // ROADMAP 2.954 — every channel PROVENANCE-GATED through the same
+        // resolver family the main edge label uses. The previous line here
+        // called `computeSignedMean`, whose fallback signs the UI-defaulted
+        // `weight` off the raw `direction` field — so the lens printed `+0.50`
+        // (a constant) for edges nobody characterised and a danger-red
+        // negative claim for producers that explicitly declined one. (Its
+        // P0-5-era comment said "no synthetic defaults"; that was true of
+        // std/existsProb on THIS ingestion path and false of the mean on
+        // every path — the fabrication lived in the fallback itself.)
         const edgeData = edge.data as Record<string, unknown> | undefined
-        const mean = computeSignedMean(edgeData)
-        const std = typeof edgeData?.strengthStd === 'number' ? (edgeData.strengthStd as number) : null
-        const existsProb = typeof edgeData?.beliefExists === 'number' ? (edgeData.beliefExists as number) : null
-        causalEdgeParams.set(edge.id, { mean, std, existsProb })
+        causalEdgeParams.set(edge.id, resolveCausalLensEdgeParams(edgeData))
       }
 
       return {
