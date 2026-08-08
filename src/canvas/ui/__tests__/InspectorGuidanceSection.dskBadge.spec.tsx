@@ -20,11 +20,20 @@
  *     on any Phase 3 block. Suite 1 drives it through the REAL ingestion
  *     chain (parseV5Response → extractPhase3FromV5Response →
  *     toStoreGuidanceItem) and pins the emit-honesty fact: TODAY'S wire
- *     cannot light the badge. When CEE (item iv / ROADMAP 2.456) starts
- *     emitting, that pin flips RED — which is the desired alarm, because the
- *     V5 derivation chain must then carry the fields (deriveGuidance and
- *     toStoreGuidanceItem both drop them at this tip; out of this lane's
- *     territory, reported).
+ *     cannot light the badge.
+ *     ⚠ MECHANISM CORRECTED BY THE PRE-MERGE REVIEW (8 Aug, by execution —
+ *     Mutant W injected the full dsk family into all 17 Phase-3 blocks of
+ *     this fixture and 12/12 stayed GREEN): this pin is NOT a CEE-emission
+ *     alarm and cannot flip when CEE starts emitting, because (1) the
+ *     committed fixture is static — a CEE-side change alters no repo bytes —
+ *     and (2) deriveGuidance and toStoreGuidanceItem drop the dsk family
+ *     before this pin looks (ROADMAP 2.962). It is a CARRY-COMPLETION
+ *     DETECTOR: it flips RED only when the 2.962 carries land AND a
+ *     dsk-bearing capture is ingested as the fixture. The emission chain that
+ *     lights the badge is ROADMAP 2.964 (schemas 0.39.0 triple) → CEE attach
+ *     → 2.962 carries → this render. Refresh the fixture from a real capture
+ *     when the chain lands — the refresh ritual, not this pin, is what
+ *     witnesses emission.
  *   - The PRESENT-case items in Suites 2-5 are therefore REAL-capture-derived
  *     items AUGMENTED with the dsk field family, using only REAL wire values
  *     observed in the same capture's decision_quality_prompts (DSK-T-002 /
