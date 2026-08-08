@@ -1,0 +1,216 @@
+{
+  "_provenance": {
+    "note": "brief_text is REAL deployed bytes (context-integrity trace 2026-08-08, CEE build 4b57b8f, scenario 2fa5e8b8). The not_modelled block is the DETERMINISTIC OUTPUT of CEE deriveNotModelledManifest() over those same real bytes - NOT a deployed-wire capture, because CEE has not shipped this field yet.",
+    "seam": "POST /bff/cee/scenarios/:id/graph"
+  },
+  "brief_text": "Trying to decide whether we bet the next two quarters on the AI copilot or finally do the platform rewrite. Or neither — I keep going back and forth, and I'm writing this partly to think. The goal I actually care about is 15% ARR growth next year without engineering attrition getting worse.\n\nThe copilot: the prototype demoed at SKO got the best reaction I've seen in years. Sales swears it would lift win rate from 22% to 30% — that number came from Marcus polling 15 AEs on Slack, so treat accordingly. Pricing thinks we could charge +£15/seat/month on our 40,000 seats, so up to £7.2m a year if attach were 100%, which it won't be — 25% attach feels honest, call it £1.8m. Build estimate is 4 engineers for 6 months. Actually, Elena's team said 6 engineers for 8 months once you include evals and the safety review — use hers, she's usually right. LLM serving cost is the thing nobody can pin down: finance modelled £3 per seat per month, could be half that or triple depending on caching. Assumption: our data-processing agreements let us send customer CRM text to a model provider — legal has NOT confirmed this, and if it's wrong the whole thing is dead in enterprise, which is 60% of revenue.\n\nThe rewrite: the platform is 9 years old, deploys take 45 minutes, and we lost two staff engineers to it last year — the exit interviews say so explicitly. Infra says the monolith adds roughly 30% drag to every feature — that's the number the CTO keeps quoting, source unclear, possibly the 2024 DX survey. Rewrite = 10 engineers, 12 months, and history says double whatever engineering estimates on this codebase. If we don't do it, copilot velocity sits on the same slow foundation — so maybe rewrite first, then copilot. But the window: three competitors shipped copilots in the last two quarters, PMM says we're 12 months behind already, and waiting a year might mean entering dead.\n\nBudget: the board approved £2m for strategic initiatives. Realistically it's £1.2m after the security remediation eats its share, which it will. Deadline: the CEO said the copilot must demo at Camunda Days on 14 May 2027. Though honestly, if the rewrite is the right call the demo date shouldn't drive it — we could show smoke and mirrors. Second thought on revenue: I said 25% attach earlier, but enterprise procurement cycles mean year one is more like 10%, so £700k in year one — the £1.8m is a year-three number. The CPO wants the copilot, the CTO wants the rewrite, they've been at a standoff in every exec meeting since June, and I'm the tiebreak. Which way do we go?",
+  "not_modelled": {
+    "schema": "not_modelled.v1",
+    "status": "derived",
+    "unavailable_reason": null,
+    "scope": {
+      "searched": "quantities stated in the brief that carry a unit: money, percentages, counts with a unit word, calendar dates and fiscal periods",
+      "model_surface": [
+        "node, edge and option values, caps, units, labels and encoding maps"
+      ],
+      "prose_surface": [
+        "coaching cards",
+        "draft warnings",
+        "validation warnings"
+      ],
+      "excluded_from_search": [
+        "bare numbers carrying no unit, currency or percent sign",
+        "everything in not_tracked"
+      ]
+    },
+    "quantities": {
+      "total": 28,
+      "in_model": 1,
+      "prose_only": 4,
+      "absent": 23,
+      "truncated": false,
+      "items": [
+        {
+          "literal": "15%",
+          "kind": "percent",
+          "char_offset": 222,
+          "verdict": "in_model"
+        },
+        {
+          "literal": "22%",
+          "kind": "percent",
+          "char_offset": 417,
+          "verdict": "absent"
+        },
+        {
+          "literal": "30%",
+          "kind": "percent",
+          "char_offset": 424,
+          "verdict": "absent"
+        },
+        {
+          "literal": "15 AEs",
+          "kind": "count",
+          "char_offset": 467,
+          "verdict": "absent"
+        },
+        {
+          "literal": "£15",
+          "kind": "money",
+          "char_offset": 538,
+          "verdict": "absent"
+        },
+        {
+          "literal": "40,000 seats",
+          "kind": "count",
+          "char_offset": 560,
+          "verdict": "absent"
+        },
+        {
+          "literal": "£7.2m",
+          "kind": "money",
+          "char_offset": 583,
+          "verdict": "absent"
+        },
+        {
+          "literal": "100%",
+          "kind": "percent",
+          "char_offset": 611,
+          "verdict": "absent"
+        },
+        {
+          "literal": "25%",
+          "kind": "percent",
+          "char_offset": 637,
+          "verdict": "absent"
+        },
+        {
+          "literal": "£1.8m",
+          "kind": "money",
+          "char_offset": 670,
+          "verdict": "prose_only"
+        },
+        {
+          "literal": "4 engineers",
+          "kind": "count",
+          "char_offset": 695,
+          "verdict": "absent"
+        },
+        {
+          "literal": "6 months",
+          "kind": "count",
+          "char_offset": 711,
+          "verdict": "absent"
+        },
+        {
+          "literal": "6 engineers",
+          "kind": "count",
+          "char_offset": 749,
+          "verdict": "prose_only"
+        },
+        {
+          "literal": "8 months",
+          "kind": "count",
+          "char_offset": 765,
+          "verdict": "prose_only"
+        },
+        {
+          "literal": "£3 ",
+          "kind": "money",
+          "char_offset": 920,
+          "verdict": "absent"
+        },
+        {
+          "literal": "60%",
+          "kind": "percent",
+          "char_offset": 1185,
+          "verdict": "absent"
+        },
+        {
+          "literal": "9 years",
+          "kind": "count",
+          "char_offset": 1231,
+          "verdict": "absent"
+        },
+        {
+          "literal": "30%",
+          "kind": "percent",
+          "char_offset": 1395,
+          "verdict": "absent"
+        },
+        {
+          "literal": "10 engineers",
+          "kind": "count",
+          "char_offset": 1519,
+          "verdict": "absent"
+        },
+        {
+          "literal": "12 months",
+          "kind": "count",
+          "char_offset": 1533,
+          "verdict": "absent"
+        },
+        {
+          "literal": "12 months",
+          "kind": "count",
+          "char_offset": 1818,
+          "verdict": "absent"
+        },
+        {
+          "literal": "£2m",
+          "kind": "money",
+          "char_offset": 1917,
+          "verdict": "absent"
+        },
+        {
+          "literal": "£1.2m",
+          "kind": "money",
+          "char_offset": 1967,
+          "verdict": "absent"
+        },
+        {
+          "literal": "14 May 2027",
+          "kind": "date",
+          "char_offset": 2099,
+          "verdict": "absent"
+        },
+        {
+          "literal": "25%",
+          "kind": "percent",
+          "char_offset": 2264,
+          "verdict": "absent"
+        },
+        {
+          "literal": "10%",
+          "kind": "percent",
+          "char_offset": 2345,
+          "verdict": "absent"
+        },
+        {
+          "literal": "£700k",
+          "kind": "money",
+          "char_offset": 2353,
+          "verdict": "absent"
+        },
+        {
+          "literal": "£1.8m",
+          "kind": "money",
+          "char_offset": 2377,
+          "verdict": "prose_only"
+        }
+      ]
+    },
+    "declared_exclusions": {
+      "status": "none_reported",
+      "items": []
+    },
+    "not_tracked": [
+      "competing_or_dissenting_proposals",
+      "corrections_and_second_thoughts",
+      "named_evidence_sources_and_their_pedigree",
+      "qualitative_constraints_and_rules",
+      "stated_confidence_and_self_flagged_weakness",
+      "statements_the_drafting_model_did_not_report_discarding"
+    ]
+  }
+}
