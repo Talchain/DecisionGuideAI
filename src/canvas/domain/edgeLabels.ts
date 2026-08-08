@@ -5,7 +5,7 @@
  * Uses British English and plain language to make edges accessible to non-technical users.
  */
 
-import type { EdgeDirectionDisplay } from './edgeValueProvenance'
+import type { EdgeDirectionDisplay, EdgeValueDisplay } from './edgeValueProvenance'
 
 export type EdgeLabelMode = 'human' | 'numeric'
 
@@ -50,9 +50,9 @@ export interface EdgeDescription {
 }
 
 /**
- * Describe an edge in human-readable terms based on weight and belief
+ * Describe an edge in human-readable terms based on strength and belief
  *
- * Weight scale:
+ * Weight scale (applied to the RESOLVED strength's magnitude):
  * - Strong: |w| >= 0.7
  * - Moderate: 0.3 <= |w| < 0.7
  * - Weak: |w| < 0.3
@@ -62,6 +62,42 @@ export interface EdgeDescription {
  * - Medium: 60% <= b < 80%
  * - Low: b < 60%
  * - Undefined: treat as uncertain
+ *
+ * ⚠⚠ THE STRENGTH IS A RESOLVED DISPLAY, NOT A RAW NUMBER (ROADMAP 2.950).
+ * ------------------------------------------------------------------------
+ * The direction gate below (2.935) closed one clause of this string and left
+ * the other open: `StyledEdge` passed `edgeData?.weight ?? 0.5`, and the edge
+ * defaults (`DEFAULT_EDGE_DATA.weight = 0.5`, `USER_EDGE_DEFAULTS.weight =
+ * 0.3`) define `weight` on every edge whether anyone set it or not. So an edge
+ * whose strength NOBODY characterised read "Moderate effect, direction not
+ * stated" — the direction half refusing to claim while the strength half
+ * asserted a band derived from a UI constant.
+ *
+ * The parameter is now a required `EdgeValueDisplay`, resolved by
+ * `resolveEdgeSignedStrengthDisplay` — the SAME resolver that already gates
+ * this component's stroke width — for the same reason the direction parameter
+ * is an `EdgeDirectionDisplay`: there is no argument that means "0.5, source
+ * unknown", so a defaulted number cannot produce a band adjective by accident
+ * and cannot be forgotten.
+ *
+ * When the strength resolves `show: false`, the value inside is used for
+ * NOTHING — not the band, not the tooltip number. When it resolves `show:
+ * true`, only its MAGNITUDE is read, exactly as `weight` before it: the sign
+ * of `resolveEdgeSignedStrengthDisplay`'s value is NOT a direction claim (its
+ * header forbids reading it as one, in capitals) — the direction argument
+ * remains the one owner of that word.
+ *
+ * COPY (ratified, ROADMAP 2.950): when NEITHER strength nor direction is set,
+ * the label reuses the hover popover's existing vocabulary — "Strength and
+ * likelihood not set" (`edge-hover-popover-unset` in `StyledEdge`) — one
+ * phrase for one concept, no new copy. When exactly one half has provenance,
+ * that half speaks and the other says only that it was not set.
+ * NOTE the two surfaces gate the same sentence on slightly different pairs:
+ * the popover fires it on (strength unset AND likelihood unset) because it has
+ * no direction line; this label fires it on (strength unset AND direction
+ * unset) because `belief` — its only likelihood channel — is a raw legacy
+ * field with no provenance marker to consult. Both remain silent about the
+ * legacy `belief` value, which the tooltip still reports honestly.
  *
  * ⚠⚠ THE DIRECTION IS AN ARGUMENT, NOT AN INFERENCE (ROADMAP 2.935, Codex MF5).
  * ----------------------------------------------------------------------------
@@ -105,20 +141,36 @@ export interface EdgeDescription {
  * British English spelling throughout
  */
 export function describeEdge(
-  weight: number,
+  strength: EdgeValueDisplay,
   belief: number | undefined,
   direction: EdgeDirectionDisplay,
 ): EdgeDescription {
-  const absWeight = Math.abs(weight)
+  // The magnitude this label is entitled to speak about — null when nothing
+  // proves anyone set a strength. See the header: the display's value is used
+  // for NOTHING in that case.
+  const absWeight = strength.show ? Math.abs(strength.value) : null
 
-  // Categorize strength
-  let strength: 'strong' | 'moderate' | 'weak'
-  if (absWeight >= 0.7) {
-    strength = 'strong'
-  } else if (absWeight >= 0.3) {
-    strength = 'moderate'
+  let claim: string
+  if (absWeight !== null) {
+    // Categorize strength
+    const strengthLabel = absWeight >= 0.7 ? 'Strong' : absWeight >= 0.3 ? 'Moderate' : 'Weak'
+    // Absence stays absence: name the magnitude, and say plainly that the
+    // direction was never stated rather than picking one.
+    claim = direction.show
+      ? `${strengthLabel} ${direction.direction === 'positive' ? 'boost' : 'drag'}`
+      : `${strengthLabel} effect, direction not stated`
+  } else if (!direction.show) {
+    // Neither half has provenance: the ratified popover copy, unqualified —
+    // there is no claim for the belief channel to qualify.
+    return {
+      label: 'Strength and likelihood not set',
+      tooltip: buildWeightTooltip(null, belief, direction),
+    }
   } else {
-    strength = 'weak'
+    // Direction stated, strength not set: the stated half speaks, the unset
+    // half says so — same clause shape as the direction arm above, same
+    // "not set" vocabulary as the popover and the tooltip below.
+    claim = `${direction.direction === 'positive' ? 'Boost' : 'Drag'}, strength not set`
   }
 
   // Categorize confidence (if belief is provided)
@@ -134,14 +186,6 @@ export function describeEdge(
   } else {
     confidence = 'uncertain'
   }
-
-  // Build human-readable label
-  const strengthLabel = strength === 'strong' ? 'Strong' : strength === 'moderate' ? 'Moderate' : 'Weak'
-  // Absence stays absence: name the magnitude, and say plainly that the
-  // direction was never stated rather than picking one.
-  const claim = direction.show
-    ? `${strengthLabel} ${direction.direction === 'positive' ? 'boost' : 'drag'}`
-    : `${strengthLabel} effect, direction not stated`
 
   // Add confidence qualifier if belief is low or missing
   let label: string
@@ -159,14 +203,20 @@ export function describeEdge(
  * lives once. The minus sign is a DIRECTION CLAIM and is printed only when the
  * direction was stated; an unstated direction prints the bare magnitude, which
  * is all we are entitled to say about it.
+ *
+ * `absWeight: null` means NO SET STRENGTH (ROADMAP 2.950): the tooltip prints
+ * "not set" — the same vocabulary its own belief clause has always used — and
+ * no sign, because the minus decorates a number and there is no number.
  */
 function buildWeightTooltip(
-  absWeight: number,
+  absWeight: number | null,
   belief: number | undefined,
   direction: EdgeDirectionDisplay,
 ): string {
   const beliefText = belief !== undefined ? `${Math.round(belief * 100)}%` : 'not set'
-  return `Weight: ${signPrefix(direction)}${absWeight.toFixed(2)}, Belief: ${beliefText}`
+  const weightText =
+    absWeight !== null ? `${signPrefix(direction)}${absWeight.toFixed(2)}` : 'not set'
+  return `Weight: ${weightText}, Belief: ${beliefText}`
 }
 
 /** '−' (U+2212 MINUS SIGN) only for a STATED negative direction; '' otherwise. */
@@ -178,34 +228,41 @@ function signPrefix(direction: EdgeDirectionDisplay): string {
  * Format edge label in numeric format (legacy)
  * Example: "w −0.60 • b 85%"
  *
- * Same gate as `describeEdge`, for the same reason: the leading minus is a
- * direction claim, and `weight` reaches here as an unsigned magnitude. Before
- * ROADMAP 2.935 this printed `w 0.35` for an edge whose CEE mean was −0.35 —
- * the numeric channel did not invert the claim, it silently DELETED it.
+ * Same gates as `describeEdge`, for the same reasons:
+ * - the leading minus is a direction claim, and the magnitude reaches here
+ *   unsigned. Before ROADMAP 2.935 this printed `w 0.35` for an edge whose CEE
+ *   mean was −0.35 — the numeric channel did not invert the claim, it silently
+ *   DELETED it.
+ * - the number itself is a strength claim (ROADMAP 2.950). Before the gate
+ *   this printed `w 0.50` — the `DEFAULT_EDGE_DATA` constant, verbatim — for an
+ *   edge whose strength nobody set. An unset strength now prints `w not set`;
+ *   the sign gate is moot in that state because there is no number to sign.
  */
 export function formatNumericLabel(
-  weight: number,
+  strength: EdgeValueDisplay,
   belief: number | undefined,
   direction: EdgeDirectionDisplay,
 ): string {
-  const absWeight = Math.abs(weight)
-  const sign = signPrefix(direction)
+  const weightText = strength.show
+    ? `${signPrefix(direction)}${Math.abs(strength.value).toFixed(2)}`
+    : 'not set'
 
   if (belief !== undefined) {
-    return `w ${sign}${absWeight.toFixed(2)} • b ${Math.round(belief * 100)}%`
+    return `w ${weightText} • b ${Math.round(belief * 100)}%`
   }
 
-  return `w ${sign}${absWeight.toFixed(2)}`
+  return `w ${weightText}`
 }
 
 /**
  * Get the appropriate edge label based on current mode.
  *
- * `direction` sits BEFORE the optional `mode` so it cannot be omitted — the
- * whole point of the ROADMAP 2.935 gate. See `describeEdge`'s header.
+ * `strength` and `direction` sit BEFORE the optional `mode` so neither can be
+ * omitted — the whole point of the ROADMAP 2.935 + 2.950 gates. See
+ * `describeEdge`'s header.
  */
 export function getEdgeLabel(
-  weight: number,
+  strength: EdgeValueDisplay,
   belief: number | undefined,
   direction: EdgeDirectionDisplay,
   mode?: EdgeLabelMode,
@@ -213,12 +270,12 @@ export function getEdgeLabel(
   const actualMode = mode ?? getEdgeLabelMode()
 
   if (actualMode === 'numeric') {
-    const numericLabel = formatNumericLabel(weight, belief, direction)
+    const numericLabel = formatNumericLabel(strength, belief, direction)
     return {
       label: numericLabel,
       tooltip: numericLabel
     }
   }
 
-  return describeEdge(weight, belief, direction)
+  return describeEdge(strength, belief, direction)
 }

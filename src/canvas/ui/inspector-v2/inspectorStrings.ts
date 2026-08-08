@@ -140,11 +140,17 @@ export function getStrengthLabel(absValue: number): string {
   return 'Slight'
 }
 
-export function getStrengthDescription(signedValue: number): string {
-  const label = getStrengthLabel(Math.abs(signedValue))
-  const dir = signedValue >= 0 ? 'positive' : 'negative'
-  return `${label} ${dir}`
-}
+// `getStrengthDescription(signedValue)` — DELETED (ROADMAP 2.950). It built the
+// literal string "Strong positive" from `signedValue >= 0`, i.e. read a
+// DIRECTION CLAIM off the sign of a number `resolveEdgeSignedStrengthDisplay`
+// may have signed from a defaulted `direction` — the 2.263/2.935 defect class,
+// as a utility waiting for a caller. Verified at the bytes before removal: its
+// ONLY import was `edges/StyledEdge.tsx`, which never called it (the KNOWN
+// SURVIVORS list in `domain/edgeValueProvenance.ts` recorded it as rendered;
+// that entry was stale and is corrected in the same change). If you need a
+// directional strength sentence, use `getDirectionalStrengthLabel`
+// (`components/model-tab/strengthBands.ts`), which takes a resolved
+// `EdgeDirectionDisplay` and cannot fabricate the direction.
 
 // ─── Empty states (DS v4 §16) ──────────────────────────────────────
 export const EMPTY_STATES = {
