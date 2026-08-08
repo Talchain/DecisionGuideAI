@@ -561,7 +561,25 @@ export function formatConfidence(confidence: number | undefined): string {
  * D.1: Compute signed strength mean from edge data (domain-level).
  *
  * Priority: strength_mean (already signed) > weight + direction (legacy).
- * Used for visual encoding (stroke width) — not for adapter payloads.
+ *
+ * ⚠ THE FALLBACK FABRICATES (ROADMAP 2.954): `weight` defaults to 0.5 on
+ * every edge and the sign falls through `direction === 'negative' ? -1 : 1`,
+ * so on an edge nobody characterised this returns `+0.5` — a constant wearing
+ * a sign. NO DISPLAY SURFACE may render this value or read its sign as a
+ * direction; displays go through `resolveEdgeSignedStrengthDisplay` /
+ * `resolveEdgeDirectionDisplay` (or, for the causal lens,
+ * `resolveCausalLensEdgeParams`) in ./edgeValueProvenance.ts.
+ *
+ * Caller manifest, verified at the bytes 2026-08-08 (re-derive, don't trust):
+ *   · nodes/shared/EdgePills.tsx — the ONE remaining display caller, and it
+ *     gates on `isEdgeValueSet(data, 'weight')` BEFORE calling (its
+ *     sign→direction read is a listed KNOWN SURVIVOR, rowed).
+ *   · The causal lens (useLensFilter) called this raw — the 2.954 defect —
+ *     and now routes through `resolveCausalLensEdgeParams`.
+ *   · useScienceIcons imported it with zero call sites — import deleted.
+ * The same-named functions in adapters/islRequestAdapter.ts and
+ * adapters/plot/v2/adapter.ts are SEPARATE wire-path functions (adapters
+ * legitimately need a number for every edge), not callers of this one.
  */
 export function computeSignedMean(
   data: Record<string, unknown> | undefined,

@@ -533,6 +533,12 @@ export function resolveEdgeSignedStrengthDisplay(
     //   · inspector-v2/shared/ConnectionRow.tsx:99   bar tone `signedValue >= 0 ? 'bg-success' : 'bg-danger'`
     //   · inspector-v2/shared/ConnectionRow.tsx:106  `signedValue > 0 ? '+' : ''`
     //   · inspector-v2/shared/ConnectionRow.tsx:110  `signedValue >= 0 ? '+' : '−'`
+    //   · ~~the causal lens~~ — GATED (ROADMAP 2.954). It was never on this
+    //     list because it did not read THIS function's sign: it rendered
+    //     `computeSignedMean` directly (a third signing function) through
+    //     `useLensFilter` → `causalEdgeParams`. It now routes through
+    //     `resolveCausalLensEdgeParams` below, which refuses both the number
+    //     and the sign independently.
     // Each reads a direction off a number this function may have signed from a
     // defaulted `direction` — the same defect the Model tab just had, on the
     // canvas and inspector surfaces. They need the same `EdgeDirectionDisplay`
@@ -542,6 +548,69 @@ export function resolveEdgeSignedStrengthDisplay(
     return { show: true, value: sign * data.weight, source }
   }
   return { show: false, reason: 'absent' }
+}
+
+/**
+ * What the CAUSAL LENS may say about one edge — all four channels, resolved.
+ *
+ * ROADMAP 2.954, the LAST raw-signed channel in the #625 → #627 (2.935) →
+ * #629 (2.950) edge-label honesty family. The lens (`useLensFilter`'s causal
+ * arm → `StyledEdge`'s causal label/stroke, `LensInfoPanel`'s table) rendered
+ * `computeSignedMean(edgeData)` — a THIRD signing function beside the two the
+ * family had already gated. On an edge whose producer declined a direction
+ * (`effect_direction: 'unknown'` — ingestion strips the key, leaving an
+ * unstamped fallback `direction`) it printed a signed number and a danger-red
+ * stroke the producer refused to state; on a fully-defaulted edge it printed
+ * `+0.50` — `DEFAULT_EDGE_DATA.weight`, signed by the `'negative' ? -1 : 1`
+ * fallback — plus a fabricated std (0.15) and exists probability (0.8) from
+ * `USER_EDGE_DEFAULTS`.
+ *
+ * SHAPE RULES (each field refuses independently — refusing the number is not
+ * refusing the direction):
+ *   · `magnitude` — |strength| via `resolveEdgeSignedStrengthDisplay`; null
+ *     when nothing proves anyone set a strength. Always non-negative: the
+ *     resolver's sign is NOT a direction claim (its header forbids reading it
+ *     as one, in capitals) and must not leak through this seam.
+ *   · `direction` — the STATED direction via `resolveEdgeDirectionDisplay`;
+ *     null for unset / declined / unrecognised. The sign glyph and the
+ *     danger-red stroke are direction claims and render ONLY from this field.
+ *   · `std` / `existsProb` — via `resolveEdgeValueDisplay`; null when
+ *     defaulted or absent. The lens surfaces already have absent forms for
+ *     these (label span omitted; table em dash) — refusal reuses them.
+ *
+ * The legacy raw `mean` field is deliberately GONE from this shape: a stale
+ * consumer reading `.mean` breaks at the type level instead of silently
+ * reading a fabricated sign (the fail-loud rename, trap 12).
+ *
+ * NOT FOR WIRE PAYLOADS — same boundary as `EdgeValueDisplay` above: the
+ * adapters legitimately need a number for every edge and keep their own
+ * `computeSignedMean`s.
+ */
+export interface CausalLensEdgeParams {
+  /** |strength| when provenance-set; null = nobody set one (refuse the number). */
+  magnitude: number | null
+  /** The STATED direction only; null = unstated/declined (refuse sign and colour). */
+  direction: 'positive' | 'negative' | null
+  /** Parametric uncertainty when provenance-set; null otherwise. */
+  std: number | null
+  /** Exists probability when provenance-set; null otherwise. */
+  existsProb: number | null
+}
+
+/** Resolve every causal-lens channel for one edge — THE lens read-side gate. */
+export function resolveCausalLensEdgeParams(
+  data: Record<string, unknown> | undefined | null,
+): CausalLensEdgeParams {
+  const strength = resolveEdgeSignedStrengthDisplay(data)
+  const direction = resolveEdgeDirectionDisplay(data)
+  const std = resolveEdgeValueDisplay(data, 'strengthStd')
+  const exists = resolveEdgeValueDisplay(data, 'beliefExists')
+  return {
+    magnitude: strength.show ? Math.abs(strength.value) : null,
+    direction: direction.show ? direction.direction : null,
+    std: std.show ? std.value : null,
+    existsProb: exists.show ? exists.value : null,
+  }
 }
 
 /**

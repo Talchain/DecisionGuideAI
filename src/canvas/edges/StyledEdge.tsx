@@ -33,6 +33,7 @@ import {
   resolveEdgeDirectionDisplay,
   compareEdgeValueDisplays,
   type EdgeValueDisplay,
+  type CausalLensEdgeParams,
 } from '../domain/edgeValueProvenance'
 import { useIsDark } from '../hooks/useTheme'
 import { getEdgeLabel } from '../domain/edgeLabels'
@@ -123,7 +124,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           lensSensWeight: null as number | null,
           lensQ25: null as number | null, lensQ75: null as number | null,
           isLensFragile: false, isLensHidden: false,
-          causalEdgeParams: null as { mean: number; std: number | null; existsProb: number | null } | null,
+          causalEdgeParams: null as CausalLensEdgeParams | null,
           evidenceEdgeClass: null as string | null,
           lensHiddenNodeIds: EMPTY_ID_SET,
           lensHiddenEdgeIds: EMPTY_ID_SET,
@@ -725,9 +726,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             const base = (() => {
             // Structural edges: fixed 1px regardless of lens / hover / highlight
             if (isStructuralEdge) return 1
-            // Causal lens: thickness encodes |strength.mean|
+            // Causal lens: thickness encodes the PROVENANCE-SET strength
+            // magnitude (ROADMAP 2.954). An unset strength draws at the floor
+            // width — the same refusal the non-lens stroke (:286) makes — so
+            // thickness never reports the `weight` default as a measurement.
             if (lensMode === 'causal' && causalEdgeParams) {
-              return weightMagnitudeToStrokeWidth(causalEdgeParams.mean)
+              return causalEdgeParams.magnitude !== null
+                ? weightMagnitudeToStrokeWidth(causalEdgeParams.magnitude)
+                : UNSET_EDGE_STROKE_WIDTH
             }
             // Evidence lens: uniform thickness (not importance-weighted)
             if (lensMode === 'evidence') return 1.5
@@ -768,9 +774,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           stroke: (() => {
             // Structural edges: fixed grey regardless of lens / highlight
             if (isStructuralEdge) return STRUCTURAL_EDGE_COLOUR
-            // Causal lens: neutral colour, danger for negative edges
+            // Causal lens: neutral colour; danger ONLY for a STATED negative
+            // (ROADMAP 2.954). Danger-red is a direction claim, so it renders
+            // from the resolved direction — never from the sign of a mean the
+            // UI itself may have fabricated (`effect_direction: 'unknown'`
+            // edges used to draw red here off the fallback sign).
             if (lensMode === 'causal' && causalEdgeParams) {
-              return causalEdgeParams.mean < 0 ? 'var(--semantic-danger, #ef4444)' : 'var(--text-body, #3F3F3E)'
+              return causalEdgeParams.direction === 'negative' ? 'var(--semantic-danger, #ef4444)' : 'var(--text-body, #3F3F3E)'
             }
             // Evidence lens: colour by provenance classification
             if (lensMode === 'evidence' && evidenceEdgeClass) {
@@ -845,7 +855,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             className="bg-panel text-text-body border border-panel-border shadow-sm"
             data-testid="causal-edge-label"
           >
-            {causalEdgeParams.mean >= 0 ? '+' : ''}{causalEdgeParams.mean.toFixed(2)}
+            {/* ROADMAP 2.954 — the number is a strength claim, the sign a
+                direction claim, and each renders only from its own resolved
+                channel. Unset strength: the numeric channel's ratified "not
+                set" (#629), never the `+0.50` default this label used to
+                print. Unstated direction: bare magnitude, no sign character.
+                '−' is U+2212, matching `formatNumericLabel`'s sign. */}
+            {causalEdgeParams.magnitude !== null
+              ? `${causalEdgeParams.direction === 'positive' ? '+' : causalEdgeParams.direction === 'negative' ? '−' : ''}${causalEdgeParams.magnitude.toFixed(2)}`
+              : 'not set'}
             {causalEdgeParams.existsProb !== null && (
               <span style={{ color: 'var(--text-light, #6E6B6B)' }}>
                 {' '}({Math.round(causalEdgeParams.existsProb * 100)}%)
