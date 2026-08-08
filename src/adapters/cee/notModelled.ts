@@ -58,12 +58,44 @@ export interface DeclaredExclusions {
   readonly items: readonly string[]
 }
 
+/** A factor carrying a figure the user never stated — the product supplied it. */
+export interface InferredFactor {
+  readonly nodeId: string
+  /** The human label. Never the encoded value: CEE's own `display_value`
+   *  reads like "0.31 to 0.93" with no unit and means nothing to a reader. */
+  readonly label: string
+}
+
+export interface InferredFactors {
+  readonly status: 'derived' | 'not_recorded'
+  readonly items: readonly InferredFactor[]
+}
+
+function parseInferredFactors(raw: unknown): InferredFactors {
+  const o = asRecord(raw)
+  if (o === null || (o.status !== 'derived' && o.status !== 'not_recorded')) {
+    return { status: 'not_recorded', items: [] }
+  }
+  const items: InferredFactor[] = []
+  if (Array.isArray(o.items)) {
+    for (const r of o.items) {
+      const i = asRecord(r)
+      if (i === null) continue
+      if (typeof i.node_id !== 'string' || typeof i.label !== 'string') continue
+      if (i.label.length === 0) continue
+      items.push({ nodeId: i.node_id, label: i.label })
+    }
+  }
+  return { status: o.status, items }
+}
+
 export interface NotModelledManifest {
   readonly status: 'derived' | 'unavailable'
   readonly unavailableReason: string | null
   /** `null` whenever the manifest is not `derived`. Never a zeroed tally. */
   readonly quantities: NotModelledTally | null
   readonly declaredExclusions: DeclaredExclusions
+  readonly inferredFactors: InferredFactors
   /** Loss classes the derivation cannot observe. Always shown with findings. */
   readonly notTracked: readonly string[]
 }
@@ -137,6 +169,7 @@ export function parseNotModelled(raw: unknown): NotModelledManifest | null {
         typeof o.unavailable_reason === 'string' ? o.unavailable_reason : null,
       quantities: null,
       declaredExclusions: parseDeclaredExclusions(o.declared_exclusions),
+      inferredFactors: parseInferredFactors(o.inferred_factors),
       notTracked,
     }
   }
@@ -175,6 +208,7 @@ export function parseNotModelled(raw: unknown): NotModelledManifest | null {
       items,
     },
     declaredExclusions: parseDeclaredExclusions(o.declared_exclusions),
+    inferredFactors: parseInferredFactors(o.inferred_factors),
     notTracked,
   }
 }

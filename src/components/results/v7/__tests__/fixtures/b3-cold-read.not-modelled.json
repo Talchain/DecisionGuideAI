@@ -204,6 +204,39 @@
       "status": "none_reported",
       "items": []
     },
+    "inferred_factors": {
+      "status": "derived",
+      "items": [
+        {
+          "node_id": "fac_budget",
+          "label": "Available Strategic Budget"
+        },
+        {
+          "node_id": "fac_copilot_build",
+          "label": "AI Copilot Investment"
+        },
+        {
+          "node_id": "fac_eng_capacity",
+          "label": "Engineering Capacity Allocated"
+        },
+        {
+          "node_id": "fac_legal_clearance",
+          "label": "Data Processing Legal Clearance"
+        },
+        {
+          "node_id": "fac_llm_cost",
+          "label": "LLM Serving Cost per Seat"
+        },
+        {
+          "node_id": "fac_market_window",
+          "label": "Competitive Market Window"
+        },
+        {
+          "node_id": "fac_rewrite_build",
+          "label": "Platform Rewrite Investment"
+        }
+      ]
+    },
     "not_tracked": [
       "competing_or_dissenting_proposals",
       "corrections_and_second_thoughts",

@@ -225,6 +225,31 @@
         "Dana's across-the-board RIF option — excluded because the brief frames it as ruled out by the redundancy constraint and CEO position, so it does not add decision value"
       ]
     },
+    "inferred_factors": {
+      "status": "derived",
+      "items": [
+        {
+          "node_id": "fac_automation_scale",
+          "label": "Automation Deployment Scale"
+        },
+        {
+          "node_id": "fac_change_saturation",
+          "label": "Organisational Change Saturation"
+        },
+        {
+          "node_id": "fac_iso_risk",
+          "label": "ISO 27001 Compliance Risk (Offshoring)"
+        },
+        {
+          "node_id": "fac_office_closure",
+          "label": "Leeds Office Closure"
+        },
+        {
+          "node_id": "fac_vendor_pricing",
+          "label": "Automation Vendor Pricing at Renewal"
+        }
+      ]
+    },
     "not_tracked": [
       "competing_or_dissenting_proposals",
       "corrections_and_second_thoughts",

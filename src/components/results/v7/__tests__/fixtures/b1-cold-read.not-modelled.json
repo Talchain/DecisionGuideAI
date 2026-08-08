@@ -189,6 +189,47 @@
         "A 'pilot sponsor revenue' node was considered but the brief does not give enough detail to distinguish it cleanly from Germany New Logo Pipeline"
       ]
     },
+    "inferred_factors": {
+      "status": "derived",
+      "items": [
+        {
+          "node_id": "fac_bafin_complexity",
+          "label": "BaFin Licensing Complexity"
+        },
+        {
+          "node_id": "fac_cash_runway",
+          "label": "Cash Runway"
+        },
+        {
+          "node_id": "fac_competitive_window",
+          "label": "Germany Competitive Window"
+        },
+        {
+          "node_id": "fac_germany_direct",
+          "label": "Direct Germany Market Entry"
+        },
+        {
+          "node_id": "fac_localisation_cost",
+          "label": "Engineering Localisation Cost"
+        },
+        {
+          "node_id": "fac_nrr",
+          "label": "Net Revenue Retention"
+        },
+        {
+          "node_id": "fac_partner_entry",
+          "label": "Germany Partner Channel Activation"
+        },
+        {
+          "node_id": "fac_uk_depth",
+          "label": "UK Market Depth Investment"
+        },
+        {
+          "node_id": "fac_uk_saturation",
+          "label": "UK Market Saturation"
+        }
+      ]
+    },
     "not_tracked": [
       "competing_or_dissenting_proposals",
       "corrections_and_second_thoughts",

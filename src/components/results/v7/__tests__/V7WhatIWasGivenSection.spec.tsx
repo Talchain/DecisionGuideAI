@@ -146,9 +146,9 @@ describe('what I used — the verdicts, bound by identity', () => {
     // The group is truncated by default (progressive disclosure), so reveal it
     // first. Asserting without this would pass or fail on list POSITION rather
     // than on the verdict under test.
-    fireEvent.click(screen.getByTestId('what-i-was-given-absent-show-all'))
+    fireEvent.click(screen.getByTestId('what-i-was-given-notyet-show-all'))
 
-    const group = screen.getByTestId('what-i-was-given-absent')
+    const group = screen.getByTestId('what-i-was-given-notyet')
     // Identity binding: the row is found by its char offset in the brief, not
     // by matching text a different quantity could also produce (trap 19).
     const offset = cold.brief_text.indexOf(B1_DROPPED_NRR)
@@ -163,15 +163,15 @@ describe('what I used — the verdicts, bound by identity', () => {
     render(<V7WhatIWasGivenSection />)
     openPanel()
 
-    fireEvent.click(screen.getByTestId('what-i-was-given-absent-show-all'))
+    fireEvent.click(screen.getByTestId('what-i-was-given-notyet-show-all'))
 
     const capOffset = cold.brief_text.indexOf(B1_KEPT_CAP)
     expect(
-      screen.getByTestId('what-i-was-given-absent').querySelector(`[data-char-offset="${capOffset}"]`),
+      screen.getByTestId('what-i-was-given-notyet').querySelector(`[data-char-offset="${capOffset}"]`),
       'the surviving cap must NOT appear in the absent group',
     ).toBeNull()
     expect(
-      screen.getByTestId('what-i-was-given-kept').querySelector(`[data-char-offset="${capOffset}"]`),
+      screen.getByTestId('what-i-was-given-used').querySelector(`[data-char-offset="${capOffset}"]`),
     ).not.toBeNull()
   })
 
@@ -179,7 +179,7 @@ describe('what I used — the verdicts, bound by identity', () => {
     seedFrom(b1Fixture as never)
     render(<V7WhatIWasGivenSection />)
     const summary = screen.getByTestId('what-i-was-given-summary')
-    expect(summary.textContent).toMatch(/\d+ of \d+ figures you stated are not in the model/)
+    expect(summary.textContent).toMatch(/\d+ of \d+ figures you mentioned aren't in the model yet/)
   })
 })
 
@@ -193,7 +193,7 @@ describe("the model's own declared exclusions — the sharpest loss class", () =
     render(<V7WhatIWasGivenSection />)
     openPanel()
 
-    const list = screen.getByTestId('what-i-was-given-declared')
+    const list = screen.getByTestId('what-i-was-given-considered')
     expect(list.textContent).toContain(B2_DANA)
     // Verbatim: the model's reason travels with the claim, not our paraphrase.
     expect(list.textContent).toContain('excluded because')
@@ -208,11 +208,150 @@ describe("the model's own declared exclusions — the sharpest loss class", () =
     render(<V7WhatIWasGivenSection />)
     openPanel()
 
-    expect(screen.queryByTestId('what-i-was-given-declared')).toBeNull()
-    const note = screen.getByTestId('what-i-was-given-declared-unknown')
-    expect(note.textContent).toContain('not the same as leaving nothing out')
-    // ...while the figure half is still reporting heavy loss on this brief.
-    expect(screen.getByTestId('what-i-was-given-absent')).toBeInTheDocument()
+    expect(screen.queryByTestId('what-i-was-given-considered')).toBeNull()
+    // ...while the figure half still shows a great deal unmodelled on this
+    // brief, so the empty considered-list cannot read as a clean draft.
+    expect(screen.getByTestId('what-i-was-given-notyet')).toBeInTheDocument()
+    expect(screen.getByTestId('what-i-was-given-summary').textContent).toMatch(
+      /2[0-9] of 28 figures you mentioned aren't in the model yet/,
+    )
+  })
+})
+
+describe('what I estimated — the trust-critical answer', () => {
+  it("names the factors the product supplied a figure for, bound by node id", () => {
+    // B1's Net Revenue Retention is the trace's SEVERE case: the user stated
+    // 112%, the value was dropped, and the factor then topped the influence
+    // ranking on a maximum-width prior. Whatever the node's provenance LABEL
+    // says, the product supplied that figure — and the user is entitled to see
+    // which numbers are ours.
+    seedFrom(b1Fixture as never)
+    render(<V7WhatIWasGivenSection />)
+    openPanel()
+
+    const group = screen.getByTestId('what-i-was-given-estimated')
+    expect(group.querySelector('[data-node-id="fac_nrr"]')).not.toBeNull()
+    expect(group.querySelector('[data-node-id="fac_cash_runway"]')).not.toBeNull()
+    expect(group.textContent).toContain('Net Revenue Retention')
+  })
+
+  it('shows the human label, never the unitless encoded value', () => {
+    // CEE's own `display_value` for these reads "0.31 to 0.93" — a number with
+    // no unit, which the trace found meaningless to a user. Rendering it would
+    // import the defect into the surface built to expose it.
+    seedFrom(b1Fixture as never)
+    render(<V7WhatIWasGivenSection />)
+    openPanel()
+
+    const group = screen.getByTestId('what-i-was-given-estimated')
+    expect(group.textContent).not.toContain('0.31 to 0.93')
+    expect(group.textContent).not.toContain('0.5 to 1')
+  })
+
+  it('offers NO action here — there is no honest one-click fix for an estimate', () => {
+    const onSendMessage = vi.fn()
+    seedFrom(b1Fixture as never)
+    render(<V7WhatIWasGivenSection onSendMessage={onSendMessage} />)
+    openPanel()
+
+    const group = screen.getByTestId('what-i-was-given-estimated')
+    expect(group.querySelectorAll('button')).toHaveLength(0)
+  })
+})
+
+describe('actionable where honest', () => {
+  it('an unmodelled figure can be added, and the message names that figure', () => {
+    const onSendMessage = vi.fn()
+    seedFrom(b1Fixture as never)
+    render(<V7WhatIWasGivenSection onSendMessage={onSendMessage} />)
+    openPanel()
+
+    const cold = coldReadOf(b1Fixture as never)
+    const offset = cold.brief_text.indexOf(B1_DROPPED_ARR)
+    const row = screen
+      .getByTestId('what-i-was-given-notyet')
+      .querySelector(`[data-char-offset="${offset}"]`)
+    expect(row, `row for ${B1_DROPPED_ARR}`).not.toBeNull()
+
+    fireEvent.click(row!.querySelector('[data-testid="what-i-was-given-notyet-add"]')!)
+    expect(onSendMessage).toHaveBeenCalledTimes(1)
+    // Bound to the item by identity: the message must name THIS figure.
+    expect(onSendMessage.mock.calls[0][0]).toContain(B1_DROPPED_ARR)
+  })
+
+  it('renders NO action when there is no handler — never a button that does nothing', () => {
+    seedFrom(b1Fixture as never)
+    render(<V7WhatIWasGivenSection />)
+    openPanel()
+    expect(
+      screen.getByTestId('what-i-was-given-notyet').querySelectorAll('[data-testid$="-add"]'),
+    ).toHaveLength(0)
+  })
+})
+
+describe('THE REGISTER — product, not diagnostics', () => {
+  // A corpus check, deliberately hand-written and adversarial rather than
+  // derived from the component: a derived list would only ever contain words
+  // the component already uses, which is the guard agreeing with itself.
+  const PIPELINE_VOCABULARY = [
+    'extractionType',
+    'brief_extraction',
+    'ai_inferred',
+    'from_brief',
+    'provenance',
+    'fallback_default',
+    'factor_value_coverage',
+    'not_modelled',
+    'prose_only',
+    'in_model',
+    'widening_log',
+    'node_id',
+    'schema',
+    'manifest',
+    'pipeline',
+    'CEE',
+  ]
+  const ALARMING = ['dropped', 'lost', 'discarded', 'failed', 'error', 'missing', 'ignored']
+
+  it.each([
+    ['B1', b1Fixture],
+    ['B2', b2Fixture],
+    ['B3', b3Fixture],
+  ])('%s: no pipeline vocabulary and no alarming language reaches the screen', (_name, fixture) => {
+    seedFrom(fixture as never)
+    const { container } = render(<V7WhatIWasGivenSection onSendMessage={() => {}} />)
+    openPanel()
+    // Reveal every truncated group so hidden rows are covered too.
+    for (const b of Array.from(container.querySelectorAll('[data-testid$="-show-all"]'))) {
+      fireEvent.click(b)
+    }
+
+    // The brief is the USER'S OWN WORDS and is quoted verbatim — it is not ours
+    // to police, so it is excluded from the copy corpus.
+    const brief = screen.queryByTestId('what-i-was-given-brief')
+    brief?.remove()
+    // The considered-list is the MODEL'S own sentences, carried verbatim for
+    // provenance; paraphrasing them would put our words in its mouth.
+    screen.queryByTestId('what-i-was-given-considered')?.remove()
+
+    const text = (container.textContent ?? '').toLowerCase()
+    expect(text.length, 'the panel must actually have rendered copy').toBeGreaterThan(80)
+    for (const term of PIPELINE_VOCABULARY) {
+      expect(text, `pipeline vocabulary on screen: ${term}`).not.toContain(term.toLowerCase())
+    }
+    for (const term of ALARMING) {
+      expect(text, `alarming language on screen: ${term}`).not.toContain(term)
+    }
+  })
+
+  it('frames the gap as "not yet", an invitation rather than a verdict', () => {
+    seedFrom(b1Fixture as never)
+    render(<V7WhatIWasGivenSection />)
+    expect(screen.getByTestId('what-i-was-given-summary').textContent).toContain(
+      "aren't in the model yet",
+    )
+    openPanel()
+    expect(screen.getByText('Not modelled yet')).toBeInTheDocument()
   })
 })
 
@@ -222,9 +361,9 @@ describe('the caveat travels with the findings', () => {
     render(<V7WhatIWasGivenSection />)
     openPanel()
 
-    const caveat = screen.getByTestId('what-i-was-given-not-tracked')
-    expect(caveat.textContent).toContain("colleagues' competing proposals")
-    expect(caveat.textContent).toContain('corrections and second thoughts')
+    const caveat = screen.getByTestId('what-i-was-given-caveat')
+    expect(caveat.textContent).toContain("other people's suggestions")
+    expect(caveat.textContent).toContain('changes of mind')
   })
 })
 
@@ -281,7 +420,7 @@ describe('the parser refuses to vouch for what it cannot read', () => {
     })
     render(<V7WhatIWasGivenSection />)
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
-      'We cannot show what was left out',
+      "I can't show this yet",
     )
   })
 
@@ -306,17 +445,17 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
     render(<V7WhatIWasGivenSection />)
 
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
-      'We cannot show what was left out',
+      "I can't show this yet",
     )
     openPanel()
     expect(screen.getByTestId('what-i-was-given-unknown').textContent).toContain(
-      'nothing here should be read as "nothing was dropped"',
+      "don't read the absence as everything having made it in",
     )
     // The brief itself is still shown — the raw material is not in doubt.
     expect(screen.getByTestId('what-i-was-given-brief')).toBeInTheDocument()
     // And no findings groups exist to be mistaken for a clean bill of health.
-    expect(screen.queryByTestId('what-i-was-given-absent')).toBeNull()
-    expect(screen.queryByTestId('what-i-was-given-kept')).toBeNull()
+    expect(screen.queryByTestId('what-i-was-given-notyet')).toBeNull()
+    expect(screen.queryByTestId('what-i-was-given-used')).toBeNull()
   })
 
   it('an "unavailable" manifest renders as unknown, never as a zero tally', () => {
@@ -338,7 +477,7 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
     })
     render(<V7WhatIWasGivenSection />)
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
-      'We cannot show what was left out',
+      "I can't show this yet",
     )
   })
 
@@ -358,7 +497,7 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
     })
     render(<V7WhatIWasGivenSection />)
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
-      '0 of 0 figures you stated are not in the model',
+      "0 of 0 figures you mentioned aren't in the model yet",
     )
   })
 

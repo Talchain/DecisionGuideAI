@@ -88,7 +88,7 @@ export function V7TopMatter({
           arm the deployed flags switch off. This slot mounts on BOTH postures,
           so a flag move cannot make it disappear. It sits beside V7SharpenLine
           because that is the "what you told us" region of the panel. */}
-      <V7WhatIWasGivenSection />
+      <V7WhatIWasGivenSection onSendMessage={onSendMessage} />
       <V7Hero
         recommendation={recommendation}
         decisionState={decisionState}
