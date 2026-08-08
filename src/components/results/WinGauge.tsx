@@ -274,15 +274,45 @@ export function WinGauge({
   // (CLAUDE.md trap 12). So the readouts are built ONCE, here, and both
   // consumers read this array. There is no second call to the formatter.
   //
+  // ⭐⭐ ROADMAP 2.928 member (c) — AND THE ARM IS THE ONE THE DATA SUPPORTS.
+  //
+  // This passed a literal `null` as the sample count, which takes
+  // `formatProbabilityWithResolution`'s FALLBACK arm: `Math.round(v * 100)`.
+  // On a real staging run that printed **"100%"** in the legend for
+  // `win_probability = 0.9995` while the option card immediately below printed
+  // **"99.95%"** — one number, two claims, one screen, and the legend's is a
+  // certainty the simulation never measured. The bottom of the scale split the
+  // same way: "< 1%" here against "0.1%" on the card.
+  //
+  // The legend did NOT lack a sample count. `OptionWinShare.nValidSamples` has
+  // been declared since ROADMAP 2.334, `ResultsBody` populates it from the SAME
+  // `OptionResult.nValidSamples` the card reads, and the goal block twenty
+  // lines below already uses it. The count was in scope and simply unused — so
+  // the honest arm is the resolution arm, and the fix is to take it. Making the
+  // CARD drop to the rounding arm instead would delete a measurement this run
+  // supports and would spread the "100%" over-claim rather than remove it.
+  //
+  // EVERY comparative consumer reads `readoutById` below. The stacked segment's
+  // `aria-label` used to be a SECOND call to the formatter — which is how the
+  // screen-reader channel came to speak "100%" over a legend printing "99.95%".
+  // There is now exactly one evaluation per option, so the two cannot differ.
+  const comparativeEntries = sorted.map((share) => {
+    const clamped = Math.max(0, Math.min(1, share.winProbability))
+    return {
+      share,
+      clamped,
+      displayReadout: formatProbabilityWithResolution(clamped, share.nValidSamples),
+    }
+  })
+
+  /** The one comparative string per option, keyed by id. Total over `sorted`. */
+  const readoutById: Record<string, string> = {}
+  for (const entry of comparativeEntries) readoutById[entry.share.id] = entry.displayReadout
+
   // The `clamped <= 0` skip is the ROADMAP 2.236 rule, moved but unchanged: a
   // genuine zero is omitted from the legend, and it contributes zero to the
   // total, so omitting it cannot move the note's arithmetic.
-  const legendEntries = sorted
-    .map((share) => {
-      const clamped = Math.max(0, Math.min(1, share.winProbability))
-      return { share, clamped, displayReadout: formatProbabilityWithResolution(clamped, null) }
-    })
-    .filter(({ clamped }) => clamped > 0)
+  const legendEntries = comparativeEntries.filter(({ clamped }) => clamped > 0)
 
   const roundingNote = deriveOddsRoundingNote(legendEntries.map(e => e.displayReadout))
 
@@ -467,8 +497,12 @@ export function WinGauge({
                 role="img"
                 // ROADMAP 2.236: a segment that IS drawn is labelled with the
                 // shared floored readout, so the screen reader hears what the
-                // legend below prints.
-                aria-label={`${stripEncodingNotation(share.label)}: ${formatProbabilityWithResolution(clamped, null)}`}
+                // legend below prints. ⭐ 2.928 (c): it now READS that readout
+                // instead of recomputing it — this line was the second
+                // evaluation, and it is why the spoken and printed values
+                // disagreed. `readoutById` is total over `sorted`, so a drawn
+                // segment always has one.
+                aria-label={`${stripEncodingNotation(share.label)}: ${readoutById[share.id]}`}
               />
             )
           })}
@@ -483,7 +517,10 @@ export function WinGauge({
                 aria-hidden="true"
               />
               <span className="truncate max-w-[120px]">{stripEncodingNotation(share.label)}</span>
-              <span className="tabular-nums">{displayReadout}</span>
+              {/* ⭐ 2.928 (c): identified so a parity guard can bind this
+                  readout to ITS OWN option rather than to a value another
+                  option could also render (CLAUDE.md trap 19). */}
+              <span className="tabular-nums" data-testid={`legend-pct-${share.id}`}>{displayReadout}</span>
             </span>
           ))}
         </div>

@@ -10,6 +10,10 @@
  * - Use COPY templates for user-facing messages ("assumptions" NOT "edges")
  */
 
+// The badge WORDS live in one place (ROADMAP 2.928 member d). `lib/stability.ts`
+// imports only a type from `./types`, so this import cannot cycle.
+import { ROBUSTNESS_BADGE_LABELS } from '../stability'
+
 // =============================================================================
 // Threshold Constants
 // =============================================================================
@@ -64,13 +68,22 @@ export interface RobustnessDisplayConfig {
 /**
  * Robustness level to display mapping.
  * CRITICAL: Badge MUST derive from robustness.level field, NOT from recommendation_stability.
+ *
+ * ⭐ ROADMAP 2.928 member (d) — THE LABELS ARE DERIVED, NOT COPIED. They used to
+ * be five string literals here, five more in `components/results/constants.ts`
+ * and four more in `lib/stability.ts`: one register, three hand-maintained
+ * mirrors (CLAUDE.md trap 12). The COLOUR stays local — it is a per-surface
+ * display decision and folding it into the shared register would give the
+ * register a second owner. `medium` remains a declared alias of `moderate` for
+ * legacy producer values, and now derives from the same entry, so the alias
+ * cannot drift from what it aliases either.
  */
 export const ROBUSTNESS_LEVEL_DISPLAY: Record<string, RobustnessDisplayConfig> = {
-  high: { label: 'Robust', colour: 'green' },
-  moderate: { label: 'Moderate', colour: 'amber' },
-  medium: { label: 'Moderate', colour: 'amber' }, // Alias for moderate
-  low: { label: 'Sensitive', colour: 'orange' },
-  very_low: { label: 'Highly sensitive', colour: 'red' },
+  high: { label: ROBUSTNESS_BADGE_LABELS.high, colour: 'green' },
+  moderate: { label: ROBUSTNESS_BADGE_LABELS.moderate, colour: 'amber' },
+  medium: { label: ROBUSTNESS_BADGE_LABELS.moderate, colour: 'amber' }, // Alias for moderate
+  low: { label: ROBUSTNESS_BADGE_LABELS.low, colour: 'orange' },
+  very_low: { label: ROBUSTNESS_BADGE_LABELS.very_low, colour: 'red' },
 } as const
 
 // =============================================================================

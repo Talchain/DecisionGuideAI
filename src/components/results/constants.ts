@@ -5,17 +5,28 @@
  * Phase 3 Bug Fixes: Threshold and label constants.
  */
 
+import { ROBUSTNESS_BADGE_LABELS } from '../../lib/stability'
+
 // =============================================================================
 // Robustness Level Configuration
 // =============================================================================
 
-/** Robustness level labels for display */
+/**
+ * Robustness level labels for display.
+ *
+ * ⭐ ROADMAP 2.928 member (d) — DERIVED from the one register in
+ * `lib/stability.ts`, not re-typed here. This map, `ROBUSTNESS_LEVEL_DISPLAY`
+ * and `getStabilityClassification().badgeLabel` were three hand-maintained
+ * copies of four words; they happened to agree, which is exactly how that
+ * defect class stays invisible until it doesn't (CLAUDE.md trap 12).
+ * `medium` stays as the legacy alias of `moderate`, derived from the same entry.
+ */
 export const ROBUSTNESS_LEVEL_LABELS = {
-  high: 'Robust',
-  medium: 'Moderate',
-  moderate: 'Moderate',
-  low: 'Sensitive',
-  very_low: 'Highly sensitive',
+  high: ROBUSTNESS_BADGE_LABELS.high,
+  medium: ROBUSTNESS_BADGE_LABELS.moderate,
+  moderate: ROBUSTNESS_BADGE_LABELS.moderate,
+  low: ROBUSTNESS_BADGE_LABELS.low,
+  very_low: ROBUSTNESS_BADGE_LABELS.very_low,
 } as const
 
 /** Robustness level colors for badges */

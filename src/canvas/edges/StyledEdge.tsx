@@ -215,11 +215,16 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const confidence = edgeData?.confidence
   const belief = edgeData?.belief      // v1.2
   const provenance = edgeData?.provenance  // v1.2
-  const direction = edgeData?.direction as 'positive' | 'negative' | undefined  // v2.2
-
   // ⭐ ROADMAP 2.580 member 2 — THE POLARITY GLYPH'S OWN, GATED, DIRECTION.
   //
-  // `direction` above is the RAW field and it defaults: `USER_EDGE_DEFAULTS`
+  // ⭐⭐ ROADMAP 2.928 member b — AND THE STROKE'S. The raw read that used to
+  // sit here (`const direction = edgeData?.direction`) is GONE: after the
+  // stroke moved onto the resolver it had no remaining reader on this surface,
+  // and leaving it would be an invitation to wire a third channel to the
+  // fabricated default. Outbound adapters and persistence still read
+  // `edge.data.direction` from the store; nothing on screen does.
+  //
+  // The RAW field defaults: `USER_EDGE_DEFAULTS`
   // writes `'positive'` with no source stamp, and the template/blueprint/CEE
   // -apply paths build from `DEFAULT_EDGE_DATA`, which has no `direction` key
   // at all. Reading it raw made the canvas draw a green "+" — a positive
@@ -231,12 +236,20 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // stated" while the graph beside it drew a "+". The hover popover below
   // (:1010) was already gated and its comment names this exact hazard.
   //
-  // Kept SEPARATE from `direction` deliberately: the raw field still drives
-  // the stroke colour and the outbound adapters, and changing those is a
-  // different decision with different consumers. This constant is the DISPLAY
-  // CLAIM only.
-  const directionDisplay = resolveEdgeDirectionDisplay(
-    edgeData as Record<string, unknown> | undefined,
+  // ⚠ CORRECTED 2026-08-08 (ROADMAP 2.928 member b). This comment used to say
+  // the constant was "kept SEPARATE from `direction` deliberately: the raw
+  // field still drives the stroke colour". That separation was the DEFECT, not
+  // a design: it left the green polarity STROKE on edges whose glyph this very
+  // resolver had just suppressed. The raw `direction` still drives the outbound
+  // ADAPTERS and the persisted bytes — that part stands, and is why ingestion
+  // is untouched — but it no longer drives anything on screen.
+  //
+  // Memoised on `edgeData` for the same reason `edgeSignedStrength` below is:
+  // the resolver returns a fresh object each call, and the stroke memo now
+  // depends on this one. Same identity discipline, same dependency.
+  const directionDisplay = useMemo(
+    () => resolveEdgeDirectionDisplay(edgeData as Record<string, unknown> | undefined),
+    [edgeData],
   )
   const statedDirection = directionDisplay.show ? directionDisplay.direction : null
 
@@ -281,9 +294,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // F.2 + E1: direction-based stroke colour (see directionStroke.ts for the
   // CVD-aware polarity palette and the ΔE rationale). Applies pre-run and
   // post-run; one source of truth shared with directionColour.spec.
+  //
+  // ⭐ ROADMAP 2.928 member b — this takes `directionDisplay`, the SAME resolved
+  // value the glyph reads, not the raw `direction` field. The glyph and the
+  // stroke are now two renderings of one answer; there is no second read of the
+  // fabricated default left on this surface.
   const directionStroke = useMemo(
-    () => computeDirectionStroke(direction, edgeSignedStrength, isDark),
-    [direction, edgeSignedStrength, isDark],
+    () => computeDirectionStroke(directionDisplay, edgeSignedStrength, isDark),
+    [directionDisplay, edgeSignedStrength, isDark],
   )
 
   // Decision Graph Display v2: Existence certainty line style
