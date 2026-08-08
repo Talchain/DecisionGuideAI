@@ -5,6 +5,18 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { getEdgeLabel, describeEdge, formatNumericLabel, setEdgeLabelMode, getEdgeLabelMode } from '../domain/edgeLabels'
 import { cleanupCanvas } from './__helpers__/renderCanvas'
+import type { EdgeDirectionDisplay } from '../domain/edgeValueProvenance'
+
+/**
+ * ROADMAP 2.935 — the direction is an ARGUMENT now, never inferred from the
+ * sign of `weight`. See the header of
+ * `src/canvas/domain/__tests__/edgeLabels.spec.ts` for why the signed weights
+ * in this file were never evidence about the product, and
+ * `edges/__tests__/StyledEdge.edgeLabelDirectionWords.2935.spec.tsx` for the
+ * integration-level proof against real CEE capture data.
+ */
+const STATED_POSITIVE: EdgeDirectionDisplay = { show: true, direction: 'positive', source: 'user' }
+const STATED_NEGATIVE: EdgeDirectionDisplay = { show: true, direction: 'negative', source: 'user' }
 
 describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
   beforeEach(() => {
@@ -18,7 +30,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.8   // Strong (>= 0.7)
       const belief = 0.9   // High (>= 0.8)
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Strong boost')
       expect(result.label).not.toContain('uncertain')
@@ -30,7 +42,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.5   // Moderate (0.3 <= w < 0.7)
       const belief = 0.4   // Low (< 0.6)
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Moderate boost (uncertain)')
       expect(result.tooltip).toContain('Weight: 0.50')
@@ -41,7 +53,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = -0.75  // Strong negative
       const belief = 0.85   // High confidence
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_NEGATIVE)
 
       expect(result.label).toBe('Strong drag')
       expect(result.label).not.toContain('uncertain')
@@ -53,7 +65,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.2   // Weak (< 0.3)
       const belief = undefined  // Missing belief → uncertain
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Weak boost (uncertain)')
       expect(result.tooltip).toContain('Weight: 0.20')
@@ -64,7 +76,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = -0.5  // Moderate negative
       const belief = 0.5   // Low (< 0.6)
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_NEGATIVE)
 
       expect(result.label).toBe('Moderate drag (uncertain)')
     })
@@ -73,7 +85,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = -0.25  // Weak
       const belief = 0.9    // High
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_NEGATIVE)
 
       expect(result.label).toBe('Weak drag')
     })
@@ -82,7 +94,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.6   // Moderate
       const belief = 0.7   // Medium (0.6 <= b < 0.8)
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Moderate boost')
       expect(result.label).not.toContain('uncertain')
@@ -98,7 +110,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.6
       const belief = 0.85
 
-      const label = formatNumericLabel(weight, belief)
+      const label = formatNumericLabel(weight, belief, STATED_POSITIVE)
 
       expect(label).toBe('w 0.60 • b 85%')
     })
@@ -107,7 +119,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = -0.7
       const belief = 0.9
 
-      const label = formatNumericLabel(weight, belief)
+      const label = formatNumericLabel(weight, belief, STATED_NEGATIVE)
 
       expect(label).toBe('w −0.70 • b 90%') // Proper minus sign
     })
@@ -116,7 +128,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.5
       const belief = undefined
 
-      const label = formatNumericLabel(weight, belief)
+      const label = formatNumericLabel(weight, belief, STATED_POSITIVE)
 
       expect(label).toBe('w 0.50')
       expect(label).not.toContain('b')
@@ -126,7 +138,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.6
       const belief = 0.85
 
-      const result = getEdgeLabel(weight, belief)
+      const result = getEdgeLabel(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('w 0.60 • b 85%')
     })
@@ -177,7 +189,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0
       const belief = 0.8
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Weak boost')
     })
@@ -186,7 +198,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.3
       const belief = 0.8
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Moderate boost')
     })
@@ -195,7 +207,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.7
       const belief = 0.8
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Strong boost')
     })
@@ -204,7 +216,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.5
       const belief = 0.6
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Moderate boost')
       expect(result.label).not.toContain('uncertain')
@@ -214,7 +226,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.5
       const belief = 0.8
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Moderate boost')
       expect(result.label).not.toContain('uncertain')
@@ -224,7 +236,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.5
       const belief = 0
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Moderate boost (uncertain)')
     })
@@ -233,7 +245,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.5
       const belief = 1.0
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Moderate boost')
     })
@@ -242,7 +254,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 0.01
       const belief = 0.9
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Weak boost')
     })
@@ -251,7 +263,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
       const weight = 1.0
       const belief = 1.0
 
-      const result = describeEdge(weight, belief)
+      const result = describeEdge(weight, belief, STATED_POSITIVE)
 
       expect(result.label).toBe('Strong boost')
     })

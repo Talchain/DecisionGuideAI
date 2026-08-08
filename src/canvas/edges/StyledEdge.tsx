@@ -391,7 +391,26 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const srcTitle = sourceNode?.data?.label || source
   const tgtTitle = targetNode?.data?.label || target
   const confText = confidence !== undefined ? `, confidence ${Math.round(confidence * 100)}%` : ''
-  const ariaLabel = `Edge from ${srcTitle} to ${tgtTitle}${confText}`
+
+  // ⭐ ROADMAP 2.935 (Codex MF5) — THE LABEL'S DIRECTION WORD, FROM THE SAME
+  // RESOLVED VALUE THE GLYPH AND THE STROKE READ.
+  //
+  // `weight` (:209) is an UNSIGNED MAGNITUDE — both ingestion paths store
+  // `Math.abs(rawWeight)` beside a separate `direction` field (UI-SEM-023). It
+  // was passed straight into `getEdgeLabel`, which picked "boost" or "drag" from
+  // `weight >= 0`, so every causal edge on the canvas read "boost" — including
+  // the ones CEE sent a negative `strength.mean` for. The glyph beside it was
+  // already announcing "Effect direction: negative" at the time.
+  //
+  // Computed ONCE here rather than twice inline in the JSX below, because the
+  // accessible name is built from it: `aria-label` REPLACES descendant text for
+  // assistive tech, so a name that omitted the description announced something
+  // different from what was on screen.
+  const edgeDescription = useMemo(
+    () => getEdgeLabel(weight, belief, directionDisplay, labelMode),
+    [weight, belief, directionDisplay, labelMode],
+  )
+  const ariaLabel = `Edge from ${srcTitle} to ${tgtTitle}${confText}, ${edgeDescription.label}`
 
   // P0-9: Handle double-click to open inline editor
   const handleLabelDoubleClick = (event: React.MouseEvent) => {
@@ -967,10 +986,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 : 'bg-panel/95 text-text-header border-panel-border'
             } ${hasSuggestion ? 'ring-2 ring-info ring-offset-1' : ''} ${isFirstEdge && showEdgeHint ? 'edge-hint-active' : ''}`}
             role="note"
+            data-testid="edge-influence-label"
             aria-label={ariaLabel}
             title={(() => {
-              const desc = getEdgeLabel(weight, belief, labelMode)
-              const baseTooltip = provenance ? `${desc.tooltip} • Source: ${provenance}` : desc.tooltip
+              const baseTooltip = provenance
+                ? `${edgeDescription.tooltip} • Source: ${provenance}`
+                : edgeDescription.tooltip
               return `${baseTooltip}\n\nDouble-click to edit`
             })()}
             onDoubleClick={handleLabelDoubleClick}
@@ -978,7 +999,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             onMouseLeave={handleMouseLeave}
           >
             {(() => {
-              const desc = getEdgeLabel(weight, belief, labelMode)
+              const desc = edgeDescription
               return (
                 <>
                   {/* Weight suggestion indicator */}
