@@ -7,7 +7,108 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.38.0.tgz` ← **THE CURRENT PIN**
+### `talchain-schemas-0.39.0.tgz` ← **THE CURRENT PIN**
+
+**Provenance: PACKED FROM THE MERGED, TAGGED RELEASE.** Packed from
+`olumi-schemas` **`main` @ `76fe0ed9`**, tag **`v0.39.0`** (olumi-schemas #38),
+by `npm ci && npm run build && npm pack` in a fresh blobless clone with
+`HEAD == 76fe0ed9` asserted before the pack. 385,991 bytes. sha256:
+
+```
+4c05a7f71efe56c8144b6125f44181b64c56a996c1d38234212bc09e025c92f0
+```
+
+| Claim | Status |
+|---|---|
+| the sidecar matches the checked-in bytes | ✅ `shasum -a 256 -c vendor/talchain-schemas-0.39.0.tgz.sha256` |
+| packed from the merged, tagged source | ✅ `main` @ `76fe0ed9`, tag `v0.39.0` (both read from the GitHub API, not from a local ref) |
+| `check:vendor` agrees | ✅ `node scripts/check-vendor-sha.mjs` — silent-on-success, and no orphans (the directory holds exactly the pinned tarball, its sidecar, and this file) |
+| the pack is reproducible | ✅ a second independent `npm pack` of the same build produced the identical sha256 |
+| CEE and PLoT hold the SAME BYTES | ✅ all three repos' vendored tarballs are the same **git blob `844d432b7b339869b02e89ed54854f78a2a354d2`** — blob identity is byte identity, a stronger check than comparing three recorded sha256 strings, since a manifest can be copied without the bytes being. All three lockfiles also carry the identical `sha512-O2JqLFE6H9V7…` integrity. |
+
+> ⚠ **THE REGISTRY ENVELOPE DIFFERS BY DESIGN — NEVER MIX IT IN.** A tarball
+> fetched from the registry carries a different outer envelope from one produced
+> by `npm pack` here, so its sha256 will not equal the value above. That is not
+> corruption and it is not a reason to "correct" this manifest: the sidecar
+> pins THESE bytes, the ones committed in this directory, and the only check it
+> is making is that the committed tarball has not been altered. Comparing it
+> against a registry download is comparing two different artefacts.
+>
+> **✅ AND FOR 0.39.0 THAT PARAGRAPH IS NO LONGER A THEORY — IT WAS MEASURED,
+> AND THE OPEN ITEM IT DESCENDS FROM (ROADMAP 2.464) IS CLOSED FOR THIS VERSION.**
+> Every prior entry recorded the registry comparison as impossible because the
+> lane's token was believed to lack GitHub Packages read scope. **That premise is
+> false at this tip:** `curl -H "Authorization: Bearer $(gh auth token)"
+> https://npm.pkg.github.com/@talchain/schemas` succeeds and reports
+> `dist-tags.latest = 0.39.0`. The published artifact was downloaded and compared
+> against the bytes vendored here:
+>
+> | check | result |
+> |---|---|
+> | registry `dist.shasum` vs `shasum -a 1` of the download | `5435da9b9325a5fd88d997164600612032c943fa` — **identical** |
+> | registry `dist.integrity` vs `openssl dgst -sha512 -binary … \| base64` | `sha512-Uk2uRLs94eq7OfJ7TlA2FxccdD0g6k6KOFghJjAPB7+JcBNr4ENaZWODCNVsv61lrQxu4gl3Yoargy6rATy+2w==` — **identical** |
+> | registry bytes vs these bytes | **DIFFER** — 385,588 vs 385,991, exactly as the paragraph above predicts |
+> | registry CONTENT vs these CONTENTS (`diff -r` over both unpacked trees) | **byte-identical — zero content differences, zero file-list differences** |
+>
+> So the envelope differs and **every byte that is ever executed agrees**. The
+> registry hash is recorded here so a future session can re-derive the comparison
+> without re-litigating which artefact is canonical — the pin remains the
+> source pack, per the paragraph above.
+
+**What the UI adopts here (parity bump) — READER BEFORE PRODUCER, AND THIS TIME
+THE ORDER IS LOAD-BEARING, NOT A COURTESY.** The UI takes 0.39.0 before CEE and
+PLoT emit anything new. **Every parent touched by 0.39.0 is `.strict()`, so if a
+producer emits one of the new fields before its consumer has re-vendored, the old
+consumer does NOT silently drop it — it HARD-FAILS the entire block/envelope
+parse.** That is the whole reason this PR exists, and it is why **this PR emits
+nothing**: it moves the pin and not one field.
+
+Four additive-optional cars arrive; **the UI consumes NONE of them today**, which
+is what makes this bump inert here:
+
+| car | UI consumption today |
+|---|---|
+| DSK claim-provenance triple on `CoachingBlock` + `ReviewCardBlock` | **not yet** — the UI renders both parents (106 / 110 references) but has **zero** references to `DskClaimProvenance`. This is the car the UI is the eventual READER for, so taking the pin now is what makes CEE's producer half landable. |
+| `UiDirectiveSource` + optional `source` on `UiDirectiveBlock` | **no** — zero references to either symbol |
+| `RunDeltaSchema` + optional `OlumiResponse.run_delta` | **no** — zero references |
+| the collab U-S0 family (incl. `AuthoredBySchema`) | **no** — zero references |
+
+**Nothing existing changed shape**, so no payload that parsed at 0.38.0 stops
+parsing at 0.39.0.
+
+**Export verification — checked by IMPORTING, not by grepping the tarball.** A
+`grep` over `dist/` proves presence in a file, never that the package entry
+EXPORTS the symbol. Installed into a scratch project and imported: all four
+families resolve from the **`@talchain/schemas/boundary`** subpath (180 exports)
+and **none resolves from the package ROOT** (103 exports) — worth knowing before
+anyone writes `import { RunDeltaSchema } from '@talchain/schemas'` and gets
+`undefined`. A negative control (`FakeSchema_XYZ`) read ABSENT, so the probe was
+proven able to report absence before its presence readings were trusted.
+
+**Measured pin-bump delta (re-derived at this tip, not inherited):**
+`pnpm typecheck` — the coverage+ratchet gate — produces **byte-identical output**
+at pristine `378b07b7` and on this branch: `3317 / 3357` tracked files loaded
+(40 out of scope), `tsconfig.app.json → 2144`, `tsconfig.tooling.json → 581`,
+**617 file(s) / 2485 error(s)** against a baseline of 2491, gate **PASSED**.
+**Zero diagnostics added, zero assertions moved, zero source files touched.**
+
+⚠ **The `::notice::Drift shrank (2491 → 2485) … tighten it with
+--update-baseline` line is PRE-EXISTING — it is emitted at pristine `378b07b7`
+too, and this PR did NOT accept it.** Banking a baseline shrink inside a
+mechanical pin bump would fold an unrelated cleanup into a diff whose whole value
+is that it is inert, and would make the next lane's "did the bump move anything?"
+question unanswerable. It stays for a lane that owns it.
+
+**Rollback path:** revert the whole PR, then `pnpm install`. This one CAN be
+reverted alone — no source file in this repo imports anything 0.39.0 added (that
+is what "inert" means here, and it is measured above, not assumed). Reverting
+does NOT unpublish 0.39.0.
+
+### `talchain-schemas-0.38.0.tgz` (superseded — REMOVED, section retained for history)
+
+> ⚠ **The tarball and its sidecar were DELETED in the 0.39.0 bump**, in the same
+> commit that added 0.39.0's — two coexisting "current pin" tarballs read as
+> ambiguous provenance, and `check-vendor-sha.mjs` fails the build on the orphan.
 
 **Provenance: PACKED FROM THE MERGED, TAGGED RELEASE.** Packed from
 `olumi-schemas` **`main` @ `371e18c8`**, tag **`v0.38.0`** (olumi-schemas #37),
