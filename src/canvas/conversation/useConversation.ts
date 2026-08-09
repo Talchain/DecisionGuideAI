@@ -2518,8 +2518,17 @@ export function useConversation(): UseConversationReturn {
   // Build the restored view of a stored transcript: the real turns, a
   // truncation disclosure when (and only when) something was dropped, and a
   // session-boundary divider marking where the previous session ended.
+  //
+  // `markBoundary` states whether a SESSION boundary genuinely happened. It is
+  // true on the reload paths (the user left and came back) and false when the
+  // user merely moved between two open decisions inside one page load — there
+  // the history is being re-shown, not resumed, and a "Session resumed" line
+  // would assert an event that did not occur.
   const buildRestoredMessages = useCallback(
-    (restored: NonNullable<ReturnType<typeof loadTranscript>>): ConversationMessage[] => {
+    (
+      restored: NonNullable<ReturnType<typeof loadTranscript>>,
+      markBoundary: boolean,
+    ): ConversationMessage[] => {
       const out: ConversationMessage[] = []
       if (restored.droppedCount > 0) {
         out.push({
@@ -2539,6 +2548,7 @@ export function useConversation(): UseConversationReturn {
       // there is something on BOTH sides of it: if the restored history already
       // ends with a divider, that divider IS this boundary — replace its
       // timestamp rather than adding another.
+      if (!markBoundary) return out
       const last = out[out.length - 1]
       const endsWithDivider = last != null && typeof last.sessionDivider === 'string'
       if (endsWithDivider) {
@@ -2564,6 +2574,36 @@ export function useConversation(): UseConversationReturn {
 
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
 
+  /**
+   * ── WHICH DECISION DO THE MESSAGES ON SCREEN BELONG TO? ──────────────────
+   *
+   * `messages` and `scenarioId` are two separate pieces of state, and on the
+   * ONE render where the user moves from decision A to decision B THEY
+   * DISAGREE: `scenarioId` is already B while `messages` is still A's. React
+   * runs a commit's effects in declaration order, so the persistence effect
+   * below — declared before the scenario-switch effect — used to observe
+   * exactly that disagreement and write A's private turns under B's key.
+   *
+   * Measured by an independent audit on 9 Aug 2026 (finding F2, P0/privacy):
+   * "A→B saved A user/assistant messages under B; reload on B exposed them."
+   * It was silent, because the switch effect cleared the panel a moment later,
+   * and it cost the user twice — B's own stored history was overwritten by A's
+   * in the same write.
+   *
+   * ⚠ THE FIX IS NOT TO REORDER THE EFFECTS. Declaration order is not a
+   * contract a reader can see, and any later edit that moves a hook would
+   * silently reopen a privacy defect. The fix is to stop inferring ownership
+   * from `scenarioId` at all: this ref records which decision the CURRENT
+   * `messages` belong to, and persistence keys on THAT. It is written only
+   * where `messages` is replaced wholesale for a scenario — mount restore and
+   * the scenario-switch effect — never on an ordinary turn.
+   *
+   * ⚠ 45 focused transcript/hydration tests were green over this defect. A
+   * single-scenario fixture CANNOT see it: the two values only disagree when a
+   * second scenario exists and the user moves between them.
+   */
+  const messagesOwnerRef = useRef<string | null>(scenarioId ?? null)
+
   // MOUNT-TIME restore. This is the path a returning user actually takes and
   // the one that was missing: on a reload the canvas store initialises
   // `currentScenarioId` SYNCHRONOUSLY from localStorage
@@ -2586,7 +2626,8 @@ export function useConversation(): UseConversationReturn {
       // on purpose; replaying it would duplicate the live conversation and
       // mint a "Session resumed" divider mid-session.
       if (!restored || !restored.fromPreviousSession) return
-      const next = buildRestoredMessages(restored)
+      const next = buildRestoredMessages(restored, true)
+      messagesOwnerRef.current = scenarioId
       messagesRef.current = next
       setMessages(next)
     } catch (err) {
@@ -2598,18 +2639,29 @@ export function useConversation(): UseConversationReturn {
   // restore it. Guest sessions never reach Supabase (`isPersistenceActive` is
   // false under `VITE_AUTH_MODE=guest`) and the graph itself already rides
   // localStorage, so the transcript rides the same lifecycle.
+  //
+  // ⚠ KEYED ON `messagesOwnerRef`, NEVER ON `scenarioId` — see that ref's
+  // comment. `scenarioId` is what the user is looking at; the owner is whose
+  // words these are, and on the switch render those are two different
+  // decisions.
   useEffect(() => {
-    if (!scenarioId) return
+    const owner = messagesOwnerRef.current
+    if (!owner) return
     if (messages.length === 0) return
-    saveTranscript(scenarioId, messages)
+    saveTranscript(owner, messages)
   }, [messages, scenarioId])
 
   // Clear conversation when scenario changes (with Track 3 thread hydration)
   const prevScenarioRef = useRef(scenarioId)
   useEffect(() => {
     if (scenarioId !== prevScenarioRef.current) {
-      const wasNull = prevScenarioRef.current === null || prevScenarioRef.current === undefined
+      const leavingScenarioId = prevScenarioRef.current ?? null
+      const wasNull = leavingScenarioId === null
       prevScenarioRef.current = scenarioId
+
+      // Every branch below ends with `messages` belonging to the NEW scenario,
+      // so ownership transfers here, once, rather than in four places.
+      messagesOwnerRef.current = scenarioId
 
       // When the previous ID was null/undefined, this is the initial lazy UUID
       // assignment from buildRequest — not a real scenario switch. Clearing
@@ -2627,7 +2679,7 @@ export function useConversation(): UseConversationReturn {
           try {
             const restored = loadTranscript(scenarioId)
             if (restored && restored.fromPreviousSession) {
-              const next = buildRestoredMessages(restored)
+              const next = buildRestoredMessages(restored, true)
               messagesRef.current = next
               setMessages(next)
             }
@@ -2699,6 +2751,16 @@ export function useConversation(): UseConversationReturn {
         }
       }
 
+      // ⚠ THERE IS DELIBERATELY NO SECOND, SYNCHRONOUS SAVE OF THE OUTGOING
+      // TRANSCRIPT HERE. One was written, as belt-and-braces against a future
+      // reordering — and a mutant proved it could be deleted with every test
+      // still green, because it is redundant BY CONSTRUCTION: the persistence
+      // effect's dependencies are `[messages, scenarioId]` and this effect's
+      // include `scenarioId`, so persistence ALWAYS fires on the same commit,
+      // and now keys on the owner. A line no test can distinguish is the
+      // hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12);
+      // the ownership ref is the guarantee, and it is the only one.
+
       // A real scenario switch. The CEE session state belongs to the scenario
       // we are leaving, so it always clears — but the conversation we are
       // switching TO gets restored when one is stored, so returning to a
@@ -2709,12 +2771,20 @@ export function useConversation(): UseConversationReturn {
       setLongRunningHint(null)
       setLastSendFailure(null)
 
+      // ⚠ `fromPreviousSession` IS NOT A CONDITION ON THIS PATH, only on the
+      // reload paths above. Its purpose is to stop a provider REMOUNT replaying
+      // the live conversation back over itself — a risk that exists solely when
+      // the transcript being loaded is the one already on screen. The decision
+      // being switched TO is by definition not on screen, so requiring it here
+      // meant an A→B→A return showed a blank panel over a transcript sitting in
+      // storage: the user's own work, present, and withheld. What the flag still
+      // decides is whether a SESSION boundary is drawn — see `markBoundary`.
       let restoredForSwitch: ConversationMessage[] | null = null
       if (scenarioId) {
         try {
           const restored = loadTranscript(scenarioId)
-          if (restored && restored.fromPreviousSession) {
-            restoredForSwitch = buildRestoredMessages(restored)
+          if (restored) {
+            restoredForSwitch = buildRestoredMessages(restored, restored.fromPreviousSession)
           }
         } catch (err) {
           console.error('[useConversation] Transcript restore failed — starting fresh', err)
