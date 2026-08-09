@@ -41,7 +41,6 @@ import { safeInterpolatedLabel } from './analysisHeroV17/glossaryCheck'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
-import { openAskOlumi } from './coaching/askOlumiStore'
 import { useCanvasStore } from '@/canvas/store'
 import {
   buildStrengthenOverlayMap,
@@ -62,8 +61,6 @@ interface TriageActionCardsBodyProps {
   onConfirm?: (nodeId: string) => void
   /** Lookup: factor node ID → current observed value + unit/cap (for pre-filling triage card editors) */
   nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null; displayValue?: string | null }>
-  /** Brief 5.8B D2c: handler invoked by the dominant-factor "Research" chip (moved from DriversSection). */
-  onSendMessage?: (text: string) => void
   /** Brief 5.8B D2c: AI affordance rendered inside the T1 checks-footer MissingKnowledgePrompt. */
   aiAffordance?: ReactNode
   /**
@@ -85,8 +82,7 @@ interface TriageActionCardsBodyProps {
    *   2. `T1DominantNudge`: rewrites the trailing tooltip sentence
    *      ("the recommendation could change" → "the leading option could
    *      change") AND sanitises the `dominantLabel` interpolation in
-   *      `aria-label` + `title` via `safeInterpolatedLabel`. Also
-   *      suppresses the auto-send Research chip.
+   *      `aria-label` + `title` via `safeInterpolatedLabel`.
    *   3. `T1FlipRiskCallout`: sanitises `fragile.fromLabel` and
    *      `alternativeWinnerLabel` interpolations in the generated prose
    *      and Validate-button text via `safeInterpolatedLabel`.
@@ -288,24 +284,34 @@ function T1FlipRiskCallout({
 /**
  * T1 dominant-factor nudge — Brief 5.8B D2c step 2 + follow-up polish.
  * Now a true single-line `.nudge` row: warning icon + bolded
- * "Dominant factor:" + truncated detail + inline Validate / Research chips.
+ * "Dominant factor:" + truncated detail + the inline Validate chip.
  * The full explanation surfaces via the row's `title` tooltip rather than
  * a wrapped paragraph; consumers who need the long form should look at the
  * Drivers section. Locked copy fragments preserved.
+ *
+ * ⛔ THE "Research <factor>" CHIP WAS REMOVED HERE (ROADMAP 2.816).
+ * It opened the Ask-Olumi drawer prefilled with "Can you research <factor>
+ * and suggest a reasonable estimate with sources?", and Send dispatched an
+ * ORDINARY chat turn — there is no typed research action, no research-tool
+ * transport and no producer anywhere in the estate, so the service answers
+ * "I can't fetch external sources". The register's ruling on this surface is
+ * explicit: "Two honest fixes: remove the CTA, or build the producer. There
+ * is no third option that leaves the button where it is." Building the
+ * producer is a real capability with six unsettled design questions
+ * (docs-designs/RESEARCH-RESTORE-ASSESSMENT-2026-07-25.md §7); until it
+ * exists, the surface must not advertise it. `researchCtaRetired.spec.tsx`
+ * holds this closed on both deployed arms — do not re-add a research
+ * affordance here without a producer behind it.
  */
 function T1DominantNudge({
   data,
   onFocusNode,
-  onSendMessage,
   useV17Copy = false,
 }: {
   data: ResultsSectionDataReturn
   onFocusNode?: (nodeId: string) => void
-  onSendMessage?: (text: string) => void
   /**
-   * v17 hero mode — apply glossary-safe copy and suppress auto-send chips.
-   * The Research chip dispatches `onSendMessage` (auto-send) and is therefore
-   * hidden when the v17 hero composes this body. The "recommendation could
+   * v17 hero mode — apply glossary-safe copy. The "recommendation could
    * change" sentence is rewritten to glossary-safe language.
    */
   useV17Copy?: boolean
@@ -387,25 +393,10 @@ function T1DominantNudge({
           Validate
         </button>
       )}
-      {/* (Round-5 P1.1) Research chip is exploratory/question-shaped. Codex
-          finding 6: prefill the Ask-Olumi drawer (editable draft, user presses
-          Send) instead of auto-sending. Suppressed under v17 copy (which has its
-          own affordances); the legacy panel still renders it. Gated on
-          onSendMessage as the "chat is available" signal. */}
-      {!useV17Copy && onSendMessage && (
-        <button
-          type="button"
-          onClick={() => openAskOlumi({
-            context: `Research ${dominantLabel}`,
-            draft: `Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`,
-            label: 'Research',
-          })}
-          className={`flex-shrink-0 px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
-          aria-label={`Research ${dominantLabel}`}
-        >
-          Research
-        </button>
-      )}
+      {/* ROADMAP 2.816: the "Research <factor>" chip stood here. Removed —
+          see the component header. Validate above is the surviving action,
+          and it is honest: it focuses the factor on the canvas, which the
+          product can actually do. */}
     </div>
   )
 }
@@ -654,7 +645,6 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
   onSetValue,
   onConfirm,
   nodeValueLookup,
-  onSendMessage,
   aiAffordance,
   suppressTriageQueue = false,
   useV17Copy = false,
@@ -818,7 +808,6 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
       <T1DominantNudge
         data={data}
         onFocusNode={onFocusNode}
-        onSendMessage={onSendMessage}
         useV17Copy={useV17Copy}
       />
 

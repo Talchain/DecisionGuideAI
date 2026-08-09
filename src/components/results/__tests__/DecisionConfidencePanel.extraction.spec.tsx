@@ -375,6 +375,21 @@ describe('DecisionConfidencePanel — TriageActionCardsBody extraction regressio
   // for both quantities, so the score move is invisible HERE; it is pinned on a
   // fixture built to make them diverge in reanchor.confidenceRing.spec.tsx.
   // Not an extraction regression.
+  //
+  // RE-CAPTURED AGAIN for the RESEARCH-CTA RETIREMENT (ROADMAP 2.816). The
+  // diff against the previous baseline is EXACTLY ONE ELEMENT in the rich
+  // fixture — derived by diffing the captures, not assumed:
+  //   · `<button type="button" aria-label="Research Top factor">Research
+  //     </button>` — DELETED from the dominant-factor nudge. It opened the
+  //     Ask-Olumi drawer prefilled with "Can you research <factor> and suggest
+  //     a reasonable estimate with sources?"; Send dispatched an ORDINARY chat
+  //     turn, and the service has no research producer, so it answered "I
+  //     can't fetch external sources". The product was advertising an action
+  //     that reliably terminated in refusal.
+  // NO other change: not one other element, attribute, text node or nesting
+  // level moved — which is precisely what this guard exists to detect. The
+  // sparse fixture is UNTOUCHED (it suppresses the dominant nudge, so it never
+  // carried the chip). Not an extraction regression.
 
   it('rich state: current rendering matches the literal pre-extraction baseline fixture', () => {
     const { container } = render(<DecisionConfidencePanel data={makeData()} onSendMessage={() => {}} />)

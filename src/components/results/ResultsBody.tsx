@@ -483,7 +483,6 @@ export const ResultsBody = memo(function ResultsBody({
                 onConfirm={runGatedOnConfirmFactor}
                 onSetValue={runGatedOnSetFactorValue}
                 nodeValueLookup={nodeValueLookup}
-                onSendMessage={onSendMessage}
                 aiAffordance={aiAffordance}
               />
             </div>

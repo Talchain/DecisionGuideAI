@@ -171,14 +171,22 @@ describe('TriageActionCardsBody — composed-body label safety', () => {
       expect(matchedVisible).toBe(true)
     })
 
-    it('Research auto-send chip is absent in v17 mode even when onSendMessage is provided', () => {
+    // ROADMAP 2.816 UPDATE: this case used to read "absent in v17 mode EVEN
+    // WHEN onSendMessage is provided", and that framing is now obsolete twice
+    // over — the Research chip is retired on every arm, and
+    // `TriageActionCardsBody` no longer declares `onSendMessage` at all, so
+    // the "even when" clause cannot be expressed. Kept as a v17-arm guard;
+    // the load-bearing coverage (both DEPLOYED arms, with the sibling Validate
+    // chip as a positive control) lives in `researchCtaRetired.spec.tsx`.
+    // Flagged here because a v17-only absence test was exactly what let the
+    // chip ship green on the two arms users actually loaded (trap 3b).
+    it('Research chip is absent in v17 mode', () => {
       render(
         <TriageActionCardsBody
           data={makeData()}
           suppressTriageQueue
           useV17Copy
           onFocusNode={() => {}}
-          onSendMessage={() => {}}
         />,
       )
       const nudge = screen.getByTestId('t1-dominant-nudge') as HTMLElement

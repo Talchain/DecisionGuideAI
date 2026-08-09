@@ -158,7 +158,7 @@ describe('Brief 5.8B D4 polish — Decision confidence panel', () => {
       expect(title).toMatch(/the result could change/)
     })
 
-    it('inline Validate + Research chips remain functional', () => {
+    it('the inline Validate chip remains functional; the Research chip is retired', () => {
       const onSendMessage = vi.fn()
       const onFocusNode = vi.fn()
       render(
@@ -170,7 +170,12 @@ describe('Brief 5.8B D4 polish — Decision confidence panel', () => {
       )
       const nudge = screen.getByTestId('t1-dominant-nudge')
       expect(within(nudge).getByLabelText(/Validate Top factor on canvas/i)).toBeInTheDocument()
-      expect(within(nudge).getByLabelText(/Research Top factor/i)).toBeInTheDocument()
+      // ROADMAP 2.816: "Research <factor>" opened a prefilled Ask-Olumi draft
+      // whose Send produced an ordinary chat turn, and the service has no
+      // research producer to answer it. Removed rather than reworded — the
+      // register's ruling was remove-the-CTA or build-the-producer.
+      // `researchCtaRetired.spec.tsx` is the dedicated guard.
+      expect(within(nudge).queryByLabelText(/Research Top factor/i)).toBeNull()
     })
   })
 

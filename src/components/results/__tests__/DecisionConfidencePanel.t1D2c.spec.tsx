@@ -225,8 +225,13 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
     expect(nudge).toHaveTextContent(/Dominant factor/)
     expect(nudge).toHaveTextContent(/Pricing/)
     expect(nudge).toHaveTextContent(/85% of the outcome/)
-    // Validate + Research chips render with handlers wired.
-    expect(screen.getByLabelText(/Research Pricing/i)).toBeInTheDocument()
+    // ROADMAP 2.816: the "Research <factor>" chip that used to render here
+    // was removed — it advertised a capability with no producer, so Send
+    // dead-ended in "I can't fetch external sources". The nudge assertions
+    // above pin that the row itself rendered, so this absence is not vacuous;
+    // `researchCtaRetired.spec.tsx` holds it closed on both deployed arms with
+    // the sibling Validate chip as its positive control.
+    expect(screen.queryByLabelText(/Research Pricing/i)).toBeNull()
   })
 
   it('suppresses the dominant-factor nudge when top influence < 0.8', () => {
