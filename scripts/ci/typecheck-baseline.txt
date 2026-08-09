@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2491
+# count=2487
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -55,6 +55,7 @@
 3	e2e/webvitals.spec.ts
 1	integration/integration-check.ts
 2	netlify/edge-functions/cee-proxy.ts
+2	netlify/edge-functions/collab-proxy.ts
 1	netlify/edge-functions/csp-nonce.ts
 3	netlify/edge-functions/isl-proxy.ts
 2	netlify/edge-functions/orchestrator-proxy.ts
@@ -146,7 +147,6 @@
 5	src/canvas/components/ModelQualityScore.tsx
 1	src/canvas/components/ModelTabBody.tsx
 1	src/canvas/components/OutputsDock.stories.tsx
-1	src/canvas/components/ParetoInsights.tsx
 27	src/canvas/components/PreAnalysisGuidance.tsx
 2	src/canvas/components/RangeDisplay.tsx
 3	src/canvas/components/RecoveryBanner.tsx
@@ -245,7 +245,7 @@
 1	src/canvas/domain/__tests__/edgeLabels.spec.ts
 1	src/canvas/domain/__tests__/migrations.spec.ts
 1	src/canvas/domain/__tests__/nodes.spec.ts
-32	src/canvas/edges/StyledEdge.tsx
+31	src/canvas/edges/StyledEdge.tsx
 5	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx
 2	src/canvas/edges/__tests__/EdgeEditPopover.perf.spec.tsx
 1	src/canvas/health/issueExplainers.ts
@@ -273,7 +273,7 @@
 3	src/canvas/hooks/useResultsRun.ts
 8	src/canvas/hooks/useRiskProfile.ts
 3	src/canvas/hooks/useRiskToleranceSuggestion.ts
-10	src/canvas/hooks/useScienceIcons.ts
+9	src/canvas/hooks/useScienceIcons.ts
 1	src/canvas/hooks/useSequentialAnalysis.ts
 20	src/canvas/hooks/useUnifiedActions.ts
 6	src/canvas/hooks/useUtilityWeights.ts
@@ -424,7 +424,6 @@
 9	src/components/decisions/DecisionEdit.tsx
 1	src/components/layout/KebabMenu.tsx
 1	src/components/results/AdvancedSection.tsx
-1	src/components/results/BaselineTargetRow.tsx
 15	src/components/results/ConfidenceSection.tsx
 1	src/components/results/DriversSection.tsx
 2	src/components/results/ParetoChart.tsx
@@ -433,7 +432,6 @@
 1	src/components/results/SuccessTargetRow.tsx
 1	src/components/results/TriageActionCardsBody.tsx
 1	src/components/results/__tests__/Accordion.spec.tsx
-2	src/components/results/__tests__/BaselineTargetRow.spec.tsx
 7	src/components/results/__tests__/ConfidenceSection.spec.tsx
 1	src/components/results/__tests__/DecisionConfidencePanel.autoNoise.spec.tsx
 3	src/components/results/__tests__/DecisionConfidencePanel.caveatGuarantee.spec.tsx

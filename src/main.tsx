@@ -1,5 +1,6 @@
 // src/main.tsx
 import './index.css';
+import { captureParticipantTokenFromUrl } from './collab/participantToken';
 import { Suspense, lazy, Component, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initVersionCache } from './lib/version-cache';
@@ -153,6 +154,16 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 
 (function boot() {
   try {
+    // ⭐ FIRST STATEMENT OF BOOT, DELIBERATELY. A participant's bearer token
+    // arrives in the URL, and the very next line captures `location.href` into
+    // window.__SAFE_DEBUG__.logs — which is persisted to localStorage under
+    // ENABLE_DEBUG_PERSISTENCE, and re-read by the error boundary, the
+    // diagnostic bundle and the sandbox banner. Stripping the token anywhere
+    // later (a React effect, a route component) is far too late: React has not
+    // mounted yet. See src/collab/participantToken.ts for why the URL fragment
+    // is not a hiding place in a HashRouter app.
+    captureParticipantTokenFromUrl();
+
     log('boot:start', { href: location.href, token: ENTRY_PROOF_TOKEN });
 
     // Analysis hero v17 — read ?analysisHeroCompare=1|0 from URL once and

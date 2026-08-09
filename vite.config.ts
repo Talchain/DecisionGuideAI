@@ -269,6 +269,22 @@ optimizeDeps: {
           })
         }
       },
+      // COLLAB panels — /bff/collab/* → CEE /collab/v1/*. Mirrors
+      // netlify/edge-functions/collab-proxy.ts so dev, preview and production
+      // agree. Declared in BOTH dev-proxy blocks in this file on purpose: the
+      // block is duplicated, and editing only one diverges dev from preview.
+      '/bff/collab': {
+        target: requireProxyEnv('CEE_SERVICE_URL'),
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/bff\/collab/, '/collab/v1'),
+        configure: (proxy) => {
+          const ceeApiKey = env.ASSIST_API_KEY
+          proxy.on('proxyReq', (proxyReq) => {
+            if (ceeApiKey) proxyReq.setHeader('X-Olumi-Assist-Key', ceeApiKey)
+          })
+        },
+      },
       '/bff/cee': {
         target: requireProxyEnv('CEE_SERVICE_URL'),
         changeOrigin: true,
@@ -410,6 +426,22 @@ optimizeDeps: {
             console.error('[PROXY ERROR] /bff/assist', err.message)
           })
         }
+      },
+      // COLLAB panels — /bff/collab/* → CEE /collab/v1/*. Mirrors
+      // netlify/edge-functions/collab-proxy.ts so dev, preview and production
+      // agree. Declared in BOTH dev-proxy blocks in this file on purpose: the
+      // block is duplicated, and editing only one diverges dev from preview.
+      '/bff/collab': {
+        target: requireProxyEnv('CEE_SERVICE_URL'),
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/bff\/collab/, '/collab/v1'),
+        configure: (proxy) => {
+          const ceeApiKey = env.ASSIST_API_KEY
+          proxy.on('proxyReq', (proxyReq) => {
+            if (ceeApiKey) proxyReq.setHeader('X-Olumi-Assist-Key', ceeApiKey)
+          })
+        },
       },
       '/bff/cee': {
         target: requireProxyEnv('CEE_SERVICE_URL'),

@@ -49,6 +49,8 @@ const ScenarioListPage = lazy(() => import('../pages/ScenarioListPage'))
 // Internal hero fixture gallery — flag-gated (staging-on/prod-off), unlinked.
 const HeroGallery = lazy(() => import('../routes/HeroGallery'))
 const SharedBriefPage = lazy(() => import('../pages/SharedBriefPage'))
+const ParticipantPacketPage = lazy(() => import('../pages/ParticipantPacketPage'))
+const PanelSetupPage = lazy(() => import('../pages/PanelSetupPage'))
 const LoginPage = lazy(() => import('../components/auth/LoginPage'))
 const AuthCallback = lazy(() => import('../components/auth/AuthCallback'))
 const AuthGuard = lazy(() => import('../components/auth/AuthGuard'))
@@ -905,12 +907,23 @@ export default function AppPoC() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/brief/:slug" element={<SharedBriefPage />} />
+                {/* COLLAB — the participant's panel page. OUTSIDE AuthGuard,
+                    DELIBERATELY: a participant holds no Supabase session, and
+                    the guard would bounce every one of them to /login while
+                    every test stayed green. Same reason /brief/:slug sits here.
+                    `collabParticipantRouteIsPublic.spec.tsx` asserts the mount
+                    PATH itself, so moving it inside the guard fails loud. */}
+                <Route path="/panel/:round_id" element={<ParticipantPacketPage />} />
 
                 {/* Auth-guarded routes */}
                 <Route element={<AuthGuard />}>
                   <Route path="/" element={<ScenarioListPage />} />
                   <Route path="/scenarios" element={<ScenarioListPage />} />
                   <Route path="/scenario/:id" element={<CanvasMVP />} />
+                  {/* COLLAB — the owner's side. INSIDE AuthGuard: minting a
+                      round pins a version of the owner's model and names real
+                      people, so it requires a verified session. */}
+                  <Route path="/scenario/:id/panel" element={<PanelSetupPage />} />
                   <Route path="/canvas" element={<CanvasMVP />} />
                   <Route path="/profile" element={<ProfileSettingsPage />} />
                   <Route path="/templates" element={<DecisionTemplates />} />
