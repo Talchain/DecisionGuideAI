@@ -132,7 +132,7 @@
           "truncated": false,
           "items": [
             {
-              "literal": "£1,500,000 ",
+              "literal": "£1,500,000",
               "kind": "money",
               "char_offset": 13,
               "verdict": "in_model",
@@ -330,7 +330,7 @@
           "truncated": false,
           "items": [
             {
-              "literal": "£300,000 ",
+              "literal": "£300,000",
               "kind": "money",
               "char_offset": 13,
               "verdict": "in_model",
@@ -429,7 +429,7 @@
           "truncated": false,
           "items": [
             {
-              "literal": "£8,000,000 ",
+              "literal": "£8,000,000",
               "kind": "money",
               "char_offset": 13,
               "verdict": "in_model",
@@ -528,7 +528,7 @@
           "truncated": false,
           "items": [
             {
-              "literal": "£1,600,000 ",
+              "literal": "£1,600,000",
               "kind": "money",
               "char_offset": 13,
               "verdict": "in_model",

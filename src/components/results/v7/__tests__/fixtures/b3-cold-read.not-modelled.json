@@ -129,7 +129,7 @@
           "matched_node_id": null
         },
         {
-          "literal": "£3 ",
+          "literal": "£3",
           "kind": "money",
           "char_offset": 920,
           "verdict": "absent",
