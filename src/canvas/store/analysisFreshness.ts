@@ -59,6 +59,23 @@ export const RUN_COMPLETED_WITHOUT_VERDICT = 'run_completed_without_verdict'
  */
 export const VERDICT_ABSENT_FROM_PAYLOAD = 'payload_carried_no_freshness_verdict'
 
+/**
+ * Reason code written by the BOOT/restore path when a persisted freshness
+ * attestation was re-ingested after exact graph-identity validation.
+ *
+ * ROADMAP 2.1003 / audit finding F4. Measured on deployed staging 2026-08-09:
+ * before reload the rerun was `fresh` / `graph_hash_match`; after reload the
+ * SAME graph and the SAME result read *"Cannot confirm whether this analysis
+ * is current."* The stored `ceeAnalysisReady` already contained MATCHING graph
+ * hashes — boot restored readiness and never looked at the attestation.
+ *
+ * Deliberately DISTINCT from CEE's own `graph_hash_match`: this verdict was
+ * re-derived by the client from stored bytes, not stated by CEE on this turn,
+ * and a later reader must be able to tell those apart. Never user copy.
+ */
+export const RESTORED_ATTESTATION_HASHES_ALIGNED = 'restored_attestation_hashes_aligned'
+
+
 export interface AnalysisFreshnessState {
   freshness: AnalysisFreshnessValue
   /** Technical reason code from CEE (e.g. 'graph_hash_match') — debug only, never user copy. */
@@ -368,4 +385,88 @@ export function classifyFreshnessForDisplay(
     return 'changed'
   }
   return 'cannot_confirm'
+}
+
+
+/**
+ * ROADMAP 2.1003 / F4 — re-ingest a PERSISTED freshness attestation at boot,
+ * and only when it can be positively validated.
+ *
+ * `resultsLoadHistorical` stamps `{ freshness: 'unknown', freshnessReason:
+ * 'hydrated_without_capture' }` because a hydrated snapshot has no live
+ * capture proving it matches the current graph. That reasoning is right in
+ * general and WRONG in the one case where the snapshot carries its own proof:
+ * an `analysis_ready` whose `graph_hash_at_run` EQUALS its `current_graph_hash`
+ * is an attestation that the graph had not moved when the verdict was formed.
+ *
+ * FAIL-CLOSED BY CONSTRUCTION. It returns a verdict only when EVERY one of
+ * these holds, and `null` (leave it as cannot-confirm) otherwise:
+ *   · the stored payload states `freshness === 'fresh'` — a stored 'stale' or
+ *     'unknown' is never upgraded;
+ *   · BOTH hashes are present, non-empty strings;
+ *   · they are EQUAL. Any mismatch stays unknown, exactly as the audit
+ *     prescribes.
+ * It never invents `fresh` from silence, and it never downgrades anything: the
+ * caller applies it only over the hydration marker.
+ *
+ * Note what it does NOT do: it does not compare the stored hash against a
+ * freshly computed hash of the restored graph. It validates the attestation's
+ * INTERNAL consistency plus the caller's node-identity check
+ * (`validateCeeAnalysisReady`). A client-side recomputation would need CEE's
+ * hash function, which the UI does not have — claiming otherwise would be the
+ * two-hash-functions trap.
+ */
+export function deriveRestoredFreshnessAttestation(
+  storedAnalysisReady: unknown,
+): AnalysisFreshnessState | null {
+  if (storedAnalysisReady === null || typeof storedAnalysisReady !== 'object') return null
+  const o = storedAnalysisReady as Record<string, unknown>
+
+  if (o.freshness !== 'fresh') return null
+
+  const atRun = nonEmptyString(o.graph_hash_at_run)
+  const current = nonEmptyString(o.current_graph_hash)
+  if (atRun === undefined || current === undefined) return null
+  if (atRun !== current) return null
+
+  return {
+    freshness: 'fresh',
+    freshnessReason: RESTORED_ATTESTATION_HASHES_ALIGNED,
+    graphHashAtRun: atRun,
+    currentGraphHash: current,
+    computedAt: nonEmptyString(o.computed_at),
+  }
+}
+
+/**
+ * The whole boot-restore decision as ONE pure function: given the current
+ * freshness slice, the dirty overlay, and the stored payload, should the
+ * verdict be replaced — and with what?
+ *
+ * Deliberately NOT a store action. Adding a member to the canvas store's
+ * interface changes the rendered text of a pre-existing `V5ApplicatorStore`
+ * assignability diagnostic (its elided "… N more …" property count moves),
+ * which the typecheck gate's identity baseline reads as a NEW diagnostic and
+ * its self-test then fails on. Absorbing that by regenerating the baseline
+ * would also absorb ~7 unrelated pre-existing drops in files this lane never
+ * touched. Keeping the logic pure avoids the perturbation entirely and makes
+ * every guard directly testable.
+ *
+ * Returns `null` for "change nothing". It can only ever move the hydration
+ * cannot-confirm marker to `fresh`; it can never downgrade, never overwrite a
+ * live CEE verdict, and never invent a verdict from silence.
+ */
+export function resolveRestoredFreshnessUpdate(
+  current: AnalysisFreshnessState | null,
+  dirty: boolean,
+  storedAnalysisReady: unknown,
+): AnalysisFreshnessState | null {
+  // 1. Only the hydration marker is eligible. A live CEE verdict — including a
+  //    'stale' one — is never touched.
+  if (current?.freshnessReason !== 'hydrated_without_capture') return null
+  // 2. If the user has edited since, the attestation is about a graph that no
+  //    longer exists.
+  if (dirty) return null
+  // 3. The attestation must validate on its own terms.
+  return deriveRestoredFreshnessAttestation(storedAnalysisReady)
 }
