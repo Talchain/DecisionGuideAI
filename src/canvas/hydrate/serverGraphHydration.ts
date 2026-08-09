@@ -18,6 +18,7 @@
  */
 
 import { useCanvasStore } from '../store'
+import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
@@ -134,6 +135,24 @@ export async function hydrateCanvasFromServer(
     })
     return 'skipped'
   }
+
+  // ── ROADMAP 2.973 — record what we were given, and what CEE says it kept ──
+  //
+  // DELIBERATELY BEFORE THE `unchanged` SHORT-CIRCUIT BELOW. That branch exists
+  // because the GRAPH has not moved, which is the common case on every re-boot
+  // of an existing scenario — and it is precisely then that the user is most
+  // likely to open the panel. Recording after it would leave the surface empty
+  // for exactly the sessions it is meant to serve.
+  //
+  // `result.notModelled` is `null` when CEE sent no manifest. That null is
+  // stored AS a null: the surface renders it as "we cannot tell you", never as
+  // an empty list, which on a brief we demonstrably lose content from would be
+  // a new and more damaging lie than the silence it replaces.
+  useContextIntegrityStore.getState().setContextIntegrity({
+    scenarioId,
+    briefText: result.briefText,
+    manifest: result.notModelled,
+  })
 
   const stored = useCanvasStore.getState().serverGraphIdentity
   if (isSameServerGraph(stored, result.identity)) {

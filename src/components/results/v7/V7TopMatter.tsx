@@ -18,6 +18,7 @@ import { useMemo } from 'react'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { DecisionState } from '../types'
 import { V7FreshnessStrip } from './V7FreshnessStrip'
+import { V7WhatIWasGivenSection } from './V7WhatIWasGivenSection'
 import { V7SharpenLine, type V7SharpenInput, type V7BriefQuote } from './V7SharpenLine'
 import { V7Hero } from './V7Hero'
 import { V7LensGroup } from './V7LensGroup'
@@ -80,6 +81,14 @@ export function V7TopMatter({
     <div className="flex flex-col gap-4" data-testid="v7-top-matter">
       <V7FreshnessStrip />
       <V7SharpenLine briefQuote={briefQuote} inputs={sharpenInputs} onFocusNode={onFocusNode} />
+      {/* ROADMAP 2.973 — "what I was given / what I used".
+          MOUNTED HERE, in the UNCONDITIONAL `v7-top-group`, deliberately: the
+          two arms of `analysisHeroPanel` in ResultsBody are mutually exclusive,
+          and this estate has twice shipped a feature dark by hosting it on the
+          arm the deployed flags switch off. This slot mounts on BOTH postures,
+          so a flag move cannot make it disappear. It sits beside V7SharpenLine
+          because that is the "what you told us" region of the panel. */}
+      <V7WhatIWasGivenSection onSendMessage={onSendMessage} />
       <V7Hero
         recommendation={recommendation}
         decisionState={decisionState}

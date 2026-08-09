@@ -57,6 +57,7 @@
  */
 
 import { logger } from '../../lib/logger'
+import { parseNotModelled, type NotModelledManifest } from './notModelled'
 
 /**
  * The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see the header.
@@ -106,6 +107,14 @@ export type ScenarioGraphResult =
       status: 'graph'
       graph: unknown
       briefText: string | null
+      /**
+       * ROADMAP 2.973 — what of the brief did NOT reach the model.
+       *
+       * `null` means CEE SENT NO MANIFEST (it predates the field, or the shape
+       * failed to validate) — i.e. we know nothing. It does NOT mean nothing was
+       * dropped, and no consumer may render it as such.
+       */
+      notModelled: NotModelledManifest | null
       identity: ScenarioGraphIdentity | null
       /** MEASURED by CEE on the returned bytes. `false` for every real graph today. */
       layoutPresent: boolean
@@ -203,6 +212,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     status: 'graph',
     graph,
     briefText: typeof b.brief_text === 'string' ? b.brief_text : null,
+    notModelled: parseNotModelled(b.not_modelled),
     identity: readIdentityEnvelope(b.graph_identity_hash),
     layoutPresent: b.layout_present === true,
     requestId,

@@ -1,0 +1,293 @@
+{
+  "_provenance": {
+    "note": "brief_text is REAL deployed bytes (context-integrity trace 2026-08-08, CEE build 4b57b8f, scenario f9f368a4). The not_modelled block is the DETERMINISTIC OUTPUT of CEE deriveNotModelledManifest() over those same real bytes - NOT a deployed-wire capture, because CEE has not shipped this field yet.",
+    "seam": "POST /bff/cee/scenarios/:id/graph"
+  },
+  "brief_text": "Need to decide how we take £4m out of opex by end of Q2 2027 — do we do it mainly through offshoring support, automation, or closing the Leeds office? Braindump before the exec offsite, apologies for the mess:\n\n- context: 240 heads, £31m revenue, EBITDA minus £1.8m, board wants breakeven by Q3 2027, non-negotiable\n- target: £4m annualised opex out, ideally £2.5m of it landed by end of Q2\n- support org = 62 people, £2.9m/yr. Offshore quote from TaskUs: ~40% saving on 45 roles = ~£1.1m/yr, but CSAT risk is real\n- when a competitor did this their Trustpilot dropped 4.1 to 3.3 in six months (I saw it in their public reviews, not exactly science)\n- automation: the deflection pilot in April handled 34% of tickets end to end (our own dashboard, n=6 weeks). Jamie extrapolates that to £800k/yr saving but it assumes vendor pricing holds at renewal — the vendor contract renews in November and they know we're locked in\n- Leeds office lease = £600k/yr, break clause March 2027. 70 people based there. Hybrid means maybe we don't need it at all? Nobody has modelled the attrition hit. My guess: we'd lose 10-15% of Leeds staff if we close — pure guess\n- constraint: no more than one compulsory redundancy round in the next 12 months — we promised staff after the last one and the CEO is adamant\n- constraint: engineering (58 heads) is ring-fenced, board agreed\n- assumption: revenue flat at £31m. Sales says +8% but they said that last year and we did minus 2%\n- half-formed: could we sell the Leeds sublease rights? or do a 3-day office share with WPP's local outfit? no idea if either is real\n- Dana thinks we should just do a 10% across-the-board RIF and be done. I think that's how you kill morale twice — we disagree openly\n- worry: doing all three at once = change saturation. The ops director says max two big changes in parallel, based on the 2024 migration mess\n- unknown: what does offshoring do to our ISO 27001 posture? the renewal audit is January 2027 Success = EBITDA breakeven by Q3 2027 while keeping the redundancy promise — one compulsory round max. Go ahead.",
+  "not_modelled": {
+    "schema": "not_modelled.v1",
+    "status": "derived",
+    "unavailable_reason": null,
+    "scope": {
+      "searched": "quantities stated in the brief that carry a unit: money, percentages, counts with a unit word, calendar dates and fiscal periods",
+      "model_surface": [
+        "node, edge and option values, caps, units, labels and encoding maps"
+      ],
+      "prose_surface": [
+        "coaching cards",
+        "draft warnings",
+        "validation warnings"
+      ],
+      "excluded_from_search": [
+        "bare numbers carrying no unit, currency or percent sign",
+        "everything in not_tracked"
+      ]
+    },
+    "quantities": {
+      "total": 31,
+      "in_model": 8,
+      "prose_only": 6,
+      "absent": 17,
+      "truncated": false,
+      "items": [
+        {
+          "literal": "£4m",
+          "kind": "money",
+          "char_offset": 27,
+          "verdict": "in_model",
+          "matched_node_id": "out_opex_savings"
+        },
+        {
+          "literal": "Q2 2027",
+          "kind": "period",
+          "char_offset": 53,
+          "verdict": "prose_only",
+          "matched_node_id": null
+        },
+        {
+          "literal": "240 heads",
+          "kind": "count",
+          "char_offset": 222,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "£31m",
+          "kind": "money",
+          "char_offset": 233,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "£1.8m",
+          "kind": "money",
+          "char_offset": 260,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "Q3 2027",
+          "kind": "period",
+          "char_offset": 292,
+          "verdict": "in_model",
+          "matched_node_id": null
+        },
+        {
+          "literal": "£4m",
+          "kind": "money",
+          "char_offset": 326,
+          "verdict": "in_model",
+          "matched_node_id": "out_opex_savings"
+        },
+        {
+          "literal": "£2.5m",
+          "kind": "money",
+          "char_offset": 359,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "Q2",
+          "kind": "period",
+          "char_offset": 388,
+          "verdict": "prose_only",
+          "matched_node_id": null
+        },
+        {
+          "literal": "62 people",
+          "kind": "count",
+          "char_offset": 407,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "£2.9m",
+          "kind": "money",
+          "char_offset": 418,
+          "verdict": "in_model",
+          "matched_node_id": "fac_offshore_scale"
+        },
+        {
+          "literal": "40%",
+          "kind": "percent",
+          "char_offset": 457,
+          "verdict": "in_model",
+          "matched_node_id": null
+        },
+        {
+          "literal": "45 roles",
+          "kind": "count",
+          "char_offset": 471,
+          "verdict": "in_model",
+          "matched_node_id": null
+        },
+        {
+          "literal": "£1.1m",
+          "kind": "money",
+          "char_offset": 483,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "3.3 in six months",
+          "kind": "count",
+          "char_offset": 576,
+          "verdict": "prose_only",
+          "matched_node_id": null
+        },
+        {
+          "literal": "34%",
+          "kind": "percent",
+          "char_offset": 702,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "6 weeks",
+          "kind": "count",
+          "char_offset": 750,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "£800k",
+          "kind": "money",
+          "char_offset": 787,
+          "verdict": "prose_only",
+          "matched_node_id": null
+        },
+        {
+          "literal": "£600k",
+          "kind": "money",
+          "char_offset": 944,
+          "verdict": "prose_only",
+          "matched_node_id": null
+        },
+        {
+          "literal": "March 2027",
+          "kind": "date",
+          "char_offset": 967,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "70 people",
+          "kind": "count",
+          "char_offset": 979,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "15%",
+          "kind": "percent",
+          "char_offset": 1108,
+          "verdict": "prose_only",
+          "matched_node_id": null
+        },
+        {
+          "literal": "12 months",
+          "kind": "count",
+          "char_offset": 1223,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "58 heads",
+          "kind": "count",
+          "char_offset": 1322,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "£31m",
+          "kind": "money",
+          "char_offset": 1391,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "8%",
+          "kind": "percent",
+          "char_offset": 1409,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "2%",
+          "kind": "percent",
+          "char_offset": 1458,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "3-day",
+          "kind": "count",
+          "char_offset": 1525,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "10%",
+          "kind": "percent",
+          "char_offset": 1629,
+          "verdict": "absent",
+          "matched_node_id": null
+        },
+        {
+          "literal": "January 2027",
+          "kind": "date",
+          "char_offset": 1953,
+          "verdict": "in_model",
+          "matched_node_id": null
+        },
+        {
+          "literal": "Q3 2027",
+          "kind": "period",
+          "char_offset": 1996,
+          "verdict": "in_model",
+          "matched_node_id": null
+        }
+      ]
+    },
+    "declared_exclusions": {
+      "status": "reported",
+      "items": [
+        "Revenue upside scenario (+8% sales forecast) — excluded because the brief explicitly discounts it based on prior-year miss and the goal is cost-side only",
+        "Dana's across-the-board RIF option — excluded because the brief frames it as ruled out by the redundancy constraint and CEO position, so it does not add decision value"
+      ]
+    },
+    "inferred_factors": {
+      "status": "derived",
+      "items": [
+        {
+          "node_id": "fac_automation_scale",
+          "label": "Automation Deployment Scale"
+        },
+        {
+          "node_id": "fac_change_saturation",
+          "label": "Organisational Change Saturation"
+        },
+        {
+          "node_id": "fac_iso_risk",
+          "label": "ISO 27001 Compliance Risk (Offshoring)"
+        },
+        {
+          "node_id": "fac_office_closure",
+          "label": "Leeds Office Closure"
+        },
+        {
+          "node_id": "fac_vendor_pricing",
+          "label": "Automation Vendor Pricing at Renewal"
+        }
+      ]
+    },
+    "not_tracked": [
+      "competing_or_dissenting_proposals",
+      "corrections_and_second_thoughts",
+      "named_evidence_sources_and_their_pedigree",
+      "qualitative_constraints_and_rules",
+      "stated_confidence_and_self_flagged_weakness",
+      "statements_the_drafting_model_did_not_report_discarding"
+    ]
+  }
+}
