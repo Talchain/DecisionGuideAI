@@ -33,6 +33,10 @@ export interface NotModelledItem {
   /** Offset into `brief_text`. With `literal`, the item's IDENTITY. */
   readonly charOffset: number
   readonly verdict: QuantityVerdict
+  /** The modelled quantity CEE matched this figure to, when matched
+   *  numerically. Null for a text match or no match. Carried so a consumer can
+   *  check the two sections against each other rather than trusting them. */
+  readonly matchedNodeId: string | null
 }
 
 export interface NotModelledTally {
@@ -132,16 +136,20 @@ function asRecord(v: unknown): Record<string, unknown> | null {
 function parseItem(raw: unknown): NotModelledItem | null {
   const o = asRecord(raw)
   if (o === null) return null
-  const { literal, kind, char_offset: charOffset, verdict } = o
+  const { literal, kind, char_offset: charOffset, verdict, matched_node_id: matchedNodeId } = o
   if (typeof literal !== 'string' || literal.length === 0) return null
   if (typeof kind !== 'string' || !KINDS.has(kind)) return null
   if (typeof charOffset !== 'number' || !Number.isInteger(charOffset) || charOffset < 0) return null
   if (typeof verdict !== 'string' || !VERDICTS.has(verdict)) return null
+  if (matchedNodeId !== null && matchedNodeId !== undefined && typeof matchedNodeId !== 'string') {
+    return null
+  }
   return {
     literal,
     kind: kind as QuantityKind,
     charOffset,
     verdict: verdict as QuantityVerdict,
+    matchedNodeId: typeof matchedNodeId === 'string' ? matchedNodeId : null,
   }
 }
 

@@ -131,6 +131,7 @@ function Rows({
           key={`${item.charOffset}:${item.literal}`}
           data-testid={`${testId}-row`}
           data-char-offset={item.charOffset}
+          data-matched-node-id={item.matchedNodeId ?? undefined}
           className="flex items-baseline justify-between gap-2 rounded px-2 py-1 odd:bg-panel-hover/40"
         >
           <span className={`${typography.panelBody} text-text-body`}>{item.literal}</span>

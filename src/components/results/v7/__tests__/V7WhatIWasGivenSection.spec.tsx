@@ -64,6 +64,7 @@ import { parseNotModelled } from '@/adapters/cee/notModelled'
 import b1Fixture from './fixtures/b1-cold-read.not-modelled.json'
 import b2Fixture from './fixtures/b2-cold-read.not-modelled.json'
 import b3Fixture from './fixtures/b3-cold-read.not-modelled.json'
+import notationFixtures from './fixtures/notation-manifests.json'
 
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -355,31 +356,90 @@ describe('THE REGISTER — product, not diagnostics', () => {
   })
 })
 
-describe('the copy claims only what the derivation establishes', () => {
-  it('never says the user gave no figure — B1 states NRR 112% and it is listed', () => {
-    // ⚠ REGRESSION FOR A FALSE SENTENCE. The lead read "You didn't give me a
-    // figure for these" while B1's brief says "our NRR is 112%" and the panel
-    // showed 112% under "not modelled yet" — with Net Revenue Retention listed
-    // here, under that sentence. CEE answers "does this factor's number trace
-    // to the brief?"; the copy asserted "did you give me a figure for this?" —
-    // a different question about the user's own input (trap 21).
-    const cold = coldReadOf(b1Fixture as never)
-    expect(cold.brief_text, 'PRECONDITION: the brief states a figure').toContain('112%')
+describe('THE TWO SECTIONS MAY NEVER CONTRADICT EACH OTHER ON SCREEN', () => {
+  /**
+   * ⚠ THIS REPLACES A COPY-PRESENCE TEST, and the replacement is the point.
+   * The previous guard asserted the old sentence was gone and the new one
+   * present — it never tested whether the new sentence was TRUE. The control
+   * existed; the branch was uncovered (trap 13b).
+   *
+   * What makes the sentence false is a node appearing in BOTH sections: the
+   * panel certifies a figure as the user's under "What I used", then denies it
+   * under "The numbers behind these are mine, not yours". So the guard asserts
+   * the contradiction cannot render.
+   *
+   * The corpus varies MAGNITUDE NOTATION because that is the axis the captured
+   * fixtures hold constant, and it is the axis the defect lived on: `£1.5m` was
+   * clean while `£1,500,000` clashed, purely because the user's suffix
+   * disagreed with the carrier's declared unit scale.
+   */
+  const NOTATIONS = ['£1.5m', '£1,500,000', '£300k', '£300,000', '£8,000,000', '£1,600,000']
 
+  /** The REAL CEE derivation over the REAL captured graph, put through the REAL
+   *  boundary parser. No hand-authored manifest anywhere in this suite. */
+  function caseFor(notation: string) {
+    const c = (notationFixtures as never as {
+      cases: Record<string, { brief_text: string; not_modelled: unknown }>
+    }).cases[notation]
+    expect(c, `fixture must carry the ${notation} case`).toBeDefined()
+    return { briefText: c.brief_text, manifest: parseNotModelled(c.not_modelled) }
+  }
+
+  it.each(NOTATIONS)(
+    'no node is both certified as the user\'s and denied as ours (%s)',
+    (notation) => {
+      const { briefText, manifest } = caseFor(notation)
+      expect(manifest, 'the real parser must accept the real manifest').not.toBeNull()
+      useContextIntegrityStore.getState().setContextIntegrity({
+        scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
+        briefText,
+        manifest,
+      })
+      const { container } = render(<V7WhatIWasGivenSection />)
+      openPanel()
+
+      const used = Array.from(
+        container.querySelectorAll('[data-testid="what-i-was-given-used-row"]'),
+      )
+        .map((el) => el.getAttribute('data-matched-node-id'))
+        .filter((id): id is string => Boolean(id))
+      // POSITIVE CONTROL: the notation must actually reach a node on screen, or
+      // this passes by rendering nothing.
+      expect(used.length, `"${notation}" must render a matched used row`).toBeGreaterThan(0)
+
+      const estimated = Array.from(
+        container.querySelectorAll('[data-testid="what-i-was-given-estimated-row"]'),
+      ).map((el) => el.getAttribute('data-node-id'))
+
+      const both = used.filter((id) => estimated.includes(id))
+      expect(
+        both,
+        `rendered as the user's AND as ours: ${both.join(', ')}`,
+      ).toEqual([])
+    },
+  )
+
+  it('DISCRIMINATION: the estimated section is not simply empty', () => {
+    // Without this, every row above passes on a panel that renders no estimated
+    // factors at all — satisfying "no contradiction" by saying nothing, and
+    // deleting the trust-critical answer to do it.
     seedFrom(b1Fixture as never)
     const { container } = render(<V7WhatIWasGivenSection />)
     openPanel()
-
-    // The precondition that makes the old sentence false: the factor is listed
-    // AND the user did state a figure for it.
     expect(
-      screen.getByTestId('what-i-was-given-estimated').querySelector('[data-node-id="fac_nrr"]'),
-    ).not.toBeNull()
+      container.querySelectorAll('[data-testid="what-i-was-given-estimated-row"]').length,
+    ).toBeGreaterThan(3)
+  })
 
+  it('the sentence it renders is one the derivation actually supports', () => {
+    // The copy assertion is kept, but only AFTER the truth condition above is
+    // established — it is now a statement about wording, not a stand-in for
+    // correctness.
+    seedFrom(b1Fixture as never)
+    const { container } = render(<V7WhatIWasGivenSection />)
+    openPanel()
     const text = container.textContent ?? ''
     expect(text).not.toContain("You didn't give me a figure")
-    expect(text).not.toContain('you did not give me a figure')
-    // What it may claim: the numbers are ours.
     expect(text).toContain('The numbers behind these are mine, not yours')
   })
 })
