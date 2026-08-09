@@ -60,6 +60,7 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { OptionResult } from '../../types'
 import { useContextIntegrityStore } from '@/canvas/stores/contextIntegrityStore'
 import { parseNotModelled } from '@/adapters/cee/notModelled'
+import { ClampToggle, clampRevealLabel, clampCollapseLabel } from '../ClampToggle'
 
 import b1Fixture from './fixtures/b1-cold-read.not-modelled.json'
 import b2Fixture from './fixtures/b2-cold-read.not-modelled.json'
@@ -92,7 +93,6 @@ function coldReadOf(fixture: Record<string, unknown>) {
 function seedFrom(fixture: Record<string, unknown>): void {
   const cold = coldReadOf(fixture)
   useContextIntegrityStore.getState().setContextIntegrity({
-    scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
     briefText: cold.brief_text,
     manifest: parseNotModelled(cold.not_modelled),
   })
@@ -391,7 +391,6 @@ describe('THE TWO SECTIONS MAY NEVER CONTRADICT EACH OTHER ON SCREEN', () => {
       const { briefText, manifest } = caseFor(notation)
       expect(manifest, 'the real parser must accept the real manifest').not.toBeNull()
       useContextIntegrityStore.getState().setContextIntegrity({
-        scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
         briefText,
         manifest,
       })
@@ -470,7 +469,6 @@ describe('counts come from the manifest, not from the rendered rows', () => {
     expect(manifest?.quantities?.truncated).toBe(true)
 
     useContextIntegrityStore.getState().setContextIntegrity({
-      scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
       briefText: 'A long brief.',
       manifest,
     })
@@ -497,7 +495,6 @@ describe('an unknown untracked code never leaks onto the screen', () => {
       not_tracked: ['corrections_and_second_thoughts', 'some_future_class_v2'],
     })
     useContextIntegrityStore.getState().setContextIntegrity({
-      scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
       briefText: 'A brief.',
       manifest,
     })
@@ -570,7 +567,6 @@ describe('the parser refuses to vouch for what it cannot read', () => {
   it('a payload it cannot read reaches the user as "we cannot tell you"', () => {
     // The end-to-end consequence of the above, at the surface.
     useContextIntegrityStore.getState().setContextIntegrity({
-      scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
       briefText: 'We need £4m out by March 2027.',
       manifest: parseNotModelled({ schema: 'not_modelled.v2', status: 'derived' }),
     })
@@ -594,7 +590,6 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
     // null. The surface must say "we cannot tell you" — not show an empty list,
     // and not stay silent, both of which read as "nothing was dropped".
     useContextIntegrityStore.getState().setContextIntegrity({
-      scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
       briefText: coldReadOf(b1Fixture as never).brief_text,
       manifest: null,
     })
@@ -627,7 +622,6 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
     expect(manifest?.quantities).toBeNull()
 
     useContextIntegrityStore.getState().setContextIntegrity({
-      scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
       briefText: 'We need £4m out by March 2027.',
       manifest,
     })
@@ -647,7 +641,6 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
       not_tracked: ['competing_or_dissenting_proposals'],
     })
     useContextIntegrityStore.getState().setContextIntegrity({
-      scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
       briefText: 'Should I take the job or stay put?',
       manifest,
     })
@@ -806,5 +799,130 @@ describe('MOUNT PATH — live under the DEPLOYED flag posture, and under its opp
 
     expect(heroOn, 'flag-on arm renders the hero panel').not.toBeNull()
     expect(heroOff, 'flag-off arm does not').toBeNull()
+  })
+})
+
+/**
+ * ── THE REVEAL CONTROL IS THE PANEL'S SHARED ONE, NOT A LOOK-ALIKE ──────────
+ *
+ * This section hand-rolled its own "Show N more" button in the SAME directory
+ * as `ClampToggle`, whose header declares itself "ONE leaf for the THREE
+ * verbatim copies in this directory". Two costs the user could see:
+ *
+ *   · it rendered in a DIFFERENT colour from every other clamp in the results
+ *     panel (`text-text-light underline` vs `text-info hover:underline`), in a
+ *     surface a reader takes to be one thing;
+ *   · it was ONE-WAY — once expanded there was no way back, where all three
+ *     existing consumers keep the affordance mounted as "Show fewer".
+ *
+ * Both assertions below are DERIVED from `ClampToggle` itself rather than from
+ * a copied class string or a hardcoded count: a literal here would be the same
+ * hand-maintained mirror the change removes (CLAUDE.md trap 12), and would keep
+ * passing on the day `ClampToggle` moved.
+ */
+describe('the reveal control — the panel-wide clamp affordance, not a local copy', () => {
+  const notYetRows = () =>
+    screen.getByTestId('what-i-was-given-notyet').querySelectorAll('[data-char-offset]').length
+
+  it('reverses: the control stays mounted as "Show fewer" and re-collapses the list', () => {
+    seedFrom(b1Fixture as never)
+    render(<V7WhatIWasGivenSection />)
+    openPanel()
+
+    const collapsed = notYetRows()
+    const toggle = screen.getByTestId('what-i-was-given-notyet-show-all')
+    // Captured while STILL COLLAPSED — the control is one node that relabels
+    // itself, so reading it after the click would read the collapse label.
+    const revealLabel = toggle.textContent
+
+    fireEvent.click(toggle)
+    const expanded = notYetRows()
+    // PRECONDITION, pinned in-test (trap 13b): the clamp must genuinely be
+    // hiding rows, or every assertion below would hold on a list that was
+    // never truncated and this test would discriminate nothing.
+    expect(
+      expanded,
+      'the notyet group must actually be clamped for this test to mean anything',
+    ).toBeGreaterThan(collapsed)
+
+    // The reveal label counted the rows it was hiding — derived from the shared
+    // label function AND from the row delta we just measured, so neither the
+    // string nor the number is copied here.
+    expect(revealLabel).toBe(clampRevealLabel(expanded - collapsed))
+
+    // THE BEHAVIOUR THIS CHANGE RESTORES: the affordance is still on screen,
+    // now offering the way back, and it works.
+    const back = screen.getByTestId('what-i-was-given-notyet-show-all')
+    expect(back, 'the clamp control must stay mounted once expanded').toBeInTheDocument()
+    expect(back).toHaveTextContent(clampCollapseLabel)
+    fireEvent.click(back)
+    expect(notYetRows()).toBe(collapsed)
+  })
+
+  it('LINES UP with the rows above it — the clamp inset matches the row inset', () => {
+    // Tailwind preflight sets `button { padding: 0 }` (verified in this project:
+    // `src/index.css:6` loads `@tailwind base`, tailwindcss 3.4.19), so a button
+    // with no `px-*` sits at a REAL zero inset while these rows carry one. The
+    // control would then hang 8px left of the text it belongs to.
+    //
+    // Both sides are read from the RENDERED DOM, so neither the row's inset nor
+    // the toggle's is written down here: change either and this test makes the
+    // other follow. A hardcoded `px-2` would be the mirror (trap 12).
+    seedFrom(b1Fixture as never)
+    render(<V7WhatIWasGivenSection />)
+    openPanel()
+
+    const insetOf = (el: Element | null | undefined): string =>
+      (el?.className ?? '').match(/(?:^|\s)(px-[^\s]+)/)?.[1] ?? 'none'
+
+    const row = screen.getByTestId('what-i-was-given-notyet').querySelector('[data-char-offset]')
+    const toggle = screen.getByTestId('what-i-was-given-notyet-show-all')
+
+    // PRECONDITION (trap 13b): if the rows ever lose their inset this test would
+    // pass on 'none' === 'none' while proving nothing about alignment.
+    expect(
+      insetOf(row),
+      'the rows must carry a horizontal inset or this test discriminates nothing',
+    ).not.toBe('none')
+
+    expect(insetOf(toggle)).toBe(insetOf(row))
+  })
+
+  it('the shared clamp carries vertical padding — preflight zeroes a bare button', () => {
+    // The tap target, at the ONE place that fixes it for all four consumers.
+    // jsdom cannot compute layout (trap 3), so this pins the CLASS, and the
+    // pixel arithmetic is stated in the PR body from the type tokens.
+    const r = render(
+      <ClampToggle testId="clamp-tap" hiddenCount={3} expanded={false} onToggle={() => {}} />,
+    )
+    expect(r.getByTestId('clamp-tap').className).toMatch(/(?:^|\s)py-/)
+  })
+
+  it('renders the SAME affordance the rest of the results panel renders', () => {
+    // The reference comes from the shared component, mounted here directly.
+    const reference = render(
+      <ClampToggle testId="clamp-reference" hiddenCount={3} expanded={false} onToggle={() => {}} />,
+    )
+    const referenceClass = reference.getByTestId('clamp-reference').className
+    expect(
+      referenceClass.length,
+      'the reference affordance must actually carry classes, or this compares nothing',
+    ).toBeGreaterThan(0)
+    cleanup()
+
+    seedFrom(b1Fixture as never)
+    render(<V7WhatIWasGivenSection />)
+    openPanel()
+
+    // Everything EXCEPT the horizontal inset comes from the shared component —
+    // colour, type scale, focus ring, and the tap padding. The inset is
+    // deliberately per-consumer (it tracks each consumer's own row padding, and
+    // three of the four need none), so it is stripped from BOTH sides here
+    // rather than written down a second time; the alignment test above is what
+    // pins it, derived from the rows themselves.
+    const withoutInset = (cn: string) => cn.replace(/(?:^|\s)px-[^\s]+/g, '').trim()
+    expect(withoutInset(screen.getByTestId('what-i-was-given-notyet-show-all').className)).toBe(
+      withoutInset(referenceClass),
+    )
   })
 })

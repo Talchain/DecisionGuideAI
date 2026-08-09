@@ -44,9 +44,25 @@ import { ChevronDown } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrityStore'
 import type { NotModelledItem } from '../../../adapters/cee/notModelled'
+import { ClampToggle } from './ClampToggle'
 
 /** Rows shown per group before "show all". Keeps the open state scannable. */
 const VISIBLE_ROWS = 6
+
+/**
+ * ── ONE LIST RHYTHM, ONE ROW BOX ───────────────────────────────────────────
+ * The container rhythm was written three times in this file and the row box
+ * twice verbatim (plus once in part). A reader takes this panel to be one
+ * surface, so the day one of the copies is adjusted and the others are not,
+ * the drift is visible to them — the hand-maintained mirror at user-facing
+ * scale (CLAUDE.md trap 12).
+ */
+const LIST_CLASS = 'mt-1 space-y-0.5'
+const ROW_BOX = 'rounded px-2 py-1 odd:bg-panel-hover/40'
+/** A plain text row. */
+const TEXT_ROW_CLASS = `${typography.panelBody} ${ROW_BOX} text-text-body`
+/** A row that also carries an action on the right. */
+const ACTION_ROW_CLASS = `flex items-baseline justify-between gap-2 ${ROW_BOX}`
 
 const COPY = {
   heading: 'What you gave me, and what I did with it',
@@ -109,6 +125,41 @@ function notTrackedCopy(codes: readonly string[]): string {
   return known.join('; ')
 }
 
+/**
+ * One item of a plain text list.
+ *
+ * `key` and `attrs` exist so every row is addressed by IDENTITY — a node id, a
+ * char offset — never by a value another row could also produce (trap 19).
+ */
+interface TextRow {
+  readonly key: string
+  readonly label: string
+  readonly attrs?: Readonly<Record<string, string>>
+}
+
+/**
+ * The unclamped text list — "what I estimated" and "I also considered these".
+ * The two were byte-identical apart from their key, their testid and one
+ * `data-` attribute, so they are one component parameterised by exactly those.
+ *
+ * `<ul>`/`<li>` rather than `<div>`: each block is a list of discrete facts and
+ * that is what lets assistive tech announce how many there are. The
+ * "considered" block already did this, so unifying the other list DOWN to a
+ * `<div>` would have been the regression. Tailwind's preflight strips list
+ * markers and padding, so the rendered pixels are unchanged.
+ */
+function TextRowList({ rows, testId }: { rows: readonly TextRow[]; testId: string }) {
+  return (
+    <ul className={LIST_CLASS} data-testid={testId}>
+      {rows.map((row) => (
+        <li key={row.key} data-testid={`${testId}-row`} {...row.attrs} className={TEXT_ROW_CLASS}>
+          {row.label}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function Rows({
   items,
   testId,
@@ -120,43 +171,56 @@ function Rows({
 }) {
   const [showAll, setShowAll] = useState(false)
   const visible = showAll ? items : items.slice(0, VISIBLE_ROWS)
-  const moreCount = items.length - visible.length
+  // ⚠ `ClampToggle`'s contract is that `hiddenCount` is what the clamp HIDES
+  // and does NOT change when the list expands — that is what keeps the control
+  // mounted as "Show fewer". `items.length - visible.length` falls to zero on
+  // expand and would unmount the affordance, which is precisely the one-way
+  // behaviour this replaced.
+  const hiddenCount = items.length - VISIBLE_ROWS
 
   return (
-    <div className="mt-1 space-y-0.5" data-testid={testId}>
-      {visible.map((item) => (
-        // Keyed and addressed by IDENTITY (offset + literal): a brief can state
-        // the same figure twice and they are two different facts.
-        <div
-          key={`${item.charOffset}:${item.literal}`}
-          data-testid={`${testId}-row`}
-          data-char-offset={item.charOffset}
-          data-matched-node-id={item.matchedNodeId ?? undefined}
-          className="flex items-baseline justify-between gap-2 rounded px-2 py-1 odd:bg-panel-hover/40"
-        >
-          <span className={`${typography.panelBody} text-text-body`}>{item.literal}</span>
-          {onAdd && (
-            <button
-              type="button"
-              onClick={() => onAdd(item)}
-              data-testid={`${testId}-add`}
-              className={`${typography.panelMeta} flex-none rounded px-1.5 py-0.5 text-text-light underline hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-            >
-              {COPY.addAction}
-            </button>
-          )}
-        </div>
-      ))}
-      {moreCount > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowAll(true)}
-          data-testid={`${testId}-show-all`}
-          className={`${typography.panelMeta} px-2 py-1 text-text-light underline hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-        >
-          Show {moreCount} more
-        </button>
-      )}
+    <div className={LIST_CLASS}>
+      <ul className="space-y-0.5" data-testid={testId}>
+        {visible.map((item) => (
+          // Keyed and addressed by IDENTITY (offset + literal): a brief can state
+          // the same figure twice and they are two different facts.
+          <li
+            key={`${item.charOffset}:${item.literal}`}
+            data-testid={`${testId}-row`}
+            data-char-offset={item.charOffset}
+            data-matched-node-id={item.matchedNodeId ?? undefined}
+            className={ACTION_ROW_CLASS}
+          >
+            <span className={`${typography.panelBody} text-text-body`}>{item.literal}</span>
+            {onAdd && (
+              <button
+                type="button"
+                onClick={() => onAdd(item)}
+                data-testid={`${testId}-add`}
+                className={`${typography.panelMeta} flex-none rounded px-1.5 py-0.5 text-text-light underline hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              >
+                {COPY.addAction}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {/* The panel's ONE clamp affordance (`./ClampToggle`), in the directory
+          that component's own header names. The copy this replaced rendered in
+          a different colour from every other clamp in the results panel and
+          offered no way back.
+
+          `rowInset` MUST track `ROW_BOX`'s horizontal padding: preflight zeroes
+          a bare button, so without it the control hangs 8px left of the rows it
+          belongs to. This is the ONLY consumer that passes one — the other
+          three render rows with no horizontal padding and sit flush. */}
+      <ClampToggle
+        testId={`${testId}-show-all`}
+        hiddenCount={hiddenCount}
+        expanded={showAll}
+        onToggle={() => setShowAll((s) => !s)}
+        rowInset="px-2"
+      />
     </div>
   )
 }
@@ -285,18 +349,14 @@ export function V7WhatIWasGivenSection({ onSendMessage }: V7WhatIWasGivenSection
                 {COPY.estimatedHeading}
               </h4>
               <p className={`${typography.panelMeta} text-text-light`}>{COPY.estimatedLead}</p>
-              <div className="mt-1 space-y-0.5" data-testid="what-i-was-given-estimated">
-                {estimated.map((f) => (
-                  <div
-                    key={f.nodeId}
-                    data-testid="what-i-was-given-estimated-row"
-                    data-node-id={f.nodeId}
-                    className={`${typography.panelBody} rounded px-2 py-1 text-text-body odd:bg-panel-hover/40`}
-                  >
-                    {f.label}
-                  </div>
-                ))}
-              </div>
+              <TextRowList
+                testId="what-i-was-given-estimated"
+                rows={estimated.map((f) => ({
+                  key: f.nodeId,
+                  label: f.label,
+                  attrs: { 'data-node-id': f.nodeId },
+                }))}
+              />
             </div>
           )}
 
@@ -304,17 +364,10 @@ export function V7WhatIWasGivenSection({ onSendMessage }: V7WhatIWasGivenSection
           {considered.length > 0 && (
             <div>
               <p className={`${typography.panelMeta} text-text-light`}>{COPY.consideredLead}</p>
-              <ul className="mt-1 space-y-0.5" data-testid="what-i-was-given-considered">
-                {considered.map((text) => (
-                  <li
-                    key={text}
-                    data-testid="what-i-was-given-considered-row"
-                    className={`${typography.panelBody} rounded px-2 py-1 text-text-body odd:bg-panel-hover/40`}
-                  >
-                    {text}
-                  </li>
-                ))}
-              </ul>
+              <TextRowList
+                testId="what-i-was-given-considered"
+                rows={considered.map((text) => ({ key: text, label: text }))}
+              />
             </div>
           )}
 

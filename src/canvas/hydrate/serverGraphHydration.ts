@@ -149,7 +149,6 @@ export async function hydrateCanvasFromServer(
   // an empty list, which on a brief we demonstrably lose content from would be
   // a new and more damaging lie than the silence it replaces.
   useContextIntegrityStore.getState().setContextIntegrity({
-    scenarioId,
     briefText: result.briefText,
     manifest: result.notModelled,
   })

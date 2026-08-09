@@ -24,16 +24,31 @@ import { create } from 'zustand'
 
 import type { NotModelledManifest } from '../../adapters/cee/notModelled'
 
+/**
+ * ── WHY THERE IS NO `scenarioId` HERE ──────────────────────────────────────
+ * There was one, and its comment claimed it "guards against a stale read from a
+ * previous scenario being shown against the current one". It guarded nothing:
+ * it was WRITE-ONLY. `serverGraphHydration` set it and no consumer ever read it
+ * — `V7WhatIWasGivenSection` selects `briefText` and `manifest` and nothing
+ * else. A field with zero readers cannot fork identity and cannot gate a
+ * render, so its blast radius was zero by construction (CLAUDE.md trap 10),
+ * and a comment asserting a guarantee nobody enforces is worse than no field:
+ * the next reader trusts it and stops looking.
+ *
+ * The staleness question itself is real but is answered UPSTREAM, before this
+ * store is written: `serverGraphHydration` compares the requested scenario
+ * against `useCanvasStore.currentScenarioId` and returns `'skipped'` on a
+ * mismatch, so a hydration for a scenario the user has left never reaches
+ * `setContextIntegrity` at all. If that ever stops being true, the fix is a
+ * guard with a reader and a test — not a field that records the answer and
+ * throws it away.
+ */
 export interface ContextIntegrityState {
   /** The brief as the user wrote it, byte-verbatim. `null` = none persisted. */
   briefText: string | null
   /** CEE's manifest. `null` = we were told nothing. NEVER "nothing dropped". */
   manifest: NotModelledManifest | null
-  /** The scenario the two fields above describe. Guards against a stale read
-   *  from a previous scenario being shown against the current one. */
-  scenarioId: string | null
   setContextIntegrity: (input: {
-    scenarioId: string
     briefText: string | null
     manifest: NotModelledManifest | null
   }) => void
@@ -43,12 +58,10 @@ export interface ContextIntegrityState {
 const EMPTY = {
   briefText: null,
   manifest: null,
-  scenarioId: null,
 } as const
 
 export const useContextIntegrityStore = create<ContextIntegrityState>((set) => ({
   ...EMPTY,
-  setContextIntegrity: ({ scenarioId, briefText, manifest }) =>
-    set({ scenarioId, briefText, manifest }),
+  setContextIntegrity: ({ briefText, manifest }) => set({ briefText, manifest }),
   reset: () => set({ ...EMPTY }),
 }))

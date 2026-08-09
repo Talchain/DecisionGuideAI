@@ -20,6 +20,19 @@
  * `null` as "we cannot tell you" — never as "nothing was dropped".
  */
 
+/**
+ * The plain-object guard comes from `lib/guards`, the repo's declared home for
+ * it ("THIS FILE IS THE HOME, NOT THE MIGRATION"). This module used to carry a
+ * private `asRecord` — one more copy of a predicate that already had several
+ * definitions in `src/`, which is the hand-maintained mirror trap 12 names.
+ * `isRecord` rather than `mappers/utils`'s `asObject`: the predicate form
+ * NARROWS in place, so the call sites here need no `=== null` / `=== undefined`
+ * dance at all, and `guards.ts` is the file the migration is converging on.
+ * The predicate is byte-for-byte the same test the local copy performed, so
+ * this is a deletion, not a behaviour change.
+ */
+import { isRecord } from '../../lib/guards'
+
 export const NOT_MODELLED_SCHEMA = 'not_modelled.v1' as const
 
 export type QuantityVerdict = 'in_model' | 'prose_only' | 'absent'
@@ -76,15 +89,16 @@ export interface InferredFactors {
 }
 
 function parseInferredFactors(raw: unknown): InferredFactors {
-  const o = asRecord(raw)
-  if (o === null || (o.status !== 'derived' && o.status !== 'not_recorded')) {
+  if (!isRecord(raw)) return { status: 'not_recorded', items: [] }
+  const o = raw
+  if (o.status !== 'derived' && o.status !== 'not_recorded') {
     return { status: 'not_recorded', items: [] }
   }
   const items: InferredFactor[] = []
   if (Array.isArray(o.items)) {
     for (const r of o.items) {
-      const i = asRecord(r)
-      if (i === null) continue
+      if (!isRecord(r)) continue
+      const i = r
       if (typeof i.node_id !== 'string' || typeof i.label !== 'string') continue
       if (i.label.length === 0) continue
       items.push({ nodeId: i.node_id, label: i.label })
@@ -113,8 +127,8 @@ const EXCLUSION_STATUSES: ReadonlySet<string> = new Set([
 /** Unparseable or absent ⇒ `not_recorded`: we were told nothing, which is the
  *  honest reading and the one that promises the user least. */
 function parseDeclaredExclusions(raw: unknown): DeclaredExclusions {
-  const o = asRecord(raw)
-  if (o === null) return { status: 'not_recorded', items: [] }
+  if (!isRecord(raw)) return { status: 'not_recorded', items: [] }
+  const o = raw
   if (typeof o.status !== 'string' || !EXCLUSION_STATUSES.has(o.status)) {
     return { status: 'not_recorded', items: [] }
   }
@@ -127,16 +141,9 @@ function parseDeclaredExclusions(raw: unknown): DeclaredExclusions {
 const VERDICTS: ReadonlySet<string> = new Set(['in_model', 'prose_only', 'absent'])
 const KINDS: ReadonlySet<string> = new Set(['money', 'percent', 'count', 'date', 'period'])
 
-function asRecord(v: unknown): Record<string, unknown> | null {
-  return v !== null && typeof v === 'object' && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
-    : null
-}
-
 function parseItem(raw: unknown): NotModelledItem | null {
-  const o = asRecord(raw)
-  if (o === null) return null
-  const { literal, kind, char_offset: charOffset, verdict, matched_node_id: matchedNodeId } = o
+  if (!isRecord(raw)) return null
+  const { literal, kind, char_offset: charOffset, verdict, matched_node_id: matchedNodeId } = raw
   if (typeof literal !== 'string' || literal.length === 0) return null
   if (typeof kind !== 'string' || !KINDS.has(kind)) return null
   if (typeof charOffset !== 'number' || !Number.isInteger(charOffset) || charOffset < 0) return null
@@ -162,8 +169,8 @@ function parseItem(raw: unknown): NotModelledItem | null {
  * about the user's own words.
  */
 export function parseNotModelled(raw: unknown): NotModelledManifest | null {
-  const o = asRecord(raw)
-  if (o === null) return null
+  if (!isRecord(raw)) return null
+  const o = raw
   if (o.schema !== NOT_MODELLED_SCHEMA) return null
 
   const notTracked = Array.isArray(o.not_tracked)
@@ -184,10 +191,10 @@ export function parseNotModelled(raw: unknown): NotModelledManifest | null {
 
   if (o.status !== 'derived') return null
 
-  const q = asRecord(o.quantities)
   // `derived` promises a tally. A derived manifest without one contradicts
   // itself, and we do not guess which half was true.
-  if (q === null) return null
+  if (!isRecord(o.quantities)) return null
+  const q = o.quantities
 
   const rawItems = Array.isArray(q.items) ? q.items : []
   const items: NotModelledItem[] = []
