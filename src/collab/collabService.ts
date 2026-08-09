@@ -64,6 +64,8 @@ export interface RevealView {
   graph_version_ref: string
   per_target: Array<{
     target: { kind: 'factor' | 'edge'; id: string }
+    /** The words the panel was actually asked about — see the CEE type. */
+    label: string
     model_value_at_version: number | null
     responses: RevealResponse[]
   }>

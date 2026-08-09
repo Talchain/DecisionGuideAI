@@ -329,7 +329,11 @@ export function RevealBody({ reveal }: { reveal: RevealView }): JSX.Element {
 
       {rows.map((row) => (
         <section key={row.target.id} data-testid={`reveal-target-${row.target.id}`}>
-          <h2>{row.target.id}</h2>
+          {/* The owner's own words for this target. A heading that read
+              `factor-churn-risk` would obscure exactly what this view exists to
+              make obvious: WHERE these two people disagree. Falls back to the
+              id only if a round somehow carries no label. */}
+          <h2>{row.label !== '' ? row.label : row.target.id}</h2>
           {row.model_value_at_version !== null && (
             <p style={{ opacity: 0.75 }}>
               The model held {row.model_value_at_version} for this when the round opened.
