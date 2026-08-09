@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
+import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
 import { X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
@@ -190,7 +191,18 @@ interface ReactFlowGraphProps {
  * - If graph loaded from scenario → prefer scenario readiness
  * - Only use sessionStorage when no persistent source exists (draft mode)
  */
-function restoreCeeAnalysisReady(
+/**
+ * ROADMAP 2.1003 / F4 — EXPORTED FOR TEST SO THE CALL SITE IS PINNED.
+ *
+ * ⚠ Measured: deleting the freshness re-ingestion inside this function fully
+ * re-introduces F4 and yet survived the F4 spec 10/10 AND a sweep of 101 spec
+ * files / 1,122 tests with zero reds — because every test called
+ * `resolveRestoredFreshnessUpdate` directly and nothing exercised the one
+ * production reference. A pure function with a perfect unit kit is not
+ * evidence that the product calls it. The export exists so
+ * `reactFlowGraph.restoreFreshnessOnBoot.spec.ts` can drive this seam.
+ */
+export function restoreCeeAnalysisReady(
   loadSource: 'autosave' | 'scenario' | 'none',
   autosave: scenarios.AutosaveData | null,
   scenario: Scenario | null,
@@ -252,6 +264,24 @@ function restoreCeeAnalysisReady(
 
     if (validation.isValid) {
       useCanvasStore.getState().setCeeAnalysisReady(ceeAnalysisReady)
+      // ROADMAP 2.1003 / F4 — re-ingest the persisted freshness attestation.
+      // Ordering is load-bearing: `resultsLoadHistorical` ran earlier in the
+      // boot effect and stamped the cannot-confirm hydration marker, so this
+      // must come AFTER it to have anything to upgrade. Fail-closed and
+      // one-directional — it can only move `unknown` → `fresh`.
+      // `validation.isValid` above is the node-identity half of the proof; the
+      // attestation's matching graph hashes are the other half.
+      const restoredFreshness = resolveRestoredFreshnessUpdate(
+        useCanvasStore.getState().analysisFreshness,
+        useCanvasStore.getState().analysisFreshnessDirty,
+        ceeAnalysisReady,
+      )
+      if (restoredFreshness) {
+        useCanvasStore.setState({
+          analysisFreshness: restoredFreshness,
+          analysisFreshnessDirty: false,
+        })
+      }
       if (import.meta.env.DEV) {
         console.warn('[canvas:init] Restored ceeAnalysisReady:', {
           source,

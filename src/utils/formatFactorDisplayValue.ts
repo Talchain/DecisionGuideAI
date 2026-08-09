@@ -30,6 +30,101 @@ function formatNumber(value: number): string {
     : String(value)
 }
 
+/**
+ * A display string this guard is willing to JUDGE: a single bare, percent, or
+ * currency-prefixed number. Nothing else.
+ *
+ * Deliberately, provably narrow — everything it does not match keeps today's
+ * behaviour byte-for-byte:
+ *   · qualitative text ("Moderate", "No acquisition pursued") — no number, so
+ *     no contradiction can be established;
+ *   · ranges ("0.48 to 1", "3–5 months") — two numbers, describes a prior, not
+ *     the observed point;
+ *   · magnitude shorthand ("£40k", "$2.1m") — the digits are not the value;
+ *   · anything with unit words ("42 days", "6 developers").
+ * Judging any of those would need a vocabulary, and a vocabulary over natural
+ * language drawn from one author's head is exactly the class of predicate this
+ * estate keeps getting wrong.
+ */
+const SINGLE_NUMERIC_DISPLAY = /^\s*[-+]?[£$€¥₹]?\s*[-+]?\d[\d,]*(?:\.\d+)?\s*%?\s*$/
+
+/** How many decimal places a display string committed to. */
+function decimalPlaces(text: string): number {
+  const m = /\.(\d+)/.exec(text)
+  return m ? m[1].length : 0
+}
+
+/**
+ * Could `candidate` have been rounded to produce `shown`, at the precision
+ * `shown` committed to? "0.42" may legitimately render 0.4234; "20" may not
+ * render 40.
+ */
+function couldRoundTo(candidate: number, shown: number, places: number): boolean {
+  if (!Number.isFinite(candidate)) return false
+  const tolerance = 0.5 * Math.pow(10, -places)
+  return Math.abs(candidate - shown) <= tolerance + Number.EPSILON * 8
+}
+
+/**
+ * Is this `display_value` CONTRADICTED by the node's own numeric state?
+ *
+ * ROADMAP 2.1003 / audit finding F3 — "the screen lies". Measured on deployed
+ * staging 2026-08-09: a CEE receipt carried `observed_state.value = 40` beside
+ * a stale top-level `display_value = "20%"`. This formatter returned "20%"
+ * verbatim, so the canvas showed 20% — before AND after reload — while the
+ * rerun computed on 40 and flipped the leading option. The brief's words:
+ * **contradictory display must be invalidated, not preferred.**
+ *
+ * FAILS SAFE IN THE DIRECTION THAT MATTERS. It answers "can I POSITIVELY
+ * establish a contradiction?" — never "does this look right?". Anything it
+ * cannot judge is not contradicted, and renders exactly as it does today.
+ *
+ * Accepted renderings of the state are `value`, `raw_value`, and the two
+ * percent scalings (`value × 100`, `value ÷ 100`), because the estate stores
+ * percentages on both 0–1 and 0–100 scales and a display string cannot tell us
+ * which one it used.
+ *
+ * ⚠ KNOWN LIMIT, stated rather than hidden: when `raw_value` is present but
+ * itself stale, the display agrees with `raw_value` and this returns false.
+ * That is a real, measured CEE-side applier defect (the value applier updates
+ * `observed_state.value` and leaves `raw_value` behind) and it is not
+ * repairable here — a consumer cannot tell a stale producer field from a
+ * deliberate one.
+ *
+ * Exported so the rule is a concept with its own tests and its own mutants,
+ * not an expression buried in a branch.
+ */
+export function isDisplayValueContradicted(
+  displayValue: string | null | undefined,
+  state: { value?: number | null; raw_value?: number | string | null },
+): boolean {
+  if (displayValue == null || displayValue === '') return false
+  if (!SINGLE_NUMERIC_DISPLAY.test(displayValue)) return false
+
+  const shown = Number(displayValue.replace(/[£$€¥₹,%\s]/g, ''))
+  if (!Number.isFinite(shown)) return false
+
+  const rawNumeric =
+    typeof state.raw_value === 'number'
+      ? state.raw_value
+      : typeof state.raw_value === 'string' && state.raw_value.trim() !== ''
+        ? Number(state.raw_value)
+        : null
+
+  const candidates: number[] = []
+  if (typeof state.value === 'number' && Number.isFinite(state.value)) {
+    candidates.push(state.value, state.value * 100, state.value / 100)
+  }
+  if (rawNumeric != null && Number.isFinite(rawNumeric)) {
+    candidates.push(rawNumeric, rawNumeric * 100, rawNumeric / 100)
+  }
+  // No numeric state at all ⇒ nothing to contradict it with.
+  if (candidates.length === 0) return false
+
+  const places = decimalPlaces(displayValue)
+  return !candidates.some((c) => couldRoundTo(c, shown, places))
+}
+
 export interface FactorDisplayInput {
   label: string
   value?: number | null
@@ -202,8 +297,60 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   // moved here so a stale display_value cannot mask a fresh raw_value +
   // meaningful unit (Pattern 1), but still beats the unitless-raw numeric
   // fallback below and the value-only heuristic that follows.
-  if (display_value != null && display_value !== '') {
+  //
+  // ROADMAP 2.1003 — …UNLESS THE NODE'S OWN NUMBERS SAY IT IS WRONG.
+  // A denormalised string that contradicts the value the analysis is actually
+  // computing on is not a "contextual override", it is a lie about the user's
+  // model. Measured live: `display_value = "20%"` beside
+  // `observed_state.value = 40`, rendered as 20% on the canvas immediately and
+  // after reload while the rerun used 40 and flipped the leading option.
+  const displayValueContradicted =
+    display_value != null
+    && display_value !== ''
+    && isDisplayValueContradicted(display_value, { value, raw_value })
+
+  if (display_value != null && display_value !== '' && !displayValueContradicted) {
     return display_value
+  }
+
+  // ROADMAP 2.1003 — RECOVERY AFTER INVALIDATION. **Do not delete this without
+  // reading the next paragraph: without it, suppressing the lie renders BLANK.**
+  //
+  // MEASURED: with the exact audit fixture (`value: 40, raw_value: null,
+  // unit: '%', display_value: '20%'`) the invalidated string fell through to
+  // Pattern 2, whose non-binary branch returns `null` — so the factor node got
+  // NO BODY TEXT AT ALL. The user went from a wrong "20%" to nothing. Killing
+  // the symptom (the wrong number) while never measuring the outcome (what the
+  // user actually sees) is the defect class this lane exists to stop.
+  //
+  // WHY `raw_value` IS ABSENT IN THAT FIXTURE, and why this is one defect and
+  // not two: CEE's value applier updates `observed_state.value` and leaves
+  // `raw_value` behind (ROADMAP 2.1033). The numeric branches below need
+  // `raw_value`; it isn't there; so there is nothing left to render.
+  //
+  // ⚠ SCOPED TO WHAT CAN BE RENDERED HONESTLY — and the exclusions are the
+  // point, not an oversight:
+  //   · percent units — `value` maps deterministically to the shown
+  //     percentage, using Pattern 1's own 0–1-vs-0–100 rule (reused, not
+  //     re-implemented), so "40" and "0.4" both render "40%";
+  //   · no unit at all — the bare committed number is exactly the truth;
+  //   · EVERYTHING ELSE (currency, time, counts, ISO codes) returns nothing
+  //     here and falls through. For those, `value` is a 0–1 figure normalised
+  //     against `cap` and is NOT a real-world magnitude: rendering "£0.3" for
+  //     a £30,000 factor would replace one lie with a worse one, and
+  //     reconstructing `value × cap` would be inventing a number. Blank is the
+  //     honest outcome there, and it is disclosed rather than papered over.
+  // Gated on `displayValueContradicted` so it fires ONLY where we just
+  // suppressed something — a node that simply never had a `display_value`
+  // keeps today's behaviour byte-for-byte.
+  if (displayValueContradicted && raw_value == null && value != null) {
+    if (unitKind === 'percent') {
+      const scaled = value > 0 && value < 1 ? value * 100 : value
+      return `${Math.round(scaled)}%`
+    }
+    if (!unit) {
+      return formatNumber(value)
+    }
   }
 
   // raw_value without unit — numeric fallback formatter. Runs AFTER
