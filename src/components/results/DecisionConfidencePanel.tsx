@@ -45,7 +45,16 @@ interface DecisionConfidencePanelProps {
   expertMode?: boolean
   /** Lookup: factor node ID → current observed value + unit/cap (for pre-filling triage card editors) */
   nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null; displayValue?: string | null }>
-  /** Brief 5.8B D2c: handler invoked by the dominant-factor "Research" chip (moved from DriversSection). */
+  /**
+   * Accepted but NO LONGER CONSUMED by this panel. Its only consumer was the
+   * dominant-factor "Research" chip, removed under ROADMAP 2.816 because it
+   * advertised a capability with no producer (see `TriageActionCardsBody`'s
+   * `T1DominantNudge` header). The prop is retained because it is part of the
+   * shared results-surface prop set that `ResultsBody` and ~6 specs pass;
+   * deleting it is a ~40-occurrence rename unrelated to that trust fix.
+   * Nothing here reads it — do not reintroduce a consumer without checking
+   * what the handler would actually reach.
+   */
   onSendMessage?: (text: string) => void
   /** Brief 5.8B D2c: AI affordance rendered inside the T1 checks-footer MissingKnowledgePrompt. */
   aiAffordance?: ReactNode
@@ -93,7 +102,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   onConfirm,
   expertMode: _expertMode,
   nodeValueLookup,
-  onSendMessage,
+  onSendMessage: _onSendMessage,
   aiAffordance,
 }: DecisionConfidencePanelProps) {
   // Freshness for the hero qualifier comes from the CEE-only freshness slice
@@ -399,7 +408,6 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           onSetValue={onSetValue}
           onConfirm={onConfirm}
           nodeValueLookup={nodeValueLookup}
-          onSendMessage={onSendMessage}
           aiAffordance={aiAffordance}
         />
       </div>
