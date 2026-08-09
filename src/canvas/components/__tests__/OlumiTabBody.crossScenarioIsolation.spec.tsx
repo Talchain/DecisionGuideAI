@@ -53,7 +53,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, act, waitFor } from '@testing-library/react'
+import { render, act, waitFor } from '@testing-library/react'
 import { OlumiTabBody } from '../OlumiTabBody'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { useCanvasStore } from '../../store'
