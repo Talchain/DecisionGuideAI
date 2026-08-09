@@ -2751,19 +2751,15 @@ export function useConversation(): UseConversationReturn {
         }
       }
 
-      // ── COMMIT THE OUTGOING TRANSCRIPT, UNDER THE OUTGOING ID, FIRST ─────
-      // The persistence effect above already keys on the owner and so cannot
-      // misfile these. This write makes the guarantee LOCAL rather than
-      // positional: the decision the user is leaving is saved here, in the same
-      // synchronous block that clears it, so no future edit to hook order or to
-      // that effect's dependencies can strand a conversation unsaved.
-      if (leavingScenarioId && messagesRef.current.length > 0) {
-        try {
-          saveTranscript(leavingScenarioId, messagesRef.current)
-        } catch (err) {
-          console.error('[useConversation] Could not save the transcript being left', err)
-        }
-      }
+      // ⚠ THERE IS DELIBERATELY NO SECOND, SYNCHRONOUS SAVE OF THE OUTGOING
+      // TRANSCRIPT HERE. One was written, as belt-and-braces against a future
+      // reordering — and a mutant proved it could be deleted with every test
+      // still green, because it is redundant BY CONSTRUCTION: the persistence
+      // effect's dependencies are `[messages, scenarioId]` and this effect's
+      // include `scenarioId`, so persistence ALWAYS fires on the same commit,
+      // and now keys on the owner. A line no test can distinguish is the
+      // hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12);
+      // the ownership ref is the guarantee, and it is the only one.
 
       // A real scenario switch. The CEE session state belongs to the scenario
       // we are leaving, so it always clears — but the conversation we are

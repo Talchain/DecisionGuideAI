@@ -266,17 +266,32 @@ describe('cross-scenario isolation — the switch must not cost the user their w
   /**
    * ── POSITIVE CONTROL (trap 13b) ─────────────────────────────────────────
    * Every isolation assertion above is an ABSENCE. A "fix" that simply stopped
-   * persisting anything would satisfy all of them while destroying the feature.
-   * This test asserts the PRESENCE the isolation must not cost: a transcript
-   * still reaches storage under the scenario it belongs to.
+   * persisting — or that persisted under some OTHER key — would satisfy all of
+   * them while destroying the feature. This asserts the PRESENCE the isolation
+   * must not cost.
+   *
+   * ⚠ THE SEED IS DELETED BEFORE THE ASSERTION, AND THAT LINE IS THE WHOLE
+   * TEST. The first version of this control asserted the record straight after
+   * mount — and a mutant that rewrote persistence to save under a THIRD
+   * scenario id left it GREEN, because it was reading the bytes the FIXTURE
+   * had written, never anything the product did. It was a guard agreeing with
+   * itself. Wiping storage first means anything found afterwards can only have
+   * been written by the code under test.
    */
-  it('still persists a scenario\'s own transcript under its own key', async () => {
+  it("persists a scenario's own transcript under its OWN key — bytes written by the product, not by the fixture", async () => {
     storePriorSession(SCENARIO_A, messagesFor('a'))
     useCanvasStore.setState({ currentScenarioId: SCENARIO_A })
 
     const { container } = renderPanel()
     await waitFor(() => {
       expect(container.querySelector('[data-testid="message-user"]')).not.toBeNull()
+    })
+
+    // Everything from here on is the product's own doing.
+    localStorage.removeItem(TRANSCRIPT_STORAGE_KEY)
+
+    await act(async () => {
+      useCanvasStore.setState({ currentScenarioId: SCENARIO_B })
     })
 
     const idsUnderA = (storedFor(SCENARIO_A)?.messages ?? []).map((m) => m.id)
