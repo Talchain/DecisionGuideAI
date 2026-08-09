@@ -192,6 +192,36 @@ describe('cross-scenario isolation — A→B must not carry A into B', () => {
     expect(idsUnderB).toContain('b-a1')
   })
 
+  /**
+   * ── THE MIRROR LEAK ─────────────────────────────────────────────────────
+   * The defect has two directions and the obvious one is only half of it. If
+   * ownership is not TRANSFERRED on the switch, the panel restores B's turns
+   * while the owner is still pinned to A — and the very next persistence pass
+   * writes B's private conversation under A's key. Found by a surviving mutant
+   * (delete the ownership transfer: every other test in this file stayed
+   * green), not by reading the code.
+   */
+  it("does not write scenario B's turns back under scenario A's key", async () => {
+    storePriorSession(SCENARIO_A, messagesFor('a'))
+    storePriorSession(SCENARIO_B, messagesFor('b'))
+    useCanvasStore.setState({ currentScenarioId: SCENARIO_A })
+
+    const { container } = renderPanel()
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="message-user"]')).not.toBeNull()
+    })
+
+    await act(async () => {
+      useCanvasStore.setState({ currentScenarioId: SCENARIO_B })
+    })
+
+    const idsUnderA = (storedFor(SCENARIO_A)?.messages ?? []).map((m) => m.id)
+    expect(idsUnderA).not.toContain('b-u1')
+    expect(idsUnderA).not.toContain('b-a1')
+    // …and A's own history is still there: this must not pass by emptying A.
+    expect(idsUnderA).toContain('a-u1')
+  })
+
   it("shows scenario B's OWN conversation after the switch, not A's and not a blank slate", async () => {
     storePriorSession(SCENARIO_A, messagesFor('a'))
     storePriorSession(SCENARIO_B, messagesFor('b'))
