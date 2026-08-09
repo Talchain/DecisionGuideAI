@@ -859,6 +859,45 @@ describe('the reveal control — the panel-wide clamp affordance, not a local co
     expect(notYetRows()).toBe(collapsed)
   })
 
+  it('LINES UP with the rows above it — the clamp inset matches the row inset', () => {
+    // Tailwind preflight sets `button { padding: 0 }` (verified in this project:
+    // `src/index.css:6` loads `@tailwind base`, tailwindcss 3.4.19), so a button
+    // with no `px-*` sits at a REAL zero inset while these rows carry one. The
+    // control would then hang 8px left of the text it belongs to.
+    //
+    // Both sides are read from the RENDERED DOM, so neither the row's inset nor
+    // the toggle's is written down here: change either and this test makes the
+    // other follow. A hardcoded `px-2` would be the mirror (trap 12).
+    seedFrom(b1Fixture as never)
+    render(<V7WhatIWasGivenSection />)
+    openPanel()
+
+    const insetOf = (el: Element | null | undefined): string =>
+      (el?.className ?? '').match(/(?:^|\s)(px-[^\s]+)/)?.[1] ?? 'none'
+
+    const row = screen.getByTestId('what-i-was-given-notyet').querySelector('[data-char-offset]')
+    const toggle = screen.getByTestId('what-i-was-given-notyet-show-all')
+
+    // PRECONDITION (trap 13b): if the rows ever lose their inset this test would
+    // pass on 'none' === 'none' while proving nothing about alignment.
+    expect(
+      insetOf(row),
+      'the rows must carry a horizontal inset or this test discriminates nothing',
+    ).not.toBe('none')
+
+    expect(insetOf(toggle)).toBe(insetOf(row))
+  })
+
+  it('the shared clamp carries vertical padding — preflight zeroes a bare button', () => {
+    // The tap target, at the ONE place that fixes it for all four consumers.
+    // jsdom cannot compute layout (trap 3), so this pins the CLASS, and the
+    // pixel arithmetic is stated in the PR body from the type tokens.
+    const r = render(
+      <ClampToggle testId="clamp-tap" hiddenCount={3} expanded={false} onToggle={() => {}} />,
+    )
+    expect(r.getByTestId('clamp-tap').className).toMatch(/(?:^|\s)py-/)
+  })
+
   it('renders the SAME affordance the rest of the results panel renders', () => {
     // The reference comes from the shared component, mounted here directly.
     const reference = render(
@@ -875,6 +914,15 @@ describe('the reveal control — the panel-wide clamp affordance, not a local co
     render(<V7WhatIWasGivenSection />)
     openPanel()
 
-    expect(screen.getByTestId('what-i-was-given-notyet-show-all').className).toBe(referenceClass)
+    // Everything EXCEPT the horizontal inset comes from the shared component —
+    // colour, type scale, focus ring, and the tap padding. The inset is
+    // deliberately per-consumer (it tracks each consumer's own row padding, and
+    // three of the four need none), so it is stripped from BOTH sides here
+    // rather than written down a second time; the alignment test above is what
+    // pins it, derived from the rows themselves.
+    const withoutInset = (cn: string) => cn.replace(/(?:^|\s)px-[^\s]+/g, '').trim()
+    expect(withoutInset(screen.getByTestId('what-i-was-given-notyet-show-all').className)).toBe(
+      withoutInset(referenceClass),
+    )
   })
 })

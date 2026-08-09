@@ -208,12 +208,18 @@ function Rows({
       {/* The panel's ONE clamp affordance (`./ClampToggle`), in the directory
           that component's own header names. The copy this replaced rendered in
           a different colour from every other clamp in the results panel and
-          offered no way back. */}
+          offered no way back.
+
+          `rowInset` MUST track `ROW_BOX`'s horizontal padding: preflight zeroes
+          a bare button, so without it the control hangs 8px left of the rows it
+          belongs to. This is the ONLY consumer that passes one — the other
+          three render rows with no horizontal padding and sit flush. */}
       <ClampToggle
         testId={`${testId}-show-all`}
         hiddenCount={hiddenCount}
         expanded={showAll}
         onToggle={() => setShowAll((s) => !s)}
+        rowInset="px-2"
       />
     </div>
   )
