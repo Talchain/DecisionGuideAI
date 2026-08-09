@@ -32,6 +32,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
+import type { V7SharpenLineProps } from '../v7/V7SharpenLine'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
   ConfidenceSectionData,
@@ -49,6 +50,40 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusExistingTarget: vi.fn(),
   focusModelTarget: vi.fn(() => true),
 }))
+
+/**
+ * ── OBSERVING THE PASS-THROUGH HALF OF THE MECHANISM ───────────────────────
+ *
+ * The refusal is only half of ROADMAP 2.993. The other half is that
+ * `V7TopMatter` STILL HANDS THE DERIVED LABEL OVER, correctly labelled, so that
+ * the decision not to attribute it lives in `V7SharpenLine` on the live path
+ * and any future re-attribution has to be a visible diff in that file.
+ *
+ * That half was UNPINNED. Every assertion in this file is an absence, so
+ * simplifying `V7TopMatter` to pass `null` when there is no `goalText` would
+ * delete the mechanism and leave the whole suite GREEN — a guard whose evidence
+ * comes from itself (CLAUDE.md trap 13b). A discarded value leaves no DOM
+ * trace, so the ONLY way to observe it is at the prop boundary.
+ *
+ * The mock spreads `importOriginal` and DELEGATES to the real component rather
+ * than replacing it: a `vi.mock` factory replaces the whole module, and a
+ * hand-listed stub is the mirror that silently drops whatever the module gains
+ * next (trap 12). Because it delegates, the three rendering tests below are
+ * unaffected and still exercise the real refusal.
+ */
+const { sharpenProps } = vi.hoisted(() => ({ sharpenProps: [] as V7SharpenLineProps[] }))
+
+vi.mock('../v7/V7SharpenLine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../v7/V7SharpenLine')>()
+  const { createElement } = await import('react')
+  return {
+    ...actual,
+    V7SharpenLine: (props: V7SharpenLineProps) => {
+      sharpenProps.push(props)
+      return createElement(actual.V7SharpenLine, props)
+    },
+  }
+})
 
 vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
@@ -224,9 +259,51 @@ const FRESH: AnalysisFreshnessState = { freshness: 'fresh', computedAt: '2026-07
 
 describe('ResultsBody — V7 sharpen line quote provenance (ROADMAP 2.993)', () => {
   beforeEach(() => {
+    sharpenProps.length = 0
     useCanvasStore.setState({ analysisFreshness: FRESH, analysisFreshnessDirty: false })
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
     useGuidanceStore.setState({ guidanceItems: [] })
+  })
+
+  it('HANDS THE DERIVED LABEL OVER — the refusal happens in the component, not upstream', () => {
+    renderBody(undefined)
+    assertSharpenSurfaceMounted()
+
+    // The instrument must have observed the live render at all — otherwise
+    // every assertion below would pass vacuously on an empty array (trap 13).
+    expect(
+      sharpenProps.length,
+      'the recording wrapper must have seen V7SharpenLine render',
+    ).toBeGreaterThan(0)
+
+    // IDENTITY BINDING (trap 19): not "some quote was passed", but THIS quote —
+    // our derived label, carrying the one provenance that makes it refusable.
+    // A value predicate like "a non-null briefQuote" would be satisfied by the
+    // user_brief case too, which is the opposite of what is under test.
+    expect(sharpenProps.at(-1)?.briefQuote).toEqual({
+      text: DERIVED_GOAL_LABEL,
+      source: 'derived_label',
+    })
+
+    // …and receiving it changes nothing on screen. Both halves in one test, so
+    // a change that deletes the pass-through cannot pass by also deleting the
+    // assertion that the screen stays clean.
+    expect(screen.queryByTestId('v7-sharpen-quote')).not.toBeInTheDocument()
+  })
+
+  it('CONTROL — the pass-through discriminates: the user_brief case carries a DIFFERENT quote', () => {
+    // Without this, the test above could not tell "the derived label was passed"
+    // from "whatever was passed happened to match". Keeping one probe whose
+    // expected answer DIFFERS is what exposes an instrument that has stopped
+    // discriminating (CLAUDE.md trap 20).
+    renderBody(USER_BRIEF_GOAL)
+    assertSharpenSurfaceMounted()
+
+    expect(sharpenProps.at(-1)?.briefQuote).toEqual({
+      text: USER_BRIEF_GOAL,
+      source: 'user_brief',
+    })
+    expect(USER_BRIEF_GOAL).not.toBe(DERIVED_GOAL_LABEL)
   })
 
   it('never attributes OUR derived goal label to the user when the brief carries no goal', () => {
