@@ -1,0 +1,283 @@
+/**
+ * ResultsBody — the V7 sharpen line's "You wrote: …" quote must be the USER's
+ * words, never ours (ROADMAP 2.993).
+ *
+ * THE DEFECT (measured at `e15c6b81`, the commit staging deploys):
+ * `V7TopMatter` computed `briefWording = recommendation.goalText ?? goalLabel`
+ * and `V7SharpenLine` rendered it under `You wrote: "…"`. `goalText` is the
+ * user's own framing goal; `goalLabel` is OUR derivation
+ * (`useResultsSectionData`: sanitised, sourced from the drafted goal NODE's
+ * label, sometimes re-phrased as `the best outcome for X`, and defaulting to
+ * the literal `your goal`). The fallback therefore put the product's own
+ * generated text inside quotation marks and attributed it to the user — a lie
+ * about authorship, on the one surface designed to reflect their words back.
+ *
+ * WHY THE ASSERTIONS BIND TO PROVENANCE, NOT TO A VALUE (trap 19):
+ * a test that merely asserted "the quote equals X" would pass whenever the
+ * derived label and the brief happen to coincide. So every case here is built
+ * from a fixture where the two DIFFER, and the honest-path oracle is the
+ * PRODUCER of the submitted brief — `composeBriefText`, the function
+ * `useAsk` uses to build the `brief` this app sends to CEE. The displayed
+ * characters must occur inside those bytes; the derived label must not.
+ * Each test pins that precondition in-test, so if `composeBriefText` ever
+ * stops carrying the framing goal, these tests go RED instead of quietly
+ * becoming tautologies.
+ *
+ * MOUNT PATH (trap 3b): `v7-top-group` carries NO flag in `ResultsBody`, and
+ * the deployed staging bundle confirms it (chunk `ReactFlowGraph-9aiLXlpO.js`
+ * at commit `e15c6b81` renders the group unguarded, unlike its flag-gated
+ * hero sibling). Each test asserts the surface actually mounted, so an absence
+ * assertion can never pass because the whole component vanished.
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import { ResultsBody } from '../ResultsBody'
+import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import type {
+  ConfidenceSectionData,
+  DecisionResultData,
+  DriversSectionData,
+  DriverItem,
+  ImprovementsSectionData,
+  OptionResult,
+} from '../types'
+import { composeBriefText } from '@/hooks/useAsk'
+
+vi.mock('../../../canvas/utils/focusHelpers', () => ({
+  focusNodeById: vi.fn(),
+  focusByTarget: vi.fn(),
+  focusExistingTarget: vi.fn(),
+  focusModelTarget: vi.fn(() => true),
+}))
+
+vi.mock('@/flags', async () => {
+  const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
+  return {
+    ...actual,
+    isAnalysisHeroV17Enabled: vi.fn(() => false),
+    isAnalysisHeroCompareEnabled: vi.fn(() => false),
+    isFocusNowPanelEnabled: vi.fn(() => true),
+    isStrengthenPanelEnabled: vi.fn(() => false),
+    isAiPanelV2Enabled: vi.fn(() => true),
+    isAnalysisHeroPanelEnabled: vi.fn(() => false),
+  }
+})
+
+import { useCanvasStore } from '@/canvas/store'
+import { useUIStore } from '@/stores/uiStore'
+import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
+import type { AnalysisFreshnessState } from '@/canvas/store/analysisFreshness'
+
+/**
+ * The user's own words. Deliberately unlike anything a label deriver would
+ * produce, and carrying a token (`kestrel`) that appears nowhere else.
+ */
+const USER_BRIEF_GOAL =
+  'Keep the kestrel migration under budget without slipping the December date'
+
+/**
+ * OUR text. Shaped like a real `goalLabel` output — this is exactly the form
+ * `useResultsSectionData` emits for a short/colliding label — and sharing NO
+ * distinctive token with the brief above.
+ */
+const DERIVED_GOAL_LABEL = 'the best outcome for Cat'
+
+/** The framing this app would submit, with the user's goal in it. */
+const FRAMING_WITH_USER_GOAL = {
+  title: 'Platform migration',
+  goal: USER_BRIEF_GOAL,
+  timeline: 'By December',
+}
+
+/**
+ * The framing a fresh session actually has. The only in-app writer that ever
+ * set `framing.goal` (`InputsDock`) now lives in `archive/`, so `goalText` is
+ * absent and the old code fell through to the derived label EVERY time.
+ */
+const FRAMING_WITHOUT_USER_GOAL = {
+  title: 'Platform migration',
+  timeline: 'By December',
+}
+
+function driver(): DriverItem {
+  return {
+    factorKey: 'n_lead',
+    factorLabel: 'Tech lead hired',
+    rawElasticity: 1,
+    normalisedInfluence: 1,
+    rank: 1,
+    semanticLabel: 'biggest',
+    canFocus: true,
+    matchedNodeId: 'n_lead',
+  } as DriverItem
+}
+
+/**
+ * @param goalText the user's framing goal as `useResultsSectionData` exposes
+ *   it (`currentScenarioFraming?.goal || undefined`) — `undefined` reproduces
+ *   a session with no user-written goal.
+ */
+function makeData(goalText: string | undefined): ResultsSectionDataReturn {
+  const winner = {
+    id: 'opt_a',
+    label: 'Bring In 6-Month Contractor',
+    expected: 0.8,
+    outcome: { mean: 0.8, p10: 0.6, p50: 0.78, p90: 0.95 },
+    p10: 0.6,
+    p50: 0.78,
+    p90: 0.95,
+    isRecommended: true,
+    winProbability: 0.71,
+  } as unknown as OptionResult
+  const runnerUp = {
+    id: 'opt_b',
+    label: 'Hire Permanent Senior Tech Lead',
+    isRecommended: false,
+    winProbability: 0.31,
+  } as unknown as OptionResult
+
+  const recommendation = {
+    recommendedOption: winner,
+    allOptions: [winner, runnerUp],
+    goalLabel: DERIVED_GOAL_LABEL,
+    ...(goalText === undefined ? {} : { goalText }),
+    goalThreshold: 0.6,
+    isSingleOption: false,
+    analysisStatus: 'computed',
+    recommendationStability: 0.92,
+    robustnessLevel: 'high',
+    isNormalised: false,
+  } as unknown as DecisionResultData
+
+  const drivers: DriversSectionData = {
+    drivers: [driver()],
+    topDrivers: [driver()],
+    driversStatus: 'computed',
+    totalCount: 1,
+    hasMagnitudeData: true,
+  }
+
+  const confidence = {
+    tier: { tier: 'strong', icon: 'Check', label: 'Tier', description: 'd' },
+    qualityScore: 80,
+    uncertainties: [],
+    topUncertainties: [],
+    improvements: [],
+    topImprovements: [],
+    evidenceGaps: [],
+    // The sharpen line only renders when there ARE inputs to sharpen.
+    topEvidenceGaps: [
+      {
+        factorId: 'n_pipeline',
+        factorLabel: 'Hiring Pipeline Duration',
+        confidence: 40,
+        voi: 0.6,
+        suggestion: 'Confirm the pipeline estimate',
+        targetNodeId: 'n_pipeline',
+      },
+    ],
+    nextActions: [],
+    topNextActions: [],
+    challengeFragileEdges: [],
+  } as unknown as ConfidenceSectionData
+
+  const improvements: ImprovementsSectionData = {
+    improvements: [],
+    count: 0,
+    hasHighPriority: false,
+  } as ImprovementsSectionData
+
+  return {
+    recommendation,
+    drivers,
+    confidence,
+    improvements,
+    isLoading: false,
+    isError: false,
+    goalLabel: DERIVED_GOAL_LABEL,
+    completeness: { status: 'full', missing: [], reasons: [] },
+    autoNoiseProvenance: null,
+  } as unknown as ResultsSectionDataReturn
+}
+
+function renderBody(goalText: string | undefined) {
+  return render(
+    <ResultsBody
+      resultsSectionData={makeData(goalText)}
+      tornadoData={{ rows: [], expectedOutcome: null }}
+      onSendMessage={() => {}}
+      onFocusNode={() => {}}
+    />,
+  )
+}
+
+/** The surface must actually be on screen — otherwise an absence proves nothing. */
+function assertSharpenSurfaceMounted(): HTMLElement {
+  expect(
+    screen.getByTestId('v7-top-matter'),
+    'V7 top matter must mount — the deployed bundle mounts it with no flag',
+  ).toBeInTheDocument()
+  return screen.getByTestId('v7-sharpen-line')
+}
+
+const FRESH: AnalysisFreshnessState = { freshness: 'fresh', computedAt: '2026-07-23T00:00:00Z' }
+
+describe('ResultsBody — V7 sharpen line quote provenance (ROADMAP 2.993)', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({ analysisFreshness: FRESH, analysisFreshnessDirty: false })
+    useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
+    useGuidanceStore.setState({ guidanceItems: [] })
+  })
+
+  it('never attributes OUR derived goal label to the user when the brief carries no goal', () => {
+    // Precondition, pinned in-test: the derived label is NOT in the bytes this
+    // app submits as the brief, so quoting it under "You wrote" cannot be true.
+    const submittedBrief = composeBriefText(FRAMING_WITHOUT_USER_GOAL)
+    expect(submittedBrief).not.toContain(DERIVED_GOAL_LABEL)
+
+    renderBody(undefined)
+    const line = assertSharpenSurfaceMounted()
+
+    expect(
+      screen.queryByTestId('v7-sharpen-quote'),
+      'no authorship claim is made when nothing the user wrote is available',
+    ).not.toBeInTheDocument()
+    expect(line).not.toHaveTextContent('You wrote')
+    expect(line).not.toHaveTextContent(DERIVED_GOAL_LABEL)
+  })
+
+  it('quotes text traceable to the SUBMITTED BRIEF bytes, not to the derived label', () => {
+    // Preconditions, pinned in-test (trap 13b — a discriminator must pin its
+    // own precondition or it decays into a tautology):
+    //   1. the two candidate strings genuinely differ;
+    //   2. the user's goal IS in the submitted brief bytes;
+    //   3. the derived label is NOT.
+    const submittedBrief = composeBriefText(FRAMING_WITH_USER_GOAL)
+    expect(USER_BRIEF_GOAL).not.toBe(DERIVED_GOAL_LABEL)
+    expect(submittedBrief).toContain(USER_BRIEF_GOAL)
+    expect(submittedBrief).not.toContain(DERIVED_GOAL_LABEL)
+
+    renderBody(USER_BRIEF_GOAL)
+    assertSharpenSurfaceMounted()
+
+    const quoted = screen.getByTestId('v7-sharpen-quote').textContent ?? ''
+    const match = quoted.match(/^You wrote:\s*[“"](.+)[”"]$/)
+    expect(match, `quote did not render in the expected frame: ${JSON.stringify(quoted)}`).not.toBeNull()
+
+    // PROVENANCE: the displayed characters must occur inside the brief this
+    // app submits — not merely equal some string that happens to match.
+    expect(submittedBrief).toContain(match![1])
+    // …and the derived label must not have leaked into the attributed quote.
+    expect(match![1]).not.toContain(DERIVED_GOAL_LABEL)
+  })
+
+  it('shows the inputs to sharpen either way — only the authorship claim is withheld', () => {
+    // Positive control against a vacuous absence: the first test asserts the
+    // quote is gone; this proves the rest of the line still renders, so the
+    // absence is of the CLAIM, not of the component.
+    renderBody(undefined)
+    const line = assertSharpenSurfaceMounted()
+    expect(line).toHaveTextContent('A few inputs would sharpen these results')
+    expect(within(line).getByText('Hiring Pipeline Duration')).toBeInTheDocument()
+  })
+})
