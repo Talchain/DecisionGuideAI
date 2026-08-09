@@ -255,3 +255,12 @@
 [[edge_functions]]
   function = "cee-proxy"
   path = "/bff/cee/*"
+
+# COLLAB (blind elicitation panels) proxy — /bff/collab/* → CEE /collab/v1/*.
+# A FOURTH seam, not a reuse of /bff/cee/*: that one rewrites to /assist/v1/*,
+# so the collab routes had no browser-reachable path at all. This function is
+# also the only one whose forward allowlist carries x-collab-participant-token —
+# without it a participant request reaches CEE token-less and 401s every time.
+[[edge_functions]]
+  function = "collab-proxy"
+  path = "/bff/collab/*"

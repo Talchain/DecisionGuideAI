@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2491
+# count=2487
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -90,6 +90,8 @@
 1	integration/integration-check.ts	TS2769	No overload matches this call.
 1	netlify/edge-functions/cee-proxy.ts	TS2304	Cannot find name 'Deno'.
 1	netlify/edge-functions/cee-proxy.ts	TS2307	Cannot find module '@netlify/edge-functions' or its corresponding type declarations.
+1	netlify/edge-functions/collab-proxy.ts	TS2304	Cannot find name 'Deno'.
+1	netlify/edge-functions/collab-proxy.ts	TS2307	Cannot find module '@netlify/edge-functions' or its corresponding type declarations.
 1	netlify/edge-functions/csp-nonce.ts	TS2307	Cannot find module '@netlify/edge-functions' or its corresponding type declarations.
 1	netlify/edge-functions/isl-proxy.ts	TS2304	Cannot find name 'Deno'.
 1	netlify/edge-functions/isl-proxy.ts	TS2307	Cannot find module '@netlify/edge-functions' or its corresponding type declarations.
@@ -349,7 +351,6 @@
 1	src/canvas/components/ModelQualityScore.tsx	TS6133	'Info' is declared but its value is never read.
 1	src/canvas/components/ModelTabBody.tsx	TS6133	'SectionErrorBoundary' is declared but its value is never read.
 1	src/canvas/components/OutputsDock.stories.tsx	TS2307	Cannot find module '@storybook/react' or its corresponding type declarations.
-1	src/canvas/components/ParetoInsights.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.
 1	src/canvas/components/PreAnalysisGuidance.tsx	TS2322	Type '{}' is not assignable to type 'string'.
 1	src/canvas/components/PreAnalysisGuidance.tsx	TS2322	Type '{}[] | undefined' is not assignable to type 'string[] | undefined'.
 1	src/canvas/components/PreAnalysisGuidance.tsx	TS2339	Property 'bias_findings' does not exist on type 'CeeDecisionReviewPayload'.
@@ -562,7 +563,6 @@
 1	src/canvas/edges/StyledEdge.tsx	TS6133	'formatConfidence' is declared but its value is never read.
 1	src/canvas/edges/StyledEdge.tsx	TS6133	'labelVisibility' is declared but its value is never read.
 1	src/canvas/edges/StyledEdge.tsx	TS6133	'useGuidanceStore' is declared but its value is never read.
-1	src/canvas/edges/StyledEdge.tsx	TS6192	All imports in import declaration are unused.
 4	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx	TS6133	'waitFor' is declared but its value is never read.
 2	src/canvas/edges/__tests__/EdgeEditPopover.perf.spec.tsx	TS6133	'container' is declared but its value is never read.
@@ -624,7 +624,6 @@
 1	src/canvas/hooks/useRiskToleranceSuggestion.ts	TS2339	Property 'getRiskProfileFromPreset' does not exist on type '{ run(input: RunRequest): Promise<ReportV1>; templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; ... 4 more ...; stream: { ...; }; }'.
 8	src/canvas/hooks/useScienceIcons.ts	TS2322	Type 'LucideIcon' is not assignable to type 'ComponentType<{ size?: number | undefined; className?: string | undefined; }>'.
 1	src/canvas/hooks/useScienceIcons.ts	TS6133	'category' is declared but its value is never read.
-1	src/canvas/hooks/useScienceIcons.ts	TS6133	'computeSignedMean' is declared but its value is never read.
 1	src/canvas/hooks/useSequentialAnalysis.ts	TS6133	'stage' is declared but its value is never read.
 1	src/canvas/hooks/useUnifiedActions.ts	TS2339	Property 'bias_findings' does not exist on type 'CeeDecisionReviewPayload'.
 4	src/canvas/hooks/useUnifiedActions.ts	TS2339	Property 'code' does not exist on type 'ValidationIssue'.
@@ -1073,7 +1072,6 @@
 1	src/components/decisions/DecisionEdit.tsx	TS6133	'user' is declared but its value is never read.
 1	src/components/layout/KebabMenu.tsx	TS2322	Type 'RefObject<HTMLDivElement | null>' is not assignable to type 'LegacyRef<HTMLDivElement> | undefined'.
 1	src/components/results/AdvancedSection.tsx	TS6133	'expertMode' is declared but its value is never read.
-1	src/components/results/BaselineTargetRow.tsx	TS6133	'hasBaseline' is declared but its value is never read.
 1	src/components/results/ConfidenceSection.tsx	TS6133	'ActionItem' is declared but its value is never read.
 1	src/components/results/ConfidenceSection.tsx	TS6133	'FocusTargetType' is declared but its value is never read.
 1	src/components/results/ConfidenceSection.tsx	TS6133	'GitBranch' is declared but its value is never read.
@@ -1098,7 +1096,6 @@
 1	src/components/results/SuccessTargetRow.tsx	TS6133	'showHitsTarget' is declared but its value is never read.
 1	src/components/results/TriageActionCardsBody.tsx	TS2345	Argument of type 'Map<string, StrengthenOverlay> | null' is not assignable to parameter of type 'Map<string, StrengthenOverlay>'.
 1	src/components/results/__tests__/Accordion.spec.tsx	TS6133	'vi' is declared but its value is never read.
-2	src/components/results/__tests__/BaselineTargetRow.spec.tsx	TS2339	Property 'toBeTruthy' does not exist on type 'void'.
 2	src/components/results/__tests__/ConfidenceSection.spec.tsx	TS2739	Type '{ factorId: string; factorLabel: string; voi: number; }' is missing the following properties from type 'EvidenceGapItem': confidence, suggestion
 2	src/components/results/__tests__/ConfidenceSection.spec.tsx	TS2741	Property 'confidence' is missing in type '{ factorId: string; factorLabel: string; suggestion: string; voi: number; }' but required in type 'EvidenceGapItem'.
 2	src/components/results/__tests__/ConfidenceSection.spec.tsx	TS2741	Property 'suggestion' is missing in type '{ factorId: string; factorLabel: string; voi: number; confidence: number; }' but required in type 'EvidenceGapItem'.
