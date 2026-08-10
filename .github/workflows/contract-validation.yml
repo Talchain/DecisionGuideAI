@@ -40,13 +40,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout UI repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Attempt to fetch CEE contracts from the CEE repo.
       # If the CEE repo isn't accessible (private repo, no token), fall back
       # to the reference copies committed in contracts/cee/.
       - name: Checkout CEE contracts (optional)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: Olumi/olumi-assistants-service
           path: cee-repo
