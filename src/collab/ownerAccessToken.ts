@@ -18,11 +18,23 @@
  * error rather than a silent empty header.
  *
  * ── WHY IT IS NOT IN collabService.ts ─────────────────────────────────────
- * `collabService` is imported by the PUBLIC participant page, which holds no
- * Supabase session by construction. Putting this accessor there would drag the
- * auth client into every participant's bundle through a shared import — a
- * transitive route past the guard that `collabParticipantRouteIsPublic.spec.tsx`
- * checks at the page. It lives here so that import edge never exists.
+ * SEPARATION OF CONCERNS, not bundle weight. `collabService` describes the wire
+ * — URLs, headers, error shapes — and knows nothing about where a credential
+ * comes from; this module knows about the session and nothing about the wire.
+ * Keeping them apart is what lets the participant half of that file be read,
+ * and tested, without a session anywhere in view.
+ *
+ * ⚠ AN EARLIER VERSION OF THIS COMMENT CLAIMED A BUNDLE HARM, AND IT WAS FALSE.
+ * It said putting the accessor in `collabService` would "drag the auth client
+ * into every participant's bundle". The auth client is ALREADY in the eagerly
+ * loaded app-shell chunk: `AppPoC.tsx` statically imports `AuthProvider`, and
+ * `contexts/AuthContext.tsx` statically imports `{ supabase, getProfile }` from
+ * `../lib/supabase`. An adversarial review proved it in a real production
+ * build — the `AppPoC-*.js` chunk contains `GoTrueClient` AND declares
+ * `path="/panel/:round_id"`, with a positive control showing zero occurrences
+ * of that marker in the `ParticipantPacketPage` chunk. The split is good
+ * hygiene; it was never load-bearing for bundle content, and a comment that
+ * invents a harm is the same defect class as a test name that overreaches.
  *
  * ── NO THIRD OUTCOME ──────────────────────────────────────────────────────
  * A non-empty string, or a throw. Deliberately no `''` fallback: at CEE an

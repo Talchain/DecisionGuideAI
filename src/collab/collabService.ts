@@ -207,8 +207,16 @@ export function ownerSignInRequired(): CollabRequestError {
  * `?? ''` turned an absent field into a value the type system was happy with,
  * and the failure surfaced three hops away as an ordinary 401.
  *
- * A guard here cannot be routed around by a future call site, because there is
- * no other way to build an owner header.
+ * ⚠ SCOPE OF THAT PROTECTION, STATED HONESTLY. This function is the only
+ * builder of an owner `Bearer` TODAY, and two ratchets in
+ * `__tests__/panelSetupOwnerAuth.spec.tsx` keep it that way at rest: the collab
+ * base `/bff/collab` is referenced from this file and nowhere else in `src/`,
+ * so a new caller cannot reach the seam without coming through here; and this
+ * file constructs exactly one `Bearer` value. Nothing in the LANGUAGE enforces
+ * it — the guarantee is the pair of ratchets, and it is only as good as they
+ * are. An earlier version of this comment claimed the property was structural
+ * ("no other way to build an owner header"); it was not, and nothing enforced
+ * it at all until those ratchets existed.
  */
 function ownerAuthorization(accessToken: string): string {
   if (accessToken.trim() === '') throw ownerSignInRequired()

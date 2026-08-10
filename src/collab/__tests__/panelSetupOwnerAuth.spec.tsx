@@ -30,8 +30,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 
 vi.mock('../../lib/supabase', async (importOriginal) => {
   // Spread the real module rather than hand-listing its exports: a hand-listed
@@ -75,6 +75,61 @@ const REVEAL_URL = `/bff/collab/rounds/${ROUND_ID}/reveal`
 type StubResponse = Pick<Response, 'ok' | 'status' | 'json'>
 
 let fetchMock: Mock<[input: RequestInfo | URL, init?: RequestInit], Promise<StubResponse>>
+
+/* ── source-level helpers ─────────────────────────────────────────────────
+ * These measure CODE, never the prose that explains the defect — this file's
+ * own headers spell `useAuth()` and the cast, and an earlier version of the
+ * detector below duly reported the explanation as a defect. Every test using
+ * them carries a positive control, because a stripper that ate the file and a
+ * walker that resolved nothing both look exactly like a clean result.
+ */
+
+function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+}
+
+/** Every TS/TSX file under src/, repo-relative. */
+function srcFiles(): string[] {
+  return readdirSync(resolve(process.cwd(), 'src'), { recursive: true, encoding: 'utf8' })
+    .filter((p) => /\.(ts|tsx)$/.test(p))
+    .map((p) => `src/${p}`)
+}
+
+/** `from '…'`, `import('…')` and `require('…')` alike — a guard that matched
+ *  only the static form was proven evadable by both of the other two. */
+const MODULE_SPEC =
+  /(?:from\s*['"]([^'"]+)['"])|(?:\bimport\(\s*['"]([^'"]+)['"]\s*\))|(?:\brequire\(\s*['"]([^'"]+)['"]\s*\))/g
+
+function resolveSpec(fromFile: string, spec: string): string | null {
+  let base: string
+  if (spec.startsWith('@/')) base = join('src', spec.slice(2))
+  else if (spec.startsWith('.')) base = join(dirname(fromFile), spec)
+  else return null // a bare package specifier — not part of this repo's graph
+  for (const c of [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts'), join(base, 'index.tsx')]) {
+    if (existsSync(c) && statSync(c).isFile()) return c
+  }
+  return null
+}
+
+/** Transitive closure over relative imports. Catches the re-export barrel that
+ *  a single-file text match cannot see. NOT a statement about any bundle. */
+function reachableFrom(entry: string): Set<string> {
+  const seen = new Set<string>()
+  const queue: string[] = [entry]
+  while (queue.length > 0) {
+    const file = queue.shift() as string
+    if (seen.has(file)) continue
+    seen.add(file)
+    const code = stripComments(readFileSync(resolve(process.cwd(), file), 'utf8'))
+    for (const m of code.matchAll(MODULE_SPEC)) {
+      const spec = m[1] ?? m[2] ?? m[3]
+      if (spec === undefined) continue
+      const next = resolveSpec(file, spec)
+      if (next !== null && !seen.has(next)) queue.push(next)
+    }
+  }
+  return seen
+}
 
 function jsonResponse(body: unknown, status = 200): StubResponse {
   return { ok: status >= 200 && status < 300, status, json: async () => body }
@@ -265,7 +320,7 @@ describe('the surface these tests bind to is the one the deployed app mounts', (
     // of one. (This spec caught itself doing exactly that.) Strip comments
     // first — the page has no string literal containing `//`, which is the one
     // input this deliberately simple stripper would mangle.
-    const code = pageSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+    const code = stripComments(pageSrc)
 
     // POSITIVE CONTROL: the stripper left real code behind. Without this every
     // `toBe(false)` below could be passing on an empty string.
@@ -281,14 +336,59 @@ describe('the surface these tests bind to is the one the deployed app mounts', (
     expect(/\brequireOwnerAccessToken\s*\(/.test(code)).toBe(true)
   })
 
-  it('collabService stays free of the Supabase client — the participant page loads it', () => {
-    // The participant route is PUBLIC and holds no Supabase session. Putting
-    // the owner accessor inside collabService would drag the auth client into
-    // every participant's bundle through a shared import; it lives in its own
-    // module for exactly that reason, and this is what keeps it there.
-    const service = readFileSync(resolve(process.cwd(), 'src/collab/collabService.ts'), 'utf8')
-    expect(/from\s*'[^']*lib\/supabase'/.test(service)).toBe(false)
-    // POSITIVE CONTROL: the detector does fire on the import the file really has.
-    expect(/from\s*'\.\/participantToken'/.test(service)).toBe(true)
+  it('NO MODULE REACHABLE FROM collabService imports the Supabase client (relative-import graph, not a bundle claim)', () => {
+    // ⚠ WHAT THIS DOES AND DOES NOT CLAIM. It walks the RELATIVE-IMPORT GRAPH
+    // under src/ from collabService and asserts lib/supabase is not reachable.
+    // It says NOTHING about what any bundle contains — an earlier version of
+    // this test was NAMED as though it did, and an adversarial review proved
+    // the implied property false: the auth client is already in the eagerly
+    // loaded app-shell chunk via AppPoC -> AuthContext -> lib/supabase.
+    //
+    // That earlier version also only matched the literal single-quoted static
+    // form. Re-executed by the reviewer: a static import RED, `await
+    // import('../lib/supabase')` GREEN, a one-line re-export barrel GREEN. A
+    // guard that catches a SPELLING while its name asserts a PROPERTY reads
+    // green forever. This walks the graph instead, so all three forms bite.
+    const reachable = reachableFrom('src/collab/collabService.ts')
+
+    // POSITIVE CONTROL, and the important one: the same walker, from the page
+    // that legitimately DOES reach the client, must find it. Without this the
+    // assertion below could be passing because the walker resolves nothing.
+    const fromPage = reachableFrom('src/pages/PanelSetupPage.tsx')
+    expect(fromPage.has('src/lib/supabase.ts'), 'the walker must find a known-present edge').toBe(
+      true,
+    )
+    expect(reachable.size, 'the walker must have resolved a real graph').toBeGreaterThan(1)
+
+    expect(reachable.has('src/lib/supabase.ts')).toBe(false)
+  })
+})
+
+describe('the owner Bearer has exactly one builder — the ratchets behind that claim', () => {
+  const files = srcFiles()
+
+  it('POSITIVE CONTROL: the scanner sees a real source tree', () => {
+    // Without this, both assertions below could pass on an empty file list.
+    expect(files.length).toBeGreaterThan(1000)
+    expect(files).toContain('src/collab/collabService.ts')
+  })
+
+  it('the collab seam base is referenced from collabService and nowhere else in src/', () => {
+    // This is what makes "no other call site can build an owner header" TRUE
+    // rather than merely stated: a new caller cannot reach /bff/collab without
+    // coming through this file, and inside it the only way to build the header
+    // is ownerAuthorization().
+    const referencing = files.filter(
+      (f) => !/__tests__|\.spec\.|\.test\./.test(f) && readFileSync(f, 'utf8').includes('/bff/collab'),
+    )
+    expect(referencing).toEqual(['src/collab/collabService.ts'])
+  })
+
+  it('collabService constructs exactly one Bearer value', () => {
+    const code = stripComments(
+      readFileSync(resolve(process.cwd(), 'src/collab/collabService.ts'), 'utf8'),
+    )
+    const built = code.match(/`Bearer \$\{/g) ?? []
+    expect(built).toHaveLength(1)
   })
 })
