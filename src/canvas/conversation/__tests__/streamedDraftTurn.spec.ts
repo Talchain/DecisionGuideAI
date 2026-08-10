@@ -332,6 +332,33 @@ describe('the happy path — graph at GRAPH_READY, full ingest at COMPLETE', () 
     expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
   })
 
+  it('COACHING_READY flips the coaching flag for the owning turn, and idle resets it (F1)', async () => {
+    // The seam the narration tests cannot see: they mock the store, and the
+    // store tests call the action directly. This drives the REAL frame through
+    // the REAL stream into the REAL store, so a dropped `onCoachingReady`
+    // handler cannot hide behind green unit suites.
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    expect(useDraftStore.getState().draftStreamCoachingLanded).toBe(false)
+
+    await stream.push(F_COACHING)
+    expect(useDraftStore.getState().draftStreamCoachingLanded).toBe(true)
+
+    await stream.push(fComplete())
+    await stream.close()
+    await act(async () => {
+      await sent
+    })
+    // Terminal ingest released ownership — the flag must not leak forward.
+    expect(useDraftStore.getState().draftStreamCoachingLanded).toBe(false)
+  })
+
   it('runs the FRESH-DRAFT ingest at COMPLETE, not the applied-edit reconcile', async () => {
     // The silent-failure pin. `ceeAnalysisReady` is written ONLY by
     // applyDraftResult's `hasAnalysisReady` branch; `reconcileAppliedGraph`
