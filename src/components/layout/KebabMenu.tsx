@@ -20,6 +20,7 @@
 import { useState, useCallback } from 'react'
 import {
   MoreVertical,
+  Sparkles,
   Pencil,
   Download,
   Upload,
@@ -37,8 +38,32 @@ import { useSettingsStore } from '../../canvas/settingsStore'
 import { useCanvasStore } from '../../canvas/store'
 import styles from './TopBar.module.css'
 
+/**
+ * The complete sentence this menu is allowed to make about its own origin.
+ *
+ * WHO, and HOW TO TAKE IT BACK — never WHY. There is no reachable reason at
+ * this tip: `ui_directive.note` is the only free-text carrier on the 0.39.0
+ * wire and nothing in src/ reads it, so any rationale rendered here would be
+ * invented. A fabricated "why" on the provenance channel is worse than no
+ * badge at all, because this is the one channel whose entire purpose is
+ * truthfulness. If a reason ever becomes available, it arrives as a new
+ * field and this constant grows a parameter — it does not get guessed.
+ *
+ * The dismissal hint is a VERIFIED fact, not reassurance: TopBar's Escape
+ * handler runs `closeMenu()` unconditionally on origin, so Escape genuinely
+ * takes the surface back from the assistant.
+ */
+export const OVERLAY_ATTRIBUTION_TEXT = 'Opened by Olumi'
+export const OVERLAY_DISMISS_HINT = 'Esc to dismiss'
+
 interface KebabMenuProps {
   isOpen: boolean
+  /**
+   * Who raised THIS menu — `'assistant'` only when the AI put it on screen.
+   * Null whenever the menu is the user's own (or not raised at all), so the
+   * attribution cannot outlive the fact it describes.
+   */
+  raisedBy?: 'user' | 'assistant' | null
   onToggle: () => void
   onClose: () => void
   onStartRename: () => void
@@ -49,6 +74,7 @@ interface KebabMenuProps {
 
 export function KebabMenu({
   isOpen,
+  raisedBy = null,
   onToggle,
   onClose,
   onStartRename,
@@ -129,7 +155,44 @@ export function KebabMenu({
         </Tooltip>
 
         {isOpen && (
-          <div className={styles.dropdownMenu} role="menu">
+          <div
+            className={styles.dropdownMenu}
+            role="menu"
+            // The visible badge below is a plain <div>: inside `role="menu"`
+            // only menuitems are reliably announced, so a screen-reader user —
+            // the person MOST disoriented by a menu that appears unprompted —
+            // would get nothing. The menu's accessible NAME carries it instead,
+            // and is left undefined (falling back to the trigger) when the user
+            // opened the menu themselves, so nothing is announced that is not
+            // true.
+            aria-label={
+              raisedBy === 'assistant'
+                ? `More options — ${OVERLAY_ATTRIBUTION_TEXT}`
+                : undefined
+            }
+          >
+            {/* PROVENANCE, not decoration. A surface the assistant raised must
+                say so, inside the surface itself — the answer sits where the
+                question ("why did this open?") is asked, rather than somewhere
+                the user has to hunt for it. Deliberately non-interactive, no
+                animation, no focus steal, no colour alarm: a user who did not
+                notice the menu open should not be startled by the explanation
+                of it. */}
+            {raisedBy === 'assistant' && (
+              <div className={styles.overlayOriginRow} data-testid="overlay-origin-badge">
+                <span className={styles.overlayOriginBadge} data-testid="overlay-origin-label">
+                  <Sparkles size={11} aria-hidden="true" />
+                  {OVERLAY_ATTRIBUTION_TEXT}
+                </span>
+                <span
+                  className={styles.overlayOriginHint}
+                  data-testid="overlay-origin-dismiss-hint"
+                >
+                  {OVERLAY_DISMISS_HINT}
+                </span>
+              </div>
+            )}
+
             {/* Decision group */}
             <div className={styles.dropdownMenuLabel}>Decision</div>
             <button

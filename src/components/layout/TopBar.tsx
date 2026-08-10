@@ -418,6 +418,17 @@ export const TopBar = ({
         {/* Kebab menu */}
         <KebabMenu
           isOpen={showMenu}
+          // WHO raised this menu, so the menu can attribute itself. Passed
+          // rather than re-subscribed inside KebabMenu so there is exactly one
+          // reader of the store slice on this path, and so the value the badge
+          // renders from is provably the same one `data-overlay-origin`
+          // renders from. `showMenu &&` is the identity conjunct: an
+          // assistant-raised surface that is NOT this bar's must never
+          // attribute this bar (today OVERLAY_SURFACE_IDS has one member, so
+          // the two predicates agree on every value the enum can produce —
+          // pinning it now is what stops the badge lying when a second
+          // surface is lifted).
+          raisedBy={showMenu ? overlayOrigin : null}
           onToggle={() => {
             // The exclusivity announcement rides the state transition (effect
             // above), so the user path and the assistant path behave alike.

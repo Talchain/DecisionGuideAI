@@ -291,6 +291,50 @@
   color: var(--text-light, #6E6B6B);
 }
 
+/* ── Attribution for an assistant-raised menu ──────────────────────────────
+   Shown ONLY while this menu is on screen because the assistant put it there.
+   Calm by construction: no animation, no fill, no focus, nothing interactive —
+   a user who did not notice the menu open must not be startled by the
+   explanation of it, while a user who wonders "why did that open?" finds the
+   answer at the top of the thing that opened.
+
+   DS v5 §3.2 / DESIGN_SYSTEM.md: pills are OUTLINED only —
+   `bg-transparent border-{colour}/30 text-text-body`. The colour is carried on
+   the BORDER; the ink stays --text-body. Colouring the text is what produced a
+   sibling lane's 2.80:1 and 2.83:1 failures against WCAG AA. Measured here:
+   --text-body #3F3F3E on the menu's white surface = 10.5:1, and the hint's
+   --text-light #6E6B6B = 5.1:1 at 12px (both AA; --text-light is already the
+   audited choice for .dropdownMenuLabel in this same menu). */
+.overlayOriginRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px 8px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border-default, #EEE6D8);
+}
+
+.overlayOriginBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill, 999px);
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
+  border: 1px solid color-mix(in srgb, var(--info, #277A9D) 30%, transparent);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.overlayOriginHint {
+  font-size: 12px;
+  color: var(--text-light, #6E6B6B);
+  white-space: nowrap;
+}
+
 /* Canvas settings (flattened in kebab menu) */
 .settingsRow {
   display: flex;
