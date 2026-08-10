@@ -120,8 +120,10 @@ describe('V5CoachingBlock — importance channel (PR3)', () => {
    * component emits four different recipes, never that a human perceives four
    * levels. That claim belongs to the browser pass recorded in the PR.
    */
-  it('gives all four categories DISTINCT visual weight, not just distinct words', () => {
-    const recipes = (['must_fix', 'should_fix', 'could_fix', 'technique'] as const).map((cat) => {
+  it('gives all four categories DISTINCT visual weight, in BOTH channels independently', () => {
+    const badges: string[] = []
+    const cards: string[] = []
+    for (const cat of ['must_fix', 'should_fix', 'could_fix', 'technique'] as const) {
       const { container } = render(<V5CoachingBlock block={{ ...BASE, category: cat }} />)
       const badge = container.querySelector('[data-testid="v5-coaching-category"]')
       const card = container.querySelector('[data-testid="v5-coaching"]')
@@ -129,9 +131,21 @@ describe('V5CoachingBlock — importance channel (PR3)', () => {
       // is comparing nulls and would agree with itself (trap 13).
       expect(badge, `no badge rendered for ${cat}`).not.toBeNull()
       expect(card, `no card rendered for ${cat}`).not.toBeNull()
-      return `${badge!.className}|${card!.className}`
-    })
-    expect(new Set(recipes).size).toBe(4)
+      badges.push(badge!.className)
+      cards.push(card!.className)
+    }
+    /**
+     * ⚠ EACH CHANNEL IS ASSERTED SEPARATELY, and that is the point. An earlier
+     * version compared the CONCATENATION of badge + card class, which two
+     * mutants walked straight through: collapsing the must_fix BADGE onto the
+     * should_fix recipe still left the card borders differing, so the joined
+     * string stayed unique and the suite stayed green. A combined key can only
+     * see that the PAIR differs somewhere — never that a given channel still
+     * discriminates. Asserting them independently is what makes a collapse in
+     * either one RED.
+     */
+    expect(new Set(badges).size, 'badge treatments collapsed').toBe(4)
+    expect(new Set(cards).size, 'card border treatments collapsed').toBe(4)
   })
 })
 
