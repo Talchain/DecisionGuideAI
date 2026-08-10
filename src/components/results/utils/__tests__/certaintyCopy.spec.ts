@@ -486,31 +486,71 @@ describe('buildCertaintyCopy — decision table', () => {
     }
   })
 
-  describe('Brief 5.2 Task 1 — winProbabilityGap suffix', () => {
-    it('soft path (needs_work + low stability): appends " by N points"', () => {
+  /**
+   * ⭐⭐ THE " by N point(s)" SUFFIX IS RETIRED (2026-08-10).
+   *
+   * This block used to pin the suffix's presence, pluralisation and rounding.
+   * The suffix stated the percentage-point gap between two Monte-Carlo win
+   * frequencies — `DecisionConfidencePanel` computes it as
+   * `(winner.winProbability − runnerUp.winProbability) * 100` — and the
+   * ratified rule is that no user-facing surface states that quantity.
+   *
+   * DELETED rather than replaced with the winner's own probability.
+   *
+   * ⚠ CORRECTED 2026-08-10 (review F2). This docblock originally gave two
+   * grounds and the FIRST WAS FALSE — "the panel already displays the winner's
+   * own probability where this lede renders". It does not:
+   * `DecisionConfidencePanel`'s `ringClaim` PREFERS `goalProbability` and
+   * captions the arc with the GOAL register, so on any run carrying a target
+   * the winner's own WIN probability is absent from that panel.
+   *
+   * The deletion stands on the remaining ground, which is sufficient on its
+   * own: this module's F4 adjudication (see `aheadHeadline`) states that a
+   * magnitude-free comparative sentence on this surface is the CORRECT
+   * behaviour, because Paul's ruling demotes the comparative number here, and
+   * that threading the probability in "would have added a live claim the
+   * ruling does not want". Replacing the gap with a magnitude would contradict
+   * an adjudicated ruling recorded in the file being changed.
+   *
+   * WHAT MUST SURVIVE, and is pinned below: the SOFTENING. The hedge
+   * ("currently"), the evidence caveat and the `conservative` flag are the
+   * lede's actual job and are untouched — only the banned quantity goes.
+   */
+  describe('the retired winProbabilityGap suffix (Brief 5.2 Task 1)', () => {
+    it('soft path (needs_work + low stability): states no gap, and KEEPS the hedge and the caveat', () => {
       const result = buildCertaintyCopy({
         verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
         winProbabilityGap: 95,
       })
-      expect(result.headline).toBe(`${WINNER} currently leads by 95 points`)
+      expect(result.headline).toBe(`${WINNER} currently leads`)
       expect(result.caveat).toContain('limited evidence')
+      expect(result.conservative).toBe(true)
     })
 
-    it('soft path (fair + low stability): appends suffix, NO caveat', () => {
+    it('soft path (fair + low stability): states no gap, NO caveat, still conservative', () => {
       const result = buildCertaintyCopy({
         verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'fair',
         winProbabilityGap: 7,
       })
-      expect(result.headline).toBe(`${WINNER} currently leads by 7 points`)
+      expect(result.headline).toBe(`${WINNER} currently leads`)
       expect(result.caveat).toBeNull()
       expect(result.conservative).toBe(true)
     })
 
-    it('close_call: does NOT append suffix — reserved definitive phrasing', () => {
+    it('confident fallback: the definitive magnitude-free leader headline, never "leads by N points"', () => {
+      const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
+        winnerLabel: WINNER,
+        winProbabilityGap: 3,
+      })
+      expect(result.headline).toBe(AHEAD)
+    })
+
+    it('close_call: unchanged — reserved definitive phrasing', () => {
       const result = buildCertaintyCopy({
         verdict: clearVerdict(),
         winnerLabel: WINNER,
@@ -521,7 +561,7 @@ describe('buildCertaintyCopy — decision table', () => {
       expect(result.headline).toBe(AHEAD)
     })
 
-    it('row 6 (strong + ready): does NOT append suffix — reserved definitive phrasing', () => {
+    it('row 6 (strong + ready): unchanged — reserved definitive phrasing', () => {
       const result = buildCertaintyCopy({
         verdict: clearVerdict(),
         winnerLabel: WINNER,
@@ -530,46 +570,6 @@ describe('buildCertaintyCopy — decision table', () => {
         winProbabilityGap: 50,
       })
       expect(result.headline).toBe(AHEAD)
-    })
-
-    it('confident fallback: appends suffix as "{winner} leads by N points"', () => {
-      const result = buildCertaintyCopy({
-        verdict: clearVerdict(),
-        winnerLabel: WINNER,
-        winProbabilityGap: 3,
-      })
-      expect(result.headline).toBe(`${WINNER} leads by 3 points`)
-    })
-
-    it('singular point uses "point" not "points" (soft path)', () => {
-      const result = buildCertaintyCopy({
-        verdict: clearVerdict(),
-        winnerLabel: WINNER,
-        confidenceTier: 'needs_work',
-        winProbabilityGap: 1,
-      })
-      expect(result.headline).toBe(`${WINNER} currently leads by 1 point`)
-    })
-
-    it('rounds fractional gaps to the nearest whole point (confident fallback)', () => {
-      const result = buildCertaintyCopy({
-        verdict: clearVerdict(),
-        winnerLabel: WINNER,
-        winProbabilityGap: 4.6,
-      })
-      expect(result.headline).toBe(`${WINNER} leads by 5 points`)
-    })
-
-    it('omits suffix when gap is 0, negative, or non-finite — confident fallback emits the definitive leader headline (re-anchored)', () => {
-      for (const gap of [0, -1, NaN, Infinity, -Infinity]) {
-        // Use confident fallback path. No gap → no suffix → the definitive leader headline (re-anchored).
-        const result = buildCertaintyCopy({
-          verdict: clearVerdict(),
-          winnerLabel: WINNER,
-          winProbabilityGap: gap,
-        })
-        expect(result.headline).toBe(AHEAD)
-      }
     })
 
     it('row 2 (tied) ignores gap — canonical unstable copy is preserved', () => {
@@ -582,6 +582,42 @@ describe('buildCertaintyCopy — decision table', () => {
       expect(result.headline).toBe(
         'no clear leading option, the result is sensitive to your estimates',
       )
+    })
+
+    /**
+     * THE DERIVED GUARD, and the one that matters most: no gap VALUE — of any
+     * magnitude, sign, pluralisation-triggering size, or finiteness — produces
+     * a point-gap clause on ANY branch this module can return. A per-case pin
+     * cannot say that; this sweeps the input space the retired suffix used to
+     * read, across every tier/readiness combination that reaches a leader
+     * headline.
+     */
+    it('NO gap value on ANY branch emits a point-gap clause', () => {
+      const gaps = [0.4, 1, 3, 4.6, 7, 50, 95, 0, -1, NaN, Infinity, -Infinity]
+      const tiers = ['needs_work', 'fair', 'strong', 'unknown'] as const
+      const readiness = ['ready', 'close_call', undefined] as const
+      let asserted = 0
+      for (const winProbabilityGap of gaps) {
+        for (const confidenceTier of tiers) {
+          for (const coachingReadiness of readiness) {
+            const r = buildCertaintyCopy({
+              verdict: clearVerdict(),
+              winnerLabel: WINNER,
+              confidenceTier,
+              coachingReadiness: coachingReadiness as never,
+              winProbabilityGap,
+            })
+            const text = [r.headline, r.sub, r.caveat].filter(Boolean).join(' • ')
+            expect(text, `gap=${winProbabilityGap} tier=${confidenceTier} readiness=${coachingReadiness}`)
+              .not.toMatch(/\bby\s+-?\d+(\.\d+)?\s+points?\b/i)
+            expect(text).not.toMatch(/percentage\s+points?/i)
+            asserted += 1
+          }
+        }
+      }
+      // The sweep must actually have swept (trap 13: an assertion loop that
+      // ran zero times passes by testing nothing).
+      expect(asserted).toBe(gaps.length * tiers.length * readiness.length)
     })
   })
 

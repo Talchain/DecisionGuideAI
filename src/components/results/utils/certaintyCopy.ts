@@ -48,13 +48,16 @@
  *
  *   7. fallback (strong without ready, fair + high stab, needs_work +
  *      high stab, unknown tier, absent readiness)
- *      → "{winner} leads[ by N points]"    (confident)
+ *      → "{winner} came out ahead most often across simulated scenarios"
  *
- *   The "[ by N points]" suffix is appended when the caller supplies a
- *   positive finite winProbabilityGap (percentage-point lead vs. the next
- *   option). Brief 5.2 Task 1: preserves the numeric lead without the
- *   over-confident "clear leader / X-point advantage" framing that PLoT can
- *   produce for needs_work bundles with high numeric stability.
+ *   ⭐ THE "[ by N points]" SUFFIX IS RETIRED (2026-08-10). Brief 5.2 Task 1
+ *   appended it whenever the caller supplied a positive finite
+ *   `winProbabilityGap`, to preserve the numeric lead without PLoT's
+ *   over-confident "clear leader / X-point advantage" framing. The number it
+ *   preserved was the percentage-point gap between two win frequencies, which
+ *   no user-facing surface may state. The DEFENCE against that PLoT framing is
+ *   unchanged and lives where it always did — the `conservative` flag, which
+ *   keeps `coachingHeadline` from winning the precedence chain.
  *
  * British English. No em dashes in UI strings (use a period to separate
  * clauses instead). See DESIGN_SYSTEM.md and Brief 5.1 §Operating
@@ -75,9 +78,13 @@ export interface CertaintyCopyInput {
   optionCount?: number
   /**
    * Brief 5.2 Task 1: win-probability gap (percentage points) between the
-   * winner and the next option. When provided and > 0, Rules 4 and 5 append
-   * " by N points" to the softened lede so the numeric lead is preserved
-   * without over-confident language.
+   * winner and the next option.
+   *
+   * ⚠ UNREAD SINCE 2026-08-10 — this function no longer consumes it (the
+   * " by N points" suffix it fed is retired). Kept on the type so the sole
+   * caller still compiles; removing it, together with `DecisionVerdict.gapPp`
+   * which also has zero production readers, is a clean follow-up rather than
+   * scope on the change that retired the copy.
    */
   winProbabilityGap?: number
   /**
@@ -154,19 +161,45 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     recommendationStability,
     analysisStatus,
     optionCount,
-    winProbabilityGap,
     verdict,
   } = input
 
-  // Brief 5.2 Task 1: "by N points" suffix preserves the numeric lead in the
-  // softened lede. Rounded to the nearest whole point; only appended when the
-  // gap is a positive finite number so callers can pass null/NaN safely.
-  const gapSuffix =
-    typeof winProbabilityGap === 'number'
-    && Number.isFinite(winProbabilityGap)
-    && winProbabilityGap > 0
-      ? ` by ${Math.round(winProbabilityGap)} point${Math.round(winProbabilityGap) === 1 ? '' : 's'}`
-      : ''
+  // ⭐⭐ THE " by N point(s)" SUFFIX IS RETIRED (2026-08-10). Brief 5.2 Task 1
+  // introduced it to "preserve the numeric lead" in the softened lede; the
+  // number it preserved was the percentage-point gap between two Monte-Carlo
+  // win frequencies (`DecisionConfidencePanel` computes it as
+  // `(winner.winProbability - runnerUp.winProbability) * 100`). That is the
+  // banned statistic: less reliable than either estimate it is built from, yet
+  // rendered as a bare integer with no interval.
+  //
+  // DELETED rather than replaced with the winner's own probability.
+  //
+  // ⚠ CORRECTED 2026-08-10 (review F2). The first version of this note gave
+  // TWO grounds, and the first one was FALSE: it claimed "the panel already
+  // shows the winner's own probability where this lede renders". It does not.
+  // `DecisionConfidencePanel`'s `ringClaim` PREFERS `goalProbability` and
+  // captions the arc with the GOAL register, falling back to `winProbability`
+  // only when no goal figure exists — so on any run where a target was set,
+  // the winner's own WIN probability is nowhere on that panel. A false
+  // rationale left in a comment is how the next lane inherits a wrong premise,
+  // so it is corrected here rather than quietly dropped.
+  //
+  // THE DELETION STANDS ON THE REMAINING GROUND, WHICH IS SUFFICIENT:
+  // `aheadHeadline`'s F4 note below already adjudicated this exact question
+  // and concluded that a magnitude-free comparative sentence is the CORRECT
+  // behaviour on this surface, because Paul's ruling DEMOTES the comparative
+  // number here. Threading a magnitude in "would have added a live claim the
+  // ruling does not want" — its words. Replacing the gap with the winner's own
+  // probability would contradict a ruling recorded in this very file.
+  //
+  // The SOFTENING survives untouched — the "currently" hedge, the evidence
+  // caveat and the `conservative` flag are the lede's actual job. Only the
+  // quantity goes.
+  //
+  // `winProbabilityGap` is left on the input type and still passed by
+  // `DecisionConfidencePanel`; it is now UNREAD here. Removing the field (and
+  // `DecisionVerdict.gapPp`, which already has zero production readers) is a
+  // clean follow-up, deliberately not folded into this change.
 
   /**
    * The re-anchored leader sentence — the comparative quantity, named, with
@@ -291,7 +324,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   // signal.
   if (shouldSoftenPhrasing(confidenceTier, recommendationStability)) {
     return {
-      headline: `${winnerLabel} currently leads${gapSuffix}`,
+      headline: `${winnerLabel} currently leads`,
       sub: null,
       caveat:
         confidenceTier === 'needs_work'
@@ -324,10 +357,14 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     }
   }
 
-  // When a gap is available, "leads by N points" gives the numeric lead.
-  // When no gap, fall back to the definitive form to avoid the bare "leads".
+  // ⭐ Was `gapSuffix ? \`${winnerLabel} leads${gapSuffix}\` : aheadHeadline`.
+  // BOTH gap-bearing sites are changed together — leaving this one would keep
+  // the banned quantity on the confident branch while the softened branch was
+  // clean, i.e. the same partial fix the OptionCards two-arm case avoided.
+  // `aheadHeadline` was always this rule's no-gap form, so the retirement
+  // returns it to the module's own documented-correct sentence.
   return {
-    headline: gapSuffix ? `${winnerLabel} leads${gapSuffix}` : aheadHeadline,
+    headline: aheadHeadline,
     sub: null,
     caveat: null,
     conservative: true,

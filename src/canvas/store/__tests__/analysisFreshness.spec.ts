@@ -50,11 +50,58 @@ describe('deriveAnalysisFreshnessUpdate', () => {
       computed_at: '2026-06-23T09:00:00.000Z',
     })
     expect(older).toBe(p) // older ignored
-    const equal = deriveAnalysisFreshnessUpdate(p, {
+  })
+
+  /**
+   * ⭐ CORRECTED 2026-08-10. This block used to assert that an EQUAL-timestamp
+   * payload is ignored, which positively enshrined a live defect: `computed_at`
+   * stamps the ANALYSIS, not the verdict, so CEE re-evaluates freshness against
+   * the CURRENT graph and re-sends the SAME analysis with a NEW verdict and a
+   * NEW `current_graph_hash`. Witnessed on staging: after a graph edit CEE
+   * returned `freshness: 'stale'` with a new `current_graph_hash` at an
+   * unchanged `computed_at`, and the store discarded it — keeping `fresh` and
+   * the stale hashes, so the panel told the user the analysis reflected a model
+   * it did not.
+   *
+   * The ordering rule is now STRICTLY older. Equal timestamps are decided by
+   * the echo guard below (`sameVerdict`), which is the check that actually
+   * answers "is this the same verdict?" — the timestamp only ever answered
+   * "is this the same analysis?", a different question.
+   */
+  it('equal computed_at + IDENTICAL verdict: still a no-op (same reference — the echo guard, not the clock, decides)', () => {
+    const p = prev({
+      freshness: 'fresh',
+      computedAt: '2026-06-23T12:00:00.000Z',
+      graphHashAtRun: 'h-run',
+      currentGraphHash: 'h-run',
+    })
+    const echoed = deriveAnalysisFreshnessUpdate(p, {
+      freshness: 'fresh',
+      computed_at: '2026-06-23T12:00:00.000Z',
+      graph_hash_at_run: 'h-run',
+      current_graph_hash: 'h-run',
+    })
+    expect(echoed).toBe(p)
+  })
+
+  it('equal computed_at + CHANGED verdict: CEE’s re-evaluation is APPLIED, hashes and all', () => {
+    const p = prev({
+      freshness: 'fresh',
+      computedAt: '2026-06-23T12:00:00.000Z',
+      graphHashAtRun: 'h-run',
+      currentGraphHash: 'h-run',
+    })
+    const reEvaluated = deriveAnalysisFreshnessUpdate(p, {
       freshness: 'stale',
       computed_at: '2026-06-23T12:00:00.000Z',
+      graph_hash_at_run: 'h-run',
+      current_graph_hash: 'h-edited',
     })
-    expect(equal).toBe(p) // equal ignored (no change)
+    expect(reEvaluated).not.toBe(p)
+    expect(reEvaluated?.freshness).toBe('stale')
+    expect(reEvaluated?.graphHashAtRun).toBe('h-run')
+    expect(reEvaluated?.currentGraphHash).toBe('h-edited')
+    expect(reEvaluated?.computedAt).toBe('2026-06-23T12:00:00.000Z')
   })
 
   it('applies a newer payload', () => {

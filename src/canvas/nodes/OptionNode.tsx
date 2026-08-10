@@ -432,7 +432,16 @@ export const OptionNode = memo((props: NodeProps) => {
   const viewMode = useCanvasStore(state => state.viewMode)
   const isDetailed = viewMode === 'expert'
 
-  // Graph v2 Task 4: close-call gap in percentage points. Non-zero only when
+  // Graph v2 Task 4: close-call gap in percentage points.
+  //
+  // ⭐ PREDICATE ONLY SINCE 2026-08-10 — the number is NEVER RENDERED. It
+  // decides two things: whether the qualitative "Close call" marker shows, and
+  // whether the extra "What would change this?" chip is offered. The 5pp
+  // window and the 1pp floor are kept exactly as they were, so the set of runs
+  // that qualify is provably unchanged by this retirement; only the sentence
+  // moved. Do not reintroduce it into copy.
+  //
+  // Non-zero only when
   // this option is a non-leader within 5pp of the leader's win probability.
   // Prefers report.robustness.recommended_option_id; falls back to max scan if
   // missing. Returns null when not in close-call territory or pre-analysis.
@@ -1248,10 +1257,26 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* Graph v2 Task 4: close-call line — only when within 5pp of leader.
             Renders ABOVE the existing "Behind:" reason so users see both the
-            closeness signal and the causal explanation. */}
+            closeness signal and the causal explanation.
+
+            ⭐⭐ THE QUANTITY IS RETIRED (2026-08-10); THE SIGNAL IS NOT.
+            This read "Close call: within N percentage points" — the
+            percentage-point difference between two Monte-Carlo win
+            frequencies, which is the banned statistic: less reliable than
+            either estimate it is built from, yet printed as a bare integer
+            with no interval. The tie-ness signal it carried is genuinely
+            useful and stays, as a QUALITATIVE marker with no number.
+
+            Naming the leading option is entitled here and nowhere borrowed:
+            `closeCallGapPp` returns null unless `verdict.hasLeadingOption`,
+            so this line cannot render on a turn where the producer withheld
+            the designation. And the reader is not left without a number — the
+            node states this option's OWN win probability directly above
+            (`COMPARATIVE_COPY.phrase`), which is the statistic the ratified
+            rule licenses. */}
         {closeCallGapPp != null && (
           <p className={`${typography.nodeLabel} text-warning mt-0.5 m-0`}>
-            Close call: within {closeCallGapPp} percentage point{closeCallGapPp !== 1 ? 's' : ''}
+            Close call with the leading option
           </p>
         )}
 

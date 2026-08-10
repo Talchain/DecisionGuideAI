@@ -209,7 +209,7 @@ const CLOSE_CALL_PERMITTED = {
 
 const CLOSE_CALL_NODES = OPTION_NODES.slice(0, 2)
 
-describe('OptionNode — "Close call: within N percentage points" (found, not dispatched)', () => {
+describe('OptionNode — the close-call marker (was "Close call: within N percentage points"; the quantity retired 2026-08-10, the signal kept)', () => {
   beforeEach(() => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.47))
   })
@@ -217,12 +217,20 @@ describe('OptionNode — "Close call: within N percentage points" (found, not di
   it('WITHHELD: no distance-to-the-leader line', () => {
     withStore(CLOSE_CALL_WITHHELD, CLOSE_CALL_NODES)
     renderNode(RUNNER_UP_ID, 'Standardise on Dell XPS')
-    expect(screen.queryByText(/Close call: within/)).toBeNull()
+    // Bound to the marker that actually renders: /Close call: within/ stops
+    // matching once the colon-and-number form is retired, so it would pass by
+    // testing nothing.
+    expect(screen.queryByText(/Close call/i)).toBeNull()
   })
 
   it('PERMITTED: the line renders (over-suppression control)', () => {
     withStore(CLOSE_CALL_PERMITTED, CLOSE_CALL_NODES)
     renderNode(RUNNER_UP_ID, 'Standardise on Dell XPS')
-    expect(screen.getByText('Close call: within 3 percentage points')).toBeDefined()
+    // ⭐ SUPERSEDED 2026-08-10: was 'Close call: within 3 percentage points'.
+    // The withheld-turn ENTITLEMENT this describe block exists to pin is
+    // unchanged; only the quantity has gone. The percentage-point gap between
+    // two win frequencies is retired from every user-facing surface.
+    expect(screen.getByText('Close call with the leading option')).toBeDefined()
+    expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 })

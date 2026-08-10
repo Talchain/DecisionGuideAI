@@ -154,10 +154,25 @@ export function deriveAnalysisFreshnessUpdate(
 
   const computedAt = nonEmptyString(o.computed_at)
 
-  // Order by computed_at: ignore a strictly-older (or equal) payload when both
-  // timestamps are present. When the new payload has no computed_at we cannot
-  // order it, so we fall through to the content check below.
-  if (prev?.computedAt && computedAt && computedAt <= prev.computedAt) {
+  // Order by computed_at: ignore a STRICTLY-older payload when both timestamps
+  // are present. When the new payload has no computed_at we cannot order it, so
+  // we fall through to the content check below.
+  //
+  // ⭐ CORRECTED 2026-08-10. This read `computed_at <= prev.computedAt`, and the
+  // equal arm silently discarded CEE's authoritative verdict. `computed_at`
+  // stamps the ANALYSIS, not the verdict: CEE re-evaluates freshness against the
+  // CURRENT graph and re-sends the SAME analysis with a NEW verdict and a NEW
+  // `current_graph_hash`. Witnessed on staging — after a graph edit CEE returned
+  // `freshness: 'stale'` with a new `current_graph_hash` at an unchanged
+  // `computed_at`, and this branch threw it away, leaving the store on `fresh`
+  // with the pre-edit hashes. The panel then told the user the analysis
+  // reflected a model it did not.
+  //
+  // The timestamp only ever answered "is this the SAME ANALYSIS?". Whether it is
+  // the SAME VERDICT is a different question, and the echo guard below
+  // (`sameVerdict`) is the check that answers it — so a genuine equal-time echo
+  // is still a reference-stable no-op, without this branch having to guess.
+  if (prev?.computedAt && computedAt && computedAt < prev.computedAt) {
     return prev
   }
 
