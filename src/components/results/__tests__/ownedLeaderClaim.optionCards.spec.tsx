@@ -76,6 +76,12 @@ function renderCards(hasLeadingOption: boolean | undefined) {
 const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   ['Top-performing option', /top-performing option/i],
   ['Highest leading-option likelihood', /came out ahead in .+ of simulated scenarios/i],
+  // ⚠ RETIRED EVERYWHERE 2026-08-10, so this row is now UNCONDITIONALLY true
+  // and can no longer tell a withheld turn from a permitted one. It is kept
+  // deliberately — it still guards against the string coming back — but its
+  // loss of discriminating power is stated here rather than left to look like
+  // coverage, and the permitted-turn describe below now asserts the same
+  // absence explicitly so the new truth is pinned on BOTH turns.
   ['Behind by N percentage points', /behind by \d+ percentage point/i],
   ['Statistically tied with the leading option', /statistically tied with the leading option/i],
   ['Compare against the leading option', /compare against the leading option/i],
@@ -116,11 +122,21 @@ describe('OptionCards — withheld leader claim', () => {
 })
 
 describe('OptionCards — permitted leader claim (over-suppression controls)', () => {
-  it('keeps the winner and runner-up sentences', () => {
+  it('keeps the winner sentence, and the non-leader card keeps its OWN number', () => {
     const { container } = renderCards(true)
     const text = container.textContent ?? ''
     expect(text).toMatch(/came out ahead in .+ of simulated scenarios/i)
-    expect(text).toMatch(/behind by \d+ percentage point/i)
+
+    // ⭐ SUPERSEDED 2026-08-10. This asserted the non-leader's sentence was
+    // `/behind by \d+ percentage point/i` — the percentage-point gap between
+    // two win frequencies, now retired from every user-facing surface. The
+    // control's JOB is unchanged and still needed: prove a permitted turn does
+    // not OVER-suppress the non-leader card. It is simply rebound to what now
+    // carries that card's non-suppressed content — its own probability
+    // readout, by testid rather than by a value another element could satisfy.
+    expect(screen.getByTestId(`win-pct-${RUNNER_UP_ID}`).textContent).toMatch(/\d/)
+    expect(text).not.toMatch(/behind by \d+ percentage point/i)
+    expect(text).not.toMatch(/percentage\s+points?/i)
   })
 
   it('keeps the downside pill', () => {

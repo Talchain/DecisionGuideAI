@@ -110,9 +110,17 @@ describe('OptionCards', () => {
     it('falls back to hinge-aware description when no story headline and win data present', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
-      // With win probabilities available, hingeAwareDescription provides gap-based text
+      // With win probabilities available, hingeAwareDescription provides the
+      // winner's own-probability sentence.
       expect(screen.getAllByText(/Came out ahead in .+ of simulated scenarios/)[0]).toBeInTheDocument()
-      expect(screen.getByText('Behind by 30 percentage points')).toBeInTheDocument()
+      // ⭐ SUPERSEDED 2026-08-10: asserted 'Behind by 30 percentage points'.
+      // The percentage-point gap between two win frequencies is retired from
+      // every user-facing surface. The non-leader's line is DELETED rather than
+      // reworded, because the card already carries that option's OWN
+      // probability in its header readout — pinned here by identity so the
+      // deletion cannot quietly become "the card lost its number".
+      expect(screen.queryByText(/percentage point/i)).toBeNull()
+      expect(screen.getByTestId('win-pct-option-2')).toHaveTextContent('35%')
     })
 
     it('shows baseline description for baseline option', () => {
@@ -564,10 +572,13 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Behind by 30 percentage points')).toBeInTheDocument()
+      // ⭐ SUPERSEDED 2026-08-10 — see the note above: the gap line is retired,
+      // the card's own-probability readout is what carries the number.
+      expect(screen.queryByText(/percentage point/i)).toBeNull()
+      expect(screen.getByTestId('win-pct-option-2')).toHaveTextContent('35%')
     })
 
-    it('other options show gap-based description', () => {
+    it('other options state their OWN probability, never a gap', () => {
       const threeOptions: OptionResult[] = [
         ...mockOptions,
         {
@@ -596,7 +607,10 @@ describe('OptionCards', () => {
 
       // With 3 options only 2 show by default; expand to see the third
       fireEvent.click(screen.getByTestId('option-cards-toggle'))
-      expect(screen.getByText('Behind by 55 percentage points')).toBeInTheDocument()
+      // ⭐ SUPERSEDED 2026-08-10: asserted 'Behind by 55 percentage points'.
+      // Option C's own win probability (0.10) is on its card; the gap is not.
+      expect(screen.queryByText(/percentage point/i)).toBeNull()
+      expect(screen.getByTestId('win-pct-option-3')).toHaveTextContent('10%')
     })
 
     it('V11.2: VM hinge-aware description takes priority over story_headline when decisionState available', () => {

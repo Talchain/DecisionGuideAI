@@ -1,14 +1,20 @@
 /**
- * ResultsBody → V7 hero subline — THE GAP NUMBER IS RETIRED (2026-08-10).
+ * ResultsBody — NO SURFACE ON THIS PANEL STATES A WIN-FREQUENCY GAP
+ * (2026-08-10). The durable guard for the whole class, not for one component.
  *
- * The deployed hero rendered a correct statement of the leader's OWN win
- * probability ("… came out ahead in 71% of simulated scenarios") and then, on
- * the line immediately beneath it, "Leads by 40 points" — the percentage-point
+ * The deployed panel stated the same banned quantity on TWO surfaces at once:
+ * the V7 hero rendered a correct statement of the leader's OWN win probability
+ * ("… came out ahead in 71% of simulated scenarios") and then "Leads by 40
+ * points" directly beneath it; and the option card for every non-leader
+ * rendered "Behind by 40 percentage points". Both are the percentage-point
  * DIFFERENCE between two Monte-Carlo win frequencies. The ratified rule: no
- * user-facing surface states that gap; the leader's own probability is the
- * statistic. The subline now names the runner-up and states ITS OWN
- * probability instead, so the reader gets both numbers and the product asserts
- * no difference it has not earned.
+ * user-facing surface states that gap — own-probability statements only.
+ *
+ * The hero's subline now names the runner-up and states ITS OWN probability.
+ * The option card's line is DELETED outright, because the card already carries
+ * the option's own probability in its header readout (`win-pct-{id}`) — pinned
+ * below, by identity, so "deleted the line" cannot quietly become "the card
+ * lost its number".
  *
  * ⭐ WHY THIS SPEC RENDERS `ResultsBody` AND NOT `buildV7Headline`.
  * CLAUDE.md trap 3b: this estate has twice shipped a fix onto a component the
@@ -68,7 +74,7 @@ import type { AnalysisFreshnessState } from '@/canvas/store/analysisFreshness'
 const WINNER_LABEL = 'Bring In 6-Month Contractor'
 const RUNNER_UP_LABEL = 'Hire Permanent Senior Tech Lead'
 
-function makeData(): ResultsSectionDataReturn {
+function makeData(runnerUpLabel: string = RUNNER_UP_LABEL): ResultsSectionDataReturn {
   const winner = {
     id: 'opt_a',
     label: WINNER_LABEL,
@@ -77,7 +83,7 @@ function makeData(): ResultsSectionDataReturn {
   } as unknown as OptionResult
   const runnerUp = {
     id: 'opt_b',
-    label: RUNNER_UP_LABEL,
+    label: runnerUpLabel,
     isRecommended: false,
     winProbability: 0.31,
   } as unknown as OptionResult
@@ -134,10 +140,10 @@ function makeData(): ResultsSectionDataReturn {
   } as unknown as ResultsSectionDataReturn
 }
 
-function renderBody() {
+function renderBody(runnerUpLabel?: string) {
   return render(
     <ResultsBody
-      resultsSectionData={makeData()}
+      resultsSectionData={makeData(runnerUpLabel)}
       tornadoData={{ rows: [], expectedOutcome: null }}
       onSendMessage={() => {}}
       onFocusNode={() => {}}
@@ -147,10 +153,17 @@ function renderBody() {
 
 const FRESH: AnalysisFreshnessState = { freshness: 'fresh', computedAt: '2026-08-10T00:00:00Z' }
 
-/** The retired form, in every pluralisation and casing it could return in. */
+/** The hero's retired form, in every pluralisation and casing it could return in. */
 const GAP_CLAIM = /leads?\s+by\s+\d+\s+points?/i
+/**
+ * The option-card / canvas-node retired form. Deliberately the BARE PHRASE
+ * rather than "Behind by N percentage points": the banned thing is the
+ * quantity, not one sentence that carried it, so any new copy that reaches for
+ * "percentage points" on this panel REDs here whatever its wording.
+ */
+const PP_CLAIM = /percentage\s+points?/i
 
-describe('ResultsBody → V7 hero — the pp-gap subline is retired on the live mount path', () => {
+describe('ResultsBody — no surface on the results panel states a win-frequency gap', () => {
   beforeEach(() => {
     useCanvasStore.setState({ analysisFreshness: FRESH, analysisFreshnessDirty: false })
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
@@ -178,18 +191,69 @@ describe('ResultsBody → V7 hero — the pp-gap subline is retired on the live 
   })
 
   /**
-   * ⚠ SCOPE, STATED EXACTLY. This asserts the HERO's retired form
-   * ("Leads by N points") appears NOWHERE in the panel — not that the panel
-   * is free of pp-gap claims. It is not: `OptionCards` renders "Behind by N
-   * percentage points" for the same win-frequency difference, and the canvas
-   * `OptionNode` renders "Close call: within N percentage points". Both are
-   * separate surfaces, out of this lane's scope, and reported rather than
-   * silently folded in. Widening `GAP_CLAIM` to cover them would make this
-   * spec assert a claim about surfaces this change does not touch.
+   * ⭐ THE DURABLE GUARD FOR THE WHOLE CLASS.
+   *
+   * Both retired forms, asserted absent across the ENTIRE rendered panel
+   * rather than element by element — so a gap claim reintroduced on any
+   * surface `ResultsBody` composes REDs here, including a surface that does
+   * not exist yet.
+   *
+   * ⚠ SCOPE, STATED EXACTLY, because an absence claim is only as wide as what
+   * it searched (trap 20):
+   *   · WHAT IS SEARCHED — the DOM `ResultsBody` renders under this fixture.
+   *     The canvas `OptionNode` is NOT composed by `ResultsBody`; its own
+   *     retirement is pinned in `render-matrix.spec.tsx` and
+   *     `residualComparative.optionNode.spec.tsx`.
+   *   · WHAT IS NOT COVERED — `certaintyCopy`'s `" by N point(s)"` suffix,
+   *     which `DecisionConfidencePanel` still feeds from a live
+   *     `winProbabilityGap`. It is the same banned quantity in a DIFFERENT
+   *     phrasing, it is out of this lane's scope, and it is reported rather
+   *     than folded in. It does not fire under this fixture (the suffix rides
+   *     the softened lede, which needs a weak confidence tier). Do not read a
+   *     green here as "the panel states no gap anywhere" — read it as "no
+   *     surface states one in these two forms".
    */
-  it('the hero’s retired gap form appears NOWHERE in the rendered panel (it was rendered once, by the hero)', () => {
+  it('NEITHER retired form appears anywhere in the rendered panel', () => {
     const { container } = renderBody()
-    expect(container.textContent ?? '').not.toMatch(GAP_CLAIM)
+    const text = container.textContent ?? ''
+    // Positive control FIRST: an absence assertion over an empty or
+    // half-rendered panel passes by testing nothing (trap 13).
+    expect(text).toMatch(/came out ahead in 71% of simulated scenarios/i)
+    expect(text).toMatch(new RegExp(RUNNER_UP_LABEL))
+
+    expect(text).not.toMatch(GAP_CLAIM)
+    expect(text).not.toMatch(PP_CLAIM)
+  })
+
+  /**
+   * POSITIVE CONTROL FOR THE PROBE ITSELF (trap 13: a probe that proves an
+   * ABSENCE must first be shown capable of seeing a PRESENCE).
+   *
+   * The phrase is injected through a REAL render input — an option label,
+   * which `formatOptionLabelForCard` passes through verbatim for a
+   * non-baseline option — so this exercises the same component tree, the same
+   * `container.textContent` read and the same regex as the assertion above.
+   * If `PP_CLAIM` were mistyped, or the probe were reading a detached or
+   * empty node, this case would fail and the guard beside it would be
+   * exposed as vacuous.
+   */
+  it('POSITIVE CONTROL: the panel-wide probe DOES see the banned phrase when it is present', () => {
+    const { container } = renderBody('Behind by 40 percentage points')
+    expect(container.textContent ?? '').toMatch(PP_CLAIM)
+  })
+
+  /**
+   * The option card's own-probability readout, bound BY IDENTITY (the card's
+   * testid), not by a value another element could satisfy — the panel prints
+   * "31%" in several places. Pinned because the fix DELETED the non-leader's
+   * line rather than rewording it: the justification for deleting is that the
+   * card already carries this number, so if the number ever leaves, the
+   * deletion stops being justified and this REDs.
+   */
+  it('the non-leader card still carries its OWN probability, which is what licensed deleting the gap line', () => {
+    renderBody()
+    expect(screen.getByTestId('win-pct-opt_b')).toHaveTextContent('31%')
+    expect(screen.getByTestId('win-pct-opt_a')).toHaveTextContent('71%')
   })
 
   it('FLAG-MOVE GUARD (analysisHeroPanel OFF): the hero still mounts and still states no gap', () => {

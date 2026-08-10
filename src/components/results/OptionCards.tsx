@@ -204,7 +204,8 @@ function hingeAwareDescription(
 ): string {
   // ROADMAP 1.223: every string in this function is comparative — it either
   // names an option as the leader ("Highest leading-option likelihood"),
-  // measures against one ("Behind by N percentage points"), or DENIES one
+  // measures against one ("Behind by N percentage points" — RETIRED
+  // 2026-08-10, see the two arms below), or DENIES one
   // ("Statistically tied with the leading option"). On a turn where the
   // producer withheld the leader claim the UI is entitled to none of the
   // three: the denial is not a safe default, it is a second unearned claim,
@@ -318,11 +319,31 @@ function hingeAwareDescription(
     if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === option.label) {
       return `If ${hinge.label} shifts, this option overtakes`
     }
-    // Task 9: Gap-based fallback instead of generic "Second highest"
+      // ⭐⭐ THE "Behind by N percentage points" LINE IS RETIRED (2026-08-10).
+      //
+      // It stated the percentage-point DIFFERENCE between two Monte-Carlo win
+      // frequencies. A difference of two estimates carries more uncertainty
+      // than either estimate does, and printed as a bare integer with no
+      // interval it read as the most precise number on the card while being
+      // the least reliable one. The ratified rule: no user-facing surface
+      // states that gap — own-probability statements only.
+      //
+      // DELETED rather than reworded, and the licence for deleting is
+      // derivable at this seam: both arms of this branch require
+      // `option.winProbability != null`, which is the SAME condition that
+      // renders the card's own `win-pct-{id}` readout. So wherever this line
+      // could ever have fired, the option's OWN probability is already on the
+      // card — the number survives, only the difference goes. `''` is this
+      // function's established withhold idiom (see the ROADMAP 1.223 header):
+      // the caller renders nothing and the card falls back to label + win % +
+      // bar, which are DATA and stay.
+      //
+      // The gap is still COMPUTED, purely as the near-tie predicate below. It
+      // is never rendered.
     if (winnerWinProbability != null && option.winProbability != null) {
       const gapPct = Math.round((winnerWinProbability - option.winProbability) * 100)
       if (gapPct > 0) {
-        return `Behind by ${gapPct} percentage point${gapPct === 1 ? '' : 's'}`
+        return ''
       }
       return 'Statistically tied with the leading option'
     }
@@ -336,11 +357,15 @@ function hingeAwareDescription(
   if (option.isBaseline) {
     return 'Lowest risk but lowest expected outcome'
   }
-  // Task 9: Other non-winner — gap-based
+  // Other non-winner. ⭐ Same retirement as the runner-up arm above, and for
+  // the same reason — see that block. Both arms are changed together: leaving
+  // either one would keep the banned quantity on screen for a different slice
+  // of the option list, which is how a "fixed" surface keeps shipping the
+  // defect to the users who happen to have three options.
   if (winnerWinProbability != null && option.winProbability != null) {
     const gapPct = Math.round((winnerWinProbability - option.winProbability) * 100)
     if (gapPct > 0) {
-      return `Behind by ${gapPct} percentage point${gapPct === 1 ? '' : 's'}`
+      return ''
     }
     return 'Statistically tied with the leading option'
   }

@@ -439,7 +439,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     },
   })
 
-  it('Standard post non-leader, gap 3pp: shows "Close call: within 3 percentage points" and keeps "Behind:" line', () => {
+  it('Standard post non-leader, gap 3pp: shows the qualitative close-call marker and keeps "Behind:" line', () => {
     applyStore(closeCallTopology(3))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -452,11 +452,16 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    expect(screen.getByText('Close call: within 3 percentage points')).toBeDefined()
+    // ⭐ SUPERSEDED 2026-08-10: was 'Close call: within 3 percentage points'.
+    // The tie-ness SIGNAL is valuable and stays; the percentage-point gap is
+    // the banned statistic and is gone. The node already states this option's
+    // own win probability directly above.
+    expect(screen.getByText('Close call with the leading option')).toBeDefined()
+    expect(screen.queryByText(/percentage point/i)).toBeNull()
     expect(screen.getByText(/Behind:/)).toBeDefined()
   })
 
-  it('Standard post non-leader, gap 1pp: pluralisation drops the trailing "s"', () => {
+  it('Standard post non-leader, gap 1pp: the marker still fires at the narrow end of the window', () => {
     applyStore(closeCallTopology(1))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -469,12 +474,17 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    expect(screen.getByText('Close call: within 1 percentage point')).toBeDefined()
+    // ⭐ SUPERSEDED 2026-08-10: this asserted the singular 'point' form. With
+    // no number rendered there is no pluralisation left to pin — what remains
+    // worth pinning is that a 1pp gap is still INSIDE the close-call window.
+    expect(screen.getByText('Close call with the leading option')).toBeDefined()
+    expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 
-  it('Standard post non-leader, sub-percent gap (0.4pp): floor at 1pp, never reads "0 percentage points"', () => {
-    // Gap of 0.004 → Math.round → 0; floor clamps to 1pp so the line never
-    // reads the awkward "within 0 percentage points" phrasing.
+  it('Standard post non-leader, sub-percent gap (0.4pp): still inside the window, and states no quantity', () => {
+    // Gap of 0.004 → Math.round → 0; the 1pp floor keeps the predicate
+    // non-null so the marker still fires. The floor no longer has a phrasing
+    // job — the rendered marker carries no number at all.
     applyStore({
       viewMode: 'standard',
       phase: 'post',
@@ -507,8 +517,8 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    expect(screen.getByText('Close call: within 1 percentage point')).toBeDefined()
-    expect(screen.queryByText(/within 0 percentage point/)).toBeNull()
+    expect(screen.getByText('Close call with the leading option')).toBeDefined()
+    expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 
   it('Standard post close-call: "What would change this?" chip is added alongside "What would make this lead?"', () => {
@@ -541,7 +551,10 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    expect(screen.queryByText(/Close call:/)).toBeNull()
+    // Bound to the marker that actually renders — the old /Close call:/ pattern
+    // stops matching once the colon-and-number form is gone, which would make
+    // this absence assertion pass by testing nothing.
+    expect(screen.queryByText(/Close call/i)).toBeNull()
     expect(screen.queryByText('What would change this?')).toBeNull()
     // The standard "What would make this lead?" chip is still present.
     expect(screen.getByText('What would make this lead?')).toBeDefined()
