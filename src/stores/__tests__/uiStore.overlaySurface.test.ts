@@ -17,12 +17,27 @@
  * inverts the channel's charter. Lifting overlay state out of component-local
  * `useState` into a globally-reachable store is exactly the change that could
  * make AI-driven closing possible BY ACCIDENT. So the assistant-facing action
- * is open-only by construction, and this file proves it two independent ways:
+ * is open-only by construction, and this file proves it THREE independent ways:
  *   (1) a DERIVED guard iterating the canonical id list — proves every consumer
  *       agrees with the list;
- *   (2) a HAND-WRITTEN adversarial corpus — proves the list is not the only
- *       thing standing between a hostile argument and a closed menu.
- * Trap 12d: derivation moves the risk, it does not remove it. Ship both.
+ *   (2) a HAND-WRITTEN adversarial corpus of INVALID arguments — proves the
+ *       list is not the only thing standing between a hostile argument and a
+ *       closed menu;
+ *   (3) ⚠ a VALID-BUT-FOREIGN surface id — the class (1) and (2) CANNOT SEE.
+ * Trap 12d: derivation moves the risk, it does not remove it. Ship all three.
+ *
+ * ⚠ WHY (3) HAD TO BE ADDED, and it is the sharpest lesson in this lane.
+ * Every member of the corpus in (2) is an INVALID value, so the corpus is
+ * structurally blind to the attack that uses a VALID one: with a second member
+ * in `OVERLAY_SURFACE_IDS`, a user-opened 'top_bar_menu' followed by
+ * `requestOverlaySurface('<other real surface>')` returned TRUE and the user's
+ * menu was GONE — because with ONE SLOT a raise into an occupied slot IS a
+ * lower. Measured with a second id present: the whole suite stayed GREEN. It is
+ * the identical latent defect that `FOREIGN_SURFACE` catches one layer up in
+ * TopBar.overlaySurface.spec.tsx — found at the component, missed at the store,
+ * which is where the user-agency claim actually lives. Unreachable today only
+ * because the enum has one member; the next step for this concept is lifting
+ * the second surface, so it would have landed with no red anywhere.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
@@ -36,6 +51,23 @@ import {
 function resetOverlaySlice() {
   useUIStore.setState({ activeOverlaySurface: null, overlaySurfaceOrigin: null })
 }
+
+/**
+ * A second, VALID surface id — the one the enum does not carry yet.
+ *
+ * The cast is the entire point. `OVERLAY_SURFACE_IDS` has one member today, so
+ * "the assistant cannot displace the user's surface" is unfalsifiable from
+ * inside the enum: there is no other surface to displace it WITH. Standing in a
+ * foreign id makes the invariant testable NOW rather than the day the second
+ * menu is lifted, which is exactly when it would otherwise ship broken. Mirrors
+ * `FOREIGN_SURFACE` in TopBar.overlaySurface.spec.tsx.
+ *
+ * NOTE it is deliberately NOT added to `OVERLAY_SURFACE_IDS`: it must be
+ * rejected by `isOverlaySurfaceId` when it arrives as an ARGUMENT, so it is
+ * injected as STATE (what a second lifted surface would leave behind) and the
+ * argument under test is always the real id.
+ */
+const FOREIGN_SURFACE = 'left_sidebar_lens_menu' as unknown as OverlaySurfaceId
 
 describe('uiStore — overlay surface (assistant-drivable, open-only)', () => {
   beforeEach(resetOverlaySlice)
@@ -158,6 +190,82 @@ describe('uiStore — overlay surface (assistant-drivable, open-only)', () => {
     expect(opened).toBe(false)
     expect(useUIStore.getState().activeOverlaySurface).toBeNull()
     expect(useUIStore.getState().overlaySurfaceOrigin).toBeNull()
+  })
+
+  // ── (3) VALID-BUT-FOREIGN: the class the corpus above cannot contain ─────
+  // Under one-slot exclusion a raise into an occupied slot IS a lower, so these
+  // four pin the only shape of "the assistant closed my menu" that a wholly
+  // well-formed request can reach.
+
+  it('the assistant cannot displace a surface the USER opened', () => {
+    // PRECONDITION pinned in-test: the slot is genuinely held, by the user.
+    useUIStore.setState({
+      activeOverlaySurface: FOREIGN_SURFACE,
+      overlaySurfaceOrigin: 'user',
+    })
+
+    const raised = useUIStore.getState().requestOverlaySurface('top_bar_menu')
+
+    expect(raised).toBe(false)
+    // The user's surface is UNTOUCHED — the assertion is on the positive value,
+    // not merely "not top_bar_menu".
+    expect(useUIStore.getState().activeOverlaySurface).toBe(FOREIGN_SURFACE)
+    expect(useUIStore.getState().overlaySurfaceOrigin).toBe('user')
+  })
+
+  it('the assistant CAN replace a surface it raised itself', () => {
+    // The discriminating twin of the test above: same call, same occupied slot,
+    // only the ORIGIN differs. Without this pair the refusal could be a blanket
+    // "never raise into an occupied slot", which is a different rule.
+    useUIStore.setState({
+      activeOverlaySurface: FOREIGN_SURFACE,
+      overlaySurfaceOrigin: 'assistant',
+    })
+
+    const raised = useUIStore.getState().requestOverlaySurface('top_bar_menu')
+
+    expect(raised).toBe(true)
+    expect(useUIStore.getState().activeOverlaySurface).toBe('top_bar_menu')
+    expect(useUIStore.getState().overlaySurfaceOrigin).toBe('assistant')
+  })
+
+  it('re-raising the surface already up does not re-attribute it to the assistant', () => {
+    useUIStore.getState().setOverlaySurface('top_bar_menu')
+    expect(useUIStore.getState().overlaySurfaceOrigin).toBe('user')
+
+    const raised = useUIStore.getState().requestOverlaySurface('top_bar_menu')
+
+    // Idempotent: the surface IS up, so the honest answer is true...
+    expect(raised).toBe(true)
+    expect(useUIStore.getState().activeOverlaySurface).toBe('top_bar_menu')
+    // ...but the provenance badge must not tell the user the assistant opened
+    // a menu the user opened themselves.
+    expect(useUIStore.getState().overlaySurfaceOrigin).toBe('user')
+  })
+
+  it('still raises into an EMPTY slot — the refusal is not a blanket block', () => {
+    // Guards against "fixing" the two tests above by making the action never
+    // raise at all. The capability must survive its own safety rule.
+    expect(useUIStore.getState().activeOverlaySurface).toBeNull()
+
+    const raised = useUIStore.getState().requestOverlaySurface('top_bar_menu')
+
+    expect(raised).toBe(true)
+    expect(useUIStore.getState().activeOverlaySurface).toBe('top_bar_menu')
+    expect(useUIStore.getState().overlaySurfaceOrigin).toBe('assistant')
+  })
+
+  it('treats an unrecognised origin on a held slot as the USER’s (fail-closed)', () => {
+    // A slot held with no origin is a broken invariant, not an invitation. It
+    // must not become the loophole that a corrupted or externally-injected
+    // state can be leveraged through.
+    useUIStore.setState({
+      activeOverlaySurface: FOREIGN_SURFACE,
+      overlaySurfaceOrigin: null,
+    })
+
+    expect(useUIStore.getState().requestOverlaySurface('top_bar_menu')).toBe(false)
+    expect(useUIStore.getState().activeOverlaySurface).toBe(FOREIGN_SURFACE)
   })
 
   // ── The canonical list must contain the surface the deployed TopBar uses ──

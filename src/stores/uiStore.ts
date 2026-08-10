@@ -42,6 +42,16 @@ export type RightPanelMode = 'results' | 'provenance' | 'clarifier' | null
  * UserAvatarMenu — coordinate over the `menu:exclusive` window event; the
  * lifted surfaces keep honouring it, so lifting one at a time does not create
  * two competing exclusivity mechanisms.)
+ *
+ * ⚠ AND THAT IS EXACTLY WHY A RAISE CAN BE A LOWER IN DISGUISE. With one slot,
+ * `requestOverlaySurface('b')` while the user holds 'a' does not "open b" — it
+ * CLOSES A. The assistant would be taking the user's surface away through the
+ * one action that was supposed to be incapable of it, and no argument would
+ * have been invalid: 'b' is a perfectly good id. The hostile-argument corpus
+ * cannot see this class by construction, because every member of it is an
+ * INVALID value and this attack uses a VALID one. See `requestOverlaySurface`
+ * for the gate. Reachable the moment a second surface is lifted, which is the
+ * next step for this concept.
  */
 export const OVERLAY_SURFACE_IDS = ['top_bar_menu'] as const
 
@@ -110,15 +120,30 @@ export interface UIStoreActions {
    * ui_directive design: the assistant taking surfaces AWAY from the user
    * inverts the channel's charter. Lifting overlay state into a globally
    * reachable store is exactly the change that could make AI-driven closing
-   * possible BY ACCIDENT, so this action cannot express one:
+   * possible BY ACCIDENT, so this action cannot express one — in THREE ways,
+   * because the first two only stop an INVALID argument and the real attack
+   * uses a valid one:
    *   - the parameter type admits no null/undefined, so a close does not
    *     typecheck;
    *   - at runtime any value outside `OVERLAY_SURFACE_IDS` is REJECTED with
    *     the state left UNTOUCHED — never cleared. A malformed or
-   *     newer-producer id therefore cannot dismiss a menu the user opened.
+   *     newer-producer id therefore cannot dismiss a menu the user opened;
+   *   - ⚠ and a VALID id for a DIFFERENT surface is refused while the slot is
+   *     held by the user. Under one-slot exclusion a raise into an occupied
+   *     slot IS a lower, so without this the assistant could close the user's
+   *     menu using a wholly well-formed request. The refusal is fail-closed on
+   *     the origin: anything not provably `assistant`-raised is treated as the
+   *     user's.
    *
-   * Returns whether the surface was raised, so the ui_directive dispatcher can
-   * record `applied` vs `deferred` truthfully instead of assuming success.
+   * The assistant MAY replace a surface it raised itself, and a re-raise of
+   * the surface already up is IDEMPOTENT — it does not re-stamp the origin,
+   * because re-attributing a menu the USER opened would make the provenance
+   * badge tell the user the assistant opened something they opened themselves.
+   * A lie on the one channel whose whole purpose is truthfulness.
+   *
+   * Returns whether the surface is up as a result of this call, so the
+   * ui_directive dispatcher can record `applied` vs `deferred` truthfully
+   * instead of assuming success.
    */
   requestOverlaySurface: (surface: OverlaySurfaceId) => boolean
 }
@@ -139,7 +164,7 @@ export interface AssistantUiSurfaceActions {
   requestOverlaySurface: (surface: OverlaySurfaceId) => boolean
 }
 
-export const useUIStore = create<UIStoreState & UIStoreActions>((set) => ({
+export const useUIStore = create<UIStoreState & UIStoreActions>((set, get) => ({
   activeOutputTab: 'results',
   activeOutputTabVersion: 0,
   activeRightPanel: null,
@@ -162,10 +187,28 @@ export const useUIStore = create<UIStoreState & UIStoreActions>((set) => ({
     ),
 
   requestOverlaySurface: (surface) => {
-    // Fail-closed on ANYTHING that is not a known surface. Deliberately a
+    // (1) Fail-closed on ANYTHING that is not a known surface. Deliberately a
     // no-op rather than a clear: rejecting a bad id must never be a way to
     // close what the user has open.
     if (!isOverlaySurfaceId(surface)) return false
+
+    const current = get().activeOverlaySurface
+    const origin = get().overlaySurfaceOrigin
+
+    // (2) Already up: IDEMPOTENT, and specifically NOT a re-stamp. If the user
+    // opened this menu, it stays attributed to the user — re-attributing it
+    // would make the provenance badge claim the assistant opened something the
+    // user opened themselves.
+    if (current === surface) return true
+
+    // (3) The slot is held by a DIFFERENT surface. Under one-slot exclusion,
+    // raising over it would CLOSE it — a lower wearing a raise's clothes, and
+    // the only form of it that a valid argument can reach. Refuse unless the
+    // assistant is replacing a surface it raised itself. Fail-closed on the
+    // origin: an absent or unrecognised origin counts as the user's, so a
+    // corrupted or externally-injected state cannot be leveraged into a close.
+    if (current !== null && origin !== 'assistant') return false
+
     set({ activeOverlaySurface: surface, overlaySurfaceOrigin: 'assistant' })
     return true
   },
