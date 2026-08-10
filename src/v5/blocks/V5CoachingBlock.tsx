@@ -152,19 +152,39 @@ const CONTAINER_UNCATEGORISED: Record<'default' | 'bias_signal', string> = {
  *
  * The fix deliberately does NOT mint a new colour: colour stays derived from
  * the shared authority, so this card, the node marker and the inspector still
- * agree. What varies is WEIGHT — a filled badge for must_fix, outlined for
- * should_fix, outlined-quiet for could_fix, muted for technique. Weight is
- * driven by the producer's own `category`, so nothing here is invented; it is
- * the same fact, rendered with the emphasis it already carries.
+ * agree. What varies is WEIGHT — a filled badge for must_fix, then three
+ * border tints. Weight is driven by the producer's own `category`, so nothing
+ * here is invented; it is the same fact, rendered with the emphasis it
+ * already carries.
+ *
+ * ⚠ THE LABEL INK IS ALWAYS `text-text-body`, AND THAT IS THE DESIGN SYSTEM'S
+ * RULE, NOT A PREFERENCE. `Conversation.module.css` states it at the existing
+ * guidance badges: "Category badge colour variants — DS v5 §3.2: outlined
+ * pills, text-text-body". Colour rides the BORDER; the ink stays body-coloured.
+ *
+ * A first version of this ladder put the category colour in the INK
+ * (`text-danger` / `text-info` / muted grey) and it failed three ways at once,
+ * all of them measured from computed styles in a real browser:
+ *   - `should_fix` ink resolved to 2.80:1 against the card — BELOW WCAG AA
+ *     (4.5:1) at this 11px size, and `must_fix` white-on-fill to 2.83:1. No
+ *     token in the danger family reaches 4.5:1 with white ink (the best,
+ *     --danger-active, is 4.24:1), so ink-colouring cannot be made compliant
+ *     within the palette at all.
+ *   - the ladder INVERTED: `technique`, the least urgent tier, carried the
+ *     highest-contrast label on the card.
+ *   - it silently diverged from the four badge surfaces already shipped.
+ * Keeping the ink at body colour dissolves all three: every label is
+ * high-contrast, no label can out-shout another, and the tiers separate on
+ * fill and border exactly as the rest of the product already does.
  */
 const CATEGORY_BADGE_CLASS: Record<
   NonNullable<V5CoachingBlockType['category']>,
   string
 > = {
-  must_fix: 'border-danger bg-danger text-white font-medium',
-  should_fix: 'border-danger/50 text-danger',
-  could_fix: 'border-info/50 text-info',
-  technique: 'border-panel-border text-text-muted',
+  must_fix: 'bg-danger-light border-danger text-text-body font-medium',
+  should_fix: 'bg-transparent border-danger/50 text-text-body',
+  could_fix: 'bg-transparent border-info/50 text-text-body',
+  technique: 'bg-transparent border-panel-border text-text-body',
 }
 
 /** Card border weight per category — the same emphasis ladder, one step quieter. */
@@ -282,7 +302,7 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
       */}
       {block.signal && (
         <p
-          className={`${typography.panelMeta} text-text-muted`}
+          className={`${typography.panelMeta} text-text-light`}
           data-testid={`${testIdPrefix}-signal`}
         >
           <span className="font-medium">Why this came up: </span>
@@ -296,7 +316,7 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
       */}
       {freshnessNotice && (
         <p
-          className={`${typography.panelMeta} text-text-muted`}
+          className={`${typography.panelMeta} text-text-light`}
           data-testid={`${testIdPrefix}-freshness`}
         >
           {freshnessNotice}
@@ -330,7 +350,7 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
           data-dsk-claim-id={claim.claim_id}
           data-dsk-evidence-strength={claim.evidence_strength}
           {...(claim.protocol_id ? { 'data-dsk-protocol-id': claim.protocol_id } : {})}
-          className={`${typography.panelMeta} flex items-center gap-x-1.5 text-text-muted`}
+          className={`${typography.panelMeta} flex items-center gap-x-1.5 text-text-light`}
         >
           <BookOpenCheck size={12} className="flex-none text-info" aria-hidden="true" />
           <span>
@@ -401,14 +421,14 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
       <details data-testid={`${testIdPrefix}-details`} className="group">
         <summary
           data-testid={`${testIdPrefix}-details-toggle`}
-          className={`${typography.panelMeta} cursor-pointer text-text-muted hover:text-text-body list-none`}
+          className={`${typography.panelMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
         >
           <span aria-hidden="true" className="inline-block mr-1 group-open:rotate-90 transition-transform">
             ▸
           </span>
           Why this, and how sure
         </summary>
-        <div className={`${typography.panelMeta} mt-1.5 space-y-1 text-text-muted`}>
+        <div className={`${typography.panelMeta} mt-1.5 space-y-1 text-text-light`}>
           <p data-testid={`${testIdPrefix}-grounding-detail`}>
             {claim
               ? `This instantiates a cited decision-science claim: “${claim.claim_title}”, which the bundle rates ${claim.evidence_strength} evidence.`
