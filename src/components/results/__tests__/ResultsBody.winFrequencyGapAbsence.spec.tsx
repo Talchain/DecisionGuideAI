@@ -74,7 +74,10 @@ import type { AnalysisFreshnessState } from '@/canvas/store/analysisFreshness'
 const WINNER_LABEL = 'Bring In 6-Month Contractor'
 const RUNNER_UP_LABEL = 'Hire Permanent Senior Tech Lead'
 
-function makeData(runnerUpLabel: string = RUNNER_UP_LABEL): ResultsSectionDataReturn {
+function makeData(
+  runnerUpLabel: string = RUNNER_UP_LABEL,
+  soft = false,
+): ResultsSectionDataReturn {
   const winner = {
     id: 'opt_a',
     label: WINNER_LABEL,
@@ -94,7 +97,29 @@ function makeData(runnerUpLabel: string = RUNNER_UP_LABEL): ResultsSectionDataRe
     goalLabel: 'Maximise success',
     isSingleOption: false,
     analysisStatus: 'computed',
-    recommendationStability: 0.92,
+    // `soft` reaches DecisionConfidencePanel's SOFTENED lede — the branch that
+    // carried the retired " by N points" suffix. `shouldSoftenPhrasing` needs
+    // tier ∈ {needs_work, fair} AND stability < 0.85, so both move together.
+    recommendationStability: soft ? 0.5 : 0.92,
+    // ⚠ AND A PERMITTED VERDICT IS REQUIRED TO GET THERE AT ALL. Without one,
+    // `DecisionConfidencePanel` falls back to `NO_CLAIM_VERDICT`, whose
+    // `separation: 'unknown'` returns "the analysis did not put an option
+    // forward" long before any leader rule runs — so an absence assertion
+    // would have passed against a headline that never mentions a leader.
+    // The in-test precondition is what caught this; it is not decoration.
+    // Supplied ONLY on the soft variant, so the default fixture (and the six
+    // cases built on it) keeps the legacy no-verdict path it was written for.
+    ...(soft
+      ? {
+          verdict: {
+            leaderId: 'opt_a',
+            separation: 'clear',
+            hasLeadingOption: true,
+            gapPp: 40,
+            source: 'producer_near_tie',
+          },
+        }
+      : {}),
     robustnessLevel: 'high',
     isNormalised: false,
   } as unknown as DecisionResultData
@@ -108,7 +133,7 @@ function makeData(runnerUpLabel: string = RUNNER_UP_LABEL): ResultsSectionDataRe
   }
 
   const confidence = {
-    tier: { tier: 'strong', icon: 'Check', label: 'Tier', description: 'd' },
+    tier: { tier: soft ? 'fair' : 'strong', icon: 'Check', label: 'Tier', description: 'd' },
     qualityScore: 80,
     uncertainties: [],
     topUncertainties: [],
@@ -140,10 +165,10 @@ function makeData(runnerUpLabel: string = RUNNER_UP_LABEL): ResultsSectionDataRe
   } as unknown as ResultsSectionDataReturn
 }
 
-function renderBody(runnerUpLabel?: string) {
+function renderBody(runnerUpLabel?: string, soft = false) {
   return render(
     <ResultsBody
-      resultsSectionData={makeData(runnerUpLabel)}
+      resultsSectionData={makeData(runnerUpLabel, soft)}
       tornadoData={{ rows: [], expectedOutcome: null }}
       onSendMessage={() => {}}
       onFocusNode={() => {}}
@@ -162,6 +187,13 @@ const GAP_CLAIM = /leads?\s+by\s+\d+\s+points?/i
  * "percentage points" on this panel REDs here whatever its wording.
  */
 const PP_CLAIM = /percentage\s+points?/i
+/**
+ * `certaintyCopy`'s retired suffix, as rendered by `DecisionConfidencePanel`'s
+ * softened lede ("{winner} currently leads by 40 points"). A THIRD spelling of
+ * the same banned quantity — which is exactly why this guard matches the
+ * QUANTITY SHAPE rather than any one sentence.
+ */
+const POINTS_CLAIM = /\bby\s+-?\d+(\.\d+)?\s+points?\b/i
 
 describe('ResultsBody — no surface on the results panel states a win-frequency gap', () => {
   beforeEach(() => {
@@ -204,14 +236,12 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
    *     The canvas `OptionNode` is NOT composed by `ResultsBody`; its own
    *     retirement is pinned in `render-matrix.spec.tsx` and
    *     `residualComparative.optionNode.spec.tsx`.
-   *   · WHAT IS NOT COVERED — `certaintyCopy`'s `" by N point(s)"` suffix,
-   *     which `DecisionConfidencePanel` still feeds from a live
-   *     `winProbabilityGap`. It is the same banned quantity in a DIFFERENT
-   *     phrasing, it is out of this lane's scope, and it is reported rather
-   *     than folded in. It does not fire under this fixture (the suffix rides
-   *     the softened lede, which needs a weak confidence tier). Do not read a
-   *     green here as "the panel states no gap anywhere" — read it as "no
-   *     surface states one in these two forms".
+   *   · `certaintyCopy`'s `" by N point(s)"` suffix IS now covered, but on a
+   *     SEPARATE case below, because `DecisionConfidencePanel` mounts only on
+   *     the `analysisHeroPanel`-OFF arm — which is NOT the deployed posture.
+   *     This case runs on the deployed (ON) posture, where that panel is
+   *     absent, so its silence about the suffix here means "not rendered",
+   *     never "rendered and clean".
    */
   it('NEITHER retired form appears anywhere in the rendered panel', () => {
     const { container } = renderBody()
@@ -223,6 +253,48 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
 
     expect(text).not.toMatch(GAP_CLAIM)
     expect(text).not.toMatch(PP_CLAIM)
+    expect(text).not.toMatch(POINTS_CLAIM)
+  })
+
+  /**
+   * ⭐⭐ THE SOFTENED `DecisionConfidencePanel` LEDE — AND AN EXPLICIT NOTE ON
+   * WHICH ARM MOUNTS IT, BECAUSE THE DEPLOYED POSTURE DOES NOT.
+   *
+   * Derived at the bytes: `decisionConfidenceElement` is referenced at exactly
+   * one site (`ResultsBody.tsx:508`), INSIDE `{!isAnalysisHeroPanelEnabled()
+   * && …}` — and `netlify.toml` bakes `VITE_FEATURE_ANALYSIS_HERO_PANEL="1"`.
+   * So `DecisionConfidencePanel` mounts on the flag-OFF arm ONLY, and the
+   * retired " by N points" suffix was NOT on the surface staging serves.
+   * `buildCertaintyCopy` has exactly one consumer, so that is the whole story
+   * for this copy.
+   *
+   * This case is therefore DEFENCE IN DEPTH, and it is labelled as such rather
+   * than dressed up as a live-surface guard: the arm is real code, one flag
+   * move from being what every user reads, and `certaintyCopy` is the single
+   * source for the sentence. The flag is forced OFF here deliberately — a
+   * test left on the deployed posture would render no panel at all and its
+   * absence assertions would pass by testing nothing.
+   *
+   * TWO preconditions are pinned in-test, and both earned their place by
+   * failing first: the panel must be MOUNTED, and the run must be ON the
+   * softened branch. The fixture originally carried no `verdict`, so
+   * `NO_CLAIM_VERDICT` returned "the analysis did not put an option forward"
+   * long before any leader rule ran — an absence assertion against a headline
+   * that never mentions a leader.
+   */
+  it('DEFENCE IN DEPTH (flag-OFF arm): the softened DecisionConfidencePanel lede states no gap, and keeps its hedge', () => {
+    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(false)
+    const { container } = renderBody(undefined, true)
+    const text = container.textContent ?? ''
+
+    // Precondition 1 — the panel is actually mounted on this arm.
+    expect(screen.getByTestId('decision-confidence-panel')).toBeInTheDocument()
+    // Precondition 2 — we are on the SOFTENED branch, not a withheld one.
+    expect(text).toMatch(new RegExp(`${WINNER_LABEL} currently leads`))
+
+    expect(text).not.toMatch(POINTS_CLAIM)
+    expect(text).not.toMatch(PP_CLAIM)
+    expect(text).not.toMatch(GAP_CLAIM)
   })
 
   /**

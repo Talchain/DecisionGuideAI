@@ -39,7 +39,7 @@ interface FixtureOpts {
 function makeData(opts: FixtureOpts): ResultsSectionDataReturn {
   // Brief 5.2 Task 1: winner and runner-up have distinct winProbability so
   // the gap computation (97.4 − 2.4 ≈ 95 points) exercises the new
-  // "by N points" suffix. Earlier fixtures used identical winProb on both
+  // (now retired) "by N points" suffix. Earlier fixtures used identical winProb on both
   // which hid the gap suffix behaviour.
   const winner: OptionResult = {
     id: 'opt-a',
@@ -140,7 +140,7 @@ function makeData(opts: FixtureOpts): ResultsSectionDataReturn {
 }
 
 describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + caveat', () => {
-  it('needs_work tier: suppresses over-confident coachingHeadline and renders softened lede with "by N points"', () => {
+  it('needs_work tier: suppresses over-confident coachingHeadline and renders the softened lede, which now states NO gap', () => {
     const data = makeData({
       coachingHeadline: 'Option A is the clear leader with a 95-point advantage',
       confidenceTier: 'needs_work',
@@ -157,7 +157,12 @@ describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + cav
     // Softened lede renders instead — preserves numeric lead without the
     // over-confident framing. Gap = 97.4 − 2.4 = 95 points.
     expect(
-      screen.getByText(/Option A currently leads by 95 points/),
+      // ⭐ SUPERSEDED 2026-08-10: the " by 95 points" suffix is retired — it
+      // stated the percentage-point gap between two win frequencies. What this
+      // spec exists to guarantee — PLoT's over-confident coachingHeadline is
+      // SUPPRESSED and the softened certaintyCopy lede wins — is unchanged and
+      // still asserted here and by the forbid-list below.
+      screen.getByText(/Option A currently leads$/),
     ).toBeInTheDocument()
 
     // Caveat renders — tier is needs_work.
@@ -183,9 +188,10 @@ describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + cav
     expect(
       screen.queryByText('Proceed with Option A with confidence.'),
     ).not.toBeInTheDocument()
-    // Confident fallback — "leads by N points", no "currently".
+    // Confident fallback — the magnitude-free comparative sentence (was
+    // "leads by N points"; the suffix is retired), no "currently".
     expect(
-      screen.getByText(/Option A leads by 95 points/),
+      screen.getByText(/Option A came out ahead most often across simulated scenarios/),
     ).toBeInTheDocument()
     // No caveat — caveat is scoped to needs_work only, and readiness never
     // softens a strong tier.
@@ -220,7 +226,7 @@ describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + cav
     })
     render(<DecisionConfidencePanel data={data} />)
     expect(screen.queryByText('Option A has a slight edge')).not.toBeInTheDocument()
-    expect(screen.getByText(/Option A currently leads by 95 points/)).toBeInTheDocument()
+    expect(screen.getByText(/Option A currently leads$/)).toBeInTheDocument()
     // No caveat — fair softens but is not evidence-weak.
     expect(screen.queryByText(/limited evidence/)).not.toBeInTheDocument()
   })
@@ -248,14 +254,15 @@ describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + cav
       })
       render(<DecisionConfidencePanel data={data} />)
       expect(screen.queryByText(/clear leader/)).not.toBeInTheDocument()
-      expect(screen.getByText(/Option A currently leads by 95 points/)).toBeInTheDocument()
+      expect(screen.getByText(/Option A currently leads$/)).toBeInTheDocument()
       // No caveat — caveat is scoped to needs_work.
       expect(screen.queryByText(/limited evidence/)).not.toBeInTheDocument()
     })
 
     it('fallback (unknown tier + absent readiness): confident fallback suppresses coachingHeadline', () => {
       // Unknown tier does not enter the soft gate. Falls through to confident
-      // fallback "leads by N points". conservative: true → coaching override
+      // fallback (magnitude-free since the gap suffix was retired).
+      // conservative: true → coaching override
       // suppressed.
       const data = makeData({
         coachingHeadline: 'Option A is clearly the best choice',
@@ -263,7 +270,7 @@ describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + cav
       })
       render(<DecisionConfidencePanel data={data} />)
       expect(screen.queryByText(/clearly the best choice/)).not.toBeInTheDocument()
-      expect(screen.getByText(/Option A leads by 95 points/)).toBeInTheDocument()
+      expect(screen.getByText(/Option A came out ahead most often across simulated scenarios/)).toBeInTheDocument()
     })
 
     it('§2.7 — strong + missing readiness: confident fallback, coachingHeadline suppressed', () => {
@@ -278,7 +285,7 @@ describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + cav
       })
       render(<DecisionConfidencePanel data={data} />)
       expect(screen.queryByText(/clear leader/)).not.toBeInTheDocument()
-      expect(screen.getByText(/Option A leads by 95 points/)).toBeInTheDocument()
+      expect(screen.getByText(/Option A came out ahead most often across simulated scenarios/)).toBeInTheDocument()
     })
   })
 })

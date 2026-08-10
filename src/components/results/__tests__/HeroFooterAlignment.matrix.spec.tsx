@@ -174,7 +174,12 @@ const matrix: MatrixCase[] = [
     tier: 'needs_work',
     readiness: 'ready',
     stability: 0.97,
-    expectHeroContains: 'Option A leads',
+    // ⭐ SUPERSEDED 2026-08-10: was `'Option A leads'`, the confident
+    // fallback's `"{winner} leads by N points"` form. That suffix stated the
+    // percentage-point gap between two win frequencies and is retired, so the
+    // branch now emits its own no-gap sentence — which was ALWAYS this rule's
+    // fallback. The ROW is unchanged; only the sentence it expects moved.
+    expectHeroContains: 'Option A came out ahead',
     forbidHero: ['currently leads', 'clear leader', 'advantage', 'is the leading option'],
     expectFooterContains: 'Stable ranking',
     forbidFooter: ['Stability sensitive'],
@@ -185,7 +190,12 @@ const matrix: MatrixCase[] = [
     tier: 'strong',
     readiness: 'needs_evidence',
     stability: 0.95,
-    expectHeroContains: 'Option A leads',
+    // ⭐ SUPERSEDED 2026-08-10: was `'Option A leads'`, the confident
+    // fallback's `"{winner} leads by N points"` form. That suffix stated the
+    // percentage-point gap between two win frequencies and is retired, so the
+    // branch now emits its own no-gap sentence — which was ALWAYS this rule's
+    // fallback. The ROW is unchanged; only the sentence it expects moved.
+    expectHeroContains: 'Option A came out ahead',
     forbidHero: ['currently leads', 'clear leader', 'is the leading option'],
     expectFooterContains: 'Stable ranking',
     forbidFooter: ['Stability sensitive'],
@@ -196,7 +206,12 @@ const matrix: MatrixCase[] = [
     tier: 'fair',
     readiness: 'ready',
     stability: 0.90,
-    expectHeroContains: 'Option A leads',
+    // ⭐ SUPERSEDED 2026-08-10: was `'Option A leads'`, the confident
+    // fallback's `"{winner} leads by N points"` form. That suffix stated the
+    // percentage-point gap between two win frequencies and is retired, so the
+    // branch now emits its own no-gap sentence — which was ALWAYS this rule's
+    // fallback. The ROW is unchanged; only the sentence it expects moved.
+    expectHeroContains: 'Option A came out ahead',
     forbidHero: ['Option A currently leads', 'is the leading option'],
     expectFooterContains: 'Stable ranking',
     forbidFooter: ['Stability sensitive'],

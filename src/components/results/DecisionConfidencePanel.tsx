@@ -212,8 +212,14 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   // advantage" which rendered verbatim because coachingHeadline won the
   // precedence chain. When the tier is weak (certainty.caveat is present),
   // we now swap in certainty.headline instead so the headline softens with
-  // the caveat. winProbabilityGap preserves the numeric lead as "by N
-  // points" without the over-confident framing.
+  // the caveat.
+  //
+  // ⚠ `winProbabilityGap` IS NOW RENDER-DEAD (2026-08-10). It used to reach
+  // the user as " by N points" on the softened lede; that suffix is retired
+  // (no surface may state the percentage-point gap between win frequencies),
+  // and `buildCertaintyCopy` no longer reads this field. It is still computed
+  // and passed only so the retirement stayed a copy change; deleting it here
+  // and on the input type is a clean follow-up.
   const winProbabilityGap = useMemo(() => {
     const options = data.recommendation.allOptions
     if (!options || options.length < 2) return undefined
