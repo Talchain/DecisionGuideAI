@@ -31,7 +31,26 @@ import { MemoryRouter } from 'react-router-dom'
 import { TopBar } from '../TopBar'
 import { MENU_EXCLUSIVE_EVENT } from '../LeftSidebar'
 import { ToastProvider } from '../../../canvas/ToastContext'
-import { useUIStore } from '../../../stores/uiStore'
+import { useUIStore, type OverlaySurfaceId } from '../../../stores/uiStore'
+
+/**
+ * A surface id this bar does NOT own.
+ *
+ * `OVERLAY_SURFACE_IDS` has one member today, so every "is my menu open?"
+ * predicate — `=== 'top_bar_menu'` and the far looser `!== null` — agrees on
+ * every value the enum can produce. A mutation kit confirmed it: replacing
+ * TopBar's identity check with `!== null` left the whole suite GREEN. That is
+ * trap 19 exactly (an assertion satisfied by an object other than the one it
+ * names), latent until the second surface is lifted, at which point the kebab
+ * would silently open whenever a sibling menu was raised.
+ *
+ * So the discrimination is pinned NOW, with a foreign id the store will one
+ * day carry for real. The cast is the point: it stands in for a future sibling
+ * surface, and it makes the pair complete — loosen the guard for ALL surfaces
+ * and this test REDs; loosen it for a DIFFERENT surface only and the
+ * assistant-open test stays green.
+ */
+const FOREIGN_SURFACE = 'a_surface_this_bar_does_not_own' as unknown as OverlaySurfaceId
 
 const props = {
   scenarioTitle: 'Pricing Decision 2025',
@@ -96,6 +115,37 @@ describe('TopBar kebab menu — lifted into uiStore', () => {
       'true',
     )
     expect(useUIStore.getState().overlaySurfaceOrigin).toBe('assistant')
+  })
+
+  // ── The binding is to THIS bar's surface, by identity ────────────────────
+  it('stays closed when a surface it does not own is raised', () => {
+    renderTopBar()
+    act(() => {
+      useUIStore.setState({
+        activeOverlaySurface: FOREIGN_SURFACE,
+        overlaySurfaceOrigin: 'assistant',
+      })
+    })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.getByRole('banner')).not.toHaveAttribute('data-overlay-origin')
+  })
+
+  it('does not lower a surface it does not own', () => {
+    renderTopBar()
+    act(() => {
+      useUIStore.setState({
+        activeOverlaySurface: FOREIGN_SURFACE,
+        overlaySurfaceOrigin: 'user',
+      })
+    })
+    // Escape and click-outside are this bar's dismissals. They must act on its
+    // OWN surface only — a component that lowers whatever happens to be raised
+    // would take a sibling's menu away the moment two surfaces are lifted.
+    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.mouseDown(document.body)
+
+    expect(useUIStore.getState().activeOverlaySurface).toBe(FOREIGN_SURFACE)
+    expect(useUIStore.getState().overlaySurfaceOrigin).toBe('user')
   })
 
   it('marks the banner with the origin so a surface the assistant raised is attributable', () => {
