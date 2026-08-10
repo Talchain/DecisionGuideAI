@@ -105,6 +105,34 @@ describe('V5CoachingBlock — importance channel (PR3)', () => {
     expect(quietTone).toBe('info')
     expect(urgentTone).not.toBe(quietTone)
   })
+
+  /**
+   * ⚠ THIS TEST EXISTS BECAUSE A REAL BROWSER FOUND WHAT JSDOM COULD NOT.
+   *
+   * `guidanceCategoryTone` maps FOUR producer categories onto TWO colours, so
+   * the first version of this card rendered "Must fix" and "Should fix"
+   * IDENTICALLY — same border, same badge, same icon. Every structural test
+   * above passed while the most important distinction the producer makes was
+   * invisible. The screenshot is what caught it.
+   *
+   * So this pins the EMPHASIS ladder: all four categories must resolve to
+   * DISTINCT badge treatments. It is still a structural proxy — it proves the
+   * component emits four different recipes, never that a human perceives four
+   * levels. That claim belongs to the browser pass recorded in the PR.
+   */
+  it('gives all four categories DISTINCT visual weight, not just distinct words', () => {
+    const recipes = (['must_fix', 'should_fix', 'could_fix', 'technique'] as const).map((cat) => {
+      const { container } = render(<V5CoachingBlock block={{ ...BASE, category: cat }} />)
+      const badge = container.querySelector('[data-testid="v5-coaching-category"]')
+      const card = container.querySelector('[data-testid="v5-coaching"]')
+      // Positive control: the probe must find both, or the comparison below
+      // is comparing nulls and would agree with itself (trap 13).
+      expect(badge, `no badge rendered for ${cat}`).not.toBeNull()
+      expect(card, `no card rendered for ${cat}`).not.toBeNull()
+      return `${badge!.className}|${card!.className}`
+    })
+    expect(new Set(recipes).size).toBe(4)
+  })
 })
 
 describe('V5CoachingBlock — evidence channel (PR3)', () => {
@@ -157,16 +185,32 @@ describe('V5CoachingBlock — evidence channel (PR3)', () => {
     expect(screen.getByTestId('v5-coaching-title')).toHaveTextContent(BASE.title)
   })
 
-  it('grounds the card in the cited claim, quoting the claim TITLE and its evidence strength', () => {
+  /**
+   * The grounding is SPLIT by design: strength on the face (what a reader
+   * needs at a glance), the verifiable claim TITLE one row down inside the
+   * disclosure. A browser pass showed the full title inline made the card
+   * eight rows deep and orphaned the separator mid-wrap. Both halves are
+   * asserted — here and in the disclosure block below — so the split cannot
+   * quietly become a drop.
+   */
+  it('grounds the card on its face with the evidence strength and the claim id', () => {
     render(<V5CoachingBlock block={{ ...BASE, dsk_claim_provenance: CLAIM }} />)
     const badge = screen.getByTestId('v5-coaching-dsk-provenance')
     expect(badge).toHaveAttribute('data-dsk-claim-id', 'DSK-B-003')
     expect(badge).toHaveAttribute('data-dsk-evidence-strength', 'strong')
-    // Identity, not a value predicate: the claim TITLE is what makes the
-    // attribution checkable against the bundle. A mutant that renders
-    // `signal` or `title` here must RED.
-    expect(badge).toHaveTextContent(CLAIM.claim_title)
+    expect(badge).toHaveAttribute('data-dsk-protocol-id', 'DSK-P-002')
     expect(badge).toHaveTextContent('strong evidence')
+  })
+
+  it('binds the strength to the producer value, not a constant', () => {
+    render(
+      <V5CoachingBlock
+        block={{ ...BASE, dsk_claim_provenance: { ...CLAIM, evidence_strength: 'weak' } }}
+      />,
+    )
+    const badge = screen.getByTestId('v5-coaching-dsk-provenance')
+    expect(badge).toHaveTextContent('weak evidence')
+    expect(badge).not.toHaveTextContent('strong evidence')
   })
 
   it('says plainly that a card is NOT grounded, rather than leaving a blank', () => {
@@ -263,6 +307,7 @@ describe('V5CoachingBlock — the bias_signal variant keeps every signal', () =>
     expect(screen.getByTestId('bias-signal-card-signal')).toHaveTextContent(
       'Your brief anchors on the first figure you wrote.',
     )
-    expect(screen.getByTestId('bias-signal-card-dsk-provenance')).toHaveTextContent(CLAIM.claim_title)
+    expect(screen.getByTestId('bias-signal-card-dsk-provenance')).toHaveTextContent('strong evidence')
+    expect(screen.getByTestId('bias-signal-card-details')).toHaveTextContent(CLAIM.claim_title)
   })
 })

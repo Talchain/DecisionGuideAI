@@ -123,20 +123,59 @@ type Tone = 'danger' | 'info'
  * channel made visible; `info` reproduces the pre-PR3 appearance exactly, so
  * an uncategorised card looks precisely as it always did.
  */
-const CONTAINER_CLASS: Record<'default' | 'bias_signal', Record<Tone, string>> = {
-  default: {
-    info: 'rounded-xl border border-info/30 bg-panel p-4 space-y-2',
-    danger: 'rounded-xl border border-danger/40 bg-panel p-4 space-y-2',
-  },
-  bias_signal: {
-    info: 'bg-panel border border-info rounded-lg px-4 py-3 space-y-2',
-    danger: 'bg-panel border border-danger rounded-lg px-4 py-3 space-y-2',
-  },
+const CONTAINER_BASE: Record<'default' | 'bias_signal', string> = {
+  default: 'rounded-xl border bg-panel p-4 space-y-2',
+  bias_signal: 'bg-panel border rounded-lg px-4 py-3 space-y-2',
 }
 
-const CATEGORY_BADGE_CLASS: Record<Tone, string> = {
-  danger: 'border-danger/40 text-danger',
-  info: 'border-info/40 text-info',
+/**
+ * The uncategorised default, per variant. These reproduce the pre-PR3
+ * appearance EXACTLY, so a card the producer never classified looks precisely
+ * as it always did — the honest-absence rule made visual.
+ */
+const CONTAINER_UNCATEGORISED: Record<'default' | 'bias_signal', string> = {
+  default: 'border-info/30',
+  bias_signal: 'border-info',
+}
+
+/**
+ * EMPHASIS, WITHIN the shared colour channel — and this exists because a real
+ * browser proved the colour channel alone is not enough.
+ *
+ * `guidanceCategoryTone` maps FOUR producer categories onto TWO colours
+ * (must_fix/should_fix → danger, could_fix/technique → info). Rendered, that
+ * made "Must fix" and "Should fix" visually IDENTICAL — same border, same
+ * badge, same icon — so the single most important distinction the producer
+ * makes was legible only by reading the badge text. jsdom could never have
+ * shown this: it computes no layout and resolves no colour, and every
+ * structural test passed while the hierarchy did not exist.
+ *
+ * The fix deliberately does NOT mint a new colour: colour stays derived from
+ * the shared authority, so this card, the node marker and the inspector still
+ * agree. What varies is WEIGHT — a filled badge for must_fix, outlined for
+ * should_fix, outlined-quiet for could_fix, muted for technique. Weight is
+ * driven by the producer's own `category`, so nothing here is invented; it is
+ * the same fact, rendered with the emphasis it already carries.
+ */
+const CATEGORY_BADGE_CLASS: Record<
+  NonNullable<V5CoachingBlockType['category']>,
+  string
+> = {
+  must_fix: 'border-danger bg-danger text-white font-medium',
+  should_fix: 'border-danger/50 text-danger',
+  could_fix: 'border-info/50 text-info',
+  technique: 'border-panel-border text-text-muted',
+}
+
+/** Card border weight per category — the same emphasis ladder, one step quieter. */
+const CATEGORY_BORDER_CLASS: Record<
+  NonNullable<V5CoachingBlockType['category']>,
+  string
+> = {
+  must_fix: 'border-danger/60',
+  should_fix: 'border-danger/30',
+  could_fix: 'border-info/40',
+  technique: 'border-panel-border',
 }
 
 /**
@@ -196,7 +235,12 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
       {...(block.category ? { 'data-category': block.category } : {})}
       {...(block.signal_code ? { 'data-signal-code': block.signal_code } : {})}
       {...(typeof block.priority === 'number' ? { 'data-priority': String(block.priority) } : {})}
-      className={CONTAINER_CLASS[variant][tone]}
+      className={[
+        CONTAINER_BASE[variant],
+        block.category
+          ? CATEGORY_BORDER_CLASS[block.category]
+          : CONTAINER_UNCATEGORISED[variant],
+      ].join(' ')}
     >
       {/*
         IMPORTANCE, first and smallest. The badge is the producer's four-value
@@ -209,9 +253,8 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
             data-testid={`${testIdPrefix}-category`}
             data-category={block.category}
             className={[
-              'inline-flex items-center rounded-full px-2 py-0.5',
-              'bg-transparent border',
-              CATEGORY_BADGE_CLASS[tone],
+              'inline-flex items-center rounded-full px-2 py-0.5 border',
+              CATEGORY_BADGE_CLASS[block.category],
               typography.panelMeta,
             ].join(' ')}
           >
@@ -261,11 +304,19 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
       )}
 
       {/*
-        GROUNDING. Every visible string is the CANONICAL BUNDLE's, carried
-        verbatim from `data/dsk/v1.json` by CEE: the claim's own `claim_title`
-        and its own `evidence_strength`. Nothing here is authored in the UI
-        except the static label, which names the channel and makes no claim
-        about the science.
+        GROUNDING, COMPACT ON THE FACE. The strength is what a reader needs at
+        a glance; the CLAIM TITLE — the part that makes the attribution
+        checkable against the bundle — is one row down in the disclosure. A
+        browser pass showed the full title inline pushed this card to eight
+        stacked rows and orphaned the separator mid-wrap, which is the exact
+        opposite of "low cognitive load by default". This compact form is also
+        the idiom `InspectorGuidanceSection` already ships, so the two
+        surfaces read as one.
+
+        Every visible string is the CANONICAL BUNDLE's, carried verbatim from
+        `data/dsk/v1.json` by CEE: here `evidence_strength`, and `claim_title`
+        in the disclosure. Nothing is authored in the UI except the static
+        label, which names the channel and makes no claim about the science.
 
         ⚠ CEE #830's lesson: a sibling badge once rendered the MODEL'S OWN
         PROSE under a label asserting the bundle's authority. So this must
@@ -279,13 +330,12 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
           data-dsk-claim-id={claim.claim_id}
           data-dsk-evidence-strength={claim.evidence_strength}
           {...(claim.protocol_id ? { 'data-dsk-protocol-id': claim.protocol_id } : {})}
-          className={`${typography.panelMeta} flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-text-muted`}
+          className={`${typography.panelMeta} flex items-center gap-x-1.5 text-text-muted`}
         >
           <BookOpenCheck size={12} className="flex-none text-info" aria-hidden="true" />
-          <span>Grounded in decision science:</span>
-          <span className="text-text-body">{claim.claim_title}</span>
-          <span aria-hidden="true">·</span>
-          <span>{claim.evidence_strength} evidence</span>
+          <span>
+            Grounded in decision science · {claim.evidence_strength} evidence
+          </span>
         </p>
       )}
 
