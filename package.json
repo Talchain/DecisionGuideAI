@@ -112,7 +112,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.10.0",
+    "@axe-core/playwright": "^4.12.1",
     "@chromatic-com/storybook": "^5.0.1",
     "@netlify/blobs": "^10.5.0",
     "@playwright/test": "^1.47.2",
