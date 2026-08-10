@@ -119,7 +119,7 @@
     "@storybook/addon-a11y": "^10.2.8",
     "@storybook/addon-docs": "^10.2.8",
     "@storybook/addon-onboarding": "^10.2.8",
-    "@storybook/react-vite": "^10.2.8",
+    "@storybook/react-vite": "^10.5.7",
     "@testing-library/dom": "^9.3.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^14.3.1",
