@@ -120,11 +120,39 @@ describe('V5CoachingBlock — evidence channel (PR3)', () => {
     expect(screen.getByTestId('v5-coaching-body')).toHaveTextContent(BASE.body)
   })
 
-  it('never renders signal_code as copy — it is an id, and rides as data-* only', () => {
+  /**
+   * ⚠ THE FIXTURE HERE CARRIES `signal` AS WELL AS `signal_code`, AND THAT IS
+   * THE WHOLE TEST. An earlier version set `signal_code` alone; a mutant that
+   * appended the code to the trigger line SURVIVED it, because with no
+   * `signal` the trigger line never renders and the leak site was never
+   * reached. The guard was correct and pointed at bytes that did not exist
+   * (trap 22). A card in the wild routinely carries both, so the corpus must.
+   */
+  it('never renders signal_code as copy — even beside the trigger line it could leak into', () => {
+    render(
+      <V5CoachingBlock
+        block={{
+          ...BASE,
+          signal: 'Two options share one base-rate assumption.',
+          signal_code: 'MISSING_BASE_RATE',
+        }}
+      />,
+    )
+    const card = screen.getByTestId('v5-coaching')
+    expect(card).toHaveAttribute('data-signal-code', 'MISSING_BASE_RATE')
+    // The machine token must not leak into the visible sentence stream...
+    expect(card.textContent).not.toContain('MISSING_BASE_RATE')
+    // ...while the producer's own prose beside it IS shown, so this cannot
+    // pass by rendering nothing at all.
+    expect(screen.getByTestId('v5-coaching-signal')).toHaveTextContent(
+      'Two options share one base-rate assumption.',
+    )
+  })
+
+  it('never renders signal_code as copy when there is no trigger line either', () => {
     render(<V5CoachingBlock block={{ ...BASE, signal_code: 'MISSING_BASE_RATE' }} />)
     const card = screen.getByTestId('v5-coaching')
     expect(card).toHaveAttribute('data-signal-code', 'MISSING_BASE_RATE')
-    // The machine token must not leak into the visible sentence stream.
     expect(card.textContent).not.toContain('MISSING_BASE_RATE')
     expect(screen.getByTestId('v5-coaching-title')).toHaveTextContent(BASE.title)
   })
