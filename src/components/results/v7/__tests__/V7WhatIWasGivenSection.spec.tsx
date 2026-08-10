@@ -81,6 +81,17 @@ const B1_DROPPED_NRR = '112%' // trace atom B1-A22, graded SEVERE
 const B1_KEPT_CAP = '£1.5m' // trace atom B1-A20, faithful (cap 1.5 £m)
 const B2_DANA = "Dana's across-the-board RIF option"
 
+/**
+ * ── THE TWO DECISION IDENTITIES ────────────────────────────────────────────
+ * Real scenario ids are UUIDs (`scenarios.id` is a uuid column, and
+ * `serverGraphHydration` refuses anything else), so these are UUID-shaped.
+ * `LIVE_SCENARIO_ID` is the decision on screen throughout this spec;
+ * `OTHER_SCENARIO_ID` is the one the user has LEFT — it exists only to prove
+ * its content can never reach the screen.
+ */
+const LIVE_SCENARIO_ID = '11111111-1111-4111-8111-111111111111'
+const OTHER_SCENARIO_ID = '22222222-2222-4222-8222-222222222222'
+
 const PROVENANCE_KEYS = ['_provenance']
 function coldReadOf(fixture: Record<string, unknown>) {
   return Object.fromEntries(
@@ -89,10 +100,16 @@ function coldReadOf(fixture: Record<string, unknown>) {
 }
 
 /** Seed the store exactly as `serverGraphHydration` does, through the REAL
- *  boundary parser — never a hand-built manifest object. */
-function seedFrom(fixture: Record<string, unknown>): void {
+ *  boundary parser — never a hand-built manifest object. `scenarioId` defaults
+ *  to the decision on screen; pass `OTHER_SCENARIO_ID` to stage the stale-store
+ *  state the P0 shipped. */
+function seedFrom(
+  fixture: Record<string, unknown>,
+  scenarioId: string | null = LIVE_SCENARIO_ID,
+): void {
   const cold = coldReadOf(fixture)
   useContextIntegrityStore.getState().setContextIntegrity({
+    scenarioId,
     briefText: cold.brief_text,
     manifest: parseNotModelled(cold.not_modelled),
   })
@@ -105,10 +122,15 @@ function openPanel(): void {
 beforeEach(() => {
   localStorage.removeItem('feature.analysisHeroPanel')
   useContextIntegrityStore.getState().reset()
+  // The decision on screen. The surface renders only on a POSITIVE identity
+  // match, so without this every assertion below would exercise the suppressed
+  // branch and agree with itself.
+  useCanvasStore.setState({ currentScenarioId: LIVE_SCENARIO_ID } as never)
 })
 afterEach(() => {
   localStorage.removeItem('feature.analysisHeroPanel')
   useContextIntegrityStore.getState().reset()
+  useCanvasStore.setState({ currentScenarioId: null } as never)
   cleanup()
 })
 
@@ -121,6 +143,92 @@ describe('the fixtures carry the case they are used to prove (anti-vacuity)', ()
     // And the manifest survives the REAL parser — if it did not, every
     // rendering assertion below would be exercising the null branch instead.
     expect(parseNotModelled(cold.not_modelled)?.status).toBe('derived')
+  })
+})
+
+/**
+ * ── THE P0: A DIFFERENT DECISION'S BRIEF, RENDERED AS THE USER'S OWN ────────
+ *
+ * Witnessed on deployed staging (UI 944799c1, 2026-08-10): under "What you gave
+ * me" the panel showed, verbatim, a PREVIOUS session's brief, with a subtitle
+ * counting that brief's figures — through reset-canvas, a new brief, a draft, an
+ * analysis and an edit turn. Only a page reload corrected it.
+ *
+ * Mechanism: `serverGraphHydration` writes this store ONLY on `status: 'graph'`.
+ * A freshly-minted scenario's cold read answers `absent`, so nothing is written;
+ * nothing clears the store either; and the hook attempts once per scenario id,
+ * so it never self-corrects. The store simply kept the previous decision's
+ * content and the surface had no identity assertion to stop it.
+ *
+ * These tests bind to DECISION IDENTITY — "this text belongs to scenario A
+ * while scenario B is current" — never to a value predicate another decision's
+ * brief could also satisfy (CLAUDE.md trap 19).
+ */
+describe("identity gate — the receipt never speaks for a decision it isn't about", () => {
+  it('THE P0: content recorded for another scenario is NOT rendered on this one', () => {
+    // Scenario A's brief is in the store; scenario B (LIVE) is on screen.
+    seedFrom(b1Fixture as never, OTHER_SCENARIO_ID)
+    const { container } = render(<V7WhatIWasGivenSection />)
+
+    expect(screen.queryByTestId('what-i-was-given-section')).toBeNull()
+    expect(screen.queryByTestId('what-i-was-given-brief')).toBeNull()
+    // The subtitle is what exposed the defect in the wild ("27 of 28" on two
+    // unrelated decisions), so it is pinned by name too.
+    expect(screen.queryByTestId('what-i-was-given-summary')).toBeNull()
+    // Bound to the OTHER decision's own words: these literals identify B1's
+    // brief specifically, and none of them may reach the screen.
+    for (const literal of [B1_DROPPED_ARR, B1_DROPPED_NRR, B1_KEPT_CAP]) {
+      expect(container.textContent ?? '').not.toContain(literal)
+    }
+  })
+
+  it("POSITIVE CONTROL — the same seed on the CURRENT decision DOES render", () => {
+    // Without this the absence above could pass by rendering nothing for any
+    // reason at all (trap 13: an absence assertion needs to prove it can see a
+    // presence). Same fixture, same component, only the identity differs.
+    seedFrom(b1Fixture as never, LIVE_SCENARIO_ID)
+    render(<V7WhatIWasGivenSection />)
+
+    expect(screen.getByTestId('what-i-was-given-section')).toBeInTheDocument()
+    openPanel()
+    expect(screen.getByTestId('what-i-was-given-brief').textContent ?? '').toContain(
+      B1_DROPPED_NRR,
+    )
+  })
+
+  it('content recorded with NO scenario id is never rendered', () => {
+    // `null` is what this store holds for a decision it was never told about.
+    seedFrom(b1Fixture as never, null)
+    render(<V7WhatIWasGivenSection />)
+    expect(screen.queryByTestId('what-i-was-given-section')).toBeNull()
+  })
+
+  it('BOTH ids absent is NOT a match — the null===null hole stays shut', () => {
+    // ⚠ THIS TEST EXISTS BECAUSE A MUTANT SURVIVED WITHOUT IT. Dropping the
+    // `typeof recordedScenarioId === 'string'` conjunct — leaving a bare
+    // `recordedScenarioId === currentScenarioId` — passed the whole suite,
+    // because no other case puts BOTH ids at null while content is on file.
+    // In that state a bare equality is `null === null`, i.e. TRUE, and the
+    // panel renders unattributable content as the user's own. This is the
+    // shape the P0 took (`resetCanvas` sets `currentScenarioId: null`), so the
+    // conjunct is the guard and this is the case that pins it.
+    seedFrom(b1Fixture as never, null)
+    useCanvasStore.setState({ currentScenarioId: null } as never)
+    render(<V7WhatIWasGivenSection />)
+
+    expect(screen.queryByTestId('what-i-was-given-section')).toBeNull()
+    expect(screen.queryByTestId('what-i-was-given-brief')).toBeNull()
+  })
+
+  it('a POSITIVE match is required — an unknown current decision renders nothing', () => {
+    // The gate must not be a `!==` test: `!==` passes whenever either side is
+    // null, which is exactly the state a canvas sits in immediately after
+    // "Reset canvas" (`resetCanvas` sets `currentScenarioId: null`) while the
+    // store still holds the decision the user has just left.
+    seedFrom(b1Fixture as never, LIVE_SCENARIO_ID)
+    useCanvasStore.setState({ currentScenarioId: null } as never)
+    render(<V7WhatIWasGivenSection />)
+    expect(screen.queryByTestId('what-i-was-given-section')).toBeNull()
   })
 })
 
@@ -391,6 +499,7 @@ describe('THE TWO SECTIONS MAY NEVER CONTRADICT EACH OTHER ON SCREEN', () => {
       const { briefText, manifest } = caseFor(notation)
       expect(manifest, 'the real parser must accept the real manifest').not.toBeNull()
       useContextIntegrityStore.getState().setContextIntegrity({
+        scenarioId: LIVE_SCENARIO_ID,
         briefText,
         manifest,
       })
@@ -469,6 +578,7 @@ describe('counts come from the manifest, not from the rendered rows', () => {
     expect(manifest?.quantities?.truncated).toBe(true)
 
     useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: LIVE_SCENARIO_ID,
       briefText: 'A long brief.',
       manifest,
     })
@@ -495,6 +605,7 @@ describe('an unknown untracked code never leaks onto the screen', () => {
       not_tracked: ['corrections_and_second_thoughts', 'some_future_class_v2'],
     })
     useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: LIVE_SCENARIO_ID,
       briefText: 'A brief.',
       manifest,
     })
@@ -567,6 +678,7 @@ describe('the parser refuses to vouch for what it cannot read', () => {
   it('a payload it cannot read reaches the user as "we cannot tell you"', () => {
     // The end-to-end consequence of the above, at the surface.
     useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: LIVE_SCENARIO_ID,
       briefText: 'We need £4m out by March 2027.',
       manifest: parseNotModelled({ schema: 'not_modelled.v2', status: 'derived' }),
     })
@@ -590,6 +702,7 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
     // null. The surface must say "we cannot tell you" — not show an empty list,
     // and not stay silent, both of which read as "nothing was dropped".
     useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: LIVE_SCENARIO_ID,
       briefText: coldReadOf(b1Fixture as never).brief_text,
       manifest: null,
     })
@@ -622,6 +735,7 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
     expect(manifest?.quantities).toBeNull()
 
     useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: LIVE_SCENARIO_ID,
       briefText: 'We need £4m out by March 2027.',
       manifest,
     })
@@ -641,6 +755,7 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
       not_tracked: ['competing_or_dissenting_proposals'],
     })
     useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: LIVE_SCENARIO_ID,
       briefText: 'Should I take the job or stay put?',
       manifest,
     })
@@ -651,6 +766,18 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
   })
 
   it('renders nothing only when there is genuinely nothing on file', () => {
+    // ⚠ THE IDENTITY MUST MATCH HERE, and it is load-bearing for what this test
+    // PROVES. With the store left empty its `scenarioId` is null, the identity
+    // gate suppresses the section first, and this assertion passes without the
+    // empty-state guard below it ever running — a test passing for a reason it
+    // was not written for (CLAUDE.md trap 13b). Recording THIS decision with no
+    // content on file is the state the guard actually exists for, and a mutant
+    // that removes the guard reddens this test only in this form.
+    useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: LIVE_SCENARIO_ID,
+      briefText: null,
+      manifest: null,
+    })
     render(<V7WhatIWasGivenSection />)
     expect(screen.queryByTestId('what-i-was-given-section')).toBeNull()
   })
