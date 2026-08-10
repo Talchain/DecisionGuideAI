@@ -96,6 +96,64 @@ describe('buildV7Headline — passthrough hero copy (V7 L4)', () => {
     expect(model.subline).toBeNull()
   })
 
+  /**
+   * ⭐⭐ THE GUARD THAT USED TO RIDE ON THE GAP (review F1, 2026-08-10).
+   *
+   * Retiring the gap subline was a REPLACEMENT, not a deletion, and the old
+   * `leadSubline(points)` had been silently carrying a second job: it returned
+   * null whenever `points <= 0`, which covered the state where the DESIGNATED
+   * WINNER IS NOT THE WIN-PROBABILITY MAXIMUM. The replacement only checked
+   * ties among RIVALS, so it began asserting "Next: {rival}" above a rival
+   * whose probability EXCEEDS the winner's — an ordering the two numbers on
+   * screen contradict.
+   *
+   * NOT hypothetical, and bounded at the PRODUCER rather than from a fixture:
+   * `determineWinnerSelection` returns the backend `recommended_option_id`
+   * verbatim with no argmax comparison, and `src/lib/decisionVerdict.ts:305`
+   * says it outright — "PLoT may recommend an option that is not the
+   * win-probability argmax, and a leader-minus-rival subtraction would then go
+   * NEGATIVE". `separation` is measured on the ACTUAL top two, so
+   * `hasLeadingOption` is TRUE in that state and the early return never fires.
+   *
+   * The suite missed it because all four corpus cases placed the rival BELOW
+   * the winner — the corpus shared the code's assumption (traps 22 / 13d).
+   */
+  it('F1: a rival ABOVE the designated winner gets NO subline — never an ordering the numbers contradict', () => {
+    const winner = opt('a', 'Option A', 0.4, true)
+    const model = buildV7Headline(
+      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.55)] }),
+      'robust',
+    )
+    expect(model.subline).toBeNull()
+  })
+
+  it('F1 TWIN: with the winner genuinely ahead, the subline DOES render (the guard suppresses only the inverted state)', () => {
+    const winner = opt('a', 'Option A', 0.55, true)
+    const model = buildV7Headline(
+      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.4)] }),
+      'robust',
+    )
+    expect(model.subline).toBe('Next: Option B, 40%')
+  })
+
+  it('F1: a rival EQUAL to the winner gets no subline either', () => {
+    const winner = opt('a', 'Option A', 0.5, true)
+    const model = buildV7Headline(
+      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.5)] }),
+      'robust',
+    )
+    expect(model.subline).toBeNull()
+  })
+
+  it('F1: a lead too small to survive rounding gets no subline — MONOTONE with the pre-PR build, which was also silent here', () => {
+    const winner = opt('a', 'Option A', 0.404, true)
+    const model = buildV7Headline(
+      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.4)] }),
+      'robust',
+    )
+    expect(model.subline).toBeNull()
+  })
+
   it('a rival below the display floor keeps the floored readout, never a bare "0%"', () => {
     const winner = opt('a', 'Option A', 0.99, true)
     const model = buildV7Headline(

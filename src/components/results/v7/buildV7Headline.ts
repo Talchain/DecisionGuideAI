@@ -2,10 +2,17 @@
  * buildV7Headline — pure passthrough for the V7 hero headline (V7 Lane L4).
  *
  * Composes the hero headline + subline from EXISTING results-store data only —
- * never invents a number or a claim (V6-RESPEC-2026-07-23 §L4: "UI IS A
- * PASSTHROUGH"). Every string form below is sourced VERBATIM from a live
- * production headline surface, so "Headline copy matches production strings"
- * (spec row 3 done-when) holds:
+ * never invents a NUMBER (V6-RESPEC-2026-07-23 §L4: "UI IS A PASSTHROUGH").
+ *
+ * ⚠ CORRECTED 2026-08-10 (review F4). This used to claim that "every string
+ * form below is sourced VERBATIM from a live production headline surface", and
+ * that is NO LONGER TRUE: the comparative arm's subline `"Next: {label},
+ * {pct}"` is NEW copy, written here when the percentage-point gap subline was
+ * retired, and it has no production antecedent. The PASSTHROUGH guarantee that
+ * does still hold is the one that matters and is now stated exactly: every
+ * NUMBER rendered is read from the results store and never derived into a new
+ * quantity. The provenance list below therefore describes the forms that were
+ * inherited, not an invariant over all of them:
  *
  *   · "{winner} performs best"        — M1 winner headline
  *     (src/components/debug/utils/exportBundle.ts `deriveHeroHeadline`;
@@ -279,5 +286,41 @@ function runnerUpSubline(
   const [first, second] = rivals
   if (!first || !first.label) return null
   if (second && second.winProbability === first.winProbability) return null
+
+  /**
+   * ⭐⭐ THE GUARD THAT USED TO RIDE ON THE GAP (restored 2026-08-10, review F1).
+   *
+   * Retiring the gap subline was a REPLACEMENT, not a deletion, and the
+   * retired `leadSubline(points)` had been silently carrying a SECOND job: it
+   * returned null whenever `points <= 0`, which covered the state where the
+   * DESIGNATED WINNER IS NOT THE WIN-PROBABILITY MAXIMUM. Dropping the gap
+   * dropped that cover, and "Next: {rival}" began appearing above a rival
+   * whose probability EXCEEDS the winner's — an ordering claim the two numbers
+   * on screen contradict, i.e. the exact defect class this change exists to
+   * close, reintroduced by the fix for it.
+   *
+   * THE STATE IS PRODUCER-REACHABLE, not a fixture artefact.
+   * `determineWinnerSelection` returns the backend `recommended_option_id`
+   * VERBATIM with no argmax comparison, and `decisionVerdict.ts:305` states it
+   * outright: "PLoT may recommend an option that is not the win-probability
+   * argmax, and a leader-minus-rival subtraction would then go NEGATIVE".
+   * Because `separation` is measured on the ACTUAL top two, `hasLeadingOption`
+   * is TRUE there, so the withheld-verdict early return does not gate it.
+   *
+   * The comparison is expressed as the ROUNDED lead so this function is
+   * MONOTONE against the pre-change build: a lead too small to survive
+   * rounding was silent before and stays silent, and the ordering is anyway
+   * not resolvable at the precision the panel displays. The value is a
+   * PREDICATE and is never rendered — the same shape as `OptionCards`' near-tie
+   * `gapPct` and `OptionNode`'s `closeCallGapPp`.
+   *
+   * ⚠ RECORDED, NOT BUILT: a backend recommendation that is not the
+   * probability leader currently has NO honest surface anywhere in the
+   * product. Suppression is right here; a surface that EXPLAINS that state is
+   * a real product question and a separate piece of work.
+   */
+  const leadPoints = Math.round((winProbability - first.winProbability) * 100)
+  if (leadPoints <= 0) return null
+
   return `Next: ${first.label}, ${formatProbabilityWithResolution(first.winProbability, null)}`
 }

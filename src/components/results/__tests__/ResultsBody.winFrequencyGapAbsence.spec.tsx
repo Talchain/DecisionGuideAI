@@ -77,24 +77,28 @@ const RUNNER_UP_LABEL = 'Hire Permanent Senior Tech Lead'
 function makeData(
   runnerUpLabel: string = RUNNER_UP_LABEL,
   soft = false,
+  withGoalData = false,
 ): ResultsSectionDataReturn {
   const winner = {
     id: 'opt_a',
     label: WINNER_LABEL,
     isRecommended: true,
     winProbability: 0.71,
+    ...(withGoalData ? { goalProbability: 0.9 } : {}),
   } as unknown as OptionResult
   const runnerUp = {
     id: 'opt_b',
     label: runnerUpLabel,
     isRecommended: false,
     winProbability: 0.31,
+    ...(withGoalData ? { goalProbability: 0.4 } : {}),
   } as unknown as OptionResult
 
   const recommendation = {
     recommendedOption: winner,
     allOptions: [winner, runnerUp],
     goalLabel: 'Maximise success',
+    ...(withGoalData ? { goalThreshold: 0.6 } : {}),
     isSingleOption: false,
     analysisStatus: 'computed',
     // `soft` reaches DecisionConfidencePanel's SOFTENED lede — the branch that
@@ -165,10 +169,10 @@ function makeData(
   } as unknown as ResultsSectionDataReturn
 }
 
-function renderBody(runnerUpLabel?: string, soft = false) {
+function renderBody(runnerUpLabel?: string, soft = false, withGoalData = false) {
   return render(
     <ResultsBody
-      resultsSectionData={makeData(runnerUpLabel, soft)}
+      resultsSectionData={makeData(runnerUpLabel, soft, withGoalData)}
       tornadoData={{ rows: [], expectedOutcome: null }}
       onSendMessage={() => {}}
       onFocusNode={() => {}}
@@ -194,6 +198,33 @@ const PP_CLAIM = /percentage\s+points?/i
  * QUANTITY SHAPE rather than any one sentence.
  */
 const POINTS_CLAIM = /\bby\s+-?\d+(\.\d+)?\s+points?\b/i
+
+/**
+ * ⚠ SCOPING, ADDED 2026-08-10 (review F3). `GAP_CLAIM` and `POINTS_CLAIM` match
+ * on the SHAPE "by N points", and one surface is entitled to that shape: the
+ * hero's GOAL arm, whose "Leads by N points" differences GOAL PROBABILITIES —
+ * a different quantity, with its own pairing rationale in `goalLeadPoints`, and
+ * deliberately out of this change's scope.
+ *
+ * Asserting those two patterns across the whole panel therefore only passed
+ * because the default fixture carries no goal data: the moment anyone added
+ * some, a SANCTIONED sentence would have turned this guard RED. A guard that
+ * fails on correct behaviour gets disabled, and then the class it protects is
+ * unguarded — so the patterns are scoped instead.
+ *
+ * The split is: the hero subline is judged ON ITS OWN (it may carry the
+ * sanctioned goal form and nothing else), and the REST of the panel may carry
+ * none of the three forms. `PP_CLAIM` stays panel-wide and unscoped — no
+ * sanctioned surface says "percentage points".
+ */
+function splitPanelText(container: HTMLElement): { heroSubline: string; rest: string } {
+  const heroSubline = screen.queryByTestId('v7-hero-subline')?.textContent ?? ''
+  const all = container.textContent ?? ''
+  return {
+    heroSubline,
+    rest: heroSubline ? all.replace(heroSubline, '') : all,
+  }
+}
 
 describe('ResultsBody — no surface on the results panel states a win-frequency gap', () => {
   beforeEach(() => {
@@ -251,9 +282,49 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
     expect(text).toMatch(/came out ahead in 71% of simulated scenarios/i)
     expect(text).toMatch(new RegExp(RUNNER_UP_LABEL))
 
-    expect(text).not.toMatch(GAP_CLAIM)
+    // `percentage points` is unambiguous — no sanctioned surface says it.
     expect(text).not.toMatch(PP_CLAIM)
-    expect(text).not.toMatch(POINTS_CLAIM)
+
+    // The "by N points" SHAPE is judged per-region (see `splitPanelText`).
+    const { heroSubline, rest } = splitPanelText(container)
+    // This fixture carries no goal data, so the hero is on the COMPARATIVE arm
+    // and is entitled to no gap form at all.
+    expect(heroSubline).not.toMatch(GAP_CLAIM)
+    expect(heroSubline).not.toMatch(PP_CLAIM)
+    expect(rest).not.toMatch(GAP_CLAIM)
+    expect(rest).not.toMatch(POINTS_CLAIM)
+    expect(rest).not.toMatch(PP_CLAIM)
+  })
+
+  /**
+   * ⭐ F3 — THE SANCTIONED FORM MUST SURVIVE, and this proves it does.
+   *
+   * With goal data present the hero takes its GOAL arm, whose subline is
+   * "Leads by N points" over GOAL PROBABILITIES (0.9 − 0.4 = 50). That form is
+   * out of this change's scope and is correct; a guard that REDs on it would
+   * be a false alarm, and a false alarm on correct behaviour is how a guard
+   * gets switched off. So: the sanctioned sentence is asserted PRESENT, and
+   * the banned class is asserted absent everywhere else in the same render.
+   */
+  it('F3: the SANCTIONED goal-arm subline survives, and nothing else in the panel states a gap', () => {
+    const { container } = renderBody(undefined, false, true)
+
+    // Precondition — we are actually on the goal arm, not silently comparative.
+    const subline = screen.getByTestId('v7-hero-subline')
+    expect(subline).toHaveTextContent('Leads by 50 points')
+
+    // ⭐ THE OVERLAP, MADE EXPLICIT: the sanctioned sentence DOES match the
+    // banned-shape pattern. That is precisely why the pattern is scoped by
+    // region rather than weakened — and it is executable proof that the
+    // previous panel-wide assertion would have RED on this correct render.
+    expect(subline.textContent ?? '').toMatch(GAP_CLAIM)
+
+    const { rest } = splitPanelText(container)
+    expect(rest).not.toMatch(GAP_CLAIM)
+    expect(rest).not.toMatch(POINTS_CLAIM)
+    expect(rest).not.toMatch(PP_CLAIM)
+    // And the unambiguous phrase is absent from the WHOLE panel, hero included.
+    expect(container.textContent ?? '').not.toMatch(PP_CLAIM)
   })
 
   /**
@@ -292,9 +363,11 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
     // Precondition 2 — we are on the SOFTENED branch, not a withheld one.
     expect(text).toMatch(new RegExp(`${WINNER_LABEL} currently leads`))
 
-    expect(text).not.toMatch(POINTS_CLAIM)
-    expect(text).not.toMatch(PP_CLAIM)
-    expect(text).not.toMatch(GAP_CLAIM)
+    const { heroSubline, rest } = splitPanelText(container)
+    expect(heroSubline).not.toMatch(GAP_CLAIM)
+    expect(rest).not.toMatch(POINTS_CLAIM)
+    expect(rest).not.toMatch(PP_CLAIM)
+    expect(rest).not.toMatch(GAP_CLAIM)
   })
 
   /**

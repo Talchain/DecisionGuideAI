@@ -495,16 +495,22 @@ describe('buildCertaintyCopy — decision table', () => {
    * `(winner.winProbability − runnerUp.winProbability) * 100` — and the
    * ratified rule is that no user-facing surface states that quantity.
    *
-   * DELETED rather than replaced with the winner's own probability, on two
-   * independent grounds derived at the seam:
-   *   1. the panel ALREADY displays the winner's own probability where this
-   *      lede renders (the confidence ring's `overrideScore`, captioned
-   *      `COMPARATIVE_COPY.label`);
-   *   2. this module's own F4 adjudication (see `aheadHeadline`) states that a
-   *      magnitude-free comparative sentence on this surface is the CORRECT
-   *      behaviour and that threading the probability in "would have added a
-   *      live claim the ruling does not want". Replacing the gap with a
-   *      magnitude here would contradict an adjudicated ruling in this file.
+   * DELETED rather than replaced with the winner's own probability.
+   *
+   * ⚠ CORRECTED 2026-08-10 (review F2). This docblock originally gave two
+   * grounds and the FIRST WAS FALSE — "the panel already displays the winner's
+   * own probability where this lede renders". It does not:
+   * `DecisionConfidencePanel`'s `ringClaim` PREFERS `goalProbability` and
+   * captions the arc with the GOAL register, so on any run carrying a target
+   * the winner's own WIN probability is absent from that panel.
+   *
+   * The deletion stands on the remaining ground, which is sufficient on its
+   * own: this module's F4 adjudication (see `aheadHeadline`) states that a
+   * magnitude-free comparative sentence on this surface is the CORRECT
+   * behaviour, because Paul's ruling demotes the comparative number here, and
+   * that threading the probability in "would have added a live claim the
+   * ruling does not want". Replacing the gap with a magnitude would contradict
+   * an adjudicated ruling recorded in the file being changed.
    *
    * WHAT MUST SURVIVE, and is pinned below: the SOFTENING. The hedge
    * ("currently"), the evidence caveat and the `conservative` flag are the

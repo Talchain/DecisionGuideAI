@@ -172,16 +172,25 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   // banned statistic: less reliable than either estimate it is built from, yet
   // rendered as a bare integer with no interval.
   //
-  // DELETED rather than replaced with the winner's own probability, on two
-  // independent grounds:
-  //   1. the panel ALREADY shows the winner's own probability where this lede
-  //      renders — the confidence ring's `overrideScore`, captioned
-  //      `COMPARATIVE_COPY.label`;
-  //   2. `aheadHeadline`'s F4 note below already adjudicated this exact
-  //      question and concluded that a magnitude-free comparative sentence is
-  //      the CORRECT behaviour here, because Paul's ruling DEMOTES the
-  //      comparative number on this surface. Threading a magnitude in would
-  //      contradict that ruling in the file that records it.
+  // DELETED rather than replaced with the winner's own probability.
+  //
+  // ⚠ CORRECTED 2026-08-10 (review F2). The first version of this note gave
+  // TWO grounds, and the first one was FALSE: it claimed "the panel already
+  // shows the winner's own probability where this lede renders". It does not.
+  // `DecisionConfidencePanel`'s `ringClaim` PREFERS `goalProbability` and
+  // captions the arc with the GOAL register, falling back to `winProbability`
+  // only when no goal figure exists — so on any run where a target was set,
+  // the winner's own WIN probability is nowhere on that panel. A false
+  // rationale left in a comment is how the next lane inherits a wrong premise,
+  // so it is corrected here rather than quietly dropped.
+  //
+  // THE DELETION STANDS ON THE REMAINING GROUND, WHICH IS SUFFICIENT:
+  // `aheadHeadline`'s F4 note below already adjudicated this exact question
+  // and concluded that a magnitude-free comparative sentence is the CORRECT
+  // behaviour on this surface, because Paul's ruling DEMOTES the comparative
+  // number here. Threading a magnitude in "would have added a live claim the
+  // ruling does not want" — its words. Replacing the gap with the winner's own
+  // probability would contradict a ruling recorded in this very file.
   //
   // The SOFTENING survives untouched — the "currently" hedge, the evidence
   // caveat and the `conservative` flag are the lede's actual job. Only the
