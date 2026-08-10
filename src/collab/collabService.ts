@@ -183,8 +183,40 @@ export async function fetchParticipantReveal(roundId: string): Promise<RevealVie
 
 /* ── owner ───────────────────────────────────────────────────────────────── */
 
+/**
+ * The one place an owner-credential refusal is minted, so every path a user can
+ * hit says the same sentence. `PanelSetupPage` renders `.message` verbatim.
+ */
+export function ownerSignInRequired(): CollabRequestError {
+  return new CollabRequestError({
+    code: 'sign_in_required',
+    message: 'Sign in again to open or close a round.',
+    status: 401,
+  })
+}
+
+/**
+ * ⚠ THE CHOKE POINT. Every owner request's Authorization value is built here,
+ * and an empty token STOPS THE REQUEST rather than sending `Bearer `.
+ *
+ * This is not belt-and-braces. `Bearer ` is not a weak credential — at CEE it
+ * is INDISTINGUISHABLE from sending no header at all (both answer 401
+ * `sign_in_required`), so a caller that produces one gets a server error that
+ * reads exactly like "you are signed out" and tells nobody that the browser
+ * never had a token to send. That is precisely how this shipped: the page's
+ * `?? ''` turned an absent field into a value the type system was happy with,
+ * and the failure surfaced three hops away as an ordinary 401.
+ *
+ * A guard here cannot be routed around by a future call site, because there is
+ * no other way to build an owner header.
+ */
+function ownerAuthorization(accessToken: string): string {
+  if (accessToken.trim() === '') throw ownerSignInRequired()
+  return `Bearer ${accessToken}`
+}
+
 function ownerHeaders(accessToken: string): HeadersInit {
-  return { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+  return { Authorization: ownerAuthorization(accessToken), 'Content-Type': 'application/json' }
 }
 
 export interface MintedRound {
@@ -233,7 +265,7 @@ export async function fetchOwnerReveal(
 ): Promise<RevealView> {
   const res = await fetch(`${COLLAB_BASE}/rounds/${encodeURIComponent(roundId)}/reveal`, {
     method: 'GET',
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: ownerAuthorization(accessToken) },
   })
   if (!res.ok) throw await parseError(res)
   return (await res.json()) as RevealView

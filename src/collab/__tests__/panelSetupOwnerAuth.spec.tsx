@@ -258,13 +258,26 @@ describe('the surface these tests bind to is the one the deployed app mounts', (
   })
 
   it('the page takes its token from the session seam, with no cast over useAuth', () => {
-    // The root cause was a CAST, so bind to the cast's absence and to the
-    // replacement's presence — a page that imported neither would otherwise
-    // satisfy a bare "no useAuth" check while being just as broken.
-    expect(/\buseAuth\s*\(/.test(pageSrc), 'useAuth must not be called here').toBe(false)
-    expect(/\bas\s*\{\s*session\?/.test(pageSrc), 'the session cast must be gone').toBe(false)
-    expect(/import\s*\{[^}]*\brequireOwnerAccessToken\b[^}]*\}/.test(pageSrc)).toBe(true)
-    expect(/\brequireOwnerAccessToken\s*\(/.test(pageSrc)).toBe(true)
+    // ⚠ MEASURE THE CODE, NOT THE PROSE. The file's header explains the defect
+    // and therefore SPELLS `useAuth()` and the cast; a bare substring check
+    // fires on the explanation and reports a defect that is only a description
+    // of one. (This spec caught itself doing exactly that.) Strip comments
+    // first — the page has no string literal containing `//`, which is the one
+    // input this deliberately simple stripper would mangle.
+    const code = pageSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+
+    // POSITIVE CONTROL: the stripper left real code behind. Without this every
+    // `toBe(false)` below could be passing on an empty string.
+    expect(code.length).toBeGreaterThan(500)
+    expect(code).toContain('export default function PanelSetupPage')
+
+    // The root cause was a CAST, so bind to the cast's absence AND to the
+    // replacement's presence — a page that used neither would otherwise satisfy
+    // a bare "no useAuth" check while being just as broken.
+    expect(/\buseAuth\s*\(/.test(code), 'useAuth must not be called here').toBe(false)
+    expect(/\bas\s*\{\s*session\?/.test(code), 'the session cast must be gone').toBe(false)
+    expect(/import\s*\{[^}]*\brequireOwnerAccessToken\b[^}]*\}/.test(code)).toBe(true)
+    expect(/\brequireOwnerAccessToken\s*\(/.test(code)).toBe(true)
   })
 
   it('collabService stays free of the Supabase client — the participant page loads it', () => {
