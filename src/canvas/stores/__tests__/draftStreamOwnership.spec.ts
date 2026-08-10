@@ -154,3 +154,38 @@ describe('streamedPreviewStandingFor — F1 adjacent, the 130 s timeout copy', (
     expect(streamedPreviewStandingFor(useDraftStore.getState(), 't1', A)).toBe(false)
   })
 })
+
+describe('markDraftStreamCoachingLanded — F1, the coaching frame is identity-guarded', () => {
+  it('records the landing for the OWNING turn only', () => {
+    useDraftStore.getState().setDraftStreamPhase('settling', 't1', A)
+    useDraftStore.getState().markDraftStreamCoachingLanded('t1')
+    expect(useDraftStore.getState().draftStreamCoachingLanded).toBe(true)
+  })
+
+  it('IGNORES a frame from a turn that does not own the phase — a stale stream cannot move a newer turn’s narration', () => {
+    useDraftStore.getState().setDraftStreamPhase('settling', 't2', A)
+    useDraftStore.getState().markDraftStreamCoachingLanded('t1')
+    expect(useDraftStore.getState().draftStreamCoachingLanded).toBe(false)
+  })
+
+  it('resets when a NEW turn starts drafting — the flag never leaks onto the next draft', () => {
+    useDraftStore.getState().setDraftStreamPhase('settling', 't1', A)
+    useDraftStore.getState().markDraftStreamCoachingLanded('t1')
+    useDraftStore.getState().setDraftStreamPhase('drafting', 't2', A)
+    expect(useDraftStore.getState().draftStreamCoachingLanded).toBe(false)
+  })
+
+  it('resets on release to idle', () => {
+    useDraftStore.getState().setDraftStreamPhase('settling', 't1', A)
+    useDraftStore.getState().markDraftStreamCoachingLanded('t1')
+    useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+    expect(useDraftStore.getState().draftStreamCoachingLanded).toBe(false)
+  })
+
+  it('SURVIVES the settling→unsettled transition of the turn that set it', () => {
+    useDraftStore.getState().setDraftStreamPhase('settling', 't1', A)
+    useDraftStore.getState().markDraftStreamCoachingLanded('t1')
+    useDraftStore.getState().setDraftStreamPhase('unsettled', 't1', A)
+    expect(useDraftStore.getState().draftStreamCoachingLanded).toBe(true)
+  })
+})

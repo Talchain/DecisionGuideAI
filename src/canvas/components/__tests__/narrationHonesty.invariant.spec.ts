@@ -55,8 +55,10 @@ import {
   NARRATION_TABLES,
   PROGRESSIVE_STAGES,
   SETTLING_STAGES,
+  SETTLING_AFTER_COACHING_STAGES,
   UNSETTLED_DRAFT_NOTICE,
   STOPPED_DRAFT_NOTICE,
+  DRAFT_FAILED_MODEL_KEPT_NOTICE,
   EARLY_STOP_NOT_SAVED_NOTICE,
   EARLY_STOP_ALREADY_SAVED_NOTICE,
   EARLY_STOP_UNCONFIRMED_NOTICE,
@@ -283,8 +285,15 @@ function frameLicenceViolations(message: string): string[] {
  */
 const FRAME_LICENSED_STRINGS: ReadonlyArray<readonly [string, string]> = [
   ...SETTLING_STAGES.map((s) => [`SETTLING_STAGES@${s.afterSeconds}s`, s.message] as const),
+  // The post-COACHING_READY table is licensed by TWO held frames (GRAPH_READY
+  // + COACHING_READY) and held to the same bar: it may stop claiming coaching
+  // is outstanding, it may not claim coaching content it has never seen.
+  ...SETTLING_AFTER_COACHING_STAGES.map(
+    (s) => [`SETTLING_AFTER_COACHING_STAGES@${s.afterSeconds}s`, s.message] as const,
+  ),
   ['UNSETTLED_DRAFT_NOTICE', UNSETTLED_DRAFT_NOTICE],
   ['STOPPED_DRAFT_NOTICE', STOPPED_DRAFT_NOTICE],
+  ['DRAFT_FAILED_MODEL_KEPT_NOTICE', DRAFT_FAILED_MODEL_KEPT_NOTICE],
   // The three explicit-Stop notices (Codex P0 stop-fence). They are shown when
   // drafting has ENDED rather than while it runs, but they are held to the same
   // bar: the frame licence lets them say the canvas is or is not changed, never
@@ -346,14 +355,18 @@ describe('the derived table registry cannot silently miss a surface (trap 12)', 
     for (const label of Object.keys(NARRATION_TABLES)) {
       expect(governed).toContain(label)
     }
-    // And the registry really does carry both draft tables — a registry that
+    // And the registry really does carry every draft table — a registry that
     // had quietly lost one would make the loop above vacuous.
     expect(Object.keys(NARRATION_TABLES)).toEqual([
       'DraftLoadingAnimation.PROGRESSIVE_STAGES',
       'DraftLoadingAnimation.SETTLING_STAGES',
+      'DraftLoadingAnimation.SETTLING_AFTER_COACHING_STAGES',
     ])
     expect(NARRATION_TABLES['DraftLoadingAnimation.PROGRESSIVE_STAGES']).toBe(PROGRESSIVE_STAGES)
     expect(NARRATION_TABLES['DraftLoadingAnimation.SETTLING_STAGES']).toBe(SETTLING_STAGES)
+    expect(NARRATION_TABLES['DraftLoadingAnimation.SETTLING_AFTER_COACHING_STAGES']).toBe(
+      SETTLING_AFTER_COACHING_STAGES,
+    )
   })
 })
 
@@ -381,6 +394,7 @@ describe('every notice this module exports is governed (trap 12, round 2)', () =
     }
     // And the manifest is named, so a reviewer sees what was actually covered.
     expect(exportedNotices.sort()).toEqual([
+      'DRAFT_FAILED_MODEL_KEPT_NOTICE',
       'EARLY_STOP_ALREADY_SAVED_NOTICE',
       'EARLY_STOP_NOT_SAVED_NOTICE',
       'EARLY_STOP_UNCONFIRMED_NOTICE',
@@ -395,19 +409,32 @@ describe('every notice this module exports is governed (trap 12, round 2)', () =
     expect(governed).toContain('DRAFT_VALUES_UNSETTLED_REFUSAL')
   })
 
-  it('the two notices differ — one cause cannot describe both truthfully', () => {
-    // A dead connection and a user pressing Stop are different facts. One
-    // sentence asserting "the connection dropped" would be false for the Stop and
-    // timeout paths (review F1).
+  it('the three notices differ — one cause cannot describe them all truthfully', () => {
+    // A dead connection, a user pressing Stop, and a server-reported terminal
+    // error behind a kept model are three different facts. One sentence
+    // asserting "the connection dropped" would be false for the other two
+    // (review F1; F1-terminal extends the same rule).
     expect(UNSETTLED_DRAFT_NOTICE).not.toBe(STOPPED_DRAFT_NOTICE)
+    expect(DRAFT_FAILED_MODEL_KEPT_NOTICE).not.toBe(UNSETTLED_DRAFT_NOTICE)
+    expect(DRAFT_FAILED_MODEL_KEPT_NOTICE).not.toBe(STOPPED_DRAFT_NOTICE)
     expect(UNSETTLED_DRAFT_NOTICE).toMatch(/connection dropped/i)
     expect(STOPPED_DRAFT_NOTICE).not.toMatch(/connection dropped/i)
+    expect(DRAFT_FAILED_MODEL_KEPT_NOTICE).not.toMatch(/connection dropped/i)
+    // The kept-model notice names its own cause (the turn failed) and its own
+    // epistemic limit (the save is unconfirmed) — the two claims the 8 Aug
+    // measurement showed the product inverting.
+    expect(DRAFT_FAILED_MODEL_KEPT_NOTICE).toMatch(/drafting failed/i)
+    expect(DRAFT_FAILED_MODEL_KEPT_NOTICE).toMatch(/can[’']t confirm/i)
   })
 
-  it('neither notice promises an action the handler cannot perform (F3)', () => {
-    // Both used to say "Draft again", wired to `retryLast`, which CEE declines on
+  it('no notice promises an action the handler cannot perform (F3)', () => {
+    // They used to say "Draft again", wired to `retryLast`, which CEE declines on
     // a committed scenario. The copy now names the action that works.
-    for (const notice of [UNSETTLED_DRAFT_NOTICE, STOPPED_DRAFT_NOTICE]) {
+    for (const notice of [
+      UNSETTLED_DRAFT_NOTICE,
+      STOPPED_DRAFT_NOTICE,
+      DRAFT_FAILED_MODEL_KEPT_NOTICE,
+    ]) {
       expect(notice).toMatch(/start a new draft/i)
       expect(notice).not.toMatch(/draft again/i)
     }

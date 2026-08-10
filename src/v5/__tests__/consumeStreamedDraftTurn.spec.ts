@@ -24,6 +24,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 import {
   consumeStreamedDraftTurn,
+  terminalProvesCommitFailed,
   nodeIdentities,
   edgeIdentities,
   expectComparableGraph,
@@ -242,8 +243,13 @@ describe('identity helpers — the two vacuity traps, pinned', () => {
   })
 })
 
-describe('the discard rule — a failed turn must not leave a rendered graph standing', () => {
-  it('orders the preview DISCARDED when COMPLETE carries status_code >= 400', async () => {
+describe('the terminal-error report — the consumer REPORTS, the caller decides (F1)', () => {
+  // ⚠ F1 RENAMED `discardPreview` → `terminalError`. The old name was an
+  // instruction the caller obeyed unconditionally, and on the measured 8 Aug
+  // journey that destroyed a server-committed model. The consumer now reports
+  // the fact (terminal ≥400); whether the preview goes is the caller's
+  // reconciliation, keyed on `terminalProvesCommitFailed`.
+  it('reports terminalError when COMPLETE carries status_code >= 400', async () => {
     const outcome = await consumeStreamedDraftTurn(
       iterate(
         frames(
@@ -258,12 +264,69 @@ describe('the discard rule — a failed turn must not leave a rendered graph sta
       ),
       { onGraphReady: () => {} },
     )
-    expect(outcome).toMatchObject({ kind: 'complete', statusCode: 422, discardPreview: true })
+    expect(outcome).toMatchObject({ kind: 'complete', statusCode: 422, terminalError: true })
   })
 
-  it('does NOT discard on a 200', async () => {
+  it('does NOT report terminalError on a 200', async () => {
     const outcome = await consumeStreamedDraftTurn(iterate(HAPPY()), { onGraphReady: () => {} })
-    expect((outcome as { discardPreview: boolean }).discardPreview).toBe(false)
+    expect((outcome as { terminalError: boolean }).terminalError).toBe(false)
+  })
+})
+
+describe('terminalProvesCommitFailed — the one wire class where removal states the truth', () => {
+  it('recognises the captured commit-failure envelope (reason under details)', () => {
+    // The §1.4 wire shape: route-v2's `!dg.commitPerformed` envelope.
+    expect(
+      terminalProvesCommitFailed({
+        error: 'INTERNAL_ERROR',
+        boundary: 'B1',
+        direction: 'egress',
+        validator: 'turn_commit',
+        details: { retryable: true, reason: 'draft_graph_commit_failed' },
+      }),
+    ).toBe(true)
+  })
+
+  it('recognises the reason at top level and under a nested error container', () => {
+    expect(terminalProvesCommitFailed({ reason: 'draft_graph_commit_failed' })).toBe(true)
+    expect(
+      terminalProvesCommitFailed({ error: { reason: 'draft_graph_commit_failed' } }),
+    ).toBe(true)
+    expect(
+      terminalProvesCommitFailed({
+        error: { details: { reason: 'draft_graph_commit_failed' } },
+      }),
+    ).toBe(true)
+  })
+
+  it('proves NOTHING for every other failure shape — fail-closed towards keeping the model', () => {
+    // The measured 8 Aug class: CEE UPSTREAM_TIMEOUT after GRAPH_READY.
+    expect(
+      terminalProvesCommitFailed({
+        error: 'UPSTREAM_TIMEOUT',
+        details: { retryable: true, reason: 'draft_graph_cee_timeout' },
+      }),
+    ).toBe(false)
+    // The proxy's own timeout body.
+    expect(
+      terminalProvesCommitFailed({
+        code: 'PROXY_UPSTREAM_TIMEOUT',
+        message: 'The model generation service did not respond within 125s.',
+      }),
+    ).toBe(false)
+    // The validation-failure class (never reaches GRAPH_READY, but must still
+    // not read as commit proof if it ever did).
+    expect(
+      terminalProvesCommitFailed({
+        error: 'INTERNAL_ERROR',
+        details: { retryable: true, reason: 'draft_graph_cee_graph_invalid' },
+      }),
+    ).toBe(false)
+    // Unreadable payloads prove nothing.
+    expect(terminalProvesCommitFailed(undefined)).toBe(false)
+    expect(terminalProvesCommitFailed(null)).toBe(false)
+    expect(terminalProvesCommitFailed('draft_graph_commit_failed')).toBe(false)
+    expect(terminalProvesCommitFailed([{ reason: 'draft_graph_commit_failed' }])).toBe(false)
   })
 })
 

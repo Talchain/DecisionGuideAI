@@ -96,6 +96,15 @@ export interface DraftState {
    * decides whether a phase is any of the current scenario's business.
    */
   draftStreamScenarioId: string | null
+  /**
+   * True once the owning turn's COACHING_READY frame has landed (F1 — honest
+   * staged progress). Licenses the settling narration to stop claiming
+   * coaching is outstanding. Meaningful only while `draftStreamPhase` is
+   * `settling` and only for the owning scenario — consumers read it beside
+   * `draftStreamPhaseFor`, and it resets whenever ownership does (phase
+   * `idle`) or a new turn starts (phase `drafting`).
+   */
+  draftStreamCoachingLanded: boolean
 }
 
 export interface DraftActions {
@@ -120,6 +129,12 @@ export interface DraftActions {
     turnId: string | null,
     scenarioId: string | null,
   ) => void
+  /**
+   * Record that the owning turn's COACHING_READY frame landed. Guarded by
+   * identity: a frame from a turn that no longer owns the phase (stale stream,
+   * preempted turn) must not move a newer turn's narration.
+   */
+  markDraftStreamCoachingLanded: (turnId: string) => void
   /**
    * Reset every field to initial values.
    *
@@ -146,6 +161,7 @@ const initialDraftState: DraftState = {
   draftStreamPhase: 'idle',
   draftStreamTurnId: null,
   draftStreamScenarioId: null,
+  draftStreamCoachingLanded: false,
 }
 
 export const useDraftStore = create<DraftState & DraftActions>((set) => ({
@@ -205,11 +221,24 @@ export const useDraftStore = create<DraftState & DraftActions>((set) => ({
   },
 
   setDraftStreamPhase: (phase, turnId, scenarioId) => {
-    set({
+    set((state) => ({
       draftStreamPhase: phase,
       draftStreamTurnId: phase === 'idle' ? null : turnId,
       draftStreamScenarioId: phase === 'idle' ? null : scenarioId,
-    })
+      // The coaching flag belongs to one turn's stream. It resets when
+      // ownership is released (`idle`) or a new turn starts (`drafting`), and
+      // survives the drafting→settling→unsettled transitions of the turn that
+      // set it. Derived here rather than at call sites so no caller can strand
+      // a stale flag onto the next draft's narration (trap 12).
+      draftStreamCoachingLanded:
+        phase === 'idle' || phase === 'drafting' ? false : state.draftStreamCoachingLanded,
+    }))
+  },
+
+  markDraftStreamCoachingLanded: (turnId) => {
+    set((state) =>
+      state.draftStreamTurnId === turnId ? { draftStreamCoachingLanded: true } : {},
+    )
   },
 
   resetDraft: () => {

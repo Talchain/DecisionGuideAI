@@ -23,7 +23,11 @@ import {
   type AddOptionCanvasTargets,
   type AddOptionChange,
 } from '../conversation/addOptionRequest'
-import { messageForElapsed, messageForSettling } from './DraftLoadingAnimation'
+import {
+  messageForElapsed,
+  messageForSettling,
+  messageForSettlingAfterCoaching,
+} from './DraftLoadingAnimation'
 import { useDraftStore, draftStreamPhaseFor, draftStreamInFlight } from '../stores/draftStore'
 
 export type AIInputBarVariant = 'strip' | 'docked-tab' | 'floating' | 'first-use' | 'welcome'
@@ -176,6 +180,12 @@ export const AIInputBar = memo(
     const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
     const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, currentScenarioId))
     const isSettling = draftStreamPhase === 'settling'
+    // F1 (honest staged progress): once the owning turn's COACHING_READY frame
+    // has landed, the settling copy must stop claiming coaching is
+    // outstanding. Scoped by the SAME ownership derivation as the phase — the
+    // flag is only meaningful while this scenario's own draft is settling, so
+    // it is read as a conjunct of `isSettling`, never bare.
+    const coachingLanded = useDraftStore((s) => s.draftStreamCoachingLanded)
     const isGenerating = isThinking && (nodeCount === 0 || isSettling)
 
     // ── ROADMAP 2.134: THE STOP CONTROL ─────────────────────────────────────
@@ -207,7 +217,13 @@ export const AIInputBar = memo(
       // lands: the settling table's thresholds are measured from the render, not
       // from the start of the turn. Sharing the turn's clock would put the
       // escalated settling line up immediately on every single draft.
-      const resolve = isSettling ? messageForSettling : messageForElapsed
+      // `coachingLanded` likewise restarts it when COACHING_READY lands — its
+      // table is licensed by that frame, and its own clock starts with it.
+      const resolve = isSettling
+        ? coachingLanded
+          ? messageForSettlingAfterCoaching
+          : messageForSettling
+        : messageForElapsed
       if (!isGenerating) {
         setGeneratingMessage(resolve(0))
         return
@@ -218,7 +234,7 @@ export const AIInputBar = memo(
         setGeneratingMessage(resolve(Math.floor((Date.now() - start) / 1000)))
       }, 1000)
       return () => window.clearInterval(id)
-    }, [isGenerating, isSettling])
+    }, [isGenerating, isSettling, coachingLanded])
 
     useImperativeHandle(
       ref,
