@@ -27,7 +27,6 @@
 import { useCallback, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { useAuth } from '../contexts/AuthContext'
 import {
   CollabRequestError,
   closeRound,
@@ -37,12 +36,20 @@ import {
   type MintedRound,
   type RevealView,
 } from '../collab/collabService'
+import { requireOwnerAccessToken } from '../collab/ownerAccessToken'
 import { RevealBody } from './ParticipantPacketPage'
 
 export default function PanelSetupPage(): JSX.Element {
   const { id: scenarioId } = useParams<{ id: string }>()
-  const { session } = useAuth() as { session?: { access_token?: string } | null }
-  const accessToken = session?.access_token ?? ''
+
+  // ⚠ The token is read PER ACTION, from `requireOwnerAccessToken()`, and never
+  // held in component state. Two reasons, and the second is the one that bit:
+  //   • a token read at mount is stale by the time a round is closed;
+  //   • this page previously destructured `session` off `useAuth()` behind an
+  //     `as` cast. AuthContext has no such member, so the token was always ''
+  //     and every owner call shipped `Authorization: "Bearer "` — a 401 at CEE,
+  //     indistinguishable from sending no header. There is now no cast here and
+  //     no `?? ''`: an absent session throws, and the owner is told to sign in.
 
   const [targetId, setTargetId] = useState('')
   const [targetLabel, setTargetLabel] = useState('')
@@ -58,6 +65,7 @@ export default function PanelSetupPage(): JSX.Element {
     setBusy(true)
     setError(null)
     try {
+      const accessToken = await requireOwnerAccessToken()
       const result = await mintRound(accessToken, {
         scenarioId: scenarioId ?? '',
         contextNote: contextNote.trim() === '' ? null : contextNote,
@@ -81,13 +89,17 @@ export default function PanelSetupPage(): JSX.Element {
     } finally {
       setBusy(false)
     }
-  }, [accessToken, scenarioId, targetId, targetLabel, contextNote, nameA, nameB])
+  }, [scenarioId, targetId, targetLabel, contextNote, nameA, nameB])
 
   const handleClose = useCallback(async () => {
     if (minted === null) return
     setBusy(true)
     setError(null)
     try {
+      // ONE getSession() round-trip for the whole action, reused across both
+      // requests — the identity seam's stated contract ("one call per turn;
+      // callers must never make a second getSession() round-trip for the token").
+      const accessToken = await requireOwnerAccessToken()
       await closeRound(accessToken, minted.round_id)
       setReveal(await fetchOwnerReveal(accessToken, minted.round_id))
     } catch (err) {
@@ -95,7 +107,7 @@ export default function PanelSetupPage(): JSX.Element {
     } finally {
       setBusy(false)
     }
-  }, [accessToken, minted])
+  }, [minted])
 
   if (reveal !== null) return <RevealBody reveal={reveal} />
 
