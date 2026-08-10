@@ -25,30 +25,62 @@ import { create } from 'zustand'
 import type { NotModelledManifest } from '../../adapters/cee/notModelled'
 
 /**
- * ── WHY THERE IS NO `scenarioId` HERE ──────────────────────────────────────
- * There was one, and its comment claimed it "guards against a stale read from a
- * previous scenario being shown against the current one". It guarded nothing:
- * it was WRITE-ONLY. `serverGraphHydration` set it and no consumer ever read it
- * — `V7WhatIWasGivenSection` selects `briefText` and `manifest` and nothing
- * else. A field with zero readers cannot fork identity and cannot gate a
- * render, so its blast radius was zero by construction (CLAUDE.md trap 10),
- * and a comment asserting a guarantee nobody enforces is worse than no field:
- * the next reader trusts it and stops looking.
+ * ── WHY `scenarioId` IS BACK, AND WHY IT MUST HAVE A READER ────────────────
+ * This field existed, was removed as write-only, and its removal shipped a
+ * P0: the receipt rendered A PREVIOUS DECISION'S BRIEF under "What you gave
+ * me", and survived reset-canvas → new brief → draft → analysis → edit. Only a
+ * page reload cleared it (this store is in-memory, so a reload re-inits it).
  *
- * The staleness question itself is real but is answered UPSTREAM, before this
- * store is written: `serverGraphHydration` compares the requested scenario
- * against `useCanvasStore.currentScenarioId` and returns `'skipped'` on a
- * mismatch, so a hydration for a scenario the user has left never reaches
- * `setContextIntegrity` at all. If that ever stops being true, the fix is a
- * guard with a reader and a test — not a field that records the answer and
- * throws it away.
+ * The removal note argued the staleness question was "answered UPSTREAM" by
+ * `serverGraphHydration` comparing the requested scenario against
+ * `useCanvasStore.currentScenarioId`. THAT WAS FALSE, and the reason is
+ * CLAUDE.md trap 21 — two questions under one name:
+ *
+ *   · The upstream guard answers *"is this in-flight RESPONSE for the scenario
+ *     the user is still on?"* It only runs on the `'graph'` path.
+ *   · The render needs *"does the content I am about to SHOW belong to the
+ *     scenario on screen?"*
+ *
+ * They differ precisely where the defect lives. `setContextIntegrity` is
+ * reached ONLY on `result.status === 'graph'`; every other cold-read outcome
+ * (`absent`, `notReadable`, `unavailable`, `refused`, `unusable`, and the
+ * non-UUID `skipped`) returns BEFORE the write. A freshly-minted scenario
+ * reliably answers `absent` — CEE has no graph for it yet at the moment
+ * `useServerGraphHydration` fires — so nothing is written, nothing is cleared,
+ * and the previous decision's brief simply stays. The hook attempts ONCE PER
+ * SCENARIO ID, so it never self-corrects.
+ *
+ * The removal reasoning about write-only fields (trap 10) was right in general
+ * and wrong here: the answer was not to delete the field but to GIVE IT A
+ * READER. `V7WhatIWasGivenSection` now refuses to render unless this id
+ * positively matches `useCanvasStore.currentScenarioId`, so a stale store
+ * cannot reach the screen even when nothing clears it. Keying the content is
+ * what makes clearing unnecessary: an unkeyed clear must be remembered at every
+ * transition (the hand-maintained mirror, trap 12), whereas content that
+ * carries its own identity fails safe at the point of use.
  */
 export interface ContextIntegrityState {
+  /**
+   * The scenario this content describes. `null` = nothing recorded.
+   *
+   * ⚠ HAS A READER, AND MUST KEEP ONE. `V7WhatIWasGivenSection` gates its
+   * entire render on this matching the live scenario. If a future change drops
+   * that comparison, the P0 above returns silently — the pinning spec is
+   * `V7WhatIWasGivenSection.spec.tsx` → "never renders another decision's
+   * brief".
+   */
+  scenarioId: string | null
   /** The brief as the user wrote it, byte-verbatim. `null` = none persisted. */
   briefText: string | null
   /** CEE's manifest. `null` = we were told nothing. NEVER "nothing dropped". */
   manifest: NotModelledManifest | null
+  /**
+   * `scenarioId` is REQUIRED, deliberately: content this store cannot attribute
+   * to a decision is content the surface must never show, and making the caller
+   * state it means a new writer cannot omit it by accident.
+   */
   setContextIntegrity: (input: {
+    scenarioId: string | null
     briefText: string | null
     manifest: NotModelledManifest | null
   }) => void
@@ -56,12 +88,14 @@ export interface ContextIntegrityState {
 }
 
 const EMPTY = {
+  scenarioId: null,
   briefText: null,
   manifest: null,
 } as const
 
 export const useContextIntegrityStore = create<ContextIntegrityState>((set) => ({
   ...EMPTY,
-  setContextIntegrity: ({ briefText, manifest }) => set({ briefText, manifest }),
+  setContextIntegrity: ({ scenarioId, briefText, manifest }) =>
+    set({ scenarioId, briefText, manifest }),
   reset: () => set({ ...EMPTY }),
 }))

@@ -148,7 +148,12 @@ export async function hydrateCanvasFromServer(
   // stored AS a null: the surface renders it as "we cannot tell you", never as
   // an empty list, which on a brief we demonstrably lose content from would be
   // a new and more damaging lie than the silence it replaces.
+  // `scenarioId` is the scenario this content DESCRIBES, and the surface refuses
+  // to render unless it matches the live one. It is the requested id, not
+  // `currentId`: the two are equal here (the guard above returned otherwise),
+  // and the requested id is the one the payload actually came back for.
   useContextIntegrityStore.getState().setContextIntegrity({
+    scenarioId,
     briefText: result.briefText,
     manifest: result.notModelled,
   })

@@ -32,6 +32,15 @@
  * those read as "everything made it in", which on a brief we demonstrably lose
  * content from is a worse lie than the silence it replaces.
  *
+ * ── THE IDENTITY GATE ──────────────────────────────────────────────────────
+ * This surface renders ONLY when the context-integrity store's `scenarioId`
+ * positively matches the live `currentScenarioId`. It shipped without that
+ * check and rendered A PREVIOUS DECISION'S BRIEF, verbatim, under "What you
+ * gave me" — the trust anchor telling the user something false about their own
+ * input, with a cross-decision data-leak shape on any shared session. See the
+ * store's header for the mechanism. The gate lives at the point of RENDER, not
+ * only at the point of write, so that a store nobody cleared cannot defeat it.
+ *
  * ── MOUNT ──────────────────────────────────────────────────────────────────
  * Hosted in the UNCONDITIONAL `v7-top-group`. `ResultsBody` forks on
  * `analysisHeroPanel` and this estate has twice shipped a feature dark by
@@ -42,6 +51,7 @@ import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import { typography } from '../../../styles/typography'
+import { useCanvasStore } from '../../../canvas/store'
 import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrityStore'
 import type { NotModelledItem } from '../../../adapters/cee/notModelled'
 import { ClampToggle } from './ClampToggle'
@@ -233,8 +243,34 @@ export interface V7WhatIWasGivenSectionProps {
 
 export function V7WhatIWasGivenSection({ onSendMessage }: V7WhatIWasGivenSectionProps = {}) {
   const [open, setOpen] = useState(false)
+  const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
   const briefText = useContextIntegrityStore((s) => s.briefText)
   const manifest = useContextIntegrityStore((s) => s.manifest)
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+
+  // ── THE IDENTITY GATE — read the store's header before touching this ───────
+  //
+  // This panel's whole claim is *"this is what YOU gave ME, on THIS decision"*.
+  // It is the one surface where showing the right shape of the wrong content is
+  // worse than showing nothing, so it renders ONLY on a POSITIVE identity match
+  // and treats every other case as "we have nothing for this decision".
+  //
+  // ⚠ IT MUST BE A POSITIVE MATCH, NOT `!==`. A `!==` test passes when either
+  // side is `null`, and `null` is exactly the state this store sits in for a
+  // decision it was never told about — which is the P0: a freshly-minted
+  // scenario's cold read answers `absent`, so `setContextIntegrity` is never
+  // called, nothing is cleared, and the PREVIOUS decision's brief stays live
+  // until a page reload. Requiring both ids to be present and equal makes a
+  // store that was never written for this decision indistinguishable from an
+  // empty one — which is the truthful reading of it.
+  //
+  // Suppressing rather than refetching is deliberate: there is no fetch this
+  // component owns (`serverGraphHydration` is the sole writer, once per
+  // scenario id), and inventing one here would race the boot path. Silence is
+  // the honest answer; the previous decision's brief never is.
+  const isForCurrentDecision =
+    typeof recordedScenarioId === 'string' && recordedScenarioId === currentScenarioId
+  if (!isForCurrentDecision) return null
 
   if (briefText === null && manifest === null) return null
 
