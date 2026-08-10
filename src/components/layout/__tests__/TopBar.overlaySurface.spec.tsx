@@ -138,14 +138,33 @@ describe('TopBar kebab menu — lifted into uiStore', () => {
         overlaySurfaceOrigin: 'user',
       })
     })
-    // Escape and click-outside are this bar's dismissals. They must act on its
-    // OWN surface only — a component that lowers whatever happens to be raised
-    // would take a sibling's menu away the moment two surfaces are lifted.
-    fireEvent.keyDown(document, { key: 'Escape' })
-    fireEvent.mouseDown(document.body)
+
+    // ⚠ THE PATH MATTERS. Escape and click-outside are registered only while
+    // THIS bar's menu is open, so firing them here would prove nothing — the
+    // listeners are not even attached (a guard agreeing with itself). The
+    // exclusivity listener IS attached unconditionally, so it is the one path
+    // that can reach this bar's close while a sibling's surface is raised.
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'lens' } }),
+      )
+    })
 
     expect(useUIStore.getState().activeOverlaySurface).toBe(FOREIGN_SURFACE)
     expect(useUIStore.getState().overlaySurfaceOrigin).toBe('user')
+
+    // PRECONDITION PINNED IN-TEST: the very same event, in this very render,
+    // DOES lower this bar's own surface. Without this the assertion above
+    // would also pass if the listener had silently stopped firing.
+    act(() => {
+      useUIStore.getState().setOverlaySurface('top_bar_menu')
+    })
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'lens' } }),
+      )
+    })
+    expect(useUIStore.getState().activeOverlaySurface).toBeNull()
   })
 
   it('marks the banner with the origin so a surface the assistant raised is attributable', () => {
