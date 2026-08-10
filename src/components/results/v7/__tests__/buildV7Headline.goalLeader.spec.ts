@@ -131,8 +131,11 @@ describe('buildV7Headline — when no honest goal crown exists, it does not crow
     expect(model.headline).not.toContain('highest chance')
     expect(model.headline).toBe(COMPARATIVE_A('70%'))
     // Subject and metric agree again: the comparative headline gets the
-    // comparative gap.
-    expect(model.subline).toBe('Leads by 40 points')
+    // comparative subline. ⭐ SUPERSEDED 2026-08-10 — that subline was the
+    // win-frequency GAP ('Leads by 40 points') and is retired; it now names the
+    // runner-up and states its OWN probability. The GOAL arm's gap subline,
+    // pinned above, is a different quantity and is unchanged.
+    expect(model.subline).toBe('Next: Option B, 30%')
   })
 
   it('TIE AT THE MAX: two options share the highest goal probability → no crown', () => {

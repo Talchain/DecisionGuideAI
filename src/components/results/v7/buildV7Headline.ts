@@ -18,7 +18,10 @@
  *   · "No clear leading option"       — indeterminate / GAP form
  *     (certaintyCopy.ts rule 1: "no clear leading option, …")
  *   · "Too close to call"             — near-tie form (recommendation.nearTie)
- *   · "Leads by N points" subline (certaintyCopy.ts rule 4)
+ *   · "Leads by N points" subline (certaintyCopy.ts rule 4) — ⚠ NOW THE GOAL
+ *     ARM ONLY. The COMPARATIVE arm's version of this line stated the
+ *     percentage-point gap between two WIN FREQUENCIES and is retired
+ *     (2026-08-10); that arm's subline is now the runner-up's own probability.
  *     (the companion "{winner} leads slightly more often" was REMOVED from
  *      both this file and certaintyCopy.ts — ROADMAP 1.223: a denial of a
  *      leading option must not carry a leader claim as its subline)
@@ -29,7 +32,7 @@
  */
 
 import type { DecisionResultData, DecisionState } from '../types'
-import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from '../utils/goalAnchorCopy'
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY, isFiniteProbability } from '../utils/goalAnchorCopy'
 import { formatGoalProbability } from '../utils/displayFloors'
 import { goalLeadPoints, selectGoalLeader } from '../utils/selectGoalLeader'
 import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
@@ -190,18 +193,31 @@ export function buildV7Headline(
    * superlative with no stated basis, no number and no timeframe, which a
    * reader cannot argue with because it drops the figure that would let them.
    *
-   * Subline names the lead in points when the runner-up carries a win
-   * probability we can difference against (store-derived, never fabricated).
-   * Same metric as the headline above it, same subject.
+   * ⭐⭐ THE GAP SUBLINE IS RETIRED (2026-08-10 — F3's UI half; the CEE half
+   * ships separately). This arm used to compute the percentage-point
+   * DIFFERENCE between the leader's and the runner-up's win frequencies and
+   * print it as "Leads by 33 points" on the line immediately beneath a
+   * CORRECT statement of the leader's own probability. Both sentences were
+   * store-derived and neither was fabricated — which is precisely why it
+   * survived so long.
+   *
+   * The ratified rule: no user-facing surface states the percentage-point gap
+   * between win frequencies. A difference of two Monte-Carlo estimates carries
+   * more uncertainty than either estimate does, and rendered as a bare integer
+   * with no interval it reads as the most precise number on the screen while
+   * being the least reliable one. THE LEADER'S OWN PROBABILITY IS THE
+   * STATISTIC, and the headline directly above already states it.
+   *
+   * The subline now names the runner-up and states ITS OWN probability, in the
+   * same floored formatter as the headline — so the reader still gets both
+   * numbers and can compare them, and the product asserts neither a difference
+   * nor an ordering it has not earned. See `runnerUpSubline` for the three
+   * states in which it stays silent.
    */
-  const runnerUp = allOptions
+  const rivals = allOptions
     .filter(o => o.id !== winner?.id)
-    .filter((o): o is typeof o & { winProbability: number } => typeof o.winProbability === 'number')
-    .sort((a, b) => b.winProbability - a.winProbability)[0]
-  const gapPoints =
-    winProbability != null && runnerUp
-      ? Math.round((winProbability - runnerUp.winProbability) * 100)
-      : null
+    .filter((o): o is typeof o & { winProbability: number } => isFiniteProbability(o.winProbability))
+    .sort((a, b) => b.winProbability - a.winProbability)
 
   const headline =
     winProbability != null
@@ -214,19 +230,54 @@ export function buildV7Headline(
 
   return {
     headline,
-    subline: leadSubline(gapPoints),
+    subline: runnerUpSubline(winProbability, rivals),
     winProbability,
     winnerLabel,
   }
 }
 
 /**
- * The shipped lead-in-points subline (certaintyCopy.ts rule 4), built in ONE
- * place so the goal arm and the comparative arm cannot render the same claim
- * with different pluralisation. A non-positive or absent gap yields no
- * subline — silence rather than "Leads by 0 points".
+ * The shipped lead-in-points subline (certaintyCopy.ts rule 4). A non-positive
+ * or absent gap yields no subline — silence rather than "Leads by 0 points".
+ *
+ * ⚠ SOLE CALLER SINCE 2026-08-10: the GOAL arm. The comparative arm's use of
+ * this function was the retired win-frequency gap (see the block above). The
+ * goal arm differences GOAL PROBABILITIES — a different quantity, with its own
+ * pairing rationale in `goalLeadPoints` — and is deliberately left as it is
+ * rather than swept in on the same change.
  */
 function leadSubline(points: number | null): string | null {
   if (points == null || points <= 0) return null
   return `Leads by ${points} point${points === 1 ? '' : 's'}`
+}
+
+/**
+ * The COMPARATIVE arm's subline: the runner-up named, with ITS OWN win
+ * probability — never a difference.
+ *
+ * Silent (null) in three states, each of which would otherwise be a claim this
+ * run has not earned:
+ *
+ *   1. The headline carries no magnitude (`winProbability == null`). The
+ *      headline is then the honest-absence form, and a lone rival percentage
+ *      beneath it would name a metric the sentence above declined to state.
+ *   2. No rival carries a finite win probability — nothing to name.
+ *   3. TWO OR MORE rivals are TIED at the top of the field. "Next: X" is an
+ *      ORDERING claim, and between tied rivals which one gets named is
+ *      arbitrary. Same rule, and the same reason, as `selectGoalLeader`'s
+ *      `tiedAtMax` refusal one arm up.
+ *
+ * `formatProbabilityWithResolution` and not a bare percent: the same floored
+ * formatter the headline uses, so a sub-1% rival cannot read "0%" here while
+ * the option card beside it reads "< 1%".
+ */
+function runnerUpSubline(
+  winProbability: number | null,
+  rivals: ReadonlyArray<{ label?: string | null; winProbability: number }>,
+): string | null {
+  if (winProbability == null) return null
+  const [first, second] = rivals
+  if (!first || !first.label) return null
+  if (second && second.winProbability === first.winProbability) return null
+  return `Next: ${first.label}, ${formatProbabilityWithResolution(first.winProbability, null)}`
 }

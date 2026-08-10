@@ -49,14 +49,60 @@ describe('buildV7Headline — passthrough hero copy (V7 L4)', () => {
     expect(model.winnerLabel).toBe('Option A')
   })
 
-  it('clear winner subline names the lead in points from the real runner-up gap', () => {
+  /**
+   * ⭐ SUPERSEDED EXPECTATION — the gap subline is RETIRED (2026-08-10).
+   *
+   * This asserted `'Leads by 40 points'`: the percentage-point DIFFERENCE
+   * between two win frequencies, printed beneath a correct statement of the
+   * leader's own probability. The ratified rule is that no user-facing surface
+   * states that gap — a difference of two Monte-Carlo estimates is less
+   * reliable than either of them and was being rendered as the most precise
+   * number on the screen. The subline now names the runner-up and states ITS
+   * OWN probability, same formatter as the headline.
+   */
+  it('clear winner subline names the RUNNER-UP and its OWN probability — never the gap', () => {
     const winner = opt('a', 'Option A', 0.7, true)
     const model = buildV7Headline(
       rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.3)] }),
       'robust',
     )
-    // 0.70 − 0.30 = 40 points — derived, never fabricated.
-    expect(model.subline).toBe('Leads by 40 points')
+    expect(model.subline).toBe('Next: Option B, 30%')
+    expect(model.subline).not.toMatch(/leads?\s+by\s+\d+\s+points?/i)
+  })
+
+  it('names the STRONGEST rival, by identity, when there are several', () => {
+    const winner = opt('a', 'Option A', 0.6, true)
+    const model = buildV7Headline(
+      rec({
+        recommendedOption: winner,
+        allOptions: [winner, opt('b', 'Option B', 0.11), opt('c', 'Option C', 0.29)],
+      }),
+      'robust',
+    )
+    // Option C (0.29) outranks Option B (0.11); the label, not the value,
+    // is what pins the subject.
+    expect(model.subline).toBe('Next: Option C, 29%')
+  })
+
+  it('rivals TIED at the top of the field → silence (naming one would be an arbitrary ordering claim)', () => {
+    const winner = opt('a', 'Option A', 0.6, true)
+    const model = buildV7Headline(
+      rec({
+        recommendedOption: winner,
+        allOptions: [winner, opt('b', 'Option B', 0.2), opt('c', 'Option C', 0.2)],
+      }),
+      'robust',
+    )
+    expect(model.subline).toBeNull()
+  })
+
+  it('a rival below the display floor keeps the floored readout, never a bare "0%"', () => {
+    const winner = opt('a', 'Option A', 0.99, true)
+    const model = buildV7Headline(
+      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.001)] }),
+      'robust',
+    )
+    expect(model.subline).toBe(`Next: Option B, ${SUB_ONE_PERCENT_READOUT}`)
   })
 
   it('near-tie → "Too close to call" (from recommendation.nearTie)', () => {

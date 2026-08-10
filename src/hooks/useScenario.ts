@@ -338,6 +338,11 @@ export function useScenario(): UseScenarioReturn {
       if (graphSaveTimerRef.current) clearTimeout(graphSaveTimerRef.current)
 
       graphSaveTimerRef.current = setTimeout(async () => {
+        // This timer has RUN: it is no longer pending, and the unmount
+        // best-effort flush must not treat it as though it were. Nulled first,
+        // before any early return, so every exit from this callback leaves the
+        // ref honest.
+        graphSaveTimerRef.current = null
         const saveSid = scenarioIdRef.current
         if (!saveSid || !mountedRef.current) return
         // Re-check ownership + cleanliness at fire time: a flush barrier or the
@@ -445,17 +450,31 @@ export function useScenario(): UseScenarioReturn {
 
   useEffect(() => {
     return () => {
-      // Best-effort flush: if a debounced graph save is pending, fire it now
+      // Best-effort flush: if a debounced graph save is pending, fire it now.
+      //
+      // ⭐ CORRECTED 2026-08-10 (found by the PR #662 adversarial review;
+      // pre-existing). This called `scenarioService.saveGraphViaGatedPath`
+      // DIRECTLY. `persistGraphNow`'s own header declares it "the ONE write code
+      // path ... one derived choke point, no list of call sites to keep in
+      // step" — and this was the call site not in step: it never consulted
+      // `shouldPersistGraphForScenario`, so for a signed-in user, navigating
+      // away while a kept-unsettled streamed preview stood on the canvas wrote
+      // that preview over CEE's committed graph. Exactly the loss the
+      // suppression exists to prevent, reached through the one door that
+      // skipped it. It now goes through the choke point, so the gate cannot be
+      // bypassed here again without deleting the call.
       if (graphSaveTimerRef.current) {
         clearTimeout(graphSaveTimerRef.current)
+        // ⭐ And NULL it. The ref was only ever cleared, never nulled, so an
+        // already-FIRED debounce still read as "pending" here and this flush
+        // fired for a save that had already completed (or had already been
+        // suppressed) — a second write of a graph nobody had changed.
+        graphSaveTimerRef.current = null
         const sid = scenarioIdRef.current
         if (sid) {
-          const { nodes: n, edges: e, goalConstraints: gc } = useCanvasStore.getState()
-          scenarioService
-            .saveGraphViaGatedPath(sid, { nodes: n, edges: e }, crypto.randomUUID(), undefined, gc)
-            .catch((err) => {
-              console.error('[useScenario] Unmount graph flush failed:', err)
-            })
+          persistGraphNow(sid).catch((err) => {
+            console.error('[useScenario] Unmount graph flush failed:', err)
+          })
         }
       }
       if (framingSaveTimerRef.current) {

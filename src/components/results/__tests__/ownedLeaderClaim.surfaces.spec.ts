@@ -93,7 +93,12 @@ describe('V7 hero — the re-anchored leader headline / "Leads by N points" (SUP
   it('PERMITTED: both the headline and the numeric subline survive', () => {
     const m = v7(PERMITTED_VERDICT)
     expect(m.headline).toBe(`${LEADER_LABEL} ${COMPARATIVE_COPY.clause('66%')}`)
-    expect(m.subline).toBe('Leads by 35 points')
+    // ⭐ SUPERSEDED 2026-08-10: was `'Leads by 35 points'`, the percentage-point
+    // gap between two win frequencies. Retired — the subline now states the
+    // runner-up's OWN probability. The ENTITLEMENT this spec exists to pin (a
+    // permitted verdict still gets a numeric subline) is unchanged.
+    expect(m.subline).toBe(`Next: ${RUNNER_UP_LABEL}, 31%`)
+    expect(m.subline).not.toMatch(/leads?\s+by\s+\d+\s+points?/i)
   })
 })
 
