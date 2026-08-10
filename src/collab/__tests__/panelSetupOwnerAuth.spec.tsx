@@ -27,7 +27,7 @@
  * Each request is selected BY ITS OWN URL, never by "some call had the header":
  * the mint assertion cannot be satisfied by the close request and vice versa.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { readFileSync } from 'node:fs'
@@ -69,20 +69,21 @@ const MINT_URL = '/bff/collab/rounds'
 const CLOSE_URL = `/bff/collab/rounds/${ROUND_ID}/close`
 const REVEAL_URL = `/bff/collab/rounds/${ROUND_ID}/reveal`
 
-let fetchMock: ReturnType<typeof vi.fn>
+/** Only the three members the collab seam touches; typed as such, so this stub
+ *  never quietly claims to be a whole `Response` behind a cast — which is the
+ *  very move that produced the defect this file pins. */
+type StubResponse = Pick<Response, 'ok' | 'status' | 'json'>
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  } as unknown as Response
+let fetchMock: Mock<[input: RequestInfo | URL, init?: RequestInit], Promise<StubResponse>>
+
+function jsonResponse(body: unknown, status = 200): StubResponse {
+  return { ok: status >= 200 && status < 300, status, json: async () => body }
 }
 
 function collabCalls(url: string): Array<[string, RequestInit]> {
   return fetchMock.mock.calls
     .filter((c) => String(c[0]) === url)
-    .map((c) => [String(c[0]), (c[1] ?? {}) as RequestInit])
+    .map((c): [string, RequestInit] => [String(c[0]), c[1] ?? {}])
 }
 
 function authorizationFor(url: string): string | null {
@@ -110,7 +111,7 @@ async function mintARound(): Promise<void> {
 }
 
 beforeEach(() => {
-  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
     const url = String(input)
     if (url === MINT_URL) {
       return jsonResponse({
