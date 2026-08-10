@@ -8,6 +8,7 @@ import { UserAvatarMenu } from './UserAvatarMenu'
 import { KebabMenu } from './KebabMenu'
 import { ScenarioSwitcher } from '../../canvas/components/ScenarioSwitcher'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
+import { useUIStore } from '../../stores/uiStore'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
 // Lane 4 (P5): SHOW_ONBOARDING removed — its only dispatcher was the kebab
@@ -45,8 +46,26 @@ export const TopBar = ({
 }: TopBarProps) => {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(scenarioTitle)
-  const [showMenu, setShowMenu] = useState(false)
   const [showSavedPill, setShowSavedPill] = useState(false)
+
+  // The kebab menu's open-state lives in uiStore, NOT in component-local
+  // `useState`. That is the whole point: `applyV5State` dispatches the AI's
+  // ui_directive verbs from a once-per-envelope, non-render side-effect site
+  // whose only reach into the UI is `useUIStore.getState()`. A `useState`
+  // here made menus, pop-ups and coach-marks structurally unreachable to any
+  // assistant gesture. Both selectors return primitives, so no useShallow is
+  // needed and no fresh object is created per render.
+  const showMenu = useUIStore(s => s.activeOverlaySurface === 'top_bar_menu')
+  const overlayOrigin = useUIStore(s => s.overlaySurfaceOrigin)
+  const setOverlaySurface = useUIStore(s => s.setOverlaySurface)
+  const closeMenu = useCallback(() => {
+    // Close only OUR surface. Without this check a stray close would lower
+    // whichever surface happened to be raised — including one this component
+    // does not own.
+    if (useUIStore.getState().activeOverlaySurface === 'top_bar_menu') {
+      setOverlaySurface(null)
+    }
+  }, [setOverlaySurface])
 
   const menuRef = useRef<HTMLDivElement | null>(null)
 
@@ -98,19 +117,22 @@ export const TopBar = ({
     }
   }
 
+  // USER AGENCY over an assistant-raised surface. These dismissals are
+  // deliberately unconditional on WHO raised the menu: the assistant may put
+  // it on screen, and Escape / click-outside must always take it back.
   useEffect(() => {
     if (!showMenu) return
 
     const handleClickOutside = (event: MouseEvent) => {
       if (!menuRef.current) return
       if (!menuRef.current.contains(event.target as Node)) {
-        setShowMenu(false)
+        closeMenu()
       }
     }
 
     const handleEscapeKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setShowMenu(false)
+        closeMenu()
       }
     }
 
@@ -120,36 +142,76 @@ export const TopBar = ({
       document.removeEventListener('mousedown', handleClickOutside)
       document.removeEventListener('keydown', handleEscapeKey)
     }
-  }, [showMenu])
+  }, [showMenu, closeMenu])
 
   // Close kebab menu when another menu claims exclusivity
   useEffect(() => {
     const handler = (e: Event) => {
       const source = (e as CustomEvent).detail?.source
-      if (source !== 'kebab') setShowMenu(false)
+      if (source !== 'kebab') closeMenu()
     }
     window.addEventListener(MENU_EXCLUSIVE_EVENT, handler)
     return () => window.removeEventListener(MENU_EXCLUSIVE_EVENT, handler)
-  }, [])
+  }, [closeMenu])
+
+  // KEEP THE STORE TRUTHFUL ABOUT WHAT IS ON SCREEN. An overlay surface is
+  // anchored to a control; if that control is not mounted, a raised surface is
+  // a claim the screen does not support. Component-local `useState` gave this
+  // for free — it died with the component. A store does not, so the owner of a
+  // surface must lower it on unmount, or a route change would leave the store
+  // asserting a menu that no longer exists (and the next mount would paint it
+  // open). Unmount-only: nothing is cleared while the bar is alive, so an
+  // assistant gesture is never swallowed mid-session.
+  // Empty deps on purpose: this must be strictly unmount-only, so it reads the
+  // store directly rather than closing over an action whose identity could
+  // drift and turn the cleanup into a mid-life dismissal.
+  useEffect(
+    () => () => {
+      if (useUIStore.getState().activeOverlaySurface === 'top_bar_menu') {
+        useUIStore.getState().setOverlaySurface(null)
+      }
+    },
+    [],
+  )
+
+  // Claim exclusivity whenever OUR menu becomes raised — by a user click OR by
+  // an assistant gesture that never passes through a click handler. Announcing
+  // from the state transition rather than from `onToggle` is what makes the two
+  // paths equivalent; sibling menus (LeftSidebar's lens, UserAvatarMenu) still
+  // own their state and only learn about us through this event.
+  useEffect(() => {
+    if (!showMenu) return
+    window.dispatchEvent(
+      new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'kebab' } }),
+    )
+  }, [showMenu])
 
   // Help action handlers - emit custom events for ReactFlowGraph to handle
   const handleShowKeyboardLegend = useCallback(() => {
     window.dispatchEvent(new CustomEvent(HELP_EVENTS.SHOW_KEYBOARD_LEGEND))
-    setShowMenu(false)
-  }, [])
+    closeMenu()
+  }, [closeMenu])
 
   const handleShowInfluenceExplainer = useCallback(() => {
     window.dispatchEvent(new CustomEvent(HELP_EVENTS.SHOW_INFLUENCE_EXPLAINER))
-    setShowMenu(false)
-  }, [])
+    closeMenu()
+  }, [closeMenu])
 
   // Decision Graph Display v2 Task 13: Analysis metadata
   const analysisMetadata = useAnalysisMetadata()
   // A.15: Stage lifecycle pill
   const stagePill = useStagePill()
 
+  // `data-overlay-origin` is present only while an overlay this bar owns is
+  // raised, and names WHO raised it. A surface the assistant put on screen must
+  // be attributable rather than appearing to move on its own; this is the hook
+  // a visible attribution (and any browser-level check) binds to.
   return (
-    <div className={styles.topBar} role="banner">
+    <div
+      className={styles.topBar}
+      role="banner"
+      {...(showMenu && overlayOrigin ? { 'data-overlay-origin': overlayOrigin } : {})}
+    >
       {/* Left section - logo and title */}
       <div className={styles.topBarLeft}>
         <a href="/" className={styles.logoLink} aria-label="Olumi home">
@@ -357,14 +419,12 @@ export const TopBar = ({
         <KebabMenu
           isOpen={showMenu}
           onToggle={() => {
-            const next = !showMenu
-            setShowMenu(next)
-            if (next) {
-              window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'kebab' } }))
-            }
+            // The exclusivity announcement rides the state transition (effect
+            // above), so the user path and the assistant path behave alike.
+            setOverlaySurface(showMenu ? null : 'top_bar_menu')
           }}
-          onClose={() => setShowMenu(false)}
-          onStartRename={() => { setIsEditing(true); setShowMenu(false) }}
+          onClose={closeMenu}
+          onStartRename={() => { setIsEditing(true); closeMenu() }}
           onShowKeyboardLegend={handleShowKeyboardLegend}
           onShowInfluenceExplainer={handleShowInfluenceExplainer}
           menuRef={menuRef}

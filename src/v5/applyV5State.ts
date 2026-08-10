@@ -53,7 +53,11 @@ import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
 import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
 import { focusNodeById, focusEdgeById } from '../canvas/utils/focusHelpers'
-import { useUIStore, type OutputTab } from '../stores/uiStore'
+import {
+  useUIStore,
+  type OutputTab,
+  type AssistantUiSurfaceActions,
+} from '../stores/uiStore'
 import {
   readDecisionReviewWireState,
   type DecisionReview030,
@@ -779,6 +783,20 @@ export function applyV5State(
         // cross-field rule guarantees a verb-matching ui_target on anything
         // that parsed, but the handler stays independently fail-closed (the
         // same defensive posture as the graph verbs' in-graph filter).
+        //
+        // ⚠ THE HANDLE IS NARROWED ON PURPOSE. `close_panel`/`close_inspector`
+        // were deliberately REJECTED from this design — the assistant taking
+        // surfaces AWAY from the user inverts the channel's charter. Overlay
+        // open-state now lives in uiStore (so a gesture CAN raise a menu at
+        // all), and uiStore's full action set contains `closeRightPanel`,
+        // `openRightPanel(null)` and `setOverlaySurface(null)`. Holding the
+        // whole store here would leave nothing but discipline between this
+        // seam and an accidental close. `AssistantUiSurfaceActions` carries
+        // ONLY raising actions, so a close does not typecheck at this site —
+        // and widening it turns the required typecheck RED, because the
+        // `@ts-expect-error` guards in applyV5State.assistantSurfaces.test.ts
+        // become unused directives.
+        const assistantSurfaces: AssistantUiSurfaceActions = useUIStore.getState()
         const uiTarget = (block as { ui_target?: { kind?: unknown; id?: unknown } }).ui_target
         if (uiTarget === undefined || uiTarget === null || typeof uiTarget !== 'object') {
           deferred.push({ reason: 'ui_directive_missing_ui_target', block })
@@ -790,12 +808,12 @@ export function applyV5State(
           })
         } else if (verb === 'open_panel' && uiTarget.kind === 'tab') {
           uiDirectiveExecuted = true
-          useUIStore.getState().forceActivateOutputTab(uiTarget.id as OutputTab)
+          assistantSurfaces.forceActivateOutputTab(uiTarget.id as OutputTab)
           applied.push(`ui_directive:open_panel:${String(uiTarget.id)}`)
         } else if (verb === 'open_section' && uiTarget.kind === 'model_section') {
           uiDirectiveExecuted = true
-          useUIStore.getState().requestModelTabSection(String(uiTarget.id))
-          useUIStore.getState().forceActivateOutputTab('diagnostics')
+          assistantSurfaces.requestModelTabSection(String(uiTarget.id))
+          assistantSurfaces.forceActivateOutputTab('diagnostics')
           applied.push(`ui_directive:open_section:${String(uiTarget.id)}`)
         } else {
           deferred.push({
