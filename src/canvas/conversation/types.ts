@@ -296,6 +296,49 @@ export interface V5CoachingBlock {
    * 0.31.0 deliberately withholds it from ReviewCardBlock/EvidenceBlock.
    */
   action_prompt?: string
+  /**
+   * ── PR3 (living reasoning workspace): the IMPORTANCE / EVIDENCE signals ──
+   *
+   * All five are producer-owned, all OPTIONAL, all fail-closed. They already
+   * existed on the wire (schemas 0.19.0 / 0.20.0 / 0.39.0) and already reach
+   * the guidance store via `deriveGuidance`, which is why the guidance strip,
+   * the inspector and the Strengthen panel can rank and ground a suggestion.
+   * `adaptTypedCoachingBlock` simply never read them, so the CHAT card — the
+   * surface a user actually reads first — was the one consumer that threw the
+   * whole importance channel away. Carrying them here removes a lossy hop; it
+   * does NOT introduce a second source of truth.
+   */
+  /**
+   * The producer's four-value guidance class. The ONLY producer-owned
+   * severity signal on a coaching block (unlike ReviewCardBlock there is no
+   * `severity` field). Code-keyed: the consumer owns the display copy.
+   * ABSENT = the producer classified nothing → render NO badge, and never a
+   * fabricated "normal"/"unknown" tier.
+   */
+  category?: 'must_fix' | 'should_fix' | 'could_fix' | 'technique'
+  /**
+   * COARSE 0–100 urgency for cross-surface budgeting, HIGHER = more urgent.
+   * Band-granular (derived 1:1 from `category` producer-side), so ties are
+   * expected and normal. ⚠ NOT a display order — order by `priority_rank`
+   * ascending, which `composePhase3BridgedBlocks` already does.
+   */
+  priority?: number
+  /**
+   * The producer's STABLE machine-readable detector-class code
+   * (SCREAMING_SNAKE, e.g. `MISSING_BASE_RATE`). Open vocabulary, producer-
+   * owned. Rides as a data-* attribute for downstream readers and is NEVER
+   * rendered as copy — it is an id, not a sentence.
+   */
+  signal_code?: string
+  /**
+   * The producer's SHORT display line stating what TRIGGERED this item
+   * (≤140 on the wire). Producer prose, rendered verbatim — this is the
+   * field that lets a reader tell an evidence-backed signal from a passing
+   * note, and the UI must never compose a substitute for it.
+   */
+  signal?: string
+  /** Absent = this card claims no cited DSK claim. Never "unknown claim". */
+  dsk_claim_provenance?: V5DskClaimProvenance
 }
 
 /**
@@ -348,6 +391,28 @@ export interface V5DskProtocolProvenance {
   protocol_id: string
   protocol_title: string
   evidence_strength: 'strong' | 'medium' | 'weak' | 'mixed'
+}
+
+/**
+ * 0.39.0 `DskClaimProvenanceSchema` — the decision-science CLAIM a coaching
+ * card is grounded in. The CLAIM sibling of `V5DskProtocolProvenance` above.
+ *
+ * ⚠ ATOMIC TRIPLE, NEVER FLAT SIBLINGS — the contract's doctrine of record
+ * (CEE #830): an id must never travel without the title and strength that
+ * make it verifiable against `data/dsk/v1.json`. Three sibling optionals
+ * would let a producer emit a claim id alone — an authority claim with
+ * nothing a consumer can check it against. Do not "flatten it for
+ * consistency": the adapter admits all three members or none.
+ *
+ * ABSENCE SEMANTICS: absent means "not grounded in a cited DSK claim", and
+ * the card renders NO grounding badge. Absence is never a default and never
+ * "unknown claim" — no consumer may infer one.
+ */
+export interface V5DskClaimProvenance {
+  claim_id: string
+  claim_title: string
+  evidence_strength: 'strong' | 'medium' | 'weak' | 'mixed'
+  protocol_id?: string
 }
 
 export interface V5ExerciseBlock {

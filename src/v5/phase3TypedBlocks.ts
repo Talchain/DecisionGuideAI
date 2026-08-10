@@ -42,6 +42,7 @@ import type {
   V5CoachingBlock,
   V5EvidenceBlock,
   V5ExerciseBlock,
+  V5DskClaimProvenance,
   V5DskProtocolProvenance,
   V5Phase3Freshness,
   V5ReviewCardBlock,
@@ -132,6 +133,72 @@ export function adaptTypedReviewCardBlock(raw: unknown): V5ReviewCardBlock | nul
   }
 }
 
+// ─── PR3 importance / evidence helpers ─────────────────────────────────
+
+/**
+ * The producer's four-value guidance class, enum-checked.
+ *
+ * ⚠ ENUM-CHECKED, unlike `coaching_kind`/`source` above — and the asymmetry
+ * is deliberate, not an inconsistency. Those two are pass-through
+ * discriminators that only ever reach a `data-*` attribute, so an unknown
+ * value costs nothing and a new producer kind must not need a UI release.
+ * `category` DRIVES A VISUAL SEVERITY CHANNEL and a user-facing badge, and
+ * the UI never guesses severity (the same rule `severity` on review_card
+ * already follows). An unrecognised value therefore yields `undefined` —
+ * the card renders with NO badge, which is the honest degradation. It must
+ * never fall back to a default tier: inventing "should fix" for a value we
+ * failed to parse is a claim about the user's decision that no one made.
+ *
+ * The four values are pinned against `GuidanceCategory` in the vendored
+ * schema by an identity assertion in the spec, so a contract widening REDs
+ * here rather than silently dropping the new class.
+ */
+const GUIDANCE_CATEGORIES = ['must_fix', 'should_fix', 'could_fix', 'technique'] as const
+
+function guidanceCategory(v: unknown): V5CoachingBlock['category'] | undefined {
+  const s = nonEmptyString(v)
+  if (!s) return undefined
+  return (GUIDANCE_CATEGORIES as readonly string[]).includes(s)
+    ? (s as NonNullable<V5CoachingBlock['category']>)
+    : undefined
+}
+
+/**
+ * The DSK CLAIM provenance triple — the claim sibling of
+ * `dskProtocolProvenance` below, and it follows that helper's doctrine
+ * exactly: ALL-OR-NOTHING.
+ *
+ * A refusal costs the ATTRIBUTION only — never the card. Losing a badge is
+ * a lost affordance; showing a wrong one is a lie about science. So a
+ * partial or malformed triple returns `undefined` and the card renders
+ * ungrounded, which is true, rather than grounded-in-something-unverifiable,
+ * which is not.
+ *
+ * `claim_id` is narrowed to the CLAIM arms — `B` (bias) and `T` (technique)
+ * — so a protocol id (`DSK-P-…`) or trigger id (`DSK-TR-…`) cannot
+ * masquerade as the claim this card cites. `protocol_id` is optional and,
+ * per the contract, lives INSIDE the object so it can never travel without
+ * its claim anchor; a malformed one is dropped without costing the triple.
+ */
+const DSK_CLAIM_ID_RE = /^DSK-(B|T)-\d{3}$/
+
+function dskClaimProvenance(raw: unknown): V5DskClaimProvenance | undefined {
+  if (!isPlainObject(raw)) return undefined
+  const id = nonEmptyString(raw.claim_id)
+  const title = nonEmptyString(raw.claim_title)
+  const strength = nonEmptyString(raw.evidence_strength)
+  if (!id || !title || !strength) return undefined
+  if (!DSK_CLAIM_ID_RE.test(id)) return undefined
+  if (!(DSK_EVIDENCE_STRENGTHS as readonly string[]).includes(strength)) return undefined
+  const protocolId = nonEmptyString(raw.protocol_id)
+  return {
+    claim_id: id,
+    claim_title: title,
+    evidence_strength: strength as V5DskClaimProvenance['evidence_strength'],
+    ...(protocolId && DSK_PROTOCOL_ID_RE.test(protocolId) ? { protocol_id: protocolId } : {}),
+  }
+}
+
 /**
  * Adapt a verbatim raw payload to a typed v5_coaching block.
  * Returns null when the payload is not a well-formed 0.13.x coaching block
@@ -170,6 +237,17 @@ export function adaptTypedCoachingBlock(
   // here would manufacture an affordance the producer never authorised.
   const actionPrompt = nonEmptyString(raw.action_prompt)
 
+  // ── PR3: the importance / evidence channel ─────────────────────────────
+  // Five producer-owned fields that have been on the wire since 0.19.0 /
+  // 0.20.0 / 0.39.0 and that this adapter has never read. Each is carried
+  // VERBATIM and only when the producer sent it in a form we can trust —
+  // a malformed member costs that one signal, never the card.
+  const category = guidanceCategory(raw.category)
+  const priority = finiteNumber(raw.priority)
+  const signalCode = nonEmptyString(raw.signal_code)
+  const signalLine = nonEmptyString(raw.signal)
+  const claimProvenance = dskClaimProvenance(raw.dsk_claim_provenance)
+
   return {
     type: 'v5_coaching',
     block_id: blockId,
@@ -183,6 +261,14 @@ export function adaptTypedCoachingBlock(
     ...(actionIntent ? { action_intent: actionIntent } : {}),
     ...(actionLabel ? { action_label: actionLabel } : {}),
     ...(actionPrompt ? { action_prompt: actionPrompt } : {}),
+    ...(category ? { category } : {}),
+    // `priority` is a real 0–100 number: 0 is meaningful and must survive, so
+    // this tests for undefined rather than truthiness (a `? :` here would
+    // silently drop the least-urgent band).
+    ...(priority !== undefined && priority >= 0 && priority <= 100 ? { priority } : {}),
+    ...(signalCode ? { signal_code: signalCode } : {}),
+    ...(signalLine ? { signal: signalLine } : {}),
+    ...(claimProvenance ? { dsk_claim_provenance: claimProvenance } : {}),
   }
 }
 
