@@ -121,6 +121,29 @@ export const SETTLING_STAGES = [
 ] as const
 
 /**
+ * The post-COACHING_READY table (F1 — honest staged progress). Shown only when
+ * the client HOLDS a COACHING_READY frame on top of the GRAPH_READY one, i.e.
+ * the coaching pass has landed and the turn is still running (live median:
+ * a ~1.7 s window, 59.2 s → 60.9 s — but the 8 Aug measured journey sat in it
+ * for ~28 s, reading "waiting on the values and coaching" about a coaching
+ * pass that had already run).
+ *
+ * ── WHAT THE FRAME LICENSES, AND WHAT IT DELIBERATELY DOES NOT ────────────
+ * COACHING_READY carries only a `coaching_status` ENUM — derived at the CEE
+ * producer: 'complete' | 'partial' | 'failed_degraded' — never the coaching
+ * itself, which arrives only in the terminal payload. So this line may STOP
+ * claiming coaching is outstanding (the pass has landed, whatever its status),
+ * but it may NOT claim coaching "has arrived" or "is ready" — for the
+ * 'failed_degraded' status that would be false, and the client does not
+ * word-switch on the enum because a status-keyed claim about content it has
+ * not seen would still be a guess. Dropping the claim is the only wording
+ * true for every enum value.
+ */
+export const SETTLING_AFTER_COACHING_STAGES = [
+  { afterSeconds: 0, message: 'Your model is on the canvas. Waiting for the settled values…' },
+] as const
+
+/**
  * The terminal honest lines for a draft whose values will NOT settle in this
  * session (`draftStreamPhase === 'unsettled'`). Two, because there are two
  * genuinely different causes and one sentence cannot state both truthfully.
@@ -187,6 +210,33 @@ export const STOPPED_DRAFT_NOTICE =
   'Drafting ended before your model\u2019s values arrived, so they are not final \u2014 and we can\u2019t confirm from here whether this draft saved. The structure is still on the canvas \u2014 start a new draft to get a model with settled values.'
 
 /**
+ * The same terminal state, reached because the DRAFT TURN ITSELF ENDED IN A
+ * SERVER-REPORTED ERROR after GRAPH_READY (F1 \u2014 draft-state truth). Measured
+ * 8 Aug 2026 on deployed staging: GRAPH_READY at 96.981 s, terminal COMPLETE
+ * 504 UPSTREAM_TIMEOUT at 125.202 s \u2014 and the then-current UI REMOVED the
+ * rendered graph and told the user nothing was drafted, while the server
+ * commit remained authoritative (the next turn reloaded it). This notice is
+ * what that state says instead.
+ *
+ * Why a THIRD string rather than reusing the two above: the causes differ and
+ * one sentence cannot state all three truthfully (the same reasoning as the
+ * three early-stop notices). "The connection dropped" is false here \u2014 the
+ * connection delivered the error; "drafting ended" hides that the server
+ * reported a failure. What IS known, and all that is said: the turn failed
+ * after the model reached the canvas; the structure is a validated GRAPH_READY
+ * frame (real); the coaching and settled values only ever arrive in the
+ * terminal payload, which was an error, so they never arrived; and the save
+ * cannot be confirmed from this side of the socket (no status route, guest
+ * RLS \u2014 deliveryUnknown.ts's derivation; the 2.737 rule forbids promising a
+ * receipt the server may not deliver).
+ *
+ * Deliberately free of em dashes and bullet glyphs so `safeRichText`'s
+ * house-style substitutions leave it byte-stable in the DOM.
+ */
+export const DRAFT_FAILED_MODEL_KEPT_NOTICE =
+  'Drafting failed after your model reached the canvas, so its coaching and settled values never arrived. The structure you can see is real, but we can\u2019t confirm from here whether this draft saved. Start a new draft to get a model with settled values.'
+
+/**
  * ── THE THREE EARLY-STOP NOTICES ────────────────────────────────────────────
  *
  * Emitted on EVERY explicit user Stop, including one pressed before any
@@ -232,6 +282,7 @@ export const EARLY_STOP_UNCONFIRMED_NOTICE =
 export const NARRATION_TABLES = {
   'DraftLoadingAnimation.PROGRESSIVE_STAGES': PROGRESSIVE_STAGES,
   'DraftLoadingAnimation.SETTLING_STAGES': SETTLING_STAGES,
+  'DraftLoadingAnimation.SETTLING_AFTER_COACHING_STAGES': SETTLING_AFTER_COACHING_STAGES,
 } as const
 
 function resolveStage(
@@ -258,6 +309,16 @@ export function messageForElapsed(elapsedSeconds: number): string {
  */
 export function messageForSettling(elapsedSeconds: number): string {
   return resolveStage(SETTLING_STAGES, elapsedSeconds)
+}
+
+/**
+ * Resolve the post-COACHING_READY message. Same clock semantics as
+ * `messageForSettling` — the table is currently a single line, but taking the
+ * elapsed argument keeps the three resolvers interchangeable at the call site
+ * (AIInputBar picks one by held-frame state, not by shape).
+ */
+export function messageForSettlingAfterCoaching(elapsedSeconds: number): string {
+  return resolveStage(SETTLING_AFTER_COACHING_STAGES, elapsedSeconds)
 }
 
 export function DraftLoadingAnimation() {

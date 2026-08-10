@@ -332,6 +332,33 @@ describe('the happy path — graph at GRAPH_READY, full ingest at COMPLETE', () 
     expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
   })
 
+  it('COACHING_READY flips the coaching flag for the owning turn, and idle resets it (F1)', async () => {
+    // The seam the narration tests cannot see: they mock the store, and the
+    // store tests call the action directly. This drives the REAL frame through
+    // the REAL stream into the REAL store, so a dropped `onCoachingReady`
+    // handler cannot hide behind green unit suites.
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    expect(useDraftStore.getState().draftStreamCoachingLanded).toBe(false)
+
+    await stream.push(F_COACHING)
+    expect(useDraftStore.getState().draftStreamCoachingLanded).toBe(true)
+
+    await stream.push(fComplete())
+    await stream.close()
+    await act(async () => {
+      await sent
+    })
+    // Terminal ingest released ownership — the flag must not leak forward.
+    expect(useDraftStore.getState().draftStreamCoachingLanded).toBe(false)
+  })
+
   it('runs the FRESH-DRAFT ingest at COMPLETE, not the applied-edit reconcile', async () => {
     // The silent-failure pin. `ceeAnalysisReady` is written ONLY by
     // applyDraftResult's `hasAnalysisReady` branch; `reconcileAppliedGraph`
@@ -559,7 +586,45 @@ describe('FAILURE HONESTY — never a dead end, never a double-commit', () => {
     expect(result.current.messages.map((m) => m.content)).not.toContain(UNSETTLED_DRAFT_NOTICE)
   })
 
-  it('removes the preview when the terminal frame is an error', async () => {
+  it('removes the preview when the terminal frame PROVES the commit failed', async () => {
+    // ⚠ F1 REWROTE THIS PIN. It used to assert removal on ANY ≥400 terminal —
+    // and on the measured 8 Aug journey that destroyed a server-committed
+    // model (GRAPH_READY 96.981 s → terminal 504 at 125.202 s; the next turn
+    // reloaded the committed graph). Removal is honest for exactly one wire
+    // class: the commit-failure envelope, where the server said "Nothing was
+    // written". Every other ≥400 keeps the model and marks it — pinned in
+    // useConversation.streamedDraftTerminalError.spec.tsx.
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    expect(useCanvasStore.getState().nodes).toHaveLength(TERMINAL_NODE_IDS.length)
+
+    await stream.push(
+      fComplete(500, {
+        error: 'INTERNAL_ERROR',
+        boundary: 'B1',
+        direction: 'egress',
+        validator: 'turn_commit',
+        details: { retryable: true, reason: 'draft_graph_commit_failed' },
+      }),
+    )
+    await stream.close()
+    await act(async () => {
+      await sent
+    })
+
+    // The server proved nothing was written — a standing preview would be the
+    // phantom model.
+    expect(useCanvasStore.getState().nodes).toHaveLength(0)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
+  })
+
+  it('KEEPS the preview when the terminal error does not prove the commit failed, and marks it unsettled', async () => {
     const stream = controllableStream()
     mockOpenStream.mockResolvedValue(stream.response)
     const { result } = renderHook(() => useConversation())
@@ -576,9 +641,10 @@ describe('FAILURE HONESTY — never a dead end, never a double-commit', () => {
       await sent
     })
 
-    // A graph rendered on the promise of a turn that then failed must not stay.
-    expect(useCanvasStore.getState().nodes).toHaveLength(0)
-    expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
+    // The commit is unknowable from this side; removal would assert a
+    // falsehood the 8 Aug measurement refuted. Keep, gate shut, marked.
+    expect(useCanvasStore.getState().nodes.map((n) => n.id).sort()).toEqual(TERMINAL_NODE_IDS)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
   })
 })
 

@@ -19,7 +19,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 
-import { PROGRESSIVE_STAGES, SETTLING_STAGES } from '../DraftLoadingAnimation'
+import {
+  PROGRESSIVE_STAGES,
+  SETTLING_STAGES,
+  SETTLING_AFTER_COACHING_STAGES,
+} from '../DraftLoadingAnimation'
 
 vi.mock('../../../lib/supabase', () => ({
   supabase: {
@@ -50,9 +54,14 @@ vi.mock('../../store', () => ({
   useCanvasStore: (selector: (s: unknown) => unknown) => selector(canvasMockState),
 }))
 
-const draftMockState: { draftStreamPhase: string; draftStreamScenarioId: string | null } = {
+const draftMockState: {
+  draftStreamPhase: string
+  draftStreamScenarioId: string | null
+  draftStreamCoachingLanded: boolean
+} = {
   draftStreamPhase: 'idle',
   draftStreamScenarioId: SCENARIO,
+  draftStreamCoachingLanded: false,
 }
 /**
  * Only the HOOK is stubbed — `importOriginal` keeps every other export real.
@@ -114,12 +123,14 @@ function Wrapper({ children }: { children: ReactNode }) {
 
 const DRAFTING_LINE = PROGRESSIVE_STAGES[0].message
 const SETTLING_LINE = SETTLING_STAGES[0].message
+const COACHED_LINE = SETTLING_AFTER_COACHING_STAGES[0].message
 
 beforeEach(() => {
   canvasMockState.nodes = []
   canvasMockState.currentScenarioId = SCENARIO
   draftMockState.draftStreamPhase = 'idle'
   draftMockState.draftStreamScenarioId = SCENARIO
+  draftMockState.draftStreamCoachingLanded = false
   conversationMockState.isThinking = false
   conversationMockState.messages = []
 })
@@ -161,6 +172,49 @@ describe('phase 2 — after GRAPH_READY, graph on canvas, turn still running', (
     draftMockState.draftStreamPhase = 'settling'
     renderBar()
     expect(screen.getByTestId('gen').querySelector('textarea')).toBeDisabled()
+  })
+})
+
+describe('phase 3 — after COACHING_READY, coaching pass landed, values still to come (F1)', () => {
+  it('stops claiming coaching is outstanding once the frame has landed', () => {
+    // The 8 Aug measured journey sat post-COACHING_READY for ~28 s while the
+    // copy still read "waiting on the values and coaching" about a pass that
+    // had already run. Once the frame is held, the line drops the coaching
+    // claim — and ONLY the coaching claim: no wording asserts the coaching
+    // content arrived, because the enum ('failed_degraded' included) does not
+    // license that.
+    conversationMockState.isThinking = true
+    canvasMockState.nodes = [{ id: 'g1' }, { id: 'opt_a' }]
+    draftMockState.draftStreamPhase = 'settling'
+    draftMockState.draftStreamCoachingLanded = true
+    renderBar()
+    expect(screen.getByText(COACHED_LINE)).toBeInTheDocument()
+    expect(screen.queryByText(SETTLING_LINE)).toBeNull()
+    expect(screen.queryByText(DRAFTING_LINE)).toBeNull()
+  })
+
+  it('does NOT use the coached line while the coaching frame has not landed', () => {
+    // Discriminating twin (trap 19's pair rule at the fixture level): same
+    // state, only the flag differs, and the line must differ with it.
+    conversationMockState.isThinking = true
+    canvasMockState.nodes = [{ id: 'g1' }, { id: 'opt_a' }]
+    draftMockState.draftStreamPhase = 'settling'
+    draftMockState.draftStreamCoachingLanded = false
+    renderBar()
+    expect(screen.getByText(SETTLING_LINE)).toBeInTheDocument()
+    expect(screen.queryByText(COACHED_LINE)).toBeNull()
+  })
+
+  it('a landed coaching flag WITHOUT the settling phase narrates nothing new', () => {
+    // The flag is read as a conjunct of `isSettling`, never bare — a stale
+    // flag on an idle store must not put any wait line up.
+    canvasMockState.nodes = [{ id: 'g1' }]
+    draftMockState.draftStreamPhase = 'idle'
+    draftMockState.draftStreamCoachingLanded = true
+    conversationMockState.isThinking = true
+    renderBar()
+    expect(screen.queryByText(COACHED_LINE)).toBeNull()
+    expect(screen.queryByText(SETTLING_LINE)).toBeNull()
   })
 })
 

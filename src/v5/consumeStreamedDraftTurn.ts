@@ -75,8 +75,22 @@ export type StreamedDraftOutcome =
       statusCode: number
       /** The graph handed to `onGraphReady`, or null if none was rendered. */
       renderedGraph: StageGraph | null
-      /** True when the terminal frame is an error and the preview must go. */
-      discardPreview: boolean
+      /**
+       * True when the terminal frame is an error (`status_code >= 400`).
+       *
+       * ⚠ This field used to be called `discardPreview`, and the name was an
+       * instruction the caller obeyed unconditionally — which destroyed a
+       * server-committed model on the measured 8 Aug 2026 journey (GRAPH_READY
+       * at 96.981 s, terminal COMPLETE 504 UPSTREAM_TIMEOUT at 125.202 s, UI
+       * removed the graph and said nothing was drafted while the next turn
+       * could reload the committed model). The commit runs server-side around
+       * the GRAPH_READY emission and ordinarily survives a late failure (CEE
+       * 2.709 first-write exemption), so "terminal error" does NOT imply "no
+       * model". The CALLER decides what to do with the preview, using
+       * `terminalProvesCommitFailed` on the payload — removal is honest only
+       * when the wire proves the commit failed.
+       */
+      terminalError: boolean
       /** Non-null when the preview and the terminal graph disagree on identity. */
       identityDrift: IdentityDrift | null
     }
@@ -169,6 +183,43 @@ function computeDrift(preview: unknown, terminal: unknown): IdentityDrift | null
 }
 
 // ---------------------------------------------------------------------------
+// Terminal-payload commit reconciliation (F1 — draft-state truth)
+// ---------------------------------------------------------------------------
+
+/**
+ * Does this terminal error payload PROVE the draft's graph commit failed?
+ *
+ * The one wire shape that does is CEE route-v2's `!dg.commitPerformed`
+ * envelope — captured at the wire in the fresh-journey P0 diagnosis §1.4:
+ * `{error: INTERNAL_ERROR, validator: turn_commit, details: {reason:
+ * "draft_graph_commit_failed", retryable: true}}`. For that class the server
+ * has said "Nothing was written", so removing the rendered preview states the
+ * truth.
+ *
+ * Everything else — the measured 504 UPSTREAM_TIMEOUT class, proxy timeout
+ * bodies, any other ≥400 — leaves the commit UNKNOWABLE from this side of the
+ * socket, and measured-COMMON to have succeeded (the commit runs around the
+ * GRAPH_READY emission; CEE 2.709's first-write exemption protects it from
+ * mid-draft claims). Returning `false` routes the caller to keep-and-mark,
+ * which is never a fabrication: it claims only that the structure was rendered
+ * and the save is unconfirmed.
+ *
+ * The read is a narrow duck-walk over the containers CEE errors actually use
+ * (top level, `details`, nested `error`), matching `ceeRecovery.ts`'s
+ * fail-closed style. Fail-closed here means: an unreadable payload proves
+ * nothing, so the preview is KEPT and marked — the direction that cannot
+ * destroy a committed model.
+ */
+export function terminalProvesCommitFailed(payload: unknown): boolean {
+  const record = (v: unknown): Record<string, unknown> | null =>
+    typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null
+  const root = record(payload)
+  if (!root) return false
+  const containers = [root, record(root.details), record(root.error), record(record(root.error)?.details)]
+  return containers.some((c) => c !== null && c.reason === 'draft_graph_commit_failed')
+}
+
+// ---------------------------------------------------------------------------
 
 export async function consumeStreamedDraftTurn(
   frames: AsyncIterable<StageFrame>,
@@ -209,9 +260,9 @@ export async function consumeStreamedDraftTurn(
           const statusCode = frame.status_code ?? 200
           // See the module header: `salvaged_from_truncation` is NOT a rung
           // here, because #751 established the streamed frames never carry it.
-          const discardPreview = statusCode >= 400
+          const terminalError = statusCode >= 400
           const identityDrift =
-            renderedGraph && !discardPreview
+            renderedGraph && !terminalError
               ? computeDrift(renderedGraph, (frame.payload as { draft_graph?: unknown })?.draft_graph)
               : null
           return {
@@ -219,7 +270,7 @@ export async function consumeStreamedDraftTurn(
             terminalPayload: frame.payload,
             statusCode,
             renderedGraph,
-            discardPreview,
+            terminalError,
             identityDrift,
           }
         }

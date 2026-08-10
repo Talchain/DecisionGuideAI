@@ -24,7 +24,7 @@ import { callV5Turn, getV5Endpoint, type V5CallResult } from '../../v5/v5Adapter
 import { parseV5Response } from '../../v5/responseParser'
 import { openV5TurnStream, __streamInternals as streamTransport } from '../../v5/streamedTurnTransport'
 import { streamStageFrames } from '../../v5/streamedDraftFrames'
-import { consumeStreamedDraftTurn } from '../../v5/consumeStreamedDraftTurn'
+import { consumeStreamedDraftTurn, terminalProvesCommitFailed } from '../../v5/consumeStreamedDraftTurn'
 import { routeV5Response } from '../../v5/responseRouter'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
 import { isV5Eligible } from '../../v5/eligibility'
@@ -114,6 +114,7 @@ import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/ap
 import {
   UNSETTLED_DRAFT_NOTICE,
   STOPPED_DRAFT_NOTICE,
+  DRAFT_FAILED_MODEL_KEPT_NOTICE,
   EARLY_STOP_NOT_SAVED_NOTICE,
   EARLY_STOP_ALREADY_SAVED_NOTICE,
   EARLY_STOP_UNCONFIRMED_NOTICE,
@@ -494,12 +495,26 @@ export interface StreamedDraftTurnResult {
    */
   previewOwnsCanvas: boolean
   /**
-   * True in the one honest-failure case: the stream died after GRAPH_READY, the
-   * buffered fallback found the turn already committed, and CEE declined to
-   * re-draft — so the structure on screen is real and its numbers will never
-   * settle in this session.
+   * True in the honest-failure cases: the structure on screen is real and its
+   * numbers will never settle in this session. See `unsettledCause` for which
+   * failure produced the state — the notice copy must state the actual cause
+   * (the three-strings-not-one rule).
    */
   unsettled: boolean
+  /**
+   * Which failure produced `unsettled` (undefined when `unsettled` is false):
+   *   `stream_loss`   — the stream died after GRAPH_READY and the buffered
+   *                     fallback found the turn already committed (CEE
+   *                     declined to re-draft), OR a 200 terminal carried no
+   *                     extractable graph (review F4). The connection/payload
+   *                     failed the values, not the turn.
+   *   `terminal_error_model_kept` — the turn ended in a server-reported ≥400
+   *                     AFTER GRAPH_READY, without commit-failure proof (the
+   *                     measured 8 Aug 504 class). The model stays rendered;
+   *                     the save is unconfirmed; the generic failure bubble is
+   *                     suppressed in favour of the one honest notice.
+   */
+  unsettledCause?: 'stream_loss' | 'terminal_error_model_kept'
 }
 
 /**
@@ -637,7 +652,7 @@ async function runStreamedDraftTurn(args: {
       useDraftStore
         .getState()
         .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
-      return { result, previewOwnsCanvas: false, unsettled: true }
+      return { result, previewOwnsCanvas: false, unsettled: true, unsettledCause: 'stream_loss' }
     }
     // Outcome 3.
     useDraftStore.getState().setDraftStreamPhase('idle', null, null)
@@ -658,6 +673,15 @@ async function runStreamedDraftTurn(args: {
   }
 
   const outcome = await consumeStreamedDraftTurn(streamStageFrames(res), {
+    // F1 (honest staged progress): record the COACHING_READY frame so the
+    // settling narration can stop claiming coaching is outstanding once the
+    // pass has landed. Identity-guarded in the store — a stale stream's frame
+    // cannot move a newer turn's narration. Only the ENUM is held; the
+    // coaching content itself arrives exclusively in the terminal payload, so
+    // no copy anywhere claims the coaching "has arrived".
+    onCoachingReady: () => {
+      useDraftStore.getState().markDraftStreamCoachingLanded(turnClientId)
+    },
     onGraphReady: (graph) => {
       // Scenario guard, same rule the buffered ingest applies: a response whose
       // scenario is no longer the open one must not write to the canvas.
@@ -745,8 +769,29 @@ async function runStreamedDraftTurn(args: {
   // `renderedGraph` is non-null only when the render callback ACCEPTED the frame
   // — a rejected preview (scenario switched away) must not have its element ids
   // stripped out of whatever scenario the user moved to.
+  //
+  // ═══ F1 — TERMINAL-FAILURE RECONCILIATION (draft-state truth) ═════════════
+  // A terminal ≥400 after GRAPH_READY used to remove the preview
+  // unconditionally, and on the measured 8 Aug journey that DESTROYED a
+  // server-committed model and told the user nothing was drafted (GRAPH_READY
+  // 96.981 s; terminal COMPLETE 504 UPSTREAM_TIMEOUT 125.202 s; the next turn
+  // reloaded the committed graph — olumi-poc-independent-review-2026-08-09.md).
+  // The commit runs server-side around the GRAPH_READY emission and survives
+  // late failures in the common case (CEE 2.709 first-write exemption), and
+  // this client cannot poll server state (no status route; guest RLS). So the
+  // reconciliation is the terminal payload's own commit marker:
+  //   · proof the commit failed (`draft_graph_commit_failed` — the server said
+  //     "Nothing was written") → remove the preview; removal states the truth.
+  //   · anything else → KEEP the graph. The `previewOwnsCanvas &&
+  //     !resultCarriesDraftGraph` branch below then marks it `unsettled`
+  //     (gate shut, never persisted) with the honest cause, and sendTurn
+  //     renders ONE notice instead of the generic failure copy.
   let previewOwnsCanvas = outcome.renderedGraph !== null
-  if (outcome.discardPreview && outcome.renderedGraph) {
+  const terminalErrorKeepsModel =
+    outcome.terminalError &&
+    outcome.renderedGraph !== null &&
+    !terminalProvesCommitFailed(outcome.terminalPayload)
+  if (outcome.terminalError && outcome.renderedGraph && !terminalErrorKeepsModel) {
     discardStreamedPreview(outcome.renderedGraph)
     previewOwnsCanvas = false
   }
@@ -766,9 +811,11 @@ async function runStreamedDraftTurn(args: {
 
   // ═══ ADVERSARIAL REVIEW F4 ══════════════════════════════════════════════
   // A 200 terminal frame that carries NO extractable `draft_graph` while a
-  // preview is standing is the FAILURE path, not a success. `discardPreview`
-  // only fires on `status_code >= 400`, so this used to leave a phantom preview
-  // on the canvas with the gate OPEN, the phase `idle` and no notice.
+  // preview is standing is the FAILURE path, not a success. The removal path
+  // only fires on a proven commit failure, so this used to leave a phantom
+  // preview on the canvas with the gate OPEN, the phase `idle` and no notice.
+  // (F1 widened this branch: it now also carries the kept-model terminal-error
+  // state, with the cause telling the two apart for the notice.)
   //
   // It is not a malice-only shape: it is the client shadow of the ROWED server
   // salvage gap — a truncation-salvaged turn is precisely a 200 whose graph may
@@ -780,7 +827,15 @@ async function runStreamedDraftTurn(args: {
   // deleting it asserts something false while marking it states the truth.
   if (previewOwnsCanvas && !resultCarriesDraftGraph(result)) {
     useDraftStore.getState().setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
-    return { result, previewOwnsCanvas: false, unsettled: true }
+    return {
+      result,
+      previewOwnsCanvas: false,
+      unsettled: true,
+      // The cause decides the notice: a kept model behind a terminal error is
+      // a different fact from a 200 that lost its graph, and one sentence
+      // cannot state both truthfully.
+      unsettledCause: terminalErrorKeepsModel ? 'terminal_error_model_kept' : 'stream_loss',
+    }
   }
 
   useDraftStore.getState().setDraftStreamPhase('idle', null, null)
@@ -4450,6 +4505,7 @@ export function useConversation(): UseConversationReturn {
         // receipt. `…Unsettled` says the values will not settle in this session.
         let streamedPreviewOwnsCanvas = false
         let streamedUnsettled = false
+        let streamedUnsettledCause: 'stream_loss' | 'terminal_error_model_kept' | undefined
 
         try {
           // Resolve session identity once — X-User-Id + Authorization Bearer
@@ -4497,6 +4553,7 @@ export function useConversation(): UseConversationReturn {
             v5Result = streamed.result
             streamedPreviewOwnsCanvas = streamed.previewOwnsCanvas
             streamedUnsettled = streamed.unsettled
+            streamedUnsettledCause = streamed.unsettledCause
           } else {
             v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
           }
@@ -4622,9 +4679,18 @@ export function useConversation(): UseConversationReturn {
                 recovery: extractCeeRecovery(target.boundaryError ?? target.rawBody),
                 rawBody: target.rawBody,
               })
+            // F1: a typed_error whose stream already delivered GRAPH_READY is
+            // PROOF the server received and processed this message — a
+            // "failed"/"unconfirmed" marker would assert something the held
+            // frame refutes.
+            const deliveryProvenByFrame = streamedUnsettledCause === 'terminal_error_model_kept'
             updateMessage(userBubbleIdForTurn, {
               deliveryState:
-                target.kind !== 'typed_error' ? 'sent' : unverified ? 'unconfirmed' : 'failed',
+                target.kind !== 'typed_error' || deliveryProvenByFrame
+                  ? 'sent'
+                  : unverified
+                    ? 'unconfirmed'
+                    : 'failed',
             })
           }
 
@@ -5025,6 +5091,21 @@ export function useConversation(): UseConversationReturn {
               // feedback rather than fail silently (server class).
               setLastSendFailure({ kind: 'server', retryable: true, inputText: inputForRestore })
             }
+          } else if (streamedUnsettledCause === 'terminal_error_model_kept') {
+            // ═══ F1 — the kept-model terminal error says ONE thing ═══════════
+            // The turn ended ≥400 after GRAPH_READY without commit-failure
+            // proof, so the model is still on the canvas and the save is
+            // unconfirmed. The generic failure copy for this shape asserts
+            // states the held frame refutes ("the server did not reply" — it
+            // replied with a validated graph) or prescribes a retry that would
+            // re-send onto a scenario whose graph is likely committed (CEE's
+            // continuation guard declines — the F3 lesson). The
+            // DRAFT_FAILED_MODEL_KEPT_NOTICE emitted below (the
+            // streamedUnsettled block) is the single honest statement of this
+            // state, so this branch deliberately renders nothing and raises no
+            // send-failure banner: the send demonstrably succeeded.
+            // Streamed drafts are never system turns (streamedDraftEligible
+            // refuses system events), so no dispatcher is owed a failure here.
           } else {
             // Typed error — the LIVE V5 error surface (Codex F6 fix; #383's
             // recovery rendering was wired only to the dead V4 handleEnvelope
@@ -5169,7 +5250,15 @@ export function useConversation(): UseConversationReturn {
               id: crypto.randomUUID(),
               role: 'assistant',
               synthetic: true,
-              content: UNSETTLED_DRAFT_NOTICE,
+              // Cause-keyed copy (the three-strings-not-one rule): a kept
+              // model behind a terminal error is a different fact from a
+              // connection that dropped the values, and each notice states
+              // only its own cause. Both live in DraftLoadingAnimation and are
+              // governed by narrationHonesty.invariant.spec.ts.
+              content:
+                streamedUnsettledCause === 'terminal_error_model_kept'
+                  ? DRAFT_FAILED_MODEL_KEPT_NOTICE
+                  : UNSETTLED_DRAFT_NOTICE,
               // F3: NOT `retry`. `retryLast` re-sends onto the SAME scenario,
               // whose canvas is now non-empty, so it is a buffered turn CEE's
               // continuation guard DECLINES — the old chip could not deliver the
