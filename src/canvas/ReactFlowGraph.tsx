@@ -1649,25 +1649,45 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
    * uses `./utils/graphHash`'s, aliased to make the twin explicit at the call
    * site rather than at the import list (CLAUDE.md's two-same-named-hash trap).
    */
+  // ⚠ SHARES THE POST-BOOT EFFECT BELOW RATHER THAN DECLARING ITS OWN, and that
+  // is a deliberate constraint, not tidiness. `assert-rules-of-hooks-ratchet.mjs`
+  // holds this file at 117 conditional-hook violations: it has an early return
+  // above, so EVERY hook after it is flagged, and a new `useEffect` here takes
+  // the count to 118. That ratchet exists because each violation is a
+  // render-time crash, and it "had an exception for its EXISTING violations, not
+  // a licence to add more". Folding the work into an effect that already exists
+  // adds no hook call. The two concerns are genuinely the same phase — both are
+  // post-boot restoration, both must run after the `[loadSettings]` effect.
+  //
+  // Show recovery toast if we loaded from autosave on mount, and rehydrate guidance.
   useEffect(() => {
+    // ── Guidance rehydration — the user's coaching must survive a refresh ────
+    // ⚠ ORDERING IS THE WHOLE DESIGN, which is why this is an explicit call and
+    // not a module-evaluation spread in the store (the pattern `strengthenStore`
+    // uses). Guidance items are gated on `valid_while`, and BOTH comparators are
+    // only live once the boot effect above has run: `results.hash` arrives with
+    // `restoreAnalysisFromAutosave`, and the graph hash needs the restored
+    // nodes/edges. Rehydrating at module evaluation would adopt items whose
+    // freshness could not yet be checked — and this store's rule is that
+    // unverifiable is stale. Declaring this effect AFTER the boot effect is what
+    // orders it: React runs a component's effects in declaration order.
+    //
+    // ⚠ TWO `generateGraphHash` FUNCTIONS EXIST IN THIS TREE and this file
+    // already imports the OTHER one. `./store/runHistory`'s takes a run SEED; the
+    // comparison here must be seedless and identical at write and read time, so
+    // it uses `./utils/graphHash`'s, aliased to make the twin explicit at the
+    // call site rather than in the import list (the two-same-named-hash trap).
     const st = useCanvasStore.getState()
     setGuidancePersistenceContext(() => {
       const s = useCanvasStore.getState()
-      return {
-        scenarioId: s.currentScenarioId,
-        graphHash: uiGraphHashSeedless(s.nodes, s.edges),
-      }
+      return { scenarioId: s.currentScenarioId, graphHash: uiGraphHashSeedless(s.nodes, s.edges) }
     })
     useGuidanceStore.getState().rehydrateGuidance({
       scenarioId: st.currentScenarioId,
       currentAnalysisHash: st.results?.hash ?? null,
       currentGraphHash: uiGraphHashSeedless(st.nodes, st.edges),
     })
-    return () => setGuidancePersistenceContext(null)
-  }, [])
 
-  // Show recovery toast if we loaded from autosave on mount
-  useEffect(() => {
     try {
       const recovered = sessionStorage.getItem('olumi-recovered-from-autosave')
       if (recovered === 'true') {
@@ -1678,6 +1698,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         }, 500)
       }
     } catch {}
+
+    // Uninstall the guidance persistence context when this canvas unmounts, so
+    // a later mount cannot write under a stale decision identity.
+    return () => setGuidancePersistenceContext(null)
   }, [showToast])
 
   useEffect(() => {
