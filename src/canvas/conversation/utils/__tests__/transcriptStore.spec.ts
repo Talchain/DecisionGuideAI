@@ -12,6 +12,7 @@ import {
   saveTranscript,
   loadTranscript,
   clearTranscript,
+  __resetTranscriptTombstonesForTests,
   formatTruncationNotice,
   TRANSCRIPT_STORAGE_KEY,
   MAX_MESSAGES_PER_SCENARIO,
@@ -32,6 +33,15 @@ function msg(over: Partial<ConversationMessage> = {}): ConversationMessage {
 describe('transcriptStore', () => {
   beforeEach(() => {
     localStorage.clear()
+    // `clearTranscript` now tombstones an id for the page load, so a later
+    // `saveTranscript` for that id is refused — that is the point: without it the
+    // clear is undone on its own React commit. The tombstone is MODULE state and
+    // `localStorage.clear()` does not touch it, so a case that clears SID would
+    // silently disable saving for every later case using SID. Reset it here, as
+    // any module-level singleton must be between tests. No assertion below is
+    // weakened; the tombstone has its own coverage in
+    // `useConversation.resetTranscript.spec.tsx`.
+    __resetTranscriptTombstonesForTests()
   })
 
   it('round-trips the real turns verbatim, not a summary of them', () => {
@@ -173,7 +183,10 @@ describe('transcriptStore', () => {
 })
 
 describe('transcriptStore — previous-session discrimination', () => {
-  beforeEach(() => { localStorage.clear() })
+  beforeEach(() => {
+    localStorage.clear()
+    __resetTranscriptTombstonesForTests() // module state — see the note above
+  })
 
   it('a transcript THIS page load wrote is not "from a previous session"', () => {
     saveTranscript(SID, [msg({ id: 'a', content: 'live turn' })])
