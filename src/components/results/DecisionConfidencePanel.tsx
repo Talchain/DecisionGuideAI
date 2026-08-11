@@ -214,28 +214,14 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   // we now swap in certainty.headline instead so the headline softens with
   // the caveat.
   //
-  // ⚠ `winProbabilityGap` IS NOW RENDER-DEAD (2026-08-10). It used to reach
-  // the user as " by N points" on the softened lede; that suffix is retired
-  // (no surface may state the percentage-point gap between win frequencies),
-  // and `buildCertaintyCopy` no longer reads this field. It is still computed
-  // and passed only so the retirement stayed a copy change; deleting it here
-  // and on the input type is a clean follow-up.
-  const winProbabilityGap = useMemo(() => {
-    const options = data.recommendation.allOptions
-    if (!options || options.length < 2) return undefined
-    const winner = data.recommendation.recommendedOption
-    if (!winner || typeof winner.winProbability !== 'number') return undefined
-    const runnerUp = options
-      .filter(o => o.id !== winner.id && typeof o.winProbability === 'number')
-      .reduce<typeof winner | null>((best, cur) => {
-        if (!best) return cur
-        return (cur.winProbability ?? 0) > (best.winProbability ?? 0) ? cur : best
-      }, null)
-    if (!runnerUp || typeof runnerUp.winProbability !== 'number') return undefined
-    const gapPct = (winner.winProbability - runnerUp.winProbability) * 100
-    return gapPct > 0 ? gapPct : undefined
-  }, [data.recommendation.allOptions, data.recommendation.recommendedOption])
-
+  // ⚠ THE `winProbabilityGap` CHAIN IS GONE (deleted 2026-08-11, the follow-up
+  // the 10 Aug retirement named). It used to reach the user as " by N points"
+  // on the softened lede; that suffix is retired (no surface may state the
+  // percentage-point gap between win frequencies), and `buildCertaintyCopy`
+  // stopped reading the field on 10 Aug — so a 15-line `useMemo` computed the
+  // banned statistic on every render and handed it to a function that ignored
+  // it. Deleting the computation is what makes the retirement structural: the
+  // number no longer exists to be re-rendered by a later branch.
   const certainty = useMemo(() => {
     const winner = data.recommendation.recommendedOption
     if (!winner) return null
@@ -246,7 +232,6 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       recommendationStability: data.recommendation.recommendationStability,
       analysisStatus: data.recommendation.analysisStatus,
       optionCount: data.recommendation.allOptions.length,
-      winProbabilityGap,
       // SINGLE VERDICT: the shared "is there a leading option?" answer,
       // derived from the same PLoT report the canvas badge reads.
       //
@@ -270,7 +255,6 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     data.recommendation.analysisStatus,
     data.recommendation.allOptions.length,
     data.confidence.tier.tier,
-    winProbabilityGap,
     data.recommendation.verdict,
   ])
 

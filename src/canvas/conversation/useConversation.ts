@@ -24,7 +24,7 @@ import { callV5Turn, getV5Endpoint, type V5CallResult } from '../../v5/v5Adapter
 import { parseV5Response } from '../../v5/responseParser'
 import { openV5TurnStream, __streamInternals as streamTransport } from '../../v5/streamedTurnTransport'
 import { streamStageFrames } from '../../v5/streamedDraftFrames'
-import { consumeStreamedDraftTurn, terminalProvesCommitFailed } from '../../v5/consumeStreamedDraftTurn'
+import { consumeStreamedDraftTurn, reconcileTerminalPreview } from '../../v5/consumeStreamedDraftTurn'
 import { routeV5Response } from '../../v5/responseRouter'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
 import { isV5Eligible } from '../../v5/eligibility'
@@ -495,14 +495,20 @@ export interface StreamedDraftTurnResult {
    */
   previewOwnsCanvas: boolean
   /**
-   * True in the honest-failure cases: the structure on screen is real and its
-   * numbers will never settle in this session. See `unsettledCause` for which
-   * failure produced the state — the notice copy must state the actual cause
-   * (the three-strings-not-one rule).
-   */
-  unsettled: boolean
-  /**
-   * Which failure produced `unsettled` (undefined when `unsettled` is false):
+   * PRESENT in the honest-failure cases: the structure on screen is real and
+   * its numbers will never settle in this session. Its VALUE is which failure
+   * produced that state — the notice copy must state the actual cause (the
+   * three-strings-not-one rule).
+   *
+   * ⭐ THERE IS DELIBERATELY NO SEPARATE `unsettled` BOOLEAN. There was one,
+   * set in lockstep with this field at every return site — two variables
+   * carrying one fact, which is trap 12 at interface scope, and the shape that
+   * lets a later return site set `unsettled: true` with no cause (an unsettled
+   * state with no honest sentence to say about it) or a cause with
+   * `unsettled: false` (a diagnosed failure the notice never renders). The
+   * presence of a cause IS the unsettled answer, and the type makes the two
+   * impossible to disagree.
+   *
    *   `stream_loss`   — the stream died after GRAPH_READY and the buffered
    *                     fallback found the turn already committed (CEE
    *                     declined to re-draft), OR a 200 terminal carried no
@@ -643,7 +649,7 @@ async function runStreamedDraftTurn(args: {
       // Outcome 1. The buffered body carries the whole graph, so the terminal
       // ingest replaces whatever the preview put up.
       useDraftStore.getState().setDraftStreamPhase('idle', null, null)
-      return { result, previewOwnsCanvas: previewOnCanvas, unsettled: false }
+      return { result, previewOwnsCanvas: previewOnCanvas }
     }
     if (previewOnCanvas) {
       // Outcome 2 — the honest failure. Phase stays non-idle so the run gate
@@ -652,11 +658,11 @@ async function runStreamedDraftTurn(args: {
       useDraftStore
         .getState()
         .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
-      return { result, previewOwnsCanvas: false, unsettled: true, unsettledCause: 'stream_loss' }
+      return { result, previewOwnsCanvas: false, unsettledCause: 'stream_loss' }
     }
     // Outcome 3.
     useDraftStore.getState().setDraftStreamPhase('idle', null, null)
-    return { result, previewOwnsCanvas: false, unsettled: false }
+    return { result, previewOwnsCanvas: false }
   }
 
   let res: Response
@@ -787,11 +793,16 @@ async function runStreamedDraftTurn(args: {
   //     (gate shut, never persisted) with the honest cause, and sendTurn
   //     renders ONE notice instead of the generic failure copy.
   let previewOwnsCanvas = outcome.renderedGraph !== null
-  const terminalErrorKeepsModel =
-    outcome.terminalError &&
-    outcome.renderedGraph !== null &&
-    !terminalProvesCommitFailed(outcome.terminalPayload)
-  if (outcome.terminalError && outcome.renderedGraph && !terminalErrorKeepsModel) {
+  // The decision is `reconcileTerminalPreview`'s (pure, truth-table-proved
+  // identical to the expression that used to sit here); the EFFECT stays here.
+  const { discardPreview, terminalErrorKeepsModel } = reconcileTerminalPreview(
+    outcome.terminalError,
+    outcome.renderedGraph,
+    outcome.terminalPayload,
+  )
+  // The `!== null` re-check is TypeScript narrowing only: `discardPreview` is
+  // true exclusively on the branch that already required a non-null graph.
+  if (discardPreview && outcome.renderedGraph !== null) {
     discardStreamedPreview(outcome.renderedGraph)
     previewOwnsCanvas = false
   }
@@ -830,7 +841,6 @@ async function runStreamedDraftTurn(args: {
     return {
       result,
       previewOwnsCanvas: false,
-      unsettled: true,
       // The cause decides the notice: a kept model behind a terminal error is
       // a different fact from a 200 that lost its graph, and one sentence
       // cannot state both truthfully.
@@ -839,7 +849,7 @@ async function runStreamedDraftTurn(args: {
   }
 
   useDraftStore.getState().setDraftStreamPhase('idle', null, null)
-  return { result, previewOwnsCanvas, unsettled: false }
+  return { result, previewOwnsCanvas }
 }
 
 /**
@@ -4502,9 +4512,10 @@ export function useConversation(): UseConversationReturn {
         // says "the nodes on the canvas are this turn's own GRAPH_READY
         // preview", which is what lets the terminal ingest take the fresh-draft
         // branch instead of mistaking its own preview for an applied-edit
-        // receipt. `…Unsettled` says the values will not settle in this session.
+        // receipt. `…UnsettledCause` says the values will not settle in this
+        // session, and which failure produced that — its PRESENCE is the
+        // unsettled answer (there is no separate boolean that can disagree).
         let streamedPreviewOwnsCanvas = false
-        let streamedUnsettled = false
         let streamedUnsettledCause: 'stream_loss' | 'terminal_error_model_kept' | undefined
 
         try {
@@ -4552,7 +4563,6 @@ export function useConversation(): UseConversationReturn {
             })
             v5Result = streamed.result
             streamedPreviewOwnsCanvas = streamed.previewOwnsCanvas
-            streamedUnsettled = streamed.unsettled
             streamedUnsettledCause = streamed.unsettledCause
           } else {
             v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
@@ -5101,7 +5111,7 @@ export function useConversation(): UseConversationReturn {
             // re-send onto a scenario whose graph is likely committed (CEE's
             // continuation guard declines — the F3 lesson). The
             // DRAFT_FAILED_MODEL_KEPT_NOTICE emitted below (the
-            // streamedUnsettled block) is the single honest statement of this
+            // streamedUnsettledCause block) is the single honest statement of this
             // state, so this branch deliberately renders nothing and raises no
             // send-failure banner: the send demonstrably succeeded.
             // Streamed drafts are never system turns (streamedDraftEligible
@@ -5245,7 +5255,7 @@ export function useConversation(): UseConversationReturn {
           // before its values arrived, a new draft gets the finished model. No
           // duration forecast, no verdict — held to the same bar as the wait
           // narration and pinned by `narrationHonesty.invariant.spec.ts`.
-          if (streamedUnsettled && mode === 'user' && !hidden) {
+          if (streamedUnsettledCause != null && mode === 'user' && !hidden) {
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',

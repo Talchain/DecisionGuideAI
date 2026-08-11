@@ -187,6 +187,59 @@ function fallbackDescription(
 }
 
 /**
+ * The non-winner comparative line, for the ONE state both non-winner arms share.
+ *
+ * ⭐⭐ THE "Behind by N percentage points" LINE IS RETIRED (2026-08-10).
+ *
+ * It stated the percentage-point DIFFERENCE between two Monte-Carlo win
+ * frequencies. A difference of two estimates carries more uncertainty than
+ * either estimate does, and printed as a bare integer with no interval it read
+ * as the most precise number on the card while being the least reliable one.
+ * The ratified rule: no user-facing surface states that gap — own-probability
+ * statements only.
+ *
+ * DELETED rather than reworded, and the licence for deleting is derivable at
+ * this seam: the branch requires `option.winProbability != null`, which is the
+ * SAME condition that renders the card's own `win-pct-{id}` readout. So
+ * wherever this line could ever have fired, the option's OWN probability is
+ * already on the card — the number survives, only the difference goes. `''` is
+ * the caller's established withhold idiom (see the ROADMAP 1.223 header): the
+ * caller renders nothing and the card falls back to label + win % + bar, which
+ * are DATA and stay.
+ *
+ * The gap is still COMPUTED, purely as the near-tie predicate here. It is never
+ * rendered.
+ *
+ * ⭐ ONE COPY, TWO CALLERS (2026-08-11). The runner-up arm and the
+ * other-non-winner arm carried byte-identical five-line blocks. They were
+ * changed together at the retirement precisely because leaving either one would
+ * keep the banned quantity on screen for a different slice of the option list —
+ * and two copies is how the next such change reaches only one of them. Returns
+ * `null` when the comparison cannot be made, so each caller keeps its OWN
+ * fallback sentence ("Close competitor" / "Compare against the leading
+ * option"), which is the only thing that ever differed between them.
+ *
+ * ⚠ THE BOUNDARY IS `Math.round(diff * 100) > 0`, NOT `diff > 0`. They are not
+ * the same predicate: a raw difference of +0.004 is a positive `diff` and a
+ * ROUNDED gap of 0, i.e. a tie at the precision this card displays. Rounding
+ * first is what makes the near-tie sentence agree with the two percentages
+ * printed beside it.
+ */
+function tiedOrWithheld(
+  winnerWinProbability: number | null | undefined,
+  optionWinProbability: number | null | undefined,
+): string | null {
+  if (winnerWinProbability != null && optionWinProbability != null) {
+    const gapPct = Math.round((winnerWinProbability - optionWinProbability) * 100)
+    if (gapPct > 0) {
+      return ''
+    }
+    return 'Statistically tied with the leading option'
+  }
+  return null
+}
+
+/**
  * V11: Hinge-aware description for option cards.
  * Used when decisionState is available OR when win probability data exists.
  * Task 9: Specific text using flip data and win probability gap.
@@ -319,34 +372,10 @@ function hingeAwareDescription(
     if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === option.label) {
       return `If ${hinge.label} shifts, this option overtakes`
     }
-      // ⭐⭐ THE "Behind by N percentage points" LINE IS RETIRED (2026-08-10).
-      //
-      // It stated the percentage-point DIFFERENCE between two Monte-Carlo win
-      // frequencies. A difference of two estimates carries more uncertainty
-      // than either estimate does, and printed as a bare integer with no
-      // interval it read as the most precise number on the card while being
-      // the least reliable one. The ratified rule: no user-facing surface
-      // states that gap — own-probability statements only.
-      //
-      // DELETED rather than reworded, and the licence for deleting is
-      // derivable at this seam: both arms of this branch require
-      // `option.winProbability != null`, which is the SAME condition that
-      // renders the card's own `win-pct-{id}` readout. So wherever this line
-      // could ever have fired, the option's OWN probability is already on the
-      // card — the number survives, only the difference goes. `''` is this
-      // function's established withhold idiom (see the ROADMAP 1.223 header):
-      // the caller renders nothing and the card falls back to label + win % +
-      // bar, which are DATA and stay.
-      //
-      // The gap is still COMPUTED, purely as the near-tie predicate below. It
-      // is never rendered.
-    if (winnerWinProbability != null && option.winProbability != null) {
-      const gapPct = Math.round((winnerWinProbability - option.winProbability) * 100)
-      if (gapPct > 0) {
-        return ''
-      }
-      return 'Statistically tied with the leading option'
-    }
+    // The retired point-gap line and its surviving near-tie predicate — see
+    // `tiedOrWithheld`, which is the single copy both non-winner arms call.
+    const runnerUpTied = tiedOrWithheld(winnerWinProbability, option.winProbability)
+    if (runnerUpTied !== null) return runnerUpTied
     return 'Close competitor'
   }
   // Task 9: Status quo / baseline — specific copy. ROADMAP 1.239 corrects the
@@ -357,18 +386,12 @@ function hingeAwareDescription(
   if (option.isBaseline) {
     return 'Lowest risk but lowest expected outcome'
   }
-  // Other non-winner. ⭐ Same retirement as the runner-up arm above, and for
-  // the same reason — see that block. Both arms are changed together: leaving
-  // either one would keep the banned quantity on screen for a different slice
-  // of the option list, which is how a "fixed" surface keeps shipping the
-  // defect to the users who happen to have three options.
-  if (winnerWinProbability != null && option.winProbability != null) {
-    const gapPct = Math.round((winnerWinProbability - option.winProbability) * 100)
-    if (gapPct > 0) {
-      return ''
-    }
-    return 'Statistically tied with the leading option'
-  }
+  // Other non-winner. Same retirement and the same near-tie predicate as the
+  // runner-up arm above — now literally the same code, so a future change
+  // cannot reach one arm and miss the other (which would keep the banned
+  // quantity on screen for whoever happens to have three options).
+  const tied = tiedOrWithheld(winnerWinProbability, option.winProbability)
+  if (tied !== null) return tied
   return 'Compare against the leading option'
 }
 

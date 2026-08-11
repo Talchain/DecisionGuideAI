@@ -47,6 +47,7 @@ import {
   type StageGraph,
   type StreamAbandonReason,
 } from './streamedDraftFrames'
+import { isRecord } from '../lib/guards'
 
 export interface StreamedDraftHandlers {
   /** Fired once, on the opening frame (live: 271 ms). */
@@ -211,12 +212,60 @@ function computeDrift(preview: unknown, terminal: unknown): IdentityDrift | null
  * destroy a committed model.
  */
 export function terminalProvesCommitFailed(payload: unknown): boolean {
-  const record = (v: unknown): Record<string, unknown> | null =>
-    typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null
-  const root = record(payload)
-  if (!root) return false
-  const containers = [root, record(root.details), record(root.error), record(record(root.error)?.details)]
-  return containers.some((c) => c !== null && c.reason === 'draft_graph_commit_failed')
+  // `isRecord` is the repo's canonical plain-object guard (`src/lib/guards.ts`)
+  // — same predicate, one definition. This module used to carry a private copy,
+  // which is the hand-maintained-mirror shape that file exists to end.
+  if (!isRecord(payload)) return false
+  const error = isRecord(payload.error) ? payload.error : null
+  const containers: unknown[] = [payload, payload.details, payload.error, error?.details]
+  return containers.some((c) => isRecord(c) && c.reason === 'draft_graph_commit_failed')
+}
+
+/**
+ * The terminal-frame reconciliation DECISION, as the two facts its caller needs.
+ *
+ * ⭐ THIS IS A SHAPE CHANGE ONLY — the truth table is IDENTICAL to the
+ * expression it replaces, and `reconcileTerminalPreview.spec.ts` proves that
+ * row by row against a literal transcription of the old form. It used to read:
+ *
+ *   const terminalErrorKeepsModel = A && G && !P
+ *   if (A && G && !terminalErrorKeepsModel) discard()
+ *
+ * i.e. `A && G && !(A && G && !P)`, which reduces to `A && G && P` — the reader
+ * had to perform that reduction to see that the discard fires ONLY on proven
+ * commit failure. The nested form below states it directly, which matters here
+ * more than anywhere: this is the branch that decides whether a
+ * server-committed model is DESTROYED (the 8 Aug journey P0).
+ *
+ * Extracted out of `runStreamedDraftTurn` rather than left inline because that
+ * function is unexported and network-driven, so an inline branch cannot carry
+ * a truth-table proof. The decision is pure; the effects stay with the caller.
+ *
+ *   A = `terminalError`      — the terminal frame was a ≥400
+ *   G = `renderedGraph !== null` — a preview of ours is on the canvas
+ *   P = `terminalProvesCommitFailed(payload)` — the wire says nothing was written
+ *
+ * `discardPreview` is true ONLY on A ∧ G ∧ P. Every other row keeps the graph,
+ * because keeping is the direction that cannot destroy a committed model.
+ * `terminalErrorKeepsModel` (A ∧ G ∧ ¬P) is what tells the caller's notice
+ * which of the two honest failures happened.
+ *
+ * `terminalProvesCommitFailed` is read INSIDE the A ∧ G branch, preserving the
+ * short-circuit the old `&&` chain had: on an ordinary 200 the payload is never
+ * walked.
+ */
+export function reconcileTerminalPreview(
+  terminalError: boolean,
+  renderedGraph: StageGraph | null,
+  terminalPayload: unknown,
+): { discardPreview: boolean; terminalErrorKeepsModel: boolean } {
+  if (terminalError && renderedGraph !== null) {
+    if (terminalProvesCommitFailed(terminalPayload)) {
+      return { discardPreview: true, terminalErrorKeepsModel: false }
+    }
+    return { discardPreview: false, terminalErrorKeepsModel: true }
+  }
+  return { discardPreview: false, terminalErrorKeepsModel: false }
 }
 
 // ---------------------------------------------------------------------------

@@ -112,7 +112,6 @@ function certainty(verdict: ReturnType<typeof deriveDecisionVerdict>) {
     recommendationStability: 0.9,
     analysisStatus: 'computed',
     optionCount: 3,
-    winProbabilityGap: 35,
     verdict,
   })
 }
