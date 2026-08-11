@@ -21,6 +21,16 @@ interface AuthContextType {
   authenticated: boolean;
   signInWithMagicLink: (email: string) => Promise<{ error: unknown }>;
   signInWithGoogle: () => Promise<{ error: unknown }>;
+  /**
+   * Owner password sign-in — the pilot's auth route (link-track R1 item 7,
+   * ratified 11 Aug 2026). Owners are PRE-PROVISIONED; there is deliberately
+   * no sign-up path, here or on the surface.
+   *
+   * Deliberately NOT named `signIn`: that name is taken by a legacy no-op
+   * below, and quietly making a no-op real is how a surface starts reporting
+   * success for something it never did. A new capability gets a new name.
+   */
+  signInWithPassword: (email: string, password: string) => Promise<{ error: unknown }>;
   signOut: () => Promise<{ error: unknown }>;
 
   // Legacy compat — kept so existing components that destructure these don't break.
@@ -36,6 +46,7 @@ const AuthContext = createContext<AuthContextType>({
   authenticated: false,
   signInWithMagicLink: async () => ({ error: new Error('AuthContext not initialized') }),
   signInWithGoogle: async () => ({ error: new Error('AuthContext not initialized') }),
+  signInWithPassword: async () => ({ error: new Error('AuthContext not initialized') }),
   signIn: async () => ({ error: new Error('Password auth removed'), data: null }),
   signUp: async () => ({ error: new Error('Password auth removed'), data: null }),
   signOut: async () => ({ error: new Error('AuthContext not initialized') }),
@@ -127,6 +138,39 @@ async function callSignInWithMagicLink(email: string): Promise<{ error: unknown 
   }
 }
 
+/**
+ * Owner password sign-in. ONE implementation, shared by every posture — the
+ * rule this module's header states, and the rule whose breach shipped a
+ * silent-success twin that told users a link was on its way while making no
+ * network call at all.
+ *
+ * No sign-up, no `shouldCreateUser`, no account creation of any kind: owners
+ * are pre-provisioned. A wrong password and an unknown address both return
+ * Supabase's own 400 `Invalid login credentials`, which is already
+ * enumeration-safe, so nothing here re-classifies it.
+ */
+async function callSignInWithPassword(
+  email: string,
+  password: string,
+): Promise<{ error: unknown }> {
+  // NEVER log the password, and never log it by accident via a spread.
+  authLogger.debug('SIGN_IN', 'Password sign-in request', { email });
+  try {
+    if (typeof supabase.auth.signInWithPassword !== 'function') {
+      return { error: signInUnavailable('signInWithPassword') };
+    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      authLogger.error('ERROR', 'Password sign-in failed', error);
+      return { error };
+    }
+    return { error: null };
+  } catch (error) {
+    authLogger.error('ERROR', 'Password sign-in error', error);
+    return { error: asFault(error) };
+  }
+}
+
 async function callSignInWithGoogle(): Promise<{ error: unknown }> {
   authLogger.debug('SIGN_IN', 'Google OAuth request');
   try {
@@ -180,6 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authenticated: true,
       signInWithMagicLink: async () => ({ error: null }),
       signInWithGoogle: async () => ({ error: null }),
+      signInWithPassword: async () => ({ error: null }),
       signIn: async () => ({ error: null, data: null }),
       signUp: async () => ({ error: null, data: null }),
       signOut: async () => ({ error: null }),
@@ -277,6 +322,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     signInWithMagicLink: callSignInWithMagicLink,
     signInWithGoogle: callSignInWithGoogle,
+    signInWithPassword: callSignInWithPassword,
 
     // Legacy no-ops
     signIn: legacyNoOp,
@@ -432,6 +478,7 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
 
     signInWithMagicLink: callSignInWithMagicLink,
     signInWithGoogle: callSignInWithGoogle,
+    signInWithPassword: callSignInWithPassword,
 
     // Password auth is removed product-wide. The guest branch used to answer
     // `{ error: null, data: { id: 'guest' } }` here — a success report for a

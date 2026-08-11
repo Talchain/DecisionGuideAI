@@ -5,11 +5,13 @@ import React from 'react'
 
 const mockSignInWithMagicLink = vi.fn()
 const mockSignInWithGoogle = vi.fn()
+const mockSignInWithPassword = vi.fn()
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({
     authenticated: false,
     signInWithMagicLink: mockSignInWithMagicLink,
     signInWithGoogle: mockSignInWithGoogle,
+    signInWithPassword: mockSignInWithPassword,
   }),
 }))
 
@@ -28,6 +30,7 @@ describe('LoginPage', () => {
     vi.clearAllMocks()
     mockSignInWithMagicLink.mockResolvedValue({ error: null })
     mockSignInWithGoogle.mockResolvedValue({ error: null })
+    mockSignInWithPassword.mockResolvedValue({ error: null })
   })
 
   it('renders sign-in heading and email input', () => {
@@ -52,7 +55,7 @@ describe('LoginPage', () => {
     fireEvent.change(input, { target: { value: 'user@example.com' } })
 
     await act(async () => {
-      fireEvent.submit(input.closest('form')!)
+      fireEvent.submit(screen.getByTestId('magic-link-form'))
     })
 
     expect(mockSignInWithMagicLink).toHaveBeenCalledWith('user@example.com')
@@ -64,7 +67,7 @@ describe('LoginPage', () => {
     fireEvent.change(input, { target: { value: 'user@example.com' } })
 
     await act(async () => {
-      fireEvent.submit(input.closest('form')!)
+      fireEvent.submit(screen.getByTestId('magic-link-form'))
     })
 
     expect(screen.getByText(/if this email is registered/i)).toBeInTheDocument()
@@ -115,7 +118,7 @@ describe('LoginPage × server faults are reported, enumeration stays closed', ()
     const input = screen.getByPlaceholderText('you@example.com')
     fireEvent.change(input, { target: { value: email } })
     await act(async () => {
-      fireEvent.submit(input.closest('form')!)
+      fireEvent.submit(screen.getByTestId('magic-link-form'))
     })
   }
 
