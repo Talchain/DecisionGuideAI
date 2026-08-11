@@ -23,11 +23,25 @@
  * (CLAUDE.md trap 19). jsdom proves WIRING, never pixels (trap 3) — the visual
  * claim is not made here.
  *
- * ⚠ ENUMERATION IS THE RISK THIS PAGE WAS BUILT AROUND, so it is asserted
- * directly: every failure cause must reach ONE state with ONE sentence. A
- * failure message that differs by cause tells an attacker which addresses
- * exist, and the magic-link half of this page goes to real lengths to avoid
- * exactly that.
+ * ⚠ ENUMERATION IS THE RISK THIS PAGE WAS BUILT AROUND — but the sentence that
+ * used to sit here was the PREMISE B3 DISPROVED, and it survived at the top of
+ * the very file that disproves it. It read: *"every failure cause must reach
+ * ONE state with ONE sentence."* That is false at this head and, more to the
+ * point, it was harmful: collapsing every cause into one message is how a 500,
+ * a 501 and a 429 came to be reported to a pilot owner as "your password didn't
+ * match", which is untrue of all three.
+ *
+ * THE REAL PROPERTY, which is what the cases below assert:
+ *   · ADDRESS-CORRELATED causes must be INDISTINGUISHABLE from one another.
+ *     Supabase answers a wrong password, an unknown address, an existing but
+ *     unconfirmed address and a banned account all with a 400 — and the last
+ *     two reveal that the address EXISTS. All four must render byte-identical
+ *     copy from the same element, or this page becomes an account oracle.
+ *   · Causes that are NOT address-correlated — 5xx, 501, 429 — are returned
+ *     identically whether or not the address exists, so reporting them
+ *     DISTINCTLY leaks nothing and is the only way for the copy to be true.
+ * Two questions, two predicates (CLAUDE.md trap 21). A header that contradicts
+ * the file beneath it is how the next lane re-collapses the states (trap 14).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
@@ -214,10 +228,37 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
    * The pair is now asserted directly, and the three non-enumeration causes get
    * their own cases below.
    */
-  it('a wrong password and an unknown address are BYTE-IDENTICAL — enumeration stays closed', async () => {
+  it('FOUR different address-correlated 400 causes are BYTE-IDENTICAL — enumeration stays closed', async () => {
+    /**
+     * ⚠ ROUND 3. The first version of this case built its list from TWO
+     * BYTE-IDENTICAL 400s, so it asserted DETERMINISM, not indistinguishability
+     * across causes — it could not see the property it was named for. The
+     * closing review demonstrated it with mutant E1 (the failure copy
+     * interpolating the raw Supabase `error.message`, a genuine leak vector):
+     * 49/49 GREEN. The product was fine; the guard was the weak thing.
+     *
+     * These four are the causes Supabase actually distinguishes behind one 400
+     * — and the last two are the dangerous ones, because they only occur for an
+     * address that EXISTS. If any of them reached different copy, this page
+     * would answer "does this account exist?" for anyone who asked.
+     */
     const enumerationSurface = [
-      Object.assign(new Error('Invalid login credentials'), { status: 400 }), // wrong password
-      Object.assign(new Error('Invalid login credentials'), { status: 400 }), // unknown address
+      Object.assign(new Error('Invalid login credentials'), {
+        status: 400,
+        code: 'invalid_credentials',
+      }), // wrong password
+      Object.assign(new Error('Invalid login credentials'), {
+        status: 400,
+        code: 'invalid_credentials',
+      }), // unknown address — the same wire response, deliberately
+      Object.assign(new Error('Email not confirmed'), {
+        status: 400,
+        code: 'email_not_confirmed',
+      }), // the address EXISTS but is unconfirmed
+      Object.assign(new Error('User is banned'), {
+        status: 400,
+        code: 'user_banned',
+      }), // the address EXISTS and is suspended
     ]
 
     const messages = new Set<string>()
@@ -232,8 +273,23 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
 
     expect(
       messages.size,
-      `the failure message differs between a wrong password and an unknown address, which leaks which addresses exist: ${[...messages].join(' | ')}`,
+      `the failure copy differs across address-correlated causes, which turns this page into an account oracle: ${[...messages].join(' | ')}`,
     ).toBe(1)
+
+    // POSITIVE CONTROL on the probe itself: the causes above must be
+    // distinguishable IN PRINCIPLE, or byte-identity is vacuous. A 500 renders
+    // a DIFFERENT element with DIFFERENT text, so the loop above is reading a
+    // surface that genuinely can vary.
+    mockSignInWithPassword.mockResolvedValue({
+      error: Object.assign(new Error('boom'), { status: 500 }),
+    })
+    renderLogin()
+    fillCredentials('owner@example.com', 'pw')
+    await submitPassword()
+    expect(screen.queryByTestId('owner-password-error')).toBeNull()
+    expect(screen.getByTestId('owner-password-server-error').textContent ?? '').not.toBe(
+      [...messages][0],
+    )
   })
 
   it('a 500 is reported as OUR fault — never as "your password didn’t match"', async () => {
@@ -363,6 +419,58 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
    * form-owner rules, Enter in a text control submits the form it is
    * associated with, and association is exactly what was missing.
    */
+  /**
+   * ── THE DIRECTION WORD IN THE oauth-failed COPY (round-1 N2, round-2 blocker)
+   * This sentence has now been wrong TWICE, in both directions, and each time it
+   * was a claim about LAYOUT asserted from someone's memory of the JSX. Round 1:
+   * *"use the email link above"* after that button moved below. Round 2's
+   * correction: *"the password form above"* — wrong the same way, and worse,
+   * because it sent an owner whose Google sign-in had just failed to look
+   * upward for the pilot's ONLY working control.
+   *
+   * So the direction is now MEASURED, not read: `compareDocumentPosition` on
+   * the rendered DOM, with a positive control proving the probe can tell the two
+   * directions apart. The container is `flex flex-col`, so DOM order is visual
+   * order. Move either form and this REDs, which is the point — the copy cannot
+   * silently drift away from the layout a third time.
+   */
+  it('the oauth-failed copy names a direction the DOM actually agrees with', async () => {
+    mockSignInWithGoogle.mockResolvedValue({
+      error: Object.assign(new Error('Unsupported provider'), { status: 400 }),
+    })
+    renderLogin()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /continue with google/i }))
+    })
+
+    const message = screen.getByTestId('oauth-failed-message')
+    const heading = screen.getByRole('heading', { name: /sign in to olumi/i })
+
+    /** Measured relationship of `el` to the message, in reading order. */
+    const relativeToMessage = (el: Element): 'above' | 'below' =>
+      // eslint-disable-next-line no-bitwise
+      message.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING ? 'below' : 'above'
+
+    // POSITIVE CONTROL FIRST: the probe must be able to return 'above'.
+    // Without this, a probe that answered 'below' for everything would satisfy
+    // the assertions beneath it while measuring nothing (trap 13).
+    expect(
+      relativeToMessage(heading),
+      'the position probe cannot distinguish the two directions — it never returns "above"',
+    ).toBe('above')
+
+    expect(relativeToMessage(screen.getByTestId('owner-password-form'))).toBe('below')
+    expect(relativeToMessage(screen.getByTestId('magic-link-form'))).toBe('below')
+
+    // Both controls the sentence points at are BELOW it, so the copy may say
+    // "below" and must not say "above".
+    const copy = (message.textContent ?? '').toLowerCase()
+    expect(copy, 'the copy claims a control is above this message; both are below').not.toMatch(
+      /\babove\b/,
+    )
+    expect(copy).toMatch(/\bbelow\b/)
+  })
+
   it('the shared email field is OWNED by the password form, so Enter has somewhere to go', () => {
     renderLogin()
     const emailField = screen.getByPlaceholderText('you@example.com') as HTMLInputElement

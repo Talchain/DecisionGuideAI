@@ -389,9 +389,23 @@ export default function LoginPage() {
                   </p>
                 )}
                 {pageState === 'oauth-failed' && (
-                  <p className={`${typography.bodySmall} text-danger mt-1`} role="alert">
+                  /* ⚠ THE DIRECTION WORD IS LOAD-BEARING AND HAS NOW BEEN WRONG
+                     TWICE. This message renders INSIDE the email-field div,
+                     which closes above the password form — so BOTH controls it
+                     points at are below it. Round 1 said "the email link above"
+                     after that button moved below; round 2's correction then
+                     said "the password form above", which was wrong the same
+                     way. The container is `flex flex-col`, so DOM order IS
+                     visual order, and the spec measures it with
+                     `compareDocumentPosition` rather than reading this comment:
+                     move either form and the pin REDs. */
+                  <p
+                    className={`${typography.bodySmall} text-danger mt-1`}
+                    role="alert"
+                    data-testid="oauth-failed-message"
+                  >
                     We couldn&rsquo;t start Google sign-in. Please use the password
-                    form above or the email link below, or ask your Olumi contact.
+                    form or the email link below, or ask your Olumi contact.
                   </p>
                 )}
               </div>
