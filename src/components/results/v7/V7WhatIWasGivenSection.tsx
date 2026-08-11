@@ -112,15 +112,38 @@ const COPY = {
    *     question — a structural error where there had been a useful sentence.
    *   connected to the options but not the goal  → `NO_PATH_TO_GOAL`.
    *   an instruction NAMING a causal target that keeps the graph valid
-   *                                       → **HELD**, then confirm → applied.
-   *   control, the estate's proven edit grammar ("Change X to Y.") → applied.
-   *     (The control is why the four refusals are evidence about the phrasings
-   *      and not about a sick service.)
+   *                                       → still refused, `PIPELINE_OWNED_FIELD`
+   *     ("the candidate targets an analysis-derived, pipeline-owned field") — the
+   *     factors that feed the goal in a drafted graph are themselves
+   *     analysis-derived, so naming one does not rescue the add.
+   *   control, the estate's proven edit grammar ("Change X to Y.", target derived
+   *     from THIS run's graph by identity) → applied. The control is why the
+   *     refusals are evidence about the phrasings and not about a sick service.
    *
-   * So an accepted instruction EXISTS — and its acceptance condition is
-   * knowledge THIS PANEL DOES NOT HAVE: what the figure should causally
-   * influence. A receipt that picked a target would be the product inventing
+   * ⚠ AN EARLIER VERSION OF THIS COMMENT SAID THE OPPOSITE — "**HELD**, then
+   * confirm → applied" — AND IT WAS FALSE. Two arms were scored HELD by a probe
+   * whose classifier read `d.verdict === 'held' || !!d.blocker_code`, so the
+   * disjunct overrode an explicit `verdict: "rejected"` that happened to carry a
+   * blocker code. Both were REJECTED, neither carried a `held_proposal` block, and
+   * no arm in any round ever sent a confirmation turn — the "confirm → applied"
+   * half was never executed at all. Caught in review. It is trap 13c exactly: a
+   * 13-mutant kit measures whether the TESTS can detect a change, never whether
+   * the ORACLE is right, so a full kill-rate certified nothing about this.
+   *
+   * ⚠ SO THE LADDER IS UNMEASURED, and this comment will not reassure the reader
+   * that it exists. Across 15 arms over 5 rounds — the last with the corrected
+   * classifier, a target derived by identity from the run's own graph, and a
+   * positive control that APPLIED — no add instruction has ever been observed to
+   * be accepted. Whether a user's own answer can land one is not established.
+   *
+   * What IS established is what the design rests on: every add phrasing the
+   * receipt could compose is refused, and every ask phrasing is answered with
+   * concrete, model-grounded options. The acceptance condition for an add is
+   * knowledge THIS PANEL DOES NOT HAVE — what the figure should causally
+   * influence — and a receipt that picked a target would be the product inventing
    * causality on the user's behalf, which is worse than the CTA doing nothing.
+   * The engine itself ends in the same place: "connect 'Annual revenue' to a
+   * factor that already feeds your goal. Which factor should it relate to?"
    *
    * The button therefore does the thing that measurably works and is true: it
    * asks. The user's answer names the target, and THAT turn is the one the
@@ -223,13 +246,19 @@ export function recoverBriefSentence(briefText: string | null, charOffset: numbe
  *     Adding the brief sentence made this WORSE, not better: it gave the model
  *     enough confidence to author a node, which the validator then rejected,
  *     turning a useful sentence into a structural error.
- *   * an instruction that DID name a valid causal target was accepted (HELD →
- *     confirm → applied).
+ *   * an instruction that DID name a causal target was ALSO refused
+ *     (`PIPELINE_OWNED_FIELD`): the goal-feeding factors in a drafted graph are
+ *     analysis-derived, so naming one does not rescue the add.
  *
- * So the accepted instruction exists and its precondition is knowledge this
- * panel does not have. Asking is not the weaker option here; it is the only one
- * that is true. The user's answer names the target, and that turn is the one the
- * engine accepts.
+ * ⚠ THIS PARAGRAPH ONCE CLAIMED SUCH AN INSTRUCTION WAS ACCEPTED ("HELD →
+ * confirm → applied"). That was a classifier defect, not a measurement — an
+ * explicit `verdict: "rejected"` overridden by a `|| !!d.blocker_code` disjunct —
+ * and no confirmation turn was ever sent. Across 15 arms over 5 rounds, with a
+ * positive control that applied, no add has been observed to be accepted.
+ *
+ * Asking is not the weaker option here; it is the only one that is true. What the
+ * user's answer can then achieve is for the engine and the user to work out
+ * between them — this panel does not claim it.
  *
  * The sentence is included because it makes the ANSWER better, not because it
  * makes an add possible: with it, the engine's reply named the specific existing
@@ -237,7 +266,12 @@ export function recoverBriefSentence(briefText: string | null, charOffset: numbe
  */
 export function composeNotModelledQuestion(item: NotModelledItem, briefText: string | null): string {
   const sentence = recoverBriefSentence(briefText, item.charOffset)
-  const opening = `My brief mentions ${item.literal}, which isn't in the model.`
+  // ⚠ BYTE-IDENTICAL TO PROBE ARM J, deliberately. This read "which isn't in the
+  // model" until review pointed out that no arm attested the shipped string — the
+  // probed and shipped openings diverged at index 32. The claim "derived at the
+  // live router" has to be about the bytes the product actually sends, not about
+  // a neighbouring string, so the product now sends the string that was measured.
+  const opening = `My brief mentions ${item.literal}, which is not in the model yet.`
   const context = sentence ? ` The brief says: "${sentence}"` : ''
   return `${opening}${context} What could this figure influence in this decision, and where would it belong? Don't change the model yet — tell me the options first.`
 }

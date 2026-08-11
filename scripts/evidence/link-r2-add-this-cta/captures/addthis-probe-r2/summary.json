@@ -1,0 +1,73 @@
+{
+  "brief": "Should we replace our current CRM with HubSpot next quarter, or keep what we have? We are a 34-person B2B sales team with annual revenue of £31m. Annual CRM cost is about £50,000 and switching would cost roughly £20,000 one-off. The goal is higher sales productivity without blowing the budget.",
+  "results": [
+    {
+      "arm": "F_CONNECT_TO_BUDGET",
+      "note": "names an existing factor that already reaches the goal",
+      "message": "Add a new factor called \"Annual revenue\" with a value of £31m, and connect it so that it influences Budget Headroom.",
+      "scenarioId": "fc7d0010-691b-4ffb-8ec4-97fd173f265a",
+      "nodesBefore": 15,
+      "nodesAfter": null,
+      "newLabels": null,
+      "outcome": {
+        "kind": "HELD",
+        "markers": [
+          "details.verdict/blocker_code"
+        ]
+      },
+      "blockTypes": [
+        "error"
+      ],
+      "text": "I couldn't take that change forward, so the model is unchanged. Tell me a different way you would like to change it and I will try again."
+    },
+    {
+      "arm": "G_CONNECT_CHAIN_TO_GOAL",
+      "note": "names the full chain, including the goal node, explicitly",
+      "message": "Add a new factor called \"Annual revenue\" with a value of £31m. Connect it so that Annual revenue influences Budget Headroom, and make sure the new factor has a path through to the goal \"Increase Sales Productivity Within Budget\".",
+      "scenarioId": "996d37dc-c715-476f-af11-1e408278e9a4",
+      "nodesBefore": 15,
+      "nodesAfter": null,
+      "newLabels": null,
+      "outcome": {
+        "kind": "HELD",
+        "markers": [
+          "details.verdict/blocker_code"
+        ]
+      },
+      "blockTypes": [
+        "error"
+      ],
+      "text": "I couldn't take that change forward, so the model is unchanged. Tell me a different way you would like to change it and I will try again."
+    },
+    {
+      "arm": "H_RELATIVE_COST",
+      "note": "the engine's OWN suggested resolution, quoted back to it (its clarify text proposes expressing CRM cost as a share of revenue)",
+      "message": "Add a new factor called \"Annual revenue\" with a value of £31m, and connect it to Annual CRM Licence Cost so that CRM cost can be read as a share of revenue.",
+      "scenarioId": "7d1b1217-1131-4506-8fd8-008b0d19e7b8",
+      "nodesBefore": 14,
+      "nodesAfter": null,
+      "newLabels": null,
+      "outcome": {
+        "kind": "NO_TYPED_OUTCOME",
+        "codes": []
+      },
+      "blockTypes": [],
+      "text": "The model is unchanged so far. Tell me the specific factor, edge, option, or value to change, and I'll apply it directly."
+    },
+    {
+      "arm": "I_CONTROL_KNOWN_GOOD",
+      "note": "POSITIVE CONTROL — the estate's own proven edit grammar (golden-journey T4). If THIS is refused, the probe is measuring a broken service, not the phrasings.",
+      "message": "Change Annual CRM Licence Cost to £64,000.",
+      "scenarioId": "adf3ac1c-138d-430a-815e-f3da027cb1c3",
+      "nodesBefore": 14,
+      "nodesAfter": 14,
+      "newLabels": [],
+      "outcome": {
+        "kind": "APPLIED_DIRECT",
+        "codes": []
+      },
+      "blockTypes": [],
+      "text": "Updated Annual CRM Licence Cost"
+    }
+  ]
+}

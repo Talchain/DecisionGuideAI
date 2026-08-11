@@ -2371,8 +2371,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             <li>Any analysis results</li>
             <li>AI assistant conversation</li>
           </ul>
+          {/* Same correction as CanvasToolbar's sheet — see the note there.
+              Undo restores the graph; the conversation is a localStorage delete
+              and is gone. */}
           <p className="text-sm text-gray-500">
-            You can undo this action with Ctrl+Z (Cmd+Z on Mac).
+            Undo (Ctrl+Z / Cmd+Z) can bring the graph back. The conversation cannot be recovered.
           </p>
           <div className="flex gap-2">
             <button

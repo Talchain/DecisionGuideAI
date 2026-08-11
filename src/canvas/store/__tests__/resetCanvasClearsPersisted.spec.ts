@@ -104,4 +104,64 @@ describe('resetCanvas — a fresh start is fresh on the next load', () => {
       'resetting one decision deleted a different decision\'s conversation',
     ).toContain('some-other-decision')
   })
+
+  /**
+   * ── "Start fresh" is about the WORKING CANVAS, not about saved records ────
+   *
+   * `getCurrentScenarioId()` can hold a SAVED record's id (`loadScenario` writes
+   * one; so does `createScenario` via `saveCurrentScenario`), and the
+   * ScenarioSwitcher is mounted in both the toolbar and the top bar. Clearing
+   * the transcript unconditionally meant: save a decision → "Start fresh" → the
+   * graph record survives and its conversation is destroyed, so re-opening it
+   * shows the model beside an empty chat.
+   *
+   * That is the very defect `transcriptStore`'s header was written to fix — and
+   * the fix for the demo hazard re-created it. Both directions are pinned here.
+   */
+  it('does NOT destroy a SAVED decision\'s conversation — the record survives, so its transcript must too', () => {
+    const created = scenarios.createScenario({ name: 'Saved decision', nodes: [], edges: [] })
+    scenarios.setCurrentScenarioId(created.id)
+    localStorage.setItem(
+      TRANSCRIPT_STORAGE_KEY,
+      JSON.stringify({ [created.id]: { savedAt: Date.now(), dropped: 0, messages: [{ id: 'm1', role: 'user', content: 'hi' }] } }),
+    )
+    useCanvasStore.setState({
+      nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Saved' } }] as never,
+      edges: [],
+    })
+
+    expect(scenarios.getScenario(created.id), 'precondition: the record must exist to be protected').toBeDefined()
+
+    useCanvasStore.getState().resetCanvas()
+
+    expect(
+      Object.keys(JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY) ?? '{}')),
+      '"Start fresh" destroyed a SAVED decision\'s conversation: the graph record survives, so re-opening it now ' +
+        'shows the model beside an empty chat',
+    ).toContain(created.id)
+  })
+
+  it('DOES discard an UNSAVED decision\'s conversation — the discriminating twin', () => {
+    // Without this, a guard that simply never cleared anything would satisfy the
+    // case above while re-opening the demo hazard the item exists for.
+    const unsavedId = 'cccccccc-dddd-eeee-ffff-000000000000'
+    scenarios.setCurrentScenarioId(unsavedId)
+    expect(scenarios.getScenario(unsavedId), 'precondition: this id must NOT be a saved record').toBeUndefined()
+    localStorage.setItem(
+      TRANSCRIPT_STORAGE_KEY,
+      JSON.stringify({ [unsavedId]: { savedAt: Date.now(), dropped: 0, messages: [{ id: 'm1', role: 'user', content: 'hi' }] } }),
+    )
+    useCanvasStore.setState({
+      nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Unsaved' } }] as never,
+      edges: [],
+    })
+
+    useCanvasStore.getState().resetCanvas()
+
+    expect(
+      Object.keys(JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY) ?? '{}')),
+      'the guard is too wide: an unsaved decision\'s conversation survived "start fresh" and will be restored ' +
+        'into what the next visitor enters as a fresh session',
+    ).not.toContain(unsavedId)
+  })
 })

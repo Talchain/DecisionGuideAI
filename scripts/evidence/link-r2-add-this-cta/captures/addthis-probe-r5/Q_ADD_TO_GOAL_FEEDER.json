@@ -1,0 +1,107 @@
+{
+  "arm": "Q_ADD_TO_GOAL_FEEDER",
+  "scenarioId": "24ea47d1-ed27-47a7-ab54-db0ea0edb1ec",
+  "nodesBefore": 14,
+  "labels": [
+    "CRM Platform Decision",
+    "Team Adoption Difficulty",
+    "Annual CRM Cost",
+    "CRM Platform Capability",
+    "One-Off Switching Cost",
+    "Sales Team Size",
+    "Maximise Sales Productivity Within Budget",
+    "Negotiate & Optimise Current CRM",
+    "Keep Current CRM (Status Quo)",
+    "Switch to HubSpot",
+    "Budget Headroom",
+    "Sales Team Productivity",
+    "Low CRM Adoption Rate",
+    "Transition Disruption to Sales Activity"
+  ],
+  "target": "Budget Headroom",
+  "goal": "Maximise Sales Productivity Within Budget",
+  "message": "Add a new factor called \"Annual revenue\" with a value of £31m, and connect it so that it influences Budget Headroom, which already feeds the goal.",
+  "edit": {
+    "kind": "REFUSED",
+    "verdict": "rejected",
+    "codes": [
+      "blocker:PIPELINE_OWNED_FIELD"
+    ],
+    "markers": [
+      "details.verdict=\"rejected\""
+    ],
+    "nodesAfter": null,
+    "text": "I couldn't take that change forward, so the model is unchanged. Tell me a different way you would like to change it and I will try again."
+  },
+  "editFullBody": {
+    "response_version": 2,
+    "assistant_text": "I couldn't take that change forward, so the model is unchanged. Tell me a different way you would like to change it and I will try again.",
+    "blocks": [
+      {
+        "type": "error",
+        "error_code": "INTERNAL_ERROR",
+        "severity": "warn",
+        "details": {
+          "source": "graph_management",
+          "verdict": "rejected",
+          "mutation_class": "structural",
+          "blocker_code": "PIPELINE_OWNED_FIELD",
+          "blocker_readable": "The candidate targets an analysis-derived, pipeline-owned field.",
+          "candidate_id": "2f160385-062a-4459-9bb2-ce728cd3aa4e",
+          "base_hash_match": true
+        }
+      }
+    ],
+    "suggested_actions": [],
+    "insights": [],
+    "stage_indicator": "frame",
+    "graph_hash": "611d910315b5b4a1",
+    "_diagnostic_trace": {
+      "llm_calls": [
+        {
+          "role": "edit_graph",
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "input_tokens": 13896,
+          "output_tokens": 736,
+          "cache_read_tokens": null,
+          "cache_creation_tokens": null,
+          "latency_ms": 9040,
+          "stop_reason": "end_turn",
+          "thinking_enabled": false,
+          "error": null
+        }
+      ],
+      "prompt_identity": [],
+      "zone2_assembly": null,
+      "tool_policy": null,
+      "provider_resolution": [],
+      "structured_output_config": null,
+      "streaming_metrics": null,
+      "fallback_trace": [],
+      "benchmarking": {
+        "total_duration_ms": 12492,
+        "substage_timings": {
+          "finalisation_ms": 1
+        }
+      },
+      "correlation_ids": {
+        "request_id": "65e1c697-54ac-4219-bb8a-d816450b75d7",
+        "scenario_id": "24ea47d1-ed27-47a7-ab54-db0ea0edb1ec",
+        "turn_id": "862f9655-2c00-466a-ac83-33dfe7f91aaa",
+        "response_hash": "f739a5cc7470"
+      },
+      "environment": {
+        "build_sha": "2d38408",
+        "environment": "staging"
+      },
+      "exit_path": "edit_graph",
+      "trace_version": 1,
+      "claim_safety": {
+        "may_name_leading_option": true,
+        "verdict_provenance": "no_analysis_exists",
+        "withheld_projection_reason": null
+      }
+    }
+  }
+}

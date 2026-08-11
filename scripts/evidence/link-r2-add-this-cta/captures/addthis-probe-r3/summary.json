@@ -1,0 +1,53 @@
+{
+  "brief": "Should we replace our current CRM with HubSpot next quarter, or keep what we have? We are a 34-person B2B sales team with annual revenue of £31m. Annual CRM cost is about £50,000 and switching would cost roughly £20,000 one-off. The goal is higher sales productivity without blowing the budget.",
+  "sentence": "We are a 34-person B2B sales team with annual revenue of £31m.",
+  "results": [
+    {
+      "arm": "J_ASK_WHERE_WITH_SENTENCE",
+      "note": "ASK phrasing + the charOffset-recovered sentence, explicitly deferring the change",
+      "message": "My brief mentions £31m, which is not in the model yet. The brief says: \"We are a 34-person B2B sales team with annual revenue of £31m.\" What could this figure influence in this decision, and where would it belong? Don't change the model yet — tell me the options first.",
+      "scenarioId": "ba5d6602-52ed-42be-9907-0d6e90d4dd9e",
+      "outcome": {
+        "kind": "ANSWERED_NO_MUTATION",
+        "codes": []
+      },
+      "blockTypes": [],
+      "suggestedActions": [
+        "Run analysis"
+      ],
+      "text": "Annual revenue isn't in your model yet, but it would most naturally sit behind the risk of revenue loss during transition, or as a scale factor on productivity.\n\n• **Revenue at risk during switching.** Your model already has a factor for revenue loss during transition; £31m gives that a real base to size against, so a small percentage dip becomes a concrete pound figure rather than an abstract risk.\n• **Scale check on the cost numbers.** Against £31m in revenue, the £50,000 annual cost and £20,000 switch cost are both under 0.3% of turnover, worth having explicit so the budget trade-off isn't overweighted relative to the productivity upside.\n• **Team size and revenue together imply revenue per head.** That could sharpen what 'sales productivity' actually means, since a generic productivity outcome is harder to size than a revenue-per-rep figure tied to your real numbers.\n\nThere isn't a single obviously correct place for £31m. It could be added as a factor feeding the revenue loss during transition risk (to size how disruption translates into pounds), as context that recalibrates the budget headroom outcome (since £50k-£70k against £31m is a small fraction of revenue), or as a denominator alongside team size to define productivity in revenue-per-head terms. Which of these matches what you want the £31m to do: size the transition risk, sanity-check the budget stakes, or redefine "
+    },
+    {
+      "arm": "K_ASK_WHERE_SHORT",
+      "note": "ASK phrasing, sentence but no explicit deferral — does the deferral clause carry the weight?",
+      "message": "My brief mentions £31m (\"We are a 34-person B2B sales team with annual revenue of £31m.\") and it is not in the model. What could it influence here?",
+      "scenarioId": "3aec4d81-96a2-404a-920f-fbd525f6188f",
+      "outcome": {
+        "kind": "ANSWERED_NO_MUTATION",
+        "codes": []
+      },
+      "blockTypes": [
+        "ui_directive"
+      ],
+      "suggestedActions": [
+        "Run analysis"
+      ],
+      "text": "Revenue isn't represented as a factor in your model right now, so it has no direct link to anything yet.\n\nStructurally, though, there are a couple of places it would plausibly connect. Annual CRM cost sits at £50k and switching cost at roughly £20k one-off, both of which feed into budget headroom, which in turn links to your goal of maximising sales productivity within budget; £31m in revenue gives useful context for how material those costs are relative to the business, which matters when judging how much budget headroom really is at stake. Revenue could also relate to sales team productivity, the other driver of your goal, since productivity gains from a new platform would ultimately need to show up as revenue impact to matter at this scale. Neither link exists in your model yet, so right now revenue is background context rather than something the structure reasons over.\n\nIf you want it to influence the analysis, it would need to be added as a factor connected to budget headroom or sales productivity, but that's a structural decision for you to make rather than one I'd assume."
+    },
+    {
+      "arm": "L_ASK_NO_SENTENCE",
+      "note": "DISCRIMINATING TWIN of J: identical ask, sentence REMOVED. Isolates what the charOffset context actually buys.",
+      "message": "My brief mentions £31m, which is not in the model yet. What could this figure influence in this decision, and where would it belong? Don't change the model yet — tell me the options first.",
+      "scenarioId": "8ef41287-3fbd-4022-9122-ed591ded087a",
+      "outcome": {
+        "kind": "ANSWERED_NO_MUTATION",
+        "codes": []
+      },
+      "blockTypes": [],
+      "suggestedActions": [
+        "Run analysis"
+      ],
+      "text": "Your £31m revenue figure isn't in the model, and it would work best as context that scales your cost and productivity factors rather than as a standalone factor.\n\n• **As a scale check on CRM cost.** £50k against £31m revenue is a small fraction, so this could anchor how much budget headroom actually matters versus sales productivity in your goal.\n• **As a scale check on the productivity upside.** Revenue lets you translate a productivity gain into a rough pound figure, which would sharpen how the switch versus status quo trade-off gets weighed.\n• **As a size-normalising factor alongside team size.** Revenue per head could relate to how much a platform capability gain actually moves the needle, similar to how team size already links to productivity.\n\nNone of these are in your model yet, and I haven't changed anything. The most natural home is as a new controllable-adjacent factor feeding into budget headroom and sales productivity, since both currently only take inputs from cost and capability factors, not from overall revenue scale. Which of these framings fits your thinking, or would you rather see it purely as a budget-scale reference rather than something that feeds the productivity side?"
+    }
+  ]
+}

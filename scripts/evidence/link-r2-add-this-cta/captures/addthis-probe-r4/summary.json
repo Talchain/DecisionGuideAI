@@ -1,0 +1,55 @@
+{
+  "brief": "Should we replace our current CRM with HubSpot next quarter, or keep what we have? We are a 34-person B2B sales team with annual revenue of £31m. Annual CRM cost is about £50,000 and switching would cost roughly £20,000 one-off. The goal is higher sales productivity without blowing the budget.",
+  "results": [
+    {
+      "arm": "M_TARGET_PLAIN_FACTOR",
+      "note": "targets a plain brief-derived factor, not an analysis-derived one",
+      "message": "Add a new factor called \"Annual revenue\" with a value of £31m, and connect it so that it influences Annual CRM Licence Cost.",
+      "scenarioId": "63eee40b-4667-4e0d-90be-d713705bc854",
+      "nodesBefore": 14,
+      "add": {
+        "kind": "REFUSED",
+        "verdict": null,
+        "codes": [
+          "rejection:ORPHAN_NODE",
+          "violation:ORPHAN_NODE"
+        ],
+        "blockTypes": [
+          "error"
+        ],
+        "text": "I couldn't make that change in one edit, because \"Annual revenue\" isn't connected to your goal yet. On its own it has no path through to your goal, so I've left everything as it was. To go ahead, connect \"Annual revenue\" to a factor that already feeds your goal. Which factor should it relate to?"
+      },
+      "confirm": null
+    },
+    {
+      "arm": "N_TARGET_ADOPTION",
+      "note": "targets the adoption factor — also brief-derived",
+      "message": "Add a new factor called \"Annual revenue\" with a value of £31m, and connect it so that it influences Sales Team Adoption Rate.",
+      "scenarioId": "428dd0e2-e29f-4b76-a4f1-7500aab3e601",
+      "nodesBefore": 14,
+      "add": {
+        "kind": "ANSWERED_NO_MUTATION",
+        "verdict": null,
+        "codes": [],
+        "blockTypes": [],
+        "text": "The model is unchanged so far. Tell me the specific factor, edge, option, or value to change, and I'll apply it directly."
+      },
+      "confirm": null
+    },
+    {
+      "arm": "O_CONTROL_KNOWN_GOOD",
+      "note": "POSITIVE CONTROL — the proven edit grammar. If this fails the service is sick and no arm may be read.",
+      "message": "Change Annual CRM Licence Cost to £64,000.",
+      "scenarioId": "81c2508c-729a-4fd4-bdcc-fb6f0207e729",
+      "nodesBefore": 14,
+      "add": {
+        "kind": "ANSWERED_NO_MUTATION",
+        "verdict": null,
+        "codes": [],
+        "blockTypes": [],
+        "text": "Which one should I update: Annual CRM Spend or CRM Capability Level?"
+      },
+      "confirm": null
+    }
+  ]
+}

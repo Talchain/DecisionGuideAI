@@ -2804,9 +2804,25 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     //
     // Ordering is load-bearing: the transcript file is keyed BY SCENARIO ID, so
     // it must be read before `clearCurrentScenarioId()` discards the key.
+    // ⚠ A SAVED DECISION'S CONVERSATION IS NOT THIS COMMAND'S TO DESTROY.
+    // `getCurrentScenarioId()` can hold a SAVED record's id — `loadScenario`
+    // writes one, and so does `createScenario` via `saveCurrentScenario`, and the
+    // ScenarioSwitcher is mounted in both the toolbar and the top bar. Clearing
+    // unconditionally meant: save a decision → "Start fresh" → the graph RECORD
+    // survives and its conversation is gone, so re-opening it shows the model
+    // beside an empty chat. That is precisely the defect `transcriptStore`'s own
+    // header was written to fix, re-created by the fix for a different one.
+    //
+    // "Start fresh" is about the WORKING CANVAS. The unsaved autosave is working
+    // state and is cleared; a saved record's transcript belongs to the record and
+    // is left alone. Only an UNSAVED decision's transcript is discarded, which is
+    // the demo-hazard case this item exists for.
     const scenarioIdBeingReset = scenarios.getCurrentScenarioId()
+    const isSavedRecord = scenarioIdBeingReset
+      ? scenarios.getScenario(scenarioIdBeingReset) !== undefined
+      : false
     scenarios.clearAutosave()
-    clearTranscript(scenarioIdBeingReset)
+    if (!isSavedRecord) clearTranscript(scenarioIdBeingReset)
 
     const { nodes, edges } = get()
     if (nodes.length === 0 && edges.length === 0) {

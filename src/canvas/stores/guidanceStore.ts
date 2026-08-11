@@ -390,7 +390,37 @@ export function setGuidancePersistenceContext(provider: (() => GuidancePersisten
   guidanceContextProvider = provider
 }
 
-function persistCurrent(items: GuidanceItem[]): void {
+/**
+ * ⚠ `minting` IS THE WHOLE CORRECTNESS OF THE GRAPH GATE, and the first version
+ * of this function did not have it.
+ *
+ * `graphHashAtWrite` has to mean **"the hash of the graph these items were
+ * AUTHORED against"**. The original stamped `ctx.graphHash` on *every* persist,
+ * which quietly redefined it as *"the hash at the last persist"* — and any
+ * persist that happened after a graph change then LAUNDERED the survivors to the
+ * new hash, so the adoption gate compared H2 against H2 and let stale coaching
+ * through.
+ *
+ * That is not a corner case; it is the product's primary path. Accepting an
+ * assistant patch calls `clearItemsByTargetIds` under
+ * `beginExternalGraphMutation('patch_apply')`, which SUPPRESSES the
+ * `clearGuidanceItems()` that a normal edit would fire. So the graph moves
+ * H1 → H2, the untargeted items legitimately survive — and re-stamping them at
+ * H2 made them look freshly authored. `dismissItem` did the same.
+ *
+ * Only `setGuidanceItems` — a turn delivering guidance — is authorship. Every
+ * other path INHERITS the stamp from the blob already on disk, and where it
+ * cannot (no blob, or a blob for another decision) it writes `null`, which the
+ * adoption gate treats as unverifiable and therefore stale. Fail closed.
+ *
+ * Found by review, not by this lane's own corpus, and the reason is worth
+ * recording: every fixture here installed a provider returning a CONSTANT graph
+ * hash, so the write-side hash could never move between authorship and a later
+ * persist. The corpus shared the code's blind spot — it tested the READ hash
+ * moving and never the WRITE hash (CLAUDE.md traps 22b/13d). The spec now varies
+ * the provider's hash, which is the only shape that can see this.
+ */
+function persistCurrent(items: GuidanceItem[], opts: { minting: boolean }): void {
   if (!guidanceContextProvider) return
   let ctx: GuidancePersistenceContext
   try {
@@ -411,10 +441,20 @@ function persistCurrent(items: GuidanceItem[]): void {
     clearPersistedGuidance()
     return
   }
+
+  let graphHashAtWrite: string | null
+  if (opts.minting) {
+    graphHashAtWrite = ctx.graphHash
+  } else {
+    const existing = readPersistedGuidance()
+    graphHashAtWrite =
+      existing && existing.scenarioId === ctx.scenarioId ? existing.graphHashAtWrite : null
+  }
+
   writePersistedGuidance({
     version: 1,
     scenarioId: ctx.scenarioId,
-    graphHashAtWrite: ctx.graphHash,
+    graphHashAtWrite,
     items,
   })
 }
@@ -432,7 +472,9 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
         ? activeGuidanceItemId
         : null,
     })
-    persistCurrent(items)
+    // AUTHORSHIP — a turn delivered these items against the graph as it is
+    // now, so this is the one call site that mints a new `graphHashAtWrite`.
+    persistCurrent(items, { minting: true })
   },
 
   rehydrateGuidance: ({ scenarioId, currentAnalysisHash, currentGraphHash }) => {
@@ -479,7 +521,10 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
     set({ guidanceItems: fresh, activeGuidanceItemId: null })
     // Re-persist the SURVIVORS, so a second reload cannot resurrect an item this
     // one just evicted (the stored blob must always match the store).
-    persistCurrent(fresh)
+    // NOT authorship: these items were authored by an earlier turn and have
+    // just been re-validated. Minting here would stamp them with the CURRENT
+    // graph and defeat the gate they were only now allowed through.
+    persistCurrent(fresh, { minting: false })
     return fresh.length
   },
 
@@ -488,7 +533,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
     // Structural edits reach here. Clearing on screen but leaving the blob on
     // disk would let the next reload re-adopt advice about the PRE-edit model —
     // the single most damaging thing this store could do.
-    persistCurrent([])
+    persistCurrent([], { minting: false })
   },
 
   setActiveGuidanceItem: (itemId) => {
@@ -561,7 +606,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
         ? activeGuidanceItemId
         : null,
     })
-    persistCurrent(surviving)
+    persistCurrent(surviving, { minting: false })
   },
 
   dismissItem: (itemId) => {
@@ -573,7 +618,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       activeGuidanceItemId: activeGuidanceItemId === itemId ? null : activeGuidanceItemId,
     })
     // A dismissal the user made must not come back on refresh.
-    persistCurrent(surviving)
+    persistCurrent(surviving, { minting: false })
   },
 
   clearItemsByTargetIds: (ids) => {
@@ -608,7 +653,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
         ? activeGuidanceItemId
         : null,
     })
-    persistCurrent(surviving)
+    persistCurrent(surviving, { minting: false })
   },
 }))
 

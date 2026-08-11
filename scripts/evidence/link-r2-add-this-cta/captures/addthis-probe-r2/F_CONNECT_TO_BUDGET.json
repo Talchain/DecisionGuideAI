@@ -1,0 +1,90 @@
+{
+  "arm": "F_CONNECT_TO_BUDGET",
+  "note": "names an existing factor that already reaches the goal",
+  "message": "Add a new factor called \"Annual revenue\" with a value of £31m, and connect it so that it influences Budget Headroom.",
+  "scenarioId": "fc7d0010-691b-4ffb-8ec4-97fd173f265a",
+  "nodesBefore": 15,
+  "nodesAfter": null,
+  "newLabels": null,
+  "outcome": {
+    "kind": "HELD",
+    "markers": [
+      "details.verdict/blocker_code"
+    ]
+  },
+  "blockTypes": [
+    "error"
+  ],
+  "text": "I couldn't take that change forward, so the model is unchanged. Tell me a different way you would like to change it and I will try again.",
+  "fullBody": {
+    "response_version": 2,
+    "assistant_text": "I couldn't take that change forward, so the model is unchanged. Tell me a different way you would like to change it and I will try again.",
+    "blocks": [
+      {
+        "type": "error",
+        "error_code": "INTERNAL_ERROR",
+        "severity": "warn",
+        "details": {
+          "source": "graph_management",
+          "verdict": "rejected",
+          "mutation_class": "structural",
+          "blocker_code": "PIPELINE_OWNED_FIELD",
+          "blocker_readable": "The candidate targets an analysis-derived, pipeline-owned field.",
+          "candidate_id": "3828d706-51ba-4544-be9d-45383c6918a5",
+          "base_hash_match": true
+        }
+      }
+    ],
+    "suggested_actions": [],
+    "insights": [],
+    "stage_indicator": "frame",
+    "graph_hash": "8134abc51ee779e5",
+    "_diagnostic_trace": {
+      "llm_calls": [
+        {
+          "role": "edit_graph",
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "input_tokens": 13884,
+          "output_tokens": 531,
+          "cache_read_tokens": null,
+          "cache_creation_tokens": null,
+          "latency_ms": 6920,
+          "stop_reason": "end_turn",
+          "thinking_enabled": false,
+          "error": null
+        }
+      ],
+      "prompt_identity": [],
+      "zone2_assembly": null,
+      "tool_policy": null,
+      "provider_resolution": [],
+      "structured_output_config": null,
+      "streaming_metrics": null,
+      "fallback_trace": [],
+      "benchmarking": {
+        "total_duration_ms": 10793,
+        "substage_timings": {
+          "finalisation_ms": 1
+        }
+      },
+      "correlation_ids": {
+        "request_id": "4827b79d-9cbb-434d-a08d-17967bedd4b2",
+        "scenario_id": "fc7d0010-691b-4ffb-8ec4-97fd173f265a",
+        "turn_id": "77ec2f5f-39e5-4f88-979c-e5c0f9f888fb",
+        "response_hash": "b9103c98dc9e"
+      },
+      "environment": {
+        "build_sha": "2d38408",
+        "environment": "staging"
+      },
+      "exit_path": "edit_graph",
+      "trace_version": 1,
+      "claim_safety": {
+        "may_name_leading_option": true,
+        "verdict_provenance": "no_analysis_exists",
+        "withheld_projection_reason": null
+      }
+    }
+  }
+}

@@ -17,10 +17,22 @@
  *   figure + brief sentence                  REFUSED  ORPHAN_NODE
  *   named factor + value                     REFUSED  ORPHAN_NODE
  *   named factor + "connect to the options"  REFUSED  NO_PATH_TO_GOAL
- *   named factor + a valid causal target     **HELD** → confirm → applied
+ *   named factor + a valid causal target     REFUSED  PIPELINE_OWNED_FIELD
  *   control: "Change X to Y." (proven grammar) APPLIED — so the refusals are
  *                                              evidence about the phrasings and
  *                                              not about a sick service
+ *
+ * ⚠ THE TABLE ABOVE ONCE READ "**HELD** → confirm → applied" ON ROW 5 AND THAT WAS
+ * FALSE. The probe's classifier used `d.verdict === 'held' || !!d.blocker_code`,
+ * so the disjunct overrode an explicit `verdict: "rejected"`; both arms were
+ * rejected, neither carried a `held_proposal`, and no round ever sent a
+ * confirmation turn. Caught in review — and note what it defeats: 13 mutants all
+ * bit, because a mutant kit measures whether the TEST can detect a change and
+ * never whether the ORACLE is right (trap 13c). Across 15 arms over 5 rounds, the
+ * last with a corrected classifier and a positive control that applied, NO add
+ * has been observed to be accepted. The ask decision below rests on the refusals
+ * and the answers, which is sufficient; the "it lands one turn later" ladder is
+ * UNMEASURED and is claimed nowhere.
  *   the ASK phrasings (3 variants)           answered with concrete, model-grounded
  *                                              options; no orphan, no error
  *
@@ -82,7 +94,7 @@ describe('recoverBriefSentence — the offset CEE already sends, finally used', 
 describe('composeNotModelledQuestion — the turn the CTA fires', () => {
   it('asks where the figure belongs and carries the brief sentence, VERBATIM', () => {
     expect(composeNotModelledQuestion(itemAt('£31m'), BRIEF)).toBe(
-      'My brief mentions £31m, which isn\'t in the model. ' +
+      'My brief mentions £31m, which is not in the model yet. ' +
         'The brief says: "We are a 34-person B2B sales team with annual revenue of £31m." ' +
         "What could this figure influence in this decision, and where would it belong? " +
         "Don't change the model yet — tell me the options first.",
@@ -104,7 +116,7 @@ describe('composeNotModelledQuestion — the turn the CTA fires', () => {
   it('still asks a usable question when the brief is unavailable — never quotes nothing', () => {
     const msg = composeNotModelledQuestion(itemAt('£31m'), null)
     expect(msg).not.toContain('The brief says')
-    expect(msg).toContain('My brief mentions £31m, which isn\'t in the model.')
+    expect(msg).toContain('My brief mentions £31m, which is not in the model yet.')
     expect(msg).toContain('What could this figure influence in this decision')
   })
 

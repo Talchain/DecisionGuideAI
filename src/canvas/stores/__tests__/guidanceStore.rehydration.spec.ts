@@ -190,6 +190,131 @@ describe('guidanceStore — rehydration across a reload', () => {
     expect(useGuidanceStore.getState().guidanceItems.map((i) => i.item_id)).toEqual(['fresh-from-this-turn'])
   })
 
+  /**
+   * ── THE WRITE-SIDE HASH, which this file could not previously see ──────────
+   *
+   * Every case above installs a provider returning a CONSTANT `GRAPH_HASH`, so
+   * the hash stamped at write time can never move between authorship and a
+   * later persist. That made the corpus blind in exactly the direction the code
+   * was blind: it moved the READ hash and never the WRITE hash (traps 22b/13d —
+   * a corpus that shares the code's asymmetry cannot see the code's defect).
+   *
+   * These cases vary the PROVIDER's hash, which is the only shape that can
+   * observe it, and they are the review's, not this lane's.
+   */
+  describe('a persist that happens AFTER the graph moved must not launder the stamp', () => {
+    /** Install a provider whose graph hash this test can move, as the real one does. */
+    function movableProvider(initial: string) {
+      const box = { hash: initial }
+      setGuidancePersistenceContext(() => ({ scenarioId: SCENARIO, graphHash: box.hash }))
+      return box
+    }
+
+    it('CASE 1 — accepting an assistant patch does not re-stamp the survivors', () => {
+      const box = movableProvider('H1')
+      // A turn authors two items against H1; one is pinned to the graph.
+      useGuidanceStore.getState().setGuidanceItems([
+        item('targeted', { graph_hash: 'cee-aag-v1' }),
+        item('untargeted', { graph_hash: 'cee-aag-v1' }),
+      ])
+
+      // The user accepts an assistant patch. The graph moves H1 -> H2, and
+      // ConversationPanel calls clearItemsByTargetIds for the patched elements.
+      // That runs under beginExternalGraphMutation('patch_apply'), which
+      // SUPPRESSES the clearGuidanceItems() a normal edit would fire — so the
+      // untargeted item legitimately survives, and gets persisted again.
+      box.hash = 'H2'
+      useGuidanceStore.setState({
+        guidanceItems: useGuidanceStore.getState().guidanceItems.map((i) =>
+          i.item_id === 'targeted' ? { ...i, target_object: { type: 'node', id: 'n1' } } : i,
+        ),
+      })
+      useGuidanceStore.getState().clearItemsByTargetIds(['n1'])
+      expect(
+        useGuidanceStore.getState().guidanceItems.map((i) => i.item_id),
+        'precondition: the untargeted item must survive the patch, or this measures nothing',
+      ).toEqual(['untargeted'])
+
+      simulateReload()
+      const adopted = useGuidanceStore.getState().rehydrateGuidance({
+        scenarioId: SCENARIO,
+        currentAnalysisHash: ANALYSIS_HASH,
+        currentGraphHash: 'H2',
+      })
+
+      expect(
+        adopted,
+        'coaching authored against the PRE-patch model was adopted onto the post-patch graph: the persist that ' +
+          'followed the patch re-stamped it at the new hash, so the gate compared H2 against H2 and let it through',
+      ).toBe(0)
+    })
+
+    it('CASE 2 — dismissing an item does not re-stamp the rest', () => {
+      const box = movableProvider('H1')
+      useGuidanceStore.getState().setGuidanceItems([
+        item('a', { graph_hash: 'cee-aag-v1' }),
+        item('b', { graph_hash: 'cee-aag-v1' }),
+      ])
+
+      box.hash = 'H2' // the user edited the model
+      useGuidanceStore.getState().dismissItem('a') // ...then dismissed a card
+
+      simulateReload()
+      expect(
+        useGuidanceStore.getState().rehydrateGuidance({
+          scenarioId: SCENARIO,
+          currentAnalysisHash: ANALYSIS_HASH,
+          currentGraphHash: 'H2',
+        }),
+        'a dismissal laundered the remaining item onto the edited graph',
+      ).toBe(0)
+    })
+
+    it('CONTROL — with no intervening graph change, the survivors are still adopted', () => {
+      // The discriminator. Without this, a fix that simply refused to adopt
+      // anything after a non-authoring persist would satisfy both cases above
+      // while destroying the feature.
+      const box = movableProvider('H1')
+      useGuidanceStore.getState().setGuidanceItems([
+        item('a', { graph_hash: 'cee-aag-v1' }),
+        item('b', { graph_hash: 'cee-aag-v1' }),
+      ])
+      useGuidanceStore.getState().dismissItem('a') // same persist path, graph unmoved
+      expect(box.hash).toBe('H1')
+
+      simulateReload()
+      expect(
+        useGuidanceStore.getState().rehydrateGuidance({
+          scenarioId: SCENARIO,
+          currentAnalysisHash: ANALYSIS_HASH,
+          currentGraphHash: 'H1',
+        }),
+        'the fix threw away guidance that was still perfectly valid',
+      ).toBe(1)
+      expect(useGuidanceStore.getState().guidanceItems.map((i) => i.item_id)).toEqual(['b'])
+    })
+
+    it('a NEW turn after a graph change mints a fresh stamp and is adopted at the new hash', () => {
+      // The other direction: authorship must still mint. A fix that inherited
+      // the stamp everywhere would make new guidance un-adoptable.
+      const box = movableProvider('H1')
+      useGuidanceStore.getState().setGuidanceItems([item('old', { graph_hash: 'cee-aag-v1' })])
+      box.hash = 'H2'
+      useGuidanceStore.getState().setGuidanceItems([item('fresh', { graph_hash: 'cee-aag-v1' })])
+
+      simulateReload()
+      expect(
+        useGuidanceStore.getState().rehydrateGuidance({
+          scenarioId: SCENARIO,
+          currentAnalysisHash: ANALYSIS_HASH,
+          currentGraphHash: 'H2',
+        }),
+        'guidance authored against the CURRENT graph was refused — authorship must still mint a stamp',
+      ).toBe(1)
+      expect(useGuidanceStore.getState().guidanceItems.map((i) => i.item_id)).toEqual(['fresh'])
+    })
+  })
+
   it('writes nothing at all when no decision identity is installed', () => {
     setGuidancePersistenceContext(() => ({ scenarioId: null, graphHash: null }))
     useGuidanceStore.getState().setGuidanceItems([item('g1')])
