@@ -92,10 +92,16 @@
 
   # Front door (real sign-in) — keep the REAL Supabase SDK in the staging
   # bundle. Without this, vite.config.ts aliases @supabase/supabase-js to
-  # src/stubs/supabase-stub.mjs on every guest build, and that stub does not
-  # implement signInWithOtp/signInWithOAuth at all — so sign-in cannot work
-  # no matter what the requireLogin flag says (the runbook in src/flags.ts
-  # `requireLogin` documents exactly this trap).
+  # src/stubs/supabase-stub.mjs on every guest build, and that stub implements
+  # NO sign-in method at all — signInWithOtp, signInWithOAuth and
+  # signInWithPassword are all absent — so sign-in cannot work no matter what
+  # the requireLogin flag says (the runbook in src/flags.ts `requireLogin`
+  # documents exactly this trap).
+  #
+  # ⚠ This sentence was FALSE for the password route until #667 round 2: the
+  # stub did carry `signInWithPassword` and answered `{ error: null }`, i.e.
+  # production would have reported a successful sign-in it never performed.
+  # Fixed in the stub, and pinned by AuthContext.optionalAuth.spec.tsx.
   #
   # This does NOT turn guest mode off: VITE_AUTH_MODE stays "guest", so
   # unauthenticated visitors still land on the guest canvas exactly as today

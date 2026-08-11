@@ -14,21 +14,50 @@
  *   · NO password reset. There is no SMTP to deliver one, and a reset control
  *     that cannot send an email is the guarantee-theatre this track exists to
  *     remove.
- *   · NO new error vocabulary. Supabase answers a wrong password and an
- *     unknown address with the same 400, which is already enumeration-safe;
- *     nothing here re-classifies it, and the copy says only what is true of
- *     both.
  *
- * The email field is SHARED by both routes and therefore sits outside both
- * forms — a second email input would be a second source of truth for the one
- * value both submissions send.
+ * The email field is SHARED by both routes. It sits outside both forms — a
+ * second email input would be a second source of truth for the one value both
+ * submissions send — and is associated with the PASSWORD form by `form=`, so
+ * it has an owner and implicit submission has somewhere to go (see below).
  *
- * States: default → submitting → link-sent → rate-limited → invalid-email → expired-link
+ * ── ROUND 2 (11 Aug 2026): THREE THINGS THIS PAGE GOT WRONG ────────────────
+ * All three were measured by the #667 adversarial review, by execution.
+ *
+ * 1. THE SUCCESS PATH DEAD-ENDED. This file used to carry the comment "on
+ *    success the AuthProvider's onAuthStateChange drives navigation". Nothing
+ *    did: neither `handleAuthStateChange` nor `OptionalAuthProvider.adopt`
+ *    navigates on sign-IN (the only `navigate()` calls in AuthContext are
+ *    sign-OUT), and `/login` sits OUTSIDE `AuthGuard`, so no guard bounces an
+ *    authenticated user away either. An owner who typed the CORRECT password
+ *    got every control disabled, a "Signing in…" spinner, and no way out but a
+ *    reload. Success now moves to `password-signed-in` and this page routes —
+ *    automatically once the provider reports the session, and via an explicit
+ *    Continue control that is always present, so there is no state in which the
+ *    owner is stuck behind a promise nobody keeps.
+ *
+ * 2. SERVER FAULTS AND RATE LIMITS WERE REPORTED AS "your password didn't
+ *    match". 400 (wrong password) and 400 (unknown address) are the
+ *    enumeration surface and stay byte-identical. A 5xx, a 501 capability-absent
+ *    build and a 429 are NOT address-correlated — they are returned the same for
+ *    an address that exists and one that does not — so naming them leaks
+ *    nothing, and the magic-link half of this same page has said so with its own
+ *    `send-failed` state since #666. The 429 case was actively harmful: it
+ *    blamed the credentials AND cleared the password, so a rate-limited owner
+ *    retyped a correct password into more rate-limiting.
+ *
+ * 3. `Enter` IN THE EMAIL FIELD WAS A DEAD KEY. The field belonged to no form,
+ *    so implicit submission had nothing to submit. It is now owned by the
+ *    password form — the pilot's working route — via `form="owner-password-form"`.
+ *
+ * States: default → submitting → link-sent → rate-limited → invalid-email
+ *         → expired-link → send-failed → oauth-failed
+ *         → password-submitting → password-failed → password-server-fault
+ *         → password-signed-in
  * Shows identical message for invited and non-invited emails (prevents enumeration).
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { Mail, Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
@@ -44,6 +73,8 @@ type PageState =
   | 'oauth-failed'
   | 'password-submitting'
   | 'password-failed'
+  | 'password-server-fault'
+  | 'password-signed-in'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -75,8 +106,10 @@ function isRateLimited(error: unknown): boolean {
 }
 
 export default function LoginPage() {
-  const { signInWithMagicLink, signInWithGoogle, signInWithPassword } = useAuth()
+  const { signInWithMagicLink, signInWithGoogle, signInWithPassword, authenticated } = useAuth()
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -84,6 +117,41 @@ export default function LoginPage() {
     searchParams.get('error') === 'expired' ? 'expired-link' : 'default',
   )
   const [resendCooldown, setResendCooldown] = useState(0)
+  /**
+   * A password sign-in on THIS page has just succeeded.
+   *
+   * The routing below is gated on this rather than on `authenticated` alone,
+   * and that is load-bearing: in the guest posture `authenticated` is ALWAYS
+   * true (OptionalAuthProvider hands every visitor the guest identity so the
+   * PoC stays reachable), so redirecting on `authenticated` would make /login
+   * unreachable for a guest who came here deliberately.
+   */
+  const [signedInHere, setSignedInHere] = useState(false)
+
+  /**
+   * Where an owner belongs after signing in. `AuthGuard` redirects with
+   * `state: { from: location }`, so an owner deep-linked to a protected route
+   * returns to it rather than to the root.
+   */
+  const destination =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/'
+
+  const goToApp = useCallback(() => {
+    navigate(destination, { replace: true })
+  }, [navigate, destination])
+
+  /**
+   * Route the owner into the app once the provider has actually adopted the
+   * session. Waiting for `authenticated` rather than navigating straight off
+   * the resolved promise avoids the race where AuthGuard has not yet seen the
+   * session and bounces the owner back here — which would relocate the
+   * dead-end rather than remove it. The Continue control below is the escape
+   * if the session never lands, so no path ends in a spinner.
+   */
+  useEffect(() => {
+    if (!signedInHere || !authenticated) return
+    goToApp()
+  }, [signedInHere, authenticated, goToApp])
 
   // Resend cooldown timer
   useEffect(() => {
@@ -157,18 +225,43 @@ export default function LoginPage() {
     setPageState('password-submitting')
     const { error } = await signInWithPassword(trimmed, password)
     if (error) {
-      // ONE failure state. A wrong password, an unknown address and a
-      // capability-absent build all land here and read identically, so this
-      // page cannot be used to discover which addresses exist. `isServerFault`
-      // is deliberately NOT branched on here: splitting the message by cause
-      // would reintroduce exactly that signal.
+      // TWO QUESTIONS, TWO PREDICATES (CLAUDE.md trap 21). "Is this an
+      // enumeration signal?" and "is this a server fault?" are different
+      // questions, and the first version of this handler answered both with
+      // one branch — so a 500, a 501 and a 429 were all reported to the owner
+      // as "your password didn't match", which is false for all three.
+      //
+      // What stays byte-identical is the ENUMERATION SURFACE: a wrong password
+      // and an unknown address are both Supabase 400 `Invalid login
+      // credentials` and both land in `password-failed` with one sentence.
+      // That is the only pair whose difference would reveal which addresses
+      // exist. A 5xx, a 501 capability-absent build and a 429 are returned the
+      // same way for an address that exists and one that does not, so naming
+      // them tells an attacker nothing — which is precisely the reasoning the
+      // magic-link half of this page has run on since #666 (`send-failed`).
+      if (isRateLimited(error)) {
+        // Deliberately does NOT clear the password: blaming the credentials
+        // and wiping the field made a rate-limited owner retype a CORRECT
+        // password into more rate-limiting.
+        setPageState('rate-limited')
+        return
+      }
+      if (isServerFault(error)) {
+        // >= 500, which includes the 501 a build with no `signInWithPassword`
+        // reports. Ours, not theirs, and never dressed up as a bad password.
+        setPageState('password-server-fault')
+        return
+      }
       setPageState('password-failed')
       setPassword('')
       return
     }
-    // On success the AuthProvider's onAuthStateChange drives navigation. This
-    // component does not route, and must not claim a redirect it never
-    // performs.
+    // Success. Hold the password in memory no longer than the request needs,
+    // then hand the owner to the app (see the effect above: this page routes,
+    // because nothing else does).
+    setPassword('')
+    setSignedInHere(true)
+    setPageState('password-signed-in')
   }, [email, password, signInWithPassword])
 
   const handleGoogleClick = useCallback(async () => {
@@ -192,7 +285,30 @@ export default function LoginPage() {
 
         <h3 className={`${typography.h3} text-text-header mb-1`}>Sign in to Olumi</h3>
 
-        {pageState === 'link-sent' ? (
+        {pageState === 'password-signed-in' ? (
+          /* ---- Signed in ----
+             The owner IS signed in: Supabase returned no error. The effect
+             above routes as soon as the provider adopts the session; this
+             state is what they see in the meantime, and the Continue control
+             is the escape hatch if adoption never happens — so the success
+             path cannot dead-end again. */
+          <div
+            className="mt-6 flex flex-col items-center gap-4 text-center"
+            data-testid="owner-password-signed-in"
+          >
+            <p className={`${typography.body} text-text-body`}>
+              Signed in. Taking you to your workspace&hellip;
+            </p>
+            <button
+              type="button"
+              onClick={goToApp}
+              data-testid="owner-password-continue"
+              className={`${typography.button} rounded-pill bg-primary px-6 py-3 text-text-on-color shadow-1 transition-all duration-fast hover:bg-primary-hover`}
+            >
+              Continue
+            </button>
+          </div>
+        ) : pageState === 'link-sent' ? (
           /* ---- Link-sent state ---- */
           <div className="mt-6 flex flex-col items-center gap-4 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-panel">
@@ -222,13 +338,17 @@ export default function LoginPage() {
             </p>
 
             {/* The email field is shared by BOTH routes, so it lives outside
-                both forms. Enter is still handled: it submits whichever form
-                the focused control belongs to. */}
+                both forms — but it is OWNED by the password form via `form=`.
+                Without an owner it belonged to no form, and implicit
+                submission (Enter) had nothing to submit: a dead key, measured
+                by the #667 review. The password form is the pilot's working
+                route, so that is where Enter goes. */}
             <div className="flex flex-col gap-4">
               <div>
                 <label htmlFor="login-email" className="sr-only">Email address</label>
                 <input
                   id="login-email"
+                  form="owner-password-form"
                   type="email"
                   inputMode="email"
                   autoComplete="email"
@@ -270,14 +390,15 @@ export default function LoginPage() {
                 )}
                 {pageState === 'oauth-failed' && (
                   <p className={`${typography.bodySmall} text-danger mt-1`} role="alert">
-                    We couldn&rsquo;t start Google sign-in. Please use the email link
-                    above, or ask your Olumi contact.
+                    We couldn&rsquo;t start Google sign-in. Please use the password
+                    form above or the email link below, or ask your Olumi contact.
                   </p>
                 )}
               </div>
 
               {/* ---- Owner password sign-in: the pilot's working route ---- */}
               <form
+                id="owner-password-form"
                 onSubmit={handlePasswordSubmit}
                 className="flex flex-col gap-4"
                 data-testid="owner-password-form"
@@ -292,7 +413,9 @@ export default function LoginPage() {
                     value={password}
                     onChange={e => {
                       setPassword(e.target.value)
-                      if (pageState === 'password-failed') setPageState('default')
+                      if (pageState === 'password-failed' || pageState === 'password-server-fault') {
+                        setPageState('default')
+                      }
                     }}
                     disabled={pageState === 'submitting' || pageState === 'password-submitting'}
                     data-testid="owner-password-input"
@@ -312,6 +435,22 @@ export default function LoginPage() {
                       data-testid="owner-password-error"
                     >
                       That email and password didn&rsquo;t match. Check them, or ask
+                      your Olumi contact.
+                    </p>
+                  )}
+                  {pageState === 'password-server-fault' && (
+                    /* NOT address-correlated: a 5xx and a 501 capability-absent
+                       build are returned identically for an address that exists
+                       and one that does not, so this sentence leaks nothing —
+                       and unlike the copy above, it is TRUE. Says nothing about
+                       the password, because the password is not the problem. */
+                    <p
+                      className={`${typography.bodySmall} text-danger mt-1`}
+                      role="alert"
+                      data-testid="owner-password-server-error"
+                    >
+                      We couldn&rsquo;t complete sign-in. This is a problem on our
+                      side, not with your details. Please try again shortly, or ask
                       your Olumi contact.
                     </p>
                   )}

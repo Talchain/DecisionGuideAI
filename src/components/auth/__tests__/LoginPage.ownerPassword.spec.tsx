@@ -31,14 +31,20 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 const mockSignInWithMagicLink = vi.fn()
 const mockSignInWithGoogle = vi.fn()
 const mockSignInWithPassword = vi.fn()
+/**
+ * Whether the provider has adopted a real session yet. Mutable because the
+ * whole point of the success path is that it depends on this flipping: the
+ * page waits for the provider rather than navigating off the resolved promise.
+ */
+let mockAuthenticated = false
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({
-    authenticated: false,
+    authenticated: mockAuthenticated,
     signInWithMagicLink: mockSignInWithMagicLink,
     signInWithGoogle: mockSignInWithGoogle,
     signInWithPassword: mockSignInWithPassword,
@@ -51,6 +57,24 @@ function renderLogin() {
   return render(
     <MemoryRouter initialEntries={['/login']}>
       <LoginPage />
+    </MemoryRouter>,
+  )
+}
+
+/**
+ * The same page inside a REAL router with real destinations, so "the owner
+ * ends up in the app" is proven by the router actually rendering the
+ * destination — not by spying on `useNavigate`, which would prove only that a
+ * function was called.
+ */
+function renderLoginRouted(initialEntries: unknown[] = ['/login']) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries as never}>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={<div data-testid="app-root">workspace</div>} />
+        <Route path="/scenarios/abc" element={<div data-testid="app-deep-link">deep</div>} />
+      </Routes>
     </MemoryRouter>,
   )
 }
@@ -69,6 +93,7 @@ async function submitPassword() {
 describe('LINK-R1 item 7 — owner password sign-in', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockAuthenticated = false
     mockSignInWithMagicLink.mockResolvedValue({ error: null })
     mockSignInWithGoogle.mockResolvedValue({ error: null })
     mockSignInWithPassword.mockResolvedValue({ error: null })
@@ -105,17 +130,37 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
    * the SAME value for the same typed input. That is the property that
    * actually matters — two auth routes must not disagree about who is signing
    * in — and it is one a future edit can genuinely break.
+   *
+   * ⚠ ROUND 2 (review N3): this case's DISCRIMINATING POWER is narrower than
+   * the paragraph above implies, and the reviewer measured it. Its fixture
+   * `'Owner@Example.com'` carries no whitespace, so `email === trimmed` and a
+   * mutant that passed the RAW value to one route survives. It pins AGREEMENT
+   * between the two routes, which is real; it does NOT pin trimming, and no
+   * test reachable through a `type="email"` field can.
    */
   it('hands BOTH routes the same email for the same typed input', async () => {
-    renderLogin()
-    fillCredentials('Owner@Example.com', 'pw')
+    // ⚠ TWO RENDERS, deliberately. Either successful submit now LEAVES the
+    // form — password sign-in goes to the signed-in state, magic link to
+    // `link-sent` — so no single render can exercise both routes. Feeding the
+    // same typed input to two fresh renders pins exactly the property that
+    // matters: the two routes must not disagree about who is signing in.
+    const TYPED = 'Owner@Example.com'
+
+    const first = renderLogin()
+    fillCredentials(TYPED, 'pw')
     await submitPassword()
+    first.unmount()
+
+    renderLogin()
+    fireEvent.change(screen.getByPlaceholderText('you@example.com'), { target: { value: TYPED } })
     await act(async () => {
       fireEvent.submit(screen.getByTestId('magic-link-form'))
     })
 
     const passwordEmail = mockSignInWithPassword.mock.calls[0][0]
     const magicLinkEmail = mockSignInWithMagicLink.mock.calls[0][0]
+    expect(mockSignInWithPassword).toHaveBeenCalledTimes(1)
+    expect(mockSignInWithMagicLink).toHaveBeenCalledTimes(1)
     expect(passwordEmail).toBe(magicLinkEmail)
   })
 
@@ -151,19 +196,32 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
     expect((screen.getByTestId('owner-password-input') as HTMLInputElement).value).toBe('')
   })
 
-  it('gives BYTE-IDENTICAL failure copy for every cause — enumeration stays closed', async () => {
-    // The discriminating property, and the one a well-meaning later edit is
-    // most likely to break by "improving" the message for a server fault.
-    const causes = [
+  /**
+   * ⚠ ROUND 2 — THIS CASE USED TO ENFORCE A LIE, AND IT IS THE CLEAREST
+   * example in this file of trap 21 (two questions under one predicate).
+   *
+   * It collapsed 400 / 429 / 500 / 501 into one message and asserted
+   * `messages.size === 1` — so the suite actively DEFENDED reporting a server
+   * outage and a rate limit as "your password didn't match". Three of the four
+   * were false. The enumeration property it was written to protect is real, but
+   * it is a property of ONE PAIR: a wrong password and an unknown address, both
+   * Supabase 400 `Invalid login credentials`. Those are what an attacker would
+   * diff. A 5xx, a 501 and a 429 are returned identically whether or not the
+   * address exists, so distinguishing them reveals nothing — which is exactly
+   * why the magic-link half of this same page has had a `send-failed` state
+   * since #666.
+   *
+   * The pair is now asserted directly, and the three non-enumeration causes get
+   * their own cases below.
+   */
+  it('a wrong password and an unknown address are BYTE-IDENTICAL — enumeration stays closed', async () => {
+    const enumerationSurface = [
       Object.assign(new Error('Invalid login credentials'), { status: 400 }), // wrong password
       Object.assign(new Error('Invalid login credentials'), { status: 400 }), // unknown address
-      Object.assign(new Error('boom'), { status: 500 }), // our fault
-      Object.assign(new Error('no signInWithPassword'), { status: 501 }), // capability absent
-      Object.assign(new Error('slow down'), { status: 429 }), // rate limited
     ]
 
     const messages = new Set<string>()
-    for (const error of causes) {
+    for (const error of enumerationSurface) {
       mockSignInWithPassword.mockResolvedValue({ error })
       const view = renderLogin()
       fillCredentials('owner@example.com', 'pw')
@@ -174,19 +232,144 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
 
     expect(
       messages.size,
-      `the password failure message varies by cause, which leaks which addresses exist: ${[...messages].join(' | ')}`,
+      `the failure message differs between a wrong password and an unknown address, which leaks which addresses exist: ${[...messages].join(' | ')}`,
     ).toBe(1)
   })
 
-  it('does not claim a redirect it never performs on success', async () => {
+  it('a 500 is reported as OUR fault — never as "your password didn’t match"', async () => {
+    mockSignInWithPassword.mockResolvedValue({
+      error: Object.assign(new Error('boom'), { status: 500 }),
+    })
     renderLogin()
-    fillCredentials('owner@example.com', 'pw')
+    fillCredentials('owner@example.com', 'correct-horse')
     await submitPassword()
 
-    // Navigation is the AuthProvider's job (onAuthStateChange). This surface
-    // must not print a "redirecting…" promise it does not keep.
+    expect(screen.getByTestId('owner-password-server-error')).toBeInTheDocument()
     expect(screen.queryByTestId('owner-password-error')).toBeNull()
-    expect(document.body.textContent ?? '').not.toMatch(/redirect/i)
+    expect(screen.getByTestId('owner-password-server-error').textContent ?? '').toMatch(
+      /problem on our side/i,
+    )
+  })
+
+  it('a 501 capability-absent build is reported as OUR fault, not as bad credentials', async () => {
+    // This is the status `AuthContext.signInUnavailable` stamps when the
+    // bundled Supabase client has no `signInWithPassword` at all. Telling the
+    // owner their password was wrong would send them hunting for a password
+    // problem that does not exist.
+    mockSignInWithPassword.mockResolvedValue({
+      error: Object.assign(new Error('Sign-in is unavailable in this build'), { status: 501 }),
+    })
+    renderLogin()
+    fillCredentials('owner@example.com', 'correct-horse')
+    await submitPassword()
+
+    expect(screen.getByTestId('owner-password-server-error')).toBeInTheDocument()
+    expect(screen.queryByTestId('owner-password-error')).toBeNull()
+  })
+
+  it('a 429 is reported as a rate limit AND does not wipe a correct password', async () => {
+    // The actively harmful case: the old copy blamed the credentials and
+    // cleared the field, so a rate-limited owner retyped a CORRECT password
+    // into more rate-limiting — on the pilot's only working route, with no
+    // reset path.
+    mockSignInWithPassword.mockResolvedValue({
+      error: Object.assign(new Error('slow down'), { status: 429 }),
+    })
+    renderLogin()
+    fillCredentials('owner@example.com', 'correct-horse')
+    await submitPassword()
+
+    expect(screen.getByText(/wait a moment before trying again/i)).toBeInTheDocument()
+    expect(screen.queryByTestId('owner-password-error')).toBeNull()
+    expect((screen.getByTestId('owner-password-input') as HTMLInputElement).value).toBe(
+      'correct-horse',
+    )
+  })
+
+  /**
+   * ── THE SUCCESS PATH (review blocker 1) ───────────────────────────────────
+   * Measured at `e5d54d6a` by the reviewer, by execution: after a SUCCESSFUL
+   * submit, `[email, password, submit, magic-link, google].disabled` read
+   * `[true, true, true, true, true]` and stayed that way — every control dead,
+   * a "Signing in…" spinner, no route change, forever. The in-file comment
+   * blamed the AuthProvider's `onAuthStateChange`; nothing in `AuthContext`
+   * navigates on sign-IN, and `/login` sits outside `AuthGuard`, so nothing
+   * else was going to move either.
+   *
+   * These bind to the DESTINATION rendering, not to a `useNavigate` spy.
+   */
+  it('a correct password lands the owner IN THE APP once the provider adopts the session', async () => {
+    mockAuthenticated = true // the session the successful call just created
+    renderLoginRouted()
+    fillCredentials('owner@example.com', 'correct-horse')
+    await submitPassword()
+
+    expect(screen.getByTestId('app-root')).toBeInTheDocument()
+    expect(screen.queryByTestId('owner-password-form')).toBeNull()
+  })
+
+  it('returns the owner to the route AuthGuard bounced them from, not to the root', async () => {
+    // AuthGuard redirects with `state: { from: location }`. Ignoring it would
+    // silently discard a deep link on every protected route.
+    mockAuthenticated = true
+    renderLoginRouted([{ pathname: '/login', state: { from: { pathname: '/scenarios/abc' } } }])
+    fillCredentials('owner@example.com', 'correct-horse')
+    await submitPassword()
+
+    expect(screen.getByTestId('app-deep-link')).toBeInTheDocument()
+  })
+
+  it('does not dead-end while the session is still landing — Continue is live and routes', async () => {
+    // The provider has NOT adopted the session yet. The old page left the owner
+    // on a disabled form here indefinitely; there must always be a live control.
+    mockAuthenticated = false
+    renderLoginRouted()
+    fillCredentials('owner@example.com', 'correct-horse')
+    await submitPassword()
+
+    expect(screen.getByTestId('owner-password-signed-in')).toBeInTheDocument()
+    const cont = screen.getByTestId('owner-password-continue') as HTMLButtonElement
+    expect(cont.disabled).toBe(false)
+    await act(async () => {
+      fireEvent.click(cont)
+    })
+    expect(screen.getByTestId('app-root')).toBeInTheDocument()
+  })
+
+  it('leaves no disabled-control dead end on success — the measured defect, inverted', async () => {
+    // The reviewer's measurement as an assertion: after success, the disabled
+    // form is not what the owner is looking at.
+    mockAuthenticated = false
+    renderLogin()
+    fillCredentials('owner@example.com', 'correct-horse')
+    await submitPassword()
+
+    expect(screen.queryByTestId('owner-password-input')).toBeNull()
+    expect(screen.queryByTestId('owner-password-submit')).toBeNull()
+    expect(document.body.textContent ?? '').not.toMatch(/signing in…/i)
+  })
+
+  /**
+   * ── `Enter` IN THE SHARED EMAIL FIELD (review N1) ─────────────────────────
+   * The field sits outside both forms so there is one source of truth for the
+   * address. At `e5d54d6a` it also had no `form=` attribute, so `input.form`
+   * was `null`: it belonged to no form and implicit submission had nothing to
+   * submit — a dead key.
+   *
+   * ⚠ jsdom does NOT implement implicit submission (measured: a synthetic
+   * `Enter` keydown on an associated input fires zero `submit` events), so the
+   * keypress itself cannot be proven here — trap 3. What IS the mechanism, and
+   * what is asserted, is OWNERSHIP, bound by element identity: per the HTML
+   * form-owner rules, Enter in a text control submits the form it is
+   * associated with, and association is exactly what was missing.
+   */
+  it('the shared email field is OWNED by the password form, so Enter has somewhere to go', () => {
+    renderLogin()
+    const emailField = screen.getByPlaceholderText('you@example.com') as HTMLInputElement
+    const passwordForm = screen.getByTestId('owner-password-form')
+
+    expect(emailField.form, 'the email field belongs to no form — Enter is a dead key').not.toBeNull()
+    expect(emailField.form).toBe(passwordForm)
   })
 
   it('leaves the magic-link route intact and reachable', async () => {
@@ -202,6 +385,19 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
     // Owners are pre-provisioned and there is no SMTP. A "create account" or
     // "forgot password" control here would be guarantee theatre.
     renderLogin()
+
+    // ⚠ POSITIVE CONTROL (review N4). This is a bare-absence probe over
+    // `document.body.textContent`, and an absence probe with nothing proving it
+    // can see a PRESENCE is vacuous (trap 13): at pristine, where no password
+    // form existed at all, it passed. Asserting the form IS rendered in the
+    // SAME test means a render that produced nothing can no longer be read as
+    // "no sign-up offered".
+    expect(
+      screen.getByTestId('owner-password-form'),
+      'the password form did not render — the absence assertion below would pass vacuously',
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('owner-password-input')).toBeInTheDocument()
+
     const text = document.body.textContent ?? ''
     expect(text).not.toMatch(/create an account|sign up|forgot (your )?password|reset password/i)
   })

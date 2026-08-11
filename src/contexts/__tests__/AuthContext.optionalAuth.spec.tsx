@@ -42,6 +42,7 @@ import React from 'react'
 
 const signInWithOtp = vi.fn()
 const signInWithOAuth = vi.fn()
+const signInWithPassword = vi.fn()
 const getSession = vi.fn()
 const onAuthStateChange = vi.fn()
 const supabaseSignOut = vi.fn()
@@ -54,6 +55,7 @@ const supabaseSignOut = vi.fn()
 // presence through a getter is the only way to model the real stub.
 let otpMethodPresent = true
 let oauthMethodPresent = true
+let passwordMethodPresent = true
 
 vi.mock('../../lib/supabase', () => ({
   supabase: {
@@ -63,6 +65,9 @@ vi.mock('../../lib/supabase', () => ({
       },
       get signInWithOAuth() {
         return oauthMethodPresent ? signInWithOAuth : undefined
+      },
+      get signInWithPassword() {
+        return passwordMethodPresent ? signInWithPassword : undefined
       },
       getSession,
       onAuthStateChange,
@@ -94,6 +99,7 @@ async function renderGuestProvider() {
   const seen: {
     signInWithMagicLink?: (email: string) => Promise<{ error: unknown }>
     signInWithGoogle?: () => Promise<{ error: unknown }>
+    signInWithPassword?: (email: string, password: string) => Promise<{ error: unknown }>
     signOut?: () => Promise<{ error: unknown }>
   } = {}
 
@@ -101,6 +107,7 @@ async function renderGuestProvider() {
     const ctx = useAuth()
     seen.signInWithMagicLink = ctx.signInWithMagicLink
     seen.signInWithGoogle = ctx.signInWithGoogle
+    seen.signInWithPassword = ctx.signInWithPassword
     seen.signOut = ctx.signOut
     return (
       <div>
@@ -135,12 +142,14 @@ describe('AuthContext × guest posture — the front door is REAL', () => {
     // into the next one, or a later assertion passes for the wrong reason.
     otpMethodPresent = true
     oauthMethodPresent = true
+    passwordMethodPresent = true
     getSession.mockResolvedValue({ data: { session: null } })
     onAuthStateChange.mockReturnValue({
       data: { subscription: { unsubscribe: vi.fn() } },
     })
     signInWithOtp.mockResolvedValue({ data: {}, error: null })
     signInWithOAuth.mockResolvedValue({ data: {}, error: null })
+    signInWithPassword.mockResolvedValue({ data: {}, error: null })
     supabaseSignOut.mockResolvedValue({ error: null })
   })
 
@@ -210,6 +219,107 @@ describe('AuthContext × guest posture — the front door is REAL', () => {
       result = await ctx.signInWithGoogle!()
     })
     expect(result!.error).toBe(providerDisabled)
+  })
+
+  /**
+   * ── OWNER PASSWORD SIGN-IN (#667 review blocker 2) ────────────────────────
+   * `callSignInWithPassword` shipped with ZERO coverage. The reviewer's mutant
+   * R1 replaced its body's Supabase call with `const error = null; void
+   * password;` — a silent-success no-op — and the whole suite stayed GREEN,
+   * including all 15 cases of THIS file, whose own title is "the front door is
+   * REAL". Complete manifest at the time (`rg -a signInWithPassword src`, 17
+   * hits): every spec-side occurrence was a `vi.fn()` in the two LoginPage
+   * specs, which mock this module wholesale. Nothing bound the context
+   * implementation to Supabase.
+   *
+   * These are the password twins of the four magic-link/Google cases above,
+   * written to the same rule: bind to the client method BY NAME and to the
+   * returned error BY IDENTITY.
+   */
+  it('password sign-in calls supabase.auth.signInWithPassword — not a no-op', async () => {
+    const ctx = await renderGuestProvider()
+    await act(async () => {
+      await ctx.signInWithPassword!('owner@example.com', 'correct-horse')
+    })
+    expect(signInWithPassword).toHaveBeenCalledTimes(1)
+    expect(signInWithPassword).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'owner@example.com', password: 'correct-horse' }),
+    )
+  })
+
+  it('password sign-in propagates the Supabase error BY IDENTITY — never reports success', async () => {
+    // The exact shape Supabase returns for a wrong password AND for an unknown
+    // address — one 400 for both, which is what makes the surface's single
+    // failure state enumeration-safe.
+    const badCredentials = Object.assign(new Error('Invalid login credentials'), {
+      status: 400,
+      code: 'invalid_credentials',
+    })
+    signInWithPassword.mockResolvedValue({ data: {}, error: badCredentials })
+
+    const ctx = await renderGuestProvider()
+    let result: { error: unknown } | undefined
+    await act(async () => {
+      result = await ctx.signInWithPassword!('owner@example.com', 'wrong')
+    })
+    expect(result!.error).toBe(badCredentials)
+  })
+
+  it('a build whose Supabase client LACKS signInWithPassword reports UNAVAILABLE, never success', async () => {
+    // ⚠ NOT hypothetical. `scripts/supabase-stub-decision.mjs` aliases the SDK
+    // to `src/stubs/supabase-stub.mjs` on every guest build unless
+    // `VITE_STUB_SUPABASE=0`, and `netlify.toml` sets that opt-out ONLY under
+    // `[context.staging.environment]` — production inherits `[build.environment]`
+    // alone. That stub USED TO implement `signInWithPassword` and answer
+    // `{ error: null }`, converting the honest capability failure the other two
+    // routes give into a silent success. The stub no longer implements it (that
+    // absence is the mechanism); this pins the guard that makes the absence
+    // honest rather than fatal.
+    passwordMethodPresent = false
+    const ctx = await renderGuestProvider()
+    let result: { error: unknown } | undefined
+    await act(async () => {
+      result = await ctx.signInWithPassword!('owner@example.com', 'correct-horse')
+    })
+    expect(signInWithPassword).not.toHaveBeenCalled()
+    expect(result!.error).toBeInstanceOf(Error)
+    expect((result!.error as Error).message).toMatch(/unavailable in this build/i)
+    // Same cross-module seam as the magic-link case: LoginPage consumes
+    // `>= 500` to decide "our fault, say so" — and since round 2 it routes a
+    // 501 to the server-fault copy rather than blaming the owner's password.
+    expect((result!.error as { status?: number }).status).toBeGreaterThanOrEqual(500)
+  })
+
+  it('a password client that THROWS is classified as a fault, not as bad credentials', async () => {
+    // A network failure or CSP block carries no `status`. Left bare it would
+    // fall into the surface's enumeration-safe branch and be reported to the
+    // owner as a wrong password — a fault dressed up as their mistake.
+    signInWithPassword.mockImplementation(() => {
+      throw new TypeError('Failed to fetch')
+    })
+    const ctx = await renderGuestProvider()
+    let result: { error: unknown } | undefined
+    await act(async () => {
+      result = await ctx.signInWithPassword!('owner@example.com', 'correct-horse')
+    })
+    expect((result!.error as { status?: number }).status).toBeGreaterThanOrEqual(500)
+  })
+
+  it('the bundled stub implements NO sign-in method — absence is what keeps it honest', async () => {
+    // A DERIVED guard on the artefact itself, not a mirror of it. The stub is
+    // the module a production build actually gets; if a later edit adds any
+    // sign-in method back, the capability guards above stop firing and a build
+    // with no Supabase client starts reporting success again.
+    const stub = await import('../../stubs/supabase-stub.mjs')
+    const auth = (stub as { createClient: () => { auth: Record<string, unknown> } })
+      .createClient().auth
+    const signInMethods = Object.keys(auth).filter(k => /^signIn/i.test(k))
+    expect(
+      signInMethods,
+      `the Supabase stub implements sign-in method(s) ${signInMethods.join(', ')} — on a stubbed build they cannot reach Supabase, so anything they return is a lie`,
+    ).toEqual([])
+    // Positive control: the probe can see methods when they exist.
+    expect(Object.keys(auth)).toContain('getSession')
   })
 
   it('password signIn/signUp report the removal as an ERROR, not as guest success', async () => {
