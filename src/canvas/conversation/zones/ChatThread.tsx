@@ -38,9 +38,18 @@ interface ChatThreadProps {
    * External handle so the parent can capture/restore the thread's
    * scroll position across mode transitions (AI panel v2 Compact ↔
    * Focus). When provided, the thread populates it with the scroll
-   * container ref and the smart-scroll auto-pin to bottom is
-   * suppressed on the FIRST layout after re-mount so a parent-driven
-   * restoreScrollTop call wins.
+   * container ref.
+   *
+   * ⚠ THIS COMMENT USED TO CLAIM A SUPPRESSION MECHANISM THAT DOES NOT EXIST:
+   * "the smart-scroll auto-pin to bottom is suppressed on the FIRST layout after
+   * re-mount so a parent-driven restoreScrollTop call wins." `useSmartScroll`
+   * takes `{ messageCount, isThinking }` and nothing else — there is no
+   * suppression parameter, this ref is never passed to the hook, and no
+   * `restoreScrollTop` exists anywhere in the tree. Corrected rather than deleted
+   * (CLAUDE.md trap 14: a false label teaches the next reader to stop looking, and
+   * this one would have sent them hunting a suppression bug to explain the
+   * missing first-reply scroll — which had an entirely different cause, recorded
+   * at the trigger below).
    */
   scrollListRef?: React.MutableRefObject<HTMLDivElement | null>
 }
@@ -68,8 +77,41 @@ export const ChatThread = memo(function ChatThread({
   compact,
   scrollListRef,
 }: ChatThreadProps) {
+  // Has the conversation produced any finalized (non-streaming) assistant messages?
+  const hasFinalizedAssistant = messages.some(m => m.role === 'assistant' && !m.isStreaming)
+
+  // EmptyState stays visible when no graph nodes exist and no finalized assistant
+  // response has arrived. This keeps the shape pipeline on screen during the first
+  // turn (Generate Model or first chat message) so it can serve as the loading hub.
+  const showEmptyState = nodeCount === 0 && !hasFinalizedAssistant
+
+  /**
+   * THE SINGLE PREDICATE deciding whether a message reaches the DOM. The render
+   * map below and the scroll trigger above BOTH consume it, so the two can never
+   * drift apart (CLAUDE.md trap 12: a second copy of this rule would be a
+   * hand-maintained mirror, and its drift would read as green).
+   *
+   * ⚠ WHY THE SCROLL TRIGGER IS THE RENDERED COUNT AND NOT `messages.length`.
+   * Measured on deployed staging (L3 browser truth): after the first assistant
+   * reply the thread sat at `scrollTop 0` against `scrollHeight ~1351` — the
+   * reply was below the fold and nothing scrolled to it. `messages.length` DOES
+   * change during the first turn (0 → 1 user → 2 streaming), so the effect fired
+   * twice — but on both commits this predicate returned false for every message,
+   * so it scrolled a container holding only `EmptyState`. The commit that finally
+   * puts content on screen is `hasFinalizedAssistant` flipping true, which happens
+   * by MUTATING an existing message's `isStreaming` — `messages.length` is
+   * IDENTICAL across it, so the old trigger could not observe the one commit that
+   * mattered. Counting rendered messages makes the trigger fire on that commit,
+   * because 0 → 2 is exactly the transition the user sees.
+   */
+  const isRendered = (msg: ConversationMessage): boolean =>
+    !(showEmptyState && (msg.role === 'user' || msg.isStreaming))
+
+  let renderedMessageCount = 0
+  for (const m of messages) if (isRendered(m)) renderedMessageCount++
+
   const { listRef, listEndRef, showNewMessageIndicator, handleScroll, scrollToBottom } =
-    useSmartScroll({ messageCount: messages.length, isThinking })
+    useSmartScroll({ messageCount: renderedMessageCount, isThinking })
 
   // Mirror the internal listRef into an externally-provided ref so the
   // parent (AI panel v2 layout) can capture and restore scrollTop
@@ -78,14 +120,6 @@ export const ChatThread = memo(function ChatThread({
   if (scrollListRef) {
     scrollListRef.current = listRef.current
   }
-
-  // Has the conversation produced any finalized (non-streaming) assistant messages?
-  const hasFinalizedAssistant = messages.some(m => m.role === 'assistant' && !m.isStreaming)
-
-  // EmptyState stays visible when no graph nodes exist and no finalized assistant
-  // response has arrived. This keeps the shape pipeline on screen during the first
-  // turn (Generate Model or first chat message) so it can serve as the loading hub.
-  const showEmptyState = nodeCount === 0 && !hasFinalizedAssistant
 
   // While EmptyState is showing, extract streaming text from the first streaming
   // message so it can be displayed below the shapes instead of in a message bubble.
@@ -151,8 +185,9 @@ export const ChatThread = memo(function ChatThread({
       )}
 
       {messages.map((msg, i) => {
-        // Hide user messages and the streaming placeholder while EmptyState is the loading hub
-        if (showEmptyState && (msg.role === 'user' || msg.isStreaming)) return null
+        // Hide user messages and the streaming placeholder while EmptyState is the loading hub.
+        // Same predicate the scroll trigger counts with — derived, never restated.
+        if (!isRendered(msg)) return null
         const isLastAssistant = msg === lastAssistantMsg
         if (msg.sessionDivider) {
           return <SessionDivider key={msg.id} text={msg.sessionDivider} />

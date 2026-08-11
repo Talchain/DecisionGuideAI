@@ -15,6 +15,7 @@ import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
 import { useEditedSinceRun } from './hooks/useEditedSinceRun'
 import { LodSync } from './components/LodSync'
+import { CanvasLodNotice } from './components/CanvasLodNotice'
 import { cameraDuration } from './utils/cameraMotion'
 import { useFocusCamera } from './hooks/useFocusCamera'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
@@ -69,6 +70,12 @@ import { useLensFilter } from './hooks/useLensFilter'
 import { useGuidancePulseHighlight } from './hooks/useGuidancePulseHighlight'
 import { useEscapePanel } from './hooks/useEscapePanel'
 import { loadRuns, generateGraphHash } from './store/runHistory'
+// ⚠ THE OTHER `generateGraphHash`. This tree carries two functions of that name —
+// the seed-bearing run-history one imported above, and the seedless UI-local one
+// below. They are NOT interchangeable, and conflating them is a defect this
+// estate has already paid for once. Aliased so every call site says which.
+import { generateGraphHash as uiGraphHashSeedless } from './utils/graphHash'
+import { useGuidanceStore, setGuidancePersistenceContext } from './stores/guidanceStore'
 import { restoreAnalysisFromAutosave } from './store/restoreAnalysisFromAutosave'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
@@ -1623,6 +1630,42 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
   }, [loadSettings])
 
+  /**
+   * Guidance rehydration — the user's coaching must survive a refresh.
+   *
+   * ⚠ ORDERING IS THE WHOLE DESIGN, which is why this is an explicit call and
+   * not a module-evaluation spread in the store (the pattern `strengthenStore`
+   * uses). Guidance items are gated on `valid_while`, and BOTH comparators are
+   * only live once the boot effect above has run: `results.hash` arrives with
+   * `restoreAnalysisFromAutosave`, and the graph hash needs the restored
+   * nodes/edges. Rehydrating at module evaluation would adopt items whose
+   * freshness could not yet be checked — and this store's rule is that
+   * unverifiable is stale. Declaring the effect AFTER the boot effect is what
+   * orders it: React runs a component's effects in declaration order.
+   *
+   * ⚠ TWO `generateGraphHash` FUNCTIONS EXIST IN THIS TREE and this file already
+   * imports the OTHER one. `./store/runHistory`'s takes a run SEED; the
+   * comparison here must be seedless and identical at write and read time, so it
+   * uses `./utils/graphHash`'s, aliased to make the twin explicit at the call
+   * site rather than at the import list (CLAUDE.md's two-same-named-hash trap).
+   */
+  useEffect(() => {
+    const st = useCanvasStore.getState()
+    setGuidancePersistenceContext(() => {
+      const s = useCanvasStore.getState()
+      return {
+        scenarioId: s.currentScenarioId,
+        graphHash: uiGraphHashSeedless(s.nodes, s.edges),
+      }
+    })
+    useGuidanceStore.getState().rehydrateGuidance({
+      scenarioId: st.currentScenarioId,
+      currentAnalysisHash: st.results?.hash ?? null,
+      currentGraphHash: uiGraphHashSeedless(st.nodes, st.edges),
+    })
+    return () => setGuidancePersistenceContext(null)
+  }, [])
+
   // Show recovery toast if we loaded from autosave on mount
   useEffect(() => {
     try {
@@ -2052,6 +2095,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             </svg>
             {/* D2: level-of-detail zoom watcher — main canvas only. */}
             <LodSync />
+            {/* Says so when LodSync has blanked the labels — measured at 0 of 5
+                viewports before this shipped; see the component's header. */}
+            <CanvasLodNotice />
           </ReactFlow>
         )}
       </div>

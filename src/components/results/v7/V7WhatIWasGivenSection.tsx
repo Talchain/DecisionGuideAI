@@ -91,13 +91,42 @@ const COPY = {
   estimatedLead:
     "The numbers behind these are mine, not yours. If you have better ones, tell me and I'll use them.",
   notYetHeading: 'Not modelled yet',
-  notYetLead: 'These are in your brief but not in the model. Add any that matter.',
+  notYetLead: 'These are in your brief but not in the model. Ask about any that matter.',
   consideredLead: 'I also considered these and left them out:',
   caveatLead: 'This covers figures you mentioned. It does not yet track:',
   unknown:
     "I can't show this yet for this decision — so please don't read the absence as everything having made it in.",
   noBrief: "I don't have your original wording saved for this decision.",
-  addAction: 'Add this',
+  /**
+   * ⚠ THIS LABEL SAID "Add this", AND THE PRODUCT COULD NOT DO IT. Derived
+   * against the LIVE deployed router (staging `cee-staging.onrender.com`,
+   * 2026-08-11, 12 arms over 12 fresh scenarios, one arm per scenario so only
+   * the phrasing varied; evidence in the PR body):
+   *
+   *   the shipped message, a bare figure  → no mutation; the engine replies
+   *     "it is not clear what it should causally connect to… Could you clarify
+   *      what this figure should influence?"
+   *   figure + its brief sentence, or a named factor, with NO causal target
+   *                                       → the LLM DOES emit operations and the
+   *     GRAPH VALIDATOR refuses them: `ORPHAN_NODE`. A worse outcome than the
+   *     question — a structural error where there had been a useful sentence.
+   *   connected to the options but not the goal  → `NO_PATH_TO_GOAL`.
+   *   an instruction NAMING a causal target that keeps the graph valid
+   *                                       → **HELD**, then confirm → applied.
+   *   control, the estate's proven edit grammar ("Change X to Y.") → applied.
+   *     (The control is why the four refusals are evidence about the phrasings
+   *      and not about a sick service.)
+   *
+   * So an accepted instruction EXISTS — and its acceptance condition is
+   * knowledge THIS PANEL DOES NOT HAVE: what the figure should causally
+   * influence. A receipt that picked a target would be the product inventing
+   * causality on the user's behalf, which is worse than the CTA doing nothing.
+   *
+   * The button therefore does the thing that measurably works and is true: it
+   * asks. The user's answer names the target, and THAT turn is the one the
+   * engine accepts. Two honest steps beat one false promise.
+   */
+  addAction: 'Where does this fit?',
 } as const
 
 /**
@@ -133,6 +162,84 @@ function notTrackedCopy(codes: readonly string[]): string {
   }
   if (unknown > 0) known.push('and some other things I set aside')
   return known.join('; ')
+}
+
+/**
+ * Recover the brief sentence a figure sat in, using the offset CEE already sends.
+ *
+ * `NotModelledItem.charOffset` is an offset into `brief_text`, and both are in
+ * scope on this component's render — the brief is right there in the blockquote.
+ * Until now the offset was used ONLY for identity (the React key and a data-*
+ * attribute), and the CTA threw the sentence away.
+ *
+ * Boundaries are `.`, `!`, `?` and newlines. Deliberately NOT a general sentence
+ * splitter: this text is a business brief full of decimals and currency, and
+ * `£1.5 million` is exactly the string a naive `[.!?]` split cuts in half — the
+ * defect CLAUDE.md trap 22 records as a guard "correct and pointed at the wrong
+ * bytes". So a `.` counts as a boundary only when it is NOT between two digits.
+ *
+ * Returns null when the offset does not land inside the brief (a stale manifest,
+ * a brief that was re-saved). The caller then asks its question without the
+ * quote rather than quoting something that is not there.
+ */
+export function recoverBriefSentence(briefText: string | null, charOffset: number): string | null {
+  if (typeof briefText !== 'string' || briefText.length === 0) return null
+  if (!Number.isInteger(charOffset) || charOffset < 0 || charOffset >= briefText.length) return null
+
+  const isBoundary = (i: number): boolean => {
+    const ch = briefText[i]
+    if (ch === '\n' || ch === '!' || ch === '?') return true
+    if (ch !== '.') return false
+    // A decimal point is not the end of a sentence.
+    const prev = briefText[i - 1]
+    const next = briefText[i + 1]
+    if (prev >= '0' && prev <= '9' && next >= '0' && next <= '9') return false
+    return true
+  }
+
+  let start = 0
+  for (let i = charOffset - 1; i >= 0; i--) {
+    if (isBoundary(i)) { start = i + 1; break }
+  }
+  let end = briefText.length
+  for (let i = charOffset; i < briefText.length; i++) {
+    if (isBoundary(i)) { end = i + 1; break }
+  }
+  const sentence = briefText.slice(start, end).trim()
+  return sentence.length > 0 ? sentence : null
+}
+
+/**
+ * Compose the turn the CTA fires.
+ *
+ * ⚠ THIS ASKS. IT DOES NOT INSTRUCT, AND THAT IS A MEASURED DECISION, not a
+ * timidity. Against the LIVE deployed router (12 arms, 12 fresh scenarios, one
+ * arm per scenario so only the phrasing varied — full table in `COPY.addAction`
+ * above and in the PR body):
+ *
+ *   * every explicit "add this figure" phrasing that did NOT name a causal
+ *     target was REFUSED by the graph validator — `ORPHAN_NODE`, or
+ *     `NO_PATH_TO_GOAL` when it was connected to the options but not the goal.
+ *     Adding the brief sentence made this WORSE, not better: it gave the model
+ *     enough confidence to author a node, which the validator then rejected,
+ *     turning a useful sentence into a structural error.
+ *   * an instruction that DID name a valid causal target was accepted (HELD →
+ *     confirm → applied).
+ *
+ * So the accepted instruction exists and its precondition is knowledge this
+ * panel does not have. Asking is not the weaker option here; it is the only one
+ * that is true. The user's answer names the target, and that turn is the one the
+ * engine accepts.
+ *
+ * The sentence is included because it makes the ANSWER better, not because it
+ * makes an add possible: with it, the engine's reply named the specific existing
+ * factor the figure would attach to; without it, the reply was generic.
+ */
+export function composeNotModelledQuestion(item: NotModelledItem, briefText: string | null): string {
+  const sentence = recoverBriefSentence(briefText, item.charOffset)
+  const opening = `My brief mentions ${item.literal}, which isn't in the model.`
+  const context = sentence ? ` The brief says: "${sentence}"` : ''
+  return `${opening}${context} What could this figure influence in this decision, and where would it belong? Don't change the model yet — tell me the options first.`
 }
 
 /**
@@ -295,7 +402,7 @@ export function V7WhatIWasGivenSection({ onSendMessage }: V7WhatIWasGivenSection
       : `${notYetCount} of ${tally.total} figures you mentioned aren't in the model yet`
 
   const addMessage = (item: NotModelledItem) =>
-    onSendMessage?.(`Please add "${item.literal}" from my brief to the model.`)
+    onSendMessage?.(composeNotModelledQuestion(item, briefText))
 
   return (
     <section

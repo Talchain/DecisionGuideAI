@@ -24,6 +24,11 @@ import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun
 import { RUN_COMPLETED_WITHOUT_VERDICT, VERDICT_ABSENT_FROM_PAYLOAD, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
+// Value import, and deliberately so: `resetCanvas` must forget the persisted
+// transcript as well as the persisted graph, or "start fresh" is fresh only
+// until the next reload. transcriptStore imports nothing but a type, so this
+// cannot introduce a cycle.
+import { clearTranscript } from './conversation/utils/transcriptStore'
 import { projectAutosaveData, autosaveSourceFromStore, analysisSnapshotFromStore } from './store/autosaveProjection'
 import { registerCrashSnapshotProvider } from './persist/crashFlush'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
@@ -2782,6 +2787,27 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   resetCanvas: () => {
+    // ── "Start fresh" must be fresh on the NEXT LOAD too ────────────────────
+    // Measured defect (link-track item 4c): resetCanvas cleared in-memory state
+    // and `currentScenarioId`, but left `olumi-canvas-autosave` and
+    // `olumi-canvas-transcript` on disk. The production boot arbiter in
+    // ReactFlowGraph then reads `autosave && !scenario` — the exact state a
+    // reset produces — and takes the `loadSource = 'autosave'` branch
+    // unconditionally, with no age cap and no fresh-entry test. So the previous
+    // model came back on the next page load, announced by
+    // "Recovered unsaved changes from your last session." A demo that starts
+    // over is the case that matters: the operator sees someone else's model.
+    //
+    // `clearTranscript`'s own docstring already reads "(scenario deleted /
+    // canvas reset)" and it had ZERO production call sites — the wiring was
+    // designed and never done, which is why nothing went red.
+    //
+    // Ordering is load-bearing: the transcript file is keyed BY SCENARIO ID, so
+    // it must be read before `clearCurrentScenarioId()` discards the key.
+    const scenarioIdBeingReset = scenarios.getCurrentScenarioId()
+    scenarios.clearAutosave()
+    clearTranscript(scenarioIdBeingReset)
+
     const { nodes, edges } = get()
     if (nodes.length === 0 && edges.length === 0) {
       // Lane 5 (Codex P0-2): the graph is already empty, but a previous

@@ -251,6 +251,21 @@ export interface GuidanceActions {
   clearItemsByTargetIds: (ids: string[]) => void
   /** Remove a single guidance item by item_id (e.g. after user acts on a chip). */
   dismissItem: (itemId: string) => void
+  /**
+   * Adopt whatever this browser persisted for `scenarioId`, subject to the SAME
+   * `valid_while` rules a live run obeys. See §4 below for why this is an
+   * explicit call and not a module-evaluation spread.
+   *
+   * Returns the number of items adopted (0 when there is nothing to adopt, the
+   * blob is for another decision, or every item failed its freshness gate) —
+   * a number, so a caller and a test can bind to the outcome rather than infer
+   * it from the store.
+   */
+  rehydrateGuidance: (opts: {
+    scenarioId: string | null | undefined
+    currentAnalysisHash: string | null | undefined
+    currentGraphHash: string | null | undefined
+  }) => number
 }
 
 const initialGuidanceState: GuidanceState = {
@@ -266,6 +281,144 @@ const initialGuidanceState: GuidanceState = {
   _registrationToken: null,
 }
 
+// ---------------------------------------------------------------------------
+// § 2b — Persistence across a reload
+//
+// THE DEFECT THIS CLOSES. `guidanceItems` was written only from a live turn, so
+// a refresh silently emptied the strip, the on-canvas node coaching markers and
+// every inspector coaching section. The graph and the transcript both rehydrate
+// from localStorage; the user's coaching did not, and nothing said so.
+//
+// ⚠ THE HARD PART IS NOT PERSISTING — IT IS NOT RESURRECTING STALE COACHING.
+// Guidance items carry `valid_while: { analysis_hash?, graph_hash? }`, and
+// advice about a model the user has since changed is worse than no advice: it
+// is confidently wrong, on a surface whose whole job is to be trusted. So the
+// rules a live run obeys (`evictStaleItems`) are applied again at ADOPTION time,
+// and they fail CLOSED — an item whose freshness cannot be VERIFIED is dropped,
+// never kept on the grounds that it is probably fine.
+//
+// Two comparators, and they are not the same kind of thing:
+//   * `analysis_hash` — compared against `useCanvasStore().results.hash`, the
+//     CEE `response_hash`. This one SURVIVES a reload, restored from the
+//     autosave by `restoreAnalysisFromAutosave`, so it is a real comparator.
+//   * `graph_hash` — the wire value is CEE's ANALYSIS-AFFECTING hash (`aag_v1`).
+//     The UI's own `generateGraphHash` is a DIFFERENT algorithm over different
+//     inputs (`compare-tab/types.ts` says so explicitly), and no CEE-family
+//     graph hash survives a reload at all — `analysisFreshness` is not in the
+//     autosave projection. Comparing the two would be the category error that
+//     file warns about. So this module NEVER compares a stored `valid_while
+//     .graph_hash` against a UI hash. It stamps its OWN UI-side graph hash at
+//     WRITE time and compares that against the UI-side hash at READ time: same
+//     algorithm both ends, which is the only comparison that means anything.
+//     An item constrained by `graph_hash` is adopted only when the graph is
+//     byte-identical to the one it was authored against.
+//
+// Storage: sessionStorage, versioned payload, dotted key — the estate's existing
+// feature-store pattern (`strengthenStore`), whose header states the reasoning
+// this shares: "survives reloads, dies with the session — matching the
+// unpersisted scenario identity's scope". Coaching for a decision is exactly
+// that scope. localStorage would outlive the decision it describes.
+// ---------------------------------------------------------------------------
+
+const GUIDANCE_STORAGE_KEY = 'guidance.items.v1'
+
+interface PersistedGuidance {
+  version: 1
+  /** The decision these items were authored for. A blob for another scenario is never adopted. */
+  scenarioId: string
+  /** UI-side graph hash AT WRITE TIME — compared only against another UI-side hash. */
+  graphHashAtWrite: string | null
+  items: GuidanceItem[]
+}
+
+function readPersistedGuidance(): PersistedGuidance | null {
+  try {
+    const raw = sessionStorage.getItem(GUIDANCE_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<PersistedGuidance> | null
+    if (!parsed || parsed.version !== 1) return null
+    if (typeof parsed.scenarioId !== 'string' || parsed.scenarioId.length === 0) return null
+    if (!Array.isArray(parsed.items)) return null
+    return {
+      version: 1,
+      scenarioId: parsed.scenarioId,
+      graphHashAtWrite: typeof parsed.graphHashAtWrite === 'string' ? parsed.graphHashAtWrite : null,
+      items: parsed.items as GuidanceItem[],
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Write the current items for `scenarioId`. Called from the same places that
+ * mutate `guidanceItems`, via `persistCurrent` below — never on a timer, so the
+ * stored blob can never describe a state the store was not in.
+ */
+function writePersistedGuidance(payload: PersistedGuidance): void {
+  try {
+    sessionStorage.setItem(GUIDANCE_STORAGE_KEY, JSON.stringify(payload))
+  } catch {
+    // sessionStorage unavailable or full — guidance degrades to in-memory only,
+    // which is exactly the behaviour before this existed. Never throw into a turn.
+  }
+}
+
+function clearPersistedGuidance(): void {
+  try {
+    sessionStorage.removeItem(GUIDANCE_STORAGE_KEY)
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
+ * The store cannot import the canvas store (cycle), so the two values only IT
+ * knows — the current scenario id and the UI-side graph hash — are supplied by a
+ * provider the boot path installs. With NO provider installed nothing is ever
+ * written: an unidentified blob could be adopted by the wrong decision, and a
+ * silent write with a wrong key is worse than no persistence at all.
+ */
+export interface GuidancePersistenceContext {
+  scenarioId: string | null
+  graphHash: string | null
+}
+let guidanceContextProvider: (() => GuidancePersistenceContext) | null = null
+
+/** Install the context provider (called once, from the canvas boot path). */
+export function setGuidancePersistenceContext(provider: (() => GuidancePersistenceContext) | null): void {
+  guidanceContextProvider = provider
+}
+
+function persistCurrent(items: GuidanceItem[]): void {
+  if (!guidanceContextProvider) return
+  let ctx: GuidancePersistenceContext
+  try {
+    ctx = guidanceContextProvider()
+  } catch {
+    return
+  }
+  if (!ctx.scenarioId) {
+    // No decision identity ⇒ nothing that could be adopted safely later.
+    clearPersistedGuidance()
+    return
+  }
+  if (items.length === 0) {
+    // An empty store is a REAL state (a structural edit cleared guidance), and
+    // it must survive a reload as emptiness. Writing nothing would leave the
+    // previous blob on disk for the next boot to adopt — the resurrection this
+    // whole section exists to prevent.
+    clearPersistedGuidance()
+    return
+  }
+  writePersistedGuidance({
+    version: 1,
+    scenarioId: ctx.scenarioId,
+    graphHashAtWrite: ctx.graphHash,
+    items,
+  })
+}
+
 export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, get) => ({
   ...initialGuidanceState,
 
@@ -279,10 +432,63 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
         ? activeGuidanceItemId
         : null,
     })
+    persistCurrent(items)
+  },
+
+  rehydrateGuidance: ({ scenarioId, currentAnalysisHash, currentGraphHash }) => {
+    // Fail closed at every gate below: the cost of adopting stale coaching is a
+    // confident lie about the user's model; the cost of adopting nothing is the
+    // behaviour that shipped before this existed.
+    if (!scenarioId) return 0
+    if (get().guidanceItems.length > 0) return 0 // a live turn already won; never overwrite it
+    const stored = readPersistedGuidance()
+    if (!stored) return 0
+    if (stored.scenarioId !== scenarioId) {
+      // A blob for a DIFFERENT decision. Drop it rather than leave it to be
+      // adopted if the user navigates back — coaching must not outlive the
+      // decision boundary.
+      clearPersistedGuidance()
+      return 0
+    }
+
+    const fresh = stored.items.filter((item) => {
+      const vw = item.valid_while
+      if (!vw) return true // unconstrained by the producer → always valid
+
+      if (vw.analysis_hash !== undefined) {
+        // Same rule as `evictStaleItems`: unverifiable is stale.
+        if (currentAnalysisHash == null) return false
+        if (currentAnalysisHash !== vw.analysis_hash) return false
+      }
+
+      if (vw.graph_hash !== undefined) {
+        // NOT compared against `vw.graph_hash` — that is CEE's aag_v1 and this
+        // is the UI's own algorithm. Compared like-for-like against the UI hash
+        // stamped when these items were written.
+        if (currentGraphHash == null || stored.graphHashAtWrite == null) return false
+        if (currentGraphHash !== stored.graphHashAtWrite) return false
+      }
+
+      return true
+    })
+
+    if (fresh.length === 0) {
+      clearPersistedGuidance()
+      return 0
+    }
+    set({ guidanceItems: fresh, activeGuidanceItemId: null })
+    // Re-persist the SURVIVORS, so a second reload cannot resurrect an item this
+    // one just evicted (the stored blob must always match the store).
+    persistCurrent(fresh)
+    return fresh.length
   },
 
   clearGuidanceItems: () => {
     set({ guidanceItems: [], activeGuidanceItemId: null })
+    // Structural edits reach here. Clearing on screen but leaving the blob on
+    // disk would let the next reload re-adopt advice about the PRE-edit model —
+    // the single most damaging thing this store could do.
+    persistCurrent([])
   },
 
   setActiveGuidanceItem: (itemId) => {
@@ -355,6 +561,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
         ? activeGuidanceItemId
         : null,
     })
+    persistCurrent(surviving)
   },
 
   dismissItem: (itemId) => {
@@ -365,6 +572,8 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       guidanceItems: surviving,
       activeGuidanceItemId: activeGuidanceItemId === itemId ? null : activeGuidanceItemId,
     })
+    // A dismissal the user made must not come back on refresh.
+    persistCurrent(surviving)
   },
 
   clearItemsByTargetIds: (ids) => {
@@ -399,6 +608,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
         ? activeGuidanceItemId
         : null,
     })
+    persistCurrent(surviving)
   },
 }))
 
