@@ -1,0 +1,45 @@
+{
+  "witness": "PR4 two-person collaboration",
+  "mode": "live wire",
+  "state_class": "fresh, two-identity",
+  "origin": "https://staging--olumi.netlify.app",
+  "started": "2026-08-11T11:16:56.307Z",
+  "finished": "2026-08-11T11:16:59.135Z",
+  "legs": [
+    {
+      "leg": "1. auth capability derived",
+      "status": "PASS",
+      "capability": {
+        "email_provider": true,
+        "google_provider": false,
+        "anonymous_users": false,
+        "disable_signup": false,
+        "mailer_autoconfirm": true
+      }
+    },
+    {
+      "leg": "2. owner identity (real Supabase session)",
+      "status": "PASS",
+      "owner_email": "olumi-witness+owner-1786447016999-8d331f6f@example.test",
+      "owner_user_id": "98650cca-7e77-4cc6-9a5c-bbcac5c3e7fc",
+      "access_token_sha256_prefix": "18c349c40ff13f9e",
+      "method": "email+password (auto-confirmed)"
+    },
+    {
+      "leg": "3. CONTROL: round over an unowned scenario is refused",
+      "status": "PASS",
+      "http": 401,
+      "code": "verification_unavailable",
+      "because": "That token could not be verified."
+    },
+    {
+      "leg": "4. owner mints the round",
+      "status": "BLOCKED",
+      "http": 401,
+      "code": "verification_unavailable",
+      "because": "CEE cannot verify the Supabase access token, so no owner call can reach an ownership check. The token is HS256, and CEE returns verification_unavailable only when SUPABASE_JWT_SECRET is unset (src/utils/supabase-user-jwt.ts — an incorrect secret would answer invalid_token instead).",
+      "remedy": "Set SUPABASE_JWT_SECRET on the CEE staging service (Render) to the Supabase project JWT secret."
+    }
+  ],
+  "overall": "BLOCKED"
+}

@@ -11,9 +11,44 @@ import { Mail, Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
 
-type PageState = 'default' | 'submitting' | 'link-sent' | 'rate-limited' | 'invalid-email' | 'expired-link'
+type PageState =
+  | 'default'
+  | 'submitting'
+  | 'link-sent'
+  | 'rate-limited'
+  | 'invalid-email'
+  | 'expired-link'
+  | 'send-failed'
+  | 'oauth-failed'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Is this failure OURS rather than a fact about the address?
+ *
+ * The link-sent state exists to make a registered and an unregistered address
+ * indistinguishable — that is worth protecting and is untouched here. But it
+ * was catching everything, including a 500 from a Supabase project with no
+ * SMTP configured, which is what staging returns today for an address that
+ * DOES exist. Reporting that as "your link is on its way" is a lie the user
+ * cannot detect and cannot act on.
+ *
+ * A 5xx is returned identically for every address, so naming it leaks nothing.
+ * The predicate is written against the SPEC (5xx = server fault) rather than
+ * against the single failure mode in hand, so a different server fault is
+ * classified correctly the first time it appears.
+ */
+function isServerFault(error: unknown): boolean {
+  const status = (error as { status?: unknown } | null)?.status
+  return typeof status === 'number' && status >= 500
+}
+
+function isRateLimited(error: unknown): boolean {
+  const status = (error as { status?: unknown } | null)?.status
+  if (status === 429) return true
+  const msg = error instanceof Error ? error.message : String(error ?? '')
+  return msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('too many')
+}
 
 export default function LoginPage() {
   const { signInWithMagicLink, signInWithGoogle } = useAuth()
@@ -52,9 +87,11 @@ export default function LoginPage() {
     const { error } = await signInWithMagicLink(trimmed)
 
     if (error) {
-      const msg = error instanceof Error ? error.message : String(error)
-      if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('too many')) {
+      if (isRateLimited(error)) {
         setPageState('rate-limited')
+      } else if (isServerFault(error)) {
+        // Ours, not theirs. Never dressed up as a sent link.
+        setPageState('send-failed')
       } else {
         // Show generic link-sent for all other errors (including "user not found")
         // to prevent email enumeration.
@@ -72,13 +109,22 @@ export default function LoginPage() {
     const trimmed = email.trim()
     if (!EMAIL_RE.test(trimmed)) return
     setPageState('submitting')
-    await signInWithMagicLink(trimmed)
+    // The resend path used to ignore its result entirely, so a resend into a
+    // broken mailer always claimed success — the same defect as the first send.
+    const { error } = await signInWithMagicLink(trimmed)
+    if (error && isServerFault(error)) {
+      setPageState('send-failed')
+      return
+    }
     setPageState('link-sent')
     setResendCooldown(60)
   }, [email, signInWithMagicLink])
 
   const handleGoogleClick = useCallback(async () => {
-    await signInWithGoogle()
+    // The result used to be discarded, so a disabled provider produced a button
+    // that visibly did nothing whatsoever.
+    const { error } = await signInWithGoogle()
+    if (error) setPageState('oauth-failed')
   }, [signInWithGoogle])
 
   return (
@@ -156,6 +202,22 @@ export default function LoginPage() {
                 {pageState === 'rate-limited' && (
                   <p className={`${typography.bodySmall} text-danger mt-1`}>
                     Please wait a moment before trying again.
+                  </p>
+                )}
+                {pageState === 'send-failed' && (
+                  /* Deliberately says nothing about whether the address is
+                     registered — this text is identical for every address, so
+                     it cannot be used to enumerate accounts. */
+                  <p className={`${typography.bodySmall} text-danger mt-1`} role="alert">
+                    We couldn&rsquo;t send the sign-in email. This is a problem on our
+                    side, not with your address &mdash; nothing was sent. Please try
+                    again later or ask your Olumi contact.
+                  </p>
+                )}
+                {pageState === 'oauth-failed' && (
+                  <p className={`${typography.bodySmall} text-danger mt-1`} role="alert">
+                    We couldn&rsquo;t start Google sign-in. Please use the email link
+                    above, or ask your Olumi contact.
                   </p>
                 )}
               </div>
