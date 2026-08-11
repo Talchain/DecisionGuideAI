@@ -71,7 +71,18 @@ export const OVERVIEW_COPY = {
   // the Constraints chip and was wrong on each, in opposite ways. See the
   // chip-note derivation below. Its absence is pinned by
   // DecisionOverviewCard.spec.tsx, which asserts the literal sentence.
-  constraintsNoteEmpty: 'No limits on record',
+  // ⚠ THIS SENTENCE HAS NOW BEEN WRONG TWICE, IN TWO DIFFERENT WAYS, AND THE
+  // SECOND CORRECTION IS THE ONE TO KEEP IN MIND.
+  //
+  // v1 "Not captured yet" was a FALSE DENIAL of the user's own input, and was
+  // retired for that. v2 "No limits on record" fixed the denial and left an
+  // ambiguity: "on record" reads as easily as "on YOUR record" as "in my
+  // model". L3 measured a reader taking it the first way, on a brief stating
+  // three constraints — two of them prefixed with the literal word
+  // "constraint" — that the product demonstrably read and re-typed as soft
+  // risks (L3-BROWSER-TRUTH §9 C7). The sentence must be unambiguously about
+  // what the MODEL has set, which is the only thing `constraintCount` knows.
+  constraintsNoteEmpty: 'Nothing set as a hard limit',
   optionsNoteEmpty: 'No options mapped yet',
   // V6-RESPEC §4: empty classification fields fold into ONE muted aggregate
   // chip ("+N to set") — collapsed shows what IS, never a per-field inventory
@@ -403,7 +414,16 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
     // outlined otherwise.
     { dim: 'Goal', note: goalNote, dotTone: state === 'thin' ? 'border-warning' : 'border-success' },
     { dim: 'Context', note: contextNote, dotTone: 'border-success' },
-    { dim: 'Constraints', note: constraintsNote, dotTone: 'border-success' },
+    {
+      dim: 'Constraints',
+      note: constraintsNote,
+      // The NOTE was corrected before and the DOT was not, so the card went on
+      // rendering a zero-constraint record in the tone that means "all good"
+      // — the same claim the sentence had just stopped making, in the other
+      // channel (link-track R1 / C7). A zero is either a real gap or a
+      // silent loss; the chip may report it, it may not approve of it.
+      dotTone: constraintCount > 0 ? 'border-success' : 'border-text-light',
+    },
     {
       dim: 'Options',
       note: optionsNote,
@@ -490,6 +510,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
               >
                 <span
                   aria-hidden="true"
+                  data-dim-dot={dim.toLowerCase()}
                   className={`h-[7px] w-[7px] flex-none rounded-full border bg-transparent ${dotTone}`}
                 />
                 <span className="min-w-0">

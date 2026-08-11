@@ -1,5 +1,27 @@
 /**
- * Login page — magic link + Google OAuth.
+ * Login page — owner password + magic link + Google OAuth.
+ *
+ * ── LINK-TRACK R1 item 7 (11 Aug 2026) ─────────────────────────────────────
+ * Password sign-in is the PILOT'S auth route (ratified). Magic link is the
+ * route that does not currently work: staging's Supabase project has no SMTP,
+ * which is why the `send-failed` state exists on this page at all. A pilot
+ * owner sent a link today lands on a form whose only controls are ones they
+ * have no way to complete.
+ *
+ * The password form is deliberately minimal and deliberately INCOMPLETE:
+ *   · NO sign-up. Owners are pre-provisioned; the absence of a self-serve
+ *     path is a decision, not an oversight.
+ *   · NO password reset. There is no SMTP to deliver one, and a reset control
+ *     that cannot send an email is the guarantee-theatre this track exists to
+ *     remove.
+ *   · NO new error vocabulary. Supabase answers a wrong password and an
+ *     unknown address with the same 400, which is already enumeration-safe;
+ *     nothing here re-classifies it, and the copy says only what is true of
+ *     both.
+ *
+ * The email field is SHARED by both routes and therefore sits outside both
+ * forms — a second email input would be a second source of truth for the one
+ * value both submissions send.
  *
  * States: default → submitting → link-sent → rate-limited → invalid-email → expired-link
  * Shows identical message for invited and non-invited emails (prevents enumeration).
@@ -20,6 +42,8 @@ type PageState =
   | 'expired-link'
   | 'send-failed'
   | 'oauth-failed'
+  | 'password-submitting'
+  | 'password-failed'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -51,10 +75,11 @@ function isRateLimited(error: unknown): boolean {
 }
 
 export default function LoginPage() {
-  const { signInWithMagicLink, signInWithGoogle } = useAuth()
+  const { signInWithMagicLink, signInWithGoogle, signInWithPassword } = useAuth()
   const [searchParams] = useSearchParams()
 
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [pageState, setPageState] = useState<PageState>(() =>
     searchParams.get('error') === 'expired' ? 'expired-link' : 'default',
   )
@@ -120,6 +145,32 @@ export default function LoginPage() {
     setResendCooldown(60)
   }, [email, signInWithMagicLink])
 
+  const handlePasswordSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = email.trim()
+    if (!EMAIL_RE.test(trimmed)) {
+      setPageState('invalid-email')
+      return
+    }
+    if (password.length === 0) return
+
+    setPageState('password-submitting')
+    const { error } = await signInWithPassword(trimmed, password)
+    if (error) {
+      // ONE failure state. A wrong password, an unknown address and a
+      // capability-absent build all land here and read identically, so this
+      // page cannot be used to discover which addresses exist. `isServerFault`
+      // is deliberately NOT branched on here: splitting the message by cause
+      // would reintroduce exactly that signal.
+      setPageState('password-failed')
+      setPassword('')
+      return
+    }
+    // On success the AuthProvider's onAuthStateChange drives navigation. This
+    // component does not route, and must not claim a redirect it never
+    // performs.
+  }, [email, password, signInWithPassword])
+
   const handleGoogleClick = useCallback(async () => {
     // The result used to be discarded, so a disabled provider produced a button
     // that visibly did nothing whatsoever.
@@ -167,10 +218,13 @@ export default function LoginPage() {
           /* ---- Default / submitting / invalid-email / rate-limited ---- */
           <>
             <p className={`${typography.body} text-text-light mb-6`}>
-              Enter your email to receive a sign-in link
+              Sign in with the password your Olumi contact gave you
             </p>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {/* The email field is shared by BOTH routes, so it lives outside
+                both forms. Enter is still handled: it submits whichever form
+                the focused control belongs to. */}
+            <div className="flex flex-col gap-4">
               <div>
                 <label htmlFor="login-email" className="sr-only">Email address</label>
                 <input
@@ -187,7 +241,7 @@ export default function LoginPage() {
                     }
                   }}
                   onBlur={handleEmailBlur}
-                  disabled={pageState === 'submitting'}
+                  disabled={pageState === 'submitting' || pageState === 'password-submitting'}
                   className={`w-full min-h-[44px] rounded-md border bg-panel px-4 py-3 ${typography.body} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-info/50 ${
                     pageState === 'invalid-email'
                       ? 'border-danger'
@@ -222,10 +276,81 @@ export default function LoginPage() {
                 )}
               </div>
 
+              {/* ---- Owner password sign-in: the pilot's working route ---- */}
+              <form
+                onSubmit={handlePasswordSubmit}
+                className="flex flex-col gap-4"
+                data-testid="owner-password-form"
+              >
+                <div>
+                  <label htmlFor="owner-password" className="sr-only">Password</label>
+                  <input
+                    id="owner-password"
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={e => {
+                      setPassword(e.target.value)
+                      if (pageState === 'password-failed') setPageState('default')
+                    }}
+                    disabled={pageState === 'submitting' || pageState === 'password-submitting'}
+                    data-testid="owner-password-input"
+                    className={`w-full min-h-[44px] rounded-md border bg-panel px-4 py-3 ${typography.body} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-info/50 ${
+                      pageState === 'password-failed'
+                        ? 'border-danger'
+                        : 'border-[rgba(38,38,38,0.16)]'
+                    }`}
+                  />
+                  {pageState === 'password-failed' && (
+                    /* Identical for a wrong password and an unregistered
+                       address — Supabase answers both with the same 400, and
+                       splitting them here would leak which addresses exist. */
+                    <p
+                      className={`${typography.bodySmall} text-danger mt-1`}
+                      role="alert"
+                      data-testid="owner-password-error"
+                    >
+                      That email and password didn&rsquo;t match. Check them, or ask
+                      your Olumi contact.
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={pageState === 'submitting' || pageState === 'password-submitting' || password.length === 0}
+                  data-testid="owner-password-submit"
+                  className={`${typography.button} flex items-center justify-center gap-2 rounded-pill bg-primary px-6 py-3 text-text-on-color shadow-1 transition-all duration-fast hover:bg-primary-hover hover:-translate-y-px active:bg-primary-active active:translate-y-0 disabled:bg-primary-disabled disabled:cursor-not-allowed disabled:translate-y-0`}
+                >
+                  {pageState === 'password-submitting' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Signing in…
+                    </>
+                  ) : (
+                    'Sign in'
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* Divider */}
+            <div className="my-6 flex items-center gap-3">
+              <div className="h-px flex-1 bg-[rgba(38,38,38,0.16)]" />
+              <span className={`${typography.bodySmall} text-text-light`}>or</span>
+              <div className="h-px flex-1 bg-[rgba(38,38,38,0.16)]" />
+            </div>
+
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-col gap-4"
+              data-testid="magic-link-form"
+            >
               <button
                 type="submit"
-                disabled={pageState === 'submitting'}
-                className={`${typography.button} flex items-center justify-center gap-2 rounded-pill bg-primary px-6 py-3 text-text-on-color shadow-1 transition-all duration-fast hover:bg-primary-hover hover:-translate-y-px active:bg-primary-active active:translate-y-0 disabled:bg-primary-disabled disabled:cursor-not-allowed disabled:translate-y-0`}
+                disabled={pageState === 'submitting' || pageState === 'password-submitting'}
+                className={`${typography.button} flex items-center justify-center gap-2 rounded-pill border border-[rgba(38,38,38,0.16)] bg-transparent px-6 py-3 text-text-body transition-all duration-fast hover:bg-panel-hover hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0`}
               >
                 {pageState === 'submitting' ? (
                   <>
@@ -238,18 +363,13 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Divider */}
-            <div className="my-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-[rgba(38,38,38,0.16)]" />
-              <span className={`${typography.bodySmall} text-text-light`}>or</span>
-              <div className="h-px flex-1 bg-[rgba(38,38,38,0.16)]" />
-            </div>
+            <div className="h-4" />
 
             {/* Google OAuth */}
             <button
               type="button"
               onClick={handleGoogleClick}
-              disabled={pageState === 'submitting'}
+              disabled={pageState === 'submitting' || pageState === 'password-submitting'}
               className={`${typography.button} flex w-full items-center justify-center gap-2 rounded-pill border border-[rgba(38,38,38,0.16)] bg-transparent px-6 py-3 text-text-body transition-all duration-fast hover:bg-panel-hover hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0`}
             >
               <GoogleIcon />
