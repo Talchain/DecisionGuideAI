@@ -1,0 +1,269 @@
+{
+  "_readme": [
+    "Fixtures for `--dry-run` of pr4-two-person-collab-witness.mjs.",
+    "",
+    "These exist to prove the witness's ASSERTIONS BITE, never to stand in for a",
+    "live run. Each case comes in a discriminating pair: a well-formed payload",
+    "that must PASS and a corrupted twin that must FAIL on a named problem. A",
+    "single passing fixture would show only that the assertions can agree with",
+    "something — it could not show they discriminate.",
+    "",
+    "The shapes are taken from the wire contract in src/collab/collabService.ts",
+    "(OpenPacket, RevealView, RevealResponse), not invented here. They are NOT",
+    "captures of real traffic: no live round has ever been minted on staging,",
+    "because CEE cannot verify a Supabase access token (SUPABASE_JWT_SECRET is",
+    "unset). When that lands, replace these with real captures and say so."
+  ],
+  "cases": [
+    {
+      "name": "a blind packet passes",
+      "kind": "packet",
+      "expect": "pass",
+      "target_count": 2,
+      "payload": {
+        "round_id": "11111111-1111-4111-8111-111111111111",
+        "status": "open",
+        "context_note": "Two questions for the panel",
+        "graph_version_ref": "gv_witness_0001",
+        "targets": [
+          { "target": { "kind": "factor", "id": "witness-target-a" }, "label": "Monthly churn rate", "description": null, "unit": "%" },
+          { "target": { "kind": "factor", "id": "witness-target-b" }, "label": "Time to first value", "description": null, "unit": "days" }
+        ],
+        "self": {
+          "participant_id": "22222222-2222-4222-8222-222222222222",
+          "display_name": "Witness Participant",
+          "completed_target_ids": []
+        }
+      }
+    },
+    {
+      "name": "a packet leaking siblings' answers FAILS",
+      "kind": "packet",
+      "expect": "fail",
+      "target_count": 2,
+      "payload": {
+        "round_id": "11111111-1111-4111-8111-111111111111",
+        "status": "open",
+        "context_note": "Two questions for the panel",
+        "graph_version_ref": "gv_witness_0001",
+        "targets": [
+          { "target": { "kind": "factor", "id": "witness-target-a" }, "label": "Monthly churn rate", "description": null, "unit": "%" },
+          { "target": { "kind": "factor", "id": "witness-target-b" }, "label": "Time to first value", "description": null, "unit": "days" }
+        ],
+        "responses": [{ "participant_id": "someone-else", "value": 0.09 }],
+        "self": {
+          "participant_id": "22222222-2222-4222-8222-222222222222",
+          "display_name": "Witness Participant",
+          "completed_target_ids": []
+        }
+      }
+    },
+    {
+      "name": "a packet leaking the model's current value FAILS",
+      "kind": "packet",
+      "expect": "fail",
+      "target_count": 2,
+      "payload": {
+        "round_id": "11111111-1111-4111-8111-111111111111",
+        "status": "open",
+        "context_note": null,
+        "graph_version_ref": "gv_witness_0001",
+        "targets": [
+          { "target": { "kind": "factor", "id": "witness-target-a" }, "label": "Monthly churn rate", "description": null, "unit": "%", "model_value": 0.04 },
+          { "target": { "kind": "factor", "id": "witness-target-b" }, "label": "Time to first value", "description": null, "unit": "days" }
+        ],
+        "self": {
+          "participant_id": "22222222-2222-4222-8222-222222222222",
+          "display_name": "Witness Participant",
+          "completed_target_ids": []
+        }
+      }
+    },
+    {
+      "name": "an attributed reveal passes",
+      "kind": "reveal",
+      "expect": "pass",
+      "expected": {
+        "targetCount": 2,
+        "minResponses": 2,
+        "participantId": "22222222-2222-4222-8222-222222222222",
+        "expressions": [
+          "about one in twenty a month, based on the last two quarters",
+          "a fortnight if onboarding is staffed, longer otherwise"
+        ]
+      },
+      "payload": {
+        "round_id": "11111111-1111-4111-8111-111111111111",
+        "status": "closed",
+        "graph_version_ref": "gv_witness_0001",
+        "per_target": [
+          {
+            "target": { "kind": "factor", "id": "witness-target-a" },
+            "label": "Monthly churn rate",
+            "model_value_at_version": 0.04,
+            "responses": [
+              {
+                "participant_id": "22222222-2222-4222-8222-222222222222",
+                "display_label": "Witness Participant",
+                "value": 0.05,
+                "expression_raw": "about one in twenty a month, based on the last two quarters",
+                "confidence": 0.6,
+                "kind": "belief_submitted"
+              }
+            ]
+          },
+          {
+            "target": { "kind": "factor", "id": "witness-target-b" },
+            "label": "Time to first value",
+            "model_value_at_version": 21,
+            "responses": [
+              {
+                "participant_id": "22222222-2222-4222-8222-222222222222",
+                "display_label": "Witness Participant",
+                "value": 14,
+                "expression_raw": "a fortnight if onboarding is staffed, longer otherwise",
+                "confidence": 0.6,
+                "kind": "belief_submitted"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "an UNATTRIBUTED reveal FAILS (a number with no author)",
+      "kind": "reveal",
+      "expect": "fail",
+      "expected": {
+        "targetCount": 2,
+        "minResponses": 2,
+        "participantId": "22222222-2222-4222-8222-222222222222",
+        "expressions": [
+          "about one in twenty a month, based on the last two quarters",
+          "a fortnight if onboarding is staffed, longer otherwise"
+        ]
+      },
+      "payload": {
+        "round_id": "11111111-1111-4111-8111-111111111111",
+        "status": "closed",
+        "graph_version_ref": "gv_witness_0001",
+        "per_target": [
+          {
+            "target": { "kind": "factor", "id": "witness-target-a" },
+            "label": "Monthly churn rate",
+            "model_value_at_version": 0.04,
+            "responses": [
+              {
+                "participant_id": "22222222-2222-4222-8222-222222222222",
+                "display_label": "",
+                "value": 0.05,
+                "expression_raw": "about one in twenty a month, based on the last two quarters",
+                "confidence": 0.6,
+                "kind": "belief_submitted"
+              }
+            ]
+          },
+          {
+            "target": { "kind": "factor", "id": "witness-target-b" },
+            "label": "Time to first value",
+            "model_value_at_version": 21,
+            "responses": [
+              {
+                "participant_id": "22222222-2222-4222-8222-222222222222",
+                "display_label": "Witness Participant",
+                "value": 14,
+                "expression_raw": "a fortnight if onboarding is staffed, longer otherwise",
+                "confidence": 0.6,
+                "kind": "belief_submitted"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "a reveal whose words were REWRITTEN FAILS (expertise must survive verbatim)",
+      "kind": "reveal",
+      "expect": "fail",
+      "expected": {
+        "targetCount": 2,
+        "minResponses": 2,
+        "participantId": "22222222-2222-4222-8222-222222222222",
+        "expressions": [
+          "about one in twenty a month, based on the last two quarters",
+          "a fortnight if onboarding is staffed, longer otherwise"
+        ]
+      },
+      "payload": {
+        "round_id": "11111111-1111-4111-8111-111111111111",
+        "status": "closed",
+        "graph_version_ref": "gv_witness_0001",
+        "per_target": [
+          {
+            "target": { "kind": "factor", "id": "witness-target-a" },
+            "label": "Monthly churn rate",
+            "model_value_at_version": 0.04,
+            "responses": [
+              {
+                "participant_id": "22222222-2222-4222-8222-222222222222",
+                "display_label": "Witness Participant",
+                "value": 0.05,
+                "expression_raw": "Estimated 5% monthly churn.",
+                "confidence": 0.6,
+                "kind": "belief_submitted"
+              }
+            ]
+          },
+          {
+            "target": { "kind": "factor", "id": "witness-target-b" },
+            "label": "Time to first value",
+            "model_value_at_version": 21,
+            "responses": [
+              {
+                "participant_id": "22222222-2222-4222-8222-222222222222",
+                "display_label": "Witness Participant",
+                "value": 14,
+                "expression_raw": "a fortnight if onboarding is staffed, longer otherwise",
+                "confidence": 0.6,
+                "kind": "belief_submitted"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "a reveal MISSING a target FAILS (one axis is not a panel)",
+      "kind": "reveal",
+      "expect": "fail",
+      "expected": {
+        "targetCount": 2,
+        "minResponses": 2,
+        "participantId": "22222222-2222-4222-8222-222222222222",
+        "expressions": ["about one in twenty a month, based on the last two quarters"]
+      },
+      "payload": {
+        "round_id": "11111111-1111-4111-8111-111111111111",
+        "status": "closed",
+        "graph_version_ref": "gv_witness_0001",
+        "per_target": [
+          {
+            "target": { "kind": "factor", "id": "witness-target-a" },
+            "label": "Monthly churn rate",
+            "model_value_at_version": 0.04,
+            "responses": [
+              {
+                "participant_id": "22222222-2222-4222-8222-222222222222",
+                "display_label": "Witness Participant",
+                "value": 0.05,
+                "expression_raw": "about one in twenty a month, based on the last two quarters",
+                "confidence": 0.6,
+                "kind": "belief_submitted"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
