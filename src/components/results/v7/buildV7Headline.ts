@@ -319,6 +319,13 @@ function runnerUpSubline(
    * product. Suppression is right here; a surface that EXPLAINS that state is
    * a real product question and a separate piece of work.
    */
+  // ⚠ NOT `DecisionVerdict.gapPp`, and the difference is the whole point of the
+  // block above: `gapPp` is TOP1 − TOP2 (the two highest win probabilities,
+  // measuring whether the analysis discriminates at all), whereas this is
+  // DESIGNATED WINNER − best rival, which goes NEGATIVE exactly when the
+  // producer's recommendation is not the win-probability argmax — the state
+  // this guard exists to suppress. Same units, different numerator; do not
+  // substitute one for the other.
   const leadPoints = Math.round((winProbability - first.winProbability) * 100)
   if (leadPoints <= 0) return null
 

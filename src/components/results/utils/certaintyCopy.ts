@@ -51,13 +51,15 @@
  *      → "{winner} came out ahead most often across simulated scenarios"
  *
  *   ⭐ THE "[ by N points]" SUFFIX IS RETIRED (2026-08-10). Brief 5.2 Task 1
- *   appended it whenever the caller supplied a positive finite
- *   `winProbabilityGap`, to preserve the numeric lead without PLoT's
- *   over-confident "clear leader / X-point advantage" framing. The number it
- *   preserved was the percentage-point gap between two win frequencies, which
- *   no user-facing surface may state. The DEFENCE against that PLoT framing is
- *   unchanged and lives where it always did — the `conservative` flag, which
- *   keeps `coachingHeadline` from winning the precedence chain.
+ *   appended it whenever the caller supplied a positive finite win-probability
+ *   gap, to preserve the numeric lead without PLoT's over-confident "clear
+ *   leader / X-point advantage" framing. The number it preserved was the
+ *   percentage-point gap between two win frequencies, which no user-facing
+ *   surface may state. The input that carried it is GONE from this module's
+ *   type as of 2026-08-11 — there is no longer a gap to render. The DEFENCE
+ *   against that PLoT framing is unchanged and lives where it always did — the
+ *   `conservative` flag, which keeps `coachingHeadline` from winning the
+ *   precedence chain.
  *
  * British English. No em dashes in UI strings (use a period to separate
  * clauses instead). See DESIGN_SYSTEM.md and Brief 5.1 §Operating
@@ -76,17 +78,6 @@ export interface CertaintyCopyInput {
   recommendationStability?: number
   analysisStatus?: 'computed' | 'partial' | 'failed' | 'blocked'
   optionCount?: number
-  /**
-   * Brief 5.2 Task 1: win-probability gap (percentage points) between the
-   * winner and the next option.
-   *
-   * ⚠ UNREAD SINCE 2026-08-10 — this function no longer consumes it (the
-   * " by N points" suffix it fed is retired). Kept on the type so the sole
-   * caller still compiles; removing it, together with `DecisionVerdict.gapPp`
-   * which also has zero production readers, is a clean follow-up rather than
-   * scope on the change that retired the copy.
-   */
-  winProbabilityGap?: number
   /**
    * SINGLE VERDICT: the shared answer to "is there a leading option?"
    * (`src/lib/decisionVerdict.ts`), derived from the same PLoT report the
@@ -196,10 +187,11 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   // caveat and the `conservative` flag are the lede's actual job. Only the
   // quantity goes.
   //
-  // `winProbabilityGap` is left on the input type and still passed by
-  // `DecisionConfidencePanel`; it is now UNREAD here. Removing the field (and
-  // `DecisionVerdict.gapPp`, which already has zero production readers) is a
-  // clean follow-up, deliberately not folded into this change.
+  // ⭐ AND THE FOLLOW-UP LANDED (2026-08-11). `winProbabilityGap` is no longer
+  // on this input type, and `DecisionConfidencePanel` no longer computes it —
+  // so the retirement is now STRUCTURAL rather than a copy decision a later
+  // branch could quietly undo. `DecisionVerdict.gapPp` is deliberately still
+  // there: it is typed contract surface with its own rowed disposition.
 
   /**
    * The re-anchored leader sentence — the comparative quantity, named, with
@@ -208,11 +200,12 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
    *
    * ⚠ F4 — WHY THERE IS NO MAGNITUDE-BEARING ARM HERE, adjudicated.
    * The first draft added `winProbability` to this input and branched on it.
-   * That arm was DEAD: the sole caller (`DecisionConfidencePanel`) passes
-   * only `winProbabilityGap`, never the absolute probability, so the branch
+   * That arm was DEAD: the sole caller (`DecisionConfidencePanel`) passed
+   * only the win-probability GAP, never the absolute probability, so the branch
    * could not execute on any live path — and it carried the mid-sentence
    * casing defect (§10.2) precisely because nothing exercised it. Its spec
-   * even advertised coverage that did not exist.
+   * even advertised coverage that did not exist. (The gap input itself was
+   * deleted on 2026-08-11; no comparative magnitude reaches this module now.)
    *
    * Deleted rather than wired: Paul's ruling DEMOTES the comparative number
    * below the goal number, so a magnitude-free comparative sentence on this

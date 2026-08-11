@@ -664,7 +664,6 @@ describe('buildCertaintyCopy — no caller can reach the leader rules without a 
     recommendationStability: 0.9,
     analysisStatus: 'computed' as const,
     optionCount: 3,
-    winProbabilityGap: 30,
   }
 
   it('ANTI-VACUITY: a PERMITTED verdict still reaches the leader-asserting rule', () => {

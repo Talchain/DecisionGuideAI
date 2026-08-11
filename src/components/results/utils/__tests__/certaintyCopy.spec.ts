@@ -41,7 +41,9 @@ const WINNER = 'Option A'
  * ⚠ THIS COMMENT PREVIOUSLY SAID "the magnitude-bearing arm is covered
  * separately below". THAT WAS FALSE — there was no such coverage, and (F4)
  * there is now no such arm: it was dead on the live path, since the sole
- * caller passes only `winProbabilityGap` and never the absolute probability.
+ * caller passed only the win-probability GAP and never the absolute
+ * probability (and as of 2026-08-11 the gap input is deleted too, so this
+ * module takes no comparative magnitude at all).
  * It has been deleted rather than wired, because Paul's ruling demotes the
  * comparative number and a magnitude-free sentence here is the CORRECT
  * behaviour. A spec comment advertising coverage that does not exist is the
@@ -129,7 +131,6 @@ describe('buildCertaintyCopy — decision table', () => {
       recommendationStability: 0.55,
       confidenceTier: 'strong',
       coachingReadiness: 'ready',
-      winProbabilityGap: 52,
       verdict: clearVerdict(),
     })
     expect(result.headline).not.toContain('no clear leading option')
@@ -515,14 +516,22 @@ describe('buildCertaintyCopy — decision table', () => {
    * WHAT MUST SURVIVE, and is pinned below: the SOFTENING. The hedge
    * ("currently"), the evidence caveat and the `conservative` flag are the
    * lede's actual job and are untouched — only the banned quantity goes.
+   *
+   * ⭐ UPDATED 2026-08-11: the `winProbabilityGap` INPUT is now gone from
+   * `CertaintyCopyInput` (it had been unread since the retirement, and
+   * `DecisionConfidencePanel` no longer computes it). These cases therefore no
+   * longer pass a gap — there is none to pass. The per-branch copy assertions
+   * are unchanged and still pin the softening; the sweep below dropped its gap
+   * dimension for the same reason and keeps sweeping the branch space, because
+   * "no branch states a point gap" is still a claim worth pinning even though
+   * the input that fed one cannot be supplied any more.
    */
-  describe('the retired winProbabilityGap suffix (Brief 5.2 Task 1)', () => {
+  describe('the retired win-probability point-gap suffix (Brief 5.2 Task 1)', () => {
     it('soft path (needs_work + low stability): states no gap, and KEEPS the hedge and the caveat', () => {
       const result = buildCertaintyCopy({
         verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
-        winProbabilityGap: 95,
       })
       expect(result.headline).toBe(`${WINNER} currently leads`)
       expect(result.caveat).toContain('limited evidence')
@@ -534,7 +543,6 @@ describe('buildCertaintyCopy — decision table', () => {
         verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'fair',
-        winProbabilityGap: 7,
       })
       expect(result.headline).toBe(`${WINNER} currently leads`)
       expect(result.caveat).toBeNull()
@@ -545,7 +553,6 @@ describe('buildCertaintyCopy — decision table', () => {
       const result = buildCertaintyCopy({
         verdict: clearVerdict(),
         winnerLabel: WINNER,
-        winProbabilityGap: 3,
       })
       expect(result.headline).toBe(AHEAD)
     })
@@ -556,7 +563,6 @@ describe('buildCertaintyCopy — decision table', () => {
         winnerLabel: WINNER,
         confidenceTier: 'unknown',
         coachingReadiness: 'close_call',
-        winProbabilityGap: 5,
       })
       expect(result.headline).toBe(AHEAD)
     })
@@ -567,7 +573,6 @@ describe('buildCertaintyCopy — decision table', () => {
         winnerLabel: WINNER,
         confidenceTier: 'strong',
         coachingReadiness: 'ready',
-        winProbabilityGap: 50,
       })
       expect(result.headline).toBe(AHEAD)
     })
@@ -576,7 +581,6 @@ describe('buildCertaintyCopy — decision table', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         recommendationStability: 0.55,
-        winProbabilityGap: 95,
         verdict: tiedVerdict(),
       })
       expect(result.headline).toBe(
@@ -585,31 +589,38 @@ describe('buildCertaintyCopy — decision table', () => {
     })
 
     /**
-     * THE DERIVED GUARD, and the one that matters most: no gap VALUE — of any
-     * magnitude, sign, pluralisation-triggering size, or finiteness — produces
-     * a point-gap clause on ANY branch this module can return. A per-case pin
-     * cannot say that; this sweeps the input space the retired suffix used to
-     * read, across every tier/readiness combination that reaches a leader
-     * headline.
+     * THE DERIVED GUARD, and the one that matters most: NO branch this module
+     * can return states a point gap. A per-case pin cannot say that; this
+     * sweeps every tier × readiness × stability combination that reaches a
+     * leader headline.
+     *
+     * ⭐ 2026-08-11: this used to sweep a third dimension — twelve gap VALUES
+     * fed to the (already unread) `winProbabilityGap` input. That dimension is
+     * gone because the input is gone, which is a STRONGER guarantee than the
+     * sweep was: a magnitude cannot be rendered from a number the type will not
+     * accept. What survives here is the part deletion does not cover — that no
+     * branch invents a point gap from the inputs it DOES take.
      */
-    it('NO gap value on ANY branch emits a point-gap clause', () => {
-      const gaps = [0.4, 1, 3, 4.6, 7, 50, 95, 0, -1, NaN, Infinity, -Infinity]
+    it('NO branch emits a point-gap clause', () => {
       const tiers = ['needs_work', 'fair', 'strong', 'unknown'] as const
       const readiness = ['ready', 'close_call', undefined] as const
+      const stabilities = [undefined, 0, 0.55, 0.7, 0.85, 1]
       let asserted = 0
-      for (const winProbabilityGap of gaps) {
-        for (const confidenceTier of tiers) {
-          for (const coachingReadiness of readiness) {
+      for (const confidenceTier of tiers) {
+        for (const coachingReadiness of readiness) {
+          for (const recommendationStability of stabilities) {
             const r = buildCertaintyCopy({
               verdict: clearVerdict(),
               winnerLabel: WINNER,
               confidenceTier,
               coachingReadiness: coachingReadiness as never,
-              winProbabilityGap,
+              recommendationStability,
             })
             const text = [r.headline, r.sub, r.caveat].filter(Boolean).join(' • ')
-            expect(text, `gap=${winProbabilityGap} tier=${confidenceTier} readiness=${coachingReadiness}`)
-              .not.toMatch(/\bby\s+-?\d+(\.\d+)?\s+points?\b/i)
+            expect(
+              text,
+              `tier=${confidenceTier} readiness=${coachingReadiness} stability=${recommendationStability}`,
+            ).not.toMatch(/\bby\s+-?\d+(\.\d+)?\s+points?\b/i)
             expect(text).not.toMatch(/percentage\s+points?/i)
             asserted += 1
           }
@@ -617,7 +628,7 @@ describe('buildCertaintyCopy — decision table', () => {
       }
       // The sweep must actually have swept (trap 13: an assertion loop that
       // ran zero times passes by testing nothing).
-      expect(asserted).toBe(gaps.length * tiers.length * readiness.length)
+      expect(asserted).toBe(tiers.length * readiness.length * stabilities.length)
     })
   })
 
