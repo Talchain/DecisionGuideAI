@@ -310,9 +310,8 @@ describe('AuthContext × guest posture — the front door is REAL', () => {
     // the module a production build actually gets; if a later edit adds any
     // sign-in method back, the capability guards above stop firing and a build
     // with no Supabase client starts reporting success again.
-    const stub = await import('../../stubs/supabase-stub.mjs')
-    const auth = (stub as { createClient: () => { auth: Record<string, unknown> } })
-      .createClient().auth
+    const { createClient } = await import('../../stubs/supabase-stub.mjs')
+    const auth = createClient().auth
     const signInMethods = Object.keys(auth).filter(k => /^signIn/i.test(k))
     expect(
       signInMethods,
