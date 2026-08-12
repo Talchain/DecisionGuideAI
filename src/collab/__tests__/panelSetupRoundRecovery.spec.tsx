@@ -264,6 +264,69 @@ describe('closing the recorded round', () => {
   })
 })
 
+/* ══ Multi-tab supersession: forget ONLY the round actually closed ═════════ */
+
+describe('closing a round whose record has been superseded (two tabs)', () => {
+  // The stored record is LATEST-WINS: a second tab minting R2 overwrites R1's
+  // record. Closing R1 from the first tab (still on its fresh-mint screen)
+  // must NOT delete R2's live reminder — the record no longer points at the
+  // round being closed.
+  const R2_ROUND_ID = 'rnd-SUPERSEDES-R2'
+
+  it("DIFFERENT OBJECT: closing R1 leaves R2's record intact when R2 superseded it", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url === '/bff/collab/rounds') return jsonResponse(MINT_RESPONSE, 201)
+      if (url === `/bff/collab/rounds/${MINTED_ROUND_ID}/close` && init?.method === 'POST') {
+        return jsonResponse({ round_id: MINTED_ROUND_ID, status: 'closed' })
+      }
+      if (url === `/bff/collab/rounds/${MINTED_ROUND_ID}/reveal`) {
+        return jsonResponse({ ...EMPTY_REVEAL, round_id: MINTED_ROUND_ID })
+      }
+      return jsonResponse({ code: 'not_stubbed', message: url }, 404)
+    })
+
+    renderOwnerPanel()
+    await mintARound() // this tab's round: MINTED_ROUND_ID (R1), record = R1
+
+    // Tab B mints R2 for the same scenario — latest-wins overwrite.
+    rememberOpenRound({
+      roundId: R2_ROUND_ID,
+      scenarioId: SCENARIO_ID,
+      participants: [{ participant_id: 'p-c', display_name: 'Lin' }],
+    })
+
+    fireEvent.click(screen.getByTestId('panel-close')) // closes R1
+    await waitFor(() => expect(screen.getByTestId('collab-reveal')).toBeInTheDocument())
+
+    // IDENTITY: R2's reminder survives R1's close.
+    expect(recallOpenRound(SCENARIO_ID)?.round_id).toBe(R2_ROUND_ID)
+  })
+
+  it('MATCHING TWIN: closing the round the record points at forgets it', async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url === '/bff/collab/rounds') return jsonResponse(MINT_RESPONSE, 201)
+      if (url === `/bff/collab/rounds/${MINTED_ROUND_ID}/close` && init?.method === 'POST') {
+        return jsonResponse({ round_id: MINTED_ROUND_ID, status: 'closed' })
+      }
+      if (url === `/bff/collab/rounds/${MINTED_ROUND_ID}/reveal`) {
+        return jsonResponse({ ...EMPTY_REVEAL, round_id: MINTED_ROUND_ID })
+      }
+      return jsonResponse({ code: 'not_stubbed', message: url }, 404)
+    })
+
+    renderOwnerPanel()
+    await mintARound() // record = R1, closing R1
+    expect(recallOpenRound(SCENARIO_ID)?.round_id).toBe(MINTED_ROUND_ID)
+
+    fireEvent.click(screen.getByTestId('panel-close'))
+    await waitFor(() => expect(screen.getByTestId('collab-reveal')).toBeInTheDocument())
+
+    expect(recallOpenRound(SCENARIO_ID)).toBeNull()
+  })
+})
+
 /* ══ Forgetting the reminder ═══════════════════════════════════════════════ */
 
 describe('forgetting the recorded round', () => {

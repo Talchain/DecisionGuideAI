@@ -255,8 +255,18 @@ export default function PanelSetupPage(): JSX.Element {
           }
         }
         setReveal(await fetchOwnerReveal(accessToken, roundId))
-        forgetOpenRound(scenarioId ?? '')
-        setOpenRecord(null)
+        // Forget ONLY the round we actually closed. The stored record is
+        // latest-wins: a second tab minting R2 overwrites R1's record, so an
+        // UNCONDITIONAL forget here — reached from tab A still closing R1 —
+        // would delete the LIVE round's reminder. On a mismatch the record
+        // stays, and local state re-reads it so page and store agree.
+        const stored = recallOpenRound(scenarioId ?? '')
+        if (stored === null || stored.round_id === roundId) {
+          forgetOpenRound(scenarioId ?? '')
+          setOpenRecord(null)
+        } else {
+          setOpenRecord(stored)
+        }
       } catch (err) {
         setFailure(describeOwnerFailure(err, 'close'))
       } finally {
