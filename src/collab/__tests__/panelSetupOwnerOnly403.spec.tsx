@@ -143,8 +143,16 @@ describe('a 403 is not a credential refusal (REVIEW-674 finding 1)', () => {
     expect(screen.getByTestId('panel-error-guidance')).toHaveTextContent(
       /no round you own with that id/i,
     )
+    // Scoped to THIS ACCOUNT (REVIEW-675 blocker): the unscoped "signing in
+    // again will not change that" was false in a reachable sub-case — the
+    // reminder record is keyed by scenario only (no account component), so it
+    // survives a same-browser account switch, and signing back in AS THE
+    // ACCOUNT THAT OPENED THE ROUND is exactly the remedy the copy denied.
     expect(screen.getByTestId('panel-error-guidance')).toHaveTextContent(
-      /signing in again will not change that/i,
+      /signing in again as this account will not change that/i,
+    )
+    expect(screen.getByTestId('panel-error-guidance')).toHaveTextContent(
+      /sign in with it instead/i,
     )
   })
 
@@ -211,6 +219,10 @@ describe('a 403 is not a credential refusal (REVIEW-674 finding 1)', () => {
     )
     expect(screen.getByTestId('panel-error-guidance')).toHaveTextContent(
       /belongs to a different account/i,
+    )
+    // The same REVIEW-675 scoping, pinned on the open string too.
+    expect(screen.getByTestId('panel-error-guidance')).toHaveTextContent(
+      /signing in again as this account will not change that/i,
     )
     expect(screen.getByTestId('panel-error-detail')).toHaveTextContent(/collab_owner_only/)
   })

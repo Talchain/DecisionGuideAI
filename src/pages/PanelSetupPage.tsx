@@ -140,15 +140,18 @@ function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
   // `collab_owner_only`: the bearer was ACCEPTED, and the server is saying
   // there is no round (or scenario) THIS account owns with that id — "does
   // not exist" and "not yours" are deliberately the same code at CEE. Signing
-  // in again cannot change whose it is; the honest next step is the documented
-  // recovery — a fresh round — never the login page.
+  // in again AS THIS ACCOUNT cannot change whose it is — but the claim stops
+  // there (REVIEW-675): the "different account" may be another sign-in the
+  // same person owns, the reminder record is keyed by scenario alone so it
+  // survives a same-browser account switch, and in that sub-case switching
+  // accounts is exactly the remedy. The copy names it rather than denying it.
   if (err.code === 'collab_owner_only') {
     return {
       title: fallbackTitle,
       guidance:
         action === 'open'
-          ? 'This scenario belongs to a different account, so a round cannot be opened on it from this sign-in. Signing in again will not change that — ask the owner of the scenario to run the panel, or open a round on a scenario you own.'
-          : 'There is no round you own with that id — it may have been removed, or it was opened under a different account. Signing in again will not change that. If an old reminder brought you here, forget it and open a fresh round.',
+          ? 'This scenario belongs to a different account, so a round cannot be opened on it from this sign-in. Signing in again as this account will not change that; if that other account is yours, sign in with it instead. Otherwise ask the owner of the scenario to run the panel, or open a round on a scenario you own.'
+          : 'There is no round you own with that id — it may have been removed, or it was opened under a different account. Signing in again as this account will not change that; if that other account is yours, sign in with it instead. If the round is gone for good, forget the reminder and open a fresh round.',
       credential: false,
       detail: `${err.code} — ${err.message}`,
     }
