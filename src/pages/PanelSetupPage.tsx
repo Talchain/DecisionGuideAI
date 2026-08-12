@@ -126,14 +126,35 @@ function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
     }
   }
 
+  // ⚠ ONLY THE WIRE MAY SAY THE ROUND IS OPEN (W-F2, witnessed live 12 Aug
+  // 2026: this function's fallback said "The round is still open" about a
+  // round that was CLOSED — a confident lie on every unexplained failure).
+  // `collab_round_open` is the one code that PROVES it: the server refusing a
+  // reveal because contributions are still blind. Every other code leaves the
+  // round's state UNKNOWN here, and the copy must not assert it either way.
+  // (`collab_round_closed` never reaches this function from the close action —
+  // the call site falls through to the reveal, which is what the owner came
+  // for.)
+  if (action === 'close' && err.code === 'collab_round_open') {
+    return {
+      title: fallbackTitle,
+      guidance:
+        'The round is still open. Try again in a moment — nobody has seen anything they should not.',
+      credential: false,
+      detail: `${err.code} — ${err.message}`,
+    }
+  }
+
   return {
     title: fallbackTitle,
     guidance:
       action === 'open'
         ? 'Check that the factor id matches your model, then try again. Nothing has been sent to anyone yet.'
-        : 'The round is still open. Try again in a moment — nobody has seen anything they should not.',
+        : 'We could not confirm what happened to the round. Try again in a moment — nobody has seen anything they should not.',
     credential: false,
-    detail: err.message,
+    // The server's own code is part of the detail: "Internal server error"
+    // alone is undiagnosable, and the code is what the wire witness greps for.
+    detail: `${err.code} — ${err.message}`,
   }
 }
 
