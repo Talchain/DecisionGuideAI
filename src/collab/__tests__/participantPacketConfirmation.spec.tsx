@@ -10,14 +10,18 @@
  * it from the server's 201 RECEIPT, and binds it to the round it was accepted
  * for. This file pins each of those clauses separately.
  *
- * ── RED-FIRST LEDGER (named signatures at pristine `d4c9326d`) ────────────
- * RED at pristine: the five W-F3 tests (no `packet-confirmation-*` /
- * `packet-already-answered-*` testid exists there) and the N3 credential test
- * (`packet-retry` renders unconditionally there).
- * GREEN at pristine, deliberately: the N1 loop (both spellings were in the
- * hand copy — the guard's bite is proven by the drift MUTANT, not by history)
- * and the N3 different-object twin (it pins the direction the fix must NOT
- * change; without it, deleting the retry button everywhere would pass).
+ * ── RED-FIRST LEDGER (measured at pristine `d4c9326d`: 8 RED / 2 GREEN) ───
+ * RED at pristine: the six W-F3 tests (no `packet-confirmation-*` /
+ * `packet-already-answered-*` testid exists there), the N3 credential test
+ * (`packet-retry` renders unconditionally there), and the N1 loop — pristine
+ * exports no `TOKEN_PARAM_NAMES`, so the import is undefined and the loop's
+ * non-vacuity control throws. (This file first PREDICTED that loop green at
+ * pristine; the measurement said otherwise, and the measurement wins.)
+ * GREEN at pristine, deliberately: the collab_token end-to-end test (both
+ * spellings were in the hand copy — the DRIFT guard's bite is proven by the
+ * drift mutant, not by history) and the N3 different-object twin (it pins the
+ * direction the fix must NOT change; without it, deleting the retry button
+ * everywhere would pass).
  *
  * ── BINDING ───────────────────────────────────────────────────────────────
  * Every assertion selects by IDENTITY (testid carrying the target id, exact
