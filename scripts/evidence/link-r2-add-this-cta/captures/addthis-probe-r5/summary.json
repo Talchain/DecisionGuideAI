@@ -1,0 +1,74 @@
+{
+  "brief": "Should we replace our current CRM with HubSpot next quarter, or keep what we have? We are a 34-person B2B sales team with annual revenue of £31m. Annual CRM cost is about £50,000 and switching would cost roughly £20,000 one-off. The goal is higher sales productivity without blowing the budget.",
+  "results": [
+    {
+      "arm": "P_CONTROL_DERIVED",
+      "scenarioId": "aafe0a41-6d01-4ac2-b4dc-b31dce488adb",
+      "nodesBefore": 14,
+      "labels": [
+        "CRM Platform Decision",
+        "Staff Adoption Uncertainty",
+        "Annual CRM Cost",
+        "CRM Platform Capability",
+        "One-Off Switching Cost",
+        "Sales Team Size",
+        "Increase Sales Productivity Within Budget",
+        "Pilot HubSpot with Sales Sub-Team First",
+        "Keep Current CRM (Status Quo)",
+        "Switch to HubSpot Next Quarter",
+        "Budget Headroom",
+        "Sales Team Productivity",
+        "Low CRM Adoption by Sales Team",
+        "Transition Disruption to Sales Pipeline"
+      ],
+      "target": "Annual CRM Cost",
+      "message": "Change Annual CRM Cost to £64,000.",
+      "edit": {
+        "kind": "APPLIED_DIRECT",
+        "verdict": null,
+        "codes": [],
+        "markers": [
+          "draft_graph committed"
+        ],
+        "nodesAfter": 14,
+        "text": "Updated Annual CRM Cost"
+      }
+    },
+    {
+      "arm": "Q_ADD_TO_GOAL_FEEDER",
+      "scenarioId": "24ea47d1-ed27-47a7-ab54-db0ea0edb1ec",
+      "nodesBefore": 14,
+      "labels": [
+        "CRM Platform Decision",
+        "Team Adoption Difficulty",
+        "Annual CRM Cost",
+        "CRM Platform Capability",
+        "One-Off Switching Cost",
+        "Sales Team Size",
+        "Maximise Sales Productivity Within Budget",
+        "Negotiate & Optimise Current CRM",
+        "Keep Current CRM (Status Quo)",
+        "Switch to HubSpot",
+        "Budget Headroom",
+        "Sales Team Productivity",
+        "Low CRM Adoption Rate",
+        "Transition Disruption to Sales Activity"
+      ],
+      "target": "Budget Headroom",
+      "goal": "Maximise Sales Productivity Within Budget",
+      "message": "Add a new factor called \"Annual revenue\" with a value of £31m, and connect it so that it influences Budget Headroom, which already feeds the goal.",
+      "edit": {
+        "kind": "REFUSED",
+        "verdict": "rejected",
+        "codes": [
+          "blocker:PIPELINE_OWNED_FIELD"
+        ],
+        "markers": [
+          "details.verdict=\"rejected\""
+        ],
+        "nodesAfter": null,
+        "text": "I couldn't take that change forward, so the model is unchanged. Tell me a different way you would like to change it and I will try again."
+      }
+    }
+  ]
+}

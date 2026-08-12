@@ -75,6 +75,7 @@ import {
   loadTranscript,
   saveTranscript,
   formatTruncationNotice,
+  releaseTranscriptTombstone,
 } from './utils/transcriptStore'
 import { appendThreadEntries, createSnapshot } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
@@ -2727,6 +2728,14 @@ export function useConversation(): UseConversationReturn {
       // Every branch below ends with `messages` belonging to the NEW scenario,
       // so ownership transfers here, once, rather than in four places.
       messagesOwnerRef.current = scenarioId
+
+      // Entering a decision un-forgets it. `clearTranscript` tombstones an id so
+      // this effect's SIBLING — the persist effect declared above — cannot write
+      // a reset conversation straight back on the same commit. Re-opening the
+      // decision later is a genuine entry, and its conversation must persist
+      // normally again; without this release, a reset followed by re-opening the
+      // saved decision would silently stop saving it for the rest of the page load.
+      releaseTranscriptTombstone(scenarioId)
 
       // When the previous ID was null/undefined, this is the initial lazy UUID
       // assignment from buildRequest — not a real scenario switch. Clearing

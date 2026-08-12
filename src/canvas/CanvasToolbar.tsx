@@ -542,8 +542,15 @@ export function CanvasToolbar() {
             <li>Any analysis results</li>
             <li>AI assistant conversation</li>
           </ul>
+          {/* ⚠ THIS SAID "You can undo this action with Ctrl+Z (Cmd+Z on Mac)."
+              and it was FALSE for the item directly above it. Undo restores graph
+              history; the conversation is deleted from localStorage and no undo
+              can bring it back. A confirmation sheet that under-states what it
+              destroys is the exact class this track exists to remove — and it is
+              worse on a confirm dialog than anywhere else, because the promise is
+              what the user weighs before saying yes. */}
           <p className={`${typography.caption} text-gray-500`}>
-            You can undo this action with Ctrl+Z (Cmd+Z on Mac).
+            Undo (Ctrl+Z / Cmd+Z) can bring the graph back. The conversation cannot be recovered.
           </p>
           <div className="flex gap-2">
             <button

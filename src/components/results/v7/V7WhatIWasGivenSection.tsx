@@ -91,13 +91,65 @@ const COPY = {
   estimatedLead:
     "The numbers behind these are mine, not yours. If you have better ones, tell me and I'll use them.",
   notYetHeading: 'Not modelled yet',
-  notYetLead: 'These are in your brief but not in the model. Add any that matter.',
+  notYetLead: 'These are in your brief but not in the model. Ask about any that matter.',
   consideredLead: 'I also considered these and left them out:',
   caveatLead: 'This covers figures you mentioned. It does not yet track:',
   unknown:
     "I can't show this yet for this decision — so please don't read the absence as everything having made it in.",
   noBrief: "I don't have your original wording saved for this decision.",
-  addAction: 'Add this',
+  /**
+   * ⚠ THIS LABEL SAID "Add this", AND THE PRODUCT COULD NOT DO IT. Derived
+   * against the LIVE deployed router (staging `cee-staging.onrender.com`,
+   * 2026-08-11, 12 arms over 12 fresh scenarios, one arm per scenario so only
+   * the phrasing varied; evidence in the PR body):
+   *
+   *   the shipped message, a bare figure  → no mutation; the engine replies
+   *     "it is not clear what it should causally connect to… Could you clarify
+   *      what this figure should influence?"
+   *   figure + its brief sentence, or a named factor, with NO causal target
+   *                                       → the LLM DOES emit operations and the
+   *     GRAPH VALIDATOR refuses them: `ORPHAN_NODE`. A worse outcome than the
+   *     question — a structural error where there had been a useful sentence.
+   *   connected to the options but not the goal  → `NO_PATH_TO_GOAL`.
+   *   an instruction NAMING a causal target that keeps the graph valid
+   *                                       → still refused, `PIPELINE_OWNED_FIELD`
+   *     ("the candidate targets an analysis-derived, pipeline-owned field") — the
+   *     factors that feed the goal in a drafted graph are themselves
+   *     analysis-derived, so naming one does not rescue the add.
+   *   control, the estate's proven edit grammar ("Change X to Y.", target derived
+   *     from THIS run's graph by identity) → applied. The control is why the
+   *     refusals are evidence about the phrasings and not about a sick service.
+   *
+   * ⚠ AN EARLIER VERSION OF THIS COMMENT SAID THE OPPOSITE — "**HELD**, then
+   * confirm → applied" — AND IT WAS FALSE. Two arms were scored HELD by a probe
+   * whose classifier read `d.verdict === 'held' || !!d.blocker_code`, so the
+   * disjunct overrode an explicit `verdict: "rejected"` that happened to carry a
+   * blocker code. Both were REJECTED, neither carried a `held_proposal` block, and
+   * no arm in any round ever sent a confirmation turn — the "confirm → applied"
+   * half was never executed at all. Caught in review. It is trap 13c exactly: a
+   * 13-mutant kit measures whether the TESTS can detect a change, never whether
+   * the ORACLE is right, so a full kill-rate certified nothing about this.
+   *
+   * ⚠ SO THE LADDER IS UNMEASURED, and this comment will not reassure the reader
+   * that it exists. Across 15 arms over 5 rounds — the last with the corrected
+   * classifier, a target derived by identity from the run's own graph, and a
+   * positive control that APPLIED — no add instruction has ever been observed to
+   * be accepted. Whether a user's own answer can land one is not established.
+   *
+   * What IS established is what the design rests on: every add phrasing the
+   * receipt could compose is refused, and every ask phrasing is answered with
+   * concrete, model-grounded options. The acceptance condition for an add is
+   * knowledge THIS PANEL DOES NOT HAVE — what the figure should causally
+   * influence — and a receipt that picked a target would be the product inventing
+   * causality on the user's behalf, which is worse than the CTA doing nothing.
+   * The engine itself ends in the same place: "connect 'Annual revenue' to a
+   * factor that already feeds your goal. Which factor should it relate to?"
+   *
+   * The button therefore does the thing that measurably works and is true: it
+   * asks. The user's answer names the target, and THAT turn is the one the
+   * engine accepts. Two honest steps beat one false promise.
+   */
+  addAction: 'Where does this fit?',
 } as const
 
 /**
@@ -133,6 +185,95 @@ function notTrackedCopy(codes: readonly string[]): string {
   }
   if (unknown > 0) known.push('and some other things I set aside')
   return known.join('; ')
+}
+
+/**
+ * Recover the brief sentence a figure sat in, using the offset CEE already sends.
+ *
+ * `NotModelledItem.charOffset` is an offset into `brief_text`, and both are in
+ * scope on this component's render — the brief is right there in the blockquote.
+ * Until now the offset was used ONLY for identity (the React key and a data-*
+ * attribute), and the CTA threw the sentence away.
+ *
+ * Boundaries are `.`, `!`, `?` and newlines. Deliberately NOT a general sentence
+ * splitter: this text is a business brief full of decimals and currency, and
+ * `£1.5 million` is exactly the string a naive `[.!?]` split cuts in half — the
+ * defect CLAUDE.md trap 22 records as a guard "correct and pointed at the wrong
+ * bytes". So a `.` counts as a boundary only when it is NOT between two digits.
+ *
+ * Returns null when the offset does not land inside the brief (a stale manifest,
+ * a brief that was re-saved). The caller then asks its question without the
+ * quote rather than quoting something that is not there.
+ */
+export function recoverBriefSentence(briefText: string | null, charOffset: number): string | null {
+  if (typeof briefText !== 'string' || briefText.length === 0) return null
+  if (!Number.isInteger(charOffset) || charOffset < 0 || charOffset >= briefText.length) return null
+
+  const isBoundary = (i: number): boolean => {
+    const ch = briefText[i]
+    if (ch === '\n' || ch === '!' || ch === '?') return true
+    if (ch !== '.') return false
+    // A decimal point is not the end of a sentence.
+    const prev = briefText[i - 1]
+    const next = briefText[i + 1]
+    if (prev >= '0' && prev <= '9' && next >= '0' && next <= '9') return false
+    return true
+  }
+
+  let start = 0
+  for (let i = charOffset - 1; i >= 0; i--) {
+    if (isBoundary(i)) { start = i + 1; break }
+  }
+  let end = briefText.length
+  for (let i = charOffset; i < briefText.length; i++) {
+    if (isBoundary(i)) { end = i + 1; break }
+  }
+  const sentence = briefText.slice(start, end).trim()
+  return sentence.length > 0 ? sentence : null
+}
+
+/**
+ * Compose the turn the CTA fires.
+ *
+ * ⚠ THIS ASKS. IT DOES NOT INSTRUCT, AND THAT IS A MEASURED DECISION, not a
+ * timidity. Against the LIVE deployed router (12 arms, 12 fresh scenarios, one
+ * arm per scenario so only the phrasing varied — full table in `COPY.addAction`
+ * above and in the PR body):
+ *
+ *   * every explicit "add this figure" phrasing that did NOT name a causal
+ *     target was REFUSED by the graph validator — `ORPHAN_NODE`, or
+ *     `NO_PATH_TO_GOAL` when it was connected to the options but not the goal.
+ *     Adding the brief sentence made this WORSE, not better: it gave the model
+ *     enough confidence to author a node, which the validator then rejected,
+ *     turning a useful sentence into a structural error.
+ *   * an instruction that DID name a causal target was ALSO refused
+ *     (`PIPELINE_OWNED_FIELD`): the goal-feeding factors in a drafted graph are
+ *     analysis-derived, so naming one does not rescue the add.
+ *
+ * ⚠ THIS PARAGRAPH ONCE CLAIMED SUCH AN INSTRUCTION WAS ACCEPTED ("HELD →
+ * confirm → applied"). That was a classifier defect, not a measurement — an
+ * explicit `verdict: "rejected"` overridden by a `|| !!d.blocker_code` disjunct —
+ * and no confirmation turn was ever sent. Across 15 arms over 5 rounds, with a
+ * positive control that applied, no add has been observed to be accepted.
+ *
+ * Asking is not the weaker option here; it is the only one that is true. What the
+ * user's answer can then achieve is for the engine and the user to work out
+ * between them — this panel does not claim it.
+ *
+ * The sentence is included because it makes the ANSWER better, not because it
+ * makes an add possible: with it, the engine's reply named the specific existing
+ * factor the figure would attach to; without it, the reply was generic.
+ */
+export function composeNotModelledQuestion(item: NotModelledItem, briefText: string | null): string {
+  const sentence = recoverBriefSentence(briefText, item.charOffset)
+  // ⚠ BYTE-IDENTICAL TO PROBE ARM J, deliberately. This read "which isn't in the
+  // model" until review pointed out that no arm attested the shipped string — the
+  // probed and shipped openings diverged at index 32. The claim "derived at the
+  // live router" has to be about the bytes the product actually sends, not about
+  // a neighbouring string, so the product now sends the string that was measured.
+  const opening = `My brief mentions ${item.literal}, which is not in the model yet.`
+  const context = sentence ? ` The brief says: "${sentence}"` : ''
+  return `${opening}${context} What could this figure influence in this decision, and where would it belong? Don't change the model yet — tell me the options first.`
 }
 
 /**
@@ -295,7 +436,7 @@ export function V7WhatIWasGivenSection({ onSendMessage }: V7WhatIWasGivenSection
       : `${notYetCount} of ${tally.total} figures you mentioned aren't in the model yet`
 
   const addMessage = (item: NotModelledItem) =>
-    onSendMessage?.(`Please add "${item.literal}" from my brief to the model.`)
+    onSendMessage?.(composeNotModelledQuestion(item, briefText))
 
   return (
     <section

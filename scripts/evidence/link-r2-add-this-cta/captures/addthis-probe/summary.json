@@ -1,0 +1,235 @@
+{
+  "target": "https://cee-staging.onrender.com/proxy/v5/turn",
+  "brief": "Should we replace our current CRM with HubSpot next quarter, or keep what we have? We are a 34-person B2B sales team with annual revenue of £31m. Annual CRM cost is about £50,000 and switching would cost roughly £20,000 one-off. The goal is higher sales productivity without blowing the budget.",
+  "surrounding": "We are a 34-person B2B sales team with annual revenue of £31m.",
+  "results": [
+    {
+      "arm": "A_CONTROL_SHIPPED",
+      "note": "the phrasing the product composes TODAY (V7WhatIWasGivenSection.tsx:298)",
+      "message": "Please add \"£31m\" from my brief to the model.",
+      "scenarioId": "b039ca10-a913-41d0-abc5-a0a26a6af550",
+      "draftNodes": 14,
+      "draftLabels": [
+        "CRM Platform Decision",
+        "Team Adoption Uncertainty",
+        "Annual CRM Spend",
+        "CRM Platform Capability",
+        "One-Off Switching Cost",
+        "Sales Team Size",
+        "Increase Sales Productivity Within Budget",
+        "Pilot HubSpot with Sub-Team First",
+        "Keep Current CRM (Status Quo)",
+        "Switch to HubSpot Next Quarter",
+        "Budget Headroom",
+        "Sales Productivity Gain",
+        "Low CRM Adoption Rate",
+        "Sales Disruption During Transition"
+      ],
+      "outcome": {
+        "kind": "NO_TYPED_OUTCOME",
+        "codes": []
+      },
+      "edit": {
+        "http": 200,
+        "ms": 14013,
+        "transportError": null,
+        "blockTypes": [],
+        "suggestedActions": [],
+        "graphNodes": null,
+        "graphEdges": null,
+        "text": "I did not add £31m annual revenue as a new element because it is not clear what it should causally connect to in the current model. Revenue could be context for sizing the CRM cost relative to the business, but on its own it has no defined effect on productivity, budget headroom, or the goal. Could you clarify what this figure should influence — for example, should CRM cost be expressed as a percentage of revenue, or should revenue itself act as a factor affecting a specific outcome or risk?"
+      }
+    },
+    {
+      "arm": "B_SENTENCE_CONTEXT",
+      "note": "bare figure replaced by the charOffset-recovered surrounding sentence",
+      "message": "Please add this from my brief to the model: \"We are a 34-person B2B sales team with annual revenue of £31m.\"",
+      "scenarioId": "1b83130d-05db-48c3-9dd9-fdb20a911392",
+      "draftNodes": 15,
+      "draftLabels": [
+        "CRM Platform Decision",
+        "CRM Adoption Rate",
+        "Annual CRM Licence Cost",
+        "CRM Capability Level",
+        "Team Disruption During Transition",
+        "One-Off Switching Cost",
+        "Sales Team Size",
+        "Maximise Sales Productivity Within Budget",
+        "Pilot HubSpot with Sales Pod First",
+        "Keep Current CRM (Status Quo)",
+        "Switch to HubSpot Next Quarter",
+        "Budget Headroom",
+        "Sales Productivity Gain",
+        "Low CRM Adoption Risk",
+        "Transition Disruption to Pipeline"
+      ],
+      "outcome": {
+        "kind": "REFUSED",
+        "codes": [
+          "rejection:ORPHAN_NODE",
+          "violation:ORPHAN_NODE",
+          "source:edit_graph",
+          "branch:graph_structure_invalid"
+        ]
+      },
+      "edit": {
+        "http": 200,
+        "ms": 19298,
+        "transportError": null,
+        "blockTypes": [
+          "error"
+        ],
+        "suggestedActions": [
+          "What would work instead?",
+          "Rebuild from updated brief"
+        ],
+        "graphNodes": null,
+        "graphEdges": null,
+        "text": "I couldn't make that change in one edit, because \"Annual Revenue\" isn't connected to your goal yet. On its own it has no path through to your goal, so I've left everything as it was. To go ahead, connect \"Annual Revenue\" to a factor that already feeds your goal. Which factor should it relate to?"
+      }
+    },
+    {
+      "arm": "C_FACTOR_PLUS_SENTENCE",
+      "note": "explicit add-a-factor instruction PLUS the recovered sentence as evidence",
+      "message": "Add a factor to the model for the £31m figure in my brief. My brief says: \"We are a 34-person B2B sales team with annual revenue of £31m.\"",
+      "scenarioId": "113adeed-9c77-4630-99d4-9eb891c1802e",
+      "draftNodes": 14,
+      "draftLabels": [
+        "CRM Platform Decision",
+        "Team Adoption Risk",
+        "Annual CRM Cost",
+        "CRM Platform Capability",
+        "One-Off Switching Cost",
+        "Sales Team Size",
+        "Achieve Higher Sales Productivity Within Budget",
+        "Negotiate or Upgrade Current CRM",
+        "Keep Current CRM (Status Quo)",
+        "Switch to HubSpot",
+        "Budget Headroom",
+        "Sales Team Productivity",
+        "Low Adoption and Underutilisation",
+        "Transition Disruption and Downtime"
+      ],
+      "outcome": {
+        "kind": "REFUSED",
+        "codes": [
+          "rejection:ORPHAN_NODE",
+          "violation:ORPHAN_NODE",
+          "source:edit_graph",
+          "branch:graph_structure_invalid"
+        ]
+      },
+      "edit": {
+        "http": 200,
+        "ms": 14589,
+        "transportError": null,
+        "blockTypes": [
+          "error"
+        ],
+        "suggestedActions": [
+          "What would work instead?",
+          "Rebuild from updated brief"
+        ],
+        "graphNodes": null,
+        "graphEdges": null,
+        "text": "I couldn't make that change in one edit, because \"Annual Revenue\" isn't connected to your goal yet. On its own it has no path through to your goal, so I've left everything as it was. To go ahead, connect \"Annual Revenue\" to a factor that already feeds your goal. Which factor should it relate to?"
+      }
+    },
+    {
+      "arm": "D_NAMED_FACTOR",
+      "note": "the estate's proven edit grammar shape (cf. golden-journey T4 'Change X to Y.'), adapted to an add",
+      "message": "Add a new factor called \"Annual revenue\" with a value of £31m.",
+      "scenarioId": "2c2692f7-aec9-40da-a629-85f80210edbe",
+      "draftNodes": 15,
+      "draftLabels": [
+        "CRM Platform Decision",
+        "Sales Team Adoption Rate",
+        "Annual CRM Licence Cost",
+        "CRM Platform Capability",
+        "Transition Disruption Level",
+        "One-Off Switching Cost",
+        "Sales Team Size",
+        "Increase Sales Productivity Within Budget",
+        "Pilot HubSpot with Core Sales Team First",
+        "Keep Current CRM (Status Quo)",
+        "Switch to HubSpot",
+        "Budget Headroom",
+        "Sales Productivity Gain",
+        "Low Adoption Failure Risk",
+        "Short-Term Revenue Disruption"
+      ],
+      "outcome": {
+        "kind": "REFUSED",
+        "codes": [
+          "rejection:ORPHAN_NODE",
+          "violation:ORPHAN_NODE",
+          "source:edit_graph",
+          "branch:graph_structure_invalid"
+        ]
+      },
+      "edit": {
+        "http": 200,
+        "ms": 14175,
+        "transportError": null,
+        "blockTypes": [
+          "error"
+        ],
+        "suggestedActions": [
+          "What would work instead?",
+          "Rebuild from updated brief"
+        ],
+        "graphNodes": null,
+        "graphEdges": null,
+        "text": "I couldn't make that change in one edit, because \"Annual revenue\" isn't connected to your goal yet. On its own it has no path through to your goal, so I've left everything as it was. To go ahead, connect \"Annual revenue\" to a factor that already feeds your goal. Which factor should it relate to?"
+      }
+    },
+    {
+      "arm": "E_NAMED_FACTOR_CONNECTED",
+      "note": "as D but naming connectivity — the known OPTION_NO_FACTOR_EDGES refusal suggests the router cares about edges",
+      "message": "Add a new factor called \"Annual revenue\" with a value of £31m, and connect it to the options in the model.",
+      "scenarioId": "bb054da2-16b6-4f05-97a5-717823cddc67",
+      "draftNodes": 15,
+      "draftLabels": [
+        "CRM Platform Decision",
+        "User Adoption Uncertainty",
+        "Annual CRM Licence Cost",
+        "CRM Capability Level",
+        "Team Disruption During Transition",
+        "One-Off Switching Cost",
+        "Sales Team Size",
+        "Increase Sales Productivity Within Budget",
+        "Phased HubSpot Pilot (Half Team First)",
+        "Keep Current CRM (Status Quo)",
+        "Switch to HubSpot",
+        "Budget Headroom Preserved",
+        "Sales Productivity Gain",
+        "Low CRM Adoption Rate",
+        "Revenue Loss During Transition"
+      ],
+      "outcome": {
+        "kind": "REFUSED",
+        "codes": [
+          "rejection:NO_PATH_TO_GOAL",
+          "violation:NO_PATH_TO_GOAL",
+          "source:edit_graph",
+          "branch:graph_structure_invalid"
+        ]
+      },
+      "edit": {
+        "http": 200,
+        "ms": 15379,
+        "transportError": null,
+        "blockTypes": [
+          "error"
+        ],
+        "suggestedActions": [
+          "What would work instead?",
+          "Rebuild from updated brief"
+        ],
+        "graphNodes": null,
+        "graphEdges": null,
+        "text": "I couldn't make that change in one edit, because \"Annual revenue\" isn't connected to your goal yet. On its own it has no path through to your goal, so I've left everything as it was. To go ahead, connect \"Annual revenue\" to a factor that already feeds your goal. Which factor should it relate to?"
+      }
+    }
+  ]
+}

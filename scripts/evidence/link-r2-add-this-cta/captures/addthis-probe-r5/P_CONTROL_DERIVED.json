@@ -1,0 +1,1304 @@
+{
+  "arm": "P_CONTROL_DERIVED",
+  "scenarioId": "aafe0a41-6d01-4ac2-b4dc-b31dce488adb",
+  "nodesBefore": 14,
+  "labels": [
+    "CRM Platform Decision",
+    "Staff Adoption Uncertainty",
+    "Annual CRM Cost",
+    "CRM Platform Capability",
+    "One-Off Switching Cost",
+    "Sales Team Size",
+    "Increase Sales Productivity Within Budget",
+    "Pilot HubSpot with Sales Sub-Team First",
+    "Keep Current CRM (Status Quo)",
+    "Switch to HubSpot Next Quarter",
+    "Budget Headroom",
+    "Sales Team Productivity",
+    "Low CRM Adoption by Sales Team",
+    "Transition Disruption to Sales Pipeline"
+  ],
+  "target": "Annual CRM Cost",
+  "message": "Change Annual CRM Cost to £64,000.",
+  "edit": {
+    "kind": "APPLIED_DIRECT",
+    "verdict": null,
+    "codes": [],
+    "markers": [
+      "draft_graph committed"
+    ],
+    "nodesAfter": 14,
+    "text": "Updated Annual CRM Cost"
+  },
+  "editFullBody": {
+    "response_version": 2,
+    "assistant_text": "Updated Annual CRM Cost",
+    "blocks": [],
+    "suggested_actions": [],
+    "insights": [],
+    "stage_indicator": "frame",
+    "draft_graph": {
+      "nodes": [
+        {
+          "id": "dec_crm",
+          "kind": "decision",
+          "label": "CRM Platform Decision",
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "fac_adoption_risk",
+          "kind": "factor",
+          "label": "Staff Adoption Uncertainty",
+          "category": "external",
+          "prior": {
+            "distribution": "uniform",
+            "range_min": 0.2,
+            "range_max": 0.8
+          },
+          "display_value": "0.2 to 0.8",
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "fac_crm_cost",
+          "kind": "factor",
+          "label": "Annual CRM Cost",
+          "observed_state": {
+            "value": 64000,
+            "unit": "£",
+            "source": "user_override"
+          },
+          "category": "controllable",
+          "display_value": "64,000 £",
+          "provenance": "user_set"
+        },
+        {
+          "id": "fac_platform_capability",
+          "kind": "factor",
+          "label": "CRM Platform Capability",
+          "observed_state": {
+            "value": 0.4,
+            "unit": "scale",
+            "source": "cee_inference",
+            "raw_value": 40,
+            "cap": 100,
+            "extractionType": "inferred",
+            "factor_type": "quality",
+            "uncertainty_drivers": [
+              "Not provided"
+            ]
+          },
+          "category": "controllable",
+          "display_value": "40 scale",
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "fac_switch_cost",
+          "kind": "factor",
+          "label": "One-Off Switching Cost",
+          "observed_state": {
+            "value": 0,
+            "unit": "£",
+            "source": "brief_extraction",
+            "raw_value": 0,
+            "cap": 20000,
+            "extractionType": "explicit",
+            "factor_type": "cost",
+            "uncertainty_drivers": [
+              "Not provided"
+            ]
+          },
+          "category": "controllable",
+          "display_value": "£0",
+          "provenance": "from_brief"
+        },
+        {
+          "id": "fac_team_size",
+          "kind": "factor",
+          "label": "Sales Team Size",
+          "category": "external",
+          "prior": {
+            "distribution": "uniform",
+            "range_min": 0.34,
+            "range_max": 1
+          },
+          "extractionType": "inferred",
+          "display_value": "0.34 to 1 people",
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "goal_crm",
+          "kind": "goal",
+          "label": "Increase Sales Productivity Within Budget",
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "opt_phased",
+          "kind": "option",
+          "label": "Pilot HubSpot with Sales Sub-Team First",
+          "interventions": {
+            "fac_crm_cost": {
+              "unit": "£",
+              "value": 0.65,
+              "source": "cee_hypothesis",
+              "reasoning": "Model-chosen intervention level; this amount is not stated in the brief",
+              "target_match": {
+                "node_id": "fac_crm_cost",
+                "confidence": "high",
+                "match_type": "exact_id"
+              },
+              "value_confidence": "low"
+            },
+            "fac_switch_cost": {
+              "unit": "£",
+              "value": 0.4,
+              "source": "cee_hypothesis",
+              "reasoning": "Model-chosen intervention level; this amount is not stated in the brief",
+              "target_match": {
+                "node_id": "fac_switch_cost",
+                "confidence": "high",
+                "match_type": "exact_id"
+              },
+              "value_confidence": "low"
+            },
+            "fac_platform_capability": {
+              "unit": "scale",
+              "value": 0.6,
+              "source": "cee_hypothesis",
+              "reasoning": "Model-chosen intervention level; this amount is not stated in the brief",
+              "target_match": {
+                "node_id": "fac_platform_capability",
+                "confidence": "high",
+                "match_type": "exact_id"
+              },
+              "value_confidence": "low"
+            }
+          },
+          "is_baseline": false,
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "opt_stay",
+          "kind": "option",
+          "label": "Keep Current CRM (Status Quo)",
+          "interventions": {
+            "fac_crm_cost": {
+              "unit": "£",
+              "value": 0.5,
+              "source": "brief_extraction",
+              "reasoning": "Direct from V4 prompt data.interventions; the amount is stated in the brief",
+              "target_match": {
+                "node_id": "fac_crm_cost",
+                "confidence": "high",
+                "match_type": "exact_id"
+              },
+              "value_confidence": "high"
+            },
+            "fac_switch_cost": {
+              "unit": "£",
+              "value": 0,
+              "source": "cee_hypothesis",
+              "reasoning": "Model-chosen intervention level; this amount is not stated in the brief",
+              "target_match": {
+                "node_id": "fac_switch_cost",
+                "confidence": "high",
+                "match_type": "exact_id"
+              },
+              "value_confidence": "low"
+            },
+            "fac_platform_capability": {
+              "unit": "scale",
+              "value": 0.4,
+              "source": "cee_hypothesis",
+              "reasoning": "Model-chosen intervention level; this amount is not stated in the brief",
+              "target_match": {
+                "node_id": "fac_platform_capability",
+                "confidence": "high",
+                "match_type": "exact_id"
+              },
+              "value_confidence": "low"
+            }
+          },
+          "is_baseline": true,
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "opt_switch",
+          "kind": "option",
+          "label": "Switch to HubSpot Next Quarter",
+          "interventions": {
+            "fac_crm_cost": {
+              "unit": "£",
+              "value": 0.5,
+              "source": "brief_extraction",
+              "reasoning": "Direct from V4 prompt data.interventions; the amount is stated in the brief",
+              "target_match": {
+                "node_id": "fac_crm_cost",
+                "confidence": "high",
+                "match_type": "exact_id"
+              },
+              "value_confidence": "high"
+            },
+            "fac_switch_cost": {
+              "unit": "£",
+              "value": 1,
+              "source": "brief_extraction",
+              "reasoning": "Direct from V4 prompt data.interventions; the amount is stated in the brief",
+              "target_match": {
+                "node_id": "fac_switch_cost",
+                "confidence": "high",
+                "match_type": "exact_id"
+              },
+              "value_confidence": "high"
+            },
+            "fac_platform_capability": {
+              "unit": "scale",
+              "value": 0.8,
+              "source": "cee_hypothesis",
+              "reasoning": "Model-chosen intervention level; this amount is not stated in the brief",
+              "target_match": {
+                "node_id": "fac_platform_capability",
+                "confidence": "high",
+                "match_type": "exact_id"
+              },
+              "value_confidence": "low"
+            }
+          },
+          "is_baseline": false,
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "out_budget_headroom",
+          "kind": "outcome",
+          "label": "Budget Headroom",
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "out_sales_productivity",
+          "kind": "outcome",
+          "label": "Sales Team Productivity",
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "risk_adoption_failure",
+          "kind": "risk",
+          "label": "Low CRM Adoption by Sales Team",
+          "provenance": "ai_inferred"
+        },
+        {
+          "id": "risk_disruption",
+          "kind": "risk",
+          "label": "Transition Disruption to Sales Pipeline",
+          "provenance": "ai_inferred"
+        }
+      ],
+      "edges": [
+        {
+          "from": "dec_crm",
+          "to": "opt_phased",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai"
+        },
+        {
+          "from": "dec_crm",
+          "to": "opt_stay",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai"
+        },
+        {
+          "from": "dec_crm",
+          "to": "opt_switch",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai"
+        },
+        {
+          "from": "fac_adoption_risk",
+          "to": "risk_adoption_failure",
+          "strength": {
+            "mean": 0.45,
+            "std": 0.18
+          },
+          "exists_probability": 0.8,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.18,
+              "strength_mean": 0.45,
+              "exists_probability": 0.8
+            },
+            "pass2": {
+              "basis": "domain_prior",
+              "reasoning": "Greater staff adoption uncertainty strongly increases the risk of CRM adoption failure.",
+              "strength_std": 0.15,
+              "strength_mean": 0.6,
+              "lint_corrected": false,
+              "needs_user_input": true,
+              "exists_probability": 0.9
+            },
+            "status": "agreed",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0.33999999999999997,
+            "pass2_adjusted": {
+              "strength_std": 0.15,
+              "strength_mean": 0.62,
+              "exists_probability": 0.88
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 1,
+            "contested_reasons": [],
+            "validation_lint_log": []
+          }
+        },
+        {
+          "from": "fac_adoption_risk",
+          "to": "risk_disruption",
+          "strength": {
+            "mean": 0.28,
+            "std": 0.14
+          },
+          "exists_probability": 0.72,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.14,
+              "strength_mean": 0.28,
+              "exists_probability": 0.72
+            },
+            "pass2": {
+              "basis": "domain_prior",
+              "reasoning": "Higher adoption uncertainty leads to more transition disruption as inconsistent use hampers the sales pipeline.",
+              "strength_std": 0.15,
+              "strength_mean": 0.45,
+              "lint_corrected": false,
+              "needs_user_input": true,
+              "exists_probability": 0.85
+            },
+            "status": "agreed",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0.3799999999999999,
+            "pass2_adjusted": {
+              "strength_std": 0.15,
+              "strength_mean": 0.47,
+              "exists_probability": 0.83
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 1,
+            "contested_reasons": [],
+            "validation_lint_log": []
+          }
+        },
+        {
+          "from": "fac_crm_cost",
+          "to": "out_budget_headroom",
+          "strength": {
+            "mean": -0.45,
+            "std": 0.12
+          },
+          "exists_probability": 0.92,
+          "effect_direction": "negative",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.12,
+              "strength_mean": -0.45,
+              "exists_probability": 0.92
+            },
+            "pass2": {
+              "basis": "brief_explicit",
+              "reasoning": "Annual CRM costs directly reduce available budget headroom for other initiatives.",
+              "strength_std": 0.1,
+              "strength_mean": -0.6,
+              "lint_corrected": false,
+              "needs_user_input": false,
+              "exists_probability": 0.98
+            },
+            "status": "contested",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0.3333333333333333,
+            "pass2_adjusted": {
+              "strength_std": 0.1,
+              "strength_mean": -0.58,
+              "exists_probability": 0.96
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 1,
+            "contested_reasons": [
+              "existence_boundary_crossing"
+            ],
+            "validation_lint_log": []
+          }
+        },
+        {
+          "from": "fac_platform_capability",
+          "to": "out_sales_productivity",
+          "strength": {
+            "mean": 0.55,
+            "std": 0.15
+          },
+          "exists_probability": 0.88,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.15,
+              "strength_mean": 0.55,
+              "exists_probability": 0.88
+            },
+            "pass2": {
+              "basis": "domain_prior",
+              "reasoning": "A more capable CRM platform typically yields substantially higher sales team productivity.",
+              "strength_std": 0.15,
+              "strength_mean": 0.7,
+              "lint_corrected": false,
+              "needs_user_input": true,
+              "exists_probability": 0.9
+            },
+            "status": "contested",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0.33999999999999986,
+            "pass2_adjusted": {
+              "strength_std": 0.15,
+              "strength_mean": 0.72,
+              "exists_probability": 0.88
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 1,
+            "contested_reasons": [
+              "strength_band_change"
+            ],
+            "validation_lint_log": []
+          }
+        },
+        {
+          "from": "fac_platform_capability",
+          "to": "risk_adoption_failure",
+          "strength": {
+            "mean": -0.3,
+            "std": 0.12
+          },
+          "exists_probability": 0.75,
+          "effect_direction": "negative",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.12,
+              "strength_mean": -0.3,
+              "exists_probability": 0.75
+            },
+            "pass2": {
+              "basis": "domain_prior",
+              "reasoning": "Better platform features and usability reduce the likelihood of adoption failure.",
+              "strength_std": 0.12,
+              "strength_mean": -0.4,
+              "lint_corrected": false,
+              "needs_user_input": true,
+              "exists_probability": 0.9
+            },
+            "status": "agreed",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0.16000000000000003,
+            "pass2_adjusted": {
+              "strength_std": 0.12,
+              "strength_mean": -0.38,
+              "exists_probability": 0.88
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 1,
+            "contested_reasons": [],
+            "validation_lint_log": []
+          }
+        },
+        {
+          "from": "fac_switch_cost",
+          "to": "out_budget_headroom",
+          "strength": {
+            "mean": -0.35,
+            "std": 0.14
+          },
+          "exists_probability": 0.9,
+          "effect_direction": "negative",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.14,
+              "strength_mean": -0.35,
+              "exists_probability": 0.9
+            },
+            "pass2": {
+              "basis": "brief_explicit",
+              "reasoning": "One-off switching costs immediately reduce available budget headroom.",
+              "strength_std": 0.1,
+              "strength_mean": -0.4,
+              "lint_corrected": false,
+              "needs_user_input": false,
+              "exists_probability": 0.98
+            },
+            "status": "contested",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0.3333333333333333,
+            "pass2_adjusted": {
+              "strength_std": 0.1,
+              "strength_mean": -0.38,
+              "exists_probability": 0.96
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 1,
+            "contested_reasons": [
+              "existence_boundary_crossing"
+            ],
+            "validation_lint_log": []
+          }
+        },
+        {
+          "from": "fac_switch_cost",
+          "to": "risk_disruption",
+          "strength": {
+            "mean": 0.4,
+            "std": 0.16
+          },
+          "exists_probability": 0.82,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.16,
+              "strength_mean": 0.4,
+              "exists_probability": 0.82
+            },
+            "pass2": {
+              "basis": "domain_prior",
+              "reasoning": "Higher switching costs often correlate with more complex transitions and thus greater disruption risk.",
+              "strength_std": 0.1,
+              "strength_mean": 0.35,
+              "lint_corrected": false,
+              "needs_user_input": true,
+              "exists_probability": 0.8
+            },
+            "status": "agreed",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0.06000000000000005,
+            "pass2_adjusted": {
+              "strength_std": 0.1,
+              "strength_mean": 0.37,
+              "exists_probability": 0.78
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 1,
+            "contested_reasons": [],
+            "validation_lint_log": []
+          }
+        },
+        {
+          "from": "fac_team_size",
+          "to": "out_sales_productivity",
+          "strength": {
+            "mean": 0.18,
+            "std": 0.09
+          },
+          "exists_probability": 0.85,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.09,
+              "strength_mean": 0.18,
+              "exists_probability": 0.85
+            },
+            "pass2": {
+              "basis": "domain_prior",
+              "reasoning": "Larger sales teams can produce more total sales output, though per-person productivity may vary.",
+              "strength_std": 0.2,
+              "strength_mean": 0.3,
+              "lint_corrected": false,
+              "needs_user_input": true,
+              "exists_probability": 0.8
+            },
+            "status": "contested",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0.3333333333333333,
+            "pass2_adjusted": {
+              "strength_std": 0.2,
+              "strength_mean": 0.31999999999999995,
+              "exists_probability": 0.78
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 1,
+            "contested_reasons": [
+              "strength_band_change"
+            ],
+            "validation_lint_log": []
+          }
+        },
+        {
+          "from": "fac_team_size",
+          "to": "risk_disruption",
+          "strength": {
+            "mean": 0.22,
+            "std": 0.1
+          },
+          "exists_probability": 0.78,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.1,
+              "strength_mean": 0.22,
+              "exists_probability": 0.78
+            },
+            "pass2": {
+              "basis": "domain_prior",
+              "reasoning": "A bigger team increases the coordination and training burden, raising disruption risk.",
+              "strength_std": 0.1,
+              "strength_mean": 0.2,
+              "lint_corrected": false,
+              "needs_user_input": true,
+              "exists_probability": 0.8
+            },
+            "status": "agreed",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0,
+            "pass2_adjusted": {
+              "strength_std": 0.1,
+              "strength_mean": 0.22,
+              "exists_probability": 0.78
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 1,
+            "contested_reasons": [],
+            "validation_lint_log": []
+          }
+        },
+        {
+          "from": "opt_phased",
+          "to": "fac_crm_cost",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai"
+        },
+        {
+          "from": "opt_phased",
+          "to": "fac_platform_capability",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai"
+        },
+        {
+          "from": "opt_phased",
+          "to": "fac_switch_cost",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai"
+        },
+        {
+          "from": "opt_stay",
+          "to": "fac_crm_cost",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai"
+        },
+        {
+          "from": "opt_stay",
+          "to": "fac_platform_capability",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai"
+        },
+        {
+          "from": "opt_stay",
+          "to": "fac_switch_cost",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai"
+        },
+        {
+          "from": "opt_switch",
+          "to": "fac_crm_cost",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai"
+        },
+        {
+          "from": "opt_switch",
+          "to": "fac_platform_capability",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai"
+        },
+        {
+          "from": "opt_switch",
+          "to": "fac_switch_cost",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai"
+        },
+        {
+          "from": "out_budget_headroom",
+          "to": "goal_crm",
+          "strength": {
+            "mean": 0.35,
+            "std": 0.12
+          },
+          "exists_probability": 0.88,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.12,
+              "strength_mean": 0.35,
+              "exists_probability": 0.88
+            },
+            "pass2": {
+              "basis": "structural_inference",
+              "reasoning": "Greater budget headroom supports achieving productivity goals without blowing the budget.",
+              "strength_std": 0.1,
+              "strength_mean": 0.21052631578947367,
+              "lint_corrected": true,
+              "needs_user_input": true,
+              "exists_probability": 0.9
+            },
+            "status": "contested",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0.3333333333333333,
+            "pass2_adjusted": {
+              "strength_std": 0.1,
+              "strength_mean": 0.23052631578947366,
+              "exists_probability": 0.88
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 0,
+            "contested_reasons": [
+              "strength_band_change"
+            ],
+            "validation_lint_log": [
+              {
+                "code": "LINT_BUDGET_RESCALE",
+                "after": 0.21052631578947367,
+                "before": 0.4,
+                "edge_key": "out_budget_headroom->goal_crm"
+              }
+            ]
+          }
+        },
+        {
+          "from": "out_sales_productivity",
+          "to": "goal_crm",
+          "strength": {
+            "mean": 0.6,
+            "std": 0.12
+          },
+          "exists_probability": 0.92,
+          "effect_direction": "positive",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.12,
+              "strength_mean": 0.6,
+              "exists_probability": 0.92
+            },
+            "pass2": {
+              "basis": "structural_inference",
+              "reasoning": "Higher sales productivity directly advances the goal of improving CRM outcomes within budget.",
+              "strength_std": 0.1,
+              "strength_mean": 0.3157894736842105,
+              "lint_corrected": true,
+              "needs_user_input": true,
+              "exists_probability": 0.9
+            },
+            "status": "contested",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0.5284210526315789,
+            "pass2_adjusted": {
+              "strength_std": 0.1,
+              "strength_mean": 0.3357894736842105,
+              "exists_probability": 0.88
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 0,
+            "contested_reasons": [
+              "raw_magnitude"
+            ],
+            "validation_lint_log": [
+              {
+                "code": "LINT_BUDGET_RESCALE",
+                "after": 0.3157894736842105,
+                "before": 0.6,
+                "edge_key": "out_sales_productivity->goal_crm"
+              }
+            ]
+          }
+        },
+        {
+          "from": "risk_adoption_failure",
+          "to": "goal_crm",
+          "strength": {
+            "mean": -0.4,
+            "std": 0.14
+          },
+          "exists_probability": 0.82,
+          "effect_direction": "negative",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.14,
+              "strength_mean": -0.4,
+              "exists_probability": 0.82
+            },
+            "pass2": {
+              "basis": "structural_inference",
+              "reasoning": "If CRM adoption fails, the goal of increased productivity within budget is undermined.",
+              "strength_std": 0.15,
+              "strength_mean": -0.2631578947368421,
+              "lint_corrected": true,
+              "needs_user_input": true,
+              "exists_probability": 0.85
+            },
+            "status": "contested",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0.3333333333333333,
+            "pass2_adjusted": {
+              "strength_std": 0.15,
+              "strength_mean": -0.2431578947368421,
+              "exists_probability": 0.83
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 0,
+            "contested_reasons": [
+              "strength_band_change"
+            ],
+            "validation_lint_log": [
+              {
+                "code": "LINT_BUDGET_RESCALE",
+                "after": -0.2631578947368421,
+                "before": -0.5,
+                "edge_key": "risk_adoption_failure->goal_crm"
+              }
+            ]
+          }
+        },
+        {
+          "from": "risk_disruption",
+          "to": "goal_crm",
+          "strength": {
+            "mean": -0.3,
+            "std": 0.12
+          },
+          "exists_probability": 0.85,
+          "effect_direction": "negative",
+          "provenance": {
+            "source": "cee_hypothesis"
+          },
+          "provenance_display": "ai_inferred",
+          "origin": "ai",
+          "validation": {
+            "pass1": {
+              "strength_std": 0.12,
+              "strength_mean": -0.3,
+              "exists_probability": 0.85
+            },
+            "pass2": {
+              "basis": "structural_inference",
+              "reasoning": "Transition disruption to the sales pipeline directly hampers achieving the CRM productivity and budget goal.",
+              "strength_std": 0.15,
+              "strength_mean": -0.21052631578947367,
+              "lint_corrected": true,
+              "needs_user_input": true,
+              "exists_probability": 0.85
+            },
+            "status": "contested",
+            "evoi_rank": null,
+            "was_shown": false,
+            "evoi_impact": null,
+            "resolved_by": "default",
+            "user_action": "pending",
+            "pass2_missing": false,
+            "sign_unstable": false,
+            "max_divergence": 0.3333333333333333,
+            "pass2_adjusted": {
+              "strength_std": 0.15,
+              "strength_mean": -0.19052631578947368,
+              "exists_probability": 0.83
+            },
+            "resolved_value": null,
+            "bias_correction": {
+              "strength_std_offset": 0,
+              "strength_mean_offset": 0.01999999999999999,
+              "exists_probability_offset": -0.020000000000000018
+            },
+            "distance_to_goal": 0,
+            "contested_reasons": [
+              "strength_band_change"
+            ],
+            "validation_lint_log": [
+              {
+                "code": "LINT_BUDGET_RESCALE",
+                "after": -0.21052631578947367,
+                "before": -0.4,
+                "edge_key": "risk_disruption->goal_crm"
+              }
+            ]
+          }
+        }
+      ],
+      "node_count": 14,
+      "edge_count": 25
+    },
+    "analysis_ready": {
+      "options": [
+        {
+          "option_id": "opt_phased",
+          "label": "Pilot HubSpot with Sales Sub-Team First",
+          "status": "ready",
+          "interventions": {
+            "fac_crm_cost": 0.65,
+            "fac_switch_cost": 0.4,
+            "fac_platform_capability": 0.6
+          },
+          "is_baseline": false
+        },
+        {
+          "option_id": "opt_stay",
+          "label": "Keep Current CRM (Status Quo)",
+          "status": "ready",
+          "interventions": {
+            "fac_crm_cost": 0.5,
+            "fac_switch_cost": 0,
+            "fac_platform_capability": 0.4
+          },
+          "is_baseline": true
+        },
+        {
+          "option_id": "opt_switch",
+          "label": "Switch to HubSpot Next Quarter",
+          "status": "ready",
+          "interventions": {
+            "fac_crm_cost": 0.5,
+            "fac_switch_cost": 1,
+            "fac_platform_capability": 0.8
+          },
+          "is_baseline": false
+        }
+      ],
+      "goal_node_id": "goal_crm",
+      "status": "ready",
+      "computed_at": "2026-08-11T22:56:25.462Z",
+      "freshness": "none",
+      "freshness_reason": "no_successful_run_analysis_fact",
+      "current_graph_hash": "839947ec7fa68850"
+    },
+    "graph_hash": "839947ec7fa68850",
+    "_diagnostic_trace": {
+      "llm_calls": [],
+      "prompt_identity": [],
+      "zone2_assembly": null,
+      "tool_policy": null,
+      "provider_resolution": [],
+      "structured_output_config": null,
+      "streaming_metrics": null,
+      "fallback_trace": [],
+      "benchmarking": {
+        "total_duration_ms": 15861,
+        "substage_timings": {
+          "finalisation_ms": 1
+        }
+      },
+      "correlation_ids": {
+        "request_id": "afdaed1a-d830-444c-b192-87f2fa767a55",
+        "scenario_id": "aafe0a41-6d01-4ac2-b4dc-b31dce488adb",
+        "turn_id": "0fe13974-6b4d-446c-a3db-cf8994e55efb",
+        "graph_hash": "f9048631e7576b05",
+        "response_hash": "50b6682a5606"
+      },
+      "environment": {
+        "build_sha": "2d38408",
+        "environment": "staging"
+      },
+      "exit_path": "edit_graph",
+      "trace_version": 1,
+      "claim_safety": {
+        "may_name_leading_option": true,
+        "verdict_provenance": "no_analysis_exists",
+        "withheld_projection_reason": null
+      }
+    }
+  }
+}

@@ -295,11 +295,19 @@ export function KebabMenu({
         )}
       </div>
 
-      {/* Reset canvas confirmation dialog */}
+      {/* Reset canvas confirmation dialog.
+
+          ⚠ THE MESSAGE LISTED ONLY THE GRAPH. This is the UNGATED reset —
+          CanvasToolbar disables its button on an empty canvas, this menu item
+          does not — so it is the one most likely to be reached with a real
+          conversation in play, and it was the one that named the fewest
+          consequences. The other two sheets already list the conversation; this
+          now matches them, and all three now say what undo can and cannot
+          restore (it cannot restore a localStorage delete). */}
       {showResetConfirm && (
         <ConfirmDialog
           title="Reset canvas?"
-          message="This will remove all nodes and edges. This cannot be undone."
+          message="This will remove all nodes and connections, any analysis results, and the AI assistant conversation. Undo (Ctrl+Z / Cmd+Z) can bring the graph back. The conversation cannot be recovered."
           confirmLabel="Reset"
           cancelLabel="Cancel"
           onConfirm={handleConfirmReset}

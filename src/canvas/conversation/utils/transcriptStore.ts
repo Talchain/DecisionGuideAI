@@ -204,6 +204,10 @@ export function saveTranscript(
   messages: readonly ConversationMessage[],
 ): number | null {
   if (!scenarioId || !storageAvailable()) return null
+  // A forgotten decision must stay forgotten for the rest of this page load —
+  // see the tombstone block above `clearTranscript`. Without this the clear is
+  // nominal: it is undone on the very commit it happens.
+  if (forgottenThisPageLoad.has(scenarioId)) return null
 
   const persistable = messages.filter(isPersistable)
   if (persistable.length === 0) return null
@@ -292,9 +296,59 @@ export function loadTranscript(scenarioId: string | null | undefined): LoadedTra
   }
 }
 
+/**
+ * ── THE TOMBSTONE, and why deleting the key is not enough ──────────────────
+ *
+ * MEASURED, not derived (`useConversation.resetTranscript.spec.tsx`): deleting
+ * the key alone is UNDONE ON THE SAME REACT COMMIT. `useConversation`'s persist
+ * effect (`:2712`, deps `[messages, scenarioId]`) is declared BEFORE the
+ * scenario-switch effect (`:2721`). `resetCanvas` sets `currentScenarioId: null`,
+ * so on that commit the persist effect runs FIRST — while `messagesOwnerRef`
+ * still holds the OLD id and `messages` is still the old conversation — and
+ * `saveTranscript(oldId, messages)` writes back exactly what was just deleted.
+ *
+ * The store-level test could not see this: it mounts no component, so there is
+ * no effect to race. It passed, and the clear was nominal.
+ *
+ * Reordering the two effects was rejected: `messagesOwnerRef`'s own comment
+ * records a privacy defect that keying persistence on the owner (not on
+ * `scenarioId`) exists to prevent, and moving the effect changes which decision
+ * owns the messages on a switch render. So the fix lives here, where "forget
+ * this" is defined, and holds regardless of who races it.
+ *
+ * Scope is deliberately ONE PAGE LOAD and one id:
+ *   - it is released the moment the user genuinely re-enters that decision
+ *     (`releaseTranscriptTombstone`, called from the scenario-switch effect), so
+ *     re-opening a saved decision after a reset persists normally;
+ *   - it does not survive a reload, because after one it cannot be needed: the
+ *     key is gone and no in-memory `messages` remain to write back.
+ */
+const forgottenThisPageLoad = new Set<string>()
+
+/**
+ * The user has genuinely entered this decision, so it is no longer forgotten.
+ * Called from the scenario-switch effect. Without it, resetting and then
+ * re-opening a saved decision would silently stop persisting its conversation
+ * for the rest of the page load — the tombstone's own failure mode, and the
+ * reason it has a release rather than being permanent.
+ */
+export function releaseTranscriptTombstone(scenarioId: string | null | undefined): void {
+  if (!scenarioId) return
+  forgottenThisPageLoad.delete(scenarioId)
+}
+
+/** Test-only: the tombstone is module state and must not leak between cases. */
+export function __resetTranscriptTombstonesForTests(): void {
+  forgottenThisPageLoad.clear()
+}
+
 /** Forget one scenario's transcript (scenario deleted / canvas reset). */
 export function clearTranscript(scenarioId: string | null | undefined): void {
-  if (!scenarioId || !storageAvailable()) return
+  if (!scenarioId) return
+  // Tombstone FIRST and unconditionally: if storage is unavailable the delete
+  // is a no-op, but a later write must still be refused.
+  forgottenThisPageLoad.add(scenarioId)
+  if (!storageAvailable()) return
   try {
     const file = readFile()
     if (!(scenarioId in file)) return
