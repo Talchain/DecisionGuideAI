@@ -119,3 +119,21 @@ export function __resetParticipantTokenForTests(): void {
 export function setParticipantToken(token: string): void {
   participantToken = token.trim() === '' ? null : token.trim()
 }
+
+/**
+ * Forget the held token so the participant can enter a different one.
+ *
+ * ⚠ THIS IS UI RECOVERY, NOT A CHANGE TO VERIFICATION. Nothing here decides
+ * whether a code is valid — the server does, and it is unchanged. What this
+ * closes is a DEAD END measured on deployed build `3a4e3df2`: the packet page
+ * showed its code-entry form only while no token was held, so a participant who
+ * mistyped their code held a rejected credential with nothing able to drop it.
+ * Every retry re-sent the same bad token, and only a full page reload escaped —
+ * which the page never suggested. A first-time panellist met a wall.
+ *
+ * It is also the correct hygiene move on a refusal: a bearer capability the
+ * server has just declined has no reason to stay in memory.
+ */
+export function clearParticipantToken(): void {
+  participantToken = null
+}
