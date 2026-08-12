@@ -237,10 +237,19 @@ describe('closing the recorded round', () => {
 
   it('DIFFERENT OBJECT: any other close failure keeps the banner and the record, and shows the failure', async () => {
     seedRecord()
+    // ⚠ The reveal is stubbed to SUCCEED here on purpose. Only
+    // `collab_round_closed` may fall through to it — a predicate widened to
+    // swallow every close failure would sail on to this healthy reveal and
+    // paint success over a round that is still open. With the reveal healthy,
+    // the ONLY way this test passes is the close failure actually stopping
+    // the flow.
     fetchMock.mockImplementation(async (input, init) => {
       const url = String(input)
       if (url === `/bff/collab/rounds/${RECORDED_ROUND_ID}/close` && init?.method === 'POST') {
         return jsonResponse({ code: 'collab_store_unavailable', message: 'Store fell over.' }, 503)
+      }
+      if (url === `/bff/collab/rounds/${RECORDED_ROUND_ID}/reveal`) {
+        return jsonResponse(EMPTY_REVEAL)
       }
       return jsonResponse({ code: 'not_stubbed', message: url }, 404)
     })
@@ -249,6 +258,7 @@ describe('closing the recorded round', () => {
     fireEvent.click(screen.getByTestId('panel-resume-close'))
 
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
+    expect(screen.queryByTestId('collab-reveal')).toBeNull()
     expect(screen.getByTestId('panel-resume')).toBeInTheDocument()
     expect(recallOpenRound(SCENARIO_ID)?.round_id).toBe(RECORDED_ROUND_ID)
   })
