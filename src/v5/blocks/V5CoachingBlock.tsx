@@ -109,6 +109,8 @@ import {
   guidanceCategoryTone,
 } from '../../canvas/stores/guidanceStore'
 import { STRENGTHEN_COPY } from '../../components/results/strengthen/strengthenCopy'
+import { useCanvasStore } from '../../canvas/store'
+import { deriveCoachingCurrency } from './coachingCurrency'
 import type { V5CoachingBlock as V5CoachingBlockType } from '../../canvas/conversation/types'
 
 export interface V5CoachingBlockProps {
@@ -211,6 +213,16 @@ const FRESHNESS_NOTICE: Partial<Record<string, string>> = {
 }
 
 /**
+ * The depth-layer sentence for CANNOT-CONFIRM. It is the card's existing
+ * honest-absence idiom — the same voice as "This suggestion is not linked to a
+ * cited decision-science claim" — applied to the one other thing the card can
+ * fail to know. It states what is unknown; it never guesses, and it never
+ * implies the advice is wrong.
+ */
+const CURRENCY_UNKNOWN_DETAIL =
+  'We can’t confirm whether your model has changed since this was written.'
+
+/**
  * Code-keyed display copy for the two pass-through discriminators. Both are
  * OPEN vocabularies the producer owns, so an unrecognised value maps to
  * `undefined` and the disclosure simply omits that line — it must never print
@@ -239,7 +251,41 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
   const tone: Tone = guidanceCategoryTone(block.category)
   const { Icon, tintClass } = guidanceCategoryIcon(block.category)
 
-  const freshnessNotice = block.freshness ? FRESHNESS_NOTICE[block.freshness] : undefined
+  /*
+    THE UNCERTAINTY CHANNEL, MADE REACHABLE.
+
+    `freshness` is the PRODUCER's verdict, stamped at emission — so on a card
+    the user is reading it is always `fresh` (wire-measured 13/13, 2026-08-12)
+    and the `stale` sentence below could never fire. Currency is a DIFFERENT
+    question — "is this still about the model you have?" — and only the client
+    can answer it, because only the client is still here after the user edits.
+
+    Read at RENDER time, on a store subscription, exactly as `TargetRefPill`
+    (already inside this card) resolves its targets: "Resolution is render-time,
+    not ingest-time … a pill never points at a guess." At ingest the two hashes
+    are always equal, which is precisely why an ingest-time verdict is worthless.
+
+    ⚠ BOTH SIDES ARE CEE-PRODUCED. `currentGraphHash` comes from
+    `analysis_ready.current_graph_hash`; the block's from
+    `graph_hash_at_generation`. The UI's own `generateGraphHash` is a different
+    algorithm and MUST NOT be substituted here — see `coachingCurrency.ts`.
+  */
+  const currentGraphHash = useCanvasStore((s) => s.analysisFreshness?.currentGraphHash)
+  const currency = deriveCoachingCurrency(block.graph_hash_at_generation, currentGraphHash)
+
+  /*
+    The producer's verdict WINS when it has said anything at all.
+
+    `freshness` answers "did this card generate correctly?" (pending / failed)
+    and currency answers "is it still about your model?" — two questions, and
+    trap 21 is what happens when two questions share one channel. So the
+    derived verdict FILLS THE PRODUCER'S SILENCE and never overwrites its
+    speech. When both point at staleness they resolve to the same sentence, so
+    the notice renders once and cannot contradict itself.
+  */
+  const freshnessNotice =
+    (block.freshness ? FRESHNESS_NOTICE[block.freshness] : undefined) ??
+    (currency === 'changed' ? FRESHNESS_NOTICE.stale : undefined)
   const kindSentence = KIND_SENTENCE[block.coaching_kind]
   const sourceSentence = SOURCE_SENTENCE[block.source]
   const claim = block.dsk_claim_provenance
@@ -251,6 +297,7 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
       data-coaching-kind={block.coaching_kind}
       data-coaching-source={block.source}
       data-freshness={block.freshness}
+      data-currency={currency}
       data-tone={tone}
       {...(block.category ? { 'data-category': block.category } : {})}
       {...(block.signal_code ? { 'data-signal-code': block.signal_code } : {})}
@@ -434,6 +481,19 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
               ? `This instantiates a cited decision-science claim: “${claim.claim_title}”, which the bundle rates ${claim.evidence_strength} evidence.`
               : 'This suggestion is not linked to a cited decision-science claim.'}
           </p>
+          {/*
+            CANNOT-CONFIRM lives HERE, not on the face, and the placement is the
+            argument: the card makes no currency claim on its face, so there is
+            nothing false to correct — but silence would let "we cannot tell"
+            read exactly like "still current". The depth layer is where this
+            card already states what it does not know ("not linked to a cited
+            decision-science claim"), and the summary above it literally asks
+            "how sure". A CHANGED model is different: that contradicts what the
+            reader would otherwise assume, so it goes on the face, unprompted.
+          */}
+          {currency === 'cannot_confirm' && (
+            <p data-testid={`${testIdPrefix}-currency-detail`}>{CURRENCY_UNKNOWN_DETAIL}</p>
+          )}
           {kindSentence && (
             <p data-testid={`${testIdPrefix}-kind-detail`}>{kindSentence}</p>
           )}
