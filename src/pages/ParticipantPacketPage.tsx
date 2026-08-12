@@ -28,6 +28,13 @@
  *     `hasToken` is now STATE, and a refusal offers "Enter a different code".
  *   • "Continue" was dead on empty input with no feedback at all.
  *
+ * A second witness (the 12 Aug two-person run, leg 2) found the SUBMIT side
+ * equally silent: the post-submit reload remounts every card, so the card-local
+ * "saved" flash died instantly and neither person could tell the contribution
+ * had landed (W-F3). The confirmation is now PAGE-held, built from the 201
+ * receipt, and bound to the round it was accepted for — see
+ * `SubmissionConfirmation` below.
+ *
  * ── WHAT THIS PAGE DELIBERATELY DOES NOT SHOW ─────────────────────────────
  * Before the round closes: no sibling answer, no model value for the target, no
  * response count, no roster. Not because the page hides them — because the
@@ -47,7 +54,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { AlertTriangle, KeyRound, Loader2, Lock } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Lock } from 'lucide-react'
 
 import { BeliefElicitationField } from '../canvas/components/BeliefElicitationField'
 import { useBeliefElicitation } from '../canvas/hooks/useBeliefElicitation'
@@ -66,6 +73,7 @@ import {
   clearParticipantToken,
   getParticipantToken,
   setParticipantToken,
+  TOKEN_PARAM_NAMES,
 } from '../collab/participantToken'
 import { typography } from '../styles/typography'
 
@@ -98,8 +106,25 @@ function isCredentialFailure(code: string, status: number): boolean {
   return status === 401 || status === 403 || code === 'collab_token_invalid'
 }
 
-/** Both spellings the link builder and the boot-path strip accept. */
-const CODE_IN_LINK = /[?&](?:ct|collab_token)=([^&#\s]+)/
+/** Regex-escape a literal so a future param name cannot become an operator. */
+function escapeForRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * The spellings the boot-path strip accepts — DERIVED from the single
+ * authority, never spelled here.
+ *
+ * ⚠ This was a hand-copied twin of `TOKEN_PARAM_NAMES` until #669's review
+ * demonstrated the drift (N1): a spelling added to the authority but not here
+ * would make this page REFUSE a link the boot path accepts — the participant's
+ * own paste-recovery path rejecting a valid invitation. Deriving it makes the
+ * two agree structurally; what derivation cannot prove is that the authority
+ * itself is complete (trap 12d), which is the authority's own concern.
+ */
+const CODE_IN_LINK = new RegExp(
+  `[?&](?:${[...TOKEN_PARAM_NAMES].map(escapeForRegExp).join('|')})=([^&#\\s]+)`,
+)
 
 type CodeReading = { code: string } | { problem: string }
 
@@ -140,22 +165,98 @@ export function readAccessCode(raw: string): CodeReading {
   return { code: trimmed }
 }
 
+/* ── W-F3: a submission must leave a LASTING, truthful confirmation ────────
+ * The two-person witness (leg 2, 12 Aug) found that after a participant
+ * submits, the card silently resets: the post-submit reload remounts every
+ * `TargetCard`, so card-local "saved" state died with it and neither person
+ * could tell the contribution had landed. The confirmation therefore lives at
+ * PAGE level, is built from the server's 201 RECEIPT (not from hope), and is
+ * shown only for the round it belongs to.
+ */
+
+/**
+ * What this participant has had RECORDED, per target — every claim in the
+ * rendered confirmation traces to a wire fact:
+ *   • that it was recorded at all — the 201 receipt;
+ *   • what — the value/words this page sent in the accepted request;
+ *   • when — the receipt's own `created_at` (server clock), never this
+ *     device's; absent from the receipt ⇒ no time is shown;
+ *   • whose — the receipt's `authored_by`, matched against the packet's
+ *     `self.participant_id` before any "as <name>" claim is made.
+ */
+type SubmissionConfirmation = {
+  /** The round the submission was ACCEPTED for — the binding identity. */
+  roundId: string
+  targetId: string
+  kind: 'answered' | 'revised' | 'declined'
+  value: number | null
+  words: string | null
+  /** ISO timestamp from the receipt, or null — never a client-side clock. */
+  createdAt: string | null
+  /** The participant the SERVER attributed the event to, from the receipt. */
+  authoredBy: string | null
+}
+
+/**
+ * ⚠ BOUND BY IDENTITY to the round on screen. A fresh round re-asking the same
+ * factor (same target id, new round_id) must render a fresh form, not last
+ * round's confirmation — a confirmation shown for the wrong round is a lie
+ * about THIS round. Keyed lookup by target id, then the round_id gate.
+ */
+function confirmationForRound(
+  held: Record<string, SubmissionConfirmation>,
+  roundId: string,
+  targetId: string,
+): SubmissionConfirmation | null {
+  const candidate = held[targetId]
+  if (candidate === undefined) return null
+  return candidate.roundId === roundId ? candidate : null
+}
+
+/**
+ * The receipt's server timestamp, if the wire carried one.
+ *
+ * The producer (CEE `collab.v1.packet.ts`) sends `created_at` on every 201;
+ * the UI's declared receipt type predates that field, so it is read here with
+ * a runtime check rather than widened in `collabService.ts` (that file is
+ * owned by open PR #674 — zero-overlap rule). An absent or unparseable value
+ * returns null and the confirmation simply makes no "when" claim.
+ */
+function receiptCreatedAt(receipt: unknown): string | null {
+  if (typeof receipt !== 'object' || receipt === null) return null
+  const value = (receipt as Record<string, unknown>).created_at
+  if (typeof value !== 'string') return null
+  return Number.isNaN(new Date(value).getTime()) ? null : value
+}
+
+/** "18:02" in the participant's own locale, or null if the wire gave no time. */
+function formatRecordedTime(createdAt: string | null): string | null {
+  if (createdAt === null) return null
+  const parsed = new Date(createdAt)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+}
+
 /** One target, with its own phrase state (the field is caller-owned). */
 function TargetCard({
   target,
   roundId,
+  self,
   alreadyAnswered,
-  onAnswered,
+  confirmation,
+  onConfirmed,
 }: {
   target: PacketTarget
   roundId: string
+  self: OpenPacket['self']
   alreadyAnswered: boolean
-  onAnswered: () => void
+  /** Round-bound already — the page filters through `confirmationForRound`. */
+  confirmation: SubmissionConfirmation | null
+  onConfirmed: (confirmation: SubmissionConfirmation) => void
 }): JSX.Element {
   const [phrase, setPhrase] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
 
   // The hook's target shape is {nodeId, nodeLabel}: CEE refuses an empty id and
   // quotes the label back in its clarifying question. The packet's target id is
@@ -178,18 +279,28 @@ function TargetCard({
       setBusy(true)
       setError(null)
       try {
-        await submitBelief(roundId, {
+        const words = phrase.trim() === '' ? null : phrase
+        const receipt = await submitBelief(roundId, {
           targetId: target.target.id,
           targetKind: target.target.kind,
           value,
           // ⭐ VERBATIM. Not the parsed number, not a normalisation — the words
           // this person typed, which is what the reveal shows beside the number.
-          expressionRaw: phrase.trim() === '' ? null : phrase,
+          expressionRaw: words,
           confidence: null,
           revision: alreadyAnswered,
         })
-        setSaved(true)
-        onAnswered()
+        // Recorded at PAGE level, from the receipt: the post-submit reload
+        // remounts this card, and anything held here dies with it (W-F3).
+        onConfirmed({
+          roundId,
+          targetId: target.target.id,
+          kind: alreadyAnswered ? 'revised' : 'answered',
+          value,
+          words,
+          createdAt: receiptCreatedAt(receipt),
+          authoredBy: receipt.authored_by,
+        })
       } catch (err) {
         setError(
           err instanceof CollabRequestError
@@ -200,7 +311,7 @@ function TargetCard({
         setBusy(false)
       }
     },
-    [roundId, target, phrase, alreadyAnswered, onAnswered],
+    [roundId, target, phrase, alreadyAnswered, onConfirmed],
   )
 
   const handleDecline = useCallback(async () => {
@@ -208,20 +319,100 @@ function TargetCard({
     setError(null)
     try {
       await declineTarget(roundId, { targetId: target.target.id, targetKind: target.target.kind })
-      setSaved(true)
-      onAnswered()
+      // `declineTarget` surfaces no receipt body, so this confirmation makes
+      // no "when"/"whose" claim — kind and round are what the accepted request
+      // established, and nothing more is asserted.
+      onConfirmed({
+        roundId,
+        targetId: target.target.id,
+        kind: 'declined',
+        value: null,
+        words: null,
+        createdAt: null,
+        authoredBy: null,
+      })
     } catch (err) {
       setError(err instanceof CollabRequestError ? err.message : 'That did not save.')
     } finally {
       setBusy(false)
     }
-  }, [roundId, target, onAnswered])
+  }, [roundId, target, onConfirmed])
+
+  /* Every clause below is a wire fact or it is not rendered: the time comes
+   * from the receipt's `created_at` (none ⇒ no time claim), and "as <name>"
+   * is made only when the receipt's `authored_by` IS this packet's self. */
+  const recordedTime = confirmation === null ? null : formatRecordedTime(confirmation.createdAt)
+  const recordedAsSelf =
+    confirmation !== null &&
+    confirmation.authoredBy !== null &&
+    confirmation.authoredBy === self.participant_id
 
   return (
     <section data-testid={`packet-target-${target.target.id}`} className={`${CARD} mt-4`}>
       <h2 className={`${typography.h4} text-text-header`}>{target.label}</h2>
       {target.description !== null && (
         <p className={`${typography.body} mt-1 text-text-light`}>{target.description}</p>
+      )}
+
+      {/* W-F3: the LASTING confirmation. Page-held, receipt-built, round-bound
+          — it survives the post-submit reload that used to silently reset this
+          card, and a fresh round renders a fresh form instead of it. */}
+      {confirmation !== null && (
+        <p
+          data-testid={`packet-confirmation-${target.target.id}`}
+          className={`${typography.body} mt-4 flex gap-3 rounded-md border border-success/30 bg-panel p-4 text-text-body`}
+        >
+          <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none text-success" aria-hidden="true" />
+          {confirmation.kind === 'declined' ? (
+            <span>
+              <strong className="font-semibold text-text-header">
+                Your choice not to answer this has been recorded.
+              </strong>{' '}
+              You can still answer below until the round closes.
+            </span>
+          ) : (
+            <span>
+              <strong className="font-semibold text-text-header">
+                {confirmation.kind === 'revised'
+                  ? 'Your answer has been updated.'
+                  : 'Your answer is in.'}
+              </strong>{' '}
+              <span data-testid={`packet-confirmation-value-${target.target.id}`}>
+                You answered {confirmation.value}
+                {confirmation.words !== null && (
+                  <em> &mdash; &ldquo;{confirmation.words}&rdquo;</em>
+                )}
+                .
+              </span>{' '}
+              {(recordedTime !== null || recordedAsSelf) && (
+                <span data-testid={`packet-confirmation-recorded-${target.target.id}`}>
+                  Recorded
+                  {recordedTime !== null ? ` at ${recordedTime}` : ''}
+                  {recordedAsSelf ? ` as ${self.display_name}` : ''}.{' '}
+                </span>
+              )}
+              It stays private until the round closes — you can change it below until then.
+            </span>
+          )}
+        </p>
+      )}
+
+      {/* The weaker truth that survives even a full reload (the token does not,
+          but a re-opened link lands here with the same packet): the SERVER says
+          this participant has responded — `self.completed_target_ids`, which
+          counts declines too, hence "responded", not "answered". What and when
+          are not in the packet, so they are not claimed. */}
+      {confirmation === null && alreadyAnswered && (
+        <p
+          data-testid={`packet-already-answered-${target.target.id}`}
+          className={`${typography.body} mt-4 flex gap-3 rounded-md border border-success/30 bg-panel p-4 text-text-body`}
+        >
+          <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none text-success" aria-hidden="true" />
+          <span>
+            You have already responded to this one in this round. Your response is saved and
+            stays private until the round closes — answering below will update it.
+          </span>
+        </p>
       )}
 
       <div className="mt-4">
@@ -239,15 +430,6 @@ function TargetCard({
         <Button variant="secondary" size="sm" onClick={handleDecline} disabled={busy}>
           I would rather not answer this
         </Button>
-        {saved && (
-          <span
-            data-testid={`packet-saved-${target.target.id}`}
-            className={`${typography.bodySmall} text-success`}
-          >
-            {alreadyAnswered ? 'Answer updated.' : 'Answer recorded.'} You can change it until the
-            round closes.
-          </span>
-        )}
       </div>
 
       {error !== null && (
@@ -265,6 +447,22 @@ export default function ParticipantPacketPage(): JSX.Element {
   const [manualToken, setManualToken] = useState('')
   const [entryProblem, setEntryProblem] = useState<string | null>(null)
   const [answeredTick, setAnsweredTick] = useState(0)
+
+  /**
+   * W-F3: what this participant has had recorded, keyed by target id, held at
+   * PAGE level because the post-submit reload remounts every card. Entries
+   * carry the round they were accepted for and are surfaced only through
+   * `confirmationForRound` — a fresh round (new round_id, even for the same
+   * factor) gets a fresh form, never last round's confirmation.
+   */
+  const [confirmations, setConfirmations] = useState<Record<string, SubmissionConfirmation>>({})
+
+  const handleConfirmed = useCallback((confirmation: SubmissionConfirmation) => {
+    setConfirmations((prev) => ({ ...prev, [confirmation.targetId]: confirmation }))
+    // Same reload as before the fix: `completed_target_ids` is re-derived from
+    // the wire, so revision state stays the server's word, not this page's.
+    setAnsweredTick((n) => n + 1)
+  }, [])
 
   /**
    * ⚠ STATE, NOT A BARE MODULE READ — this is the whole of the dead-end fix.
@@ -485,13 +683,22 @@ export default function ParticipantPacketPage(): JSX.Element {
               <Button data-testid="packet-reenter-code" onClick={forgetCode}>
                 Enter a different code
               </Button>
-              <Button
-                variant="secondary"
-                data-testid="packet-retry"
-                onClick={() => setAnsweredTick((n) => n + 1)}
-              >
-                Try again
-              </Button>
+              {/* N3 (#669 review): "Try again" re-sends the SAME held token, so
+                  on a credential refusal it cannot succeed — the server has
+                  just declined exactly what it would re-send. The honest
+                  affordances there are the two the guidance names: enter the
+                  code again, or ask the owner for a fresh link (#672's
+                  recovery). Retry stays for every other failure, where a
+                  moment later genuinely can differ. */}
+              {!credential && (
+                <Button
+                  variant="secondary"
+                  data-testid="packet-retry"
+                  onClick={() => setAnsweredTick((n) => n + 1)}
+                >
+                  Try again
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -545,8 +752,10 @@ export default function ParticipantPacketPage(): JSX.Element {
             key={t.target.id}
             target={t}
             roundId={packet.round_id}
+            self={packet.self}
             alreadyAnswered={packet.self.completed_target_ids.includes(t.target.id)}
-            onAnswered={() => setAnsweredTick((n) => n + 1)}
+            confirmation={confirmationForRound(confirmations, packet.round_id, t.target.id)}
+            onConfirmed={handleConfirmed}
           />
         ))}
 

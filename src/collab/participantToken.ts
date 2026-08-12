@@ -34,8 +34,17 @@
  * persisting it would put a bearer capability on disk to save one click.
  */
 
-/** Accepted spellings, in both the real query string and the hash query. */
-const TOKEN_PARAM_NAMES = ['ct', 'collab_token'] as const
+/**
+ * Accepted spellings, in both the real query string and the hash query.
+ *
+ * ⭐ THE SINGLE AUTHORITY. Exported because the packet page's link reader
+ * (`CODE_IN_LINK` in `ParticipantPacketPage.tsx`) DERIVES its pattern from
+ * this list rather than hand-copying it — a hand-copied twin drifted once
+ * already (#669 review, N1): a name added here but not there would have
+ * REFUSED valid participant links while every suite stayed green. Add a
+ * spelling here and every consumer accepts it without another edit.
+ */
+export const TOKEN_PARAM_NAMES = ['ct', 'collab_token'] as const
 
 /**
  * In-memory only. Module scope, not `window` — nothing enumerating globals
