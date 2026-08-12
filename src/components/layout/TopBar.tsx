@@ -7,6 +7,7 @@ import { useStagePill } from '../../canvas/hooks/useStagePill'
 import { UserAvatarMenu } from './UserAvatarMenu'
 import { KebabMenu } from './KebabMenu'
 import { ScenarioSwitcher } from '../../canvas/components/ScenarioSwitcher'
+import { ownerPanelHash } from '../../collab/panelRoute'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { useUIStore } from '../../stores/uiStore'
 
@@ -32,6 +33,13 @@ interface TopBarProps {
   saveStatus?: 'saved' | 'saving' | 'error'
   saveError?: string | null
   isPersisted?: boolean
+  /**
+   * COLLAB: when a PERSISTED scenario is on the canvas, its id — and the bar
+   * shows the "Ask your team" entry to the blind-panel owner page. Null/absent
+   * hides it: a guest scenario cannot mint a round (CEE refuses — no immutable
+   * model version to pin), so showing the entry would be a control that lies.
+   */
+  panelScenarioId?: string | null
 }
 
 export const TopBar = ({
@@ -43,6 +51,7 @@ export const TopBar = ({
   saveStatus,
   saveError,
   isPersisted = false,
+  panelScenarioId = null,
 }: TopBarProps) => {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(scenarioTitle)
@@ -386,6 +395,23 @@ export const TopBar = ({
           }
           return null
         })()}
+
+        {/* COLLAB: entry to the blind-panel owner page — previously URL-only.
+            An anchor, not a navigate(): the app is a HashRouter and this is
+            the same pattern as the logo link, so middle-click/new-tab work.
+            Rendered only for a persisted scenario (see the prop's doc). */}
+        {panelScenarioId != null && panelScenarioId !== '' && (
+          <Tooltip content="Ask your team — everyone answers privately, then compare">
+            <a
+              href={ownerPanelHash(panelScenarioId)}
+              className={styles.iconButton}
+              aria-label="Ask your team"
+              data-testid="topbar-panel-link"
+            >
+              <Users size={14} aria-hidden="true" />
+            </a>
+          </Tooltip>
+        )}
 
         {/* Share button */}
         <Tooltip content="Generate shareable link">
