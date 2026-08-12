@@ -53,6 +53,12 @@ import {
   type RevealView,
 } from '../collab/collabService'
 import { requireOwnerAccessToken } from '../collab/ownerAccessToken'
+import {
+  forgetOpenRound,
+  recallOpenRound,
+  rememberOpenRound,
+  type OpenRoundRecord,
+} from '../collab/openRoundRecord'
 import { typography } from '../styles/typography'
 import { RevealBody } from './ParticipantPacketPage'
 
@@ -131,6 +137,21 @@ function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
   }
 }
 
+/** "Ada", "Ada and Grace", "Ada, Grace and Lin" — or '' when no names exist. */
+function participantNames(record: OpenRoundRecord): string {
+  const names = record.participants.map((p) => p.display_name).filter((n) => n.trim() !== '')
+  if (names.length === 0) return ''
+  if (names.length === 1) return names[0]
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+/** A human date for the banner, or null when the stamp cannot be parsed. */
+function openedOn(record: OpenRoundRecord): string | null {
+  const stamp = Date.parse(record.opened_at)
+  if (Number.isNaN(stamp)) return null
+  return new Date(stamp).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })
+}
+
 /** Best-effort clipboard write. Returns false when the browser refuses. */
 async function writeToClipboard(text: string): Promise<boolean> {
   try {
@@ -166,6 +187,14 @@ export default function PanelSetupPage(): JSX.Element {
   const [copiedIds, setCopiedIds] = useState<ReadonlySet<string>>(() => new Set())
   const [copyRefused, setCopyRefused] = useState<ReadonlySet<string>>(() => new Set())
 
+  // COLLAB ROUND RECOVERY: the NON-SECRET record of a round this owner opened
+  // for THIS scenario and may have navigated away from. Read once at mount —
+  // the only other writers are this page's own handlers, which keep the state
+  // and the store in step. Never tokens (see openRoundRecord's header).
+  const [openRecord, setOpenRecord] = useState<OpenRoundRecord | null>(() =>
+    recallOpenRound(scenarioId ?? ''),
+  )
+
   const handleMint = useCallback(async () => {
     setBusyAction('open')
     setFailure(null)
@@ -187,6 +216,15 @@ export default function PanelSetupPage(): JSX.Element {
         ),
       })
       setMinted(result)
+      // Remember the non-secret half so navigating away no longer strands the
+      // round. `rememberOpenRound` PICKS id + name; the tokens in `result`
+      // never reach storage (pinned by panelSetupRoundRecovery.spec.tsx).
+      rememberOpenRound({
+        roundId: result.round_id,
+        scenarioId: scenarioId ?? '',
+        participants: result.participants,
+      })
+      setOpenRecord(recallOpenRound(scenarioId ?? ''))
     } catch (err) {
       setFailure(describeOwnerFailure(err, 'open'))
     } finally {
@@ -194,23 +232,54 @@ export default function PanelSetupPage(): JSX.Element {
     }
   }, [scenarioId, targetId, targetLabel, contextNote, nameA, nameB])
 
-  const handleClose = useCallback(async () => {
-    if (minted === null) return
-    setBusyAction('close')
-    setFailure(null)
-    try {
-      // ONE getSession() round-trip for the whole action, reused across both
-      // requests — the identity seam's stated contract ("one call per turn;
-      // callers must never make a second getSession() round-trip for the token").
-      const accessToken = await requireOwnerAccessToken()
-      await closeRound(accessToken, minted.round_id)
-      setReveal(await fetchOwnerReveal(accessToken, minted.round_id))
-    } catch (err) {
-      setFailure(describeOwnerFailure(err, 'close'))
-    } finally {
-      setBusyAction(null)
-    }
-  }, [minted])
+  // Parameterised by round id because there are now TWO callers: the fresh
+  // mint on screen, and the recovery banner's RECORDED round.
+  const handleClose = useCallback(
+    async (roundId: string) => {
+      setBusyAction('close')
+      setFailure(null)
+      try {
+        // ONE getSession() round-trip for the whole action, reused across both
+        // requests — the identity seam's stated contract ("one call per turn;
+        // callers must never make a second getSession() round-trip for the token").
+        const accessToken = await requireOwnerAccessToken()
+        try {
+          await closeRound(accessToken, roundId)
+        } catch (err) {
+          // A recorded round may have been closed in another tab or session.
+          // `collab_round_closed` is not a dead end — the reveal is exactly
+          // what the owner came for, so fall through to it. Every OTHER
+          // refusal still surfaces as a failure below.
+          if (!(err instanceof CollabRequestError) || err.code !== 'collab_round_closed') {
+            throw err
+          }
+        }
+        setReveal(await fetchOwnerReveal(accessToken, roundId))
+        // Forget ONLY the round we actually closed. The stored record is
+        // latest-wins: a second tab minting R2 overwrites R1's record, so an
+        // UNCONDITIONAL forget here — reached from tab A still closing R1 —
+        // would delete the LIVE round's reminder. On a mismatch the record
+        // stays, and local state re-reads it so page and store agree.
+        const stored = recallOpenRound(scenarioId ?? '')
+        if (stored === null || stored.round_id === roundId) {
+          forgetOpenRound(scenarioId ?? '')
+          setOpenRecord(null)
+        } else {
+          setOpenRecord(stored)
+        }
+      } catch (err) {
+        setFailure(describeOwnerFailure(err, 'close'))
+      } finally {
+        setBusyAction(null)
+      }
+    },
+    [scenarioId],
+  )
+
+  const handleForget = useCallback(() => {
+    forgetOpenRound(scenarioId ?? '')
+    setOpenRecord(null)
+  }, [scenarioId])
 
   const handleCopy = useCallback(async (participantId: string, link: string) => {
     const ok = await writeToClipboard(link)
@@ -247,6 +316,48 @@ export default function PanelSetupPage(): JSX.Element {
             you close the round. Then you see them all, side by side, in each person&rsquo;s own
             words.
           </p>
+
+          {/* ROUND RECOVERY: a round opened earlier and navigated away from.
+              A banner ABOVE the form, never a replacement for it — opening a
+              fresh round below IS the documented recovery for a lost link
+              (the tokens themselves are unrecoverable by design). Hidden the
+              moment fresh links are on screen: `minted` supersedes it. */}
+          {minted === null && openRecord !== null && (
+            <section
+              data-testid="panel-resume"
+              className="mt-8 rounded-md border border-info/30 bg-panel p-4"
+            >
+              <p className={`${typography.label} text-text-header`}>A round is already open</p>
+              <p className={`${typography.body} mt-2 text-text-body`}>
+                {participantNames(openRecord) === ''
+                  ? 'You opened a round'
+                  : `You opened a round for ${participantNames(openRecord)}`}
+                {openedOn(openRecord) !== null ? ` on ${openedOn(openRecord)}` : ''}. Its links
+                were shown once and cannot be shown again &mdash; if someone has lost theirs,
+                close this round and open a fresh one below.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Button
+                  data-testid="panel-resume-close"
+                  onClick={() => void handleClose(openRecord.round_id)}
+                  disabled={busyAction !== null}
+                >
+                  Close the round and show everyone&rsquo;s answers
+                </Button>
+                <Button
+                  variant="secondary"
+                  data-testid="panel-resume-forget"
+                  onClick={handleForget}
+                  disabled={busyAction !== null}
+                >
+                  Forget this round
+                </Button>
+              </div>
+              <p className={`${typography.bodySmall} mt-3 text-text-light`}>
+                Forgetting only clears this reminder &mdash; the round itself stays open.
+              </p>
+            </section>
+          )}
 
           {minted === null ? (
             <div className="mt-8 space-y-6">
@@ -470,7 +581,11 @@ export default function PanelSetupPage(): JSX.Element {
               </p>
 
               <div className="mt-6">
-                <Button data-testid="panel-close" onClick={handleClose} disabled={busyAction !== null}>
+                <Button
+                  data-testid="panel-close"
+                  onClick={() => void handleClose(minted.round_id)}
+                  disabled={busyAction !== null}
+                >
                   Close the round and show everyone&rsquo;s answers
                 </Button>
               </div>

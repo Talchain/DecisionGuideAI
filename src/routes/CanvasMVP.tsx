@@ -270,6 +270,10 @@ export default function CanvasMVP() {
         saveStatus={isPersistenceActive ? supabaseSaveStatus : undefined}
         saveError={isPersistenceActive ? supabaseSaveError : undefined}
         isPersisted={isPersistenceActive}
+        // COLLAB: the blind-panel entry needs a PERSISTED scenario — CEE's
+        // mint refuses guest scenarios (no immutable model version to pin),
+        // and the owner route sits behind AuthGuard.
+        panelScenarioId={isPersistenceActive && currentScenarioId ? currentScenarioId : null}
       />
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
