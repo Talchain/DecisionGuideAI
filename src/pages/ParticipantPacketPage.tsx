@@ -526,6 +526,12 @@ export default function ParticipantPacketPage(): JSX.Element {
   /** Drop the held code and go back to the entry form, in place. */
   const forgetCode = useCallback(() => {
     clearParticipantToken()
+    // Held confirmations die with the credential that produced them: two-person
+    // trials share devices, and the next code entered may be ANOTHER
+    // participant on the SAME round — round_id binding alone cannot tell them
+    // apart, and Grace's receipt is not evidence about Priya (found RED-first
+    // by this lane's own cross-person test, not by the witness).
+    setConfirmations({})
     setManualToken('')
     setEntryProblem(null)
     setState({ kind: 'loading' })

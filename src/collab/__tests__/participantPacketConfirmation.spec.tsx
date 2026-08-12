@@ -22,6 +22,11 @@
  * drift mutant, not by history) and the N3 different-object twin (it pins the
  * direction the fix must NOT change; without it, deleting the retry button
  * everywhere would pass).
+ * Added after the first fix landed: the cross-person test (a different code on
+ * the same device must not inherit the previous person's confirmation) was
+ * measured RED against this lane's OWN pre-clear implementation at `8e19a10c`
+ * — the sharper signature, since at pristine it merely times out with the
+ * others — and green once `forgetCode` clears held confirmations.
  *
  * ── BINDING ───────────────────────────────────────────────────────────────
  * Every assertion selects by IDENTITY (testid carrying the target id, exact
@@ -372,6 +377,78 @@ describe('W-F3: the participant can tell their contribution landed', () => {
     expect(screen.queryByTestId(`packet-confirmation-${TARGET_X}`)).toBeNull()
     // WRONG-OBJECT TWIN: the unanswered sibling carries no such notice.
     expect(screen.queryByTestId(`packet-already-answered-${TARGET_Y}`)).toBeNull()
+  })
+
+  it("a different code entered on the same device does not inherit the previous person's confirmation", async () => {
+    // Two-person trials share laptops. Grace submits; her token is later
+    // refused (e.g. revoked); Priya enters HER code on the same page instance
+    // and lands on the SAME round — round_id alone cannot tell them apart, so
+    // held confirmations must die with the credential that produced them.
+    const priyaPacket = makePacket({ roundId: ROUND_A, note: NOTE_A, completed: [] })
+    priyaPacket.self = { ...priyaPacket.self, participant_id: 'p-priya-5555', display_name: 'Priya' }
+
+    let phase: 'grace' | 'revoked' | 'priya' = 'grace'
+    const completed: string[] = []
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === EVENTS_URL_A && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { kind: string; target: { id: string } }
+        completed.push(body.target.id)
+        return jsonResponse(
+          {
+            event_id: 'evt-0004',
+            round_id: ROUND_A,
+            target: body.target,
+            kind: body.kind,
+            event_version: 1,
+            authored_by: SELF_ID,
+            created_at: RECEIPT_CREATED_AT,
+          },
+          201,
+        )
+      }
+      if (url === PACKET_URL_A) {
+        if (phase === 'grace') {
+          return jsonResponse(makePacket({ roundId: ROUND_A, note: NOTE_A, completed: [...completed] }))
+        }
+        if (phase === 'revoked') {
+          return jsonResponse(
+            { code: 'collab_token_revoked', message: 'That participant link has been revoked.' },
+            401,
+          )
+        }
+        return jsonResponse(priyaPacket)
+      }
+      return jsonResponse({ code: 'not_stubbed', message: url }, 404)
+    })
+
+    renderAtRoundA()
+    await waitFor(() => expect(screen.getByTestId('participant-packet-page')).toBeInTheDocument())
+    await submitOn(TARGET_X, LABEL_X, WORDS)
+
+    // Grace's token is refused on the next load; she hands over the laptop.
+    phase = 'revoked'
+    fireEvent.click(
+      within(screen.getByTestId(`packet-target-${TARGET_X}`)).getByRole('button', {
+        name: 'I would rather not answer this',
+      }),
+    )
+    // (that decline 201s, but the reload it triggers is now refused)
+    await waitFor(() => expect(screen.getByTestId('packet-error')).toBeInTheDocument())
+
+    phase = 'priya'
+    fireEvent.click(screen.getByTestId('packet-reenter-code'))
+    fireEvent.change(screen.getByTestId('packet-manual-token'), {
+      target: { value: 'CODE-THAT-BELONGS-TO-PRIYA' },
+    })
+    fireEvent.click(screen.getByTestId('packet-manual-continue'))
+    await waitFor(() => expect(screen.getByTestId('participant-packet-page')).toBeInTheDocument())
+
+    // Priya's page, Priya's truth: the server says SHE has not responded, and
+    // Grace's receipt is not evidence about her.
+    expect(screen.getByTestId('packet-self-name')).toHaveTextContent('Priya')
+    expect(screen.queryByTestId(`packet-confirmation-${TARGET_X}`)).toBeNull()
+    expect(screen.queryByTestId(`packet-already-answered-${TARGET_X}`)).toBeNull()
   })
 
   it('declining leaves an honest record of the choice — not "Answer recorded"', async () => {
