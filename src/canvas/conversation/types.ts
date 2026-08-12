@@ -260,6 +260,15 @@ export interface V5ReviewCardBlock {
   freshness: V5Phase3Freshness
   action_intent?: string
   action_label?: string
+  /**
+   * CEE's `aag_v1` graph hash AT THE MOMENT THIS CARD WAS WRITTEN — the same
+   * field, same semantics and same CEE-hash-only comparison rule as
+   * `V5CoachingBlock.graph_hash_at_generation` below (see that doc-comment
+   * and `coachingCurrency.ts`). REQUIRED at schemas 0.39.0
+   * (`ReviewCardBlockSchema`, blocks.d.ts:1074) but kept optional here:
+   * absence costs the VERDICT (cannot-confirm), never the card.
+   */
+  graph_hash_at_generation?: string
 }
 
 /**
@@ -387,6 +396,14 @@ export interface V5EvidenceBlock {
   freshness: V5Phase3Freshness
   action_intent?: string
   action_label?: string
+  /**
+   * CEE's `aag_v1` graph hash at authoring time — same semantics and
+   * CEE-hash-only comparison rule as on V5ReviewCardBlock / V5CoachingBlock
+   * (see `coachingCurrency.ts`). REQUIRED at schemas 0.39.0
+   * (`EvidenceBlockSchema`, blocks.d.ts:1452) but optional here: absence
+   * costs the verdict (cannot-confirm), never the card.
+   */
+  graph_hash_at_generation?: string
 }
 
 /**
@@ -448,6 +465,14 @@ export interface V5ExerciseBlock {
   target_element_ref?: V5BlockTargetRef
   target_refs: V5BlockTargetRef[]
   freshness: V5Phase3Freshness
+  /**
+   * CEE's `aag_v1` graph hash at authoring time — same semantics and
+   * CEE-hash-only comparison rule as on the other Phase 3 typed blocks
+   * (see `coachingCurrency.ts`). Optional at schemas 0.39.0
+   * (`ExerciseBlockSchema`, blocks.d.ts:1669); carried on the live wire
+   * (T3 / no-critiques captures). Absent ⇒ cannot-confirm, never "current".
+   */
+  graph_hash_at_generation?: string
 }
 
 /**

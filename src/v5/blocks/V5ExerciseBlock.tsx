@@ -16,7 +16,15 @@
  *     legacy exercise idiom's info badge. No severity exists on this
  *     block type, so no severity channel is fabricated.
  *   - `exercise_kind` / `freshness` / `block_id` ride as data-*
- *     attributes only — never rendered as copy.
+ *     attributes only — never rendered as copy — EXCEPT that the freshness/
+ *     currency verdict now resolves to a plain-English notice (#670's
+ *     mechanism, extended to this card: exercise blocks carry
+ *     `graph_hash_at_generation` on the live wire — T3 / no-critiques
+ *     captures — and a pre-mortem about a model that no longer exists is as
+ *     stale as any assumption card). Producer's verdict wins; the render-time
+ *     derivation fills its silence. `cannot_confirm` rides as `data-currency`
+ *     only (no depth layer on this card; #670 keeps cannot-confirm off the
+ *     face).
  *   - `target_element_ref` (the element the exercise targets) and
  *     `target_refs` render together as reference pills, labels verbatim.
  */
@@ -24,6 +32,8 @@ import { type ReactElement } from 'react'
 import { BookOpenCheck, ClipboardList } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
+import { resolveFreshnessNotice } from './coachingCurrency'
+import { useCoachingCurrency } from './useCoachingCurrency'
 import type {
   V5BlockTargetRef,
   V5ExerciseBlock as V5ExerciseBlockType,
@@ -47,12 +57,21 @@ export function V5ExerciseBlock({ block }: V5ExerciseBlockProps): ReactElement {
     refs.push(ref)
   }
 
+  /*
+    THE UNCERTAINTY CHANNEL — #670's mechanism, consumed through the shared
+    seam (`useCoachingCurrency` → `deriveCoachingCurrency`). Render-time, so
+    the card starts telling the truth the moment the model moves.
+  */
+  const currency = useCoachingCurrency(block.graph_hash_at_generation)
+  const freshnessNotice = resolveFreshnessNotice(block.freshness, currency)
+
   return (
     <div
       data-testid="v5-exercise"
       data-block-id={block.block_id}
       data-exercise-kind={block.exercise_kind}
       data-freshness={block.freshness}
+      data-currency={currency}
       className="rounded-xl border border-info/30 bg-panel p-4 space-y-2"
     >
       {/*
@@ -125,6 +144,14 @@ export function V5ExerciseBlock({ block }: V5ExerciseBlockProps): ReactElement {
           )}
         </div>
       </div>
+      {freshnessNotice && (
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid="v5-exercise-freshness"
+        >
+          {freshnessNotice}
+        </p>
+      )}
       {refs.length > 0 && (
         <div
           className="flex flex-wrap gap-2"

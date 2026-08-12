@@ -109,9 +109,8 @@ import {
   guidanceCategoryTone,
 } from '../../canvas/stores/guidanceStore'
 import { STRENGTHEN_COPY } from '../../components/results/strengthen/strengthenCopy'
-import { useCanvasStore } from '../../canvas/store'
-import { classifyFreshnessForDisplay } from '../../canvas/store/analysisFreshness'
-import { deriveCoachingCurrency } from './coachingCurrency'
+import { resolveFreshnessNotice } from './coachingCurrency'
+import { useCoachingCurrency } from './useCoachingCurrency'
 import type { V5CoachingBlock as V5CoachingBlockType } from '../../canvas/conversation/types'
 
 export interface V5CoachingBlockProps {
@@ -201,17 +200,12 @@ const CATEGORY_BORDER_CLASS: Record<
   technique: 'border-panel-border',
 }
 
-/**
- * Plain-English sentences for the freshness verdict. `fresh` is deliberately
- * absent from this map: a current card says nothing, because a "this is
- * current" badge on every card is noise that teaches the reader to ignore the
- * one time it matters.
+/*
+ * The freshness-notice sentences and the producer-wins resolution now live in
+ * `coachingCurrency.ts` (`FRESHNESS_NOTICE` / `resolveFreshnessNotice`),
+ * shared with the other hash-carrying Phase 3 renderers — one copy of the
+ * sentences, one resolution rule, four cards that cannot drift apart.
  */
-const FRESHNESS_NOTICE: Partial<Record<string, string>> = {
-  stale: 'Your model has changed since this was written — it may no longer apply.',
-  pending: 'This is still being written.',
-  failed: 'This could not be generated.',
-}
 
 /**
  * The depth-layer sentence for CANNOT-CONFIRM. It is the card's existing
@@ -283,32 +277,16 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
     answering "is the analysis stale?" under one name is trap 21. The borrow is
     gated on the overlay inside `deriveCoachingCurrency`; the reasoning for the
     gate is in that module's header.
-  */
-  const freshnessState = useCanvasStore((s) => s.analysisFreshness)
-  const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
-  const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
-  const currency = deriveCoachingCurrency(
-    block.graph_hash_at_generation,
-    freshnessState?.currentGraphHash,
-    {
-      dirty: freshnessDirty,
-      displaySemantic: classifyFreshnessForDisplay(freshnessState, freshnessDirty, importHold),
-    },
-  )
 
-  /*
-    The producer's verdict WINS when it has said anything at all.
-
-    `freshness` answers "did this card generate correctly?" (pending / failed)
-    and currency answers "is it still about your model?" — two questions, and
-    trap 21 is what happens when two questions share one channel. So the
-    derived verdict FILLS THE PRODUCER'S SILENCE and never overwrites its
-    speech. When both point at staleness they resolve to the same sentence, so
-    the notice renders once and cannot contradict itself.
+    The store reads + the classify call live in `useCoachingCurrency` — the ONE
+    consumption seam every hash-carrying Phase 3 renderer shares, so no card can
+    drift on how it feeds the authority. The producer-wins resolution is
+    `resolveFreshnessNotice` from the same mechanism module: the producer's
+    verdict wins where it has said anything (stale/pending/failed); the derived
+    verdict fills its silence and never overwrites its speech.
   */
-  const freshnessNotice =
-    (block.freshness ? FRESHNESS_NOTICE[block.freshness] : undefined) ??
-    (currency === 'changed' ? FRESHNESS_NOTICE.stale : undefined)
+  const currency = useCoachingCurrency(block.graph_hash_at_generation)
+  const freshnessNotice = resolveFreshnessNotice(block.freshness, currency)
   const kindSentence = KIND_SENTENCE[block.coaching_kind]
   const sourceSentence = SOURCE_SENTENCE[block.source]
   const claim = block.dsk_claim_provenance
