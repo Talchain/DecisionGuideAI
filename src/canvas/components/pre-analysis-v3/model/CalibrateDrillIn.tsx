@@ -85,10 +85,13 @@
  */
 
 import { memo, useCallback, useState } from 'react'
-import { Check, MessageSquare } from 'lucide-react'
+import { Check, MessageSquare, Users } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { typography, typo } from '../../../../styles/typography'
 import { FIELD_FEEDBACK_COPY } from '../constants'
+import { useAuth } from '../../../../contexts/AuthContext'
+import { isPersistenceActive } from '../../../../lib/persistenceActive'
+import { ownerPanelHash } from '../../../../collab/panelRoute'
 import { useCanvasStore } from '../../../store'
 import { getObservedState, type ObservedStateData } from '../../../utils/observedStateHelpers'
 import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
@@ -182,6 +185,41 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
   const canDescribeInWords = useCanvasStore(s =>
     acceptsElicitedBelief(s.nodes.find(n => n.id === row.nodeId)?.data),
   )
+
+  /**
+   * CAPABILITY A — "Ask a teammate": the hop from an unresolved unknown to a
+   * pre-filled blind-round mint. An anchor to the EXISTING setup page via
+   * `ownerPanelHash` (the single href authority), carrying `{factorId, label,
+   * unit}` in the hash query; the mint, blindness and reveal machinery
+   * downstream are byte-untouched. No value rides — CEE's `parseTargets`
+   * structurally refuses value fields, and the prefill type has nowhere to
+   * put one; a teammate is asked BLIND, which is the point.
+   *
+   * THE GUARD is the #672 pattern (TopBar's panel entry): render ONLY where
+   * the mint can succeed — a PERSISTED scenario (CEE refuses a guest
+   * scenario: no immutable model version to pin) under a SIGNED-IN NON-GUEST
+   * user (the mint is owner-JWT; note `useAuth()` reports guests as
+   * `authenticated: true`, so the guest check inside `isPersistenceActive` is
+   * load-bearing). Anywhere else the affordance would be an advertised action
+   * terminating in refusal — the Research-CTA anti-pattern.
+   *
+   * Offered on UNRESOLVED rows only (`!row.reviewed`, including rows that
+   * still need a value): a reviewed row is no longer an unknown, and its
+   * drill-in is the repair surface, not the elicitation one.
+   */
+  const { user, authenticated } = useAuth()
+  const scenarioId = useCanvasStore(s => s.currentScenarioId)
+  // The factor's own unit, by the same predicate `refusesNormalisedScaleEntry`
+  // uses; the row model carries no unit. Primitive selector result (string |
+  // null) — the fresh-object zustand guard applies here too.
+  const factorUnit = useCanvasStore(s => {
+    const unit = getObservedState(s.nodes.find(n => n.id === row.nodeId)?.data).unit
+    return unit != null && String(unit).trim() !== '' ? String(unit) : null
+  })
+  const askTeammateHref =
+    !row.reviewed && isPersistenceActive(authenticated, user) && scenarioId != null && scenarioId !== ''
+      ? ownerPanelHash(scenarioId, { factorId: row.nodeId, label: row.label, unit: factorUnit })
+      : null
 
   // The sanctioned setter (the `NODE_SETTER_FIELDS` manifest the writtenFields
   // guard spec enforces), not a hand-rolled `updateNode` — the same one both
@@ -522,6 +560,25 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
           >
             <MessageSquare className="h-3.5 w-3.5" aria-hidden />
           </PanelIconButton>
+        </Tooltip>
+      )}
+      {/* CAPABILITY A: an anchor, not a navigate() — the app is a HashRouter
+          and this is TopBar's panel-entry pattern, so middle-click/new-tab
+          work. Guard + href derivation above. */}
+      {askTeammateHref !== null && (
+        <Tooltip content="Ask your team — everyone answers privately, then compare" delay={300}>
+          <a
+            href={askTeammateHref}
+            aria-label={`Ask a teammate about ${row.label}`}
+            data-testid={`pre-analysis-v3-ask-team-${row.nodeId}`}
+            className={typo(
+              'panelMeta',
+              'inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-panel-border bg-transparent px-2.5 py-1 text-text-body no-underline outline-none transition-colors hover:bg-panel-hover focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40',
+            )}
+          >
+            <Users className="h-3 w-3" aria-hidden />
+            Ask a teammate
+          </a>
         </Tooltip>
       )}
       {hint && (
