@@ -277,8 +277,9 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
     while every neighbouring surface has already downgraded. The client's
     first-hand knowledge of that edit is the dirty overlay, read through the
     SAME authority those surfaces read (`classifyFreshnessForDisplay`, called
-    identically at `V7FreshnessStrip.tsx`, `AnalysisFreshnessNotice.tsx` and
-    `useAnalysisTrust.ts`) — borrowed, never re-derived, because two authorities
+    identically at `V7FreshnessStrip.tsx`; `AnalysisFreshnessNotice.tsx` and
+    `useAnalysisTrust.ts` call it too, but fold orphan-ness in first — see
+    `coachingCurrency.ts`) — borrowed, never re-derived, because two authorities
     answering "is the analysis stale?" under one name is trap 21. The borrow is
     gated on the overlay inside `deriveCoachingCurrency`; the reasoning for the
     gate is in that module's header.

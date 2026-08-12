@@ -590,7 +590,11 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
         // completion — and it passes only `currentAnalysisHash`, so
         // `graphChanged` takes its `false` default on every real call and this
         // limb never fires outside tests. Complete manifest, whole repo, at
-        // 32c0c517: one production caller, ten test callers.
+        // 32c0c517: ONE production caller and EIGHT test callers —
+        // `guidanceStore.spec.ts` :284, :294, :304, :311, :321, :331, :344,
+        // :349. (A first count said ten: it counted grep HITS, so a comment
+        // banner at :274 and the `describe(` at :277 were scored as callers.
+        // A caller count derived from a symbol grep counts mentions, not calls.)
         //
         // Deliberately NOT "fixed" here: on a local model edit
         // `useGraphEditEvents` already fires `clearGuidanceItems()`, which drops

@@ -21,12 +21,23 @@
  *
  * The dirtiness input is NOT re-derived here. It is
  * `classifyFreshnessForDisplay(analysisFreshness, analysisFreshnessDirty,
- * importPendingServerRegistration)` — byte-for-byte the call
- * `V7FreshnessStrip.tsx:49`, `AnalysisFreshnessNotice.tsx:118` and
- * `useAnalysisTrust.ts:96` already make. Two authorities answering "is the
- * analysis stale?" under one name is this estate's most expensive defect class
- * (CLAUDE.md trap 21), so the card BORROWS the neighbours' answer rather than
- * computing its own.
+ * importPendingServerRegistration)` — byte-for-byte the call `V7FreshnessStrip
+ * .tsx:49` makes. Two authorities answering "is the analysis stale?" under one
+ * name is this estate's most expensive defect class (CLAUDE.md trap 21), so the
+ * card BORROWS the strip's answer rather than computing its own.
+ *
+ * ⚠ "BYTE-FOR-BYTE" IS EXACT FOR THE STRIP ONLY. `AnalysisFreshnessNotice.tsx:98`
+ * and `useAnalysisTrust.ts:94` first apply `resolveTrustEffectiveState(state,
+ * orphaned)` — the ORPHAN FOLD, which synthesises `{freshness:'unknown',
+ * ORPHANED_RESULT}` when a result is orphaned and the verdict is null or 'none'.
+ * The card does not, so there is one reachable cell where they diverge: an
+ * ORPHANED result + a 'none'/absent verdict + a matching hash + a dirty overlay
+ * gives those two `cannot_confirm` while the card stays SILENT (its hashes agree
+ * and the authority it consulted returned 'none', which fills nothing).
+ * Deliberately left: silence is the SAFE direction — the card withholds a claim
+ * rather than making a false one — and folding orphan-ness into a coaching card
+ * would make it answer a third question. Recorded so the divergence is known
+ * rather than discovered.
  *
  * ## And the borrowing is GATED, because the two questions are still different
  *
@@ -145,9 +156,14 @@ describe('the dirty window — a local edit the two CEE hashes cannot see', () =
     expect(within(theCard()).getByTestId('v5-coaching-freshness')).toHaveTextContent(CHANGED_SENTENCE)
   })
 
-  it('RED-FIRST: the card cannot disagree with the neighbouring surfaces about the same window', () => {
-    // The card and the strip read ONE authority. This asserts the agreement
-    // directly rather than trusting that two derivations happen to match.
+  it('RED-FIRST: a readiness-only analysis_ready that STILL CARRIES a hash reads as changed, exactly as the strip reads it', () => {
+    // Scoped deliberately to this cell. The card does NOT agree with the strip
+    // everywhere and must not claim to: where the payload carries no
+    // `current_graph_hash` at all, the strip says 'changed' and the card says
+    // cannot-confirm, because the card's own question needs a hash to answer and
+    // it will not borrow past that. This case is the one where both inputs are
+    // present, so agreement is the correct outcome and is asserted directly
+    // rather than left to two derivations happening to match.
     const semantic = installFreshness(
       { freshness: 'unknown', freshnessReason: 'payload_carried_no_freshness_verdict', currentGraphHash: HASH_AT_GENERATION },
       { dirty: true },
@@ -280,9 +296,18 @@ describe('deriveCoachingCurrency — the gate, at the unit', () => {
  * mutant kit held that mutant. No such kit exists in this repository — a mutant
  * kit is run in a throwaway worktree and leaves nothing behind, so the claim was
  * unverifiable by construction (CLAUDE.md trap 12: a mirror nobody derives).
- * These two cases are the executable form of the same guarantee, and they are a
- * PAIR on purpose: either alone proves sensitivity to something, never binding
- * to the named source (trap 19).
+ * These two cases are the executable form of the same guarantee, and they pin
+ * DIFFERENT halves of it — measured, not assumed:
+ *
+ *   - the STORE-hash case REDs when the component stops reading the store hash,
+ *     and stays GREEN under the UI-hash substitution (the substituted value also
+ *     differs from the block's, so both yield `changed` and the single-arm
+ *     assertion cannot discriminate). It pins that the store hash is READ.
+ *   - the CANVAS-GRAPH case is the one that catches the SUBSTITUTION, alongside
+ *     `stays SILENT while the hashes agree` in the sibling #670 spec.
+ *
+ * Naming which member catches what is the point (trap 19): "it is a pair, so it
+ * must bind" is the kind of claim that reads as rigour and was never measured.
  */
 describe('the current hash is CEE-sourced — a UI hash is not what is read', () => {
   it('moving the STORE’s CEE hash flips the verdict', () => {
