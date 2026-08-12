@@ -248,6 +248,17 @@ export function adaptTypedCoachingBlock(
   const signalLine = nonEmptyString(raw.signal)
   const claimProvenance = dskClaimProvenance(raw.dsk_claim_provenance)
 
+  // CEE's graph hash at authoring time. Preserved verbatim so the card can
+  // compare it — at RENDER time — against CEE's CURRENT graph hash and notice
+  // that the model moved underneath the advice. `useConversation.ts` has kept
+  // this field on the raw block "so consumers can read it directly" since
+  // slice 1; until now no consumer did, which is why the card's
+  // "your model has changed" sentence was unreachable.
+  //
+  // A non-string is DROPPED rather than coerced: a fabricated hash would
+  // compare unequal to everything and manufacture a permanent false "changed".
+  const graphHashAtGeneration = nonEmptyString(raw.graph_hash_at_generation)
+
   return {
     type: 'v5_coaching',
     block_id: blockId,
@@ -269,6 +280,7 @@ export function adaptTypedCoachingBlock(
     ...(signalCode ? { signal_code: signalCode } : {}),
     ...(signalLine ? { signal: signalLine } : {}),
     ...(claimProvenance ? { dsk_claim_provenance: claimProvenance } : {}),
+    ...(graphHashAtGeneration ? { graph_hash_at_generation: graphHashAtGeneration } : {}),
   }
 }
 

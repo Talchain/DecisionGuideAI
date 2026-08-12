@@ -339,6 +339,24 @@ export interface V5CoachingBlock {
   signal?: string
   /** Absent = this card claims no cited DSK claim. Never "unknown claim". */
   dsk_claim_provenance?: V5DskClaimProvenance
+  /**
+   * CEE's `aag_v1` graph hash AT THE MOMENT THIS CARD WAS WRITTEN.
+   *
+   * This is what lets a card in the transcript notice that the model moved
+   * underneath it. `freshness` cannot: the producer stamps it at emission
+   * (wire-measured `'fresh'` on 13/13 blocks, 2026-08-12) and a rendered
+   * transcript block is immutable, so CEE can never re-stamp a card the user
+   * is already reading. Compared at RENDER time against
+   * `analysisFreshness.currentGraphHash` — see `coachingCurrency.ts`.
+   *
+   * ⚠ CEE-PRODUCED, AND ONLY EVER COMPARABLE WITH ANOTHER CEE HASH. The UI's
+   * `generateGraphHash` is a different algorithm over different inputs
+   * (`guidanceStore.ts` §2b); comparing the two is a category error.
+   *
+   * Optional because the producer omits it on some paths (4/13 wire-measured,
+   * all draft-path). Absent ⇒ cannot-confirm, never "current".
+   */
+  graph_hash_at_generation?: string
 }
 
 /**
