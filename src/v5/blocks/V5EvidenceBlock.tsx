@@ -15,7 +15,13 @@
  *   - `severity` drives the visual channel only (border/icon colour per
  *     the DS three-channel rule) — identical mapping to V5ReviewCardBlock.
  *   - `current_confidence` / `freshness` / `block_id` ride as data-*
- *     attributes only — never rendered as copy.
+ *     attributes only — never rendered as copy — EXCEPT that the freshness/
+ *     currency verdict now resolves to a plain-English notice (#670's
+ *     mechanism, extended to this card; the #670 witness recorded evidence
+ *     blocks carrying the superseded hash with no sentence, `WITNESS.md`
+ *     §F1). Producer's verdict wins; the render-time derivation fills its
+ *     silence. `cannot_confirm` rides as `data-currency` only (no depth
+ *     layer on this card; #670 keeps cannot-confirm off the face).
  *   - `action_label` renders as a display-only outlined pill this slice;
  *     wiring `action_intent` to turn dispatch remains the recorded
  *     follow-up from slice 1.
@@ -24,6 +30,8 @@ import { type ReactElement } from 'react'
 import { AlertTriangle, Search } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
+import { resolveFreshnessNotice } from './coachingCurrency'
+import { useCoachingCurrency } from './useCoachingCurrency'
 import type { V5EvidenceBlock as V5EvidenceBlockType } from '../../canvas/conversation/types'
 
 export interface V5EvidenceBlockProps {
@@ -48,6 +56,13 @@ export function V5EvidenceBlock({ block }: V5EvidenceBlockProps): ReactElement {
   // top-level factor_label is a backward-compatibility convenience.
   const primaryFactor = block.target_refs.find((ref) => ref.kind === 'factor')
   const title = primaryFactor?.label ?? block.factor_label
+  /*
+    THE UNCERTAINTY CHANNEL — #670's mechanism, consumed through the shared
+    seam (`useCoachingCurrency` → `deriveCoachingCurrency`). Render-time, so
+    the card starts telling the truth the moment the model moves.
+  */
+  const currency = useCoachingCurrency(block.graph_hash_at_generation)
+  const freshnessNotice = resolveFreshnessNotice(block.freshness, currency)
   return (
     <div
       data-testid="v5-evidence"
@@ -55,6 +70,7 @@ export function V5EvidenceBlock({ block }: V5EvidenceBlockProps): ReactElement {
       data-current-confidence={block.current_confidence}
       data-severity={block.severity}
       data-freshness={block.freshness}
+      data-currency={currency}
       className={`rounded-xl border ${SEVERITY_BORDER[block.severity]} bg-panel p-4 space-y-2`}
     >
       <div className="flex items-start gap-2">
@@ -76,6 +92,14 @@ export function V5EvidenceBlock({ block }: V5EvidenceBlockProps): ReactElement {
       <p className={typography.panelBody} data-testid="v5-evidence-impact">
         {block.impact_if_gathered}
       </p>
+      {freshnessNotice && (
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid="v5-evidence-freshness"
+        >
+          {freshnessNotice}
+        </p>
+      )}
       {block.target_refs.length > 0 && (
         <div
           className="flex flex-wrap gap-2"

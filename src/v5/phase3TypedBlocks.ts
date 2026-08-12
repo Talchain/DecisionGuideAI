@@ -22,9 +22,12 @@
  * though the schema declares it, and review_card may omit the optional
  * action fields. Adaptation therefore requires only the render-relevant
  * fields and deliberately ignores schema-required-but-render-irrelevant
- * metadata (signal_id, created_at, source_handler,
- * graph_hash_at_generation) — a real producer block must not be
- * suppressed over metadata the UI never shows.
+ * metadata (signal_id, created_at, source_handler) — a real producer
+ * block must not be suppressed over metadata the UI never shows.
+ * `graph_hash_at_generation` moved OUT of that ignored set when #670 made
+ * it render-relevant (the derived staleness sentence): every adapter now
+ * carries it VERBATIM when present, and its ABSENCE still never suppresses
+ * the block — it costs the currency verdict (cannot-confirm), not the card.
  *
  * Validation-strictness choices:
  *   - `severity` (review_card) must be one of the 0.13.x enum values —
@@ -117,6 +120,12 @@ export function adaptTypedReviewCardBlock(raw: unknown): V5ReviewCardBlock | nul
 
   const actionIntent = nonEmptyString(raw.action_intent)
   const actionLabel = nonEmptyString(raw.action_label)
+  // CEE's graph hash at authoring time, carried verbatim so the card can
+  // compare it — at RENDER time — against CEE's CURRENT graph hash (#670's
+  // mechanism, extended to this surface). A non-string is DROPPED rather
+  // than coerced: a fabricated hash would compare unequal to everything and
+  // manufacture a permanent false "changed".
+  const graphHashAtGeneration = nonEmptyString(raw.graph_hash_at_generation)
 
   return {
     type: 'v5_review_card',
@@ -130,6 +139,7 @@ export function adaptTypedReviewCardBlock(raw: unknown): V5ReviewCardBlock | nul
     freshness: fresh,
     ...(actionIntent ? { action_intent: actionIntent } : {}),
     ...(actionLabel ? { action_label: actionLabel } : {}),
+    ...(graphHashAtGeneration ? { graph_hash_at_generation: graphHashAtGeneration } : {}),
   }
 }
 
@@ -311,9 +321,10 @@ function optionalRef(v: unknown): V5BlockTargetRef | undefined {
  * current_confidence (data-* discriminator, non-empty string — NOT
  * enum-narrowed), priority_rank, severity (visual channel — enum-checked
  * like review_card), freshness, target_refs. Schema-declared metadata the
- * UI never shows (signal_id, created_at, source_handler,
- * graph_hash_at_generation) is deliberately NOT required — live staging
- * omits it on the other Phase 3 types.
+ * UI never shows (signal_id, created_at, source_handler) is deliberately
+ * NOT required — live staging omits it on the other Phase 3 types.
+ * `graph_hash_at_generation` is carried verbatim when present (render-
+ * relevant since the #670 staleness extension) and never required.
  */
 export function adaptTypedEvidenceBlock(raw: unknown): V5EvidenceBlock | null {
   if (!isPlainObject(raw)) return null
@@ -341,6 +352,8 @@ export function adaptTypedEvidenceBlock(raw: unknown): V5EvidenceBlock | null {
   const factorRef = optionalRef(raw.factor_ref)
   const actionIntent = nonEmptyString(raw.action_intent)
   const actionLabel = nonEmptyString(raw.action_label)
+  // #670's staleness mechanism, extended: verbatim carry, non-strings dropped.
+  const graphHashAtGeneration = nonEmptyString(raw.graph_hash_at_generation)
 
   return {
     type: 'v5_evidence',
@@ -357,6 +370,7 @@ export function adaptTypedEvidenceBlock(raw: unknown): V5EvidenceBlock | null {
     freshness: fresh,
     ...(actionIntent ? { action_intent: actionIntent } : {}),
     ...(actionLabel ? { action_label: actionLabel } : {}),
+    ...(graphHashAtGeneration ? { graph_hash_at_generation: graphHashAtGeneration } : {}),
   }
 }
 
@@ -444,6 +458,8 @@ export function adaptTypedExerciseBlock(raw: unknown): V5ExerciseBlock | null {
 
   const targetElementRef = optionalRef(raw.target_element_ref)
   const dskProvenance = dskProtocolProvenance(raw.dsk_provenance)
+  // #670's staleness mechanism, extended: verbatim carry, non-strings dropped.
+  const graphHashAtGeneration = nonEmptyString(raw.graph_hash_at_generation)
 
   return {
     type: 'v5_exercise',
@@ -459,5 +475,6 @@ export function adaptTypedExerciseBlock(raw: unknown): V5ExerciseBlock | null {
     ...(targetElementRef ? { target_element_ref: targetElementRef } : {}),
     target_refs: refs,
     freshness: fresh,
+    ...(graphHashAtGeneration ? { graph_hash_at_generation: graphHashAtGeneration } : {}),
   }
 }

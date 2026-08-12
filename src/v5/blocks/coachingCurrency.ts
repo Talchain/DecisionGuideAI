@@ -152,6 +152,7 @@
  * this module exists to end, and inferring `changed` would cry wolf.
  */
 import type { FreshnessDisplaySemantic } from '../../canvas/store/analysisFreshness'
+import type { V5Phase3Freshness } from '../../canvas/conversation/types'
 
 /**
  * The three answers a coaching card can honestly give about its own currency.
@@ -160,6 +161,47 @@ import type { FreshnessDisplaySemantic } from '../../canvas/store/analysisFreshn
  * the ANALYSIS, not about whether this card's model still exists.
  */
 export type CoachingCurrency = Exclude<FreshnessDisplaySemantic, 'none'>
+
+/**
+ * Plain-English sentences for the freshness verdict — #644's copy, made
+ * reachable by #670 and shared here VERBATIM when the mechanism was extended
+ * to the other hash-carrying transcript cards (review_card / evidence /
+ * exercise). `fresh` is deliberately absent from this map: a current card
+ * says nothing, because a "this is current" badge on every card is noise that
+ * teaches the reader to ignore the one time it matters.
+ *
+ * ⚠ ONE copy, exported from the mechanism module. A per-renderer copy of
+ * these sentences is the same-named-twin defect this estate keeps paying for
+ * (trap 12): four cards drifting to three wordings of the same fact.
+ */
+export const FRESHNESS_NOTICE: Partial<Record<string, string>> = {
+  stale: 'Your model has changed since this was written — it may no longer apply.',
+  pending: 'This is still being written.',
+  failed: 'This could not be generated.',
+}
+
+/**
+ * The producer's verdict WINS when it has said anything at all.
+ *
+ * `freshness` answers "did this card generate correctly?" (pending / failed)
+ * and currency answers "is it still about your model?" — two questions, and
+ * trap 21 is what happens when two questions share one channel. So the
+ * derived verdict FILLS THE PRODUCER'S SILENCE and never overwrites its
+ * speech. When both point at staleness they resolve to the same sentence, so
+ * the notice renders once and cannot contradict itself.
+ *
+ * (Extracted verbatim from V5CoachingBlock when the mechanism was extended —
+ * the resolution rule is part of the mechanism, not of any one card.)
+ */
+export function resolveFreshnessNotice(
+  producerFreshness: V5Phase3Freshness | undefined,
+  currency: CoachingCurrency,
+): string | undefined {
+  return (
+    (producerFreshness ? FRESHNESS_NOTICE[producerFreshness] : undefined) ??
+    (currency === 'changed' ? FRESHNESS_NOTICE.stale : undefined)
+  )
+}
 
 /** A hash is usable only as a non-empty string; `''` is absence, not a value. */
 function usableHash(v: string | undefined | null): string | undefined {
