@@ -110,6 +110,7 @@ import {
 } from '../../canvas/stores/guidanceStore'
 import { STRENGTHEN_COPY } from '../../components/results/strengthen/strengthenCopy'
 import { useCanvasStore } from '../../canvas/store'
+import { classifyFreshnessForDisplay } from '../../canvas/store/analysisFreshness'
 import { deriveCoachingCurrency } from './coachingCurrency'
 import type { V5CoachingBlock as V5CoachingBlockType } from '../../canvas/conversation/types'
 
@@ -269,9 +270,31 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
     `analysis_ready.current_graph_hash`; the block's from
     `graph_hash_at_generation`. The UI's own `generateGraphHash` is a different
     algorithm and MUST NOT be substituted here — see `coachingCurrency.ts`.
+
+    ⚠ AND BOTH ARE STAMPED SERVER-SIDE, so neither moves on a local edit. In the
+    window between an analysis-affecting edit and the next `analysis_ready` they
+    still agree, and the comparison alone would resolve `current` — silent —
+    while every neighbouring surface has already downgraded. The client's
+    first-hand knowledge of that edit is the dirty overlay, read through the
+    SAME authority those surfaces read (`classifyFreshnessForDisplay`, called
+    identically at `V7FreshnessStrip.tsx`; `AnalysisFreshnessNotice.tsx` and
+    `useAnalysisTrust.ts` call it too, but fold orphan-ness in first — see
+    `coachingCurrency.ts`) — borrowed, never re-derived, because two authorities
+    answering "is the analysis stale?" under one name is trap 21. The borrow is
+    gated on the overlay inside `deriveCoachingCurrency`; the reasoning for the
+    gate is in that module's header.
   */
-  const currentGraphHash = useCanvasStore((s) => s.analysisFreshness?.currentGraphHash)
-  const currency = deriveCoachingCurrency(block.graph_hash_at_generation, currentGraphHash)
+  const freshnessState = useCanvasStore((s) => s.analysisFreshness)
+  const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
+  const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
+  const currency = deriveCoachingCurrency(
+    block.graph_hash_at_generation,
+    freshnessState?.currentGraphHash,
+    {
+      dirty: freshnessDirty,
+      displaySemantic: classifyFreshnessForDisplay(freshnessState, freshnessDirty, importHold),
+    },
+  )
 
   /*
     The producer's verdict WINS when it has said anything at all.

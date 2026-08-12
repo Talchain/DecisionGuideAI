@@ -21,8 +21,10 @@
  *
  * CEE already puts BOTH halves on the wire:
  *   - the block's own `graph_hash_at_generation` (9/13 on the wire; preserved
- *     verbatim by the parser sidecar, and `useConversation.ts:4771` says it is kept
- *     "so consumers can read it directly" — until now none did);
+ *     verbatim by the parser sidecar, and `useConversation.ts:4768-4771` says raw
+ *     blocks are kept so consumers can read "freshness, action_intent,
+ *     priority_rank, target_refs, and graph_hash_at_generation directly" — until
+ *     now none did);
  *   - the response's `analysis_ready.current_graph_hash`, parsed into the canvas
  *     store by `analysisFreshness.ts` as `currentGraphHash`.
  *
@@ -48,8 +50,11 @@
  * ## Three states, and absence is never fresh
  *
  * The verdict reuses the estate's EXISTING vocabulary, `FreshnessDisplaySemantic`
- * ('current' | 'changed' | 'cannot_confirm'), whose own doc-comment states the rule
- * this must obey: "'changed' must never be claimed for a CEE-sourced 'unknown'".
+ * — whose four members are 'current' | 'changed' | 'cannot_confirm' | 'none', of
+ * which the card can reach the first three ('none' means "no analysis has been
+ * run", a statement about the ANALYSIS, and `CoachingCurrency` excludes it by
+ * type) — and whose own doc-comment states the rule this must obey: "'changed'
+ * must never be claimed for a CEE-sourced 'unknown'".
  * A block with no hash, or a store with no CEE hash, is CANNOT-CONFIRM — never
  * silently fresh, never fabricated stale.
  */

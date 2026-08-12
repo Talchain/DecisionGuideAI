@@ -579,13 +579,28 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       const vw = item.valid_while
       if (!vw) return true // no constraint → always valid
 
-      // Check graph_hash: if set, evict on any graph change or when unknown
+      // Check graph_hash: if set, evict when the caller reports a graph change.
       if (vw.graph_hash !== undefined) {
         if (graphChanged) return false
-        // If we have a graph_hash but no current graph hash to compare against,
-        // treat as stale (can't verify)
-        // Note: we only clear on graphChanged here; stale-at-unknown is handled
-        // by the fact that graphChanged=true is always passed on model edits.
+        // ⚠ CORRECTED 2026-08-12, derived at the bytes. This note used to read
+        // "stale-at-unknown is handled by the fact that graphChanged=true is
+        // always passed on model edits". THAT IS FALSE AND WAS TEACHING READERS
+        // TO STOP LOOKING (CLAUDE.md trap 14). `evictStaleItems` has exactly ONE
+        // production call site — `useAnalysisCompleteEvent.ts:39`, on run
+        // completion — and it passes only `currentAnalysisHash`, so
+        // `graphChanged` takes its `false` default on every real call and this
+        // limb never fires outside tests. Complete manifest, whole repo, at
+        // 32c0c517: ONE production caller and EIGHT test callers —
+        // `guidanceStore.spec.ts` :284, :294, :304, :311, :321, :331, :344,
+        // :349. (A first count said ten: it counted grep HITS, so a comment
+        // banner at :274 and the `describe(` at :277 were scored as callers.
+        // A caller count derived from a symbol grep counts mentions, not calls.)
+        //
+        // Deliberately NOT "fixed" here: on a local model edit
+        // `useGraphEditEvents` already fires `clearGuidanceItems()`, which drops
+        // everything, so the limb is redundant rather than load-bearing, and
+        // changing eviction breadth reaches every guidance surface. Recorded so
+        // the next reader inherits the measurement instead of the claim.
       }
 
       // Check analysis_hash: evict when currentAnalysisHash differs or is unknown
