@@ -94,10 +94,21 @@ interface OwnerFailure {
  *
  * ⚠ THE PREDICATE'S DOMAIN, NOT JUST THE CASE IN HAND. A credential refusal is
  * `sign_in_required` (minted locally, before any request leaves) OR an HTTP
- * 401/403 (the server declining the bearer) — two different paths that call for
- * the SAME next step. Everything else is a different question and must not be
- * routed to "sign in again", which would be a confident lie about a round whose
- * target simply does not exist.
+ * 401 (the server declining the bearer). 403 IS NOT ONE OF THEM: at CEE's
+ * bytes (`route-support.ts` `replyForRefusal`) the only refusal code that
+ * answers 403 is `collab_owner_only`, and the service mints it AFTER the
+ * bearer has been accepted — a bad bearer 401s in `requireOwnerUser` before
+ * the round is even looked up. `closeRound` fires it both when the round does
+ * not exist and when the caller is not its owner (deliberately
+ * indistinguishable), so a stale recovery record — the round purged
+ * server-side — used to 403 into "Sign in again", a loop no sign-in could
+ * exit (REVIEW-674 finding 1: an earlier version of this comment asserted the
+ * false premise this fix removes).
+ *
+ * The ownership copy binds to the CODE, never the status: other producers of
+ * 403 exist on this path (CEE's caller-key plugin answers `FORBIDDEN`, the
+ * edge proxy answers a code-less origin refusal), and for those the honest
+ * answer is the unknown-state fallback carrying the server's own words.
  */
 function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
   const fallbackTitle =
@@ -113,7 +124,7 @@ function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
     }
   }
 
-  if (err.code === 'sign_in_required' || err.status === 401 || err.status === 403) {
+  if (err.code === 'sign_in_required' || err.status === 401) {
     return {
       title: SIGN_IN_SENTENCE,
       guidance:
@@ -123,6 +134,23 @@ function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
       // verified.") tells the owner nothing they can act on, and repeating it
       // beside the guidance would only muddy it.
       detail: null,
+    }
+  }
+
+  // `collab_owner_only`: the bearer was ACCEPTED, and the server is saying
+  // there is no round (or scenario) THIS account owns with that id — "does
+  // not exist" and "not yours" are deliberately the same code at CEE. Signing
+  // in again cannot change whose it is; the honest next step is the documented
+  // recovery — a fresh round — never the login page.
+  if (err.code === 'collab_owner_only') {
+    return {
+      title: fallbackTitle,
+      guidance:
+        action === 'open'
+          ? 'This scenario belongs to a different account, so a round cannot be opened on it from this sign-in. Signing in again will not change that — ask the owner of the scenario to run the panel, or open a round on a scenario you own.'
+          : 'There is no round you own with that id — it may have been removed, or it was opened under a different account. Signing in again will not change that. If an old reminder brought you here, forget it and open a fresh round.',
+      credential: false,
+      detail: `${err.code} — ${err.message}`,
     }
   }
 
