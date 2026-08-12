@@ -54,7 +54,7 @@
  * silently fresh, never fabricated stale.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, within } from '@testing-library/react'
 
 import { InlineBlocks } from '../../../canvas/conversation/InlineBlocks'
 import { useCanvasStore } from '../../../canvas/store'
