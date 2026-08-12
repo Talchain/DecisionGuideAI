@@ -9,8 +9,14 @@
  */
 import { create } from 'zustand'
 
-/** Must match OutputsDockTab in OutputsDock.tsx exactly */
-export type OutputTab = 'results' | 'compare' | 'diagnostics' | 'journey' | 'olumi'
+/**
+ * The dock tab ids. OutputsDock.tsx's `OutputsDockTab` is now an ALIAS of
+ * this type (12 Aug 2026) — previously the two unions were hand-mirrored
+ * ("must match exactly"), which is the derive-don't-mirror defect class:
+ * adding the 'altview' tab required editing both sides in lockstep.
+ * `'altview'` is the TEMPORARY V7 comparison tab (see v7/V7ComparisonTabBody).
+ */
+export type OutputTab = 'results' | 'altview' | 'compare' | 'diagnostics' | 'journey' | 'olumi'
 
 /**
  * Right-panel modes. Only one right-side panel can be open at a time.

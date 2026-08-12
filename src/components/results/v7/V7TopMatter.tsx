@@ -1,17 +1,21 @@
 /**
  * V7TopMatter — the V7 (new) top group's L4 content (V7 Lane L4).
  *
- * Mounts inside the `v7-top-group` slot in ResultsBody, ABOVE the
- * "Current view" divider (the L3 scaffold). Composes the L4 components:
+ * MOUNT SITE MOVED 12 Aug 2026 (Paul: "move, NOT delete"): now mounts inside
+ * `V7ComparisonTabBody` — the temporary "Alt view" dock tab — its ONLY
+ * production parent. Until then it mounted in ResultsBody's `v7-top-group`
+ * slot ABOVE a "Current view" divider (the V6-RESPEC-2026-07-23 §1 L3
+ * assessment scaffold, "Option A — additive, never replace"), which rendered
+ * the whole analysis twice on the Analysis tab. The group itself is UNCHANGED.
+ * Composes the L4 components:
  *   1. V7FreshnessStrip — current / changed / cannot-confirm, honest
  *   2. V7SharpenLine    — brief quote + inputs to confirm + model-limit caveat
  *   3. V7Hero           — gauge + live headline + subline + signal row + chips
  *
  * ADDITIVE and PASSTHROUGH: every part reads existing store data and renders
  * nothing when its backing data is absent. The whole group is gated on
- * analysis presence — pre-analysis it returns null, so `v7-top-group`'s
- * `empty:hidden` keeps it out of layout entirely (spec: renders NOTHING
- * pre-analysis; nothing below the divider changes).
+ * analysis presence (`v7HasAnalysis` below) — pre-analysis it returns null,
+ * and the host tab shows its empty state off the SAME predicate.
  */
 
 import { useMemo } from 'react'
@@ -35,18 +39,30 @@ export interface V7TopMatterProps {
   onSendMessage?: (text: string) => void
 }
 
+/**
+ * Analysis-presence gate — mirror the live hero: there is analysis to show
+ * once options with results exist and the panel is neither loading nor errored.
+ *
+ * Exported as THE single predicate (12 Aug 2026, the V7 move): the host tab
+ * body (`V7ComparisonTabBody`) shows its empty state exactly when this group
+ * renders nothing. One predicate consulted by both, so the two surfaces are
+ * mutually exclusive by construction — a re-derived copy in the host would be
+ * this estate's same-named-twin defect.
+ */
+export function v7HasAnalysis(resultsSectionData: ResultsSectionDataReturn): boolean {
+  const { recommendation, isLoading, isError } = resultsSectionData
+  return !isLoading && !isError && (recommendation.allOptions?.length ?? 0) > 0
+}
+
 export function V7TopMatter({
   resultsSectionData,
   decisionState,
   onFocusNode,
   onSendMessage,
 }: V7TopMatterProps) {
-  const { recommendation, drivers, confidence, isLoading, isError } = resultsSectionData
+  const { recommendation, drivers, confidence } = resultsSectionData
 
-  // Analysis-presence gate — mirror the live hero: there is analysis to show
-  // once options with results exist and the panel is neither loading nor errored.
-  const hasAnalysis = !isLoading && !isError && (recommendation.allOptions?.length ?? 0) > 0
-  if (!hasAnalysis) return null
+  if (!v7HasAnalysis(resultsSectionData)) return null
 
   // Sharpen inputs — the evidence gaps worth confirming (honest, store-backed).
   const sharpenInputs: V7SharpenInput[] = (confidence.topEvidenceGaps ?? []).map(gap => ({
@@ -82,12 +98,12 @@ export function V7TopMatter({
       <V7FreshnessStrip />
       <V7SharpenLine briefQuote={briefQuote} inputs={sharpenInputs} onFocusNode={onFocusNode} />
       {/* ROADMAP 2.973 — "what I was given / what I used".
-          MOUNTED HERE, in the UNCONDITIONAL `v7-top-group`, deliberately: the
-          two arms of `analysisHeroPanel` in ResultsBody are mutually exclusive,
-          and this estate has twice shipped a feature dark by hosting it on the
-          arm the deployed flags switch off. This slot mounts on BOTH postures,
-          so a flag move cannot make it disappear. It sits beside V7SharpenLine
-          because that is the "what you told us" region of the panel. */}
+          MOUNTED HERE, in the UNCONDITIONAL V7 group, deliberately: this
+          estate has twice shipped a feature dark by hosting it on the arm the
+          deployed flags switch off. The group's host (the Alt view tab since
+          12 Aug 2026; previously ResultsBody's `v7-top-group`) mounts on NO
+          flag, so a flag move cannot make it disappear. It sits beside
+          V7SharpenLine because that is the "what you told us" region. */}
       <V7WhatIWasGivenSection onSendMessage={onSendMessage} />
       <V7Hero
         recommendation={recommendation}

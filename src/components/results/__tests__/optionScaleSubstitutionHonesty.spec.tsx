@@ -27,26 +27,29 @@
  *    distributions."
  * A robustness Monte-Carlo distribution is exactly where they diverge.
  *
- * ⚠ WHY THESE PINS RENDER `<ResultsBody>` AND BIND TO `v7-range-bar`.
+ * ⚠ WHY THESE PINS RENDER THE MOUNT PATH AND BIND TO `v7-range-bar`.
  * Two components render the same shared `OptionRangeBar`, and only one of them
  * reaches an ordinary reader on the deployed build:
- *   · V7LensGroup's bar (`v7-range-bar`) mounts through V7TopMatter, which
- *     ResultsBody mounts with NO FLAG ("additive, passthrough, no flag").
- *   · OptionCards' bar (`option-range-bar`) sits inside `{expertMode && ...}`.
- * DOM census over the real captures in `PHASE0-EVIDENCE-2026-07-28/`:
- * `v7-range-bar` in 53 capture files, `v7-outcome-row` in 53, `v7-top-matter`
- * in 81; `option-range-bar` in 1, and that one file is a model inventory rather
- * than a rendered results DOM. `ResultsBody.downsideTailMountPath.spec.tsx`
- * reached the same conclusion independently, from a different capture: "the
- * 10th/median/90th the tester still saw comes from the V7 'Likely outcome'
- * lens, which is not expert-gated at all."
+ *   · V7LensGroup's bar (`v7-range-bar`) mounts through V7TopMatter — hosted,
+ *     since the 12 Aug 2026 move, on the temporary "Alt view" dock tab
+ *     (`V7ComparisonTabBody`, no flag; previously ResultsBody's unflagged
+ *     `v7-top-group`). The harness below renders that host — V7TopMatter's
+ *     ONLY production parent — so these pins stay pointed at the surface a
+ *     reader actually loads.
+ *   · OptionCards' bar (`option-range-bar`) sits inside `{expertMode && ...}`
+ *     on the Analysis tab, and is NOT what these pins cover.
+ * DOM census over the real captures in `PHASE0-EVIDENCE-2026-07-28/` (taken
+ * pre-move, when the group lived on the Analysis tab — the CONTENT is
+ * unchanged by the move): `v7-range-bar` in 53 capture files, `v7-outcome-row`
+ * in 53, `v7-top-matter` in 81; `option-range-bar` in 1, and that one file is
+ * a model inventory rather than a rendered results DOM.
  *
- * So every arm renders the MOUNT PATH (`<ResultsBody>`) rather than a component
- * in isolation, and the first arm asserts the mount itself — rows 2.466 and
- * 2.491 shipped the same feature dark TWICE past a full mutant kit, a RED-first
- * discipline and a positive control, because every instrument was pointed at a
- * component the deployed flags do not mount. A green suite is not evidence
- * about a surface the deployment does not render.
+ * So every arm renders the MOUNT PATH (`<V7ComparisonTabBody>`) rather than a
+ * component in isolation, and the first arm asserts the mount itself — rows
+ * 2.466 and 2.491 shipped the same feature dark TWICE past a full mutant kit,
+ * a RED-first discipline and a positive control, because every instrument was
+ * pointed at a component the deployed flags do not mount. A green suite is not
+ * evidence about a surface the deployment does not render.
  *
  * BINDING: every assertion addresses a row by `data-option-id="<exact id>"` and
  * re-asserts that row's own label, so no assertion can be satisfied by a
@@ -55,6 +58,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, within } from '@testing-library/react'
 
+import { V7ComparisonTabBody } from '../v7/V7ComparisonTabBody'
 import { ResultsBody } from '../ResultsBody'
 import { computeOptionScale } from '../shared/OptionRangeBar'
 import { V7_LENS_COPY } from '../v7/v7LensCopy'
@@ -160,8 +164,19 @@ function makeData(options: OptionResult[]): ResultsSectionDataReturn {
   } as unknown as ResultsSectionDataReturn
 }
 
-/** THE MOUNT PATH — V7TopMatter's only production parent. */
-function renderBody(options: OptionResult[], expertMode = false) {
+/** THE MOUNT PATH — V7TopMatter's only production parent (the Alt view tab). */
+function renderBody(options: OptionResult[]) {
+  return render(
+    <V7ComparisonTabBody
+      resultsSectionData={makeData(options)}
+      onSendMessage={() => {}}
+    />,
+  )
+}
+
+/** The ANALYSIS-TAB host — used ONLY by the expert-twin arm at the bottom,
+ *  which pins `OptionCards`' bar (a ResultsBody surface, expert-gated). */
+function renderAnalysisTab(options: OptionResult[], expertMode = false) {
   return render(
     <ResultsBody
       resultsSectionData={makeData(options)}
@@ -222,7 +237,7 @@ afterEach(() => {
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('2.800 — MOUNT PATH: the pinned surface is the one the deployed build renders', () => {
-  it('ResultsBody mounts the V7 lens and its range bar with NO flag and NO expert mode', () => {
+  it('the Alt view tab body mounts the V7 lens and its range bar with NO flag and NO expert mode', () => {
     renderBody([
       opt('scored', 'Scored option', { p10: 50, p50: 75, p90: 100, win: 0.6 }),
       opt('other', 'Other option', { p10: 60, p50: 70, p90: 80, win: 0.4 }),
@@ -235,10 +250,11 @@ describe('2.800 — MOUNT PATH: the pinned surface is the one the deployed build
     expect(screen.queryByTestId('v7-lens-group')).not.toBeNull()
     expect(rangeBar('scored', 'Scored option')).not.toBeNull()
 
-    // ...and the expert-gated twin is NOT what we are pinning: it is absent at
-    // this posture, which is exactly why binding there would have proved
-    // nothing about what a reader sees.
-    expect(screen.queryByTestId('option-range-bar')).toBeNull()
+    // NOTE (12 Aug 2026 move): the old assertion that the expert-gated twin
+    // (`option-range-bar`) is absent here became VACUOUS in this host —
+    // OptionCards never mounts on the Alt view tab, so its absence proves
+    // nothing. The twin's own rule is pinned in the ResultsBody-bound arm at
+    // the bottom of this file, which mounts the surface it asserts about.
   })
 })
 
@@ -392,7 +408,7 @@ describe('2.800a — median honesty: an absent p50 is NEVER the mean', () => {
 
 describe('2.800a — the expert OptionCards bar holds the same median rule', () => {
   it('shows no median label when the producer sent no p50, and one when it did', () => {
-    renderBody(
+    renderAnalysisTab(
       [
         opt('a', 'Skewed option', { mean: 90, p10: 10, p50: null, p90: 100, win: 0.6 }),
         opt('b', 'Other option', { mean: 50, p10: 20, p50: 50, p90: 80, win: 0.4 }),

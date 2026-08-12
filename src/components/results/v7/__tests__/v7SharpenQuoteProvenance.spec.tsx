@@ -1,5 +1,5 @@
 /**
- * ResultsBody — the V7 sharpen line's "You wrote: …" quote must be the USER's
+ * The V7 sharpen line's "You wrote: …" quote must be the USER's
  * words, never ours (ROADMAP 2.993).
  *
  * THE DEFECT (measured at `e15c6b81`, the commit staging deploys):
@@ -23,17 +23,19 @@
  * stops carrying the framing goal, these tests go RED instead of quietly
  * becoming tautologies.
  *
- * MOUNT PATH (trap 3b): `v7-top-group` carries NO flag in `ResultsBody`, and
- * the deployed staging bundle confirms it (chunk `ReactFlowGraph-9aiLXlpO.js`
- * at commit `e15c6b81` renders the group unguarded, unlike its flag-gated
- * hero sibling). Each test asserts the surface actually mounted, so an absence
- * assertion can never pass because the whole component vanished.
+ * MOUNT PATH (trap 3b), RE-BOUND 12 Aug 2026: the V7 group MOVED, unchanged,
+ * from ResultsBody's unflagged `v7-top-group` slot to the temporary "Alt view"
+ * dock tab (`V7ComparisonTabBody`, also unflagged) — Paul: "move, NOT delete".
+ * This file was `ResultsBody.v7SharpenQuoteProvenance.spec.tsx`; the harness
+ * now renders the new (and only) production parent. Each test still asserts
+ * the surface actually mounted, so an absence assertion can never pass
+ * because the whole component vanished.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
-import { ResultsBody } from '../ResultsBody'
-import type { V7SharpenLineProps } from '../v7/V7SharpenLine'
-import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import { V7ComparisonTabBody } from '../V7ComparisonTabBody'
+import type { V7SharpenLineProps } from '../V7SharpenLine'
+import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type {
   ConfidenceSectionData,
   DecisionResultData,
@@ -41,10 +43,10 @@ import type {
   DriverItem,
   ImprovementsSectionData,
   OptionResult,
-} from '../types'
+} from '../../types'
 import { composeBriefText } from '@/hooks/useAsk'
 
-vi.mock('../../../canvas/utils/focusHelpers', () => ({
+vi.mock('../../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
   focusByTarget: vi.fn(),
   focusExistingTarget: vi.fn(),
@@ -73,8 +75,8 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
  */
 const { sharpenProps } = vi.hoisted(() => ({ sharpenProps: [] as V7SharpenLineProps[] }))
 
-vi.mock('../v7/V7SharpenLine', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../v7/V7SharpenLine')>()
+vi.mock('../V7SharpenLine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../V7SharpenLine')>()
   const { createElement } = await import('react')
   return {
     ...actual,
@@ -237,9 +239,8 @@ function makeData(goalText: string | undefined): ResultsSectionDataReturn {
 
 function renderBody(goalText: string | undefined) {
   return render(
-    <ResultsBody
+    <V7ComparisonTabBody
       resultsSectionData={makeData(goalText)}
-      tornadoData={{ rows: [], expectedOutcome: null }}
       onSendMessage={() => {}}
       onFocusNode={() => {}}
     />,
@@ -250,18 +251,18 @@ function renderBody(goalText: string | undefined) {
 function assertSharpenSurfaceMounted(): HTMLElement {
   expect(
     screen.getByTestId('v7-top-matter'),
-    'V7 top matter must mount — the deployed bundle mounts it with no flag',
+    'V7 top matter must mount — the Alt view tab hosts it with no flag',
   ).toBeInTheDocument()
   return screen.getByTestId('v7-sharpen-line')
 }
 
 const FRESH: AnalysisFreshnessState = { freshness: 'fresh', computedAt: '2026-07-23T00:00:00Z' }
 
-describe('ResultsBody — V7 sharpen line quote provenance (ROADMAP 2.993)', () => {
+describe('V7 sharpen line quote provenance (ROADMAP 2.993) — in the Alt view tab', () => {
   beforeEach(() => {
     sharpenProps.length = 0
     useCanvasStore.setState({ analysisFreshness: FRESH, analysisFreshnessDirty: false })
-    useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
+    useUIStore.setState({ activeOutputTab: 'altview', activeOutputTabVersion: 0 })
     useGuidanceStore.setState({ guidanceItems: [] })
   })
 

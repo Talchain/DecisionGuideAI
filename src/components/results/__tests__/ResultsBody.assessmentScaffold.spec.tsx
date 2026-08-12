@@ -1,21 +1,22 @@
 /**
- * ResultsBody — V7 Lane L3: assessment-mode scaffold.
+ * ResultsBody — the live surfaces survive the V7 scaffold's retirement,
+ * exactly once and in their original order.
  *
- * Paul's ruling (V6-RESPEC-2026-07-23 §1): the Analysis panel renders in TWO
- * stacked groups for the assessment window — a V7 (new) top group above a
- * "Current view" divider, with today's shipped components re-parented UNCHANGED
- * beneath it. L3 is re-parenting + a divider only: no component deleted, no
- * logic changed, no flag.
+ * HISTORY: until 12 Aug 2026 this file pinned the V7 L3 assessment-mode
+ * scaffold (Paul's V6-RESPEC-2026-07-23 §1 ruling: a V7 top group ABOVE a
+ * "Current view" divider, with today's components re-parented beneath — so
+ * Paul could assess the two renderings in one scroll). Paul then ruled the
+ * duplication off the working tab: the V7 group MOVED, unchanged, to the
+ * temporary "Alt view" dock tab (`v7/V7ComparisonTabBody`). The scaffold's
+ * absence from THIS tab is pinned in `ResultsBody.v7Retired.spec.tsx`; the
+ * new home's presence in `v7/__tests__/V7ComparisonTabBody.spec.tsx`.
  *
- * These pins lock the additive shape:
- *   (a) render-parity — every pushed-down component still mounts exactly ONCE,
- *       and BELOW the "Current view" divider;
- *   (b) the divider renders;
- *   (c) count-pin — no current component is lost in the re-parent;
- *   (d) the empty V7 top group mounts ABOVE the divider (the L4–L6 slot).
- *
- * RED-first: with the scaffold absent the divider/group testids do not exist,
- * so every pin below fails until the scaffold lands.
+ * What SURVIVES here is this file's other half — the "nothing lost" pins:
+ *   (a) every live component still renders exactly ONCE (the retirement
+ *       removed the duplicate rendering, not a component);
+ *   (b) the live components keep their existing document order (everything
+ *       below the old divider renders byte-identically — the wrapper
+ *       `assessment-current-view-group` is deliberately retained for that).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -140,9 +141,9 @@ function renderBody() {
 const before = (a: HTMLElement, b: HTMLElement) =>
   Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 
-// The current (pushed-down) components' stable anchors — each must survive the
-// re-parent, render exactly once, and sit BELOW the "Current view" divider.
-const PUSHED_DOWN_ANCHORS = [
+// The live components' stable anchors — each must survive the scaffold's
+// retirement, render exactly once, in the original order.
+const LIVE_ANCHORS = [
   'decision-confidence-panel', // #3 hero (DecisionConfidencePanel, flag-off)
   'focus-now-panel', // Strengthen / Focus panel
   'section-header-options', // #2 options section (WinGauge + RiskAppetiteFilter + OptionCards)
@@ -152,45 +153,20 @@ const PUSHED_DOWN_ANCHORS = [
   'accordion-advanced', // #12 AdvancedSection (KEEP, single instance)
 ] as const
 
-describe('ResultsBody — V7 L3 assessment-mode scaffold', () => {
+describe('ResultsBody — live surfaces after the V7 scaffold retirement', () => {
   beforeEach(() => {
     useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
 
-  it('(b) renders the "Current view" divider', () => {
+  it('(a) every live component renders exactly ONCE — the duplication is gone, the components are not', () => {
     renderBody()
-    const divider = screen.getByTestId('assessment-current-view-divider')
-    expect(divider).toBeInTheDocument()
-    expect(divider).toHaveTextContent('Current view')
-  })
-
-  it('(d) mounts the empty V7 top group ABOVE the divider', () => {
-    renderBody()
-    const topGroup = screen.getByTestId('v7-top-group')
-    const divider = screen.getByTestId('assessment-current-view-divider')
-    expect(topGroup).toBeInTheDocument()
-    expect(before(topGroup, divider), 'V7 top group precedes the divider').toBe(true)
-  })
-
-  it('(a) every pushed-down component renders exactly ONCE and BELOW the divider', () => {
-    renderBody()
-    const divider = screen.getByTestId('assessment-current-view-divider')
-    for (const anchor of PUSHED_DOWN_ANCHORS) {
-      const matches = screen.getAllByTestId(anchor)
-      expect(matches, `${anchor} renders exactly once`).toHaveLength(1)
-      expect(before(divider, matches[0]), `${anchor} sits below the divider`).toBe(true)
+    for (const anchor of LIVE_ANCHORS) {
+      expect(screen.getAllByTestId(anchor), `${anchor} renders exactly once`).toHaveLength(1)
     }
   })
 
-  it('(c) count-pin: the current components are all present (nothing lost in the re-parent)', () => {
-    renderBody()
-    for (const anchor of PUSHED_DOWN_ANCHORS) {
-      expect(screen.queryByTestId(anchor), `${anchor} present`).toBeInTheDocument()
-    }
-  })
-
-  it('re-parented components keep their existing document order (byte-identical composition)', () => {
+  it('(b) the live components keep their existing document order (byte-identical composition)', () => {
     renderBody()
     const hero = screen.getByTestId('decision-confidence-panel')
     const focus = screen.getByTestId('focus-now-panel')
