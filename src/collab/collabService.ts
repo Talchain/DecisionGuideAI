@@ -263,6 +263,13 @@ export async function closeRound(accessToken: string, roundId: string): Promise<
   const res = await fetch(`${COLLAB_BASE}/rounds/${encodeURIComponent(roundId)}/close`, {
     method: 'POST',
     headers: ownerHeaders(accessToken),
+    // ⚠ THE BODY IS LOAD-BEARING (W-F1, witnessed live 12 Aug 2026). A POST
+    // declaring `Content-Type: application/json` with NO body is refused by
+    // Fastify BEFORE the route handler runs (FST_ERR_CTP_EMPTY_JSON_BODY) and
+    // CEE flattens that to 500 — so the owner could never close a round from
+    // the UI. The close takes no parameters; the body is the empty JSON
+    // object, never absent. Pinned by collabServiceRequestBodies.spec.ts.
+    body: JSON.stringify({}),
   })
   if (!res.ok) throw await parseError(res)
 }
