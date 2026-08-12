@@ -10,28 +10,21 @@
  * DIFFERENCE between two Monte-Carlo win frequencies. The ratified rule: no
  * user-facing surface states that gap — own-probability statements only.
  *
- * The hero's subline now names the runner-up and states ITS OWN probability.
- * The option card's line is DELETED outright, because the card already carries
- * the option's own probability in its header readout (`win-pct-{id}`) — pinned
- * below, by identity, so "deleted the line" cannot quietly become "the card
- * lost its number".
+ * ⚠ RE-SCOPED 12 Aug 2026 (the V7 move): the V7 hero MOVED, unchanged, to the
+ * temporary "Alt view" dock tab (`v7/V7ComparisonTabBody`) — Paul: "move, NOT
+ * delete". Its arms of this guard moved WITH it, to
+ * `v7/__tests__/V7Hero.winFrequencyGapAbsence.spec.tsx`. What remains here is
+ * the ANALYSIS-TAB half, and it got STRONGER: the one surface entitled to the
+ * "by N points" SHAPE (the V7 hero's goal arm, a GOAL-probability difference
+ * with its own rationale in `goalLeadPoints`) left this tab, so the whole
+ * panel — goal data or not — may now carry NONE of the three banned forms.
+ * No region split, no sanctioned exception.
  *
- * ⭐ WHY THIS SPEC RENDERS `ResultsBody` AND NOT `buildV7Headline`.
- * CLAUDE.md trap 3b: this estate has twice shipped a fix onto a component the
- * deployed flags do not mount, with a fully green suite pointed at the dark
- * one. `buildV7Headline.spec.ts` pins the builder; this spec pins the MOUNT
- * PATH — that the V7 hero is on screen at all, and that the retired string is
- * absent from the DOM a user loads.
- *
- * The mount-path derivation at 944799c1: `V7TopMatter` (and therefore
- * `V7Hero`) is mounted UNCONDITIONALLY inside `ResultsBody`'s `v7-top-group`
- * slot — "additive, passthrough, no flag" — while `analysisHeroPanel` gates a
- * different pair of arms lower in the same component. So the hero renders on
- * BOTH postures of that flag, and this spec asserts exactly that: if a future
- * change hosts the hero on one arm, the posture that stops mounting it fails
- * here rather than shipping the fix dark. The deployed posture is
- * `VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"` (netlify.toml), which is the arm
- * asserted first.
+ * ⭐ WHY THIS SPEC RENDERS `ResultsBody` AND NOT A BUILDER (CLAUDE.md trap 3b):
+ * this estate has twice shipped a fix onto a component the deployed flags do
+ * not mount, with a fully green suite pointed at the dark one. This spec pins
+ * the MOUNT PATH — what the Analysis tab actually composes — on BOTH postures
+ * of `analysisHeroPanel` (deployed = ON via netlify.toml).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
@@ -111,7 +104,7 @@ function makeData(
     // forward" long before any leader rule runs — so an absence assertion
     // would have passed against a headline that never mentions a leader.
     // The in-test precondition is what caught this; it is not decoration.
-    // Supplied ONLY on the soft variant, so the default fixture (and the six
+    // Supplied ONLY on the soft variant, so the default fixture (and the
     // cases built on it) keeps the legacy no-verdict path it was written for.
     ...(soft
       ? {
@@ -199,33 +192,6 @@ const PP_CLAIM = /percentage\s+points?/i
  */
 const POINTS_CLAIM = /\bby\s+-?\d+(\.\d+)?\s+points?\b/i
 
-/**
- * ⚠ SCOPING, ADDED 2026-08-10 (review F3). `GAP_CLAIM` and `POINTS_CLAIM` match
- * on the SHAPE "by N points", and one surface is entitled to that shape: the
- * hero's GOAL arm, whose "Leads by N points" differences GOAL PROBABILITIES —
- * a different quantity, with its own pairing rationale in `goalLeadPoints`, and
- * deliberately out of this change's scope.
- *
- * Asserting those two patterns across the whole panel therefore only passed
- * because the default fixture carries no goal data: the moment anyone added
- * some, a SANCTIONED sentence would have turned this guard RED. A guard that
- * fails on correct behaviour gets disabled, and then the class it protects is
- * unguarded — so the patterns are scoped instead.
- *
- * The split is: the hero subline is judged ON ITS OWN (it may carry the
- * sanctioned goal form and nothing else), and the REST of the panel may carry
- * none of the three forms. `PP_CLAIM` stays panel-wide and unscoped — no
- * sanctioned surface says "percentage points".
- */
-function splitPanelText(container: HTMLElement): { heroSubline: string; rest: string } {
-  const heroSubline = screen.queryByTestId('v7-hero-subline')?.textContent ?? ''
-  const all = container.textContent ?? ''
-  return {
-    heroSubline,
-    rest: heroSubline ? all.replace(heroSubline, '') : all,
-  }
-}
-
 describe('ResultsBody — no surface on the results panel states a win-frequency gap', () => {
   beforeEach(() => {
     useCanvasStore.setState({ analysisFreshness: FRESH, analysisFreshnessDirty: false })
@@ -234,97 +200,50 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
     vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
   })
 
-  it('DEPLOYED POSTURE (analysisHeroPanel ON): the hero mounts, states the leader’s OWN probability, and states NO gap', () => {
-    renderBody()
-
-    // MOUNT PATH — assert the hero is on screen before asserting anything
-    // about its copy. A green copy assertion against an unmounted component is
-    // the defect this spec exists to prevent.
-    expect(screen.getByTestId('v7-hero')).toBeInTheDocument()
-
-    const headline = screen.getByTestId('v7-hero-headline')
-    expect(headline).toHaveTextContent(
-      new RegExp(`${WINNER_LABEL} came out ahead in 71% of simulated scenarios`),
-    )
-
-    const subline = screen.getByTestId('v7-hero-subline')
-    expect(subline.textContent ?? '').not.toMatch(GAP_CLAIM)
-    // The honest replacement: the runner-up's OWN probability, named.
-    expect(subline).toHaveTextContent(`Next: ${RUNNER_UP_LABEL}, 31%`)
-  })
-
   /**
    * ⭐ THE DURABLE GUARD FOR THE WHOLE CLASS.
    *
-   * Both retired forms, asserted absent across the ENTIRE rendered panel
+   * All three retired forms, asserted absent across the ENTIRE rendered panel
    * rather than element by element — so a gap claim reintroduced on any
    * surface `ResultsBody` composes REDs here, including a surface that does
-   * not exist yet.
+   * not exist yet. Since the V7 move there is NO sanctioned exception on this
+   * tab (the goal-arm "Leads by N points" lives on the Alt view tab), so the
+   * scoped `splitPanelText` region logic this file used to need is retired —
+   * the assertion is whole-panel on every fixture, goal data included.
    *
    * ⚠ SCOPE, STATED EXACTLY, because an absence claim is only as wide as what
    * it searched (trap 20):
-   *   · WHAT IS SEARCHED — the DOM `ResultsBody` renders under this fixture.
-   *     The canvas `OptionNode` is NOT composed by `ResultsBody`; its own
-   *     retirement is pinned in `render-matrix.spec.tsx` and
-   *     `residualComparative.optionNode.spec.tsx`.
-   *   · `certaintyCopy`'s `" by N point(s)"` suffix IS now covered, but on a
-   *     SEPARATE case below, because `DecisionConfidencePanel` mounts only on
-   *     the `analysisHeroPanel`-OFF arm — which is NOT the deployed posture.
-   *     This case runs on the deployed (ON) posture, where that panel is
-   *     absent, so its silence about the suffix here means "not rendered",
-   *     never "rendered and clean".
+   *   · WHAT IS SEARCHED — the DOM `ResultsBody` renders under this fixture,
+   *     on BOTH `analysisHeroPanel` postures. The canvas `OptionNode` is NOT
+   *     composed by `ResultsBody`; its own retirement is pinned in
+   *     `render-matrix.spec.tsx` and `residualComparative.optionNode.spec.tsx`.
+   *     The V7 hero is NOT composed by `ResultsBody` any more; its guard is
+   *     `v7/__tests__/V7Hero.winFrequencyGapAbsence.spec.tsx`.
+   *   · `certaintyCopy`'s `" by N point(s)"` suffix IS covered, on the
+   *     flag-OFF arm case below, because `DecisionConfidencePanel` mounts
+   *     only there — which is NOT the deployed posture. Its silence on the
+   *     ON posture means "not rendered", never "rendered and clean".
    */
-  it('NEITHER retired form appears anywhere in the rendered panel', () => {
-    const { container } = renderBody()
-    const text = container.textContent ?? ''
-    // Positive control FIRST: an absence assertion over an empty or
-    // half-rendered panel passes by testing nothing (trap 13).
-    expect(text).toMatch(/came out ahead in 71% of simulated scenarios/i)
-    expect(text).toMatch(new RegExp(RUNNER_UP_LABEL))
+  it('NONE of the retired forms appears anywhere in the rendered panel — either hero posture, with or without goal data', () => {
+    for (const posture of [true, false]) {
+      for (const withGoalData of [false, true]) {
+        vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(posture)
+        const { container, unmount } = renderBody(undefined, false, withGoalData)
+        const text = container.textContent ?? ''
+        const label = `analysisHeroPanel=${posture}, goalData=${withGoalData}`
+        // Positive control FIRST: an absence assertion over an empty or
+        // half-rendered panel passes by testing nothing (trap 13). Both
+        // option labels are painted by the live options section.
+        expect(text, `${label}: positive control — winner painted`).toMatch(new RegExp(WINNER_LABEL))
+        expect(text, `${label}: positive control — runner-up painted`).toMatch(new RegExp(RUNNER_UP_LABEL))
 
-    // `percentage points` is unambiguous — no sanctioned surface says it.
-    expect(text).not.toMatch(PP_CLAIM)
-
-    // The "by N points" SHAPE is judged per-region (see `splitPanelText`).
-    const { heroSubline, rest } = splitPanelText(container)
-    // This fixture carries no goal data, so the hero is on the COMPARATIVE arm
-    // and is entitled to no gap form at all.
-    expect(heroSubline).not.toMatch(GAP_CLAIM)
-    expect(heroSubline).not.toMatch(PP_CLAIM)
-    expect(rest).not.toMatch(GAP_CLAIM)
-    expect(rest).not.toMatch(POINTS_CLAIM)
-    expect(rest).not.toMatch(PP_CLAIM)
-  })
-
-  /**
-   * ⭐ F3 — THE SANCTIONED FORM MUST SURVIVE, and this proves it does.
-   *
-   * With goal data present the hero takes its GOAL arm, whose subline is
-   * "Leads by N points" over GOAL PROBABILITIES (0.9 − 0.4 = 50). That form is
-   * out of this change's scope and is correct; a guard that REDs on it would
-   * be a false alarm, and a false alarm on correct behaviour is how a guard
-   * gets switched off. So: the sanctioned sentence is asserted PRESENT, and
-   * the banned class is asserted absent everywhere else in the same render.
-   */
-  it('F3: the SANCTIONED goal-arm subline survives, and nothing else in the panel states a gap', () => {
-    const { container } = renderBody(undefined, false, true)
-
-    // Precondition — we are actually on the goal arm, not silently comparative.
-    const subline = screen.getByTestId('v7-hero-subline')
-    expect(subline).toHaveTextContent('Leads by 50 points')
-
-    // ⭐ THE OVERLAP, MADE EXPLICIT: the sanctioned sentence DOES match the
-    // banned-shape pattern. That is precisely why the pattern is scoped by
-    // region rather than weakened — and it is executable proof that the
-    // previous panel-wide assertion would have RED on this correct render.
-    expect(subline.textContent ?? '').toMatch(GAP_CLAIM)
-
-    const { rest } = splitPanelText(container)
-    expect(rest).not.toMatch(GAP_CLAIM)
-    expect(rest).not.toMatch(POINTS_CLAIM)
-    expect(rest).not.toMatch(PP_CLAIM)
-    // And the unambiguous phrase is absent from the WHOLE panel, hero included.
-    expect(container.textContent ?? '').not.toMatch(PP_CLAIM)
+        expect(text, `${label}: no "leads by N points"`).not.toMatch(GAP_CLAIM)
+        expect(text, `${label}: no "by N points" shape`).not.toMatch(POINTS_CLAIM)
+        expect(text, `${label}: no "percentage points"`).not.toMatch(PP_CLAIM)
+        unmount()
+        cleanup()
+      }
+    }
   })
 
   /**
@@ -332,12 +251,11 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
    * WHICH ARM MOUNTS IT, BECAUSE THE DEPLOYED POSTURE DOES NOT.
    *
    * Derived at the bytes: `decisionConfidenceElement` is referenced at exactly
-   * one site (`ResultsBody.tsx:508`), INSIDE `{!isAnalysisHeroPanelEnabled()
-   * && …}` — and `netlify.toml` bakes `VITE_FEATURE_ANALYSIS_HERO_PANEL="1"`.
-   * So `DecisionConfidencePanel` mounts on the flag-OFF arm ONLY, and the
-   * retired " by N points" suffix was NOT on the surface staging serves.
-   * `buildCertaintyCopy` has exactly one consumer, so that is the whole story
-   * for this copy.
+   * one site inside `{!isAnalysisHeroPanelEnabled() && …}` — and `netlify.toml`
+   * bakes `VITE_FEATURE_ANALYSIS_HERO_PANEL="1"`. So `DecisionConfidencePanel`
+   * mounts on the flag-OFF arm ONLY, and the retired " by N points" suffix was
+   * NOT on the surface staging serves. `buildCertaintyCopy` has exactly one
+   * consumer, so that is the whole story for this copy.
    *
    * This case is therefore DEFENCE IN DEPTH, and it is labelled as such rather
    * than dressed up as a live-surface guard: the arm is real code, one flag
@@ -363,11 +281,9 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
     // Precondition 2 — we are on the SOFTENED branch, not a withheld one.
     expect(text).toMatch(new RegExp(`${WINNER_LABEL} currently leads`))
 
-    const { heroSubline, rest } = splitPanelText(container)
-    expect(heroSubline).not.toMatch(GAP_CLAIM)
-    expect(rest).not.toMatch(POINTS_CLAIM)
-    expect(rest).not.toMatch(PP_CLAIM)
-    expect(rest).not.toMatch(GAP_CLAIM)
+    expect(text).not.toMatch(GAP_CLAIM)
+    expect(text).not.toMatch(POINTS_CLAIM)
+    expect(text).not.toMatch(PP_CLAIM)
   })
 
   /**
@@ -399,27 +315,5 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
     renderBody()
     expect(screen.getByTestId('win-pct-opt_b')).toHaveTextContent('31%')
     expect(screen.getByTestId('win-pct-opt_a')).toHaveTextContent('71%')
-  })
-
-  it('FLAG-MOVE GUARD (analysisHeroPanel OFF): the hero still mounts and still states no gap', () => {
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(false)
-    renderBody()
-
-    expect(
-      screen.getByTestId('v7-hero'),
-      'the V7 hero is mounted unconditionally; if it has been moved onto a flag arm, this fix can ship dark',
-    ).toBeInTheDocument()
-    const subline = screen.getByTestId('v7-hero-subline')
-    expect(subline.textContent ?? '').not.toMatch(GAP_CLAIM)
-    expect(subline).toHaveTextContent(`Next: ${RUNNER_UP_LABEL}, 31%`)
-  })
-
-  it('BOTH postures mount the hero — the flag decides nothing about this surface', () => {
-    for (const posture of [true, false]) {
-      vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(posture)
-      renderBody()
-      expect(screen.getByTestId('v7-hero'), `analysisHeroPanel=${posture}`).toBeInTheDocument()
-      cleanup()
-    }
   })
 })

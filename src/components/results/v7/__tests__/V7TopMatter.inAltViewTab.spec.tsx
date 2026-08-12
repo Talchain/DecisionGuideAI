@@ -1,24 +1,27 @@
 /**
- * ResultsBody — V7 Lane L4: V7 top matter.
+ * V7 top matter, in its new home — the Alt view comparison tab.
  *
- * Pins the additive top-group content that mounts in the `v7-top-group` slot,
- * ABOVE the "Current view" divider:
- *   (a) present  — freshness strip + hero (+headline +signal row) render, and
- *       ALL sit ABOVE the divider;
- *   (b) absent   — with no analysis, the top matter renders NOTHING (the group
- *       stays empty → hidden), and the pushed-down panel is untouched;
+ * HISTORY: this file was `ResultsBody.v7TopMatter.spec.tsx` and pinned the V7
+ * L4 top matter inside ResultsBody's `v7-top-group` slot, above the "Current
+ * view" divider. On 12 Aug 2026 the whole V7 group MOVED, unchanged, to the
+ * temporary "Alt view" dock tab (`V7ComparisonTabBody`) — Paul: "move, NOT
+ * delete". The harness is re-bound to the new (and only) production parent;
+ * every BEHAVIOUR pin below is byte-for-byte the behaviour the group had on
+ * the Analysis tab:
+ *   (a) present  — freshness strip + hero (+headline +signal row) render
+ *       inside the tab body;
+ *   (b) absent   — with no analysis, the top matter renders NOTHING (the
+ *       tab's empty state shows instead, never both);
  *   (c) max-2    — with 3 guidance items only 2 chips render;
- *   (d) fresh    — the freshness strip reflects the store's fresh/stale verdict;
+ *   (d) fresh    — the freshness strip reflects the store's fresh/stale
+ *       verdict;
  *   (e) honest   — the hero headline is composed ONLY from the fixture winner
  *       label (no invented content).
- *
- * RED-first: against the L3 ResultsBody (no L4 mount) the `v7-top-matter`
- * / `v7-hero` testids do not exist, so (a),(c),(d),(e) fail until L4 lands.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { ResultsBody } from '../ResultsBody'
-import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import { render, screen, within } from '@testing-library/react'
+import { V7ComparisonTabBody } from '../V7ComparisonTabBody'
+import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type {
   ConfidenceSectionData,
   DecisionResultData,
@@ -26,27 +29,14 @@ import type {
   DriverItem,
   ImprovementsSectionData,
   OptionResult,
-} from '../types'
+} from '../../types'
 
-vi.mock('../../../canvas/utils/focusHelpers', () => ({
+vi.mock('../../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
   focusByTarget: vi.fn(),
   focusExistingTarget: vi.fn(),
   focusModelTarget: vi.fn(() => true),
 }))
-
-vi.mock('@/flags', async () => {
-  const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
-  return {
-    ...actual,
-    isAnalysisHeroV17Enabled: vi.fn(() => false),
-    isAnalysisHeroCompareEnabled: vi.fn(() => false),
-    isFocusNowPanelEnabled: vi.fn(() => true),
-    isStrengthenPanelEnabled: vi.fn(() => false),
-    isAiPanelV2Enabled: vi.fn(() => true),
-    isAnalysisHeroPanelEnabled: vi.fn(() => false),
-  }
-})
 
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
@@ -153,78 +143,62 @@ function guidanceItem(id: string, priority: number): GuidanceItem {
   } as GuidanceItem
 }
 
-function renderBody(overrides?: { empty?: boolean }) {
+function renderTab(overrides?: { empty?: boolean }) {
   return render(
-    <ResultsBody
+    <V7ComparisonTabBody
       resultsSectionData={makeData(overrides)}
-      tornadoData={{ rows: [], expectedOutcome: null }}
       onSendMessage={() => {}}
       onFocusNode={() => {}}
     />,
   )
 }
 
-const before = (a: HTMLElement, b: HTMLElement) =>
-  Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
-
 const FRESH: AnalysisFreshnessState = { freshness: 'fresh', computedAt: '2026-07-23T00:00:00Z' }
 const STALE: AnalysisFreshnessState = { freshness: 'stale', computedAt: '2026-07-23T00:00:00Z' }
 
-describe('ResultsBody — V7 L4 top matter', () => {
+describe('V7 top matter — behaviour unchanged in the Alt view tab', () => {
   beforeEach(() => {
     useCanvasStore.setState({ analysisFreshness: FRESH, analysisFreshnessDirty: false })
-    useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
+    useUIStore.setState({ activeOutputTab: 'altview', activeOutputTabVersion: 0 })
     useGuidanceStore.setState({ guidanceItems: [] })
   })
 
-  it('(a) renders the hero + signal row + freshness strip, ALL above the divider', () => {
-    renderBody()
-    const divider = screen.getByTestId('assessment-current-view-divider')
-    const topMatter = screen.getByTestId('v7-top-matter')
-    const hero = screen.getByTestId('v7-hero')
-    const signalRow = screen.getByTestId('v7-signal-row')
-    const strip = screen.getByTestId('v7-freshness-strip')
-    for (const el of [topMatter, hero, signalRow, strip]) {
-      expect(el).toBeInTheDocument()
-      expect(before(el, divider), 'top matter precedes the divider').toBe(true)
+  it('(a) renders the hero + signal row + freshness strip inside the tab body', () => {
+    renderTab()
+    const tabBody = screen.getByTestId('v7-comparison-tab-body')
+    for (const id of ['v7-top-matter', 'v7-hero', 'v7-signal-row', 'v7-freshness-strip']) {
+      expect(within(tabBody).getByTestId(id), `${id} mounts inside the tab body`).toBeInTheDocument()
     }
-    // Live hero below the divider is untouched (parity).
-    const liveHero = screen.getByTestId('decision-confidence-panel')
-    expect(before(divider, liveHero)).toBe(true)
   })
 
-  it('(b) renders NOTHING pre-analysis (top group stays empty), pushed-down panel intact', () => {
-    renderBody({ empty: true })
+  it('(b) renders NOTHING pre-analysis — the empty state shows instead, never both', () => {
+    renderTab({ empty: true })
     expect(screen.queryByTestId('v7-top-matter')).not.toBeInTheDocument()
     expect(screen.queryByTestId('v7-hero')).not.toBeInTheDocument()
-    const group = screen.getByTestId('v7-top-group')
-    expect(group).toBeEmptyDOMElement()
-    // The divider + live panel still render (nothing below the divider changed).
-    expect(screen.getByTestId('assessment-current-view-divider')).toBeInTheDocument()
-    expect(screen.getByTestId('decision-confidence-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('v7-comparison-tab-empty')).toBeInTheDocument()
   })
 
   it('(c) max-2 chips: 3 guidance items → exactly 2 chips', () => {
     useGuidanceStore.setState({
       guidanceItems: [guidanceItem('one', 90), guidanceItem('two', 80), guidanceItem('three', 70)],
     })
-    renderBody()
+    renderTab()
     expect(screen.getAllByTestId('v7-suggested-chip')).toHaveLength(2)
   })
 
   it('(d) freshness strip reflects the store verdict (fresh vs stale)', () => {
-    const { unmount } = renderBody()
+    const { unmount } = renderTab()
     expect(screen.getByTestId('v7-freshness-strip')).toHaveAttribute('data-freshness-semantic', 'current')
     expect(screen.getByTestId('v7-freshness-strip')).toHaveTextContent('Analysis reflects the current model.')
     unmount()
 
     useCanvasStore.setState({ analysisFreshness: STALE, analysisFreshnessDirty: false })
-    renderBody()
+    renderTab()
     expect(screen.getByTestId('v7-freshness-strip')).toHaveAttribute('data-freshness-semantic', 'changed')
   })
 
   it('(e) no invented content: hero headline is composed only from the fixture winner', () => {
-    renderBody()
+    renderTab()
     // Robust fixture (stability 0.92, clear gap) → the re-anchored leader
     // headline. SUPERSEDED 2026-07-31: was the "performs best" form, a bare
     // superlative retired under §6.2c. The BRANCH is unchanged.

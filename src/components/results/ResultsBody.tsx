@@ -37,7 +37,6 @@ import { InferenceWarningStrip } from './InferenceWarningStrip'
 import { CritiqueWarningStrip } from './CritiqueWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
-import { V7TopMatter } from './v7/V7TopMatter'
 import { openDefineSuccess, HowComputedTrigger } from './modals'
 import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled, isAnalysisHeroPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 
@@ -334,48 +333,16 @@ export const ResultsBody = memo(function ResultsBody({
         hasResults={(resultsSectionData.recommendation.allOptions?.length ?? 0) > 0}
       />
 
-      {/* ══ V7 ASSESSMENT-MODE SCAFFOLD (V7 Lane L3) ═══════════════════════
-          Paul's ruling (V6-RESPEC-2026-07-23 §1, "Option A GO — additive,
-          never replace"): the panel renders in two stacked groups so Paul can
-          assess new V7 components against today's live panel in one scroll.
-          L3 is re-parenting + a divider ONLY — no component deleted, no logic
-          changed, no flag. The Current-view group retires once Paul signs off
-          (V6-RESPEC Paul-question P2). */}
-
-      {/* ▛ V7 (new) top group ▟ — the L4–L6 mount point. `empty:hidden` keeps
-          it out of layout until a lane fills it. L4 (V7 top matter — freshness
-          strip, sharpen line, V7 hero + signal row + max-2 chips) mounts here;
-          V7TopMatter returns null pre-analysis, so the group stays hidden until
-          analysis data exists. Reads the SAME resultsSectionData + vm the live
-          panel below consumes — additive, passthrough, no flag. */}
-      <div className="flex flex-col gap-4 empty:hidden" data-testid="v7-top-group">
-        <SectionErrorBoundary section="V7 top matter">
-          <V7TopMatter
-            resultsSectionData={resultsSectionData}
-            decisionState={vm.decisionState}
-            onFocusNode={onFocusNode}
-            onSendMessage={onSendMessage}
-          />
-        </SectionErrorBoundary>
-      </div>
-
-      {/* ── "Current view" divider ─────────────────────────────────────────
-          Plain SectionHeader-style separator (sentence case, muted, no accent
-          fill). COMPLETE border only — the four-sided neutral border obeys the
-          L1 rule (complete-borders guard); never a one-sided accent edge.
-          Everything beneath is the shipped panel, re-parented, zero logic
-          change. */}
-      <div
-        data-testid="assessment-current-view-divider"
-        className="flex items-center rounded-lg border border-panel-border bg-panel px-3 py-1.5"
-      >
-        <h3 className={`${typography.panelMeta} text-text-light`}>Current view</h3>
-      </div>
-
-      {/* ── Current view group — today's components, UNCHANGED, pushed down ──
-          Same order, same props, same stores as before L3. This wrapper only
-          re-parents them beneath the divider; the inner `gap-4` preserves the
-          exact inter-component spacing the outer container gave them. */}
+      {/* ══ V7 ASSESSMENT SCAFFOLD RETIRED FROM THIS TAB (12 Aug 2026) ══════
+          The V7 top group (`V7TopMatter`) + the "Current view" divider — the
+          V6-RESPEC-2026-07-23 §1 side-by-side assessment scaffold — MOVED,
+          unchanged, to the temporary "Alt view" dock tab
+          (`v7/V7ComparisonTabBody`), so the Analysis tab renders the analysis
+          ONCE. Paul's instruction: move, NOT delete — the fork stays
+          comparable across the two tabs until he adjudicates it. The wrapper
+          below is kept as-is so everything beneath the old divider renders
+          byte-identically. Re-mounting V7 here REDs
+          `ResultsBody.v7Retired.spec.tsx`. */}
       <div className="flex flex-col gap-4" data-testid="assessment-current-view-group">
 
       {/* Freshness/staleness — CEE analysis_ready.freshness verdict. Renders
@@ -885,7 +852,8 @@ export const ResultsBody = memo(function ResultsBody({
           extracted into `DevBuildMarker` so the production-vs-expert
           combination is unit-testable. */}
       <DevBuildMarker isDev={import.meta.env.DEV} expertMode={!!expertMode} sha={typeof __GIT_SHA__ !== 'undefined' ? __GIT_SHA__ : 'dev'} />
-      {/* ── end Current view group (V7 L3 assessment-mode scaffold) ── */}
+      {/* ── end current-view wrapper (scaffold retired 12 Aug 2026; wrapper
+          kept so everything inside renders byte-identically) ── */}
       </div>
     </div>
   )

@@ -188,9 +188,14 @@ describe('OutputsDock DOM', () => {
     const tabNav = screen.getByRole('navigation', { name: 'Outputs sections' })
     const tabs = within(tabNav).getAllByRole('button')
 
+    // 12 Aug 2026: 'Alt view' (id 'altview') is the TEMPORARY V7 comparison
+    // tab — the V7 assessment group moved off the Analysis tab (Paul: "move,
+    // NOT delete"). Unflagged, directly after Analysis. Retires with the
+    // V7-vs-Current adjudication.
     expect(tabs.map(tab => tab.textContent)).toEqual([
       'Olumi',
       'Analysis',
+      'Alt view',
       'Compare',
       'Model',
     ])
@@ -1056,6 +1061,7 @@ describe('I.2a: Secondary action button interaction', () => {
     expect(tabs.map(tab => tab.textContent)).toEqual([
       'Olumi',
       'Analysis',
+      'Alt view',
       'Compare',
       'Model',
       'Journey',

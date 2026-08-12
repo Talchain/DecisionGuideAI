@@ -22,7 +22,15 @@
  * `__tests__/olumiSurfaceInvariant.spec.ts`.
  */
 
-export type OlumiDockTab = 'olumi' | 'results' | 'compare' | 'diagnostics' | 'journey'
+import type { OutputTab } from '../../stores/uiStore'
+
+/**
+ * Derived from the store's union rather than hand-mirrored (12 Aug 2026 —
+ * this was the THIRD hand-maintained copy of the dock-tab union; adding the
+ * 'altview' tab surfaced it via a TS2322). Type-only import: the module stays
+ * runtime-dependency-free, `dockHostsOlumi` only ever compares to 'olumi'.
+ */
+export type OlumiDockTab = OutputTab
 
 export type OlumiSurface = 'hero' | 'docked' | 'floating' | 'none'
 

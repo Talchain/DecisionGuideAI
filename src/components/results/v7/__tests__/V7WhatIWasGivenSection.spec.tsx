@@ -28,7 +28,9 @@
  * forks on `analysisHeroPanel`, staging deploys `=1`, and the two arms are
  * mutually exclusive by construction — so a section hosted on the `=0` arm is
  * invisible in production while every render test passes. This section is
- * mounted in the UNCONDITIONAL `v7-top-group`, and the spec asserts it under
+ * mounted in the UNCONDITIONAL V7 group — hosted, since the 12 Aug 2026 move,
+ * on the "Alt view" tab (`V7ComparisonTabBody`, no flag; previously
+ * ResultsBody's unflagged `v7-top-group`) — and the spec asserts it under
  * BOTH postures so that a flag move cannot make it disappear silently.
  *
  * Flags are injected through the flag system's OWN seam (localStorage, which
@@ -52,6 +54,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
 import { ResultsBody } from '../../ResultsBody'
+import { V7ComparisonTabBody } from '../V7ComparisonTabBody'
 import { V7WhatIWasGivenSection } from '../V7WhatIWasGivenSection'
 import { isAnalysisHeroPanelEnabled } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
@@ -786,11 +789,12 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
 // ── MOUNT PATH ──────────────────────────────────────────────────────────────
 
 /**
- * `ResultsBody` renders `v7-top-group` unconditionally, and `V7TopMatter`
- * inside it returns null until analysis exists (`allOptions.length > 0`). This
- * is the repo's own harness for that component (`ResultsBody.v7TopMatter.spec`),
- * reused verbatim in shape so the mount proof is about the FLAG, not about a
- * bespoke data shape.
+ * The Alt view tab body (`V7ComparisonTabBody`, the V7 group's only
+ * production parent since the 12 Aug 2026 move) mounts `V7TopMatter`
+ * unconditionally, and `V7TopMatter` returns null until analysis exists
+ * (`allOptions.length > 0`). This is the repo's own harness for that
+ * component (`V7TopMatter.inAltViewTab.spec`), reused verbatim in shape so
+ * the mount proof is about the FLAG, not about a bespoke data shape.
  */
 function makeAnalysedData(): ResultsSectionDataReturn {
   const winner = {
@@ -853,7 +857,19 @@ function makeAnalysedData(): ResultsSectionDataReturn {
   } as unknown as ResultsSectionDataReturn
 }
 
-function renderBody() {
+function renderAltViewTab() {
+  return render(
+    <V7ComparisonTabBody
+      resultsSectionData={makeAnalysedData()}
+      onSendMessage={() => {}}
+      onFocusNode={() => {}}
+    />,
+  )
+}
+
+/** The hero-fork CONTROL below still needs the ANALYSIS tab's host — the
+ *  fork the flag injection must demonstrably reach lives in ResultsBody. */
+function renderAnalysisTab() {
   return render(
     <ResultsBody
       resultsSectionData={makeAnalysedData()}
@@ -881,20 +897,20 @@ describe('MOUNT PATH — live under the DEPLOYED flag posture, and under its opp
     expect(isAnalysisHeroPanelEnabled()).toBe(true)
   })
 
-  it('DEPLOYED POSTURE (analysisHeroPanel=1): the section mounts inside the unconditional group', () => {
+  it('DEPLOYED POSTURE (analysisHeroPanel=1): the section mounts inside the Alt view tab body', () => {
     localStorage.setItem('feature.analysisHeroPanel', '1')
     seedFrom(b1Fixture as never)
-    renderBody()
+    renderAltViewTab()
 
     expect(isAnalysisHeroPanelEnabled()).toBe(true)
     const section = screen.getByTestId('what-i-was-given-section')
     expect(section).toBeInTheDocument()
     // Assert the MOUNT PATH itself, not merely presence: the section must be
-    // inside `v7-top-group`, which is the slot ResultsBody renders on BOTH
-    // arms of the flag. Presence alone would still pass if a later change
-    // re-hosted it onto the flag-on arm, which is how this estate shipped a
+    // inside the Alt view tab body — the host that mounts the V7 group on
+    // BOTH arms of the flag. Presence alone would still pass if a later
+    // change re-hosted it onto a flag arm, which is how this estate shipped a
     // feature dark twice.
-    expect(screen.getByTestId('v7-top-group').contains(section)).toBe(true)
+    expect(screen.getByTestId('v7-comparison-tab-body').contains(section)).toBe(true)
   })
 
   it('OPPOSITE POSTURE (analysisHeroPanel=0): the section STILL mounts, in the same slot', () => {
@@ -902,12 +918,12 @@ describe('MOUNT PATH — live under the DEPLOYED flag posture, and under its opp
     // flips the deployed arm, this surface must not vanish with it.
     localStorage.setItem('feature.analysisHeroPanel', '0')
     seedFrom(b1Fixture as never)
-    renderBody()
+    renderAltViewTab()
 
     expect(isAnalysisHeroPanelEnabled()).toBe(false)
     const section = screen.getByTestId('what-i-was-given-section')
     expect(section).toBeInTheDocument()
-    expect(screen.getByTestId('v7-top-group').contains(section)).toBe(true)
+    expect(screen.getByTestId('v7-comparison-tab-body').contains(section)).toBe(true)
   })
 
   it('CONTROL — the two postures really do render different heroes', () => {
@@ -915,13 +931,13 @@ describe('MOUNT PATH — live under the DEPLOYED flag posture, and under its opp
     // above are genuinely two postures and not the same render twice.
     localStorage.setItem('feature.analysisHeroPanel', '1')
     seedFrom(b1Fixture as never)
-    const on = renderBody()
+    const on = renderAnalysisTab()
     const heroOn = on.container.querySelector('[data-testid="analysis-hero-panel"]')
     cleanup()
 
     localStorage.setItem('feature.analysisHeroPanel', '0')
     seedFrom(b1Fixture as never)
-    const off = renderBody()
+    const off = renderAnalysisTab()
     const heroOff = off.container.querySelector('[data-testid="analysis-hero-panel"]')
 
     expect(heroOn, 'flag-on arm renders the hero panel').not.toBeNull()
