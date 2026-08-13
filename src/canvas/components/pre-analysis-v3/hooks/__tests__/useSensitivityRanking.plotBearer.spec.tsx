@@ -46,7 +46,12 @@ function edge(id: string, source: string, target: string): StoreEdge {
   return { id, source, target, data: { weight: 1, direction: 'positive' } } as StoreEdge
 }
 
-const fetchMock = vi.fn(async () => ({
+// The parameters are declared (and unused) ON PURPOSE. `vi.fn(async () => …)` types
+// `mock.calls` as a zero-length tuple, so reading `calls[0][0]` or `calls[0][1]` is a
+// TS2493 — which this file previously carried as a baselined error. Declaring the
+// real `fetch` signature makes both the URL and the init readable and type-checked,
+// and removes the baselined error rather than adding a second one.
+const fetchMock = vi.fn(async (_input?: RequestInfo | URL, _init?: RequestInit) => ({
   ok: true,
   status: 200,
   json: async () => ({ factor_influence: { f1: 1 }, edge_influence: {}, method: 'linear' }),
