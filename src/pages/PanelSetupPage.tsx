@@ -38,7 +38,7 @@
  */
 
 import { useCallback, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { AlertTriangle, Check, Copy, Loader2, LogIn, Users } from 'lucide-react'
 
 import { Button } from '../components/ui/Button'
@@ -53,6 +53,7 @@ import {
   type RevealView,
 } from '../collab/collabService'
 import { requireOwnerAccessToken } from '../collab/ownerAccessToken'
+import { readPanelPrefill } from '../collab/panelRoute'
 import {
   forgetOpenRound,
   recallOpenRound,
@@ -217,6 +218,7 @@ async function writeToClipboard(text: string): Promise<boolean> {
 
 export default function PanelSetupPage(): JSX.Element {
   const { id: scenarioId } = useParams<{ id: string }>()
+  const location = useLocation()
 
   // ⚠ The token is read PER ACTION, from `requireOwnerAccessToken()`, and never
   // held in component state. Two reasons, and the second is the one that bit:
@@ -227,8 +229,13 @@ export default function PanelSetupPage(): JSX.Element {
   //     indistinguishable from sending no header. There is now no cast here and
   //     no `?? ''`: an absent session throws, and the owner is told to sign in.
 
-  const [targetId, setTargetId] = useState('')
-  const [targetLabel, setTargetLabel] = useState('')
+  // CAPABILITY A — the "Ask a teammate" hop lands here with the target
+  // pre-filled in the hash query (see `collab/panelRoute.ts`). Read ONCE at
+  // mount: the prefill SEEDS the form and is then the owner's to edit — a
+  // later location change must never stomp what they have typed.
+  const [prefill] = useState(() => readPanelPrefill(location.search))
+  const [targetId, setTargetId] = useState(() => prefill?.factorId ?? '')
+  const [targetLabel, setTargetLabel] = useState(() => prefill?.label ?? '')
   const [contextNote, setContextNote] = useState('')
   const [nameA, setNameA] = useState('')
   const [nameB, setNameB] = useState('')
@@ -260,7 +267,12 @@ export default function PanelSetupPage(): JSX.Element {
             target: { kind: 'factor', id: targetId.trim() },
             label: targetLabel.trim() === '' ? targetId.trim() : targetLabel.trim(),
             description: null,
-            unit: null,
+            // The prefilled unit is IDENTITY-BOUND to the prefilled factor: it
+            // arrived describing THAT factor's scale, so it rides only while
+            // the target id still names it. An owner who retargets the round
+            // by editing the id gets `null` — a unit that followed them to a
+            // different factor would be a false claim about that factor.
+            unit: prefill !== null && targetId.trim() === prefill.factorId ? prefill.unit : null,
           },
         ],
         participants: [{ display_name: nameA.trim() }, { display_name: nameB.trim() }].filter(
@@ -282,7 +294,7 @@ export default function PanelSetupPage(): JSX.Element {
     } finally {
       setBusyAction(null)
     }
-  }, [scenarioId, targetId, targetLabel, contextNote, nameA, nameB])
+  }, [scenarioId, targetId, targetLabel, contextNote, nameA, nameB, prefill])
 
   // Parameterised by round id because there are now TWO callers: the fresh
   // mint on screen, and the recovery banner's RECORDED round.
@@ -413,6 +425,19 @@ export default function PanelSetupPage(): JSX.Element {
 
           {minted === null ? (
             <div className="mt-8 space-y-6">
+              {/* CAPABILITY A: the owner arrived from an estimate row, so the
+                  form is already filled in. Said quietly, once — the fields
+                  below are theirs to change, and the copy promises nothing
+                  about what happens downstream. */}
+              {prefill !== null && (
+                <p
+                  data-testid="panel-prefill-note"
+                  className={`${typography.bodySmall} rounded-md border border-info/30 bg-panel p-3 text-text-body`}
+                >
+                  The factor below is pre-filled from your model. You can change anything before
+                  you open the round.
+                </p>
+              )}
               <div>
                 <label
                   htmlFor="panel-target-id-input"
