@@ -8,7 +8,16 @@
  * - ISL_API_KEY: API key for ISL service authentication
  *
  * SECURITY:
- * - Uses explicit origin allow-list (no wildcard CORS)
+ * - Origin is a CORS control, NOT identity.
+ * - The bound on this seam is the EXPLICIT UPSTREAM PATH ALLOWLIST added for
+ *   disposition item 13: the ISL bearer is injected ONLY for a target on
+ *   `ALLOWED_TARGETS`; every off-list path is answered 404 and never reaches ISL.
+ *   ⚠ ISL's authoritative route table was NOT read for this change, so the compute
+ *   subtrees (`/api/v1/*`, `/explain/*`) are matched PERMISSIVELY on purpose — a
+ *   false 404 on a real compute call would break the product, and correctness of
+ *   the live product outranks tightness here. This still rejects root-level
+ *   admin/debug/metrics routes, which is the meaningful bound. Tighten once the
+ *   ISL route table is enumerated (flagged in the PR).
  * See SECURITY.md for compliance requirements.
  */
 
@@ -57,6 +66,42 @@ function getCorsHeaders(requestOrigin: string | null): Record<string, string> | 
   }
 }
 
+/**
+ * SECURITY (item 13) — EXPLICIT UPSTREAM PATH ALLOWLIST.
+ *
+ * Matched against the target (prefix `/bff/isl` already stripped, query stripped)
+ * BEFORE the ISL bearer is injected. Off-list ⇒ 404, no bearer forwarded. DERIVED
+ * from the UI's `/bff/isl/*` call sites at f2b48fc9: `src/adapters/isl/client.ts`
+ * (`/validate`, `/api/v1/robustness/analyze`, `/api/v1/causal/counterfactual/conformal`,
+ * `/conformal`, `/compare`, `/explain/contrastive`) and `src/lib/service-health.ts`
+ * (`/health`). The `/api/v1/*` and `/explain/*` subtrees are PERMISSIVE because the
+ * ISL route table was not authoritatively read; `isTraversal` closes any encoded
+ * escape through them.
+ */
+const ALLOWED_TARGETS: readonly RegExp[] = [
+  /^\/health$/,
+  /^\/validate$/,
+  /^\/conformal$/,
+  /^\/compare$/,
+  /^\/explain\/.+$/,
+  /^\/api\/v1\/.+$/,
+]
+
+function isAllowedTarget(pathname: string): boolean {
+  return ALLOWED_TARGETS.some((re) => re.test(pathname))
+}
+
+/**
+ * Reject encoded traversal (`%2e` / `%2f` / `%5c`, case-insensitive) and any
+ * literal `..` path segment before the allowlist. This is load-bearing here: the
+ * `/api/v1/*` and `/explain/*` patterns are permissive, so an encoded escape would
+ * otherwise ride them to the upstream.
+ */
+function isTraversal(rawUrl: string, targetPath: string): boolean {
+  if (/%2e|%2f|%5c/i.test(rawUrl)) return true
+  return targetPath.split('/').some((segment) => segment === '..')
+}
+
 export default async function handler(request: Request, context: Context) {
   const origin = request.headers.get('origin')
   const corsHeaders = getCorsHeaders(origin)
@@ -78,15 +123,26 @@ export default async function handler(request: Request, context: Context) {
     return new Response(null, { status: 204, headers: corsHeaders })
   }
 
-  const apiKey = Deno.env.get('ISL_API_KEY')
-
   // Extract the path after /bff/isl/
   // e.g., /bff/isl/api/v1/analysis/robustness → /api/v1/analysis/robustness
   const url = new URL(request.url)
   const targetPath = url.pathname.replace(/^\/bff\/isl/, '')
   const targetUrl = `${ISL_TARGET}${targetPath}${url.search}`
 
-  // SECURITY: Build headers from scratch with explicit allowlist
+  // SECURITY (item 13): reject off-list / traversal paths BEFORE the bearer is
+  // injected. Off-list ⇒ 404, NO credential forwarded.
+  if (isTraversal(request.url, targetPath) || !isAllowedTarget(targetPath)) {
+    return new Response(
+      JSON.stringify({ error: 'Not found' }),
+      {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    )
+  }
+
+  // SECURITY: Build the forwarded-header set from scratch with an explicit HEADER
+  // allowlist (distinct from the upstream PATH allowlist checked just above)
   const ALLOWED_FORWARD_HEADERS = [
     'content-type',
     'accept',
@@ -104,7 +160,10 @@ export default async function handler(request: Request, context: Context) {
     }
   }
 
-  // Add API key for ISL authentication (both formats for compatibility)
+  // Add API key for ISL authentication (both formats for compatibility).
+  // Read only after the path guard has passed — a rejected request never touches
+  // the credential.
+  const apiKey = Deno.env.get('ISL_API_KEY')
   if (apiKey) {
     headers.set('Authorization', `Bearer ${apiKey}`)
     headers.set('x-api-key', apiKey)

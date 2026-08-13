@@ -16,7 +16,13 @@
  * Verified 2026-03-13 — no additional configuration needed.
  *
  * SECURITY:
- * - Uses explicit origin allow-list (no wildcard CORS)
+ * - Origin is a CORS control, NOT identity — a non-browser client can set any
+ *   Origin it likes, so origin-gating is not the security boundary here.
+ * - The boundary is the EXPLICIT UPSTREAM PATH ALLOWLIST added for disposition
+ *   item 13: the caller-auth key is injected ONLY for a rewritten `/orchestrate/*`
+ *   target on `ALLOWED_TARGETS` (the three turn routes: turn, turn/stream,
+ *   turn/stop). Every off-list path is answered 404 and never reaches CEE.
+ * - Enforces POST-only and an explicit forwarded-HEADER allowlist.
  * See SECURITY.md for compliance requirements.
  */
 
@@ -54,6 +60,35 @@ function getCorsHeaders(requestOrigin: string | null): Record<string, string> | 
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-correlation-id, x-request-id, x-user-id',
     'Vary': 'Origin, Access-Control-Request-Headers',
   }
+}
+
+/**
+ * SECURITY (item 13) — EXPLICIT UPSTREAM PATH ALLOWLIST.
+ *
+ * Matched against the REWRITTEN `/orchestrate/*` target (query stripped) BEFORE the
+ * caller-auth key is injected. Off-list ⇒ 404, no key forwarded. CEE mounts exactly
+ * the turn family under `/orchestrate/*`; anything else must not become an
+ * authenticated call. `v\d+` covers the live v2 path and the legacy v1 reference.
+ */
+const ALLOWED_TARGETS: readonly RegExp[] = [
+  /^\/orchestrate\/v\d+\/turn$/,
+  /^\/orchestrate\/v\d+\/turn\/stream$/,
+  /^\/orchestrate\/v\d+\/turn\/stop$/,
+]
+
+function isAllowedTarget(pathname: string): boolean {
+  return ALLOWED_TARGETS.some((re) => re.test(pathname))
+}
+
+/**
+ * Reject encoded traversal (`%2e` / `%2f` / `%5c`, case-insensitive) and any
+ * literal `..` path segment before the allowlist runs — closing the
+ * `/bff/orchestrate/%2e%2e/assist/v1/*` escape hypothesis by construction,
+ * independent of how the edge runtime normalises `request.url`.
+ */
+function isTraversal(rawUrl: string, targetPath: string): boolean {
+  if (/%2e|%2f|%5c/i.test(rawUrl)) return true
+  return targetPath.split('/').some((segment) => segment === '..')
 }
 
 export default async function handler(request: Request, _context: Context) {
@@ -94,7 +129,20 @@ export default async function handler(request: Request, _context: Context) {
   const targetPath = url.pathname.replace(/^\/bff\/orchestrate/, '/orchestrate')
   const targetUrl = `${CEE_TARGET}${targetPath}${url.search}`
 
-  // SECURITY: Build headers from scratch with explicit allowlist.
+  // SECURITY (item 13): reject anything outside the turn family BEFORE the key is
+  // injected. Off-list or traversal ⇒ 404, NO credential forwarded.
+  if (isTraversal(request.url, targetPath) || !isAllowedTarget(targetPath)) {
+    return new Response(
+      JSON.stringify({ error: 'Not found' }),
+      {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    )
+  }
+
+  // SECURITY: Build the forwarded-header set from scratch with an explicit HEADER
+  // allowlist (distinct from the upstream PATH allowlist checked just above).
   // 'authorization' carries the user's Supabase access token (login 3.4 —
   // LOGIN-CEE-HALF-SPEC item 4: the DGAI edge function passes the user
   // token through so CEE's flag-gated JWT half can verify identity). It is

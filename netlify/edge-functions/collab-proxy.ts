@@ -92,6 +92,40 @@ function getCorsHeaders(requestOrigin: string): Record<string, string> {
   }
 }
 
+/**
+ * SECURITY (item 13) — EXPLICIT UPSTREAM PATH ALLOWLIST.
+ *
+ * Matched against the REWRITTEN `/collab/v1/*` target (query stripped) BEFORE the
+ * caller-auth key is injected. Off-list ⇒ 404, no key forwarded. CEE authenticates
+ * the PERSON on these routes (participant token / owner JWT), but this proxy still
+ * injects the caller-auth key, so an unbounded rewrite still hands an authenticated
+ * request to any collab route that exists. DERIVED from `src/collab/collabService.ts`
+ * (the only `/bff/collab/*` caller) at f2b48fc9. Dynamic round/packet ids are
+ * matched permissively (`[^/]+`); `isTraversal` closes encoded-slash / `..`.
+ */
+const ALLOWED_TARGETS: readonly RegExp[] = [
+  /^\/collab\/v1\/rounds$/,
+  /^\/collab\/v1\/rounds\/[^/]+\/close$/,
+  /^\/collab\/v1\/rounds\/[^/]+\/reveal$/,
+  /^\/collab\/v1\/packet\/[^/]+$/,
+  /^\/collab\/v1\/packet\/[^/]+\/events$/,
+  /^\/collab\/v1\/packet\/[^/]+\/reveal$/,
+]
+
+function isAllowedTarget(pathname: string): boolean {
+  return ALLOWED_TARGETS.some((re) => re.test(pathname))
+}
+
+/**
+ * Reject encoded traversal (`%2e` / `%2f` / `%5c`, case-insensitive) and any
+ * literal `..` path segment before the allowlist, so a permissive id segment
+ * cannot carry a path escape to the upstream.
+ */
+function isTraversal(rawUrl: string, targetPath: string): boolean {
+  if (/%2e|%2f|%5c/i.test(rawUrl)) return true
+  return targetPath.split('/').some((segment) => segment === '..')
+}
+
 export default async function handler(request: Request, _context: Context) {
   const origin = request.headers.get('origin')
 
@@ -125,6 +159,18 @@ export default async function handler(request: Request, _context: Context) {
   const url = new URL(request.url)
   const targetPath = url.pathname.replace(/^\/bff\/collab/, '/collab/v1')
   const targetUrl = `${CEE_TARGET}${targetPath}${url.search}`
+
+  // SECURITY (item 13): reject off-list / traversal paths BEFORE the key is
+  // injected. Off-list ⇒ 404, NO credential forwarded.
+  if (isTraversal(request.url, targetPath) || !isAllowedTarget(targetPath)) {
+    return new Response(
+      JSON.stringify({ error: 'Not found' }),
+      {
+        status: 404,
+        headers: { ...(corsHeaders ?? {}), 'Content-Type': 'application/json' },
+      },
+    )
+  }
 
   const headers = new Headers()
   for (const headerName of ALLOWED_FORWARD_HEADERS) {

@@ -48,8 +48,14 @@
  *   no new decision about where a secret lives.
  *
  * SECURITY:
- * - Uses explicit origin allow-list (no wildcard CORS)
- * - The API key is never returned to the client and never enters the bundle
+ * - Origin is a CORS control, NOT identity (see the origin check below). The
+ *   real bound on this seam is the EXPLICIT UPSTREAM PATH ALLOWLIST added for
+ *   disposition item 13: the caller-auth key is injected ONLY for a rewritten
+ *   `/assist/v1/*` target on `ALLOWED_TARGETS`; every off-list path is answered
+ *   404 and never reaches CEE, so an allowed (or absent) Origin can no longer
+ *   turn this proxy into an authenticated caller for the whole assist surface.
+ * - Enforces an explicit HTTP-method set and an explicit forwarded-HEADER set.
+ * - The API key is never returned to the client and never enters the bundle.
  * See SECURITY.md for compliance requirements.
  *
  * ── COMPLETE DIVERGENCE SET FROM THE SIBLING PROXIES ────────────────────────
@@ -112,6 +118,53 @@ function getCorsHeaders(requestOrigin: string): Record<string, string> {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-correlation-id, x-request-id, x-user-id',
     'Vary': 'Origin, Access-Control-Request-Headers',
   }
+}
+
+/**
+ * SECURITY (item 13) — EXPLICIT UPSTREAM PATH ALLOWLIST.
+ *
+ * Matched against the REWRITTEN `/assist/v1/*` target (query stripped) BEFORE the
+ * caller-auth key is injected. Off-list ⇒ 404, no key forwarded. Without it the
+ * blind prefix rewrite made this seam an authenticated caller for the whole
+ * ~24-route assist surface (draft-graph, bias-check, ask, review, decision-review,
+ * elicitation, …) — no UUID and, for this proxy, no Origin required.
+ *
+ * DERIVED from the UI's real `/bff/cee/*` call sites at f2b48fc9 (see the PR body
+ * for the file-by-file evidence and the live-capture cross-check). Dynamic id
+ * segments are matched permissively (`[^/]+`) so a real scenario/record UUID never
+ * false-404s; the ROUTE SHAPE is what is bounded, and `isTraversal` (below) closes
+ * encoded-slash / `..` smuggling through those permissive segments.
+ */
+const ALLOWED_TARGETS: readonly RegExp[] = [
+  /^\/assist\/v1\/health$/,
+  /^\/assist\/v1\/graph-readiness$/,
+  /^\/assist\/v1\/ask$/,
+  /^\/assist\/v1\/bias-check$/,
+  /^\/assist\/v1\/sensitivity-coach$/,
+  /^\/assist\/v1\/elicit-belief$/,
+  /^\/assist\/v1\/suggest-edge-function$/,
+  /^\/assist\/v1\/prompts\/warm$/,
+  /^\/assist\/v1\/draft-graph$/,
+  /^\/assist\/v1\/scenarios\/[^/]+\/graph$/,
+  /^\/assist\/v1\/scenarios\/[^/]+\/graph\/register$/,
+  /^\/assist\/v1\/decision-records\/commit$/,
+  /^\/assist\/v1\/decision-records\/[^/]+\/outcome$/,
+]
+
+function isAllowedTarget(pathname: string): boolean {
+  return ALLOWED_TARGETS.some((re) => re.test(pathname))
+}
+
+/**
+ * Reject encoded traversal (`%2e` / `%2f` / `%5c`, case-insensitive) and any
+ * literal `..` path segment before the allowlist runs. WHATWG `new URL()` resolves
+ * an un-encoded `../` at parse time, but edge runtimes differ on whether the
+ * ENCODED forms survive into `request.url`; this closes them regardless, so a
+ * permissive dynamic segment cannot carry a path escape to the upstream.
+ */
+function isTraversal(rawUrl: string, targetPath: string): boolean {
+  if (/%2e|%2f|%5c/i.test(rawUrl)) return true
+  return targetPath.split('/').some((segment) => segment === '..')
 }
 
 export default async function handler(request: Request, _context: Context) {
@@ -177,7 +230,21 @@ export default async function handler(request: Request, _context: Context) {
   const targetPath = url.pathname.replace(/^\/bff\/cee/, '/assist/v1')
   const targetUrl = `${CEE_TARGET}${targetPath}${url.search}`
 
-  // SECURITY: Build headers from scratch with explicit allowlist.
+  // SECURITY (item 13): reject anything the UI does not call BEFORE the key is
+  // injected. An off-list or traversal path is answered 404 and NO credential is
+  // forwarded — this is the bound on the assist blast radius.
+  if (isTraversal(request.url, targetPath) || !isAllowedTarget(targetPath)) {
+    return new Response(
+      JSON.stringify({ error: 'Not found' }),
+      {
+        status: 404,
+        headers: { ...(corsHeaders ?? {}), 'Content-Type': 'application/json' },
+      },
+    )
+  }
+
+  // SECURITY: Build the forwarded-header set from scratch with an explicit HEADER
+  // allowlist (distinct from the upstream PATH allowlist checked just above).
   // 'authorization' carries the user's Supabase access token (same rationale
   // as orchestrator-proxy.ts: CEE's flag-gated JWT half verifies identity from
   // it). It is the USER token; the caller-auth X-Olumi-Assist-Key is injected
