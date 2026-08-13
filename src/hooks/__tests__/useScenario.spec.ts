@@ -129,7 +129,7 @@ vi.mock('../../canvas/domain/edges', () => ({
 // to be right on the first day. So the policy is opened here explicitly and this
 // file goes on proving the write path. Two questions, two files, neither
 // impersonating the other.
-vi.mock('../clientGraphWritePolicy', () => ({
+vi.mock('../../lib/clientGraphWritePolicy', () => ({
   clientCanWriteReadableGraph: () => true,
 }))
 

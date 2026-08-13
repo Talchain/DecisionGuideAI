@@ -15,6 +15,9 @@
 
 import type { Node, Edge } from '@xyflow/react'
 import { supabase } from '../lib/supabase'
+// P0 (2026-08-13). MAY this client write `scenarios.graph` at all? Pure predicate,
+// no React or store dependency, so it respects this module's stated constraints.
+import { clientCanWriteReadableGraph } from '../lib/clientGraphWritePolicy'
 import { clearSuppressedScenarioId } from './threadService'
 // Seedless structural+data graph hash. Deliberately the seedless twin
 // (`canvas/utils/graphHash`), NOT the seed-bearing analysis hash in
@@ -185,7 +188,32 @@ export async function saveGraphViaGatedPath(
    * Omitted/null/empty writes the historical `{ nodes, edges }` bytes exactly.
    */
   goalConstraints?: CEEGoalConstraint[] | null,
-): Promise<void> {
+): Promise<boolean> {
+  // ⚠ P0 (2026-08-13) — THE CHOKE POINT, and it has to be HERE.
+  //
+  // `scenarios.graph` is a cross-boundary column: CEE writes GraphV3 and re-reads
+  // it with `GraphV3.safeParse` on every analyse turn. This client holds the RAW
+  // React Flow canvas store and there is no projector, so every byte it could
+  // write is a graph CEE cannot parse — 116 `invalid_type` issues on the real row
+  // that took staging down, and ZERO numeric-range issues, which is what defeated
+  // CEE's graceful `analysis_not_ready` carve-out and made it a hard 500.
+  //
+  // The guard was first installed in `useScenario.persistGraphNow`, which calls
+  // this function — and an independent review proved by execution that the OTHER
+  // caller, `lib/loginDraftImport.importGuestDraft`, walked straight past it and
+  // wrote React Flow bytes into a brand-new scenario on the guest→signed-in
+  // onboarding path (9 missing required fields, with the policy shut). A guard at
+  // one call site is a hand-maintained mirror of "all call sites" (trap 12).
+  //
+  // This function is the derived choke point: line ~200 below is the only place in
+  // any live path where `p_graph` reaches `apply_patch_and_log`. Guarding here
+  // makes the number of call sites anyone has to remember exactly ZERO.
+  //
+  // Returns FALSE when suppressed, so a caller can never report "saved" for a
+  // write that did not happen — the honesty contract is now structural rather
+  // than an agreement between two functions.
+  if (!clientCanWriteReadableGraph()) return false
+
   const { error } = await supabase.rpc('apply_patch_and_log', {
     p_scenario_id: scenarioId,
     p_graph: buildPersistedGraph(graph.nodes, graph.edges, goalConstraints),
@@ -207,6 +235,7 @@ export async function saveGraphViaGatedPath(
       error,
     )
   }
+  return true
 }
 
 // ---------------------------------------------------------------------------

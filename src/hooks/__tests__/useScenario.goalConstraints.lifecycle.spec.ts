@@ -61,7 +61,7 @@ vi.mock('../../contexts/AuthContext', () => authMockModule())
 // ⚠ THE CLIENT GRAPH-WRITE POLICY IS LIFTED FOR THIS FILE — deliberately.
 //
 // P0 2026-08-13 shut the client's write to `scenarios.graph` entirely
-// (`hooks/clientGraphWritePolicy.ts`): it holds raw React Flow bytes, there is no
+// (`lib/clientGraphWritePolicy.ts`): it holds raw React Flow bytes, there is no
 // React-Flow→GraphV3 projector, and CEE's analyse read 500s on them. That is a
 // POLICY, and it is pinned — with mutants — in
 // `useScenario.reactFlowNeverPersisted.p0.spec.ts`.
@@ -72,7 +72,7 @@ vi.mock('../../contexts/AuthContext', () => authMockModule())
 // to be right on the first day. So the policy is opened here explicitly and this
 // file goes on proving the write path. Two questions, two files, neither
 // impersonating the other.
-vi.mock('../clientGraphWritePolicy', () => ({
+vi.mock('../../lib/clientGraphWritePolicy', () => ({
   clientCanWriteReadableGraph: () => true,
 }))
 

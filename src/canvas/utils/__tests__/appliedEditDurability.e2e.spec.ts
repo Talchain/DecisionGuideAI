@@ -61,7 +61,7 @@ vi.mock('../../../contexts/AuthContext', () => ({
 // sharpens what this spec proves rather than weakening it.
 //
 // P0 2026-08-13 shut the client's write to `scenarios.graph` entirely
-// (`hooks/clientGraphWritePolicy.ts`): the store holds raw React Flow bytes,
+// (`lib/clientGraphWritePolicy.ts`): the store holds raw React Flow bytes,
 // there is no React-Flow→GraphV3 projector, and CEE's analyse read 500s on them.
 // So the write-back RACE this file pins — CEE commits 250, the autosave wakes and
 // writes 100 back over it — is now unreachable by the strongest possible means:
@@ -80,7 +80,7 @@ vi.mock('../../../contexts/AuthContext', () => ({
 // all: CEE writes the graph itself via `store_draft_graph`, and the client's
 // autosave was never landing for the guest population in any case —
 // `graph_saved` events were zero on every day from 20 July to 11 August.)
-vi.mock('../../../hooks/clientGraphWritePolicy', () => ({
+vi.mock('../../../lib/clientGraphWritePolicy', () => ({
   clientCanWriteReadableGraph: () => true,
 }))
 

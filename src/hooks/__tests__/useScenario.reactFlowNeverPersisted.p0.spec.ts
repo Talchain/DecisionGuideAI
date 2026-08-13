@@ -70,7 +70,7 @@ vi.mock('../../contexts/AuthContext', () => authMockModule())
 import { useScenario, flushPendingGraphSave } from '../useScenario'
 // The REAL policy module — deliberately NOT mocked here. This is the one file
 // that asserts what it actually answers; the mechanism specs lift it.
-import { clientCanWriteReadableGraph } from '../clientGraphWritePolicy'
+import { clientCanWriteReadableGraph } from '../../lib/clientGraphWritePolicy'
 import { useCanvasStore } from '../../canvas/store'
 
 // ---------------------------------------------------------------------------
@@ -203,16 +203,32 @@ function coldReadGraph(): unknown {
  * Mount the hook with an active scenario, WITHOUT going through
  * `loadScenario`.
  *
- * ⚠ NOT a convenience — `loadScenario` cannot hydrate a CEE-written row at all.
+ * ⚠ NOT a convenience — `loadScenario` THROWS on a CEE-written row.
  * It feeds the persisted column straight into the React Flow store
  * (`useScenario.ts:605-619`, comment verbatim: *"The graph JSONB column stores
  * `{ nodes: Node[], edges: Edge[] }`"*), and `store.reseedIds` →
  * `getMaxNumericId` then does `id.replace(...)` over every EDGE id — which
- * `GraphV3` edges do not have (they are keyed `from`/`to`; see the real CEE row
- * manifest in `DIAGNOSIS.md` §1). It throws `TypeError: Cannot read properties
- * of undefined (reading 'replace')` at `store.ts:1490`. That is the same root
- * cause as `DIAGNOSIS.md` §9b, reached down a second route, and it is NOT this
- * lane's to fix.
+ * `GraphV3` edges do not have (they are keyed `from`/`to`; measured over the live
+ * table: 2051 of 2052 real CEE-shaped rows carry zero edge ids). It throws
+ * `TypeError: Cannot read properties of undefined (reading 'replace')` at
+ * `store.ts:1490`.
+ *
+ * ⚠⚠ AND THE FIRST VERSION OF THIS NOTE SAID *"cannot hydrate at all"*, WHICH IS
+ * OVERSTATED — corrected by an independent review that replayed the verbatim
+ * bytes of a real CEE row through the real `hydrateGraphSlice`. `hydrateGraphSlice`
+ * applies the store `set` BEFORE the `try { reseedIds }`, so the GRAPH DOES LAND
+ * (4 nodes, 2 edges, scenario id, history). What is lost is everything downstream
+ * of the throw: the id reseed, framing and stage, `isDirty:false`, prior analysis
+ * results, the conversation transcript and the journey timeline. `CanvasMVP.tsx:64`
+ * logs the rejection only under DEV, so in production it is a **silent partial
+ * hydration, not a crash**. Same root cause as `DIAGNOSIS.md` §9b down a second
+ * route; NOT this lane's to fix, and rowed separately.
+ *
+ * (The mechanism worth keeping: the client's bad write was MASKING this. Both
+ * switched on together on 12 Aug — the first load of a CEE-drafted scenario threw,
+ * the client then overwrote the row with React Flow bytes, and every later load
+ * succeeded while poisoning analyse. Fixing the write does not cause the reload
+ * defect; it removes the accident that hid it.)
  *
  * Giving the CEE fixture invented edge ids would make the load work and make the
  * fixture a lie about the wire (trap 16-inverse: a fixture you wrote yourself is

@@ -39,6 +39,26 @@ vi.mock('../../lib/supabase', () => ({
 }))
 
 // Import after mock is set up
+
+// ⚠ THE CLIENT GRAPH-WRITE POLICY IS CONTROLLABLE IN THIS FILE — deliberately,
+// and it is opened by DEFAULT so the pre-existing mechanism tests are unchanged.
+//
+// P0 2026-08-13 round 2: the suppression moved INTO `saveGraphViaGatedPath` —
+// this module — because it is the real choke point (the only place in any live
+// path where `p_graph` reaches `apply_patch_and_log`). A round-1 guard at one of
+// its two CALL SITES left `lib/loginDraftImport.importGuestDraft` writing React
+// Flow bytes into a brand-new scenario, proven by execution.
+//
+// A hard `() => true` lift would have hidden the new behaviour from the one file
+// that tests this function directly, so the policy is a MUTABLE let instead: the
+// existing tests keep proving the write MECHANISM with it open, and the new
+// describe at the bottom proves the suppression with it shut. Both directions,
+// same file, at the choke point itself.
+let policyOpen = true
+vi.mock('../../lib/clientGraphWritePolicy', () => ({
+  clientCanWriteReadableGraph: () => policyOpen,
+}))
+
 import * as service from '../scenarioService'
 
 // ---------------------------------------------------------------------------
@@ -624,6 +644,55 @@ describe('scenarioService', () => {
         expect((err as ScenarioPersistenceError).code).toBe('STORE_ANALYSIS_FAILED')
         expect((err as ScenarioPersistenceError).cause).toBeDefined()
       }
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // P0 (2026-08-13) round 2 — the CHOKE POINT itself
+  //
+  // The suppression has to live here rather than at a call site, because there
+  // are two call sites and the second one (`importGuestDraft`) bypassed a guard
+  // installed at the first. These tests pin it AT the choke point, so the
+  // property holds for every caller that exists now or later — which is the
+  // whole point of moving it (trap 12: derive, do not keep a list of call sites).
+  // -------------------------------------------------------------------------
+  describe('the client graph-write policy is enforced HERE, not at the call sites', () => {
+    const RF_GRAPH = {
+      nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'A' } }],
+      edges: [{ id: 'e1', source: 'n1', target: 'n1', data: { weight: 0.5 } }],
+    } as unknown as Parameters<typeof service.saveGraphViaGatedPath>[1]
+
+    // NOTE: reset in-test rather than in an `afterEach` — this file does not
+    // import one, and a collection-time ReferenceError reads as "0 tests
+    // collected", which the aggregate summary of a multi-file run HIDES behind
+    // another file's passes. Caught by asserting this file's count BY NAME.
+    it('CONTROL: with the policy OPEN the write happens (this file is not just asserting silence)', async () => {
+      policyOpen = true
+      mockRpc.mockResolvedValue({ data: {}, error: null })
+      const wrote = await service.saveGraphViaGatedPath('scenario-1', RF_GRAPH, VALID_EVENT_ID)
+      expect(wrote).toBe(true)
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+    })
+
+    it('with the policy SHUT no RPC is issued at all — not a rejected one, none', async () => {
+      policyOpen = false
+      mockRpc.mockClear()
+      mockRpc.mockResolvedValue({ data: {}, error: null })
+      await service.saveGraphViaGatedPath('scenario-1', RF_GRAPH, VALID_EVENT_ID)
+      expect(mockRpc).not.toHaveBeenCalled()
+    })
+
+    it('…and it REPORTS the suppression, so no caller can claim a write that did not happen', async () => {
+      policyOpen = false
+      const wrote = await service.saveGraphViaGatedPath('scenario-1', RF_GRAPH, VALID_EVENT_ID)
+      expect(wrote).toBe(false)
+    })
+
+    it('the suppression RESOLVES, it does not throw — a suppressed write is a no-op, never an error the user sees', async () => {
+      // `importGuestDraft` awaits this call and would surface a rejection as a
+      // failed onboarding import. Degrading to a no-op is the correct shape.
+      policyOpen = false
+      await expect(service.saveGraphViaGatedPath('scenario-1', RF_GRAPH, VALID_EVENT_ID)).resolves.toBe(false)
     })
   })
 })
