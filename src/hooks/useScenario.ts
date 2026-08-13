@@ -23,8 +23,9 @@ import * as scenarioService from '../services/scenarioService'
 import type { ScenarioStage, AnalysisProvenance, AnalysisStatus } from '../types/scenario'
 import { hydrateAnalysisFromV2Response } from './hydrateAnalysis'
 import type { Edge } from '@xyflow/react'
-import { DEFAULT_EDGE_DATA, type EdgeData } from '../canvas/domain/edges'
+import { type EdgeData } from '../canvas/domain/edges'
 import { readPersistedGoalConstraints } from '../canvas/utils/persistedGraph'
+import { normalisePersistedGraph } from '../canvas/utils/normalisePersistedGraph'
 import { isPersistenceActive as computeIsPersistenceActive } from '../lib/persistenceActive'
 import { shouldPersistGraphForScenario } from '../canvas/stores/draftStore'
 // P0 2026-08-13 — may this client write `scenarios.graph` at all? Its own module
@@ -644,21 +645,20 @@ export function useScenario(): UseScenarioReturn {
         return
       }
 
-      // The graph JSONB column stores { nodes: Node[], edges: Edge[] }
-      const graph = row.graph as { nodes?: unknown[]; edges?: unknown[] } | null
-      const graphNodes = (graph?.nodes ?? []) as Parameters<
+      // The graph JSONB column stores { nodes, edges } in ONE OF TWO SHAPES —
+      // CEE/GraphV3 or React Flow. Normalise to canvas shape BEFORE anything
+      // touches it (P0, 2026-08-13): this used to hydrate verbatim, which put
+      // CEE-shaped objects into a store whose every consumer assumes React Flow,
+      // crashing `reseedIds` inside `hydrateGraphSlice` and then `computeGraphHash`
+      // during render — a blank canvas on every reload of a CEE-drafted decision.
+      // A React-Flow-shaped row is passed through unchanged (same objects by
+      // reference); the DEFAULT_EDGE_DATA backfill this path always applied is
+      // preserved inside the normaliser.
+      const normalised = normalisePersistedGraph(row.graph)
+      const graphNodes = normalised.nodes as Parameters<
         ReturnType<typeof useCanvasStore.getState>['hydrateGraphSlice']
       >[0]['nodes']
-      // Upgrade persisted edges to strongly-typed Edge<EdgeData>,
-      // matching the pattern in store.ts loadScenario
-      const rawEdges = (graph?.edges ?? []) as Edge[]
-      const graphEdges: Edge<EdgeData>[] = rawEdges.map((edge) => ({
-        ...edge,
-        data: {
-          ...DEFAULT_EDGE_DATA,
-          ...((edge.data as Partial<EdgeData> | undefined) ?? {}),
-        },
-      }))
+      const graphEdges: Edge<EdgeData>[] = normalised.edges
 
       // B3: the scenario's persisted hard constraints. Read defensively —
       // this is untyped JSONB and the value feeds the run request.

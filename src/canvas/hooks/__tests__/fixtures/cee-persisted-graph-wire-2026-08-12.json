@@ -1,0 +1,1354 @@
+{
+  "nodes": [
+    {
+      "id": "dec_crm",
+      "kind": "decision",
+      "label": "CRM Platform Strategy",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_adoption_speed",
+      "kind": "factor",
+      "label": "Sales Team Adoption Speed",
+      "category": "external",
+      "prior": {
+        "distribution": "uniform",
+        "range_min": 0.2,
+        "range_max": 0.8
+      },
+      "display_value": "0.2 to 0.8",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_build_completion",
+      "kind": "factor",
+      "label": "In-House Build Commitment",
+      "observed_state": {
+        "value": 0,
+        "source": "cee_inference",
+        "extractionType": "inferred",
+        "factor_type": "other",
+        "uncertainty_drivers": [
+          "Not provided"
+        ]
+      },
+      "category": "controllable",
+      "encoding_map": {
+        "0": "Not pursuing in-house completion",
+        "1": "Fully committed to in-house build"
+      },
+      "display_value": "Low (0)",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_completion_risk",
+      "kind": "factor",
+      "label": "Delivery Risk",
+      "category": "external",
+      "prior": {
+        "distribution": "uniform",
+        "range_min": 0.05,
+        "range_max": 0.45
+      },
+      "display_value": "0.05 to 0.45",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_switch_cost",
+      "kind": "factor",
+      "label": "Salesforce Adoption Investment",
+      "observed_state": {
+        "value": 0,
+        "source": "cee_inference",
+        "extractionType": "inferred",
+        "factor_type": "other",
+        "uncertainty_drivers": [
+          "Not provided"
+        ]
+      },
+      "category": "controllable",
+      "encoding_map": {
+        "0": "No Salesforce adoption",
+        "1": "Full Salesforce adoption"
+      },
+      "display_value": "Low (0)",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "goal_crm",
+      "kind": "goal",
+      "label": "Achieve Effective CRM Capability",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "opt_finish_build",
+      "kind": "option",
+      "label": "Finish In-House CRM Build",
+      "interventions": {
+        "fac_build_completion": {
+          "value": 1,
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "fac_build_completion",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Model-chosen intervention level; this amount is not stated in the brief"
+        },
+        "fac_switch_cost": {
+          "value": 0,
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "fac_switch_cost",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Model-chosen intervention level; this amount is not stated in the brief"
+        }
+      },
+      "is_baseline": false,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "opt_hybrid",
+      "kind": "option",
+      "label": "Salesforce Core + Custom Integration",
+      "interventions": {
+        "fac_build_completion": {
+          "value": 0.4,
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "fac_build_completion",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Model-chosen intervention level; this amount is not stated in the brief"
+        },
+        "fac_switch_cost": {
+          "value": 0.6,
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "fac_switch_cost",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Model-chosen intervention level; this amount is not stated in the brief"
+        }
+      },
+      "is_baseline": false,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "opt_status_quo",
+      "kind": "option",
+      "label": "Pause and Reassess (Status Quo)",
+      "interventions": {
+        "fac_build_completion": {
+          "value": 0,
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "fac_build_completion",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Model-chosen intervention level; this amount is not stated in the brief"
+        },
+        "fac_switch_cost": {
+          "value": 0,
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "fac_switch_cost",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Model-chosen intervention level; this amount is not stated in the brief"
+        }
+      },
+      "is_baseline": true,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "opt_switch_salesforce",
+      "kind": "option",
+      "label": "Switch to Salesforce Now",
+      "interventions": {
+        "fac_build_completion": {
+          "value": 0,
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "fac_build_completion",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Model-chosen intervention level; this amount is not stated in the brief"
+        },
+        "fac_switch_cost": {
+          "value": 1,
+          "source": "cee_hypothesis",
+          "target_match": {
+            "node_id": "fac_switch_cost",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "low",
+          "reasoning": "Model-chosen intervention level; this amount is not stated in the brief"
+        }
+      },
+      "is_baseline": false,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "out_crm_capability",
+      "kind": "outcome",
+      "label": "CRM Capability Delivered",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "out_time_to_value",
+      "kind": "outcome",
+      "label": "Time to Productive CRM Use",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "risk_adoption_failure",
+      "kind": "risk",
+      "label": "User Adoption Failure",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "risk_opportunity_cost",
+      "kind": "risk",
+      "label": "Revenue Opportunity Cost During Delay",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "risk_overrun",
+      "kind": "risk",
+      "label": "Cost and Schedule Overrun",
+      "provenance": "ai_inferred"
+    }
+  ],
+  "edges": [
+    {
+      "from": "dec_crm",
+      "to": "opt_finish_build",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "dec_crm",
+      "to": "opt_hybrid",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "dec_crm",
+      "to": "opt_status_quo",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "dec_crm",
+      "to": "opt_switch_salesforce",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_adoption_speed",
+      "to": "out_time_to_value",
+      "strength": {
+        "mean": 0.19532710280373833,
+        "std": 0.10654205607476637
+      },
+      "exists_probability": 0.7,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "sign_flip"
+        ],
+        "pass1": {
+          "strength_mean": 0.22,
+          "strength_std": 0.12,
+          "exists_probability": 0.7
+        },
+        "pass2": {
+          "strength_mean": -0.3,
+          "strength_std": 0.1,
+          "exists_probability": 0.9,
+          "reasoning": "Faster sales adoption speeds typically reduce time to productive use significantly.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.17499999999999996,
+          "strength_std": 0.13,
+          "exists_probability": 0.8150000000000001
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 1,
+        "distance_to_goal": 1,
+        "sign_unstable": true,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "fac_adoption_speed",
+      "to": "risk_adoption_failure",
+      "strength": {
+        "mean": -0.35,
+        "std": 0.15
+      },
+      "exists_probability": 0.78,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "agreed",
+        "contested_reasons": [],
+        "pass1": {
+          "strength_mean": -0.35,
+          "strength_std": 0.15,
+          "exists_probability": 0.78
+        },
+        "pass2": {
+          "strength_mean": -0.4,
+          "strength_std": 0.1,
+          "exists_probability": 0.9,
+          "reasoning": "Faster adoption reduces failure risk in practice.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.275,
+          "strength_std": 0.13,
+          "exists_probability": 0.8150000000000001
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 0.1499999999999999,
+        "distance_to_goal": 1,
+        "sign_unstable": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "fac_build_completion",
+      "to": "out_crm_capability",
+      "strength": {
+        "mean": 0.45,
+        "std": 0.18
+      },
+      "exists_probability": 0.75,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "strength_band_change"
+        ],
+        "pass1": {
+          "strength_mean": 0.45,
+          "strength_std": 0.18,
+          "exists_probability": 0.75
+        },
+        "pass2": {
+          "strength_mean": 0.7,
+          "strength_std": 0.05,
+          "exists_probability": 0.95,
+          "reasoning": "Completing the in-house build mechanically delivers CRM capability.",
+          "basis": "structural_inference",
+          "needs_user_input": false,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": 0.825,
+          "strength_std": 0.08,
+          "exists_probability": 0.865
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 0.7499999999999999,
+        "distance_to_goal": 1,
+        "sign_unstable": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "fac_build_completion",
+      "to": "out_time_to_value",
+      "strength": {
+        "mean": -0.2663551401869159,
+        "std": 0.12429906542056077
+      },
+      "exists_probability": 0.82,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "strength_band_change"
+        ],
+        "pass1": {
+          "strength_mean": -0.3,
+          "strength_std": 0.14,
+          "exists_probability": 0.82
+        },
+        "pass2": {
+          "strength_mean": -0.3,
+          "strength_std": 0.05,
+          "exists_probability": 0.95,
+          "reasoning": "Finishing the build directly accelerates time to value.",
+          "basis": "structural_inference",
+          "needs_user_input": false,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.17499999999999996,
+          "strength_std": 0.08,
+          "exists_probability": 0.865
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 0.3333333333333333,
+        "distance_to_goal": 1,
+        "sign_unstable": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "fac_build_completion",
+      "to": "risk_opportunity_cost",
+      "strength": {
+        "mean": 0.3,
+        "std": 0.2
+      },
+      "exists_probability": 0.75,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "repair",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "confidence_band_change",
+          "existence_boundary_crossing"
+        ],
+        "pass1": {
+          "strength_mean": 0,
+          "strength_std": 0,
+          "exists_probability": 0
+        },
+        "pass2": {
+          "strength_mean": -0.7,
+          "strength_std": 0.15,
+          "exists_probability": 0.9,
+          "reasoning": "Achieving build completion removes delay-related opportunity costs.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.575,
+          "strength_std": 0.18,
+          "exists_probability": 0.8150000000000001
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 1,
+        "distance_to_goal": 1,
+        "sign_unstable": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "fac_build_completion",
+      "to": "risk_overrun",
+      "strength": {
+        "mean": 0.55,
+        "std": 0.15
+      },
+      "exists_probability": 0.88,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "sign_flip"
+        ],
+        "pass1": {
+          "strength_mean": 0.55,
+          "strength_std": 0.15,
+          "exists_probability": 0.88
+        },
+        "pass2": {
+          "strength_mean": -0.4,
+          "strength_std": 0.15,
+          "exists_probability": 0.85,
+          "reasoning": "Reaching completion reduces the chance of cost and schedule overruns.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.275,
+          "strength_std": 0.18,
+          "exists_probability": 0.765
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 1,
+        "distance_to_goal": 1,
+        "sign_unstable": true,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "fac_completion_risk",
+      "to": "out_time_to_value",
+      "strength": {
+        "mean": -0.17757009345794394,
+        "std": 0.10654205607476637
+      },
+      "exists_probability": 0.75,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "sign_flip",
+          "strength_band_change"
+        ],
+        "pass1": {
+          "strength_mean": -0.2,
+          "strength_std": 0.12,
+          "exists_probability": 0.75
+        },
+        "pass2": {
+          "strength_mean": 0.2,
+          "strength_std": 0.1,
+          "exists_probability": 0.85,
+          "reasoning": "Higher delivery risk tends to slow time to value through delays.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": 0.32500000000000007,
+          "strength_std": 0.13,
+          "exists_probability": 0.765
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 1,
+        "distance_to_goal": 1,
+        "sign_unstable": true,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "fac_completion_risk",
+      "to": "risk_overrun",
+      "strength": {
+        "mean": 0.3,
+        "std": 0.15
+      },
+      "exists_probability": 0.8,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "raw_magnitude"
+        ],
+        "pass1": {
+          "strength_mean": 0.3,
+          "strength_std": 0.15,
+          "exists_probability": 0.8
+        },
+        "pass2": {
+          "strength_mean": 0.4,
+          "strength_std": 0.1,
+          "exists_probability": 0.85,
+          "reasoning": "Greater delivery risk correlates with cost and schedule overruns.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": 0.525,
+          "strength_std": 0.13,
+          "exists_probability": 0.765
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 0.45000000000000007,
+        "distance_to_goal": 1,
+        "sign_unstable": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "fac_switch_cost",
+      "to": "out_crm_capability",
+      "strength": {
+        "mean": 0.5,
+        "std": 0.1
+      },
+      "exists_probability": 0.85,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "agreed",
+        "contested_reasons": [],
+        "pass1": {
+          "strength_mean": 0.5,
+          "strength_std": 0.1,
+          "exists_probability": 0.85
+        },
+        "pass2": {
+          "strength_mean": 0.3,
+          "strength_std": 0.1,
+          "exists_probability": 0.9,
+          "reasoning": "Investing in Salesforce adoption directly yields CRM capability via the platform.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": 0.42500000000000004,
+          "strength_std": 0.13,
+          "exists_probability": 0.8150000000000001
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 0.1499999999999999,
+        "distance_to_goal": 1,
+        "sign_unstable": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "fac_switch_cost",
+      "to": "out_time_to_value",
+      "strength": {
+        "mean": 0.3107476635514019,
+        "std": 0.10654205607476637
+      },
+      "exists_probability": 0.8,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "sign_flip",
+          "strength_band_change"
+        ],
+        "pass1": {
+          "strength_mean": 0.35,
+          "strength_std": 0.12,
+          "exists_probability": 0.8
+        },
+        "pass2": {
+          "strength_mean": -0.15,
+          "strength_std": 0.1,
+          "exists_probability": 0.85,
+          "reasoning": "More investment in Salesforce adoption can speed time to value.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.024999999999999967,
+          "strength_std": 0.13,
+          "exists_probability": 0.765
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 1,
+        "distance_to_goal": 1,
+        "sign_unstable": true,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "fac_switch_cost",
+      "to": "risk_adoption_failure",
+      "strength": {
+        "mean": 0.28,
+        "std": 0.14
+      },
+      "exists_probability": 0.72,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "sign_flip"
+        ],
+        "pass1": {
+          "strength_mean": 0.28,
+          "strength_std": 0.14,
+          "exists_probability": 0.72
+        },
+        "pass2": {
+          "strength_mean": -0.3,
+          "strength_std": 0.1,
+          "exists_probability": 0.9,
+          "reasoning": "Greater adoption investment reduces user adoption failure risk.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": false
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.17499999999999996,
+          "strength_std": 0.13,
+          "exists_probability": 0.8150000000000001
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 1,
+        "distance_to_goal": 1,
+        "sign_unstable": true,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": []
+      }
+    },
+    {
+      "from": "opt_finish_build",
+      "to": "fac_build_completion",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_finish_build",
+      "to": "fac_switch_cost",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_hybrid",
+      "to": "fac_build_completion",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_hybrid",
+      "to": "fac_switch_cost",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_status_quo",
+      "to": "fac_build_completion",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_status_quo",
+      "to": "fac_switch_cost",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_switch_salesforce",
+      "to": "fac_build_completion",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_switch_salesforce",
+      "to": "fac_switch_cost",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "out_crm_capability",
+      "to": "goal_crm",
+      "strength": {
+        "mean": 0.55,
+        "std": 0.1
+      },
+      "exists_probability": 0.92,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "agreed",
+        "contested_reasons": [],
+        "pass1": {
+          "strength_mean": 0.55,
+          "strength_std": 0.1,
+          "exists_probability": 0.92
+        },
+        "pass2": {
+          "strength_mean": 0.29268292682926833,
+          "strength_std": 0.05,
+          "exists_probability": 0.95,
+          "reasoning": "Delivered CRM capability directly fulfills the CRM goal.",
+          "basis": "structural_inference",
+          "needs_user_input": false,
+          "lint_corrected": true
+        },
+        "pass2_adjusted": {
+          "strength_mean": 0.41768292682926833,
+          "strength_std": 0.08,
+          "exists_probability": 0.865
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 0.2646341463414634,
+        "distance_to_goal": 0,
+        "sign_unstable": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": [
+          {
+            "code": "LINT_BUDGET_RESCALE",
+            "edge_key": "out_crm_capability->goal_crm",
+            "before": 0.6,
+            "after": 0.29268292682926833
+          }
+        ]
+      }
+    },
+    {
+      "from": "out_time_to_value",
+      "to": "goal_crm",
+      "strength": {
+        "mean": 0.3,
+        "std": 0.1
+      },
+      "exists_probability": 0.88,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "sign_flip"
+        ],
+        "pass1": {
+          "strength_mean": 0.3,
+          "strength_std": 0.1,
+          "exists_probability": 0.88
+        },
+        "pass2": {
+          "strength_mean": -0.19512195121951223,
+          "strength_std": 0.05,
+          "exists_probability": 0.95,
+          "reasoning": "Longer time to value undermines CRM goal fulfillment.",
+          "basis": "structural_inference",
+          "needs_user_input": false,
+          "lint_corrected": true
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.0701219512195122,
+          "strength_std": 0.08,
+          "exists_probability": 0.865
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 1,
+        "distance_to_goal": 0,
+        "sign_unstable": true,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": [
+          {
+            "code": "LINT_BUDGET_RESCALE",
+            "edge_key": "out_time_to_value->goal_crm",
+            "before": -0.4,
+            "after": -0.19512195121951223
+          }
+        ]
+      }
+    },
+    {
+      "from": "risk_adoption_failure",
+      "to": "goal_crm",
+      "strength": {
+        "mean": -0.2,
+        "std": 0.1
+      },
+      "exists_probability": 0.78,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "agreed",
+        "contested_reasons": [],
+        "pass1": {
+          "strength_mean": -0.2,
+          "strength_std": 0.1,
+          "exists_probability": 0.78
+        },
+        "pass2": {
+          "strength_mean": -0.24390243902439027,
+          "strength_std": 0.1,
+          "exists_probability": 0.9,
+          "reasoning": "Adoption failure risk directly hampers CRM goal completion.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": true
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.11890243902439024,
+          "strength_std": 0.13,
+          "exists_probability": 0.8150000000000001
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 0.16219512195121955,
+        "distance_to_goal": 0,
+        "sign_unstable": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": [
+          {
+            "code": "LINT_BUDGET_RESCALE",
+            "edge_key": "risk_adoption_failure->goal_crm",
+            "before": -0.5,
+            "after": -0.24390243902439027
+          }
+        ]
+      }
+    },
+    {
+      "from": "risk_opportunity_cost",
+      "to": "goal_crm",
+      "strength": {
+        "mean": -0.25,
+        "std": 0.12
+      },
+      "exists_probability": 0.82,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "sign_flip",
+          "confidence_band_change",
+          "existence_boundary_crossing"
+        ],
+        "pass1": {
+          "strength_mean": -0.25,
+          "strength_std": 0.12,
+          "exists_probability": 0.82
+        },
+        "pass2": {
+          "strength_mean": -0.02439024390243903,
+          "strength_std": 0.019512195121951223,
+          "exists_probability": 0.5,
+          "reasoning": "Opportunity cost risk minimally affects the CRM capability goal directly.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": true
+        },
+        "pass2_adjusted": {
+          "strength_mean": 0.100609756097561,
+          "strength_std": 0.04951219512195122,
+          "exists_probability": 0.41500000000000004
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 1,
+        "distance_to_goal": 0,
+        "sign_unstable": true,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": [
+          {
+            "code": "LINT_BUDGET_RESCALE",
+            "edge_key": "risk_opportunity_cost->goal_crm",
+            "before": -0.05,
+            "after": -0.02439024390243903
+          },
+          {
+            "code": "LINT_STD_CLAMPED",
+            "edge_key": "risk_opportunity_cost->goal_crm",
+            "before": 0.05,
+            "after": 0.019512195121951223
+          }
+        ]
+      }
+    },
+    {
+      "from": "risk_overrun",
+      "to": "goal_crm",
+      "strength": {
+        "mean": -0.35,
+        "std": 0.12
+      },
+      "exists_probability": 0.9,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai",
+      "validation": {
+        "status": "contested",
+        "contested_reasons": [
+          "strength_band_change"
+        ],
+        "pass1": {
+          "strength_mean": -0.35,
+          "strength_std": 0.12,
+          "exists_probability": 0.9
+        },
+        "pass2": {
+          "strength_mean": -0.24390243902439027,
+          "strength_std": 0.1,
+          "exists_probability": 0.9,
+          "reasoning": "Cost and schedule overruns directly impede achieving the CRM goal.",
+          "basis": "domain_prior",
+          "needs_user_input": true,
+          "lint_corrected": true
+        },
+        "pass2_adjusted": {
+          "strength_mean": -0.11890243902439024,
+          "strength_std": 0.13,
+          "exists_probability": 0.8150000000000001
+        },
+        "bias_correction": {
+          "strength_mean_offset": 0.12500000000000003,
+          "strength_std_offset": 0.03,
+          "exists_probability_offset": -0.08499999999999996
+        },
+        "max_divergence": 0.4621951219512195,
+        "distance_to_goal": 0,
+        "sign_unstable": false,
+        "pass2_missing": false,
+        "evoi_rank": null,
+        "evoi_impact": null,
+        "was_shown": false,
+        "user_action": "pending",
+        "resolved_value": null,
+        "resolved_by": "default",
+        "validation_lint_log": [
+          {
+            "code": "LINT_BUDGET_RESCALE",
+            "edge_key": "risk_overrun->goal_crm",
+            "before": -0.5,
+            "after": -0.24390243902439027
+          }
+        ]
+      }
+    }
+  ]
+}

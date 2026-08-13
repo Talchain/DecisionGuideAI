@@ -14,6 +14,19 @@ interface State {
   dismissed: boolean
   errorCount: number
   lastErrorTime: number
+  /**
+   * Did the crash-moment flush actually WRITE a snapshot?
+   *
+   * The panel's closing line makes a guarantee about the user's data, so it may
+   * only be shown when that guarantee holds. `flushWorkToAutosave` already
+   * returns exactly this fact and `componentDidCatch` already captured it; it
+   * simply was not consulted, so the promise was printed even when nothing had
+   * been saved (P0 2026-08-13 — a CEE-shaped store fails every plausibility
+   * gate in crashFlush, so the flush returns false WITHOUT writing).
+   *
+   * Defaults to FALSE: before we know, we do not promise.
+   */
+  workFlushed: boolean
 }
 
 // GitHub issues URL for reporting
@@ -74,6 +87,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
       dismissed: false,
       errorCount: 0,
       lastErrorTime: 0,
+      workFlushed: false,
     }
   }
 
@@ -135,6 +149,9 @@ export class CanvasErrorBoundary extends Component<Props, State> {
       // If user dismissed but errors keep recurring, un-dismiss to show error panel
       // but with the recurring flag they'll see a different message
       dismissed: isRecurring ? false : this.state.dismissed,
+      // Record what the flush ACTUALLY did, so the closing line can describe it
+      // rather than assert a guarantee we may not hold.
+      workFlushed: flushed,
     })
 
     // Mirror canvas errors into the same SAFE_DEBUG structure used by main.tsx
@@ -419,8 +436,20 @@ export class CanvasErrorBoundary extends Component<Props, State> {
               )}
             </div>
 
+            {/*
+              FULL-ASSURANCE COPY. This line makes a claim about the user's
+              data, so it is bound to what the crash flush actually did — not
+              printed unconditionally. When the flush wrote nothing (a store the
+              plausibility gates reject, no provider, or a throw), promising a
+              restore would be false at the exact moment it is read. The
+              failure branch says what happened and stops short of claiming the
+              work is LOST: `flushWorkToAutosave` deliberately leaves an older
+              autosave intact, so a restore may still recover something.
+            */}
             <p className="text-xs text-text-light text-center mt-6">
-              Your work is auto-saved. Reloading will restore your latest work.
+              {this.state.workFlushed
+                ? 'Your work is auto-saved. Reloading will restore your latest work.'
+                : 'We could not save your most recent changes. Reloading may not restore your latest work.'}
             </p>
           </div>
         </div>
