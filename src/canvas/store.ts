@@ -1067,7 +1067,12 @@ function historyHash(nodes: Node[], edges: Edge[]): string {
   // hash, pushToHistory dedups it away, and Undo jumps past both edits instead of
   // stepping 80 → 60. Including it makes each target edit a distinct history entry
   // that undo/redo's deriveGoalThresholdFromNode then reconstructs correctly.
-  const n = nodes.map(n => `${n.id}@${n.position.x},${n.position.y}:${n.type ?? ''}:${n.data?.label ?? ''}:${(n.data as { success_threshold?: unknown })?.success_threshold ?? ''}:${(n.data as { threshold_source?: unknown })?.threshold_source ?? ''}`).join('|')
+  // P0 2026-08-13: `position` is optional-chained for the same reason
+  // `useAutosave.computeGraphHash` optional-chains it — a persisted graph that
+  // reaches the store without geometry (CEE/GraphV3 carries none) would
+  // otherwise make this `undefined.x` and throw on the FIRST edit after a load.
+  // Defaulting to 0 matches the sibling projector exactly.
+  const n = nodes.map(n => `${n.id}@${n.position?.x ?? 0},${n.position?.y ?? 0}:${n.type ?? ''}:${n.data?.label ?? ''}:${(n.data as { success_threshold?: unknown })?.success_threshold ?? ''}:${(n.data as { threshold_source?: unknown })?.threshold_source ?? ''}`).join('|')
   const e = edges.map(e => `${e.id}:${e.source}>${e.target}:${e.label ?? ''}:${(e.data as any)?.schemaVersion ?? ''}`).join('|')
   return `${n}#${e}`
 }
@@ -1487,6 +1492,16 @@ function maybeInvalidateOnEdgeDelete(
 
 function getMaxNumericId(ids: string[]): number {
   return ids.reduce((max, id) => {
+    // P0 2026-08-13: `id` is NOT guaranteed to be a string here. CEE-written
+    // `scenarios.graph` edges carry no `id` key at all, so a persisted graph
+    // reaching `reseedIds` un-normalised made this `undefined.replace(...)` —
+    // a TypeError thrown OUT of `hydrateGraphSlice`, swallowed by the
+    // `.catch()` in CanvasMVP, which silently abandoned the REST of
+    // `loadScenario` (framing, stage, analysis) after the graph had already
+    // been set. `normalisePersistedGraph` now fixes the shape at the boundary;
+    // this guard is defence in depth, because the crash is catastrophic and
+    // this helper is reachable from several graph-replacement paths.
+    if (typeof id !== 'string') return max
     const num = parseInt(id.replace(/\D/g, ''), 10)
     return isNaN(num) ? max : Math.max(max, num)
   }, 0)

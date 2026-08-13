@@ -22,6 +22,7 @@ import { saveAutosave, loadAutosave } from '../store/scenarios'
 import { projectAutosaveData, analysisSnapshotFromStore } from '../store/autosaveProjection'
 import type { AutosaveProjectionSource } from '../store/autosaveProjection'
 import { EPHEMERAL_NODE_FIELDS, EPHEMERAL_EDGE_FIELDS } from '../domain/analyticalNodeFields'
+import { isCanvasShapedNode } from '../utils/normalisePersistedGraph'
 
 // The autosave hash now covers node/edge `data.*` BY DEFAULT (Codex P1-1) and
 // EXCLUDES only the small ephemeral denylist below (transient UI/session state +
@@ -93,29 +94,81 @@ const DEBOUNCE_MS = 500 // Debounce writes to reduce localStorage contention
  *
  * Exported for the drift guard's behavioural cross-check: an ephemeral field must
  * NOT flip this hash; any non-ephemeral data field MUST.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * SHAPE — THIS PROJECTOR SEES **TWO** GRAPH SHAPES, NOT ONE (P0, 2026-08-13)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `scenarios.graph` holds either React-Flow-shaped bytes (`position`, `data`,
+ * edge `source`/`target`) or CEE/GraphV3 bytes (`kind`/`label` top-level, edge
+ * `from`/`to`, and NO `position`, `data`, `id`, `source` or `target` on edges).
+ * `useScenario.loadScenario` hydrates that column into the canvas store VERBATIM,
+ * so BOTH shapes reach this function. Before the fix the edge half read only
+ * `e.source`, so a CEE-written row projected `undefined` endpoints and the
+ * comparator threw `undefined.localeCompare(...)` DURING RENDER — React's error
+ * boundary then took the whole canvas (0 nodes) on every reload of a
+ * CEE-drafted decision. Witnessed on deployed `978d073c`, 3/3 on CEE rows and
+ * 0/2 on React-Flow rows.
+ *
+ * ⚠ NOT-THROWING IS NOT THE REQUIREMENT. This hash is the autosave's dirty gate.
+ * Defaulting the endpoints to a constant would stop the crash and silently break
+ * dirty-detection for every CEE-shaped graph — an edge rewire would not flip the
+ * hash, the save would skip, and the edit would be lost on reload (the #457 loss
+ * class described above). So each field is read in BOTH spellings, and
+ * `useAutosave.ceeShapedRowReload.p0.spec.ts` pins the fidelity, not just the
+ * absence of a throw.
+ *
+ * The dual-shape read matches the estate's existing precedent for this exact
+ * problem — `canvas/utils/mergeServerGraph.ts` already resolves endpoints as
+ * `e.from ?? e.source` on the server-hydration path.
+ *
+ * ⚠ RESIDUAL, deliberately not closed here: for a CEE-shaped node the analytical
+ * payload (`observed_state`, `display_value`, `category`, `interventions`) lives
+ * at the TOP LEVEL, not under `data`, so it is not covered by the `data.*`
+ * hash-by-default rule and an edit to it would not flip this hash. That is a
+ * symptom of CEE-shaped objects being in the store at all; the fix belongs at the
+ * hydration boundary (see the lane report / ROADMAP 2.1096), not in this
+ * projector, which would otherwise become a fourth hand-mirrored copy of the
+ * CEE→React-Flow mapping.
  */
 export function computeGraphHash(nodes: any[], edges: any[]): string {
   const canonical = {
     nodes: nodes
       .map(n => {
         const data = (n.data ?? {}) as Record<string, unknown>
+        // BYTE-STABILITY GATE. A canvas-shaped node projects through the EXACT
+        // original expressions — no `??` limb is added on that branch — so the
+        // signature of every graph that worked before this change is unchanged
+        // to the byte. The CEE fallbacks apply only to a node that is NOT
+        // canvas-shaped, i.e. one that could not have been projected correctly
+        // before anyway. Verified by differential in
+        // useAutosave.ceeShapedRowReload.p0.spec.ts.
+        const canvasShaped = isCanvasShapedNode(n)
         return {
           id: n.id,
-          kind: n.type ?? n.data?.kind,
-          label: n.data?.label ?? '',
+          kind: canvasShaped ? (n.type ?? n.data?.kind) : (n.type ?? n.data?.kind ?? n.kind),
+          label: canvasShaped ? (n.data?.label ?? '') : (n.data?.label ?? n.label ?? ''),
           x: Math.round(n.position?.x ?? 0),
           y: Math.round(n.position?.y ?? 0),
           // All node data by default, minus the ephemeral denylist.
           data: serializableData(data, EPHEMERAL_NODE_SET),
         }
       })
-      .sort((a, b) => a.id.localeCompare(b.id)),
+      // Comparator coerces so a malformed element cannot throw here. The
+      // PROJECTED value above is left exactly as it was, so this changes no
+      // signature — it only stops `undefined.localeCompare` taking the render.
+      .sort((a, b) => String(a.id ?? '').localeCompare(String(b.id ?? ''))),
     edges: edges
       .map(e => {
         const data = (e.data ?? {}) as Record<string, unknown>
         return {
-          from: e.source,
-          to: e.target,
+          // Dual-shape read. React Flow edges carry `source`/`target`;
+          // CEE-written rows carry `from`/`to` and NO `source`/`target` at all.
+          // No trailing `?? ''`: on a canvas-shaped edge `e.source` is a string,
+          // so this is byte-identical to the original `from: e.source`, and on a
+          // malformed edge it stays `undefined` exactly as before. The SORT
+          // below, not the projection, is what stops the throw.
+          from: e.source ?? e.from,
+          to: e.target ?? e.to,
           // Legacy composite kept inline to preserve exact dirty-detection for the
           // old callers; redundant with `data.confidence`/`data.weight` below.
           weight: e.data?.confidence ?? e.data?.weight ?? '',
@@ -123,7 +176,13 @@ export function computeGraphHash(nodes: any[], edges: any[]): string {
           data: serializableData(data, EPHEMERAL_EDGE_SET),
         }
       })
-      .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),
+      // Coerced for the same reason as the node comparator: this line is where
+      // the P0 threw (`undefined.localeCompare`) and took the canvas.
+      .sort(
+        (a, b) =>
+          String(a.from ?? '').localeCompare(String(b.from ?? '')) ||
+          String(a.to ?? '').localeCompare(String(b.to ?? '')),
+      ),
   }
   return stableStringify(canonical)
 }
