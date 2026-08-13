@@ -50,7 +50,7 @@
  * the producer's own output.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useAutosave, computeGraphHash } from '../useAutosave'
 import { useCanvasStore } from '../../store'

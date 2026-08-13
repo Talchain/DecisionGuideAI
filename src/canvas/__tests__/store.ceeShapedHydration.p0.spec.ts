@@ -85,6 +85,28 @@ describe('P0: hydrating a CEE-written row must not throw out of the store', () =
   })
 })
 
+/**
+ * `historyHash` read `n.position.x` unguarded and runs on EVERY graph edit via
+ * `pushToHistory`. With the normaliser in place a position-less node should not
+ * reach the store by the reload route — but this is the same defence-in-depth
+ * argument as the id guard, and an unpinned guard is one a tidy-up deletes.
+ */
+describe('P0: an edit does not throw when a node somehow lacks geometry', () => {
+  it('pushToHistory tolerates a position-less node (historyHash guard)', () => {
+    useCanvasStore.setState({
+      nodes: [{ id: 'n1', type: 'factor', data: { label: 'A' } } as any],
+      edges: [],
+      history: { past: [], future: [] },
+    } as any)
+
+    // updateNode routes through the store's edit chokepoint → pushToHistory →
+    // historyHash. RED before the guard: `Cannot read properties of undefined
+    // (reading 'x')` — which is the OTHER TypeError the witness recorded firing
+    // on reload (WITNESS-978d073c.md §8 item 1), the non-fatal one.
+    expect(() => useCanvasStore.getState().updateNode('n1', { label: 'B' } as any)).not.toThrow()
+  })
+})
+
 describe('P0: the normalised row is what should reach the store', () => {
   it('normalisePersistedGraph turns the real CEE row into canvas shape', () => {
     const { nodes, edges } = normalisePersistedGraph(ceeRow)
