@@ -96,9 +96,28 @@ export interface UIStoreState {
   pendingModelTabSection: string | null
   /** Which transient overlay surface is raised right now. Null when none. */
   activeOverlaySurface: OverlaySurfaceId | null
-  /** Who raised it. Null exactly when no surface is raised. */
+  /** Who raised it. Null exactly when no surface is raised.
+   *  ⚠ NOT `outputSurfaceOrigin` (below) — that one is about the OUTPUTS DOCK
+   *  TAB and is wire-reachable; this one is about the top-bar kebab menu and is
+   *  not. See the block comment on `outputSurfaceOrigin`. */
   overlaySurfaceOrigin: OverlaySurfaceOrigin | null
   /**
+   * ⚠⚠ NOT `overlaySurfaceOrigin`, THE FIELD DECLARED DIRECTLY ABOVE. The two
+   * names differ by ONE WORD and share a suffix, and they answer DIFFERENT
+   * QUESTIONS — the estate's chronic "similar names, different concepts"
+   * defect, introduced here deliberately-but-legibly rather than by accident:
+   *
+   *   · `overlaySurfaceOrigin` — who raised the TOP-BAR KEBAB MENU
+   *     (`activeOverlaySurface`). Set by `setOverlaySurface` /
+   *     `requestOverlaySurface`. ⚠ `requestOverlaySurface` has NO production
+   *     call site and no wire verb, so on a real turn this is only ever
+   *     `'user'`.
+   *   · `outputSurfaceOrigin` — this field — who activated the OUTPUTS DOCK
+   *     TAB. Set by `forceActivateOutputTab`. REACHABLE from the wire today.
+   *
+   * Do not reconcile them, do not fold one into the other, and do not assume a
+   * fix to one applies to the other (trap 21).
+   *
    * ROADMAP 2.1132 — P3/P4 provenance for the dock activations the assistant
    * ACTUALLY performs on a real turn (`open_panel` / `open_section`, executed
    * by `applyV5State`'s ui_directive branch via `forceActivateOutputTab`).
