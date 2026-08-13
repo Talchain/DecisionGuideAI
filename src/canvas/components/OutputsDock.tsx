@@ -2245,10 +2245,32 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     )
                   }
 
+                  // ⚠ ROADMAP 2.1127 — `hasPartialResults` used to be fed
+                  // `Boolean(report)`, and that conflated two different things.
+                  // `report` at status 'error' is ALWAYS the RETAINED PREVIOUS
+                  // run's snapshot: `store.ts :: resultsError` preserves it by
+                  // design, every `resultsError` call site in `useV2Run` leaves
+                  // it untouched, and the one genuinely partial path
+                  // (`analysis_status === 'partial'`) settles through
+                  // `resultsComplete`, never through the error path. So the
+                  // failed run's partial results were never what was on screen
+                  // — the previous run's results were — and the flag made this
+                  // banner append "Your core results are still valid." to EVERY
+                  // failure that followed a success.
+                  //
+                  // The previous run's output stays on screen (deliberate — it
+                  // is the user's best available context) and is attributed by
+                  // `stale-results-banner` below, which names it as the previous
+                  // analysis. This banner speaks only for the run that failed.
+                  //
+                  // `canRetry` now carries the PRODUCER's own answer rather than
+                  // the unconditional `true` the partial-results limb forced:
+                  // `useV2Run` sets `canRetry: false` exactly where the user must
+                  // change the model before a rerun can succeed.
                   const friendlyError = getUserFriendlyError({
                     code: error.code,
                     message: error.message,
-                    hasPartialResults: Boolean(report),
+                    canRetry: error.canRetry,
                   })
 
                   // Task P.3.4: CEE timeout with complexity context (>15 nodes)

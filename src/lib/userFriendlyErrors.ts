@@ -150,9 +150,17 @@ const ERROR_MESSAGES: Record<string, Omit<UserFriendlyError, 'canRetry'>> = {
     actionText: 'Try Again',
     severity: 'error',
   },
+  // ⚠ ROADMAP 2.1127. This entry used to read "We received the analysis results
+  // but had trouble displaying them." — a claim of RECEIPT the code cannot
+  // support. `PROCESSING_ERROR` is minted by `ProcessingError.wrap(err)`
+  // (api-errors.ts), which `useV2Run` uses as its RESIDUAL bucket: the
+  // catch-all for a throw that is neither a typed API error nor a network
+  // error. It fires for failures BEFORE any response arrives just as readily as
+  // for failures after one. Copy names the failure and what the user is left
+  // with; it asserts nothing about what did or did not arrive.
   'PROCESSING_ERROR': {
-    headline: 'Results processing issue',
-    explanation: 'We received the analysis results but had trouble displaying them. Please try again.',
+    headline: 'Analysis couldn\'t be processed',
+    explanation: 'Something went wrong while processing this analysis, so this run produced no results.',
     actionText: 'Try Again',
     severity: 'warning',
   },
@@ -249,11 +257,20 @@ export function getUserFriendlyError(input: ErrorInput): UserFriendlyError {
     baseError = DEFAULT_ERROR
   }
 
-  // Modify for partial results
+  // Modify for partial results.
+  //
+  // ⚠ ROADMAP 2.1127. This limb used to append "Your core results are still
+  // valid." — a VALIDITY VERDICT that nothing in this module, or upstream of
+  // it, ever assessed. `hasPartialResults` is a claim about how much of a run
+  // came back; it is not, and cannot be, evidence that what came back is sound.
+  // The affordances stay (a user with something on screen may want to carry on
+  // rather than rerun); the verdict goes. Anything that genuinely wants to
+  // describe partial results must say WHICH results and on what basis, at the
+  // surface that owns them — see `stale-results-banner` in OutputsDock for the
+  // shape that does this honestly.
   if (input.hasPartialResults) {
     return {
       ...baseError,
-      explanation: `${baseError.explanation} Your core results are still valid.`,
       secondaryActionText: 'Continue Without',
       canRetry: true,
     }
