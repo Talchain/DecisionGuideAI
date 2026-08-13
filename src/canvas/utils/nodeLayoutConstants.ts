@@ -19,6 +19,28 @@ export const NODE_LAYOUT_MIN_W = 140
 /** Maximum rendered card width. Used by BaseNode and as the ELK pinned width. */
 export const NODE_CARD_MAX_W = 320
 
+/**
+ * Minimum horizontal measure (px) reserved for a node's TITLE.
+ *
+ * `overflow-wrap: break-word` (Tailwind `break-words`) is a LAST-RESORT rule:
+ * it splits a word mid-character as soon as that word cannot fit its line box.
+ * It is therefore only as good as the measure it is given.
+ *
+ * Witnessed on deployed staging f2b48fc9 (14 Aug 2026): when a dense tier
+ * compresses cards to NODE_LAYOUT_MIN_W, the title shared its flex row with the
+ * shape indicator (14px + 6px gap) and the header slot, leaving a **77px**
+ * measure inside a 140px card. Ordinary English words are wider than that at
+ * `typography.nodeTitle` — "Coordination" ~90px, "Development" ~83px — so they
+ * broke mid-word ("Team Coordinatio / n Overhead").
+ *
+ * 96px fits a ~12-character word at the node-title size. The header row is
+ * allowed to WRAP, so the header slot moves below the title rather than the
+ * title being squeezed below a readable measure. This is a text-measure floor
+ * only: it does not change the card's width, so the rendered card still matches
+ * ELK's computed box and node spacing/collision behaviour is untouched.
+ */
+export const NODE_TITLE_MIN_MEASURE_PX = 96
+
 /** Horizontal padding added around the rendered card to form the ELK box. */
 export const LAYOUT_PADDING_X = 24
 
