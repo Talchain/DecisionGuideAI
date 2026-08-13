@@ -432,6 +432,19 @@ jobs:
       - name: Bundle env allow-list (no unread VITE_* baked into the bundle)
         run: pnpm run ci:guard:bundle-env
 
+      # Reds if the EMITTED BUNDLE contains a credential-shaped LITERAL.
+      #
+      # This is NOT a duplicate of the guard above, which matches `VITE_NAME:"value"`
+      # pairs — a NAME in key position. Vite inlines a narrowed
+      # `import.meta.env.VITE_X` read as a BARE literal with the name compiled away,
+      # so a real credential is invisible to any name-based check. That is how a live
+      # PLoT bearer sat in a public asset while CI stayed green: the allow-list guard
+      # printed a 🚨 about it on every run and then exited 0.
+      #
+      # Same posture as its neighbour: gates the MERGE, not the Netlify deploy.
+      - name: No credentials in the emitted bundle (value-shape scan)
+        run: pnpm run ci:guard:bundle-credentials
+
       # Reds if src/lib/flagEnv.ts has fallen behind src/flags.ts — a missing
       # key would make that flag silently resolve to its defaultValue.
       - name: flagEnv freshness (derived from src/flags.ts + netlify.toml)

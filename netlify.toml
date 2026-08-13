@@ -204,11 +204,19 @@
   [headers.values]
   cache-control = "public, max-age=31536000, immutable"
 
-[[redirects]]
-  from = "/bff/engine/*"
-  to = "https://plot-lite-service-staging.onrender.com/:splat"
-  status = 200
-  force = true
+# PLoT (engine) Service — the credential boundary.
+#
+# There is deliberately NO [[redirects]] rule for /bff/engine/* here, and none in
+# public/_redirects either. Until the bundle-credential fix, BOTH files declared the
+# same `/bff/engine/*` → plot-lite-service-staging rewrite — the exact duplicate-
+# declaration shape the CEE note below warns about, with the netlify.toml copy dead
+# on arrival (outranked by the _redirects catch-all) and the _redirects copy live.
+#
+# Neither could inject a request header, so PLoT's auth flip was survived by shipping
+# the bearer to the BROWSER (VITE_PLOT_BEARER). Vite inlined it as a bare string
+# literal into a public asset, where any visitor could read it. The seam is now the
+# `plot-proxy` edge function (registered below), which injects PLOT_AUTH_TOKEN
+# server-side. Do not re-add a redirect rule for this path in either file.
 
 # CEE (Assistants) Service — ROADMAP 2.317.
 #
@@ -246,6 +254,22 @@
 [[edge_functions]]
   function = "isl-proxy"
   path = "/bff/isl/*"
+
+# PLoT (engine) proxy - injects the PLoT bearer server-side so the browser holds no
+# credential. Requires PLOT_AUTH_TOKEN in the Netlify dashboard (NOT VITE_-prefixed,
+# NOT in any file here). Until it is set this proxy forwards unauthenticated and
+# auth-gated PLoT routes answer 401 — inert, never a fabricated credential.
+# Replaces the former /bff/engine/* rewrite, which could not inject a header and so
+# forced the bearer into the client bundle.
+[[edge_functions]]
+  function = "plot-proxy"
+  path = "/bff/engine/*"
+
+# Legacy engine path (VITE_EDGE_GATEWAY_URL=/engine). Same target, same injection —
+# bound here so it cannot become an unauthenticated back door around the boundary.
+[[edge_functions]]
+  function = "plot-proxy"
+  path = "/engine/*"
 
 # Orchestrator proxy - handles CORS for CEE orchestrator endpoint
 # CEE backend lacks CORS middleware on /orchestrate/* routes

@@ -38,6 +38,7 @@ import { recordRequestPayload, recordResponsePayload } from '../../../lib/payloa
 import { STRENGTH_BOUNDS, clampStrength } from '../../../canvas/domain/edges'
 import { logger } from '../../../lib/logger'
 import { plotFetch } from '../../../lib/plotFetch'
+import { toSameOriginPlotBase } from '../../../lib/plotSameOrigin'
 
 // ============================================================================
 // Canvas Data Types (input format)
@@ -1707,10 +1708,19 @@ export async function runV2(
   const startTime = Date.now()
   const requestId = request.request_id || `v2-${Date.now()}`
   const endpoint = '/v2/run'
+  // ⚠ NORMALISED TO SAME-ORIGIN. `VITE_PLOT_ENGINE_URL` overrides the caller's base
+  // entirely, so setting it to the absolute PLoT origin would take `/v2/run` — the
+  // primary analysis path — around the `/bff/engine/*` edge function that injects
+  // PLoT's bearer server-side. The browser holds no credential, so a cross-origin
+  // run would simply 401; and the only way to make it succeed would be to publish a
+  // credential in the bundle again. `toSameOriginPlotBase` maps a PLoT-host base
+  // back onto `/bff/engine`, leaving any non-PLoT base untouched.
   const directPlotUrl = import.meta.env?.VITE_PLOT_ENGINE_URL
-  const resolvedBaseUrl = typeof directPlotUrl === 'string' && directPlotUrl.trim().length > 0
-    ? directPlotUrl.trim()
-    : baseUrl
+  const resolvedBaseUrl = toSameOriginPlotBase(
+    typeof directPlotUrl === 'string' && directPlotUrl.trim().length > 0
+      ? directPlotUrl.trim()
+      : baseUrl
+  )
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)

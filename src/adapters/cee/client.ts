@@ -19,7 +19,7 @@ import {
 } from '../../lib/api-schemas'
 import { withRetry } from '../../lib/fetchWithRetry'
 import { devWarn } from '../../utils/debugLog'
-import { plotAuthHeaders } from '../../lib/plotAuthHeaders'
+import { toSameOriginPlotBase } from '../../lib/plotSameOrigin'
 
 /**
  * ⚠ CORRECTED BY ROADMAP 2.710 — THE ENV-RESOLVED BASE IS GONE FROM THIS
@@ -68,23 +68,37 @@ const CEE_BASE_URL = '/bff/cee'
  */
 const CEE_ELICIT_BASE = '/bff/cee'
 
-// CEE Draft Engine base URL
-// On staging, can be set to direct PLoT URL to bypass Netlify proxy (which times out at ~28s)
-// Example: VITE_CEE_DRAFT_BASE=https://plot-lite-service-staging.onrender.com/v1/cee
-// (Measured: it IS so set on staging — draft-graph is a PLoT-served route, so
-// this one is correct as it stands.)
-const CEE_DRAFT_ENGINE_BASE = (import.meta as any).env?.VITE_CEE_DRAFT_BASE || '/bff/engine/v1/cee'
+// CEE Draft Engine base URL — `draft-graph` is a PLoT-served route.
+//
+// ⚠ NORMALISED TO SAME-ORIGIN, DELIBERATELY. `VITE_CEE_DRAFT_BASE` is measured SET
+// on staging to the ABSOLUTE PLoT origin
+// (`https://plot-lite-service-staging.onrender.com/v1/cee`), historically to bypass
+// the Netlify rewrite. That made this the one genuinely cross-origin browser→PLoT
+// call — and therefore the one call that could ONLY be authenticated by putting a
+// credential in the bundle, which is exactly what happened.
+//
+// `toSameOriginPlotBase` maps an absolute PLoT base back onto `/bff/engine/…`, where
+// the `plot-proxy` edge function injects the bearer server-side. The env var may
+// stay set; it simply no longer routes around the credential boundary.
+//
+// ⚠ WATCH THE LATENCY. The bypass existed because the plain rewrite timed out at
+// ~28s and captured draft-graph runs take ~56s. An edge function streams rather than
+// buffering, so time-to-first-byte is now what matters — but this route is the one
+// to check first if Draft My Model starts timing out, and the fix is server-side
+// (streaming/background function), never a credential back in the client.
+const CEE_DRAFT_ENGINE_BASE = toSameOriginPlotBase(
+  (import.meta as any).env?.VITE_CEE_DRAFT_BASE || '/bff/engine/v1/cee',
+)
 
 /**
- * Is this base a PLoT-DIRECT (absolute, cross-origin) base — the only kind of
- * base the env-injected `VITE_PLOT_BEARER` may ride (review F-U1)?
+ * Is this base absolute (cross-origin)?
  *
- * The ONE absolute base this client can hold is the deployed
- * `VITE_CEE_DRAFT_BASE` (PLoT's origin, baked at build). Every relative base
- * is a same-origin `/bff/*` seam whose credential is injected SERVER-side —
- * and the cee-proxy edge function forwards an incoming `authorization`
- * header as the USER-token slot, so a bearer attached to those calls would
- * impersonate a user token at CEE. Exported for the leak-pin spec.
+ * ⚠ ITS ORIGINAL PURPOSE IS GONE. This gated `plotAuthHeaders()` onto PLoT-direct
+ * bases — the browser no longer holds a PLoT credential at all, so there is nothing
+ * left to gate. It is retained ONLY as the leak-pin predicate: every base this
+ * client can now hold must be RELATIVE, because a cross-origin PLoT call cannot be
+ * authenticated without publishing a credential. A `true` here is a defect, and
+ * `client.plotBearerScope.spec.ts` asserts exactly that.
  */
 export function isPlotDirectBase(baseURL: string): boolean {
   return /^https?:\/\//i.test(baseURL)
@@ -645,19 +659,21 @@ export class CEEClient {
           'Content-Type': 'application/json',
           'x-correlation-id': correlationId,
           ...(options.headers as Record<string, string>),
-          // ⚠ SCOPED TO PLoT-DIRECT BASES ONLY (adversarial review F-U1 on
-          // the 2.710 PR). This used to merge `plotAuthHeaders()` into EVERY
-          // request, which was harmless while every base was PLoT — but
-          // 2.710 moved biasCheck/sensitivityCoach onto the same-origin
-          // `/bff/cee` seam, and the cee-proxy edge function forwards an
-          // incoming `authorization` header as the USER-token slot. A
-          // provisioned VITE_PLOT_BEARER would therefore have arrived at CEE
-          // masquerading as a Supabase user token. The bearer is a PLoT
-          // credential for PLoT-DIRECT calls — exactly the absolute
-          // `VITE_CEE_DRAFT_BASE` base; every same-origin `/bff/*` seam gets
-          // its credential injected server-side and must carry none from
-          // here. Leak-pinned by client.plotBearerScope.spec.ts.
-          ...(isPlotDirectBase(baseURL) ? plotAuthHeaders() : {}),
+          // ⚠ NO CREDENTIAL IS ATTACHED HERE, ON ANY BASE.
+          //
+          // This used to merge `plotAuthHeaders()` when the base was PLoT-direct.
+          // That header's value was `VITE_PLOT_BEARER`, which Vite inlined into a
+          // public asset as a bare literal — a live shared server-to-server
+          // credential any visitor could read.
+          //
+          // Every base this client holds is now same-origin (`toSameOriginPlotBase`
+          // normalises the one absolute escape hatch), so the credential is injected
+          // server-side: `/bff/engine/*` by plot-proxy, `/bff/cee/*` by cee-proxy.
+          // Note the pre-existing hazard that makes attaching one here actively
+          // dangerous rather than merely redundant: cee-proxy forwards an incoming
+          // `authorization` header as the USER-token slot, so a bearer added here
+          // would reach CEE masquerading as a Supabase user token.
+          // Leak-pinned by client.plotBearerScope.spec.ts.
         },
         correlationId
       )

@@ -12,7 +12,18 @@
     "at check time, so adding a flag never requires touching this file. This list is",
     "only the NON-flag variables, and it is deliberately a hand-maintained mirror:",
     "it is safe to be one because the guard FAILS LOUD on anything absent from it,",
-    "forcing a human to classify a new variable rather than letting it appear silently."
+    "forcing a human to classify a new variable rather than letting it appear silently.",
+    "",
+    "\u26a0 THE LIMIT OF THIS FILE, LEARNED THE EXPENSIVE WAY (2026-08-13). It tracks NAMES.",
+    "A live PLoT bearer sat in a public bundle chunk for weeks while this file and its",
+    "guard behaved exactly as designed: the read had been correctly NARROWED, so Vite",
+    "compiled the NAME away and inlined only the VALUE. The guard printed a loud",
+    "warning about it on every run \u2014 and exited 0. A note is not a gate.",
+    "",
+    "scripts/ci/assert-no-bundle-credentials.mjs is the companion that scans the",
+    "EMITTED BUNDLE for credential-shaped VALUES and FAILS. Neither guard supersedes",
+    "the other: this one notices a new variable arriving, that one notices a secret",
+    "arriving without a name. Removing either loses a whole defect class."
   ],
   "allowed": [
     "VITE_APP_ENV",
@@ -76,10 +87,7 @@
     "VITE_SESSION_ID": "Non-secret build/session label."
   },
   "knownExposed": {
-    "VITE_PLOT_BEARER": {
-      "valueStillInlined": true,
-      "reason": "A SHARED SERVER-TO-SERVER CREDENTIAL (PLoT's PLOT_AUTH_TOKEN, also used by CEE) shipped to the browser by a ratified POC decision. Narrowing removed its NAME from the bundle but its VALUE is still inlined once, in the plotAuthHeaders chunk, because the browser genuinely needs it until the same-origin proxy lands. Removing it before the proxy is a staging outage for every PLoT-direct seam. See SECURITY-PLOT-BEARER-2026-07-28.md sections 6 and 7; rotation is sequenced AFTER the proxy."
-    },
+    "VITE_PLOT_BEARER": "REMOVED FROM THE BUNDLE 2026-08-13, and the variable is no longer read anywhere in src/. It was a SHARED SERVER-TO-SERVER CREDENTIAL (PLoT's PLOT_AUTH_TOKEN, also used by CEE) inlined by Vite as a bare literal into the public plotAuthHeaders chunk — verified fetchable from the deployed site. The same-origin proxy this entry was waiting on now exists: netlify/edge-functions/plot-proxy.ts injects PLOT_AUTH_TOKEN server-side on /bff/engine/*. THE ROTATION IS STILL OWED — the old value was public for the period it shipped and must be treated as compromised. The name is kept in this file so that re-introducing the variable is a loud event; it is no longer an accepted exposure.",
     "VITE_ACCESS_CODES": "Credential-shaped name read by src/lib/auth/accessValidation.ts. Not present in the measured build (unset), so not currently exposed \u2014 listed here so that setting it is a loud event rather than a silent one.",
     "VITE_ACCESS_SALT": "As above \u2014 a salt in a client bundle provides no secrecy. Review before this is ever set.",
     "VITE_POSTHOG_KEY": "PostHog project keys are write-only and intended to be public, but the name is credential-shaped; kept visible here deliberately. ROADMAP 2.111: this is now the ONLY PostHog key name in the repo — the former second name VITE_POSTHOG_API_KEY was removed (not aliased) so activation cannot leave one consumer dark.",
