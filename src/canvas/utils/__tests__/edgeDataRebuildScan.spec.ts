@@ -326,14 +326,25 @@ describe('edge-data rebuilds — derived source guard (A-3a)', () => {
   /**
    * POSITIVE CONTROL (trap 13). If the detector finds nothing, the assertion
    * below passes by testing nothing — which is precisely how the unpinned class
-   * survived until now. `useScenario.ts` (the Supabase resume hop) and
-   * `store.ts` (the rehydrate + three repair hops) are the known homes; the scan
-   * must SEE them, by file, not merely return a non-zero count.
+   * survived until now. The Supabase resume hop and `store.ts` (the rehydrate +
+   * three repair hops) are the known homes; the scan must SEE them, by file, not
+   * merely return a non-zero count.
+   *
+   * ⚠ RELOCATED 2026-08-13 (P0 CEE-row reload fix), NOT weakened. The Supabase
+   * resume hop's edge-data rebuild moved OUT of `hooks/useScenario.ts` and INTO
+   * `canvas/utils/normalisePersistedGraph.ts`, which is now the single place a
+   * persisted `scenarios.graph` row is turned into canvas shape (the hop itself
+   * is unchanged — it still spreads DEFAULT_EDGE_DATA then the edge's own data).
+   * This control RED'd on exactly that move, which is the guard doing its job:
+   * it holds a manifest of where the class lives, so relocating a site is a
+   * decision someone has to make in a diff. Verified at the time of the move:
+   * the scan reports 6 findings across `canvas/domain/migrations.ts`,
+   * `canvas/store.ts` and `canvas/utils/normalisePersistedGraph.ts`.
    */
   it('the detector can see the real edge-data rebuilds (non-vacuous)', () => {
     expect(findings.length).toBeGreaterThan(0)
     const files = new Set(findings.map((f) => f.file))
-    expect(files.has('hooks/useScenario.ts')).toBe(true)
+    expect(files.has('canvas/utils/normalisePersistedGraph.ts')).toBe(true)
     expect(files.has('canvas/store.ts')).toBe(true)
     // The five hops `edgeValidationRebuildHops.spec.ts` drives end to end. Not a
     // hand-maintained list of WHERE to look — the scan found these — but a floor
