@@ -79,6 +79,29 @@ orchestrator-proxy, collab-proxy). `PLOT_AUTH_TOKEN` follows that convention.
 
 ---
 
+## 2b. How exposed is it, actually? (measured 2026-08-13)
+
+This decides the order in §3, so it comes first.
+
+| Question | Evidence | Answer |
+|---|---|---|
+| Is the credential live right now? | `GET /assets/plotAuthHeaders-Bazgbw-s.js` → **200, 140 bytes, `application/javascript`** | **Yes** |
+| Is it an orphan awaiting cache expiry? | it is a **static import referenced 15× across 14 of the 92 chunks** of the current build | **No — every visitor's browser fetches it on page load** |
+| Do you need to guess the filename? | the filename is advertised by the currently-served bundle | **No. No guessing, no deploy id, no source map.** |
+| Are source maps published? | 92/92 chunks crawled (4,083,070 B), **zero** `sourceMappingURL` | **No** |
+| Is production affected? | production is commit `3807b646…`, built 2026-03-12 | **No — five months stale** |
+| Can old deploys still serve it? | deploy-id permalinks are not enumerable without the authenticated Netlify API | **UNKNOWN — cannot be bounded, so must be assumed yes** |
+| Will fixing the bundle un-publish it? | `cache-control: public, max-age=31536000, immutable`, confirmed Netlify Edge cache hit | **No. CDN nodes and every browser that has loaded the site keep a valid copy for up to a year, and `immutable` tells clients never to revalidate.** |
+
+> ⚠ **A trap in that evidence, worth knowing before you verify anything yourself.**
+> Direct `.map` URLs return **HTTP 200** on this origin — but 4,883 bytes of
+> `text/html`, byte-identical to a deliberately-fake control path, because the SPA
+> fallback answers every unmatched request. **Status code alone proves nothing here;
+> content-type is the discriminator.**
+
+**Conclusion: the code fix stops FUTURE publication and does nothing about the copies
+already distributed. Rotation is mandatory, not tidy-up.**
+
 ## 3. Deploy order that never opens a broken window
 
 The order matters because PLoT **already** rejects unauthenticated requests. Measured
@@ -94,18 +117,39 @@ GET  /health                    → 200    are auth decisions and not a dead ser
 So if this PR deploys while `PLOT_AUTH_TOKEN` is unset, the edge function forwards
 unauthenticated and those routes 401. **Set the variable first.**
 
-1. **Set `PLOT_AUTH_TOKEN` in Netlify to the CURRENT (still-exposed) value.**
-   Harmless: nothing reads it yet. Do *not* rotate at this point.
-2. **Merge and deploy this PR.** The edge function now injects server-side; the
-   browser sends nothing. Product behaviour is unchanged.
-3. **Verify** (§6). Do not proceed until the product works on the new path.
-4. **Delete `VITE_PLOT_BEARER`** from Netlify (all contexts) and redeploy.
-5. **Rotate** (§4) — now, and only now, is the old value replaceable without a window
-   in which the product is broken.
+### Preferred: rotate and deploy together (zero window, zero extra exposure)
 
-Steps 1–3 leave the old value live but the product working. Step 5 is what makes the
-old value worthless. **Neither step alone is sufficient**: the code fix stops *future*
-publication; only rotation addresses the value already published.
+Available **if PLoT can accept two bearers at once** — check first (§5, unknown 2).
+
+1. **Add a NEW bearer to PLoT's accepted set**, keeping the old one accepted.
+2. **Set `PLOT_AUTH_TOKEN` in Netlify to the NEW value**, and update CEE's copy.
+   Nothing reads the Netlify one yet.
+3. **Merge and deploy this PR.** The edge function injects the new value; the browser
+   sends nothing. Product behaviour unchanged throughout.
+4. **Verify** (§6).
+5. **Remove the OLD bearer from PLoT's accepted set.** ← the exposed value dies here.
+
+The old value is never live *and* unnecessary at the same time, and the product never
+breaks. **This is the order to use if it is available.**
+
+### Fallback: single-bearer PLoT — pick which cost you pay
+
+If PLoT accepts only one bearer, the two orders trade against each other and it is
+**Paul's call**, not ours:
+
+| Order | Cost |
+|---|---|
+| **Rotate first, then deploy** | Staging PLoT calls 401 until the deploy lands, because the *currently deployed* browser bundle still sends the old value. Exposure ends immediately. |
+| **Deploy first, then rotate** | Product keeps working throughout; the exposed value stays live for the extra window. |
+
+Given §2b — the credential is **fetched automatically by every visitor right now**,
+and has been for the period it shipped — the extra minutes of a deploy-first order are
+a small marginal risk against an already-public value. But the *value* of rotating is
+not marginal, and **neither order is finished until step 5 of §4 has run.**
+
+**Do not stop after the deploy.** The code fix removes the credential from *future*
+bundles. Because the asset is served `immutable` for a year and prior deploys cannot
+be enumerated, **only rotation at PLoT makes the published value worthless.**
 
 ---
 
