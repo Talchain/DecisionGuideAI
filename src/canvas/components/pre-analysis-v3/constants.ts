@@ -323,6 +323,35 @@ export const FOOTER_COPY = {
   readinessRetainedSub: (reason: string, takenAt: string) =>
     `${reason}. Showing the check from ${takenAt}.`,
   readinessRetry: 'Retry readiness check',
+
+  // ── The check has neither answered NOR failed ─────────────────────
+  //
+  // The arm the three lines above do not reach, and the one the panel spends
+  // every cold load in: `readiness === null && error === null`.
+  //
+  // `usePreAnalysisModel` builds its outage slice as `readinessError ? {…}
+  // : null`, so all of the copy above is gated on a RECORDED FAILURE. With no
+  // verdict and no error the footer fell through to `ready` — "Analysis
+  // available" — about a model nothing had assessed, and `canRunAnalysis`
+  // (which blocks only on `readiness && !can_run_analysis`) left the CTA
+  // enabled beside it. Witnessed on deployed staging 2026-08-13: the panel
+  // claimed availability while CEE refused the run outright, with `blocks: []`
+  // so nothing explained it in the panel.
+  //
+  // Deliberately ONE line covering both "in flight" and "never fired". It
+  // asserts neither — a check that is running and a check that never went out
+  // are the same fact to the reader (nothing has assessed this model), and a
+  // headline claiming a check is IN PROGRESS would be its own unsupported
+  // claim on the starvation path where no request exists.
+  //
+  // The subline names the consequence and keeps the affordance honest: the run
+  // is NOT gated on this (see `readinessObjectsToRun` — failing closed on an
+  // unobtainable check bricks the Run button for a healthy user), so the copy
+  // says so rather than implying the button is dead.
+  /** No verdict and no failure: nothing has assessed this model. */
+  readinessPending: 'Readiness not checked yet',
+  readinessPendingSub:
+    'Olumi has not assessed this model yet. You can still run a first pass.',
 } as const
 
 /**

@@ -326,6 +326,39 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   // and the footer agree with the run gate (canRunAnalysis util).
   const canRun = readiness ? readiness.can_run_analysis || willScaffoldOptions : null
   const footer = useMemo(() => {
+    // ── No verdict: say so, and claim nothing ────────────────────────
+    //
+    // FIRST, because with `readiness == null` nothing below this line is
+    // entitled to make a claim about the model. `canRun` is `null` here (not
+    // `false`), so the `canRun === false` arm does not fire and the memo used
+    // to fall through to the availability copy — printing "Analysis available"
+    // about a model nothing had assessed, beside a CTA that `canRunAnalysis`
+    // leaves enabled (it blocks only on `readiness && !can_run_analysis`).
+    // Witnessed on deployed staging 2026-08-13 as the exact triple
+    // "Analysis available / First pass will be provisional until success is
+    // defined / Analyse first pass" while CEE refused the run.
+    //
+    // #564 / 2.332 / 2.339 closed the arms where the check FAILS; every one of
+    // them sets `readinessError`, and `readinessCheck` is derived as
+    // `readinessError ? {…} : null`. This is the arm none of them reach: the
+    // check has not answered YET, or never fired at all (the 2.345 starvation
+    // shape, which the readinessStore header records as ZERO graph-readiness
+    // requests in three of four witnessed guest sessions).
+    //
+    // Deliberately keyed on `readiness == null` ALONE, not on
+    // `readiness == null && readinessError == null`. When an error IS recorded
+    // the outage arm in PanelFooter outranks this value anyway, so the extra
+    // conjunct buys nothing — and omitting it means a null verdict can never
+    // produce an availability claim by any route, which is the fail-safe
+    // direction. The run gate is untouched: unknown does not object.
+    if (readiness == null) {
+      return {
+        dot: 'warning' as const,
+        headline: FOOTER_COPY.readinessPending,
+        subline: FOOTER_COPY.readinessPendingSub,
+      }
+    }
+
     // UI-SEM-091: readiness reports not-runnable, but CEE will draft the
     // remaining options — disclose the draft, never the not-ready copy.
     if (readiness?.can_run_analysis === false && willScaffoldOptions) {
@@ -366,6 +399,11 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     scaffoldOptionCount,
     success.isSet,
     top,
+    // The null/non-null transition is what the new first branch turns on.
+    // `canRun` already tracks it (null → boolean), but depending on the
+    // verdict itself keeps the memo's inputs honest rather than relying on a
+    // derived value to stand in for it.
+    readiness,
     readiness?.can_run_analysis,
     readiness?.confidence_explanation,
   ])
