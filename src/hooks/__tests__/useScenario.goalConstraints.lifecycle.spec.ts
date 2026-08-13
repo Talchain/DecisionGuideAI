@@ -57,6 +57,25 @@ vi.mock('../../lib/supabase', () => supabaseMockModule())
 vi.mock('react-router-dom', () => routerMockModule())
 vi.mock('../../contexts/AuthContext', () => authMockModule())
 
+
+// ⚠ THE CLIENT GRAPH-WRITE POLICY IS LIFTED FOR THIS FILE — deliberately.
+//
+// P0 2026-08-13 shut the client's write to `scenarios.graph` entirely
+// (`lib/clientGraphWritePolicy.ts`): it holds raw React Flow bytes, there is no
+// React-Flow→GraphV3 projector, and CEE's analyse read 500s on them. That is a
+// POLICY, and it is pinned — with mutants — in
+// `useScenario.reactFlowNeverPersisted.p0.spec.ts`.
+//
+// This file pins the MECHANISM: which RPC, which owner, which ordering, which
+// hash. Every one of those properties is still true and must not be deleted
+// because the policy is currently shut — when a projector lands the plumbing has
+// to be right on the first day. So the policy is opened here explicitly and this
+// file goes on proving the write path. Two questions, two files, neither
+// impersonating the other.
+vi.mock('../../lib/clientGraphWritePolicy', () => ({
+  clientCanWriteReadableGraph: () => true,
+}))
+
 import { useScenario } from '../useScenario'
 import { useCanvasStore } from '../../canvas/store'
 

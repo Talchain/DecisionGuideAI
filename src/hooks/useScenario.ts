@@ -27,6 +27,10 @@ import { DEFAULT_EDGE_DATA, type EdgeData } from '../canvas/domain/edges'
 import { readPersistedGoalConstraints } from '../canvas/utils/persistedGraph'
 import { isPersistenceActive as computeIsPersistenceActive } from '../lib/persistenceActive'
 import { shouldPersistGraphForScenario } from '../canvas/stores/draftStore'
+// P0 2026-08-13 — may this client write `scenarios.graph` at all? Its own module
+// so the specs that pin the write MECHANISM can lift the policy and keep proving
+// the plumbing. See that file's header for the whole derivation.
+import { clientCanWriteReadableGraph } from '../lib/clientGraphWritePolicy'
 
 export type SaveStatus = 'saved' | 'saving' | 'error'
 
@@ -151,13 +155,15 @@ function trackInFlightGraphSave(p: Promise<unknown>): void {
  * ONE write code path. Updates the shared "already persisted" key and marks the
  * store clean on success. Rejects (propagates) on failure — callers decide.
  *
- * @returns `true` when a write was performed, `false` when it was SUPPRESSED
- * because the scenario's streamed draft has unsettled values (round-2 review
- * R2-N1). Callers that surface a save indicator must not report "saved" for a
- * write that deliberately did not happen — a false indicator is precisely the
- * honesty class this lane polices, and during a terminal `unsettled` state a
- * signed-in user would otherwise see "saved" on every edit while nothing
- * persists, then lose all of it on reload to CEE's commit.
+ * @returns `true` when a write was performed, `false` when it was SUPPRESSED —
+ * either because this client cannot produce CEE-readable bytes at all (P0
+ * 2026-08-13, see `clientCanWriteReadableGraph`), or because the scenario's
+ * streamed draft has unsettled values (round-2 review R2-N1). Callers that
+ * surface a save indicator must not report "saved" for a write that deliberately
+ * did not happen — a false indicator is precisely the honesty class this lane
+ * polices, and during a terminal `unsettled` state a signed-in user would
+ * otherwise see "saved" on every edit while nothing persists, then lose all of it
+ * on reload to CEE's commit.
  */
 async function persistGraphNow(sid: string): Promise<boolean> {
   // ROADMAP 2.122 round 2 (adversarial review F1) — never persist a graph whose
@@ -180,6 +186,35 @@ async function persistGraphNow(sid: string): Promise<boolean> {
   // cannot need this flush, because the run gate is shut for exactly these phases.
   // The store stays dirty, so the debounce re-fires and the settled graph is
   // written the moment the phase clears.
+  // P0 (2026-08-13) — the SHAPE question, asked here for THIS function's own
+  // answer. The authoritative suppression is at the choke point,
+  // `saveGraphViaGatedPath`; see below for why both exist.
+  //
+  // ⚠ IT WAS HERE FIRST, AND THAT WAS THE DEFECT AN INDEPENDENT REVIEW FOUND.
+  // `persistGraphNow` is one of TWO callers of the write function; the other,
+  // `lib/loginDraftImport.importGuestDraft`, calls it DIRECTLY and sailed
+  // straight past a guard installed at this call site — still writing React Flow
+  // bytes into a brand-new scenario on the guest→signed-in onboarding path,
+  // proven by execution with the policy shut. A guard at one call site IS the
+  // hand-maintained mirror of "all call sites" (trap 12) — which is the argument
+  // this function's own header makes, applied one level too shallow.
+  //
+  // So the AUTHORITATIVE suppression now lives at the choke point.
+  //
+  // ⚠ AND THIS LINE STAYS TOO — it is not a redundant second guard, and deleting
+  // it as one would re-open a different hole. It exists for the R2-N1 contract:
+  // this function must answer FALSE so its callers never report "saved" for a
+  // write that did not happen. Deriving that answer from the service's return
+  // value instead was tried and REVERTED: every spec that mocks `scenarioService`
+  // gets `undefined` back, which reads as "suppressed", so a mocked service would
+  // silently switch off the honesty contract AND make a real write look
+  // suppressed in tests. A guard that a mock can fake is not a guard.
+  //
+  // Both call the SAME exported predicate, so there is no list to keep in step
+  // and trap 12 is satisfied: the objection was to a guard that existed ONLY at a
+  // call site, leaving the other call site open — not to a call site also asking
+  // the question for its own purposes.
+  if (!clientCanWriteReadableGraph()) return false
   if (!shouldPersistGraphForScenario(sid)) return false
   const state = useCanvasStore.getState()
   const key = graphSaveKey(state)
@@ -350,7 +385,14 @@ export function useScenario(): UseScenarioReturn {
         if (!isAutosaveOwner(instanceIdRef.current)) return
         if (graphSaveKey(useCanvasStore.getState()) === sharedLastSavedGraphKey) return
 
-        if (mountedRef.current) setSaveStatus('saving')
+        // P0 (2026-08-13): only announce "Saving…" for a write that can
+        // actually be attempted. `persistGraphNow` returns false when the
+        // client cannot produce CEE-readable bytes, and the caller below then
+        // correctly refuses to claim "saved" — so an ungated transition here
+        // would park the TopBar indicator on "Saving…" permanently after every
+        // canvas edit. A permanent false-progress indicator is the same
+        // honesty class as a false "saved", just pointed the other way.
+        if (mountedRef.current && clientCanWriteReadableGraph()) setSaveStatus('saving')
 
         try {
           const p = persistGraphNow(saveSid)

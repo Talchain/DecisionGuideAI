@@ -56,6 +56,34 @@ vi.mock('../../../contexts/AuthContext', () => ({
   }),
 }))
 
+
+// ⚠ THE CLIENT GRAPH-WRITE POLICY IS LIFTED FOR THIS FILE — deliberately, and it
+// sharpens what this spec proves rather than weakening it.
+//
+// P0 2026-08-13 shut the client's write to `scenarios.graph` entirely
+// (`lib/clientGraphWritePolicy.ts`): the store holds raw React Flow bytes,
+// there is no React-Flow→GraphV3 projector, and CEE's analyse read 500s on them.
+// So the write-back RACE this file pins — CEE commits 250, the autosave wakes and
+// writes 100 back over it — is now unreachable by the strongest possible means:
+// the second writer is gone. That is the P0 fix's doing and it is pinned, with
+// mutants, in `hooks/__tests__/useScenario.reactFlowNeverPersisted.p0.spec.ts`.
+//
+// This file pins something the fix does NOT make unreachable: that the reconcile
+// is not ADDITIVE, and that whatever the client does persist survives all four
+// stations. Both halves have to keep being true the day a projector lands and the
+// policy re-opens — which is exactly when the race could return. Deleting the
+// coverage because the door is currently shut would leave that day uncovered, so
+// the policy is opened here explicitly and the four-station chain goes on being
+// proved end to end.
+//
+// (The DURABILITY a user actually gets today does not run through this chain at
+// all: CEE writes the graph itself via `store_draft_graph`, and the client's
+// autosave was never landing for the guest population in any case —
+// `graph_saved` events were zero on every day from 20 July to 11 August.)
+vi.mock('../../../lib/clientGraphWritePolicy', () => ({
+  clientCanWriteReadableGraph: () => true,
+}))
+
 import { useScenario } from '../../../hooks/useScenario'
 import { useCanvasStore } from '../../store'
 import { reconcileAppliedGraph } from '../mergeAppliedGraph'
