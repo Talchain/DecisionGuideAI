@@ -33,6 +33,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   scanChunk,
+  expandSourceMap,
   scanChunks,
   isCredentialShaped,
   classifyJwt,
@@ -167,6 +168,81 @@ describe('CONTRAST CONTROL — it is not simply matching everything', () => {
 
   it('passes low-entropy padding beside an auth marker', () => {
     expect(violationsOf('const t="00000000000000000000000000000000000000";const h={Bearer:t};')).toHaveLength(0)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════════
+describe('SOURCE MAPS — the artefact class claimed must be the artefact class covered', () => {
+  // A published map embeds `sourcesContent`, i.e. the ORIGINAL source. A credential
+  // removed from the minified chunk but still present in its map is still published.
+  // Claiming `.map` coverage without being able to see into one would be worse than
+  // not scanning maps at all, because it reads as assurance.
+  const mapWith = (sourcesContent: string) =>
+    JSON.stringify({
+      version: 3,
+      sources: ['src/x.ts'],
+      names: [],
+      // A realistic VLQ blob. High-entropy base64 by nature — if the scan ever looks
+      // at `mappings`, this test starts failing and that is the point.
+      mappings: 'AAAA,SAASA,GAAT,CAAaC,CAAb,EAAgBC,CAAhB,EAAmBC,CAAnB,EAAsBC,CAAtB,EAAyBC,CAAzB',
+      sourcesContent: [sourcesContent],
+    })
+
+  it('expandSourceMap decodes sourcesContent and IGNORES mappings/sources/names', () => {
+    const out = expandSourceMap('x.js.map', mapWith('const a = 1'))
+    expect(out).toHaveLength(1)
+    expect(out[0].text).toBe('const a = 1')
+    expect(out[0].file).toContain('sourcesContent[0]')
+    expect(out[0].text).not.toContain('AAAA')
+  })
+
+  it('returns nothing for a non-map file', () => {
+    expect(expandSourceMap('x.js', 'const a=1')).toHaveLength(0)
+  })
+
+  it('an UNPARSEABLE map is scanned RAW — malformed must not become a blind spot', () => {
+    const out = expandSourceMap('x.js.map', '{not json')
+    expect(out).toHaveLength(1)
+    expect(out[0].file).toContain('unparseable')
+  })
+
+  it('POSITIVE: a secret inside sourcesContent IS caught', () => {
+    const decoded = expandSourceMap('x.js.map', mapWith(`const h={Authorization:"Bearer ${SYNTHETIC_SECRET}"}`))
+    const violations = decoded.flatMap((c) => scanChunk(c)).filter((f) => f.kind === 'violation')
+    expect(violations).toHaveLength(1)
+    expect(violations[0].value).toBe(SYNTHETIC_SECRET)
+  })
+
+  it('CONTRAST: a clean map — including its high-entropy mappings blob — is NOT caught', () => {
+    const raw = mapWith('const h={Authorization:`Bearer ${t}`,"Content-Type":"application/json"}')
+    const all = [{ file: 'x.js.map', text: raw }, ...expandSourceMap('x.js.map', raw)]
+    expect(all.flatMap((c) => scanChunk(c)).filter((f) => f.kind === 'violation')).toHaveLength(0)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════════
+describe('AUTH SCHEME IN THE SAME LITERAL — `"Bearer <secret>"`', () => {
+  // The defect that shipped put the secret in its OWN literal, so the literal WAS the
+  // credential. The more ordinary shape — scheme and secret in one string — was
+  // invisible, because the space and the word `Bearer` fail isCredentialShaped.
+  it.each(['Bearer', 'Basic', 'Token', 'ApiKey'])('catches a secret after `%s`', (scheme) => {
+    const found = violationsOf(`const h={Authorization:"${scheme} ${SYNTHETIC_SECRET}"};`)
+    expect(found).toHaveLength(1)
+    expect(found[0].value).toBe(SYNTHETIC_SECRET)
+  })
+
+  it('CONTRAST: a scheme with an INTERPOLATION rather than a secret is not caught', () => {
+    expect(violationsOf('const h={Authorization:`Bearer ${t}`,"Content-Type":"application/json"};')).toHaveLength(0)
+  })
+
+  it('CONTRAST: a scheme followed by a short, low-entropy value is not caught', () => {
+    expect(violationsOf('const h={Authorization:"Bearer abc",note:"a token header"};')).toHaveLength(0)
+  })
+
+  it('CONTRAST: prose merely containing the word Bearer is not caught', () => {
+    expect(
+      violationsOf('const m="Bearer tokens are injected server side by the edge function, never here";'),
+    ).toHaveLength(0)
   })
 })
 

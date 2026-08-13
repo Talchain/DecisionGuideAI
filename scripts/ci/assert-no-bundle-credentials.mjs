@@ -57,15 +57,24 @@
 // An absence assertion is worthless until it has proved it can see a PRESENCE.
 //   · `scanChunks` THROWS on zero chunks and on zero bytes — an empty scan can
 //     never be reported as clean.
-//   · `tests/ci-guards/no-bundle-credentials.spec.ts` carries the POSITIVE CONTROL
-//     (a synthetic credential-shaped literal beside `Bearer` MUST be caught) and
-//     the CONTRAST CONTROL (clean chunks, a public anon JWT, an `Authorization`
-//     header name with no credential near it MUST all pass). Without the contrast
-//     control a sentinel that matches everything looks identical to a strict one.
+//   · `selfTest()` runs on EVERY invocation, before any verdict: a positive canary
+//     MUST be caught and its credential-free twin MUST NOT be. This proves the
+//     detector is alive HERE — this Node, this file, this run — not merely that it
+//     bit in CI once. A detector that has silently stopped matching is otherwise
+//     indistinguishable from a clean bundle.
+//   · `tests/ci-guards/no-bundle-credentials.spec.ts` carries the same pairing at
+//     spec level. Without the CONTRAST half, a sentinel that matches EVERYTHING
+//     passes every positive control and looks identical to a strict one — until it
+//     reds an innocent build and gets loosened into decoration.
 //
-// POSTURE: BLOCKING, beside `ci:guard:bundle-env` in `.github/workflows/ci.yml`.
-// Gates the MERGE, not the Netlify deploy — a false red here must not be able to
-// break staging for every lane.
+// POSTURE: BLOCKING, in TWO places, deliberately.
+//   · `.github/workflows/staging-full-tests.yml` — the `build` job of the "Staging
+//     Gate". That is the ONLY check `staging` branch protection requires, so this is
+//     where the blocking actually happens.
+//   · `.github/workflows/ci.yml` — beside `ci:guard:bundle-env`, for parity with its
+//     sibling.
+// Neither is wired into `build:ci`, which is what Netlify runs: a false red must gate
+// the MERGE, never break the staging DEPLOY for every lane.
 // =============================================================================
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
@@ -76,8 +85,25 @@ import { fileURLToPath } from 'node:url'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 export const ROOT = path.resolve(HERE, '../..')
 
-/** Files in dist/ worth scanning. Sourcemaps included: a credential in a published map is published. */
+/**
+ * The ARTEFACT CLASS this guard covers. Name it, do not imply it.
+ *
+ * ⚠ AN ABSENCE CLAIM ABOUT `dist/*.js` IS NOT AN ABSENCE CLAIM ABOUT `dist/`.
+ * A register row was minted on exactly that generalisation five days before this
+ * guard was written: a crawler that searched the JS chunk graph reported "no commit
+ * stamp in the deployed UI", and the stamp was sitting in `dist/version.json` the
+ * whole time. So this scans the whole of `dist/` recursively, and the extensions
+ * below are printed in the output on every run — a reader must never have to assume
+ * what was covered.
+ *
+ * `.map` is included deliberately. A source map carries `sourcesContent`, i.e. the
+ * ORIGINAL source; a credential removed from the minified chunk but still present in
+ * a published map is still published. Files with no extension (`_redirects`,
+ * `_headers`) are NOT scanned — they are Netlify build directives, and are reported
+ * as skipped rather than silently ignored.
+ */
 const SCANNABLE = /\.(js|mjs|cjs|html|json|css|map)$/i
+const SCANNED_CLASS = 'dist/**/*.{js,mjs,cjs,html,json,css,map}'
 
 /** How far from an auth token a literal may sit and still count as "in an auth context". */
 export const AUTH_WINDOW = 256
@@ -87,6 +113,80 @@ const AUTH_CONTEXT = /(?:Bearer|Authorization|x-api-key|api[_-]?key|apiKey|secre
 
 /** A string literal in emitted JS: double, single or backtick quoted. */
 const STRING_LITERAL = /"((?:[^"\\\n]|\\.){24,})"|'((?:[^'\\\n]|\\.){24,})'|`((?:[^`\\\n]|\\.){24,})`/g
+
+/**
+ * An auth scheme carrying its credential INSIDE the same literal:
+ * `"Bearer <secret>"`, `"Basic <secret>"`, `"Token <secret>"`.
+ *
+ * MEASURED GAP. The defect that shipped put the secret in its OWN literal
+ * (`const c="<secret>"`) with `Bearer ${c}` as a separate template, so the literal
+ * WAS the credential. The far more ordinary shape — one string containing both the
+ * scheme and the secret — was invisible: `isCredentialShaped` rejects it because of
+ * the space and the word `Bearer`. Found by planting a secret in a source map and
+ * watching the guard pass.
+ *
+ * Extracting the operand is deliberately narrow. The alternative considered and
+ * rejected was scanning credential-shaped substrings anywhere inside any literal,
+ * which reintroduces the minified-identifier false positives measured earlier.
+ * Here the scheme keyword is what licenses the extraction, so there is no guessing.
+ */
+const AUTH_SCHEME_VALUE = /^\s*(?:Bearer|Basic|Token|ApiKey|Api-Key)\s+(\S+)\s*$/i
+
+/**
+ * Every candidate secret a literal yields: the literal itself, plus the operand of
+ * an auth scheme it carries. Order matters only for reporting.
+ */
+function candidatesFrom(value) {
+  const out = [value]
+  const m = value.match(AUTH_SCHEME_VALUE)
+  if (m) out.push(m[1])
+  return out
+}
+
+/**
+ * SOURCE MAPS NEED DECODING, NOT A BLUNTER REGEX. Both alternatives were MEASURED.
+ *
+ * A credential inside a map is nested in a JSON string with ESCAPED quotes:
+ *
+ *     "sourcesContent":["const h={Authorization:\"Bearer <secret>\"}"]
+ *
+ * so the literal scan captures the whole escaped line — spaces and braces included —
+ * which fails `isCredentialShaped` and is dropped. Scanning `.map` files with the
+ * literal regex alone is therefore a FALSE COVERAGE CLAIM: worse than not scanning
+ * them, because it reads as assurance. Proven by planting a secret in a map: not
+ * caught.
+ *
+ * The obvious fix — scan bare credential-alphabet TOKENS anywhere, ignoring quoting —
+ * was tried and REJECTED on measurement: it caught the planted map secret and also
+ * produced **15 false positives on a clean 89-chunk build**, matching minified
+ * identifier runs near the words `token`, `Token`, `SECRET` and `Credential`. A guard
+ * that reds a clean build is a guard that gets loosened until it stops working.
+ *
+ * So maps are DECODED and only `sourcesContent` — the original source text — is
+ * scanned, with the ordinary literal rules. The other fields are deliberately
+ * excluded, and `mappings` is the reason it matters: it is a single enormous
+ * high-entropy base64-VLQ string that any entropy-based scan would flag for ever.
+ * `sources` and `names` are identifiers, not values.
+ */
+export function expandSourceMap(file, text) {
+  if (!/\.map$/i.test(file)) return []
+  let parsed
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    // An unparseable .map is not evidence of safety. Scan it as raw text so a
+    // malformed or hand-edited map cannot become a blind spot.
+    return [{ file: `${file} (unparseable — scanned raw)`, text }]
+  }
+  const contents = Array.isArray(parsed?.sourcesContent) ? parsed.sourcesContent : []
+  const sources = Array.isArray(parsed?.sources) ? parsed.sources : []
+  return contents
+    .map((src, i) => ({
+      file: `${file} → sourcesContent[${i}]${sources[i] ? ` (${sources[i]})` : ''}`,
+      text: typeof src === 'string' ? src : '',
+    }))
+    .filter((c) => c.text.length > 0)
+}
 
 /**
  * Context-free credential formats. These are self-identifying: no proximity needed,
@@ -191,10 +291,17 @@ const WORD_SEGMENTS = /^[A-Za-z]+(?:[_-][A-Za-z]+)+$/
  */
 const DIGEST_KEY = /(?:sha\d*|md5|digest|hash|checksum|integrity|etag|fingerprint)$/i
 
-/** The object key a literal is assigned to, if any: `foo:"<literal>"` → `foo`. */
+/**
+ * The object key a value is assigned to, if any: `foo:"<value>"` → `foo`.
+ *
+ * `index` may point at the opening quote OR at the first character of the value
+ * itself (the token scan yields the latter), and the quote may be JSON-escaped
+ * inside a source map — so an optional `\"`, `"`, `'` or backtick is stripped first.
+ * Without that, every digest inside a `.map` would lose its exemption and red.
+ */
 export function precedingKey(text, index) {
-  const before = text.slice(Math.max(0, index - 80), index)
-  const m = before.match(/(?:([A-Za-z_$][\w$]*)|["']([\w.-]+)["'])\s*:\s*$/)
+  const before = text.slice(Math.max(0, index - 80), index).replace(/(?:\\?["'`])\s*$/, '')
+  const m = before.match(/(?:([A-Za-z_$][\w$]*)|\\?["']([\w.-]+)\\?["'])\s*:\s*$/)
   return m ? (m[1] ?? m[2]) : null
 }
 
@@ -272,6 +379,17 @@ export function collectFiles(dir, out = []) {
   return out
 }
 
+/** EVERY file under dir, scannable or not — so the output can report what it SKIPPED. */
+export function collectAll(dir, out = []) {
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules') continue
+    const full = path.join(dir, name)
+    if (statSync(full).isDirectory()) collectAll(full, out)
+    else out.push(full)
+  }
+  return out
+}
+
 /**
  * Findings for one chunk. A finding is {kind, id, file, value, reason, near}.
  *
@@ -308,8 +426,11 @@ export function scanChunk({ file, text }) {
   if (authSpans.length > 0) {
     STRING_LITERAL.lastIndex = 0
     for (const m of text.matchAll(STRING_LITERAL)) {
-      const value = m[1] ?? m[2] ?? m[3]
-      if (!value || !isCredentialShaped(value)) continue
+      const literal = m[1] ?? m[2] ?? m[3]
+      if (!literal) continue
+      // The literal itself, or the operand of an auth scheme it carries.
+      const value = candidatesFrom(literal).find((c) => isCredentialShaped(c))
+      if (!value) continue
       const at = m.index
       const span = authSpans.find(([lo, hi]) => at >= lo && at <= hi)
       if (!span) continue
@@ -423,19 +544,72 @@ export function redact(value) {
   return `<${value.length} chars, sha256:${digest}>`
 }
 
+/**
+ * A synthetic credential in exactly the shape that shipped. NOT a real value.
+ * Used only by the runtime self-test below; never written anywhere.
+ */
+const CANARY_POSITIVE =
+  'function a(){const a="f1e9c40b7a6d2358e0c94b17fa5d8e26c3079b1f4a8e5d2c6b093f17e5a2d840";' +
+  'return{Authorization:`Bearer ${a}`}}'
+
+/** The same chunk with the secret removed — an auth header name and nothing to find. */
+const CANARY_CONTRAST = 'function a(t){return{Authorization:`Bearer ${t}`,"Content-Type":"application/json"}}'
+
+/**
+ * PROVE THE DETECTOR IS ALIVE ON THIS RUN, before believing a clean result.
+ *
+ * The spec proves the detector bites in CI. This proves it bites HERE — against this
+ * Node version, this file on disk, right now. An absence assertion is worthless until
+ * it has demonstrated it can see a presence (trap 13), and a guard whose detector has
+ * silently stopped matching is indistinguishable from a clean bundle.
+ *
+ * BOTH halves are required and they are not redundant:
+ *   · POSITIVE — the canary MUST be caught. A detector matching nothing would
+ *     otherwise report every bundle clean, for ever.
+ *   · CONTRAST — its credential-free twin MUST NOT be caught. A detector matching
+ *     everything would pass the positive control while being useless, and would be
+ *     "fixed" by loosening it until it stopped firing.
+ * One without the other proves nothing about the property that matters.
+ */
+function selfTest(err) {
+  const pos = scanChunk({ file: '<self-test:positive>', text: CANARY_POSITIVE })
+  const neg = scanChunk({ file: '<self-test:contrast>', text: CANARY_CONTRAST })
+  const posViolations = pos.filter((f) => f.kind === 'violation').length
+  const negViolations = neg.filter((f) => f.kind === 'violation').length
+  if (posViolations !== 1 || negViolations !== 0) {
+    err(
+      `\n❌ SELF-TEST FAILED — this guard is not reporting on the bundle, it is reporting on itself.\n\n` +
+        `     positive canary: expected 1 violation, got ${posViolations}\n` +
+        `     contrast canary: expected 0 violations, got ${negViolations}\n\n` +
+        `   ${posViolations === 0 ? 'The detector matched NOTHING: a clean result here would be vacuous.\n   ' : ''}` +
+        `${negViolations > 0 ? 'The detector matched a credential-FREE chunk: it would red every build.\n   ' : ''}` +
+        `Do not "fix" this by loosening the pattern. Fix the detector.\n`,
+    )
+    return false
+  }
+  return true
+}
+
 export function run({ distDir, log = console.log, err = console.error }) {
+  if (!selfTest(err)) return 1
+
   if (!existsSync(distDir)) {
     err(`\n❌ ${distDir} not found — run a build first (pnpm run build).\n`)
     return 1
   }
 
   let result
+  let chunks = []
   try {
     const files = collectFiles(distDir)
-    const chunks = files.map((f) => ({
-      file: path.relative(distDir, f),
-      text: readFileSync(f, 'utf8'),
-    }))
+    for (const f of files) {
+      const rel = path.relative(distDir, f)
+      const text = readFileSync(f, 'utf8')
+      chunks.push({ file: rel, text })
+      // A published source map embeds the ORIGINAL source; a credential removed
+      // from the minified chunk but still present in its map is still published.
+      chunks.push(...expandSourceMap(rel, text))
+    }
     result = scanChunks(chunks)
   } catch (e) {
     err(`\n❌ ${e.message}\n`)
@@ -469,8 +643,26 @@ export function run({ distDir, log = console.log, err = console.error }) {
     return 1
   }
 
+  // NAME WHAT WAS COVERED. A reader must never have to infer the artefact class from
+  // a green tick — "no credentials in dist/*.js" and "no credentials in dist/" are
+  // different claims, and conflating them is how a wrong absence claim gets recorded.
+  const byExt = new Map()
+  for (const c of chunks) {
+    const ext = path.extname(c.file).toLowerCase() || '(no extension)'
+    byExt.set(ext, (byExt.get(ext) ?? 0) + 1)
+  }
+  const skipped = collectAll(distDir).length - chunks.length
+
   log(`✅ No credential-shaped literals in the emitted bundle`)
-  log(`   scanned: ${new Set(findings.map((f) => f.file)).size || 0} file(s) with findings · ${bytes.toLocaleString()} bytes`)
+  log(`   self-test: detector caught the positive canary and cleared its contrast twin`)
+  log(`   covered:   ${SCANNED_CLASS}`)
+  log(
+    `   scanned:   ${chunks.length} file(s) · ${bytes.toLocaleString()} bytes · ` +
+      [...byExt.entries()].sort().map(([e, n]) => `${e}×${n}`).join(' '),
+  )
+  if (skipped > 0) {
+    log(`   NOT scanned: ${skipped} file(s) outside that class (e.g. _redirects, _headers, images).`)
+  }
   if (allowed.length > 0) {
     log(`\n· ${allowed.length} match(es) allowed as PUBLIC BY DESIGN (derived from the value itself):`)
     for (const a of allowed) log(`     · ${a.file}: ${redact(a.value)} — ${a.reason}`)

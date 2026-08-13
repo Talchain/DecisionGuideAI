@@ -49,6 +49,23 @@
  *   · the WIRING — a source pin that `CEE_DRAFT_ENGINE_BASE` is wrapped in it, which
  *     REDs the moment anyone unwraps it (the behavioural pin cannot see that);
  *   · the OUTCOME — the exact URL `draftModel` requests, and that it is relative.
+ *
+ * ⚠⚠ MUTANT CONTRACT, AND THE ASYMMETRY IT EXPOSED — MEASURED, NOT ASSUMED. Two
+ * mutants were run at the `fetchWithBase` headers site, and they do NOT behave the
+ * same way:
+ *   · a HARD-CODED `Authorization` literal REDs the behavioural pins (this file's
+ *     draftModel absence pin, plus all three `/bff/cee` pins in
+ *     client.plotBearerScope.spec.ts) — 4 RED;
+ *   · re-merging an ENV-READ credential, i.e. THE ACTUAL DEFECT THAT SHIPPED, REDs
+ *     ONLY the source-level pin above — 1 RED, and every behavioural pin stays
+ *     GREEN.
+ * The reason is the frozen-snapshot limit in the paragraph above: under test
+ * `client.ts` cannot see a stubbed `VITE_PLOT_BEARER` at all, so a reintroduced
+ * `plotAuthHeaders()` returns `{}` and leaks nothing a spy could catch. **The
+ * behavioural pins are structurally blind to the exact defect this file exists to
+ * prevent.** That is why the source-level pin is not belt-and-braces here — it is
+ * the load-bearing one, and deleting it as "redundant with the behavioural test"
+ * would retire the only guard that sees the real thing.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'

@@ -59,6 +59,7 @@
 1	netlify/edge-functions/csp-nonce.ts
 3	netlify/edge-functions/isl-proxy.ts
 2	netlify/edge-functions/orchestrator-proxy.ts
+2	netlify/edge-functions/plot-proxy.ts
 2	src/__fixtures__/__tests__/malformed-responses.spec.ts
 1	src/__fixtures__/resultsPanelV7.minimal.hook.ts
 1	src/__fixtures__/resultsPanelV7.normalised.hook.ts
