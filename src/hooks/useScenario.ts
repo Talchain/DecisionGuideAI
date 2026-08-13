@@ -27,6 +27,10 @@ import { DEFAULT_EDGE_DATA, type EdgeData } from '../canvas/domain/edges'
 import { readPersistedGoalConstraints } from '../canvas/utils/persistedGraph'
 import { isPersistenceActive as computeIsPersistenceActive } from '../lib/persistenceActive'
 import { shouldPersistGraphForScenario } from '../canvas/stores/draftStore'
+// P0 2026-08-13 — may this client write `scenarios.graph` at all? Its own module
+// so the specs that pin the write MECHANISM can lift the policy and keep proving
+// the plumbing. See that file's header for the whole derivation.
+import { clientCanWriteReadableGraph } from './clientGraphWritePolicy'
 
 export type SaveStatus = 'saved' | 'saving' | 'error'
 
@@ -151,13 +155,15 @@ function trackInFlightGraphSave(p: Promise<unknown>): void {
  * ONE write code path. Updates the shared "already persisted" key and marks the
  * store clean on success. Rejects (propagates) on failure — callers decide.
  *
- * @returns `true` when a write was performed, `false` when it was SUPPRESSED
- * because the scenario's streamed draft has unsettled values (round-2 review
- * R2-N1). Callers that surface a save indicator must not report "saved" for a
- * write that deliberately did not happen — a false indicator is precisely the
- * honesty class this lane polices, and during a terminal `unsettled` state a
- * signed-in user would otherwise see "saved" on every edit while nothing
- * persists, then lose all of it on reload to CEE's commit.
+ * @returns `true` when a write was performed, `false` when it was SUPPRESSED —
+ * either because this client cannot produce CEE-readable bytes at all (P0
+ * 2026-08-13, see `clientCanWriteReadableGraph`), or because the scenario's
+ * streamed draft has unsettled values (round-2 review R2-N1). Callers that
+ * surface a save indicator must not report "saved" for a write that deliberately
+ * did not happen — a false indicator is precisely the honesty class this lane
+ * polices, and during a terminal `unsettled` state a signed-in user would
+ * otherwise see "saved" on every edit while nothing persists, then lose all of it
+ * on reload to CEE's commit.
  */
 async function persistGraphNow(sid: string): Promise<boolean> {
   // ROADMAP 2.122 round 2 (adversarial review F1) — never persist a graph whose
@@ -180,6 +186,12 @@ async function persistGraphNow(sid: string): Promise<boolean> {
   // cannot need this flush, because the run gate is shut for exactly these phases.
   // The store stays dirty, so the debounce re-fires and the settled graph is
   // written the moment the phase clears.
+  //
+  // P0 (2026-08-13) — and BEFORE the draft-phase question, the shape question:
+  // this client has no projector, so it cannot write bytes CEE can read. Same
+  // choke point, same "resolves rather than rejects" contract, for exactly the
+  // same reason: one derived gate, no list of call sites to keep in step.
+  if (!clientCanWriteReadableGraph()) return false
   if (!shouldPersistGraphForScenario(sid)) return false
   const state = useCanvasStore.getState()
   const key = graphSaveKey(state)
@@ -350,7 +362,14 @@ export function useScenario(): UseScenarioReturn {
         if (!isAutosaveOwner(instanceIdRef.current)) return
         if (graphSaveKey(useCanvasStore.getState()) === sharedLastSavedGraphKey) return
 
-        if (mountedRef.current) setSaveStatus('saving')
+        // P0 (2026-08-13): only announce "Saving…" for a write that can
+        // actually be attempted. `persistGraphNow` returns false when the
+        // client cannot produce CEE-readable bytes, and the caller below then
+        // correctly refuses to claim "saved" — so an ungated transition here
+        // would park the TopBar indicator on "Saving…" permanently after every
+        // canvas edit. A permanent false-progress indicator is the same
+        // honesty class as a false "saved", just pointed the other way.
+        if (mountedRef.current && clientCanWriteReadableGraph()) setSaveStatus('saving')
 
         try {
           const p = persistGraphNow(saveSid)
