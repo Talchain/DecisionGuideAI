@@ -131,11 +131,18 @@ describe('P0: the CEE-shaped signature is FAITHFUL, not merely non-throwing', ()
     expect(computeGraphHash(CEE_NODES, swapped)).not.toBe(baseline())
   })
 
-  it('actually carries the CEE endpoint identities into the signature', () => {
+  it('actually carries the CEE endpoint identities into the EDGE component', () => {
     const hash = computeGraphHash(CEE_NODES, CEE_EDGES)
-    // If the projection collapsed endpoints to '' or undefined, these are absent.
-    expect(hash).toContain(CEE_EDGES[0].from)
-    expect(hash).toContain(CEE_EDGES[0].to)
+    // ⚠ BIND TO THE EDGE PROJECTION, NOT TO THE BARE ID (trap 19). A CEE edge's
+    // `from` is also a NODE id, and node ids are in the hash too — so a bare
+    // `toContain(CEE_EDGES[0].from)` passes even when every edge endpoint has
+    // collapsed to null. Measured: that weaker form survived the
+    // revert-the-edge-projection mutant. `"from":"…"` only ever comes from the
+    // edge half, because nodes project `"id":`.
+    expect(hash).toContain(`"from":${JSON.stringify(CEE_EDGES[0].from)}`)
+    expect(hash).toContain(`"to":${JSON.stringify(CEE_EDGES[0].to)}`)
+    // And the collapsed form must be absent entirely.
+    expect(hash).not.toContain('"from":null')
   })
 
   it('notices a CEE node label edit (label is top-level on CEE nodes, not in data)', () => {
