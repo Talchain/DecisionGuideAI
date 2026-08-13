@@ -98,15 +98,56 @@ export interface UIStoreState {
   activeOverlaySurface: OverlaySurfaceId | null
   /** Who raised it. Null exactly when no surface is raised. */
   overlaySurfaceOrigin: OverlaySurfaceOrigin | null
+  /**
+   * ROADMAP 2.1132 — P3/P4 provenance for the dock activations the assistant
+   * ACTUALLY performs on a real turn (`open_panel` / `open_section`, executed
+   * by `applyV5State`'s ui_directive branch via `forceActivateOutputTab`).
+   *
+   * `'assistant'` exactly while the CURRENT dock activation is the assistant's
+   * doing and the user has not yet taken it back. Null otherwise — and null is
+   * the FAIL-CLOSED default in every direction, because the harm this exists
+   * to prevent is the product claiming an action the user took.
+   *
+   * ⚠ NOT A LATCH. It is cleared by `setActiveOutputTab` (the seam every dock
+   * tab click runs), by a `'user'`-origin force-activate, and by the notice's
+   * own dismissal/timeout. A provenance flag that outlives the fact tells the
+   * user Olumi opened something they opened themselves — a lie on the one
+   * channel whose whole purpose is truthfulness.
+   */
+  outputSurfaceOrigin: 'assistant' | null
+  /**
+   * Monotonic; bumped on every assistant-origin activation. The notice keys its
+   * transient window and its dismissal to this, so a SECOND gesture re-raises a
+   * notice the user already dismissed — the second gesture is a new fact, not a
+   * repeat of the dismissed one.
+   */
+  outputSurfaceOriginSeq: number
 }
 
+/**
+ * WHO caused a dock activation. `'user'` is the default at every call site that
+ * does not say otherwise, so a new caller cannot accidentally attribute its own
+ * navigation to the assistant.
+ */
+export type OutputSurfaceOrigin = 'user' | 'assistant'
+
 export interface UIStoreActions {
+  /** The user's own tab choice. ALWAYS clears `outputSurfaceOrigin`: once the
+   *  user has moved the dock themselves, no assistant attribution is true of
+   *  what is on screen. */
   setActiveOutputTab: (tab: OutputTab) => void
   /** Force OutputsDock to open AND activate the given tab on the next render,
    *  regardless of whether `activeOutputTab` actually changes value. Used by
    *  auto-dock and Dock-back when we cannot rely on a value-diff to trigger
-   *  the sync. */
-  forceActivateOutputTab: (tab: OutputTab) => void
+   *  the sync.
+   *
+   *  `origin` defaults to `'user'` — fail-closed. Existing callers
+   *  (`revealOlumi`, `FirstUseComposer`, `ReactFlowGraph`'s Dock-back) pass
+   *  nothing and are therefore never attributed to the assistant. */
+  forceActivateOutputTab: (tab: OutputTab, origin?: OutputSurfaceOrigin) => void
+  /** Clear the assistant-origin stamp — the notice's dismiss control and its
+   *  transient timeout. Idempotent. */
+  clearOutputSurfaceOrigin: () => void
   /** Open a right panel (closes any other). Pass null to close all. */
   openRightPanel: (mode: RightPanelMode) => void
   /** Close the active right panel */
@@ -165,7 +206,21 @@ export interface UIStoreActions {
  * (ModelTabBody clears it once it has acted), never a gesture.
  */
 export interface AssistantUiSurfaceActions {
-  forceActivateOutputTab: (tab: OutputTab) => void
+  /**
+   * ⚠ ROADMAP 2.1132 — THE `'assistant'` ARGUMENT IS REQUIRED HERE, AND THAT IS
+   * THE POINT. The store's own signature defaults `origin` to `'user'`, which
+   * is the right fail-closed default for the three ordinary callers. But the
+   * assistant seam must never be able to move the user's dock WITHOUT stamping
+   * the provenance the notice reads: an unattributed gesture is precisely the
+   * defect this row exists to close, and "remember to pass 'assistant'" is
+   * discipline, which this file's header already declines to rely on.
+   *
+   * Narrowing the parameter to the literal `'assistant'` carries the rule in
+   * the TYPE: `applyV5State`'s call site does not compile without it. The
+   * store's `(tab, origin?: OutputSurfaceOrigin) => void` remains assignable to
+   * this, so `useUIStore.getState()` still satisfies the interface.
+   */
+  forceActivateOutputTab: (tab: OutputTab, origin: 'assistant') => void
   requestModelTabSection: (sectionId: string) => void
   requestOverlaySurface: (surface: OverlaySurfaceId) => boolean
 }
@@ -177,10 +232,25 @@ export const useUIStore = create<UIStoreState & UIStoreActions>((set, get) => ({
   pendingModelTabSection: null,
   activeOverlaySurface: null,
   overlaySurfaceOrigin: null,
+  outputSurfaceOrigin: null,
+  outputSurfaceOriginSeq: 0,
 
-  setActiveOutputTab: (tab) => set({ activeOutputTab: tab }),
-  forceActivateOutputTab: (tab) =>
-    set((s) => ({ activeOutputTab: tab, activeOutputTabVersion: s.activeOutputTabVersion + 1 })),
+  // A user tab choice is the strongest "this is mine" signal there is, and it
+  // is the seam OutputsDock's `handleTabClick` runs. Clearing here is the
+  // anti-latch guarantee (spec CLEAR-1).
+  setActiveOutputTab: (tab) => set({ activeOutputTab: tab, outputSurfaceOrigin: null }),
+  forceActivateOutputTab: (tab, origin = 'user') =>
+    set((s) => ({
+      activeOutputTab: tab,
+      activeOutputTabVersion: s.activeOutputTabVersion + 1,
+      outputSurfaceOrigin: origin === 'assistant' ? 'assistant' : null,
+      // Bump ONLY on the assistant path: a user-driven force-activate is not a
+      // new attributable fact, and bumping there would let a dismissed notice
+      // reappear on a Dock-back the user performed themselves.
+      outputSurfaceOriginSeq:
+        origin === 'assistant' ? s.outputSurfaceOriginSeq + 1 : s.outputSurfaceOriginSeq,
+    })),
+  clearOutputSurfaceOrigin: () => set({ outputSurfaceOrigin: null }),
   openRightPanel: (mode) => set({ activeRightPanel: mode }),
   closeRightPanel: () => set({ activeRightPanel: null }),
   requestModelTabSection: (sectionId) => set({ pendingModelTabSection: sectionId }),

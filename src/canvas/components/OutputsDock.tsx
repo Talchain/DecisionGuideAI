@@ -140,6 +140,7 @@ import { useGraphReadiness } from '../hooks/useGraphReadiness'
 // run actually goes out, not as it was when the gate was computed.
 import { useReadinessStore } from '../stores/readinessStore'
 import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer'
+import { AssistantOpenedNotice } from './AssistantOpenedNotice'
 import { DefineSuccessModal, DecisionRecordModal, HowComputedModal } from '../../components/results/modals'
 
 /**
@@ -2081,6 +2082,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             </button>
           </div>
         )}
+        {/* ROADMAP 2.1132 — when the ASSISTANT fronted this dock via an
+            `open_panel` / `open_section` ui_directive, say so, here, directly
+            under the tab strip that just moved. The answer belongs where the
+            question is asked ("why did that open?"), not somewhere the user has
+            to hunt. Renders null on every user-driven activation; see
+            AssistantOpenedNotice.tsx for the clearing rules and for why the
+            copy names neither a reason nor a surface. */}
+        {effectiveIsOpen && <AssistantOpenedNotice />}
       </div>
 
       {!effectiveIsOpen && (

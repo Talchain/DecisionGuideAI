@@ -808,12 +808,23 @@ export function applyV5State(
           })
         } else if (verb === 'open_panel' && uiTarget.kind === 'tab') {
           uiDirectiveExecuted = true
-          assistantSurfaces.forceActivateOutputTab(uiTarget.id as OutputTab)
+          // ROADMAP 2.1132 — the `'assistant'` origin is what makes the dock
+          // ATTRIBUTE this activation instead of appearing to move on its own.
+          // `AssistantUiSurfaceActions` types the parameter as the literal
+          // `'assistant'`, so this seam cannot front the user's dock silently:
+          // omitting it does not compile.
+          assistantSurfaces.forceActivateOutputTab(uiTarget.id as OutputTab, 'assistant')
           applied.push(`ui_directive:open_panel:${String(uiTarget.id)}`)
         } else if (verb === 'open_section' && uiTarget.kind === 'model_section') {
           uiDirectiveExecuted = true
           assistantSurfaces.requestModelTabSection(String(uiTarget.id))
-          assistantSurfaces.forceActivateOutputTab('diagnostics')
+          // Same attribution as open_panel: `open_section` fronts the dock on
+          // the Model tab, so the same "who did this?" question is raised and
+          // the same answer is owed. Stamped on the force-activate rather than
+          // on `requestModelTabSection` because the force-activate is the call
+          // BOTH panel verbs share — one stamp site, no second authority to
+          // drift from it (trap 21).
+          assistantSurfaces.forceActivateOutputTab('diagnostics', 'assistant')
           applied.push(`ui_directive:open_section:${String(uiTarget.id)}`)
         } else {
           deferred.push({
