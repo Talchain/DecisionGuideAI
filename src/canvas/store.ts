@@ -5599,7 +5599,13 @@ export const selectProgress = (state: CanvasState): number => state.results.prog
 export const selectResultsStartedAt = (state: CanvasState): number | undefined => state.results.startedAt
 export const selectReport = (state: CanvasState): ReportV1 | null | undefined => state.results.report
 export const selectDrivers = (state: CanvasState): Array<{ kind: 'node' | 'edge'; id: string }> | undefined => state.results.drivers
-export const selectError = (state: CanvasState): { code: string; message: string; retryAfter?: number; request_id?: string; affectedOptions?: Array<{ id: string; label: string }> } | null | undefined => state.results.error
+// ⚠ ROADMAP 2.1127 — this selector's return type was a HAND-COPIED duplicate of
+// the `results.error` field type (`:202`) and had drifted: `canRetry` is
+// accepted by `resultsError`, written into the state, and declared on the state
+// — but was missing here, so every consumer reading through this selector was
+// blind to a field the store actually carries. Derived from the state type now,
+// so it cannot drift again (CLAUDE.md trap 12: derive, don't mirror).
+export const selectError = (state: CanvasState): CanvasState['results']['error'] => state.results.error
 export const selectRunId = (state: CanvasState): string | undefined => state.results.runId
 export const selectSeed = (state: CanvasState): number | undefined => state.results.seed
 export const selectHash = (state: CanvasState): string | undefined => state.results.hash
