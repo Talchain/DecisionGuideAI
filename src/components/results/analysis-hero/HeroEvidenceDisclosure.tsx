@@ -24,18 +24,21 @@
  *   narrative (null live — the UI must not invent trade-offs), so the
  *   tab is fixture-gallery-only today. Grid layout per prototype: a 2×2
  *   grid of bordered cells (de-emphasised label over value).
+ * - Resolve next: ISL's per-factor EVPPI as a RANKING ONLY, plus the
+ *   whole-decision line. See the block comment at the view itself.
  *
  * Presentational: no store access; focus is the container's callback.
  */
 import { useState } from 'react'
-import { ChevronDown, Crosshair } from 'lucide-react'
+import { ChevronDown, Crosshair, Info } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { HERO_COPY } from './heroCopy'
+import { RESOLVE_NEXT_COPY as R } from '../voi/resolveNextCopy'
 import type { HeroEvidenceModel } from './heroTypes'
 
 const VISIBLE_DRIVERS = 3
 
-type EvidenceView = 'drivers' | 'flipRisks' | 'tradeOffs'
+type EvidenceView = 'drivers' | 'flipRisks' | 'tradeOffs' | 'resolveNext'
 
 export interface HeroEvidenceDisclosureProps {
   evidence: HeroEvidenceModel
@@ -79,13 +82,29 @@ export function HeroEvidenceDisclosure({
   const hasDrivers = evidence.drivers.length > 0
   const hasFlipRisks = evidence.flipRisks.length > 0
   const hasTradeOffs = evidence.tradeOffs != null && evidence.tradeOffs.length > 0
-  if (!hasDrivers && !hasFlipRisks && !hasTradeOffs) return null
+  /**
+   * `resolveNext === null` is the honest-gate verdict, already decided by the one
+   * authority (`voi/voiRanking.ts`) and never re-derived here.
+   *
+   * ⚠ IT JOINS THE GUARD BELOW ON PURPOSE. A ranking alone is enough to
+   * disclose: leaving it out would render NOTHING on a run whose only evidence is
+   * the ranking, which is exactly the silent-capability failure this promotion
+   * exists to end. (The same reasoning is recorded at `V7EvidenceDisclosure.tsx`
+   * for the other host.)
+   */
+  const hasResolveNext = evidence.resolveNext != null
+  if (!hasDrivers && !hasFlipRisks && !hasTradeOffs && !hasResolveNext) return null
 
   const views = (
     [
       { key: 'drivers', label: HERO_COPY.evidence.driversTab, present: hasDrivers },
       { key: 'flipRisks', label: HERO_COPY.evidence.flipRisksTab, present: hasFlipRisks },
       { key: 'tradeOffs', label: HERO_COPY.evidence.tradeOffsTab, present: hasTradeOffs },
+      // Last in the strip, and NOT the default view: Drivers remains the primary
+      // explanation of the result. Promoting this ONE STEP — from a secondary
+      // tab's collapsed disclosure to the DEFAULT tab's collapsed disclosure — is
+      // Paul's 14-Aug ruling; demoting Drivers was not part of it.
+      { key: 'resolveNext', label: R.tab, present: hasResolveNext },
     ] satisfies Array<{ key: EvidenceView; label: string; present: boolean }>
   ).filter((v) => v.present)
   const activeView = views.some((v) => v.key === view) ? view : views[0].key
@@ -194,6 +213,11 @@ export function HeroEvidenceDisclosure({
                   type="button"
                   aria-pressed={activeView === v.key}
                   onClick={() => setView(v.key)}
+                  // Identity handle for the chips. Added with Resolve next
+                  // because a test that reaches a view by its LABEL binds to
+                  // copy, and the mount-path assertion this promotion needs has
+                  // to bind to the view itself (CLAUDE.md trap 19).
+                  data-testid={`hero-evidence-tab-${v.key}`}
                   className={`px-2 py-0.5 rounded-full ${typography.panelMeta} ${
                     activeView === v.key
                       ? 'bg-primary text-text-on-color'
@@ -267,6 +291,204 @@ export function HeroEvidenceDisclosure({
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {/*
+            ── Resolve next (V7-C slice 1 + slice 2a) ────────────────────────
+
+            PROMOTED TO THIS HOST by Paul's ruling of 14 Aug 2026. The ranking
+            itself is unchanged from the Alt-view rendering: rows arrive from
+            `voi/voiRanking.ts` already label-resolved, validated, split by
+            producer status and in PRODUCER WIRE ORDER, and this block maps them
+            and adds nothing. No sort, no filter, no re-group — a view that
+            "fixes" the order is a view that can invert it, and the order is the
+            only thing the surface shows.
+
+            NO DIGIT IN ANY CLAIM. `evppi` and `decision_evpi` are in the
+            decision's OUTCOME units with no licensed display (and the UI's own
+            unit story is a heuristic that guesses from `goalThresholdCap`), so
+            the ranking is carried STRUCTURALLY by an ordered list rather than by
+            narrated numerals. Unlike the Alt-view host this view has no row
+            clamp, so there is no "Show N more" counter and the no-digit property
+            holds over the WHOLE view with no carve-out.
+          */}
+          {/*
+            ⚠ NO HONEST-GATE BRANCH ON THIS HOST, AND THAT IS A DELIBERATE
+            DIVERGENCE FROM THE ALT-VIEW RENDERING — measured, not assumed.
+
+            The Alt-view host renders all four chips unconditionally, so a null
+            ranking there reaches a "wasn't produced for this run" gate. This host
+            FILTERS its chips by presence, and its own convention is pinned:
+            "never shows a Trade-offs tab when the producer narrative is absent"
+            (`__tests__/content.spec.tsx`). So `hasResolveNext === false` removes
+            the chip, and a gate branch here would be UNREACHABLE DEAD CODE with a
+            test that could only ever pass by never exercising it — which is worse
+            than no branch, because it reads as coverage.
+
+            The resulting behaviour is honest silence: on a run with no usable
+            value-of-information the surface makes NO claim rather than offering a
+            chip that leads only to a dead end. Pinned in §2.2 of
+            `HeroEvidenceDisclosure.resolveNextOnAnalysisTab.spec.tsx`.
+
+            The `!= null` below is therefore a TYPE NARROWING, not an alternative
+            rendering: `activeView === 'resolveNext'` already implies the chip
+            exists, but the compiler cannot see it through the `views` filter.
+          */}
+          {activeView === 'resolveNext' && evidence.resolveNext != null && (
+            <div className="space-y-1.5" data-testid="hero-evidence-resolve-next">
+              {(
+                <>
+                  <p className={`${typography.panelMeta} text-text-light`}>{R.note}</p>
+
+                  {/*
+                    ⭐ L51 — THE ARRIVED-AND-ALL-SUB-RESOLUTION EMPTY STATE.
+
+                    We are inside `resolveNext != null`, and `buildVoiRanking`
+                    returns null for EVERY case where the estimator delivered no
+                    usable rows (absent, null, empty, all-invalid,
+                    all-unlabelable, unusable rank 1). So reaching here means rows
+                    ARRIVED, validated and label-resolved — and a non-null ranking
+                    is guaranteed at least one row in some band, so
+                    `resolved.length === 0` here means every surviving row is
+                    below-resolution: exactly what the sentence claims.
+
+                    THE BOUNDARY IT MUST NOT CROSS: the sentence asserts the
+                    analysis LOOKED. On an absent/unusable block that assertion
+                    would be fabricated, which is why those cases keep the honest
+                    gate in the `else` below and must never reach here.
+                  */}
+                  {evidence.resolveNext.resolved.length === 0 && (
+                    <p
+                      className={`${typography.panelBody} text-text-body`}
+                      data-testid="hero-resolve-next-none-above-resolution"
+                    >
+                      {R.noneAboveResolution}
+                    </p>
+                  )}
+
+                  {/*
+                    ⭐⭐ SLICE 2a — THE DECISION-LEVEL LINE. The point of the lane.
+
+                    WHY IT IS GATED EXACTLY HERE. It renders only in the
+                    all-below-resolution state, beneath the L51 sentence, because
+                    that is the state where today's copy is most likely to be
+                    MISREAD: "nothing stands out to resolve yet" reads as "the
+                    analysis looked and there is nothing more to learn". On 5 of 5
+                    live payloads captured in this repo that sentence was the ONLY
+                    thing on screen while `decision_evpi` had come back NON-ZERO.
+                    The two facts are complementary, not competing — this line
+                    adds the other measurement and never softens the first.
+
+                    ⚠ IT DOES NOT RENDER ON THE GATE STATE (`resolveNext == null`,
+                    the `else` below). `decision_evpi` may well have arrived there,
+                    but stating a whole-decision fact beside a line saying no
+                    ranking was produced would imply an assessment that never
+                    happened. One honest site first; the gate-state disclosure is
+                    a rowed follow-on, not an oversight.
+
+                    ⚠ AND IT DOES NOT RENDER ON A RANKED RUN. There the ranking IS
+                    the answer, and the interesting question ("does resolving rank
+                    1 get most of the way there") is a RATIO of the two estimates
+                    — dimensionless and cap-bounded to [0,1], but with hand-tuned
+                    cut points. That needs a Paul threshold ruling and is rowed.
+
+                    WHAT THE VERDICT CAN AND CANNOT SAY lives in
+                    `voi/decisionVoi.ts`; the sentences and their licences live in
+                    `voi/resolveNextCopy.ts`. Nothing is decided here: this block
+                    picks one of two ratified strings from a closed enum, and
+                    `not_computed` renders nothing at all rather than a placeholder
+                    — because the contract's own absence rule says absence means
+                    NOT COMPUTED, never zero.
+                  */}
+                  {evidence.resolveNext.resolved.length === 0 &&
+                    evidence.decisionVoi !== 'not_computed' && (
+                      <p
+                        className={`${typography.panelBody} flex items-start gap-1.5 text-text-body`}
+                        data-testid="hero-resolve-next-decision-level"
+                      >
+                        <Info aria-hidden="true" className="mt-0.5 h-3 w-3 flex-none text-info" />
+                        <span>
+                          {evidence.decisionVoi === 'measured_zero'
+                            ? R.decisionZero
+                            : R.decisionNotZero}
+                        </span>
+                      </p>
+                    )}
+
+                  {evidence.resolveNext.resolved.length > 0 && (
+                    <ol className="ml-4 list-decimal space-y-1.5 marker:text-text-light">
+                      {evidence.resolveNext.resolved.map((r, i) => {
+                        const canFocus = Boolean(r.canFocus && onFocusTarget)
+                        // Rank 1 leads; every later rank is a "then". The rows are
+                        // rendered in full (no clamp on this host), so the visible
+                        // index IS the producer rank by construction.
+                        const isLead = i === 0
+                        const body = (
+                          <>
+                            <span className={`${typography.panelBody} flex min-w-0 items-center gap-1.5 text-left text-text-body`}>
+                              {canFocus && (
+                                <Crosshair aria-hidden="true" className="h-3 w-3 flex-none text-info" />
+                              )}
+                              <span className="min-w-0 truncate">{r.label}</span>
+                            </span>
+                            <span
+                              data-testid={isLead ? 'hero-resolve-next-lead' : 'hero-resolve-next-then'}
+                              className={`${typography.panelMeta} whitespace-nowrap text-right text-text-light`}
+                            >
+                              {isLead ? R.lead : R.then}
+                            </span>
+                          </>
+                        )
+                        const grid =
+                          'grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2'
+                        return (
+                          <li key={`${r.factorId}-${i}`} data-testid="hero-resolve-next-row">
+                            {canFocus ? (
+                              <button
+                                type="button"
+                                onClick={() => onFocusTarget?.(r.factorId)}
+                                className={`${grid} rounded py-0.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                              >
+                                {body}
+                              </button>
+                            ) : (
+                              <div className={`${grid} py-0.5`}>{body}</div>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ol>
+                  )}
+
+                  {/* Demoted, never ranked. Below-resolution means
+                      indistinguishable from noise AT THIS RUN'S RESOLUTION — not
+                      zero value, and not "not worth resolving". The wording
+                      attributes the shortfall to THIS RUN'S precision, which is
+                      the honest cause, and never to the factors' worth. */}
+                  {evidence.resolveNext.belowResolution.length > 0 && (
+                    <p
+                      className={`${typography.panelMeta} text-text-light`}
+                      data-testid="hero-resolve-next-below"
+                    >
+                      {R.below(evidence.resolveNext.belowResolution.map((r) => r.label).join(', '))}
+                    </p>
+                  )}
+
+                  {/* Disclosed WITHOUT naming which factors: the producer's id
+                      lists are dropped at the PLoT hop, and an id-shaped name is
+                      banned regardless. */}
+                  {evidence.resolveNext.someFactorsUnassessed && (
+                    <p
+                      className={`${typography.panelMeta} flex items-start gap-1.5 text-text-light`}
+                      data-testid="hero-resolve-next-partial"
+                    >
+                      <Info aria-hidden="true" className="mt-0.5 h-3 w-3 flex-none" />
+                      <span>{R.partial}</span>
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           )}
 

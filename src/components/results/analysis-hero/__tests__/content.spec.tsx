@@ -662,6 +662,14 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
         ],
         tradeOffs: null,
         designationsWithheld: false,
+        // V7-C slices 1 + 2a defaults: this suite's subject is the drivers /
+        // flip-risks / trade-offs views, so the value-of-information views stay
+        // in their honest-silence state here and are covered by
+        // `HeroEvidenceDisclosure.resolveNextOnAnalysisTab.spec.tsx`. Left
+        // explicit rather than omitted so the "nothing to disclose" case below
+        // provably has nothing to disclose.
+        resolveNext: null,
+        decisionVoi: 'not_computed',
         ...overrides,
       },
     }
@@ -711,7 +719,12 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
   it('toggle anatomy: title over subtitle, trailing chevron rotating when open', () => {
     renderPanel(modelWithEvidence(), { onFocusTarget: vi.fn() })
     const toggle = screen.getByRole('button', { name: /why and what could change it/i })
-    expect(toggle).toHaveTextContent('Drivers, flip risks and trade-offs')
+    // ⚠ UPDATED with V7-C slice 2a (Paul, 14 Aug 2026): Resolve next was
+    // promoted onto this host, so the subtitle — the collapsed disclosure's only
+    // advert for its contents — now names four views instead of three. A live
+    // copy pin being brought back into line with the copy, NOT a historic
+    // capture being rewritten (CLAUDE.md trap 14b).
+    expect(toggle).toHaveTextContent('Drivers, flip risks, trade-offs and what to resolve next')
     const chevron = toggle.querySelector('svg')
     expect(chevron).not.toBeNull()
     expect(chevron!.getAttribute('class')).not.toMatch(/rotate-180/)

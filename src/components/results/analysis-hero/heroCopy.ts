@@ -420,8 +420,22 @@ export const HERO_COPY = {
   // the producer's user unit) — nothing invented, no internal terms.
   evidence: {
     heading: 'Why and what could change it',
-    /** Disclosure-toggle subtitle line (prototype §3 anatomy). */
-    subtitle: 'Drivers, flip risks and trade-offs',
+    /**
+     * Disclosure-toggle subtitle line (prototype §3 anatomy).
+     *
+     * ⚠ IT NAMES EVERY VIEW INSIDE, AND THAT IS LOAD-BEARING, NOT COSMETIC.
+     * This line is the ONLY advert for what the collapsed disclosure contains,
+     * so it is the one place a promoted view can still be effectively dark. When
+     * Paul's 14-Aug ruling added Resolve next to this host, an unchanged subtitle
+     * would have named a view that is fixture-only live (Trade-offs) while
+     * omitting the one carrying new science — the worst possible combination on
+     * the single line every post-run user reads.
+     *
+     * Pinned by `__tests__/HeroEvidenceDisclosure.resolveNextOnAnalysisTab.spec.tsx`
+     * §0.3, which asserts the subtitle names the view rather than asserting a
+     * literal, so a reworded subtitle that still advertises it stays green.
+     */
+    subtitle: 'Drivers, flip risks, trade-offs and what to resolve next',
     driversTab: 'Drivers',
     flipRisksTab: 'Flip risks',
     tradeOffsTab: 'Trade-offs',

@@ -192,3 +192,58 @@ export function refutedClaimsForScope(
  */
 export const REFUTED_CLAIM_CONTROLS: ReadonlyArray<readonly [RegExp, string]> =
   refutedClaimsForScope('dom').map((r) => [r.pattern, r.control] as const)
+
+/**
+ * ⭐ THE L61 CANNOT-RANK ≠ NO-EFFECT LITERALS — a SECOND, separate doctrine that
+ * happens to guard the same surface, now shared because a second host renders it.
+ *
+ * DISTINCT FROM THE VOCABULARY ABOVE, deliberately. `REFUTED_CLAIM_VOCABULARY`
+ * bans a REFUTED QUANTITY (the percentage-point EVPI figures the product no
+ * longer computes honestly). This list bans a REFUTED INFERENCE: concluding that
+ * nothing "would change the recommendation" from `factor_evppi` rows the run
+ * could not resolve. Below-resolution means indistinguishable from noise AT THIS
+ * RUN'S RESOLUTION — a fact about the run's precision, not about the factors'
+ * influence — so the no-effect conclusion is one the estimator did not establish
+ * and cannot. They are two questions and are kept as two lists (CLAUDE.md trap
+ * 21: two harms under one predicate is two questions under one name).
+ *
+ * WHY IT LIVES HERE. It was authored as a private const inside
+ * `v7/__tests__/V7EvidenceDisclosure.resolveNextAllBelowResolution.spec.tsx`
+ * when the Resolve-next surface had exactly one host. Paul's 14-Aug ruling
+ * promoted the surface onto the DEFAULT Analysis tab, so the doctrine now guards
+ * TWO renderings and a private copy would be guarding one of them. This file's
+ * own docstring already declares itself "the ONE vocabulary definition", which
+ * makes it the home.
+ *
+ * ⚠ THE V7 SPEC STILL HOLDS ITS PRIVATE COPY. Folding it onto this export is a
+ * one-line change in a spec this lane does not own, so it is NOT done here —
+ * `voi/__tests__/resolveNextCopy.spec.ts` instead asserts the shared register's
+ * sentences against THIS list, and the V7 suite keeps asserting its own against
+ * its own. Both surfaces are covered; the fold is rowed. Do not add a third copy.
+ *
+ * Its positive control is the HISTORICAL OVERCLAIM below — pinned to that
+ * literal permanently, never to "whatever we ship now" (CLAUDE.md trap 12b: a
+ * control pinned to current decays into a tautology the first time current
+ * changes).
+ */
+export const NO_EFFECT_CLAIM_PHRASES: ReadonlyArray<string> = [
+  // The exact shipped overclaim and its near neighbours.
+  'would change the recommendation',
+  'no single unknown',
+  "wouldn't change",
+  'would not change',
+  'makes no difference',
+  // Banned by the below-resolution doctrine for `resolveNextBelow`; the empty
+  // state and the decision-level line answer to the same rule.
+  'not worth',
+  'no value',
+  'zero value',
+] as const
+
+/**
+ * The sentence L61 removed — the permanent positive control for the list above.
+ * Any sweep driving `NO_EFFECT_CLAIM_PHRASES` must prove it would have failed
+ * THIS string, or the sweep is not known to discriminate at all.
+ */
+export const HISTORICAL_NO_EFFECT_OVERCLAIM =
+  'Nothing stands out to resolve yet — at this precision, no single unknown would change the recommendation.'

@@ -71,6 +71,7 @@ import { deriveResultCompleteness, type ResultCompleteness } from './useResultCo
 import { computeNormalisedInfluences, selectDriverDisplayModel } from './driverDisplayModel'
 import { classifyUnit } from '../../utils/unitClassifier'
 import { buildVoiRanking, type VoiRanking } from './voi/voiRanking'
+import { readDecisionVoi, type DecisionVoiVerdict } from './voi/decisionVoi'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1135,6 +1136,28 @@ export interface ResultsSectionDataReturn {
    * not fall back to it. See `voi/voiRanking.ts` for why so little is carried.
    */
   voiRanking: VoiRanking | null
+  /**
+   * V7-C slice 2a: the WHOLE-DECISION value-of-information verdict, read from
+   * `enrichment.decision_evpi` and classified into exactly three states by
+   * `voi/decisionVoi.ts`. Never the number — the field is in OUTCOME units with
+   * no licensed display, so only a categorical verdict crosses this boundary.
+   *
+   * `'not_computed'` (absent / null / unreadable) renders NOTHING. It is a
+   * distinct state from `'measured_zero'` on purpose: the contract's own absence
+   * rule says a measured 0 is a real result and the wire carries no
+   * discriminator between the two beyond key presence, so collapsing them would
+   * convert "we did not compute this" into "we measured that information is
+   * worthless here".
+   *
+   * WHY IT EXISTS AT ALL: on all five live payloads captured in this repo, this
+   * value came back NON-ZERO while every `factor_evppi` row sat below its own
+   * noise floor — so the per-factor ranking said "nothing stands out" while the
+   * whole-decision measurement said it had not come back at zero, and nothing on
+   * screen carried that. `voiRanking` above answers "what is one unknown worth
+   * on its own"; this answers "what is resolving everything worth". Different
+   * questions, same units, and only the second one can see option-switching.
+   */
+  decisionVoi: DecisionVoiVerdict
 }
 
 export function useResultsSectionData(): ResultsSectionDataReturn {
@@ -1410,6 +1433,34 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         },
       }),
     [report, nodeLabelMap],
+  )
+
+  /**
+   * V7-C slice 2a — the WHOLE-DECISION VOI verdict.
+   *
+   * One line, and every judgement in it lives in `voi/decisionVoi.ts` (pure,
+   * unit-pinned against the producer's own declared absence rule). This memo
+   * supplies the field and nothing else: there is no threshold here, no
+   * comparison against `factor_evppi`, and no coalescing. In particular NO
+   * `?? 0` — the contract states in terms that a coalesce converts "we did not
+   * compute this" into "we measured that information is worthless here", and
+   * `report.decision_evpi` is already key-absent for every unreadable value
+   * because the mapper's `safeFiniteNumber` collapsed them there.
+   *
+   * Deliberately NOT joined to `voiRanking` above. They answer DIFFERENT
+   * QUESTIONS — "what is one unknown worth on its own" vs "what is resolving
+   * everything worth" — and the second is the only one that can see
+   * option-switching. Deriving one from the other, in either direction, is the
+   * cross-estimator substitution `voiRanking.ts`'s "DEGRADE, NEVER FABRICATE"
+   * forbids: `factor_evppi.noise_floor` is a permutation null for a per-factor
+   * regression, a different estimand from `min_o expected_regret` on the CRN
+   * population, and using it as a decision-level floor would fabricate a
+   * precision claim the wire does not carry. The consumer renders them together
+   * and that is the only place they meet.
+   */
+  const decisionVoi = useMemo(
+    () => readDecisionVoi(report?.decision_evpi),
+    [report],
   )
 
   // Lane UI-W5 (reference-option disclosure): resolve the disclosed
@@ -3412,6 +3463,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       autoNoiseProvenance,
       sensitivityReference,
       voiRanking,
+      decisionVoi,
     }),
     [
       recommendation,
@@ -3426,6 +3478,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       autoNoiseProvenance,
       sensitivityReference,
       voiRanking,
+      decisionVoi,
     ],
   )
 }

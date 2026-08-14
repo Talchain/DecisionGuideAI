@@ -1105,6 +1105,22 @@ export function buildHeroModel(
       flipRisks: evidenceFlipRisks,
       tradeOffs: null,
       designationsWithheld,
+      // V7-C slices 1 + 2a, PASSTHROUGH ONLY (Paul's ruling, 14 Aug 2026:
+      // promote Resolve next onto the default Analysis tab). Both verdicts are
+      // already decided by their own pure authorities — `voi/voiRanking.ts` and
+      // `voi/decisionVoi.ts` — and re-deriving either here would be the
+      // hand-maintained mirror trap 12 warns about. This file adds NOTHING: no
+      // sort, no filter, no threshold, no comparison between the two.
+      //
+      // ⚠ `?? null` / `?? 'not_computed'` are FAIL-CLOSED coalesces against
+      // CALLERS, not against the producer. Several fixtures build this hook
+      // object through an `as ResultsSectionDataReturn` cast, so the compiler
+      // cannot guarantee the fields are present even though the type says they
+      // are — and the safe direction for both is silence (the honest gate, and
+      // no decision line). They are NOT the `?? 0` the schema's absence rule
+      // forbids: no numeric value is coalesced anywhere on this path.
+      resolveNext: data.voiRanking ?? null,
+      decisionVoi: data.decisionVoi ?? 'not_computed',
     },
     // Producer-gap slots — the LIVE adapter NEVER populates these (no
     // display-safe trust/status label: issues 219/221; no coaching

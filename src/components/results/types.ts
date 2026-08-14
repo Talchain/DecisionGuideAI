@@ -1262,6 +1262,33 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
    */
   factor_evppi?: unknown[]
   /**
+   * V7-C slice 2a: the mapper's carry of `enrichment.decision_evpi` — the
+   * WHOLE-DECISION expected value of perfect information, in OUTCOME units
+   * (`src/v5/mapV5AnalysisToReport.ts:1257,1451`).
+   *
+   * ⚠ `number` AND NOT `number | null`, deliberately, and this is the field's
+   * whole subtlety. The pinned schema types it `z.number().nullable().optional()`
+   * and its own `.describe()` is the absence rule: *"Absence means NOT COMPUTED
+   * — never 0. A measured 0 is a real result (nothing about this decision is
+   * worth learning) and must be preserved… a consumer coalescing with `?? 0`
+   * converts 'we did not compute this' into 'we measured that information is
+   * worthless here'."* The mapper already collapses `null` and every unreadable
+   * value to KEY-ABSENT via `safeFiniteNumber`, so by the time the value reaches
+   * this type the two absences are one state and a measured `0` has survived
+   * intact. Declaring `null` here would re-open a distinction the mapper closed.
+   *
+   * DECLARED FOR THE SAME REASON `factor_evppi` IS. While the key was absent,
+   * any read needed `(report as unknown as Record<string, unknown>)` — and a
+   * mistyped key inside that cast yields `undefined`, so the surface would
+   * render its honest silence forever with nothing red anywhere. This field was
+   * parsed, stored and rendered NOWHERE for months; the declaration is what
+   * makes the typo a compile error instead of a permanent silent gate.
+   *
+   * Classified — never formatted — by `voi/decisionVoi.ts`. No magnitude from
+   * this field may reach the DOM (OUTCOME units, no licensed display).
+   */
+  decision_evpi?: number
+  /**
    * ISL `inference_warnings[]` — the enrichment-ROOT slot. Same reasoning as
    * `factor_evppi`: declared so readers do not cast, entries left `unknown`
    * because each reader validates the codes it cares about. Read it through
