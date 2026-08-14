@@ -57,10 +57,21 @@ describe('formatInterventionChange — no-change semantics', () => {
     expect(change.changed).toBe(true)
     expect(change.arrow).toBe('up')
     expect(change.text).not.toMatch(/does not change/i)
-    // Qualitative unitless value renders as a percentage, not a tier label
-    expect(change.targetText).toBe('60%')
-    expect(change.baselineText).toBe('50%')
-    expect(change.text).toBe('Team seniority → 60%')
+    // ⚠ KNOWN COARSENING, pinned deliberately so it REDs if it changes.
+    // These three previously asserted '60%' / '50%' / 'Team seniority → 60%'.
+    // That percentage was fabricated: a unitless qualitative factor has no
+    // scale, so 0.6 is an ordinal position, not 60% of anything.
+    // Rendering the honest tier word costs resolution — 0.5 and 0.6 both sit in
+    // qualitativeTierLabel's `<= 0.6` Medium band, so the change now reads
+    // "Medium → Medium". The DIRECTION is not lost: `changed` and `arrow` above
+    // are derived from the raw values and still assert up-movement, which is
+    // why those assertions are the load-bearing ones in this test.
+    // Trade-off accepted: a coarse-but-true label over a precise-but-invented
+    // unit. If sub-tier resolution is wanted here, the fix is a real scale on
+    // the factor, not a reinstated percentage.
+    expect(change.targetText).toBe('Medium')
+    expect(change.baselineText).toBe('Medium')
+    expect(change.text).toBe('Team seniority → Medium')
   })
 
   it('small placeholder-scale shifts (old ±0.1 epsilon bug) count as change', () => {
@@ -151,8 +162,35 @@ describe('formatInterventionTargetText', () => {
     expect(formatInterventionTargetText({ label: 'Runway', value: 0.1, unit: 'months', cap: 10 })).toBe('1 months')
   })
 
-  it('converts tier-label fallbacks to percentages', () => {
-    expect(formatInterventionTargetText({ label: 'Quality', value: 0.6, factorType: 'quality' })).toBe('60%')
+  // ⚠ This test previously asserted `'60%'` under the name "converts
+  // tier-label fallbacks to percentages" — it PINNED THE DEFECT. A factor with
+  // no unit, no cap and no raw anchor has an ordinal 0–1 value, not a
+  // proportion, so rendering it as a percentage invents a frame. Witnessed on
+  // the 14 Aug hiring graph as "Development headcount 0% → 40%".
+  it('keeps tier-label fallbacks as tier words (never invents a percentage)', () => {
+    // 0.6 → 'Medium' per qualitativeTierLabel's `value <= 0.6` band
+    // (labelUtils.ts:262) — derived from the producer, not guessed.
+    expect(formatInterventionTargetText({ label: 'Quality', value: 0.6, factorType: 'quality' })).toBe('Medium')
+  })
+
+  // Guard the specific witnessed shape: a COUNT factor carrying no frame must
+  // never render as a percentage of anything.
+  it('renders an unframed count factor as level words, not a percentage', () => {
+    const text = formatInterventionTargetText({
+      label: 'Development headcount',
+      value: 0.4,
+      factorType: 'quality',
+    })
+    expect(text).not.toMatch(/%/)
+    expect(text).toBe('Low')
+  })
+
+  // The legitimate percentage path must survive: a factor that genuinely
+  // carries a unit still denormalises through the trusted chain.
+  it('still formats genuinely united factors through the scale path', () => {
+    expect(
+      formatInterventionTargetText({ label: 'Runway', value: 0.1, unit: 'months', cap: 10 }),
+    ).toBe('1 months')
   })
 })
 

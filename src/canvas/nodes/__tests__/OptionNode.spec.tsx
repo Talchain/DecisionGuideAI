@@ -441,7 +441,18 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    expect(screen.getByText((t: string) => t.includes('0%') && t.includes('100%') && t.includes('→'))).toBeDefined()
+    // ⚠ RE-PINNED 14 Aug — AND THIS ONE IS A KNOWN COST, NOT A CLEAN WIN.
+    // 'Tech lead in place' is a PRESENCE factor mis-typed as 'quality' with no
+    // unit, cap, raw anchor or encoding_map, so it degrades to tier words like
+    // any other unframed qualitative factor: 0 → 'Very low', 1 → 'Very high'.
+    // For a 0↔1 presence traversal "0% → 100%" was arguably the better read.
+    // It is not reinstated here because the formatter sees ONE value at a time
+    // and cannot know the other endpoint, so it cannot decide "full traversal"
+    // coherently — a per-value rule that emitted '0%' for the baseline and
+    // 'Low' for a 0.4 target would render "0% → Low", mixing two frames in one
+    // chip. The real fix for this factor is an encoding_map or a binary
+    // factor_type, not a reinstated percentage. Flagged for review.
+    expect(screen.getByText((t: string) => t.includes('Very low') && t.includes('Very high') && t.includes('→'))).toBeDefined()
     // Scope A's both-labels branch did NOT fire: no fabricated target label.
     expect(screen.queryByText((t: string) => t.includes('→ Tech lead in place'))).toBeNull()
   })
@@ -663,8 +674,12 @@ describe('OptionNode', () => {
     renderOption()
     // arrow format: label and value are separate spans (no colon)
     expect(screen.getAllByText('Product-market fit').length).toBeGreaterThan(0)
-    // 0.7 with factor_type 'quality' → '70%' (tier labels banned in v1.1)
-    expect(screen.getByText('70%')).toBeDefined()
+    // ⚠ RE-PINNED 14 Aug. Previously '70%', commented "tier labels banned in
+    // v1.1". That ban is what produced "Development headcount 0% → 40%" on the
+    // live hiring graph: a 'quality' factor with no unit/cap/raw has no scale,
+    // so the percentage was invented. 0.7 → 'High' per qualitativeTierLabel.
+    expect(screen.getByText('High')).toBeDefined()
+    expect(screen.queryByText('70%')).toBeNull()
   })
 
   it('shows numeric value for factor with unit even if factor_type is qualitative', () => {
@@ -1433,9 +1448,11 @@ describe('OptionNode — QA Brief C-series', () => {
       }) as any)
     )
     renderOption({ label: 'Hire lead' })
-    // Qualitative: no unit, no scale — shows percentage (tier labels banned in v1.1)
+    // ⚠ RE-PINNED 14 Aug — same reversal as the 'quality' test above. "No unit,
+    // no scale" is precisely the condition under which a percentage cannot be
+    // honest; the tier word is what the factor actually supports.
     // Arrow separator is present between label and value (not a delta indicator)
-    expect(screen.getByText('70%')).toBeDefined()
+    expect(screen.getByText('High')).toBeDefined()
   })
 
   // C5: Near-zero baseline — no spurious percentage (guard: abs(denormedBaseline) <= 0.01)
