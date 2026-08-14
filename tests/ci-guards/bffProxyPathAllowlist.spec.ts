@@ -186,6 +186,36 @@ describe('collab-proxy path allowlist (/bff/collab/* → /collab/v1/*)', () => {
     expect(r.calledUrl).toBe(`https://cee-staging.onrender.com/collab/v1/packet/${uuid}`)
   })
 
+  it('ON-LIST /bff/collab/rounds/{uuid}/preview (GET) forwards — D1 name resolution', async () => {
+    // The roster read behind render-time participant names. It was OFF-LIST
+    // until 14 Aug 2026 while two comments in the proxy advertised it, so the
+    // route CEE had exposed all along answered 404 at the edge.
+    const uuid = 'c261b74a-c7ce-4aad-96ca-04f0fdfd0fce'
+    const r = await invoke(collabHandler as Handler, {
+      path: `/bff/collab/rounds/${uuid}/preview`,
+      method: 'GET',
+    })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(
+      `https://cee-staging.onrender.com/collab/v1/rounds/${uuid}/preview`,
+    )
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+  })
+
+  it('OFF-LIST /bff/collab/rounds/{uuid}/participants is 404 — preview did not widen the segment', async () => {
+    // The DISCRIMINATING half of the pair above. `preview` was added as a
+    // literal final segment; had it been written permissively (or the id
+    // segment loosened), every sibling sub-route under /rounds/{id}/ would have
+    // opened with it. This case fails if the new entry admits more than one word.
+    const uuid = 'c261b74a-c7ce-4aad-96ca-04f0fdfd0fce'
+    const r = await invoke(collabHandler as Handler, {
+      path: `/bff/collab/rounds/${uuid}/participants`,
+      method: 'GET',
+    })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
   it('OFF-LIST /bff/collab/admin is 404 with NO key sent', async () => {
     const r = await invoke(collabHandler as Handler, { path: '/bff/collab/admin' })
     expect(r.status).toBe(404)

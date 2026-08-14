@@ -54,9 +54,17 @@ function isOriginAllowed(origin: string): boolean {
 }
 
 /**
- * GET for the packet and the reveal; POST for mint, close and contributions.
- * ENFORCED below and ADVERTISED verbatim — an allow-list that advertises more
- * than it enforces (or less) is a false guarantee.
+ * GET for the packet, the preview and the reveal; POST for mint, close and
+ * contributions. ENFORCED below and ADVERTISED verbatim — an allow-list that
+ * advertises more than it enforces (or less) is a false guarantee.
+ *
+ * ⚠ THIS SENTENCE HAD DRIFTED AND WAS THE DEFECT IT WARNS ABOUT (found 14 Aug
+ * 2026, D1). It omitted `preview` while `ALLOWED_FORWARD_HEADERS` below
+ * advertised the owner bearer as being for "mint / close / **preview** /
+ * reveal" — and `ALLOWED_TARGETS` enforced neither, so the route CEE has
+ * exposed all along was unreachable from the browser. Two comments in one file
+ * disagreeing about one route is exactly the "advertises more than it enforces"
+ * failure this paragraph exists to forbid.
  */
 const ALLOWED_METHODS = ['GET', 'HEAD', 'POST', 'OPTIONS'] as const
 
@@ -106,6 +114,19 @@ function getCorsHeaders(requestOrigin: string): Record<string, string> {
 const ALLOWED_TARGETS: readonly RegExp[] = [
   /^\/collab\/v1\/rounds$/,
   /^\/collab\/v1\/rounds\/[^/]+\/close$/,
+  /**
+   * D1 (14 Aug 2026) — the ROSTER read behind render-time name resolution.
+   *
+   * Owner-gated at CEE by `requireOwnerUser`, and its response is the round's
+   * status, its target manifest and a three-field roster projection
+   * (`participant_id`, R-2-resolved `display_name`, `status`) — no beliefs, no
+   * token hashes, no `supabase_user_id`. A participant token is worthless on it.
+   * Added because attribution surfaces must resolve a NAME from round data
+   * rather than print a persisted id; the alternative source, `/reveal`, is
+   * already on this list and would hand the canvas every participant's number
+   * to render one person's name.
+   */
+  /^\/collab\/v1\/rounds\/[^/]+\/preview$/,
   /^\/collab\/v1\/rounds\/[^/]+\/reveal$/,
   /^\/collab\/v1\/packet\/[^/]+$/,
   /^\/collab\/v1\/packet\/[^/]+\/events$/,

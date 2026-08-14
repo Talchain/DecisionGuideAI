@@ -38,6 +38,7 @@ import type { InspectorPanelProps } from '../types'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorObservableEditor } from '../editors/FactorObservableEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
+import { useParticipantName } from '../../../../collab/useParticipantName'
 
 export const FactorObservablePanel = memo(function FactorObservablePanel({
   nodeId,
@@ -69,6 +70,15 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
   const cap = unwrapInterventionValue(obs?.cap).value ?? undefined
   const unit = obs?.unit as string | undefined
   const source = obs?.source as string | undefined
+  /**
+   * D1 — resolve a `panel_elicited` value's AUTHOR to a name, at render.
+   *
+   * Called unconditionally and before this component's `!nodeId || !node` early
+   * return, because it is a hook. For every non-panel value it is a no-op: no
+   * `elicited_from` means `no_attribution`, which fetches nothing and leaves
+   * both labels below byte-identical to what they rendered before.
+   */
+  const attributedTo = useParticipantName(obs?.elicited_from)
 
   // Description — conditional edit state for EmptyDescriptionPrompt pattern
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
@@ -148,7 +158,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           </span>
           {source && (
             <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
-              {getExtractionLabel(source)}
+              {getExtractionLabel(source, attributedTo)}
             </span>
           )}
         </div>
@@ -224,7 +234,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           {source && (
             <div className="flex items-center gap-1 mt-2 pt-2 border-t border-panel-border">
               <Link size={12} className="text-info" />
-              <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source)}</span>
+              <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source, attributedTo)}</span>
             </div>
           )}
         </PrimaryControlCard>
