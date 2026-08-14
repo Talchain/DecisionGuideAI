@@ -5,7 +5,9 @@
  */
 
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { Sparkles } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
+import { parseDraftingNotes, composeDescription } from '../draftingNote'
 import type { NodeType, OptionNodeData } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
@@ -64,9 +66,27 @@ export const OptionPanel = memo(function OptionPanel({
   const mutations = useNodeMutations(nodeId ?? '')
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
 
+  // ROADMAP 2.1204 — the drafter's rephrase-absorption notes are separated
+  // from the user's description. CEE APPENDS `\n\n<note>` per absorbed twin
+  // (option-rephrase-merge.ts:459-462), so before this split they rendered
+  // inside the editable textarea: unattributed (indistinguishable from the
+  // user's own prose) and destroyed the moment the user typed over them.
+  // `notes` render as attributed lines below; only `body` is editable, and
+  // every commit recomposes the two in the producer's format.
+  const rawDescription = node?.data?.description as string | undefined
+  const { notes: draftingNotes, body: descriptionBody } = useMemo(
+    () => parseDraftingNotes(rawDescription),
+    [rawDescription],
+  )
+
   // Description — EmptyDescriptionPrompt pattern
-  const [description, setDescription] = useState(String(node?.data?.description ?? ''))
+  const [description, setDescription] = useState(descriptionBody)
   const [isEditingDescription, setIsEditingDescription] = useState(false)
+
+  const commitDescription = useCallback(
+    (next: string) => mutations.setDescription(composeDescription(draftingNotes, next)),
+    [mutations, draftingNotes],
+  )
 
   // Dropdown state for "Add a change"
   const [showDropdown, setShowDropdown] = useState(false)
@@ -215,12 +235,32 @@ export const OptionPanel = memo(function OptionPanel({
           </div>
         )}
 
+        {/* ROADMAP 2.1204 — the absorption disclosure, attributed. The sentence
+            is the wire's, verbatim; the attribution is what tells the reader a
+            drafter wrote it rather than them. Option panel only: no other node
+            type carries a drafter absorption note. */}
+        {draftingNotes.length > 0 && (
+          <div
+            className="mb-2 flex items-start gap-1.5"
+            data-testid="option-drafting-note"
+          >
+            <Sparkles size={12} className="text-info mt-0.5 shrink-0" aria-hidden="true" />
+            <p className={`${typography.panelMeta} text-text-light`}>
+              <span className="font-medium text-text-body">
+                {OPTION_STRINGS.draftingNoteAttribution}
+              </span>
+              {' — '}
+              {draftingNotes.join('; ')}
+            </p>
+          </div>
+        )}
+
         {description || isEditingDescription ? (
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
             onBlur={() => {
-              mutations.setDescription(description)
+              commitDescription(description)
               if (!description.trim()) setIsEditingDescription(false)
             }}
             autoFocus={isEditingDescription && !description}

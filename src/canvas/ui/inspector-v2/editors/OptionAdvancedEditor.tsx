@@ -10,6 +10,7 @@ import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { typography } from '../../../../styles/typography'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
+import { parseDraftingNotes, composeDescription } from '../draftingNote'
 
 interface OptionAdvancedEditorProps {
   nodeId: string
@@ -77,10 +78,22 @@ export function OptionAdvancedEditor({ nodeId }: OptionAdvancedEditorProps) {
       <AdvancedFieldGroup title="Metadata">
         <AdvancedField label="Node ID" value={nodeId} type="readonly" />
         <AdvancedField label="Kind" value="option" type="readonly" />
+        {/* ROADMAP 2.1204 — the SECOND path that reaches the description. It
+            bound the raw field and wrote back raw, so a tech-mode user could
+            silently erase a rephrase-absorption note that the main panel had
+            just gone to trouble to protect. Same parse/compose as OptionPanel:
+            a guarantee that holds on only one of its paths is not a guarantee. */}
         <AdvancedField
           label="Description"
-          value={(data?.description as string) ?? ''}
-          onChange={v => mutations.setDescription(v as string)}
+          value={parseDraftingNotes(data?.description as string | undefined).body}
+          onChange={v =>
+            mutations.setDescription(
+              composeDescription(
+                parseDraftingNotes(data?.description as string | undefined).notes,
+                v as string,
+              ),
+            )
+          }
           type="textarea"
           placeholder="Option description"
         />
