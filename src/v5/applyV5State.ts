@@ -64,6 +64,10 @@ import {
 } from './decisionReviewAdapter'
 import { mapV5AnalysisToReport } from './mapV5AnalysisToReport'
 import { v5StageToScenarioStage } from './stageMapper'
+import {
+  deriveAnalysisRefusalNoticeUpdate,
+  type AnalysisRefusalNotice,
+} from '../canvas/store/analysisRefusalNotice'
 
 /**
  * Minimal store-shape interface. useCanvasStore.getState() returns a larger
@@ -135,6 +139,8 @@ export interface V5ApplicatorStore {
   }) => void
   /** Optional: update the freshness slice from a raw response.analysis_ready (retain / order / never absence→fresh). */
   setAnalysisFreshness?: (rawAnalysisReady: unknown) => void
+  /** Optional (ROADMAP 2.1163 / EXT-2): set or clear CEE's typed analysis-refusal notice. Pass null to clear. */
+  setAnalysisRefusalNotice?: (notice: AnalysisRefusalNotice | null) => void
   /** Optional: clear the local dirty overlay when a genuinely new analysis run completes (new analysis_result response_hash). */
   clearAnalysisFreshnessDirty?: () => void
   /** Optional (F10): a genuinely new analysis_result landed with NO explicit
@@ -1025,6 +1031,35 @@ export function applyV5State(
   // Freshness slice: retain on absence, order by computed_at, never absence→fresh.
   // Independent of ceeAnalysisReady (which clears on analyse-turns-without-analysis_ready).
   store.setAnalysisFreshness?.(rawAnalysisReady)
+
+  // ── ROADMAP 2.1163 / EXT-2 — the refusal READER ────────────────────────
+  // CEE PR #942 puts a TYPED analysis refusal on the wire
+  // (`analysis_ready.status: 'blocked'` + a specific `blocked_reason`).
+  // `blocked_reason` had ZERO readers repo-wide, and an honest refusal nobody
+  // renders is indistinguishable from a silent failure.
+  //
+  // ⚠ IT IS DELIBERATELY NOT ROUTED INTO THE READINESS SLICE. The normaliser
+  // below REJECTS this carrier (empty goal_node_id / empty options) and clears
+  // `ceeAnalysisReady`; a deployed-UI trace (2026-08-14) established that
+  // clearing is correct and load-bearing, and
+  // `applyV5State.blockedAnalysisReady.spec.tsx` pins it. So the refusal is
+  // extracted HERE, from the raw payload while it is still in hand and BEFORE
+  // validation, into its own session-local slice. Nothing about the readiness
+  // slice's behaviour changes.
+  //
+  // Three-valued on purpose: a conversational turn RETAINS the notice (silence
+  // is not evidence the refusal is over), an accepted analysis_ready or a
+  // completed analysis_result CLEARS it, and only a blocked carrier bearing a
+  // non-empty blocked_reason SETS it. The legacy freshness-only blocked carrier
+  // (no blocked_reason) sets nothing — see analysisRefusalNotice.ts.
+  const refusalUpdate = deriveAnalysisRefusalNoticeUpdate(response)
+  if (refusalUpdate.kind === 'set') {
+    store.setAnalysisRefusalNotice?.(refusalUpdate.notice)
+    applied.push('analysis_refusal_notice:set')
+  } else if (refusalUpdate.kind === 'clear') {
+    store.setAnalysisRefusalNotice?.(null)
+    applied.push('analysis_refusal_notice:cleared')
+  }
 
   // NOTE: there is intentionally no response-ROOT goal_constraints read here.
   // Constraints reach the store via the two LIVE paths only: CEE's

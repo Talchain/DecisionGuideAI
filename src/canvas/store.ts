@@ -22,6 +22,7 @@ import {
 import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
 import { RUN_COMPLETED_WITHOUT_VERDICT, VERDICT_ABSENT_FROM_PAYLOAD, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
+import type { AnalysisRefusalNotice } from './store/analysisRefusalNotice'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
 // Value import, and deliberately so: `resetCanvas` must forget the persisted
@@ -478,6 +479,13 @@ interface CanvasState {
   // fabricating 'stale'. Cleared when a new analysis_ready arrives or on
   // scenario switch/load/import/reset. NOT a graph hash; see analysisFreshness.ts.
   analysisFreshnessDirty: boolean
+  // ROADMAP 2.1163 / EXT-2: CEE's TYPED analysis refusal (analysis_ready
+  // status 'blocked' + a specific blocked_reason). Deliberately NOT the
+  // readiness slice — the readiness normaliser rejects that carrier on
+  // purpose, and that rejection is load-bearing. Session-local — never
+  // persisted: a refusal is a fact about ONE turn, so restoring it into a
+  // later session would assert a refusal that did not happen there.
+  analysisRefusalNotice: AnalysisRefusalNotice | null
   /**
    * Interim 2.467 mitigation (P0 trust, live-witnessed 2026-08-04,
    * rewalk-2459b attempt 2): true while the canvas graph came from a local
@@ -891,6 +899,8 @@ interface CanvasState {
   setV5AnalysisFact: (fact: V5AnalysisFactState | null) => void
   /** Update the freshness slice from a raw response.analysis_ready (retain / order-by-computed_at / never absence→fresh). */
   setAnalysisFreshness: (rawAnalysisReady: unknown) => void
+  /** ROADMAP 2.1163 / EXT-2: set or clear CEE's typed analysis-refusal notice. Pass null to clear. Never persisted. */
+  setAnalysisRefusalNotice: (notice: AnalysisRefusalNotice | null) => void
   /** Public dirty-overlay setter for external graph mutators (e.g. accepted CEE graph patches) that bypass the internal edit chokepoints. */
   markAnalysisFreshnessDirty: () => void
   /** Atomically set all three staleness flags — the entry point for external structural mutators. */
@@ -1682,6 +1692,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   analysisFreshness: null,
   // Local dirty overlay — false at cold start (no edits to invalidate a verdict).
   analysisFreshnessDirty: false,
+  // ROADMAP 2.1163 / EXT-2: no analysis has been refused at cold start.
+  analysisRefusalNotice: null,
   // Interim 2.467: no import has happened at cold start.
   importPendingServerRegistration: false,
   // No edit can be awaiting dispatch before any edit has been made.
@@ -2587,6 +2599,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // overlay (no pending edit applies to a brand-new graph).
       analysisFreshness: null,
       analysisFreshnessDirty: false,
+      // ROADMAP 2.1163 / EXT-2: a refusal describes ONE turn against ONE model.
+      // Carrying it across an import/reset/scenario switch would claim a refusal
+      // that never happened for the model now on the canvas.
+      analysisRefusalNotice: null,
       // Interim 2.467 mitigation (P0 trust, rewalk-2459b attempt 2): an import
       // must never leave a pre-import analysis renderable-as-current. The
       // pre-import results re-bound BY NODE ID to the imported graph's labels
@@ -2917,6 +2933,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // that only agreed with the spread by coincidence.)
       analysisFreshness: null,
       analysisFreshnessDirty: false,
+      // ROADMAP 2.1163 / EXT-2: a refusal describes ONE turn against ONE model.
+      // Carrying it across an import/reset/scenario switch would claim a refusal
+      // that never happened for the model now on the canvas.
+      analysisRefusalNotice: null,
       // Interim 2.467 — release. ⚠ NOT derived (same correction as the
       // empty-graph branch above): resetCanvas installs an EMPTY graph, for
       // which the digest is null by the empty-graph rule, so a derivation here
@@ -3901,6 +3921,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // cannot leak into this one.
       analysisFreshness: null,
       analysisFreshnessDirty: false,
+      // ROADMAP 2.1163 / EXT-2: a refusal describes ONE turn against ONE model.
+      // Carrying it across an import/reset/scenario switch would claim a refusal
+      // that never happened for the model now on the canvas.
+      analysisRefusalNotice: null,
       // Interim 2.467, DERIVED: `scenarios.getScenario` is localStorage, not
       // the server — a scenario saved while an imported graph was on the canvas
       // restores an unregistered graph. Derive from what is being installed.
@@ -4433,6 +4457,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setV5AnalysisFact: (fact: V5AnalysisFactState | null) => {
     set({ v5AnalysisFact: fact })
+  },
+
+  // ROADMAP 2.1163 / EXT-2. Deliberately a plain assignment with NO
+  // sessionStorage/localStorage write: this store has no persist() middleware,
+  // so persistence is opt-in per setter (contrast setCeeAnalysisReady, which
+  // writes 'olumi-cee-analysis-ready'). Adding a write here — or adding this
+  // field to the autosave projection — would restore a refusal into a session
+  // where no analysis was refused.
+  setAnalysisRefusalNotice: (notice: AnalysisRefusalNotice | null) => {
+    set({ analysisRefusalNotice: notice })
   },
 
   setAnalysisFreshness: (rawAnalysisReady: unknown) => {
@@ -5483,6 +5517,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // dirty overlay so neither leaks from the previous graph/scenario.
       updates.analysisFreshness = null
       updates.analysisFreshnessDirty = false
+      // ROADMAP 2.1163 / EXT-2 — same argument as the verdict: a refusal
+      // belongs to the graph it was refused for.
+      updates.analysisRefusalNotice = null
       // Interim 2.467, DERIVED (see the field's doc): this path's live callers
       // pass the localStorage AUTOSAVE or loadState() — NOT a server-known
       // graph. Re-deriving from the graph being installed is what makes a
