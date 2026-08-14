@@ -247,6 +247,14 @@ export interface ResultsState {
 }
 
 /**
+ * ROADMAP 2.1127 — the `reportEpoch` stamped on a report RESTORED from history
+ * rather than produced by a run in this session. `runEpoch` counts from 1, so
+ * this can never equal a future `errorEpoch`: a restored report is provably not
+ * the output of the run that fails next.
+ */
+export const HISTORICAL_REPORT_EPOCH = 0
+
+/**
  * V5 analysis-fact state — written when a CEE V5 OlumiResponse carries an
  * `analysis_result` block plus the explicit run_analysis fact signals
  * (analysis_freshness, has_run_analysis_fact) emitted by Phase 3A.
@@ -3674,7 +3682,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         startedAt: run.ts,
         finishedAt: run.ts,
         drivers: run.drivers as any,
-        error: undefined
+        error: undefined,
+        // ROADMAP 2.1127 — this action REPLACES the whole results object, so it
+        // must carry the provenance stamps or a restored run would read as
+        // UNKNOWN and a later failure could make no attribution at all. A
+        // historical run is BY DEFINITION not the run that fails next: the
+        // counter only ever increments from 1, so the sentinel epoch below can
+        // never collide with a future `errorEpoch`.
+        runEpoch: s.results.runEpoch,
+        reportEpoch: HISTORICAL_REPORT_EPOCH,
+        errorEpoch: undefined
       },
       runMeta: {
         diagnostics: undefined,

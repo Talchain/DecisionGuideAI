@@ -144,7 +144,6 @@ const fakeReport: Record<string, unknown> = {
 }
 
 function seedCompletedRun() {
-  const baseResults = useCanvasStore.getState().results
   useCanvasStore.setState({
     hasCompletedFirstRun: true,
     nodes: [
@@ -154,10 +153,24 @@ function seedCompletedRun() {
     edges: [{ id: 'e1', source: 'factor-1', target: 'goal-1', data: { weight: 0.7, direction: 'positive' } }],
     graphHealth: { status: 'healthy', score: 100, issues: [] },
     ceeAnalysisReady: { goal_node_id: 'goal-1', options: [{ id: 'opt-a', label: 'A', interventions: {} }] },
-    results: { ...baseResults, status: 'complete', progress: 100, report: fakeReport },
+    showDraftChat: false,
+  } as never)
+
+  // ROADMAP 2.1127 — the completed run is seeded through the REAL transitions,
+  // not hand-written. `resultsComplete` stamps the run-epoch provenance the
+  // stale-results chip needs: without it the store cannot prove the report
+  // belongs to an earlier run, and the chip (correctly) makes no claim.
+  useCanvasStore.getState().resultsStart({ seed: 1 })
+  useCanvasStore.getState().resultsComplete({
+    report: fakeReport,
+    hash: 'seeded-completed-run',
+  } as never)
+
+  // Set AFTER the action: `resultsComplete` is a real transition with real
+  // side effects, and these fixtures describe the state this suite tests.
+  useCanvasStore.setState({
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: 1 },
     analysisFreshnessDirty: false,
-    showDraftChat: false,
   } as never)
 }
 
