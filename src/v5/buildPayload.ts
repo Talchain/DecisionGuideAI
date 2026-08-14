@@ -34,6 +34,17 @@ import type {
 import { ActionType, Intent } from '@talchain/schemas/boundary'
 
 import type { SystemEvent } from '../canvas/conversation/types'
+// VALUE import, and deliberately so: the selection this module puts on the wire
+// must be the one the canvas holds AT SEND TIME, read at the moment the payload
+// is built. Passing it in from useConversation would be purer, but the store is
+// the single authority for what the user has selected and re-plumbing it through
+// the call site adds a second place for the two to disagree. There is no import
+// cycle: `canvas/store.ts` reaches this module only through a TYPE-only import
+// of `v5/decisionReviewAdapter` (erased at compile time), and no value-import
+// path from `canvas/store.ts` reaches `v5/buildPayload.ts` or
+// `canvas/conversation/useConversation.ts` — derived by transitive closure over
+// the 66 value-imported modules reachable from the store, not assumed.
+import { useCanvasStore } from '../canvas/store'
 
 export interface BuildV5PayloadInput {
   turnId: string
@@ -181,7 +192,98 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
     base.retry_of = input.retryOf
   }
 
+  // selected_elements — what the user had selected on the canvas at send time.
+  // Omitted (absent, never `[]`) when there is nothing to say. See
+  // `deriveSelectedElements` for every reason a selection can be withheld.
+  const selectedElements = deriveSelectedElements()
+  if (selectedElements !== undefined) {
+    base.selected_elements = selectedElements
+  }
+
   return { ok: true, payload: base }
+}
+
+/**
+ * The contract's cap on `selected_elements` (`MAX_SELECTED_ELEMENTS` in
+ * @talchain/schemas `turn-payload.ts`).
+ *
+ * ⚠ A HAND-MAINTAINED MIRROR OF A CONTRACT CONSTANT — the exact defect class
+ * that shipped `applied_from` dark. It is a literal here rather than read out of
+ * the Zod schema at runtime because unwrapping `_def.innerType._def.maxLength`
+ * in PRODUCTION code binds the send path to zod's private internals, which move
+ * between minor versions; a wrong read there would drop selection on every turn.
+ * The drift is closed on the TEST side instead: `selectionCarriage.spec.ts`
+ * derives the cap from the published schema and REDs if this number stops
+ * matching it. Exported solely so that guard can see it.
+ *
+ * Direction of the failure if it ever does drift: a cap that is too HIGH sends
+ * an over-long array and 422s the turn; too LOW silently withholds selection on
+ * large selections. Both are visible to the guard before they are visible to a
+ * user.
+ */
+export const MAX_SELECTED_ELEMENTS = 20
+
+/**
+ * Read the live canvas selection and shape it as the contract's typed refs.
+ *
+ * WHY THIS EXISTS: the selection lived in the store and stopped there. The only
+ * UI code that ever emitted `selected_elements` was the V4 request builder,
+ * which posts to the 410'd v1 route and cannot execute under the deployed
+ * `VITE_ENABLE_V5_ORCHESTRATOR="true"` bake — so a user pointing at a node and
+ * asking "why does this matter?" sent a turn that never named the node.
+ *
+ * ⚠ TWO DIFFERENTLY-SHAPED FIELDS SHARE THIS NAME, and picking the wrong one
+ * is silent. The V4/extension shape is `{node_ids?, edge_ids?}`; the V5
+ * message-turn shape published at our pin is `Array<{id, kind, label?}>`, capped
+ * at 20. This builds the V5 shape, because that is what
+ * `MessageTurnPayloadSchema` — the `.strict()` schema this payload is validated
+ * against — declares. (CEE's *ingress* still mirrors the V4 shape and drops an
+ * array-of-refs best-effort; that is a CEE-side widening, tracked as hop 3 of
+ * this slice. Until it lands, this field is carried and not consumed. It cannot
+ * 422 anything in the meantime: CEE's pre-flight strips the key off the body
+ * before the strict validator runs, and its extension re-parse is fail-soft.)
+ *
+ * Returns `undefined` — i.e. the key is ABSENT — rather than an empty array
+ * whenever the client has nothing truthful to say:
+ *
+ *   · nothing selected;
+ *   · an edge-only selection (`edge_ids` is deliberately out of this slice:
+ *     nothing reads an edge selection, and shipping a field with no consumer is
+ *     this estate's dominant defect);
+ *   · a selected id with no matching node — a stale selection over a deleted
+ *     node. `kind` is REQUIRED by the contract and there is nothing truthful to
+ *     put in it, so the ref is dropped rather than invented;
+ *   · a node carrying no `type` — same reason, no fabricated kind;
+ *   · a selection LARGER than the contract cap. Sending 20 of 34 would be a
+ *     false statement about what the user selected, and CEE would ground an
+ *     answer in a selection that never existed. Absence says nothing; a silent
+ *     truncation says something wrong.
+ *
+ * Order is the STORE'S NODE ORDER, not the selection Set's iteration order, so
+ * the payload is a pure function of the selected SET.
+ */
+function deriveSelectedElements(): MessageTurnPayload['selected_elements'] | undefined {
+  // Defensive read: this is the one place the wire builder depends on store
+  // shape, and a selection-less store (an early boot, a test that stubbed the
+  // store) must degrade to "no selection", never throw on the send path.
+  const state = useCanvasStore.getState()
+  const selectedIds = state?.selection?.nodeIds
+  if (!selectedIds || selectedIds.size === 0) return undefined
+  if (selectedIds.size > MAX_SELECTED_ELEMENTS) return undefined
+
+  const refs: NonNullable<MessageTurnPayload['selected_elements']> = []
+  for (const node of state.nodes ?? []) {
+    if (!selectedIds.has(node.id)) continue
+    const kind = typeof node.type === 'string' ? node.type.trim() : ''
+    if (kind.length === 0) continue
+    const rawLabel = (node.data as { label?: unknown } | undefined)?.label
+    const label = typeof rawLabel === 'string' ? rawLabel.trim() : ''
+    // `label` is optional on the contract and `.min(1)` when present — omit it
+    // rather than send an empty string, which would 422 the whole turn.
+    refs.push(label.length > 0 ? { id: node.id, kind, label } : { id: node.id, kind })
+  }
+
+  return refs.length > 0 ? refs : undefined
 }
 
 function buildSystemEventPayload(input: BuildV5PayloadInput): BuildV5PayloadResult {
