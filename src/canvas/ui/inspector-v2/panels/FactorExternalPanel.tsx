@@ -32,6 +32,7 @@ import { resolveCoaching } from '../coachingConfig'
 import { FactorExternalEditor } from '../editors/FactorExternalEditor'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
+import { useParticipantName } from '../../../../collab/useParticipantName'
 
 // Quick-set presets
 const QUICK_SET = {
@@ -71,6 +72,15 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   // Source for extraction label (from observedState if present)
   const obs = (node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
   const source = obs?.source as string | undefined
+  /**
+   * D1 — resolve a `panel_elicited` value's AUTHOR to a name, at render.
+   *
+   * Called unconditionally and before this component's `!nodeId || !node` early
+   * return, because it is a hook. For every non-panel value it is a no-op: no
+   * `elicited_from` means `no_attribution`, which fetches nothing and leaves
+   * both labels below byte-identical to what they rendered before.
+   */
+  const attributedTo = useParticipantName(obs?.elicited_from as unknown)
 
   // Prior range
   const prior = (node?.data as Record<string, unknown>)?.prior as Record<string, unknown> | number | undefined
@@ -175,7 +185,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             Outside your control
           </span>
           <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
-            {getExtractionLabel(source)}
+            {getExtractionLabel(source, attributedTo)}
           </span>
         </div>
 

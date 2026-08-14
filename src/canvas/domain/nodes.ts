@@ -116,6 +116,32 @@ export const ObservedStateSchema = z.object({
   cap: z.number().nullable().optional(),
   extractionType: z.enum(['explicit', 'inferred', 'external']).nullable().optional(),
   uncertainty_drivers: z.array(z.string()).nullable().optional(),
+  /**
+   * schemas 0.40.0 `RoundParticipantRefSchema` — WHICH round, WHOSE stated
+   * value. Server-stamped by CEE alongside `source: 'panel_elicited'`, and only
+   * after it verified the owner's apply claim against its own collab store.
+   *
+   * IDS ONLY BY CONTRACT: a display name is never persisted here, because a name
+   * inside `scenarios.graph` would sit beyond the R-2 redaction routine's reach.
+   * Names are resolved at render from round data — `collab/participantNames.ts`.
+   *
+   * ⚠ DECLARED PERMISSIVELY ON PURPOSE. It rode `.passthrough()` untyped until
+   * now, so this adds a READER without adding a rejection: the members are
+   * optional here and `readElicitedFrom` is the single place that decides
+   * whether a reference is usable. Tightening this object instead would turn a
+   * malformed reference into a parse warning on a schema whose own contract is
+   * "validation is warning-only — do not reject drafts that omit fields", and
+   * the honest outcome for a malformed reference is an unnamed pill, not a
+   * complaint about the graph.
+   */
+  elicited_from: z
+    .object({
+      round_id: z.string().optional(),
+      participant_id: z.string().optional(),
+    })
+    .passthrough()
+    .nullable()
+    .optional(),
 }).passthrough()
 export type ObservedState = z.infer<typeof ObservedStateSchema>
 

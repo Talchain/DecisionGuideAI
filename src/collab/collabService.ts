@@ -71,6 +71,30 @@ export interface RevealView {
   }>
 }
 
+/**
+ * The owner's roster view of a round (CEE `OpenPacketLikePreview`).
+ *
+ * ⚠ `display_name` HERE IS ALREADY R-2 RESOLVED. CEE projects it as
+ * `p.pseudonym ?? p.display_name` (`collab/rounds-service.ts:217`), so a
+ * redacted participant arrives pseudonymised and no client needs to know the
+ * rule. That is precisely why render-time name resolution reads THIS and not
+ * `openRoundRecord`'s `localStorage` copy, which a later redaction cannot reach.
+ *
+ * `targets` is declared because the route sends it, not because this UI uses it
+ * — an undeclared field on a response type is how a reader concludes the server
+ * does not send one.
+ */
+export interface RoundRosterView {
+  round_id: string
+  status: string
+  targets: PacketTarget[]
+  roster: Array<{
+    participant_id: string
+    display_name: string
+    status: string
+  }>
+}
+
 export interface CollabError {
   code: string
   message: string
@@ -284,6 +308,37 @@ export async function fetchOwnerReveal(
   })
   if (!res.ok) throw await parseError(res)
   return (await res.json()) as RevealView
+}
+
+/**
+ * Fetch a round's ROSTER — the owner-facing name source for render-time
+ * attribution (D1).
+ *
+ * ── WHY THE PREVIEW ROUTE AND NOT THE REVEAL ──────────────────────────────
+ * `/reveal` would also answer the question: it carries `display_label` per
+ * response. It is the wrong choice on data minimisation, which is the same
+ * principle that makes the graph persist ids only. Resolving one pill's name
+ * would pull EVERY participant's number, verbatim wording and confidence into
+ * the canvas — a whole round's beliefs to render one person's name. `/preview`
+ * returns the roster and nothing else.
+ *
+ * ⚠ THE PREVIEW ROUTE IS NOT OPEN-ROUND-ONLY, despite its "pre-close" comment
+ * at CEE. `ownerPreview` refuses only on a missing round or a non-owner caller
+ * and returns `round.status` verbatim, so it answers for a CLOSED round too —
+ * which is the only kind that can produce an attribution, because CEE refuses
+ * an apply whose round is not applyable. Derived at
+ * `collab/rounds-service.ts:192-221`, not inferred from the route's comment.
+ */
+export async function fetchRoundRoster(
+  accessToken: string,
+  roundId: string,
+): Promise<RoundRosterView> {
+  const res = await fetch(`${COLLAB_BASE}/rounds/${encodeURIComponent(roundId)}/preview`, {
+    method: 'GET',
+    headers: { Authorization: ownerAuthorization(accessToken) },
+  })
+  if (!res.ok) throw await parseError(res)
+  return (await res.json()) as RoundRosterView
 }
 
 /**

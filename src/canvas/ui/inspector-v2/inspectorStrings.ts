@@ -5,6 +5,7 @@
 
 import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
+import type { ParticipantNameResolution } from '../../../collab/participantNames'
 
 // ─── Section titles (spec §3.1) ────────────────────────────────────
 export const SECTION_TITLES = {
@@ -106,10 +107,40 @@ const ATTRIBUTED_LABEL: Record<ValueProvenanceKind, string | null> = {
   // it. Totality bought a type error, not an answer — the compiler was satisfied
   // by `null` and the copy was a lie.
   //
-  // No name here, per D1: only `participant_id` is persisted, so a name on this
-  // surface could not be reached by the R-2 redaction routine. The named
-  // sentence belongs on the reveal, which re-derives it from round data.
+  // ⭐ THE UNNAMED FALLBACK, AND IT IS NOW A FALLBACK RATHER THAN THE ONLY COPY
+  // (D1, 14 Aug 2026). Reached whenever the person cannot be named: the value
+  // carries no `elicited_from`, round data has not loaded, the round has no row
+  // for that participant, or the row's label is blank.
+  //
+  // It stays exactly as it was, deliberately, because it is TRUE in all four
+  // cases — the value did come from the owner's panel. That is what makes the
+  // named version safe to add: a name that arrives one paint later ADDS detail
+  // to a true sentence instead of replacing a placeholder. Never render the id
+  // here; a uuid in this pill is a name for nobody, and `participantNames.ts`
+  // cannot produce one.
+  //
+  // The ORIGINAL version of this comment said a name could not live on this
+  // surface at all, "because only `participant_id` is persisted, so a name here
+  // could not be reached by the R-2 redaction routine". The premise was right
+  // and the conclusion did not follow: R-2 is beyond reach only for a name
+  // PERSISTED in the graph. A name RESOLVED AT RENDER from CEE's roster
+  // (`pseudonym ?? display_name`) is redaction-correct by construction, which
+  // is what schemas 0.40.0's own header prescribes — "display names are
+  // resolved at render time from round data".
   panel: 'From your panel',
+}
+
+/**
+ * The named form of the `panel` attribution.
+ *
+ * ⚠ IT ATTRIBUTES AND MUST NOT ENDORSE (Paul's ruling: "apply Grace's value" is
+ * not "Grace was correct"). "From Grace's panel answer" records whose number it
+ * is; anything in the register of "Grace's estimate is the right one" —
+ * "verified by", "per Grace", "Grace's figure" — smuggles a verdict into a
+ * provenance label. The owner adopting a value is a decision the owner owns.
+ */
+function namedPanelLabel(label: string): string {
+  return `From ${label}'s panel answer`
 }
 
 /**
@@ -125,16 +156,29 @@ const ATTRIBUTED_LABEL: Record<ValueProvenanceKind, string | null> = {
  * user-owned ones are non-null, `brief` and `ai` are null) and is the only
  * version that can answer for a kind that is attributed to somebody else.
  */
-function attributedLabelFor(source: string): string | null {
+function attributedLabelFor(
+  source: string,
+  attributedTo?: ParticipantNameResolution,
+): string | null {
   const cls = classifyValueProvenance(source)
   if (!cls) return null
+  // The name is consulted ONLY for the kind it can describe. Passing a
+  // resolution alongside `user_override` must not change that value's copy —
+  // the number is the owner's, whatever a round happens to say about somebody
+  // else, and this gate is what keeps a stale resolution from relabelling it.
+  if (cls.kind === 'panel' && attributedTo?.state === 'named') {
+    return namedPanelLabel(attributedTo.label)
+  }
   return ATTRIBUTED_LABEL[cls.kind]
 }
 
 // ─── Provenance labels (spec §3.4) ────────────────────────────────
-export function getProvenanceLabel(source?: string): string {
+export function getProvenanceLabel(
+  source?: string,
+  attributedTo?: ParticipantNameResolution,
+): string {
   if (!source) return 'No evidence yet'
-  const attributed = attributedLabelFor(source)
+  const attributed = attributedLabelFor(source, attributedTo)
   if (attributed) return attributed
   switch (source) {
     case 'brief_extraction': return 'Generated from your brief'
@@ -149,9 +193,12 @@ export function getProvenanceLabel(source?: string): string {
 }
 
 /** Extraction type user-facing labels */
-export function getExtractionLabel(source?: string): string {
+export function getExtractionLabel(
+  source?: string,
+  attributedTo?: ParticipantNameResolution,
+): string {
   if (!source) return 'Estimated by Olumi'
-  const attributed = attributedLabelFor(source)
+  const attributed = attributedLabelFor(source, attributedTo)
   if (attributed) return attributed
   switch (source) {
     case 'brief_extraction': return 'From your brief'
