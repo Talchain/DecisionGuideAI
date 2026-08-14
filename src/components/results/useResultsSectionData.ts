@@ -65,6 +65,11 @@ import { mapDecisionQualityPrompts } from './utils/decisionQualityPrompts'
 import { humaniseCritique } from './utils/humaniseCritique'
 import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
+import {
+  deriveNotAnalysedReason,
+  isAnalysedOption,
+  runAnalysedAnyOption,
+} from './utils/notAnalysedOptions'
 import { readInferenceWarnings } from './utils/readInferenceWarnings'
 import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
@@ -78,9 +83,22 @@ import { readDecisionVoi, type DecisionVoiVerdict } from './voi/decisionVoi'
 // =============================================================================
 
 export function determineWinnerSelection(
-  options: OptionResult[],
+  allOptions: OptionResult[],
   backendRecommendedId?: string | null
 ): { recommendedId: string | null; determinedBy: WinnerDeterminedBy } {
+  // ⭐ NO-RANK RULING (Paul, 14 Aug 2026) — an option the run never analysed
+  // takes no part in selecting the winner.
+  //
+  // This is the SAME `every`-quantifier defect as `sortOptionsForDisplay`'s
+  // `allHaveWinProb`, one level up: `hasCompleteWinProbabilityCoverage` below
+  // is an `every` over ALL options, so a single never-analysed option silently
+  // dropped winner selection from win probability to the p50/mean tie-breaker
+  // — and `determinedBy` is user-facing copy, so the product then TOLD the
+  // user its answer came from expected value. Filtering here rather than
+  // loosening the coverage rule keeps the rule's own question intact: the
+  // coverage must still be COMPLETE, over the options that were in the
+  // comparison.
+  const options = allOptions.filter((o) => o.notAnalysed !== true)
   if (options.length === 0) {
     return { recommendedId: null, determinedBy: 'unknown' }
   }
@@ -1525,12 +1543,37 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Build option results with percentile extraction
     const sharedBands = report.run?.bands
 
+    // ⭐ NO-RANK RULING (Paul, 14 Aug 2026) — WHICH OPTIONS WERE IN THE
+    // ANALYSIS AT ALL.
+    //
+    // THIS LINE IS THE LEFT JOIN. `optionNodes` is the USER'S GRAPH; the result
+    // is joined onto it. CEE excludes an option with no interventions from the
+    // PLoT submission, so an excluded option arrives here as an EMPTY join —
+    // and every expression below treated "empty" as "zero-ish" rather than
+    // "absent". Measured consequence: `optionBands` fell through to
+    // `sharedBands` (the FIRST option's confidence-interval midpoint, built by
+    // `responseMapper.ts:585`) and `rawExpected` resolved via
+    // `?? optionBands.p50`, so an option that was never analysed rendered
+    // ANOTHER option's mean as its own number. The producer removed a disclosed
+    // placeholder; the reader minted an undisclosed one.
+    //
+    // Derived, never a wire field, and guarded on the run having produced SOME
+    // per-option result — see `utils/notAnalysedOptions.ts` for why the domain
+    // guard is the load-bearing half.
+    const optionNodeIds = optionNodes.map((n) => n.id)
+    const runAnalysedAny = runAnalysedAnyOption(optionProbs, optionNodeIds)
+
     // v7: Pre-scan all options to detect already-denormalized values.
     // If any option has raw outcome magnitudes > 2, the data is already in user units
     // even when goalThresholdCap is missing — so we should NOT label as "Relative score".
+    //
+    // NO-RANK: an option with no analysis has no values to vote with. Left in,
+    // it voted with the SHARED bands — i.e. another option's numbers counted
+    // twice in a scan whose whole job is to read this option's magnitudes.
     const capValid = goalThresholdCap != null && goalThresholdCap > 0
     let anyAlreadyDenormalized = false
     for (const node of optionNodes) {
+      if (runAnalysedAny && !isAnalysedOption(optionProbs, node.id)) continue
       const prob = optionProbs[node.id] || {}
       const ob = prob.outcome ?? {}
       const ob2 = prob.bands ?? sharedBands ?? {}
@@ -1546,9 +1589,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const unsortedOptions: OptionResult[] = optionNodes.map((node) => {
       const nodeId = node.id
       const prob = optionProbs[nodeId] || {}
+      // NO-RANK RULING — see the block above the pre-scan.
+      const notAnalysed = runAnalysedAny && !isAnalysedOption(optionProbs, nodeId)
 
-      // Per-option bands take precedence over shared bands
-      const optionBands = prob.bands ?? sharedBands ?? {}
+      // Per-option bands take precedence over shared bands.
+      //
+      // ⛔ AND AN OPTION THAT WAS NEVER ANALYSED TAKES NEITHER. The
+      // `?? sharedBands` step is a legitimate second source of the SAME
+      // option's statistic when the producer sent per-option bands separately;
+      // for an option the producer never scored it is a different option's
+      // number wearing this option's name. This is the C5 fabrication, killed
+      // at its one source rather than at each render site.
+      const optionBands = notAnalysed ? {} : (prob.bands ?? sharedBands ?? {})
       // Per-option outcome object (new structure with explicit expected)
       const optionOutcome = prob.outcome ?? {}
 
@@ -1639,8 +1691,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // formatting happens at render time.
       const rawNValid = (optionOutcome as { n_valid_samples?: number }).n_valid_samples
       const rawNTotal = (optionOutcome as { n_samples?: number }).n_samples
-      const nValidSamples =
-        typeof rawNValid === 'number' && Number.isFinite(rawNValid) && rawNValid > 0
+      // NO-RANK: the root-meta arm of this chain is a RUN-level count. For an
+      // option that was never simulated it would state the resolution of a
+      // computation that never touched it — the same shared-value leak as
+      // `sharedBands`, one field along.
+      const nValidSamples = notAnalysed
+        ? undefined
+        : typeof rawNValid === 'number' && Number.isFinite(rawNValid) && rawNValid > 0
           ? rawNValid
           : typeof rawNTotal === 'number' && Number.isFinite(rawNTotal) && rawNTotal > 0
             ? rawNTotal
@@ -1696,6 +1753,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         goalFitWithheld: goalDecision.jointSubstitutionWithheld,
         // Multi-constraint analysis (from ISL when goal_constraints were provided)
         constraintAnalysis: prob.constraint_analysis,
+        // ⭐ NO-RANK RULING. Omitted entirely when false so the ordinary path
+        // is byte-identical to before and `notAnalysed` cannot be read as
+        // "someone considered this option and said no".
+        ...(notAnalysed
+          ? {
+              notAnalysed: true as const,
+              notAnalysedReason: deriveNotAnalysedReason(nodeId, edges, optionNodeIds),
+            }
+          : {}),
       }
     })
 
@@ -2122,7 +2188,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason])
+    // ⭐ `edges` ADDED BY THE NO-RANK LANE, AND IT IS A CORRECTNESS DEPENDENCY,
+    // NOT A LINT APPEASEMENT. `deriveNotAnalysedReason` reads the option's
+    // intervention edges to tell "you have not configured this" from "the
+    // engine returned nothing for it". Those are the two facts the card's copy
+    // and its resolve affordance branch on, and connecting an option to a
+    // factor changes `edges` ALONE — with a stale closure the card would keep
+    // telling a user to configure an option they had just configured.
+    // (Measured: at pristine this memo's exhaustive-deps warning named only
+    // `reviewStatus`; without this entry the lane would have added `edges` to
+    // it.)
+  }, [hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)

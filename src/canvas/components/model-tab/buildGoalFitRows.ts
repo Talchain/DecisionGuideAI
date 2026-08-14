@@ -10,11 +10,35 @@
  *    reads those fields itself; it hands each `option_probabilities` entry
  *    to the owner and reads the decision.
  *  · Complete-field rule (the V7 goal lens / OptionCards "Hits target"
- *    gate): rows are returned ONLY when every option node has an admissible
- *    figure. A partial list would be a ranking over a subset presented as a
- *    ranking over the options — return null instead and render nothing.
+ *    gate): rows are returned ONLY when every ANALYSED option node has an
+ *    admissible figure. A partial list would be a ranking over a subset
+ *    presented as a ranking over the options — return null instead and render
+ *    nothing.
  *  · Producer order preserved — rows follow the caller's option order; no
  *    re-sorting, no winner designation minted here.
+ *
+ * ⭐ NO-RANK RULING (Paul, 14 Aug 2026) — TWO QUESTIONS WERE SHARING ONE
+ * `return null`, AND THE ANSWER TO ONE OF THEM WAS WRONG.
+ *
+ * The loop used to `return null` — from the WHOLE builder, not the iteration —
+ * on `!entry || typeof entry !== 'object'`. Two different facts arrive at that
+ * line:
+ *
+ *   (a) **the option was never analysed** (CEE excluded it from the submission,
+ *       so there is no entry). ONE such option blanked the entire goal-fit card
+ *       for every option that WAS analysed.
+ *   (b) **the entry is present and malformed.** A producer defect, and the
+ *       complete-field rule above is exactly right about it.
+ *
+ * The complete-field rule was written for a THIRD case, on the line below: an
+ * option that WAS analysed and carries no goal figure. It was never written for
+ * "never analysed", and applying it there answers a question nobody asked
+ * (CLAUDE.md trap 21). (a) now SKIPS; (b) and the analysed-but-no-figure case
+ * keep `return null` unchanged.
+ *
+ * The domain guard matches the results hook's: a run that returned NOTHING for
+ * ANY option is a whole-run producer gap, not a set of excluded options, and
+ * still yields `null` rather than an empty card.
  */
 
 import type { Node } from '@xyflow/react'
@@ -22,6 +46,7 @@ import {
   selectGoalProbability,
   type GoalProbabilityInput,
 } from '../../../components/results/utils/selectGoalProbability'
+import { isAnalysedOption } from '../../../components/results/utils/notAnalysedOptions'
 
 export interface GoalFitRow {
   id: string
@@ -67,10 +92,18 @@ export function buildGoalFitRows(
   optionProbabilities: Record<string, unknown> | null | undefined,
 ): GoalFitRow[] | null {
   if (!optionProbabilities || optionNodes.length === 0) return null
+  // THE DOMAIN GUARD (see the header). "No entry" only means "this option was
+  // excluded" when the run produced entries for other options; when it
+  // produced none at all, every option reads missing and the honest answer is
+  // still the whole-card null.
+  const analysedNodes = optionNodes.filter((node) => isAnalysedOption(optionProbabilities, node.id))
+  if (analysedNodes.length === 0) return null
   const rows: GoalFitRow[] = []
-  for (const node of optionNodes) {
+  for (const node of analysedNodes) {
     const entry = optionProbabilities[node.id]
-    if (!entry || typeof entry !== 'object') return null
+    // Present but malformed — a producer defect, and the complete-field rule
+    // is right about it. Absence never reaches here; it was filtered above.
+    if (typeof entry !== 'object') return null
     const decision = selectGoalProbability(entry as GoalProbabilityInput)
     if (decision.goalProbability == null) return null
     const data = node.data as Record<string, unknown> | undefined

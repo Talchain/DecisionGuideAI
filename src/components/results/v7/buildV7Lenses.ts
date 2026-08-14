@@ -149,7 +149,31 @@ function driverDirection(d: DriverItem): 'positive' | 'negative' | null {
 
 export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
   const { recommendation, drivers, confidence, voiRanking } = data
-  const options = recommendation.allOptions ?? []
+  // ⭐ NO-RANK RULING (Paul, 14 Aug 2026) — THE LENSES ARE COMPARATIVE VIEWS,
+  // AND AN OPTION THE RUN NEVER ANALYSED IS NOT IN THE COMPARISON.
+  //
+  // Filtering here rather than at each lens closes two defects with one line:
+  //
+  //  1. THE GOAL LENS COLLAPSED FOR EVERYONE. `hasCompleteGoalField` below is
+  //     a complete-field gate over ALL options, so ONE never-analysed option
+  //     set `goal.available = false` and the entire goal lens degraded to a
+  //     `producer_gap` line — for the analysed options too. `producer_gap` was
+  //     also the wrong DIAGNOSIS: the producer had no gap, we handed the gate
+  //     an option the producer was never asked about.
+  //  2. THE OUTCOME LENS WOULD HAVE DRAWN IT. `V7OutcomeLens.options` is this
+  //     array; a member with null bands and no win probability is a row with
+  //     nothing in it, in a group whose whole subject is comparison.
+  //
+  // `hasCompleteGoalField` itself is deliberately UNTOUCHED. It is shared with
+  // `selectGoalLeader`, its question ("may I claim a superlative over this
+  // field?") is right, and changing what a shared predicate MEANS to fix who
+  // it is asked ABOUT is how two surfaces end up disagreeing (trap 21). The
+  // question stays; the candidate set is corrected.
+  //
+  // Per-option VISIBILITY of an unanalysed option is the results panel's job
+  // (`NotAnalysedOptionCard`), not this group's — see the division of labour
+  // pinned by `notAnalysedDivisionOfLabour.spec.ts`.
+  const options = (recommendation.allOptions ?? []).filter((o) => o.notAnalysed !== true)
   // ROADMAP 1.267. `winnerId` drives the ONLY thing the V7 rows do with a
   // leader: bold + darken that row's label and readout
   // (`V7LensGroup.tsx`). On a withheld run the V7 HEADLINE above these rows

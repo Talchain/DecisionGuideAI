@@ -17,6 +17,7 @@ import type { V2FactorSensitivity, V2OptionComparison } from '../../adapters/plo
 import type { KnownFlipReason } from './utils/flipReasonVocabulary'
 import type { PercentilesSource } from './utils/downsideCopy'
 import type { MappedDecisionQualityPrompt } from './utils/decisionQualityPrompts'
+import type { NotAnalysedReason } from './utils/notAnalysedOptions'
 
 // Re-export M1 coaching type for component use
 export type { M1CoachingReadiness }
@@ -268,6 +269,33 @@ export interface OptionResult {
    * `GOAL_ANCHOR_COPY.noTarget`.
    */
   goalFitWithheld?: boolean
+  /**
+   * ⭐ NO-RANK RULING (Paul, 14 Aug 2026) — true when this option node was NOT
+   * in the analysis at all: the run returned per-option results and carried no
+   * entry for this one.
+   *
+   * It is NOT a wire field. CEE excludes an option with no interventions from
+   * the PLoT submission, so the producer already says this by OMISSION, and the
+   * hook derives it at the left join (`utils/notAnalysedOptions.ts`). A wire
+   * boolean would be a second authority on a fact already on the wire.
+   *
+   * ⚠ ABSENT/false MEANS "IN THE ANALYSIS", INCLUDING ON A RUN THAT RETURNED
+   * NOTHING AT ALL. The derivation is guarded on the run having produced SOME
+   * per-option result, so a whole-run producer gap leaves every option
+   * unmarked rather than telling a user who configured everything that they
+   * configured nothing.
+   *
+   * Render sites MUST show no rank, no ordinal, no probability, no expected
+   * value and no fill bar for a marked option — see `NotAnalysedOptionCard`,
+   * which is the one place that decision is made.
+   */
+  notAnalysed?: boolean
+  /**
+   * Why {@link notAnalysed} is true — a property of the GRAPH, not of the
+   * result, and a DIFFERENT question from whether it was analysed. Only one of
+   * the two reasons is user-actionable; `utils/notAnalysedCopy.ts` owns which.
+   */
+  notAnalysedReason?: NotAnalysedReason
 }
 
 /** Outcome unit type for formatting - from goal node observed_state.unit */

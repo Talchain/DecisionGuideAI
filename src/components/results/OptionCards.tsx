@@ -38,6 +38,7 @@ import {
   isBelowSimulationResolution,
 } from '../../utils/formatPercent'
 import { ExpertBlock } from './ExpertBlock'
+import { NotAnalysedOptionCard } from './NotAnalysedOptionCard'
 import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { OptionRangeBar, computeOptionScale, isFiniteNumber, type OptionScale } from './shared/OptionRangeBar'
@@ -1106,8 +1107,22 @@ export function OptionCards({
   // over-suppression failure mode, arrived at by trying to save a flag.
   const designationsWithheld = hasLeadingOption === false
 
-  // V11: Conditional "Hits target" — hide unless EVERY option has goalProbability
-  const allGoalProbability = options.every(o => o.goalProbability != null)
+  // ⭐ NO-RANK RULING (Paul, 14 Aug 2026) — the options that were actually in
+  // the comparison. Every completeness quantifier on this surface asks about
+  // THEM; an option the run never analysed cannot make a field incomplete
+  // because it was never part of the field.
+  const analysedOptions = options.filter(o => o.notAnalysed !== true)
+
+  // V11: Conditional "Hits target" — hide unless EVERY option has goalProbability.
+  //
+  // NO-RANK: quantified over the ANALYSED options. As an `every` over ALL of
+  // them, one never-analysed option deleted the "Hits target" bar from every
+  // analysed card — a real regression in what the user could see about options
+  // that WERE scored, caused by one that was not. Same defect class as
+  // `sortOptionsForDisplay`'s `allHaveWinProb` and
+  // `determineWinnerSelection`'s coverage check.
+  const allGoalProbability =
+    analysedOptions.length > 0 && analysedOptions.every(o => o.goalProbability != null)
   const showHitsTarget = hasGoalThreshold && allGoalProbability
 
   // V14.2: Sort by win probability descending (same order as WinGauge segments).
@@ -1156,9 +1171,29 @@ export function OptionCards({
     lensHighlightedId != null &&
     !truncated.some((o) => o.id === lensHighlightedId) &&
     sorted.some((o) => o.id === lensHighlightedId)
-  const visibleOptions = lensPickHidden
+  const withLensPick = lensPickHidden
     ? [...truncated, ...sorted.filter((o) => o.id === lensHighlightedId)]
     : truncated
+
+  // ⭐ NO-RANK RULING — A NOT-ANALYSED OPTION IS ALWAYS RENDERED.
+  //
+  // The ruling's own words: it "stays visible as a proposed/unanalysed
+  // alternative". Unranked options sort LAST, so with two analysed options the
+  // truncation to TOP_N would put every one of them behind "Show all" — the
+  // product would silently drop the option it is supposed to be disclosing,
+  // and the disclosure would be reachable only by a click nobody has a reason
+  // to make.
+  //
+  // Appended by the SAME mechanism as the lens pick two blocks up (ROADMAP
+  // 2.237), and for the same reason: appending keeps it out of the ranked
+  // sequence, whereas promoting it into the top N would re-order the list and
+  // hand it a position it must not have.
+  const hiddenNotAnalysed = sorted.filter(
+    (o) => o.notAnalysed === true && !withLensPick.some((v) => v.id === o.id),
+  )
+  const visibleOptions = hiddenNotAnalysed.length > 0
+    ? [...withLensPick, ...hiddenNotAnalysed]
+    : withLensPick
   // Derived from what is actually rendered — `sorted.length - TOP_N` would say
   // "1 more" while that one was already on screen.
   const hiddenCount = sorted.length - visibleOptions.length
@@ -1209,6 +1244,23 @@ export function OptionCards({
   return (
     <div className="space-y-2" data-testid="option-cards">
       {visibleOptions.map((option, index) => {
+        // ⭐ NO-RANK RULING — THE FORK, AND THE ONLY PLACE IT IS MADE.
+        //
+        // Everything below this line is ranked chrome: a rank swatch, an
+        // ordinal, a win percentage, a fill bar, goal bars, a range bar. An
+        // option the run never analysed must reach NONE of it, so it forks
+        // here rather than being guarded seven times inside `OptionCard` —
+        // see `NotAnalysedOptionCard`'s header for why a list of guards would
+        // rot and this cannot.
+        if (option.notAnalysed === true) {
+          return (
+            <NotAnalysedOptionCard
+              key={option.id}
+              option={option}
+              onFocusNode={onFocusNode}
+            />
+          )
+        }
         const isWinner = option.id === winnerId
         const isRunnerUp = option.id === runnerId
         const headline = storyHeadlines?.[option.id]
