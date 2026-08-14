@@ -204,12 +204,44 @@ describe('Model-tab goal card — per-option goal fit (real ModelTabBody→GoalS
 
 describe('honest gates — no partial rankings, no rows without a basis', () => {
   it('one option without an admissible figure → NO rows at all (complete-field rule)', () => {
+    // ⚠ FIXTURE CORRECTED BY THE NO-RANK LANE (14 Aug 2026), AND THE
+    // CORRECTION IS ITSELF THE FINDING.
+    //
+    // This test's NAME says "without an admissible figure". Its fixture said
+    // `delete probs.opt_statusquo` — which is a DIFFERENT FACT: not "analysed
+    // and unscoreable" but "never analysed at all". The two arrived at one
+    // `return null` inside `buildGoalFitRows`, and that conflation is exactly
+    // what Paul's ruling separates (CLAUDE.md trap 21: two questions under one
+    // return). The name was right and the fixture was wrong, so the fixture is
+    // what changed: the entry is now PRESENT and carries no goal figure, which
+    // is what the complete-field rule was written to catch.
+    //
+    // The other fact — an option the run never analysed — is pinned by its own
+    // twin below, where it now renders rows instead of blanking the card.
     const probs = walkOptionProbabilities()
-    delete probs.opt_statusquo
+    probs.opt_statusquo = { win_probability: 0.0145 }
     setResults(probs)
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={makeNodes()} edges={[]} />)
     expect(screen.getByTestId('model-goal-section')).toBeInTheDocument()
     expect(screen.queryByTestId('goal-fit-parity')).toBeNull()
+  })
+
+  it('OPPOSITE TWIN — an option the run NEVER ANALYSED still leaves rows for the analysed ones', () => {
+    // Paul's ruling, 14 Aug 2026: an unanalysable option is not in the
+    // comparison — it must not be ranked, and it must not delete the ranking.
+    // Before this lane, `delete probs.opt_statusquo` blanked the ENTIRE
+    // goal-fit card for the three options that WERE scored.
+    const probs = walkOptionProbabilities()
+    delete probs.opt_statusquo
+    setResults(probs)
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={makeNodes()} edges={[]} />)
+    const parity = screen.getByTestId('goal-fit-parity')
+    // The three analysed options keep their rows, by label identity.
+    expect(parity).toHaveTextContent('Invest in Content Marketing')
+    expect(parity).toHaveTextContent('Hire Two Sales Reps')
+    expect(parity).toHaveTextContent('Build Self-Serve Tier')
+    // And the never-analysed option contributes none — no row, no figure.
+    expect(parity).not.toHaveTextContent('Continue Current Approach')
   })
 
   it('no target set on the goal → no rows even with full figures', () => {
