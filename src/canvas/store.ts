@@ -4882,33 +4882,46 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (cur.source === null && cur.edgeIds.size === 0 && cur.nodeIds.size === 0) return
     set({ analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() } })
   },
-  // SELECTION-AWARE ANSWERING (hop 4b). Two writes, one action, because they
-  // are one fact: "this answer is about these elements".
+  // SELECTION-AWARE ANSWERING (hop 4b). ONE write, to ONE slice this action
+  // exclusively owns.
   //
-  // ⚠ THE MARKS RIDE `highlightedNodes` DELIBERATELY, AND NOTHING WRITES
-  // `highlightedEdges`. `highlightedNodes` is already this canvas's "the AI is
-  // talking about this" channel (`appliedEditPulse`, the `ui_directive`
-  // highlight verb) and BaseNode already renders it as `ai-highlight-pulse` —
-  // so reusing it is the spec's instruction, not a shortcut: a second emphasis
-  // style on one canvas is a worse outcome than none. `highlightedEdges` is a
-  // different matter entirely: FocusModeChip renders "Showing paths from X to
-  // goal" on `highlightedEdges.size > 0` alone, so writing it for a grounding
-  // that involves no path would make the chip state something untrue. That is
-  // #694's neighbourhood-focus precedent applied here — prominence comes from
-  // the node marks, never from claiming a path.
+  // ⚠⚠ THIS ACTION DOES NOT TOUCH `highlightedNodes`, AND THAT IS A
+  // CORRECTNESS PROPERTY, NOT A STYLE CHOICE. An earlier revision wrote the
+  // marks into `highlightedNodes` on the reasoning that it is already the
+  // canvas's "the AI is talking about this" channel. An adversarial review
+  // refuted it at the bytes and it was wrong three ways:
   //
-  // OWNERSHIP ON CLEAR: `highlightedNodes` has other, transient writers (the
-  // applied-edit pulse, panel hover sync). Clearing only when this slice
-  // currently holds a non-empty set means an ungrounded turn cannot wipe a
-  // pulse it never owned.
+  //   · `highlightedNodes` is a shared, last-writer-wins channel with ELEVEN
+  //     other writers (`appliedEditPulse`, `HighlightContext`,
+  //     `useHighlightDispatch`, `PreAnalysisHealth`, `TransitionCard`,
+  //     `CompareState`, node components, …). A wholesale replace here clobbers
+  //     whatever any of them had put there.
+  //   · `appliedEditPulse.flush` REPLACES the set (`:84`) and then EMPTIES it
+  //     unconditionally at `PULSE_DURATION_MS` (`:90`). On any turn that both
+  //     applies a patch and carries a selection — "change THIS one", the
+  //     flagship case — the grounded marks were overwritten ~100ms later and
+  //     erased at ~2.1s. The capability simply did not hold on that journey.
+  //   · The clear guarded on whether THIS SLICE was non-empty, not on whether
+  //     the marks on screen were still the ones it wrote, so an ungrounded turn
+  //     could wipe another writer's marks — the exact thing its own comment
+  //     claimed it could not do.
+  //
+  // `BaseNode` now reads `groundedFocus.nodeIds` directly, applying the SAME
+  // `ai-highlight-pulse` treatment: one emphasis language on the canvas (the
+  // spec's instruction), two independent pieces of state. That is what "single
+  // authority" actually requires — owning your own slice, not writing someone
+  // else's.
+  //
+  // NOTHING WRITES `highlightedEdges` EITHER. FocusModeChip renders "Showing
+  // paths from X to goal" on `highlightedEdges.size > 0` alone, so writing it
+  // for a grounding that involves no path would make the chip state something
+  // untrue — #694's neighbourhood-focus honesty precedent applied here.
   setGroundedFocus: (grounded) => {
     if (grounded === null) {
       const prev = get().groundedFocus
+      // No-op when already clear: no state write, no Set-identity churn.
       if (prev.unresolved === null && prev.nodeIds.size === 0) return
-      set({
-        groundedFocus: { nodeIds: new Set<string>(), unresolved: null },
-        ...(prev.nodeIds.size > 0 ? { highlightedNodes: new Set<string>() } : {}),
-      })
+      set({ groundedFocus: { nodeIds: new Set<string>(), unresolved: null } })
       return
     }
     set({
@@ -4916,7 +4929,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         nodeIds: new Set(grounded.nodeIds),
         unresolved: grounded.unresolved,
       },
-      highlightedNodes: new Set(grounded.nodeIds),
     })
   },
   setDimmedNodes: (ids: string[]) => {

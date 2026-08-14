@@ -75,6 +75,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // on every store update. Selecting the entire Set causes infinite loops since
   // Set references change on each store update.
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
+  // SELECTION-AWARE ANSWERING (hop 4b): this node is one the LAST answer was
+  // grounded on. Its OWN channel, deliberately — not `highlightedNodes`.
+  //
+  // ⚠ WHY A SECOND SELECTOR RATHER THAN A SECOND WRITER, and it is a
+  // correctness fix, not a preference. `highlightedNodes` is a shared,
+  // last-writer-wins channel with eleven other writers, one of which is the
+  // applied-edit pulse — and that pulse REPLACES the set on flush and then
+  // EMPTIES it unconditionally after PULSE_DURATION_MS. A grounded turn that
+  // also applied a patch ("change this one" — the flagship case) would
+  // therefore have its marks overwritten ~100ms later and erased at ~2.1s,
+  // with nothing left to restore them. Writing a channel you do not own is how
+  // a canvas comes to disagree with itself.
+  //
+  // Same VISUAL treatment below (one emphasis language, per the spec),
+  // separate STATE. Primitive-boolean selector (React #185) + optional
+  // chaining for store doubles without the slice.
+  const isGroundedFocus = useCanvasStore(s => s.groundedFocus?.nodeIds?.has(id) === true)
   // N3: edited since the last analysis run (amber corner dot; undefined-safe
   // for node-spec store doubles without the slice).
   const isEditedSinceRun = useCanvasStore(s => s.editedSinceRunNodeIds?.has(id) === true)
@@ -245,8 +262,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         ${isCausalLens ? (causalBorderClass ?? '') : isIncomplete ? 'border-warning border-dashed' : borderClassOverride ?? `${colors.border} ${borderStyle}`}
         transition-all duration-200
         cursor-default
-        ${selected && !isHighlighted ? `${colors.selected} ring-offset-2` : ''}
-        ${isHighlighted ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
+        ${selected && !isHighlighted && !isGroundedFocus ? `${colors.selected} ring-offset-2` : ''}
+        ${isHighlighted || isGroundedFocus ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-60' : ''}
       `}
       style={{

@@ -29,8 +29,13 @@
  * `ring-4 ring-info/60 ai-highlight-pulse`. That the ring is VISIBLE is a
  * browser claim and is made separately, in a real browser, never here.
  */
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 
+import {
+  pulseAppliedTargets,
+  PULSE_COALESCE_MS,
+  PULSE_DURATION_MS,
+} from '../../canvas/utils/appliedEditPulse'
 import { parseV5Response } from '../responseParser'
 import { applyV5State, type V5ApplicatorStore } from '../applyV5State'
 import { readGroundedSelection } from '../groundedSelection'
@@ -90,7 +95,22 @@ async function applyWire(
   applyV5State(response, productionShapedStore(), options)
 }
 
-const marks = (): string[] => [...useCanvasStore.getState().highlightedNodes].sort()
+/**
+ * The marks the canvas renders for a grounded answer, read from the slice that
+ * OWNS them.
+ *
+ * ⚠ THIS READS `groundedFocus.nodeIds`, NOT `highlightedNodes`, AND THE
+ * DIFFERENCE IS THE POINT. An earlier revision wrote the marks into
+ * `highlightedNodes`; an adversarial review refuted that at the bytes —
+ * eleven other writers share that channel, and `appliedEditPulse` both
+ * replaces it and then EMPTIES it at `PULSE_DURATION_MS`. `BaseNode` reads
+ * both sets and applies the same treatment, so the pixels are unchanged; the
+ * state is now the grounding's own.
+ */
+const marks = (): string[] => [...useCanvasStore.getState().groundedFocus.nodeIds].sort()
+
+/** The SHARED channel, which this slice must never write. */
+const sharedHighlights = (): string[] => [...useCanvasStore.getState().highlightedNodes].sort()
 
 beforeEach(() => {
   useCanvasStore.setState({
@@ -168,6 +188,61 @@ describe('hop 4b — the ungrounded negative control', () => {
     })
 
     expect(marks()).toEqual([])
+  })
+})
+
+describe('hop 4b — the grounding owns its own state and clobbers nobody', () => {
+  // ⭐ THE CASES A REVIEW HAD TO FIND, because the suite as first written was
+  // structurally blind to them: every test reset `highlightedNodes` to empty
+  // and none exercised a patch-bearing turn, so a wholesale replace and an
+  // ownership-respecting write were indistinguishable to it. A corpus that
+  // never populates the shared channel cannot observe the shared channel being
+  // trampled.
+
+  it('leaves another writer’s marks alone on a GROUNDED turn', async () => {
+    // e.g. a coaching highlight, a compare-tab transition, a panel hover sync.
+    useCanvasStore.getState().setHighlightedNodes(['node-someone-elses'])
+
+    await applyWire(wireBody({ element_ids: ['node-grounded'], unresolved: 'none' }))
+
+    expect(marks()).toEqual(['node-grounded'])
+    expect(sharedHighlights()).toEqual(['node-someone-elses'])
+  })
+
+  it('leaves another writer’s marks alone on an UNGROUNDED turn', async () => {
+    // The clear must clear ITS OWN slice and nothing else. The earlier
+    // revision guarded on whether this slice was non-empty, which is a
+    // different question from whether it still owns what is on screen.
+    await applyWire(wireBody({ element_ids: ['node-grounded'], unresolved: 'none' }))
+    useCanvasStore.getState().setHighlightedNodes(['node-someone-elses'])
+
+    await applyWire(wireBody())
+
+    expect(marks()).toEqual([])
+    expect(sharedHighlights()).toEqual(['node-someone-elses'])
+  })
+
+  it('survives an applied-edit pulse on the SAME turn, including its 2s clear', async () => {
+    // THE FLAGSHIP JOURNEY: "change THIS one" — a turn that both applies a
+    // patch and carries a selection. `appliedEditPulse.flush` replaces
+    // `highlightedNodes` ~100ms later and EMPTIES it at PULSE_DURATION_MS.
+    // While the marks lived in that channel the capability did not survive
+    // its own headline use case, and no test could see it.
+    vi.useFakeTimers()
+    try {
+      await applyWire(wireBody({ element_ids: ['node-grounded'], unresolved: 'none' }))
+      pulseAppliedTargets({ nodeIds: ['node-just-edited'], edgeIds: [] })
+
+      vi.advanceTimersByTime(PULSE_COALESCE_MS + 10)
+      expect(marks()).toEqual(['node-grounded'])
+
+      vi.advanceTimersByTime(PULSE_DURATION_MS + 10)
+      // The pulse has cleared its own channel; the grounding is still marked.
+      expect(sharedHighlights()).toEqual([])
+      expect(marks()).toEqual(['node-grounded'])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

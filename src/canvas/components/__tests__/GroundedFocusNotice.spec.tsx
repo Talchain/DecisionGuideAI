@@ -127,6 +127,23 @@ describe('the mount path — trap 3b: a component the deployment never renders',
     expect(graphSource).toMatch(/<FocusModeChip\s*\/>/)
   })
 
+  it('BaseNode reads the grounded set and gives it the SAME emphasis treatment', () => {
+    // The node marks are the other half of the visible slice, and after the
+    // ownership fix they ride `groundedFocus.nodeIds` rather than the shared
+    // `highlightedNodes`. Two claims, both structural: the selector exists,
+    // and it drives the SAME `ai-highlight-pulse` class — one emphasis
+    // language on the canvas, per the spec.
+    const baseNode = readFileSync(resolve(__dirname, '../../nodes/BaseNode.tsx'), 'utf8')
+
+    // POSITIVE CONTROL: the probe can see the pre-existing shared-channel
+    // selector, so a miss below is absence rather than blindness.
+    expect(baseNode).toMatch(/useCanvasStore\(s\s*=>\s*s\.highlightedNodes\.has\(id\)\)/)
+
+    expect(baseNode).toMatch(/s\.groundedFocus\?\.nodeIds\?\.has\(id\)/)
+    // Same treatment, one class, driven by either channel.
+    expect(baseNode).toMatch(/isHighlighted \|\| isGroundedFocus\s*\?\s*'ring-4 ring-info\/60 ai-highlight-pulse'/)
+  })
+
   it('mounts GroundedFocusNotice in the same rail as FocusModeChip', () => {
     expect(graphSource).toMatch(/<GroundedFocusNotice\s*\/>/)
 
