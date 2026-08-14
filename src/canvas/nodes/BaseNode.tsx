@@ -19,7 +19,7 @@ import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
-import { NODE_CARD_MAX_W } from '../utils/nodeLayoutConstants'
+import { NODE_CARD_MAX_W, NODE_TITLE_MIN_MEASURE_PX } from '../utils/nodeLayoutConstants'
 import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
@@ -388,6 +388,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           alignItems: 'flex-start',
           gap: '6px',
           marginBottom: '4px',
+          // Let the header slot drop below the title rather than squeezing the
+          // title's measure below NODE_TITLE_MIN_MEASURE_PX. At normal card
+          // widths there is ample room and nothing wraps.
+          flexWrap: 'wrap',
         }}
       >
         {/* Shape indicator — type name as tooltip */}
@@ -395,8 +399,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           <span className="inline-flex mt-0.5 shrink-0"><NodeShapeIndicator nodeKind={nodeType} size={14} /></span>
         </Tooltip>
 
-        {/* Title + optional badges inline */}
-        <div className="flex-1 min-w-0">
+        {/* Title + optional badges inline.
+            `min-w-0` is deliberately NOT used here: it permits the flex item to
+            collapse below its content, which at compressed card widths left a
+            77px measure and made `break-words` split ordinary words mid-word.
+            A real minimum measure keeps wrapping on word boundaries. */}
+        <div className="flex-1" style={{ minWidth: `${NODE_TITLE_MIN_MEASURE_PX}px` }}>
           {/* line-clamp-3: cap title to 3 lines with ellipsis so ELK can
               rely on uniform-ish node heights. `break-words` preserved so
               long unbroken tokens still wrap before clamping. */}
