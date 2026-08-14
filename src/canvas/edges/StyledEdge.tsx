@@ -65,6 +65,18 @@ export const STRUCTURAL_EDGE_COLOUR = '#B8B8B8'
 // a fresh Set per call would defeat useShallow's reference equality.
 const EMPTY_ID_SET: ReadonlySet<string> = new Set<string>()
 
+/**
+ * 6B: width of the invisible pointer target along the edge path, in canvas
+ * units (so it scales with zoom). Edges are 1–3px of visible stroke, which is
+ * a very small thing to hit; this widens the grab area without changing what
+ * is drawn. Exported so tests bind to the identity rather than to a literal.
+ *
+ * Also passed to BaseEdge's own interaction path so the two hit areas cannot
+ * drift apart — React Flow defaults that path to 20, which would otherwise
+ * silently cap the usable area at 20 wherever BaseEdge paints on top.
+ */
+export const EDGE_HIT_AREA_WIDTH = 28
+
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
   const prefersReducedMotion = usePrefersReducedMotion()
@@ -92,9 +104,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (hoverPopoverTimerRef.current) clearTimeout(hoverPopoverTimerRef.current)
     if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current)
   }, [])
+  // `id` reaches this component as `unknown` through EdgeProps<EdgeData> in the
+  // current TS setup (the two neighbouring `.has(id)` selectors below carry
+  // baseline diagnostics for exactly that). The canvas contract is that edge
+  // ids are strings — every id Set in the store is Set<string> — so narrow once
+  // here for the new selector rather than adding a third baselined error.
+  // Fixing the pre-existing two is a typing change outside this lane's fence.
+  const edgeIdKey = String(id)
+
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
-  const { updateEdgeData, ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, viewMode } = useCanvasStore(
+  const { updateEdgeData, ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isSelectionDimmed, viewMode } = useCanvasStore(
     useShallow(s => ({
       updateEdgeData: s.updateEdgeData,
       ceeReview: s.runMeta.ceeReview,
@@ -105,6 +125,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // V7 evidence disclosure. Optional-chained so store doubles without the
       // slice stay safe (same pattern as editedSinceRunNodeIds).
       isAnalysisFragileEdge: s.analysisHighlight?.source === 'flip_risks' && s.analysisHighlight?.edgeIds?.has(id) === true,
+      // 6A (selection focus): this edge is outside the selected element's
+      // neighbourhood. Primitive boolean (React #185) and optional-chained so
+      // store doubles without the slice stay safe.
+      isSelectionDimmed: s.dimmedEdgeIds?.has(edgeIdKey) === true,
       viewMode: s.viewMode,
     })),
   )
@@ -261,7 +285,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // Apply visual properties (O(1), pure function)
   const visualProps = useMemo(
-    () => applyEdgeVisualProps(weight, style, curvature, selected || false, false, isDark),
+    () => applyEdgeVisualProps(weight, style, curvature, selected || false, isDark),
     [weight, style, curvature, selected, isDark]
   )
 
@@ -711,7 +735,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         d={edgePath}
         fill="none"
         stroke="transparent"
-        strokeWidth={20}
+        strokeWidth={EDGE_HIT_AREA_WIDTH}
         style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
         {...(isPreRunIncompleteEdge ? { 'data-testid': 'overlay-missing-confidence' } : {})}
       >
@@ -720,6 +744,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       <BaseEdge
         id={id}
         path={edgePath}
+        interactionWidth={EDGE_HIT_AREA_WIDTH}
         style={{
           // Graph Interaction P1: Highlighted edges get thicker stroke
           strokeWidth: (() => {
@@ -749,6 +774,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             }
             // Graph Lens: fragile mode thickens fragile edges
             if (isLensFragile) return 3
+            // 6B: the SELECTED connection is the thickest interaction state, so
+            // it stays unmistakable even while hovering a neighbouring edge.
+            // Transient interaction feedback only — resting weight is untouched,
+            // so this does not encode influence or strength as thickness.
+            if (selected) return Math.max(edgeStrokeWidth, 4)
             // Hover thickening: 2px to 3px on hover
             if (isHovered) return Math.max(edgeStrokeWidth, 3)
             return isHighlightedEdge ? Math.max(edgeStrokeWidth, 3) : edgeStrokeWidth
@@ -803,8 +833,16 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // audit flags, and a dimmed edge collided with lens dimming and the
           // projection halo. Opacity therefore returns to a constant except for
           // the lens's own dim/sensitivity states. Structural edges: full opacity.
-          opacity: isStructuralEdge ? undefined
-            : isLensDimmed ? 0.2
+          // 6A adds ONE more opacity producer: the selection focus dim. It is an
+          // attention channel, not a data encoding, so it does not reintroduce
+          // the encoding overload the note above warns about — it applies only
+          // while something is selected and clears on deselect. Structural edges
+          // dim too (they are part of "unrelated"), which is why the selection
+          // dim is checked BEFORE the structural early-out; lens dimming still
+          // wins when both apply, so the lens keeps its stronger statement.
+          opacity: isLensDimmed ? 0.2
+            : isSelectionDimmed ? 0.25
+            : isStructuralEdge ? undefined
             : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4
             : undefined,
           // Graph Lens: subtle glow for high-sensitivity edges.
@@ -824,6 +862,18 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               shadows.push('drop-shadow(0 0 2px var(--semantic-info, #3b82f6))')
             if (isAnalysisFragileEdge && !isStructuralEdge)
               shadows.push('drop-shadow(0 0 4px var(--semantic-warning, #eab308))')
+            // 6B: hover / selection emphasis for the WHOLE connection.
+            // Deliberately a drop-shadow rather than a stroke colour: the stroke
+            // already carries direction polarity (green/red) and the resolution
+            // below lets directionStroke win, so a hover colour would either be
+            // invisible on signed edges or would overwrite polarity — which is a
+            // semantic change this lane must not make. A glow is a separate CSS
+            // channel, so it composes with polarity exactly like the fragile
+            // halo above. Not applied to a selection-dimmed edge.
+            if (!isSelectionDimmed) {
+              if (selected) shadows.push('drop-shadow(0 0 5px var(--semantic-info, #3b82f6))')
+              else if (isHovered) shadows.push('drop-shadow(0 0 3px var(--semantic-info, #3b82f6))')
+            }
             return shadows.length > 0 ? shadows.join(' ') : undefined
           })(),
           // Performance: use will-change for frequent updates

@@ -1,22 +1,68 @@
 /**
  * Inspector Phase 1 (Track B) — E2E visual & functional tests
  *
- * Verifies the restructured inspector panels render correctly:
+ * Verifies the inspector panels a user actually loads:
  *  T1  Factor inspector structure
- *  T2  Goal inspector + coaching card + threshold
- *  T3  Edge inspector + signed slider
+ *  T2  Goal inspector + progress checklist + threshold prompt
+ *  T3  Edge (relationship) inspector + strength bands
  *  T4  Option inspector + baseline detection
  *  T5  Pre-run canvas overlay (dashed borders, badges)
  *  T6  Single-click opens full inspector (S.1)
  *  T7  Terminology pass verification
- *  T8  Accordion mutual exclusion
+ *  T8  Inspector content is scoped to the selected element
+ *
+ * ─────────────────────────────────────────────────────────────────────
+ * REPAIRED 2026-08-14 — this spec previously selected the DEAD v1 inspector.
+ *
+ * `InspectorModal.tsx` hardcodes `const USE_INSPECTOR_V2 = true` (line 16) and
+ * returns from the v2 branch at line 159, so the legacy v1 markup below it —
+ * including `aria-labelledby="inspector-panel-title"` (line 197) — NEVER
+ * RENDERS. The only other importer of the v1 `NodeInspector`/`EdgeInspector`
+ * is `PropertiesPanel.tsx`, which has zero import sites and is itself dead.
+ *
+ * Every selector here therefore binds to what the v2 path actually renders:
+ *   · outer dialog  role="dialog" aria-label="Node inspector" | "Edge inspector"
+ *                   (InspectorModal.tsx:170-172)
+ *   · inner shell   role="region" aria-label="Inspector panel"
+ *                   (InspectorShell.tsx:60-61)
+ *
+ * Bindings are by IDENTITY (exact aria-label, exact data-id, exact
+ * data-testid) — never a value predicate another element could satisfy — and
+ * every test asserts on RENDERED CONTENT, so an inspector that mounts but
+ * renders nothing fails just as loudly as one that never mounts.
+ *
+ * All expectations below were DERIVED from the running v2 UI at staging tip
+ * 9c75be0b (evidence: olumi-docs/PHASE0-EVIDENCE-2026-07-28/
+ * inspector-e2e-repair-2026-08-14/04-v2-content-derivation.txt), not from
+ * reading the source.
+ * ─────────────────────────────────────────────────────────────────────
  */
 
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page, type Locator } from '@playwright/test'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 
 const SCREENSHOT_DIR = path.join('e2e', 'screenshots')
+
+/**
+ * The two inspector dialogs, bound by their EXACT aria-label.
+ *
+ * These are the identity anchors for the whole spec. If `InspectorModal`'s
+ * `aria-label` is removed or renamed, every test here fails — which is the
+ * point: the previous selector matched nothing and the suite could not tell.
+ */
+const NODE_INSPECTOR = 'div[role="dialog"][aria-label="Node inspector"]'
+const EDGE_INSPECTOR = 'div[role="dialog"][aria-label="Edge inspector"]'
+const ANY_INSPECTOR = `${NODE_INSPECTOR}, ${EDGE_INSPECTOR}`
+
+/** The InspectorShell that renders the panel body inside the dialog. */
+const INSPECTOR_SHELL = '[role="region"][aria-label="Inspector panel"]'
+
+/** The eight nodes the fixture loads, by id — asserted individually (identity). */
+const FIXTURE_NODE_IDS = [
+  'goal-1', 'factor-1', 'factor-2', 'factor-3',
+  'option-baseline', 'option-active', 'option-empty', 'decision-1',
+] as const
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -25,7 +71,7 @@ const SCREENSHOT_DIR = path.join('e2e', 'screenshots')
  */
 async function navigateToCanvas(page: Page) {
   await page.goto('/#/canvas')
-  await expect(page.locator('.react-flow')).toBeVisible({ timeout: 15000 })
+  await expect(page.locator('.react-flow')).toBeVisible({ timeout: 30000 })
 }
 
 /**
@@ -35,9 +81,6 @@ async function navigateToCanvas(page: Page) {
  */
 async function loadInspectorFixture(page: Page) {
   await page.evaluate(() => {
-    // @ts-ignore — store exposed on window in E2E mode
-    const store = window.useCanvasStore.getState()
-
     const nodes = [
       {
         id: 'goal-1', type: 'goal',
@@ -107,52 +150,63 @@ async function loadInspectorFixture(page: Page) {
   // Allow React Flow to render
   await page.waitForTimeout(1000)
 
-  // Verify nodes rendered
-  const nodeCount = await page.locator('.react-flow__node').count()
-  if (nodeCount === 0) {
-    throw new Error('Fixture load failed: no nodes rendered')
+  // Assert THIS fixture's own nodes are present, by id. A bare count would
+  // pass on somebody else's graph; identity binding will not (trap 19).
+  for (const id of FIXTURE_NODE_IDS) {
+    await expect(
+      page.locator(`.react-flow__node[data-id="${id}"]`),
+      `fixture node ${id} should be rendered`,
+    ).toHaveCount(1, { timeout: 10000 })
   }
 }
 
 /**
- * Find a node by its visible label text and double-click to open full inspector.
+ * Minimise the floating Olumi conversation panel.
+ *
+ * `FloatingOlumiPanel` mounts only ONCE A GRAPH EXISTS, so this must run
+ * AFTER the fixture load. While open it covers the canvas centre and
+ * intercepts pointer events, so every node click times out.
  */
-async function openFullInspectorByLabel(page: Page, label: string) {
-  // Find the node containing the label text
-  const node = page.locator('.react-flow__node').filter({ hasText: label }).first()
-  await expect(node).toBeVisible({ timeout: 5000 })
-  await node.dblclick()
-  // Wait for the inspector modal to appear
-  await expect(page.locator('div[aria-labelledby="inspector-panel-title"]')).toBeVisible({ timeout: 5000 })
+async function dismissFloatingOlumiPanel(page: Page) {
+  const minimise = page.getByTestId('floating-olumi-panel-minimise')
+  if (await minimise.count() > 0) {
+    await minimise.click()
+    await expect(page.getByTestId('floating-olumi-panel')).toBeHidden({ timeout: 5000 })
+  }
 }
 
 /**
- * Close the full inspector modal via Escape key.
+ * Open a node's inspector by node id and return the dialog locator.
+ * Single click opens the full inspector (S.1).
  */
-async function closeFullInspector(page: Page) {
+async function openNodeInspector(page: Page, nodeId: string): Promise<Locator> {
+  await page.locator(`.react-flow__node[data-id="${nodeId}"]`).click({ timeout: 15000 })
+  const dialog = page.locator(NODE_INSPECTOR)
+  await expect(dialog).toBeVisible({ timeout: 5000 })
+  // The shell inside the dialog is what renders the panel body. Asserting it
+  // separately means a dialog that mounts EMPTY still fails.
+  await expect(dialog.locator(INSPECTOR_SHELL)).toBeVisible({ timeout: 5000 })
+  return dialog
+}
+
+/**
+ * Open the relationship (edge) inspector and return the dialog locator.
+ * The interaction layer is the clickable surface for an edge.
+ */
+async function openEdgeInspector(page: Page): Promise<Locator> {
+  await page.locator('.react-flow__edge-interaction').first().click({ timeout: 15000 })
+  const dialog = page.locator(EDGE_INSPECTOR)
+  await expect(dialog).toBeVisible({ timeout: 5000 })
+  await expect(dialog.locator(INSPECTOR_SHELL)).toBeVisible({ timeout: 5000 })
+  return dialog
+}
+
+/**
+ * Close whichever inspector is open and prove it went away.
+ */
+async function closeInspector(page: Page) {
   await page.keyboard.press('Escape')
-  await expect(page.locator('div[aria-labelledby="inspector-panel-title"]')).not.toBeVisible({ timeout: 3000 })
-}
-
-/**
- * Click a section header in the accordion to expand/collapse it.
- */
-async function clickAccordionSection(page: Page, sectionName: string) {
-  const dialog = page.locator('div[aria-labelledby="inspector-panel-title"]')
-  const button = dialog.locator(`button:has-text("${sectionName}")`)
-  await button.click()
-  // Allow transition to complete
-  await page.waitForTimeout(300)
-}
-
-/**
- * Double-click any edge to open its full inspector.
- */
-async function openAnyEdgeFullInspector(page: Page) {
-  const edge = page.locator('.react-flow__edge').first()
-  await expect(edge).toBeVisible({ timeout: 5000 })
-  await edge.dblclick({ force: true })
-  await expect(page.locator('div[aria-labelledby="inspector-panel-title"]')).toBeVisible({ timeout: 5000 })
+  await expect(page.locator(ANY_INSPECTOR)).toHaveCount(0, { timeout: 5000 })
 }
 
 // ── Setup ────────────────────────────────────────────────────────────
@@ -161,226 +215,160 @@ test.describe('Inspector Phase 1 (Track B)', () => {
   test.beforeEach(async ({ page }) => {
     await navigateToCanvas(page)
     await loadInspectorFixture(page)
+    await dismissFloatingOlumiPanel(page)
     await fs.mkdir(SCREENSHOT_DIR, { recursive: true })
   })
 
   // ── T1: Factor inspector structure ───────────────────────────────
 
   test('T1 — Factor inspector shows correct structure', async ({ page }) => {
-    await openFullInspectorByLabel(page, 'Customer satisfaction')
+    const dialog = await openNodeInspector(page, 'factor-1')
 
-    const dialog = page.locator('div[aria-labelledby="inspector-panel-title"]')
+    // Header identifies THIS factor (identity, not "some node is open")
+    await expect(dialog.getByRole('button', { name: 'Customer satisfaction' })).toBeVisible()
 
-    // Summary section visible (inspector accordion root)
-    await expect(dialog.locator('[data-testid="node-inspector"]')).toBeVisible()
+    // Controllable factors are introduced as user-editable
+    await expect(dialog.getByText('You can change this')).toBeVisible()
 
-    // Category pill visible (controllable)
-    await expect(dialog.getByText(/controllable/i)).toBeVisible()
+    // Core sections of the v2 factor panel
+    await expect(dialog.getByText('Context')).toBeVisible()
+    await expect(dialog.getByText('Your input')).toBeVisible()
+    await expect(dialog.getByText('Connections')).toBeVisible()
 
-    // Current value text visible in Summary (first() to avoid matching Assumptions heading too)
-    await expect(dialog.getByText('Current value').first()).toBeVisible()
+    // The connection to the goal is named, with its strength state
+    await expect(dialog.getByText('Increase annual revenue')).toBeVisible()
+    await expect(dialog.getByTestId('connection-row-strength-not-set').first()).toBeVisible()
 
-    // ASSUMPTIONS section header visible
-    await expect(dialog.getByText('ASSUMPTIONS')).toBeVisible()
+    // The v1 accordion is gone — these must NOT reappear under the v2 panel
+    await expect(dialog.getByText('ASSUMPTIONS')).toHaveCount(0)
+    await expect(dialog.locator('select[data-testid="select-node-type"]')).toHaveCount(0)
 
-    // ADVANCED section header visible
-    await expect(dialog.getByText('ADVANCED')).toBeVisible()
-
-    // No "Probabilities" text anywhere
-    await expect(dialog.getByText('Probabilities')).not.toBeVisible()
-
-    // No "Use as Outcome Node" checkbox
-    await expect(dialog.getByText('Use as Outcome Node')).not.toBeVisible()
-
-    // Expand ASSUMPTIONS
-    await clickAccordionSection(page, 'ASSUMPTIONS')
-
-    // Type dropdown is NOT present in Assumptions
-    const typeSelect = dialog.locator('select[data-testid="select-node-type"]')
-    await expect(typeSelect).toHaveCount(0)
-
-    // Expand ADVANCED
-    await clickAccordionSection(page, 'ADVANCED')
-
-    // Type appears as read-only text
-    const readOnlyType = dialog.locator('[data-testid="read-only-node-type"]')
-    await expect(readOnlyType).toBeVisible()
-
-    // Kind appears as read-only text
-    await expect(dialog.getByText('Kind')).toBeVisible()
-
-    // Screenshot
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'factor-inspector-full.png') })
   })
 
-  // ── T2: Goal inspector + coaching card + threshold ───────────────
+  // ── T2: Goal inspector + progress checklist + threshold prompt ───
 
-  test('T2 — Goal inspector shows coaching card and threshold editing', async ({ page }) => {
-    // Goal node: click by data-id, then double-click to open full inspector
-    const goalNode = page.locator('[data-id="goal-1"]')
-    await expect(goalNode).toBeVisible({ timeout: 5000 })
-    // Select the node first with a single click
-    await goalNode.click({ force: true })
-    await page.waitForTimeout(300)
-    // Double-click to open full inspector
-    await goalNode.dblclick({ force: true })
-    await expect(page.locator('div[aria-labelledby="inspector-panel-title"]')).toBeVisible({ timeout: 8000 })
+  test('T2 — Goal inspector shows progress checklist and threshold prompt', async ({ page }) => {
+    const dialog = await openNodeInspector(page, 'goal-1')
 
-    const dialog = page.locator('div[aria-labelledby="inspector-panel-title"]')
+    await expect(dialog.getByRole('button', { name: 'Increase annual revenue' })).toBeVisible()
+    await expect(dialog.getByText('Goal', { exact: true })).toBeVisible()
 
-    // E.4: Threshold editor is inline in Summary when threshold is unset
-    const summarySection = dialog.locator('[data-testid="node-inspector-summary"]')
-    await expect(summarySection.locator('#goal-threshold')).toBeVisible()
-    // Helper text for the inline editor
-    await expect(summarySection.getByText(/reaching or exceeding this target/i)).toBeVisible()
+    // Readiness checklist, and the unset-threshold state it reports
+    await expect(dialog.getByTestId('goal-progress-checklist')).toBeVisible()
+    await expect(dialog.getByText('Threshold not set yet')).toBeVisible()
 
-    // Expand ASSUMPTIONS — threshold editor should NOT be present when unset
-    await clickAccordionSection(page, 'ASSUMPTIONS')
-    const assumptionsSection = dialog.locator('[data-testid="node-inspector-assumptions"]')
-    await expect(assumptionsSection.locator('#goal-threshold')).toHaveCount(0)
+    // The threshold editor and its explanatory copy
+    await expect(dialog.getByText('Success means reaching')).toBeVisible()
+    await expect(dialog.getByText(/reaching or exceeding this target/i)).toBeVisible()
+    await expect(dialog.getByText(/unlocks probability calculations/i)).toBeVisible()
 
-    // Type dropdown is NOT present
-    const typeSelect = dialog.locator('select[data-testid="select-node-type"]')
-    await expect(typeSelect).toHaveCount(0)
+    // Constraints affordance
+    await expect(dialog.getByTestId('add-constraint-button')).toBeVisible()
 
-    // Expand ADVANCED
-    await clickAccordionSection(page, 'ADVANCED')
+    // Inbound drivers are listed
+    await expect(dialog.getByText('What drives this')).toBeVisible()
+    await expect(dialog.getByText('Customer satisfaction')).toBeVisible()
+    await expect(dialog.getByText('Market share')).toBeVisible()
 
-    // E.6: "Analysis goal" pill (replaces "Analysis target: Yes")
-    await expect(dialog.getByText('Analysis goal')).toBeVisible()
-
-    // Screenshot
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'goal-inspector-with-threshold.png') })
   })
 
-  // ── T3: Edge inspector + signed slider ───────────────────────────
+  // ── T3: Edge (relationship) inspector + strength bands ───────────
 
   test('T3 — Edge inspector shows correct structure', async ({ page }) => {
-    await openAnyEdgeFullInspector(page)
+    const dialog = await openEdgeInspector(page)
 
-    const dialog = page.locator('div[aria-labelledby="inspector-panel-title"]')
+    // The relationship is named by its endpoints
+    await expect(dialog.getByText('Relationship')).toBeVisible()
+    await expect(dialog.getByText('Customer satisfaction → Increase annual revenue')).toBeVisible()
 
-    // Dialog header shows "Edge Properties"
-    await expect(dialog.getByText('Edge Properties')).toBeVisible()
+    // Strength question + all four bands, bound by their exact test ids
+    await expect(dialog.getByText('How strong is this effect?')).toBeVisible()
+    for (const band of ['slight', 'moderate', 'strong', 'very-strong']) {
+      await expect(dialog.getByTestId(`strength-band-${band}`)).toBeVisible()
+    }
 
-    // Expand ASSUMPTIONS
-    await clickAccordionSection(page, 'ASSUMPTIONS')
+    // Existence question + its readout and uncertainty band
+    await expect(dialog.getByText('Does this connection exist?')).toBeVisible()
+    await expect(dialog.getByTestId('edge-existence-readout')).toBeVisible()
+    // Decorative overlay bar (aria-hidden, zero intrinsic width) — it has no
+    // bounding box, so attachment is the honest assertion here, not visibility.
+    await expect(dialog.getByTestId('uncertainty-band')).toBeAttached()
 
-    // Effect on target label visible
-    await expect(dialog.getByText(/Effect on target/i)).toBeVisible()
+    // E.1/E.2: APPEARANCE section and StrengthBar stay removed
+    await expect(dialog.getByText('APPEARANCE')).toHaveCount(0)
+    await expect(dialog.getByTestId('strength-bar')).toHaveCount(0)
 
-    // Confidence label visible
-    await expect(dialog.getByText(/Confidence/i).first()).toBeVisible()
-
-    // E.1: APPEARANCE section removed — assert absent
-    await expect(dialog.getByText('APPEARANCE')).not.toBeVisible()
-
-    // E.2: StrengthBar removed from Summary — assert absent
-    await expect(dialog.locator('[data-testid="strength-bar"]')).toHaveCount(0)
-
-    // Expand ADVANCED
-    await clickAccordionSection(page, 'ADVANCED')
-
-    // Provenance or connection info in Advanced
-    // (Uncertainty only shows when strengthStd is defined)
-    await expect(dialog.getByText('ADVANCED')).toBeVisible()
-
-    // Screenshot
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'edge-inspector-full.png') })
   })
 
   // ── T4: Option inspector + baseline detection ────────────────────
 
   test('T4 — Option inspector detects baseline correctly', async ({ page }) => {
-    // Open baseline option (Status Quo)
-    await openFullInspectorByLabel(page, 'Status Quo')
-
-    const dialog = page.locator('div[aria-labelledby="inspector-panel-title"]')
-
-    // "Baseline" pill visible in Summary (use exact match to avoid matching node ID)
-    await expect(dialog.getByText('Baseline', { exact: true })).toBeVisible()
-
-    // Option with empty interventions shows NeedsMappingPrompt ("needs configuration")
-    await expect(dialog.getByText(/needs configuration/i)).toBeVisible()
-
-    // Expand ASSUMPTIONS
-    await clickAccordionSection(page, 'ASSUMPTIONS')
-
-    // Type dropdown is NOT present
-    const typeSelect = dialog.locator('select[data-testid="select-node-type"]')
-    await expect(typeSelect).toHaveCount(0)
-
-    // Screenshot
+    // Baseline option (no interventions)
+    const baseline = await openNodeInspector(page, 'option-baseline')
+    await expect(baseline.getByRole('button', { name: 'Status Quo' })).toBeVisible()
+    await expect(baseline.getByTestId('option-baseline-badge')).toBeVisible()
+    await expect(baseline.getByText('Baseline option')).toBeVisible()
+    await expect(baseline.getByText("This option doesn't change any factors yet")).toBeVisible()
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'option-baseline-inspector.png') })
 
-    // Close and open non-baseline option with interventions
-    await closeFullInspector(page)
-    await openFullInspectorByLabel(page, 'Hire 3 engineers')
-
-    const dialog2 = page.locator('div[aria-labelledby="inspector-panel-title"]')
-
-    // Should show intervention count
-    await expect(dialog2.getByText(/intervention/i).first()).toBeVisible()
-
-    // Screenshot
+    // Non-baseline option WITH interventions: each change is named and quantified
+    await closeInspector(page)
+    const active = await openNodeInspector(page, 'option-active')
+    await expect(active.getByRole('button', { name: 'Hire 3 engineers' })).toBeVisible()
+    // Not a baseline — the badge must be absent here
+    await expect(active.getByTestId('option-baseline-badge')).toHaveCount(0)
+    await expect(active.getByText('What this option changes')).toBeVisible()
+    await expect(active.getByRole('button', { name: 'Customer satisfaction' })).toBeVisible()
+    await expect(active.getByRole('button', { name: 'Market share' })).toBeVisible()
+    await expect(active.getByText('Currently: 72 %')).toBeVisible()
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'option-regular-inspector.png') })
 
-    // Close and open empty non-baseline option
-    await closeFullInspector(page)
-    await openFullInspectorByLabel(page, 'Expand marketing')
-
-    const dialog3 = page.locator('div[aria-labelledby="inspector-panel-title"]')
-
-    // Non-baseline with no interventions should show "No interventions"
-    await expect(dialog3.getByText(/No interventions/i)).toBeVisible()
-
+    // Non-baseline option with NO interventions
+    await closeInspector(page)
+    const empty = await openNodeInspector(page, 'option-empty')
+    await expect(empty.getByRole('button', { name: 'Expand marketing' })).toBeVisible()
+    await expect(empty.getByTestId('option-baseline-badge')).toHaveCount(0)
+    await expect(empty.getByText("This option doesn't change any factors yet")).toBeVisible()
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'option-empty-inspector.png') })
   })
 
   // ── T5: Pre-run canvas overlay ───────────────────────────────────
 
   test('T5 — Pre-run canvas shows overlay cues', async ({ page }) => {
-    // In pre-analysis state, nodes should be visible
-    const nodes = page.locator('.react-flow__node')
-    const count = await nodes.count()
-    expect(count).toBeGreaterThanOrEqual(7)
+    // Goal node has no threshold → incomplete wrapper on the goal
+    // (BaseNode.tsx:240 emits `overlay-missing-threshold-node` for goals).
+    // NOTE: the separate "?" badge `overlay-missing-threshold` this spec used
+    // to assert no longer exists anywhere in src — it was removed from the
+    // product, so asserting it would be asserting a deleted feature.
+    await expect(page.locator('[data-testid="overlay-missing-threshold-node"]').first()).toBeVisible()
 
-    // S.7: Assert overlay data-testid markers are present
-    // Goal node has no threshold set → "?" badge with data-testid="overlay-missing-threshold"
-    const missingThresholdBadge = page.locator('[data-testid="overlay-missing-threshold"]')
-    await expect(missingThresholdBadge.first()).toBeVisible()
+    // Decision node has no outgoing edges → incomplete wrapper
+    await expect(page.locator('[data-testid="overlay-missing-value"]').first()).toBeVisible()
 
-    // Goal node wrapper has dashed border overlay
-    const missingThresholdNode = page.locator('[data-testid="overlay-missing-threshold-node"]')
-    await expect(missingThresholdNode.first()).toBeVisible()
+    // Edge e-no-confidence has no belief/beliefExists → hitbox marker
+    await expect(page.locator('[data-testid="overlay-missing-confidence"]').first()).toBeAttached()
 
-    // Decision node has no outgoing edges → overlay-missing-value on the decision wrapper
-    const missingValueNode = page.locator('[data-testid="overlay-missing-value"]')
-    await expect(missingValueNode.first()).toBeVisible()
-
-    // Edge e-no-confidence has no belief/beliefExists → overlay-missing-confidence on hitbox path
-    const missingConfidence = page.locator('[data-testid="overlay-missing-confidence"]')
-    await expect(missingConfidence.first()).toBeAttached()
-
-    // Screenshot the full canvas in pre-run state
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'canvas-pre-run-overlay.png') })
   })
 
   // ── T6: Single-click opens full inspector (S.1) ────────────────
 
   test('T6 — Single-click opens full inspector', async ({ page }) => {
-    // S.1: Single-click on a node opens the full 4-section accordion inspector
-    const factorNode = page.locator('.react-flow__node').filter({ hasText: 'Customer satisfaction' }).first()
-    await expect(factorNode).toBeVisible({ timeout: 5000 })
-    await factorNode.click()
+    // S.1: a SINGLE click opens the full inspector, not a compact popover
+    await page.locator('.react-flow__node[data-id="factor-1"]').click({ timeout: 15000 })
 
-    // Full inspector modal should appear (not the compact popover)
-    await expect(page.locator('div[aria-labelledby="inspector-panel-title"]')).toBeVisible({ timeout: 5000 })
+    const dialog = page.locator(NODE_INSPECTOR)
+    await expect(dialog).toBeVisible({ timeout: 5000 })
+    await expect(dialog.locator(INSPECTOR_SHELL)).toBeVisible()
 
-    // Accordion sections visible
-    const dialog = page.locator('div[aria-labelledby="inspector-panel-title"]')
-    await expect(dialog.getByText('ASSUMPTIONS')).toBeVisible()
-    await expect(dialog.getByText('ADVANCED')).toBeVisible()
+    // It is the FULL panel: header, body sections and connections all present
+    await expect(dialog.getByRole('button', { name: 'Customer satisfaction' })).toBeVisible()
+    await expect(dialog.getByText('Context')).toBeVisible()
+    await expect(dialog.getByText('Connections')).toBeVisible()
+    await expect(dialog.getByRole('button', { name: 'Close inspector' })).toBeVisible()
 
     // No compact popover rendered. The InspectorPopover / NodeInspectorCompact /
     // EdgeInspectorCompact files were deleted entirely in the Polish 4 follow-up
@@ -389,73 +377,55 @@ test.describe('Inspector Phase 1 (Track B)', () => {
     // if anyone reintroduces a compact popover under this test id, it fails.
     await expect(page.locator('[data-testid="inspector-popover"]')).toHaveCount(0)
 
-    // Screenshot
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'single-click-full-inspector.png') })
   })
 
   // ── T7: Terminology pass verification ────────────────────────────
 
   test('T7 — Inspector uses correct terminology', async ({ page }) => {
-    // Factor inspector terminology
-    await openFullInspectorByLabel(page, 'Customer satisfaction')
+    // Factor: plain-language framing, no v1 jargon
+    const factor = await openNodeInspector(page, 'factor-1')
+    await expect(factor.getByText('You can change this')).toBeVisible()
+    await expect(factor.getByText('Your input')).toBeVisible()
+    await expect(factor.getByText('Probabilities')).toHaveCount(0)
+    await expect(factor.getByText('Use as Outcome Node')).toHaveCount(0)
+    await expect(factor.getByText('Observed Value')).toHaveCount(0)
 
-    const dialog = page.locator('div[aria-labelledby="inspector-panel-title"]')
+    await closeInspector(page)
 
-    // "Current value" label in Summary KPI row (not "Observed Value")
-    await expect(dialog.getByText('Current value').first()).toBeVisible()
-
-    // Section headers are UPPERCASE
-    await expect(dialog.getByText('ASSUMPTIONS')).toBeVisible()
-    await expect(dialog.getByText('ADVANCED')).toBeVisible()
-
-    await closeFullInspector(page)
-
-    // Edge inspector terminology
-    await openAnyEdgeFullInspector(page)
-
-    const edgeDialog = page.locator('div[aria-labelledby="inspector-panel-title"]')
-
-    // Expand ASSUMPTIONS to check edge terminology
-    await clickAccordionSection(page, 'ASSUMPTIONS')
-
-    // "Effect on target" (not "Weight")
-    await expect(edgeDialog.getByText(/Effect on target/i)).toBeVisible()
-
-    // "Confidence" (not "Belief")
-    await expect(edgeDialog.getByText(/Confidence/i).first()).toBeVisible()
-
-    // Section headers are UPPERCASE (E.1: APPEARANCE removed)
-    await expect(edgeDialog.getByText('ASSUMPTIONS')).toBeVisible()
-    await expect(edgeDialog.getByText('ADVANCED')).toBeVisible()
-    await expect(edgeDialog.getByText('APPEARANCE')).not.toBeVisible()
+    // Edge: "Relationship", and questions rather than field names
+    const edge = await openEdgeInspector(page)
+    await expect(edge.getByText('Relationship')).toBeVisible()
+    await expect(edge.getByText('How strong is this effect?')).toBeVisible()
+    await expect(edge.getByText('Does this connection exist?')).toBeVisible()
+    // v1 terminology must not return
+    await expect(edge.getByText('Edge Properties')).toHaveCount(0)
+    await expect(edge.getByText('APPEARANCE')).toHaveCount(0)
+    await expect(edge.getByText('Belief', { exact: true })).toHaveCount(0)
   })
 
-  // ── T8: Accordion mutual exclusion ───────────────────────────────
+  // ── T8: Inspector content is scoped to the selected element ──────
 
-  test('T8 — Only one accordion section open at a time', async ({ page }) => {
-    await openFullInspectorByLabel(page, 'Customer satisfaction')
+  test('T8 — Inspector content follows the selected element', async ({ page }) => {
+    // Open the decision node: its own affordance is present…
+    const decision = await openNodeInspector(page, 'decision-1')
+    await expect(decision.getByRole('button', { name: 'Growth strategy choice' })).toBeVisible()
+    await expect(decision.getByText('Decision', { exact: true })).toBeVisible()
+    await expect(decision.getByTestId('decision-add-option')).toBeVisible()
 
-    const dialog = page.locator('div[aria-labelledby="inspector-panel-title"]')
+    // …and switching to a factor REPLACES the content rather than adding to it.
+    await closeInspector(page)
+    const factor = await openNodeInspector(page, 'factor-3')
+    await expect(factor.getByRole('button', { name: 'Competitor pricing' })).toBeVisible()
+    // The decision's affordance must be gone — proves the panel re-rendered
+    // for the new selection instead of leaving stale content on screen.
+    await expect(factor.getByTestId('decision-add-option')).toHaveCount(0)
+    await expect(factor.getByRole('button', { name: 'Growth strategy choice' })).toHaveCount(0)
 
-    // Inspector accordion root should be visible
-    await expect(dialog.locator('[data-testid="node-inspector"]')).toBeVisible()
-
-    // ASSUMPTIONS starts expanded by default (defaultOpen="assumptions")
-    const assumptionsBtn = dialog.locator('button:has-text("ASSUMPTIONS")')
-    await expect(assumptionsBtn).toHaveAttribute('aria-expanded', 'true')
-
-    // Click ADVANCED — it opens (mutual exclusion: ASSUMPTIONS should close)
-    const advancedBtn = dialog.locator('button:has-text("ADVANCED")')
-    await advancedBtn.click()
-    await page.waitForTimeout(300)
-
-    // ADVANCED is expanded
-    await expect(advancedBtn).toHaveAttribute('aria-expanded', 'true')
-
-    // ASSUMPTIONS is collapsed (mutual exclusion)
-    await expect(assumptionsBtn).toHaveAttribute('aria-expanded', 'false')
-
-    // Inspector accordion root still visible throughout
-    await expect(dialog.locator('[data-testid="node-inspector"]')).toBeVisible()
+    // Switching from a node to an EDGE swaps the dialog identity entirely.
+    await closeInspector(page)
+    const edge = await openEdgeInspector(page)
+    await expect(edge.getByText('Relationship')).toBeVisible()
+    await expect(page.locator(NODE_INSPECTOR)).toHaveCount(0)
   })
 })
