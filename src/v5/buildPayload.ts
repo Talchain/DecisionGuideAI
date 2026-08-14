@@ -510,6 +510,58 @@ function adaptFactorValueEdit(
     event.field = 'value'
   }
 
+  // ── `applied_from` — the attribution claim (0.40.0) ──────────────────────
+  //
+  // ⚠ THIS WAS MISSING, AND ITS ABSENCE MADE A WHOLE FEATURE DARK. The panel
+  // apply path builds `applied_from` in `buildFactorValueEditEvent`, and this
+  // adapter — the SOLE construction site of the wire event — did not copy it.
+  // No type error (the field is optional), no 422, no failing test: just an
+  // owner clicking "Use Grace's 0.85", CEE stamping `source: 'user_override'`
+  // with no `elicited_from` because no claim ever arrived, and the pill reading
+  // "Set by you" over a colleague's number. Two merged PRs of attribution work
+  // were unreachable through the product's own click path.
+  //
+  // The generator was that this function is a HAND-MAINTAINED MIRROR of the
+  // wire shape (trap 12): the contract grew a member and the mirror did not.
+  // `__tests__/factorValueEditWireCarriage.spec.ts` now derives the expected
+  // field set from the published Zod schema and REDs on the next omission, so
+  // the mirror can no longer drift silently. Do not add a field here without
+  // letting that guard see it.
+  //
+  // FAIL CLOSED on a malformed claim, exactly as `field` above does, and for a
+  // sharper reason. The two failure directions are not symmetric:
+  //   · refuse the event  → nothing happens, the owner can click again;
+  //   · drop the claim    → the value IS applied and stamped as the owner's own
+  //                         edit, which is precisely the attribution untruth
+  //                         this seam exists to end — silent, and permanent in
+  //                         the model.
+  // A visible nothing beats a confident wrong stamp.
+  const appliedFrom = eventPayload?.applied_from
+  if (appliedFrom !== undefined && appliedFrom !== null) {
+    if (typeof appliedFrom !== 'object') return null
+    const round_id = stringField(appliedFrom as Record<string, unknown>, 'round_id')
+    const participant_id = stringField(
+      appliedFrom as Record<string, unknown>,
+      'participant_id',
+    )
+    // BOTH or NEITHER. A claim naming a participant with no round cannot be
+    // verified against a round's roster, and CEE would refuse it — but more to
+    // the point, a half-claim is not a claim, and forwarding one would ask the
+    // server to guess which round a person answered in.
+    //
+    // ⚠ TRIMMED FOR THE TEST, NOT FOR THE VALUE. `stringField` accepts any
+    // string of `length > 0`, so a whitespace-only id passes it; the contract
+    // requires uuids, so such a claim would 422 the whole turn at CEE. The ids
+    // are checked trimmed and then forwarded VERBATIM — a trimmed id is not
+    // "repaired", because silently rewriting an identifier is guessing at which
+    // round or which person was meant.
+    if (round_id.trim() === '' || participant_id.trim() === '') return null
+    // PICKED, never spread: the caller's object is a client-side record, and a
+    // spread would put whatever else it carries onto a `.strict()` wire member,
+    // turning an extra local field into a 422 for the whole turn.
+    event.applied_from = { round_id, participant_id }
+  }
+
   return event
 }
 
