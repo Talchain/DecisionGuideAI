@@ -662,6 +662,34 @@ function adaptFactorValueEdit(
     // spread would put whatever else it carries onto a `.strict()` wire member,
     // turning an extra local field into a 422 for the whole turn.
     event.applied_from = { round_id, participant_id }
+
+    // ── `evidence_event_id` — the CITATION (0.41.0) ────────────────────────
+    //
+    // OPTIONAL, so absence here is the ordinary case and must stay absent on
+    // the wire: CEE reads an absent member as "this apply cited no evidence",
+    // and every pre-0.41.0 apply is exactly that.
+    //
+    // ⚠ FAIL CLOSED ON A MALFORMED CITATION — refuse the event rather than drop
+    // the member, and the reason is NOT the same as the one above it. Dropping
+    // an id there produces a LIE (a colleague's number stamped "Set by you").
+    // Dropping this one would produce something subtler and worse for the
+    // system: it would make ABSENCE AMBIGUOUS. CEE's stamp, its logs and the
+    // contract all rest on "absent ⇔ the owner cited nothing"; a client that
+    // may silently drop a citation makes that biconditional false everywhere
+    // downstream, and no reader could ever tell the two states apart again.
+    // Refusing is visible and retryable; a lost citation is neither.
+    //
+    // ⚠ The member is FORWARDED, never checked for meaning. Whether the cited
+    // event exists, is evidence, is on that round and is about that target is
+    // decided by CEE's binding (f) against its own store — the wire never
+    // carries a provenance claim the server could not verify for itself, so a
+    // client-side plausibility check here would be duplicated authority that
+    // could only ever disagree with the real one.
+    const rawCitation = (appliedFrom as Record<string, unknown>).evidence_event_id
+    if (rawCitation !== undefined && rawCitation !== null) {
+      if (typeof rawCitation !== 'string' || rawCitation.trim() === '') return null
+      event.applied_from = { round_id, participant_id, evidence_event_id: rawCitation }
+    }
   }
 
   return event

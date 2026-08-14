@@ -68,6 +68,7 @@ import {
   fetchParticipantDisagreement,
   fetchParticipantReveal,
   submitBelief,
+  type DisagreementEvidence,
   type DisagreementView,
   type EvidenceStance,
   type OpenPacket,
@@ -1015,7 +1016,17 @@ export interface RevealApplyState {
    * action that would 401 — the affordance does not exist for them, rather than
    * existing and failing. No flag, no role check in this component.
    */
-  onApply: (args: { targetId: string; participantId: string; value: number }) => void
+  onApply: (args: {
+    targetId: string
+    participantId: string
+    value: number
+    /**
+     * 0.41.0 — the evidence row named in the line above the button, when there
+     * was exactly one to name. See `citableEvidenceFor`: absent whenever the
+     * owner was shown no reason, so the claim never says more than the screen.
+     */
+    evidenceEventId?: string
+  }) => void
   /** `${targetId}:${participantId}` while that row's apply is in flight. */
   applyingKey: string | null
   /** The row applied most recently this session, same key shape. */
@@ -1050,6 +1061,42 @@ export function RevealBody({
   disagreement?: DisagreementView | null
 }): JSX.Element {
   const rows = useMemo(() => reveal.per_target, [reveal])
+
+  /**
+   * The evidence a click on THIS target is entitled to cite, or null.
+   *
+   * ⭐⭐ EXACTLY ONE, OR NONE — AND THE RULE IS ABOUT FABRICATION, NOT TIDINESS.
+   * The stamp this feeds says "the model changed because of that evidence". With
+   * two or more notes on a target, picking one would be the product inventing
+   * the owner's reason and writing it into the graph as a server-verified fact
+   * — the same fabrication class every binding in `apply-verification.ts`
+   * exists to refuse, arriving through the client instead of the wire. So a
+   * choice that cannot be made honestly is not made: the apply proceeds
+   * UNCITED, which is a true record of a reason the owner never stated.
+   *
+   * ⚠ AND ONE PIECE OF EVIDENCE IS NOT AUTOMATICALLY THE REASON EITHER. What
+   * makes the single-row case honest is not the arithmetic — it is that the
+   * button DISCLOSES the citation before the click, so the owner is consenting
+   * to a stated fact rather than having an inference recorded on their behalf.
+   * If that disclosure is ever removed, this rule stops being defensible and
+   * the citation must go with it.
+   *
+   * The multi-evidence case wants an explicit picker; until that exists it is
+   * honestly uncited rather than dishonestly cited.
+   */
+  const citableEvidenceFor = useCallback(
+    (targetId: string): DisagreementEvidence | null => {
+      if (disagreement == null) return null
+      const target = disagreement.per_target.find((t) => t.target.id === targetId)
+      if (target === undefined) return null
+      if (target.evidence.length !== 1) return null
+      const only = target.evidence[0]
+      // An id is what gets claimed, so a blank one is no citation at all.
+      return typeof only?.event_id === 'string' && only.event_id.trim() !== '' ? only : null
+    },
+    [disagreement],
+  )
+
   return (
     <main data-testid="collab-reveal" className={PAGE_SHELL}>
       <div className="mx-auto w-full max-w-[820px]">
@@ -1112,6 +1159,28 @@ export function RevealBody({
                           the minority position is never retired. */}
                       {apply !== undefined && r.value !== null && (
                         <div className="mt-3">
+                          {/* ⭐ THE CITATION, DISCLOSED BEFORE THE CLICK.
+                              What the model will record as the reason, named on
+                              screen, so the owner consents to a stated fact
+                              instead of having one inferred for them. Rendered
+                              only when `citableEvidenceFor` found exactly one
+                              piece of evidence — the same condition that decides
+                              whether the claim is sent, so the sentence and the
+                              wire can never disagree. Absent ⇒ nothing is
+                              claimed and nothing is promised. */}
+                          {citableEvidenceFor(row.target.id) !== null && (
+                            <p
+                              data-testid={`reveal-apply-citation-${row.target.id}`}
+                              className={`${typography.bodySmall} mb-2 text-text-light`}
+                            >
+                              Your model will record{' '}
+                              {citableEvidenceFor(row.target.id)?.author_label}&rsquo;s{' '}
+                              {citableEvidenceFor(row.target.id)?.kind === 'link'
+                                ? 'link'
+                                : 'note'}{' '}
+                              as the reason for this change.
+                            </p>
+                          )}
                           <button
                             type="button"
                             data-testid={`reveal-apply-${row.target.id}-${r.participant_id}`}
@@ -1126,6 +1195,16 @@ export function RevealBody({
                                 // any difference, so a display-rounded value here
                                 // would refuse every apply.
                                 value: r.value as number,
+                                // ⭐ Derived from the SAME call that decided the
+                                // disclosure above. Not a second computation:
+                                // two expressions of one rule is how a screen
+                                // and a wire start telling different stories.
+                                ...(citableEvidenceFor(row.target.id) !== null
+                                  ? {
+                                      evidenceEventId: citableEvidenceFor(row.target.id)
+                                        ?.event_id,
+                                    }
+                                  : {}),
                               })
                             }
                             className="rounded-md border border-panel-border px-3 py-1.5 text-sm font-medium text-text-header hover:bg-panel-hover disabled:opacity-50"
