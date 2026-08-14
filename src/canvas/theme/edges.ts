@@ -12,7 +12,6 @@ import { weightToStrokeWidth, styleToDashArray, clampCurvature } from '../domain
  */
 interface EdgeThemeTokens {
   stroke: string
-  strokeHover: string
   strokeSelected: string
   label: string
   labelBackground: string
@@ -28,7 +27,6 @@ interface EdgeThemeTokens {
  */
 const LIGHT_THEME: EdgeThemeTokens = {
   stroke: '#94A3B8', // Slate 400
-  strokeHover: '#64748B', // Slate 500
   strokeSelected: 'var(--semantic-info)', // Olumi v1.2: sky-500
   label: '#1E293B', // Slate 800
   labelBackground: '#FFFFFF',
@@ -45,7 +43,6 @@ const LIGHT_THEME: EdgeThemeTokens = {
  */
 const DARK_THEME: EdgeThemeTokens = {
   stroke: 'var(--edge-stroke, #5B6CFF)',
-  strokeHover: 'var(--info-hover)', // Olumi v1.2: info hover state
   strokeSelected: 'var(--semantic-info)', // Olumi v1.2: sky-500
   label: 'var(--edge-label-text, #E8ECF5)',
   labelBackground: 'var(--edge-label-bg, #0E1116)',
@@ -86,20 +83,39 @@ export interface EdgeVisualProps {
   stroke: string
 }
 
+/**
+ * ⚠ There is deliberately NO hover branch here, and no `strokeHover` token.
+ *
+ * One existed until 14 Aug 2026 and was unreachable: the sole call site
+ * (StyledEdge) passed `isHovered` as a hardcoded `false`, so the token could
+ * never be applied.
+ *
+ * It was DELETED rather than wired up, and that was the considered choice.
+ * Wiring it would not have worked: StyledEdge resolves its stroke as
+ * `isHighlightedEdge ? info : (directionStroke ?? visualProps.stroke)`, so an
+ * edge carrying direction POLARITY (green/red) never reaches `visualProps.stroke`
+ * at all. A hover colour would therefore be invisible on exactly the edges that
+ * matter, and where it did apply it would OVERWRITE polarity — a semantic
+ * change, not a visual one.
+ *
+ * Hover and selection emphasis are delivered instead as a composable
+ * `filter: drop-shadow` in StyledEdge, which is a separate CSS channel and so
+ * coexists with polarity colour. That is the pattern this file's neighbours
+ * already use for the fragile halo and the sensitivity glow.
+ *
+ * If you are adding hover styling: add it to that filter chain, not here.
+ */
 export function applyEdgeVisualProps(
   weight: number,
   style: EdgeStyle,
   curvature: number,
   isSelected: boolean,
-  isHovered: boolean,
   isDark = false
 ): EdgeVisualProps {
   const theme = getEdgeTheme(isDark)
-  
-  let stroke = theme.stroke
-  if (isSelected) stroke = theme.strokeSelected
-  else if (isHovered) stroke = theme.strokeHover
-  
+
+  const stroke = isSelected ? theme.strokeSelected : theme.stroke
+
   return {
     strokeWidth: weightToStrokeWidth(weight),
     strokeDasharray: styleToDashArray(style),
