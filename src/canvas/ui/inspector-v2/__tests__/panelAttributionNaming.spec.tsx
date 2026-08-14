@@ -113,6 +113,19 @@ vi.mock('../../../../lib/supabase', async (importOriginal) => {
   }
 })
 
+/**
+ * Let every already-queued promise chain settle.
+ *
+ * `setTimeout(0)` rather than a bare `await Promise.resolve()`: the roster path
+ * awaits the session AND the response body, so a single microtask tick is not
+ * enough to reach the `fetch` call. Its sufficiency is not assumed — the
+ * positive control below asserts this same flush observes a request that IS
+ * made.
+ */
+function flushAsync(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 function factorNode(observedState: Record<string, unknown>) {
   return {
     id: 'factor-1',
@@ -200,6 +213,28 @@ describe('FactorObservablePanel — render-time name resolution on a live surfac
   it('⭐ fetches NOTHING for an ordinary value — the hook is inert off the panel path', async () => {
     await renderObservablePanel({ value: 0.5, source: 'user_override' })
     expect(screen.getAllByText('Set by you').length).toBeGreaterThan(0)
+
+    // ⚠ THE FLUSH IS LOAD-BEARING, AND THE FIRST VERSION OF THIS TEST DID NOT
+    // HAVE IT AND WAS VACUOUS. `ensureRoster` awaits the session before it
+    // fetches, so a synchronous `calls.length === 0` assertion runs a microtask
+    // BEFORE any request could have been issued — it passed for every mutant,
+    // including one that removed BOTH inertness guards at once. An absence
+    // assertion that resolves before the thing it forbids could happen is
+    // measuring its own timing. Caught by the mutation kit, not by review.
+    await flushAsync()
+
     expect((globalThis.fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.length).toBe(0)
+  })
+
+  it('POSITIVE CONTROL for the flush — the SAME flush DOES see a legitimate fetch', async () => {
+    // Proves `flushAsync` is long enough to observe a request that is made, so
+    // the zero above is a real absence rather than a shorter race.
+    await renderObservablePanel({
+      value: 0.85,
+      source: 'panel_elicited',
+      elicited_from: { round_id: ROUND_ID, participant_id: GRACE_ID },
+    })
+    await flushAsync()
+    expect((globalThis.fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.length).toBe(1)
   })
 })
