@@ -15,12 +15,17 @@ import { renderHook } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
 import { usePathHighlight } from '../usePathHighlight'
 import type { Node, Edge } from '@xyflow/react'
+import type { EdgeData } from '../../domain/edges'
 
 function createNode(id: string, type: string, kind?: string): Node {
   return { id, type, position: { x: 0, y: 0 }, data: { label: id, kind: kind ?? type } }
 }
-function createEdge(id: string, source: string, target: string): Edge {
-  return { id, source, target }
+// Typed as the store's own edge element (Edge<EdgeData>), not a bare Edge —
+// `nodes`/`edges` on the canvas store are Edge<EdgeData>[], and a bare Edge is
+// not assignable to it. The hook under test only ever reads id/source/target,
+// so an empty data payload is sufficient and honest here.
+function createEdge(id: string, source: string, target: string): Edge<EdgeData> {
+  return { id, source, target, data: {} as EdgeData }
 }
 
 /** dimmedNodeIds as a plain sorted array, for identity-level assertions. */
