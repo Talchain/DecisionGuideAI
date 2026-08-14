@@ -56,7 +56,19 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
     showGoalHint: false,
     mainReason: null,
     quickLinks: { mainDriver: null, topFlipRisk: null },
-    evidence: { drivers: [], flipRisks: [], tradeOffs: null, designationsWithheld: false },
+    // `resolveNext: null` + `decisionVoi: 'not_computed'` = the honest silence:
+    // the internal gallery renders no value-of-information claim unless a
+    // fixture deliberately supplies one. Both fields are REQUIRED on the model
+    // precisely so the compiler names this constructor rather than letting the
+    // gallery quietly show a state the live surface cannot produce.
+    evidence: {
+      drivers: [],
+      flipRisks: [],
+      tradeOffs: null,
+      designationsWithheld: false,
+      resolveNext: null,
+      decisionVoi: 'not_computed',
+    },
     trustLine: null,
     statusChip: null,
     focusAction: null,

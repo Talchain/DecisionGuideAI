@@ -7,6 +7,12 @@
  * bands, deltas or thresholds. See buildHeroModel.ts for the mapping rules.
  */
 
+// The two VOI verdicts are PASSED THROUGH from the hook, not restated here:
+// importing the authorities' own types is what makes a change to either one a
+// compile error in this file rather than a silently divergent second shape.
+import type { VoiRanking } from '../voi/voiRanking'
+import type { DecisionVoiVerdict } from '../voi/decisionVoi'
+
 /**
  * The four prototype lenses. Goal fit and Likely outcome are the LIVE
  * lenses; Stability and "What changed" are modelled visually but their
@@ -198,6 +204,30 @@ export interface HeroEvidenceModel {
    * of this model in the repo and the compiler names all of them.
    */
   designationsWithheld: boolean
+  /**
+   * V7-C slice 1's value-of-information ranking, PROMOTED onto this host by
+   * Paul's ruling of 14 Aug 2026. Straight through from the hook's `voiRanking`
+   * — the one verdict lives in `voi/voiRanking.ts` and is never re-derived,
+   * re-sorted, filtered or re-grouped here. Producer wire order IS the contract:
+   * a consumer that "fixes" the order is a consumer that can invert it, and the
+   * order is the only thing the surface shows.
+   *
+   * `null` ⇒ the view renders its honest gate (the block was absent, null,
+   * empty, malformed, or its rank-1 row could not be named). Never an empty list.
+   */
+  resolveNext: VoiRanking | null
+  /**
+   * V7-C slice 2a: the WHOLE-DECISION VOI verdict, passed through from the
+   * hook's `decisionVoi`. A closed three-member enum, never the number — the
+   * field is in OUTCOME units with no licensed display.
+   *
+   * REQUIRED for the reason stated on `designationsWithheld` above, and the
+   * reason bites harder here: `'not_computed'` renders NOTHING, so an OPTIONAL
+   * field that every fixture omitted would look exactly like a working feature
+   * with nothing to show — a permanently silent surface under a green suite.
+   * Required means the compiler names every constructor.
+   */
+  decisionVoi: DecisionVoiVerdict
 }
 
 export interface HeroChartModel {
