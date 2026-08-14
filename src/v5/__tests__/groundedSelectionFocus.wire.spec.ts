@@ -244,6 +244,49 @@ describe('hop 4b — the grounding owns its own state and clobbers nobody', () =
       vi.useRealTimers()
     }
   })
+
+  it('survives a CROSS-TURN pulse — edit, then ask a grounded question 1s later', async () => {
+    // ⭐ THE TIMELINE THAT NEEDS NO COINCIDENCE AT ALL, and therefore the one
+    // that settles reachability. Nothing here requires CEE to emit a grounding
+    // on a patch-bearing turn (a producer-side question this lane has NOT
+    // settled — trap 16-inverse). Turn N applies a patch; turn N+1 is an
+    // ordinary grounded question inside the pulse's 2s window; the pulse's
+    // clear then fires under it.
+    vi.useFakeTimers()
+    try {
+      pulseAppliedTargets({ nodeIds: ['node-just-edited'], edgeIds: [] })
+      vi.advanceTimersByTime(PULSE_COALESCE_MS + 10)
+
+      // 1s later, well inside the pulse window, the user asks about a selection.
+      vi.advanceTimersByTime(1000)
+      await applyWire(wireBody({ element_ids: ['node-grounded'], unresolved: 'none' }))
+      expect(marks()).toEqual(['node-grounded'])
+
+      // The earlier turn's clear fires. It must not touch this turn's grounding.
+      vi.advanceTimersByTime(PULSE_DURATION_MS)
+      expect(sharedHighlights()).toEqual([])
+      expect(marks()).toEqual(['node-grounded'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('survives an EDGE-ONLY patch, which clears the shared node set outright', async () => {
+    // `flush()` calls `setHighlightedNodes(nodeIds)` UNCONDITIONALLY, so a
+    // patch touching only edges passes an empty node list and actively empties
+    // the shared channel — no timer needed, and no node ever pulsed.
+    vi.useFakeTimers()
+    try {
+      await applyWire(wireBody({ element_ids: ['node-grounded'], unresolved: 'none' }))
+      pulseAppliedTargets({ nodeIds: [], edgeIds: ['edge-1'] })
+
+      vi.advanceTimersByTime(PULSE_COALESCE_MS + 10)
+      expect(sharedHighlights()).toEqual([])
+      expect(marks()).toEqual(['node-grounded'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('hop 4b — the canvas never claims a path it does not have', () => {

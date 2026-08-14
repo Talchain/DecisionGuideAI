@@ -46,16 +46,51 @@ beforeEach(() => {
 })
 
 describe('GroundedFocusNotice — the two empty states are not the same state', () => {
-  it('SPEAKS when the model could not be read', () => {
+  it('SPEAKS when the model could not be read, saying EXACTLY this and nothing more', () => {
     ground('could_not_check')
     render(<GroundedFocusNotice />)
 
     const notice = screen.getByTestId(NOTICE)
     expect(notice).toBeInTheDocument()
-    // Says what is NOT known. Never "not found" — that is the claim this
-    // component exists to stop the UI making.
-    expect(notice.textContent).toMatch(/couldn.t read your model/i)
-    expect(notice.textContent).not.toMatch(/not found|doesn.t exist|no longer/i)
+
+    // ⭐ EXACT TEXT, NOT A PHRASE PREDICATE — and the difference is a real
+    // defect this assertion used to have. It was a positive phrase match
+    // (`/couldn.t read your model/i`) plus a hand-written list of forbidden
+    // words (`/not found|doesn.t exist|no longer/i`). An adversarial probe
+    // defeated it in one line: rewriting the copy to
+    //
+    //   "I couldn't read your model to check what you selected — that element
+    //    has been removed from your model"
+    //
+    // satisfied the positive phrase, dodged all three forbidden words, and
+    // stayed GREEN — while asserting the EXACT false claim this component
+    // exists to prevent. A forbidden-word list is a hand-maintained mirror
+    // (trap 12) and the space of ways to say "your node is gone" is unbounded,
+    // so no list can cover it.
+    //
+    // Binding the whole sentence inverts the problem: the honest copy is
+    // enumerable and short, every other sentence in the language fails, and a
+    // deliberate copy change must come here and be read.
+    expect(notice.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'I couldn’t read your model to check what you selected, so I can’t show it on the canvas.',
+    )
+  })
+
+  it('makes no claim about the element in either direction', () => {
+    // The secondary guard, kept as a CLASS rather than a word list: the copy
+    // must not assert presence or absence. Retained because it states the
+    // PROPERTY, while the exact-text bind above is what actually enforces it —
+    // if this test ever disagrees with that one, the copy changed and both
+    // must be re-read.
+    ground('could_not_check')
+    render(<GroundedFocusNotice />)
+
+    const text = screen.getByTestId(NOTICE).textContent ?? ''
+    expect(text).not.toMatch(/removed|deleted|not found|doesn.t exist|no longer|is gone/i)
+    // It says what is NOT known...
+    expect(text).toMatch(/couldn.t read your model/i)
+    // ...and does not tell the user their element is or is not there.
+    expect(text).not.toMatch(/\bis (still )?(in|on) your model\b/i)
   })
 
   it('STAYS SILENT when the model was read and the element is not in it', () => {
