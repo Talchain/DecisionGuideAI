@@ -87,6 +87,7 @@ export const minimalFixture: ResultsSectionDataReturn = {
   // renders nothing rather than a placeholder. REQUIRED on the hook type
   // precisely so the compiler names every constructor.
   decisionVoi: 'not_computed',
+  assumedStrength: { selected: null, refusalReason: 'no_robustness_data', assumedFragileCount: 0 },
 }
 
 /** Tornado data for minimal fixture — empty since no drivers */
