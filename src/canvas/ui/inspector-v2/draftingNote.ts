@@ -1,71 +1,125 @@
 /**
- * draftingNote — separates a drafter-authored absorption note from the user's
+ * draftingNote — separates drafter-authored absorption notes from the user's
  * own description.
  *
- * ── WHY THIS EXISTS (ROADMAP 2.1204) ─────────────────────────────────────
- * When CEE's drafter absorbs a rephrase-twin option, it prefixes the surviving
- * option's `description` with `"Also drafted as: <absorbed label>"`. That note
- * is the only user-reachable trace of the merge, and ruling R2 requires the
- * user be able to SEE the absorption happened.
+ * ── THE PRODUCER'S FORMAT, DERIVED AT THE BYTES ──────────────────────────
+ * CEE tip `ae0b4af`, `src/cee/transforms/option-rephrase-merge.ts:459-462`:
  *
- * It arrived rendered — but rendered INSIDE the option's editable description
- * textarea, where it reads as the user's own prose and is destroyed the moment
- * they type their own. This module makes the two separable so the panel can
- * attribute the note and still hand the user an empty description field.
+ *     const alsoDraftedAs = `Also drafted as: ${twin.label}`;
+ *     const appendDescription = (existing) =>
+ *       existing && existing.trim().length > 0
+ *         ? `${existing}\n\n${alsoDraftedAs}`
+ *         : alsoDraftedAs;
  *
- * ── BOUND TO THE KNOWN PREFIX ONLY ───────────────────────────────────────
- * A census of every JSON capture in `closing-witness-20260814/driver/` found
- * option descriptions carrying ONLY this note (12 occurrences, one distinct
- * value, zero carrying anything else). That says what the corpus contained,
- * never what the field admits (trap 12d) — a user can type a description and
- * CEE may emit other content — so the split is anchored to the literal prefix
- * and everything else is treated as the user's, never guessed at.
+ * The note is **APPENDED** to any existing description, separated by a BLANK
+ * LINE, and stands alone only when the description was empty. The enclosing
+ * loop runs **per absorbed twin**, so notes accumulate as a trailing run of
+ * `\n\n`-separated lines.
+ *
+ * ⚠ THE FIRST VERSION OF THIS MODULE CLAIMED CEE *PREFIXES*, AND PARSED WITH
+ * `startsWith`. That was wrong, and inert on every option that already had a
+ * description — a class reachable on a first draft, where V3 `description` is
+ * the drafter's `node.body` (CEE `schema-v3.ts:207`). The corpus it was
+ * written against contained only absorbed options with EMPTY descriptions, the
+ * single class where "whole string" and "leading prefix" coincide, so every
+ * sample agreed with the wrong parser (trap 13d). The producer's join was one
+ * grep away and was never read. This header now states what the producer does;
+ * re-derive it rather than trusting this paragraph.
+ *
+ * ── WHAT WE WRITE BACK ───────────────────────────────────────────────────
+ * `composeDescription` emits the PRODUCER'S format, never a third one. If the
+ * UI invented its own storage shape, the next consumer would have to parse
+ * something no producer emits — and the last round of this work did exactly
+ * that (`note\nbody`, single newline). That legacy form is tolerated on READ
+ * so nothing written by it is stranded, and migrated on the first commit.
+ *
+ * ── KNOWN LIMIT ──────────────────────────────────────────────────────────
+ * A user whose own prose is exactly a line reading `Also drafted as: …` in the
+ * trailing position is re-attributed to Olumi. That is inherent to carrying
+ * provenance inside a free-text field: nothing in the string distinguishes a
+ * drafter's line from a user who typed the same words. The durable fix is a
+ * dedicated wire field, which rides the contract wave with
+ * `OPTION_REPHRASE_ABSORBED`. Pinned by test rather than left to be
+ * rediscovered.
  */
 
-/** The literal the drafter writes. Matched at the START of the description. */
+/** The literal the drafter writes, once per absorbed twin. */
 export const DRAFTING_NOTE_PREFIX = 'Also drafted as: '
+
+/** The producer's block separator — a blank line. */
+const BLOCK_SEPARATOR = '\n\n'
 
 export interface ParsedDescription {
   /**
-   * The drafter's note, VERBATIM from the wire including its prefix, or null
-   * when the description carries none. Rendered as-is: the product must not
-   * invent copy about what was merged.
+   * The drafter's notes, VERBATIM from the wire including their prefix, in
+   * producer order. Empty when the description carries none. Rendered as-is:
+   * the product must not invent copy about what was merged.
    */
-  note: string | null
-  /** What remains after the note — the user's own description. */
+  notes: string[]
+  /** What remains — the user's own description. */
   body: string
 }
 
-/**
- * Splits a raw node description into the drafter's note and the user's body.
- *
- * Only a description that BEGINS with the prefix carries a note, and only its
- * first line is the note — a later line that happens to mention the phrase is
- * the user's prose and stays theirs.
- */
-export function parseDraftingNote(raw: string | null | undefined): ParsedDescription {
-  const text = typeof raw === 'string' ? raw : ''
-  if (!text.startsWith(DRAFTING_NOTE_PREFIX)) return { note: null, body: text }
-
-  const breakAt = text.indexOf('\n')
-  if (breakAt === -1) return { note: text, body: '' }
-
-  return {
-    note: text.slice(0, breakAt),
-    body: text.slice(breakAt + 1).replace(/^\n+/, ''),
-  }
+/** A note block is a SINGLE line that is exactly one `Also drafted as:` note. */
+function isNoteBlock(block: string): boolean {
+  const trimmed = block.trim()
+  return (
+    trimmed.startsWith(DRAFTING_NOTE_PREFIX)
+    && trimmed.length > DRAFTING_NOTE_PREFIX.length
+    && !trimmed.includes('\n')
+  )
 }
 
 /**
- * Rebuilds the stored description from a note and an edited body.
+ * Splits a raw node description into the drafter's notes and the user's body.
  *
- * This is the half that stops the disclosure being DESTRUCTIBLE: the panel
- * edits only the body, and every commit re-attaches the note, so a user
- * writing their own description can no longer silently erase the record that
- * two of their options were merged.
+ * Notes are the maximal run of TRAILING blank-line-separated blocks that are
+ * each a lone `Also drafted as: …` line — which is exactly the set the
+ * producer can have appended. Anything earlier is the user's, including a line
+ * that merely mentions the phrase mid-paragraph.
  */
-export function composeDescription(note: string | null, body: string): string {
+export function parseDraftingNotes(raw: string | null | undefined): ParsedDescription {
+  const text = typeof raw === 'string' ? raw : ''
+  if (!text.trim()) return { notes: [], body: '' }
+
+  const blocks = text.split(BLOCK_SEPARATOR)
+  let firstNote = blocks.length
+  while (firstNote > 0 && isNoteBlock(blocks[firstNote - 1]!)) firstNote -= 1
+
+  if (firstNote < blocks.length) {
+    return {
+      notes: blocks.slice(firstNote).map(b => b.trim()),
+      body: blocks.slice(0, firstNote).join(BLOCK_SEPARATOR).trim(),
+    }
+  }
+
+  // Legacy tolerance: the single-newline LEADING form this UI briefly wrote.
+  // No producer emits it; migrated to the producer's format on first commit.
+  if (text.startsWith(DRAFTING_NOTE_PREFIX)) {
+    const breakAt = text.indexOf('\n')
+    if (breakAt !== -1) {
+      return {
+        notes: [text.slice(0, breakAt).trim()],
+        body: text.slice(breakAt + 1).trim(),
+      }
+    }
+  }
+
+  return { notes: [], body: text }
+}
+
+/**
+ * Rebuilds the stored description from the drafter's notes and an edited body,
+ * in the PRODUCER's format.
+ *
+ * This is the half that stops the disclosure being DESTRUCTIBLE: every surface
+ * that can edit the description edits only the body and recomposes here, so a
+ * user writing their own description can no longer silently erase the record
+ * that two of their options were merged.
+ */
+export function composeDescription(notes: string[], body: string): string {
   const trimmed = body.trim()
-  if (!note) return trimmed
-  return trimmed ? `${note}\n${trimmed}` : note
+  if (notes.length === 0) return trimmed
+  const joined = notes.join(BLOCK_SEPARATOR)
+  return trimmed ? `${trimmed}${BLOCK_SEPARATOR}${joined}` : joined
 }
