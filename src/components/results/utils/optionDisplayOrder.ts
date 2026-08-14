@@ -45,7 +45,10 @@
  */
 import type { OptionResult } from '../types'
 
-type DisplayOrderFields = Pick<OptionResult, 'winProbability' | 'expected' | 'goalProbability'>
+type DisplayOrderFields = Pick<
+  OptionResult,
+  'winProbability' | 'expected' | 'goalProbability' | 'notAnalysed'
+>
 
 export interface DisplayOrderOptions {
   /**
@@ -72,13 +75,37 @@ export function sortOptionsForDisplay<T extends DisplayOrderFields>(
   // number. The copy keeps callers free to mutate the result as before.
   if (designationsWithheld) return [...options]
 
+  // ⭐ NO-RANK RULING (Paul, 14 Aug 2026) — AN OPTION THE RUN NEVER ANALYSED IS
+  // NOT IN THE RANKING, AND MUST NOT DECIDE HOW THE RANKING IS DRAWN.
+  //
+  // Two distinct harms, and the `every` below caused the second one:
+  //
+  //  1. RANKING IT. It has no comparative quantity, so any position it takes
+  //     among the ranked options is a claim nothing supports.
+  //  2. RE-RANKING EVERYONE ELSE. `allHaveWinProb` was an `every` over ALL
+  //     options, so ONE option with no win probability dropped every ANALYSED
+  //     option onto the `expected ?? goalProbability ?? -Infinity` comparator.
+  //     On a run whose two comparators disagree — the ordinary case — the
+  //     user's list silently re-ordered because of an option that took no part
+  //     in it. That is a regression in the ranking of options that WERE
+  //     analysed, caused by one that was not.
+  //
+  // The partition fixes both at once and keeps the completeness rule's own
+  // question intact: coverage must still be COMPLETE, over the options that
+  // are actually being compared. Unranked options keep the CALLER's order and
+  // go last — last is not a rank, it is "outside the list", and the cards
+  // render them with no ordinal at all.
+  const ranked = options.filter(o => o.notAnalysed !== true)
+  const unranked = options.filter(o => o.notAnalysed === true)
+
   // Number.isFinite (not `!= null`): a NaN winProbability would pass the
   // null check, poison the comparator (NaN ?? 0 stays NaN), and make the
   // order arbitrary — mixed/invalid coverage must fall back to expected.
   const allHaveWinProb =
-    options.length > 0 && options.every(o => typeof o.winProbability === 'number' && Number.isFinite(o.winProbability))
-  return [...options].sort((a, b) => {
+    ranked.length > 0 && ranked.every(o => typeof o.winProbability === 'number' && Number.isFinite(o.winProbability))
+  const sortedRanked = [...ranked].sort((a, b) => {
     if (allHaveWinProb) return (b.winProbability ?? 0) - (a.winProbability ?? 0)
     return (b.expected ?? b.goalProbability ?? -Infinity) - (a.expected ?? a.goalProbability ?? -Infinity)
   })
+  return [...sortedRanked, ...unranked]
 }
