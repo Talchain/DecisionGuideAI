@@ -15,9 +15,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { makeHeroData } from '../../analysis-hero/__fixtures__/hero.fixtures'
-import type { AssumedStrengthDecision } from '../selectAssumedStrengthToResolve'
-import { ASSUMED_STRENGTH_REFUSAL_COPY } from '../assumedStrengthCopy'
+import { makeHeroData } from '../__fixtures__/hero.fixtures'
+import type { AssumedStrengthDecision } from '../../strengthElicitation/selectAssumedStrengthToResolve'
+import { ASSUMED_STRENGTH_REFUSAL_COPY } from '../../strengthElicitation/assumedStrengthCopy'
 
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),

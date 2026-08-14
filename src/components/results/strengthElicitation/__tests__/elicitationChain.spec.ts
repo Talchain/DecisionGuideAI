@@ -26,6 +26,7 @@ import {
 } from '../selectAssumedStrengthToResolve'
 import { EDGE_SETTER_FIELDS } from '../../../../canvas/ui/inspector-v2/useInspectorMutations'
 import { hasAnalyticalEdgeChange } from '../../../../canvas/domain/analyticalChange'
+import type { Edge } from '@xyflow/react'
 import { resolveDisplayedFreshness, classifyFreshnessForDisplay } from '../../../../canvas/store/analysisFreshness'
 import { DEFAULT_EDGE_DATA } from '../../../../canvas/domain/edges'
 import { THRESHOLDS } from '../../../../lib/mappers/constants'
@@ -72,7 +73,7 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     // `updateEdge` calls exactly this predicate to decide whether to invalidate
     // analysis readiness. If `weight` ever left the stale registry, the edit
     // would land and the analysis would keep claiming to be fresh.
-    const before = { data: { ...DEFAULT_EDGE_DATA } }
+    const before = { ...draftedEdge(), data: { ...DEFAULT_EDGE_DATA } } as unknown as Edge
     const patch = { data: { ...DEFAULT_EDGE_DATA, weight: 0.85, weightSource: 'user' as const } }
     expect(hasAnalyticalEdgeChange(before, patch)).toBe(true)
   })
@@ -121,7 +122,7 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     const patch = { data: { ...before.data, weight: 0.85, weightSource: 'user' as const } }
 
     // 3. the edit is analytical ⇒ the store marks the analysis dirty
-    const dirty = hasAnalyticalEdgeChange(before, patch)
+    const dirty = hasAnalyticalEdgeChange(before as unknown as Edge, patch)
     expect(dirty).toBe(true)
 
     // 4. dirty ⇒ the surface can no longer confirm freshness ⇒ rerun is offered
@@ -143,7 +144,7 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     // correctly declines to claim otherwise. `weightSource` is deliberately NOT
     // in the analytical registry, and this pins that as intended behaviour
     // rather than an oversight.
-    const before = { data: { ...DEFAULT_EDGE_DATA } }
+    const before = { ...draftedEdge(), data: { ...DEFAULT_EDGE_DATA } } as unknown as Edge
     const confirmedAsIs = { data: { ...DEFAULT_EDGE_DATA, weightSource: 'user' as const } }
     expect(hasAnalyticalEdgeChange(before, confirmedAsIs)).toBe(false)
 
