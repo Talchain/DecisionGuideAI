@@ -191,7 +191,11 @@ describe('hop 4b — the canvas never claims a path it does not have', () => {
     // The AI's attention and the user's pointer are different facts and are
     // allowed to diverge. The AI may never move the pointer.
     useCanvasStore.setState({
-      selection: { nodeIds: new Set(['node-the-user-picked']), edgeIds: new Set<string>() },
+      selection: {
+        nodeIds: new Set(['node-the-user-picked']),
+        edgeIds: new Set<string>(),
+        anchorPosition: null,
+      },
     })
 
     await applyWire(wireBody({ element_ids: ['node-the-ai-used'], unresolved: 'none' }))
