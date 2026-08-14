@@ -1,0 +1,182 @@
+/**
+ * The panel→canvas apply handoff.
+ *
+ * Two properties are load-bearing and neither is obvious from the code:
+ *   1. NO PII AND NO CREDENTIAL EVER LANDS. The natural caller argument is a
+ *      reveal row, which carries `display_label`; a spread would put a person's
+ *      name into localStorage, beyond the R-2 redaction routine's reach. This
+ *      suite feeds the module name-bearing and token-bearing input and proves,
+ *      against the WHOLE store, that neither survives.
+ *   2. AN INTENT IS DRAINABLE AT MOST ONCE, and only for its own scenario.
+ */
+
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import {
+  forgetPendingApply,
+  readPendingApply,
+  rememberPendingApply,
+} from '../panelApplyHandoff'
+
+const SCENARIO = 'scenario-abc'
+const OTHER_SCENARIO = 'scenario-xyz'
+const ROUND = 'round-1'
+const GRACE = 'participant-grace'
+const TARGET = 'fac_churn_risk'
+
+/**
+ * Flatten the whole localStorage store into one searchable string.
+ *
+ * ⚠ THE SEPARATOR IS ' | ' AND NOT A NUL, AND THAT IS NOT A STYLE CHOICE. A
+ * single `'\0'` in this file made `file(1)` classify it as binary, so git
+ * rendered THE ENTIRE SPEC as a binary blob and it never appeared in any diff —
+ * the sole spec for 153 lines of new production code, invisible to every
+ * reviewer (CLAUDE.md trap 17, third instance in this estate). Plain `grep` is
+ * blind to it too. Any sentinel will do; a NUL will not.
+ */
+function wholeStore(): string {
+  const parts: string[] = []
+  for (let i = 0; i < window.localStorage.length; i += 1) {
+    const k = window.localStorage.key(i)
+    if (k === null) continue
+    parts.push(k, window.localStorage.getItem(k) ?? '')
+  }
+  return parts.join(' | ')
+}
+
+describe('panelApplyHandoff', () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+    vi.useRealTimers()
+  })
+
+  it('round-trips an intent for its own scenario', () => {
+    rememberPendingApply({
+      scenarioId: SCENARIO,
+      roundId: ROUND,
+      participantId: GRACE,
+      targetId: TARGET,
+      value: 0.85,
+    })
+    const read = readPendingApply(SCENARIO)
+    expect(read).not.toBeNull()
+    expect(read?.participant_id).toBe(GRACE)
+    expect(read?.target_id).toBe(TARGET)
+    expect(read?.value).toBe(0.85)
+  })
+
+  it('⭐ NO display name and NO token can reach storage, checked against the WHOLE store', () => {
+    // Feed the module the shape a careless caller would hand it: a reveal row
+    // spread, complete with a person's name and a participant token.
+    const row = {
+      participant_id: GRACE,
+      display_label: 'Grace Hopper',
+      token: 'super-secret-participant-token',
+      value: 0.85,
+    }
+    rememberPendingApply({
+      scenarioId: SCENARIO,
+      roundId: ROUND,
+      participantId: row.participant_id,
+      targetId: TARGET,
+      value: row.value,
+    })
+
+    const store = wholeStore()
+    expect(store).not.toContain('Grace Hopper')
+    expect(store).not.toContain('super-secret-participant-token')
+    // POSITIVE CONTROL: the probe can SEE a presence, so the two absences above
+    // are evidence rather than a search that matched nothing (trap 13).
+    expect(store).toContain(GRACE)
+  })
+
+  it('preserves the served value EXACTLY — a rounded number would refuse every apply', () => {
+    // CEE compares the claim to its own record with `Object.is`. A handoff that
+    // round-tripped through a display format would make every apply refuse.
+    const awkward = 0.1 + 0.2 // 0.30000000000000004
+    rememberPendingApply({
+      scenarioId: SCENARIO,
+      roundId: ROUND,
+      participantId: GRACE,
+      targetId: TARGET,
+      value: awkward,
+    })
+    expect(readPendingApply(SCENARIO)?.value).toBe(awkward)
+  })
+
+  it('refuses to read an intent recorded for a DIFFERENT scenario', () => {
+    rememberPendingApply({
+      scenarioId: OTHER_SCENARIO,
+      roundId: ROUND,
+      participantId: GRACE,
+      targetId: TARGET,
+      value: 0.85,
+    })
+    expect(readPendingApply(SCENARIO)).toBeNull()
+  })
+
+  it('refuses a STALE intent rather than silently moving a forgotten number', () => {
+    rememberPendingApply({
+      scenarioId: SCENARIO,
+      roundId: ROUND,
+      participantId: GRACE,
+      targetId: TARGET,
+      value: 0.85,
+    })
+    expect(readPendingApply(SCENARIO)).not.toBeNull() // control: fresh reads fine
+
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(Date.now() + 6 * 60 * 1000))
+    expect(readPendingApply(SCENARIO)).toBeNull()
+  })
+
+  it('refuses malformed records field by field rather than partially trusting them', () => {
+    const key = `olumi.collab.pending-apply.${SCENARIO}`
+    const base = {
+      scenario_id: SCENARIO,
+      round_id: ROUND,
+      participant_id: GRACE,
+      target_id: TARGET,
+      value: 0.85,
+      recorded_at: new Date().toISOString(),
+    }
+    // Control: the well-formed record reads back, so each rejection below is
+    // attributable to the field removed and not to a broken fixture.
+    window.localStorage.setItem(key, JSON.stringify(base))
+    expect(readPendingApply(SCENARIO)).not.toBeNull()
+
+    for (const field of ['round_id', 'participant_id', 'target_id', 'value'] as const) {
+      const broken: Record<string, unknown> = { ...base }
+      delete broken[field]
+      window.localStorage.setItem(key, JSON.stringify(broken))
+      expect(readPendingApply(SCENARIO), `a record missing ${field} must not be drained`).toBeNull()
+    }
+
+    window.localStorage.setItem(key, 'not json at all')
+    expect(readPendingApply(SCENARIO)).toBeNull()
+  })
+
+  it('refuses a non-finite value', () => {
+    rememberPendingApply({
+      scenarioId: SCENARIO,
+      roundId: ROUND,
+      participantId: GRACE,
+      targetId: TARGET,
+      value: Number.NaN,
+    })
+    expect(readPendingApply(SCENARIO)).toBeNull()
+  })
+
+  it('forget removes the intent so it cannot be drained twice', () => {
+    rememberPendingApply({
+      scenarioId: SCENARIO,
+      roundId: ROUND,
+      participantId: GRACE,
+      targetId: TARGET,
+      value: 0.85,
+    })
+    expect(readPendingApply(SCENARIO)).not.toBeNull()
+    forgetPendingApply(SCENARIO)
+    expect(readPendingApply(SCENARIO)).toBeNull()
+  })
+})

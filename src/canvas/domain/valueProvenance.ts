@@ -78,6 +78,19 @@ export type ValueProvenanceKind =
   | 'brief'
   /** The model's own estimate. */
   | 'ai'
+  /**
+   * A NAMED COLLEAGUE'S panel answer, applied by the owner from a closed
+   * elicitation round (schemas 0.40.0 `panel_elicited` + `elicited_from`).
+   *
+   * ⚠ NOT a member of `USER_OWNED_KINDS`, and that is the whole point of it
+   * being its own kind rather than an alias for `'edited'`. "User owned" means
+   * THIS user vouched for the number; a panel value is somebody ELSE's stated
+   * belief, which the owner chose to adopt. Collapsing the two would put the
+   * colleague's estimate behind first-person copy ("Set by you") and reproduce
+   * exactly the attribution untruth this kind exists to end — the retype path
+   * stamped `user_override` and rendered as "User edited".
+   */
+  | 'panel'
 
 export interface ValueProvenanceClass {
   kind: ValueProvenanceKind
@@ -113,6 +126,15 @@ const SOURCE_CLASSES: Readonly<Record<string, ValueProvenanceKind>> = Object.fre
   cee_inference: 'ai',
   inferred: 'ai',
   cee_repair: 'ai',
+  /**
+   * 0.40.0 — server-stamped by CEE, and ONLY after it verified the owner's
+   * `applied_from` claim against its own collab store (round on this scenario ·
+   * participant on that round · that participant's latest belief for this
+   * target · round closed · value equal to the server's record). So a
+   * `panel_elicited` literal arriving here is a fact the server established,
+   * never one a client asserted.
+   */
+  panel_elicited: 'panel',
 })
 
 const USER_OWNED_KINDS: ReadonlySet<ValueProvenanceKind> = new Set<ValueProvenanceKind>([

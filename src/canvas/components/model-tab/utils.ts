@@ -92,6 +92,8 @@ const KIND_LABELS: Record<ValueProvenanceKind, string> = {
   edited: 'User edited',
   assumption: 'Your assumption',
   human: 'Set by you',
+  // 0.40.0 — see SourceProvenancePill: no name on a persistent surface.
+  panel: 'From your panel',
 }
 
 export function mapSourceToDisplay(source: string | undefined): string | null {

@@ -42,6 +42,12 @@ const CONFIG: Record<ValueProvenanceKind, { label: string; border: string }> = {
   edited:     { label: 'User edited', border: 'border-success/30' },
   assumption: { label: 'Your assumption', border: 'border-success/30' },
   human:      { label: 'Set by you', border: 'border-success/30' },
+  // 0.40.0 — a named colleague's panel answer, applied by the owner. NO NAME on
+  // the persistent canvas pill, deliberately: only `participant_id` is stored in
+  // the graph, so a name here would have to be resolved and cached on a surface
+  // the R-2 redaction routine cannot reach. The name lives on the inspector line
+  // and the reveal, both of which re-derive it from round data at render.
+  panel:      { label: 'From your panel', border: 'border-info/30' },
 }
 
 const FALLBACK = { label: 'Not set', border: 'border-panel-border' }

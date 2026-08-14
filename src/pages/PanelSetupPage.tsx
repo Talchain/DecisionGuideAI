@@ -53,6 +53,7 @@ import {
   type RevealView,
 } from '../collab/collabService'
 import { requireOwnerAccessToken } from '../collab/ownerAccessToken'
+import { readPendingApply, rememberPendingApply } from '../collab/panelApplyHandoff'
 import { readPanelPrefill } from '../collab/panelRoute'
 import {
   forgetOpenRound,
@@ -61,7 +62,7 @@ import {
   type OpenRoundRecord,
 } from '../collab/openRoundRecord'
 import { typography } from '../styles/typography'
-import { RevealBody } from './ParticipantPacketPage'
+import { RevealBody, type RevealApplyState } from './ParticipantPacketPage'
 
 const PAGE_SHELL = 'min-h-screen bg-canvas px-4 py-10 sm:px-6 sm:py-14'
 const COLUMN = 'mx-auto w-full max-w-[680px]'
@@ -246,6 +247,12 @@ export default function PanelSetupPage(): JSX.Element {
   const [copiedIds, setCopiedIds] = useState<ReadonlySet<string>>(() => new Set())
   const [copyRefused, setCopyRefused] = useState<ReadonlySet<string>>(() => new Set())
 
+  // The row whose apply has been recorded this session, `${targetId}:${pid}`.
+  // `${targetId}:${participantId}` for the row whose apply has been RECORDED and
+  // verified as readable back. `applyFailure` carries honest copy when it wasn't.
+  const [appliedKey, setAppliedKey] = useState<string | null>(null)
+  const [applyFailure, setApplyFailure] = useState<string | null>(null)
+
   // COLLAB ROUND RECOVERY: the NON-SECRET record of a round this owner opened
   // for THIS scenario and may have navigated away from. Read once at mount —
   // the only other writers are this page's own handlers, which keep the state
@@ -360,7 +367,99 @@ export default function PanelSetupPage(): JSX.Element {
     setCopyRefused((prev) => new Set(prev).add(participantId))
   }, [])
 
-  if (reveal !== null) return <RevealBody reveal={reveal} />
+  /**
+   * Apply one participant's answer to the model.
+   *
+   * ⚠ THIS PAGE DOES NOT SEND THE TURN, DELIBERATELY. `sendSystemEvent` lives in
+   * the conversation context, which mounts inside the canvas; this route is a
+   * sibling and is outside it. Rather than grow a SECOND turn transport here —
+   * the client mirror of the second-graph-write-path the server design refuses —
+   * the intent is recorded and drained on the canvas by `usePanelApplyDrain`,
+   * through the one real sender.
+   *
+   * The value is passed through VERBATIM as the reveal served it: CEE compares
+   * it to its own recorded belief with `Object.is` and refuses on any
+   * difference, so a rounded number here would refuse every apply.
+   */
+  const handleApply = useCallback(
+    (args: { targetId: string; participantId: string; value: number }) => {
+      const sid = scenarioId ?? ''
+      const roundId = reveal?.round_id ?? ''
+      if (sid === '' || roundId === '') return
+
+      setApplyFailure(null)
+      rememberPendingApply({
+        scenarioId: sid,
+        roundId,
+        participantId: args.participantId,
+        targetId: args.targetId,
+        value: args.value,
+      })
+
+      // ⭐ ASSERT, THEN CLAIM. `rememberPendingApply` SWALLOWS its storage
+      // failure by design (private mode, quota) — it is a convenience, never a
+      // correctness dependency — so calling it proves nothing on its own. The
+      // first version of this handler set the confirmation immediately after,
+      // which meant the page could assert "your model now uses Grace's 0.85"
+      // having written nothing, sent nothing, and changed nothing. A product
+      // whose confirmation is not conditional on the thing it confirms is the
+      // defect class this whole slice exists to end, one layer up.
+      //
+      // Reading it back is the strongest check available at THIS boundary: it
+      // proves the intent is durable and drainable. It cannot prove the turn
+      // succeeded — that happens on the canvas, and the copy below is written
+      // to promise only what this step actually established.
+      const readBack = readPendingApply(sid)
+      if (
+        readBack === null ||
+        readBack.participant_id !== args.participantId ||
+        readBack.target_id !== args.targetId
+      ) {
+        setAppliedKey(null)
+        setApplyFailure(
+          "I couldn't hold on to that while moving you back to your model, so " +
+            'nothing has changed. Try it once more.',
+        )
+        return
+      }
+
+      setAppliedKey(`${args.targetId}:${args.participantId}`)
+    },
+    [scenarioId, reveal],
+  )
+
+  const applyState: RevealApplyState = {
+    onApply: handleApply,
+    // Nothing is in flight ON THIS PAGE: recording an intent is synchronous, and
+    // the turn is sent by the canvas after navigation. A spinner here would be
+    // theatre — it would show a wait that is not happening and end before the
+    // work it appeared to represent had begun.
+    applyingKey: null,
+    appliedKey,
+    applyError: applyFailure,
+  }
+
+  // ── THE REVEAL IS NO LONGER TERMINAL ──────────────────────────────────────
+  // It used to be an early return with no apply affordance, no return path and
+  // no link of any kind: the owner read the answers, pressed browser BACK, hunted
+  // for the factor and retyped the number — which stamped it as their own edit.
+  // That retype was the attribution untruth this slice ends.
+  if (reveal !== null) {
+    return (
+      <>
+        <RevealBody reveal={reveal} apply={applyState} />
+        <div className="mx-auto w-full max-w-[820px] px-4 pb-10 sm:px-6">
+          <Link
+            to={`#/scenario/${scenarioId ?? ''}`}
+            data-testid="reveal-back-to-model"
+            className={`${typography.body} text-info hover:underline`}
+          >
+            &larr; Back to your model
+          </Link>
+        </div>
+      </>
+    )
+  }
 
   const targetIdHasSpaces = targetId.trim() !== '' && /\s/.test(targetId.trim())
 
