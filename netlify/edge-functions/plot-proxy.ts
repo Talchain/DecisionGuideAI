@@ -109,6 +109,78 @@ export function targetPathFor(pathname: string): string {
   return pathname
 }
 
+/**
+ * SECURITY (disposition item 13) — EXPLICIT UPSTREAM PATH ALLOWLIST.
+ *
+ * ⚠ THIS FUNCTION SHIPPED WITHOUT ONE, AND IT WAS THE ONLY PROXY OF FIVE THAT DID.
+ * `cee-proxy`, `orchestrator-proxy`, `collab-proxy` and `isl-proxy` all bound their
+ * seam to the routes the UI actually calls and 404 everything else; this one
+ * forwarded ANY path under `/bff/engine/*` with the injected bearer attached. That
+ * makes every browser an authenticated caller across PLoT's entire surface — the
+ * same blast-radius shape the bearer removal exists to close, moved from the bundle
+ * to the edge rather than eliminated.
+ *
+ * Matched against the target (mount prefix already stripped, query EXCLUDED) BEFORE
+ * `PLOT_AUTH_TOKEN` is read, so a rejected request never touches the credential.
+ *
+ * DERIVED from the UI's browser→PLoT call sites at staging tip `828ff369` — every
+ * `plotFetch(` first argument in `src/` plus the CEE client's draft seam. The
+ * derivation is re-run against the source on every CI pass by
+ * `tests/ci-guards/plot-proxy-path-allowlist-derived.spec.ts`, which fails BOTH ways:
+ * a new call site that nothing allows, and an allowlist entry no call site needs.
+ * A hand-maintained copy of this list would drift silently and read as green.
+ *
+ * ⚠ ANCHORED LITERALS, NOT SUBTREE WILDCARDS — the mistake `isl-proxy.ts:81-89`
+ * records making and having to undo. A `/^\/v1\/.+$/` here would re-admit the whole
+ * surface this list exists to narrow, and an off-list test would still pass by
+ * picking a shape the wildcard happens to miss. Dynamic segments are `[^/]+`, which
+ * cannot cross a path boundary.
+ */
+const ALLOWED_TARGETS: readonly RegExp[] = [
+  /^\/version$/,
+  /^\/health$/,
+  /^\/v1\/health$/,
+  /^\/v1\/limits$/,
+  /^\/v1\/templates$/,
+  /^\/v1\/templates\/[^/]+\/graph$/,
+  /^\/v1\/run$/,
+  /^\/v1\/run\/[^/]+\/cancel$/,
+  /^\/v1\/run_bundle$/,
+  /^\/v1\/stream$/,
+  /^\/v1\/validate$/,
+  /^\/v1\/diff$/,
+  /^\/v1\/analysis\/pareto$/,
+  /^\/v1\/analysis\/sequential$/,
+  /^\/v1\/explain\/policy$/,
+  /^\/v1\/suggest\/edge-function$/,
+  /^\/v1\/pre-analysis-sensitivity$/,
+  /^\/v2\/run$/,
+  /^\/v1\/cee\/draft-graph$/,
+]
+
+function isAllowedTarget(targetPath: string): boolean {
+  return ALLOWED_TARGETS.some((re) => re.test(targetPath))
+}
+
+/**
+ * Reject encoded traversal (`%2e` / `%2f` / `%5c`, case-insensitive) and any literal
+ * `..` segment, before the allowlist runs.
+ *
+ * ⚠ SCOPED TO THE PATHNAME, NEVER THE WHOLE URL — the correction `isl-proxy.ts`
+ * carries. Scanning `request.url` also scans the QUERY, so an on-list route would
+ * 404 whenever a parameter happened to carry an encoded slash, which
+ * `encodeURIComponent` emits for any value containing one. The query cannot change
+ * the upstream route, so excluding it is both correct and strictly safer.
+ *
+ * This is independently load-bearing: the dynamic segments above are deliberately
+ * permissive (`[^/]+`) so real run ids and template ids never false-404, and an
+ * encoded slash would otherwise smuggle a path boundary through one of them.
+ */
+function isTraversal(rawPathname: string, targetPath: string): boolean {
+  if (/%2e|%2f|%5c/i.test(rawPathname)) return true
+  return targetPath.split('/').some((segment) => segment === '..')
+}
+
 export default async function handler(request: Request, _context: Context) {
   const origin = request.headers.get('origin')
   const corsHeaders = getCorsHeaders(origin)
@@ -126,7 +198,23 @@ export default async function handler(request: Request, _context: Context) {
   }
 
   const url = new URL(request.url)
-  const targetUrl = `${PLOT_TARGET}${targetPathFor(url.pathname)}${url.search}`
+  const targetPath = targetPathFor(url.pathname)
+
+  // ── THE BOUND, BEFORE THE CREDENTIAL ───────────────────────────────────────
+  // Ordered deliberately: traversal first (it can disguise an off-list path as an
+  // on-list one through a permissive dynamic segment), then the allowlist, and
+  // both before `PLOT_AUTH_TOKEN` is read below. A rejected request never reaches
+  // the credential, and 404 — not 403 — because the shape of the answer should not
+  // tell a prober which paths exist.
+  if (isTraversal(url.pathname, targetPath) || !isAllowedTarget(targetPath)) {
+    console.warn('[PLoT Proxy] Rejected off-allowlist target:', targetPath)
+    return new Response(JSON.stringify({ error: 'Not found' }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  const targetUrl = `${PLOT_TARGET}${targetPath}${url.search}`
 
   const headers = new Headers()
   for (const name of ALLOWED_FORWARD_HEADERS) {
