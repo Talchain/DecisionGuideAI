@@ -75,6 +75,25 @@ describe('roundRosterCache — the TTL freshness bound (R-2)', () => {
     vi.unstubAllGlobals()
   })
 
+  it('⭐ the TTL is a SHORT ABSOLUTE BOUND — every other test here is relative to it', async () => {
+    const { ROSTER_TTL_MS } = await import('../roundRosterCache')
+
+    // ⚠ WHY THIS ASSERTION EXISTS, found by this file's own mutation kit.
+    // Every other test advances the clock by `ROSTER_TTL_MS` imported from the
+    // module — so they prove the cache honours ITS OWN declared TTL, and are
+    // structurally blind to the TTL's VALUE. A mutant multiplying it by 100,000
+    // (a ~347-day window, i.e. the freshness bound abolished) left all five
+    // green, because the tests grew with it. That is trap 12b: a control pinned
+    // to "whatever the code currently says" decays into a tautology.
+    //
+    // So the magnitude is pinned ABSOLUTELY, in literal milliseconds. This is
+    // the R-2 bound: a redaction must reach an open tab in minutes. A
+    // name-freshness window measured in hours is not a bound, however
+    // self-consistent the cache is about it.
+    expect(ROSTER_TTL_MS).toBeGreaterThan(0)
+    expect(ROSTER_TTL_MS).toBeLessThanOrEqual(15 * 60 * 1000)
+  })
+
   it('POSITIVE CONTROL — a warm roster is peekable and cost exactly one request', async () => {
     // Without this, every expiry assertion below could pass because the cache
     // never worked, not because the TTL fired.
