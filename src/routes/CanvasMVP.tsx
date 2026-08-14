@@ -184,7 +184,7 @@ export default function CanvasMVP() {
       const scenario = getScenario(currentScenarioId)
       if (scenario?.name) return scenario.name
     }
-    return framing?.title?.trim() || 'Untitled decision'
+    return framing?.title?.trim() || 'Untitled model'
   })()
 
   const lastSaved = lastSavedAt ? new Date(lastSavedAt) : null
@@ -200,7 +200,7 @@ export default function CanvasMVP() {
   )
 
   const handleSave = useCallback(async () => {
-    const name = scenarioTitle || 'Untitled decision'
+    const name = scenarioTitle || 'Untitled model'
     if (currentScenarioId) {
       await saveCurrentScenario()
     } else {

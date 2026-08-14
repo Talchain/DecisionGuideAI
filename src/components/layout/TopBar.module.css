@@ -49,58 +49,6 @@
   margin: 0 4px;
 }
 
-.titleButton {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 150ms;
-}
-
-.titleButton:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
-}
-
-.titleButton:focus {
-  outline: 2px solid var(--info);
-  outline-offset: 2px;
-}
-
-.titleText {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--text-body, #3F3F3E);
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chevronIcon {
-  color: var(--text-light, #6E6B6B);
-  transition: transform 150ms;
-}
-
-.titleButton:hover .chevronIcon {
-  transform: translateY(1px);
-}
-
-.titleInput {
-  font-size: 14px;
-  font-weight: 400;
-  padding: 4px 8px;
-  border: 2px solid var(--info, #277A9D);
-  border-radius: 6px;
-  background: white;
-  max-width: 200px;
-  outline: none;
-  color: var(--text-body, #3F3F3E);
-}
-
 .dirtyIndicator {
   width: 6px;
   height: 6px;
@@ -450,9 +398,3 @@
   }
 }
 
-@media (max-width: 600px) {
-  /* On small screens, constrain title */
-  .titleText {
-    max-width: 120px;
-  }
-}

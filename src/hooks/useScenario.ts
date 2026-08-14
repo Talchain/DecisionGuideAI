@@ -331,6 +331,20 @@ export function useScenario(): UseScenarioReturn {
   // because the flush barrier must agree with the autosave on cleanliness.
   const lastSavedFramingRef = useRef<string>('')
 
+  // ⭐ The last value written to the `scenarios.title` COLUMN (14 Aug 2026).
+  //
+  // Three things carry a model's name: `framing.title` (-> `scenarios.framing`),
+  // the localStorage scenario record, and the `title` COLUMN. Until now the
+  // column had exactly ONE writer — the auto-title below, derived from
+  // `framing.goal` and written at most once per load — so a user rename never
+  // reached it and `ScenarioListPage`, which renders the column, showed the old
+  // auto-generated name indefinitely.
+  //
+  // This ref is what keeps the column write IDEMPOTENT: framing autosave fires
+  // on any framing change (goal, constraints, …), and only a change to the NAME
+  // should touch the name column.
+  const lastSavedTitleRef = useRef<string | null>(null)
+
   // Stable reference to the current scenario ID for use inside timers
   const scenarioIdRef = useRef(currentScenarioId)
   scenarioIdRef.current = currentScenarioId
@@ -472,6 +486,20 @@ export function useScenario(): UseScenarioReturn {
           if (currentFraming) {
             await scenarioService.saveFraming(saveSid, currentFraming)
             lastSavedFramingRef.current = JSON.stringify(currentFraming)
+
+            // A RENAME MUST REACH THE COLUMN THE SCENARIO LIST RENDERS.
+            // Ordered AFTER the framing write and after its ref update, so a
+            // failure here cannot cost us the framing save we already made.
+            // Empty is refused: the column falling back to "Untitled ..." is
+            // honest, blanking a name the user can still see is not.
+            const nextTitle =
+              typeof (currentFraming as Record<string, unknown>).title === 'string'
+                ? ((currentFraming as Record<string, unknown>).title as string).trim()
+                : ''
+            if (nextTitle && nextTitle !== lastSavedTitleRef.current) {
+              await scenarioService.saveTitle(saveSid, nextTitle)
+              lastSavedTitleRef.current = nextTitle
+            }
           }
         } catch {
           if (import.meta.env.DEV) {
@@ -528,6 +556,20 @@ export function useScenario(): UseScenarioReturn {
           scenarioService.saveFraming(sid, f).catch((err) => {
             console.error('[useScenario] Unmount framing flush failed:', err)
           })
+          // ⭐ AND THE TITLE COLUMN — this is the exact journey the defect is
+          // reached by: rename on the canvas, then navigate to the scenario
+          // list, which UNMOUNTS this hook before the 1500ms debounce fires.
+          // Without this the list would show the stale name until the user
+          // happened to change some other framing field.
+          const pendingTitle =
+            typeof (f as Record<string, unknown>).title === 'string'
+              ? ((f as Record<string, unknown>).title as string).trim()
+              : ''
+          if (pendingTitle && pendingTitle !== lastSavedTitleRef.current) {
+            scenarioService.saveTitle(sid, pendingTitle).catch((err) => {
+              console.error('[useScenario] Unmount title flush failed:', err)
+            })
+          }
         }
       }
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
@@ -676,6 +718,11 @@ export function useScenario(): UseScenarioReturn {
         goalConstraints: loadedGoalConstraints,
       })
       lastSavedFramingRef.current = JSON.stringify(row.framing ?? null)
+      // Seed from the COLUMN, not from framing.title. If they already disagree
+      // (every scenario renamed before this fix), the next framing save
+      // CORRECTS the column — seeding from framing.title would make the
+      // divergence permanent by declaring it already written.
+      lastSavedTitleRef.current = row.title ?? null
 
       // Hydrate graph slice (resets history, selection, reseeds IDs).
       // B3: goalConstraints is passed on EVERY load — the value or null. It

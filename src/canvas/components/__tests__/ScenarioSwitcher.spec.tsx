@@ -211,18 +211,15 @@ describe('ScenarioSwitcher (A3)', () => {
     const renameButton = screen.getByRole('menuitem', { name: /rename/i })
     fireEvent.click(renameButton)
 
-    // Wait for rename dialog to appear
+    // 14 Aug 2026: rename is now the INLINE editor on the trigger, not a modal.
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Scenario name')).toBeInTheDocument()
+      expect(screen.getByTestId('scenario-name-input')).toBeInTheDocument()
     })
 
-    // Type new name
-    const input = screen.getByPlaceholderText('Scenario name')
+    // Type new name and commit
+    const input = screen.getByTestId('scenario-name-input')
     fireEvent.change(input, { target: { value: 'New Name' } })
-
-    // Click "Rename" button in dialog
-    const submitButton = screen.getByRole('button', { name: 'Rename' })
-    fireEvent.click(submitButton)
+    fireEvent.keyDown(input, { key: 'Enter' })
 
     // Should call renameCurrentScenario with new name
     await waitFor(() => {
@@ -230,7 +227,64 @@ describe('ScenarioSwitcher (A3)', () => {
     })
   })
 
-  it('displays "Untitled decision" when no current scenario', () => {
+  // ⭐ 14 Aug 2026 — THE AUTHENTICATED-PATH FIX, pinned where it is observable.
+  //
+  // `loadSupabaseScenario` hydrates `currentScenarioId` with a Supabase UUID and
+  // never writes a localStorage row, so `getScenario` returns null (or, worse, a
+  // STALE row from an earlier guest session). Reading localStorage first is what
+  // made this control display "Untitled decision" for every persisted model.
+  //
+  // These two cases need a localStorage name that DIFFERS from `displayName`;
+  // the TopBar spec cannot see the precedence at all, because no localStorage
+  // record exists there and both orderings resolve to the same string.
+  it('prefers the displayName prop over a stale localStorage name', () => {
+    vi.mocked(scenarios.getScenario).mockReturnValue({
+      id: 'scenario-1',
+      name: 'Stale local name',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      graph: { nodes: [], edges: [] }
+    })
+
+    render(
+      <ToastProvider>
+        <ScenarioSwitcher displayName="Real model name" onRename={vi.fn()} />
+      </ToastProvider>
+    )
+
+    expect(screen.getByTestId('scenario-name-button')).toHaveTextContent('Real model name')
+    expect(screen.queryByText('Stale local name')).not.toBeInTheDocument()
+  })
+
+  it('commits a rename through onRename, NOT through renameCurrentScenario', () => {
+    const onRename = vi.fn()
+    vi.mocked(scenarios.getScenario).mockReturnValue({
+      id: 'scenario-1',
+      name: 'Stale local name',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      graph: { nodes: [], edges: [] }
+    })
+
+    render(
+      <ToastProvider>
+        <ScenarioSwitcher displayName="Real model name" onRename={onRename} />
+      </ToastProvider>
+    )
+
+    fireEvent.click(screen.getByTestId('scenario-name-button'))
+    const input = screen.getByTestId('scenario-name-input')
+    fireEvent.change(input, { target: { value: 'Renamed model' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    // The authority writer reaches BOTH the framing title (-> Supabase) and the
+    // localStorage record. `renameCurrentScenario` reaches only the latter, and
+    // is a silent no-op on the authenticated path.
+    expect(onRename).toHaveBeenCalledWith('Renamed model')
+    expect(mockRenameCurrentScenario).not.toHaveBeenCalled()
+  })
+
+  it('displays "Untitled model" when no current scenario', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) => {
       const state = {
         currentScenarioId: null,
@@ -250,7 +304,9 @@ describe('ScenarioSwitcher (A3)', () => {
 
     renderWithToast()
 
-    expect(screen.getByText('Untitled decision')).toBeInTheDocument()
+    // Paul, 14 Aug 2026: "decision" -> "model" on the naming surface.
+    expect(screen.getByText('Untitled model')).toBeInTheDocument()
+    expect(screen.queryByText('Untitled decision')).not.toBeInTheDocument()
   })
 
   it('pill does not show when not saving and no lastSavedAt', () => {

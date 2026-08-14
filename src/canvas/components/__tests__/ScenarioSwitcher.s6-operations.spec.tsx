@@ -86,7 +86,12 @@ describe('S6-SCENARIO: Rename/Duplicate/Save As Operations', () => {
   })
 
   describe('Rename Scenario', () => {
-    it('should open rename dialog when rename button clicked', async () => {
+    // ⭐ 14 Aug 2026 (Paul's ruling): rename moved from a buried MODAL DIALOG to
+    // an INLINE editor on the trigger. These seven tests keep their original
+    // intent — open, pre-populate, commit, commit-on-Enter, cancel-on-Escape,
+    // dropdown behaviour, refuse-empty — retargeted at the interaction that
+    // now ships. Coverage is preserved, not dropped; only the affordance moved.
+    it('should open the inline editor when the rename button is clicked', async () => {
       render(<ScenarioSwitcher />)
 
       // Open dropdown
@@ -98,51 +103,39 @@ describe('S6-SCENARIO: Rename/Duplicate/Save As Operations', () => {
       })
 
       // Click rename button
-      const renameButton = screen.getByRole('menuitem', { name: /rename/i })
-      fireEvent.click(renameButton)
+      fireEvent.click(screen.getByRole('menuitem', { name: /rename/i }))
 
-      // Rename dialog should appear
+      // Inline editor should appear
       await waitFor(() => {
-        expect(screen.getByText('Rename scenario')).toBeInTheDocument()
+        expect(screen.getByTestId('scenario-name-input')).toBeInTheDocument()
       })
     })
 
-    it('should pre-populate rename dialog with current scenario name', async () => {
+    it('should pre-populate the inline editor with the current scenario name', async () => {
       render(<ScenarioSwitcher />)
 
-      // Open dropdown
-      fireEvent.click(screen.getByRole('button', { expanded: false }))
-
-      // Click rename
-      await waitFor(() => {
-        const renameButton = screen.getByRole('menuitem', { name: /rename/i })
-        fireEvent.click(renameButton)
-      })
-
-      // Input should have current scenario name
-      await waitFor(() => {
-        const input = screen.getByPlaceholderText('Scenario name') as HTMLInputElement
-        expect(input.value).toBe('Test Scenario')
-      })
-    })
-
-    it('should call renameCurrentScenario when rename submitted', async () => {
-      render(<ScenarioSwitcher />)
-
-      // Open dropdown and click rename
       fireEvent.click(screen.getByRole('button', { expanded: false }))
       await waitFor(() => {
         fireEvent.click(screen.getByRole('menuitem', { name: /rename/i }))
       })
 
-      // Change name and submit
       await waitFor(() => {
-        const input = screen.getByPlaceholderText('Scenario name')
-        fireEvent.change(input, { target: { value: 'New Scenario Name' } })
+        const input = screen.getByTestId('scenario-name-input') as HTMLInputElement
+        expect(input.value).toBe('Test Scenario')
+      })
+    })
+
+    it('should call renameCurrentScenario when the edit is committed by blur', async () => {
+      render(<ScenarioSwitcher />)
+
+      fireEvent.click(screen.getByRole('button', { expanded: false }))
+      await waitFor(() => {
+        fireEvent.click(screen.getByRole('menuitem', { name: /rename/i }))
       })
 
-      const submitButton = screen.getByRole('button', { name: 'Rename' })
-      fireEvent.click(submitButton)
+      const input = await screen.findByTestId('scenario-name-input')
+      fireEvent.change(input, { target: { value: 'New Scenario Name' } })
+      fireEvent.blur(input)
 
       expect(mockRenameCurrentScenario).toHaveBeenCalledWith('New Scenario Name')
     })
@@ -150,81 +143,65 @@ describe('S6-SCENARIO: Rename/Duplicate/Save As Operations', () => {
     it('should submit rename on Enter key', async () => {
       render(<ScenarioSwitcher />)
 
-      // Open dropdown and click rename
       fireEvent.click(screen.getByRole('button', { expanded: false }))
       await waitFor(() => {
         fireEvent.click(screen.getByRole('menuitem', { name: /rename/i }))
       })
 
-      // Change name and press Enter
-      await waitFor(() => {
-        const input = screen.getByPlaceholderText('Scenario name')
-        fireEvent.change(input, { target: { value: 'Renamed via Enter' } })
-        fireEvent.keyDown(input, { key: 'Enter' })
-      })
+      const input = await screen.findByTestId('scenario-name-input')
+      fireEvent.change(input, { target: { value: 'Renamed via Enter' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
 
       expect(mockRenameCurrentScenario).toHaveBeenCalledWith('Renamed via Enter')
     })
 
-    it('should close rename dialog on Escape key', async () => {
+    it('should close the inline editor on Escape WITHOUT renaming', async () => {
       render(<ScenarioSwitcher />)
 
-      // Open dropdown and click rename
       fireEvent.click(screen.getByRole('button', { expanded: false }))
       await waitFor(() => {
         fireEvent.click(screen.getByRole('menuitem', { name: /rename/i }))
       })
 
-      // Press Escape
+      const input = await screen.findByTestId('scenario-name-input')
+      fireEvent.change(input, { target: { value: 'Discarded name' } })
+      fireEvent.keyDown(input, { key: 'Escape' })
+
       await waitFor(() => {
-        const input = screen.getByPlaceholderText('Scenario name')
-        fireEvent.keyDown(input, { key: 'Escape' })
+        expect(screen.queryByTestId('scenario-name-input')).not.toBeInTheDocument()
+      })
+      // Escape must survive the blur that follows it — the old dialog had a
+      // Cancel button for this; inline editing has only the key.
+      expect(mockRenameCurrentScenario).not.toHaveBeenCalled()
+    })
+
+    it('should close the dropdown when the inline editor opens', async () => {
+      render(<ScenarioSwitcher />)
+
+      fireEvent.click(screen.getByRole('button', { expanded: false }))
+      await waitFor(() => {
+        fireEvent.click(screen.getByRole('menuitem', { name: /rename/i }))
       })
 
-      // Dialog should be gone
       await waitFor(() => {
-        expect(screen.queryByText('Rename scenario')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('scenario-switcher-menu')).not.toBeInTheDocument()
       })
     })
 
-    it('should close rename dialog on Cancel button', async () => {
+    it('should refuse an empty or whitespace name, keeping the previous one', async () => {
       render(<ScenarioSwitcher />)
 
-      // Open dropdown and click rename
       fireEvent.click(screen.getByRole('button', { expanded: false }))
       await waitFor(() => {
         fireEvent.click(screen.getByRole('menuitem', { name: /rename/i }))
       })
 
-      // Click Cancel
-      await waitFor(() => {
-        const cancelButton = screen.getByRole('button', { name: 'Cancel' })
-        fireEvent.click(cancelButton)
-      })
+      const input = await screen.findByTestId('scenario-name-input')
+      fireEvent.change(input, { target: { value: '   ' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
 
-      // Dialog should be gone
-      await waitFor(() => {
-        expect(screen.queryByText('Rename scenario')).not.toBeInTheDocument()
-      })
-    })
-
-    it('should disable Rename button if name is empty or whitespace', async () => {
-      render(<ScenarioSwitcher />)
-
-      // Open dropdown and click rename
-      fireEvent.click(screen.getByRole('button', { expanded: false }))
-      await waitFor(() => {
-        fireEvent.click(screen.getByRole('menuitem', { name: /rename/i }))
-      })
-
-      // Clear input
-      await waitFor(() => {
-        const input = screen.getByPlaceholderText('Scenario name')
-        fireEvent.change(input, { target: { value: '   ' } })
-      })
-
-      const submitButton = screen.getByRole('button', { name: 'Rename' })
-      expect(submitButton).toBeDisabled()
+      expect(mockRenameCurrentScenario).not.toHaveBeenCalled()
+      expect(screen.getByTestId('scenario-name-button')).toHaveTextContent('Test Scenario')
     })
 
     it('should not show rename button when no current scenario', () => {
@@ -718,7 +695,7 @@ describe('S6-SCENARIO: Rename/Duplicate/Save As Operations', () => {
       render(<ScenarioSwitcher />)
 
       // Open dropdown and save dialog
-      const button = screen.getByRole('button', { name: /untitled decision/i })
+      const button = screen.getByTestId('scenario-switcher-trigger')
       fireEvent.click(button)
       await waitFor(() => {
         fireEvent.click(screen.getByRole('menuitem', { name: /save as\.\.\./i }))

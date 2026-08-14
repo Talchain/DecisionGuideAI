@@ -1,7 +1,7 @@
 /**
  * KebabMenu — restructured "More" dropdown menu for the top bar.
  *
- * Groups: Decision (Rename, Export, Import, Snapshots, Reset canvas) |
+ * Groups: Model (Rename, Export, Import, Snapshots, Reset canvas) |
  * View (Fullscreen) | Help (Keyboard shortcuts, How influence works) |
  * Canvas settings (flattened toggles).
  *
@@ -130,8 +130,8 @@ export function KebabMenu({
 
         {isOpen && (
           <div className={styles.dropdownMenu} role="menu">
-            {/* Decision group */}
-            <div className={styles.dropdownMenuLabel}>Decision</div>
+            {/* Model group (Paul, 14 Aug 2026: "decision" -> "model") */}
+            <div className={styles.dropdownMenuLabel}>Model</div>
             <button
               type="button"
               role="menuitem"
