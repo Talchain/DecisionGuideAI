@@ -261,7 +261,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // Apply visual properties (O(1), pure function)
   const visualProps = useMemo(
-    () => applyEdgeVisualProps(weight, style, curvature, selected || false, false, isDark),
+    () => applyEdgeVisualProps(weight, style, curvature, selected || false, isDark),
     [weight, style, curvature, selected, isDark]
   )
 
