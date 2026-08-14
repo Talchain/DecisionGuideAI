@@ -3750,6 +3750,24 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       results: {
         ...s.results,
         ...hydratedResults,
+        // ROADMAP 2.1127 — the SAME reasoning as `resultsLoadHistorical`, and
+        // it must be repeated here because this action installs a restored
+        // report by SPREAD: `hydrateAnalysis.ts:138-152` returns no epoch keys,
+        // so on a COLD scenario load (`useScenario.ts:727-734`, whenever
+        // `row.analysis_status === 'ready'`) `reportEpoch` would stay
+        // `undefined`. A later failed rerun then reads UNKNOWN and SUPPRESSES
+        // the attribution chip while the restored numbers stay mounted — an
+        // under-claim, but a lost TRUE disclosure.
+        //
+        // A restored report is by definition not the output of the run that
+        // fails next, and `runEpoch` only ever counts up from 1, so the
+        // sentinel can never collide with a future `errorEpoch`.
+        //
+        // ⚠ These two keys must stay AFTER the spreads: a hydrated payload that
+        // one day carries its own epoch fields must not overwrite the provenance
+        // this action is asserting.
+        reportEpoch: HISTORICAL_REPORT_EPOCH,
+        errorEpoch: undefined,
       },
       runMeta: {
         ...s.runMeta,

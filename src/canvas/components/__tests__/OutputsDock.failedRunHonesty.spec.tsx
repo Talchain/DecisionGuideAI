@@ -31,8 +31,17 @@
  *                        `updateRobustnessGateFromV2` (`:1098`) lands in the
  *                        catch at `:1150` → `PROCESSING_ERROR` with THIS run's
  *                        report stored and on screen.
- *   B4 UNKNOWN         — a report with no run-epoch stamps (e.g. hydrated
- *                        state). Provenance cannot be proven.
+ *   B4 UNKNOWN         — a report with no run-epoch stamps. Provenance cannot
+ *                        be proven.
+ *   B5 COLD-LOADED     — a scenario opened from Supabase with a saved analysis,
+ *                        then re-run, and the re-run fails. The restored report
+ *                        IS from an earlier run, and the chip must say so. This
+ *                        cell exists because `resultsHydrateFromSupabase`
+ *                        installs the report by SPREAD and
+ *                        `hydrateAnalysis.ts:138-152` returns no epoch keys, so
+ *                        the stamp has to be asserted by the store action
+ *                        itself — otherwise the cell silently becomes B4 and a
+ *                        TRUE disclosure is suppressed.
  *
  * In B3 "this run produced no results" is false AND "Showing results from
  * previous analysis" is false. In B4 neither can be proven, so nothing may be
@@ -243,6 +252,55 @@ function seedFailureWithUnprovenReport(code: string, message: string) {
   expect(after.reportEpoch).toBeUndefined()
 }
 
+/**
+ * B5 — a COLD scenario load from Supabase, then a failed rerun.
+ *
+ * The payload's key set is exactly what `hydrateAnalysisFromV2Response` returns
+ * (`hydrateAnalysis.ts:138-152`) — status, progress, seed, hash, report,
+ * enrichment, error, startedAt, finishedAt — and, decisively, NO epoch keys.
+ * That absence is the whole point of this cell, so it is asserted below rather
+ * than assumed: if the producer ever starts stamping provenance itself, this
+ * fixture stops standing for the cell it claims to cover and says so.
+ */
+function seedFailureAfterColdScenarioLoad(code: string, message: string) {
+  resetCanvas({ hasCompletedFirstRun: false })
+  // A genuinely COLD store: nothing has run in this session.
+  expect(useCanvasStore.getState().results.reportEpoch).toBeUndefined()
+  expect(useCanvasStore.getState().results.runEpoch).toBeUndefined()
+
+  const hydrated = {
+    results: {
+      status: 'complete' as const,
+      progress: 100,
+      seed: undefined,
+      hash: RUN_HASH_A,
+      report: REPORT,
+      enrichment: undefined,
+      error: undefined,
+      startedAt: 1,
+      finishedAt: 2,
+    },
+    runMeta: {},
+  }
+  // Precondition: the producer's payload carries no provenance of its own.
+  expect(Object.keys(hydrated.results)).not.toContain('reportEpoch')
+  expect(Object.keys(hydrated.results)).not.toContain('runEpoch')
+
+  useCanvasStore.getState().resultsHydrateFromSupabase(hydrated as never)
+  // The user hits Rerun, and it fails.
+  useCanvasStore.getState().resultsStart({ seed: 9 })
+  fail(code, message)
+
+  const after = useCanvasStore.getState().results
+  expect(after.status).toBe('error')
+  expect(after.report).toBeTruthy()
+  expect(after.hash).toBe(RUN_HASH_A)
+  expect(typeof after.errorEpoch).toBe('number')
+  // The store had to supply this — the payload did not.
+  expect(after.reportEpoch).toBe(0)
+  expect(after.reportEpoch).not.toBe(after.errorEpoch)
+}
+
 function renderDock() {
   return render(
     <ToastProvider>
@@ -344,6 +402,40 @@ describe('OutputsDock → B4: a report whose provenance cannot be proven (2.1127
     // Unknown fails CLOSED: no stamp, no claim. Silence is not a false sentence.
     expect(screen.queryByTestId('stale-results-banner')).not.toBeInTheDocument()
     expect(screen.getByTestId('outputs-dock-body').textContent ?? '').not.toMatch(PREVIOUS_RUN_CLAIM)
+  })
+})
+
+describe('OutputsDock → B5: a saved scenario opened cold, then a failed rerun (2.1127)', () => {
+  // The live path: `useScenario.ts:727-734` hydrates whenever
+  // `row.analysis_status === 'ready'`. The restored numbers ARE from an earlier
+  // run, so this is a cell where the chip's sentence is TRUE and withholding it
+  // would suppress a real disclosure.
+  it('control — the banner mounts and the restored run is on screen', () => {
+    seedFailureAfterColdScenarioLoad('PROCESSING_ERROR', 'rerun threw')
+    renderDock()
+
+    const body = screen.getByTestId('outputs-dock-body')
+    expect(within(body).getByTestId('outputs-error-banner')).toBeInTheDocument()
+    expect(within(body).getByTestId('results-body-stale-wrapper')).toHaveTextContent(RUN_HASH_A)
+  })
+
+  it('attributes the restored numbers to the previous run', () => {
+    seedFailureAfterColdScenarioLoad('PROCESSING_ERROR', 'rerun threw')
+    renderDock()
+
+    const stale = screen.getByTestId('stale-results-banner')
+    expect(stale).toHaveTextContent('Showing results from previous analysis')
+  })
+
+  it('and still claims neither receipt nor validity', () => {
+    seedFailureAfterColdScenarioLoad('PROCESSING_ERROR', 'rerun threw')
+    renderDock()
+
+    const text = bannerText()
+    expect(text.length).toBeGreaterThan(0)
+    expect(text).not.toMatch(RECEIPT_CLAIM)
+    expect(text).not.toMatch(VALIDITY_CLAIM)
+    expect(text).not.toMatch(NO_OUTPUT_CLAIM)
   })
 })
 
