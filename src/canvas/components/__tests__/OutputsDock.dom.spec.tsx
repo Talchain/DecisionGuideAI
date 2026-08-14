@@ -894,23 +894,28 @@ describe('I.2b: Cancel button during analysis', () => {
 describe('I.2c: Stale results indicator', () => {
   beforeEach(cleanupDockState)
   it('shows stale results banner when error occurs with previous results', () => {
-    const baseResults = useCanvasStore.getState().results
-
     useCanvasStore.setState({
       nodes: testNodes,
       edges: testEdges,
       hasCompletedFirstRun: true,
-      results: {
-        ...baseResults,
-        status: 'error',
-        report: fakeReportForTests,
-        error: {
-          code: 'NETWORK_ERROR',
-          message: 'Failed to fetch',
-          canRetry: true,
-        },
-      },
     } as any)
+
+    // ROADMAP 2.1127 — drive the REAL transitions rather than hand-writing the
+    // end state. The chip's sentence ("results from previous analysis") is only
+    // true when the report belongs to an EARLIER run, and the store proves that
+    // from run-epoch stamps that only the real actions write. A hand-written
+    // `{ status: 'error', report }` has no provenance at all, so it was never
+    // evidence for the claim this test makes.
+    const store = useCanvasStore.getState()
+    store.resultsStart({ seed: 1 })
+    store.resultsComplete({ report: fakeReportForTests, hash: 'previous-run-hash' } as any)
+    // A NEW run begins and fails — this is what makes the results "previous".
+    useCanvasStore.getState().resultsStart({ seed: 2 })
+    useCanvasStore.getState().resultsError({
+      code: 'NETWORK_ERROR',
+      message: 'Failed to fetch',
+      canRetry: true,
+    })
 
     renderOutputsDock()
 

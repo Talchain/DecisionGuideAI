@@ -219,7 +219,40 @@ export interface ResultsState {
    * genuine completion.
    */
   settledWithoutNewReport?: boolean
+  /**
+   * ROADMAP 2.1127 — run identity, so a surface can PROVE whether the report it
+   * is displaying belongs to the run that just failed or to an earlier one.
+   *
+   * `status === 'error'` alone cannot answer that. `useV2Run` calls
+   * `resultsComplete` (`:991`) and then runs ~120 more lines UNGUARDED before
+   * its success return: a synchronous throw in `generateGraphHash` (`:1038`),
+   * `persistAnalysisSuccess` (`:1039`), `setRunMeta` (`:1056`), `setGate`
+   * (`:1073`/`:1079`/`:1090`) or `updateRobustnessGateFromV2` (`:1098`) lands in
+   * the catch at `:1150` and settles a failure with THIS run's report in the
+   * store. A chip reading "showing results from previous analysis" off `isError`
+   * is simply false there.
+   *
+   * The counter is stamped inside the store's own transitions, so every
+   * producer (useV2Run, useResultsRun, useConversation, applyV5State) gets it
+   * with no call-site change and none can forget to pass it.
+   *
+   * ⚠ Absent stamps mean UNKNOWN, never "previous" — a surface that cannot
+   * prove the provenance must make no provenance claim.
+   */
+  runEpoch?: number
+  /** The `runEpoch` of the run that produced the report currently held. */
+  reportEpoch?: number
+  /** The `runEpoch` of the run that produced the error currently held. */
+  errorEpoch?: number
 }
+
+/**
+ * ROADMAP 2.1127 — the `reportEpoch` stamped on a report RESTORED from history
+ * rather than produced by a run in this session. `runEpoch` counts from 1, so
+ * this can never equal a future `errorEpoch`: a restored report is provably not
+ * the output of the run that fails next.
+ */
+export const HISTORICAL_REPORT_EPOCH = 0
 
 /**
  * V5 analysis-fact state — written when a CEE V5 OlumiResponse carries an
@@ -3167,7 +3200,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         drivers: prevResults.drivers,
         runId: undefined,
         finishedAt: undefined,
-        isDuplicateRun: undefined
+        isDuplicateRun: undefined,
+        // ROADMAP 2.1127 — a new run begins. The retained report keeps the
+        // epoch of the run that produced it, so a failure settled by THIS run
+        // is distinguishable from a report left over from an earlier one.
+        runEpoch: (prevResults.runEpoch ?? 0) + 1,
+        reportEpoch: prevResults.reportEpoch,
+        errorEpoch: undefined
       },
       // Graph Lens: auto-reset on new analysis run
       lens: createDefaultLensState(),
@@ -3260,6 +3299,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         enrichment: enrichment ?? null, // Phase 1B: Persist enrichment from PLoT
         resultsSource: resultsSource ?? 'direct', // A.9: provenance
         settledWithoutNewReport: undefined, // Lane 3: a REAL completion
+        // ROADMAP 2.1127 — this report belongs to the run currently in flight.
+        // Stamped here, inside the store, so every producer gets it and none
+        // can forget to pass it.
+        reportEpoch: s.results.runEpoch,
       },
       graphHealth: (() => {
         if (!healthFromQuality) return s.graphHealth ?? null
@@ -3492,7 +3535,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         status: 'error',
         // retryAfter: reserved for future rate-limit handling, not currently displayed
         error: { code, message, retryAfter, request_id, canRetry, affectedOptions },
-        finishedAt: Date.now()
+        finishedAt: Date.now(),
+        // ROADMAP 2.1127 — which run failed. Compared against `reportEpoch` by
+        // any surface that wants to say whose numbers are on screen: equal
+        // means the retained report is THIS run's (the failure landed after
+        // `resultsComplete`), different means it is genuinely a previous run's,
+        // and a missing stamp on either side means UNKNOWN — claim nothing.
+        errorEpoch: s.results.runEpoch,
       },
       // Run failed — the prior snapshot (preserved on the results object)
       // may still be the user's best available context, but the new-run
@@ -3555,7 +3604,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         finishedAt: undefined,
         error: undefined,
         settledWithoutNewReport: undefined, // Lane 3: new run in flight
-        // Everything else (report/hash/seed/drivers) preserved so a
+        // ROADMAP 2.1127 — resultsStart parity: a new run begins here too (this
+        // is the V5/conversation path's opener, useConversation.ts:4318).
+        runEpoch: (s.results.runEpoch ?? 0) + 1,
+        errorEpoch: undefined,
+        // Everything else (report/hash/seed/drivers/reportEpoch) preserved so a
         // settle-back after a resultless turn restores the prior run intact.
       },
       // Graph Lens: auto-reset on new analysis run (resultsStart parity).
@@ -3629,7 +3682,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         startedAt: run.ts,
         finishedAt: run.ts,
         drivers: run.drivers as any,
-        error: undefined
+        error: undefined,
+        // ROADMAP 2.1127 — this action REPLACES the whole results object, so it
+        // must carry the provenance stamps or a restored run would read as
+        // UNKNOWN and a later failure could make no attribution at all. A
+        // historical run is BY DEFINITION not the run that fails next: the
+        // counter only ever increments from 1, so the sentinel epoch below can
+        // never collide with a future `errorEpoch`.
+        runEpoch: s.results.runEpoch,
+        reportEpoch: HISTORICAL_REPORT_EPOCH,
+        errorEpoch: undefined
       },
       runMeta: {
         diagnostics: undefined,
@@ -3688,6 +3750,24 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       results: {
         ...s.results,
         ...hydratedResults,
+        // ROADMAP 2.1127 — the SAME reasoning as `resultsLoadHistorical`, and
+        // it must be repeated here because this action installs a restored
+        // report by SPREAD: `hydrateAnalysis.ts:138-152` returns no epoch keys,
+        // so on a COLD scenario load (`useScenario.ts:727-734`, whenever
+        // `row.analysis_status === 'ready'`) `reportEpoch` would stay
+        // `undefined`. A later failed rerun then reads UNKNOWN and SUPPRESSES
+        // the attribution chip while the restored numbers stay mounted — an
+        // under-claim, but a lost TRUE disclosure.
+        //
+        // A restored report is by definition not the output of the run that
+        // fails next, and `runEpoch` only ever counts up from 1, so the
+        // sentinel can never collide with a future `errorEpoch`.
+        //
+        // ⚠ These two keys must stay AFTER the spreads: a hydrated payload that
+        // one day carries its own epoch fields must not overwrite the provenance
+        // this action is asserting.
+        reportEpoch: HISTORICAL_REPORT_EPOCH,
+        errorEpoch: undefined,
       },
       runMeta: {
         ...s.runMeta,
@@ -5599,7 +5679,33 @@ export const selectProgress = (state: CanvasState): number => state.results.prog
 export const selectResultsStartedAt = (state: CanvasState): number | undefined => state.results.startedAt
 export const selectReport = (state: CanvasState): ReportV1 | null | undefined => state.results.report
 export const selectDrivers = (state: CanvasState): Array<{ kind: 'node' | 'edge'; id: string }> | undefined => state.results.drivers
-export const selectError = (state: CanvasState): { code: string; message: string; retryAfter?: number; request_id?: string; affectedOptions?: Array<{ id: string; label: string }> } | null | undefined => state.results.error
+// ⚠ ROADMAP 2.1127 — this selector's return type was a HAND-COPIED duplicate of
+// the `results.error` field type (`:202`) and had drifted: `canRetry` is
+// accepted by `resultsError`, written into the state, and declared on the state
+// — but was missing here, so every consumer reading through this selector was
+// blind to a field the store actually carries. Derived from the state type now,
+// so it cannot drift again (CLAUDE.md trap 12: derive, don't mirror).
+export const selectError = (state: CanvasState): CanvasState['results']['error'] => state.results.error
+
+/**
+ * ROADMAP 2.1127 — is the report currently on screen PROVABLY from a run
+ * EARLIER than the one that just failed?
+ *
+ * Three outcomes, and the third is the point:
+ *   true  — stamps present and different: a genuinely previous run's results.
+ *   false — stamps present and equal: the failure landed AFTER this run's own
+ *           `resultsComplete` (useV2Run's unguarded window, `:991`→`:1109`), so
+ *           the numbers on screen ARE this run's.
+ *   false — either stamp missing: provenance UNKNOWN. A surface may not claim
+ *           "previous analysis" on an unknown, so unknown fails CLOSED to no
+ *           claim rather than to the more convenient one.
+ */
+export const selectReportIsFromEarlierRun = (state: CanvasState): boolean => {
+  const { reportEpoch, errorEpoch, report } = state.results
+  if (!report) return false
+  if (typeof reportEpoch !== 'number' || typeof errorEpoch !== 'number') return false
+  return reportEpoch !== errorEpoch
+}
 export const selectRunId = (state: CanvasState): string | undefined => state.results.runId
 export const selectSeed = (state: CanvasState): number | undefined => state.results.seed
 export const selectHash = (state: CanvasState): string | undefined => state.results.hash
