@@ -1121,6 +1121,14 @@ export function buildHeroModel(
       // forbids: no numeric value is coalesced anywhere on this path.
       resolveNext: data.voiRanking ?? null,
       decisionVoi: data.decisionVoi ?? 'not_computed',
+      // Same defensive-coalesce reasoning as the two above: at a callsite the
+      // hook may not have run, and the safe direction is the refusal that
+      // renders nothing — never a fabricated selection.
+      assumedStrength: data.assumedStrength ?? {
+        selected: null,
+        refusalReason: 'no_robustness_data',
+        assumedFragileCount: 0,
+      },
     },
     // Producer-gap slots — the LIVE adapter NEVER populates these (no
     // display-safe trust/status label: issues 219/221; no coaching
