@@ -120,9 +120,15 @@ function isAllowedTarget(pathname: string): boolean {
  * Reject encoded traversal (`%2e` / `%2f` / `%5c`, case-insensitive) and any
  * literal `..` path segment before the allowlist, so a permissive id segment
  * cannot carry a path escape to the upstream.
+ *
+ * ⚠ SCOPED TO THE PATHNAME, NEVER THE WHOLE URL. Scanning `request.url` also scanned
+ * the QUERY STRING, so an on-list route 404'd whenever a parameter happened to carry
+ * an encoded slash — `encodeURIComponent` emits `%2F` for any value containing one
+ * (a URL, base64). The query cannot change the upstream route, so excluding it is
+ * strictly safer as well as correct.
  */
-function isTraversal(rawUrl: string, targetPath: string): boolean {
-  if (/%2e|%2f|%5c/i.test(rawUrl)) return true
+function isTraversal(rawPathname: string, targetPath: string): boolean {
+  if (/%2e|%2f|%5c/i.test(rawPathname)) return true
   return targetPath.split('/').some((segment) => segment === '..')
 }
 
@@ -162,7 +168,7 @@ export default async function handler(request: Request, _context: Context) {
 
   // SECURITY (item 13): reject off-list / traversal paths BEFORE the key is
   // injected. Off-list ⇒ 404, NO credential forwarded.
-  if (isTraversal(request.url, targetPath) || !isAllowedTarget(targetPath)) {
+  if (isTraversal(url.pathname, targetPath) || !isAllowedTarget(targetPath)) {
     return new Response(
       JSON.stringify({ error: 'Not found' }),
       {

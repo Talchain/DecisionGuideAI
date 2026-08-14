@@ -161,9 +161,15 @@ function isAllowedTarget(pathname: string): boolean {
  * an un-encoded `../` at parse time, but edge runtimes differ on whether the
  * ENCODED forms survive into `request.url`; this closes them regardless, so a
  * permissive dynamic segment cannot carry a path escape to the upstream.
+ *
+ * ⚠ SCOPED TO THE PATHNAME, NEVER THE WHOLE URL. Scanning `request.url` also scanned
+ * the QUERY STRING, so an on-list route 404'd whenever a parameter happened to carry
+ * an encoded slash — `encodeURIComponent` emits `%2F` for any value containing one
+ * (a URL, base64). The query cannot change the upstream route, so excluding it is
+ * strictly safer as well as correct.
  */
-function isTraversal(rawUrl: string, targetPath: string): boolean {
-  if (/%2e|%2f|%5c/i.test(rawUrl)) return true
+function isTraversal(rawPathname: string, targetPath: string): boolean {
+  if (/%2e|%2f|%5c/i.test(rawPathname)) return true
   return targetPath.split('/').some((segment) => segment === '..')
 }
 
@@ -233,7 +239,7 @@ export default async function handler(request: Request, _context: Context) {
   // SECURITY (item 13): reject anything the UI does not call BEFORE the key is
   // injected. An off-list or traversal path is answered 404 and NO credential is
   // forwarded — this is the bound on the assist blast radius.
-  if (isTraversal(request.url, targetPath) || !isAllowedTarget(targetPath)) {
+  if (isTraversal(url.pathname, targetPath) || !isAllowedTarget(targetPath)) {
     return new Response(
       JSON.stringify({ error: 'Not found' }),
       {

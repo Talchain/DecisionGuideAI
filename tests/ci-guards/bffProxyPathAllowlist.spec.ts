@@ -229,4 +229,117 @@ describe('isl-proxy path allowlist (/bff/isl/* → /*)', () => {
     expect(r.status).toBe(404)
     expect(r.fetchCalled).toBe(false)
   })
+
+  /**
+   * D1 (review of #685) — the wildcard forms admitted the whole surface they were
+   * meant to narrow. The original off-list case (`/bff/isl/admin/secrets`) picked
+   * the ONE shape that avoids the wildcard, so it was a guard agreeing with itself:
+   * it passed while `/api/v1/admin/secrets` forwarded WITH the bearer. These bind
+   * the anchored-literal set by identity.
+   */
+  it('D1 OFF-LIST /bff/isl/api/v1/admin/secrets (UNDER the old /api/v1/.+ wildcard) is 404, NO bearer', async () => {
+    const r = await invoke(islHandler as Handler, { path: '/bff/isl/api/v1/admin/secrets' })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
+  it('D1 OFF-LIST /bff/isl/explain/anything/at/all (UNDER the old /explain/.+ wildcard) is 404, NO bearer', async () => {
+    const r = await invoke(islHandler as Handler, { path: '/bff/isl/explain/anything/at/all' })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
+  it('D1 ON-LIST /bff/isl/api/v1/causal/counterfactual/conformal still forwards (literal, not wildcard)', async () => {
+    const r = await invoke(islHandler as Handler, {
+      path: '/bff/isl/api/v1/causal/counterfactual/conformal',
+    })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(
+      'https://isl-staging.onrender.com/api/v1/causal/counterfactual/conformal',
+    )
+  })
+
+  it('D1 ON-LIST /bff/isl/explain/contrastive still forwards (literal, not wildcard)', async () => {
+    const r = await invoke(islHandler as Handler, { path: '/bff/isl/explain/contrastive' })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe('https://isl-staging.onrender.com/explain/contrastive')
+  })
+
+  /**
+   * D2 (review of #685) — isl-proxy had NO method gate while injecting a bearer,
+   * the exact posture `cee-proxy.ts` names as "the gap not to copy". PUT/DELETE
+   * forwarded with the credential.
+   */
+  it('D2 PUT on an ON-LIST isl path is 405 with NO bearer sent', async () => {
+    const r = await invoke(islHandler as Handler, { path: '/bff/isl/validate', method: 'PUT' })
+    expect(r.status).toBe(405)
+    expect(r.fetchCalled).toBe(false)
+  })
+
+  it('D2 DELETE on an ON-LIST isl path is 405 with NO bearer sent', async () => {
+    const r = await invoke(islHandler as Handler, { path: '/bff/isl/validate', method: 'DELETE' })
+    expect(r.status).toBe(405)
+    expect(r.fetchCalled).toBe(false)
+  })
+
+  it('D2 the advertised Access-Control-Allow-Methods matches what is ENFORCED (no false guarantee)', async () => {
+    ;(globalThis as unknown as { Deno: unknown }).Deno = { env: { get: () => FAKE_KEY } }
+    const res = await (islHandler as Handler)(
+      new Request('https://staging--olumi.netlify.app/bff/isl/health', {
+        method: 'OPTIONS',
+        headers: { origin: ALLOWED_ORIGIN },
+      }),
+      {},
+    )
+    expect(res.headers.get('Access-Control-Allow-Methods')).toBe('GET, HEAD, POST, OPTIONS')
+  })
+})
+
+/* ── D3 + regex-tightening pins (review of #685) ────────────────────────────── */
+describe('traversal check is scoped to the PATH, not the query string (D3)', () => {
+  it('ON-LIST /bff/cee/ask?q=a%2Fb forwards — an encoded slash in the QUERY must not 404', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/ask?q=a%2Fb' })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe('https://cee-staging.onrender.com/assist/v1/ask?q=a%2Fb')
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+  })
+
+  it('the PATH form is still rejected — scoping to pathname does not weaken the guard', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/scenarios/a%2Fb/graph' })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+})
+
+describe('orchestrator v1 turn family is allowed (pins the v\\d+ regex against a tightening)', () => {
+  // turnService.ts builds `/bff/orchestrate/v1/turn` and derives `/stream` from it.
+  it.each([
+    ['/bff/orchestrate/v1/turn', 'https://cee-staging.onrender.com/orchestrate/v1/turn'],
+    [
+      '/bff/orchestrate/v1/turn/stream',
+      'https://cee-staging.onrender.com/orchestrate/v1/turn/stream',
+    ],
+    ['/bff/orchestrate/v1/turn/stop', 'https://cee-staging.onrender.com/orchestrate/v1/turn/stop'],
+  ])('ON-LIST %s forwards WITH the injected key', async (path, expectedUrl) => {
+    const r = await invoke(orchestratorHandler as Handler, { path })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(expectedUrl)
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+  })
+})
+
+describe('double-encoded traversal is harmless BY SHAPE (pinned, not left unobserved)', () => {
+  /**
+   * `%252e` does NOT match the traversal regex (`%2e` is not a substring of `%252e`).
+   * It is rejected by the ALLOWLIST instead: the literal segment cannot match any
+   * enumerated route. Pinned so the mechanism is observed rather than assumed — if a
+   * future decode step were added, this case would change hands and the test says so.
+   */
+  it('/bff/cee/%252e%252e/assist/v1/decision-review is 404 with NO key sent', async () => {
+    const r = await invoke(ceeHandler as Handler, {
+      path: '/bff/cee/%252e%252e/assist/v1/decision-review',
+    })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
 })
