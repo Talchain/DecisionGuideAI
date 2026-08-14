@@ -202,6 +202,52 @@ describe('collab-proxy path allowlist (/bff/collab/* → /collab/v1/*)', () => {
     expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
   })
 
+  it('ON-LIST /bff/collab/rounds/{uuid}/disagreement (GET) forwards — D2 owner view', async () => {
+    /**
+     * ⚠ THIS CASE EXISTS BECAUSE THE ESTATE HAS ALREADY MADE THIS EXACT MISTAKE
+     * ONCE THIS WEEK — see the `preview` case above, OFF-LIST while two comments
+     * in the proxy advertised it. A CEE route plus a UI caller plus a green
+     * suite on both sides is fully consistent with every request 404ing HERE,
+     * and nothing in either repo names the cause. The allowlist is a derived-then-
+     * frozen list: it is a hand-maintained mirror and it needs a test per entry.
+     */
+    const uuid = 'c261b74a-c7ce-4aad-96ca-04f0fdfd0fce'
+    const r = await invoke(collabHandler as Handler, {
+      path: `/bff/collab/rounds/${uuid}/disagreement`,
+      method: 'GET',
+    })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(
+      `https://cee-staging.onrender.com/collab/v1/rounds/${uuid}/disagreement`,
+    )
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+  })
+
+  it('ON-LIST /bff/collab/packet/{uuid}/disagreement (GET) forwards — D2 participant view', async () => {
+    const uuid = 'c261b74a-c7ce-4aad-96ca-04f0fdfd0fce'
+    const r = await invoke(collabHandler as Handler, {
+      path: `/bff/collab/packet/${uuid}/disagreement`,
+      method: 'GET',
+    })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(
+      `https://cee-staging.onrender.com/collab/v1/packet/${uuid}/disagreement`,
+    )
+  })
+
+  it('OFF-LIST /bff/collab/rounds/{uuid}/disagreements is 404 — the D2 entry is exact', async () => {
+    // The DISCRIMINATING half. One character longer, and it must still 404: a
+    // regex written without its `$` anchor, or with the segment loosened, would
+    // admit this and every other sibling under /rounds/{id}/.
+    const uuid = 'c261b74a-c7ce-4aad-96ca-04f0fdfd0fce'
+    const r = await invoke(collabHandler as Handler, {
+      path: `/bff/collab/rounds/${uuid}/disagreements`,
+      method: 'GET',
+    })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
   it('OFF-LIST /bff/collab/rounds/{uuid}/participants is 404 — preview did not widen the segment', async () => {
     // The DISCRIMINATING half of the pair above. `preview` was added as a
     // literal final segment; had it been written permissively (or the id
