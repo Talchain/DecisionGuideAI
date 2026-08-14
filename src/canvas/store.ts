@@ -620,6 +620,13 @@ interface CanvasState {
     nodeIds: Set<string>
   }
   dimmedNodeIds: Set<string>
+  /** 6A (selection focus): edges NOT in the selected element's neighbourhood.
+   * Peer of dimmedNodeIds — same producer (usePathHighlight), same lifetime,
+   * same "attention only, never the model" rule. Kept as a separate top-level
+   * field rather than reusing lens._dimmedEdgeIds because the lens owns that
+   * one and composes independently (an edge can be lens-dimmed AND
+   * selection-dimmed; StyledEdge takes the stronger of the two). */
+  dimmedEdgeIds: Set<string>
   /** F3 (graph-visuals): non-null while a TRANSIENT focus dim owns
    * dimmedNodeIds — set by handleFocusNode (dim = non-neighbours of the
    * focused node), cleared on blur/deselect/manual pan/node removal. While
@@ -962,6 +969,8 @@ interface CanvasState {
    * write, no Set-identity churn) when nothing is currently projected. */
   clearAnalysisHighlight: () => void
   setDimmedNodes: (ids: string[]) => void
+  /** 6A: replace the selection-dimmed edge set. Same idiom as setDimmedNodes. */
+  setDimmedEdges: (ids: string[]) => void
   /** F3: start a transient focus dim — dims `dimmedIds` and marks the dim as
    * owned by the focus on `sourceId` until clearFocusDim(). */
   setFocusDim: (sourceId: string, dimmedIds: string[]) => void
@@ -1736,6 +1745,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   highlightedEdges: new Set<string>(),
   analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() },
   dimmedNodeIds: new Set<string>(),
+  dimmedEdgeIds: new Set<string>(),
   focusDimSourceId: null,
   editedSinceRunNodeIds: new Set<string>(),
   lodActive: false,
@@ -4840,6 +4850,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   setDimmedNodes: (ids: string[]) => {
     set({ dimmedNodeIds: new Set(ids) })
+  },
+  // 6A: selection-dimmed edges. Skip-if-unchanged (same guard as
+  // setEditedSinceRunNodes) because every StyledEdge subscribes to this set;
+  // writing an equal-but-new Set on each effect run would re-render every edge
+  // on the canvas for no visual change.
+  setDimmedEdges: (ids: string[]) => {
+    const prev = get().dimmedEdgeIds
+    if (prev.size === ids.length && ids.every((id) => prev.has(id))) return
+    set({ dimmedEdgeIds: new Set(ids) })
   },
   // F3 (graph-visuals): transient focus dim. Flows through the SAME
   // dimmedNodeIds field BaseNode's dim classes already consume — no new
