@@ -2326,6 +2326,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                                     ? 'bg-warning text-text-on-color hover:bg-warning-hover'
                                     : 'bg-info text-text-on-color hover:bg-info-hover'
                               } disabled:opacity-50`}
+                              // ROADMAP 2.1127 — the re-run affordance needs an
+                              // IDENTITY a test can bind to. Its LABEL is
+                              // per-code ("Try Again", "Review Model", "Refresh
+                              // Page"…), so a guard written against the words
+                              // silently stops seeing the button whenever the
+                              // copy changes — which is how a mutant that
+                              // re-opened the affordance for every code
+                              // survived a suite that looked for /try again/i.
+                              data-testid="error-primary-action"
                             >
                               {friendlyError.actionText}
                             </button>

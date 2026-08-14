@@ -147,9 +147,40 @@ describe('getUserFriendlyError — copy and affordance must agree (2.1127)', () 
     expect(getUserFriendlyError({ code: 'PROCESSING_ERROR' }).canRetry).toBe(true)
   })
 
-  // Discriminating twin: without this, "always true" would pass everything above.
+  // ⚠ A HAND-WRITTEN CORPUS, DELIBERATELY NOT DERIVED FROM THE LIST (CLAUDE.md
+  // trap 12d). A derived guard proves the consumers AGREE with the list; it can
+  // never prove the LIST IS RIGHT. Measured: emptying
+  // `USER_RERUN_BLOCKED_CODES` made the derived `it.each` below simply VANISH —
+  // the run went 60 tests to 55 and stayed green, because a table parameterised
+  // over the mutated list deletes its own cases instead of failing them. Only
+  // these literals notice. The collected-count drop was the only tell.
+  const MUST_BLOCK_RERUN = [
+    'UNAUTHORIZED', // re-running cannot fix an expired session
+    'FORBIDDEN', // nor a permission the user does not have
+    'INVALID_INPUT', // the model must change first
+    'EMPTY_GRAPH', // there is nothing to analyse yet
+    'VALIDATION_BLOCKED', // options need intervention values first
+  ] as const
+
+  it('the blocked set still contains every code a re-run cannot fix', () => {
+    for (const code of MUST_BLOCK_RERUN) {
+      expect(USER_RERUN_BLOCKED_CODES).toContain(code)
+    }
+  })
+
+  it.each([...MUST_BLOCK_RERUN])(
+    '%s withholds the re-run AND does not instruct one (hand-written corpus)',
+    (code) => {
+      const e = getUserFriendlyError({ code })
+      expect(e.canRetry).toBe(false)
+      expect(`${e.explanation} ${e.actionText}`).not.toMatch(INSTRUCTS_RETRY)
+    },
+  )
+
+  // Kept alongside the corpus, not instead of it: this one notices a code ADDED
+  // to the list whose copy still tells the user to retry.
   it.each([...USER_RERUN_BLOCKED_CODES])(
-    '%s withholds the re-run AND does not instruct one',
+    '%s (derived from the list) withholds the re-run AND does not instruct one',
     (code) => {
       const e = getUserFriendlyError({ code })
       expect(e.canRetry).toBe(false)

@@ -424,18 +424,27 @@ describe('OutputsDock → the banner speaks only for the run that failed (2.1127
       renderDock()
 
       const banner = screen.getByTestId('outputs-error-banner')
-      expect(within(banner).getByRole('button', { name: /try again/i })).toBeInTheDocument()
+      // Bound to the affordance by IDENTITY, then to its label — not to the
+      // label alone. A label-only assertion cannot see a button that reappears
+      // under a different name, which is exactly how a mutant re-opening the
+      // re-run for every code survived an earlier version of this file.
+      const action = within(banner).getByTestId('error-primary-action')
+      expect(action).toBeInTheDocument()
+      expect(action).toHaveTextContent(/try again/i)
     },
   )
 
   it('still withholds the rerun where the user must fix the model first', () => {
-    // Discriminating twin: the same surface, a code on the blocked list. Without
-    // this, "always show Try Again" would pass the test above.
+    // Discriminating twin: the same surface, a code the user must act on first.
+    // Without this, "always offer the re-run" would pass the test above.
     seedFailureAfterEarlierSuccess('VALIDATION_BLOCKED', 'Each option needs intervention values')
     renderDock()
 
     const banner = screen.getByTestId('outputs-error-banner')
-    expect(within(banner).queryByRole('button', { name: /try again/i })).not.toBeInTheDocument()
+    // ⚠ The affordance, not the word. VALIDATION_BLOCKED's actionText is
+    // "Review Model", so `queryByRole({ name: /try again/i })` was absent
+    // whether or not the button rendered — a vacuous assertion.
+    expect(within(banner).queryByTestId('error-primary-action')).not.toBeInTheDocument()
     expect(banner.textContent ?? '').not.toMatch(/try again/i)
   })
 })
