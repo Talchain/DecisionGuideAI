@@ -386,6 +386,16 @@ export const GOAL_STRINGS = {
 // ─── Option panel strings ────────────────────────────────────────
 export const OPTION_STRINGS = {
   impactUnavailable: 'Option impact data unavailable for this analysis run.',
+  /**
+   * ROADMAP 2.1204 — attribution for the drafter's rephrase-absorption note.
+   *
+   * The note's SENTENCE comes from the wire and is rendered verbatim; this is
+   * the attribution that keeps it from reading as the user's own description.
+   * It states authorship and nothing more — the same attribute-without-
+   * endorsing rule the value-provenance labels follow (Paul's ruling: a
+   * provenance label must never become a verdict).
+   */
+  draftingNoteAttribution: 'Drafted by Olumi',
 } as const
 
 // --- Goal constraint UI copy -------------------------------------------
