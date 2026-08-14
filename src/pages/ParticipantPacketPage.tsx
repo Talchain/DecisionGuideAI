@@ -782,7 +782,30 @@ export default function ParticipantPacketPage(): JSX.Element {
  * anyone else. Disagreement is the signal this method exists to surface;
  * averaging it away would destroy the only thing it produces.
  */
-export function RevealBody({ reveal }: { reveal: RevealView }): JSX.Element {
+export interface RevealApplyState {
+  /**
+   * Apply one person's answer to the model. ABSENCE IS THE GATE: this page is
+   * rendered on BOTH the participant path and the owner path, and only the
+   * owner page passes a handler. A participant is therefore never offered an
+   * action that would 401 — the affordance does not exist for them, rather than
+   * existing and failing. No flag, no role check in this component.
+   */
+  onApply: (args: { targetId: string; participantId: string; value: number }) => void
+  /** `${targetId}:${participantId}` while that row's apply is in flight. */
+  applyingKey: string | null
+  /** The row applied most recently this session, same key shape. */
+  appliedKey: string | null
+  /** Honest failure copy for the last apply, if it failed. */
+  applyError: string | null
+}
+
+export function RevealBody({
+  reveal,
+  apply,
+}: {
+  reveal: RevealView
+  apply?: RevealApplyState
+}): JSX.Element {
   const rows = useMemo(() => reveal.per_target, [reveal])
   return (
     <main data-testid="collab-reveal" className={PAGE_SHELL}>
@@ -837,11 +860,97 @@ export function RevealBody({ reveal }: { reveal: RevealView }): JSX.Element {
                       {r.kind === 'belief_revised' && (
                         <span className="text-text-light"> (revised)</span>
                       )}
+                      {/* ⭐ THE APPLY. The label names the PERSON and the
+                          NUMBER — never "use the best estimate", never
+                          "recommended", because there is no such thing here.
+                          Every row keeps its own button, including after
+                          another row has been applied: the un-applied views
+                          stay live, so a change of mind costs one click and
+                          the minority position is never retired. */}
+                      {apply !== undefined && r.value !== null && (
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            data-testid={`reveal-apply-${row.target.id}-${r.participant_id}`}
+                            disabled={apply.applyingKey !== null}
+                            onClick={() =>
+                              apply.onApply({
+                                targetId: row.target.id,
+                                participantId: r.participant_id,
+                                // The EXACT number served by the reveal, never a
+                                // re-parsed or re-rounded one. CEE compares it to
+                                // its own record with `Object.is` and refuses on
+                                // any difference, so a display-rounded value here
+                                // would refuse every apply.
+                                value: r.value as number,
+                              })
+                            }
+                            className="rounded-md border border-panel-border px-3 py-1.5 text-sm font-medium text-text-header hover:bg-panel-hover disabled:opacity-50"
+                          >
+                            {apply.applyingKey === `${row.target.id}:${r.participant_id}`
+                              ? `Using ${r.display_label}\u2019s ${r.value}\u2026`
+                              : `Use ${r.display_label}\u2019s ${r.value}`}
+                          </button>
+                        </div>
+                      )}
                     </>
                   )}
                 </li>
               ))}
             </ul>
+
+            {/* ⭐ THE DISAGREEMENT AFFORDANCE. It states the SPREAD as a fact —
+                how many distinct views there are and that they were not
+                combined. It never names a winner, never averages, and never
+                calls anything resolved: there is no aggregate on this page at
+                any nesting level, by construction. */}
+            {row.responses.filter((r) => r.value !== null).length > 1 && (
+              <p
+                data-testid={`reveal-disagreement-${row.target.id}`}
+                className={`${typography.bodySmall} mt-3 text-text-light`}
+              >
+                {row.responses.filter((r) => r.value !== null).length} people gave different
+                answers here. They are kept as they were given &mdash; applying one to your model
+                does not remove the others.
+              </p>
+            )}
+
+            {/* The consequence sentence, and the reason it names the OTHER
+                people: applying Grace's number must not read as the panel
+                having agreed on it. */}
+            {apply?.appliedKey?.startsWith(`${row.target.id}:`) === true && (
+              <p
+                role="status"
+                data-testid={`reveal-applied-${row.target.id}`}
+                className={`${typography.bodySmall} mt-3 text-text-body`}
+              >
+                {(() => {
+                  const appliedPid = apply.appliedKey.slice(row.target.id.length + 1)
+                  const applied = row.responses.find((r) => r.participant_id === appliedPid)
+                  const others = row.responses.filter(
+                    (r) => r.participant_id !== appliedPid && r.value !== null,
+                  )
+                  const label = row.label !== '' ? row.label : row.target.id
+                  const head =
+                    applied === undefined
+                      ? `Your model has been updated for \u201c${label}\u201d.`
+                      : `Your model now uses ${applied.display_label}\u2019s ${applied.value} for \u201c${label}\u201d.`
+                  if (others.length === 0) return head
+                  const names = others.map((o) => `${o.display_label}\u2019s ${o.value}`).join(', ')
+                  return `${head} ${names} ${others.length === 1 ? 'is' : 'are'} still recorded below.`
+                })()}
+              </p>
+            )}
+
+            {apply?.applyError !== null && apply?.applyError !== undefined && (
+              <p
+                role="status"
+                data-testid={`reveal-apply-error-${row.target.id}`}
+                className={`${typography.bodySmall} mt-3 text-text-body`}
+              >
+                {apply.applyError}
+              </p>
+            )}
             {row.responses.length === 1 && (
               <p
                 data-testid={`reveal-single-${row.target.id}`}

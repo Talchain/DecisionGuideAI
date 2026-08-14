@@ -93,6 +93,14 @@ const USER_OWNED_LABEL: Record<ValueProvenanceKind, string | null> = {
   // Producer kinds keep each function's own pre-existing copy — see below.
   brief: null,
   ai: null,
+  // 0.40.0 — NULL, and this is a judgement, not an omission. `userOwnedLabelFor`
+  // returns null before it ever reads this map for a non-user-owned kind, so the
+  // value is unreachable; but the honest value is null either way, because a
+  // panel value is NOT the reader's own work and must never be labelled "Set by
+  // you". That first-person copy on somebody else's estimate IS the attribution
+  // untruth this slice exists to end. The panel's own sentence — which NAMES the
+  // person — is composed by `panelAttributionLine`, from round data, at render.
+  panel: null,
 }
 
 /** The user-owned label for a source, or null when the producer owns it. */

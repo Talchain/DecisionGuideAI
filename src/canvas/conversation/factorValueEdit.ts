@@ -204,6 +204,25 @@ export interface FactorValueEditInput {
    * `raw_value ?? value` inputs; see `ValueInputSeedBasis`.
    */
   seedBasis?: ValueInputSeedBasis
+  /**
+   * 0.40.0 — present iff this edit APPLIES a named participant's panel answer
+   * ("Use Grace's 0.85" on a closed round's reveal). Ids only; a display name
+   * is refused at parse by `RoundParticipantRefSchema.strict()`, which is the
+   * PII rule made structural rather than remembered.
+   *
+   * ⚠ THIS IS A CLAIM, NOT AN INSTRUCTION. CEE verifies it against its own
+   * collab store — round on this scenario · participant on that round · that
+   * participant's latest belief for this target · round closed · value equal to
+   * the server's record — and refuses the whole edit on any mismatch. So the
+   * client cannot use it to attribute a number to someone who did not say it;
+   * the worst a wrong claim achieves is a refusal.
+   *
+   * ⚠ REQUIRES A CEE ON >=0.40.0. Every member of the system-event union is
+   * `.strict()`, so a CEE still pinned <=0.39.0 REFUSES THE WHOLE TURN rather
+   * than dropping the field. That is why the CEE pin bump ships and deploys
+   * first.
+   */
+  appliedFrom?: { round_id: string; participant_id: string }
 }
 
 /**
@@ -216,15 +235,24 @@ export interface FactorValueEditInput {
 export function buildFactorValueEditEvent(
   input: FactorValueEditInput,
 ): WireSystemEvent | null {
-  const { nodeId, typedValue, nodeData, seedBasis } = input
+  const { nodeId, typedValue, nodeData, seedBasis, appliedFrom } = input
   if (!nodeId) return null
   if (typeof typedValue !== 'number' || !Number.isFinite(typedValue)) return null
+
+  // ── the panel-apply belt ─────────────────────────────────────────────────
+  // A panel belief IS a model-scale number: it is what the reveal shows beside
+  // `model_value_at_version`, and `acceptsElicitedBelief` already refuses to
+  // offer elicitation on a capped/united factor at all. So an apply borrows the
+  // `'model_scale'` refusals WHOLESALE rather than restating them — the two
+  // must not be able to disagree about what a bare belief number means.
+  const effectiveSeedBasis: ValueInputSeedBasis | undefined =
+    appliedFrom !== undefined ? 'model_scale' : seedBasis
 
   // ── the `'model_scale'` belt ─────────────────────────────────────────────
   // Both refusals are STRUCTURAL: they hold for every caller, present and
   // future, and they fail CLOSED (no event ⇒ no local write, no wire, no
   // receipt, no stamp) rather than emitting a number the factor cannot mean.
-  if (seedBasis === 'model_scale') {
+  if (effectiveSeedBasis === 'model_scale') {
     // A probability outside [0,1] is not a model-scale value. The client
     // boundary refuses one in `suggested_value`; this catches every OTHER way
     // a number can reach here — a clarification chip, or a future caller.
@@ -236,7 +264,7 @@ export function buildFactorValueEditEvent(
   const obs = getObservedState(nodeData)
   const cap = readNumber(obs.cap)
   const unit = typeof obs.unit === 'string' && obs.unit.length > 0 ? obs.unit : undefined
-  const { inUserUnits } = resolveValueInputSeed(nodeData, seedBasis)
+  const { inUserUnits } = resolveValueInputSeed(nodeData, effectiveSeedBasis)
 
   // `value` is ALWAYS model scale. `normaliseRawFactorValue` is the canonical
   // rule (raw/cap, with the typed number passed through when no honest scale
@@ -263,6 +291,18 @@ export function buildFactorValueEditEvent(
   if (inUserUnits) {
     payload.raw_value = typedValue
     if (unit) payload.unit = unit
+  }
+
+  // The attribution claim rides LAST and alone. No `raw_value`/`unit` can
+  // accompany it: `effectiveSeedBasis` forces `'model_scale'`, so `inUserUnits`
+  // is false and the block above did not run. That matters — CEE discards a
+  // client's user-unit fields on a verified apply, and a client that sent them
+  // anyway would be asserting a magnitude nobody stated.
+  if (appliedFrom !== undefined) {
+    payload.applied_from = {
+      round_id: appliedFrom.round_id,
+      participant_id: appliedFrom.participant_id,
+    }
   }
 
   return { type: 'factor_value_edit', payload }

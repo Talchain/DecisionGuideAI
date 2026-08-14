@@ -53,6 +53,7 @@ import {
   type RevealView,
 } from '../collab/collabService'
 import { requireOwnerAccessToken } from '../collab/ownerAccessToken'
+import { rememberPendingApply } from '../collab/panelApplyHandoff'
 import { readPanelPrefill } from '../collab/panelRoute'
 import {
   forgetOpenRound,
@@ -61,7 +62,7 @@ import {
   type OpenRoundRecord,
 } from '../collab/openRoundRecord'
 import { typography } from '../styles/typography'
-import { RevealBody } from './ParticipantPacketPage'
+import { RevealBody, type RevealApplyState } from './ParticipantPacketPage'
 
 const PAGE_SHELL = 'min-h-screen bg-canvas px-4 py-10 sm:px-6 sm:py-14'
 const COLUMN = 'mx-auto w-full max-w-[680px]'
@@ -246,6 +247,9 @@ export default function PanelSetupPage(): JSX.Element {
   const [copiedIds, setCopiedIds] = useState<ReadonlySet<string>>(() => new Set())
   const [copyRefused, setCopyRefused] = useState<ReadonlySet<string>>(() => new Set())
 
+  // The row whose apply has been recorded this session, `${targetId}:${pid}`.
+  const [appliedKey, setAppliedKey] = useState<string | null>(null)
+
   // COLLAB ROUND RECOVERY: the NON-SECRET record of a round this owner opened
   // for THIS scenario and may have navigated away from. Read once at mount —
   // the only other writers are this page's own handlers, which keep the state
@@ -360,7 +364,65 @@ export default function PanelSetupPage(): JSX.Element {
     setCopyRefused((prev) => new Set(prev).add(participantId))
   }, [])
 
-  if (reveal !== null) return <RevealBody reveal={reveal} />
+  /**
+   * Apply one participant's answer to the model.
+   *
+   * ⚠ THIS PAGE DOES NOT SEND THE TURN, DELIBERATELY. `sendSystemEvent` lives in
+   * the conversation context, which mounts inside the canvas; this route is a
+   * sibling and is outside it. Rather than grow a SECOND turn transport here —
+   * the client mirror of the second-graph-write-path the server design refuses —
+   * the intent is recorded and drained on the canvas by `usePanelApplyDrain`,
+   * through the one real sender.
+   *
+   * The value is passed through VERBATIM as the reveal served it: CEE compares
+   * it to its own recorded belief with `Object.is` and refuses on any
+   * difference, so a rounded number here would refuse every apply.
+   */
+  const handleApply = useCallback(
+    (args: { targetId: string; participantId: string; value: number }) => {
+      const sid = scenarioId ?? ''
+      const roundId = reveal?.round_id ?? ''
+      if (sid === '' || roundId === '') return
+      rememberPendingApply({
+        scenarioId: sid,
+        roundId,
+        participantId: args.participantId,
+        targetId: args.targetId,
+        value: args.value,
+      })
+      setAppliedKey(`${args.targetId}:${args.participantId}`)
+    },
+    [scenarioId, reveal],
+  )
+
+  const applyState: RevealApplyState = {
+    onApply: handleApply,
+    applyingKey: null,
+    appliedKey,
+    applyError: null,
+  }
+
+  // ── THE REVEAL IS NO LONGER TERMINAL ──────────────────────────────────────
+  // It used to be an early return with no apply affordance, no return path and
+  // no link of any kind: the owner read the answers, pressed browser BACK, hunted
+  // for the factor and retyped the number — which stamped it as their own edit.
+  // That retype was the attribution untruth this slice ends.
+  if (reveal !== null) {
+    return (
+      <>
+        <RevealBody reveal={reveal} apply={applyState} />
+        <div className="mx-auto w-full max-w-[820px] px-4 pb-10 sm:px-6">
+          <Link
+            to={`#/scenario/${scenarioId ?? ''}`}
+            data-testid="reveal-back-to-model"
+            className={`${typography.body} text-info hover:underline`}
+          >
+            &larr; Back to your model
+          </Link>
+        </div>
+      </>
+    )
+  }
 
   const targetIdHasSpaces = targetId.trim() !== '' && /\s/.test(targetId.trim())
 

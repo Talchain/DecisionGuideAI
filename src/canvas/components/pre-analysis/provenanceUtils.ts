@@ -27,6 +27,13 @@ const PILL_BY_KIND: Record<ValueProvenanceKind, { label: string; borderClass: st
   human: { label: 'Set by you', borderClass: 'border-success/30' },
   brief: { label: 'From brief', borderClass: 'border-success/30' },
   ai: { label: 'AI estimate', borderClass: 'border-info/30' },
+  // 0.40.0. UNREACHABLE ON THIS SURFACE TODAY and present for totality, which is
+  // the honest reason: `provenanceToPill` is keyed off `classifyNodeProvenance`
+  // (node.provenance -> human/brief/ai), never off `observed_state.source`, so no
+  // input to this map can currently produce 'panel'. Declared rather than cast
+  // away so that the day this surface switches to source-classification it
+  // renders the right words instead of falling through to a neighbour's.
+  panel: { label: 'From your panel', borderClass: 'border-info/30' },
 }
 
 export function provenanceToPill(
