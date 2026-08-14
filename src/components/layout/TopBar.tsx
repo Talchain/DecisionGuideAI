@@ -7,6 +7,7 @@ import { useStagePill } from '../../canvas/hooks/useStagePill'
 import { UserAvatarMenu } from './UserAvatarMenu'
 import { KebabMenu } from './KebabMenu'
 import { ScenarioSwitcher } from '../../canvas/components/ScenarioSwitcher'
+import { SCENARIO_RENAME_REQUEST_EVENT } from '../../canvas/components/scenarioRenameEvent'
 import { ownerPanelHash } from '../../collab/panelRoute'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { useUIStore } from '../../stores/uiStore'
@@ -53,8 +54,6 @@ export const TopBar = ({
   isPersisted = false,
   panelScenarioId = null,
 }: TopBarProps) => {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editValue, setEditValue] = useState(scenarioTitle)
   const [showSavedPill, setShowSavedPill] = useState(false)
 
   // The kebab menu's open-state lives in uiStore, NOT in component-local
@@ -103,18 +102,6 @@ export const TopBar = ({
       root.style.setProperty('--topbar-h', previous || '0px')
     }
   }, [])
-
-  useEffect(() => {
-    setEditValue(scenarioTitle)
-  }, [scenarioTitle])
-
-  const handleTitleSubmit = () => {
-    const next = editValue.trim()
-    if (next && next !== scenarioTitle) {
-      onTitleChange(next)
-    }
-    setIsEditing(false)
-  }
 
   const handleSave = async () => {
     if (!onSave) return
@@ -231,57 +218,27 @@ export const TopBar = ({
           />
         </a>
 
-        {/* Divider between logo and title */}
+        {/* Divider between logo and the model name */}
         <div className={styles.divider} aria-hidden="true" />
 
-        {/* Editable title */}
-        {isEditing ? (
-          <input
-            type="text"
-            value={editValue}
-            onChange={e => setEditValue(e.target.value.slice(0, 60))}
-            onBlur={handleTitleSubmit}
-            onKeyDown={e => {
-              if (e.key === 'Enter') handleTitleSubmit()
-              if (e.key === 'Escape') {
-                setEditValue(scenarioTitle)
-                setIsEditing(false)
-              }
-            }}
-            className={styles.titleInput}
-            autoFocus
-            aria-label="Edit decision title"
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            className={styles.titleButton}
-            aria-label="Edit decision title"
-          >
-            <span className={styles.titleText}>{scenarioTitle}</span>
-            <svg
-              width="9"
-              height="9"
-              viewBox="0 0 12 12"
-              className={styles.chevronIcon}
-              aria-hidden="true"
-            >
-              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
-            </svg>
-          </button>
-        )}
+        {/* ⭐ THE SINGLE MODEL-NAME CONTROL (Paul, 14 Aug 2026).
+            This bar used to render a plain title here AND the switcher below
+            it — two controls, both reading "Untitled decision". The plain title
+            is removed; the switcher now displays the name this bar is given and
+            commits renames through `onTitleChange`, which reaches the framing
+            title (-> Supabase) as well as the localStorage record. It also
+            still carries scenario switching, save-as, duplicate, delete and
+            scenario export/import (.olumi.json). */}
+        <ScenarioSwitcher
+          dropdownPosition="below"
+          displayName={scenarioTitle}
+          onRename={onTitleChange}
+        />
 
         {/* Dirty indicator (localStorage mode only) */}
         {!isPersisted && isDirty && saveStatus !== 'saving' && (
           <span className={styles.dirtyIndicator} aria-label="Unsaved changes" />
         )}
-
-        {/* Lane 4 (P5): scenario switching, save-as, duplicate, rename,
-            delete, and scenario export/import (.olumi.json) — previously
-            only reachable from the production-unmounted CanvasToolbar. */}
-        <div className={styles.divider} aria-hidden="true" />
-        <ScenarioSwitcher dropdownPosition="below" />
 
       </div>
 
@@ -450,7 +407,13 @@ export const TopBar = ({
             setOverlaySurface(showMenu ? null : 'top_bar_menu')
           }}
           onClose={closeMenu}
-          onStartRename={() => { setIsEditing(true); closeMenu() }}
+          // The name control is a SIBLING now, not this bar's own state, so the
+          // request travels by the same window-event idiom the bar already uses
+          // for its other cross-component signals.
+          onStartRename={() => {
+            window.dispatchEvent(new CustomEvent(SCENARIO_RENAME_REQUEST_EVENT))
+            closeMenu()
+          }}
           onShowKeyboardLegend={handleShowKeyboardLegend}
           onShowInfluenceExplainer={handleShowInfluenceExplainer}
           menuRef={menuRef}

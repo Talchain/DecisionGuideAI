@@ -25,17 +25,23 @@ describe('TopBar', () => {
     onShare: vi.fn(),
   }
 
-  it('renders decision title', () => {
+  // ⭐ 14 Aug 2026 (Paul's ruling): the bar's own plain-title control is gone.
+  // The model name now lives on the ScenarioSwitcher, which this bar feeds with
+  // `scenarioTitle` and `onTitleChange`. These three tests keep their original
+  // intent — renders the name, edits it, caps it at 60 chars — retargeted at
+  // the surviving control by testid. Full coverage of the new interaction is in
+  // TopBar.singleModelName.spec.tsx.
+  it('renders the model name', () => {
     renderTopBar(mockProps)
-    expect(screen.getByText('Pricing Decision 2025')).toBeInTheDocument()
+    expect(screen.getByTestId('scenario-name-button')).toHaveTextContent('Pricing Decision 2025')
   })
 
-  it('allows title editing', async () => {
+  it('allows name editing', async () => {
     renderTopBar(mockProps)
 
-    fireEvent.click(screen.getByRole('button', { name: /edit decision title/i }))
+    fireEvent.click(screen.getByTestId('scenario-name-button'))
 
-    const input = screen.getByRole('textbox') as HTMLInputElement
+    const input = screen.getByTestId('scenario-name-input') as HTMLInputElement
     expect(input).toHaveFocus()
 
     fireEvent.change(input, { target: { value: '' } })
@@ -46,12 +52,12 @@ describe('TopBar', () => {
     expect(mockProps.onTitleChange).toHaveBeenCalledWith('New Title')
   })
 
-  it('limits title to 60 characters', async () => {
+  it('limits the name to 60 characters', async () => {
     renderTopBar(mockProps)
 
-    fireEvent.click(screen.getByRole('button', { name: /edit decision title/i }))
+    fireEvent.click(screen.getByTestId('scenario-name-button'))
 
-    const input = screen.getByRole('textbox') as HTMLInputElement
+    const input = screen.getByTestId('scenario-name-input') as HTMLInputElement
     const longTitle = 'A'.repeat(70)
     fireEvent.change(input, { target: { value: longTitle } })
 

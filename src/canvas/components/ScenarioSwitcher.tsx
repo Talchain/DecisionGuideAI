@@ -1,12 +1,15 @@
 /**
- * ScenarioSwitcher - Dropdown UI for switching between saved scenarios
+ * ScenarioSwitcher - the model's name control + dropdown for saved scenarios
  *
  * Features:
- * - Shows current scenario name (or "Unsaved scenario")
+ * - Shows the current model name, INLINE-EDITABLE in one click
  * - Dropdown with all scenarios (sorted by most recently updated)
  * - Actions: Save, Duplicate, Rename, Delete
  * - Dirty indicator (unsaved changes)
  * - Keyboard accessible (Tab, Enter, Escape)
+ *
+ * ⭐ 14 Aug 2026 (Paul's ruling) — this is now the SINGLE NAME AUTHORITY. The
+ * TopBar's separate plain-title control is gone. See `displayName`/`onRename`.
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
@@ -18,6 +21,13 @@ import { SaveStatusPill } from './SaveStatusPill'
 import { exportScenario } from '../export/exportScenario'
 import { useToast } from '../ToastContext'
 import { typography } from '../../styles/typography'
+import { SCENARIO_RENAME_REQUEST_EVENT } from './scenarioRenameEvent'
+
+/** Matches the character budget the removed TopBar title input enforced. */
+const MAX_NAME_LENGTH = 60
+
+/** Paul, 14 Aug 2026: "decision" -> "model" on the naming surface. */
+export const UNTITLED_MODEL = 'Untitled model'
 
 interface ScenarioSwitcherProps {
   /**
@@ -27,9 +37,38 @@ interface ScenarioSwitcherProps {
    * viewport.
    */
   dropdownPosition?: 'above' | 'below'
+  /**
+   * ⭐ THE NAME THIS CONTROL DISPLAYS, when the mount is the name authority.
+   *
+   * Absent, the switcher falls back to the localStorage scenario record — which
+   * is what it did exclusively until 14 Aug 2026, and why it LIED on the
+   * authenticated path: `loadSupabaseScenario` hydrates `currentScenarioId`
+   * with a Supabase UUID and never writes a localStorage row, so `getScenario`
+   * returned null and the trigger read "Untitled decision" for every persisted
+   * model, whatever its real name.
+   *
+   * The TopBar passes the name CanvasMVP derives (localStorage name, else
+   * `framing.title`, else the fallback), so the control tells the truth in both
+   * guest and authenticated sessions.
+   */
+  displayName?: string
+  /**
+   * Commit handler for a rename. Absent, renames go to the localStorage record
+   * only (`renameCurrentScenario`).
+   *
+   * The TopBar passes CanvasMVP's `handleTitleChange`, which writes BOTH the
+   * framing title (-> Supabase `scenarios.framing`) and the localStorage name.
+   * Supplying this prop is also what marks a mount as the name AUTHORITY: only
+   * that mount answers a kebab rename request.
+   */
+  onRename?: (name: string) => void
 }
 
-export function ScenarioSwitcher({ dropdownPosition = 'above' }: ScenarioSwitcherProps = {}) {
+export function ScenarioSwitcher({
+  dropdownPosition = 'above',
+  displayName,
+  onRename,
+}: ScenarioSwitcherProps = {}) {
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const isDirty = useCanvasStore(s => s.isDirty)
   const isSaving = useCanvasStore(s => s.isSaving)
@@ -44,13 +83,74 @@ export function ScenarioSwitcher({ dropdownPosition = 'above' }: ScenarioSwitche
   const [isOpen, setIsOpen] = useState(false)
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [showSaveDialog, setShowSaveDialog] = useState(false)
-  const [showRenameDialog, setShowRenameDialog] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { showToast } = useToast()
 
   const currentScenario = currentScenarioId ? getScenario(currentScenarioId) : null
+
+  // ---------------------------------------------------------------------
+  // Inline rename (Paul, 14 Aug 2026) — replaces the buried modal dialog AND
+  // the TopBar's separate plain-title control.
+  // ---------------------------------------------------------------------
+
+  /**
+   * The name on screen. `displayName` wins when the mount is the authority;
+   * the localStorage record is the fallback for the toolbar mount.
+   */
+  const resolvedName = (displayName ?? currentScenario?.name ?? '').trim() || UNTITLED_MODEL
+
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+
+  /**
+   * Escape must not be undone by the blur that follows it, and Enter must not
+   * commit twice when the unmounting input fires a trailing blur. One ref
+   * settles both: the first terminal action for an editing session wins.
+   */
+  const renameSettledRef = useRef(false)
+
+  const startRename = useCallback(() => {
+    renameSettledRef.current = false
+    setRenameValue(resolvedName)
+    setIsRenaming(true)
+    setIsOpen(false)
+  }, [resolvedName])
+
+  const commitRename = useCallback(() => {
+    if (renameSettledRef.current) return
+    renameSettledRef.current = true
+
+    const next = renameValue.trim().slice(0, MAX_NAME_LENGTH)
+    // An empty name is REFUSED — the previous name stands. A model with no name
+    // is worse than one called "Untitled model": the fallback at least tells the
+    // truth about being unnamed.
+    if (next && next !== resolvedName) {
+      if (onRename) {
+        onRename(next)
+      } else {
+        renameCurrentScenario(next)
+      }
+    }
+    setIsRenaming(false)
+  }, [renameValue, resolvedName, onRename, renameCurrentScenario])
+
+  const cancelRename = useCallback(() => {
+    renameSettledRef.current = true
+    setIsRenaming(false)
+  }, [])
+
+  // The kebab menu's "Rename" item reaches us through this. Only the authority
+  // mount answers: a non-authoritative switcher opening an editor would write
+  // to a different place than the one the user is looking at.
+  const isNameAuthority = onRename != null
+  useEffect(() => {
+    if (!isNameAuthority) return
+    const handler = () => startRename()
+    window.addEventListener(SCENARIO_RENAME_REQUEST_EVENT, handler)
+    return () => window.removeEventListener(SCENARIO_RENAME_REQUEST_EVENT, handler)
+  }, [isNameAuthority, startRename])
 
   // Refresh scenarios when dropdown opens
   const refreshScenarios = useCallback(() => {
@@ -107,22 +207,6 @@ export function ScenarioSwitcher({ dropdownPosition = 'above' }: ScenarioSwitche
       refreshScenarios()
     }
   }, [currentScenarioId, currentScenario, duplicateCurrentScenario, refreshScenarios])
-
-  const handleRename = useCallback(() => {
-    if (currentScenarioId && currentScenario) {
-      setShowRenameDialog(true)
-      setInputValue(currentScenario.name)
-    }
-  }, [currentScenarioId, currentScenario])
-
-  const handleRenameDialogSubmit = useCallback(() => {
-    if (inputValue.trim() && currentScenarioId) {
-      renameCurrentScenario(inputValue.trim())
-      setShowRenameDialog(false)
-      setInputValue('')
-      refreshScenarios()
-    }
-  }, [inputValue, currentScenarioId, renameCurrentScenario, refreshScenarios])
 
   const handleDelete = useCallback((id: string) => {
     const scenario = getScenario(id)
@@ -215,26 +299,68 @@ export function ScenarioSwitcher({ dropdownPosition = 'above' }: ScenarioSwitche
   return (
     <>
       <div className="relative" ref={dropdownRef}>
-        {/* Trigger button */}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={`flex items-center gap-2 px-3 py-1.5 ${typography.label} text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 transition-colors`}
-          type="button"
-          aria-expanded={isOpen}
-          aria-haspopup="true"
-          data-testid="scenario-switcher-trigger"
+        {/* Trigger pill. TWO controls in one shell, deliberately: clicking the
+            NAME edits it (Paul: renaming must be obvious and quick — one
+            click), clicking the chevron opens the scenario menu. Nested
+            buttons are invalid HTML, so the shell is a div. */}
+        <div
+          className={`flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 ${typography.label} text-gray-700 bg-white border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors`}
+          data-testid="scenario-switcher-pill"
         >
-          <Folder className="w-4 h-4 text-gray-500" />
-          <span className="max-w-[150px] truncate">
-            {currentScenario?.name || 'Untitled decision'}
-          </span>
+          <Folder className="w-4 h-4 shrink-0 text-gray-500" aria-hidden="true" />
+
+          {isRenaming ? (
+            <input
+              type="text"
+              value={renameValue}
+              onChange={e => setRenameValue(e.target.value.slice(0, MAX_NAME_LENGTH))}
+              onBlur={commitRename}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  commitRename()
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  cancelRename()
+                }
+              }}
+              maxLength={MAX_NAME_LENGTH}
+              className="w-[150px] bg-transparent border-b border-info outline-none px-0.5"
+              aria-label="Model name"
+              data-testid="scenario-name-input"
+              autoFocus
+            />
+          ) : (
+            <button
+              onClick={startRename}
+              className="max-w-[150px] truncate cursor-text text-left rounded px-0.5 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-info transition-colors"
+              type="button"
+              title="Rename model"
+              aria-label={`Rename model, currently ${resolvedName}`}
+              data-testid="scenario-name-button"
+            >
+              {resolvedName}
+            </button>
+          )}
+
           {/* P0-2: Replace dot with reactive save status */}
           <SaveStatusPill
             isSaving={isSaving}
             lastSavedAt={lastSavedAt}
           />
-          <ChevronDown className="w-4 h-4 text-gray-400" />
-        </button>
+
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="shrink-0 p-0.5 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-info transition-colors"
+            type="button"
+            aria-expanded={isOpen}
+            aria-haspopup="true"
+            aria-label="Open model menu"
+            data-testid="scenario-switcher-trigger"
+          >
+            <ChevronDown className="w-4 h-4 text-gray-400" aria-hidden="true" />
+          </button>
+        </div>
 
         {/* Dropdown menu */}
         {isOpen && (
@@ -278,7 +404,7 @@ export function ScenarioSwitcher({ dropdownPosition = 'above' }: ScenarioSwitche
                         <Copy className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={handleRename}
+                        onClick={startRename}
                         className={`px-3 py-2 ${typography.body} text-gray-700 hover:bg-gray-100 rounded transition-colors`}
                         type="button"
                         role="menuitem"
@@ -444,49 +570,10 @@ export function ScenarioSwitcher({ dropdownPosition = 'above' }: ScenarioSwitche
         </div>
       )}
 
-      {/* Rename dialog */}
-      {showRenameDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[2001]">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-panel">
-            <h3 className={`${typography.h4} text-gray-900 mb-4`}>Rename scenario</h3>
-            <input
-              type="text"
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleRenameDialogSubmit()
-                if (e.key === 'Escape') {
-                  setShowRenameDialog(false)
-                  setInputValue('')
-                }
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2"
-              placeholder="Scenario name"
-              autoFocus
-            />
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={handleRenameDialogSubmit}
-                disabled={!inputValue.trim()}
-                className="flex-1 px-4 py-2 text-text-on-color bg-info-600 hover:bg-info-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                type="button"
-              >
-                Rename
-              </button>
-              <button
-                onClick={() => {
-                  setShowRenameDialog(false)
-                  setInputValue('')
-                }}
-                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                type="button"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* The rename DIALOG is gone (14 Aug 2026): rename is inline on the
+          trigger, and the dropdown's pencil opens that same editor. One rename
+          path, not two — and the old dialog was dead on the authenticated path
+          anyway (it required a localStorage record that never exists there). */}
     </>
   )
 }
