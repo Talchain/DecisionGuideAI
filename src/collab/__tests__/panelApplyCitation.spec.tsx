@@ -81,7 +81,37 @@ function evidence(over: Partial<DisagreementEvidence> = {}): DisagreementEvidenc
   }
 }
 
-function revealView(): RevealView {
+/**
+ * ⚠ TWO ANSWERERS BY DEFAULT, AND THAT IS THE WHOLE POINT OF THE FIXTURE.
+ *
+ * This corpus originally had exactly ONE response everywhere — while the
+ * disagreement fixture beside it declared `answering_participants: 2`. **A
+ * reveal exists BECAUSE people disagree**, so one answerer is the degenerate
+ * case, and a corpus built entirely out of it could not see a per-TARGET
+ * sentence rendered inside a per-RESPONSE loop. It shipped a duplicate testid,
+ * which `getByTestId` throws on — a hard failure that ten green tests could not
+ * observe, because none of them put two people in a round (trap 22: the class
+ * the author did not imagine).
+ */
+function revealView(opts: { answerers?: number } = {}): RevealView {
+  const all = [
+    {
+      participant_id: GRACE,
+      display_label: 'Grace',
+      value: 0.85,
+      expression_raw: 'GRACE-BASIS',
+      confidence: null,
+      kind: 'belief_submitted' as const,
+    },
+    {
+      participant_id: ADA,
+      display_label: 'Ada',
+      value: 0.2,
+      expression_raw: 'ADA-BASIS',
+      confidence: null,
+      kind: 'belief_submitted' as const,
+    },
+  ]
   return {
     round_id: ROUND,
     status: 'closed',
@@ -91,16 +121,7 @@ function revealView(): RevealView {
         target: { kind: 'factor', id: TARGET },
         label: LABEL,
         model_value_at_version: 0.5,
-        responses: [
-          {
-            participant_id: GRACE,
-            display_label: 'Grace',
-            value: 0.85,
-            expression_raw: 'GRACE-BASIS',
-            confidence: null,
-            kind: 'belief_submitted',
-          },
-        ],
+        responses: all.slice(0, opts.answerers ?? 2),
       },
     ],
   }
@@ -131,9 +152,10 @@ function disagreementWith(rows: DisagreementEvidence[]): DisagreementView {
 }
 
 /** Render the owner's reveal and capture exactly what a click claims. */
-function renderWithEvidence(rows: DisagreementEvidence[] | null): {
-  calls: Array<Record<string, unknown>>
-} {
+function renderWithEvidence(
+  rows: DisagreementEvidence[] | null,
+  opts: { answerers?: number } = {},
+): { calls: Array<Record<string, unknown>> } {
   const calls: Array<Record<string, unknown>> = []
   const apply: RevealApplyState = {
     onApply: (args) => calls.push({ ...args }),
@@ -143,7 +165,7 @@ function renderWithEvidence(rows: DisagreementEvidence[] | null): {
   }
   render(
     <RevealBody
-      reveal={revealView()}
+      reveal={revealView(opts)}
       apply={apply}
       disagreement={rows === null ? null : disagreementWith(rows)}
     />,
@@ -170,6 +192,78 @@ describe('the apply affordance — the citation is disclosed, then claimed', () 
     expect(calls[0]?.participantId).toBe(GRACE)
     expect(calls[0]?.value).toBe(0.85)
     expect(calls[0]?.evidenceEventId).toBe(ADA_EVIDENCE_ID)
+  })
+
+  it('⭐⭐ TWO ANSWERERS, one evidence row: EXACTLY ONE sentence — the grain of the fact', () => {
+    // THE DEFECT THIS PINS. The sentence is per TARGET; it sat inside the
+    // per-RESPONSE loop, so two answerers rendered it twice under one testid.
+    // `getAllByTestId` is used deliberately: `getByTestId` THROWS on a
+    // duplicate, so asserting with it would fail for the right reason but tell
+    // a reader nothing about the count. This asserts the count itself.
+    renderWithEvidence([evidence()], { answerers: 2 })
+
+    const sentences = screen.getAllByTestId(`reveal-apply-citation-${TARGET}`)
+    expect(
+      sentences,
+      'the citation renders once per ANSWER instead of once per TARGET — its key and ' +
+        'its data are per target, so this is a duplicate testid, not a repeated fact',
+    ).toHaveLength(1)
+
+    // POSITIVE CONTROL for the count above: the same query returns 1 in the
+    // one-answerer case too, so `toHaveLength(1)` is not passing because the
+    // element is simply hard to find.
+    expect(sentences[0]?.textContent).toContain('Ada')
+
+    // And BOTH people's buttons carry the claim: the fact is about the target,
+    // so it attaches to whichever answer the owner chooses to apply.
+    expect(screen.getByTestId(`reveal-apply-${TARGET}-${GRACE}`)).toBeTruthy()
+    expect(screen.getByTestId(`reveal-apply-${TARGET}-${ADA}`)).toBeTruthy()
+  })
+
+  it('⭐ TWO ANSWERERS: applying EITHER answer claims the same single citation', () => {
+    const { calls } = renderWithEvidence([evidence()], { answerers: 2 })
+    fireEvent.click(screen.getByTestId(`reveal-apply-${TARGET}-${GRACE}`))
+    fireEvent.click(screen.getByTestId(`reveal-apply-${TARGET}-${ADA}`))
+    expect(calls).toHaveLength(2)
+    // ⭐ The asymmetry, twice over: Ada authored the note, and it is cited
+    // whether the owner applies Grace's number or Ada's own.
+    expect(calls[0]).toMatchObject({ participantId: GRACE, evidenceEventId: ADA_EVIDENCE_ID })
+    expect(calls[1]).toMatchObject({ participantId: ADA, evidenceEventId: ADA_EVIDENCE_ID })
+  })
+
+  it('⭐ NOBODY gave a number: no sentence, because no click can honour it', () => {
+    // Hoisting the sentence out of the response loop separated it from the
+    // `r.value !== null` gate that used to sit beside every button. A target
+    // where everyone declined renders NO buttons, and a promise about a change
+    // nobody can make is the same over-claiming this slice exists to end.
+    const reveal = revealView({ answerers: 2 })
+    reveal.per_target[0]!.responses = reveal.per_target[0]!.responses.map((r) => ({
+      ...r,
+      value: null,
+      kind: 'declined' as const,
+    }))
+    render(
+      <RevealBody
+        reveal={reveal}
+        apply={{
+          onApply: () => undefined,
+          applyingKey: null,
+          appliedKey: null,
+          applyError: null,
+        }}
+        disagreement={disagreementWith([evidence()])}
+      />,
+    )
+    expect(screen.queryByTestId(`reveal-apply-citation-${TARGET}`)).toBeNull()
+    expect(screen.queryByTestId(`reveal-apply-${TARGET}-${GRACE}`)).toBeNull()
+  })
+
+  it('⭐ the PARTICIPANT surface gets no sentence — it has no apply affordance', () => {
+    // `apply` absent IS the owner/participant gate for this component. The
+    // sentence promises what a click will record, so it must inherit that gate
+    // rather than announce an action the reader cannot take.
+    render(<RevealBody reveal={revealView({ answerers: 2 })} disagreement={disagreementWith([evidence()])} />)
+    expect(screen.queryByTestId(`reveal-apply-citation-${TARGET}`)).toBeNull()
   })
 
   it('⭐⭐ TWO pieces of evidence: no sentence, and the click claims NOTHING', () => {

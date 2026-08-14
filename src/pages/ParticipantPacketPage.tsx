@@ -1106,7 +1106,31 @@ export function RevealBody({
           shown side by side and are not combined into a single number.
         </p>
 
-        {rows.map((row) => (
+        {rows.map((row) => {
+          /**
+           * ⭐ EVALUATED ONCE PER TARGET, and the sentence below and the claim
+           * on every button both read THIS value.
+           *
+           * ⚠ It was previously called at five separate sites, with a comment
+           * claiming they were "not a second computation". They were — the
+           * property held only because the function is pure over a
+           * render-stable `disagreement`, which is a much weaker guarantee than
+           * the comment implied and would have survived a change that broke it.
+           * One binding makes the screen and the wire agree BY CONSTRUCTION
+           * rather than by an argument about purity.
+           */
+          const citation = citableEvidenceFor(row.target.id)
+          /**
+           * The sentence promises what a click will record, so it may only
+           * appear where a click is possible: the owner path (`apply`), and a
+           * target where at least one person actually gave a number. A round in
+           * which everyone declined renders no buttons, and a promise about a
+           * change nobody can make is the same over-claiming this slice exists
+           * to end, one sentence up.
+           */
+          const canApply =
+            apply !== undefined && row.responses.some((r) => r.value !== null)
+          return (
           <section key={row.target.id} data-testid={`reveal-target-${row.target.id}`} className={`${CARD} mt-6`}>
             {/* The owner's own words for this target. A heading that read
                 `factor-churn-risk` would obscure exactly what this view exists to
@@ -1120,6 +1144,33 @@ export function RevealBody({
                 The model held {row.model_value_at_version} for this when the round opened.
               </p>
             )}
+            {/* ⭐ THE CITATION, DISCLOSED BEFORE THE CLICK — ONE SENTENCE PER
+                TARGET, WHICH IS THE GRAIN OF THE FACT IT STATES.
+
+                ⚠ IT SAT INSIDE `row.responses.map()` AND RENDERED ONCE PER
+                ANSWER. Its key and its data are per TARGET, so two people
+                answering produced the same sentence twice under a DUPLICATE
+                testid — and `getByTestId` throws on a duplicate, so the defect
+                was a hard failure rather than a cosmetic one. It survived
+                because every case in the corpus had a single response, while
+                the same file's disagreement fixture declared
+                `answering_participants: 2`. A reveal exists BECAUSE people
+                disagree: one answerer is the degenerate case, and the corpus
+                was built entirely out of it.
+
+                What the model will record, named on screen, so the owner
+                consents to a stated fact instead of having one inferred for
+                them. Absent ⇒ nothing is claimed and nothing is promised. */}
+            {canApply && citation !== null && (
+              <p
+                data-testid={`reveal-apply-citation-${row.target.id}`}
+                className={`${typography.bodySmall} mt-3 text-text-light`}
+              >
+                Your model will record {citation.author_label}&rsquo;s{' '}
+                {citation.kind === 'link' ? 'link' : 'note'} as the reason for this change.
+              </p>
+            )}
+
             <ul className="mt-4 space-y-3">
               {row.responses.map((r) => (
                 <li
@@ -1159,28 +1210,6 @@ export function RevealBody({
                           the minority position is never retired. */}
                       {apply !== undefined && r.value !== null && (
                         <div className="mt-3">
-                          {/* ⭐ THE CITATION, DISCLOSED BEFORE THE CLICK.
-                              What the model will record as the reason, named on
-                              screen, so the owner consents to a stated fact
-                              instead of having one inferred for them. Rendered
-                              only when `citableEvidenceFor` found exactly one
-                              piece of evidence — the same condition that decides
-                              whether the claim is sent, so the sentence and the
-                              wire can never disagree. Absent ⇒ nothing is
-                              claimed and nothing is promised. */}
-                          {citableEvidenceFor(row.target.id) !== null && (
-                            <p
-                              data-testid={`reveal-apply-citation-${row.target.id}`}
-                              className={`${typography.bodySmall} mb-2 text-text-light`}
-                            >
-                              Your model will record{' '}
-                              {citableEvidenceFor(row.target.id)?.author_label}&rsquo;s{' '}
-                              {citableEvidenceFor(row.target.id)?.kind === 'link'
-                                ? 'link'
-                                : 'note'}{' '}
-                              as the reason for this change.
-                            </p>
-                          )}
                           <button
                             type="button"
                             data-testid={`reveal-apply-${row.target.id}-${r.participant_id}`}
@@ -1195,15 +1224,13 @@ export function RevealBody({
                                 // any difference, so a display-rounded value here
                                 // would refuse every apply.
                                 value: r.value as number,
-                                // ⭐ Derived from the SAME call that decided the
-                                // disclosure above. Not a second computation:
-                                // two expressions of one rule is how a screen
-                                // and a wire start telling different stories.
-                                ...(citableEvidenceFor(row.target.id) !== null
-                                  ? {
-                                      evidenceEventId: citableEvidenceFor(row.target.id)
-                                        ?.event_id,
-                                    }
+                                // ⭐ THE SAME BINDING the sentence above reads —
+                                // one evaluation per target, not a second
+                                // expression of the same rule. Two expressions
+                                // is how a screen and a wire start telling
+                                // different stories.
+                                ...(citation !== null
+                                  ? { evidenceEventId: citation.event_id }
                                   : {}),
                               })
                             }
@@ -1293,7 +1320,8 @@ export function RevealBody({
               </p>
             )}
           </section>
-        ))}
+          )
+        })}
 
         {/* ⭐ WHERE YOU DIFFER, and why. The reveal above answers "what did
             everyone say?"; this answers "where do you differ, on what basis,
