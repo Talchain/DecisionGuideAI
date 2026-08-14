@@ -25,6 +25,7 @@ import { EXAMPLE_BRIEF_CHIPS } from '../../constants/validation'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import { useConversation } from '../conversation/useConversation'
 import { useGraphEditEvents } from '../conversation/useGraphEditEvents'
+import { usePanelApplyDrain } from '../conversation/usePanelApplyDrain'
 import { useAnalysisCompleteEvent } from '../conversation/useAnalysisCompleteEvent'
 // useSessionResumeEvent disabled — session_resume not in CEE v3 schema
 // import { useSessionResumeEvent } from '../conversation/useSessionResumeEvent'
@@ -130,6 +131,15 @@ export function DraftChat() {
   const hasGraph = nodeCount > 0 || edgeCount > 0
   // Task 2: Watch for full_draft signal (set by useConversation when ≥3 nodes added at once)
   const fullDraftAppliedAt = useDraftStore(s => s.fullDraftAppliedAt)
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  // Read through `getState()` rather than a subscribing selector: this is a
+  // point lookup performed once when an intent drains, and subscribing to the
+  // whole node array here would re-render the chat on every graph change.
+  const lookupNodeDataForApply = useCallback(
+    (targetId: string): unknown =>
+      useCanvasStore.getState().nodes.find((n) => n.id === targetId)?.data,
+    [],
+  )
 
 
   // A.5+ Conversation mode (feature-flagged)
@@ -138,6 +148,17 @@ export function DraftChat() {
   // A.5+ Phase 2: Wire system event hooks (all no-ops when flag is OFF)
   useGraphEditEvents(conversation.sendSystemEvent)
   useAnalysisCompleteEvent()
+  // COLLAB 0.40.0 — drain a panel-apply intent recorded on `/scenario/:id/panel`.
+  // It is hosted HERE, beside its two sibling system-event hooks, because this is
+  // where the conversation context and the canvas store are both already in
+  // scope. The panel page cannot send a turn (it renders outside the provider),
+  // so it records an intent and this drains it through the ONE real sender —
+  // rather than the panel page growing a second turn transport.
+  usePanelApplyDrain({
+    scenarioId: currentScenarioId ?? undefined,
+    lookupNodeData: lookupNodeDataForApply,
+    sendSystemEvent: conversation.sendSystemEvent,
+  })
   // session_resume is not in CEE v3 schema (CEE_V3_KNOWN_TYPES) — disabled
   // until CEE adds support. Re-enable when session_resume is accepted by CEE.
   // useSessionResumeEvent(conversation.sendSystemEvent, conversation.messages)
