@@ -69,6 +69,7 @@ import { useDraftStore } from './stores/draftStore'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
+import type { GroundedUnresolved } from '../v5/groundedSelection'
 import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
 import {
   isSelfLoop,
@@ -619,6 +620,24 @@ interface CanvasState {
     edgeIds: Set<string>
     nodeIds: Set<string>
   }
+  /**
+   * SELECTION-AWARE ANSWERING (hop 4b) — which model elements the LAST
+   * answer was grounded on, read off CEE's `_grounded_selection` sidecar.
+   *
+   * This is the AI's attention, and it is deliberately NOT the user's
+   * selection: `selection` is the user's pointer and nothing here may move
+   * it. The two are usually the same set and will diverge (an unresolved id,
+   * or a follow-up turn taken after the user clicked elsewhere).
+   *
+   * `unresolved` is `null` when the last turn was not grounded on anything —
+   * distinct from `'none'`, which means it WAS grounded and everything the
+   * user pointed at resolved. Collapsing those two would make an ordinary
+   * conversational turn indistinguishable from a fully-resolved grounded one.
+   */
+  groundedFocus: {
+    nodeIds: Set<string>
+    unresolved: GroundedUnresolved | null
+  }
   dimmedNodeIds: Set<string>
   /** 6A (selection focus): edges NOT in the selected element's neighbourhood.
    * Peer of dimmedNodeIds — same producer (usePathHighlight), same lifetime,
@@ -968,6 +987,19 @@ interface CanvasState {
   /** Analysis-graph projection: clear all projection marks. No-op (no state
    * write, no Set-identity churn) when nothing is currently projected. */
   clearAnalysisHighlight: () => void
+  /**
+   * SELECTION-AWARE ANSWERING (hop 4b): record what the last answer was
+   * grounded on, and mark those nodes on the canvas. Pass `null` for a turn
+   * that was not grounded — that CLEARS the marks it previously owned.
+   *
+   * ⭐ THIS ACTION IS THE SINGLE AUTHORITY FOR THE GROUNDED MARKS, and that is
+   * why it performs the `highlightedNodes` write itself rather than leaving it
+   * to a caller. Two writers for one visual state is how a canvas comes to
+   * disagree with itself.
+   */
+  setGroundedFocus: (
+    grounded: { nodeIds: readonly string[]; unresolved: GroundedUnresolved } | null,
+  ) => void
   setDimmedNodes: (ids: string[]) => void
   /** 6A: replace the selection-dimmed edge set. Same idiom as setDimmedNodes. */
   setDimmedEdges: (ids: string[]) => void
@@ -1744,6 +1776,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   highlightedNodes: new Set<string>(),
   highlightedEdges: new Set<string>(),
   analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() },
+  // Hop 4b: `null` unresolved = no answer has been grounded on a selection yet.
+  groundedFocus: { nodeIds: new Set<string>(), unresolved: null },
   dimmedNodeIds: new Set<string>(),
   dimmedEdgeIds: new Set<string>(),
   focusDimSourceId: null,
@@ -4847,6 +4881,43 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // identity and needlessly re-run every edge/node projection selector.
     if (cur.source === null && cur.edgeIds.size === 0 && cur.nodeIds.size === 0) return
     set({ analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() } })
+  },
+  // SELECTION-AWARE ANSWERING (hop 4b). Two writes, one action, because they
+  // are one fact: "this answer is about these elements".
+  //
+  // ⚠ THE MARKS RIDE `highlightedNodes` DELIBERATELY, AND NOTHING WRITES
+  // `highlightedEdges`. `highlightedNodes` is already this canvas's "the AI is
+  // talking about this" channel (`appliedEditPulse`, the `ui_directive`
+  // highlight verb) and BaseNode already renders it as `ai-highlight-pulse` —
+  // so reusing it is the spec's instruction, not a shortcut: a second emphasis
+  // style on one canvas is a worse outcome than none. `highlightedEdges` is a
+  // different matter entirely: FocusModeChip renders "Showing paths from X to
+  // goal" on `highlightedEdges.size > 0` alone, so writing it for a grounding
+  // that involves no path would make the chip state something untrue. That is
+  // #694's neighbourhood-focus precedent applied here — prominence comes from
+  // the node marks, never from claiming a path.
+  //
+  // OWNERSHIP ON CLEAR: `highlightedNodes` has other, transient writers (the
+  // applied-edit pulse, panel hover sync). Clearing only when this slice
+  // currently holds a non-empty set means an ungrounded turn cannot wipe a
+  // pulse it never owned.
+  setGroundedFocus: (grounded) => {
+    if (grounded === null) {
+      const prev = get().groundedFocus
+      if (prev.unresolved === null && prev.nodeIds.size === 0) return
+      set({
+        groundedFocus: { nodeIds: new Set<string>(), unresolved: null },
+        ...(prev.nodeIds.size > 0 ? { highlightedNodes: new Set<string>() } : {}),
+      })
+      return
+    }
+    set({
+      groundedFocus: {
+        nodeIds: new Set(grounded.nodeIds),
+        unresolved: grounded.unresolved,
+      },
+      highlightedNodes: new Set(grounded.nodeIds),
+    })
   },
   setDimmedNodes: (ids: string[]) => {
     set({ dimmedNodeIds: new Set(ids) })

@@ -93,6 +93,7 @@ import { DocumentsManager } from './components/DocumentsManager'
 import { ProvenanceHubTab } from './components/ProvenanceHubTab'
 import { ConnectPrompt } from './components/ConnectPrompt'
 import { FocusModeChip } from './components/FocusModeChip'
+import { GroundedFocusNotice } from './components/GroundedFocusNotice'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
 import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
@@ -2154,6 +2155,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         style={{ top: 'calc(var(--topbar-h, 0px) + 1rem)' }}
       >
         <FocusModeChip />
+        {/* Hop 4b: the "I couldn't read your model" notice. Shares the chip
+            rail deliberately — it is the same class of transient, canvas-level
+            status, and the two are mutually exclusive in practice (a grounded
+            turn whose model could not be read has no path highlighting).
+            Renders nothing for every other grounding state. */}
+        <GroundedFocusNotice />
       </div>
 
       {/* Influence Explainer - shown when triggered from TopBar dropdown */}

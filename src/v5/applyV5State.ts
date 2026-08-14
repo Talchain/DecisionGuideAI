@@ -51,6 +51,7 @@ import type { CEEAnalysisReady, CEEGoalConstraint } from '../adapters/cee/types'
 import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
+import { readGroundedSelection, type GroundedUnresolved } from './groundedSelection'
 import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
 import { focusNodeById, focusEdgeById } from '../canvas/utils/focusHelpers'
 import {
@@ -141,6 +142,12 @@ export interface V5ApplicatorStore {
   setAnalysisFreshness?: (rawAnalysisReady: unknown) => void
   /** Optional (ROADMAP 2.1163 / EXT-2): set or clear CEE's typed analysis-refusal notice. Pass null to clear. */
   setAnalysisRefusalNotice?: (notice: AnalysisRefusalNotice | null) => void
+  /** Optional (hop 4b): record which elements THIS answer was grounded on, so
+   *  the canvas can mark them. Pass null for an ungrounded turn — that clears
+   *  the previous grounding. */
+  setGroundedFocus?: (
+    grounded: { nodeIds: readonly string[]; unresolved: GroundedUnresolved } | null,
+  ) => void
   /** Optional: clear the local dirty overlay when a genuinely new analysis run completes (new analysis_result response_hash). */
   clearAnalysisFreshnessDirty?: () => void
   /** Optional (F10): a genuinely new analysis_result landed with NO explicit
@@ -1052,6 +1059,24 @@ export function applyV5State(
   // completed analysis_result CLEARS it, and only a blocked carrier bearing a
   // non-empty blocked_reason SETS it. The legacy freshness-only blocked carrier
   // (no blocked_reason) sets nothing — see analysisRefusalNotice.ts.
+  // ── SELECTION-AWARE ANSWERING (hop 4b) — the grounded-focus READER ──────
+  //
+  // ⚠ THIS BLOCK IS THE WIRE. `readGroundedSelection` and the store action can
+  // both be fully green while the capability is DARK if this call is missing —
+  // a defended pure function with a dark call site is this estate's chronic
+  // failure #1. Neutering it MUST turn the end-to-end spec red.
+  //
+  // UNCONDITIONAL, and that is the point: this runs on EVERY turn, including
+  // the ones with no grounding, because `null` is what clears the previous
+  // answer's marks. If it only ran when a sidecar was present, the canvas
+  // would keep pointing at the element an OLD answer was about while the user
+  // read a new one — stale attention, which is worse than none.
+  //
+  // Placed with the other per-turn envelope reads and AFTER the stale-turn
+  // guard at the top of this function, so a superseded response cannot
+  // resurrect its grounding over a newer turn's.
+  store.setGroundedFocus?.(readGroundedSelection(response))
+
   const refusalUpdate = deriveAnalysisRefusalNoticeUpdate(response)
   if (refusalUpdate.kind === 'set') {
     store.setAnalysisRefusalNotice?.(refusalUpdate.notice)
