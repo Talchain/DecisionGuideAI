@@ -80,14 +80,43 @@ function target(overrides: Partial<DisagreementTarget> = {}): DisagreementTarget
   }
 }
 
-const view = (t: DisagreementTarget = target()): DisagreementView => ({
+const view = (
+  t: DisagreementTarget = target(),
+  overrides: Partial<DisagreementView> = {},
+): DisagreementView => ({
   round_id: 'round-1',
   graph_version_ref: 'mv-1',
+  standing_note: 'SERVED-STANDING-NOTE-SENTINEL',
   per_target: [t],
+  ...overrides,
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
+})
+
+describe('the standing sentence is served, never composed here', () => {
+  it('renders the served standing note verbatim', () => {
+    render(<DisagreementBody view={view()} />)
+    expect(screen.getByTestId('disagreement-standing-note')).toHaveTextContent(
+      'SERVED-STANDING-NOTE-SENTINEL',
+    )
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATING HALF, and the one that matters. This component used
+   * to hand-write this sentence, so "renders something" is exactly the assertion
+   * that would have passed on the defect. Absent must mean ABSENT: a local
+   * fallback would silently reinstate the second authority the served field was
+   * introduced to remove, and every other test here would still pass.
+   */
+  it('renders NO standing sentence at all when the server sent none', () => {
+    render(<DisagreementBody view={view(target(), { standing_note: null })} />)
+    expect(screen.queryByTestId('disagreement-standing-note')).toBeNull()
+    // Bound to the retired wording specifically: if anyone re-introduces the
+    // old local copy as a fallback, this is what catches it.
+    expect(screen.queryByText(/are not combined into a single number/i)).toBeNull()
+  })
 })
 
 describe('the reasoning copy is rendered, never composed', () => {

@@ -155,6 +155,19 @@ export interface DisagreementTarget {
 export interface DisagreementView {
   round_id: string
   graph_version_ref: string
+  /**
+   * ⭐ CEE'S STANDING SENTENCE about what this surface is, served rather than
+   * worded here — same rule as `headline` and `question`, and for the same
+   * reason: the copy guard lives in CEE, so a sentence composed in this bundle
+   * sits outside it. This one WAS composed here until the mount landed.
+   *
+   * ⚠ `null` IS A REAL STATE AND IS NOT AN ERROR. The two services deploy
+   * independently, so a UI that ships ahead of its CEE will receive a payload
+   * with no such member. The honest rendering of an absent sentence is no
+   * sentence — never a local fallback, which would silently reinstate exactly
+   * the second authority this field exists to remove.
+   */
+  standing_note: string | null
   per_target: DisagreementTarget[]
 }
 
