@@ -23,6 +23,7 @@ import { useCanvasStore } from '../../store'
 import { typography } from '@/styles/typography'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { provenanceToPill } from './provenanceUtils'
+import { resolveReviewSource } from './utils/isReviewedByUser'
 import type { CEEProvenance } from '../../../adapters/cee/types'
 
 export function WhatOlumiAddedSection() {
@@ -35,6 +36,21 @@ export function WhatOlumiAddedSection() {
     for (const n of nodes) {
       const data = n.data as { provenance?: CEEProvenance } | undefined
       if (data?.provenance) map.set(n.id, data.provenance)
+    }
+    return map
+  }, [nodes])
+
+  // `observed_state.source`, resolved through the CANONICAL chain rather than a
+  // re-typed `??` ladder — `resolveReviewSource` is the same resolver
+  // `isReviewedByUser` walks, so this pill can never disagree with the predicate
+  // about which source a node carries (trap 12: a second copy would drift).
+  // Needed because CEE stamps `node.provenance = 'user_set'` on a panel apply
+  // too, and that alone would render a colleague's number as "Set by you".
+  const sourceById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const n of nodes) {
+      const src = resolveReviewSource(n)
+      if (src) map.set(n.id, src)
     }
     return map
   }, [nodes])
@@ -84,7 +100,10 @@ export function WhatOlumiAddedSection() {
             data-testid="what-olumi-added-body"
           >
             {items.map((item) => {
-              const pill = provenanceToPill(provenanceById.get(item.nodeId))
+              const pill = provenanceToPill(
+                provenanceById.get(item.nodeId),
+                sourceById.get(item.nodeId),
+              )
               return (
                 <div
                   key={item.nodeId}

@@ -915,9 +915,19 @@ export function RevealBody({
               </p>
             )}
 
-            {/* The consequence sentence, and the reason it names the OTHER
-                people: applying Grace's number must not read as the panel
-                having agreed on it. */}
+            {/* The consequence sentence, and TWO things about its tense.
+
+                It is PRESENT-CONTINUOUS ("is being applied"), not past ("now
+                uses"), because at the moment it renders NOTHING HAS BEEN
+                APPLIED: this page records an intent and the canvas sends the
+                turn after navigation. The past tense asserted a completed model
+                change that had not happened and might still be refused — CEE
+                verifies the claim and can reject it. A confirmation that
+                out-runs its own effect is the defect class this slice exists to
+                end, wearing a friendlier sentence.
+
+                And it names the OTHER people, because applying Grace's number
+                must never read as the panel having agreed on it. */}
             {apply?.appliedKey?.startsWith(`${row.target.id}:`) === true && (
               <p
                 role="status"
@@ -933,11 +943,12 @@ export function RevealBody({
                   const label = row.label !== '' ? row.label : row.target.id
                   const head =
                     applied === undefined
-                      ? `Your model has been updated for \u201c${label}\u201d.`
-                      : `Your model now uses ${applied.display_label}\u2019s ${applied.value} for \u201c${label}\u201d.`
-                  if (others.length === 0) return head
+                      ? `Your model is being updated for \u201c${label}\u201d.`
+                      : `${applied.display_label}\u2019s ${applied.value} is being applied to \u201c${label}\u201d in your model.`
+                  const tail = ' Open your model to see it.'
+                  if (others.length === 0) return `${head}${tail}`
                   const names = others.map((o) => `${o.display_label}\u2019s ${o.value}`).join(', ')
-                  return `${head} ${names} ${others.length === 1 ? 'is' : 'are'} still recorded below.`
+                  return `${head} ${names} ${others.length === 1 ? 'is' : 'are'} still recorded below.${tail}`
                 })()}
               </p>
             )}

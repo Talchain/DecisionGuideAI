@@ -85,7 +85,7 @@ export const BADGE_TOOLTIPS: Record<string, string> = {
  * change the analysis today (that is the compute slice, S4) and the copy must
  * not imply it does.
  */
-const USER_OWNED_LABEL: Record<ValueProvenanceKind, string | null> = {
+const ATTRIBUTED_LABEL: Record<ValueProvenanceKind, string | null> = {
   confirmed: 'Confirmed by you',
   edited: 'Set by you',
   assumption: 'Your assumption',
@@ -93,28 +93,49 @@ const USER_OWNED_LABEL: Record<ValueProvenanceKind, string | null> = {
   // Producer kinds keep each function's own pre-existing copy — see below.
   brief: null,
   ai: null,
-  // 0.40.0 — NULL, and this is a judgement, not an omission. `userOwnedLabelFor`
-  // returns null before it ever reads this map for a non-user-owned kind, so the
-  // value is unreachable; but the honest value is null either way, because a
-  // panel value is NOT the reader's own work and must never be labelled "Set by
-  // you". That first-person copy on somebody else's estimate IS the attribution
-  // untruth this slice exists to end. The panel's own sentence — which NAMES the
-  // person — is composed by `panelAttributionLine`, from round data, at render.
-  panel: null,
+  // 0.40.0 — a named colleague's panel answer, applied by the owner.
+  //
+  // ⚠ NOT `null`, AND THE FIRST VERSION OF THIS LINE WAS `null` AND WAS WRONG.
+  // The reasoning was that `panel` is not `userOwned`, so the lookup would never
+  // be reached — which was true of the lookup and false of the OUTCOME: the
+  // caller fell straight through to its default arm and
+  // `getExtractionLabel('panel_elicited')` returned **"Estimated by Olumi"**.
+  // The machine claiming authorship of a named colleague's number, on three
+  // unflagged inspector panels. That is the SAME defect this file's header
+  // records for `user_confirmed`, reintroduced by the very slice written to end
+  // it. Totality bought a type error, not an answer — the compiler was satisfied
+  // by `null` and the copy was a lie.
+  //
+  // No name here, per D1: only `participant_id` is persisted, so a name on this
+  // surface could not be reached by the R-2 redaction routine. The named
+  // sentence belongs on the reveal, which re-derives it from round data.
+  panel: 'From your panel',
 }
 
-/** The user-owned label for a source, or null when the producer owns it. */
-function userOwnedLabelFor(source: string): string | null {
+/**
+ * The attribution label for a source, or null when the producer owns it and the
+ * caller's own default copy should apply.
+ *
+ * ⚠ THE GATE IS "DOES THIS KIND CARRY AN ATTRIBUTION", NOT "IS IT USER-OWNED".
+ * It used to be `if (!cls?.userOwned) return null`, which silently routed every
+ * non-user-owned kind to the caller's default — fine for `brief`/`ai`, whose
+ * defaults ARE their copy, and a falsehood for `panel`, whose value belongs to
+ * a third person who is neither the reader nor the machine. Keying on the map's
+ * own null-ness is behaviour-identical for all six pre-existing kinds (the four
+ * user-owned ones are non-null, `brief` and `ai` are null) and is the only
+ * version that can answer for a kind that is attributed to somebody else.
+ */
+function attributedLabelFor(source: string): string | null {
   const cls = classifyValueProvenance(source)
-  if (!cls?.userOwned) return null
-  return USER_OWNED_LABEL[cls.kind]
+  if (!cls) return null
+  return ATTRIBUTED_LABEL[cls.kind]
 }
 
 // ─── Provenance labels (spec §3.4) ────────────────────────────────
 export function getProvenanceLabel(source?: string): string {
   if (!source) return 'No evidence yet'
-  const userOwned = userOwnedLabelFor(source)
-  if (userOwned) return userOwned
+  const attributed = attributedLabelFor(source)
+  if (attributed) return attributed
   switch (source) {
     case 'brief_extraction': return 'Generated from your brief'
     case 'explicit':         return 'From your brief'
@@ -130,8 +151,8 @@ export function getProvenanceLabel(source?: string): string {
 /** Extraction type user-facing labels */
 export function getExtractionLabel(source?: string): string {
   if (!source) return 'Estimated by Olumi'
-  const userOwned = userOwnedLabelFor(source)
-  if (userOwned) return userOwned
+  const attributed = attributedLabelFor(source)
+  if (attributed) return attributed
   switch (source) {
     case 'brief_extraction': return 'From your brief'
     default:                 return 'Estimated by Olumi'
