@@ -61,24 +61,42 @@ const NOTICE_TEXT = 'Opened by Olumi'
 export function AssistantOpenedNotice() {
   const origin = useUIStore((s) => s.outputSurfaceOrigin)
   const seq = useUIStore((s) => s.outputSurfaceOriginSeq)
+  const stampedAt = useUIStore((s) => s.outputSurfaceOriginAt)
   // Dismissal is keyed to the GESTURE, not to the component: a later gesture is
   // a new fact and re-raises the notice (spec CLEAR-4).
   const [dismissedSeq, setDismissedSeq] = useState<number | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const showing = origin === 'assistant' && dismissedSeq !== seq
+  // How much of the window is LEFT, derived from the stamp rather than from
+  // however long this component happens to have been mounted. On a remount the
+  // notice therefore inherits the remainder instead of restarting the window —
+  // and a stamp older than the window is already over, so it never shows at all.
+  const elapsed = stampedAt === null ? 0 : Date.now() - stampedAt
+  const remaining = Math.max(0, ASSISTANT_OPENED_NOTICE_MS - elapsed)
+  const expired = stampedAt !== null && remaining === 0
+
+  const showing = origin === 'assistant' && !expired && dismissedSeq !== seq
+
+  // A stamp found already-expired at mount is swept, so the store does not keep
+  // a dead flag around for something else to read as live.
+  useEffect(() => {
+    if (origin === 'assistant' && expired) {
+      useUIStore.getState().clearOutputSurfaceOrigin()
+    }
+  }, [origin, expired])
 
   useEffect(() => {
     if (!showing) return
     timerRef.current = setTimeout(() => {
       useUIStore.getState().clearOutputSurfaceOrigin()
-    }, ASSISTANT_OPENED_NOTICE_MS)
+    }, remaining)
     return () => {
       if (timerRef.current !== null) clearTimeout(timerRef.current)
       timerRef.current = null
     }
-    // Re-armed per gesture: a second directive restarts the window rather than
-    // inheriting the remainder of the first one's.
+    // Keyed to the gesture, not to `remaining` (which changes on every render):
+    // a second directive restarts the window, a re-render does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showing, seq])
 
   if (!showing) return null

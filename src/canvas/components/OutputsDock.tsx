@@ -1767,6 +1767,19 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // anything to localStorage, so returning users still get the rail on
     // a fresh empty canvas).
     userExplicitlyOpenedRailRef.current = true
+    // ROADMAP 2.1132 — the user working the dock's own open/close control is
+    // the same "this is mine" signal `setActiveOutputTab` already honours, so
+    // it spends the assistant's attribution outright.
+    //
+    // ⚠ THIS LINE IS LOAD-BEARING AND ITS ABSENCE WAS A SHIPPED LIE. The
+    // notice mounts under `{effectiveIsOpen && …}`, so a collapse UNMOUNTS it
+    // and the effect cleanup kills the 8s timeout — but the STORE STAMP
+    // survived, with nothing left alive to clear it. The stamp then outlived
+    // its own window indefinitely, and the next expand — performed BY THE
+    // USER — re-mounted a notice saying "Opened by Olumi". Clearing the flag
+    // here is what makes `uiStore`'s "NOT A LATCH" doctrine true on this path
+    // as well as on the tab-click path. Pinned by UNMOUNT-1 / UNMOUNT-2.
+    useUIStore.getState().clearOutputSurfaceOrigin()
     setState(prev => {
       const nextIsOpen = nextVisible
       // Keep showResultsPanel in sync primarily for highlighting & telemetry when

@@ -491,6 +491,95 @@ describe('ROADMAP 2.1132 — the assistant attributes the panel gestures it actu
     expect(screen.getByTestId('assistant-opened-notice')).toBeInTheDocument()
   })
 
+  // ── THE STAMP MUST NOT SURVIVE AN UNMOUNT (review FIX-FIRST, 14 Aug 2026) ──
+  //
+  // My own harvest report called this "honest and left alone". It is NOT
+  // honest, and the reviewer proved it by execution. `toggleOpen`
+  // (OutputsDock.tsx) never touches uiStore — it only flips local `isOpen`.
+  // Because the notice is mounted under `{effectiveIsOpen && …}`, collapsing
+  // the dock UNMOUNTS it, and the effect cleanup kills the 8s timeout WITHOUT
+  // clearing the store stamp. The stamp then outlives its own window
+  // indefinitely, and the next time the dock is opened — BY THE USER — the
+  // notice claims Olumi opened it.
+  //
+  // The invariant was already written down, in this feature's own store
+  // doctrine (`uiStore.ts`: "NOT A LATCH … a provenance flag that outlives the
+  // fact tells the user Olumi opened something they opened themselves"). The
+  // enumeration beneath it simply omitted the unmount path. A stated invariant
+  // with an incomplete clearing list is exactly trap 22's shape: the rule was
+  // right, its BREADTH was never checked.
+
+  it('UNMOUNT-1: collapsing the dock and re-expanding it shows NO notice (the user opened that)', () => {
+    renderDock()
+    driveDirective(openPanelEnvelope('diagnostics'))
+    expect(screen.getByTestId('assistant-opened-notice')).toBeInTheDocument()
+
+    // The user collapses the dock — their action, their dock.
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse outputs dock' }))
+    expect(notice()).not.toBeInTheDocument()
+
+    // …and re-expands it THEMSELVES.
+    fireEvent.click(screen.getByRole('button', { name: 'Expand outputs dock' }))
+    expect(notice()).not.toBeInTheDocument()
+  })
+
+  it('UNMOUNT-2: the stamp does not outlive its own transient window while the dock is collapsed', () => {
+    // The reviewer's PROBE-B: origin still 'assistant' long after the window
+    // should have expired, because the only thing that clears it died with the
+    // component. Bound to the STORE, because that is where the lie is stored.
+    renderDock()
+    driveDirective(openPanelEnvelope('diagnostics'))
+    expect(useUIStore.getState().outputSurfaceOrigin).toBe('assistant')
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse outputs dock' }))
+    expect(useUIStore.getState().outputSurfaceOrigin).toBeNull()
+  })
+
+  it('UNMOUNT-3: a stamp older than its window never shows again, on any remount path', () => {
+    // The residual I found by probing AFTER the reviewer's fix landed: a full
+    // unmount/remount (leaving the canvas and coming back) calls no
+    // `toggleOpen`, so the toggleOpen clear cannot reach it. Measured at that
+    // point: `outputSurfaceOrigin` read 'assistant' after the component was
+    // gone, and the notice REAPPEARED on remount. Same lie, different door.
+    //
+    // The window is now derived from the stamp's timestamp, so it expires on
+    // schedule whatever is or is not mounted.
+    vi.useFakeTimers()
+    const view = renderDock()
+    driveDirective(openPanelEnvelope('diagnostics'))
+    expect(screen.getByTestId('assistant-opened-notice')).toBeInTheDocument()
+
+    // Leave the canvas entirely — nothing calls toggleOpen.
+    view.unmount()
+    // Time passes with NOTHING mounted: no component, so no live timer.
+    act(() => {
+      vi.advanceTimersByTime(9000)
+    })
+    // Come back.
+    renderDock()
+    expect(notice()).not.toBeInTheDocument()
+    expect(useUIStore.getState().outputSurfaceOrigin).toBeNull()
+  })
+
+  it('UNMOUNT-4: a remount INSIDE the window inherits the remainder rather than restarting it', () => {
+    // The other half of deriving the window: a remount must not hand the user
+    // a fresh 8 seconds it has not earned.
+    vi.useFakeTimers()
+    const view = renderDock()
+    driveDirective(openPanelEnvelope('diagnostics'))
+    act(() => {
+      vi.advanceTimersByTime(6000)
+    })
+    view.unmount()
+    renderDock()
+    // 2s of the window remain, so it is still up…
+    expect(screen.getByTestId('assistant-opened-notice')).toBeInTheDocument()
+    // …and it expires on the ORIGINAL schedule, not 8s from the remount.
+    act(() => {
+      vi.advanceTimersByTime(2500)
+    })
+    expect(notice()).not.toBeInTheDocument()
+  })
+
   // ── IT MUST NOT GET IN THE WAY ──────────────────────────────────────────────
 
   it('NONBLOCKING-1: the notice never takes focus, and announces politely', () => {

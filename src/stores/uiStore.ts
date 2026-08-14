@@ -141,6 +141,20 @@ export interface UIStoreState {
    * repeat of the dismissed one.
    */
   outputSurfaceOriginSeq: number
+  /**
+   * When the stamp was made (`Date.now()`), or null when there is no stamp.
+   *
+   * ⚠ THE WINDOW IS DERIVED FROM THIS, NOT SCHEDULED BY A TIMER — and the
+   * difference is a shipped defect, not a preference. The transient window
+   * used to live ONLY in a `setTimeout` inside the notice component, so any
+   * unmount killed the timer and left the stamp alive forever: proven by
+   * execution for a dock collapse (the reviewer's probe) and again, by me,
+   * for a plain unmount/remount, where `outputSurfaceOrigin` read
+   * `'assistant'` after the component was gone and the notice reappeared on
+   * remount. A scheduled window is a hand-maintained mirror of "has the
+   * window elapsed"; a timestamp cannot drift from it (trap 12).
+   */
+  outputSurfaceOriginAt: number | null
 }
 
 /**
@@ -253,23 +267,26 @@ export const useUIStore = create<UIStoreState & UIStoreActions>((set, get) => ({
   overlaySurfaceOrigin: null,
   outputSurfaceOrigin: null,
   outputSurfaceOriginSeq: 0,
+  outputSurfaceOriginAt: null,
 
   // A user tab choice is the strongest "this is mine" signal there is, and it
   // is the seam OutputsDock's `handleTabClick` runs. Clearing here is the
   // anti-latch guarantee (spec CLEAR-1).
-  setActiveOutputTab: (tab) => set({ activeOutputTab: tab, outputSurfaceOrigin: null }),
+  setActiveOutputTab: (tab) =>
+    set({ activeOutputTab: tab, outputSurfaceOrigin: null, outputSurfaceOriginAt: null }),
   forceActivateOutputTab: (tab, origin = 'user') =>
     set((s) => ({
       activeOutputTab: tab,
       activeOutputTabVersion: s.activeOutputTabVersion + 1,
       outputSurfaceOrigin: origin === 'assistant' ? 'assistant' : null,
+      outputSurfaceOriginAt: origin === 'assistant' ? Date.now() : null,
       // Bump ONLY on the assistant path: a user-driven force-activate is not a
       // new attributable fact, and bumping there would let a dismissed notice
       // reappear on a Dock-back the user performed themselves.
       outputSurfaceOriginSeq:
         origin === 'assistant' ? s.outputSurfaceOriginSeq + 1 : s.outputSurfaceOriginSeq,
     })),
-  clearOutputSurfaceOrigin: () => set({ outputSurfaceOrigin: null }),
+  clearOutputSurfaceOrigin: () => set({ outputSurfaceOrigin: null, outputSurfaceOriginAt: null }),
   openRightPanel: (mode) => set({ activeRightPanel: mode }),
   closeRightPanel: () => set({ activeRightPanel: null }),
   requestModelTabSection: (sectionId) => set({ pendingModelTabSection: sectionId }),
