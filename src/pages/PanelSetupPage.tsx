@@ -45,11 +45,13 @@ import { Button } from '../components/ui/Button'
 import {
   CollabRequestError,
   closeRound,
+  fetchOwnerDisagreement,
   fetchOwnerReveal,
   mintRound,
   ownerSignInRequired,
   participantLink,
   type MintedRound,
+  type DisagreementView,
   type RevealView,
 } from '../collab/collabService'
 import { requireOwnerAccessToken } from '../collab/ownerAccessToken'
@@ -242,6 +244,7 @@ export default function PanelSetupPage(): JSX.Element {
   const [nameB, setNameB] = useState('')
   const [minted, setMinted] = useState<MintedRound | null>(null)
   const [reveal, setReveal] = useState<RevealView | null>(null)
+  const [disagreement, setDisagreement] = useState<DisagreementView | null>(null)
   const [failure, setFailure] = useState<OwnerFailure | null>(null)
   const [busyAction, setBusyAction] = useState<OwnerAction | null>(null)
   const [copiedIds, setCopiedIds] = useState<ReadonlySet<string>>(() => new Set())
@@ -326,6 +329,14 @@ export default function PanelSetupPage(): JSX.Element {
           }
         }
         setReveal(await fetchOwnerReveal(accessToken, roundId))
+        // The disagreement view: a SECOND request, and secondary. Its failure
+        // is swallowed to null so that an older CEE or a transient 5xx cannot
+        // cost the owner the reveal they just closed the round to see.
+        try {
+          setDisagreement(await fetchOwnerDisagreement(accessToken, roundId))
+        } catch {
+          setDisagreement(null)
+        }
         // Forget ONLY the round we actually closed. The stored record is
         // latest-wins: a second tab minting R2 overwrites R1's record, so an
         // UNCONDITIONAL forget here — reached from tab A still closing R1 —
@@ -447,7 +458,7 @@ export default function PanelSetupPage(): JSX.Element {
   if (reveal !== null) {
     return (
       <>
-        <RevealBody reveal={reveal} apply={applyState} />
+        <RevealBody reveal={reveal} apply={applyState} disagreement={disagreement} />
         <div className="mx-auto w-full max-w-[820px] px-4 pb-10 sm:px-6">
           <Link
             to={`#/scenario/${scenarioId ?? ''}`}

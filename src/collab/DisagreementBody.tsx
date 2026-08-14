@@ -214,10 +214,20 @@ export function DisagreementBody({ view }: { view: DisagreementView }): JSX.Elem
   return (
     <div data-testid="collab-disagreement">
       <h1 className={`${typography.h2} text-text-header`}>Where you differ</h1>
-      <p className={`${typography.body} mt-3 text-text-body`}>
-        These are the positions as they were given, with the reasons each person stated. They
-        are shown side by side and are not combined into a single number.
-      </p>
+      {/* ⭐ CEE'S WORDS, VERBATIM — and this paragraph is the reason the rule at
+          the top of this file needed enforcing rather than stating. It used to
+          be written HERE, which put the one sentence promising that nothing is
+          combined outside the guard that proves nothing is combined.
+
+          ⚠ Rendered only when the server sent one. There is deliberately NO
+          fallback string: a local default would be a second authority wearing
+          the clothes of resilience, and an absent sentence is honest where an
+          invented one is not. */}
+      {typeof view.standing_note === 'string' && view.standing_note !== '' && (
+        <p data-testid="disagreement-standing-note" className={`${typography.body} mt-3 text-text-body`}>
+          {view.standing_note}
+        </p>
+      )}
       {view.per_target.map((row) => (
         <TargetSection key={row.target.id} row={row} />
       ))}

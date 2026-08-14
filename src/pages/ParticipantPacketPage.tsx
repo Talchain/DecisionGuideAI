@@ -59,12 +59,17 @@ import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Lock } from 'lucide-rea
 import { BeliefElicitationField } from '../canvas/components/BeliefElicitationField'
 import { useBeliefElicitation } from '../canvas/hooks/useBeliefElicitation'
 import { Button } from '../components/ui/Button'
+import { DisagreementBody } from '../collab/DisagreementBody'
 import {
+  attachEvidence,
   CollabRequestError,
   declineTarget,
   fetchOpenPacket,
+  fetchParticipantDisagreement,
   fetchParticipantReveal,
   submitBelief,
+  type DisagreementView,
+  type EvidenceStance,
   type OpenPacket,
   type PacketTarget,
   type RevealView,
@@ -90,7 +95,16 @@ const FIELD =
 type LoadState =
   | { kind: 'loading' }
   | { kind: 'packet'; packet: OpenPacket }
-  | { kind: 'reveal'; reveal: RevealView }
+  /**
+   * ⚠ `disagreement` IS NULLABLE AND ITS ABSENCE MUST NOT COST THE REVEAL.
+   * The two views come from two requests; the reveal is the thing the
+   * participant was promised when the round closed. If the second call fails —
+   * an older CEE, a transient 5xx — the answers still render. Binding them into
+   * one state member would have made a secondary view's failure delete the
+   * primary one, which is the wrong trade in the one moment the user came back
+   * for.
+   */
+  | { kind: 'reveal'; reveal: RevealView; disagreement: DisagreementView | null }
   | { kind: 'error'; message: string; code: string; status: number }
 
 /**
@@ -238,6 +252,203 @@ function formatRecordedTime(createdAt: string | null): string | null {
 }
 
 /** One target, with its own phrase state (the field is caller-owned). */
+/**
+ * Attach evidence to one target.
+ *
+ * ── ⚠⚠ WHY THIS LIVES ON THE OPEN PACKET AND NOT ON THE DISAGREEMENT VIEW ──
+ * The obvious design — "read the positions, then attach evidence against the
+ * one you disagree with" — IS NOT BUILDABLE, and the constraint is structural
+ * rather than a matter of taste. Derived at the CEE bytes:
+ *
+ *   • `elicitation-append.ts:368` refuses every append once the round is not
+ *     `open`, so nothing can be attached after the close; and
+ *   • `packet-read-model.ts:182` refuses the reveal and the disagreement view
+ *     while the round IS open, so no position is visible before it.
+ *
+ * The two windows are disjoint. Evidence is therefore attached DURING the blind
+ * round, beside the answer it accompanies, and read AFTER it — which is also
+ * the scientifically correct order: a person who could see the others first
+ * would be attaching evidence to a position they had already been anchored by.
+ *
+ * ── AND WHY THERE IS NO "whose position" PICKER ───────────────────────────
+ * `attachEvidence` accepts `aboutParticipantId`, and this passes `null` every
+ * time — deliberately, not as a simplification. A participant cannot see the
+ * roster before the close (blindness item 4), so there is no honest way to
+ * offer the choice: any picker here would be listing people the packet does not
+ * contain. `DisagreementBody` already renders the null case as "this factor".
+ */
+function EvidenceAttach({
+  target,
+  roundId,
+}: {
+  target: PacketTarget
+  roundId: string
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [body, setBody] = useState('')
+  const [url, setUrl] = useState('')
+  const [stance, setStance] = useState<EvidenceStance>('supports')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [attached, setAttached] = useState<string[]>([])
+
+  const nothingToAttach = body.trim() === ''
+
+  const handleAttach = useCallback(async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const trimmedUrl = url.trim()
+      await attachEvidence(roundId, {
+        targetId: target.target.id,
+        targetKind: target.target.kind,
+        // A URL makes it a link; CEE refuses a note that carries one, and
+        // refuses a link that does not, so the kind is DERIVED from the field
+        // rather than offered as a second control the two could contradict.
+        kind: trimmedUrl === '' ? 'note' : 'link',
+        body: body.trim(),
+        url: trimmedUrl === '' ? null : trimmedUrl,
+        stance,
+        aboutParticipantId: null,
+      })
+      // Keep the person's own words in the confirmation: this is a record of
+      // what they contributed, and it must survive them clearing the form.
+      setAttached((prev) => [...prev, body.trim()])
+      setBody('')
+      setUrl('')
+      setOpen(false)
+    } catch (err) {
+      setError(
+        err instanceof CollabRequestError ? err.message : 'That did not attach. Please try again.',
+      )
+    } finally {
+      setBusy(false)
+    }
+  }, [roundId, target, body, url, stance])
+
+  return (
+    <div className="mt-5 border-t border-panel-border pt-4">
+      {attached.map((words, i) => (
+        <p
+          key={`${words}-${i}`}
+          data-testid={`packet-evidence-attached-${target.target.id}`}
+          className={`${typography.bodySmall} mb-3 flex gap-2 text-text-body`}
+        >
+          <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none text-success" aria-hidden="true" />
+          <span>
+            Attached: &ldquo;{words}&rdquo; — everyone will see this when the round closes.
+          </span>
+        </p>
+      ))}
+
+      {!open ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          data-testid={`packet-evidence-open-${target.target.id}`}
+          onClick={() => setOpen(true)}
+        >
+          Attach evidence
+        </Button>
+      ) : (
+        <div data-testid={`packet-evidence-form-${target.target.id}`}>
+          <label
+            htmlFor={`evidence-body-${target.target.id}`}
+            className={`${typography.label} block text-text-header`}
+          >
+            What is the evidence?
+          </label>
+          <p className={`${typography.bodySmall} mt-1 text-text-light`}>
+            In your own words. It stays private until the round closes, then it is shown beside
+            the answers, attributed to you.
+          </p>
+          <textarea
+            id={`evidence-body-${target.target.id}`}
+            data-testid={`packet-evidence-body-${target.target.id}`}
+            className={`${FIELD} ${typography.body} mt-2 min-h-[88px]`}
+            value={body}
+            onChange={(e) => {
+              setBody(e.target.value)
+              if (error !== null) setError(null)
+            }}
+            placeholder="e.g. Our Q3 cohort held at 12% after the last price rise"
+          />
+
+          <label
+            htmlFor={`evidence-url-${target.target.id}`}
+            className={`${typography.label} mt-4 block text-text-header`}
+          >
+            Link (optional)
+          </label>
+          <input
+            id={`evidence-url-${target.target.id}`}
+            data-testid={`packet-evidence-url-${target.target.id}`}
+            className={`${FIELD} ${typography.body} mt-2`}
+            value={url}
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://…"
+          />
+
+          <label
+            htmlFor={`evidence-stance-${target.target.id}`}
+            className={`${typography.label} mt-4 block text-text-header`}
+          >
+            This evidence…
+          </label>
+          <select
+            id={`evidence-stance-${target.target.id}`}
+            data-testid={`packet-evidence-stance-${target.target.id}`}
+            className={`${FIELD} ${typography.body} mt-2`}
+            value={stance}
+            onChange={(e) => setStance(e.target.value as EvidenceStance)}
+          >
+            {/* The three stances CEE accepts. The WORDS shown beside it on the
+                disagreement view are CEE's (`stance_phrase`), never these. */}
+            <option value="supports">supports this</option>
+            <option value="challenges">challenges this</option>
+            <option value="qualifies">qualifies this</option>
+          </select>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              size="sm"
+              data-testid={`packet-evidence-submit-${target.target.id}`}
+              onClick={handleAttach}
+              disabled={busy || nothingToAttach}
+            >
+              {busy ? 'Attaching…' : 'Attach'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              data-testid={`packet-evidence-cancel-${target.target.id}`}
+              onClick={() => {
+                setOpen(false)
+                setError(null)
+              }}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+          </div>
+
+          {error !== null && (
+            <p
+              role="alert"
+              data-testid={`packet-evidence-error-${target.target.id}`}
+              className={`${typography.bodySmall} mt-3 text-danger`}
+            >
+              {error}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TargetCard({
   target,
   roundId,
@@ -437,6 +648,11 @@ function TargetCard({
           {error}
         </p>
       )}
+
+      {/* Evidence is independent of the answer: a participant may attach a
+          source without giving a number, or decline and still contribute what
+          they know. It is deliberately NOT gated on `alreadyAnswered`. */}
+      <EvidenceAttach target={target} roundId={roundId} />
     </section>
   )
 }
@@ -495,7 +711,16 @@ export default function ParticipantPacketPage(): JSX.Element {
       if (code === 'collab_round_closed') {
         try {
           const reveal = await fetchParticipantReveal(roundId)
-          setState({ kind: 'reveal', reveal })
+          // The disagreement view is a SECOND request and a secondary surface:
+          // it is fetched after the reveal has already succeeded, and its own
+          // failure is swallowed to null rather than propagated. See LoadState.
+          let disagreement: DisagreementView | null = null
+          try {
+            disagreement = await fetchParticipantDisagreement(roundId)
+          } catch {
+            disagreement = null
+          }
+          setState({ kind: 'reveal', reveal, disagreement })
           return
         } catch (revealErr) {
           setState({
@@ -713,7 +938,7 @@ export default function ParticipantPacketPage(): JSX.Element {
   }
 
   if (state.kind === 'reveal') {
-    return <RevealBody reveal={state.reveal} />
+    return <RevealBody reveal={state.reveal} disagreement={state.disagreement} />
   }
 
   const { packet } = state
@@ -802,9 +1027,27 @@ export interface RevealApplyState {
 export function RevealBody({
   reveal,
   apply,
+  disagreement,
 }: {
   reveal: RevealView
   apply?: RevealApplyState
+  /**
+   * ⭐⭐ THE DISAGREEMENT MOUNT, AND IT IS DELIBERATELY ONE MOUNT.
+   *
+   * This component is rendered by BOTH collaboration journeys — the participant
+   * reaches it through `ParticipantPacketPage`, the owner through
+   * `PanelSetupPage` — so hanging the disagreement view here reaches both with
+   * a single call site and invents no navigation. The alternative, a route or a
+   * tab per page, would have been two surfaces to keep in step and two places
+   * for one of them to go dark unnoticed.
+   *
+   * ⚠ IT ARRIVES AS A PROP, ALREADY FETCHED, AND THAT IS THE CREDENTIAL RULE
+   * MADE STRUCTURAL. The two journeys authenticate differently — a participant
+   * bearer token, an owner Supabase JWT — and this component holds neither. It
+   * cannot fetch, so it cannot fetch with the wrong one. Each page calls its own
+   * fetcher and passes the result down, exactly as `apply` already works.
+   */
+  disagreement?: DisagreementView | null
 }): JSX.Element {
   const rows = useMemo(() => reveal.per_target, [reveal])
   return (
@@ -972,6 +1215,23 @@ export function RevealBody({
             )}
           </section>
         ))}
+
+        {/* ⭐ WHERE YOU DIFFER, and why. The reveal above answers "what did
+            everyone say?"; this answers "where do you differ, on what basis,
+            and what should you ask about it?" — the evidence people attached,
+            each position's stated reason, and CEE's question about it.
+
+            Below the reveal rather than instead of it: the positions are what
+            the participant was promised, and the interrogation is what makes
+            them a shared piece of reasoning rather than a list of numbers.
+
+            ⚠ ABSENT IS A REAL STATE — an older CEE, or a failed second
+            request. The reveal stands alone when it is. */}
+        {disagreement != null && (
+          <div className="mt-12">
+            <DisagreementBody view={disagreement} />
+          </div>
+        )}
       </div>
     </main>
   )
