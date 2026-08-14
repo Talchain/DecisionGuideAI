@@ -91,6 +91,11 @@ function makeData(overrides: {
     isError: false,
     goalLabel: 'Revenue',
     voiRanking: null,
+    // V7-C slice 2a: no whole-decision VOI verdict in this fixture. It is the
+    // contract's own absence state ('NOT COMPUTED — never 0'), so the surface
+    // renders nothing rather than a placeholder. REQUIRED on the hook type
+    // precisely so the compiler names every constructor.
+    decisionVoi: 'not_computed',
   }
 }
 
