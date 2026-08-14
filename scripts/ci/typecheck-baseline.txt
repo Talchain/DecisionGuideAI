@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2487
+# count=2485
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -257,7 +257,7 @@
 2	src/canvas/hooks/__tests__/useV2Run.concurrency.spec.ts
 1	src/canvas/hooks/__tests__/useV2Run.interventionValidation.spec.ts
 1	src/canvas/hooks/useAddBaseline.ts
-7	src/canvas/hooks/useAnalysisMetadata.ts
+5	src/canvas/hooks/useAnalysisMetadata.ts
 1	src/canvas/hooks/useAutosave.ts
 2	src/canvas/hooks/useBlueprintInsert.ts
 1	src/canvas/hooks/useHighlightDispatch.ts
