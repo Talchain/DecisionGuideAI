@@ -38,6 +38,7 @@ import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectR
 import { resolveDisplayedFreshness } from '../store/analysisFreshness'
 import { getScenario } from '../store/scenarios'
 import { AnalysisFreshnessNotice } from '../../components/results/AnalysisFreshnessNotice'
+import { AnalysisRefusalNotice } from '../../components/results/AnalysisRefusalNotice'
 import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
 import { isDecisionOverviewEnabled } from '../../flags'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
@@ -2616,6 +2617,27 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 {isDecisionOverviewEnabled() && !isPreRun && hasInlineSummary && resultsSectionData && (
                   <DecisionOverviewCard title={overviewTitle} />
                 )}
+                {/* ROADMAP 2.1163 / EXT-2 — CEE's typed analysis refusal
+                    (`analysis_ready.blocked_reason`, PR #942), which had ZERO
+                    readers repo-wide until this mount.
+
+                    ⚠ DELIBERATELY NOT GATED ON `!isPreRun && hasInlineSummary &&
+                    resultsSectionData` like its neighbours. Those gates mean
+                    "there are results to decorate"; a refused analysis is
+                    exactly the case where there are NONE, so borrowing them
+                    would hide the notice in the state it exists to explain —
+                    and a user who asked for an analysis and got silence is the
+                    harm this row closes. The component owns its own gate
+                    (renders null when the slice is empty), so this costs one
+                    primitive-selector subscription and nothing else.
+
+                    It sits ABOVE the dim wrapper for the same reason the
+                    freshness strip does: the signal must never be inside an
+                    aria-disabled region. It is a SIBLING of DecisionOverview-
+                    Card, not a state of it — that card's `liveState` derivation
+                    is untouched ('unassessed'/collapsed on a cleared readiness
+                    slice is correct, per the 2026-08-14 deployed-UI trace). */}
+                <AnalysisRefusalNotice />
                 {/* The freshness strip states fresh/stale/unknown (informational
                     only — the anchor footer below owns the Rerun). It mounts
                     ABOVE the dim wrapper at full opacity so the freshness signal
