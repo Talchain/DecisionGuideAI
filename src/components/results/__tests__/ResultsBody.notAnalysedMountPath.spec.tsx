@@ -1,0 +1,190 @@
+/**
+ * NO-RANK RULING — ON THE MOUNT PATH, AT THE DEPLOYED FLAG POSTURE.
+ *
+ * ## Why this file exists at all
+ *
+ * `OptionCards.notAnalysed.spec.tsx` renders `<OptionCards>` in isolation. This
+ * estate has shipped the same feature dark TWICE past exactly that kind of
+ * suite (CLAUDE.md trap 3b: rows 2.466 and 2.491 — a full mutant kit, RED-first
+ * and positive controls all passed while every instrument pointed at a
+ * component the deployed flags do not mount). A green component suite is not
+ * evidence about a surface a user loads.
+ *
+ * So this file asserts the MOUNT PATH itself: `<ResultsBody>` — `OptionCards`'
+ * only production parent — renders the not-analysed card.
+ *
+ * ## The deployed posture, derived
+ *
+ * `ResultsBody.tsx` mounts `<OptionCards>` inside a block gated ONLY on
+ * `!recommendation.isSingleOption && allOptions.length > 1`. There is NO
+ * feature flag on that path — the surrounding comment states it deliberately
+ * ("full options block renders identically regardless of V17 flag"). The flags
+ * `netlify.toml` sets for staging (`VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"`,
+ * `VITE_FEATURE_PRE_ANALYSIS_V3 = "1"`) switch OTHER surfaces around it and
+ * cannot unmount this one. `ResultsBody` itself is the Analysis tab body,
+ * mounted unconditionally from `OutputsDock` on the `results` tab.
+ *
+ * That is why this file makes no flag assertion: there is no flag to assert.
+ * The gate it DOES pin is the real one — `allOptions.length > 1` — because a
+ * never-analysed option is still an option node, and if it were filtered out
+ * upstream a two-option scenario would fall below the gate and the whole
+ * comparison block would vanish. That failure mode is silent and is pinned
+ * below.
+ */
+
+import { describe, it, expect, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
+import { ResultsBody } from '../ResultsBody'
+import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import type {
+  ConfidenceSectionData,
+  DecisionResultData,
+  DriversSectionData,
+  ImprovementsSectionData,
+  OptionResult,
+} from '../types'
+
+const ANALYSED_A = 'opt_hire'
+const ANALYSED_B = 'opt_partner'
+const EXCLUDED = 'opt_migrate'
+const EXCLUDED_LABEL = 'Migrate to Salesforce'
+
+function analysed(id: string, label: string, win: number, isRecommended = false): OptionResult {
+  return {
+    id,
+    label,
+    expected: 100,
+    outcome: { mean: 100, p10: 60, p50: 100, p90: 140 },
+    p10: 60,
+    p50: 100,
+    p90: 140,
+    isRecommended,
+    winProbability: win,
+    goalProbability: 0.5,
+    nValidSamples: 10000,
+  } as unknown as OptionResult
+}
+
+/** The hook's own output shape for an option CEE excluded from the submission. */
+const EXCLUDED_OPTION = {
+  id: EXCLUDED,
+  label: EXCLUDED_LABEL,
+  expected: null,
+  outcome: { mean: null, p10: null, p50: null, p90: null },
+  p10: null,
+  p50: null,
+  p90: null,
+  isRecommended: false,
+  notAnalysed: true,
+  notAnalysedReason: 'no_interventions',
+} as unknown as OptionResult
+
+function makeData(options: OptionResult[]): ResultsSectionDataReturn {
+  const recommendation = {
+    recommendedOption: options.find((o) => o.isRecommended) ?? null,
+    allOptions: options,
+    goalLabel: 'Cut support cost per ticket',
+    goalThreshold: 0.4,
+    isSingleOption: options.length <= 1,
+    analysisStatus: 'computed',
+    recommendationStability: 0.9,
+    robustnessLevel: 'medium',
+    isNormalised: true,
+    coachingReadiness: 'ready',
+    coachingReadinessDimensions: { evidence: 0.6, robustness: 0.6, clarity: 0.6 },
+    // A run that DOES rank: on a withheld run the ranked chrome is suppressed
+    // for every card and the absence assertions would pass for free.
+    verdict: { hasLeadingOption: true },
+  } as unknown as DecisionResultData
+  const drivers: DriversSectionData = {
+    drivers: [], topDrivers: [], driversStatus: 'computed', totalCount: 0, hasMagnitudeData: false,
+  }
+  const confidence = {
+    tier: { tier: 'fair', icon: 'Check', label: 'Tier', description: 'd' },
+    qualityScore: 60,
+    uncertainties: [], topUncertainties: [], improvements: [], topImprovements: [],
+    evidenceGaps: [], topEvidenceGaps: [], nextActions: [], topNextActions: [],
+  } as unknown as ConfidenceSectionData
+  const improvements: ImprovementsSectionData = { improvements: [], count: 0, hasHighPriority: false }
+  return {
+    recommendation,
+    drivers,
+    confidence,
+    improvements,
+    isLoading: false,
+    isError: false,
+    goalLabel: 'Cut support cost per ticket',
+    completeness: { status: 'full', missing: [], reasons: [] },
+    autoNoiseProvenance: null,
+  } as unknown as ResultsSectionDataReturn
+}
+
+function renderBody(options: OptionResult[]) {
+  return render(
+    <ResultsBody
+      resultsSectionData={makeData(options)}
+      tornadoData={{ rows: [], expectedOutcome: null }}
+      onSendMessage={() => {}}
+      expertMode={false}
+    />,
+  )
+}
+
+const MIXED = [
+  analysed(ANALYSED_A, 'Hire two developers', 0.6, true),
+  analysed(ANALYSED_B, 'Partner with a consultancy', 0.25),
+  EXCLUDED_OPTION,
+]
+
+afterEach(() => cleanup())
+
+describe('ResultsBody — the not-analysed card on the mount path', () => {
+  it('PRECONDITION: the options block is mounted and the ranked chrome is on screen', () => {
+    renderBody(MIXED)
+    // If the block itself stopped mounting, every absence assertion below
+    // would pass against an empty tree (trap 13 — an absence claim needs a
+    // demonstrated presence).
+    expect(screen.getByTestId('option-cards')).toBeInTheDocument()
+    expect(screen.getByTestId(`option-card-${ANALYSED_A}`)).toBeInTheDocument()
+    expect(screen.getByTestId(`rank-marker-${ANALYSED_A}`)).toBeInTheDocument()
+  })
+
+  it('renders the not-analysed card through ResultsBody, with no ranked chrome on it', () => {
+    renderBody(MIXED)
+    expect(screen.getByTestId(`option-card-not-analysed-${EXCLUDED}`)).toBeInTheDocument()
+    expect(screen.getByText(EXCLUDED_LABEL)).toBeInTheDocument()
+    expect(screen.queryByTestId(`option-card-${EXCLUDED}`)).not.toBeInTheDocument()
+    expect(screen.queryByTestId(`rank-marker-${EXCLUDED}`)).not.toBeInTheDocument()
+    expect(screen.queryByTestId(`stable-number-${EXCLUDED}`)).not.toBeInTheDocument()
+    expect(screen.queryByTestId(`win-pct-${EXCLUDED}`)).not.toBeInTheDocument()
+  })
+
+  it('the WinGauge draws no segment for it', () => {
+    // The gauge already filters to numeric win probabilities, so this is a
+    // REGRESSION pin rather than a fix — it is exactly the surface a future
+    // "treat missing as zero" convenience would break, and it would break
+    // silently.
+    renderBody(MIXED)
+    expect(screen.queryByText(new RegExp(EXCLUDED_LABEL + '\\s*\\d'))).not.toBeInTheDocument()
+  })
+
+  it('the excluded option still COUNTS toward the comparison gate', () => {
+    // `allOptions.length > 1` is what mounts the whole block. A future change
+    // that filtered marked options out of `allOptions` upstream would take a
+    // two-option scenario below the gate and delete the comparison entirely —
+    // a silent whole-section regression. One analysed option plus one excluded
+    // must still mount.
+    renderBody([analysed(ANALYSED_A, 'Hire two developers', 0.6, true), EXCLUDED_OPTION])
+    expect(screen.getByTestId('option-cards')).toBeInTheDocument()
+    expect(screen.getByTestId(`option-card-not-analysed-${EXCLUDED}`)).toBeInTheDocument()
+  })
+
+  it('UNCHANGED BEHAVIOUR — a run with no excluded option mounts exactly as before', () => {
+    renderBody([
+      analysed(ANALYSED_A, 'Hire two developers', 0.6, true),
+      analysed(ANALYSED_B, 'Partner with a consultancy', 0.25),
+    ])
+    expect(screen.getByTestId('option-cards')).toBeInTheDocument()
+    expect(screen.queryByTestId(/option-card-not-analysed-/)).not.toBeInTheDocument()
+  })
+})

@@ -2188,7 +2188,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason])
+    // ⭐ `edges` ADDED BY THE NO-RANK LANE, AND IT IS A CORRECTNESS DEPENDENCY,
+    // NOT A LINT APPEASEMENT. `deriveNotAnalysedReason` reads the option's
+    // intervention edges to tell "you have not configured this" from "the
+    // engine returned nothing for it". Those are the two facts the card's copy
+    // and its resolve affordance branch on, and connecting an option to a
+    // factor changes `edges` ALONE — with a stale closure the card would keep
+    // telling a user to configure an option they had just configured.
+    // (Measured: at pristine this memo's exhaustive-deps warning named only
+    // `reviewStatus`; without this entry the lane would have added `edges` to
+    // it.)
+  }, [hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
