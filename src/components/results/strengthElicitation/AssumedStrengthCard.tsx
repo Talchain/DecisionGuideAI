@@ -19,13 +19,21 @@
  * FACTORS by value of information, this one names an EDGE whose strength is a
  * placeholder.
  *
- * ── THE ACTION IS A ROUTE, NEVER A WRITE ────────────────────────────────────
- * The button focuses the edge through the universal fail-closed resolver and
- * stops. It does not set a strength, propose a value, or pre-fill the control:
- * the user supplies the judgement in the panel that already owns that mutation
- * (`useEdgeMutations.setStrength`), which stamps `weightSource: 'user'` and
- * marks the analysis stale through the existing registry. A second write path
- * here would be a fifth writer of the same field.
+ * ── THE ACTION REACHES THE EDITOR, AND WRITES NOTHING ───────────────────────
+ * The button calls `openEdgeStrengthEditor`, which selects the edge, stands the
+ * dock down, centres the canvas and raises the inspector — so the control the
+ * label promises is on screen when the click finishes.
+ *
+ * An earlier cut called `focusModelTarget`, which only selects the edge and
+ * centres the camera. That left a button labelled "Set this strength" that
+ * panned to the edge and stopped, with the user still having to find and click
+ * it: the label promised a capability the wiring did not deliver. Reaching the
+ * editor is the whole point of the interaction, so the wiring was fixed rather
+ * than the label lowered.
+ *
+ * It still writes NO graph state. The strength is set in the panel this opens,
+ * by `useEdgeMutations.setStrength`, which remains the single writer of
+ * `weight`/`weightSource`. A write here would be a second writer of that field.
  */
 
 import { memo } from 'react'
@@ -43,14 +51,15 @@ import type { AssumedStrengthDecision } from './selectAssumedStrengthToResolve'
 export interface AssumedStrengthCardProps {
   decision: AssumedStrengthDecision
   /**
-   * Focus a target on the canvas. Accepts a canvas edge id — the same resolver
-   * the hero's other quick links use. Absent ⇒ the card still names the
-   * assumption but offers no route, rather than a button that does nothing.
+   * Open the edge-strength editor for a canvas edge id. Injected so the card
+   * stays presentational and the test can assert the ARGUMENT rather than a
+   * side effect. Absent ⇒ the card still names the assumption but renders no
+   * button, rather than a button that does nothing.
    */
-  onFocusTarget?: (targetId: string) => void
+  onResolve?: (edgeId: string) => void
 }
 
-function AssumedStrengthCardImpl({ decision, onFocusTarget }: AssumedStrengthCardProps) {
+function AssumedStrengthCardImpl({ decision, onResolve }: AssumedStrengthCardProps) {
   const { selected, refusalReason, assumedFragileCount } = decision
 
   if (selected === null) {
@@ -94,12 +103,12 @@ function AssumedStrengthCardImpl({ decision, onFocusTarget }: AssumedStrengthCar
           {others}
         </p>
       )}
-      {onFocusTarget !== undefined && (
+      {onResolve !== undefined && (
         <button
           type="button"
           className="text-sm font-medium text-accent underline underline-offset-2"
           data-testid="assumed-strength-action"
-          onClick={() => onFocusTarget(selected.edgeId)}
+          onClick={() => onResolve(selected.edgeId)}
         >
           {ASSUMED_STRENGTH_ACTION}
         </button>

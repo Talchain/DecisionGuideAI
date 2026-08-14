@@ -217,6 +217,8 @@ export function selectAssumedStrengthToResolve({
   let sawAnyFragibleAboveFloor = false
   /** A row cleared the floor but matched no nameable canvas edge. */
   let sawUnmatchedRow = false
+  /** Canvas edges already counted — one edge is one assumption, however many rows name it. */
+  const countedEdgeIds = new Set<string>()
 
   // PRODUCER ORDER, consumed not re-derived. The first qualifying row wins;
   // every later one only increments the count.
@@ -252,6 +254,16 @@ export function selectAssumedStrengthToResolve({
     // somebody's number, not ours to re-elicit.
     if (edgeValueSource(edge.data, 'weight') !== null) continue
 
+    // COUNT DISTINCT EDGES, NOT ROWS. The producer may name one canvas edge in
+    // more than one row (a repeated pair, or an `edge_id` row alongside its
+    // from/to twin), and "and N others" is a claim about how many RELATIONSHIPS
+    // still rest on a placeholder. Counting rows would inflate it — and the
+    // inflation would be invisible, because the sentence reads perfectly well
+    // with a wrong number in it. Not reachable on observed data (nine captures,
+    // zero duplicates), which is exactly why it needs pinning rather than
+    // trusting: a producer change would make it reachable silently.
+    if (countedEdgeIds.has(edge.id)) continue
+    countedEdgeIds.add(edge.id)
     assumedFragileCount += 1
     if (selected === null) {
       selected = {

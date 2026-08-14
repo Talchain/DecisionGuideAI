@@ -35,6 +35,7 @@ import { typography } from '@/styles/typography'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
 import { AssumedStrengthCard } from '../strengthElicitation/AssumedStrengthCard'
+import { openEdgeStrengthEditor } from '../../../canvas/utils/openEdgeStrengthEditor'
 import { HERO_COPY } from './heroCopy'
 import { HeroLensTabs, tabId } from './HeroLensTabs'
 import { HeroOptionRow, HERO_ROW_GRID, HERO_ROW_TRACK_SPAN } from './HeroOptionRow'
@@ -488,7 +489,7 @@ export function AnalysisHeroPanel({
           that has no honest sentence. */}
       <AssumedStrengthCard
         decision={model.evidence.assumedStrength}
-        onFocusTarget={onFocusTarget}
+        onResolve={openEdgeStrengthEditor}
       />
 
       {/* Footer strip: Main reason (static fallback when the driver pill is

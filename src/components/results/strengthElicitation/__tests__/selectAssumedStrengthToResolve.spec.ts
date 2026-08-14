@@ -233,6 +233,51 @@ describe('selectAssumedStrengthToResolve — the assumed × decision-relevant jo
     })
   })
 
+  it('F3 — counts DISTINCT EDGES, not rows: a duplicated row cannot inflate "and N others"', () => {
+    // One canvas edge named twice by the producer is ONE assumption. Counting
+    // rows would say "1 other relationship" when there is none, and the
+    // sentence would read perfectly well while being false.
+    const d = selectAssumedStrengthToResolve({
+      fragileEdges: [
+        fragileRow('n_demand', 'n_rev', ABOVE),
+        fragileRow('n_demand', 'n_rev', ABOVE, { edge_id: 'e_demand_rev' }),
+      ],
+      edges: [assumedEdge('e_demand_rev', 'n_demand', 'n_rev')],
+      nodeLabels: labels,
+    })
+    expect(d.selected?.edgeId).toBe('e_demand_rev')
+    expect(d.assumedFragileCount).toBe(1)
+  })
+
+  it('F4 — the FIRST-ROW rule is only correct because the producer sorts DESCENDING', () => {
+    // The selector consumes wire order and never re-ranks. That is right ONLY
+    // while ISL emits `fragile_edges` sorted by `switch_probability`
+    // descending — verified across every committed live capture. This pins the
+    // PRECONDITION in-test, so if the producer ever stopped sorting, this REDs
+    // here (a named, explained failure) instead of the product quietly naming
+    // the wrong relationship as the one that matters most.
+    const rows = [
+      fragileRow('n_demand', 'n_rev', 0.45),
+      fragileRow('n_price', 'n_cost', 0.20),
+    ]
+    const probs = rows.map(r => r.switch_probability)
+    expect(
+      probs.every((p, i) => i === 0 || probs[i - 1] >= p),
+      'this fixture must be in producer (descending) order, or the assertion below proves nothing',
+    ).toBe(true)
+
+    const d = selectAssumedStrengthToResolve({
+      rows: undefined,
+      fragileEdges: rows,
+      edges: [assumedEdge('e_demand_rev', 'n_demand', 'n_rev'), assumedEdge('e_price_cost', 'n_price', 'n_cost')],
+      nodeLabels: labels,
+    } as Parameters<typeof selectAssumedStrengthToResolve>[0])
+    // First in wire order === highest switch probability, so "first" and
+    // "most decision-relevant" coincide. Both facts asserted, not just one.
+    expect(d.selected?.edgeId).toBe('e_demand_rev')
+    expect(d.selected?.switchProbability).toBe(Math.max(...probs))
+  })
+
   it('tolerates malformed rows without dropping the whole decision', () => {
     const d = selectAssumedStrengthToResolve({
       fragileEdges: [null, 'nonsense', 42, fragileRow('n_demand', 'n_rev', ABOVE)],

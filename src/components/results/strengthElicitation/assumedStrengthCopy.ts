@@ -95,7 +95,12 @@ export function assumedStrengthOthers(assumedFragileCount: number): string | nul
     : `${n} other relationships driving this result also have placeholder strengths.`
 }
 
-/** The action label on the control that focuses the edge and opens its panel. */
+/**
+ * The action label. It says "Set", so the control it opens must be the one that
+ * SETS — see `AssumedStrengthCard`'s wiring note. If that route ever degrades to
+ * a focus-only jump again, this label becomes a promise the product does not
+ * keep, and the honest move is to change the wiring back, not this string.
+ */
 export const ASSUMED_STRENGTH_ACTION = 'Set this strength'
 
 /**
