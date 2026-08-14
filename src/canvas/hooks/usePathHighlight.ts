@@ -1,5 +1,30 @@
 /**
- * usePathHighlight - Highlight causal paths based on node selection
+ * usePathHighlight - selection focus: causal paths where they exist, the direct
+ * neighbourhood everywhere else.
+ *
+ * 6A (selection focus) — TWO gaps this hook used to have, both of which left
+ * the user with no focus at all or with a graph dimmed to nothing:
+ *
+ *  1. No goal node (drafts before analysis, imported graphs) → the effect bailed
+ *     early and NOTHING dimmed.
+ *  2. A kind with no path branch (decision, action, constraint) → pathEdgeIds
+ *     stayed empty, so `nodesOnPath` was just the selected node and EVERY other
+ *     node dimmed, including its own direct neighbours.
+ *
+ * Both now fall back to the DIRECT NEIGHBOURHOOD (the selected element plus
+ * whatever it is directly connected to), reusing neighbourhoodNodeIds — the
+ * same primitive the F2/F3 focus lens uses. Selecting a single EDGE focuses
+ * that edge and its two endpoints.
+ *
+ * ⚠ In neighbourhood mode we deliberately DO NOT write highlightedEdges.
+ * FocusModeChip renders "Showing paths from X to goal" purely on
+ * `highlightedEdges.size > 0`, so writing that set for a neighbourhood focus —
+ * which involves no goal and no path — would make the chip state something
+ * untrue. Prominence in neighbourhood mode comes from DIMMING THE REST, not
+ * from claiming a path. Path mode is unchanged and still owns the chip.
+ *
+ * STABLE MODEL, ADAPTIVE ATTENTION: everything here is transient view state.
+ * No node, edge, position or value is mutated, and deselect restores exactly.
  *
  * When a single node is selected:
  * - Factor: Highlight all downstream paths to goal
@@ -8,7 +33,7 @@
  *
  * Features:
  * - Uses two-phase algorithm for correct reconverging graph handling
- * - Dims nodes not on highlighted paths (opacity ~0.4)
+ * - Dims nodes AND edges outside the focus (nodes opacity-60, edges 0.25)
  * - Clears highlights on selection change (no timer-based auto-clear)
  * - Multi-select clears all highlights to prevent stale state
  * - F3 (graph-visuals): defers to an active focus dim (store.focusDimSourceId)
@@ -30,6 +55,7 @@ import {
   findPathsFromRoots,
   getInterventionTargets,
 } from '../utils/pathFinding'
+import { neighbourhoodNodeIds } from '../utils/focusNeighbourhood'
 
 /**
  * Hook to manage path highlighting based on node selection.
@@ -38,11 +64,22 @@ import {
 export function usePathHighlight(): void {
   // React #185 FIX: Use primitive selector for selection size to avoid infinite loops
   const selectionSize = useCanvasStore((s) => s.selection.nodeIds.size)
+  // 6A: edge selection participates in focus too. Primitive size + primitive id,
+  // same React #185 rule as the node selectors.
+  const edgeSelectionSize = useCanvasStore((s) => s.selection.edgeIds.size)
 
   // Get selected ID as primitive (only meaningful when size === 1)
   const selectedId = useCanvasStore((s) => {
     if (s.selection.nodeIds.size !== 1) return null
     return s.selection.nodeIds.values().next().value ?? null
+  })
+
+  // 6A: the single selected EDGE id — only meaningful when exactly one edge and
+  // no node is selected (a mixed or multi selection gets no focus, matching the
+  // existing multi-select rule).
+  const selectedEdgeId = useCanvasStore((s) => {
+    if (s.selection.edgeIds.size !== 1 || s.selection.nodeIds.size !== 0) return null
+    return s.selection.edgeIds.values().next().value ?? null
   })
 
   // IMPORTANT: Use canonical goal node ID from ceeAnalysisReady
@@ -79,9 +116,40 @@ export function usePathHighlight(): void {
       edges,
       setHighlightedEdges,
       setDimmedNodes,
+      setDimmedEdges,
       ceeAnalysisReady,
       clearFocusDim,
     } = useCanvasStore.getState()
+
+    /**
+     * 6A: apply a NEIGHBOURHOOD focus — the given ids stay fully prominent and
+     * everything else dims. Deliberately writes an EMPTY highlightedEdges (see
+     * the file header: the "paths to goal" chip must not appear for a focus
+     * that involves no path).
+     */
+    const applyNeighbourhoodFocus = (
+      prominentNodeIds: Set<string>,
+      prominentEdgeIds: Set<string>,
+      skipNodeDim: boolean,
+    ) => {
+      setHighlightedEdges([])
+      if (!skipNodeDim) {
+        setDimmedNodes(nodes.filter((n) => !prominentNodeIds.has(n.id)).map((n) => n.id))
+      }
+      setDimmedEdges(edges.filter((e) => !prominentEdgeIds.has(e.id)).map((e) => e.id))
+    }
+
+    /** Edges INCIDENT to the focused node — literally "its connections".
+     *  Deliberately not "both endpoints in the neighbourhood": an edge between
+     *  two of the selected node's neighbours is not one of ITS connections, and
+     *  leaving it dim keeps the focus about the selected element. */
+    const incidentEdgeIds = (nodeId: string) => {
+      const ids = new Set<string>()
+      for (const e of edges) {
+        if (e.source === nodeId || e.target === nodeId) ids.add(e.id)
+      }
+      return ids
+    }
 
     // F3 (graph-visuals): while a TRANSIENT focus dim is active for the
     // selected node, it owns dimmedNodeIds — the path dim must not clobber
@@ -103,18 +171,31 @@ export function usePathHighlight(): void {
 
     const options = ceeAnalysisReady?.options ?? []
 
-    // Clear if no selection, multi-select, or no goal
-    // Multi-select explicitly clears to prevent stale state
-    if (selectionSize !== 1 || !selectedId || !goalNodeId) {
-      setHighlightedEdges([])
-      if (!focusDimOwnsDimming) setDimmedNodes([])
-      return
+    // 6A: a single selected EDGE focuses that connection and its two endpoints.
+    // Checked before the node branch because selectedEdgeId is only non-null
+    // when NO node is selected, so the two can never both apply.
+    if (selectedEdgeId) {
+      const selectedEdge = edges.find((e) => e.id === selectedEdgeId)
+      if (selectedEdge) {
+        applyNeighbourhoodFocus(
+          new Set([selectedEdge.source, selectedEdge.target]),
+          new Set([selectedEdge.id]),
+          false,
+        )
+        return
+      }
     }
 
-    const selectedNode = nodes.find((n) => n.id === selectedId)
+    // Clear if no selection, multi-select, or the selected node has gone.
+    // Multi-select explicitly clears to prevent stale state.
+    const selectedNode =
+      selectionSize === 1 && !!selectedId && edgeSelectionSize === 0
+        ? nodes.find((n) => n.id === selectedId)
+        : undefined
     if (!selectedNode) {
       setHighlightedEdges([])
       if (!focusDimOwnsDimming) setDimmedNodes([])
+      setDimmedEdges([])
       return
     }
 
@@ -122,13 +203,18 @@ export function usePathHighlight(): void {
     const kind = selectedNode.data?.kind ?? selectedNode.data?.type ?? selectedNode.type
     let pathEdgeIds: string[] = []
 
-    if (kind === 'goal') {
+    // 6A: path mode needs a goal to aim at. Without one (drafts, imports) we
+    // skip straight to the neighbourhood fallback below rather than bailing
+    // with no focus at all, which is what used to happen.
+    if (!goalNodeId) {
+      pathEdgeIds = []
+    } else if (kind === 'goal') {
       // Goal selected: highlight all incoming paths
       pathEdgeIds = findPathsFromRoots(goalNodeId, edges)
     } else if (kind === 'option') {
       // Option selected: highlight intervention targets → goal
       // Use canonical options source, not node data
-      const targets = getInterventionTargets(selectedId, options)
+      const targets = getInterventionTargets(selectedNode.id, options)
       for (const targetId of targets) {
         pathEdgeIds.push(...findPathsToGoal(targetId, goalNodeId, edges))
       }
@@ -136,7 +222,19 @@ export function usePathHighlight(): void {
       pathEdgeIds = [...new Set(pathEdgeIds)]
     } else if (kind === 'factor' || kind === 'risk' || kind === 'outcome') {
       // Factor/Risk/Outcome selected: highlight downstream to goal
-      pathEdgeIds = findPathsToGoal(selectedId, goalNodeId, edges)
+      pathEdgeIds = findPathsToGoal(selectedNode.id, goalNodeId, edges)
+    }
+
+    // 6A: NO USABLE PATH → focus the direct neighbourhood instead.
+    // Reached when there is no goal node, when the selected kind has no path
+    // branch (decision / action / constraint), or when the node simply has no
+    // route to the goal. The old code fell through to the path-dim below with
+    // an empty path set, which dimmed EVERY other node — including the selected
+    // node's own neighbours — and left the user with a blanked graph.
+    if (pathEdgeIds.length === 0) {
+      const hood = neighbourhoodNodeIds(selectedNode.id, edges)
+      applyNeighbourhoodFocus(hood, incidentEdgeIds(selectedNode.id), focusDimOwnsDimming)
+      return
     }
 
     // Set highlighted edges
@@ -146,7 +244,7 @@ export function usePathHighlight(): void {
     // PERFORMANCE: Use Set for O(1) lookup instead of O(n) array.includes()
     const pathEdgeIdSet = new Set(pathEdgeIds)
     const nodesOnPath = new Set<string>()
-    nodesOnPath.add(selectedId)
+    nodesOnPath.add(selectedNode.id)
 
     for (const edge of edges) {
       if (pathEdgeIdSet.has(edge.id)) {
@@ -161,9 +259,23 @@ export function usePathHighlight(): void {
     // F3: the focus dim owns dimmedNodeIds while active (see above).
     if (!focusDimOwnsDimming) setDimmedNodes(dimmedIds)
 
+    // 6A: dim the edges off the path so the highlighted route reads as a route
+    // rather than as a few thicker lines in an undimmed web. Edge dimming is
+    // never owned by the F3 focus dim (that lens only writes dimmedNodeIds),
+    // so there is no ownership guard here.
+    setDimmedEdges(edges.filter((e) => !pathEdgeIdSet.has(e.id)).map((e) => e.id))
+
     // No cleanup needed - we want highlights to persist until selection changes
     // The next effect run will update or clear highlights as appropriate
-  }, [selectionSize, selectedId, goalNodeId, edgeCount, focusDimSourceId])
+  }, [
+    selectionSize,
+    selectedId,
+    edgeSelectionSize,
+    selectedEdgeId,
+    goalNodeId,
+    edgeCount,
+    focusDimSourceId,
+  ])
 }
 
 export default usePathHighlight
