@@ -580,6 +580,54 @@ describe('ROADMAP 2.1132 — the assistant attributes the panel gestures it actu
     expect(notice()).not.toBeInTheDocument()
   })
 
+  // ── A MOVING CLOCK MUST NOT EXTEND THE WINDOW (re-review, 14 Aug 2026) ─────
+  //
+  // Deriving the window from a timestamp closed the unmount doors, but it also
+  // made the notice depend on the WALL CLOCK, and the wall clock moves
+  // backwards in this product's normal life: NTP steps, laptop suspend/resume,
+  // a user correcting their clock — all reachable in a long-lived SPA.
+  //
+  // The arithmetic failed OPEN, which is the opposite of what this module's own
+  // header promises ("null is the FAIL-CLOSED default in every direction"):
+  // a negative `elapsed` makes `remaining = max(0, 8000 - elapsed)` GROW, so an
+  // hour-long backward step left the notice up for an hour, attributing a
+  // gesture no user could still remember. Negative elapsed means the stamp
+  // cannot be trusted, so it now counts as expired.
+
+  it('CLOCK-1: a BACKWARD clock step does not extend the window — the notice fails closed', () => {
+    vi.useFakeTimers()
+    const view = renderDock()
+    driveDirective(openPanelEnvelope('diagnostics'))
+    expect(screen.getByTestId('assistant-opened-notice')).toBeInTheDocument()
+    view.unmount()
+
+    // NTP step / suspend-resume / manual correction: the clock goes BACK an hour.
+    vi.setSystemTime(new Date(Date.now() - 60 * 60 * 1000))
+
+    renderDock()
+    expect(notice()).not.toBeInTheDocument()
+    expect(useUIStore.getState().outputSurfaceOrigin).toBeNull()
+  })
+
+  it('CLOCK-2: a stamp dated in the FUTURE is treated as expired, not as fresh for minutes', () => {
+    vi.useFakeTimers()
+    const origin = Date.now()
+
+    // The gesture is stamped while the clock is running an hour FAST…
+    vi.setSystemTime(new Date(origin + 60 * 60 * 1000))
+    const view = renderDock()
+    driveDirective(openPanelEnvelope('diagnostics'))
+    expect(useUIStore.getState().outputSurfaceOriginAt).toBe(origin + 60 * 60 * 1000)
+    view.unmount()
+
+    // …and is then corrected, leaving a stamp an hour in the future.
+    vi.setSystemTime(new Date(origin))
+
+    renderDock()
+    expect(notice()).not.toBeInTheDocument()
+    expect(useUIStore.getState().outputSurfaceOrigin).toBeNull()
+  })
+
   // ── IT MUST NOT GET IN THE WAY ──────────────────────────────────────────────
 
   it('NONBLOCKING-1: the notice never takes focus, and announces politely', () => {

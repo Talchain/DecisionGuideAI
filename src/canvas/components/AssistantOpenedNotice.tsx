@@ -73,7 +73,17 @@ export function AssistantOpenedNotice() {
   // and a stamp older than the window is already over, so it never shows at all.
   const elapsed = stampedAt === null ? 0 : Date.now() - stampedAt
   const remaining = Math.max(0, ASSISTANT_OPENED_NOTICE_MS - elapsed)
-  const expired = stampedAt !== null && remaining === 0
+  // ⚠ `elapsed < 0` IS THE FAIL-CLOSED HALF, AND WITHOUT IT THIS FAILED OPEN.
+  // A BACKWARD clock — NTP step, suspend/resume, a manual change; all reachable
+  // in a long-lived SPA — makes `elapsed` negative, so `remaining` GROWS rather
+  // than shrinks: `max(0, 8000 - (-3600000))` is an HOUR, and the notice would
+  // sit there attributing a gesture nobody can remember. A stamp dated in the
+  // FUTURE (clock corrected backwards after the stamp) does the same for
+  // minutes. Negative elapsed means the stamp cannot be trusted at all, so it
+  // is treated as expired — which is what `uiStore`'s "null is the FAIL-CLOSED
+  // default in every direction" already promised, and what this line makes true
+  // for the one direction that could still fail open. Pinned by CLOCK-1/CLOCK-2.
+  const expired = stampedAt !== null && (elapsed < 0 || remaining === 0)
 
   const showing = origin === 'assistant' && !expired && dismissedSeq !== seq
 
