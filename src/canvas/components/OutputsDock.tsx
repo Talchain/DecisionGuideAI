@@ -34,7 +34,7 @@ import { runStatusRegion } from './analysisRunStatus'
 import { registerCanonicalRunner, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt } from '../store'
+import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
 import { resolveDisplayedFreshness } from '../store/analysisFreshness'
 import { getScenario } from '../store/scenarios'
 import { AnalysisFreshnessNotice } from '../../components/results/AnalysisFreshnessNotice'
@@ -680,6 +680,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const resultsStartedAt = useCanvasStore(selectResultsStartedAt)
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
+  // ROADMAP 2.1127 — provenance of the report on screen, PROVEN from the store's
+  // run-epoch stamps rather than inferred from `status === 'error'`.
+  const reportIsFromEarlierRun = useCanvasStore(selectReportIsFromEarlierRun)
   const resultsSource = useCanvasStore(selectResultsSource)
 
   // A.9: Auto-dismiss conversation indicator after 5 seconds
@@ -2263,14 +2266,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   // `stale-results-banner` below, which names it as the previous
                   // analysis. This banner speaks only for the run that failed.
                   //
-                  // `canRetry` now carries the PRODUCER's own answer rather than
-                  // the unconditional `true` the partial-results limb forced:
-                  // `useV2Run` sets `canRetry: false` exactly where the user must
-                  // change the model before a rerun can succeed.
+                  // ⚠ `canRetry` is deliberately NOT passed. The store's
+                  // `error.canRetry` carries `ApiError.retryable`, which answers
+                  // "would an AUTOMATIC retry help?" (false for
+                  // `ProcessingError` and `MalformedApiResponseError`) — a
+                  // different question from "may the USER re-run?". Passing it
+                  // through removed "Try Again" from the two classes whose own
+                  // copy tells the user to try again. `getUserFriendlyError`
+                  // owns the user-facing decision via `USER_RERUN_BLOCKED_CODES`
+                  // (CLAUDE.md trap 21 — two questions under one name).
                   const friendlyError = getUserFriendlyError({
                     code: error.code,
                     message: error.message,
-                    canRetry: error.canRetry,
                   })
 
                   // Task P.3.4: CEE timeout with complexity context (>15 nodes)
@@ -2520,9 +2527,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     onDismiss={() => setDegradedBannerDismissed(true)}
                   />
                 )}
-                {/* I.2c: Stale results indicator — shown when current run errored
-                    but previous results are still visible */}
-                {isError && report && (
+                {/* I.2c: Stale results indicator — shown when the current run
+                    errored AND the results still on screen are PROVABLY from an
+                    earlier run.
+                    ⚠ ROADMAP 2.1127: this used to render on `isError && report`,
+                    which is not the same claim. `useV2Run` stores this run's
+                    report at `:991` and then runs ~120 unguarded lines before
+                    returning, so a throw in that window settles a failure with
+                    THIS run's numbers on screen — and the chip called them the
+                    previous analysis. `selectReportIsFromEarlierRun` compares
+                    the store's run-epoch stamps and fails CLOSED on unknown
+                    provenance: no stamp, no claim. */}
+                {isError && report && reportIsFromEarlierRun && (
                   <div
                     className="flex items-center gap-2 px-3 py-2 bg-panel border border-warning/30 rounded"
                     role="status"

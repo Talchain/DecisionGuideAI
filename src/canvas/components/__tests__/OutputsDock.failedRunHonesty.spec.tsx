@@ -1,44 +1,65 @@
 /**
- * OutputsDock — a FAILED analysis must not present the PREVIOUS run's numbers
- * as received and valid (ROADMAP 2.1127).
+ * OutputsDock — after a FAILED analysis, no sentence on screen may be false in
+ * ANY reachable cell (ROADMAP 2.1127).
  *
  * ⚠ The witnessed defect (staging, 13 Aug 2026). After an analysis fails
- * FOLLOWING an earlier successful one, the dock keeps the previous run's
+ * following an earlier successful one, the dock keeps the previous run's
  * numbers on screen (deliberate — `store.ts :: resultsError` preserves
- * `results.report`, and `OutputsDock`'s `hasInlineSummary` renders it through
- * every status) and shows an amber banner reading:
+ * `results.report`, and `hasInlineSummary` renders it through every status) and
+ * showed an amber banner reading:
  *
  *   "We received the analysis results but had trouble displaying them.
  *    Please try again. Your core results are still valid."
  *
- * Both sentences are false:
- *   1. RECEIPT — `PROCESSING_ERROR` is produced by `useV2Run`'s residual
- *      `ProcessingError.wrap(err)` bucket (the catch-all for a throw that is
- *      neither a typed API error nor a network error). Nothing about that path
- *      establishes that analysis results arrived.
- *   2. VALIDITY — the suffix came from `getUserFriendlyError`'s
- *      `hasPartialResults` limb, which the dock fed with `Boolean(report)`.
- *      `report` at `status === 'error'` is ALWAYS the RETAINED PREVIOUS run's
- *      snapshot: every `resultsError` call site in `useV2Run` leaves the report
- *      untouched, and the one genuinely partial path
- *      (`analysis_status === 'partial'`) settles through `resultsComplete`, not
- *      through the error path. So "partial results" was never true here, and
- *      nothing assessed the retained numbers' validity in any case.
+ * ⚠⚠ THE CELL MATRIX IS THE POINT OF THIS FILE. The first fix removed those two
+ * false sentences and introduced a third ("so this run produced no results"),
+ * because it reasoned about ONE cell. The reachable cells are the product of
+ * TWO independent axes:
  *
- * ⚠ The mechanism is GENERAL, not error-specific: the validity suffix fired for
- * EVERY error code whenever a previous report was retained. The second
- * describe below pins that with a different code (NETWORK_ERROR) so a fix that
- * only special-cased PROCESSING_ERROR cannot pass.
+ *   axis A — the error code       (which producer minted the failure)
+ *   axis B — the report's origin  (whose numbers are on screen, if any)
+ *
+ * Axis B has FOUR values, and the third is the one that gets missed:
+ *   B1 NONE            — genuine first run: no report at all.
+ *   B2 EARLIER RUN     — the failure landed before this run stored anything.
+ *   B3 THIS RUN        — `useV2Run` calls `resultsComplete` at `:991` and then
+ *                        runs ~120 UNGUARDED lines before its success return at
+ *                        `:1109`; a synchronous throw in `generateGraphHash`
+ *                        (`:1038`), `persistAnalysisSuccess` (`:1039`, whose
+ *                        `.catch` only handles rejection), `setRunMeta`
+ *                        (`:1056`), `setGate` (`:1073`/`:1079`/`:1090`) or
+ *                        `updateRobustnessGateFromV2` (`:1098`) lands in the
+ *                        catch at `:1150` → `PROCESSING_ERROR` with THIS run's
+ *                        report stored and on screen.
+ *   B4 UNKNOWN         — a report with no run-epoch stamps (e.g. hydrated
+ *                        state). Provenance cannot be proven.
+ *
+ * In B3 "this run produced no results" is false AND "Showing results from
+ * previous analysis" is false. In B4 neither can be proven, so nothing may be
+ * claimed. Both are pinned below.
+ *
+ * ⚠ Fixture honesty. Every seed drives the REAL store transitions in the real
+ * order, and every error is seeded with the `canRetry` its REAL producer emits
+ * — derived at the producers, not invented here:
+ *   PROCESSING_ERROR    `useV2Run:1188` → `typedError.retryable`; `ProcessingError`
+ *                       hardcodes false (api-errors.ts:159)          → false
+ *   MALFORMED_RESPONSE  same line; `MalformedApiResponseError` hardcodes false
+ *                       (api-errors.ts:107)                          → false
+ *   NETWORK_ERROR       same line; `NetworkError` hardcodes true
+ *                       (api-errors.ts:67)                           → true
+ *   UNEXPECTED_STATE    `useV2Run:1114` literal                      → true
+ *   VALIDATION_BLOCKED  `useV2Run:824` literal                       → false
+ *   (envelope path)     `useConversation:3528` passes NO canRetry    → undefined
+ * A fixture I wrote myself is not evidence about the wire (CLAUDE.md trap 16).
  *
  * ⚠ Surface binding (CLAUDE.md trap 3b). Bound to the surface the DEPLOYED
  * staging flags mount. `netlify.toml [context.staging.environment]` sets
  * VITE_FEATURE_AI_PANEL_V2="true", VITE_FEATURE_PRE_ANALYSIS_V3="1",
- * VITE_FEATURE_ANALYSIS_HERO_PANEL="1", VITE_FEATURE_COMPARE_TAB="1" and
+ * VITE_FEATURE_ANALYSIS_HERO_PANEL="1", VITE_FEATURE_COMPARE_TAB="1";
  * [build.environment] sets VITE_ENABLE_ORCHESTRATOR_V2="true"; there is no
- * VITE_FEATURE_JOURNEY_TAB entry, so the Journey tab is off. The mock below
- * matches that posture and the control asserts the MOUNT PATH itself
- * (`outputs-dock-body` → `outputs-error-banner`), so this binding fails loud if
- * the deployment ever stops mounting the banner under test.
+ * VITE_FEATURE_JOURNEY_TAB entry, so the Journey tab is off. The controls
+ * assert the MOUNT PATH itself (`outputs-dock-body` → `outputs-error-banner`),
+ * so this binding fails loud if the deployment stops mounting the banner.
  *
  * ⚠ Scope (CLAUDE.md trap 3): DOM-content assertions only. Nothing here claims
  * anything about layout, visibility or above-the-fold placement.
@@ -78,26 +99,25 @@ vi.mock('../../hooks/useV2Run', () => ({
   resolveActiveGoalNodeId: () => 'goal-1',
 }))
 
-/**
- * The PREVIOUS run's snapshot, carrying an identity no other object in this
- * fixture can produce, so the "the previous run is still being presented"
- * assertion binds to THIS snapshot rather than to whatever happens to render
- * (CLAUDE.md trap 19).
- *
- * ⚠ Scope of the control, stated honestly. The deployed witness saw the
- * previous run's NUMBERS. Reproducing the numeric hero at component level needs
- * the full enrichment chain `useResultsSectionData` consumes (per-option
- * outcomes, goal probabilities); this minimal report drives the same results
- * body but its numeric surfaces render "unknown". The control therefore binds
- * to the retained snapshot's IDENTITY (its run hash, rendered in the results
- * body's Analysis details) plus the mounted results body itself — which is the
- * property the copy under test lies about: a failed run presenting the previous
- * run's output as this run's.
- */
-const PREVIOUS_RUN_HASH = 'prev-4242'
-const PREVIOUS_RUN_REPORT: any = {
+/** A run's stored snapshot, carrying an identity nothing else here can produce. */
+const RUN_HASH_A = 'run-a-4242'
+const RUN_HASH_B = 'run-b-8181'
+const REPORT: any = {
   results: { conservative: 41, likely: 4242, optimistic: 4343, units: 'percent', unitSymbol: '%' },
   run: { bands: { p10: 41, p50: 4242, p90: 4343 } },
+}
+
+/**
+ * The `canRetry` each producer really emits (see the file header for the
+ * derivation). `undefined` is a real value here — the deployed envelope path
+ * passes no `canRetry` at all.
+ */
+const PRODUCER_CAN_RETRY: Record<string, boolean | undefined> = {
+  PROCESSING_ERROR: false,
+  MALFORMED_RESPONSE: false,
+  NETWORK_ERROR: true,
+  UNEXPECTED_STATE: true,
+  VALIDATION_BLOCKED: false,
 }
 
 const NODES = [
@@ -105,6 +125,12 @@ const NODES = [
   { id: 'decision-1', type: 'decision', data: { label: 'Test Decision' }, position: { x: 100, y: 100 } },
 ]
 const EDGES = [{ id: 'e1', source: 'decision-1', target: 'goal-1' }]
+
+/** Sentences that must never appear, whatever the cell. */
+const RECEIPT_CLAIM = /received the analysis results/i
+const VALIDITY_CLAIM = /still valid/i
+const NO_OUTPUT_CLAIM = /produced no results|no results were|nothing was returned/i
+const PREVIOUS_RUN_CLAIM = /from previous analysis/i
 
 function ensureMatchMedia() {
   if (typeof window.matchMedia !== 'function') {
@@ -124,14 +150,7 @@ function ensureMatchMedia() {
   }
 }
 
-/**
- * Drive the REAL state machine, not a hand-written end state: a successful run
- * settles through `resultsComplete`, then the next run fails through
- * `resultsError`. That is the exact witnessed sequence (failure AFTER success),
- * and it means these tests would notice if the store ever stopped retaining the
- * previous report — which is the precondition the whole file is about.
- */
-function seedFailureAfterSuccess(errorCode: string, message: string) {
+function resetCanvas({ hasCompletedFirstRun }: { hasCompletedFirstRun: boolean }) {
   ensureMatchMedia()
   try {
     sessionStorage.clear()
@@ -141,43 +160,87 @@ function seedFailureAfterSuccess(errorCode: string, message: string) {
   useCanvasStore.setState({
     nodes: NODES,
     edges: EDGES,
-    hasCompletedFirstRun: true,
-    results: { status: 'idle', progress: 0 },
-  } as any)
-
-  const store = useCanvasStore.getState()
-  // 1. The earlier SUCCESSFUL run.
-  store.resultsComplete({ report: PREVIOUS_RUN_REPORT, hash: PREVIOUS_RUN_HASH } as any)
-  // 2. The rerun that FAILS.
-  useCanvasStore.getState().resultsError({ code: errorCode, message, canRetry: true })
-
-  // Precondition, pinned in-test (CLAUDE.md trap 13b): this fixture only says
-  // anything if the store really is in "failed, with the previous run retained".
-  const after = useCanvasStore.getState().results
-  expect(after.status).toBe('error')
-  expect(after.report).toBeTruthy()
-  expect((after.report as any).run.bands.p50).toBe(4242)
-}
-
-/** The SAME failure, on a first run — nothing retained to be honest or dishonest about. */
-function seedFirstRunFailure(errorCode: string, message: string) {
-  ensureMatchMedia()
-  try {
-    sessionStorage.clear()
-  } catch {
-    /* jsdom quirk */
-  }
-  useCanvasStore.setState({
-    nodes: NODES,
-    edges: EDGES,
-    hasCompletedFirstRun: true,
+    hasCompletedFirstRun,
     results: { status: 'idle', progress: 0, report: null },
   } as any)
-  useCanvasStore.getState().resultsError({ code: errorCode, message, canRetry: true })
+}
+
+function fail(code: string, message: string) {
+  useCanvasStore.getState().resultsError({
+    code,
+    message,
+    // The producer's real answer, not a convenient one.
+    canRetry: PRODUCER_CAN_RETRY[code],
+  })
+}
+
+/** B1 — genuine first run: no earlier run, `hasCompletedFirstRun` false. */
+function seedFirstRunFailure(code: string, message: string) {
+  resetCanvas({ hasCompletedFirstRun: false })
+  useCanvasStore.getState().resultsStart({ seed: 7 })
+  fail(code, message)
 
   const after = useCanvasStore.getState().results
   expect(after.status).toBe('error')
   expect(after.report).toBeFalsy()
+  expect(useCanvasStore.getState().hasCompletedFirstRun).toBe(false)
+}
+
+/** B2 — the witnessed cell: run 1 succeeded, run 2 failed before storing anything. */
+function seedFailureAfterEarlierSuccess(code: string, message: string) {
+  resetCanvas({ hasCompletedFirstRun: false })
+  const store = useCanvasStore.getState()
+  store.resultsStart({ seed: 7 })
+  store.resultsComplete({ report: REPORT, hash: RUN_HASH_A } as any)
+  // A NEW run begins, and fails.
+  useCanvasStore.getState().resultsStart({ seed: 8 })
+  fail(code, message)
+
+  // Preconditions pinned in-test (CLAUDE.md trap 13b): without these the cell
+  // could silently become a different one and every assertion below would be
+  // about the wrong state.
+  const after = useCanvasStore.getState().results
+  expect(after.status).toBe('error')
+  expect(after.report).toBeTruthy()
+  expect(after.hash).toBe(RUN_HASH_A)
+  expect(typeof after.reportEpoch).toBe('number')
+  expect(typeof after.errorEpoch).toBe('number')
+  expect(after.reportEpoch).not.toBe(after.errorEpoch)
+}
+
+/**
+ * B3 — the cell the first fix got wrong: the SAME run stored its report and
+ * THEN threw (useV2Run's unguarded `:991`→`:1109` window). No new run starts,
+ * so the report and the error carry the same epoch.
+ */
+function seedFailureAfterThisRunStoredResults(code: string, message: string) {
+  resetCanvas({ hasCompletedFirstRun: false })
+  const store = useCanvasStore.getState()
+  store.resultsStart({ seed: 7 })
+  store.resultsComplete({ report: REPORT, hash: RUN_HASH_B } as any)
+  // Same run — the throw happens after resultsComplete, inside the same call.
+  fail(code, message)
+
+  const after = useCanvasStore.getState().results
+  expect(after.status).toBe('error')
+  expect(after.report).toBeTruthy()
+  expect(after.hash).toBe(RUN_HASH_B)
+  expect(typeof after.reportEpoch).toBe('number')
+  expect(after.reportEpoch).toBe(after.errorEpoch)
+}
+
+/** B4 — a report with no provenance stamps (hydrated / restored state). */
+function seedFailureWithUnprovenReport(code: string, message: string) {
+  resetCanvas({ hasCompletedFirstRun: true })
+  useCanvasStore.setState({
+    results: { status: 'complete', progress: 100, report: REPORT, hash: RUN_HASH_A },
+  } as any)
+  fail(code, message)
+
+  const after = useCanvasStore.getState().results
+  expect(after.status).toBe('error')
+  expect(after.report).toBeTruthy()
+  expect(after.reportEpoch).toBeUndefined()
 }
 
 function renderDock() {
@@ -190,118 +253,189 @@ function renderDock() {
   )
 }
 
-describe('OutputsDock → a failed analysis after a successful one (2.1127)', () => {
-  beforeEach(() => {
-    ensureMatchMedia()
-  })
+function bannerText(): string {
+  const banner = screen.getByTestId('outputs-error-banner')
+  return banner.textContent ?? ''
+}
 
-  // ── Control: the mount path, and that the defect's PRECONDITION is real ──
-  //
-  // Both halves matter. The mount assertion is trap 3b — it fails loud if the
-  // deployed flags stop mounting this banner, instead of the file quietly
-  // testing a component nobody renders. The retained-numbers assertion is trap
-  // 13 — it proves the previous run's numbers really are on screen in this
-  // state, so the "must not claim validity" assertions below cannot pass by
-  // testing nothing.
-  it('control — the error banner mounts and the PREVIOUS run is still being presented', () => {
-    seedFailureAfterSuccess('PROCESSING_ERROR', 'Cannot read properties of undefined')
+beforeEach(() => {
+  ensureMatchMedia()
+})
+
+describe('OutputsDock → B2: failure after an EARLIER run succeeded (2.1127)', () => {
+  // ── Control: the mount path, and that the cell's precondition is real ──
+  it('control — the banner mounts and the earlier run is still being presented', () => {
+    seedFailureAfterEarlierSuccess('PROCESSING_ERROR', 'Cannot read properties of undefined')
     renderDock()
 
     const body = screen.getByTestId('outputs-dock-body')
-    // The mount path itself (trap 3b).
     expect(within(body).getByTestId('outputs-error-banner')).toBeInTheDocument()
-    // The results body is mounted AT status 'error' — this is what puts the
-    // previous run's output under the banner in the first place.
     const resultsBody = within(body).getByTestId('results-body-stale-wrapper')
-    // …and it is THAT snapshot, bound by its own run hash, not "some results".
-    expect(resultsBody).toHaveTextContent(PREVIOUS_RUN_HASH)
+    // Bound to THAT snapshot by its own run hash, not to "some results".
+    expect(resultsBody).toHaveTextContent(RUN_HASH_A)
   })
 
-  it('does not claim the analysis results were received', () => {
-    seedFailureAfterSuccess('PROCESSING_ERROR', 'Cannot read properties of undefined')
+  it('claims neither receipt, nor validity, nor an absence of output', () => {
+    seedFailureAfterEarlierSuccess('PROCESSING_ERROR', 'Cannot read properties of undefined')
     renderDock()
 
-    const banner = screen.getByTestId('outputs-error-banner')
-    // The witnessed sentence. Nothing on the PROCESSING_ERROR path establishes
-    // that results arrived — it is the residual wrap of an unclassified throw.
-    expect(banner).not.toHaveTextContent(/We received the analysis results/i)
-    expect(banner).not.toHaveTextContent(/received the analysis results/i)
+    const text = bannerText()
+    expect(text.length).toBeGreaterThan(0)
+    expect(text).not.toMatch(RECEIPT_CLAIM)
+    expect(text).not.toMatch(VALIDITY_CLAIM)
+    expect(text).not.toMatch(NO_OUTPUT_CLAIM)
   })
 
-  it('does not assert the retained numbers are valid', () => {
-    seedFailureAfterSuccess('PROCESSING_ERROR', 'Cannot read properties of undefined')
+  it('attributes the on-screen numbers to the previous run — the one cell where that is true', () => {
+    seedFailureAfterEarlierSuccess('PROCESSING_ERROR', 'Cannot read properties of undefined')
     renderDock()
 
-    const banner = screen.getByTestId('outputs-error-banner')
-    // The witnessed sentence. Nothing assessed the retained run's validity, and
-    // the numbers on screen are not this run's results at all.
-    expect(banner).not.toHaveTextContent(/core results are still valid/i)
-  })
-
-  it('attributes the on-screen numbers to the previous run', () => {
-    seedFailureAfterSuccess('PROCESSING_ERROR', 'Cannot read properties of undefined')
-    renderDock()
-
-    // Removing a false claim is only half of honest: the numbers stay on
-    // screen, so something must say whose they are. This is the dock's existing
-    // stale-results banner — pinned here so the attribution cannot silently
-    // disappear while the numbers remain.
     const stale = screen.getByTestId('stale-results-banner')
     expect(stale).toHaveTextContent('Showing results from previous analysis')
   })
+})
 
-  // ── The invariant the whole row reduces to ──
-  //
-  // The error banner speaks for the run that FAILED. Whether an earlier run's
-  // snapshot happens to be retained is a fact about the results body below it,
-  // not about this run — so it must not change one character of what this
-  // banner says or offers. That is precisely what `hasPartialResults:
-  // Boolean(report)` violated: the retained snapshot reached in and rewrote the
-  // banner's claim.
-  it('says exactly the same thing whether or not a previous run is retained', () => {
-    seedFailureAfterSuccess('PROCESSING_ERROR', 'Cannot read properties of undefined')
-    const afterSuccess = renderDock()
-    const withRetained = screen.getByTestId('outputs-error-banner').textContent
-    afterSuccess.unmount()
-
-    seedFirstRunFailure('PROCESSING_ERROR', 'Cannot read properties of undefined')
+describe('OutputsDock → B3: failure AFTER this run stored its own results (2.1127)', () => {
+  // This is the cell useV2Run's unguarded post-`resultsComplete` window reaches.
+  it('control — the banner mounts and THIS run\'s results are on screen', () => {
+    seedFailureAfterThisRunStoredResults('PROCESSING_ERROR', 'setGate threw')
     renderDock()
-    const withoutRetained = screen.getByTestId('outputs-error-banner').textContent
 
-    // Non-empty on both sides before comparing them (CLAUDE.md trap 13 / the
-    // zsh-empty-extraction lesson): two empty strings agree about nothing.
-    expect(withRetained).toBeTruthy()
-    expect(withoutRetained).toBeTruthy()
-    expect(withRetained).toBe(withoutRetained)
+    const body = screen.getByTestId('outputs-dock-body')
+    expect(within(body).getByTestId('outputs-error-banner')).toBeInTheDocument()
+    expect(within(body).getByTestId('results-body-stale-wrapper')).toHaveTextContent(RUN_HASH_B)
+  })
+
+  it('does not claim this run produced no results — it produced these', () => {
+    seedFailureAfterThisRunStoredResults('PROCESSING_ERROR', 'setGate threw')
+    renderDock()
+
+    const text = bannerText()
+    expect(text.length).toBeGreaterThan(0)
+    expect(text).not.toMatch(NO_OUTPUT_CLAIM)
+    expect(text).not.toMatch(RECEIPT_CLAIM)
+    expect(text).not.toMatch(VALIDITY_CLAIM)
+  })
+
+  it('does not call this run\'s own numbers the previous analysis', () => {
+    seedFailureAfterThisRunStoredResults('PROCESSING_ERROR', 'setGate threw')
+    renderDock()
+
+    // The chip's sentence is false here: these numbers are the failed run's own.
+    expect(screen.queryByTestId('stale-results-banner')).not.toBeInTheDocument()
+    expect(screen.getByTestId('outputs-dock-body').textContent ?? '').not.toMatch(PREVIOUS_RUN_CLAIM)
   })
 })
 
-describe('OutputsDock → the validity claim was NOT error-code-specific (2.1127)', () => {
-  beforeEach(() => {
-    ensureMatchMedia()
+describe('OutputsDock → B4: a report whose provenance cannot be proven (2.1127)', () => {
+  it('control — the banner mounts and a report is on screen', () => {
+    seedFailureWithUnprovenReport('PROCESSING_ERROR', 'hydrated then failed')
+    renderDock()
+
+    const body = screen.getByTestId('outputs-dock-body')
+    expect(within(body).getByTestId('outputs-error-banner')).toBeInTheDocument()
+    expect(within(body).getByTestId('results-body-stale-wrapper')).toHaveTextContent(RUN_HASH_A)
   })
 
+  it('makes no provenance claim it cannot prove', () => {
+    seedFailureWithUnprovenReport('PROCESSING_ERROR', 'hydrated then failed')
+    renderDock()
+
+    // Unknown fails CLOSED: no stamp, no claim. Silence is not a false sentence.
+    expect(screen.queryByTestId('stale-results-banner')).not.toBeInTheDocument()
+    expect(screen.getByTestId('outputs-dock-body').textContent ?? '').not.toMatch(PREVIOUS_RUN_CLAIM)
+  })
+})
+
+describe('OutputsDock → B1: a genuine FIRST-run failure (2.1127)', () => {
+  // hasCompletedFirstRun === false, so this is the pre-run surface — a
+  // different mount path from B2/B3/B4, and the one a new user hits first.
+  it('control — the banner mounts on the pre-run surface with no results body', () => {
+    seedFirstRunFailure('PROCESSING_ERROR', 'Cannot read properties of undefined')
+    renderDock()
+
+    const body = screen.getByTestId('outputs-dock-body')
+    expect(within(body).getByTestId('outputs-error-banner')).toBeInTheDocument()
+    expect(within(body).queryByTestId('results-body-stale-wrapper')).not.toBeInTheDocument()
+  })
+
+  it('claims nothing about results, and no previous run exists to attribute to', () => {
+    seedFirstRunFailure('PROCESSING_ERROR', 'Cannot read properties of undefined')
+    renderDock()
+
+    const text = bannerText()
+    expect(text.length).toBeGreaterThan(0)
+    expect(text).not.toMatch(RECEIPT_CLAIM)
+    expect(text).not.toMatch(VALIDITY_CLAIM)
+    expect(screen.queryByTestId('stale-results-banner')).not.toBeInTheDocument()
+  })
+})
+
+describe('OutputsDock → axis A: the claims were never error-code-specific (2.1127)', () => {
   // The defect's mechanism was `hasPartialResults: Boolean(report)` — true for
-  // ANY failure with a retained report. A fix that only rewrote the
-  // PROCESSING_ERROR copy would leave this case lying, so it is pinned with a
-  // different code and a different headline.
-  it('a NETWORK_ERROR after a successful run does not assert the retained numbers are valid', () => {
-    seedFailureAfterSuccess('NETWORK_ERROR', 'Failed to fetch')
+  // ANY failure with a retained report. Codes below are ones producers really
+  // emit, each seeded with the `canRetry` its producer really sends.
+  it.each([
+    ['NETWORK_ERROR', 'Failed to fetch', /Connection issue/i],
+    ['UNEXPECTED_STATE', 'Received unexpected response format', /Something went wrong/i],
+    ['MALFORMED_RESPONSE', 'Response failed validation', /Something went wrong/i],
+  ])('%s after an earlier success asserts neither validity nor receipt', (code, message, presence) => {
+    seedFailureAfterEarlierSuccess(code as string, message as string)
     renderDock()
 
-    const banner = screen.getByTestId('outputs-error-banner')
-    // Control: this IS the network-error banner, so the absence assertion below
-    // is about the right surface (trap 13 — prove a presence before an absence).
-    expect(banner).toHaveTextContent(/Connection issue/i)
-    expect(banner).not.toHaveTextContent(/core results are still valid/i)
+    const text = bannerText()
+    // Presence before absence (CLAUDE.md trap 13): this IS that code's banner.
+    expect(text).toMatch(presence as RegExp)
+    expect(text).not.toMatch(VALIDITY_CLAIM)
+    expect(text).not.toMatch(RECEIPT_CLAIM)
+  })
+})
+
+describe('OutputsDock → the banner speaks only for the run that failed (2.1127)', () => {
+  // Whether an earlier run's snapshot is retained is a fact about the results
+  // body below, not about this run — so it must not change one character of
+  // what this banner says. That is exactly what `hasPartialResults:
+  // Boolean(report)` violated.
+  it('says exactly the same thing with a retained report as without one', () => {
+    seedFailureAfterEarlierSuccess('PROCESSING_ERROR', 'Cannot read properties of undefined')
+    const withRetained = renderDock()
+    const retainedText = bannerText()
+    withRetained.unmount()
+
+    seedFirstRunFailure('PROCESSING_ERROR', 'Cannot read properties of undefined')
+    renderDock()
+    const freshText = bannerText()
+
+    // Non-empty on both sides before comparing them: two empty strings agree
+    // about nothing (CLAUDE.md trap 13 / the zsh empty-extraction lesson).
+    expect(retainedText.length).toBeGreaterThan(0)
+    expect(freshText.length).toBeGreaterThan(0)
+    expect(retainedText).toBe(freshText)
   })
 
-  it('a TIMEOUT after a successful run does not assert the retained numbers are valid', () => {
-    seedFailureAfterSuccess('TIMEOUT', 'Request timed out')
+  // Copy and affordance must agree. `PROCESSING_ERROR` and `MALFORMED_RESPONSE`
+  // both carry copy that instructs a retry, and both have
+  // `ApiError.retryable === false`; feeding that into the banner deleted the
+  // button while leaving the instruction.
+  it.each(['PROCESSING_ERROR', 'MALFORMED_RESPONSE'])(
+    '%s offers the rerun its own copy tells the user to make',
+    (code) => {
+      seedFailureAfterEarlierSuccess(code, 'boom')
+      renderDock()
+
+      const banner = screen.getByTestId('outputs-error-banner')
+      expect(within(banner).getByRole('button', { name: /try again/i })).toBeInTheDocument()
+    },
+  )
+
+  it('still withholds the rerun where the user must fix the model first', () => {
+    // Discriminating twin: the same surface, a code on the blocked list. Without
+    // this, "always show Try Again" would pass the test above.
+    seedFailureAfterEarlierSuccess('VALIDATION_BLOCKED', 'Each option needs intervention values')
     renderDock()
 
     const banner = screen.getByTestId('outputs-error-banner')
-    expect(banner).toHaveTextContent(/took too long/i)
-    expect(banner).not.toHaveTextContent(/core results are still valid/i)
+    expect(within(banner).queryByRole('button', { name: /try again/i })).not.toBeInTheDocument()
+    expect(banner.textContent ?? '').not.toMatch(/try again/i)
   })
 })

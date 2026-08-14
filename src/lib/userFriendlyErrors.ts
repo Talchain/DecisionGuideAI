@@ -155,12 +155,19 @@ const ERROR_MESSAGES: Record<string, Omit<UserFriendlyError, 'canRetry'>> = {
   // support. `PROCESSING_ERROR` is minted by `ProcessingError.wrap(err)`
   // (api-errors.ts), which `useV2Run` uses as its RESIDUAL bucket: the
   // catch-all for a throw that is neither a typed API error nor a network
-  // error. It fires for failures BEFORE any response arrives just as readily as
-  // for failures after one. Copy names the failure and what the user is left
-  // with; it asserts nothing about what did or did not arrive.
+  // error.
+  //
+  // ⚠ AND IT MAY NOT CLAIM THE OPPOSITE EITHER. The first fix here said "so
+  // this run produced no results" — false in a reachable cell: `useV2Run` calls
+  // `resultsComplete` at `:991` and then runs ~120 UNGUARDED lines before its
+  // success return, so a throw in `generateGraphHash` (`:1038`),
+  // `persistAnalysisSuccess` (`:1039`), `setRunMeta` (`:1056`), `setGate`
+  // (`:1073`/`:1079`/`:1090`) or `updateRobustnessGateFromV2` (`:1098`) lands in
+  // the catch at `:1150` with THIS run's results already stored and on screen.
+  // The copy asserts NOTHING about output, in either direction.
   'PROCESSING_ERROR': {
-    headline: 'Analysis couldn\'t be processed',
-    explanation: 'Something went wrong while processing this analysis, so this run produced no results.',
+    headline: 'Something went wrong during this analysis',
+    explanation: 'Something went wrong while processing this analysis.',
     actionText: 'Try Again',
     severity: 'warning',
   },
@@ -188,6 +195,13 @@ const ERROR_MESSAGES: Record<string, Omit<UserFriendlyError, 'canRetry'>> = {
   },
 }
 
+/**
+ * ROADMAP 2.1127 — the code set, DERIVED from the map rather than hand-listed,
+ * so a guard over "every code" cannot go quietly short as codes are added
+ * (CLAUDE.md trap 12). Exported for the copy↔affordance invariant.
+ */
+export const ALL_ERROR_CODES: readonly string[] = Object.keys(ERROR_MESSAGES)
+
 // HTTP status code mapping
 const STATUS_MESSAGES: Record<number, Omit<UserFriendlyError, 'canRetry'>> = {
   400: ERROR_MESSAGES['INVALID_INPUT'],
@@ -210,6 +224,26 @@ const STATUS_MESSAGES: Record<number, Omit<UserFriendlyError, 'canRetry'>> = {
   503: ERROR_MESSAGES['SERVICE_UNAVAILABLE'],
   504: ERROR_MESSAGES['TIMEOUT'],
 }
+
+/** Companion to ALL_ERROR_CODES for the status-mapped entries. */
+export const ALL_STATUS_CODES: readonly number[] = Object.keys(STATUS_MESSAGES).map(Number)
+
+/**
+ * ROADMAP 2.1127 — codes where the USER must change something before a re-run
+ * could possibly succeed, so offering "Try Again" would be an empty affordance.
+ * Everything else may be re-run by the user.
+ *
+ * ⚠ This is the "may the user re-run?" answer and it is deliberately SEPARATE
+ * from `ApiError.retryable` ("would an automatic retry help?"). See the comment
+ * at the `canRetry` derivation in `getUserFriendlyError`.
+ */
+export const USER_RERUN_BLOCKED_CODES: readonly string[] = [
+  'UNAUTHORIZED',
+  'FORBIDDEN',
+  'INVALID_INPUT',
+  'EMPTY_GRAPH',
+  'VALIDATION_BLOCKED',
+]
 
 // Default error message
 const DEFAULT_ERROR: Omit<UserFriendlyError, 'canRetry'> = {
@@ -276,10 +310,26 @@ export function getUserFriendlyError(input: ErrorInput): UserFriendlyError {
     }
   }
 
-  // Use explicit canRetry if provided, otherwise determine from error code
+  // ⚠ ROADMAP 2.1127 — TWO QUESTIONS, ONE NAME (CLAUDE.md trap 21).
+  //
+  //   `ApiError.retryable`  answers "would an AUTOMATIC retry plausibly help?"
+  //                         It defaults to false, and `ProcessingError` and
+  //                         `MalformedApiResponseError` hardcode false.
+  //   this `canRetry`       answers "may the USER re-run this analysis?"
+  //
+  // They are not the same question and must not share an answer. Feeding the
+  // banner from `retryable` removed "Try Again" from exactly the two classes
+  // whose own copy tells the user to try again — an instruction with no
+  // affordance. The user-facing decision is made HERE, from the code, by the
+  // explicit list below: re-running is blocked only where the user must change
+  // something first, and permitted everywhere else (including the recoverable
+  // display/processing classes).
+  //
+  // `input.canRetry` is still honoured when a caller passes one, but the dock
+  // deliberately does NOT pass the producer's `retryable` into it.
   const canRetry = input.canRetry !== undefined
     ? input.canRetry
-    : !['UNAUTHORIZED', 'FORBIDDEN', 'INVALID_INPUT', 'EMPTY_GRAPH', 'VALIDATION_BLOCKED'].includes(input.code || '')
+    : !USER_RERUN_BLOCKED_CODES.includes(input.code || '')
 
   return {
     ...baseError,
