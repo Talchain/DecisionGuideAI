@@ -3,7 +3,7 @@
  *
  * Layer 1 (always visible):
  *  - No threshold pre-analysis: "What does success look like for you?" + chip
- *  - No threshold post-analysis: "Analysis complete. Set a target to see your chances." + chip
+ *  - No threshold post-analysis: "Analysis complete. Set a target to see how likely you are to reach it." + chip
  *  - With threshold: "Target: [value]" + provenance icon
  *  - Post-analysis with threshold: achievement probability (danger if <10%), actionable guidance
  *  - No risks chip (always)
@@ -330,7 +330,7 @@ export const GoalNode = memo((props: NodeProps) => {
           <>
             <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>
               {hasAnyProbability
-                ? 'Analysis complete. Set a target to see your chances.'
+                ? 'Analysis complete. Set a target to see how likely you are to reach it.'
                 : 'Analysis finished. Set a target and check the graph for incomplete inputs.'}
             </p>
             {helpSetTargetChip}
@@ -397,7 +397,7 @@ export const GoalNode = memo((props: NodeProps) => {
             goal_probability even when the USER set no target (UI-SEM-071 class),
             so without this gate the "N% chance of reaching target" line would
             crown a target the user never set AND co-render with the "Set a target
-            to see your chances" invitation above. hasThreshold makes the two
+            to see how likely you are to reach it" invitation above. hasThreshold makes the two
             mutually exclusive by construction. */}
         {hasThreshold && displayMetadata.isResultsMode && displayMetadata.achievementProbability !== null && (
           <div className={`${typography.nodeLabel} mt-1 ${

@@ -372,7 +372,7 @@ describe('GoalNode', () => {
       selector(makeStoreState({ results: { status: 'complete', report: {} } }) as any)
     )
     renderGoal({ success_threshold: 15, threshold_source: 'user', goal_threshold_raw: null })
-    expect(screen.queryByText('Analysis complete. Set a target to see your chances.')).toBeNull()
+    expect(screen.queryByText('Analysis complete. Set a target to see how likely you are to reach it.')).toBeNull()
     expect(screen.getByText(/Target:/)).toBeDefined()
   })
 
@@ -733,7 +733,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
     // The live bug: card said "Analysis complete. Set a target to see your
     // chances." while a target was set. Must never render here.
-    expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()
+    expect(screen.queryByText(/Set a target to see how likely you are to reach it/)).toBeNull()
     expect(screen.queryByText('Help me set a target')).toBeNull()
   })
 
@@ -837,7 +837,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
     expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
     expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
-    expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()
+    expect(screen.queryByText(/Set a target to see how likely you are to reach it/)).toBeNull()
   })
 
   // Lane 4 (Paul ruled: GATE ON USER TARGET) — UI-SEM-082, extends UI-SEM-071.
@@ -871,7 +871,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     )
     renderGoal() // no goal_threshold_raw / success_threshold → hasThreshold === false
     // Invitation shown…
-    expect(screen.getByText('Analysis complete. Set a target to see your chances.')).toBeDefined()
+    expect(screen.getByText('Analysis complete. Set a target to see how likely you are to reach it.')).toBeDefined()
     // …and the goal-fit claim SUPPRESSED — the two strings never co-render.
     expect(screen.queryByText(/chance of reaching target/)).toBeNull()
     expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
@@ -903,7 +903,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal() // hasThreshold === false
-    expect(screen.getByText('Analysis complete. Set a target to see your chances.')).toBeDefined()
+    expect(screen.getByText('Analysis complete. Set a target to see how likely you are to reach it.')).toBeDefined()
     expect(screen.queryByText(/chance of reaching target/)).toBeNull()
     expect(screen.queryByText(/Target may be ambitious/)).toBeNull()
   })
@@ -930,7 +930,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     )
     renderGoal({ goal_threshold_raw: '60', goal_threshold_unit: '%' }) // hasThreshold === true
     expect(screen.getByText(/40.*% chance of reaching target/)).toBeDefined()
-    expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()
+    expect(screen.queryByText(/Set a target to see how likely you are to reach it/)).toBeNull()
   })
 })
 

@@ -118,8 +118,12 @@ function singulariseCountUnitText(text: string, unit: string | null | undefined)
  *   1. CEE display_value verbatim
  *   2. formatFactorDisplayValue contextual (raw_value + unit, binary text, …)
  *   3. formatInterventionValue numeric fallback
- *   4. tier labels / raw normalised decimals → percentage
+ *   4. tier labels kept verbatim; raw normalised decimals → percentage
  * plus count-unit singularisation on UI-formatted output.
+ *
+ * Step 4 deliberately does NOT convert tier words into percentages: reaching
+ * the tier fallback means no unit, cap or raw anchor was recoverable, so the
+ * value is an ordinal position and a "%" would assert a frame nothing set.
  */
 export function formatInterventionTargetText(chip: InterventionValueInput): string {
   // CEE-provided display_value wins over any UI-side formatting (verbatim).
@@ -151,9 +155,28 @@ export function formatInterventionTargetText(chip: InterventionValueInput): stri
   if (contextual) return singulariseCountUnitText(contextual, effectiveUnit)
   // Fallback: prefer numeric formatting over qualitative tier labels and raw normalised values
   const fallback = formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
-  // Tier labels → percentage (tier words are meaningless as change targets)
+  // Tier labels stay tier labels.
+  //
+  // ⚠ This branch used to read "tier words are meaningless as change targets"
+  // and rewrite them into `formatPercent(value, {fromDecimal:true})`. That
+  // premise is false and the rewrite invented a unit. We reach here only when
+  // BOTH the contextual formatter and every scale-recovery path declined —
+  // i.e. the factor has no unit, no cap and no raw anchor, so its 0–1 value is
+  // an ORDINAL POSITION, not a proportion of anything. Multiplying it by 100
+  // and appending "%" asserts a frame nothing established.
+  //
+  // Witnessed on Paul's hiring graph (14 Aug): `fac_eng_headcount`
+  // (factor_type "quality", no unit/cap/raw_value) rendered
+  // "Development headcount 0% → 40%". A headcount is a COUNT — there is no
+  // percentage of a headcount, and 40% of an unknown establishment is not a
+  // quantity the user can act on.
+  //
+  // A tier word is the honest rendering of an unframed ordinal, and it is
+  // already what FactorNode and GraphTextView show for the same factor via
+  // `preserveTierLabel`. Returning it here makes the option card agree with
+  // them instead of contradicting them with a fabricated percentage.
   if (isTierLabel(fallback)) {
-    return formatPercent(chip.value, { fromDecimal: true })
+    return fallback
   }
   // Raw normalised number (no unit, value in [0,1] like "0.15") → percentage
   if (!effectiveUnit && chip.value >= 0 && chip.value <= 1 && /^0\.\d+$/.test(fallback)) {

@@ -1151,13 +1151,13 @@ describe('FactorNode — intervention hover', () => {
       category: 'controllable',
       observedState: { value: 0.5, factor_type: 'quality' },
     })
-    // Tier labels ("High", "Very high", …) are suppressed. Audit §8 P0-4:
-    // the annotation now routes through the single formatter, so it shows
-    // the same "70%" the option card's popover shows for this intervention
-    // (previously the annotation said "Increases …" while the card said
-    // "70%" — two statements for one datum).
-    expect(screen.queryByText(/High/)).toBeNull()
-    expect(screen.getByText('→ 70%')).toBeDefined()
+    // ⚠ RE-PINNED 14 Aug. The coherence property this test was written for —
+    // annotation and option card show ONE statement for one datum — is intact
+    // and is exactly why the value moved: both now route through the single
+    // formatter, which no longer invents a percentage for an unframed
+    // 'quality' factor. 0.7 → 'High' per qualitativeTierLabel.
+    expect(screen.getByText('→ High')).toBeDefined()
+    expect(screen.queryByText(/70%/)).toBeNull()
   })
 
   it('unwraps a CEEInterventionV3 {value} object and renders the shared formatted value', () => {
@@ -1168,7 +1168,9 @@ describe('FactorNode — intervention hover', () => {
       category: 'controllable',
       observedState: { value: 0.5, factor_type: 'quality' },
     })
-    expect(screen.getByText('→ 70%')).toBeDefined()
+    // ⚠ RE-PINNED 14 Aug — see the primitive-number test above. The UNWRAP is
+    // what this test guards; the formatted value moved for the same reason.
+    expect(screen.getByText('→ High')).toBeDefined()
     // Regression assertion: none of the pre-fix corrupt strings should appear anywhere.
     expect(screen.queryByText(/\[object Object\]/)).toBeNull()
     expect(screen.queryByText(/NaN/)).toBeNull()
