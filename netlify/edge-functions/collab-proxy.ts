@@ -131,6 +131,23 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   /^\/collab\/v1\/packet\/[^/]+$/,
   /^\/collab\/v1\/packet\/[^/]+\/events$/,
   /^\/collab\/v1\/packet\/[^/]+\/reveal$/,
+  /**
+   * D2 (14 Aug 2026) — the DISAGREEMENT read, both audiences.
+   *
+   * ⚠ THESE TWO LINES ARE THE DIFFERENCE BETWEEN THIS CAPABILITY WORKING AND
+   * SHIPPING DARK, and the allowlist is exactly the kind of derived-then-frozen
+   * list that goes stale silently: CEE can grow a route, the UI can call it, both
+   * halves can be green, and every request still 404s HERE with no error anywhere
+   * that names the cause. It is listed second in the estate's chronic-failure
+   * list for a reason.
+   *
+   * Exposes NOTHING new to either audience. The owner already reads `/reveal`;
+   * the participant already reads `/packet/:id/reveal`. This response is the same
+   * positions plus the evidence those same participants wrote, and CEE refuses it
+   * on an open round through the reveal's own gate.
+   */
+  /^\/collab\/v1\/rounds\/[^/]+\/disagreement$/,
+  /^\/collab\/v1\/packet\/[^/]+\/disagreement$/,
 ]
 
 function isAllowedTarget(pathname: string): boolean {

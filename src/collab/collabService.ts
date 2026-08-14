@@ -95,6 +95,69 @@ export interface RoundRosterView {
   }>
 }
 
+/* ── the disagreement view (CEE `DisagreementView`) ──────────────────────── */
+
+export type DivergenceShape = 'no_answers' | 'single_view' | 'aligned' | 'split'
+export type EvidenceStance = 'supports' | 'challenges' | 'qualifies'
+
+export interface DisagreementPosition {
+  participant_id: string
+  display_label: string
+  value: number | null
+  /** The person's own words for why. Verbatim — render as given. */
+  stated_basis: string | null
+  confidence: number | null
+  kind: string
+  /** An end of the range, or null. NOT a ranking — ties are both marked. */
+  pole: 'low' | 'high' | null
+}
+
+export interface DisagreementEvidence {
+  event_id: string
+  /** The SERVER stamp. Never rendered from a client-held id. */
+  authored_by: string
+  author_label: string
+  stance: EvidenceStance
+  /** The fixed word for the stance, chosen by CEE, never by this bundle. */
+  stance_phrase: string
+  kind: 'note' | 'link'
+  body: string
+  /** http/https only — validated and normalised server-side at append time. */
+  url: string | null
+  about_participant_id: string | null
+  about_label: string | null
+  created_at: string
+}
+
+export interface DisagreementTarget {
+  target: { kind: 'factor' | 'edge'; id: string }
+  label: string
+  model_value_at_version: number | null
+  shape: DivergenceShape
+  answering_participants: number
+  distinct_values: number
+  /** Range endpoints. ⚠ NOT an aggregate — see the CEE type. */
+  spread: { low: number; high: number; width: number } | null
+  positions: DisagreementPosition[]
+  positions_with_stated_basis: number
+  evidence: DisagreementEvidence[]
+  /**
+   * ⭐ CODE-OWNED COPY, AUTHORED IN CEE. This bundle RENDERS these strings and
+   * must never compose its own version of them: the sentences are pinned by a
+   * CEE suite that asserts, over every string the module can emit, that none of
+   * them resolves the disagreement. A UI that rewrote them locally would sit
+   * outside that guarantee, and nothing here would notice.
+   */
+  headline: string
+  question: string | null
+}
+
+export interface DisagreementView {
+  round_id: string
+  graph_version_ref: string
+  per_target: DisagreementTarget[]
+}
+
 export interface CollabError {
   code: string
   message: string
@@ -205,6 +268,63 @@ export async function fetchParticipantReveal(roundId: string): Promise<RevealVie
   return (await res.json()) as RevealView
 }
 
+/**
+ * Attach evidence to a position.
+ *
+ * ⚠ SAME ENDPOINT AS A BELIEF, BY DESIGN — see the CEE route header. Evidence is
+ * a participant appending an attributed, round-scoped, target-bound row, with
+ * the same authorisation and the same blindness properties as an answer, so it
+ * comes through the one door rather than a second one that would need its own
+ * copy of the token check.
+ *
+ * ⚠ NO provenance member, exactly like `submitBelief`. The server stamps
+ * `authored_by` from the token; a payload that offered one would be REFUSED,
+ * not ignored, so a client cannot quietly believe it controls attribution.
+ */
+export async function attachEvidence(
+  roundId: string,
+  args: {
+    targetId: string
+    targetKind: 'factor' | 'edge'
+    kind: 'note' | 'link'
+    /** The participant's own words. Sent verbatim. */
+    body: string
+    /** http/https only. CEE refuses anything else and normalises what it keeps. */
+    url: string | null
+    stance: EvidenceStance
+    /** Whose position this speaks to, or null for the target at large. */
+    aboutParticipantId: string | null
+  },
+): Promise<{ authored_by: string; event_id: string }> {
+  const res = await fetch(`${COLLAB_BASE}/packet/${encodeURIComponent(roundId)}/events`, {
+    method: 'POST',
+    headers: { ...participantHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      kind: 'evidence_attached',
+      target: { kind: args.targetKind, id: args.targetId },
+      belief: null,
+      evidence: {
+        kind: args.kind,
+        body: args.body,
+        url: args.url,
+        stance: args.stance,
+        about_participant_id: args.aboutParticipantId,
+      },
+    }),
+  })
+  if (!res.ok) throw await parseError(res)
+  return (await res.json()) as { authored_by: string; event_id: string }
+}
+
+export async function fetchParticipantDisagreement(roundId: string): Promise<DisagreementView> {
+  const res = await fetch(`${COLLAB_BASE}/packet/${encodeURIComponent(roundId)}/disagreement`, {
+    method: 'GET',
+    headers: participantHeaders(),
+  })
+  if (!res.ok) throw await parseError(res)
+  return (await res.json()) as DisagreementView
+}
+
 /* ── owner ───────────────────────────────────────────────────────────────── */
 
 /**
@@ -308,6 +428,18 @@ export async function fetchOwnerReveal(
   })
   if (!res.ok) throw await parseError(res)
   return (await res.json()) as RevealView
+}
+
+export async function fetchOwnerDisagreement(
+  accessToken: string,
+  roundId: string,
+): Promise<DisagreementView> {
+  const res = await fetch(`${COLLAB_BASE}/rounds/${encodeURIComponent(roundId)}/disagreement`, {
+    method: 'GET',
+    headers: { Authorization: ownerAuthorization(accessToken) },
+  })
+  if (!res.ok) throw await parseError(res)
+  return (await res.json()) as DisagreementView
 }
 
 /**
