@@ -7,7 +7,19 @@
  */
 
 import { THRESHOLDS } from '../../lib/mappers/constants'
+import { isRecord } from '../conversation/ceeRecovery'
 
+/**
+ * `fragileEdges` is always `report.robustness.fragile_edges` — producer data
+ * that crosses a service boundary (ISL → PLoT → CEE → UI), so the element type
+ * below is a compile-time claim, not a runtime guarantee. Every entry point
+ * here therefore skips any element that is not a plain record before reading a
+ * field: a single `null` on the wire otherwise threw
+ * `TypeError: Cannot read properties of null` out of StyledEdge's per-edge
+ * memo, useMenuItems, useLensFilter and EdgePanel's "NN% flip risk".
+ * Skipping is the correct degradation — a shape we cannot read is a shape we
+ * cannot call fragile.
+ */
 export interface FragileEdgeCandidate {
   edge_id?: string
   edgeId?: string
@@ -34,6 +46,8 @@ export function isEdgeFragile(
   fragileEdges: FragileEdgeCandidate[],
 ): boolean {
   return fragileEdges.some(fe => {
+    if (!isRecord(fe)) return false
+
     const switchProb = fe.switch_probability ?? fe.switchProbability ??
                        fe.marginal_switch_probability ?? fe.marginalSwitchProbability
     if (typeof switchProb !== 'number' || switchProb <= THRESHOLDS.FRAGILE_EDGE_FILTER) return false
@@ -49,8 +63,15 @@ export function isEdgeFragile(
   })
 }
 
-/** The switch probability an entry reports (above the visibility floor), else null. */
+/**
+ * The switch probability an entry reports (above the visibility floor), else
+ * null. This is the ONLY place `isTopFragileEdge` reads an entry's fields, so
+ * the non-record guard here is what keeps that loop safe; the winner it hands
+ * back is a record by construction.
+ */
 function entrySwitchProb(fe: FragileEdgeCandidate): number | null {
+  if (!isRecord(fe)) return null
+
   const p = fe.switch_probability ?? fe.switchProbability ??
             fe.marginal_switch_probability ?? fe.marginalSwitchProbability
   return typeof p === 'number' && p > THRESHOLDS.FRAGILE_EDGE_FILTER ? p : null
@@ -105,6 +126,8 @@ export function getFragileEdgeSwitchProbability(
   fragileEdges: FragileEdgeCandidate[],
 ): number | null {
   for (const fe of fragileEdges) {
+    if (!isRecord(fe)) continue
+
     const measured = fe.switch_probability ?? fe.switchProbability
     if (typeof measured !== 'number' || measured <= THRESHOLDS.FRAGILE_EDGE_FILTER) continue
 

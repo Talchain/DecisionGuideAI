@@ -192,3 +192,99 @@ describe('isTopFragileEdge — E4 single default-view fragility badge', () => {
   })
 })
 
+// ─── Malformed wire elements ────────────────────────────────────────────────
+//
+// `fragileEdges` is `report.robustness.fragile_edges` — producer data crossing
+// a service boundary (ISL → PLoT → CEE → UI), so the declared element type is
+// a compile-time claim, not a runtime guarantee. A `null` element made all
+// three exported functions throw `TypeError: Cannot read properties of null`,
+// crashing every live caller: StyledEdge (per-edge memo), useMenuItems,
+// useLensFilter and EdgePanel ("NN% flip risk").
+//
+// Each case asserts BOTH halves: the malformed element is survived, AND the
+// well-formed row after it is unaffected — bound to its object by IDENTITY
+// (its own edge_id / from_id-to_id pair and its own probability), never by a
+// value predicate a neighbouring row could also satisfy.
+
+describe('fragileEdgeMatch — a malformed element is skipped, never fatal', () => {
+  // Every non-record shape the wire can deliver. `null`/`undefined` are the
+  // ones that threw; the primitives and the nested array are the rest of the
+  // non-record domain, kept here so the guard is pinned across it, not just
+  // against the reproduction.
+  const MALFORMED = [null, undefined, 'not-an-object', 42, false, ['nested']]
+
+  describe('isEdgeFragile', () => {
+    it('survives a null element, and the row AFTER it still matches by its own edge_id', () => {
+      const fragile = [
+        null,
+        { edge_id: 'e-target', switch_probability: 0.35 },
+      ] as unknown as FragileEdgeCandidate[]
+
+      expect(() => isEdgeFragile('e-target', 'a', 'b', fragile)).not.toThrow()
+      expect(isEdgeFragile('e-target', 'a', 'b', fragile)).toBe(true)
+      // Identity binding: the survived null must not become a wildcard match.
+      expect(isEdgeFragile('e-other', 'a', 'b', fragile)).toBe(false)
+    })
+
+    it('survives a null element and still matches the row AFTER it by its own from_id/to_id pair', () => {
+      const fragile = [
+        null,
+        { from_id: 'n1', to_id: 'n2', switch_probability: 0.35 },
+      ] as unknown as FragileEdgeCandidate[]
+
+      expect(isEdgeFragile('any-id', 'n1', 'n2', fragile)).toBe(true)
+      expect(isEdgeFragile('any-id', 'n1', 'n9', fragile)).toBe(false)
+    })
+
+    it('survives every non-record element shape, and an all-malformed array is simply not fragile', () => {
+      const fragile = MALFORMED as unknown as FragileEdgeCandidate[]
+      expect(() => isEdgeFragile('e1', 'a', 'b', fragile)).not.toThrow()
+      expect(isEdgeFragile('e1', 'a', 'b', fragile)).toBe(false)
+    })
+  })
+
+  describe('isTopFragileEdge', () => {
+    it('survives a null element, and the top row after it is still picked by its own identity', () => {
+      const fragile = [
+        null,
+        { edge_id: 'e-runner-up', switch_probability: 0.35 },
+        { edge_id: 'e-top', switch_probability: 0.62 },
+      ] as unknown as FragileEdgeCandidate[]
+
+      expect(() => isTopFragileEdge('e-top', 'a', 'b', fragile)).not.toThrow()
+      expect(isTopFragileEdge('e-top', 'a', 'b', fragile)).toBe(true)
+      // Identity binding: the runner-up is still NOT the top, and the survived
+      // null has not been elected top either (which would make everything false).
+      expect(isTopFragileEdge('e-runner-up', 'a', 'b', fragile)).toBe(false)
+    })
+
+    it('survives every non-record element shape, and an all-malformed array has no top', () => {
+      const fragile = MALFORMED as unknown as FragileEdgeCandidate[]
+      expect(() => isTopFragileEdge('e1', 'a', 'b', fragile)).not.toThrow()
+      expect(isTopFragileEdge('e1', 'a', 'b', fragile)).toBe(false)
+    })
+  })
+
+  describe('getFragileEdgeSwitchProbability', () => {
+    it('survives a null element, and returns the measured value of the row AFTER it, by identity', () => {
+      const fragile = [
+        null,
+        { edge_id: 'e-other', switch_probability: 0.91 },
+        { edge_id: 'e-target', switch_probability: 0.35 },
+      ] as unknown as FragileEdgeCandidate[]
+
+      expect(() => getFragileEdgeSwitchProbability('e-target', 'a', 'b', fragile)).not.toThrow()
+      // 0.35 is e-target's OWN value — a neighbouring row carries 0.91, so a
+      // wrong-object read would be visible rather than coincidentally equal.
+      expect(getFragileEdgeSwitchProbability('e-target', 'a', 'b', fragile)).toBeCloseTo(0.35)
+      expect(getFragileEdgeSwitchProbability('e-other', 'a', 'b', fragile)).toBeCloseTo(0.91)
+    })
+
+    it('survives every non-record element shape, and an all-malformed array yields no display value', () => {
+      const fragile = MALFORMED as unknown as FragileEdgeCandidate[]
+      expect(() => getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).not.toThrow()
+      expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeNull()
+    })
+  })
+})
+
