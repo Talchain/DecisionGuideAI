@@ -27,6 +27,7 @@ import ceeHandler from '../../netlify/edge-functions/cee-proxy.ts'
 import orchestratorHandler from '../../netlify/edge-functions/orchestrator-proxy.ts'
 import collabHandler from '../../netlify/edge-functions/collab-proxy.ts'
 import islHandler from '../../netlify/edge-functions/isl-proxy.ts'
+import plotHandler from '../../netlify/edge-functions/plot-proxy.ts'
 
 const ALLOWED_ORIGIN = 'https://staging--olumi.netlify.app'
 const FAKE_KEY = 'FAKE_SERVICE_KEY_VALUE'
@@ -355,6 +356,125 @@ describe('orchestrator v1 turn family is allowed (pins the v\\d+ regex against a
     expect(r.fetchCalled).toBe(true)
     expect(r.calledUrl).toBe(expectedUrl)
     expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+  })
+})
+
+/* ── /bff/engine/* → PLoT — the seam the published bearer used to authenticate ── */
+describe('plot-proxy path allowlist (/bff/engine/* → plot-lite-service)', () => {
+  /**
+   * ⚠ THIS PROXY SHIPPED WITHOUT AN ALLOWLIST AND WAS THE ONLY ONE OF FIVE THAT DID.
+   *
+   * It was added to move PLoT's bearer out of the browser bundle, where Vite had
+   * been inlining it as a public literal. That fixed WHO HOLDS the credential and
+   * left WHAT IT REACHES unbounded: every path under `/bff/engine/*` was forwarded
+   * with the bearer attached, so any visitor was an authenticated caller across
+   * PLoT's entire surface. Narrower than a published credential, and still the same
+   * blast-radius shape — moved to the edge rather than removed.
+   *
+   * The bearer here rides `Authorization`, not `X-Olumi-Assist-Key`, so these cases
+   * assert on that header by name; a copy-paste of the sibling assertions above
+   * would have passed vacuously on a header this proxy never sets.
+   */
+  it('ON-LIST /bff/engine/v2/run forwards WITH the injected bearer', async () => {
+    const r = await invoke(plotHandler as Handler, { path: '/bff/engine/v2/run' })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe('https://plot-lite-service-staging.onrender.com/v2/run')
+    expect(r.requestHeaders?.get('Authorization')).toBe(`Bearer ${FAKE_KEY}`)
+    expect(r.status).toBe(200)
+  })
+
+  it('ON-LIST /bff/engine/v1/cee/draft-graph forwards — the retired cross-origin seam', async () => {
+    // The one call that used to go browser→PLoT directly, via VITE_CEE_DRAFT_BASE.
+    // It now traverses this proxy, so it must be on the list or drafting 404s.
+    const r = await invoke(plotHandler as Handler, {
+      path: '/bff/engine/v1/cee/draft-graph',
+    })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(
+      'https://plot-lite-service-staging.onrender.com/v1/cee/draft-graph',
+    )
+    expect(r.requestHeaders?.get('Authorization')).toBe(`Bearer ${FAKE_KEY}`)
+  })
+
+  it('ON-LIST /bff/engine/v1/run/{id}/cancel forwards (dynamic id honoured)', async () => {
+    const runId = 'run-2f9c1a4e'
+    const r = await invoke(plotHandler as Handler, {
+      path: `/bff/engine/v1/run/${runId}/cancel`,
+    })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(
+      `https://plot-lite-service-staging.onrender.com/v1/run/${runId}/cancel`,
+    )
+  })
+
+  it('ON-LIST a query string does NOT change the route decision', async () => {
+    // The allowlist matches the pathname only. `?schema=v3` rides draft-graph on
+    // every real call, so a matcher that included the query would 404 the live seam.
+    const r = await invoke(plotHandler as Handler, {
+      path: '/bff/engine/v1/cee/draft-graph?schema=v3',
+    })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(
+      'https://plot-lite-service-staging.onrender.com/v1/cee/draft-graph?schema=v3',
+    )
+  })
+
+  it('OFF-LIST /bff/engine/v1/counterfactual is 404 with NO bearer sent', async () => {
+    // A REAL registered PLoT route the UI does not call — the discriminating case.
+    // An off-list test that picked a nonsense path would pass against a wildcard.
+    const r = await invoke(plotHandler as Handler, { path: '/bff/engine/v1/counterfactual' })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
+  it('OFF-LIST /bff/engine/v1/admin/secrets is 404 with NO bearer sent', async () => {
+    const r = await invoke(plotHandler as Handler, { path: '/bff/engine/v1/admin/secrets' })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
+  it('OFF-LIST the bare mount /bff/engine is 404 with NO bearer sent', async () => {
+    const r = await invoke(plotHandler as Handler, { path: '/bff/engine' })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
+  it('OFF-LIST /bff/engine/v2/run/extra is 404 — anchors, not prefixes', async () => {
+    // Pins that the entries are anchored. If `/v2/run` were ever written as a
+    // prefix match, this would forward and the list would have stopped bounding
+    // anything below it.
+    const r = await invoke(plotHandler as Handler, { path: '/bff/engine/v2/run/extra' })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
+  it('TRAVERSAL /bff/engine/v1/run/abc%2f..%2fadmin/cancel is 404 with NO bearer sent', async () => {
+    // The dynamic segment is deliberately permissive ([^/]+) so real run ids never
+    // false-404 — which is exactly why the traversal check is independently
+    // load-bearing here rather than redundant with the allowlist.
+    const r = await invoke(plotHandler as Handler, {
+      path: '/bff/engine/v1/run/abc%2f..%2fadmin/cancel',
+    })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
+  it('TRAVERSAL /bff/engine/%2e%2e/v1/admin is 404 with NO bearer sent', async () => {
+    const r = await invoke(plotHandler as Handler, { path: '/bff/engine/%2e%2e/v1/admin' })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
+  it('the SECOND mount /engine/* is bounded by the same list', async () => {
+    // `MOUNTS` serves both prefixes. A guard applied to only one of them would
+    // leave the other wide open, and every assertion above would still pass.
+    const on = await invoke(plotHandler as Handler, { path: '/engine/v2/run' })
+    expect(on.fetchCalled).toBe(true)
+    expect(on.calledUrl).toBe('https://plot-lite-service-staging.onrender.com/v2/run')
+
+    const off = await invoke(plotHandler as Handler, { path: '/engine/v1/admin/secrets' })
+    expect(off.status).toBe(404)
+    expect(off.fetchCalled).toBe(false)
   })
 })
 
