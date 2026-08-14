@@ -68,6 +68,9 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
       designationsWithheld: false,
       resolveNext: null,
       decisionVoi: 'not_computed',
+      // Same contract as the two above: the gallery names no assumption
+      // unless a fixture supplies one, and the refusal renders nothing.
+      assumedStrength: { selected: null, refusalReason: 'no_robustness_data', assumedFragileCount: 0 },
     },
     trustLine: null,
     statusChip: null,

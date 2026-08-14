@@ -646,6 +646,7 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
     return {
       ...m,
       evidence: {
+        assumedStrength: { selected: null, refusalReason: 'no_robustness_data', assumedFragileCount: 0 },
         drivers: [
           { rank: 1, label: 'Developer capacity', targetId: 'node_dev', direction: 'positive', influence: 1 },
           { rank: 2, label: 'Team morale', targetId: null, direction: 'negative', influence: 0.66 },

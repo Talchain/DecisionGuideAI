@@ -12,6 +12,7 @@
 // compile error in this file rather than a silently divergent second shape.
 import type { VoiRanking } from '../voi/voiRanking'
 import type { DecisionVoiVerdict } from '../voi/decisionVoi'
+import type { AssumedStrengthDecision } from '../strengthElicitation/selectAssumedStrengthToResolve'
 
 /**
  * The four prototype lenses. Goal fit and Likely outcome are the LIVE
@@ -228,6 +229,19 @@ export interface HeroEvidenceModel {
    * Required means the compiler names every constructor.
    */
   decisionVoi: DecisionVoiVerdict
+  /**
+   * P4 — the one ASSUMED relationship worth pinning down, or a named refusal.
+   *
+   * REQUIRED, for the same reason `decisionVoi` above is: a refusal renders
+   * nothing, so an OPTIONAL field that every fixture omitted would look exactly
+   * like a working feature with nothing to show — a permanently silent surface
+   * under a green suite. Required means the compiler names every constructor.
+   *
+   * Passed through from the hook and never re-derived here. The selection is
+   * the producer's own order intersected with our provenance stamps; a consumer
+   * that re-ranks it is a consumer that can invert it.
+   */
+  assumedStrength: AssumedStrengthDecision
 }
 
 export interface HeroChartModel {

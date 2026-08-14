@@ -65,6 +65,7 @@ import { InfluenceExplainer, useInfluenceExplainer } from '../components/assista
 import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
+import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
 import { useGuidancePulseHighlight } from './hooks/useGuidancePulseHighlight'
@@ -527,11 +528,20 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showFullInspector, setShowFullInspector] = useState(false)
 
-  // Close inspector when OutputsDock opens
+  // ONE FULL-WIDTH SURFACE AT A TIME — the two directions of the same rule.
+  // The dock opening stands the inspector down; `openEdgeStrengthEditor` (which
+  // stands the DOCK down first) raises it. Registered together so the pair
+  // cannot drift apart, and so a reader sees the invariant rather than two
+  // unrelated listeners.
   useEffect(() => {
     const handleDockOpened = () => setShowFullInspector(false)
+    const handleOpenInspector = () => setShowFullInspector(true)
     window.addEventListener('outputs-dock-opened', handleDockOpened)
-    return () => window.removeEventListener('outputs-dock-opened', handleDockOpened)
+    window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, handleOpenInspector)
+    return () => {
+      window.removeEventListener('outputs-dock-opened', handleDockOpened)
+      window.removeEventListener(OPEN_FULL_INSPECTOR_EVENT, handleOpenInspector)
+    }
   }, [])
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)

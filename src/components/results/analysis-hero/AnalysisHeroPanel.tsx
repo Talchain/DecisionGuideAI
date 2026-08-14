@@ -34,6 +34,8 @@ import { Check, Crosshair, FlaskConical, Info, Target } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
+import { AssumedStrengthCard } from '../strengthElicitation/AssumedStrengthCard'
+import { openEdgeStrengthEditor } from '../../../canvas/utils/openEdgeStrengthEditor'
 import { HERO_COPY } from './heroCopy'
 import { HeroLensTabs, tabId } from './HeroLensTabs'
 import { HeroOptionRow, HERO_ROW_GRID, HERO_ROW_TRACK_SPAN } from './HeroOptionRow'
@@ -478,6 +480,17 @@ export function AnalysisHeroPanel({
       {/* §6.6: one expandable evidence section between the summary pills and
           the footer — self-hides when the model has nothing to disclose. */}
       <HeroEvidenceDisclosure evidence={model.evidence} onFocusTarget={onFocusTarget} />
+
+      {/* P4: the one ASSUMED relationship worth pinning down. Its own block,
+          NOT a view inside the disclosure above — that surface is gated on
+          `factor_evppi` and self-hides when the ranking is null, which is the
+          common case on live captures, so nesting this would hide it exactly
+          when it is the only thing we have to offer. Self-hides on a refusal
+          that has no honest sentence. */}
+      <AssumedStrengthCard
+        decision={model.evidence.assumedStrength}
+        onResolve={openEdgeStrengthEditor}
+      />
 
       {/* Footer strip: Main reason (static fallback when the driver pill is
           absent) · Trust slot · Focus next. The trust line renders

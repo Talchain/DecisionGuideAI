@@ -77,6 +77,10 @@ import { computeNormalisedInfluences, selectDriverDisplayModel } from './driverD
 import { classifyUnit } from '../../utils/unitClassifier'
 import { buildVoiRanking, type VoiRanking } from './voi/voiRanking'
 import { readDecisionVoi, type DecisionVoiVerdict } from './voi/decisionVoi'
+import {
+  selectAssumedStrengthToResolve,
+  type AssumedStrengthDecision,
+} from './strengthElicitation/selectAssumedStrengthToResolve'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1176,6 +1180,21 @@ export interface ResultsSectionDataReturn {
    * questions, same units, and only the second one can see option-switching.
    */
   decisionVoi: DecisionVoiVerdict
+  /**
+   * P4 — the ONE assumed relationship worth pinning down next, or a named
+   * refusal. The join between "which relationship is this result sensitive to"
+   * (producer `fragile_edges`) and "whose strength nobody set"
+   * (`edgeValueSource`). Never a ranking of our own: the producer's wire order
+   * is walked and the first qualifying row wins.
+   *
+   * Deliberately NOT derived from `factor_evppi`, which this hook already reads
+   * for `voiRanking`. Measured across all nine committed live captures, no
+   * `factor_evppi` row is both `resolved` and non-zero, and the two `resolved`
+   * rows are degenerate (`noise_floor: 0`, baseline === conditional), so
+   * ranking on it would name a factor of exactly zero measured decision value
+   * as the most important thing to resolve. See the selector's header.
+   */
+  assumedStrength: AssumedStrengthDecision
 }
 
 export function useResultsSectionData(): ResultsSectionDataReturn {
@@ -1451,6 +1470,29 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         },
       }),
     [report, nodeLabelMap],
+  )
+
+  /**
+   * P4 — the one ASSUMED strength worth resolving next.
+   *
+   * Every judgement lives in `strengthElicitation/selectAssumedStrengthToResolve`
+   * (pure, unit-pinned). This memo only supplies the three inputs: the
+   * producer's fragile-edge rows, the canvas edges (which carry the provenance
+   * stamps this join reads), and the label map.
+   */
+  const assumedStrength = useMemo(
+    () =>
+      selectAssumedStrengthToResolve({
+        fragileEdges: (report?.robustness as { fragile_edges?: unknown } | undefined)?.fragile_edges,
+        edges: edges.map(e => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          data: e.data as Record<string, unknown> | undefined,
+        })),
+        nodeLabels: nodeLabelMap,
+      }),
+    [report, edges, nodeLabelMap],
   )
 
   /**
@@ -3540,6 +3582,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       sensitivityReference,
       voiRanking,
       decisionVoi,
+      assumedStrength,
     }),
     [
       recommendation,
@@ -3555,6 +3598,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       sensitivityReference,
       voiRanking,
       decisionVoi,
+      assumedStrength,
     ],
   )
 }
