@@ -20,11 +20,15 @@
  * while the value sat there in plain text.
  *
  * The credential now lives server-side in `netlify/edge-functions/plot-proxy.ts`,
- * which injects it on the same-origin `/bff/engine/*` path. The browser holds
- * nothing. `src/lib/plotSameOrigin.ts` keeps the absolute-base escape hatches
- * (`VITE_CEE_DRAFT_BASE`, `VITE_PLOT_ENGINE_URL`) pointed at that path, because an
- * authenticated CROSS-ORIGIN browser call is, by construction, a published
- * credential — there is no version of that which is safe.
+ * which injects it on the same-origin `/bff/engine/*` path, and only for the
+ * enumerated routes the UI actually calls. The browser holds nothing.
+ *
+ * The two absolute-base escape hatches (`VITE_CEE_DRAFT_BASE`,
+ * `VITE_PLOT_ENGINE_URL`) are RETIRED — the reads are deleted, not normalised.
+ * Normalising them bounded only the values they were measured to hold, because
+ * `plotSameOrigin` passes non-PLoT hosts through by design. An authenticated
+ * CROSS-ORIGIN browser call is, by construction, a published credential — there is
+ * no version of that which is safe, and no env var may choose it.
  *
  * ⚠ DO NOT REINTRODUCE A CREDENTIAL HERE. Not behind a flag, not "temporarily", not
  * read from a differently-named variable. If a PLoT route needs auth, it needs the

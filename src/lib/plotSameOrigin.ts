@@ -12,15 +12,23 @@
  * the bundle. There is no third option: an authenticated cross-origin browser call
  * IS a published credential.
  *
- * Two env vars could still route around the proxy, both allow-listed and both
- * settable in the Netlify dashboard without touching this repo:
- *   · `VITE_CEE_DRAFT_BASE`   — measured SET to the absolute PLoT origin on staging
- *   · `VITE_PLOT_ENGINE_URL`  — overrides the /v2/run base if set
+ * ⚠ WHAT THIS HELPER IS *NOT* FOR — read this before pointing it at an env var.
  *
- * Rather than depend on someone remembering to unset them (a hand-maintained mirror,
- * and the failure would be silent — a 401 on Draft My Model), this normalises an
- * absolute PLoT base to its same-origin equivalent at the point of use. Setting
- * either variable is then harmless: the path still ends at the proxy.
+ * It was introduced to neutralise two dashboard-settable escape hatches
+ * (`VITE_CEE_DRAFT_BASE`, `VITE_PLOT_ENGINE_URL`) by normalising whatever they held.
+ * That was the wrong instrument for that job and both reads have since been DELETED
+ * (see the call sites in `adapters/cee/client.ts` and `adapters/plot/v2/adapter.ts`).
+ *
+ * The reason is the scope note below, read as a security property rather than a
+ * design nicety: this helper passes a NON-PLoT absolute base through UNTOUCHED, by
+ * design. So wrapping an override in it bounds only the values that override was
+ * measured to hold — point the variable at any other host and the call goes
+ * off-origin, past the proxy, exactly as before. **Bounding an override is not the
+ * same as not having one.** If you find yourself reaching for this function to make
+ * an env-resolved base "safe", delete the read instead.
+ *
+ * What it IS for: normalising a base a CALLER supplies, so a PLoT-host base still
+ * lands on the proxy path.
  *
  * SCOPE, STATED SO IT IS NOT OVER-READ: this rewrites ONLY bases whose host matches
  * the canonical PLoT host family. A non-PLoT absolute base is returned untouched —
