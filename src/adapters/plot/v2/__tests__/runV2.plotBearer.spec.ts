@@ -127,23 +127,45 @@ describe('runV2 — POST /v2/run carries NO Authorization header', () => {
   })
 })
 
-describe('runV2 — VITE_PLOT_ENGINE_URL cannot route the run off-origin', () => {
+/**
+ * SEAM RETIREMENT — `VITE_PLOT_ENGINE_URL` is no longer read at all.
+ *
+ * ⚠ WHY NORMALISING THE OVERRIDE WAS NOT ENOUGH, which is the whole point of this
+ * block and the reason the previous version of it was wrong.
+ *
+ * The earlier fix wrapped the override in `toSameOriginPlotBase`, which rewrites a
+ * base whose host is in the PLoT family and — deliberately, correctly, for what it
+ * was written to do — passes every OTHER absolute base through untouched. Its own
+ * contrast control asserted exactly that, with `https://elsewhere.example.test/api`.
+ *
+ * That leaves the bypass open for any host that is not literally PLoT's. A
+ * dashboard-set `VITE_PLOT_ENGINE_URL` still took `/v2/run` — the primary analysis
+ * path — clean off-origin and clean around the credential-injecting edge function,
+ * and the test suite AGREED, because "non-PLoT bases pass through" was written as
+ * the desired behaviour of the normaliser rather than examined as a property of the
+ * run path. The normaliser is not at fault; reading the variable is.
+ *
+ * So the read is gone. The run base is now the caller's, normalised, full stop, and
+ * these pins bind to the OUTCOME (the URL fetched) rather than to the mechanism, so
+ * they stay honest if the implementation changes again.
+ */
+describe('runV2 — VITE_PLOT_ENGINE_URL is retired and cannot route the run anywhere', () => {
   it('BASELINE CONTROL: with no override, the caller base is used unchanged', async () => {
-    // The discriminating baseline. Without it, the same-origin assertion below
-    // could not distinguish "the override was rewritten" from "the override was
-    // never seen at all" — the fixture would agree with itself.
+    // The discriminating baseline. Without it, the assertions below could not
+    // distinguish "the override was ignored" from "the override was never set" —
+    // the fixture would agree with itself.
     await runV2(config, request)
 
     expect(urlOfFirstFetch()).toBe('http://plot.test/v2/run')
   })
 
-  it('an absolute PLoT override is rewritten to the SAME-ORIGIN /bff/engine/v2/run', async () => {
+  it('an absolute PLoT override is IGNORED — the caller base still decides', async () => {
     vi.stubEnv('VITE_PLOT_ENGINE_URL', 'https://plot-lite-service-staging.onrender.com')
 
     await runV2(config, request)
 
     expect(fetchSpy).toHaveBeenCalledTimes(1)
-    expect(urlOfFirstFetch()).toBe('/bff/engine/v2/run')
+    expect(urlOfFirstFetch()).toBe('http://plot.test/v2/run')
     // Stated as its own assertion because it is the actual security property: the
     // request must NOT reach PLoT's origin directly, where no proxy could inject a
     // credential and nothing but a published one would work.
@@ -152,14 +174,59 @@ describe('runV2 — VITE_PLOT_ENGINE_URL cannot route the run off-origin', () =>
     expect(authorizationOf(initOfFirstFetch())).toBeUndefined()
   })
 
-  it('CONTRAST CONTROL: a NON-PLoT override is left absolute and untouched', async () => {
-    // Proves the rewrite is scoped to the PLoT host family. If this ever returned
-    // a relative path, the normaliser would be tunnelling arbitrary third-party
-    // bases through our credential-injecting proxy.
+  it('THE REGRESSION THIS RETIREMENT CLOSES: a NON-PLoT override is ignored too', async () => {
+    // ⚠ This is the case the previous implementation got WRONG, and it is asserted
+    // here with the exact host its own contrast control used to sanction. Under
+    // normalisation this fetched `https://elsewhere.example.test/api/v2/run` — a
+    // third-party origin, off-proxy, chosen by an env var. Now it is inert.
     vi.stubEnv('VITE_PLOT_ENGINE_URL', 'https://elsewhere.example.test/api')
 
     await runV2(config, request)
 
-    expect(urlOfFirstFetch()).toBe('https://elsewhere.example.test/api/v2/run')
+    expect(urlOfFirstFetch()).toBe('http://plot.test/v2/run')
+    expect(urlOfFirstFetch()).not.toContain('elsewhere.example.test')
+  })
+
+  it('a caller base on the PLoT host IS still normalised to the same-origin proxy', async () => {
+    // Retiring the env read must not retire the normalisation of the base the
+    // caller genuinely passes — that is what keeps a PLoT-host base on the proxy
+    // path. Bound to the run endpoint by identity.
+    await runV2(
+      { baseUrl: 'https://plot-lite-service-staging.onrender.com', timeout: 5000 },
+      request,
+    )
+
+    expect(urlOfFirstFetch()).toBe('/bff/engine/v2/run')
+    expect(authorizationOf(initOfFirstFetch())).toBeUndefined()
+  })
+
+  it('SOURCE PIN: adapter.ts contains no VITE_PLOT_ENGINE_URL read', async () => {
+    // The behavioural pins above are the primary evidence. This one exists because
+    // a reintroduced read could be added behind a condition none of the fixtures
+    // above happen to enter, and the outcome assertions would stay green.
+    //
+    // ⚠ COMMENT-STRIPPED FIRST, and that is not incidental. The retired seam is
+    // documented BY NAME at the call site — deliberately, so the next reader learns
+    // why the read is absent — and this repo's dominant guard footgun (#385, #386)
+    // is a source scan reddening CI over a token that lives only in prose. A raw
+    // scan here fails on the very comment that explains the fix.
+    const { readFileSync } = await import('node:fs')
+    const { resolve } = await import('node:path')
+    const { stripComments } = await import('../../../../../tests/helpers/stripSourceComments')
+    const raw = readFileSync(resolve(__dirname, '../adapter.ts'), 'utf8')
+    const code = stripComments(raw, 'adapter.ts')
+
+    // THE CLAIM.
+    expect(code).not.toContain('VITE_PLOT_ENGINE_URL')
+
+    // CONTROLS. Without these the assertion above passes on an empty string — a
+    // mis-resolved path, a stripper that ate the file, or a rename would all read
+    // as "the seam is retired".
+    expect(code).toContain('export async function runV2')
+    expect(code).toContain('toSameOriginPlotBase(baseUrl)')
+    // …and the stripper is genuinely wired in: the name IS still present in the
+    // raw file, in prose. If this ever fails, the pin above has stopped
+    // discriminating and is passing for the wrong reason.
+    expect(raw).toContain('VITE_PLOT_ENGINE_URL')
   })
 })

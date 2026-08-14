@@ -1708,19 +1708,25 @@ export async function runV2(
   const startTime = Date.now()
   const requestId = request.request_id || `v2-${Date.now()}`
   const endpoint = '/v2/run'
-  // ⚠ NORMALISED TO SAME-ORIGIN. `VITE_PLOT_ENGINE_URL` overrides the caller's base
-  // entirely, so setting it to the absolute PLoT origin would take `/v2/run` — the
-  // primary analysis path — around the `/bff/engine/*` edge function that injects
-  // PLoT's bearer server-side. The browser holds no credential, so a cross-origin
-  // run would simply 401; and the only way to make it succeed would be to publish a
-  // credential in the bundle again. `toSameOriginPlotBase` maps a PLoT-host base
-  // back onto `/bff/engine`, leaving any non-PLoT base untouched.
-  const directPlotUrl = import.meta.env?.VITE_PLOT_ENGINE_URL
-  const resolvedBaseUrl = toSameOriginPlotBase(
-    typeof directPlotUrl === 'string' && directPlotUrl.trim().length > 0
-      ? directPlotUrl.trim()
-      : baseUrl
-  )
+  // ⚠ SEAM RETIRED — DO NOT REINTRODUCE AN ENV-RESOLVED BASE HERE.
+  //
+  // This used to read `VITE_PLOT_ENGINE_URL`, which overrode the caller's base
+  // entirely. It is dashboard-set, Vite bakes it in at transform time, and it
+  // therefore beat every relative base a caller passed — taking `/v2/run`, the
+  // primary analysis path, around the `/bff/engine/*` edge function that injects
+  // PLoT's bearer server-side.
+  //
+  // An interim fix wrapped that override in `toSameOriginPlotBase`. That closed the
+  // case where the variable pointed at PLoT's own host and left the case where it
+  // pointed anywhere ELSE wide open, because the normaliser passes non-PLoT bases
+  // through by design — correct for the normaliser, wrong for this call. The read
+  // is the defect, not the normaliser, so the read is gone.
+  //
+  // The base is now the caller's, normalised so that a PLoT-host base still lands on
+  // the same-origin proxy. Pinned by `__tests__/runV2.plotBearer.spec.ts`, including
+  // a source pin, because a reintroduction could hide behind a condition no outcome
+  // fixture enters.
+  const resolvedBaseUrl = toSameOriginPlotBase(baseUrl)
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)

@@ -176,17 +176,31 @@ describe('CEEClient source: the published-credential path is GONE', () => {
     expect(code).not.toContain('VITE_PLOT_BEARER')
   })
 
-  it('WIRING: CEE_DRAFT_ENGINE_BASE is wrapped in toSameOriginPlotBase', () => {
-    // The pin the behavioural tests structurally CANNOT provide: under test the
-    // fallback base is already relative, so unwrapping this call changes no URL
-    // any spec observes — it would only surface on the deployed build, where
-    // VITE_CEE_DRAFT_BASE is set to PLoT's absolute origin and the request would
-    // go cross-origin, past the proxy that holds the credential.
+  it('SEAM RETIRED: client.ts contains no VITE_CEE_DRAFT_BASE read', () => {
+    // ⚠ THIS REPLACES A "WIRING" PIN THAT ASSERTED THE WEAKER PROPERTY.
+    //
+    // The previous pin asserted `CEE_DRAFT_ENGINE_BASE = toSameOriginPlotBase(…)`,
+    // i.e. that the env-resolved base was NORMALISED. That left the variable read
+    // in place, and `toSameOriginPlotBase` passes a NON-PLoT absolute base through
+    // untouched by design — so a dashboard value pointing anywhere other than
+    // PLoT's own host still took draft-graph cross-origin, past the proxy that
+    // holds the credential. Normalising an override cannot bound an override.
+    //
+    // The read is gone; the base is the same-origin literal. This pin is source-
+    // level for the reason the old one was: under test the fallback is already
+    // relative, so the behavioural specs below cannot distinguish "no read" from
+    // "read that happened to be unset".
     const raw = readFileSync(CLIENT_SOURCE_PATH, 'utf8')
     const code = stripComments(raw, 'client.ts').replace(/\s+/g, ' ')
 
-    expect(code).toContain('CEE_DRAFT_ENGINE_BASE = toSameOriginPlotBase(')
-    expect(code).toContain("import { toSameOriginPlotBase } from '../../lib/plotSameOrigin'")
+    // THE CLAIM.
+    expect(code).not.toContain('VITE_CEE_DRAFT_BASE')
+    // The base is now a literal, bound by identity to the constant it defines.
+    expect(code).toContain("const CEE_DRAFT_ENGINE_BASE = '/bff/engine/v1/cee'")
+
+    // CONTROL: real code survived the strip — without this, an empty read would
+    // satisfy both `not.toContain` assertions above and the pin would be vacuous.
+    expect(code).toContain('export class CEEClient')
   })
 })
 

@@ -19,7 +19,6 @@ import {
 } from '../../lib/api-schemas'
 import { withRetry } from '../../lib/fetchWithRetry'
 import { devWarn } from '../../utils/debugLog'
-import { toSameOriginPlotBase } from '../../lib/plotSameOrigin'
 
 /**
  * ⚠ CORRECTED BY ROADMAP 2.710 — THE ENV-RESOLVED BASE IS GONE FROM THIS
@@ -70,25 +69,31 @@ const CEE_ELICIT_BASE = '/bff/cee'
 
 // CEE Draft Engine base URL — `draft-graph` is a PLoT-served route.
 //
-// ⚠ NORMALISED TO SAME-ORIGIN, DELIBERATELY. `VITE_CEE_DRAFT_BASE` is measured SET
-// on staging to the ABSOLUTE PLoT origin
-// (`https://plot-lite-service-staging.onrender.com/v1/cee`), historically to bypass
-// the Netlify rewrite. That made this the one genuinely cross-origin browser→PLoT
-// call — and therefore the one call that could ONLY be authenticated by putting a
-// credential in the bundle, which is exactly what happened.
+// ⚠ SEAM RETIRED — DO NOT REINTRODUCE AN ENV-RESOLVED BASE HERE.
 //
-// `toSameOriginPlotBase` maps an absolute PLoT base back onto `/bff/engine/…`, where
-// the `plot-proxy` edge function injects the bearer server-side. The env var may
-// stay set; it simply no longer routes around the credential boundary.
+// This read `VITE_CEE_DRAFT_BASE`, measured SET on staging to the ABSOLUTE PLoT
+// origin (`https://plot-lite-service-staging.onrender.com/v1/cee`), historically to
+// bypass the Netlify rewrite. That made this the one genuinely cross-origin
+// browser→PLoT call — and therefore the one call that could ONLY be authenticated
+// by putting a credential in the bundle, which is exactly what happened.
+//
+// An interim fix wrapped the read in `toSameOriginPlotBase`. That bounded the value
+// it was measured to hold and nothing else: the normaliser passes a NON-PLoT
+// absolute base through untouched, by design, so any other host in that variable
+// still routed draft-graph off-origin and past the credential boundary. Bounding an
+// override is not the same as not having one, so the read is gone.
+//
+// The base is now the same-origin proxy path, where `plot-proxy` injects the bearer
+// server-side. Pinned by `__tests__/client.plotBearer.spec.ts` at source level,
+// because under test the old fallback was already relative and no behavioural
+// fixture could tell an unset read from an absent one.
 //
 // ⚠ WATCH THE LATENCY. The bypass existed because the plain rewrite timed out at
 // ~28s and captured draft-graph runs take ~56s. An edge function streams rather than
 // buffering, so time-to-first-byte is now what matters — but this route is the one
-// to check first if Draft My Model starts timing out, and the fix is server-side
+// to check first if drafting starts timing out, and the fix is server-side
 // (streaming/background function), never a credential back in the client.
-const CEE_DRAFT_ENGINE_BASE = toSameOriginPlotBase(
-  (import.meta as any).env?.VITE_CEE_DRAFT_BASE || '/bff/engine/v1/cee',
-)
+const CEE_DRAFT_ENGINE_BASE = '/bff/engine/v1/cee'
 
 /**
  * Is this base absolute (cross-origin)?
