@@ -792,6 +792,226 @@ describe('useScenario', () => {
   })
 
   // -----------------------------------------------------------------------
+  // ⭐ 14 Aug 2026 — A USER RENAME MUST REACH THE `scenarios.title` COLUMN.
+  //
+  // Three entities carry a model's name:
+  //   A `currentScenarioFraming.title` -> Supabase `scenarios.framing` (saveFraming)
+  //   B localStorage `scenario.name`
+  //   C the Supabase `scenarios.title` COLUMN
+  //
+  // Until now C had exactly ONE writer: the auto-title below, derived from
+  // `framing.goal`, written at most once per scenario load. No user-facing
+  // rename wrote it. `ScenarioListPage` renders C — so a user renamed their
+  // model in the top bar, opened the list, and saw the OLD auto-generated
+  // title, indefinitely. A surface stating an untruth.
+  //
+  // The write rides the EXISTING framing-autosave seam rather than being added
+  // at the rename call site: that seam already owns the persistence gate, the
+  // single-autosave-owner guard (F4) and the debounce. Duplicating any of those
+  // at a second call site would give two writers racing on one column.
+  //
+  // Subscribers are driven by IDENTITY, not by index: every captured callback
+  // is invoked and each filters for what it cares about, so the assertions do
+  // not silently rebind if effect order changes.
+  // -----------------------------------------------------------------------
+
+  describe('rename propagation to the title column', () => {
+    function driveFramingChange(
+      prevFraming: Record<string, unknown> | null,
+      nextFraming: Record<string, unknown> | null,
+    ) {
+      const base = { nodes: [], edges: [], results: { status: 'idle' } }
+      const prev = { ...base, currentScenarioFraming: prevFraming }
+      const next = { ...base, currentScenarioFraming: nextFraming }
+      // getState() is read inside the debounce timer, so it must agree.
+      setStoreState({ currentScenarioFraming: nextFraming })
+      for (const cb of mockSubscribeCallbacks) cb(next, prev)
+    }
+
+    it('writes the renamed title to the title COLUMN', async () => {
+      setAuth(REAL_USER_ID, true)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        currentScenarioFraming: { title: 'Old name', goal: 'Increase revenue' },
+      })
+
+      renderUseScenario()
+      expect(mockSubscribeCallbacks.length).toBeGreaterThan(0)
+      mockSaveTitle.mockClear()
+
+      driveFramingChange(
+        { title: 'Old name', goal: 'Increase revenue' },
+        { title: 'Opex reduction model', goal: 'Increase revenue' },
+      )
+
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+
+      // Both halves: the framing JSONB AND the column the scenario list reads.
+      expect(mockSaveFraming).toHaveBeenCalledWith(
+        'scenario-1',
+        expect.objectContaining({ title: 'Opex reduction model' }),
+      )
+      expect(mockSaveTitle).toHaveBeenCalledWith('scenario-1', 'Opex reduction model')
+    })
+
+    it('does NOT rewrite the column when framing changes but the title does not', async () => {
+      // ⚠ Written first as a SINGLE goal-only change with an unprimed ref, and
+      // it failed — correctly. With no prior load the hook does not know what
+      // the column holds, so writing is the safe action, not a defect. The
+      // claim being made here is IDEMPOTENCE, so it has to be reached through
+      // the real mechanism: rename once (which writes), then change only the
+      // goal (which must not write again).
+      setAuth(REAL_USER_ID, true)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        currentScenarioFraming: { title: 'Old name', goal: 'Old goal' },
+      })
+
+      renderUseScenario()
+
+      // 1st change: the rename — primes the column.
+      driveFramingChange(
+        { title: 'Old name', goal: 'Old goal' },
+        { title: 'Stable name', goal: 'Old goal' },
+      )
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+      expect(mockSaveTitle).toHaveBeenCalledWith('scenario-1', 'Stable name')
+
+      // 2nd change: goal only. The name column must be left alone.
+      mockSaveTitle.mockClear()
+      mockSaveFraming.mockClear()
+      driveFramingChange(
+        { title: 'Stable name', goal: 'Old goal' },
+        { title: 'Stable name', goal: 'A different goal' },
+      )
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+
+      expect(mockSaveFraming).toHaveBeenCalled()
+      expect(mockSaveTitle).not.toHaveBeenCalled()
+    })
+
+    it('refuses to write an empty title to the column', async () => {
+      setAuth(REAL_USER_ID, true)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        currentScenarioFraming: { title: 'Real name', goal: 'g' },
+      })
+
+      renderUseScenario()
+      mockSaveTitle.mockClear()
+
+      driveFramingChange(
+        { title: 'Real name', goal: 'g' },
+        { title: '   ', goal: 'g' },
+      )
+
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+
+      expect(mockSaveTitle).not.toHaveBeenCalled()
+    })
+
+    it('does not write the column for a guest session', async () => {
+      setAuth('guest', true)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        currentScenarioFraming: { title: 'Old name', goal: 'g' },
+      })
+
+      renderUseScenario()
+      mockSaveTitle.mockClear()
+
+      driveFramingChange({ title: 'Old name', goal: 'g' }, { title: 'New name', goal: 'g' })
+
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+
+      expect(mockSaveTitle).not.toHaveBeenCalled()
+    })
+
+    it('flushes the renamed title on UNMOUNT, before the debounce fires', async () => {
+      // ⭐ Added because a mutant that deleted the unmount title flush SURVIVED
+      // — the branch had no coverage at all. It is not a corner case: it is the
+      // journey the defect is actually reached by. Renaming on the canvas and
+      // then clicking through to the scenario list unmounts this hook inside
+      // the 1500ms debounce window, so without the flush the list shows the
+      // stale name and the write is simply lost.
+      setAuth(REAL_USER_ID, true)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        currentScenarioFraming: { title: 'Old name', goal: 'g' },
+      })
+
+      const { unmount } = renderUseScenario()
+      mockSaveTitle.mockClear()
+
+      driveFramingChange(
+        { title: 'Old name', goal: 'g' },
+        { title: 'Renamed on the way out', goal: 'g' },
+      )
+
+      // Deliberately do NOT run the timers — this is the navigate-away race.
+      expect(mockSaveTitle).not.toHaveBeenCalled()
+
+      unmount()
+
+      expect(mockSaveTitle).toHaveBeenCalledWith('scenario-1', 'Renamed on the way out')
+    })
+
+    it('does not flush an UNCHANGED title on unmount', async () => {
+      setAuth(REAL_USER_ID, true)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        currentScenarioFraming: { title: 'Steady name', goal: 'g' },
+      })
+
+      const { unmount } = renderUseScenario()
+
+      // Prime the column through the real mechanism, then change only the goal.
+      driveFramingChange({ title: 'Steady name', goal: 'g' }, { title: 'Steady name', goal: 'g2' })
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+      mockSaveTitle.mockClear()
+
+      driveFramingChange({ title: 'Steady name', goal: 'g2' }, { title: 'Steady name', goal: 'g3' })
+      unmount()
+
+      expect(mockSaveTitle).not.toHaveBeenCalled()
+    })
+
+    it('the auto-title never overwrites a user rename on a later load', async () => {
+      // PROVEN, not assumed (Paul's instruction). After a rename, framing.title
+      // is non-empty and is persisted to `scenarios.framing`; a later load
+      // hydrates it, so `tryAutoTitle`'s existing-title guard short-circuits
+      // before it can derive anything from `framing.goal`.
+      setAuth(REAL_USER_ID, true)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        currentScenarioFraming: { title: 'Opex reduction model', goal: 'Increase revenue' },
+      })
+
+      renderUseScenario()
+
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+
+      // The goal is present and would have produced 'Increase revenue' — the
+      // guard is what stops it, so this asserts the SPECIFIC wrong value too.
+      expect(mockSaveTitle).not.toHaveBeenCalledWith('scenario-1', 'Increase revenue')
+    })
+  })
+
+  // -----------------------------------------------------------------------
   // P0-1: Analysis hydration on load
   // -----------------------------------------------------------------------
 
