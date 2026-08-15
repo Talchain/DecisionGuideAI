@@ -829,12 +829,32 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             if (lensMode === 'causal' && causalEdgeParams) {
               return causalEdgeParams.direction === 'negative' ? 'var(--semantic-danger, #ef4444)' : 'var(--text-body, #3F3F3E)'
             }
-            // Evidence lens: colour by provenance classification
+            // Evidence lens: colour by provenance classification.
+            //
+            // ⚠ RECALIBRATED 15 Aug 2026 (Paul's testing). `assumed` was
+            // `--semantic-warning`, so an AI-drafted graph — where being
+            // model-asserted is the NORMAL state of essentially every
+            // relationship — painted the exception colour edge to edge and
+            // encoded nothing. Measured at 1280x800 on the committed CEE
+            // capture: 18 of 18 causal edges in one alarm colour.
+            //
+            // `assumed` is now the QUIET cue: the same `--edge-neutral` grey
+            // the polarity resolver already uses for "nothing stated here", so
+            // the lens reads as "green where we have evidence, quiet
+            // everywhere else" instead of "alarm everywhere". The two
+            // exceptions still render: `evidence` is the positive signal, and
+            // `unknown` (provenance genuinely absent — rare now the classifier
+            // reads the field CEE populates) keeps the warning colour.
+            //
+            // NOT danger-red for `unknown`: missing provenance is a caution,
+            // not an error, and red is reserved for stated-negative direction
+            // in the causal lens directly above. Two lenses must not spend the
+            // same colour on different claims.
             if (lensMode === 'evidence' && evidenceEdgeClass) {
               switch (evidenceEdgeClass) {
                 case 'evidence': return 'var(--semantic-success, #22c55e)'
-                case 'assumed': return 'var(--semantic-warning, #eab308)'
-                case 'unknown': return 'var(--semantic-danger, #ef4444)'
+                case 'assumed': return isDark ? 'var(--edge-neutral-dark)' : 'var(--edge-neutral)'
+                case 'unknown': return 'var(--semantic-warning, #eab308)'
               }
             }
             if (isContested) {

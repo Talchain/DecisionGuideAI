@@ -143,12 +143,19 @@ function EvidencePanel() {
           <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--success-light)', border: '1px solid var(--success)' }} />
           Grounded
         </span>
+        {/*
+          Swatches MUST match the edge colours in StyledEdge's evidence-lens
+          branch — a legend that disagrees with the graph is worse than no
+          legend. Recalibrated together on 15 Aug 2026: `assumed` is the quiet
+          neutral (it is the normal state of an AI-drafted relationship) and
+          the warning colour moved to `No data`, which is the real exception.
+        */}
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--warning-light)', border: '1px solid var(--warning)' }} />
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--edge-neutral)', border: '1px solid var(--edge-neutral-dark)' }} />
           Assumed
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--danger-light)', border: '1px solid var(--danger)' }} />
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--warning-light)', border: '1px solid var(--warning)' }} />
           No data
         </span>
       </div>

@@ -12,6 +12,7 @@ import { useCanvasStore } from '../store'
 import { computeOptionPaths } from '../utils/computeOptionPaths'
 import { resolveCausalLensEdgeParams, type CausalLensEdgeParams } from '../domain/edgeValueProvenance'
 import type { FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
+import { classifyEdgeEvidenceFromData } from '../edges/evidenceEdgeClass'
 
 // ─── Sensitivity helpers ─────────────────────────────────────────────────────
 
@@ -274,15 +275,12 @@ export function useLensFilter(): void {
       }
 
       for (const edge of edges) {
-        const edgeData = edge.data as Record<string, unknown> | undefined
-        const provenance = (edgeData?.provenance ?? edgeData?.provenance_source) as string | undefined
-        if (provenance === 'document' || provenance === 'metric' || provenance === 'evidence' || provenance === 'brief_extraction') {
-          evidenceEdgeClass.set(edge.id, 'evidence')
-        } else if (provenance === 'hypothesis' || provenance === 'engine' || provenance === 'template' || provenance === 'user' || provenance === 'inferred') {
-          evidenceEdgeClass.set(edge.id, 'assumed')
-        } else {
-          evidenceEdgeClass.set(edge.id, 'unknown')
-        }
+        // See `evidenceEdgeClass.ts`: reads every spelling the producers use
+        // (CEE writes `provenanceDisplay`, not `provenance`) and classifies
+        // open-world, so an unrecognised provenance is QUIET rather than
+        // alarming. The previous list-membership form put 37/37 edges of a
+        // real CEE draft into `unknown`.
+        evidenceEdgeClass.set(edge.id, classifyEdgeEvidenceFromData(edge.data as Record<string, unknown> | undefined))
       }
 
       return {
