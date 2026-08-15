@@ -113,9 +113,10 @@ export const ASSUMED_STRENGTH_ACTION = 'Set this strength'
  * honest response to our own gap is silence, not an apology that reads as a
  * finding about their model).
  *
- * `all_strengths_set` DOES speak, because it is the good state and it is the
- * one the interaction is trying to reach: a team that has pinned every fragile
- * strength should be told so, or the work they did is invisible.
+ * `all_strengths_set` DOES speak, but it reports only the selector's bounded
+ * result. It must not infer that a person supplied every numeric strength or
+ * that no placeholder affects the answer: older edges can carry a producer
+ * value without the finer provenance that would license either claim.
  * `no_fragile_edges` speaks for the same reason, and both are careful to be
  * about THIS RUN — "nothing stood out in this run", never "your model is sound".
  */
@@ -123,7 +124,7 @@ export const ASSUMED_STRENGTH_REFUSAL_COPY: Record<AssumedStrengthRefusal, strin
   no_robustness_data: null,
   no_edge_identity: null,
   all_strengths_set:
-    'Every relationship this run was sensitive to has a strength somebody set — no placeholders are driving this answer.',
+    'No unresolved assumed strength was found among the relationships this run was sensitive to.',
   no_fragile_edges:
     'No single relationship stood out as driving this run’s answer, so there is no one assumption to pin down first.',
 }

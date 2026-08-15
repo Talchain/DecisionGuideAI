@@ -122,13 +122,66 @@ describe('selectAssumedStrengthToResolve — the assumed × decision-relevant jo
     expect(d.refusalReason).toBe('all_strengths_set')
   })
 
-  it('excludes a row AT or BELOW the visibility floor', () => {
+  it('AI-inferred 0.5 is unresolved; a USER-SET 0.5 on the same AI-created edge is resolved', () => {
+    const ceeDraft: ElicitationCanvasEdge = {
+      id: 'e_demand_rev',
+      source: 'n_demand',
+      target: 'n_rev',
+      data: {
+        weight: 0.5,
+        weightSource: 'cee',
+        provenanceDisplay: 'ai_inferred',
+        origin: 'ai',
+      },
+    }
+    const rows = [fragileRow('n_demand', 'n_rev', ABOVE)]
+
+    const ai = selectAssumedStrengthToResolve({
+      fragileEdges: rows,
+      edges: [ceeDraft],
+      nodeLabels: labels,
+    })
+    expect(ai.selected?.edgeId).toBe('e_demand_rev')
+
+    // The editor writes the field-specific user stamp and correctly leaves the
+    // edge's AI creation provenance intact. Same number, opposite eligibility.
+    const user = selectAssumedStrengthToResolve({
+      fragileEdges: rows,
+      edges: [{ ...ceeDraft, data: { ...ceeDraft.data, weightSource: 'user' } }],
+      nodeLabels: labels,
+    })
+    expect(user.selected).toBeNull()
+    expect(user.refusalReason).toBe('all_strengths_set')
+  })
+
+  it.each([
+    ['provenanceDisplay=ai_inferred', { provenanceDisplay: 'ai_inferred' }],
+    ['origin=ai', { origin: 'ai' }],
+  ])('%s independently keeps a CEE numeric strength unresolved', (_label, provenance) => {
     const d = selectAssumedStrengthToResolve({
-      fragileEdges: [fragileRow('n_demand', 'n_rev', THRESHOLDS.FRAGILE_EDGE_FILTER)],
+      fragileEdges: [fragileRow('n_demand', 'n_rev', ABOVE)],
+      edges: [{
+        id: 'e_demand_rev',
+        source: 'n_demand',
+        target: 'n_rev',
+        data: { weight: 0.5, weightSource: 'cee', ...provenance },
+      }],
+      nodeLabels: labels,
+    })
+    expect(d.selected?.edgeId).toBe('e_demand_rev')
+  })
+
+  it.each([
+    THRESHOLDS.FRAGILE_EDGE_FILTER,
+    THRESHOLDS.FRAGILE_EDGE_FILTER - 0.01,
+  ])('keeps a candidate silent at or below the visibility floor (%s)', (switchProbability) => {
+    const d = selectAssumedStrengthToResolve({
+      fragileEdges: [fragileRow('n_demand', 'n_rev', switchProbability)],
       edges: [assumedEdge('e_demand_rev', 'n_demand', 'n_rev')],
       nodeLabels: labels,
     })
     expect(d.selected).toBeNull()
+    expect(d.assumedFragileCount).toBe(0)
     expect(d.refusalReason).toBe('no_fragile_edges')
   })
 
@@ -249,33 +302,23 @@ describe('selectAssumedStrengthToResolve — the assumed × decision-relevant jo
     expect(d.assumedFragileCount).toBe(1)
   })
 
-  it('F4 — the FIRST-ROW rule is only correct because the producer sorts DESCENDING', () => {
-    // The selector consumes wire order and never re-ranks. That is right ONLY
-    // while ISL emits `fragile_edges` sorted by `switch_probability`
-    // descending — verified across every committed live capture. This pins the
-    // PRECONDITION in-test, so if the producer ever stopped sorting, this REDs
-    // here (a named, explained failure) instead of the product quietly naming
-    // the wrong relationship as the one that matters most.
+  it('uses the FIRST eligible producer identity and never re-ranks in the UI', () => {
+    // Deliberately put a larger number second. The producer owns ranking and
+    // communicates it through row order; sorting these rows locally would mint
+    // a second ranking authority and select a different edge.
     const rows = [
-      fragileRow('n_demand', 'n_rev', 0.45),
-      fragileRow('n_price', 'n_cost', 0.20),
+      fragileRow('n_demand', 'n_rev', 0.20),
+      fragileRow('n_price', 'n_cost', 0.45),
     ]
-    const probs = rows.map(r => r.switch_probability)
-    expect(
-      probs.every((p, i) => i === 0 || probs[i - 1] >= p),
-      'this fixture must be in producer (descending) order, or the assertion below proves nothing',
-    ).toBe(true)
 
     const d = selectAssumedStrengthToResolve({
-      rows: undefined,
       fragileEdges: rows,
       edges: [assumedEdge('e_demand_rev', 'n_demand', 'n_rev'), assumedEdge('e_price_cost', 'n_price', 'n_cost')],
       nodeLabels: labels,
-    } as Parameters<typeof selectAssumedStrengthToResolve>[0])
-    // First in wire order === highest switch probability, so "first" and
-    // "most decision-relevant" coincide. Both facts asserted, not just one.
+    })
     expect(d.selected?.edgeId).toBe('e_demand_rev')
-    expect(d.selected?.switchProbability).toBe(Math.max(...probs))
+    expect(d.selected?.switchProbability).toBe(0.20)
+    expect(d.selected?.edgeId).not.toBe('e_price_cost')
   })
 
   it('tolerates malformed rows without dropping the whole decision', () => {

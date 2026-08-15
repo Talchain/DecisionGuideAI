@@ -39,12 +39,17 @@ const nodeLabels = new Map([
 
 const ABOVE = THRESHOLDS.FRAGILE_EDGE_FILTER + 0.2
 
-/** The drafted edge: a fragile relationship whose strength nobody has set. */
+/** An ordinary CEE draft: numeric strength, but explicitly AI-inferred. */
 const draftedEdge = (): ElicitationCanvasEdge => ({
   id: 'e_demand_rev',
   source: 'n_demand',
   target: 'n_rev',
-  data: { ...DEFAULT_EDGE_DATA },
+  data: {
+    ...DEFAULT_EDGE_DATA,
+    weightSource: 'cee',
+    provenanceDisplay: 'ai_inferred',
+    origin: 'ai',
+  },
 })
 
 const fragileEdges = [
@@ -73,8 +78,10 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     // `updateEdge` calls exactly this predicate to decide whether to invalidate
     // analysis readiness. If `weight` ever left the stale registry, the edit
     // would land and the analysis would keep claiming to be fresh.
-    const before = { ...draftedEdge(), data: { ...DEFAULT_EDGE_DATA } } as unknown as Edge
-    const patch = { data: { ...DEFAULT_EDGE_DATA, weight: 0.85, weightSource: 'user' as const } }
+    const before = draftedEdge() as unknown as Edge
+    const patch = {
+      data: { ...draftedEdge().data, weight: 0.85, weightSource: 'user' as const },
+    }
     expect(hasAnalyticalEdgeChange(before, patch)).toBe(true)
   })
 
@@ -101,7 +108,7 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     // The same graph, with the one edit the interaction asked for applied.
     const resolved: ElicitationCanvasEdge = {
       ...draftedEdge(),
-      data: { ...DEFAULT_EDGE_DATA, weight: 0.85, weightSource: 'user' },
+      data: { ...draftedEdge().data, weight: 0.85, weightSource: 'user' },
     }
     expect(edgeValueSource(resolved.data, 'weight')).toBe('user')
 
@@ -144,8 +151,10 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     // correctly declines to claim otherwise. `weightSource` is deliberately NOT
     // in the analytical registry, and this pins that as intended behaviour
     // rather than an oversight.
-    const before = { ...draftedEdge(), data: { ...DEFAULT_EDGE_DATA } } as unknown as Edge
-    const confirmedAsIs = { data: { ...DEFAULT_EDGE_DATA, weightSource: 'user' as const } }
+    const before = draftedEdge() as unknown as Edge
+    const confirmedAsIs = {
+      data: { ...draftedEdge().data, weightSource: 'user' as const },
+    }
     expect(hasAnalyticalEdgeChange(before, confirmedAsIs)).toBe(false)
 
     // But the elicitation still stops asking — the assumption HAS been resolved.
