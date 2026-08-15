@@ -42,6 +42,19 @@ export interface PendingPanelApply {
   target_id: string
   /** The EXACT model-scale number the reveal served. Never re-rounded. */
   value: number
+  /**
+   * 0.41.0 — the evidence row the owner was shown as the reason when they
+   * clicked. OPTIONAL, and absent is the ordinary case.
+   *
+   * ⚠ AN ID, AND ONLY AN ID — the same rule as `participant_id` above it. The
+   * evidence BODY is a person's own words and its author has a display name;
+   * neither may reach localStorage, which the PII rule keeps free of both.
+   *
+   * ⚠ ABSENT MEANS "CITED NOTHING", never "the citation was lost". Every hop
+   * from the button to the wire preserves that biconditional, because CEE's
+   * stamp and its logs read absence as a statement of fact.
+   */
+  evidence_event_id?: string
   /** ISO timestamp, stamped at record time. */
   recorded_at: string
 }
@@ -64,15 +77,28 @@ export function rememberPendingApply(args: {
   participantId: string
   targetId: string
   value: number
+  /** 0.41.0 — the disclosed citation, when the affordance offered one. */
+  evidenceEventId?: string
 }): void {
   if (args.scenarioId === '' || args.roundId === '' || args.participantId === '') return
   if (args.targetId === '' || !Number.isFinite(args.value)) return
+  // A citation the caller supplied but which is blank is DROPPED here rather
+  // than recorded, because a blank id cannot be the thing the owner was shown.
+  // This is the one hop where dropping is right: nothing has been claimed yet.
+  const citation =
+    typeof args.evidenceEventId === 'string' && args.evidenceEventId.trim() !== ''
+      ? args.evidenceEventId
+      : undefined
   const record: PendingPanelApply = {
     scenario_id: args.scenarioId,
     round_id: args.roundId,
     participant_id: args.participantId,
     target_id: args.targetId,
     value: args.value,
+    // Conditional, so an uncited record is byte-identical to what shipped
+    // before 0.41.0 — `JSON.stringify` omits an undefined value, but an
+    // explicitly-present key would survive a future serialiser that did not.
+    ...(citation !== undefined ? { evidence_event_id: citation } : {}),
     recorded_at: new Date().toISOString(),
   }
   try {
@@ -117,6 +143,17 @@ export function readPendingApply(scenarioId: string): PendingPanelApply | null {
   if (typeof r.target_id !== 'string' || r.target_id === '') return null
   if (typeof r.value !== 'number' || !Number.isFinite(r.value)) return null
   if (typeof r.recorded_at !== 'string') return null
+  // The citation is OPTIONAL but not lax: a present-and-malformed one is a
+  // corrupt record, and draining it would send a claim the owner never made.
+  // Refuse the whole intent rather than silently applying it uncited — the
+  // owner sees no confirmation and can click again, which is recoverable;
+  // an apply that quietly loses its stated reason is not.
+  if (
+    r.evidence_event_id !== undefined &&
+    (typeof r.evidence_event_id !== 'string' || r.evidence_event_id.trim() === '')
+  ) {
+    return null
+  }
 
   // Staleness. An intent recorded days ago, drained on some later visit, would
   // silently move a number the owner has long since stopped thinking about.
@@ -129,6 +166,9 @@ export function readPendingApply(scenarioId: string): PendingPanelApply | null {
     participant_id: r.participant_id,
     target_id: r.target_id,
     value: r.value,
+    ...(r.evidence_event_id !== undefined
+      ? { evidence_event_id: r.evidence_event_id }
+      : {}),
     recorded_at: r.recorded_at,
   }
 }

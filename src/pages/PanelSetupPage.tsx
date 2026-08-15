@@ -393,7 +393,12 @@ export default function PanelSetupPage(): JSX.Element {
    * difference, so a rounded number here would refuse every apply.
    */
   const handleApply = useCallback(
-    (args: { targetId: string; participantId: string; value: number }) => {
+    (args: {
+      targetId: string
+      participantId: string
+      value: number
+      evidenceEventId?: string
+    }) => {
       const sid = scenarioId ?? ''
       const roundId = reveal?.round_id ?? ''
       if (sid === '' || roundId === '') return
@@ -405,6 +410,12 @@ export default function PanelSetupPage(): JSX.Element {
         participantId: args.participantId,
         targetId: args.targetId,
         value: args.value,
+        // 0.41.0 — forwarded exactly as the affordance offered it. This handler
+        // makes no judgement about the citation: the decision of whether one
+        // may honestly be claimed belongs to `citableEvidenceFor`, beside the
+        // sentence that disclosed it, and a second rule here could only ever
+        // disagree with the screen the owner actually read.
+        evidenceEventId: args.evidenceEventId,
       })
 
       // ⭐ ASSERT, THEN CLAIM. `rememberPendingApply` SWALLOWS its storage

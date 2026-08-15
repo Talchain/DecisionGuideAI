@@ -70,6 +70,53 @@ function contractKeysForFactorValueEdit(): string[] {
   return Object.keys(member.shape)
 }
 
+/**
+ * Walk ONE LEVEL DEEPER: the real key set of `applied_from`.
+ *
+ * ⚠⚠ THIS EXISTS BECAUSE THE GUARD ABOVE WAS DEPTH-1 AND HAD ALREADY MISSED A
+ * CONTRACT MEMBER — measured at 0.41.0, not supposed. The contract added
+ * `evidence_event_id` INSIDE `applied_from`; `contractKeysForFactorValueEdit`
+ * sees only the top-level key `applied_from`, which the adapter does carry, so
+ * the derived sweep stayed green while the adapter's PICK
+ * (`event.applied_from = { round_id, participant_id }`) silently dropped the
+ * new member. All 14 tests passed at the bumped pin.
+ *
+ * That is the SAME defect this file's header describes, one level down, in the
+ * guard written after being burned by it — a derived guard is only derived to
+ * the depth it walks, and below that depth it is a hand-written list again.
+ * `applied_from` is picked rather than spread (deliberately, so a stray local
+ * field cannot 422 the turn), and a pick is a mirror by construction; this is
+ * what makes the pick fail loud instead.
+ */
+function contractKeysForAppliedFrom(): string[] {
+  const eventSchema = (SystemEventTurnPayloadSchema as never as {
+    shape: { event: { _def: { options: unknown[] } } }
+  }).shape.event
+  const options = eventSchema._def.options as Array<{
+    shape: Record<string, { _def?: { value?: unknown; innerType?: unknown } }>
+  }>
+  const member = options.find((o) => o.shape?.kind?._def?.value === 'factor_value_edit')
+  if (member === undefined) {
+    throw new Error('could not reach the factor_value_edit member — see above')
+  }
+  // `applied_from` is optional, so unwrap however many wrappers stand between
+  // the declaration and the object. Bounded, and it THROWS rather than
+  // returning [] if it never reaches a shape — an empty key set here would make
+  // every assertion below pass by iterating nothing, which is the vacuity the
+  // positive control at the top of this file exists to prevent.
+  let node = member.shape.applied_from as { shape?: Record<string, unknown>; _def?: { innerType?: unknown } } | undefined
+  for (let i = 0; i < 5 && node !== undefined && node.shape === undefined; i += 1) {
+    node = node._def?.innerType as typeof node
+  }
+  if (node?.shape === undefined) {
+    throw new Error(
+      'could not reach the applied_from OBJECT shape in SystemEventTurnPayloadSchema — ' +
+        'this guard is measuring nothing',
+    )
+  }
+  return Object.keys(node.shape)
+}
+
 // Real uuids and a real stage literal: the final case parses the built payload
 // against the contract, so a placeholder id would fail on the ID FORMAT and
 // disguise whether the event body is right.
@@ -77,6 +124,7 @@ const TURN_ID = '11111111-2222-4333-8444-555566667777'
 const SCENARIO_ID = '22222222-3333-4444-8555-666677778888'
 const ROUND_ID = 'c3d4e5f6-a7b8-4901-9234-56789abcdef0'
 const PARTICIPANT_ID = '9f1c7d2e-4b3a-4c11-8e6f-0a2b5c8d7e10'
+const EVIDENCE_EVENT_ID = '5b8e2a41-6c7d-4e9f-8a1b-2c3d4e5f6a7b'
 
 /**
  * A payload populating EVERY contract field with a valid value.
@@ -94,7 +142,11 @@ const MAXIMAL_PAYLOAD: Record<string, unknown> = {
   raw_value: 85,
   unit: '%',
   field: 'value',
-  applied_from: { round_id: ROUND_ID, participant_id: PARTICIPANT_ID },
+  applied_from: {
+    round_id: ROUND_ID,
+    participant_id: PARTICIPANT_ID,
+    evidence_event_id: EVIDENCE_EVENT_ID,
+  },
 }
 
 function wireEventFor(payload: Record<string, unknown>): Record<string, unknown> {
@@ -156,14 +208,45 @@ describe('factor_value_edit — the adapter carries the whole contract', () => {
     }
   })
 
-  it('⭐ carries applied_from specifically, with BOTH members intact', () => {
-    // Named separately from the derived sweep on purpose: the sweep proves the
-    // key is PRESENT, and a carriage that forwarded `applied_from: {}` would
-    // satisfy it while losing the identity that is the entire point.
+  it('POSITIVE CONTROL — the applied_from walk reaches a real, non-trivial key set', () => {
+    const keys = contractKeysForAppliedFrom()
+    expect(keys.length).toBeGreaterThanOrEqual(2)
+    expect(keys).toContain('round_id')
+    expect(keys).toContain('participant_id')
+    // And it discriminates — it did not hand back the EVENT's keys by mistake,
+    // which is precisely how a "deeper" walk silently stays shallow.
+    expect(keys).not.toContain('target_id')
+  })
+
+  it('⭐⭐ carries EVERY member of applied_from the contract declares (derived, one level down)', () => {
+    // THE DEPTH-1 HOLE, CLOSED. The sweep above proves the applied_from KEY is
+    // present; a carriage forwarding `applied_from: {}` — or, as measured at
+    // 0.41.0, one forwarding two of three members — satisfies it completely
+    // while losing exactly the fact the claim exists to carry.
+    const contractMembers = contractKeysForAppliedFrom()
+    const event = wireEventFor(MAXIMAL_PAYLOAD)
+    const carried = event.applied_from as Record<string, unknown>
+
+    const dropped = contractMembers.filter((k) => !(k in carried))
+    expect(
+      dropped,
+      dropped.length === 0
+        ? ''
+        : `the adapter DROPS applied_from member(s) [${dropped.join(', ')}]. ` +
+          'The pick in adaptFactorValueEdit is a mirror of the contract shape: ' +
+          'grow it, or the citation reaches CEE stripped and the stamp records ' +
+          'a model change with no reason attached.',
+    ).toEqual([])
+  })
+
+  it('⭐ carries applied_from with EVERY member intact, by value', () => {
+    // Values, not just presence: a pick that carried the right keys with the
+    // wrong contents would satisfy the sweep above.
     const event = wireEventFor(MAXIMAL_PAYLOAD)
     expect(event.applied_from).toEqual({
       round_id: ROUND_ID,
       participant_id: PARTICIPANT_ID,
+      evidence_event_id: EVIDENCE_EVENT_ID,
     })
   })
 
@@ -198,6 +281,77 @@ describe('factor_value_edit — the adapter carries the whole contract', () => {
       } as never,
     })
     expect(result.ok).toBe(false)
+  })
+
+  it('⭐⭐ an UNCITED apply carries the claim with NO evidence key — absence stays absence', () => {
+    // THE BICONDITIONAL CEE DEPENDS ON. Its stamp, its log line and the
+    // contract all read an absent `evidence_event_id` as "the owner cited
+    // nothing". `in`, not a value check: a present-but-undefined key survives a
+    // structuredClone and a spread while reading as PRESENT to `in` and
+    // `Object.keys`, so it would arrive at a `.strict()` parse as a member the
+    // owner never sent.
+    const { evidence_event_id: _uncited, ...claimWithoutCitation } =
+      MAXIMAL_PAYLOAD.applied_from as Record<string, unknown>
+    const event = wireEventFor({ ...MAXIMAL_PAYLOAD, applied_from: claimWithoutCitation })
+
+    expect('evidence_event_id' in (event.applied_from as object)).toBe(false)
+    // And the rest of the claim is untouched — the uncited path is byte-identical
+    // to what shipped before 0.41.0, which is what makes the bump safe to deploy
+    // ahead of any producer of citations.
+    expect(event.applied_from).toEqual({ round_id: ROUND_ID, participant_id: PARTICIPANT_ID })
+  })
+
+  it.each([
+    ['a blank citation', '   '],
+    ['an empty citation', ''],
+    ['a citation that is not a string', 12345],
+    ['a citation that is an object', { event_id: EVIDENCE_EVENT_ID }],
+  ])(
+    '⭐ FAILS CLOSED on %s — refuses the event rather than dropping the citation',
+    (_label, citation) => {
+      // ⚠ A DIFFERENT ARGUMENT FROM THE ids ABOVE, and the distinction is the
+      // point. Dropping a round_id produces a LIE; dropping a citation produces
+      // an AMBIGUITY — it would make "absent" mean either "cited nothing" or
+      // "citation lost", and every downstream reader (the stamp, the log line,
+      // the contract's own stated semantics) rests on that biconditional. A
+      // visible refusal is retryable; a silently-lost reason is not recoverable
+      // by anyone, ever.
+      const result = buildV5Payload({
+        turnId: TURN_ID,
+        scenarioId: SCENARIO_ID,
+        stage: 'frame' as never,
+        turnClass: 'system' as never,
+        mode: 'system',
+        systemEvent: {
+          type: 'factor_value_edit',
+          payload: {
+            ...MAXIMAL_PAYLOAD,
+            applied_from: {
+              round_id: ROUND_ID,
+              participant_id: PARTICIPANT_ID,
+              evidence_event_id: citation,
+            },
+          },
+        } as never,
+      })
+      expect(result.ok).toBe(false)
+    },
+  )
+
+  it('a null citation is treated as absent, not as malformed', () => {
+    // Symmetric with the null-claim case below: `null` is what a producer that
+    // initialises the field emits when there is nothing to cite. Refusing it
+    // would break every ordinary apply from such a caller.
+    const event = wireEventFor({
+      ...MAXIMAL_PAYLOAD,
+      applied_from: {
+        round_id: ROUND_ID,
+        participant_id: PARTICIPANT_ID,
+        evidence_event_id: null,
+      },
+    })
+    expect('evidence_event_id' in (event.applied_from as object)).toBe(false)
+    expect(event.applied_from).toEqual({ round_id: ROUND_ID, participant_id: PARTICIPANT_ID })
   })
 
   it('a null claim is treated as absent, not as malformed', () => {
