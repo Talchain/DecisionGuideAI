@@ -9,8 +9,9 @@
  *
  * - `highlight` targets join the SAME coalesced pulse the applied-edit path
  *   uses (fail-closed in-graph filter, one 2s ring, no viewport movement).
- * - `focus` centres the viewport on a single target via the guidance
- *   click-to-focus seam (focusNodeById / focusEdgeById).
+ * - `focus` publishes a separately-owned, dismissible/expiring assistant
+ *   focus and asks its camera-only bridge to frame one target. It never
+ *   borrows ordinary user selection.
  * - `open_inspector` selects a single target via the user-selection seam
  *   (selectNodeWithoutHistory / selectEdgeWithoutHistory) so inspector-v2
  *   opens/retargets — selection only, no camera move.
@@ -34,13 +35,9 @@ vi.mock('../../canvas/utils/appliedEditPulse', () => ({
   PULSE_DURATION_MS: 2000,
 }))
 
-const { focusNodeMock, focusEdgeMock } = vi.hoisted(() => ({
-  focusNodeMock: vi.fn(),
-  focusEdgeMock: vi.fn(),
-}))
-vi.mock('../../canvas/utils/focusHelpers', () => ({
-  focusNodeById: focusNodeMock,
-  focusEdgeById: focusEdgeMock,
+const { assistantFocusMock } = vi.hoisted(() => ({ assistantFocusMock: vi.fn() }))
+vi.mock('../../canvas/utils/assistantFocusCamera', () => ({
+  focusAssistantTarget: assistantFocusMock,
 }))
 
 import { applyV5State, type V5ApplicatorStore } from '../applyV5State'
@@ -74,6 +71,7 @@ function makeStore(
     goalConstraints: null,
     nodes,
     edges,
+    currentScenarioId: 'scenario-a',
   }
 }
 
@@ -84,8 +82,7 @@ const directive = (
 
 beforeEach(() => {
   pulseMock.mockClear()
-  focusNodeMock.mockClear()
-  focusEdgeMock.mockClear()
+  assistantFocusMock.mockClear()
 })
 
 describe('applyV5State — ui_directive dispatcher (R4)', () => {
@@ -142,29 +139,39 @@ describe('applyV5State — ui_directive dispatcher (R4)', () => {
   })
 
   // ── focus ────────────────────────────────────────────────────────────────
-  it('focus verb centres the viewport on a NODE via focusNodeById (guidance seam)', () => {
+  it('focus verb publishes a NODE to the separate assistant-focus authority', () => {
     const result = applyV5State(
       baseResponse({
         blocks: [directive('focus', [{ id: 'opt_a', label: 'A', kind: 'option' }])],
       }),
       makeStore([{ id: 'opt_a', data: {} } as never]),
     )
-    expect(focusNodeMock).toHaveBeenCalledTimes(1)
-    expect(focusNodeMock).toHaveBeenCalledWith('opt_a')
-    expect(focusEdgeMock).not.toHaveBeenCalled()
+    expect(assistantFocusMock).toHaveBeenCalledTimes(1)
+    expect(assistantFocusMock).toHaveBeenCalledWith({
+      id: 'opt_a',
+      kind: 'node',
+      label: 'opt_a',
+      scenarioId: 'scenario-a',
+      durationMs: undefined,
+    })
     expect(pulseMock).not.toHaveBeenCalled()
     expect(result.applied).toContain('ui_directive:focus:opt_a')
   })
 
-  it('focus verb centres the viewport on an EDGE via focusEdgeById', () => {
+  it('focus verb publishes an EDGE with its live endpoint labels', () => {
     const result = applyV5State(
       baseResponse({
         blocks: [directive('focus', [{ id: 'e1', label: 'Influence', kind: 'edge' }])],
       }),
       makeStore([], [{ id: 'e1', source: 'a', target: 'b' } as never]),
     )
-    expect(focusEdgeMock).toHaveBeenCalledWith('e1')
-    expect(focusNodeMock).not.toHaveBeenCalled()
+    expect(assistantFocusMock).toHaveBeenCalledWith({
+      id: 'e1',
+      kind: 'edge',
+      label: 'a → b',
+      scenarioId: 'scenario-a',
+      durationMs: undefined,
+    })
     expect(result.applied).toContain('ui_directive:focus:e1')
   })
 
@@ -175,8 +182,7 @@ describe('applyV5State — ui_directive dispatcher (R4)', () => {
       }),
       makeStore([{ id: 'opt_a', data: {} } as never]),
     )
-    expect(focusNodeMock).not.toHaveBeenCalled()
-    expect(focusEdgeMock).not.toHaveBeenCalled()
+    expect(assistantFocusMock).not.toHaveBeenCalled()
     expect(result.applied.some((a) => a.startsWith('ui_directive:focus'))).toBe(false)
     expect(
       result.deferred.some(
@@ -200,8 +206,8 @@ describe('applyV5State — ui_directive dispatcher (R4)', () => {
         { id: 'opt_b', data: {} } as never,
       ]),
     )
-    expect(focusNodeMock).toHaveBeenCalledTimes(1)
-    expect(focusNodeMock).toHaveBeenCalledWith('opt_a')
+    expect(assistantFocusMock).toHaveBeenCalledTimes(1)
+    expect(assistantFocusMock.mock.calls[0]![0]).toMatchObject({ id: 'opt_a', kind: 'node' })
     expect(result.applied).toContain('ui_directive:focus:opt_a')
     expect(
       result.deferred.some(
@@ -221,7 +227,7 @@ describe('applyV5State — ui_directive dispatcher (R4)', () => {
     )
     expect(store.selectNodeWithoutHistory).toHaveBeenCalledWith('opt_a')
     expect(store.selectEdgeWithoutHistory).not.toHaveBeenCalled()
-    expect(focusNodeMock).not.toHaveBeenCalled()
+    expect(assistantFocusMock).not.toHaveBeenCalled()
     expect(pulseMock).not.toHaveBeenCalled()
     expect(result.applied).toContain('ui_directive:open_inspector:opt_a')
   })
@@ -265,7 +271,7 @@ describe('applyV5State — ui_directive dispatcher (R4)', () => {
       makeStore(),
     )
     expect(pulseMock).not.toHaveBeenCalled()
-    expect(focusNodeMock).not.toHaveBeenCalled()
+    expect(assistantFocusMock).not.toHaveBeenCalled()
     expect(result.deferred.some((d) => d.reason === 'ui_directive_verb_deferred')).toBe(true)
   })
 
@@ -297,7 +303,7 @@ describe('applyV5State — ui_directive dispatcher (R4)', () => {
         { id: 'opt_b', data: {} } as never,
       ]),
     )
-    expect(focusNodeMock).toHaveBeenCalledTimes(1)
+    expect(assistantFocusMock).toHaveBeenCalledTimes(1)
     expect(pulseMock).not.toHaveBeenCalled()
     expect(result.deferred.some((d) => d.reason === 'ui_directive_rate_limited')).toBe(true)
   })
@@ -519,7 +525,7 @@ describe('applyV5State — ui_directive panel verbs (0.32.0, P3)', () => {
       makeStore([{ id: 'opt_a', data: {} } as never]),
     )
     expect(result.applied).toContain('ui_directive:open_panel:compare')
-    expect(focusNodeMock).not.toHaveBeenCalled()
+    expect(assistantFocusMock).not.toHaveBeenCalled()
     expect(result.deferred.some((d) => d.reason === 'ui_directive_rate_limited')).toBe(true)
   })
 
@@ -556,8 +562,7 @@ describe('applyV5State — ui_directive panel verbs (0.32.0, P3)', () => {
       expect(store.setGoalConstraints).not.toHaveBeenCalled()
       expect(result.deferred.some((d) => d.reason === 'ui_directive_verb_deferred')).toBe(false)
       expect(pulseMock).not.toHaveBeenCalled()
-      expect(focusNodeMock).not.toHaveBeenCalled()
-      expect(focusEdgeMock).not.toHaveBeenCalled()
+      expect(assistantFocusMock).not.toHaveBeenCalled()
     }
   })
 

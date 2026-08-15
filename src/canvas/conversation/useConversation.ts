@@ -4317,6 +4317,10 @@ export function useConversation(): UseConversationReturn {
           useCanvasStore.setState({ currentScenarioId: newId })
           setCurrentScenarioId(newId)
         }
+        // Response ownership is the scenario that actually goes on the wire.
+        // Capture it once after lazy UUID allocation; never re-derive it from
+        // the live store when this request eventually settles.
+        const scenarioIdAtDispatch = currentScenarioId
 
         const resolvedTurnType: TurnType = isSystemEvent
           ? 'system_event'
@@ -4347,12 +4351,12 @@ export function useConversation(): UseConversationReturn {
         })
         // Stop-fence: refine the dispatch-time capture with the id that is
         // actually going on the wire — this branch may have minted a scenario.
-        inFlightTurnIdentityRef.current = currentScenarioId
-          ? { scenarioId: currentScenarioId, turnId: turnClientId }
+        inFlightTurnIdentityRef.current = scenarioIdAtDispatch
+          ? { scenarioId: scenarioIdAtDispatch, turnId: turnClientId }
           : inFlightTurnIdentityRef.current
         const build = buildV5Payload({
           turnId: turnClientId,
-          scenarioId: currentScenarioId,
+          scenarioId: scenarioIdAtDispatch,
           stage: derivedStage,
           turnClass: 'frame',
           mode,
@@ -4456,7 +4460,7 @@ export function useConversation(): UseConversationReturn {
           const streamedPreviewStanding = streamedPreviewStandingFor(
             useDraftStore.getState(),
             turnClientId,
-            currentScenarioId,
+            scenarioIdAtDispatch,
           )
           if (mode === 'user' && !hidden && !streamedPreviewStanding) {
             // ROADMAP 2.665 — TRANSCRIPT HONESTY, CORRECTED.
@@ -4580,7 +4584,7 @@ export function useConversation(): UseConversationReturn {
             const streamed = await runStreamedDraftTurn({
               payload: build.payload,
               turnClientId,
-              scenarioIdAtDispatch: currentScenarioId,
+              scenarioIdAtDispatch,
               headers: v5Headers,
               signal: controller.signal,
             })
@@ -4599,6 +4603,20 @@ export function useConversation(): UseConversationReturn {
           if (controller.signal.aborted) {
             if (import.meta.env.DEV) {
               console.warn('[sendTurn V5] Response arrived after abort; discarding')
+            }
+            return
+          }
+
+          // Scenario-response fence: the request belongs to the scenario id
+          // captured in its wire payload. If the user has moved elsewhere,
+          // discard the complete late response before routing it. This must
+          // precede optimistic-edit resolution, transcript delivery updates,
+          // applyV5State (including assistant focus/camera), Phase 3 writes,
+          // and graph receipt ingestion: same element ids may legitimately
+          // exist in two scenarios and must not bridge their authority.
+          if (useCanvasStore.getState().currentScenarioId !== scenarioIdAtDispatch) {
+            if (import.meta.env.DEV) {
+              console.warn('[sendTurn V5] Scenario changed before response; discarding')
             }
             return
           }
@@ -4860,7 +4878,6 @@ export function useConversation(): UseConversationReturn {
             // `streamedDraftTurn.spec.ts`; mutant M2 restores the narrow test.
             const canvasIsEmpty =
               useCanvasStore.getState().nodes.length === 0 || streamedPreviewOwnsCanvas
-            const scenarioIdAtDispatch = currentScenarioId
             // The helper reads analysis_ready, the response-root
             // goal_constraints (ROADMAP 1.22 residual) and the sidecar-borne
             // root `coaching` (Leg 3) off the full parsed response

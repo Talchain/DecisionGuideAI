@@ -22,8 +22,9 @@
  *      normalisation) writes nothing. Also: ui_directive verbs
  *      (highlight / focus / open_inspector on graph targets; 0.32.0 adds
  *      open_panel / open_section on `ui_target`) — the AI's "point at the
- *      graph" and "open this surface" gestures, each reusing the seam its
- *      user-driven equivalent uses.
+ *      graph" and "open this surface" gestures. `focus` owns a distinct,
+ *      expiring assistant-focus authority: it never writes ordinary user
+ *      selection and never enters outbound grounding.
  *   3. analysis_result.enrichment.decision_review → runMeta. TWO different
  *      payloads share that key and go to two different fields: the live 0.30
  *      shape → `runMeta.decisionReview030`, the M1 REST shape →
@@ -52,7 +53,7 @@ import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
 import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
-import { focusNodeById, focusEdgeById } from '../canvas/utils/focusHelpers'
+import { focusAssistantTarget } from '../canvas/utils/assistantFocusCamera'
 import {
   useUIStore,
   type OutputTab,
@@ -81,6 +82,8 @@ export interface V5ApplicatorStore {
   updateEdgeData: (id: string, data: Partial<Record<string, unknown>>) => void
   nodes: Node[]
   edges: Edge[]
+  /** Optional session identity used to stop a focus crossing scenario boundaries. */
+  currentScenarioId?: string | null
   /** Partial merge into runMeta — only provided fields are updated. */
   setRunMeta: (meta: {
     ceeReviewV1: CeeDecisionReviewPayloadV1 | null
@@ -755,9 +758,11 @@ export function applyV5State(
       //                       ring, fail-closed in-graph filter, no viewport
       //                       or selection change) — the AI cannot hijack what
       //                       the user is doing.
-      //   - focus          → focusNodeById / focusEdgeById, the guidance
-      //                       click-to-focus seam (centre viewport + select +
-      //                       brief glow). Single-target.
+      //   - focus          → assistantFocusStore + its camera-only bridge.
+      //                       Persistent static marker + visible dismissal +
+      //                       bounded expiry. It never writes ordinary user
+      //                       selection or the outbound-grounding authority.
+      //                       Single-target.
       //   - open_inspector → selectNodeWithoutHistory / selectEdgeWithoutHistory,
       //                       the user-selection seam that opens/retargets
       //                       inspector-v2. Selection only, no camera move.
@@ -774,7 +779,8 @@ export function applyV5State(
       //                       "See all relationships" handoff (0.32.0, P3).
       //                       Dispatches on `ui_target` {kind:'model_section'}.
       // Unknown verbs (a newer producer) defer fail-closed. duration_ms is a
-      // producer hint not yet honoured (the highlight ring is a fixed 2s).
+      // duration_ms remains irrelevant to the fixed 2s highlight pulse, but
+      // it owns the bounded lifetime of an assistant focus.
       // Every verb is fail-closed on its target: an off-canvas / unknown graph
       // id is recorded not-found and never executed, and a panel verb with a
       // missing or verb-mismatched ui_target defers without executing (keeps
@@ -862,10 +868,10 @@ export function applyV5State(
         for (const t of targets) {
           if (!t?.id) continue
           const isEdge = t.kind === 'edge'
-          const exists = isEdge
-            ? store.edges.some((e) => e.id === t.id)
-            : store.nodes.some((n) => n.id === t.id)
-          if (!exists) {
+          const graphTarget = isEdge
+            ? store.edges.find((e) => e.id === t.id)
+            : store.nodes.find((n) => n.id === t.id)
+          if (!graphTarget) {
             deferred.push({
               reason: 'ui_directive_target_not_found',
               block,
@@ -891,8 +897,23 @@ export function applyV5State(
             continue
           }
           if (verb === 'focus') {
-            if (isEdge) focusEdgeById(t.id)
-            else focusNodeById(t.id)
+            const labelOfNode = (nodeId: string): string => {
+              const node = store.nodes.find((candidate) => candidate.id === nodeId)
+              const rawLabel = (node?.data as { label?: unknown } | undefined)?.label
+              return typeof rawLabel === 'string' && rawLabel.trim().length > 0
+                ? rawLabel.trim()
+                : nodeId
+            }
+            const targetLabel = isEdge
+              ? `${labelOfNode((graphTarget as Edge).source)} → ${labelOfNode((graphTarget as Edge).target)}`
+              : labelOfNode(t.id)
+            focusAssistantTarget({
+              id: t.id,
+              kind: isEdge ? 'edge' : 'node',
+              label: targetLabel,
+              scenarioId: store.currentScenarioId ?? null,
+              durationMs: block.duration_ms,
+            })
             applied.push(`ui_directive:focus:${t.id}`)
             singleTargetActioned = true
           } else {
@@ -1311,4 +1332,3 @@ function isStaleTurn(options?: ApplyV5StateOptions): boolean {
   if (!current || !incoming) return false
   return incoming !== current
 }
-

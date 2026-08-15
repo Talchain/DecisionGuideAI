@@ -94,6 +94,7 @@ import { DocumentsManager } from './components/DocumentsManager'
 import { ProvenanceHubTab } from './components/ProvenanceHubTab'
 import { ConnectPrompt } from './components/ConnectPrompt'
 import { FocusModeChip } from './components/FocusModeChip'
+import { AssistantFocusChip } from './components/AssistantFocusChip'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
 import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
@@ -2159,12 +2160,16 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         onFitView={handleFitView}
         onAutoArrange={handleAutoArrange}
       />
-      {/* Focus Mode Chip - shows when single node selected with path highlighting */}
+      {/* Two independent attention owners may coexist here: assistant focus is
+          dismissible/expiring; FocusModeChip is ordinary user selection. */}
       <div
         className="absolute z-[100] left-1/2 -translate-x-1/2 pointer-events-auto"
         style={{ top: 'calc(var(--topbar-h, 0px) + 1rem)' }}
       >
-        <FocusModeChip />
+        <div className="flex flex-col items-center gap-2">
+          <AssistantFocusChip />
+          <FocusModeChip />
+        </div>
       </div>
 
       {/* Influence Explainer - shown when triggered from TopBar dropdown */}

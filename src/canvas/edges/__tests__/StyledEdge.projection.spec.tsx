@@ -8,9 +8,13 @@
  * (directionColour.spec); the marker composes via a separate CSS channel.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { act, render, cleanup, screen } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
+import {
+  activateAssistantFocus,
+  dismissAssistantFocus,
+} from '../../stores/assistantFocusStore'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -97,6 +101,7 @@ const edgeProps = {
 
 afterEach(() => {
   cleanup()
+  dismissAssistantFocus()
   analysisHighlight = { source: null, edgeIds: new Set(), nodeIds: new Set() }
 })
 
@@ -122,5 +127,25 @@ describe('StyledEdge — analysis-graph projection marker', () => {
     analysisHighlight = { source: 'drivers', edgeIds: new Set(['e1']), nodeIds: new Set() }
     const { container } = render(<StyledEdge {...(edgeProps as any)} />)
     expect(container.querySelector('g[data-analysis-fragile="true"]')).toBeNull()
+  })
+})
+
+describe('StyledEdge — assistant focus render', () => {
+  it('renders an independent static halo on the exact edge', () => {
+    act(() => {
+      activateAssistantFocus({ id: 'e1', kind: 'edge', label: 'One → Two' })
+    })
+    const { container } = render(<StyledEdge {...(edgeProps as any)} />)
+    expect(container.querySelector('g[data-assistant-focused="true"]')).not.toBeNull()
+    expect(screen.getByTestId('assistant-focus-edge-halo-e1')).toBeInTheDocument()
+  })
+
+  it('discriminating identity: another edge receives no halo', () => {
+    act(() => {
+      activateAssistantFocus({ id: 'e9', kind: 'edge', label: 'Other' })
+    })
+    const { container } = render(<StyledEdge {...(edgeProps as any)} />)
+    expect(container.querySelector('g[data-assistant-focused="true"]')).toBeNull()
+    expect(screen.queryByTestId('assistant-focus-edge-halo-e1')).not.toBeInTheDocument()
   })
 })

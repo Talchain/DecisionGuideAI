@@ -22,6 +22,8 @@ import { computeFocusPlan } from '../utils/focusNeighbourhood'
 import { readFocusCamera, nodesComfortablyVisible } from '../utils/cameraComfort'
 import { createFocusFitSuppressor } from '../utils/focusLens'
 import { registerFocusHelpers, registerFitNodes } from '../utils/focusHelpers'
+import { registerAssistantFocusCamera } from '../utils/assistantFocusCamera'
+import { dismissAssistantFocus } from '../stores/assistantFocusStore'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 
 export interface FocusCameraHandlers {
@@ -142,6 +144,71 @@ export function useFocusCamera(): FocusCameraHandlers {
   useEffect(() => {
     return registerFocusHelpers(handleFocusNode, handleFocusEdge)
   }, [handleFocusNode, handleFocusEdge])
+
+  // Assistant-directed focus has a separate authority and lifetime from user
+  // selection. These callbacks therefore do camera work ONLY: no `selected`
+  // flags, no selection Set, no focus dim and no highlight pulse writes.
+  // The static marker + dismiss/expiry lifecycle live in assistantFocusStore.
+  const handleAssistantFocusNode = useCallback((nodeId: string) => {
+    const store = useCanvasStore.getState()
+    const camera = readFocusCamera(getViewportRef.current)
+    const plan = computeFocusPlan(nodeId, store.nodes, store.edges, camera)
+    if (!plan || !plan.moveCamera) return
+
+    const focusNodes = store.nodes.filter((node) => plan.focusNodeIds.has(node.id))
+    focusFitSuppressorRef.current.begin()
+    fitViewRef.current({
+      nodes: focusNodes,
+      padding: camera?.padding ?? 0.3,
+      maxZoom: 1.2,
+      duration: cameraDuration(400, reducedMotionRef.current),
+    })
+  }, [])
+
+  const handleAssistantFocusEdge = useCallback((edgeId: string) => {
+    const store = useCanvasStore.getState()
+    const edge = store.edges.find((candidate) => candidate.id === edgeId)
+    if (!edge) return
+    const sourceNode = store.nodes.find((node) => node.id === edge.source)
+    const targetNode = store.nodes.find((node) => node.id === edge.target)
+    if (!sourceNode || !targetNode) return
+
+    const camera = readFocusCamera(getViewportRef.current)
+    const endpointNodes = [sourceNode, targetNode]
+    if (
+      camera &&
+      nodesComfortablyVisible(
+        endpointNodes,
+        camera.viewport,
+        camera.paneWidth,
+        camera.paneHeight,
+        camera.insets,
+      )
+    ) {
+      return
+    }
+
+    focusFitSuppressorRef.current.begin()
+    fitViewRef.current({
+      nodes: endpointNodes,
+      padding: camera?.padding ?? 0.3,
+      maxZoom: 1.2,
+      duration: cameraDuration(400, reducedMotionRef.current),
+    })
+  }, [])
+
+  useEffect(() => {
+    const unregister = registerAssistantFocusCamera(
+      handleAssistantFocusNode,
+      handleAssistantFocusEdge,
+    )
+    return () => {
+      unregister()
+      // Canvas lifetime is the outer bound: a focus must not reappear if the
+      // workspace unmounts/remounts before its timer fires.
+      dismissAssistantFocus()
+    }
+  }, [handleAssistantFocusNode, handleAssistantFocusEdge])
 
   // F4 (graph-visuals): registered multi-node fit — the applied-edit pulse
   // choke point (appliedEditPulse.flush) routes every feeder here so pulse

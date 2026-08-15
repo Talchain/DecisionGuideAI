@@ -31,6 +31,7 @@ import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { NODE_REGISTRY } from '../domain/nodes'
 import Tooltip from '../../components/Tooltip'
 import { StatusPill } from './shared/StatusPill'
+import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
   decision: 'The choice you\'re making',
@@ -75,6 +76,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // on every store update. Selecting the entire Set causes infinite loops since
   // Set references change on each store update.
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
+  // Assistant focus is a static, independently-owned marker. It does not use
+  // React Flow's `selected` prop and does not enter the transient highlight
+  // Set, so it can coexist with both without borrowing either lifetime.
+  const isAssistantFocused = useAssistantFocusStore(
+    (state) => state.target?.kind === 'node' && state.target.id === id,
+  )
   // N3: edited since the last analysis run (amber corner dot; undefined-safe
   // for node-spec store doubles without the slice).
   const isEditedSinceRun = useCanvasStore(s => s.editedSinceRunNodeIds?.has(id) === true)
@@ -240,6 +247,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
       {...(nodeType === 'factor' && data?.category === 'external' ? { title: 'Outside your control' } : {})}
       {...(isAnalysisDriver ? { 'data-analysis-driver': 'true' } : {})}
+      {...(isAssistantFocused ? { 'data-assistant-focused': 'true' } : {})}
       className={`
         relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} shadow-1
         ${isCausalLens ? (causalBorderClass ?? '') : isIncomplete ? 'border-warning border-dashed' : borderClassOverride ?? `${colors.border} ${borderStyle}`}
@@ -274,6 +282,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
+      {isAssistantFocused && (
+        <span
+          aria-hidden="true"
+          data-testid={`assistant-focus-node-halo-${id}`}
+          className="pointer-events-none absolute -inset-1 z-[1] rounded-xl border-2 border-info ring-2 ring-info/30 ring-offset-1"
+        />
+      )}
+
       {/* Context menu: Assumption flag badge (Hard rule 3 — UI-only annotation) */}
       {Boolean(data?.flagged_as_assumption) && (
         <div
