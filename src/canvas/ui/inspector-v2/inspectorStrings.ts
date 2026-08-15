@@ -326,6 +326,7 @@ export const ACTION_LABELS = {
   addConstraint: '+ Add constraint',
   seeAllDrivers: 'See all drivers',
   compareOptions: 'Compare all options',
+  useCurrentStrength: 'Use current strength',
 } as const
 
 // ─── Empty description placeholders ───────────────────────────────

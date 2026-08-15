@@ -20,9 +20,9 @@
  * remain separate from this in-process mounted proof.
  */
 import { createElement } from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import {
   selectAssumedStrengthToResolve,
   type ElicitationCanvasEdge,
@@ -38,6 +38,9 @@ import { AssumedStrengthCard } from '../AssumedStrengthCard'
 import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
 import { useCanvasStore } from '../../../../canvas/store'
 import { InspectorModal } from '../../../../canvas/components/InspectorModal'
+import { computeGraphHash } from '../../../../canvas/hooks/useAutosave'
+import { projectAutosaveData } from '../../../../canvas/store/autosaveProjection'
+import { clearAutosave, loadAutosave, saveAutosave } from '../../../../canvas/store/scenarios'
 
 vi.mock('../../../../canvas/utils/focusHelpers', async () => {
   const actual = await vi.importActual<typeof import('../../../../canvas/utils/focusHelpers')>(
@@ -69,6 +72,10 @@ const draftedEdge = (): ElicitationCanvasEdge => ({
 const fragileEdges = [
   { from_id: 'n_demand', to_id: 'n_rev', switch_probability: ABOVE, alternative_winner_label: 'Consolidate' },
 ]
+
+afterEach(() => {
+  clearAutosave()
+})
 
 describe('P4 chain: elicitation → resolve → stale → rerun → loop closed', () => {
   it('LINK 1 — elicitation names the assumed relationship, by edge identity', () => {
@@ -200,6 +207,186 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     expect(edited.analysisFreshnessDirty).toBe(true)
     expect(screen.getByRole('button', { name: 'Re-run the analysis' })).toBeInTheDocument()
     expect(screen.getByText('Re-run to see how this affects the results')).toBeInTheDocument()
+  })
+
+  it('MOUNTED — using the exact current strength resolves provenance without fabricating a rerun', () => {
+    const first = {
+      ...draftedEdge(),
+      data: {
+        ...draftedEdge().data,
+        // Non-midpoint and negative: a band-snap or signed rewrite must RED.
+        weight: 0.52,
+        direction: 'negative',
+        directionSource: 'cee',
+      },
+    }
+    const second: ElicitationCanvasEdge = {
+      id: 'e_cost_margin',
+      source: 'n_cost',
+      target: 'n_margin',
+      data: {
+        ...DEFAULT_EDGE_DATA,
+        weight: 0.34,
+        weightSource: 'cee',
+        provenanceDisplay: 'ai_inferred',
+        origin: 'ai',
+      },
+    }
+    const ranked = [
+      ...fragileEdges,
+      { from_id: 'n_cost', to_id: 'n_margin', switch_probability: ABOVE - 0.05, alternative_winner_label: 'Build' },
+    ]
+    const labels = new Map([
+      ...nodeLabels,
+      ['n_cost', 'Delivery cost'],
+      ['n_margin', 'Operating margin'],
+    ])
+    const decision = selectAssumedStrengthToResolve({ fragileEdges: ranked, edges: [first, second], nodeLabels: labels })
+    expect(decision.selected?.edgeId).toBe(first.id)
+
+    const mountedNodes = [
+      { id: 'n_demand', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Customer demand' } },
+      { id: 'n_rev', type: 'outcome', position: { x: 200, y: 0 }, data: { label: 'Revenue growth' } },
+      { id: 'n_cost', type: 'factor', position: { x: 0, y: 200 }, data: { label: 'Delivery cost' } },
+      { id: 'n_margin', type: 'outcome', position: { x: 200, y: 200 }, data: { label: 'Operating margin' } },
+    ]
+    useCanvasStore.setState({
+      nodes: mountedNodes as never,
+      edges: [first, second] as never,
+      showResultsPanel: true,
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
+      history: { past: [], future: [] },
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } as never,
+    })
+    const hashBefore = computeGraphHash(mountedNodes, [first, second])
+
+    render(createElement(AssumedStrengthCard, { decision, onResolve: openEdgeStrengthEditor }))
+    fireEvent.click(screen.getByTestId('assumed-strength-action'))
+    render(createElement(
+      ReactFlowProvider,
+      null,
+      createElement(InspectorModal, { nodeId: null, edgeId: first.id, onClose: () => {} }),
+    ))
+
+    expect(screen.getByRole('button', { name: 'Use current strength' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Re-run the analysis' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Use current strength' }))
+
+    const confirmed = useCanvasStore.getState()
+    const confirmedData = confirmed.edges.find((edge) => edge.id === first.id)?.data as Record<string, unknown>
+    expect(confirmedData.weight).toBe(0.52)
+    expect(confirmedData.weightSource).toBe('user')
+    expect(confirmedData.direction).toBe('negative')
+    expect(confirmedData.directionSource).toBe('cee')
+    expect(confirmedData.provenanceDisplay).toBe('ai_inferred')
+    expect(confirmedData.origin).toBe('ai')
+    expect(confirmed.analysisFreshnessDirty).toBe(false)
+    expect(computeGraphHash(confirmed.nodes, confirmed.edges)).not.toBe(hashBefore)
+    expect(screen.getByText('Updated')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Use current strength' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Re-run the analysis' })).toBeNull()
+
+    // The SAME ranking authority advances in producer order; the confirmation
+    // does not locally re-rank or hide the queue.
+    const next = selectAssumedStrengthToResolve({
+      fragileEdges: ranked,
+      edges: confirmed.edges as ElicitationCanvasEdge[],
+      nodeLabels: labels,
+    })
+    expect(next.selected?.edgeId).toBe(second.id)
+
+    // The production autosave projection and serializer preserve the source-only
+    // change even though the analytical number stayed byte-identical.
+    clearAutosave()
+    saveAutosave(projectAutosaveData({
+      nodes: confirmed.nodes,
+      edges: confirmed.edges,
+      scenarioId: 'scenario-strength-confirmation',
+      ceeAnalysisReady: undefined,
+      selectedGoalNode: null,
+      analysis: null,
+      goalConstraints: null,
+    }, 123))
+    const restored = loadAutosave()
+    const restoredData = restored?.edges.find((edge) => edge.id === first.id)?.data as Record<string, unknown>
+    expect(restoredData.weight).toBe(0.52)
+    expect(restoredData.weightSource).toBe('user')
+
+    // Existing graph history is the independent user-level reversal: undo puts
+    // the producer stamp back and makes the same ranked item eligible again.
+    act(() => useCanvasStore.getState().undo())
+    const undone = useCanvasStore.getState()
+    const undoneData = undone.edges.find((edge) => edge.id === first.id)?.data as Record<string, unknown>
+    expect(undoneData.weight).toBe(0.52)
+    expect(undoneData.weightSource).toBe('cee')
+    const afterUndo = selectAssumedStrengthToResolve({
+      fragileEdges: ranked,
+      edges: undone.edges as ElicitationCanvasEdge[],
+      nodeLabels: labels,
+    })
+    expect(afterUndo.selected?.edgeId).toBe(first.id)
+  })
+
+  it('MUTANT CONTROL — confirming magnitude preserves absent direction fields', () => {
+    const directionlessData = { ...draftedEdge().data, weight: 0.37 } as Record<string, unknown>
+    delete directionlessData.direction
+    delete directionlessData.directionSource
+    const edge = { ...draftedEdge(), data: directionlessData }
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'n_demand', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Customer demand' } },
+        { id: 'n_rev', type: 'outcome', position: { x: 200, y: 0 }, data: { label: 'Revenue growth' } },
+      ] as never,
+      edges: [edge] as never,
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
+      history: { past: [], future: [] },
+    })
+
+    render(createElement(
+      ReactFlowProvider,
+      null,
+      createElement(InspectorModal, { nodeId: null, edgeId: edge.id, onClose: () => {} }),
+    ))
+    fireEvent.click(screen.getByRole('button', { name: 'Use current strength' }))
+
+    const data = useCanvasStore.getState().edges.find((candidate) => candidate.id === edge.id)?.data as Record<string, unknown>
+    expect(data.weight).toBe(0.37)
+    expect(data.weightSource).toBe('user')
+    expect(Object.prototype.hasOwnProperty.call(data, 'direction')).toBe(false)
+    expect(Object.prototype.hasOwnProperty.call(data, 'directionSource')).toBe(false)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+  })
+
+  it('POSITIVE CONTROL — materialising an absent strength is analytical and offers the canonical rerun', () => {
+    const absentData = { ...draftedEdge().data } as Record<string, unknown>
+    delete absentData.weight
+    delete absentData.weightSource
+    const edge = { ...draftedEdge(), data: absentData }
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'n_demand', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Customer demand' } },
+        { id: 'n_rev', type: 'outcome', position: { x: 200, y: 0 }, data: { label: 'Revenue growth' } },
+      ] as never,
+      edges: [edge] as never,
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
+      history: { past: [], future: [] },
+    })
+
+    render(createElement(
+      ReactFlowProvider,
+      null,
+      createElement(InspectorModal, { nodeId: null, edgeId: edge.id, onClose: () => {} }),
+    ))
+    fireEvent.click(screen.getByRole('button', { name: 'Use current strength' }))
+
+    const data = useCanvasStore.getState().edges.find((candidate) => candidate.id === edge.id)?.data as Record<string, unknown>
+    expect(data.weight).toBe(0.5)
+    expect(data.weightSource).toBe('user')
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+    expect(screen.getByRole('button', { name: 'Re-run the analysis' })).toBeInTheDocument()
   })
 
   it('HONESTY — confirming the placeholder AS-IS is not an analytical change, so no rerun is promised', () => {
