@@ -14,12 +14,15 @@
  * rather than it. So this walks the real selector, the real declared setter
  * manifest, the real analytical-change registry and the real freshness reducer.
  *
- * WHAT IT DELIBERATELY DOES NOT CLAIM. This proves the links compose, in-process.
- * It is NOT a journey witness: nothing here renders the deployed surface, drives
- * a browser, or touches the wire. The rung this evidence reaches is TESTED, and
- * the deploy/journey rungs are named in the lane report as still owed.
+ * WHAT THE MOUNTED CONTROL ADDS. The final discriminator renders the real card
+ * and inspector, drives the card CTA and preset, and observes the real store and
+ * rerun control. It is still not a deployed journey or wire witness; those rungs
+ * remain separate from this in-process mounted proof.
  */
-import { describe, it, expect } from 'vitest'
+import { createElement } from 'react'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { ReactFlowProvider } from '@xyflow/react'
+import { describe, it, expect, vi } from 'vitest'
 import {
   selectAssumedStrengthToResolve,
   type ElicitationCanvasEdge,
@@ -31,6 +34,17 @@ import { resolveDisplayedFreshness, classifyFreshnessForDisplay } from '../../..
 import { DEFAULT_EDGE_DATA } from '../../../../canvas/domain/edges'
 import { THRESHOLDS } from '../../../../lib/mappers/constants'
 import { edgeValueSource } from '../../../../canvas/domain/edgeValueProvenance'
+import { AssumedStrengthCard } from '../AssumedStrengthCard'
+import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
+import { useCanvasStore } from '../../../../canvas/store'
+import { InspectorModal } from '../../../../canvas/components/InspectorModal'
+
+vi.mock('../../../../canvas/utils/focusHelpers', async () => {
+  const actual = await vi.importActual<typeof import('../../../../canvas/utils/focusHelpers')>(
+    '../../../../canvas/utils/focusHelpers',
+  )
+  return { ...actual, focusEdgeById: vi.fn() }
+})
 
 const nodeLabels = new Map([
   ['n_demand', 'Customer demand'],
@@ -39,12 +53,17 @@ const nodeLabels = new Map([
 
 const ABOVE = THRESHOLDS.FRAGILE_EDGE_FILTER + 0.2
 
-/** The drafted edge: a fragile relationship whose strength nobody has set. */
+/** An ordinary CEE draft: numeric strength, but explicitly AI-inferred. */
 const draftedEdge = (): ElicitationCanvasEdge => ({
   id: 'e_demand_rev',
   source: 'n_demand',
   target: 'n_rev',
-  data: { ...DEFAULT_EDGE_DATA },
+  data: {
+    ...DEFAULT_EDGE_DATA,
+    weightSource: 'cee',
+    provenanceDisplay: 'ai_inferred',
+    origin: 'ai',
+  },
 })
 
 const fragileEdges = [
@@ -73,8 +92,10 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     // `updateEdge` calls exactly this predicate to decide whether to invalidate
     // analysis readiness. If `weight` ever left the stale registry, the edit
     // would land and the analysis would keep claiming to be fresh.
-    const before = { ...draftedEdge(), data: { ...DEFAULT_EDGE_DATA } } as unknown as Edge
-    const patch = { data: { ...DEFAULT_EDGE_DATA, weight: 0.85, weightSource: 'user' as const } }
+    const before = draftedEdge() as unknown as Edge
+    const patch = {
+      data: { ...draftedEdge().data, weight: 0.85, weightSource: 'user' as const },
+    }
     expect(hasAnalyticalEdgeChange(before, patch)).toBe(true)
   })
 
@@ -101,7 +122,7 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     // The same graph, with the one edit the interaction asked for applied.
     const resolved: ElicitationCanvasEdge = {
       ...draftedEdge(),
-      data: { ...DEFAULT_EDGE_DATA, weight: 0.85, weightSource: 'user' },
+      data: { ...draftedEdge().data, weight: 0.85, weightSource: 'user' },
     }
     expect(edgeValueSource(resolved.data, 'weight')).toBe('user')
 
@@ -136,6 +157,51 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     expect(after.refusalReason).toBe('all_strengths_set')
   })
 
+  it('MOUNTED — CTA → editor → canonical write → stale → real rerun control', () => {
+    const edges = [draftedEdge()]
+    const decision = selectAssumedStrengthToResolve({ fragileEdges, edges, nodeLabels })
+    expect(decision.selected?.edgeId).toBe('e_demand_rev')
+
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'n_demand', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Customer demand' } },
+        { id: 'n_rev', type: 'outcome', position: { x: 200, y: 0 }, data: { label: 'Revenue growth' } },
+      ] as never,
+      edges: edges as never,
+      showResultsPanel: true,
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } as never,
+    })
+
+    render(createElement(AssumedStrengthCard, { decision, onResolve: openEdgeStrengthEditor }))
+    fireEvent.click(screen.getByTestId('assumed-strength-action'))
+
+    const routed = useCanvasStore.getState()
+    expect([...routed.selection.edgeIds]).toEqual(['e_demand_rev'])
+    expect(routed.showResultsPanel).toBe(false)
+
+    render(createElement(
+      ReactFlowProvider,
+      null,
+      createElement(InspectorModal, { nodeId: null, edgeId: 'e_demand_rev', onClose: () => {} }),
+    ))
+    expect(screen.queryByRole('button', { name: 'Re-run the analysis' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Very strong' }))
+
+    const edited = useCanvasStore.getState()
+    const data = edited.edges.find(edge => edge.id === 'e_demand_rev')?.data as Record<string, unknown>
+    expect(data.weight).toBe(0.85)
+    expect(data.weightSource).toBe('user')
+    // Editing the field does not rewrite the edge's creation/display provenance.
+    expect(data.provenanceDisplay).toBe('ai_inferred')
+    expect(data.origin).toBe('ai')
+    expect(edited.analysisFreshnessDirty).toBe(true)
+    expect(screen.getByRole('button', { name: 'Re-run the analysis' })).toBeInTheDocument()
+    expect(screen.getByText('Re-run to see how this affects the results')).toBeInTheDocument()
+  })
+
   it('HONESTY — confirming the placeholder AS-IS is not an analytical change, so no rerun is promised', () => {
     // The interaction must not promise a consequence it cannot deliver. If the
     // user looks at the placeholder and decides 0.5 was right all along, the
@@ -144,8 +210,10 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     // correctly declines to claim otherwise. `weightSource` is deliberately NOT
     // in the analytical registry, and this pins that as intended behaviour
     // rather than an oversight.
-    const before = { ...draftedEdge(), data: { ...DEFAULT_EDGE_DATA } } as unknown as Edge
-    const confirmedAsIs = { data: { ...DEFAULT_EDGE_DATA, weightSource: 'user' as const } }
+    const before = draftedEdge() as unknown as Edge
+    const confirmedAsIs = {
+      data: { ...draftedEdge().data, weightSource: 'user' as const },
+    }
     expect(hasAnalyticalEdgeChange(before, confirmedAsIs)).toBe(false)
 
     // But the elicitation still stops asking — the assumption HAS been resolved.

@@ -163,4 +163,14 @@ describe('assumedStrengthCopy — the claim boundary, held mechanically', () => 
       expect(s).not.toMatch(/no further/i)
     }
   })
+
+  it('the no-candidate copy reports only the bounded search — never false human authorship or no-placeholder claims', () => {
+    const copy = ASSUMED_STRENGTH_REFUSAL_COPY.all_strengths_set
+    expect(copy).toBe(
+      'No unresolved assumed strength was found among the relationships this run was sensitive to.',
+    )
+    expect(copy).not.toMatch(/somebody set/i)
+    expect(copy).not.toMatch(/no placeholders/i)
+    expect(copy).not.toMatch(/driving this answer/i)
+  })
 })

@@ -262,6 +262,17 @@ export const EdgePanel = memo(function EdgePanel({
     confirmEdit('strength')
   }, [clearPreview, localStrength, confirmEdit])
 
+  const handleStrengthPresetChange = useCallback((v: number) => {
+    // A preset click is a complete edit, not a continuously-dragged preview.
+    // Reuse the canonical strength writer, then close the same confirmation
+    // seam the fine-tune slider closes on blur so stale analysis exposes the
+    // existing rerun affordance.
+    handleStrengthChange(v)
+    clearPreview()
+    origStrengthRef.current = v
+    confirmEdit('strength')
+  }, [handleStrengthChange, clearPreview, confirmEdit])
+
   const handleBeliefChange = useCallback((v: number) => {
     setLocalBelief(v)
     mutations.setExistsProbability(v)
@@ -335,7 +346,7 @@ export const EdgePanel = memo(function EdgePanel({
               <p className={`${typography.panelBody} text-text-body mb-1.5`}>
                 {INLINE_LABELS.strengthQuestion}
               </p>
-              <StrengthBandButtons value={localStrength} onChange={handleStrengthChange} />
+              <StrengthBandButtons value={localStrength} onChange={handleStrengthPresetChange} />
               <ExpertAnnotation techMode={techMode} editable value={localStrength} onChange={(v) => { handleStrengthChange(v); }} suffix="β =" step={0.01} min={-1} max={1} />
               {/* Edit feedback */}
               {lastConfirmed?.field === 'strength' && (

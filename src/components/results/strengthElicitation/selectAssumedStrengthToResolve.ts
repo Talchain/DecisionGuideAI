@@ -28,13 +28,13 @@
  *      NEVER a fallback for a rendered number. Calling that helper rather than
  *      reading `row.switch_probability` here is what keeps those three rules in
  *      ONE place; a local read would be a fourth copy of the floor.
- *   2. IS IT ASSUMED — `edgeValueSource(data, 'weight')`
- *      (`canvas/domain/edgeValueProvenance.ts:135`). `null` means DEFAULTED.
- *      The invariant is ABSENT MEANS DEFAULTED, so a construction site that
- *      forgets to stamp under-discloses ("not set" on a value that was set) and
- *      never over-claims. We inherit that direction deliberately: the failure
- *      mode of this module is staying SILENT about a genuinely assumed edge,
- *      never inventing an assumption the user actually set.
+ *   2. IS IT ASSUMED — the canvas's existing value and edge provenance:
+ *      `edgeValueSource(data, 'weight')`, `provenanceDisplay`, and `origin`.
+ *      A user-set strength is resolved. `ai_inferred` / `origin: 'ai'` remains
+ *      provisional even when CEE supplied a numeric strength and therefore
+ *      stamped `weightSource: 'cee'`. Edge creation provenance never overrides
+ *      the more specific user value stamp, so an AI-created edge stops being
+ *      eligible after the user sets its strength through the existing editor.
  *   3. PRODUCER ORDER — ISL emits `fragile_edges` sorted descending by
  *      `switch_probability` (measured across all nine committed live captures).
  *      We preserve that order exactly and take the FIRST qualifying row. No
@@ -115,7 +115,7 @@ export type AssumedStrengthRefusal =
   | 'no_robustness_data'
   /** The block exists but nothing clears the visibility floor. */
   | 'no_fragile_edges'
-  /** Fragile edges exist, and EVERY one of them has a strength somebody set. */
+  /** Fragile edges exist, but none has an unresolved assumed strength. */
   | 'all_strengths_set'
   /** Fragile rows exist but none matched a canvas edge we can name and focus. */
   | 'no_edge_identity'
@@ -165,6 +165,34 @@ function readRecord(value: unknown): Record<string, unknown> | null {
 
 function nonEmptyString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+/**
+ * Whether this strength still needs human judgement.
+ *
+ * `weightSource` is field-specific, while `provenanceDisplay` / `origin` describe
+ * how the edge entered the model. That fixes the precedence: a later user edit
+ * resolves an AI-created edge, but merely drawing an edge does not resolve its
+ * default strength, and a CEE numeric estimate does not resolve itself merely
+ * because ingestion stamped `weightSource: 'cee'`.
+ *
+ * Unknown/older provenance keeps the previous absence-safe rule: only a
+ * recognised value source counts as resolved. No new provenance is inferred.
+ */
+function hasUnresolvedAssumedStrength(data: Record<string, unknown> | undefined): boolean {
+  const valueSource = edgeValueSource(data, 'weight')
+
+  // The strength editor writes this field-specific stamp and deliberately
+  // leaves the edge's creation origin intact. It therefore has precedence.
+  if (valueSource === 'user') {
+    return false
+  }
+
+  if (data?.provenanceDisplay === 'ai_inferred' || data?.origin === 'ai') {
+    return true
+  }
+
+  return valueSource === null
 }
 
 /**
@@ -250,9 +278,10 @@ export function selectAssumedStrengthToResolve({
 
     sawAnyFragibleAboveFloor = true
 
-    // ABSENT MEANS DEFAULTED. A stamped edge — 'user', 'cee' or 'template' — is
-    // somebody's number, not ours to re-elicit.
-    if (edgeValueSource(edge.data, 'weight') !== null) continue
+    // A CEE number is still provisional when the edge says AI inferred it.
+    // Conversely, the field-specific user stamp wins over the edge's retained
+    // AI creation origin after the existing editor writes the user's value.
+    if (!hasUnresolvedAssumedStrength(edge.data)) continue
 
     // COUNT DISTINCT EDGES, NOT ROWS. The producer may name one canvas edge in
     // more than one row (a repeated pair, or an `edge_id` row alongside its
