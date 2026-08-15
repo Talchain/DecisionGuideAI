@@ -128,6 +128,57 @@ export function CanvasContextMenu({ target, onClose, screenToFlowPosition }: Can
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
+  // Outside-dismissal WITHOUT consuming the gesture.
+  //
+  // This used to be a `<div role="presentation" className="fixed inset-0
+  // z-[99]" onMouseDown={onClose} />` — a full-viewport, invisible sheet
+  // sitting above the ReactFlow pane. It dismissed on `mousedown`, which meant
+  // the very gesture that closed the menu never reached the canvas: the first
+  // marquee-select or hand-pan after a context menu was silently swallowed and
+  // the second one worked. Pressing Escape closed the menu WITHOUT eating a
+  // gesture (see the `case 'Escape'` above), which is exactly the "the tool
+  // only worked when I pressed Escape" report from Paul's 15 Aug testing.
+  //
+  // Dismissing an overlay must not cost the user a gesture. A capture-phase
+  // document listener closes the menu and then lets the same pointerdown
+  // continue to `.react-flow__pane`, so the drag the user actually made starts
+  // on the first attempt. Nothing here calls `stopPropagation` — that is the
+  // whole point, and any future edit that adds one re-opens this defect.
+  useEffect(() => {
+    // While the custom-value popover has taken over the render (the early
+    // return below), the menu itself is not on screen and previously had no
+    // backdrop at all — it owns its own dismissal. Arming the listener here
+    // would close the whole menu on the popover's first click.
+    if (customValueNodeId) return
+
+    const isInsideMenuSurface = (node: EventTarget | null): boolean => {
+      if (!(node instanceof Node)) return false
+      const el = node instanceof Element ? node : node.parentElement
+      return !!el?.closest('[data-context-menu-surface]')
+    }
+
+    const dismissOnOutsidePointer = (e: MouseEvent) => {
+      if (isInsideMenuSurface(e.target)) return
+      onClose()
+    }
+
+    const dismissOnOutsideContextMenu = (e: MouseEvent) => {
+      if (isInsideMenuSurface(e.target)) return
+      // Keeps the previous behaviour of suppressing the NATIVE menu; the event
+      // still propagates, so the canvas's own onContextMenu re-opens ours at
+      // the new position instead of leaving the user with nothing.
+      e.preventDefault()
+      onClose()
+    }
+
+    document.addEventListener('mousedown', dismissOnOutsidePointer, true)
+    document.addEventListener('contextmenu', dismissOnOutsideContextMenu, true)
+    return () => {
+      document.removeEventListener('mousedown', dismissOnOutsidePointer, true)
+      document.removeEventListener('contextmenu', dismissOnOutsideContextMenu, true)
+    }
+  }, [onClose, customValueNodeId])
+
   // Cleanup submenu timers
   useEffect(() => {
     return () => {
@@ -188,17 +239,18 @@ export function CanvasContextMenu({ target, onClose, screenToFlowPosition }: Can
 
   return (
     <>
-      {/* Invisible backdrop catches all outside clicks/right-clicks to dismiss menu */}
-      <div
-        role="presentation"
-        className="fixed inset-0 z-[99]"
-        onMouseDown={onClose}
-        onContextMenu={(e) => { e.preventDefault(); onClose() }}
-      />
+      {/*
+        No backdrop element. Outside-dismissal is a capture-phase document
+        listener (see the effect above) so the dismissing gesture is NOT
+        consumed and reaches the canvas. `data-context-menu-surface` is what
+        that listener treats as "inside" — every menu-owned surface must carry
+        it, or clicking that surface will close the menu before the click lands.
+      */}
       <div
         ref={menuRef}
         role="menu"
         aria-label="Canvas context menu"
+        data-context-menu-surface=""
         className="fixed z-[100] min-w-[220px] max-w-[320px] rounded-xl border border-panel-border bg-panel py-2 shadow-2"
         style={{ left: position.x, top: position.y }}
       >
@@ -298,6 +350,7 @@ export function CanvasContextMenu({ target, onClose, screenToFlowPosition }: Can
         if (!parentItem?.submenuItems) return null
         return (
           <div
+            data-context-menu-surface=""
             onMouseEnter={handleSubmenuMouseEnter}
             onMouseLeave={handleSubmenuHoverLeave}
           >
