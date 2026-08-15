@@ -46,9 +46,15 @@ function nodeProps(id: string) {
 function renderNodes() {
   render(
     <ReactFlowProvider>
-      <FactorNode {...(nodeProps(GROUNDED) as never)} />
-      <FactorNode {...(nodeProps(TRANSIENT) as never)} />
-      <FactorNode {...(nodeProps(DECOY) as never)} />
+      <FactorNode
+        {...(nodeProps(GROUNDED) as unknown as React.ComponentProps<typeof FactorNode>)}
+      />
+      <FactorNode
+        {...(nodeProps(TRANSIENT) as unknown as React.ComponentProps<typeof FactorNode>)}
+      />
+      <FactorNode
+        {...(nodeProps(DECOY) as unknown as React.ComponentProps<typeof FactorNode>)}
+      />
     </ReactFlowProvider>,
   )
 }
