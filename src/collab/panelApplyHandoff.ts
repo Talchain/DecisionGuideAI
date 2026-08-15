@@ -136,12 +136,11 @@ export function readPendingApply(scenarioId: string): PendingPanelApply | null {
 /**
  * Drop a recorded intent.
  *
- * ⚠ CALLED BEFORE THE TURN IS SENT, NOT AFTER. An intent that survives its own
- * dispatch is an intent that can be drained twice — and because the apply is
- * idempotent server-side only in its RESULT, not in its transcript, a double
- * drain would post two turns and write two entries into the user's history for
- * one click. Losing an intent to a failed send costs one more click; replaying
- * one costs the user's trust in what the transcript says happened.
+ * Called only after the sender confirms an accepted dispatch (or when an
+ * explicit caller deliberately abandons an intent). `usePanelApplyDrain` keeps
+ * one ephemeral in-flight claim so re-renders/remounts cannot double-dispatch
+ * while the promise is unresolved, and identity-checks the stored record before
+ * calling this so an older completion cannot delete a newer click.
  */
 export function forgetPendingApply(scenarioId: string): void {
   if (scenarioId === '') return

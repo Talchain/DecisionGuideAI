@@ -109,7 +109,7 @@ function CanvasHarness({ onWire }: { onWire: (event: unknown) => void }): JSX.El
       })
       if (!result.ok) throw new Error(`payload refused: ${JSON.stringify(result)}`)
       onWire((result.payload as unknown as { event: unknown }).event)
-      return {}
+      return undefined
     },
   })
   return <div data-testid="canvas" />

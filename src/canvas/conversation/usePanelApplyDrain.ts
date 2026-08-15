@@ -8,9 +8,11 @@
  * `factor_value_edit` carrying `applied_from`.
  *
  * ── THE THREE PROPERTIES THAT MAKE THIS SAFE ──────────────────────────────
- * 1. EXACTLY ONCE. The intent is forgotten BEFORE the send, and a ref guards
- *    against a re-render racing a second drain. A double drain would post two
- *    turns and write two entries into the user's transcript for one click.
+ * 1. ONE IN FLIGHT; CLEAR ONLY AFTER CONFIRMED ACCEPTANCE. An ephemeral claim
+ *    prevents re-render, remount, and React StrictMode from dispatching the same
+ *    intent while its promise is unresolved. The pending record is retained for
+ *    rejected, deferred, blocked, and no-op outcomes, so a later readiness or
+ *    revision change can retry without reconstructing the owner's action.
  * 2. IT ASSERTS NOTHING IT DID NOT VERIFY. The hook attaches `applied_from` as
  *    a CLAIM. CEE checks it against its own collab store and refuses the whole
  *    edit on any mismatch, so the worst a stale or wrong intent achieves is a
@@ -24,6 +26,7 @@ import { useEffect, useRef } from 'react'
 
 import { buildFactorValueEditEvent } from './factorValueEdit'
 import type { WireSystemEvent } from './types'
+import type { SendTurnOutcome } from './useConversation'
 import {
   forgetPendingApply,
   readPendingApply,
@@ -56,9 +59,37 @@ export interface PanelApplyDrainArgs {
    */
   lookupNodeData: (targetId: string) => unknown | undefined
   /** The one real turn sender, from the conversation context. */
-  sendSystemEvent: ((event: WireSystemEvent) => Promise<unknown>) | undefined
+  sendSystemEvent: ((
+    event: WireSystemEvent,
+    opts: { deferIfBusy: false },
+  ) => Promise<SendTurnOutcome>) | undefined
   /** Notified after a successful dispatch, for the canvas confirmation. */
   onApplied?: (intent: PendingPanelApply) => void
+}
+
+/**
+ * Process-local transport claims only. The pending localStorage record remains
+ * the sole retry authority; this set carries no payload and is deleted on every
+ * settlement. Keeping the claim outside a component is what closes the brief
+ * unmount/remount window created by React StrictMode.
+ */
+const inFlightIntentKeys = new Set<string>()
+
+/**
+ * Stable identity for one recorded action. `recorded_at` distinguishes two
+ * clicks with otherwise identical fields; the explicit -0 spelling preserves
+ * the same Object.is-sensitive number semantics as the server binding.
+ */
+function intentKey(intent: PendingPanelApply): string {
+  const value = Object.is(intent.value, -0) ? '-0' : String(intent.value)
+  return JSON.stringify([
+    intent.scenario_id,
+    intent.round_id,
+    intent.participant_id,
+    intent.target_id,
+    value,
+    intent.recorded_at,
+  ])
 }
 
 export function usePanelApplyDrain({
@@ -69,19 +100,18 @@ export function usePanelApplyDrain({
   sendSystemEvent,
   onApplied,
 }: PanelApplyDrainArgs): void {
-  // Guards the exactly-once property across re-renders and StrictMode's double
-  // effect invocation. Keyed by scenario so navigating between models still
-  // drains each one's own intent.
+  // Successful action identity, retained when localStorage removal itself is
+  // unavailable so a fulfilled send cannot replay during this mount.
   const drainedFor = useRef<string | null>(null)
-
   useEffect(() => {
     if (scenarioId === undefined || scenarioId === '') return
     if (!graphReady) return
     if (sendSystemEvent === undefined) return
-    if (drainedFor.current === scenarioId) return
-
     const intent = readPendingApply(scenarioId)
     if (intent === null) return
+    const key = intentKey(intent)
+    if (drainedFor.current === key) return
+    if (inFlightIntentKeys.has(key)) return
 
     // DEFER, do not drop: the graph may still be loading. Returning without
     // stamping `drainedFor` leaves the intent in place for the next render,
@@ -99,29 +129,46 @@ export function usePanelApplyDrain({
       },
     })
 
-    // Fail CLOSED. The builder refuses a model-scale number outside [0,1] or on
-    // a magnitude-scaled factor, for every caller. Forget the intent so a
-    // permanently-unencodable one cannot wedge the drain on every visit.
-    if (event === null) {
-      drainedFor.current = scenarioId
-      forgetPendingApply(scenarioId)
-      return
-    }
+    // Fail CLOSED. Keep the exact pending action: a later graph revision may
+    // provide node scale metadata that makes the shared builder able to encode
+    // it, and staleness bounds an action that remains permanently invalid.
+    if (event === null) return
 
-    // Order is load-bearing: mark and forget BEFORE sending, so a rejected send
-    // cannot be replayed. See `forgetPendingApply`'s header.
-    drainedFor.current = scenarioId
-    forgetPendingApply(scenarioId)
+    // Mark in-flight BEFORE invoking the sender. Wrapping the invocation also
+    // turns a synchronous throw into the same rejected-promise retry posture.
+    inFlightIntentKeys.add(key)
+    void Promise.resolve()
+      // This caller already owns the durable pending record. Opting out of the
+      // singleton sender's hidden queue means SEND_BLOCKED is returned while a
+      // turn is busy, so there can never be a queued copy plus a later retry.
+      .then(() => sendSystemEvent(event, { deferIfBusy: false }))
+      .then((outcome) => {
+        // The real sender contract names undefined as the sole accepted send.
+        // SEND_DEFERRED, SEND_BLOCKED, and any defensive unknown/no-op result
+        // retain the exact pending action and simply release its transport
+        // claim for a later dependency-driven retry.
+        if (outcome !== undefined) {
+          inFlightIntentKeys.delete(key)
+          return
+        }
 
-    void Promise.resolve(sendSystemEvent(event))
-      .then(() => {
+        // Confirmed acceptance is the first point at which replay suppression
+        // and removal are truthful. Clear only if storage still contains THIS
+        // action; a newer click must never be deleted by an older completion.
+        drainedFor.current = key
+        const pendingNow = readPendingApply(scenarioId)
+        if (pendingNow !== null && intentKey(pendingNow) === key) {
+          forgetPendingApply(scenarioId)
+        }
+        inFlightIntentKeys.delete(key)
         onApplied?.(intent)
       })
       .catch(() => {
-        // The turn failed in transit. Deliberately silent HERE: CEE's own
-        // refusal copy is the honest message and arrives on the turn, and a
-        // second client-invented sentence about a server outcome would be the
-        // product guessing. The value simply does not change.
+        // Transport rejection proves no successful dispatch. Retain the exact
+        // pending action and release only the in-flight guard; a later graph or
+        // sender revision may retry through this same effect. No second client
+        // sentence guesses at a server outcome.
+        inFlightIntentKeys.delete(key)
       })
   }, [scenarioId, graphReady, graphRevision, lookupNodeData, sendSystemEvent, onApplied])
 }

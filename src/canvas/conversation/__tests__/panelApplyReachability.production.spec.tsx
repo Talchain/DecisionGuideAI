@@ -13,6 +13,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { StrictMode } from 'react'
 
 const SCENARIO_ID = '22222222-3333-4444-8555-666677778888'
 const OTHER_SCENARIO_ID = '33333333-4444-4555-8666-777788889999'
@@ -25,9 +26,9 @@ const harness = vi.hoisted(() => {
   const systemEvents: unknown[] = []
   return {
     systemEvents,
-    sendSystemEvent: vi.fn(async (event: unknown) => {
+    sendSystemEvent: vi.fn(async (event: unknown, _opts?: unknown): Promise<unknown> => {
       systemEvents.push(event)
-      return {}
+      return undefined
     }),
     getSessionIdentity: vi.fn(async () => ({
       userId: 'owner-user-id',
@@ -39,6 +40,8 @@ const harness = vi.hoisted(() => {
 // The headless host must consume the existing ConversationProvider singleton.
 // Mock only the transport implementation; the provider and host are real.
 vi.mock('../useConversation', () => ({
+  SEND_DEFERRED: 'send_deferred',
+  SEND_BLOCKED: 'send_blocked',
   useConversation: () => ({ sendSystemEvent: harness.sendSystemEvent }),
 }))
 
@@ -92,6 +95,7 @@ import { MaybeConversationProvider } from '../../ReactFlowGraph'
 import { buildV5Payload } from '../../../v5/buildPayload'
 import { useCanvasStore } from '../../store'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { SEND_BLOCKED, SEND_DEFERRED } from '../useConversation'
 
 const REVEAL = {
   round_id: ROUND_ID,
@@ -139,8 +143,11 @@ function readyGraph(scenarioId = SCENARIO_ID): void {
   })
 }
 
-function renderBoundaryAt(routeScenarioId: string): ReturnType<typeof render> {
-  return render(
+function renderBoundaryAt(
+  routeScenarioId: string,
+  options?: { strict?: boolean },
+): ReturnType<typeof render> {
+  const boundary = (
     <MemoryRouter initialEntries={[`/scenario/${routeScenarioId}`]}>
       <Routes>
         <Route
@@ -152,8 +159,9 @@ function renderBoundaryAt(routeScenarioId: string): ReturnType<typeof render> {
           }
         />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
   )
+  return render(options?.strict === true ? <StrictMode>{boundary}</StrictMode> : boundary)
 }
 
 beforeEach(() => {
@@ -162,7 +170,11 @@ beforeEach(() => {
   window.history.replaceState({}, '', `/#/scenario/${SCENARIO_ID}/panel`)
   window.localStorage.setItem('feature.aiPanelV2', 'true')
   harness.systemEvents.length = 0
-  harness.sendSystemEvent.mockClear()
+  harness.sendSystemEvent.mockReset()
+  harness.sendSystemEvent.mockImplementation(async (event: unknown, _opts?: unknown) => {
+    harness.systemEvents.push(event)
+    return undefined
+  })
   harness.getSessionIdentity.mockClear()
   readyGraph()
 })
@@ -263,6 +275,128 @@ describe('production panel-apply route', () => {
       useCanvasStore.setState((state) => ({ nodes: [...state.nodes] }))
     })
     expect(harness.sendSystemEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('an unresolved send survives re-render, remount, and StrictMode without double-dispatch', async () => {
+    let resolveSend: (() => void) | undefined
+    harness.sendSystemEvent.mockImplementationOnce(
+      () => new Promise<undefined>((resolve) => {
+        resolveSend = () => resolve(undefined)
+      }),
+    )
+    rememberPendingApply({
+      scenarioId: SCENARIO_ID,
+      roundId: ROUND_ID,
+      participantId: GRACE_ID,
+      targetId: TARGET_ID,
+      value: 0.85,
+    })
+    const storageKey = `olumi.collab.pending-apply.${SCENARIO_ID}`
+    const exactPending = window.localStorage.getItem(storageKey)
+
+    const firstMount = renderBoundaryAt(SCENARIO_ID, { strict: true })
+    await waitFor(() => expect(harness.sendSystemEvent).toHaveBeenCalledTimes(1))
+    expect(harness.sendSystemEvent.mock.calls[0]?.[1]).toEqual({ deferIfBusy: false })
+    expect(window.localStorage.getItem(storageKey)).toBe(exactPending)
+
+    // MUTANT: removing the in-flight guard sends again on this graph revision.
+    await act(async () => {
+      useCanvasStore.setState((state) => ({ nodes: [...state.nodes] }))
+      await Promise.resolve()
+    })
+    expect(harness.sendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(window.localStorage.getItem(storageKey)).toBe(exactPending)
+
+    // MUTANT: a component-local-only guard is lost here and dispatches a
+    // second copy when StrictMode (or route churn) mounts a fresh host.
+    firstMount.unmount()
+    renderBoundaryAt(SCENARIO_ID, { strict: true })
+    await act(async () => { await Promise.resolve() })
+    expect(harness.sendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(window.localStorage.getItem(storageKey)).toBe(exactPending)
+
+    await act(async () => {
+      resolveSend?.()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    await waitFor(() => expect(readPendingApply(SCENARIO_ID)).toBeNull())
+
+    await act(async () => {
+      useCanvasStore.setState((state) => ({ nodes: [...state.nodes] }))
+    })
+    expect(harness.sendSystemEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('a rejected send retains the exact action and a later revision retries it successfully once', async () => {
+    harness.sendSystemEvent.mockRejectedValueOnce(new Error('transport rejected'))
+    rememberPendingApply({
+      scenarioId: SCENARIO_ID,
+      roundId: ROUND_ID,
+      participantId: GRACE_ID,
+      targetId: TARGET_ID,
+      value: 0.85,
+    })
+    const storageKey = `olumi.collab.pending-apply.${SCENARIO_ID}`
+    const exactPending = window.localStorage.getItem(storageKey)
+
+    renderBoundaryAt(SCENARIO_ID)
+    await waitFor(() => expect(harness.sendSystemEvent).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(window.localStorage.getItem(storageKey)).toBe(exactPending)
+
+    // MUTANT: stamping drainedFor on rejection prevents this retry; forgetting
+    // before success makes the exact-pending assertion above fail.
+    await act(async () => {
+      useCanvasStore.setState((state) => ({ nodes: [...state.nodes] }))
+    })
+    await waitFor(() => expect(harness.sendSystemEvent).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(readPendingApply(SCENARIO_ID)).toBeNull())
+
+    await act(async () => {
+      useCanvasStore.setState((state) => ({ nodes: [...state.nodes] }))
+    })
+    expect(harness.sendSystemEvent).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    ['SEND_DEFERRED', SEND_DEFERRED],
+    ['SEND_BLOCKED', SEND_BLOCKED],
+    ['a generic resolved no-op', { status: 'no-op' }],
+  ])('%s retains the exact action and releases it for one later accepted retry', async (_label, outcome) => {
+    harness.sendSystemEvent.mockResolvedValueOnce(outcome)
+    rememberPendingApply({
+      scenarioId: SCENARIO_ID,
+      roundId: ROUND_ID,
+      participantId: GRACE_ID,
+      targetId: TARGET_ID,
+      value: 0.85,
+    })
+    const storageKey = `olumi.collab.pending-apply.${SCENARIO_ID}`
+    const exactPending = window.localStorage.getItem(storageKey)
+
+    renderBoundaryAt(SCENARIO_ID)
+    await waitFor(() => expect(harness.sendSystemEvent).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(window.localStorage.getItem(storageKey)).toBe(exactPending)
+    expect(harness.sendSystemEvent.mock.calls[0]?.[1]).toEqual({ deferIfBusy: false })
+
+    await act(async () => {
+      useCanvasStore.setState((state) => ({ nodes: [...state.nodes] }))
+    })
+    await waitFor(() => expect(harness.sendSystemEvent).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(readPendingApply(SCENARIO_ID)).toBeNull())
+
+    await act(async () => {
+      useCanvasStore.setState((state) => ({ nodes: [...state.nodes] }))
+    })
+    expect(harness.sendSystemEvent).toHaveBeenCalledTimes(2)
   })
 
   it('does not drain a pending apply when the route and hydrated graph name different scenarios', () => {
