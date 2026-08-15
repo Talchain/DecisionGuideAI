@@ -21,7 +21,6 @@ import { useEdgeMutations } from '../useInspectorMutations'
 import {
   GROUP_LABELS,
   INLINE_LABELS,
-  ACTION_LABELS,
   EDGE_LINK_NOTICES,
   EDGE_COPY,
   resolveEdgeLinkTemplate,
@@ -274,15 +273,6 @@ export const EdgePanel = memo(function EdgePanel({
     confirmEdit('strength')
   }, [handleStrengthChange, clearPreview, confirmEdit])
 
-  const handleUseCurrentStrength = useCallback(() => {
-    // Confirm the exact canonical value on the edge, not a band midpoint or a
-    // possibly stale slider draft. This is a magnitude-only judgement: a user
-    // accepting the strength has not thereby stated a direction, so preserve
-    // both direction fields exactly — including their absence.
-    mutations.setStrength(edge?.data?.weight ?? 0.5, { preserveDirection: true })
-    confirmEdit('strength')
-  }, [edge?.data?.weight, mutations, confirmEdit])
-
   const handleBeliefChange = useCallback((v: number) => {
     setLocalBelief(v)
     mutations.setExistsProbability(v)
@@ -358,16 +348,6 @@ export const EdgePanel = memo(function EdgePanel({
               </p>
               <StrengthBandButtons value={localStrength} onChange={handleStrengthPresetChange} />
               <ExpertAnnotation techMode={techMode} editable value={localStrength} onChange={(v) => { handleStrengthChange(v); }} suffix="β =" step={0.01} min={-1} max={1} />
-              {edgeValueSource(edge.data as Record<string, unknown>, 'weight') !== 'user' && (
-                <button
-                  type="button"
-                  data-testid="edge-use-current-strength"
-                  onClick={handleUseCurrentStrength}
-                  className={`${typography.panelMeta} mt-2 font-medium text-accent underline underline-offset-2`}
-                >
-                  {ACTION_LABELS.useCurrentStrength}
-                </button>
-              )}
               {/* Edit feedback */}
               {lastConfirmed?.field === 'strength' && (
                 <div className="flex items-center gap-2 mt-1">
