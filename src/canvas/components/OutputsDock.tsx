@@ -168,64 +168,16 @@ function mapCritiqueToValidation(critique: CritiqueItemV1[] | undefined): Critiq
  *  the two were previously separate "must match exactly" copies (trap 12). */
 type OutputsDockTab = OutputTab
 
-interface OutputsDockState {
+export interface OutputsDockState {
   isOpen: boolean
   activeTab: OutputsDockTab
 }
 
 export const OUTPUTS_DOCK_STORAGE_KEY = 'canvas.outputsDock.v1'
 const STORAGE_KEY = OUTPUTS_DOCK_STORAGE_KEY
-
-/**
- * Render-time read of the persisted dock-tab from sessionStorage. Used by
- * FloatingOlumiPanel to align its render-time duplicate-surface yield gate
- * with the SAME effective tab that OutputsDock paints on first render —
- * before the E1 sync effect copies the persisted state into useUIStore.
- *
- * Without this, OutputsDock can restore `state.activeTab='olumi'` from
- * sessionStorage while `useUIStore.activeOutputTab` is still the default
- * 'results', and both surfaces would paint for one frame before the post-
- * paint effect reconciles them.
- *
- * Returns `null` when sessionStorage is unavailable or the persisted
- * payload is missing/invalid (consumer falls back to useUIStore).
- */
-export function readPersistedActiveDockTab(): OutputsDockTab | null {
-  if (typeof sessionStorage === 'undefined') return null
-  try {
-    const raw = sessionStorage.getItem(OUTPUTS_DOCK_STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<OutputsDockState>
-    const tab = parsed?.activeTab
-    // 'altview' is deliberately absent: the retired V7 comparison tab must not
-    // rehydrate from a session persisted before its retirement — an unknown id
-    // falls through to null and the dock opens on its default tab.
-    if (tab === 'results' || tab === 'compare' || tab === 'diagnostics' || tab === 'journey' || tab === 'olumi') {
-      return tab
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
-/**
- * Render-time read of the persisted dock OPEN-state from sessionStorage.
- * Mirrors readPersistedActiveDockTab so FloatingOlumiPanel can decide whether
- * the dock is actually hosting Olumi (dockHostsOlumi) without a render-time
- * dependency on OutputsDock's component state. Returns null when sessionStorage
- * is unavailable or the persisted payload is missing/invalid.
- */
-export function readPersistedDockOpen(): boolean | null {
-  if (typeof sessionStorage === 'undefined') return null
-  try {
-    const raw = sessionStorage.getItem(OUTPUTS_DOCK_STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<OutputsDockState>
-    return typeof parsed?.isOpen === 'boolean' ? parsed.isOpen : null
-  } catch {
-    return null
-  }
+export const DEFAULT_OUTPUTS_DOCK_STATE: OutputsDockState = {
+  isOpen: true,
+  activeTab: 'results',
 }
 
 /**
@@ -419,10 +371,10 @@ interface OutputsDockBodyProps {
 
 function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
-  const [state, setState] = useDockState<OutputsDockState>(STORAGE_KEY, {
-    isOpen: true,
-    activeTab: 'results',
-  })
+  const [state, setState] = useDockState<OutputsDockState>(
+    STORAGE_KEY,
+    DEFAULT_OUTPUTS_DOCK_STATE,
+  )
   // sendMessage comes from props so the OutputsDock function above is
   // the single useConversation() host; OutputsDockBody never calls it
   // directly. Under the aiPanelV2 floating-first UX, the canvas-root
@@ -783,24 +735,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // 'olumi', we must swap it to a non-Olumi fallback BEFORE opening the
   // floating panel — otherwise FloatingOlumiPanel's render-time
   // yieldToDockedOlumi guard suppresses the panel mount and the user
-  // sees nothing. The sessionStorage write is synchronous so the
-  // floating panel's persisted-state fallback read agrees with the
-  // React state on the very first render (useDockState's effect-based
-  // write would land too late). When activeTab is not 'olumi', the
-  // swap is skipped — just opens the panel.
+  // sees nothing. `useDockState` is the shared subscribed authority, so this
+  // synchronous update reaches the floating guard before `open('user')`
+  // paints it; sessionStorage is persistence only. When activeTab is not
+  // 'olumi', the swap is skipped — just opens the panel.
   const floatOutToWindow = () => {
     if (state.activeTab === 'olumi') {
       const fallback = lastNonOlumiTabRef.current
-      try {
-        const cur = JSON.parse(sessionStorage.getItem(OUTPUTS_DOCK_STORAGE_KEY) || '{}')
-        sessionStorage.setItem(
-          OUTPUTS_DOCK_STORAGE_KEY,
-          JSON.stringify({ ...cur, activeTab: fallback }),
-        )
-      } catch {
-        // sessionStorage blocked (private mode, quota). The React
-        // setState below still runs; useDockState's effect catches up.
-      }
       setState((prev) => ({ ...prev, activeTab: fallback }))
       useUIStore.getState().setActiveOutputTab(fallback as OutputTab)
     }

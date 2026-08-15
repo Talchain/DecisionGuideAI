@@ -801,6 +801,56 @@ describe('canonical relationship recovery topology', () => {
     expect(within(pill).queryByTestId('floating-olumi-recovery-attention')).not.toBeInTheDocument()
   })
 
+  it('live expanded/full → minimise → collapse transition publishes one endpoint-labelled recovery route', async () => {
+    const user = userEvent.setup()
+    await mountRecoveryTopology({ dockOpen: true, floating: 'full' })
+
+    // Full floating owns the notice while the expanded Analysis dock remains
+    // visible. Minimise transfers ownership to the dock without duplicating it.
+    const minimise = screen.getByRole('button', { name: 'Minimise' })
+    minimise.focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getAllByTestId('edge-strength-recovery-notice')).toHaveLength(1)
+    expect(within(screen.getByTestId('ai-panel-footer-stack')).getByTestId('edge-strength-recovery-notice')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Restore Olumi' })).toBeVisible()
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 })
+    vi.spyOn(screen.getByTestId('outputs-dock'), 'getBoundingClientRect').mockReturnValue({
+      x: 338,
+      y: 12,
+      left: 338,
+      top: 12,
+      right: 378,
+      bottom: 832,
+      width: 40,
+      height: 820,
+      toJSON: () => ({}),
+    })
+    act(() => window.dispatchEvent(new Event('resize')))
+
+    const collapse = screen.getByRole('button', { name: 'Collapse outputs dock' })
+    collapse.focus()
+    await user.keyboard('{Enter}')
+
+    // This is the regression seam: FloatingOlumiPanel must receive the live
+    // dock-close update without re-reading sessionStorage on an unrelated
+    // render. The sole route now names the human endpoint, never the RF id.
+    const attention = screen.getByRole('button', {
+      name: 'Restore Olumi. Demand → Sustainable profit needs attention.',
+    })
+    expect(screen.queryByTestId('edge-strength-recovery-notice')).not.toBeInTheDocument()
+    expect(document.body.textContent).not.toContain('rf-private-edge-id')
+
+    attention.focus()
+    expect(attention).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(screen.getAllByTestId('edge-strength-recovery-notice')).toHaveLength(1)
+    expect(screen.getByTestId('edge-strength-recovery-notice')).toHaveTextContent('Demand → Sustainable profit')
+    expect(screen.getByRole('button', { name: 'Check shared model' })).toBeVisible()
+    expect(screen.queryByTestId('floating-olumi-panel-pill')).not.toBeInTheDocument()
+  })
+
   it('dock collapsed + floating full: recovery remains in the floating panel', async () => {
     await mountRecoveryTopology({ dockOpen: false, floating: 'full' })
 

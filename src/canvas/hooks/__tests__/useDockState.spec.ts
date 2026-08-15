@@ -62,4 +62,17 @@ describe('useDockState', () => {
 
     spy.mockRestore()
   })
+
+  it('publishes one live state to every mounted consumer of the same dock key', () => {
+    const first = renderHook(() => useDockState<DockState>(STORAGE_KEY, defaultValue))
+    const second = renderHook(() => useDockState<DockState>(STORAGE_KEY, defaultValue))
+
+    act(() => {
+      first.result.current[1]((prev) => ({ ...prev, isOpen: false }))
+    })
+
+    expect(first.result.current[0].isOpen).toBe(false)
+    expect(second.result.current[0].isOpen).toBe(false)
+    expect(JSON.parse(sessionStorage.getItem(STORAGE_KEY) as string).isOpen).toBe(false)
+  })
 })

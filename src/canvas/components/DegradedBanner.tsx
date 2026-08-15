@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react'
 import { fetchHealth, type Health } from '../../lib/health'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
+import { useUIStore } from '../../stores/uiStore'
 
 export function DegradedBanner() {
   const [health, setHealth] = useState<Health | null>(null)
@@ -54,19 +55,10 @@ export function DegradedBanner() {
         return
       }
 
-      if (typeof sessionStorage !== 'undefined') {
-        const existingRaw = sessionStorage.getItem('canvas.outputsDock.v1')
-        let next: any = { isOpen: true, activeTab: 'diagnostics' }
-        if (existingRaw) {
-          try {
-            const parsed = JSON.parse(existingRaw)
-            next = { ...parsed, isOpen: true, activeTab: 'diagnostics' }
-          } catch {
-            // ignore parse errors and fall back to default
-          }
-        }
-        sessionStorage.setItem('canvas.outputsDock.v1', JSON.stringify(next))
-      }
+      // The dock's live subscribed authority consumes this programmatic tab
+      // activation and opens itself. sessionStorage is persistence only; a
+      // direct write here could not notify a mounted FloatingOlumiPanel.
+      useUIStore.getState().forceActivateOutputTab('diagnostics')
     } catch {
       // noop - banner is best-effort only
     }

@@ -20,10 +20,14 @@ import {
 } from '../hooks/useFloatingPanelState'
 import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
 import { registerFloatingFocus } from '../hooks/useFloatingFocus'
-import { useUIStore } from '../../stores/uiStore'
 import { isAiPanelV2Enabled } from '../../flags'
-import { readPersistedActiveDockTab, readPersistedDockOpen } from './OutputsDock'
-import { dockHostsOlumi, type OlumiDockTab } from './olumiSurface'
+import { useDockState } from '../hooks/useDockState'
+import {
+  DEFAULT_OUTPUTS_DOCK_STATE,
+  OUTPUTS_DOCK_STORAGE_KEY,
+  type OutputsDockState,
+} from './OutputsDock'
+import { dockHostsOlumi } from './olumiSurface'
 import {
   EdgeStrengthRecoveryNotice,
   useEdgeStrengthRecoveryBlockedReason,
@@ -385,33 +389,24 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // the floating panel in this state (steady-state convergence), but the
   // effect runs after first paint.
   //
-  // OutputsDock and useUIStore can disagree on the first paint: OutputsDock
-  // restores `state.activeTab` from sessionStorage synchronously while
-  // useUIStore.activeOutputTab is still the default 'results' until the
-  // E1 sync effect runs (post-paint). Reading the persisted dock state
-  // synchronously here aligns the yield gate with whatever OutputsDock is
-  // about to paint. Falls back to useUIStore when no persisted state.
-  const activeOutputTab = useUIStore((s) => s.activeOutputTab)
-  const persistedDockTab = readPersistedActiveDockTab()
-  const effectiveDockTab = persistedDockTab ?? activeOutputTab
+  // The dock and floating panel consume one subscribed in-memory authority.
+  // Session storage is only this authority's reload boundary; reading it here
+  // directly used to miss a live minimise→collapse transition until some
+  // unrelated floating state changed.
+  const [dockState] = useDockState<OutputsDockState>(
+    OUTPUTS_DOCK_STORAGE_KEY,
+    DEFAULT_OUTPUTS_DOCK_STATE,
+  )
   // Yield to the docked Olumi composer ONLY when it can actually be on screen
   // (dockHostsOlumi) — otherwise suppressing this surface would strand the user.
   // On an empty canvas the dock is always the collapsed first-use rail, so it
-  // never hosts the composer. On a populated canvas the persisted isOpen
-  // reflects the real open state (the rail override applies only to the empty
-  // canvas); default true to match the dock's own default before anything is
-  // persisted. Mirrors OutputsDock's close-effect — both derive from olumiSurface.ts.
-  //
-  // Caveat (tracked follow-up): this is a render-time sessionStorage READ, not a
-  // live subscription, so a dock open/close that happens WHILE this panel stays
-  // open won't re-render it until some other subscribed value does. All current
-  // reachable flows re-render via `activeOutputTab` / nodeCount changes, so it's
-  // not a live bug; a future path that mutates dock-open in isolation would need
-  // the dock's open state lifted into a subscribable store.
-  const dockEffectiveOpen = nodeCount > 0 ? (readPersistedDockOpen() ?? true) : false
+  // never hosts the composer. On a populated canvas the shared isOpen value is
+  // the real open state (the rail override applies only to the empty canvas).
+  // Mirrors OutputsDock's close-effect — both derive from olumiSurface.ts.
+  const dockEffectiveOpen = nodeCount > 0 ? dockState.isOpen : false
   const yieldToDockedOlumi =
     isAiPanelV2Enabled() &&
-    dockHostsOlumi({ dockEffectiveOpen, dockTab: effectiveDockTab as OlumiDockTab })
+    dockHostsOlumi({ dockEffectiveOpen, dockTab: dockState.activeTab })
 
   // Post-graph auto-reposition: when FirstUseComposer commits the bottom-right
   // anchor, it flags `isAutoRepositioning` so the panel applies a scoped CSS

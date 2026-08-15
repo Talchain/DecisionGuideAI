@@ -79,7 +79,11 @@ export interface DraftState {
   lastDraftDescription: string
   /** Last draft error (not cleared in canvas reset — survives retry cycles). */
   lastDraftError: DraftErrorState | null
-  /** Task 2: Signal for AI panel auto-collapse. Set when a full_draft auto_apply patch is applied. */
+  /**
+   * Monotonic full-draft completion marker. Drives legacy AI-panel
+   * auto-collapse and, after an earlier strict graph read returned `absent`,
+   * the one post-commit server-authority reconciliation.
+   */
   fullDraftAppliedAt: number | null
   /** ROADMAP 2.122 — the streamed draft turn's phase. See DraftStreamPhase. */
   draftStreamPhase: DraftStreamPhase

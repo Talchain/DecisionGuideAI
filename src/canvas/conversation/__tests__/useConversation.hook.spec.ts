@@ -19,6 +19,7 @@ import { START_NEW_DRAFT_CHIP_ID } from '../chipDispatch'
 import { useCanvasStore } from '../../store'
 import { getCurrentScenarioId } from '../../store/scenarios'
 import { useResultsStore } from '../../stores/resultsStore'
+import { useDraftStore } from '../../stores/draftStore'
 import { _clearTraces, getInteractionChains, recordUiSurfaceState } from '../../../lib/debug-state'
 
 // ---------------------------------------------------------------------------
@@ -211,6 +212,7 @@ beforeEach(() => {
   // Default: stream delegates to mockCallTurn (maintains backwards-compat with existing test setup)
   resetStreamToDefault()
   _clearTraces()
+  useDraftStore.setState({ fullDraftAppliedAt: null })
   useResultsStore.setState({
     results: {
       status: 'idle',
@@ -2271,6 +2273,7 @@ describe('V5 inline graph from response.draft_graph', () => {
     // Inline path is synchronous — no need to flush microtasks
     expect(mockLoadScenario).not.toHaveBeenCalled()
     expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0)
+    expect(useDraftStore.getState().fullDraftAppliedAt).not.toBeNull()
   })
 
   it('applies inline graph even when no auth session (guest mode)', async () => {
@@ -2416,6 +2419,7 @@ describe('V5 applied-edit receipt ingestion (draft_graph on a non-empty canvas)'
 
   beforeEach(() => {
     mockIsV5Eligible.mockReturnValue({ eligible: true })
+    useDraftStore.setState({ fullDraftAppliedAt: null })
     useCanvasStore.setState({
       currentScenarioId: SCENARIO_ID,
       nodes: EXISTING_NODES as any,
@@ -2444,6 +2448,9 @@ describe('V5 applied-edit receipt ingestion (draft_graph on a non-empty canvas)'
     // Additive merge only — existing elements are untouched, nothing duplicated.
     expect(nodes).toHaveLength(3)
     expect(edges).toHaveLength(2)
+    // An applied-edit receipt is not a fresh-draft completion and must not
+    // consume the absent-before-draft retry entitlement.
+    expect(useDraftStore.getState().fullDraftAppliedAt).toBeNull()
   })
 
   it('preserves existing node positions and local data on merge (additive, never a replace)', async () => {

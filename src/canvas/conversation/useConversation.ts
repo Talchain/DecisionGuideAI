@@ -5131,6 +5131,15 @@ export function useConversation(): UseConversationReturn {
                 // identical.
                 applyDraftResult(inlineGraph as any, { skipHistory: streamedPreviewOwnsCanvas })
                 draftAppliedThisTurn = true
+                // The boot authority read can legitimately return `absent`
+                // before this fresh scenario's first draft commits. Publish
+                // the exact terminal draft-completion marker only after the
+                // wholesale apply succeeds; useServerGraphHydration consumes
+                // it for one strict post-commit read while Run remains held.
+                const draftStore = useDraftStore.getState()
+                draftStore.setFullDraftAppliedAt(
+                  Math.max(Date.now(), (draftStore.fullDraftAppliedAt ?? 0) + 1),
+                )
                 if (import.meta.env.DEV) {
                   console.log('[sendTurn V5] graph applied from inline response:', inlineNodeCount, 'nodes')
                 }
