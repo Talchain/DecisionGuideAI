@@ -65,6 +65,12 @@ export const CEE_DRAFT_FIRST_REFUSAL = 'Draft or save a model first, then run an
 export const DRAFT_VALUES_SETTLING_REFUSAL =
   'Your model is still being drafted — its values are still settling. Run analysis once drafting finishes.'
 
+interface RelationshipRecoverySummary {
+  items: Array<{ label: string }>
+  total: number
+  remaining: number
+}
+
 /**
  * ROADMAP 2.122 round 2 (adversarial review F5) — the refusal for the TERMINAL
  * `unsettled` state, which is a different fact and needs a different sentence.
@@ -223,7 +229,20 @@ export interface CanRunAnalysisParams {
     queued: number
     inFlight: number
     issue: 'conflict' | 'unconfirmed' | 'unsupported_fields' | 'unsupported_value' | 'unconfirmed_structure' | null
+    recoverySummary?: RelationshipRecoverySummary
   }
+}
+
+function affectedRelationshipLead(
+  summary: RelationshipRecoverySummary | undefined,
+): { one?: string; many?: string } {
+  if (!summary || summary.items.length === 0) return {}
+  if (summary.total === 1) return { one: summary.items[0]!.label }
+  const visible = summary.items.map((item) => item.label).join('; ')
+  const overflow = summary.remaining > 0
+    ? `; and ${summary.remaining} more`
+    : ''
+  return { many: `Relationships needing attention: ${visible}${overflow}.` }
 }
 
 /**
@@ -389,6 +408,7 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   }
 
   if (isV5CanonicalRunPath() && edgeStrengthSync) {
+    const affected = affectedRelationshipLead(edgeStrengthSync.recoverySummary)
     if (edgeStrengthSync.hydration === 'idle' || edgeStrengthSync.hydration === 'pending') {
       return {
         allowed: false,
@@ -404,14 +424,19 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
       }
     }
     if (edgeStrengthSync.inFlight > 0 || edgeStrengthSync.queued > 0) {
+      const pendingReason = affected.one
+        ? `Wait for ${affected.one} to finish saving before running analysis.`
+        : affected.many
+          ? `${affected.many} Wait for these relationships to finish saving before running analysis.`
+          : 'Wait for this relationship to finish saving before running analysis.'
       return {
         allowed: false,
-        reason: 'Wait for this relationship to finish saving before running analysis.',
+        reason: pendingReason,
         blockingReasons: ['Relationship change is not yet confirmed by the shared model'],
       }
     }
     if (edgeStrengthSync.issue) {
-      const reason = edgeStrengthSync.issue === 'conflict'
+      const genericReason = edgeStrengthSync.issue === 'conflict'
         ? 'This relationship changed elsewhere. Review the latest shared value before running analysis.'
         : edgeStrengthSync.issue === 'unconfirmed'
           ? 'We could not confirm whether this relationship change was saved. Check the shared model before running analysis.'
@@ -420,6 +445,18 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
             : edgeStrengthSync.issue === 'unsupported_fields'
               ? 'This version cannot include local relationship likelihood or uncertainty edits in analysis. Reload the shared values to continue.'
               : 'Set the relationship effect between −1 and +1 before running analysis.'
+      const oneReason = affected.one
+        ? edgeStrengthSync.issue === 'conflict'
+          ? `${affected.one} changed elsewhere. Review the latest shared value before running analysis.`
+          : edgeStrengthSync.issue === 'unconfirmed'
+            ? `We could not confirm whether the change to ${affected.one} was saved. Check the shared model before running analysis.`
+            : edgeStrengthSync.issue === 'unconfirmed_structure'
+              ? `${affected.one} was added, removed, or reconnected only on this device. Check the shared model before running analysis.`
+              : edgeStrengthSync.issue === 'unsupported_fields'
+                ? `${affected.one} has local likelihood or uncertainty edits this version cannot include in analysis. Reload the shared values to continue.`
+                : `Set the effect for ${affected.one} between −1 and +1 before running analysis.`
+        : null
+      const reason = oneReason ?? (affected.many ? `${affected.many} ${genericReason}` : genericReason)
       return {
         allowed: false,
         reason,

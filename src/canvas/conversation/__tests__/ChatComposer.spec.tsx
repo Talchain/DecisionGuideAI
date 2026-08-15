@@ -19,9 +19,11 @@ import type { ChatComposerHandle } from '../zones/ChatComposer'
 let mockStage = 'frame'
 
 const mockRefreshEdgeStrengthAuthority = vi.hoisted(() => vi.fn(() => Promise.resolve(true)))
+const mockOpenEdgeStrengthRecoveryRelationship = vi.hoisted(() => vi.fn(() => true))
 
 vi.mock('../../edge-strength/edgeStrengthCoordinator', () => ({
   refreshEdgeStrengthAuthority: mockRefreshEdgeStrengthAuthority,
+  openEdgeStrengthRecoveryRelationship: mockOpenEdgeStrengthRecoveryRelationship,
 }))
 
 vi.mock('../../hooks/useStagePill', () => ({
@@ -35,7 +37,21 @@ type MockCanvasState = {
   currentBriefText?: string | null
   currentScenarioId: string | null
   unconfirmedEmittedEdits: number
-  edgeStrengthSync: { hydration: 'settled' | 'unconfirmed'; issue: string | null }
+  edgeStrengthSync: {
+    hydration: 'settled' | 'unconfirmed'
+    issue: string | null
+    recoverySummary: {
+      items: Array<{
+        from: string
+        to: string
+        label: string
+        kind: string
+        relationshipExists: boolean
+      }>
+      total: number
+      remaining: number
+    }
+  }
 }
 
 function cleanCanvasState(overrides: Partial<MockCanvasState> = {}): MockCanvasState {
@@ -45,7 +61,11 @@ function cleanCanvasState(overrides: Partial<MockCanvasState> = {}): MockCanvasS
     draftComposerText: null,
     currentScenarioId: null,
     unconfirmedEmittedEdits: 0,
-    edgeStrengthSync: { hydration: 'settled', issue: null },
+    edgeStrengthSync: {
+      hydration: 'settled',
+      issue: null,
+      recoverySummary: { items: [], total: 0, remaining: 0 },
+    },
     ...overrides,
   }
 }
@@ -146,6 +166,8 @@ describe('ChatComposer', () => {
     mockBilResult = null
     mockRefreshEdgeStrengthAuthority.mockReset()
     mockRefreshEdgeStrengthAuthority.mockResolvedValue(true)
+    mockOpenEdgeStrengthRecoveryRelationship.mockReset()
+    mockOpenEdgeStrengthRecoveryRelationship.mockReturnValue(true)
     mockCanvasState = cleanCanvasState()
   })
 
@@ -549,7 +571,21 @@ describe('ChatComposer', () => {
     mockCanvasState = cleanCanvasState({
       nodes: [{ id: 'n1' }],
       currentScenarioId: 'scenario-1',
-      edgeStrengthSync: { hydration: 'unconfirmed', issue: 'unconfirmed' },
+      edgeStrengthSync: {
+        hydration: 'unconfirmed',
+        issue: 'unconfirmed',
+        recoverySummary: {
+          items: [{
+            from: 'fac_demand',
+            to: 'goal_profit',
+            label: 'Demand → Sustainable profit',
+            kind: 'unconfirmed',
+            relationshipExists: true,
+          }],
+          total: 1,
+          remaining: 0,
+        },
+      },
     })
     const reason = 'We could not verify that this relationship change was saved. Check the shared model before running analysis.'
 
@@ -572,6 +608,19 @@ describe('ChatComposer', () => {
     expect(run).toBeDisabled()
     expect(run).toHaveAttribute('aria-describedby', 'composer-run-blocked-reason')
     expect(screen.getByText(reason)).toBeVisible()
+    expect(screen.getByRole('list', { name: 'Relationships affecting analysis' })).toBeVisible()
+    const review = screen.getByRole('button', {
+      name: 'Review relationship Demand → Sustainable profit',
+    })
+    expect(review.tagName).toBe('BUTTON')
+    review.focus()
+    expect(review).toHaveFocus()
+    fireEvent.click(review)
+    expect(mockOpenEdgeStrengthRecoveryRelationship).toHaveBeenCalledWith(
+      'scenario-1',
+      'fac_demand',
+      'goal_profit',
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Check shared model' }))
     await waitFor(() => expect(mockRefreshEdgeStrengthAuthority).toHaveBeenCalledWith('scenario-1'))
@@ -582,6 +631,135 @@ describe('ChatComposer', () => {
       'scenario-1',
       { replaceLocalGraph: true },
     ))
+  })
+
+  it('keeps an inspector-closed conflict keyboard-navigable by its human relationship label', () => {
+    mockStage = 'evaluate'
+    mockCanvasState = cleanCanvasState({
+      currentScenarioId: 'scenario-1',
+      edgeStrengthSync: {
+        hydration: 'settled',
+        issue: 'conflict',
+        recoverySummary: {
+          items: [{
+            from: 'fac_cost',
+            to: 'goal_margin',
+            label: 'Operating cost → Sustainable margin',
+            kind: 'conflict',
+            relationshipExists: true,
+          }],
+          total: 1,
+          remaining: 0,
+        },
+      },
+    })
+
+    render(
+      <ChatComposer
+        conversation={makeConversation()}
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+        onInsertText={vi.fn()}
+        onAttach={vi.fn()}
+        onRunAnalysis={vi.fn()}
+        canRunAnalysis={false}
+        runBlockedReason="Operating cost → Sustainable margin changed elsewhere. Review the latest shared value before running analysis."
+      />,
+    )
+
+    const review = screen.getByRole('button', {
+      name: 'Review relationship Operating cost → Sustainable margin',
+    })
+    expect(review).toBeVisible()
+    fireEvent.click(review)
+    expect(mockOpenEdgeStrengthRecoveryRelationship).toHaveBeenCalledWith(
+      'scenario-1',
+      'fac_cost',
+      'goal_margin',
+    )
+  })
+
+  it('offers shared-model check/restore when the affected relationship is structurally absent', () => {
+    mockStage = 'evaluate'
+    mockCanvasState = cleanCanvasState({
+      currentScenarioId: 'scenario-1',
+      edgeStrengthSync: {
+        hydration: 'settled',
+        issue: 'unconfirmed_structure',
+        recoverySummary: {
+          items: [{
+            from: 'fac_removed',
+            to: 'goal_profit',
+            label: 'Former supplier → Sustainable profit',
+            kind: 'unconfirmed_structure',
+            relationshipExists: false,
+          }],
+          total: 1,
+          remaining: 0,
+        },
+      },
+    })
+
+    render(
+      <ChatComposer
+        conversation={makeConversation()}
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+        onInsertText={vi.fn()}
+        onAttach={vi.fn()}
+        onRunAnalysis={vi.fn()}
+        canRunAnalysis={false}
+        runBlockedReason="Former supplier → Sustainable profit was removed only on this device. Check the shared model before running analysis."
+      />,
+    )
+
+    expect(screen.getByText('Former supplier → Sustainable profit')).toBeVisible()
+    expect(screen.queryByRole('button', { name: /Review relationship/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Check shared model' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Restore shared model' })).toBeVisible()
+  })
+
+  it('renders only the coordinator-bounded relationship list and discloses the remainder', () => {
+    mockStage = 'evaluate'
+    mockCanvasState = cleanCanvasState({
+      currentScenarioId: 'scenario-1',
+      edgeStrengthSync: {
+        hydration: 'settled',
+        issue: 'unsupported_fields',
+        recoverySummary: {
+          items: [
+            { from: 'a', to: 'g', label: 'Demand → Goal', kind: 'unsupported_fields', relationshipExists: true },
+            { from: 'b', to: 'g', label: 'Cost → Goal', kind: 'unsupported_fields', relationshipExists: true },
+            { from: 'c', to: 'g', label: 'Capability → Goal', kind: 'unsupported_fields', relationshipExists: false },
+          ],
+          total: 5,
+          remaining: 2,
+        },
+      },
+    })
+
+    render(
+      <ChatComposer
+        conversation={makeConversation()}
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+        onInsertText={vi.fn()}
+        onAttach={vi.fn()}
+        onRunAnalysis={vi.fn()}
+        canRunAnalysis={false}
+        runBlockedReason="Relationships need attention before running analysis."
+      />,
+    )
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+    expect(screen.getByText('And 2 more relationships need attention.')).toBeVisible()
+    expect(screen.queryByText('Hidden fourth relationship')).not.toBeInTheDocument()
   })
 
   it('exposes the same authoritative recovery for an unconfirmed factor-value write', () => {

@@ -9,8 +9,13 @@ import {
   finishEdgeStrengthHydration,
   flushEdgeStrengthEditsBeforeRun,
   getEdgeStrengthEndpointStatus,
+  getEdgeStrengthRecoverySummary,
+  openEdgeStrengthRecoveryRelationship,
   recordEdgeStrengthMutation,
+  recordUnconfirmedEdgeStructure,
+  recordUnsupportedEdgeMutation,
   registerEdgeStrengthSender,
+  requestEdgeStrengthConfirmation,
   setOpenEdgeStrengthScenario,
   settleEdgeStrengthResponse,
   type EdgeStrengthObservation,
@@ -56,7 +61,10 @@ function eventPayload(event: WireSystemEvent): Record<string, any> {
   return event.payload as Record<string, any>
 }
 
-function receiptFor(event: WireSystemEvent): OlumiResponse {
+function receiptFor(
+  event: WireSystemEvent,
+  confirmFreshness: 'fresh' | 'stale' | 'none' | 'unknown' = 'fresh',
+): OlumiResponse {
   const payload = eventPayload(event)
   const expected = payload.expected as { mean: number; effect_direction: 'positive' | 'negative' }
   const direction = payload.direction_intent === 'preserve'
@@ -67,6 +75,10 @@ function receiptFor(event: WireSystemEvent): OlumiResponse {
     : direction === 'negative' ? -payload.magnitude : payload.magnitude
   const confirm = payload.intent === 'confirm_current'
   const graphHash = confirm ? 'old-hash' : `hash-${direction}-${payload.magnitude}`
+  const freshness = confirm ? confirmFreshness : 'stale'
+  const graphHashAtRun = freshness === 'fresh'
+    ? graphHash
+    : freshness === 'stale' ? 'prior-analysis-hash' : null
   return {
     response_version: 2,
     assistant_text: confirm ? 'Confirmed.' : 'Adjusted.',
@@ -100,9 +112,15 @@ function receiptFor(event: WireSystemEvent): OlumiResponse {
       goal_node_id: 'goal_profit',
       status: 'needs_user_input',
       computed_at: '2026-08-15T14:00:39.168Z',
-      freshness: confirm ? 'fresh' : 'stale',
-      freshness_reason: confirm ? 'graph_hash_match' : 'graph_hash_diverged',
-      graph_hash_at_run: 'old-hash',
+      freshness,
+      freshness_reason: freshness === 'fresh'
+        ? 'graph_hash_match'
+        : freshness === 'stale'
+          ? 'graph_hash_diverged'
+          : freshness === 'none'
+            ? 'no_successful_run_analysis_fact'
+            : 'derivation_failed',
+      ...(graphHashAtRun ? { graph_hash_at_run: graphHashAtRun } : {}),
       current_graph_hash: graphHash,
     },
     draft_graph: {
@@ -242,6 +260,30 @@ describe('edge strength transaction lifecycle', () => {
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
   })
 
+  it.each(['stale', 'none', 'unknown'] as const)(
+    'settles a coherent %s confirmation without invoking the fresh-only clear',
+    async (freshness) => {
+      const clearFreshness = vi.spyOn(
+        useCanvasStore.getState(),
+        'clearAnalysisFreshnessDirty',
+      )
+      registerEdgeStrengthSender(async (event, attemptId) => {
+        settleEdgeStrengthResponse({ attemptId, response: receiptFor(event, freshness) })
+        return undefined
+      })
+      useCanvasStore.getState().markAnalysisFreshnessDirty()
+      expect(requestEdgeStrengthConfirmation(SCENARIO_A, 'rf-opaque-77')).toBe(true)
+
+      await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves.toEqual({ ok: true })
+
+      expect(getEdgeStrengthEndpointStatus(SCENARIO_A, 'fac_demand', 'goal_profit').kind)
+        .toBe('confirmed')
+      expect(useCanvasStore.getState().analysisFreshness?.freshness).toBe(freshness)
+      expect(clearFreshness).not.toHaveBeenCalled()
+      clearFreshness.mockRestore()
+    },
+  )
+
   it('keeps an ambiguous transport outcome unresolved and blocks Run', async () => {
     registerEdgeStrengthSender(async () => { throw new Error('connection lost') })
     setVisibleTuple(-0.7, 'negative')
@@ -256,6 +298,17 @@ describe('edge strength transaction lifecycle', () => {
     expect(result.reason).toMatch(/could not verify/i)
     expect(getEdgeStrengthEndpointStatus(SCENARIO_A, 'fac_demand', 'goal_profit').kind).toBe('unconfirmed')
     expect((useCanvasStore.getState().edges[0]?.data as any).weight).toBe(0.7)
+    expect(getEdgeStrengthRecoverySummary(SCENARIO_A)).toEqual({
+      items: [{
+        from: 'fac_demand',
+        to: 'goal_profit',
+        label: 'Demand → Sustainable profit',
+        kind: 'unconfirmed',
+        relationshipExists: true,
+      }],
+      total: 1,
+      remaining: 0,
+    })
   })
 
   it('a typed 409 adopts current only when safe, retains dissent, and never retries blindly', async () => {
@@ -321,5 +374,92 @@ describe('edge strength transaction lifecycle', () => {
     expect(sender).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(10_000)
     expect(sender).toHaveBeenCalledTimes(1)
+  })
+
+  it('summarises removed, reconnected, and unsupported relationships without exposing RF ids', () => {
+    useCanvasStore.setState({
+      edges: [{
+        id: 'rf-reconnected-secret',
+        source: 'opt_plan_a',
+        target: 'goal_profit',
+        data: { weight: 0.4, direction: 'positive' },
+      }] as never,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+      showInspectorPanel: false,
+    })
+    recordUnconfirmedEdgeStructure({
+      scenarioId: SCENARIO_A,
+      edgeId: 'rf-opaque-77',
+      from: 'fac_demand',
+      to: 'goal_profit',
+      operation: 'remove',
+    })
+    recordUnconfirmedEdgeStructure({
+      scenarioId: SCENARIO_A,
+      edgeId: 'rf-reconnected-secret',
+      from: 'opt_plan_a',
+      to: 'goal_profit',
+      operation: 'reconnect',
+    })
+    recordUnsupportedEdgeMutation({
+      scenarioId: SCENARIO_A,
+      edgeId: 'rf-reconnected-secret',
+      from: 'opt_plan_a',
+      to: 'goal_profit',
+      field: 'confidence',
+      before: 0.5,
+      after: 0.7,
+    })
+
+    const summary = getEdgeStrengthRecoverySummary(SCENARIO_A)
+    expect(summary).toMatchObject({ total: 2, remaining: 0 })
+    expect(summary.items).toEqual([
+      {
+        from: 'opt_plan_a',
+        to: 'goal_profit',
+        label: 'Plan A → Sustainable profit',
+        kind: 'unsupported_fields',
+        relationshipExists: true,
+      },
+      {
+        from: 'fac_demand',
+        to: 'goal_profit',
+        label: 'Demand → Sustainable profit',
+        kind: 'unconfirmed_structure',
+        relationshipExists: false,
+      },
+    ])
+    expect(JSON.stringify(summary)).not.toContain('rf-')
+    expect(openEdgeStrengthRecoveryRelationship(
+      SCENARIO_A,
+      'fac_demand',
+      'goal_profit',
+    )).toBe(false)
+    expect(openEdgeStrengthRecoveryRelationship(
+      SCENARIO_A,
+      'opt_plan_a',
+      'goal_profit',
+    )).toBe(true)
+    expect(useCanvasStore.getState().selection.edgeIds).toEqual(new Set(['rf-reconnected-secret']))
+    expect(useCanvasStore.getState().showInspectorPanel).toBe(true)
+  })
+
+  it('bounds a many-relationship recovery list and falls back to canonical endpoint labels', () => {
+    useCanvasStore.setState({ edges: [] })
+    for (let index = 0; index < 5; index += 1) {
+      recordUnconfirmedEdgeStructure({
+        scenarioId: SCENARIO_A,
+        edgeId: `rf-hidden-${index}`,
+        from: `missing_source_${index}`,
+        to: `missing_target_${index}`,
+        operation: 'remove',
+      })
+    }
+
+    const summary = getEdgeStrengthRecoverySummary(SCENARIO_A)
+    expect(summary).toMatchObject({ total: 5, remaining: 2 })
+    expect(summary.items).toHaveLength(3)
+    expect(summary.items[0]?.label).toBe('missing_source_0 → missing_target_0')
+    expect(JSON.stringify(summary)).not.toContain('rf-hidden')
   })
 })

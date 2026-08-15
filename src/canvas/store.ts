@@ -122,6 +122,33 @@ export type EdgeStrengthSyncIssue =
   | 'unsupported_value'
   | 'unconfirmed_structure'
 
+export type EdgeStrengthRecoverySummaryKind =
+  | EdgeStrengthSyncIssue
+  | 'queued'
+  | 'saving'
+
+/**
+ * Bounded, display-safe projection of coordinator state for global Run UI.
+ *
+ * Canonical endpoint ids are included so callers can ask the coordinator to
+ * navigate to the relationship. ReactFlow ids and private queue records never
+ * leave the coordinator, and `label` is always human-readable (falling back to
+ * the canonical `from → to` pair when node labels are unavailable).
+ */
+export interface EdgeStrengthRecoverySummaryItem {
+  from: string
+  to: string
+  label: string
+  kind: EdgeStrengthRecoverySummaryKind
+  relationshipExists: boolean
+}
+
+export interface EdgeStrengthRecoverySummary {
+  items: EdgeStrengthRecoverySummaryItem[]
+  total: number
+  remaining: number
+}
+
 export interface EdgeStrengthSyncState {
   scenarioId: string | null
   revision: number
@@ -129,6 +156,7 @@ export interface EdgeStrengthSyncState {
   queued: number
   inFlight: number
   issue: EdgeStrengthSyncIssue | null
+  recoverySummary: EdgeStrengthRecoverySummary
   lastOutcome: {
     kind: 'saved' | 'confirmed' | 'shared_value_refreshed' | 'review_required'
     edgeId: string
@@ -145,6 +173,7 @@ export const EMPTY_EDGE_STRENGTH_SYNC: EdgeStrengthSyncState = Object.freeze({
   queued: 0,
   inFlight: 0,
   issue: null,
+  recoverySummary: { items: [], total: 0, remaining: 0 },
   lastOutcome: null,
 })
 

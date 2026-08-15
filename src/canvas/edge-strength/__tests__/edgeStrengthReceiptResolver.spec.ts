@@ -192,7 +192,36 @@ describe('evaluateEdgeStrengthReceipt', () => {
     expect(evaluateEdgeStrengthReceipt(confirmAttempt, confirmResponse()).kind).toBe('applied')
   })
 
-  it('rejects a stale confirm_current receipt even when its hashes are internally coherent', () => {
+  it.each([
+    ['fresh', '8cf2c68f92c5c20a', 'graph_hash_match'],
+    ['stale', 'prior-analysis-hash', 'graph_hash_diverged'],
+    ['none', null, 'no_successful_run_analysis_fact'],
+    ['unknown', null, 'derivation_failed'],
+  ] as const)(
+    'accepts a strict confirm_current receipt with coherent %s freshness',
+    (freshness, graphHashAtRun, reason) => {
+      const confirmAttempt = attempt({
+        from: 'fac_quality',
+        expected: { mean: 0.25, effectDirection: 'positive', std: 0.08 },
+        target: { mean: 0.25, effectDirection: 'positive', std: 0.08 },
+        intent: 'confirm_current',
+      })
+      const response = mutate(confirmResponse(), (draft) => {
+        draft.analysis_ready.freshness = freshness
+        draft.analysis_ready.freshness_reason = reason
+        if (graphHashAtRun === null) delete draft.analysis_ready.graph_hash_at_run
+        else draft.analysis_ready.graph_hash_at_run = graphHashAtRun
+      })
+      expect(evaluateEdgeStrengthReceipt(confirmAttempt, response).kind).toBe('applied')
+    },
+  )
+
+  it.each([
+    ['fresh', 'different-hash'],
+    ['stale', '8cf2c68f92c5c20a'],
+    ['none', 'prior-analysis-hash'],
+    ['unknown', 'prior-analysis-hash'],
+  ] as const)('rejects an incoherent %s confirm_current hash shape', (freshness, graphHashAtRun) => {
     const confirmAttempt = attempt({
       from: 'fac_quality',
       expected: { mean: 0.25, effectDirection: 'positive', std: 0.08 },
@@ -200,11 +229,13 @@ describe('evaluateEdgeStrengthReceipt', () => {
       intent: 'confirm_current',
     })
     const response = mutate(confirmResponse(), (draft) => {
-      draft.analysis_ready.freshness = 'stale'
-      draft.analysis_ready.freshness_reason = 'graph_hash_diverged'
-      draft.analysis_ready.graph_hash_at_run = 'older-hash'
+      draft.analysis_ready.freshness = freshness
+      draft.analysis_ready.graph_hash_at_run = graphHashAtRun
     })
-    expect(evaluateEdgeStrengthReceipt(confirmAttempt, response).kind).toBe('invalid')
+    expect(evaluateEdgeStrengthReceipt(confirmAttempt, response)).toMatchObject({
+      kind: 'invalid',
+      reason: 'freshness_hash_incoherent',
+    })
   })
 
   it.each([

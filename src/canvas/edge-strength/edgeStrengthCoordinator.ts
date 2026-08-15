@@ -18,6 +18,8 @@ import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import {
   EMPTY_EDGE_STRENGTH_SYNC,
   useCanvasStore,
+  type EdgeStrengthRecoverySummary,
+  type EdgeStrengthRecoverySummaryKind,
   type EdgeStrengthSyncIssue,
 } from '../store'
 import { normaliseV5AnalysisReady } from '../../v5/applyV5State'
@@ -113,6 +115,7 @@ interface ScenarioLane {
   pending: Map<string, PendingEdit>
   active: EdgeStrengthAttempt | null
   issues: Map<string, EdgeStrengthSyncIssue>
+  issueEndpoints: Map<string, IssueEndpoint>
   conflictCurrent: Map<string, EdgeStrengthTuple>
   recoveries: Map<string, EdgeStrengthRecoveryRecord>
   unsupportedRevisions: Map<string, number>
@@ -126,6 +129,11 @@ interface ScenarioLane {
     at: number
   } | null
   waiters: Set<(result: EdgeStrengthFlushResult) => void>
+}
+
+interface IssueEndpoint {
+  from: string
+  to: string
 }
 
 export interface EdgeStrengthFlushResult {
@@ -164,6 +172,7 @@ function laneFor(scenarioId: string): ScenarioLane {
       pending: new Map(),
       active: null,
       issues: new Map(),
+      issueEndpoints: new Map(),
       conflictCurrent: new Map(),
       recoveries: new Map(),
       unsupportedRevisions: new Map(),
@@ -175,6 +184,79 @@ function laneFor(scenarioId: string): ScenarioLane {
     lanes.set(scenarioId, lane)
   }
   return lane
+}
+
+const EDGE_STRENGTH_RECOVERY_SUMMARY_LIMIT = 3
+
+function setIssue(
+  lane: ScenarioLane,
+  key: string,
+  issue: EdgeStrengthSyncIssue,
+  endpoint: IssueEndpoint,
+): void {
+  lane.issues.set(key, issue)
+  lane.issueEndpoints.set(key, endpoint)
+}
+
+function clearIssue(lane: ScenarioLane, key: string): void {
+  lane.issues.delete(key)
+  lane.issueEndpoints.delete(key)
+}
+
+function recoverySummaryFor(lane: ScenarioLane): EdgeStrengthRecoverySummary {
+  const byPair = new Map<string, {
+    from: string
+    to: string
+    kind: EdgeStrengthRecoverySummaryKind
+    order: number
+  }>()
+  let order = 0
+  const add = (from: string, to: string, kind: EdgeStrengthRecoverySummaryKind): void => {
+    if (!validEndpointId(from) || !validEndpointId(to)) return
+    const key = pairKey(from, to)
+    if (!byPair.has(key)) byPair.set(key, { from, to, kind, order: order++ })
+  }
+
+  // Sticky issues are the most actionable blockers and therefore lead the
+  // bounded list. Multiple unsupported fields on one endpoint collapse to one
+  // relationship instead of leaking the coordinator's internal issue keys.
+  for (const issue of issuePriority) {
+    for (const [key, candidate] of lane.issues) {
+      if (candidate !== issue) continue
+      const endpoint = lane.issueEndpoints.get(key)
+      const recovery = lane.recoveries.get(key)
+      if (endpoint) add(endpoint.from, endpoint.to, issue)
+      else if (recovery) add(recovery.from, recovery.to, issue)
+    }
+  }
+  if (lane.active) add(lane.active.from, lane.active.to, 'saving')
+  for (const pending of lane.pending.values()) add(pending.from, pending.to, 'queued')
+
+  const canvas = useCanvasStore.getState()
+  const labels = new Map(canvas.nodes.flatMap((node) => {
+    const label = (node.data as { label?: unknown } | undefined)?.label
+    return typeof label === 'string' && label.trim().length > 0
+      ? [[node.id, label.trim()] as const]
+      : []
+  }))
+  const graphEdges = canvas.edges
+  const all = [...byPair.values()]
+    .sort((a, b) => a.order - b.order)
+    .map(({ from, to, kind }) => {
+      const fromLabel = labels.get(from) ?? from
+      const toLabel = labels.get(to) ?? to
+      return {
+        from,
+        to,
+        label: `${fromLabel} → ${toLabel}`,
+        kind,
+        relationshipExists: graphEdges.filter(
+          (edge) => edge.source === from && edge.target === to,
+        ).length === 1,
+      }
+    })
+  const items = all.slice(0, EDGE_STRENGTH_RECOVERY_SUMMARY_LIMIT)
+  return { items, total: all.length, remaining: all.length - items.length }
 }
 
 function pairKey(from: string, to: string): string {
@@ -232,6 +314,7 @@ function publish(scenarioId: string, opts: { settleWaiters?: boolean } = {}): vo
       queued: lane.pending.size,
       inFlight: lane.active === null ? 0 : 1,
       issue,
+      recoverySummary: recoverySummaryFor(lane),
       lastOutcome: lane.lastOutcome,
     })
   }
@@ -289,6 +372,7 @@ export function finishEdgeStrengthHydration(args: {
     lane.lastHydratedRevision = args.startedAtRevision
     lane.pending.clear()
     lane.issues.clear()
+    lane.issueEndpoints.clear()
     lane.conflictCurrent.clear()
     lane.recoveries.clear()
     lane.unsupportedRevisions.clear()
@@ -464,7 +548,10 @@ export function recordEdgeStrengthMutation(args: {
     before.to !== after.to ||
     Math.abs(after.tuple.mean) > 1
   ) {
-    lane.issues.set(key, 'unsupported_value')
+    setIssue(lane, key, 'unsupported_value', {
+      from: after.from,
+      to: after.to,
+    })
     lane.lastOutcome = null
     publish(scenarioId)
     return
@@ -474,7 +561,10 @@ export function recordEdgeStrengthMutation(args: {
     (edge) => edge.source === after.from && edge.target === after.to,
   )
   if (endpointMatches.length !== 1) {
-    lane.issues.set(key, 'conflict')
+    setIssue(lane, key, 'conflict', {
+      from: after.from,
+      to: after.to,
+    })
     lane.recoveries.set(key, {
       cause: 'conflict_refresh_required',
       edgeId: after.edgeId,
@@ -512,7 +602,7 @@ export function recordEdgeStrengthMutation(args: {
     publish(scenarioId)
     return
   }
-  lane.issues.delete(key)
+  clearIssue(lane, key)
   lane.recoveries.delete(key)
   lane.lastOutcome = null
 
@@ -548,16 +638,18 @@ export function recordEdgeStrengthMutation(args: {
 export function recordUnsupportedEdgeMutation(args: {
   scenarioId: string
   edgeId: string
+  from: string
+  to: string
   field: 'strengthStd' | 'beliefExists' | 'belief' | 'beliefStrength' | 'confidence' | 'exists_probability'
   before: unknown
   after: unknown
 }): void {
-  const { scenarioId, edgeId, field } = args
+  const { scenarioId, edgeId, from, to, field } = args
   const revision = bumpRevision(scenarioId)
   const lane = laneFor(scenarioId)
   const key = `${edgeId}:${field}`
   if (JSON.stringify(args.before) === JSON.stringify(args.after)) return
-  lane.issues.set(key, 'unsupported_fields')
+  setIssue(lane, key, 'unsupported_fields', { from, to })
   lane.unsupportedRevisions.set(key, revision)
   lane.lastOutcome = null
   useCanvasStore.getState().markAnalysisFreshnessDirty()
@@ -581,7 +673,10 @@ export function recordUnconfirmedAdjudicatedEdgeStrength(args: {
   const key = pairKey(after.from, after.to)
   bumpRevision(scenarioId, key)
   lane.pending.delete(key)
-  lane.issues.set(key, 'unconfirmed')
+  setIssue(lane, key, 'unconfirmed', {
+    from: after.from,
+    to: after.to,
+  })
   lane.conflictCurrent.delete(key)
   lane.recoveries.set(key, {
     cause: 'unconfirmed',
@@ -601,12 +696,17 @@ export function recordUnconfirmedAdjudicatedEdgeStrength(args: {
 export function recordUnconfirmedEdgeStructure(args: {
   scenarioId: string
   edgeId: string
+  from: string
+  to: string
   operation: 'add' | 'remove' | 'reconnect'
 }): void {
   const lane = laneFor(args.scenarioId)
   const revision = bumpRevision(args.scenarioId)
   const key = `${args.edgeId}:structure`
-  lane.issues.set(key, 'unconfirmed_structure')
+  setIssue(lane, key, 'unconfirmed_structure', {
+    from: args.from,
+    to: args.to,
+  })
   lane.unsupportedRevisions.set(key, revision)
   lane.lastOutcome = null
   useCanvasStore.getState().markAnalysisFreshnessDirty()
@@ -625,8 +725,11 @@ export function rejectInvalidEdgeStrengthMutation(args: {
   const lane = laneFor(scenarioId)
   lane.pending.delete(key)
   const prior = observeEdgeStrength(beforeEdge)
-  if (prior && Math.abs(prior.tuple.mean) <= 1) lane.issues.delete(key)
-  else lane.issues.set(key, 'unsupported_value')
+  if (prior && Math.abs(prior.tuple.mean) <= 1) clearIssue(lane, key)
+  else setIssue(lane, key, 'unsupported_value', {
+    from: beforeEdge.source,
+    to: beforeEdge.target,
+  })
   lane.lastOutcome = null
   const store = useCanvasStore.getState()
   store.beginExternalGraphMutation('patch_apply')
@@ -670,7 +773,7 @@ export function requestEdgeStrengthConfirmation(scenarioId: string, edgeId: stri
     const current = lane.conflictCurrent.get(endpointKey)
     if (!current || !tupleScientificEqual(current, observed.tuple)) return false
   }
-  lane.issues.delete(endpointKey)
+  clearIssue(lane, endpointKey)
   lane.recoveries.delete(endpointKey)
   lane.lastOutcome = null
   lane.pending.set(endpointKey, {
@@ -940,23 +1043,20 @@ export function evaluateEdgeStrengthReceipt(
     ? analysisReady.graph_hash_at_run
     : null
 
-  if (
-    (freshness === 'fresh' && graphHashAtRun !== graphHash) ||
-    (freshness === 'stale' && (graphHashAtRun === null || graphHashAtRun === graphHash))
-  ) {
+  const freshnessHashesCoherent =
+    (freshness === 'fresh' && graphHashAtRun === graphHash) ||
+    (freshness === 'stale' && graphHashAtRun !== null && graphHashAtRun !== graphHash) ||
+    ((freshness === 'none' || freshness === 'unknown') && graphHashAtRun === null)
+  if (!freshnessHashesCoherent) {
     return { kind: 'invalid', reason: 'freshness_hash_incoherent' }
   }
 
-  // Confirmation is allowed to prove an unchanged tuple only when the same
-  // receipt also proves that analysis is current for that exact graph. A
-  // coherent-but-stale noop would otherwise let an old analysis through.
-  if (attempt.intent === 'confirm_current' && freshness !== 'fresh') {
-    return { kind: 'invalid', reason: 'confirmation_not_fresh' }
-  }
-
   // A noop patch plus an internally coherent full-graph/readiness receipt is
-  // the authority for confirm_current. The UI's cached hash may be absent or
-  // older than this turn and therefore cannot veto that receipt.
+  // the authority for confirm_current. Freshness describes the most recent
+  // analysis fact, not whether this persistence turn committed. First-run
+  // `none`, degraded `unknown`, and prior-run `stale` are therefore all valid
+  // when their hash shapes are internally coherent; the UI preserves that
+  // verdict and only releases its local dirty overlay for `fresh` below.
   if (attempt.intent !== 'confirm_current' && attempt.graphHashBefore !== null && graphHash === attempt.graphHashBefore) {
     return { kind: 'invalid', reason: 'set_hash_unchanged' }
   }
@@ -1140,7 +1240,10 @@ function reconcileReceiptGraph(
       )
       if (stillPresent) continue
       const key = pairKey(pending.from, pending.to)
-      lane.issues.set(key, 'conflict')
+      setIssue(lane, key, 'conflict', {
+        from: pending.from,
+        to: pending.to,
+      })
       lane.recoveries.set(key, {
         cause: 'conflict_refresh_required',
         edgeId: pending.edgeId,
@@ -1168,7 +1271,7 @@ function reconcileReceiptGraph(
       field === 'exists_probability'
     ) {
       lane.unsupportedRevisions.delete(issueKey)
-      lane.issues.delete(issueKey)
+      clearIssue(lane, issueKey)
     }
   }
 }
@@ -1184,7 +1287,7 @@ function settleApplied(
   // Clear only the attempt's prior state before the full reconcile. That
   // reconcile can discover a NEW successor conflict (for example, a pending
   // edge was deleted remotely), and its finding must survive settlement.
-  lane.issues.delete(key)
+  clearIssue(lane, key)
   lane.conflictCurrent.delete(key)
   lane.recoveries.delete(key)
   reconcileReceiptGraph(attempt, lane, verdict.draftGraph, protectedFactorNodeIds)
@@ -1229,6 +1332,7 @@ function settleApplied(
   // additionally refuses while any factor writer is active or queued.
   if (
     attempt.intent === 'confirm_current' &&
+    verdict.freshness === 'fresh' &&
     !lane.pending.has(key) &&
     currentIssue(lane) === null
   ) store.clearAnalysisFreshnessDirty()
@@ -1240,7 +1344,10 @@ function settleUnconfirmed(attempt: EdgeStrengthAttempt, _reason: string): void 
   lane.active = null
   const key = pairKey(attempt.from, attempt.to)
   const pending = lane.pending.get(key)
-  lane.issues.set(key, 'unconfirmed')
+  setIssue(lane, key, 'unconfirmed', {
+    from: attempt.from,
+    to: attempt.to,
+  })
   lane.recoveries.set(key, {
     cause: 'unconfirmed',
     edgeId: attempt.edgeId,
@@ -1368,7 +1475,10 @@ export function settleEdgeStrengthResponse(args: {
       const canAdoptImmediately = current !== null && localStillEqualsTarget(attempt) && !successor
       if (canAdoptImmediately) reconcileConflictCurrent(attempt, current)
       lane!.active = null
-      lane!.issues.set(key, 'conflict')
+      setIssue(lane!, key, 'conflict', {
+        from: attempt.from,
+        to: attempt.to,
+      })
       if (current) {
         lane!.conflictCurrent.set(key, current)
         if (successor) lane!.pending.set(key, { ...successor, expected: current })
@@ -1422,7 +1532,10 @@ export function discardEdgeStrengthAttemptForScenarioChange(attemptId: string): 
     lane.active = null
     const key = pairKey(attempt.from, attempt.to)
     const successor = lane.pending.get(key)
-    lane.issues.set(key, 'unconfirmed')
+    setIssue(lane, key, 'unconfirmed', {
+      from: attempt.from,
+      to: attempt.to,
+    })
     lane.recoveries.set(key, {
       cause: 'unconfirmed',
       edgeId: successor?.edgeId ?? attempt.edgeId,
@@ -1464,6 +1577,42 @@ export function getEdgeStrengthEndpointStatus(
     return { kind: outcome.kind, edgeId: outcome.edgeId, at: outcome.at }
   }
   return { kind: 'idle' }
+}
+
+/**
+ * Bounded public projection for global Run blockers. This is intentionally a
+ * fresh display read, not another queue: the coordinator remains the sole
+ * owner and exposes only canonical endpoint pairs, human labels, status and
+ * whether the relationship can currently be opened.
+ */
+export function getEdgeStrengthRecoverySummary(
+  scenarioId: string | null | undefined,
+): EdgeStrengthRecoverySummary {
+  if (!scenarioId) return { items: [], total: 0, remaining: 0 }
+  const lane = lanes.get(scenarioId)
+  return lane ? recoverySummaryFor(lane) : { items: [], total: 0, remaining: 0 }
+}
+
+/** Native-button target for the bounded global recovery list. */
+export function openEdgeStrengthRecoveryRelationship(
+  scenarioId: string,
+  from: string,
+  to: string,
+): boolean {
+  if (
+    scenarioId !== openScenarioId ||
+    useCanvasStore.getState().currentScenarioId !== scenarioId
+  ) return false
+  const summary = getEdgeStrengthRecoverySummary(scenarioId)
+  if (!summary.items.some((item) => item.from === from && item.to === to)) return false
+  const matches = useCanvasStore.getState().edges.filter(
+    (edge) => edge.source === from && edge.target === to,
+  )
+  if (matches.length !== 1) return false
+  const store = useCanvasStore.getState()
+  store.selectEdgeWithoutHistory(matches[0]!.id)
+  store.setShowInspectorPanel(true)
+  return true
 }
 
 /**
@@ -1539,7 +1688,7 @@ export function applyMyEdgeStrengthValue(
     intent: 'set',
     localRevision: revision,
   })
-  lane.issues.delete(key)
+  clearIssue(lane, key)
   lane.conflictCurrent.delete(key)
   lane.recoveries.delete(key)
   lane.lastOutcome = null

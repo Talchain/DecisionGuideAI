@@ -502,6 +502,47 @@ describe('canRunAnalysis — canonical value-writer barrier', () => {
     expect(result.reason).toMatch(reason)
   })
 
+  it('names the human relationship in a single endpoint-scoped blocker', () => {
+    const result = canRunAnalysis({
+      ...base,
+      edgeStrengthSync: {
+        ...settledEdge,
+        issue: 'unconfirmed' as const,
+        recoverySummary: {
+          items: [{ label: 'Demand → Sustainable profit' }],
+          total: 1,
+          remaining: 0,
+        },
+      },
+    })
+    expect(result.reason).toBe(
+      'We could not confirm whether the change to Demand → Sustainable profit was saved. Check the shared model before running analysis.',
+    )
+    expect(result.reason).not.toContain('rf-opaque')
+  })
+
+  it('bounds a many-relationship blocker and discloses the hidden count', () => {
+    const result = canRunAnalysis({
+      ...base,
+      edgeStrengthSync: {
+        ...settledEdge,
+        issue: 'unconfirmed_structure' as const,
+        recoverySummary: {
+          items: [
+            { label: 'Demand → Goal' },
+            { label: 'Cost → Goal' },
+            { label: 'Capability → Goal' },
+          ],
+          total: 5,
+          remaining: 2,
+        },
+      },
+    })
+    expect(result.reason).toBe(
+      'Relationships needing attention: Demand → Goal; Cost → Goal; Capability → Goal; and 2 more. A relationship was added, removed, or reconnected only on this device. Check the shared model before running analysis.',
+    )
+  })
+
   it('does not apply the CEE writer barrier to the legacy direct-analysis path', () => {
     isV5CanonicalRunPathMock.mockReturnValue(false)
     expect(canRunAnalysis({

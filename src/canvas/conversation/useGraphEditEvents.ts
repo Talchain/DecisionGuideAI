@@ -203,7 +203,16 @@ function routeCanonicalEdgeChanges(
     const beforeEdge = previousById.get(edgeId)
     const afterEdge = currentById.get(edgeId)
     if (operation === 'add' || operation === 'remove') {
-      recordUnconfirmedEdgeStructure({ scenarioId, edgeId, operation })
+      const endpointEdge = operation === 'add' ? afterEdge : beforeEdge
+      if (endpointEdge) {
+        recordUnconfirmedEdgeStructure({
+          scenarioId,
+          edgeId,
+          from: endpointEdge.source,
+          to: endpointEdge.target,
+          operation,
+        })
+      }
       continue
     }
     if (!beforeEdge || !afterEdge) continue
@@ -211,7 +220,13 @@ function routeCanonicalEdgeChanges(
     const endpointsChanged =
       beforeEdge.source !== afterEdge.source || beforeEdge.target !== afterEdge.target
     if (endpointsChanged) {
-      recordUnconfirmedEdgeStructure({ scenarioId, edgeId, operation: 'reconnect' })
+      recordUnconfirmedEdgeStructure({
+        scenarioId,
+        edgeId,
+        from: afterEdge.source,
+        to: afterEdge.target,
+        operation: 'reconnect',
+      })
     }
 
     const changedFields = diff.fieldsChanged.get(edgeId) ?? new Set<string>()
@@ -222,6 +237,8 @@ function routeCanonicalEdgeChanges(
       recordUnsupportedEdgeMutation({
         scenarioId,
         edgeId,
+        from: afterEdge.source,
+        to: afterEdge.target,
         field: group.field,
         before: beforeData[group.field],
         after: afterData[group.field],

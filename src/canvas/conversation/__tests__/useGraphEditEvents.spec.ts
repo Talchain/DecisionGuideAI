@@ -15,7 +15,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useGraphEditEvents } from '../useGraphEditEvents'
 import { useCanvasStore } from '../../store'
-import { __resetEdgeStrengthCoordinatorForTests } from '../../edge-strength/edgeStrengthCoordinator'
+import {
+  __resetEdgeStrengthCoordinatorForTests,
+  getEdgeStrengthRecoverySummary,
+} from '../../edge-strength/edgeStrengthCoordinator'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -191,6 +194,55 @@ describe('useGraphEditEvents', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(1500) })
     expect(mockSendSystemEvent.mock.calls.some(([event]) => event.type === 'edge_strength_edit')).toBe(false)
     expect(mockSendSystemEvent.mock.calls.some(([event]) => event.type === 'direct_graph_edit')).toBe(true)
+    unmount()
+  })
+
+  it('retains canonical endpoints for reconnected and then removed relationship recovery', () => {
+    canonicalFlagValue = true
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+    setStoreState({
+      nodes: [
+        { id: 'fac-a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Demand' } },
+        { id: 'fac-c', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Capability' } },
+        { id: 'goal-b', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Growth' } },
+      ],
+      edges: [{
+        id: 'rf-private-edge', source: 'fac-a', target: 'goal-b',
+        data: { weight: 0.4, direction: 'positive' },
+      }],
+    })
+    const { unmount } = renderHook(() => useGraphEditEvents(mockSendSystemEvent))
+
+    act(() => {
+      useCanvasStore.setState({
+        edges: [{
+          id: 'rf-private-edge', source: 'fac-c', target: 'goal-b',
+          data: { weight: 0.4, direction: 'positive' },
+        }] as never,
+      })
+    })
+    expect(getEdgeStrengthRecoverySummary('scenario-1')).toMatchObject({
+      items: [{
+        from: 'fac-c',
+        to: 'goal-b',
+        label: 'Capability → Growth',
+        kind: 'unconfirmed_structure',
+        relationshipExists: true,
+      }],
+    })
+
+    act(() => { useCanvasStore.setState({ edges: [] }) })
+    const removed = getEdgeStrengthRecoverySummary('scenario-1')
+    expect(removed).toMatchObject({
+      items: [{
+        from: 'fac-c',
+        to: 'goal-b',
+        label: 'Capability → Growth',
+        kind: 'unconfirmed_structure',
+        relationshipExists: false,
+      }],
+    })
+    expect(JSON.stringify(removed)).not.toContain('rf-private-edge')
     unmount()
   })
 

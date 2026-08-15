@@ -32,6 +32,7 @@ import {
   __resetEdgeStrengthCoordinatorForTests,
   beginEdgeStrengthHydration,
   finishEdgeStrengthHydration,
+  requestEdgeStrengthConfirmation,
   setOpenEdgeStrengthScenario,
 } from '../../edge-strength/edgeStrengthCoordinator'
 import { useGraphEditEvents } from '../useGraphEditEvents'
@@ -45,6 +46,7 @@ let resolveInFlight: ((v: unknown) => void) | null = null
 let failFlushDispatch = false
 /** Fail the first held request when it is released (direct-writer mutant). */
 let failHeldDispatch = false
+let edgeConfirmFreshness: 'fresh' | 'stale' | 'none' | 'unknown' = 'fresh'
 
 function edgeStrengthReceipt(event: Record<string, unknown>) {
   const expected = event.expected as {
@@ -56,6 +58,12 @@ function edgeStrengthReceipt(event: Record<string, unknown>) {
     : event.direction_intent as 'positive' | 'negative'
   const magnitude = event.magnitude as number
   const mean = magnitude === 0 ? 0 : direction === 'negative' ? -magnitude : magnitude
+  const confirm = event.intent === 'confirm_current'
+  const graphHash = confirm ? 'old-hash' : 'new-hash'
+  const freshness = confirm ? edgeConfirmFreshness : 'stale'
+  const graphHashAtRun = freshness === 'fresh'
+    ? graphHash
+    : freshness === 'stale' ? 'prior-analysis-hash' : null
 
   return {
     response_version: 2,
@@ -65,7 +73,7 @@ function edgeStrengthReceipt(event: Record<string, unknown>) {
     insights: [],
     blocks: [{
       type: 'graph_patch',
-      status: 'applied',
+      status: confirm ? 'noop' : 'applied',
       operation: 'adjust_edge_strength',
       target_id: `${String(event.from)}→${String(event.to)}`,
       before: {
@@ -81,7 +89,7 @@ function edgeStrengthReceipt(event: Record<string, unknown>) {
         effect_direction: direction,
       },
     }],
-    graph_hash: 'new-hash',
+    graph_hash: graphHash,
     analysis_ready: {
       options: [{
         option_id: 'opt_plan_a',
@@ -93,10 +101,16 @@ function edgeStrengthReceipt(event: Record<string, unknown>) {
       goal_node_id: 'goal_profit',
       status: 'needs_user_input',
       computed_at: '2026-08-15T14:00:39.168Z',
-      freshness: 'stale',
-      freshness_reason: 'graph_hash_diverged',
-      graph_hash_at_run: 'old-hash',
-      current_graph_hash: 'new-hash',
+      freshness,
+      freshness_reason: freshness === 'fresh'
+        ? 'graph_hash_match'
+        : freshness === 'stale'
+          ? 'graph_hash_diverged'
+          : freshness === 'none'
+            ? 'no_successful_run_analysis_fact'
+            : 'derivation_failed',
+      ...(graphHashAtRun ? { graph_hash_at_run: graphHashAtRun } : {}),
+      current_graph_hash: graphHash,
     },
     draft_graph: {
       nodes: [
@@ -267,6 +281,7 @@ beforeEach(() => {
   resolveInFlight = null
   failFlushDispatch = false
   failHeldDispatch = false
+  edgeConfirmFreshness = 'fresh'
   useCanvasStore.setState({
     currentScenarioId: SCENARIO,
     nodes: [],
@@ -401,6 +416,46 @@ describe('canonical Run waits for the complete value-writer transaction', () => 
       inFlight: 0,
       issue: null,
     })
+  })
+
+  it('mounts a first-run none confirmation, settles it, then dispatches Run after the noop receipt', async () => {
+    seedCanonicalEdgeGraph()
+    useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
+    edgeConfirmFreshness = 'none'
+    const { result } = renderHook(() => {
+      const conversation = useConversation()
+      useGraphEditEvents(conversation.sendSystemEvent, { isThinking: conversation.isThinking })
+      return conversation
+    })
+
+    act(() => {
+      expect(requestEdgeStrengthConfirmation(SCENARIO, 'opaque-rf-edge-id')).toBe(true)
+    })
+    let runDone: Promise<void> | undefined
+    act(() => {
+      runDone = result.current.sendMessage('Run analysis', {
+        turnType: 'run_analysis',
+        debugSource: 'analysis_run',
+      })
+    })
+    await flush()
+
+    expect(dispatched).toHaveLength(1)
+    expect(dispatched[0]).toMatchObject({
+      kind: 'system_event',
+      event: { kind: 'edge_strength_edit', intent: 'confirm_current' },
+    })
+    expect(dispatchedRuns()).toHaveLength(0)
+
+    await act(async () => {
+      resolveInFlight?.(undefined)
+      await runDone
+      await flush()
+    })
+
+    expect(useCanvasStore.getState().analysisFreshness?.freshness).toBe('none')
+    expect(useCanvasStore.getState().edgeStrengthSync.issue).toBeNull()
+    expect(dispatchedRuns()).toHaveLength(1)
   })
 
   it('does not preempt an active factor writer and dispatches Run only after it settles', async () => {
