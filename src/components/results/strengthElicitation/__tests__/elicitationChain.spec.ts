@@ -14,12 +14,15 @@
  * rather than it. So this walks the real selector, the real declared setter
  * manifest, the real analytical-change registry and the real freshness reducer.
  *
- * WHAT IT DELIBERATELY DOES NOT CLAIM. This proves the links compose, in-process.
- * It is NOT a journey witness: nothing here renders the deployed surface, drives
- * a browser, or touches the wire. The rung this evidence reaches is TESTED, and
- * the deploy/journey rungs are named in the lane report as still owed.
+ * WHAT THE MOUNTED CONTROL ADDS. The final discriminator renders the real card
+ * and inspector, drives the card CTA and preset, and observes the real store and
+ * rerun control. It is still not a deployed journey or wire witness; those rungs
+ * remain separate from this in-process mounted proof.
  */
-import { describe, it, expect } from 'vitest'
+import { createElement } from 'react'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { ReactFlowProvider } from '@xyflow/react'
+import { describe, it, expect, vi } from 'vitest'
 import {
   selectAssumedStrengthToResolve,
   type ElicitationCanvasEdge,
@@ -31,6 +34,17 @@ import { resolveDisplayedFreshness, classifyFreshnessForDisplay } from '../../..
 import { DEFAULT_EDGE_DATA } from '../../../../canvas/domain/edges'
 import { THRESHOLDS } from '../../../../lib/mappers/constants'
 import { edgeValueSource } from '../../../../canvas/domain/edgeValueProvenance'
+import { AssumedStrengthCard } from '../AssumedStrengthCard'
+import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
+import { useCanvasStore } from '../../../../canvas/store'
+import { InspectorModal } from '../../../../canvas/components/InspectorModal'
+
+vi.mock('../../../../canvas/utils/focusHelpers', async () => {
+  const actual = await vi.importActual<typeof import('../../../../canvas/utils/focusHelpers')>(
+    '../../../../canvas/utils/focusHelpers',
+  )
+  return { ...actual, focusEdgeById: vi.fn() }
+})
 
 const nodeLabels = new Map([
   ['n_demand', 'Customer demand'],
@@ -141,6 +155,51 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     const after = selectAssumedStrengthToResolve({ fragileEdges, edges: nextEdges, nodeLabels })
     expect(after.selected).toBeNull()
     expect(after.refusalReason).toBe('all_strengths_set')
+  })
+
+  it('MOUNTED — CTA → editor → canonical write → stale → real rerun control', () => {
+    const edges = [draftedEdge()]
+    const decision = selectAssumedStrengthToResolve({ fragileEdges, edges, nodeLabels })
+    expect(decision.selected?.edgeId).toBe('e_demand_rev')
+
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'n_demand', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Customer demand' } },
+        { id: 'n_rev', type: 'outcome', position: { x: 200, y: 0 }, data: { label: 'Revenue growth' } },
+      ] as never,
+      edges: edges as never,
+      showResultsPanel: true,
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } as never,
+    })
+
+    render(createElement(AssumedStrengthCard, { decision, onResolve: openEdgeStrengthEditor }))
+    fireEvent.click(screen.getByTestId('assumed-strength-action'))
+
+    const routed = useCanvasStore.getState()
+    expect([...routed.selection.edgeIds]).toEqual(['e_demand_rev'])
+    expect(routed.showResultsPanel).toBe(false)
+
+    render(createElement(
+      ReactFlowProvider,
+      null,
+      createElement(InspectorModal, { nodeId: null, edgeId: 'e_demand_rev', onClose: () => {} }),
+    ))
+    expect(screen.queryByRole('button', { name: 'Re-run the analysis' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Very strong' }))
+
+    const edited = useCanvasStore.getState()
+    const data = edited.edges.find(edge => edge.id === 'e_demand_rev')?.data as Record<string, unknown>
+    expect(data.weight).toBe(0.85)
+    expect(data.weightSource).toBe('user')
+    // Editing the field does not rewrite the edge's creation/display provenance.
+    expect(data.provenanceDisplay).toBe('ai_inferred')
+    expect(data.origin).toBe('ai')
+    expect(edited.analysisFreshnessDirty).toBe(true)
+    expect(screen.getByRole('button', { name: 'Re-run the analysis' })).toBeInTheDocument()
+    expect(screen.getByText('Re-run to see how this affects the results')).toBeInTheDocument()
   })
 
   it('HONESTY — confirming the placeholder AS-IS is not an analytical change, so no rerun is promised', () => {

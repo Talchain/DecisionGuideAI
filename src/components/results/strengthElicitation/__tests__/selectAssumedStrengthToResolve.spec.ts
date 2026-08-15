@@ -111,6 +111,31 @@ describe('selectAssumedStrengthToResolve — the assumed × decision-relevant jo
     expect(d.selected?.edgeId).toBe('e_demand_rev')
   })
 
+  it('creation origin cannot resolve a field: origin=user stays assumed until weightSource=user', () => {
+    const rows = [fragileRow('n_demand', 'n_rev', ABOVE)]
+    const userCreated: ElicitationCanvasEdge = {
+      id: 'e_demand_rev',
+      source: 'n_demand',
+      target: 'n_rev',
+      data: { ...USER_EDGE_DEFAULTS, origin: 'user' },
+    }
+
+    const defaultStrength = selectAssumedStrengthToResolve({
+      fragileEdges: rows,
+      edges: [userCreated],
+      nodeLabels: labels,
+    })
+    expect(defaultStrength.selected?.edgeId).toBe('e_demand_rev')
+
+    const userSetStrength = selectAssumedStrengthToResolve({
+      fragileEdges: rows,
+      edges: [{ ...userCreated, data: { ...userCreated.data, weightSource: 'user' } }],
+      nodeLabels: labels,
+    })
+    expect(userSetStrength.selected).toBeNull()
+    expect(userSetStrength.refusalReason).toBe('all_strengths_set')
+  })
+
   it('counts a user who CHOSE 0.5 as SET — the same number, the opposite verdict', () => {
     expect(DEFAULT_EDGE_DATA.weight).toBe(0.5)
     const d = selectAssumedStrengthToResolve({

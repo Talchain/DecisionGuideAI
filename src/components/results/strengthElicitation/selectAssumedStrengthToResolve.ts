@@ -172,8 +172,9 @@ function nonEmptyString(value: unknown): string | null {
  *
  * `weightSource` is field-specific, while `provenanceDisplay` / `origin` describe
  * how the edge entered the model. That fixes the precedence: a later user edit
- * resolves an AI-created edge, but a CEE numeric estimate does not resolve
- * itself merely because ingestion stamped `weightSource: 'cee'`.
+ * resolves an AI-created edge, but merely drawing an edge does not resolve its
+ * default strength, and a CEE numeric estimate does not resolve itself merely
+ * because ingestion stamped `weightSource: 'cee'`.
  *
  * Unknown/older provenance keeps the previous absence-safe rule: only a
  * recognised value source counts as resolved. No new provenance is inferred.
@@ -183,11 +184,7 @@ function hasUnresolvedAssumedStrength(data: Record<string, unknown> | undefined)
 
   // The strength editor writes this field-specific stamp and deliberately
   // leaves the edge's creation origin intact. It therefore has precedence.
-  if (
-    valueSource === 'user'
-    || data?.provenanceDisplay === 'user_set'
-    || data?.origin === 'user'
-  ) {
+  if (valueSource === 'user') {
     return false
   }
 
