@@ -17,14 +17,15 @@
  *
  * Margin model — each side gets `max(baseMargin, occluderOverlap + GAP)`, then a
  * defensive clamp:
- *  - `baseMargin` reproduces the prior `padding: 0.2` framing *exactly* (same
- *    formula), so when nothing meaningfully occludes a side the result is
- *    pixel-identical to the previous behaviour. At typical laptop widths the
- *    collapsed dock rail (~40px + 12px right gap) and the thin left sidebar
- *    (~52px) are smaller than `baseMargin`, so they are inert and closed-dock
- *    framing is unchanged. At *very narrow* widths `baseMargin` shrinks, so a
- *    rail/sidebar may legitimately reserve a little more than the base — that is
- *    still correct (it clears the panel), just not "inert".
+ *  - `baseMargin` is the breathing room when nothing occludes a side. It uses
+ *    xyflow's own bare-number formula so it is expressed in the same units the
+ *    rest of the codebase reasons about. See `BASE_RATIO` for why it was
+ *    lowered from `0.2` on 15 Aug 2026 and what that changes.
+ *  - Because the base is now smaller than the collapsed rail (~40px + 12px
+ *    right gap) and the left sidebar (~52px) at laptop widths, those panels
+ *    reserve their own overlap rather than hiding inside a larger base. That
+ *    is the intended behaviour of this function — it clears the panel — it is
+ *    simply no longer a no-op at those sizes.
  *  - Only an *expanded* panel (e.g. the ~416px OutputsDock) meaningfully exceeds
  *    `baseMargin` and pushes that side in, framing the graph clear of the panel.
  *  - A final clamp caps total per-axis padding at `MAX_PADDING_FRACTION` of the
@@ -42,8 +43,28 @@
  * pass its element explicitly.
  */
 
-/** Matches the prior `fitView({ padding: 0.2 })` contract so the no-occluder case is identical. */
-const BASE_RATIO = 0.2
+/**
+ * Breathing margin around the graph, expressed in xyflow's bare-number padding
+ * units (see the header note: `r` resolves to ~`r/(2(1+r))` of the dimension,
+ * so `0.08` ≈ 3.7% per side, not 8%).
+ *
+ * ⚠ WAS `0.2` (≈8.33% per side). Measured 15 Aug 2026 at 1280x800 with the
+ * committed CEE draft capture (17 nodes / 37 edges): `0.2` reserved 106px per
+ * side horizontally and 66px vertically, leaving a 730x668 fitting box out of
+ * a 1280x800 pane — 43% of the width gone before the dock's own reservation
+ * was even counted. The drafted graph rendered at the `minZoom` legibility
+ * floor with its left edge clipped under the floating Olumi panel.
+ *
+ * `0.08` keeps a genuine margin (47px horizontally / 29px vertically at
+ * 1280x800) while returning ~170px of fitting box. It does NOT change how an
+ * occluding panel is handled — each side is still
+ * `max(baseMargin, occluderOverlap + GAP)`, so the dock and sidebar reserve
+ * exactly what they occlude. The visible consequence of the lower base is that
+ * the collapsed rail and the left sidebar now EXCEED it and reserve their own
+ * overlap (68px for a 52px sidebar) instead of hiding inside a larger base —
+ * which is the correct behaviour, just no longer "inert".
+ */
+const BASE_RATIO = 0.08
 /** Breathing gap between the graph and an occluding panel edge. */
 const GAP = 16
 /** Never let combined per-axis padding exceed this fraction of the pane (keeps a fitting area). */
