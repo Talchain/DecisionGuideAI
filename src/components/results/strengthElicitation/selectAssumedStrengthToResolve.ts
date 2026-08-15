@@ -15,9 +15,9 @@
  * set (`edgeValueSource`). Nothing joined the two, so a team was never told
  * which of its own assumptions to pin down first.
  *
- * This module is that join and NOTHING else. It mints no ranking: it walks the
- * producer's own order and returns the first row that is BOTH decision-relevant
- * AND still assumed.
+ * This module is that join and NOTHING else. It mints no metric: among rows that
+ * are BOTH decision-relevant AND still assumed, it selects the maximum of the
+ * producer's existing `switch_probability` measurement.
  *
  * ── THE THREE AUTHORITIES THIS CONSUMES (none of them re-derived here) ──────
  *   1. WHICH EDGE MATTERS — `getFragileEdgeSwitchProbability`
@@ -35,12 +35,49 @@
  *      stamped `weightSource: 'cee'`. Edge creation provenance never overrides
  *      the more specific user value stamp, so an AI-created edge stops being
  *      eligible after the user sets its strength through the existing editor.
- *   3. PRODUCER ORDER — ISL emits `fragile_edges` sorted descending by
+ *   3. WHICH ELIGIBLE EDGE COMES FIRST — `switch_probability` itself, BY VALUE.
+ *      The ISL response model declares the score but makes NO ordering promise,
+ *      and the producer returns enhanced rows in its edge-map insertion order.
+ *
+ *      ⚠ THIS REVERSES THE #704/#707 RULING THAT USED TO SIT HERE, AND THE
+ *      REASON MATTERS MORE THAN THE VERDICT — otherwise the next lane reverts
+ *      it. That ruling read: "ISL emits `fragile_edges` sorted descending by
  *      `switch_probability` (measured across all nine committed live captures).
  *      We preserve that order exactly and take the FIRST qualifying row. No
- *      `Math.max`, no re-sort, no tie-break of our own: re-ranking would be a
- *      second opinion about importance computed from a subset of the producer's
- *      inputs, and it is the one thing the surface shows.
+ *      `Math.max`, no re-sort." **Re-measured at staging `7153fbd7`, that
+ *      sentence is TRUE INSIDE ITS OWN SCOPE and FALSE AS A GENERALISATION.**
+ *      It was never a lie; it was a corpus that excluded the counter-examples.
+ *
+ *      Measured over EVERY committed JSON carrying `fragile_edges` (25 files;
+ *      20 distinct arrays with ≥2 numeric rows, after collapsing the debug
+ *      bundles that repeat one array at six JSON paths each):
+ *        • THE NINE LIVE CAPTURES  — 10 arrays, 10 descending, 0 not.
+ *        • EVERYTHING ELSE         — 10 arrays,  5 descending, 5 not.
+ *      The nine are identified by the `factor_evppi` magnitude this same header
+ *      cites below (26 rows), which lands on exactly nine files. So re-running
+ *      the original measurement REPRODUCES the original answer — which is
+ *      precisely why array position must stop being read as rank.
+ *
+ *      Two of those non-descending arrays change the ANSWER once the visibility
+ *      floor (`THRESHOLDS.FRAGILE_EDGE_FILTER`, 0.15) is applied, i.e. the old
+ *      `[0]` rule named a relationship that was NOT the most switch-prone one
+ *      on screen:
+ *        • `staging-bundles/olumi-debug-a4b32ee2-20260510.pre-fix.json`
+ *          above-floor [0.22, 0.544, …, 0.548, 0.344] — took 0.22, max 0.548
+ *        • `v5/__tests__/fixtures/v5-analysis-result.bundle-45c9b625.json`
+ *          above-floor [0.164, 0.24, 0.213] — took 0.164, max 0.24
+ *      ⚠ SCOPE, STATED PRECISELY: 2 of 17 above-floor arrays, not "about half".
+ *      Non-descending is NOT the same claim as index-0-is-not-the-maximum —
+ *      three further non-descending arrays (including the staging-real-shape
+ *      capture, whose 0.084 sits BELOW the floor) still have their maximum at
+ *      index 0 and are unaffected by this change. Correcting the rule is still
+ *      right: an untruthful superlative does not need a high hit-rate to be
+ *      untruthful, and nothing upstream bounds the rate.
+ *
+ *      So: take the MAXIMUM existing score among eligible rows, and use edge id
+ *      only to make equal-score ties deterministic. The tie-break carries no
+ *      scientific claim, and no new metric is minted — the value compared is the
+ *      producer's own, unmodified.
  *
  * ── WHAT `switch_probability` ACTUALLY MEANS, AND WHAT THE COPY MAY THEREFORE
  *    CLAIM ──────────────────────────────────────────────────────────────────
@@ -134,6 +171,8 @@ export interface AssumedStrengthSelection {
   readonly switchProbability: number
   /** ISL's "option that wins when edge is weak". `null` when the producer omitted it. */
   readonly alternativeWinnerLabel: string | null
+  /** Existing graph provenance, reduced only to the two unresolved copy cases. */
+  readonly strengthProvenance: 'ai_inferred' | 'missing'
 }
 
 export interface AssumedStrengthDecision {
@@ -141,7 +180,7 @@ export interface AssumedStrengthDecision {
   readonly refusalReason: AssumedStrengthRefusal | null
   /**
    * How many fragile edges (above the floor, canvas-matched) still have an
-   * assumed strength. `selected` is the first of them in producer order. Drives
+   * assumed strength. `selected` has their highest measured switch probability. Drives
    * the "and N others" clause, so it counts the SAME population the selection
    * came from — never all edges, never all fragile rows.
    */
@@ -179,20 +218,27 @@ function nonEmptyString(value: unknown): string | null {
  * Unknown/older provenance keeps the previous absence-safe rule: only a
  * recognised value source counts as resolved. No new provenance is inferred.
  */
-function hasUnresolvedAssumedStrength(data: Record<string, unknown> | undefined): boolean {
+function unresolvedStrengthProvenance(
+  data: Record<string, unknown> | undefined,
+): AssumedStrengthSelection['strengthProvenance'] | null {
   const valueSource = edgeValueSource(data, 'weight')
 
   // The strength editor writes this field-specific stamp and deliberately
   // leaves the edge's creation origin intact. It therefore has precedence.
   if (valueSource === 'user') {
-    return false
+    return null
   }
 
   if (data?.provenanceDisplay === 'ai_inferred' || data?.origin === 'ai') {
-    return true
+    // Edge-creation provenance cannot prove a numeric strength was estimated.
+    // The field-specific source does: `cee` means a producer supplied it; null
+    // means the AI-created edge is still carrying a UI fallback/default.
+    if (valueSource === 'cee') return 'ai_inferred'
+    if (valueSource === null) return 'missing'
+    return null
   }
 
-  return valueSource === null
+  return valueSource === null ? 'missing' : null
 }
 
 /**
@@ -229,16 +275,6 @@ export function selectAssumedStrengthToResolve({
     return { selected: null, refusalReason: 'no_robustness_data', assumedFragileCount: 0 }
   }
 
-  // SANITISE BEFORE DELEGATING. `getFragileEdgeSwitchProbability` reads
-  // `fe.switch_probability` with no null guard (`fragileEdgeMatch.ts:108`), so a
-  // payload carrying a null element throws inside the shared helper — measured,
-  // not assumed. Filtering to plain records here fixes it for THIS caller
-  // without reaching into a helper three other live surfaces share; the defect
-  // is reported separately rather than patched in passing. Non-record rows could
-  // never match an edge anyway, so dropping them changes no outcome, and the
-  // surviving rows keep the producer's relative order.
-  const candidates = fragileEdges.filter((r) => readRecord(r) !== null) as FragileEdgeCandidate[]
-
   let selected: AssumedStrengthSelection | null = null
   let assumedFragileCount = 0
   /** A row cleared the floor and matched a canvas edge — so the block is not vacuous. */
@@ -248,8 +284,6 @@ export function selectAssumedStrengthToResolve({
   /** Canvas edges already counted — one edge is one assumption, however many rows name it. */
   const countedEdgeIds = new Set<string>()
 
-  // PRODUCER ORDER, consumed not re-derived. The first qualifying row wins;
-  // every later one only increments the count.
   for (const raw of fragileEdges) {
     const row = readRecord(raw)
     if (row === null) continue
@@ -263,8 +297,18 @@ export function selectAssumedStrengthToResolve({
     // The floor, the dual-format match and the never-fall-back-to-marginal rule
     // all come from the ONE helper. `null` here means below the floor or not
     // measured — both "do not surface this row".
-    const measured = getFragileEdgeSwitchProbability(edge.id, edge.source, edge.target, candidates)
-    if (measured === null) continue
+    // Pass THIS row only. Besides keeping the score bound to the row whose
+    // identity/copy we carry, this prevents a duplicated edge row earlier in the
+    // payload from lending its number to a later row.
+    const measured = getFragileEdgeSwitchProbability(
+      edge.id,
+      edge.source,
+      edge.target,
+      [row as FragileEdgeCandidate],
+    )
+    // Producer contract is a probability in [0, 1]. A non-finite/out-of-range
+    // wire value cannot license either a maximum or user-facing percentage.
+    if (measured === null || !Number.isFinite(measured) || measured > 1) continue
 
     const fromLabel = nonEmptyString(nodeLabels.get(edge.source))
     const toLabel = nonEmptyString(nodeLabels.get(edge.target))
@@ -281,28 +325,38 @@ export function selectAssumedStrengthToResolve({
     // A CEE number is still provisional when the edge says AI inferred it.
     // Conversely, the field-specific user stamp wins over the edge's retained
     // AI creation origin after the existing editor writes the user's value.
-    if (!hasUnresolvedAssumedStrength(edge.data)) continue
+    const strengthProvenance = unresolvedStrengthProvenance(edge.data)
+    if (strengthProvenance === null) continue
 
     // COUNT DISTINCT EDGES, NOT ROWS. The producer may name one canvas edge in
     // more than one row (a repeated pair, or an `edge_id` row alongside its
     // from/to twin), and "and N others" is a claim about how many RELATIONSHIPS
-    // still rest on a placeholder. Counting rows would inflate it — and the
+    // still carry an unconfirmed strength. Counting rows would inflate it — and the
     // inflation would be invisible, because the sentence reads perfectly well
     // with a wrong number in it. Not reachable on observed data (nine captures,
     // zero duplicates), which is exactly why it needs pinning rather than
     // trusting: a producer change would make it reachable silently.
-    if (countedEdgeIds.has(edge.id)) continue
-    countedEdgeIds.add(edge.id)
-    assumedFragileCount += 1
-    if (selected === null) {
-      selected = {
-        edgeId: edge.id,
-        fromLabel,
-        toLabel,
-        switchProbability: measured,
-        alternativeWinnerLabel:
-          nonEmptyString(row.alternative_winner_label) ?? nonEmptyString(row.alternativeWinnerLabel),
-      }
+    if (!countedEdgeIds.has(edge.id)) {
+      countedEdgeIds.add(edge.id)
+      assumedFragileCount += 1
+    }
+
+    const candidate: AssumedStrengthSelection = {
+      edgeId: edge.id,
+      fromLabel,
+      toLabel,
+      switchProbability: measured,
+      alternativeWinnerLabel:
+        nonEmptyString(row.alternative_winner_label) ?? nonEmptyString(row.alternativeWinnerLabel),
+      strengthProvenance,
+    }
+    if (
+      selected === null ||
+      candidate.switchProbability > selected.switchProbability ||
+      (candidate.switchProbability === selected.switchProbability &&
+        candidate.edgeId.localeCompare(selected.edgeId) < 0)
+    ) {
+      selected = candidate
     }
   }
 

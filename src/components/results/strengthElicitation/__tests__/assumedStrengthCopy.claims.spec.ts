@@ -15,9 +15,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   ASSUMED_STRENGTH_ACTION,
-  ASSUMED_STRENGTH_ASK,
   ASSUMED_STRENGTH_REFUSAL_COPY,
   ASSUMED_STRENGTH_TITLE,
+  assumedStrengthAsk,
   assumedStrengthLead,
   assumedStrengthOthers,
   assumedStrengthWhy,
@@ -30,6 +30,7 @@ const sel = (over: Partial<AssumedStrengthSelection> = {}): AssumedStrengthSelec
   toLabel: 'Revenue growth',
   switchProbability: 0.35,
   alternativeWinnerLabel: 'Consolidate',
+  strengthProvenance: 'ai_inferred',
   ...over,
 })
 
@@ -37,13 +38,14 @@ const sel = (over: Partial<AssumedStrengthSelection> = {}): AssumedStrengthSelec
 function allSentences(): string[] {
   const out: string[] = [
     ASSUMED_STRENGTH_TITLE,
-    ASSUMED_STRENGTH_ASK,
     ASSUMED_STRENGTH_ACTION,
     ...Object.values(ASSUMED_STRENGTH_REFUSAL_COPY).filter((s): s is string => s !== null),
   ]
-  for (const alt of ['Consolidate', null]) {
-    const s = sel({ alternativeWinnerLabel: alt })
-    out.push(assumedStrengthLead(s), assumedStrengthWhy(s))
+  for (const strengthProvenance of ['ai_inferred', 'missing'] as const) {
+    for (const alt of ['Consolidate', null]) {
+      const s = sel({ alternativeWinnerLabel: alt, strengthProvenance })
+      out.push(assumedStrengthLead(s), assumedStrengthWhy(s), assumedStrengthAsk(s))
+    }
   }
   for (const n of [0, 1, 2, 5]) {
     const o = assumedStrengthOthers(n)
@@ -99,8 +101,11 @@ describe('assumedStrengthCopy — the claim boundary, held mechanically', () => 
     // rewritten INTO a promise; this catches the deferral being quietly taken
     // OUT — "re-run to see it change the answer" would pass every ban and still
     // be the defect. One without the other leaves half the door open.
-    expect(ASSUMED_STRENGTH_ASK).toMatch(/\bwhether\b/i)
-    expect(ASSUMED_STRENGTH_ASK).toMatch(/re-run/i)
+    for (const strengthProvenance of ['ai_inferred', 'missing'] as const) {
+      const ask = assumedStrengthAsk(sel({ strengthProvenance }))
+      expect(ask).toMatch(/\bwhether\b/i)
+      expect(ask).toMatch(/re-run/i)
+    }
   })
 
   it('never prints the ASSUMED weight as if it were a measurement', () => {
@@ -137,6 +142,24 @@ describe('assumedStrengthCopy — the claim boundary, held mechanically', () => 
     const s = assumedStrengthLead(sel())
     expect(s).toContain('Customer demand')
     expect(s).toContain('Revenue growth')
+  })
+
+  it('distinguishes a producer estimate from an unstamped default without inventing provenance', () => {
+    const estimated = assumedStrengthLead(sel({ strengthProvenance: 'ai_inferred' }))
+    expect(estimated).toContain('Olumi estimated')
+    expect(estimated).toContain('has not confirmed')
+    expect(estimated).not.toMatch(/placeholder/i)
+
+    const missing = assumedStrengthLead(sel({ strengthProvenance: 'missing' }))
+    expect(missing).toContain('Nobody has set')
+    expect(missing).not.toMatch(/estimated|placeholder/i)
+  })
+
+  it('explains the maximum using only the measured conditional rate', () => {
+    const why = assumedStrengthWhy(sel({ switchProbability: 0.548 }))
+    expect(why).toContain('55%')
+    expect(why).toContain('highest such rate')
+    expect(why).not.toMatch(/most (important|valuable|decision-sensitive)/i)
   })
 
   it('the “others” clause counts the REMAINDER, and is silent at 0 and 1', () => {

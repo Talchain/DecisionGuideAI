@@ -17,7 +17,7 @@
  * runs where it is the only thing we have to offer. It therefore sits as its own
  * block with its own presence rule, and the two never contend: one ranks
  * FACTORS by value of information, this one names an EDGE whose strength is a
- * placeholder.
+ * still unconfirmed.
  *
  * ── THE ACTION REACHES THE EDITOR, AND WRITES NOTHING ───────────────────────
  * The button calls `openEdgeStrengthEditor`, which selects the edge, stands the
@@ -52,9 +52,9 @@
 import { memo } from 'react'
 import {
   ASSUMED_STRENGTH_ACTION,
-  ASSUMED_STRENGTH_ASK,
   ASSUMED_STRENGTH_REFUSAL_COPY,
   ASSUMED_STRENGTH_TITLE,
+  assumedStrengthAsk,
   assumedStrengthLead,
   assumedStrengthOthers,
   assumedStrengthWhy,
@@ -110,7 +110,7 @@ function AssumedStrengthCardImpl({ decision, onResolve }: AssumedStrengthCardPro
         {assumedStrengthWhy(selected)}
       </p>
       <p className={`${typography.panelBody} text-text-body`} data-testid="assumed-strength-ask">
-        {ASSUMED_STRENGTH_ASK}
+        {assumedStrengthAsk(selected)}
       </p>
       {others !== null && (
         <p className={`${typography.panelMeta} text-text-muted`} data-testid="assumed-strength-others">

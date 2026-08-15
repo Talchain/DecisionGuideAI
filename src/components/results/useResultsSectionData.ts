@@ -1189,9 +1189,10 @@ export interface ResultsSectionDataReturn {
   /**
    * P4 — the ONE assumed relationship worth pinning down next, or a named
    * refusal. The join between "which relationship is this result sensitive to"
-   * (producer `fragile_edges`) and "whose strength nobody set"
-   * (`edgeValueSource`). Never a ranking of our own: the producer's wire order
-   * is walked and the first qualifying row wins.
+   * (producer `fragile_edges`) and "which strength is still unconfirmed"
+   * (`edgeValueSource` plus the existing AI-inferred provisional marker). The
+   * wire does not promise row order, so the selector uses the maximum existing
+   * `switch_probability` among eligible rows — no second score or VOI proxy.
    *
    * Deliberately NOT derived from `factor_evppi`, which this hook already reads
    * for `voiRanking`. Measured across all nine committed live captures, no

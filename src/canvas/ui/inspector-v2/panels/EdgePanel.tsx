@@ -21,6 +21,7 @@ import { useEdgeMutations } from '../useInspectorMutations'
 import {
   GROUP_LABELS,
   INLINE_LABELS,
+  ACTION_LABELS,
   EDGE_LINK_NOTICES,
   EDGE_COPY,
   resolveEdgeLinkTemplate,
@@ -194,6 +195,19 @@ export const EdgePanel = memo(function EdgePanel({
     [edge?.data],
   )
 
+  // A confirm-as-is action is licensed only by a real producer value. A bare
+  // UI default has no source and is not an estimate the user can honestly
+  // confirm. Keep the exact store number visible beside the action so consent
+  // covers the number that will receive the user provenance stamp.
+  const currentEstimatedWeight = useMemo(() => {
+    const data = edge?.data as Record<string, unknown> | undefined
+    const value = data?.weight
+    return edgeValueSource(data, 'weight') === 'cee' &&
+      typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+      ? value
+      : null
+  }, [edge?.data])
+
   // UI-SEM-029: Edge weight/direction defaults for display (0.5 / 'positive').
   const weight = edge?.data?.weight ?? 0.5
   const direction = edge?.data?.direction ?? 'positive'
@@ -273,11 +287,23 @@ export const EdgePanel = memo(function EdgePanel({
     // Reuse the canonical strength writer, then close the same confirmation
     // seam the fine-tune slider closes on blur so stale analysis exposes the
     // existing rerun affordance.
-    handleStrengthChange(v)
+    setLocalStrength(v)
+    // Presets choose magnitude only. The sign is retained visually by
+    // StrengthBandButtons, but retaining a sign is not the same as the user
+    // stating it: preserve both direction and directionSource byte-for-byte.
+    mutations.setStrength(v, { preserveDirection: true })
     clearPreview()
     origStrengthRef.current = v
     confirmEdit('strength')
-  }, [handleStrengthChange, clearPreview, confirmEdit])
+  }, [mutations, clearPreview, confirmEdit])
+
+  const handleConfirmCurrentStrength = useCallback(() => {
+    if (currentEstimatedWeight === null) return
+    // Confirm the exact live canonical magnitude, not a band midpoint or local
+    // slider draft. Magnitude confirmation says nothing about causal direction.
+    mutations.setStrength(currentEstimatedWeight, { preserveDirection: true })
+    confirmEdit('strength')
+  }, [currentEstimatedWeight, mutations, confirmEdit])
 
   const handleBeliefChange = useCallback((v: number) => {
     setLocalBelief(v)
@@ -354,6 +380,21 @@ export const EdgePanel = memo(function EdgePanel({
               </p>
               <StrengthBandButtons value={localStrength} onChange={handleStrengthPresetChange} />
               <ExpertAnnotation techMode={techMode} editable value={localStrength} onChange={(v) => { handleStrengthChange(v); }} suffix="β =" step={0.01} min={-1} max={1} />
+              {currentEstimatedWeight !== null && (
+                <div className="mt-2 rounded-md border border-accent/20 bg-panel px-2 py-1.5">
+                  <p className={`${typography.panelMeta} text-text-body`}>
+                    Olumi’s current estimate is <span className="font-mono">{String(currentEstimatedWeight)}</span>.
+                  </p>
+                  <button
+                    type="button"
+                    data-testid="edge-confirm-current-strength"
+                    onClick={handleConfirmCurrentStrength}
+                    className={`${typography.panelMeta} mt-1 text-accent underline underline-offset-2`}
+                  >
+                    {ACTION_LABELS.confirmCurrentStrength}
+                  </button>
+                </div>
+              )}
               {/* Edit feedback */}
               {lastConfirmed?.field === 'strength' && (
                 <div className="flex items-center gap-2 mt-1">
