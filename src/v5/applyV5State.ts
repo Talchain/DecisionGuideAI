@@ -48,6 +48,8 @@ import type { OlumiResponse, StageType } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
 import type { ReportV1 } from '../adapters/plot/types'
+import type { PLoTEnrichment } from '../adapters/plot/enrichment'
+import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../adapters/cee/types'
 import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
@@ -168,8 +170,8 @@ export interface V5ApplicatorStore {
     report: ReportV1
     hash: string
     resultsSource?: 'direct' | 'conversation'
-    enrichment?: unknown
-    rawV2Response?: unknown
+    enrichment?: PLoTEnrichment | null
+    rawV2Response?: V2RunResponse | null
     /** ROADMAP 2.350: the analysis_result block's own enrichment, for the
      *  Compare tab's in-session snapshot capture. NOT the V2-shaped
      *  `enrichment` slot above, which this path clears. */
@@ -205,7 +207,7 @@ export interface V5ApplicatorStore {
  * from a prior turn surviving into a turn where CEE sent a malformed
  * payload).
  */
-function normaliseV5AnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
+export function normaliseV5AnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
   if (raw == null || typeof raw !== 'object') return undefined
   const obj = raw as Record<string, unknown>
 

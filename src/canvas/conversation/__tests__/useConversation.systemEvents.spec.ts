@@ -11,7 +11,12 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { SEND_BLOCKED, useConversation, SYSTEM_MESSAGE_SENTINEL } from '../useConversation'
+import {
+  SEND_BLOCKED,
+  SystemEventSendError,
+  useConversation,
+  SYSTEM_MESSAGE_SENTINEL,
+} from '../useConversation'
 import { useCanvasStore } from '../../store'
 import type { WireSystemEvent } from '../types'
 
@@ -35,10 +40,15 @@ vi.mock('../turnService', () => ({
 }))
 
 let flagValue = true
-vi.mock('../../../flags', () => ({
-  isOrchestratorV2Enabled: () => flagValue,
-  isOrchestratorStreamingEnabled: () => false,
-}))
+vi.mock('../../../flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../flags')>()
+  return {
+    ...actual,
+    isE2EEnabled: () => true,
+    isOrchestratorV2Enabled: () => flagValue,
+    isOrchestratorStreamingEnabled: () => false,
+  }
+})
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -158,20 +168,22 @@ describe('sendSystemEvent', () => {
     expect(result.current.messages).toHaveLength(0)
   })
 
-  it('fails silently on system event error (no error message shown)', async () => {
+  it('rejects to its owner without showing a system-event error bubble', async () => {
     mockCallTurn.mockRejectedValue(new Error('Network error'))
 
     const { result } = renderHook(() => useConversation())
 
+    let failure: unknown = null
     await act(async () => {
       await result.current.sendSystemEvent({
         type: 'direct_graph_edit',
         payload: {},
-      })
+      }).catch((error) => { failure = error })
     })
 
-    // System events fail silently — no error message added to conversation
-    // because the user didn't initiate these and showing errors would be confusing
+    expect(failure).toBeInstanceOf(SystemEventSendError)
+    // The caller receives the failure, but system traffic never invents a chat
+    // message because the user did not submit a conversational turn.
     expect(result.current.messages).toHaveLength(0)
   })
 
@@ -184,7 +196,7 @@ describe('sendSystemEvent', () => {
       await result.current.sendSystemEvent({
         type: 'direct_analysis_run',
         payload: { trigger: 'play_button' },
-      })
+      }).catch(() => undefined)
     })
 
     // System events should NOT restore input

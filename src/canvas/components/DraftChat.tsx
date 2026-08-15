@@ -151,7 +151,7 @@ export function DraftChat() {
   const conversation = useConversation()
 
   // A.5+ Phase 2: Wire system event hooks (all no-ops when flag is OFF)
-  useGraphEditEvents(conversation.sendSystemEvent)
+  useGraphEditEvents(conversation.sendSystemEvent, { isThinking: conversation.isThinking })
   useAnalysisCompleteEvent()
   // COLLAB 0.40.0 — drain a panel-apply intent recorded on `/scenario/:id/panel`.
   // It is hosted HERE, beside its two sibling system-event hooks, because this is

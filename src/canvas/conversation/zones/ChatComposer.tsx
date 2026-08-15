@@ -31,6 +31,7 @@ import type { BriefReadiness } from '../hooks/useBriefSignals'
 import type { UseConversationReturn } from '../useConversation'
 import { typography } from '../../../styles/typography'
 import type { ScenarioStage } from '../../../types/scenario'
+import { refreshEdgeStrengthAuthority } from '../../edge-strength/edgeStrengthCoordinator'
 
 // ChatTopBar is removed (Tranche 1 item 30); GenerateState now lives here.
 export type GenerateState = 'disabled' | 'active' | 'loading'
@@ -96,6 +97,15 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
     const runAriaLabel = runDisabled && runDisabledReason
       ? `Run analysis (blocked: ${runDisabledReason})`
       : 'Run analysis'
+    const [refreshingSharedModel, setRefreshingSharedModel] = useState(false)
+    const [sharedModelRefreshError, setSharedModelRefreshError] = useState<string | null>(null)
+    const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+    const sharedModelRecoveryNeeded = useCanvasStore((s) =>
+      s.unconfirmedEmittedEdits > 0 ||
+      s.edgeStrengthSync?.hydration === 'unconfirmed' ||
+      (s.edgeStrengthSync?.issue ?? null) !== null,
+    )
+    const runBlockerId = 'composer-run-blocked-reason'
     const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
     const hasGraph = useCanvasStore(s => s.nodes.length > 0 || s.edges.length > 0)
     const hasAnalysis = useCanvasStore(s => s.results?.status === 'complete' && Boolean(s.results?.hash ?? s.currentScenarioLastResultHash))
@@ -320,6 +330,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
               disabled={runDisabled}
               title={runTitle}
               aria-label={runAriaLabel}
+              aria-describedby={runDisabled && runDisabledReason ? runBlockerId : undefined}
               className="composer-icon-btn flex-shrink-0 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
               style={{
                 width: 34,
@@ -424,6 +435,62 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             </button>
           )}
         </div>
+
+        {showRunAnalysis && runDisabled && runDisabledReason && (
+          <div
+            id={runBlockerId}
+            className={`${typography.panelMeta} text-text-light mt-1 px-1`}
+            role="status"
+            aria-live="polite"
+          >
+            <p>{runDisabledReason}</p>
+            {sharedModelRecoveryNeeded && currentScenarioId && (
+              <div className="mt-1 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="text-info underline underline-offset-2 disabled:opacity-50"
+                  disabled={refreshingSharedModel}
+                  onClick={() => {
+                    setSharedModelRefreshError(null)
+                    setRefreshingSharedModel(true)
+                    void refreshEdgeStrengthAuthority(currentScenarioId)
+                      .then((ok) => {
+                        if (!ok) setSharedModelRefreshError('The shared model could not be checked. Your local changes are still held from analysis.')
+                      })
+                      .finally(() => {
+                        setRefreshingSharedModel(false)
+                      })
+                  }}
+                >
+                  {refreshingSharedModel ? 'Checking…' : 'Check shared model'}
+                </button>
+                <button
+                  type="button"
+                  className="text-info underline underline-offset-2 disabled:opacity-50"
+                  disabled={refreshingSharedModel}
+                  onClick={() => {
+                    setSharedModelRefreshError(null)
+                    setRefreshingSharedModel(true)
+                    void refreshEdgeStrengthAuthority(currentScenarioId, {
+                      replaceLocalGraph: true,
+                    })
+                      .then((ok) => {
+                        if (!ok) setSharedModelRefreshError('The shared model could not be restored. Your local changes are still held from analysis.')
+                      })
+                      .finally(() => {
+                        setRefreshingSharedModel(false)
+                      })
+                  }}
+                >
+                  Restore shared model
+                </button>
+              </div>
+            )}
+            {sharedModelRefreshError && (
+              <p className="mt-1 text-danger" role="alert">{sharedModelRefreshError}</p>
+            )}
+          </div>
+        )}
 
         <style>{`
           .send-btn:not(:disabled):hover {

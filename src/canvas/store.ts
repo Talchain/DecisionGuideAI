@@ -106,6 +106,48 @@ export interface PreviousReportSnapshot {
   driverInfluences?: Record<string, number>
 }
 
+/**
+ * Canonical edge-strength persistence state for the currently open scenario.
+ *
+ * This is a read model only. The edge-strength coordinator owns the queue and
+ * publishes its derived state here so Run surfaces and accessibility copy can
+ * render one truthful answer. `issue` is intentionally sticky: a response that
+ * did not prove persistence must keep analysis blocked until the user refreshes
+ * or makes a new, attributable edit.
+ */
+export type EdgeStrengthSyncIssue =
+  | 'conflict'
+  | 'unconfirmed'
+  | 'unsupported_fields'
+  | 'unsupported_value'
+  | 'unconfirmed_structure'
+
+export interface EdgeStrengthSyncState {
+  scenarioId: string | null
+  revision: number
+  hydration: 'idle' | 'pending' | 'settled' | 'unconfirmed'
+  queued: number
+  inFlight: number
+  issue: EdgeStrengthSyncIssue | null
+  lastOutcome: {
+    kind: 'saved' | 'confirmed' | 'shared_value_refreshed' | 'review_required'
+    edgeId: string
+    from: string
+    to: string
+    at: number
+  } | null
+}
+
+export const EMPTY_EDGE_STRENGTH_SYNC: EdgeStrengthSyncState = Object.freeze({
+  scenarioId: null,
+  revision: 0,
+  hydration: 'idle',
+  queued: 0,
+  inFlight: 0,
+  issue: null,
+  lastOutcome: null,
+})
+
 /** Result of addEdge — indicates whether the edge was created and why it was blocked */
 export type AddEdgeBlockReason = 'self_loop' | 'duplicate' | 'cycle' | 'node_not_found' | 'edge_limit'
 export interface AddEdgeResult {
@@ -537,6 +579,12 @@ interface CanvasState {
    * would silently re-enable the false "fresh").
    */
   pendingEmittedEdits: number
+  /** Canonical factor-value writer turns currently awaiting a server outcome. */
+  activeEmittedEdits: number
+  /** Factor-value writes whose delivery/persistence could not be confirmed. */
+  unconfirmedEmittedEdits: number
+  /** Derived canonical edge-strength writer state for this scenario. */
+  edgeStrengthSync: EdgeStrengthSyncState
   // CEE coaching payload from last /assist/v1/draft-graph response (build a555cf7b+).
   // Session-local — never persisted; cleared on new draft start and scenario reset.
   draftCoaching: CEEDraftCoaching | null
@@ -918,6 +966,10 @@ interface CanvasState {
   clearAnalysisFreshnessDirty: () => void
   /** Publish how many emitted edits are still queued behind the dispatcher's in-flight lock. Derived from that buffer's length by its owner. */
   setPendingEmittedEdits: (count: number) => void
+  setActiveEmittedEdits: (count: number) => void
+  setUnconfirmedEmittedEdits: (count: number) => void
+  /** Publish the edge coordinator's derived state. Never hand-balance it here. */
+  setEdgeStrengthSync: (state: EdgeStrengthSyncState) => void
   setDraftCoaching: (coaching: CEEDraftCoaching | null) => void
   /**
    * Set the goal constraints. A USER edit (GoalPanel add/remove/change) is
@@ -1707,6 +1759,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   importPendingServerRegistration: false,
   // No edit can be awaiting dispatch before any edit has been made.
   pendingEmittedEdits: 0,
+  activeEmittedEdits: 0,
+  unconfirmedEmittedEdits: 0,
+  edgeStrengthSync: EMPTY_EDGE_STRENGTH_SYNC,
   ceeAnalysisReadyNodeIds: null,
   // V5 canonical analysis fact (v5-canonical-analysis brief)
   v5AnalysisFact: null,
@@ -4522,6 +4577,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       } else if (
         state.analysisFreshnessDirty &&
         state.pendingEmittedEdits === 0 &&
+        state.activeEmittedEdits === 0 &&
+        state.unconfirmedEmittedEdits === 0 &&
+        state.edgeStrengthSync.queued === 0 &&
+        state.edgeStrengthSync.inFlight === 0 &&
+        state.edgeStrengthSync.issue === null &&
         !verdictIsSilentOnFreshness
       ) {
         updates.analysisFreshnessDirty = false
@@ -4572,14 +4632,26 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Interim 2.467: a run against an unregistered import keeps the overlay
       // too — the run consumed CEE's own graph, not the imported canvas.
       analysisFreshnessDirty:
-        state.pendingEmittedEdits > 0 || state.importPendingServerRegistration,
+        state.pendingEmittedEdits > 0 ||
+        state.activeEmittedEdits > 0 ||
+        state.unconfirmedEmittedEdits > 0 ||
+        state.edgeStrengthSync.queued > 0 ||
+        state.edgeStrengthSync.inFlight > 0 ||
+        state.edgeStrengthSync.issue !== null ||
+        state.importPendingServerRegistration,
     }))
   },
   clearAnalysisFreshnessDirty: () => {
     // Called when a genuinely NEW analysis_result lands. It still must not
     // clear the overlay while an emitted edit is queued behind the in-flight
     // lock — that analysis was computed without it.
-    if (get().pendingEmittedEdits > 0) return
+    if (
+      get().pendingEmittedEdits > 0 ||
+      get().activeEmittedEdits > 0 ||
+      get().unconfirmedEmittedEdits > 0
+    ) return
+    const edgeSync = get().edgeStrengthSync
+    if (edgeSync.queued > 0 || edgeSync.inFlight > 0 || edgeSync.issue !== null) return
     // Interim 2.467: nor while the canvas graph is an import the server has
     // never seen — the new analysis_result was computed against CEE's own
     // pre-import graph (applyV5State calls this right after
@@ -4597,6 +4669,34 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setPendingEmittedEdits: (count: number) => {
     const next = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0
     if (get().pendingEmittedEdits !== next) set(() => ({ pendingEmittedEdits: next }))
+  },
+
+  setActiveEmittedEdits: (count: number) => {
+    const next = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0
+    if (get().activeEmittedEdits !== next) set(() => ({ activeEmittedEdits: next }))
+  },
+
+  setUnconfirmedEmittedEdits: (count: number) => {
+    const next = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0
+    if (get().unconfirmedEmittedEdits !== next) set(() => ({ unconfirmedEmittedEdits: next }))
+  },
+
+  setEdgeStrengthSync: (edgeStrengthSync) => {
+    const current = get().edgeStrengthSync
+    if (
+      current.scenarioId === edgeStrengthSync.scenarioId &&
+      current.revision === edgeStrengthSync.revision &&
+      current.hydration === edgeStrengthSync.hydration &&
+      current.queued === edgeStrengthSync.queued &&
+      current.inFlight === edgeStrengthSync.inFlight &&
+      current.issue === edgeStrengthSync.issue &&
+      current.lastOutcome?.kind === edgeStrengthSync.lastOutcome?.kind &&
+      current.lastOutcome?.edgeId === edgeStrengthSync.lastOutcome?.edgeId &&
+      current.lastOutcome?.from === edgeStrengthSync.lastOutcome?.from &&
+      current.lastOutcome?.to === edgeStrengthSync.lastOutcome?.to &&
+      current.lastOutcome?.at === edgeStrengthSync.lastOutcome?.at
+    ) return
+    set({ edgeStrengthSync })
   },
 
   setGoalConstraints: (constraints, opts) => {

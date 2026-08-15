@@ -495,6 +495,10 @@ export const ConversationPanel = memo(function ConversationPanel({
   // to block Run on every other scenario with a false reason. `draftStreamPhaseFor`
   // is the one place that decides ownership — never re-derived at a call site.
   const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, scenarioId))
+  const edgeStrengthSync = useCanvasStore((s) => s.edgeStrengthSync)
+  const pendingEmittedEdits = useCanvasStore((s) => s.pendingEmittedEdits)
+  const activeEmittedEdits = useCanvasStore((s) => s.activeEmittedEdits)
+  const unconfirmedEmittedEdits = useCanvasStore((s) => s.unconfirmedEmittedEdits)
   const runGateResult = useMemo(() => canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
     readiness,
@@ -504,7 +508,11 @@ export const ConversationPanel = memo(function ConversationPanel({
     ceeCannotSeeModel,
     draftStreamPhase,
     readinessStale,
-  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning, ceeCannotSeeModel, draftStreamPhase, readinessStale])
+    pendingEmittedEdits,
+    activeEmittedEdits,
+    unconfirmedEmittedEdits,
+    edgeStrengthSync,
+  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning, ceeCannotSeeModel, draftStreamPhase, readinessStale, pendingEmittedEdits, activeEmittedEdits, unconfirmedEmittedEdits, edgeStrengthSync])
 
   // In-flight takes priority over structural reasons: the composer button
   // is disabled for either cause, but the user-visible tooltip should explain

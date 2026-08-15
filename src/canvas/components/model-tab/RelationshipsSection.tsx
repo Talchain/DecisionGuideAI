@@ -46,6 +46,7 @@ import {
   compareEdgeValueDisplays,
   type EdgeValueSource,
 } from '../../domain/edgeValueProvenance'
+import { isV5CanonicalRunPath } from '../../../v5/eligibility'
 
 /** Repair display entry for edge detail */
 export interface EdgeRepairDisplay {
@@ -121,6 +122,7 @@ function EdgeCard({
   // update as the value they describe, which is the property the old handlers
   // maintained by convention and these maintain by construction.
   const mutations = useEdgeMutations(edgeId)
+  const canonicalSharedModel = isV5CanonicalRunPath()
 
   // Bidirectional row → graph hover highlight. Unmount cleanup guards against
   // tab-switch-while-hovered where onMouseLeave never fires.
@@ -220,7 +222,7 @@ function EdgeCard({
 
   const validateWeight = useCallback((s: string) => {
     const n = parseFloat(s)
-    return !isNaN(n) && n >= 0 && n <= 2
+    return !isNaN(n) && n >= 0 && n <= 1
   }, [])
 
   const validateLikelihood = useCallback((s: string) => {
@@ -229,7 +231,7 @@ function EdgeCard({
   }, [])
 
   /**
-   * The weight chip edits the MAGNITUDE (0–2); direction is the separate toggle
+   * The weight chip edits the MAGNITUDE (0–1); direction is the separate toggle
    * beside it. So the write says exactly that: `preserveDirection` — never a
    * direction re-derived from a sign this chip does not own.
    *
@@ -246,7 +248,7 @@ function EdgeCard({
    */
   const handleWeightSave = useCallback((val: string) => {
     const n = parseFloat(val)
-    if (isNaN(n) || n < 0 || n > 2) return
+    if (isNaN(n) || n < 0 || n > 1) return
     mutations.setStrength(n, { preserveDirection: true })
   }, [mutations])
 
@@ -350,7 +352,7 @@ function EdgeCard({
                   validate={validateWeight}
                   maxWidth="max-w-[55px]"
                   numeric
-                  tooltip="Weight (0–2). Click to edit."
+                  tooltip="Weight (0–1). Click to edit."
                   testId={`edge-${edgeId}-weight`}
                 />
                 {/* Direction toggle */}
@@ -415,15 +417,24 @@ function EdgeCard({
           </span>
           {hasLikelihood ? (
             <>
-              <InlineEdit
-                value={String(likelihoodPct)}
-                onSave={handleLikelihoodSave}
-                validate={validateLikelihood}
-                maxWidth="max-w-[55px]"
-                numeric
-                suffix="%"
-                testId={`edge-${edgeId}-likelihood`}
-              />
+              {canonicalSharedModel ? (
+                <span
+                  className={`${typography.panelMeta} text-text-body`}
+                  data-testid={`edge-${edgeId}-likelihood-readonly`}
+                >
+                  {likelihoodPct}%
+                </span>
+              ) : (
+                <InlineEdit
+                  value={String(likelihoodPct)}
+                  onSave={handleLikelihoodSave}
+                  validate={validateLikelihood}
+                  maxWidth="max-w-[55px]"
+                  numeric
+                  suffix="%"
+                  testId={`edge-${edgeId}-likelihood`}
+                />
+              )}
               <div className="h-1 bg-panel-border rounded-full overflow-hidden w-10">
                 <div
                   className={`h-full rounded-full transition-all ${likelihoodColour}`}
@@ -440,6 +451,11 @@ function EdgeCard({
             </span>
           )}
         </div>
+        {canonicalSharedModel && (
+          <p className={`${typography.panelMeta} text-text-light mt-1`}>
+            Analysis uses the shared-model likelihood. Editing it is not available yet.
+          </p>
+        )}
 
         {/* Provenance (evidence only) */}
         {hasEvidence && (

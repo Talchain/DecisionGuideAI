@@ -73,6 +73,16 @@ export function ScenarioSwitcher({
   const isDirty = useCanvasStore(s => s.isDirty)
   const isSaving = useCanvasStore(s => s.isSaving)
   const lastSavedAt = useCanvasStore(s => s.lastSavedAt)
+  const canonicalValueUnresolved = useCanvasStore(s => {
+    const edgeSync = s.edgeStrengthSync
+    return s.pendingEmittedEdits > 0 ||
+      s.activeEmittedEdits > 0 ||
+      s.unconfirmedEmittedEdits > 0 ||
+      edgeSync?.hydration === 'unconfirmed' ||
+      (edgeSync?.queued ?? 0) > 0 ||
+      (edgeSync?.inFlight ?? 0) > 0 ||
+      edgeSync?.issue != null
+  })
   const loadScenario = useCanvasStore(s => s.loadScenario)
   const saveCurrentScenario = useCanvasStore(s => s.saveCurrentScenario)
   const duplicateCurrentScenario = useCanvasStore(s => s.duplicateCurrentScenario)
@@ -347,6 +357,7 @@ export function ScenarioSwitcher({
           <SaveStatusPill
             isSaving={isSaving}
             lastSavedAt={lastSavedAt}
+            deviceOnly={canonicalValueUnresolved}
           />
 
           <button

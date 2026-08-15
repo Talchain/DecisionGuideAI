@@ -29,6 +29,12 @@ import {
 } from '../useInspectorMutations'
 import { useCanvasStore } from '../../../store'
 
+// Keep this setter-manifest test isolated from the conversation transport.
+// The hook treats a missing provider as the normal local-edit path.
+vi.mock('../../../conversation/ConversationContext', () => ({
+  useOptionalConversationContext: () => null,
+}))
+
 // Spies swapped into the real store so getNode/getEdge still resolve while we
 // capture exactly what each setter writes.
 const updateNode = vi.fn()
@@ -137,5 +143,29 @@ describe('useInspectorMutations — EDITOR_WRITTEN_FIELDS cannot drift from the 
     const { result } = renderHook(() => useEdgeMutations('e1'))
     const written = keysWrittenBy(result.current.setLabel as (...a: unknown[]) => void, ['proves visibility'], updateEdge)
     expect(written).toEqual(['label'])
+  })
+
+  it('preserves the explicit negative direction when a signed strength is set to zero', () => {
+    useCanvasStore.setState({
+      edges: [{
+        id: 'e1',
+        source: 'a',
+        target: 'b',
+        data: { weight: 0.4, direction: 'negative', directionSource: 'cee' },
+      }],
+      updateEdge,
+    } as never, false)
+    const { result } = renderHook(() => useEdgeMutations('e1'))
+
+    act(() => { result.current.setStrength(0) })
+
+    expect(updateEdge).toHaveBeenCalledWith('e1', {
+      data: expect.objectContaining({
+        weight: 0,
+        direction: 'negative',
+        directionSource: 'cee',
+        weightSource: 'user',
+      }),
+    })
   })
 })

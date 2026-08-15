@@ -460,26 +460,21 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // P0-9: Handle edge data update from popover
   //
   // ⭐ ROADMAP 2.950 — the strength stamp, CONDITIONAL on the value moving.
-  // `EdgeEditPopover` live-previews on a 120 ms debounce, INCLUDING an initial
-  // fire with the SEED values the moment it opens. Stamping every fire would
-  // launder the `weight` default into a user claim just by opening the popover
-  // — the exact failure `edgeValueProvenance.ts` exists to prevent — while
-  // never stamping would leave the (now provenance-gated) label saying "not
-  // set" about a strength the user just chose. So: stamp `weightSource:
-  // 'user'` only when the written weight differs from the one on screen, and
-  // clear any producer `strength_mean` with it — the resolver prefers the
-  // pre-signed mean, so a stale one would keep speaking over the user's number
-  // (same shape as `PreAnalysisPanel`'s user override, :1216).
+  // `EdgeEditPopover` keeps slider movement local and invokes this seam once
+  // on an explicit Enter/outside-click commit. The equality guard remains a
+  // defence against laundering a display fallback into a user claim. A real
+  // commit stamps `weightSource: 'user'` and clears any producer
+  // `strength_mean`; the resolver prefers the pre-signed mean, so a stale one
+  // would otherwise keep speaking over the user's number (same shape as
+  // `PreAnalysisPanel`'s user override, :1216).
   //
   // `belief` is deliberately NOT stamped: it is the legacy confidence field,
   // not the provenanced `beliefExists` channel, and stamping
   // `beliefExistsSource` for it would claim a value the beliefExists reader
   // would then resolve from the DEFAULTED `beliefExists: 0.8` instead.
-  const handleEdgeUpdate = (edgeId: string, updatedData: { weight: number; belief: number }) => {
+  const handleEdgeUpdate = (edgeId: string, updatedData: { weight: number }) => {
     if (updatedData.weight !== weight) {
       updateEdgeData(edgeId, { ...updatedData, strength_mean: undefined, weightSource: 'user' })
-    } else {
-      updateEdgeData(edgeId, updatedData)
     }
   }
 
@@ -1299,7 +1294,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       {/* P0-9: Inline edge edit popover */}
       {showEditPopover && (
         <EdgeEditPopover
-          edge={{ id, data: { weight, belief: belief ?? 0.5 } }}
+          edge={{ id, data: { weight } }}
           position={editPopoverPosition}
           onUpdate={handleEdgeUpdate}
           onClose={() => setShowEditPopover(false)}

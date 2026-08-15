@@ -454,6 +454,65 @@ describe('canRunAnalysis — #343 honest stopgap (model invisible to CEE)', () =
   })
 })
 
+describe('canRunAnalysis — canonical value-writer barrier', () => {
+  const base: CanRunAnalysisParams = {
+    graphHealth: null,
+    readiness: null,
+    hasBlockers: false,
+    nodeCount: 5,
+  }
+  const settledEdge = {
+    scenarioId: 'scenario-1',
+    hydration: 'settled' as const,
+    queued: 0,
+    inFlight: 0,
+    issue: null,
+  }
+
+  it.each([
+    ['queued factor edit', { pendingEmittedEdits: 1 }, /model value to finish saving/i],
+    ['active factor edit', { activeEmittedEdits: 1 }, /model value to finish saving/i],
+    ['unconfirmed factor edit', { unconfirmedEmittedEdits: 1 }, /could not confirm whether a model value/i],
+  ])('blocks a %s', (_label, writer, reason) => {
+    const result = canRunAnalysis({ ...base, ...writer, edgeStrengthSync: settledEdge })
+    expect(result.allowed).toBe(false)
+    expect(result.reason).toMatch(reason)
+  })
+
+  it('blocks while relationship saving is queued or in flight', () => {
+    for (const edgeStrengthSync of [
+      { ...settledEdge, queued: 1 },
+      { ...settledEdge, inFlight: 1 },
+    ]) {
+      const result = canRunAnalysis({ ...base, edgeStrengthSync })
+      expect(result.allowed).toBe(false)
+      expect(result.reason).toBe('Wait for this relationship to finish saving before running analysis.')
+    }
+  })
+
+  it.each([
+    ['unconfirmed hydration', { ...settledEdge, hydration: 'unconfirmed' as const }, /could not verify which shared model/i],
+    ['conflict', { ...settledEdge, issue: 'conflict' as const }, /changed elsewhere/i],
+    ['ambiguous receipt', { ...settledEdge, issue: 'unconfirmed' as const }, /could not confirm whether this relationship/i],
+    ['local-only structure', { ...settledEdge, issue: 'unconfirmed_structure' as const }, /added, removed, or reconnected only on this device/i],
+    ['unsupported uncertainty', { ...settledEdge, issue: 'unsupported_fields' as const }, /cannot include local relationship likelihood or uncertainty/i],
+  ])('blocks %s', (_label, edgeStrengthSync, reason) => {
+    const result = canRunAnalysis({ ...base, edgeStrengthSync })
+    expect(result.allowed).toBe(false)
+    expect(result.reason).toMatch(reason)
+  })
+
+  it('does not apply the CEE writer barrier to the legacy direct-analysis path', () => {
+    isV5CanonicalRunPathMock.mockReturnValue(false)
+    expect(canRunAnalysis({
+      ...base,
+      pendingEmittedEdits: 1,
+      edgeStrengthSync: { ...settledEdge, issue: 'unconfirmed_structure' },
+    }).allowed).toBe(true)
+    isV5CanonicalRunPathMock.mockReturnValue(true)
+  })
+})
+
 describe('computeCeeCannotSeeModel — the ONE home for the honest-gate predicate', () => {
   const templateNodes = [{ data: { templateId: 'hiring-v1' } }, { data: {} }]
   const draftedNodes = [{ data: {} }, { data: { label: 'x' } }]

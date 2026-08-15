@@ -34,7 +34,7 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
       const dialog = screen.getByRole('dialog')
       const ariaLabel = dialog.getAttribute('aria-label')
 
-      expect(ariaLabel).toBe('Edit edge weight and belief')
+      expect(ariaLabel).toBe('Edit relationship strength')
       expect(ariaLabel).toBeTruthy()
       expect(ariaLabel!.length).toBeGreaterThan(10) // Descriptive label
     })
@@ -47,10 +47,10 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
       expect(weightSlider).toBeDefined()
       expect(weightSlider.getAttribute('type')).toBe('range')
 
-      // Belief slider should have label
-      const beliefSlider = screen.getByLabelText('Belief')
-      expect(beliefSlider).toBeDefined()
-      expect(beliefSlider.getAttribute('type')).toBe('range')
+      // Unsupported likelihood/uncertainty values stay read-only and are
+      // described visibly rather than receiving a local-only control.
+      expect(screen.queryByLabelText('Belief')).toBeNull()
+      expect(screen.getByText(/likelihood and uncertainty use the shared-model values/i)).toBeDefined()
     })
 
     it('should have aria-label on close button', () => {
@@ -66,7 +66,7 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
 
       const heading = container.querySelector('h3')
       expect(heading).toBeDefined()
-      expect(heading?.textContent).toBe('Edit Edge')
+      expect(heading?.textContent).toBe('Edit relationship strength')
     })
 
     it('should have keyboard hint text for screen readers', () => {
@@ -135,36 +135,43 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
   describe('Keyboard Navigation', () => {
     it('should support Escape key to close popover', () => {
       const mockOnClose = vi.fn()
+      const mockOnUpdate = vi.fn()
       render(
         <EdgeEditPopover
           edge={{ id: 'e1', data: { weight: 0.5, belief: 0.5 } }}
           position={{ x: 400, y: 300 }}
-          onUpdate={() => {}}
+          onUpdate={mockOnUpdate}
           onClose={mockOnClose}
         />
       )
 
+      fireEvent.change(screen.getByLabelText('Weight'), { target: { value: '0.8' } })
       const dialog = screen.getByRole('dialog')
       fireEvent.keyDown(dialog, { key: 'Escape' })
 
       expect(mockOnClose).toHaveBeenCalledTimes(1)
+      expect(mockOnUpdate).not.toHaveBeenCalled()
     })
 
     it('should support Enter key to save popover', () => {
       const mockOnClose = vi.fn()
+      const mockOnUpdate = vi.fn()
       render(
         <EdgeEditPopover
           edge={{ id: 'e1', data: { weight: 0.5, belief: 0.5 } }}
           position={{ x: 400, y: 300 }}
-          onUpdate={() => {}}
+          onUpdate={mockOnUpdate}
           onClose={mockOnClose}
         />
       )
 
+      fireEvent.change(screen.getByLabelText('Weight'), { target: { value: '0.8' } })
       const dialog = screen.getByRole('dialog')
       fireEvent.keyDown(dialog, { key: 'Enter' })
 
       expect(mockOnClose).toHaveBeenCalledTimes(1)
+      expect(mockOnUpdate).toHaveBeenCalledTimes(1)
+      expect(mockOnUpdate).toHaveBeenCalledWith('e1', { weight: 0.8 })
     })
   })
 
@@ -211,7 +218,8 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
 
       // Value should be displayed next to label
       expect(screen.getByText('0.75')).toBeDefined()
-      expect(screen.getByText('0.90')).toBeDefined()
+      expect(screen.queryByText('0.90')).toBeNull()
+      expect(screen.getByText(/likelihood and uncertainty use the shared-model values/i)).toBeDefined()
     })
 
     it('should announce warning status with role="status"', () => {
@@ -238,7 +246,7 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
 
       // Should have proper labels
       const labels = container.querySelectorAll('label')
-      expect(labels.length).toBe(2) // Weight and Belief
+      expect(labels.length).toBe(1) // Canonical weight only; unsupported fields are read-only.
     })
   })
 })

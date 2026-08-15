@@ -27,7 +27,7 @@ import { streamStageFrames } from '../../v5/streamedDraftFrames'
 import { consumeStreamedDraftTurn, reconcileTerminalPreview } from '../../v5/consumeStreamedDraftTurn'
 import { routeV5Response } from '../../v5/responseRouter'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
-import { isV5Eligible } from '../../v5/eligibility'
+import { isV5CanonicalRunPath, isV5Eligible } from '../../v5/eligibility'
 import { buildV5Payload } from '../../v5/buildPayload'
 import {
   checkRetryableAgreement,
@@ -168,6 +168,12 @@ import {
   type TurnType,
 } from '../../services/turn-request-builder'
 import { isDebugBundleV2Enabled } from '../../components/debug/utils/exportBundle'
+import {
+  discardEdgeStrengthAttemptForScenarioChange,
+  edgeStrengthRunBarrierState,
+  flushEdgeStrengthEditsBeforeRun,
+  settleEdgeStrengthResponse,
+} from '../edge-strength/edgeStrengthCoordinator'
 
 /** Sentinel message content used for system events — must never render as a user bubble */
 export const SYSTEM_MESSAGE_SENTINEL = '[system]'
@@ -2339,6 +2345,8 @@ export interface SendTurnOpts {
    * returned instead of creating a second, hidden copy of the same action.
    */
   deferIfBusy?: boolean
+  /** Coordinator token for one canonical edge-strength writer turn. */
+  edgeStrengthAttemptId?: string
 }
 
 /** One send held back by the in-flight lock. */
@@ -2447,6 +2455,8 @@ export interface UseConversationReturn {
     optimisticFactorEdit?: OptimisticFactorEdit
     /** Return `SEND_BLOCKED` instead of queueing behind an in-flight turn. */
     deferIfBusy?: boolean
+    /** Internal canonical edge-strength receipt correlation token. */
+    edgeStrengthAttemptId?: string
     // Resolves to SEND_DEFERRED when the in-flight lock queued the send instead
     // of dispatching it, so a caller can tell "queued" from "sent" — the old
     // `Promise<void>` made those two indistinguishable, which is how an
@@ -2515,6 +2525,23 @@ export function useConversation(): UseConversationReturn {
    */
   const deferredSystemSendsRef = useRef<DeferredSystemSend[]>([])
   const flushingDeferredRef = useRef(false)
+  const activeFactorWriterRef = useRef<{
+    scenarioId: string | null
+    targetId: string
+    generation: number
+  } | null>(null)
+  const factorWriterGenerationRef = useRef(0)
+  const factorWriterFailuresRef = useRef<Map<string, Set<string>>>(new Map())
+  const factorWriterWaitersRef = useRef<Set<{
+    scenarioId: string
+    resolve: (result: { ok: boolean; reason?: string }) => void
+  }>>(new Set())
+  const flushFactorValueEditsBeforeRunRef = useRef<(
+    scenarioId: string | null,
+  ) => Promise<{ ok: boolean; reason?: string }>>(async () => ({
+    ok: false,
+    reason: 'Model-value saving is not ready yet. Analysis has not started.',
+  }))
   const longRunningTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval>>()
@@ -3982,6 +4009,93 @@ export function useConversation(): UseConversationReturn {
     useCanvasStore.getState().setPendingEmittedEdits?.(modelEdits)
   }, [])
 
+  const factorTargetId = useCallback((opts: SendTurnOpts): string => {
+    const value = opts.systemEvent?.payload?.target_id
+    return typeof value === 'string' && value.length > 0 ? value : 'unknown-factor'
+  }, [])
+
+  const publishFactorWriterState = useCallback(() => {
+    const scenarioNow = useCanvasStore.getState().currentScenarioId ?? null
+    const active = activeFactorWriterRef.current?.scenarioId === scenarioNow ? 1 : 0
+    const unconfirmed = scenarioNow
+      ? factorWriterFailuresRef.current.get(scenarioNow)?.size ?? 0
+      : 0
+    const store = useCanvasStore.getState()
+    store.setActiveEmittedEdits?.(active)
+    store.setUnconfirmedEmittedEdits?.(unconfirmed)
+  }, [])
+
+  const settleFactorWriterWaiters = useCallback(() => {
+    const currentScenario = useCanvasStore.getState().currentScenarioId ?? null
+    for (const waiter of [...factorWriterWaitersRef.current]) {
+      if (currentScenario !== waiter.scenarioId) {
+        factorWriterWaitersRef.current.delete(waiter)
+        waiter.resolve({ ok: false, reason: 'The open scenario changed. Analysis has not started.' })
+        continue
+      }
+      const queued = deferredSystemSendsRef.current.filter(
+        (entry) => entry.scenarioId === waiter.scenarioId &&
+          entry.opts.systemEvent?.type === 'factor_value_edit',
+      )
+      const active = activeFactorWriterRef.current?.scenarioId === waiter.scenarioId
+      const failed = (factorWriterFailuresRef.current.get(waiter.scenarioId)?.size ?? 0) > 0
+      const terminalQueueFailure = queued.some((entry) => entry.attempts >= MAX_FLUSH_ATTEMPTS)
+      if (failed || terminalQueueFailure) {
+        factorWriterWaitersRef.current.delete(waiter)
+        waiter.resolve({
+          ok: false,
+          reason: 'We could not confirm whether a model value change was saved. Check the shared model before running analysis.',
+        })
+      } else if (!active && queued.length === 0) {
+        factorWriterWaitersRef.current.delete(waiter)
+        waiter.resolve({ ok: true })
+      }
+    }
+  }, [])
+
+  const beginFactorWriter = useCallback((scenarioId: string | null, targetId: string): number => {
+    const generation = ++factorWriterGenerationRef.current
+    if (scenarioId) {
+      const failures = factorWriterFailuresRef.current.get(scenarioId)
+      failures?.delete(targetId)
+      if (failures?.size === 0) factorWriterFailuresRef.current.delete(scenarioId)
+    }
+    activeFactorWriterRef.current = { scenarioId, targetId, generation }
+    publishFactorWriterState()
+    return generation
+  }, [publishFactorWriterState])
+
+  const endFactorWriter = useCallback((args: {
+    generation: number
+    scenarioId: string | null
+    targetId: string
+    confirmed: boolean
+  }) => {
+    if (!args.confirmed && args.scenarioId) {
+      const failures = factorWriterFailuresRef.current.get(args.scenarioId) ?? new Set<string>()
+      failures.add(args.targetId)
+      factorWriterFailuresRef.current.set(args.scenarioId, failures)
+    }
+    if (activeFactorWriterRef.current?.generation === args.generation) {
+      activeFactorWriterRef.current = null
+    }
+    publishFactorWriterState()
+    settleFactorWriterWaiters()
+  }, [publishFactorWriterState, settleFactorWriterWaiters])
+
+  const canonicalAuthorityRevision = useCanvasStore((state) => {
+    const sync = state.edgeStrengthSync
+    return sync.hydration === 'settled' && sync.queued === 0 && sync.inFlight === 0 && sync.issue === null
+      ? sync.revision
+      : null
+  })
+  useEffect(() => {
+    if (canonicalAuthorityRevision === null || !scenarioId) return
+    if (!factorWriterFailuresRef.current.delete(scenarioId)) return
+    publishFactorWriterState()
+    settleFactorWriterWaiters()
+  }, [canonicalAuthorityRevision, scenarioId, publishFactorWriterState, settleFactorWriterWaiters])
+
   /** Human-readable identity of a queued edit, for the honest-discard notice. */
   const describeDeferred = useCallback((entry: DeferredSystemSend): string => {
     const pl = entry.opts.systemEvent?.payload as Record<string, unknown> | undefined
@@ -4084,6 +4198,57 @@ export function useConversation(): UseConversationReturn {
       // deliberately preempt a chat turn with a run (pre-existing rule).
       const isRunAnalysisSend =
         !systemEvent && resolveUserTurnType(source, hidden, turnType) === 'run_analysis'
+
+      // Canonical Run is an awaitable barrier, not a render-time hint. This
+      // executes before the in-flight preempt branch so an immediate Run click
+      // force-flushes the 1.5 s edge debounce, waits for an exact receipt, and
+      // cannot abort the writer turn it is waiting on.
+      if (isRunAnalysisSend && isV5CanonicalRunPath()) {
+        const scenarioBeforeBarrier = useCanvasStore.getState().currentScenarioId
+        let barrier: { ok: boolean; reason?: string } = { ok: true }
+        // Edges and factors share the same conversation lock. An edit in the
+        // other lane can be queued while this barrier is awaiting a receipt, so
+        // one factor→edge pass is not sufficient: Run could resume between the
+        // newly queued writer and its drain, then preempt it. Iterate to a
+        // synchronously verified fixed point (bounded and fail-closed) before
+        // entering the user-preempt branch below.
+        for (let pass = 0; pass < 3; pass += 1) {
+          barrier = await flushFactorValueEditsBeforeRunRef.current(scenarioBeforeBarrier)
+          if (!barrier.ok) break
+          barrier = await flushEdgeStrengthEditsBeforeRun(scenarioBeforeBarrier)
+          if (!barrier.ok) break
+
+          const writerState = useCanvasStore.getState()
+          const edgeState = edgeStrengthRunBarrierState(scenarioBeforeBarrier)
+          const factorStable =
+            writerState.pendingEmittedEdits === 0 &&
+            writerState.activeEmittedEdits === 0 &&
+            writerState.unconfirmedEmittedEdits === 0
+          if (factorStable && edgeState.ok) {
+            barrier = { ok: true }
+            break
+          }
+          if (pass === 2) {
+            barrier = {
+              ok: false,
+              reason: edgeState.reason ?? 'Model changes are still saving. Analysis has not started.',
+            }
+          }
+        }
+        const scenarioAfterBarrier = useCanvasStore.getState().currentScenarioId
+        if (!barrier.ok || scenarioAfterBarrier !== scenarioBeforeBarrier) {
+          if (mode === 'user') {
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              synthetic: true,
+              content: barrier.reason ?? 'The shared model changed. Analysis has not started.',
+              timestamp: new Date(),
+            })
+          }
+          return SEND_BLOCKED
+        }
+      }
       if (inFlightRef.current && isRunAnalysisSend && activeRunTurnIdRef.current) {
         trackEvent('run_click_swallowed', {
           inflight_turn_id: activeRunTurnIdRef.current,
@@ -4248,7 +4413,8 @@ export function useConversation(): UseConversationReturn {
         }
         if (isThinkingRef.current) {
           if (import.meta.env.DEV) console.warn('[sendTurn V5] Blocked: isThinking=true')
-          releaseInFlightLockIfOwned(); return
+          releaseInFlightLockIfOwned()
+          return mode === 'system' ? SEND_BLOCKED : undefined
         }
 
         // Record user action + capture retry input (user mode only, non-hidden).
@@ -4604,6 +4770,12 @@ export function useConversation(): UseConversationReturn {
             if (import.meta.env.DEV) {
               console.warn('[sendTurn V5] Response arrived after abort; discarding')
             }
+            // A timed-out/preempted writer may already have reached CEE. It is
+            // never an accepted local transaction merely because fetch later
+            // produced bytes after our abort boundary.
+            if (mode === 'system') {
+              throw new SystemEventSendError('transport')
+            }
             return
           }
 
@@ -4618,10 +4790,57 @@ export function useConversation(): UseConversationReturn {
             if (import.meta.env.DEV) {
               console.warn('[sendTurn V5] Scenario changed before response; discarding')
             }
+            if (opts.edgeStrengthAttemptId) {
+              discardEdgeStrengthAttemptForScenarioChange(opts.edgeStrengthAttemptId)
+            }
             return
           }
 
           const target = routeV5Response(v5Result)
+          const isEdgeStrengthTurn =
+            systemEvent?.type === 'edge_strength_edit' && opts.edgeStrengthAttemptId !== undefined
+          const protectedFactorNodeIds = isEdgeStrengthTurn
+            ? [...new Set(deferredSystemSendsRef.current
+                .filter((entry) => (
+                  entry.scenarioId === scenarioIdAtDispatch &&
+                  entry.opts.systemEvent?.type === 'factor_value_edit'
+                ))
+                .map((entry) => entry.opts.systemEvent?.payload?.target_id)
+                .filter((targetId): targetId is string => (
+                  typeof targetId === 'string' && targetId.length > 0
+                )))]
+            : []
+          if (isEdgeStrengthTurn) {
+            if (target.kind === 'typed_error') {
+              settleEdgeStrengthResponse({
+                attemptId: opts.edgeStrengthAttemptId!,
+                boundaryError: target.boundaryError,
+              })
+            } else {
+              settleEdgeStrengthResponse({
+                attemptId: opts.edgeStrengthAttemptId!,
+                response: target.response,
+                protectedFactorNodeIds,
+              })
+            }
+          }
+          // The coordinator has already strictly validated and reconciled the
+          // composite endpoint receipt. Generic applyV5State interprets
+          // target_id as a ReactFlow id and generic full reconcile can overwrite
+          // a newer optimistic successor, so remove only those two mutation
+          // carriers while preserving stage/readiness/result sidecars.
+          const responseForGenericApply = isEdgeStrengthTurn && target.kind !== 'typed_error'
+            ? {
+                ...target.response,
+                // The exact writer response has one receipt block. No other
+                // block is allowed to mutate results/coaching on invisible
+                // persistence traffic; the strict resolver rejects extras.
+                blocks: [],
+                draft_graph: undefined,
+              }
+            : target.kind !== 'typed_error'
+              ? target.response
+              : undefined
 
           // ROADMAP 2.129 (b) — resolve the OPTIMISTIC value write against what
           // the server actually did with it.
@@ -4766,7 +4985,7 @@ export function useConversation(): UseConversationReturn {
             // store shape upstream.
             const v5StoreSnapshot = useCanvasStore.getState()
             const stateApply = applyV5State(
-              target.response,
+              responseForGenericApply ?? target.response,
               {
                 ...v5StoreSnapshot,
                 currentResultsHash: v5StoreSnapshot.results?.hash ?? null,
@@ -4793,6 +5012,13 @@ export function useConversation(): UseConversationReturn {
               }
             }
 
+            // Canonical edge-strength turns are invisible persistence traffic.
+            // Their narrowly validated receipt has already been reconciled by
+            // the coordinator above, and applyV5State has consumed only the
+            // non-graph stage/readiness sidecars. Do not feed the writer reply
+            // into result/coaching stores or render its intentionally empty
+            // assistant_text as a blank conversation bubble.
+            if (!isEdgeStrengthTurn) {
             // Phase 3 extraction (v5-canonical-analysis brief).
             //
             // The extractor reads from three locations — the additive sidecar
@@ -4885,8 +5111,8 @@ export function useConversation(): UseConversationReturn {
             // draftBiasSignalBlocks.seam.spec.ts — keep the spec's driveSeam
             // wiring in step with this call.
             const inlineGraph = attachAnalysisReadyToInlineDraftGraph(
-              target.response.draft_graph,
-              target.response,
+              responseForGenericApply?.draft_graph,
+              responseForGenericApply ?? target.response,
             )
             const inlineNodeCount = (inlineGraph?.nodes as unknown[] | undefined)?.length ?? 0
 
@@ -5124,18 +5350,21 @@ export function useConversation(): UseConversationReturn {
             // dropped before the values arrived, drafting again gets them. No
             // duration forecast, no verdict — held to the same bar as the wait
             // narration and pinned by `narrationHonesty.invariant.spec.ts`.
+            }
           } else if (target.kind === 'empty') {
             // Blank-response guard: no text, no blocks, no chips from CEE.
-            addMessage({
-              id: crypto.randomUUID(),
-              role: 'assistant',
-              synthetic: true,
-              content: "I received your message but couldn't generate a response. Try rephrasing.",
-              actionChips: (mode === 'user' && !hidden)
-                ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
-                : [],
-              timestamp: new Date(),
-            })
+            if (!isEdgeStrengthTurn && mode === 'user') {
+              addMessage({
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                synthetic: true,
+                content: "I received your message but couldn't generate a response. Try rephrasing.",
+                actionChips: !hidden
+                  ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
+                  : [],
+                timestamp: new Date(),
+              })
+            }
             if (inputForRestore) {
               // Delivered but produced nothing — the hero must still show
               // feedback rather than fail silently (server class).
@@ -5392,11 +5621,10 @@ export function useConversation(): UseConversationReturn {
               setLastSendFailure({ kind: 'transport', retryable: true, inputText: inputForRestore })
             }
           }
-          if (!isAbort && mode === 'system') {
-            // A system turn threw before/around the network (e.g. a fetch
-            // reject re-raised by callV5Turn, or an internal error). Propagate
-            // to the dispatcher — an aborted turn (user stop / timeout) is not
-            // a failure and is excluded above.
+          if (mode === 'system') {
+            // A system writer that throws OR is aborted has no attributable
+            // persistence receipt. Propagate only after lifecycle settlement;
+            // callers keep the optimistic value held and Run fails closed.
             systemSendFailure = new SystemEventSendError('transport', { cause: err })
           }
           if (import.meta.env.DEV && !isAbort) {
@@ -5501,7 +5729,7 @@ export function useConversation(): UseConversationReturn {
         // is implemented. They are infrastructure turns, not user content.
         if (isThinkingRef.current) {
           if (import.meta.env.DEV) console.warn('[sendTurn] System event blocked: isThinking=true')
-          releaseInFlightLockIfOwned(); return
+          releaseInFlightLockIfOwned(); return SEND_BLOCKED
         }
       }
 
@@ -5821,7 +6049,8 @@ export function useConversation(): UseConversationReturn {
           }
         }
       } catch (err) {
-        if ((err as Error).name === 'AbortError') return // timeout already handled
+        const isAbort = (err as Error).name === 'AbortError'
+        if (isAbort && mode !== 'system') return // visible timeout already handled
 
         if (mode === 'user' && !hidden) {
 
@@ -5877,14 +6106,22 @@ export function useConversation(): UseConversationReturn {
           mutatedChat: mode === 'user' && !hidden,
           stateAfter: createInteractionSnapshot(messages.length + (mode === 'user' && !hidden ? 1 : 0)),
         })
-        // System events and hidden sends fail silently — the user didn't
-        // initiate these, so showing an error would be confusing. Logged in turnService.
+        // System events never add an error bubble, but the promise rejects so
+        // the owning surface can revert an optimistic action or retain an
+        // unconfirmed analytical-value hold. Fire-and-forget notification
+        // callers consume this rejection explicitly.
         if (mode === 'system' && import.meta.env.DEV) {
           const status = err instanceof OrchestratorError ? err.status : 'network'
           console.warn(`[sendTurn] System event failed: ${status}`, {
             eventType: systemEvent?.type,
             error: (err as Error).message,
           })
+        }
+        if (mode === 'system') {
+          throw new SystemEventSendError(
+            err instanceof OrchestratorError ? 'server' : 'transport',
+            { cause: err },
+          )
         }
       } finally {
         clearTimeout(longRunningTimerRef.current)
@@ -5977,7 +6214,9 @@ export function useConversation(): UseConversationReturn {
     }
     deferredSystemSendsRef.current = keep
     publishPendingEditCount()
-  }, [noticeForUnsentEdit, publishPendingEditCount])
+    publishFactorWriterState()
+    settleFactorWriterWaiters()
+  }, [noticeForUnsentEdit, publishPendingEditCount, publishFactorWriterState, settleFactorWriterWaiters])
 
   /**
    * Drain the deferral buffer, one turn at a time.
@@ -6018,17 +6257,38 @@ export function useConversation(): UseConversationReturn {
       if (!next) return
 
       next.dispatching = true
+      const isFactorWriter = next.opts.systemEvent?.type === 'factor_value_edit'
+      const factorTarget = isFactorWriter ? factorTargetId(next.opts) : null
+      const factorGeneration = isFactorWriter && factorTarget
+        ? beginFactorWriter(next.scenarioId, factorTarget)
+        : null
       try {
         const outcome = await sendTurn(next.opts)
         if (outcome === SEND_DEFERRED || outcome === SEND_BLOCKED) {
           // Never dispatched — something else took the lock first. Leave it
           // queued and do NOT count it as a failure; the next release retries.
           next.dispatching = false
+          if (factorGeneration !== null && factorTarget) {
+            endFactorWriter({
+              generation: factorGeneration,
+              scenarioId: next.scenarioId,
+              targetId: factorTarget,
+              confirmed: true,
+            })
+          }
           return
         }
         // Accepted. Only now is it safe to forget.
         deferredSystemSendsRef.current = deferredSystemSendsRef.current.filter((d) => d !== next)
         publishPendingEditCount()
+        if (factorGeneration !== null && factorTarget) {
+          endFactorWriter({
+            generation: factorGeneration,
+            scenarioId: next.scenarioId,
+            targetId: factorTarget,
+            confirmed: true,
+          })
+        }
       } catch {
         // A GENUINE failure (network / 4xx / 5xx / parse) of a DEFERRED edit.
         //
@@ -6044,16 +6304,52 @@ export function useConversation(): UseConversationReturn {
         useCanvasStore.getState().markAnalysisFreshnessDirty?.()
         publishPendingEditCount()
         if (next.attempts >= MAX_FLUSH_ATTEMPTS) noticeForUnsentEdit(next, 'failed')
+        if (factorGeneration !== null && factorTarget) {
+          endFactorWriter({
+            generation: factorGeneration,
+            scenarioId: next.scenarioId,
+            targetId: factorTarget,
+            // Any thrown outcome is ambiguous now, regardless of whether the
+            // legacy queue may make another bounded attempt later. Release Run
+            // fail-closed instead of leaving its waiter hanging between retries.
+            confirmed: false,
+          })
+        }
         if (import.meta.env.DEV) {
           console.warn(`[sendTurn] deferred send FAILED (${next.key}), attempt ${next.attempts}/${MAX_FLUSH_ATTEMPTS}`)
         }
       }
     })
-  }, [sendTurn, publishPendingEditCount, pruneForeignScenarioSends, noticeForUnsentEdit])
+  }, [sendTurn, publishPendingEditCount, pruneForeignScenarioSends, noticeForUnsentEdit, factorTargetId, beginFactorWriter, endFactorWriter])
 
   // Keep the ref used by `releaseInFlightLockIfOwned` pointing at the live
   // implementation (see the ref's declaration for why the indirection exists).
   flushDeferredSystemSendsRef.current = flushDeferredSystemSends
+
+  flushFactorValueEditsBeforeRunRef.current = async (scenarioAtClick) => {
+    if (!scenarioAtClick || useCanvasStore.getState().currentScenarioId !== scenarioAtClick) {
+      return { ok: false, reason: 'The open scenario changed. Analysis has not started.' }
+    }
+    const queued = deferredSystemSendsRef.current.filter(
+      (entry) => entry.scenarioId === scenarioAtClick &&
+        entry.opts.systemEvent?.type === 'factor_value_edit',
+    )
+    const active = activeFactorWriterRef.current?.scenarioId === scenarioAtClick
+    const failed = (factorWriterFailuresRef.current.get(scenarioAtClick)?.size ?? 0) > 0
+    if (failed || queued.some((entry) => entry.attempts >= MAX_FLUSH_ATTEMPTS)) {
+      return {
+        ok: false,
+        reason: 'We could not confirm whether a model value change was saved. Check the shared model before running analysis.',
+      }
+    }
+    if (!active && queued.length === 0) return { ok: true }
+
+    return await new Promise<{ ok: boolean; reason?: string }>((resolve) => {
+      factorWriterWaitersRef.current.add({ scenarioId: scenarioAtClick, resolve })
+      flushDeferredSystemSendsRef.current()
+      settleFactorWriterWaiters()
+    })
+  }
 
   // Scenario switch — prune queued sends belonging to the decision we just
   // left.
@@ -6082,7 +6378,15 @@ export function useConversation(): UseConversationReturn {
   // and worse because no edit is pending at all. Clear it on the way out.
   useEffect(() => () => {
     deferredSystemSendsRef.current = []
-    useCanvasStore.getState().setPendingEmittedEdits?.(0)
+    activeFactorWriterRef.current = null
+    for (const waiter of factorWriterWaitersRef.current) {
+      waiter.resolve({ ok: false, reason: 'Model-value saving stopped before analysis could begin.' })
+    }
+    factorWriterWaitersRef.current.clear()
+    const store = useCanvasStore.getState()
+    store.setPendingEmittedEdits?.(0)
+    store.setActiveEmittedEdits?.(0)
+    store.setUnconfirmedEmittedEdits?.(0)
   }, [])
 
   // ---------------------------------------------------------------------------
@@ -6125,6 +6429,7 @@ export function useConversation(): UseConversationReturn {
       debugSourceSurface?: string
       optimisticFactorEdit?: OptimisticFactorEdit
       deferIfBusy?: boolean
+      edgeStrengthAttemptId?: string
     }) => {
       // No-op when orchestrator V2 is OFF
       if (!isOrchestratorV2Enabled()) return SEND_BLOCKED
@@ -6146,11 +6451,7 @@ export function useConversation(): UseConversationReturn {
         payloadSummary: event.payload,
       })
 
-      // Return the outcome so a caller can distinguish DISPATCHED from
-      // DEFERRED. Genuine failures still REJECT (SystemEventSendError), so the
-      // existing `try/catch` dispatchers (FeedbackRow's optimistic revert, the
-      // patch-accept retry card) are untouched.
-      return await sendTurn({
+      const sendOpts: SendTurnOpts = {
         message: SYSTEM_MESSAGE_SENTINEL,
         systemEvent: event,
         mode: 'system',
@@ -6161,9 +6462,32 @@ export function useConversation(): UseConversationReturn {
         sourceSurface: opts?.debugSourceSurface,
         optimisticFactorEdit: opts?.optimisticFactorEdit,
         deferIfBusy: opts?.deferIfBusy,
-      })
+        edgeStrengthAttemptId: opts?.edgeStrengthAttemptId,
+      }
+
+      // Return the outcome so a caller can distinguish DISPATCHED from
+      // DEFERRED. Factor value edits additionally publish the active writer
+      // lifetime, including the full response wait, so a concurrent Run waits
+      // here instead of entering the user-preempt branch and aborting it.
+      if (event.type !== 'factor_value_edit') return await sendTurn(sendOpts)
+      const factorScenario = useCanvasStore.getState().currentScenarioId ?? null
+      const targetId = factorTargetId(sendOpts)
+      const generation = beginFactorWriter(factorScenario, targetId)
+      let confirmed = false
+      try {
+        const outcome = await sendTurn(sendOpts)
+        confirmed = outcome !== SEND_BLOCKED
+        return outcome
+      } finally {
+        endFactorWriter({
+          generation,
+          scenarioId: factorScenario,
+          targetId,
+          confirmed,
+        })
+      }
     },
-    [sendTurn],
+    [sendTurn, factorTargetId, beginFactorWriter, endFactorWriter],
   )
 
   /**

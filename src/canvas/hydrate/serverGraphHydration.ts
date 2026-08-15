@@ -22,6 +22,16 @@ import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
+import {
+  beginEdgeStrengthHydration,
+  edgeStrengthHydrationCanApply,
+  finishEdgeStrengthHydration,
+} from '../edge-strength/edgeStrengthCoordinator'
+import {
+  canvasAnalyticallyMatchesCanonicalGraph,
+  captureCanvasAnalyticalFingerprint,
+  replaceCanvasWithCanonicalGraph,
+} from '../edge-strength/graphAuthority'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -47,6 +57,8 @@ export type HydrationOutcome =
   | 'unusable'
   /** No usable scenario id — nothing was requested. */
   | 'skipped'
+  /** A local canonical edge edit moved after this read started. No merge. */
+  | 'superseded'
 
 export interface HydrateFromServerOptions {
   /** Supabase user id, when signed in. Omitted for guests. */
@@ -55,6 +67,8 @@ export interface HydrateFromServerOptions {
   retryDelayMs?: number
   /** Per-attempt deadline — bounds the silent-rollback window (review A3). */
   timeoutMs?: number
+  /** Explicit user recovery: replace local analytical structure with CEE's full graph. */
+  replaceLocalGraph?: boolean
 }
 
 /**
@@ -98,6 +112,17 @@ export async function hydrateCanvasFromServer(
     return 'skipped'
   }
 
+  const edgeRevisionAtStart = beginEdgeStrengthHydration(scenarioId)
+  const canvasFingerprintAtStart = captureCanvasAnalyticalFingerprint()
+  const finish = (outcome: HydrationOutcome, usable: boolean): HydrationOutcome => {
+    finishEdgeStrengthHydration({
+      scenarioId,
+      startedAtRevision: edgeRevisionAtStart,
+      usable,
+    })
+    return outcome
+  }
+
   const result = await fetchScenarioGraph(scenarioId, {
     userId: opts.userId,
     signal: opts.signal,
@@ -113,15 +138,15 @@ export async function hydrateCanvasFromServer(
     })
     switch (result.status) {
       case 'absent':
-        return 'absent'
+        return finish('absent', false)
       case 'notReadable':
-        return 'notReadable'
+        return finish('notReadable', false)
       case 'unavailable':
-        return 'unavailable'
+        return finish('unavailable', false)
       case 'refused':
-        return 'refused'
+        return finish('refused', false)
       default:
-        return 'unusable'
+        return finish('unusable', false)
     }
   }
 
@@ -133,7 +158,20 @@ export async function hydrateCanvasFromServer(
       requestedScenarioId: scenarioId,
       currentScenarioId: currentId,
     })
-    return 'skipped'
+    return finish('skipped', false)
+  }
+
+  if (!edgeStrengthHydrationCanApply(scenarioId, edgeRevisionAtStart)) {
+    logger.warn('server_graph_hydration.superseded_by_edge_edit', { scenarioId })
+    return finish('superseded', false)
+  }
+
+  // The edge coordinator revision is intentionally narrow. This independent
+  // graph snapshot fences every other analytical edit (factor values, node
+  // priors/thresholds and structure) made while the server read was in flight.
+  if (captureCanvasAnalyticalFingerprint() !== canvasFingerprintAtStart) {
+    logger.warn('server_graph_hydration.superseded_by_analytical_edit', { scenarioId })
+    return finish('superseded', false)
   }
 
   // ── ROADMAP 2.973 — record what we were given, and what CEE says it kept ──
@@ -158,16 +196,46 @@ export async function hydrateCanvasFromServer(
     manifest: result.notModelled,
   })
 
+  if (opts.replaceLocalGraph) {
+    if (!edgeStrengthHydrationCanApply(scenarioId, edgeRevisionAtStart)) {
+      return finish('superseded', false)
+    }
+    const replaced = replaceCanvasWithCanonicalGraph(result.graph)
+    if (!replaced) return finish('mergeRefused', false)
+    useCanvasStore.getState().setServerGraphIdentity(
+      result.identity
+        ? { value: result.identity.value, projectionVersion: result.identity.projectionVersion }
+        : null,
+    )
+    return finish('merged', true)
+  }
+
   const stored = useCanvasStore.getState().serverGraphIdentity
-  if (isSameServerGraph(stored, result.identity)) {
+  if (
+    isSameServerGraph(stored, result.identity) &&
+    canvasAnalyticallyMatchesCanonicalGraph(result.graph)
+  ) {
     // The server has not moved since we last hydrated, so there is nothing to
     // apply. Skipping is not merely an optimisation: re-merging would roll a
     // local edit made since that hydration back to the same server value the
     // user has already been shown once.
-    return 'unchanged'
+    return finish('unchanged', true)
   }
 
-  const merge = mergeServerGraphOnHydrate(result.graph)
+  if (!edgeStrengthHydrationCanApply(scenarioId, edgeRevisionAtStart)) {
+    return finish('superseded', false)
+  }
+  if (captureCanvasAnalyticalFingerprint() !== canvasFingerprintAtStart) {
+    return finish('superseded', false)
+  }
+  const store = useCanvasStore.getState()
+  store.beginExternalGraphMutation('hydrate')
+  let merge: ReturnType<typeof mergeServerGraphOnHydrate>
+  try {
+    merge = mergeServerGraphOnHydrate(result.graph)
+  } finally {
+    useCanvasStore.getState().endExternalGraphMutation()
+  }
 
   // ── A REFUSED MERGE IS NOT A MERGE, AND MUST NOT BE RECORDED AS ONE (L61) ──
   //
@@ -202,7 +270,20 @@ export async function hydrateCanvasFromServer(
       scenarioId,
       reason: merge.refusedReason,
     })
-    return 'mergeRefused'
+    return finish('mergeRefused', false)
+  }
+
+
+  // The boot merge deliberately preserves local-only elements. That is the
+  // right data-loss posture, but it means an accepted merge is not by itself
+  // proof that the visible model equals the one CEE will analyse. Only exact
+  // analytical equality licenses canonical Run; otherwise retain the canvas
+  // and expose the refresh/restore hold.
+  const analyticallyEquivalent = canvasAnalyticallyMatchesCanonicalGraph(result.graph)
+  if (!analyticallyEquivalent) {
+    useCanvasStore.getState().setServerGraphIdentity(null)
+    logger.warn('server_graph_hydration.local_drift_preserved', { scenarioId })
+    return finish('mergeRefused', false)
   }
 
   // Store CEE's token VERBATIM — after the merge, so a throw could not leave a
@@ -217,5 +298,5 @@ export async function hydrateCanvasFromServer(
       : null,
   )
 
-  return 'merged'
+  return finish('merged', true)
 }

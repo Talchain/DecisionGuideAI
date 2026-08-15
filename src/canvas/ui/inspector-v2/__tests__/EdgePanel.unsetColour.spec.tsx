@@ -37,6 +37,13 @@ import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { USER_EDGE_DEFAULTS, EDGE_CONSTRAINTS } from '../../../domain/edges'
 
+vi.mock('../../../edge-strength/EdgeStrengthSyncStatus', () => ({
+  EdgeStrengthSyncStatus: () => null,
+}))
+vi.mock('../../../conversation/ConversationContext', () => ({
+  useOptionalConversationContext: () => null,
+}))
+
 const panelProps = {
   edgeId: 'e1',
   techMode: false,

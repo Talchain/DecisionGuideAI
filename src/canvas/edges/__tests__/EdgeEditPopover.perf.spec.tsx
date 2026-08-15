@@ -214,53 +214,44 @@ describe('S3-POPOVER-PERF: EdgeEditPopover Performance', () => {
     })
   })
 
-  describe('Update Debounce Performance', () => {
-    it('should fire debounced update within 16ms after timer', () => {
-      vi.useFakeTimers()
-
+  describe('Preview and commit performance', () => {
+    it('should keep slider movement local and commit once on Enter', () => {
       render(<EdgeEditPopover {...defaultProps} />)
 
       const weightSlider = screen.getByLabelText('Weight') as HTMLInputElement
 
-      // Trigger change
+      // Network/persistence work must never follow every slider tick.
       fireEvent.change(weightSlider, { target: { value: '0.9' } })
-
-      // Advance timers to trigger debounce
-      vi.advanceTimersByTime(119) // Just before debounce
-
       expect(mockOnUpdate).not.toHaveBeenCalled()
 
-      // Measure debounce execution time
       const startTime = performance.now()
-
-      vi.advanceTimersByTime(1) // Trigger debounce
-
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Enter' })
       const endTime = performance.now()
-      const debounceTime = endTime - startTime
+      const commitTime = endTime - startTime
 
-      console.log(`[PERF] Debounce fire: ${debounceTime.toFixed(2)}ms`)
-      expect(debounceTime).toBeLessThan(frameBudget)
-      expect(mockOnUpdate).toHaveBeenCalledWith('edge-1', { weight: 0.9, belief: 0.5 })
-
-      vi.useRealTimers()
+      console.log(`[PERF] Commit: ${commitTime.toFixed(2)}ms`)
+      expect(commitTime).toBeLessThan(frameBudget)
+      expect(mockOnUpdate).toHaveBeenCalledTimes(1)
+      expect(mockOnUpdate).toHaveBeenCalledWith('edge-1', { weight: 0.9 })
+      expect(mockOnClose).toHaveBeenCalledTimes(1)
     })
 
-    it('should handle sequential debounce resets efficiently', () => {
-      vi.useFakeTimers()
-
-      render(<EdgeEditPopover {...defaultProps} />)
+    it('should coalesce rapid previews into one latest-value outside-click commit', () => {
+      render(
+        <div>
+          <EdgeEditPopover {...defaultProps} />
+          <div data-testid="outside">Outside</div>
+        </div>,
+      )
 
       const weightSlider = screen.getByLabelText('Weight') as HTMLInputElement
 
       const times: number[] = []
 
-      // Simulate 5 changes with timer resets
+      // Simulate 5 rapid previews. None may escape as a write.
       for (let i = 0; i < 5; i++) {
         const startTime = performance.now()
-
-        fireEvent.change(weightSlider, { target: { value: (i / 10).toString() } })
-        vi.advanceTimersByTime(50) // Reset debounce each time
-
+        fireEvent.change(weightSlider, { target: { value: ((i + 6) / 10).toString() } })
         const endTime = performance.now()
         times.push(endTime - startTime)
       }
@@ -268,12 +259,25 @@ describe('S3-POPOVER-PERF: EdgeEditPopover Performance', () => {
       const avgTime = times.reduce((a, b) => a + b, 0) / times.length
       const maxTime = Math.max(...times)
 
-      console.log(`[PERF] Avg debounce reset: ${avgTime.toFixed(2)}ms`)
-      console.log(`[PERF] Max debounce reset: ${maxTime.toFixed(2)}ms`)
+      console.log(`[PERF] Avg local preview: ${avgTime.toFixed(2)}ms`)
+      console.log(`[PERF] Max local preview: ${maxTime.toFixed(2)}ms`)
 
       expect(maxTime).toBeLessThan(frameBudget)
+      expect(mockOnUpdate).not.toHaveBeenCalled()
 
-      vi.useRealTimers()
+      fireEvent.mouseDown(screen.getByTestId('outside'))
+      expect(mockOnUpdate).toHaveBeenCalledTimes(1)
+      expect(mockOnUpdate).toHaveBeenCalledWith('edge-1', { weight: 1 })
+    })
+
+    it('should discard a preview on Escape', () => {
+      render(<EdgeEditPopover {...defaultProps} />)
+
+      fireEvent.change(screen.getByLabelText('Weight'), { target: { value: '0.8' } })
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+
+      expect(mockOnUpdate).not.toHaveBeenCalled()
+      expect(mockOnClose).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -295,7 +299,7 @@ describe('S3-POPOVER-PERF: EdgeEditPopover Performance', () => {
     it('should cleanup event listeners efficiently', () => {
       const { unmount } = render(<EdgeEditPopover {...defaultProps} />)
 
-      // Change slider to create debounce timer
+      // Change slider to create an uncommitted local preview.
       const weightSlider = screen.getByLabelText('Weight') as HTMLInputElement
       fireEvent.change(weightSlider, { target: { value: '0.8' } })
 
@@ -306,7 +310,7 @@ describe('S3-POPOVER-PERF: EdgeEditPopover Performance', () => {
       const endTime = performance.now()
       const cleanupTime = endTime - startTime
 
-      console.log(`[PERF] Cleanup with timer: ${cleanupTime.toFixed(2)}ms`)
+      console.log(`[PERF] Cleanup with preview: ${cleanupTime.toFixed(2)}ms`)
       expect(cleanupTime).toBeLessThan(frameBudget)
     })
   })
@@ -362,25 +366,16 @@ describe('S3-POPOVER-PERF: EdgeEditPopover Performance', () => {
 
   describe('Real-world Scenarios', () => {
     it('should handle complete user workflow within budget', () => {
-      vi.useFakeTimers()
-
       const startTime = performance.now()
 
       // 1. Render popover
-      const { container } = render(<EdgeEditPopover {...defaultProps} />)
+      render(<EdgeEditPopover {...defaultProps} />)
 
       // 2. User adjusts weight
       const weightSlider = screen.getByLabelText('Weight') as HTMLInputElement
       fireEvent.change(weightSlider, { target: { value: '0.7' } })
 
-      // 3. User adjusts belief
-      const beliefSlider = screen.getByLabelText('Belief') as HTMLInputElement
-      fireEvent.change(beliefSlider, { target: { value: '0.8' } })
-
-      // 4. Debounce fires
-      vi.runAllTimers()
-
-      // 5. User closes with Enter
+      // 3. User commits once with Enter
       const popover = screen.getByRole('dialog')
       fireEvent.keyDown(popover, { key: 'Enter' })
 
@@ -391,8 +386,8 @@ describe('S3-POPOVER-PERF: EdgeEditPopover Performance', () => {
 
       // Complete workflow should be under ~50ms (excluding debounce wait)
       expect(totalTime).toBeLessThan(workflowBudget)
-
-      vi.useRealTimers()
+      expect(mockOnUpdate).toHaveBeenCalledTimes(1)
+      expect(mockOnUpdate).toHaveBeenCalledWith('edge-1', { weight: 0.7 })
     })
 
     it('should maintain performance under stress (100 slider changes)', () => {

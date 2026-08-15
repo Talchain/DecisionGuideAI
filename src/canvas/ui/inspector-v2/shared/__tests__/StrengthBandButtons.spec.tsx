@@ -71,6 +71,16 @@ describe('StrengthBandButtons', () => {
     expect(slightBtn?.getAttribute('aria-pressed')).toBe('true')
   })
 
+  it('preserves an explicitly negative direction when the magnitude is zero', () => {
+    const onChange = vi.fn()
+    const { container } = render(
+      <StrengthBandButtons value={0} direction="negative" onChange={onChange} />,
+    )
+    const strongBtn = container.querySelector('[data-testid="strength-band-strong"]')
+    fireEvent.click(strongBtn!)
+    expect(onChange).toHaveBeenCalledWith(-0.55)
+  })
+
   it('marks "Strong" as active at the lower boundary of strong (0.40)', () => {
     const { container } = render(<StrengthBandButtons value={0.40} onChange={() => {}} />)
     const strongBtn = container.querySelector('[data-testid="strength-band-strong"]')

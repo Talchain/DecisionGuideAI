@@ -79,9 +79,12 @@ const UNRELATED_GRAPH = {
   edges: [],
 }
 
-/** A server graph that DOES overlap — the acceptance control. */
+/** A full server graph that overlaps and exactly accounts for local structure. */
 const OVERLAPPING_GRAPH = {
-  nodes: [{ id: 'factor-1', kind: 'factor', label: 'Spend', value: 250 }],
+  nodes: [
+    { id: 'factor-1', kind: 'factor', label: 'Spend', value: 250 },
+    { id: 'goal-1', kind: 'goal', label: 'Profit', value: 5 },
+  ],
   edges: [],
 }
 
@@ -214,6 +217,7 @@ describe('§3 acceptance behaves exactly as before', () => {
     // gate is ACCEPTANCE, not movement.
     seedCanvas([
       { id: 'factor-1', type: 'factor', position: { x: 10, y: 20 }, data: { label: 'Spend', kind: 'factor', value: 250 } },
+      { id: 'goal-1', type: 'goal', position: { x: 300, y: 400 }, data: { label: 'Profit', kind: 'goal', value: 5 } },
     ])
     fetchSpy.mockResolvedValue(jsonResponse(200, body(OVERLAPPING_GRAPH)))
     expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('merged')

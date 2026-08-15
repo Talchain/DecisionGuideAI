@@ -81,6 +81,9 @@ vi.mock('../../../flags', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../flags')>()
   return {
     ...actual,
+    // Keep connector clients in their documented test-fallback mode. This
+    // suite mounts the conversation provider but never exercises Supabase.
+    isE2EEnabled: () => true,
     isTelemetryEnabled: () => true,
     isCompareEnabled: () => true,
     isOrchestratorV2Enabled: mockIsOrchestratorV2Enabled,
@@ -200,6 +203,21 @@ describe('OutputsDock analyse convergence', () => {
       ceeAnalysisReady: { goal_node_id: 'goal-1', options: [{ id: 'opt-a', label: 'Option A', interventions: {} }] },
       results: { status: 'idle' },
       showDraftChat: false,
+      // Canonical production renders this surface beneath the hydration host.
+      // Keep the fixture on that settled authority state so these routing
+      // tests exercise dispatch rather than the separate hydration barrier.
+      edgeStrengthSync: {
+        scenarioId: 'scenario-test',
+        revision: 0,
+        hydration: 'settled',
+        queued: 0,
+        inFlight: 0,
+        issue: null,
+        lastOutcome: null,
+      },
+      pendingEmittedEdits: 0,
+      activeEmittedEdits: 0,
+      unconfirmedEmittedEdits: 0,
     } as any)
 
     useGuidanceStore.setState({

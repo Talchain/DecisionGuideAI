@@ -101,6 +101,7 @@ const STRENGTH_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
   cee: 'Olumi estimated this strength from your description.',
   template: 'This strength came with the template you started from — it was authored for the template, not estimated for your decision.',
   user: 'You set this strength.',
+  shared: 'This is the latest strength in the shared model; its author is not available here.',
   not_set: 'No strength has been set for this connection yet — the control below starts at a neutral position, not at a measurement.',
 }
 
@@ -108,6 +109,7 @@ const EXISTENCE_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
   cee: 'Olumi estimated how likely this connection is to exist.',
   template: 'The likelihood that this connection exists came with the template.',
   user: 'You set how likely this connection is to exist.',
+  shared: 'This is the latest likelihood in the shared model; its author is not available here.',
   not_set: 'Nobody has said how likely this connection is to exist yet.',
 }
 

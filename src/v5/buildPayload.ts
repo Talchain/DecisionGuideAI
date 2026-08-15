@@ -31,7 +31,7 @@ import type {
   ActionTypeLiteral,
   IntentLiteral,
 } from '@talchain/schemas/boundary'
-import { ActionType, Intent } from '@talchain/schemas/boundary'
+import { ActionType, Intent, SystemEventTurnPayloadSchema } from '@talchain/schemas/boundary'
 
 import type { SystemEvent } from '../canvas/conversation/types'
 // VALUE import, and deliberately so: the selection this module puts on the wire
@@ -387,6 +387,13 @@ function systemEventToPayload(args: {
       if (event === null) return null
       return { ...base, event }
     }
+    case 'edge_strength_edit': {
+      const event = adaptEdgeStrengthEdit(eventPayload)
+      if (event === null) return null
+      const candidate = { ...base, event }
+      const parsed = SystemEventTurnPayloadSchema.safeParse(candidate)
+      return parsed.success ? parsed.data : null
+    }
     case 'edge_adjudication': {
       const event = adaptEdgeAdjudication(eventPayload)
       if (event === null) return null
@@ -485,6 +492,11 @@ type FactorValueEditWireEvent = Extract<
   { kind: 'factor_value_edit' }
 >
 
+type EdgeStrengthEditWireEvent = Extract<
+  SystemEventTurnPayload['event'],
+  { kind: 'edge_strength_edit' }
+>
+
 // The wire judgement events (0.34, P4 transport) — derived, never hand-rolled,
 // same reason as above.
 type EdgeAdjudicationWireEvent = Extract<
@@ -509,6 +521,62 @@ function finiteNumberField(
   if (!src) return undefined
   const val = src[key]
   return typeof val === 'number' && Number.isFinite(val) ? val : undefined
+}
+
+function recordField(
+  src: Record<string, unknown> | undefined,
+  key: string,
+): Record<string, unknown> | undefined {
+  const value = src?.[key]
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined
+}
+
+function validEdgeEndpoint(value: string): boolean {
+  return value.length > 0 &&
+    value === value.trim() &&
+    !value.includes('→') &&
+    !value.includes('->')
+}
+
+/** Strict schemas-0.42 edge-strength adapter; never infers endpoint identity. */
+function adaptEdgeStrengthEdit(
+  eventPayload: Record<string, unknown> | undefined,
+): EdgeStrengthEditWireEvent | null {
+  const from = stringField(eventPayload, 'from')
+  const to = stringField(eventPayload, 'to')
+  const magnitude = finiteNumberField(eventPayload, 'magnitude')
+  const directionIntent = stringField(eventPayload, 'direction_intent')
+  const intent = stringField(eventPayload, 'intent')
+  const expectedRaw = recordField(eventPayload, 'expected')
+  const expectedMean = finiteNumberField(expectedRaw, 'mean')
+  const expectedDirection = stringField(expectedRaw, 'effect_direction')
+  if (
+    !validEdgeEndpoint(from) || !validEdgeEndpoint(to) ||
+    magnitude === undefined || magnitude < 0 || magnitude > 1 ||
+    (directionIntent !== 'preserve' && directionIntent !== 'positive' && directionIntent !== 'negative') ||
+    (intent !== 'set' && intent !== 'confirm_current') ||
+    expectedMean === undefined || expectedMean < -1 || expectedMean > 1 ||
+    (expectedDirection !== 'positive' && expectedDirection !== 'negative') ||
+    (expectedMean > 0 && expectedDirection !== 'positive') ||
+    (expectedMean < 0 && expectedDirection !== 'negative') ||
+    (intent === 'confirm_current' &&
+      (directionIntent !== 'preserve' || magnitude !== Math.abs(expectedMean)))
+  ) return null
+
+  return {
+    kind: 'edge_strength_edit',
+    from,
+    to,
+    magnitude,
+    direction_intent: directionIntent,
+    expected: {
+      mean: expectedMean,
+      effect_direction: expectedDirection,
+    },
+    intent,
+  }
 }
 
 // `fields_changed` arrives from the real emitter (useGraphEditEvents.ts) as a

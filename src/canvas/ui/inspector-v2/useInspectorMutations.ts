@@ -7,6 +7,7 @@
 
 import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
+import type { EdgeData } from '../../domain/edges'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
 
@@ -401,11 +402,11 @@ export function useEdgeMutations(edgeId: string) {
         // slider IS stating a direction, so the value stops being a default in
         // the same update. Under `preserveDirection` neither key is written —
         // a magnitude edit must not mint a direction claim (ROADMAP 2.263).
-        ...(opts?.preserveDirection
+        ...(opts?.preserveDirection || mean === 0
           ? {}
           : { direction: mean >= 0 ? 'positive' : 'negative', directionSource: 'user' }),
         weightSource: 'user',
-      },
+      } as EdgeData,
     })
   }, [edgeId, updateEdge, getEdge])
 

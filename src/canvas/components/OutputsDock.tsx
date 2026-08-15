@@ -1058,6 +1058,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // scenario must not reach this gate at all. `draftStreamPhaseFor` owns that
   // decision; re-deriving it here is what M15/M16 punished.
   const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, overviewScenarioId))
+  const edgeStrengthSync = useCanvasStore((s) => s.edgeStrengthSync)
+  const pendingEmittedEdits = useCanvasStore((s) => s.pendingEmittedEdits)
+  const activeEmittedEdits = useCanvasStore((s) => s.activeEmittedEdits)
+  const unconfirmedEmittedEdits = useCanvasStore((s) => s.unconfirmedEmittedEdits)
 
   const runGateResult = canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
@@ -1069,6 +1073,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     draftStreamPhase,
     optionsNeedingValues,
     readinessStale,
+    pendingEmittedEdits,
+    activeEmittedEdits,
+    unconfirmedEmittedEdits,
+    edgeStrengthSync,
   })
   // ROADMAP 2.635 (I-4) — the identity of the verdict this gate result was
   // computed against, captured at the same moment so the two cannot drift.

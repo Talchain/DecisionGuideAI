@@ -116,4 +116,19 @@ describe('useServerGraphHydration — identity', () => {
     await waitFor(() => expect(spy).toHaveBeenCalled())
     expect((spy.mock.calls[0][1] as any).userId).toBe('user-42')
   })
+
+  it('retries the same scenario after a guest becomes authenticated', async () => {
+    user = null
+    const { rerender } = renderHook(({ tick }) => {
+      void tick
+      useServerGraphHydration(A)
+    }, { initialProps: { tick: 0 } })
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1))
+    expect((spy.mock.calls[0][1] as any).userId).toBeNull()
+
+    user = { id: 'user-42' }
+    rerender({ tick: 1 })
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2))
+    expect((spy.mock.calls[1][1] as any).userId).toBe('user-42')
+  })
 })

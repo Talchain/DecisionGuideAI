@@ -895,6 +895,10 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // representative singular (the first changed id in a batch), so keying a
   // mutation on it would mutate whichever node sorted first.
   'factor_value_edit',
+  // Canonical value-carrying relationship edit (schemas 0.42.0). This is the
+  // only event that can prove a strength/direction mutation reached the shared
+  // analytical graph; direct_graph_edit remains notification-only.
+  'edge_strength_edit',
   // P4 transport (schemas 0.34.0) — the two human-judgement signals that
   // previously terminated in the client store: the ContestedEdgeCard verdict
   // (ModelTabBody.handleResolveContested) and the inspector prior-range edit

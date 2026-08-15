@@ -11,6 +11,15 @@ import { EdgePanel } from '../panels/EdgePanel'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 
+// Receipt lifecycle has its own mounted suite; keep legacy panel assertions
+// isolated from the conversation/service dependency graph.
+vi.mock('../../../edge-strength/EdgeStrengthSyncStatus', () => ({
+  EdgeStrengthSyncStatus: () => null,
+}))
+vi.mock('../../../conversation/ConversationContext', () => ({
+  useOptionalConversationContext: () => null,
+}))
+
 function setStore(overrides: Record<string, unknown> = {}) {
   const state = useCanvasStore.getState()
   useCanvasStore.setState({

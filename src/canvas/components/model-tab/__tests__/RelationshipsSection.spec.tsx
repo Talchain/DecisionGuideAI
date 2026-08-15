@@ -9,6 +9,18 @@ import type { Edge, Node } from '@xyflow/react'
 import { USER_EDGE_DEFAULTS } from '../../../domain/edges'
 import { edgeValueSourcePatch } from '../../../domain/edgeValueProvenance'
 
+// Canonical-mode eligibility reaches the conversation stack, whose service
+// imports initialise Supabase. Relationship editing tests must remain local
+// and deterministic without requiring deployment credentials.
+vi.mock('../../../../lib/supabase', () => ({
+  supabase: {
+    from: () => ({
+      select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }),
+    }),
+  },
+  isSupabaseAvailable: () => false,
+}))
+
 // jsdom does not implement scrollIntoView
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn()

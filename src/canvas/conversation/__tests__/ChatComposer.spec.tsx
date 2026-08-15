@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { createRef } from 'react'
 import { ChatComposer } from '../zones/ChatComposer'
 import type { ChatComposerHandle } from '../zones/ChatComposer'
@@ -18,15 +18,39 @@ import type { ChatComposerHandle } from '../zones/ChatComposer'
 
 let mockStage = 'frame'
 
+const mockRefreshEdgeStrengthAuthority = vi.hoisted(() => vi.fn(() => Promise.resolve(true)))
+
+vi.mock('../../edge-strength/edgeStrengthCoordinator', () => ({
+  refreshEdgeStrengthAuthority: mockRefreshEdgeStrengthAuthority,
+}))
+
 vi.mock('../../hooks/useStagePill', () => ({
   useStagePill: () => ({ stage: mockStage }),
 }))
 
-let mockCanvasState: { nodes: Array<{ id: string }>; edges: Array<{ id: string }>; draftComposerText: string | null } = {
-  nodes: [],
-  edges: [],
-  draftComposerText: null,
+type MockCanvasState = {
+  nodes: Array<{ id: string }>
+  edges: Array<{ id: string }>
+  draftComposerText: string | null
+  currentBriefText?: string | null
+  currentScenarioId: string | null
+  unconfirmedEmittedEdits: number
+  edgeStrengthSync: { hydration: 'settled' | 'unconfirmed'; issue: string | null }
 }
+
+function cleanCanvasState(overrides: Partial<MockCanvasState> = {}): MockCanvasState {
+  return {
+    nodes: [],
+    edges: [],
+    draftComposerText: null,
+    currentScenarioId: null,
+    unconfirmedEmittedEdits: 0,
+    edgeStrengthSync: { hydration: 'settled', issue: null },
+    ...overrides,
+  }
+}
+
+let mockCanvasState: MockCanvasState = cleanCanvasState()
 
 vi.mock('../../store', () => ({
   useCanvasStore: Object.assign(
@@ -120,7 +144,9 @@ describe('ChatComposer', () => {
     mockBriefSignals = null
     mockBilEnabled = false
     mockBilResult = null
-    mockCanvasState = { nodes: [], edges: [], draftComposerText: null }
+    mockRefreshEdgeStrengthAuthority.mockReset()
+    mockRefreshEdgeStrengthAuthority.mockResolvedValue(true)
+    mockCanvasState = cleanCanvasState()
   })
 
   it('renders textarea with placeholder', () => {
@@ -296,7 +322,7 @@ describe('ChatComposer', () => {
 
   it('hides first-draft guidance and generate controls once a graph exists', () => {
     mockStage = 'frame'
-    mockCanvasState = { nodes: [{ id: 'node-1' }], edges: [], draftComposerText: null }
+    mockCanvasState = cleanCanvasState({ nodes: [{ id: 'node-1' }] })
     mockBriefSignals = {
       elements: [
         { kind: 'goal', detected: true, label: 'Goal', coachingTip: 'State your goal.' },
@@ -517,6 +543,73 @@ describe('ChatComposer', () => {
 
     expect(screen.queryByTestId('bil-causal-tip')).not.toBeInTheDocument()
   })
+
+  it('makes a canonical Run blocker visible and exposes explicit shared-model recovery', async () => {
+    mockStage = 'evaluate'
+    mockCanvasState = cleanCanvasState({
+      nodes: [{ id: 'n1' }],
+      currentScenarioId: 'scenario-1',
+      edgeStrengthSync: { hydration: 'unconfirmed', issue: 'unconfirmed' },
+    })
+    const reason = 'We could not verify that this relationship change was saved. Check the shared model before running analysis.'
+
+    render(
+      <ChatComposer
+        conversation={makeConversation()}
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+        onInsertText={vi.fn()}
+        onAttach={vi.fn()}
+        onRunAnalysis={vi.fn()}
+        canRunAnalysis={false}
+        runBlockedReason={reason}
+      />,
+    )
+
+    const run = screen.getByTestId('run-analysis-chip')
+    expect(run).toBeDisabled()
+    expect(run).toHaveAttribute('aria-describedby', 'composer-run-blocked-reason')
+    expect(screen.getByText(reason)).toBeVisible()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Check shared model' }))
+    await waitFor(() => expect(mockRefreshEdgeStrengthAuthority).toHaveBeenCalledWith('scenario-1'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Restore shared model' })).not.toBeDisabled())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Restore shared model' }))
+    await waitFor(() => expect(mockRefreshEdgeStrengthAuthority).toHaveBeenCalledWith(
+      'scenario-1',
+      { replaceLocalGraph: true },
+    ))
+  })
+
+  it('exposes the same authoritative recovery for an unconfirmed factor-value write', () => {
+    mockStage = 'evaluate'
+    mockCanvasState = cleanCanvasState({
+      nodes: [{ id: 'n1' }],
+      currentScenarioId: 'scenario-1',
+      unconfirmedEmittedEdits: 1,
+    })
+
+    render(
+      <ChatComposer
+        conversation={makeConversation()}
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+        onInsertText={vi.fn()}
+        onAttach={vi.fn()}
+        onRunAnalysis={vi.fn()}
+        canRunAnalysis={false}
+        runBlockedReason="We could not confirm whether a model value change was saved. Check the shared model before running analysis."
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Check shared model' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Restore shared model' })).toBeVisible()
+  })
 })
 
 // ============================================================================
@@ -529,7 +622,7 @@ describe('ChatComposer — Stop button (T6)', () => {
     mockBriefSignals = null
     mockBilEnabled = false
     mockBilResult = null
-    mockCanvasState = { nodes: [{ id: 'n1' }], edges: [], draftComposerText: null }
+    mockCanvasState = cleanCanvasState({ nodes: [{ id: 'n1' }] })
   })
 
   it('shows the send button (not the stop button) when isThinking is false', () => {

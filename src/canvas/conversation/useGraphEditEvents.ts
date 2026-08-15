@@ -17,9 +17,54 @@ import { appendEvent } from '../../services/scenarioService'
 import { resolveElementLabel } from './utils/resolveElementLabel'
 import type { WireSystemEvent } from './types'
 import type { Node, Edge } from '@xyflow/react'
+import { isV5CanonicalRunPath } from '../../v5/eligibility'
+import type { EdgeData } from '../domain/edges'
+import {
+  notifyEdgeStrengthTransportAvailable,
+  observeEdgeStrength,
+  recordEdgeStrengthMutation,
+  recordUnconfirmedAdjudicatedEdgeStrength,
+  recordUnconfirmedEdgeStructure,
+  recordUnsupportedEdgeMutation,
+  registerEdgeStrengthSender,
+  rejectInvalidEdgeStrengthMutation,
+  setOpenEdgeStrengthScenario,
+} from '../edge-strength/edgeStrengthCoordinator'
 
 const DEBOUNCE_MS = 1500
 const MAX_IDS_PER_BATCH = 50
+
+const CANONICAL_STRENGTH_FIELDS = new Set([
+  'weight', 'direction', 'strength_mean', 'weightSource', 'directionSource',
+  'provenanceDisplay', 'provenance_source', 'userReviewedStrength',
+])
+
+const UNSUPPORTED_EDGE_FIELD_GROUPS = [
+  { field: 'strengthStd' as const, keys: ['strengthStd', 'strengthStdSource'] },
+  { field: 'beliefExists' as const, keys: ['beliefExists', 'beliefExistsSource'] },
+  { field: 'belief' as const, keys: ['belief'] },
+  { field: 'beliefStrength' as const, keys: ['beliefStrength'] },
+  { field: 'confidence' as const, keys: ['confidence'] },
+  { field: 'exists_probability' as const, keys: ['exists_probability'] },
+] as const
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function isStrengthChangingAdjudication(
+  beforeData: Record<string, unknown>,
+  afterData: Record<string, unknown>,
+): boolean {
+  const before = recordValue(beforeData.validation)
+  const after = recordValue(afterData.validation)
+  return before?.status === 'contested' &&
+    before.user_action === 'pending' &&
+    after?.resolved_by === 'user' &&
+    (after.user_action === 'accepted_pass2' || after.user_action === 'overridden')
+}
 
 interface GraphSnapshot {
   /** Map of node id → serialised structural data (excludes position) */
@@ -136,6 +181,89 @@ function diffSnapshots(prev: GraphSnapshot, curr: GraphSnapshot): DiffAccumulato
   return hasChanges ? diff : null
 }
 
+function recomputeOperations(diff: DiffAccumulator): void {
+  diff.operations = new Set([...diff.nodeOps.values(), ...diff.edgeOps.values()])
+}
+
+/**
+ * Route canonical edge values to their one authoritative coordinator and
+ * remove those handled fields from the notification-only generic batch.
+ */
+function routeCanonicalEdgeChanges(
+  diff: DiffAccumulator,
+  prevEdges: Edge[],
+  currEdges: Edge[],
+  scenarioId: string,
+): void {
+  const previousById = new Map(prevEdges.map((edge) => [edge.id, edge]))
+  const currentById = new Map(currEdges.map((edge) => [edge.id, edge]))
+
+  for (const edgeId of [...diff.changedEdgeIds]) {
+    const operation = diff.edgeOps.get(edgeId)
+    const beforeEdge = previousById.get(edgeId)
+    const afterEdge = currentById.get(edgeId)
+    if (operation === 'add' || operation === 'remove') {
+      recordUnconfirmedEdgeStructure({ scenarioId, edgeId, operation })
+      continue
+    }
+    if (!beforeEdge || !afterEdge) continue
+
+    const endpointsChanged =
+      beforeEdge.source !== afterEdge.source || beforeEdge.target !== afterEdge.target
+    if (endpointsChanged) {
+      recordUnconfirmedEdgeStructure({ scenarioId, edgeId, operation: 'reconnect' })
+    }
+
+    const changedFields = diff.fieldsChanged.get(edgeId) ?? new Set<string>()
+    const beforeData = (beforeEdge.data ?? {}) as Record<string, unknown>
+    const afterData = (afterEdge.data ?? {}) as Record<string, unknown>
+    for (const group of UNSUPPORTED_EDGE_FIELD_GROUPS) {
+      if (!group.keys.some((key) => changedFields.has(key))) continue
+      recordUnsupportedEdgeMutation({
+        scenarioId,
+        edgeId,
+        field: group.field,
+        before: beforeData[group.field],
+        after: afterData[group.field],
+      })
+    }
+
+    const strengthTouched = [...changedFields].some((field) => CANONICAL_STRENGTH_FIELDS.has(field))
+    if (strengthTouched) {
+      const before = observeEdgeStrength(beforeEdge as Edge<EdgeData>)
+      const after = observeEdgeStrength(afterEdge as Edge<EdgeData>)
+      if (!before || !after || Math.abs(before.tuple.mean) > 1 || Math.abs(after.tuple.mean) > 1) {
+        rejectInvalidEdgeStrengthMutation({
+          scenarioId,
+          edgeId,
+          beforeEdge: beforeEdge as Edge<EdgeData>,
+        })
+      } else if (isStrengthChangingAdjudication(beforeData, afterData)) {
+        recordUnconfirmedAdjudicatedEdgeStrength({ scenarioId, before, after })
+      } else {
+        recordEdgeStrengthMutation({ scenarioId, before, after })
+      }
+    }
+
+    // edge_strength_edit is the value writer. A second direct_graph_edit for
+    // the same strength-only diff is redundant and can recursively muddy the
+    // attribution lifecycle. Preserve any genuinely unrelated fields.
+    const handledFields = new Set<string>(CANONICAL_STRENGTH_FIELDS)
+    for (const group of UNSUPPORTED_EDGE_FIELD_GROUPS) {
+      for (const key of group.keys) handledFields.add(key)
+    }
+    const remaining = new Set([...changedFields].filter((field) => !handledFields.has(field)))
+    if (!endpointsChanged && remaining.size === 0) {
+      diff.changedEdgeIds.delete(edgeId)
+      diff.edgeOps.delete(edgeId)
+      diff.fieldsChanged.delete(edgeId)
+    } else {
+      diff.fieldsChanged.set(edgeId, remaining)
+    }
+  }
+  recomputeOperations(diff)
+}
+
 function buildSummary(acc: DiffAccumulator): string {
   const parts: string[] = []
   const nodeCount = acc.changedNodeIds.size
@@ -167,12 +295,28 @@ export function useGraphEditEvents(
   // is a fire-and-forget notification emitter and does not act on the outcome,
   // so it only needs to accept a resolving promise of any shape — widening here
   // avoids forcing the sentinel type through every unrelated consumer.
-  sendSystemEvent: (event: WireSystemEvent) => Promise<unknown>,
+  sendSystemEvent: (
+    event: WireSystemEvent,
+    opts?: { deferIfBusy?: boolean; edgeStrengthAttemptId?: string },
+  ) => Promise<unknown>,
+  opts: { isThinking?: boolean } = {},
 ): void {
   const snapshotRef = useRef<GraphSnapshot | null>(null)
   const accRef = useRef<DiffAccumulator | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scenarioIdRef = useRef<string | null>(null)
+
+  useEffect(() => registerEdgeStrengthSender(async (event, attemptId) => {
+    const outcome = await sendSystemEvent(event, {
+      deferIfBusy: false,
+      edgeStrengthAttemptId: attemptId,
+    })
+    return outcome as 'send_deferred' | 'send_blocked' | undefined
+  }), [sendSystemEvent])
+
+  useEffect(() => {
+    if (!opts.isThinking) notifyEdgeStrengthTransportAvailable()
+  }, [opts.isThinking])
 
   useEffect(() => {
     if (!isOrchestratorV2Enabled()) return
@@ -181,11 +325,13 @@ export function useGraphEditEvents(
     const state = useCanvasStore.getState()
     snapshotRef.current = takeSnapshot(state.nodes, state.edges)
     scenarioIdRef.current = state.currentScenarioId
+    setOpenEdgeStrengthScenario(state.currentScenarioId)
 
     const unsubscribe = useCanvasStore.subscribe((curr, prev) => {
       // Scenario switch — reset everything
       if (curr.currentScenarioId !== scenarioIdRef.current) {
         scenarioIdRef.current = curr.currentScenarioId
+        setOpenEdgeStrengthScenario(curr.currentScenarioId)
         snapshotRef.current = takeSnapshot(curr.nodes, curr.edges)
         accRef.current = null
         if (timerRef.current) {
@@ -220,6 +366,17 @@ export function useGraphEditEvents(
         return
       }
 
+      if (isV5CanonicalRunPath() && curr.currentScenarioId) {
+        routeCanonicalEdgeChanges(diff, prev.edges, curr.edges, curr.currentScenarioId)
+      }
+
+      const routedState = useCanvasStore.getState()
+      const routedSnapshot = takeSnapshot(routedState.nodes, routedState.edges)
+      if (diff.changedNodeIds.size === 0 && diff.changedEdgeIds.size === 0) {
+        snapshotRef.current = routedSnapshot
+        return
+      }
+
       // Clear guidance immediately on structural change (before debounce fires).
       // Direct model edits invalidate all guidance — drop everything now so stale
       // items don't persist during the 1.5s debounce window.
@@ -249,7 +406,7 @@ export function useGraphEditEvents(
       }
 
       // Update snapshot for next comparison
-      snapshotRef.current = currSnapshot
+      snapshotRef.current = routedSnapshot
 
       // Reset debounce timer
       if (timerRef.current) clearTimeout(timerRef.current)
@@ -342,6 +499,7 @@ export function useGraphEditEvents(
         timerRef.current = null
       }
       accRef.current = null
+      setOpenEdgeStrengthScenario(null)
     }
   }, [sendSystemEvent])
 }

@@ -49,13 +49,14 @@ import { z } from 'zod'
  * - `user`     — the person editing this decision typed/dragged it
  * - `cee`      — a producer estimated it (CEE draft, graph_patch, starter capture)
  * - `template` — a blueprint/template author authored it for this template
+ * - `shared`   — the shared model proves the value, but not who authored it
  *
  * `template` is deliberately DISTINCT from `cee`: a template weight is a real
  * authored value (so it is not a fallthrough default) but it is not an estimate
  * of THIS user's decision. Surfaces may choose to qualify it; none may treat an
  * ABSENT marker as any of these.
  */
-export const EdgeValueSourceEnum = z.enum(['user', 'cee', 'template'])
+export const EdgeValueSourceEnum = z.enum(['user', 'cee', 'template', 'shared'])
 export type EdgeValueSource = z.infer<typeof EdgeValueSourceEnum>
 
 /**

@@ -6,11 +6,11 @@
 
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
-import { EDGE_CONSTRAINTS } from '../../../domain/edges'
 import { useEdgeMutations } from '../useInspectorMutations'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { AdvancedWarningPill } from '../shared/AdvancedWarningPill'
+import { isV5CanonicalRunPath } from '../../../../v5/eligibility'
 
 interface EdgeAdvancedEditorProps {
   edgeId: string
@@ -19,12 +19,13 @@ interface EdgeAdvancedEditorProps {
 export function EdgeAdvancedEditor({ edgeId }: EdgeAdvancedEditorProps) {
   const edge = useCanvasStore(s => s.edges.find(e => e.id === edgeId))
   const mutations = useEdgeMutations(edgeId)
+  const canonicalSharedModel = isV5CanonicalRunPath()
 
   const weight = edge?.data?.weight ?? 0.5
   const direction = edge?.data?.direction ?? 'positive'
   const signedMean = direction === 'negative' ? -weight : weight
-  const std = edge?.data?.strengthStd ?? 0.15
-  const existsProb = edge?.data?.beliefExists ?? EDGE_CONSTRAINTS.beliefExists.default
+  const std = edge?.data?.strengthStd
+  const existsProb = edge?.data?.beliefExists
   const edgeLabel = (edge?.data as Record<string, unknown>)?.label as string | undefined
   const provenance = (edge?.data as Record<string, unknown>)?.provenance as string | undefined
 
@@ -57,13 +58,15 @@ export function EdgeAdvancedEditor({ edgeId }: EdgeAdvancedEditorProps) {
         />
         <AdvancedField
           label="Epistemic uncertainty (σ)"
-          value={Number(std.toFixed(4))}
-          onChange={v => mutations.setStd(v as number)}
-          type="number"
+          value={typeof std === 'number' ? Number(std.toFixed(4)) : 'Not available'}
+          {...(!canonicalSharedModel ? { onChange: (v: unknown) => mutations.setStd(v as number) } : {})}
+          type={canonicalSharedModel ? 'readonly' : 'number'}
           min={0.01}
           max={0.5}
           step={0.01}
-          helperText="Std dev of the effect estimate. Higher = less certain."
+          helperText={canonicalSharedModel
+            ? 'Analysis uses the shared-model value. Editing uncertainty is not available yet.'
+            : 'Std dev of the effect estimate. Higher = less certain.'}
         />
         <AdvancedField
           label="Effect direction"
@@ -80,13 +83,15 @@ export function EdgeAdvancedEditor({ edgeId }: EdgeAdvancedEditorProps) {
       <AdvancedFieldGroup title="Structural uncertainty">
         <AdvancedField
           label="Existence probability"
-          value={Number(existsProb.toFixed(4))}
-          onChange={v => mutations.setExistsProbability(v as number)}
-          type="number"
+          value={typeof existsProb === 'number' ? Number(existsProb.toFixed(4)) : 'Not available'}
+          {...(!canonicalSharedModel ? { onChange: (v: unknown) => mutations.setExistsProbability(v as number) } : {})}
+          type={canonicalSharedModel ? 'readonly' : 'number'}
           min={0.01}
           max={1}
           step={0.01}
-          helperText="Bernoulli probability that this causal link exists."
+          helperText={canonicalSharedModel
+            ? 'Analysis uses the shared-model value. Editing likelihood is not available yet.'
+            : 'Bernoulli probability that this causal link exists.'}
         />
       </AdvancedFieldGroup>
 

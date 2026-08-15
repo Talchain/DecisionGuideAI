@@ -212,6 +212,18 @@ export interface CanRunAnalysisParams {
    * refetch lands.
    */
   readinessStale?: boolean
+  /** Existing canonical factor-value writer queue + active turn. */
+  pendingEmittedEdits?: number
+  activeEmittedEdits?: number
+  unconfirmedEmittedEdits?: number
+  /** Canonical relationship writer state for the open scenario. */
+  edgeStrengthSync?: {
+    scenarioId: string | null
+    hydration: 'idle' | 'pending' | 'settled' | 'unconfirmed'
+    queued: number
+    inFlight: number
+    issue: 'conflict' | 'unconfirmed' | 'unsupported_fields' | 'unsupported_value' | 'unconfirmed_structure' | null
+  }
 }
 
 /**
@@ -306,7 +318,7 @@ export const RUN_LICENCE_SUPERSEDED_REFUSAL =
  * @returns CanRunAnalysisResult with allowed status and reason
  */
 export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResult {
-  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
+  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false, pendingEmittedEdits = 0, activeEmittedEdits = 0, unconfirmedEmittedEdits = 0, edgeStrengthSync } = params
 
   const blockingReasons: string[] = []
 
@@ -358,6 +370,61 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
       allowed: false,
       reason: CEE_DRAFT_FIRST_REFUSAL,
       blockingReasons: ['Model not in Olumi scenario state (template insert)'],
+    }
+  }
+
+  if (isV5CanonicalRunPath() && (pendingEmittedEdits > 0 || activeEmittedEdits > 0)) {
+    return {
+      allowed: false,
+      reason: 'Wait for this model value to finish saving before running analysis.',
+      blockingReasons: ['A model value change is not yet confirmed by the shared model'],
+    }
+  }
+  if (isV5CanonicalRunPath() && unconfirmedEmittedEdits > 0) {
+    return {
+      allowed: false,
+      reason: 'We could not confirm whether a model value change was saved. Check the shared model before running analysis.',
+      blockingReasons: ['A model value change has unconfirmed shared persistence'],
+    }
+  }
+
+  if (isV5CanonicalRunPath() && edgeStrengthSync) {
+    if (edgeStrengthSync.hydration === 'idle' || edgeStrengthSync.hydration === 'pending') {
+      return {
+        allowed: false,
+        reason: 'Checking the shared model before analysis…',
+        blockingReasons: ['Shared-model hydration has not settled'],
+      }
+    }
+    if (edgeStrengthSync.hydration === 'unconfirmed') {
+      return {
+        allowed: false,
+        reason: 'We could not verify which shared model analysis would use. Check the shared model before analysing.',
+        blockingReasons: ['Shared-model hydration could not be verified'],
+      }
+    }
+    if (edgeStrengthSync.inFlight > 0 || edgeStrengthSync.queued > 0) {
+      return {
+        allowed: false,
+        reason: 'Wait for this relationship to finish saving before running analysis.',
+        blockingReasons: ['Relationship change is not yet confirmed by the shared model'],
+      }
+    }
+    if (edgeStrengthSync.issue) {
+      const reason = edgeStrengthSync.issue === 'conflict'
+        ? 'This relationship changed elsewhere. Review the latest shared value before running analysis.'
+        : edgeStrengthSync.issue === 'unconfirmed'
+          ? 'We could not confirm whether this relationship change was saved. Check the shared model before running analysis.'
+          : edgeStrengthSync.issue === 'unconfirmed_structure'
+            ? 'A relationship was added, removed, or reconnected only on this device. Check the shared model before running analysis.'
+            : edgeStrengthSync.issue === 'unsupported_fields'
+              ? 'This version cannot include local relationship likelihood or uncertainty edits in analysis. Reload the shared values to continue.'
+              : 'Set the relationship effect between −1 and +1 before running analysis.'
+      return {
+        allowed: false,
+        reason,
+        blockingReasons: [reason],
+      }
     }
   }
 

@@ -10,7 +10,6 @@ import { AlertTriangle } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
 import { useEditConfirmation } from '../useEditConfirmation'
-import { EditConfirmation } from '../shared/EditConfirmation'
 import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { EDGE_CONSTRAINTS } from '../../../domain/edges'
 import type { NodeType } from '../../../domain/nodes'
@@ -45,6 +44,9 @@ import {
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
+import { isV5CanonicalRunPath } from '../../../../v5/eligibility'
+import { EdgeStrengthSyncStatus } from '../../../edge-strength/EdgeStrengthSyncStatus'
+import { requestEdgeStrengthConfirmation } from '../../../edge-strength/edgeStrengthCoordinator'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -155,11 +157,13 @@ export const EdgePanel = memo(function EdgePanel({
   const robustness = useRobustness()
   const edgeEValues = useEdgeEValues()
   const resultsStatus = useCanvasStore(s => s.results?.status)
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const isResultsMode = resultsStatus === 'complete'
+  const canonicalSharedModel = isV5CanonicalRunPath()
 
   const edge = edgeId ? edges.find(e => e.id === edgeId) : undefined
   const mutations = useEdgeMutations(edgeId ?? '')
-  const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
+  const { confirm: confirmEdit, isStaleAfterEdit } = useEditConfirmation()
 
   // Source/target nodes
   const sourceNode = useMemo(() => nodes.find(n => n.id === edge?.source), [nodes, edge?.source])
@@ -194,11 +198,26 @@ export const EdgePanel = memo(function EdgePanel({
   const signedValue = direction === 'negative' ? -weight : weight
   const beliefExists = edge?.data?.beliefExists ?? EDGE_CONSTRAINTS.beliefExists.default
   const strengthStd = edge?.data?.strengthStd ?? 0.15
+  const hasSharedStrengthStd = typeof edge?.data?.strengthStd === 'number'
 
   // Local slider state
   const [localStrength, setLocalStrength] = useState(signedValue)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
+  const strengthEditingRef = useRef(false)
+  const origStrengthRef = useRef(signedValue)
+
+  // Receipts/conflicts can reconcile the selected edge externally. Keep the
+  // control on that authoritative value once an active drag has ended; never
+  // let one-shot local state continue showing a rejected draft.
+  useEffect(() => {
+    if (!strengthEditingRef.current) {
+      setLocalStrength(signedValue)
+      origStrengthRef.current = signedValue
+    }
+  }, [edgeId, signedValue])
+  useEffect(() => { setLocalBelief(beliefExists) }, [edgeId, beliefExists])
+  useEffect(() => { setLocalStd(strengthStd) }, [edgeId, strengthStd])
 
   // Existence band for the colour + track-fill channels. Provenance comes from
   // the STORE (the only thing that knows whether anyone set this); the value
@@ -247,31 +266,53 @@ export const EdgePanel = memo(function EdgePanel({
 
   // Edit impact preview
   const { previewEdit, clearPreview } = useEditImpactPreview()
-  const origStrengthRef = useRef(signedValue)
 
   // Handlers
   const handleStrengthChange = useCallback((v: number) => {
+    strengthEditingRef.current = true
     setLocalStrength(v)
     mutations.setStrength(v)
     if (edgeId) previewEdit(edgeId, v - origStrengthRef.current)
   }, [mutations, edgeId, previewEdit])
 
   const handleStrengthBlur = useCallback(() => {
+    const unchanged = localStrength === origStrengthRef.current
+    strengthEditingRef.current = false
     clearPreview()
     origStrengthRef.current = localStrength
     confirmEdit('strength')
-  }, [clearPreview, localStrength, confirmEdit])
+    // A same-value blur has no store diff for the watcher to observe. Give it
+    // an explicit confirm_current seam so provenance is receipt-backed rather
+    // than inferred from a local timestamp. Changed values remain owned by the
+    // watcher/coordinator SET lifecycle and must not be overwritten here.
+    if (unchanged && canonicalSharedModel && currentScenarioId && edgeId) {
+      requestEdgeStrengthConfirmation(currentScenarioId, edgeId)
+    }
+  }, [clearPreview, localStrength, confirmEdit, canonicalSharedModel, currentScenarioId, edgeId])
 
   const handleStrengthPresetChange = useCallback((v: number) => {
     // A preset click is a complete edit, not a continuously-dragged preview.
     // Reuse the canonical strength writer, then close the same confirmation
     // seam the fine-tune slider closes on blur so stale analysis exposes the
     // existing rerun affordance.
+    const unchanged = v === localStrength
     handleStrengthChange(v)
     clearPreview()
     origStrengthRef.current = v
+    strengthEditingRef.current = false
     confirmEdit('strength')
-  }, [handleStrengthChange, clearPreview, confirmEdit])
+    if (unchanged && canonicalSharedModel && currentScenarioId && edgeId) {
+      requestEdgeStrengthConfirmation(currentScenarioId, edgeId)
+    }
+  }, [
+    handleStrengthChange,
+    clearPreview,
+    confirmEdit,
+    localStrength,
+    canonicalSharedModel,
+    currentScenarioId,
+    edgeId,
+  ])
 
   const handleBeliefChange = useCallback((v: number) => {
     setLocalBelief(v)
@@ -346,15 +387,18 @@ export const EdgePanel = memo(function EdgePanel({
               <p className={`${typography.panelBody} text-text-body mb-1.5`}>
                 {INLINE_LABELS.strengthQuestion}
               </p>
-              <StrengthBandButtons value={localStrength} onChange={handleStrengthPresetChange} />
+              <StrengthBandButtons
+                value={localStrength}
+                direction={direction}
+                onChange={handleStrengthPresetChange}
+              />
               <ExpertAnnotation techMode={techMode} editable value={localStrength} onChange={(v) => { handleStrengthChange(v); }} suffix="β =" step={0.01} min={-1} max={1} />
-              {/* Edit feedback */}
-              {lastConfirmed?.field === 'strength' && (
-                <div className="flex items-center gap-2 mt-1">
-                  <EditConfirmation trigger={lastConfirmed.ts} />
-                  <InlineRerunPrompt visible={isStaleAfterEdit} />
-                </div>
-              )}
+              <EdgeStrengthSyncStatus
+                scenarioId={currentScenarioId}
+                from={edge.source}
+                to={edge.target}
+              />
+              <InlineRerunPrompt visible={isStaleAfterEdit} />
               {/* Fine-tune slider */}
               <details className="mt-2">
                 <summary className={`${typography.panelMeta} text-info cursor-pointer`}>
@@ -362,8 +406,16 @@ export const EdgePanel = memo(function EdgePanel({
                 </summary>
                 <div className="mt-1.5">
                   <div className="relative mb-2">
-                    <UncertaintyBand strength={localStrength} std={localStd} />
-                    <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={localStd} techMode={techMode} />
+                    {(!canonicalSharedModel || hasSharedStrengthStd) && (
+                      <UncertaintyBand strength={localStrength} std={localStd} />
+                    )}
+                    <SignedStrengthSlider
+                      value={localStrength}
+                      onChange={handleStrengthChange}
+                      onBlur={handleStrengthBlur}
+                      std={canonicalSharedModel && !hasSharedStrengthStd ? undefined : localStd}
+                      techMode={techMode}
+                    />
                   </div>
                   <div className="flex justify-between">
                     <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderStrongNegative}</span>
@@ -379,6 +431,19 @@ export const EdgePanel = memo(function EdgePanel({
               <p className={`${typography.panelBody} text-text-body mb-1`} title={EDGE_COPY.existenceTooltip}>
                 {INLINE_LABELS.existenceQuestion}
               </p>
+              {canonicalSharedModel ? (
+                <div className={`${typography.panelMeta} text-text-light`} data-testid="edge-existence-readonly">
+                  <span className="text-text-body">
+                    {typeof edge.data?.beliefExists === 'number'
+                      ? `${Math.round(edge.data.beliefExists * 100)}%`
+                      : 'Not available'}
+                  </span>
+                  <p className="mt-1">
+                    Analysis uses the shared-model value. Editing likelihood and uncertainty is not available yet.
+                  </p>
+                </div>
+              ) : (
+                <>
               <div className="flex justify-between mb-1">
                 <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMinUnlikely}</span>
                 <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderMaxVeryLikely}</span>
@@ -400,10 +465,24 @@ export const EdgePanel = memo(function EdgePanel({
                 </span>
               </div>
               <ExpertAnnotation techMode={techMode} editable value={localBelief} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
+                </>
+              )}
             </div>
 
             {/* Uncertainty — expert mode only */}
-            {techMode && (
+            {techMode && canonicalSharedModel && (
+              <div className="mt-3" data-testid="edge-std-readonly">
+                <p className={`${typography.panelMeta} text-text-light mb-1`}>
+                  {INLINE_LABELS.strengthUncertainty}
+                </p>
+                <span className={`${typography.panelMeta} text-text-body font-mono`}>
+                  {typeof edge.data?.strengthStd === 'number'
+                    ? `σ = ${edge.data.strengthStd.toFixed(2)}`
+                    : 'Not available'}
+                </span>
+              </div>
+            )}
+            {techMode && !canonicalSharedModel && (
               <div className="mt-3">
                 <p className={`${typography.panelMeta} text-text-light mb-1`}>
                   {INLINE_LABELS.strengthUncertainty}
@@ -507,8 +586,6 @@ export const EdgePanel = memo(function EdgePanel({
         </TechnicalDisclosure>
       )}
 
-      {/* Live region for announcements */}
-      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" />
     </div>
   )
 })

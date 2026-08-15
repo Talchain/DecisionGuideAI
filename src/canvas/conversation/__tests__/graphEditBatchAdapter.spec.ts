@@ -25,6 +25,7 @@ import type { WireSystemEvent } from '../types'
 vi.mock('../../../flags', () => ({
   isOrchestratorV2Enabled: () => true,
   isJourneyTabEnabled: () => false,
+  isV5CanonicalAnalysisEnabled: () => false,
 }))
 
 const TURN_ID = '11111111-1111-4111-8111-111111111111'

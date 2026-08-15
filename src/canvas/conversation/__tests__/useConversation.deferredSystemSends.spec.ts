@@ -28,6 +28,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
 import type { WireSystemEvent } from '../types'
+import {
+  __resetEdgeStrengthCoordinatorForTests,
+  beginEdgeStrengthHydration,
+  finishEdgeStrengthHydration,
+  setOpenEdgeStrengthScenario,
+} from '../../edge-strength/edgeStrengthCoordinator'
+import { useGraphEditEvents } from '../useGraphEditEvents'
 
 // Mock the TRANSPORT, not the context — `importOriginal` spread so the module's
 // other exports (getV5Endpoint et al.) stay real (CLAUDE.md trap 12: a hand
@@ -36,6 +43,96 @@ const dispatched: Array<Record<string, unknown>> = []
 let resolveInFlight: ((v: unknown) => void) | null = null
 /** When set, every dispatch AFTER the first (the lock-holder) rejects. */
 let failFlushDispatch = false
+/** Fail the first held request when it is released (direct-writer mutant). */
+let failHeldDispatch = false
+
+function edgeStrengthReceipt(event: Record<string, unknown>) {
+  const expected = event.expected as {
+    mean: number
+    effect_direction: 'positive' | 'negative'
+  }
+  const direction = event.direction_intent === 'preserve'
+    ? expected.effect_direction
+    : event.direction_intent as 'positive' | 'negative'
+  const magnitude = event.magnitude as number
+  const mean = magnitude === 0 ? 0 : direction === 'negative' ? -magnitude : magnitude
+
+  return {
+    response_version: 2,
+    assistant_text: '',
+    stage_indicator: 'analyse',
+    suggested_actions: [],
+    insights: [],
+    blocks: [{
+      type: 'graph_patch',
+      status: 'applied',
+      operation: 'adjust_edge_strength',
+      target_id: `${String(event.from)}→${String(event.to)}`,
+      before: {
+        from: event.from,
+        to: event.to,
+        strength: { mean: expected.mean, std: 0.1 },
+        effect_direction: expected.effect_direction,
+      },
+      after: {
+        from: event.from,
+        to: event.to,
+        strength: { mean, std: 0.1 },
+        effect_direction: direction,
+      },
+    }],
+    graph_hash: 'new-hash',
+    analysis_ready: {
+      options: [{
+        option_id: 'opt_plan_a',
+        label: 'Plan A',
+        status: 'needs_user_mapping',
+        interventions: {},
+        is_baseline: false,
+      }],
+      goal_node_id: 'goal_profit',
+      status: 'needs_user_input',
+      computed_at: '2026-08-15T14:00:39.168Z',
+      freshness: 'stale',
+      freshness_reason: 'graph_hash_diverged',
+      graph_hash_at_run: 'old-hash',
+      current_graph_hash: 'new-hash',
+    },
+    draft_graph: {
+      nodes: [
+        { id: 'goal_profit', kind: 'goal', label: 'Sustainable profit' },
+        {
+          id: 'fac_demand',
+          kind: 'factor',
+          label: 'Demand',
+          observed_state: { value: 0.55, source: 'cee_inference', cap: 1 },
+        },
+        { id: 'opt_plan_a', kind: 'option', label: 'Plan A' },
+      ],
+      edges: [{
+        from: event.from,
+        to: event.to,
+        strength: { mean, std: 0.1 },
+        exists_probability: 0.9,
+        effect_direction: direction,
+        provenance: { source: 'user_specified', reasoning: 'User judgement' },
+        provenance_display: 'user_set',
+      }],
+      node_count: 3,
+      edge_count: 1,
+    },
+  }
+}
+
+vi.mock('../../../lib/supabase', () => ({
+  supabase: {
+    from: () => ({
+      select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }),
+    }),
+  },
+  getSessionIdentity: () => Promise.resolve({ userId: 'test-user', accessToken: null }),
+  getUserId: () => Promise.resolve('test-user'),
+}))
 
 vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
@@ -47,17 +144,37 @@ vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
       // in-flight lock — this is the concurrency the defect lived in.
       if (dispatched.length === 1) {
         await new Promise((res) => { resolveInFlight = res })
+        if (failHeldDispatch) throw new TypeError('Failed to fetch')
       } else if (failFlushDispatch) {
         throw new TypeError('Failed to fetch')
       }
-      return { ok: true, response: { assistant_text: 'ok', blocks: [] } }
+      const event = payload.event as Record<string, unknown> | undefined
+      if (event?.kind === 'edge_strength_edit') {
+        return { ok: true, response: edgeStrengthReceipt(event) }
+      }
+      const factorReceipt = event?.kind === 'factor_value_edit'
+        ? [{
+            type: 'graph_patch',
+            status: 'applied',
+            operation: 'set_factor_value',
+            target_id: event.target_id,
+            before: { value: 0.2, raw_value: 10_000, unit: event.unit },
+            after: { value: event.value, raw_value: event.raw_value, unit: event.unit },
+          }]
+        : []
+      return { ok: true, response: { assistant_text: factorReceipt.length > 0 ? '' : 'ok', blocks: factorReceipt } }
     }),
   }
 })
 
 vi.mock('../../../flags', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
-  return { ...actual, isOrchestratorV2Enabled: () => true, isOrchestratorStreamingEnabled: () => false }
+  return {
+    ...actual,
+    isOrchestratorV2Enabled: () => true,
+    isOrchestratorStreamingEnabled: () => false,
+    isV5CanonicalAnalysisEnabled: () => true,
+  }
 })
 
 import { SEND_BLOCKED, SEND_DEFERRED, useConversation } from '../useConversation'
@@ -76,6 +193,12 @@ function dispatchedEdits() {
     .map((p) => (p as { event: Record<string, unknown> }).event)
 }
 
+function dispatchedRuns() {
+  return dispatched.filter((payload) => (
+    payload.kind === 'message' && payload.message === 'Run analysis'
+  ))
+}
+
 const flush = async () => {
   // Drain microtasks AND macrotasks. The buffer flushes on a microtask from the
   // releasing turn's finally, each dispatch re-enters the drain, and the
@@ -87,11 +210,63 @@ const flush = async () => {
   }
 }
 
+function seedCanonicalEdgeGraph(): void {
+  useCanvasStore.setState({
+    nodes: [
+      {
+        id: 'goal_profit',
+        type: 'goal',
+        position: { x: 0, y: 0 },
+        data: { label: 'Sustainable profit' },
+      },
+      {
+        id: 'fac_demand',
+        type: 'factor',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Demand',
+          observedState: { value: 0.55, source: 'cee_inference', cap: 1 },
+        },
+      },
+      {
+        id: 'opt_plan_a',
+        type: 'option',
+        position: { x: 0, y: 0 },
+        data: { label: 'Plan A' },
+      },
+    ] as never,
+    edges: [{
+      id: 'opaque-rf-edge-id',
+      source: 'fac_demand',
+      target: 'goal_profit',
+      data: {
+        weight: 0.4,
+        direction: 'negative',
+        strengthStd: 0.1,
+        strengthStdSource: 'cee',
+        beliefExists: 0.9,
+        beliefExistsSource: 'cee',
+      },
+    }] as never,
+    analysisFreshness: {
+      freshness: 'fresh',
+      freshnessReason: 'graph_hash_match',
+      currentGraphHash: 'old-hash',
+      graphHashAtRun: 'old-hash',
+      computedAt: '2026-08-15T13:00:00.000Z',
+    },
+    analysisFreshnessDirty: false,
+    _externalMutationActive: 0,
+  } as never)
+}
+
 beforeEach(() => {
   vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+  __resetEdgeStrengthCoordinatorForTests()
   dispatched.length = 0
   resolveInFlight = null
   failFlushDispatch = false
+  failHeldDispatch = false
   useCanvasStore.setState({
     currentScenarioId: SCENARIO,
     nodes: [],
@@ -102,8 +277,330 @@ beforeEach(() => {
     pendingEmittedEdits: 0,
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
   } as never)
+  setOpenEdgeStrengthScenario(SCENARIO)
+  const hydrationRevision = beginEdgeStrengthHydration(SCENARIO)
+  finishEdgeStrengthHydration({
+    scenarioId: SCENARIO,
+    startedAtRevision: hydrationRevision,
+    usable: true,
+  })
 })
-afterEach(() => { vi.unstubAllEnvs() })
+afterEach(() => {
+  __resetEdgeStrengthCoordinatorForTests()
+  vi.unstubAllEnvs()
+})
+
+describe('canonical Run waits for the complete value-writer transaction', () => {
+  it('forces a debounced relationship edit onto the wire before Run and awaits its exact receipt', async () => {
+    useCanvasStore.setState({
+      nodes: [
+        {
+          id: 'goal_profit',
+          type: 'goal',
+          position: { x: 0, y: 0 },
+          data: { label: 'Sustainable profit' },
+        },
+        {
+          id: 'fac_demand',
+          type: 'factor',
+          position: { x: 0, y: 0 },
+          data: {
+            label: 'Demand',
+            observedState: { value: 0.55, source: 'cee_inference', cap: 1 },
+          },
+        },
+        {
+          id: 'opt_plan_a',
+          type: 'option',
+          position: { x: 0, y: 0 },
+          data: { label: 'Plan A' },
+        },
+      ] as never,
+      edges: [{
+        id: 'opaque-rf-edge-id',
+        source: 'fac_demand',
+        target: 'goal_profit',
+        data: {
+          weight: 0.4,
+          direction: 'negative',
+          strengthStd: 0.1,
+          strengthStdSource: 'cee',
+          beliefExists: 0.9,
+          beliefExistsSource: 'cee',
+        },
+      }] as never,
+      analysisFreshness: {
+        freshness: 'fresh',
+        freshnessReason: 'graph_hash_match',
+        currentGraphHash: 'old-hash',
+        graphHashAtRun: 'old-hash',
+        computedAt: '2026-08-15T13:00:00.000Z',
+      },
+      analysisFreshnessDirty: false,
+      _externalMutationActive: 0,
+    } as never)
+
+    const { result } = renderHook(() => {
+      const conversation = useConversation()
+      useGraphEditEvents(conversation.sendSystemEvent, { isThinking: conversation.isThinking })
+      return conversation
+    })
+
+    // This local write is still inside the coordinator's 1.5 s debounce when
+    // Run is clicked. The dispatch-time barrier must force it immediately.
+    act(() => {
+      useCanvasStore.setState((state) => ({
+        edges: state.edges.map((edge) => edge.id !== 'opaque-rf-edge-id' ? edge : {
+          ...edge,
+          data: {
+            ...edge.data,
+            weight: 0.7,
+            weightSource: 'user',
+            directionSource: 'user',
+            provenanceDisplay: 'user_set',
+            userReviewedStrength: true,
+          },
+        }) as never,
+      }))
+    })
+
+    let runDone: Promise<void> | undefined
+    act(() => {
+      runDone = result.current.sendMessage('Run analysis', {
+        turnType: 'run_analysis',
+        debugSource: 'analysis_run',
+      })
+    })
+    await flush()
+
+    expect(dispatched).toHaveLength(1)
+    expect(dispatchedRuns(), 'Run must not overtake the relationship receipt').toHaveLength(0)
+    expect(dispatched[0]).toMatchObject({
+      kind: 'system_event',
+      event: {
+        kind: 'edge_strength_edit',
+        from: 'fac_demand',
+        to: 'goal_profit',
+        magnitude: 0.7,
+        direction_intent: 'preserve',
+        expected: { mean: -0.4, effect_direction: 'negative' },
+        intent: 'set',
+      },
+    })
+
+    await act(async () => {
+      resolveInFlight?.(undefined)
+      await runDone
+      await flush()
+    })
+
+    expect(dispatched).toHaveLength(2)
+    expect(dispatched[1]).toMatchObject({ kind: 'message', message: 'Run analysis' })
+    expect(useCanvasStore.getState().edgeStrengthSync).toMatchObject({
+      queued: 0,
+      inFlight: 0,
+      issue: null,
+    })
+  })
+
+  it('does not preempt an active factor writer and dispatches Run only after it settles', async () => {
+    const { result } = renderHook(() => useConversation())
+
+    let factorDone: Promise<unknown> | undefined
+    act(() => {
+      factorDone = result.current.sendSystemEvent(edit('fac_a', 0.4, 20_000))
+    })
+    await flush()
+    expect(dispatchedEdits()).toHaveLength(1)
+    expect(useCanvasStore.getState().activeEmittedEdits).toBe(1)
+
+    let runDone: Promise<void> | undefined
+    act(() => {
+      runDone = result.current.sendMessage('Run analysis', {
+        turnType: 'run_analysis',
+        debugSource: 'analysis_run',
+      })
+    })
+    await flush()
+
+    expect(dispatched, 'Run must remain behind the writer receipt').toHaveLength(1)
+    expect(useCanvasStore.getState().activeEmittedEdits).toBe(1)
+
+    await act(async () => {
+      resolveInFlight?.(undefined)
+      await factorDone
+      await runDone
+      await flush()
+    })
+
+    expect(dispatched).toHaveLength(2)
+    expect((dispatched[0] as { event?: { kind?: string } }).event?.kind).toBe('factor_value_edit')
+    expect(dispatched[1]).toMatchObject({ kind: 'message', message: 'Run analysis' })
+    expect(useCanvasStore.getState().activeEmittedEdits).toBe(0)
+  })
+
+  it('drains a factor edit queued while the edge barrier is awaiting its receipt', async () => {
+    seedCanonicalEdgeGraph()
+    const { result } = renderHook(() => {
+      const conversation = useConversation()
+      useGraphEditEvents(conversation.sendSystemEvent, { isThinking: conversation.isThinking })
+      return conversation
+    })
+
+    act(() => {
+      useCanvasStore.setState((state) => ({
+        edges: state.edges.map((edge) => edge.id !== 'opaque-rf-edge-id' ? edge : {
+          ...edge,
+          data: { ...edge.data, weight: 0.7, weightSource: 'user' },
+        }) as never,
+      }))
+    })
+
+    let runDone: Promise<void> | undefined
+    act(() => {
+      runDone = result.current.sendMessage('Run analysis', {
+        turnType: 'run_analysis',
+        debugSource: 'analysis_run',
+      })
+    })
+    await flush()
+    expect((dispatched[0] as { event?: { kind?: string } }).event?.kind).toBe('edge_strength_edit')
+
+    act(() => {
+      useCanvasStore.setState((state) => ({
+        nodes: state.nodes.map((node) => node.id !== 'fac_demand' ? node : {
+          ...node,
+          data: {
+            ...node.data,
+            observedState: { value: 0.75, raw_value: 25_000, unit: '£' },
+          },
+        }) as never,
+      }))
+    })
+    await act(async () => {
+      expect(await result.current.sendSystemEvent(edit('fac_demand', 0.75, 25_000))).toBe(SEND_DEFERRED)
+    })
+    expect(useCanvasStore.getState().pendingEmittedEdits).toBe(1)
+
+    await act(async () => {
+      resolveInFlight?.(undefined)
+      await runDone
+      await flush()
+    })
+
+    expect(dispatched.map((payload) => (
+      (payload as { event?: { kind?: string } }).event?.kind ?? payload.kind
+    ))).toEqual(['edge_strength_edit', 'factor_value_edit', 'message'])
+    expect(dispatchedRuns()).toHaveLength(1)
+    expect(useCanvasStore.getState().nodes.find((node) => node.id === 'fac_demand')?.data)
+      .toMatchObject({ observedState: { value: 0.75, raw_value: 25_000, unit: '£' } })
+    expect(useCanvasStore.getState()).toMatchObject({
+      pendingEmittedEdits: 0,
+      activeEmittedEdits: 0,
+      unconfirmedEmittedEdits: 0,
+    })
+  })
+
+  it('blocks Run when an active factor writer loses its receipt', async () => {
+    const { result } = renderHook(() => useConversation())
+
+    let factorFailure: unknown = null
+    let factorDone: Promise<unknown> | undefined
+    act(() => {
+      factorDone = result.current
+        .sendSystemEvent(edit('fac_a', 0.4, 20_000))
+        .catch((error) => { factorFailure = error })
+    })
+    await flush()
+    expect(dispatchedEdits()).toHaveLength(1)
+
+    let runDone: Promise<void> | undefined
+    act(() => {
+      runDone = result.current.sendMessage('Run analysis', {
+        turnType: 'run_analysis',
+        debugSource: 'analysis_run',
+      })
+    })
+    await flush()
+    expect(dispatchedRuns()).toHaveLength(0)
+
+    failHeldDispatch = true
+    await act(async () => {
+      resolveInFlight?.(undefined)
+      await factorDone
+      await runDone
+      await flush()
+    })
+
+    expect(factorFailure).toMatchObject({ name: 'SystemEventSendError' })
+    expect(dispatchedRuns(), 'Run must not analyse the pre-edit server graph').toHaveLength(0)
+    expect(useCanvasStore.getState().activeEmittedEdits).toBe(0)
+    expect(useCanvasStore.getState().unconfirmedEmittedEdits).toBeGreaterThan(0)
+  })
+
+  it('drains a queued factor writer before Run, preserving chat → writer → Run ordering', async () => {
+    const { result } = renderHook(() => useConversation())
+
+    act(() => { void result.current.sendMessage('Help me frame this') })
+    await flush()
+    expect(dispatched).toHaveLength(1)
+
+    await act(async () => {
+      expect(await result.current.sendSystemEvent(edit('fac_a', 0.5, 25_000))).toBe(SEND_DEFERRED)
+    })
+    expect(useCanvasStore.getState().pendingEmittedEdits).toBe(1)
+
+    let runDone: Promise<void> | undefined
+    act(() => {
+      runDone = result.current.sendMessage('Run analysis', {
+        turnType: 'run_analysis',
+        debugSource: 'analysis_run',
+      })
+    })
+    await flush()
+    expect(dispatched, 'Run cannot overtake the queued writer').toHaveLength(1)
+
+    await act(async () => {
+      resolveInFlight?.(undefined)
+      await runDone
+      await flush()
+    })
+
+    expect(dispatched).toHaveLength(3)
+    expect((dispatched[1] as { event?: { kind?: string } }).event?.kind).toBe('factor_value_edit')
+    expect(dispatched[2]).toMatchObject({ kind: 'message', message: 'Run analysis' })
+    expect(useCanvasStore.getState().pendingEmittedEdits).toBe(0)
+  })
+
+  it('never dispatches Run when the queued writer delivery becomes ambiguous', async () => {
+    const { result } = renderHook(() => useConversation())
+    act(() => { void result.current.sendMessage('Help me frame this') })
+    await flush()
+
+    await act(async () => {
+      await result.current.sendSystemEvent(edit('fac_a', 0.5, 25_000))
+    })
+    failFlushDispatch = true
+    let runDone: Promise<void> | undefined
+    act(() => {
+      runDone = result.current.sendMessage('Run analysis', {
+        turnType: 'run_analysis',
+        debugSource: 'analysis_run',
+      })
+    })
+
+    await act(async () => {
+      resolveInFlight?.(undefined)
+      await runDone
+      await flush()
+    })
+
+    expect(dispatched).toHaveLength(2)
+    expect((dispatched[1] as { event?: { kind?: string } }).event?.kind).toBe('factor_value_edit')
+    expect(dispatchedRuns()).toHaveLength(0)
+    expect(useCanvasStore.getState().unconfirmedEmittedEdits).toBeGreaterThan(0)
+  })
+})
 
 describe('system-mode sends blocked by the in-flight lock', () => {
   it('a blocked send is DETECTABLE — it returns a sentinel, never a silent resolve', async () => {

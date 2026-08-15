@@ -1197,7 +1197,7 @@ export function PreAnalysisPanel({
     // not from ceeAnalysisReady. Option intervention mappings remain valid.
   }, [])
 
-  // Edge strength quick-select — update edge weight via canonical updateEdgeData (clamps [0,2])
+  // Edge strength quick-select — band values are canonical magnitudes in [0,1].
   const handleUpdateEdgeStrength = useCallback((edgeId: string, value: number) => {
     const { updateEdgeData } = useCanvasStore.getState()
     // Write weight through updateEdgeData (clamped). Clear strength_mean so

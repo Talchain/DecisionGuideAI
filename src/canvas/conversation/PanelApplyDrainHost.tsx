@@ -13,12 +13,18 @@ import { useParams } from 'react-router-dom'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from './ConversationContext'
 import { usePanelApplyDrain } from './usePanelApplyDrain'
+import { useGraphEditEvents } from './useGraphEditEvents'
 
 export function PanelApplyDrainHost(): null {
   const { id: scenarioIdFromRoute } = useParams<{ id: string }>()
   const currentScenarioId = useCanvasStore((state) => state.currentScenarioId)
   const graphRevision = useCanvasStore((state) => state.nodes)
-  const { sendSystemEvent } = useConversationContext()
+  const { sendSystemEvent, isThinking } = useConversationContext()
+
+  // aiPanelV2 unmounts DraftChat, so host the ONE graph-diff owner here under
+  // the existing conversation provider. It feeds both generic notifications
+  // and the canonical edge-strength coordinator through the same sender.
+  useGraphEditEvents(sendSystemEvent, { isThinking })
 
   const lookupNodeData = useCallback(
     (targetId: string): unknown =>

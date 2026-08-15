@@ -15,16 +15,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useGraphEditEvents } from '../useGraphEditEvents'
 import { useCanvasStore } from '../../store'
+import { __resetEdgeStrengthCoordinatorForTests } from '../../edge-strength/edgeStrengthCoordinator'
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
 let flagValue = true
-vi.mock('../../../flags', () => ({
+let canonicalFlagValue = false
+vi.mock('../../../flags', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../../flags')>(),
   isOrchestratorV2Enabled: () => flagValue,
   isJourneyTabEnabled: () => false,
+  isV5CanonicalAnalysisEnabled: () => canonicalFlagValue,
 }))
+vi.mock('../../../services/scenarioService', () => ({ appendEvent: vi.fn() }))
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -46,11 +51,16 @@ function setStoreState(overrides: Record<string, unknown>) {
 beforeEach(() => {
   vi.useFakeTimers()
   mockSendSystemEvent.mockClear()
+  __resetEdgeStrengthCoordinatorForTests()
   flagValue = true
+  canonicalFlagValue = false
+  vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'false')
   setStoreState({})
 })
 
 afterEach(() => {
+  __resetEdgeStrengthCoordinatorForTests()
+  vi.unstubAllEnvs()
   vi.useRealTimers()
 })
 
@@ -59,6 +69,153 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('useGraphEditEvents', () => {
+  it('routes a canonical strength-only edit to one edge_strength_edit and never direct_graph_edit', async () => {
+    canonicalFlagValue = true
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+    setStoreState({
+      edges: [{
+        id: 'rf-opaque-1', source: 'fac-a', target: 'goal-b',
+        data: {
+          weight: 0.4, direction: 'negative', strengthStd: 0.1,
+          strengthStdSource: 'cee', weightSource: 'cee', directionSource: 'cee',
+        },
+      }],
+    })
+    const { unmount } = renderHook(() => useGraphEditEvents(mockSendSystemEvent))
+
+    act(() => {
+      useCanvasStore.setState((state) => ({
+        edges: state.edges.map((edge) => ({
+          ...edge,
+          data: { ...edge.data, weight: 0.7, weightSource: 'user' },
+        })) as never,
+      }))
+    })
+    expect(mockSendSystemEvent).not.toHaveBeenCalled()
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500) })
+    expect(mockSendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(mockSendSystemEvent.mock.calls[0][0]).toEqual({
+      type: 'edge_strength_edit',
+      payload: {
+        from: 'fac-a',
+        to: 'goal-b',
+        magnitude: 0.7,
+        direction_intent: 'preserve',
+        expected: { mean: -0.4, effect_direction: 'negative' },
+        intent: 'set',
+      },
+    })
+    unmount()
+  })
+
+  it('turns a same-value user provenance commit into explicit confirm_current', async () => {
+    canonicalFlagValue = true
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+    setStoreState({
+      edges: [{
+        id: 'rf-opaque-1', source: 'fac-a', target: 'goal-b',
+        data: {
+          weight: 0.4, direction: 'positive', strengthStd: 0.1,
+          strengthStdSource: 'cee', weightSource: 'cee', directionSource: 'cee',
+        },
+      }],
+    })
+    const { unmount } = renderHook(() => useGraphEditEvents(mockSendSystemEvent))
+    act(() => {
+      useCanvasStore.setState((state) => ({
+        edges: state.edges.map((edge) => ({
+          ...edge,
+          data: { ...edge.data, weightSource: 'user', userReviewedStrength: true },
+        })) as never,
+      }))
+    })
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500) })
+    expect(mockSendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(mockSendSystemEvent.mock.calls[0][0]).toMatchObject({
+      type: 'edge_strength_edit',
+      payload: {
+        magnitude: 0.4,
+        direction_intent: 'preserve',
+        expected: { mean: 0.4, effect_direction: 'positive' },
+        intent: 'confirm_current',
+      },
+    })
+    unmount()
+  })
+
+  it('keeps contested adjudication fact-only and blocks Run instead of double-emitting a strength writer', async () => {
+    canonicalFlagValue = true
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+    setStoreState({
+      edges: [{
+        id: 'rf-contested-1', source: 'fac-a', target: 'goal-b',
+        data: {
+          weight: 0.4,
+          direction: 'negative',
+          weightSource: 'cee',
+          directionSource: 'cee',
+          validation: {
+            status: 'contested',
+            user_action: 'pending',
+          },
+        },
+      }],
+    })
+    const { unmount } = renderHook(() => useGraphEditEvents(mockSendSystemEvent))
+
+    act(() => {
+      useCanvasStore.setState((state) => ({
+        edges: state.edges.map((edge) => ({
+          ...edge,
+          data: {
+            ...edge.data,
+            weight: 0.7,
+            weightSource: 'user',
+            validation: {
+              ...(edge.data?.validation ?? {}),
+              user_action: 'overridden',
+              resolved_by: 'user',
+            },
+          },
+        })) as never,
+      }))
+    })
+
+    expect(useCanvasStore.getState().edgeStrengthSync).toMatchObject({
+      queued: 0,
+      inFlight: 0,
+      issue: 'unconfirmed',
+    })
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500) })
+    expect(mockSendSystemEvent.mock.calls.some(([event]) => event.type === 'edge_strength_edit')).toBe(false)
+    expect(mockSendSystemEvent.mock.calls.some(([event]) => event.type === 'direct_graph_edit')).toBe(true)
+    unmount()
+  })
+
+  it('does not recursively emit when a receipt/hydration mutation is externally suppressed', async () => {
+    canonicalFlagValue = true
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+    setStoreState({
+      edges: [{
+        id: 'rf-opaque-1', source: 'fac-a', target: 'goal-b',
+        data: { weight: 0.4, direction: 'positive' },
+      }],
+    })
+    const { unmount } = renderHook(() => useGraphEditEvents(mockSendSystemEvent))
+    act(() => {
+      useCanvasStore.getState().beginExternalGraphMutation('patch_apply')
+      useCanvasStore.setState((state) => ({
+        edges: state.edges.map((edge) => ({ ...edge, data: { ...edge.data, weight: 0.7 } })) as never,
+      }))
+      useCanvasStore.getState().endExternalGraphMutation()
+    })
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+    expect(mockSendSystemEvent).not.toHaveBeenCalled()
+    unmount()
+  })
+
   it('fires system event after 1.5s debounce for a single edit', () => {
     const { unmount } = renderHook(() => useGraphEditEvents(mockSendSystemEvent))
 

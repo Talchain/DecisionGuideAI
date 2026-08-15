@@ -16,10 +16,13 @@ import { useCanvasStore } from '../../store'
 // Mocks
 // ---------------------------------------------------------------------------
 
-vi.mock('../../../flags', () => ({
+vi.mock('../../../flags', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../../flags')>(),
   isOrchestratorV2Enabled: () => true,
   isJourneyTabEnabled: () => false,
+  isV5CanonicalAnalysisEnabled: () => false,
 }))
+vi.mock('../../../services/scenarioService', () => ({ appendEvent: vi.fn() }))
 
 // ---------------------------------------------------------------------------
 // Setup

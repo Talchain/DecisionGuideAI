@@ -24,6 +24,7 @@ import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useAuth } from '../../contexts/AuthContext'
 import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
+import { registerEdgeStrengthAuthorityRefresher } from '../edge-strength/edgeStrengthCoordinator'
 import { logger } from '../../lib/logger'
 
 export function useServerGraphHydration(scenarioIdFromRoute?: string | null): void {
@@ -37,10 +38,22 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
 
   const attemptedRef = useRef<string | null>(null)
 
+  useEffect(() => registerEdgeStrengthAuthorityRefresher(async (requestedScenarioId, refreshOpts) => {
+    const outcome = await hydrateCanvasFromServer(requestedScenarioId, {
+      userId: user?.id ?? null,
+      replaceLocalGraph: refreshOpts?.replaceLocalGraph,
+    })
+    return outcome === 'merged' || outcome === 'unchanged'
+  }), [user?.id])
+
   useEffect(() => {
     if (!scenarioId) return
-    if (attemptedRef.current === scenarioId) return
-    attemptedRef.current = scenarioId
+    // A guest refusal is not a completed authenticated attempt. Include auth
+    // identity in the key so signing in retries the same scenario instead of
+    // leaving canonical Run permanently stranded on the guest outcome.
+    const attemptKey = `${scenarioId}:${user?.id ?? 'guest'}`
+    if (attemptedRef.current === attemptKey) return
+    attemptedRef.current = attemptKey
 
     const controller = new AbortController()
     let settled = false
@@ -68,7 +81,7 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
       // and prod paths agree, and costs nothing in prod, where this cleanup
       // only fires on a dependency change (which must re-hydrate anyway) or on
       // unmount (where there is nothing left to guard).
-      if (!settled) attemptedRef.current = null
+      if (!settled && attemptedRef.current === attemptKey) attemptedRef.current = null
     }
   }, [scenarioId, user?.id])
 }

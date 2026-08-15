@@ -517,7 +517,6 @@
 2	src/canvas/conversation/useConversation.ts	TS2339	Property 'graph_state' does not exist on type 'TurnRequestPayload'.
 1	src/canvas/conversation/useConversation.ts	TS2339	Property 'message' does not exist on type 'TurnRequestPayload'.
 2	src/canvas/conversation/useConversation.ts	TS2339	Property 'selected_elements' does not exist on type 'TurnRequestPayload'.
-1	src/canvas/conversation/useConversation.ts	TS2345	Argument of type '{ currentResultsHash: null | string; backfillGoalThreshold: (analysisReady: { goal_node_id?: string; goal_threshold_raw?: null | number; goal_threshold_unit?: null | string; goal_threshold_cap?: null | number; } | null) => void; ... 254 more ...; clearClarifierPreview: () => void; }' is not assignable to parameter of type 'V5ApplicatorStore'.
 2	src/canvas/conversation/useConversation.ts	TS2352	Conversion of type 'OrchestratorResponseEnvelopeV2' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/canvas/conversation/useGraphEditEvents.ts	TS6133	'op' is declared but its value is never read.
 1	src/canvas/conversation/useGraphEditEvents.ts	TS6133	'ops' is declared but its value is never read.
@@ -540,9 +539,7 @@
 1	src/canvas/edges/StyledEdge.tsx	TS6133	'formatConfidence' is declared but its value is never read.
 1	src/canvas/edges/StyledEdge.tsx	TS6133	'labelVisibility' is declared but its value is never read.
 1	src/canvas/edges/StyledEdge.tsx	TS6133	'useGuidanceStore' is declared but its value is never read.
-4	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx	TS6133	'container' is declared but its value is never read.
-1	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx	TS6133	'waitFor' is declared but its value is never read.
-2	src/canvas/edges/__tests__/EdgeEditPopover.perf.spec.tsx	TS6133	'container' is declared but its value is never read.
+1	src/canvas/edges/__tests__/EdgeEditPopover.perf.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/health/issueExplainers.ts	TS2741	Property 'probability_error' is missing in type '{ cycle: string; orphan_node: string; self_loop: string; dangling_edge: string; duplicate_edge: string; missing_label: string; invalid_type: string; }' but required in type 'Record<IssueType, string>'.
 1	src/canvas/highlight/HighlightLayer.tsx	TS6133	'edges' is declared but its value is never read.
 1	src/canvas/highlight/HighlightLayer.tsx	TS6133	'nodes' is declared but its value is never read.
@@ -794,7 +791,6 @@
 1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ direction: "negative" | "positive"; directionSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | ... 2 more ... | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
 1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ label: string | undefined; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 26 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
 1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ strengthStd: number; strengthStdSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ weightSource: "user"; direction?: "negative" | "positive" | undefined; directionSource?: "cee" | "template" | "user" | undefined; weight: number; style?: "dashed" | "dotted" | "solid" | undefined; ... 26 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
 1	src/canvas/ui/inspector/SignedStrengthSlider.stories.tsx	TS2307	Cannot find module '@storybook/react' or its corresponding type declarations.
 1	src/canvas/ui/inspector/SignedStrengthSlider.tsx	TS6133	'displayColor' is declared but its value is never read.
 1	src/canvas/ui/inspector/SignedStrengthSlider.tsx	TS6133	'effectCoaching' is declared but its value is never read.

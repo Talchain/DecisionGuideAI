@@ -423,14 +423,11 @@ describe('StyledEdge edge label — strength words (ROADMAP 2.950, #627 lineage)
 
   // ── THE EDIT POPOVER SEAM: a user edit must become visible to the gate ────
   //
-  // `EdgeEditPopover` live-previews on a 120 ms debounce, INCLUDING an initial
-  // fire with the SEED values the moment it opens. So the stamp has to be
-  // conditional on the value actually moving:
-  //   · stamp on every fire  → opening the popover launders the 0.5 default
-  //     into a user claim (the exact failure edgeValueProvenance.ts exists to
-  //     prevent) — the first test below REDs.
-  //   · never stamp          → the label says "not set" about a strength the
-  //     user just chose — the second test REDs.
+  // `EdgeEditPopover` now keeps previews local and commits only on Enter or an
+  // outside click. Opening it must therefore be a strict no-op: an initial
+  // write would launder the 0.5 display fallback into a user claim. A genuine
+  // commit must still stamp the chosen value so the provenance-gated label can
+  // speak it.
 
   describe('edge edit popover → weightSource stamp', () => {
     beforeEach(() => {
@@ -444,26 +441,20 @@ describe('StyledEdge edge label — strength words (ROADMAP 2.950, #627 lineage)
       fireEvent.doubleClick(labelEl(container))
     }
 
-    it('does NOT stamp on the popover\'s untouched initial fire (no laundering on open)', () => {
+    it('does NOT write or stamp when the popover is merely opened', () => {
       const { container } = renderEdge(NO_STRENGTH_DATA)
       openPopover(container)
       act(() => {
         vi.advanceTimersByTime(200)
       })
-      // POSITIVE CONTROL for the absence: the initial fire itself happened.
-      expect(updateEdgeDataSpy).toHaveBeenCalled()
-      for (const [, data] of updateEdgeDataSpy.mock.calls) {
-        expect(data).not.toHaveProperty('weightSource')
-      }
+      expect(updateEdgeDataSpy).not.toHaveBeenCalled()
     })
 
     it('stamps weightSource: "user" (and clears strength_mean) when the user moves the weight', () => {
       const { container, getByLabelText } = renderEdge(NO_STRENGTH_DATA)
       openPopover(container)
       fireEvent.change(getByLabelText('Weight slider'), { target: { value: '0.9' } })
-      act(() => {
-        vi.advanceTimersByTime(200)
-      })
+      fireEvent.keyDown(getByLabelText('Weight slider'), { key: 'Enter' })
       const stamped = updateEdgeDataSpy.mock.calls.filter(([, data]) => data?.weightSource === 'user')
       expect(stamped.length, 'no stamped write reached the store').toBeGreaterThan(0)
       const [edgeId, data] = stamped[stamped.length - 1]

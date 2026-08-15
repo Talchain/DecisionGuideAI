@@ -41,6 +41,7 @@ vi.mock('../../../flags', () => ({
   isThreadHydrateEnabled: () => false,
   isThreadPersistEnabled: () => false,
   isOrchestratorRenderingV2Enabled: () => false,
+  isV5CanonicalAnalysisEnabled: () => false,
 }))
 
 // ---------------------------------------------------------------------------

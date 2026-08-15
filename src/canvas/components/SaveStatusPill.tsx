@@ -13,9 +13,11 @@ export interface SaveStatusPillProps {
   isSaving: boolean
   lastSavedAt: number | null
   savedBy?: string | null
+  /** The scenario save is local while a canonical value write is unresolved. */
+  deviceOnly?: boolean
 }
 
-export function SaveStatusPill({ isSaving, lastSavedAt, savedBy }: SaveStatusPillProps) {
+export function SaveStatusPill({ isSaving, lastSavedAt, savedBy, deviceOnly = false }: SaveStatusPillProps) {
   const [timeLabel, setTimeLabel] = useState<string>('')
 
   useEffect(() => {
@@ -71,7 +73,9 @@ export function SaveStatusPill({ isSaving, lastSavedAt, savedBy }: SaveStatusPil
       >
         <Check className="w-3 h-3" />
         <span>
-          Saved{savedBy && ` by ${savedBy}`} {savedBy && '•'} {timeLabel}
+          {deviceOnly
+            ? `Saved on this device ${timeLabel}`
+            : <>Saved{savedBy && ` by ${savedBy}`} {savedBy && '•'} {timeLabel}</>}
         </span>
       </div>
     )

@@ -31,16 +31,21 @@ const BANDS: StrengthBand[] = [
 interface StrengthBandButtonsProps {
   /** Current signed strength value (-1 to +1) */
   value: number
+  /** Explicit persisted direction, required to preserve a negative zero. */
+  direction?: 'positive' | 'negative'
   /** Callback with new signed strength value (band midpoint with current sign preserved) */
   onChange: (signedValue: number) => void
 }
 
 export const StrengthBandButtons = memo(function StrengthBandButtons({
   value,
+  direction,
   onChange,
 }: StrengthBandButtonsProps) {
   const absMagnitude = Math.abs(value)
-  const isNegative = value < 0
+  // JavaScript's `-0 < 0` is false. Direction is a separate scientific field
+  // and remains meaningful at zero, so prefer it whenever the caller has it.
+  const isNegative = direction === 'negative' || (direction === undefined && value < 0)
 
   const activeBandIndex = useMemo(() => {
     for (let i = 0; i < BANDS.length; i++) {

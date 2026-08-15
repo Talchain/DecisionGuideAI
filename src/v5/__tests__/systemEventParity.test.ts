@@ -38,6 +38,7 @@ const UI_WIRE_EVENT_TYPES = [
   'patch_dismissed',
   'feedback_submitted',
   'factor_value_edit',
+  'edge_strength_edit',
   'edge_adjudication',
   'prior_range_edit',
 ] as const satisfies readonly WireSystemEventType[]
@@ -106,6 +107,21 @@ const UI_COVERAGE: Record<
     kind: 'system_event',
     eventKind: 'factor_value_edit',
     payload: { target_id: 'fac_monthly_eng_cost', value: 0.5, raw_value: 15000, unit: '£' },
+  },
+  // 0.42.0 canonical relationship writer. The UI emits the strict endpoint-
+  // addressed CAS event only through the edge-strength coordinator; the
+  // expected tuple is the last authoritative shared-model value.
+  edge_strength_edit: {
+    kind: 'system_event',
+    eventKind: 'edge_strength_edit',
+    payload: {
+      from: 'fac_price',
+      to: 'out_churn',
+      magnitude: 0.6,
+      direction_intent: 'preserve',
+      expected: { mean: -0.4, effect_direction: 'negative' },
+      intent: 'set',
+    },
   },
   // P4 transport (0.34.0): the two human-judgement signals that previously
   // terminated in the client store. `edge_adjudication` is emitted by
@@ -233,23 +249,22 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 7 of 12 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 8 of 12 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
     // 0.22.0 grew the wire union to 8 (added `feedback`); F7 wired feedback
     // emission. 0.29.0 grew it to 9 (added `factor_value_edit`; ROADMAP 1.346
     // wired it). 0.34.0 grew it to 11 (added `edge_adjudication` +
-    // `prior_range_edit`; the P4 transport lane wired both). 0.43.0 grew it to
-    // 12 by transitively exposing the existing `edge_strength_edit` server
-    // event; that event remains deliberately deferred in this reader-only
-    // lane. UI emission count therefore remains 7 (patch_accepted,
-    // patch_dismissed, direct_graph_edit, feedback, factor_value_edit,
-    // edge_adjudication, prior_range_edit).
+    // `prior_range_edit`; the P4 transport lane wired both). 0.43.0 exposes
+    // the existing `edge_strength_edit` server event and this lane wires that
+    // canonical writer, so UI emission count is now 8 (patch_accepted,
+    // direct_graph_edit, feedback, factor_value_edit, edge_strength_edit,
+    // edge_adjudication, prior_range_edit, patch_dismissed).
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
-    expect(uiEmittedCount).toBe(7)
+    expect(uiEmittedCount).toBe(8)
     expect(V5_EVENT_KINDS).toHaveLength(12)
   })
 })

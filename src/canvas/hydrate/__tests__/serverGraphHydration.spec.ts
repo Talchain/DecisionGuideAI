@@ -10,6 +10,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useCanvasStore } from '../../store'
 import { hydrateCanvasFromServer } from '../serverGraphHydration'
+import {
+  __resetEdgeStrengthCoordinatorForTests,
+  edgeStrengthRunBarrierState,
+  setOpenEdgeStrengthScenario,
+} from '../../edge-strength/edgeStrengthCoordinator'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
 const OTHER_SCENARIO_ID = '99999999-8888-4777-8666-555555555555'
@@ -89,12 +94,15 @@ function nodeById(id: string): any {
 let fetchSpy: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
+  __resetEdgeStrengthCoordinatorForTests()
   fetchSpy = vi.fn()
   vi.stubGlobal('fetch', fetchSpy)
   seedCanvas()
+  setOpenEdgeStrengthScenario(SCENARIO_ID)
 })
 
 afterEach(() => {
+  __resetEdgeStrengthCoordinatorForTests()
   vi.unstubAllGlobals()
 })
 
@@ -107,6 +115,37 @@ describe('hydrateCanvasFromServer — boot WITH a server graph', () => {
     expect(nodeById('goal-1').data.value).toBe(9)
     expect(nodeById('factor-1').position).toEqual(A_POS)
     expect(nodeById('goal-1').position).toEqual(B_POS)
+    expect(useCanvasStore.getState().history.past).toHaveLength(1)
+  })
+
+  it('blocks immediate Run while the boot authority read is pending', async () => {
+    let resolveFetch!: (response: Response) => void
+    fetchSpy.mockImplementation(() => new Promise<Response>((resolve) => { resolveFetch = resolve }))
+
+    const hydration = hydrateCanvasFromServer(SCENARIO_ID)
+    expect(edgeStrengthRunBarrierState(SCENARIO_ID)).toMatchObject({ ok: false })
+
+    resolveFetch(jsonResponse(200, okBody()))
+    await expect(hydration).resolves.toBe('merged')
+    expect(edgeStrengthRunBarrierState(SCENARIO_ID)).toEqual({ ok: true })
+  })
+
+  it('does not let a late read overwrite a factor edit made after the request began', async () => {
+    let resolveFetch!: (response: Response) => void
+    fetchSpy.mockImplementation(() => new Promise<Response>((resolve) => { resolveFetch = resolve }))
+    const hydration = hydrateCanvasFromServer(SCENARIO_ID)
+
+    useCanvasStore.setState((state) => ({
+      nodes: state.nodes.map((node) => node.id !== 'factor-1' ? node : {
+        ...node,
+        data: { ...node.data, observedState: { value: 0.99, source: 'user_override' } },
+      }),
+    }))
+    resolveFetch(jsonResponse(200, okBody()))
+
+    await expect(hydration).resolves.toBe('superseded')
+    expect(nodeById('factor-1').data.observedState.value).toBe(0.99)
+    expect(edgeStrengthRunBarrierState(SCENARIO_ID).ok).toBe(false)
   })
 
   it('stores CEE’s identity token VERBATIM, envelope fields intact', async () => {
@@ -148,7 +187,7 @@ describe('hydrateCanvasFromServer — CEE-to-CEE token comparison only', () => {
     expect(nodeById('factor-1').data.value).toBe(777)
   })
 
-  it('re-merges when CEE issues a DIFFERENT token', async () => {
+  it('re-merges a DIFFERENT token but withholds authority when local-only structure remains', async () => {
     fetchSpy.mockResolvedValue(jsonResponse(200, okBody()))
     await hydrateCanvasFromServer(SCENARIO_ID)
 
@@ -164,11 +203,36 @@ describe('hydrateCanvasFromServer — CEE-to-CEE token comparison only', () => {
         }),
       ),
     )
-    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('merged')
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('mergeRefused')
     expect(nodeById('factor-1').data.value).toBe(42)
+    // The merge intentionally preserves goal-1, which the new FULL server graph
+    // omitted. The canvas is therefore not the graph CEE would analyse, so the
+    // new token must not license Run.
+    expect(nodeById('goal-1')).toBeDefined()
+    expect(useCanvasStore.getState().serverGraphIdentity).toBeNull()
   })
 
-  it('NEVER compares across projection_version — a version change always re-merges', async () => {
+  it('an explicit restore replaces local-only structure and proves full authority', async () => {
+    fetchSpy.mockResolvedValue(
+      jsonResponse(200, okBody({
+        graph_identity_hash: envelope(CEE_TOKEN_2),
+        graph: {
+          nodes: [{ id: 'factor-1', kind: 'factor', label: 'Spend', value: 42 }],
+          edges: [],
+        },
+      })),
+    )
+
+    expect(await hydrateCanvasFromServer(SCENARIO_ID, { replaceLocalGraph: true })).toBe('merged')
+    expect(useCanvasStore.getState().nodes.map((node) => node.id)).toEqual(['factor-1'])
+    expect(useCanvasStore.getState().serverGraphIdentity).toEqual({
+      value: CEE_TOKEN_2,
+      projectionVersion: 'identity.v1',
+    })
+    expect(edgeStrengthRunBarrierState(SCENARIO_ID)).toEqual({ ok: true })
+  })
+
+  it('NEVER compares across projection_version, and does not license a partial re-merge', async () => {
     fetchSpy.mockResolvedValue(jsonResponse(200, okBody()))
     await hydrateCanvasFromServer(SCENARIO_ID)
 
@@ -186,12 +250,9 @@ describe('hydrateCanvasFromServer — CEE-to-CEE token comparison only', () => {
         }),
       ),
     )
-    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('merged')
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('mergeRefused')
     expect(nodeById('factor-1').data.value).toBe(42)
-    expect(useCanvasStore.getState().serverGraphIdentity).toEqual({
-      value: CEE_TOKEN,
-      projectionVersion: 'identity.v2',
-    })
+    expect(useCanvasStore.getState().serverGraphIdentity).toBeNull()
   })
 
   it('a null token never suppresses a merge', async () => {

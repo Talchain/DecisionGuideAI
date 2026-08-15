@@ -164,6 +164,7 @@ const fakeReport: Record<string, unknown> = {
  */
 function seedCompletedRunWithProvableThreshold() {
   const baseResults = useCanvasStore.getState().results
+  const scenarioId = useCanvasStore.getState().currentScenarioId
   useCanvasStore.setState({
     hasCompletedFirstRun: true,
     nodes: [
@@ -176,6 +177,22 @@ function seedCompletedRunWithProvableThreshold() {
     results: { ...baseResults, status: 'complete', progress: 100, report: fakeReport },
     analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: 1 },
     analysisFreshnessDirty: false,
+    // This suite isolates the chip-parameter seam, so establish the canonical
+    // persistence precondition explicitly. An idle hydration lane now blocks
+    // Run by design; silently relying on the old permissive default would make
+    // these absence assertions vacuous again.
+    pendingEmittedEdits: 0,
+    activeEmittedEdits: 0,
+    unconfirmedEmittedEdits: 0,
+    edgeStrengthSync: {
+      scenarioId,
+      revision: 1,
+      hydration: 'settled',
+      queued: 0,
+      inFlight: 0,
+      issue: null,
+      lastOutcome: null,
+    },
     showDraftChat: false,
     goalThreshold: 60,
   } as never)

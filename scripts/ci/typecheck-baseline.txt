@@ -228,7 +228,7 @@
 1	src/canvas/conversation/__tests__/useSmartScroll.spec.ts
 1	src/canvas/conversation/__tests__/validateResponse.spec.ts
 4	src/canvas/conversation/turnService.ts
-14	src/canvas/conversation/useConversation.ts
+13	src/canvas/conversation/useConversation.ts
 2	src/canvas/conversation/useGraphEditEvents.ts
 6	src/canvas/conversation/utils/__tests__/applyPatch.v3Fields.spec.ts
 4	src/canvas/conversation/validateResponse.ts
@@ -237,8 +237,7 @@
 1	src/canvas/domain/__tests__/migrations.spec.ts
 1	src/canvas/domain/__tests__/nodes.spec.ts
 31	src/canvas/edges/StyledEdge.tsx
-5	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx
-2	src/canvas/edges/__tests__/EdgeEditPopover.perf.spec.tsx
+1	src/canvas/edges/__tests__/EdgeEditPopover.perf.spec.tsx
 1	src/canvas/health/issueExplainers.ts
 2	src/canvas/highlight/HighlightLayer.tsx
 1	src/canvas/hooks/__tests__/goalThreshold.representation.spec.ts
@@ -331,7 +330,7 @@
 1	src/canvas/ui/inspector-v2/panels/OutcomePanel.tsx
 3	src/canvas/ui/inspector-v2/shared/IntelligenceSection.tsx
 1	src/canvas/ui/inspector-v2/types.ts
-5	src/canvas/ui/inspector-v2/useInspectorMutations.ts
+4	src/canvas/ui/inspector-v2/useInspectorMutations.ts
 1	src/canvas/ui/inspector/SignedStrengthSlider.stories.tsx
 2	src/canvas/ui/inspector/SignedStrengthSlider.tsx
 5	src/canvas/ui/inspector/StrengthBar.stories.tsx

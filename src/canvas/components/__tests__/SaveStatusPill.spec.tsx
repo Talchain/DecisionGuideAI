@@ -42,6 +42,15 @@ describe('SaveStatusPill (P0-2)', () => {
     expect(screen.getByText(/Saved by Alice • just now/)).toBeInTheDocument()
   })
 
+  it('qualifies scenario persistence while a shared-model write is unresolved', () => {
+    const recentTime = Date.now() - 5000
+
+    render(<SaveStatusPill isSaving={false} lastSavedAt={recentTime} deviceOnly />)
+
+    expect(screen.getByText(/Saved on this device just now/)).toBeInTheDocument()
+    expect(screen.queryByText(/^Saved just now/)).not.toBeInTheDocument()
+  })
+
   it('renders nothing when not saving and no lastSavedAt', () => {
     const { container } = render(<SaveStatusPill isSaving={false} lastSavedAt={null} />)
 
