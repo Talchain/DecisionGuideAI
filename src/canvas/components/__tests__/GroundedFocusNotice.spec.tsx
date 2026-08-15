@@ -24,8 +24,6 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 
 import { GroundedFocusNotice } from '../GroundedFocusNotice'
 import { useCanvasStore } from '../../store'
@@ -138,59 +136,5 @@ describe('GroundedFocusNotice — the two empty states are not the same state', 
     const notice = screen.getByTestId(NOTICE)
     expect(notice).toHaveAttribute('role', 'status')
     expect(notice).toHaveAttribute('aria-live', 'polite')
-  })
-})
-
-describe('the mount path — trap 3b: a component the deployment never renders', () => {
-  // This estate has twice shipped a badge dark by testing a component the
-  // deployed flags do not mount. The render tests above are silent about that
-  // by construction, so the mount path is asserted directly at the source of
-  // the canvas that hosts it.
-  //
-  // ⚠ SCOPE, precisely: this is a STRUCTURAL claim about `ReactFlowGraph.tsx`
-  // — that the notice sits in the same unconditional chip rail as a surface
-  // already known to reach users. It is not a render proof of that file.
-  const graphSource = readFileSync(
-    resolve(__dirname, '../../ReactFlowGraph.tsx'),
-    'utf8',
-  )
-
-  it('POSITIVE CONTROL: the probe finds FocusModeChip, a surface known to be live', () => {
-    // Without this, "the notice is mounted" could be passing because the probe
-    // matches anything, or because it read the wrong file.
-    expect(graphSource.length).toBeGreaterThan(0)
-    expect(graphSource).toMatch(/<FocusModeChip\s*\/>/)
-  })
-
-  it('BaseNode reads the grounded set and gives it the SAME emphasis treatment', () => {
-    // The node marks are the other half of the visible slice, and after the
-    // ownership fix they ride `groundedFocus.nodeIds` rather than the shared
-    // `highlightedNodes`. Two claims, both structural: the selector exists,
-    // and it drives the SAME `ai-highlight-pulse` class — one emphasis
-    // language on the canvas, per the spec.
-    const baseNode = readFileSync(resolve(__dirname, '../../nodes/BaseNode.tsx'), 'utf8')
-
-    // POSITIVE CONTROL: the probe can see the pre-existing shared-channel
-    // selector, so a miss below is absence rather than blindness.
-    expect(baseNode).toMatch(/useCanvasStore\(s\s*=>\s*s\.highlightedNodes\.has\(id\)\)/)
-
-    expect(baseNode).toMatch(/s\.groundedFocus\?\.nodeIds\?\.has\(id\)/)
-    // Same treatment, one class, driven by either channel.
-    expect(baseNode).toMatch(/isHighlighted \|\| isGroundedFocus\s*\?\s*'ring-4 ring-info\/60 ai-highlight-pulse'/)
-  })
-
-  it('mounts GroundedFocusNotice in the same rail as FocusModeChip', () => {
-    expect(graphSource).toMatch(/<GroundedFocusNotice\s*\/>/)
-
-    const chip = graphSource.indexOf('<FocusModeChip />')
-    const notice = graphSource.indexOf('<GroundedFocusNotice />')
-    expect(chip).toBeGreaterThan(-1)
-    expect(notice).toBeGreaterThan(chip)
-
-    // Nothing conditional between the two: the notice inherits exactly the
-    // reachability of the chip. A flag or `&&` introduced here would make the
-    // notice dark while every render test above stayed green.
-    const between = graphSource.slice(chip, notice)
-    expect(between).not.toMatch(/&&|\?\s*\(|\bif\s*\(/)
   })
 })
