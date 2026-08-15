@@ -328,6 +328,75 @@ describe('production panel-apply route', () => {
     expect(harness.sendSystemEvent).toHaveBeenCalledTimes(1)
   })
 
+  it('an older accepted citation cannot clear a newer same-millisecond citation, which retries exactly once', async () => {
+    const oldEvidenceId = '77777777-7777-4777-8777-777777777777'
+    const newEvidenceId = '88888888-8888-4888-8888-888888888888'
+    const recordedAt = new Date().toISOString()
+    const storageKey = `olumi.collab.pending-apply.${SCENARIO_ID}`
+    const oldIntent = {
+      scenario_id: SCENARIO_ID,
+      round_id: ROUND_ID,
+      participant_id: GRACE_ID,
+      target_id: TARGET_ID,
+      value: 0.85,
+      evidence_event_id: oldEvidenceId,
+      recorded_at: recordedAt,
+    }
+    const newerIntent = { ...oldIntent, evidence_event_id: newEvidenceId }
+
+    let resolveOldSend: (() => void) | undefined
+    harness.sendSystemEvent.mockImplementationOnce(
+      (event: unknown) => {
+        harness.systemEvents.push(event)
+        return new Promise<undefined>((resolve) => {
+          resolveOldSend = () => resolve(undefined)
+        })
+      },
+    )
+    window.localStorage.setItem(storageKey, JSON.stringify(oldIntent))
+
+    renderBoundaryAt(SCENARIO_ID)
+    await waitFor(() => expect(harness.sendSystemEvent).toHaveBeenCalledTimes(1))
+    expect(harness.sendSystemEvent.mock.calls[0]?.[1]).toEqual({ deferIfBusy: false })
+    expect(harness.systemEvents[0]).toMatchObject({
+      type: 'factor_value_edit',
+      payload: {
+        applied_from: { evidence_event_id: oldEvidenceId },
+      },
+    })
+
+    // This is a genuinely newer owner action even though Date's millisecond
+    // clock collided. The changed citation is part of what the owner claimed.
+    window.localStorage.setItem(storageKey, JSON.stringify(newerIntent))
+    await act(async () => {
+      resolveOldSend?.()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(readPendingApply(SCENARIO_ID)).toEqual(newerIntent)
+
+    // Settlement releases only the old transport claim. A later graph revision
+    // must still be able to drain the new action through the singleton sender.
+    await act(async () => {
+      useCanvasStore.setState((state) => ({ nodes: [...state.nodes] }))
+    })
+    await waitFor(() => expect(harness.sendSystemEvent).toHaveBeenCalledTimes(2))
+    expect(harness.sendSystemEvent.mock.calls[1]?.[1]).toEqual({ deferIfBusy: false })
+    expect(harness.systemEvents[1]).toMatchObject({
+      type: 'factor_value_edit',
+      payload: {
+        applied_from: { evidence_event_id: newEvidenceId },
+      },
+    })
+    await waitFor(() => expect(readPendingApply(SCENARIO_ID)).toBeNull())
+
+    await act(async () => {
+      useCanvasStore.setState((state) => ({ nodes: [...state.nodes] }))
+    })
+    expect(harness.sendSystemEvent).toHaveBeenCalledTimes(2)
+  })
+
   it('a rejected send retains the exact action and a later revision retries it successfully once', async () => {
     harness.sendSystemEvent.mockRejectedValueOnce(new Error('transport rejected'))
     rememberPendingApply({
