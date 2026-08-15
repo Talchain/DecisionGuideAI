@@ -46,6 +46,7 @@ import { existenceCertaintyToLineStyle, calculateEdgeImportance, weightMagnitude
 import { typography } from '../../styles/typography'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
+import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 /**
  * StyledEdge with semantic visual properties
@@ -111,6 +112,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // here for the new selector rather than adding a third baselined error.
   // Fixing the pre-existing two is a typing change outside this lane's fence.
   const edgeIdKey = String(id)
+  const isAssistantFocused = useAssistantFocusStore(
+    (state) => state.target?.kind === 'edge' && state.target.id === edgeIdKey,
+  )
 
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
@@ -727,6 +731,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         data-analysis-fragile={isAnalysisFragileEdge && !isStructuralEdge ? 'true' : undefined}
+        data-assistant-focused={isAssistantFocused ? 'true' : undefined}
       >
       {/* Invisible hitbox — wider than visual stroke; carries test-id and
           structural tooltip. pointer-events:stroke so the <g> receives events
@@ -741,6 +746,18 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       >
         {isStructuralEdge && structuralTooltip && <title>{structuralTooltip}</title>}
       </path>
+      {isAssistantFocused && (
+        <path
+          d={edgePath}
+          fill="none"
+          stroke="var(--semantic-info)"
+          strokeWidth={8}
+          opacity={0.32}
+          pointerEvents="none"
+          vectorEffect="non-scaling-stroke"
+          data-testid={`assistant-focus-edge-halo-${edgeIdKey}`}
+        />
+      )}
       <BaseEdge
         id={id}
         path={edgePath}

@@ -23,6 +23,11 @@ import { renderHook, act } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
 import { useFocusCamera } from '../useFocusCamera'
 import { focusNodeById, focusEdgeById, fitNodesOnCanvas } from '../../utils/focusHelpers'
+import { focusAssistantTarget } from '../../utils/assistantFocusCamera'
+import {
+  dismissAssistantFocus,
+  useAssistantFocusStore,
+} from '../../stores/assistantFocusStore'
 
 const fitViewSpy = vi.fn()
 const setCenterSpy = vi.fn()
@@ -119,6 +124,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  dismissAssistantFocus()
   vi.restoreAllMocks()
 })
 
@@ -285,5 +291,77 @@ describe('useFocusCamera — F4 no-churn through the real bridge (finding 7)', (
     renderHook(() => useFocusCamera())
     act(() => focusEdgeById('e1'))
     expect(setCenterSpy.mock.calls[0]![2].duration).toBe(0)
+  })
+})
+
+describe('useFocusCamera — assistant focus is camera-only', () => {
+  it('frames a node without changing the user selection, pulse, or focus dim', () => {
+    stubCanvas()
+    useCanvasStore.setState({
+      nodes: NODES.map((candidate) => ({ ...candidate, selected: candidate.id === 'a' })),
+      selection: { nodeIds: new Set(['a']), edgeIds: new Set(), anchorPosition: null },
+      highlightedNodes: new Set(['b']),
+      focusDimSourceId: 'a',
+      dimmedNodeIds: new Set(['far']),
+    } as any)
+    const { result } = renderHook(() => useFocusCamera())
+
+    act(() => {
+      focusAssistantTarget({ id: 'far', kind: 'node', label: 'Far factor' })
+    })
+    expect(fitViewSpy).toHaveBeenCalledTimes(1)
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['a'])
+    expect(useCanvasStore.getState().nodes.find((candidate) => candidate.id === 'a')?.selected).toBe(true)
+    expect(useCanvasStore.getState().nodes.find((candidate) => candidate.id === 'far')?.selected).not.toBe(true)
+    expect([...useCanvasStore.getState().highlightedNodes]).toEqual(['b'])
+    expect(focusDim()).toBe('a')
+    expect(dimmed()).toEqual(['far'])
+    expect(useAssistantFocusStore.getState().target?.id).toBe('far')
+
+    // The fit's own move-start consumes the exemption but cannot clear the
+    // user's existing focus dim.
+    act(() => emitMoveStart(result.current.onMoveStart))
+    expect(focusDim()).toBe('a')
+  })
+
+  it('frames both endpoints of an off-screen edge without selecting the edge', () => {
+    stubCanvas()
+    useCanvasStore.setState({
+      nodes: NODES.map((candidate) => ({ ...candidate, selected: candidate.id === 'a' })),
+      edges: [{ id: 'edge-far', source: 'a', target: 'far', selected: false }] as any,
+      selection: { nodeIds: new Set(['a']), edgeIds: new Set(), anchorPosition: null },
+    } as any)
+    renderHook(() => useFocusCamera())
+
+    act(() => {
+      focusAssistantTarget({ id: 'edge-far', kind: 'edge', label: 'A → Far' })
+    })
+    expect(fitViewSpy).toHaveBeenCalledTimes(1)
+    expect(fitViewSpy.mock.calls[0]![0].nodes.map((candidate: { id: string }) => candidate.id))
+      .toEqual(['a', 'far'])
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['a'])
+    expect([...useCanvasStore.getState().selection.edgeIds]).toEqual([])
+    expect(useCanvasStore.getState().edges[0]?.selected).toBe(false)
+  })
+
+  it('does not churn the camera when an assistant edge is already comfortably visible', () => {
+    stubCanvas()
+    renderHook(() => useFocusCamera())
+    act(() => {
+      focusAssistantTarget({ id: 'e1', kind: 'edge', label: 'A → B' })
+    })
+    expect(fitViewSpy).not.toHaveBeenCalled()
+    expect(setCenterSpy).not.toHaveBeenCalled()
+  })
+
+  it('canvas unmount clears the focus so it cannot reappear on a later mount', () => {
+    stubCanvas()
+    const { unmount } = renderHook(() => useFocusCamera())
+    act(() => {
+      focusAssistantTarget({ id: 'a', kind: 'node', label: 'A' })
+    })
+    expect(useAssistantFocusStore.getState().target?.id).toBe('a')
+    act(() => unmount())
+    expect(useAssistantFocusStore.getState().target).toBeNull()
   })
 })
