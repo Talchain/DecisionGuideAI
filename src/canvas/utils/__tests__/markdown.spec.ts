@@ -6,7 +6,7 @@
  * Prior to Brief A+B (commit 2d88c8cf, 2026-03-19) this module used
  * DOMPurify + marked for full GFM rendering. Brief A+B replaced it with
  * `safeRichText` — a dependency-free, restricted renderer with an allowlist
- * of only: <strong>, <br>, <ul>, <li>, <span>.
+ * of only: <strong>, <br>, <ul>, <ol>, <li>, <span>.
  *
  * `sanitizeMarkdown` is now a deprecated shim that delegates to `safeRichText`.
  * These tests verify the CURRENT contract, not the legacy DOMPurify contract.
@@ -14,6 +14,8 @@
  * KEY BEHAVIOURAL DIFFERENCES FROM LEGACY
  * ----------------------------------------
  * - Italic (`*italic*`) → NOT converted; output is `*italic*` literal
+ * - Ordered lists (`1. x`) → <ol><li>x</li></ol> (SUPPORTED since PX-B, 15 Aug 2026)
+ * - Asterisk bullets (`* x`) → <ul><li>x</li></ul> (SUPPORTED since PX-B, 15 Aug 2026)
  * - Inline code (`` `code` ``) → NOT converted; backticks remain
  * - Code blocks (``` ```…``` ```) → NOT converted; raw text with <br> breaks
  * - Blockquotes (`> quote`) → NOT converted; `>` is escaped to `&gt;`
@@ -117,11 +119,19 @@ describe('sanitizeMarkdown (safeRichText contract)', () => {
       expect(result).toContain('&gt; quote')
     })
 
-    it('does NOT convert ordered lists — output shows escaped literal numbers', () => {
+    /**
+     * SUPERSEDED by PX-B (response-presentation architecture, 15 Aug 2026).
+     * This case previously asserted `not.toContain('<ol>')` — it pinned the
+     * behaviour that made a numbered list render as a run of prose
+     * ('<span class="md-number">1</span>. First<br>…'), which was one of the
+     * "broken bullets / walls of text" defects in Paul's testing. Ordered lists
+     * are now a SUPPORTED transform, so the assertion is inverted deliberately
+     * rather than deleted, and `<ol>` joins the tag allowlist.
+     * Full contract: safeRichText.listRendering.spec.ts.
+     */
+    it('DOES convert ordered lists to <ol><li> (changed by PX-B)', () => {
       const result = sanitizeMarkdown('1. First\n2. Second')
-      expect(result).not.toContain('<ol>')
-      expect(result).toContain('First')
-      expect(result).toContain('Second')
+      expect(result).toBe('<ol><li>First</li><li>Second</li></ol>')
     })
 
     it('does NOT convert markdown links — brackets/parentheses remain literal', () => {

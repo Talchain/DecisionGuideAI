@@ -3,7 +3,8 @@
  *
  * Supports ONLY the subset used by the orchestrator:
  *   - Bold:    **text** → <strong>text</strong>
- *   - Bullets: - item  → <ul><li>item</li></ul>
+ *   - Bullets: - item / * item  → <ul><li>item</li></ul>
+ *   - Numbered: 1. item / 1) item → <ol><li>item</li></ol>
  *   - Line breaks: single newline → <br>
  *
  * Graceful degradation for unsupported syntax:
@@ -13,7 +14,7 @@
  *   - Emoji characters → stripped (conservative allowlist)
  *
  * XSS safety:
- *   - Allowlist: <strong>, <br>, <ul>, <li>, <span> only
+ *   - Allowlist: <strong>, <br>, <ul>, <ol>, <li>, <span> only
  *     (<span> is emitted with class="md-number" for tabular-nums styling on
  *     standalone integers / decimals / percentages per DS v5 §2 prose rhythm)
  *   - All other HTML is escaped before processing
@@ -29,7 +30,7 @@
  */
 
 /** Allowlisted HTML tag names. Nothing else may appear in the output. */
-const ALLOWED_TAGS = new Set(['strong', 'br', 'ul', 'li', 'span'])
+const ALLOWED_TAGS = new Set(['strong', 'br', 'ul', 'ol', 'li', 'span'])
 
 /**
  * Conservative emoji strip pattern.
@@ -143,12 +144,34 @@ export function safeRichText(markdown: string): string {
   let tableHeaderConfirmed = false
 
   const outputParts: string[] = []
-  let bulletGroup: string[] = []
+  let listGroup: string[] = []
+  /** Which list the open group is — 'ul' for bullets, 'ol' for numbered. */
+  let listKind: 'ul' | 'ol' = 'ul'
+  /**
+   * The first marker value of an open ORDERED group. Preserved into
+   * `<ol start="N">` so a continuation list ("4. …, 5. …") is not silently
+   * renumbered to 1 — presentation may demote content, never restate it.
+   * Serialised from a parsed integer, so no producer text reaches the attribute.
+   */
+  let listStart = 1
 
-  function flushBullets() {
-    if (bulletGroup.length === 0) return
-    outputParts.push('<ul>' + bulletGroup.map((item) => `<li>${convertInline(item)}</li>`).join('') + '</ul>')
-    bulletGroup = []
+  function flushList() {
+    if (listGroup.length === 0) return
+    const items = listGroup.map((item) => `<li>${convertInline(item)}</li>`).join('')
+    const open =
+      listKind === 'ol' && listStart !== 1 ? `<ol start="${listStart}">` : `<${listKind}>`
+    outputParts.push(`${open}${items}</${listKind}>`)
+    listGroup = []
+  }
+
+  /** Open (or continue) a list of the given kind, flushing a group of the other kind first. */
+  function pushListItem(kind: 'ul' | 'ol', item: string, start: number) {
+    if (listGroup.length > 0 && listKind !== kind) flushList()
+    if (listGroup.length === 0) {
+      listKind = kind
+      listStart = start
+    }
+    listGroup.push(item)
   }
 
   for (let i = 0; i < rawLines.length; i++) {
@@ -157,7 +180,7 @@ export function safeRichText(markdown: string): string {
 
     // Horizontal rules: --- or ***
     if (/^(-{3,}|\*{3,})$/.test(trimmed)) {
-      flushBullets()
+      flushList()
       tableHeaders = null
       outputParts.push('<br class="md-gap">')
       continue
@@ -166,7 +189,7 @@ export function safeRichText(markdown: string): string {
     // Headings: # text → bold text
     const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/)
     if (headingMatch) {
-      flushBullets()
+      flushList()
       tableHeaders = null
       outputParts.push(`<strong>${convertInline(headingMatch[2])}</strong>`)
       continue
@@ -182,7 +205,7 @@ export function safeRichText(markdown: string): string {
     // Table row: | col1 | col2 |
     const tableMatch = trimmed.match(/^\|(.+)\|$/)
     if (tableMatch) {
-      flushBullets()
+      flushList()
       const cells = tableMatch[1].split('|').map(c => c.trim()).filter(Boolean)
 
       if (!tableHeaders) {
@@ -217,20 +240,36 @@ export function safeRichText(markdown: string): string {
       tableHeaderConfirmed = false
     }
 
-    // Bullet markers: markdown "- " plus dedicated bullet glyphs CEE may emit
-    // (• ‣ ◦). A trailing space is required so inline emphasis (*italic*,
-    // **bold**) and prose hyphens are never mistaken for list items. Middle-dot
-    // "·" and "*" are deliberately excluded — both have non-bullet uses (inline
-    // separator / emphasis); CEE uses "•" for bullets.
-    const bulletMatch = trimmed.match(/^[-•‣◦]\s+(.+)$/)
+    // Ordered list markers: "1. item" / "1) item". Checked BEFORE the numeric
+    // transform can reach the line, so the marker digit is consumed as the
+    // marker and never wrapped in <span class="md-number"> (which is what made
+    // a numbered list render as a run of prose). The trailing space is required,
+    // so a decimal ("0.5 million") and a bare number line never match.
+    const orderedMatch = trimmed.match(/^(\d+)[.)]\s+(.+)$/)
+    if (orderedMatch) {
+      pushListItem('ol', orderedMatch[2], Number(orderedMatch[1]))
+      continue
+    }
+
+    // Bullet markers: markdown "- " / "* " plus dedicated bullet glyphs CEE may
+    // emit (• ‣ ◦). A trailing space is REQUIRED, and that requirement is what
+    // makes "*" safe to include: neither "*italic*" nor "**bold**" has a space
+    // after the marker, and a "***" rule is consumed by the horizontal-rule
+    // branch above. "*" was previously excluded outright on emphasis grounds —
+    // broader than the collision the space requirement already prevents, and
+    // "* item" is the list form an LLM emits most often after "- ", so the
+    // exclusion turned those turns into walls of text. Middle-dot "·" stays
+    // excluded: it has a genuine inline-separator use with no space rule to
+    // distinguish it.
+    const bulletMatch = trimmed.match(/^[-*•‣◦]\s+(.+)$/)
     if (bulletMatch) {
-      bulletGroup.push(bulletMatch[1])
+      pushListItem('ul', bulletMatch[1], 1)
     } else if (trimmed === '-') {
       // Bare marker with no content — preserve prior empty-bullet behaviour
-      bulletGroup.push('')
+      pushListItem('ul', '', 1)
     } else {
-      // Non-bullet line — flush any pending bullet group first
-      flushBullets()
+      // Non-list line — flush any pending list group first
+      flushList()
 
       if (trimmed === '') {
         // Empty line: separator between paragraphs — emit nothing (blank line)
@@ -242,7 +281,7 @@ export function safeRichText(markdown: string): string {
   }
 
   // Flush any trailing bullet group
-  flushBullets()
+  flushList()
 
   // Flush any trailing unconfirmed table headers as data
   if (tableHeaders && !tableHeaderConfirmed) {
@@ -264,7 +303,7 @@ export function safeRichText(markdown: string): string {
   for (const part of outputParts) {
     if (part === '') { blankSeen = true; continue }
 
-    if (part.startsWith('<ul>') || part.startsWith('<br class="md-gap">')) {
+    if (part.startsWith('<ul>') || part.startsWith('<ol') || part.startsWith('<br class="md-gap">')) {
       blankSeen = false
       result += part
     } else {
