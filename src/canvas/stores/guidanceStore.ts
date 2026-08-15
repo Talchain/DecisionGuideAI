@@ -6,6 +6,26 @@
  */
 import { create } from 'zustand'
 import { AlertTriangle, Lightbulb, type LucideIcon } from 'lucide-react'
+import { frontOlumiSurface } from '../conversation/revealOlumi'
+
+/**
+ * Wrap a registered conversation callback so invoking it FRONTS the Olumi
+ * surface first. Preserves `null` (an unregistered callback must stay
+ * falsy — every call site tests it before calling) and the callback's own
+ * arguments and return value.
+ *
+ * Fronting happens BEFORE delegating so the surface is already on screen when
+ * the optimistic user message is appended, rather than appearing after it.
+ */
+function withOlumiFronting<A extends unknown[], R>(
+  fn: ((...args: A) => R) | null | undefined,
+): ((...args: A) => R) | null {
+  if (!fn) return null
+  return (...args: A): R => {
+    frontOlumiSurface()
+    return fn(...args)
+  }
+}
 
 // ---------------------------------------------------------------------------
 // § 1 — CEE contract types
@@ -543,12 +563,35 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
   registerConversationCallbacks: (sendMessage, scrollToPatch, sendChip, runAnalysis, prefillChat, dispatchAction) => {
     const token = {}
     set({
-      _sendMessage: sendMessage,
+      // ⭐ ONE RULE: anything that sends work to the Olumi chat fronts the
+      // Olumi surface. Applied HERE, at the registration seam, because these
+      // four callbacks ARE the definition of "a programmatic send" — every
+      // node chip, science icon, context-menu Explain/Challenge, coaching CTA,
+      // starter banner and strengthen recommendation in the product reaches
+      // the conversation through one of them, and there is no other route.
+      //
+      // Before this, ~20 call sites each had to remember; 8 of them did not,
+      // and their turns landed in a tab the user could not see (measured
+      // 15 Aug 2026). Patching those 8 would have left the 21st to be written
+      // wrong, which is the hand-maintained-mirror defect this estate keeps
+      // paying for — so the rule lives at the seam, not at the call sites.
+      // The sites that already call `revealOlumiSurface` themselves are left
+      // alone: fronting is idempotent, and several of them additionally want
+      // keyboard focus, which this rule deliberately does NOT take.
+      _sendMessage: withOlumiFronting(sendMessage),
+      // NOT fronted. Running an analysis is not a chat send, and OutputsDock
+      // deliberately auto-switches to the Analysis tab for a run and then
+      // returns to Olumi when the review block arrives. Fronting Olumi here
+      // would fight that existing authority rather than join it.
       _runAnalysis: runAnalysis ?? null,
+      // NOT fronted — scrolling to a patch is navigation within a surface the
+      // user is already looking at, not a send.
       _scrollToPatch: scrollToPatch,
-      _sendChip: sendChip ?? null,
-      _prefillChat: prefillChat ?? null,
-      _dispatchAction: dispatchAction ?? null,
+      _sendChip: withOlumiFronting(sendChip),
+      // Fronted: a prefill the user cannot see is worse than no prefill —
+      // their next keystroke goes somewhere else entirely.
+      _prefillChat: withOlumiFronting(prefillChat),
+      _dispatchAction: withOlumiFronting(dispatchAction),
       _registrationToken: token,
     })
     return () => {
