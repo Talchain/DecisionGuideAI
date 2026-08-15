@@ -461,7 +461,7 @@ export default function PanelSetupPage(): JSX.Element {
         <RevealBody reveal={reveal} apply={applyState} disagreement={disagreement} />
         <div className="mx-auto w-full max-w-[820px] px-4 pb-10 sm:px-6">
           <Link
-            to={`#/scenario/${scenarioId ?? ''}`}
+            to={`/scenario/${scenarioId ?? ''}`}
             data-testid="reveal-back-to-model"
             className={`${typography.body} text-info hover:underline`}
           >

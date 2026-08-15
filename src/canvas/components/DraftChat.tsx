@@ -132,9 +132,12 @@ export function DraftChat() {
   // Task 2: Watch for full_draft signal (set by useConversation when ≥3 nodes added at once)
   const fullDraftAppliedAt = useDraftStore(s => s.fullDraftAppliedAt)
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
-  // Read through `getState()` rather than a subscribing selector: this is a
-  // point lookup performed once when an intent drains, and subscribing to the
-  // whole node array here would re-render the chat on every graph change.
+  // The node-array identity is the explicit hydration revision that retriggers
+  // a deferred drain. The lookup itself still reads through getState() so it
+  // does not close over a stale graph snapshot.
+  const panelApplyGraphRevision = useCanvasStore(s => s.nodes)
+  // Read the target through `getState()` rather than capturing the subscribed
+  // array: this point lookup happens only when an intent is eligible to drain.
   const lookupNodeDataForApply = useCallback(
     (targetId: string): unknown =>
       useCanvasStore.getState().nodes.find((n) => n.id === targetId)?.data,
@@ -156,6 +159,8 @@ export function DraftChat() {
   // rather than the panel page growing a second turn transport.
   usePanelApplyDrain({
     scenarioId: currentScenarioId ?? undefined,
+    graphReady: currentScenarioId !== null,
+    graphRevision: panelApplyGraphRevision,
     lookupNodeData: lookupNodeDataForApply,
     sendSystemEvent: conversation.sendSystemEvent,
   })

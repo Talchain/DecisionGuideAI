@@ -34,6 +34,22 @@ export interface PanelApplyDrainArgs {
   /** The scenario the canvas is showing. Empty until it resolves. */
   scenarioId: string | undefined
   /**
+   * True only after the graph in the store belongs to `scenarioId`.
+   *
+   * Route navigation can mount the canvas while the previous scenario's graph
+   * is still in the store. Reading that graph would make a same-id factor look
+   * ready and send the new scenario's pending apply against stale node data.
+   */
+  graphReady: boolean
+  /**
+   * Changes whenever graph hydration/replacement changes the available nodes.
+   *
+   * `lookupNodeData` is deliberately stable, so a first pass that defers while
+   * the target is absent needs this explicit dependency to run again after a
+   * delayed server hydration supplies it.
+   */
+  graphRevision: unknown
+  /**
    * The node's `data` for the intent's target, read for its OWN cap/unit — the
    * builder needs it to decide the scale. `undefined` when the graph has not
    * loaded yet, which DEFERS the drain rather than dropping it.
@@ -47,6 +63,8 @@ export interface PanelApplyDrainArgs {
 
 export function usePanelApplyDrain({
   scenarioId,
+  graphReady,
+  graphRevision,
   lookupNodeData,
   sendSystemEvent,
   onApplied,
@@ -58,6 +76,7 @@ export function usePanelApplyDrain({
 
   useEffect(() => {
     if (scenarioId === undefined || scenarioId === '') return
+    if (!graphReady) return
     if (sendSystemEvent === undefined) return
     if (drainedFor.current === scenarioId) return
 
@@ -104,5 +123,5 @@ export function usePanelApplyDrain({
         // second client-invented sentence about a server outcome would be the
         // product guessing. The value simply does not change.
       })
-  }, [scenarioId, lookupNodeData, sendSystemEvent, onApplied])
+  }, [scenarioId, graphReady, graphRevision, lookupNodeData, sendSystemEvent, onApplied])
 }

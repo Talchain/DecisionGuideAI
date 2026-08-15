@@ -93,6 +93,8 @@ const NODE_DATA = { label: 'Churn risk', observedState: { value: 0.5 } }
 function CanvasHarness({ onWire }: { onWire: (event: unknown) => void }): JSX.Element {
   usePanelApplyDrain({
     scenarioId: SCENARIO_ID,
+    graphReady: true,
+    graphRevision: NODE_DATA,
     lookupNodeData: (id) => (id === TARGET_ID ? NODE_DATA : undefined),
     sendSystemEvent: async (event) => {
       // THE LAST REAL HOP — the one that was dropping the field. The event here
