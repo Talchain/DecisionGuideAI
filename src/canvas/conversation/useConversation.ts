@@ -2331,6 +2331,14 @@ export interface SendTurnOpts {
    * `SEND_DEFERRED` long before the reply existed.
    */
   optimisticFactorEdit?: OptimisticFactorEdit
+  /**
+   * Keep this system event with its caller when another turn owns the lock.
+   *
+   * Default true preserves the established singleton sender queue. Callers
+   * that already own a durable retry record set false so `SEND_BLOCKED` is
+   * returned instead of creating a second, hidden copy of the same action.
+   */
+  deferIfBusy?: boolean
 }
 
 /** One send held back by the in-flight lock. */
@@ -2389,6 +2397,7 @@ const MAX_FLUSH_ATTEMPTS = 3
 export const SEND_DEFERRED = 'send_deferred' as const
 /** Blocked and NOT queued (retry-class callers). Detectable, never silent. */
 export const SEND_BLOCKED = 'send_blocked' as const
+/** `undefined` is the only accepted/dispatched outcome. */
 export type SendTurnOutcome = typeof SEND_DEFERRED | typeof SEND_BLOCKED | undefined
 
 export class SystemEventSendError extends Error {
@@ -2436,6 +2445,8 @@ export interface UseConversationReturn {
      * canvas showing a number (and a "User edited" stamp) the engine declined.
      */
     optimisticFactorEdit?: OptimisticFactorEdit
+    /** Return `SEND_BLOCKED` instead of queueing behind an in-flight turn. */
+    deferIfBusy?: boolean
     // Resolves to SEND_DEFERRED when the in-flight lock queued the send instead
     // of dispatching it, so a caller can tell "queued" from "sent" — the old
     // `Promise<void>` made those two indistinguishable, which is how an
@@ -4129,6 +4140,9 @@ export function useConversation(): UseConversationReturn {
           // newer turn's lock or analysing state.
           isThinkingRef.current = false
         } else if (opts.mode === 'system' && opts.systemEvent) {
+          if (opts.deferIfBusy === false) {
+            return SEND_BLOCKED
+          }
           // DEFER, do not drop. Returns a sentinel so the caller can tell this
           // apart from a dispatched turn — the old bare `return` could not be
           // distinguished from success by any caller, in prod or in a test.
@@ -6093,9 +6107,10 @@ export function useConversation(): UseConversationReturn {
       debugInitiatedBy?: 'user' | 'automatic'
       debugSourceSurface?: string
       optimisticFactorEdit?: OptimisticFactorEdit
+      deferIfBusy?: boolean
     }) => {
       // No-op when orchestrator V2 is OFF
-      if (!isOrchestratorV2Enabled()) return
+      if (!isOrchestratorV2Enabled()) return SEND_BLOCKED
 
       // Pre-check: skip the entire network turn if the event type is not
       // supported by the CEE v3 schema. Prevents phantom [system] turns
@@ -6105,7 +6120,7 @@ export function useConversation(): UseConversationReturn {
         if (import.meta.env.DEV) {
           console.warn(`[sendSystemEvent] Dropped unsupported event: ${event.type}`)
         }
-        return
+        return SEND_BLOCKED
       }
 
       recordCrossSurfaceEvent({
@@ -6128,6 +6143,7 @@ export function useConversation(): UseConversationReturn {
         initiatedBy: opts?.debugInitiatedBy ?? 'automatic',
         sourceSurface: opts?.debugSourceSurface,
         optimisticFactorEdit: opts?.optimisticFactorEdit,
+        deferIfBusy: opts?.deferIfBusy,
       })
     },
     [sendTurn],

@@ -11,7 +11,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useConversation, SYSTEM_MESSAGE_SENTINEL } from '../useConversation'
+import { SEND_BLOCKED, useConversation, SYSTEM_MESSAGE_SENTINEL } from '../useConversation'
 import { useCanvasStore } from '../../store'
 import type { WireSystemEvent } from '../types'
 
@@ -145,13 +145,15 @@ describe('sendSystemEvent', () => {
 
     const { result } = renderHook(() => useConversation())
 
+    let outcome: unknown = 'not-set'
     await act(async () => {
-      await result.current.sendSystemEvent({
+      outcome = await result.current.sendSystemEvent({
         type: 'direct_graph_edit',
         payload: { changed_node_ids: ['n1'] },
       })
     })
 
+    expect(outcome).toBe(SEND_BLOCKED)
     expect(mockCallTurn).not.toHaveBeenCalled()
     expect(result.current.messages).toHaveLength(0)
   })
@@ -272,6 +274,7 @@ describe('sendSystemEvent', () => {
 
     const { result } = renderHook(() => useConversation())
 
+    let outcome: unknown = 'not-set'
     await act(async () => {
       // DELIBERATE type violation, and the cast is the point of the test rather
       // than a workaround for it. `session_resume` is an InternalSystemEventType,
@@ -281,12 +284,13 @@ describe('sendSystemEvent', () => {
       // state, a hydrated thread, a JS caller). Casting through `unknown` is how
       // this test reaches the runtime guard at all; without it the assertion
       // below could only ever be vacuous.
-      await result.current.sendSystemEvent(
+      outcome = await result.current.sendSystemEvent(
         { type: 'session_resume', payload: {} } as unknown as WireSystemEvent,
       )
     })
 
     // Pre-filter drops session_resume before sendTurn — no network call
+    expect(outcome).toBe(SEND_BLOCKED)
     expect(mockCallTurn).not.toHaveBeenCalled()
     expect(result.current.messages).toHaveLength(0)
   })

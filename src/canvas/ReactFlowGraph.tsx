@@ -101,6 +101,7 @@ import { OutputsDock } from './components/OutputsDock'
 import { DraftChat } from './components/DraftChat'
 import { isAiPanelV2Enabled } from '../flags'
 import { ConversationProvider } from './conversation/ConversationContext'
+import { PanelApplyDrainHost } from './conversation/PanelApplyDrainHost'
 import { FloatingOlumiPanel } from './components/FloatingOlumiPanel'
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
@@ -2418,17 +2419,21 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
 /**
  * Conditionally wraps children in <ConversationProvider> when aiPanelV2 is ON.
- * Mounts a single useConversation() instance shared by the docked Olumi tab
- * (via OutputsDock) and the floating Olumi panel. When OFF, renders children
- * directly so OutputsDock + DraftChat continue to own their own
- * useConversation() instances as today.
+ * Mounts a single useConversation() instance shared by the docked Olumi tab,
+ * floating panel and the headless panel-apply drain. When OFF, renders children
+ * directly so OutputsDock + DraftChat continue to own their existing paths.
  *
  * Critical: exactly ONE useConversation() instance must be mounted at runtime
  * (see useConversation.ts scenario-hydration race + telemetry duplication).
  */
-function MaybeConversationProvider({ children }: { children: import('react').ReactNode }) {
+export function MaybeConversationProvider({ children }: { children: import('react').ReactNode }) {
   if (isAiPanelV2Enabled()) {
-    return <ConversationProvider>{children}</ConversationProvider>
+    return (
+      <ConversationProvider>
+        <PanelApplyDrainHost />
+        {children}
+      </ConversationProvider>
+    )
   }
   return <>{children}</>
 }

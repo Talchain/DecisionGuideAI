@@ -60,7 +60,7 @@ vi.mock('../../../flags', async (importOriginal) => {
   return { ...actual, isOrchestratorV2Enabled: () => true, isOrchestratorStreamingEnabled: () => false }
 })
 
-import { useConversation, SEND_DEFERRED } from '../useConversation'
+import { SEND_BLOCKED, SEND_DEFERRED, useConversation } from '../useConversation'
 
 const SCENARIO = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
 
@@ -121,6 +121,28 @@ describe('system-mode sends blocked by the in-flight lock', () => {
     // indistinguishable from a dispatched turn.
     expect(outcome).toBe(SEND_DEFERRED)
     expect(dispatchedEdits(), 'not on the wire yet — the lock is still held').toHaveLength(0)
+  })
+
+  it('a durable caller can keep retry ownership instead of creating a hidden queued copy', async () => {
+    const { result } = renderHook(() => useConversation())
+    act(() => { void result.current.sendMessage('run the analysis') })
+    await flush()
+
+    let outcome: unknown = 'not-set'
+    await act(async () => {
+      outcome = await result.current.sendSystemEvent(
+        edit('fac_a', 0.4, 20000),
+        { deferIfBusy: false },
+      )
+    })
+
+    expect(outcome).toBe(SEND_BLOCKED)
+    expect(dispatchedEdits()).toHaveLength(0)
+
+    // Releasing the lock must not flush a second copy behind the caller's
+    // durable pending record; the caller alone decides when to retry.
+    await act(async () => { resolveInFlight?.(undefined); await flush() })
+    expect(dispatchedEdits()).toHaveLength(0)
   })
 
   it('a deferred edit is NOT LOST — it reaches the wire once the lock clears', async () => {

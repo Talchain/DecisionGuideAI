@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import { ChevronDown, ChevronUp, Paperclip, Settings, Sparkles, X } from 'lucide-react'
 import { useCEEDraft } from '../../hooks/useCEEDraft'
 import { DraftLoadingAnimation } from './DraftLoadingAnimation'
@@ -51,6 +52,7 @@ function useOrchestratorV2Flag(): boolean {
 
 export function DraftChat() {
   const isOrchV2 = useOrchestratorV2Flag()
+  const { id: scenarioIdFromRoute } = useParams<{ id: string }>()
 
   // Initialize description from stored value to maintain context across panel close/reopen
   const lastDraftDescription = useDraftStore(s => s.lastDraftDescription)
@@ -132,9 +134,12 @@ export function DraftChat() {
   // Task 2: Watch for full_draft signal (set by useConversation when ≥3 nodes added at once)
   const fullDraftAppliedAt = useDraftStore(s => s.fullDraftAppliedAt)
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
-  // Read through `getState()` rather than a subscribing selector: this is a
-  // point lookup performed once when an intent drains, and subscribing to the
-  // whole node array here would re-render the chat on every graph change.
+  // The node-array identity is the explicit hydration revision that retriggers
+  // a deferred drain. The lookup itself still reads through getState() so it
+  // does not close over a stale graph snapshot.
+  const panelApplyGraphRevision = useCanvasStore(s => s.nodes)
+  // Read the target through `getState()` rather than capturing the subscribed
+  // array: this point lookup happens only when an intent is eligible to drain.
   const lookupNodeDataForApply = useCallback(
     (targetId: string): unknown =>
       useCanvasStore.getState().nodes.find((n) => n.id === targetId)?.data,
@@ -155,7 +160,13 @@ export function DraftChat() {
   // so it records an intent and this drains it through the ONE real sender —
   // rather than the panel page growing a second turn transport.
   usePanelApplyDrain({
-    scenarioId: currentScenarioId ?? undefined,
+    // Bind to the requested route, not whatever scenario the store happened to
+    // hold for the render before hydration. On /scenario/B, an A graph/pending
+    // action is inert until the store also names B.
+    scenarioId: scenarioIdFromRoute,
+    graphReady:
+      scenarioIdFromRoute !== undefined && currentScenarioId === scenarioIdFromRoute,
+    graphRevision: panelApplyGraphRevision,
     lookupNodeData: lookupNodeDataForApply,
     sendSystemEvent: conversation.sendSystemEvent,
   })
