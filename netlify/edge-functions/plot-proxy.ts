@@ -137,23 +137,40 @@ export function targetPathFor(pathname: string): string {
  * cannot cross a path boundary.
  */
 const ALLOWED_TARGETS: readonly RegExp[] = [
-  /^\/version$/,
+  // --- Utility (non-analysis). These are the exceptions the cutover retains. ---
   /^\/health$/,
   /^\/v1\/health$/,
   /^\/v1\/limits$/,
   /^\/v1\/templates$/,
   /^\/v1\/templates\/[^/]+\/graph$/,
-  /^\/v1\/run$/,
-  /^\/v1\/run\/[^/]+\/cancel$/,
-  /^\/v1\/run_bundle$/,
-  /^\/v1\/stream$/,
-  /^\/v1\/validate$/,
-  /^\/v1\/diff$/,
-  /^\/v1\/analysis\/pareto$/,
-  /^\/v1\/analysis\/sequential$/,
-  /^\/v1\/explain\/policy$/,
-  /^\/v1\/suggest\/edge-function$/,
   /^\/v1\/pre-analysis-sensitivity$/,
+
+  // --- Analysis routes still reachable from the browser. Each is here because a
+  // LIVE call site demands it, not because it was left behind. Named with its
+  // blocker so the next lane closes the right thing:
+  //
+  //   /version              — NOT dead. `v1/http.ts` calls `getCapabilities()`
+  //                           INSIDE `runSync`, so it rides every `/v1/run`.
+  //                           Dies with `/v1/run`.
+  //   /v1/run, /v1/stream   — `TemplatesPanel` ("▶ Run Analysis") computes
+  //                           directly via `useTemplatesRun` → `plot.stream.run`
+  //                           with a sync `plot.run` fallback. Retiring these
+  //                           means retiring that panel's analysis affordance.
+  //   /v2/run               — reached from `OutputsDock`, `ConversationPanel` and
+  //                           `useScenarioComparison`. All three sit in files
+  //                           fenced to another lane; patches are in the handback.
+  //   /v1/analysis/pareto   — `usePareto` ← `components/results/ParetoChart.tsx`,
+  //                           which is fenced. ParetoChart has ZERO production
+  //                           importers, so this dies as soon as the fence lifts.
+  //   /v1/cee/draft-graph   — LIVE PRODUCT PATH, not diagnostic. `useCEEDraft` →
+  //                           `CEEClient.draftModel()` backs `DraftChat` and
+  //                           `AIClarifierChat` (mounted). Its credential hazard is
+  //                           already closed: the base is the same-origin proxy and
+  //                           the bearer is injected here, server-side.
+  /^\/version$/,
+  /^\/v1\/run$/,
+  /^\/v1\/stream$/,
+  /^\/v1\/analysis\/pareto$/,
   /^\/v2\/run$/,
   /^\/v1\/cee\/draft-graph$/,
 ]

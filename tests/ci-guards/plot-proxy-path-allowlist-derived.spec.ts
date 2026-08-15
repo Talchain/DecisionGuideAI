@@ -73,11 +73,17 @@ const DYNAMIC_SAMPLE = 'SAMPLE'
  * grow by a deliberate edit — an empty-by-default skip list would hide drift.
  */
 const EXPECTED_UNRESOLVED: Record<string, string> = {
-  // `for (const u of urls)` — a loop variable over an array literal one line above
-  // (`const urls = [`${proxyBase}/v1/health`]`). Resolving loop bindings would need
-  // a real parser; the array element itself IS collected by the literal scan below,
-  // so the path is covered and only the argument identifier is unresolved.
-  'src/poc/SafeMode.tsx': '/v1/health',
+  // EMPTY BY MEASUREMENT, NOT BY DEFAULT.
+  //
+  // This held `src/poc/SafeMode.tsx` → `/v1/health` (a loop variable the scanner
+  // could not follow). SafeMode was DELETED by the cutover — it had zero production
+  // importers — so the entry went with its file rather than being pruned for
+  // tidiness. `/v1/health` is still allowed, demanded now by `v1/probe.ts` and
+  // `v1/http.ts` through resolvable templates.
+  //
+  // ⚠ Do not add to this map to make a red go away. An entry here is a promise that
+  // a HUMAN derived the path; the `every plotFetch call site resolves` test is what
+  // makes an unreadable argument loud instead of silently skipped.
 }
 
 interface CallSite {
@@ -240,12 +246,23 @@ describe('plot-proxy allowlist is derived from the browser→PLoT call sites', (
     // trap 13e — a positive control must be checked for MAGNITUDE, not just sign.
     // A scanner that found two call sites would satisfy every assertion below while
     // being blind to the rest of the surface.
-    expect(sites.length).toBeGreaterThanOrEqual(18)
-    expect(resolved.length).toBeGreaterThanOrEqual(17)
+    //
+    // ⚠ RE-DERIVED at the cutover (was 18/17). The retirement deleted ten dead
+    // browser→PLoT chains, so the floor MUST come down or it fails for the right
+    // outcome — but it comes down to the MEASURED count, never to zero. Every
+    // resolvable site now resolves (EXPECTED_UNRESOLVED is empty), so the two
+    // numbers are equal, and that equality is itself the check: if a future call
+    // site stops resolving, `resolved` drops below `sites` and the dedicated
+    // resolve test REDs by name.
+    expect(sites.length).toBeGreaterThanOrEqual(13)
+    expect(resolved.length).toBe(sites.length)
   })
 
   it('CONTROL: the allowlist was actually parsed out of the edge function', () => {
-    expect(allowlist.length).toBeGreaterThanOrEqual(15)
+    // Was 15. The cutover shrank the list to 12 (six utility + six analysis routes
+    // that still have live call sites, each annotated with its blocker in the edge
+    // function). Lower it only alongside a deletion that earns it.
+    expect(allowlist.length).toBeGreaterThanOrEqual(12)
     // Bound by identity to a route that must always be there, so a parse returning
     // junk regexes cannot pass.
     expect(allowlist.some((re) => re.test('/v2/run'))).toBe(true)

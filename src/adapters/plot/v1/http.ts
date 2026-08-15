@@ -697,26 +697,6 @@ export async function runSync(
   return withRetry(() => runSyncOnce(request, options))
 }
 
-/**
- * POST /v1/run/{run_id}/cancel
- */
-export async function cancel(runId: string): Promise<void> {
-  const base = getProxyBase()
-
-  try {
-    const response = await plotFetch(`${base}/v1/run/${runId}/cancel`, {
-      method: 'POST',
-    })
-
-    // Idempotent - 200 or 404 both ok
-    if (!response.ok && response.status !== 404) {
-      throw await mapHttpError(response)
-    }
-  } catch (err) {
-    // Swallow errors on cancel (best effort)
-    console.warn('[plot/v1] Cancel failed:', err)
-  }
-}
 
 /**
  * GET /v1/templates
@@ -800,66 +780,6 @@ export async function templateGraph(id: string): Promise<V1TemplateGraphResponse
   }
 }
 
-/**
- * POST /v1/validate
- * Validate graph before running analysis
- */
-export async function validate(request: V1ValidateRequest): Promise<V1ValidateResponse> {
-  const base = getProxyBase()
-  const endpoint = `${base}/v1/validate`
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 5000)
-
-  // Add observability headers
-  const requestId = crypto.randomUUID()
-  let startTime = Date.now()
-
-  try {
-    const { headers, startTime: obsStartTime } = await withObservabilityHeaders(
-      endpoint,
-      'POST',
-      request,
-      { 'Content-Type': 'application/json' },
-      requestId
-    )
-    startTime = obsStartTime
-
-    const response = await plotFetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(request),
-      signal: controller.signal,
-    })
-
-    recordBffResponse(requestId, endpoint, response, startTime)
-
-    if (!response.ok) {
-      throw await mapHttpError(response)
-    }
-
-    const result = await response.json()
-    recordBffResponsePayload(requestId, response, result, startTime)
-    return result
-  } catch (err) {
-    recordBffError(requestId, endpoint, startTime, err)
-
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw {
-        code: 'TIMEOUT',
-        message: 'Validation request timed out after 5000ms',
-      } as V1Error
-    }
-    if ((err as any).code) {
-      throw err // Already a V1Error
-    }
-    throw {
-      code: 'NETWORK_ERROR',
-      message: err instanceof Error ? err.message : String(err),
-    } as V1Error
-  } finally {
-    clearTimeout(timeoutId)
-  }
-}
 
 /**
  * GET /v1/limits
@@ -900,68 +820,3 @@ export async function limits(): Promise<V1LimitsResponse> {
   }
 }
 
-/**
- * POST /v1/run_bundle
- * Compare multiple options and get ranking (v1.3)
- */
-export async function runBundle(request: V1RunBundleRequest): Promise<V1RunBundleResponse> {
-  const base = getProxyBase()
-  const endpoint = `${base}/v1/run_bundle`
-  const timeouts = getTimeouts()
-  const controller = new AbortController()
-  // Longer timeout for bundle (multiple options)
-  const timeoutMs = timeouts.sync * 2
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-
-  // Add observability headers
-  const requestId = crypto.randomUUID()
-  let startTime = Date.now()
-
-  try {
-    const { headers, startTime: obsStartTime } = await withObservabilityHeaders(
-      endpoint,
-      'POST',
-      request,
-      {
-        'Content-Type': 'application/json',
-        'X-Request-Id': requestId,
-        'x-olumi-sdk': 'plot-client/1.0.0',
-      },
-      requestId
-    )
-    startTime = obsStartTime
-
-    const response = await plotFetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(request),
-      signal: controller.signal,
-    })
-
-    recordBffResponse(requestId, endpoint, response, startTime)
-
-    if (!response.ok) {
-      throw await mapHttpError(response)
-    }
-
-    return await response.json()
-  } catch (err) {
-    recordBffError(requestId, endpoint, startTime, err)
-
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw {
-        code: 'TIMEOUT',
-        message: `Run bundle request timed out after ${timeoutMs}ms`,
-      } as V1Error
-    }
-    if ((err as any).code) {
-      throw err // Already a V1Error
-    }
-    throw {
-      code: 'NETWORK_ERROR',
-      message: err instanceof Error ? err.message : String(err),
-    } as V1Error
-  } finally {
-    clearTimeout(timeoutId)
-  }
-}
