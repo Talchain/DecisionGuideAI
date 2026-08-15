@@ -15,8 +15,9 @@
  * transitive imports otherwise pull them in.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { act, render } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { act, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 
 // Heavy-import stubs — must precede any OutputsDock evaluation.
@@ -43,7 +44,7 @@ vi.mock('../../hooks/useV2Run', () => ({
 
 // Flag toggle: per-test mutation via `flagState.aiPanelV2`. All other flags
 // default false to keep the dock surface minimal.
-const flagState = { aiPanelV2: false }
+const flagState = { aiPanelV2: false, v5Canonical: false }
 vi.mock('../../../flags', () => ({
   isTelemetryEnabled: () => false,
   isCompareEnabled: () => false,
@@ -54,7 +55,7 @@ vi.mock('../../../flags', () => ({
   isJourneyTabEnabled: () => false,
   isCompareTabEnabled: () => false,
   isAiPanelV2Enabled: () => flagState.aiPanelV2,
-  isV5CanonicalAnalysisEnabled: () => false,
+  isV5CanonicalAnalysisEnabled: () => flagState.v5Canonical,
   isPreAnalysisV3Enabled: () => false,
 }))
 
@@ -131,6 +132,7 @@ describe('useConversation singleton invariant', () => {
     ensureMatchMedia()
     useConversationCallCount.n = 0
     flagState.aiPanelV2 = false
+    flagState.v5Canonical = false
     try { sessionStorage.clear() } catch {}
     try { localStorage.clear() } catch {}
   })
@@ -169,6 +171,7 @@ describe('Olumi tab click while floating is open', () => {
     ensureMatchMedia()
     useConversationCallCount.n = 0
     flagState.aiPanelV2 = true
+    flagState.v5Canonical = false
     try { sessionStorage.clear() } catch {}
     try { localStorage.clear() } catch {}
     // Pin the dock to expanded so the tab-row renders (the collapsed
@@ -641,5 +644,231 @@ describe('Olumi tab click while floating is open', () => {
     fireEvent.click(olumiTab)
     // With floating closed, the click activates the Olumi tab normally.
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Canonical relationship recovery — exactly one reachable owner per topology
+// ---------------------------------------------------------------------------
+
+const RECOVERY_SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
+
+async function mountRecoveryTopology(args: {
+  dockOpen: boolean
+  floating: 'closed' | 'full' | 'minimised'
+  viewportWidth?: number
+  activeTab?: 'results' | 'olumi'
+  floatingSource?: 'user' | 'system-first-use'
+  graphPresent?: boolean
+}) {
+  const { useCanvasStore, EMPTY_EDGE_STRENGTH_SYNC } = await import('../../store')
+  const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+  const { useUIStore } = await import('../../../stores/uiStore')
+  const { OutputsDock } = await import('../OutputsDock')
+  const { FloatingOlumiPanel } = await import('../FloatingOlumiPanel')
+
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    value: args.viewportWidth ?? 1200,
+  })
+  Object.defineProperty(window, 'innerHeight', {
+    configurable: true,
+    value: args.viewportWidth === 390 ? 844 : 900,
+  })
+  sessionStorage.setItem(
+    'canvas.outputsDock.v1',
+    JSON.stringify({ isOpen: args.dockOpen, activeTab: args.activeTab ?? 'results' }),
+  )
+  useUIStore.setState({ activeOutputTab: args.activeTab ?? 'results', activeOutputTabVersion: 0 })
+  useFloatingPanelState.getState().reset()
+  if (args.floating !== 'closed') {
+    useFloatingPanelState.getState().open(args.floatingSource ?? 'user')
+    if (args.floating === 'minimised') useFloatingPanelState.getState().minimise()
+  }
+  const graphPresent = args.graphPresent ?? true
+  useCanvasStore.setState({
+    currentScenarioId: RECOVERY_SCENARIO_ID,
+    nodes: graphPresent ? [
+      { id: 'fac_demand', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Demand' } },
+      { id: 'goal_profit', type: 'goal', position: { x: 0, y: 100 }, data: { label: 'Sustainable profit' } },
+    ] : [],
+    edges: graphPresent ? [{
+      id: 'rf-private-edge-id',
+      source: 'fac_demand',
+      target: 'goal_profit',
+      data: { weight: -0.4, direction: 'negative' },
+    }] : [],
+    unconfirmedEmittedEdits: 0,
+    edgeStrengthSync: {
+      ...EMPTY_EDGE_STRENGTH_SYNC,
+      scenarioId: RECOVERY_SCENARIO_ID,
+      hydration: 'settled',
+      issue: 'conflict',
+      recoverySummary: {
+        items: [{
+          from: 'fac_demand',
+          to: 'goal_profit',
+          label: 'Demand → Sustainable profit',
+          kind: 'conflict',
+          relationshipExists: graphPresent,
+        }],
+        total: 1,
+        remaining: 0,
+      },
+    },
+  } as never)
+
+  const dockFloatingPanel = () => {
+    useUIStore.getState().forceActivateOutputTab('olumi')
+    useFloatingPanelState.getState().close()
+  }
+
+  return render(
+    <Wrapper>
+      <OutputsDock />
+      <FloatingOlumiPanel onDock={dockFloatingPanel} onCogClick={() => {}} />
+    </Wrapper>,
+  )
+}
+
+describe('canonical relationship recovery topology', () => {
+  beforeEach(() => {
+    ensureMatchMedia()
+    useConversationCallCount.n = 0
+    flagState.aiPanelV2 = true
+    flagState.v5Canonical = true
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+    window.history.replaceState({}, '', '/')
+    try { sessionStorage.clear() } catch {}
+    try { localStorage.clear() } catch {}
+  })
+
+  afterEach(async () => {
+    vi.unstubAllEnvs()
+    const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+    const { EMPTY_EDGE_STRENGTH_SYNC, useCanvasStore } = await import('../../store')
+    useFloatingPanelState.getState().reset()
+    useCanvasStore.setState({
+      currentScenarioId: null,
+      nodes: [],
+      edges: [],
+      edgeStrengthSync: EMPTY_EDGE_STRENGTH_SYNC,
+    } as never)
+    window.history.replaceState({}, '', '/')
+    try { sessionStorage.clear() } catch {}
+  })
+
+  it('dock expanded + floating closed: the dock footer is the sole recovery owner', async () => {
+    await mountRecoveryTopology({ dockOpen: true, floating: 'closed' })
+
+    const footer = screen.getByTestId('ai-panel-footer-stack')
+    expect(within(footer).getByTestId('edge-strength-recovery-notice')).toBeVisible()
+    expect(screen.getAllByTestId('edge-strength-recovery-notice')).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Check shared model' })).toHaveLength(1)
+    expect(document.body.textContent).toContain('Demand → Sustainable profit')
+    expect(document.body.textContent).not.toContain('rf-private-edge-id')
+  })
+
+  it('dock expanded + floating full: the floating panel owns the only live recovery controls', async () => {
+    await mountRecoveryTopology({ dockOpen: true, floating: 'full' })
+
+    const floating = screen.getByTestId('floating-olumi-panel')
+    const footer = screen.getByTestId('ai-panel-footer-stack')
+    expect(within(floating).getByTestId('edge-strength-recovery-notice')).toBeVisible()
+    expect(within(footer).queryByTestId('edge-strength-recovery-notice')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('edge-strength-recovery-notice')).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Review relationship Demand → Sustainable profit' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Check shared model' })).toHaveLength(1)
+  })
+
+  it('dock expanded on Olumi + floating opening: the dock owns recovery through the render-yield handoff', async () => {
+    await mountRecoveryTopology({ dockOpen: true, floating: 'full', activeTab: 'olumi' })
+
+    const footer = screen.getByTestId('ai-panel-footer-stack')
+    expect(within(footer).getByTestId('edge-strength-recovery-notice')).toBeVisible()
+    expect(screen.getAllByTestId('edge-strength-recovery-notice')).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Check shared model' })).toHaveLength(1)
+  })
+
+  it('dock expanded + floating minimised: the dock remains the sole recovery owner', async () => {
+    await mountRecoveryTopology({ dockOpen: true, floating: 'minimised' })
+
+    const footer = screen.getByTestId('ai-panel-footer-stack')
+    const pill = screen.getByRole('button', { name: 'Restore Olumi' })
+    expect(within(footer).getByTestId('edge-strength-recovery-notice')).toBeVisible()
+    expect(screen.getAllByTestId('edge-strength-recovery-notice')).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Check shared model' })).toHaveLength(1)
+    expect(within(pill).queryByTestId('floating-olumi-recovery-attention')).not.toBeInTheDocument()
+  })
+
+  it('dock collapsed + floating full: recovery remains in the floating panel', async () => {
+    await mountRecoveryTopology({ dockOpen: false, floating: 'full' })
+
+    expect(screen.queryByTestId('ai-panel-footer-stack')).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('floating-olumi-panel')).getByTestId('edge-strength-recovery-notice')).toBeVisible()
+    expect(screen.queryByTestId('outputs-dock-recovery-attention')).not.toBeInTheDocument()
+    expect(document.body.textContent).not.toContain('rf-private-edge-id')
+  })
+
+  it('dock collapsed + floating minimised at 390×844: the pill signals attention and keyboard restore reveals recovery', async () => {
+    const user = userEvent.setup()
+    await mountRecoveryTopology({ dockOpen: false, floating: 'minimised', viewportWidth: 390 })
+
+    vi.spyOn(screen.getByTestId('outputs-dock'), 'getBoundingClientRect').mockReturnValue({
+      x: 338,
+      y: 12,
+      left: 338,
+      top: 12,
+      right: 378,
+      bottom: 832,
+      width: 40,
+      height: 820,
+      toJSON: () => ({}),
+    })
+    const pill = screen.getByRole('button', {
+      name: 'Restore Olumi. Demand → Sustainable profit needs attention.',
+    })
+    expect(screen.getByTestId('floating-olumi-recovery-attention')).toHaveTextContent('Attention')
+    expect(screen.queryByTestId('edge-strength-recovery-notice')).not.toBeInTheDocument()
+    pill.focus()
+    expect(pill).toHaveFocus()
+    await user.keyboard('{Enter}')
+
+    expect(screen.queryByTestId('floating-olumi-panel-pill')).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('ai-panel-footer-stack')).getByTestId('edge-strength-recovery-notice')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Check shared model' })).toBeVisible()
+  })
+
+  it('dock collapsed + floating closed: the rail signals attention and keyboard activation opens the recovery owner', async () => {
+    const user = userEvent.setup()
+    await mountRecoveryTopology({ dockOpen: false, floating: 'closed' })
+
+    const attentionRoute = screen.getByRole('button', {
+      name: 'Open Olumi — relationship changes need attention',
+    })
+    expect(screen.getByTestId('outputs-dock-recovery-attention')).toBeVisible()
+    expect(screen.queryByTestId('edge-strength-recovery-notice')).not.toBeInTheDocument()
+    attentionRoute.focus()
+    expect(attentionRoute).toHaveFocus()
+    await user.keyboard('{Enter}')
+
+    expect(screen.getByTestId('ai-panel-footer-stack')).toBeVisible()
+    expect(screen.getByTestId('edge-strength-recovery-notice')).toBeVisible()
+    expect(screen.queryByTestId('outputs-dock-recovery-attention')).not.toBeInTheDocument()
+  })
+
+  it('dock collapsed + render-null first-use floating: the rail remains an explicit recovery route', async () => {
+    await mountRecoveryTopology({
+      dockOpen: false,
+      floating: 'full',
+      floatingSource: 'system-first-use',
+      graphPresent: false,
+    })
+
+    expect(screen.queryByTestId('floating-olumi-panel')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', {
+      name: 'Open Olumi — relationship changes need attention',
+    })).toBeVisible()
+    expect(screen.getByTestId('outputs-dock-recovery-attention')).toBeVisible()
   })
 })

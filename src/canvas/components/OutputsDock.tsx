@@ -1094,6 +1094,21 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   )
     ? runBlockedTooltip
     : undefined
+  const dockCurrentlyHostsOlumi = dockHostsOlumi({
+    dockEffectiveOpen: effectiveIsOpen,
+    dockTab: state.activeTab,
+  })
+  // FloatingOlumiPanel yields entirely to the first-use composer while a
+  // system-opened empty canvas is active. Treat that as no recovery route;
+  // otherwise an open-but-render-null panel could suppress both the dock
+  // notice and its collapsed attention affordance.
+  const floatingCanRenderRecoveryRoute =
+    floatingPanelIsOpen && !(floatingPanelSource === 'system-first-use' && nodes.length === 0)
+  const floatingOwnsEdgeRecovery =
+    floatingCanRenderRecoveryRoute && !floatingPanelMinimised && !dockCurrentlyHostsOlumi
+  const dockRecoveryBlockedReason = floatingOwnsEdgeRecovery
+    ? undefined
+    : edgeRecoveryBlockedReason
   const showToast = useShowToastSafe()
 
   // Handle Run button click
@@ -2339,21 +2354,33 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 : tab.id === 'olumi'
                 ? MessageSquare
                 : Activity
+            const recoveryAttention =
+              tab.id === 'olumi' &&
+              Boolean(edgeRecoveryBlockedReason) &&
+              !floatingCanRenderRecoveryRoute
             return (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => handleTabClick(tab.id)}
-                className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+                className={`relative flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   effectiveActiveTab === tab.id
                     ? 'text-info border-info'
                     : 'text-text-header bg-panel border-panel-border hover:bg-panel'
                 }`}
                 style={effectiveActiveTab === tab.id ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' } : undefined}
-                aria-label={tab.label}
-                title={tab.label}
+                aria-label={recoveryAttention ? 'Open Olumi — relationship changes need attention' : tab.label}
+                title={recoveryAttention ? 'Open Olumi — relationship changes need attention' : tab.label}
               >
                 <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                {recoveryAttention && (
+                  <span
+                    className="absolute -right-1 -top-1 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-warning text-text-on-color"
+                    data-testid="outputs-dock-recovery-attention"
+                  >
+                    <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
+                  </span>
+                )}
               </button>
             )
           })}
@@ -3020,7 +3047,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               onOpenFloating={floatOutToWindow}
               onFocusFloating={focusFloating}
               onCogClick={handleCogClick}
-              recoveryBlockedReason={edgeRecoveryBlockedReason}
+              recoveryBlockedReason={dockRecoveryBlockedReason}
             />
             <CogPopover
               isOpen={cogAnchor !== null}

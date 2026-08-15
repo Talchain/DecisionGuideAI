@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { MessageSquare, Minus, PanelRight } from 'lucide-react'
+import { AlertTriangle, MessageSquare, Minus, PanelRight } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
@@ -24,6 +24,10 @@ import { useUIStore } from '../../stores/uiStore'
 import { isAiPanelV2Enabled } from '../../flags'
 import { readPersistedActiveDockTab, readPersistedDockOpen } from './OutputsDock'
 import { dockHostsOlumi, type OlumiDockTab } from './olumiSurface'
+import {
+  EdgeStrengthRecoveryNotice,
+  useEdgeStrengthRecoveryBlockedReason,
+} from './EdgeStrengthRecoveryNotice'
 
 interface FloatingOlumiPanelProps {
   /** Called when the user clicks the Dock button. The host should switch the
@@ -368,6 +372,11 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // hero doesn't blink out and the user doesn't see the panel jump to the
   // top-left while generation is in flight.
   const nodeCount = useCanvasStore((s) => s.nodes.length)
+  const recoverySummary = useCanvasStore((s) => s.edgeStrengthSync?.recoverySummary)
+  const recoveryBlockedReason = useEdgeStrengthRecoveryBlockedReason()
+  const recoveryAttentionLabel = recoverySummary?.items[0]?.label
+    ? `${recoverySummary.items[0].label} needs attention`
+    : 'Relationship changes need attention'
   const yieldToFirstUse = source === 'system-first-use' && nodeCount === 0
 
   // Render-time duplicate-surface guard. If AI Panel v2 is on AND the docked
@@ -843,22 +852,47 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
     const dockInset = measureDockInset()
     const pillPos = position ? clampPillPositionToViewport(position, vw, vh, dockInset) : null
+    const showRecoveryAttention = Boolean(recoveryBlockedReason && !dockEffectiveOpen)
+    const restoreRecovery = (): void => {
+      // At phone width the collapsed dock rail can leave less than the
+      // panel's safe 320px minimum. A normal restore would immediately
+      // auto-minimise again, trapping keyboard and touch users on the pill.
+      // Dock Olumi instead: the host opens the dock and the SAME shared
+      // recovery notice becomes the reachable action owner there.
+      if (
+        showRecoveryAttention &&
+        !fitsAtMinSize(window.innerWidth, window.innerHeight, measureDockInset())
+      ) {
+        onDock()
+        return
+      }
+      restore()
+    }
     pillEl = (
       <button
         type="button"
-        onClick={restore}
-        className="fixed inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-panel border border-panel-border shadow-2 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        onClick={restoreRecovery}
+        className={`fixed inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-panel border shadow-2 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${showRecoveryAttention ? 'border-warning text-warning' : 'border-panel-border'}`}
         style={{
           zIndex: 300,
           left: pillPos ? pillPos.x : '50%',
           top: pillPos ? pillPos.y : '50%',
         }}
         data-testid="floating-olumi-panel-pill"
-        aria-label="Restore Olumi"
-        title="Restore Olumi"
+        aria-label={showRecoveryAttention ? `Restore Olumi. ${recoveryAttentionLabel}.` : 'Restore Olumi'}
+        title={showRecoveryAttention ? `Restore Olumi — ${recoveryAttentionLabel}` : 'Restore Olumi'}
       >
         <MessageSquare className="w-3.5 h-3.5 text-text-light" aria-hidden="true" />
         <span className={typo('panelMeta', 'text-text-body')}>Olumi</span>
+        {showRecoveryAttention && (
+          <span
+            className={typo('panelMeta', 'inline-flex items-center gap-1 text-warning')}
+            data-testid="floating-olumi-recovery-attention"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
+            Attention
+          </span>
+        )}
       </button>
     )
   }
@@ -1002,6 +1036,12 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
           hideComposer
           compact
         />
+        {!isMinimised && recoveryBlockedReason && (
+          <EdgeStrengthRecoveryNotice
+            blockedReason={recoveryBlockedReason}
+            className="flex-shrink-0 border-t border-panel-border bg-panel px-3 py-2"
+          />
+        )}
         <AIInputBar ref={inputBarRef} variant="floating" onCogClick={onCogClick} hideChevron />
       </div>
 

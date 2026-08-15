@@ -71,6 +71,20 @@ interface RelationshipRecoverySummary {
   remaining: number
 }
 
+export interface EdgeStrengthRecoveryReadModel {
+  scenarioId: string | null
+  hydration: 'idle' | 'pending' | 'settled' | 'unconfirmed'
+  queued: number
+  inFlight: number
+  issue: 'conflict' | 'unconfirmed' | 'unsupported_fields' | 'unsupported_value' | 'unconfirmed_structure' | null
+  recoverySummary?: RelationshipRecoverySummary
+}
+
+export interface EdgeStrengthRecoveryBlock {
+  reason: string
+  blockingReason: string
+}
+
 /**
  * ROADMAP 2.122 round 2 (adversarial review F5) — the refusal for the TERMINAL
  * `unsettled` state, which is a different fact and needs a different sentence.
@@ -223,14 +237,7 @@ export interface CanRunAnalysisParams {
   activeEmittedEdits?: number
   unconfirmedEmittedEdits?: number
   /** Canonical relationship writer state for the open scenario. */
-  edgeStrengthSync?: {
-    scenarioId: string | null
-    hydration: 'idle' | 'pending' | 'settled' | 'unconfirmed'
-    queued: number
-    inFlight: number
-    issue: 'conflict' | 'unconfirmed' | 'unsupported_fields' | 'unsupported_value' | 'unconfirmed_structure' | null
-    recoverySummary?: RelationshipRecoverySummary
-  }
+  edgeStrengthSync?: EdgeStrengthRecoveryReadModel
 }
 
 function affectedRelationshipLead(
@@ -243,6 +250,62 @@ function affectedRelationshipLead(
     ? `; and ${summary.remaining} more`
     : ''
   return { many: `Relationships needing attention: ${visible}${overflow}.` }
+}
+
+/**
+ * Display-safe canonical relationship recovery projection shared by Run and
+ * every mounted recovery surface. The queue remains private to the
+ * coordinator; this consumes only its bounded store read model.
+ *
+ * `idle`/`pending` hydration is deliberately excluded: that is a temporary
+ * loading gate, not a recovery state with an action. Callers that own Run still
+ * handle it separately as “Checking the shared model…”.
+ */
+export function getEdgeStrengthRecoveryBlock(
+  edgeStrengthSync: EdgeStrengthRecoveryReadModel | undefined,
+): EdgeStrengthRecoveryBlock | null {
+  if (!edgeStrengthSync) return null
+  const affected = affectedRelationshipLead(edgeStrengthSync.recoverySummary)
+  if (edgeStrengthSync.hydration === 'unconfirmed') {
+    return {
+      reason: 'We could not verify which shared model analysis would use. Check the shared model before analysing.',
+      blockingReason: 'Shared-model hydration could not be verified',
+    }
+  }
+  if (edgeStrengthSync.inFlight > 0 || edgeStrengthSync.queued > 0) {
+    const reason = affected.one
+      ? `Wait for ${affected.one} to finish saving before running analysis.`
+      : affected.many
+        ? `${affected.many} Wait for these relationships to finish saving before running analysis.`
+        : 'Wait for this relationship to finish saving before running analysis.'
+    return {
+      reason,
+      blockingReason: 'Relationship change is not yet confirmed by the shared model',
+    }
+  }
+  if (!edgeStrengthSync.issue) return null
+  const genericReason = edgeStrengthSync.issue === 'conflict'
+    ? 'This relationship changed elsewhere. Review the latest shared value before running analysis.'
+    : edgeStrengthSync.issue === 'unconfirmed'
+      ? 'We could not confirm whether this relationship change was saved. Check the shared model before running analysis.'
+      : edgeStrengthSync.issue === 'unconfirmed_structure'
+        ? 'A relationship was added, removed, or reconnected only on this device. Check the shared model before running analysis.'
+        : edgeStrengthSync.issue === 'unsupported_fields'
+          ? 'This version cannot include local relationship likelihood or uncertainty edits in analysis. Reload the shared values to continue.'
+          : 'Set the relationship effect between −1 and +1 before running analysis.'
+  const oneReason = affected.one
+    ? edgeStrengthSync.issue === 'conflict'
+      ? `${affected.one} changed elsewhere. Review the latest shared value before running analysis.`
+      : edgeStrengthSync.issue === 'unconfirmed'
+        ? `We could not confirm whether the change to ${affected.one} was saved. Check the shared model before running analysis.`
+        : edgeStrengthSync.issue === 'unconfirmed_structure'
+          ? `${affected.one} was added, removed, or reconnected only on this device. Check the shared model before running analysis.`
+          : edgeStrengthSync.issue === 'unsupported_fields'
+            ? `${affected.one} has local likelihood or uncertainty edits this version cannot include in analysis. Reload the shared values to continue.`
+            : `Set the effect for ${affected.one} between −1 and +1 before running analysis.`
+    : null
+  const reason = oneReason ?? (affected.many ? `${affected.many} ${genericReason}` : genericReason)
+  return { reason, blockingReason: reason }
 }
 
 /**
@@ -408,7 +471,6 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   }
 
   if (isV5CanonicalRunPath() && edgeStrengthSync) {
-    const affected = affectedRelationshipLead(edgeStrengthSync.recoverySummary)
     if (edgeStrengthSync.hydration === 'idle' || edgeStrengthSync.hydration === 'pending') {
       return {
         allowed: false,
@@ -416,51 +478,12 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
         blockingReasons: ['Shared-model hydration has not settled'],
       }
     }
-    if (edgeStrengthSync.hydration === 'unconfirmed') {
+    const edgeRecovery = getEdgeStrengthRecoveryBlock(edgeStrengthSync)
+    if (edgeRecovery) {
       return {
         allowed: false,
-        reason: 'We could not verify which shared model analysis would use. Check the shared model before analysing.',
-        blockingReasons: ['Shared-model hydration could not be verified'],
-      }
-    }
-    if (edgeStrengthSync.inFlight > 0 || edgeStrengthSync.queued > 0) {
-      const pendingReason = affected.one
-        ? `Wait for ${affected.one} to finish saving before running analysis.`
-        : affected.many
-          ? `${affected.many} Wait for these relationships to finish saving before running analysis.`
-          : 'Wait for this relationship to finish saving before running analysis.'
-      return {
-        allowed: false,
-        reason: pendingReason,
-        blockingReasons: ['Relationship change is not yet confirmed by the shared model'],
-      }
-    }
-    if (edgeStrengthSync.issue) {
-      const genericReason = edgeStrengthSync.issue === 'conflict'
-        ? 'This relationship changed elsewhere. Review the latest shared value before running analysis.'
-        : edgeStrengthSync.issue === 'unconfirmed'
-          ? 'We could not confirm whether this relationship change was saved. Check the shared model before running analysis.'
-          : edgeStrengthSync.issue === 'unconfirmed_structure'
-            ? 'A relationship was added, removed, or reconnected only on this device. Check the shared model before running analysis.'
-            : edgeStrengthSync.issue === 'unsupported_fields'
-              ? 'This version cannot include local relationship likelihood or uncertainty edits in analysis. Reload the shared values to continue.'
-              : 'Set the relationship effect between −1 and +1 before running analysis.'
-      const oneReason = affected.one
-        ? edgeStrengthSync.issue === 'conflict'
-          ? `${affected.one} changed elsewhere. Review the latest shared value before running analysis.`
-          : edgeStrengthSync.issue === 'unconfirmed'
-            ? `We could not confirm whether the change to ${affected.one} was saved. Check the shared model before running analysis.`
-            : edgeStrengthSync.issue === 'unconfirmed_structure'
-              ? `${affected.one} was added, removed, or reconnected only on this device. Check the shared model before running analysis.`
-              : edgeStrengthSync.issue === 'unsupported_fields'
-                ? `${affected.one} has local likelihood or uncertainty edits this version cannot include in analysis. Reload the shared values to continue.`
-                : `Set the effect for ${affected.one} between −1 and +1 before running analysis.`
-        : null
-      const reason = oneReason ?? (affected.many ? `${affected.many} ${genericReason}` : genericReason)
-      return {
-        allowed: false,
-        reason,
-        blockingReasons: [reason],
+        reason: edgeRecovery.reason,
+        blockingReasons: [edgeRecovery.blockingReason],
       }
     }
   }

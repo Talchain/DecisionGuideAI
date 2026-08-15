@@ -5,15 +5,24 @@ import {
   refreshEdgeStrengthAuthority,
 } from '../edge-strength/edgeStrengthCoordinator'
 import { useCanvasStore } from '../store'
+import { getEdgeStrengthRecoveryBlock } from '../utils/canRunAnalysis'
 
 interface EdgeStrengthRecoveryNoticeProps {
-  blockedReason: string
+  /** Exact parent Run reason when already available; otherwise derived from
+   *  the coordinator's bounded public read model. */
+  blockedReason?: string
   id?: string
   className?: string
 }
 
 const MAX_VISIBLE_RELATIONSHIPS = 3
 const EMPTY_RECOVERY_SUMMARY = { items: [], total: 0, remaining: 0 } as const
+
+/** One shared display selector for dock, floating panel, and compact signals. */
+export function useEdgeStrengthRecoveryBlockedReason(): string | undefined {
+  const edgeStrengthSync = useCanvasStore((state) => state.edgeStrengthSync)
+  return getEdgeStrengthRecoveryBlock(edgeStrengthSync)?.reason
+}
 
 /**
  * Shared, display-only recovery surface for canonical relationship writes.
@@ -33,6 +42,8 @@ export function EdgeStrengthRecoveryNotice({
   const currentScenarioId = useCanvasStore((state) => state.currentScenarioId)
   const unconfirmedEmittedEdits = useCanvasStore((state) => state.unconfirmedEmittedEdits)
   const edgeStrengthSync = useCanvasStore((state) => state.edgeStrengthSync)
+  const derivedBlockedReason = getEdgeStrengthRecoveryBlock(edgeStrengthSync)?.reason
+  const visibleBlockedReason = blockedReason ?? derivedBlockedReason
   const recoveryNeeded =
     unconfirmedEmittedEdits > 0 ||
     edgeStrengthSync.hydration === 'unconfirmed' ||
@@ -41,6 +52,8 @@ export function EdgeStrengthRecoveryNotice({
   const items = projected.items.slice(0, MAX_VISIBLE_RELATIONSHIPS)
   const total = Math.max(projected.total, projected.items.length)
   const remaining = Math.max(projected.remaining, total - items.length)
+
+  if (!visibleBlockedReason) return null
 
   const refresh = (replaceLocalGraph: boolean): void => {
     if (!currentScenarioId) return
@@ -72,7 +85,7 @@ export function EdgeStrengthRecoveryNotice({
       aria-busy={refreshingSharedModel}
       data-testid="edge-strength-recovery-notice"
     >
-      <p className="break-words">{blockedReason}</p>
+      <p className="break-words">{visibleBlockedReason}</p>
       {items.length > 0 && (
         <div className="mt-1.5">
           <p className="sr-only">Relationships affecting analysis:</p>
