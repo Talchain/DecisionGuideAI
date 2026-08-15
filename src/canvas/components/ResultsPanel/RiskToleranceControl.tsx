@@ -119,13 +119,23 @@ export function RiskToleranceControl({
     <div className="space-y-3" data-testid="risk-tolerance-control">
       <div className="flex items-center gap-2">
         <span className={`${typography.label} text-ink-700`}>Risk Tolerance</span>
+        {/*
+          Hover-only affordances get a click/tap and keyboard equivalent
+          (Paul, 15 Aug 2026). Was `group-hover` on an `aria-hidden` icon with
+          nothing focusable in the group — unreachable without a mouse.
+        */}
         {showExplanation && (
-          <div className="relative group">
+          <button
+            type="button"
+            className="relative group inline-flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
+            aria-label="Affects how we weigh upside vs downside scenarios"
+            onClick={(e) => e.currentTarget.focus()}
+          >
             <Info className="h-4 w-4 text-ink-400 cursor-help" aria-hidden="true" />
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-ink-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-ink-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 group-focus:opacity-100 group-focus-visible:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
               Affects how we weigh upside vs downside scenarios
-            </div>
-          </div>
+            </span>
+          </button>
         )}
       </div>
 

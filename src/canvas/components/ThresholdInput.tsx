@@ -99,17 +99,29 @@ export function ThresholdInput({
           Success threshold
         </label>
         <span className={`${typography.caption} text-ink-400`}>(optional)</span>
-        <div className="group relative">
+        {/*
+          Hover-only affordances get a click/tap and keyboard equivalent
+          (Paul, 15 Aug 2026). This help text sat behind `group-hover` on an
+          `aria-hidden` icon with NOTHING focusable in the group, so it was
+          unreachable by keyboard, by tap, and by screen reader — the text
+          existed but no non-mouse user could ever see it.
+        */}
+        <button
+          type="button"
+          className="group relative inline-flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          aria-label="Define what success looks like in numbers"
+          onClick={(e) => e.currentTarget.focus()}
+        >
           <HelpCircle
             className="h-3.5 w-3.5 text-ink-400 cursor-help"
             aria-hidden="true"
           />
-          <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-10">
-            <div className="px-2 py-1 bg-text-header text-white text-xs rounded shadow-3 whitespace-nowrap">
+          <span className="absolute left-0 bottom-full mb-1 hidden group-hover:block group-focus:block group-focus-visible:block z-10">
+            <span className="block px-2 py-1 bg-text-header text-white text-xs rounded shadow-3 whitespace-nowrap">
               Define what success looks like in numbers
-            </div>
-          </div>
-        </div>
+            </span>
+          </span>
+        </button>
       </div>
       <div className="flex items-center gap-2">
         <input
