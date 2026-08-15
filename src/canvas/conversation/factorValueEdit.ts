@@ -222,7 +222,20 @@ export interface FactorValueEditInput {
    * than dropping the field. That is why the CEE pin bump ships and deploys
    * first.
    */
-  appliedFrom?: { round_id: string; participant_id: string }
+  appliedFrom?: {
+    round_id: string
+    participant_id: string
+    /**
+     * 0.41.0 — the evidence the owner was shown as the reason. Optional, and
+     * verified server-side by CEE's binding (f) against its own store: the
+     * cited event must exist, be an `evidence_attached` row, be on THAT round
+     * and be about THAT target. So a wrong citation is refused, never stamped.
+     *
+     * ⚠ REQUIRES A CEE ON >=0.41.0, for the same `.strict()` reason as the two
+     * ids beside it — which is why the CEE pin bump ships and deploys first.
+     */
+    evidence_event_id?: string
+  }
 }
 
 /**
@@ -302,6 +315,12 @@ export function buildFactorValueEditEvent(
     payload.applied_from = {
       round_id: appliedFrom.round_id,
       participant_id: appliedFrom.participant_id,
+      // Conditional: absent must stay absent all the way to the wire, because
+      // CEE reads an absent citation as "the owner cited nothing" and a
+      // present-but-undefined key reads as PRESENT to `in` and `Object.keys`.
+      ...(appliedFrom.evidence_event_id !== undefined
+        ? { evidence_event_id: appliedFrom.evidence_event_id }
+        : {}),
     }
   }
 

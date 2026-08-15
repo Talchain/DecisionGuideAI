@@ -76,9 +76,11 @@ export interface PanelApplyDrainArgs {
 const inFlightIntentKeys = new Set<string>()
 
 /**
- * Stable identity for one recorded action. `recorded_at` distinguishes two
- * clicks with otherwise identical fields; the explicit -0 spelling preserves
- * the same Object.is-sensitive number semantics as the server binding.
+ * Stable identity for one recorded action. Every claimed field participates:
+ * a newer click that cites different evidence is a different action even when
+ * the two records share one millisecond timestamp. The explicit -0 spelling
+ * preserves the same Object.is-sensitive number semantics as the server
+ * binding, and `null` makes citation absence explicit inside the array.
  */
 function intentKey(intent: PendingPanelApply): string {
   const value = Object.is(intent.value, -0) ? '-0' : String(intent.value)
@@ -88,6 +90,7 @@ function intentKey(intent: PendingPanelApply): string {
     intent.participant_id,
     intent.target_id,
     value,
+    intent.evidence_event_id ?? null,
     intent.recorded_at,
   ])
 }
@@ -126,6 +129,11 @@ export function usePanelApplyDrain({
       appliedFrom: {
         round_id: intent.round_id,
         participant_id: intent.participant_id,
+        // 0.41.0 — carried only when the recorded intent had one, so an
+        // uncited drain builds the same event it built before.
+        ...(intent.evidence_event_id !== undefined
+          ? { evidence_event_id: intent.evidence_event_id }
+          : {}),
       },
     })
 

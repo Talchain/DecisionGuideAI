@@ -68,6 +68,7 @@ import {
   fetchParticipantDisagreement,
   fetchParticipantReveal,
   submitBelief,
+  type DisagreementEvidence,
   type DisagreementView,
   type EvidenceStance,
   type OpenPacket,
@@ -1015,7 +1016,17 @@ export interface RevealApplyState {
    * action that would 401 — the affordance does not exist for them, rather than
    * existing and failing. No flag, no role check in this component.
    */
-  onApply: (args: { targetId: string; participantId: string; value: number }) => void
+  onApply: (args: {
+    targetId: string
+    participantId: string
+    value: number
+    /**
+     * 0.41.0 — the evidence row named in the line above the button, when there
+     * was exactly one to name. See `citableEvidenceFor`: absent whenever the
+     * owner was shown no reason, so the claim never says more than the screen.
+     */
+    evidenceEventId?: string
+  }) => void
   /** `${targetId}:${participantId}` while that row's apply is in flight. */
   applyingKey: string | null
   /** The row applied most recently this session, same key shape. */
@@ -1050,6 +1061,44 @@ export function RevealBody({
   disagreement?: DisagreementView | null
 }): JSX.Element {
   const rows = useMemo(() => reveal.per_target, [reveal])
+
+  /**
+   * The evidence a click on THIS target is entitled to cite, or null.
+   *
+   * ⭐⭐ EXACTLY ONE, OR NONE — AND THE RULE IS ABOUT FABRICATION, NOT TIDINESS.
+   * The stamp this feeds says "the model changed because of that evidence". With
+   * two or more notes on a target, picking one would be the product inventing
+   * the owner's reason and writing it into the graph as a server-verified fact
+   * — the same fabrication class every binding in `apply-verification.ts`
+   * exists to refuse, arriving through the client instead of the wire. So a
+   * choice that cannot be made honestly is not made: the apply proceeds
+   * UNCITED, which is a true record of a reason the owner never stated.
+   *
+   * ⚠ AND ONE PIECE OF EVIDENCE IS NOT AUTOMATICALLY THE REASON EITHER. What
+   * makes the single-row case honest is not the arithmetic — it is that the
+   * button DISCLOSES the citation before the click, so the owner is consenting
+   * to a stated fact rather than having an inference recorded on their behalf.
+   * If that disclosure is ever removed, this rule stops being defensible and
+   * the citation must go with it.
+   *
+   * The multi-evidence case wants an explicit picker; until that exists it is
+   * honestly uncited rather than dishonestly cited.
+   */
+  const citableEvidenceFor = useCallback(
+    (targetRef: { kind: 'factor' | 'edge'; id: string }): DisagreementEvidence | null => {
+      if (disagreement == null) return null
+      const target = disagreement.per_target.find(
+        (t) => t.target.kind === targetRef.kind && t.target.id === targetRef.id,
+      )
+      if (target === undefined) return null
+      if (target.evidence.length !== 1) return null
+      const only = target.evidence[0]
+      // An id is what gets claimed, so a blank one is no citation at all.
+      return typeof only?.event_id === 'string' && only.event_id.trim() !== '' ? only : null
+    },
+    [disagreement],
+  )
+
   return (
     <main data-testid="collab-reveal" className={PAGE_SHELL}>
       <div className="mx-auto w-full max-w-[820px]">
@@ -1059,8 +1108,32 @@ export function RevealBody({
           shown side by side and are not combined into a single number.
         </p>
 
-        {rows.map((row) => (
-          <section key={row.target.id} data-testid={`reveal-target-${row.target.id}`} className={`${CARD} mt-6`}>
+        {rows.map((row) => {
+          /**
+           * ⭐ EVALUATED ONCE PER TARGET, and the sentence below and the claim
+           * on every button both read THIS value.
+           *
+           * ⚠ It was previously called at five separate sites, with a comment
+           * claiming they were "not a second computation". They were — the
+           * property held only because the function is pure over a
+           * render-stable `disagreement`, which is a much weaker guarantee than
+           * the comment implied and would have survived a change that broke it.
+           * One binding makes the screen and the wire agree BY CONSTRUCTION
+           * rather than by an argument about purity.
+           */
+          const citation = citableEvidenceFor(row.target)
+          /**
+           * The sentence promises what a click will record, so it may only
+           * appear where a click is possible: the owner path (`apply`), and a
+           * target where at least one person actually gave a number. A round in
+           * which everyone declined renders no buttons, and a promise about a
+           * change nobody can make is the same over-claiming this slice exists
+           * to end, one sentence up.
+           */
+          const canApply =
+            apply !== undefined && row.responses.some((r) => r.value !== null)
+          return (
+          <section key={`${row.target.kind}:${row.target.id}`} data-testid={`reveal-target-${row.target.id}`} className={`${CARD} mt-6`}>
             {/* The owner's own words for this target. A heading that read
                 `factor-churn-risk` would obscure exactly what this view exists to
                 make obvious: WHERE these two people disagree. Falls back to the
@@ -1073,6 +1146,33 @@ export function RevealBody({
                 The model held {row.model_value_at_version} for this when the round opened.
               </p>
             )}
+            {/* ⭐ THE CITATION, DISCLOSED BEFORE THE CLICK — ONE SENTENCE PER
+                TARGET, WHICH IS THE GRAIN OF THE FACT IT STATES.
+
+                ⚠ IT SAT INSIDE `row.responses.map()` AND RENDERED ONCE PER
+                ANSWER. Its key and its data are per TARGET, so two people
+                answering produced the same sentence twice under a DUPLICATE
+                testid — and `getByTestId` throws on a duplicate, so the defect
+                was a hard failure rather than a cosmetic one. It survived
+                because every case in the corpus had a single response, while
+                the same file's disagreement fixture declared
+                `answering_participants: 2`. A reveal exists BECAUSE people
+                disagree: one answerer is the degenerate case, and the corpus
+                was built entirely out of it.
+
+                What the model will record, named on screen, so the owner
+                consents to a stated fact instead of having one inferred for
+                them. Absent ⇒ nothing is claimed and nothing is promised. */}
+            {canApply && citation !== null && (
+              <p
+                data-testid={`reveal-apply-citation-${row.target.id}`}
+                className={`${typography.bodySmall} mt-3 text-text-light`}
+              >
+                Your model will record {citation.author_label}&rsquo;s{' '}
+                {citation.kind === 'link' ? 'link' : 'note'} as the reason for this change.
+              </p>
+            )}
+
             <ul className="mt-4 space-y-3">
               {row.responses.map((r) => (
                 <li
@@ -1126,6 +1226,14 @@ export function RevealBody({
                                 // any difference, so a display-rounded value here
                                 // would refuse every apply.
                                 value: r.value as number,
+                                // ⭐ THE SAME BINDING the sentence above reads —
+                                // one evaluation per target, not a second
+                                // expression of the same rule. Two expressions
+                                // is how a screen and a wire start telling
+                                // different stories.
+                                ...(citation !== null
+                                  ? { evidenceEventId: citation.event_id }
+                                  : {}),
                               })
                             }
                             className="rounded-md border border-panel-border px-3 py-1.5 text-sm font-medium text-text-header hover:bg-panel-hover disabled:opacity-50"
@@ -1214,7 +1322,8 @@ export function RevealBody({
               </p>
             )}
           </section>
-        ))}
+          )
+        })}
 
         {/* ⭐ WHERE YOU DIFFER, and why. The reveal above answers "what did
             everyone say?"; this answers "where do you differ, on what basis,
