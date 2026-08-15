@@ -1,5 +1,5 @@
 /**
- * THE CITATION ON THE APPLY — "use Grace's number, because of Ada's challenge".
+ * THE CITATION ON THE APPLY — "use Grace's number, citing Ada's challenge".
  *
  * ── WHAT THIS LINK IS FOR ─────────────────────────────────────────────────
  * CEE can already verify a citation (binding (f)) and stamp it onto the graph
@@ -11,9 +11,9 @@
  * link.
  *
  * ── THE RULE BEING PINNED, AND WHY IT IS NOT "CITE WHATEVER IS THERE" ─────
- * The stamp asserts that the model changed BECAUSE OF that evidence. With two
- * or more notes on a target, choosing one would be the product inventing the
- * owner's reason and writing it into the graph as a server-verified fact. So:
+ * The stamp records which evidence row the change cites. With two or more notes
+ * on a target, choosing one would be the product inventing the owner's citation
+ * choice and writing it into the graph as a server-verified fact. So:
  *
  *   0 evidence  → no sentence, no claim
  *   1 evidence  → the sentence NAMES it, and the click claims exactly it
@@ -180,14 +180,17 @@ describe('the apply affordance — the citation is disclosed, then claimed', () 
     // The disclosure exists and names the author — the owner is consenting to a
     // stated fact, not having an inference recorded for them.
     const line = screen.getByTestId(`reveal-apply-citation-${TARGET}`)
-    expect(line.textContent).toContain('Ada')
-    expect(line.textContent).toContain('note')
+    expect(line.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'This change will cite Ada’s note.',
+    )
+    expect(line.textContent).not.toContain('reason')
+    expect(line.textContent).not.toContain('because')
 
     fireEvent.click(screen.getByTestId(`reveal-apply-${TARGET}-${GRACE}`))
 
     expect(calls).toHaveLength(1)
     // ⭐ THE ASYMMETRY THIS WHOLE HOP EXISTS FOR: the value applied is GRACE's,
-    // and the reason cited is ADA's. Bound by identity to both, so a build that
+    // and the note cited is ADA's. Bound by identity to both, so a build that
     // tied the citation to the applied participant would fail here.
     expect(calls[0]?.participantId).toBe(GRACE)
     expect(calls[0]?.value).toBe(0.85)
@@ -283,7 +286,7 @@ describe('the apply affordance — the citation is disclosed, then claimed', () 
     expect(
       'evidenceEventId' in (calls[0] as object),
       `the affordance INVENTED a citation (${String(calls[0]?.evidenceEventId)}) where the ` +
-        'owner was shown no reason — the stamp would record a motive nobody stated',
+        'owner was shown no citation — the stamp would record a choice nobody made',
     ).toBe(false)
     // The apply itself still works: refusing to cite must not refuse to apply.
     expect(calls[0]?.participantId).toBe(GRACE)
@@ -335,7 +338,7 @@ describe('the apply affordance — the citation is disclosed, then claimed', () 
     // Factor and edge ids occupy different domains. The secondary disagreement
     // response deliberately contains only an EDGE target with the same string
     // id as the FACTOR reveal row: an id-only lookup promises and claims the
-    // edge note as the factor's reason.
+    // edge note as the factor's citation.
     const view = disagreementWith([
       evidence({
         event_id: SECOND_EVIDENCE_ID,
@@ -464,7 +467,7 @@ describe('the handoff — the citation survives the hop the apply actually takes
       }),
     )
     // Refusing costs one more click. Draining it uncited would apply the value
-    // and silently discard the reason the owner was shown — unrecoverable,
+    // and silently discard the citation the owner was shown — unrecoverable,
     // because no reader downstream can tell that absence from an honest one.
     expect(readPendingApply(SCENARIO)).toBeNull()
   })

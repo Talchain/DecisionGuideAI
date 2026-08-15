@@ -1022,8 +1022,8 @@ export interface RevealApplyState {
     value: number
     /**
      * 0.41.0 — the evidence row named in the line above the button, when there
-     * was exactly one to name. See `citableEvidenceFor`: absent whenever the
-     * owner was shown no reason, so the claim never says more than the screen.
+     * was exactly one to name. See `citableEvidenceFor`: absent whenever no
+     * citation was disclosed, so the claim never says more than the screen.
      */
     evidenceEventId?: string
   }) => void
@@ -1066,20 +1066,18 @@ export function RevealBody({
    * The evidence a click on THIS target is entitled to cite, or null.
    *
    * ⭐⭐ EXACTLY ONE, OR NONE — AND THE RULE IS ABOUT FABRICATION, NOT TIDINESS.
-   * The stamp this feeds says "the model changed because of that evidence". With
-   * two or more notes on a target, picking one would be the product inventing
-   * the owner's reason and writing it into the graph as a server-verified fact
-   * — the same fabrication class every binding in `apply-verification.ts`
-   * exists to refuse, arriving through the client instead of the wire. So a
-   * choice that cannot be made honestly is not made: the apply proceeds
-   * UNCITED, which is a true record of a reason the owner never stated.
+   * The stamp records WHICH evidence row the change cites. With two or more
+   * notes on a target, picking one would be the product inventing the owner's
+   * citation choice and writing it into the graph as a server-verified fact —
+   * the same fabrication class every binding in `apply-verification.ts` exists
+   * to refuse, arriving through the client instead of the wire. So a choice
+   * that cannot be made honestly is not made: the apply proceeds UNCITED.
    *
-   * ⚠ AND ONE PIECE OF EVIDENCE IS NOT AUTOMATICALLY THE REASON EITHER. What
-   * makes the single-row case honest is not the arithmetic — it is that the
-   * button DISCLOSES the citation before the click, so the owner is consenting
-   * to a stated fact rather than having an inference recorded on their behalf.
-   * If that disclosure is ever removed, this rule stops being defensible and
-   * the citation must go with it.
+   * ⚠ A CITATION IS NOT A CAUSAL CLAIM. What makes the single-row case honest
+   * is not the arithmetic — it is that the button DISCLOSES the citation before
+   * the click, so the owner is consenting to a stated fact rather than having an
+   * inference recorded on their behalf. If that disclosure is ever removed,
+   * this rule stops being defensible and the citation must go with it.
    *
    * The multi-evidence case wants an explicit picker; until that exists it is
    * honestly uncited rather than dishonestly cited.
@@ -1168,8 +1166,8 @@ export function RevealBody({
                 data-testid={`reveal-apply-citation-${row.target.id}`}
                 className={`${typography.bodySmall} mt-3 text-text-light`}
               >
-                Your model will record {citation.author_label}&rsquo;s{' '}
-                {citation.kind === 'link' ? 'link' : 'note'} as the reason for this change.
+                This change will cite {citation.author_label}&rsquo;s{' '}
+                {citation.kind === 'link' ? 'link' : 'note'}.
               </p>
             )}
 
