@@ -1085,9 +1085,11 @@ export function RevealBody({
    * honestly uncited rather than dishonestly cited.
    */
   const citableEvidenceFor = useCallback(
-    (targetId: string): DisagreementEvidence | null => {
+    (targetRef: { kind: 'factor' | 'edge'; id: string }): DisagreementEvidence | null => {
       if (disagreement == null) return null
-      const target = disagreement.per_target.find((t) => t.target.id === targetId)
+      const target = disagreement.per_target.find(
+        (t) => t.target.kind === targetRef.kind && t.target.id === targetRef.id,
+      )
       if (target === undefined) return null
       if (target.evidence.length !== 1) return null
       const only = target.evidence[0]
@@ -1119,7 +1121,7 @@ export function RevealBody({
            * One binding makes the screen and the wire agree BY CONSTRUCTION
            * rather than by an argument about purity.
            */
-          const citation = citableEvidenceFor(row.target.id)
+          const citation = citableEvidenceFor(row.target)
           /**
            * The sentence promises what a click will record, so it may only
            * appear where a click is possible: the owner path (`apply`), and a
@@ -1131,7 +1133,7 @@ export function RevealBody({
           const canApply =
             apply !== undefined && row.responses.some((r) => r.value !== null)
           return (
-          <section key={row.target.id} data-testid={`reveal-target-${row.target.id}`} className={`${CARD} mt-6`}>
+          <section key={`${row.target.kind}:${row.target.id}`} data-testid={`reveal-target-${row.target.id}`} className={`${CARD} mt-6`}>
             {/* The owner's own words for this target. A heading that read
                 `factor-churn-risk` would obscure exactly what this view exists to
                 make obvious: WHERE these two people disagree. Falls back to the

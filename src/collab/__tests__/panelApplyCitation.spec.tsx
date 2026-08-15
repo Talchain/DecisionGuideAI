@@ -308,9 +308,9 @@ describe('the apply affordance — the citation is disclosed, then claimed', () 
   })
 
   it('evidence on ANOTHER target does not leak onto this one', () => {
-    // Binding by target id, not "the round has evidence somewhere". A build that
-    // read the first per_target row regardless of id would pass every case
-    // above and fail only here.
+    // Binding by target identity, not "the round has evidence somewhere". A
+    // build that read the first per_target row regardless of id would pass
+    // every case above and fail only here.
     const view = disagreementWith([evidence()])
     view.per_target[0]!.target = { kind: 'factor', id: 'factor-something-else' }
     const calls: Array<Record<string, unknown>> = []
@@ -329,6 +329,78 @@ describe('the apply affordance — the citation is disclosed, then claimed', () 
     expect(screen.queryByTestId(`reveal-apply-citation-${TARGET}`)).toBeNull()
     fireEvent.click(screen.getByTestId(`reveal-apply-${TARGET}-${GRACE}`))
     expect('evidenceEventId' in (calls[0] as object)).toBe(false)
+  })
+
+  it('same-id EDGE evidence cannot become the FACTOR disclosure or click claim', () => {
+    // Factor and edge ids occupy different domains. The secondary disagreement
+    // response deliberately contains only an EDGE target with the same string
+    // id as the FACTOR reveal row: an id-only lookup promises and claims the
+    // edge note as the factor's reason.
+    const view = disagreementWith([
+      evidence({
+        event_id: SECOND_EVIDENCE_ID,
+        author_label: 'Edge author',
+        authored_by: 'p-edge-author-7777',
+      }),
+    ])
+    view.per_target[0]!.target = { kind: 'edge', id: TARGET }
+    const calls: Array<Record<string, unknown>> = []
+    render(
+      <RevealBody
+        reveal={revealView()}
+        apply={{
+          onApply: (args) => calls.push({ ...args }),
+          applyingKey: null,
+          appliedKey: null,
+          applyError: null,
+        }}
+        disagreement={view}
+      />,
+    )
+
+    expect(screen.queryByTestId(`reveal-apply-citation-${TARGET}`)).toBeNull()
+    fireEvent.click(screen.getByTestId(`reveal-apply-${TARGET}-${GRACE}`))
+    expect(calls).toHaveLength(1)
+    expect('evidenceEventId' in (calls[0] as object)).toBe(false)
+    expect(calls[0]).toMatchObject({ targetId: TARGET, participantId: GRACE, value: 0.85 })
+  })
+
+  it('same-id EDGE and FACTOR rows select the FACTOR evidence for copy and click', () => {
+    const view = disagreementWith([evidence()])
+    const factorTarget = view.per_target[0]!
+    const edgeTarget = {
+      ...factorTarget,
+      target: { kind: 'edge' as const, id: TARGET },
+      evidence: [
+        evidence({
+          event_id: SECOND_EVIDENCE_ID,
+          author_label: 'Edge author',
+          authored_by: 'p-edge-author-7777',
+        }),
+      ],
+    }
+    // EDGE first is load-bearing: an id-only `.find` picks it.
+    view.per_target = [edgeTarget, factorTarget]
+    const calls: Array<Record<string, unknown>> = []
+    render(
+      <RevealBody
+        reveal={revealView()}
+        apply={{
+          onApply: (args) => calls.push({ ...args }),
+          applyingKey: null,
+          appliedKey: null,
+          applyError: null,
+        }}
+        disagreement={view}
+      />,
+    )
+
+    const line = screen.getByTestId(`reveal-apply-citation-${TARGET}`)
+    expect(line.textContent).toContain('Ada')
+    expect(line.textContent).not.toContain('Edge author')
+    fireEvent.click(screen.getByTestId(`reveal-apply-${TARGET}-${GRACE}`))
+    expect(calls[0]?.evidenceEventId).toBe(ADA_EVIDENCE_ID)
+    expect(calls[0]?.evidenceEventId).not.toBe(SECOND_EVIDENCE_ID)
   })
 
   it('a blank evidence id is NOT citable — an id is what gets claimed', () => {

@@ -229,7 +229,7 @@ export function DisagreementBody({ view }: { view: DisagreementView }): JSX.Elem
         </p>
       )}
       {view.per_target.map((row) => (
-        <TargetSection key={row.target.id} row={row} />
+        <TargetSection key={`${row.target.kind}:${row.target.id}`} row={row} />
       ))}
     </div>
   )
