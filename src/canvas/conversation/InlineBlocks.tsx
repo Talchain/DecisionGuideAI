@@ -3,11 +3,33 @@
  *
  * Supports all ConversationBlock types. Unknown block_type values render
  * a neutral fallback card — never crash.
- * Max 4 NON-phase-3 blocks visible per turn with "Show more" toggle
- * (graph_patch proposed blocks always stay visible — budget is enforced
- * upstream in useConversation). Phase-3 cards are governed instead by the
- * pacing group in phase3Pacing.ts (PHASE3_DEFAULT_EXPANDED, 6 since
- * ROADMAP 2.211-②), never by the legacy budget.
+ *
+ * ## Exposure is governed by ONE layer: messageComposition.ts (PX-B, 15 Aug)
+ *
+ * Paul's ruling: headline → at most 3 prioritised coaching points → clear next
+ * action(s) → expandable supporting detail. `composeMessage` partitions the
+ * turn's blocks into `pinned | points | detail`; this component renders the
+ * first two at top level in PRODUCER ORDER and the third inside ONE disclosure.
+ *
+ * ⚠ THIS REPLACES THE THREE OVERLAPPING BUDGETS that used to decide visibility
+ * here — the legacy per-turn budget (`MAX_VISIBLE_BLOCKS_PER_TURN` = 4), the
+ * phase-3 pacing group (`PHASE3_DEFAULT_EXPANDED` = 6, ROADMAP 2.211-②) and the
+ * bias-signal set exempt from both (2 more). Together they could expose TWELVE
+ * bordered cards under the prose on the phase-3 counts this repo measured live
+ * (8, 8, 8, 11, 13, 14 per analysis turn — phase3Pacing.ts). That stack is the
+ * "panels-within-panels" defect the ruling names.
+ *
+ * What is CARRIED FORWARD rather than lost:
+ *   · graph patches / proposals stay top-level (they carry consent) — now via
+ *     the composition's `pinned` class instead of a budget exemption.
+ *   · the ROADMAP 2.242 lens-companion reservation — now inside the 3-point cap.
+ * What is DELIBERATELY SUPERSEDED: the default-expanded count of 6, and the
+ * bias-signal double exemption (bias coaching is a point candidate like any
+ * other coaching card, in producer order — one cap, not three).
+ *
+ * Nothing is dropped: every demoted block renders through its OWN existing
+ * renderer, byte-for-byte, inside the disclosure. `assertTotalPartition` is the
+ * executable form of that guarantee.
  */
 
 import { useState, useCallback, useMemo, memo, useRef } from 'react'
@@ -43,9 +65,9 @@ import type {
 import { ModelReceiptBlock } from './ModelReceiptBlock'
 import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/ArtefactBlock'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
-import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
 import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
-import { computePhase3Pacing, isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
+import { isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
+import { composeMessage } from './messageComposition'
 import { GraphVocabularyLegend } from './GraphVocabularyLegend'
 import { V5AnalysisResultBlock } from '../../v5/blocks/V5AnalysisResultBlock'
 import { V5GraphPatchBlock } from '../../v5/blocks/V5GraphPatchBlock'
@@ -142,78 +164,52 @@ export const InlineBlocks = memo(function InlineBlocks({
   onProposalConfirm,
   assistantTextWordCount = 0,
 }: InlineBlocksProps) {
-  const [showAll, setShowAll] = useState(false)
-  // F16: phase-3 card pacing — flood turns default to the top
-  // PHASE3_DEFAULT_EXPANDED phase-3 cards expanded (6 since ROADMAP
-  // 2.211-②), the remainder behind ONE count affordance.
-  const [showAllPhase3, setShowAllPhase3] = useState(false)
+  /** One disclosure, one piece of state — replaces the two independent toggles. */
+  const [detailExpanded, setDetailExpanded] = useState(false)
 
-  const pacing = useMemo(() => computePhase3Pacing(blocks), [blocks])
+  // THE composition. Pure; the message/store still holds every block.
+  const composition = useMemo(() => composeMessage(blocks), [blocks])
 
-  // Legacy per-turn budget over the NON-phase-3 blocks only: the phase-3
-  // cards always carry their own budget (the pacing group), exactly as this
-  // module's header declares ("the pacing group is the phase-3 budget").
-  //
-  // ⚠ The exclusion used to be conditional on `pacing.pacingActive`, and
-  // ROADMAP 2.211-② turned that into a DEAD BAND. The legacy cap is 4
-  // (MAX_VISIBLE_BLOCKS_PER_TURN). While the default-expanded cap was 3 the
-  // two could not collide — pacing switched on at 4 phase-3 cards, and any
-  // smaller group fitted inside the legacy 4. At a cap of 6, turns carrying
-  // 5 or 6 phase-3 cards no longer activate pacing, fell back into the
-  // legacy budget, and rendered FOUR cards behind "Show N more blocks" —
-  // i.e. the ruled constant would read 6 while the user saw 4, on precisely
-  // the turn sizes the ruling was meant to open up. Making the exclusion
-  // unconditional is what makes the ruled number true; it is monotone
-  // (a block can only become visible, never hidden), and it raises no flood
-  // ceiling, because the pacing group caps phase-3 cards at 6 regardless.
-  //
-  // Bias-signal cards are exempt (review-folds C1) — but only the FIRST
-  // DRAFT_BIAS_SIGNAL_CARD_CAP of them (/simplify item 5), from the ONE
-  // exempt set computePhase3Pacing already derived, so this budget and the
-  // pacing budget cannot disagree. Bias cards beyond the cap fall through to
-  // the normal budget path.
-  const { hiddenByBudget, hasOverflow, hiddenCount } = useMemo(() => {
-    const budgetIndices: number[] = []
-    for (let i = 0; i < blocks.length; i++) {
-      if (pacing.biasSignalExemptIndices.has(i)) continue
-      if (isPhase3CardBlock(blocks[i])) continue
-      budgetIndices.push(i)
-    }
-    return {
-      hiddenByBudget: new Set(
-        showAll ? [] : budgetIndices.slice(MAX_VISIBLE_BLOCKS_PER_TURN),
-      ),
-      hasOverflow: budgetIndices.length > MAX_VISIBLE_BLOCKS_PER_TURN,
-      hiddenCount: budgetIndices.length - MAX_VISIBLE_BLOCKS_PER_TURN,
-    }
-  }, [blocks, pacing, showAll])
+  /**
+   * Top-level entries in PRODUCER ORDER. Pinned and points are merged and
+   * re-sorted by source index rather than concatenated, so a patch that arrived
+   * after a coaching card still renders after it — reading order is the
+   * producer's, never the class order.
+   */
+  const topLevel = useMemo(
+    () => [...composition.pinned, ...composition.points].sort((a, b) => a.index - b.index),
+    [composition],
+  )
+  const detail = composition.detail
+  const hasDetail = detail.length > 0
+
   // DS v5 §21.2: block type badge dots are always on (no v2 flag gate).
   const showBadgeDots = true
 
-  const phase3Collapsed = pacing.pacingActive && !showAllPhase3
-
-  // THE visibility rule — one predicate, both consumers (/simplify item 4).
-  // The render guard below and the legend gate were De Morgan duals of this
-  // and could drift apart.
+  /**
+   * THE visibility rule — one predicate, every consumer. A block is hidden iff
+   * it is in the detail class and the disclosure is closed. Previously this was
+   * a disjunction over two budgets that could (and did) disagree.
+   */
+  const detailIndices = useMemo(() => new Set(detail.map((e) => e.index)), [detail])
   const isBlockHidden = useCallback(
-    (i: number) => hiddenByBudget.has(i) || (phase3Collapsed && pacing.collapsedIndices.has(i)),
-    [hiddenByBudget, phase3Collapsed, pacing],
+    (i: number) => !detailExpanded && detailIndices.has(i),
+    [detailExpanded, detailIndices],
   )
 
   // C13: the graph-vocabulary legend gates on a phase-3 card being
   // CURRENTLY RENDERED — never on mere presence in the turn (a legend for
-  // cards hidden behind the pacing collapse or the legacy budget explained
-  // vocabulary the user could not see).
+  // cards hidden inside the closed disclosure explains vocabulary the user
+  // cannot see).
   const phase3Rendered = blocks.some((b, i) => isPhase3CardBlock(b) && !isBlockHidden(i))
 
-  // C11: citations can point at collapsed content. Handed to the
-  // commentary renderer only while something is actually collapsed, so a
-  // genuinely dangling citation stays a no-op.
+  // C11: citations can point at demoted content. Handed to the commentary
+  // renderer only while the disclosure is actually closed, so a genuinely
+  // dangling citation stays a no-op.
   const revealHiddenBlocks = useCallback(() => {
-    setShowAllPhase3(true)
-    setShowAll(true)
+    setDetailExpanded(true)
   }, [])
-  const hasCollapsedContent = phase3Collapsed || hiddenByBudget.size > 0
+  const hasCollapsedContent = hasDetail && !detailExpanded
 
   // Citation targets are numbered 1-based PER TURN, so in a thread with
   // several assistant turns on screen every turn carries its own
@@ -223,87 +219,88 @@ export const InlineBlocks = memo(function InlineBlocks({
   // this container only, so a citation lands in its own turn or nowhere.
   const blockContainerRef = useRef<HTMLDivElement>(null)
 
+  /**
+   * Render one composed entry through its OWN existing renderer. Identical for
+   * a top-level entry and a demoted one — that sameness IS the byte-preserving
+   * demotion guarantee: a block does not change when it moves tier, only where
+   * it sits. Two render paths here would be two places for them to drift.
+   */
+  const renderEntry = (index: number) => {
+    const block = blocks[index]
+    const badgeDotClass = showBadgeDots ? resolveBlockBadgeDotClass(block) : null
+    return (
+      // data-citation-target is 1-based on the ORIGINAL index; CitationRef.index
+      // matches this, so a citation still resolves after demotion.
+      // data-patch-id enables scroll-to-patch from GuidanceStrip approve_patch.
+      <div
+        key={index}
+        data-citation-target={index + 1}
+        className={badgeDotClass ? styles.blockWithBadge : undefined}
+        {...(block.type === 'graph_patch' ? { 'data-patch-id': block.patch_id } : {})}
+      >
+        {badgeDotClass && <span className={badgeDotClass} data-testid="block-badge-dot" aria-hidden="true" />}
+        <BlockRenderer
+          block={block}
+          turnId={turnId}
+          patchBlockStates={patchBlockStates}
+          patchRejections={patchRejections}
+          onPatchAccept={onPatchAccept}
+          onPatchDismiss={onPatchDismiss}
+          onArtefactMessage={onArtefactMessage}
+          onProposalConfirm={onProposalConfirm}
+          assistantTextWordCount={assistantTextWordCount}
+          onRevealHiddenBlocks={hasCollapsedContent ? revealHiddenBlocks : undefined}
+          blockContainerRef={blockContainerRef}
+        />
+      </div>
+    )
+  }
+
   return (
-    <div className={styles.blockContainer} ref={blockContainerRef}>
-      {pacing.pacingActive && (
-        // Static sr-only summary of the collapsed count. Deliberately NOT
-        // a live region (C4): the toggle's accessible name already carries
-        // the count, and revealed cards entering ChatThread's role=log
-        // announce their own addition — a nested role=status here replayed
-        // the text on unhide and double-announced every toggle.
+    <div className={styles.blockContainer} ref={blockContainerRef} data-testid="block-container">
+      {hasDetail && (
+        // Static sr-only summary of the demoted count. Deliberately NOT a live
+        // region (C4): the toggle's accessible name already carries the count,
+        // and revealed cards entering ChatThread's role=log announce their own
+        // addition — a nested role=status here replayed the text on unhide and
+        // double-announced every toggle.
         <span className="sr-only">
-          {phase3Collapsed
-            ? `${pacing.collapsedCount} more coaching and review cards collapsed`
-            : `Showing all ${pacing.phase3Count} coaching and review cards`}
+          {detailExpanded
+            ? `Showing all ${blocks.length} supporting items`
+            : `${detail.length} more supporting item${detail.length !== 1 ? 's' : ''} available`}
         </span>
       )}
-      {blocks.map((block, i) => {
-        // The single phase-3 count affordance sits at the position of the
-        // first collapsed card, so reading order is preserved exactly.
-        const affordance =
-          pacing.pacingActive && i === pacing.affordanceIndex ? (
-            <button
-              type="button"
-              className={styles.phase3PacingToggle}
-              onClick={() => setShowAllPhase3((v) => !v)}
-              aria-expanded={showAllPhase3}
-              aria-label={
-                showAllPhase3
-                  ? 'Show fewer coaching and review cards'
-                  : `Show ${pacing.collapsedCount} more coaching and review card${pacing.collapsedCount !== 1 ? 's' : ''}`
-              }
-            >
-              {showAllPhase3 ? (
-                <><ChevronUp size={12} aria-hidden="true" /> Show less</>
-              ) : (
-                <><ChevronDown size={12} aria-hidden="true" /> Show {pacing.collapsedCount} more</>
-              )}
-            </button>
-          ) : null
 
-        if (isBlockHidden(i)) {
-          return affordance ? <div key={i}>{affordance}</div> : null
-        }
+      {topLevel.map((e) => renderEntry(e.index))}
 
-        const badgeDotClass = showBadgeDots ? resolveBlockBadgeDotClass(block) : null
-        return (
-          // data-citation-target is 1-based; CitationRef.index matches this
-          // data-patch-id enables scroll-to-patch from GuidanceStrip approve_patch action
-          <div
-            key={i}
-            data-citation-target={i + 1}
-            className={badgeDotClass ? styles.blockWithBadge : undefined}
-            {...(block.type === 'graph_patch' ? { 'data-patch-id': block.patch_id } : {})}
+      {hasDetail && (
+        <>
+          <button
+            type="button"
+            className={styles.inlineDisclosureToggle}
+            onClick={() => setDetailExpanded((v) => !v)}
+            aria-expanded={detailExpanded}
+            data-testid="block-detail-toggle"
+            aria-label={
+              detailExpanded
+                ? 'Hide supporting detail'
+                : `Show ${detail.length} more supporting item${detail.length !== 1 ? 's' : ''}`
+            }
           >
-            {affordance}
-            {badgeDotClass && <span className={badgeDotClass} data-testid="block-badge-dot" aria-hidden="true" />}
-            <BlockRenderer
-              block={block}
-              turnId={turnId}
-              patchBlockStates={patchBlockStates}
-              patchRejections={patchRejections}
-              onPatchAccept={onPatchAccept}
-              onPatchDismiss={onPatchDismiss}
-              onArtefactMessage={onArtefactMessage}
-              onProposalConfirm={onProposalConfirm}
-              assistantTextWordCount={assistantTextWordCount}
-              onRevealHiddenBlocks={hasCollapsedContent ? revealHiddenBlocks : undefined}
-              blockContainerRef={blockContainerRef}
-            />
-          </div>
-        )
-      })}
-      {hasOverflow && (
-        <button
-          type="button"
-          className={styles.showMoreToggle}
-          onClick={() => setShowAll((v) => !v)}
-          aria-expanded={showAll}
-          aria-label={showAll ? 'Show fewer blocks' : `Show ${hiddenCount} more block${hiddenCount !== 1 ? 's' : ''}`}
-        >
-          {showAll ? 'Show less' : `Show ${hiddenCount} more`}
-        </button>
+            {detailExpanded ? (
+              <><ChevronUp size={12} aria-hidden="true" /> Show less</>
+            ) : (
+              <><ChevronDown size={12} aria-hidden="true" /> Show {detail.length} more</>
+            )}
+          </button>
+          {detailExpanded && (
+            <div className={styles.blockDetailBody} data-testid="block-detail-body">
+              {detail.map((e) => renderEntry(e.index))}
+            </div>
+          )}
+        </>
       )}
+
       {/* F16: graph-vocabulary legend affordance near the phase-3 cards —
           only when at least one is currently rendered (C13). */}
       {phase3Rendered && <GraphVocabularyLegend />}
