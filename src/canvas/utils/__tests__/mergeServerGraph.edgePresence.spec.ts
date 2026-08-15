@@ -169,7 +169,13 @@ describe('§1 a server edge value that equals a UI default still lands at boot',
 
 describe('§2 the no-op and no-overwrite guarantees survive the fix', () => {
   it('a server value EQUAL to the local value is still a STRICT no-op', () => {
-    seedGraph({ weight: 0.5, direction: 'positive' })
+    seedGraph({
+      weight: 0.5,
+      direction: 'positive',
+      weightSource: 'user',
+      provenanceDisplay: 'ai_inferred',
+      origin: 'ai',
+    })
     const before = useCanvasStore.getState().edges
     const res = mergeServerGraphOnHydrate({
       nodes: NODES,
@@ -177,6 +183,31 @@ describe('§2 the no-op and no-overwrite guarantees survive the fix', () => {
     })
     expect(res.updatedEdgeCount).toBe(0)
     expect(useCanvasStore.getState().edges).toBe(before)
+    expect(theEdge().data.weightSource).toBe('user')
+    expect(theEdge().data.provenanceDisplay).toBe('ai_inferred')
+    expect(theEdge().data.origin).toBe('ai')
+  })
+
+  it('a DIFFERENT server strength replaces the local confirmation and reopens review honestly', () => {
+    seedGraph({
+      weight: 0.5,
+      direction: 'negative',
+      weightSource: 'user',
+      provenanceDisplay: 'ai_inferred',
+      origin: 'ai',
+    })
+    const res = mergeServerGraphOnHydrate({
+      nodes: NODES,
+      edges: [{ from: 'factor-1', to: 'goal-1', strength: { mean: 0.73 } }],
+    })
+    expect(res.updatedEdgeCount).toBe(1)
+    const data = theEdge().data
+    expect(data.weight).toBe(0.73)
+    expect(data.weightSource).toBe('cee')
+    // Edge-creation provenance remains true: this is still an AI-origin edge,
+    // now carrying a new producer value that the user has not confirmed.
+    expect(data.provenanceDisplay).toBe('ai_inferred')
+    expect(data.origin).toBe('ai')
   })
 
   it('a field the wire did NOT carry keeps its local value', () => {
