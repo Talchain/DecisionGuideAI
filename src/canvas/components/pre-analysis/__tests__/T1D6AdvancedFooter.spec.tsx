@@ -261,4 +261,29 @@ describe('Brief 5.8A D6 — sticky footer layout + CTA copy', () => {
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     expect(screen.getByRole('button', { name: /address issues/i })).toBeDisabled()
   })
+
+  it('threads the canonical Run refusal through a locally-ready panel without invoking Analyse', () => {
+    const onAnalyse = vi.fn()
+    const blockedReason =
+      'fac_demand → goal_profit is waiting for the shared model before running analysis.'
+    mockUsePreAnalysisData.mockReturnValue(baseData({
+      isReady: true,
+      hasBlockers: false,
+      blockerCount: 0,
+    }))
+
+    render(
+      <PreAnalysisPanel
+        onAnalyse={onAnalyse}
+        canRun={false}
+        blockedReason={blockedReason}
+      />,
+    )
+
+    expect(screen.getByTestId('pre-analysis-run-blocked-reason')).toHaveTextContent(blockedReason)
+    const button = screen.getByRole('button', { name: `Analysis unavailable: ${blockedReason}` })
+    expect(button).toBeDisabled()
+    fireEvent.click(button)
+    expect(onAnalyse).not.toHaveBeenCalled()
+  })
 })

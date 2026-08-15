@@ -257,6 +257,7 @@ describe('edge strength transaction lifecycle', () => {
       expected: { mean: -0.4, effect_direction: 'negative' },
       intent: 'confirm_current',
     })
+    expect(useCanvasStore.getState().analysisFreshness?.freshness).toBe('fresh')
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
   })
 
@@ -279,6 +280,7 @@ describe('edge strength transaction lifecycle', () => {
       expect(getEdgeStrengthEndpointStatus(SCENARIO_A, 'fac_demand', 'goal_profit').kind)
         .toBe('confirmed')
       expect(useCanvasStore.getState().analysisFreshness?.freshness).toBe(freshness)
+      expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
       expect(clearFreshness).not.toHaveBeenCalled()
       clearFreshness.mockRestore()
     },

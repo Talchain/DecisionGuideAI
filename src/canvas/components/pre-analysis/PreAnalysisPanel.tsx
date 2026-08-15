@@ -405,6 +405,8 @@ interface PreAnalysisPanelProps {
   onAnalyse: () => void
   /** Whether analysis is currently running */
   isAnalysing?: boolean
+  /** Canonical OutputsDock Run verdict. False is a hard, visible CTA gate. */
+  canRun?: boolean
   /** Shared blocked reason for the Analyse CTA */
   blockedReason?: string
   /** Callback to send a message in the conversation panel */
@@ -933,6 +935,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
 export function PreAnalysisPanel({
   onAnalyse,
   isAnalysing = false,
+  canRun = true,
   blockedReason,
   onSendMessage,
   expertMode = false,
@@ -2398,6 +2401,7 @@ export function PreAnalysisPanel({
         hasBlockers={data.hasBlockers || mustFixCount > 0}
         blockerCount={Math.max(data.blockerCount, mustFixCount)}
         isAnalysing={isAnalysing}
+        canRun={canRun}
         onAnalyse={onAnalyse}
         blockedReason={blockedReason}
         isLoading={data.isLoading}

@@ -18,6 +18,7 @@
 import { CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react'
 import { AnalysisFooter } from '../../shared/AnalysisFooter'
 import { useAnalysisDisplayState } from '../../hooks/useAnalysisDisplayState'
+import { typography } from '../../../styles/typography'
 
 interface StickyFooterProps {
   /** Whether analysis can run */
@@ -28,6 +29,8 @@ interface StickyFooterProps {
   blockerCount: number
   /** Whether analysis is currently running */
   isAnalysing: boolean
+  /** Canonical OutputsDock Run verdict; false is always a hard gate. */
+  canRun?: boolean
   /** Click handler for analyse button */
   onAnalyse: () => void
   /** Human-readable reason when Analyse is blocked */
@@ -43,6 +46,7 @@ export function StickyFooter({
   hasBlockers,
   blockerCount: _blockerCount,
   isAnalysing,
+  canRun = true,
   onAnalyse,
   blockedReason,
   isLoading = false,
@@ -55,7 +59,9 @@ export function StickyFooter({
   // button disabled — the wireframe's "anyway" affordance is for soft
   // not-yet-calibrated states, not for hard blockers like missing options.
   const isHardBlocked = isAnalysing || isLoading || isRetrying || (hasBlockers && _blockerCount > 0)
-  const isDisabled = isHardBlocked
+  const isDisabled = isHardBlocked || !canRun
+  const canonicalRunBlocked =
+    !canRun && !isAnalysing && !isLoading && !isRetrying
 
   let StatusIcon: typeof CheckCircle | typeof XCircle | typeof Loader2 | typeof AlertTriangle
   let statusIconColor: string
@@ -72,6 +78,10 @@ export function StickyFooter({
     StatusIcon = Loader2
     statusIconColor = 'text-primary animate-spin'
     statusText = 'Updating draft'
+  } else if (!canRun) {
+    StatusIcon = AlertTriangle
+    statusIconColor = 'text-warning'
+    statusText = 'Analysis paused'
   } else if (isReady) {
     StatusIcon = CheckCircle
     statusIconColor = 'text-success'
@@ -96,7 +106,7 @@ export function StickyFooter({
   // warning under the CTA when calibration is incomplete.
   const metaText = (() => {
     if (isRetrying) return undefined
-    if (isReady) return undefined
+    if (isReady || !canRun) return undefined
     return <span>Results will be provisional</span>
   })()
 
@@ -125,29 +135,43 @@ export function StickyFooter({
     ? 'Draft update in progress'
     : isAnalysing
       ? 'Analysis in progress'
-      : isHardBlocked && hasBlockers
-        ? `Address issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
-        : baseLabel
+      : !canRun
+        ? `Analysis unavailable${blockedReason ? `: ${blockedReason}` : ''}`
+        : isHardBlocked && hasBlockers
+          ? `Address issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
+          : baseLabel
 
   return (
-    <AnalysisFooter
-      statusIcon={StatusIcon}
-      statusIconClassName={statusIconColor}
-      statusText={statusText}
-      metaText={metaText}
-      actionLabel={ctaLabel}
-      onAction={onAnalyse}
-      actionDisabled={isDisabled}
-      actionLoading={isAnalysing || isRetrying}
-      actionAriaLabel={actionAriaLabel}
-      actionVariant={actionVariant}
-      metaPlacement="stacked"
-      actionTitle={isDisabled && !isAnalysing && !isLoading && !isRetrying
-        ? (blockedReason || 'Address required items before analysing')
-        : isReady
-          ? 'Run 1,000 Monte Carlo simulations with uncertainty margins to compare your options'
-          : 'Run anyway with provisional results — calibration is incomplete'}
-    />
+    <>
+      {canonicalRunBlocked && (
+        <div
+          className={`${typography.panelMeta} flex-shrink-0 break-words border-t border-panel-border bg-panel px-4 py-2 text-text-light`}
+          role="status"
+          aria-live="polite"
+          data-testid="pre-analysis-run-blocked-reason"
+        >
+          {blockedReason || 'Analysis is not available until the model is ready.'}
+        </div>
+      )}
+      <AnalysisFooter
+        statusIcon={StatusIcon}
+        statusIconClassName={statusIconColor}
+        statusText={statusText}
+        metaText={metaText}
+        actionLabel={ctaLabel}
+        onAction={onAnalyse}
+        actionDisabled={isDisabled}
+        actionLoading={isAnalysing || isRetrying}
+        actionAriaLabel={actionAriaLabel}
+        actionVariant={actionVariant}
+        metaPlacement="stacked"
+        actionTitle={isDisabled && !isAnalysing && !isLoading && !isRetrying
+          ? (blockedReason || 'Address required items before analysing')
+          : isReady
+            ? 'Run 1,000 Monte Carlo simulations with uncertainty margins to compare your options'
+            : 'Run anyway with provisional results — calibration is incomplete'}
+      />
+    </>
   )
 }
 

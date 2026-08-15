@@ -31,19 +31,10 @@ import type { BriefReadiness } from '../hooks/useBriefSignals'
 import type { UseConversationReturn } from '../useConversation'
 import { typography } from '../../../styles/typography'
 import type { ScenarioStage } from '../../../types/scenario'
-import {
-  openEdgeStrengthRecoveryRelationship,
-  refreshEdgeStrengthAuthority,
-} from '../../edge-strength/edgeStrengthCoordinator'
+import { EdgeStrengthRecoveryNotice } from '../../components/EdgeStrengthRecoveryNotice'
 
 // ChatTopBar is removed (Tranche 1 item 30); GenerateState now lives here.
 export type GenerateState = 'disabled' | 'active' | 'loading'
-
-const EMPTY_RELATIONSHIP_RECOVERY_SUMMARY = {
-  items: [],
-  total: 0,
-  remaining: 0,
-} as const
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Imperative handle for text insertion from external callers (e.g. Guide tool)
@@ -106,17 +97,6 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
     const runAriaLabel = runDisabled && runDisabledReason
       ? `Run analysis (blocked: ${runDisabledReason})`
       : 'Run analysis'
-    const [refreshingSharedModel, setRefreshingSharedModel] = useState(false)
-    const [sharedModelRefreshError, setSharedModelRefreshError] = useState<string | null>(null)
-    const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
-    const sharedModelRecoveryNeeded = useCanvasStore((s) =>
-      s.unconfirmedEmittedEdits > 0 ||
-      s.edgeStrengthSync?.hydration === 'unconfirmed' ||
-      (s.edgeStrengthSync?.issue ?? null) !== null,
-    )
-    const relationshipRecoverySummary = useCanvasStore(
-      (s) => s.edgeStrengthSync?.recoverySummary ?? EMPTY_RELATIONSHIP_RECOVERY_SUMMARY,
-    )
     const runBlockerId = 'composer-run-blocked-reason'
     const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
     const hasGraph = useCanvasStore(s => s.nodes.length > 0 || s.edges.length > 0)
@@ -449,92 +429,11 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
         </div>
 
         {showRunAnalysis && runDisabled && runDisabledReason && (
-          <div
+          <EdgeStrengthRecoveryNotice
             id={runBlockerId}
-            className={`${typography.panelMeta} text-text-light mt-1 px-1`}
-            role="status"
-            aria-live="polite"
-          >
-            <p>{runDisabledReason}</p>
-            {relationshipRecoverySummary.items.length > 0 && (
-              <div className="mt-1.5">
-                <p className="sr-only">Relationships affecting analysis:</p>
-                <ul className="space-y-1" aria-label="Relationships affecting analysis">
-                  {relationshipRecoverySummary.items.map((item) => (
-                    <li key={`${item.from}\u0000${item.to}`} className="flex flex-wrap items-center gap-x-2">
-                      <span>{item.label}</span>
-                      {item.relationshipExists && currentScenarioId && (
-                        <button
-                          type="button"
-                          className="text-info underline underline-offset-2"
-                          onClick={() => {
-                            openEdgeStrengthRecoveryRelationship(
-                              currentScenarioId,
-                              item.from,
-                              item.to,
-                            )
-                          }}
-                        >
-                          Review relationship
-                          <span className="sr-only"> {item.label}</span>
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                {relationshipRecoverySummary.remaining > 0 && (
-                  <p className="mt-1">
-                    And {relationshipRecoverySummary.remaining} more relationship{relationshipRecoverySummary.remaining === 1 ? '' : 's'} need attention.
-                  </p>
-                )}
-              </div>
-            )}
-            {sharedModelRecoveryNeeded && currentScenarioId && (
-              <div className="mt-1 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="text-info underline underline-offset-2 disabled:opacity-50"
-                  disabled={refreshingSharedModel}
-                  onClick={() => {
-                    setSharedModelRefreshError(null)
-                    setRefreshingSharedModel(true)
-                    void refreshEdgeStrengthAuthority(currentScenarioId)
-                      .then((ok) => {
-                        if (!ok) setSharedModelRefreshError('The shared model could not be checked. Your local changes are still held from analysis.')
-                      })
-                      .finally(() => {
-                        setRefreshingSharedModel(false)
-                      })
-                  }}
-                >
-                  {refreshingSharedModel ? 'Checking…' : 'Check shared model'}
-                </button>
-                <button
-                  type="button"
-                  className="text-info underline underline-offset-2 disabled:opacity-50"
-                  disabled={refreshingSharedModel}
-                  onClick={() => {
-                    setSharedModelRefreshError(null)
-                    setRefreshingSharedModel(true)
-                    void refreshEdgeStrengthAuthority(currentScenarioId, {
-                      replaceLocalGraph: true,
-                    })
-                      .then((ok) => {
-                        if (!ok) setSharedModelRefreshError('The shared model could not be restored. Your local changes are still held from analysis.')
-                      })
-                      .finally(() => {
-                        setRefreshingSharedModel(false)
-                      })
-                  }}
-                >
-                  Restore shared model
-                </button>
-              </div>
-            )}
-            {sharedModelRefreshError && (
-              <p className="mt-1 text-danger" role="alert">{sharedModelRefreshError}</p>
-            )}
-          </div>
+            blockedReason={runDisabledReason}
+            className="mt-1 px-1"
+          />
         )}
 
         <style>{`

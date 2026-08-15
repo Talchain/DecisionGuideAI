@@ -12,13 +12,23 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { PersistentInputStrip } from '../PersistentInputStrip'
+import { EMPTY_EDGE_STRENGTH_SYNC, useCanvasStore } from '../../store'
 import {
   ConversationProvider,
   useConversationContext,
 } from '../../conversation/ConversationContext'
+
+const mockRefreshEdgeStrengthAuthority = vi.hoisted(() => vi.fn(() => Promise.resolve(true)))
+const mockOpenEdgeStrengthRecoveryRelationship = vi.hoisted(() => vi.fn(() => true))
+
+vi.mock('../../edge-strength/edgeStrengthCoordinator', () => ({
+  refreshEdgeStrengthAuthority: mockRefreshEdgeStrengthAuthority,
+  openEdgeStrengthRecoveryRelationship: mockOpenEdgeStrengthRecoveryRelationship,
+}))
 
 // Stub the heavy conversation runtime: useConversation does network + store
 // work that's irrelevant to these UI invariant tests.
@@ -65,6 +75,192 @@ function Wrapper({ children }: { children: ReactNode }) {
 describe('PersistentInputStrip', () => {
   beforeEach(() => {
     useFloatingPanelState.getState().reset()
+    mockRefreshEdgeStrengthAuthority.mockReset()
+    mockRefreshEdgeStrengthAuthority.mockResolvedValue(true)
+    mockOpenEdgeStrengthRecoveryRelationship.mockReset()
+    mockOpenEdgeStrengthRecoveryRelationship.mockReturnValue(true)
+    useCanvasStore.setState({
+      currentScenarioId: null,
+      nodes: [],
+      edges: [],
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+      showInspectorPanel: false,
+      unconfirmedEmittedEdits: 0,
+      edgeStrengthSync: EMPTY_EDGE_STRENGTH_SYNC,
+    } as never)
+  })
+
+  describe('canonical relationship recovery on the mounted AI Panel v2 strip', () => {
+    it('keeps an inspector-closed conflict visible and keyboard-native by endpoint', async () => {
+      const user = userEvent.setup()
+      useCanvasStore.setState({
+        currentScenarioId: 'scenario-1',
+        nodes: [
+          { id: 'fac_demand', data: { label: 'Demand' } },
+          { id: 'goal_profit', data: { label: 'Sustainable profit' } },
+        ],
+        edges: [{
+          id: 'rf-secret-edge-id',
+          source: 'fac_demand',
+          target: 'goal_profit',
+          data: {},
+        }],
+        showInspectorPanel: false,
+        edgeStrengthSync: {
+          ...EMPTY_EDGE_STRENGTH_SYNC,
+          scenarioId: 'scenario-1',
+          hydration: 'settled',
+          issue: 'conflict',
+          recoverySummary: {
+            items: [{
+              from: 'fac_demand',
+              to: 'goal_profit',
+              label: 'Demand → Sustainable profit',
+              kind: 'conflict',
+              relationshipExists: true,
+            }],
+            total: 1,
+            remaining: 0,
+          },
+        },
+      } as never)
+
+      render(
+        <PersistentInputStrip
+          isOlumiTabActive={false}
+          onOpenFloating={() => {}}
+          onCogClick={() => {}}
+          recoveryBlockedReason="Demand → Sustainable profit changed elsewhere. Review the latest shared value before running analysis."
+        />,
+        { wrapper: Wrapper },
+      )
+
+      expect(screen.getByTestId('edge-strength-recovery-notice')).toBeVisible()
+      expect(screen.getByRole('listitem')).toHaveTextContent('Demand → Sustainable profit')
+      expect(document.body.textContent).not.toContain('rf-secret-edge-id')
+      const review = screen.getByRole('button', {
+        name: 'Review relationship Demand → Sustainable profit',
+      })
+      await user.tab()
+      expect(review).toHaveFocus()
+      await user.keyboard('{Enter}')
+      expect(mockOpenEdgeStrengthRecoveryRelationship).toHaveBeenCalledWith(
+        'scenario-1',
+        'fac_demand',
+        'goal_profit',
+      )
+      expect(screen.getByRole('button', { name: 'Check shared model' })).toBeVisible()
+      expect(screen.getByRole('button', { name: 'Restore shared model' })).toBeVisible()
+
+      act(() => { useCanvasStore.setState({ showInspectorPanel: true }) })
+      expect(screen.getByTestId('edge-strength-recovery-notice')).toBeVisible()
+    })
+
+    it('offers Check/Restore without a dead Review target for a removed relationship', async () => {
+      const user = userEvent.setup()
+      useCanvasStore.setState({
+        currentScenarioId: 'scenario-1',
+        edgeStrengthSync: {
+          ...EMPTY_EDGE_STRENGTH_SYNC,
+          scenarioId: 'scenario-1',
+          hydration: 'settled',
+          issue: 'unconfirmed_structure',
+          recoverySummary: {
+            items: [{
+              from: 'fac_removed',
+              to: 'goal_profit',
+              label: 'Former supplier → Sustainable profit',
+              kind: 'unconfirmed_structure',
+              relationshipExists: false,
+            }],
+            total: 1,
+            remaining: 0,
+          },
+        },
+      } as never)
+
+      render(
+        <PersistentInputStrip
+          isOlumiTabActive
+          onOpenFloating={() => {}}
+          onCogClick={() => {}}
+          recoveryBlockedReason="Former supplier → Sustainable profit was removed only on this device. Check the shared model before running analysis."
+        />,
+        { wrapper: Wrapper },
+      )
+
+      expect(screen.getByText('Former supplier → Sustainable profit')).toBeVisible()
+      expect(screen.queryByRole('button', { name: /Review relationship/ })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Check shared model' }))
+      expect(mockRefreshEdgeStrengthAuthority).toHaveBeenCalledWith('scenario-1')
+      await user.click(screen.getByRole('button', { name: 'Restore shared model' }))
+      expect(mockRefreshEdgeStrengthAuthority).toHaveBeenCalledWith(
+        'scenario-1',
+        { replaceLocalGraph: true },
+      )
+    })
+
+    it('defensively renders at most three endpoint summaries plus the remainder', () => {
+      useCanvasStore.setState({
+        currentScenarioId: 'scenario-1',
+        edgeStrengthSync: {
+          ...EMPTY_EDGE_STRENGTH_SYNC,
+          scenarioId: 'scenario-1',
+          hydration: 'settled',
+          issue: 'unsupported_fields',
+          recoverySummary: {
+            items: Array.from({ length: 5 }, (_, index) => ({
+              from: `source_${index}`,
+              to: `target_${index}`,
+              label: `Source ${index} → Target ${index}`,
+              kind: 'unsupported_fields' as const,
+              relationshipExists: index < 2,
+            })),
+            total: 5,
+            remaining: 0,
+          },
+        },
+      } as never)
+
+      render(
+        <PersistentInputStrip
+          isOlumiTabActive
+          onOpenFloating={() => {}}
+          onCogClick={() => {}}
+          recoveryBlockedReason="Relationships need attention before running analysis."
+        />,
+        { wrapper: Wrapper },
+      )
+
+      expect(screen.getAllByRole('listitem')).toHaveLength(3)
+      expect(screen.getByText('And 2 more relationships need attention.')).toBeVisible()
+      expect(screen.queryByText('Source 3 → Target 3')).not.toBeInTheDocument()
+    })
+
+    it('exposes recovery actions for hydration-unconfirmed state without endpoint data', () => {
+      useCanvasStore.setState({
+        currentScenarioId: 'scenario-1',
+        edgeStrengthSync: {
+          ...EMPTY_EDGE_STRENGTH_SYNC,
+          scenarioId: 'scenario-1',
+          hydration: 'unconfirmed',
+        },
+      } as never)
+
+      render(
+        <PersistentInputStrip
+          isOlumiTabActive
+          onOpenFloating={() => {}}
+          onCogClick={() => {}}
+          recoveryBlockedReason="Check the shared model before running analysis."
+        />,
+        { wrapper: Wrapper },
+      )
+
+      expect(screen.queryByRole('list')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Check shared model' })).toBeVisible()
+      expect(screen.getByRole('button', { name: 'Restore shared model' })).toBeVisible()
+    })
   })
 
   describe('composer mode — floating closed', () => {

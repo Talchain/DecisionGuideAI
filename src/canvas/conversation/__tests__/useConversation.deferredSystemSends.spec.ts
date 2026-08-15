@@ -454,8 +454,12 @@ describe('canonical Run waits for the complete value-writer transaction', () => 
     })
 
     expect(useCanvasStore.getState().analysisFreshness?.freshness).toBe('none')
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
     expect(useCanvasStore.getState().edgeStrengthSync.issue).toBeNull()
     expect(dispatchedRuns()).toHaveLength(1)
+    const transcript = result.current.messages.map((message) => String(message.content))
+    expect(transcript).not.toContain('')
+    expect(transcript.join(' ')).not.toMatch(/I received your message/i)
   })
 
   it('does not preempt an active factor writer and dispatches Run only after it settles', async () => {

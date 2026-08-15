@@ -981,8 +981,16 @@ interface CanvasState {
    * no-analysis / orphan / reset states.
    */
   setV5AnalysisFact: (fact: V5AnalysisFactState | null) => void
-  /** Update the freshness slice from a raw response.analysis_ready (retain / order-by-computed_at / never absence→fresh). */
-  setAnalysisFreshness: (rawAnalysisReady: unknown) => void
+  /**
+   * Update the freshness slice from a raw response.analysis_ready (retain /
+   * order-by-computed_at / never absence→fresh). `preserveDirty` is reserved
+   * for persistence receipts which carry a valid but non-fresh analysis fact:
+   * they settle the writer without proving that analysis reflects the model.
+   */
+  setAnalysisFreshness: (
+    rawAnalysisReady: unknown,
+    options?: { preserveDirty?: boolean },
+  ) => void
   /** ROADMAP 2.1163 / EXT-2: set or clear CEE's typed analysis-refusal notice. Pass null to clear. Never persisted. */
   setAnalysisRefusalNotice: (notice: AnalysisRefusalNotice | null) => void
   /** Public dirty-overlay setter for external graph mutators (e.g. accepted CEE graph patches) that bypass the internal edit chokepoints. */
@@ -4563,7 +4571,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ analysisRefusalNotice: notice })
   },
 
-  setAnalysisFreshness: (rawAnalysisReady: unknown) => {
+  setAnalysisFreshness: (rawAnalysisReady: unknown, options) => {
     set((state) => {
       const next = deriveAnalysisFreshnessUpdate(state.analysisFreshness, rawAnalysisReady)
       // A newly-applied analysis_ready verdict supersedes any pending local edits:
@@ -4599,11 +4607,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // merely "don't clear": a 'fresh' verdict FORCES the overlay on, so the
       // affirmative is unreachable regardless of how the overlay was left by
       // earlier writes (e.g. a historical-restore's dirty:false).
+      //
+      // A persistence receipt may also ask to retain the overlay explicitly.
+      // `confirm_current` proves the shared tuple, but a stale/none/unknown
+      // analysis_ready fact still does not prove that analysis reflects it.
       if (state.importPendingServerRegistration) {
         if (next?.freshness === 'fresh') {
           updates.analysisFreshnessDirty = true
         }
       } else if (
+        !options?.preserveDirty &&
         state.analysisFreshnessDirty &&
         state.pendingEmittedEdits === 0 &&
         state.activeEmittedEdits === 0 &&

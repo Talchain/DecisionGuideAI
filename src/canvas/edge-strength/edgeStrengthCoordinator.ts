@@ -1323,7 +1323,10 @@ function settleApplied(
   publish(attempt.scenarioId, { settleWaiters: false })
   const store = useCanvasStore.getState()
   store.setCeeAnalysisReady(normaliseV5AnalysisReady(verdict.analysisReady) ?? null)
-  store.setAnalysisFreshness(verdict.analysisReady)
+  store.setAnalysisFreshness(verdict.analysisReady, {
+    preserveDirty:
+      attempt.intent === 'confirm_current' && verdict.freshness !== 'fresh',
+  })
   // T0→T1→T0 coalesces to confirm_current, but the first movement already
   // raised the local dirty hold. A valid noop can echo byte-identical readiness,
   // in which case setAnalysisFreshness correctly performs no state update and

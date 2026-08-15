@@ -4,6 +4,7 @@ import { typo } from '../../styles/typography'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { useStageAwarePlaceholder } from '../hooks/useStageAwarePlaceholder'
 import { AIInputBar } from './AIInputBar'
+import { EdgeStrengthRecoveryNotice } from './EdgeStrengthRecoveryNotice'
 
 interface PersistentInputStripProps {
   /** True when the docked Olumi tab is the active dock tab. When true and
@@ -20,6 +21,8 @@ interface PersistentInputStripProps {
   onFocusFloating?: () => void
   /** Click handler for the cog icon (Attach / Voice / Depth menu). */
   onCogClick: (anchorEl: HTMLElement) => void
+  /** Canonical Run blocker to surface beside the persistent AI input. */
+  recoveryBlockedReason?: string
 }
 
 /**
@@ -46,6 +49,7 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   onOpenFloating,
   onFocusFloating,
   onCogClick,
+  recoveryBlockedReason,
 }: PersistentInputStripProps) {
   const floatingIsOpen = useFloatingPanelState((s) => s.isOpen)
   // Round-15: when the floating panel is collapsed to a pill, isOpen
@@ -61,6 +65,13 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
     onFocusFloating?.()
   }, [onFocusFloating])
 
+  const recoveryNotice = recoveryBlockedReason ? (
+    <EdgeStrengthRecoveryNotice
+      blockedReason={recoveryBlockedReason}
+      className="border-t border-panel-border bg-panel px-3 py-2"
+    />
+  ) : null
+
   // Status mode — floating panel is open AND NOT minimised (i.e. the
   // full panel is visible with its own composer). No textarea is rendered
   // here so the "no duplicate composer" invariant holds. Fixed copy
@@ -71,16 +82,19 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   // focus channel.
   if (floatingIsOpen && !floatingIsMinimised) {
     return (
-      <button
-        type="button"
-        onClick={handleFocus}
-        className="w-full flex items-center justify-between gap-2 px-3 py-3 border-t border-panel-border bg-panel hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-        data-testid="persistent-strip-status"
-        aria-label="Focus floating Olumi panel"
-      >
-        <span className={typo('panelMeta', 'text-text-body text-left')}>Olumi is open</span>
-        <span className={typo('panelMeta', 'text-info flex-shrink-0')}>Focus →</span>
-      </button>
+      <>
+        {recoveryNotice}
+        <button
+          type="button"
+          onClick={handleFocus}
+          className="w-full flex items-center justify-between gap-2 px-3 py-3 border-t border-panel-border bg-panel hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          data-testid="persistent-strip-status"
+          aria-label="Focus floating Olumi panel"
+        >
+          <span className={typo('panelMeta', 'text-text-body text-left')}>Olumi is open</span>
+          <span className={typo('panelMeta', 'text-info flex-shrink-0')}>Focus →</span>
+        </button>
+      </>
     )
   }
 
@@ -91,23 +105,26 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   // Only the chevron (expand affordance) is kept as a visual hint.
   if (!isOlumiTabActive) {
     return (
-      <button
-        type="button"
-        onClick={onOpenFloating}
-        className="w-full flex items-center gap-1 px-2 py-2 border-t border-panel-border bg-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-info text-left"
-        data-testid="persistent-strip-composer-redirect"
-        aria-label={`Open Olumi: ${placeholder}`}
-      >
-        <span className="flex-1 bg-panel border border-panel-border rounded-lg py-2 px-3 hover:bg-panel-hover">
-          <span className={typo('panelBody', 'text-text-light truncate block')}>{placeholder}</span>
-        </span>
-        <span
-          className="inline-flex items-center justify-center w-7 h-7 rounded-sm text-text-light flex-shrink-0"
-          aria-hidden="true"
+      <>
+        {recoveryNotice}
+        <button
+          type="button"
+          onClick={onOpenFloating}
+          className="w-full flex items-center gap-1 px-2 py-2 border-t border-panel-border bg-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-info text-left"
+          data-testid="persistent-strip-composer-redirect"
+          aria-label={`Open Olumi: ${placeholder}`}
         >
-          <ChevronUp className="w-4 h-4" />
-        </span>
-      </button>
+          <span className="flex-1 bg-panel border border-panel-border rounded-lg py-2 px-3 hover:bg-panel-hover">
+            <span className={typo('panelBody', 'text-text-light truncate block')}>{placeholder}</span>
+          </span>
+          <span
+            className="inline-flex items-center justify-center w-7 h-7 rounded-sm text-text-light flex-shrink-0"
+            aria-hidden="true"
+          >
+            <ChevronUp className="w-4 h-4" />
+          </span>
+        </button>
+      </>
     )
   }
 
@@ -115,12 +132,15 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   // AIInputBar with a real textarea; Enter submits to the docked
   // conversation.
   return (
-    <div className="border-t border-panel-border bg-panel" data-testid="persistent-strip-composer">
-      <AIInputBar
-        variant="strip"
-        onCogClick={onCogClick}
-        onChevronClick={onOpenFloating}
-      />
-    </div>
+    <>
+      {recoveryNotice}
+      <div className="border-t border-panel-border bg-panel" data-testid="persistent-strip-composer">
+        <AIInputBar
+          variant="strip"
+          onCogClick={onCogClick}
+          onChevronClick={onOpenFloating}
+        />
+      </div>
+    </>
   )
 })

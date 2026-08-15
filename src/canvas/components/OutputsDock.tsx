@@ -1086,6 +1086,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   )
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
+  const edgeRecoveryBlockedReason = !canRunAnalysis && (
+    edgeStrengthSync.hydration === 'unconfirmed' ||
+    edgeStrengthSync.queued > 0 ||
+    edgeStrengthSync.inFlight > 0 ||
+    edgeStrengthSync.issue !== null
+  )
+    ? runBlockedTooltip
+    : undefined
   const showToast = useShowToastSafe()
 
   // Handle Run button click
@@ -2642,6 +2650,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       <PreAnalysisPanel
                         onAnalyse={handleRunAnalysis}
                         isAnalysing={isRunning}
+                        canRun={canRunAnalysis}
                         blockedReason={runBlockedTooltip}
                         onSendMessage={sendMessage}
                         expertMode={expertMode}
@@ -3011,6 +3020,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               onOpenFloating={floatOutToWindow}
               onFocusFloating={focusFloating}
               onCogClick={handleCogClick}
+              recoveryBlockedReason={edgeRecoveryBlockedReason}
             />
             <CogPopover
               isOpen={cogAnchor !== null}

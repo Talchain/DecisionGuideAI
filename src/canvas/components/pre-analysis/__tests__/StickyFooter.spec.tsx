@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
 import { StickyFooter } from '../StickyFooter'
 
 const baseProps = {
@@ -74,5 +74,31 @@ describe('StickyFooter — CTA titles (Brief 5.8A D6 — unchanged)', () => {
     const button = screen.getByRole('button', { name: /address issues/i })
     expect(button).toBeDisabled()
     expect(button).toHaveAttribute('title', 'Select a goal node before running analysis')
+  })
+})
+
+describe('StickyFooter — canonical Run gate', () => {
+  it('renders an endpoint-only refusal and makes the CTA natively disabled and non-focusable', () => {
+    const onAnalyse = vi.fn()
+    const blockedReason =
+      'Demand → Sustainable profit changed elsewhere. Review the latest shared value before running analysis.'
+    render(
+      <StickyFooter
+        {...baseProps}
+        canRun={false}
+        blockedReason={blockedReason}
+        onAnalyse={onAnalyse}
+      />,
+    )
+
+    expect(screen.getByTestId('pre-analysis-run-blocked-reason')).toHaveTextContent(blockedReason)
+    expect(screen.getByText('Analysis paused')).toBeVisible()
+    expect(screen.queryByText(/Results will be provisional/i)).not.toBeInTheDocument()
+    const button = screen.getByRole('button', { name: `Analysis unavailable: ${blockedReason}` })
+    expect(button).toBeDisabled()
+    button.focus()
+    expect(button).not.toHaveFocus()
+    fireEvent.click(button)
+    expect(onAnalyse).not.toHaveBeenCalled()
   })
 })
