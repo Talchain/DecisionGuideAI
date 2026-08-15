@@ -77,11 +77,6 @@ export function usePanelApplyDrain({
       appliedFrom: {
         round_id: intent.round_id,
         participant_id: intent.participant_id,
-        // 0.41.0 — carried only when the recorded intent had one, so an
-        // uncited drain builds the same event it built before.
-        ...(intent.evidence_event_id !== undefined
-          ? { evidence_event_id: intent.evidence_event_id }
-          : {}),
       },
     })
 
