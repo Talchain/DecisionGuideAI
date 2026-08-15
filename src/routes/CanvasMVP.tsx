@@ -9,7 +9,6 @@ import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintEventBus } from '../canvas/blueprints/eventBus'
 import { ToastProvider } from '../canvas/ToastContext'
 import { useCanvasStore } from '../canvas/store'
-import { useResultsRun } from '../canvas/hooks/useResultsRun'
 import { useDebugShortcut } from '../canvas/hooks/useDebugShortcut'
 import { trackCanvasOpened } from '../canvas/utils/sandboxTelemetry'
 import { DebugTray } from '../components/DebugTray'
@@ -41,9 +40,6 @@ export default function CanvasMVP() {
 
   // Phase 1A.5: Debug controls visibility (Shift+D shortcut)
   const { showDebug } = useDebugShortcut()
-
-  // v1.2: Auto-run analysis after template insertion
-  const { run } = useResultsRun()
 
   // C.1a: Supabase scenario persistence
   const { id: scenarioIdFromRoute } = useParams<{ id: string }>()
@@ -113,51 +109,17 @@ export default function CanvasMVP() {
         console.log('[CanvasMVP] Template inserted:', blueprint.name)
       }
 
-      // v1.2: Auto-run analysis after successful template insertion
-      // Get current graph state (after insertion)
-      const currentNodes = useCanvasStore.getState().nodes
-      const currentEdges = useCanvasStore.getState().edges
-      const currentOutcome = useCanvasStore.getState().outcomeNodeId
-
-      // Construct graph for PLoT adapter
-      const graph = {
-        nodes: currentNodes.map(n => ({
-          id: n.id,
-          label: n.data.label || n.id,
-          kind: n.type || 'decision',
-          probability: n.data.probability
-        })),
-        edges: currentEdges.map(e => ({
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          weight: e.data?.weight ?? 1.0,
-          belief: e.data?.belief
-        }))
-      }
-
-      // Trigger analysis
-      await run({
-        template_id: blueprint.id,
-        seed: 1337,
-        graph,
-        outcome_node: currentOutcome || undefined
-      })
-
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console, no-restricted-syntax
-        console.log('[CanvasMVP] Auto-run started for template:', blueprint.name)
-      }
+      // ⚠ AUTO-RUN RETIRED. Inserting a template used to fire an UNGATED
+      // browser→PLoT `/v1/run` immediately — a legacy direct-analysis caller that
+      // spent an analysis the user had not asked for, on a graph they had not yet
+      // seen. Canonical analysis is UI→CEE→PLoT→ISL, reached from the Run
+      // affordance the user drives; template insertion now only inserts.
+      //
+      // Do not reintroduce an auto-run here. If insertion should trigger analysis,
+      // that decision belongs to CEE (the rowed CEE-side auto-analysis direction),
+      // so the run carries the assistant's context rather than bypassing it.
     }
-  }, [closeTemplatesPanel, run])
-
-  const handlePinToCanvas = useCallback((data: { template_id: string; seed: number; response_hash: string; likely_value: number }) => {
-    // TODO: Create result badge node
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console, no-restricted-syntax
-      console.log('[Canvas] Pin to canvas:', data)
-    }
-  }, [])
+  }, [closeTemplatesPanel])
 
   // Close Templates panel when user interacts with canvas
   // Brief 37: Use ref to avoid dependency on showTemplatesPanel, keeping callback stable
@@ -294,7 +256,6 @@ export default function CanvasMVP() {
               setInsertionError(null) // Clear error when panel closes
             }}
             onInsertBlueprint={handleInsertBlueprint}
-            onPinToCanvas={handlePinToCanvas}
             insertionError={insertionError}
           />
         </Suspense>

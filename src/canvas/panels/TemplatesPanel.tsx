@@ -4,12 +4,6 @@ import { Search, Layout } from 'lucide-react'
 import { plot, adapterName } from '../../adapters/plot'
 import { typography } from '../../styles/typography'
 import type { Blueprint } from '../../templates/blueprints/types'
-import { useTemplatesRun } from '../../routes/templates/hooks/useTemplatesRun'
-import { SummaryCard } from '../../routes/templates/components/SummaryCard'
-import { WhyPanel } from '../../routes/templates/components/WhyPanel'
-import { ReproduceShareCard } from '../../routes/templates/components/ReproduceShareCard'
-import { ErrorBanner } from '../../routes/templates/components/ErrorBanner'
-import { ProgressStrip } from '../../routes/templates/components/ProgressStrip'
 import { TemplateCard } from './TemplateCard'
 import { TemplateAbout } from './TemplateAbout'
 import { PlotHealthPill } from '../../adapters/plot/v1/components/PlotHealthPill'
@@ -23,17 +17,15 @@ import { loadTemplateBlueprint, confirmReplaceCanvas, fetchTemplateList, TEMPLAT
 import { commitGraphMutation } from '../mutations/commitGraphMutation'
 import { createScenario, saveScenarios, loadScenarios, setCurrentScenarioId } from '../store/scenarios'
 import { TemplateSkeleton } from '../components/TemplateSkeleton'
-import { trackRunAttempt } from '../utils/sandboxTelemetry'
 
 interface TemplatesPanelProps {
   isOpen: boolean
   onClose: () => void
   onInsertBlueprint?: (blueprint: Blueprint) => void
-  onPinToCanvas?: (data: { template_id: string; seed: number; response_hash: string; likely_value: number }) => void
   insertionError?: string | null // Sprint 2: Show error when blueprint insertion fails
 }
 
-export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanvas, insertionError }: TemplatesPanelProps): JSX.Element | null {
+export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, insertionError }: TemplatesPanelProps): JSX.Element | null {
   const [blueprints, setBlueprints] = useState<Array<{ id: string; name: string; description: string; category?: string }>>([])
   const [templatesLoading, setTemplatesLoading] = useState(true)
   const [templatesLoadError, setTemplatesLoadError] = useState<string | null>(null)
@@ -43,11 +35,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   const [selectedBlueprint, setSelectedBlueprint] = useState<Blueprint | null>(null)
   const [templateVersion, setTemplateVersion] = useState<string | undefined>(undefined)
   const [showDevControls, setShowDevControls] = useState(false)
-  const [seed, setSeed] = useState<string>('1337')
 
   const panelRef = useRef<HTMLDivElement>(null)
 
-  const { loading, progress, canCancel, result, error, run, cancel, clearError } = useTemplatesRun()
 
   // Load templates from adapter (supports both mock and httpv1)
   useEffect(() => {
@@ -274,49 +264,8 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     }
   }, [showToast])
 
-  const handleRun = useCallback(async () => {
-    if (!selectedBlueprintId) return
-    let seedNum = parseInt(seed, 10)
-    if (isNaN(seedNum) || seedNum < 1) {
-      showToast('Please enter a valid seed (≥1)', 'warning')
-      trackRunAttempt({ canRun: false, reason: 'validation', message: '' })
-      return
-    }
 
-    // P0-5: "Analyse again" always runs - bump seed to bypass cache
-    if (result) {
-      seedNum += 1
-      setSeed(String(seedNum))
-    }
 
-    // P0-3: Hand-off to Results view - close Templates panel and show Results in the Outputs dock
-    onClose() // Close Templates panel
-    useCanvasStore.getState().setShowResultsPanel(true) // Ensure Results view is visible
-
-    trackRunAttempt({ canRun: true, reason: 'ok', message: '' })
-
-    await run({ template_id: selectedBlueprintId, seed: seedNum })
-  }, [selectedBlueprintId, seed, run, onClose, result])
-
-  const handleReset = useCallback(() => {
-    clearError()
-    setSeed('1337')
-    setSelectedBlueprintId(null)
-    setSelectedBlueprint(null)
-    setTemplateVersion(undefined)
-  }, [clearError])
-
-  const handlePinToCanvas = useCallback(() => {
-    if (result && selectedBlueprint && onPinToCanvas) {
-      onPinToCanvas({
-        template_id: selectedBlueprint.id,
-        seed: parseInt(seed, 10),
-        response_hash: result.model_card.response_hash,
-        likely_value: result.results.likely
-      })
-      showToast('Pinned to canvas.')
-    }
-  }, [result, selectedBlueprint, seed, onPinToCanvas, showToast])
 
   // v1.2: Save current canvas as a named scenario
   const handleSaveAsScenario = useCallback(() => {
@@ -483,20 +432,8 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   ) : undefined
 
   // Footer with Run button and scenario actions (only show when template loaded and not running)
-  const footer = selectedBlueprintId && !loading ? (
+  const footer = selectedBlueprintId ? (
     <div className="flex flex-col gap-2">
-      <button
-        onClick={handleRun}
-        disabled={loading}
-        className={`w-full px-6 py-3 ${typography.panelHeader} rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info disabled:opacity-50 disabled:cursor-not-allowed ${
-          result
-            ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-            : 'text-white bg-primary hover:bg-primary-hover shadow-sm hover:shadow-md'
-        }`}
-        type="button"
-      >
-        {loading ? 'Running Analysis…' : result ? 'Analyse again' : '▶ Run Analysis'}
-      </button>
       <div className="flex gap-2">
         <button
           onClick={handleSaveAsScenario}
@@ -697,87 +634,10 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                 <span className={`${typography.code} bg-panel text-warning px-2 py-1 rounded`}>Adapter: {adapterName}</span>
               </div>
               <div className="space-y-3">
-                <div>
-                  <label htmlFor="seed-input" className={`block ${typography.panelHeader} text-gray-700 mb-1`}>
-                    Seed
-                  </label>
-                  <input
-                    id="seed-input"
-                    type="number"
-                    value={seed}
-                    onChange={(e) => setSeed(e.target.value)}
-                    className={`w-full px-3 py-2 ${typography.panelBody} border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500`}
-                    min="1"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleRun}
-                    disabled={loading || !selectedBlueprintId}
-                    className={`flex-1 px-4 py-2 ${typography.panelBody} text-text-on-color bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
-                  >
-                    {loading ? 'Running…' : 'Run'}
-                  </button>
-                  <button
-                    onClick={handleReset}
-                    className={`px-4 py-2 ${typography.panelBody} bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400`}
-                  >
-                    Reset
-                  </button>
-                </div>
               </div>
             </div>
           )}
 
-          {/* Progress */}
-          <ProgressStrip
-            isVisible={loading}
-            progress={progress}
-            canCancel={canCancel}
-            onCancel={cancel}
-          />
-
-          {/* Error */}
-          {error && (
-            <ErrorBanner error={error} onRetry={handleRun} onDismiss={clearError} />
-          )}
-
-          {/* Results */}
-          {result && selectedBlueprint && (
-            <div className="space-y-4">
-              <SummaryCard 
-                report={result} 
-                onCopyHash={() => showToast('Verification hash copied.')}
-              />
-              <WhyPanel report={result} />
-              <ReproduceShareCard
-                report={result}
-                template={{ 
-                  id: selectedBlueprint.id,
-                  name: selectedBlueprint.name,
-                  version: '1.0',
-                  description: selectedBlueprint.description,
-                  default_seed: parseInt(seed, 10),
-                  graph: {}
-                }}
-                seed={parseInt(seed, 10)}
-                onCopySeed={() => showToast('Seed copied.')}
-                onCopyHash={() => showToast('Verification hash copied.')}
-                onAddToNote={() => showToast('Added to Note.')}
-              />
-              
-              {/* Pin to Canvas button */}
-              {onPinToCanvas && (
-                <button
-                  onClick={handlePinToCanvas}
-                  className="w-full px-4 py-2 text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1"
-                  type="button"
-                >
-                  Pin to Canvas
-                </button>
-              )}
-            </div>
-          )}
 
 
           </div>
