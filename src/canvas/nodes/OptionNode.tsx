@@ -1188,6 +1188,8 @@ export const OptionNode = memo((props: NodeProps) => {
         handleMouseLeave()
         nodeHandlers.onMouseLeave()
       }}
+      onPointerDown={nodeHandlers.onPointerDown}
+      onClick={nodeHandlers.onClick}
       style={{ height: '100%', width: '100%', position: 'relative' }}
     >
       {/* Winner badge -- top-right */}

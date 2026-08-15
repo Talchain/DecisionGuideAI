@@ -170,6 +170,10 @@ export const RiskNode = memo((props: NodeProps) => {
       style={{ position: 'relative' }}
       onMouseEnter={nodeHandlers.onMouseEnter}
       onMouseLeave={nodeHandlers.onMouseLeave}
+      // Click/tap equivalent for the hover popover (usePopoverHover). These
+      // were never wired, so the popover had NO non-hover route on any device.
+      onPointerDown={nodeHandlers.onPointerDown}
+      onClick={nodeHandlers.onClick}
     >
       <BaseNode
         {...props}

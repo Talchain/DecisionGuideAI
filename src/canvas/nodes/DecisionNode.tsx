@@ -327,6 +327,10 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       style={{ position: 'relative' }}
       onMouseEnter={nodeHandlers.onMouseEnter}
       onMouseLeave={nodeHandlers.onMouseLeave}
+      // Click/tap equivalent for the hover popover (usePopoverHover). These
+      // were never wired, so the popover had NO non-hover route on any device.
+      onPointerDown={nodeHandlers.onPointerDown}
+      onClick={nodeHandlers.onClick}
     >
       <BaseNode
         nodeType="decision"
