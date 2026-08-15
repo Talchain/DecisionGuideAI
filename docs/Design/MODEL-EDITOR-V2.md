@@ -148,6 +148,14 @@ relationships · assumptions/provenance · evidence/review state.
 - **attention marker** — present when the row needs the user: no value · unconfirmed AI estimate ·
   contested · fragile · missing intervention. It is the same predicate the attention chips count,
   derived once.
+- **deferred marker** — present when the user has explicitly chosen to leave this row unresolved
+  (§5.3, Paul's ruling 16 Aug 2026). ⚠ **It sits BESIDE the attention marker and never replaces
+  it.** Deferring does not make the gap go away, so the row keeps saying it has one; what the
+  deferred marker adds is that *somebody has already decided it can wait*. The two answer different
+  questions — *does this need attention?* and *has a human ruled on it?* — and collapsing them into
+  one marker would recreate the dismiss button the design just cut, because a row that stopped
+  reporting its gap once deferred would be hiding it. The marker carries the deferral's provenance
+  (who, when) in its label, for the same reason every other value on this surface does.
 
 Clicking anywhere else on the row **selects** it and opens the detail region.
 
@@ -266,6 +274,49 @@ provenance discipline that stamps an accepted producer estimate `cee` rather tha
 (`ModelHealthSection.tsx:182-195`: *"N factors have no value set. This reduces analysis
 reliability."*). Today that sentence is a dead end; it becomes a queue, and it also closes F9.
 
+#### The third beat of every queue: **Defer / Leave unresolved** *(Paul's ruling, 16 Aug 2026)*
+
+**Every queue item carries a Defer action alongside its resolve action.** Confirm / Apply / Resolve
+is one answer; *"I have seen this and I am choosing to leave it"* is another, and it is a legitimate
+one. A queue that offers only the resolving action is not respecting the user's judgement — it is
+insisting they agree with it.
+
+```
+Sales cycle length       Olumi estimated 45 days     [Confirm]  [Change]  [Leave unresolved]
+   Inferred from model structure
+
+▸ Left unresolved (2)                                       ← de-emphasised, still on screen
+   Win rate               Olumi estimated 22%               [Resume]
+      Left unresolved by Paul, 16 Aug
+```
+
+**⚠ THE INVARIANT THAT SEPARATES THIS FROM THE DISMISS BUTTON WE JUST CUT.** The `×` on the
+defaulted-factor coaching card is cut (§7.0 A6) and stays cut. Deferral is its opposite, and the
+difference is exactly two properties — **neither is optional, and a Defer that lacks either one IS
+the dismiss button wearing a better name**:
+
+1. **A deferred item NEVER LEAVES THE SURFACE.** It moves to a collapsed, de-emphasised *"Left
+   unresolved"* group **within the same queue**. It is not removed, not filtered out, not hidden
+   behind a preference. The count of real gaps in the model does not change because somebody
+   deferred one — only the count of gaps *awaiting a decision* does, and the two are reported
+   separately.
+2. **A deferral CARRIES PROVENANCE — who, and when.** The honest state is *"the user chose to leave
+   this unresolved"*, and it must never decay into *"this was never a gap"*. An anonymous or
+   undated deferral is indistinguishable from a bug that dropped the row, which is why `by` and
+   `at` are both required rather than optional.
+
+Three consequences worth stating, because each is a place the invariant could be lost quietly:
+
+- **"Apply all shown" must SKIP deferred items.** A batch that swept them back in would silently
+  overrule a recorded human decision — the one thing a repair queue must never do. Deferred items
+  are shown; they are not *shown-and-pending*.
+- **Deferral is REVERSIBLE, and reversal is equally explicit.** A deferred item offers **Resume**,
+  which returns it to the active list. A choice you cannot revisit is a trap, not agency.
+- **Deferral is a WRITE.** It is persisted model state carrying a person and a timestamp, so it
+  belongs to the write authority exactly as an edit does (§9.1), and it waits for the same frozen
+  API. Until then the affordance renders **disabled with an honest label** — the design would rather
+  offer nothing than record a choice it cannot actually persist.
+
 ### 5.4 Re-analysis
 
 Unchanged: the sticky `ReanalyseBar` stays exactly as it is, and stays the tab's only re-analyse
@@ -339,7 +390,7 @@ into a rubber stamp. The row is corrected in §7.0 and §7.2, and the general le
 | 3 | Factors' click-the-card-body to expand (`cardExpanded`) | The only route to a factor's baseline, influence and stability | **No chevron, no visible affordance** — undiscoverable by design accident (F7). Replaced by row selection. |
 | 4 | Factors' static `factor-{id}-not-set` text | Nothing — it is an inert label | It occupies the slot where the editor belongs, so a factor with no value **cannot be given one** (F9). |
 | 5 | Factors' `factor-{id}-refine-range` button | A button that looks like it edits the prior range | It only focuses the node on the canvas (F10). A button that does not do what it says is worse than no button. |
-| 6 | Factors' `factor-{id}-coaching-dismiss` (`×`) | The ability to dismiss the defaulted-factor nag | The nag becomes a **queue item**, and a queue item is resolved by fixing it, not by hiding it. Dismissal is how a real gap becomes invisible. |
+| 6 | Factors' `factor-{id}-coaching-dismiss` (`×`) | The ability to dismiss the defaulted-factor nag | The nag becomes a **queue item**, and dismissal is how a real gap becomes invisible. ⚠ **Ruled by Paul, 16 Aug 2026: the cut stands, but it must not cost the user their agency.** The queues gain an explicit **Defer / Leave unresolved** action in its place (§5.3) — a *recorded choice* rather than a hidden gap: the item stays on screen in a de-emphasised "Left unresolved" group and carries provenance (who deferred it, when). Removing the `×` removes a way to make a gap disappear; it does not remove the user's right to decide the gap can wait. |
 | 7 | Relationships' click-the-card to reveal editing | The only route to an edge's strength, direction and likelihood | Costs 3 interactions. Editing moves into the row at 1. |
 | 8 | Relationships' `relationships-show-more` ("+N more relationships") | A one-way "show the rest" button | **One-way — no re-collapse** — in a list you are trying to edit. Replaced by the working filter. |
 | 9 | Relationships' `relationships-separator` ("All relationships") | A divider between contested and ordinary edges | Contested edges move into **Queue C**, so there are no longer two piles to divide. |
@@ -377,7 +428,8 @@ unchanged), `ReanalyseBar`, `StreamingDiagnostics`, `CoachingCard`, `InlineEdit`
 **The shape of the removal:** of the 13 user-visible losses, **three are dead ends** (2, 5, 10),
 **three are undiscoverable or one-way** (3, 7, 8), **one blocks the job outright** (4), **two are
 disclosure axes being collapsed** (13, and the card-expands in 3/7), **two are the tier-as-layout
-defect** (11, 12), **one is a dismissal that hides a real gap** (6), and **two are replaced by
+defect** (11, 12), **one is a dismissal that hides a real gap and is replaced by an explicit,
+provenanced deferral** (6), and **two are replaced by
 something cheaper in the same place** (1, 9).
 
 ### 7.1 The container — `ModelTabBody.tsx`
@@ -494,7 +546,7 @@ something cheaper in the same place** (1, 9).
 | — `factor-{id}-inline-norm` ("n:0.42") | **DEMOTE** | |
 | — `factor-{id}-confirm` (✓) | **KEEP+FIX** | Must stamp **`user_confirmed`, not `user`** (F8) and become a real proposal→confirm. **Queue B depends on it.** |
 | — `factor-{id}-coaching` (defaulted controllable) | **MERGE** → marker + Queue D | |
-| — `factor-{id}-coaching-dismiss` | **CUT** | A queue item is resolved by fixing it, not by hiding it. |
+| — `factor-{id}-coaching-dismiss` | **CUT** | Dismissal hides a real gap. Replaced by the queues' **Defer / Leave unresolved** action (§5.3, Paul 16 Aug) — visible, provenanced and reversible, which dismissal is not. |
 | — `Baseline` InlineEdit | **KEEP+FIX** | Moves into the detail region — reachable, rather than behind an invisible expander. |
 | — influence bar + `{n}%` | **KEEP** | Plain-language, and absent (not defaulted) when the factor is not in the map. |
 | — `AttributionStabilityPill` | **DEMOTE** | Keep its "suppress unless >1 distinct label" rule — it refuses to render a non-differentiating badge. |
@@ -683,7 +735,9 @@ producer's estimate that must not be laundered as the user's. A contract answere
 | **C8** | `proposeGoalTarget(nodeId, raw, unit?)` | **no** — local only (`setGoalThresholdAndUpdateNode`) | Will this exist, and does it take the **raw** target plus unit (not a pre-normalised number)? |
 | **C9** | `proposeFactorConfirmation(nodeId)` | **no** — a local annotation, and **stamped wrong** | Will confirming stamp **`user_confirmed`**, not `user`? ⚠ Today the Model tab writes `'user'` → class `edited` → pill **"User edited"**, for a gesture that ratified *somebody else's* number; pre-analysis writes `'user_confirmed'` → **"Confirmed by you"** for the identical act (F8). **Queue B depends on this.** |
 
-**The shape.** These five are asked once and apply to all of C1–C9.
+| **C15** | `proposeDeferral(rowId, { deferred })` — records *"a human chose to leave this unresolved"*, with **who** and **when**; `deferred: false` resumes it | Will this exist, and will the record carry an **identified person and a timestamp**? ⚠ Added by Paul's ruling of 16 Aug 2026 (§5.3). It is a WRITE — persisted model state, not a client-side preference — and it must not be implemented as one, because a deferral kept in `localStorage` is invisible to every other member of the team and reappears as an unexplained gap for them. **An anonymous or undated deferral is indistinguishable from a row that was dropped by a bug**, which is why neither field is optional. |
+
+**The shape.** These five are asked once and apply to all of C1–C9 and C15.
 
 | ID | The ask | The closed question |
 |---|---|---|

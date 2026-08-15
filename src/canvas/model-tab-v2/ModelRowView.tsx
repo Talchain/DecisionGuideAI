@@ -23,7 +23,7 @@
 
 import { typography } from '../../styles/typography'
 import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
-import { ATTENTION_LABEL, KIND_GLYPH, KIND_LABEL } from './rowPresentation'
+import { ATTENTION_LABEL, KIND_GLYPH, KIND_LABEL, deferralLabel } from './rowPresentation'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
 
 export interface ModelRowViewProps {
@@ -129,6 +129,25 @@ export function ModelRowView({
           ⚠
         </span>
       ))}
+
+      {/*
+        The deferred marker (design §4.2, §5.3). ⚠ It is rendered AFTER the
+        attention markers and does not suppress them: deferring records that a
+        human ruled the gap can wait, it does not make the gap stop existing. A
+        row that fell silent about its gap once deferred would be the dismiss
+        button growing back. The label carries the provenance, because an
+        anonymous deferral cannot be told apart from a dropped row.
+      */}
+      {row.deferred !== undefined && (
+        <span
+          data-testid={`model-row-v2-${row.id}-deferred`}
+          title={deferralLabel(row.deferred)}
+          aria-label={deferralLabel(row.deferred)}
+          className={`${typography.caption} text-text-light`}
+        >
+          Left unresolved
+        </span>
+      )}
 
       {tier === 'advanced' && (
         <span

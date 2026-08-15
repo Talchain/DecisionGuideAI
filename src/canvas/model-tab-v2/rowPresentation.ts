@@ -12,7 +12,36 @@
  * NOTHING HERE IS MOUNTED. See `types.ts` for the directory-level statement.
  */
 
-import type { AttentionReason, ModelElementKind, ModelGroupId } from './types'
+import type { AttentionReason, DeferralRecord, ModelElementKind, ModelGroupId } from './types'
+
+/**
+ * How a deferral reads on screen (design §5.3, Paul's ruling 16 Aug 2026).
+ *
+ * ⚠ ONE IMPLEMENTATION, SHARED BY THE ROW AND THE QUEUE. Both surfaces show a
+ * deferral and both must say the same thing about it; two copies of this
+ * sentence would be the hand-maintained mirror that is this codebase's dominant
+ * defect class, and the failure mode is ugly — the same deferral described two
+ * different ways on two screens the user can see at once.
+ *
+ * ⚠ THE PERSON AND THE DATE ARE ALWAYS BOTH PRINTED. "Left unresolved" alone
+ * would be indistinguishable from a row that vanished for some other reason; the
+ * whole point of a deferral is that it says WHO decided.
+ */
+export function deferralLabel(deferral: DeferralRecord): string {
+  return `Left unresolved by ${deferral.by}, ${formatDeferralDate(deferral.at)}`
+}
+
+/**
+ * An unparseable timestamp renders VERBATIM rather than as "Invalid Date" or a
+ * silently-omitted date. If the stored value is wrong, the surface should show
+ * what is actually stored — that is a visible defect someone can chase, whereas
+ * a swallowed date is a deferral that has quietly lost half its provenance.
+ */
+function formatDeferralDate(iso: string): string {
+  const parsed = new Date(iso)
+  if (Number.isNaN(parsed.getTime())) return iso
+  return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 /**
  * The seven group headings, mapping 1:1 onto the brief's IA (design §4.1).

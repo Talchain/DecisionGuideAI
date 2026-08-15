@@ -167,10 +167,49 @@ export interface ModelRow {
    * absence, never a default to invent.
    */
   provenanceSource?: string
-  /** Empty when the row needs nothing. */
+  /**
+   * Empty when the row needs nothing.
+   *
+   * ⚠ DEFERRING DOES NOT EMPTY THIS. A deferred row keeps reporting its gap —
+   * see `deferred` below.
+   */
   attention: readonly AttentionReason[]
+  /**
+   * Present when a human has explicitly chosen to leave this row unresolved.
+   *
+   * ⚠ THIS SITS BESIDE `attention`, IT NEVER CLEARS IT. The two answer different
+   * questions — *does this need attention?* and *has a human ruled that it can
+   * wait?* — and a row that stopped reporting its gap once deferred would be
+   * hiding it, which is the dismiss button this design cut.
+   */
+  deferred?: DeferralRecord
   /** False for rows that are genuinely read-only (e.g. an audit figure). */
   editable: boolean
+}
+
+/**
+ * A recorded decision to leave something unresolved (design §5.3, Paul's ruling
+ * 16 Aug 2026). **THIS IS NOT A DISMISSAL.**
+ *
+ * The dismiss `×` on the defaulted-factor coaching card is cut, and stays cut,
+ * because it makes a real gap invisible. Deferral is its opposite and differs by
+ * exactly two properties, BOTH of which are load-bearing:
+ *
+ *   1. the item NEVER LEAVES THE SURFACE — it moves to a de-emphasised "Left
+ *      unresolved" group inside the same queue, never out of it;
+ *   2. it CARRIES PROVENANCE — who decided, and when.
+ *
+ * ⚠ BOTH FIELDS ARE REQUIRED, DELIBERATELY. An anonymous or undated deferral is
+ * indistinguishable from a row a bug dropped, and the honest state — "a human
+ * chose to leave this unresolved" — collapses into "this was never a gap" the
+ * moment you cannot say who chose or when. Optional provenance is how the
+ * dismiss button would grow back wearing a better name.
+ */
+export interface DeferralRecord {
+  /** The person who chose to defer. Never blank, never "system". */
+  by: string
+  /** When they chose it. ISO 8601. */
+  at: string
 }
 
 /** One labelled value in the detail region. Both sides already display-ready. */
@@ -244,6 +283,15 @@ export interface RepairQueueItem {
   suggestedValue: string | null
   /** Why this value is suggested, in the user's language. */
   basis: string | null
+  /**
+   * Present when the user chose to leave this item unresolved (§5.3).
+   *
+   * ⚠ A DEFERRED ITEM IS STILL IN THE QUEUE. It renders in the de-emphasised
+   * "Left unresolved" group, and it is EXCLUDED from "Apply all shown" — a batch
+   * that swept deferred items back in would silently overrule a recorded human
+   * decision, which is the one thing a repair queue must never do.
+   */
+  deferred?: DeferralRecord
 }
 
 export interface RepairQueue {
