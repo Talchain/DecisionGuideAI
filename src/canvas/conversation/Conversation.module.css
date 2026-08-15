@@ -361,7 +361,10 @@
   flex-direction: column;
   gap: 8px;
   padding-inline-start: 10px;
-  border-inline-start: 1px solid var(--border-default, #E5E3E0);
+  /* Fallback matches the four sibling rules in this file, not a new hex:
+     an invented fallback silently shadows the token with a colour brand.css
+     never declared, which is what the css-var-resolution guard catches. */
+  border-inline-start: 1px solid var(--border-default, #EEE6D8);
 }
 
 .commentaryBlock {
