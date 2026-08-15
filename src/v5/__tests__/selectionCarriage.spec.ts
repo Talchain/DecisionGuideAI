@@ -194,10 +194,9 @@ describe('selection carriage — the refusals, each for a stated reason', () => 
     expect(() => OrchestratorTurnPayloadSchema.parse(payload)).not.toThrow()
   })
 
-  it('an edge-only selection carries nothing — edge_ids is out of this slice', () => {
-    // Deliberate scope: the contract admits any element ref, but nothing in CEE
-    // reads an edge selection today, and shipping a field no consumer reads is
-    // the estate's dominant defect. Edge answers are a second slice.
+  it('a stale edge-only selection carries nothing — no live endpoints are invented', () => {
+    // The fixture has no edges, so this UI-local id cannot resolve to a live
+    // relationship. Absence is truthful; borrowing another edge is not.
     useCanvasStore.setState({
       selection: {
         nodeIds: new Set<string>(),

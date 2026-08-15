@@ -247,9 +247,10 @@ export const MAX_SELECTED_ELEMENTS = 20
  * whenever the client has nothing truthful to say:
  *
  *   · nothing selected;
- *   · an edge-only selection (`edge_ids` is deliberately out of this slice:
- *     nothing reads an edge selection, and shipping a field with no consumer is
- *     this estate's dominant defect);
+ *   · an edge whose opaque React Flow id no longer resolves to an exact live
+ *     edge. The wire identity for a relationship is its existing canonical
+ *     endpoint composite (`from→to`), never the UI-local edge id and never a
+ *     neighbouring/fuzzy substitute;
  *   · a selected id with no matching node — a stale selection over a deleted
  *     node. `kind` is REQUIRED by the contract and there is nothing truthful to
  *     put in it, so the ref is dropped rather than invented;
@@ -259,21 +260,25 @@ export const MAX_SELECTED_ELEMENTS = 20
  *     answer in a selection that never existed. Absence says nothing; a silent
  *     truncation says something wrong.
  *
- * Order is the STORE'S NODE ORDER, not the selection Set's iteration order, so
- * the payload is a pure function of the selected SET.
+ * Order is the STORE'S NODE ORDER followed by STORE EDGE ORDER, not either
+ * selection Set's iteration order, so the payload is a pure function of the
+ * selected SETS.
  */
 function deriveSelectedElements(): MessageTurnPayload['selected_elements'] | undefined {
   // Defensive read: this is the one place the wire builder depends on store
   // shape, and a selection-less store (an early boot, a test that stubbed the
   // store) must degrade to "no selection", never throw on the send path.
   const state = useCanvasStore.getState()
-  const selectedIds = state?.selection?.nodeIds
-  if (!selectedIds || selectedIds.size === 0) return undefined
-  if (selectedIds.size > MAX_SELECTED_ELEMENTS) return undefined
+  const selectedNodeIds = state?.selection?.nodeIds
+  const selectedEdgeIds = state?.selection?.edgeIds
+  const selectedNodeCount = selectedNodeIds?.size ?? 0
+  const selectedEdgeCount = selectedEdgeIds?.size ?? 0
+  if (selectedNodeCount + selectedEdgeCount === 0) return undefined
+  if (selectedNodeCount + selectedEdgeCount > MAX_SELECTED_ELEMENTS) return undefined
 
   const refs: NonNullable<MessageTurnPayload['selected_elements']> = []
   for (const node of state.nodes ?? []) {
-    if (!selectedIds.has(node.id)) continue
+    if (!selectedNodeIds?.has(node.id)) continue
     const kind = typeof node.type === 'string' ? node.type.trim() : ''
     if (kind.length === 0) continue
     const rawLabel = (node.data as { label?: unknown } | undefined)?.label
@@ -281,6 +286,28 @@ function deriveSelectedElements(): MessageTurnPayload['selected_elements'] | und
     // `label` is optional on the contract and `.min(1)` when present — omit it
     // rather than send an empty string, which would 422 the whole turn.
     refs.push(label.length > 0 ? { id: node.id, kind, label } : { id: node.id, kind })
+  }
+
+  // UI-SEM-094: React Flow edge ids are producer-local UI identity, while the
+  // existing CEE relationship-address grammar is the exact endpoint composite.
+  // Resolve ONLY the selected id against the live edge collection, then convert
+  // that same edge's endpoints. A stale id or unencodable endpoint fails closed
+  // by omission; no array-head, neighbouring-edge, label, or fuzzy fallback.
+  for (const edge of state.edges ?? []) {
+    if (!selectedEdgeIds?.has(edge.id)) continue
+    const source = typeof edge.source === 'string' ? edge.source.trim() : ''
+    const target = typeof edge.target === 'string' ? edge.target.trim() : ''
+    if (
+      source.length === 0 ||
+      target.length === 0 ||
+      source.includes('→') ||
+      source.includes('->') ||
+      target.includes('→') ||
+      target.includes('->')
+    ) {
+      continue
+    }
+    refs.push({ id: `${source}→${target}`, kind: 'edge' })
   }
 
   return refs.length > 0 ? refs : undefined
