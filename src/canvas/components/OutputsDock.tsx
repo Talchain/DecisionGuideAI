@@ -57,6 +57,7 @@ import { CogPopover } from './CogPopover'
 import { useConversationContext, useOptionalConversationContext } from '../conversation/ConversationContext'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { dockHostsOlumi } from './olumiSurface'
+import { dockWidthBounds, parseStoredDockWidth, resolveDockWidth } from './dockWidth'
 import {
   shouldAutoExpandDockForResponse,
   latestRealMessageIsAssistantReply,
@@ -1734,21 +1735,51 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       root.style.setProperty('--dock-right-offset', '0rem')
     }
   }, [state.isOpen, isFirstUse])
+  // Dock width: responsive by default, re-derived on every viewport change.
+  //
+  // Previously this ran ONCE on mount (deps `[]`) and only ever applied a
+  // PERSISTED width, so (a) a user who had never dragged the dock got a fixed
+  // 416px at every viewport — 32.5% of a 1280px laptop, and 444px removed
+  // from the graph's fitView box — and (b) a width persisted on a wide screen
+  // survived unclamped into a narrow one. Both are fixed by deriving the width
+  // from `resolveDockWidth` and re-running it on `resize`.
   useEffect(() => {
     if (typeof document === 'undefined' || typeof window === 'undefined') return
-    try {
-      const stored = localStorage.getItem('panel.results.width')
-      if (!stored) return
-      const parsed = Number(stored)
-      if (!Number.isFinite(parsed)) return
-      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0
+    const root = document.documentElement
+
+    const apply = () => {
+      let stored: number | null = null
+      try {
+        stored = parseStoredDockWidth(localStorage.getItem('panel.results.width'))
+      } catch {
+        // localStorage can throw (private mode / disabled storage). Treat it
+        // as "no explicit preference" rather than skipping the responsive
+        // default entirely — the old code returned early and left 416px.
+        stored = null
+      }
+      const viewportWidth = window.innerWidth || root.clientWidth || 0
       if (!viewportWidth) return
-      const minWidth = 280
-      const maxWidth = Math.min(480, Math.floor(viewportWidth * 0.4))
-      const clamped = Math.max(minWidth, Math.min(maxWidth, parsed))
-      const root = document.documentElement
-      root.style.setProperty('--dock-right-expanded', `${clamped}px`)
-    } catch {}
+      root.style.setProperty('--dock-right-expanded', `${resolveDockWidth(viewportWidth, stored)}px`)
+    }
+
+    apply()
+
+    // rAF-coalesced: a drag-resize of the window fires `resize` continuously,
+    // and each apply writes a CSS var that re-lays-out the dock AND is read
+    // back by computeFitPadding/measureDockInset.
+    let frame: number | null = null
+    const onResize = () => {
+      if (frame !== null) return
+      frame = window.requestAnimationFrame(() => {
+        frame = null
+        apply()
+      })
+    }
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      if (frame !== null) window.cancelAnimationFrame(frame)
+    }
   }, [])
   const transitionClass = prefersReducedMotion ? '' : 'transition-[width,opacity] duration-200 ease-in-out'
 
@@ -1864,8 +1895,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0
     if (!viewportWidth) return
 
-    const minWidth = 280
-    const maxWidth = Math.min(480, Math.floor(viewportWidth * 0.4))
+    // Same bounds as the mount/resize path — derived from ONE source so the
+    // two cannot drift (they were separate hand-copied literals).
+    const { min: minWidth, max: maxWidth } = dockWidthBounds(viewportWidth)
     const root = document.documentElement
 
     const handleMove = (e: MouseEvent) => {

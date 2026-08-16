@@ -68,8 +68,14 @@ const DOCK = 'aside[aria-label="Outputs dock"]'
 const PANE = { width: 1440, height: 900, left: 0, right: 1440, top: 0, bottom: 900 }
 /** An EXPANDED dock: overlaps the pane's right 428px, so it occludes. */
 const EXPANDED_DOCK = { width: 416, height: 900, left: 1012, right: 1428 }
-/** Base margin with nothing occluding: floor((1440 - 1440/1.2) * 0.5) = 120. */
-const BASE_X = 120
+/**
+ * Base margin with nothing occluding: floor((1440 - 1440/1.08) * 0.5) = 53.
+ * ⚠ Was 120 while `computeFitPadding`'s BASE_RATIO was 0.2; the ratio moved to
+ * 0.08 on 15 Aug 2026 to return fitting box to the graph at laptop widths.
+ * This constant tracks that one, so it is DERIVED here in the comment rather
+ * than being a second independent opinion about the same number.
+ */
+const BASE_X = 53
 
 function stubCanvas(opts: { dock?: boolean; pane?: Partial<DOMRect> | null } = {}) {
   const map: Record<string, HTMLElement | null> = {}

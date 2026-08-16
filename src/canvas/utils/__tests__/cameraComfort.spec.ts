@@ -239,8 +239,11 @@ describe('readFocusCamera — the live camera measurement bridge', () => {
     // overlap = flowRect.right - dock.left = 428, plus the 16px gap.
     expect(camera?.insets.right).toBe(444)
     expect(camera?.padding.right).toBe('444px')
-    // Base margin is untouched on the unoccluded left: floor((1440 - 1440/1.2) * 0.5).
-    expect(camera?.insets.left).toBe(120)
+    // Base margin is untouched on the unoccluded left: floor((1440 - 1440/1.08) * 0.5).
+    // ⚠ Was 120 under BASE_RATIO 0.2; the ratio moved to 0.08 on 15 Aug 2026.
+    // The point of this assertion is that an occluded side and an unoccluded
+    // side are treated DIFFERENTLY — that still holds, at a smaller base.
+    expect(camera?.insets.left).toBe(53)
   })
 
   it('a node under the expanded dock is NOT comfortable through the real bridge (F2/F4 end to end)', () => {
