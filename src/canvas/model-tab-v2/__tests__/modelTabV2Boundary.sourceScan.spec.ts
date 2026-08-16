@@ -201,15 +201,109 @@ describe('⭐ model-tab-v2 NEVER WRITES — the write authority is another lane'
     expect(offenders).toEqual([])
   })
 
-  it('no v2 file reaches into a store at all — components take projections as props', () => {
-    const STORE_IMPORT = /\b(useCanvasStore|useUIStore|useInspectorMutations|useNodeMutations|useEdgeMutations)\b/
-    // Control first: the token must be able to match.
-    expect(STORE_IMPORT.test("import { useCanvasStore } from '../store'")).toBe(true)
+  /**
+   * ⚠ RE-AIMED. The earlier version banned any MENTION of a store hook, which
+   * was right while every component took only props, and became wrong the
+   * moment the read-only adapter landed: namespace → live READS are sanctioned,
+   * and are the whole point of `adapters.ts`.
+   *
+   * The invariant that actually matters was never "no store identifier appears"
+   * — it is **nothing here can FIRE while unmounted**. A `use*` CALL is a
+   * subscription; `import type` and a pure function invoked with explicitly
+   * passed state are not. So the ban is on INVOCATION, and the scan is written
+   * to tell those two apart rather than to tell them apart by luck.
+   *
+   * Deleting the guard would have been the easy move and the wrong one: the
+   * ratified change narrows what is banned, it does not stop banning anything.
+   */
+  it('no v2 file INVOKES a hook from OUTSIDE this namespace — nothing here can subscribe', () => {
+    /*
+     * ⚠ THE LINE IS NOT "no `use*` call". A first cut banned every `use*(` and
+     * immediately flagged `ModelOutline`'s `useState`/`useMemo`/`useCallback` —
+     * React's own primitives, which are inert until something renders the
+     * component, and nothing renders these. Banning them would have forced the
+     * components to be rewritten to satisfy a guard rather than a risk.
+     *
+     * What actually threatens "nothing fires while unmounted" is a hook that
+     * reaches OUT of this directory — a store or context subscription. So the
+     * allowed set is DERIVED PER FILE from that file's own `from 'react'`
+     * import, never hand-listed: a new React hook is allowed the day React ships
+     * it, and a new store hook is banned the day someone imports it.
+     */
+    /*
+     * ⚠ `stripComments`, NOT `blankNonCode` — AND THIS FILE ALREADY PAID FOR
+     * THAT LESSON ONCE. The module specifier `'react'` is a STRING, so
+     * `blankNonCode` erases it and the import scan below finds no React import
+     * in any file — making every legitimate `useState` read as a foreign hook.
+     * The first cut did exactly that and its own control caught it. Same trap,
+     * same file, second occurrence: when a scan's target lives inside a string
+     * literal, `blankNonCode` is the wrong transform.
+     */
+    const foreignHookCallsIn = (src: string, file: string): string[] => {
+      const code = stripComments(src, file)
+      const allowed = new Set<string>()
+      for (const m of code.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]react['"]/g)) {
+        for (const raw of m[1].split(',')) {
+          const name = raw.split(/\s+as\s+/).pop()!.trim()
+          if (name) allowed.add(name)
+        }
+      }
+      // A hook DEFINED in this namespace is not a foreign one — and its own
+      // declaration `function useOutlineKeyboard(` matches the call regex below,
+      // so without this the scan reports every local hook as an offender.
+      for (const m of code.matchAll(/(?:function|const|let|var)\s+(use[A-Z]\w*)/g)) {
+        allowed.add(m[1])
+      }
+      return [...code.matchAll(/\b(use[A-Z]\w*)\s*\(/g)]
+        .map(m => m[1])
+        .filter(name => !allowed.has(name))
+    }
 
-    const offenders = v2Files.filter(f =>
-      STORE_IMPORT.test(blankNonCode(readFileSync(f, 'utf8'))),
-    )
-    expect(offenders.map(f => basename(f))).toEqual([])
+    // Controls, through the SAME pipeline as the claim below.
+    expect(foreignHookCallsIn('const s = useCanvasStore()', 'x.ts')).toEqual(['useCanvasStore'])
+    expect(
+      foreignHookCallsIn("import { useState } from 'react'\nconst [a] = useState(1)", 'x.tsx'),
+    ).toEqual([])
+    // A store hook is still caught even in a file that legitimately uses React's.
+    expect(
+      foreignHookCallsIn("import { useMemo } from 'react'\nconst s = useUIStore()\nuseMemo(() => 1)", 'x.tsx'),
+    ).toEqual(['useUIStore'])
+    // Importing without calling is a read, not a subscription.
+    expect(foreignHookCallsIn("import { useCanvasStore } from '../store'", 'x.ts')).toEqual([])
+    expect(foreignHookCallsIn("import type { CanvasState } from '../store'", 'x.ts')).toEqual([])
+    // A hook this namespace DEFINES is its own, not a foreign subscription.
+    expect(foreignHookCallsIn('export function useMine(a: number) { return a }', 'x.ts')).toEqual([])
+    // ...but defining one does not launder a store hook called beside it.
+    expect(
+      foreignHookCallsIn('export function useMine() { return useCanvasStore() }', 'x.ts'),
+    ).toEqual(['useCanvasStore'])
+
+    const offenders: string[] = []
+    for (const file of v2Files) {
+      const found = foreignHookCallsIn(readFileSync(file, 'utf8'), file)
+      if (found.length > 0) offenders.push(`${basename(file)}: ${[...new Set(found)].join(', ')}`)
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('POSITIVE CONTROL: the components DO call React hooks, so the rule above is discriminating', () => {
+    // Without this, the assertion above would also pass on a directory that
+    // called no hooks at all — and the per-file React allowance would be
+    // machinery that has never once been exercised (trap 13b).
+    const outline = v2Files.find(f => basename(f) === 'ModelOutline.tsx')!
+    expect(/\buse(State|Memo|Callback)\s*\(/.test(blankNonCode(readFileSync(outline, 'utf8')))).toBe(true)
+  })
+
+  it('the adapter reads live state by ARGUMENT, never by subscription', () => {
+    // The specific shape that makes `adapters.ts` safe to exist unmounted: it
+    // takes the slices it reads as a parameter. If this ever stops being true
+    // the file can run on its own initiative, and "nothing fires while
+    // unmounted" stops being a property of this directory.
+    const adapter = v2Files.find(f => basename(f) === 'adapters.ts')
+    expect(adapter).toBeDefined()
+    const src = blankNonCode(readFileSync(adapter!, 'utf8'))
+    expect(/\buse[A-Z]\w*\s*\(/.test(src)).toBe(false)
+    expect(/ModelProjectionInput/.test(src)).toBe(true)
   })
 })
 
