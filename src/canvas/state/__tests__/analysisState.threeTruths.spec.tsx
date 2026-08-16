@@ -27,13 +27,11 @@ import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 interface MockCanvasState {
   ceeAnalysisReady: { status?: string } | null
   results: { status: string; report: unknown; hash?: string | null; startedAt?: number } | null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   analysisFreshness: any
   analysisFreshnessDirty: boolean
   analysisStateV1: AnalysisStateV1 | null
   importPendingServerRegistration: boolean
   currentScenarioId: string | null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   v5AnalysisFact: any
 }
 

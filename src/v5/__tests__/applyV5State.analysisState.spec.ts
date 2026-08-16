@@ -62,9 +62,7 @@ function apply(responseExtra: Record<string, unknown>) {
       assistant_text: 'ok',
       blocks: [],
       ...responseExtra,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     store as any,
   )
   return { store, result }
@@ -100,11 +98,8 @@ describe('analysis_state ingest — the three-valued contract', () => {
     // what the first set. Without this, a stale verdict would keep outranking
     // live local derivations for the rest of the session.
     const store = makeStore()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const base = { response_version: 2, assistant_text: 'ok', blocks: [] } as any
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     applyV5State({ ...base, analysis_state: VALID_VERDICT }, store as any)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     applyV5State(base, store as any)
 
     expect(store.setAnalysisStateV1.mock.calls.map((c) => c[0])).toStrictEqual([
@@ -121,9 +116,7 @@ describe('analysis_state ingest — the three-valued contract', () => {
     delete store.setAnalysisStateV1
     expect(() =>
       applyV5State(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { response_version: 2, assistant_text: 'ok', blocks: [], analysis_state: VALID_VERDICT } as any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         store as any,
       ),
     ).not.toThrow()
