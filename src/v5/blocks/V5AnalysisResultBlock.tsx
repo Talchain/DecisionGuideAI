@@ -263,7 +263,7 @@ function V5AnalysisResultBlockImpl({ block }: V5AnalysisResultBlockProps): React
     block.win_probabilities && Object.keys(block.win_probabilities).length > 0
 
   // Sci-4B: verbal uncertainty calibration — same tiers/copy as the results
-  // panel headline (DecisionConfidencePanel), read from this block's raw
+  // panel headline, read from this block's raw
   // enrichment passthrough. Honest-render: null when the wire carries no
   // robustness signal at all.
   const uncertaintyInputs = resolveUncertaintyInputs(block.enrichment, block.leading_option_id)
@@ -530,8 +530,8 @@ function V5AnalysisResultBlockImpl({ block }: V5AnalysisResultBlockProps): React
  *
  * `memo` with the default shallow compare is exactly right here: `block` is the
  * one prop, and it is a wire object the panel holds by reference for the life of
- * the turn. The three sibling cards doing comparable derivation
- * (`DecisionConfidencePanel`, `AnalysisHeroV17`, `StressTestSection`) already use
+ * the turn. `StressTestSection` — the sibling card still doing comparable
+ * derivation, after the analysis fork took the other two with it — already uses
  * this convention, including its `memo(function Name(...))` form so the component
  * keeps its name in React DevTools and in test output.
  */

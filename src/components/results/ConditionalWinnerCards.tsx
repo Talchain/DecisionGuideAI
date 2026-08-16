@@ -24,7 +24,7 @@ import type { ConditionalWinner } from './types'
 // sub-components. Used in v17 mode to sanitise user-supplied factor /
 // option labels before they enter generated prose. The raw label still
 // appears verbatim in the legacy panel (default useV17Copy=false).
-import { safeInterpolatedLabel } from './analysisHeroV17/glossaryCheck'
+import { safeInterpolatedLabel } from './utils/glossaryCheck'
 
 const MAX_CONDITIONAL_CARDS = 3
 
@@ -42,10 +42,10 @@ interface ConditionalWinnerCardsProps {
    *     Above/Below footer) route through `safeInterpolatedLabel` so a
    *     user-named option like "Winning strategy" cannot smuggle a
    *     banned term into the visible prose. The raw label still appears
-   *     verbatim when `useV17Copy=false` (legacy panel rendering).
+   *     verbatim when `useV17Copy=false`.
    *
-   * Default: false — `DecisionConfidencePanel` (legacy) keeps its
-   * existing copy and tests untouched.
+   * Default: false — the copy the legacy panel used before it was deleted,
+   * kept so remaining callers and tests are untouched.
    */
   useV17Copy?: boolean
 }

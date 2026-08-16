@@ -36,8 +36,8 @@ import { stripEncodingNotation, cleanFactorLabel } from './utils/cleanFactorLabe
 // they are interpolated into GENERATED prose, aria-labels, or titles. The
 // raw label is still preserved verbatim in visible identity fields (the
 // bolded factor-name span) — only the generated text around it is gated.
-// See analysisHeroV17/glossaryCheck.ts header for the dependency rationale.
-import { safeInterpolatedLabel } from './analysisHeroV17/glossaryCheck'
+// See utils/glossaryCheck.ts header for the dependency rationale.
+import { safeInterpolatedLabel } from './utils/glossaryCheck'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'

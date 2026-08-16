@@ -6,6 +6,6 @@
  */
 export { AnalysisHeroContainer } from './AnalysisHeroContainer'
 // 2.466: the decision-quality key-question card — mounted ONLY by ResultsBody,
-// directly beneath the hero, inside the same `analysisHeroPanel` arm (the
-// inertness guard's allow-list applies to this module as a whole).
+// directly beneath the hero (the inertness guard's allow-list applies to this
+// module as a whole).
 export { KeyQuestionCard } from './KeyQuestionCard'

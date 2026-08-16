@@ -229,6 +229,21 @@ export const HERO_COPY = {
   labelFallback: 'This option',
   factorFallback: 'a key assumption',
 
+  /**
+   * "What to act on next" — the act-on-it section's own chrome copy.
+   *
+   * The heading answers the fourth default-surface question of the ratified
+   * design ("What should we investigate or resolve next?"). The rows and cards
+   * beneath it carry PRODUCER-derived titles and reasons, built in
+   * `actOnIt/rankActOnItRows.ts`; nothing here claims anything about a run.
+   */
+  actOnIt: {
+    heading: 'What to act on next',
+    aria: 'What to act on next',
+    more: (n: number) => `+${n} more`,
+    hide: 'Show fewer',
+  } as const,
+
   axis: {
     // Goal-lens axes retired with the goal tracks (prototype v6: the goal
     // table renders badges + labels + probabilities only, no bars — an axis

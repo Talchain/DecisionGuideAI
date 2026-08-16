@@ -95,6 +95,28 @@ export interface HeroRowVM {
    * of brief §6.4.
    */
   stableNumber: number | null
+  /**
+   * Was this option IN the comparison at all?
+   *
+   * ⭐ NO-RANK RULING (Paul, 14 Aug 2026) — an option the run never analysed is
+   * not in the ranking. `sortOptionsForDisplay` already partitions it to the
+   * end of the list and states the consumer's half of the contract in terms
+   * this row VM has to carry: *"last is not a rank, it is 'outside the list',
+   * and the cards render them with no ordinal at all"*.
+   *
+   * This is PER-ROW and NOT the same question as `designationsWithheld`, which
+   * is per-RUN (trap 21: two authorities, two questions, kept apart).
+   * `designationsWithheld` asks *"may this run designate a leader?"*;
+   * `isRanked` asks *"was this option scored?"*. A run may designate freely and
+   * still contain one option that took no part in the comparison, which is
+   * exactly the case that shipped an ordinal it had no basis for.
+   *
+   * REQUIRED, deliberately: a fabricated ordinal is the harmful direction, so
+   * a constructor that forgets this must be a TYPE ERROR rather than inherit a
+   * rank by default — the same reason `DisplayOrderOptions.designationsWithheld`
+   * is mandatory.
+   */
+  isRanked: boolean
   /** Option label for display (encoding notation stripped, rendered as text). */
   label: string
   /** Goal-fit lens values (collapsed goalProbability; see buildHeroModel). */

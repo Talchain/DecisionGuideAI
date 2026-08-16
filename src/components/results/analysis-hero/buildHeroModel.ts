@@ -63,7 +63,7 @@ import {
   getOptimistic,
   getPessimistic,
 } from '../utils/getExpectedValue'
-import { safeInterpolatedLabel, containsBannedTerm } from '../analysisHeroV17/glossaryCheck'
+import { safeInterpolatedLabel, containsBannedTerm } from '../utils/glossaryCheck'
 import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPercent'
 import { flipDirectionWording, formatFlipValue } from '../utils/flipThresholdDisplay'
 import { HERO_COPY } from './heroCopy'
@@ -373,6 +373,13 @@ export function buildHeroModel(
       id: o.id,
       index: i + 1,
       stableNumber: stableNumberFor(o.id),
+      // NO-RANK RULING: an option the run never analysed carries no ordinal.
+      // `sortOptionsForDisplay` has already placed it last; this is the second
+      // half of that contract, which the hero previously did not honour — it
+      // drew "3" beside an option OptionCards renders with no rank marker at
+      // all, so one screen ranked and un-ranked the same option at once (the
+      // exact #1-and-#4 contradiction this module's ordering comment cites).
+      isRanked: o.notAnalysed !== true,
       label: stripEncodingNotation(o.label),
       goal: {
         value: goalValue,

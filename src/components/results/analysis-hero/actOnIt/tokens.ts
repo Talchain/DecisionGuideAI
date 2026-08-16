@@ -1,9 +1,9 @@
 /**
- * AnalysisHeroV17 — DS token mappings + Lucide icon mappings.
+ * Act-on-it row tokens — DS token + Lucide icon mappings.
  *
- * Centralised so every subcomponent reads the same table. No `color-mix`;
- * row tints use Tailwind opacity utilities (`bg-{token}/[0.07]`) per
- * docs/investigations/analysis-hero-v17.md §3.1.
+ * Salvaged from `analysisHeroV17/tokens.ts`. The two exports that belonged to
+ * the deleted readiness strip (`STRIP_FILL_CLASS`, `DIMENSION_DESCRIPTION`)
+ * are NOT carried over — they had exactly one consumer each and it is gone.
  */
 
 import {
@@ -12,30 +12,9 @@ import {
 } from 'lucide-react'
 import type { ElementType } from 'react'
 import type { IconBtn } from '@/canvas/components/pre-analysis/primitives/IconBtn'
-import type {
-  DimensionSegment, HeroRow, RowAction,
-} from './analysisHeroVM.types'
+import type { RowAction, RowCategory } from './types'
 
-export const STRIP_FILL_CLASS: Record<DimensionSegment['token'], string> = {
-  success: 'bg-success',
-  warning: 'bg-warning',
-  info: 'bg-info',
-  option: 'bg-option',
-}
-
-/**
- * Hover-only descriptions appended to each dimension segment's title attribute
- * (V17 power pass, 2026-05-27). Visible legend text is unchanged — the
- * descriptions surface only via the native tooltip on hover.
- */
-export const DIMENSION_DESCRIPTION: Record<DimensionSegment['label'], string> = {
-  Structure: 'Goal, options, factors, connections present',
-  Evidence: 'How much the result depends on uncertain inputs',
-  Coverage: 'Alternatives and risks represented',
-  Verified: 'Inputs you have confirmed',
-}
-
-export const ROW_TINT_CLASS: Record<HeroRow['category'], string> = {
+export const ROW_TINT_CLASS: Record<RowCategory, string> = {
   evidence: 'bg-warning/[0.07]',
   risk: 'bg-danger/[0.07]',
   coverage: 'bg-info/[0.07]',
@@ -44,7 +23,7 @@ export const ROW_TINT_CLASS: Record<HeroRow['category'], string> = {
   ready: 'bg-success/[0.07]',
 }
 
-export const CATEGORY_DOT_CLASS: Record<HeroRow['category'], string> = {
+export const CATEGORY_DOT_CLASS: Record<RowCategory, string> = {
   evidence: 'bg-warning',
   risk: 'bg-danger',
   coverage: 'bg-info',

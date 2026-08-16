@@ -18,7 +18,7 @@
  * no fork) so "telegraph" or a factor named "Anode capacity" never trip.
  */
 
-import { containsBannedTerm } from '../../../../components/results/analysisHeroV17/glossaryCheck'
+import { containsBannedTerm } from '../../../../components/results/utils/glossaryCheck'
 
 /**
  * Terms the canonical list does not catch bare (it scopes 'nodes and edges'

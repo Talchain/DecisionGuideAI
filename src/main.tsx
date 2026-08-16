@@ -5,7 +5,6 @@ import { Suspense, lazy, Component, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initVersionCache } from './lib/version-cache';
 import { preloadPrompts } from './lib/prompt-preloader';
-import { bootAnalysisHeroCompareFromUrl } from './components/results/analysisHeroV17/comparisonFlagBoot';
 
 declare global {
   interface Window {
@@ -166,10 +165,11 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 
     log('boot:start', { href: location.href, token: ENTRY_PROOF_TOKEN });
 
-    // Analysis hero v17 — read ?analysisHeroCompare=1|0 from URL once and
-    // persist to the standard flag-factory localStorage key. No per-render
-    // URL parsing. See docs/brief-analysis-hero-v17-implementation.md §3 step 9.
-    bootAnalysisHeroCompareFromUrl();
+    // ⚠ `bootAnalysisHeroCompareFromUrl()` used to run here, reading
+    // ?analysisHeroCompare=1|0 into a localStorage flag. It is DELETED with
+    // the analysis fork (PX-C consolidation): the flag selected between two
+    // superseded analysis panels that no longer exist, and the Analysis tab
+    // now has exactly one implementation to compare nothing against.
 
     const rootEl = document.getElementById('root');
     if (!rootEl) throw new Error('#root not found');
@@ -190,24 +190,10 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
       // Silently ignore - server falls back to defaults
     });
 
-    // Lazy-load the dev-console diagnostics helper after first paint. The
-    // helper installs `window.__analysisHeroV17` for staging reviewers but
-    // is not needed for any first-paint behaviour, so it stays out of the
-    // eager entry chunk. Split out of `comparisonFlagBoot.ts` on
-    // 2026-05-13 (P0 deploy-unblocker) so the `@/flags` dependency chain
-    // leaves the entry chunk. `requestIdleCallback` with a `setTimeout`
-    // fallback covers browsers without rIC (older Safari).
-    const scheduleDevHelper: (cb: () => void) => void =
-      typeof (window as any).requestIdleCallback === 'function'
-        ? (cb) => (window as any).requestIdleCallback(cb)
-        : (cb) => { setTimeout(cb, 1); };
-    scheduleDevHelper(() => {
-      import('./components/results/analysisHeroV17/comparisonFlagDevHelper')
-        .then((m) => m.installAnalysisHeroV17DevHelper())
-        .catch(() => {
-          // Silent — dev helper is a convenience, not load-bearing.
-        });
-    });
+    // ⚠ The idle-scheduled `analysisHeroV17` dev-console helper (which
+    // installed `window.__analysisHeroV17` for staging reviewers to flip the
+    // two dead analysis panels) is DELETED with the fork it diagnosed. The
+    // `requestIdleCallback` scaffolding went with it — it had no other user.
 
     // Phase 2: upgrade to full app (next microtask is enough; avoids extra layout thrash)
     queueMicrotask(() => {

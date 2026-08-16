@@ -649,9 +649,9 @@ function OptionCard({
   // "target" asserts, and the selector's `mayUsePossessiveGoalFraming` is
   // false. `useResultsSectionData` carries that decision here as
   // `goalFitIsSubstitutedJoint`; it is READ, never re-derived at this render
-  // site (types.ts states the rule; `WinGauge`, `DecisionConfidencePanel`,
-  // `RangeVisualization`, `buildHeroModel`, `buildV7Headline` and
-  // `V7LensGroup` all read it the same way).
+  // site (types.ts states the rule; `WinGauge`, `RangeVisualization`,
+  // `buildHeroModel`, `buildV7Headline` and `V7LensGroup` all read it the
+  // same way).
   //
   // Witnessed live on staging 2026-08-01: with the frame unstamped, this card
   // rendered "Hits target" / "< 1% likely to reach target" over the joint

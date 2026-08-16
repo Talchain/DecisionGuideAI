@@ -38,7 +38,7 @@ import type { GraphReadiness } from '../hooks/useGraphReadiness'
 import {
   containsBannedTerm,
   safeInterpolatedLabel,
-} from '../../components/results/analysisHeroV17/glossaryCheck'
+} from '../../components/results/utils/glossaryCheck'
 
 /** An option CEE graded as not-yet-ready, with the label the user sees. */
 export interface OptionNeedingValues {

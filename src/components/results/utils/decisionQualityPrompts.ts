@@ -24,7 +24,7 @@
  */
 
 import { sanitizeCoachingText } from './cleanFactorLabel'
-import { containsBannedTerm } from '../analysisHeroV17/glossaryCheck'
+import { containsBannedTerm } from './glossaryCheck'
 
 /**
  * The attested DSK evidence-strength vocabulary (derived from the committed
@@ -83,17 +83,17 @@ function nonEmptyString(v: unknown): v is string {
 
 /**
  * Lane 1 (P1): DSK science provenance for a rendered key question — the VIEW
- * shape both hosts (V17 `HeroKeyQuestion`, lens-hero `KeyQuestionCard`)
- * render. Present ONLY when the prompt behind the question attested a
+ * shape the host (`KeyQuestionCard`) renders. Present ONLY when the prompt behind the question attested a
  * `dsk_claim_id` upstream (id-gated at the data layer AND re-gated in
  * `deriveDskGrounding`). Absence means "not grounded in a cited DSK claim" —
  * the host then renders NO grounding line: never a default id, never an
  * inferred strength.
  *
- * 2.466: moved here from `analysisHeroV17/analysisHeroVM.types.ts` (which
- * re-exports it) so the honest-absence rule has exactly ONE home now that a
- * second host renders it. Two same-named inline copies of an honesty gate is
- * the drift pattern this repo's trap 12 exists to kill.
+ * 2.466: moved here from `analysisHeroV17/analysisHeroVM.types.ts`, which
+ * re-exported it, so the honest-absence rule had exactly ONE home while two
+ * hosts rendered it. That directory is now deleted and one host remains. Two
+ * same-named inline copies of an honesty gate is the drift pattern this repo's
+ * trap 12 exists to kill.
  */
 export interface DskGrounding {
   /** Sanitised DSK claim title, e.g. "Outside view and reference class forecasting". */
