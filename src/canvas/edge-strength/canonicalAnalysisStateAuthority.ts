@@ -518,25 +518,3 @@ export function storedAnalysisStateMatchesCanonicalReceipt(
       expected.goal_constraints,
     )
 }
-
-/**
- * Reconcile Run-bearing state from a full authenticated persisted graph.
- * This is explicit recovery only; callers retain ownership of when recovery is
- * allowed. A legacy graph missing any carrier returns null without a write.
- */
-export function reconcileStoredAnalysisStateFromCanonicalGraph(
-  graphValue: unknown,
-): CanonicalCommittedGraphReceipt | null {
-  const receipt = canonicalCommittedGraphReceiptFromGraph(graphValue)
-  const existing = useCanvasStore.getState().ceeAnalysisReady
-  if (
-    !receipt ||
-    !existing ||
-    !receiptOptionsCanPopulateRunStore(receipt)
-  ) return null
-
-  const normalised = analysisReadyForCanonicalStore(existing as unknown as Dict, receipt)
-  if (!normalised) return null
-  useCanvasStore.getState().setCeeAnalysisReady(normalised)
-  return storedAnalysisStateMatchesCanonicalReceipt(receipt) ? receipt : null
-}

@@ -12,7 +12,6 @@ import {
   canonicalReceiptNodeCanvasFields,
   parseCanonicalCommittedGraphReceipt,
   prepareCanonicalAnalysisReadyFromReceipt,
-  reconcileStoredAnalysisStateFromCanonicalGraph,
   storedAnalysisStateMatchesCanonicalReceipt,
 } from '../canonicalAnalysisStateAuthority'
 
@@ -303,21 +302,4 @@ describe('canonical committed analysis-state authority', () => {
     })
   })
 
-  it('does not write legacy recovery, but can restore a full non-ready canonical graph exactly', () => {
-    const previous = readiness({ status: 'needs_user_input', options: [] }) as never
-    useCanvasStore.setState({ ceeAnalysisReady: previous })
-    const legacy = receipt() as Record<string, unknown>
-    delete legacy.goal_constraints
-    expect(reconcileStoredAnalysisStateFromCanonicalGraph(legacy)).toBeNull()
-    expect(useCanvasStore.getState().ceeAnalysisReady).toBe(previous)
-
-    const full = receipt({ options: [] })
-    const recovered = reconcileStoredAnalysisStateFromCanonicalGraph(full)
-    expect(recovered).not.toBeNull()
-    expect(useCanvasStore.getState().ceeAnalysisReady).toMatchObject({
-      status: 'needs_user_input',
-      options: [],
-    })
-    expect(storedAnalysisStateMatchesCanonicalReceipt(full)).toBe(true)
-  })
 })

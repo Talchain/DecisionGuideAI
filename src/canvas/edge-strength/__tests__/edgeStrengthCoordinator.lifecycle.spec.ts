@@ -298,6 +298,38 @@ describe('edge strength transaction lifecycle', () => {
     })
   })
 
+  it('a late graph-only hydration cannot downgrade a newer canonical writer receipt', async () => {
+    const olderHydrationRevision = beginEdgeStrengthHydration(SCENARIO_A)
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      settleEdgeStrengthResponse({ attemptId, response: receiptFor(event) })
+      return undefined
+    })
+    setVisibleTuple(-0.7, 'negative')
+    recordEdgeStrengthMutation({
+      scenarioId: SCENARIO_A,
+      before: observation(-0.4, 'negative'),
+      after: observation(-0.7, 'negative'),
+    })
+
+    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves.toEqual({ ok: true })
+    const receiptBefore = canonicalCommittedGraphReceiptForRun(SCENARIO_A)
+    const readinessBefore = useCanvasStore.getState().ceeAnalysisReady
+    const freshnessBefore = useCanvasStore.getState().analysisFreshness
+    expect(receiptBefore).not.toBeNull()
+
+    finishEdgeStrengthHydration({
+      scenarioId: SCENARIO_A,
+      startedAtRevision: olderHydrationRevision,
+      usable: true,
+    })
+
+    expect(canonicalCommittedGraphReceiptForRun(SCENARIO_A)).toBe(receiptBefore)
+    expect(useCanvasStore.getState().ceeAnalysisReady).toBe(readinessBefore)
+    expect(useCanvasStore.getState().analysisFreshness).toBe(freshnessBefore)
+    expect(useCanvasStore.getState().edgeStrengthSync.issue).toBeNull()
+    expect(edgeStrengthRunBarrierState(SCENARIO_A)).toEqual({ ok: true })
+  })
+
   it('applies default-valued canonical changes on a non-target edge before releasing Run', async () => {
     installSecondRelationship()
     useCanvasStore.setState({

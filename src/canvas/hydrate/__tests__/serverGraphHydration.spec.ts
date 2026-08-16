@@ -10,9 +10,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useCanvasStore } from '../../store'
 import { hydrateCanvasFromServer } from '../serverGraphHydration'
+import { replaceCanvasWithCanonicalGraph } from '../../edge-strength/graphAuthority'
 import {
   __resetEdgeStrengthCoordinatorForTests,
+  canonicalCommittedGraphReceiptForRun,
   edgeStrengthRunBarrierState,
+  flushEdgeStrengthEditsBeforeRun,
+  recordEdgeStrengthMutation,
+  refreshEdgeStrengthAuthority,
+  registerEdgeStrengthAuthorityRefresher,
+  registerEdgeStrengthSender,
   setOpenEdgeStrengthScenario,
 } from '../../edge-strength/edgeStrengthCoordinator'
 
@@ -86,6 +93,89 @@ function seedCanvas(): void {
     serverGraphIdentity: null,
     history: { past: [], future: [] },
   } as never)
+}
+
+function canonicalRecoveryGraph(optionStatus: 'ready' | 'needs_encoding') {
+  const nodes = [
+    { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 0.55, source: 'cee_inference', cap: 1 } },
+    { id: 'goal-1', kind: 'goal', label: 'Profit' },
+    { id: 'option-1', kind: 'option', label: 'Shared option' },
+  ]
+  const edges = [{
+    from: 'factor-1',
+    to: 'goal-1',
+    strength: { mean: 0.4, std: 0.1 },
+    exists_probability: 0.9,
+    effect_direction: 'positive',
+  }]
+  return {
+    nodes,
+    edges,
+    options: [{
+      id: 'option-1',
+      label: 'Shared option',
+      status: optionStatus,
+      is_baseline: false,
+      interventions: {
+        'factor-1': { value: 0.4, source: 'user_specified' },
+      },
+      ...(optionStatus === 'ready'
+        ? {}
+        : { raw_interventions: { 'factor-1': 'medium' } }),
+    }],
+    goal_node_id: 'goal-1',
+    goal_constraints: [],
+    node_count: nodes.length,
+    edge_count: edges.length,
+  }
+}
+
+function seedCanonicalReceiptRecovery(priorReadiness: Record<string, unknown>): void {
+  expect(replaceCanvasWithCanonicalGraph(canonicalRecoveryGraph('ready'))).toBe(true)
+  const canonicalEdgeId = useCanvasStore.getState().edges[0]?.id
+  expect(canonicalEdgeId).toBeTruthy()
+  useCanvasStore.setState((state) => ({
+    nodes: state.nodes.map((node) => node.id !== 'factor-1' ? node : {
+      ...node,
+      data: {
+        ...node.data,
+        observedState: { value: 0.2, source: 'user_override', cap: 1 },
+      },
+    }),
+    edges: state.edges.map((edge) => edge.id !== canonicalEdgeId ? edge : {
+      ...edge,
+      data: { ...edge.data, weight: 0.7 },
+    }),
+    goalConstraints: null,
+    ceeAnalysisReady: priorReadiness,
+    ceeAnalysisReadyNodeIds: ['prior-analysis-node'],
+    analysisFreshness: {
+      freshness: 'fresh',
+      freshnessReason: 'graph_hash_match',
+      currentGraphHash: 'prior-analysis-hash',
+      graphHashAtRun: 'prior-analysis-hash',
+      computedAt: '2026-08-16T03:00:00.000Z',
+    },
+    analysisFreshnessDirty: true,
+    serverGraphIdentity: null,
+  } as never))
+  recordEdgeStrengthMutation({
+    scenarioId: SCENARIO_ID,
+    before: {
+      edgeId: canonicalEdgeId!,
+      from: 'factor-1',
+      to: 'goal-1',
+      tuple: { mean: 0.4, effectDirection: 'positive', std: 0.1 },
+      data: { weight: 0.4, direction: 'positive', strengthStd: 0.1 },
+    },
+    after: {
+      edgeId: canonicalEdgeId!,
+      from: 'factor-1',
+      to: 'goal-1',
+      tuple: { mean: 0.7, effectDirection: 'positive', std: 0.1 },
+      data: { weight: 0.7, direction: 'positive', strengthStd: 0.1 },
+    },
+  })
 }
 
 function nodeById(id: string): any {
@@ -315,6 +405,111 @@ describe('hydrateCanvasFromServer — CEE-to-CEE token comparison only', () => {
     )
     expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('merged')
     expect(useCanvasStore.getState().serverGraphIdentity).toBeNull()
+  })
+})
+
+describe('hydrateCanvasFromServer — graph-only recovery never invents #983 status', () => {
+  it.each([
+    {
+      label: 'ready → needs_encoding',
+      optionStatus: 'needs_encoding' as const,
+      priorReadiness: {
+        options: [{
+          id: 'prior-ready-option', label: 'Prior ready option', status: 'ready',
+          interventions: { 'factor-1': { value: 0.2, source: 'user_specified' } },
+        }],
+        goal_node_id: 'goal-1',
+        status: 'ready',
+        freshness: 'fresh',
+        freshness_reason: 'graph_hash_match',
+        current_graph_hash: 'prior-analysis-hash',
+        graph_hash_at_run: 'prior-analysis-hash',
+        computed_at: '2026-08-16T03:00:00.000Z',
+      },
+    },
+    {
+      label: 'blocked → ready',
+      optionStatus: 'ready' as const,
+      priorReadiness: {
+        options: [],
+        goal_node_id: '',
+        status: 'blocked',
+        blocked_reason: 'NO_OPTIONS',
+        freshness: 'fresh',
+        freshness_reason: 'graph_hash_match',
+        current_graph_hash: 'prior-analysis-hash',
+        graph_hash_at_run: 'prior-analysis-hash',
+        computed_at: '2026-08-16T03:00:00.000Z',
+      },
+    },
+  ])('preserves analysis bytes and the Run hold across Check and Restore: $label', async ({
+    optionStatus,
+    priorReadiness,
+  }) => {
+    seedCanonicalReceiptRecovery(priorReadiness)
+    // Move the queued edit into the real uncertain-writer state that exposes
+    // Check/Restore. A graph read may repair graph carriers, but cannot turn
+    // that uncertainty into a fabricated current #983 verdict.
+    const unregisterSender = registerEdgeStrengthSender(async () => undefined)
+    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_ID)).resolves.toMatchObject({
+      ok: false,
+    })
+    unregisterSender()
+    const stateBefore = useCanvasStore.getState()
+    const readinessBefore = stateBefore.ceeAnalysisReady
+    const readinessNodeIdsBefore = stateBefore.ceeAnalysisReadyNodeIds
+    const freshnessBefore = stateBefore.analysisFreshness
+    const dirtyBefore = stateBefore.analysisFreshnessDirty
+    const readinessBytesBefore = JSON.stringify(readinessBefore)
+    const freshnessBytesBefore = JSON.stringify(freshnessBefore)
+    const expectedHold = {
+      ok: false,
+      reason: 'The shared model did not provide a complete analysis-input receipt. Check the shared model before running analysis.',
+    }
+    const assertGraphOnlyHold = () => {
+      const state = useCanvasStore.getState()
+      expect(state.ceeAnalysisReady).toBe(readinessBefore)
+      expect(JSON.stringify(state.ceeAnalysisReady)).toBe(readinessBytesBefore)
+      expect(state.ceeAnalysisReadyNodeIds).toBe(readinessNodeIdsBefore)
+      expect(state.analysisFreshness).toBe(freshnessBefore)
+      expect(JSON.stringify(state.analysisFreshness)).toBe(freshnessBytesBefore)
+      expect(state.analysisFreshnessDirty).toBe(dirtyBefore)
+      expect(state.edgeStrengthSync.issue).toBe('analysis_state_unverified')
+      expect(edgeStrengthRunBarrierState(SCENARIO_ID)).toEqual(expectedHold)
+      expect(canonicalCommittedGraphReceiptForRun(SCENARIO_ID)).toBeNull()
+    }
+
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody({
+      graph: canonicalRecoveryGraph(optionStatus),
+    })))
+    const unregister = registerEdgeStrengthAuthorityRefresher(async (scenarioId, opts) => {
+      const outcome = await hydrateCanvasFromServer(scenarioId, {
+        replaceLocalGraph: opts?.replaceLocalGraph,
+      })
+      return outcome === 'merged' || outcome === 'unchanged'
+    })
+
+    try {
+      // The Check action may reconcile useful shared graph values, but the read
+      // contains no receipt-bound current analysis_ready verdict.
+      await expect(refreshEdgeStrengthAuthority(SCENARIO_ID)).resolves.toBe(true)
+      expect(nodeById('factor-1').data.observedState.value).toBe(0.55)
+      expect(useCanvasStore.getState().edges[0]?.data?.weight).toBe(0.4)
+      assertGraphOnlyHold()
+
+      // The explicit Restore action may replace local graph structure. It has
+      // exactly the same status boundary as Check and cannot license Run.
+      await expect(refreshEdgeStrengthAuthority(
+        SCENARIO_ID,
+        { replaceLocalGraph: true },
+      )).resolves.toBe(true)
+      expect(useCanvasStore.getState().nodes.map((node) => node.id)).toEqual([
+        'factor-1', 'goal-1', 'option-1',
+      ])
+      assertGraphOnlyHold()
+    } finally {
+      unregister()
+    }
   })
 })
 

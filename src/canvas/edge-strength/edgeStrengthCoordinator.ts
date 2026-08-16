@@ -416,48 +416,38 @@ export function edgeStrengthHydrationCanApply(
     (lane.pending.size === 0 || currentIssue(lane) !== null)
 }
 
-/** Whether hydration is acting as the typed full-analysis-state recovery. */
-export function edgeStrengthAnalysisStateRecoveryRequired(scenarioId: string): boolean {
-  const lane = laneFor(scenarioId)
-  return lane.canonicalReceiptRequired && !canonicalReceiptMatchesLocalAuthority(lane)
-}
-
 export function finishEdgeStrengthHydration(args: {
   scenarioId: string
   startedAtRevision: number
   usable: boolean
-  /** Full persisted options/goal/constraints were reconciled for Run. */
-  analysisStateUsable?: boolean
-  /** Strict five-carrier receipt reconstructed from those persisted bytes. */
-  canonicalReceipt?: CanonicalCommittedGraphReceipt | null
 }): void {
   const lane = laneFor(args.scenarioId)
-  const recoveredReceipt = args.canonicalReceipt
-    ? parseCanonicalCommittedGraphReceipt(args.canonicalReceipt)
-    : null
-  const recoveredAuthorityExact =
-    args.analysisStateUsable === true &&
-    recoveredReceipt !== null &&
-    canvasAnalyticallyMatchesCanonicalGraph(recoveredReceipt) &&
-    storedAnalysisStateMatchesCanonicalReceipt(recoveredReceipt)
-  if (recoveredAuthorityExact) lane.canonicalReceipt = recoveredReceipt
   if (!edgeStrengthHydrationCanApply(args.scenarioId, args.startedAtRevision)) {
     // A strict writer receipt may already have supplied newer full-graph
     // authority. Never downgrade it because an older boot read finished late.
     if (lane.hydration !== 'settled') lane.hydration = 'unconfirmed'
   } else if (args.usable) {
-    const analysisStateStillUnverified =
-      lane.canonicalReceiptRequired && !recoveredAuthorityExact
-    if (analysisStateStillUnverified) {
-      // The authenticated read proved nodes/edges, so hydration itself is
-      // settled, but it did not supply a Run-equivalent options/goal/constraint
-      // projection. Retain the current recovery issue (or create the typed
-      // receipt issue) instead of converting an incomplete read into Run
-      // authority.
-      if (currentIssue(lane) === null) {
+    if (
+      lane.canonicalReceiptRequired &&
+      !canonicalReceiptMatchesLocalAuthority(lane)
+    ) {
+      // A scenario graph read carries graph values, not a current #983
+      // `analysis_ready` verdict bound to those values. It can make Check or
+      // Restore useful without manufacturing status authority: preserve every
+      // readiness/freshness/hash byte, retire any earlier receipt licence, and
+      // retain the exact typed Run hold until a new transactional response
+      // supplies both the canonical receipt and its current readiness verdict.
+      // A non-matching receipt is already stale and cannot license Run. Do not
+      // touch an exact receipt here: a current writer may have settled before
+      // this read began, and graph-only hydration may neither replace nor
+      // downgrade that newer authority.
+      lane.canonicalReceipt = null
+      if (![...lane.issues.values()].includes('analysis_state_unverified')) {
+        const recovery = [...lane.recoveries.values()][0]
+        const pending = lane.pending.values().next().value as PendingEdit | undefined
         setIssue(lane, 'canonical-receipt', 'analysis_state_unverified', {
-          from: lane.active?.from ?? '',
-          to: lane.active?.to ?? '',
+          from: recovery?.from ?? pending?.from ?? lane.active?.from ?? '',
+          to: recovery?.to ?? pending?.to ?? lane.active?.to ?? '',
         })
       }
       lane.hydration = 'settled'

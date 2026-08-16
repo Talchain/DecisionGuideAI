@@ -22,6 +22,13 @@ enabled or changed here.
    validity never implies `ready`.
 5. Run inputs come from the latest settled receipt only while that receipt is
    still exactly equal to the live canvas and Run-bearing store.
+6. The authenticated scenario-graph reader is graph authority only. “Check”
+   and explicit “Restore” may reconcile or replace graph carriers, but cannot
+   infer a current #983 verdict from persisted options/goal fields. They retain
+   the prior readiness, freshness, and hash bytes and the exact
+   `analysis_state_unverified` Run hold until a new transactional response
+   supplies the receipt-bound `analysis_ready`. A late graph read also preserves
+   a newer exact writer receipt instead of downgrading it.
 
 Malformed, partial, legacy, or locally mismatched receipts fail closed: the
 previous readiness/freshness bytes remain unchanged and transactional Run stays
@@ -37,7 +44,9 @@ Olumi route opens while ordinary first-use fit and rail behaviour remain intact.
   the published schema-0.43 manifest and strict receipt.
 - **REMOVE:** all reads/authority use of
   `canonical_graph_hash_analysis_state`; an incoming copy is deleted one-way
-  before state storage.
+  before state storage. Also removed is graph-read reconstruction of Run-bearing
+  readiness; persisted graph fields are not a substitute for current #983
+  response authority.
 - **QUARANTINE:** generic factor-writer settlement remains outside this bounded
   edge transaction. If it does not supply a new full receipt, its write may
   drain but Run remains held. Extending canonical receipt production to that
@@ -54,6 +63,12 @@ Olumi route opens while ordinary first-use fit and rail behaviour remain intact.
 - Schema version guard, vendored-package checksum, and diff check: passed.
 - Production CI build, PLC assertion, and bundle budget: passed (46.86 KB gzip
   against the 50 KB budget).
+- Graph-recovery FIX-FIRST matrix: 62/62 focused tests passed, covering
+  ready-to-needs-encoding and blocked-to-ready graph-read mutants, byte-identical
+  readiness/freshness through both Check and Restore, and late hydration after a
+  newer settled writer.
+- Post-fix full typecheck passed with no new diagnostics; full lint passed with
+  zero errors and an exact hooks ratchet; production build passed (3,847 modules).
 
 The exact local freeze commit/tree is reported with the review handoff; no
 branch publication, merge, or deployment is part of this component.
