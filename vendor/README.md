@@ -9,9 +9,9 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ### `talchain-schemas-0.43.0.tgz` ← **THE CURRENT PIN**
 
-**Provenance: PACKED FROM THE EXACT LOCALLY FROZEN, CORRECTED SOURCE; NOT YET
-MERGED, TAGGED OR PUBLISHED.** Packed from `olumi-schemas`
-`3c3dc78cb08eb63135da7c2a90a9d4609ce28267` (tree
+**Provenance: PACKED FROM THE EXACT SOURCE TREE NOW MERGED AND TAGGED.** Packed
+from `olumi-schemas` `main` @
+`fdc30a4d74d3b3cf52c5674fcd4a7805cb8e6807`, tag `v0.43.0` (tree
 `fc96888fc41cf537ed83f041bab159447e23bc2d`) by extracting that exact commit
 into a clean temporary directory, then running `npm ci`, `npm run build` and
 `npm pack`. 411,468 bytes. sha256:
@@ -25,7 +25,7 @@ into a clean temporary directory, then running `npm ci`, `npm run build` and
 | source identity | ✅ exact commit and tree above; the archive excluded local worktree state |
 | the sidecar matches these bytes | ✅ `pnpm run check:vendor` re-hashes the tarball and compares the exact sidecar |
 | `check:vendor` agrees and rejects orphans | ✅ the package pin, tarball and sidecar are one derived set |
-| merged/tagged/published release provenance | ⚠️ not claimed; re-pack and replay this bump if independent schema review changes the frozen bytes |
+| merged/tagged release provenance | ✅ `main` @ `fdc30a4d74d3b3cf52c5674fcd4a7805cb8e6807`, tag `v0.43.0`; both resolve to the exact packed tree above |
 
 **What the UI adopts here — READER BEFORE PRODUCER.** Version 0.43 adds the
 analysis-affecting fields `options` and `goal_node_id` to the existing strict

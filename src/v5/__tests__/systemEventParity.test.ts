@@ -203,9 +203,10 @@ describe('UI ↔ V5 system event parity', () => {
     )
 
     // Schema kinds NOT in the emitted set are deferred UI work — chip_click,
-    // undo, redo, selection_change. They're valid on the wire (CEE handles them
-    // per the turn-shape matrix) but the UI has no emission site yet. This is
-    // the parity boundary the reviewer's P0 #3 flagged; the test locks it.
+    // undo, redo, selection_change, edge_strength_edit. They're valid on the
+    // wire (CEE handles them per the turn-shape matrix) but the UI has no
+    // emission site yet. This is the parity boundary the reviewer's P0 #3
+    // flagged; the test locks it.
     // (0.22.0 `feedback` left this set in F7 — it is now UI-emitted, see above.)
     const knownDeferred: ReadonlySet<(typeof V5_EVENT_KINDS)[number]> = new Set([
       'chip_click',
@@ -215,6 +216,10 @@ describe('UI ↔ V5 system event parity', () => {
       // path (debounced selection_change on canvas selection) is the R5 UI
       // half — a scheduled Experience lane; CEE consumes it already.
       'selection_change',
+      // 0.43.0 transitively exposes CEE's existing edge-strength server event.
+      // This is a reader-only adoption lane, so it must not invent a UI emitter;
+      // a separately reviewed product/transport lane owns that future decision.
+      'edge_strength_edit',
     ])
 
     for (const kind of V5_EVENT_KINDS) {
@@ -228,20 +233,23 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 7 of 11 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 7 of 12 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
     // 0.22.0 grew the wire union to 8 (added `feedback`); F7 wired feedback
     // emission. 0.29.0 grew it to 9 (added `factor_value_edit`; ROADMAP 1.346
     // wired it). 0.34.0 grew it to 11 (added `edge_adjudication` +
-    // `prior_range_edit`; the P4 transport lane wired both), so UI emission
-    // count is now 7 (patch_accepted, patch_dismissed, direct_graph_edit,
-    // feedback, factor_value_edit, edge_adjudication, prior_range_edit).
+    // `prior_range_edit`; the P4 transport lane wired both). 0.43.0 grew it to
+    // 12 by transitively exposing the existing `edge_strength_edit` server
+    // event; that event remains deliberately deferred in this reader-only
+    // lane. UI emission count therefore remains 7 (patch_accepted,
+    // patch_dismissed, direct_graph_edit, feedback, factor_value_edit,
+    // edge_adjudication, prior_range_edit).
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
     expect(uiEmittedCount).toBe(7)
-    expect(V5_EVENT_KINDS).toHaveLength(11)
+    expect(V5_EVENT_KINDS).toHaveLength(12)
   })
 })
