@@ -157,7 +157,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, insertionEr
         }
         setTemplateVersion(capturedVersion)
 
-        setSeed(String(templateDetail.default_seed || 1337))
+        // The template's `default_seed` was captured here only to build the
+        // retired direct browser→PLoT run request. Template LOADING keeps
+        // working; nothing in this panel runs an analysis any more.
         showToast('Scenario created from template.')
       }
     } catch (err) {

@@ -4,32 +4,23 @@
  */
 
 import type {
-  RunRequest,
   ReportV1,
   ErrorV1,
   LimitsV1,
   LimitsFetch,
-  TemplateSummary,
   TemplateDetail,
   TemplateListV1,
   ConfidenceLevel,
-  RunBundleRequest,
-  RunBundleResponse,
 } from './types'
 import type {
   V1RunRequest,
-  V1RunResult,
   V1Error,
-  V1StreamHandlers,
-  V1ValidateRequest,
-  V1ValidateResponse,
 } from './v1/types'
 import * as v1http from './v1/http'
-import type { V1RunBundleRequest } from './v1/types'
 import { V1_LIMITS } from './v1/types'
-import { graphToV1Request, computeClientHash, toCanonicalRun, type ReactFlowGraph } from './v1/mapper'
-import { shouldUseSync, isRetryableErrorCode, isRetryableStatus } from './v1/constants'
-import { getDiagnosticsFromCompleteEvent, getGraphCaps } from './v1/sdkHelpers'
+import { graphToV1Request, type ReactFlowGraph } from './v1/mapper'
+import { isRetryableErrorCode, isRetryableStatus } from './v1/constants'
+import { getGraphCaps } from './v1/sdkHelpers'
 
 // ⚠ NAMED, LITERAL env reads only. This was `(import.meta as any)?.env || {}` —
 // a bare reference Vite cannot statically narrow, so it inlined the ENTIRE env
@@ -94,195 +85,6 @@ function mapConfidenceLevel(conf: number): ConfidenceLevel {
   if (conf >= 0.7) return 'high'
   if (conf >= 0.4) return 'medium'
   return 'low'
-}
-
-/**
- * P0.1: Normalize confidence.level to canonical DecisionReadiness
- *
- * This function is the single source of truth for deriving decision readiness
- * from the backend's confidence.level field. By centralizing this in the adapter,
- * we ensure all consumers receive a consistent, normalized model.
- *
- * @param level - Backend confidence level ('high', 'medium', 'low')
- * @returns Canonical DecisionReadiness object
- */
-function mapConfidenceToDecisionReadiness(level: ConfidenceLevel): ReportV1['decision_readiness'] {
-  const normalizedLevel = level.toLowerCase() as 'high' | 'medium' | 'low'
-
-  return {
-    ready: normalizedLevel === 'high',
-    confidence: normalizedLevel,
-    blockers: normalizedLevel === 'low'
-      ? ['Low confidence analysis - add more factors or evidence']
-      : [],
-    warnings: normalizedLevel === 'medium'
-      ? ['Medium confidence - consider reviewing key factors and assumptions']
-      : [],
-    passed: normalizedLevel === 'high'
-      ? ['High confidence analysis - model is ready for decision-making']
-      : normalizedLevel === 'medium'
-        ? ['Model structure is valid']
-        : [],
-  }
-}
-
-/**
- * Map v1 RunResult to UI ReportV1
- */
-function mapV1ResultToReport(
-  response: any,
-  templateId: string,
-  executionMs: number
-): ReportV1 {
-  // Extract result for backward compatibility
-  const result = response.result || response
-
-  // v1.2: Normalize response to canonical format
-  const canonicalRun = toCanonicalRun(response)
-
-  // Prefer canonical responseHash, but fall back to legacy model_card.response_hash when present
-  const responseHash = canonicalRun.responseHash || result.model_card?.response_hash
-
-  // Deterministic hash guard - enforce response_hash presence
-  if (!responseHash) {
-    const errorMsg = 'Backend response missing response_hash - determinism cannot be guaranteed'
-
-    if (import.meta.env.PROD) {
-      // In production, this is a hard error - we need determinism
-      throw new Error(`${errorMsg}. This is a critical error in production.`)
-    } else {
-      // In development, warn but allow continue
-      console.warn(`⚠️  [httpV1Adapter] ${errorMsg}`)
-      console.warn('   This is acceptable in dev, but must be fixed before production.')
-    }
-  }
-
-  // Use v1.2 bands for results (with fallback to legacy summary)
-  // Contract v1.1: results.most_likely.outcome (nested) or result.summary.likely (legacy)
-  const conservative = canonicalRun.bands?.p10
-    ?? result.results?.conservative?.outcome
-    ?? result.summary?.conservative ?? 0
-  const likely = canonicalRun.bands?.p50
-    ?? result.results?.most_likely?.outcome
-    ?? result.summary?.most_likely
-    ?? result.summary?.likely ?? 0
-  const optimistic = canonicalRun.bands?.p90
-    ?? result.results?.optimistic?.outcome
-    ?? result.summary?.optimistic ?? 0
-  const units = result.summary?.units || 'count'
-
-  // Contract v1.1: explain_delta at top-level, fall back to nested for backward compat
-  const explainDelta = response.explain_delta || result.explain_delta
-
-  // Extract drivers from explain_delta.top_drivers (actual API structure)
-  // API v1.1 sends: { node_id, node_label, contribution (0-100), sign ('+'/'-') }
-  const drivers = (explainDelta?.top_drivers ?? []).map((d: any) => {
-    // Handle both old (impact) and new (contribution + sign) formats
-    let impact = d.impact ?? 0
-    // Preserve raw contribution (0-100) for UI display
-    const rawContribution = d.contribution ?? 0
-    if (d.contribution !== undefined && d.sign !== undefined) {
-      // Convert contribution (0-100) and sign to signed impact (-1 to 1)
-      const normalizedContribution = Math.min(d.contribution, 100) / 100
-      impact = d.sign === '-' ? -normalizedContribution : normalizedContribution
-    }
-
-    // Use node_label (API v1) or label (older format) for display
-    const label = d.node_label || d.label || d.node_id || d.edge_id || 'Unknown'
-
-    return {
-      label,
-      polarity: (impact > 0 ? 'up' : impact < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral',
-      strength: (Math.abs(impact) > 0.7 ? 'high' : Math.abs(impact) > 0.3 ? 'medium' : 'low') as 'low' | 'medium' | 'high',
-      // Contribution as 0-1 for percentage display (Quick Win #4)
-      contribution: rawContribution / 100,
-      // Use camelCase IDs to match DriverChips interface
-      nodeId: d.node_id,
-      edgeId: d.edge_id,
-      // Pass through node_kind from API for client-side filtering (v1.1 contract)
-      nodeKind: d.node_kind?.toLowerCase() || null,
-    }
-  })
-
-  // Contract v1.1: confidence as structured object { level, score, reason, factors }
-  // Backward compat: scalar number (0-1) converted via mapConfidenceLevel
-  const rawConfidence = response.confidence || result.confidence
-  const isStructuredConfidence = typeof rawConfidence === 'object' && rawConfidence !== null
-  const confidenceScore = isStructuredConfidence
-    ? (rawConfidence.score ?? 0.5)
-    : (typeof rawConfidence === 'number' ? rawConfidence : 0.5)
-  const confidenceLevel: ConfidenceLevel = isStructuredConfidence && rawConfidence.level
-    ? (rawConfidence.level.toLowerCase() as ConfidenceLevel)
-    : mapConfidenceLevel(confidenceScore)
-
-  // Sanitize confidence reason to strip debug/technical info
-  // Patterns that indicate backend debug text that shouldn't be shown to users
-  const DEBUG_PATTERNS = [
-    /model_based/i,
-    /K=\d+/,
-    /unique_graphs/,
-    /_based\s*\(/,
-    /samples?:/i,
-    /\bK\s*=\s*\d+/,
-    /graphs?\s*=\s*\d+/i,
-  ]
-
-  const sanitizeConfidenceReason = (reason: string): string => {
-    if (!reason) return ''
-    // Check if reason looks like debug info
-    if (DEBUG_PATTERNS.some(pattern => pattern.test(reason))) {
-      // Return empty - let UI show generic confidence guidance
-      if (import.meta.env.DEV) {
-        console.warn('[httpV1Adapter] Stripped debug text from confidence.why:', reason)
-      }
-      return ''
-    }
-    return reason
-  }
-
-  const rawReason = isStructuredConfidence
-    ? (rawConfidence.reason || result.explanation || '')
-    : (result.explanation || '')
-  const confidenceReason = sanitizeConfidenceReason(rawReason) || 'Based on model analysis'
-
-  return {
-    schema: 'report.v1',
-    meta: {
-      seed: result.seed || 1337,
-      response_id: responseHash || `http-v1-${Date.now()}`,
-      elapsed_ms: executionMs,
-    },
-    model_card: {
-      response_hash: responseHash || '',
-      response_hash_algo: 'sha256',
-      normalized: true,
-      // Sprint N P0: Use top-level identifiability string from response
-      identifiability_tag: response.identifiability || response.result?.identifiability,
-    },
-    results: {
-      conservative,
-      likely,
-      optimistic,
-      units,
-    },
-    confidence: {
-      level: confidenceLevel,
-      why: confidenceReason,
-    },
-    drivers,
-    run: canonicalRun, // v1.2: attach canonical run for ResultsPanel
-
-    // Sprint N P0: Trust Signal Fields (backend already returns these)
-    graph_quality: response.graph_quality || response.result?.graph_quality,
-    insights: response.insights || response.result?.insights,
-
-    // P0.1: Canonical decision readiness (always populated from confidence.level)
-    decision_readiness: mapConfidenceToDecisionReadiness(confidenceLevel),
-
-    // Brief E Task 1: Per-option goal probabilities
-    option_probabilities: result.option_probabilities,
-    goal_node: response.goal_node || result.goal_node,
-  }
 }
 
 /**
@@ -435,131 +237,6 @@ function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {
  * HTTP v1 Adapter
  */
 export const httpV1Adapter = {
-  // Run: uses sync endpoint only (stream not deployed yet)
-  async run(input: RunRequest): Promise<ReportV1> {
-    // Guard: Validate graph is provided for canvas runs
-    const hasValidGraph = input.graph?.nodes && input.graph.nodes.length > 0
-
-    if (!hasValidGraph && input.template_id === 'canvas-graph') {
-      throw new Error(
-        'EMPTY_CANVAS: Cannot run analysis on an empty canvas. ' +
-        'Add at least one node to your decision graph before running analysis.'
-      )
-    }
-
-    // Use provided graph (from canvas edits), or fetch template as fallback
-    const graph = hasValidGraph
-      ? input.graph!
-      : await loadTemplateGraph(input.template_id)
-
-    try {
-      const v1Request = mapGraphToV1Request(graph, input.seed)
-
-      // Forward idempotency key when provided so the Engine can engage CEE
-      if (input.idempotencyKey) {
-        v1Request.idempotencyKey = input.idempotencyKey
-      }
-
-      // Add outcome_node if provided
-      if (input.outcome_node) {
-        v1Request.outcome_node = input.outcome_node
-      }
-
-      // Add debug flag based on request flag or feature flag (VITE_FEATURE_COMPARE_DEBUG)
-      let includeDebug = input.include_debug
-      try {
-        // ⚠ NAMED, LITERAL read. `(import.meta as any)?.env || {}` puts `env` in
-        // VALUE position, which Vite cannot narrow — it inlined the whole env
-        // object here. See `src/lib/plotAuthHeaders.ts` for the measurement.
-        if (includeDebug === undefined && String(import.meta.env?.VITE_FEATURE_COMPARE_DEBUG) === '1') {
-          includeDebug = true
-        }
-      } catch {
-        // Ignore env access errors in non-Vite environments
-      }
-      if (includeDebug) {
-        v1Request.include_debug = true
-      }
-
-      // Add CEE trigger fields if provided
-      if (input.scenario_id) {
-        v1Request.scenario_id = input.scenario_id
-      }
-      if (input.scenario_name) {
-        v1Request.scenario_name = input.scenario_name
-      }
-      if (input.save !== undefined) {
-        v1Request.save = input.save
-      }
-
-      // Brief E Task 1: Auto-detect goal_node from kind: 'goal' in graph
-      // Brief F Task 4: Also extract goal_threshold from goal node data
-      const goalNode = graph.nodes?.find((n: any) =>
-        n.data?.kind === 'goal' || (n as any).kind === 'goal'
-      )
-      if (goalNode) {
-        v1Request.goal_node = goalNode.id
-        const goalThreshold = extractGoalThreshold(goalNode)
-        if (goalThreshold !== undefined) {
-          v1Request.goal_threshold = goalThreshold
-        }
-      }
-
-      // Factor Sensitivity: Always use 'deep' mode to enable factor sensitivity
-      // Deep mode (64 samples) enables factor sensitivity from ISL /robustness/analyze/v2
-      // Previously gated by isPlotEnrichmentEnabled() but now always enabled for factor analysis
-      v1Request.detail_level = 'deep'
-      if (import.meta.env.DEV) {
-        console.log('[httpV1] Using detail_level: deep (factor sensitivity enabled)')
-      }
-
-      const nodeCount = graph.nodes.length
-
-      // Always use sync endpoint (stream not deployed yet - Oct 2025)
-      if (import.meta.env.DEV) {
-        console.log(
-          `🚀 [httpV1] POST /v1/run (${nodeCount} nodes, using sync endpoint) ` +
-          `template=${input.template_id}, seed=${input.seed}, outcome=${input.outcome_node || 'none'}, debug=${!!includeDebug}`
-        )
-      }
-      const response = await v1http.runSync(v1Request)
-
-      if (import.meta.env.DEV) {
-        if (ENABLE_HTTPV1_DEBUG) {
-          console.log('[httpV1] Full response:', JSON.stringify(response, null, 2))
-        }
-        console.log(`✅ [httpV1] Sync completed: ${response.execution_ms || 0}ms`)
-      }
-
-      const report = mapV1ResultToReport(response, input.template_id, response.execution_ms || 0)
-
-      // Section 4: Wire debug headers through adapter
-      // Extract __ceeDebugHeaders from response and attach to report (non-standard field)
-      if ((response as any).__ceeDebugHeaders) {
-        (report as any).__ceeDebugHeaders = (response as any).__ceeDebugHeaders
-      }
-
-      // Pass through backend debug slices when present (used by determinism tests and inspector tooling)
-      if ((response.result && (response.result as any).debug) || (response as any).debug) {
-        (report as any).debug = (response.result && (response.result as any).debug) || (response as any).debug
-      }
-
-      return report
-    } catch (err: any) {
-      // Handle validation errors from mapper
-      if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {
-        throw {
-          schema: 'error.v1',
-          code: err.code,
-          error: err.message,
-          fields: err.field ? { field: err.field, max: err.max } : undefined,
-        } as ErrorV1
-      }
-      // Handle v1 HTTP errors
-      throw mapV1ErrorToUI(err as V1Error)
-    }
-  },
-
   // Templates (live v1 endpoints)
   async templates(): Promise<TemplateListV1> {
     try {

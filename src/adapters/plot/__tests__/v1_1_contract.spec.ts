@@ -11,8 +11,6 @@
 import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
-import { httpV1Adapter } from '../httpV1Adapter'
-import type { RunRequest } from '../types'
 import {
   V1_1_SUCCESS_HIGH_CONFIDENCE,
   V1_1_LOW_CONFIDENCE,
@@ -47,159 +45,18 @@ afterAll(() => {
   server.close()
 })
 
-// Helper to setup run handlers
-function setupRunHandlers(response: object) {
-  server.use(
-    http.get(`${PROXY_BASE}/v1/templates/test-template/graph`, () => {
-      return HttpResponse.json({
-        template_id: 'test-template',
-        default_seed: 1337,
-        graph: {
-          nodes: [{ id: 'node-1', label: 'Test Node' }],
-          edges: [],
-        },
-      })
-    }),
-    http.post(`${PROXY_BASE}/v1/run`, () => {
-      return HttpResponse.json(response)
-    })
-  )
-}
-
-const runRequest: RunRequest = {
-  template_id: 'test-template',
-  seed: 42,
-}
-
 describe('v1.1 Contract Compliance', () => {
-  describe('Structured Confidence', () => {
-    it('maps high confidence correctly', async () => {
-      setupRunHandlers(V1_1_SUCCESS_HIGH_CONFIDENCE)
-
-      const result = await httpV1Adapter.run(runRequest)
-
-      expect(result.confidence.level).toBe('high')
-      expect(result.confidence.why).toContain('Strong evidence coverage')
-    })
-
-    it('maps low confidence correctly', async () => {
-      setupRunHandlers(V1_1_LOW_CONFIDENCE)
-
-      const result = await httpV1Adapter.run(runRequest)
-
-      expect(result.confidence.level).toBe('low')
-      expect(result.confidence.why).toContain('Insufficient evidence')
-    })
-
-    it('maps medium confidence correctly', async () => {
-      setupRunHandlers(V1_1_MEDIUM_CONFIDENCE)
-
-      const result = await httpV1Adapter.run(runRequest)
-
-      expect(result.confidence.level).toBe('medium')
-      expect(result.confidence.why).toContain('Reasonable evidence')
-    })
-
-    it('falls back to legacy scalar confidence', async () => {
-      // Legacy format without structured confidence
-      const legacyResponse = {
-        result: {
-          answer: 'Legacy response',
-          confidence: 0.5, // Scalar, not object - maps to 'medium' (0.4-0.7)
-          explanation: 'Test',
-          summary: { conservative: 0.3, likely: 0.5, optimistic: 0.7 },
-          response_hash: 'hash123',
-          seed: 42,
-        },
-        execution_ms: 100,
-      }
-      setupRunHandlers(legacyResponse)
-
-      const result = await httpV1Adapter.run(runRequest)
-
-      // 0.5 maps to 'medium' level (threshold: >= 0.7 = high, >= 0.4 = medium)
-      expect(result.confidence.level).toBe('medium')
-    })
-  })
-
-  describe('Top-Level explain_delta', () => {
-    it('reads explain_delta from top level', async () => {
-      setupRunHandlers(V1_1_SUCCESS_HIGH_CONFIDENCE)
-
-      const result = await httpV1Adapter.run(runRequest)
-
-      expect(result.drivers).toBeDefined()
-      expect(result.drivers.length).toBeGreaterThan(0)
-    })
-
-    it('extracts nodeId from top_drivers', async () => {
-      setupRunHandlers(V1_1_SUCCESS_HIGH_CONFIDENCE)
-
-      const result = await httpV1Adapter.run(runRequest)
-
-      // First driver should have nodeId (converted from node_id)
-      expect(result.drivers[0].nodeId).toBe('risk_market_saturation')
-    })
-
-    it('extracts node_kind for filtering', async () => {
-      setupRunHandlers(V1_1_SUCCESS_HIGH_CONFIDENCE)
-
-      const result = await httpV1Adapter.run(runRequest)
-
-      // Should have risk and factor drivers (lowercase from adapter normalization)
-      const riskDrivers = result.drivers.filter(
-        (d: any) => d.nodeKind === 'risk'
-      )
-      const factorDrivers = result.drivers.filter(
-        (d: any) => d.nodeKind === 'factor'
-      )
-
-      expect(riskDrivers.length).toBeGreaterThanOrEqual(1)
-      expect(factorDrivers.length).toBeGreaterThanOrEqual(1)
-    })
-
-    it('extracts contribution as 0-1 scale', async () => {
-      setupRunHandlers(V1_1_SUCCESS_HIGH_CONFIDENCE)
-
-      const result = await httpV1Adapter.run(runRequest)
-
-      // contribution_pct 45 should become 0.45
-      const firstDriver = result.drivers[0]
-      expect(firstDriver.contribution).toBeCloseTo(0.45, 2)
-    })
-
-    it('falls back to nested explain_delta in result', async () => {
-      // Legacy format with nested explain_delta
-      const legacyResponse = {
-        result: {
-          answer: 'Legacy response',
-          confidence: 0.75,
-          explanation: 'Test',
-          summary: { conservative: 0.3, likely: 0.5, optimistic: 0.7 },
-          explain_delta: {
-            top_drivers: [
-              { kind: 'node', node_id: 'legacy_node', label: 'Legacy Driver', impact: 0.5 },
-            ],
-          },
-          response_hash: 'hash123',
-          seed: 42,
-        },
-        execution_ms: 100,
-      }
-      setupRunHandlers(legacyResponse)
-
-      const result = await httpV1Adapter.run(runRequest)
-
-      expect(result.drivers.length).toBeGreaterThan(0)
-      expect(result.drivers[0].nodeId).toBe('legacy_node')
-    })
-  })
+  // The 'Structured Confidence' and 'Top-Level explain_delta' suites are
+  // DELETED with `httpV1Adapter.run`: they asserted how the RESPONSE of the
+  // retired direct browser->PLoT sync run was mapped, and there is no longer
+  // a run to map. The fixture-level contract below (critique tiers,
+  // provenance, polarity, edge drivers) is untouched — it reads the v1.1
+  // fixtures directly and never needed the adapter.
 
   describe('Critique Severity Tiers', () => {
-    it('categorizes blockers correctly', async () => {
-      setupRunHandlers(V1_1_BLOCKED)
-
-      // Use fixture helper
+    it('categorizes blockers correctly', () => {
+      // Reads the fixture directly — it never needed the run handlers, and
+      // the vestigial `setupRunHandlers` call went with the retired run.
       const blockers = getBlockers(V1_1_BLOCKED.critique)
       expect(blockers.length).toBe(3)
     })
