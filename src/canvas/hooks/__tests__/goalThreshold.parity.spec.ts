@@ -22,7 +22,7 @@ import {
   resolveGoalThresholdCap,
   resolveChipGoalThreshold,
   resolveMeasureUnitCap,
-} from '../useV2Run'
+} from '../goalThresholdResolvers'
 
 afterEach(() => {
   vi.restoreAllMocks()

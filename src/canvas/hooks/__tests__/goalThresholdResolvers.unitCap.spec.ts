@@ -11,7 +11,7 @@
  * case; every other unit stays fail-closed.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { capForUnit, resolveChipGoalThreshold, resolveMeasureUnitCap } from '../useV2Run'
+import { capForUnit, resolveChipGoalThreshold, resolveMeasureUnitCap } from '../goalThresholdResolvers'
 
 afterEach(() => {
   vi.restoreAllMocks()

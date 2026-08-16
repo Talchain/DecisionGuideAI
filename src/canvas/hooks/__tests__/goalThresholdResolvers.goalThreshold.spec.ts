@@ -9,7 +9,7 @@
  * threshold means no probability_of_goal, never a corrupt analysis).
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { normaliseGoalThresholdForRequest, resolveGoalThresholdCap, resolveChipGoalThreshold } from '../useV2Run'
+import { normaliseGoalThresholdForRequest, resolveGoalThresholdCap, resolveChipGoalThreshold } from '../goalThresholdResolvers'
 
 describe('normaliseGoalThresholdForRequest (UI-SEM-058)', () => {
   afterEach(() => {

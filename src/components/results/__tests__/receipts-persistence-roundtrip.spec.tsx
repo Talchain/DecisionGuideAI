@@ -20,7 +20,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { resolveSeedUsed } from '../../../canvas/hooks/useV2Run'
+import { resolveSeedUsed } from '../../../canvas/hooks/resolveSeedUsed'
 import { hydrateAnalysisFromV2Response } from '../../../hooks/hydrateAnalysis'
 import { AdvancedSection } from '../AdvancedSection'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'

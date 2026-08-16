@@ -25,9 +25,6 @@ vi.mock('@/canvas/store', () => ({
       analysisFreshnessDirty: false,
     }),
 }))
-vi.mock('@/canvas/hooks/useV2Run', () => ({
-  useV2Run: () => ({ runV2Analysis: h.runV2Analysis, isRunning: false, cancelRun: vi.fn(), error: null }),
-}))
 vi.mock('@/canvas/stores/guidanceStore', () => ({
   useGuidanceStore: Object.assign(
     (sel: (s: unknown) => unknown) => sel({ _sendMessage: h.sendRegistered.value ? h.sendMessage : null }),

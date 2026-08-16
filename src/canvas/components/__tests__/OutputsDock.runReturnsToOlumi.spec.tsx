@@ -50,10 +50,6 @@ vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: vi.fn(() => vi.fn()) }
 })
-vi.mock('../../hooks/useV2Run', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../hooks/useV2Run')>()
-  return { ...actual, useV2Run: () => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() }) }
-})
 vi.mock('../pre-analysis', () => ({ PreAnalysisPanel: () => null }))
 vi.mock('../../hooks/useGraphReadiness', () => ({
   useGraphReadiness: () => ({ readiness: { state: 'ready' } }),

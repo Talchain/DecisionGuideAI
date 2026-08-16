@@ -147,28 +147,12 @@ describe('node run chips → the registered canonical runner', () => {
     expect(sendMessage).not.toHaveBeenCalled()
   })
 
-  it('the direct-V2 arm is announced — a canvas click never looks like nothing happened', async () => {
-    // Review amendment, 2026-07-28. When the canonical path is off (or V5 is
-    // ineligible at runtime) runCanonicalAnalysis returns {status:'v2'}: the
-    // run started, but via direct PLoT, so there is NO chat turn. Pre-fix the
-    // chip always produced a V5 chip turn, so without this arm the fix would
-    // have traded one silence for another on that branch.
-    //
-    // Derived from the DEPLOYED staging bundle (assets/flags-BOFkajto.js,
-    // 2026-07-28): VITE_V5_CANONICAL_ANALYSIS:"true" and
-    // VITE_ENABLE_V5_ORCHESTRATOR:"true" — so staging takes the 'dispatched'
-    // arm today and this is belt-and-braces. It is still reachable there:
-    // isV5CanonicalRunPath() ALSO requires isV5Eligible(), which can fail at
-    // runtime. Note the flag is absent from netlify.toml and defaults OFF in
-    // flags.ts — repo config is not evidence of what is deployed.
-    registerBridge()
-    registerCanonicalRunner(async () => ({ status: 'v2' }))
-
-    clickRunChip('goal_run_analysis')
-
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Running analysis…')
-  })
+    // ROADMAP 2.1229 — the direct-V2 arm's "Running analysis…" toast test is
+  // REMOVED. `{ status: 'v2' }` was returned when the canonical flag was off
+  // or V5 was ineligible at runtime; that arm is deleted from
+  // `CanonicalRunOutcome` with the `/v2/run` seam, so a runner can no longer
+  // produce it and the toast is unreachable. The blocked / unavailable /
+  // already-running arms above still pin "never a silent click".
 
   it('the dispatched arm stays quiet — its V5 chip turn is the acknowledgement', async () => {
     // Guards against double-announcing: a toast here would sit on top of the

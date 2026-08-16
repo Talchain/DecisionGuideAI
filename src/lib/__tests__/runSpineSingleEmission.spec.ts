@@ -34,13 +34,40 @@
 // =============================================================================
 
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 
 const REPO_ROOT = process.cwd()
 const read = (rel: string) => readFileSync(path.join(REPO_ROOT, rel), 'utf8')
 
-const USE_V2_RUN = 'src/canvas/hooks/useV2Run.ts'
+/**
+ * Every non-test file under `src/` whose source CALLS `fn` (a call, not a
+ * mention — comments are stripped first, exactly as `countCalls` does).
+ * Returns repo-relative paths, sorted, so an assertion can bind to the set.
+ */
+function walkSrcFor(fn: string): string[] {
+  const out: string[] = []
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(path.join(REPO_ROOT, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${entry.name}`
+      if (entry.isDirectory()) {
+        if (entry.name === '__tests__' || entry.name === 'node_modules') continue
+        walk(rel)
+      } else if (/\.(ts|tsx)$/.test(entry.name) && !/\.spec\.|\.test\./.test(entry.name)) {
+        if (countCalls(read(rel), fn) > 0) out.push(rel)
+      }
+    }
+  }
+  walk('src')
+  return out.sort()
+}
+
+// ROADMAP 2.1229 — `src/canvas/hooks/useV2Run.ts` was the SECOND emitter this
+// spec was written to keep silent. It is deleted with the direct `/v2/run`
+// seam, so the "does not call" half of the invariant is now satisfied by the
+// file's non-existence and is not worth asserting. What survives, and is still
+// load-bearing, is the OutputsDock side: exactly one emitter per run-spine
+// event, from the store-transition effect that observes EVERY run path.
 const OUTPUTS_DOCK = 'src/canvas/components/OutputsDock.tsx'
 
 /** A CALL, not a mention. Comments in both files name these deliberately. */
@@ -57,7 +84,6 @@ describe('1.68 · exactly one emitter per run-spine event', () => {
   it('ANTI-VACUITY — both files are readable and non-trivial', () => {
     // Without this, a wrong path would make every "zero calls" assertion below
     // pass by reading an empty string.
-    expect(read(USE_V2_RUN).length, `${USE_V2_RUN} looks empty`).toBeGreaterThan(20_000)
     expect(read(OUTPUTS_DOCK).length, `${OUTPUTS_DOCK} looks empty`).toBeGreaterThan(20_000)
   })
 
@@ -94,27 +120,31 @@ describe('1.68 · exactly one emitter per run-spine event', () => {
     ).toBe(2)
   })
 
-  for (const fn of ['trackRunCompleted', 'trackRunFailed'] as const) {
-    it(`useV2Run.ts does NOT call ${fn} — OutputsDock is canonical`, () => {
-      expect(
-        countCalls(read(USE_V2_RUN), fn),
-        `useV2Run.ts calls ${fn} again. OutputsDock consumes this hook and emits the same ` +
-          'event from a store-transition effect, so every run would fire twice — and with a ' +
-          'different payload shape, which is what makes it corrupting rather than merely noisy.',
-      ).toBe(0)
-    })
-  }
-
   it('run_started has exactly one emitter, and it is OutputsDock', () => {
     expect(countCalls(read(OUTPUTS_DOCK), 'trackRunStarted')).toBe(1)
-    expect(countCalls(read(USE_V2_RUN), 'trackRunStarted')).toBe(0)
   })
 
-  it('plot.empty_computed_results has exactly one emitter, and it is useV2Run', () => {
-    // The asymmetry is deliberate: this anomaly is detected inside the run path
-    // and never reaches the store, so OutputsDock cannot observe it.
-    expect(countCalls(read(USE_V2_RUN), 'trackEmptyComputedResults')).toBe(1)
-    expect(countCalls(read(OUTPUTS_DOCK), 'trackEmptyComputedResults')).toBe(0)
+  it('plot.empty_computed_results now has ZERO emitters — pinned, not lost', () => {
+    // ⚠ THIS IS A RECORDED GAP, NOT A PASSING CAPABILITY.
+    //
+    // `trackEmptyComputedResults` had exactly ONE emitter — `useV2Run`, which
+    // detected the computed-but-empty anomaly inside the direct `/v2/run` path
+    // and never put it on the store, so OutputsDock could not observe it.
+    // ROADMAP 2.1229 deleted that path, so the event now fires NOWHERE.
+    //
+    // The detection itself survives (`detectComputedButEmpty`, called by
+    // `adapters/plot/v2/responseMapper.ts`); only the emission went. Pinning
+    // the zero here means the gap is visible in the suite and REDs the moment
+    // someone re-adds an emitter — rather than the telemetry quietly ceasing
+    // with the spec that used to describe it. Rowed for the canonical path.
+    const emitters = walkSrcFor('trackEmptyComputedResults').filter(
+      (f) => f !== 'src/lib/resultsInstrumentation.ts',
+    )
+    expect(
+      emitters,
+      'plot.empty_computed_results has an emitter again. That is welcome — but this pin ' +
+        'records that it had none after the /v2/run retirement, so update it deliberately.',
+    ).toEqual([])
   })
 
   it('there is exactly ONE trackCompareOpened in the repo — no same-named twin', () => {

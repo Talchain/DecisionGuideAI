@@ -176,18 +176,26 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   //
   // STILL HERE, and exactly why:
   //
-  //   /v2/run               — LIVE CALL SITE. `useV2Run` → the adapter's single
-  //                           `/v2/run` fetch, reached from `OutputsDock` and
-  //                           `ConversationPanel` on the FLAG-OFF branch. The
-  //                           SILENT fallback (canonical on, dispatcher absent)
-  //                           is deleted this pass, and `useScenarioComparison`
-  //                           no longer computes at all. Retiring the rest means
-  //                           deleting `useV2Run`, which is the ONLY producer of
-  //                           `resultsStart` (hence `results.seed`/`startedAt`
-  //                           and run history) and of the Supabase
-  //                           analysis-persistence callbacks — a capability
-  //                           decision with its own replacement work, not a
-  //                           caller retirement. Rowed for its own lane.
+  //   /v2/run               — RETIRED (ROADMAP 2.1229). `useV2Run`, the adapter's
+  //                           HTTP section, and the flag-off branches in
+  //                           `OutputsDock` / `ConversationPanel` are all
+  //                           deleted, so there is no browser→PLoT run call
+  //                           left to allow. The entry is removed here, and the
+  //                           derived guard now derives SEVEN routes.
+  //
+  //                           The capability question this entry used to park
+  //                           was re-derived and does not block the retirement:
+  //                           `startedAt` is ALREADY stamped canonically by
+  //                           `resultsAnalysing` (store.ts), and `results.seed`
+  //                           cannot exist on the canonical path at all — the
+  //                           V5 contract carries no seed field, and stamping
+  //                           one is a provenance lie the receipts layer
+  //                           already fails closed on
+  //                           (`mapV5AnalysisToReport.ts`). Run history and the
+  //                           Supabase analysis write were ALREADY dark on the
+  //                           deployed canonical path, and are owned by rows
+  //                           2.99 / 2.1231 as PRODUCER-side work. See the PR
+  //                           body for the full derivation.
   //   /v1/cee/draft-graph   — ⚠ THE "LIVE PRODUCT PATH" CLAIM ABOVE WAS FALSE.
   //                           Derived: `AIClarifierChat` is DEAD BY GATE
   //                           (`setShowAIClarifier(true)` has zero production
@@ -202,7 +210,6 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   //                           not because a user can reach it. Deleting that
   //                           chain also deletes `DraftChat` (~1,500 lines) and
   //                           its openers; rowed for its own lane.
-  /^\/v2\/run$/,
   /^\/v1\/cee\/draft-graph$/,
 ]
 

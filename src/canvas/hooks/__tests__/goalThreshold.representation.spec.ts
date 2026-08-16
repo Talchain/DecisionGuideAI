@@ -17,7 +17,7 @@
  * is passed through iff ∈[0,1] and NEVER divided by any cap.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { resolveChipGoalThreshold } from '../useV2Run'
+import { resolveChipGoalThreshold } from '../goalThresholdResolvers'
 
 afterEach(() => vi.restoreAllMocks())
 

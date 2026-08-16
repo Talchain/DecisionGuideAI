@@ -46,6 +46,7 @@ import { useReadinessStore } from '../../stores/readinessStore'
 import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { getCanonicalRunner } from '../../analysis/canonicalRunRegistry'
 import { RUN_LICENCE_SUPERSEDED_REFUSAL } from '../../utils/canRunAnalysis'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
@@ -60,17 +61,19 @@ vi.mock('../../../flags', async (importOriginal) => {
     isJourneyTabEnabled: () => false,
     isAiPanelV2Enabled: () => false,
     isPreAnalysisV3Enabled: () => true,
-    // Force the V2 fallback so a permitted run has an observable, local
-    // terminal outcome (`status: 'v2'`) instead of a fire-and-forget V5 stream.
-    isV5CanonicalRunPath: () => false,
   }
 })
 
-const runV2Analysis = vi.fn(async () => {})
-vi.mock('../../hooks/useV2Run', () => ({
-  useV2Run: () => ({ runV2Analysis: (...a: unknown[]) => runV2Analysis(...(a as [])), cancelRun: vi.fn() }),
-}))
-
+// ROADMAP 2.1229 — this file used to force `isV5CanonicalRunPath: () => false`
+// so a permitted run took the DIRECT `/v2/run` fallback and produced an
+// observable local outcome (`status: 'v2'`) instead of a fire-and-forget V5
+// stream. That fallback is retired, so the observable terminal outcome is now
+// the canonical dispatch itself: `runCanonicalAnalysis` calls the guidance
+// store's `_dispatchAction` synchronously and returns `{ status: 'dispatched' }`.
+// Registering a mock dispatcher gives exactly the same observability the old
+// `runV2Analysis` spy did — the PROPERTY under test (a run is bound to the
+// verdict that licensed it) is unchanged.
+const dispatchAction = vi.fn()
 /**
  * The seam this file exists to exercise. `flushPendingSaves` is awaited between
  * the render-time gate and the dispatch, so whatever it does to the readiness
@@ -229,7 +232,8 @@ beforeAll(async () => {
 
 beforeEach(() => {
   ensureMatchMedia()
-  runV2Analysis.mockClear()
+  dispatchAction.mockClear()
+  useGuidanceStore.setState({ _dispatchAction: dispatchAction })
   flushBehaviour = () => {}
   try {
     sessionStorage.clear()
@@ -254,8 +258,8 @@ describe('OutputsDock — the run is bound to the verdict that licensed it (I-4)
 
     const outcome = await run()
 
-    expect(outcome).toEqual({ status: 'v2' })
-    expect(runV2Analysis).toHaveBeenCalledTimes(1)
+    expect(outcome).toEqual({ status: 'dispatched' })
+    expect(dispatchAction).toHaveBeenCalledTimes(1)
   }, 40_000)
 
   // ── The defect ───────────────────────────────────────────────────
@@ -268,7 +272,7 @@ describe('OutputsDock — the run is bound to the verdict that licensed it (I-4)
 
     expect(outcome).toEqual({ status: 'blocked', reason: RUN_LICENCE_SUPERSEDED_REFUSAL })
     // The point of the barrier: the doomed run never went out.
-    expect(runV2Analysis).not.toHaveBeenCalled()
+    expect(dispatchAction).not.toHaveBeenCalled()
   }, 40_000)
 
   // ── The discriminating half (trap 19) ────────────────────────────
@@ -281,8 +285,8 @@ describe('OutputsDock — the run is bound to the verdict that licensed it (I-4)
 
     const outcome = await run()
 
-    expect(outcome).toEqual({ status: 'v2' })
-    expect(runV2Analysis).toHaveBeenCalledTimes(1)
+    expect(outcome).toEqual({ status: 'dispatched' })
+    expect(dispatchAction).toHaveBeenCalledTimes(1)
   }, 40_000)
 
   it('still runs when a staleness mark lands mid-dispatch on a permitting verdict', async () => {
@@ -293,7 +297,7 @@ describe('OutputsDock — the run is bound to the verdict that licensed it (I-4)
 
     const outcome = await run()
 
-    expect(outcome).toEqual({ status: 'v2' })
-    expect(runV2Analysis).toHaveBeenCalledTimes(1)
+    expect(outcome).toEqual({ status: 'dispatched' })
+    expect(dispatchAction).toHaveBeenCalledTimes(1)
   }, 40_000)
 })

@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { transformEdgeToV2, uiOptionToV2Option, buildV2RequestFromAnalysisReady } from '../../../../src/adapters/plot/v2/adapter'
-import { normaliseGoalThresholdForRequest, resolveGoalThresholdCap } from '../../../../src/canvas/hooks/useV2Run'
+import { normaliseGoalThresholdForRequest, resolveGoalThresholdCap } from '../../../../src/canvas/hooks/goalThresholdResolvers'
 import { useCanvasStore } from '../../../../src/canvas/store'
 import type { Edge, Node } from '@xyflow/react'
 import type { CEEAnalysisReady } from '../../../../src/adapters/cee/types'

@@ -52,10 +52,6 @@ vi.mock('../../../flags', async (importOriginal) => {
   }
 })
 
-vi.mock('../../hooks/useV2Run', () => ({
-  useV2Run: () => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() }),
-}))
-
 vi.mock('../../conversation/useConversation', () => ({
   useConversation: () => ({
     messages: [],

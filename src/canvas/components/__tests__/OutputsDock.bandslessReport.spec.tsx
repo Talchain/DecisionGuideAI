@@ -29,8 +29,7 @@ import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 
-const { mockUseV2Run, mockShowToast } = vi.hoisted(() => ({
-  mockUseV2Run: vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })),
+const { mockShowToast } = vi.hoisted(() => ({
   mockShowToast: vi.fn(),
 }))
 
@@ -47,11 +46,6 @@ vi.mock('../../../flags', async (importOriginal) => {
     isJourneyTabEnabled: vi.fn(() => false),
     isV5CanonicalAnalysisEnabled: vi.fn(() => false),
   }
-})
-
-vi.mock('../../hooks/useV2Run', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../hooks/useV2Run')>()
-  return { ...actual, useV2Run: () => mockUseV2Run() }
 })
 
 vi.mock('../../ToastContext', async (importOriginal) => {
@@ -145,7 +139,6 @@ describe('OutputsDock bands-less hydrated report (#353)', () => {
   beforeEach(() => {
     ensureMatchMedia()
     vi.clearAllMocks()
-    mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })
     seedGraph()
   })
 

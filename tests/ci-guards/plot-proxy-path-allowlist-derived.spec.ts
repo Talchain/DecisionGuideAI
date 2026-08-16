@@ -247,34 +247,40 @@ describe('plot-proxy allowlist is derived from the browser→PLoT call sites', (
     // A scanner that found two call sites would satisfy every assertion below while
     // being blind to the rest of the surface.
     //
-    // ⚠ RE-DERIVED AGAIN at the run-seam retirement (18/17 → 13 → 9). Retiring
-    // `/v1/run`, `/version`, `/v1/stream` and `/v1/analysis/pareto` removed four
-    // call sites, so the floor MUST come down or it fails for the right outcome
-    // — but it comes down to the MEASURED count, never to zero. The nine are:
-    // `/v1/pre-analysis-sensitivity`, `/v2/run`, `/v1/limits` ×2, `/v1/health`
-    // ×2, `/health`, `/v1/templates`, `/v1/templates/:id/graph`.
+    // ⚠ RE-DERIVED AGAIN at the useV2Run untangle (18/17 → 13 → 9 → 8).
+    // ROADMAP 2.1229 deleted the adapter's HTTP section — the single `/v2/run`
+    // fetch — so exactly one call site left and the floor MUST come down or it
+    // fails for the right outcome. It comes down to the MEASURED count, never
+    // to zero. The eight are: `/v1/pre-analysis-sensitivity`, `/v1/limits` ×2,
+    // `/v1/health` ×2, `/health`, `/v1/templates`, `/v1/templates/:id/graph`.
     //
     // Every resolvable site still resolves (EXPECTED_UNRESOLVED is empty), so
     // the two numbers are equal, and that equality is itself the check: if a
     // future call site stops resolving, `resolved` drops below `sites` and the
     // dedicated resolve test REDs by name.
-    expect(sites.length).toBeGreaterThanOrEqual(9)
+    expect(sites.length).toBeGreaterThanOrEqual(8)
     expect(resolved.length).toBe(sites.length)
   })
 
   it('CONTROL: the allowlist was actually parsed out of the edge function', () => {
-    // 15 → 12 → 8: six utility routes plus the TWO analysis routes that still
-    // have live call sites (`/v2/run`, `/v1/cee/draft-graph`), each annotated
-    // with its blocker in the edge function. Lower it only alongside a deletion
-    // that earns it — the list may only shrink by deleting CALLERS, because a
-    // hand-trim REDs `ALLOWLIST ⊇ DERIVED` and 404s users at our own edge.
-    expect(allowlist.length).toBeGreaterThanOrEqual(8)
+    // 15 → 12 → 8 → 7: six utility routes plus the ONE analysis route that
+    // still has a live call site (`/v1/cee/draft-graph`), annotated with its
+    // blocker in the edge function. ROADMAP 2.1229 retired `/v2/run` by
+    // deleting its caller (the adapter's HTTP section and `useV2Run`), which
+    // is the ONLY way this list is allowed to shrink: a hand-trim REDs
+    // `ALLOWLIST ⊇ DERIVED` and 404s users at our own edge, and a caller left
+    // behind REDs `DERIVED ⊇ ALLOWLIST` instead. Lower it only alongside a
+    // deletion that earns it.
+    expect(allowlist.length).toBeGreaterThanOrEqual(7)
     // Bound by identity to a route that must always be there, so a parse returning
     // junk regexes cannot pass.
-    expect(allowlist.some((re) => re.test('/v2/run'))).toBe(true)
+    expect(allowlist.some((re) => re.test('/v1/cee/draft-graph'))).toBe(true)
+    expect(allowlist.some((re) => re.test('/v1/limits'))).toBe(true)
     // NEGATIVE identity bind: a route this pass retired must be GONE. Without
-    // this the floor above is satisfied by any eight entries, including the
-    // eight we started from (trap 13b — a control that agrees with itself).
+    // this the floor above is satisfied by any seven entries, including a set
+    // that still carried `/v2/run` (trap 13b — a control that agrees with
+    // itself). `/v2/run` joins the retired list this pass.
+    expect(allowlist.some((re) => re.test('/v2/run'))).toBe(false)
     expect(allowlist.some((re) => re.test('/v1/run'))).toBe(false)
     expect(allowlist.some((re) => re.test('/version'))).toBe(false)
   })

@@ -145,12 +145,19 @@ describe('1.68 · an error-report settle is a FAILURE, not a completion', () => 
     const callers = files
       .filter((f) => f !== DEFINITION)
       .filter((f) => /\bcreateErrorReport\s*\(/.test(read(f)))
+    // ROADMAP 2.1229 — `useV2Run` and its HTTP-200-but-failed branch are
+    // deleted with the direct `/v2/run` seam, so the producer it named is
+    // gone. The invariant this test exists for is UNCHANGED and still
+    // load-bearing: OutputsDock attributes every error-report settle to
+    // 'ANALYSIS_FAILED', which is exact only while there is at most ONE
+    // producer of an error report. Pinning the EMPTY set keeps that guard
+    // live — it REDs the moment a second (or first) producer reappears,
+    // which is exactly when the attribution would stop being exact.
     expect(
       callers,
-      'the number of createErrorReport call sites changed. OutputsDock attributes every ' +
-        "error-report settle to 'ANALYSIS_FAILED', which is exact only while useV2Run's " +
-        'HTTP-200-but-failed branch is the only producer. Carry the failure code on the ' +
-        'report instead of adding a second producer.',
-    ).toEqual(['src/canvas/hooks/useV2Run.ts'])
+      'the set of createErrorReport call sites changed. OutputsDock attributes every ' +
+        "error-report settle to 'ANALYSIS_FAILED', which is exact only while there is a " +
+        'single producer. Carry the failure code on the report instead of adding another.',
+    ).toEqual([])
   })
 })

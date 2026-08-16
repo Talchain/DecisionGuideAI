@@ -31,10 +31,9 @@ function renderOutputsDock() {
   return render(withProviders(<OutputsDock />))
 }
 
-const { mockIsOrchestratorV2Enabled, mockIsLegacyDirectRunEnabled, mockUseV2Run } = vi.hoisted(() => ({
+const { mockIsOrchestratorV2Enabled, mockIsLegacyDirectRunEnabled } = vi.hoisted(() => ({
   mockIsOrchestratorV2Enabled: vi.fn(() => false),
   mockIsLegacyDirectRunEnabled: vi.fn(() => true),
-  mockUseV2Run: vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })),
 }))
 
 // Mock react-router-dom (useScenario calls useNavigate)
@@ -80,10 +79,6 @@ vi.mock('../../../flags', async (importOriginal) => {
     isPreAnalysisV3Enabled: vi.fn(() => false),
   }
 })
-
-vi.mock('../../hooks/useV2Run', () => ({
-  useV2Run: (...args: unknown[]) => mockUseV2Run(...args),
-}))
 
 function ensureMatchMedia() {
   if (typeof window.matchMedia !== 'function') {
@@ -172,7 +167,6 @@ function resetDockEnvironment() {
   })
   mockIsOrchestratorV2Enabled.mockReturnValue(false)
   mockIsLegacyDirectRunEnabled.mockReturnValue(true)
-  mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })
 }
 
 describe('OutputsDock DOM', () => {
@@ -832,35 +826,12 @@ describe('I.1: Model tab auto-switch guard', () => {
 
 describe('I.2b: Cancel button during analysis', () => {
   beforeEach(cleanupDockState)
-  it('shows cancel button when a V2 run is in flight (the run cancelRun can actually cancel)', () => {
-    const baseResults = useCanvasStore.getState().results
-
-    // 1.16i: Cancel is gated on useV2Run's OWN in-flight flag, not the
-    // derived store status — cancelRun only aborts the V2 request, so a
-    // Cancel rendered for a V5 turn would be a dead control.
-    mockUseV2Run.mockReturnValue({
-      runV2Analysis: vi.fn(),
-      cancelRun: vi.fn(),
-      isRunning: true,
-    } as any)
-
-    useCanvasStore.setState({
-      nodes: testNodes,
-      edges: testEdges,
-      hasCompletedFirstRun: true,
-      results: {
-        ...baseResults,
-        status: 'streaming',
-        report: fakeReportForTests,
-      },
-    } as any)
-
-    renderOutputsDock()
-
-    const cancelButton = screen.getByTestId('cancel-analysis-button')
-    expect(cancelButton).toBeInTheDocument()
-    expect(cancelButton).toHaveTextContent('Cancel')
-  })
+    // ROADMAP 2.1229 — the "shows cancel button" test is REMOVED with the button.
+  // Cancel was gated on `useV2Run`'s OWN in-flight flag because `cancelRun`
+  // could only abort the direct `/v2/run` request. That seam is retired, so the
+  // control was dead by construction and was deleted rather than re-gated on the
+  // store status — a Cancel that cannot cancel a CEE turn is a false control.
+  // The companion test below now states the permanent truth: no Cancel renders.
 
   it('1.16i: NO cancel button on a V5 analysing turn (preparing without a V2 run) — but the running banner shows', () => {
     const baseResults = useCanvasStore.getState().results

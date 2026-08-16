@@ -33,9 +33,7 @@ import type { BriefReadiness } from './hooks/useBriefSignals'
 import { useThreadPersistence } from './hooks/useThreadPersistence'
 import { beginInteractionChain, getUiSurfaceState, recordCrossSurfaceEvent, recordInteractionEvent, recordUserAction, type InteractionStateSnapshot } from '../../lib/debug-state'
 import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip, computeCeeCannotSeeModel } from '../utils/canRunAnalysis'
-import { useV2Run } from '../hooks/useV2Run'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
-import { isV5CanonicalRunPath } from '../../v5/eligibility'
 
 interface ConversationPanelProps {
   conversation: UseConversationReturn
@@ -129,7 +127,6 @@ export const ConversationPanel = memo(function ConversationPanel({
   const pendingBriefRef = useRef<string | null>(null)
   const generateInFlightRef = useRef(false)
   const wasThinkingRef = useRef(false)
-  const { runV2Analysis, isRunning: isV2RunInFlight } = useV2Run()
   // ROADMAP 2.635 (I-3) — `stale` travels with the verdict into the gate, so
   // a refusal composed here cannot quote a verdict the canvas has outgrown.
   const { readiness, stale: readinessStale } = useGraphReadiness()
@@ -509,7 +506,11 @@ export const ConversationPanel = memo(function ConversationPanel({
   // In-flight takes priority over structural reasons: the composer button
   // is disabled for either cause, but the user-visible tooltip should explain
   // the active reason, not just the structural one.
-  const runBlockedReason = isV2RunInFlight
+  // ROADMAP 2.1229 — was the retired `useV2Run` hook's OWN in-flight flag.
+  // With the direct `/v2/run` seam gone, the results-store status IS the
+  // analysis in-flight truth for every path, and it is the same signal the
+  // memo below already publishes to the gate.
+  const runBlockedReason = isAnalysisRunning
     ? 'Analysis in progress'
     : (getRunButtonTooltip(runGateResult) ?? undefined)
 
@@ -519,10 +520,11 @@ export const ConversationPanel = memo(function ConversationPanel({
     // guidance store callback, any future caller) against structural readiness
     // AND in-flight state. The button's disabled prop already blocks the UI
     // path, but guidance chips route through useGuidanceStore's registered
-    // _runAnalysis reference and must not bypass the in-flight check. F-77
-    // inside useV2Run also aborts the prior run, but hard-blocking here is
-    // the correct defensive pattern.
-    if (!runGateResult.allowed || isV2RunInFlight) return
+    // _runAnalysis reference and must not bypass the in-flight check.
+    // ROADMAP 2.1229: the in-flight source is now the results-store status —
+    // the retired `useV2Run` carried the only hook-local flag, and its F-77
+    // supersede-abort went with the direct request it aborted.
+    if (!runGateResult.allowed || isAnalysisRunning) return
     const composerText = composerRef.current?.peekText().trim() ?? ''
     beginInteractionChain({
       triggerSurface: 'analyse_now',
@@ -537,21 +539,19 @@ export const ConversationPanel = memo(function ConversationPanel({
       },
     })
 
-    // v5-canonical-analysis brief: when canonical flag + V5 eligibility
-    // are on, route through the existing chip-action dispatch so CEE
-    // persists a run_analysis fact. Mirrors OutputsDock.handleRunAnalysis.
+    // ROADMAP 2.1229 — the canonical CEE chip-action dispatch is now the ONLY
+    // run path from this surface. This used to be gated on
+    // `isV5CanonicalRunPath()` with a `runV2Analysis()` fallback: a DIRECT
+    // browser→PLoT `/v2/run` call that bypassed the CEE orchestration seam.
+    // That seam is retired, so the gate has nothing left to choose between.
     // Same exact payload shape as suggested chips — never free-text.
-    if (isV5CanonicalRunPath()) {
-      void dispatchAction({
-        action_type: 'run_analysis',
-        label: 'Run analysis',
-        message: 'Run analysis',
-        source: 'chip',
-      })
-      return
-    }
-    void runV2Analysis()
-  }, [messages.length, runGateResult.allowed, isV2RunInFlight, runV2Analysis, dispatchAction])
+    void dispatchAction({
+      action_type: 'run_analysis',
+      label: 'Run analysis',
+      message: 'Run analysis',
+      source: 'chip',
+    })
+  }, [messages.length, runGateResult.allowed, isAnalysisRunning, dispatchAction])
 
   useEffect(() => {
     const sendChipByLabelMessage = (label: string, message: string) =>
@@ -724,7 +724,7 @@ export const ConversationPanel = memo(function ConversationPanel({
           onInsertText={handleInsertText}
           onAttach={onAttach}
           onRunAnalysis={handleRunAnalysis}
-          canRunAnalysis={runGateResult.allowed && !isV2RunInFlight}
+          canRunAnalysis={runGateResult.allowed && !isAnalysisRunning}
           runBlockedReason={runBlockedReason}
         />
       )}

@@ -26,7 +26,7 @@
  *   (the end-to-end reload pin this lane adds)
  */
 import { describe, it, expect } from 'vitest'
-import { resolveSeedUsed } from '../useV2Run'
+import { resolveSeedUsed } from '../resolveSeedUsed'
 
 describe('resolveSeedUsed — the engine seed receipt (T2b)', () => {
   it('a well-formed echo is the receipt', () => {

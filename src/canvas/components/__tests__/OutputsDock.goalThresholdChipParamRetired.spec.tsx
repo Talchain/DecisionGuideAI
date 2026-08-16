@@ -51,13 +51,11 @@ import { resolveScenarioKey } from '../../../components/results/modals/scenarioK
 const {
   mockIsV5CanonicalAnalysisEnabled,
   mockIsV5Eligible,
-  mockUseV2Run,
   mockShowToast,
   capturedResultsBodyProps,
 } = vi.hoisted(() => ({
   mockIsV5CanonicalAnalysisEnabled: vi.fn(() => true),
   mockIsV5Eligible: vi.fn((_input?: { flag: string | undefined }) => ({ eligible: true })),
-  mockUseV2Run: vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })),
   mockShowToast: vi.fn(),
   capturedResultsBodyProps: { current: null as Record<string, unknown> | null },
 }))
@@ -89,13 +87,6 @@ vi.mock('../../../v5/eligibility', async (importOriginal) => {
       flags.isV5CanonicalAnalysisEnabled() &&
       mockIsV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible,
   }
-})
-
-vi.mock('../../hooks/useV2Run', async (importOriginal) => {
-  // Spread the real module: OutputsDock also imports the pure goal-threshold
-  // helpers from here — only the hook itself is mocked.
-  const actual = await importOriginal<typeof import('../../hooks/useV2Run')>()
-  return { ...actual, useV2Run: () => mockUseV2Run() }
 })
 
 vi.mock('../../ToastContext', async (importOriginal) => {
@@ -226,7 +217,6 @@ describe('ROADMAP 2.109 — producer-side goal_threshold chip parameter is retir
     capturedResultsBodyProps.current = null
     mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
     mockIsV5Eligible.mockReturnValue({ eligible: true } as never)
-    mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as never)
     seedCompletedRunWithProvableThreshold()
   })
 
