@@ -35,6 +35,7 @@ import {
   type AnalysisFreshnessValue,
 } from '@/canvas/store/analysisFreshness'
 import { resolveTrustEffectiveState } from '@/canvas/hooks/useAnalysisTrust'
+import { useAnalysisState } from '@/canvas/state/analysisStateSelector'
 import { useShowToastSafe } from '@/canvas/ToastContext'
 import { RUN_ENDED_WITHOUT_NEW_RESULTS_COPY } from '@/canvas/components/analysisRunStatus'
 
@@ -148,7 +149,23 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
 
   // CEE verdict is the source of truth; the local dirty overlay may only
   // downgrade a retained 'fresh' to cannot-confirm (never fabricate 'stale').
-  const freshness = resolveDisplayedFreshness(effectiveState, dirty) as AnalysisFreshnessValue
+  //
+  // ⚠ RE-POINTED (analysis-state authority, step 5), and scoped deliberately.
+  // This strip was one of three surfaces independently deriving currency, and
+  // on a refused turn it rendered "current" while the hero rendered "complete"
+  // and the selector said "outdated" — three truths, one run.
+  //
+  // The wire verdict wins ONLY when this component is reading the STORE. When a
+  // caller passes `state`/`dirty` explicitly it is describing a specific verdict
+  // (fixtures, the Compare tab, focused tests), and a store-sourced verdict must
+  // not silently override what the caller asked to render.
+  const composedAnalysisState = useAnalysisState()
+  const legacyFreshness = resolveDisplayedFreshness(effectiveState, dirty) as AnalysisFreshnessValue
+  const readingStore = stateProp === undefined && dirtyProp === undefined
+  const freshness: AnalysisFreshnessValue =
+    readingStore && composedAnalysisState.authority === 'wire'
+      ? (composedAnalysisState.displayedFreshness ?? legacyFreshness)
+      : legacyFreshness
   const isStale = freshness === 'stale'
   // Mark when the displayed verdict differs from CEE's because of a local edit —
   // technical signal for tests/debug only, not user copy.

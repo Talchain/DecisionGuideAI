@@ -5,9 +5,19 @@
  * inputs when CEE stated an `analysis_state` — so the copy table below stays
  * the single source of that copy and is not restated anywhere.
  *
- * `useAnalysisDisplayState` (the hook wrapper) inherits wire authority
- * automatically, because the `analysisChanged` input it computes comes from
- * `useAnalysisTrust()`, which now reads the selector.
+ * ⚠ THE SENTENCE THAT USED TO SIT HERE WAS FALSE, and it is worth recording
+ * because it is the exact shape this codebase keeps paying for. It read:
+ * *"`useAnalysisDisplayState` inherits wire authority automatically, because
+ * the `analysisChanged` input it computes comes from `useAnalysisTrust()`."*
+ * It did not. That hook recomputed `analysisChanged` LOCALLY as
+ * `semantic === 'changed' || trust.orphaned`, which silently discards the
+ * selector's `wireForcesStale` rule — so a refused turn rendered a green
+ * "Analysis complete" while the selector said "outdated". A docstring asserting
+ * a wiring that does not exist is worse than no docstring: it stops the next
+ * reader checking.
+ *
+ * `useAnalysisDisplayState` now READS `useAnalysisState().displayState` and
+ * derives nothing, so the claim is true by construction rather than by comment.
  *
  * deriveAnalysisDisplayState — canonical mapper from raw analysis state
  * (CEE readiness + populated report + canvas-store staleness flag) to the

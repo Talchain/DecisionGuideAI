@@ -17,13 +17,18 @@ import { describe, expect, it } from 'vitest'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 
+import { ANALYSIS_RUN_STATE_KINDS } from '@talchain/schemas/boundary'
+
 import {
   composeAnalysisState,
   mapRunStateKindToSemantic,
+  mapRunStateKindToDisplayedFreshness,
   type ComposeAnalysisStateInput,
 } from '../analysisStateSelector'
 import {
   classifyFreshnessForDisplay,
+  resolveDisplayedFreshness,
+  VERDICT_ABSENT_FROM_PAYLOAD,
   type AnalysisFreshnessState,
 } from '../../store/analysisFreshness'
 import { computeAnalysisTrust } from '../../hooks/useAnalysisTrust'
@@ -351,6 +356,112 @@ describe('ABSENCE IS DISTINCT — not-stated is null, never a default', () => {
       analysisState: wireVerdict({ contradictions: [] }),
     })
     expect(composed.contradictions).toStrictEqual([])
+  })
+})
+
+describe('THE RUN PAIR — isRunning and runStartedAt come from ONE authority', () => {
+  const WIRE_RUNNING = wireVerdict({
+    run_state: { kind: 'running', started_at: '2026-08-16T09:30:00.000Z' },
+  })
+  const WIRE_STARTED_MS = Date.parse('2026-08-16T09:30:00.000Z')
+
+  it('wire running with NO local run supplies the wire clock — never an orphan isRunning', () => {
+    // The F9 defect: `isRunning` true with `runStartedAt` undefined makes every
+    // reused run-state banner narrate from its own mount time, reporting the
+    // age of the COMPONENT instead of the age of the RUN.
+    const composed = composeAnalysisState({
+      ...LEGACY_SAYS_CURRENT,
+      analysisState: WIRE_RUNNING,
+      resultsStatus: 'complete',
+      resultsStartedAt: undefined,
+    })
+    expect(composed.trust.isRunning).toBe(true)
+    expect(composed.trust.runStartedAt).toBe(WIRE_STARTED_MS)
+  })
+
+  it('local streaming is NOT vetoed by a wire verdict of complete_current', () => {
+    // Tearing the run cover down mid-run is the harm in the other direction: a
+    // run dispatched after CEE composed its verdict is newer information the
+    // verdict cannot know about.
+    const composed = composeAnalysisState({
+      ...LEGACY_SAYS_CURRENT,
+      analysisState: wireVerdict(),
+      resultsStatus: 'streaming',
+      resultsStartedAt: 1_760_000_000_000,
+    })
+    expect(composed.trust.isRunning).toBe(true)
+    expect(composed.trust.runStartedAt).toBe(1_760_000_000_000)
+  })
+
+  it('when BOTH assert a run, the clock comes from the SAME source that won', () => {
+    const composed = composeAnalysisState({
+      ...LEGACY_SAYS_CURRENT,
+      analysisState: WIRE_RUNNING,
+      resultsStatus: 'streaming',
+      resultsStartedAt: 1_760_000_000_000,
+    })
+    expect(composed.trust.isRunning).toBe(true)
+    // Local wins when both assert, so the clock must be the LOCAL one — a mixed
+    // pair would describe two different runs.
+    expect(composed.trust.runStartedAt).toBe(1_760_000_000_000)
+    expect(composed.trust.runStartedAt).not.toBe(WIRE_STARTED_MS)
+  })
+
+  it('neither asserting a run leaves isRunning false with the legacy clock intact', () => {
+    const composed = composeAnalysisState({
+      ...LEGACY_SAYS_CURRENT,
+      analysisState: wireVerdict(),
+      resultsStatus: 'complete',
+      resultsStartedAt: 1_760_000_000_000,
+    })
+    expect(composed.trust.isRunning).toBe(false)
+    expect(composed.trust.runStartedAt).toBe(1_760_000_000_000)
+  })
+})
+
+describe('DISPLAYED FRESHNESS — never fabricates stale, on either branch', () => {
+  it('is byte-identical to resolveDisplayedFreshness on the derived branch', () => {
+    const values = ['fresh', 'stale', 'unknown', 'none'] as const
+    for (const f of values) {
+      for (const dirty of [true, false]) {
+        const state = { freshness: f, freshnessReason: 'graph_hash_match' }
+        const composed = composeAnalysisState({
+          ...LEGACY_SAYS_CURRENT,
+          analysisState: null,
+          freshness: state,
+          dirty,
+        })
+        expect(composed.displayedFreshness).toBe(resolveDisplayedFreshness(state, dirty))
+      }
+    }
+  })
+
+  it('does NOT map a dirty-overlay "changed" semantic back to a fabricated stale', () => {
+    // The lossy round-trip this member exists to avoid: `semantic` is 'changed'
+    // here (VERDICT_ABSENT_FROM_PAYLOAD + dirty), but CEE never stated 'stale',
+    // so the displayed VALUE must stay 'unknown'. Deriving the value from the
+    // semantic would render the stale glyph for a verdict that does not exist.
+    const composed = composeAnalysisState({
+      ...LEGACY_SAYS_CURRENT,
+      analysisState: null,
+      freshness: {
+        freshness: 'unknown',
+        freshnessReason: VERDICT_ABSENT_FROM_PAYLOAD,
+      },
+      dirty: true,
+    })
+    expect(composed.semantic).toBe('changed')
+    expect(composed.displayedFreshness).toBe('unknown')
+    expect(composed.resultsTab.reallyStale).toBe(false)
+    expect(composed.resultsTab.cannotConfirm).toBe(true)
+  })
+
+  it('produces stale ONLY from a wire complete_stale', () => {
+    for (const kind of ANALYSIS_RUN_STATE_KINDS) {
+      const value = mapRunStateKindToDisplayedFreshness(kind, true)
+      if (kind === 'complete_stale') expect(value).toBe('stale')
+      else expect(value).not.toBe('stale')
+    }
   })
 })
 

@@ -41,9 +41,13 @@
  *   explicit allowlist + mapper + renderer + visibility tests before CEE
  *   relies on it being shown to the user.
  */
+import type { z } from 'zod';
+
 import {
   OlumiResponseSchema,
   BoundaryErrorSchema,
+  AnalysisStateV1Schema,
+  ModelBuildingNoticesSchema,
   type OlumiResponse,
   type BoundaryError,
 } from '@talchain/schemas/boundary';
@@ -102,6 +106,34 @@ export const ACTION_TYPE_ALIASES_APPLIED_KEY = 'action_type_aliases_applied' as 
  * sidecar emission rules).
  */
 export const UNKNOWN_BLOCKS_KEY = 'unknown_blocks' as const;
+
+/**
+ * Sidecar key under which a DECLARED-but-unparseable ADDITIVE ADVISORY key is
+ * recorded after being quarantined off the validated surface.
+ *
+ * WHY QUARANTINE EXISTS. A key that `OlumiResponseSchema` declares is strictly
+ * validated, so one malformed value rejects the WHOLE envelope and the user
+ * loses the turn. For the keys that carry the turn's substance
+ * (`analysis_ready`, `draft_graph`, `blocks`) that is CORRECT — rendering a
+ * turn without them would misrepresent what the server said.
+ *
+ * For a small set of ADDITIVE ADVISORY keys it is a pure regression. They are
+ * optional, every consumer has a complete fallback that ran in production
+ * before the key was declared, and while the key was UNDECLARED a garbage value
+ * was simply demoted to `__additive__` and the turn applied. Declaring the key
+ * must not make the product LESS robust than not having it.
+ *
+ * So those keys are pre-validated against their own schema BEFORE the envelope
+ * parse; a value that fails is lifted out and recorded here. The turn survives,
+ * the consumer feature-detects absence and falls back, and the debug bundle can
+ * still say the producer sent something unreadable.
+ *
+ * ⚠ ADDING A KEY TO `QUARANTINABLE_ADDITIVE_KEYS` IS A PRODUCT DECISION, NOT A
+ * TIDY-UP. The question to answer is: if this value is unreadable, is silently
+ * proceeding without it HONEST? For an advisory verdict with a tested fallback,
+ * yes. For anything the turn's meaning depends on, no — leave it fatal.
+ */
+export const QUARANTINED_KEYS_KEY = 'quarantined_unparseable_keys' as const;
 
 /**
  * Whitelist of v1.3 Phase 3 block types tolerated inside `blocks[]` and
@@ -208,6 +240,75 @@ export type OlumiResponseWithExtensions = OlumiResponse & {
 const KNOWN_OLUMI_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set(
   Object.keys(OlumiResponseSchema.shape),
 );
+
+/**
+ * The DECLARED top-level keys whose own validation failure is tolerated rather
+ * than fatal, each with the schema that decides it.
+ *
+ * DERIVED, NOT MIRRORED, in the one way that matters: each entry names the
+ * schema object itself, so the rule this file applies is *the same object* the
+ * envelope would have applied. There is no restated shape here to drift.
+ *
+ * ⚠ THE SET IS DELIBERATELY TINY AND MUST STAY THAT WAY. Membership requires
+ * BOTH: (1) the key is optional and additive — a turn is meaningful without it;
+ * (2) every consumer already has a complete, tested fallback for its absence.
+ * `analysis_state` qualifies because `canvas/state/analysisStateSelector.ts`
+ * feature-detects it and falls back to six derivations that ran in production
+ * before the key existed. `model_building_notices` qualifies for the same
+ * reason. `analysis_ready` DOES NOT — it carries the turn's substance, and
+ * proceeding without it would render a turn that misrepresents the server.
+ *
+ * `responseParser.analysisStateTolerance.spec.ts` pins both directions: the
+ * quarantined keys survive a garbage value, and `analysis_ready` stays fatal.
+ */
+const QUARANTINABLE_ADDITIVE_KEYS: ReadonlyArray<readonly [string, z.ZodTypeAny]> = [
+  ['analysis_state', AnalysisStateV1Schema],
+  ['model_building_notices', ModelBuildingNoticesSchema],
+];
+
+/**
+ * Lift out any quarantinable key whose value fails its own schema, so the
+ * strict envelope parse never sees it.
+ *
+ * Returns the value UNCHANGED when every present quarantinable key validates —
+ * the overwhelmingly common case, and the one where this must cost nothing.
+ */
+function quarantineUnparseableAdditiveKeys(known: unknown): {
+  known: unknown;
+  quarantined: Record<string, unknown>;
+} {
+  if (!known || typeof known !== 'object' || Array.isArray(known)) {
+    return { known, quarantined: {} };
+  }
+  const source = known as Record<string, unknown>;
+  const quarantined: Record<string, unknown> = {};
+  let next: Record<string, unknown> | null = null;
+
+  for (const [key, schema] of QUARANTINABLE_ADDITIVE_KEYS) {
+    // ABSENCE IS NOT A FAILURE. `undefined` means the producer sent nothing,
+    // which the optional field accepts; quarantining it would fabricate a
+    // diagnostic about a key that was never sent.
+    if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+    if (source[key] === undefined) continue;
+
+    const check = schema.safeParse(source[key]);
+    if (check.success) continue;
+
+    next ??= { ...source };
+    delete next[key];
+    quarantined[key] = Object.freeze({
+      // Issue PATHS and CODES only — never the offending value, which came from
+      // the producer and may carry user content.
+      issues: Object.freeze(
+        check.error.issues.map((i) =>
+          Object.freeze({ path: i.path.join('.'), code: i.code }),
+        ),
+      ),
+    });
+  }
+
+  return { known: next ?? source, quarantined };
+}
 
 /**
  * Split a raw response into the known surface (validated by zod) and a map
@@ -682,13 +783,28 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
   knownForValidation = aliasNorm.known
   const aliasRewrites = aliasNorm.rewrites
 
+  // Tolerance step 4 (additive advisory keys): pre-validate the quarantinable
+  // keys against their OWN schemas and lift out any that fail, so a producer
+  // bug in one optional advisory field cannot reject the whole envelope. See
+  // QUARANTINED_KEYS_KEY for why this is scoped and not general.
+  const quarantine = quarantineUnparseableAdditiveKeys(knownForValidation)
+  knownForValidation = quarantine.known
+  const quarantined = quarantine.quarantined
+
   const parsed = OlumiResponseSchema.safeParse(knownForValidation)
   if (parsed.success) {
     const hasTopLevelExt = Object.keys(extensions).length > 0
     const hasPhase3 = phase3Blocks.length > 0
     const hasAliasRewrites = aliasRewrites.length > 0
     const hasUnknownBlocks = unknownBlockCount > 0
-    if (!hasTopLevelExt && !hasPhase3 && !hasAliasRewrites && !hasUnknownBlocks) {
+    const hasQuarantined = Object.keys(quarantined).length > 0
+    if (
+      !hasTopLevelExt &&
+      !hasPhase3 &&
+      !hasAliasRewrites &&
+      !hasUnknownBlocks &&
+      !hasQuarantined
+    ) {
       return { kind: 'response', response: parsed.data }
     }
     // Compose the sidecar payload. Top-level additive keys keep their
@@ -717,6 +833,13 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
         count: unknownBlockCount,
         by_type: Object.freeze({ ...unknownBlocksByType }),
       })
+    }
+    if (hasQuarantined) {
+      // Diagnostic ONLY. Records WHICH declared advisory key was unreadable and
+      // the zod issue paths, never the raw value — the value came from the
+      // producer and may carry user content, and a debug bundle is the wrong
+      // place to widen that surface (same rule as UNKNOWN_BLOCKS_KEY above).
+      sidecar[QUARANTINED_KEYS_KEY] = Object.freeze({ ...quarantined })
     }
     if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
       sidecar[ORIGINAL_TOP_LEVEL_KEYS_KEY] = Object.freeze(

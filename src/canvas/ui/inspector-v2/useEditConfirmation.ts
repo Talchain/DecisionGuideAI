@@ -9,20 +9,22 @@
  */
 
 import { useState, useCallback } from 'react'
-import { useCanvasStore } from '../../store'
-import { resolveDisplayedFreshness } from '../../store/analysisFreshness'
+import { useAnalysisState } from '../../state/analysisStateSelector'
 
 export function useEditConfirmation() {
   const [lastConfirmed, setLastConfirmed] = useState<{ field: string; ts: number } | null>(null)
-  const freshness = useCanvasStore(s => s.analysisFreshness)
-  const dirty = useCanvasStore(s => s.analysisFreshnessDirty)
+  // ⚠ RE-POINTED (analysis-state authority, step 5). This derived
+  // `resolveDisplayedFreshness` from the freshness slice directly and was blind
+  // to CEE's composed verdict, so the edit-confirmation chip could claim the
+  // model was confirmably fresh on a turn CEE had refused to vouch for.
+  // Byte-identical when CEE states no verdict.
+  const displayed = useAnalysisState().displayedFreshness
 
   const confirm = useCallback((field: string) => {
     setLastConfirmed({ field, ts: Date.now() })
   }, [])
 
   // Not confirmably fresh per the sole freshness owner + an edit happened here.
-  const displayed = freshness ? resolveDisplayedFreshness(freshness, dirty) : null
   const notConfirmablyFresh = displayed === 'stale' || displayed === 'unknown'
   const isStaleAfterEdit = notConfirmablyFresh && lastConfirmed !== null
 

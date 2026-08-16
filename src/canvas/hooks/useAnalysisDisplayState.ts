@@ -1,47 +1,33 @@
 /**
- * useAnalysisDisplayState — hook wrapper over `deriveAnalysisDisplayState`.
+ * useAnalysisDisplayState — the hero/banner copy state, now READ FROM THE ONE
+ * SELECTOR rather than recomputed here.
  *
- * Subscribes to the four primitives the helper needs from the canvas store
- * (each via a narrow selector to avoid re-rendering on unrelated state) and
- * returns the canonical `AnalysisDisplayStateView`.
+ * ⚠ WHAT THIS FILE USED TO DO, AND WHY IT WAS WRONG. It subscribed to
+ * `ceeAnalysisReady.status` and `results.report` directly, took only
+ * `trust.semantic` from the composed verdict, and then ran
+ * `deriveAnalysisDisplayState` ITSELF with a locally-recomputed
+ * `analysisChanged`. That local recomputation is precisely the divergence the
+ * analysis-state migration exists to close, and it had a measured
+ * user-visible cost: on a `refused`, `unknown_degraded` or `blocked` turn the
+ * selector said "outdated" while this hook rendered a green **"Analysis
+ * complete"**, because `analysisChanged` was `semantic === 'changed'` and those
+ * three states map to cannot-confirm, which the legacy mapper deliberately
+ * treats as the neutral completion fact.
  *
- * Use this from any UI surface that displays "ready to analyse / analysis
- * complete / results may be outdated / set up your model" — banner copy,
- * CTA visibility, icon + colour all come from the helper output.
+ * The selector already resolves that (`wireForcesStale`), and it resolves it in
+ * ONE place. Recomputing here meant the flagship fix was dark on the surface
+ * that actually renders.
+ *
+ * So: this hook is now a projection, and the mapping rules live exactly once,
+ * in `canvas/state/analysisStateSelector.ts`.
+ *
+ * DO NOT re-introduce a local derivation here. If a surface needs something
+ * this view does not carry, add it to the composed verdict — the whole point is
+ * that two surfaces cannot disagree about a fact neither of them derives.
  */
-
-import { useCanvasStore } from '../store'
-import {
-  deriveAnalysisDisplayState,
-  type AnalysisDisplayStateView,
-} from '../utils/deriveAnalysisDisplayState'
-import { useAnalysisTrust } from './useAnalysisTrust'
+import { useAnalysisState } from '../state/analysisStateSelector'
+import type { AnalysisDisplayStateView } from '../utils/deriveAnalysisDisplayState'
 
 export function useAnalysisDisplayState(): AnalysisDisplayStateView {
-  // Defensive optional chaining: legacy test fixtures mock a partial store
-  // shape that omits `results`. The runtime store always provides it.
-  const ceeAnalysisReadyStatus = useCanvasStore((s) => s.ceeAnalysisReady?.status)
-  const hasReport = useCanvasStore((s) => s.results?.report != null)
-  // "Results may be outdated" must reflect the composed trust answer
-  // (`useAnalysisTrust`), NOT the local `graphEditedSinceLastRun` flag — so a
-  // CEE-sourced 'unknown' (cannot-confirm) never fabricates a stale claim
-  // here.
-  //
-  // RCA-D1: an orphaned result (a report hydrated on reload with no live-capture
-  // fact for the scenario) must NOT read as green "Analysis complete" — the same
-  // state already surfaces the strip's "can't confirm this is current" variant,
-  // and a green completion hero alongside it is a self-contradiction.
-  // deriveAnalysisDisplayState deliberately treats a CEE 'unknown' verdict as
-  // the neutral completion fact, so the semantic alone can't route this; OR in
-  // the trust composition's orphan flag (it never fires for a genuine run,
-  // which mints a fact via deriveV5AnalysisFactUpdate) and reuse the existing
-  // 'results_stale' branch ("Results may be outdated · Rerun").
-  const trust = useAnalysisTrust()
-  const notConfirmedCurrent = trust.semantic === 'changed' || trust.orphaned
-
-  return deriveAnalysisDisplayState({
-    ceeAnalysisReadyStatus,
-    hasReport,
-    analysisChanged: notConfirmedCurrent,
-  })
+  return useAnalysisState().displayState
 }

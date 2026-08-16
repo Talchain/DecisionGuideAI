@@ -35,7 +35,7 @@ import { registerCanonicalRunner, RUN_DISPATCHER_UNAVAILABLE_REASON, type Canoni
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
-import { resolveDisplayedFreshness } from '../store/analysisFreshness'
+import { useAnalysisState } from '../state/analysisStateSelector'
 import { getScenario } from '../store/scenarios'
 import { AnalysisFreshnessNotice } from '../../components/results/AnalysisFreshnessNotice'
 import { AnalysisRefusalNotice } from '../../components/results/AnalysisRefusalNotice'
@@ -862,9 +862,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // The results may be outdated when the displayed verdict is 'stale' (CEE) or
   // 'unknown' (cannot-confirm: a local edit downgraded a fresh verdict, or CEE
   // could not determine freshness). 'fresh'/'none'/null → not stale.
-  const ceeFreshness = useCanvasStore(s => s.analysisFreshness)
-  const freshnessDirty = useCanvasStore(s => s.analysisFreshnessDirty)
-  const displayedFreshness = resolveDisplayedFreshness(ceeFreshness, freshnessDirty)
+  //
+  // ⚠ RE-POINTED (analysis-state authority, step 5). This read
+  // `resolveDisplayedFreshness(analysisFreshness, dirty)` directly, which is
+  // blind to CEE's composed `analysis_state` verdict — so on a refused turn the
+  // strip said "current" here while the hero said "complete" and the selector
+  // said "outdated", all at once. It now reads THE one selector.
+  //
+  // Byte-identical when CEE states no verdict: the selector's derived branch IS
+  // `resolveDisplayedFreshness` over the same two store fields (plus the orphan
+  // fold the strip already applied).
+  const displayedFreshness = useAnalysisState().displayedFreshness
   const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
   // Anchor-run-control (Paul, 21-Jul): the sticky bottom AnalysisFooter is the
   // SOLE Rerun owner in every post-run state — it carries the robustness

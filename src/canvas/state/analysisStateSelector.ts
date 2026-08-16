@@ -59,7 +59,9 @@ import type {
 import { useCanvasStore } from '../store'
 import {
   classifyFreshnessForDisplay,
+  resolveDisplayedFreshness,
   type AnalysisFreshnessState,
+  type AnalysisFreshnessValue,
   type FreshnessDisplaySemantic,
 } from '../store/analysisFreshness'
 import {
@@ -214,6 +216,21 @@ export interface ComposedAnalysisState {
    * answer, unchanged.
    */
   readonly semantic: FreshnessDisplaySemantic
+  /**
+   * The displayed freshness VALUE — the `AnalysisFreshnessValue | null` that
+   * `resolveDisplayedFreshness` has always returned, and the thing the
+   * remaining raw call sites (the freshness strip, the Results tab, the
+   * edit-confirmation chip) actually consume.
+   *
+   * ⚠ IT IS NOT DERIVED FROM `semantic`, AND MUST NOT BE. The semantic is a
+   * LOSSY projection: `'changed'` is reachable both from a CEE-stated `'stale'`
+   * AND from `'unknown' + dirty`, so mapping `'changed'` back to a value would
+   * render `'stale'` for a verdict CEE never stated — the exact "never fabricate
+   * stale" rule `resolveDisplayedFreshness` exists to enforce. Under the derived
+   * branch this is `resolveDisplayedFreshness`'s own output, unchanged; under
+   * the wire branch it is mapped straight from `run_state.kind`.
+   */
+  readonly displayedFreshness: AnalysisFreshnessValue | null
   /** The composed trust answer — the shape `useAnalysisTrust()` has always returned. */
   readonly trust: AnalysisTrust
   /** The hero/banner copy state — the shape `useAnalysisDisplayState()` returns. */
@@ -314,6 +331,36 @@ export function mapRunStateKindToSemantic(
 }
 
 /**
+ * Map a wire run-state kind to the displayed freshness VALUE.
+ *
+ * Straight from the contract, never via `semantic` — see the
+ * `displayedFreshness` field doc for why the round-trip is unsafe. Note that
+ * `'stale'` is produced ONLY by `complete_stale`, i.e. only when CEE actually
+ * stated the result is out of date; every uncertainty kind lands on `'unknown'`
+ * (cannot-confirm), which is what keeps "never fabricate stale" true on the
+ * wire branch as well as the derived one.
+ */
+export function mapRunStateKindToDisplayedFreshness(
+  kind: AnalysisRunStateKind,
+  hasVisibleResult: boolean,
+): AnalysisFreshnessValue | null {
+  switch (kind) {
+    case 'never_run':
+    case 'blocked':
+      return 'none'
+    case 'running':
+      return hasVisibleResult ? 'unknown' : 'none'
+    case 'refused':
+    case 'unknown_degraded':
+      return 'unknown'
+    case 'complete_current':
+      return 'fresh'
+    case 'complete_stale':
+      return 'stale'
+  }
+}
+
+/**
  * Classify the legacy signals into a run-state kind, for the `'derived'` branch.
  *
  * CONSERVATIVE BY CONSTRUCTION. It returns only the four kinds the legacy
@@ -409,10 +456,47 @@ export function composeAnalysisState(
   const wire = analysisState ?? null
   const authority: AnalysisStateAuthority = wire === null ? 'derived' : 'wire'
 
-  const isRunning =
-    wire !== null
-      ? wire.run_state.kind === 'running'
-      : RUNNING_STATUSES.has(resultsStatus ?? '')
+  // ── THE RUN PAIR: `isRunning` and `runStartedAt` come from ONE authority ────
+  //
+  // ⚠ THIS WAS SPLIT AND IT PRODUCED TWO REAL DEFECTS. `isRunning` was
+  // wire-authoritative while `runStartedAt` stayed legacy, so:
+  //   · wire `running` with no local run → `isRunning` true, `runStartedAt`
+  //     undefined → every reused run-state banner narrates from its own
+  //     `mountedAtRef` and reports the age of the COMPONENT, not the run. That
+  //     is the F9 regression, re-opened by splitting the pair.
+  //   · local streaming with a wire verdict of `complete_current` → `isRunning`
+  //     false → the run cover is torn down MID-RUN.
+  //
+  // Two rules fix it. FIRST, running is a DISJUNCTION, because the two sources
+  // know different things: the wire describes the turn CEE composed it for,
+  // while the results slice knows about a run dispatched since. Neither can
+  // veto the other's knowledge of a run in flight, and being wrong toward
+  // "still running" costs a moment of extra chrome, whereas being wrong toward
+  // "finished" tears down a live run.
+  //
+  // SECOND, whichever source asserts the run also supplies its clock — so
+  // `runStartedAt` is never an orphan, and the two values can never describe
+  // different runs. The local slice wins when both assert, because it is the
+  // more immediate observation of the run actually on screen.
+  const localRunning = RUNNING_STATUSES.has(resultsStatus ?? '')
+  const wireRunning = wire !== null && wire.run_state.kind === 'running'
+  // `.datetime()` on the contract makes an unparseable value unreachable
+  // through a validated payload; the guard is here so that if it ever IS
+  // reachable the pair degrades to the local clock rather than to `undefined`,
+  // which is the F9 defect wearing a different hat.
+  const wireStartedAt =
+    wire !== null && wire.run_state.kind === 'running'
+      ? Date.parse(wire.run_state.started_at)
+      : Number.NaN
+  const runPair: { isRunning: boolean; runStartedAt?: number } = localRunning
+    ? { isRunning: true, runStartedAt: resultsStartedAt }
+    : wireRunning
+      ? {
+          isRunning: true,
+          runStartedAt: Number.isFinite(wireStartedAt) ? wireStartedAt : resultsStartedAt,
+        }
+      : { isRunning: false, runStartedAt: resultsStartedAt }
+  const isRunning = runPair.isRunning
 
   const runStateKind: AnalysisRunStateKind =
     wire !== null
@@ -439,17 +523,13 @@ export function composeAnalysisState(
   // result already on screen, and dropping it would silently remove the orphan
   // affordance from surfaces that have always had it.
   //
-  // `runStartedAt` also stays legacy-sourced, and that is a DELIBERATE NARROWING
-  // rather than an absence — do not "fix" it by reading the wire. The `running`
-  // branch DOES carry `started_at`, but as an ISO timestamp for the run CEE has
-  // in flight, whereas this field is the local wall-clock ms the results slice
-  // stamped. They are different clocks; swapping one for the other would move
-  // every "running for Ns" readout onto a different time base for no stated
-  // benefit. Adopting it is its own change, with its own reason.
+  // `isRunning`/`runStartedAt` come from the run pair above, as ONE unit — see
+  // the long note there for the two defects that splitting them caused.
   const trust: AnalysisTrust = {
     ...legacyTrust,
     semantic,
-    isRunning,
+    isRunning: runPair.isRunning,
+    runStartedAt: runPair.runStartedAt,
   }
 
   // Hero/banner copy: reuse the existing mapper rather than restating its copy
@@ -487,9 +567,28 @@ export function composeAnalysisState(
     analysisChanged: wireForcesStale || semantic === 'changed' || trust.orphaned,
   })
 
+  // The orphan fold applies on the derived branch exactly as the freshness
+  // strip has always applied it, so a recovered-session result keeps reading
+  // cannot-confirm rather than reverting to "no verdict".
+  const { state: effectiveForValue } = resolveTrustEffectiveState(
+    freshness,
+    legacyTrust.orphaned,
+  )
+  const displayedFreshness: AnalysisFreshnessValue | null =
+    wire !== null
+      ? mapRunStateKindToDisplayedFreshness(wire.run_state.kind, hasReport)
+      : resolveDisplayedFreshness(effectiveForValue, dirty)
+
+  // ⚠ This used to pass `semantic === 'changed' ? 'stale' : ...` — the very
+  // lossy round-trip the `displayedFreshness` doc warns against, written into
+  // this file by the same hand that wrote the warning. On the derived branch
+  // `'changed'` is reachable from `'unknown' + dirty`, so it would have shown
+  // the Results tab the STALE glyph for a verdict CEE never stated, which is
+  // precisely what `resultsTabFreshness.ts`'s own header forbids. It reads the
+  // value now, not the projection.
   const resultsTab: ResultsTabFreshnessIndicator = deriveResultsTabFreshness(
     aiPanelV2On,
-    semantic === 'changed' ? 'stale' : semantic === 'cannot_confirm' ? 'unknown' : null,
+    displayedFreshness,
   )
 
   // ── Producer-only members. NULL means NOT STATED — never a default. ────────
@@ -504,6 +603,7 @@ export function composeAnalysisState(
     wire,
     runStateKind,
     semantic,
+    displayedFreshness,
     trust,
     displayState,
     resultsTab,
