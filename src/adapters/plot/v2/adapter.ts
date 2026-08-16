@@ -1885,57 +1885,6 @@ export async function runV2(
 }
 
 /**
- * Full V2 adapter workflow:
- * 1. Build request from canvas state
- * 2. Make HTTP call
- * 3. Translate response IDs back to UI IDs
- *
- * @param requestId - Optional request ID for tracing (auto-generated if not provided)
- */
-export async function executeV2Run(
-  config: V2AdapterConfig,
-  nodes: Node<CanvasNodeData>[],
-  edges: Edge<CanvasEdgeData>[],
-  options: UIOption[],
-  goalNodeId: string,
-  requestId?: string
-): Promise<V2RunResult> {
-  // Build request with ID normalisation
-  const { request, reverseIdMap } = buildV2Request(nodes, edges, options, goalNodeId)
-
-  // Add request ID for tracing
-  if (requestId) {
-    request.request_id = requestId
-  }
-
-  if (import.meta.env.DEV) {
-    console.warn('[V2Adapter] Sending request:', {
-      requestId: request.request_id,
-      nodeCount: request.graph.nodes.length,
-      edgeCount: request.graph.edges.length,
-      optionCount: request.options.length,
-      goalNodeId: request.goal_node_id,
-    })
-  }
-
-  // Execute request
-  const result = await runV2(config, request)
-
-  // Translate response IDs back to UI IDs
-  const translated = translateV2Response(result, reverseIdMap)
-
-  if (import.meta.env.DEV) {
-    console.warn('[V2Adapter] Response:', {
-      requestId: translated.request_id,
-      status: translated.analysis_status,
-      isBlocked: isBlockedResponse(translated),
-    })
-  }
-
-  return translated
-}
-
-/**
  * Execute V2 run using CEE analysis_ready when available.
  *
  * Preferred entry point for P0-UI integration:

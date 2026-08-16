@@ -3,32 +3,36 @@
  *
  * Combines:
  * 1. Scenario generation from current graph (generateScenarios)
- * 2. API call to PLoT /v2/run (single request with both options)
- * 3. Result transformation for ScenarioComparison display
+ * 2. The structural diff between the generated scenarios
  *
- * Architecture (post-fix):
- * - Sends ONE request to /bff/engine/v2/run with full graph + both options
- * - Extracts per-option results from response.option_comparison array
- * - Sliced graphs from generateScenarios() are for UI display/diff only
+ * ⚠ THE COMPUTE LEG IS RETIRED. This hook used to POST the full graph to PLoT
+ * `/v2/run` directly from the browser and render per-option numbers from the
+ * response. That direct browser→PLoT call is retired: analysis is orchestrated
+ * by CEE, and no CEE-routed compare endpoint exists yet.
+ *
+ * What survives is REAL: the sliced graphs and their structural diff are
+ * computed locally. What is gone is the NUMBERS, and the hook reports that as
+ * its own status (`'unavailable'`) rather than as a failure or as a fabricated
+ * empty result. See COMPARISON_UNAVAILABLE_REASON.
  */
 
 import { useState, useCallback, useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { generateScenarios, canGenerateScenarios } from '../utils/generateScenarios'
-import { unwrapInterventionValue } from '../utils/labelUtils'
 import type { Snapshot, ComparisonResult } from '../snapshots/types'
 import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
-import {
-  runV2,
-  buildV2Request,
-  isBlockedResponse,
-  isFailedAnalysis,
-  isSuccessfulAnalysis,
-  type V2AdapterConfig,
-  type V2RunResponse,
-  type V2OptionComparison,
-} from '../../adapters/plot/v2'
+
+/**
+ * The user-facing reason the comparison shows no numbers.
+ *
+ * Exported so the rendering surface and its guard bind to THIS string by
+ * identity rather than to a copy that could drift (trap 19). It must stay
+ * true: it claims only that the compute is unavailable in this build, and
+ * promises nothing about when it returns.
+ */
+export const COMPARISON_UNAVAILABLE_REASON =
+  'Comparison numbers are unavailable in this build. The structural differences below are real, but no analysis was run to compare the options.'
 
 /**
  * Analysis status from PLoT response.
@@ -37,7 +41,19 @@ import {
  * - blocked: Error state, show status_reason, no retry (user must fix graph)
  * - failed: Error state, show status_reason, allow retry
  */
-export type ComparisonAnalysisStatus = 'idle' | 'loading' | 'computed' | 'partial' | 'blocked' | 'failed'
+export type ComparisonAnalysisStatus =
+  | 'idle'
+  | 'loading'
+  | 'computed'
+  | 'partial'
+  | 'blocked'
+  | 'failed'
+  /**
+   * The compute leg is retired: no analysis was run, so there are no
+   * numbers. Distinct from 'failed' on purpose — nothing failed, and
+   * saying it did would be untrue. See COMPARISON_UNAVAILABLE_REASON.
+   */
+  | 'unavailable'
 
 /**
  * Per-option outcome result extracted from PLoT response.
@@ -203,44 +219,6 @@ function computeComparison(a: Snapshot, b: Snapshot): ComparisonResult {
 }
 
 /**
- * Extract option outcome from V2 response option_comparison array.
- */
-function extractOptionOutcome(
-  optionComparison: V2OptionComparison[] | undefined,
-  optionId: string,
-  fallbackLabel?: string
-): OptionOutcome | null {
-  if (!optionComparison) return null
-  const result = optionComparison.find(oc => oc.option_id === optionId)
-  if (!result) return null
-
-  return {
-    optionId: result.option_id,
-    optionLabel: result.option_label || fallbackLabel || optionId,
-    outcome: {
-      mean: result.expected_outcome ?? result.outcome?.mean ?? 0,
-      std: result.outcome?.std,
-      // Task 2: Use p10/p90, not p5/p95
-      p10: result.outcome?.p10 ?? result.confidence_interval?.[0] ?? 0,
-      p50: result.outcome?.p50 ?? result.expected_outcome ?? 0,
-      p90: result.outcome?.p90 ?? result.confidence_interval?.[1] ?? 0,
-    },
-    probabilityOfGoal: result.probability_of_goal,
-    winProbability: result.win_probability,
-    status: 'computed',
-  }
-}
-
-function buildFallbackOutcome(optionId: string, label: string): OptionOutcome {
-  return {
-    optionId,
-    optionLabel: label,
-    outcome: { mean: 0, p10: 0, p50: 0, p90: 0 },
-    status: 'failed',
-  }
-}
-
-/**
  * Get goal node info from canvas nodes.
  * Task 4: Respect selected goal, with fallback to first goal/outcome node.
  */
@@ -347,278 +325,49 @@ export function useScenarioComparison(): UseScenarioComparisonReturn {
           throw new Error('Could not identify option nodes in scenarios')
         }
 
-        const optionLabelMap = new Map(
-          scenarioOptionIds.map((id, idx) => [id, labels[idx] || `Option ${id}`])
-        )
-
         // 5. Get goal node info (Task 4: respect selected goal)
-        const goalInfo = getGoalNodeInfo(nodes, outcomeNodeId)
-        if (!goalInfo) {
+        // The goal-node precondition is still real: without one there is
+        // nothing to compare, and saying so is truer than an empty view.
+        if (!getGoalNodeInfo(nodes, outcomeNodeId)) {
           throw new Error('No goal node selected or found. Please select a goal node before comparing.')
         }
 
-        // 6. Build V2 request with FULL graph + both options
-        // Critical: PLoT requires minimum 2 options per request
-        const validNodeIds = new Set(nodes.map(n => n.id))
-        const optionNodes = nodes.filter(n => {
-          const kind = (n.data as Record<string, unknown>)?.kind
-          const type = (n.data as Record<string, unknown>)?.type
-          return kind === 'option' || type === 'option' || n.type === 'option'
+        // 6. RETIRED — the direct browser→PLoT compare compute is gone.
+        //
+        // This surface used to POST the whole graph straight to PLoT `/v2/run`
+        // from the browser. That call is retired with the rest of the direct
+        // browser→PLoT run seam (analysis is orchestrated by CEE), and no
+        // CEE-routed compare endpoint exists yet.
+        //
+        // We deliberately do NOT fabricate numbers and do NOT reuse the
+        // 'failed' state — nothing failed, so saying "Comparison failed" would
+        // be untrue. The structural diff is computed locally and IS still
+        // true, so the comparison view still opens; only the computed numbers
+        // are missing, and the surface says exactly that.
+        setState({
+          loading: false,
+          analysisStatus: 'unavailable',
+          error: null,
+          snapshotA,
+          snapshotB,
+          comparison,
+          apiResponse: null,
         })
 
-        // Build options array with interventions from option nodes
-        const uiOptions = optionNodes
-          .filter(n => scenarioOptionIds.includes(n.id))
-          .map(node => {
-            const data = node.data as Record<string, unknown>
-            const interventions: Record<string, number> = {}
-
-            // Extract interventions from node data. Use the shared unwrap
-            // helper so heterogeneous shapes (number / V3 object / malformed)
-            // are normalised once. Entries that fail to unwrap are dropped
-            // — sending {value: null} to PLoT would either error or produce
-            // nonsense scenarios.
-            if (data?.interventions && typeof data.interventions === 'object') {
-              for (const [key, rawValue] of Object.entries(data.interventions as Record<string, unknown>)) {
-                if (validNodeIds.has(key) && key !== node.id) {
-                  const { value: unwrapped } = unwrapInterventionValue(rawValue)
-                  if (unwrapped != null) {
-                    interventions[key] = unwrapped
-                  }
-                }
-              }
-            }
-
-            return {
-              id: node.id,
-              label: (data?.label as string) || optionLabelMap.get(node.id) || node.id,
-              status: 'ready' as const,
-              interventions: Object.fromEntries(
-                Object.entries(interventions).map(([k, v]) => [k, { value: v, source: 'user_specified' as const }])
-              ),
-              source: 'legacy_node' as const,
-            }
-          })
-
-        // 7. Call PLoT /v2/run with full graph + both options
-        const config: V2AdapterConfig = {
-          baseUrl: import.meta.env?.VITE_PLOT_PROXY_BASE || '/bff/engine',
-          timeout: 120000,
-        }
-
-        const { request, reverseIdMap: _reverseIdMap } = buildV2Request(
-          nodes as Node<Record<string, unknown>>[],
-          edges as Edge<Record<string, unknown>>[],
-          uiOptions,
-          goalInfo.id
+        enterComparisonMode(
+          scenarios.map((scenario, idx) => ({
+            nodes: scenario.nodes,
+            edges: scenario.edges as Edge<EdgeData>[],
+            label: labels[idx] || `Option ${scenarioOptionIds[idx]}`,
+            optionId: scenarioOptionIds[idx],
+          })),
+          null,
+          comparison,
+          null,
+          { hasMoreOptions, allOptionsCount: allOptions.length }
         )
+        return
 
-        // Add request ID for tracing
-        request.request_id = `compare-${Date.now()}`
-
-        if (import.meta.env.DEV) {
-          console.log('[useScenarioComparison] Sending PLoT request:', {
-            requestId: request.request_id,
-            nodeCount: request.graph.nodes.length,
-            edgeCount: request.graph.edges.length,
-            optionCount: request.options.length,
-            goalNodeId: request.goal_node_id,
-            optionIds: request.options.map(o => o.id),
-          })
-        }
-
-        const result = await runV2(config, request)
-
-        // 8. Handle response based on analysis_status (Task 5)
-        let apiResponse: ComparisonApiResponse
-
-        if (isBlockedResponse(result)) {
-          // Blocked: user must fix graph, no retry
-          const fallbackOptions = scenarioOptionIds.map((id, idx) =>
-            buildFallbackOutcome(id, labels[idx] || `Option ${id}`)
-          )
-          const optionById = Object.fromEntries(fallbackOptions.map((opt) => [opt.optionId, opt]))
-
-          apiResponse = {
-            analysisStatus: 'blocked',
-            statusReason: result.status_reason,
-            options: fallbackOptions,
-            optionById,
-            goalNodeId: goalInfo.id,
-            goalLabel: goalInfo.label,
-            goalUnit: goalInfo.unit,
-          }
-
-          setState({
-            loading: false,
-            analysisStatus: 'blocked',
-            error: result.status_reason,
-            snapshotA,
-            snapshotB,
-            comparison,
-            apiResponse,
-          })
-
-          // Still enter comparison mode to show the structural diff
-          // Type assertion safe: edges originate from canvas store which uses EdgeData
-          enterComparisonMode(
-            scenarios.map((scenario, idx) => ({
-              nodes: scenario.nodes,
-              edges: scenario.edges as Edge<EdgeData>[],
-              label: labels[idx] || `Option ${scenarioOptionIds[idx]}`,
-              optionId: scenarioOptionIds[idx],
-            })),
-            null,
-            comparison,
-            { analysis_status: 'blocked' },
-            { hasMoreOptions, allOptionsCount: allOptions.length }
-          )
-          return
-        }
-
-        if (isFailedAnalysis(result)) {
-          // Failed: allow retry
-          const failedResult = result as V2RunResponse
-          const fallbackOptions = scenarioOptionIds.map((id, idx) =>
-            buildFallbackOutcome(id, labels[idx] || `Option ${id}`)
-          )
-          const optionById = Object.fromEntries(fallbackOptions.map((opt) => [opt.optionId, opt]))
-
-          apiResponse = {
-            analysisStatus: 'failed',
-            statusReason: 'Analysis could not complete. Please try again.',
-            options: fallbackOptions,
-            optionById,
-            goalNodeId: goalInfo.id,
-            goalLabel: goalInfo.label,
-            goalUnit: goalInfo.unit,
-            responseHash: failedResult.response_hash,
-          }
-
-          setState({
-            loading: false,
-            analysisStatus: 'failed',
-            error: 'Analysis could not complete',
-            snapshotA,
-            snapshotB,
-            comparison,
-            apiResponse,
-          })
-
-          enterComparisonMode(
-            scenarios.map((scenario, idx) => ({
-              nodes: scenario.nodes,
-              edges: scenario.edges as Edge<EdgeData>[],
-              label: labels[idx] || `Option ${scenarioOptionIds[idx]}`,
-              optionId: scenarioOptionIds[idx],
-            })),
-            null,
-            comparison,
-            { analysis_status: 'failed' },
-            { hasMoreOptions, allOptionsCount: allOptions.length }
-          )
-          return
-        }
-
-        if (isSuccessfulAnalysis(result)) {
-          const successResult = result as V2RunResponse
-          const status: ComparisonAnalysisStatus = successResult.analysis_status === 'partial' ? 'partial' : 'computed'
-
-          // Extract per-option outcomes from option_comparison array
-          const options = scenarioOptionIds.map((id, idx) =>
-            extractOptionOutcome(successResult.option_comparison, id, labels[idx] || `Option ${id}`)
-              ?? buildFallbackOutcome(id, labels[idx] || `Option ${id}`)
-          )
-          const optionById = Object.fromEntries(options.map((opt) => [opt.optionId, opt]))
-
-          const bestOption = [...options]
-            .filter((opt) => opt.status === 'computed')
-            .sort((a, b) => {
-              const aScore = a.winProbability ?? a.outcome.mean
-              const bScore = b.winProbability ?? b.outcome.mean
-              return bScore - aScore
-            })[0]
-
-          apiResponse = {
-            analysisStatus: status,
-            statusReason: status === 'partial' ? 'Some results may be incomplete' : undefined,
-            options,
-            optionById,
-            bestOptionId: bestOption?.optionId,
-            goalNodeId: goalInfo.id,
-            goalLabel: goalInfo.label,
-            goalUnit: goalInfo.unit,
-            responseHash: successResult.response_hash,
-          }
-
-          if (import.meta.env.DEV) {
-            console.log('[useScenarioComparison] PLoT response processed:', {
-              status,
-              optionCount: options.length,
-              goalLabel: goalInfo.label,
-            })
-          }
-
-          setState({
-            loading: false,
-            analysisStatus: status,
-            error: null,
-            snapshotA,
-            snapshotB,
-            comparison,
-            apiResponse,
-          })
-
-          const optionComparisonPayload = successResult.option_comparison?.map((item) => ({
-            option_id: item.option_id,
-            option_label: item.option_label,
-            expected_outcome: item.expected_outcome,
-            win_probability: item.win_probability,
-            outcome: item.outcome?.mean !== undefined
-              ? {
-                  mean: item.outcome.mean ?? 0,
-                  p10: item.outcome.p10 ?? 0,
-                  p50: item.outcome.p50 ?? 0,
-                  p90: item.outcome.p90 ?? 0,
-                }
-              : undefined,
-          }))
-
-          const legacyApiResponse = options.length >= 2 ? {
-            base_scenario: {
-              id: options[0].optionId,
-              name: options[0].optionLabel,
-              outcome_predictions: { [goalInfo.id]: options[0].outcome.mean },
-            },
-            alternative_scenarios: options.slice(1).map((opt) => ({
-              id: opt.optionId,
-              name: opt.optionLabel,
-              outcome_predictions: { [goalInfo.id]: opt.outcome.mean },
-            })),
-            option_comparison: optionComparisonPayload,
-            analysis_status: successResult.analysis_status,
-          } : {
-            option_comparison: optionComparisonPayload,
-            analysis_status: successResult.analysis_status,
-          }
-
-          enterComparisonMode(
-            scenarios.map((scenario, idx) => ({
-              nodes: scenario.nodes,
-              edges: scenario.edges as Edge<EdgeData>[],
-              label: labels[idx] || `Option ${scenarioOptionIds[idx]}`,
-              optionId: scenarioOptionIds[idx],
-            })),
-            null,
-            comparison,
-            legacyApiResponse,
-            { hasMoreOptions, allOptionsCount: allOptions.length }
-          )
-          return
-        }
-
-        // Unexpected state
-        throw new Error('Unexpected response format from PLoT')
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Comparison failed'
