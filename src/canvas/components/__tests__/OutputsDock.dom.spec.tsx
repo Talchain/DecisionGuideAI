@@ -285,6 +285,21 @@ describe('OutputsDock DOM', () => {
     expect(headerLabel).toBeInTheDocument()
   })
 
+  it('rehydrates the retired Alt view tab as the default Analysis tab', () => {
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ isOpen: true, activeTab: 'altview' }),
+    )
+
+    renderOutputsDock()
+
+    expect(screen.getByText('Analysis', { selector: 'span[aria-live="polite"]' })).toBeInTheDocument()
+    expect(JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? '{}')).toMatchObject({
+      isOpen: true,
+      activeTab: 'results',
+    })
+  })
+
   it('reads initial active tab from ?tab= query parameter', () => {
     try {
       window.history.replaceState({}, '', '/canvas?tab=diagnostics')

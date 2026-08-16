@@ -24,6 +24,7 @@ import { isAiPanelV2Enabled } from '../../flags'
 import { useDockState } from '../hooks/useDockState'
 import {
   DEFAULT_OUTPUTS_DOCK_STATE,
+  normaliseOutputsDockState,
   OUTPUTS_DOCK_STORAGE_KEY,
   type OutputsDockState,
 } from './OutputsDock'
@@ -393,10 +394,11 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // Session storage is only this authority's reload boundary; reading it here
   // directly used to miss a live minimise→collapse transition until some
   // unrelated floating state changed.
-  const [dockState] = useDockState<OutputsDockState>(
+  const [persistedDockState] = useDockState<OutputsDockState>(
     OUTPUTS_DOCK_STORAGE_KEY,
     DEFAULT_OUTPUTS_DOCK_STATE,
   )
+  const dockState = normaliseOutputsDockState(persistedDockState)
   // Yield to the docked Olumi composer ONLY when it can actually be on screen
   // (dockHostsOlumi) — otherwise suppressing this surface would strand the user.
   // On an empty canvas the dock is always the collapsed first-use rail, so it

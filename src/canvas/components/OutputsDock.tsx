@@ -180,6 +180,34 @@ export const DEFAULT_OUTPUTS_DOCK_STATE: OutputsDockState = {
   activeTab: 'results',
 }
 
+const KNOWN_OUTPUTS_DOCK_TABS: Readonly<Record<OutputTab, true>> = {
+  results: true,
+  compare: true,
+  diagnostics: true,
+  journey: true,
+  olumi: true,
+}
+
+/**
+ * Fail closed when sessionStorage carries a tab retired by a newer build.
+ *
+ * The dock and floating panel now share one subscribed in-memory authority,
+ * so both consumers must normalise the reload value before their first paint.
+ * The exhaustive Record keeps this runtime boundary aligned with OutputTab;
+ * notably, the retired `altview` id is not admitted.
+ */
+export function normaliseOutputsDockState(
+  state: { isOpen: boolean; activeTab: unknown },
+): OutputsDockState {
+  if (
+    typeof state.activeTab === 'string' &&
+    Object.prototype.hasOwnProperty.call(KNOWN_OUTPUTS_DOCK_TABS, state.activeTab)
+  ) {
+    return state as OutputsDockState
+  }
+  return { ...state, activeTab: DEFAULT_OUTPUTS_DOCK_STATE.activeTab }
+}
+
 /**
  * Pure helper for the toggle-open click handler.
  *
@@ -371,10 +399,11 @@ interface OutputsDockBodyProps {
 
 function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
-  const [state, setState] = useDockState<OutputsDockState>(
+  const [persistedState, setState] = useDockState<OutputsDockState>(
     STORAGE_KEY,
     DEFAULT_OUTPUTS_DOCK_STATE,
   )
+  const state = normaliseOutputsDockState(persistedState)
   // sendMessage comes from props so the OutputsDock function above is
   // the single useConversation() host; OutputsDockBody never calls it
   // directly. Under the aiPanelV2 floating-first UX, the canvas-root
@@ -383,6 +412,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   // Tab guards: if persisted tab references a disabled flag, reset to 'results'
   useEffect(() => {
+    if (state !== persistedState) {
+      setState(state)
+      return
+    }
     if (state.activeTab === 'journey' && !isJourneyTabEnabled()) {
       setState(prev => ({ ...prev, activeTab: 'results' }))
     }
