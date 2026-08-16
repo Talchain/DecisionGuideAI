@@ -12,7 +12,6 @@
  */
 import { useCallback } from 'react'
 import { NodeShapeIndicator } from '../NodeShapeIndicator'
-import { useCanvasStore } from '../../store'
 import { typography } from '../../../styles/typography'
 import type { NodeType } from '../../domain/nodes'
 import { openEdgeStrengthEditor } from '../../utils/openEdgeStrengthEditor'

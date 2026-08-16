@@ -34,7 +34,6 @@ import {
   guidanceCategoryIcon,
   type GuidanceItem,
 } from '../../stores/guidanceStore'
-import { useCanvasStore } from '../../store'
 import { typography } from '../../../styles/typography'
 import { openNodeInspector } from './openNodeInspector'
 
