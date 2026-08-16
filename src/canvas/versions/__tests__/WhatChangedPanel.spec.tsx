@@ -54,7 +54,7 @@ describe('WhatChangedPanel', () => {
   it('invites a first save when no versions exist', () => {
     render(<WhatChangedPanel isOpen onClose={() => {}} />)
 
-    expect(screen.getByText(/no versions saved yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/no versions yet/i)).toBeInTheDocument()
   })
 
   it('states the local-only storage limitation on screen', () => {
@@ -78,7 +78,7 @@ describe('WhatChangedPanel', () => {
 
     saveVersionNamed('Baseline')
 
-    expect(screen.getByText(/save a second version/i)).toBeInTheDocument()
+    expect(screen.getByText(/save a second to compare them/i)).toBeInTheDocument()
   })
 
   it('renders the changed field between two saved versions', () => {
@@ -123,7 +123,7 @@ describe('WhatChangedPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete version Disposable' }))
 
     expect(screen.queryByText('Disposable')).not.toBeInTheDocument()
-    expect(screen.getByText(/no versions saved yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/no versions yet/i)).toBeInTheDocument()
   })
 
   it('surfaces a real save failure instead of pretending it worked', () => {

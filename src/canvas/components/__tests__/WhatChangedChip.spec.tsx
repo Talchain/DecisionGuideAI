@@ -76,7 +76,7 @@ describe('WhatChangedChip — visibility', () => {
     loadRunsMock.mockReturnValue([run({ nodes: [node('a', 'A')], edges: [] })])
     render(<WhatChangedChip />)
     const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed\?/i)
+    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
     expect(() => fireEvent.click(chip)).not.toThrow()
     expect(pulseMock).not.toHaveBeenCalled()
   })
@@ -88,7 +88,7 @@ describe('WhatChangedChip — visibility', () => {
     loadRunsMock.mockReturnValue([])
     render(<WhatChangedChip />)
     const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed\?/i)
+    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
     expect(() => fireEvent.click(chip)).not.toThrow()
     expect(pulseMock).not.toHaveBeenCalled()
   })
@@ -101,7 +101,7 @@ describe('WhatChangedChip — visibility', () => {
     loadRunsMock.mockReturnValue([run(g), run(g)])
     render(<WhatChangedChip />)
     const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed\?/i)
+    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
     fireEvent.click(chip)
     expect(pulseMock).not.toHaveBeenCalled()
   })
@@ -113,7 +113,7 @@ describe('WhatChangedChip — visibility', () => {
     ])
     render(<WhatChangedChip />)
     const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed\?/i)
+    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
     fireEvent.click(chip)
     expect(pulseMock).not.toHaveBeenCalled()
   })
@@ -127,7 +127,7 @@ describe('WhatChangedChip — visibility', () => {
     const chip = screen.getByTestId('what-changed-chip')
     // Anti-fabrication contract preserved: no "+2 nodes" conjured from []-diff.
     expect(chip.textContent).not.toMatch(/[+~-]\d/)
-    expect(chip.textContent).toMatch(/what changed\?/i)
+    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
     fireEvent.click(chip)
     expect(pulseMock).not.toHaveBeenCalled()
   })
@@ -181,7 +181,7 @@ describe('WhatChangedChip — diffs the last two runs (newest-first order)', () 
     // A layout-only move yields a zero analytical delta: no count shown, and
     // no pulse — but the chip is still actionable (the CEE send is unblocked).
     expect(chip.textContent).not.toMatch(/[+~-]\d/)
-    expect(chip.textContent).toMatch(/what changed\?/i)
+    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
     fireEvent.click(chip)
     expect(pulseMock).not.toHaveBeenCalled()
   })
@@ -248,7 +248,7 @@ describe('WhatChangedChip — honesty + a11y + DS', () => {
 
   it('copy states the client-side previous-run basis', () => {
     render(<WhatChangedChip />)
-    expect(screen.getByTestId('what-changed-chip').textContent).toMatch(/since your last run/i)
+    expect(screen.getByTestId('what-changed-chip').textContent).toMatch(/since your last analysis run/i)
   })
 
   it('has an accessible label naming the delta and the highlight action', () => {
@@ -277,7 +277,7 @@ describe("Paul's ruling (2026-07-12): keep + improve — honest basis, clear ico
 
   it('the device-local basis is a VISIBLE label, not tooltip-only', () => {
     render(<WhatChangedChip />)
-    expect(screen.getByText('Compared with your previous run on this device')).toBeInTheDocument()
+    expect(screen.getByText('Compared with your previous analysis run on this device')).toBeInTheDocument()
   })
 
   it('uses a compare glyph, not the sort-reading ArrowUpDown', () => {
