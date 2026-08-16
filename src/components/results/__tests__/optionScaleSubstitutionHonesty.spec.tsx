@@ -55,7 +55,7 @@
  * re-asserts that row's own label, so no assertion can be satisfied by a
  * sibling (trap 19).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup, within } from '@testing-library/react'
 
 import { V7ComparisonTabBody } from '../v7/V7ComparisonTabBody'
@@ -221,15 +221,8 @@ function barLabels(optionId: string, label: string): string[] {
   )
 }
 
-beforeEach(() => {
-  // Deployed posture, read from netlify.toml (VITE_FEATURE_ANALYSIS_HERO_PANEL="1")
-  // and injected through the flag system's own localStorage seam rather than a
-  // module mock, so the real predicate runs.
-  localStorage.setItem('feature.analysisHeroPanel', '1')
-})
 afterEach(() => {
   cleanup()
-  localStorage.removeItem('feature.analysisHeroPanel')
 })
 
 // ───────────────────────────────────────────────────────────────────────────

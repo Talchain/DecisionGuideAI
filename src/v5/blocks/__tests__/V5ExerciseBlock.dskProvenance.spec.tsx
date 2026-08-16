@@ -3,8 +3,8 @@
  *
  * ⚠⚠ WHY THE MOUNT PATH IS ASSERTED HERE AND NOT ONLY THE COMPONENT (trap 3b).
  * This estate has shipped a DSK badge DARK **twice**: row 2.466 hosted one on
- * the V17 hero, which mounts only when `analysisHeroPanel` is OFF while staging
- * deploys `=1`; row 2.491 then reproduced it PAST the spec written to prevent a
+ * the V17 hero, which mounted only on an analysis-hero flag arm staging never
+ * served; row 2.491 then reproduced it PAST the spec written to prevent a
  * repeat, because all seven render tests and all five mutants pointed at
  * `HeroKeyQuestion` while the live surface was `KeyQuestionCard` (deployed DOM
  * census: `key-question-card` in 14 captures, `hero-v17-key-question` in ZERO).

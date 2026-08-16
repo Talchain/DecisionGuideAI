@@ -28,16 +28,12 @@ vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
   return {
     ...actual,
-    isAnalysisHeroV17Enabled: vi.fn(() => false),
-    isAnalysisHeroCompareEnabled: vi.fn(() => false),
     isFocusNowPanelEnabled: vi.fn(() => true),
     isAiPanelV2Enabled: vi.fn(() => true),
   }
 })
 
 import {
-  isAnalysisHeroV17Enabled,
-  isAnalysisHeroCompareEnabled,
   isFocusNowPanelEnabled,
   isAiPanelV2Enabled,
 } from '@/flags'
@@ -92,8 +88,6 @@ const before = (a: HTMLElement, b: HTMLElement) =>
 
 describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', () => {
   beforeEach(() => {
-    vi.mocked(isAnalysisHeroV17Enabled).mockReturnValue(false)
-    vi.mocked(isAnalysisHeroCompareEnabled).mockReturnValue(false)
     vi.mocked(isFocusNowPanelEnabled).mockReturnValue(true)
     vi.mocked(isAiPanelV2Enabled).mockReturnValue(true)
     sendSpy.mockClear()
@@ -111,7 +105,7 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     vi.mocked(isFocusNowPanelEnabled).mockReturnValue(false)
     renderBody()
     expect(screen.queryByTestId('focus-now-panel')).toBeNull()
-    const hero = screen.getByTestId('decision-confidence-panel')
+    const hero = screen.getByTestId('analysis-hero-panel')
     const options = screen.getByTestId('section-header-options')
     expect(hero).toBeInTheDocument()
     expect(before(hero, options), 'hero still precedes options when Focus is off').toBe(true)
@@ -128,7 +122,7 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
 
   it('renders the Focus panel AFTER the hero and BEFORE the options section', () => {
     renderBody()
-    const hero = screen.getByTestId('decision-confidence-panel')
+    const hero = screen.getByTestId('analysis-hero-panel')
     const focus = screen.getByTestId('focus-now-panel')
     const options = screen.getByTestId('section-header-options')
     expect(before(hero, focus), 'hero must precede the Focus panel').toBe(true)

@@ -12,7 +12,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { ModelReceiptBlock } from '../ModelReceiptBlock'
 import type { ModelReceiptData } from '../../adapters/modelCardAdapter'
-import { findBannedTerm } from '../../../components/results/analysisHeroV17/glossaryCheck'
+import { findBannedTerm } from '../../../components/results/utils/glossaryCheck'
 
 const fullData: ModelReceiptData = {
   factorCount: 5,

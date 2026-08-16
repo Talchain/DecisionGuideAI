@@ -32,6 +32,10 @@ function fixtureRow(o: RowOverrides): HeroRowVM {
     detail: {},
     // Fixtures have no numbering store; the badge falls back to index.
     stableNumber: null,
+    // Gallery fixtures illustrate the PERMITTED presentation (same reason
+    // `designationsWithheld` is false below), so rows are ranked unless a
+    // specific fixture overrides it.
+    isRanked: true,
     ...o,
   }
 }

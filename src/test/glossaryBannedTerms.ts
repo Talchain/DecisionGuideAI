@@ -19,7 +19,7 @@ import {
   ANALYSIS_HERO_BANNED_TERMS as CANONICAL,
   containsBannedTerm,
   findBannedTerm,
-} from '@/components/results/analysisHeroV17/glossaryCheck'
+} from '@/components/results/utils/glossaryCheck'
 
 /** Canonical banned terms — re-exported for tests. Single source of truth. */
 export const GLOSSARY_BANNED_TERMS = CANONICAL

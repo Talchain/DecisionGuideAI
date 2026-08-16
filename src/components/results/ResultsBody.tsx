@@ -28,9 +28,7 @@ import { LENS_COPY, runHasGoalNumbers } from './utils/goalAnchorCopy'
 import { StressTestSection } from './StressTestSection'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
-import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 import { TriageActionCardsBody } from './TriageActionCardsBody'
-import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { WhatChangedChip } from '../../canvas/components/WhatChangedChip'
 import { StrengthenContainer } from './strengthen/StrengthenContainer'
 import { InferenceWarningStrip } from './InferenceWarningStrip'
@@ -38,7 +36,7 @@ import { CritiqueWarningStrip } from './CritiqueWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
 import { openDefineSuccess, HowComputedTrigger } from './modals'
-import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled, isAnalysisHeroPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
+import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -236,8 +234,13 @@ export const ResultsBody = memo(function ResultsBody({
   const responseHashIsLocal = useCanvasStore(
     s => s.results?.report?.model_card?.response_hash_source === 'local',
   )
+  // ⚠ The `if (!isAnalysisHeroPanelEnabled()) return undefined` guard that
+  // used to open this memo is GONE with the fork. It only ever suppressed
+  // identity-anchored ordinals on the flag-OFF posture — a posture no
+  // deployment served (staging bakes the flag "1"), so live behaviour is
+  // unchanged; the off-posture now gets the same numbering the on-posture
+  // always had, which is the point of collapsing to one implementation.
   const stableNumbersForCards = useMemo(() => {
-    if (!isAnalysisHeroPanelEnabled()) return undefined
     const all = resultsSectionData.recommendation.allOptions
     if (all.length === 0 || all.some(o => optionNumbering[o.id] == null)) return undefined
     return optionNumbering
@@ -257,50 +260,32 @@ export const ResultsBody = memo(function ResultsBody({
 // Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it
   const optionCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
-  // Analysis hero v17 — flag-gated substitution. When `analysisHeroV17` is on,
-  // AnalysisHeroV17 renders INSTEAD OF DecisionConfidencePanel. When
-  // `analysisHeroCompare` is on (regardless of v17), BOTH render with v17 above
-  // — opt-in comparison mode for internal review only.
-  // See docs/brief-analysis-hero-v17-implementation.md §3 step 10.
-  const showV17 = isAnalysisHeroV17Enabled()
-  const showCompare = isAnalysisHeroCompareEnabled()
+  // ══ THE FORK IS CLOSED (PX-C analysis-cockpit consolidation) ═════════════
+  //
+  // This block used to hold `showV17` / `showCompare` and TWO fully-built
+  // alternative analysis panels (`AnalysisHeroV17`, `DecisionConfidencePanel`)
+  // for the dark arm below. Deployed staging baked
+  // `VITE_FEATURE_ANALYSIS_HERO_PANEL="1"` (read at the bytes from
+  // `assets/flags-*.js`, not from netlify.toml — trap 18), so that arm was
+  // STRUCTURALLY DARK: three generations of the same feature, none of them
+  // reachable, all of them maintained. Both components and the whole
+  // `analysisHeroV17/` directory are deleted; the one idea worth keeping —
+  // acting on a factor from the row that reports it — is salvaged into
+  // `analysis-hero/actOnIt/` and hosted INSIDE the cockpit.
+  //
+  // `verifiedCount` / `influenceCoverage` arrive on the props and had their
+  // only consumers on the deleted arm (both panels accepted them; V17
+  // destructured them to `_`-prefixed names and ignored them). They are kept
+  // on the interface and marked INERT here rather than removed, so the
+  // transition bridge OutputsDock derives stays visible at this seam and any
+  // re-consumption is a diff rather than a silent addition.
+  void verifiedCount
+  void influenceCoverage
 
   const aiAffordance = (
     <DiscussWithAiButton
       element={{ kind: 'missing' }}
       ariaLabel="Tell AI about something missing from the results"
-    />
-  )
-
-  const heroV17Element = (
-    <AnalysisHeroV17
-      data={resultsSectionData}
-      vm={vm}
-      fragileEdgeCount={fragileEdgeCount}
-      onFocusNode={onFocusNode}
-      verifiedCount={verifiedCount}
-      influenceCoverage={influenceCoverage}
-      onConfirm={runGatedOnConfirmFactor}
-      onSetValue={runGatedOnSetFactorValue}
-      expertMode={expertMode}
-      nodeValueLookup={nodeValueLookup}
-      onSendMessage={onSendMessage}
-      aiAffordance={aiAffordance}
-    />
-  )
-
-  const decisionConfidenceElement = (
-    <DecisionConfidencePanel
-      data={resultsSectionData}
-      onFocusNode={onFocusNode}
-      verifiedCount={verifiedCount}
-      influenceCoverage={influenceCoverage}
-      onConfirm={runGatedOnConfirmFactor}
-      onSetValue={runGatedOnSetFactorValue}
-      expertMode={expertMode}
-      nodeValueLookup={nodeValueLookup}
-      onSendMessage={onSendMessage}
-      aiAffordance={aiAffordance}
     />
   )
 
@@ -371,111 +356,67 @@ export const ResultsBody = memo(function ResultsBody({
           first runs or zero delta; click pulses the surviving changes. */}
       <WhatChangedChip />
 
-      {/* ── ANALYSIS HERO (answer-first lens hero) ─────────────────
-          Feature-flagged (staging-on, production-off). Read-only
-          presentation over the SAME resultsSectionData object the panels
-          below consume — mounted ABOVE the existing hero block; flag off
-          renders nothing and the tab is unchanged. */}
-      {isAnalysisHeroPanelEnabled() && (
-        <>
-          <SectionErrorBoundary section="Analysis hero">
+      {/* ── THE ANALYSIS COCKPIT ────────────────────────────────────────
+          ONE implementation, mounted UNCONDITIONALLY. Read-only presentation
+          over the SAME resultsSectionData object every section below
+          consumes.
+
+          The `isAnalysisHeroPanelEnabled()` gate that used to wrap this is
+          gone with the arm it forked against. On the deployed posture the
+          flag was already "1", so nothing a user loads changes; what changes
+          is that there is no longer an off-posture rendering a different,
+          superseded analysis. */}
+      <>
+          <SectionErrorBoundary section="Analysis">
             <AnalysisHeroContainer
               onDefineSuccess={openDefineSuccess}
               data={resultsSectionData}
               onApplyTarget={onApplyThreshold}
+              onFocusNode={onFocusNode}
+              onConfirmFactor={runGatedOnConfirmFactor}
+              fragileEdgeCount={fragileEdgeCount}
+              // ── 2.661 (P4), RE-HOMED ────────────────────────────────────
+              // "Confirm AI estimate" + the inline value editor are P4's
+              // human-confirms-the-AI affordance, minted by
+              // `TriageActionCardsBody` (`mapEvidenceGapsToActions` →
+              // `TriageCard` → `InlineValueControls`). #2.661 rescued them
+              // from the dark arm by wedging this body into a CHROMELESS div
+              // beside the hero, conceding in its own comment that framing it
+              // was "a design decision, not a wiring one". This is that
+              // decision: the body now renders INSIDE the cockpit's
+              // "What to act on next" section, beneath the act-on-it rows.
+              //
+              // ⭐ NO NEW WRITE PATH. Same component, same
+              // `runGatedOnConfirmFactor` / `runGatedOnSetFactorValue`, so the
+              // run-gating semantics #609 shipped are inherited rather than
+              // re-derived (a re-derivation here is exactly how the retired
+              // `isStale` lock would come back). The `hero-arm-triage-actions`
+              // testid travels with it, so the mount path stays assertable and
+              // a regression REDs `analysisCockpit.mountPath.spec.tsx`.
+              actOnItQueueSlot={
+                <TriageActionCardsBody
+                  data={resultsSectionData}
+                  onFocusNode={onFocusNode}
+                  onConfirm={runGatedOnConfirmFactor}
+                  onSetValue={runGatedOnSetFactorValue}
+                  nodeValueLookup={nodeValueLookup}
+                  aiAffordance={aiAffordance}
+                />
+              }
             />
           </SectionErrorBoundary>
           {/* ── 2.466 (P1): decision-quality KEY QUESTION + DSK grounding ──
               Fed from the LIVE turn state (runMeta.decisionReview030's
               verbatim DQP carry), presence-gated — never from the legacy
               m1ReviewAssumptions/reviewStatus pair that dark-shipped lane 1.
-              Hosted INSIDE this flag arm on purpose: the V17 HeroKeyQuestion
-              lives in the `!flag` arm below, so the two hosts are mutually
-              exclusive by the same fork that owns the slot — no posture can
-              double-render the grounding line. */}
+              Its former rival, the V17 `HeroKeyQuestion`, is DELETED with the
+              fork, so this is now the product's only key-question surface —
+              no posture can double-render the grounding line because there is
+              no other posture. */}
           <SectionErrorBoundary section="Key question">
             <KeyQuestionCard />
           </SectionErrorBoundary>
-          {/* ── 2.661 (P4): THE CONFIRM/SET-VALUE AFFORDANCE, ON THE ARM THE
-              DEPLOYED FLAGS ACTUALLY MOUNT ──────────────────────────────────
-              "Confirm AI estimate" + the inline value editor are P4's
-              human-confirms-the-AI affordance. Both are minted by
-              `TriageActionCardsBody` (`mapEvidenceGapsToActions` → `TriageCard`
-              → `InlineValueControls`), and until now that body was composed
-              ONLY by `DecisionConfidencePanel` and `AnalysisHeroV17` — BOTH of
-              which live in the `!isAnalysisHeroPanelEnabled()` arm below.
-              Staging bakes `VITE_FEATURE_ANALYSIS_HERO_PANEL="1"`, so on the
-              posture real users load NEITHER mounted and no staging user could
-              confirm an AI estimate after an analysis at all.
-
-              ⚠ WHY NOT "PUT IT ON THE V17 HERO" (the obvious answer, and the
-              wrong one — CLAUDE.md trap 3b, third instance in this estate):
-              `analysisHeroV17` is ALSO "1" on the deployed bundle, but V17 is
-              inside the SAME dark arm, so hosting it there would have shipped
-              the identical invisible feature a third time. Read at the bytes
-              from `assets/flags-*.js`, not from netlify.toml (trap 18).
-
-              ⚠ WHY NOT INSIDE `AnalysisHeroContainer`: that component's
-              contract is "the ONE authorised mount of the analysis hero",
-              read-only and store-free by design (enforced by its own
-              inertness spec), and `AnalysisHeroPanel` has no per-factor row —
-              only quick-links that focus a factor on canvas. Threading write
-              handlers through it would break a deliberate boundary. The triage
-              body is the surface that already IS "the factors whose estimates
-              are weak — act on them", so it mounts as the hero's sibling,
-              exactly where a user inspecting a factor's estimate acts on it.
-
-              ⭐ NO NEW WRITE PATH. Same component, same
-              `runGatedOnConfirmFactor` / `runGatedOnSetFactorValue` the legacy
-              arm passes — so the run-gating semantics #609 shipped are
-              inherited rather than re-derived (a re-derivation here is exactly
-              how the retired `isStale` lock would come back). The wrapper
-              testid makes the MOUNT PATH itself assertable, so a flag move
-              REDs `ResultsBody.confirmEstimateLiveMount.spec.tsx` instead of
-              silently darkening the affordance again. */}
-          <SectionErrorBoundary section="Decision confidence">
-            {/* `space-y-3` is the spacing context this body's ONLY other call
-                site gives it (`DecisionConfidencePanel`'s T1 card) — its root
-                is a Fragment, so without it the sub-sections butt together.
-                `empty:hidden` because that same Fragment root means a run with
-                no gaps, flip risk, conditional winners or result checks renders
-                a genuinely EMPTY div, which would still consume one `gap-4` of
-                the parent flex column. No card chrome is invented here: what
-                this surface should look like framed is a design decision, not
-                a wiring one. */}
-            <div className="space-y-3 empty:hidden" data-testid="hero-arm-triage-actions">
-              <TriageActionCardsBody
-                data={resultsSectionData}
-                onFocusNode={onFocusNode}
-                onConfirm={runGatedOnConfirmFactor}
-                onSetValue={runGatedOnSetFactorValue}
-                nodeValueLookup={nodeValueLookup}
-                aiAffordance={aiAffordance}
-              />
-            </div>
-          </SectionErrorBoundary>
         </>
-      )}
-
-      {/* ── DECISION CONFIDENCE TRIAGE ────────────────────────────── */}
-      {/* Wave 2 flag-scoped retirement: when the merged analysis panel is
-          on, the hero above OWNS this slot — mounting both would be the
-          §12.4 two-headline duplication the rebuild removes. Flag off,
-          today's panel (and the v17 comparison machinery) render exactly
-          as before; rollback is the flag. */}
-      {!isAnalysisHeroPanelEnabled() && (
-        <>
-          {/* Comparison mode: v17 ABOVE legacy panel. Opt-in only. */}
-          {showCompare && (
-            <SectionErrorBoundary section="Analysis hero v17">
-              {heroV17Element}
-            </SectionErrorBoundary>
-          )}
-          <SectionErrorBoundary section="Decision confidence">
-            {showV17 && !showCompare ? heroV17Element : decisionConfidenceElement}
-          </SectionErrorBoundary>
-        </>
-      )}
 
       {/* ── SECOND PANEL: Strengthen your model (Focus) ───────────────
           Static / fail-closed coaching panel mounted directly after the hero.
@@ -501,8 +442,8 @@ export const ResultsBody = memo(function ResultsBody({
       {/* Old RecommendationSection/HeroSection suppressed — triage panel replaces it */}
 
       {/* ── SECTION 2: OPTIONS COMPARISON ────────────────────────── */}
-      {/* Critical analysis content — full options block renders identically
-          regardless of V17 flag. CompactOptionSpread (kept in the repo as a
+      {/* Critical analysis content — the full options block is unconditional;
+          no flag has ever gated it. CompactOptionSpread (kept in the repo as a
           potential supplementary affordance) is NOT used to replace this
           surface: users need WinGauge + RiskAppetiteFilter + OptionCards on
           the Analysis tab, including "What makes this lead" affordances and
@@ -780,7 +721,16 @@ export const ResultsBody = memo(function ResultsBody({
                   onSendMessage={onSendMessage}
                   expertMode={expertMode}
                   sensitivityReferenceLabel={resultsSectionData.sensitivityReference?.optionLabel ?? null}
-                  showThinkingPatterns={!isAnalysisHeroPanelEnabled()}
+                  // ⚠ Was `!isAnalysisHeroPanelEnabled()`. The deployed
+                  // posture baked that flag "1", so this has evaluated FALSE
+                  // on every build a user has ever loaded; pinning it to
+                  // `false` preserves live behaviour exactly and removes the
+                  // last reader of a flag whose other arm no longer exists.
+                  // The UI-authored thinking-pattern cards stay retired: the
+                  // cockpit's act-on-it rows are where a run's reflective
+                  // prompts now surface, from `m2BiasFindings` — producer
+                  // data, not UI-invented patterns.
+                  showThinkingPatterns={false}
                   designationsWithheld={designationsWithheld}
                 />
               )

@@ -2,7 +2,7 @@
  * Mount guard (CI tripwire) — ALLOW-LIST.
  *
  * The analysis hero is mounted in exactly ONE authorised place: ResultsBody
- * renders `AnalysisHeroContainer` behind the `analysisHeroPanel` flag. This
+ * renders `AnalysisHeroContainer`, unconditionally. This
  * test fails if ANY OTHER file outside the module imports it — via static /
  * type-only / re-export / dynamic import() / React.lazy / require /
  * side-effect / glued forms, by alias ('@/.../analysis-hero') or relative

@@ -2,12 +2,11 @@
  * §0 THE MOUNT PATH (trap 3b: bind to what the DEPLOYED flags actually mount).
  *
  * This estate has shipped the same defect twice — a feature fully tested against
- * a component the deployed flag posture never renders, with every render test,
+ * a component the deployed flag posture never rendered, with every render test,
  * every mutant and every positive control passing because they were all pointed
  * at the wrong host. So this file does not render the card in isolation: it
- * renders `ResultsBody` under the STAGING flag posture (`netlify.toml:78`,
- * `VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"`) and asserts the card is a DESCENDANT
- * of the hero panel — then flips the flag to prove the binding is real.
+ * renders `ResultsBody` and asserts the card is a DESCENDANT of the hero panel,
+ * the one analysis surface, which now mounts unconditionally.
  *
  * It also carries the F6-class wiring proof: unwiring the card from
  * `AnalysisHeroPanel` must RED here, not merely in a unit test of the card.
@@ -39,17 +38,12 @@ vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
   return {
     ...actual,
-    isAnalysisHeroV17Enabled: vi.fn(() => false),
-    isAnalysisHeroCompareEnabled: vi.fn(() => false),
     isFocusNowPanelEnabled: vi.fn(() => true),
     isStrengthenPanelEnabled: vi.fn(() => false),
     isAiPanelV2Enabled: vi.fn(() => true),
-    /** THE DEPLOYED STAGING POSTURE. §0.2 flips it to prove the binding. */
-    isAnalysisHeroPanelEnabled: vi.fn(() => true),
   }
 })
 
-import { isAnalysisHeroPanelEnabled } from '@/flags'
 import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
 import { ResultsBody } from '../../ResultsBody'
 import { useCanvasStore } from '@/canvas/store'
@@ -95,10 +89,9 @@ beforeEach(() => {
   useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
   // The DEFAULT post-run dock tab — Analysis.
   useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
-  vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
 })
 
-describe('§0 the elicitation is on the DEFAULT Analysis tab under the deployed flag posture', () => {
+describe('§0 the elicitation is on the DEFAULT Analysis tab', () => {
   it('0.1 mounts INSIDE the analysis hero panel — the mount path itself, not just the testid', () => {
     renderAnalysisTab(SELECTED)
 
@@ -114,12 +107,10 @@ describe('§0 the elicitation is on the DEFAULT Analysis tab under the deployed 
     expect(panel.contains(card)).toBe(true)
   })
 
-  it('0.2 disappears when the hero flag is OFF — proves 0.1 was a real binding', () => {
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(false)
-    renderAnalysisTab(SELECTED)
-    expect(screen.queryByTestId('analysis-hero-panel')).toBeNull()
-    expect(screen.queryByTestId('assumed-strength-card')).toBeNull()
-  })
+  // ⚠ RETIRED WITH ITS MECHANISM: `0.2 disappears when the hero flag is OFF`
+  // flipped the flag to prove 0.1 was a real binding. The flag is deleted and
+  // the panel mounts unconditionally. 0.1 still discriminates on its own — it
+  // asserts `panel.contains(card)`, which a relocation off the host REDs.
 
   it('0.3 names the relationship by IDENTITY, and carries the producer’s measured number', () => {
     renderAnalysisTab(SELECTED)

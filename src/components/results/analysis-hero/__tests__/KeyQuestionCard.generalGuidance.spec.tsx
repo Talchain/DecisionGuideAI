@@ -4,12 +4,12 @@
  * ## Why this file is HERE and not next to the V17 hero
  *
  * The first version of this lane's render tests targeted `HeroKeyQuestion`
- * (analysisHeroV17). **That component does not mount on staging.**
- * `netlify.toml:78` sets `VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"`, and
- * `ResultsBody` hosts `KeyQuestionCard` INSIDE that flag-ON arm while
- * `HeroKeyQuestion` lives in the `!flag` arm — the two are mutually exclusive
- * by the same fork. A deployed-DOM census found `key-question-card` in 14
- * captures and `hero-v17-key-question` in ZERO.
+ * on the V17 hero. **That component never mounted on staging.** `ResultsBody`
+ * hosted `KeyQuestionCard` on the served arm of an analysis-hero flag while
+ * `HeroKeyQuestion` lived on the dark one — mutually exclusive by the same
+ * fork. A deployed-DOM census found `key-question-card` in 14 captures and
+ * `hero-v17-key-question` in ZERO. The fork is now closed and the V17 hero,
+ * with its flag, deleted: `KeyQuestionCard` is the only host left.
  *
  * That is the SAME defect row 2.466 was opened for: lane 1's DSK grounding
  * badge shipped DARK on the V17 hero for exactly this reason. Reproducing it

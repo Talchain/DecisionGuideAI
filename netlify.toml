@@ -71,11 +71,10 @@
   # closed by default and the debug panel refuses to render.
   VITE_APP_ENV = "staging"
 
-  # Analysis hero panel — answer-first lens hero above the existing
-  # Analysis-tab hero (read-only, feature-flagged). Enabled on staging for
-  # QA; promote to production by adding to `[build.environment]` ONLY after
-  # sign-off. See src/flags.ts `analysisHeroPanel`.
-  VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"
+  # (retired) VITE_FEATURE_ANALYSIS_HERO_PANEL — the analysis-hero fork is
+  # closed: AnalysisHeroContainer now mounts unconditionally in ResultsBody,
+  # so the gate has no readers and the env key is no longer declared.
+  # See PX-C analysis-cockpit consolidation.
 
   # Analysis-tab rebuild Wave 1 (Decision overview + Actions menu). Paul
   # enabled this via the Netlify UI on 2026-07-12 and accepted the surface

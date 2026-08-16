@@ -35,11 +35,9 @@ import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { collectRerunControls } from '../../../../tests/helpers/rerunControls'
 
-const { mockIsV5CanonicalAnalysisEnabled, mockIsAnalysisHeroV17Enabled, mockIsAnalysisHeroPanelEnabled } =
+const { mockIsV5CanonicalAnalysisEnabled } =
   vi.hoisted(() => ({
     mockIsV5CanonicalAnalysisEnabled: vi.fn(() => false),
-    mockIsAnalysisHeroV17Enabled: vi.fn(() => false),
-    mockIsAnalysisHeroPanelEnabled: vi.fn(() => false),
   }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -63,8 +61,6 @@ vi.mock('../../../flags', async (importOriginal) => {
     // stubbed below) — the Results-tab surface under test is identical.
     isAiPanelV2Enabled: () => false,
     isV5CanonicalAnalysisEnabled: mockIsV5CanonicalAnalysisEnabled,
-    isAnalysisHeroV17Enabled: mockIsAnalysisHeroV17Enabled,
-    isAnalysisHeroPanelEnabled: mockIsAnalysisHeroPanelEnabled,
   }
 })
 
@@ -223,14 +219,11 @@ describe('OutputsDock — one Rerun owner, owned by the bottom anchor (anchor-ru
       /* jsdom quirk — never block the suite */
     }
     mockIsV5CanonicalAnalysisEnabled.mockReturnValue(false)
-    mockIsAnalysisHeroV17Enabled.mockReturnValue(false)
-    mockIsAnalysisHeroPanelEnabled.mockReturnValue(false)
   })
 
   it.each(['stale', 'unknown', 'fresh'] as const)(
     'CEE %s verdict: the anchor footer carries the verdict AND the one Rerun; strip has no Rerun; no hero rerun',
     (freshness) => {
-      mockIsAnalysisHeroPanelEnabled.mockReturnValue(true)
       seedPostRun({
         analysisFreshness: { freshness, computedAt: '2026-07-15T00:00:00.000Z' },
       })
@@ -275,7 +268,6 @@ describe('OutputsDock — one Rerun owner, owned by the bottom anchor (anchor-ru
   })
 
   it('the sole Rerun owner cannot scroll away (structural proxy — jsdom cannot see): the anchor footer is OUTSIDE the scroller', () => {
-    mockIsAnalysisHeroPanelEnabled.mockReturnValue(true)
     seedPostRun({ analysisFreshness: { freshness: 'stale', computedAt: 1 } })
     render(<OutputsDock />)
 
@@ -359,39 +351,31 @@ describe('OutputsDock — one Rerun owner, owned by the bottom anchor (anchor-ru
   // outdated" stacked on "Refresh analysis" for a single stale verdict.
   // MUTATION-CHECK: restore the AnalysisOrphanBanner mount in ResultsBody and
   // these tests go RED on the second banner.
-  it.each([
-    ['analysisHeroPanel', 'panel'],
-    ['V17', 'v17'],
-    ['both hero flags off (legacy path)', 'legacy'],
-  ] as const)(
-    'orphan state + %s: ONE banner (the strip), the anchor footer owns verdict + Rerun',
-    (_label, mode) => {
-      // V5 canonical flag on with a report but NO v5 fact → orphaned result.
-      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
-      mockIsAnalysisHeroPanelEnabled.mockReturnValue(mode === 'panel')
-      mockIsAnalysisHeroV17Enabled.mockReturnValue(mode === 'v17')
-      seedPostRun({
-        analysisFreshness: { freshness: 'stale', computedAt: 1 },
-        v5AnalysisFact: null,
-      })
-      render(<OutputsDock />)
+  it('orphan state: ONE banner (the strip), the anchor footer owns verdict + Rerun', () => {
+    // Was a three-posture loop over the analysis-hero flags. The fork is
+    // closed — one surface remains — so the body runs exactly once.
+    // V5 canonical flag on with a report but NO v5 fact → orphaned result.
+    mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+    seedPostRun({
+      analysisFreshness: { freshness: 'stale', computedAt: 1 },
+      v5AnalysisFact: null,
+    })
+    render(<OutputsDock />)
 
-      // Exactly ONE trust surface: the strip (verdict wins over orphan copy).
-      expect(screen.queryByTestId('analysis-orphan-banner')).not.toBeInTheDocument()
-      expect(screen.getByTestId('analysis-freshness-notice')).toBeInTheDocument()
+    // Exactly ONE trust surface: the strip (verdict wins over orphan copy).
+    expect(screen.queryByTestId('analysis-orphan-banner')).not.toBeInTheDocument()
+    expect(screen.getByTestId('analysis-freshness-notice')).toBeInTheDocument()
 
-      // The footer states the robustness verdict AND owns the one Rerun.
-      expect(screen.getByTestId('results-analysis-footer')).toHaveTextContent('Robustness unknown')
-      expect(screen.getByTestId('results-analysis-footer-action')).toBeInTheDocument()
+    // The footer states the robustness verdict AND owns the one Rerun.
+    expect(screen.getByTestId('results-analysis-footer')).toHaveTextContent('Robustness unknown')
+    expect(screen.getByTestId('results-analysis-footer-action')).toBeInTheDocument()
 
-      // The strip carries no Rerun — no duplicate owner.
-      expect(screen.queryByTestId('freshness-strip-rerun')).not.toBeInTheDocument()
-    },
-  )
+    // The strip carries no Rerun — no duplicate owner.
+    expect(screen.queryByTestId('freshness-strip-rerun')).not.toBeInTheDocument()
+  })
 
   it('orphan state with NO verdict: the strip renders the cannot-confirm variant (no Rerun); the anchor footer owns the one Rerun', () => {
     mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
-    mockIsAnalysisHeroPanelEnabled.mockReturnValue(true)
     seedPostRun({ analysisFreshness: null, v5AnalysisFact: null })
     render(<OutputsDock />)
 
@@ -417,7 +401,6 @@ describe('OutputsDock — one Rerun owner, owned by the bottom anchor (anchor-ru
     // over a 'none' verdict when results exist, so the strip's copy is honest;
     // recovery is always available via the anchor footer.
     mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
-    mockIsAnalysisHeroPanelEnabled.mockReturnValue(true)
     seedPostRun({
       analysisFreshness: { freshness: 'none', computedAt: 1 },
       v5AnalysisFact: null,

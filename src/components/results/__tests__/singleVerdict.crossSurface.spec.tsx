@@ -15,8 +15,7 @@
  * `mapV2ResponseToReportV1`), then drives BOTH surfaces from it —
  *   · `OptionNode`               reads the store directly
  *   · `useResultsSectionData()`  reads the store directly, and its output is
- *                                the `data` prop `DecisionConfidencePanel`
- *                                consumes
+ *                                the `data` prop `ResultsBody` consumes
  * — so nothing here mirrors a production derivation. The only fixture is the
  * run response; every verdict on screen is computed by product code.
  *
@@ -26,13 +25,32 @@
  *
  * i.e. it is never simultaneously true that one surface asserts a leading
  * option and another denies one, for a single analysis run.
+ *
+ * ⚠ RE-POINTED AND NARROWED (PX-C analysis-cockpit consolidation) — declared
+ * here because silently narrowing a guard is how a guard stops biting
+ * (CLAUDE.md 13b).
+ *
+ * WHAT CHANGED: the results side used to be read from
+ * `DecisionConfidencePanel`, which lived on an analysis-hero flag arm the
+ * deployed posture never mounted. Both the panel and the flag are deleted. The probe now renders `ResultsBody` itself, so the
+ * canvas-vs-results invariant is measured on the surface users actually load
+ * rather than on a dark one. That half is STRICTLY STRONGER.
+ *
+ * WHAT WAS LOST: the deleted panel carried TWO independent verdict claims —
+ * a headline that could deny a leading option (`certaintyCopy` rule 1, "no
+ * clear leading option, …") and the T1 checks footer's tick. The final
+ * assertion of the matrix compared them to each other INSIDE one panel. The
+ * headline is gone with its host, so that comparison has one subject left and
+ * is not reconstructed as a tautology against itself. It is replaced by the
+ * honest weaker property the surviving footer can still carry: the footer
+ * states EXACTLY ONE verdict — never both labels, never neither.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, renderHook } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useResultsSectionData } from '../useResultsSectionData'
-import { DecisionConfidencePanel } from '../DecisionConfidencePanel'
+import { ResultsBody } from '../ResultsBody'
 import { OptionNode } from '../../../canvas/nodes/OptionNode'
 import { useCanvasStore } from '../../../canvas/store'
 import { mapV2ResponseToReportV1 } from '../../../adapters/plot/v2/responseMapper'
@@ -194,22 +212,26 @@ function canvasAssertsLeadingOption(): boolean {
 }
 
 /**
- * What the PANEL says. Two independent claims live in this one component:
- *  - the headline, which may DENY a leading option ("no clear leading option")
- *  - the T1 checks footer, which ticks "Has leading option" / "No clear
- *    leader" (the legacy "Winner" / "No winner" arm was deleted, §6.2g)
- * They must agree with each other and with the canvas.
+ * What the RESULTS SURFACE says — the whole cockpit, as a user loads it.
+ *
+ * The verdict claim read here is the T1 checks footer's tick, rendered by
+ * `TriageActionCardsBody` inside the cockpit's act-on-it section: "Has leading
+ * option" / "No clear leader". It is the results side's statement of whether a
+ * leading option exists, and it must agree with the canvas badge.
  */
 function readPanel(): { denies: boolean; footerTicksWinner: boolean; text: string } {
   const { result } = renderHook(() => useResultsSectionData())
   const { container } = render(
-    <DecisionConfidencePanel data={result.current} />,
+    <ResultsBody
+      resultsSectionData={result.current}
+      tornadoData={{ rows: [], expectedOutcome: null }}
+    />,
   )
   const text = container.textContent ?? ''
   return {
-    denies: /no clear leading option/i.test(text),
-    // Legacy copy (analysisHeroV17 off, which is staging's posture): the tick
-    // reads "Has leading option"; the failing state reads "No clear leader".
+    denies: /No clear leader/i.test(text),
+    // Legacy copy: the tick read "Has leading option"; the failing state read
+    // "No clear leader".
     // SUPERSEDED 2026-07-31 (§6.2g): the footer's legacy "Winner" / "No
     // winner" arm is DELETED — `useV17Copy` already selected the compliant
     // labels on every live path, and the legacy strings survived only as the
@@ -253,7 +275,7 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
     expect(canvasAssertsLeadingOption()).toBe(true)
   })
 
-  it('POSITIVE CONTROL: the panel probe can see a "no clear leading option" denial on a genuinely tied run', () => {
+  it('POSITIVE CONTROL: the results probe can see a "No clear leader" denial on a genuinely tied run', () => {
     setStore(TIED_RUN)
     expect(readPanel().denies).toBe(true)
   })
@@ -291,10 +313,13 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
       canvasClaims,
       `Surfaces disagree. Canvas badged: ${canvasClaims}; panel denied: ${panel.denies}.\nPanel text: ${panel.text.slice(0, 400)}`,
     ).toBe(!panel.denies)
-    // Third surface, same screen: the panel's own checks footer.
+    // The checks footer states EXACTLY ONE verdict — it must never print
+    // both labels, and never neither. (This replaces the deleted panel's
+    // headline-vs-footer comparison; see the file header for why it is not
+    // reconstructed.)
     expect(
       panel.footerTicksWinner,
-      `The checks footer and the headline disagree inside ONE panel.\nPanel text: ${panel.text.slice(0, 400)}`,
+      `The checks footer printed both verdict labels, or neither.\nSurface text: ${panel.text.slice(0, 400)}`,
     ).toBe(!panel.denies)
   })
 })

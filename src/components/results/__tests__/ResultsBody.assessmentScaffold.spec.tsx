@@ -41,12 +41,9 @@ vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
   return {
     ...actual,
-    isAnalysisHeroV17Enabled: vi.fn(() => false),
-    isAnalysisHeroCompareEnabled: vi.fn(() => false),
     isFocusNowPanelEnabled: vi.fn(() => true),
     isStrengthenPanelEnabled: vi.fn(() => false),
     isAiPanelV2Enabled: vi.fn(() => true),
-    isAnalysisHeroPanelEnabled: vi.fn(() => false),
   }
 })
 
@@ -144,7 +141,7 @@ const before = (a: HTMLElement, b: HTMLElement) =>
 // The live components' stable anchors — each must survive the scaffold's
 // retirement, render exactly once, in the original order.
 const LIVE_ANCHORS = [
-  'decision-confidence-panel', // #3 hero (DecisionConfidencePanel, flag-off)
+  'analysis-hero-panel', // #3 hero (the analysis cockpit — the one headline panel)
   'focus-now-panel', // Strengthen / Focus panel
   'section-header-options', // #2 options section (WinGauge + RiskAppetiteFilter + OptionCards)
   'option-cards',
@@ -168,7 +165,7 @@ describe('ResultsBody — live surfaces after the V7 scaffold retirement', () =>
 
   it('(b) the live components keep their existing document order (byte-identical composition)', () => {
     renderBody()
-    const hero = screen.getByTestId('decision-confidence-panel')
+    const hero = screen.getByTestId('analysis-hero-panel')
     const focus = screen.getByTestId('focus-now-panel')
     const options = screen.getByTestId('section-header-options')
     const drivers = screen.getByTestId('accordion-drivers')

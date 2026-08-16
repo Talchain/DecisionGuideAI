@@ -48,21 +48,16 @@
  * with itself and cannot notice a mis-join). The entry is addressed by
  * `data-critique-code` — identity, not a value predicate (trap 19).
  *
- * ## Flag posture
+ * ## Mount path
  *
- * Deployed staging posture derived from netlify.toml
- * [context.staging.environment]: VITE_FEATURE_ANALYSIS_HERO_PANEL = "1".
- * Injection goes through the flag system's own localStorage seam (NOT a
- * mock), with a parity assertion, exactly as
- * ResultsBody.keyQuestionLiveMount.spec.tsx established. The strip must
- * render on BOTH postures (its host group is unconditional), and the
- * deployed-posture case is the one that catches a re-host onto a flag arm.
+ * The strip's host group is UNCONDITIONAL inside ResultsBody — there is no
+ * fork left to select a different analysis surface — so the render case below
+ * is the one that catches a re-host onto any gated arm.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
 import { useResultsSectionData } from '../useResultsSectionData'
-import { isAnalysisHeroPanelEnabled } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
 import { applyV5State } from '../../../v5/applyV5State'
@@ -132,9 +127,8 @@ function fixtureAnalysisBlock(fixture: Record<string, unknown>): AnalysisResultB
   return structuredClone(analysis) as unknown as AnalysisResultBlock
 }
 
-describe('critique warning strip — mount-path proof at the deployed posture, live capture bytes', () => {
+describe('critique warning strip — mount-path proof on the live surface, live capture bytes', () => {
   beforeEach(() => {
-    localStorage.removeItem('feature.analysisHeroPanel')
     useCanvasStore.setState({
       analysisFreshness: null,
       analysisFreshnessDirty: false,
@@ -145,7 +139,6 @@ describe('critique warning strip — mount-path proof at the deployed posture, l
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
   afterEach(() => {
-    localStorage.removeItem('feature.analysisHeroPanel')
     cleanup()
   })
 
@@ -165,14 +158,7 @@ describe('critique warning strip — mount-path proof at the deployed posture, l
     expect(rows[0].node_id).toBeUndefined()
   })
 
-  it('flag injection parity — localStorage "1" flips the REAL isAnalysisHeroPanelEnabled', () => {
-    expect(isAnalysisHeroPanelEnabled()).toBe(false)
-    localStorage.setItem('feature.analysisHeroPanel', '1')
-    expect(isAnalysisHeroPanelEnabled()).toBe(true)
-  })
-
-  it('DEPLOYED POSTURE (analysisHeroPanel=1): the captured warning critique RENDERS, bound by code + exact CEE copy', () => {
-    localStorage.setItem('feature.analysisHeroPanel', '1')
+  it('the captured warning critique RENDERS, bound by code + exact CEE copy', () => {
     applyTurnToRealStore(critiqueTurnFixture as never)
     render(<Harness />)
 
@@ -191,20 +177,9 @@ describe('critique warning strip — mount-path proof at the deployed posture, l
     ).toHaveLength(1)
   })
 
-  it('flag-OFF posture: the strip host group is unconditional, so the same capture still renders it', () => {
-    // Guards the re-host failure class in the OTHER direction: moving the
-    // strip INTO a flag arm makes one of these two posture cases go RED.
-    expect(isAnalysisHeroPanelEnabled()).toBe(false)
-    applyTurnToRealStore(critiqueTurnFixture as never)
-    render(<Harness />)
-    const strip = screen.getByTestId('critique-warning-strip')
-    expect(strip.querySelector(`[data-critique-code="${CAPTURED_CODE}"]`)).not.toBeNull()
-  })
-
   it('ABSENCE arm (real bytes): the same session\'s T3 turn carries no critiques key — no strip renders', () => {
     // The presence arms above prove this harness CAN see the strip (trap 13);
     // this arm proves absence renders nothing rather than an empty shell.
-    localStorage.setItem('feature.analysisHeroPanel', '1')
     applyTurnToRealStore(noCritiqueTurnFixture as never)
     render(<Harness />)
     expect(screen.queryByTestId('critique-warning-strip')).toBeNull()

@@ -292,21 +292,6 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_DETERMINISTIC_CEE',
     storageKey: 'feature.deterministicCee',
   },
-  // Analysis hero v17: decision-strengthening hero on the post-analysis Analysis tab.
-  // When ON, AnalysisHeroV17 renders INSTEAD OF DecisionConfidencePanel at the
-  // ResultsBody top-of-card render slot.
-  //
-  // Off-by-default for production safety (Round-5 review P1.3). To enable
-  // locally for manual testing, run this once in the browser console:
-  //
-  //   localStorage.setItem('feature.analysisHeroV17', '1')
-  //
-  // For staging builds, set `VITE_FEATURE_ANALYSIS_HERO_V17=1` in the build
-  // env. See docs/brief-analysis-hero-v17-implementation.md.
-  analysisHeroV17: {
-    envKey: 'VITE_FEATURE_ANALYSIS_HERO_V17',
-    storageKey: 'feature.analysisHeroV17',
-  },
   // Focus / "Strengthen your model" panel — controls ONLY the visibility of the
   // mounted STATIC panel (the 2nd Analysis-tab panel). DEFAULT-ON for review/
   // staging dogfooding; acts as a kill switch (rollback without a revert PR) via
@@ -317,29 +302,6 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_FOCUS_NOW_PANEL',
     storageKey: 'feature.focusNowPanel',
     defaultValue: true,
-  },
-  // Analysis hero v17 — opt-in comparison mode. When ON, BOTH the new hero
-  // AND the existing DecisionConfidencePanel render (new hero above), for
-  // internal visual review only. Never default-on. Bootable via the URL
-  // param `?analysisHeroCompare=1` (and clearable with `=0`) — see the
-  // boot-step in src/main.tsx.
-  analysisHeroCompare: {
-    envKey: 'VITE_FEATURE_ANALYSIS_HERO_COMPARE',
-    storageKey: 'feature.analysisHeroCompare',
-  },
-  // Analysis hero panel — answer-first lens hero (prototype-v3) mounted ABOVE
-  // the existing hero block on the Analysis tab. Read-only presentation layer
-  // over the adapted Results Panel data (useResultsSectionData) — no second
-  // data path, no UI-computed semantics. See src/components/results/analysis-hero/.
-  //
-  // Rollout: staging-on, production-off. defaultValue stays false (production
-  // safety); staging builds enable it via
-  //   VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"
-  // in netlify.toml [context.staging.environment]. To enable locally:
-  //   localStorage.setItem('feature.analysisHeroPanel', '1')
-  analysisHeroPanel: {
-    envKey: 'VITE_FEATURE_ANALYSIS_HERO_PANEL',
-    storageKey: 'feature.analysisHeroPanel',
   },
   // Hero fixture gallery — INTERNAL-ONLY route (/#/dev/hero-gallery —
   // AppPoC hash router) rendering
@@ -527,9 +489,6 @@ const flags = {
   graphLens: makeFlag(FLAGS_CONFIG.graphLens),
   orchestratorRenderingV2: makeFlag(FLAGS_CONFIG.orchestratorRenderingV2),
   deterministicCee: makeFlag(FLAGS_CONFIG.deterministicCee),
-  analysisHeroV17: makeFlag(FLAGS_CONFIG.analysisHeroV17),
-  analysisHeroCompare: makeFlag(FLAGS_CONFIG.analysisHeroCompare),
-  analysisHeroPanel: makeFlag(FLAGS_CONFIG.analysisHeroPanel),
   heroFixtureGallery: makeFlag(FLAGS_CONFIG.heroFixtureGallery),
   focusNowPanel: makeFlag(FLAGS_CONFIG.focusNowPanel),
   aiPanelV2: makeFlag(FLAGS_CONFIG.aiPanelV2),
@@ -598,9 +557,6 @@ export const isCrossHighlightEnabled = flags.crossHighlight
 export const isGraphLensEnabled = flags.graphLens
 export const isOrchestratorRenderingV2Enabled = flags.orchestratorRenderingV2
 export const isDeterministicCeeEnabled = flags.deterministicCee
-export const isAnalysisHeroV17Enabled = flags.analysisHeroV17
-export const isAnalysisHeroCompareEnabled = flags.analysisHeroCompare
-export const isAnalysisHeroPanelEnabled = flags.analysisHeroPanel
 export const isHeroFixtureGalleryEnabled = flags.heroFixtureGallery
 export const isFocusNowPanelEnabled = flags.focusNowPanel
 export const isAiPanelV2Enabled = flags.aiPanelV2

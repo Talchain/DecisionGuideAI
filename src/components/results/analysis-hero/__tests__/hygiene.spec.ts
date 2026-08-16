@@ -52,15 +52,72 @@ describe('Analysis hero source hygiene', () => {
     ['network access', /\bfetch\s*\(|\baxios\b|XMLHttpRequest|EventSource|WebSocket/],
     // Catches `0.5`, no-leading-zero `.5`, and scientific `1e-1` literals.
     ['UI banding threshold ternary', /[><]=?\s*(?:0?\.\d+|\d+(?:\.\d+)?e-\d+)\s*\?/i],
-    [
-      'trust/stability field reads',
-      /robustnessLevel|robustnessLabel|robustnessVerdict|recommendationStability/,
-    ],
     ['focus-now imports', /coaching-panel\/focus-now/],
   ])('contains no %s', (_label, re) => {
     for (const { file, content } of sources) {
       expect(re.test(content), `${file} must not match ${re}`).toBe(false)
     }
+  })
+
+  /**
+   * ── TRUST/STABILITY READS: AN EXACTLY-PINNED KNOWN-GAP SET ─────────────────
+   *
+   * This ban used to be a flat "no file may match". The cockpit consolidation
+   * moved `rowRanking.ts` into this tree as `actOnIt/rankActOnItRows.ts`, and
+   * it reads two of the four banned symbols — so the flat assertion went red.
+   *
+   * It is pinned rather than narrowed, and the distinction matters. Narrowing
+   * the regex, excluding `actOnIt/`, or moving the file would all CARVE OUT
+   * the discrepancy: the guard would go green while losing the power to see
+   * the very thing it exists to catch. A pin keeps every symbol in scope and
+   * records the gap honestly — the suite is green for the RIGHT reason.
+   *
+   * THE PIN IS BIDIRECTIONAL, and that is the point:
+   *   · a NEW violation (set GROWS)   -> RED. The ban still bites everywhere.
+   *   · a FIXED violation (set SHRINKS) -> RED. You cannot quietly resolve one
+   *     and leave the pin overstating the debt; shrinking it is a deliberate,
+   *     reviewable edit.
+   *
+   * ⚠ DO NOT "FIX" A RED HERE BY EDITING THIS SET TO MATCH REALITY. If the set
+   * grew, you introduced a fabrication path. Only shrink it alongside the
+   * change that genuinely removes a read.
+   *
+   * THE TWO ENTRIES ARE NOT THE SAME KIND OF DEBT — the guard's blanket
+   * rationale ("no producer display-safe label exists") is stale for one of
+   * them and exactly right for the other:
+   *
+   *   · `robustnessVerdict` — a display-safe label DOES exist. `types.ts`
+   *     documents it as sourced only from PLoT's `robustness.display_verdict`,
+   *     fail-closed normalised. Reading it is the sanctioned path; the fix is
+   *     to consume the producer's label explicitly.
+   *   · `recommendationStability` — the ban is correct. It is a bare 0-1 float
+   *     with no display-safe label, and the `< 0.85` cliff in `isReadyToBrief`
+   *     is a UI-INVENTED threshold. The fix is producer-side, or a licensed
+   *     constant.
+   *
+   * Both are rowed separately. Neither is fixed in this train.
+   */
+  const TRUST_STABILITY_RE =
+    /robustnessLevel|robustnessLabel|robustnessVerdict|recommendationStability/g
+
+  const KNOWN_TRUST_STABILITY_READS: readonly string[] = [
+    'rankActOnItRows.ts::recommendationStability',
+    'rankActOnItRows.ts::robustnessVerdict',
+  ]
+
+  it('trust/stability field reads match the pinned known-gap set EXACTLY', () => {
+    const found = new Set<string>()
+    for (const { file, content } of sources) {
+      for (const m of content.matchAll(TRUST_STABILITY_RE)) {
+        found.add(`${file}::${m[0]}`)
+      }
+    }
+    expect(
+      [...found].sort(),
+      'trust/stability reads drifted from the pinned set — see the block comment above: ' +
+        'a GROWN set means a new fabrication path, a SHRUNK set means a fix landed ' +
+        'without updating the pin. Do not edit the pin to match reality.',
+    ).toEqual([...KNOWN_TRUST_STABILITY_READS].sort())
   })
 
   it('positive controls: each pattern fires on the code it bans', () => {

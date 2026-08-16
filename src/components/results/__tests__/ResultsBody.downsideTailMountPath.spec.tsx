@@ -77,7 +77,7 @@
  * surface, so the harness is demonstrably able to see what it claims is
  * missing (trap 13).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -307,15 +307,8 @@ function showAllOptions(): void {
 }
 
 describe('2.581 — the downside tail on the mount path, fed by the reported-broken session', () => {
-  beforeEach(() => {
-    // Deployed posture, read from the same capture's DOM census (its button
-    // list carries `hero-lens-tab-*`). Injected through the flag system's own
-    // localStorage seam rather than a module mock, so the real predicate runs.
-    localStorage.setItem('feature.analysisHeroPanel', '1')
-  })
   afterEach(() => {
     cleanup()
-    localStorage.removeItem('feature.analysisHeroPanel')
     // The canvas mode is a module singleton; leaving it flipped would leak into
     // every later file in the same worker.
     useCanvasStore.setState({ viewMode: 'standard' })

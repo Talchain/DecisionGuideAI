@@ -28,11 +28,9 @@ import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { collectRerunControls } from '../../../../tests/helpers/rerunControls'
 
-const { mockIsV5CanonicalAnalysisEnabled, mockIsAnalysisHeroV17Enabled, mockIsAnalysisHeroPanelEnabled } =
+const { mockIsV5CanonicalAnalysisEnabled } =
   vi.hoisted(() => ({
     mockIsV5CanonicalAnalysisEnabled: vi.fn(() => false),
-    mockIsAnalysisHeroV17Enabled: vi.fn(() => false),
-    mockIsAnalysisHeroPanelEnabled: vi.fn(() => false),
   }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -51,8 +49,6 @@ vi.mock('../../../flags', async (importOriginal) => {
     isJourneyTabEnabled: () => false,
     isAiPanelV2Enabled: () => false,
     isV5CanonicalAnalysisEnabled: mockIsV5CanonicalAnalysisEnabled,
-    isAnalysisHeroV17Enabled: mockIsAnalysisHeroV17Enabled,
-    isAnalysisHeroPanelEnabled: mockIsAnalysisHeroPanelEnabled,
   }
 })
 
@@ -155,8 +151,6 @@ describe('OutputsDock — the bottom anchor keeps the run-analysis control (anch
       /* jsdom quirk */
     }
     mockIsV5CanonicalAnalysisEnabled.mockReturnValue(false)
-    mockIsAnalysisHeroV17Enabled.mockReturnValue(false)
-    mockIsAnalysisHeroPanelEnabled.mockReturnValue(false)
   })
 
   // The exact state Paul hit: a completed run, freshness confirmed 'fresh'. The

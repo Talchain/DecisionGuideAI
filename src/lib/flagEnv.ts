@@ -11,8 +11,8 @@
  * value, into the flags chunk. Each entry below is narrowed by Vite to that one
  * value, so the chunk now carries only keys the app actually declares.
  *
- * DERIVED, NOT HAND-LISTED: 67 flag keys from `src/flags.ts` FLAGS_CONFIG
- * (via the same AST walker `pnpm flags:check` uses) + 21 `VITE_FEATURE_*`/
+ * DERIVED, NOT HAND-LISTED: 64 flag keys from `src/flags.ts` FLAGS_CONFIG
+ * (via the same AST walker `pnpm flags:check` uses) + 20 `VITE_FEATURE_*`/
  * `VITE_ENABLE_*` keys declared in `netlify.toml`. Adding a flag and re-running the
  * generator is the whole workflow; `--check` reds if this file falls behind.
  *
@@ -37,9 +37,6 @@ export const FLAG_ENV: Record<string, unknown> = {
   VITE_ENABLE_LEGACY_DIRECT_RUN: import.meta.env?.VITE_ENABLE_LEGACY_DIRECT_RUN,
   VITE_ENABLE_ORCHESTRATOR_V2: import.meta.env?.VITE_ENABLE_ORCHESTRATOR_V2,
   VITE_FEATURE_AI_PANEL_V2: import.meta.env?.VITE_FEATURE_AI_PANEL_V2,
-  VITE_FEATURE_ANALYSIS_HERO_COMPARE: import.meta.env?.VITE_FEATURE_ANALYSIS_HERO_COMPARE,
-  VITE_FEATURE_ANALYSIS_HERO_PANEL: import.meta.env?.VITE_FEATURE_ANALYSIS_HERO_PANEL,
-  VITE_FEATURE_ANALYSIS_HERO_V17: import.meta.env?.VITE_FEATURE_ANALYSIS_HERO_V17,
   VITE_FEATURE_BIL: import.meta.env?.VITE_FEATURE_BIL,
   VITE_FEATURE_CANVAS: import.meta.env?.VITE_FEATURE_CANVAS,
   VITE_FEATURE_CANVAS_DEFAULT: import.meta.env?.VITE_FEATURE_CANVAS_DEFAULT,

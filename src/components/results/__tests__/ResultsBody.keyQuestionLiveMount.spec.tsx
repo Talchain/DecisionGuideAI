@@ -1,26 +1,15 @@
 /**
- * ResultsBody — MOUNT-PATH PROOF AT THE DEPLOYED FLAG VALUES (ROADMAP 2.466).
+ * ResultsBody — MOUNT-PATH PROOF ON THE LIVE ANALYSIS SURFACE (ROADMAP 2.466).
  *
  * ## Why this spec exists, stated bluntly
  *
  * Lane 1's DSK grounding badge shipped DARK three layers deep: it was hosted
- * on the V17 hero, which mounts only when `analysisHeroPanel` is OFF — and
- * staging deploys `VITE_FEATURE_ANALYSIS_HERO_PANEL=1`. jsdom specs at
- * default flag values proved the component worked while the deployed posture
- * never mounted it. This spec is the named check that failure class demands:
- * it proves the key-question surface renders ON THE DEPLOYED POSTURE
- * (analysisHeroPanel=1), fed by a REAL captured V5 analysis turn driven
- * through the REAL applicator into the REAL canvas store.
- *
- * ## Flag injection — through the flag system's own seam, NOT a mock
- *
- * `vi.mock('@/flags')` would prove the mock, not the posture. `makeFlag`
- * (flagFactory.ts:58-92) checks localStorage AT CALL TIME before the env
- * snapshot, and `'1'`/`'0'` resolve through the same truthiness the deployed
- * `VITE_FEATURE_ANALYSIS_HERO_PANEL=1` uses — so
- * `localStorage.setItem('feature.analysisHeroPanel', '1')` exercises the real
- * `isAnalysisHeroPanelEnabled` end to end. A parity assertion below pins that
- * the injection actually flips the real function.
+ * on the V17 hero, which mounted only on a flag arm no deployment served.
+ * jsdom specs at default flag values proved the component worked while the
+ * deployed posture never mounted it. That fork is now closed — the cockpit
+ * mounts unconditionally — and this spec proves the key-question surface
+ * renders THERE, fed by a REAL captured V5 analysis turn driven through the
+ * REAL applicator into the REAL canvas store.
  *
  * ## The fixture is the live wire
  *
@@ -42,7 +31,6 @@ import type {
   ImprovementsSectionData,
   OptionResult,
 } from '../types'
-import { isAnalysisHeroPanelEnabled } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
 import { applyV5State } from '../../../v5/applyV5State'
@@ -170,9 +158,8 @@ function renderBody() {
   )
 }
 
-describe('2.466 mount-path proof — deployed posture (analysisHeroPanel=1), live turn data', () => {
+describe('2.466 mount-path proof — the live analysis surface, live turn data', () => {
   beforeEach(() => {
-    localStorage.removeItem('feature.analysisHeroPanel')
     useCanvasStore.setState({
       analysisFreshness: null,
       analysisFreshnessDirty: false,
@@ -182,7 +169,6 @@ describe('2.466 mount-path proof — deployed posture (analysisHeroPanel=1), liv
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
   afterEach(() => {
-    localStorage.removeItem('feature.analysisHeroPanel')
     cleanup()
   })
 
@@ -200,18 +186,11 @@ describe('2.466 mount-path proof — deployed posture (analysisHeroPanel=1), liv
     expect((prompts[1] as Record<string, unknown>).dsk_claim_id).toBe('DSK-T-003')
   })
 
-  it('flag injection parity — localStorage "1" flips the REAL isAnalysisHeroPanelEnabled', () => {
-    expect(isAnalysisHeroPanelEnabled()).toBe(false)
-    localStorage.setItem('feature.analysisHeroPanel', '1')
-    expect(isAnalysisHeroPanelEnabled()).toBe(true)
-  })
-
-  it('DEPLOYED POSTURE: flag ON + live walk turn ⇒ the key question and its DSK grounding RENDER', () => {
-    localStorage.setItem('feature.analysisHeroPanel', '1')
+  it('live walk turn ⇒ the key question and its DSK grounding RENDER', () => {
     applyWalkTurnToRealStore()
     renderBody()
 
-    // The lens-hero arm is active (the V17/legacy slot must NOT mount).
+    // No superseded hero survives beside the cockpit.
     expect(screen.queryByTestId('decision-confidence-panel')).toBeNull()
 
     // The card, fed from the live turn — identity-bound to the walk's own strings.
@@ -235,9 +214,9 @@ describe('2.466 mount-path proof — deployed posture (analysisHeroPanel=1), liv
    * This spec exists because 2.466's badge shipped dark on the V17 hero. The
    * 2.491 lane then wrote its marker's render tests against that SAME
    * switched-off component — the identical defect, one feature later, past this
-   * very file. These cases bind the marker to the deployed posture so it cannot
-   * happen a third time: if someone re-hosts the marker on the `!flag` arm,
-   * `DEPLOYED POSTURE` below goes RED.
+   * very file. These cases bind the marker to the ONE mounted surface so it
+   * cannot happen a third time: re-host the marker anywhere else and the cases
+   * below go RED.
    *
    * The walk fixture predates CEE #825, so it carries no `dsk_grounding`. The
    * verdicts are injected into a CLONE of the real captured turn — the payload
@@ -273,8 +252,7 @@ describe('2.466 mount-path proof — deployed posture (analysisHeroPanel=1), liv
     } as never)
   }
 
-  it('DEPLOYED POSTURE: a GENERAL verdict renders the marker on the mounted surface', () => {
-    localStorage.setItem('feature.analysisHeroPanel', '1')
+  it('a GENERAL verdict renders the marker on the mounted surface', () => {
     applyTurnToRealStore(walkTurnWithVerdicts(['general', 'general']))
     renderBody()
 
@@ -290,10 +268,9 @@ describe('2.466 mount-path proof — deployed posture (analysisHeroPanel=1), liv
     expect(document.querySelectorAll('[data-testid="dsk-general-guidance"]')).toHaveLength(1)
   })
 
-  it('DEPLOYED POSTURE, POSITIVE CONTROL: an ATTESTED verdict renders the badge and NO marker', () => {
-    // Same posture, same fixture, same queries — so the case above cannot be
+  it('POSITIVE CONTROL: an ATTESTED verdict renders the badge and NO marker', () => {
+    // Same surface, same fixture, same queries — so the case above cannot be
     // passing because the harness renders nothing.
-    localStorage.setItem('feature.analysisHeroPanel', '1')
     applyTurnToRealStore(walkTurnWithVerdicts(['attested', 'attested']))
     renderBody()
 
@@ -301,30 +278,14 @@ describe('2.466 mount-path proof — deployed posture (analysisHeroPanel=1), liv
     expect(document.querySelectorAll('[data-testid="dsk-general-guidance"]')).toHaveLength(0)
   })
 
-  it('MOUNT-PATH GUARD: the marker never renders on the flag-OFF arm', () => {
-    // If a future lane moves the marker to the V17 hero (the 2.466 defect,
-    // and the 2.491 lane's first attempt), this goes RED.
-    localStorage.setItem('feature.analysisHeroPanel', '0')
+  it('SINGULARITY GUARD: no superseded hero renders beside the marker', () => {
+    // If a future lane re-hosts the marker on a second surface, or a deleted
+    // hero comes back beside it, this goes RED.
     applyTurnToRealStore(walkTurnWithVerdicts(['general', 'general']))
     renderBody()
 
-    expect(screen.getByTestId('decision-confidence-panel')).toBeInTheDocument()
-    expect(screen.queryByTestId('key-question-card')).toBeNull()
-    expect(document.querySelectorAll('[data-testid="dsk-general-guidance"]')).toHaveLength(0)
-  })
-
-  it('INVERSE CONTROL: flag OFF ⇒ the V17/legacy arm mounts and this surface does not', () => {
-    localStorage.setItem('feature.analysisHeroPanel', '0')
-    applyWalkTurnToRealStore()
-    renderBody()
-
-    // The legacy arm proves which branch we are in (V17 flag itself defaults
-    // off, so the legacy DecisionConfidencePanel is the slot's occupant).
-    expect(screen.getByTestId('decision-confidence-panel')).toBeInTheDocument()
-    expect(screen.queryByTestId('key-question-card')).toBeNull()
-    // And no grounding line renders ANYWHERE at flag-off: the V17 card's
-    // legacy feed (m1ReviewAssumptions + reviewStatus) is absent on a live V5
-    // turn — that is precisely the dark-ship this lane re-hosts around.
-    expect(document.querySelectorAll('[data-testid="dsk-grounding"]')).toHaveLength(0)
+    expect(screen.queryByTestId('decision-confidence-panel')).toBeNull()
+    expect(screen.getByTestId('key-question-card')).toBeInTheDocument()
+    expect(document.querySelectorAll('[data-testid="dsk-general-guidance"]')).toHaveLength(1)
   })
 })

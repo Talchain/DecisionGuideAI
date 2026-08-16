@@ -4,13 +4,14 @@
  *
  * ## Why this exists
  *
- * Lane 1 built the DSK grounding badge on the V17 hero — which mounts only
- * when `analysisHeroPanel` is OFF, while staging deploys it ON; and its data
+ * Lane 1 built the DSK grounding badge on the V17 hero — which mounted only
+ * on an analysis-hero flag arm staging never served (hero and flag are both
+ * deleted now); and its data
  * (`m2DecisionQualityPrompts` + `reviewStatus === 'complete'`) is written only
  * by the legacy V2-run/hydration paths, never by a live V5 turn. Net: every
  * analysis turn carries cited decision-quality prompts and the tester saw
  * none of them. This card re-hosts the surface where testers actually look
- * (the lens-hero arm of ResultsBody) and feeds it from the live turn state.
+ * (the analysis cockpit in ResultsBody) and feeds it from the live turn state.
  *
  * ## Data path (live, not legacy)
  *
@@ -44,7 +45,7 @@ import {
   isGeneralGuidance,
   mapDecisionQualityPrompts,
 } from '../utils/decisionQualityPrompts'
-import { containsBannedTerm } from '../analysisHeroV17/glossaryCheck'
+import { containsBannedTerm } from '../utils/glossaryCheck'
 
 export function KeyQuestionCard() {
   const review030 = useCanvasStore(s => s.runMeta?.decisionReview030)

@@ -1,10 +1,10 @@
 /**
- * CompactOptionSpread — single-line option summary for the V17 Analysis tab.
+ * CompactOptionSpread — single-line option summary. UNMOUNTED.
  *
- * Replaces the full OptionCards block in the Analysis tab when the
- * `analysisHeroV17` flag is on. The Compare tab retains the full cards via
- * its own render path (CompareTabBodyV2) — this component does not affect
- * the Compare tab.
+ * Built to replace the full OptionCards block on the Analysis tab under the
+ * V17 hero fork. That swap was reverted in May 2026 and the fork is now
+ * deleted, so this has no call site; it is kept as a possible supplementary
+ * affordance. The Compare tab was never affected either way.
  *
  * Format: "Option spread: <leader> NN% · <runner-up> NN% · others NN%  [Compare options]"
  * The "others" segment is omitted when only two options carry a probability

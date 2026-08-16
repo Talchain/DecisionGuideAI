@@ -8,9 +8,9 @@
  * coaching-panel flag mocked, so the wiring under test is the shipped one.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { AnalysisHeroContainer } from '../AnalysisHeroContainer'
-import { makeHeroData } from '../__fixtures__/hero.fixtures'
+import { makeHeroData, makeOption } from '../__fixtures__/hero.fixtures'
 
 // Wave F-B: the hero rerun routes through the canonical runner (its old
 // private useV2Run instance retired); running state derives from the store.
@@ -254,10 +254,64 @@ describe('AnalysisHero — interaction', () => {
     expect(screen.queryByTestId('hero-next-rec')).toBeNull()
   })
 
-  it('renders nothing at all for the empty model (fail-closed mount)', () => {
-    const { container } = render(
-      <AnalysisHeroContainer data={makeHeroData({ options: [] })} />,
-    )
-    expect(container).toBeEmptyDOMElement()
+  /**
+   * FAIL-CLOSED MOUNT — MIGRATED to the split contract.
+   *
+   * The old single case asserted `container` was empty for ANY empty model.
+   * `AnalysisHeroContainer` now fails closed on the hero MODEL only, and
+   * deliberately not on the act-on-it section (its docstring: a model that
+   * cannot be built "says nothing about whether there are factors to confirm,
+   * and the queue is the only host of the confirm/set-value affordance").
+   *
+   * That is two claims, so it is two tests. Collapsing them back into one
+   * would either lose the renders-nothing branch or bless ranked chrome in a
+   * pre-run state.
+   */
+  describe('empty model — fail closed on the MODEL, not on the act-on-it section', () => {
+    it('renders nothing at all when there is no model, no row and no queue slot', () => {
+      // Reaching this branch needs an empty model that ALSO produces no rows,
+      // and the two constraints pull against each other: the coverage row
+      // fires whenever `allOptions.length < 2`, so `options: []` can never
+      // reach it. The honest shape is TWO options carrying no displayable
+      // value — `buildHeroModel` returns empty at its lens gate ("options
+      // exist but nothing displayable"), while the option count keeps the
+      // coverage row suppressed.
+      const valueless = makeHeroData({
+        options: [
+          makeOption({ id: 'opt_a', label: 'Two developers' }),
+          makeOption({ id: 'opt_b', label: 'Upskill the team' }),
+        ],
+        recommendation: { recommendedOption: null, goalThreshold: null },
+      })
+      const { container } = render(<AnalysisHeroContainer data={valueless} />)
+      expect(container).toBeEmptyDOMElement()
+    })
+
+    it('renders ONLY the act-on-it section — never hero chrome — when the model is empty but rows exist', () => {
+      // THE PROTECTION THIS CASE EXISTS FOR: the standalone branch must not
+      // become a back door through which the ranked hero reaches a pre-run
+      // state. The section is present AND every ranked surface is absent, by
+      // testid identity rather than by a text predicate another node could
+      // satisfy.
+      render(<AnalysisHeroContainer data={makeHeroData({ options: [] })} />)
+
+      const standalone = screen.getByTestId('analysis-act-on-it-standalone')
+      expect(standalone).toBeInTheDocument()
+      // The act-on-it section is really inside it (not an empty shell that
+      // would satisfy the absence assertions below for free).
+      expect(within(standalone).getByTestId('hero-act-on-it')).toBeInTheDocument()
+
+      // NO HERO CHROME. The panel itself, its chart area, its ranked rows,
+      // the row ordinals and the lens tablist are each independently absent —
+      // any one of them leaking would be a ranked claim about a run that
+      // produced no model.
+      expect(screen.queryByTestId('analysis-hero-panel')).toBeNull()
+      expect(screen.queryByTestId('hero-chart-area')).toBeNull()
+      expect(screen.queryByTestId('hero-chart-rows')).toBeNull()
+      expect(screen.queryAllByTestId('hero-row-label')).toHaveLength(0)
+      expect(screen.queryAllByTestId('hero-row-number')).toHaveLength(0)
+      expect(screen.queryByTestId('hero-lens-tab-goal')).toBeNull()
+      expect(screen.queryByRole('tablist')).toBeNull()
+    })
   })
 })

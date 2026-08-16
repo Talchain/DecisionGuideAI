@@ -50,16 +50,12 @@ vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
   return {
     ...actual,
-    isAnalysisHeroV17Enabled: vi.fn(() => false),
-    isAnalysisHeroCompareEnabled: vi.fn(() => false),
     isFocusNowPanelEnabled: vi.fn(() => true),
     isStrengthenPanelEnabled: vi.fn(() => false),
     isAiPanelV2Enabled: vi.fn(() => true),
-    isAnalysisHeroPanelEnabled: vi.fn(() => true),
   }
 })
 
-import { isAnalysisHeroPanelEnabled } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -155,32 +151,30 @@ describe('ResultsBody — V7 scaffold retired from the Analysis tab (moved to th
   beforeEach(() => {
     useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
   })
 
-  it('(a) V7-on-results is GONE: no v7-top-matter, no v7-top-group, on either hero-flag posture', () => {
+  it('(a) V7-on-results is GONE: no v7-top-matter, no v7-top-group', () => {
+    // Was a two-posture loop over the analysis-hero flag; the fork is closed,
+    // so the body runs once against the one surface that mounts.
     // POSITIVE CONTROL first: this render genuinely paints the post-run panel
     // (the live surfaces are on screen), so the absences below are absences
     // from a real render, not from an empty one.
-    for (const posture of [true, false]) {
-      vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(posture)
-      const { container, unmount } = renderBody()
-      expect(
-        screen.getByTestId('outputs-results-redesign'),
-        `positive control (analysisHeroPanel=${posture}): the panel rendered`,
-      ).toBeInTheDocument()
-      expect(container.textContent ?? '', 'positive control: real content painted').toMatch(/Option A/)
+    const { container, unmount } = renderBody()
+    expect(
+      screen.getByTestId('outputs-results-redesign'),
+      'positive control: the panel rendered',
+    ).toBeInTheDocument()
+    expect(container.textContent ?? '', 'positive control: real content painted').toMatch(/Option A/)
 
-      expect(
-        screen.queryByTestId('v7-top-matter'),
-        `analysisHeroPanel=${posture}: V7 top matter re-mounted on the Analysis tab — it lives on the Alt view tab now`,
-      ).not.toBeInTheDocument()
-      expect(
-        screen.queryByTestId('v7-top-group'),
-        `analysisHeroPanel=${posture}: the v7-top-group slot must not survive on the Analysis tab`,
-      ).not.toBeInTheDocument()
-      unmount()
-    }
+    expect(
+      screen.queryByTestId('v7-top-matter'),
+      'V7 top matter re-mounted on the Analysis tab — it lives on the Alt view tab now',
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('v7-top-group'),
+      'the v7-top-group slot must not survive on the Analysis tab',
+    ).not.toBeInTheDocument()
+    unmount()
   })
 
   it('(b) the "Current view" divider is GONE from the Analysis tab', () => {

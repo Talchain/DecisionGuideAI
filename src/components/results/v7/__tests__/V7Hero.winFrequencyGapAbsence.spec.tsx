@@ -20,7 +20,7 @@
  * `ResultsBody.winFrequencyGapAbsence.spec.tsx`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { V7ComparisonTabBody } from '../V7ComparisonTabBody'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type {
@@ -40,13 +40,9 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({
 
 vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
-  return {
-    ...actual,
-    isAnalysisHeroPanelEnabled: vi.fn(() => true),
-  }
+  return { ...actual }
 })
 
-import { isAnalysisHeroPanelEnabled } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import type { AnalysisFreshnessState } from '@/canvas/store/analysisFreshness'
@@ -156,7 +152,6 @@ describe('V7 hero in the Alt view tab — own-probability statements only, never
   beforeEach(() => {
     useCanvasStore.setState({ analysisFreshness: FRESH, analysisFreshnessDirty: false })
     useGuidanceStore.setState({ guidanceItems: [] })
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
   })
 
   it('the hero mounts, states the leader’s OWN probability, and states NO gap', () => {
@@ -209,18 +204,19 @@ describe('V7 hero in the Alt view tab — own-probability statements only, never
     expect(container.textContent ?? '').not.toMatch(PP_CLAIM)
   })
 
-  it('BOTH postures of analysisHeroPanel mount the hero — the Alt view tab consults no flag', () => {
-    for (const posture of [true, false]) {
-      vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(posture)
-      renderTab()
-      expect(
-        screen.getByTestId('v7-hero'),
-        `analysisHeroPanel=${posture}: if the Alt view tab has been re-gated, this comparison surface can ship dark`,
-      ).toBeInTheDocument()
-      const subline = screen.getByTestId('v7-hero-subline')
-      expect(subline.textContent ?? '').not.toMatch(GAP_CLAIM)
-      expect(subline).toHaveTextContent(`Next: ${RUNNER_UP_LABEL}, 31%`)
-      cleanup()
-    }
+  // MIGRATED from 'BOTH postures of analysisHeroPanel mount the hero'. The
+  // analysisHeroPanel flag no longer exists — the analysis-hero fork is closed
+  // and the cockpit mounts unconditionally — so there is only one posture left
+  // to assert. The surviving claim is the load-bearing one: the Alt view tab
+  // consults NO flag, so this comparison surface cannot ship dark.
+  it('the Alt view tab consults no flag — the hero mounts unconditionally', () => {
+    renderTab()
+    expect(
+      screen.getByTestId('v7-hero'),
+      'if the Alt view tab has been re-gated, this comparison surface can ship dark',
+    ).toBeInTheDocument()
+    const subline = screen.getByTestId('v7-hero-subline')
+    expect(subline.textContent ?? '').not.toMatch(GAP_CLAIM)
+    expect(subline).toHaveTextContent(`Next: ${RUNNER_UP_LABEL}, 31%`)
   })
 })

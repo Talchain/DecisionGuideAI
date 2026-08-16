@@ -29,7 +29,7 @@
  * ROBUSTNESS-VERDICT-CONTRACT), so the trust line is omitted rather than
  * derived. Raw 0-1 stability/confidence floats are never displayed.
  */
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Check, Crosshair, FlaskConical, Info, Target } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { openAskOlumi } from '../coaching/askOlumiStore'
@@ -39,6 +39,8 @@ import { openEdgeStrengthEditor } from '../../../canvas/utils/openEdgeStrengthEd
 import { HERO_COPY } from './heroCopy'
 import { HeroLensTabs, tabId } from './HeroLensTabs'
 import { HeroOptionRow, HERO_ROW_GRID, HERO_ROW_TRACK_SPAN } from './HeroOptionRow'
+import { ActOnItSection } from './actOnIt/ActOnItSection'
+import type { ActOnItRow, RowActionDispatcher } from './actOnIt/types'
 import type { HeroChartModel, HeroLens, HeroStatusModel } from './heroTypes'
 
 export interface AnalysisHeroPanelProps {
@@ -84,6 +86,25 @@ export interface AnalysisHeroPanelProps {
    * control.
    */
   onDefineSuccess?: () => void
+  /**
+   * ── THE ACT-ON-IT SECTION ────────────────────────────────────────────────
+   * Salvaged from the deleted `analysisHeroV17` fork and hosted here as a
+   * designed section (see `actOnIt/ActOnItSection.tsx`). Supplied by the
+   * container, which owns the ranking and the store wires; this panel stays
+   * prop-driven. Empty rows + absent slot ⇒ the section renders nothing.
+   */
+  actOnItRows?: ActOnItRow[]
+  actOnItHiddenRows?: ActOnItRow[]
+  dispatchRowAction?: RowActionDispatcher
+  /** False ⇒ chat-dependent row actions are hidden, never rendered dead. */
+  chatAvailable?: boolean
+  /**
+   * The evidence-gap queue (`TriageActionCardsBody`) as a node. It used to be
+   * a chromeless sibling of this panel — the ONLY host of P4's "Confirm AI
+   * estimate" on the deployed posture, framed by nothing. It now renders
+   * inside the act-on-it section's chrome.
+   */
+  actOnItQueueSlot?: ReactNode
 }
 
 /**
@@ -149,6 +170,11 @@ export function AnalysisHeroPanel({
   onApplyTarget,
   onDefineSuccess,
   onFocusTarget,
+  actOnItRows = [],
+  actOnItHiddenRows = [],
+  dispatchRowAction,
+  chatAvailable = false,
+  actOnItQueueSlot,
 }: AnalysisHeroPanelProps) {
   const panelId = useId()
   const [lensState, setLensState] = useState<HeroLens | null>(null)
@@ -224,6 +250,17 @@ export function AnalysisHeroPanel({
           </p>
         )}
         <StatusState model={model} />
+        {/* The act-on-it section is a property of the RUN, not of the lens
+            chart, so a partial / failed / blocked / paused run still offers
+            it. Withholding the one place a user can confirm or correct an
+            estimate exactly when the analysis went wrong would be backwards. */}
+        <ActOnItSection
+          rows={actOnItRows}
+          hiddenRows={actOnItHiddenRows}
+          dispatchRowAction={dispatchRowAction ?? (() => {})}
+          chatAvailable={chatAvailable}
+          queueSlot={actOnItQueueSlot}
+        />
       </section>
     )
   }
@@ -410,7 +447,12 @@ export function AnalysisHeroPanel({
                     row={row}
                     lens={lens}
                     isLeader={row.id === leaderId}
-                    showOrdinal={!model.designationsWithheld}
+                    // Two independent reasons to draw no ordinal, kept apart
+                    // (trap 21): the RUN withholds every designation, or THIS
+                    // option was never in the ranking (NO-RANK ruling). The
+                    // false branch keeps the 1.5rem badge cell occupied, so
+                    // suppressing the claim never re-lays-out the row.
+                    showOrdinal={!model.designationsWithheld && row.isRanked}
                     isOpen={openRowId === row.id}
                     onToggle={() => setOpenRowId((cur) => (cur === row.id ? null : row.id))}
                     outcomeDomain={model.outcomeDomain}
@@ -490,6 +532,20 @@ export function AnalysisHeroPanel({
       <AssumedStrengthCard
         decision={model.evidence.assumedStrength}
         onResolve={openEdgeStrengthEditor}
+      />
+
+      {/* ── WHAT TO ACT ON NEXT ──────────────────────────────────────────
+          The per-factor act-on-it model (salvaged from the deleted v17 fork)
+          + the evidence-gap queue that used to hang chromeless beside this
+          panel. One designed section, in reading order: the result, the
+          evidence behind it, then what to do about it. See
+          actOnIt/ActOnItSection.tsx. */}
+      <ActOnItSection
+        rows={actOnItRows}
+        hiddenRows={actOnItHiddenRows}
+        dispatchRowAction={dispatchRowAction ?? (() => {})}
+        chatAvailable={chatAvailable}
+        queueSlot={actOnItQueueSlot}
       />
 
       {/* Footer strip: Main reason (static fallback when the driver pill is
