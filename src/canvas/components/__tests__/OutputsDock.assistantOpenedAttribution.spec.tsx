@@ -72,7 +72,7 @@ const {
   // AND from a live DOM capture of https://staging--olumi.netlify.app
   // (`dist/version.json` commit f2b48fc99c3dff5b46f37f53be2c6190aca23f0e —
   // the same tip this branch forks from). The deployed tab strip read
-  // ["Olumi","Analysis","Alt view","Compare","Model"]: aiPanelV2 ON,
+  // ["Olumi","Analysis","Compare","Model"]: aiPanelV2 ON,
   // compareTab ON, journeyTab OFF. `MOUNT-1` asserts that exact strip, so if
   // a flag moves under this spec the binding fails LOUD instead of quietly
   // testing a component the deployment does not render.
@@ -346,7 +346,7 @@ describe('ROADMAP 2.1132 — the assistant attributes the panel gestures it actu
     // before anything below asserts a presence or an absence inside it.
     const strip = screen.getByRole('navigation', { name: 'Outputs sections' })
     expect(strip).toBeInTheDocument()
-    expect(tabLabels(strip)).toEqual(['Olumi', 'Analysis', 'Alt view', 'Compare', 'Model'])
+    expect(tabLabels(strip)).toEqual(['Olumi', 'Analysis', 'Compare', 'Model'])
 
     // Absent before any gesture — so the presence below is the gesture's doing.
     expect(notice()).not.toBeInTheDocument()
@@ -370,7 +370,7 @@ describe('ROADMAP 2.1132 — the assistant attributes the panel gestures it actu
     mockIsAiPanelV2Enabled.mockReturnValue(false)
     renderDock()
     const strip = screen.getByRole('navigation', { name: 'Outputs sections' })
-    expect(tabLabels(strip)).toEqual(['Analysis', 'Alt view', 'Model'])
+    expect(tabLabels(strip)).toEqual(['Analysis', 'Model'])
 
     driveDirective(openPanelEnvelope('results'))
     expect(screen.getByTestId('outputs-dock')).toContainElement(

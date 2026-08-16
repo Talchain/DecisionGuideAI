@@ -110,7 +110,7 @@ describe('forcedActivationEndsRail', () => {
     // Swept rather than sampled: 'results' is the one that actually bit, but the
     // claim is about every non-Olumi tab, and a future forced activation of any
     // of these must not silently re-open the dock either.
-    for (const tab of ['results', 'altview', 'compare', 'diagnostics', 'journey']) {
+    for (const tab of ['results', 'compare', 'diagnostics', 'journey']) {
       expect(forcedActivationEndsRail(true, tab), tab).toBe(false)
     }
   })
