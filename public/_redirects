@@ -15,6 +15,15 @@
 #   /bff/isl/*         → netlify/edge-functions/isl-proxy.ts        (ISL_API_KEY)
 #   /bff/orchestrate/* → netlify/edge-functions/orchestrator-proxy.ts (ASSIST_API_KEY)
 #   /bff/cee/*         → netlify/edge-functions/cee-proxy.ts        (ASSIST_API_KEY)
+#   /bff/engine/*      → netlify/edge-functions/plot-proxy.ts       (PLOT_AUTH_TOKEN)
+#   /engine/*          → netlify/edge-functions/plot-proxy.ts       (PLOT_AUTH_TOKEN)
+#
+# The last two were plain rewrites here until the bundle-credential fix. A rewrite
+# cannot inject a header, so PLoT's auth flip was survived by shipping the bearer to
+# the BROWSER (VITE_PLOT_BEARER), which Vite inlined as a bare literal into a public
+# asset — a live server-to-server credential any visitor could fetch. The rewrite was
+# not wrong about routing; it was simply incapable of being a credential boundary,
+# and that incapacity was paid for in the client bundle.
 #
 # Until ROADMAP 2.317 the third line above read "/bff/cee/* handled by
 # netlify.toml redirect with header injection". That was false, and the line
@@ -22,11 +31,6 @@
 # netlify.toml rule, so /bff/cee/* served SPA HTML on every deploy. A comment
 # asserting a guarantee that the adjacent config defeats is the defect class
 # here — hence the guard, which derives reachability instead of trusting prose.
-/bff/engine/*  https://plot-lite-service-staging.onrender.com/:splat  200!
-
-# Legacy engine proxy (VITE_EDGE_GATEWAY_URL=/engine uses this)
-/engine/*      https://plot-lite-service-staging.onrender.com/:splat  200!
-
 # Static routes
 /poc           /poc.html                                               200
 /fixtures/*    /fixtures/:splat                                        200

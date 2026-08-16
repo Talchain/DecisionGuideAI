@@ -6,8 +6,6 @@
  */
 
 import type {
-  RunRequest,
-  ReportV1,
   LimitsV1,
   TemplateListV1,
   TemplateDetail,
@@ -93,18 +91,6 @@ export async function getProbeStatus(): Promise<ProbeResult> {
  * Throws BackendUnavailableError when backend is not accessible
  */
 export const autoDetectAdapter = {
-  async run(input: RunRequest): Promise<ReportV1> {
-    const probe = await getProbeResult();
-
-    if (probe.available) {
-      return httpV1Adapter.run(input);
-    }
-
-    const errorMsg = createBackendErrorMessage(probe, 'run analysis')
-    console.error('[AutoDetect]', errorMsg)
-    throw new BackendUnavailableError(errorMsg, probe, 'run')
-  },
-
   async templates(): Promise<TemplateListV1> {
     const probe = await getProbeResult();
 

@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
-import { getCanonicalRunner } from '../../analysis/canonicalRunRegistry'
+import { getCanonicalRunner, RUN_DISPATCHER_UNAVAILABLE_REASON } from '../../analysis/canonicalRunRegistry'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { _clearTraces, getInteractionChains } from '../../../lib/debug-state'
 // 34edc1fd ("conversation singleton + explicit first-use submit signal",
@@ -297,7 +297,17 @@ describe('OutputsDock analyse convergence', () => {
       expect(dispatchAction).not.toHaveBeenCalled()
     })
 
-    it('falls back to direct V2 when canonical flag is on but no _dispatchAction is registered', async () => {
+    it('REFUSES to run when the canonical flag is on but no _dispatchAction is registered', async () => {
+      // INVERTED DELIBERATELY. This test used to assert the opposite — that the
+      // dock "falls back to direct V2" — and that fallback was the defect: a
+      // DIRECT browser->PLoT /v2/run bypassing the CEE orchestration seam,
+      // announced only by a DEV-only console warning. In a production build the
+      // product silently ran a different, unorchestrated analysis and presented
+      // it as the canonical one.
+      //
+      // Canonical-on is the deployed posture, so reaching here means the
+      // dispatcher genuinely is not ready. Running nothing and saying so is the
+      // honest outcome.
       const runV2Analysis = vi.fn()
       mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
@@ -308,9 +318,22 @@ describe('OutputsDock analyse convergence', () => {
       useGuidanceStore.setState({ _dispatchAction: null } as any)
 
       renderOutputsDock()
-      fireEvent.click(screen.getByTestId('outputs-run-button'))
+      const runner = getCanonicalRunner()
+      // POSITIVE CONTROL: bind to the runner the dock actually registered, so a
+      // null here fails loudly instead of the assertions below passing against
+      // a dock that never mounted.
+      expect(runner).not.toBeNull()
 
-      await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
+      const outcome = await runner!({ source: 'test' })
+
+      // The refusal is carried in the OUTCOME, by identity to the exported
+      // constant — the toast provider is stubbed in this spec, so asserting on
+      // rendered text here would prove nothing about the contract.
+      expect(outcome).toEqual({
+        status: 'unavailable',
+        reason: RUN_DISPATCHER_UNAVAILABLE_REASON,
+      })
+      expect(runV2Analysis).not.toHaveBeenCalled()
     })
   })
 

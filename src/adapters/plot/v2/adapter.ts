@@ -38,6 +38,7 @@ import { recordRequestPayload, recordResponsePayload } from '../../../lib/payloa
 import { STRENGTH_BOUNDS, clampStrength } from '../../../canvas/domain/edges'
 import { logger } from '../../../lib/logger'
 import { plotFetch } from '../../../lib/plotFetch'
+import { toSameOriginPlotBase } from '../../../lib/plotSameOrigin'
 
 // ============================================================================
 // Canvas Data Types (input format)
@@ -1707,10 +1708,25 @@ export async function runV2(
   const startTime = Date.now()
   const requestId = request.request_id || `v2-${Date.now()}`
   const endpoint = '/v2/run'
-  const directPlotUrl = import.meta.env?.VITE_PLOT_ENGINE_URL
-  const resolvedBaseUrl = typeof directPlotUrl === 'string' && directPlotUrl.trim().length > 0
-    ? directPlotUrl.trim()
-    : baseUrl
+  // ⚠ SEAM RETIRED — DO NOT REINTRODUCE AN ENV-RESOLVED BASE HERE.
+  //
+  // This used to read `VITE_PLOT_ENGINE_URL`, which overrode the caller's base
+  // entirely. It is dashboard-set, Vite bakes it in at transform time, and it
+  // therefore beat every relative base a caller passed — taking `/v2/run`, the
+  // primary analysis path, around the `/bff/engine/*` edge function that injects
+  // PLoT's bearer server-side.
+  //
+  // An interim fix wrapped that override in `toSameOriginPlotBase`. That closed the
+  // case where the variable pointed at PLoT's own host and left the case where it
+  // pointed anywhere ELSE wide open, because the normaliser passes non-PLoT bases
+  // through by design — correct for the normaliser, wrong for this call. The read
+  // is the defect, not the normaliser, so the read is gone.
+  //
+  // The base is now the caller's, normalised so that a PLoT-host base still lands on
+  // the same-origin proxy. Pinned by `__tests__/runV2.plotBearer.spec.ts`, including
+  // a source pin, because a reintroduction could hide behind a condition no outcome
+  // fixture enters.
+  const resolvedBaseUrl = toSameOriginPlotBase(baseUrl)
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
@@ -1866,57 +1882,6 @@ export async function runV2(
     // error a headers-phase timeout already produced.
     clearTimeout(timeoutId)
   }
-}
-
-/**
- * Full V2 adapter workflow:
- * 1. Build request from canvas state
- * 2. Make HTTP call
- * 3. Translate response IDs back to UI IDs
- *
- * @param requestId - Optional request ID for tracing (auto-generated if not provided)
- */
-export async function executeV2Run(
-  config: V2AdapterConfig,
-  nodes: Node<CanvasNodeData>[],
-  edges: Edge<CanvasEdgeData>[],
-  options: UIOption[],
-  goalNodeId: string,
-  requestId?: string
-): Promise<V2RunResult> {
-  // Build request with ID normalisation
-  const { request, reverseIdMap } = buildV2Request(nodes, edges, options, goalNodeId)
-
-  // Add request ID for tracing
-  if (requestId) {
-    request.request_id = requestId
-  }
-
-  if (import.meta.env.DEV) {
-    console.warn('[V2Adapter] Sending request:', {
-      requestId: request.request_id,
-      nodeCount: request.graph.nodes.length,
-      edgeCount: request.graph.edges.length,
-      optionCount: request.options.length,
-      goalNodeId: request.goal_node_id,
-    })
-  }
-
-  // Execute request
-  const result = await runV2(config, request)
-
-  // Translate response IDs back to UI IDs
-  const translated = translateV2Response(result, reverseIdMap)
-
-  if (import.meta.env.DEV) {
-    console.warn('[V2Adapter] Response:', {
-      requestId: translated.request_id,
-      status: translated.analysis_status,
-      isBlocked: isBlockedResponse(translated),
-    })
-  }
-
-  return translated
 }
 
 /**

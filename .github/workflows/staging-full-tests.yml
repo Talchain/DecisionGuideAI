@@ -536,6 +536,24 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      # ⚠ WIRED HERE ON PURPOSE, NOT ONLY IN ci.yml.
+      #
+      # `staging` branch protection requires exactly ONE check: "Staging Gate",
+      # whose `needs` list is [tsc, typecheck-selftest, vitest, vitest-summary,
+      # build]. Nothing in ci.yml is required, so a credential guard living only
+      # there would advise and never block — the same shape as the defect it
+      # exists to catch (the previous allow-list guard printed a 🚨 about a live
+      # credential on every run and exited 0).
+      #
+      # It runs AFTER the build in the job the gate already depends on, so it
+      # scans the artefact this job just produced and its failure fails the gate.
+      # Derived 2026-08-13:
+      #   gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
+      #     --jq '.required_status_checks.contexts'   → ["Staging Gate"]
+      # Re-derive before assuming this is still where the blocking happens.
+      - name: No credentials in the emitted bundle (value-shape scan)
+        run: pnpm run ci:guard:bundle-credentials
+
   # ── Gate (single required check for branch protection) ───────────────
   gate:
     name: Staging Gate

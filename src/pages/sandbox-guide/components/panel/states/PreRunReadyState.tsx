@@ -2,37 +2,16 @@
  * Pre-Run Ready State
  *
  * Shown when the graph is valid and ready to analyze.
- * Provides a clear CTA to run analysis.
+ *
+ * The run CTA was removed with the direct browser->PLoT run path
+ * (useResultsRun): analysis is orchestrated by CEE, not by this surface.
  */
 
 import { useCanvasStore } from '@/canvas/store'
-import { useResultsRun } from '@/canvas/hooks/useResultsRun'
-import { Button } from '../../shared/Button'
 
 export function PreRunReadyState(): JSX.Element {
   const nodes = useCanvasStore((state) => state.nodes)
   const edges = useCanvasStore((state) => state.edges)
-  const outcomeNodeId = useCanvasStore((state) => state.outcomeNodeId)
-  const { run } = useResultsRun()
-
-  const handleRun = () => {
-    run({
-      graph: {
-        nodes: nodes.map((n) => ({
-          id: n.id,
-          data: n.data,
-        })),
-        edges: edges.map((e) => ({
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          data: e.data,
-        })),
-      },
-      outcome_node: outcomeNodeId || undefined,
-      seed: 1337,
-    })
-  }
 
   const nodeCount = nodes.length
   const edgeCount = edges.length
@@ -45,7 +24,7 @@ export function PreRunReadyState(): JSX.Element {
       </div>
 
       <div className="text-storm-700 text-sm">
-        <p>Your model is ready! Click Run Analysis to see predictions and insights.</p>
+        <p>Your model is ready to analyse.</p>
       </div>
 
       {/* Graph stats */}
@@ -59,10 +38,6 @@ export function PreRunReadyState(): JSX.Element {
           <div className="text-2xl font-bold text-charcoal-900">{edgeCount}</div>
         </div>
       </div>
-
-      <Button variant="primary" fullWidth onClick={handleRun}>
-        Run Analysis
-      </Button>
 
       {/* Optional: Add evidence prompt */}
       <div className="p-3 bg-analytical-50 rounded-lg border border-analytical-200">

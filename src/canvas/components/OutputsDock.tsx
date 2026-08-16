@@ -31,7 +31,7 @@ import { useDockState } from '../hooks/useDockState'
 import { AnalysisRunningBanner } from './AnalysisRunningBanner'
 import { AnalysisRunAnnouncer } from './AnalysisRunAnnouncer'
 import { runStatusRegion } from './analysisRunStatus'
-import { registerCanonicalRunner, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
+import { registerCanonicalRunner, RUN_DISPATCHER_UNAVAILABLE_REASON, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
@@ -127,7 +127,7 @@ import { ResultsPanelSkeleton } from './ResultsPanelSkeleton'
 // P0.8: Instrumentation
 import { trackRunStarted, trackRunCompleted, trackRunFailed } from '../../lib/resultsInstrumentation'
 import { isErrorReport } from '../../adapters/plot/v2/responseMapper'
-import { useScenarioComparison } from '../hooks/useScenarioComparison'
+import { useScenarioComparison, COMPARISON_UNAVAILABLE_REASON } from '../hooks/useScenarioComparison'
 import { useRobustness } from '../hooks/useRobustness'
 import { mapRobustness } from '../../lib/mappers/mapRobustness'
 import type { MappedRobustness } from '../../lib/mappers/types'
@@ -1076,11 +1076,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         })
         return { status: 'dispatched' }
       }
-      if (import.meta.env.DEV) {
-        console.warn(
-          '[OutputsDock] canonical flag is on but _dispatchAction is not registered; falling back to V2.',
-        )
-      }
+      // RETIRED SILENT FALLBACK.
+      //
+      // This used to drop through to `runV2Analysis()` — a DIRECT
+      // browser→PLoT `/v2/run` call that bypasses the CEE orchestration
+      // seam — whenever the canonical flag was on but the dispatcher had
+      // not registered. The only trace was a DEV-only console warning, so
+      // in a production build the product silently ran a different,
+      // unorchestrated analysis path and presented the result as if it
+      // were the canonical one.
+      //
+      // Canonical-on is the deployed posture, so this branch means the
+      // dispatcher genuinely is not ready. Say so, and run nothing.
+      console.error(
+        '[OutputsDock] canonical run path is on but _dispatchAction is not registered; refusing to run.',
+      )
+      return { status: 'unavailable', reason: RUN_DISPATCHER_UNAVAILABLE_REASON }
     }
     await runV2Analysis()
     return { status: 'v2' }
@@ -1091,7 +1102,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   const handleRunAnalysis = useCallback(async () => {
     const outcome = await runCanonicalAnalysis()
-    if (outcome.status === 'blocked') {
+    if (outcome.status === 'blocked' || outcome.status === 'unavailable') {
       showToast(outcome.reason, 'warning')
     }
   }, [runCanonicalAnalysis, showToast])
@@ -1134,7 +1145,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       // Review (b): the hero copy promises "Applying runs the analysis
       // again" — a gated outcome must say why instead of silently saving
       // the threshold without a rerun.
-      if (outcome.status === 'blocked') showToast(outcome.reason)
+      if (outcome.status === 'blocked' || outcome.status === 'unavailable') showToast(outcome.reason)
       else if (outcome.status === 'already-running') {
         showToast('Analysis is already running. Your target is saved; rerun when it finishes.')
       }
@@ -2876,6 +2887,32 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               <div className="w-5 h-5 border-2 border-info border-t-transparent rounded-full animate-spin" />
               <span className={`${typography.body} text-text-header`}>Generating comparison...</span>
             </div>
+          </div>
+        )}
+
+        {/* Comparison compute retired — honest unavailable state.
+            NOT rendered as an error: nothing failed. The structural diff
+            behind this notice is real and locally computed; only the
+            numbers are missing, which is exactly what this says. */}
+        {scenarioComparison.analysisStatus === 'unavailable' && (
+          <div
+            className="fixed bottom-24 right-4 z-[1000] bg-panel border border-border px-4 py-3 rounded-lg shadow-3 max-w-sm"
+            role="status"
+            data-testid="scenario-comparison-unavailable"
+          >
+            <div className={`${typography.bodySmall} font-medium text-text-header`}>
+              Comparison numbers unavailable
+            </div>
+            <p className={`${typography.caption} text-text-body mt-1`}>
+              {COMPARISON_UNAVAILABLE_REASON}
+            </p>
+            <button
+              type="button"
+              onClick={scenarioComparison.clearComparison}
+              className={`mt-2 ${typography.caption} text-text-body hover:text-text-header underline`}
+            >
+              Dismiss
+            </button>
           </div>
         )}
 

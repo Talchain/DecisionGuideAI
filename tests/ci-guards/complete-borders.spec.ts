@@ -79,7 +79,6 @@ const CONTENT_CARD_FILES = [
   'canvas/components/ValidationPanel.tsx',
   'canvas/components/ProvenanceHubTab.tsx',
   'canvas/components/GraphTextView.tsx',
-  'canvas/components/EdgeFunctionTypeSelector.tsx',
   'canvas/components/model-tab/ModelTabHeader.tsx',
   'canvas/ui/inspector/InspectorGuidanceSection.tsx',
   'components/assistants/ProvenanceChip.tsx',

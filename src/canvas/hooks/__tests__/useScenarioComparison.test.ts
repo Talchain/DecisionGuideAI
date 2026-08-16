@@ -1,42 +1,39 @@
 /**
- * Tests for useScenarioComparison hook
+ * Tests for useScenarioComparison hook — POST-RETIREMENT.
  *
- * Verifies:
- * - PLoT routing (calls /bff/engine/v2/run, not ISL)
- * - Single request with both options
- * - Response parsing from option_comparison array
- * - Percentile access (p10/p90, not p5/p95)
- * - Goal selection from store
- * - Status handling (computed, partial, blocked, failed)
- * - Edge diff uses edge.id for identity
+ * WHAT CHANGED, AND WHY THIS FILE WAS REWRITTEN RATHER THAN PATCHED
+ * -----------------------------------------------------------------
+ * This spec used to assert the opposite of what the hook now does: its first
+ * test was literally `calls runV2 instead of ISL compare`, and the response
+ * parsing / status handling suites all drove a mocked PLoT `/v2/run`
+ * response. That direct browser→PLoT compare call is retired, so those tests
+ * were not "failing" — they were pinning a behaviour we deliberately removed.
+ * Keeping them mocked-green would have been a guard agreeing with itself.
+ *
+ * WHAT IS ASSERTED NOW
+ * --------------------
+ * The honest-unavailable contract, in both directions:
+ *   · the compute genuinely does not happen (no network call at all), and
+ *   · the surface says so truthfully — `'unavailable'`, NOT `'failed'`, with
+ *     no fabricated numbers — while the locally-computed structural diff,
+ *     which is still true, survives.
+ *
+ * MUTATION CHECK (the point of the file): delete the `analysisStatus:
+ * 'unavailable'` state in the hook and `reports the honest unavailable
+ * status` REDs. Change it to `'failed'` and `does not claim the comparison
+ * failed` REDs. The two point in OPPOSITE directions on purpose — a gap
+ * (silently showing nothing) and a lie (claiming a failure) are different
+ * harms and cannot share one assertion (trap 22b).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
-import { useScenarioComparison } from '../useScenarioComparison'
-import * as plotV2 from '../../../adapters/plot/v2'
+import { renderHook, act } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { useScenarioComparison, COMPARISON_UNAVAILABLE_REASON } from '../useScenarioComparison'
 import { useCanvasStore } from '../../store'
 import { useComparisonStore } from '../../stores/comparisonStore'
 import type { Node, Edge } from '@xyflow/react'
-
-// Mock the PLoT v2 adapter
-vi.mock('../../../adapters/plot/v2', async () => {
-  const actual = await vi.importActual('../../../adapters/plot/v2')
-  return {
-    ...actual,
-    runV2: vi.fn(),
-    buildV2Request: vi.fn(() => ({
-      request: {
-        graph: { nodes: [], edges: [] },
-        options: [],
-        goal_node_id: 'goal-1',
-        seed: '12345',
-        detail_level: 'deep',
-      },
-      reverseIdMap: new Map(),
-    })),
-  }
-})
 
 // Mock generateScenarios - uses new multi-option format (GeneratedScenariosV2)
 vi.mock('../../utils/generateScenarios', () => ({
@@ -84,8 +81,18 @@ describe('useScenarioComparison', () => {
     { id: 'e4', source: 'option-b', target: 'goal-1', data: { weight: 0.6 } },
   ] as Edge[]
 
+  let fetchSpy: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
     vi.clearAllMocks()
+
+    // A real spy, not a mocked adapter: the claim is that NOTHING reaches the
+    // network, so the probe has to sit at the network boundary itself. A spy
+    // on the retired adapter function could only prove that one door is shut.
+    fetchSpy = vi.fn(() =>
+      Promise.reject(new Error('no network call expected')),
+    ) as unknown as ReturnType<typeof vi.fn>
+    vi.stubGlobal('fetch', fetchSpy)
 
     // Set up store with mock data
     // Type assertion needed because store expects Edge<EdgeData>[] but test mocks use simplified shape
@@ -97,6 +104,7 @@ describe('useScenarioComparison', () => {
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     useCanvasStore.setState({
       nodes: [],
       edges: [],
@@ -106,321 +114,97 @@ describe('useScenarioComparison', () => {
     useComparisonStore.getState().resetComparison()
   })
 
-  describe('PLoT routing', () => {
-    it('calls runV2 instead of ISL compare', async () => {
-      const mockRunV2 = vi.mocked(plotV2.runV2)
-      mockRunV2.mockResolvedValueOnce({
-        analysis_status: 'computed',
-        option_comparison_status: 'computed',
-        robustness_status: 'computed',
-        drivers_status: 'computed',
-        option_comparison: [
-          {
-            option_id: 'option-a',
-            option_label: 'Option A',
-            confidence_interval: [10, 20],
-            expected_outcome: 15,
-            outcome: { mean: 15, p10: 10, p50: 15, p90: 20 },
-          },
-          {
-            option_id: 'option-b',
-            option_label: 'Option B',
-            confidence_interval: [12, 22],
-            expected_outcome: 17,
-            outcome: { mean: 17, p10: 12, p50: 17, p90: 22 },
-          },
-        ],
-        critiques: [],
-        response_hash: 'test-hash',
-      })
-
+  describe('retired compute leg', () => {
+    it('reports the honest unavailable status', async () => {
       const { result } = renderHook(() => useScenarioComparison())
+
+      // POSITIVE CONTROL (trap 13): the hook must actually have run. Without
+      // this, an early `throw` inside startComparison would leave the state
+      // untouched and every assertion below would pass by never executing.
+      expect(result.current.analysisStatus).toBe('idle')
 
       await act(async () => {
         await result.current.startComparison()
       })
 
-      expect(mockRunV2).toHaveBeenCalledTimes(1)
-      // Verify runV2 was called with a config object and request object
-      // The baseUrl may vary based on env config, but the key is that runV2 (PLoT) is called, not ISL
-      expect(mockRunV2).toHaveBeenCalledWith(
-        expect.objectContaining({
-          baseUrl: expect.any(String),
-          timeout: expect.any(Number),
-        }),
-        expect.objectContaining({
-          goal_node_id: expect.any(String),
-          graph: expect.any(Object),
-          options: expect.any(Array),
-        })
-      )
+      expect(result.current.analysisStatus).toBe('unavailable')
+      expect(result.current.loading).toBe(false)
     })
 
-    it('sends single request with both options', async () => {
-      const mockBuildV2Request = vi.mocked(plotV2.buildV2Request)
-      const mockRunV2 = vi.mocked(plotV2.runV2)
-
-      mockRunV2.mockResolvedValueOnce({
-        analysis_status: 'computed',
-        option_comparison_status: 'computed',
-        robustness_status: 'computed',
-        drivers_status: 'computed',
-        option_comparison: [],
-        critiques: [],
-        response_hash: 'test-hash',
-      })
-
+    it('does not claim the comparison failed', async () => {
       const { result } = renderHook(() => useScenarioComparison())
 
       await act(async () => {
         await result.current.startComparison()
       })
 
-      // buildV2Request should be called once (not twice for each scenario)
-      expect(mockBuildV2Request).toHaveBeenCalledTimes(1)
-      // runV2 should be called once
-      expect(mockRunV2).toHaveBeenCalledTimes(1)
-    })
-  })
-
-  describe('response parsing', () => {
-    it('extracts outcomes from option_comparison array', async () => {
-      const mockRunV2 = vi.mocked(plotV2.runV2)
-      mockRunV2.mockResolvedValueOnce({
-        analysis_status: 'computed',
-        option_comparison_status: 'computed',
-        robustness_status: 'computed',
-        drivers_status: 'computed',
-        option_comparison: [
-          {
-            option_id: 'option-a',
-            option_label: 'Option A',
-            confidence_interval: [10, 20],
-            expected_outcome: 15,
-            outcome: { mean: 15, std: 2, p10: 10, p50: 15, p90: 20 },
-            probability_of_goal: 0.75,
-            win_probability: 0.4,
-          },
-          {
-            option_id: 'option-b',
-            option_label: 'Option B',
-            confidence_interval: [12, 22],
-            expected_outcome: 17,
-            outcome: { mean: 17, std: 2.5, p10: 12, p50: 17, p90: 22 },
-            probability_of_goal: 0.85,
-            win_probability: 0.6,
-          },
-        ],
-        critiques: [],
-        response_hash: 'test-hash',
-      })
-
-      const { result } = renderHook(() => useScenarioComparison())
-
-      await act(async () => {
-        await result.current.startComparison()
-      })
-
-      await waitFor(() => {
-        expect(result.current.analysisStatus).toBe('computed')
-      })
-
-      expect(result.current.apiResponse).not.toBeNull()
-      // New format uses optionById map instead of optionA/optionB properties
-      expect(result.current.apiResponse?.optionById['option-a']?.outcome.p10).toBe(10)
-      expect(result.current.apiResponse?.optionById['option-a']?.outcome.p90).toBe(20)
-      expect(result.current.apiResponse?.optionById['option-b']?.outcome.p10).toBe(12)
-      expect(result.current.apiResponse?.optionById['option-b']?.outcome.p90).toBe(22)
-    })
-
-    it('uses p10/p90 not p5/p95', async () => {
-      const mockRunV2 = vi.mocked(plotV2.runV2)
-      mockRunV2.mockResolvedValueOnce({
-        analysis_status: 'computed',
-        option_comparison_status: 'computed',
-        robustness_status: 'computed',
-        drivers_status: 'computed',
-        option_comparison: [
-          {
-            option_id: 'option-a',
-            option_label: 'Option A',
-            confidence_interval: [5, 25],
-            outcome: { mean: 15, p10: 10, p50: 15, p90: 20 },
-          },
-        ],
-        critiques: [],
-        response_hash: 'test-hash',
-      })
-
-      const { result } = renderHook(() => useScenarioComparison())
-
-      await act(async () => {
-        await result.current.startComparison()
-      })
-
-      await waitFor(() => {
-        expect(result.current.apiResponse?.optionById['option-a']).not.toBeNull()
-      })
-
-      // Should use p10/p90 from outcome, not confidence_interval
-      expect(result.current.apiResponse?.optionById['option-a']?.outcome.p10).toBe(10)
-      expect(result.current.apiResponse?.optionById['option-a']?.outcome.p90).toBe(20)
-    })
-  })
-
-  describe('goal selection', () => {
-    it('uses outcomeNodeId from store', async () => {
-      const mockRunV2 = vi.mocked(plotV2.runV2)
-      mockRunV2.mockResolvedValueOnce({
-        analysis_status: 'computed',
-        option_comparison_status: 'computed',
-        robustness_status: 'computed',
-        drivers_status: 'computed',
-        option_comparison: [],
-        critiques: [],
-        response_hash: 'test-hash',
-      })
-
-      const { result } = renderHook(() => useScenarioComparison())
-
-      await act(async () => {
-        await result.current.startComparison()
-      })
-
-      await waitFor(() => {
-        expect(result.current.apiResponse).not.toBeNull()
-      })
-
-      expect(result.current.apiResponse?.goalNodeId).toBe('goal-1')
-      expect(result.current.apiResponse?.goalLabel).toBe('Revenue')
-    })
-
-    it('falls back to first goal/outcome node when no outcomeNodeId', async () => {
-      useCanvasStore.setState({ outcomeNodeId: null })
-
-      const mockRunV2 = vi.mocked(plotV2.runV2)
-      mockRunV2.mockResolvedValueOnce({
-        analysis_status: 'computed',
-        option_comparison_status: 'computed',
-        robustness_status: 'computed',
-        drivers_status: 'computed',
-        option_comparison: [],
-        critiques: [],
-        response_hash: 'test-hash',
-      })
-
-      const { result } = renderHook(() => useScenarioComparison())
-
-      await act(async () => {
-        await result.current.startComparison()
-      })
-
-      await waitFor(() => {
-        expect(result.current.apiResponse).not.toBeNull()
-      })
-
-      // Should fall back to goal-1 (first node with kind='goal')
-      expect(result.current.apiResponse?.goalNodeId).toBe('goal-1')
-    })
-  })
-
-  describe('status handling', () => {
-    it('handles computed status', async () => {
-      const mockRunV2 = vi.mocked(plotV2.runV2)
-      mockRunV2.mockResolvedValueOnce({
-        analysis_status: 'computed',
-        option_comparison_status: 'computed',
-        robustness_status: 'computed',
-        drivers_status: 'computed',
-        option_comparison: [],
-        critiques: [],
-        response_hash: 'test-hash',
-      })
-
-      const { result } = renderHook(() => useScenarioComparison())
-
-      await act(async () => {
-        await result.current.startComparison()
-      })
-
-      await waitFor(() => {
-        expect(result.current.analysisStatus).toBe('computed')
-      })
-
+      // The OPPOSITE-DIRECTION twin of the test above. Reusing 'failed' would
+      // render "Comparison failed" over a comparison that never ran — a lie,
+      // and a different harm from showing nothing at all.
+      expect(result.current.analysisStatus).not.toBe('failed')
       expect(result.current.error).toBeNull()
     })
 
-    it('handles partial status with warning', async () => {
-      const mockRunV2 = vi.mocked(plotV2.runV2)
-      mockRunV2.mockResolvedValueOnce({
-        analysis_status: 'partial',
-        option_comparison_status: 'computed',
-        robustness_status: 'unavailable',
-        drivers_status: 'unavailable',
-        option_comparison: [],
-        critiques: [],
-        response_hash: 'test-hash',
-      })
-
+    it('fabricates no numbers', async () => {
       const { result } = renderHook(() => useScenarioComparison())
 
       await act(async () => {
         await result.current.startComparison()
       })
 
-      await waitFor(() => {
-        expect(result.current.analysisStatus).toBe('partial')
-      })
-
-      expect(result.current.apiResponse?.statusReason).toContain('incomplete')
+      // No zero-filled placeholder outcomes standing in for a real analysis.
+      expect(result.current.apiResponse).toBeNull()
     })
 
-    it('handles blocked status with error', async () => {
-      const mockRunV2 = vi.mocked(plotV2.runV2)
-      mockRunV2.mockResolvedValueOnce({
-        analysis_status: 'blocked',
-        status_reason: 'Graph has cycles',
-        critiques: [],
-      })
-
+    it('makes no network call', async () => {
       const { result } = renderHook(() => useScenarioComparison())
 
       await act(async () => {
         await result.current.startComparison()
       })
 
-      await waitFor(() => {
-        expect(result.current.analysisStatus).toBe('blocked')
-      })
-
-      expect(result.current.error).toBe('Graph has cycles')
+      expect(fetchSpy).not.toHaveBeenCalled()
     })
 
-    it('handles failed status with retry option', async () => {
-      const mockRunV2 = vi.mocked(plotV2.runV2)
-      // isFailedAnalysis checks for analysis_status === 'failed'
-      // The type system says V2RunResponse only has 'computed' | 'partial' but runtime can have 'failed'
-      mockRunV2.mockResolvedValueOnce({
-        analysis_status: 'failed',
-        option_comparison_status: 'error',
-        robustness_status: 'error',
-        drivers_status: 'error',
-        option_comparison: [],
-        critiques: [],
-        response_hash: 'failed-hash',
-      } as unknown as plotV2.V2RunResult)
-
+    it('still produces the locally-computed structural diff', async () => {
       const { result } = renderHook(() => useScenarioComparison())
 
       await act(async () => {
         await result.current.startComparison()
       })
 
-      await waitFor(() => {
-        expect(result.current.analysisStatus).toBe('failed')
-      })
+      // The honest half: the diff is real, computed locally, and still shown.
+      // If this ever goes null the copy becomes untrue, because it tells the
+      // user the structural differences below ARE real.
+      expect(result.current.comparison).not.toBeNull()
+      expect(result.current.snapshotA).not.toBeNull()
+      expect(result.current.snapshotB).not.toBeNull()
+      expect(useComparisonStore.getState().comparisonMode.active).toBe(true)
+    })
+  })
 
-      expect(result.current.error).toContain('could not complete')
+  describe('the unavailable state is rendered, not just held', () => {
+    // ⚠ SCOPE OF THIS GUARD, STATED HONESTLY: it reads OutputsDock's SOURCE.
+    // It proves the notice is wired to the status and to the exported reason
+    // by identity — it does NOT prove visibility, which jsdom cannot show
+    // anyway (trap 3). A DOM/browser witness is the technical lead's step.
+    const dockSource = readFileSync(
+      resolve(__dirname, '../../components/OutputsDock.tsx'),
+      'utf8',
+    )
+
+    it('binds the notice to the unavailable status', () => {
+      expect(dockSource).toContain("scenarioComparison.analysisStatus === 'unavailable'")
+      expect(dockSource).toContain('data-testid="scenario-comparison-unavailable"')
+    })
+
+    it('renders the exported reason rather than a drifting copy', () => {
+      // Identity binding (trap 19): the surface must render THIS constant, so
+      // the copy cannot silently diverge from the one the hook documents.
+      expect(dockSource).toContain('{COMPARISON_UNAVAILABLE_REASON}')
+      expect(COMPARISON_UNAVAILABLE_REASON).toMatch(/unavailable/i)
+      // It must not promise a return date it cannot keep.
+      expect(COMPARISON_UNAVAILABLE_REASON).not.toMatch(/soon|shortly|coming/i)
     })
   })
 
@@ -437,26 +221,13 @@ describe('useScenarioComparison', () => {
 
   describe('clearComparison', () => {
     it('resets state and exits comparison mode', async () => {
-      const mockRunV2 = vi.mocked(plotV2.runV2)
-      mockRunV2.mockResolvedValueOnce({
-        analysis_status: 'computed',
-        option_comparison_status: 'computed',
-        robustness_status: 'computed',
-        drivers_status: 'computed',
-        option_comparison: [],
-        critiques: [],
-        response_hash: 'test-hash',
-      })
-
       const { result } = renderHook(() => useScenarioComparison())
 
       await act(async () => {
         await result.current.startComparison()
       })
 
-      await waitFor(() => {
-        expect(result.current.analysisStatus).toBe('computed')
-      })
+      expect(result.current.analysisStatus).toBe('unavailable')
 
       act(() => {
         result.current.clearComparison()

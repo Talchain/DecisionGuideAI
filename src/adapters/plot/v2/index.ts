@@ -47,7 +47,6 @@ export {
   buildV2RequestFromAnalysisReady,
   translateV2Response,
   runV2,
-  executeV2Run,
   executeV2RunWithAnalysisReady,
   extractOptionsFromNodes,
   reconcileOptionsWithCanvasNodes,

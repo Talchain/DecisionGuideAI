@@ -18,17 +18,25 @@
  *   · `elicitBelief` → `/bff/cee/elicit-belief`, NO Authorization;
  * each with `VITE_PLOT_BEARER` STUBBED PRESENT, so the absence is the
  * scoping's doing and not the env's (the trap-13 control below proves the
- * stub is visible to `plotAuthHeaders` in this environment).
+ * stub is visible in this environment).
  *
- * Mutant contract: re-merging `plotAuthHeaders()` unconditionally at the
- * `fetchWithBase` headers site turns the three endpoint pins RED; the
- * predicate pin (`isPlotDirectBase`) REDs if the absolute-base branch is
- * widened to relative bases or narrowed away from the draft base.
+ * ⚠ THE GUARANTEE HAS SINCE BEEN STRENGTHENED, AND THESE PINS STILL HOLD.
+ * `plotAuthHeaders` published its bearer into a PUBLIC bundle chunk (Vite
+ * inlines `import.meta.env.VITE_X` as a literal), so the module, the merge and
+ * the credential were all removed: NO base carries an Authorization now, not
+ * just `/bff/cee`. These three endpoint pins are unchanged and remain the
+ * narrowest, most specific statement of that — the broader claim, and the
+ * source-level pin that the bearer path is gone, live in
+ * client.plotBearer.spec.ts.
+ *
+ * Mutant contract: re-merging any credential at the `fetchWithBase` headers
+ * site turns the three endpoint pins RED; the predicate pin
+ * (`isPlotDirectBase`) REDs if the absolute-base branch is widened to relative
+ * bases or narrowed away from the draft base.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 import { CEEClient, isPlotDirectBase } from '../client'
-import { plotAuthHeaders } from '../../../lib/plotAuthHeaders'
 
 function okJson(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -61,11 +69,22 @@ function callTo(pathSuffix: string): { url: string; headers: Record<string, stri
 }
 
 describe('F-U1 — no PLoT bearer on the same-origin /bff/cee seam', () => {
-  it('CONTROL (trap 13): the stubbed bearer IS visible to plotAuthHeaders here', () => {
+  it('CONTROL (trap 13): the stubbed bearer IS visible in this environment', () => {
+    // Same trap-13 intent as before, sourced differently: `plotAuthHeaders` is
+    // DELETED (it was the module that published the credential into the bundle),
+    // so the control can no longer route through it. It now reads the variable
+    // the deleted module read, at the same seam, and proves the fixture is live.
+    //
     // If this control ever fails, the three absence pins below are running
-    // against an empty header source and prove nothing — fix the stub, not
-    // the pins.
-    expect(plotAuthHeaders()).toHaveProperty('Authorization', 'Bearer leak-probe-token')
+    // against an environment that carries no credential at all and prove
+    // nothing — fix the stub, not the pins.
+    //
+    // ⚠ Read it WITHOUT an `(import.meta as any)` cast: that cast strips Vite's
+    // env proxy and freezes the whole file's `import.meta.env` to a build-time
+    // snapshot, at which point this reads `undefined` and reports a live fixture
+    // as dead. (Measured; it is also why `VITE_CEE_DRAFT_BASE` cannot be stubbed
+    // at all — see the header of client.plotBearer.spec.ts.)
+    expect(import.meta.env.VITE_PLOT_BEARER).toBe('leak-probe-token')
   })
 
   it('biasCheck targets /bff/cee/bias-check and carries NO Authorization header', async () => {
@@ -101,8 +120,10 @@ describe('F-U1 — no PLoT bearer on the same-origin /bff/cee seam', () => {
   })
 
   it('the scoping predicate: absolute bases are PLoT-direct, every /bff seam is not', () => {
-    // The ONE base class the bearer may ride — the deployed absolute
-    // VITE_CEE_DRAFT_BASE:
+    // The base class that was once the ONE the bearer could ride — the deployed
+    // absolute VITE_CEE_DRAFT_BASE. Nothing rides it now; the predicate is
+    // retained as the leak-pin, and a `true` on a base this client actually
+    // holds is a defect:
     expect(isPlotDirectBase('https://plot-lite-service-staging.onrender.com/v1/cee')).toBe(true)
     expect(isPlotDirectBase('http://localhost:8787/v1/cee')).toBe(true)
     // Never a same-origin seam:

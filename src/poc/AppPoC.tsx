@@ -25,7 +25,6 @@ const SandboxV1 = lazy(() => import('../routes/SandboxV1'))
 const PlotShowcase = lazy(() => import('../routes/PlotShowcase'))
 const PlotWorkspace = lazy(() => import('../routes/PlotWorkspace'))
 const PlcLab = lazy(() => import('../routes/PlcLab'))
-const DecisionTemplates = lazy(() => import('../routes/templates/DecisionTemplates').then(m => ({ default: m.DecisionTemplates })))
 
 /**
  * A Suspense boundary that belongs to the ROUTE, not to the app shell.
@@ -956,7 +955,6 @@ export default function AppPoC() {
                   <Route path="/scenario/:id/panel" element={<PanelSetupPage />} />
                   <Route path="/canvas" element={<RouteContent><CanvasMVP /></RouteContent>} />
                   <Route path="/profile" element={<ProfileSettingsPage />} />
-                  <Route path="/templates" element={<DecisionTemplates />} />
                 </Route>
 
                 {/* Dev/POC routes — ALL behind the `devRoutes` flag, declared

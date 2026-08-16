@@ -335,7 +335,13 @@ const FLAGS_CONFIG = {
   // a draggable/resizable floating Olumi panel mounts via portal; on an empty
   // canvas, the right dock collapses to a 40px rail and a centred first-use
   // composer drives the user's first decision input.
-  // Default OFF. See src/canvas/components/{FirstUseComposer,FloatingOlumiPanel,
+  // ⚠ CORRECTED: this line read "Default OFF" and contradicted `defaultValue:
+  // true` twelve lines below. It is DEFAULT ON, and staging also sets
+  // `VITE_FEATURE_AI_PANEL_V2="true"` (netlify.toml:57). The stale comment
+  // inverted the posture derivation for anyone reading the top of this block
+  // — it is what made a census conclude the legacy DraftChat branch was the
+  // live one. Derive posture from `defaultValue` + the deployed env, never
+  // from prose. See src/canvas/components/{FirstUseComposer,FloatingOlumiPanel,
   // OlumiTabBody,PersistentInputStrip,CogPopover,...}.tsx for surfaces and
   // src/canvas/conversation/ConversationContext.tsx for the singleton hook
   // host. Integration plan: .claude/plans/ai-panel-v2-floating-first-integration.md.

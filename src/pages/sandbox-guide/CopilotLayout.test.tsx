@@ -31,13 +31,6 @@ vi.mock('@/canvas/ReactFlowGraph', () => ({
   ReactFlowGraph: () => <div data-testid="reactflow-graph">Canvas</div>,
 }))
 
-// Mock useResultsRun
-vi.mock('@/canvas/hooks/useResultsRun', () => ({
-  useResultsRun: () => ({
-    run: vi.fn(),
-  }),
-}))
-
 const renderLayout = () => {
   return render(
     <BrowserRouter>

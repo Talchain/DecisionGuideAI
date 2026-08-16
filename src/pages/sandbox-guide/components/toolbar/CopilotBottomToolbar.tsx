@@ -3,42 +3,20 @@
  *
  * Provides quick access to key actions:
  * - Chat interface toggle
- * - Quick actions (Run, Clear, Help)
+ * - Quick actions (Clear, Help)
  * - Keyboard shortcuts hint
+ *
+ * The Run action was removed with the direct browser->PLoT run path
+ * (useResultsRun): analysis is orchestrated by CEE, not by this surface.
  */
 
 import { useState } from 'react'
-import { useGuideStore } from '../../hooks/useGuideStore'
-import { useResultsRun } from '@/canvas/hooks/useResultsRun'
 import { useCanvasStore } from '@/canvas/store'
-import { useResultsStore } from '@/canvas/stores/resultsStore'
 import { Button } from '../shared/Button'
-import { findBlockers } from '../../utils/journeyDetection'
 
 export function GuideBottomToolbar(): JSX.Element {
   const [showChat, setShowChat] = useState(false)
-  const journeyStage = useGuideStore((state) => state.journeyStage)
   const nodes = useCanvasStore((state) => state.nodes)
-  const edges = useCanvasStore((state) => state.edges)
-  const outcomeNodeId = useCanvasStore((state) => state.outcomeNodeId)
-  const resultsStatus = useResultsStore((state) => state.status)
-  const { run } = useResultsRun()
-
-  const blockers = findBlockers({ nodes, edges })
-  const canRun = blockers.length === 0 && nodes.length > 0
-
-  const handleRun = () => {
-    if (!canRun) return
-
-    run({
-      graph: {
-        nodes: nodes.map((n) => ({ id: n.id, data: n.data })),
-        edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target, data: e.data })),
-      },
-      outcome_node: outcomeNodeId || undefined,
-      seed: 1337,
-    })
-  }
 
   const handleClear = () => {
     if (confirm('Clear all nodes and edges? This cannot be undone.')) {
@@ -74,18 +52,6 @@ export function GuideBottomToolbar(): JSX.Element {
 
       {/* Right: Quick actions */}
       <div className="flex items-center gap-2">
-        {/* Run button - only show when ready */}
-        {(journeyStage === 'pre-run-ready' || journeyStage === 'building') && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleRun}
-            disabled={!canRun || resultsStatus === 'loading'}
-          >
-            {resultsStatus === 'loading' ? '⏳ Running...' : '▶ Run Analysis'}
-          </Button>
-        )}
-
         {/* Clear button */}
         {nodes.length > 0 && (
           <Button variant="outline" size="sm" onClick={handleClear}>

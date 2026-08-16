@@ -18,6 +18,22 @@ export type CanonicalRunOutcome =
   | { status: 'v2' }
   | { status: 'blocked'; reason: string }
   | { status: 'already-running' }
+  /**
+   * The canonical path is on but its dispatcher is not registered, so no run
+   * can be started. This used to fall through to a DIRECT browser→PLoT
+   * `/v2/run` call with only a DEV-only console warning — the product ran an
+   * unorchestrated analysis and presented it as the canonical one. Refusing
+   * loudly is the honest outcome; the caller must surface `reason`.
+   */
+  | { status: 'unavailable'; reason: string }
+
+/**
+ * User-facing copy for `status: 'unavailable'`. Exported so the dock and its
+ * guard bind to THIS string by identity rather than to a drifting copy
+ * (trap 19). It states only what is true: nothing ran.
+ */
+export const RUN_DISPATCHER_UNAVAILABLE_REASON =
+  'Analysis could not start — the assistant that runs it is not connected. Nothing was run.'
 
 export interface CanonicalRunOptions {
   /** Telemetry label for the surface that initiated the run. */

@@ -29,8 +29,8 @@
 # the same PR with `node tools/ci-guards/update-claim-drift-baseline.mjs` and say so in the PR body.
 #
 # Format: <count><TAB><family><TAB><path><TAB><field><TAB><canonicalised source line>
-# count=85
-# identities=79
+# count=84
+# identities=78
 1	elasticity	src/adapters/driversAdapter.ts	sensitivity_score	? driver.sensitivity_score >= 0 ? 'positive' : 'negative'
 1	elasticity	src/adapters/driversAdapter.ts	sensitivity_score	? normalizeImpact(driver.sensitivity_score)
 1	elasticity	src/adapters/driversAdapter.ts	sensitivity_score	const impact = driver.sensitivity_score !== undefined
@@ -102,7 +102,6 @@
 1	goal-probability	src/adapters/plot/v2/responseMapper.ts	probability_of_goal	const winProb = bestOption.win_probability ?? bestOption.probability_of_goal
 1	goal-probability	src/adapters/plot/v2/responseMapper.ts	probability_of_goal	goal_probability: safeNumber(opt.probability_of_goal),
 1	goal-probability	src/adapters/plot/v2/responseMapper.ts	probability_of_joint_goal	probability_of_joint_goal: safeNumber(opt.probability_of_joint_goal),
-1	goal-probability	src/canvas/hooks/useScenarioComparison.ts	probability_of_goal	probabilityOfGoal: result.probability_of_goal,
 1	goal-probability	src/canvas/ui/inspector-v2/useAnalysisResults.ts	probability_of_goal	return isFiniteNumber(report.probability_of_goal)
 1	goal-probability	src/lib/mappers/mapOptionComparison.ts	goal_probability	asOptionalNumber(option.goal_probability),
 1	goal-probability	src/lib/mappers/mapOptionComparison.ts	probability_of_goal	asOptionalNumber(option.probability_of_goal)

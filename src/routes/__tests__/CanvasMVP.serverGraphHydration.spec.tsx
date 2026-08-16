@@ -31,9 +31,6 @@ vi.mock('../../canvas/ReactFlowGraph', () => ({
 }))
 vi.mock('../../components/layout/TopBar', () => ({ TopBar: () => <div /> }))
 vi.mock('../../components/DebugTray', () => ({ DebugTray: () => <div /> }))
-vi.mock('../../canvas/hooks/useResultsRun', () => ({
-  useResultsRun: () => ({ run: vi.fn() }),
-}))
 vi.mock('../../canvas/hooks/useDebugShortcut', () => ({
   useDebugShortcut: () => ({ showDebug: false }),
 }))
