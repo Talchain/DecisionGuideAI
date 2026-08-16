@@ -12,6 +12,7 @@
  */
 
 import { useCanvasStore } from '../store'
+import { captureBeforeIngest } from '../versions/autoCapture'
 import { DEFAULT_EDGE_DATA, readValidationMetadata } from '../domain/edges'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
@@ -212,7 +213,15 @@ export function applyDraftResult(
 
   // --- Apply to store ---
   const store = useCanvasStore.getState()
-  if (!opts.skipHistory) store.pushHistory()
+  if (!opts.skipHistory) {
+    // Versioned workspace: keep a named, comparable copy of the model the user
+    // is about to lose. Gated on the SAME condition as pushHistory because
+    // this function runs twice per streamed turn (preview, then terminal with
+    // skipHistory) and the user's own graph only still exists at the first
+    // call. Fully guarded — it can never fail the ingest.
+    captureBeforeIngest(store.nodes, store.edges)
+    store.pushHistory()
+  }
   useCanvasStore.setState({
     nodes,
     edges,

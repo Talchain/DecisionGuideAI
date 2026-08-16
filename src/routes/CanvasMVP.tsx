@@ -21,6 +21,7 @@ import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration
 import { useImportRegistration } from '../canvas/registration/useImportRegistration'
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
+const VersionsPanelHost = lazy(() => import('../canvas/versions/VersionsPanelHost').then(m => ({ default: m.VersionsPanelHost })))
 
 export default function CanvasMVP() {
   // Brief 37 Task 3: Render counter to detect if parent is causing re-renders
@@ -297,6 +298,13 @@ export default function CanvasMVP() {
             onPinToCanvas={handlePinToCanvas}
             insertionError={insertionError}
           />
+        </Suspense>
+
+        {/* Versioned workspace: "Versions" trigger + What Changed panel.
+            Self-contained — owns its own open state and touches no shared
+            store, so this mount is the feature's entire integration surface. */}
+        <Suspense fallback={null}>
+          <VersionsPanelHost />
         </Suspense>
 
         {/* Phase 1A.5: Debug Tray (hidden by default, Shift+D to toggle) */}

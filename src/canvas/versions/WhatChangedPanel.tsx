@@ -1,0 +1,242 @@
+/**
+ * What Changed — the versions surface.
+ * British English: visualisation, colour, initialise.
+ *
+ * RENDERS THE CHANGESET AND NOTHING ELSE. Every line on screen comes from
+ * `describeChangeset`, which comes from `diffModelVersions`. There is no copy
+ * here that interprets, scores or summarises a change, because none of that is
+ * in the changeset and the product has not earned the right to claim it.
+ *
+ * EXCEPTIONS LOUD, NORMAL QUIET: a failed save says so, in place, with the real
+ * reason. A successful save says nothing — the new version simply appears.
+ */
+
+import { useCallback, useState } from 'react'
+import { GitCompare, Save, Trash2 } from 'lucide-react'
+import { PanelShell } from '../panels/_shared/PanelShell'
+import { PanelSection } from '../panels/_shared/PanelSection'
+import { typography } from '../../styles/typography'
+import { buildVersionLabelIndex, describeChangeset } from './describeChange'
+import { useModelVersions } from './useModelVersions'
+import type { ChangeLine } from './describeChange'
+
+export interface WhatChangedPanelProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+function formatTimestamp(ms: number): string {
+  try {
+    return new Date(ms).toLocaleString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return new Date(ms).toISOString()
+  }
+}
+
+/** Neutral markers — the change KIND, never a judgement about it. */
+const KIND_MARKER: Readonly<Record<ChangeLine['kind'], string>> = {
+  added: '+',
+  removed: '−',
+  modified: '~',
+}
+
+const KIND_CLASS: Readonly<Record<ChangeLine['kind'], string>> = {
+  added: 'text-success',
+  removed: 'text-danger',
+  modified: 'text-info',
+}
+
+export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
+  const {
+    versions,
+    fromId,
+    toId,
+    setFromId,
+    setToId,
+    changeset,
+    from,
+    to,
+    saveVersion,
+    removeVersion,
+  } = useModelVersions()
+
+  const [draftName, setDraftName] = useState('')
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const handleSave = useCallback(() => {
+    const name = draftName.trim() || `Version ${new Date().toLocaleString('en-GB')}`
+    const outcome = saveVersion(name)
+    if (outcome.ok) {
+      setDraftName('')
+      setSaveError(null)
+      return
+    }
+    setSaveError(outcome.message ?? 'This version could not be saved.')
+  }, [draftName, saveVersion])
+
+  if (!isOpen) return null
+
+  const lines =
+    changeset && from && to ? describeChangeset(changeset, buildVersionLabelIndex(from, to)) : []
+
+  return (
+    <div
+      className="fixed right-0 z-[2000]"
+      style={{ top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
+      data-testid="what-changed-panel"
+    >
+      <PanelShell
+        icon={<GitCompare className="w-5 h-5" />}
+        title="Versions"
+        onClose={onClose}
+        width="420px"
+      >
+        <PanelSection title="Save a version">
+          <div className="flex items-center gap-2">
+            <label htmlFor="version-name" className="sr-only">
+              Version name
+            </label>
+            <input
+              id="version-name"
+              type="text"
+              value={draftName}
+              onChange={(event) => setDraftName(event.target.value)}
+              placeholder="Name this version"
+              className={`${typography.panelBody} flex-1 min-w-0 px-2 py-1.5 rounded-md border border-panel-border bg-panel text-text-body placeholder:text-text-light`}
+            />
+            <button
+              type="button"
+              onClick={handleSave}
+              className={`${typography.panelBody} shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-text-on-color`}
+            >
+              <Save className="w-3.5 h-3.5" />
+              Save version
+            </button>
+          </div>
+          {saveError && (
+            <p className={`${typography.panelBody} text-danger`} role="alert">
+              {saveError}
+            </p>
+          )}
+          <p className={`${typography.panelMeta} text-text-light`}>
+            Versions are stored in this browser only. They are not shared with collaborators and are
+            lost if you clear site data.
+          </p>
+        </PanelSection>
+
+        {versions.length === 0 && (
+          <p className={`${typography.panelBody} text-text-light`}>
+            No versions saved yet. Save one to start tracking how your model changes.
+          </p>
+        )}
+
+        {versions.length > 0 && (
+          <PanelSection title="Compare">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="version-from"
+                  className={`${typography.panelMeta} text-text-light w-10 shrink-0`}
+                >
+                  From
+                </label>
+                <select
+                  id="version-from"
+                  value={fromId ?? ''}
+                  onChange={(event) => setFromId(event.target.value)}
+                  className={`${typography.panelBody} flex-1 min-w-0 px-2 py-1.5 rounded-md border border-panel-border bg-panel text-text-body`}
+                >
+                  {versions.map((version) => (
+                    <option key={version.id} value={version.id}>
+                      {version.name} · {formatTimestamp(version.createdAt)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="version-to"
+                  className={`${typography.panelMeta} text-text-light w-10 shrink-0`}
+                >
+                  To
+                </label>
+                <select
+                  id="version-to"
+                  value={toId ?? ''}
+                  onChange={(event) => setToId(event.target.value)}
+                  className={`${typography.panelBody} flex-1 min-w-0 px-2 py-1.5 rounded-md border border-panel-border bg-panel text-text-body`}
+                >
+                  {versions.map((version) => (
+                    <option key={version.id} value={version.id}>
+                      {version.name} · {formatTimestamp(version.createdAt)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </PanelSection>
+        )}
+
+        {versions.length === 1 && (
+          <p className={`${typography.panelBody} text-text-light`}>
+            Save a second version to see what changed between them.
+          </p>
+        )}
+
+        {changeset && (
+          <PanelSection title="What changed">
+            {changeset.isEmpty ? (
+              <p className={`${typography.panelBody} text-text-light`}>
+                No differences between these two versions.
+              </p>
+            ) : (
+              <ul className="space-y-1.5" data-testid="what-changed-list">
+                {lines.map((line) => (
+                  <li key={line.key} className="flex items-start gap-2">
+                    <span
+                      aria-hidden="true"
+                      className={`${typography.panelBody} ${KIND_CLASS[line.kind]} shrink-0 w-3`}
+                    >
+                      {KIND_MARKER[line.kind]}
+                    </span>
+                    <span className={`${typography.panelBody} text-text-body`}>{line.text}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </PanelSection>
+        )}
+
+        {versions.length > 0 && (
+          <PanelSection title="Saved versions">
+            <ul className="space-y-1">
+              {versions.map((version) => (
+                <li key={version.id} className="flex items-center justify-between gap-2">
+                  <span className={`${typography.panelBody} text-text-body truncate`}>
+                    {version.name}
+                    <span className={`${typography.panelMeta} text-text-light ml-2`}>
+                      {formatTimestamp(version.createdAt)}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Delete version ${version.name}`}
+                    onClick={() => removeVersion(version.id)}
+                    className="shrink-0 p-1 rounded-md text-text-light hover:text-danger hover:bg-panel-hover"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </PanelSection>
+        )}
+      </PanelShell>
+    </div>
+  )
+}
