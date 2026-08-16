@@ -231,8 +231,8 @@ function ValueCell({
             <span data-testid={testid} className={typography.tabular}>
               <input
                 data-testid={`${testid}-input`}
-                // eslint-disable-next-line jsx-a11y/no-autofocus -- the input
-                // exists because the user just clicked the value it replaces.
+                // Focus follows the click that opened this input — it replaces
+                // the value control the user just activated.
                 autoFocus
                 inputMode="decimal"
                 value={commit.draft}
