@@ -20,6 +20,7 @@ import {
   settleEdgeStrengthResponse,
   type EdgeStrengthObservation,
 } from '../edgeStrengthCoordinator'
+import { canvasAnalyticallyMatchesCanonicalGraph } from '../graphAuthority'
 import type { WireSystemEvent } from '../../conversation/types'
 
 const SCENARIO_A = '22222222-2222-4222-8222-222222222222'
@@ -147,6 +148,60 @@ function receiptFor(
   } as OlumiResponse
 }
 
+function installSecondRelationship(): void {
+  useCanvasStore.setState((state) => ({
+    nodes: [...state.nodes, {
+      id: 'fac_supply',
+      type: 'factor',
+      position: { x: 100, y: 100 },
+      data: {
+        label: 'Supply',
+        observedState: { value: 0.4, source: 'cee_inference', cap: 1 },
+        prior: { distribution: 'uniform', range_min: 0.2, range_max: 0.8 },
+        goal_threshold_frame: 'level',
+      },
+    }] as never,
+    edges: [...state.edges, {
+      id: 'rf-second-edge',
+      source: 'fac_supply',
+      target: 'goal_profit',
+      data: {
+        weight: 0.7,
+        direction: 'negative',
+        strengthStd: 0.2,
+        beliefExists: 0.8,
+        confidence: 0.6,
+        belief: 0.4,
+        strength_mean: -0.91,
+        effect_direction: 'negative',
+        edge_type: 'bidirected',
+      },
+    }] as never,
+  }))
+}
+
+function addCanonicalSecondRelationship(response: OlumiResponse): Record<string, unknown> {
+  const graph = response.draft_graph as Record<string, any>
+  graph.nodes.push({
+    id: 'fac_supply',
+    kind: 'factor',
+    label: 'Supply',
+    observed_state: { value: 0.4, source: 'cee_inference', cap: 1 },
+  })
+  graph.edges.push({
+    from: 'fac_supply',
+    to: 'goal_profit',
+    strength: { mean: 0.5, std: 0.2 },
+    exists_probability: 0.8,
+    effect_direction: 'positive',
+    provenance: { source: 'cee_hypothesis', reasoning: 'Shared model' },
+    provenance_display: 'ai_inferred',
+  })
+  graph.node_count = graph.nodes.length
+  graph.edge_count = graph.edges.length
+  return graph
+}
+
 function makeHydrationUsable(scenarioId: string): void {
   const revision = beginEdgeStrengthHydration(scenarioId)
   finishEdgeStrengthHydration({ scenarioId, startedAtRevision: revision, usable: true })
@@ -226,6 +281,163 @@ describe('edge strength transaction lifecycle', () => {
       beliefExistsSource: 'shared',
       provenanceDisplay: 'user_set',
     })
+  })
+
+  it('applies default-valued canonical changes on a non-target edge before releasing Run', async () => {
+    installSecondRelationship()
+    let canonicalGraph: Record<string, unknown> | null = null
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      const response = receiptFor(event)
+      canonicalGraph = addCanonicalSecondRelationship(response)
+      // This is the historical under-apply mutant: the target edge already
+      // matches, while the other edge still holds local 0.7/negative bytes.
+      expect(canvasAnalyticallyMatchesCanonicalGraph(canonicalGraph)).toBe(false)
+      settleEdgeStrengthResponse({ attemptId, response })
+      return undefined
+    })
+
+    setVisibleTuple(-0.7, 'negative')
+    recordEdgeStrengthMutation({
+      scenarioId: SCENARIO_A,
+      before: observation(-0.4, 'negative'),
+      after: observation(-0.7, 'negative'),
+    })
+
+    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves.toEqual({ ok: true })
+    const secondEdgeData = useCanvasStore.getState().edges
+      .find((edge) => edge.id === 'rf-second-edge')?.data
+    expect(secondEdgeData).toMatchObject({
+        weight: 0.5,
+        direction: 'positive',
+        strengthStd: 0.2,
+        confidence: undefined,
+      })
+    expect(secondEdgeData).not.toHaveProperty('belief')
+    expect(secondEdgeData).not.toHaveProperty('strength_mean')
+    expect(secondEdgeData).not.toHaveProperty('effect_direction')
+    expect(secondEdgeData).not.toHaveProperty('edge_type')
+    expect(useCanvasStore.getState().nodes.find((node) => node.id === 'fac_supply')?.data)
+      .not.toHaveProperty('prior')
+    expect(useCanvasStore.getState().nodes.find((node) => node.id === 'fac_supply')?.data)
+      .not.toHaveProperty('goal_threshold_frame')
+    expect(canvasAnalyticallyMatchesCanonicalGraph(canonicalGraph)).toBe(true)
+  })
+
+  it('retains a genuinely newer protected field but keeps Run held on the mixed graph', async () => {
+    installSecondRelationship()
+    let canonicalGraph: Record<string, unknown> | null = null
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      const response = receiptFor(event)
+      canonicalGraph = addCanonicalSecondRelationship(response)
+      useCanvasStore.setState((state) => ({
+        edges: state.edges.map((edge) => edge.id !== 'rf-second-edge'
+          ? edge
+          : { ...edge, data: { ...edge.data, confidence: 0.77 } }) as never,
+      }))
+      recordUnsupportedEdgeMutation({
+        scenarioId: SCENARIO_A,
+        edgeId: 'rf-second-edge',
+        from: 'fac_supply',
+        to: 'goal_profit',
+        field: 'confidence',
+        before: 0.6,
+        after: 0.77,
+      })
+      settleEdgeStrengthResponse({ attemptId, response })
+      return undefined
+    })
+
+    setVisibleTuple(-0.7, 'negative')
+    recordEdgeStrengthMutation({
+      scenarioId: SCENARIO_A,
+      before: observation(-0.4, 'negative'),
+      after: observation(-0.7, 'negative'),
+    })
+
+    const result = await flushEdgeStrengthEditsBeforeRun(SCENARIO_A)
+    expect(result.ok).toBe(false)
+    expect(useCanvasStore.getState().edges.find((edge) => edge.id === 'rf-second-edge')?.data)
+      .toMatchObject({ weight: 0.5, direction: 'positive', confidence: 0.77 })
+    expect(canvasAnalyticallyMatchesCanonicalGraph(canonicalGraph)).toBe(false)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+    expect(getEdgeStrengthRecoverySummary(SCENARIO_A).items)
+      .toContainEqual(expect.objectContaining({
+        from: 'fac_supply',
+        to: 'goal_profit',
+        kind: 'unsupported_fields',
+      }))
+  })
+
+  it('rejects a protected mixed projection when no writer or issue owns its Run hold', async () => {
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      useCanvasStore.setState((state) => ({
+        nodes: state.nodes.map((node) => node.id !== 'fac_demand'
+          ? node
+          : {
+              ...node,
+              data: {
+                ...node.data,
+                observedState: { value: 0.8, source: 'user', cap: 1 },
+              },
+            }),
+      }))
+      settleEdgeStrengthResponse({
+        attemptId,
+        response: receiptFor(event),
+        protectedFactorNodeIds: ['fac_demand'],
+      })
+      return undefined
+    })
+
+    setVisibleTuple(-0.7, 'negative')
+    recordEdgeStrengthMutation({
+      scenarioId: SCENARIO_A,
+      before: observation(-0.4, 'negative'),
+      after: observation(-0.7, 'negative'),
+    })
+
+    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves
+      .toMatchObject({ ok: false })
+    expect(getEdgeStrengthEndpointStatus(SCENARIO_A, 'fac_demand', 'goal_profit').kind)
+      .toBe('unconfirmed')
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBe('old-hash')
+  })
+
+  it('fails closed when a non-target under-apply mutant breaks the receipt projection', async () => {
+    installSecondRelationship()
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      const response = receiptFor(event)
+      addCanonicalSecondRelationship(response)
+      const unsubscribe = useCanvasStore.subscribe((state) => {
+        const edge = state.edges.find((candidate) => candidate.id === 'rf-second-edge')
+        const data = edge?.data
+        if (data?.weight !== 0.5 || data.direction !== 'positive') return
+        useCanvasStore.setState((current) => ({
+          edges: current.edges.map((candidate) => candidate.id !== 'rf-second-edge'
+            ? candidate
+            : {
+                ...candidate,
+                data: { ...candidate.data, weight: 0.7, direction: 'negative' },
+              }) as never,
+        }))
+      })
+      settleEdgeStrengthResponse({ attemptId, response })
+      unsubscribe()
+      return undefined
+    })
+
+    setVisibleTuple(-0.7, 'negative')
+    recordEdgeStrengthMutation({
+      scenarioId: SCENARIO_A,
+      before: observation(-0.4, 'negative'),
+      after: observation(-0.7, 'negative'),
+    })
+
+    const result = await flushEdgeStrengthEditsBeforeRun(SCENARIO_A)
+    expect(result.ok).toBe(false)
+    expect(getEdgeStrengthEndpointStatus(SCENARIO_A, 'fac_demand', 'goal_profit').kind)
+      .toBe('unconfirmed')
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBe('old-hash')
   })
 
   it('coalesces first-before/latest-after and converts a return to baseline into confirm_current', async () => {

@@ -14,7 +14,6 @@ import type { Edge } from '@xyflow/react'
 
 import type { WireSystemEvent } from '../conversation/types'
 import type { EdgeData } from '../domain/edges'
-import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import {
   EMPTY_EDGE_STRENGTH_SYNC,
   useCanvasStore,
@@ -23,6 +22,13 @@ import {
   type EdgeStrengthSyncIssue,
 } from '../store'
 import { normaliseV5AnalysisReady } from '../../v5/applyV5State'
+import {
+  canvasAnalyticallyMatchesCanonicalGraph,
+  reconcileCanvasWithCanonicalGraph,
+  type CanonicalEdgeFieldProtection,
+  type CanonicalGraphReconciliationResult,
+  type CanonicalNodeFieldProtection,
+} from './graphAuthority'
 
 export const EDGE_STRENGTH_DEBOUNCE_MS = 1500
 
@@ -1101,13 +1107,12 @@ function reconcileReadback(attempt: EdgeStrengthAttempt, readback: CanonicalEdge
   store.beginExternalGraphMutation('patch_apply', { suppressHistory: true })
   try {
     useCanvasStore.setState((state) => ({
-      edges: state.edges.map((candidate) => candidate.id !== edge.id ? candidate : {
-        ...candidate,
-        data: {
+      edges: state.edges.map((candidate) => {
+        if (candidate.id !== edge.id) return candidate
+        const data = {
           ...candidate.data,
           weight: Math.abs(readback.mean),
           direction: readback.effectDirection,
-          strength_mean: undefined,
           strengthStd: readback.std,
           weightSource: 'user',
           directionSource: 'user',
@@ -1122,7 +1127,9 @@ function reconcileReadback(attempt: EdgeStrengthAttempt, readback: CanonicalEdge
           provenance_source: readback.provenanceSource,
           provenanceDisplay: readback.provenanceDisplay,
           userReviewedStrength: true,
-        } as EdgeData,
+        } as EdgeData & { strength_mean?: number }
+        delete data.strength_mean
+        return { ...candidate, data }
       }),
     }))
   } finally {
@@ -1141,109 +1148,110 @@ function reconcileReceiptGraph(
   lane: ScenarioLane,
   draftGraph: Record<string, unknown>,
   protectedFactorNodeIds: readonly string[] = [],
-): void {
-  if (useCanvasStore.getState().currentScenarioId !== attempt.scenarioId) return
+): CanonicalGraphReconciliationResult {
+  const failed = (
+    reason: NonNullable<CanonicalGraphReconciliationResult['reason']>,
+  ): CanonicalGraphReconciliationResult => ({
+    ok: false,
+    changed: false,
+    hasProtections: false,
+    reason,
+  })
+  if (useCanvasStore.getState().currentScenarioId !== attempt.scenarioId) {
+    return failed('analytical_projection_mismatch')
+  }
   const hasNewerStructuralDraft = [...lane.unsupportedRevisions].some(
     ([issueKey, revision]) => issueKey.endsWith(':structure') && revision > attempt.scenarioRevision,
   )
-  if (hasNewerStructuralDraft) return
-  const protectedById = new Map<string, { edge: Edge<EdgeData>; data: Record<string, unknown> }>()
+  if (hasNewerStructuralDraft) return failed('protected_element_missing')
+
+  const edgeProtections: CanonicalEdgeFieldProtection[] = []
+  let protectionMissing = false
   for (const pending of lane.pending.values()) {
     const edge = useCanvasStore.getState().edges.find((candidate) => candidate.id === pending.edgeId)
-    if (edge) protectedById.set(edge.id, {
-      edge: edge as Edge<EdgeData>,
+    if (!edge || edge.source !== pending.from || edge.target !== pending.to) {
+      protectionMissing = true
+      const key = pairKey(pending.from, pending.to)
+      setIssue(lane, key, 'conflict', { from: pending.from, to: pending.to })
+      lane.recoveries.set(key, {
+        cause: 'conflict_refresh_required',
+        edgeId: pending.edgeId,
+        from: pending.from,
+        to: pending.to,
+        expected: pending.expected,
+        attempted: pending.target,
+        at: Date.now(),
+      })
+      continue
+    }
+    edgeProtections.push({
+      from: pending.from,
+      to: pending.to,
+      fields: OPTIMISTIC_EDGE_FIELDS,
       data: { ...(edge.data ?? {}) },
     })
   }
-  const protectedUnsupported = new Map<string, Record<string, unknown>>()
+
   for (const [issueKey, revision] of lane.unsupportedRevisions) {
     if (revision <= attempt.scenarioRevision) continue
     const separator = issueKey.lastIndexOf(':')
     const edgeId = issueKey.slice(0, separator)
+    const field = issueKey.slice(separator + 1)
+    if (field === 'structure') continue
     const edge = useCanvasStore.getState().edges.find((candidate) => candidate.id === edgeId)
-    if (edge) protectedUnsupported.set(issueKey, { ...(edge.data ?? {}) })
+    if (!edge) {
+      protectionMissing = true
+      continue
+    }
+    const fields = field === 'strengthStd'
+      ? ['strengthStd', 'strengthStdSource']
+      : field === 'beliefExists'
+        ? ['beliefExists', 'beliefExistsSource']
+        : [field]
+    edgeProtections.push({
+      from: edge.source,
+      to: edge.target,
+      fields,
+      data: { ...(edge.data ?? {}) },
+    })
   }
+
   // A factor_value_edit can be queued behind this edge writer after the edge
   // request has left. Preserve only that writer's optimistic value fields while
   // reconciling the otherwise-authoritative full graph; the global Run barrier
   // still waits for the factor receipt before licensing analysis.
-  const protectedFactorNodes = new Map<string, Record<string, unknown>>()
+  const nodeProtections: CanonicalNodeFieldProtection[] = []
   for (const nodeId of protectedFactorNodeIds) {
     const node = useCanvasStore.getState().nodes.find((candidate) => candidate.id === nodeId)
-    if (node) protectedFactorNodes.set(nodeId, { ...(node.data ?? {}) })
+    if (!node) {
+      protectionMissing = true
+      continue
+    }
+    nodeProtections.push({
+      nodeId,
+      fields: ['observedState', 'observed_state', 'display_value'],
+      data: { ...(node.data ?? {}) },
+    })
   }
-  const store = useCanvasStore.getState()
-  store.beginExternalGraphMutation('patch_apply')
-  try {
-    reconcileAppliedGraph(draftGraph as never)
-    const liveNodeIds = new Set(useCanvasStore.getState().nodes.map((node) => node.id))
-    const missingProtected: Edge<EdgeData>[] = []
-    const missingProtectedIds = new Set<string>()
-    for (const protectedEntry of protectedById.values()) {
-      if (useCanvasStore.getState().edges.some((edge) => edge.id === protectedEntry.edge.id)) continue
-      missingProtectedIds.add(protectedEntry.edge.id)
-      if (
-        liveNodeIds.has(protectedEntry.edge.source) &&
-        liveNodeIds.has(protectedEntry.edge.target)
-      ) missingProtected.push(protectedEntry.edge)
-    }
-    if (protectedById.size > 0 || protectedUnsupported.size > 0 || protectedFactorNodes.size > 0) {
-      useCanvasStore.setState((state) => ({
-        nodes: state.nodes.map((node) => {
-          const protectedData = protectedFactorNodes.get(node.id)
-          if (!protectedData) return node
-          const data = { ...(node.data ?? {}) } as Record<string, unknown>
-          for (const field of ['observedState', 'observed_state', 'display_value'] as const) {
-            if (field in protectedData) data[field] = protectedData[field]
-            else delete data[field]
-          }
-          return { ...node, data: data as typeof node.data }
-        }),
-        edges: [...state.edges.map((edge) => {
-          const protectedEntry = protectedById.get(edge.id)
-          const protectedData = protectedEntry?.data
-          const data = { ...(edge.data ?? {}) } as Record<string, unknown>
-          if (edge.source === attempt.from && edge.target === attempt.to) {
-            // This strength receipt proves the current std/existence bytes, but
-            // not who authored those fields. Do not inherit the generic draft
-            // mapper's stronger "Olumi estimated" claim.
-            data.strengthStdSource = 'shared'
-            data.beliefExistsSource = 'shared'
-          }
-          if (protectedData) {
-            for (const field of OPTIMISTIC_EDGE_FIELDS) {
-              if (field in protectedData) data[field] = protectedData[field]
-              else delete data[field]
-            }
-          }
-          for (const [issueKey, unsupportedData] of protectedUnsupported) {
-            if (!issueKey.startsWith(`${edge.id}:`)) continue
-            const field = issueKey.slice(issueKey.lastIndexOf(':') + 1)
-            if (field === 'strengthStd') {
-              data.strengthStd = unsupportedData.strengthStd
-              data.strengthStdSource = unsupportedData.strengthStdSource
-            } else if (field === 'beliefExists') {
-              data.beliefExists = unsupportedData.beliefExists
-              data.beliefExistsSource = unsupportedData.beliefExistsSource
-            } else if (field !== 'structure') {
-              if (field in unsupportedData) data[field] = unsupportedData[field]
-              else delete data[field]
-            }
-          }
-          return { ...edge, data: data as EdgeData }
-        }), ...missingProtected],
-      }))
-    }
+  if (protectionMissing) return failed('protected_element_missing')
+
+  const result = reconcileCanvasWithCanonicalGraph(draftGraph, {
+    nodes: nodeProtections,
+    edges: edgeProtections,
+  })
+  if (!result.ok) {
+    const canonicalPairs = new Set(
+      (Array.isArray(draftGraph.edges) ? draftGraph.edges : []).flatMap((candidate) => {
+        const edge = recordObject(candidate)
+        return typeof edge?.from === 'string' && typeof edge.to === 'string'
+          ? [pairKey(edge.from, edge.to)]
+          : []
+      }),
+    )
     for (const pending of lane.pending.values()) {
-      const stillPresent = !missingProtectedIds.has(pending.edgeId) && useCanvasStore.getState().edges.some(
-        (edge) => edge.id === pending.edgeId && edge.source === pending.from && edge.target === pending.to,
-      )
-      if (stillPresent) continue
+      if (canonicalPairs.has(pairKey(pending.from, pending.to))) continue
       const key = pairKey(pending.from, pending.to)
-      setIssue(lane, key, 'conflict', {
-        from: pending.from,
-        to: pending.to,
-      })
+      setIssue(lane, key, 'conflict', { from: pending.from, to: pending.to })
       lane.recoveries.set(key, {
         cause: 'conflict_refresh_required',
         edgeId: pending.edgeId,
@@ -1254,9 +1262,9 @@ function reconcileReceiptGraph(
         at: Date.now(),
       })
     }
-  } finally {
-    useCanvasStore.getState().endExternalGraphMutation()
+    return result
   }
+
   for (const [issueKey, revision] of [...lane.unsupportedRevisions]) {
     if (revision > attempt.scenarioRevision) continue
     // A GraphV3 strength receipt authoritatively carries std and existence
@@ -1274,6 +1282,7 @@ function reconcileReceiptGraph(
       clearIssue(lane, issueKey)
     }
   }
+  return result
 }
 
 function settleApplied(
@@ -1290,8 +1299,36 @@ function settleApplied(
   clearIssue(lane, key)
   lane.conflictCurrent.delete(key)
   lane.recoveries.delete(key)
-  reconcileReceiptGraph(attempt, lane, verdict.draftGraph, protectedFactorNodeIds)
+  const reconciliation = reconcileReceiptGraph(
+    attempt,
+    lane,
+    verdict.draftGraph,
+    protectedFactorNodeIds,
+  )
+  if (!reconciliation.ok) {
+    settleUnconfirmed(attempt, reconciliation.reason ?? 'receipt_reconcile_failed')
+    return
+  }
   reconcileReadback(attempt, verdict.readback)
+  const rawCanonicalExact = canvasAnalyticallyMatchesCanonicalGraph(verdict.draftGraph)
+  const storeAfterReconcile = useCanvasStore.getState()
+  const protectedProjectionHasHold =
+    lane.pending.size > 0 ||
+    currentIssue(lane) !== null ||
+    storeAfterReconcile.pendingEmittedEdits > 0 ||
+    storeAfterReconcile.activeEmittedEdits > 0 ||
+    storeAfterReconcile.unconfirmedEmittedEdits > 0
+  // A mounted canvas can settle only when it is either the exact raw receipt,
+  // or an exact canonical-plus-protection projection with a separately-owned
+  // writer/issue that keeps Run closed. A caller-provided protection without
+  // such a hold is not authority and fails closed.
+  if (
+    !rawCanonicalExact &&
+    (!reconciliation.hasProtections || !protectedProjectionHasHold)
+  ) {
+    settleUnconfirmed(attempt, 'receipt_exactness_failed')
+    return
+  }
   lane.active = null
   lane.lastOutcome = {
     kind: attempt.intent === 'confirm_current' ? 'confirmed' : 'saved',
