@@ -41,10 +41,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { DraftGoalConstraintSchema } from '@talchain/schemas/boundary'
 import { GoalPanel } from '../panels/GoalPanel'
 import { useCanvasStore } from '../../../store'
-import {
-  buildV2RequestFromAnalysisReady,
-  executeV2RunWithAnalysisReady,
-} from '../../../../adapters/plot/v2/adapter'
+import { buildV2RequestFromAnalysisReady } from '../../../../adapters/plot/v2/adapter'
 import type { CEEAnalysisReady } from '../../../../adapters/cee/types'
 
 // A factor whose ID is deliberately NOTHING like its label. If the panel
@@ -369,55 +366,14 @@ describe('GOAL-CONSTRAINT JOURNEY — legacy/poisoned constraints do not brick t
     expect(graphNodeIds.has(request.goal_constraints![0].node_id!)).toBe(true)
   })
 
-  /**
-   * THE LIVE PATH. useV2Run does NOT call the builder directly — it calls
-   * executeV2RunWithAnalysisReady, which re-injects the user's threshold via its
-   * `goalThreshold` parameter and, before this fix, deleted it again in a SECOND
-   * XOR the brief never named. A fixture that only exercised the builder would
-   * have gone green while the deployed wire was unchanged (CLAUDE.md trap #16:
-   * trace the live call chain, not a symbol).
-   */
-  it('LIVE PATH: executeV2RunWithAnalysisReady sends both threshold and constraints', async () => {
-    seedStore()
-    addConstraintViaUI()
-
-    // Capture the ACTUAL wire bytes: stub global fetch, which is what runV2 uses.
-    let captured: Record<string, unknown> | undefined
-    const realFetch = globalThis.fetch
-    globalThis.fetch = (async (_url: unknown, init?: { body?: string }) => {
-      captured = JSON.parse(String(init?.body ?? '{}'))
-      return {
-        ok: true,
-        status: 200,
-        headers: new Headers(),
-        json: async () => ({ request_id: 'r1', analysis_status: 'complete' }),
-        text: async () => '',
-      }
-    }) as never
-
-    try {
-      await executeV2RunWithAnalysisReady(
-        { baseUrl: 'http://plot.test' } as never,
-        useCanvasStore.getState().nodes as never,
-        useCanvasStore.getState().edges as never,
-        analysisReady,
-        GOAL_ID,
-        'req-1',
-        // The user's normalised threshold, re-injected exactly as useV2Run does.
-        0.6,
-        undefined,
-        undefined,
-        useCanvasStore.getState().goalConstraints,
-      )
-    } finally {
-      globalThis.fetch = realFetch
-    }
-
-    expect(captured).toBeDefined()
-    expect(captured!.goal_constraints).toHaveLength(1)
-    // The success target must reach the wire.
-    expect(captured!.goal_threshold).toBe(0.6)
-  })
+    // ROADMAP 2.1229 — the "LIVE PATH" test that drove
+  // `executeV2RunWithAnalysisReady` and captured the wire bytes is REMOVED
+  // with the direct `/v2/run` transport it exercised. What it guarded —
+  // that the user's threshold AND the constraints both survive into the
+  // request — is still pinned by the `buildV2RequestFromAnalysisReady`
+  // tests above, which assert on the built request. The executor's extra
+  // re-injection XOR (the actual defect it caught) no longer exists,
+  // because the executor no longer exists.
 
   it('drops a pre-fix constraint that names no node, keeping the rest of the run alive', () => {
     seedStore({

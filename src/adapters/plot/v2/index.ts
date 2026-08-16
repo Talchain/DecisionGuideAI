@@ -1,7 +1,9 @@
 /**
  * PLoT V2 API Exports
  *
- * Re-exports types and adapter functions for /v2/run endpoint.
+ * Re-exports request/response SHAPE helpers for the V2 analysis contract.
+ * The direct `/v2/run` transport was retired in ROADMAP 2.1229 — see the
+ * note at the foot of `adapter.ts`.
  */
 
 // Types
@@ -46,8 +48,6 @@ export {
   buildV2Request,
   buildV2RequestFromAnalysisReady,
   translateV2Response,
-  runV2,
-  executeV2RunWithAnalysisReady,
   extractOptionsFromNodes,
   reconcileOptionsWithCanvasNodes,
   reconcileOptionsWithCanvasNodesDetailed,
@@ -67,4 +67,4 @@ export {
   InterventionValidationError,
 } from './adapter'
 
-export type { V2AdapterConfig, BuildV2RequestOptions } from './adapter'
+export type { BuildV2RequestOptions } from './adapter'

@@ -11,7 +11,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useCanvasStore } from '../../store'
-import { resolveActiveGoalNodeId, resolveChipGoalThreshold } from '../../hooks/useV2Run'
+import { resolveActiveGoalNodeId, resolveChipGoalThreshold } from '../../hooks/goalThresholdResolvers'
 import { applyDraftResult } from '../../utils/applyDraftResult'
 
 function seedForeignContext() {

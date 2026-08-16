@@ -167,19 +167,11 @@ describe('ActionsMenu', () => {
     expect(await screen.findByText(RERUN_TOASTS.started)).toBeInTheDocument()
   })
 
-  it('DELIBERATE PIN FLIP (Lane 3 review fold): the awaited V2 path toasts NOTHING — the freshness strip owns the completion announcement', async () => {
-    // Post-SF2 the strip stays mounted through the run and fires the
-    // byte-identical "rerun completed" toast on running→complete; a second
-    // menu-owned toast for the same completion was a duplicate.
-    registerCanonicalRunner(async () => ({ status: 'v2' as const }))
-    render(<ActionsMenu />)
-    fireEvent.click(screen.getByRole('button', { name: /actions/i }))
-    fireEvent.click(screen.getByText('Rerun analysis'))
-    // Allow the outcome promise to settle, then assert no menu toast.
-    await new Promise((r) => setTimeout(r, 0))
-    expect(screen.queryByText(RERUN_TOASTS.completed)).toBeNull()
-    expect(screen.queryByText(RERUN_TOASTS.started)).toBeNull()
-  })
+    // ROADMAP 2.1229 — the awaited-V2-path pin is REMOVED with the arm it
+  // described. It asserted that the direct `/v2/run` rerun toasted NOTHING,
+  // because the freshness strip owned the completion announcement. With that
+  // arm gone the menu's only outcome is the fire-and-forget canonical
+  // dispatch, which honestly claims a START — covered by the dispatch test.
 
   it('blocked rerun surfaces the blocking reason', async () => {
     registerCanonicalRunner(async () => ({ status: 'blocked' as const, reason: 'Add a goal first' }))

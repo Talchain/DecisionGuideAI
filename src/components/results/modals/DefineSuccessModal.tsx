@@ -24,7 +24,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { executeCanonicalRun } from '../../../canvas/analysis/canonicalRunRegistry'
-import { capForUnit, resolveChipGoalThreshold, resolveActiveGoalNodeId } from '../../../canvas/hooks/useV2Run'
+import { capForUnit, resolveChipGoalThreshold, resolveActiveGoalNodeId } from '../../../canvas/hooks/goalThresholdResolvers'
 import { useCanvasStore } from '../../../canvas/store'
 import { typography } from '../../../styles/typography'
 import {

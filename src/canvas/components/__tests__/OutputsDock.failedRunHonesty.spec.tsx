@@ -103,11 +103,6 @@ vi.mock('../../../flags', async (importOriginal) => {
   }
 })
 
-vi.mock('../../hooks/useV2Run', () => ({
-  useV2Run: () => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() }),
-  resolveActiveGoalNodeId: () => 'goal-1',
-}))
-
 /** A run's stored snapshot, carrying an identity nothing else here can produce. */
 const RUN_HASH_A = 'run-a-4242'
 const RUN_HASH_B = 'run-b-8181'

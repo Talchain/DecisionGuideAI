@@ -155,18 +155,21 @@ describe('Hotfix item 3 — Run analysis is icon-only', () => {
 // ---------------------------------------------------------------------------
 
 describe('Hotfix item 4 — Run analysis gate combines readiness + in-flight', () => {
-  it('ConversationPanel threads useV2Run isRunning into canRunAnalysis', async () => {
+  it('ConversationPanel threads the analysis in-flight status into canRunAnalysis', async () => {
     const fs = await import('node:fs/promises')
     const path = await import('node:path')
     const src = await fs.readFile(
       path.resolve(__dirname, '../ConversationPanel.tsx'),
       'utf8',
     )
-    // useV2Run exposes isRunning, aliased to isV2RunInFlight.
-    expect(src).toMatch(/isRunning:\s*isV2RunInFlight/)
+    // ROADMAP 2.1229 — the in-flight source used to be `useV2Run`'s own
+    // `isRunning` (aliased `isV2RunInFlight`). That hook is retired with the
+    // direct `/v2/run` seam; the results-store status is now the in-flight
+    // truth for every run path. The GATE is what this pins, not the name.
+    expect(src).toMatch(/isRunning:\s*isAnalysisRunning/)
     // The button gate combines structural readiness with the in-flight flag,
     // closing the click-to-statusFlip gap that could allow a double-fire.
-    expect(src).toMatch(/canRunAnalysis=\{runGateResult\.allowed\s*&&\s*!isV2RunInFlight\}/)
+    expect(src).toMatch(/canRunAnalysis=\{runGateResult\.allowed\s*&&\s*!isAnalysisRunning\}/)
   })
 
   it('handleRunAnalysis guards all trigger paths with structural AND in-flight check', async () => {
@@ -180,13 +183,12 @@ describe('Hotfix item 4 — Run analysis gate combines readiness + in-flight', (
       'utf8',
     )
     // Guard asserts both structural readiness AND in-flight.
-    expect(src).toMatch(/if \(!runGateResult\.allowed \|\| isV2RunInFlight\) return/)
-    // Dep array includes isV2RunInFlight so the callback is current. The
-    // v5-canonical-analysis brief added `dispatchAction` to the deps when
-    // the canonical chip path is taken, so the assertion tolerates the
-    // optional dispatchAction tail.
+    expect(src).toMatch(/if \(!runGateResult\.allowed \|\| isAnalysisRunning\) return/)
+    // Dep array includes the in-flight flag so the callback is current.
+    // `runV2Analysis` left the deps with the hook (2.1229); the canonical
+    // `dispatchAction` is now the only runner referenced here.
     expect(src).toMatch(
-      /\[messages\.length, runGateResult\.allowed, isV2RunInFlight, runV2Analysis(?:, dispatchAction)?\]/,
+      /\[messages\.length, runGateResult\.allowed, isAnalysisRunning, dispatchAction\]/,
     )
   })
 
@@ -198,7 +200,7 @@ describe('Hotfix item 4 — Run analysis gate combines readiness + in-flight', (
       path.resolve(__dirname, '../ConversationPanel.tsx'),
       'utf8',
     )
-    expect(src).toMatch(/isV2RunInFlight\s*\?\s*'Analysis in progress'/)
+    expect(src).toMatch(/isAnalysisRunning\s*\?\s*'Analysis in progress'/)
   })
 
   it('disabled button exposes runBlockedReason via title + aria-label', () => {

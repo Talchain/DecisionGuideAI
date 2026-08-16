@@ -51,10 +51,6 @@ vi.mock('../../hooks/useSelectionContext', () => ({
   useSelectionContext: () => null,
 }))
 // useV2Run pulls in heavy deps — mock minimal shape used by StaleAnalysisBadge.
-vi.mock('../../hooks/useV2Run', () => ({
-  useV2Run: () => ({ runV2Analysis: () => Promise.resolve() }),
-}))
-
 describe('aiPanelV2 default (round-12: default-ON, rollback via localStorage="false")', () => {
   beforeEach(() => {
     try {

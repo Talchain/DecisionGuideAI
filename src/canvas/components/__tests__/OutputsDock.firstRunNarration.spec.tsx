@@ -33,12 +33,10 @@ import { ConversationProvider } from '../../conversation/ConversationContext'
 const {
   mockIsV5CanonicalAnalysisEnabled,
   mockIsV5Eligible,
-  mockUseV2Run,
   mockShowToast,
 } = vi.hoisted(() => ({
   mockIsV5CanonicalAnalysisEnabled: vi.fn(() => false),
   mockIsV5Eligible: vi.fn((_input?: { flag: string | undefined }) => ({ eligible: false, reason: 'flag_off' })),
-  mockUseV2Run: vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })),
   mockShowToast: vi.fn(),
 }))
 
@@ -67,11 +65,6 @@ vi.mock('../../../v5/eligibility', async (importOriginal) => {
       flags.isV5CanonicalAnalysisEnabled() &&
       mockIsV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible,
   }
-})
-
-vi.mock('../../hooks/useV2Run', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../hooks/useV2Run')>()
-  return { ...actual, useV2Run: () => mockUseV2Run() }
 })
 
 vi.mock('../../ToastContext', async (importOriginal) => {
@@ -150,7 +143,6 @@ describe('first run narration: the banner no longer depends on a previous report
   beforeEach(() => {
     ensureMatchMedia()
     vi.clearAllMocks()
-    mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })
     useUIStore.setState({ activeRightPanel: null } as never)
   })
 

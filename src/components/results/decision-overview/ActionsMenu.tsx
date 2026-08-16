@@ -117,7 +117,12 @@ export function ActionsMenu() {
           showToast(outcome.reason)
         } else if (outcome.status === 'already-running') {
           showToast(RERUN_TOASTS.alreadyRunning)
-        } else if (outcome.status !== 'v2') {
+        } else {
+          // ROADMAP 2.1229 — this used to exclude the awaited direct-V2 arm
+          // (`outcome.status !== 'v2'`), whose completion toast was owned by
+          // the freshness strip. That arm is gone with the `/v2/run` seam, so
+          // the only outcome left here is the fire-and-forget canonical
+          // dispatch, which honestly claims a start.
           showToast(RERUN_TOASTS.started)
         }
       })

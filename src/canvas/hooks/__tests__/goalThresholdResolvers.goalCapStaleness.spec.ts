@@ -18,7 +18,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useCanvasStore } from '../../store'
-import { resolveChipGoalThreshold } from '../useV2Run'
+import { resolveChipGoalThreshold } from '../goalThresholdResolvers'
 
 const GOAL_ID = 'goal-1'
 

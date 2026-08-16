@@ -5,7 +5,7 @@ import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { getCanonicalRunner, RUN_DISPATCHER_UNAVAILABLE_REASON } from '../../analysis/canonicalRunRegistry'
 import { useGuidanceStore } from '../../stores/guidanceStore'
-import { _clearTraces, getInteractionChains } from '../../../lib/debug-state'
+import { _clearTraces } from '../../../lib/debug-state'
 // 34edc1fd ("conversation singleton + explicit first-use submit signal",
 // 2026-05-19) made OutputsDockProviderHost consume useConversationContext,
 // which throws outside a <ConversationProvider>. This spec pre-dated (or
@@ -56,7 +56,6 @@ const {
   mockIsLegacyDirectRunEnabled,
   mockIsV5CanonicalAnalysisEnabled,
   mockIsV5Eligible,
-  mockUseV2Run,
   mockShowToast,
   mockUsePreAnalysisData,
 } = vi.hoisted(() => ({
@@ -64,7 +63,6 @@ const {
   mockIsLegacyDirectRunEnabled: vi.fn(() => false),
   mockIsV5CanonicalAnalysisEnabled: vi.fn(() => false),
   mockIsV5Eligible: vi.fn((_input?: { flag: string | undefined }) => ({ eligible: false, reason: 'flag_off' })),
-  mockUseV2Run: vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })),
   mockShowToast: vi.fn(),
   mockUsePreAnalysisData: vi.fn(() => ({})),
 }))
@@ -103,17 +101,6 @@ vi.mock('../../../v5/eligibility', async (importOriginal) => {
     isV5CanonicalRunPath: () =>
       flags.isV5CanonicalAnalysisEnabled() &&
       mockIsV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible,
-  }
-})
-
-vi.mock('../../hooks/useV2Run', async (importOriginal) => {
-  // Spread the real module: OutputsDock also imports the pure goal-threshold
-  // helpers (resolveChipGoalThreshold / capForUnit) from here — only the hook
-  // itself is mocked.
-  const actual = await importOriginal<typeof import('../../hooks/useV2Run')>()
-  return {
-    ...actual,
-    useV2Run: () => mockUseV2Run(),
   }
 })
 
@@ -184,7 +171,6 @@ describe('OutputsDock analyse convergence', () => {
     mockIsLegacyDirectRunEnabled.mockReturnValue(false)
     mockIsV5CanonicalAnalysisEnabled.mockReturnValue(false)
     mockIsV5Eligible.mockReturnValue({ eligible: false, reason: 'flag_off' } as any)
-    mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })
     mockUsePreAnalysisData.mockReturnValue({})
 
     useCanvasStore.setState({
@@ -224,40 +210,11 @@ describe('OutputsDock analyse convergence', () => {
     useSuccessMeasureStore.getState()._reset()
   })
 
-  it('dispatches direct V2 run instead of the shared conversation callback', async () => {
-    const runViaConversation = vi.fn()
-    const runV2Analysis = vi.fn()
+    // ROADMAP 2.1229 — the two "runs directly" tests are REMOVED with the direct
+  // `/v2/run` fallback they described. The canonical dispatch test below is now
+  // the whole of this behaviour: there is one run path, and it is CEE-routed.
 
-    mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
-    useGuidanceStore.setState({ _runAnalysis: runViaConversation } as any)
-
-    renderOutputsDock()
-
-    fireEvent.click(expandDockFromRail())
-
-    // The run now awaits the pre-dispatch save flush (F1 barrier) before
-    // reaching the V2/dispatch path, so the spy resolves on a later microtask.
-    await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
-    expect(runViaConversation).not.toHaveBeenCalled()
-  })
-
-  it('runs directly without opening the AI panel or warning toast when no conversation callback is registered', async () => {
-    const runV2Analysis = vi.fn()
-    mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
-
-    renderOutputsDock()
-
-    fireEvent.click(expandDockFromRail())
-
-    await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
-    expect(mockShowToast).not.toHaveBeenCalled()
-    expect(useCanvasStore.getState().showDraftChat).toBe(false)
-    expect(
-      getInteractionChains().flatMap((chain) => chain.timeline).some((event) => event.kind === 'opened_ai_panel_from_right_panel')
-    ).toBe(false)
-  })
-
-  it('does not emit a warning on unmount before analyse is clicked', () => {
+    it('does not emit a warning on unmount before analyse is clicked', () => {
     const { unmount } = renderOutputsDock()
     unmount()
 
@@ -267,8 +224,6 @@ describe('OutputsDock analyse convergence', () => {
   describe('v5 canonical analysis routing (v5-canonical-analysis brief)', () => {
     it('fires chip-shaped dispatchAction with action_type=run_analysis when canonical flag is on AND V5 eligible', async () => {
       const dispatchAction = vi.fn()
-      const runV2Analysis = vi.fn()
-      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
       mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
 
@@ -288,44 +243,14 @@ describe('OutputsDock analyse convergence', () => {
       // it must not be free-text/user-typed copy.
       expect(typeof call.message).toBe('string')
       expect(call.message.length).toBeGreaterThan(0)
-
-      // Correction 8: no direct /v2/run under canonical flag.
-      expect(runV2Analysis).not.toHaveBeenCalled()
     })
 
-    it('falls back to direct V2 when canonical flag is off (control case)', async () => {
-      const dispatchAction = vi.fn()
-      const runV2Analysis = vi.fn()
-      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
-      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(false)
-      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+        // ROADMAP 2.1229 — the two "falls back to direct V2" control cases are
+    // REMOVED. They forced the canonical flag off (or V5 ineligible) to prove the
+    // fallback fired; with the fallback deleted there is nothing to fall back to,
+    // and the surviving test above pins the only path that exists.
 
-      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
-
-      renderOutputsDock()
-      fireEvent.click(expandDockFromRail())
-
-      await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
-      expect(dispatchAction).not.toHaveBeenCalled()
-    })
-
-    it('falls back to direct V2 when canonical flag is on but V5 is not eligible', async () => {
-      const dispatchAction = vi.fn()
-      const runV2Analysis = vi.fn()
-      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
-      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
-      mockIsV5Eligible.mockReturnValue({ eligible: false, reason: 'flag_off' } as any)
-
-      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
-
-      renderOutputsDock()
-      fireEvent.click(expandDockFromRail())
-
-      await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
-      expect(dispatchAction).not.toHaveBeenCalled()
-    })
-
-    it('REFUSES to run when the canonical flag is on but no _dispatchAction is registered', async () => {
+        it('REFUSES to run when the canonical flag is on but no _dispatchAction is registered', async () => {
       // INVERTED DELIBERATELY. This test used to assert the opposite — that the
       // dock "falls back to direct V2" — and that fallback was the defect: a
       // DIRECT browser->PLoT /v2/run bypassing the CEE orchestration seam,
@@ -337,7 +262,6 @@ describe('OutputsDock analyse convergence', () => {
       // dispatcher genuinely is not ready. Running nothing and saying so is the
       // honest outcome.
       const runV2Analysis = vi.fn()
-      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
       mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
 
@@ -476,7 +400,6 @@ describe('OutputsDock analyse convergence', () => {
 
     it('the canonical runner forwards parameters into the V5 chip dispatch (threshold rerun fold)', async () => {
       const dispatchAction = vi.fn()
-      mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
       mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
@@ -508,7 +431,6 @@ describe('OutputsDock analyse convergence', () => {
 
     it('Lane 1b: explicit caller parameters are never overridden by the store threshold', async () => {
       const dispatchAction = vi.fn()
-      mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
       mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
@@ -530,7 +452,6 @@ describe('OutputsDock analyse convergence', () => {
       // Retitled rather than removed because the assertion is still the live
       // contract for a caller-less run.
       const dispatchAction = vi.fn()
-      mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
       mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
@@ -575,7 +496,6 @@ describe('OutputsDock analyse convergence', () => {
     it('a Run click during an analysing turn dispatches nothing (gate holds)', () => {
       const dispatchAction = vi.fn()
       const runV2Analysis = vi.fn()
-      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() } as any)
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
       mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)

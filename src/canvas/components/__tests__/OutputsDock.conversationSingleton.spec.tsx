@@ -37,10 +37,6 @@ vi.mock('react-router-dom', async (importOriginal) => {
 })
 
 // V2 run hook + dependent telemetry — keep stable across renders.
-vi.mock('../../hooks/useV2Run', () => ({
-  useV2Run: () => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() }),
-}))
-
 // Flag toggle: per-test mutation via `flagState.aiPanelV2`. All other flags
 // default false to keep the dock surface minimal.
 const flagState = { aiPanelV2: false }

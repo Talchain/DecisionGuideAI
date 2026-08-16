@@ -15,7 +15,14 @@
 
 export type CanonicalRunOutcome =
   | { status: 'dispatched' }
-  | { status: 'v2' }
+  /**
+   * ROADMAP 2.1229 — the `{ status: 'v2' }` arm is REMOVED. It reported that
+   * the run had started down the DIRECT browser→PLoT `/v2/run` seam (canonical
+   * flag off, or V5 ineligible at runtime). That seam and its hook are retired,
+   * so no producer can return it and no caller can observe it. It is deleted
+   * rather than left in the union: an unreachable arm invites a consumer to
+   * write handling that can never run.
+   */
   | { status: 'blocked'; reason: string }
   | { status: 'already-running' }
   /**

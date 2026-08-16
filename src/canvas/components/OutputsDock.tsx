@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, XCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
@@ -70,7 +70,6 @@ import {
 import { scrollAnalysisResultIntoView } from './scrollAnalysisResultIntoView'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
-import { isV5CanonicalRunPath } from '../../v5/eligibility'
 import { countFactorsToVerify, deriveFactorInfluenceMap } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
 import { deriveVerdict } from '../utils/interpretOutcome'
@@ -101,7 +100,7 @@ import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 // ROADMAP 2.109: the goal-threshold normalisation helpers and the
 // success-measure/scenario-key lookups left with the retired chip parameter —
 // only the goal-node resolver is still used (the atomic target commit).
-import { useV2Run, resolveActiveGoalNodeId, type V2RunPersistence } from '../hooks/useV2Run'
+import { resolveActiveGoalNodeId } from '../hooks/goalThresholdResolvers'
 import { useScenario } from '../../hooks/useScenario'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { normaliseRawFactorValue, withObservedStateUpdate } from '../utils/observedStateHelpers'
@@ -845,15 +844,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     return undefined
   }, [resultsSource])
 
-  // C.1b: Supabase persistence callbacks for analysis results
-  const {
-    setAnalysisRunning,
-    resetAnalysisStatus,
-    persistAnalysisSuccess,
-    persistAnalysisFailure,
-    isPersistenceActive: _isPersistenceActive,
-    flushPendingSaves,
-  } = useScenario()
+  // ROADMAP 2.1229 — the four Supabase analysis-persistence callbacks
+  // (setAnalysisRunning / resetAnalysisStatus / persistAnalysisSuccess /
+  // persistAnalysisFailure) were destructured here ONLY to be handed to
+  // `useV2Run` as its `V2RunPersistence`. That hook and its direct
+  // browser->PLoT `/v2/run` call are retired, so this surface no longer has a
+  // persistence caller. They remain exported by `useScenario` and are still
+  // the right callbacks for a canonical-path writer — see the PR body for the
+  // gap this leaves on the V5 block path.
+  const { flushPendingSaves } = useScenario()
 
   // Results-surface staleness is driven by the CEE freshness slice (the single
   // source of truth) via the same fresh→unknown dirty rule as AnalysisFreshnessNotice
@@ -877,23 +876,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // the run (CEE 'stale' or a local edit that downgraded a retained 'fresh') from a
   // CANNOT-CONFIRM state where CEE could not determine freshness — so the stale
   // banner never claims "you've updated the model" for a CEE-sourced 'unknown'.
-
-  // Build persistence object only when Supabase persistence is active
-  const v2Persistence = useMemo<V2RunPersistence | undefined>(() => {
-    if (!_isPersistenceActive) return undefined
-    return {
-      setAnalysisRunning,
-      resetAnalysisStatus,
-      persistAnalysisSuccess,
-      persistAnalysisFailure,
-    }
-  }, [_isPersistenceActive, setAnalysisRunning, resetAnalysisStatus, persistAnalysisSuccess, persistAnalysisFailure])
-
-  // P0-UI: V2 run hook for /v2/run endpoint. isRunning is the hook's OWN
-  // in-flight flag (true only during a V2 request) — 1.16i gates the Cancel
-  // button on it because cancelRun can only abort the V2 request; rendering
-  // Cancel for a V5 analysing turn would be a dead control.
-  const { runV2Analysis, cancelRun, isRunning: isV2RunInFlight } = useV2Run(v2Persistence)
 
   // Results Panel Redesign: Section data hook for RecommendationSection, DriversSection, ConfidenceSection
   const resultsSectionData = useResultsSectionData()
@@ -1179,8 +1161,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
     // Canonical V5 chip-action path. Mirrors what suggested chips do for
     // action_type:'run_analysis' — same chip metadata, same dispatcher.
-    const canonical = isV5CanonicalRunPath()
-    if (canonical) {
+    //
+    // ROADMAP 2.1229 — this is now the ONLY run path. It used to be gated on
+    // `isV5CanonicalRunPath()`, with the flag-off leg falling through to
+    // `runV2Analysis()`: a DIRECT browser->PLoT `/v2/run` call that bypassed
+    // the CEE orchestration seam entirely. That seam is retired, so there is
+    // no second path for a flag to choose between and the gate is gone with
+    // it. The dispatcher-missing refusal below is unchanged — it is the same
+    // honest failure #723 introduced when it deleted the silent fallback.
+    {
       const dispatch = useGuidanceStore.getState()._dispatchAction
       if (dispatch) {
         // ROADMAP 2.109 — the `goal_threshold` CHIP PARAMETER IS RETIRED.
@@ -1220,26 +1209,24 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         })
         return { status: 'dispatched' }
       }
-      // RETIRED SILENT FALLBACK.
+      // RETIRED SILENT FALLBACK (#723), and as of ROADMAP 2.1229 there is no
+      // longer any direct path left to fall back TO.
       //
       // This used to drop through to `runV2Analysis()` — a DIRECT
       // browser→PLoT `/v2/run` call that bypasses the CEE orchestration
-      // seam — whenever the canonical flag was on but the dispatcher had
-      // not registered. The only trace was a DEV-only console warning, so
-      // in a production build the product silently ran a different,
-      // unorchestrated analysis path and presented the result as if it
-      // were the canonical one.
+      // seam — whenever the dispatcher had not registered. The only trace
+      // was a DEV-only console warning, so in a production build the product
+      // silently ran a different, unorchestrated analysis path and presented
+      // the result as if it were the canonical one.
       //
-      // Canonical-on is the deployed posture, so this branch means the
-      // dispatcher genuinely is not ready. Say so, and run nothing.
+      // The dispatcher not being registered means the run genuinely cannot
+      // proceed. Say so, and run nothing.
       console.error(
-        '[OutputsDock] canonical run path is on but _dispatchAction is not registered; refusing to run.',
+        '[OutputsDock] canonical run dispatcher (_dispatchAction) is not registered; refusing to run.',
       )
       return { status: 'unavailable', reason: RUN_DISPATCHER_UNAVAILABLE_REASON }
     }
-    await runV2Analysis()
-    return { status: 'v2' }
-  }, [canRunAnalysis, runBlockedTooltip, isRunning, runV2Analysis, framing, flushPendingSaves, licensedByVerdict])
+  }, [canRunAnalysis, runBlockedTooltip, isRunning, framing, flushPendingSaves, licensedByVerdict])
 
   // Expose the canonical runner to other surfaces (canvas shortcut, palette).
   useEffect(() => registerCanonicalRunner(runCanonicalAnalysis), [runCanonicalAnalysis])
@@ -2648,23 +2635,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     longer silent for its first 20 seconds. The skeleton
                     below is decorative so this stays the one live region. */}
                 {runStatus === 'banner' && <AnalysisRunningBanner startedAt={resultsStartedAt} />}
-                {/* I.2b: Cancel button during active analysis — gated on the
-                    V2 hook's own in-flight flag (1.16i): cancelRun only
-                    aborts the V2 request, so it must not render for a V5
-                    analysing turn. */}
-                {isV2RunInFlight && (
-                  <div className="flex justify-end px-3">
-                    <button
-                      type="button"
-                      onClick={cancelRun}
-                      className={`${typography.caption} font-medium px-3 py-1.5 rounded border border-panel-border text-text-body hover:bg-panel-hover flex items-center gap-1.5`}
-                      data-testid="cancel-analysis-button"
-                    >
-                      <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
-                      Cancel
-                    </button>
-                  </div>
-                )}
+                {/* ROADMAP 2.1229 — the Cancel button is REMOVED, not rebound.
+                    It was gated on the V2 hook's own in-flight flag precisely
+                    because `cancelRun` could only abort the direct `/v2/run`
+                    request; its own comment said it "must not render for a V5
+                    analysing turn". With the direct seam retired that flag can
+                    never be true, so the control was dead by construction.
+                    Re-gating it on the store's analysing status would render a
+                    Cancel that cannot cancel a CEE turn — a false control.
+                    Cancelling a canonical analysis turn is a real capability
+                    this surface does not have; it is called out in the PR body
+                    rather than faked here. */}
                 {/* P0.7: Loading skeleton during analysis (when streaming without report) */}
                 {isRunning && !report && (
                   <ResultsPanelSkeleton />

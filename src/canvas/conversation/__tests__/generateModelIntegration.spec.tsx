@@ -121,10 +121,6 @@ vi.mock('../hooks/useThreadPersistence', () => ({
   }),
 }))
 
-vi.mock('../../hooks/useV2Run', () => ({
-  useV2Run: () => ({ runV2Analysis: vi.fn() }),
-}))
-
 vi.mock('../../hooks/useGraphReadiness', () => ({
   useGraphReadiness: () => ({ readiness: 'ready' }),
 }))

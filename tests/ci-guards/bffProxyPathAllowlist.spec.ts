@@ -421,12 +421,22 @@ describe('plot-proxy path allowlist (/bff/engine/* → plot-lite-service)', () =
    * assert on that header by name; a copy-paste of the sibling assertions above
    * would have passed vacuously on a header this proxy never sets.
    */
-  it('ON-LIST /bff/engine/v2/run forwards WITH the injected bearer', async () => {
+  it('OFF-LIST /bff/engine/v2/run is 404 with NO bearer sent', async () => {
+    // FLIPPED FROM ON-LIST TO OFF-LIST, deliberately — ROADMAP 2.1229, and the
+    // same move `/v1/run/:id/cancel` made below. `/v2/run` left the allowlist
+    // when its caller was deleted: `useV2Run` and the v2 adapter's HTTP section
+    // are gone, so there is no browser→PLoT analysis call left to forward.
+    //
+    // ⚠ COVERAGE CHECK, because this test carried a property no sibling did:
+    // it asserted the POSITIVE `Authorization` header (this proxy's bearer
+    // rides `Authorization`, not `X-Olumi-Assist-Key`, so the sibling
+    // assertions above would pass vacuously on it). That positive coverage is
+    // NOT lost — `/bff/engine/v1/cee/draft-graph` immediately below asserts
+    // `Authorization` by name on a surviving route. Verified, not assumed.
     const r = await invoke(plotHandler as Handler, { path: '/bff/engine/v2/run' })
-    expect(r.fetchCalled).toBe(true)
-    expect(r.calledUrl).toBe('https://plot-lite-service-staging.onrender.com/v2/run')
-    expect(r.requestHeaders?.get('Authorization')).toBe(`Bearer ${FAKE_KEY}`)
-    expect(r.status).toBe(200)
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+    expect(r.requestHeaders?.get('Authorization')).toBeFalsy()
   })
 
   it('ON-LIST /bff/engine/v1/cee/draft-graph forwards — the retired cross-origin seam', async () => {
@@ -537,9 +547,12 @@ describe('plot-proxy path allowlist (/bff/engine/* → plot-lite-service)', () =
   it('the SECOND mount /engine/* is bounded by the same list', async () => {
     // `MOUNTS` serves both prefixes. A guard applied to only one of them would
     // leave the other wide open, and every assertion above would still pass.
-    const on = await invoke(plotHandler as Handler, { path: '/engine/v2/run' })
+    // ROADMAP 2.1229 — the on-list example moved off `/v2/run` (retired with
+    // its caller) onto `/v1/limits`, which survives. The PROPERTY under test
+    // is unchanged: the second mount is bounded by the same list.
+    const on = await invoke(plotHandler as Handler, { path: '/engine/v1/limits' })
     expect(on.fetchCalled).toBe(true)
-    expect(on.calledUrl).toBe('https://plot-lite-service-staging.onrender.com/v2/run')
+    expect(on.calledUrl).toBe('https://plot-lite-service-staging.onrender.com/v1/limits')
 
     const off = await invoke(plotHandler as Handler, { path: '/engine/v1/admin/secrets' })
     expect(off.status).toBe(404)

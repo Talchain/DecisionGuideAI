@@ -14,9 +14,6 @@
 import type { Node, Edge } from '@xyflow/react'
 import type {
   V2RunRequest,
-  V2RunResponse,
-  V2RunError,
-  V2RunResult,
   V2Node,
   V2ObservedState,
   V2Edge,
@@ -32,13 +29,10 @@ import {
   looksLikeIntervention,
   partitionInterventions,
 } from '../../../utils/interventionValue'
+import { clampStrength } from '../../../canvas/domain/edges'
 import type { UIOption, UIInterventionValue } from '../../../types/options'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEOptionV3 } from '../../cee/types'
-import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
-import { STRENGTH_BOUNDS, clampStrength } from '../../../canvas/domain/edges'
 import { logger } from '../../../lib/logger'
-import { plotFetch } from '../../../lib/plotFetch'
-import { toSameOriginPlotBase } from '../../../lib/plotSameOrigin'
 
 // ============================================================================
 // Canvas Data Types (input format)
@@ -1683,316 +1677,21 @@ export function translateV2Response<T extends TranslatableResponse>(
 export { isBlockedResponse }
 
 // ============================================================================
-// HTTP Client Integration
+// HTTP Client Integration — REMOVED (ROADMAP 2.1229)
 // ============================================================================
-
-/**
- * Configuration for V2 HTTP calls.
- */
-export interface V2AdapterConfig {
-  baseUrl: string
-  timeout?: number
-  /** External abort signal for user-initiated cancellation */
-  signal?: AbortSignal
-}
-
-/**
- * Make V2 run request.
- * Handles 422 responses by preserving the unwrapped V2RunError body.
- */
-export async function runV2(
-  config: V2AdapterConfig,
-  request: V2RunRequest
-): Promise<V2RunResult> {
-  const { baseUrl, timeout = 120000, signal: externalSignal } = config
-  const startTime = Date.now()
-  const requestId = request.request_id || `v2-${Date.now()}`
-  const endpoint = '/v2/run'
-  // ⚠ SEAM RETIRED — DO NOT REINTRODUCE AN ENV-RESOLVED BASE HERE.
-  //
-  // This used to read `VITE_PLOT_ENGINE_URL`, which overrode the caller's base
-  // entirely. It is dashboard-set, Vite bakes it in at transform time, and it
-  // therefore beat every relative base a caller passed — taking `/v2/run`, the
-  // primary analysis path, around the `/bff/engine/*` edge function that injects
-  // PLoT's bearer server-side.
-  //
-  // An interim fix wrapped that override in `toSameOriginPlotBase`. That closed the
-  // case where the variable pointed at PLoT's own host and left the case where it
-  // pointed anywhere ELSE wide open, because the normaliser passes non-PLoT bases
-  // through by design — correct for the normaliser, wrong for this call. The read
-  // is the defect, not the normaliser, so the read is gone.
-  //
-  // The base is now the caller's, normalised so that a PLoT-host base still lands on
-  // the same-origin proxy. Pinned by `__tests__/runV2.plotBearer.spec.ts`, including
-  // a source pin, because a reintroduction could hide behind a condition no outcome
-  // fixture enters.
-  const resolvedBaseUrl = toSameOriginPlotBase(baseUrl)
-
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeout)
-
-  // Link external abort signal (user cancellation) to internal controller
-  if (externalSignal) {
-    if (externalSignal.aborted) {
-      controller.abort()
-    } else {
-      externalSignal.addEventListener('abort', () => controller.abort(), { once: true })
-    }
-  }
-
-  // Build headers, including X-Request-Id if present in request
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  }
-  if (request.request_id) {
-    headers['X-Request-Id'] = request.request_id
-  }
-
-  // Debug: trace brief field in payload
-  console.debug('[v2/run] payload keys:', Object.keys(request))
-  console.debug('[v2/run] brief in payload:', 'brief' in request, request.brief?.length)
-
-  // Record request payload for debug panel
-  recordRequestPayload({
-    id: requestId,
-    endpoint,
-    method: 'POST',
-    headers,
-    body: request,
-  })
-
-  try {
-    const response = await plotFetch(`${resolvedBaseUrl}/v2/run`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(request),
-      signal: controller.signal,
-    })
-
-    // NOTE: the abort timer is deliberately NOT cleared here. `fetch` resolves
-    // as soon as the HEADERS arrive, so clearing it at this point left every
-    // `response.json()` below unprotected: a headers-then-body stall (the
-    // Netlify-edge hang class this project has hit before) left this promise
-    // pending forever, useV2Run's catch/finally never ran, and results.status
-    // stayed 'preparing'/'connecting' with no escape control in the UI. The
-    // timer is cleared in the `finally` instead, once the body read has
-    // completed or thrown.
-
-    // Handle 422 - returns V2RunError directly (not wrapped in error.v1)
-    if (response.status === 422) {
-      const errorBody: V2RunError = await response.json()
-
-      // Record 422 error response for debug panel
-      recordResponsePayload({
-        id: requestId,
-        status: response.status,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: errorBody,
-        duration: Date.now() - startTime,
-        error: errorBody.status_reason || 'Validation blocked',
-      })
-
-      return errorBody
-    }
-
-    // Handle other errors
-    if (!response.ok) {
-      const errorMessage = `V2 run failed: ${response.status} ${response.statusText}`
-
-      // Try to get error body if available (JSON first, then raw text fallback)
-      // Clone response first since body can only be read once
-      let errorBody: unknown = null
-      const responseClone = response.clone()
-      try {
-        errorBody = await response.json()
-      } catch (parseError) {
-        // JSON parse failed - try to get raw text from clone for debugging
-        if (import.meta.env.DEV) {
-          console.warn('[V2Adapter] Failed to parse error response as JSON:', parseError)
-        }
-        try {
-          const rawText = await responseClone.text()
-          errorBody = { _raw_text: rawText, _parse_error: true }
-        } catch {
-          // Last resort - record that we couldn't get any body
-          errorBody = { _parse_error: true, _status: response.status }
-        }
-      }
-
-      // Record error response for debug panel
-      recordResponsePayload({
-        id: requestId,
-        status: response.status,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: errorBody,
-        duration: Date.now() - startTime,
-        error: errorMessage,
-      })
-
-      // Include error body info in the thrown error for better debugging
-      const bodyPreview = errorBody
-        ? typeof errorBody === 'object' && '_raw_text' in (errorBody as Record<string, unknown>)
-          ? (errorBody as Record<string, unknown>)._raw_text
-          : JSON.stringify(errorBody).slice(0, 200)
-        : null
-      const fullMessage = bodyPreview
-        ? `${errorMessage} - ${bodyPreview}`
-        : errorMessage
-      throw new Error(fullMessage)
-    }
-
-    const result: V2RunResponse = await response.json()
-
-    // Record success response for debug panel
-    recordResponsePayload({
-      id: requestId,
-      status: response.status,
-      headers: Object.fromEntries(response.headers.entries()),
-      body: result,
-      duration: Date.now() - startTime,
-    })
-
-    return result
-  } catch (error) {
-    const errorMessage = error instanceof Error && error.name === 'AbortError'
-      ? 'V2 run request timed out'
-      : error instanceof Error ? error.message : 'Unknown error'
-
-    // Record error for debug panel (if not already recorded)
-    if (!(error instanceof Error && error.message.startsWith('V2 run failed'))) {
-      recordResponsePayload({
-        id: requestId,
-        status: 0,
-        headers: {},
-        body: null,
-        duration: Date.now() - startTime,
-        error: errorMessage,
-      })
-    }
-
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('V2 run request timed out')
-    }
-
-    throw error
-  } finally {
-    // Cleared here, and only here — after the body read has settled on every
-    // path (success, HTTP error, 422, abort). An abort raised mid-body still
-    // surfaces through the catch above as the same 'V2 run request timed out'
-    // error a headers-phase timeout already produced.
-    clearTimeout(timeoutId)
-  }
-}
-
-/**
- * Execute V2 run using CEE analysis_ready when available.
- *
- * Preferred entry point for P0-UI integration:
- * - Reconciles options from analysisReady + node.data.interventions via
- *   reconcileOptionsWithCanvasNodes (analysisReady primary, node data fallback)
- * - When analysisReady is not provided, uses fallbackGoalNodeId for the goal
- *
- * @param config - V2 adapter config
- * @param nodes - Canvas nodes
- * @param edges - Canvas edges
- * @param analysisReady - CEE V3 analysis_ready payload (optional)
- * @param fallbackGoalNodeId - Goal node ID to use if analysisReady not provided
- * @param requestId - Optional request ID for tracing
- * @param goalThreshold - Optional NORMALISED (0-1) success threshold override
- *   for probability_of_goal. `undefined` leaves the builder's baked
- *   analysisReady.goal_threshold standing; `null` is an EXPLICIT CLEAR — the
- *   caller holds a user threshold it could not convert to the normalised
- *   contract, and the stale baked value must not be evaluated in its place.
- * @param seed - P0 Fix: Optional seed for reproducibility (avoids hardcoded "42")
- * @param brief - Original decision brief from user for PLoT context
- * @param goalConstraints - Goal constraints from CEE response root for multi-constraint analysis
- */
-export async function executeV2RunWithAnalysisReady(
-  config: V2AdapterConfig,
-  nodes: Node<CanvasNodeData>[],
-  edges: Edge<CanvasEdgeData>[],
-  analysisReady: CEEAnalysisReady | null,
-  fallbackGoalNodeId: string,
-  requestId?: string,
-  goalThreshold?: number | null,
-  seed?: number,
-  brief?: string,
-  goalConstraints?: CEEGoalConstraint[] | null,
-  scenarioId?: string | null
-): Promise<V2RunResult> {
-  // Build request — buildV2RequestFromAnalysisReady now reconciles options
-  // from analysisReady + node.data.interventions internally, so we no longer
-  // need to extract a UIOption[] fallback ourselves. The fallback parameter
-  // is preserved on the signature for backwards compatibility but is unused.
-  // scenarioId is forwarded for backfill telemetry only (see
-  // docs/intervention-authority-contract.md).
-  const { request, reverseIdMap } = buildV2RequestFromAnalysisReady(
-    nodes,
-    edges,
-    analysisReady,
-    undefined,
-    fallbackGoalNodeId,
-    { strictEdgeValidation: false, seed, brief, goalConstraints, scenarioId } // Lenient mode for user-edited graphs
-  )
-
-  // Add request ID for tracing
-  if (requestId) {
-    request.request_id = requestId
-  }
-
-  // Add goal threshold for probability_of_goal calculation.
-  // null = explicit clear (see @param goalThreshold): drop the builder's
-  // baked value rather than evaluate a target the user has replaced.
-  if (goalThreshold === null) {
-    delete request.goal_threshold
-  } else if (goalThreshold !== undefined) {
-    request.goal_threshold = goalThreshold
-  }
-
-  // NO XOR on the execute path either.
-  //
-  // This is the SECOND deletion site, and the one that actually bites in
-  // production: useV2Run calls executeV2RunWithAnalysisReady and re-injects the
-  // user's threshold through the `goalThreshold` parameter immediately above,
-  // so removing only the builder's XOR would have left the live wire unchanged.
-  // Both sites now send goal_threshold and goal_constraints together and let
-  // PLoT's Phase 1e precedence routing decide, as it already does.
-
-  if (import.meta.env.DEV) {
-    console.warn('[V2Adapter] Sending request (via analysisReady path):', {
-      requestId: request.request_id,
-      nodeCount: request.graph.nodes.length,
-      edgeCount: request.graph.edges.length,
-      optionCount: request.options.length,
-      goalNodeId: request.goal_node_id,
-      goalThreshold: request.goal_threshold,
-      usingAnalysisReady: !!analysisReady,
-      hasBrief: !!request.brief,
-      briefLength: request.brief?.length ?? 0,
-    })
-
-    // Detailed options logging for debugging empty interventions
-    console.warn('[V2Adapter] Final request options:', request.options.map((o) => ({
-      id: o.id,
-      label: o.label,
-      interventionKeys: Object.keys(o.interventions),
-      interventions: o.interventions,
-    })))
-  }
-
-  // Execute request
-  const result = await runV2(config, request)
-
-  // Translate response IDs back to UI IDs
-  const translated = translateV2Response(result, reverseIdMap)
-
-  if (import.meta.env.DEV) {
-    console.warn('[V2Adapter] Response:', {
-      requestId: translated.request_id,
-      status: translated.analysis_status,
-      isBlocked: isBlockedResponse(translated),
-    })
-  }
-
-  return translated
-}
+//
+// This section held the direct browser→PLoT run seam:
+//   - `V2AdapterConfig`  (baseUrl / timeout / signal for the direct call)
+//   - `runV2`            (the fetch to the `/v2/run` endpoint itself)
+//   - `executeV2RunWithAnalysisReady`
+//
+// Its only consumer was `canvas/hooks/useV2Run.ts`, which is retired with it.
+// The analysis path is CEE-routed: the UI sends a turn and the results return
+// inside the turn payload's `analysis_result` block (applyV5State.ts step 5).
+//
+// Everything ABOVE this line is request/response SHAPE work — `buildV2Request`,
+// `validateAllEdges`, `transformEdgeToV2`, the strength-correction buffer,
+// `getOptionsFromAnalysisReady`, `translateV2Response` — and it stays: it has
+// live consumers that never touched the direct transport (useConversation,
+// useSensitivityRanking, usePreRunValidation, hydrateAnalysis, the snapshot
+// factories). Deleting the transport is not a reason to delete the shapes.
