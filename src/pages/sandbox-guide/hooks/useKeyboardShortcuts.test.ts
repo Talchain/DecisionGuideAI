@@ -2,18 +2,11 @@
  * Tests for useKeyboardShortcuts hook
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useKeyboardShortcuts, KEYBOARD_SHORTCUTS } from './useKeyboardShortcuts'
 import { useGuideStore } from './useGuideStore'
 import { useCanvasStore } from '@/canvas/store'
-
-// Mock dependencies
-vi.mock('@/canvas/hooks/useResultsRun', () => ({
-  useResultsRun: () => ({
-    run: vi.fn(),
-  }),
-}))
 
 describe('useKeyboardShortcuts', () => {
   beforeEach(() => {

@@ -35,12 +35,6 @@ vi.mock('../../layout/runLayoutWithProgress', () => ({
   runLayoutWithProgress: mockRunLayoutWithProgress,
 }))
 
-vi.mock('../../hooks/useResultsRun', () => ({
-  useResultsRun: () => ({
-    run: vi.fn(),
-  }),
-}))
-
 vi.mock('../../hooks/useValidationFeedback', () => ({
   useValidationFeedback: () => ({
     formatErrors: (errors: any) => errors,
