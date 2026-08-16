@@ -1,4 +1,17 @@
 /**
+ * ⚠ COLLAPSED (analysis-state authority, step 5). This slice is now the
+ * `'derived'` BRANCH of `canvas/state/analysisStateSelector.ts` — its rules are
+ * unchanged and it remains the authority whenever CEE states no
+ * `analysis_state` for the turn, which is every payload predating schemas
+ * 0.46.0. The selector calls `classifyFreshnessForDisplay` below rather than
+ * restating it.
+ *
+ * ⚠ WHEN CEE DOES STATE ONE, THIS SLICE IS OUTRANKED. Nothing here changes, but
+ * a surface reading `analysisFreshness` DIRECTLY is reading the fallback, not
+ * the answer. Read `useAnalysisState()` instead. The slice stays because it is
+ * the only thing that can answer when the wire is silent — and because it holds
+ * CEE's verbatim `analysis_ready` verdict for the debug exports.
+ *
  * Analysis freshness slice — sourced ONLY from `response.analysis_ready`.
  *
  * Deliberately independent of `v5AnalysisFact` and of the graph-hash stale

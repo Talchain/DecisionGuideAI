@@ -1,4 +1,14 @@
 /**
+ * ⚠ COLLAPSED (analysis-state authority, step 5). One of the six derivations
+ * composed by `canvas/state/analysisStateSelector.ts`. The selector calls this
+ * mapper for the `displayState` member of its verdict, feeding it wire-derived
+ * inputs when CEE stated an `analysis_state` — so the copy table below stays
+ * the single source of that copy and is not restated anywhere.
+ *
+ * `useAnalysisDisplayState` (the hook wrapper) inherits wire authority
+ * automatically, because the `analysisChanged` input it computes comes from
+ * `useAnalysisTrust()`, which now reads the selector.
+ *
  * deriveAnalysisDisplayState — canonical mapper from raw analysis state
  * (CEE readiness + populated report + canvas-store staleness flag) to the
  * display state the user sees in the pre-analysis hero, the debug bundle,

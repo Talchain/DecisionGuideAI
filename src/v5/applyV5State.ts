@@ -44,7 +44,8 @@
  * response (e.g. test double-fires) because all downstream store
  * mutations are property assignments keyed by target_id.
  */
-import type { OlumiResponse, StageType } from '@talchain/schemas/boundary'
+import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
+import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
 import type { ReportV1 } from '../adapters/plot/types'
@@ -144,6 +145,19 @@ export interface V5ApplicatorStore {
   setAnalysisFreshness?: (rawAnalysisReady: unknown) => void
   /** Optional (ROADMAP 2.1163 / EXT-2): set or clear CEE's typed analysis-refusal notice. Pass null to clear. */
   setAnalysisRefusalNotice?: (notice: AnalysisRefusalNotice | null) => void
+  /**
+   * Optional (analysis-state authority, step 5): set or clear CEE's composed
+   * `AnalysisStateV1` verdict for this turn. Pass null to clear.
+   *
+   * Three-valued at the CALL SITE, not here: a turn carrying a parseable
+   * verdict SETS, a turn carrying a malformed one CLEARS (a verdict we cannot
+   * parse must never leave a previous turn's verdict governing this one), and a
+   * turn carrying no `analysis_state` key at all CLEARS too — because this
+   * field's contract is "non-null means CEE stated a verdict FOR THIS TURN".
+   * Retaining it would make a stale verdict outrank live local derivations,
+   * which is strictly worse than having no verdict.
+   */
+  setAnalysisStateV1?: (state: AnalysisStateV1 | null) => void
   /** Optional: clear the local dirty overlay when a genuinely new analysis run completes (new analysis_result response_hash). */
   clearAnalysisFreshnessDirty?: () => void
   /** Optional (F10): a genuinely new analysis_result landed with NO explicit
@@ -1080,6 +1094,59 @@ export function applyV5State(
   } else if (refusalUpdate.kind === 'clear') {
     store.setAnalysisRefusalNotice?.(null)
     applied.push('analysis_refusal_notice:cleared')
+  }
+
+  // ── Analysis-state authority, STEP 5 — the AnalysisStateV1 READER ─────────
+  // CEE emits ONE composed verdict per turn (`analysis_state`, schemas 0.46.0)
+  // beside `analysis_ready`. It is the single wire authority the UI selector
+  // (`canvas/state/analysisStateSelector.ts`) feature-detects on: non-null
+  // OUTRANKS every local derivation, null routes to the legacy derivations.
+  //
+  // PARSED, NOT TRUSTED. The schema is `.strict()` at every level and its
+  // `run_state` is a discriminated union, so a malformed or unknown-kind
+  // verdict FAILS to parse rather than handing the selector a shape it will
+  // read as authority. A parse failure CLEARS: a verdict we cannot read must
+  // never leave a PREVIOUS turn's verdict outranking this turn's live local
+  // derivations — that would be strictly worse than having no verdict, because
+  // the stale one wins.
+  //
+  // ⚠ NOT `retain-on-absence`, and that is the deliberate difference from the
+  // freshness slice three lines above. Freshness retains because CEE's silence
+  // there means "nothing changed about the verdict I already gave you". Here
+  // the field's whole contract is "CEE stated this FOR THIS TURN", so silence
+  // must clear or the authority claim becomes a lie about which turn spoke.
+  const rawAnalysisState = (response as { analysis_state?: unknown }).analysis_state
+  if (rawAnalysisState === undefined) {
+    store.setAnalysisStateV1?.(null)
+  } else {
+    const parsedAnalysisState = AnalysisStateV1Schema.safeParse(rawAnalysisState)
+    if (parsedAnalysisState.success) {
+      const verdict: AnalysisStateV1 = parsedAnalysisState.data
+      store.setAnalysisStateV1?.(verdict)
+      applied.push('analysis_state:set')
+      logV5StateStep({
+        step_number: 4,
+        step_name: 'analysis_state_consumption',
+        input_keys: ['analysis_state'],
+        output_keys: ['analysisStateV1'],
+        applied: true,
+      })
+    } else {
+      store.setAnalysisStateV1?.(null)
+      applied.push('analysis_state:cleared_invalid_shape')
+      deferred.push({
+        reason: 'analysis_state_invalid_shape',
+        detail: 'Top-level analysis_state failed AnalysisStateV1 validation; verdict cleared.',
+      })
+      logV5StateStep({
+        step_number: 4,
+        step_name: 'analysis_state_consumption',
+        input_keys: ['analysis_state'],
+        output_keys: ['analysisStateV1'],
+        applied: false,
+        skip_reason: 'invalid_shape',
+      })
+    }
   }
 
   // NOTE: there is intentionally no response-ROOT goal_constraints read here.

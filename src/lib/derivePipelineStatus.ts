@@ -24,6 +24,8 @@
  * freshness inputs are gathered. Tests are table-driven.
  */
 
+import type { AnalysisRunStateKind } from '@talchain/schemas/boundary'
+
 import type { RequestTrace } from './debug-state'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 
@@ -80,7 +82,42 @@ export type DerivePipelineStatusInputs = {
    * otherwise successful, status flips to `payload_capture_disabled`.
    */
   payloadCaptureDisabled?: boolean
+  /**
+   * Analysis-state authority, step 5 — the composed run-state verdict for this
+   * turn, when CEE stated one (`AnalysisStateV1.run_state.kind`, read via
+   * `canvas/state/analysisStateSelector.ts`).
+   *
+   * PRECEDENCE: when present, this OUTRANKS the `analysis_ready`-derived
+   * inference at branches 5a/5b/6 below. Those branches infer "did an analysis
+   * run" from the SHAPE of `analysis_ready` — an absent block, a non-'ready'
+   * status — which is a Q1 answer read off a Q2 signal, and it is one of the
+   * six vocabularies this migration collapses. When CEE has stated the run
+   * state outright there is nothing left to infer.
+   *
+   * OPTIONAL, and absence changes nothing: every existing caller omits it and
+   * every existing bundle therefore derives exactly as before. That is
+   * deliberate — this train adds an authority, it does not re-cut the debug
+   * bundle's enum.
+   */
+  analysisRunStateKind?: AnalysisRunStateKind | null
 }
+
+/**
+ * The wire run-state kinds that mean "no analysis result came out of this
+ * turn". Derived from the contract's own semantics, not from our reading of
+ * what the names ought to mean: `never_run` is stated as no analysis ever
+ * having been run, and `blocked` is stated as no run having been ATTEMPTED
+ * because attempting one could not have produced a meaningful result.
+ *
+ * `refused` is deliberately NOT here. A refusal is a statement that THIS TURN
+ * declined to vouch for currency — a prior result may well be on screen — so it
+ * is not the same fact as "analysis did not run", and mapping it here would
+ * make the bundle assert something the producer did not.
+ */
+const WIRE_KINDS_MEANING_NOT_RUN: ReadonlySet<AnalysisRunStateKind> = new Set([
+  'never_run',
+  'blocked',
+])
 
 const ANALYSIS_FAILURE_CATEGORIES = new Set([
   'analysis_failed',
@@ -135,6 +172,31 @@ export function derivePipelineStatus(
       return 'analysis_failed'
     }
     return 'cee_response_received'
+  }
+
+  // 5-WIRE — the composed verdict, when CEE stated one, OUTRANKS the
+  // analysis_ready-shape inference below. Placed here rather than at the top of
+  // the function on purpose: the transport branches above (1-4) answer a
+  // question CEE cannot answer for us — whether the response arrived at all —
+  // and a run-state verdict says nothing about a request that never landed.
+  const wireKind = inputs.analysisRunStateKind
+  if (wireKind != null) {
+    if (WIRE_KINDS_MEANING_NOT_RUN.has(wireKind)) {
+      return 'analysis_not_run'
+    }
+    if (wireKind === 'unknown_degraded') {
+      // The producer says it cannot determine the run state. Reporting
+      // ui_render_success here would manufacture a certainty CEE explicitly
+      // withheld; `analysis_failed` would invent a failure it never claimed.
+      // The bundle's honest cell is the one that says no analysis is attested.
+      return 'analysis_not_run'
+    }
+    if (inputs.payloadCaptureDisabled) {
+      return 'payload_capture_disabled'
+    }
+    // running / refused / complete_current / complete_stale all describe a turn
+    // whose response landed and rendered.
+    return 'ui_render_success'
   }
 
   // 5a — 200 + analysis turn + analysis_ready ABSENT entirely.
