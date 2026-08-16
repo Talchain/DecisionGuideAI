@@ -23,6 +23,7 @@ import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
+  EMPTY_STATES,
   getExtractionLabel,
   getProvenanceLabel,
 } from '../inspectorStrings'
@@ -624,7 +625,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
           </>
         )}
         {setByOptions.length === 0 && influences.length === 0 && (
-          <p className={`${typography.panelMeta} text-text-light`}>No connections yet.</p>
+          <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noConnectionsFlat}</p>
         )}
       </PanelGroup>
 

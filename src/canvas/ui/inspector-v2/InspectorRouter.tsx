@@ -3,7 +3,7 @@
  * inside an InspectorShell.
  */
 
-import { memo, useMemo, useCallback } from 'react'
+import { memo, useMemo, useCallback, type ComponentType } from 'react'
 import { useCanvasStore } from '../../store'
 import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { InspectorShell } from './InspectorShell'
@@ -25,6 +25,8 @@ import { FactorObservablePanel } from './panels/FactorObservablePanel'
 import { FactorExternalPanel } from './panels/FactorExternalPanel'
 import { OutcomePanel } from './panels/OutcomePanel'
 import { RiskPanel } from './panels/RiskPanel'
+import { GenericNodePanel } from './panels/GenericNodePanel'
+import { InspectorQuickActions } from './shared/InspectorQuickActions'
 
 // Entity colour map — used as fallback for inspector header entity colour
 const TOP_BAR_COLORS: Record<string, string> = {
@@ -47,6 +49,24 @@ const PILL_COLORS: Record<string, string> = {
   risk:       'var(--danger)',
 }
 
+/**
+ * Every NODE panel type → its panel. TOTAL by construction: `Record` over the
+ * union minus 'edge' (early-returned) and null (guarded), so adding a panel
+ * type without an arm here fails the typecheck instead of silently rendering
+ * nothing.
+ */
+const NODE_PANELS: Record<Exclude<NonNullable<PanelType>, 'edge'>, ComponentType<import('./types').InspectorPanelProps>> = {
+  'goal':                 GoalPanel,
+  'decision':             DecisionPanel,
+  'option':               OptionPanel,
+  'factor-controllable':  FactorControllablePanel,
+  'factor-observable':    FactorObservablePanel,
+  'factor-external':      FactorExternalPanel,
+  'outcome':              OutcomePanel,
+  'risk':                 RiskPanel,
+  'generic':              GenericNodePanel,
+}
+
 interface InspectorRouterProps {
   nodeId: string | null
   edgeId: string | null
@@ -64,6 +84,13 @@ type PanelType =
   | 'factor-external'
   | 'outcome'
   | 'risk'
+  /**
+   * L-24 — the real fallback. This used to be `null` for `action`,
+   * `constraint`, `ghost-option` and anything a future producer emits, and the
+   * router then rendered NOTHING: the user selected an element and the
+   * inspector silently refused to appear.
+   */
+  | 'generic'
   | null
 
 function resolvePanelType(
@@ -95,9 +122,16 @@ function resolvePanelType(
     case 'option':     return 'option'
     case 'outcome':    return 'outcome'
     case 'risk':       return 'risk'
-    default:           return null
+    // L-24 — every OTHER resolvable node gets a panel. `null` above is
+    // reserved for "there is no node", which is the only honest silence.
+    default:           return 'generic'
   }
 }
+
+/** Node kinds NodeShapeIndicator has a shape for. */
+const SHAPED_KINDS = new Set<string>([
+  'goal', 'decision', 'option', 'factor', 'risk', 'outcome', 'action', 'constraint',
+])
 
 export const InspectorRouter = memo(function InspectorRouter({
   nodeId,
@@ -166,6 +200,14 @@ export const InspectorRouter = memo(function InspectorRouter({
         onTechToggleChange={setTechMode}
         onClose={onClose}
         dragHandlers={dragHandlers}
+        quickActions={
+          <InspectorQuickActions
+            elementId={edgeId}
+            elementLabel={edgeLabel}
+            panelType="edge"
+            labelContext={{ sourceLabel, targetLabel }}
+          />
+        }
       >
         <EdgePanel
           edgeId={edgeId}
@@ -224,23 +266,23 @@ export const InspectorRouter = memo(function InspectorRouter({
     onNavigate: handleNavigate,
   }
 
-  const PanelComponent = {
-    'goal':                 GoalPanel,
-    'decision':             DecisionPanel,
-    'option':               OptionPanel,
-    'factor-controllable':  FactorControllablePanel,
-    'factor-observable':    FactorObservablePanel,
-    'factor-external':      FactorExternalPanel,
-    'outcome':              OutcomePanel,
-    'risk':                 RiskPanel,
-  }[panelType]
+  // Typed as a TOTAL map over every NODE panel type (edge is handled by the
+  // early return above, null by the guard at the top). Before this it was an
+  // untyped object literal indexed by the full union, so `panelType` could be
+  // 'edge' at the lookup and TypeScript reported TS2339 on the missing key —
+  // a real hole, not noise: a panel type added to the union but forgotten here
+  // would have resolved to `undefined` and rendered nothing, which is exactly
+  // the L-24 defect this PR is closing. Now a missing arm is a TYPE ERROR.
+  const PanelComponent = panelType === 'edge' ? null : NODE_PANELS[panelType]
 
   if (!PanelComponent) return null
 
   return (
     <InspectorShell
       topBarColor={topColor}
-      nodeKind={nodeType}
+      /* A kind with no shape (e.g. `ghost-option`) falls through to the shell's
+         generic icon rather than rendering a shape that means something else. */
+      nodeKind={SHAPED_KINDS.has(nodeType) ? nodeType : undefined}
       nodeId={nodeId}
       label={label}
       onLabelChange={nodeMutations.setLabel}
@@ -252,6 +294,13 @@ export const InspectorRouter = memo(function InspectorRouter({
       onTechToggleChange={setTechMode}
       onClose={onClose}
       dragHandlers={dragHandlers}
+      quickActions={
+        <InspectorQuickActions
+          elementId={nodeId}
+          elementLabel={label}
+          panelType={panelType}
+        />
+      }
     >
       {/* Full raw label in disclosure only when truncated */}
       {rawLabel !== label && (

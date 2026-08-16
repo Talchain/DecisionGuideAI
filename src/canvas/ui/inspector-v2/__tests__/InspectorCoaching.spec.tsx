@@ -5,7 +5,7 @@
  * - Orchestrator GuidanceItems render through CoachingCard visual
  * - Guidance filtered to selected element only
  * - Static coaching is fallback when no guidance exists
- * - "Ask about this" SENDS via _sendMessage (falls back to _prefillChat)
+ * - "Ask about this" PREFILLS an editable draft and waits (never auto-sends)
  * - Button hidden when _prefillChat and _sendMessage are both null
  */
 
@@ -95,7 +95,23 @@ describe('InspectorCoaching', () => {
     expect(screen.queryByText(/Low priority/)).toBeNull()
   })
 
-  it('"Ask about this" SENDS the question via _sendMessage (not _prefillChat)', () => {
+  /**
+   * ⚠ THIS TEST'S EXPECTATION WAS INVERTED, DELIBERATELY (ledger L-18).
+   *
+   * It previously read: '"Ask about this" SENDS the question via _sendMessage
+   * (not _prefillChat)' — and it was a correct pin on the behaviour that
+   * shipped. That behaviour is the defect. This component auto-sent while the
+   * inspector's OTHER ask affordance (DiscussWithAiButton) prefilled and
+   * waited: same intent, opposite semantics, one panel (a trap-21 pair). The
+   * auto-send half is the one that lies, because the question lands in a
+   * surface the user may not be looking at.
+   *
+   * The ruling is prefill-and-confirm everywhere (`askSemantic.ts`). This is
+   * not a fixture being tidied to match new code — it is a semantic that was
+   * ruled against, and the old expectation is recorded above rather than
+   * deleted so the reversal is legible.
+   */
+  it('"Ask about this" PREFILLS the question and does NOT auto-send', () => {
     const prefill = vi.fn()
     const send = vi.fn()
     useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send })
@@ -104,12 +120,12 @@ describe('InspectorCoaching', () => {
     const button = screen.getByText('Ask about this')
     fireEvent.click(button)
 
-    expect(send).toHaveBeenCalledTimes(1)
-    expect(send).toHaveBeenCalledWith('How important is Marketing Budget to the outcome?')
-    expect(prefill).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
+    expect(prefill).toHaveBeenCalledTimes(1)
+    expect(prefill).toHaveBeenCalledWith('How important is Marketing Budget to the outcome?')
   })
 
-  it('falls back to _prefillChat when _sendMessage is unavailable', () => {
+  it('still lands the draft when only _prefillChat is registered', () => {
     const prefill = vi.fn()
     useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: null })
     render(<InspectorCoaching {...defaultProps} />)

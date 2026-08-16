@@ -281,9 +281,27 @@ export const OptionPanel = memo(function OptionPanel({
       <PanelGroup kind="input" label={GROUP_LABELS.whatThisChanges}>
         <PrimaryControlCard>
           {interventions.length === 0 ? (
-            <p className={`${typography.panelMeta} text-text-light py-2 text-center`}>
-              {EMPTY_STATES.noInterventions}
-            </p>
+            /* L-40 — the empty state is derived from THE SAME edge data the
+               Connections group below reads (`outboundConnections`), not from
+               `data.interventions` alone. An add-path option carries real
+               factor edges and no intervention map, so the old copy denied
+               three "Very strong +" connections that were on screen inches
+               below it. Two data sources, one user-facing question, is how a
+               panel comes to contradict itself. */
+            outboundConnections.length > 0 ? (
+              <p
+                data-testid="option-links-without-values"
+                className={`${typography.panelMeta} text-text-light py-2 text-center`}
+              >
+                {OPTION_STRINGS.linksWithoutValues
+                  .replace('{count}', String(outboundConnections.length))
+                  .replace('{s}', outboundConnections.length === 1 ? '' : 's')}
+              </p>
+            ) : (
+              <p className={`${typography.panelMeta} text-text-light py-2 text-center`}>
+                {EMPTY_STATES.noInterventions}
+              </p>
+            )
           ) : (
             interventions.map(iv => (
               <InterventionRow
@@ -364,10 +382,30 @@ export const OptionPanel = memo(function OptionPanel({
           fallback message rather than showing an empty bordered section —
           mirrors GoalPanel Task 1 pattern. */}
       {isResultsMode && (() => {
+        // L-24 — every branch below is derived PER NODE. Previously the only
+        // per-node signal was `hasImpactContent`; the fallback sentence was
+        // shared, so an option ADDED SINCE the run and an option the run
+        // covered-and-returned-nothing-for read identically. They are
+        // different situations and only one of them is the user's to fix.
+        // Was THIS node in the run's own comparison? `allOptions` is built
+        // from `option_comparison`, i.e. the run's own record of what it
+        // analysed — not from the canvas, and not from global mode.
+        const runCoveredSomething = allOptions.length > 0
+        const nodeWasInRun = allOptions.some(o => o.isCurrent)
+        const addedSinceRun = runCoveredSomething && !nodeWasInRun
+        // ⚠ THE THIRD DISJUNCT WAS RUN-LEVEL, NOT PER-NODE (review D2), so the
+        // fix above never fired on the mainline shape. A run compares two or
+        // more options; the user then adds a third. `allOptions.length > 1 &&
+        // some(winPct != null)` is true of THE RUN, so the new option scored
+        // as having impact content and rendered the OTHER options' bars —
+        // foreign data under its own heading — instead of saying it was added
+        // afterwards. The first round's fixture used a ONE-option comparison,
+        // the single shape in which the old predicate happened to be false.
+        // Gating on `nodeWasInRun` makes the whole predicate per-node.
         const hasImpactContent =
           displayMetadata.winRate !== null
           || !!headline
-          || (allOptions.length > 1 && allOptions.some(o => o.winPct != null))
+          || (nodeWasInRun && allOptions.length > 1 && allOptions.some(o => o.winPct != null))
         return (
         <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
           <StaleGuardBanner hasResults={isResultsMode}>
@@ -463,6 +501,13 @@ export const OptionPanel = memo(function OptionPanel({
                 </div>
               )}
             </div>
+            ) : addedSinceRun ? (
+              <p
+                data-testid="option-impact-not-in-run"
+                className={`${typography.panelMeta} text-text-light`}
+              >
+                {OPTION_STRINGS.impactNotInLastRun}
+              </p>
             ) : (
               <p className={`${typography.panelMeta} text-text-light`}>{OPTION_STRINGS.impactUnavailable}</p>
             )}
@@ -485,7 +530,7 @@ export const OptionPanel = memo(function OptionPanel({
           />
         ))}
         {outboundConnections.length === 0 && (
-          <p className={`${typography.panelMeta} text-text-light`}>No connections yet.</p>
+          <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noConnectionsFlat}</p>
         )}
       </PanelGroup>
 

@@ -18,7 +18,7 @@ import { memo, useCallback } from 'react'
 import { Sparkles } from 'lucide-react'
 import Tooltip from '@/components/Tooltip'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
-import { openAskOlumi } from '@/components/results/coaching/askOlumiStore'
+import { requestAsk } from '@/canvas/ui/inspector-v2/askSemantic'
 import { buildAiDiscussPrompt, type AiDiscussElement } from './buildAiDiscussPrompt'
 
 interface DiscussWithAiButtonProps {
@@ -63,15 +63,20 @@ function DiscussWithAiButtonImpl({ element, onSend, ariaLabel, className, varian
       onSend(text)
       return
     }
-    // Parity P7a: open the Work-through-it-with-Olumi drawer with the prompt
-    // PREFILLED and EDITABLE instead of auto-sending into a conversation on
-    // another tab — the invisible auto-send read as "the button does
-    // nothing" (audit dead-button class). The drawer dispatches on Send and
-    // degrades honestly when no conversation callback is registered.
-    openAskOlumi({
-      context: 'Discuss this part of the model with Olumi.',
-      draft: text,
+    // ONE ASK SEMANTIC (ledger L-18). This control has always been
+    // prefill-and-confirm — it was `InspectorCoaching` that auto-sent — but the
+    // two implemented it independently, which is how the pair diverged. Both
+    // now route through the single definition in `askSemantic.ts`.
+    //
+    // The routing change that follows: when a chat composer is registered, the
+    // draft goes THERE and the composer is revealed, instead of floating the
+    // Ask-Olumi drawer as a third surface. The drawer remains the fallback when
+    // no composer is available, and the carrier for asks with typed dispatch
+    // parameters (this one has none).
+    requestAsk({
+      text,
       label: 'Discuss with Olumi',
+      context: 'Discuss this part of the model with Olumi.',
       source: 'chip',
     })
   }, [element, onSend])

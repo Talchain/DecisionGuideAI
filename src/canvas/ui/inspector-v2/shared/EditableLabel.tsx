@@ -1,9 +1,34 @@
 /**
- * EditableLabel — inline text editing with blur-save
+ * EditableLabel — inline title editing with blur-save.
  * Enter saves and blurs. Escape reverts and blurs.
+ *
+ * L-04 — three defects closed here:
+ *
+ * 1. NO VISIBLE AFFORDANCE. This was a bare `<button>` whose only hint was
+ *    `cursor-text`, so nothing on screen said the title could be renamed.
+ *    It now carries a persistent pencil cue, a dotted underline, and a real
+ *    accessible name ("Rename …").
+ *
+ * 2. THE DRAG HANDLE SWALLOWED IT. The control lives inside the inspector
+ *    header, which is the panel's drag surface. `onPointerDown` is stopped
+ *    here so a press on the title starts an edit, not a drag. Scoped to this
+ *    control only — the rest of the header still drags.
+ *
+ * 3. SILENT TRUNCATION. The input allowed 500 characters while the store
+ *    setter sliced to 100 and told nobody. There is now ONE limit — the
+ *    store's, imported from the setter that enforces it, not re-typed — the
+ *    input stops at it, and a counter appears as the user approaches it.
+ *
+ * `autoEdit` mounts the field already in editing state. That is what makes a
+ * canvas double-click land the user in the input (see `renameIntent.ts`).
  */
 
 import { useState, useCallback, useRef, useEffect, type KeyboardEvent } from 'react'
+import { Pencil } from 'lucide-react'
+import { NODE_LABEL_MAX_LENGTH } from '../useInspectorMutations'
+
+/** Characters remaining at which the counter appears. */
+const COUNTER_REVEAL_MARGIN = 20
 
 interface EditableLabelProps {
   value: string
@@ -11,14 +36,24 @@ interface EditableLabelProps {
   maxLength?: number
   className?: string
   placeholder?: string
+  /** Mount directly in editing state (canvas double-click → rename). */
+  autoEdit?: boolean
+  /**
+   * Called once the auto-edit intent has actually opened the editor, so the
+   * owner can clear it. A rename intent is a ONE-SHOT EVENT: left set, it
+   * reopens the editor on every later re-render and follows the user around.
+   */
+  onAutoEditConsumed?: () => void
 }
 
 export function EditableLabel({
   value,
   onSave,
-  maxLength = 100,
+  maxLength = NODE_LABEL_MAX_LENGTH,
   className = '',
   placeholder = 'Untitled',
+  autoEdit = false,
+  onAutoEditConsumed,
 }: EditableLabelProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -29,7 +64,37 @@ export function EditableLabel({
     if (!isEditing) setDraft(value)
   }, [value, isEditing])
 
+  // Rename intent: open the editor when asked, then report the intent spent so
+  // the owner can clear it.
+  //
+  // ⚠ The comment that stood here claimed this "only reacts to the transition
+  // INTO true". That was FALSE and it mattered: nothing in this component was
+  // keyed by element, so when the owner retargeted the shell to a different
+  // node this component kept `isEditing` AND kept `draft` — the previous
+  // element's text — and the next blur saved it onto the new element. The
+  // owner now remounts this component per element (`key`), so editing state
+  // and draft cannot cross an element boundary at all. Opening remains
+  // one-directional: clearing the intent never slams the editor shut under
+  // the user's cursor.
+  //
+  // The deps include `onSave`, whose IDENTITY changes: `useInspectorMutations`
+  // rebuilds `setLabel` per `[nodeId, updateNode, getNode]`. So the effect
+  // re-ran on ordinary re-renders while `autoEdit` was still true and REOPENED
+  // an editor the user had already closed. `prevAutoEdit` makes the trigger a
+  // genuine false→true TRANSITION, which is what the comment always claimed.
+  const prevAutoEdit = useRef(false)
+  useEffect(() => {
+    const wasArmed = prevAutoEdit.current
+    prevAutoEdit.current = autoEdit
+    if (!autoEdit || wasArmed || !onSave) return
+    setIsEditing(true)
+    requestAnimationFrame(() => inputRef.current?.focus())
+    onAutoEditConsumed?.()
+  }, [autoEdit, onSave, onAutoEditConsumed])
+
   const save = useCallback(() => {
+    // The input already caps at `maxLength`; the slice is defensive only, and
+    // can no longer discard text the user was allowed to type.
     const trimmed = draft.trim().slice(0, maxLength)
     if (trimmed && trimmed !== value && onSave) {
       onSave(trimmed)
@@ -55,7 +120,7 @@ export function EditableLabel({
   }, [save, revert])
 
   if (!onSave) {
-    // Read-only mode
+    // Read-only mode — no rename affordance, because there is no rename.
     return (
       <span className={className} title={value}>
         {value || placeholder}
@@ -67,30 +132,57 @@ export function EditableLabel({
     return (
       <button
         type="button"
-        className={`${className} cursor-text text-left truncate block w-full hover:bg-panel-hover rounded px-0.5 -mx-0.5 transition-colors`}
+        data-testid="inspector-rename-trigger"
+        className={`${className} group cursor-text text-left flex items-center gap-1 w-full min-w-0 hover:bg-panel-hover rounded px-0.5 -mx-0.5 transition-colors`}
+        // The header above is the drag surface. Without this, pressing the
+        // title starts a panel drag instead of an edit.
+        onPointerDown={e => e.stopPropagation()}
         onClick={() => {
           setIsEditing(true)
-          // Focus after render
           requestAnimationFrame(() => inputRef.current?.focus())
         }}
-        title={value}
+        title={`Rename — ${value || placeholder}`}
+        aria-label={`Rename ${value || placeholder}`}
       >
-        {value || placeholder}
+        <span className="truncate border-b border-dashed border-panel-border group-hover:border-info">
+          {value || placeholder}
+        </span>
+        <Pencil
+          size={12}
+          data-testid="inspector-rename-cue"
+          aria-hidden="true"
+          className="shrink-0 text-text-light group-hover:text-info transition-colors"
+        />
       </button>
     )
   }
 
+  const remaining = maxLength - draft.length
+
   return (
-    <input
-      ref={inputRef}
-      type="text"
-      value={draft}
-      onChange={e => setDraft(e.target.value)}
-      onBlur={save}
-      onKeyDown={handleKeyDown}
-      maxLength={maxLength}
-      className={`${className} w-full bg-transparent border-b border-info outline-none px-0.5 -mx-0.5`}
-      autoFocus
-    />
+    <div className="w-full">
+      <input
+        ref={inputRef}
+        type="text"
+        data-testid="inspector-rename-input"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onPointerDown={e => e.stopPropagation()}
+        onBlur={save}
+        onKeyDown={handleKeyDown}
+        maxLength={maxLength}
+        aria-label="Element name"
+        className={`${className} w-full bg-transparent border-b border-info outline-none px-0.5 -mx-0.5`}
+        autoFocus
+      />
+      {remaining <= COUNTER_REVEAL_MARGIN && (
+        <span
+          data-testid="inspector-rename-counter"
+          className="block text-[11px] leading-snug text-text-light mt-0.5"
+        >
+          {draft.length}/{maxLength} characters
+        </span>
+      )}
+    </div>
   )
 }

@@ -45,6 +45,7 @@ import {
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
+import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -451,41 +452,12 @@ export const EdgePanel = memo(function EdgePanel({
             if (!validation || validation.status !== 'contested') return null
             return (
               <PanelGroup kind="evidence" label={GROUP_LABELS.evidence}>
-                <div className="bg-panel border border-warning/30 rounded-lg p-2.5">
-                  <div className={`${typography.panelBody} font-medium text-warning flex items-center gap-1`}>
-                    <AlertTriangle size={13} className="text-warning" />
-                    {EDGE_COPY.needsYourJudgement}
-                  </div>
-                  {validation.contested_reasons?.length > 0 && (
-                    <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                      {validation.contested_reasons.join(', ')}
-                    </p>
-                  )}
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="bg-panel border border-panel-border rounded p-2">
-                      <div className={`${typography.panelMeta} text-text-light mb-1`}>Pass 1 (current)</div>
-                      <div className={typography.panelMeta}>Strength: {validation.pass1.strength_mean.toFixed(2)}</div>
-                      <div className={typography.panelMeta}>Std: {validation.pass1.strength_std.toFixed(2)}</div>
-                      <div className={typography.panelMeta}>Exists: {Math.round(validation.pass1.exists_probability * 100)}%</div>
-                    </div>
-                    <div className="bg-panel border border-panel-border rounded p-2">
-                      <div className={`${typography.panelMeta} text-text-light mb-1`}>Pass 2 (review)</div>
-                      <div className={typography.panelMeta}>Strength: {validation.pass2.strength_mean.toFixed(2)}</div>
-                      <div className={typography.panelMeta}>Std: {validation.pass2.strength_std.toFixed(2)}</div>
-                      <div className={typography.panelMeta}>Exists: {Math.round(validation.pass2.exists_probability * 100)}%</div>
-                    </div>
-                  </div>
-                  {validation.pass2.reasoning && (
-                    <p className={`${typography.panelMeta} text-text-light mt-2 italic`}>
-                      &ldquo;{validation.pass2.reasoning}&rdquo;
-                    </p>
-                  )}
-                  {validation.pass2.basis && (
-                    <span className={`${typography.panelMeta} inline-block mt-1 px-1.5 py-0.5 rounded-full bg-transparent border border-info/30 text-text-body`}>
-                      {validation.pass2.basis}
-                    </span>
-                  )}
-                </div>
+                {/* L-38 — this block used to print raw enum tokens
+                    (`contested_reasons.join(', ')`, `pass2.basis`) and the
+                    internal "Pass 1 (current) / Pass 2 (review)" stat grid.
+                    The user-language surface, and the progressive disclosure
+                    that keeps the numbers, live in EdgeReviewDisagreement. */}
+                <EdgeReviewDisagreement validation={validation} techMode={techMode} />
               </PanelGroup>
             )
           })()}

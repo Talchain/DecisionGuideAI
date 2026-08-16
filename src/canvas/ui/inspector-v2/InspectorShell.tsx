@@ -5,7 +5,7 @@
  * Header is the drag surface when dragHandlers are provided.
  */
 
-import { memo, useState, useCallback, type KeyboardEvent } from 'react'
+import { memo, useState, useCallback, useEffect, type KeyboardEvent } from 'react'
 import { X, Code2, Spline, HelpCircle, ArrowLeft } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { NodeShapeIndicator } from '../../nodes/NodeShapeIndicator'
@@ -13,6 +13,8 @@ import { useCanvasStore } from '../../store'
 import { isAiPanelV2Enabled } from '../../../flags'
 import type { InspectorShellProps } from './types'
 import { EditableLabel } from './shared/EditableLabel'
+import { NODE_LABEL_MAX_LENGTH } from './useInspectorMutations'
+import { useRenameIntentStore, clearNodeRename } from './renameIntent'
 
 export const InspectorShell = memo(function InspectorShell({
   topBarColor,
@@ -28,10 +30,40 @@ export const InspectorShell = memo(function InspectorShell({
   onTechToggleChange,
   onClose,
   dragHandlers,
+  quickActions,
   children,
 }: InspectorShellProps) {
   const rationale = useCanvasStore((s) => nodeId ? s.nodeRationales?.[nodeId] : undefined)
   const [showRationale, setShowRationale] = useState(false)
+
+  // L-04 — a pending rename intent for THIS element opens the title in editing
+  // state, then is consumed.
+  //
+  // ⚠ THIS WAS A BOOLEAN AND IT LEAKED (adversarial review D1). The live
+  // inspector does NOT remount per selection: `InspectorModal` keeps ONE shell
+  // mounted and changes `nodeId`. A boolean `autoEdit` therefore stayed true
+  // across a retarget, so selecting node B after arming node A opened B's
+  // editor — holding A's text, because the editor's own draft also survived —
+  // and the blur-save wrote "Option A" onto node B. A silent, wrong, persisted
+  // rename, and every test in the first round rendered FRESH, which is exactly
+  // why none of them could see it.
+  //
+  // The intent is now carried AS AN ID at every hop and is only honoured when
+  // it matches the node the shell is currently mounted for. Consumption clears
+  // it, so returning to A does not reopen the editor under a user who has
+  // moved on.
+  const renameNodeId = useRenameIntentStore((s) => s.renameNodeId)
+  const [armedForNodeId, setArmedForNodeId] = useState<string | null>(null)
+  useEffect(() => {
+    if (nodeId && renameNodeId === nodeId) {
+      setArmedForNodeId(nodeId)
+      clearNodeRename()
+    }
+  }, [nodeId, renameNodeId])
+  // The comparison — not a boolean — is what makes a retarget disarm.
+  const autoEditLabel = armedForNodeId !== null && armedForNodeId === nodeId
+  // One-shot: once the editor has opened, the intent is spent.
+  const handleAutoEditConsumed = useCallback(() => setArmedForNodeId(null), [])
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -91,10 +123,20 @@ export const InspectorShell = memo(function InspectorShell({
         <div className="flex items-start justify-between gap-1.5">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1">
+              {/* `key` is load-bearing, not cosmetic (D1): it remounts the
+                  editor whenever the shell is retargeted, so an open editor
+                  and a half-typed draft CANNOT survive onto the next element.
+                  Without it a retarget mid-rename carries the previous
+                  element's text into this one's save. An abandoned edit is
+                  discarded, which is the honest outcome — the user navigated
+                  away from it. */}
               <EditableLabel
+                key={nodeId ?? 'inspector-label'}
                 value={label}
                 onSave={onLabelChange}
-                maxLength={500}
+                maxLength={NODE_LABEL_MAX_LENGTH}
+                autoEdit={autoEditLabel}
+                onAutoEditConsumed={handleAutoEditConsumed}
                 className={`${typography.panelHeader} text-text-header`}
               />
               {rationale && (
@@ -160,8 +202,12 @@ export const InspectorShell = memo(function InspectorShell({
         </div>
       </div>
 
-      {/* Body — scrollable when content exceeds panel max height */}
+      {/* Body — scrollable when content exceeds panel max height.
+          R5: quick actions sit at the TOP of the body, above every panel
+          group, so the two power functions (ask Olumi about this element,
+          open its analysis) are never buried behind a scroll. */}
       <div className="px-4 pb-4 overflow-y-auto" style={{ maxHeight: 560 }}>
+        {quickActions}
         {children}
       </div>
     </div>

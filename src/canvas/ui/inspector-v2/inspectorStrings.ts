@@ -236,6 +236,13 @@ export const EMPTY_STATES = {
   noEvidence:       'No calibration or external data. Providing evidence would improve trust in this connection.',
   noInboundConnections: 'No inbound connections yet.',
   noPrediction:     'No prediction available',
+  /**
+   * L-40 — the flat denial. Previously typed out three times as a literal, and
+   * rendered by panels that were simultaneously showing connections the user
+   * could see on the canvas. Now one constant, and every panel that shows it
+   * must first prove there is genuinely nothing to show.
+   */
+  noConnectionsFlat: 'No connections yet.',
 } as const
 
 // ─── Group labels (v6.2 three-group layout) ───────────────────────
@@ -387,6 +394,20 @@ export const GOAL_STRINGS = {
 export const OPTION_STRINGS = {
   impactUnavailable: 'Option impact data unavailable for this analysis run.',
   /**
+   * L-24 — an option ADDED SINCE the last run is not the same situation as an
+   * option the run covered and returned nothing for, and it must not inherit
+   * the same sentence. Derived per node from whether this option appears in the
+   * run's own comparison, not from global results mode.
+   */
+  impactNotInLastRun: 'This option was added after the last analysis, so it has no results yet. Re-run the analysis to include it.',
+  /**
+   * L-40 — the honest replacement for the contradiction. The option HAS factor
+   * links (the Connections list below is rendering them from the same edges);
+   * what it lacks is a value for each. Saying it "changes no factors" while
+   * three of them are on screen is the product disagreeing with itself.
+   */
+  linksWithoutValues: 'Linked to {count} factor{s} below, but no change values are set yet — set one to give this option an effect in the analysis.',
+  /**
    * ROADMAP 2.1204 — attribution for the drafter's rephrase-absorption note.
    *
    * The note's SENTENCE comes from the wire and is rendered verbatim; this is
@@ -427,4 +448,47 @@ export const GOAL_CONSTRAINT_COPY = {
   // they never see this. Owned here; pinned as a raw literal in specs.
   guestConstraintsNotInAnalysis:
     "In guest mode, constraints added here aren't included in the analysis. Add them in chat instead.",
+} as const
+
+// ─── Decision panel strings ──────────────────────────────────────
+export const DECISION_STRINGS = {
+  /**
+   * L-40 — the Decision inspector said "No connections yet." while the canvas
+   * plainly drew its edges. `otherConnections` EXCLUDES option edges by design
+   * (options belong in the Input group above), so a decision whose only edges
+   * are its options hit a flat denial of edges the user could see.
+   *
+   * Derived from the SAME edge data the options list reads, and it names where
+   * those connections went rather than pretending they do not exist.
+   */
+  connectionsAreOptions: 'Its {count} option{s} above are its only connections. Nothing else links to this decision yet.',
+} as const
+
+// ─── Generic fallback panel strings ──────────────────────────────
+export const GENERIC_STRINGS = {
+  /**
+   * L-24 — the router used to render NOTHING for element types without a
+   * bespoke panel. An honest, modest panel beats a silent refusal: the user
+   * clicked something and must get a response.
+   */
+  noSpecialisedEditor: 'This element has no detailed editor yet. You can rename it, describe it, and follow its connections.',
+} as const
+
+// ─── Contested-edge review copy (L-38) ───────────────────────────
+//
+// The relationship inspector printed `contested_reasons` and `pass2.basis` as
+// RAW ENUM TOKENS ("existence_boundary_crossing", "domain_prior") and headed
+// the comparison "Pass 1 (current) / Pass 2 (review)" with Strength / Std /
+// Exists rows. The estate already owns the user-facing translations and the
+// good copy precedent (S18) in `model-tab/strengthBands.ts` — the inspector
+// CONSUMES those rather than minting a second vocabulary for the same enum.
+export const EDGE_REVIEW_COPY = {
+  heading:          'Our two reviews disagree here',
+  currentEstimate:  'What the model currently uses',
+  reviewEstimate:   'What the review suggested',
+  strength:         'Effect strength',
+  uncertainty:      'How uncertain that is',
+  existence:        'Confidence the link is real',
+  showDetail:       'See both estimates',
+  hideDetail:       'Hide both estimates',
 } as const

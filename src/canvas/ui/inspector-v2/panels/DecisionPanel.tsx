@@ -16,6 +16,8 @@ import { formatWinProbability } from '../../../utils/labelUtils'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
+  DECISION_STRINGS,
+  EMPTY_STATES,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
@@ -60,31 +62,45 @@ export const DecisionPanel = memo(function DecisionPanel({
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
   const [isEditingDescription, setIsEditingDescription] = useState(false)
 
-  // Connected options — stored with raw winProb for formatWinProbability()
+  // Connected options — stored with raw winProb for formatWinProbability().
+  //
+  // ⚠ BOTH DIRECTIONS, and it was outbound-only (review D3). The canvas's
+  // `isValidConnection` lets a user draw `option → decision`, and such an edge
+  // fell through BOTH lists: excluded here by `source === nodeId`, and
+  // excluded from `otherConnections` below by its option kind. The panel then
+  // reported "No connections yet." while the canvas plainly drew the edges —
+  // the very L-40 contradiction this file was changed to close, surviving in
+  // the direction the first corpus never drew.
   const connectedOptions = useMemo(() => {
+    const seen = new Set<string>()
     return edges
-      .filter(e => e.source === nodeId)
+      .filter(e => e.source === nodeId || e.target === nodeId)
       .map(e => {
-        const optNode = nodes.find(n => n.id === e.target)
+        const otherId = e.source === nodeId ? e.target : e.source
+        const optNode = nodes.find(n => n.id === otherId)
         if (!optNode) return null
         const kind = (optNode.type || optNode.data?.kind) as string
         if (kind !== 'option') return null
+        // An option joined in BOTH directions is ONE connection to the user,
+        // not two. Dedupe by the option's node id, not by edge id.
+        if (seen.has(otherId)) return null
+        seen.add(otherId)
         // Cast to `unknown` (not `number`) — interventions may be V3 objects
         // ({ value, source, ... }) or plain numbers. Only the key count is read
         // here, but the type should not lie about the value shape.
         const ivs = (optNode.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
         const ivCount = ivs ? Object.keys(ivs).length : 0
-        const label = String(optNode.data?.label ?? e.target)
+        const label = String(optNode.data?.label ?? otherId)
         // Explicit `is_baseline` wins; regex fallback only fires when the flag is
         // absent — mirrors OptionNode.tsx / OptionPanel.tsx.
         const explicitIsBaseline = (optNode.data as { is_baseline?: boolean | null })?.is_baseline
         const isBaseline = explicitIsBaseline ?? detectBaseline(label).isBaseline
         // Raw win probability — formatted via formatWinProbability() at render.
         const rawWinProb = optionComparison && Array.isArray(optionComparison)
-          ? (optionComparison as Array<{ option_id: string; win_probability?: number }>).find(o => o.option_id === e.target)?.win_probability
+          ? (optionComparison as Array<{ option_id: string; win_probability?: number }>).find(o => o.option_id === otherId)?.win_probability
           : undefined
         return {
-          nodeId: e.target,
+          nodeId: otherId,
           label,
           ivCount,
           isBaseline,
@@ -234,8 +250,25 @@ export const DecisionPanel = memo(function DecisionPanel({
             onClick={() => onNavigate(conn.nodeId)}
           />
         ))}
+        {/* L-40 — `otherConnections` EXCLUDES option edges by design (options
+            live in the Input group above), so a decision whose only edges are
+            its options used to render a flat "No connections yet." while the
+            canvas drew every one of them. The empty state is now derived from
+            the SAME edge data the options list reads, and names where those
+            connections went instead of denying them. */}
         {otherConnections.length === 0 && (
-          <p className={`${typography.panelMeta} text-text-light`}>No connections yet.</p>
+          connectedOptions.length > 0 ? (
+            <p
+              data-testid="decision-connections-are-options"
+              className={`${typography.panelMeta} text-text-light`}
+            >
+              {DECISION_STRINGS.connectionsAreOptions
+                .replace('{count}', String(connectedOptions.length))
+                .replace('{s}', connectedOptions.length === 1 ? '' : 's')}
+            </p>
+          ) : (
+            <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noConnectionsFlat}</p>
+          )
         )}
       </PanelGroup>
 
