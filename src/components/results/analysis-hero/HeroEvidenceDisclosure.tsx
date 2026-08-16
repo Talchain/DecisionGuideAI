@@ -27,14 +27,23 @@
  * - Resolve next: ISL's per-factor EVPPI as a RANKING ONLY, plus the
  *   whole-decision line. See the block comment at the view itself.
  *
- * Presentational: no store access; focus is the container's callback.
+ * DATA is presentational: every value rendered here arrives on `evidence`, and
+ * focus is the container's callback. The component does hold TWO non-display
+ * seams, both re-homed here from the retired `V7EvidenceDisclosure` because
+ * both are functions of THIS component's open/view state and of nothing else:
+ * the analysis-graph projection (`useAnalysisProjection`) and the
+ * `evidence_view_opened` measurement. Neither reads data for rendering; the
+ * header line above used to say "no store access" and would now be false.
  */
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, Crosshair, Info } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { HERO_COPY } from './heroCopy'
 import { RESOLVE_NEXT_COPY as R } from '../voi/resolveNextCopy'
 import type { HeroEvidenceModel } from './heroTypes'
+import { useAnalysisProjection } from '../../../canvas/highlighting/useAnalysisProjection'
+import { useCanvasStore } from '../../../canvas/store'
+import { trackMeasurement } from '../../../telemetry/measurementEvents'
 
 const VISIBLE_DRIVERS = 3
 
@@ -93,7 +102,6 @@ export function HeroEvidenceDisclosure({
    * for the other host.)
    */
   const hasResolveNext = evidence.resolveNext != null
-  if (!hasDrivers && !hasFlipRisks && !hasTradeOffs && !hasResolveNext) return null
 
   const views = (
     [
@@ -107,7 +115,104 @@ export function HeroEvidenceDisclosure({
       { key: 'resolveNext', label: R.tab, present: hasResolveNext },
     ] satisfies Array<{ key: EvidenceView; label: string; present: boolean }>
   ).filter((v) => v.present)
-  const activeView = views.some((v) => v.key === view) ? view : views[0].key
+  /**
+   * ⚠ HOISTED ABOVE THE NOTHING-TO-DISCLOSE RETURN so the two effects below can
+   * be unconditional (hook order must not depend on the model). `views[0]` is
+   * guaranteed present BELOW that return; above it, a run with nothing to
+   * disclose genuinely has no active view, and `null` is what says so — it must
+   * NOT collapse to 'drivers', which would make the projection mark driver
+   * nodes for a disclosure that never rendered.
+   */
+  const activeView: EvidenceView | null = views.some((v) => v.key === view)
+    ? view
+    : views[0]?.key ?? null
+
+  // ── Analysis-graph projection (P3 UI agency) ───────────────────────────────
+  //
+  // RE-HOMED FROM `V7EvidenceDisclosure`, which was the hook's ONLY caller in
+  // the repo — with it deleted, the marking code in BaseNode/StyledEdge was
+  // permanently inert. Consumption is unchanged from that host: while this
+  // disclosure is OPEN on Flip risks or Drivers, the resolvable canvas elements
+  // the view is about are marked; closing it, or switching to any other view,
+  // clears the marks (the hook's own cleanup does that, and it also clears on
+  // unmount).
+  //
+  // ⚠ UNCONDITIONAL, and deliberately ABOVE the nothing-to-disclose return, so
+  // that hook order is stable AND so it still CLEARS when there is nothing to
+  // show — exactly as it sat in the retired host.
+  const projectionActive: 'flip_risks' | 'drivers' | null =
+    !open ? null : activeView === 'flipRisks' ? 'flip_risks' : activeView === 'drivers' ? 'drivers' : null
+  const driverFocusIds = useMemo(
+    // `targetId` is `string | null` on this host and `focusId?: string` on the
+    // retired one; the resolver's input type is `(string | undefined)[]` and it
+    // drops falsy ids either way. Normalised here rather than widening the
+    // resolver, so the honesty rule stays where it is enforced.
+    () => evidence.drivers.map((d) => d.targetId ?? undefined),
+    [evidence.drivers],
+  )
+  useAnalysisProjection({
+    active: projectionActive,
+    flipRisks: evidence.fragileEdgeRefs,
+    driverFocusIds,
+  })
+
+  // ── evidence_view_opened (ROADMAP 1.68) ────────────────────────────────────
+  //
+  // RE-HOMED FROM `V7EvidenceDisclosure`, which was the ONLY emitter of this
+  // event in the repo — `measurementEvents.ts` calls it "the highest-value
+  // single site in this taxonomy", and between that component's deletion and
+  // this line it had zero emitters while its schema stayed declared.
+  //
+  // WHY THIS SITE. It captures what the product TOLD the user, at the moment it
+  // told them — and for the resolve-next ranking that is the only moment at
+  // which it is the truth. The ranking is recomputed every run, so reading it
+  // back afterwards answers a different question from the one the user saw.
+  //
+  // ON TRANSITION, NOT ON RENDER. The deps are exactly [open, activeView], so
+  // React fires it when the disclosure OPENS and when the view CHANGES, and not
+  // on any other re-render. Closing and reopening on the same view does
+  // re-emit — that is a new opening, and counting it as one is the point.
+  //
+  // ⚠ KEYED ON `activeView`, NOT the raw `view` state, and that is the one
+  // faithful-port divergence: this host FILTERS its chips by presence, so the
+  // view a user is looking at is the resolved one. Reporting `view` would name
+  // a view that was never rendered.
+  //
+  // NEVER-CAPTURE: ids and counts only. `r.label` and `d.label` are rendered a
+  // few lines from here and are user/model-authored text — the payload takes
+  // `factorId`, never `label`. See measurementEvents.ts.
+  const resolveNextForEvent = evidence.resolveNext
+  useEffect(() => {
+    if (!open || activeView == null) return
+    const state = useCanvasStore.getState()
+    const isResolveNext = activeView === 'resolveNext'
+    const ranked = resolveNextForEvent?.resolved ?? []
+    trackMeasurement('evidence_view_opened', {
+      view: activeView,
+      scenario_id: state.currentScenarioId ?? null,
+      gated:
+        activeView === 'drivers' ? evidence.drivers.length === 0
+        : activeView === 'flipRisks' ? evidence.flipRisks.length === 0
+        : activeView === 'tradeOffs' ? (evidence.tradeOffs?.length ?? 0) === 0
+        : resolveNextForEvent == null,
+      // PREFIX ONLY — a full run id is a cross-session linking token.
+      ...(state.results?.runId ? { run_id_prefix: state.results.runId.slice(0, 8) } : {}),
+      ...(isResolveNext && resolveNextForEvent
+        ? {
+            // ID ONLY. NEVER ranked[0].label.
+            ...(ranked[0] ? { rank1_factor_id: ranked[0].factorId } : {}),
+            ranked_count: ranked.length,
+            below_resolution_count: resolveNextForEvent.belowResolution.length,
+            some_factors_unassessed: resolveNextForEvent.someFactorsUnassessed,
+          }
+        : {}),
+    })
+    // `evidence` is intentionally NOT a dep: a new model object on the same
+    // open view is a re-render, not a new opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, activeView])
+
+  if (!hasDrivers && !hasFlipRisks && !hasTradeOffs && !hasResolveNext) return null
 
   const visibleDrivers = showAllDrivers
     ? evidence.drivers
@@ -134,6 +239,27 @@ export function HeroEvidenceDisclosure({
         {d.direction != null && (
           <span className="sr-only">
             ({d.direction === 'positive' ? 'increases the outcome' : 'decreases the outcome'})
+          </span>
+        )}
+        {/*
+          ⭐ THE `est.` PROVENANCE TAG — ported from the retired V7 disclosure,
+          same wording, same treatment (a bordered pill after the label).
+
+          It renders on `'estimated'` ONLY. `'not_estimated'` and
+          `'undetermined'` both render nothing, and they are NOT the same
+          statement: the first is a producer denial, the second is producer
+          silence. Neither licenses a POSITIVE marker, so neither gets one —
+          but the model keeps them apart so that a surface which one day wants
+          to say "you gave us this" cannot say it on silence. See
+          `HeroDriverValueProvenance`.
+        */}
+        {d.isEstimate === 'estimated' && (
+          <span
+            data-testid="hero-driver-est"
+            aria-label={HERO_COPY.evidence.estimateTagAria}
+            className={`${typography.panelMeta} flex-none rounded-full border border-panel-border bg-transparent px-1.5 py-0 text-text-light`}
+          >
+            {HERO_COPY.evidence.estimateTag}
           </span>
         )}
       </span>

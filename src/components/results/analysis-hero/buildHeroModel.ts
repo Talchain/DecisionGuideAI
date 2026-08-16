@@ -43,7 +43,7 @@
  */
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
-import type { FlipThreshold, OptionResult } from '../types'
+import type { DriverItem, FlipThreshold, OptionResult } from '../types'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import { selectFlipRisk } from '../utils/selectFlipRisk'
@@ -56,6 +56,7 @@ import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 import { SUB_ONE_PERCENT_FLOOR, formatGoalProbability } from '../utils/displayFloors'
 import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
+import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../utils/goalFitBasisCaveatCopy'
 import {
   getExpectedValue,
@@ -67,7 +68,35 @@ import { safeInterpolatedLabel, containsBannedTerm } from '../utils/glossaryChec
 import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPercent'
 import { flipDirectionWording, formatFlipValue } from '../utils/flipThresholdDisplay'
 import { HERO_COPY } from './heroCopy'
-import type { HeroChartModel, HeroLens, HeroModel, HeroRowVM, HeroStatusModel } from './heroTypes'
+import type {
+  HeroChartModel,
+  HeroDriverValueProvenance,
+  HeroLens,
+  HeroModel,
+  HeroRowVM,
+  HeroStatusModel,
+} from './heroTypes'
+
+/**
+ * Where one driver's VALUE came from — the `est.` tag's only input.
+ *
+ * A DIRECT PRODUCER READ, never a threshold and never an inference from the
+ * value itself. Both fields are producer booleans on `DriverItem`:
+ *   · `isDefaultedConfidence` — derived by `isDefaultedConfidenceFromRaw`
+ *     (ISL bootstrap degeneracy); the live hook always writes a real boolean.
+ *   · `valueDefaulted`        — PLoT's `value_defaulted`, preserved under a
+ *     strict `typeof === 'boolean'` guard that never coerces absence to false.
+ *
+ * The ordering matters: a producer TRUE on either field settles the question,
+ * so it is asked first. Only if neither says "estimated" do we ask whether the
+ * producer actually denied it — and an absent `valueDefaulted` is silence,
+ * which this function reports as silence.
+ */
+function driverValueProvenance(d: DriverItem): HeroDriverValueProvenance {
+  if (d.isDefaultedConfidence === true || d.valueDefaulted === true) return 'estimated'
+  if (d.isDefaultedConfidence === false && d.valueDefaulted === false) return 'not_estimated'
+  return 'undetermined'
+}
 
 // ─── Small helpers (selection + display formatting only) ────────────────────
 
@@ -961,6 +990,20 @@ export function buildHeroModel(
             rank: d.rank,
             label,
             targetId: d.canFocus ? d.matchedNodeId ?? d.factorKey : null,
+            // Value provenance for the `est.` tag — a DIRECT PRODUCER READ,
+            // never a threshold, exactly as the retired V7 disclosure did.
+            //
+            // The TRUE arm is V7's condition byte-for-byte
+            // (`buildV7Lenses.ts:282` at ca8cb0c1). The FALSE arm is not:
+            // `DriverItem.valueDefaulted` is written by
+            // `useResultsSectionData` under a strict `typeof === 'boolean'`
+            // guard whose own comment says it "never coerce[s] an absent value
+            // → false", so an absent flag is UNKNOWN provenance, not a denial.
+            // Only when the producer has answered BOTH questions may this
+            // model say the value was not estimated. See
+            // `HeroDriverValueProvenance` for the live measurement that makes
+            // this the majority case.
+            isEstimate: driverValueProvenance(d),
             // Producer-normalised direction, passed through; absent stays
             // absent (the sign glyph is omitted, never guessed).
             //
@@ -1056,6 +1099,16 @@ export function buildHeroModel(
     })
     .filter((r): r is NonNullable<typeof r> => r != null)
 
+  // Analysis-graph projection input (P3 UI agency) — the SAME producer slice
+  // the retired V7 disclosure projected (`confidence.challengeFragileEdges`),
+  // carried as opaque references and never displayed. No filtering, no
+  // de-duplication and no canvas knowledge here: `resolveAnalysisTargets` owns
+  // resolution and drops anything it cannot name unambiguously, so a second
+  // opinion in this file could only make the two disagree.
+  const fragileEdgeRefs: FlipRiskRef[] = (data.confidence?.challengeFragileEdges ?? []).map(
+    (e) => ({ fromId: e.from_id, toId: e.to_id, edgeId: e.edge_id }),
+  )
+
   const model: HeroChartModel = {
     kind: 'chart',
     // This function is the ONLY producer of 'live' models (asserted by the
@@ -1088,6 +1141,29 @@ export function buildHeroModel(
       outcome: designationsWithheld ? null : outcomeLeaderId,
       // Stability / What-changed carry no live data (producer gaps 211/212)
       // — no leader can exist on a lens with nothing to lead.
+      //
+      // ⚠ WHY THIS STAYS null NOW THAT V7 IS GONE. `V7WhatChangedLens` did
+      // render a run-over-run comparison, and it was deliberately NOT
+      // re-homed here when the V7 fork retired. Two independent reasons,
+      // both derived at the bytes rather than assumed:
+      //
+      //   1. IT IS PROHIBITED. `canvas/store/runHistory.ts:1-8` — the store
+      //      V7WhatChangedLens read — carries ANALYSIS-TAB BRIEF §19: this
+      //      local run history "must NEVER back a 'What changed' surface or
+      //      any freshness signal — versioned comparison is producer-owned
+      //      and absent from every contract today. Do not wire this in."
+      //      The v7 lens was in breach; retiring it resolved the breach.
+      //   2. THE DATA DOES NOT ARRIVE ANYWAY. `addRun` (canvas/store.ts) is
+      //      gated on `results.seed`, which only `resultsStart` sets — the
+      //      direct Run-button path. The live V5 path goes through
+      //      `resultsAnalysing`/`applyV5State` with `rawV2Response: null`.
+      //      Live-probed: `'seed' in results === false`, and
+      //      `olumi-canvas-run-history` absent (see scenarios.ts:548-560).
+      //
+      // So this is NOT an unbuilt arm awaiting a renderer — the honest
+      // refusal below IS the correct product until a PRODUCER-OWNED
+      // versioned comparison exists. Interim capability loss, accepted and
+      // rowed against the versions / analysis-difference work.
       stability: null,
       whatChanged: null,
     },
@@ -1112,6 +1188,7 @@ export function buildHeroModel(
       flipRisks: evidenceFlipRisks,
       tradeOffs: null,
       designationsWithheld,
+      fragileEdgeRefs,
       // V7-C slices 1 + 2a, PASSTHROUGH ONLY (Paul's ruling, 14 Aug 2026:
       // promote Resolve next onto the default Analysis tab). Both verdicts are
       // already decided by their own pure authorities — `voi/voiRanking.ts` and

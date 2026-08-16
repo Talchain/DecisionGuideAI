@@ -18,7 +18,55 @@
  *                          ScienceIcon system, max 2/node), with the popover +
  *                          "discuss with AI" affordance.
  *   §1.5(3) REALITY-TEST — decision_review bias cards (the primary LLM bias
- *                          surface); mounted as V7BiasSection.
+ *                          surface). ⚠⚠ THE SURFACE MOVED — SEE BELOW. Now
+ *                          mounted as the analysis hero's ACT-ON-IT REFLECT
+ *                          ROWS (`analysis-hero/actOnIt/ActOnItSection`), whose
+ *                          cases live in that module's own test tree with a
+ *                          structural PIN to them at the bottom of this file.
+ *
+ * ⚠⚠ §1.5(3)'s SURFACE MOVED WITH THE V7 RETIREMENT, AND THIS BINDING WAS
+ * UPDATED DELIBERATELY AND VISIBLY — the case was NOT deleted.
+ *
+ * The decision_review bias cards were rendered by `V7BiasSection`, whose only
+ * production parent was `V7TopMatter` on the retired "Alt view" comparison tab.
+ * Deleting the V7 group left the third named surface hostless, and the previous
+ * revision of this header recorded exactly that — correctly, and deliberately
+ * refusing to pre-bind to a replacement that was still being written in another
+ * lane. THAT RE-HOME HAS NOW LANDED, so this case is restored against it.
+ *
+ * The §1.5(3) clause of the design amendment is unchanged, and so is this
+ * gate's arithmetic: it carries one case per named surface, three of three.
+ * Retiring the clause by quietly dropping its test would be the same class of
+ * silent removal (a capability leaving under an unrelated commit message) that
+ * this file exists to make RED.
+ *
+ * THE CASES LIVE IN THE HERO MODULE, PINNED FROM HERE. Rendering the reflect
+ * rows means importing `analysis-hero/actOnIt`, and that module's
+ * `__tests__/inertness.spec.ts` is a mount ALLOW-LIST permitting exactly two
+ * importers outside its own tree — with no test carve-out, deliberately.
+ * Authorising this spec would have weakened a live guard to satisfy a test, so
+ * §1.5(3)'s cases moved to
+ * `components/results/analysis-hero/actOnIt/__tests__/biasSurfaceLiveness.
+ * realityTest.spec.tsx` and this file binds to them BY PATH (last case below).
+ * Delete or gut that spec and THIS gate goes red naming it.
+ *
+ * THE PRODUCER PATH MOVED TOO, and the fixture moved with it. `V7BiasSection`
+ * read `runMeta.ceeReviewV1.bias_findings` — the untyped CEE passthrough —
+ * straight from the store, which is why the old case drove `mockRunMeta`. The
+ * reflect rows read PLoT's `m1_review.bias_findings` through
+ * `results/mapM2BiasFindings.ts` → `confidence.m2BiasFindings`, so the relocated
+ * cases feed a raw finding through that REAL adapter and the REAL row builder
+ * rather than through a store mock. The finding's own shape is unchanged.
+ *
+ * ⭐ AND THE CASE IS DELIBERATELY STRONGER THAN THE ONE IT REPLACES, because
+ * the retirement did lose something real. `V7BiasSection` was the ONLY surface
+ * in the product rendering a finding's `micro_intervention.steps` (the concrete
+ * numbered steps) and its "About N min" estimate; the reflect rows showed the
+ * bias type and description alone, and the drop was at the ADAPTER, which
+ * projected five fields and discarded the rest. Both are re-homed, so §1.5(3)
+ * now asserts them ON THE DOM. A gate that only checked "some bias text
+ * renders" would have stayed green straight through the regression that
+ * prompted this — which is the failure mode, one level up, that §4.3 is for.
  *
  * WHAT THIS GATE DOES NOT COVER (named in the PR body, CEE-owned): the §4
  * positive-control fixture, the wire leg (CEE `analysis_ready` / decision_review
@@ -28,9 +76,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, renderHook, screen, within, fireEvent, cleanup } from '@testing-library/react'
 
-// ── One mocked canvas store serves all three surfaces (module id is shared, so
-//    every importer — PreAnalysisPanel, useScienceIcons, useNodeDisplayMetadata,
-//    V7BiasSection — resolves to this mock). Mutable vars drive per-case state.
+// ── One mocked canvas store serves the surfaces below (module id is shared, so
+//    every importer — PreAnalysisPanel, useScienceIcons, useNodeDisplayMetadata
+//    — resolves to this mock). Mutable vars drive per-case state.
 let mockNodes: any[] = []
 let mockEdges: any[] = []
 let mockCeeAnalysisReady: any = null
@@ -104,12 +152,17 @@ vi.mock('../../../ToastContext', () => ({ useShowToast: () => vi.fn() }))
 vi.mock('../../../../utils/clipboard', () => ({ copyTextToClipboard: vi.fn().mockResolvedValue(true) }))
 
 import { PreAnalysisPanel } from '../PreAnalysisPanel'
-import { V7BiasSection } from '../../../../components/results/v7/V7BiasSection'
 import { ScienceIcon } from '../../../nodes/shared/ScienceIcon'
 import { useScienceIcons } from '../../../hooks/useScienceIcons'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
 import type { PreAnalysisData } from '../hooks/usePreAnalysisData'
+// §1.5(3)'s structural pin reads its relocated spec from DISK rather than
+// importing the hero — see the §1.5(3) block below for why importing it here is
+// not available. `readFileSync`/`resolve`, same mechanism the sibling source
+// guards (`analysis-hero/__tests__/hygiene.spec.ts`) use.
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 const mockUsePreAnalysisData = usePreAnalysisDataModule.usePreAnalysisData as ReturnType<typeof vi.fn>
 
@@ -245,36 +298,60 @@ describe('bias-surface liveness gate (§4.3 UI surface leg)', () => {
     expect(send).toHaveBeenCalledWith(bias.action)
   })
 
-  // ── §1.5(3) REALITY-TEST — decision_review bias cards (V7BiasSection) ─────
-  it('§1.5(3) REALITY-TEST: a decision_review bias finding renders a bias card', () => {
-    mockRunMeta = {
-      ceeReviewV1: {
-        bias_findings: [
-          {
-            id: 'rev-bias-1',
-            type: 'SUNK_COST',
-            description: 'Past spend is shaping the preference more than the outcome does.',
-            micro_intervention: {
-              steps: ['List the choice ignoring money already spent.'],
-              estimated_minutes: 5,
-            },
-          },
-        ],
-      },
+  // ── §1.5(3) REALITY-TEST — decision_review bias findings, re-homed onto the
+  //    analysis hero's act-on-it REFLECT ROWS.
+  //
+  //    THE CASES THEMSELVES LIVE IN THE HERO MODULE, and this is the pin that
+  //    keeps them findable and undeletable from here. Rendering the reflect rows
+  //    requires importing `analysis-hero/actOnIt`, and
+  //    `analysis-hero/__tests__/inertness.spec.ts` is a mount ALLOW-LIST naming
+  //    exactly two importers outside that module (`ResultsBody.tsx`,
+  //    `routes/HeroGallery.tsx`) with no test carve-out. Adding this spec to
+  //    that allow-list would weaken a live guard to satisfy a test, so the
+  //    §1.5(3) cases moved to where the import is legitimate — inside the
+  //    module — and this gate binds to them BY PATH instead.
+  //
+  //    ⚠ WHAT THIS PIN DOES AND DOES NOT PROVE, stated plainly. It proves the
+  //    relocated spec EXISTS and still carries the §1.5(3) binding and the two
+  //    re-homed assertions; it does NOT execute them (that file does, in its own
+  //    run). Delete the file, rename it, or gut those assertions and this goes
+  //    RED naming the path. That is the property §4.3 needs from this file: a
+  //    named surface cannot leave the design record unnoticed.
+
+  const REALITY_TEST_SPEC = resolve(
+    process.cwd(),
+    'src/components/results/analysis-hero/actOnIt/__tests__/biasSurfaceLiveness.realityTest.spec.tsx',
+  )
+
+  it('§1.5(3) REALITY-TEST: the re-homed surface still has a live, bound spec', () => {
+    let source: string
+    try {
+      source = readFileSync(REALITY_TEST_SPEC, 'utf8')
+    } catch {
+      throw new Error(
+        `§1.5(3) REALITY-TEST has lost its spec. Expected it at:\n  ${REALITY_TEST_SPEC}\n` +
+          'Design amendment §1.5 names THREE bias-coaching surfaces and this gate ' +
+          'carries one case per surface. If the surface moved again, re-point this ' +
+          'pin at its new spec — do not delete the case, which would retire a design ' +
+          'commitment by way of a test edit.',
+      )
     }
 
-    render(<V7BiasSection />)
-
-    expect(screen.getByTestId('v7-bias-section')).toBeTruthy()
-    const card = screen.getByTestId('v7-bias-card')
-    expect(card.textContent).toContain('Past spend is shaping the preference')
-    expect(screen.getByTestId('v7-bias-kind').textContent).toMatch(/sunk cost/i)
-  })
-
-  // ── Honest absence: no bias content on any surface renders nothing ────────
-  it('REALITY-TEST honest absence: no findings → the section renders nothing', () => {
-    mockRunMeta = { ceeReviewV1: { bias_findings: [] } }
-    const { container } = render(<V7BiasSection />)
-    expect(container.querySelector('[data-testid="v7-bias-section"]')).toBeNull()
+    // The binding, not merely the file: it must still drive the re-homed
+    // surface and still assert the two fields the v7 retirement dropped.
+    for (const required of [
+      'ActOnItSection',                 // the re-homed host is rendered
+      'mapM2BiasFindings',              // through the adapter that dropped the fields
+      'hero-act-on-it-row-reflect',     // the reflect row is bound by identity
+      'hero-act-on-it-row-steps',       // micro_intervention.steps render
+      'hero-act-on-it-row-minutes',     // the "About N min" estimate renders
+    ]) {
+      expect(
+        source.includes(required),
+        `§1.5(3)'s spec no longer references "${required}" — the re-homed bias ` +
+          'surface, or the micro-intervention half of it, has been gutted. See ' +
+          `${REALITY_TEST_SPEC}`,
+      ).toBe(true)
+    }
   })
 })

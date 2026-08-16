@@ -1438,9 +1438,14 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
   it('drivers view: producer rank order, null target when unfocusable, banned labels dropped', () => {
     const banned = { ...makeDriver('edge weight graph'), factorKey: 'fac_banned', rank: 3 }
     const m = chart(buildHeroModel(makeHeroData({ drivers: { drivers: [focusable, unfocusable, banned] } })))
+    // `isEstimate` is part of the exact shape, deliberately: these fixtures
+    // carry NEITHER producer provenance boolean, so the honest answer is
+    // 'undetermined' and not 'not_estimated'. Pinning it inside the exact-shape
+    // assertion means a regression to V7's boolean (absence → "the user gave us
+    // this") reds here as well as in the dedicated provenance suite.
     expect(m.evidence.drivers).toEqual([
-      { rank: 1, label: 'Developer capacity', targetId: 'node_dev', direction: null, influence: 1 },
-      { rank: 2, label: 'Team morale', targetId: null, direction: null, influence: 1 },
+      { rank: 1, label: 'Developer capacity', targetId: 'node_dev', direction: null, influence: 1, isEstimate: 'undetermined' },
+      { rank: 2, label: 'Team morale', targetId: null, direction: null, influence: 1, isEstimate: 'undetermined' },
     ])
   })
 
@@ -1524,7 +1529,7 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
     // displayInfluence wins (Codex R3-B1 complete-metric-set policy) — the
     // bar must show the SAME value DriversSection displays, never a blend.
     expect(m.evidence.drivers).toEqual([
-      { rank: 1, label: 'Developer capacity', targetId: 'node_dev', direction: 'negative', influence: 0.4 },
+      { rank: 1, label: 'Developer capacity', targetId: 'node_dev', direction: 'negative', influence: 0.4, isEstimate: 'undetermined' },
     ])
   })
 

@@ -650,13 +650,14 @@ function OptionCard({
   // false. `useResultsSectionData` carries that decision here as
   // `goalFitIsSubstitutedJoint`; it is READ, never re-derived at this render
   // site (types.ts states the rule; `WinGauge`, `RangeVisualization`,
-  // `buildHeroModel`, `buildV7Headline` and `V7LensGroup` all read it the
-  // same way).
+  // and `buildHeroModel` all read it the same way; `buildV7Headline` and the
+  // V7 lens group did too, until the V7 retirement deleted them).
   //
   // Witnessed live on staging 2026-08-01: with the frame unstamped, this card
   // rendered "Hits target" / "< 1% likely to reach target" over the joint
-  // figure while the V7 goal lens BESIDE IT rendered the withheld wording for
-  // the same number — two contradictory claims about one value in one render.
+  // figure while the V7 goal lens BESIDE IT (since deleted) rendered the
+  // withheld wording for the same number — two contradictory claims about one
+  // value in one render.
   // The withheld number is 0.0054 (answers "is the uplift >= £6M?") where the
   // user asked "is the uplift >= £2M?" (~0.55).
   //
@@ -888,15 +889,37 @@ function OptionCard({
       {expertMode && (
         <ExpertBlock>
           {scale !== null && isFiniteNumber(option.outcome?.p10) && isFiniteNumber(option.outcome?.p90) ? (
-            <OptionRangeBar
-              p10={option.outcome.p10}
-              // ROADMAP 2.800a — the MEDIAN, or nothing; never `?? mean`. Same
-              // rule as the V7 lens bar, which shares this component.
-              p50={option.outcome.p50 ?? undefined}
-              p90={option.outcome.p90}
-              globalMin={scale.globalMin}
-              globalMax={scale.globalMax}
-            />
+            // The bar and its caption are ONE branch of this ternary, so they
+            // need a fragment: the caption below is not decoration that may be
+            // dropped, it is the written half of the p50 invariant, and a
+            // ternary branch cannot hold two adjacent siblings unwrapped.
+            <>
+              <OptionRangeBar
+                p10={option.outcome.p10}
+                // ROADMAP 2.800a — the MEDIAN, or nothing; never `?? mean`. Same
+                // rule as the V7 lens bar, which shares this component.
+                p50={option.outcome.p50 ?? undefined}
+                p90={option.outcome.p90}
+                globalMin={scale.globalMin}
+                globalMax={scale.globalMax}
+              />
+              {/* ⚠ THE CAPTION IS PART OF THE HONESTY CONTRACT, NOT DECORATION.
+                  `shared/OptionRangeBar.tsx:7-16` rests its p50 rule on there
+                  being "an explicit written claim" naming what the dot is —
+                  without it a glyph asserts a statistic in pictures that no
+                  words cover. The claim used to be printed by the V7 lens
+                  (`V7_LENS_COPY.outcome.caption`); when the V7 fork was
+                  deleted the bar survived here and the sentence did not,
+                  leaving the dot uncaptioned. Re-homed verbatim so the
+                  invariant keeps its written half. */}
+              <p
+                className={`${typography.panelMeta} text-text-light`}
+                data-testid="option-range-bar-caption"
+              >
+                Dots show the median. Bars show the realistic range (10th to 90th
+                percentile).
+              </p>
+            </>
           ) : option.outcome?.mean != null ? (
             <p className={`${typography.panelMeta} text-text-light`}>
               Expected: {option.outcome.mean.toLocaleString()}

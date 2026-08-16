@@ -38,7 +38,7 @@
  * cannot widen into a hole a magnitude arrives through. That property now belongs
  * to one component instead of three, which is the point.
  */
-import { typography } from '../../../styles/typography'
+import { typography } from '../../styles/typography'
 
 /**
  * ⚠ ONE DEFINITION OF THE REVEAL LABEL. `v7LensCopy.seeMore` and

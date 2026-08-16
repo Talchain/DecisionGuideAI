@@ -13,6 +13,10 @@
 import type { VoiRanking } from '../voi/voiRanking'
 import type { DecisionVoiVerdict } from '../voi/decisionVoi'
 import type { AssumedStrengthDecision } from '../strengthElicitation/selectAssumedStrengthToResolve'
+// The analysis-graph projection's reference shape, imported from the resolver
+// that consumes it rather than restated here — a second copy of a structural
+// subset is the hand-maintained mirror this estate keeps paying for.
+import type { FlipRiskRef } from '../../../canvas/highlighting/resolveAnalysisTargets'
 
 /**
  * The four prototype lenses. Goal fit and Likely outcome are the LIVE
@@ -180,6 +184,37 @@ export interface HeroQuickLink {
   targetId: string
 }
 
+/**
+ * ⭐ WHERE A DRIVER'S VALUE CAME FROM — three states, and the third one is the
+ * point (ported from the retired V7 evidence disclosure, ROADMAP row "est.").
+ *
+ * V7 carried this as a plain `isEstimate: boolean` computed as
+ * `isDefaultedConfidence === true || valueDefaulted === true`. That expression
+ * is right about its TRUE arm and WRONG about its FALSE arm, and the difference
+ * is the whole trust claim:
+ *
+ *   · `estimated`    — the producer said so. `DriverItem.isDefaultedConfidence`
+ *     is true (ISL emitted a placeholder confidence) OR `valueDefaulted` is
+ *     true (the value itself was defaulted). Exactly V7's condition, unchanged.
+ *   · `not_estimated` — the producer said so, BOTH WAYS: confidence is not
+ *     defaulted AND `valueDefaulted` is an explicit `false`. Only then has
+ *     anything actually asserted that the number is the user's.
+ *   · `undetermined` — the producer asserted neither. Measured on live captures
+ *     (`src/v5/__tests__/fixtures/live-analysis-turn-T3-20260808T155759Z.json`),
+ *     this is the MAJORITY case: PLoT omits `value_defaulted` entirely on rows
+ *     whose value came from `cee_inference` — i.e. values the PRODUCT invented.
+ *     Collapsing those into `false` is precisely the lie the tag exists to
+ *     prevent, so the model refuses to write it. The disclosure renders the
+ *     tag ONLY on `estimated` and says nothing on the other two, so no new
+ *     claim is authored; what changed is that the model can no longer be read
+ *     as asserting user-authorship it never had.
+ *
+ * REQUIRED, deliberately (same reason as `designationsWithheld` below): an
+ * optional provenance flag that every fixture omits is a hole with a green test
+ * suite over it. Required means the compiler names every constructor.
+ */
+export type HeroDriverValueProvenance = 'estimated' | 'not_estimated' | 'undetermined'
+
 /** Wave 2 (§6.6): one evidence disclosure, three views. Trade-offs must
  * come from a grounded producer narrative — null live (producer gap),
  * fixture-populated in the gallery only. */
@@ -188,6 +223,12 @@ export interface HeroEvidenceModel {
     rank: number
     label: string
     targetId: string | null
+    /**
+     * Value provenance — drives the `est.` tag. See
+     * `HeroDriverValueProvenance` for why this is three-state and not the
+     * boolean V7 shipped.
+     */
+    isEstimate: HeroDriverValueProvenance
     /** Producer-normalised effect direction; null when the producer sent none
      * (the sign glyph is simply omitted — never guessed). */
     direction: 'positive' | 'negative' | null
@@ -227,6 +268,34 @@ export interface HeroEvidenceModel {
    * of this model in the repo and the compiler names all of them.
    */
   designationsWithheld: boolean
+  /**
+   * ⭐ THE ANALYSIS-GRAPH PROJECTION'S FRAGILE-EDGE REFERENCES (P3 UI agency).
+   *
+   * Producer references — `edge_id` and/or a full `from_id`→`to_id` endpoint
+   * pair — for the fragile edges this run found, passed straight through from
+   * `confidence.challengeFragileEdges`. NEVER DISPLAYED: the only consumer is
+   * `useAnalysisProjection`, which resolves them against the LIVE canvas edges
+   * and marks the ones that exist while the Flip-risks view is open.
+   *
+   * ⚠ WHY A MODEL-LEVEL FIELD RATHER THAN A REF PER FLIP ROW, stated because
+   * it is a real divergence from V7 and a reviewer should see it named:
+   * V7's flip-risk ROWS *were* the `challengeFragileEdges` slice, so its
+   * projection input and its rendered rows were the same objects. This host's
+   * flip rows are built from `recommendation.flipThresholds` instead, and a
+   * flip threshold carries only a bare `node_id` — which `resolveAnalysisTargets`
+   * deliberately treats as UNRESOLVABLE (a factor may have several outgoing
+   * edges, and guessing one would violate the resolver's honesty rule). So a
+   * per-row ref would resolve to nothing on every row: an inert projection
+   * wearing a working one's shape. Both slices are the producer's flip-risk
+   * family and this view's own note is about relationships being varied, so
+   * the honest available projection is the fragile-edge slice, model-wide.
+   *
+   * REQUIRED for the reason `designationsWithheld` is: an optional projection
+   * input that every fixture omits is a capability that silently never fires.
+   * Empty array = this run found no fragile edges (nothing is marked); it is
+   * NOT the same statement as "the projection is off".
+   */
+  fragileEdgeRefs: FlipRiskRef[]
   /**
    * V7-C slice 1's value-of-information ranking, PROMOTED onto this host by
    * Paul's ruling of 14 Aug 2026. Straight through from the hook's `voiRanking`

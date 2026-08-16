@@ -37,6 +37,10 @@ import {
   splitActOnItRows,
 } from '../rankActOnItRows'
 import type { ActOnItRow } from '../types'
+// §9b drives the REAL adapter, not a re-implementation of it: the field this
+// section exists to protect was lost AT the adapter, so a chain test that stubs
+// the adapter would not have caught the loss.
+import { mapM2BiasFindings } from '../../../mapM2BiasFindings'
 import type { ResultsSectionDataReturn } from '../../../useResultsSectionData'
 import type {
   ConfidenceSectionData,
@@ -75,8 +79,22 @@ interface DataOverrides {
    * in `isReadyToBrief` is the one under test.
    */
   omitTopEvidenceGaps?: boolean
-  /** `confidence.m2BiasFindings`. */
-  bias?: Array<{ type: string; description: string }>
+  /**
+   * `confidence.m2BiasFindings`.
+   *
+   * `steps` / `estimatedMinutes` populate the re-homed `microIntervention`
+   * payload (see §9). They are OPTIONAL and the builder attaches
+   * `microIntervention` ONLY when at least one is supplied — mirroring
+   * `mapM2BiasFindings`'s honest-absence contract, so a fixture that omits them
+   * exercises the genuine "producer sent nothing" path rather than a
+   * hand-built empty shell that path would never see.
+   */
+  bias?: Array<{
+    type: string
+    description: string
+    steps?: string[]
+    estimatedMinutes?: number
+  }>
 }
 
 function makeGap(i: number): EvidenceGapItem {
@@ -156,6 +174,15 @@ function makeData(overrides: DataOverrides = {}): ResultsSectionDataReturn {
             description: b.description,
             affectedElements: [],
             linkedCritiqueCode: '',
+            // Attached only when the fixture asked for one — absent stays absent.
+            ...(b.steps != null || b.estimatedMinutes != null
+              ? {
+                  microIntervention: {
+                    steps: b.steps ?? [],
+                    estimatedMinutes: b.estimatedMinutes ?? null,
+                  },
+                }
+              : {}),
           })),
         }
       : {}),
@@ -889,5 +916,224 @@ describe('splitActOnItRows — §8 visible/hidden split', () => {
     const { visible, hidden } = splitActOnItRows([])
     expect(visible).toEqual([])
     expect(hidden).toEqual([])
+  })
+})
+
+// ── §9 Micro-intervention: the steps + estimate RE-HOMED from V7BiasSection ──
+//
+// `components/results/v7/V7BiasSection.tsx` (deleted; preserved at `ca8cb0c1`)
+// was the ONLY surface in the product that rendered a bias finding's
+// `micro_intervention.steps` and its "About N min" estimate. Its retirement
+// dropped both — and the drop was at the ADAPTER, not the renderer: the
+// `m2BiasFindings` mapping projected five fields and discarded the rest.
+//
+// So this section deliberately tests the CHAIN, not just the row builder. The
+// §9b cases feed a RAW PRODUCER-SHAPED finding through the real
+// `mapM2BiasFindings` before ranking, because a row-level fixture alone would
+// keep passing if the adapter went back to discarding the field — which is
+// exactly how the capability was lost the first time.
+describe('rankActOnItRows — §9 micro-intervention steps + effort estimate', () => {
+  // ── §9a row level: what reflectRows does with a mapped finding ────────────
+
+  it('§9a a reflect row carries the producer steps, in producer order, verbatim', () => {
+    const rows = rankActOnItRows(
+      makeData({
+        bias: [
+          {
+            type: 'Sunk cost',
+            description: 'Past spend is shaping the preference.',
+            steps: [
+              'List the choice ignoring money already spent.',
+              'Ask what you would advise a colleague starting today.',
+            ],
+          },
+        ],
+      }),
+      NOT_READY,
+    )
+    // Identity binding: located by key, never by "the row that has steps".
+    expect(rowByKey(rows, 'reflect-0').steps).toEqual([
+      'List the choice ignoring money already spent.',
+      'Ask what you would advise a colleague starting today.',
+    ])
+  })
+
+  it('§9a the producer effort estimate reaches the row unchanged', () => {
+    const rows = rankActOnItRows(
+      makeData({ bias: [{ type: 'Anchoring', description: 'd', steps: ['Re-anchor.'], estimatedMinutes: 7 }] }),
+      NOT_READY,
+    )
+    expect(rowByKey(rows, 'reflect-0').estimatedMinutes).toBe(7)
+  })
+
+  it('§9a HONEST ABSENCE: a finding with no micro-intervention yields [] and null, never a default', () => {
+    const rows = rankActOnItRows(
+      makeData({ bias: [{ type: 'Anchoring', description: 'First figure is doing the work.' }] }),
+      NOT_READY,
+    )
+    const reflect = rowByKey(rows, 'reflect-0')
+    expect(reflect.steps).toEqual([])
+    expect(reflect.estimatedMinutes).toBeNull()
+    // The rest of the row is unaffected — absence of an intervention is not
+    // absence of the finding.
+    expect(reflect.reason).toBe('First figure is doing the work.')
+  })
+
+  it('§9a steps without an estimate carry no invented duration', () => {
+    const rows = rankActOnItRows(
+      makeData({ bias: [{ type: 'Outside view', description: 'd', steps: ['Find three comparators.'] }] }),
+      NOT_READY,
+    )
+    const reflect = rowByKey(rows, 'reflect-0')
+    expect(reflect.steps).toEqual(['Find three comparators.'])
+    expect(reflect.estimatedMinutes).toBeNull()
+  })
+
+  it('§9a an estimate without steps is carried alone, and invents no steps', () => {
+    const rows = rankActOnItRows(
+      makeData({ bias: [{ type: 'Anchoring', description: 'd', estimatedMinutes: 3 }] }),
+      NOT_READY,
+    )
+    const reflect = rowByKey(rows, 'reflect-0')
+    expect(reflect.steps).toEqual([])
+    expect(reflect.estimatedMinutes).toBe(3)
+  })
+
+  it('§9a each reflect row carries ITS OWN intervention, bound by key', () => {
+    // The discriminator: two findings, only the SECOND has an intervention. A
+    // renderer or builder that leaked one row's steps onto another (or hoisted
+    // "the findings that have steps") passes every single-row case above and
+    // fails here.
+    const rows = rankActOnItRows(
+      makeData({
+        bias: [
+          { type: 'Anchoring', description: 'no intervention here' },
+          { type: 'Sunk cost', description: 'has one', steps: ['Ignore spent money.'], estimatedMinutes: 5 },
+        ],
+      }),
+      NOT_READY,
+    )
+    expect(rowByKey(rows, 'reflect-0').steps).toEqual([])
+    expect(rowByKey(rows, 'reflect-0').estimatedMinutes).toBeNull()
+    expect(rowByKey(rows, 'reflect-1').steps).toEqual(['Ignore spent money.'])
+    expect(rowByKey(rows, 'reflect-1').estimatedMinutes).toBe(5)
+  })
+
+  it('§9a no NON-reflect row claims an intervention (risk, coverage and ready state their absence)', () => {
+    const notReady = rankActOnItRows(
+      makeData({ fragile: { fromId: 'n_f', fromLabel: 'Hiring rate' }, optionCount: 1 }),
+      NOT_READY,
+    )
+    for (const key of ['risk-n_f', 'coverage-options']) {
+      expect(rowByKey(notReady, key).steps, key).toEqual([])
+      expect(rowByKey(notReady, key).estimatedMinutes, key).toBeNull()
+    }
+    const ready = rankActOnItRows(makeData({}), READY)
+    expect(rowByKey(ready, 'ready-brief').steps).toEqual([])
+    expect(rowByKey(ready, 'ready-brief').estimatedMinutes).toBeNull()
+  })
+
+  // ── §9b chain level: RAW PRODUCER SHAPE → mapM2BiasFindings → rows ────────
+  //
+  // Producer field path, traced at the bytes (see `mapM2BiasFindings.ts`):
+  //   V2RunResponse.m1_review.bias_findings[] → mapM2BiasFindings →
+  //   confidence.m2BiasFindings[].microIntervention → reflectRows.
+
+  /** Rank rows from RAW producer findings, through the real adapter. */
+  function rankFromRaw(rawFindings: unknown[]): ActOnItRow[] {
+    const data = makeData({})
+    ;(data.confidence as { m2BiasFindings?: unknown }).m2BiasFindings =
+      mapM2BiasFindings(rawFindings)
+    return rankActOnItRows(data, NOT_READY)
+  }
+
+  it('§9b the whole chain carries string steps + estimated_minutes from the wire shape', () => {
+    const rows = rankFromRaw([
+      {
+        type: 'SUNK_COST',
+        description: 'Past spend is shaping the preference more than the outcome does.',
+        micro_intervention: {
+          steps: ['List the choice ignoring money already spent.', 'Ask a colleague to restate it.'],
+          estimated_minutes: 5,
+        },
+      },
+    ])
+    const reflect = rowByKey(rows, 'reflect-0')
+    expect(reflect.steps).toEqual([
+      'List the choice ignoring money already spent.',
+      'Ask a colleague to restate it.',
+    ])
+    expect(reflect.estimatedMinutes).toBe(5)
+  })
+
+  it('§9b the chain also reads the `{ text }` step-object wire shape', () => {
+    // Both shapes appear on the wire — `buildV7Bias.ts` handled both, and the
+    // pre-analysis reader (`PreAnalysisPanel.tsx:365`) reads `steps[0].text`.
+    const rows = rankFromRaw([
+      {
+        type: 'ANCHORING_RISK',
+        description: 'd',
+        micro_intervention: { steps: [{ text: 'Re-estimate from a blank sheet.' }] },
+      },
+    ])
+    expect(rowByKey(rows, 'reflect-0').steps).toEqual(['Re-estimate from a blank sheet.'])
+  })
+
+  it('§9b the chain falls back to a finding-root estimated_minutes', () => {
+    // `buildV7Bias.ts` read `micro.estimated_minutes ?? f.estimated_minutes`;
+    // the same two locations, in the same order.
+    const rows = rankFromRaw([
+      { type: 'ANCHORING_RISK', description: 'd', estimated_minutes: 9, micro_intervention: { steps: ['s'] } },
+    ])
+    expect(rowByKey(rows, 'reflect-0').estimatedMinutes).toBe(9)
+    // …and the intervention's own value WINS when both are present.
+    const both = rankFromRaw([
+      {
+        type: 'ANCHORING_RISK',
+        description: 'd',
+        estimated_minutes: 9,
+        micro_intervention: { steps: ['s'], estimated_minutes: 2 },
+      },
+    ])
+    expect(rowByKey(both, 'reflect-0').estimatedMinutes).toBe(2)
+  })
+
+  it('§9b the chain drops unusable steps rather than rendering blanks, and invents nothing', () => {
+    const rows = rankFromRaw([
+      {
+        type: 'ANCHORING_RISK',
+        description: 'd',
+        micro_intervention: { steps: ['  ', '', { text: '   ' }, 42, null, 'Keep this one.'] },
+      },
+    ])
+    expect(rowByKey(rows, 'reflect-0').steps).toEqual(['Keep this one.'])
+  })
+
+  it('§9b a producer finding with NO micro_intervention reaches the row as absent', () => {
+    const rows = rankFromRaw([{ type: 'ANCHORING_RISK', description: 'First figure is doing the work.' }])
+    const reflect = rowByKey(rows, 'reflect-0')
+    expect(reflect.steps).toEqual([])
+    expect(reflect.estimatedMinutes).toBeNull()
+  })
+
+  it('§9b a non-finite estimate is not a number the product will show', () => {
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, '5', null]) {
+      const rows = rankFromRaw([
+        { type: 'ANCHORING_RISK', description: 'd', micro_intervention: { steps: ['s'], estimated_minutes: bad } },
+      ])
+      expect(rowByKey(rows, 'reflect-0').estimatedMinutes, String(bad)).toBeNull()
+    }
+  })
+
+  it('§9b the adapter keeps the mapping 1:1 so reflect keys stay index-aligned', () => {
+    // A finding carrying nothing renderable is NOT compacted away (v7 dropped
+    // such findings because it owned its own section; here a drop would
+    // renumber every `reflect-<i>` after it).
+    const rows = rankFromRaw([
+      { type: 'A', description: '' },
+      { type: 'B', description: 'second', micro_intervention: { steps: ['s'] } },
+    ])
+    expect(rows.map(r => r.key)).toEqual(['reflect-0', 'reflect-1'])
+    expect(rowByKey(rows, 'reflect-1').steps).toEqual(['s'])
   })
 })

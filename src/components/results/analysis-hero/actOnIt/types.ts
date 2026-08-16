@@ -54,6 +54,33 @@ export interface ActOnItRow {
   targetNodeId: string | undefined
   /** Prompt the row's AI actions send when invoked. */
   chatPrompt: string
+  /**
+   * ── RE-HOMED FROM `V7BiasSection` (deleted; preserved at `ca8cb0c1`) ───────
+   *
+   * The producer's `micro_intervention.steps` — the concrete numbered steps
+   * that say what to actually DO about a bias finding. v7's bias section was
+   * the ONLY surface in the product that rendered them; when it was retired
+   * they lost their last consumer, and the reflect rows that replaced it showed
+   * the bias type and description alone.
+   *
+   * Sourced by `reflectRows()` from `confidence.m2BiasFindings[i].
+   * microIntervention.steps` — see `results/mapM2BiasFindings.ts` for the
+   * producer trace and the defensive read.
+   *
+   * ⚠ EMPTY IS HONEST AND MUST STAY HONEST. `[]` means the producer supplied no
+   * steps, and the renderer draws NOTHING — not an empty list, not a heading
+   * with no items, not a fabricated step. Both fields are REQUIRED (not
+   * optional) precisely so every row builder has to state its answer out loud;
+   * a category that has no micro-intervention says so with `[]` / `null` rather
+   * than by omission, and a new builder cannot forget the question.
+   */
+  steps: string[]
+  /**
+   * The producer's `micro_intervention.estimated_minutes` effort estimate,
+   * rendered by v7 as "About N min". `null` when the producer sent none —
+   * never a default, never a UI-invented duration.
+   */
+  estimatedMinutes: number | null
 }
 
 /** The payload every row action carries to the dispatcher. */

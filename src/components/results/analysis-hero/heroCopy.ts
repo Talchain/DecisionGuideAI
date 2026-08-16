@@ -242,6 +242,16 @@ export const HERO_COPY = {
     aria: 'What to act on next',
     more: (n: number) => `+${n} more`,
     hide: 'Show fewer',
+    /**
+     * Micro-intervention chrome, re-homed verbatim from the deleted
+     * `results/v7/v7GuidanceCopy.ts` (`V7_GUIDANCE_COPY.bias`, preserved at
+     * `ca8cb0c1`) so the re-homed surface reads exactly as the surface it
+     * replaces. Chrome only: the steps themselves and the number of minutes are
+     * PRODUCER data, rendered verbatim and never authored here.
+     */
+    stepsLabel: 'Try this',
+    /** The producer's effort estimate. `n` is producer-supplied, never a default. */
+    minutes: (n: number) => `About ${n} min`,
   } as const,
 
   axis: {
@@ -488,6 +498,21 @@ export const HERO_COPY = {
     switchMeta: FLIP_THRESHOLD_COPY.switchMeta,
     seeAllFactors: 'See all factors',
     showFewer: 'Show fewer',
+    /**
+     * The `est.` provenance tag — PORTED VERBATIM from the retired V7
+     * disclosure's `v7LensCopy.ts` (`estimateTag` / `estimateTagAria` at
+     * ca8cb0c1), wording unchanged on purpose: this is a trust marker, and a
+     * re-worded trust marker is a new claim nobody ratified.
+     *
+     * It marks a driver value the PRODUCT estimated rather than one the user
+     * supplied — a direct producer read (`isDefaultedConfidence` /
+     * `valueDefaulted`), never a threshold and never inferred from the number.
+     * It renders ONLY on `isEstimate === 'estimated'`; see
+     * `HeroDriverValueProvenance` for why the other two states render nothing
+     * rather than being collapsed into "the user gave us this".
+     */
+    estimateTag: 'est.',
+    estimateTagAria: 'estimated value',
     flipRiskWithAlternative: FLIP_THRESHOLD_COPY.flipRiskWithAlternative,
     flipRiskNoAlternative: FLIP_THRESHOLD_COPY.flipRiskNoAlternative,
     fallsBelow: FLIP_THRESHOLD_COPY.fallsBelow,

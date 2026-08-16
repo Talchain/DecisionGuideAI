@@ -70,6 +70,11 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
       flipRisks: [],
       tradeOffs: null,
       designationsWithheld: false,
+      // No fragile-edge references: the gallery has no canvas behind it, so
+      // there is nothing for the analysis-graph projection to mark. Empty is
+      // the honest value here — it says "this fixture found none", which is
+      // true, rather than standing in for "the projection is off".
+      fragileEdgeRefs: [],
       resolveNext: null,
       decisionVoi: 'not_computed',
       // Same contract as the two above: the gallery names no assumption

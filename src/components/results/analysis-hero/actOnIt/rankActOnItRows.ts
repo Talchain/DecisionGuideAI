@@ -210,6 +210,10 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
     actions: actionsForCategory('risk', !!fragile.fromId),
     targetNodeId: fragile.fromId,
     chatPrompt: chatPromptFor(rawLabel),
+    // A fragile edge carries no micro-intervention: only bias findings do.
+    // Stated, not omitted — see the field docs in `types.ts`.
+    steps: [],
+    estimatedMinutes: null,
   }
 }
 
@@ -226,9 +230,30 @@ function coverageRow(data: ResultsSectionDataReturn): ActOnItRow | null {
     actions: actionsForCategory('coverage', false),
     targetNodeId: undefined,
     chatPrompt: 'Help me identify a comparable alternative option to compare against.',
+    // Derived from the option count, not from a producer finding — no steps.
+    steps: [],
+    estimatedMinutes: null,
   }
 }
 
+/**
+ * Reflective rows — the ONE row category sourced from a producer bias finding,
+ * and therefore the only one that can carry a micro-intervention.
+ *
+ * ⭐ RE-HOMED SURFACE. `V7BiasSection` (deleted; preserved at `ca8cb0c1`) was
+ * the only place in the product that rendered `micro_intervention.steps` and
+ * the "About N min" estimate. These rows replaced it showing the bias type and
+ * description alone, so both were lost. They are carried again here, read from
+ * the single mapping site (`results/mapM2BiasFindings.ts`) rather than
+ * re-derived from the wire — `V7BiasSection` and `buildV7Bias` had drifted into
+ * exactly that two-readers-one-field shape, which is what this avoids.
+ *
+ * ⚠ ABSENT MEANS ABSENT. A finding with no `microIntervention` yields `[]` and
+ * `null`, and the renderer draws nothing extra — no empty list, no invented
+ * step, no default duration. The mapper guarantees `microIntervention` is
+ * either absent or non-empty, so there is no third "present but hollow" state
+ * to defend against here.
+ */
 function reflectRows(data: ResultsSectionDataReturn): ActOnItRow[] {
   const findings = data?.confidence?.m2BiasFindings ?? []
   return findings.map((f, i) => {
@@ -247,6 +272,12 @@ function reflectRows(data: ResultsSectionDataReturn): ActOnItRow[] {
       actions: actionsForCategory('reflect', false),
       targetNodeId: undefined,
       chatPrompt: chatPromptFor(rawTitle, 'this reflective check'),
+      // Producer steps are rendered as DATA, verbatim from the mapper — they
+      // are not generated copy, so they are not routed through the glossary
+      // fallback that `reason` above uses (same rule the row TITLE follows for
+      // the user's own label).
+      steps: f.microIntervention?.steps ?? [],
+      estimatedMinutes: f.microIntervention?.estimatedMinutes ?? null,
     }
   })
 }
@@ -262,6 +293,9 @@ function readyRow(): ActOnItRow {
     actions: actionsForCategory('ready', false),
     targetNodeId: undefined,
     chatPrompt: 'Help me capture the result, rationale, key assumptions and caveats as a decision brief.',
+    // A posture row, built from no producer finding — no steps, no estimate.
+    steps: [],
+    estimatedMinutes: null,
   }
 }
 
