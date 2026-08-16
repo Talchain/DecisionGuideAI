@@ -7,7 +7,59 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.39.0.tgz` ← **THE CURRENT PIN**
+### `talchain-schemas-0.43.0.tgz` ← **THE CURRENT PIN**
+
+**Provenance: PACKED FROM THE EXACT LOCALLY FROZEN, CORRECTED SOURCE; NOT YET
+MERGED, TAGGED OR PUBLISHED.** Packed from `olumi-schemas`
+`3c3dc78cb08eb63135da7c2a90a9d4609ce28267` (tree
+`fc96888fc41cf537ed83f041bab159447e23bc2d`) by extracting that exact commit
+into a clean temporary directory, then running `npm ci`, `npm run build` and
+`npm pack`. 411,468 bytes. sha256:
+
+```
+9865bfc0891cfed383ae7a0741b324087ba33db03479f97295174f031dc8ea5e
+```
+
+| Claim | Status |
+|---|---|
+| source identity | ✅ exact commit and tree above; the archive excluded local worktree state |
+| the sidecar matches these bytes | ✅ `pnpm run check:vendor` re-hashes the tarball and compares the exact sidecar |
+| `check:vendor` agrees and rejects orphans | ✅ the package pin, tarball and sidecar are one derived set |
+| merged/tagged/published release provenance | ⚠️ not claimed; re-pack and replay this bump if independent schema review changes the frozen bytes |
+
+**What the UI adopts here — READER BEFORE PRODUCER.** Version 0.43 adds the
+analysis-affecting fields `options` and `goal_node_id` to the existing strict
+`draft_graph` reader, while retaining `goal_constraints`; all three remain
+optional on the legacy reader so old four-field draft graphs still parse with
+their own-key absence intact. It also exports the stricter
+`CanonicalCommittedGraphReceiptSchema` and block twin for producers and for
+consumers that need to distinguish a complete canonical attestation from a
+legacy partial graph.
+
+The UI emits none of these fields. Its existing response parser derives the
+top-level surface from `OlumiResponseSchema.shape` and already sends both the
+top-level `draft_graph` and `blocks[]` twin through strict validation. Focused
+tests prove that the new fields survive at both locations, legacy omission
+still survives as omission, the canonical producer rejects count mismatch,
+and an undeclared nested key still fails closed. The canonical graph-hash
+projection vocabulary is not reimplemented here.
+
+This pin does not create a readiness, option or goal authority and does not
+alter the canonical analysis-run dispatcher. Receipt options remain carried
+on the wire while option nodes remain the canvas display structure; readiness
+continues to come only from the existing `analysis_ready` authority.
+
+**Actual predecessor note.** The package and lockfile at the deployed base
+were pinned to 0.41.0, although this document's old marker still named 0.39.0
+as current. This section corrects that stale documentation while replacing
+the sole 0.41.0 tarball and sidecar; the orphan gate intentionally permits
+only one vendored package pair.
+
+**Rollback path:** revert this pin commit and reinstall. Do not enable a 0.43
+canonical receipt producer until the reader pin and its canonical explicit-
+absence consumer are both integrated.
+
+### `talchain-schemas-0.39.0.tgz` (superseded — REMOVED, section retained for history)
 
 **Provenance: PACKED FROM THE MERGED, TAGGED RELEASE.** Packed from
 `olumi-schemas` **`main` @ `76fe0ed9`**, tag **`v0.39.0`** (olumi-schemas #38),
