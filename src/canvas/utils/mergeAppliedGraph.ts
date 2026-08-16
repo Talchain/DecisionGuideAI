@@ -120,6 +120,7 @@
  * the pre-merge state equals the last history snapshot.
  */
 
+import { CanonicalCommittedGraphReceiptSchema } from '@talchain/schemas/boundary'
 import { useCanvasStore } from '../store'
 import { validateNodesBatch } from '../domain/nodes'
 import { logger } from '../../lib/logger'
@@ -154,6 +155,30 @@ export interface ReconcileAppliedGraphResult {
   updatedEdgeCount: number
   removedNodeCount: number
   removedEdgeCount: number
+}
+
+/**
+ * Recognise a complete 0.43 committed receipt after the conversation seam has
+ * attached its two UI-only helpers.
+ *
+ * The raw response was already strict-validated before those helpers were
+ * attached. Removing only these two known local decorations reconstructs that
+ * strict receipt surface; every producer field is still checked by the shared
+ * schema, including required own keys and exact node/edge counts. Do not turn
+ * this into a permissive pick-list: an unrelated extra key must keep failing
+ * closed rather than gaining canonical deletion authority.
+ */
+function canonicalReceiptFromAugmentedDraft(
+  draftData: unknown,
+): ReturnType<typeof CanonicalCommittedGraphReceiptSchema.safeParse> {
+  if (draftData == null || typeof draftData !== 'object' || Array.isArray(draftData)) {
+    return CanonicalCommittedGraphReceiptSchema.safeParse(draftData)
+  }
+
+  const candidate = { ...(draftData as Record<string, unknown>) }
+  delete candidate.analysis_ready
+  delete candidate.draftCoaching
+  return CanonicalCommittedGraphReceiptSchema.safeParse(candidate)
 }
 
 const NO_CHANGE: ReconcileAppliedGraphResult = {
@@ -397,6 +422,7 @@ export function overlayEdge(
 export function reconcileAppliedGraph(
   draftData: CEEDraftResponse | CEEv2Response | CEEv3Response
 ): ReconcileAppliedGraphResult {
+  const canonicalReceipt = canonicalReceiptFromAugmentedDraft(draftData)
   const rawNodes: any[] =
     (draftData as any)?.nodes ?? (draftData as any)?.graph?.nodes ?? []
   const rawEdges: any[] =
@@ -600,24 +626,36 @@ export function reconcileAppliedGraph(
   // case the defect describes.
   //
   // ABSENCE DOES NOT CLEAR. This module's whole contract is "the wire WINS on
-  // keys it carries, the canvas KEEPS keys the wire omits" (see overlayNode) —
-  // an applied-edit receipt is not the wholesale replacement a fresh draft is,
-  // so a receipt that merely does not re-send constraints must not become a NEW
-  // way to lose them (the exact failure class this row closes). Non-empty array
-  // → adopt; absent / empty / non-array → leave the store as-is. fromProducerSync
-  // because these are CEE's authoritative post-state and must not self-dirty the
-  // freshness verdict the same response already set.
+  // keys it carries, the canvas KEEPS keys the wire omits" (see overlayNode).
+  // That remains the rule for every legacy/partial receipt: non-empty array →
+  // adopt; absent / empty / non-array → retain.
+  //
+  // 0.43 adds one deliberately narrower case. A value that passes the shared
+  // CanonicalCommittedGraphReceiptSchema owns every analysis-state key and has
+  // count-consistent carrier arrays, so its own-key `goal_constraints: []` is
+  // an explicit post-commit attestation of no constraints. Only that complete
+  // shape may clear. This is schema authority, not an ad-hoc own-key check; an
+  // almost-canonical receipt fails closed and retains the prior store value.
+  // fromProducerSync because both adoption and clearing are CEE's authoritative
+  // post-state and must not self-dirty the freshness verdict this response set.
   const receiptGoalConstraints = (draftData as { goal_constraints?: unknown }).goal_constraints
-  if (Array.isArray(receiptGoalConstraints) && receiptGoalConstraints.length > 0) {
-    const constraints = receiptGoalConstraints as CEEGoalConstraint[]
+  const canonicalExplicitClear =
+    canonicalReceipt.success && canonicalReceipt.data.goal_constraints.length === 0
+  if (
+    (Array.isArray(receiptGoalConstraints) && receiptGoalConstraints.length > 0) ||
+    canonicalExplicitClear
+  ) {
+    const constraints: CEEGoalConstraint[] | null = canonicalExplicitClear
+      ? null
+      : (receiptGoalConstraints as CEEGoalConstraint[])
     useCanvasStore.getState().setGoalConstraints(constraints, { fromProducerSync: true })
     // R2: the staging MF2 witness traces constraints by these logs; without one
     // here the reconcile commit is invisible to it. Matches applyDraftResult's
     // and useV2Run's `[constraint-trace]` shape.
     logger.info('[constraint-trace] store-write', {
       source: 'reconcileAppliedGraph',
-      count: constraints.length,
-      constraint_ids: constraints.map((c) => c.constraint_id),
+      count: constraints?.length ?? 0,
+      constraint_ids: constraints?.map((c) => c.constraint_id) ?? [],
     })
 
     // F1 (adversarial review) — PERSIST HERE, AND NOT LEFT TO THE 30s TIMER OR
