@@ -555,9 +555,25 @@ export const LENS_ARM = {
  * distribution, and saying so is what lets a reader tell the arms apart.
  */
 const LENS_ARM_LABEL: Record<RiskAppetite, string> = {
-  conservative: 'Cautious (p10)',
-  neutral: 'Middle (p50)',
-  aggressive: 'Optimistic (p90)',
+  // ⭐ L-38: `p10`/`p50`/`p90` are percentile notation — engineering vocabulary
+  // in a user-facing control. The plain reading IS the label; the notation is
+  // kept, because a practised user reads it faster than the words, but it moves
+  // into the tooltip (`LENS_ARM_TITLE`) rather than sitting in the button text.
+  conservative: 'Cautious',
+  neutral: 'Middle',
+  aggressive: 'Optimistic',
+}
+
+/**
+ * Where the percentile notation went. Same keys, so an arm added to
+ * `LENS_ARM_LABEL` without a title is a TYPE ERROR rather than a silently
+ * untitled button — the estate's hand-maintained-mirror defect, avoided by
+ * construction rather than by remembering.
+ */
+const LENS_ARM_TITLE: Record<RiskAppetite, string> = {
+  conservative: 'The cautious end of the range (10th percentile, p10)',
+  neutral: 'The middle of the range (50th percentile, p50)',
+  aggressive: 'The optimistic end of the range (90th percentile, p90)',
 }
 
 export function RiskAppetiteFilter({
@@ -594,6 +610,15 @@ export function RiskAppetiteFilter({
             key={appetite}
             type="button"
             onClick={() => onChange(appetite)}
+            // ⚠ `title` ONLY — deliberately NOT `aria-label`. An aria-label
+            // REPLACES the accessible name, so labelling these with the full
+            // explanation would have made a screen reader announce a sentence
+            // where a two-word control name belongs, and every existing
+            // by-name query (and every user's mental model of the control)
+            // would break with it. The visible word IS the name; the
+            // percentile notation is supplementary, and supplementary detail
+            // is what `title` is for.
+            title={LENS_ARM_TITLE[appetite]}
             className={`px-2 py-0.5 rounded-full ${typography.panelMeta} border cursor-pointer ${
               value === appetite
                 ? 'border-info/60 text-info bg-transparent'

@@ -444,31 +444,47 @@ describe('AnalysisHeroPanel — content', () => {
     expect(text).not.toMatch(/\b0\.\d+\b/)
   })
 
-  it('renders the full prototype lens strip; data-less lenses are marked unavailable', () => {
+  it('advertises only the lenses the user can reach or act on', () => {
+    // ⚠ REWRITTEN (cockpit simplification, L-57/L-38). This asserted all FOUR
+    // prototype lenses render, with two permanently marked `data-available =
+    // false`. That is what shipped, and Paul filed it: `stability` and
+    // `whatChanged` are never pushed into the available set by the live
+    // adapter (`buildHeroModel` pushes exactly `goal` and `outcome`; ISL #211 /
+    // PLoT #212 are the producer gaps), so on EVERY real run half the tab strip
+    // advertised capabilities the product does not have.
+    //
+    // The rule now: a lens renders when it carries data, OR when its
+    // unavailability is something the USER can act on. Hidden, not deleted —
+    // the strip is derived from `available`, so a lens returns the moment a
+    // producer supplies its data, with no code change.
     renderPanel(chartModel())
-    expect(screen.getAllByRole('tab')).toHaveLength(4)
+    expect(screen.getAllByRole('tab').map((t) => t.getAttribute('data-testid'))).toEqual([
+      'hero-lens-tab-goal',
+      'hero-lens-tab-outcome',
+    ])
     expect(screen.getByTestId('hero-lens-tab-goal')).toHaveAttribute('data-available', 'true')
     expect(screen.getByTestId('hero-lens-tab-outcome')).toHaveAttribute('data-available', 'true')
-    expect(screen.getByTestId('hero-lens-tab-stability')).toHaveAttribute('data-available', 'false')
-    expect(screen.getByTestId('hero-lens-tab-whatChanged')).toHaveAttribute('data-available', 'false')
+    // The producer-gap lenses are GONE from the strip, not merely muted.
+    expect(screen.queryByTestId('hero-lens-tab-stability')).toBeNull()
+    expect(screen.queryByTestId('hero-lens-tab-whatChanged')).toBeNull()
   })
 
-  it('selecting an unavailable lens shows the honest explainer body, never a fabricated chart', () => {
-    renderPanel(chartModel())
-    fireEvent.click(screen.getByTestId('hero-lens-tab-stability'))
-    expect(screen.getByTestId('hero-lens-unavailable')).toHaveTextContent(
-      'This view needs per-option stability data, which the analysis does not provide yet.',
-    )
-    expect(screen.queryByTestId('hero-option-row-1')).toBeNull()
+  it('the honest explainer body survives for any lens that IS reachable', () => {
+    // ⚠ The producer-gap half of this case is gone with the tabs it clicked.
+    // The PROPERTY it protected — an unavailable lens explains itself and never
+    // fabricates a chart — is unchanged and is asserted here on the lens that
+    // is still reachable while unavailable (goal with no success target). The
+    // producer-gap copy itself is still pinned as COPY by `heroCopy`'s own
+    // register and by the fixture gallery, which legitimately populates all
+    // four lenses.
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    renderPanel(chartModel(makeHeroData({ options: noGoal })))
+    fireEvent.click(screen.getByTestId('hero-lens-tab-goal'))
+    expect(screen.getByTestId('hero-lens-unavailable')).toBeInTheDocument()
     expect(screen.queryByTestId('hero-caption')).toBeNull()
-    fireEvent.click(screen.getByTestId('hero-lens-tab-whatChanged'))
-    // F15: the placeholder must name the real dependency (producer-versioned
-    // run comparisons, PLoT #212) in the ratified honest-unavailable
-    // register, and must never read as a session-local unlock or promise a
-    // local approximation.
-    expect(screen.getByTestId('hero-lens-unavailable')).toHaveTextContent(
-      'Run comparison is not available yet. This unlocks with versioned run comparisons. Olumi will not approximate it locally.',
-    )
   })
 
   it('unavailable Goal fit distinguishes the no-target unlock from a producer gap', () => {
@@ -494,12 +510,32 @@ describe('AnalysisHeroPanel — content', () => {
   })
 
   it('the tab strip persists even when only one lens carries data', () => {
+    // ⚠ THE ASSERTION CHANGED, THE PROPERTY DID NOT (cockpit simplification,
+    // L-57/L-38). This used to assert all FOUR prototype lenses render
+    // regardless of data. That behaviour was measured as a defect: `stability`
+    // and `whatChanged` are NEVER pushed into the available set by the live
+    // adapter (ISL #211 / PLoT #212 producer gaps), so on every real run two of
+    // the four tabs were permanently muted advertisements for capabilities the
+    // product does not have — one of them explaining itself in producer-issue
+    // vocabulary. `selectVisibleLenses` now renders a lens when it has data OR
+    // when its unavailability is USER-ACTIONABLE.
+    //
+    // The property this test was written for — the strip does not VANISH when
+    // data is thin, and the one available lens still renders its rows — is
+    // unchanged and still asserted. What is no longer asserted is a fixed
+    // count, because the count is now a function of what the producers supply.
     const noGoal = [
       makeOption({ ...OPTION_A, goalProbability: undefined }),
       makeOption({ ...OPTION_B, goalProbability: undefined }),
     ]
     renderPanel(chartModel(makeHeroData({ options: noGoal })))
-    expect(screen.getAllByRole('tab')).toHaveLength(4)
+    const tabs = screen.getAllByRole('tab')
+    // Goal is kept despite carrying no data (its empty state is actionable);
+    // outcome carries data. Neither producer-gap lens is advertised.
+    expect(tabs.map((t) => t.getAttribute('data-testid'))).toEqual([
+      'hero-lens-tab-goal',
+      'hero-lens-tab-outcome',
+    ])
     // The single available lens still renders its rows by default.
     expect(screen.getByTestId('hero-option-row-1')).toBeInTheDocument()
   })

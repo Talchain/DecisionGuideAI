@@ -59,11 +59,22 @@ export const HERO_COPY = {
     /**
      * F15: names the real dependency (producer-versioned run comparisons,
      * PLoT #212) in the ratified honest-unavailable register. Must never
-     * read as a session-local unlock, and must state that Olumi will not
-     * approximate the comparison locally (no client-side run diffing).
+     * read as a session-local unlock, and must not promise a comparison the
+     * analysis cannot make.
+     *
+     * ⭐ L-38 REWRITE. The honesty requirement is unchanged and the sentence
+     * still refuses to promise a session-local unlock. What changed is the
+     * register: "This unlocks with versioned run comparisons. Olumi will not
+     * approximate it locally." is an internal doctrine statement — it names a
+     * producer feature by its engineering name and then describes our own
+     * implementation policy TO THE USER. The replacement says the same two
+     * things in the user's terms: it cannot be done yet, and we will not fake
+     * it. On the live path this string is now unreachable anyway (the lens is
+     * hidden — see `HeroLensTabs.selectVisibleLenses`); it survives for the
+     * fixture gallery and for the moment a producer supplies the data.
      */
     whatChanged:
-      'Run comparison is not available yet. This unlocks with versioned run comparisons. Olumi will not approximate it locally.',
+      'Comparing this run with an earlier one is not available yet. Olumi will not estimate the difference rather than measure it.',
   } as const,
 
   headline: {

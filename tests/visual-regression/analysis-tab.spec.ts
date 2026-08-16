@@ -100,9 +100,22 @@ describe('visual-regression scaffold (Brief 5)', () => {
     // sides of the gate are covered here rather than one being assumed.
     expect(snap).toContain('A view lens over the outcome range. The comparative ranking above is unchanged.')
     expect(snap).not.toContain('goal ranking')
-    expect(snap).toContain('Cautious (p10)')
-    expect(snap).toContain('Middle (p50)')
-    expect(snap).toContain('Optimistic (p90)')
+    // ⚠ THE PERCENTILE NOTATION MOVED OUT OF THE BUTTON TEXT (cockpit
+    // simplification, L-38): `p10`/`p50`/`p90` is engineering notation, and a
+    // user-facing control should not need a glossary. The arms keep their
+    // plain names; the notation lives in each button's `title`, where a
+    // practised reader can still find it.
+    //
+    // BOTH halves are asserted, because asserting only the visible words would
+    // pass just as happily against a build that dropped the notation
+    // altogether — which is the failure this control's history warns about
+    // (the arms exist to name a QUANTITY, not a mood).
+    expect(snap).toContain('>Cautious<')
+    expect(snap).toContain('>Middle<')
+    expect(snap).toContain('>Optimistic<')
+    expect(snap).toContain('The cautious end of the range (10th percentile, p10)')
+    expect(snap).toContain('The middle of the range (50th percentile, p50)')
+    expect(snap).toContain('The optimistic end of the range (90th percentile, p90)')
     // The retired label must not survive anywhere in this control.
     expect(snap).not.toContain('Winner by:')
     // Legacy copy absent from rendered output.

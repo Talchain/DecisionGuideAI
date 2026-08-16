@@ -81,13 +81,27 @@ describe('AnalysisHero — interaction', () => {
     fireEvent.keyDown(outcomeTab, { key: 'ArrowLeft' })
     expect(goalTab).toHaveAttribute('aria-selected', 'true')
 
-    // Home/End jump to the first/last lens of the FULL strip (WAI-ARIA
-    // APG) — unavailable lenses are focusable and selectable (their panel
-    // explains itself), so End lands on What changed.
-    const whatChangedTab = screen.getByTestId('hero-lens-tab-whatChanged')
+    // Home/End jump to the first/last lens of the RENDERED strip (WAI-ARIA
+    // APG). ⚠ This used to expect End to land on "What changed" — the last of
+    // four. The producer-gap lenses are no longer advertised (see
+    // `selectVisibleLenses`), so the last rendered lens is Outcome.
+    //
+    // ⭐ THE ROVING RANGE HAD TO MOVE WITH THE STRIP, and getting it wrong
+    // would have been silent: `moveTo` previously indexed `ALL_HERO_LENSES`,
+    // so arrowing past the end would select a lens with no button in the DOM,
+    // `refs.current[next]?.focus()` would no-op on `undefined`, and the
+    // keyboard user's focus would simply stop moving with nothing to see.
     fireEvent.keyDown(goalTab, { key: 'End' })
-    expect(whatChangedTab).toHaveAttribute('aria-selected', 'true')
-    fireEvent.keyDown(whatChangedTab, { key: 'Home' })
+    expect(outcomeTab).toHaveAttribute('aria-selected', 'true')
+    fireEvent.keyDown(outcomeTab, { key: 'Home' })
+    expect(goalTab).toHaveAttribute('aria-selected', 'true')
+    // The wrap is over the rendered strip too: left from the first lens
+    // returns to the LAST RENDERED one, rather than walking into an unmounted
+    // tab. Restored to Goal afterwards so the cases below start where they
+    // expect to (this test walks one continuous keyboard session).
+    fireEvent.keyDown(goalTab, { key: 'ArrowLeft' })
+    expect(outcomeTab).toHaveAttribute('aria-selected', 'true')
+    fireEvent.keyDown(outcomeTab, { key: 'Home' })
     expect(goalTab).toHaveAttribute('aria-selected', 'true')
 
     // Up/Down are NOT hijacked on a horizontal tablist (page scroll keeps working).

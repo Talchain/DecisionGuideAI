@@ -47,7 +47,20 @@ function renderOutputsDock() {
  * error one line later, which is exactly the confusion this helper removes.
  */
 function expandDockFromRail() {
-  fireEvent.click(screen.getByLabelText('Expand outputs dock'))
+  // ⚠ THE RAIL IS NO LONGER GUARANTEED, AND THAT IS RULING R1 (16 Aug 2026):
+  // "right panel visible immediately when the model appears; panel starts
+  // NARROW so the graph keeps priority". These tests seed a graph, so under R1
+  // the dock is ALREADY expanded and there is no chevron to click — the
+  // original unconditional `getByLabelText('Expand outputs dock')` threw.
+  //
+  // The helper's own guarantee is unchanged and still enforced: after it runs,
+  // the dock is open and the Run control is reachable. What it no longer
+  // asserts is the ROUTE, because the route is now state-dependent and these
+  // tests are about the Run control's DISPATCH behaviour, not its visibility.
+  // Asserting a chevron that R1 deliberately removed would be pinning the
+  // behaviour Paul vetoed.
+  const chevron = screen.queryByLabelText('Expand outputs dock')
+  if (chevron) fireEvent.click(chevron)
   return screen.getByTestId('outputs-run-button')
 }
 

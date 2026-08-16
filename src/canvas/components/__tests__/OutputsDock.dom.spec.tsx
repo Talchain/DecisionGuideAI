@@ -955,15 +955,29 @@ describe('I.2a: Secondary action button interaction', () => {
 
     renderOutputsDock()
 
-    // Verify secondary button is rendered with expected text
-    const secondaryButton = screen.getByTestId('error-secondary-action')
-    expect(secondaryButton).toBeInTheDocument()
-    expect(secondaryButton).toHaveTextContent('Continue Without')
+    // ⚠ THE ASSERTION IS INVERTED, AND THE REASON MATTERS (ledger L-10,
+    // cockpit simplification). This test used to prove the secondary button
+    // rendered "Continue Without" and closed the dock. Both were true — and
+    // together they were the defect: `error-secondary-action`'s handler was
+    // BYTE-IDENTICAL to the "Edit model" button beside it
+    // (`setState({ isOpen: false })`), while `secondaryActionText` is a pure
+    // label with no behaviour attached. So one control rendered four different
+    // promises and performed one, and two of the four were false —
+    // `CEE_DEGRADED` offered "Retry Full Analysis" (it retried nothing; the
+    // retry is `error-primary-action`) and `COMPARISON_FAILED` offered "View
+    // Individual Results" (it navigated nowhere).
+    //
+    // The old test could never have caught that: it pinned the ONE code whose
+    // label happens to describe closing the dock. A control whose label names
+    // an action it cannot perform is the guarantee-theatre class, so the button
+    // is removed rather than relabelled, and this case now pins the removal.
+    // `edit-model-button` — the honestly-labelled control with the same
+    // behaviour — is asserted present so this is a removal of a duplicate and
+    // not a loss of the affordance.
+    expect(screen.queryByTestId('error-secondary-action')).not.toBeInTheDocument()
+    expect(screen.getByTestId('edit-model-button')).toBeInTheDocument()
 
-    // Click the secondary action
-    fireEvent.click(secondaryButton)
-
-    // After click, dock should close — the error banner should no longer be visible
+    fireEvent.click(screen.getByTestId('edit-model-button'))
     expect(screen.queryByTestId('outputs-error-banner')).not.toBeInTheDocument()
   })
 

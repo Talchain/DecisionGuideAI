@@ -252,12 +252,42 @@ describe('V5GraphPatchBlock — receipt hint surfaces ONLY the stale state disti
 // a guard agreeing with itself rather than with the product.
 
 describe('AnalysisFreshnessNotice — mount path (fails loud if the strip is unmounted)', () => {
-  const MOUNT_OWNER = 'src/canvas/components/OutputsDock.tsx'
+  // ⚠⚠ THE MOUNT MOVED, AND THIS GUARD MOVED WITH IT — RE-POINTED, NEVER
+  // DELETED (cockpit simplification, brief step 6). The strip is no longer
+  // mounted by `OutputsDock` directly: it is mounted by
+  // `<AnalysisStateRegion>`, the layout-level region that owns ONE truth-state
+  // banner slot, so that the refusal notice and this strip can never render
+  // together (ledger L-36 / screenshot S06: "This analysis did not run" stacked
+  // above "Cannot confirm whether this analysis is current" above a rendered
+  // result).
+  //
+  // The guard's purpose is unchanged and is the reason it must not be dropped:
+  // this whole matrix is only evidence about the PRODUCT if the surface it
+  // renders is the surface a user loads. `HeroQualifier` passed every render
+  // assertion for months while being absent from the deployed bundle.
+  //
+  // ⭐ AND THE MOVE MAKES IT STRONGER, because the region is itself pinned to
+  // exactly one mount site in `OutputsDock` by
+  // `analysisStateRegion.mountSites.spec.ts` — which DERIVES the mount sites
+  // from source rather than mirroring a list. So the chain
+  // OutputsDock → AnalysisStateRegion → AnalysisFreshnessNotice is asserted at
+  // both hops, and unmounting the strip at either one REDs.
+  const MOUNT_OWNER = 'src/components/results/analysisState/AnalysisStateRegion.tsx'
+  const REGION_HOST = 'src/canvas/components/OutputsDock.tsx'
 
   const readStripped = (rel: string): string =>
     stripComments(readFileSync(join(process.cwd(), rel), 'utf8'), rel)
 
-  it('OutputsDock imports AND renders the strip in real code, not in a comment', () => {
+  it('the region host renders the region in real code, not in a comment', () => {
+    // Hop 1 of the chain. Without this, hop 2 below could be green while the
+    // region itself was mounted nowhere — a component that renders the strip
+    // perfectly, to nobody.
+    const host = readStripped(REGION_HOST)
+    expect(host.length).toBeGreaterThan(1000)
+    expect(host).toMatch(/<AnalysisStateRegion\b/)
+  })
+
+  it('the region imports AND renders the strip in real code, not in a comment', () => {
     const code = readStripped(MOUNT_OWNER)
 
     // Precondition pin (trap 13b): prove the stripper left real code behind,
@@ -271,14 +301,27 @@ describe('AnalysisFreshnessNotice — mount path (fails loud if the strip is unm
   })
 
   it('the stripper is what makes that assertion meaningful (control)', () => {
-    const raw = readFileSync(join(process.cwd(), MOUNT_OWNER), 'utf8')
-    const stripped = readStripped(MOUNT_OWNER)
-    // Prose mentions vastly outnumber the single render site; if this ever
-    // reads equal, comments are no longer being removed and the mount
-    // assertion above has quietly become a substring search over prose.
+    // ⚠ THE CONTROL IS NOW RUN AGAINST `REGION_HOST`, NOT `MOUNT_OWNER`, AND
+    // THAT IS NOT A CONVENIENCE. Its claim is "prose mentions outnumber the
+    // single render site, so if these ever read equal the comments are no
+    // longer being stripped". That claim is TRUE of `OutputsDock.tsx`, which
+    // discusses this component at length, and would be FALSE of the region —
+    // a small file that mentions the strip about as often in prose as in code,
+    // where a legitimately-working stripper could produce equal counts and RED
+    // a healthy build. A control that can fail on a correct product teaches
+    // people to ignore it.
+    //
+    // `OutputsDock` still names `AnalysisFreshnessNotice` in prose (it records
+    // why the mount moved) while no longer rendering it, so it remains the
+    // right file to prove the stripper bites — and this now also pins that the
+    // dock does NOT re-acquire its own second mount: `count(stripped)` is
+    // asserted to be exactly ZERO in code there, which is the single-banner
+    // property stated from the other direction.
+    const raw = readFileSync(join(process.cwd(), REGION_HOST), 'utf8')
+    const stripped = readStripped(REGION_HOST)
     const count = (s: string): number => (s.match(/AnalysisFreshnessNotice/g) ?? []).length
     expect(count(raw)).toBeGreaterThan(count(stripped))
-    expect(count(stripped)).toBeGreaterThan(0)
+    expect(count(stripped)).toBe(0)
   })
 })
 

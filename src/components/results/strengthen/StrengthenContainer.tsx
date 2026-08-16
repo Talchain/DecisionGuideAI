@@ -41,6 +41,7 @@ import {
   type RecRecord,
 } from '../../../canvas/stores/strengthenStore'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
+import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openDefineSuccess, openDecisionRecord, useDecisionRecordForScenario } from '../modals'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { buildRecommendations, toStrengthenPhase3Item } from './buildRecommendations'
@@ -76,6 +77,8 @@ export interface StrengthenContainerProps {
 }
 
 export function StrengthenContainer({ data }: StrengthenContainerProps) {
+  // L-10: the primary CTA's failure arm has to be able to SAY something.
+  const showToast = useShowToastSafe()
   const resultsHash = useCanvasStore((s) => s.results.hash ?? null)
   const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty === true)
   const currentStage = useCanvasStore((s) => s.currentStage)
@@ -240,7 +243,23 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     }
     // §8.8: close only after the action genuinely succeeds — a successful
     // dispatch marks IN PROGRESS (the user confirms addressed themselves).
-    if (ok) useStrengthenStore.getState().markInProgress(record.id)
+    if (ok) {
+      useStrengthenStore.getState().markInProgress(record.id)
+      return
+    }
+    // ⭐ L-10 FIX: the failure arm was SILENT. Every `ok === false` path here
+    // — no conversation callbacks registered, a focus target that no longer
+    // exists, an `open-modal` action with no modal — dropped the click with a
+    // `console.warn` that `import.meta.env.DEV` compiles OUT of the production
+    // bundle. The user pressed a primary CTA and the product did nothing, said
+    // nothing, and changed nothing: indistinguishable from a broken build.
+    //
+    // Telling them is the whole fix. We deliberately do NOT invent a
+    // recovery, mark the record, or retry: we do not know why the seam was
+    // unavailable, and a fabricated "we've queued it" would be worse than the
+    // silence. (`useShowToastSafe` is a no-op outside a ToastProvider, so this
+    // cannot throw in a test or a stray mount.)
+    showToast("That didn't go through. Open the Olumi conversation and ask there.")
   }
 
   // Prototype route (b): the ✦ ask hands the rec to the Ask-Olumi drawer
