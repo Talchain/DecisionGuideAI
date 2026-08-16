@@ -91,12 +91,9 @@ vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
   return {
     ...actual,
-    isAnalysisHeroV17Enabled: vi.fn(() => false),
-    isAnalysisHeroCompareEnabled: vi.fn(() => false),
     isFocusNowPanelEnabled: vi.fn(() => true),
     isStrengthenPanelEnabled: vi.fn(() => false),
     isAiPanelV2Enabled: vi.fn(() => true),
-    isAnalysisHeroPanelEnabled: vi.fn(() => false),
   }
 })
 

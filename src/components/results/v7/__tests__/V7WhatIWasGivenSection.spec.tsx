@@ -56,7 +56,6 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { ResultsBody } from '../../ResultsBody'
 import { V7ComparisonTabBody } from '../V7ComparisonTabBody'
 import { V7WhatIWasGivenSection } from '../V7WhatIWasGivenSection'
-import { isAnalysisHeroPanelEnabled } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -889,20 +888,14 @@ describe('MOUNT PATH — live under the DEPLOYED flag posture, and under its opp
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
 
-  it('flag injection parity — localStorage "1" flips the REAL isAnalysisHeroPanelEnabled', () => {
-    // Without this, the two posture tests below could both be exercising the
-    // same code path and agreeing with each other (trap 13b).
-    expect(isAnalysisHeroPanelEnabled()).toBe(false)
-    localStorage.setItem('feature.analysisHeroPanel', '1')
-    expect(isAnalysisHeroPanelEnabled()).toBe(true)
-  })
-
-  it('DEPLOYED POSTURE (analysisHeroPanel=1): the section mounts inside the Alt view tab body', () => {
-    localStorage.setItem('feature.analysisHeroPanel', '1')
+  // MIGRATED from the DEPLOYED/OPPOSITE posture pair. The analysisHeroPanel
+  // flag is gone (the analysis-hero fork is closed), so the two postures have
+  // collapsed into one. The MOUNT-PATH assertion below is the half that
+  // mattered and is preserved verbatim.
+  it('the section mounts inside the Alt view tab body', () => {
     seedFrom(b1Fixture as never)
     renderAltViewTab()
 
-    expect(isAnalysisHeroPanelEnabled()).toBe(true)
     const section = screen.getByTestId('what-i-was-given-section')
     expect(section).toBeInTheDocument()
     // Assert the MOUNT PATH itself, not merely presence: the section must be
@@ -913,35 +906,18 @@ describe('MOUNT PATH — live under the DEPLOYED flag posture, and under its opp
     expect(screen.getByTestId('v7-comparison-tab-body').contains(section)).toBe(true)
   })
 
-  it('OPPOSITE POSTURE (analysisHeroPanel=0): the section STILL mounts, in the same slot', () => {
-    // The point of hosting in the unconditional group. If a future flag move
-    // flips the deployed arm, this surface must not vanish with it.
-    localStorage.setItem('feature.analysisHeroPanel', '0')
+  // The former 'CONTROL — the two postures really do render different heroes'
+  // is DELETED as obsolete: it proved the flag injection reached ResultsBody's
+  // fork, and that fork no longer exists. The cockpit mounts unconditionally,
+  // so both arms would now render the hero and the control could only ever
+  // agree with itself.
+  it('the analysis tab renders the cockpit hero panel', () => {
     seedFrom(b1Fixture as never)
-    renderAltViewTab()
-
-    expect(isAnalysisHeroPanelEnabled()).toBe(false)
-    const section = screen.getByTestId('what-i-was-given-section')
-    expect(section).toBeInTheDocument()
-    expect(screen.getByTestId('v7-comparison-tab-body').contains(section)).toBe(true)
-  })
-
-  it('CONTROL — the two postures really do render different heroes', () => {
-    // Proves the flag injection reaches ResultsBody's fork, so the two tests
-    // above are genuinely two postures and not the same render twice.
-    localStorage.setItem('feature.analysisHeroPanel', '1')
-    seedFrom(b1Fixture as never)
-    const on = renderAnalysisTab()
-    const heroOn = on.container.querySelector('[data-testid="analysis-hero-panel"]')
-    cleanup()
-
-    localStorage.setItem('feature.analysisHeroPanel', '0')
-    seedFrom(b1Fixture as never)
-    const off = renderAnalysisTab()
-    const heroOff = off.container.querySelector('[data-testid="analysis-hero-panel"]')
-
-    expect(heroOn, 'flag-on arm renders the hero panel').not.toBeNull()
-    expect(heroOff, 'flag-off arm does not').toBeNull()
+    const view = renderAnalysisTab()
+    expect(
+      view.container.querySelector('[data-testid="analysis-hero-panel"]'),
+      'the consolidated cockpit must mount on the Analysis tab',
+    ).not.toBeNull()
   })
 })
 

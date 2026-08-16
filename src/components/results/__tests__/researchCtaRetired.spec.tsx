@@ -19,19 +19,24 @@
  *
  * ## Why it asserts on the MOUNT PATH and not just the component (trap 3b)
  *
- * `TriageActionCardsBody` is composed by THREE hosts, and which one a real
- * user loads is decided by a deployed flag, not by this file's defaults:
- *   · `ResultsBody`'s `hero-arm-triage-actions`  — mounts when
- *     `analysisHeroPanel` is ON, and `netlify.toml` bakes
- *     `VITE_FEATURE_ANALYSIS_HERO_PANEL="1"`, so THIS is the staging surface;
- *   · `DecisionConfidencePanel`                  — the flag-OFF arm;
- *   · `AnalysisHeroV17`                          — passes `useV17Copy`, which
+ * `TriageActionCardsBody` USED to be composed by THREE hosts, and which one a
+ * real user loaded was decided by a deployed flag, not by this file's
+ * defaults:
+ *   · `ResultsBody`'s `hero-arm-triage-actions`  — the staging surface;
+ *   · `DecisionConfidencePanel`                  — the dark arm;
+ *   · `AnalysisHeroV17`                          — passed `useV17Copy`, which
  *     already suppressed the chip, which is exactly why a v17-only absence
  *     test proved nothing about what users actually loaded.
- * A spec bound only to the component at default flags is consistent with the
- * chip still shipping. Both live arms are therefore asserted here, through the
- * flag system's real `localStorage` seam (`makeFlag` reads it at call time) —
- * never a `vi.mock('@/flags')`, which would prove the mock, not the posture.
+ *
+ * ⚠ NARROWED, BY DELETION OF THE SUBJECT (PX-C analysis-cockpit
+ * consolidation, and stated explicitly because narrowing a guard is normally
+ * how a guard stops biting — CLAUDE.md 13b). The last two hosts are GONE:
+ * `DecisionConfidencePanel` and `AnalysisHeroV17` were deleted with the dark
+ * arm, and the flag that selected it no longer exists. There is now exactly
+ * ONE host, mounted unconditionally inside the cockpit — so the coverage this
+ * file loses is coverage of components that no longer exist, and none of the
+ * coverage of the live surface. The absence assertions below still sweep the
+ * WHOLE tree, so a re-host anywhere REDs them.
  *
  * ## Why each case pins its own precondition (traps 13 / 13b / 19)
  *
@@ -48,7 +53,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, within } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
-import { DecisionConfidencePanel } from '../DecisionConfidencePanel'
 import { TriageActionCardsBody } from '../TriageActionCardsBody'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
@@ -59,7 +63,6 @@ import type {
   ImprovementsSectionData,
   OptionResult,
 } from '../types'
-import { isAnalysisHeroPanelEnabled } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -204,7 +207,6 @@ function renderResultsBody() {
 }
 
 beforeEach(() => {
-  localStorage.removeItem('feature.analysisHeroPanel')
   useCanvasStore.setState({
     draftCoaching: null,
     analysisFreshness: null,
@@ -216,24 +218,15 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  localStorage.removeItem('feature.analysisHeroPanel')
   cleanup()
 })
 
 describe('ROADMAP 2.816 — the dead-end Research CTA is retired from the results surface', () => {
-  it('flag injection parity — localStorage "1" flips the REAL isAnalysisHeroPanelEnabled', () => {
-    // Proves the posture switch below exercises the real flag seam, not a mock.
-    expect(isAnalysisHeroPanelEnabled()).toBe(false)
-    localStorage.setItem('feature.analysisHeroPanel', '1')
-    expect(isAnalysisHeroPanelEnabled()).toBe(true)
-  })
-
-  it('DEPLOYED POSTURE (analysisHeroPanel=1): the hero-arm nudge mounts and carries NO Research CTA', () => {
-    localStorage.setItem('feature.analysisHeroPanel', '1')
+  it('the cockpit nudge mounts and carries NO Research CTA', () => {
     renderResultsBody()
 
-    // MOUNT-PATH PRECONDITION: we are on the arm staging actually serves, and
-    // the flag-OFF arm is NOT the one under test.
+    // MOUNT-PATH PRECONDITION: the one host rendered, and the deleted fork
+    // did not come back under another name.
     const heroArm = screen.getByTestId('hero-arm-triage-actions')
     expect(screen.queryByTestId('decision-confidence-panel')).toBeNull()
 
@@ -244,24 +237,18 @@ describe('ROADMAP 2.816 — the dead-end Research CTA is retired from the result
     expect(screen.queryByLabelText(RESEARCH_CTA_LABEL)).toBeNull()
   })
 
-  it('FLAG-OFF ARM (analysisHeroPanel=0, legacy panel): the nudge mounts and carries NO Research CTA', () => {
-    localStorage.setItem('feature.analysisHeroPanel', '0')
+  it('the cockpit host is the ONLY analysis host — the fork is gone', () => {
     renderResultsBody()
 
-    // MOUNT-PATH PRECONDITION: the legacy arm is the one that rendered.
-    expect(screen.getByTestId('decision-confidence-panel')).toBeInTheDocument()
-    expect(screen.queryByTestId('hero-arm-triage-actions')).toBeNull()
+    // The point of this case has changed with the consolidation. It used to
+    // prove the legacy arm was also clean; it now proves there IS no other
+    // arm — nothing selects a different analysis, so the absence asserted
+    // above is the absence every user gets.
+    expect(screen.getByTestId('hero-arm-triage-actions')).toBeInTheDocument()
+    expect(screen.queryByTestId('decision-confidence-panel')).toBeNull()
 
     expectNudgeWithoutResearchCta(screen.getByTestId('t1-dominant-nudge'))
     expect(screen.queryByLabelText(RESEARCH_CTA_LABEL)).toBeNull()
-  })
-
-  it('legacy DecisionConfidencePanel, rendered standalone with chat available, has NO Research CTA', () => {
-    // `onSendMessage` was the chip's "chat is available" gate — passing it is
-    // what made the chip render, so this is the configuration that used to
-    // ship the dead end, asserted directly on the host.
-    render(<DecisionConfidencePanel data={makeData()} onSendMessage={() => {}} onFocusNode={() => {}} />)
-    expectNudgeWithoutResearchCta(screen.getByTestId('t1-dominant-nudge'))
   })
 
   it('TriageActionCardsBody in legacy copy mode has NO Research CTA', () => {

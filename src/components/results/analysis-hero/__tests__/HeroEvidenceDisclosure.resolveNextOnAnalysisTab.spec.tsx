@@ -32,11 +32,10 @@
  * ⚠ WHY THE ASSERTIONS BIND WHERE THEY DO (CLAUDE.md trap 3b). A UI test can be
  * bound to a component the deployed flags switch off — this estate shipped that
  * defect twice in one feature. §0 therefore renders **ResultsBody** on the
- * DEFAULT dock tab under the DEPLOYED flag posture (`netlify.toml:78`
- * `VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"`) and asserts the MOUNT PATH ITSELF —
- * the view is a descendant of `analysis-hero-panel`, and it disappears when that
- * exact flag goes off. A green assertion about a component the deployment does
- * not render is not evidence.
+ * DEFAULT dock tab and asserts the MOUNT PATH ITSELF: the view is a DESCENDANT
+ * of `analysis-hero-panel`, the one analysis surface, which now mounts
+ * unconditionally. A green assertion about a component the deployment does not
+ * render is not evidence.
  *
  * ⚠ AND WHY THE MODEL IS BUILT, NOT HAND-WRITTEN. Every render below goes
  * through `buildHeroModel(data)` from a `ResultsSectionDataReturn`, so the test
@@ -76,18 +75,12 @@ vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
   return {
     ...actual,
-    isAnalysisHeroV17Enabled: vi.fn(() => false),
-    isAnalysisHeroCompareEnabled: vi.fn(() => false),
     isFocusNowPanelEnabled: vi.fn(() => true),
     isStrengthenPanelEnabled: vi.fn(() => false),
     isAiPanelV2Enabled: vi.fn(() => true),
-    // THE DEPLOYED STAGING POSTURE (netlify.toml:78). Every mount-path claim in
-    // §0 is made against this value, and §0.2 flips it to prove the binding.
-    isAnalysisHeroPanelEnabled: vi.fn(() => true),
   }
 })
 
-import { isAnalysisHeroPanelEnabled } from '@/flags'
 import { ResultsBody } from '../../ResultsBody'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
@@ -192,12 +185,11 @@ beforeEach(() => {
   useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
   // The DEFAULT post-run dock tab — Analysis (`OutputsDock.tsx:345`, `:265`).
   useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
-  vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
 })
 
-// ─── §0 — THE MOUNT PATH (trap 3b: bind to what the DEPLOYED flags mount) ────
+// ─── §0 — THE MOUNT PATH (trap 3b: bind to what the deployment mounts) ───────
 
-describe('§0 Resolve next is on the DEFAULT Analysis tab, under the deployed flag posture', () => {
+describe('§0 Resolve next is on the DEFAULT Analysis tab', () => {
   it('0.1 reaches the Resolve next view INSIDE the analysis hero panel on the Analysis tab', () => {
     renderAnalysisTab(ALL_BELOW_RESOLUTION, 'measured_non_zero')
 
@@ -221,16 +213,12 @@ describe('§0 Resolve next is on the DEFAULT Analysis tab, under the deployed fl
     expect(screen.queryByTestId('v7-evidence-resolve-next')).not.toBeInTheDocument()
   })
 
-  it('0.2 the whole surface is gated by `analysisHeroPanel` and by nothing else', () => {
-    // DISCRIMINATING PAIR. 0.1 proves the view is present under the deployed
-    // posture; this proves it is present BECAUSE of that flag. Either assertion
-    // alone would leave the mount path unbound.
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(false)
-    renderAnalysisTab(ALL_BELOW_RESOLUTION, 'measured_non_zero')
-    expect(screen.getByTestId('outputs-results-redesign'), 'positive control: the tab still painted').toBeInTheDocument()
-    expect(screen.queryByTestId('analysis-hero-panel')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('hero-evidence-resolve-next')).not.toBeInTheDocument()
-  })
+  // ⚠ RETIRED WITH ITS MECHANISM: case 0.2 flipped the analysis-hero flag off
+  // to prove 0.1's binding was real. That flag is deleted and the surface
+  // mounts unconditionally, so the case could only have asserted a fork that
+  // no longer exists. 0.1's binding is
+  // still discriminating on its own — it asserts DESCENDANCY (`within(panel)`),
+  // which a relocation off the host would RED.
 
   it('0.3 the collapsed disclosure ADVERTISES the view (its subtitle names it)', () => {
     // The residual reachability cost after this slice is one collapsed

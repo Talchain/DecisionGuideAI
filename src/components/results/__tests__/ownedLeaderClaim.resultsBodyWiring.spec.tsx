@@ -37,11 +37,6 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusByTarget: vi.fn(),
 }))
 
-vi.mock('@/flags', async () => {
-  const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
-  return { ...actual, isAnalysisHeroV17Enabled: vi.fn(() => false), isAnalysisHeroCompareEnabled: vi.fn(() => false) }
-})
-
 /** Captures exactly what ResultsBody hands the cards. */
 let captured: Record<string, unknown> | null = null
 vi.mock('../OptionCards', () => ({

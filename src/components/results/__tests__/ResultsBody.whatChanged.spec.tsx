@@ -46,11 +46,8 @@ vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
   return {
     ...actual,
-    isAnalysisHeroV17Enabled: vi.fn(() => false),
-    isAnalysisHeroCompareEnabled: vi.fn(() => false),
     isFocusNowPanelEnabled: vi.fn(() => true),
     isAiPanelV2Enabled: vi.fn(() => true),
-    isAnalysisHeroPanelEnabled: vi.fn(() => false),
   }
 })
 
@@ -153,7 +150,7 @@ describe('ResultsBody — WhatChangedChip mount (R6)', () => {
     ])
     renderBody()
     const chip = screen.getByTestId('what-changed-chip')
-    const existingHero = screen.getByTestId('decision-confidence-panel')
+    const existingHero = screen.getByTestId('analysis-hero-panel')
     expect(before(chip, existingHero), 'chip must precede the hero block').toBe(true)
   })
 
@@ -167,7 +164,7 @@ describe('ResultsBody — WhatChangedChip mount (R6)', () => {
     renderBody()
     const chip = screen.getByTestId('what-changed-chip')
     expect(chip.textContent).toMatch(/what changed\?/i)
-    const existingHero = screen.getByTestId('decision-confidence-panel')
+    const existingHero = screen.getByTestId('analysis-hero-panel')
     expect(before(chip, existingHero), 'chip must precede the hero block').toBe(true)
   })
 
@@ -186,7 +183,7 @@ describe('ResultsBody — WhatChangedChip mount (R6)', () => {
     // delta — its resting name is the ACTION, not a "(not available)" claim.
     const chip = screen.getByTestId('what-changed-chip')
     expect(chip.textContent).toMatch(/what changed\?/i)
-    const existingHero = screen.getByTestId('decision-confidence-panel')
+    const existingHero = screen.getByTestId('analysis-hero-panel')
     expect(before(chip, existingHero), 'chip must precede the hero block').toBe(true)
   })
 })

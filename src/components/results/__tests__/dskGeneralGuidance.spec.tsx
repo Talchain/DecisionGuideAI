@@ -5,17 +5,17 @@
  *
  * This file covers `mapDecisionQualityPrompts` / `isGeneralGuidance` only —
  * the wire→view rule. **The render proof is deliberately NOT here**, because
- * this lane's first attempt put it against `HeroKeyQuestion`, which does not
- * mount on staging (`netlify.toml:78` sets `VITE_FEATURE_ANALYSIS_HERO_PANEL
- * = "1"`, and `ResultsBody` hosts `KeyQuestionCard` in that flag-ON arm while
- * the V17 hero lives in the `!flag` arm). Deleting the deployed marker left
- * those tests green — the same dark-ship row 2.466 was opened for.
+ * this lane's first attempt put it against `HeroKeyQuestion`, which never
+ * mounted on staging: `ResultsBody` hosted `KeyQuestionCard` on the served arm
+ * of an analysis-hero flag while the V17 hero lived on the dark one (both that
+ * hero and the flag are now deleted). Deleting the deployed marker left those
+ * tests green — the same dark-ship row 2.466 was opened for.
  *
  * The render tests now live at
  * `analysis-hero/__tests__/KeyQuestionCard.generalGuidance.spec.tsx` (the
  * mounted host) and the mount-path guard at
  * `__tests__/ResultsBody.keyQuestionLiveMount.spec.tsx` (the real ResultsBody
- * under the real flag seam).
+ * on its one mounted surface).
  *
  * ## RED-first signature at pristine (UI e01dbd4a)
  *

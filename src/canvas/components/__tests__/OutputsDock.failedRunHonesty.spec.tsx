@@ -64,7 +64,7 @@
  * ⚠ Surface binding (CLAUDE.md trap 3b). Bound to the surface the DEPLOYED
  * staging flags mount. `netlify.toml [context.staging.environment]` sets
  * VITE_FEATURE_AI_PANEL_V2="true", VITE_FEATURE_PRE_ANALYSIS_V3="1",
- * VITE_FEATURE_ANALYSIS_HERO_PANEL="1", VITE_FEATURE_COMPARE_TAB="1";
+ * VITE_FEATURE_COMPARE_TAB="1";
  * [build.environment] sets VITE_ENABLE_ORCHESTRATOR_V2="true"; there is no
  * VITE_FEATURE_JOURNEY_TAB entry, so the Journey tab is off. The controls
  * assert the MOUNT PATH itself (`outputs-dock-body` → `outputs-error-banner`),

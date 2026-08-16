@@ -21,10 +21,9 @@
  * No region split, no sanctioned exception.
  *
  * ⭐ WHY THIS SPEC RENDERS `ResultsBody` AND NOT A BUILDER (CLAUDE.md trap 3b):
- * this estate has twice shipped a fix onto a component the deployed flags do
+ * this estate has twice shipped a fix onto a component the deployed flags did
  * not mount, with a fully green suite pointed at the dark one. This spec pins
- * the MOUNT PATH — what the Analysis tab actually composes — on BOTH postures
- * of `analysisHeroPanel` (deployed = ON via netlify.toml).
+ * the MOUNT PATH — what the Analysis tab actually composes.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
@@ -49,16 +48,12 @@ vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
   return {
     ...actual,
-    isAnalysisHeroV17Enabled: vi.fn(() => false),
-    isAnalysisHeroCompareEnabled: vi.fn(() => false),
     isFocusNowPanelEnabled: vi.fn(() => true),
     isStrengthenPanelEnabled: vi.fn(() => false),
     isAiPanelV2Enabled: vi.fn(() => true),
-    isAnalysisHeroPanelEnabled: vi.fn(() => true),
   }
 })
 
-import { isAnalysisHeroPanelEnabled } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
@@ -197,7 +192,6 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
     useCanvasStore.setState({ analysisFreshness: FRESH, analysisFreshnessDirty: false })
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
     useGuidanceStore.setState({ guidanceItems: [] })
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
   })
 
   /**
@@ -213,78 +207,45 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
    *
    * ⚠ SCOPE, STATED EXACTLY, because an absence claim is only as wide as what
    * it searched (trap 20):
-   *   · WHAT IS SEARCHED — the DOM `ResultsBody` renders under this fixture,
-   *     on BOTH `analysisHeroPanel` postures. The canvas `OptionNode` is NOT
-   *     composed by `ResultsBody`; its own retirement is pinned in
-   *     `render-matrix.spec.tsx` and `residualComparative.optionNode.spec.tsx`.
-   *     The V7 hero is NOT composed by `ResultsBody` any more; its guard is
+   *   · WHAT IS SEARCHED — the DOM `ResultsBody` renders under this fixture.
+   *     The canvas `OptionNode` is NOT composed by `ResultsBody`; its own
+   *     retirement is pinned in `render-matrix.spec.tsx` and
+   *     `residualComparative.optionNode.spec.tsx`. The V7 hero is NOT composed
+   *     by `ResultsBody` any more; its guard is
    *     `v7/__tests__/V7Hero.winFrequencyGapAbsence.spec.tsx`.
-   *   · `certaintyCopy`'s `" by N point(s)"` suffix IS covered, on the
-   *     flag-OFF arm case below, because `DecisionConfidencePanel` mounts
-   *     only there — which is NOT the deployed posture. Its silence on the
-   *     ON posture means "not rendered", never "rendered and clean".
+   *   · `certaintyCopy`'s `" by N point(s)"` suffix is NOT searched here: its
+   *     only host, `DecisionConfidencePanel`, is deleted. That copy is covered
+   *     directly by `utils/__tests__/certaintyCopy.spec.ts`.
    */
-  it('NONE of the retired forms appears anywhere in the rendered panel — either hero posture, with or without goal data', () => {
-    for (const posture of [true, false]) {
-      for (const withGoalData of [false, true]) {
-        vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(posture)
-        const { container, unmount } = renderBody(undefined, false, withGoalData)
-        const text = container.textContent ?? ''
-        const label = `analysisHeroPanel=${posture}, goalData=${withGoalData}`
-        // Positive control FIRST: an absence assertion over an empty or
-        // half-rendered panel passes by testing nothing (trap 13). Both
-        // option labels are painted by the live options section.
-        expect(text, `${label}: positive control — winner painted`).toMatch(new RegExp(WINNER_LABEL))
-        expect(text, `${label}: positive control — runner-up painted`).toMatch(new RegExp(RUNNER_UP_LABEL))
+  it('NONE of the retired forms appears anywhere in the rendered panel — with or without goal data', () => {
+    // Was a posture × goal-data double loop; the analysis-hero fork is closed,
+    // so only the goal-data dimension survives and every assertion still runs.
+    for (const withGoalData of [false, true]) {
+      const { container, unmount } = renderBody(undefined, false, withGoalData)
+      const text = container.textContent ?? ''
+      const label = `goalData=${withGoalData}`
+      // Positive control FIRST: an absence assertion over an empty or
+      // half-rendered panel passes by testing nothing (trap 13). Both
+      // option labels are painted by the live options section.
+      expect(text, `${label}: positive control — winner painted`).toMatch(new RegExp(WINNER_LABEL))
+      expect(text, `${label}: positive control — runner-up painted`).toMatch(new RegExp(RUNNER_UP_LABEL))
 
-        expect(text, `${label}: no "leads by N points"`).not.toMatch(GAP_CLAIM)
-        expect(text, `${label}: no "by N points" shape`).not.toMatch(POINTS_CLAIM)
-        expect(text, `${label}: no "percentage points"`).not.toMatch(PP_CLAIM)
-        unmount()
-        cleanup()
-      }
+      expect(text, `${label}: no "leads by N points"`).not.toMatch(GAP_CLAIM)
+      expect(text, `${label}: no "by N points" shape`).not.toMatch(POINTS_CLAIM)
+      expect(text, `${label}: no "percentage points"`).not.toMatch(PP_CLAIM)
+      unmount()
+      cleanup()
     }
   })
 
   /**
-   * ⭐⭐ THE SOFTENED `DecisionConfidencePanel` LEDE — AND AN EXPLICIT NOTE ON
-   * WHICH ARM MOUNTS IT, BECAUSE THE DEPLOYED POSTURE DOES NOT.
-   *
-   * Derived at the bytes: `decisionConfidenceElement` is referenced at exactly
-   * one site inside `{!isAnalysisHeroPanelEnabled() && …}` — and `netlify.toml`
-   * bakes `VITE_FEATURE_ANALYSIS_HERO_PANEL="1"`. So `DecisionConfidencePanel`
-   * mounts on the flag-OFF arm ONLY, and the retired " by N points" suffix was
-   * NOT on the surface staging serves. `buildCertaintyCopy` has exactly one
-   * consumer, so that is the whole story for this copy.
-   *
-   * This case is therefore DEFENCE IN DEPTH, and it is labelled as such rather
-   * than dressed up as a live-surface guard: the arm is real code, one flag
-   * move from being what every user reads, and `certaintyCopy` is the single
-   * source for the sentence. The flag is forced OFF here deliberately — a
-   * test left on the deployed posture would render no panel at all and its
-   * absence assertions would pass by testing nothing.
-   *
-   * TWO preconditions are pinned in-test, and both earned their place by
-   * failing first: the panel must be MOUNTED, and the run must be ON the
-   * softened branch. The fixture originally carried no `verdict`, so
-   * `NO_CLAIM_VERDICT` returned "the analysis did not put an option forward"
-   * long before any leader rule ran — an absence assertion against a headline
-   * that never mentions a leader.
+   * ⚠ RETIRED WITH ITS SUBJECT (PX-C analysis-cockpit consolidation): a
+   * `DEFENCE IN DEPTH (flag-OFF arm)` case used to assert the softened
+   * `DecisionConfidencePanel` lede stated no gap. That panel and the arm that
+   * mounted it are deleted, so the case could only ever have passed
+   * vacuously. The sentence it guarded is `buildCertaintyCopy`'s, and it is
+   * covered directly by `utils/__tests__/certaintyCopy.spec.ts`.
    */
-  it('DEFENCE IN DEPTH (flag-OFF arm): the softened DecisionConfidencePanel lede states no gap, and keeps its hedge', () => {
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(false)
-    const { container } = renderBody(undefined, true)
-    const text = container.textContent ?? ''
-
-    // Precondition 1 — the panel is actually mounted on this arm.
-    expect(screen.getByTestId('decision-confidence-panel')).toBeInTheDocument()
-    // Precondition 2 — we are on the SOFTENED branch, not a withheld one.
-    expect(text).toMatch(new RegExp(`${WINNER_LABEL} currently leads`))
-
-    expect(text).not.toMatch(GAP_CLAIM)
-    expect(text).not.toMatch(POINTS_CLAIM)
-    expect(text).not.toMatch(PP_CLAIM)
-  })
 
   /**
    * POSITIVE CONTROL FOR THE PROBE ITSELF (trap 13: a probe that proves an

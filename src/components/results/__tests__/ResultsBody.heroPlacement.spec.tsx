@@ -1,13 +1,10 @@
 /**
- * ResultsBody — Analysis hero panel placement + flag regression.
+ * ResultsBody — Analysis hero panel placement.
  *
- * Flag OFF: the Analysis tab renders EXACTLY as today — no hero element, the
- * existing hero (DecisionConfidencePanel), Focus panel and Options section
- * unchanged and in order.
- *
- * Flag ON: the new hero mounts AFTER the freshness notice slot and ABOVE the
- * existing hero block (stack decision), with every existing panel still
- * present and ordered. Stale prop routes the hero's Focus-next to Re-run.
+ * The hero mounts UNCONDITIONALLY after the freshness notice slot and above
+ * the Focus panel, which still precedes the Options section. The fork that
+ * once selected between this hero and a legacy DecisionConfidencePanel is
+ * closed; those alternatives are deleted.
  *
  * NOTE: this spec deliberately does not import anything from the
  * analysis-hero module — its inertness guard allow-lists ResultsBody as the
@@ -36,20 +33,14 @@ vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
   return {
     ...actual,
-    isAnalysisHeroV17Enabled: vi.fn(() => false),
-    isAnalysisHeroCompareEnabled: vi.fn(() => false),
     isFocusNowPanelEnabled: vi.fn(() => true),
     isAiPanelV2Enabled: vi.fn(() => true),
-    isAnalysisHeroPanelEnabled: vi.fn(() => false),
   }
 })
 
 import {
-  isAnalysisHeroV17Enabled,
-  isAnalysisHeroCompareEnabled,
   isFocusNowPanelEnabled,
   isAiPanelV2Enabled,
-  isAnalysisHeroPanelEnabled,
 } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
@@ -152,32 +143,17 @@ function renderBody(props: { isStale?: boolean } = {}) {
 const before = (a: HTMLElement, b: HTMLElement) =>
   Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 
-describe('ResultsBody — Analysis hero placement + flag regression', () => {
+describe('ResultsBody — Analysis hero placement', () => {
   beforeEach(() => {
-    vi.mocked(isAnalysisHeroV17Enabled).mockReturnValue(false)
-    vi.mocked(isAnalysisHeroCompareEnabled).mockReturnValue(false)
     vi.mocked(isFocusNowPanelEnabled).mockReturnValue(true)
     vi.mocked(isAiPanelV2Enabled).mockReturnValue(true)
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(false)
     useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
 
-  it('flag OFF: no hero element; existing panels unchanged and ordered', () => {
-    renderBody()
-    expect(screen.queryByTestId('analysis-hero-panel')).toBeNull()
-    const existingHero = screen.getByTestId('decision-confidence-panel')
-    const focus = screen.getByTestId('focus-now-panel')
-    const options = screen.getByTestId('section-header-options')
-    expect(before(existingHero, focus)).toBe(true)
-    expect(before(focus, options)).toBe(true)
-  })
-
-  it('flag ON: hero REPLACES the legacy decision-confidence panel (Wave 2 retirement)', () => {
-    // Wave 2 flag-scoped retirement (plan §3 W2): flag-on staging is where
-    // Paul accepts the §12.4 duplication removal; flag-off stays byte-
-    // identical to today (previous test). Rollback = flag off.
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
+  it('the hero is the ONLY headline panel — the legacy decision-confidence panel is gone', () => {
+    // The fork that used to select between this hero and the legacy panel is
+    // closed; the hero mounts unconditionally and owns the slot.
     renderBody()
     const hero = screen.getByTestId('analysis-hero-panel')
     expect(screen.queryByTestId('decision-confidence-panel')).toBeNull()
@@ -187,14 +163,12 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     expect(before(focus, options), 'Focus panel still precedes options').toBe(true)
   })
 
-  it('flag ON: hero consumes the same data (headline names the recommended option)', () => {
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
+  it('hero consumes the same data (headline names the recommended option)', () => {
     renderBody()
     expect(screen.getByTestId('hero-headline')).toHaveTextContent(/Option A has the highest chance of meeting every target this run scored: .+\./)
   })
 
-  it('flag ON + stale: hero authors NO rerun and NO stale surface — the strip owns recovery (C1)', () => {
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
+  it('stale: hero authors NO rerun and NO stale surface — the strip owns recovery (C1)', () => {
     // Realistic stale state: the freshness slice IS stale, so the tab's
     // AnalysisFreshnessNotice (mounted by OutputsDock) carries the warning
     // AND the one Rerun — the hero must not repeat either (ratified v6
@@ -217,13 +191,12 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     expect(hero.textContent).not.toMatch(/stale|not analysed|re-run before/i)
   })
 
-  it('flag ON: hero focus-next is neutral copy that scrolls the REAL mounted coaching panel', () => {
+  it('hero focus-next is neutral copy that scrolls the REAL mounted coaching panel', () => {
     // Focus-next reconciliation (review item 1): the coaching panel orders
     // its rows positionally (buildFocusRows), not by vm.topAction, so the
     // hero deliberately names NO action — neutral copy targeting the panel
     // container. This test runs against the real mounted tree, not a
     // synthetic target.
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
     renderBody()
     const panel = screen.getByTestId('focus-now-panel')
     const scrollSpy = vi.fn()
@@ -241,8 +214,7 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     expect(scrollSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('flag ON, coaching panel OFF: focus-next degrades to plain text (no dead link, no throw)', () => {
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
+  it('coaching panel OFF: focus-next degrades to plain text (no dead link, no throw)', () => {
     vi.mocked(isFocusNowPanelEnabled).mockReturnValue(false)
     renderBody()
     expect(screen.queryByTestId('focus-now-panel')).toBeNull()
@@ -251,13 +223,10 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     expect(focusNext).toHaveTextContent('Focus next: review the top actions below.')
   })
 
-  it('flag ON: the retired slot suppresses the V17 machinery too (hero owns the slot)', () => {
-    // Wave 2: the retirement covers the whole legacy slot — legacy panel,
-    // v17 variant AND compare mode — so a stray v17 flag can never mount a
-    // second headline surface beside the merged panel.
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
-    vi.mocked(isAnalysisHeroV17Enabled).mockReturnValue(true)
-    vi.mocked(isAnalysisHeroCompareEnabled).mockReturnValue(true)
+  it('no superseded headline surface survives beside the hero', () => {
+    // The retirement covered the whole legacy slot — legacy panel, v17
+    // variant and compare mode — so no second headline surface can mount
+    // beside the merged panel.
     renderBody()
     expect(screen.getByTestId('analysis-hero-panel')).toBeInTheDocument()
     expect(screen.queryByTestId('analysis-hero-v17')).toBeNull()
@@ -283,27 +252,19 @@ describe("Paul's ruling (2026-07-12): risk appetite is an explicitly-labelled le
   it('a non-neutral lens never rewrites the recommendation panel above the cards', () => {
     useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
     renderBody()
-    const heroBefore = screen.getByTestId('decision-confidence-panel').textContent
+    const heroBefore = screen.getByTestId('analysis-hero-panel').textContent
     fireEvent.click(screen.getByRole('button', { name: 'Cautious (p10)' }))
     // Strict: the lens label renders OUTSIDE this panel, so any drift here
     // is real contamination.
-    expect(screen.getByTestId('decision-confidence-panel').textContent).toBe(heroBefore)
+    expect(screen.getByTestId('analysis-hero-panel').textContent).toBe(heroBefore)
   })
 })
-describe('Wave 2 flag-scoped retirement: stress-test thinking-pattern templates', () => {
-  it('flag ON: the UI-authored Thinking patterns subsection retires; producer-backed subsections stay', () => {
-    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
+describe('Wave 2 retirement: stress-test thinking-pattern templates', () => {
+  it('the UI-authored Thinking patterns subsection retires; producer-backed subsections stay', () => {
     useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
     renderBody()
     fireEvent.click(screen.getByTestId('accordion-stress-test'))
     expect(screen.getByTestId('stress-test-section')).toBeInTheDocument()
     expect(screen.queryByTestId('stress-test-thinking-subsection')).toBeNull()
-  })
-
-  it('flag OFF: Thinking patterns render exactly as today', () => {
-    useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
-    renderBody()
-    fireEvent.click(screen.getByTestId('accordion-stress-test'))
-    expect(screen.getByTestId('stress-test-thinking-subsection')).toBeInTheDocument()
   })
 })

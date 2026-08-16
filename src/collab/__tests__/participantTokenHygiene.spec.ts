@@ -66,11 +66,11 @@ describe('participant token capture and strip', () => {
   })
 
   it('preserves OTHER query parameters while removing only the token', () => {
-    setUrl(`/?diag=1&ct=${TOKEN}&analysisHeroCompare=1#/panel/round-abc`)
+    setUrl(`/?diag=1&ct=${TOKEN}&sandbox=1#/panel/round-abc`)
     captureParticipantTokenFromUrl()
     expect(window.location.href).not.toContain(TOKEN)
     expect(window.location.search).toContain('diag=1')
-    expect(window.location.search).toContain('analysisHeroCompare=1')
+    expect(window.location.search).toContain('sandbox=1')
   })
 
   it('leaves no history entry that could restore the token via Back', () => {

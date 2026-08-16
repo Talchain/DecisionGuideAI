@@ -81,10 +81,9 @@ const ALLOWLIST: Record<string, RegExp> = {
   // model. It reads no raw metric at all, so it must be policed like any
   // other consumer — an exemption kept "just in case" would silently sanction
   // the next raw read added there.
-  // V17 hero dominance GATE (UI-SEM-040): absolute/ratio thresholds over the
-  // raw metrics — deliberately NOT the display-ranking policy. The marker
-  // comment is the attestation; if the gate is rewritten, re-decide.
-  'components/results/analysisHeroV17/buildAnalysisHeroViewModel.ts': /UI-SEM-040/,
+  // (retired) The V17 hero dominance GATE (UI-SEM-040) held an exemption here.
+  // Its file was deleted with the analysis fork, so the exemption has no
+  // subject; a new raw-metric gate must earn its own row.
   // Model-tab factor map: post-Lane-2 an adapter that feeds the policy
   // (reads the wire-shape camelCase fallback on its input rows).
   'canvas/components/model-tab/utils.ts': /selectDriverDisplayModel/,

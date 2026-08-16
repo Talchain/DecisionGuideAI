@@ -141,8 +141,9 @@ describe('mount path — these tests bind to a surface the deployed flags render
 
   it('netlify.toml enables VITE_FEATURE_COMPARE_TAB, so CompareTabBody mounts', () => {
     // Positive control: prove we can SEE a setting in this file at all before
-    // asserting anything about the one under test (trap 13).
-    expect(netlifyToml).toMatch(/VITE_FEATURE_ANALYSIS_HERO_PANEL\s*=\s*"1"/)
+    // asserting anything about the one under test (trap 13). A DIFFERENT key
+    // from the one under test, so a regex that matched nothing cannot pass.
+    expect(netlifyToml).toMatch(/VITE_V5_CANONICAL_ANALYSIS\s*=\s*"true"/)
     expect(netlifyToml).toMatch(/VITE_FEATURE_COMPARE_TAB\s*=\s*"1"/)
   })
 

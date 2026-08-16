@@ -1,41 +1,15 @@
 /**
- * ResultsBody — P4's "Confirm AI estimate" MUST RENDER ON THE DEPLOYED FLAG
- * POSTURE (ROADMAP 2.661; the corrected premise of 2.651).
+ * ResultsBody — P4's "Confirm AI estimate" MUST RENDER ON THE LIVE ANALYSIS
+ * SURFACE (ROADMAP 2.661; the corrected premise of 2.651).
  *
  * ## The defect this file exists to prevent, stated bluntly
  *
- * `ResultsBody` mounts BOTH triage-carrying surfaces — `AnalysisHeroV17` and
- * `DecisionConfidencePanel` — inside its `!isAnalysisHeroPanelEnabled()` arm.
- * Deployed staging bakes `VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"`, so on the
- * posture real users load, NEITHER mounted and the confirm/set-value
- * affordance did not exist at all. A user could not confirm an AI estimate
- * after an analysis.
- *
- * ⚠ Note the shape of the trap (CLAUDE.md 3b, third instance in this estate).
- * `analysisHeroV17` is ALSO `"1"` on staging — so the natural reading, "the
- * V17 hero is the modern surface, host it there", is WRONG: V17 is inside the
- * SAME dark arm. Both values were read from the DEPLOYED BUNDLE
- * (`assets/flags-*.js`: `VITE_FEATURE_ANALYSIS_HERO_PANEL:"1"`,
- * `VITE_FEATURE_ANALYSIS_HERO_V17:"1"`, `..._COMPARE:void 0`), not from
- * `netlify.toml` alone — CLAUDE.md trap 18: config is not posture.
- *
- * ## Flag injection — through the flag system's own seam, NOT a mock
- *
- * `vi.mock('@/flags')` would prove the mock, not the posture. `makeFlag`
- * (flagFactory.ts) reads localStorage AT CALL TIME ahead of the env snapshot,
- * and `'1'` resolves through the same truthiness the deployed
- * `VITE_FEATURE_ANALYSIS_HERO_PANEL="1"` uses. So
- * `localStorage.setItem('feature.analysisHeroPanel', '1')` exercises the real
- * `isAnalysisHeroPanelEnabled` end to end. Parity assertions below pin that
- * the injection actually flips the real functions — without them the whole
- * file could pass while testing the default posture (CLAUDE.md trap 13b: a
- * guard whose discrimination depends on an unpinned precondition).
- *
- * ## Both flags are set, because the DEPLOYED POSTURE sets both
- *
- * Reproducing only `analysisHeroPanel` would be a fixture of my own invention
- * rather than the wire (CLAUDE.md trap 16's inverse). `deployedPosture()`
- * sets the pair the bundle carries.
+ * `ResultsBody` used to mount BOTH triage-carrying surfaces — `AnalysisHeroV17`
+ * and `DecisionConfidencePanel` — inside a flag arm no deployment rendered, so
+ * on the posture real users loaded the confirm/set-value affordance did not
+ * exist at all. A user could not confirm an AI estimate after an analysis.
+ * That fork is now closed: the cockpit mounts unconditionally and hosts the
+ * affordance, and these tests bind to that one host.
  *
  * ## Identity binding (CLAUDE.md trap 19)
  *
@@ -68,7 +42,6 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusModelTarget: vi.fn(() => true),
 }))
 
-import { isAnalysisHeroPanelEnabled, isAnalysisHeroV17Enabled } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -76,7 +49,7 @@ import { useUIStore } from '@/stores/uiStore'
 const TARGET_NODE_ID = 'node_underinformed_factor'
 const TARGET_LABEL = 'Ramp-up time'
 
-/** The testid of the mount path under test — the hero-arm host, by identity. */
+/** The testid of the mount path under test — the cockpit host, by identity. */
 const LIVE_MOUNT = 'hero-arm-triage-actions'
 
 function makeData(): ResultsSectionDataReturn {
@@ -200,27 +173,6 @@ function renderBody(props: { isStale?: boolean; isRunning?: boolean } = {}): Han
 }
 
 /**
- * The DEPLOYED STAGING posture, through the real flag seam. Both values are
- * the ones read from the deployed bundle — see the file header.
- */
-function deployedPosture(): void {
-  localStorage.setItem('feature.analysisHeroPanel', '1')
-  localStorage.setItem('feature.analysisHeroV17', '1')
-  // ⚠ The precondition this whole file's discrimination rests on. Without
-  // these, every assertion below could be measuring the DEFAULT posture and
-  // silently proving nothing (CLAUDE.md trap 13b).
-  expect(isAnalysisHeroPanelEnabled()).toBe(true)
-  expect(isAnalysisHeroV17Enabled()).toBe(true)
-}
-
-/** The default / production posture: the flag is absent, so it reads false. */
-function defaultPosture(): void {
-  localStorage.removeItem('feature.analysisHeroPanel')
-  localStorage.removeItem('feature.analysisHeroV17')
-  expect(isAnalysisHeroPanelEnabled()).toBe(false)
-}
-
-/**
  * The triage card for THIS factor, by identity, scoped to a named root so a
  * card mounted by any OTHER arm cannot satisfy the assertion.
  */
@@ -231,12 +183,12 @@ function targetCardWithin(root: HTMLElement): HTMLElement {
   return card!
 }
 
-/** The live (deployed-posture) host, asserted to BE the mount path. */
+/** The live host, asserted to BE the mount path. */
 function liveMount(): HTMLElement {
   return screen.getByTestId(LIVE_MOUNT)
 }
 
-describe('ResultsBody — "Confirm AI estimate" on the DEPLOYED flag posture (2.661)', () => {
+describe('ResultsBody — "Confirm AI estimate" on the live analysis surface (2.661)', () => {
   beforeEach(() => {
     localStorage.clear()
     useCanvasStore.setState({
@@ -253,26 +205,10 @@ describe('ResultsBody — "Confirm AI estimate" on the DEPLOYED flag posture (2.
   })
 
   /**
-   * CONTROL (CLAUDE.md trap 13). Every claim below is worthless unless this
-   * fixture can render the affordance AT ALL. This proves a PRESENCE on the
-   * arm that always had one, before anything asserts a presence elsewhere.
-   */
-  it('control — on the DEFAULT posture the legacy arm renders the affordance for this factor', () => {
-    defaultPosture()
-    const { onConfirmFactor } = renderBody()
-    const panel = screen.getByTestId('decision-confidence-panel')
-    fireEvent.click(
-      within(targetCardWithin(panel)).getByRole('button', { name: 'Confirm AI estimate' }),
-    )
-    expect(onConfirmFactor).toHaveBeenCalledWith(TARGET_NODE_ID)
-  })
-
-  /**
    * ⭐ I-A, THE ROW'S CAPABILITY CLAIM. RED at pristine: on the posture real
-   * staging users load, the button did not exist.
+   * staging users loaded, the button did not exist.
    */
-  it('deployed posture — the affordance RENDERS, inside the live mount path', () => {
-    deployedPosture()
+  it('the affordance RENDERS, inside the live mount path', () => {
     renderBody()
     expect(
       within(targetCardWithin(liveMount())).getByRole('button', {
@@ -286,8 +222,7 @@ describe('ResultsBody — "Confirm AI estimate" on the DEPLOYED flag posture (2.
    * the same argument the default-posture control asserts. A button that
    * renders but reports nothing satisfies presence and still fails the user.
    */
-  it('deployed posture — the confirmation LANDS with this factor’s id', () => {
-    deployedPosture()
+  it('the confirmation LANDS with this factor’s id', () => {
     const { onConfirmFactor } = renderBody()
     fireEvent.click(
       within(targetCardWithin(liveMount())).getByRole('button', {
@@ -299,8 +234,7 @@ describe('ResultsBody — "Confirm AI estimate" on the DEPLOYED flag posture (2.
   })
 
   /** I-A: the set-value control is the other half of P4 and must also land. */
-  it('deployed posture — the inline value editor commits an override for this factor', () => {
-    deployedPosture()
+  it('the inline value editor commits an override for this factor', () => {
     const { onSetFactorValue } = renderBody()
     const card = targetCardWithin(liveMount())
     const input = within(card).getByRole('spinbutton', { name: `Value for ${TARGET_LABEL}` })
@@ -313,8 +247,7 @@ describe('ResultsBody — "Confirm AI estimate" on the DEPLOYED flag posture (2.
    * ⭐ I-B, limb 1 — the run gate #609 shipped still applies on this surface.
    * The new host must inherit the gating, not route around it.
    */
-  it('deployed posture — while a run is IN FLIGHT the affordance stays suppressed', () => {
-    deployedPosture()
+  it('while a run is IN FLIGHT the affordance stays suppressed', () => {
     renderBody({ isRunning: true })
     const card = targetCardWithin(liveMount())
     expect(
@@ -330,8 +263,7 @@ describe('ResultsBody — "Confirm AI estimate" on the DEPLOYED flag posture (2.
    * #609 retired). This is the limb that would silently come back if someone
    * re-derived `suppressMutations` on the new host.
    */
-  it('deployed posture — STALE results still offer the affordance, and it lands', () => {
-    deployedPosture()
+  it('STALE results still offer the affordance, and it lands', () => {
     const { onConfirmFactor } = renderBody({ isStale: true })
     fireEvent.click(
       within(targetCardWithin(liveMount())).getByRole('button', {
@@ -342,33 +274,19 @@ describe('ResultsBody — "Confirm AI estimate" on the DEPLOYED flag posture (2.
   })
 
   /**
-   * ⚠ I-C — THE MOUNT FORK, ASSERTED IN BOTH DIRECTIONS.
+   * ⚠ I-C — THE MOUNT PATH, ASSERTED BY IDENTITY AND FOR SINGULARITY.
    *
-   * Not "the affordance exists somewhere" but "it exists on the arm the
-   * deployed flags mount, and NOT twice". A flag move REDs this pair rather
-   * than leaving a green suite pointed at a component no deployment renders.
+   * Not "the affordance exists somewhere" but "it exists on the one host that
+   * mounts, and NOT twice". A re-host REDs this rather than leaving a green
+   * suite pointed at a component no deployment renders.
    */
-  it('mount fork — deployed posture mounts the hero arm host and NOT the legacy panel', () => {
-    deployedPosture()
+  it('mount path — the cockpit host carries the affordance exactly once, and no legacy panel survives', () => {
     renderBody()
     expect(screen.getByTestId('analysis-hero-panel')).toBeInTheDocument()
     expect(liveMount()).toBeInTheDocument()
     expect(screen.queryByTestId('decision-confidence-panel')).not.toBeInTheDocument()
-    // Exactly one confirm affordance for this factor — the hero arm must not
-    // double-render what the legacy arm used to own.
-    expect(screen.getAllByRole('button', { name: 'Confirm AI estimate' })).toHaveLength(1)
-  })
-
-  /**
-   * I-D — the legacy arm is UNCHANGED when the flag is off, and the new host
-   * is absent there. Without this direction the fix could have quietly
-   * double-mounted the queue on the default/production posture.
-   */
-  it('mount fork — default posture keeps the legacy panel and does NOT mount the hero arm host', () => {
-    defaultPosture()
-    renderBody()
-    expect(screen.getByTestId('decision-confidence-panel')).toBeInTheDocument()
-    expect(screen.queryByTestId(LIVE_MOUNT)).not.toBeInTheDocument()
+    // Exactly one confirm affordance for this factor — the cockpit must not
+    // double-render what the deleted legacy arm used to own.
     expect(screen.getAllByRole('button', { name: 'Confirm AI estimate' })).toHaveLength(1)
   })
 })

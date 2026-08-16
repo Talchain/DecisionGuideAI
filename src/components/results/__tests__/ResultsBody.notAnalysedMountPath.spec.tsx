@@ -17,9 +17,8 @@
  *
  * `ResultsBody.tsx` mounts `<OptionCards>` inside a block gated ONLY on
  * `!recommendation.isSingleOption && allOptions.length > 1`. There is NO
- * feature flag on that path — the surrounding comment states it deliberately
- * ("full options block renders identically regardless of V17 flag"). The flags
- * `netlify.toml` sets for staging (`VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"`,
+ * feature flag on that path — the surrounding comment states it deliberately.
+ * The flags `netlify.toml` sets for staging (e.g.
  * `VITE_FEATURE_PRE_ANALYSIS_V3 = "1"`) switch OTHER surfaces around it and
  * cannot unmount this one. `ResultsBody` itself is the Analysis tab body,
  * mounted unconditionally from `OutputsDock` on the `results` tab.
@@ -30,10 +29,25 @@
  * upstream a two-option scenario would fall below the gate and the whole
  * comparison block would vanish. That failure mode is silent and is pinned
  * below.
+ *
+ * ## THE SECOND RANKED SURFACE (added with the analysis-cockpit consolidation)
+ *
+ * `ResultsBody` now also mounts `AnalysisHeroContainer`, which builds one row
+ * per option from the SAME `recommendation.allOptions`. So there are TWO
+ * surfaces on this screen that can rank, and this file originally queried only
+ * one of them — an unscoped `getByText(EXCLUDED_LABEL)` that started matching
+ * two nodes the moment the cockpit landed.
+ *
+ * The duplicate LABEL is legitimate: both surfaces list every option, and the
+ * ruling keeps an unanalysed option VISIBLE. The duplicate RANK was not — the
+ * hero drew an ordinal beside the excluded option while the card below it drew
+ * none. The label queries are therefore scoped by identity, and a new case
+ * pins the hero's half of the no-rank contract so this file covers both
+ * surfaces rather than one.
  */
 
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, within } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
@@ -151,12 +165,40 @@ describe('ResultsBody — the not-analysed card on the mount path', () => {
 
   it('renders the not-analysed card through ResultsBody, with no ranked chrome on it', () => {
     renderBody(MIXED)
-    expect(screen.getByTestId(`option-card-not-analysed-${EXCLUDED}`)).toBeInTheDocument()
-    expect(screen.getByText(EXCLUDED_LABEL)).toBeInTheDocument()
+    const card = screen.getByTestId(`option-card-not-analysed-${EXCLUDED}`)
+    expect(card).toBeInTheDocument()
+    // SCOPED, not loosened. The analysis cockpit lists the same option above
+    // the cards, so the label is legitimately on screen TWICE and an unscoped
+    // getByText resolves neither surface's claim. The assertion still says
+    // "the not-analysed card names this option" — it now says it about the
+    // card, by identity, instead of about whichever node matched first.
+    expect(within(card).getByText(EXCLUDED_LABEL)).toBeInTheDocument()
     expect(screen.queryByTestId(`option-card-${EXCLUDED}`)).not.toBeInTheDocument()
     expect(screen.queryByTestId(`rank-marker-${EXCLUDED}`)).not.toBeInTheDocument()
     expect(screen.queryByTestId(`stable-number-${EXCLUDED}`)).not.toBeInTheDocument()
     expect(screen.queryByTestId(`win-pct-${EXCLUDED}`)).not.toBeInTheDocument()
+  })
+
+  it('NO-RANK on the OTHER surface too: the hero lists it with no ordinal', () => {
+    // The cards were never the only ranked surface. `AnalysisHeroContainer`
+    // renders one row per option from the SAME `allOptions`, and it used to
+    // draw an ordinal beside every one of them — so the excluded option was
+    // simultaneously rank-less on the card and "3" in the cockpit, on one
+    // screen. That is the contradiction `utils/optionDisplayOrder.ts` names
+    // ("last is not a rank ... no ordinal at all") and the one this file's
+    // sibling assertions would never have seen, because they only query the
+    // cards.
+    renderBody(MIXED)
+    const excludedRow = document.querySelector(`[data-option-id="${EXCLUDED}"]`)
+    expect(excludedRow).not.toBeNull()
+    expect(within(excludedRow as HTMLElement).queryByTestId('hero-row-number')).toBeNull()
+
+    // POSITIVE CONTROL — without it the absence above passes just as happily
+    // when the hero stops drawing ordinals altogether, or stops mounting.
+    // An analysed option in the SAME list must still carry its ordinal.
+    const analysedRow = document.querySelector(`[data-option-id="${ANALYSED_A}"]`)
+    expect(analysedRow).not.toBeNull()
+    expect(within(analysedRow as HTMLElement).getByTestId('hero-row-number')).toHaveTextContent('1')
   })
 
   it('the WinGauge draws no segment for it', () => {
