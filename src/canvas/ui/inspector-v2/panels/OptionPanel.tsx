@@ -387,16 +387,25 @@ export const OptionPanel = memo(function OptionPanel({
         // shared, so an option ADDED SINCE the run and an option the run
         // covered-and-returned-nothing-for read identically. They are
         // different situations and only one of them is the user's to fix.
-        const hasImpactContent =
-          displayMetadata.winRate !== null
-          || !!headline
-          || (allOptions.length > 1 && allOptions.some(o => o.winPct != null))
         // Was THIS node in the run's own comparison? `allOptions` is built
         // from `option_comparison`, i.e. the run's own record of what it
         // analysed — not from the canvas, and not from global mode.
         const runCoveredSomething = allOptions.length > 0
         const nodeWasInRun = allOptions.some(o => o.isCurrent)
         const addedSinceRun = runCoveredSomething && !nodeWasInRun
+        // ⚠ THE THIRD DISJUNCT WAS RUN-LEVEL, NOT PER-NODE (review D2), so the
+        // fix above never fired on the mainline shape. A run compares two or
+        // more options; the user then adds a third. `allOptions.length > 1 &&
+        // some(winPct != null)` is true of THE RUN, so the new option scored
+        // as having impact content and rendered the OTHER options' bars —
+        // foreign data under its own heading — instead of saying it was added
+        // afterwards. The first round's fixture used a ONE-option comparison,
+        // the single shape in which the old predicate happened to be false.
+        // Gating on `nodeWasInRun` makes the whole predicate per-node.
+        const hasImpactContent =
+          displayMetadata.winRate !== null
+          || !!headline
+          || (nodeWasInRun && allOptions.length > 1 && allOptions.some(o => o.winPct != null))
         return (
         <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
           <StaleGuardBanner hasResults={isResultsMode}>

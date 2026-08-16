@@ -131,8 +131,14 @@ export function InspectorCoaching({
     ? `${topGuidanceItem.title}${topGuidanceItem.detail ? ` ${topGuidanceItem.detail}` : ''}`
     : fallbackText
 
+  // ⚠ A `run_exercise` item kept the ASK label ("Ask about this") while
+  // AUTO-SENDING a slash command — a control labelled as one semantic doing
+  // the other, inside the very component this PR unified. Labelled for what it
+  // does, using the estate's EXISTING word for this action class
+  // (`GuidanceStrip.tsx` / `InspectorGuidanceSection.tsx` both say 'Try it')
+  // rather than minting a third vocabulary for the same enum.
   const guidanceActionLabel = topGuidanceItem
-    ? (topGuidanceItem.primary_action.type === 'discuss' ? 'Discuss' : actionLabel)
+    ? guidanceActionLabelFor(topGuidanceItem.primary_action.type, actionLabel)
     : actionLabel
 
   const action = canInteract
@@ -143,4 +149,17 @@ export function InspectorCoaching({
     : undefined
 
   return <CoachingCard text={text} action={action} />
+}
+
+/**
+ * Label for a guidance action. `discuss` and the default are ASKS and keep the
+ * ask wording; `run_exercise` is a COMMAND and must not wear an ask's label.
+ * Kept in step with the shared table in `GuidanceStrip` / `InspectorGuidanceSection`.
+ */
+function guidanceActionLabelFor(type: string, askLabel: string): string {
+  switch (type) {
+    case 'discuss':      return 'Discuss'
+    case 'run_exercise': return 'Try it'
+    default:             return askLabel
+  }
 }

@@ -201,7 +201,10 @@ describe('one ask semantic · InspectorCoaching no longer auto-sends', () => {
     } as never)
 
     render(<InspectorCoaching {...coachingProps} />)
-    fireEvent.click(screen.getByText('Ask about this'))
+    // Labelled 'Try it', not 'Ask about this' — an auto-sending control must
+    // not wear an ask's label (review item 4). Clicking it still sends.
+    expect(screen.queryByText('Ask about this')).toBeNull()
+    fireEvent.click(screen.getByText('Try it'))
 
     expect(send).toHaveBeenCalledWith('/exercise pre_mortem')
     expect(prefill).not.toHaveBeenCalled()

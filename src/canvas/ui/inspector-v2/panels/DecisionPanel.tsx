@@ -62,31 +62,45 @@ export const DecisionPanel = memo(function DecisionPanel({
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
   const [isEditingDescription, setIsEditingDescription] = useState(false)
 
-  // Connected options — stored with raw winProb for formatWinProbability()
+  // Connected options — stored with raw winProb for formatWinProbability().
+  //
+  // ⚠ BOTH DIRECTIONS, and it was outbound-only (review D3). The canvas's
+  // `isValidConnection` lets a user draw `option → decision`, and such an edge
+  // fell through BOTH lists: excluded here by `source === nodeId`, and
+  // excluded from `otherConnections` below by its option kind. The panel then
+  // reported "No connections yet." while the canvas plainly drew the edges —
+  // the very L-40 contradiction this file was changed to close, surviving in
+  // the direction the first corpus never drew.
   const connectedOptions = useMemo(() => {
+    const seen = new Set<string>()
     return edges
-      .filter(e => e.source === nodeId)
+      .filter(e => e.source === nodeId || e.target === nodeId)
       .map(e => {
-        const optNode = nodes.find(n => n.id === e.target)
+        const otherId = e.source === nodeId ? e.target : e.source
+        const optNode = nodes.find(n => n.id === otherId)
         if (!optNode) return null
         const kind = (optNode.type || optNode.data?.kind) as string
         if (kind !== 'option') return null
+        // An option joined in BOTH directions is ONE connection to the user,
+        // not two. Dedupe by the option's node id, not by edge id.
+        if (seen.has(otherId)) return null
+        seen.add(otherId)
         // Cast to `unknown` (not `number`) — interventions may be V3 objects
         // ({ value, source, ... }) or plain numbers. Only the key count is read
         // here, but the type should not lie about the value shape.
         const ivs = (optNode.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
         const ivCount = ivs ? Object.keys(ivs).length : 0
-        const label = String(optNode.data?.label ?? e.target)
+        const label = String(optNode.data?.label ?? otherId)
         // Explicit `is_baseline` wins; regex fallback only fires when the flag is
         // absent — mirrors OptionNode.tsx / OptionPanel.tsx.
         const explicitIsBaseline = (optNode.data as { is_baseline?: boolean | null })?.is_baseline
         const isBaseline = explicitIsBaseline ?? detectBaseline(label).isBaseline
         // Raw win probability — formatted via formatWinProbability() at render.
         const rawWinProb = optionComparison && Array.isArray(optionComparison)
-          ? (optionComparison as Array<{ option_id: string; win_probability?: number }>).find(o => o.option_id === e.target)?.win_probability
+          ? (optionComparison as Array<{ option_id: string; win_probability?: number }>).find(o => o.option_id === otherId)?.win_probability
           : undefined
         return {
-          nodeId: e.target,
+          nodeId: otherId,
           label,
           ivCount,
           isBaseline,

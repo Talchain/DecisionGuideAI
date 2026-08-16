@@ -37,16 +37,33 @@ export const InspectorShell = memo(function InspectorShell({
   const [showRationale, setShowRationale] = useState(false)
 
   // L-04 — a pending rename intent for THIS element opens the title in editing
-  // state, then is consumed. One-shot by design: leaving it set would reopen
-  // the editor on every unrelated re-render.
+  // state, then is consumed.
+  //
+  // ⚠ THIS WAS A BOOLEAN AND IT LEAKED (adversarial review D1). The live
+  // inspector does NOT remount per selection: `InspectorModal` keeps ONE shell
+  // mounted and changes `nodeId`. A boolean `autoEdit` therefore stayed true
+  // across a retarget, so selecting node B after arming node A opened B's
+  // editor — holding A's text, because the editor's own draft also survived —
+  // and the blur-save wrote "Option A" onto node B. A silent, wrong, persisted
+  // rename, and every test in the first round rendered FRESH, which is exactly
+  // why none of them could see it.
+  //
+  // The intent is now carried AS AN ID at every hop and is only honoured when
+  // it matches the node the shell is currently mounted for. Consumption clears
+  // it, so returning to A does not reopen the editor under a user who has
+  // moved on.
   const renameNodeId = useRenameIntentStore((s) => s.renameNodeId)
-  const [autoEditLabel, setAutoEditLabel] = useState(false)
+  const [armedForNodeId, setArmedForNodeId] = useState<string | null>(null)
   useEffect(() => {
     if (nodeId && renameNodeId === nodeId) {
-      setAutoEditLabel(true)
+      setArmedForNodeId(nodeId)
       clearNodeRename()
     }
   }, [nodeId, renameNodeId])
+  // The comparison — not a boolean — is what makes a retarget disarm.
+  const autoEditLabel = armedForNodeId !== null && armedForNodeId === nodeId
+  // One-shot: once the editor has opened, the intent is spent.
+  const handleAutoEditConsumed = useCallback(() => setArmedForNodeId(null), [])
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -106,11 +123,20 @@ export const InspectorShell = memo(function InspectorShell({
         <div className="flex items-start justify-between gap-1.5">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1">
+              {/* `key` is load-bearing, not cosmetic (D1): it remounts the
+                  editor whenever the shell is retargeted, so an open editor
+                  and a half-typed draft CANNOT survive onto the next element.
+                  Without it a retarget mid-rename carries the previous
+                  element's text into this one's save. An abandoned edit is
+                  discarded, which is the honest outcome — the user navigated
+                  away from it. */}
               <EditableLabel
+                key={nodeId ?? 'inspector-label'}
                 value={label}
                 onSave={onLabelChange}
                 maxLength={NODE_LABEL_MAX_LENGTH}
                 autoEdit={autoEditLabel}
+                onAutoEditConsumed={handleAutoEditConsumed}
                 className={`${typography.panelHeader} text-text-header`}
               />
               {rationale && (

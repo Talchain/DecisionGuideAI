@@ -38,6 +38,12 @@ interface EditableLabelProps {
   placeholder?: string
   /** Mount directly in editing state (canvas double-click → rename). */
   autoEdit?: boolean
+  /**
+   * Called once the auto-edit intent has actually opened the editor, so the
+   * owner can clear it. A rename intent is a ONE-SHOT EVENT: left set, it
+   * reopens the editor on every later re-render and follows the user around.
+   */
+  onAutoEditConsumed?: () => void
 }
 
 export function EditableLabel({
@@ -47,6 +53,7 @@ export function EditableLabel({
   className = '',
   placeholder = 'Untitled',
   autoEdit = false,
+  onAutoEditConsumed,
 }: EditableLabelProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -57,15 +64,33 @@ export function EditableLabel({
     if (!isEditing) setDraft(value)
   }, [value, isEditing])
 
-  // Rename intent: open the editor when asked. Only reacts to the transition
-  // INTO true, so clearing the intent does not slam the editor shut under the
-  // user's cursor.
+  // Rename intent: open the editor when asked, then report the intent spent so
+  // the owner can clear it.
+  //
+  // ⚠ The comment that stood here claimed this "only reacts to the transition
+  // INTO true". That was FALSE and it mattered: nothing in this component was
+  // keyed by element, so when the owner retargeted the shell to a different
+  // node this component kept `isEditing` AND kept `draft` — the previous
+  // element's text — and the next blur saved it onto the new element. The
+  // owner now remounts this component per element (`key`), so editing state
+  // and draft cannot cross an element boundary at all. Opening remains
+  // one-directional: clearing the intent never slams the editor shut under
+  // the user's cursor.
+  //
+  // The deps include `onSave`, whose IDENTITY changes: `useInspectorMutations`
+  // rebuilds `setLabel` per `[nodeId, updateNode, getNode]`. So the effect
+  // re-ran on ordinary re-renders while `autoEdit` was still true and REOPENED
+  // an editor the user had already closed. `prevAutoEdit` makes the trigger a
+  // genuine false→true TRANSITION, which is what the comment always claimed.
+  const prevAutoEdit = useRef(false)
   useEffect(() => {
-    if (autoEdit && onSave) {
-      setIsEditing(true)
-      requestAnimationFrame(() => inputRef.current?.focus())
-    }
-  }, [autoEdit, onSave])
+    const wasArmed = prevAutoEdit.current
+    prevAutoEdit.current = autoEdit
+    if (!autoEdit || wasArmed || !onSave) return
+    setIsEditing(true)
+    requestAnimationFrame(() => inputRef.current?.focus())
+    onAutoEditConsumed?.()
+  }, [autoEdit, onSave, onAutoEditConsumed])
 
   const save = useCallback(() => {
     // The input already caps at `maxLength`; the slice is defensive only, and
