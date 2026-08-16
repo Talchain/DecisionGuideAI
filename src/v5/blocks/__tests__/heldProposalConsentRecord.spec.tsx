@@ -254,7 +254,10 @@ describe('2.474(a) stored consent record', () => {
 
     fireEvent.click(screen.getByTestId('v5-held-proposal-confirm'))
 
-    expect(sendChip).toHaveBeenCalledWith(UNCLAMPED_LABEL, CONFIRM_MESSAGE)
+    // ARITY EXTENDED (L-59) — see V5HeldProposalBlock.spec.tsx. `undefined`
+    // is the positive statement that this fixture's producer declared no
+    // typed intent and the UI invented none.
+    expect(sendChip).toHaveBeenCalledWith(UNCLAMPED_LABEL, CONFIRM_MESSAGE, undefined)
   })
 })
 

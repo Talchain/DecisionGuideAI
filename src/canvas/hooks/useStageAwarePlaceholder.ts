@@ -1,6 +1,6 @@
 import { useCanvasStore, selectResultsStatus } from '../store'
+import { useMayStalenessVoiceSpeak } from '../conversation/stalenessVoice'
 import { useAnalysisTrust } from './useAnalysisTrust'
-import { useSelectionContext } from './useSelectionContext'
 
 /**
  * Returns the placeholder text the persistent input strip / floating composer
@@ -14,25 +14,37 @@ import { useSelectionContext } from './useSelectionContext'
  * had moved to cannot-confirm).
  *
  * Priority (highest first):
- *   1. Node/edge selected            → "Ask about [label]..."
- *   2. Model changed since the run    → "Model changed. Ask or rerun..."
+ *   1. Model changed since the run    → "Model changed. Ask or rerun..."
  *      (CEE 'stale' OR a local edit that downgraded a retained 'fresh')
- *   3. Confirmed current analysis     → "Ask about the latest analysis..."
- *   4. Analysis exists, can't confirm → "Ask about this analysis..."
+ *      — SUPPRESSED while a higher staleness voice is on screen, see below.
+ *   2. Confirmed current analysis     → "Ask about the latest analysis..."
+ *   3. Analysis exists, can't confirm → "Ask about this analysis..."
  *      (cannot-confirm / no freshness verdict — never claims "latest")
- *   5. Model exists                   → "Ask about this model..."
- *   6. No model                       → "Describe your decision..."
+ *   4. Model exists                   → "Ask about this model..."
+ *   5. No model                       → "Describe your decision..."
+ *
+ * ── L-17: THE SELECTION BRANCH IS GONE, DELIBERATELY ───────────────────────
+ * This hook used to return "Ask about [label]…" whenever one element was
+ * selected. That read as a PREPARED SENTENCE the user could send, and it was
+ * not one: a placeholder is an attribute, the composer's value stayed empty,
+ * and there was no way to submit it. The selection now carries a REAL,
+ * submittable control (`SelectionPill`), so the placeholder returns to the
+ * neutral prompt and stops impersonating content it never held.
+ *
+ * ── L-42: ONE STALENESS COMMUNICATION PER TURN VIEW ────────────────────────
+ * The applied-edit card's freshness note and the freshness pill both outrank
+ * this placeholder. While either is on screen the composer says the neutral
+ * thing rather than being the third voice telling the user to re-run.
+ * Suppression is limited to the 'changed' branch — the only one that repeats
+ * the higher surfaces' claim.
  */
 export function useStageAwarePlaceholder(): string {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const resultsStatus = useCanvasStore(selectResultsStatus)
-  const selection = useSelectionContext()
   const freshness = useAnalysisTrust().semantic
+  const mayNagAboutStaleness = useMayStalenessVoiceSpeak('placeholder')
 
-  if (selection) {
-    return `Ask about ${selection.label}…`
-  }
-  if (freshness === 'changed') {
+  if (freshness === 'changed' && mayNagAboutStaleness) {
     return 'Model changed. Ask or rerun…'
   }
   if (freshness === 'current') {

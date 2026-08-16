@@ -19,18 +19,32 @@
  *
  * Design tokens (DS v5 §21.2): card frame, panel typography, semantic border.
  */
-import { useMemo, type ReactElement } from 'react'
+import { useEffect, useMemo, type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../../canvas/store'
 import { useAnalysisTrust } from '../../canvas/hooks/useAnalysisTrust'
+import { claimStalenessVoice } from '../../canvas/conversation/stalenessVoice'
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/conversation/types'
 import { buildV5PatchReceipt, buildV5PatchDeps } from './v5GraphPatchDescription'
 
 export interface V5GraphPatchBlockProps {
   block: V5GraphPatchBlockType
+  /**
+   * L-42: is this card in the NEWEST assistant turn? Only that turn's card may
+   * claim the staleness voice.
+   *
+   * The transcript keeps every turn mounted, so a mount-keyed claim let an
+   * applied-edit card from ten turns back — scrolled far out of view — silence
+   * the freshness pill and the composer for the rest of the session. Defaults
+   * to false, so a caller that does not thread it silences nothing.
+   */
+  isLatestAssistantTurn?: boolean
 }
 
-export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactElement {
+export function V5GraphPatchBlock({
+  block,
+  isLatestAssistantTurn = false,
+}: V5GraphPatchBlockProps): ReactElement {
   // Pull only the slices we need; useCanvasStore selectors keep the
   // subscription scoped so the block does not re-render on unrelated
   // store updates.
@@ -56,6 +70,25 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
   // emits.
   const trustSemantic = useAnalysisTrust().semantic
   const showStaleHint = receipt.status === 'applied' && trustSemantic === 'changed'
+
+  /**
+   * L-42 — this note is the TOP of the staleness hierarchy, and it claims that
+   * position ONLY in the newest assistant turn.
+   *
+   * ⚠ The scoping conjunct is the fix for a real defect, not caution: the
+   * transcript keeps every turn mounted, so claiming on mount alone let a card
+   * the user had scrolled past hours ago keep the pill and the composer silent
+   * for the whole session — silence with no visible explanation, which is worse
+   * than the triple-nagging this rule exists to stop.
+   *
+   * The claim is released exactly when either conjunct goes false (the note
+   * stops rendering, or a newer turn arrives), including on unmount.
+   */
+  const claimsStalenessVoice = showStaleHint && isLatestAssistantTurn
+  useEffect(() => {
+    if (!claimsStalenessVoice) return
+    return claimStalenessVoice('card')
+  }, [claimsStalenessVoice])
 
   const isApplied = receipt.status === 'applied'
 

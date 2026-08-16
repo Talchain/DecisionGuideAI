@@ -64,6 +64,49 @@ function stripProposalPrefix(text: string, isApplied: boolean): string {
   return text.replace(PROPOSAL_PREFIX_RE, '')
 }
 
+/**
+ * THE rendered summary of a graph-patch card — the single authority for
+ * "what text does this card actually put on screen?".
+ *
+ * Extracted (behaviour unchanged) because a SECOND consumer now needs the
+ * answer: the turn's render-authority collector, which withholds prose the card
+ * is about to state again. An adversarial review caught that collector reading
+ * BOTH `applied_summary` and `summary` while this component renders exactly
+ * ONE of them — so on a proposed patch it suppressed prose against text the
+ * user would never see. That is content loss, and it came from a mirror.
+ *
+ * There is now no mirror: both call sites call this.
+ */
+export function resolveGraphPatchSummaryText(
+  block: GraphPatchBlockType,
+  isApplied: boolean,
+): string {
+  const ceeSummaryText = normaliseDashes(block.summary || '')
+  const ceeAppliedSummaryText = normaliseDashes(block.applied_summary || '')
+  const rawSummaryText = ceeSummaryText || getContextualFallback(block)
+  return isApplied && ceeAppliedSummaryText
+    ? ceeAppliedSummaryText
+    : stripProposalPrefix(rawSummaryText, isApplied)
+}
+
+/**
+ * Is this patch card in its APPLIED state? The same conjunction the renderer
+ * uses, exported for the same single-authority reason as above.
+ *
+ * `auto_apply` is on the block; `accepted` is RUNTIME state held in the
+ * `patchBlockStates` map, so a caller without that map cannot answer this and
+ * must not guess.
+ */
+export function isGraphPatchApplied(
+  block: GraphPatchBlockType,
+  patchBlockStates: Map<string, PatchBlockState> | undefined,
+  turnId: string | undefined,
+): boolean {
+  if (block.auto_apply === true) return true
+  const stateKey = turnId ? `${turnId}:${block.patch_id}` : block.patch_id
+  return resolvePatchBlockState(block, patchBlockStates, stateKey) === 'accepted'
+}
+
 function getProposalItems(block: GraphPatchBlockType): ProposalReviewItem[] {
   return Array.isArray(block.proposal_items) ? block.proposal_items.filter((item) => !!item?.description) : []
 }
@@ -181,9 +224,6 @@ export function GraphPatchBlockRenderer({
   )
 
   // Prefer CEE's semantic block.summary; fall back to contextual text by patch type.
-  const ceeSummaryText = normaliseDashes(block.summary || '')
-  const ceeAppliedSummaryText = normaliseDashes(block.applied_summary || '')
-  const rawSummaryText = ceeSummaryText || getContextualFallback(block)
   const rawProposalItems = getProposalItems(block)
   const proposalItemsSource = getProposalItemsSource(block)
   const operationMeta = Array.isArray(block.operation_meta) ? block.operation_meta : []
@@ -199,11 +239,10 @@ export function GraphPatchBlockRenderer({
     || (block.patch_type == null && isAutoApplied && addNodeOpCount >= 3 && addNodeOpCount > block.operations.length / 2)
   const hasRevealTargets = !isWholeGraphTarget && !isGenerativeDraft && (uniqueTargetNodeIds.length > 0 || edgeIds.length > 0)
   const isApplied = isAutoApplied || resolvedState === 'accepted'
+  // ONE authority — see resolveGraphPatchSummaryText.
   const summaryText = useMemo(
-    () => (isApplied && ceeAppliedSummaryText
-      ? ceeAppliedSummaryText
-      : stripProposalPrefix(rawSummaryText, isApplied)),
-    [rawSummaryText, ceeAppliedSummaryText, isApplied],
+    () => resolveGraphPatchSummaryText(block, isApplied),
+    [block, isApplied],
   )
   const cardState = resolveCardState(resolvedState, isAutoApplied, rejectionInfo?.code === 'NETWORK_ERROR')
   const { header: cardHeader, badge: cardBadge } = getPatchCardLabels(cardState)

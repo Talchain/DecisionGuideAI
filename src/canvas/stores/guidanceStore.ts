@@ -224,6 +224,20 @@ function withOlumiReveal<Args extends unknown[]>(
 // § 2 — Store state and actions
 // ---------------------------------------------------------------------------
 
+/**
+ * The producer-declared intent a card-hosted inline action may carry alongside
+ * its display label and submitted message. Every field is optional and every
+ * field is the PRODUCER's — the UI never authors one (see `_sendChip`).
+ */
+export interface SendChipMeta {
+  /** Stable chip id, when the caller has one (otherwise the seam mints one). */
+  id?: string
+  /** `suggested_actions[].action_type` exactly as the producer emitted it. */
+  action_type?: string
+  /** `suggested_actions[].parameters`, forwarded unchanged. */
+  parameters?: Record<string, unknown>
+}
+
 export interface GuidanceState {
   guidanceItems: GuidanceItem[]
   activeGuidanceItemId: string | null
@@ -233,8 +247,25 @@ export interface GuidanceState {
   _sendMessage: ((text: string) => void) | null
   /** Registered by ConversationPanel so cross-surface Analyse CTAs can trigger the hidden run path */
   _runAnalysis: (() => void) | null
-  /** Registered by ConversationPanel so evidence blocks can send chip-style turns (display/submitted separation) */
-  _sendChip: ((label: string, message: string) => void) | null
+  /**
+   * Registered by ConversationPanel so evidence blocks can send chip-style turns
+   * (display/submitted separation).
+   *
+   * ⚠ The optional third argument is load-bearing, not decoration (L-59, 16 Aug
+   * 2026). Without it every CARD-HOSTED inline action — held-proposal confirm,
+   * evidence "Apply to model" — reached CEE as a BARE TEXT SEND: the seam minted
+   * a chip with no `action_type`, so a producer-typed action lost its type
+   * exactly when it was rendered on a card instead of in the generic chip row.
+   * CEE then routes the click as ordinary chat, which is how the product's own
+   * "Review the model" button came back with "You did not ask me to edit the
+   * model, so I have not".
+   *
+   * Optional, so every existing caller is unchanged and the ungated path is
+   * byte-identical; the wire gate (`sanitiseActionType`) still withholds any
+   * value CEE has not published AND accepted, so this can only ever restore a
+   * type the producer itself declared — never invent one.
+   */
+  _sendChip: ((label: string, message: string, meta?: SendChipMeta) => void) | null
   /** Registered by ConversationPanel so inspector actions can scroll to a patch block */
   _scrollToPatch: ((patchId: string) => void) | null
   /** Registered by ConversationPanel so inspector "Ask about this" can pre-fill chat input */

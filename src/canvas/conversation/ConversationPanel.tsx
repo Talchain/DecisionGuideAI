@@ -11,7 +11,7 @@
 import { useRef, useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { useCanvasStore, selectResultsStatus } from '../store'
 import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
-import { useGuidanceStore } from '../stores/guidanceStore'
+import { useGuidanceStore, type SendChipMeta } from '../stores/guidanceStore'
 import type { ActionChip, GraphPatchBlock } from './types'
 import {
   RETRY_CHIP_ID,
@@ -554,8 +554,23 @@ export const ConversationPanel = memo(function ConversationPanel({
   }, [messages.length, runGateResult.allowed, isAnalysisRunning, dispatchAction])
 
   useEffect(() => {
-    const sendChipByLabelMessage = (label: string, message: string) =>
-      sendChip({ id: `evidence-apply-${Date.now()}`, label, message, intent: 'primary' })
+    // L-59: forward the producer's own typed intent when the caller has one.
+    // `sendChip` → `dispatchAction` is the path that turns an `action_type` into
+    // a chosen turn type; without it the click falls through to the
+    // 'conversation' default and the reply denies that anything was asked for.
+    const sendChipByLabelMessage = (
+      label: string,
+      message: string,
+      meta?: SendChipMeta,
+    ) =>
+      sendChip({
+        id: meta?.id ?? `evidence-apply-${Date.now()}`,
+        label,
+        message,
+        intent: 'primary',
+        ...(meta?.action_type ? { action_type: meta.action_type } : {}),
+        ...(meta?.parameters ? { parameters: meta.parameters } : {}),
+      })
     // Prefill the visible composer (see prefillInto): the legacy ChatComposer
     // ref when mounted, else the ConversationContext draft AIInputBar renders
     // under `hideComposer`. Writing to the null ref was the silent no-op behind

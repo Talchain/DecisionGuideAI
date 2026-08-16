@@ -19,7 +19,7 @@
 import { memo, useState, useMemo, useRef } from 'react'
 import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
-import { AnswerBody } from './AnswerBody'
+import { AnswerBody, resolveAnswerBodyText } from './AnswerBody'
 import { InlineBlocks } from './InlineBlocks'
 import { AlertCircle, ChevronDown, ChevronUp, ListPlus, AlignLeft, RefreshCw } from 'lucide-react'
 import { FeedbackRow } from './FeedbackRow'
@@ -29,6 +29,7 @@ import { useCanvasStore } from '../store'
 import { isSelfContradictoryStale } from '../store/analysisFreshness'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
+import { collectConsentSurfaceText, dedupeRenderedText } from './messageComposition'
 import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
@@ -150,6 +151,8 @@ interface MessageBubbleProps {
    * affordance. Ignored for non-failed or assistant messages.
    */
   onRetryFailedSend?: () => void
+  /** L-42: only the newest assistant turn's card may claim the staleness voice. */
+  isLatestAssistantTurn?: boolean
 }
 
 export const MessageBubble = memo(function MessageBubble({
@@ -163,8 +166,69 @@ export const MessageBubble = memo(function MessageBubble({
   onProposalConfirm,
   compact = false,
   onRetryFailedSend,
+  isLatestAssistantTurn = false,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
+  const isStreaming = message.isStreaming === true
+
+  // ── HOOKS FIRST ────────────────────────────────────────────────────────────
+  // These three memos are declared BEFORE every early return in this component.
+  //
+  // That placement is load-bearing, not style: this file already carries three
+  // rules-of-hooks exceptions (hooks declared BELOW the sentinel /
+  // non-conversational / chip-initiated early returns), and the repo's ratchet
+  // says of them — correctly — "this file had an exception for its EXISTING
+  // violations, not a licence to add more. Each one is a render-time crash."
+  // A message that flips across one of those early returns between renders
+  // would change its hook count. So the render-authority memos sit above all of
+  // them. The pre-existing three are REPORTED, not fixed here: hoisting them is
+  // a separate, mechanical change and this lane's scope rule forbids
+  // "while we're here" work.
+  const rawDisplayContent = (isUser || isStreaming || message.stoppedByUser)
+    ? message.content
+    : extractFromRawJson(message.content)
+
+  /**
+   * ONE RENDER AUTHORITY (L-16 / NEW-9) — tier 0 for this turn.
+   *
+   * The consent / answer cards this turn will render below the prose. The prose
+   * body then withholds any whole segment one of them already states, so the
+   * plan behind a [Confirm these changes] control is read ONCE, on the control.
+   *
+   * Never applied to a user bubble (the user's own words are never withheld)
+   * and never while streaming (the card has not arrived, so "already rendered"
+   * is not yet a true statement about anything).
+   */
+  const consentSurfaceText = useMemo(
+    () => (isUser || isStreaming
+      ? []
+      : collectConsentSurfaceText(message.blocks, patchBlockStates, message.id)),
+    [isUser, isStreaming, message.blocks, patchBlockStates, message.id],
+  )
+  const dedupedBody = useMemo(
+    () => dedupeRenderedText(rawDisplayContent, consentSurfaceText),
+    [rawDisplayContent, consentSurfaceText],
+  )
+  const displayContent = dedupedBody.text
+  /**
+   * What the turn has ALREADY PUT ON SCREEN above its blocks — tier 0 plus the
+   * body, whichever body this turn actually renders.
+   *
+   * ⚠ The two modes render DIFFERENT text and this must follow, not assume. In
+   * structured mode `AnswerBody` OWNS the body and `displayContent` is never
+   * rendered at all, so feeding it here suppressed blocks against text nobody
+   * could see (adversarial-review finding). The structured branch therefore
+   * feeds what `resolveAnswerBodyText` says will show — and DELIBERATELY OMITS
+   * `detail`, which sits behind the Show-more toggle: a block is not a duplicate
+   * of something the user has to click to reveal.
+   */
+  const renderedAboveBlocks = useMemo(() => {
+    if (!isUser && !isStreaming && message.answerShape) {
+      const shown = resolveAnswerBodyText(message.answerShape, consentSurfaceText)
+      return [...consentSurfaceText, shown.headline, ...shown.bullets]
+    }
+    return [...consentSurfaceText, displayContent]
+  }, [isUser, isStreaming, message.answerShape, consentSurfaceText, displayContent])
   // Transcript honesty (trust item #3): a user send whose turn failed must
   // LOOK failed — marker + optional retry affordance on the message itself.
   const sendFailed = isUser && message.deliveryState === 'failed'
@@ -227,7 +291,6 @@ export const MessageBubble = memo(function MessageBubble({
     )
   }
 
-  const isStreaming = message.isStreaming === true
   const isProvisional = message.isProvisional === true
   const hasToolLoading = Boolean(message.toolLoadingState)
 
@@ -238,9 +301,6 @@ export const MessageBubble = memo(function MessageBubble({
   // reject, causing extractFromRawJson to return its "didn't render correctly"
   // placeholder — confusing alongside the "Response stopped." indicator. The
   // user chose to stop mid-stream; show whatever partial they had.
-  const displayContent = (isUser || isStreaming || message.stoppedByUser)
-    ? message.content
-    : extractFromRawJson(message.content)
 
   // F1 (answer-shape progressive disclosure): when a well-formed answer-shape
   // sidecar is present on a settled assistant turn, the structured view
@@ -333,19 +393,31 @@ export const MessageBubble = memo(function MessageBubble({
           className={bodyClassName}
           data-testid="message-answer-structured"
         >
-          <AnswerBody answer={message.answerShape} compact={compact} />
+          <AnswerBody
+            answer={message.answerShape}
+            compact={compact}
+            alreadyRendered={consentSurfaceText}
+          />
         </div>
       ) : (
-        <div
-          className={bodyClassName}
-          data-streaming={isStreaming || undefined}
-          // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
-          dangerouslySetInnerHTML={{
-            __html: safeRichText(
-              truncatedContent && !expanded ? truncatedContent : displayContent,
-            ) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
-          }}
-        />
+        // The body element is omitted entirely when every one of its segments
+        // was already stated by a consent card above (NEW-9). An empty
+        // <div> would still render the prose's margins and read as a gap the
+        // user cannot account for.
+        (displayContent.trim().length > 0 || isStreaming) && (
+          <div
+            className={bodyClassName}
+            data-streaming={isStreaming || undefined}
+            data-body-segments-withheld={dedupedBody.suppressedCount || undefined}
+            data-testid="message-body-text"
+            // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
+            dangerouslySetInnerHTML={{
+              __html: safeRichText(
+                truncatedContent && !expanded ? truncatedContent : displayContent,
+              ) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
+            }}
+          />
+        )
       )}
       {hasToolLoading && (
         <div className={styles.toolLoadingState} data-testid="tool-loading-state">
@@ -421,6 +493,12 @@ export const MessageBubble = memo(function MessageBubble({
           onArtefactMessage={onArtefactMessage}
           onProposalConfirm={onProposalConfirm}
           assistantTextWordCount={displayContent.trim().split(/\s+/).filter(Boolean).length}
+          // ONE RENDER AUTHORITY: tier 0 (consent cards) then tier 2 (the prose
+          // body as it was ACTUALLY rendered, post-suppression) — so a
+          // commentary block inside the disclosure does not repeat a paragraph
+          // the user has already read further up the same message (item 7).
+          alreadyRendered={renderedAboveBlocks}
+          isLatestAssistantTurn={isLatestAssistantTurn}
         />
       )}
       {/* Explain more + Summarise are AI Panel v2 affordances only — MessageBubble
