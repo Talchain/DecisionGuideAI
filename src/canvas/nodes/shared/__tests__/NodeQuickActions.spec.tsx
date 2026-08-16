@@ -126,6 +126,19 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
     expect(screen.getByTestId('node-action-inspect-node-a')).toBeInTheDocument()
   })
 
+  /**
+   * The gate must ask the question `askAI` asks. `askAI` polls for
+   * `_sendMessage`; a gate of `_sendMessage || _prefillChat` would show the
+   * button on a surface that registered only the prefill channel — a control
+   * that renders and cannot do its job, which is what the gate exists to
+   * prevent. Trap 21: two predicates wearing one name.
+   */
+  it('gates on the SEND channel askAI needs, not on prefill', () => {
+    useGuidanceStore.setState({ _sendMessage: null, _prefillChat: vi.fn() } as never)
+    render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
+    expect(screen.queryByTestId('node-action-ask-node-a')).toBeNull()
+  })
+
   it('is quiet at rest and revealed by hover, focus-within and selection', () => {
     const { rerender } = render(
       <NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />,
@@ -157,5 +170,32 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
       expect(btn).not.toHaveAttribute('hidden')
       expect(btn.className).toContain('focus-visible:ring-2')
     }
+  })
+})
+
+/**
+ * Geometry pin (review item: CORNER COLLISION).
+ *
+ * The node's TOP-right is an owned band — `node-corner-stack` sits at
+ * `-top-2 -right-2 z-10` and exists because three badges used to collide there
+ * (a browser-confirmed P2 fix). This layer first shipped at `top-1.5 right-1.5
+ * z-[2]`: inside that band by roughly 6px AND at a lower z, so the stack
+ * painted over the buttons whenever a rank badge, freshness dot or coaching
+ * marker was present.
+ *
+ * jsdom cannot measure the overlap — no layout. What it CAN do is pin the
+ * corner these classes claim, so the collision cannot be reintroduced silently.
+ * A browser witness must still confirm the buttons are clear of both the corner
+ * stack and the Confirm icon on a node that shows all of them.
+ */
+describe('NodeQuickActions — stays out of the owned top-right corner', () => {
+  it('anchors to the BOTTOM-right, never the top', () => {
+    render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
+    const el = screen.getByTestId('node-quick-actions-node-a')
+
+    expect(el.className).toContain('bottom-1.5')
+    expect(el.className).toContain('right-1.5')
+    // The defect, stated exactly: any top anchor puts it back in the band.
+    expect(el.className).not.toMatch(/(^|\s)-?top-/)
   })
 })

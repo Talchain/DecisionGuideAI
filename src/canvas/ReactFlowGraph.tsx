@@ -2220,7 +2220,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
       <LeftSidebar
         interactionMode={effectiveMode}
-        onSelectClick={() => setInteractionMode(prev => prev === 'select' ? 'hand' : 'select')}
+        /* A-1: the button must toggle off the SAME value it displays. It read
+           `effectiveMode` for its icon and label but toggled off the RAW mode,
+           so during a spacebar hold the control labelled "Switch to Select"
+           set Hand — a click with zero visual feedback, which is the L-01
+           complaint reappearing on the control side. Toggling off
+           `effectiveMode` makes the label a promise the click keeps. */
+        onSelectClick={() => setInteractionMode(effectiveMode === 'select' ? 'hand' : 'select')}
         onUndoClick={undo}
         onRedoClick={redo}
         canUndo={canUndo()}

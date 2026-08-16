@@ -1,5 +1,9 @@
 /**
- * ActionIcons — the Confirm icon, absolute bottom-right of a node card.
+ * ActionIcons — the Confirm icon, absolute bottom-LEFT of a node card.
+ *
+ * It moved from bottom-right to make room for NodeQuickActions, which had to
+ * vacate the top-right (that corner is owned by `node-corner-stack`). One icon
+ * per bottom corner; neither can cover the other.
  * Confirm: shown when extractionType === 'inferred' (marks value user-reviewed).
  *
  * The Edit pencil that used to live here is GONE, for two reasons.
@@ -43,7 +47,7 @@ export function ActionIcons({ showConfirm, onConfirm }: ActionIconsProps) {
   if (!showConfirm) return null
 
   return (
-    <div className="absolute bottom-2 right-2.5 flex gap-0.5">
+    <div className="absolute bottom-2 left-2.5 flex gap-0.5">
       <button
         type="button"
         className="p-0.5 rounded bg-success/10 hover:bg-success/20 transition-colors nodrag nopan focus:outline-none focus-visible:ring-2 focus-visible:ring-info"

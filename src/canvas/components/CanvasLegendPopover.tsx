@@ -105,18 +105,26 @@ const COLOUR_ROWS: LegendRow[] = [
   },
 ]
 
-function ThicknessSwatch({ width }: { width: number }) {
+function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId }: {
+  width: number
+  /** Stroke colour. The "not set yet" row NEEDS this: at 1.5px it is the same
+   *  width as "Weak effect", so colour is its only discriminator — a swatch
+   *  that hard-coded the body colour rendered the two rows pixel-identical and
+   *  the row's own caption ("thin and grey") was false about itself. */
+  stroke?: string
+  testId?: string
+}) {
   // Height grows with the stroke so the thickest sample isn't clipped; the line
   // is inset by the max half-width so its round caps stay inside the 24px swatch.
   const h = Math.max(width + 2, 8)
   return (
-    <svg width={24} height={h} aria-hidden="true" style={{ flexShrink: 0 }}>
+    <svg width={24} height={h} aria-hidden="true" style={{ flexShrink: 0 }} data-testid={testId}>
       <line
         x1={4}
         y1={h / 2}
         x2={20}
         y2={h / 2}
-        stroke="var(--text-body)"
+        stroke={stroke}
         strokeWidth={width}
         strokeLinecap="round"
       />
@@ -131,14 +139,19 @@ function ThicknessSwatch({ width }: { width: number }) {
 // Folded in from the former standalone EdgeThicknessLegend so the two
 // bottom-left legends are now one key.
 const THICKNESS_ROWS: LegendRow[] = [
-  { label: 'Weak effect', swatch: <ThicknessSwatch width={1.5} /> },
+  { label: 'Weak effect', swatch: <ThicknessSwatch width={1.5} testId="legend-thickness-weak" /> },
   { label: 'Moderate effect', swatch: <ThicknessSwatch width={2} /> },
   { label: 'Strong effect', swatch: <ThicknessSwatch width={3} /> },
   // Honesty row: an unset strength draws at the SAME width as a weak effect
   // (UNSET_EDGE_STROKE_WIDTH is 1.5), so without this the key actively teaches
   // the reader to mistake a blank for a finding. Thickness alone cannot tell
-  // them apart — the colour does.
-  { label: 'Not set yet: thin and grey', swatch: <ThicknessSwatch width={1.5} /> },
+  // them apart — the colour does, which is why this swatch MUST carry the grey
+  // stroke. It shipped without one for a review cycle and rendered identical to
+  // the row above it, i.e. the caption said "grey" beside a body-coloured line.
+  {
+    label: 'Not set yet: thin and grey',
+    swatch: <ThicknessSwatch width={1.5} stroke="var(--edge-neutral)" testId="legend-thickness-unset" />,
+  },
 ]
 
 function LegendGroup({ rows }: { rows: LegendRow[] }) {

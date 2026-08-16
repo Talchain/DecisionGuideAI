@@ -240,6 +240,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     ? (nodeType === 'goal' ? 'border-text-light border-dashed' : 'border-text-light')
     : undefined
 
+  // One condition, two consumers (the mount below and the footer padding).
+  const showQuickActions = !lodActive && !isCausalLens && !isEvidenceLens
+
   return (
     <div
       role="group"
@@ -267,9 +270,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         outline: isAnalysisDriver ? '2px solid var(--semantic-info)' : undefined,
         outlineOffset: isAnalysisDriver ? '3px' : undefined,
         backgroundColor: evidenceBgStyle ?? 'var(--bg-panel)',
-        // Footer padding reserved only on node types that actually render
-        // ActionIcons (factor, option). Other types keep symmetric padding.
-        padding: (nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens
+        // Footer padding reserved on any card that renders something in its
+        // bottom band. That used to mean ActionIcons (factor, option) only; the
+        // R5 quick-action layer now sits bottom-right on every node type that
+        // mounts it, so the reservation follows the SAME condition rather than
+        // a hand-listed pair of node types that would silently go stale.
+        padding: showQuickActions || ((nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens)
           ? '12px 12px 24px 12px'
           : '12px',
         minWidth: '140px',
@@ -286,8 +292,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {/* R5 contextual efficiency layer — quiet at rest, revealed on hover, on
           keyboard focus within the card, and while the node is selected. One
           home for it (here) rather than per-node-type, so every node speaks the
-          same two shortcuts: ask Olumi about this, open this node's details. */}
-      {!lodActive && !isCausalLens && !isEvidenceLens && (
+          same two shortcuts: ask Olumi about this, open this node's details.
+          Bottom-RIGHT: the top-right corner is owned by node-corner-stack
+          below, and this layer overlapped it by ~6px at a lower z until a
+          review caught it. `showQuickActions` is the single source for both the
+          mount and the footer padding that reserves its space. */}
+      {showQuickActions && (
         <NodeQuickActions
           nodeId={id}
           nodeType={nodeType}

@@ -111,6 +111,28 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
     expect(screen.getByText('Not set yet: thin and grey')).toBeInTheDocument()
   })
 
+  /**
+   * The row's caption is a claim ABOUT ITS OWN SWATCH, so the text assertion
+   * above cannot check it. This shipped for a review cycle with a hard-coded
+   * body-coloured stroke: at 1.5px it is the same WIDTH as "Weak effect", so
+   * colour is the only discriminator, and the two rows rendered pixel-identical
+   * while the caption said "grey". Assert the stroke, and assert the two rows
+   * DIFFER — a discriminating pair, not one reading in isolation.
+   */
+  it('draws the unset swatch grey, and distinguishably from "Weak effect"', () => {
+    open()
+    const unset = document.querySelector('[data-testid="legend-thickness-unset"] line') as SVGLineElement
+    const weak = document.querySelector('[data-testid="legend-thickness-weak"] line') as SVGLineElement
+    expect(unset).toBeTruthy()
+    expect(weak).toBeTruthy()
+
+    expect(unset.getAttribute('stroke')).toBe('var(--edge-neutral)')
+    // Same width — which is precisely why the colour has to carry the meaning.
+    expect(unset.getAttribute('stroke-width')).toBe(weak.getAttribute('stroke-width'))
+    // …and therefore the two swatches must not be identical.
+    expect(unset.getAttribute('stroke')).not.toBe(weak.getAttribute('stroke'))
+  })
+
   it('still teaches direction, and still says Raises / Lowers', () => {
     open()
     expect(screen.getByText('Raises')).toBeInTheDocument()

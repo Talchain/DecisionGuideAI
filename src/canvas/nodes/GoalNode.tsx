@@ -35,6 +35,7 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
+import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
@@ -47,6 +48,9 @@ export const GoalNode = memo((props: NodeProps) => {
   const resultsStatus = useCanvasStore(state => state.results.status)
   const viewMode = useCanvasStore(state => state.viewMode)
   const isPostAnalysis = resultsStatus === 'complete'
+  // C-1: restored — this is what tells a finished-but-empty run apart from a
+  // run that simply has no target yet.
+  const hasAnyProbability = useHasAnyRealProbability()
   const isDetailed = viewMode === 'expert'
   // Phase 2.3 — null-probability guard. Post-analysis without any finite
   // per-option win_probability means the engine finished but produced no
@@ -303,15 +307,34 @@ export const GoalNode = memo((props: NodeProps) => {
   //
   // A <button>, not a chip-shaped div: click, tap, Tab and Enter/Space all
   // work with no key handling of our own (hover/click/keyboard parity, ruled).
+  // C-1: the chip has to carry TWO distinguishable states, because the copy it
+  // replaced did. The old post-analysis branch had a second sentence for the
+  // null-probability case ("Analysis finished. Set a target and check the graph
+  // for incomplete inputs") — a real diagnostic, and it lost its home when the
+  // prose came out. A missing target before a run and a run that finished
+  // WITHOUT producing any probability are different situations with different
+  // next actions, so they get different tooltips and different accessible
+  // names. The visible chip text stays one short phrase either way: the point
+  // of R5 is that the node signals, and the detail lives one hover away.
+  const noTargetDiagnostic = isPostAnalysis && !hasAnyProbability
   const noTargetStatusChip = (
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); openNodeInspector(props.id) }}
       onPointerDown={(e) => e.stopPropagation()}
       className={`nodrag mt-1 inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 ${typography.edgeLabel} text-text-body hover:bg-warning/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-      aria-label="No target set — open this goal's details to set one"
-      title="Add a measurable success target, e.g. metric, threshold or deadline"
+      aria-label={
+        noTargetDiagnostic
+          ? "No target set, and this run produced no probability — open this goal's details"
+          : "No target set — open this goal's details to set one"
+      }
+      title={
+        noTargetDiagnostic
+          ? 'The analysis finished without producing a probability. Set a measurable target, and check the model for inputs that are still incomplete.'
+          : 'Add a measurable success target, e.g. metric, threshold or deadline'
+      }
       data-testid="goal-node-no-target-chip"
+      data-diagnostic={noTargetDiagnostic ? 'no-probability' : undefined}
     >
       No target set
     </button>

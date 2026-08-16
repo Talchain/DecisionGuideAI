@@ -2,6 +2,7 @@ import { memo, useCallback } from 'react'
 import { MessageSquare, PanelRight } from 'lucide-react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { useShowToastSafe } from '../../ToastContext'
 import { askAI } from '../../contextMenu/actions'
 import type { NodeType } from '../../domain/nodes'
 import { openNodeInspector } from './openNodeInspector'
@@ -38,13 +39,27 @@ import { openNodeInspector } from './openNodeInspector'
  *   turn carries `selected_elements`, reveals the Olumi surface, and toasts if
  *   the conversation never registers) and `openNodeInspector` (the node twin
  *   of `openEdgeStrengthEditor`). No new transport, no second grammar.
- * - NO DEAD CONTROLS. The ask button renders only when a conversation surface
- *   has actually registered a send channel, the same gate the inspector's own
- *   "ask about this" uses. A control that cannot work is not shown.
+ * - NO DEAD CONTROLS, AND NO SILENT ONES. The ask button renders only when a
+ *   conversation surface has registered the SEND channel `askAI` actually
+ *   needs, and the click passes `showToast` through so a channel that dies
+ *   between render and click surfaces as a message rather than as nothing. A
+ *   review caught both halves: the gate was `_sendMessage || _prefillChat`
+ *   (wider than what askAI needs) and the call omitted the toast, which made
+ *   the PR body's failure-visibility claim false.
  *
  * `stopPropagation` is deliberate and, unlike the dead on-node pencil this
  * replaces, harmless: these buttons perform the selection themselves, so
  * suppressing the node click costs nothing.
+ *
+ * ⚠ PLACEMENT IS LOAD-BEARING — bottom-right, not top-right. The node's
+ * TOP-right is an explicitly OWNED band: `node-corner-stack` sits at
+ * `-top-2 -right-2 z-10` and exists precisely because three badges used to
+ * collide there (a browser-confirmed P2 fix). This layer first shipped at
+ * `top-1.5 right-1.5 z-[2]` — about 6px inside that band and at a LOWER z, so
+ * the stack painted over these buttons whenever a rank badge, freshness dot or
+ * coaching marker was present. Bottom-right is unowned once ActionIcons' single
+ * Confirm icon moves to bottom-LEFT, which it has. The geometry is pinned in
+ * this component's spec: change it there too, or leave it alone.
  */
 export interface NodeQuickActionsProps {
   nodeId: string
@@ -62,9 +77,16 @@ export const NodeQuickActions = memo(function NodeQuickActions({
   label,
   alwaysVisible = false,
 }: NodeQuickActionsProps) {
-  // Same availability gate as the inspector's ask affordance: no chat channel
-  // registered means no ask button, rather than a button that silently fails.
-  const canAsk = useGuidanceStore(s => s._sendMessage !== null || s._prefillChat !== null)
+  // The gate must ask the question `askAI` actually asks. It polls for
+  // `_sendMessage` and gives up with a toast if that never registers — so a
+  // gate of `_sendMessage || _prefillChat` would show the button on a surface
+  // that registered only the prefill channel, i.e. exactly the dead control
+  // this gate exists to prevent (trap 21: two predicates, one name).
+  const canAsk = useGuidanceStore(s => s._sendMessage !== null)
+  // …and if the channel dies between the render and the click, the user is told
+  // rather than left with a button that did nothing. `Safe` because nodes also
+  // render in headless hosts, where a missing ToastProvider must not throw.
+  const showToast = useShowToastSafe()
 
   const handleAsk = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -73,8 +95,9 @@ export const NodeQuickActions = memo(function NodeQuickActions({
     askAI(
       { kind: 'node', nodeId, nodeType, node, screenPos: { x: 0, y: 0 } },
       'explain_element',
+      showToast,
     )
-  }, [nodeId, nodeType])
+  }, [nodeId, nodeType, showToast])
 
   const handleInspect = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -87,7 +110,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
 
   return (
     <div
-      className={`node-quick-actions absolute top-1.5 right-1.5 z-[2] flex gap-0.5 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
+      className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex gap-0.5 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
       data-testid={`node-quick-actions-${nodeId}`}
     >
       {canAsk && (

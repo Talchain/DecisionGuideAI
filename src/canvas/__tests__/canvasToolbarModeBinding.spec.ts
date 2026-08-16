@@ -58,6 +58,23 @@ describe('canvas toolbar mode binding (L-01a)', () => {
     expect(boundExpression(readLeftSidebarProps(), 'interactionMode')).toBe('effectiveMode')
   })
 
+  /**
+   * A-1. Display and action are two halves of one control, and they were bound
+   * to DIFFERENT values: the icon read `effectiveMode`, the click toggled off
+   * the raw one. During a spacebar hold that makes the button labelled "Switch
+   * to Select" set Hand — a click that visibly does nothing. Both halves must
+   * read the same symbol; a review found the action half unpinned repo-wide.
+   */
+  it('toggles off the SAME value it displays (A-1)', () => {
+    const props = readLeftSidebarProps()
+    const handler = boundExpression(props, 'onSelectClick')
+    expect(handler).toBeTruthy()
+    expect(handler).toContain('effectiveMode')
+    // The defect, stated exactly: a toggle computed from the raw persisted mode.
+    expect(handler).not.toMatch(/prev\s*===\s*'select'/)
+    expect(handler).not.toMatch(/interactionMode\s*===\s*'select'/)
+  })
+
   it('resolves the effective mode through the shared helper, not a local copy', () => {
     const src = readFileSync(SOURCE, 'utf8')
     expect(src).toContain('resolveEffectiveInteractionMode(interactionMode, spaceHeld)')

@@ -26,6 +26,10 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
+vi.mock('../../ui/inspector-v2/useAnalysisResults', () => ({
+  useHasAnyRealProbability: vi.fn(() => false),
+}))
+
 vi.mock('../../store', () => ({
   useCanvasStore: vi.fn((selector) => selector(makeStoreState())),
 }))
@@ -48,6 +52,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
+import { useHasAnyRealProbability } from '../../ui/inspector-v2/useAnalysisResults'
 
 const baseProps = {
   id: 'goal-1',
@@ -952,3 +957,54 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
 // belongs to the panel surfaces via the composed trust semantic
 // (useAnalysisTrust); if node-level decoration returns, pin it against that
 // source with a positive control.
+
+/**
+ * C-1 — the diagnostic the prose removal orphaned.
+ *
+ * The old post-analysis branch carried a SECOND sentence for the case where a
+ * run finished but produced no probability ("Analysis finished. Set a target
+ * and check the graph for incomplete inputs"). That is a real diagnostic with a
+ * different next action from "you never set a target", and collapsing both into
+ * one chip lost it. R5 says the node signals and the detail lives one hover
+ * away — so the two states share the chip's visible text and differ in their
+ * tooltip and accessible name, which is what these assert.
+ */
+describe('GoalNode — the no-target chip distinguishes its two states (C-1)', () => {
+  const seed = (status: string, hasProbability: boolean) => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({ results: { status, report: status === 'complete' ? {} : null } }) as any),
+    )
+    vi.mocked(useHasAnyRealProbability).mockReturnValue(hasProbability)
+  }
+
+  it('pre-analysis: invites a target, with no diagnostic', () => {
+    seed('idle', false)
+    renderGoal()
+    const chip = screen.getByTestId('goal-node-no-target-chip')
+    expect(chip).not.toHaveAttribute('data-diagnostic')
+    expect(chip.getAttribute('title')).toMatch(/measurable success target/i)
+    expect(chip.getAttribute('aria-label')).not.toMatch(/no probability/i)
+  })
+
+  it('post-analysis with no probability: says the run produced none', () => {
+    seed('complete', false)
+    renderGoal()
+    const chip = screen.getByTestId('goal-node-no-target-chip')
+    expect(chip).toHaveAttribute('data-diagnostic', 'no-probability')
+    expect(chip.getAttribute('title')).toMatch(/without producing a probability/i)
+    expect(chip.getAttribute('title')).toMatch(/still incomplete/i)
+  })
+
+  it('the two states are actually different — a discriminating pair', () => {
+    seed('complete', false)
+    const post = renderGoal()
+    const postTitle = screen.getByTestId('goal-node-no-target-chip').getAttribute('title')
+    post.unmount()
+
+    seed('idle', true)
+    renderGoal()
+    const preTitle = screen.getByTestId('goal-node-no-target-chip').getAttribute('title')
+
+    expect(postTitle).not.toBe(preTitle)
+  })
+})

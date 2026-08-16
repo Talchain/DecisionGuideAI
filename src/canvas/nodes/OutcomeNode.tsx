@@ -200,17 +200,33 @@ export const OutcomeNode = memo((props: NodeProps) => {
             from "assumed strength" to "of your goal" the moment
             results.status became 'complete' — masquerading an un-computed
             input as a computed goal contribution without any producer
-            attribution behind it. Kept as "assumed strength" pre- AND
-            post-analysis. Removal trigger: a producer supplies a typed
-            per-node goal-attribution field. */}
+            attribution behind it. Removal trigger: a producer supplies a typed
+            per-node goal-attribution field.
+
+            ⚠ R6 REVISED AFTER REVIEW. The first attempt at R6 dropped the noun
+            entirely and left a bare "85%", which re-opens exactly the defect
+            UI-SEM-089 exists to close: an unlabelled percentage beside a goal
+            reads as a computed contribution. Measured by the reviewer — the
+            relabel-to-"% contribution" mutant REDs at base and SURVIVED at that
+            head, i.e. the guard had been inverted from a PRESENCE assertion to
+            an ABSENCE one and could no longer see the masquerade.
+
+            The noun therefore stays on BOTH branches. What R6 actually removes
+            is the word "assumed", which was false for a value the user had
+            stated: "85% strength" when somebody set it, "85% strength · est."
+            when nobody did. The honesty claim and the placeholder-wall claim are
+            different claims and both are satisfied. */}
         {bridgeEdgeData?.bridgeStrengthPct != null && (
-          <div className="mt-1 inline-flex items-center gap-1">
+          <div className="mt-1 inline-flex items-baseline gap-1">
             <span className={`${typography.nodeLabel} font-semibold text-success`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
-            {/* R6: was the literal "assumed strength" — which printed even for a
-          value the USER had stated, so it was not merely noisy, it was wrong.
-          The marker is now derived from the edge's own provenance stamp and
-          collapses to one quiet `est.`; absent when the user set it. */}
-      {bridgeEdgeData.bridgeIsEstimated && <EstimateMarker />}
+            {/* The noun. Never "of your goal", never absent — see UI-SEM-089 above. */}
+            <span className={`${typography.edgeLabel} text-text-light`}>strength</span>
+            {bridgeEdgeData.bridgeIsEstimated && (
+              <>
+                <span aria-hidden="true" className={`${typography.edgeLabel} text-text-light`}>·</span>
+                <EstimateMarker title="Strength estimated, not yet confirmed — open the details to set or confirm it" />
+              </>
+            )}
           </div>
         )}
 
