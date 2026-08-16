@@ -108,6 +108,44 @@ const SCHEMA_VALID_SAMPLES: Readonly<Record<string, unknown>> = {
     flip_thresholds: [],
     edit_list: ['nodes.0.belief'],
   },
+  // 0.46.0-new. DERIVED FROM THE CONTRACT'S OWN SEMANTICS, not from what an
+  // analysis state "ought" to look like (trap 13c). Every member of
+  // `AnalysisStateV1Schema` is REQUIRED and every level is `.strict()`, and
+  // `run_state` is a DISCRIMINATED UNION whose branches each declare only the
+  // fields their kind can honestly carry — so `complete_current` must carry
+  // `computed_at` and must NOT carry `cause`. Verified by executing
+  // `AnalysisStateV1Schema.safeParse` (VALID), with a negative control adding
+  // `cause` to the `complete_current` branch (INVALID, unrecognized key), so
+  // this sample is known to exercise the union rather than merely to satisfy a
+  // field list.
+  analysis_state: {
+    run_state: { kind: 'complete_current', computed_at: '2026-08-16T10:00:00.000Z' },
+    readiness: { status: 'ready', blockers: [] },
+    leader_claim: { permitted: true },
+    robustness: {},
+    usable_for_prose: true,
+    usable_for_chips: true,
+    usable_for_followup: true,
+    requires_rerun: false,
+    blocked_unusable: false,
+    contradictions: [],
+  },
+  // 0.46.0-new (carried in from an intervening version the UI skipped).
+  // `ModelBuildingNoticesSchema` is `.strict()` PLUS a `superRefine` with two
+  // cross-field rules: group kinds must be UNIQUE, and `total_count` must EQUAL
+  // the sum of the group counts. A sample that merely satisfies the field types
+  // would pass neither. This one carries two distinct kinds summing to 3 = 3.
+  // Verified by executing `ModelBuildingNoticesSchema.safeParse` (VALID), with a
+  // negative control setting `total_count: 2` (INVALID — the sum rule), so the
+  // refinement is known to be exercised.
+  model_building_notices: {
+    total_count: 3,
+    groups: [
+      { kind: 'detail_not_connected', count: 2 },
+      { kind: 'relationship_not_used', count: 1 },
+    ],
+    details_redacted: true,
+  },
 }
 
 const DECLARED_KEYS: readonly string[] = Object.keys(OlumiResponseSchema.shape)
