@@ -47,6 +47,26 @@ function receipt(constraints: unknown) {
   } as never
 }
 
+/** Complete 0.43 receipt twin. Local decorations mirror useConversation. */
+function canonicalReceipt(
+  constraints: unknown[],
+  extras: Record<string, unknown> = {},
+) {
+  return {
+    nodes: [
+      { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+      { id: 'factor-1', kind: 'factor', label: 'Spend' },
+    ],
+    edges: [],
+    options: [],
+    goal_node_id: 'goal-1',
+    goal_constraints: constraints,
+    node_count: 2,
+    edge_count: 0,
+    ...extras,
+  } as never
+}
+
 beforeEach(() => {
   useCanvasStore.getState().reset()
   seedStore(EXISTING_NODES, [])
@@ -104,6 +124,43 @@ describe('reconcileAppliedGraph — goal_constraints (ROADMAP 2.932)', () => {
       .setGoalConstraints(RECEIPT_CONSTRAINTS as never, { fromProducerSync: true })
 
     reconcileAppliedGraph(receipt([]))
+
+    expect(useCanvasStore.getState().goalConstraints).toHaveLength(3)
+  })
+
+  it('clears constraints only for a complete canonical receipt with explicit []', () => {
+    useCanvasStore
+      .getState()
+      .setGoalConstraints(RECEIPT_CONSTRAINTS as never, { fromProducerSync: true })
+
+    // These two keys are attached locally by useConversation after strict wire
+    // parsing; they must not hide the canonical receipt underneath.
+    reconcileAppliedGraph(
+      canonicalReceipt([], {
+        analysis_ready: { status: 'ready' },
+        draftCoaching: { framing_notes: ['local decoration'] },
+      }),
+    )
+
+    expect(useCanvasStore.getState().goalConstraints).toBeNull()
+  })
+
+  it('fails closed when an almost-canonical empty receipt has inconsistent counts', () => {
+    useCanvasStore
+      .getState()
+      .setGoalConstraints(RECEIPT_CONSTRAINTS as never, { fromProducerSync: true })
+
+    reconcileAppliedGraph(canonicalReceipt([], { node_count: 99 }))
+
+    expect(useCanvasStore.getState().goalConstraints).toHaveLength(3)
+  })
+
+  it('does not grant clear authority to a receipt with an unrelated extra key', () => {
+    useCanvasStore
+      .getState()
+      .setGoalConstraints(RECEIPT_CONSTRAINTS as never, { fromProducerSync: true })
+
+    reconcileAppliedGraph(canonicalReceipt([], { unexpected_producer_key: true }))
 
     expect(useCanvasStore.getState().goalConstraints).toHaveLength(3)
   })
@@ -200,5 +257,18 @@ describe('reconcileAppliedGraph — constraints reach the AUTOSAVE on a graph no
     // RED before the fix: the autosave still carried the OLD 5000 cap, so a
     // reload restored a limit the user had already changed.
     expect(persisted!.find((c) => c.constraint_id === 'c_spend_max')!.value).toBe(9000)
+  })
+
+  it('persists a canonical explicit clear on a graph no-op turn', () => {
+    useCanvasStore
+      .getState()
+      .setGoalConstraints(RECEIPT_CONSTRAINTS as never, { fromProducerSync: true })
+    preCommitAutosaveWrite()
+    expect(loadAutosave()?.goalConstraints).toHaveLength(3)
+
+    reconcileAppliedGraph(canonicalReceipt([]))
+
+    expect(useCanvasStore.getState().goalConstraints).toBeNull()
+    expect(loadAutosave()?.goalConstraints).toBeUndefined()
   })
 })
