@@ -105,12 +105,35 @@ export function canonicalReceiptEdgeCanvasFields(): readonly string[] {
   return unique(aliases)
 }
 
+/**
+ * The receipt's selected-goal attestation must describe the nodes it carries:
+ * null means there are no goal nodes, while a selected id must name one of the
+ * receipt's goal nodes. The schema deliberately validates structure only, so
+ * keep this single semantic check beside the shared strict parser rather than
+ * letting individual consumers invent weaker goal rules.
+ */
+export function canonicalCommittedReceiptHasCoherentGoalIdentity(
+  receipt: CanonicalCommittedGraphReceipt,
+): boolean {
+  const goalNodeIds = new Set(
+    receipt.nodes.flatMap((candidate) => {
+      const node = record(candidate)
+      return node?.kind === 'goal' && nonEmptyString(node.id) ? [node.id] : []
+    }),
+  )
+  return receipt.goal_node_id === null
+    ? goalNodeIds.size === 0
+    : goalNodeIds.has(receipt.goal_node_id)
+}
+
 /** Strict response-boundary parse: no picking, defaults, or omission repair. */
 export function parseCanonicalCommittedGraphReceipt(
   value: unknown,
 ): CanonicalCommittedGraphReceipt | null {
   const parsed = CanonicalCommittedGraphReceiptSchema.safeParse(value)
-  return parsed.success ? parsed.data : null
+  return parsed.success && canonicalCommittedReceiptHasCoherentGoalIdentity(parsed.data)
+    ? parsed.data
+    : null
 }
 
 /**

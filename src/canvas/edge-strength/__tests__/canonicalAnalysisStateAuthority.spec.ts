@@ -71,6 +71,24 @@ function receipt(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function goalLessReceipt(overrides: Record<string, unknown> = {}) {
+  const canonical = receipt()
+  const nodes = canonical.nodes.filter((node) => node.kind !== 'goal')
+  const edges = canonical.edges.filter((edge) => (
+    edge.from !== 'goal_profit' && edge.to !== 'goal_profit'
+  ))
+  return {
+    ...canonical,
+    nodes,
+    edges,
+    goal_node_id: null,
+    goal_constraints: [],
+    node_count: nodes.length,
+    edge_count: edges.length,
+    ...overrides,
+  }
+}
+
 function readiness(overrides: Record<string, unknown> = {}) {
   const canonicalOption = option()
   return {
@@ -128,6 +146,17 @@ describe('canonical committed analysis-state authority', () => {
     expect(canonicalCommittedGraphReceiptFromGraph(legacy)).toBeNull()
 
     expect(parseCanonicalCommittedGraphReceipt({ ...exact, node_count: 99 })).toBeNull()
+  })
+
+  it.each([
+    ['an explicit-null selection while a goal node exists', null],
+    ['a factor selected as the goal', 'fac_demand'],
+    ['an unknown node selected as the goal', 'goal_unknown'],
+  ])('rejects %s at the shared receipt boundary', (_label, goalNodeId) => {
+    expect(parseCanonicalCommittedGraphReceipt(receipt({
+      goal_node_id: goalNodeId,
+      goal_constraints: [],
+    }))).toBeNull()
   })
 
   it('accepts an exact ready receipt, retires the sidecar, and proves stored carriers', () => {
@@ -231,7 +260,7 @@ describe('canonical committed analysis-state authority', () => {
   })
 
   it('accepts canonical NO_GOAL while preserving the receipt options and explicit-null goal', () => {
-    const goalLessReceipt = receipt({ goal_node_id: null })
+    const canonicalGoalLessReceipt = goalLessReceipt()
     const prepared = prepareCanonicalAnalysisReadyFromReceipt(
       readiness({
         status: 'blocked',
@@ -239,7 +268,7 @@ describe('canonical committed analysis-state authority', () => {
         goal_node_id: '',
         options: [],
       }),
-      goalLessReceipt,
+      canonicalGoalLessReceipt,
     )
     expect(prepared.ok).toBe(true)
     if (!prepared.ok) return
@@ -250,14 +279,17 @@ describe('canonical committed analysis-state authority', () => {
       options: [{ id: 'opt_plan_a' }],
       blocked_reason: 'NO_GOAL',
     })
-    useCanvasStore.setState({ ceeAnalysisReady: prepared.analysisReady })
+    useCanvasStore.setState({
+      ceeAnalysisReady: prepared.analysisReady,
+      goalConstraints: prepared.receipt.goal_constraints,
+    })
     expect(storedAnalysisStateMatchesCanonicalReceipt(prepared.receipt)).toBe(true)
   })
 
   it('rejects ready-without-goal and unknown whole-status contradictions', () => {
     expect(prepareCanonicalAnalysisReadyFromReceipt(
       readiness({ goal_node_id: '', options: [], status: 'ready' }),
-      receipt({ goal_node_id: null }),
+      goalLessReceipt(),
     )).toEqual({
       ok: false,
       reason: 'canonical_committed_receipt_readiness_mismatch',

@@ -1995,6 +1995,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     if (tab === 'olumi' && useFloatingPanelState.getState().isOpen) {
       useFloatingPanelState.getState().close()
     }
+    // The collapsed recovery affordance promises to open Olumi. During A2's
+    // first-use rail, `isOpen: true` alone is intentionally masked, so spend
+    // that rail override only for an active canonical recovery route. Normal
+    // first-use tab clicks and fit behavior retain A2's existing policy.
+    if (tab === 'olumi' && isFirstUse && edgeRecoveryBlockedReason) {
+      userExplicitlyOpenedRailRef.current = true
+    }
     setState(prev => ({ ...prev, isOpen: true, activeTab: tab }))
     // E1: Sync tab state to Zustand store for cross-component navigation
     useUIStore.getState().setActiveOutputTab(tab as OutputTab)

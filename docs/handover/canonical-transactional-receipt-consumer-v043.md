@@ -1,7 +1,7 @@
 # Canonical transactional receipt consumer — schemas 0.43 handover
 
 **Component boundary:** UI reader/consumer only, based on deployed UI
-`51175c8bfe0138b8dd3f38f47013650c0831dde5`. The backend producer is not
+`ca8cb0c1eea98e32a57fc94026e733d3194be572`. The backend producer is not
 enabled or changed here.
 
 ## Authority and settlement
@@ -10,7 +10,9 @@ enabled or changed here.
    `CanonicalCommittedGraphReceipt` in `draft_graph`.
 2. The receipt schema and nested projection manifest own the five hash carriers
    and their field vocabulary: nodes, edges, options, goal identity, and goal
-   constraints.
+   constraints. One shared semantic boundary additionally requires explicit
+   null goal identity if and only if the receipt contains no goal nodes; a
+   non-null identity must name a goal node carried by that receipt.
 3. The edge-strength transaction coordinator accepts only the strict receipt,
    reconciles the complete analytical projection, and proves local equality for
    all five carriers before settling readiness, freshness, or Run.
@@ -23,7 +25,9 @@ enabled or changed here.
 
 Malformed, partial, legacy, or locally mismatched receipts fail closed: the
 previous readiness/freshness bytes remain unchanged and transactional Run stays
-held with recovery available.
+held with recovery available. Under the deployed A2 first-use rail, only the
+active canonical recovery affordance spends the rail override, so its promised
+Olumi route opens while ordinary first-use fit and rail behaviour remain intact.
 
 ## Legacy disposition
 
@@ -41,9 +45,10 @@ held with recovery available.
 
 ## Frozen-boundary gates
 
-- Transactional/hydration matrix: 10 files, 203 tests passed.
-- Request/readiness contracts: 3 files, 147 tests passed.
-- Typecheck ratchet: passed (3,437/3,477 tracked files; 2,332 diagnostics,
+- Rebased transactional/readiness/A2 coexistence matrix: 21 files, 488 tests
+  passed, including the three false goal-attestation boundary and lifecycle
+  mutants.
+- Typecheck ratchet: passed (3,439/3,479 tracked files; 2,332 diagnostics,
   within the 2,381 baseline, none added).
 - Changed-file lint: zero errors (pre-existing/rebased warnings remain).
 - Schema version guard, vendored-package checksum, and diff check: passed.

@@ -660,6 +660,7 @@ async function mountRecoveryTopology(args: {
   activeTab?: 'results' | 'olumi'
   floatingSource?: 'user' | 'system-first-use'
   graphPresent?: boolean
+  hasAnalysisResult?: boolean
 }) {
   const { useCanvasStore, EMPTY_EDGE_STRENGTH_SYNC } = await import('../../store')
   const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
@@ -688,6 +689,7 @@ async function mountRecoveryTopology(args: {
   const graphPresent = args.graphPresent ?? true
   useCanvasStore.setState({
     currentScenarioId: RECOVERY_SCENARIO_ID,
+    hasCompletedFirstRun: args.hasAnalysisResult ?? true,
     nodes: graphPresent ? [
       { id: 'fac_demand', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Demand' } },
       { id: 'goal_profit', type: 'goal', position: { x: 0, y: 100 }, data: { label: 'Sustainable profit' } },
@@ -752,6 +754,7 @@ describe('canonical relationship recovery topology', () => {
       currentScenarioId: null,
       nodes: [],
       edges: [],
+      hasCompletedFirstRun: false,
       edgeStrengthSync: EMPTY_EDGE_STRENGTH_SYNC,
     } as never)
     window.history.replaceState({}, '', '/')
@@ -891,7 +894,11 @@ describe('canonical relationship recovery topology', () => {
 
   it('dock collapsed + floating closed: the rail signals attention and keyboard activation opens the recovery owner', async () => {
     const user = userEvent.setup()
-    await mountRecoveryTopology({ dockOpen: false, floating: 'closed' })
+    await mountRecoveryTopology({
+      dockOpen: false,
+      floating: 'closed',
+      hasAnalysisResult: false,
+    })
 
     const attentionRoute = screen.getByRole('button', {
       name: 'Open Olumi — relationship changes need attention',
@@ -913,6 +920,7 @@ describe('canonical relationship recovery topology', () => {
       floating: 'full',
       floatingSource: 'system-first-use',
       graphPresent: false,
+      hasAnalysisResult: false,
     })
 
     expect(screen.queryByTestId('floating-olumi-panel')).not.toBeInTheDocument()

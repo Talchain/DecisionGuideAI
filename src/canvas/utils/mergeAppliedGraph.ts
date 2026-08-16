@@ -3,14 +3,20 @@
  * into a NON-EMPTY canvas (POC Lane C, edit-journey display closure,
  * 2026-07-11; made ATOMIC for defect B2, Codex deep review 2026-07-18).
  *
- * Wire contract: CEE #414/#424 attach the FULL committed post-mutation graph
+ * HISTORICAL LEGACY CONTRACT: CEE #414/#424 attached the FULL committed
+ * post-mutation graph
  * to applied-edit receipts via the EXISTING top-level `draft_graph` field
  * (OlumiResponseSchema 0.8.0+, unchanged at the pinned 0.15.0), post-commit
  * only — see olumi-assistants-service
- * src/orchestrator-v5/compose/applied-graph-emit.ts. The UI's only inline
- * ingestion path (applyDraftResult via useConversation) was gated on
+ * src/orchestrator-v5/compose/applied-graph-emit.ts (since retired). The UI's
+ * only inline ingestion path (applyDraftResult via useConversation) was gated on
  * canvasIsEmpty, so a confirmed structural edit (add factor / add edge) never
  * reached a populated canvas until a full reload.
+ *
+ * This remains the generic non-transactional reconciler only. Transactional
+ * edge-strength receipts bypass it: they consume the strict schema-0.43
+ * canonical committed receipt and prove all five analytical carriers through
+ * canonicalAnalysisStateAuthority before readiness or freshness can settle.
  *
  * ---------------------------------------------------------------------------
  * WHAT THE RECEIPT ACTUALLY IS (verified against CEE staging `10633948`,
@@ -34,7 +40,7 @@
  *     the graph. CEE's own docstring (edit-graph-dispatch.ts:809-818) had
  *     already corrected this myth on the server side.
  *   - `draft_graph` is the whole graph, not a delta —
- *     `buildAppliedGraphWireField` (applied-graph-emit.ts:41-48) emits
+ *     the historical `buildAppliedGraphWireField` helper emitted
  *     `graph.nodes` / `graph.edges` wholesale from a structuredClone that
  *     `patch-applier.ts` mutated in place.
  *   - ABSENCE THEREFORE MEANS DELETION. `patch-applier.ts:105-117` splices the

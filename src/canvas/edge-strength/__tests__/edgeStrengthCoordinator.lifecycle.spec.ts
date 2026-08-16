@@ -600,6 +600,66 @@ describe('edge strength transaction lifecycle', () => {
     expect(edgeStrengthRunBarrierState(SCENARIO_A)).toMatchObject({ ok: false })
   })
 
+  it.each([
+    ['explicit-null goal while a goal node exists', (response: Record<string, any>) => {
+      response.draft_graph.goal_node_id = null
+      response.analysis_ready = {
+        ...response.analysis_ready,
+        status: 'blocked',
+        blocked_reason: 'NO_GOAL',
+        goal_node_id: '',
+        options: [],
+      }
+    }],
+    ['factor selected as the goal', (response: Record<string, any>) => {
+      response.draft_graph.goal_node_id = 'fac_demand'
+      response.analysis_ready.goal_node_id = 'fac_demand'
+    }],
+    ['unknown node selected as the goal', (response: Record<string, any>) => {
+      response.draft_graph.goal_node_id = 'goal_unknown'
+      response.analysis_ready.goal_node_id = 'goal_unknown'
+    }],
+  ])('fails closed on a semantically false receipt: %s', async (_label, mutate) => {
+    const priorAnalysisReady = {
+      options: [{
+        id: 'opt_prior',
+        label: 'Prior option',
+        status: 'ready',
+        interventions: {},
+      }],
+      goal_node_id: 'goal_profit',
+      status: 'ready',
+      freshness: 'fresh',
+    }
+    useCanvasStore.setState({ ceeAnalysisReady: priorAnalysisReady } as never)
+    const readinessBefore = structuredClone(useCanvasStore.getState().ceeAnalysisReady)
+    const freshnessBefore = structuredClone(useCanvasStore.getState().analysisFreshness)
+
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      const response = receiptFor(event) as unknown as Record<string, any>
+      mutate(response)
+      settleEdgeStrengthResponse({ attemptId, response: response as never })
+      return undefined
+    })
+
+    setVisibleTuple(-0.7, 'negative')
+    recordEdgeStrengthMutation({
+      scenarioId: SCENARIO_A,
+      before: observation(-0.4, 'negative'),
+      after: observation(-0.7, 'negative'),
+    })
+
+    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves
+      .toMatchObject({ ok: false })
+    expect(useCanvasStore.getState().edgeStrengthSync.issue)
+      .toBe('analysis_state_unverified')
+    expect(useCanvasStore.getState().ceeAnalysisReady).toEqual(readinessBefore)
+    expect(useCanvasStore.getState().analysisFreshness).toEqual(freshnessBefore)
+    expect(edgeStrengthRunBarrierState(SCENARIO_A)).toMatchObject({ ok: false })
+    expect(getEdgeStrengthEndpointStatus(SCENARIO_A, 'fac_demand', 'goal_profit').kind)
+      .toBe('unconfirmed')
+  })
+
   it('stores exact encoded/raw option identity but keeps Run held on canonical needs_encoding', async () => {
     const canonicalOption = {
       id: 'opt_plan_a',
