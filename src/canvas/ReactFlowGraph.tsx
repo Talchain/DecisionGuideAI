@@ -368,6 +368,26 @@ function StoreConfirmDialog() {
  * this file is at its exception limit and a new hook here is a render-time
  * crash risk. A module constant needs no hook at all.
  */
+/**
+ * L-01(c): the canvas composer is a <textarea> and keeps focus once it has it,
+ * so every single-key canvas shortcut (V/H, Delete, arrows) stays inert while
+ * the user is plainly working on the canvas — the mechanism behind "Escape was
+ * needed" (Escape blurred the composer). Engaging the canvas releases that
+ * focus. Clicking INTO a text surface (an on-node label editor) is exempt: see
+ * shouldReleaseTextFocusOnCanvasPointerDown.
+ *
+ * Module scope, deliberately: it closes over nothing, and ReactFlowGraph has
+ * early returns above its hook block, so adding a `useCallback` here would add
+ * a real rules-of-hooks violation to a component that already carries 117 (the
+ * ratchet caught exactly that and was right to).
+ */
+function handleCanvasPointerDownCapture(event: React.PointerEvent): void {
+  if (typeof document === 'undefined') return
+  const active = document.activeElement
+  if (!shouldReleaseTextFocusOnCanvasPointerDown(event.target as Element | null, active)) return
+  ;(active as HTMLElement).blur()
+}
+
 const NODE_CLICK_DISTANCE = 4
 const PANE_CLICK_DISTANCE = 4
 const NODE_DRAG_THRESHOLD = 2
@@ -681,18 +701,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const effectiveMode = resolveEffectiveInteractionMode(interactionMode, spaceHeld)
   const canDragSelect = effectiveMode === 'select'
 
-  // L-01(c): the canvas composer is a <textarea> and keeps focus once it has
-  // it, so every single-key canvas shortcut (V/H, Delete, arrows) stays inert
-  // while the user is plainly working on the canvas — the mechanism behind
-  // "Escape was needed" (Escape blurred the composer). Engaging the canvas
-  // releases that focus. Clicking INTO a text surface (an on-node label
-  // editor) is exempt: see shouldReleaseTextFocusOnCanvasPointerDown.
-  const handleCanvasPointerDownCapture = useCallback((event: React.PointerEvent) => {
-    if (typeof document === 'undefined') return
-    const active = document.activeElement
-    if (!shouldReleaseTextFocusOnCanvasPointerDown(event.target as Element | null, active)) return
-    ;(active as HTMLElement).blur()
-  }, [])
 
   // M4: Graph Health actions (graphHealth, showIssuesPanel state selected above)
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
