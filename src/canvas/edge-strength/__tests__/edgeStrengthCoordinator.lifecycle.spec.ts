@@ -16,6 +16,8 @@ import {
   recordEdgeStrengthMutation,
   recordUnconfirmedEdgeStructure,
   recordUnsupportedEdgeMutation,
+  refreshEdgeStrengthAuthority,
+  registerEdgeStrengthAuthorityRefresher,
   registerEdgeStrengthSender,
   requestEdgeStrengthConfirmation,
   setOpenEdgeStrengthScenario,
@@ -222,6 +224,32 @@ function makeHydrationUsable(scenarioId: string): void {
   finishEdgeStrengthHydration({ scenarioId, startedAtRevision: revision, usable: true })
 }
 
+async function leaveRejectedValueUnconfirmed(): Promise<void> {
+  const unregister = registerEdgeStrengthSender(async () => undefined)
+  setVisibleTuple(-0.7, 'negative')
+  recordEdgeStrengthMutation({
+    scenarioId: SCENARIO_A,
+    before: observation(-0.4, 'negative'),
+    after: observation(-0.7, 'negative'),
+  })
+  await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves.toMatchObject({
+    ok: false,
+  })
+  unregister()
+}
+
+function installSharedTupleRecovery(
+  calls: Array<{ replaceLocalGraph?: boolean }> = [],
+): () => void {
+  return registerEdgeStrengthAuthorityRefresher(async (scenarioId, opts) => {
+    calls.push({ replaceLocalGraph: opts?.replaceLocalGraph })
+    const revision = beginEdgeStrengthHydration(scenarioId)
+    setVisibleTuple(-0.4, 'negative')
+    finishEdgeStrengthHydration({ scenarioId, startedAtRevision: revision, usable: true })
+    return true
+  })
+}
+
 beforeEach(() => {
   vi.useFakeTimers()
   __resetEdgeStrengthCoordinatorForTests()
@@ -328,6 +356,169 @@ describe('edge strength transaction lifecycle', () => {
     expect(useCanvasStore.getState().analysisFreshness).toBe(freshnessBefore)
     expect(useCanvasStore.getState().edgeStrengthSync.issue).toBeNull()
     expect(edgeStrengthRunBarrierState(SCENARIO_A)).toEqual({ ok: true })
+  })
+
+  it.each([
+    { label: 'Check', opts: undefined, expectedReplace: undefined },
+    {
+      label: 'Restore',
+      opts: { replaceLocalGraph: true },
+      expectedReplace: true,
+    },
+  ])('$label dispatches one shared-tuple confirmation and only its strict receipt clears Run', async ({
+    opts,
+    expectedReplace,
+  }) => {
+    await leaveRejectedValueUnconfirmed()
+    const readinessBefore = useCanvasStore.getState().ceeAnalysisReady
+    const freshnessBefore = useCanvasStore.getState().analysisFreshness
+    const readinessBytesBefore = JSON.stringify(readinessBefore)
+    const freshnessBytesBefore = JSON.stringify(freshnessBefore)
+    const recoveryCalls: Array<{ replaceLocalGraph?: boolean }> = []
+    installSharedTupleRecovery(recoveryCalls)
+    const events: WireSystemEvent[] = []
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      events.push(event)
+      // The graph read itself is still not #983 status authority. These bytes
+      // may move only when the strict response below settles successfully.
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBe(readinessBefore)
+      expect(JSON.stringify(useCanvasStore.getState().ceeAnalysisReady))
+        .toBe(readinessBytesBefore)
+      expect(useCanvasStore.getState().analysisFreshness).toBe(freshnessBefore)
+      expect(JSON.stringify(useCanvasStore.getState().analysisFreshness))
+        .toBe(freshnessBytesBefore)
+      expect(useCanvasStore.getState().edgeStrengthSync.issue)
+        .toBe('analysis_state_unverified')
+      expect(edgeStrengthRunBarrierState(SCENARIO_A).ok).toBe(false)
+      settleEdgeStrengthResponse({ attemptId, response: receiptFor(event) })
+      return undefined
+    })
+
+    await expect(refreshEdgeStrengthAuthority(SCENARIO_A, opts)).resolves.toBe(true)
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+
+    expect(recoveryCalls).toEqual([{ replaceLocalGraph: expectedReplace }])
+    expect(events).toHaveLength(1)
+    expect(eventPayload(events[0])).toEqual({
+      from: 'fac_demand',
+      to: 'goal_profit',
+      magnitude: 0.4,
+      direction_intent: 'preserve',
+      expected: { mean: -0.4, effect_direction: 'negative' },
+      intent: 'confirm_current',
+    })
+    expect(JSON.stringify(eventPayload(events[0]))).not.toContain('0.7')
+    expect(canonicalCommittedGraphReceiptForRun(SCENARIO_A)).not.toBeNull()
+    expect(edgeStrengthRunBarrierState(SCENARIO_A)).toEqual({ ok: true })
+    expect(getEdgeStrengthEndpointStatus(
+      SCENARIO_A,
+      'fac_demand',
+      'goal_profit',
+    ).kind).toBe('confirmed')
+  })
+
+  it('a failed recovery confirmation remains retryable without replaying the rejected value', async () => {
+    await leaveRejectedValueUnconfirmed()
+    installSharedTupleRecovery()
+    const events: WireSystemEvent[] = []
+    registerEdgeStrengthSender(async (event) => {
+      events.push(event)
+      return undefined
+    })
+
+    await expect(refreshEdgeStrengthAuthority(SCENARIO_A)).resolves.toBe(true)
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(events).toHaveLength(1)
+    expect(eventPayload(events[0])).toMatchObject({
+      magnitude: 0.4,
+      expected: { mean: -0.4, effect_direction: 'negative' },
+      intent: 'confirm_current',
+    })
+    const failed = getEdgeStrengthEndpointStatus(
+      SCENARIO_A,
+      'fac_demand',
+      'goal_profit',
+    )
+    expect(failed.kind).toBe('unconfirmed')
+    if (failed.kind !== 'unconfirmed') return
+    expect(failed.recovery.expected).toMatchObject({ mean: -0.4 })
+    expect(failed.recovery.attempted).toMatchObject({ mean: -0.4 })
+    expect(failed.recovery.attempted.mean).not.toBe(-0.7)
+    expect(edgeStrengthRunBarrierState(SCENARIO_A).ok).toBe(false)
+
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      events.push(event)
+      settleEdgeStrengthResponse({ attemptId, response: receiptFor(event) })
+      return undefined
+    })
+    await expect(refreshEdgeStrengthAuthority(SCENARIO_A)).resolves.toBe(true)
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+
+    expect(events).toHaveLength(2)
+    expect(events.every((event) => eventPayload(event).magnitude === 0.4)).toBe(true)
+    expect(edgeStrengthRunBarrierState(SCENARIO_A)).toEqual({ ok: true })
+  })
+
+  it('a malformed recovery receipt retains the typed hold and only the shared tuple', async () => {
+    await leaveRejectedValueUnconfirmed()
+    installSharedTupleRecovery()
+    const readinessBefore = useCanvasStore.getState().ceeAnalysisReady
+    const freshnessBefore = useCanvasStore.getState().analysisFreshness
+    const events: WireSystemEvent[] = []
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      events.push(event)
+      const malformed = receiptFor(event) as unknown as Record<string, unknown>
+      delete malformed.draft_graph
+      settleEdgeStrengthResponse({ attemptId, response: malformed as never })
+      return undefined
+    })
+
+    await expect(refreshEdgeStrengthAuthority(SCENARIO_A)).resolves.toBe(true)
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+
+    expect(events).toHaveLength(1)
+    expect(eventPayload(events[0]).magnitude).toBe(0.4)
+    expect(useCanvasStore.getState().ceeAnalysisReady).toBe(readinessBefore)
+    expect(useCanvasStore.getState().analysisFreshness).toBe(freshnessBefore)
+    expect(useCanvasStore.getState().edgeStrengthSync.issue)
+      .toBe('analysis_state_unverified')
+    const status = getEdgeStrengthEndpointStatus(
+      SCENARIO_A,
+      'fac_demand',
+      'goal_profit',
+    )
+    expect(status.kind).toBe('unconfirmed')
+    if (status.kind !== 'unconfirmed') return
+    expect(status.recovery.expected).toMatchObject({ mean: -0.4 })
+    expect(status.recovery.attempted).toMatchObject({ mean: -0.4 })
+    expect(status.recovery.attempted.mean).not.toBe(-0.7)
+    expect(canonicalCommittedGraphReceiptForRun(SCENARIO_A)).toBeNull()
+    expect(edgeStrengthRunBarrierState(SCENARIO_A).ok).toBe(false)
+  })
+
+  it('a successful graph read with no viable recovered pair stays held and sends nothing', async () => {
+    await leaveRejectedValueUnconfirmed()
+    registerEdgeStrengthAuthorityRefresher(async (scenarioId) => {
+      const revision = beginEdgeStrengthHydration(scenarioId)
+      useCanvasStore.setState({ edges: [] })
+      finishEdgeStrengthHydration({ scenarioId, startedAtRevision: revision, usable: true })
+      return true
+    })
+    const sender = vi.fn(async () => undefined)
+    registerEdgeStrengthSender(sender)
+
+    await expect(refreshEdgeStrengthAuthority(SCENARIO_A)).resolves.toBe(true)
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+
+    expect(sender).not.toHaveBeenCalled()
+    expect(useCanvasStore.getState().edgeStrengthSync.issue)
+      .toBe('analysis_state_unverified')
+    expect(canonicalCommittedGraphReceiptForRun(SCENARIO_A)).toBeNull()
+    expect(edgeStrengthRunBarrierState(SCENARIO_A).ok).toBe(false)
   })
 
   it('applies default-valued canonical changes on a non-target edge before releasing Run', async () => {

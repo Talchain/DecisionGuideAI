@@ -111,6 +111,14 @@ interface PendingEdit {
   directionIntent: 'preserve' | EffectDirection
   intent: 'set' | 'confirm_current'
   localRevision: number
+  /** One explicit graph recovery may send only this no-op receipt probe. */
+  canonicalRecoveryConfirmation?: true
+}
+
+interface CanonicalRecoveryConfirmationSnapshot {
+  key: string
+  pairRevision: number
+  recovery: EdgeStrengthRecoveryRecord
 }
 
 export interface EdgeStrengthRecoveryRecord {
@@ -290,6 +298,26 @@ function pairKey(from: string, to: string): string {
 function currentIssue(lane: ScenarioLane): EdgeStrengthSyncIssue | null {
   for (const candidate of issuePriority) {
     if ([...lane.issues.values()].includes(candidate)) return candidate
+  }
+  return null
+}
+
+function canonicalRecoveryConfirmationSnapshot(
+  scenarioId: string,
+  lane: ScenarioLane,
+): CanonicalRecoveryConfirmationSnapshot | null {
+  for (const [key, recovery] of lane.recoveries) {
+    const issue = lane.issues.get(key)
+    if (
+      recovery.cause === 'unconfirmed' &&
+      (issue === 'unconfirmed' || issue === 'analysis_state_unverified')
+    ) {
+      return {
+        key,
+        pairRevision: getPairRevision(scenarioId, key),
+        recovery,
+      }
+    }
   }
   return null
 }
@@ -532,7 +560,11 @@ export function registerEdgeStrengthAuthorityRefresher(
   }
 }
 
-/** Explicit read/reconcile action. It never replays a rejected or uncertain write. */
+/**
+ * Explicit read/reconcile action. It never replays a rejected or uncertain
+ * write; an exact recovery may emit one no-op CAS for a receipt-bound #983
+ * verdict over the reconciled shared tuple.
+ */
 export async function refreshEdgeStrengthAuthority(
   scenarioId: string,
   opts?: { replaceLocalGraph?: boolean },
@@ -542,7 +574,13 @@ export async function refreshEdgeStrengthAuthority(
     openScenarioId !== scenarioId ||
     useCanvasStore.getState().currentScenarioId !== scenarioId
   ) return false
-  return await authorityRefresher(scenarioId, opts)
+  const lane = laneFor(scenarioId)
+  const candidate = canonicalRecoveryConfirmationSnapshot(scenarioId, lane)
+  const refreshed = await authorityRefresher(scenarioId, opts)
+  if (refreshed && candidate) {
+    queueCanonicalRecoveryConfirmation(scenarioId, candidate)
+  }
+  return refreshed
 }
 
 export function notifyEdgeStrengthTransportAvailable(): void {
@@ -588,6 +626,74 @@ export function observeEdgeStrength(edge: Pick<Edge<EdgeData>, 'id' | 'source' |
     },
     data,
   }
+}
+
+function queueCanonicalRecoveryConfirmation(
+  scenarioId: string,
+  snapshot: CanonicalRecoveryConfirmationSnapshot,
+): boolean {
+  const lane = laneFor(scenarioId)
+  const { key, recovery } = snapshot
+  if (
+    openScenarioId !== scenarioId ||
+    useCanvasStore.getState().currentScenarioId !== scenarioId ||
+    lane.hydration !== 'settled' ||
+    lane.active !== null ||
+    lane.pending.size > 0 ||
+    lane.recoveries.get(key) !== recovery ||
+    getPairRevision(scenarioId, key) !== snapshot.pairRevision ||
+    !lane.canonicalReceiptRequired ||
+    canonicalReceiptMatchesLocalAuthority(lane)
+  ) return false
+
+  // The stale pair issue and the canonical receipt issue are the only blockers
+  // this explicit action may cross. Any other issue still needs its own owner.
+  for (const [issueKey, issue] of lane.issues) {
+    const isStalePair = issueKey === key &&
+      (issue === 'unconfirmed' || issue === 'analysis_state_unverified')
+    const isCanonicalHold = issueKey === 'canonical-receipt' &&
+      issue === 'analysis_state_unverified'
+    if (!isStalePair && !isCanonicalHold) return false
+  }
+  if (!lane.issues.has(key)) return false
+
+  const matches = useCanvasStore.getState().edges.filter(
+    (edge) => edge.source === recovery.from && edge.target === recovery.to,
+  )
+  if (matches.length !== 1) return false
+  const observed = observeEdgeStrength(matches[0] as Edge<EdgeData>)
+  if (!observed || Math.abs(observed.tuple.mean) > 1) return false
+
+  // One synchronous state transition retires the rejected-value recovery and
+  // replaces it with a no-op CAS against the tuple the graph read just proved.
+  // Keep exactly one typed receipt hold until that confirmation returns the
+  // strict full receipt plus its current #983 analysis_ready verdict.
+  const revision = bumpRevision(scenarioId, key)
+  lane.pending.set(key, {
+    scenarioId,
+    edgeId: observed.edgeId,
+    from: observed.from,
+    to: observed.to,
+    expected: observed.tuple,
+    target: observed.tuple,
+    directionIntent: 'preserve',
+    intent: 'confirm_current',
+    localRevision: revision,
+    canonicalRecoveryConfirmation: true,
+  })
+  clearIssue(lane, key)
+  clearIssue(lane, 'canonical-receipt')
+  setIssue(lane, key, 'analysis_state_unverified', {
+    from: observed.from,
+    to: observed.to,
+  })
+  lane.recoveries.delete(key)
+  lane.conflictCurrent.delete(key)
+  lane.canonicalReceipt = null
+  lane.lastOutcome = null
+  publish(scenarioId, { settleWaiters: false })
+  void dispatchNext()
+  return true
 }
 
 function tupleScientificEqual(a: EdgeStrengthTuple, b: EdgeStrengthTuple): boolean {
@@ -916,12 +1022,21 @@ async function dispatchNext(): Promise<void> {
   const scenarioId = openScenarioId
   if (!scenarioId) return
   const lane = laneFor(scenarioId)
-  if (lane.active || lane.pending.size === 0 || currentIssue(lane) !== null) return
+  if (lane.active || lane.pending.size === 0) return
   if (!sender) {
     publish(scenarioId)
     return
   }
-  const first = lane.pending.entries().next().value as [string, PendingEdit] | undefined
+  const issue = currentIssue(lane)
+  const first = issue === null
+    ? lane.pending.entries().next().value as [string, PendingEdit] | undefined
+    : [...lane.pending.entries()].find(([key, edit]) =>
+      edit.canonicalRecoveryConfirmation === true &&
+      edit.intent === 'confirm_current' &&
+      tupleScientificEqual(edit.expected, edit.target) &&
+      lane.issues.size === 1 &&
+      lane.issues.get(key) === 'analysis_state_unverified',
+    )
   if (!first) return
   const [key, edit] = first
   lane.pending.delete(key)

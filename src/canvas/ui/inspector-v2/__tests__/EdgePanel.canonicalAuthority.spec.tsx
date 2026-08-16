@@ -119,11 +119,11 @@ function exactReceipt(event: WireSystemEvent): OlumiResponse {
     graph_hash: 'new-hash',
     analysis_ready: {
       options: [{
-        option_id: 'opt_plan_a', label: 'Plan A', status: 'needs_user_mapping',
-        interventions: {}, is_baseline: false,
+        option_id: 'opt_plan_a', label: 'Plan A', status: 'ready',
+        interventions: { fac_demand: 0.4 }, is_baseline: false,
       }],
       goal_node_id: 'goal_profit',
-      status: 'needs_user_input',
+      status: 'ready',
       computed_at: '2026-08-15T14:00:39.168Z',
       freshness: 'stale',
       freshness_reason: 'graph_hash_diverged',
@@ -148,6 +148,17 @@ function exactReceipt(event: WireSystemEvent): OlumiResponse {
         provenance: { source: 'user_specified', reasoning: 'User judgement' },
         provenance_display: 'user_set',
       }],
+      options: [{
+        id: 'opt_plan_a',
+        label: 'Plan A',
+        status: 'ready',
+        interventions: {
+          fac_demand: { value: 0.4, source: 'user_specified' },
+        },
+        is_baseline: false,
+      }],
+      goal_node_id: 'goal_profit',
+      goal_constraints: [],
       node_count: 3,
       edge_count: 1,
     },
@@ -232,6 +243,43 @@ describe('EdgePanel — one canonical live strength authority', () => {
       expected: { mean: 0.4, effect_direction: 'positive' },
       intent: 'set',
     })
+  })
+
+  it('keeps Run held when the writer returns a legacy partial receipt', async () => {
+    const events: WireSystemEvent[] = []
+    const sendSystemEvent = vi.fn(async (
+      event: WireSystemEvent,
+      opts?: { edgeStrengthAttemptId?: string },
+    ) => {
+      events.push(event)
+      const legacyPartial = exactReceipt(event) as unknown as Record<string, any>
+      delete legacyPartial.draft_graph.goal_constraints
+      settleEdgeStrengthResponse({
+        attemptId: opts?.edgeStrengthAttemptId ?? '',
+        response: legacyPartial as never,
+      })
+      return undefined
+    })
+    renderEditor(sendSystemEvent)
+    const slider = screen.getByRole('slider', { name: 'Effect on target' })
+
+    fireEvent.focus(slider)
+    fireEvent.change(slider, { target: { value: '0.7' } })
+    fireEvent.mouseUp(slider)
+    const readinessBeforeReceipt = useCanvasStore.getState().ceeAnalysisReady
+    const freshnessBeforeReceipt = useCanvasStore.getState().analysisFreshness
+
+    let result: Awaited<ReturnType<typeof flushEdgeStrengthEditsBeforeRun>> | undefined
+    await act(async () => {
+      result = await flushEdgeStrengthEditsBeforeRun(SCENARIO)
+    })
+
+    expect(result).toMatchObject({ ok: false })
+    expect(events).toHaveLength(1)
+    expect(useCanvasStore.getState().ceeAnalysisReady).toBe(readinessBeforeReceipt)
+    expect(useCanvasStore.getState().analysisFreshness).toBe(freshnessBeforeReceipt)
+    expect(useCanvasStore.getState().edgeStrengthSync.issue)
+      .toBe('analysis_state_unverified')
   })
 
   it.each([

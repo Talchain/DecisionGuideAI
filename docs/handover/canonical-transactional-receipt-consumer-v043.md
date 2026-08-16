@@ -29,6 +29,13 @@ enabled or changed here.
    `analysis_state_unverified` Run hold until a new transactional response
    supplies the receipt-bound `analysis_ready`. A late graph read also preserves
    a newer exact writer receipt instead of downgrading it.
+7. When an explicit Check or Restore successfully reconciles one viable
+   unconfirmed relationship, the coordinator replaces the stale rejected-value
+   recovery with exactly one `confirm_current` CAS whose expected and target
+   are both the reconciled shared tuple. The typed receipt hold remains while
+   that no-op is in flight. A strict receipt clears it normally; a failed or
+   malformed confirmation restores a retryable recovery containing only the
+   shared tuple, never the rejected value.
 
 Malformed, partial, legacy, or locally mismatched receipts fail closed: the
 previous readiness/freshness bytes remain unchanged and transactional Run stays
@@ -63,10 +70,12 @@ Olumi route opens while ordinary first-use fit and rail behaviour remain intact.
 - Schema version guard, vendored-package checksum, and diff check: passed.
 - Production CI build, PLC assertion, and bundle budget: passed (46.86 KB gzip
   against the 50 KB budget).
-- Graph-recovery FIX-FIRST matrix: 62/62 focused tests passed, covering
+- Graph-recovery FIX-FIRST matrix: 67/67 focused tests passed, covering
   ready-to-needs-encoding and blocked-to-ready graph-read mutants, byte-identical
   readiness/freshness through both Check and Restore, and late hydration after a
-  newer settled writer.
+  newer settled writer. The authorized inspector discriminator also proves a
+  strict five-carrier success receipt opens Run while a legacy-partial receipt
+  remains held (71/71 combined affected tests).
 - Post-fix full typecheck passed with no new diagnostics; full lint passed with
   zero errors and an exact hooks ratchet; production build passed (3,847 modules).
 
