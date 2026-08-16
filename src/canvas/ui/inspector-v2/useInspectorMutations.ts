@@ -31,6 +31,17 @@ import { useOptionalConversationContext } from '../../conversation/ConversationC
 // action, the baseline toggle, the model-action apply path) are NOT listed here
 // — they are named in the registry guard's residual list with their write sites.
 
+/**
+ * The node-label length limit, OWNED BY THE SETTER THAT ENFORCES IT (L-04).
+ *
+ * The inspector input previously allowed 500 characters while this setter
+ * sliced to 100 and reported nothing — a silent truncation the user could not
+ * see coming. The input now imports this constant rather than re-typing a
+ * number, so the two cannot drift apart again: there is one limit, and it is
+ * this one.
+ */
+export const NODE_LABEL_MAX_LENGTH = 100
+
 /** node setter name → the top-level `data` field(s) that setter writes. */
 export const NODE_SETTER_FIELDS = {
   setLabel: ['label'],
@@ -98,7 +109,7 @@ export function useNodeMutations(nodeId: string) {
   const setLabel = useCallback((value: string) => {
     const node = getNode()
     if (!node) return
-    const trimmed = value.trim().slice(0, 100)
+    const trimmed = value.trim().slice(0, NODE_LABEL_MAX_LENGTH)
     if (trimmed && trimmed !== node.data?.label) {
       updateNode(nodeId, { data: { ...node.data, label: trimmed } })
     }

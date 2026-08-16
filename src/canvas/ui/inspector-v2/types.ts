@@ -67,6 +67,11 @@ export interface InspectorShellProps {
   onClose: () => void
   /** Drag handlers from InspectorModal — makes the header draggable */
   dragHandlers?: DragHandlers
+  /**
+   * R5 quick actions, rendered at the TOP of the panel body above every group.
+   * Supplied by InspectorRouter, which knows the element's identity.
+   */
+  quickActions?: ReactNode
   children: ReactNode
 }
 

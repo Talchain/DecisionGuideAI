@@ -5,7 +5,7 @@
  * Header is the drag surface when dragHandlers are provided.
  */
 
-import { memo, useState, useCallback, type KeyboardEvent } from 'react'
+import { memo, useState, useCallback, useEffect, type KeyboardEvent } from 'react'
 import { X, Code2, Spline, HelpCircle, ArrowLeft } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { NodeShapeIndicator } from '../../nodes/NodeShapeIndicator'
@@ -13,6 +13,8 @@ import { useCanvasStore } from '../../store'
 import { isAiPanelV2Enabled } from '../../../flags'
 import type { InspectorShellProps } from './types'
 import { EditableLabel } from './shared/EditableLabel'
+import { NODE_LABEL_MAX_LENGTH } from './useInspectorMutations'
+import { useRenameIntentStore, clearNodeRename } from './renameIntent'
 
 export const InspectorShell = memo(function InspectorShell({
   topBarColor,
@@ -28,10 +30,23 @@ export const InspectorShell = memo(function InspectorShell({
   onTechToggleChange,
   onClose,
   dragHandlers,
+  quickActions,
   children,
 }: InspectorShellProps) {
   const rationale = useCanvasStore((s) => nodeId ? s.nodeRationales?.[nodeId] : undefined)
   const [showRationale, setShowRationale] = useState(false)
+
+  // L-04 — a pending rename intent for THIS element opens the title in editing
+  // state, then is consumed. One-shot by design: leaving it set would reopen
+  // the editor on every unrelated re-render.
+  const renameNodeId = useRenameIntentStore((s) => s.renameNodeId)
+  const [autoEditLabel, setAutoEditLabel] = useState(false)
+  useEffect(() => {
+    if (nodeId && renameNodeId === nodeId) {
+      setAutoEditLabel(true)
+      clearNodeRename()
+    }
+  }, [nodeId, renameNodeId])
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -94,7 +109,8 @@ export const InspectorShell = memo(function InspectorShell({
               <EditableLabel
                 value={label}
                 onSave={onLabelChange}
-                maxLength={500}
+                maxLength={NODE_LABEL_MAX_LENGTH}
+                autoEdit={autoEditLabel}
                 className={`${typography.panelHeader} text-text-header`}
               />
               {rationale && (
@@ -160,8 +176,12 @@ export const InspectorShell = memo(function InspectorShell({
         </div>
       </div>
 
-      {/* Body — scrollable when content exceeds panel max height */}
+      {/* Body — scrollable when content exceeds panel max height.
+          R5: quick actions sit at the TOP of the body, above every panel
+          group, so the two power functions (ask Olumi about this element,
+          open its analysis) are never buried behind a scroll. */}
       <div className="px-4 pb-4 overflow-y-auto" style={{ maxHeight: 560 }}>
+        {quickActions}
         {children}
       </div>
     </div>

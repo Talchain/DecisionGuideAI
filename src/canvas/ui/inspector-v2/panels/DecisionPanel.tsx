@@ -16,6 +16,8 @@ import { formatWinProbability } from '../../../utils/labelUtils'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
+  DECISION_STRINGS,
+  EMPTY_STATES,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
@@ -234,8 +236,25 @@ export const DecisionPanel = memo(function DecisionPanel({
             onClick={() => onNavigate(conn.nodeId)}
           />
         ))}
+        {/* L-40 — `otherConnections` EXCLUDES option edges by design (options
+            live in the Input group above), so a decision whose only edges are
+            its options used to render a flat "No connections yet." while the
+            canvas drew every one of them. The empty state is now derived from
+            the SAME edge data the options list reads, and names where those
+            connections went instead of denying them. */}
         {otherConnections.length === 0 && (
-          <p className={`${typography.panelMeta} text-text-light`}>No connections yet.</p>
+          connectedOptions.length > 0 ? (
+            <p
+              data-testid="decision-connections-are-options"
+              className={`${typography.panelMeta} text-text-light`}
+            >
+              {DECISION_STRINGS.connectionsAreOptions
+                .replace('{count}', String(connectedOptions.length))
+                .replace('{s}', connectedOptions.length === 1 ? '' : 's')}
+            </p>
+          ) : (
+            <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noConnectionsFlat}</p>
+          )
         )}
       </PanelGroup>
 

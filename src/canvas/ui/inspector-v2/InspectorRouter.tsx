@@ -25,6 +25,8 @@ import { FactorObservablePanel } from './panels/FactorObservablePanel'
 import { FactorExternalPanel } from './panels/FactorExternalPanel'
 import { OutcomePanel } from './panels/OutcomePanel'
 import { RiskPanel } from './panels/RiskPanel'
+import { GenericNodePanel } from './panels/GenericNodePanel'
+import { InspectorQuickActions } from './shared/InspectorQuickActions'
 
 // Entity colour map — used as fallback for inspector header entity colour
 const TOP_BAR_COLORS: Record<string, string> = {
@@ -64,6 +66,13 @@ type PanelType =
   | 'factor-external'
   | 'outcome'
   | 'risk'
+  /**
+   * L-24 — the real fallback. This used to be `null` for `action`,
+   * `constraint`, `ghost-option` and anything a future producer emits, and the
+   * router then rendered NOTHING: the user selected an element and the
+   * inspector silently refused to appear.
+   */
+  | 'generic'
   | null
 
 function resolvePanelType(
@@ -95,9 +104,16 @@ function resolvePanelType(
     case 'option':     return 'option'
     case 'outcome':    return 'outcome'
     case 'risk':       return 'risk'
-    default:           return null
+    // L-24 — every OTHER resolvable node gets a panel. `null` above is
+    // reserved for "there is no node", which is the only honest silence.
+    default:           return 'generic'
   }
 }
+
+/** Node kinds NodeShapeIndicator has a shape for. */
+const SHAPED_KINDS = new Set<string>([
+  'goal', 'decision', 'option', 'factor', 'risk', 'outcome', 'action', 'constraint',
+])
 
 export const InspectorRouter = memo(function InspectorRouter({
   nodeId,
@@ -166,6 +182,14 @@ export const InspectorRouter = memo(function InspectorRouter({
         onTechToggleChange={setTechMode}
         onClose={onClose}
         dragHandlers={dragHandlers}
+        quickActions={
+          <InspectorQuickActions
+            elementId={edgeId}
+            elementLabel={edgeLabel}
+            panelType="edge"
+            labelContext={{ sourceLabel, targetLabel }}
+          />
+        }
       >
         <EdgePanel
           edgeId={edgeId}
@@ -233,6 +257,7 @@ export const InspectorRouter = memo(function InspectorRouter({
     'factor-external':      FactorExternalPanel,
     'outcome':              OutcomePanel,
     'risk':                 RiskPanel,
+    'generic':              GenericNodePanel,
   }[panelType]
 
   if (!PanelComponent) return null
@@ -240,7 +265,9 @@ export const InspectorRouter = memo(function InspectorRouter({
   return (
     <InspectorShell
       topBarColor={topColor}
-      nodeKind={nodeType}
+      /* A kind with no shape (e.g. `ghost-option`) falls through to the shell's
+         generic icon rather than rendering a shape that means something else. */
+      nodeKind={SHAPED_KINDS.has(nodeType) ? nodeType : undefined}
       nodeId={nodeId}
       label={label}
       onLabelChange={nodeMutations.setLabel}
@@ -252,6 +279,13 @@ export const InspectorRouter = memo(function InspectorRouter({
       onTechToggleChange={setTechMode}
       onClose={onClose}
       dragHandlers={dragHandlers}
+      quickActions={
+        <InspectorQuickActions
+          elementId={nodeId}
+          elementLabel={label}
+          panelType={panelType}
+        />
+      }
     >
       {/* Full raw label in disclosure only when truncated */}
       {rawLabel !== label && (

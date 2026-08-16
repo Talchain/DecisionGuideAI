@@ -3,10 +3,21 @@
  *
  * Priority: orchestrator GuidanceItems > static coaching text.
  * Maximum ONE coaching card visible. If a GuidanceItem exists for this element,
- * it renders instead of the static fallback. "Ask about this" SENDS the question
- * to Olumi immediately (via the guidance store's registered _sendMessage) and
- * reveals the chat. Falls back to prefilling the composer only if the send wire is
- * unavailable.
+ * it renders instead of the static fallback.
+ *
+ * ⚠ THIS COMPONENT USED TO AUTO-SEND (ledger L-18, a trap-21 pair). "Ask about
+ * this" dispatched via `_sendMessage` immediately, while the inspector's OTHER
+ * ask affordance (DiscussWithAiButton) prefilled an editable draft and waited.
+ * Same user intent, opposite semantics, one panel. Auto-send is the half that
+ * lies: the question lands in a surface the user may not be looking at, so the
+ * control reads as dead.
+ *
+ * Both now run the ONE semantic in `askSemantic.ts` — prefill-and-confirm.
+ * The ask never dispatches; the user presses Send.
+ *
+ * ONE deliberate exception, and it is not an ask: `run_exercise` is a slash
+ * COMMAND whose button IS the confirmation. A prefilled '/exercise …' would sit
+ * in the composer as literal text instead of executing.
  *
  * Replaces the separate CoachingCard + InspectorGuidanceSection pattern.
  */
@@ -16,6 +27,7 @@ import { useGuidanceStore, compareGuidanceDisplayOrder } from '../../../stores/g
 import { revealOlumiSurface } from '../../../conversation/revealOlumi'
 import { CoachingCard } from './CoachingCard'
 import { resolveAskTemplate } from '../inspectorStrings'
+import { requestAsk } from '../askSemantic'
 
 interface InspectorCoachingProps {
   /** Node or edge ID for guidance filtering */
@@ -68,26 +80,32 @@ export function InspectorCoaching({
     [panelType, labelContext],
   )
 
-  // Send the text to Olumi immediately (auto-send) and reveal the chat. Prose falls
-  // back to prefilling the composer when the send wire is unavailable; slash
-  // commands pass allowPrefillFallback:false because a prefilled '/exercise …'
-  // would sit in the composer as literal text instead of executing.
-  const sendToChat = useCallback((text: string, opts?: { allowPrefillFallback?: boolean }) => {
+  // ASK — the one semantic. Lands an editable draft the user sends; never
+  // dispatches. Routing (composer vs drawer) is askSemantic's decision.
+  const ask = useCallback((text: string) => {
+    requestAsk({
+      text,
+      label: 'Ask about this',
+      context: '',
+      targetId: elementId,
+    })
+  }, [elementId])
+
+  // COMMAND — not an ask. The button is the confirmation, and a prefilled
+  // slash command would sit in the composer as literal text.
+  const runCommand = useCallback((text: string) => {
     const state = useGuidanceStore.getState()
     if (state._sendMessage) {
       state._sendMessage(text)
       revealOlumiSurface()
-    } else if (opts?.allowPrefillFallback !== false && state._prefillChat) {
-      state._prefillChat(text)
-      revealOlumiSurface()
     }
   }, [])
 
-  // Handle "Ask about this" — send the contextual question to Olumi
+  // Handle "Ask about this" — prefill the contextual question for the user
   const handleAsk = useCallback(() => {
     if (!questionText) return
-    sendToChat(questionText)
-  }, [questionText, sendToChat])
+    ask(questionText)
+  }, [questionText, ask])
 
   // Handle guidance item action
   const handleGuidanceAction = useCallback(() => {
@@ -96,17 +114,17 @@ export function InspectorCoaching({
 
     switch (action.type) {
       case 'discuss':
-        sendToChat(action.prompt)
+        ask(action.prompt)
         break
       case 'run_exercise':
-        // Slash command: send-only (no prefill fallback — see sendToChat).
-        sendToChat(`/exercise ${action.exercise}`, { allowPrefillFallback: false })
+        // Slash command: a COMMAND, not an ask — see the header note.
+        runCommand(`/exercise ${action.exercise}`)
         break
       default:
         // For other action types, fall back to "Ask about this"
-        if (questionText) sendToChat(questionText)
+        if (questionText) ask(questionText)
     }
-  }, [topGuidanceItem, questionText, sendToChat])
+  }, [topGuidanceItem, questionText, ask, runCommand])
 
   // Determine text and action
   const text = topGuidanceItem?.title
