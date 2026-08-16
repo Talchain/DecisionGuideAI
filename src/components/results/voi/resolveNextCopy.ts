@@ -1,16 +1,17 @@
 /**
- * resolveNextCopy — the ONE spelling of the "Resolve next" register, now that
- * the surface renders on TWO hosts.
+ * resolveNextCopy — the ONE spelling of the "Resolve next" register.
  *
  * WHY THIS FILE EXISTS. The value-of-information ranking was ratified once
- * (V7-C slice 1, ROADMAP 2.141) and lived as string literals inside
- * `v7/v7LensCopy.ts`, whose host is the TEMPORARY "Alt view" dock tab. Paul's
- * 14-Aug ruling promotes the surface onto the DEFAULT Analysis tab, whose copy
- * deck is `analysis-hero/heroCopy.ts`. Two decks, one ratified register: copying
- * the sentences into the second deck would be the hand-maintained mirror
- * CLAUDE.md trap 12 is about, and the drift would be SILENT — two tabs quietly
- * making differently-worded claims about the same producer rows, each with a
- * green suite.
+ * (V7-C slice 1, ROADMAP 2.141) and lived as string literals inside the V7 lens
+ * deck, whose host was the TEMPORARY "Alt view" dock tab. Paul's 14-Aug ruling
+ * promoted the surface onto the DEFAULT Analysis tab, whose copy deck is
+ * `analysis-hero/heroCopy.ts`. Two decks, one ratified register: copying the
+ * sentences into the second deck would be the hand-maintained mirror CLAUDE.md
+ * trap 12 is about, and the drift would be SILENT — two tabs quietly making
+ * differently-worded claims about the same producer rows, each with a green
+ * suite. The V7 retirement has since DELETED the first deck, which is the fold
+ * this file was written to make safe: there is now exactly one register, and it
+ * is this one.
  *
  * This is the pattern `heroCopy.ts` already uses for the flip-threshold register
  * (`switchMeta: FLIP_THRESHOLD_COPY.switchMeta`), and for the same stated
@@ -18,12 +19,12 @@
  * OUTSIDE it". It lives beside `voiRanking.ts`/`decisionVoi.ts` because the
  * readers are what license the sentences.
  *
- * ⚠ `v7LensCopy.ts` STILL HOLDS ITS OWN COPY of the eight pre-existing strings.
- * Folding it onto this register is a one-line-per-constant change in a file this
- * lane does not own, so it is NOT done here — instead
- * `__tests__/decisionVoi.spec.ts` asserts the two are BYTE-IDENTICAL, so a drift
- * in either direction REDs instead of shipping two registers. Folding the V7
- * deck onto this one is rowed as a follow-on.
+ * ⚠ THE SECOND DECK IS GONE. While both existed, `__tests__/resolveNextCopy.spec.ts`
+ * asserted the eight shared strings were BYTE-IDENTICAL across them so a drift in
+ * either direction REDed. The V7 deck is deleted, so that guard has one subject
+ * left and has been removed rather than reconstructed as an equality against
+ * itself; the register's HYGIENE sweeps in the same spec are untouched and are
+ * now the only glossary/trust scan this copy gets.
  *
  * ⭐ THE HONESTY DOCTRINE THESE SENTENCES ANSWER TO (unchanged from the V7 deck,
  * restated because a register with no doctrine attached is a register that gets

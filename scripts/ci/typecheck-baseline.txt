@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2389
+# count=2348
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -420,24 +420,11 @@
 1	src/components/results/TriageActionCardsBody.tsx
 1	src/components/results/__tests__/Accordion.spec.tsx
 7	src/components/results/__tests__/ConfidenceSection.spec.tsx
-1	src/components/results/__tests__/DecisionConfidencePanel.autoNoise.spec.tsx
-3	src/components/results/__tests__/DecisionConfidencePanel.caveatGuarantee.spec.tsx
-2	src/components/results/__tests__/DecisionConfidencePanel.completenessIntegration.spec.tsx
-2	src/components/results/__tests__/DecisionConfidencePanel.extraction.spec.tsx
-2	src/components/results/__tests__/DecisionConfidencePanel.heroD2a.spec.tsx
-3	src/components/results/__tests__/DecisionConfidencePanel.hotfix5_8b.spec.tsx
-1	src/components/results/__tests__/DecisionConfidencePanel.polishD4.spec.tsx
-2	src/components/results/__tests__/DecisionConfidencePanel.t1D2c.spec.tsx
-2	src/components/results/__tests__/DecisionConfidencePanel.t1Structure.spec.tsx
-2	src/components/results/__tests__/DecisionConfidencePanel.unifiedQueueD2b.spec.tsx
 1	src/components/results/__tests__/DriversSection.columnAlignment.spec.tsx
 1	src/components/results/__tests__/DriversSection.influenceOnlyGuard.spec.tsx
 2	src/components/results/__tests__/DriversSection.influenceScaleDisclosure.spec.tsx
-3	src/components/results/__tests__/HeroFooterAlignment.matrix.spec.tsx
 1	src/components/results/__tests__/RangeVisualization.spec.tsx
-2	src/components/results/__tests__/ResultsBody.analysisHeroV17Flag.spec.tsx
 2	src/components/results/__tests__/ResultsBody.singleMkpD4.spec.tsx
-1	src/components/results/__tests__/ResultsBody.v17OffLegacyRegression.spec.tsx
 1	src/components/results/__tests__/StressTestSection.factorSensitivityIntegration.spec.tsx
 1	src/components/results/__tests__/TornadoChart.spec.tsx
 1	src/components/results/__tests__/buildResultsVM.spec.ts
@@ -446,14 +433,6 @@
 5	src/components/results/__tests__/isl-field-surfacing.spec.tsx
 5	src/components/results/__tests__/v12.2-factor-labels.spec.tsx
 13	src/components/results/__tests__/v12.2-fixes.spec.tsx
-1	src/components/results/analysisHeroV17/__tests__/accessibility.spec.tsx
-3	src/components/results/analysisHeroV17/__tests__/bodyLabelSafety.spec.tsx
-3	src/components/results/analysisHeroV17/__tests__/buildAnalysisHeroViewModel.spec.ts
-1	src/components/results/analysisHeroV17/__tests__/chatClosedRender.spec.tsx
-2	src/components/results/analysisHeroV17/__tests__/glossaryCompliance.spec.tsx
-2	src/components/results/analysisHeroV17/__tests__/p1Fixes.spec.tsx
-2	src/components/results/analysisHeroV17/__tests__/rowRanking.spec.ts
-1	src/components/results/analysisHeroV17/__tests__/stateSelection.spec.ts
 1	src/components/results/buildResultsVM.ts
 1	src/components/results/decision-overview/DecisionOverviewCard.tsx
 1	src/components/results/strengthen/__tests__/buildRecommendations.spec.ts

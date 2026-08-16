@@ -1,10 +1,13 @@
 /**
  * buildVoiRanking — the reader between `enrichment.factor_evppi` and the
- * V7 "Resolve next" view (V7-C slice 1, ROADMAP 2.141).
+ * "Resolve next" view (V7-C slice 1, ROADMAP 2.141).
  *
  * These pins encode the design's §2 rendering-rules table at the MODEL level,
- * where every branch is reachable without a DOM. The render-level pins live in
- * `v7/__tests__/V7EvidenceDisclosure.resolveNext.spec.tsx`.
+ * where every branch is reachable without a DOM. The render-level pins lived in
+ * the V7 evidence disclosure's spec until the V7 retirement; the surviving host
+ * is `analysis-hero/HeroEvidenceDisclosure.tsx`, pinned by
+ * `analysis-hero/__tests__/HeroEvidenceDisclosure.resolveNextOnAnalysisTab.spec.tsx`
+ * and `__tests__/evpiSurfacesRemoved.resolveNext.honesty.spec.tsx`.
  *
  * NON-DEGENERATE BY CONSTRUCTION (ROADMAP 2.141 probe limit i — the live
  * rank-order pin was vacuous on a both-zeros run). The main fixture carries

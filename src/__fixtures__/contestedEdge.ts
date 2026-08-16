@@ -7,7 +7,7 @@
  * added telemetry suites that needed the same shape, and a second copy is the
  * hand-maintained mirror (trap 12) in fixture form — the next field added to
  * `ValidationMetadata` would be a compile error in one spec and a silent wrong
- * default in the other. Same reasoning as `__fixtures__/v7EvidenceModel.ts`.
+ * default in the other.
  *
  * The node labels are deliberately parameterisable: the PII suite drives them
  * with a canary, and an absence assertion is only worth running if the fixture

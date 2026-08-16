@@ -9,9 +9,6 @@
  * quietly PRESUPPOSE a leading option on a run where CEE declined to name
  * one.
  *
- *   · V7 evidence disclosure — the two lead-in notes above the flip-risk and
- *     trade-off rows. The whole V7 top group is FLAGLESS, so these shipped on
- *     every run.
  *   · "What could change the result" — the flip-threshold status note, gated
  *     only on the producer's `flipThresholdsStatus`.
  *   · Stress-test thinking patterns — four UI-AUTHORED strings naming "your
@@ -33,14 +30,21 @@
  *
  * jsdom proves rendered text, presence and absence. It cannot prove layout or
  * visual order. Nothing here claims a visual property.
+ *
+ * ## SURFACE 1 IS GONE WITH ITS HOST (V7 retirement) — declared, not silent
+ *
+ * This file opened with a fifth surface: the V7 evidence disclosure's two
+ * lead-in notes above the flip-risk and trade-off rows. That component and its
+ * "Alt view" host are DELETED. The equivalent claim on the SURVIVING evidence
+ * disclosure — `HERO_COPY.evidence.flipRisksNote` under both verdicts, with its
+ * own anti-vacuity and over-suppression controls — is already pinned in
+ * `analysis-hero/__tests__/withheldProse.hero.spec.tsx`, so the claim did not
+ * leave the suite with the component. Every other surface below is untouched.
  */
 import { describe, expect, it } from 'vitest'
 import { COMPARATIVE_COPY } from '../utils/goalAnchorCopy'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { useAskOlumiStore } from '../coaching/askOlumiStore'
-import { V7EvidenceDisclosure } from '../v7/V7EvidenceDisclosure'
-import type { V7EvidenceModel } from '../v7/buildV7Lenses'
-import { V7_LENS_COPY } from '../v7/v7LensCopy'
 import { flipThresholdStatusNote } from '../utils/flipThresholdStatusNote'
 import { StressTestSection } from '../StressTestSection'
 import { FragileEdgeGroupCard, type ChallengeFragileEdge } from '../FragileEdgeGroupCard'
@@ -60,8 +64,6 @@ import {
   PERMITTED_VERDICT,
   WITHHELD_VERDICT,
 } from '../__fixtures__/withheldDesignations.fixtures'
-// R-12: the disclosure open/switch sequence — one definition, see the helper.
-import { openDisclosureHeader, switchEvidenceView } from '../../../test/helpers/resolveNextView'
 
 /**
  * Anything that asserts, or presupposes, that one option is out in front.
@@ -89,90 +91,6 @@ import { openDisclosureHeader, switchEvidenceView } from '../../../test/helpers/
  */
 const LEADER_PRESUPPOSITION_RE =
   /leading option|likely leader|more likely than .+ to hit your goal|your recommendation|the recommendation/i
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SURFACE 1 — the V7 evidence disclosure notes (flagless)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function evidenceModel(designationsWithheld: boolean): V7EvidenceModel {
-  return {
-    drivers: [
-      { factorKey: 'fac_tco', label: 'Three-Year Total Cost of Ownership', direction: 'negative', isEstimate: false, focusId: undefined },
-    ],
-    flipRisks: [
-      { fromId: 'fac_capacity', toId: 'out_value', edgeId: 'e1', fromLabel: 'Team capacity', toLabel: 'Value delivered', switchProbability: 0.48 },
-    ],
-    tradeOffs: [
-      { factorLabel: 'Team capacity', factorId: 'fac_capacity', splitValue: 30, splitUnit: '%', highWinnerLabel: HIGH_LABEL, lowWinnerLabel: MID_LABEL },
-    ],
-    // V7-C slice 1 (ROADMAP 2.141): the Resolve next view names factors, never
-    // an option, so it carries no leader claim for the withheld-prose sweep to
-    // catch. `null` keeps this fixture's scope unchanged — the ranking's own
-    // withheld behaviour is pinned in its dedicated spec.
-    resolveNext: null,
-    designationsWithheld,
-  }
-}
-
-/**
- * Build THIS spec's evidence model, then open the disclosure on one of its views.
- *
- * R-12: the two-click sequence is no longer written here — `openDisclosureHeader`
- * / `switchEvidenceView` come from `src/test/helpers/resolveNextView.tsx`, along
- * with the `fireEvent`-not-`node.click()` rationale this copy used to be the sole
- * carrier of (the raw DOM call escapes React's `act()`, the disclosure never
- * re-renders, and every assertion afterwards reads a COLLAPSED section — a false
- * green that looks exactly like a real one). What stays local is the part that is
- * genuinely local: the `designationsWithheld` model this file is about.
- */
-function openEvidence(designationsWithheld: boolean, view: 'flipRisks' | 'tradeOffs') {
-  const utils = render(<V7EvidenceDisclosure evidence={evidenceModel(designationsWithheld)} />)
-  openDisclosureHeader()
-  switchEvidenceView(view)
-  return utils
-}
-
-describe('V7 evidence disclosure — the two lead-in notes', () => {
-  it('ANTI-VACUITY: the PERMITTED notes carry the presupposition the matcher hunts', () => {
-    // Positive control for LEADER_PRESUPPOSITION_RE. Without this, the two
-    // withheld cases below could pass by matching nothing at all.
-    expect(V7_LENS_COPY.evidence.flipRisksNote(false)).toMatch(LEADER_PRESUPPOSITION_RE)
-    expect(V7_LENS_COPY.evidence.tradeOffsNote(false)).toMatch(LEADER_PRESUPPOSITION_RE)
-  })
-
-  it('WITHHELD: the flip-risks note presupposes no leader', () => {
-    const { container } = openEvidence(true, 'flipRisks')
-    expect(container.textContent ?? '').not.toMatch(LEADER_PRESUPPOSITION_RE)
-  })
-
-  it('WITHHELD: the trade-offs note presupposes no leader', () => {
-    const { container } = openEvidence(true, 'tradeOffs')
-    expect(V7_LENS_COPY.evidence.tradeOffsNote(true)).not.toMatch(LEADER_PRESUPPOSITION_RE)
-    expect(container.textContent ?? '').toContain(V7_LENS_COPY.evidence.tradeOffsNote(true))
-  })
-
-  it('WITHHELD DATA PRESERVED: the flip-risk row and its producer probability still render', () => {
-    openEvidence(true, 'flipRisks')
-    expect(screen.getByTestId('v7-evidence-flip-risks').textContent ?? '').toContain('Team capacity')
-    expect(screen.getByTestId('v7-evidence-flip-risks').textContent ?? '').toContain('48%')
-  })
-
-  it('WITHHELD DATA PRESERVED: the producer trade-off narration still names both options', () => {
-    openEvidence(true, 'tradeOffs')
-    const body = screen.getByTestId('v7-evidence-trade-offs').textContent ?? ''
-    expect(body).toContain(HIGH_LABEL)
-    expect(body).toContain(MID_LABEL)
-  })
-
-  it('PERMITTED: both notes are byte-identical to today', () => {
-    expect(V7_LENS_COPY.evidence.flipRisksNote(false)).toBe(
-      'Relationships whose plausible range can change the leading option.',
-    )
-    expect(V7_LENS_COPY.evidence.tradeOffsNote(false)).toBe(
-      'Where the leading option depends on an assumption.',
-    )
-  })
-})
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SURFACE 3 — the flip-threshold status note ("What could change the result")

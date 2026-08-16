@@ -13,13 +13,19 @@
  * invitation to do something already done. Stage-1 of this file pinned that
  * wrong invitation GREEN at pristine before being flipped to these pins.
  *
- * THE FIX. WinGauge reads the same store-derived target signal the V7 goal
- * lens already discriminates with (`recommendation.goalThreshold` →
- * `buildV7Lenses.ts` gate `no_target` vs `producer_gap`) as a prop, and for
- * target-set-plus-basis-'none' renders the SAME producer-gap sentence the
- * lens shows for the SAME run state — one claim, one register
- * (`GOAL_ANCHOR_COPY.producerGap`, which `V7_LENS_COPY.goal.gateProducerGap`
- * delegates to). No CTA beside it: there is nothing a user action unlocks.
+ * THE FIX. WinGauge reads the store-derived target signal
+ * (`recommendation.goalThreshold`) as a prop, and for
+ * target-set-plus-basis-'none' renders the producer-gap sentence from the house
+ * register (`GOAL_ANCHOR_COPY.producerGap`). No CTA beside it: there is nothing
+ * a user action unlocks.
+ *
+ * ⚠ THE SECOND SURFACE IS GONE (V7 retirement). This file closed with a
+ * delegation pin — `V7_LENS_COPY.goal.gateProducerGap === GOAL_ANCHOR_COPY
+ * .producerGap` — proving the V7 goal lens and the gauge could not drift apart
+ * under a copy edit. That lens is deleted, so the pin has ONE subject left and
+ * is not reconstructed as an equality against itself (a guard that can only
+ * agree with itself is not a guard). WinGauge now reads the register directly;
+ * every behavioural case below is untouched.
  *
  * Assertions bind by IDENTITY — exact testid, verbatim register string —
  * never by a value predicate another element could satisfy (trap 19).
@@ -31,7 +37,6 @@ import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import { WinGauge, type OptionWinShare } from '../WinGauge'
 import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
-import { V7_LENS_COPY } from '../v7/v7LensCopy'
 
 /** Basis 'none' on every option: no goal figure, nothing withheld. */
 function sharesNothingArrived(): OptionWinShare[] {
@@ -151,14 +156,5 @@ describe('L65 / WinGauge — positive controls (the discrimination must not over
     expect(notScored!.textContent).toContain(GOAL_ANCHOR_COPY.notScoredReason)
     expect(container.querySelector('[data-testid="win-gauge-goal-producer-gap"]')).toBeNull()
     expect(container.querySelector('[data-testid="win-gauge-no-target"]')).toBeNull()
-  })
-})
-
-describe('L65 / one sentence, two surfaces', () => {
-  it('the V7 goal lens producer-gap gate IS the house register sentence (identity, not equality of copies)', () => {
-    // Delegation pin, same shape as gateNoTarget → GOAL_ANCHOR_COPY.noTarget:
-    // the lens and the gauge render the same state from the same key, so the
-    // two surfaces cannot drift apart under a future copy edit.
-    expect(V7_LENS_COPY.goal.gateProducerGap).toBe(GOAL_ANCHOR_COPY.producerGap)
   })
 })

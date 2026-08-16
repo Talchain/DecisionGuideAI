@@ -57,7 +57,7 @@ const F2_RETIRED = 'Fragile relationships could change the recommendation.'
 const F4_RETIRED = '>wins<'
 
 const RELATIONSHIPS = 'src/canvas/components/model-tab/RelationshipsSection.tsx'
-const V7_HERO = 'src/components/results/v7/V7Hero.tsx'
+const WIN_GAUGE = 'src/components/results/WinGauge.tsx'
 
 describe('F2 — the Model tab does not name "the recommendation" (ROADMAP 2.213)', () => {
   it('the retired sentence is gone from the rendered copy', () => {
@@ -87,16 +87,29 @@ describe('F2 — the Model tab does not name "the recommendation" (ROADMAP 2.213
   })
 })
 
-describe('F4 — the hero gauge does not caption its number "wins" (ROADMAP 2.214)', () => {
+/**
+ * ⚠ RE-POINTED BY THE V7 RETIREMENT, and the scope change is stated rather than
+ * slipped in. F4 was witnessed on `v7/V7Hero.tsx`'s gauge; that file is DELETED
+ * with the V7 group, so a pin against it would read GREEN forever by reading
+ * nothing. The rule is re-pointed at `WinGauge.tsx` — the results panel's
+ * surviving gauge, which renders the same large percentage under the same
+ * comparative register. What this now guarantees is NARROWER than before in one
+ * respect (the witnessed file is gone, so this is a regression pin on a
+ * different file rather than a re-assertion about the witnessed pixels) and
+ * LIVE in the respect that matters: the retired caption cannot appear on the
+ * gauge a user actually loads. The positive control is unchanged and still
+ * pinned to the exact historical markup (trap 12b).
+ */
+describe('F4 — the gauge does not caption its number "wins" (ROADMAP 2.214)', () => {
   it('the bare caption is gone', () => {
-    expect(renderedCopy(V7_HERO)).not.toContain(F4_RETIRED)
+    expect(renderedCopy(WIN_GAUGE)).not.toContain(F4_RETIRED)
   })
 
   it('the gauge still carries an ANCHORED accessible name — the number is not left unlabelled', () => {
     // Over-suppression control: removing the caption must not leave a large
     // bare percentage with no stated basis, which is the very defect the
     // comparative register exists to prevent.
-    const copy = renderedCopy(V7_HERO)
+    const copy = renderedCopy(WIN_GAUGE)
     expect(copy).toContain('COMPARATIVE_COPY.label')
     expect(copy).toContain('aria-label')
   })

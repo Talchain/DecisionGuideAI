@@ -6,10 +6,12 @@
  * scaffold (Paul's V6-RESPEC-2026-07-23 §1 ruling: a V7 top group ABOVE a
  * "Current view" divider, with today's components re-parented beneath — so
  * Paul could assess the two renderings in one scroll). Paul then ruled the
- * duplication off the working tab: the V7 group MOVED, unchanged, to the
- * temporary "Alt view" dock tab (`v7/V7ComparisonTabBody`). The scaffold's
- * absence from THIS tab is pinned in `ResultsBody.v7Retired.spec.tsx`; the
- * new home's presence in `v7/__tests__/V7ComparisonTabBody.spec.tsx`.
+ * duplication off the working tab: the V7 group MOVED, unchanged, to a
+ * temporary "Alt view" dock tab. That adjudication is now settled in favour of
+ * the consolidated analysis cockpit and the whole V7 group, its tab and its
+ * host are DELETED — so the "new home's presence" half of this pointer no
+ * longer has a subject. The scaffold's absence from THIS tab is still pinned in
+ * `ResultsBody.v7Retired.spec.tsx`.
  *
  * What SURVIVES here is this file's other half — the "nothing lost" pins:
  *   (a) every live component still renders exactly ONCE (the retirement

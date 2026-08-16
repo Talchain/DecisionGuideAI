@@ -16,6 +16,15 @@
  * are composed, and nothing about layout — jsdom cannot prove visibility
  * (CLAUDE.md trap 3), and no assertion here should be read as one.
  *
+ * ## SURFACES 3+4 ARE GONE WITH THEIR HOST (V7 retirement) — declared, not silent
+ *
+ * `buildV7Headline`'s re-anchored leader headline and its numeric subline had a
+ * describe here. The builder and its host are DELETED. The equivalent claim on
+ * the SURVIVING leader headline — `buildHeroModel`, under both verdicts, with
+ * the same withheld/permitted pairing — is pinned in
+ * `analysis-hero/__tests__/ownedLeaderClaim.hero.spec.ts`, so the claim did not
+ * leave the suite with the builder. Surface 5 below is untouched.
+ *
  * ## The over-suppression control is not optional
  *
  * Every `WITHHELD` case below has a `PERMITTED` twin. A change that silences
@@ -29,15 +38,9 @@ import {
   LEADER_ID,
   LEADER_LABEL,
   PERMITTED_REPORT,
-  RUNNER_UP_ID,
-  RUNNER_UP_LABEL,
-  WIN_LEADER,
-  WIN_RUNNER_UP,
   WITHHELD_REPORT,
 } from '../../../lib/__fixtures__/ownedLeaderClaim.fixtures'
-import { buildV7Headline } from '../v7/buildV7Headline'
 import { buildCertaintyCopy } from '../utils/certaintyCopy'
-import type { DecisionResultData, OptionResult } from '../types'
 
 const WITHHELD_VERDICT = deriveDecisionVerdict(WITHHELD_REPORT)
 const PERMITTED_VERDICT = deriveDecisionVerdict(PERMITTED_REPORT)
@@ -68,39 +71,6 @@ function expectNoLeaderLanguage(where: string, ...strings: Array<string | null |
     expect(re.test(joined), `${where} must not render "${name}" — got: ${joined}`).toBe(false)
   }
 }
-
-// ── Surface 3 + 4: the V7 hero ("performs best", "Leads by N points") ──────
-
-function v7(verdict: ReturnType<typeof deriveDecisionVerdict>) {
-  const winner = { id: LEADER_ID, label: LEADER_LABEL, winProbability: WIN_LEADER, isRecommended: true } as unknown as OptionResult
-  const rival = { id: RUNNER_UP_ID, label: RUNNER_UP_LABEL, winProbability: WIN_RUNNER_UP } as unknown as OptionResult
-  return buildV7Headline(
-    { recommendedOption: winner, allOptions: [winner, rival], verdict } as unknown as DecisionResultData,
-    'robust',
-  )
-}
-
-describe('V7 hero — the re-anchored leader headline / "Leads by N points" (SUPERSEDED: "performs best" retired 2026-07-31)', () => {
-  it('WITHHELD: renders nothing rather than asserting or denying a leader', () => {
-    const m = v7(WITHHELD_VERDICT)
-    expectNoLeaderLanguage('v7 hero', m.headline, m.subline)
-    // The old gate was `separation === 'tied'`, which is false for 'unknown',
-    // so a withheld turn fell straight through to "{winner} performs best".
-    expect(m.headline).toBe('')
-    expect(m.subline).toBeNull()
-  })
-
-  it('PERMITTED: both the headline and the numeric subline survive', () => {
-    const m = v7(PERMITTED_VERDICT)
-    expect(m.headline).toBe(`${LEADER_LABEL} ${COMPARATIVE_COPY.clause('66%')}`)
-    // ⭐ SUPERSEDED 2026-08-10: was `'Leads by 35 points'`, the percentage-point
-    // gap between two win frequencies. Retired — the subline now states the
-    // runner-up's OWN probability. The ENTITLEMENT this spec exists to pin (a
-    // permitted verdict still gets a numeric subline) is unchanged.
-    expect(m.subline).toBe(`Next: ${RUNNER_UP_LABEL}, 31%`)
-    expect(m.subline).not.toMatch(/leads?\s+by\s+\d+\s+points?/i)
-  })
-})
 
 // ── Surface 5: the results-panel certainty headline ────────────────────────
 

@@ -59,7 +59,6 @@ import {
   FRESHNESS_COPY,
 } from '../../components/results/AnalysisFreshnessNotice'
 import { ReanalyseBar } from '../components/model-tab/ReanalyseBar'
-import { V7FreshnessStrip } from '../../components/results/v7/V7FreshnessStrip'
 import { classifyFreshnessForDisplay } from '../store/analysisFreshness'
 
 // Spy on the completion toast. `importOriginal` spread so the mock cannot rot
@@ -221,17 +220,20 @@ function structurallyUnrelatedGraph() {
 /**
  * EVERY surface that renders a freshness claim, mounted together.
  *
- * ⚠ `V7FreshnessStrip` was added after a review found it was the FOURTH
- * surface and had no behavioural spec anywhere in the tree: dropping its
- * `importHold` argument left this file 24/24 GREEN while the strip flipped back
- * to asserting "Model changed since this analysis." A claim-bearing surface
- * that no spec mounts is a claim nobody is checking.
+ * ⚠ THE FOURTH SURFACE IS GONE, NOT UNMOUNTED BY OVERSIGHT. `V7FreshnessStrip`
+ * used to be mounted here after a review found it was a claim-bearing surface
+ * with no behavioural spec anywhere in the tree: dropping its `importHold`
+ * argument left this file 24/24 GREEN while the strip flipped back to asserting
+ * "Model changed since this analysis." The component is DELETED with the V7
+ * retirement — its only host was the retired "Alt view" comparison tab — so the
+ * arm is removed rather than left pointing at nothing. The reason it was added
+ * still stands for the two surfaces below: a claim-bearing surface that no spec
+ * mounts is a claim nobody is checking.
  */
 function renderFreshnessSurfaces() {
   return render(
     <>
       <AnalysisFreshnessNotice />
-      <V7FreshnessStrip />
       <ReanalyseBar onReanalyse={() => {}} />
     </>,
   )
@@ -360,7 +362,6 @@ describe('interim 2.467 — import invalidates pre-import analysis (rewalk-2459b
     // ModelTabBody is a sibling under `diagnostics`.)
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
     expect(notice).toHaveTextContent(FRESHNESS_COPY.unknown)
-    expect(screen.getByTestId('v7-freshness-strip')).toHaveTextContent(FRESHNESS_COPY.unknown)
     const bar = screen.getByTestId('reanalyse-bar')
     expect(bar).toHaveAttribute('data-reason', 'import-unregistered')
     expect(bar).toHaveTextContent("Can't confirm this analysis matches the current model.")
@@ -779,11 +780,6 @@ describe('interim 2.467 round 2 — the hold is derived from the graph, not from
     const notice = screen.getByTestId('analysis-freshness-notice')
     expect(notice).toHaveTextContent(FRESHNESS_COPY.unknown) // "Cannot confirm…"
     expect(notice).not.toHaveTextContent(FRESHNESS_COPY.stale) // never "Model changed…"
-    // FOURTH SURFACE — the V7 strip must agree, not flip to "Model changed".
-    const v7 = screen.getByTestId('v7-freshness-strip')
-    expect(v7).toHaveAttribute('data-freshness-semantic', 'cannot_confirm')
-    expect(v7).toHaveTextContent(FRESHNESS_COPY.unknown)
-    expect(v7).not.toHaveTextContent(FRESHNESS_COPY.stale)
     // The bar keeps the AFFORDANCE while withholding the assertion.
     const bar = screen.getByTestId('reanalyse-bar')
     expect(bar).toHaveAttribute('data-reason', 'import-unregistered')
@@ -815,10 +811,6 @@ describe('interim 2.467 round 2 — the hold is derived from the graph, not from
     expect(screen.getByTestId('analysis-freshness-notice')).toHaveAttribute(
       'data-freshness',
       'stale',
-    )
-    expect(screen.getByTestId('v7-freshness-strip')).toHaveAttribute(
-      'data-freshness-semantic',
-      'changed',
     )
     const bar = screen.getByTestId('reanalyse-bar')
     expect(bar).toHaveAttribute('data-reason', 'model-changed')

@@ -207,13 +207,13 @@ export const REFUTED_CLAIM_CONTROLS: ReadonlyArray<readonly [RegExp, string]> =
  * and cannot. They are two questions and are kept as two lists (CLAUDE.md trap
  * 21: two harms under one predicate is two questions under one name).
  *
- * WHY IT LIVES HERE. It was authored as a private const inside
- * `v7/__tests__/V7EvidenceDisclosure.resolveNextAllBelowResolution.spec.tsx`
- * when the Resolve-next surface had exactly one host. Paul's 14-Aug ruling
- * promoted the surface onto the DEFAULT Analysis tab, so the doctrine now guards
- * TWO renderings and a private copy would be guarding one of them. This file's
- * own docstring already declares itself "the ONE vocabulary definition", which
- * makes it the home.
+ * WHY IT LIVES HERE. It was authored as a private const inside the V7
+ * evidence disclosure's own spec, when the Resolve-next surface had exactly one
+ * host. Paul's 14-Aug ruling promoted the surface onto the DEFAULT Analysis tab,
+ * so the doctrine briefly guarded TWO renderings and a private copy would have
+ * been guarding one of them. The V7 host has since been retired and the private
+ * copy went with it, so this export is now the only definition in fact as well
+ * as by declaration — which is what this file's own docstring already claimed.
  *
  * ⚠ THE V7 SPEC STILL HOLDS ITS PRIVATE COPY. Folding it onto this export is a
  * one-line change in a spec this lane does not own, so it is NOT done here —

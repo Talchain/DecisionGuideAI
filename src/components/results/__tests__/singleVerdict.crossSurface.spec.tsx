@@ -44,6 +44,18 @@
  * is not reconstructed as a tautology against itself. It is replaced by the
  * honest weaker property the surviving footer can still carry: the footer
  * states EXACTLY ONE verdict — never both labels, never neither.
+ *
+ * ⚠ AND A SECOND BLOCK LEFT WITH THE V7 RETIREMENT — declared for the same
+ * reason. This file also carried "R1 — the V7 goal lens designates the GOAL
+ * leader, not the comparative one" (ROADMAP 2.233), a pair-agreement pin over
+ * `buildV7Lenses` and `buildV7Headline` rendered together by `V7TopMatter`.
+ * BOTH builders and their host are deleted, so both subjects of that agreement
+ * are gone and there is no pair left to disagree. The rule the pair was
+ * enforcing — the goal designation is the goal ARGMAX, honestly gated, never
+ * the comparative leader — lives on in its shared authority
+ * `utils/selectGoalLeader.ts`, pinned by
+ * `analysis-hero/__tests__/buildHeroModel.goalFitIdentity.spec.tsx` on the
+ * surviving host. The canvas-vs-results block below is untouched.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -55,8 +67,6 @@ import { OptionNode } from '../../../canvas/nodes/OptionNode'
 import { useCanvasStore } from '../../../canvas/store'
 import { mapV2ResponseToReportV1 } from '../../../adapters/plot/v2/responseMapper'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
-import { buildV7Lenses } from '../v7/buildV7Lenses'
-import { buildV7Headline } from '../v7/buildV7Headline'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -321,74 +331,5 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
       panel.footerTicksWinner,
       `The checks footer printed both verdict labels, or neither.\nSurface text: ${panel.text.slice(0, 400)}`,
     ).toBe(!panel.denies)
-  })
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// R1 (ROADMAP 2.233 review) — THE HERO HEADLINE AND THE GOAL LENS BENEATH IT
-// MUST DESIGNATE THE SAME OPTION. This file exists for exactly this class:
-// two surfaces rendered together (`V7TopMatter.tsx:68,76`) disagreeing.
-//
-// THE REGRESSION THIS PINS WAS CREATED BY 2.233's OWN FIX. At base both said the
-// COMPARATIVE leader — consistently wrong. Fixing only the headline made the
-// pair CONTRADICTORY.
-//
-// ⚠ IT WENT UNPINNED FOR THE SAME REASON THE HEADLINE DEFECT DID:
-// `buildV7Lenses.spec.ts:123-124` hands the highest goal probability to the very
-// option it marks `isWinner`, so the two can never disagree there — the
-// identical incomplete-fixture weakness found and fixed in the headline spec,
-// repeated one file over. The fixture below DELIBERATELY disagrees.
-// ─────────────────────────────────────────────────────────────────────────────
-describe('R1 — the V7 goal lens designates the GOAL leader, not the comparative one', () => {
-  const A = {
-    id: 'opt_a', label: 'Option A', winProbability: 0.7, goalProbability: 0.4,
-    isRecommended: true, goalFitIsSubstitutedJoint: false,
-  }
-  const B = {
-    id: 'opt_b', label: 'Option B', winProbability: 0.3, goalProbability: 0.8,
-    goalFitIsSubstitutedJoint: false,
-  }
-
-  function goalLensFor(options: unknown[], recommendedId: string) {
-    return buildV7Lenses({
-      recommendation: {
-        allOptions: options,
-        recommendedOption: options.find((o) => (o as { id: string }).id === recommendedId),
-        goalThreshold: 100,
-      },
-      drivers: { drivers: [] },
-      confidence: {},
-      voiRanking: null,
-    } as never).goal
-  }
-
-  it('THE DISAGREEING CASE: the row marked isWinner is the goal argmax (B), not the recommended option (A)', () => {
-    const goal = goalLensFor([A, B], 'opt_a')
-    const marked = goal.options.filter((o) => o.isWinner)
-    expect(marked).toHaveLength(1)
-    expect(marked[0].id).toBe('opt_b')
-    expect(goal.options.find((o) => o.id === 'opt_a')?.isWinner).toBe(false)
-  })
-
-  it('the lens agrees with the HEADLINE on the same data — one subject, one designation', () => {
-    const goal = goalLensFor([A, B], 'opt_a')
-    const headline = buildV7Headline(
-      { recommendedOption: A, allOptions: [A, B], goalThreshold: 100 } as never,
-      'robust',
-    )
-    expect(goal.options.find((o) => o.isWinner)?.label).toBe('Option B')
-    expect(headline.headline).toContain('Option B')
-    // The pair that must never recur: headline names one option, lens bolds another.
-    expect(headline.headline).not.toContain('Option A has the highest')
-  })
-
-  it('OVER-SUPPRESSION CONTROL: when the two leaders AGREE, the row is still marked', () => {
-    const goal = goalLensFor([{ ...A, goalProbability: 0.9 }, B], 'opt_a')
-    expect(goal.options.find((o) => o.isWinner)?.id).toBe('opt_a')
-  })
-
-  it('no honest goal leader (a TIE at the top) ⇒ NO row is marked — never a fallback', () => {
-    const goal = goalLensFor([A, { ...B, goalProbability: 0.4 }], 'opt_a')
-    expect(goal.options.some((o) => o.isWinner)).toBe(false)
   })
 })
