@@ -6,6 +6,7 @@ import { useCanvasStore } from '../../store'
 import {
   __resetEdgeStrengthCoordinatorForTests,
   beginEdgeStrengthHydration,
+  edgeStrengthRunBarrierState,
   finishEdgeStrengthHydration,
   flushEdgeStrengthEditsBeforeRun,
   getEdgeStrengthEndpointStatus,
@@ -123,6 +124,15 @@ function receiptFor(
             : 'derivation_failed',
       ...(graphHashAtRun ? { graph_hash_at_run: graphHashAtRun } : {}),
       current_graph_hash: graphHash,
+      canonical_graph_hash_analysis_state: {
+        projection_version: 'analysis-affecting.v1',
+        options: [{
+          id: 'opt_plan_a', label: 'Plan A', status: 'needs_user_mapping',
+          interventions: {}, is_baseline: false,
+        }],
+        goal_node_id: 'goal_profit',
+        goal_constraints: [],
+      },
     },
     draft_graph: {
       nodes: [
@@ -158,6 +168,9 @@ function installSecondRelationship(): void {
         label: 'Supply',
         observedState: { value: 0.4, source: 'cee_inference', cap: 1 },
         prior: { distribution: 'uniform', range_min: 0.2, range_max: 0.8 },
+        factor_type: 'continuous',
+        intercept: 0.25,
+        encoding_map: { low: 0, high: 1 },
         goal_threshold_frame: 'level',
       },
     }] as never,
@@ -285,6 +298,14 @@ describe('edge strength transaction lifecycle', () => {
 
   it('applies default-valued canonical changes on a non-target edge before releasing Run', async () => {
     installSecondRelationship()
+    useCanvasStore.setState({
+      goalConstraints: [{
+        constraint_id: 'stale-local-constraint',
+        node_id: 'goal_profit',
+        operator: '>=',
+        value: 0.8,
+      }],
+    })
     let canonicalGraph: Record<string, unknown> | null = null
     registerEdgeStrengthSender(async (event, attemptId) => {
       const response = receiptFor(event)
@@ -316,10 +337,14 @@ describe('edge strength transaction lifecycle', () => {
     expect(secondEdgeData).not.toHaveProperty('strength_mean')
     expect(secondEdgeData).not.toHaveProperty('effect_direction')
     expect(secondEdgeData).not.toHaveProperty('edge_type')
-    expect(useCanvasStore.getState().nodes.find((node) => node.id === 'fac_supply')?.data)
-      .not.toHaveProperty('prior')
-    expect(useCanvasStore.getState().nodes.find((node) => node.id === 'fac_supply')?.data)
-      .not.toHaveProperty('goal_threshold_frame')
+    const secondNodeData = useCanvasStore.getState().nodes
+      .find((node) => node.id === 'fac_supply')?.data
+    expect(secondNodeData).not.toHaveProperty('prior')
+    expect(secondNodeData).not.toHaveProperty('factor_type')
+    expect(secondNodeData).not.toHaveProperty('intercept')
+    expect(secondNodeData).not.toHaveProperty('encoding_map')
+    expect(secondNodeData).not.toHaveProperty('goal_threshold_frame')
+    expect(useCanvasStore.getState().goalConstraints).toBeNull()
     expect(canvasAnalyticallyMatchesCanonicalGraph(canonicalGraph)).toBe(true)
   })
 
@@ -438,6 +463,178 @@ describe('edge strength transaction lifecycle', () => {
     expect(getEdgeStrengthEndpointStatus(SCENARIO_A, 'fac_demand', 'goal_profit').kind)
       .toBe('unconfirmed')
     expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBe('old-hash')
+  })
+
+  it('holds Run and preserves readiness byte-for-byte when constraint exactness is sabotaged', async () => {
+    const staleConstraint = {
+      constraint_id: 'stale-local-constraint',
+      node_id: 'goal_profit',
+      operator: '>=' as const,
+      value: 0.8,
+    }
+    useCanvasStore.setState({
+      goalConstraints: [staleConstraint],
+      ceeAnalysisReady: {
+        options: [],
+        goal_node_id: 'goal_profit',
+        status: 'needs_user_input',
+        freshness: 'fresh',
+        freshness_reason: 'graph_hash_match',
+      } as never,
+    })
+    const readinessBefore = structuredClone(useCanvasStore.getState().ceeAnalysisReady)
+    const freshnessBefore = structuredClone(useCanvasStore.getState().analysisFreshness)
+
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      let sabotaged = false
+      const unsubscribe = useCanvasStore.subscribe((state) => {
+        if (sabotaged || state.goalConstraints !== null) return
+        sabotaged = true
+        useCanvasStore.setState({ goalConstraints: [staleConstraint] })
+      })
+      settleEdgeStrengthResponse({ attemptId, response: receiptFor(event) })
+      unsubscribe()
+      expect(sabotaged).toBe(true)
+      return undefined
+    })
+
+    setVisibleTuple(-0.7, 'negative')
+    recordEdgeStrengthMutation({
+      scenarioId: SCENARIO_A,
+      before: observation(-0.4, 'negative'),
+      after: observation(-0.7, 'negative'),
+    })
+
+    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves
+      .toMatchObject({ ok: false })
+    expect(useCanvasStore.getState().ceeAnalysisReady).toEqual(readinessBefore)
+    expect(useCanvasStore.getState().analysisFreshness).toEqual(freshnessBefore)
+    expect(useCanvasStore.getState().goalConstraints).toEqual([staleConstraint])
+    expect(edgeStrengthRunBarrierState(SCENARIO_A)).toMatchObject({ ok: false })
+    expect(getEdgeStrengthEndpointStatus(SCENARIO_A, 'fac_demand', 'goal_profit').kind)
+      .toBe('unconfirmed')
+  })
+
+  it('uses a typed recovery hold when the canonical analysis-state attestation is absent', async () => {
+    const priorAnalysisReady = {
+      options: [{
+        id: 'opt_plan_a',
+        label: 'Plan A',
+        status: 'ready',
+        interventions: {},
+      }],
+      goal_node_id: 'goal_profit',
+      status: 'ready',
+      freshness: 'fresh',
+      freshness_reason: 'graph_hash_match',
+    }
+    useCanvasStore.setState({ ceeAnalysisReady: priorAnalysisReady } as never)
+    const readinessBefore = structuredClone(useCanvasStore.getState().ceeAnalysisReady)
+    const freshnessBefore = structuredClone(useCanvasStore.getState().analysisFreshness)
+
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      const response = receiptFor(event) as unknown as Record<string, any>
+      delete response.analysis_ready.canonical_graph_hash_analysis_state
+      settleEdgeStrengthResponse({ attemptId, response: response as never })
+      return undefined
+    })
+
+    setVisibleTuple(-0.7, 'negative')
+    recordEdgeStrengthMutation({
+      scenarioId: SCENARIO_A,
+      before: observation(-0.4, 'negative'),
+      after: observation(-0.7, 'negative'),
+    })
+
+    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves.toEqual({
+      ok: false,
+      reason: 'The shared model did not provide a complete analysis-input receipt. Check the shared model before running analysis.',
+    })
+    expect(useCanvasStore.getState().edgeStrengthSync.issue)
+      .toBe('analysis_state_unverified')
+    expect(useCanvasStore.getState().ceeAnalysisReady).toEqual(readinessBefore)
+    expect(useCanvasStore.getState().analysisFreshness).toEqual(freshnessBefore)
+    expect(edgeStrengthRunBarrierState(SCENARIO_A)).toMatchObject({ ok: false })
+  })
+
+  it('preserves readiness and freshness byte-for-byte on a valid-shaped but mismatched attestation', async () => {
+    const priorAnalysisReady = {
+      options: [{
+        id: 'opt_prior',
+        label: 'Prior option',
+        status: 'ready',
+        interventions: {},
+      }],
+      goal_node_id: 'goal_profit',
+      status: 'ready',
+      freshness: 'fresh',
+    }
+    useCanvasStore.setState({ ceeAnalysisReady: priorAnalysisReady } as never)
+    const readinessBefore = structuredClone(useCanvasStore.getState().ceeAnalysisReady)
+    const freshnessBefore = structuredClone(useCanvasStore.getState().analysisFreshness)
+
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      const response = receiptFor(event) as unknown as Record<string, any>
+      // Both objects remain individually valid. Their goal identity differs,
+      // so the outer Run payload cannot attest to the hashed state.
+      response.analysis_ready.goal_node_id = 'goal_other'
+      settleEdgeStrengthResponse({ attemptId, response: response as never })
+      return undefined
+    })
+
+    setVisibleTuple(-0.7, 'negative')
+    recordEdgeStrengthMutation({
+      scenarioId: SCENARIO_A,
+      before: observation(-0.4, 'negative'),
+      after: observation(-0.7, 'negative'),
+    })
+
+    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves
+      .toMatchObject({ ok: false })
+    expect(useCanvasStore.getState().edgeStrengthSync.issue)
+      .toBe('analysis_state_unverified')
+    expect(useCanvasStore.getState().ceeAnalysisReady).toEqual(readinessBefore)
+    expect(useCanvasStore.getState().analysisFreshness).toEqual(freshnessBefore)
+    expect(edgeStrengthRunBarrierState(SCENARIO_A)).toMatchObject({ ok: false })
+  })
+
+  it('stores exact encoded/raw option identity before releasing the coordinator Run barrier', async () => {
+    const exactOption = {
+      id: 'opt_plan_a',
+      option_id: 'opt_plan_a',
+      label: 'Plan A',
+      status: 'needs_encoding',
+      is_baseline: false,
+      interventions: {
+        fac_demand: {
+          value: 0.4,
+          value_type: 'continuous',
+          encoding_map: { low: 0, high: 1 },
+          target_match: { node_id: 'fac_demand', match_type: 'semantic' },
+          source: 'user_specified',
+        },
+      },
+      raw_interventions: { fac_demand: { raw_value: 'medium' } },
+    }
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      const response = receiptFor(event) as unknown as Record<string, any>
+      response.analysis_ready.options = [exactOption]
+      response.analysis_ready.status = 'needs_encoding'
+      response.analysis_ready.canonical_graph_hash_analysis_state.options = [exactOption]
+      settleEdgeStrengthResponse({ attemptId, response: response as never })
+      return undefined
+    })
+
+    setVisibleTuple(-0.7, 'negative')
+    recordEdgeStrengthMutation({
+      scenarioId: SCENARIO_A,
+      before: observation(-0.4, 'negative'),
+      after: observation(-0.7, 'negative'),
+    })
+
+    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves.toEqual({ ok: true })
+    expect(useCanvasStore.getState().ceeAnalysisReady?.options[0]).toMatchObject(exactOption)
+    expect(edgeStrengthRunBarrierState(SCENARIO_A)).toEqual({ ok: true })
   })
 
   it('coalesces first-before/latest-after and converts a return to baseline into confirm_current', async () => {

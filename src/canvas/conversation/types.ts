@@ -6,7 +6,12 @@
  */
 
 import type { StageType } from '@talchain/schemas/boundary'
-import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
+import type {
+  CEEAnalysisReady,
+  CEEGoalConstraint,
+  CEEInterventionV3,
+  CEEOptionV3,
+} from '../../adapters/cee/types'
 import type { AnswerShape } from './answerShape'
 
 // ---------------------------------------------------------------------------
@@ -938,7 +943,13 @@ export interface AnalysisInputOption {
   id: string
   option_id: string
   label: string
+  /** Hash-bearing CEE option readiness; carried, never re-derived. */
+  status: CEEOptionV3['status']
   interventions: Record<string, CEEInterventionV3>
+  /** Hash-bearing status-quo identity. */
+  is_baseline?: boolean | null
+  /** Hash-bearing pre-encoding values when status is not ready. */
+  raw_interventions?: Record<string, unknown>
 }
 
 export interface OrchestratorTurnRequest {

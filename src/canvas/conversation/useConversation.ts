@@ -174,6 +174,7 @@ import {
   flushEdgeStrengthEditsBeforeRun,
   settleEdgeStrengthResponse,
 } from '../edge-strength/edgeStrengthCoordinator'
+import { parseCanonicalAnalysisStateAttestation } from '../edge-strength/canonicalAnalysisStateAuthority'
 
 /** Sentinel message content used for system events — must never render as a user bubble */
 export const SYSTEM_MESSAGE_SENTINEL = '[system]'
@@ -3046,13 +3047,19 @@ export function useConversation(): UseConversationReturn {
       // here would mean MISSING_INTERVENTIONS regressions on this path leave no
       // console trace. The per-option backfill warning is the observability hook.
       const ceeReady = store.ceeAnalysisReady
+      const canonicalAnalysisState = parseCanonicalAnalysisStateAttestation(ceeReady)
       const reconciledOptions = ceeReady?.goal_node_id
-        ? reconcileOptionsWithCanvasNodes(
-            ceeReady,
-            store.nodes as any,
-            new Set(store.nodes.map((n) => n.id)),
-            { scenarioId: store.currentScenarioId ?? null, phase: 'turn_request' },
-          )
+        ? canonicalAnalysisState
+          // A canonical transactional receipt has already proved these exact
+          // options against CEE's graph-hash preimage. Never backfill or
+          // reinterpret them from canvas option nodes while constructing Run.
+          ? canonicalAnalysisState.options as unknown as CEEAnalysisReady['options']
+          : reconcileOptionsWithCanvasNodes(
+              ceeReady,
+              store.nodes as any,
+              new Set(store.nodes.map((n) => n.id)),
+              { scenarioId: store.currentScenarioId ?? null, phase: 'turn_request' },
+            )
         : []
       const analysisInputs =
         reconciledOptions.length > 0 && ceeReady?.goal_node_id
@@ -3065,7 +3072,14 @@ export function useConversation(): UseConversationReturn {
                 id: opt.id,
                 option_id: opt.id,
                 label: opt.label,
+                status: opt.status,
                 interventions: opt.interventions,
+                ...(opt.is_baseline !== undefined
+                  ? { is_baseline: opt.is_baseline }
+                  : {}),
+                ...(opt.raw_interventions !== undefined
+                  ? { raw_interventions: opt.raw_interventions }
+                  : {}),
               })),
               goal_node_id: ceeReady.goal_node_id,
               ...(store.goalConstraints && store.goalConstraints.length > 0

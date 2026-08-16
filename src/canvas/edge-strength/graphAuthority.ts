@@ -14,14 +14,31 @@ import { pulseAppliedTargets } from '../utils/appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from '../utils/applyDraftResult'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { logger } from '../../lib/logger'
+import {
+  CEE_ANALYSIS_EDGE_CLIENT_FIELDS,
+  CEE_ANALYSIS_NODE_CLIENT_FIELDS,
+  type CanonicalAnalysisStateField,
+} from './canonicalAnalysisStateAuthority'
 
-// The generic staleness registry intentionally covers live editor fields, but
-// a full GraphV3 receipt must also retire canonical wire optionals and legacy
-// aliases that can change a downstream request. `strength_mean` is especially
-// load-bearing: the legacy ISL adapter prefers it over weight + direction.
+// Compile-time bind to @talchain/schemas' canonical hash contract. CEE treats
+// an absent/empty goal_constraints member as [], so the canvas uses `null` as
+// the one constraint-free representation and compares it as part of every
+// authoritative read-after-write proof.
+const GOAL_CONSTRAINTS_FIELD = 'goal_constraints' satisfies CanonicalAnalysisStateField
+
+// The generic staleness registry intentionally covers live editor fields. A
+// full GraphV3 receipt has a stronger obligation: it must also retire every
+// client spelling of CEE's analysis-affecting node/edge projection, including
+// optional fields that are ABSENT from the receipt. The exact serving contract
+// and source pin live in canonicalAnalysisStateAuthority; this reconciler
+// consumes that one classification instead of keeping a rival nested list.
+//
+// `strength_mean` is also load-bearing legacy state: the ISL adapter prefers it
+// over weight + direction, so a full canonical receipt must retire it.
 const CANONICAL_NODE_ANALYTICAL_FIELDS = [
   ...new Set([
     ...ANALYTICAL_NODE_DATA_FIELDS,
+    ...CEE_ANALYSIS_NODE_CLIENT_FIELDS,
     'category',
     'categories',
     'state_space',
@@ -31,11 +48,21 @@ const CANONICAL_NODE_ANALYTICAL_FIELDS = [
 const CANONICAL_EDGE_ANALYTICAL_FIELDS = [
   ...new Set([
     ...ANALYTICAL_EDGE_FIELDS,
+    ...CEE_ANALYSIS_EDGE_CLIENT_FIELDS,
     'strength_mean',
     'effect_direction',
     'edge_type',
   ]),
 ] as const
+
+/** Persist the one current canvas authority snapshot after an atomic receipt. */
+export function persistCanonicalGraphAuthoritySnapshot(): void {
+  try {
+    saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
+  } catch {
+    // Persistence failure cannot turn an exact in-memory receipt into a lie.
+  }
+}
 
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -66,7 +93,7 @@ export function captureCanvasAnalyticalFingerprint(): string {
     type: node.type ?? '',
     fields: projectFields(
       node.data as Record<string, unknown> | undefined,
-      ANALYTICAL_NODE_DATA_FIELDS,
+      CANONICAL_NODE_ANALYTICAL_FIELDS,
     ),
   })).sort((a, b) => a.id.localeCompare(b.id))
   const edges = state.edges.map((edge) => ({
@@ -75,10 +102,14 @@ export function captureCanvasAnalyticalFingerprint(): string {
     target: edge.target,
     fields: projectFields(
       edge.data as Record<string, unknown> | undefined,
-      ANALYTICAL_EDGE_FIELDS,
+      CANONICAL_EDGE_ANALYTICAL_FIELDS,
     ),
   })).sort((a, b) => a.id.localeCompare(b.id))
-  return canonicalJson({ nodes, edges })
+  return canonicalJson({
+    nodes,
+    edges,
+    goal_constraints: state.goalConstraints ?? [],
+  })
 }
 
 function fieldsEqual(
@@ -108,6 +139,22 @@ function replaceFields(
     if (source && field in source) target[field] = source[field]
     else delete target[field]
   }
+}
+
+function canonicalGoalConstraints(
+  graph: Record<string, unknown>,
+): CEEGoalConstraint[] | null {
+  const value = graph[GOAL_CONSTRAINTS_FIELD]
+  return Array.isArray(value) && value.length > 0
+    ? value as CEEGoalConstraint[]
+    : null
+}
+
+function goalConstraintsMatchCanonicalGraph(graph: Record<string, unknown>): boolean {
+  return deepEqual(
+    useCanvasStore.getState().goalConstraints ?? null,
+    canonicalGoalConstraints(graph),
+  )
 }
 
 export interface CanonicalNodeFieldProtection {
@@ -355,22 +402,33 @@ export function reconcileCanvasWithCanonicalGraph(
     }
   }
 
-  const changed = !deepEqual(state.nodes, nodes) || !deepEqual(state.edges, edges)
-  if (changed) state.pushHistory()
+  const graphChanged = !deepEqual(state.nodes, nodes) || !deepEqual(state.edges, edges)
+  const nextGoalConstraints = canonicalGoalConstraints(graph)
+  const constraintsChanged = !deepEqual(state.goalConstraints ?? null, nextGoalConstraints)
+  const changed = graphChanged || constraintsChanged
+  if (graphChanged) state.pushHistory()
   state.beginExternalGraphMutation('patch_apply')
   try {
-    if (changed) useCanvasStore.setState({ nodes, edges })
+    if (changed) {
+      useCanvasStore.setState({
+        ...(graphChanged ? { nodes, edges } : {}),
+        ...(constraintsChanged ? { goalConstraints: nextGoalConstraints } : {}),
+      })
+    }
     useCanvasStore.getState().reseedIds(nodes, edges)
     useCanvasStore.getState().setLastAuthoritativeGraph({
       nodeIds: [...nodeIds],
       edgePairs: [...pairs],
     })
-    if (changed) useCanvasStore.getState().markGraphStructurallyEdited?.()
+    if (graphChanged) useCanvasStore.getState().markGraphStructurallyEdited?.()
   } finally {
     useCanvasStore.getState().endExternalGraphMutation()
   }
 
-  if (!projectionMatches(nodes, edges, nodeProtections, edgeProtections)) {
+  if (
+    !projectionMatches(nodes, edges, nodeProtections, edgeProtections) ||
+    !goalConstraintsMatchCanonicalGraph(graph)
+  ) {
     return {
       ok: false,
       changed,
@@ -379,27 +437,20 @@ export function reconcileCanvasWithCanonicalGraph(
     }
   }
 
-  if (changed) {
+  if (graphChanged) {
     pulseAppliedTargets({ nodeIds: changedNodeIds, edgeIds: changedEdgeIds })
   }
 
-  const receiptGoalConstraints = graph.goal_constraints
-  if (Array.isArray(receiptGoalConstraints) && receiptGoalConstraints.length > 0) {
-    const constraints = receiptGoalConstraints as CEEGoalConstraint[]
-    useCanvasStore.getState().setGoalConstraints(constraints, { fromProducerSync: true })
+  if (constraintsChanged) {
     logger.info('[constraint-trace] store-write', {
       source: 'reconcileCanvasWithCanonicalGraph',
-      count: constraints.length,
-      constraint_ids: constraints.map((constraint) => constraint.constraint_id),
+      count: nextGoalConstraints?.length ?? 0,
+      constraint_ids: nextGoalConstraints?.map((constraint) => constraint.constraint_id) ?? [],
     })
   }
 
-  if (changed || (Array.isArray(receiptGoalConstraints) && receiptGoalConstraints.length > 0)) {
-    try {
-      saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
-    } catch {
-      // Persistence failure cannot turn an exact in-memory receipt into a lie.
-    }
+  if (changed) {
+    persistCanonicalGraphAuthoritySnapshot()
   }
 
   return { ok: true, changed, hasProtections }
@@ -476,7 +527,7 @@ export function canvasAnalyticallyMatchesCanonicalGraph(graphValue: unknown): bo
     )) return false
   }
 
-  return true
+  return goalConstraintsMatchCanonicalGraph(graph)
 }
 
 /**
@@ -529,10 +580,11 @@ export function replaceCanvasWithCanonicalGraph(graphValue: unknown): boolean {
     edges.push(existing ? { ...mapped, id: existing.id } : mapped)
   }
 
+  const nextGoalConstraints = canonicalGoalConstraints(graph)
   state.pushHistory()
   state.beginExternalGraphMutation('hydrate')
   try {
-    useCanvasStore.setState({ nodes, edges })
+    useCanvasStore.setState({ nodes, edges, goalConstraints: nextGoalConstraints })
     useCanvasStore.getState().reseedIds(nodes, edges)
     useCanvasStore.getState().setLastAuthoritativeGraph({
       nodeIds: [...nodeIds],

@@ -81,6 +81,7 @@ function seedCanvas(): void {
       },
     ] as never,
     edges: [] as never,
+    goalConstraints: null,
     lastAuthoritativeGraph: null,
     serverGraphIdentity: null,
     history: { past: [], future: [] },
@@ -145,6 +146,43 @@ describe('hydrateCanvasFromServer — boot WITH a server graph', () => {
 
     await expect(hydration).resolves.toBe('superseded')
     expect(nodeById('factor-1').data.observedState.value).toBe(0.99)
+    expect(edgeStrengthRunBarrierState(SCENARIO_ID).ok).toBe(false)
+  })
+
+  it('does not let a late read erase a newly set CEE-hashed factor classification', async () => {
+    let resolveFetch!: (response: Response) => void
+    fetchSpy.mockImplementation(() => new Promise<Response>((resolve) => { resolveFetch = resolve }))
+    const hydration = hydrateCanvasFromServer(SCENARIO_ID)
+
+    useCanvasStore.setState((state) => ({
+      nodes: state.nodes.map((node) => node.id !== 'factor-1' ? node : {
+        ...node,
+        data: { ...node.data, factor_type: 'continuous' },
+      }),
+    }))
+    resolveFetch(jsonResponse(200, okBody()))
+
+    await expect(hydration).resolves.toBe('superseded')
+    expect(nodeById('factor-1').data.factor_type).toBe('continuous')
+    expect(edgeStrengthRunBarrierState(SCENARIO_ID).ok).toBe(false)
+  })
+
+  it('does not let a late read erase a newly set analysis constraint', async () => {
+    let resolveFetch!: (response: Response) => void
+    fetchSpy.mockImplementation(() => new Promise<Response>((resolve) => { resolveFetch = resolve }))
+    const hydration = hydrateCanvasFromServer(SCENARIO_ID)
+    const constraint = {
+      constraint_id: 'constraint-local',
+      node_id: 'goal-1',
+      operator: '>=' as const,
+      value: 0.8,
+    }
+
+    useCanvasStore.setState({ goalConstraints: [constraint] })
+    resolveFetch(jsonResponse(200, okBody()))
+
+    await expect(hydration).resolves.toBe('superseded')
+    expect(useCanvasStore.getState().goalConstraints).toEqual([constraint])
     expect(edgeStrengthRunBarrierState(SCENARIO_ID).ok).toBe(false)
   })
 
@@ -213,18 +251,34 @@ describe('hydrateCanvasFromServer — CEE-to-CEE token comparison only', () => {
   })
 
   it('an explicit restore replaces local-only structure and proves full authority', async () => {
+    const sharedConstraint = {
+      constraint_id: 'constraint-shared',
+      node_id: 'factor-1',
+      operator: '<=' as const,
+      value: 42,
+    }
+    useCanvasStore.setState({
+      goalConstraints: [{
+        constraint_id: 'constraint-local',
+        node_id: 'goal-1',
+        operator: '>=' as const,
+        value: 0.8,
+      }],
+    })
     fetchSpy.mockResolvedValue(
       jsonResponse(200, okBody({
         graph_identity_hash: envelope(CEE_TOKEN_2),
         graph: {
           nodes: [{ id: 'factor-1', kind: 'factor', label: 'Spend', value: 42 }],
           edges: [],
+          goal_constraints: [sharedConstraint],
         },
       })),
     )
 
     expect(await hydrateCanvasFromServer(SCENARIO_ID, { replaceLocalGraph: true })).toBe('merged')
     expect(useCanvasStore.getState().nodes.map((node) => node.id)).toEqual(['factor-1'])
+    expect(useCanvasStore.getState().goalConstraints).toEqual([sharedConstraint])
     expect(useCanvasStore.getState().serverGraphIdentity).toEqual({
       value: CEE_TOKEN_2,
       projectionVersion: 'identity.v1',

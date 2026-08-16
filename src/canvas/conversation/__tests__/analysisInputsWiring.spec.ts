@@ -3,7 +3,7 @@
  *
  * Verifies:
  * - When ceeAnalysisReady has options + truthy goal_node_id, turn request includes
- *   analysis_inputs with options[] (id + option_id + label + interventions) and goal_node_id
+ *   analysis_inputs with the exact hash-bearing option projection and goal_node_id
  * - When ceeAnalysisReady is null, turn request omits analysis_inputs
  * - When ceeAnalysisReady has an empty options array, turn request omits analysis_inputs
  * - When options exist but goal_node_id is falsy, turn request omits analysis_inputs
@@ -42,34 +42,49 @@ vi.mock('../../../flags', () => ({
   isThreadPersistEnabled: () => false,
   isOrchestratorRenderingV2Enabled: () => false,
   isV5CanonicalAnalysisEnabled: () => false,
+  isE2EEnabled: () => true,
 }))
 
 // ---------------------------------------------------------------------------
 // Test data
 // ---------------------------------------------------------------------------
 
-const mockCeeAnalysisReady: CEEAnalysisReady = {
-  goal_node_id: 'node-goal-1',
-  options: [
-    {
-      id: 'option-a',
-      label: 'Option A',
-      status: 'ready',
-      interventions: {
-        'node-1': { value: 0.8, source: 'cee_hypothesis' },
-        'node-2': { value: 0.5, source: 'user_specified' },
-      },
+const canonicalOptionA = {
+  id: 'option-a',
+  label: 'Option A',
+  status: 'needs_encoding' as const,
+  is_baseline: false,
+  interventions: {
+    'node-1': {
+      value: 0.8,
+      value_type: 'categorical' as const,
+      encoding_map: { low: 0, high: 1 },
+      target_match: { node_id: 'node-1', match_type: 'semantic' as const },
+      source: 'cee_hypothesis' as const,
     },
-    {
-      id: 'option-b',
-      label: 'Option B',
-      status: 'ready',
-      interventions: {
-        'node-1': { value: 0.3, source: 'brief_extraction' },
-      },
-    },
-  ],
+    'node-2': { value: 0.5, source: 'user_specified' as const },
+  },
+  raw_interventions: { 'node-1': { raw_value: 'high' } },
 }
+
+const canonicalOptionB = {
+  id: 'option-b',
+  label: 'Option B',
+  status: 'ready' as const,
+  is_baseline: true,
+  interventions: {},
+}
+
+const mockCeeAnalysisReady = {
+  goal_node_id: 'node-goal-1',
+  options: [canonicalOptionA, canonicalOptionB],
+  canonical_graph_hash_analysis_state: {
+    projection_version: 'analysis-affecting.v1',
+    options: [structuredClone(canonicalOptionA), structuredClone(canonicalOptionB)],
+    goal_node_id: 'node-goal-1',
+    goal_constraints: [],
+  },
+} as CEEAnalysisReady
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -127,7 +142,29 @@ describe('analysis_inputs in turn request', () => {
   })
 
   it('maps both id and option_id on each option on run_analysis turn', async () => {
-    useCanvasStore.setState({ ceeAnalysisReady: mockCeeAnalysisReady })
+    useCanvasStore.setState({
+      ceeAnalysisReady: mockCeeAnalysisReady,
+      // This stale local fallback would populate the baseline under the legacy
+      // reconciler. An attested receipt must remain byte-for-byte authoritative.
+      nodes: [
+        {
+          id: 'option-b',
+          type: 'option',
+          position: { x: 0, y: 0 },
+          data: {
+            kind: 'option',
+            label: 'Option B',
+            interventions: { 'node-local': 0.9 },
+          },
+        },
+        {
+          id: 'node-local',
+          type: 'factor',
+          position: { x: 0, y: 0 },
+          data: { kind: 'factor', label: 'Local only' },
+        },
+      ] as never,
+    })
     mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'r1' })
 
     const { result } = renderHook(() => useConversation())
@@ -141,11 +178,24 @@ describe('analysis_inputs in turn request', () => {
     expect(opts[0].id).toBe('option-a')
     expect(opts[0].option_id).toBe('option-a')
     expect(opts[0].label).toBe('Option A')
+    expect(opts[0].status).toBe('needs_encoding')
+    expect(opts[0].is_baseline).toBe(false)
     expect(opts[0].interventions).toEqual(mockCeeAnalysisReady.options[0].interventions)
+    expect(opts[0].raw_interventions).toEqual(
+      mockCeeAnalysisReady.options[0].raw_interventions,
+    )
+    expect(opts[0].interventions['node-1']).toMatchObject({
+      value_type: 'categorical',
+      encoding_map: { low: 0, high: 1 },
+      target_match: { node_id: 'node-1' },
+    })
 
     expect(opts[1].id).toBe('option-b')
     expect(opts[1].option_id).toBe('option-b')
     expect(opts[1].label).toBe('Option B')
+    expect(opts[1].status).toBe('ready')
+    expect(opts[1].is_baseline).toBe(true)
+    expect(opts[1].interventions).toEqual({})
   })
 
   it('omits analysis_inputs on plain conversation turns even when ceeAnalysisReady has options', async () => {

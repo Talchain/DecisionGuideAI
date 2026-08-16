@@ -24,6 +24,7 @@ import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
 import {
   beginEdgeStrengthHydration,
+  edgeStrengthAnalysisStateRecoveryRequired,
   edgeStrengthHydrationCanApply,
   finishEdgeStrengthHydration,
 } from '../edge-strength/edgeStrengthCoordinator'
@@ -32,6 +33,10 @@ import {
   captureCanvasAnalyticalFingerprint,
   replaceCanvasWithCanonicalGraph,
 } from '../edge-strength/graphAuthority'
+import {
+  canonicalAnalysisStateMatchesCanonicalGraph,
+  reconcileStoredAnalysisStateFromCanonicalGraph,
+} from '../edge-strength/canonicalAnalysisStateAuthority'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -114,13 +119,26 @@ export async function hydrateCanvasFromServer(
 
   const edgeRevisionAtStart = beginEdgeStrengthHydration(scenarioId)
   const canvasFingerprintAtStart = captureCanvasAnalyticalFingerprint()
-  const finish = (outcome: HydrationOutcome, usable: boolean): HydrationOutcome => {
+  const finish = (
+    outcome: HydrationOutcome,
+    usable: boolean,
+    analysisStateUsable = false,
+  ): HydrationOutcome => {
     finishEdgeStrengthHydration({
       scenarioId,
       startedAtRevision: edgeRevisionAtStart,
       usable,
+      analysisStateUsable,
     })
     return outcome
+  }
+  const recoverAnalysisState = (graph: unknown): boolean => {
+    // Normal boot hydration must not silently replace options/goal readiness.
+    // This seam is exclusively the explicit recovery for a transaction whose
+    // receipt lacked a complete hash-preimage attestation.
+    if (!edgeStrengthAnalysisStateRecoveryRequired(scenarioId)) return false
+    return reconcileStoredAnalysisStateFromCanonicalGraph(graph) &&
+      canonicalAnalysisStateMatchesCanonicalGraph(graph)
   }
 
   const result = await fetchScenarioGraph(scenarioId, {
@@ -207,7 +225,8 @@ export async function hydrateCanvasFromServer(
         ? { value: result.identity.value, projectionVersion: result.identity.projectionVersion }
         : null,
     )
-    return finish('merged', true)
+    const analysisStateExact = recoverAnalysisState(result.graph)
+    return finish('merged', true, analysisStateExact)
   }
 
   const stored = useCanvasStore.getState().serverGraphIdentity
@@ -219,7 +238,8 @@ export async function hydrateCanvasFromServer(
     // apply. Skipping is not merely an optimisation: re-merging would roll a
     // local edit made since that hydration back to the same server value the
     // user has already been shown once.
-    return finish('unchanged', true)
+    const analysisStateExact = recoverAnalysisState(result.graph)
+    return finish('unchanged', true, analysisStateExact)
   }
 
   if (!edgeStrengthHydrationCanApply(scenarioId, edgeRevisionAtStart)) {
@@ -286,6 +306,8 @@ export async function hydrateCanvasFromServer(
     return finish('mergeRefused', false)
   }
 
+  const analysisStateExact = recoverAnalysisState(result.graph)
+
   // Store CEE's token VERBATIM — after the merge, so a throw could not leave a
   // token recorded for a graph that was never applied. `null` when CEE issued
   // none (an identity-empty graph), which never suppresses a later merge.
@@ -298,5 +320,5 @@ export async function hydrateCanvasFromServer(
       : null,
   )
 
-  return finish('merged', true)
+  return finish('merged', true, analysisStateExact)
 }

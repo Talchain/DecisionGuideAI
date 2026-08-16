@@ -118,6 +118,7 @@ export interface PreviousReportSnapshot {
 export type EdgeStrengthSyncIssue =
   | 'conflict'
   | 'unconfirmed'
+  | 'analysis_state_unverified'
   | 'unsupported_fields'
   | 'unsupported_value'
   | 'unconfirmed_structure'

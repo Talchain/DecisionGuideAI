@@ -114,6 +114,18 @@ function edgeStrengthReceipt(event: Record<string, unknown>) {
             : 'derivation_failed',
       ...(graphHashAtRun ? { graph_hash_at_run: graphHashAtRun } : {}),
       current_graph_hash: graphHash,
+      canonical_graph_hash_analysis_state: {
+        projection_version: 'analysis-affecting.v1',
+        options: [{
+          id: 'opt_plan_a',
+          label: 'Plan A',
+          status: 'needs_user_mapping',
+          interventions: {},
+          is_baseline: false,
+        }],
+        goal_node_id: 'goal_profit',
+        goal_constraints: [],
+      },
     },
     draft_graph: {
       nodes: [

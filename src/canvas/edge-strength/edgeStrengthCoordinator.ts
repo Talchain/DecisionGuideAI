@@ -21,14 +21,20 @@ import {
   type EdgeStrengthRecoverySummaryKind,
   type EdgeStrengthSyncIssue,
 } from '../store'
-import { normaliseV5AnalysisReady } from '../../v5/applyV5State'
 import {
   canvasAnalyticallyMatchesCanonicalGraph,
+  persistCanonicalGraphAuthoritySnapshot,
   reconcileCanvasWithCanonicalGraph,
   type CanonicalEdgeFieldProtection,
   type CanonicalGraphReconciliationResult,
   type CanonicalNodeFieldProtection,
 } from './graphAuthority'
+import {
+  prepareCanonicalAnalysisReadyFromReceipt,
+  storedAnalysisStateMatchesAttestation,
+  type CanonicalAnalysisStateAttestation,
+} from './canonicalAnalysisStateAuthority'
+import type { CEEAnalysisReady } from '../../adapters/cee/types'
 
 export const EDGE_STRENGTH_DEBOUNCE_MS = 1500
 
@@ -79,6 +85,8 @@ export type EdgeStrengthReceiptVerdict =
       freshness: 'fresh' | 'stale' | 'unknown' | 'none'
       graphHashAtRun: string | null
       analysisReady: Record<string, unknown>
+      canonicalAnalysisReady: CEEAnalysisReady
+      analysisStateAttestation: CanonicalAnalysisStateAttestation
       draftGraph: Record<string, unknown>
     }
   | { kind: 'invalid'; reason: string }
@@ -164,6 +172,7 @@ let blockedRetryTimer: ReturnType<typeof setTimeout> | null = null
 let publishedRevision = 0
 
 const issuePriority: readonly EdgeStrengthSyncIssue[] = [
+  'analysis_state_unverified',
   'unconfirmed',
   'conflict',
   'unsupported_fields',
@@ -282,6 +291,8 @@ function runReason(issue: EdgeStrengthSyncIssue | null, queued: number, inFlight
       return 'This relationship changed elsewhere. Review the latest shared value, then try your change again.'
     case 'unconfirmed':
       return 'We could not verify that this relationship change was saved. Refresh the model before running analysis.'
+    case 'analysis_state_unverified':
+      return 'The shared model did not provide a complete analysis-input receipt. Check the shared model before running analysis.'
     case 'unsupported_fields':
       return 'Relationship likelihood or uncertainty changed locally, but analysis cannot verify those fields yet. Restore the shared value before running analysis.'
     case 'unsupported_value':
@@ -362,10 +373,17 @@ export function edgeStrengthHydrationCanApply(
     (lane.pending.size === 0 || currentIssue(lane) !== null)
 }
 
+/** Whether hydration is acting as the typed full-analysis-state recovery. */
+export function edgeStrengthAnalysisStateRecoveryRequired(scenarioId: string): boolean {
+  return [...laneFor(scenarioId).issues.values()].includes('analysis_state_unverified')
+}
+
 export function finishEdgeStrengthHydration(args: {
   scenarioId: string
   startedAtRevision: number
   usable: boolean
+  /** Full persisted options/goal/constraints were reconciled for Run. */
+  analysisStateUsable?: boolean
 }): void {
   const lane = laneFor(args.scenarioId)
   if (!edgeStrengthHydrationCanApply(args.scenarioId, args.startedAtRevision)) {
@@ -373,6 +391,19 @@ export function finishEdgeStrengthHydration(args: {
     // authority. Never downgrade it because an older boot read finished late.
     if (lane.hydration !== 'settled') lane.hydration = 'unconfirmed'
   } else if (args.usable) {
+    const analysisStateStillUnverified =
+      [...lane.issues.values()].includes('analysis_state_unverified') &&
+      args.analysisStateUsable !== true
+    if (analysisStateStillUnverified) {
+      // The authenticated read proved nodes/edges, so hydration itself is
+      // settled, but it did not supply a Run-equivalent options/goal/constraint
+      // projection. Retain the typed issue and its explicit refresh/restore
+      // recovery instead of converting an incomplete read into Run authority.
+      lane.hydration = 'settled'
+      lane.lastHydratedRevision = args.startedAtRevision
+      publish(args.scenarioId)
+      return
+    }
     const recoveries = [...lane.recoveries.values()]
     lane.hydration = 'settled'
     lane.lastHydratedRevision = args.startedAtRevision
@@ -1067,8 +1098,9 @@ export function evaluateEdgeStrengthReceipt(
     return { kind: 'invalid', reason: 'set_hash_unchanged' }
   }
 
-  if (!normaliseV5AnalysisReady(analysisReady)) {
-    return { kind: 'invalid', reason: 'analysis_ready_invalid' }
+  const canonicalAnalysisState = prepareCanonicalAnalysisReadyFromReceipt(analysisReady)
+  if (!canonicalAnalysisState.ok) {
+    return { kind: 'invalid', reason: canonicalAnalysisState.reason }
   }
 
   return {
@@ -1078,6 +1110,8 @@ export function evaluateEdgeStrengthReceipt(
     freshness,
     graphHashAtRun,
     analysisReady,
+    canonicalAnalysisReady: canonicalAnalysisState.analysisReady,
+    analysisStateAttestation: canonicalAnalysisState.attestation,
     draftGraph: graph,
   }
 }
@@ -1329,6 +1363,45 @@ function settleApplied(
     settleUnconfirmed(attempt, 'receipt_exactness_failed')
     return
   }
+
+  // `options` and `goal_node_id` are not carried by the applied draft_graph,
+  // but they are part of CEE's graph-hash preimage and they are exactly what
+  // Run reads from ceeAnalysisReady. Commit the already-validated attestation
+  // before releasing the lane, then prove the store (including constraints)
+  // reads back as the same analytical state. A store subscriber or future
+  // reducer that rewrites any hashed field leaves readiness/freshness exactly
+  // as they were and enters the typed recovery state below.
+  const storeBeforeAnalysisState = useCanvasStore.getState()
+  const readinessBefore = storeBeforeAnalysisState.ceeAnalysisReady
+  const readinessNodeIdsBefore = storeBeforeAnalysisState.ceeAnalysisReadyNodeIds
+  const canonicalNodeIds = storeBeforeAnalysisState.nodes.map((node) => node.id)
+  useCanvasStore.setState({
+    ceeAnalysisReady: verdict.canonicalAnalysisReady,
+    ceeAnalysisReadyNodeIds: canonicalNodeIds,
+  })
+  if (!storedAnalysisStateMatchesAttestation(verdict.analysisStateAttestation)) {
+    useCanvasStore.setState({
+      ceeAnalysisReady: readinessBefore,
+      ceeAnalysisReadyNodeIds: readinessNodeIdsBefore,
+    })
+    settleUnconfirmed(attempt, 'canonical_analysis_state_post_write_mismatch')
+    return
+  }
+  try {
+    sessionStorage.setItem(
+      'olumi-cee-analysis-ready',
+      JSON.stringify(verdict.canonicalAnalysisReady),
+    )
+    sessionStorage.setItem(
+      'olumi-cee-analysis-ready-node-ids',
+      JSON.stringify(canonicalNodeIds),
+    )
+  } catch {}
+  // The graph reconciler persisted the exact nodes/edges/constraints before
+  // this store commit. Persist once more now that the same atomic authority
+  // snapshot also carries the attested options and goal identity.
+  persistCanonicalGraphAuthoritySnapshot()
+
   lane.active = null
   lane.lastOutcome = {
     kind: attempt.intent === 'confirm_current' ? 'confirmed' : 'saved',
@@ -1359,7 +1432,6 @@ function settleApplied(
   // resolve Run waiters until every authoritative field has committed.
   publish(attempt.scenarioId, { settleWaiters: false })
   const store = useCanvasStore.getState()
-  store.setCeeAnalysisReady(normaliseV5AnalysisReady(verdict.analysisReady) ?? null)
   store.setAnalysisFreshness(verdict.analysisReady, {
     preserveDirty:
       attempt.intent === 'confirm_current' && verdict.freshness !== 'fresh',
@@ -1378,13 +1450,16 @@ function settleApplied(
   ) store.clearAnalysisFreshnessDirty()
 }
 
-function settleUnconfirmed(attempt: EdgeStrengthAttempt, _reason: string): void {
+function settleUnconfirmed(attempt: EdgeStrengthAttempt, reason: string): void {
   const lane = laneFor(attempt.scenarioId)
   if (lane.active?.id !== attempt.id) return
   lane.active = null
   const key = pairKey(attempt.from, attempt.to)
   const pending = lane.pending.get(key)
-  setIssue(lane, key, 'unconfirmed', {
+  const issue: EdgeStrengthSyncIssue = reason.startsWith('canonical_analysis_state_')
+    ? 'analysis_state_unverified'
+    : 'unconfirmed'
+  setIssue(lane, key, issue, {
     from: attempt.from,
     to: attempt.to,
   })
@@ -1607,7 +1682,9 @@ export function getEdgeStrengthEndpointStatus(
   const recovery = lane.recoveries.get(key)
   const issue = lane.issues.get(key)
   if (issue === 'conflict' && recovery) return { kind: 'conflict', recovery }
-  if (issue === 'unconfirmed' && recovery) return { kind: 'unconfirmed', recovery }
+  if ((issue === 'unconfirmed' || issue === 'analysis_state_unverified') && recovery) {
+    return { kind: 'unconfirmed', recovery }
+  }
   if (pending) return { kind: 'queued', edgeId: pending.edgeId }
   const outcome = lane.lastOutcome
   if (outcome && outcome.from === from && outcome.to === to) {

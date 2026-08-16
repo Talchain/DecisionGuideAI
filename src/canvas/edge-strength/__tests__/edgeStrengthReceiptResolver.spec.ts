@@ -75,6 +75,18 @@ function setResponse(): OlumiResponse {
       freshness_reason: 'graph_hash_diverged',
       graph_hash_at_run: 'ecbec896ec686d3c',
       current_graph_hash: '8cf2c68f92c5c20a',
+      canonical_graph_hash_analysis_state: {
+        projection_version: 'analysis-affecting.v1',
+        options: [{
+          id: 'opt_plan_a',
+          label: 'Plan A',
+          status: 'needs_user_mapping',
+          interventions: {},
+          is_baseline: false,
+        }],
+        goal_node_id: 'goal_profit',
+        goal_constraints: [],
+      },
     },
     draft_graph: {
       nodes: [

@@ -286,6 +286,8 @@ export function getEdgeStrengthRecoveryBlock(
   if (!edgeStrengthSync.issue) return null
   const genericReason = edgeStrengthSync.issue === 'conflict'
     ? 'This relationship changed elsewhere. Review the latest shared value before running analysis.'
+    : edgeStrengthSync.issue === 'analysis_state_unverified'
+      ? 'The shared model did not provide a complete analysis-input receipt. Check the shared model before running analysis.'
     : edgeStrengthSync.issue === 'unconfirmed'
       ? 'We could not confirm whether this relationship change was saved. Check the shared model before running analysis.'
       : edgeStrengthSync.issue === 'unconfirmed_structure'
@@ -296,6 +298,8 @@ export function getEdgeStrengthRecoveryBlock(
   const oneReason = affected.one
     ? edgeStrengthSync.issue === 'conflict'
       ? `${affected.one} changed elsewhere. Review the latest shared value before running analysis.`
+      : edgeStrengthSync.issue === 'analysis_state_unverified'
+        ? `The saved change to ${affected.one} did not include a complete analysis-input receipt. Check the shared model before running analysis.`
       : edgeStrengthSync.issue === 'unconfirmed'
         ? `We could not confirm whether the change to ${affected.one} was saved. Check the shared model before running analysis.`
         : edgeStrengthSync.issue === 'unconfirmed_structure'
