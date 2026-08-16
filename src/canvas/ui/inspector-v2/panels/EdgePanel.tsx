@@ -200,22 +200,20 @@ export const EdgePanel = memo(function EdgePanel({
   const strengthStd = edge?.data?.strengthStd ?? 0.15
   const hasSharedStrengthStd = typeof edge?.data?.strengthStd === 'number'
 
-  // Local slider state
-  const [localStrength, setLocalStrength] = useState(signedValue)
+  // Likelihood and uncertainty remain legacy-local only on the flag-off path.
+  // Strength itself is always read from the optimistic canonical store: the
+  // coordinator owns wire coalescing and receipts, so no control may retain a
+  // second value that can outlive an authoritative reconciliation.
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
-  const strengthEditingRef = useRef(false)
-  const origStrengthRef = useRef(signedValue)
-
-  // Receipts/conflicts can reconcile the selected edge externally. Keep the
-  // control on that authoritative value once an active drag has ended; never
-  // let one-shot local state continue showing a rejected draft.
-  useEffect(() => {
-    if (!strengthEditingRef.current) {
-      setLocalStrength(signedValue)
-      origStrengthRef.current = signedValue
-    }
-  }, [edgeId, signedValue])
+  const strengthSessionRef = useRef<{ edgeId: string | null; active: boolean; baseline: number }>({
+    edgeId: edgeId ?? null,
+    active: false,
+    baseline: signedValue,
+  })
+  if (strengthSessionRef.current.edgeId !== (edgeId ?? null)) {
+    strengthSessionRef.current = { edgeId: edgeId ?? null, active: false, baseline: signedValue }
+  }
   useEffect(() => { setLocalBelief(beliefExists) }, [edgeId, beliefExists])
   useEffect(() => { setLocalStd(strengthStd) }, [edgeId, strengthStd])
 
@@ -268,18 +266,31 @@ export const EdgePanel = memo(function EdgePanel({
   const { previewEdit, clearPreview } = useEditImpactPreview()
 
   // Handlers
-  const handleStrengthChange = useCallback((v: number) => {
-    strengthEditingRef.current = true
-    setLocalStrength(v)
-    mutations.setStrength(v)
-    if (edgeId) previewEdit(edgeId, v - origStrengthRef.current)
-  }, [mutations, edgeId, previewEdit])
+  const handleStrengthEditStart = useCallback((v: number) => {
+    if (strengthSessionRef.current.active) return
+    strengthSessionRef.current = { edgeId: edgeId ?? null, active: true, baseline: v }
+  }, [edgeId])
 
-  const handleStrengthBlur = useCallback(() => {
-    const unchanged = localStrength === origStrengthRef.current
-    strengthEditingRef.current = false
+  const handleStrengthChange = useCallback((v: number) => {
+    if (!strengthSessionRef.current.active) {
+      strengthSessionRef.current = {
+        edgeId: edgeId ?? null,
+        active: true,
+        baseline: signedValue,
+      }
+    }
+    // The store update is synchronous. This is the value the watcher and Run
+    // barrier observe immediately; the coordinator remains the only debouncer.
+    mutations.setStrength(v)
+    if (edgeId) previewEdit(edgeId, v - strengthSessionRef.current.baseline)
+  }, [mutations, edgeId, previewEdit, signedValue])
+
+  const handleStrengthCommit = useCallback((v: number) => {
+    const session = strengthSessionRef.current
+    if (!session.active) return
+    const unchanged = v === session.baseline
+    strengthSessionRef.current = { edgeId: edgeId ?? null, active: false, baseline: v }
     clearPreview()
-    origStrengthRef.current = localStrength
     confirmEdit('strength')
     // A same-value blur has no store diff for the watcher to observe. Give it
     // an explicit confirm_current seam so provenance is receipt-backed rather
@@ -288,30 +299,21 @@ export const EdgePanel = memo(function EdgePanel({
     if (unchanged && canonicalSharedModel && currentScenarioId && edgeId) {
       requestEdgeStrengthConfirmation(currentScenarioId, edgeId)
     }
-  }, [clearPreview, localStrength, confirmEdit, canonicalSharedModel, currentScenarioId, edgeId])
+  }, [clearPreview, confirmEdit, canonicalSharedModel, currentScenarioId, edgeId])
 
   const handleStrengthPresetChange = useCallback((v: number) => {
     // A preset click is a complete edit, not a continuously-dragged preview.
     // Reuse the canonical strength writer, then close the same confirmation
     // seam the fine-tune slider closes on blur so stale analysis exposes the
     // existing rerun affordance.
-    const unchanged = v === localStrength
+    handleStrengthEditStart(signedValue)
     handleStrengthChange(v)
-    clearPreview()
-    origStrengthRef.current = v
-    strengthEditingRef.current = false
-    confirmEdit('strength')
-    if (unchanged && canonicalSharedModel && currentScenarioId && edgeId) {
-      requestEdgeStrengthConfirmation(currentScenarioId, edgeId)
-    }
+    handleStrengthCommit(v)
   }, [
+    handleStrengthEditStart,
     handleStrengthChange,
-    clearPreview,
-    confirmEdit,
-    localStrength,
-    canonicalSharedModel,
-    currentScenarioId,
-    edgeId,
+    handleStrengthCommit,
+    signedValue,
   ])
 
   const handleBeliefChange = useCallback((v: number) => {
@@ -388,11 +390,23 @@ export const EdgePanel = memo(function EdgePanel({
                 {INLINE_LABELS.strengthQuestion}
               </p>
               <StrengthBandButtons
-                value={localStrength}
+                value={signedValue}
                 direction={direction}
                 onChange={handleStrengthPresetChange}
               />
-              <ExpertAnnotation techMode={techMode} editable value={localStrength} onChange={(v) => { handleStrengthChange(v); }} suffix="β =" step={0.01} min={-1} max={1} />
+              <ExpertAnnotation
+                techMode={techMode}
+                editable
+                value={signedValue}
+                onEditStart={handleStrengthEditStart}
+                onChange={handleStrengthChange}
+                onCommit={handleStrengthCommit}
+                ariaLabel="Signed relationship strength"
+                suffix="β ="
+                step={0.01}
+                min={-1}
+                max={1}
+              />
               <EdgeStrengthSyncStatus
                 scenarioId={currentScenarioId}
                 from={edge.source}
@@ -407,12 +421,13 @@ export const EdgePanel = memo(function EdgePanel({
                 <div className="mt-1.5">
                   <div className="relative mb-2">
                     {(!canonicalSharedModel || hasSharedStrengthStd) && (
-                      <UncertaintyBand strength={localStrength} std={localStd} />
+                      <UncertaintyBand strength={signedValue} std={localStd} />
                     )}
                     <SignedStrengthSlider
-                      value={localStrength}
+                      value={signedValue}
+                      onEditStart={handleStrengthEditStart}
                       onChange={handleStrengthChange}
-                      onBlur={handleStrengthBlur}
+                      onCommit={handleStrengthCommit}
                       std={canonicalSharedModel && !hasSharedStrengthStd ? undefined : localStd}
                       techMode={techMode}
                     />

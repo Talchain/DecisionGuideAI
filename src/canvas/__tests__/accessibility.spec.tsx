@@ -1,252 +1,50 @@
 /**
- * S4-A11Y & S4-ARIA: Accessibility Validation Tests
+ * S4-A11Y & S4-ARIA: Accessibility validation for retained canvas surfaces.
  *
- * Validates focus management, ARIA labels, keyboard navigation,
- * and screen reader support across canvas components.
- *
- * WCAG 2.1 AA compliance requirements.
+ * The former EdgeEditPopover was removed when edge-label editing was routed to
+ * the canonical InspectorModal. Inspector accessibility is exercised with the
+ * live route in openEdgeStrengthEditor.spec.tsx rather than a parallel editor.
  */
 
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import { EdgeEditPopover } from '../edges/EdgeEditPopover'
+import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
 
 describe('S4-A11Y: Focus Management and ARIA', () => {
-  describe('EdgeEditPopover Accessibility', () => {
-    const mockProps = {
-      edge: { id: 'e1', data: { weight: 0.5, belief: 0.5 } },
-      position: { x: 400, y: 300 },
-      onUpdate: () => {},
-      onClose: () => {}
-    }
-
-    it('should have dialog role for screen readers', () => {
-      render(<EdgeEditPopover {...mockProps} />)
-
-      const dialog = screen.getByRole('dialog')
-      expect(dialog).toBeDefined()
-    })
-
-    it('should have descriptive aria-label on dialog', () => {
-      render(<EdgeEditPopover {...mockProps} />)
-
-      const dialog = screen.getByRole('dialog')
-      const ariaLabel = dialog.getAttribute('aria-label')
-
-      expect(ariaLabel).toBe('Edit relationship strength')
-      expect(ariaLabel).toBeTruthy()
-      expect(ariaLabel!.length).toBeGreaterThan(10) // Descriptive label
-    })
-
-    it('should have proper labels for form controls', () => {
-      render(<EdgeEditPopover {...mockProps} />)
-
-      // Weight slider should have label
-      const weightSlider = screen.getByLabelText('Weight')
-      expect(weightSlider).toBeDefined()
-      expect(weightSlider.getAttribute('type')).toBe('range')
-
-      // Unsupported likelihood/uncertainty values stay read-only and are
-      // described visibly rather than receiving a local-only control.
-      expect(screen.queryByLabelText('Belief')).toBeNull()
-      expect(screen.getByText(/likelihood and uncertainty use the shared-model values/i)).toBeDefined()
-    })
-
-    it('should have aria-label on close button', () => {
-      render(<EdgeEditPopover {...mockProps} />)
-
-      const closeButton = screen.getByLabelText('Close')
-      expect(closeButton).toBeDefined()
-      expect(closeButton.tagName.toLowerCase()).toBe('button')
-    })
-
-    it('should have proper heading hierarchy', () => {
-      const { container } = render(<EdgeEditPopover {...mockProps} />)
-
-      const heading = container.querySelector('h3')
-      expect(heading).toBeDefined()
-      expect(heading?.textContent).toBe('Edit relationship strength')
-    })
-
-    it('should have keyboard hint text for screen readers', () => {
-      render(<EdgeEditPopover {...mockProps} />)
-
-      const hint = screen.getByText(/Press Enter to save, ESC to cancel/i)
-      expect(hint).toBeDefined()
-    })
-
-    it('should have proper input attributes for sliders', () => {
-      render(<EdgeEditPopover {...mockProps} />)
-
-      const weightSlider = screen.getByLabelText('Weight') as HTMLInputElement
-
-      expect(weightSlider.min).toBe('0')
-      expect(weightSlider.max).toBe('1')
-      expect(weightSlider.step).toBe('0.01')
-      expect(weightSlider.type).toBe('range')
-    })
-  })
-
   describe('UnknownKindWarning Accessibility', () => {
-    it('should have status role for announcements', () => {
+    it('has status role for announcements', () => {
       const { container } = render(<UnknownKindWarning originalKind="custom-type" />)
 
-      const warning = container.querySelector('[role="status"]')
-      expect(warning).toBeDefined()
+      expect(container.querySelector('[role="status"]')).toBeDefined()
     })
 
-    it('should have aria-label for screen readers', () => {
+    it('has a contextual aria-label for screen readers', () => {
       const { container } = render(<UnknownKindWarning originalKind="custom-type" />)
-
       const warning = container.querySelector('[role="status"]')
-      const ariaLabel = warning?.getAttribute('aria-label')
 
-      expect(ariaLabel).toBeTruthy()
-      expect(ariaLabel).toContain('custom-type')
+      expect(warning?.getAttribute('aria-label')).toContain('custom-type')
     })
 
-    it('should have title attribute for tooltip', () => {
+    it('has a contextual native tooltip', () => {
       const { container } = render(<UnknownKindWarning originalKind="custom-type" />)
-
       const warning = container.querySelector('[role="status"]')
-      const title = warning?.getAttribute('title')
 
-      expect(title).toBeTruthy()
-      expect(title).toContain('custom-type')
+      expect(warning?.getAttribute('title')).toContain('custom-type')
     })
 
-    it('should have visual icon with aria-hidden', () => {
+    it('keeps the visual icon hidden from assistive technology', () => {
       const { container } = render(<UnknownKindWarning originalKind="custom-type" />)
-
       const icon = container.querySelector('[aria-hidden="true"]')
+
       expect(icon).toBeDefined()
       expect(icon?.classList.contains('w-3')).toBe(true)
     })
 
-    it('should have descriptive text', () => {
-      render(<UnknownKindWarning originalKind="custom-type" />)
+    it('retains concise visible copy and warning contrast token', () => {
+      const { container } = render(<UnknownKindWarning originalKind="custom-type" />)
 
-      const text = screen.getByText('Unknown type')
-      expect(text).toBeDefined()
-    })
-  })
-
-  describe('Keyboard Navigation', () => {
-    it('should support Escape key to close popover', () => {
-      const mockOnClose = vi.fn()
-      const mockOnUpdate = vi.fn()
-      render(
-        <EdgeEditPopover
-          edge={{ id: 'e1', data: { weight: 0.5, belief: 0.5 } }}
-          position={{ x: 400, y: 300 }}
-          onUpdate={mockOnUpdate}
-          onClose={mockOnClose}
-        />
-      )
-
-      fireEvent.change(screen.getByLabelText('Weight'), { target: { value: '0.8' } })
-      const dialog = screen.getByRole('dialog')
-      fireEvent.keyDown(dialog, { key: 'Escape' })
-
-      expect(mockOnClose).toHaveBeenCalledTimes(1)
-      expect(mockOnUpdate).not.toHaveBeenCalled()
-    })
-
-    it('should support Enter key to save popover', () => {
-      const mockOnClose = vi.fn()
-      const mockOnUpdate = vi.fn()
-      render(
-        <EdgeEditPopover
-          edge={{ id: 'e1', data: { weight: 0.5, belief: 0.5 } }}
-          position={{ x: 400, y: 300 }}
-          onUpdate={mockOnUpdate}
-          onClose={mockOnClose}
-        />
-      )
-
-      fireEvent.change(screen.getByLabelText('Weight'), { target: { value: '0.8' } })
-      const dialog = screen.getByRole('dialog')
-      fireEvent.keyDown(dialog, { key: 'Enter' })
-
-      expect(mockOnClose).toHaveBeenCalledTimes(1)
-      expect(mockOnUpdate).toHaveBeenCalledTimes(1)
-      expect(mockOnUpdate).toHaveBeenCalledWith('e1', { weight: 0.8 })
-    })
-  })
-
-  describe('Color Contrast', () => {
-    it('should use high-contrast colors for text', () => {
-      const { container } = render(
-        <EdgeEditPopover
-          edge={{ id: 'e1', data: { weight: 0.5, belief: 0.5 } }}
-          position={{ x: 400, y: 300 }}
-          onUpdate={() => {}}
-          onClose={() => {}}
-        />
-      )
-
-      // Check heading color
-      const heading = container.querySelector('h3')
-      const headingStyle = window.getComputedStyle(heading!)
-
-      // Should have dark text (gray-900 or similar)
-      // Just verify it exists and has styling
-      expect(heading).toBeDefined()
-    })
-
-    it('should have sufficient contrast for warning chip', () => {
-      const { container } = render(<UnknownKindWarning originalKind="test" />)
-
-      const warning = container.querySelector('[role="status"]')
-
-      // Should have warning color scheme (semantic token)
-      expect(warning?.classList.toString()).toContain('warning')
-    })
-  })
-
-  describe('Screen Reader Support', () => {
-    it('should provide context for slider values', () => {
-      render(
-        <EdgeEditPopover
-          edge={{ id: 'e1', data: { weight: 0.75, belief: 0.9 } }}
-          position={{ x: 400, y: 300 }}
-          onUpdate={() => {}}
-          onClose={() => {}}
-        />
-      )
-
-      // Value should be displayed next to label
-      expect(screen.getByText('0.75')).toBeDefined()
-      expect(screen.queryByText('0.90')).toBeNull()
-      expect(screen.getByText(/likelihood and uncertainty use the shared-model values/i)).toBeDefined()
-    })
-
-    it('should announce warning status with role="status"', () => {
-      const { container } = render(<UnknownKindWarning originalKind="custom" />)
-
-      const status = container.querySelector('[role="status"]')
-      expect(status).toBeDefined()
-      expect(status?.getAttribute('aria-label')).toBeTruthy()
-    })
-
-    it('should have semantic HTML structure', () => {
-      const { container } = render(
-        <EdgeEditPopover
-          edge={{ id: 'e1', data: { weight: 0.5, belief: 0.5 } }}
-          position={{ x: 400, y: 300 }}
-          onUpdate={() => {}}
-          onClose={() => {}}
-        />
-      )
-
-      // Should have proper heading
-      const heading = container.querySelector('h3')
-      expect(heading).toBeDefined()
-
-      // Should have proper labels
-      const labels = container.querySelectorAll('label')
-      expect(labels.length).toBe(1) // Canonical weight only; unsupported fields are read-only.
+      expect(screen.getByText('Unknown type')).toBeDefined()
+      expect(container.querySelector('[role="status"]')?.classList.toString()).toContain('warning')
     })
   })
 })

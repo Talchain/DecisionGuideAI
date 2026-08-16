@@ -23,6 +23,9 @@ interface ExpertAnnotationEditableProps {
   editable: true
   value: number
   onChange: (v: number) => void
+  onEditStart?: (v: number) => void
+  onCommit?: (v: number) => void
+  ariaLabel?: string
   /** Prefix label shown before the input, e.g. "σ =", "β =", "normalised =" */
   suffix?: string
   step?: number
@@ -36,7 +39,11 @@ export function ExpertAnnotation(props: ExpertAnnotationProps) {
   if (!props.techMode) return null
 
   if (props.editable) {
-    const { value, onChange, suffix, step = 0.01, min, max } = props
+    const { value, onChange, onEditStart, onCommit, ariaLabel, suffix, step = 0.01, min, max } = props
+    const commitCurrent = (input: HTMLInputElement) => {
+      const v = Number(input.value)
+      if (Number.isFinite(v)) onCommit?.(v)
+    }
     return (
       <div className="flex items-center gap-1 mt-1">
         {suffix && (
@@ -52,11 +59,17 @@ export function ExpertAnnotation(props: ExpertAnnotationProps) {
           step={step}
           min={min}
           max={max}
+          aria-label={ariaLabel}
+          onFocus={e => onEditStart?.(Number(e.currentTarget.value))}
           onChange={e => {
             const raw = e.target.value
             if (raw === '') return // cleared field — don't push 0
             const v = Number(raw)
             if (Number.isFinite(v)) onChange(v)
+          }}
+          onBlur={e => commitCurrent(e.currentTarget)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') e.currentTarget.blur()
           }}
           className="text-[10px] leading-none font-mono text-right bg-panel border border-panel-border rounded px-1 py-0.5 w-16 text-text-body focus:outline-none focus:border-primary"
         />

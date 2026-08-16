@@ -125,6 +125,45 @@ describe('ExpertAnnotation', () => {
     expect(onChange).toHaveBeenCalledWith(0.72)
   })
 
+  it('starts and commits one explicit numeric edit session', () => {
+    const onChange = vi.fn()
+    const onEditStart = vi.fn()
+    const onCommit = vi.fn()
+    const view = render(
+      <ExpertAnnotation
+        techMode={true}
+        editable
+        value={0.35}
+        onEditStart={onEditStart}
+        onChange={onChange}
+        onCommit={onCommit}
+        ariaLabel="Signed relationship strength"
+        suffix="β ="
+      />,
+    )
+    const input = screen.getByRole('spinbutton', { name: 'Signed relationship strength' })
+
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: '0.72' } })
+    expect(onEditStart).toHaveBeenCalledWith(0.35)
+    expect(onChange).toHaveBeenCalledWith(0.72)
+
+    view.rerender(
+      <ExpertAnnotation
+        techMode={true}
+        editable
+        value={0.72}
+        onEditStart={onEditStart}
+        onChange={onChange}
+        onCommit={onCommit}
+        ariaLabel="Signed relationship strength"
+        suffix="β ="
+      />,
+    )
+    fireEvent.blur(screen.getByRole('spinbutton', { name: 'Signed relationship strength' }))
+    expect(onCommit).toHaveBeenCalledWith(0.72)
+  })
+
   it('does not call onChange for NaN input', () => {
     const onChange = vi.fn()
     render(

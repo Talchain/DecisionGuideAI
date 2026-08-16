@@ -77,7 +77,6 @@ describe('S4-COPY: British English Verification', () => {
     'items-center', // Tailwind utility class
     'justify-center', // Tailwind utility class
     'transition-colors', // Tailwind utility class
-    'Center above cursor', // Technical layout comment in EdgeEditPopover
     'colorClass', // Variable name for colour CSS class
     'thresholdColour', // Import/function name (already British in code)
     'getThresholdColour', // Import/function name (already British in code)
@@ -328,21 +327,6 @@ describe('S4-COPY: British English Verification', () => {
 
       if (issues.length > 0) {
         console.log('\n❌ UnknownKindWarning.tsx has American spellings:')
-        issues.forEach(issue => {
-          console.log(`   Line ${issue.line}: "${issue.american}" → "${issue.british}"`)
-          console.log(`   ${issue.text}`)
-        })
-      }
-
-      expect(issues.length).toBe(0)
-    })
-
-    it('should verify EdgeEditPopover.tsx uses British English', () => {
-      const filePath = join(process.cwd(), 'src/canvas/edges/EdgeEditPopover.tsx')
-      const issues = findAmericanSpellings(filePath)
-
-      if (issues.length > 0) {
-        console.log('\n❌ EdgeEditPopover.tsx has American spellings:')
         issues.forEach(issue => {
           console.log(`   Line ${issue.line}: "${issue.american}" → "${issue.british}"`)
           console.log(`   ${issue.text}`)

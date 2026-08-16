@@ -2,11 +2,55 @@
  * SignedStrengthSlider — C1 uncertainty band tests
  */
 
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { SignedStrengthSlider } from '../SignedStrengthSlider'
 
 describe('SignedStrengthSlider — C1 uncertainty band', () => {
+  it('publishes the displayed value synchronously and commits the exact released value', () => {
+    const onChange = vi.fn()
+    const onEditStart = vi.fn()
+    const onCommit = vi.fn()
+    const view = render(
+      <SignedStrengthSlider
+        value={0.3}
+        onEditStart={onEditStart}
+        onChange={onChange}
+        onCommit={onCommit}
+      />,
+    )
+    const slider = screen.getByRole('slider') as HTMLInputElement
+
+    fireEvent.focus(slider)
+    fireEvent.change(slider, { target: { value: '0.72' } })
+
+    // No control-level timer: the canonical optimistic owner sees the value in
+    // the same event, before a Run click can occur.
+    expect(onEditStart).toHaveBeenCalledWith(0.3)
+    expect(onChange).toHaveBeenCalledWith(0.72)
+
+    view.rerender(
+      <SignedStrengthSlider
+        value={0.72}
+        onEditStart={onEditStart}
+        onChange={onChange}
+        onCommit={onCommit}
+      />,
+    )
+    fireEvent.mouseUp(screen.getByRole('slider'))
+    expect(onCommit).toHaveBeenCalledWith(0.72)
+  })
+
+  it('renders an authoritative prop replacement even while the control remains focused', () => {
+    const view = render(<SignedStrengthSlider value={0.7} onChange={() => {}} />)
+    const slider = screen.getByRole('slider') as HTMLInputElement
+    fireEvent.focus(slider)
+
+    view.rerender(<SignedStrengthSlider value={0.25} onChange={() => {}} />)
+
+    expect((screen.getByRole('slider') as HTMLInputElement).value).toBe('0.25')
+  })
+
   it('renders uncertainty band when std is provided', () => {
     render(
       <SignedStrengthSlider value={0.3} onChange={() => {}} std={0.15} />

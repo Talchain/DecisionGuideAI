@@ -51,8 +51,8 @@
  *   3. Arguments captured by a store-boundary spy (`updateEdgeData`).
  * jsdom cannot prove VISIBILITY or layout (platform trap 3).
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, fireEvent, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, fireEvent } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { Position } from '@xyflow/react'
@@ -69,7 +69,10 @@ const nodeKinds: Record<string, string> = {}
 
 // Stable spy — the store mock must NOT mint a fresh vi.fn per selector call, or
 // the popover-stamp assertions below would capture nothing.
-const { updateEdgeDataSpy } = vi.hoisted(() => ({ updateEdgeDataSpy: vi.fn() }))
+const { updateEdgeDataSpy, openEdgeStrengthEditorSpy } = vi.hoisted(() => ({
+  updateEdgeDataSpy: vi.fn(),
+  openEdgeStrengthEditorSpy: vi.fn(() => true),
+}))
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -132,6 +135,9 @@ vi.mock('../../hooks/useFirstTimeHints', () => ({
   useEdgeEditHint: () => ({ showHint: false, dismissHint: vi.fn() }),
 }))
 vi.mock('../../hooks/usePrefersReducedMotion', () => ({ usePrefersReducedMotion: () => false }))
+vi.mock('../../utils/openEdgeStrengthEditor', () => ({
+  openEdgeStrengthEditor: openEdgeStrengthEditorSpy,
+}))
 vi.mock('../../../flags', () => ({ isGraphLensEnabled: () => false }))
 vi.mock('../../utils/fragileEdgeMatch', () => ({
   isEdgeFragile: () => false,
@@ -234,6 +240,7 @@ describe('StyledEdge edge label — strength words (ROADMAP 2.950, #627 lineage)
     nodeKinds.src = 'factor'
     nodeKinds.tgt = 'outcome'
     updateEdgeDataSpy.mockClear()
+    openEdgeStrengthEditorSpy.mockClear()
     vi.mocked(useEdgeLabelMode).mockImplementation((selector: any) => selector({ mode: 'human' }))
   })
 
@@ -421,50 +428,33 @@ describe('StyledEdge edge label — strength words (ROADMAP 2.950, #627 lineage)
     expect(labelText(container).toLowerCase()).toContain('strength not set')
   })
 
-  // ── THE EDIT POPOVER SEAM: a user edit must become visible to the gate ────
-  //
-  // `EdgeEditPopover` now keeps previews local and commits only on Enter or an
-  // outside click. Opening it must therefore be a strict no-op: an initial
-  // write would launder the 0.5 display fallback into a user claim. A genuine
-  // commit must still stamp the chosen value so the provenance-gated label can
-  // speak it.
+  // ── ONE EDITOR AUTHORITY: edge label → canonical inspector ─────────────
 
-  describe('edge edit popover → weightSource stamp', () => {
-    beforeEach(() => {
-      vi.useFakeTimers()
-    })
-    afterEach(() => {
-      vi.useRealTimers()
-    })
+  describe('edge label routes to the canonical strength editor', () => {
+    it('opens the inspector by exact edge identity and mounts no parallel slider', () => {
+      const { container, queryByLabelText } = renderEdge(NO_STRENGTH_DATA)
 
-    function openPopover(container: HTMLElement) {
       fireEvent.doubleClick(labelEl(container))
-    }
 
-    it('does NOT write or stamp when the popover is merely opened', () => {
-      const { container } = renderEdge(NO_STRENGTH_DATA)
-      openPopover(container)
-      act(() => {
-        vi.advanceTimersByTime(200)
-      })
+      expect(openEdgeStrengthEditorSpy).toHaveBeenCalledTimes(1)
+      expect(openEdgeStrengthEditorSpy).toHaveBeenCalledWith('e-under-test')
+      expect(queryByLabelText('Weight slider')).toBeNull()
       expect(updateEdgeDataSpy).not.toHaveBeenCalled()
     })
 
-    it('stamps weightSource: "user" (and clears strength_mean) when the user moves the weight', () => {
-      const { container, getByLabelText } = renderEdge(NO_STRENGTH_DATA)
-      openPopover(container)
-      fireEvent.change(getByLabelText('Weight slider'), { target: { value: '0.9' } })
-      fireEvent.keyDown(getByLabelText('Weight slider'), { key: 'Enter' })
-      const stamped = updateEdgeDataSpy.mock.calls.filter(([, data]) => data?.weightSource === 'user')
-      expect(stamped.length, 'no stamped write reached the store').toBeGreaterThan(0)
-      const [edgeId, data] = stamped[stamped.length - 1]
-      // Bound by identity: the stamp lands on the edge under test.
-      expect(edgeId).toBe('e-under-test')
-      expect(data.weight).toBeCloseTo(0.9)
-      // A stale producer mean would keep speaking over the user's number —
-      // the resolver prefers it — so the write clears it (PreAnalysisPanel
-      // precedent, :1216).
-      expect(data).toHaveProperty('strength_mean', undefined)
+    it('cannot overwrite an external A→B update after the old popover-open gesture', () => {
+      const initial = { ...SET_DATA, weight: 0.35, weightSource: 'cee' }
+      const current = { ...SET_DATA, weight: 0.8, weightSource: 'shared' }
+      const view = renderEdge(initial)
+
+      fireEvent.doubleClick(labelEl(view.container))
+      view.rerender(<StyledEdge {...(baseProps as any)} data={current} />)
+      fireEvent.mouseDown(document.body)
+      fireEvent.keyDown(document.body, { key: 'Enter' })
+
+      expect(openEdgeStrengthEditorSpy).toHaveBeenCalledTimes(1)
+      expect(view.queryByLabelText('Weight slider')).toBeNull()
+      expect(updateEdgeDataSpy).not.toHaveBeenCalled()
     })
   })
 })

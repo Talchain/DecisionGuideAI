@@ -2,7 +2,7 @@
  * editPreviewStore — Global state for edit impact preview.
  *
  * Graph Editing Experience Task 5: When a slider is being dragged in the inspector
- * or EdgeEditPopover, this store holds the downstream impact map. BaseNode reads
+ * or the canonical edge inspector, this store holds the downstream impact map. BaseNode reads
  * from it to show directional indicators.
  *
  * Debounce is handled by callers (150ms on input, immediate clear on blur).

@@ -385,7 +385,6 @@ export function ContestedEdgeCard({
           <SignedStrengthSlider
             value={customSignedMean}
             onChange={setCustomSignedMean}
-            debounceMs={80}
           />
           <div className="flex items-center gap-2 mt-2">
             <button
