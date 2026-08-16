@@ -3,7 +3,7 @@
  * inside an InspectorShell.
  */
 
-import { memo, useMemo, useCallback } from 'react'
+import { memo, useMemo, useCallback, type ComponentType } from 'react'
 import { useCanvasStore } from '../../store'
 import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { InspectorShell } from './InspectorShell'
@@ -47,6 +47,24 @@ const PILL_COLORS: Record<string, string> = {
   factor:     'var(--factor)',
   outcome:    'var(--success)',
   risk:       'var(--danger)',
+}
+
+/**
+ * Every NODE panel type → its panel. TOTAL by construction: `Record` over the
+ * union minus 'edge' (early-returned) and null (guarded), so adding a panel
+ * type without an arm here fails the typecheck instead of silently rendering
+ * nothing.
+ */
+const NODE_PANELS: Record<Exclude<NonNullable<PanelType>, 'edge'>, ComponentType<import('./types').InspectorPanelProps>> = {
+  'goal':                 GoalPanel,
+  'decision':             DecisionPanel,
+  'option':               OptionPanel,
+  'factor-controllable':  FactorControllablePanel,
+  'factor-observable':    FactorObservablePanel,
+  'factor-external':      FactorExternalPanel,
+  'outcome':              OutcomePanel,
+  'risk':                 RiskPanel,
+  'generic':              GenericNodePanel,
 }
 
 interface InspectorRouterProps {
@@ -248,17 +266,14 @@ export const InspectorRouter = memo(function InspectorRouter({
     onNavigate: handleNavigate,
   }
 
-  const PanelComponent = {
-    'goal':                 GoalPanel,
-    'decision':             DecisionPanel,
-    'option':               OptionPanel,
-    'factor-controllable':  FactorControllablePanel,
-    'factor-observable':    FactorObservablePanel,
-    'factor-external':      FactorExternalPanel,
-    'outcome':              OutcomePanel,
-    'risk':                 RiskPanel,
-    'generic':              GenericNodePanel,
-  }[panelType]
+  // Typed as a TOTAL map over every NODE panel type (edge is handled by the
+  // early return above, null by the guard at the top). Before this it was an
+  // untyped object literal indexed by the full union, so `panelType` could be
+  // 'edge' at the lookup and TypeScript reported TS2339 on the missing key —
+  // a real hole, not noise: a panel type added to the union but forgotten here
+  // would have resolved to `undefined` and rendered nothing, which is exactly
+  // the L-24 defect this PR is closing. Now a missing arm is a TYPE ERROR.
+  const PanelComponent = panelType === 'edge' ? null : NODE_PANELS[panelType]
 
   if (!PanelComponent) return null
 
