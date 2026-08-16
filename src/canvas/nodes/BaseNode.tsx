@@ -31,6 +31,7 @@ import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { NODE_REGISTRY } from '../domain/nodes'
 import Tooltip from '../../components/Tooltip'
 import { StatusPill } from './shared/StatusPill'
+import { NodeQuickActions } from './shared/NodeQuickActions'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -249,7 +250,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {...(isAnalysisDriver ? { 'data-analysis-driver': 'true' } : {})}
       {...(isAssistantFocused ? { 'data-assistant-focused': 'true' } : {})}
       className={`
-        relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} shadow-1
+        group relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} shadow-1
         ${isCausalLens ? (causalBorderClass ?? '') : isIncomplete ? 'border-warning border-dashed' : borderClassOverride ?? `${colors.border} ${borderStyle}`}
         transition-all duration-200
         cursor-default
@@ -282,6 +283,19 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
+      {/* R5 contextual efficiency layer — quiet at rest, revealed on hover, on
+          keyboard focus within the card, and while the node is selected. One
+          home for it (here) rather than per-node-type, so every node speaks the
+          same two shortcuts: ask Olumi about this, open this node's details. */}
+      {!lodActive && !isCausalLens && !isEvidenceLens && (
+        <NodeQuickActions
+          nodeId={id}
+          nodeType={nodeType}
+          label={label}
+          alwaysVisible={selected === true}
+        />
+      )}
+
       {isAssistantFocused && (
         <span
           aria-hidden="true"

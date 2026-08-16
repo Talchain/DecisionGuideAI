@@ -2,8 +2,9 @@
  * Goal node component — v3 wireframe
  *
  * Layer 1 (always visible):
- *  - No threshold pre-analysis: "What does success look like for you?" + chip
- *  - No threshold post-analysis: "Analysis complete. Set a target to see how likely you are to reach it." + chip
+ *  - No threshold (either phase): one compact "No target set" status chip that
+ *    opens this node's inspector. R5/L-47: no instructional prose, no full
+ *    buttons on the node.
  *  - With threshold: "Target: [value]" + provenance icon
  *  - Post-analysis with threshold: achievement probability (danger if <10%), actionable guidance
  *  - No risks chip (always)
@@ -33,7 +34,7 @@ import { NodeChip, NodePopover, ScienceIcon } from './shared'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
-import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
+import { openNodeInspector } from './shared/openNodeInspector'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
@@ -50,7 +51,6 @@ export const GoalNode = memo((props: NodeProps) => {
   // Phase 2.3 — null-probability guard. Post-analysis without any finite
   // per-option win_probability means the engine finished but produced no
   // probability. We must not render "Analysis complete" copy in that case.
-  const hasAnyProbability = useHasAnyRealProbability()
   // F5a (Codex review): the rerun prompt must be driven by the ACTUAL freshness
   // state — the same composed trust surface AnalysisFreshnessNotice reads — never
   // by value absence. A completed CURRENT run can legitimately carry no goal
@@ -294,13 +294,27 @@ export const GoalNode = memo((props: NodeProps) => {
     </>
   ) : null
 
-  // Rendered identically by the two no-target branches below (post-analysis
-  // and pre-analysis). They are mutually exclusive on `isPostAnalysis`, so one
-  // element serves both.
-  const helpSetTargetChip = (
-    <div className="mt-1.5">
-      <NodeChip chipId="goal_help_set_target" actionType={null} label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
-    </div>
+  // R5 + L-47 (Paul, 16 Aug 2026): "Full buttons/instructional text on nodes:
+  // no." The goal node used to carry a two-sentence instruction plus a
+  // "Help me set a target" chip — a billboard on the canvas. Both no-target
+  // branches now render one compact status chip that OPENS THIS NODE'S
+  // INSPECTOR, where setting a target actually happens. The explanation moves
+  // to the chip's tooltip and to the inspector; the canvas keeps the signal.
+  //
+  // A <button>, not a chip-shaped div: click, tap, Tab and Enter/Space all
+  // work with no key handling of our own (hover/click/keyboard parity, ruled).
+  const noTargetStatusChip = (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); openNodeInspector(props.id) }}
+      onPointerDown={(e) => e.stopPropagation()}
+      className={`nodrag mt-1 inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 ${typography.edgeLabel} text-text-body hover:bg-warning/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+      aria-label="No target set — open this goal's details to set one"
+      title="Add a measurable success target, e.g. metric, threshold or deadline"
+      data-testid="goal-node-no-target-chip"
+    >
+      No target set
+    </button>
   )
 
   return (
@@ -326,29 +340,12 @@ export const GoalNode = memo((props: NodeProps) => {
         {/* No target, post-analysis: analysis done but no threshold to evaluate.
             Null-probability guard swaps the copy when the run produced no
             finite win_probability (BoundaryError / null probs / stale state). */}
-        {!hasThreshold && isPostAnalysis && (
-          <>
-            <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>
-              {hasAnyProbability
-                ? 'Analysis complete. Set a target to see how likely you are to reach it.'
-                : 'Analysis finished. Set a target and check the graph for incomplete inputs.'}
-            </p>
-            {helpSetTargetChip}
-          </>
-        )}
+        {!hasThreshold && isPostAnalysis && noTargetStatusChip}
 
         {/* No target, pre-analysis: the "goal gap". Surface the missing target
             clearly (Paul-authored copy — brief primary + A1 secondary), then keep
             the existing coaching chip. */}
-        {!hasThreshold && !isPostAnalysis && (
-          <>
-            <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>Goal target missing</p>
-            <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-              Add a measurable success target, e.g. metric, threshold or deadline
-            </p>
-            {helpSetTargetChip}
-          </>
-        )}
+        {!hasThreshold && !isPostAnalysis && noTargetStatusChip}
 
         {/* With target: display it */}
         {hasThreshold && (
@@ -452,7 +449,7 @@ export const GoalNode = memo((props: NodeProps) => {
               className={`${typography.edgeLabel} text-danger underline cursor-pointer nodrag nopan`}
               onClick={(e) => {
                 e.stopPropagation()
-                useCanvasStore.getState().setShowInspectorPanel(true)
+                openNodeInspector(props.id)
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >

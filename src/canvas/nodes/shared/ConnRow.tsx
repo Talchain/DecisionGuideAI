@@ -15,6 +15,7 @@ import { NodeShapeIndicator } from '../NodeShapeIndicator'
 import { useCanvasStore } from '../../store'
 import { typography } from '../../../styles/typography'
 import type { NodeType } from '../../domain/nodes'
+import { openEdgeStrengthEditor } from '../../utils/openEdgeStrengthEditor'
 
 interface ConnRowProps {
   edgeId: string
@@ -27,9 +28,7 @@ interface ConnRowProps {
 export function ConnRow({ edgeId, nodeKind, label, confidencePct }: ConnRowProps) {
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    const store = useCanvasStore.getState()
-    store.selectEdgeWithoutHistory(edgeId)
-    store.setShowInspectorPanel(true)
+    openEdgeStrengthEditor(edgeId)
   }, [edgeId])
 
   const truncated = label.length > 30 ? `${label.slice(0, 30)}...` : label

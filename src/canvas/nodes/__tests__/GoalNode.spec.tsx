@@ -68,6 +68,15 @@ const renderGoal = (data: Record<string, unknown> = {}) =>
     </ReactFlowProvider>
   )
 
+
+// ---------------------------------------------------------------------------
+// R5 + L-47 (Paul, 16 Aug 2026): "Full buttons/instructional text on nodes: no."
+// The goal node's no-target state used to be a two-sentence instruction plus a
+// "Help me set a target" chip. It is now ONE compact status chip that opens
+// this node's inspector. Every assertion below keeps its original intent — is
+// the no-target state signalled, or suppressed — and binds to the chip by
+// test id rather than to copy that no longer exists.
+// ---------------------------------------------------------------------------
 describe('GoalNode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -290,9 +299,9 @@ describe('GoalNode', () => {
 
   it('does not show threshold context when goal_threshold_raw is absent', () => {
     renderGoal()
-    // No threshold display, shows "Help me set a target" chip instead (v1.1 spec)
+    // No threshold display, shows the compact "No target set" chip instead (R5)
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/Help me set a target/)).toBeDefined()
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
   })
 
   it('shows threshold without unit when goal_threshold_unit is absent', () => {
@@ -338,19 +347,19 @@ describe('GoalNode', () => {
   it('shows coaching prompt when goal_threshold_raw is null', () => {
     renderGoal({ goal_threshold_raw: null })
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/Help me set a target/)).toBeDefined()
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
   })
 
   it('shows coaching prompt when goal_threshold_raw is empty string', () => {
     renderGoal({ goal_threshold_raw: '' })
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/Help me set a target/)).toBeDefined()
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
   })
 
   it('shows coaching prompt when goal_threshold_raw is whitespace-only', () => {
     renderGoal({ goal_threshold_raw: '   ' })
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/Help me set a target/)).toBeDefined()
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
   })
 
   // ROADMAP 1.1 fix (6b-goal-capture evidence, finding b): the pre-analysis-v3
@@ -364,7 +373,7 @@ describe('GoalNode', () => {
   it('treats a Hero-set success_threshold (threshold_source=user) as a set target, no goal_threshold_raw needed', () => {
     renderGoal({ success_threshold: 15, threshold_source: 'user', goal_threshold_raw: null })
     expect(screen.getByText(/Target:/)).toBeDefined()
-    expect(screen.queryByText(/Help me set a target/)).toBeNull()
+    expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
   })
 
   it('post-analysis: Hero-set success_threshold suppresses the "Analysis complete. Set a target" badge', () => {
@@ -372,14 +381,14 @@ describe('GoalNode', () => {
       selector(makeStoreState({ results: { status: 'complete', report: {} } }) as any)
     )
     renderGoal({ success_threshold: 15, threshold_source: 'user', goal_threshold_raw: null })
-    expect(screen.queryByText('Analysis complete. Set a target to see how likely you are to reach it.')).toBeNull()
+    expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
     expect(screen.getByText(/Target:/)).toBeDefined()
   })
 
   it('does not treat success_threshold as set when threshold_source is not user (e.g. CEE default)', () => {
     renderGoal({ success_threshold: 15, threshold_source: undefined, goal_threshold_raw: null })
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/Help me set a target/)).toBeDefined()
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
   })
 
   // P0.3: Provenance icons removed in v1.1 — verify target still renders with brief source
@@ -679,12 +688,12 @@ describe('GoalNode', () => {
   // B5/B6: null and empty string both show coaching prompt
   it('B5: threshold_raw=null → coaching prompt (already covered, regression guard)', () => {
     renderGoal({ goal_threshold_raw: null })
-    expect(screen.getByText(/Help me set a target/)).toBeDefined()
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
   })
 
   it('B6: threshold_raw="" → coaching prompt', () => {
     renderGoal({ goal_threshold_raw: '' })
-    expect(screen.getByText(/Help me set a target/)).toBeDefined()
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
   })
 })
 
@@ -710,8 +719,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
 
   it('target unset + no probability (pre-analysis): keeps the set-a-target coaching', () => {
     renderGoal()
-    expect(screen.getByText('Goal target missing')).toBeDefined()
-    expect(screen.getByText('Help me set a target')).toBeDefined()
+        expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
     expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
   })
 
@@ -734,7 +742,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     // The live bug: card said "Analysis complete. Set a target to see your
     // chances." while a target was set. Must never render here.
     expect(screen.queryByText(/Set a target to see how likely you are to reach it/)).toBeNull()
-    expect(screen.queryByText('Help me set a target')).toBeNull()
+    expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
   })
 
   /**
@@ -812,7 +820,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
     expect(screen.getByText('Target set. Rerun the analysis to update your results.')).toBeDefined()
     expect(screen.queryByText(/This run did not produce a goal probability/)).toBeNull()
-    expect(screen.queryByText('Help me set a target')).toBeNull()
+    expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
   })
 
   it('target set + probability available: probability rendering wins, no rerun line', () => {
@@ -871,7 +879,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     )
     renderGoal() // no goal_threshold_raw / success_threshold → hasThreshold === false
     // Invitation shown…
-    expect(screen.getByText('Analysis complete. Set a target to see how likely you are to reach it.')).toBeDefined()
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
     // …and the goal-fit claim SUPPRESSED — the two strings never co-render.
     expect(screen.queryByText(/chance of reaching target/)).toBeNull()
     expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
@@ -903,7 +911,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal() // hasThreshold === false
-    expect(screen.getByText('Analysis complete. Set a target to see how likely you are to reach it.')).toBeDefined()
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
     expect(screen.queryByText(/chance of reaching target/)).toBeNull()
     expect(screen.queryByText(/Target may be ambitious/)).toBeNull()
   })

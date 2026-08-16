@@ -19,7 +19,8 @@ import {
 import { readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
-import { NodeChip, ActionIcons, BriefIcon, NodePopover, ScienceIcon } from './shared'
+import { NodeChip, BriefIcon, NodePopover, ScienceIcon } from './shared'
+import { openNodeInspector } from './shared/openNodeInspector'
 import {
   selectGoalProbability,
   basisWithholdsPossessive,
@@ -883,17 +884,14 @@ export const OptionNode = memo((props: NodeProps) => {
     const store = useCanvasStore.getState()
     const goalNode = store.nodes.find(n => n.type === 'goal' || n.data?.type === 'goal')
     if (goalNode) {
-      store.onSelectionChange({ nodes: [goalNode as any], edges: [] })
-      store.setShowInspectorPanel(true)
+      openNodeInspector(goalNode.id)
     }
   }, [])
 
   // "View parameters" handler (Detailed view)
   const handleViewParams = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    const store = useCanvasStore.getState()
-    store.onSelectionChange({ nodes: [{ id: props.id } as any], edges: [] })
-    store.setShowInspectorPanel(true)
+    openNodeInspector(props.id)
   }, [props.id])
 
   // Popover hover
@@ -1380,7 +1378,7 @@ export const OptionNode = memo((props: NodeProps) => {
         )}
 
         {/* Action icons: edit (bottom-right) */}
-        <ActionIcons nodeId={props.id} showEdit />
+        
       </BaseNode>
 
       {/* ===== LAYER 2: Popover (Standard view, hover) ===== */}

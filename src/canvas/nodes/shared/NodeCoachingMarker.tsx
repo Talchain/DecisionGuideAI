@@ -36,6 +36,7 @@ import {
 } from '../../stores/guidanceStore'
 import { useCanvasStore } from '../../store'
 import { typography } from '../../../styles/typography'
+import { openNodeInspector } from './openNodeInspector'
 
 interface NodeCoachingMarkerProps {
   /** The canvas node id this marker sits on. */
@@ -71,9 +72,7 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
       // fallback): select the node + show the inspector, where the guidance card
       // for this node renders; setActiveGuidanceItem then scrolls it into view and
       // pulses the node ring (useGuidancePulseHighlight).
-      const canvas = useCanvasStore.getState()
-      canvas.selectNodeWithoutHistory(nodeId)
-      canvas.setShowInspectorPanel(true)
+      openNodeInspector(nodeId)
       setActiveGuidanceItem(top.item_id)
     },
     [top, nodeId, setActiveGuidanceItem],

@@ -815,10 +815,10 @@ describe('Render matrix — GoalNode chip audit', () => {
     goalThreshold: hasThreshold ? 100000 : null,
   })
 
-  it('Goal no-target Standard pre: shows "Help me set a target" only', () => {
+  it('Goal no-target Standard pre: shows the compact no-target chip only', () => {
     applyStore(goalTopology('standard', 'pre', false))
     renderGoal()
-    expect(screen.getByText('Help me set a target')).toBeDefined()
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
     expect(screen.queryByText('Identify risks')).toBeNull() // removed in audit
     expect(screen.queryByText('Run analysis')).toBeNull()
   })
@@ -827,7 +827,7 @@ describe('Render matrix — GoalNode chip audit', () => {
     applyStore(goalTopology('standard', 'pre', true))
     renderGoal({ goal_threshold_raw: 100000 })
     expect(screen.getByText('Run analysis')).toBeDefined()
-    expect(screen.queryByText('Help me set a target')).toBeNull()
+    expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
   })
 
   it('Goal with-target Standard post: shows "Is my target realistic?" chip', () => {
@@ -837,10 +837,10 @@ describe('Render matrix — GoalNode chip audit', () => {
     expect(screen.getAllByText('Is my target realistic?').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('Goal no-target Standard post: shows "Help me set a target"', () => {
+  it('Goal no-target Standard post: shows the compact no-target chip', () => {
     applyStore(goalTopology('standard', 'post', false))
     renderGoal()
-    expect(screen.getByText('Help me set a target')).toBeDefined()
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
   })
 })
 
