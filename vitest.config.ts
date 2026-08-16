@@ -40,7 +40,9 @@ export default defineConfig({
       '**/* +([0-9]).{test,spec}.?(c|m)[jt]s?(x)',
       // ── Complex DOM integration tests: need full canvas mount or network mocking ──
       'src/canvas/__tests__/ReactFlowGraph.layout.dom.spec.tsx', // CSS-var dock offsets not set in jsdom
-      'src/canvas/__tests__/canvas.run-gating.dom.spec.tsx', // toast rendering requires full canvas pipeline
+      // `canvas.run-gating.dom.spec.tsx` was excluded here; the spec was DELETED
+      // with the browser->PLoT run chains it gated, so the exclude went with it.
+      // A dangling exclude silently pre-approves the next file to land at that path.
       // Note: HeroSection/RecommendationSection dead-code tests were deleted from disk
       // (Brief 5.4 Phase 2 + closeout). No longer needed in exclude list.
     ],

@@ -113,18 +113,6 @@ const DELIBERATELY_UNRUN: Record<string, { reason: string; owner: string; route:
       'is real, or retire honestly. Do NOT un-exclude into a false green — a layout assertion ' +
       'that passes in jsdom is proving nothing.',
   },
-  'src/canvas/__tests__/canvas.run-gating.dom.spec.tsx': {
-    reason:
-      'Requires a full canvas pipeline mount for toast rendering. NOT YET INDEPENDENTLY ' +
-      'ADJUDICATED by this lane — the OutputsDock exclusion carried an equally plausible ' +
-      'reason ("needs network mock") that turned out to be false on both counts, so this ' +
-      'stated reason is recorded as a CLAIM, not a finding.',
-    owner: 'UI/Experience',
-    route:
-      'Adjudicate individually (queued): verify the stated blocker at the bytes by removing ' +
-      'the exclude and reading the real failure, exactly as OutputsDock was. Then repair, ' +
-      'port, or retire.',
-  },
 }
 
 /**

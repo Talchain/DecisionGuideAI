@@ -19,7 +19,7 @@
 # is how many raw reads that attestation SUPPRESSES, and it is ratcheted exactly
 # like a violation count: attestation is per-FILE, so without it an attested mapper
 # would be a free-for-all in which the next raw read is invisible.
-# count=74
+# count=73
 # exemptions=3
 # suppressed=11
 6	elasticity	src/adapters/driversAdapter.ts
@@ -40,7 +40,6 @@
 2	elasticity	src/lib/mappers/selectDataSource.ts
 2	elasticity	src/v5/mapV5AnalysisToReport.ts
 exempt:5	goal-probability	src/adapters/plot/v2/responseMapper.ts
-1	goal-probability	src/canvas/hooks/useScenarioComparison.ts
 1	goal-probability	src/canvas/ui/inspector-v2/useAnalysisResults.ts
 exempt:2	goal-probability	src/lib/mappers/mapOptionComparison.ts
 exempt:4	goal-probability	src/v5/mapV5AnalysisToReport.ts

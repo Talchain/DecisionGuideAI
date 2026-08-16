@@ -24,7 +24,9 @@
  * CEE `4c835ced`, reachable through the edge rewrite):
  *   prompt-preloader   /prompts/warm            → /bff/cee (probed 200)
  *   readinessStore     /graph-readiness         → /bff/cee
- *   useFormRecommendations /suggest-edge-function → /bff/cee
+ *   (useFormRecommendations was DELETED with the dead browser->PLoT chains;
+ *    its /suggest-edge-function consumer row went with the file, not for
+ *    tidiness — a list entry for a missing file ENOENTs the whole suite.)
  *   useAsk             /ask                     → /bff/cee (PLoT 404s it)
  *   service-health     /health                  → /bff/cee (PLoT 404s it)
  *   adapters/cee/client biasCheck·sensitivityCoach·draftModel-fallback
@@ -52,7 +54,6 @@ function stripComments(code: string): string {
 const CONSUMERS: ReadonlyArray<{ rel: string; mustUseLiteral: string }> = [
   { rel: 'lib/prompt-preloader.ts', mustUseLiteral: "'/bff/cee'" },
   { rel: 'canvas/stores/readinessStore.ts', mustUseLiteral: "'/bff/cee'" },
-  { rel: 'canvas/hooks/useFormRecommendations.ts', mustUseLiteral: "'/bff/cee'" },
   { rel: 'hooks/useAsk.ts', mustUseLiteral: "'/bff/cee'" },
   { rel: 'lib/service-health.ts', mustUseLiteral: "'/bff/cee'" },
   { rel: 'adapters/cee/client.ts', mustUseLiteral: "'/bff/cee'" },

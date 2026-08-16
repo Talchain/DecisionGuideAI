@@ -17,19 +17,6 @@ vi.mock('../../../adapters/plot', () => ({
   adapterName: 'httpv1'
 }))
 
-vi.mock('../../hooks/useTemplatesRun', () => ({
-  useTemplatesRun: () => ({
-    loading: false,
-    progress: 0,
-    canCancel: false,
-    result: null,
-    error: null,
-    run: vi.fn().mockResolvedValue(undefined),
-    cancel: vi.fn(),
-    clearError: vi.fn()
-  })
-}))
-
 vi.mock('../../store', () => {
   const actualStore = vi.importActual('../../store')
   return {
@@ -84,58 +71,10 @@ describe('TemplatesPanel - P0-3: Hand-off and semantics', () => {
     } as any)
   })
 
-  it('closes Templates panel and opens Results panel when Run is clicked', async () => {
-    const mockRun = vi.fn().mockResolvedValue(undefined)
 
-    vi.mock('../../hooks/useTemplatesRun', () => ({
-      useTemplatesRun: () => ({
-        loading: false,
-        progress: 0,
-        canCancel: false,
-        result: null,
-        error: null,
-        run: mockRun,
-        cancel: vi.fn(),
-        clearError: vi.fn()
-      })
-    }))
-
-    render(
-      <TemplatesPanel
-        isOpen={true}
-        onClose={mockOnClose}
-        onInsertBlueprint={mockOnInsertBlueprint}
-      />
-    )
-
-    // Wait for templates to load
-    await waitFor(() => {
-      expect(screen.getByText('Test Template')).toBeInTheDocument()
-    })
-
-    // Click primary "Start from Template" button to select template
-    const insertButton = screen.getByRole('button', { name: /insert .*template/i })
-    fireEvent.click(insertButton)
-
-    // Wait for template details to load
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /run analysis/i })).toBeInTheDocument()
-    })
-
-    const runButton = screen.getByRole('button', { name: /run analysis/i })
-    fireEvent.click(runButton)
-
-    // Should close Templates panel
-    await waitFor(() => {
-      expect(mockOnClose).toHaveBeenCalled()
-    })
-
-    // Should open Results panel
-    await waitFor(() => {
-      expect(mockSetShowResultsPanel).toHaveBeenCalledWith(true)
-    })
-  })
-
+  // The two Run-button tests here are DELETED with the panel's run leg: it
+  // no longer computes, so there is no hand-off to Results to assert. The
+  // template INSERT / unsaved-changes behaviour below is unchanged.
   it('confirms before inserting template when there are unsaved changes', async () => {
     // Mock store with unsaved changes
     vi.mocked(useCanvasStore.getState).mockReturnValue({
@@ -256,32 +195,5 @@ describe('TemplatesPanel - P0-3: Hand-off and semantics', () => {
     expect(confirmSpy).not.toHaveBeenCalled()
 
     confirmSpy.mockRestore()
-  })
-
-  it('has clear Run button semantics', async () => {
-    render(
-      <TemplatesPanel
-        isOpen={true}
-        onClose={mockOnClose}
-        onInsertBlueprint={mockOnInsertBlueprint}
-      />
-    )
-
-    // Wait for templates to load
-    await waitFor(() => {
-      expect(screen.getByText('Test Template')).toBeInTheDocument()
-    })
-
-    // Click primary "Start from Template" button to select template
-    // Accessible name comes from aria-label="Insert {template.name}" on TemplateCard
-    const insertButton = screen.getByRole('button', { name: /insert .*template/i })
-    fireEvent.click(insertButton)
-
-    // Wait for Run button to appear
-    await waitFor(() => {
-      const runButton = screen.getByRole('button', { name: /▶ run analysis/i })
-      expect(runButton).toBeInTheDocument()
-      expect(runButton).not.toBeDisabled()
-    })
   })
 })
