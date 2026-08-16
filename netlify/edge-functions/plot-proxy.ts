@@ -145,32 +145,63 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   /^\/v1\/templates\/[^/]+\/graph$/,
   /^\/v1\/pre-analysis-sensitivity$/,
 
-  // --- Analysis routes still reachable from the browser. Each is here because a
-  // LIVE call site demands it, not because it was left behind. Named with its
-  // blocker so the next lane closes the right thing:
+  // --- Analysis routes still reachable from the browser. TWO remain, each
+  // because a LIVE call site still demands it. This list shrank from twelve by
+  // DELETING CALLERS, never by hand-trimming: an entry removed while its caller
+  // lives fails `ALLOWLIST ⊇ DERIVED` and 404s users at our own edge.
   //
-  //   /version              — NOT dead. `v1/http.ts` calls `getCapabilities()`
-  //                           INSIDE `runSync`, so it rides every `/v1/run`.
-  //                           Dies with `/v1/run`.
-  //   /v1/run, /v1/stream   — `TemplatesPanel` ("▶ Run Analysis") computes
-  //                           directly via `useTemplatesRun` → `plot.stream.run`
-  //                           with a sync `plot.run` fallback. Retiring these
-  //                           means retiring that panel's analysis affordance.
-  //   /v2/run               — reached from `OutputsDock`, `ConversationPanel` and
-  //                           `useScenarioComparison`. All three sit in files
-  //                           fenced to another lane; patches are in the handback.
-  //   /v1/analysis/pareto   — `usePareto` ← `components/results/ParetoChart.tsx`,
-  //                           which is fenced. ParetoChart has ZERO production
-  //                           importers, so this dies as soon as the fence lifts.
-  //   /v1/cee/draft-graph   — LIVE PRODUCT PATH, not diagnostic. `useCEEDraft` →
-  //                           `CEEClient.draftModel()` backs `DraftChat` and
-  //                           `AIClarifierChat` (mounted). Its credential hazard is
-  //                           already closed: the base is the same-origin proxy and
-  //                           the bearer is injected here, server-side.
-  /^\/version$/,
-  /^\/v1\/run$/,
-  /^\/v1\/stream$/,
-  /^\/v1\/analysis\/pareto$/,
+  // ⚠ THE PREVIOUS VERSION OF THIS COMMENT WAS REFUTED BY IMPORT-CHAIN
+  // DERIVATION AND IS CORRECTED HERE. It named `TemplatesPanel`,
+  // `ConversationPanel`, `DraftChat` and `AIClarifierChat` as live blockers.
+  // Retired this pass, with the break point that proves each was reachable or
+  // not:
+  //
+  //   /version              — RETIRED. It rode inside `runSync`; both are gone
+  //                           with `getCapabilities`/`hasCapability`
+  //                           (`v1/http.ts`), which had zero production callers
+  //                           between them once `/v1/run` went.
+  //   /v1/run               — RETIRED. `TemplatesPanel`'s "▶ Run Analysis" leg,
+  //                           `useTemplatesRun`, `httpV1Adapter.run` and
+  //                           `autoDetectAdapter.run` are deleted. Template
+  //                           LOADING is untouched — `/v1/templates` and
+  //                           `/v1/templates/:id/graph` stay, and that
+  //                           distinction is the whole point.
+  //   /v1/stream            — RETIRED. It was ENV-GATED DEAD, not live: the
+  //                           default `auto` adapter has no `stream` member, so
+  //                           the sync leg always won; only
+  //                           `VITE_PLOT_ADAPTER === 'httpv1'` reached it.
+  //   /v1/analysis/pareto   — RETIRED. TEST-ONLY: `ParetoChart` had ZERO
+  //                           production importers (contrast control:
+  //                           `TornadoChart` = 5).
+  //
+  // STILL HERE, and exactly why:
+  //
+  //   /v2/run               — LIVE CALL SITE. `useV2Run` → the adapter's single
+  //                           `/v2/run` fetch, reached from `OutputsDock` and
+  //                           `ConversationPanel` on the FLAG-OFF branch. The
+  //                           SILENT fallback (canonical on, dispatcher absent)
+  //                           is deleted this pass, and `useScenarioComparison`
+  //                           no longer computes at all. Retiring the rest means
+  //                           deleting `useV2Run`, which is the ONLY producer of
+  //                           `resultsStart` (hence `results.seed`/`startedAt`
+  //                           and run history) and of the Supabase
+  //                           analysis-persistence callbacks — a capability
+  //                           decision with its own replacement work, not a
+  //                           caller retirement. Rowed for its own lane.
+  //   /v1/cee/draft-graph   — ⚠ THE "LIVE PRODUCT PATH" CLAIM ABOVE WAS FALSE.
+  //                           Derived: `AIClarifierChat` is DEAD BY GATE
+  //                           (`setShowAIClarifier(true)` has zero production
+  //                           call sites; contrast control:
+  //                           `setShowDraftChat(true)` = 3). `DraftChat` is DARK
+  //                           BY POSTURE (`ReactFlowGraph` renders it only under
+  //                           `!isAiPanelV2Enabled()`, and `aiPanelV2` is on).
+  //                           The legacy `PreAnalysisPanel` retry chain is dark
+  //                           the same way (`preAnalysisV3` is on). So the entry
+  //                           survives only because `useCEEDraft` →
+  //                           `CEEClient.draftModel()` still EXISTS as a caller,
+  //                           not because a user can reach it. Deleting that
+  //                           chain also deletes `DraftChat` (~1,500 lines) and
+  //                           its openers; rowed for its own lane.
   /^\/v2\/run$/,
   /^\/v1\/cee\/draft-graph$/,
 ]

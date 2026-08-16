@@ -396,15 +396,38 @@ describe('plot-proxy path allowlist (/bff/engine/* → plot-lite-service)', () =
     expect(r.requestHeaders?.get('Authorization')).toBe(`Bearer ${FAKE_KEY}`)
   })
 
-  it('ON-LIST /bff/engine/v1/run/{id}/cancel forwards (dynamic id honoured)', async () => {
+  it('OFF-LIST /bff/engine/v1/run/{id}/cancel is 404 with NO bearer sent', async () => {
+    // FLIPPED FROM ON-LIST TO OFF-LIST, deliberately. `/v1/run/:id/cancel` was
+    // removed from the allowlist when its caller was deleted — there is no
+    // browser→PLoT run to cancel any more.
+    //
+    // ⚠ This test was the PLoT handler's ONLY dynamic-segment case, so flipping
+    // it would have silently dropped that coverage. The replacement below pins
+    // the same property on the surviving dynamic route rather than asserting,
+    // as an earlier draft of this comment wrongly did, that it was covered
+    // somewhere else already.
     const runId = 'run-2f9c1a4e'
     const r = await invoke(plotHandler as Handler, {
       path: `/bff/engine/v1/run/${runId}/cancel`,
     })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+    expect(r.requestHeaders?.get('Authorization')).toBeFalsy()
+  })
+
+  it('ON-LIST /bff/engine/v1/templates/{id}/graph forwards (dynamic id honoured)', async () => {
+    // Replaces the dynamic-segment coverage lost when `/v1/run/:id/cancel` left
+    // the list. Template LOADING survives the run-seam retirement, so this is
+    // now the PLoT handler's live dynamic route.
+    const templateId = 'pricing-strategy'
+    const r = await invoke(plotHandler as Handler, {
+      path: `/bff/engine/v1/templates/${templateId}/graph`,
+    })
     expect(r.fetchCalled).toBe(true)
     expect(r.calledUrl).toBe(
-      `https://plot-lite-service-staging.onrender.com/v1/run/${runId}/cancel`,
+      `https://plot-lite-service-staging.onrender.com/v1/templates/${templateId}/graph`,
     )
+    expect(r.requestHeaders?.get('Authorization')).toBe(`Bearer ${FAKE_KEY}`)
   })
 
   it('ON-LIST a query string does NOT change the route decision', async () => {

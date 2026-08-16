@@ -247,25 +247,36 @@ describe('plot-proxy allowlist is derived from the browser→PLoT call sites', (
     // A scanner that found two call sites would satisfy every assertion below while
     // being blind to the rest of the surface.
     //
-    // ⚠ RE-DERIVED at the cutover (was 18/17). The retirement deleted ten dead
-    // browser→PLoT chains, so the floor MUST come down or it fails for the right
-    // outcome — but it comes down to the MEASURED count, never to zero. Every
-    // resolvable site now resolves (EXPECTED_UNRESOLVED is empty), so the two
-    // numbers are equal, and that equality is itself the check: if a future call
-    // site stops resolving, `resolved` drops below `sites` and the dedicated
-    // resolve test REDs by name.
-    expect(sites.length).toBeGreaterThanOrEqual(13)
+    // ⚠ RE-DERIVED AGAIN at the run-seam retirement (18/17 → 13 → 9). Retiring
+    // `/v1/run`, `/version`, `/v1/stream` and `/v1/analysis/pareto` removed four
+    // call sites, so the floor MUST come down or it fails for the right outcome
+    // — but it comes down to the MEASURED count, never to zero. The nine are:
+    // `/v1/pre-analysis-sensitivity`, `/v2/run`, `/v1/limits` ×2, `/v1/health`
+    // ×2, `/health`, `/v1/templates`, `/v1/templates/:id/graph`.
+    //
+    // Every resolvable site still resolves (EXPECTED_UNRESOLVED is empty), so
+    // the two numbers are equal, and that equality is itself the check: if a
+    // future call site stops resolving, `resolved` drops below `sites` and the
+    // dedicated resolve test REDs by name.
+    expect(sites.length).toBeGreaterThanOrEqual(9)
     expect(resolved.length).toBe(sites.length)
   })
 
   it('CONTROL: the allowlist was actually parsed out of the edge function', () => {
-    // Was 15. The cutover shrank the list to 12 (six utility + six analysis routes
-    // that still have live call sites, each annotated with its blocker in the edge
-    // function). Lower it only alongside a deletion that earns it.
-    expect(allowlist.length).toBeGreaterThanOrEqual(12)
+    // 15 → 12 → 8: six utility routes plus the TWO analysis routes that still
+    // have live call sites (`/v2/run`, `/v1/cee/draft-graph`), each annotated
+    // with its blocker in the edge function. Lower it only alongside a deletion
+    // that earns it — the list may only shrink by deleting CALLERS, because a
+    // hand-trim REDs `ALLOWLIST ⊇ DERIVED` and 404s users at our own edge.
+    expect(allowlist.length).toBeGreaterThanOrEqual(8)
     // Bound by identity to a route that must always be there, so a parse returning
     // junk regexes cannot pass.
     expect(allowlist.some((re) => re.test('/v2/run'))).toBe(true)
+    // NEGATIVE identity bind: a route this pass retired must be GONE. Without
+    // this the floor above is satisfied by any eight entries, including the
+    // eight we started from (trap 13b — a control that agrees with itself).
+    expect(allowlist.some((re) => re.test('/v1/run'))).toBe(false)
+    expect(allowlist.some((re) => re.test('/version'))).toBe(false)
   })
 
   it('every plotFetch call site resolves to a target path', () => {
