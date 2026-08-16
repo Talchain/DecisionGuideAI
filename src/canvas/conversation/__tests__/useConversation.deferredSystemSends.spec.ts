@@ -32,6 +32,7 @@ import {
   __resetEdgeStrengthCoordinatorForTests,
   beginEdgeStrengthHydration,
   finishEdgeStrengthHydration,
+  getEdgeStrengthEndpointStatus,
   requestEdgeStrengthConfirmation,
   setOpenEdgeStrengthScenario,
 } from '../../edge-strength/edgeStrengthCoordinator'
@@ -47,6 +48,8 @@ let failFlushDispatch = false
 /** Fail the first held request when it is released (direct-writer mutant). */
 let failHeldDispatch = false
 let edgeConfirmFreshness: 'fresh' | 'stale' | 'none' | 'unknown' = 'fresh'
+/** Keep analysis_ready valid while making the composite writer receipt invalid. */
+let invalidateEdgeReceiptGraph = false
 
 function edgeStrengthReceipt(event: Record<string, unknown>) {
   const expected = event.expected as {
@@ -164,7 +167,9 @@ vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
       }
       const event = payload.event as Record<string, unknown> | undefined
       if (event?.kind === 'edge_strength_edit') {
-        return { ok: true, response: edgeStrengthReceipt(event) }
+        const response = edgeStrengthReceipt(event)
+        if (invalidateEdgeReceiptGraph) response.draft_graph.node_count = 99
+        return { ok: true, response }
       }
       const factorReceipt = event?.kind === 'factor_value_edit'
         ? [{
@@ -282,11 +287,13 @@ beforeEach(() => {
   failFlushDispatch = false
   failHeldDispatch = false
   edgeConfirmFreshness = 'fresh'
+  invalidateEdgeReceiptGraph = false
   useCanvasStore.setState({
     currentScenarioId: SCENARIO,
     nodes: [],
     edges: [],
     results: { status: 'idle' } as never,
+    ceeAnalysisReady: null,
     analysisFreshness: null,
     analysisFreshnessDirty: false,
     pendingEmittedEdits: 0,
@@ -416,6 +423,76 @@ describe('canonical Run waits for the complete value-writer transaction', () => 
       inFlight: 0,
       issue: null,
     })
+    expect(useCanvasStore.getState().ceeAnalysisReady).toMatchObject({
+      goal_node_id: 'goal_profit',
+      status: 'needs_user_input',
+    })
+    expect(useCanvasStore.getState().analysisFreshness).toMatchObject({
+      freshness: 'stale',
+      currentGraphHash: 'new-hash',
+      graphHashAtRun: 'prior-analysis-hash',
+    })
+  })
+
+  it('an invalid composite receipt cannot leak valid readiness or freshness through generic state apply', async () => {
+    seedCanonicalEdgeGraph()
+    const priorAnalysisReady = {
+      options: [{
+        id: 'opt_plan_a',
+        label: 'Plan A',
+        status: 'ready',
+        interventions: {},
+      }],
+      goal_node_id: 'goal_profit',
+      status: 'ready',
+      computed_at: '2026-08-15T13:00:00.000Z',
+      freshness: 'fresh',
+      freshness_reason: 'graph_hash_match',
+      graph_hash_at_run: 'old-hash',
+      current_graph_hash: 'old-hash',
+    }
+    useCanvasStore.setState({ ceeAnalysisReady: priorAnalysisReady } as never)
+    const priorFreshness = structuredClone(useCanvasStore.getState().analysisFreshness)
+    invalidateEdgeReceiptGraph = true
+
+    const { result } = renderHook(() => {
+      const conversation = useConversation()
+      useGraphEditEvents(conversation.sendSystemEvent, { isThinking: conversation.isThinking })
+      return conversation
+    })
+
+    act(() => {
+      useCanvasStore.setState((state) => ({
+        edges: state.edges.map((edge) => edge.id !== 'opaque-rf-edge-id' ? edge : {
+          ...edge,
+          data: { ...edge.data, weight: 0.7, weightSource: 'user' },
+        }) as never,
+      }))
+    })
+
+    let runDone: Promise<void> | undefined
+    act(() => {
+      runDone = result.current.sendMessage('Run analysis', {
+        turnType: 'run_analysis',
+        debugSource: 'analysis_run',
+      })
+    })
+    await flush()
+    expect(dispatchedRuns()).toHaveLength(0)
+
+    await act(async () => {
+      resolveInFlight?.(undefined)
+      await runDone
+      await flush()
+    })
+
+    expect(dispatchedRuns(), 'Run must remain behind the rejected writer receipt').toHaveLength(0)
+    expect(getEdgeStrengthEndpointStatus(SCENARIO, 'fac_demand', 'goal_profit').kind)
+      .toBe('unconfirmed')
+    expect(useCanvasStore.getState().edgeStrengthSync.issue).toBe('unconfirmed')
+    expect(useCanvasStore.getState().ceeAnalysisReady).toEqual(priorAnalysisReady)
+    expect(useCanvasStore.getState().analysisFreshness).toEqual(priorFreshness)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
   })
 
   it('mounts a first-run none confirmation, settles it, then dispatches Run after the noop receipt', async () => {

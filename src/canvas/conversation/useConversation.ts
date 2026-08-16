@@ -4824,23 +4824,10 @@ export function useConversation(): UseConversationReturn {
               })
             }
           }
-          // The coordinator has already strictly validated and reconciled the
-          // composite endpoint receipt. Generic applyV5State interprets
-          // target_id as a ReactFlow id and generic full reconcile can overwrite
-          // a newer optimistic successor, so remove only those two mutation
-          // carriers while preserving stage/readiness/result sidecars.
-          const responseForGenericApply = isEdgeStrengthTurn && target.kind !== 'typed_error'
-            ? {
-                ...target.response,
-                // The exact writer response has one receipt block. No other
-                // block is allowed to mutate results/coaching on invisible
-                // persistence traffic; the strict resolver rejects extras.
-                blocks: [],
-                draft_graph: undefined,
-              }
-            : target.kind !== 'typed_error'
-              ? target.response
-              : undefined
+          // The coordinator above is the sole authority for an edge writer's
+          // graph, analysis_ready and freshness receipt. The generic applicator
+          // is bypassed for that turn below: even a strictly-shaped response is
+          // not allowed to publish sidecars after reconciliation fails.
 
           // ROADMAP 2.129 (b) — resolve the OPTIMISTIC value write against what
           // the server actually did with it.
@@ -4984,25 +4971,28 @@ export function useConversation(): UseConversationReturn {
             // the top level, so we splice it in here rather than widening the
             // store shape upstream.
             const v5StoreSnapshot = useCanvasStore.getState()
-            const stateApply = applyV5State(
-              responseForGenericApply ?? target.response,
-              {
-                ...v5StoreSnapshot,
-                currentResultsHash: v5StoreSnapshot.results?.hash ?? null,
-                // ROADMAP 1.22: wire the shared backfill helper (writes via
-                // a direct store.setState, not updateNode — see the
-                // V5ApplicatorStore.backfillGoalThreshold doc comment for
-                // why: updateNode's analytical-field-change guard would
-                // otherwise treat CEE echoing its own just-received
-                // threshold back as a user edit and invalidate the fresh
-                // analysis this same turn just set).
-                backfillGoalThreshold: backfillGoalThresholdOntoGoalNode,
-              },
-              {
-                turnClientId,
-                currentClientTurnId: activeV5TurnIdRef.current,
-              },
-            )
+            let stateApply: ReturnType<typeof applyV5State> = { applied: [], deferred: [] }
+            if (!isEdgeStrengthTurn) {
+              stateApply = applyV5State(
+                target.response,
+                {
+                  ...v5StoreSnapshot,
+                  currentResultsHash: v5StoreSnapshot.results?.hash ?? null,
+                  // ROADMAP 1.22: wire the shared backfill helper (writes via
+                  // a direct store.setState, not updateNode — see the
+                  // V5ApplicatorStore.backfillGoalThreshold doc comment for
+                  // why: updateNode's analytical-field-change guard would
+                  // otherwise treat CEE echoing its own just-received
+                  // threshold back as a user edit and invalidate the fresh
+                  // analysis this same turn just set).
+                  backfillGoalThreshold: backfillGoalThresholdOntoGoalNode,
+                },
+                {
+                  turnClientId,
+                  currentClientTurnId: activeV5TurnIdRef.current,
+                },
+              )
+            }
             if (import.meta.env.DEV) {
               if (stateApply.applied.length > 0) {
                 console.warn('[sendTurn V5] state applied:', stateApply.applied)
@@ -5014,10 +5004,10 @@ export function useConversation(): UseConversationReturn {
 
             // Canonical edge-strength turns are invisible persistence traffic.
             // Their narrowly validated receipt has already been reconciled by
-            // the coordinator above, and applyV5State has consumed only the
-            // non-graph stage/readiness sidecars. Do not feed the writer reply
-            // into result/coaching stores or render its intentionally empty
-            // assistant_text as a blank conversation bubble.
+            // the coordinator above. Generic V5 state application is deliberately
+            // skipped in full, so a rejected receipt cannot leak readiness,
+            // freshness, stage, results or coaching. Do not render the writer's
+            // intentionally empty assistant_text as a blank conversation bubble.
             if (!isEdgeStrengthTurn) {
             // Phase 3 extraction (v5-canonical-analysis brief).
             //
@@ -5111,8 +5101,8 @@ export function useConversation(): UseConversationReturn {
             // draftBiasSignalBlocks.seam.spec.ts — keep the spec's driveSeam
             // wiring in step with this call.
             const inlineGraph = attachAnalysisReadyToInlineDraftGraph(
-              responseForGenericApply?.draft_graph,
-              responseForGenericApply ?? target.response,
+              target.response.draft_graph,
+              target.response,
             )
             const inlineNodeCount = (inlineGraph?.nodes as unknown[] | undefined)?.length ?? 0
 
