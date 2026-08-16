@@ -69,6 +69,29 @@ function mountSitesOf(name: string, files: string[]): string[] {
     .sort()
 }
 
+/**
+ * Files that IMPORT a module by path, whatever local name they bind it to.
+ *
+ * ⚠ THIS CLOSES AN EVASION CHANNEL AN ADVERSARIAL REVIEW EXECUTED. `mountSitesOf`
+ * greps for `<Name`, so an ALIASED import defeats it completely:
+ *
+ *     import { AnalysisFreshnessNotice as Strip } from '.../AnalysisFreshnessNotice'
+ *     <Strip />
+ *
+ * — a second live banner on the surface, invisible to a name-shaped scan. The
+ * name is the thing a reader looks for and therefore the thing a scan is
+ * tempted to bind to; the PATH is what cannot be renamed away, because it is
+ * what the module system resolves. Both are checked: the name scan says where
+ * it is mounted, the path scan says who can mount it at all.
+ */
+function importersOf(moduleBasename: string, files: string[]): string[] {
+  const imported = new RegExp(`from\\s*['"][^'"]*\\b${moduleBasename}['"]`)
+  return files
+    .filter((f) => imported.test(stripComments(readFileSync(f, 'utf8'))))
+    .map((f) => f.slice(SRC.length + 1))
+    .sort()
+}
+
 describe('truth-state notices have exactly one production mount site', () => {
   const files = walk(SRC)
 
@@ -97,6 +120,25 @@ describe('truth-state notices have exactly one production mount site', () => {
     expect(mountSitesOf('AnalysisFreshnessNotice', files)).toEqual([
       'components/results/analysisState/AnalysisStateRegion.tsx',
     ])
+  })
+
+  it('and NOTHING ELSE CAN MOUNT EITHER — nobody else imports the modules', () => {
+    // The path-shaped half. A file that cannot import the module cannot mount
+    // it under any local name, so this closes the aliased-import channel the
+    // name scan above is blind to. Stated as the exact importer set rather than
+    // a count, so a new importer names itself in the failure.
+    const REGION = 'components/results/analysisState/AnalysisStateRegion.tsx'
+    expect(importersOf('AnalysisRefusalNotice', files)).toEqual([REGION])
+    expect(importersOf('AnalysisFreshnessNotice', files)).toEqual([REGION])
+  })
+
+  it('CONTROL: the importer scan is not blind (it can see a known importer)', () => {
+    // Same discipline as the mount-site control: an absence claim over a file
+    // scan needs proof the scan can observe a presence. `analysisStateContract`
+    // is imported by the region AND by the hook, so a working scan returns
+    // more than one — a scan returning one would be indistinguishable from a
+    // regex that only ever matches the file it was tuned against.
+    expect(importersOf('analysisStateContract', files).length).toBeGreaterThan(1)
   })
 
   it('the region itself is mounted exactly once — one surface, one region', () => {

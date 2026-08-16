@@ -3,11 +3,12 @@
  *
  * ⭐⭐ THE SWAP LINE
  * -----------------
- * The migration lane is building `useAnalysisState()` at
- * `src/canvas/state/analysisStateSelector.ts`, reading `AnalysisStateV1` off
- * the wire (brief steps 3–5). That module DOES NOT EXIST at this tip
- * (`f15bccaf`) — verified, not assumed — so this hook derives the same enum
- * from the store slices that exist today, and the swap is ONE function body:
+ * The migration lane's `useAnalysisState()` now EXISTS at
+ * `src/canvas/state/analysisStateSelector.ts` (#737, merged into `staging` as
+ * `2c72f695` — re-derived at the bytes, not inherited from an earlier draft of
+ * this comment, which said it was absent and went stale the moment #737
+ * landed). This hook still derives the enum from today's store slices, and the
+ * swap remains ONE function body:
  *
  *     export function useAnalysisRunState(): AnalysisRunStateKind {
  *       return useAnalysisState().run_state          // ⇦ SWAP LINE
@@ -17,6 +18,30 @@
  * test) is written against `AnalysisRunStateKind` and is unaffected by the
  * swap. That is the point of putting the region behind an enum rather than
  * behind the six derivations.
+ *
+ * ⚠⚠ SO WHY IS THE SWAP NOT DONE HERE? Because on the branch that is reachable
+ * TODAY it would be a REGRESSION, and that is derived at #737's own bytes
+ * rather than supposed:
+ *
+ *   "the derived branch never returns `'refused'` … no legacy signal
+ *    distinguishes those, and inventing one would be exactly the fabrication
+ *    this contract exists to stop"   (analysisStateSelector.ts:206-209, and
+ *    again at :398-401)
+ *
+ * That conservatism is CORRECT in the selector — it refuses to fabricate a
+ * refusal it cannot see. But this surface has a signal the selector's legacy
+ * branch does not consult: CEE's typed `blocked_reason`, already in the
+ * `analysisRefusalNotice` slice, which is the whole of ROADMAP 2.1163. Swapping
+ * to `useAnalysisState().run_state` while CEE is still on the legacy wire would
+ * therefore RE-DARK the refusal notice — and it would do so INVISIBLY, because
+ * the notice self-gates on an empty slice, so an absent banner looks exactly
+ * like a banner with nothing to say.
+ *
+ * `useAnalysisRunState.mapping.spec.ts` pins the refusal arm as a
+ * discriminating pair, so that swap REDs instead of shipping. **Run it against
+ * the selector before deleting this fallback**; the honest swap is either after
+ * CEE emits `AnalysisStateV1` with `refused` on the wire, or as a UNION (wire
+ * kind, with this slice still owning the refusal arm) — not a substitution.
  *
  * ⚠ WHAT THIS IS NOT
  * ------------------

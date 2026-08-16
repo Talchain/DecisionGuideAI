@@ -2962,9 +2962,24 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     BY MOUNT SITE. `mapToAnalysisRunState` orders `refused`
                     ABOVE `never_run` precisely so a refused FIRST analysis —
                     where `hasCompletedFirstRun` is false and there are no
-                    results to decorate — still reaches the user. A
-                    "unify the gates" simplification here would re-dark it and
-                    RED `applyV5State.analysisRefusalNotice.spec.tsx`. */}
+                    results to decorate — still reaches the user.
+
+                    ⚠⚠ AN EARLIER VERSION OF THIS COMMENT NAMED THE WRONG GUARD,
+                    AND AN ADVERSARIAL REVIEW PROVED IT BY EXECUTION. It claimed
+                    that unifying the gates "would re-dark it and RED
+                    `applyV5State.analysisRefusalNotice.spec.tsx`". Deleting the
+                    refusal arm from the mapping left that spec — and 53/53
+                    tests across all four refusal-touching specs — GREEN, because
+                    that one is STORE-level: it proves the wire populates the
+                    slice and says nothing about the slice → run-state hop.
+                    A comment that names a guard which does not guard is worse
+                    than no comment: it tells the next reader the seam is
+                    covered, so they stop looking.
+                    The guard that actually bites is
+                    `useAnalysisRunState.mapping.spec.ts`, which pins the
+                    refusal arm against `never_run` AND against every freshness
+                    arm as discriminating pairs. Verified by deleting the arm
+                    and watching it RED. */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <div
                     // Parity audit: v6 keeps stale results fully readable —
