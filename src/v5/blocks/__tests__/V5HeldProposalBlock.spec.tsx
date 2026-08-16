@@ -86,7 +86,14 @@ describe('V5HeldProposalBlock', () => {
     fireEvent.click(screen.getByTestId('v5-held-proposal-confirm'))
 
     expect(sendChip).toHaveBeenCalledTimes(1)
-    expect(sendChip).toHaveBeenCalledWith('Continue with this change', 'Yes')
+    // ARITY EXTENDED (L-59): the seam now carries the producer's own
+    // `action_type` as a third argument. These fixtures declare none, so the
+    // value is `undefined` — i.e. this turn is byte-identical to the one that
+    // shipped before. The assertion is widened rather than loosened to
+    // `objectContaining`, so a UI-AUTHORED type appearing here would still
+    // fail: the rule is that the UI never invents intent, and a guard that
+    // stopped checking the third argument would stop seeing that.
+    expect(sendChip).toHaveBeenCalledWith('Continue with this change', 'Yes', undefined)
     // Settled: actions replaced by an honest acknowledgement (no "applied" claim).
     expect(screen.queryByTestId('v5-held-proposal-actions')).toBeNull()
     expect(screen.getByTestId('v5-held-proposal-settled')).toHaveTextContent('Sent for you to apply.')
@@ -125,7 +132,7 @@ describe('V5HeldProposalBlock', () => {
 
     fireEvent.click(screen.getByTestId('v5-held-proposal-dismiss'))
 
-    expect(sendChip).toHaveBeenCalledWith('Adjust it first', 'Let me adjust')
+    expect(sendChip).toHaveBeenCalledWith('Adjust it first', 'Let me adjust', undefined)
   })
 
   // NOTE: this replaces an earlier pin that asserted the card STILL settled when
@@ -164,7 +171,14 @@ describe('V5HeldProposalBlock', () => {
     fireEvent.click(screen.getByTestId('v5-held-proposal-confirm'))
 
     expect(sendChip).toHaveBeenCalledTimes(1)
-    expect(sendChip).toHaveBeenCalledWith('Continue with this change', 'Yes')
+    // ARITY EXTENDED (L-59): the seam now carries the producer's own
+    // `action_type` as a third argument. These fixtures declare none, so the
+    // value is `undefined` — i.e. this turn is byte-identical to the one that
+    // shipped before. The assertion is widened rather than loosened to
+    // `objectContaining`, so a UI-AUTHORED type appearing here would still
+    // fail: the rule is that the UI never invents intent, and a guard that
+    // stopped checking the third argument would stop seeing that.
+    expect(sendChip).toHaveBeenCalledWith('Continue with this change', 'Yes', undefined)
     expect(screen.getByTestId('v5-held-proposal-settled')).toHaveTextContent(
       'Sent for you to apply.',
     )
