@@ -160,6 +160,7 @@ import {
   buildPatchFollowupTurnRequest,
   buildRunAnalysisTurnRequest,
   buildSystemEventTurnRequest,
+  type AnalysisInputsPayload,
   type ExplainAnalysisStatePayload,
   type GraphStatePayload,
   type SelectedElementsPayload,
@@ -169,12 +170,12 @@ import {
 } from '../../services/turn-request-builder'
 import { isDebugBundleV2Enabled } from '../../components/debug/utils/exportBundle'
 import {
+  canonicalCommittedGraphReceiptForRun,
   discardEdgeStrengthAttemptForScenarioChange,
   edgeStrengthRunBarrierState,
   flushEdgeStrengthEditsBeforeRun,
   settleEdgeStrengthResponse,
 } from '../edge-strength/edgeStrengthCoordinator'
-import { parseCanonicalAnalysisStateAttestation } from '../edge-strength/canonicalAnalysisStateAuthority'
 
 /** Sentinel message content used for system events — must never render as a user bubble */
 export const SYSTEM_MESSAGE_SENTINEL = '[system]'
@@ -3047,13 +3048,16 @@ export function useConversation(): UseConversationReturn {
       // here would mean MISSING_INTERVENTIONS regressions on this path leave no
       // console trace. The per-option backfill warning is the observability hook.
       const ceeReady = store.ceeAnalysisReady
-      const canonicalAnalysisState = parseCanonicalAnalysisStateAttestation(ceeReady)
-      const reconciledOptions = ceeReady?.goal_node_id
-        ? canonicalAnalysisState
-          // A canonical transactional receipt has already proved these exact
-          // options against CEE's graph-hash preimage. Never backfill or
-          // reinterpret them from canvas option nodes while constructing Run.
-          ? canonicalAnalysisState.options as unknown as CEEAnalysisReady['options']
+      const canonicalReceipt = canonicalCommittedGraphReceiptForRun(
+        store.currentScenarioId,
+      )
+      const canonicalGoalNodeId = canonicalReceipt?.goal_node_id ?? ceeReady?.goal_node_id
+      const reconciledOptions = canonicalGoalNodeId
+        ? canonicalReceipt
+          // The coordinator has already proved all five receipt carriers equal
+          // the Run-bearing canvas/store. Never backfill or reinterpret these
+          // exact options from option nodes while constructing Run.
+          ? canonicalReceipt.options as unknown as CEEAnalysisReady['options']
           : reconcileOptionsWithCanvasNodes(
               ceeReady,
               store.nodes as any,
@@ -3061,8 +3065,12 @@ export function useConversation(): UseConversationReturn {
               { scenarioId: store.currentScenarioId ?? null, phase: 'turn_request' },
             )
         : []
-      const analysisInputs =
-        reconciledOptions.length > 0 && ceeReady?.goal_node_id
+      const canonicalConstraints = canonicalReceipt?.goal_constraints as
+        | CEEGoalConstraint[]
+        | undefined
+      const analysisConstraints = canonicalConstraints ?? store.goalConstraints ?? []
+      const analysisInputs: AnalysisInputsPayload | undefined =
+        reconciledOptions.length > 0 && canonicalGoalNodeId
           ? {
               // PLoT requires option_id; we use CEE option id as the canonical identifier on both fields for now.
               // NOTE: interventions remain in the CEEInterventionV3 nested {value, source, target_match}
@@ -3081,9 +3089,9 @@ export function useConversation(): UseConversationReturn {
                   ? { raw_interventions: opt.raw_interventions }
                   : {}),
               })),
-              goal_node_id: ceeReady.goal_node_id,
-              ...(store.goalConstraints && store.goalConstraints.length > 0
-                ? { constraints: store.goalConstraints }
+              goal_node_id: canonicalGoalNodeId,
+              ...(analysisConstraints.length > 0
+                ? { constraints: analysisConstraints }
                 : {}),
             }
           : undefined

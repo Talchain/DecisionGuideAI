@@ -6,6 +6,7 @@ import { useCanvasStore } from '../../store'
 import {
   __resetEdgeStrengthCoordinatorForTests,
   beginEdgeStrengthHydration,
+  canonicalCommittedGraphReceiptForRun,
   edgeStrengthRunBarrierState,
   finishEdgeStrengthHydration,
   flushEdgeStrengthEditsBeforeRun,
@@ -108,11 +109,12 @@ function receiptFor(
     graph_hash: graphHash,
     analysis_ready: {
       options: [{
-        option_id: 'opt_plan_a', label: 'Plan A', status: 'needs_user_mapping',
-        interventions: {}, is_baseline: false,
+        option_id: 'opt_plan_a', label: 'Plan A', status: 'ready',
+        interventions: { fac_demand: 0.4 },
+        is_baseline: false,
       }],
       goal_node_id: 'goal_profit',
-      status: 'needs_user_input',
+      status: 'ready',
       computed_at: '2026-08-15T14:00:39.168Z',
       freshness,
       freshness_reason: freshness === 'fresh'
@@ -124,15 +126,6 @@ function receiptFor(
             : 'derivation_failed',
       ...(graphHashAtRun ? { graph_hash_at_run: graphHashAtRun } : {}),
       current_graph_hash: graphHash,
-      canonical_graph_hash_analysis_state: {
-        projection_version: 'analysis-affecting.v1',
-        options: [{
-          id: 'opt_plan_a', label: 'Plan A', status: 'needs_user_mapping',
-          interventions: {}, is_baseline: false,
-        }],
-        goal_node_id: 'goal_profit',
-        goal_constraints: [],
-      },
     },
     draft_graph: {
       nodes: [
@@ -152,6 +145,15 @@ function receiptFor(
         provenance: { source: 'user_specified', reasoning: 'User judgement' },
         provenance_display: 'user_set',
       }],
+      options: [{
+        id: 'opt_plan_a', label: 'Plan A', status: 'ready',
+        interventions: {
+          fac_demand: { value: 0.4, source: 'user_specified' },
+        },
+        is_baseline: false,
+      }],
+      goal_node_id: 'goal_profit',
+      goal_constraints: [],
       node_count: 3,
       edge_count: 1,
     },
@@ -515,7 +517,7 @@ describe('edge strength transaction lifecycle', () => {
       .toBe('unconfirmed')
   })
 
-  it('uses a typed recovery hold when the canonical analysis-state attestation is absent', async () => {
+  it('keeps a legacy partial draft readable but holds transactional Run', async () => {
     const priorAnalysisReady = {
       options: [{
         id: 'opt_plan_a',
@@ -534,7 +536,7 @@ describe('edge strength transaction lifecycle', () => {
 
     registerEdgeStrengthSender(async (event, attemptId) => {
       const response = receiptFor(event) as unknown as Record<string, any>
-      delete response.analysis_ready.canonical_graph_hash_analysis_state
+      delete response.draft_graph.options
       settleEdgeStrengthResponse({ attemptId, response: response as never })
       return undefined
     })
@@ -557,7 +559,7 @@ describe('edge strength transaction lifecycle', () => {
     expect(edgeStrengthRunBarrierState(SCENARIO_A)).toMatchObject({ ok: false })
   })
 
-  it('preserves readiness and freshness byte-for-byte on a valid-shaped but mismatched attestation', async () => {
+  it('preserves readiness and freshness byte-for-byte on a valid receipt/readiness mismatch', async () => {
     const priorAnalysisReady = {
       options: [{
         id: 'opt_prior',
@@ -598,10 +600,9 @@ describe('edge strength transaction lifecycle', () => {
     expect(edgeStrengthRunBarrierState(SCENARIO_A)).toMatchObject({ ok: false })
   })
 
-  it('stores exact encoded/raw option identity before releasing the coordinator Run barrier', async () => {
-    const exactOption = {
+  it('stores exact encoded/raw option identity but keeps Run held on canonical needs_encoding', async () => {
+    const canonicalOption = {
       id: 'opt_plan_a',
-      option_id: 'opt_plan_a',
       label: 'Plan A',
       status: 'needs_encoding',
       is_baseline: false,
@@ -614,13 +615,20 @@ describe('edge strength transaction lifecycle', () => {
           source: 'user_specified',
         },
       },
-      raw_interventions: { fac_demand: { raw_value: 'medium' } },
+      raw_interventions: { fac_demand: 'medium' },
     }
     registerEdgeStrengthSender(async (event, attemptId) => {
       const response = receiptFor(event) as unknown as Record<string, any>
-      response.analysis_ready.options = [exactOption]
+      response.analysis_ready.options = [{
+        option_id: canonicalOption.id,
+        label: canonicalOption.label,
+        status: canonicalOption.status,
+        is_baseline: canonicalOption.is_baseline,
+        interventions: { fac_demand: 0.4 },
+        raw_interventions: structuredClone(canonicalOption.raw_interventions),
+      }]
       response.analysis_ready.status = 'needs_encoding'
-      response.analysis_ready.canonical_graph_hash_analysis_state.options = [exactOption]
+      response.draft_graph.options = [canonicalOption]
       settleEdgeStrengthResponse({ attemptId, response: response as never })
       return undefined
     })
@@ -632,9 +640,99 @@ describe('edge strength transaction lifecycle', () => {
       after: observation(-0.7, 'negative'),
     })
 
-    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves.toEqual({ ok: true })
-    expect(useCanvasStore.getState().ceeAnalysisReady?.options[0]).toMatchObject(exactOption)
-    expect(edgeStrengthRunBarrierState(SCENARIO_A)).toEqual({ ok: true })
+    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves.toEqual({
+      ok: false,
+      reason: 'The relationship was saved, but some option values still need to be set as numbers before analysis can run.',
+    })
+    expect(useCanvasStore.getState().ceeAnalysisReady?.options[0]).toMatchObject(canonicalOption)
+    expect(edgeStrengthRunBarrierState(SCENARIO_A)).toMatchObject({ ok: false })
+  })
+
+  it('settles a valid canonical NO_OPTIONS receipt truthfully but holds Run', async () => {
+    const freshnessBefore = structuredClone(useCanvasStore.getState().analysisFreshness)
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      const response = receiptFor(event) as unknown as Record<string, any>
+      response.analysis_ready = {
+        ...response.analysis_ready,
+        status: 'blocked',
+        blocked_reason: 'NO_OPTIONS',
+        options: [],
+      }
+      response.draft_graph.options = []
+      response.draft_graph.nodes = response.draft_graph.nodes.filter(
+        (node: Record<string, unknown>) => node.kind !== 'option',
+      )
+      response.draft_graph.node_count = response.draft_graph.nodes.length
+      settleEdgeStrengthResponse({ attemptId, response: response as never })
+      return undefined
+    })
+
+    setVisibleTuple(-0.7, 'negative')
+    recordEdgeStrengthMutation({
+      scenarioId: SCENARIO_A,
+      before: observation(-0.4, 'negative'),
+      after: observation(-0.7, 'negative'),
+    })
+
+    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves.toEqual({
+      ok: false,
+      reason: 'The relationship was saved, but the model still needs the recovery step shown in the conversation before analysis can run.',
+    })
+    const state = useCanvasStore.getState()
+    expect(state.nodes.some((node) => node.id === 'opt_plan_a')).toBe(false)
+    expect(state.ceeAnalysisReady).toMatchObject({
+      status: 'blocked',
+      blocked_reason: 'NO_OPTIONS',
+      goal_node_id: 'goal_profit',
+      options: [],
+    })
+    expect(state.analysisFreshness).not.toEqual(freshnessBefore)
+    expect(state.analysisFreshness?.freshness).toBe('stale')
+    expect(state.edgeStrengthSync.issue).toBeNull()
+    expect(canonicalCommittedGraphReceiptForRun(SCENARIO_A)).toBeNull()
+  })
+
+  it('settles canonical NO_GOAL with the receipt options and an explicit non-ready goal', async () => {
+    registerEdgeStrengthSender(async (event, attemptId) => {
+      const response = receiptFor(event) as unknown as Record<string, any>
+      response.analysis_ready = {
+        ...response.analysis_ready,
+        status: 'blocked',
+        blocked_reason: 'NO_GOAL',
+        goal_node_id: '',
+        options: [],
+      }
+      response.draft_graph.goal_node_id = null
+      response.draft_graph.nodes = response.draft_graph.nodes.map(
+        (node: Record<string, unknown>) => node.id === 'goal_profit'
+          ? { ...node, kind: 'factor' }
+          : node,
+      )
+      settleEdgeStrengthResponse({ attemptId, response: response as never })
+      return undefined
+    })
+
+    setVisibleTuple(-0.7, 'negative')
+    recordEdgeStrengthMutation({
+      scenarioId: SCENARIO_A,
+      before: observation(-0.4, 'negative'),
+      after: observation(-0.7, 'negative'),
+    })
+
+    await expect(flushEdgeStrengthEditsBeforeRun(SCENARIO_A)).resolves.toEqual({
+      ok: false,
+      reason: 'The relationship was saved, but the model still needs the recovery step shown in the conversation before analysis can run.',
+    })
+    const state = useCanvasStore.getState()
+    expect(state.nodes.find((node) => node.id === 'goal_profit')?.type).toBe('factor')
+    expect(state.ceeAnalysisReady).toMatchObject({
+      status: 'blocked',
+      blocked_reason: 'NO_GOAL',
+      goal_node_id: '',
+      options: [{ id: 'opt_plan_a' }],
+    })
+    expect(state.edgeStrengthSync.issue).toBeNull()
+    expect(canonicalCommittedGraphReceiptForRun(SCENARIO_A)).toBeNull()
   })
 
   it('coalesces first-before/latest-after and converts a return to baseline into confirm_current', async () => {

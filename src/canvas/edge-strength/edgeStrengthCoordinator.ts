@@ -8,7 +8,11 @@
  * second graph writer.
  */
 
-import type { BoundaryError, OlumiResponse } from '@talchain/schemas/boundary'
+import type {
+  BoundaryError,
+  CanonicalCommittedGraphReceipt,
+  OlumiResponse,
+} from '@talchain/schemas/boundary'
 import { GraphV3Schema } from '@talchain/schemas'
 import type { Edge } from '@xyflow/react'
 
@@ -30,9 +34,10 @@ import {
   type CanonicalNodeFieldProtection,
 } from './graphAuthority'
 import {
+  canonicalAnalysisReadyAllowsRun,
+  parseCanonicalCommittedGraphReceipt,
   prepareCanonicalAnalysisReadyFromReceipt,
-  storedAnalysisStateMatchesAttestation,
-  type CanonicalAnalysisStateAttestation,
+  storedAnalysisStateMatchesCanonicalReceipt,
 } from './canonicalAnalysisStateAuthority'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 
@@ -86,8 +91,8 @@ export type EdgeStrengthReceiptVerdict =
       graphHashAtRun: string | null
       analysisReady: Record<string, unknown>
       canonicalAnalysisReady: CEEAnalysisReady
-      analysisStateAttestation: CanonicalAnalysisStateAttestation
-      draftGraph: Record<string, unknown>
+      canonicalReceipt: CanonicalCommittedGraphReceipt
+      draftGraph: CanonicalCommittedGraphReceipt
     }
   | { kind: 'invalid'; reason: string }
 
@@ -134,6 +139,8 @@ interface ScenarioLane {
   recoveries: Map<string, EdgeStrengthRecoveryRecord>
   unsupportedRevisions: Map<string, number>
   hydration: 'idle' | 'pending' | 'settled' | 'unconfirmed'
+  canonicalReceiptRequired: boolean
+  canonicalReceipt: CanonicalCommittedGraphReceipt | null
   lastHydratedRevision: number | null
   lastOutcome: {
     kind: 'saved' | 'confirmed' | 'shared_value_refreshed' | 'review_required'
@@ -192,6 +199,8 @@ function laneFor(scenarioId: string): ScenarioLane {
       recoveries: new Map(),
       unsupportedRevisions: new Map(),
       hydration: 'idle',
+      canonicalReceiptRequired: false,
+      canonicalReceipt: null,
       lastHydratedRevision: null,
       lastOutcome: null,
       waiters: new Set(),
@@ -285,6 +294,28 @@ function currentIssue(lane: ScenarioLane): EdgeStrengthSyncIssue | null {
   return null
 }
 
+function canonicalReceiptMatchesLocalAuthority(lane: ScenarioLane): boolean {
+  const receipt = lane.canonicalReceipt
+  return receipt !== null &&
+    canvasAnalyticallyMatchesCanonicalGraph(receipt) &&
+    storedAnalysisStateMatchesCanonicalReceipt(receipt)
+}
+
+function canonicalNonReadyRunReason(): string {
+  const readiness = useCanvasStore.getState().ceeAnalysisReady
+  switch (readiness?.status as string | undefined) {
+    case 'needs_encoding':
+      return 'The relationship was saved, but some option values still need to be set as numbers before analysis can run.'
+    case 'needs_user_mapping':
+      return 'The relationship was saved, but at least one option still needs to be connected to what it changes before analysis can run.'
+    case 'needs_user_input':
+    case 'blocked':
+      return 'The relationship was saved, but the model still needs the recovery step shown in the conversation before analysis can run.'
+    default:
+      return 'The relationship was saved, but the shared model is not ready for analysis yet.'
+  }
+}
+
 function runReason(issue: EdgeStrengthSyncIssue | null, queued: number, inFlight: number): string | undefined {
   switch (issue) {
     case 'conflict':
@@ -316,6 +347,18 @@ function resultFor(lane: ScenarioLane): EdgeStrengthFlushResult | null {
   }
   if (lane.hydration === 'unconfirmed') {
     return { ok: false, reason: 'We could not verify which shared model analysis would use. Check the shared model before analysing.' }
+  }
+  if (lane.canonicalReceiptRequired && !canonicalReceiptMatchesLocalAuthority(lane)) {
+    return {
+      ok: false,
+      reason: 'The shared model did not provide a complete analysis-input receipt. Check the shared model before running analysis.',
+    }
+  }
+  if (
+    lane.canonicalReceiptRequired &&
+    !canonicalAnalysisReadyAllowsRun(useCanvasStore.getState().ceeAnalysisReady)
+  ) {
+    return { ok: false, reason: canonicalNonReadyRunReason() }
   }
   return { ok: true }
 }
@@ -375,7 +418,8 @@ export function edgeStrengthHydrationCanApply(
 
 /** Whether hydration is acting as the typed full-analysis-state recovery. */
 export function edgeStrengthAnalysisStateRecoveryRequired(scenarioId: string): boolean {
-  return [...laneFor(scenarioId).issues.values()].includes('analysis_state_unverified')
+  const lane = laneFor(scenarioId)
+  return lane.canonicalReceiptRequired && !canonicalReceiptMatchesLocalAuthority(lane)
 }
 
 export function finishEdgeStrengthHydration(args: {
@@ -384,21 +428,38 @@ export function finishEdgeStrengthHydration(args: {
   usable: boolean
   /** Full persisted options/goal/constraints were reconciled for Run. */
   analysisStateUsable?: boolean
+  /** Strict five-carrier receipt reconstructed from those persisted bytes. */
+  canonicalReceipt?: CanonicalCommittedGraphReceipt | null
 }): void {
   const lane = laneFor(args.scenarioId)
+  const recoveredReceipt = args.canonicalReceipt
+    ? parseCanonicalCommittedGraphReceipt(args.canonicalReceipt)
+    : null
+  const recoveredAuthorityExact =
+    args.analysisStateUsable === true &&
+    recoveredReceipt !== null &&
+    canvasAnalyticallyMatchesCanonicalGraph(recoveredReceipt) &&
+    storedAnalysisStateMatchesCanonicalReceipt(recoveredReceipt)
+  if (recoveredAuthorityExact) lane.canonicalReceipt = recoveredReceipt
   if (!edgeStrengthHydrationCanApply(args.scenarioId, args.startedAtRevision)) {
     // A strict writer receipt may already have supplied newer full-graph
     // authority. Never downgrade it because an older boot read finished late.
     if (lane.hydration !== 'settled') lane.hydration = 'unconfirmed'
   } else if (args.usable) {
     const analysisStateStillUnverified =
-      [...lane.issues.values()].includes('analysis_state_unverified') &&
-      args.analysisStateUsable !== true
+      lane.canonicalReceiptRequired && !recoveredAuthorityExact
     if (analysisStateStillUnverified) {
       // The authenticated read proved nodes/edges, so hydration itself is
       // settled, but it did not supply a Run-equivalent options/goal/constraint
-      // projection. Retain the typed issue and its explicit refresh/restore
-      // recovery instead of converting an incomplete read into Run authority.
+      // projection. Retain the current recovery issue (or create the typed
+      // receipt issue) instead of converting an incomplete read into Run
+      // authority.
+      if (currentIssue(lane) === null) {
+        setIssue(lane, 'canonical-receipt', 'analysis_state_unverified', {
+          from: lane.active?.from ?? '',
+          to: lane.active?.to ?? '',
+        })
+      }
       lane.hydration = 'settled'
       lane.lastHydratedRevision = args.startedAtRevision
       publish(args.scenarioId)
@@ -618,6 +679,8 @@ export function recordEdgeStrengthMutation(args: {
 
   const isConfirmation = userConfirmationChanged(before, after)
   if (tupleScientificEqual(before.tuple, after.tuple) && !isConfirmation) return
+  lane.canonicalReceiptRequired = true
+  lane.canonicalReceipt = null
 
   // A new edit can clear a tuple conflict only when the exact current tuple was
   // authoritatively applied to the canvas first. Ambiguous delivery remains a
@@ -804,6 +867,8 @@ export function requestEdgeStrengthConfirmation(scenarioId: string, edgeId: stri
   ).length !== 1) return false
   const revision = bumpRevision(scenarioId, endpointKey)
   const lane = laneFor(scenarioId)
+  lane.canonicalReceiptRequired = true
+  lane.canonicalReceipt = null
   const issue = lane.issues.get(endpointKey)
   if (issue === 'unconfirmed') return false
   if (issue === 'conflict') {
@@ -958,43 +1023,45 @@ function canonicalReadback(value: unknown): CanonicalEdgeReadback | null {
 
 const FRESHNESS_VALUES = new Set(['fresh', 'stale', 'unknown', 'none'])
 
-function canonicalDraftGraphIsUsable(graph: Record<string, unknown>): boolean {
+function canonicalDraftGraphReceipt(value: unknown): CanonicalCommittedGraphReceipt | null {
+  const graph = parseCanonicalCommittedGraphReceipt(value)
+  if (!graph) return null
   // OlumiResponse deliberately types draft_graph edge elements as unknown.
   // Parse the nested authority against GraphV3 itself before reconciling it.
   // The additional identity checks below pin unique endpoint-pair semantics,
   // which ReactFlow ids cannot prove.
   if (!GraphV3Schema.safeParse(graph).success) {
-    return false
+    return null
   }
   const nodes = Array.isArray(graph.nodes) ? graph.nodes : null
   const edges = Array.isArray(graph.edges) ? graph.edges : null
-  if (!nodes || !edges) return false
+  if (!nodes || !edges) return null
   if (
     !Number.isInteger(graph.node_count) || graph.node_count !== nodes.length ||
     !Number.isInteger(graph.edge_count) || graph.edge_count !== edges.length
-  ) return false
+  ) return null
   const nodeIds = new Set<string>()
   for (const candidate of nodes) {
     const node = recordObject(candidate)
     if (!node || typeof node.id !== 'string' || !validEndpointId(node.id) || nodeIds.has(node.id)) {
-      return false
+      return null
     }
     nodeIds.add(node.id)
   }
   const pairs = new Set<string>()
   for (const candidate of edges) {
     const edge = recordObject(candidate)
-    if (!edge || typeof edge.from !== 'string' || typeof edge.to !== 'string') return false
-    if (!validEndpointId(edge.from) || !validEndpointId(edge.to)) return false
-    if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) return false
+    if (!edge || typeof edge.from !== 'string' || typeof edge.to !== 'string') return null
+    if (!validEndpointId(edge.from) || !validEndpointId(edge.to)) return null
+    if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) return null
     const tuple = tupleFromWire(edge)
     const exists = finiteNumber(edge.exists_probability)
-    if (!tuple || exists === null || exists < 0 || exists > 1) return false
+    if (!tuple || exists === null || exists < 0 || exists > 1) return null
     const key = pairKey(edge.from, edge.to)
-    if (pairs.has(key)) return false
+    if (pairs.has(key)) return null
     pairs.add(key)
   }
-  return true
+  return graph
 }
 
 /** Pure, fail-closed evaluator for the deployed 4775 CEE receipt shapes. */
@@ -1034,8 +1101,8 @@ export function evaluateEdgeStrengthReceipt(
     return { kind: 'invalid', reason: 'confirmation_changed_tuple' }
   }
 
-  const graph = recordObject(response.draft_graph)
-  if (!graph || !canonicalDraftGraphIsUsable(graph)) {
+  const graph = canonicalDraftGraphReceipt(response.draft_graph)
+  if (!graph) {
     return { kind: 'invalid', reason: 'draft_graph_missing_or_invalid' }
   }
   const edges = Array.isArray(graph?.edges) ? graph.edges : null
@@ -1098,7 +1165,10 @@ export function evaluateEdgeStrengthReceipt(
     return { kind: 'invalid', reason: 'set_hash_unchanged' }
   }
 
-  const canonicalAnalysisState = prepareCanonicalAnalysisReadyFromReceipt(analysisReady)
+  const canonicalAnalysisState = prepareCanonicalAnalysisReadyFromReceipt(
+    analysisReady,
+    graph,
+  )
   if (!canonicalAnalysisState.ok) {
     return { kind: 'invalid', reason: canonicalAnalysisState.reason }
   }
@@ -1111,7 +1181,7 @@ export function evaluateEdgeStrengthReceipt(
     graphHashAtRun,
     analysisReady,
     canonicalAnalysisReady: canonicalAnalysisState.analysisReady,
-    analysisStateAttestation: canonicalAnalysisState.attestation,
+    canonicalReceipt: canonicalAnalysisState.receipt,
     draftGraph: graph,
   }
 }
@@ -1364,13 +1434,10 @@ function settleApplied(
     return
   }
 
-  // `options` and `goal_node_id` are not carried by the applied draft_graph,
-  // but they are part of CEE's graph-hash preimage and they are exactly what
-  // Run reads from ceeAnalysisReady. Commit the already-validated attestation
-  // before releasing the lane, then prove the store (including constraints)
-  // reads back as the same analytical state. A store subscriber or future
-  // reducer that rewrites any hashed field leaves readiness/freshness exactly
-  // as they were and enters the typed recovery state below.
+  // All five hash carriers now come from the strict 0.43 draft_graph receipt.
+  // Commit its already-validated options/goal into the existing readiness
+  // store, then prove nodes, edges, options, goal identity, and constraints all
+  // read back as one analytical projection before freshness or Run can move.
   const storeBeforeAnalysisState = useCanvasStore.getState()
   const readinessBefore = storeBeforeAnalysisState.ceeAnalysisReady
   const readinessNodeIdsBefore = storeBeforeAnalysisState.ceeAnalysisReadyNodeIds
@@ -1379,7 +1446,10 @@ function settleApplied(
     ceeAnalysisReady: verdict.canonicalAnalysisReady,
     ceeAnalysisReadyNodeIds: canonicalNodeIds,
   })
-  if (!storedAnalysisStateMatchesAttestation(verdict.analysisStateAttestation)) {
+  if (
+    !canvasAnalyticallyMatchesCanonicalGraph(verdict.canonicalReceipt) ||
+    !storedAnalysisStateMatchesCanonicalReceipt(verdict.canonicalReceipt)
+  ) {
     useCanvasStore.setState({
       ceeAnalysisReady: readinessBefore,
       ceeAnalysisReadyNodeIds: readinessNodeIdsBefore,
@@ -1401,6 +1471,9 @@ function settleApplied(
   // this store commit. Persist once more now that the same atomic authority
   // snapshot also carries the attested options and goal identity.
   persistCanonicalGraphAuthoritySnapshot()
+
+  lane.canonicalReceiptRequired = true
+  lane.canonicalReceipt = verdict.canonicalReceipt
 
   lane.active = null
   lane.lastOutcome = {
@@ -1456,7 +1529,10 @@ function settleUnconfirmed(attempt: EdgeStrengthAttempt, reason: string): void {
   lane.active = null
   const key = pairKey(attempt.from, attempt.to)
   const pending = lane.pending.get(key)
-  const issue: EdgeStrengthSyncIssue = reason.startsWith('canonical_analysis_state_')
+  const issue: EdgeStrengthSyncIssue =
+    reason.startsWith('canonical_analysis_state_') ||
+    reason.startsWith('canonical_committed_receipt_') ||
+    reason.startsWith('draft_graph_')
     ? 'analysis_state_unverified'
     : 'unconfirmed'
   setIssue(lane, key, issue, {
@@ -1805,6 +1881,8 @@ export function applyMyEdgeStrengthValue(
     intent: 'set',
     localRevision: revision,
   })
+  lane.canonicalReceiptRequired = true
+  lane.canonicalReceipt = null
   clearIssue(lane, key)
   lane.conflictCurrent.delete(key)
   lane.recoveries.delete(key)
@@ -1866,6 +1944,24 @@ export function edgeStrengthRunBarrierState(scenarioId: string | null | undefine
     ok: false,
     reason: runReason(currentIssue(lane), lane.pending.size, lane.active ? 1 : 0),
   }
+}
+
+/**
+ * Exact Run inputs from the latest settled transactional receipt.
+ * Null means either this scenario has no edge transaction to bind, or the
+ * receipt is no longer analytically equal to the live canvas/store.
+ */
+export function canonicalCommittedGraphReceiptForRun(
+  scenarioId: string | null | undefined,
+): CanonicalCommittedGraphReceipt | null {
+  if (
+    !scenarioId ||
+    openScenarioId !== scenarioId ||
+    useCanvasStore.getState().currentScenarioId !== scenarioId
+  ) return null
+  const lane = laneFor(scenarioId)
+  if (!lane.canonicalReceiptRequired || resultFor(lane)?.ok !== true) return null
+  return canonicalReceiptMatchesLocalAuthority(lane) ? lane.canonicalReceipt : null
 }
 
 /** Reset helper for focused tests; never called by production code. */

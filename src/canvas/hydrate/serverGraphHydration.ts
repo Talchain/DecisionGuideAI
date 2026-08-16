@@ -18,6 +18,7 @@
  */
 
 import { useCanvasStore } from '../store'
+import type { CanonicalCommittedGraphReceipt } from '@talchain/schemas/boundary'
 import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
@@ -34,7 +35,6 @@ import {
   replaceCanvasWithCanonicalGraph,
 } from '../edge-strength/graphAuthority'
 import {
-  canonicalAnalysisStateMatchesCanonicalGraph,
   reconcileStoredAnalysisStateFromCanonicalGraph,
 } from '../edge-strength/canonicalAnalysisStateAuthority'
 
@@ -122,23 +122,25 @@ export async function hydrateCanvasFromServer(
   const finish = (
     outcome: HydrationOutcome,
     usable: boolean,
-    analysisStateUsable = false,
+    canonicalReceipt: CanonicalCommittedGraphReceipt | null = null,
   ): HydrationOutcome => {
     finishEdgeStrengthHydration({
       scenarioId,
       startedAtRevision: edgeRevisionAtStart,
       usable,
-      analysisStateUsable,
+      analysisStateUsable: canonicalReceipt !== null,
+      canonicalReceipt,
     })
     return outcome
   }
-  const recoverAnalysisState = (graph: unknown): boolean => {
+  const recoverAnalysisState = (
+    graph: unknown,
+  ): CanonicalCommittedGraphReceipt | null => {
     // Normal boot hydration must not silently replace options/goal readiness.
     // This seam is exclusively the explicit recovery for a transaction whose
     // receipt lacked a complete hash-preimage attestation.
-    if (!edgeStrengthAnalysisStateRecoveryRequired(scenarioId)) return false
-    return reconcileStoredAnalysisStateFromCanonicalGraph(graph) &&
-      canonicalAnalysisStateMatchesCanonicalGraph(graph)
+    if (!edgeStrengthAnalysisStateRecoveryRequired(scenarioId)) return null
+    return reconcileStoredAnalysisStateFromCanonicalGraph(graph)
   }
 
   const result = await fetchScenarioGraph(scenarioId, {
@@ -225,8 +227,8 @@ export async function hydrateCanvasFromServer(
         ? { value: result.identity.value, projectionVersion: result.identity.projectionVersion }
         : null,
     )
-    const analysisStateExact = recoverAnalysisState(result.graph)
-    return finish('merged', true, analysisStateExact)
+    const canonicalReceipt = recoverAnalysisState(result.graph)
+    return finish('merged', true, canonicalReceipt)
   }
 
   const stored = useCanvasStore.getState().serverGraphIdentity
@@ -238,8 +240,8 @@ export async function hydrateCanvasFromServer(
     // apply. Skipping is not merely an optimisation: re-merging would roll a
     // local edit made since that hydration back to the same server value the
     // user has already been shown once.
-    const analysisStateExact = recoverAnalysisState(result.graph)
-    return finish('unchanged', true, analysisStateExact)
+    const canonicalReceipt = recoverAnalysisState(result.graph)
+    return finish('unchanged', true, canonicalReceipt)
   }
 
   if (!edgeStrengthHydrationCanApply(scenarioId, edgeRevisionAtStart)) {
@@ -306,7 +308,7 @@ export async function hydrateCanvasFromServer(
     return finish('mergeRefused', false)
   }
 
-  const analysisStateExact = recoverAnalysisState(result.graph)
+  const canonicalReceipt = recoverAnalysisState(result.graph)
 
   // Store CEE's token VERBATIM — after the merge, so a throw could not leave a
   // token recorded for a graph that was never applied. `null` when CEE issued
@@ -320,5 +322,5 @@ export async function hydrateCanvasFromServer(
       : null,
   )
 
-  return finish('merged', true, analysisStateExact)
+  return finish('merged', true, canonicalReceipt)
 }

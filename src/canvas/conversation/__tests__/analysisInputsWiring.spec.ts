@@ -78,12 +78,6 @@ const canonicalOptionB = {
 const mockCeeAnalysisReady = {
   goal_node_id: 'node-goal-1',
   options: [canonicalOptionA, canonicalOptionB],
-  canonical_graph_hash_analysis_state: {
-    projection_version: 'analysis-affecting.v1',
-    options: [structuredClone(canonicalOptionA), structuredClone(canonicalOptionB)],
-    goal_node_id: 'node-goal-1',
-    goal_constraints: [],
-  },
 } as CEEAnalysisReady
 
 // ---------------------------------------------------------------------------
@@ -144,8 +138,9 @@ describe('analysis_inputs in turn request', () => {
   it('maps both id and option_id on each option on run_analysis turn', async () => {
     useCanvasStore.setState({
       ceeAnalysisReady: mockCeeAnalysisReady,
-      // This stale local fallback would populate the baseline under the legacy
-      // reconciler. An attested receipt must remain byte-for-byte authoritative.
+      // This suite intentionally exercises the legacy/no-transaction fallback.
+      // Canonical transaction tests separately prove that a strict receipt is
+      // never reinterpreted from these node-local bytes.
       nodes: [
         {
           id: 'option-b',
@@ -195,7 +190,9 @@ describe('analysis_inputs in turn request', () => {
     expect(opts[1].label).toBe('Option B')
     expect(opts[1].status).toBe('ready')
     expect(opts[1].is_baseline).toBe(true)
-    expect(opts[1].interventions).toEqual({})
+    expect(opts[1].interventions).toEqual({
+      'node-local': expect.objectContaining({ value: 0.9 }),
+    })
   })
 
   it('omits analysis_inputs on plain conversation turns even when ceeAnalysisReady has options', async () => {

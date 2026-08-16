@@ -44,6 +44,7 @@ const RECOGNISED_STATUSES: ReadonlySet<string> = new Set([
   'needs_user_mapping',
   'needs_encoding',
   'needs_user_input',
+  'blocked',
   'unknown',
 ])
 
@@ -199,7 +200,7 @@ function describeUnresolvedOptions(
  *
  * Status handling:
  * - 'ready': proceed
- * - 'needs_user_input': hard block (deterministic, no bypass)
+ * - 'needs_user_input' / 'blocked': hard block (deterministic, no bypass)
  * - 'needs_user_mapping' / 'needs_encoding': soft-bypassable when options are resolved
  * - unrecognised: defensive hard block
  */
@@ -227,12 +228,21 @@ function validateOverallStatus(
 
   // Check overall status
   if (ceeAnalysisReady.status !== 'ready') {
-    // needs_user_input: deterministic user action required — always hard block
-    if (ceeAnalysisReady.status === 'needs_user_input') {
+    // needs_user_input / canonical #983 blocked: deterministic user action
+    // required — always hard block, with no soft metadata bypass.
+    if (
+      ceeAnalysisReady.status === 'needs_user_input' ||
+      ceeAnalysisReady.status === 'blocked'
+    ) {
       blockers.push({
         code: 'ANALYSIS_NOT_READY',
-        message: 'Your decision brief needs changes before analysis can run.',
-        action: { type: 'retry_draft', label: 'Edit brief' },
+        message: ceeAnalysisReady.status === 'blocked'
+          ? 'The shared model needs another input before analysis can run.'
+          : 'Your decision brief needs changes before analysis can run.',
+        action: {
+          type: 'retry_draft',
+          label: ceeAnalysisReady.status === 'blocked' ? 'Review model' : 'Edit brief',
+        },
       })
       if (ceeAnalysisReady.user_questions?.length) {
         userQuestions.push(...ceeAnalysisReady.user_questions)

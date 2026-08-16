@@ -76,7 +76,14 @@ export interface EdgeStrengthRecoveryReadModel {
   hydration: 'idle' | 'pending' | 'settled' | 'unconfirmed'
   queued: number
   inFlight: number
-  issue: 'conflict' | 'unconfirmed' | 'unsupported_fields' | 'unsupported_value' | 'unconfirmed_structure' | null
+  issue:
+    | 'conflict'
+    | 'unconfirmed'
+    | 'analysis_state_unverified'
+    | 'unsupported_fields'
+    | 'unsupported_value'
+    | 'unconfirmed_structure'
+    | null
   recoverySummary?: RelationshipRecoverySummary
 }
 

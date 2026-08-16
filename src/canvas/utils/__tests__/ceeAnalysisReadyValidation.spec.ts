@@ -17,20 +17,20 @@ describe('validateCeeAnalysisReady', () => {
   })
 
   const createValidPayload = (): CEEAnalysisReady => ({
-    status: 'analysis_ready',
+    status: 'ready',
     goal_node_id: 'goal1',
     options: [
       {
         id: 'opt1',
         label: 'Option 1',
         status: 'ready',
-        interventions: { factor1: 1 },
+        interventions: { factor1: { value: 1, source: 'brief_extraction' } },
       },
       {
         id: 'opt2',
         label: 'Option 2',
         status: 'ready',
-        interventions: { factor1: 0 },
+        interventions: { factor1: { value: 0, source: 'brief_extraction' } },
       },
     ],
   })

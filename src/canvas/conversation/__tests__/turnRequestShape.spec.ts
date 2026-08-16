@@ -145,6 +145,7 @@ describe('OrchestratorTurnRequest payload shape', () => {
             id: 'opt1',
             option_id: 'opt1',
             label: 'Option A',
+            status: 'ready',
             interventions: {},
           }],
           goal_node_id: 'goal-1',
@@ -567,7 +568,7 @@ describe('multi-turn conversation lifecycle', () => {
       analysis_inputs: {
         goal_node_id: 'g1',
         options: [
-          { id: 'o1', option_id: 'o1', label: 'Opt A', interventions: {} },
+          { id: 'o1', option_id: 'o1', label: 'Opt A', status: 'ready', interventions: {} },
         ],
       },
     })

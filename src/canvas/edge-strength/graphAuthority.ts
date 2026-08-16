@@ -1,6 +1,7 @@
 import type { Edge, Node } from '@xyflow/react'
 
 import { canonicalJson } from '../../lib/canonical-hash'
+import type { CanonicalGraphHashKeepKey } from '@talchain/schemas/boundary'
 import {
   ANALYTICAL_EDGE_FIELDS,
   ANALYTICAL_NODE_DATA_FIELDS,
@@ -15,30 +16,29 @@ import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from '../utils/applyDraftR
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { logger } from '../../lib/logger'
 import {
-  CEE_ANALYSIS_EDGE_CLIENT_FIELDS,
-  CEE_ANALYSIS_NODE_CLIENT_FIELDS,
-  type CanonicalAnalysisStateField,
+  canonicalReceiptEdgeCanvasFields,
+  canonicalReceiptNodeCanvasFields,
 } from './canonicalAnalysisStateAuthority'
 
 // Compile-time bind to @talchain/schemas' canonical hash contract. CEE treats
 // an absent/empty goal_constraints member as [], so the canvas uses `null` as
 // the one constraint-free representation and compares it as part of every
 // authoritative read-after-write proof.
-const GOAL_CONSTRAINTS_FIELD = 'goal_constraints' satisfies CanonicalAnalysisStateField
+const GOAL_CONSTRAINTS_FIELD = 'goal_constraints' satisfies CanonicalGraphHashKeepKey
 
 // The generic staleness registry intentionally covers live editor fields. A
 // full GraphV3 receipt has a stronger obligation: it must also retire every
 // client spelling of CEE's analysis-affecting node/edge projection, including
 // optional fields that are ABSENT from the receipt. The exact serving contract
-// and source pin live in canonicalAnalysisStateAuthority; this reconciler
-// consumes that one classification instead of keeping a rival nested list.
+// and vocabulary live in @talchain/schemas 0.43; this reconciler translates
+// that manifest into canvas aliases instead of keeping a rival nested list.
 //
 // `strength_mean` is also load-bearing legacy state: the ISL adapter prefers it
 // over weight + direction, so a full canonical receipt must retire it.
 const CANONICAL_NODE_ANALYTICAL_FIELDS = [
   ...new Set([
     ...ANALYTICAL_NODE_DATA_FIELDS,
-    ...CEE_ANALYSIS_NODE_CLIENT_FIELDS,
+    ...canonicalReceiptNodeCanvasFields(),
     'category',
     'categories',
     'state_space',
@@ -48,7 +48,7 @@ const CANONICAL_NODE_ANALYTICAL_FIELDS = [
 const CANONICAL_EDGE_ANALYTICAL_FIELDS = [
   ...new Set([
     ...ANALYTICAL_EDGE_FIELDS,
-    ...CEE_ANALYSIS_EDGE_CLIENT_FIELDS,
+    ...canonicalReceiptEdgeCanvasFields(),
     'strength_mean',
     'effect_direction',
     'edge_type',
@@ -481,7 +481,7 @@ export function canvasAnalyticallyMatchesCanonicalGraph(graphValue: unknown): bo
   const graph = record(graphValue)
   const rawNodes = Array.isArray(graph?.nodes) ? graph.nodes : null
   const rawEdges = Array.isArray(graph?.edges) ? graph.edges : null
-  if (!rawNodes || !rawEdges || rawNodes.length === 0) return false
+  if (!graph || !rawNodes || !rawEdges || rawNodes.length === 0) return false
 
   const serverNodes = new Map<string, Node>()
   for (const rawNode of rawNodes) {
@@ -540,7 +540,7 @@ export function replaceCanvasWithCanonicalGraph(graphValue: unknown): boolean {
   const graph = record(graphValue)
   const rawNodes = Array.isArray(graph?.nodes) ? graph.nodes : null
   const rawEdges = Array.isArray(graph?.edges) ? graph.edges : null
-  if (!rawNodes || !rawEdges || rawNodes.length === 0) return false
+  if (!graph || !rawNodes || !rawEdges || rawNodes.length === 0) return false
 
   const state = useCanvasStore.getState()
   const existingNodeById = new Map(state.nodes.map((node) => [node.id, node]))

@@ -31,6 +31,7 @@ import type { WireSystemEvent } from '../types'
 import {
   __resetEdgeStrengthCoordinatorForTests,
   beginEdgeStrengthHydration,
+  edgeStrengthRunBarrierState,
   finishEdgeStrengthHydration,
   getEdgeStrengthEndpointStatus,
   requestEdgeStrengthConfirmation,
@@ -97,12 +98,12 @@ function edgeStrengthReceipt(event: Record<string, unknown>) {
       options: [{
         option_id: 'opt_plan_a',
         label: 'Plan A',
-        status: 'needs_user_mapping',
-        interventions: {},
+        status: 'ready',
+        interventions: { fac_demand: 0.4 },
         is_baseline: false,
       }],
       goal_node_id: 'goal_profit',
-      status: 'needs_user_input',
+      status: 'ready',
       computed_at: '2026-08-15T14:00:39.168Z',
       freshness,
       freshness_reason: freshness === 'fresh'
@@ -114,18 +115,6 @@ function edgeStrengthReceipt(event: Record<string, unknown>) {
             : 'derivation_failed',
       ...(graphHashAtRun ? { graph_hash_at_run: graphHashAtRun } : {}),
       current_graph_hash: graphHash,
-      canonical_graph_hash_analysis_state: {
-        projection_version: 'analysis-affecting.v1',
-        options: [{
-          id: 'opt_plan_a',
-          label: 'Plan A',
-          status: 'needs_user_mapping',
-          interventions: {},
-          is_baseline: false,
-        }],
-        goal_node_id: 'goal_profit',
-        goal_constraints: [],
-      },
     },
     draft_graph: {
       nodes: [
@@ -147,6 +136,17 @@ function edgeStrengthReceipt(event: Record<string, unknown>) {
         provenance: { source: 'user_specified', reasoning: 'User judgement' },
         provenance_display: 'user_set',
       }],
+      options: [{
+        id: 'opt_plan_a',
+        label: 'Plan A',
+        status: 'ready',
+        interventions: {
+          fac_demand: { value: 0.4, source: 'user_specified' },
+        },
+        is_baseline: false,
+      }],
+      goal_node_id: 'goal_profit',
+      goal_constraints: [],
       node_count: 3,
       edge_count: 1,
     },
@@ -437,7 +437,7 @@ describe('canonical Run waits for the complete value-writer transaction', () => 
     })
     expect(useCanvasStore.getState().ceeAnalysisReady).toMatchObject({
       goal_node_id: 'goal_profit',
-      status: 'needs_user_input',
+      status: 'ready',
     })
     expect(useCanvasStore.getState().analysisFreshness).toMatchObject({
       freshness: 'stale',
@@ -501,7 +501,7 @@ describe('canonical Run waits for the complete value-writer transaction', () => 
     expect(dispatchedRuns(), 'Run must remain behind the rejected writer receipt').toHaveLength(0)
     expect(getEdgeStrengthEndpointStatus(SCENARIO, 'fac_demand', 'goal_profit').kind)
       .toBe('unconfirmed')
-    expect(useCanvasStore.getState().edgeStrengthSync.issue).toBe('unconfirmed')
+    expect(useCanvasStore.getState().edgeStrengthSync.issue).toBe('analysis_state_unverified')
     expect(useCanvasStore.getState().ceeAnalysisReady).toEqual(priorAnalysisReady)
     expect(useCanvasStore.getState().analysisFreshness).toEqual(priorFreshness)
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
@@ -587,7 +587,7 @@ describe('canonical Run waits for the complete value-writer transaction', () => 
     expect(useCanvasStore.getState().activeEmittedEdits).toBe(0)
   })
 
-  it('drains a factor edit queued while the edge barrier is awaiting its receipt', async () => {
+  it('drains a queued factor writer but holds Run until it supplies a new full receipt', async () => {
     seedCanonicalEdgeGraph()
     const { result } = renderHook(() => {
       const conversation = useConversation()
@@ -638,8 +638,12 @@ describe('canonical Run waits for the complete value-writer transaction', () => 
 
     expect(dispatched.map((payload) => (
       (payload as { event?: { kind?: string } }).event?.kind ?? payload.kind
-    ))).toEqual(['edge_strength_edit', 'factor_value_edit', 'message'])
-    expect(dispatchedRuns()).toHaveLength(1)
+    ))).toEqual(['edge_strength_edit', 'factor_value_edit'])
+    expect(dispatchedRuns(), 'Run must not use the receipt from before the factor changed').toHaveLength(0)
+    expect(edgeStrengthRunBarrierState(SCENARIO)).toEqual({
+      ok: false,
+      reason: 'The shared model did not provide a complete analysis-input receipt. Check the shared model before running analysis.',
+    })
     expect(useCanvasStore.getState().nodes.find((node) => node.id === 'fac_demand')?.data)
       .toMatchObject({ observedState: { value: 0.75, raw_value: 25_000, unit: '£' } })
     expect(useCanvasStore.getState()).toMatchObject({

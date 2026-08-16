@@ -1,114 +1,48 @@
-import { CANONICAL_GRAPH_HASH_ANALYSIS_STATE_FIELDS } from '@talchain/schemas/boundary'
+import {
+  CANONICAL_COMMITTED_RECEIPT_FIELD_CLASSIFICATION,
+  CANONICAL_GRAPH_HASH_KEEP_LIST,
+  CANONICAL_GRAPH_HASH_NESTED_PROJECTION,
+  CanonicalCommittedGraphReceiptSchema,
+  type CanonicalCommittedGraphReceipt,
+} from '@talchain/schemas/boundary'
 
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import { normaliseV5AnalysisReady } from '../../v5/applyV5State'
 import { deepEqual } from '../domain/analyticalChange'
 import { useCanvasStore } from '../store'
 
-/**
- * Exact client pin for the analysis-affecting projection at serving CEE
- * `dfb5bd708c81a3c5e5a455a4f2e8b74897c2d3ca` / schemas 0.42.
- *
- * CEE owns the digest implementation. This object is not a second hash. It is
- * the receipt consumer's field-classification guard: the canonical editor may
- * release Run only after every field in CEE's hash preimage is representable
- * and reconciled locally. The source-file digest is checked by the focused
- * cross-repository contract test; changing CEE's projection requires an
- * explicit coordinated update here rather than a silently narrower receipt.
- */
-export const SERVING_CEE_ANALYSIS_HASH_CONTRACT = {
-  sourceCommit: 'dfb5bd708c81a3c5e5a455a4f2e8b74897c2d3ca',
-  sourcePath: 'src/orchestrator-v5/context/graph-hash.ts',
-  sourceSha256: 'eab9ddcb423d67509ec29a8e5d7809d674d01178ae4811a7c2c4f78da716540a',
-  schemaVersion: '0.42',
-  topLevelFields: ['options', 'goal_node_id', 'goal_constraints'],
-  node: {
-    scalarFields: [
-      'kind',
-      'category',
-      'factor_type',
-      'is_baseline',
-      'goal_threshold',
-      'goal_threshold_raw',
-      'goal_threshold_cap',
-      'intercept',
-      'encoding_map',
-    ],
-    observedStateFields: ['value', 'baseline', 'cap'],
-    priorFields: ['distribution', 'range_min', 'range_max'],
-  },
-  edge: {
-    scalarFields: ['edge_type', 'exists_probability', 'effect_direction'],
-    strengthFields: ['mean', 'std'],
-  },
-  option: {
-    scalarFields: ['status', 'is_baseline'],
-    conditionalFields: ['raw_interventions'],
-  },
-  intervention: {
-    scalarFields: ['value', 'value_type', 'encoding_map'],
-    targetMatchFields: ['node_id'],
-  },
-} as const
-
-export type CanonicalAnalysisStateField =
-  (typeof CANONICAL_GRAPH_HASH_ANALYSIS_STATE_FIELDS)[number]
-
-// Compile-time membership plus runtime completeness is pinned in the contract
-// test. Keeping these names derived from the contract object prevents the graph
-// reconciler and receipt projector from carrying parallel nested field lists.
-export const CEE_ANALYSIS_NODE_CLIENT_FIELDS = [
-  'kind',
-  'category',
-  'factor_type',
-  'is_baseline',
-  'observedState',
-  'goal_threshold',
-  'goal_threshold_raw',
-  'goal_threshold_cap',
-  'intercept',
-  'prior',
-  'encoding_map',
-  'interventions',
-] as const
-
-export const CEE_ANALYSIS_EDGE_CLIENT_FIELDS = [
-  'weight',
-  'direction',
-  'strengthStd',
-  'beliefExists',
-  'exists_probability',
-  'edge_type',
-] as const
-
-export const CANONICAL_ANALYSIS_STATE_ATTESTATION_FIELD =
-  'canonical_graph_hash_analysis_state' as const
-export const CANONICAL_ANALYSIS_STATE_PROJECTION_VERSION =
-  'analysis-affecting.v1' as const
-
 type Dict = Record<string, unknown>
 
-export interface CanonicalAnalysisStateAttestation {
-  projection_version: typeof CANONICAL_ANALYSIS_STATE_PROJECTION_VERSION
-  options: Dict[]
-  goal_node_id: string | null
-  goal_constraints: unknown[]
-}
-
-export type CanonicalAnalysisReadyPreparation =
+export type CanonicalCommittedReceiptPreparation =
   | {
       ok: true
       analysisReady: CEEAnalysisReady
-      attestation: CanonicalAnalysisStateAttestation
+      receipt: CanonicalCommittedGraphReceipt
+      /** CEE's canonical whole-status verdict; graph validity alone never opens Run. */
+      runnable: boolean
     }
   | {
       ok: false
       reason:
-        | 'canonical_analysis_state_attestation_missing'
-        | 'canonical_analysis_state_attestation_invalid'
-        | 'canonical_analysis_state_receipt_mismatch'
-        | 'canonical_analysis_state_not_runnable'
+        | 'canonical_committed_receipt_missing'
+        | 'canonical_committed_receipt_invalid'
+        | 'canonical_committed_receipt_readiness_mismatch'
     }
+
+type CanonicalReadinessStatus =
+  | 'ready'
+  | 'needs_encoding'
+  | 'needs_user_mapping'
+  | 'needs_user_input'
+  | 'blocked'
+
+const CANONICAL_READINESS_STATUSES: ReadonlySet<string> = new Set([
+  'ready',
+  'needs_encoding',
+  'needs_user_mapping',
+  'needs_user_input',
+  'blocked',
+])
 
 function record(value: unknown): Dict | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -116,8 +50,92 @@ function record(value: unknown): Dict | null {
     : null
 }
 
+function hasOwn(value: Dict, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key)
+}
+
 function nonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
+}
+
+function canonicalReadinessStatus(value: unknown): CanonicalReadinessStatus | null {
+  return typeof value === 'string' && CANONICAL_READINESS_STATUSES.has(value)
+    ? value as CanonicalReadinessStatus
+    : null
+}
+
+function unique(values: readonly string[]): readonly string[] {
+  return [...new Set(values)]
+}
+
+/**
+ * Canvas spellings derived from the schema-owned nested projection manifest.
+ *
+ * The small switches below translate wire spellings into the aliases the
+ * existing ReactFlow mappers actually author. They are not a second science
+ * vocabulary: adding/removing a manifest member changes the iteration input,
+ * while an unmapped direct field keeps its wire name automatically.
+ */
+export function canonicalReceiptNodeCanvasFields(): readonly string[] {
+  const contract = CANONICAL_GRAPH_HASH_NESTED_PROJECTION.node
+  const direct = contract.fields
+    .filter((field) => field !== 'id')
+    .map(String)
+  return unique([
+    ...direct,
+    'observedState',
+    'observed_state',
+    'prior',
+    contract.interventions_field,
+  ])
+}
+
+export function canonicalReceiptEdgeCanvasFields(): readonly string[] {
+  const contract = CANONICAL_GRAPH_HASH_NESTED_PROJECTION.edge
+  const aliases = contract.fields.slice(2).flatMap((field): string[] => {
+    if (field === 'exists_probability') return [field, 'beliefExists']
+    if (field === 'effect_direction') return [field, 'direction']
+    return [field]
+  })
+  for (const field of contract.strength_fields) {
+    if (field === 'mean') aliases.push('weight', 'strength_mean')
+    else if (field === 'std') aliases.push('strengthStd', 'strength_std')
+    else aliases.push(`strength_${String(field)}`)
+  }
+  return unique(aliases)
+}
+
+/** Strict response-boundary parse: no picking, defaults, or omission repair. */
+export function parseCanonicalCommittedGraphReceipt(
+  value: unknown,
+): CanonicalCommittedGraphReceipt | null {
+  const parsed = CanonicalCommittedGraphReceiptSchema.safeParse(value)
+  return parsed.success ? parsed.data : null
+}
+
+/**
+ * Reconstruct the strict wire receipt from an authenticated persisted graph.
+ * Counts are the only derived fields; all five hash carriers must be own keys.
+ */
+export function canonicalCommittedGraphReceiptFromGraph(
+  value: unknown,
+): CanonicalCommittedGraphReceipt | null {
+  const graph = record(value)
+  if (!graph) return null
+  const carriers = CANONICAL_COMMITTED_RECEIPT_FIELD_CLASSIFICATION.hash_carrier
+  if (carriers.some((field) => !hasOwn(graph, field))) return null
+  const nodes = graph.nodes
+  const edges = graph.edges
+  if (!Array.isArray(nodes) || !Array.isArray(edges)) return null
+  return parseCanonicalCommittedGraphReceipt({
+    nodes,
+    edges,
+    options: graph.options,
+    goal_node_id: graph.goal_node_id,
+    goal_constraints: graph.goal_constraints,
+    node_count: nodes.length,
+    edge_count: edges.length,
+  })
 }
 
 function projectDefined(source: Dict, fields: readonly string[]): Dict {
@@ -131,18 +149,19 @@ function projectDefined(source: Dict, fields: readonly string[]): Dict {
 function projectIntervention(value: unknown): Dict | undefined {
   const source = record(value)
   if (!source) return undefined
-  const out = projectDefined(
-    source,
-    SERVING_CEE_ANALYSIS_HASH_CONTRACT.intervention.scalarFields,
-  )
-  const targetMatch = record(source.target_match)
-  if (targetMatch?.node_id !== undefined) {
-    out.target_match = { node_id: targetMatch.node_id }
+  const contract = CANONICAL_GRAPH_HASH_NESTED_PROJECTION.intervention
+  const out = projectDefined(source, contract.fields)
+  const targetMatch = record(source[contract.target_match_field])
+  if (targetMatch) {
+    const projected = projectDefined(targetMatch, contract.target_match_fields)
+    if (Object.keys(projected).length > 0) {
+      out[contract.target_match_field] = projected
+    }
   }
   return out
 }
 
-function projectInterventions(value: unknown): Dict | undefined {
+function projectInterventionRecord(value: unknown): Dict | undefined {
   const source = record(value)
   if (!source) return undefined
   const out: Dict = {}
@@ -163,19 +182,21 @@ function projectOption(value: unknown, allowOptionIdAlias: boolean): Dict | null
       : null
   if (!id) return null
 
+  const contract = CANONICAL_GRAPH_HASH_NESTED_PROJECTION.option
   const out: Dict = { id }
-  for (const field of SERVING_CEE_ANALYSIS_HASH_CONTRACT.option.scalarFields) {
+  for (const field of contract.fields.slice(1)) {
     if (source[field] !== undefined) out[field] = source[field]
   }
-  const interventions = projectInterventions(source.interventions)
-  if (interventions !== undefined && Object.keys(interventions).length > 0) {
-    out.interventions = interventions
+  const interventions = projectInterventionRecord(source[contract.interventions_field])
+  if (interventions && Object.keys(interventions).length > 0) {
+    out[contract.interventions_field] = interventions
   }
+  const conditional = contract.conditional_field
   if (
-    source.status !== 'ready' &&
-    record(source.raw_interventions) !== null
+    source[conditional.include_when.field] !== conditional.include_when.not_equals &&
+    record(source[conditional.field]) !== null
   ) {
-    out.raw_interventions = source.raw_interventions
+    out[conditional.field] = source[conditional.field]
   }
   return out
 }
@@ -197,146 +218,275 @@ function projectOptions(
   return projected.sort((a, b) => String(a.id).localeCompare(String(b.id)))
 }
 
+function finiteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+/**
+ * #983's readiness wire deliberately compacts each intervention to its numeric
+ * value, while the committed receipt retains the complete hash-bearing record
+ * (`value_type`, `encoding_map`, and exact target identity included). Compare
+ * only the projection that both canonical producers actually share here; the
+ * full receipt projection is still proved independently against canvas/store.
+ */
+function readinessInterventionValue(value: unknown): number | null {
+  const direct = finiteNumber(value)
+  if (direct !== null) return direct
+  const source = record(value)
+  return source ? finiteNumber(source.value) : null
+}
+
+function projectReadinessInterventions(value: unknown): Dict | null {
+  const source = record(value)
+  if (!source) return null
+  const out: Dict = {}
+  for (const factorId of Object.keys(source)) {
+    const projected = readinessInterventionValue(source[factorId])
+    if (projected === null) return null
+    out[factorId] = projected
+  }
+  return out
+}
+
+function projectReadinessComparableOption(
+  value: unknown,
+  allowOptionIdAlias: boolean,
+): Dict | null {
+  const source = record(value)
+  if (!source) return null
+  const id = nonEmptyString(source.id)
+    ? source.id
+    : allowOptionIdAlias && nonEmptyString(source.option_id)
+      ? source.option_id
+      : null
+  if (!id || !nonEmptyString(source.status)) return null
+
+  const interventions = projectReadinessInterventions(source.interventions)
+  if (!interventions) return null
+  const out: Dict = { id, status: source.status, interventions }
+  if (source.is_baseline !== undefined) {
+    if (typeof source.is_baseline !== 'boolean') return null
+    out.is_baseline = source.is_baseline
+  }
+  if (source.status !== 'ready' && source.raw_interventions !== undefined) {
+    const raw = record(source.raw_interventions)
+    if (!raw) return null
+    out.raw_interventions = raw
+  }
+  return out
+}
+
+function projectReadinessComparableOptions(
+  value: unknown,
+  allowOptionIdAlias: boolean,
+): Dict[] | null {
+  if (!Array.isArray(value)) return null
+  const projected: Dict[] = []
+  const ids = new Set<string>()
+  for (const option of value) {
+    const item = projectReadinessComparableOption(option, allowOptionIdAlias)
+    const id = item?.id
+    if (!item || typeof id !== 'string' || ids.has(id)) return null
+    ids.add(id)
+    projected.push(item)
+  }
+  return projected.sort((a, b) => String(a.id).localeCompare(String(b.id)))
+}
+
 function optionCanPopulateRunStore(value: unknown): value is Dict {
   const option = record(value)
   if (!option || !nonEmptyString(option.id) || !nonEmptyString(option.label)) return false
   if (!nonEmptyString(option.status) || record(option.interventions) === null) return false
-  if (option.is_baseline !== undefined && typeof option.is_baseline !== 'boolean') return false
-  if (option.raw_interventions !== undefined && record(option.raw_interventions) === null) return false
-  return Object.values(option.interventions as Dict).every((entry) => record(entry) !== null)
+  if (
+    option.is_baseline !== undefined &&
+    option.is_baseline !== null &&
+    typeof option.is_baseline !== 'boolean'
+  ) return false
+  if (
+    option.raw_interventions !== undefined &&
+    record(option.raw_interventions) === null
+  ) return false
+  return Object.values(option.interventions as Dict).every(
+    (entry) => record(entry) !== null,
+  )
 }
 
-/** Parse the explicit, normalised hash-preimage attestation on a receipt. */
-export function parseCanonicalAnalysisStateAttestation(
-  analysisReadyValue: unknown,
-): CanonicalAnalysisStateAttestation | null {
-  const analysisReady = record(analysisReadyValue)
-  const raw = record(analysisReady?.[CANONICAL_ANALYSIS_STATE_ATTESTATION_FIELD])
-  if (!raw || raw.projection_version !== CANONICAL_ANALYSIS_STATE_PROJECTION_VERSION) {
-    return null
-  }
-  if (!Array.isArray(raw.options) || !raw.options.every(optionCanPopulateRunStore)) return null
-  const ids = raw.options.map((option) => option.id as string)
-  if (new Set(ids).size !== ids.length) return null
-  if (raw.goal_node_id !== null && !nonEmptyString(raw.goal_node_id)) return null
-  if (!Array.isArray(raw.goal_constraints)) return null
-  return {
-    projection_version: CANONICAL_ANALYSIS_STATE_PROJECTION_VERSION,
-    options: raw.options as Dict[],
-    goal_node_id: raw.goal_node_id as string | null,
-    goal_constraints: raw.goal_constraints,
-  }
+function receiptOptionsCanPopulateRunStore(
+  receipt: CanonicalCommittedGraphReceipt,
+): boolean {
+  if (!receipt.options.every(optionCanPopulateRunStore)) return false
+  const ids = receipt.options.map((option) => (option as Dict).id as string)
+  return new Set(ids).size === ids.length
 }
 
-/**
- * Build the same normalised top-level analysis-state projection directly from
- * a persisted scenario graph. This is used only by the authenticated recovery
- * read, whose `graph` value is the server row itself rather than a stripped
- * applied-edit wire graph.
- */
-export function canonicalAnalysisStateAttestationFromGraph(
-  graphValue: unknown,
-): CanonicalAnalysisStateAttestation | null {
-  const graph = record(graphValue)
-  if (!graph) return null
-  const options = Array.isArray(graph.options) ? graph.options : []
-  if (!options.every(optionCanPopulateRunStore)) return null
-  const ids = options.map((option) => (option as Dict).id as string)
-  if (new Set(ids).size !== ids.length) return null
-  const goalNodeId = typeof graph.goal_node_id === 'string'
-    ? graph.goal_node_id
-    : null
-  return {
-    projection_version: CANONICAL_ANALYSIS_STATE_PROJECTION_VERSION,
-    options: options as Dict[],
-    goal_node_id: goalNodeId,
-    goal_constraints: Array.isArray(graph.goal_constraints)
-      ? graph.goal_constraints
-      : [],
-  }
-}
-
-function projectionFromAttestation(
-  attestation: CanonicalAnalysisStateAttestation,
-): Dict | null {
-  const options = projectOptions(attestation.options, false)
+function projectionFromReadiness(value: unknown): Dict | null {
+  const readiness = record(value)
+  if (!readiness) return null
+  const options = projectOptions(readiness.options, true)
   if (!options) return null
   return {
     options,
-    goal_node_id: attestation.goal_node_id,
-    goal_constraints: attestation.goal_constraints,
-  }
-}
-
-function projectionFromAnalysisReady(value: unknown): Dict | null {
-  const analysisReady = record(value)
-  if (!analysisReady) return null
-  const options = projectOptions(analysisReady.options, true)
-  if (!options) return null
-  return {
-    options,
-    goal_node_id: typeof analysisReady.goal_node_id === 'string'
-      ? analysisReady.goal_node_id
+    goal_node_id: nonEmptyString(readiness.goal_node_id)
+      ? readiness.goal_node_id
       : null,
   }
 }
 
+function projectionFromReceipt(
+  receipt: CanonicalCommittedGraphReceipt,
+): Dict | null {
+  const options = projectOptions(receipt.options, false)
+  if (!options) return null
+  return {
+    options,
+    goal_node_id: receipt.goal_node_id,
+    goal_constraints: receipt.goal_constraints,
+  }
+}
+
 /**
- * Validate receipt readiness against the explicit CEE hash-preimage and return
- * the exact store value. Any normalisation that drops or fabricates a hashed
- * option field fails here before the canvas, readiness or freshness can move.
+ * Current #983 behavior for a goal-less graph is deliberately non-runnable:
+ * `analysis_ready` carries `status: blocked`, `goal_node_id: ''`, and no
+ * options because semantic readiness cannot be projected without a goal. The
+ * committed receipt still carries the graph's real options and explicit null
+ * goal. That single, typed exception is transport normalization, not a second
+ * readiness decision; every other receipt carrier must match exactly.
+ */
+function readinessMatchesCanonicalReceipt(
+  readiness: Dict,
+  receipt: CanonicalCommittedGraphReceipt,
+): boolean {
+  const status = canonicalReadinessStatus(readiness.status)
+  const readinessOptions = projectReadinessComparableOptions(readiness.options, true)
+  const receiptOptions = projectReadinessComparableOptions(receipt.options, false)
+  if (!status || !readinessOptions || !receiptOptions) return false
+
+  const goalMatches = receipt.goal_node_id === null
+    ? status === 'blocked' && readiness.goal_node_id === ''
+    : readiness.goal_node_id === receipt.goal_node_id
+  const optionsMatch = deepEqual(readinessOptions, receiptOptions) ||
+    (receipt.goal_node_id === null && status === 'blocked' && readinessOptions.length === 0)
+  return goalMatches && optionsMatch
+}
+
+function analysisReadyForCanonicalStore(
+  readiness: Dict,
+  receipt: CanonicalCommittedGraphReceipt,
+): CEEAnalysisReady | null {
+  const status = canonicalReadinessStatus(readiness.status)
+  if (!status || !receiptOptionsCanPopulateRunStore(receipt)) return null
+
+  // One-way retirement of the provisional sidecar. It is never parsed or used
+  // as authority, and cannot survive into the Run-bearing store if an older
+  // producer happens to include it alongside a valid 0.43 receipt.
+  const readinessForStore = { ...readiness }
+  delete readinessForStore.canonical_graph_hash_analysis_state
+  const canonical = {
+    ...readinessForStore,
+    status,
+    options: receipt.options,
+    // #983's public analysis_ready contract uses an empty string for NO_GOAL;
+    // the receipt uses explicit null. Keep the typed readiness spelling here
+    // and normalise it to null only in the carrier comparison above.
+    goal_node_id: receipt.goal_node_id ?? '',
+  }
+
+  const normalised = normaliseV5AnalysisReady(canonical)
+  if (normalised) return normalised
+  if (status === 'ready') return null
+
+  // The general V5 normaliser intentionally rejects empty options / empty goal
+  // because it was written for runnable payloads. Canonical #983 readiness is
+  // broader: a valid saved graph may truthfully be blocked. Preserve that
+  // typed non-ready state while the edge transaction's Run barrier stays shut.
+  const freshnessRaw = readiness.freshness
+  const freshness =
+    freshnessRaw === 'fresh' || freshnessRaw === 'stale' ||
+    freshnessRaw === 'unknown' || freshnessRaw === 'none'
+      ? freshnessRaw
+      : 'unknown'
+  return {
+    ...canonical,
+    freshness,
+    freshness_reason: typeof readiness.freshness_reason === 'string'
+      ? readiness.freshness_reason
+      : undefined,
+  } as CEEAnalysisReady
+}
+
+/** The sole Run interpretation of #983's canonical whole-status verdict. */
+export function canonicalAnalysisReadyAllowsRun(value: unknown): boolean {
+  const readiness = record(value)
+  return readiness !== null &&
+    readiness.status === 'ready' &&
+    nonEmptyString(readiness.goal_node_id) &&
+    Array.isArray(readiness.options) &&
+    readiness.options.length > 0
+}
+
+/**
+ * Bind readiness to the exact canonical receipt carried by `draft_graph`.
+ *
+ * The shared schema supplies all five required own-key carriers and the nested
+ * projection vocabulary. Readiness remains CEE's sole whole-status authority;
+ * this function only proves its Run-bearing options/goal match the receipt,
+ * then normalises those exact receipt values into the existing store shape.
  */
 export function prepareCanonicalAnalysisReadyFromReceipt(
   analysisReadyValue: unknown,
-): CanonicalAnalysisReadyPreparation {
+  receiptValue: unknown,
+): CanonicalCommittedReceiptPreparation {
+  const rawReceipt = record(receiptValue)
+  if (!rawReceipt) {
+    return { ok: false, reason: 'canonical_committed_receipt_missing' }
+  }
+  if (CANONICAL_GRAPH_HASH_KEEP_LIST.some((field) => !hasOwn(rawReceipt, field))) {
+    return { ok: false, reason: 'canonical_committed_receipt_missing' }
+  }
+  const receipt = parseCanonicalCommittedGraphReceipt(receiptValue)
+  if (!receipt) {
+    return { ok: false, reason: 'canonical_committed_receipt_invalid' }
+  }
+  if (!receiptOptionsCanPopulateRunStore(receipt)) {
+    return { ok: false, reason: 'canonical_committed_receipt_invalid' }
+  }
+
   const analysisReady = record(analysisReadyValue)
-  if (!analysisReady || !(CANONICAL_ANALYSIS_STATE_ATTESTATION_FIELD in analysisReady)) {
-    return { ok: false, reason: 'canonical_analysis_state_attestation_missing' }
-  }
-  const attestation = parseCanonicalAnalysisStateAttestation(analysisReady)
-  if (!attestation) {
-    return { ok: false, reason: 'canonical_analysis_state_attestation_invalid' }
-  }
-  if (attestation.goal_node_id === null || attestation.options.length === 0) {
-    return { ok: false, reason: 'canonical_analysis_state_not_runnable' }
-  }
-
-  const attestedProjection = projectionFromAttestation(attestation)
-  const readinessProjection = projectionFromAnalysisReady(analysisReady)
+  const receiptProjection = projectionFromReceipt(receipt)
   if (
-    !attestedProjection ||
-    !readinessProjection ||
-    !deepEqual(readinessProjection.options, attestedProjection.options) ||
-    readinessProjection.goal_node_id !== attestedProjection.goal_node_id
+    !analysisReady ||
+    !receiptProjection ||
+    !readinessMatchesCanonicalReceipt(analysisReady, receipt)
   ) {
-    return { ok: false, reason: 'canonical_analysis_state_receipt_mismatch' }
+    return { ok: false, reason: 'canonical_committed_receipt_readiness_mismatch' }
   }
 
-  const normalised = normaliseV5AnalysisReady({
-    ...analysisReady,
-    options: attestation.options,
-    goal_node_id: attestation.goal_node_id,
-  })
-  if (!normalised) {
-    return { ok: false, reason: 'canonical_analysis_state_receipt_mismatch' }
-  }
-  const normalisedProjection = projectionFromAnalysisReady(normalised)
+  const normalised = analysisReadyForCanonicalStore(analysisReady, receipt)
+  const normalisedProjection = projectionFromReadiness(normalised)
   if (
+    !normalised ||
     !normalisedProjection ||
-    !deepEqual(normalisedProjection.options, attestedProjection.options) ||
-    normalisedProjection.goal_node_id !== attestedProjection.goal_node_id
+    !deepEqual(normalisedProjection.options, receiptProjection.options) ||
+    normalisedProjection.goal_node_id !== receiptProjection.goal_node_id
   ) {
-    return { ok: false, reason: 'canonical_analysis_state_receipt_mismatch' }
+    return { ok: false, reason: 'canonical_committed_receipt_readiness_mismatch' }
   }
-  return { ok: true, analysisReady: normalised, attestation }
+  return {
+    ok: true,
+    analysisReady: normalised,
+    receipt,
+    runnable: canonicalAnalysisReadyAllowsRun(normalised),
+  }
 }
 
-/** Exact post-write proof for the Run-authoritative store slice. */
-export function storedAnalysisStateMatchesAttestation(
-  attestation: CanonicalAnalysisStateAttestation,
+/** Exact post-write proof for options, goal identity, and constraints. */
+export function storedAnalysisStateMatchesCanonicalReceipt(
+  receiptValue: unknown,
 ): boolean {
-  const expected = projectionFromAttestation(attestation)
-  const actual = projectionFromAnalysisReady(useCanvasStore.getState().ceeAnalysisReady)
+  const receipt = parseCanonicalCommittedGraphReceipt(receiptValue)
+  if (!receipt) return false
+  const expected = projectionFromReceipt(receipt)
+  const actual = projectionFromReadiness(useCanvasStore.getState().ceeAnalysisReady)
   return expected !== null && actual !== null &&
     deepEqual(actual.options, expected.options) &&
     actual.goal_node_id === expected.goal_node_id &&
@@ -347,30 +497,23 @@ export function storedAnalysisStateMatchesAttestation(
 }
 
 /**
- * Reconcile the hash-bearing Run inputs from a full authenticated server graph.
- * Overall readiness/freshness metadata is retained; this function never
- * invents a status. If no prior readiness exists, recovery remains blocked.
+ * Reconcile Run-bearing state from a full authenticated persisted graph.
+ * This is explicit recovery only; callers retain ownership of when recovery is
+ * allowed. A legacy graph missing any carrier returns null without a write.
  */
 export function reconcileStoredAnalysisStateFromCanonicalGraph(
   graphValue: unknown,
-): boolean {
-  const attestation = canonicalAnalysisStateAttestationFromGraph(graphValue)
+): CanonicalCommittedGraphReceipt | null {
+  const receipt = canonicalCommittedGraphReceiptFromGraph(graphValue)
   const existing = useCanvasStore.getState().ceeAnalysisReady
-  if (!attestation || !existing || attestation.goal_node_id === null || attestation.options.length === 0) {
-    return false
-  }
-  const normalised = normaliseV5AnalysisReady({
-    ...existing,
-    options: attestation.options,
-    goal_node_id: attestation.goal_node_id,
-  })
-  if (!normalised) return false
+  if (
+    !receipt ||
+    !existing ||
+    !receiptOptionsCanPopulateRunStore(receipt)
+  ) return null
+
+  const normalised = analysisReadyForCanonicalStore(existing as unknown as Dict, receipt)
+  if (!normalised) return null
   useCanvasStore.getState().setCeeAnalysisReady(normalised)
-  return storedAnalysisStateMatchesAttestation(attestation)
+  return storedAnalysisStateMatchesCanonicalReceipt(receipt) ? receipt : null
 }
-
-export function canonicalAnalysisStateMatchesCanonicalGraph(graphValue: unknown): boolean {
-  const attestation = canonicalAnalysisStateAttestationFromGraph(graphValue)
-  return attestation !== null && storedAnalysisStateMatchesAttestation(attestation)
-}
-

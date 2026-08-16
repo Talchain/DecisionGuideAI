@@ -122,6 +122,7 @@ function buildAnalysisInputs(opts: {
       id: opt.id,
       option_id: opt.id,
       label: opt.label,
+      status: 'ready',
       interventions: opt.interventions as AnalysisInputsPayload['options'][number]['interventions'],
     })),
     goal_node_id: opts.goal_node_id,
