@@ -35,6 +35,7 @@ import {
   stripEncodingNotation,
   stripStatusQuoSuffixForDisplay,
 } from './utils/cleanFactorLabel'
+import { dedupeFragileEdgesByIdentity } from './utils/dedupeFragileEdges'
 import { typography } from '../../styles/typography'
 import {
   buildDisconfirmationCard,
@@ -278,13 +279,21 @@ export const StressTestSection = memo(function StressTestSection({
   })
 
   // ── Fragile factors (edge-based) — verbatim 5.7 D11 alt-winner grouping ──
-  const mergedFragileCards = [...(fragileEdges ?? [])]
-    .sort((a, b) => {
+  // UI-SEM-095: dedup by relationship identity. The producer can repeat a
+  // fragile edge; nothing on the chain deduped, so one relationship rendered
+  // twice AND was counted twice in "Fragile factors (N)". Dedup runs AFTER the
+  // sort (so the survivor is the producer's highest-ranked instance) and BEFORE
+  // the 3-row cap (so a duplicate no longer eats a display slot). It keys on
+  // ids, never on the display string — two different edges sharing a source
+  // factor legitimately render the same "If X shifts" line. Duplicate-free
+  // input is byte-identical to the previous behaviour.
+  const mergedFragileCards = dedupeFragileEdgesByIdentity(
+    [...(fragileEdges ?? [])].sort((a, b) => {
       const aKey = a.marginal_switch_probability ?? a.switch_probability
       const bKey = b.marginal_switch_probability ?? b.switch_probability
       return bKey - aKey
-    })
-    .slice(0, 3)
+    }),
+  ).slice(0, 3)
   const fragileByAltWinner = mergedFragileCards.reduce<Record<string, typeof mergedFragileCards>>(
     (acc, card) => {
       const key = card.alternative_winner_label
