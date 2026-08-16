@@ -59,8 +59,27 @@ import {
  *
  * The two bracketed weak guards are entailed by `stability ≥ 0.85 ∧ gaps ≤ 1`
  * (0.85 ≮ 0.5, and 1 < 3 ≤ 4), so dropping them changes nothing. That
- * equivalence is proved by execution in `rankActOnItRows.spec.ts` against the
- * original selector's own table, rather than asserted here.
+ * equivalence is proved by execution — not asserted here — in
+ * `./__tests__/rankActOnItRows.spec.ts`, which replays the original selector's
+ * own table against this predicate.
+ *
+ * ⚠ THAT SENTENCE WAS FALSE WHEN FIRST WRITTEN, and the correction is worth
+ * keeping. This module landed in the cockpit consolidation citing a proof
+ * spec that DID NOT EXIST: 278 lines of live ranking logic (reached from
+ * `AnalysisHeroContainer`) with zero tests, under a header claiming execution
+ * proof. The spec now exists (67 tests, 19 mutants, 0 survivors) and the claim
+ * is true. A comment asserting a proof is not evidence of one — check the file
+ * before trusting the next such sentence, including this one.
+ *
+ * ⚠ KNOWN GAP, PINNED NOT HIDDEN. The two reads below —
+ * `robustnessVerdict` and `recommendationStability` — are banned by
+ * `../__tests__/hygiene.spec.ts` (no producer display-safe label => any read
+ * is a fabrication path). They are recorded there in an EXACTLY-pinned
+ * known-gap set that REDs if it grows or shrinks, rather than being carved out
+ * of the guard. The two are different debts and are rowed separately: the ban
+ * is stale for `robustnessVerdict` (PLoT does publish a display-safe verdict),
+ * and correct for `recommendationStability` (the `0.85` cliff below is
+ * UI-invented). Do not resolve either by editing the pin.
  *
  * The `robustnessVerdict === 'robust'` conjunct is LOAD-BEARING and must not
  * be relaxed: raw stability alone must never unlock a "ready to brief" claim
