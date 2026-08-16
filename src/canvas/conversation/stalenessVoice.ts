@@ -29,9 +29,26 @@
  * the moment a surface changed when it renders.
  *
  * So the surfaces REGISTER while they are mounted, and the registry is derived
- * from what is genuinely on screen. It fails SAFE in the only direction that
+ * from what is actually rendered. It fails SAFE in the only direction that
  * matters: if nothing registers, every surface behaves exactly as it does today
  * and the user is over-told rather than under-told.
+ *
+ * ## ⚠ WHAT "SPEAKING" MEANS HERE — MOUNTED-IN-THE-NEWEST-TURN, NOT VISIBLE
+ *
+ * An earlier version of this docstring claimed the registry was "derived from
+ * what is genuinely on screen". It was not, and an adversarial review was right
+ * to call it: the transcript keeps EVERY turn mounted, so an applied-edit card
+ * ten turns back — scrolled far out of view — silenced the pill and the
+ * composer permanently.
+ *
+ * The claim is now scoped to the NEWEST ASSISTANT TURN (`isLatestAssistantTurn`,
+ * threaded from ChatThread's own `msg === lastAssistantMsg`), which is a
+ * turn-view scope, NOT a viewport scope. True visibility would need an
+ * IntersectionObserver on every claiming surface; that is a bigger change, it
+ * does not exist in jsdom so the guards would have to mock it, and the residual
+ * harm it would fix — a stale card scrolled just off-screen within the current
+ * turn — is a fraction of the one being fixed here. The scope is stated so the
+ * next reader is not misled by this file the way the last one was.
  *
  * The registry is a plain module-level store read through `useSyncExternalStore`
  * — no new dependency, no provider, and usable from `useStageAwarePlaceholder`,

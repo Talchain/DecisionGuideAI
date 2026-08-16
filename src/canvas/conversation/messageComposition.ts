@@ -72,17 +72,34 @@
  * that exact segment. A higher tier is never withheld, so no surface can lose
  * content to a surface the user has not been shown.
  *
- * 4. NO CONTENT EDITING. Suppression operates on WHOLE SEGMENTS (a paragraph or
- *    a line) and only on EXACT equality after whitespace normalisation. It never
- *    rewrites a segment, never splits a sentence out of one, and never drops a
- *    segment that is merely similar. A repeat INSIDE a single paragraph is
- *    deliberately NOT de-duplicated: separating it would need a sentence
- *    predicate over natural language, which is the class of rule this platform
- *    has watched oscillate for four rounds without terminating (trap 22f). The
- *    limit is stated, pinned by a spec, and visible — never silently absorbed.
+ * 4. NO CONTENT EDITING, AND NOTHING IS WITHHELD EXCEPT AGAINST A HIGHER TIER.
+ *    Stated as narrowly as the code actually delivers, because the first draft
+ *    of this invariant was written wider than its implementation and an
+ *    adversarial review found the gap:
+ *      (a) suppression compares WHOLE SEGMENTS — a paragraph or a line — and
+ *          only on EXACT equality after whitespace/case normalisation. Never a
+ *          rewrite, never a substring, never a similarity threshold;
+ *      (b) a segment is withheld ONLY when a surface ABOVE it in the tier order
+ *          has already rendered that exact segment. Repetition WITHIN one
+ *          surface is the producer's and always survives;
+ *      (c) the text a caller passes as `alreadyRendered` must be what that
+ *          surface ACTUALLY RENDERS. Suppressing against text the user cannot
+ *          see is content loss wearing de-duplication's clothes, and it is how
+ *          both of this rule's shipped defects worked.
+ *    Two things this rule therefore does NOT do, deliberately: it does not split
+ *    sentences out of a paragraph (that needs a predicate over natural language
+ *    — the class this platform watched oscillate for four rounds without
+ *    terminating, trap 22f), and it does not de-duplicate a text against itself.
+ *    Both limits are pinned by their own specs — stated and visible, never
+ *    silently absorbed.
  */
-import type { ConversationBlock } from './types'
+import type { ConversationBlock, GraphPatchBlock } from './types'
 import { isLensCompanionBlock } from './phase3Pacing'
+import {
+  isGraphPatchApplied,
+  resolveGraphPatchSummaryText,
+} from './blocks/GraphPatchBlockRenderer'
+import type { PatchBlockState } from './useConversation'
 
 /**
  * How many coaching points are exposed at top level. Paul's ruling: "max ~3
@@ -319,14 +336,39 @@ export interface DedupeResult {
  * authority order is enforced by the call site's argument order and by nothing
  * else — which is why every call site names its tier in a comment.
  *
- * Self-duplication inside `text` is also collapsed (the second and later
- * occurrences of a segment already emitted by this same call), because "the
- * same sentence twice inside one disclosure" is the same defect one level down
- * (L-16). The FIRST occurrence always survives.
+ * ⚠⚠ IT DOES NOT DE-DUPLICATE `text` AGAINST ITSELF, AND THAT IS THE WHOLE
+ * POINT OF THIS PARAGRAPH.
  *
- * Total by construction: with an empty `alreadyRendered` and no internal
- * repeats the output is byte-identical to the input, so every surface that has
- * nothing to de-duplicate is unchanged.
+ * An earlier version of this function accumulated its own segments into `seen`,
+ * so with an EMPTY `alreadyRendered` — the default path, i.e. every ordinary
+ * assistant turn — the second occurrence of any identical line was deleted.
+ * An adversarial review proved it at the rendered HTML: "Timeline slips"
+ * appearing under both Risks and Mitigations rendered ONCE; three "Confidence:
+ * not stated" status lines became one. That is CONTENT LOSS, shipped by
+ * default, in the module whose first invariant is that nothing is dropped.
+ *
+ * The root error was treating two DIFFERENT QUESTIONS as one predicate:
+ *
+ *   CROSS-TIER  "has a higher-authority surface already rendered this exact
+ *               segment?"  — a FACT. The caller supplies the other surface's
+ *               text; equality settles it; there is nothing to infer.
+ *   WITHIN-TEXT "did the producer repeat this line by accident, or on purpose
+ *               because it is a structural label under two headings?" — a
+ *               GUESS. Nothing in the text distinguishes them.
+ *
+ * They cannot share a window (trap 22b: one predicate, two opposite harms —
+ * a missed duplicate is cosmetic, a deleted line is a lie about what the
+ * producer said). So only the fact is implemented. Repetition INSIDE one
+ * surface is the producer's and is rendered verbatim.
+ *
+ * L-16 is unaffected: its mechanism, derived at the CEE bytes, is cross-tier
+ * (`_answer_shape.headline` and `assistant_text` carrying the same bytes; a
+ * consent card restating the prose). And "the same sentence twice inside one
+ * disclosure" is still closed where it actually occurs — ACROSS blocks, by the
+ * caller accumulating each rendered block into `alreadyRendered` (InlineBlocks).
+ *
+ * Total by construction: with an empty `alreadyRendered` the output is now
+ * byte-identical to the input, ALWAYS.
  */
 export function dedupeRenderedText(
   text: string,
@@ -353,12 +395,12 @@ export function dedupeRenderedText(
       kept.push(segment)
       continue
     }
-    const key = renderSegmentKey(segment)
-    if (seen.has(key)) {
+    // NOT added to `seen` — see the docstring. A repeat of THIS text's own
+    // earlier segment survives; only a repeat of a HIGHER TIER is withheld.
+    if (seen.has(renderSegmentKey(segment))) {
       suppressedCount++
       continue
     }
-    seen.add(key)
     kept.push(segment)
   }
 
@@ -405,6 +447,14 @@ export function dedupeRenderedText(
  */
 export function collectConsentSurfaceText(
   blocks: readonly ConversationBlock[] | undefined,
+  /**
+   * Runtime patch state + turn id. REQUIRED to answer "is this patch card
+   * applied?", which decides WHICH of its two summary fields renders. A caller
+   * that cannot supply them gets nothing collected for patch cards rather than
+   * a guess — see the graph_patch case.
+   */
+  patchBlockStates?: Map<string, PatchBlockState>,
+  turnId?: string,
 ): string[] {
   if (!blocks || blocks.length === 0) return []
   const out: string[] = []
@@ -417,14 +467,33 @@ export function collectConsentSurfaceText(
         if (typeof summary === 'string' && summary.trim().length > 0) out.push(summary)
         break
       }
-      case 'graph_patch':
-      case 'proposal': {
-        const b = block as { summary?: unknown; applied_summary?: unknown }
-        for (const candidate of [b.applied_summary, b.summary]) {
-          if (typeof candidate === 'string' && candidate.trim().length > 0) out.push(candidate)
-        }
+      case 'graph_patch': {
+        /**
+         * ⚠ EXACTLY ONE FIELD RENDERS, AND WHICH ONE DEPENDS ON RUNTIME STATE.
+         *
+         * This used to push BOTH `applied_summary` and `summary`. An
+         * adversarial review caught it: `GraphPatchBlockRenderer` shows
+         * `applied_summary` only when applied, and the stripped `summary`
+         * otherwise — so on a PROPOSED patch the collector suppressed prose
+         * against `applied_summary`, text the user would never see. Withholding
+         * prose against unshown text is content loss, not de-duplication.
+         *
+         * Resolved through the renderer's OWN exported helpers, so there is one
+         * authority and no mirror to drift.
+         */
+        const patch = block as GraphPatchBlock
+        const applied = isGraphPatchApplied(patch, patchBlockStates, turnId)
+        const rendered = resolveGraphPatchSummaryText(patch, applied)
+        if (rendered.trim().length > 0) out.push(rendered)
         break
       }
+      // 'proposal' is DELIBERATELY ABSENT. `ProposalBlock` carries
+      // `description` + `changes[]` and has NO `summary` / `applied_summary`
+      // field at all, so the branch that used to sit here could never fire —
+      // a dead case that read as coverage. `ProposalBlockRenderer` composes its
+      // card from those other fields; wiring it up is a separate change with
+      // its own evidence, not something to guess at inside a suppression rule.
+      //
       // 'v5_graph_patch' renders a structured before/after receipt, not prose,
       // and 'commentary' is excluded by the rule above.
       default:

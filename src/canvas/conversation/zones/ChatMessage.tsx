@@ -53,6 +53,13 @@ interface ChatMessageProps {
    * retry affordance. ChatThread sets this for at most ONE message.
    */
   showFailedSendRetry?: boolean
+  /**
+   * L-42: is this the NEWEST assistant turn? Only that turn's applied-edit card
+   * may claim the staleness voice — see `stalenessVoice.ts`. ChatThread already
+   * computes this identity (`msg === lastAssistantMsg`) for the chip row, so it
+   * is threaded rather than re-derived.
+   */
+  isLatestAssistantTurn?: boolean
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -69,6 +76,7 @@ export const ChatMessage = memo(function ChatMessage({
   onProposalConfirm,
   compact,
   showFailedSendRetry,
+  isLatestAssistantTurn = false,
 }: ChatMessageProps) {
   const category = getMessageCategory(message)
   const borderClass = CATEGORY_BORDER[category]
@@ -115,6 +123,7 @@ export const ChatMessage = memo(function ChatMessage({
         onProposalConfirm={onProposalConfirm}
         compact={compact}
         onRetryFailedSend={showFailedSendRetry ? onRetry : undefined}
+        isLatestAssistantTurn={isLatestAssistantTurn}
       />
     </div>
   )

@@ -82,3 +82,31 @@ describe('claim / release', () => {
     expect(mayStalenessVoiceSpeak('placeholder')).toBe(false)
   })
 })
+
+describe('D1 — the claim is TURN-SCOPED, not merely mount-scoped', () => {
+  /**
+   * The transcript keeps every turn mounted. Before this scope existed, an
+   * applied-edit card ten turns back — scrolled far out of view — claimed the
+   * voice on mount and silenced the pill and the composer for the rest of the
+   * session, with no visible explanation.
+   *
+   * The scope is MOUNTED-IN-THE-NEWEST-TURN, not viewport visibility. That is
+   * stated here as well as in the module, so a later reader checking this
+   * behaviour finds the real boundary rather than the aspiration.
+   */
+  it('an older turn cannot silence anything: no claim, no suppression', () => {
+    // An older card does not call claimStalenessVoice at all — its conjunct is
+    // false — so the registry stays empty and every voice may speak.
+    expect(mayStalenessVoiceSpeak('pill')).toBe(true)
+    expect(mayStalenessVoiceSpeak('placeholder')).toBe(true)
+  })
+
+  it('the newest turn claims, and releasing that claim frees the lower voices', () => {
+    const release = claimStalenessVoice('card')
+    expect(mayStalenessVoiceSpeak('placeholder')).toBe(false)
+    // A newer turn arriving makes the old card's conjunct false, which runs the
+    // effect cleanup — modelled here by the release the effect returns.
+    release()
+    expect(mayStalenessVoiceSpeak('placeholder')).toBe(true)
+  })
+})

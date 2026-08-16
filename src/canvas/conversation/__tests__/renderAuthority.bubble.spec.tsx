@@ -142,6 +142,69 @@ describe('answer shape vs consent card', () => {
   })
 })
 
+describe('the collector is fed only what the turn ACTUALLY renders', () => {
+  const APPLIED = 'Added constraint: budget at most £250,000.'
+  const PROPOSED = 'Proposing to add a constraint.'
+
+  function patchBlock(): ConversationBlock {
+    return {
+      type: 'graph_patch',
+      patch_id: 'p1',
+      operations: [],
+      summary: PROPOSED,
+      applied_summary: APPLIED,
+      auto_apply: false,
+    } as unknown as ConversationBlock
+  }
+
+  it('A2 — a PROPOSED patch does not suppress prose against its applied_summary', () => {
+    // The card shows the proposed text; `applied_summary` is never on screen,
+    // so prose matching it must survive. Suppressing here would delete a
+    // sentence against text the user cannot see.
+    render(
+      <MessageBubble
+        message={makeMsg({ content: `Intro.\n${APPLIED}`, blocks: [patchBlock()] })}
+        onChipClick={noop}
+      />,
+    )
+    expect(screen.getByTestId('message-body-text').textContent).toContain(APPLIED)
+  })
+
+  it('A3 — in structured mode, blocks are not suppressed against the unrendered free text', () => {
+    // AnswerBody OWNS the body when a shape is present, so `content` is never
+    // rendered. A commentary repeating it must therefore still show.
+    const UNRENDERED = 'This free-text body is replaced by the structured answer.'
+    render(
+      <MessageBubble
+        message={makeMsg({
+          content: UNRENDERED,
+          answerShape: { headline: 'A headline.', bullets: [], detail: 'Some detail.' },
+          blocks: [{ type: 'commentary', text: UNRENDERED } as ConversationBlock],
+        })}
+        onChipClick={noop}
+      />,
+    )
+    expect(screen.getByTestId('block-container').textContent).toContain(UNRENDERED)
+  })
+
+  it('A3 twin — a block IS suppressed against the headline AnswerBody really shows', () => {
+    const HEAD = 'The leading option has not changed.'
+    render(
+      <MessageBubble
+        message={makeMsg({
+          content: 'ignored free text',
+          answerShape: { headline: HEAD, bullets: [], detail: 'Some detail.' },
+          blocks: [{ type: 'commentary', text: `${HEAD}\nExtra context.` } as ConversationBlock],
+        })}
+        onChipClick={noop}
+      />,
+    )
+    const container = screen.getByTestId('block-container')
+    expect(container.textContent).toContain('Extra context.')
+    expect(container.textContent).not.toContain(HEAD)
+  })
+})
+
 describe('duplicate sentence inside one disclosure (L-16, item 7)', () => {
   const ONLY_ONE_RUN =
     'There is only one analysis run so far, so there is nothing to compare yet.'
@@ -166,6 +229,29 @@ describe('duplicate sentence inside one disclosure (L-16, item 7)', () => {
     expect(container.textContent).not.toContain(ONLY_ONE_RUN)
     // and the prose kept it — the higher tier is never the one withheld
     expect(screen.getByTestId('message-body-text').textContent).toContain(ONLY_ONE_RUN)
+  })
+
+  it('a commentary paragraph repeated by a LATER commentary block renders once', () => {
+    // Item 7, at the level it actually occurs: ACROSS blocks. Within one block's
+    // own text nothing is de-duplicated — that is the producer's repetition.
+    render(
+      <MessageBubble
+        message={makeMsg({
+          content: 'Short lead-in.',
+          blocks: [
+            { type: 'commentary', text: `${ONLY_ONE_RUN}\nFirst extra.` } as ConversationBlock,
+            { type: 'commentary', text: `${ONLY_ONE_RUN}\nSecond extra.` } as ConversationBlock,
+          ],
+        })}
+        onChipClick={noop}
+      />,
+    )
+    const container = screen.getByTestId('block-container')
+    expect(container.textContent).toContain('First extra.')
+    expect(container.textContent).toContain('Second extra.')
+    // Exactly one occurrence across the whole turn.
+    const occurrences = (container.textContent ?? '').split(ONLY_ONE_RUN).length - 1
+    expect(occurrences).toBe(1)
   })
 
   it('NEVER empties a block: a wholly-duplicate commentary keeps its own text', () => {

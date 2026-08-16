@@ -19,7 +19,7 @@
 import { memo, useState, useMemo, useRef } from 'react'
 import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
-import { AnswerBody } from './AnswerBody'
+import { AnswerBody, resolveAnswerBodyText } from './AnswerBody'
 import { InlineBlocks } from './InlineBlocks'
 import { AlertCircle, ChevronDown, ChevronUp, ListPlus, AlignLeft, RefreshCw } from 'lucide-react'
 import { FeedbackRow } from './FeedbackRow'
@@ -151,6 +151,8 @@ interface MessageBubbleProps {
    * affordance. Ignored for non-failed or assistant messages.
    */
   onRetryFailedSend?: () => void
+  /** L-42: only the newest assistant turn's card may claim the staleness voice. */
+  isLatestAssistantTurn?: boolean
 }
 
 export const MessageBubble = memo(function MessageBubble({
@@ -164,6 +166,7 @@ export const MessageBubble = memo(function MessageBubble({
   onProposalConfirm,
   compact = false,
   onRetryFailedSend,
+  isLatestAssistantTurn = false,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const isStreaming = message.isStreaming === true
@@ -197,8 +200,10 @@ export const MessageBubble = memo(function MessageBubble({
    * is not yet a true statement about anything).
    */
   const consentSurfaceText = useMemo(
-    () => (isUser || isStreaming ? [] : collectConsentSurfaceText(message.blocks)),
-    [isUser, isStreaming, message.blocks],
+    () => (isUser || isStreaming
+      ? []
+      : collectConsentSurfaceText(message.blocks, patchBlockStates, message.id)),
+    [isUser, isStreaming, message.blocks, patchBlockStates, message.id],
   )
   const dedupedBody = useMemo(
     () => dedupeRenderedText(rawDisplayContent, consentSurfaceText),
@@ -206,14 +211,24 @@ export const MessageBubble = memo(function MessageBubble({
   )
   const displayContent = dedupedBody.text
   /**
-   * Tier 0 + tier 2, as one stable array. Memoised because `InlineBlocks` is
-   * `memo`'d and a fresh literal on every render would defeat it — the same
-   * reason `AnswerBody` keeps a frozen empty default.
+   * What the turn has ALREADY PUT ON SCREEN above its blocks — tier 0 plus the
+   * body, whichever body this turn actually renders.
+   *
+   * ⚠ The two modes render DIFFERENT text and this must follow, not assume. In
+   * structured mode `AnswerBody` OWNS the body and `displayContent` is never
+   * rendered at all, so feeding it here suppressed blocks against text nobody
+   * could see (adversarial-review finding). The structured branch therefore
+   * feeds what `resolveAnswerBodyText` says will show — and DELIBERATELY OMITS
+   * `detail`, which sits behind the Show-more toggle: a block is not a duplicate
+   * of something the user has to click to reveal.
    */
-  const renderedAboveBlocks = useMemo(
-    () => [...consentSurfaceText, displayContent],
-    [consentSurfaceText, displayContent],
-  )
+  const renderedAboveBlocks = useMemo(() => {
+    if (!isUser && !isStreaming && message.answerShape) {
+      const shown = resolveAnswerBodyText(message.answerShape, consentSurfaceText)
+      return [...consentSurfaceText, shown.headline, ...shown.bullets]
+    }
+    return [...consentSurfaceText, displayContent]
+  }, [isUser, isStreaming, message.answerShape, consentSurfaceText, displayContent])
   // Transcript honesty (trust item #3): a user send whose turn failed must
   // LOOK failed — marker + optional retry affordance on the message itself.
   const sendFailed = isUser && message.deliveryState === 'failed'
@@ -483,6 +498,7 @@ export const MessageBubble = memo(function MessageBubble({
           // commentary block inside the disclosure does not repeat a paragraph
           // the user has already read further up the same message (item 7).
           alreadyRendered={renderedAboveBlocks}
+          isLatestAssistantTurn={isLatestAssistantTurn}
         />
       )}
       {/* Explain more + Summarise are AI Panel v2 affordances only — MessageBubble

@@ -162,6 +162,8 @@ interface InlineBlocksProps {
    * behaviour for every caller that does not opt in.
    */
   alreadyRendered?: readonly string[]
+  /** L-42: only the newest assistant turn's applied-edit card may claim the staleness voice. */
+  isLatestAssistantTurn?: boolean
 }
 
 export const InlineBlocks = memo(function InlineBlocks({
@@ -175,6 +177,7 @@ export const InlineBlocks = memo(function InlineBlocks({
   onProposalConfirm,
   assistantTextWordCount = 0,
   alreadyRendered,
+  isLatestAssistantTurn = false,
 }: InlineBlocksProps) {
   /** One disclosure, one piece of state — replaces the two independent toggles. */
   const [detailExpanded, setDetailExpanded] = useState(false)
@@ -302,6 +305,7 @@ export const InlineBlocks = memo(function InlineBlocks({
           onProposalConfirm={onProposalConfirm}
           assistantTextWordCount={assistantTextWordCount}
           commentaryTextOverride={commentaryTextOverrides.get(index)}
+          isLatestAssistantTurn={isLatestAssistantTurn}
           onRevealHiddenBlocks={hasCollapsedContent ? revealHiddenBlocks : undefined}
           blockContainerRef={blockContainerRef}
         />
@@ -381,6 +385,8 @@ interface BlockRendererProps {
    * when something was withheld, so the ordinary path is untouched.
    */
   commentaryTextOverride?: string
+  /** L-42: only the newest assistant turn's applied-edit card may claim the staleness voice. */
+  isLatestAssistantTurn?: boolean
   /** C11: reveal collapsed pacing/budget content (present only while something is collapsed). */
   onRevealHiddenBlocks?: () => void
   /** Scope for citation-target lookups — the emitting turn's own block container. */
@@ -398,6 +404,7 @@ function BlockRenderer({
   onProposalConfirm,
   assistantTextWordCount = 0,
   commentaryTextOverride,
+  isLatestAssistantTurn = false,
   onRevealHiddenBlocks,
   blockContainerRef,
 }: BlockRendererProps) {
@@ -489,7 +496,9 @@ function BlockRenderer({
       return <V5AnalysisResultBlock block={block} />
 
     case 'v5_graph_patch':
-      return <V5GraphPatchBlock block={block} />
+      return (
+        <V5GraphPatchBlock block={block} isLatestAssistantTurn={isLatestAssistantTurn} />
+      )
 
     case 'v5_explanation':
       return <V5ExplanationBlock block={block} />

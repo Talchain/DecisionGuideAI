@@ -251,6 +251,10 @@ export const ChatThread = memo(function ChatThread({
             onChipClick={onChipClick}
             onRetry={onRetry}
             showFailedSendRetry={msg.id === failedSendRetryId}
+            // L-42: `isLastAssistant` is the identity ChatThread ALREADY
+            // derives for the chip row; reusing it means the staleness voice
+            // and the chips can never disagree about which turn is current.
+            isLatestAssistantTurn={isLastAssistant}
             patchBlockStates={patchBlockStates}
             patchRejections={patchRejections}
             onPatchAccept={onPatchAccept}

@@ -99,6 +99,27 @@ describe('with a conversation host registered', () => {
     )
   })
 
+  it('E1 — a DIFFERENT selection always gets through the guard window', () => {
+    // The guard absorbs a double-click on ONE selection. Keyed on a bare
+    // boolean it also swallowed the next question: select A, ask, select B,
+    // ask — a silent no-op with no feedback at all.
+    const sendChip = vi.fn()
+    useGuidanceStore.setState({ _sendChip: sendChip } as never)
+    selectNode()
+    const view = render(<SelectionPill />)
+    fireEvent.click(screen.getByTestId('selection-ask-chip'))
+    expect(sendChip).toHaveBeenCalledTimes(1)
+
+    // Immediately — well inside the guard window — select something else.
+    selectEdge()
+    view.rerender(<SelectionPill />)
+    fireEvent.click(screen.getByTestId('selection-ask-chip'))
+    expect(sendChip).toHaveBeenCalledTimes(2)
+    expect(sendChip.mock.calls[1][0]).toBe(
+      'Ask about Raw developer headcount → Team productivity',
+    )
+  })
+
   it('is single-flight — a double click sends once', () => {
     const sendChip = vi.fn()
     useGuidanceStore.setState({ _sendChip: sendChip } as never)

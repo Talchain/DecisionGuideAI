@@ -56,7 +56,17 @@ export const SelectionPill = memo(function SelectionPill() {
   // Subscribed, not read imperatively: the controls must appear the moment a
   // conversation host registers, without waiting for an unrelated re-render.
   const sendChip = useGuidanceStore((s) => s._sendChip)
-  const sentRef = useRef(false)
+  /**
+   * Single-flight guard, keyed by the SELECTION it fired for — not a bare
+   * boolean.
+   *
+   * A boolean swallowed a legitimate second question: select A, ask, select B,
+   * ask again inside the guard window, and the second click was a silent no-op
+   * with no feedback of any kind. The guard exists to absorb a DOUBLE-CLICK on
+   * one selection; a different selection is a different question and must
+   * always get through.
+   */
+  const sentRef = useRef<{ id: string; at: number } | null>(null)
 
   const label = selection?.label ?? ''
   /**
@@ -68,15 +78,14 @@ export const SelectionPill = memo(function SelectionPill() {
    * the question its label states, and the element identity travels as
    * `selected_elements`, not as prose.
    */
+  const selectionId = selection?.id ?? ''
   const ask = useCallback(() => {
-    if (!sendChip || !label) return
-    if (sentRef.current) return
-    sentRef.current = true
+    if (!sendChip || !label || !selectionId) return
+    const last = sentRef.current
+    if (last && last.id === selectionId && Date.now() - last.at < REFIRE_GUARD_MS) return
+    sentRef.current = { id: selectionId, at: Date.now() }
     sendChip(`Ask about ${label}`, `Ask about ${label}.`)
-    setTimeout(() => {
-      sentRef.current = false
-    }, REFIRE_GUARD_MS)
-  }, [sendChip, label])
+  }, [sendChip, label, selectionId])
 
   if (!selection) return null
 

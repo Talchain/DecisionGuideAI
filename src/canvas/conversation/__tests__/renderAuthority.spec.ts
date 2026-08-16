@@ -84,13 +84,74 @@ describe('dedupeRenderedText — a lower tier never repeats a higher tier', () =
     expect(result.text).toBe(prose)
   })
 
-  it('collapses a segment the SAME text repeats internally, keeping the FIRST occurrence', () => {
-    // L-16 verbatim: "the duplicate sentence inside one disclosure".
+  /**
+   * ⚠ PIN FLIPPED — this file previously asserted the OPPOSITE, and the
+   * opposite was a content-loss bug.
+   *
+   * The old rule accumulated the input's own segments, so with an empty
+   * `alreadyRendered` — the default path, i.e. every ordinary assistant turn —
+   * the second occurrence of any identical line was deleted. An adversarial
+   * review proved it at the rendered HTML. The three cases below are that
+   * review's, kept verbatim as the corpus, because the case this lane wrote for
+   * itself (one long unique sentence) could not see the class it broke: SHORT,
+   * STRUCTURALLY REPEATED lines.
+   *
+   * Cross-tier suppression is a FACT (the caller supplies the other surface's
+   * text). Within-text repetition is a GUESS about the producer's intent. They
+   * cannot share a predicate (trap 22b), so only the fact is implemented.
+   */
+  it('PRESERVES a line the same text repeats under two headings', () => {
+    const text = 'Risks\nTimeline slips\nMitigations\nTimeline slips'
+    const result = dedupeRenderedText(text)
+    expect(result.suppressedCount).toBe(0)
+    expect(result.text).toBe(text)
+  })
+
+  it('PRESERVES repeated short status lines (three rows, three "not stated")', () => {
+    const text = [
+      'Option A',
+      'Confidence: not stated',
+      'Option B',
+      'Confidence: not stated',
+      'Option C',
+      'Confidence: not stated',
+    ].join('\n')
+    const result = dedupeRenderedText(text)
+    expect(result.suppressedCount).toBe(0)
+    expect(result.text).toBe(text)
+  })
+
+  it('PRESERVES a long sentence the producer genuinely repeated', () => {
+    // Deliberately the shape the ORIGINAL (wrong) rule was written for: even
+    // here the answer is "leave it alone", because nothing in the text
+    // distinguishes an accidental repeat from a deliberate one.
     const only = 'There is only one analysis run so far, so there is nothing to compare yet.'
-    const disclosure = `${only}\n${only}\nRun the analysis again after a change.`
-    const result = dedupeRenderedText(disclosure)
-    expect(result.suppressedCount).toBe(1)
-    expect(result.text).toBe(`${only}\nRun the analysis again after a change.`)
+    const text = `${only}\n${only}\nRun the analysis again after a change.`
+    expect(dedupeRenderedText(text).text).toBe(text)
+  })
+
+  it('STILL withholds that same line when a HIGHER TIER stated it — both copies', () => {
+    // The discriminating twin: identical input, one prior. Suppression is about
+    // the tier, never about the repetition.
+    const only = 'There is only one analysis run so far, so there is nothing to compare yet.'
+    const text = `${only}\n${only}\nRun the analysis again after a change.`
+    const result = dedupeRenderedText(text, [only])
+    expect(result.suppressedCount).toBe(2)
+    expect(result.text).toBe('Run the analysis again after a change.')
+  })
+
+  it('is byte-identical to its input for ANY text when there are no priors', () => {
+    // The property the old rule violated, stated as a property rather than as
+    // an example — no input may be changed on the default path.
+    for (const sample of [
+      'a\na',
+      'x\n\nx\n\nx',
+      'Same line\nSame line\nSame line',
+      'One.\nTwo.\nOne.',
+    ]) {
+      expect(dedupeRenderedText(sample).text).toBe(sample)
+      expect(dedupeRenderedText(sample).suppressedCount).toBe(0)
+    }
   })
 
   it('is a pure identity when there is nothing to withhold', () => {
