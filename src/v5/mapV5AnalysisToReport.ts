@@ -1116,6 +1116,41 @@ export function mapV5AnalysisToReport(
         ? nestedEdgeEValuesRaw
         : undefined
 
+  // ROADMAP 2.177 (UI leg) — `conditional_winners`, the exact F6 defect one
+  // field over. PLoT emits it at the TOP LEVEL of the enrichment envelope,
+  // as a sibling of `edge_e_values` (plot-lite-service `src/routes/v2/run.ts`
+  // :3881 `conditional_winners: conditionalWinners ?? []`, immediately after
+  // :3879 `edge_e_values: edgeEValues ?? []`; row shape
+  // `src/types/engine-v3.ts:2040` ConditionalWinner). The legacy nested copy
+  // (`enrichment.robustness.conditional_winners`) is not populated on the live
+  // wire — measured 773/773 root, 0/773 nested over live persisted run facts
+  // (the same census that drove #540/2.177 for `inference_warnings` and
+  // `edge_e_values`; see canvas/stores/persistedRunSnapshotFactory.ts:24).
+  //
+  // This mapper read the NESTED slot ONLY, so `report.robustness
+  // .conditional_winners` was populated from a slot the producer never fills
+  // and `report.conditional_winners` was never minted at all. BOTH downstream
+  // readers already ask for the top-level slot FIRST —
+  // `useResultsSectionData.ts:3388` and `ModelTabBody.tsx:285` both read
+  // `report.conditional_winners ?? report.robustness.conditional_winners` —
+  // so their first arm was dead by construction and their second arm read an
+  // empty slot. `ConditionalWinnerCards` (the live `hero-arm-triage-actions`
+  // surface, via TriageActionCardsBody.tsx:726) therefore never rendered.
+  //
+  // Same precedence as `edge_e_values` above and for the same reason: a
+  // top-level EMPTY array is treated as "no data" rather than as a mask, so
+  // PLoT's always-emit `[]` cannot suppress a populated legacy copy. Fails
+  // closed (omit) when neither slot carries a non-empty array — never a
+  // fabricated `[]`, never a synthesised row.
+  const topLevelConditionalWinnersRaw = enrichment?.conditional_winners
+  const nestedConditionalWinnersRaw = robustnessRaw?.conditional_winners
+  const robustnessConditionalWinners =
+    Array.isArray(topLevelConditionalWinnersRaw) && topLevelConditionalWinnersRaw.length > 0
+      ? topLevelConditionalWinnersRaw
+      : Array.isArray(nestedConditionalWinnersRaw) && nestedConditionalWinnersRaw.length > 0
+        ? nestedConditionalWinnersRaw
+        : undefined
+
   const robustness = robustnessRaw
     ? {
         // Receipts fail closed (T2): preserve ABSENCE. Keys are emitted
@@ -1161,8 +1196,12 @@ export function mapV5AnalysisToReport(
         ...(robustnessEdgeEValues !== undefined
           ? { edge_e_values: robustnessEdgeEValues }
           : {}),
-        ...(Array.isArray(robustnessRaw.conditional_winners)
-          ? { conditional_winners: robustnessRaw.conditional_winners }
+        // ROADMAP 2.177 (UI leg): sourced from the real wire location
+        // (top-level first, nested legacy fallback) — same treatment as
+        // `edge_e_values` directly above. Previously read `robustnessRaw`
+        // ONLY, i.e. a slot PLoT does not populate.
+        ...(robustnessConditionalWinners !== undefined
+          ? { conditional_winners: robustnessConditionalWinners }
           : {}),
         // Display-honesty (ROADMAP 1.6b; producer PLoT #202): display-safe
         // verdict + producer-owned reason, rendered VERBATIM. ON-WIRE on
@@ -1201,6 +1240,11 @@ export function mapV5AnalysisToReport(
   const topLevelEdgeEValues = Array.isArray(enrichment?.edge_e_values)
     ? (enrichment!.edge_e_values as unknown[])
     : undefined
+  // ROADMAP 2.177 (UI leg): mint `report.conditional_winners` — the slot BOTH
+  // downstream readers try FIRST (useResultsSectionData.ts:3388,
+  // ModelTabBody.tsx:285) and which nothing has ever populated. Resolved
+  // source, so a live top-level emit and a legacy nested copy both land here.
+  const topLevelConditionalWinners = robustnessConditionalWinners
   const conditionalProbabilities = enrichment?.conditional_probabilities
 
   // Roadmap 1.12: producer inference_warnings ({ code, message, severity })
@@ -1416,6 +1460,7 @@ export function mapV5AnalysisToReport(
   if (topLevelFlipThresholds) widened.flip_thresholds = topLevelFlipThresholds
   if (decisionBrief != null) widened.decision_brief = decisionBrief
   if (topLevelEdgeEValues) widened.edge_e_values = topLevelEdgeEValues
+  if (topLevelConditionalWinners) widened.conditional_winners = topLevelConditionalWinners
   if (confidenceTier !== undefined) widened.confidence_tier = confidenceTier
   if (constraintsStatus !== undefined) widened.constraints_status = constraintsStatus
   if (inferenceWarnings) widened.inference_warnings = inferenceWarnings
