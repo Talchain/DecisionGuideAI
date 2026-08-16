@@ -251,12 +251,18 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
   })
 
-  it('first-open auto-minimise commits a safe pill anchor (no 50%/50% fallback under the dock)', () => {
+  it('first-open auto-minimise docks the pill in the corner (no 50%/50% fallback under the dock)', () => {
     // Same narrow-viewport scenario as above, but with position=null
-    // (first-open state). The bug: the pill's `position ? pos.x : '50%'`
-    // fallback would render the pill at the centre, which lands under
-    // the dock on narrow viewports. Fix: commit a top-left safe anchor
-    // BEFORE calling minimise.
+    // (first-open state). The original bug: the pill's `position ? pos.x : '50%'`
+    // fallback rendered it at the centre of the viewport, which lands under the
+    // dock on narrow viewports. The original fix committed a top-left safe
+    // anchor before minimising.
+    //
+    // R3 (Paul, 16 Aug 2026) supersedes that fix: the pill docks to the
+    // BOTTOM-RIGHT corner, derived from the live viewport, so no stored
+    // position — and no absent one — can place it. This test keeps its
+    // original intent (never 50%, never under the dock) and now asserts it
+    // against the rendered pill, which is where the user actually sees it.
     Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
     const dock = mountStubDock({ width: 600, right: 12 })
     dock.el.getBoundingClientRect = function () {
@@ -274,18 +280,17 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     } as any)
     render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
     expect(useFloatingPanelState.getState().isMinimised).toBe(true)
-    const committed = useFloatingPanelState.getState().position
-    // A safe anchor MUST have been committed — not null.
-    expect(committed).not.toBeNull()
-    // And it must be a real pixel position (not the 50% fallback). The
-    // top-left margin (16, 16) is the canonical safe anchor.
-    expect(committed!.x).toBe(16)
-    expect(committed!.y).toBe(16)
-    // Verify the pill's rendered style uses a numeric left/top, not 50%.
+    // The pill is placed from live geometry, so the store's `position` is no
+    // longer load-bearing for it — it stays null here, and that is fine.
     const pill = document.querySelector('[data-testid="floating-olumi-panel-pill"]') as HTMLElement
     expect(pill).toBeTruthy()
-    expect(pill.style.left).toBe('16px')
-    expect(pill.style.top).toBe('16px')
+    // Never the 50% fallback: real pixel coordinates.
+    expect(pill.style.left).toMatch(/^\d+(\.\d+)?px$/)
+    expect(pill.style.top).toMatch(/^\d+(\.\d+)?px$/)
+    // Bottom-right corner: dock.left is 188 on this viewport, so a pill of
+    // width 84 + margin 16 must sit left of it, and hard against the bottom.
+    expect(parseFloat(pill.style.left) + 84).toBeLessThanOrEqual(188)
+    expect(parseFloat(pill.style.top)).toBe(window.innerHeight - 28 - 16)
     dock.unmount()
     Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
   })
@@ -363,21 +368,22 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       size: { width: 400, height: 500 },
     } as any)
     render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    // The stale x=1300 is the PANEL's restore memory and is deliberately not
+    // touched. What matters is where the PILL renders.
     expect(useFloatingPanelState.getState().position).toEqual({ x: 1300, y: 100 })
 
-    // Shrink the viewport: 800px. The pill at x=1300 would now sit off-
-    // screen. The resize handler must reclamp it back into view.
+    // Shrink the viewport: 800px. Under the old stored-position rule the pill
+    // at x=1300 would sit off-screen and needed reclamping. Corner-docked, it
+    // follows the corner — assert the rendered element, not a store write.
     Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
     act(() => { window.dispatchEvent(new Event('resize')) })
 
-    const after = useFloatingPanelState.getState().position
+    const pill = document.querySelector('[data-testid="floating-olumi-panel-pill"]') as HTMLElement
+    expect(pill).toBeTruthy()
     // max pill x at 800 viewport = 800 - 84 - 16 = 700.
-    expect(after).toBeTruthy()
-    expect(after!.x).toBeLessThanOrEqual(700)
-    // The automatic clamp is a geometry correction — it must NOT flip
-    // userRepositioned. That flag is reserved for genuine user drags
-    // (it gates auto-dock). If a future refactor swaps the direct
-    // setState for `setPosition`, this assertion catches it.
+    expect(parseFloat(pill.style.left)).toBeLessThanOrEqual(700)
+    // Geometry corrections must NOT flip userRepositioned — that flag is
+    // reserved for genuine user drags (it gates auto-dock).
     expect(useFloatingPanelState.getState().userRepositioned).toBe(true)
     Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
   })
@@ -400,10 +406,10 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
     act(() => { window.dispatchEvent(new Event('resize')) })
 
-    const after = useFloatingPanelState.getState()
-    // Position changed (clamped), but userRepositioned MUST stay false.
-    expect(after.position!.x).toBeLessThanOrEqual(700)
-    expect(after.userRepositioned).toBe(false)
+    const pill = document.querySelector('[data-testid="floating-olumi-panel-pill"]') as HTMLElement
+    // The pill follows the corner, and userRepositioned MUST stay false.
+    expect(parseFloat(pill.style.left)).toBeLessThanOrEqual(700)
+    expect(useFloatingPanelState.getState().userRepositioned).toBe(false)
     Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
   })
 
@@ -460,21 +466,21 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       size: { width: 400, height: 500 },
     } as any)
     render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
-    // At rail width the dock left = 1388; pill at x=1300 (right edge 1384) fits.
-    expect(useFloatingPanelState.getState().position!.x).toBe(1300)
+    const pillBefore = document.querySelector('[data-testid="floating-olumi-panel-pill"]') as HTMLElement
+    // At rail width the dock left = 1388, so the corner dock sits just inside it.
+    expect(parseFloat(pillBefore.style.left) + 84).toBeLessThanOrEqual(1388)
 
-    // Dock expands to 388 + 12 → dock.left = 1040. Pill at x=1300 now
-    // overlaps the dock. The dock-opened event fires (the dock dispatches
-    // it on tab activation; we trigger directly here).
+    // Dock expands to 388 + 12 → dock.left = 1040. A pill placed for the rail
+    // width would now sit under the dock. The dock-opened event fires (the
+    // dock dispatches it on tab activation; we trigger directly here).
     act(() => {
       dock.setWidth(388)
       window.dispatchEvent(new Event('outputs-dock-opened'))
     })
 
-    const after = useFloatingPanelState.getState().position
+    const pillAfter = document.querySelector('[data-testid="floating-olumi-panel-pill"]') as HTMLElement
     // Pill width 84 + margin 16; dock at left=1040 → max pill x = 1040 - 84 - 16 = 940.
-    expect(after).toBeTruthy()
-    expect(after!.x).toBeLessThanOrEqual(940)
+    expect(parseFloat(pillAfter.style.left)).toBeLessThanOrEqual(940)
     dock.unmount()
   })
 

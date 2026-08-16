@@ -4,6 +4,7 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
@@ -283,6 +284,39 @@ export function computeCornerResize(
   return { x, y, w, h }
 }
 
+/**
+ * The restore pill's permanent dock: the bottom-right corner of the visible
+ * canvas, clear of the OutputsDock.
+ *
+ * R3 (Paul, 16 Aug 2026): "the Olumi bubble docks to a fixed corner
+ * (bottom-right); never mid-canvas."
+ *
+ * Why a DERIVED corner and not a stored position. The pill used to render at
+ * the PANEL's stored top-left. On the post-draft auto-minimise that anchor is
+ * the top-left of a 400×550 panel — so on a 1280×800 viewport the 84×28 pill
+ * landed at roughly (808, 234): a third of the way down the canvas, over the
+ * graph, exactly as captured in Paul's manual test (S17). Two further paths
+ * reached the same class of defect: the first-open auto-minimise committed a
+ * TOP-left anchor, and a null position fell back to `left: 50%, top: 50%` —
+ * the dead centre of the viewport.
+ *
+ * The pill is not draggable, so its position is never a user choice. Deriving
+ * it from the live viewport on every render makes "pill mid-canvas"
+ * structurally impossible rather than merely unlikely, and leaves the stored
+ * `position` free to do its real job: remembering where the PANEL goes back to
+ * on restore.
+ */
+export function computePillDockPosition(
+  viewportW: number,
+  viewportH: number,
+  rightInset: number = 0,
+): FloatingPanelPosition {
+  return {
+    x: Math.max(DEFAULT_MARGIN, viewportW - rightInset - PILL_W - DEFAULT_MARGIN),
+    y: Math.max(DEFAULT_MARGIN, viewportH - PILL_H - DEFAULT_MARGIN),
+  }
+}
+
 export function clampPillPositionToViewport(
   pos: FloatingPanelPosition,
   viewportW: number,
@@ -419,6 +453,11 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   const inputBarRef = useRef<AIInputBarHandle | null>(null)
   const rafRef = useRef<number | null>(null)
   const dragStateRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null)
+  // The pill's derived corner dock, cached so the resize/dock observer can
+  // tell a real move from a no-op attach (see the minimised branch below).
+  const pillDockRef = useRef<FloatingPanelPosition | null>(null)
+  const [, setPillDockTick] = useState(0)
+
   // Resize state tracks which corner is being dragged plus the panel's
   // starting position/size. Pre-rounds-3 BR-only resize stored just
   // startX/startY/startW/startH; with all-corner resize we also need the
@@ -454,21 +493,12 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     // panel. User can close the dock to restore. This preserves the
     // brief's "MIN_WIDTH whenever possible, otherwise minimise" rule.
     if (!fitsAtMinSize(vw, vh, dockInset)) {
-      // First-open path: store.position is still null, so the pill's
-      // `position ? pos.x : '50%'` fallback in the JSX below would
-      // render the pill at the centre of the viewport — which can sit
-      // under the dock on narrow viewports. Commit a safe top-left
-      // anchor (clamped against the dock for defence-in-depth) before
-      // minimising so the pill is always visible and grabbable.
-      if (position === null) {
-        const safePillPos = clampPillPositionToViewport(
-          { x: DEFAULT_MARGIN, y: DEFAULT_MARGIN },
-          vw,
-          vh,
-          dockInset,
-        )
-        setInitialPosition(safePillPos)
-      }
+      // The pill's own placement needs nothing from us any more: it is
+      // corner-docked and derived at render time (computePillDockPosition),
+      // so the old "commit a safe top-left anchor before minimising" step —
+      // which existed only to dodge a `left: 50%` fallback that no longer
+      // exists — is gone. `position` stays whatever it was, because it is now
+      // purely the PANEL's restore memory.
       minimise()
       return
     }
@@ -548,18 +578,21 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       const vh = window.innerHeight
       const dockInset = measureDockInset()
 
-      // Minimised path: the full panel isn't rendered (containerRef is
-      // null) but the restore pill is. Window / dock changes still need
-      // to keep the pill visible and clear of the dock — without this
-      // the pill can drift off-screen on viewport shrink or under the
-      // dock on expand. Direct store write bypasses setPosition's
-      // `userRepositioned` flip so an automatic clamp doesn't look like
-      // a user drag (would otherwise defeat auto-dock invariants).
+      // Minimised path: the full panel isn't rendered (containerRef is null)
+      // but the corner-docked pill is, and its dock is derived from the live
+      // viewport + dock inset at render time. So there is nothing to clamp —
+      // we only need to force a re-render when the corner has actually MOVED
+      // (viewport resize, dock expand/collapse). The equality guard matters:
+      // the dock ResizeObserver fires on observe(), so an unconditional bump
+      // would re-render on every attach. The panel's stored `position` is
+      // deliberately left alone — it is the PANEL's restore memory, and the
+      // layout effect re-clamps it on restore.
       if (fp.isMinimised) {
-        if (!fp.position) return
-        const next = clampPillPositionToViewport(fp.position, vw, vh, dockInset)
-        if (next.x !== fp.position.x || next.y !== fp.position.y) {
-          useFloatingPanelState.setState({ position: next })
+        const next = computePillDockPosition(vw, vh, dockInset)
+        const prev = pillDockRef.current
+        if (!prev || prev.x !== next.x || prev.y !== next.y) {
+          pillDockRef.current = next
+          setPillDockTick((t) => t + 1)
         }
         return
       }
@@ -836,13 +869,15 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // accessibility tree, so the pill remains the only perceivable surface.
   let pillEl: ReactNode = null
   if (isMinimised) {
-    // Clamp the pill anchor too — a stored position from when the panel
-    // was full-sized may sit too close to the right/bottom edge for the
-    // small pill to remain fully visible after the viewport changes.
+    // R3: the pill docks to the bottom-right corner, derived from the live
+    // viewport and dock inset. It is not draggable, so there is no user
+    // position to honour — and deriving it means no stored panel anchor, and
+    // no null-position fallback, can strand it mid-canvas.
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
     const dockInset = measureDockInset()
-    const pillPos = position ? clampPillPositionToViewport(position, vw, vh, dockInset) : null
+    const pillPos = computePillDockPosition(vw, vh, dockInset)
+    pillDockRef.current = pillPos
     pillEl = (
       <button
         type="button"
@@ -850,8 +885,8 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         className="fixed inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-panel border border-panel-border shadow-2 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
         style={{
           zIndex: 300,
-          left: pillPos ? pillPos.x : '50%',
-          top: pillPos ? pillPos.y : '50%',
+          left: pillPos.x,
+          top: pillPos.y,
         }}
         data-testid="floating-olumi-panel-pill"
         aria-label="Restore Olumi"
