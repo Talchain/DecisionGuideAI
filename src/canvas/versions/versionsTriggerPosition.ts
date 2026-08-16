@@ -71,13 +71,23 @@ export function versionsTriggerRightOffsetPx(dockExpandedWidthPx: number): numbe
 
 /**
  * The same rule as a CSS value, for the element that cannot know the dock's
- * pixel width at render time. Built from the constants above so the numeric
- * and CSS forms cannot drift.
+ * pixel width at render time.
+ *
+ * ⚠ WRITTEN AS A LITERAL, DELIBERATELY — do not "improve" this into a template
+ * built from the constants above. The estate's css-var census
+ * (`tests/ci-guards/css-var-resolution.spec.ts`) statically resolves every
+ * `var()` site so a reference to a token that does not exist, or a hardcoded
+ * fallback that disagrees with the token it shadows, is caught before it
+ * ships. An interpolated fallback resolves to the placeholder `@@1@@`, which
+ * the census cannot check — so a template here would make this site OPAQUE to
+ * the guard, and register two new dynamic-var sites into the bargain. A
+ * literal keeps it legible to static analysis.
+ *
+ * Drift is prevented at test time instead: the spec parses this string and
+ * asserts it composes exactly to `versionsTriggerRightOffsetPx`, and that its
+ * `var()` reference appears VERBATIM in OutputsDock.tsx.
  */
-export function versionsTriggerRightOffsetCss(): string {
-  const constant = DOCK_VIEWPORT_GUTTER_PX + TRIGGER_DOCK_GAP_PX
-  return `calc(var(${DOCK_EXPANDED_WIDTH_VAR}, ${DOCK_EXPANDED_WIDTH_FALLBACK}) + ${constant}px)`
-}
+export const VERSIONS_TRIGGER_RIGHT_INSET_CSS = 'calc(var(--dock-right-expanded, 24rem) + 24px)'
 
 /** The trigger's `top` inset — level with the dock's own top edge. */
 export const VERSIONS_TRIGGER_TOP_PX = DOCK_VIEWPORT_GUTTER_PX

@@ -31,9 +31,9 @@ import {
   DOCK_EXPANDED_WIDTH_FALLBACK,
   DOCK_EXPANDED_WIDTH_VAR,
   DOCK_VIEWPORT_GUTTER_PX,
+  VERSIONS_TRIGGER_RIGHT_INSET_CSS,
   VERSIONS_TRIGGER_TOP_PX,
   triggerDockHorizontalOverlapPx,
-  versionsTriggerRightOffsetCss,
   versionsTriggerRightOffsetPx,
 } from '../versionsTriggerPosition'
 import {
@@ -155,12 +155,22 @@ describe('the Versions trigger clears the OutputsDock', () => {
 
   // ── The cross-file pins. These are what stop the derivation drifting. ──────
   it('the offset reads the dock’s OWN width variable, with the dock’s OWN fallback', () => {
-    // If OutputsDock renames the property or changes the fallback, this REDs
-    // here instead of silently re-opening the overlap at first paint.
-    expect(dockSource).toContain(`var(${DOCK_EXPANDED_WIDTH_VAR}, ${DOCK_EXPANDED_WIDTH_FALLBACK})`)
-    expect(versionsTriggerRightOffsetCss()).toContain(
-      `var(${DOCK_EXPANDED_WIDTH_VAR}, ${DOCK_EXPANDED_WIDTH_FALLBACK})`,
+    // Extracted from the shipped literal rather than composed here. Composing
+    // it would spell `var(--${…})` in this file, which registers a DYNAMIC
+    // var() site with the estate's css-var census and makes the fallback
+    // unresolvable to it (`@@1@@`) — the guard would go blind on the very
+    // reference this test exists to pin.
+    const varRef = VERSIONS_TRIGGER_RIGHT_INSET_CSS.slice(
+      VERSIONS_TRIGGER_RIGHT_INSET_CSS.indexOf('var('),
+      VERSIONS_TRIGGER_RIGHT_INSET_CSS.indexOf(')') + 1,
     )
+    // Still derived: the extracted reference must name the constants.
+    expect(varRef).toContain(DOCK_EXPANDED_WIDTH_VAR)
+    expect(varRef).toContain(DOCK_EXPANDED_WIDTH_FALLBACK)
+    // The cross-file pin. If OutputsDock renames the property or changes the
+    // fallback, the trigger stops matching it VERBATIM and this REDs — rather
+    // than silently re-opening the overlap at first paint.
+    expect(dockSource).toContain(varRef)
   })
 
   it('the rail width this matrix uses is the width the dock actually collapses to', () => {
@@ -176,7 +186,7 @@ describe('the Versions trigger clears the OutputsDock', () => {
     expect(trigger).toHaveAccessibleName(/versions/i)
     expect(trigger.tagName).toBe('BUTTON')
 
-    expect(trigger.style.right).toBe(versionsTriggerRightOffsetCss())
+    expect(trigger.style.right).toBe(VERSIONS_TRIGGER_RIGHT_INSET_CSS)
     expect(trigger.style.top).toBe(`${VERSIONS_TRIGGER_TOP_PX}px`)
   })
 

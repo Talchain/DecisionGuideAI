@@ -13,8 +13,8 @@ import { GitCompare } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { WhatChangedPanel } from './WhatChangedPanel'
 import {
+  VERSIONS_TRIGGER_RIGHT_INSET_CSS,
   VERSIONS_TRIGGER_TOP_PX,
-  versionsTriggerRightOffsetCss,
 } from './versionsTriggerPosition'
 
 export function VersionsPanelHost() {
@@ -34,7 +34,7 @@ export function VersionsPanelHost() {
           // asserted against what this component actually renders rather than
           // against a class name that a build step still has to honour.
           style={{
-            right: versionsTriggerRightOffsetCss(),
+            right: VERSIONS_TRIGGER_RIGHT_INSET_CSS,
             top: VERSIONS_TRIGGER_TOP_PX,
           }}
           className={`${typography.panelBody} absolute z-[1500] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-panel border border-panel-border text-text-body shadow-panel hover:bg-panel-hover`}
