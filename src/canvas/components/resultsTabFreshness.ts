@@ -1,4 +1,19 @@
 /**
+ * ⚠ COLLAPSED (analysis-state authority, step 5). This is one of the six
+ * derivations now composed by `canvas/state/analysisStateSelector.ts`, and the
+ * selector calls THIS function for the Results-tab member of its verdict —
+ * there is no second copy of the rule below.
+ *
+ * A surface that wants the composed answer reads `useAnalysisState().resultsTab`
+ * and gets wire authority for free. A surface that calls this function directly
+ * still gets the legacy derivation, which is correct and unchanged but does NOT
+ * consult CEE's `analysis_state`.
+ *
+ * ⚠ ONE SUCH CALL SITE REMAINS: `OutputsDock.tsx`. Re-pointing it is owned by
+ * the OutputsDock lane, not this one (file ownership), so it is DISCLOSED here
+ * rather than left to be discovered: until it moves, the Results-tab glyph is
+ * the one truth surface still deriving its own answer.
+ *
  * Results-tab freshness indicator decision.
  *
  * Maps the displayed freshness verdict (CEE verdict + local dirty overlay, via

@@ -23,6 +23,7 @@ import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
 import { RUN_COMPLETED_WITHOUT_VERDICT, VERDICT_ABSENT_FROM_PAYLOAD, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import type { AnalysisRefusalNotice } from './store/analysisRefusalNotice'
+import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
 // Value import, and deliberately so: `resetCanvas` must forget the persisted
@@ -487,6 +488,23 @@ interface CanvasState {
   // later session would assert a refusal that did not happen there.
   analysisRefusalNotice: AnalysisRefusalNotice | null
   /**
+   * Analysis-state authority migration, STEP 5: CEE's ONE composed
+   * `analysis_state` verdict for the current turn (`AnalysisStateV1`,
+   * @talchain/schemas 0.46.0), parsed at the V5 ingest and held verbatim.
+   *
+   * Read ONLY through `canvas/state/analysisStateSelector.ts` — never directly.
+   * The selector feature-detects on this field: non-null means CEE stated a
+   * verdict and it OUTRANKS every local derivation; null means the turn carried
+   * none and the legacy derivations answer. Nothing else selects that branch.
+   *
+   * SESSION-LOCAL, NEVER PERSISTED — the same rule and the same reason as
+   * `analysisRefusalNotice` above: this is a fact about ONE turn, and restoring
+   * it into a later session would assert a verdict CEE never gave there. It is
+   * deliberately absent from `setCeeAnalysisReady`'s sessionStorage write and
+   * from the autosave projection allow-list.
+   */
+  analysisStateV1: AnalysisStateV1 | null
+  /**
    * Interim 2.467 mitigation (P0 trust, live-witnessed 2026-08-04,
    * rewalk-2459b attempt 2): true while the canvas graph came from a local
    * IMPORT that the server has never seen. An import replaces the whole graph
@@ -908,6 +926,17 @@ interface CanvasState {
   setAnalysisFreshness: (rawAnalysisReady: unknown) => void
   /** ROADMAP 2.1163 / EXT-2: set or clear CEE's typed analysis-refusal notice. Pass null to clear. Never persisted. */
   setAnalysisRefusalNotice: (notice: AnalysisRefusalNotice | null) => void
+  /**
+   * Step 5: set or clear the composed `AnalysisStateV1` verdict for this turn.
+   * Pass null to clear. Never persisted.
+   *
+   * ⚠ Callers pass a value ONLY when the turn genuinely carried a parseable
+   * `analysis_state`. Passing null on a turn that carried none is CORRECT and
+   * is what keeps a previous turn's verdict from governing this one — silence
+   * is not a verdict, and this field's whole contract is that non-null means
+   * CEE spoke.
+   */
+  setAnalysisStateV1: (state: AnalysisStateV1 | null) => void
   /** Public dirty-overlay setter for external graph mutators (e.g. accepted CEE graph patches) that bypass the internal edit chokepoints. */
   markAnalysisFreshnessDirty: () => void
   /** Atomically set all three staleness flags — the entry point for external structural mutators. */
@@ -1703,6 +1732,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   analysisFreshnessDirty: false,
   // ROADMAP 2.1163 / EXT-2: no analysis has been refused at cold start.
   analysisRefusalNotice: null,
+  // Step 5: no turn has stated an analysis_state verdict at cold start. Null
+  // means NOT STATED, which is what routes the selector to the legacy branch.
+  analysisStateV1: null,
   // Interim 2.467: no import has happened at cold start.
   importPendingServerRegistration: false,
   // No edit can be awaiting dispatch before any edit has been made.
@@ -2613,6 +2645,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Carrying it across an import/reset/scenario switch would claim a refusal
       // that never happened for the model now on the canvas.
       analysisRefusalNotice: null,
+      // Step 5 — same argument, and it matters more here because this verdict
+      // OUTRANKS the local derivations: carrying a composed verdict across an
+      // import/reset/scenario switch would let CEE's statement about the
+      // PREVIOUS model silently govern what may be said about this one.
+      analysisStateV1: null,
       // Interim 2.467 mitigation (P0 trust, rewalk-2459b attempt 2): an import
       // must never leave a pre-import analysis renderable-as-current. The
       // pre-import results re-bound BY NODE ID to the imported graph's labels
@@ -2947,6 +2984,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Carrying it across an import/reset/scenario switch would claim a refusal
       // that never happened for the model now on the canvas.
       analysisRefusalNotice: null,
+      // Step 5 — same argument, and it matters more here because this verdict
+      // OUTRANKS the local derivations: carrying a composed verdict across an
+      // import/reset/scenario switch would let CEE's statement about the
+      // PREVIOUS model silently govern what may be said about this one.
+      analysisStateV1: null,
       // Interim 2.467 — release. ⚠ NOT derived (same correction as the
       // empty-graph branch above): resetCanvas installs an EMPTY graph, for
       // which the digest is null by the empty-graph rule, so a derivation here
@@ -3935,6 +3977,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Carrying it across an import/reset/scenario switch would claim a refusal
       // that never happened for the model now on the canvas.
       analysisRefusalNotice: null,
+      // Step 5 — same argument, and it matters more here because this verdict
+      // OUTRANKS the local derivations: carrying a composed verdict across an
+      // import/reset/scenario switch would let CEE's statement about the
+      // PREVIOUS model silently govern what may be said about this one.
+      analysisStateV1: null,
       // Interim 2.467, DERIVED: `scenarios.getScenario` is localStorage, not
       // the server — a scenario saved while an imported graph was on the canvas
       // restores an unregistered graph. Derive from what is being installed.
@@ -4477,6 +4524,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // where no analysis was refused.
   setAnalysisRefusalNotice: (notice: AnalysisRefusalNotice | null) => {
     set({ analysisRefusalNotice: notice })
+  },
+
+  // Step 5. Deliberately a bare set with NO sessionStorage write and NO
+  // autosave-projection entry — see the field's doc for why persisting a
+  // composed verdict would assert it into a session where CEE never gave it.
+  setAnalysisStateV1: (state: AnalysisStateV1 | null) => {
+    set({ analysisStateV1: state })
   },
 
   setAnalysisFreshness: (rawAnalysisReady: unknown) => {
@@ -5539,6 +5593,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // ROADMAP 2.1163 / EXT-2 — same argument as the verdict: a refusal
       // belongs to the graph it was refused for.
       updates.analysisRefusalNotice = null
+      // Step 5 — a composed analysis-state verdict belongs to the graph it was
+      // composed for, and it outranks the local derivations, so leaking it
+      // across a load would be worse than leaking the verdict alone.
+      updates.analysisStateV1 = null
       // Interim 2.467, DERIVED (see the field's doc): this path's live callers
       // pass the localStorage AUTOSAVE or loadState() — NOT a server-known
       // graph. Re-deriving from the graph being installed is what makes a

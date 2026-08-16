@@ -7,7 +7,66 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.43.0.tgz` ← **THE CURRENT PIN**
+### `talchain-schemas-0.46.0.tgz` ← **THE CURRENT PIN**
+
+**Provenance: PACKED FROM THE MERGED, TAGGED RELEASE.** Packed from
+`olumi-schemas` **`main` @ `637ae4f8e3e33136c728a3aa3d1363e6019bf40b`**, tag
+**`v0.46.0`** (tree `ecb783ef3b17488f2e8eefc53044a115915b4cc1`) by `git archive`
+of that exact commit into a clean temporary directory, then `npm ci`,
+`npm run build`, `npm pack`. 443,422 bytes. sha256:
+
+```
+99ce0c620b9788785276705c0e476009f0058288dff4962ac53790432279e8d9
+```
+
+| Claim | Status |
+|---|---|
+| source identity | ✅ tag `v0.46.0` resolved through the GitHub API to the commit above; the archive carried no local worktree state |
+| the sidecar matches these bytes | ✅ `pnpm run check:vendor` re-hashes the tarball and compares the exact sidecar |
+| `check:vendor` agrees and rejects orphans | ✅ 0.43.0's tarball + sidecar were deleted in this same commit |
+| **the packed archive matches the built source tree** | ✅ **verified by CONTENT, not by hash** — all **226 packed files** diffed against the built tree, **zero mismatches**. A compressed-artefact sha proves only that the bytes did not move after packing; it says nothing about what was packed. |
+| the contract is actually reachable from the UI | ✅ `AnalysisStateV1Schema` imports and parses from `@talchain/schemas/boundary`, and `analysis_state` is present in `Object.keys(OlumiResponseSchema.shape)` — contrast-controlled (a fabricated key read absent in the same probe) |
+
+**What the UI adopts here — THE READER FOR `AnalysisStateV1`, and this is the
+one bump in a while that is NOT inert.** 0.46.0 mints `AnalysisStateV1` and adds
+it as `OlumiResponseSchema.analysis_state` (additive-optional). It is the ONE
+composed analysis-state verdict — `run_state` (7 kinds, including the new
+`refused`), `readiness`, `leader_claim`, `robustness`, five producer-computed
+usability booleans and a producer self-report of `contradictions`.
+
+**Why the pin had to move before any consumer code.** `analysis_state` is
+demoted to the non-enumerable `__additive__` sidecar by
+`src/v5/responseParser.ts` unless it is in `KNOWN_OLUMI_TOP_LEVEL_KEYS` — which
+is DERIVED from `Object.keys(OlumiResponseSchema.shape)`. At 0.43.0 the key is
+not in that shape, so **CEE's verdict would have vanished silently at the
+consumer** (hazard 1, the field-drop class). The pin is what makes it visible;
+the selector is what makes it authoritative.
+
+This bump is consumed the same commit it lands in — see
+`src/canvas/state/analysisStateSelector.ts`. Every payload predating 0.46.0
+carries no `analysis_state`, so the selector's feature detection routes them to
+the existing derivations and rendering is unchanged; that is asserted directly
+rather than assumed, by a 16-case matrix in the selector's spec.
+
+**Absorption cost 0.43.0 → 0.46.0, measured on the pin bump ALONE before any
+code change:** `pnpm typecheck` PASSED at 3401/3441 files loaded, **571 file(s) /
+2325 error(s) against a baseline of 2325 — zero added diagnostics.**
+
+**Rollback path:** revert this PR and `pnpm install`. It cannot be reverted
+independently of the selector, because the selector imports `AnalysisStateV1`
+from this pin.
+
+### `talchain-schemas-0.43.0.tgz` (superseded — REMOVED, section retained for history)
+
+> ⚠ **The tarball and its sidecar were DELETED in the 0.46.0 bump**, in the same
+> commit that added 0.46.0's — `check-vendor-sha.mjs` fails the build on the
+> orphan, and two coexisting "current pin" tarballs read as ambiguous
+> provenance.
+>
+> ⚠ **0.44.0 and 0.45.0 were never vendored here.** The UI went 0.43.0 → 0.46.0
+> directly. Both intervening versions are carried forward inside 0.46.0; there
+> is no skipped-migration step, but do not read this file as a record that the
+> UI ever ran them.
 
 **Provenance: PACKED FROM THE EXACT SOURCE TREE NOW MERGED AND TAGGED.** Packed
 from `olumi-schemas` `main` @

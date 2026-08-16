@@ -35,6 +35,7 @@ import {
   type AnalysisFreshnessValue,
 } from '@/canvas/store/analysisFreshness'
 import { resolveTrustEffectiveState } from '@/canvas/hooks/useAnalysisTrust'
+import { useAnalysisState } from '@/canvas/state/analysisStateSelector'
 import { useShowToastSafe } from '@/canvas/ToastContext'
 import { RUN_ENDED_WITHOUT_NEW_RESULTS_COPY } from '@/canvas/components/analysisRunStatus'
 
@@ -144,11 +145,35 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
     }
   }, [isRunning, resultsStatus, showToast, completionSemantic])
 
+  // ⚠ RE-POINTED (analysis-state authority, step 5), and scoped deliberately.
+  // This strip was one of three surfaces independently deriving currency, and
+  // on a refused turn it rendered "current" while the hero rendered "complete"
+  // and the selector said "outdated" — three truths, one run.
+  //
+  // The wire verdict wins ONLY when this component is reading the STORE. When a
+  // caller passes `state`/`dirty` explicitly it is describing a specific verdict
+  // (fixtures, the Compare tab, focused tests), and a store-sourced verdict must
+  // not silently override what the caller asked to render.
+  //
+  // ⚠ CALLED ABOVE THE EARLY RETURN, DELIBERATELY. The first cut of this
+  // re-point put it below `if (!effectiveState) return null`, which is a
+  // conditional hook call: on a render with no verdict this component would
+  // call one fewer hook than on the previous render, and React's hook order is
+  // positional. CI's lint step caught it (`rules-of-hooks`) while the local
+  // `pnpm typecheck` was green — the required check is lint→typecheck→tests,
+  // and typecheck alone cannot see this class at all.
+  const composedAnalysisState = useAnalysisState()
+
   if (!effectiveState) return null
 
   // CEE verdict is the source of truth; the local dirty overlay may only
   // downgrade a retained 'fresh' to cannot-confirm (never fabricate 'stale').
-  const freshness = resolveDisplayedFreshness(effectiveState, dirty) as AnalysisFreshnessValue
+  const legacyFreshness = resolveDisplayedFreshness(effectiveState, dirty) as AnalysisFreshnessValue
+  const readingStore = stateProp === undefined && dirtyProp === undefined
+  const freshness: AnalysisFreshnessValue =
+    readingStore && composedAnalysisState.authority === 'wire'
+      ? (composedAnalysisState.displayedFreshness ?? legacyFreshness)
+      : legacyFreshness
   const isStale = freshness === 'stale'
   // Mark when the displayed verdict differs from CEE's because of a local edit —
   // technical signal for tests/debug only, not user copy.

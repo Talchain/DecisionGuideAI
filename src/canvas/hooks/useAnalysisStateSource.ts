@@ -1,4 +1,13 @@
 /**
+ * ⚠ COLLAPSED (analysis-state authority, step 5). One of the six derivations
+ * composed by `canvas/state/analysisStateSelector.ts`, which calls the
+ * classifier below and surfaces its answer as `useAnalysisState().source`.
+ *
+ * It is the one member of the six the wire does NOT supersede: `AnalysisStateV1`
+ * carries no provenance for a result already on screen, so the orphan
+ * classification stays client-derived under BOTH branches. Deleting it as part
+ * of the collapse would silently remove the orphan affordance.
+ *
  * useAnalysisStateSource — derive the canonical "where did the current
  * Results state come from?" classification.
  *
