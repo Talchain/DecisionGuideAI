@@ -19,10 +19,11 @@
  *
  * Design tokens (DS v5 §21.2): card frame, panel typography, semantic border.
  */
-import { useMemo, type ReactElement } from 'react'
+import { useEffect, useMemo, type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../../canvas/store'
 import { useAnalysisTrust } from '../../canvas/hooks/useAnalysisTrust'
+import { claimStalenessVoice } from '../../canvas/conversation/stalenessVoice'
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/conversation/types'
 import { buildV5PatchReceipt, buildV5PatchDeps } from './v5GraphPatchDescription'
 
@@ -56,6 +57,19 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
   // emits.
   const trustSemantic = useAnalysisTrust().semantic
   const showStaleHint = receipt.status === 'applied' && trustSemantic === 'changed'
+
+  /**
+   * L-42 — this note is the TOP of the staleness hierarchy while it is on
+   * screen. It is the only staleness surface attached to the edit that caused
+   * the staleness, so the freshness pill and the composer placeholder stand
+   * down for as long as it is rendered (see `stalenessVoice.ts`). Claimed from
+   * an effect keyed on `showStaleHint`, so the claim ends exactly when the note
+   * stops rendering, including on unmount.
+   */
+  useEffect(() => {
+    if (!showStaleHint) return
+    return claimStalenessVoice('card')
+  }, [showStaleHint])
 
   const isApplied = receipt.status === 'applied'
 

@@ -18,8 +18,10 @@
  * message-construction path; track it in a follow-up brief if needed.
  */
 
+import { useEffect } from 'react'
 import { AlertTriangle, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { claimStalenessVoice, useMayStalenessVoiceSpeak } from './stalenessVoice'
 
 export type StalenessFreshness = 'stale' | 'unknown'
 
@@ -33,6 +35,29 @@ const COPY: Record<StalenessFreshness, string> = {
 }
 
 export function StalenessPill({ freshness }: StalenessPillProps) {
+  /**
+   * L-42 — ONE staleness communication per turn view. The applied-edit card's
+   * freshness note outranks this pill (it is attached to the change that caused
+   * the staleness); when that card is on screen this pill stands down rather
+   * than saying the same thing a second time.
+   *
+   * Scoped to the 'stale' variant on purpose. The 'unknown' pill does NOT make
+   * the card's claim — it says currency cannot be confirmed, which is a
+   * different fact, and the card never states it. Silencing it here would be
+   * suppressing an honest statement nothing else makes (the §1 authority-parity
+   * rule: never claim which state is current, and never withhold the admission
+   * that we cannot tell).
+   */
+  const isStaleClaim = freshness === 'stale'
+  const maySpeak = useMayStalenessVoiceSpeak('pill')
+  const speaking = !isStaleClaim || maySpeak
+  useEffect(() => {
+    if (!speaking || !isStaleClaim) return
+    return claimStalenessVoice('pill')
+  }, [speaking, isStaleClaim])
+
+  if (!speaking) return null
+
   // DS v5 §8.5 / CLAUDE.md: outlined-only pills, border carries the semantic;
   // never text-{colour} on the pill (text or icon). The icon's *shape*
   // (AlertTriangle vs Info) differentiates the two states without colour.

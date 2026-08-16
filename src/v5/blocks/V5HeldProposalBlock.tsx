@@ -47,10 +47,11 @@
  * unresolvable confirm ref to the R7 unsupported card. Unknown `reason_code`
  * values degrade to the generic held sentence, never the raw code.
  */
-import { type ReactElement, useCallback, useState } from 'react'
+import { type ReactElement, useCallback, useMemo, useState } from 'react'
 import { Hand } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
+import { dedupeRenderedText, splitRenderSegments } from '../../canvas/conversation/messageComposition'
 import { CHIP_CLASS } from './chipClass'
 import type {
   V5HeldProposalBlock as V5HeldProposalBlockType,
@@ -67,6 +68,48 @@ import {
 
 export interface V5HeldProposalBlockProps {
   block: V5HeldProposalBlockType
+}
+
+/**
+ * READABILITY OF THE THING BEING CONSENTED TO (scoreboard Q3, 16 Aug 2026).
+ *
+ * The measured card restated SIX operations in one paragraph, repeating the
+ * same 70-character option name five times, each stopping mid-word at
+ * `(Under £...`, and the whole plan was ALSO printed as prose above it. A user
+ * confirming a structural change could not skim what they were confirming.
+ *
+ * Three separate fixes, and it matters that they are separate:
+ *   · the PROSE duplicate is withheld by the turn's render authority
+ *     (`collectConsentSurfaceText` in messageComposition.ts) — the card wins,
+ *     because the card is the control the consent is given through;
+ *   · the run-on paragraph is rendered as a LIST when the producer already
+ *     delimited it by lines. Splitting on `\n` is deterministic and lossless —
+ *     every byte still renders, in producer order — and a single-line summary
+ *     renders exactly as it does today. NOTHING is inferred from punctuation;
+ *   · a line the producer emitted TWICE renders once (item 7's rule, applied
+ *     here through the same shared primitive rather than a second local copy).
+ *
+ * What is NOT done, deliberately: the mid-word `…` truncation is in the
+ * PRODUCER's bytes (CEE clamps names before it emits the summary). The UI can
+ * wrap what it is given and it can stop repeating it, but reconstructing the
+ * clamped name would be fabrication. It is reported, not invented.
+ */
+function useConsentLines(summary: string): string[] {
+  return useMemo(() => {
+    const lines: string[] = []
+    let rendered: string[] = []
+    for (const raw of splitRenderSegments(summary)) {
+      if (raw.trim().length === 0) continue
+      const { text: survived, suppressedCount } = dedupeRenderedText(raw, rendered)
+      // A whole-line duplicate collapses; a line that survives partially is kept
+      // verbatim rather than half-rewritten (suppression works on whole
+      // segments, and a single line is one segment).
+      if (suppressedCount > 0 && survived.trim().length === 0) continue
+      lines.push(raw.trim())
+      rendered = [...rendered, raw]
+    }
+    return lines
+  }, [summary])
 }
 
 /** The three strings the confirm affordance needs, resolved together. */
@@ -123,6 +166,9 @@ export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactE
   /** Complete confirm copy — see resolveHeldConfirmCopy. */
   const confirmCopy = resolveHeldConfirmCopy(confirm)
 
+  /** The plan, one change per line, each named once — see useConsentLines. */
+  const consentLines = useConsentLines(block.summary)
+
   const handleConfirm = useCallback(() => {
     if (settled) return
     // Fail closed WITHOUT acknowledging: with no conversation host registered
@@ -141,15 +187,29 @@ export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactE
     // sentence, never the producer's clamped chip label (2.474 residual (a)).
     // Arg 1 is untouched: CEE's exact-match pre-route resolves a confirm by the
     // message, so clamping or rewriting it would break hold routing.
-    sendChip(confirmCopy.record, confirm.message)
+    // Arg 2 carries the PRODUCER's own `action_type` when it emitted one (L-59).
+    // Without it this click was a bare text send and CEE routed the apply as
+    // ordinary chat — the affordance said "confirm", the reply said "you did not
+    // ask me to edit the model". Absent ⇒ omitted, i.e. exactly today's turn.
+    sendChip(
+      confirmCopy.record,
+      confirm.message,
+      confirm.action_type ? { action_type: confirm.action_type } : undefined,
+    )
     setSettled('accepted')
-  }, [settled, sendChip, confirmCopy.record, confirm.message])
+  }, [settled, sendChip, confirmCopy.record, confirm.message, confirm.action_type])
 
   const handleDismiss = useCallback(() => {
     if (settled) return
     // Decline through the existing chip seam when CEE emits a decline action;
     // otherwise dismiss is local-only (the free-text decline path stays open).
-    if (decline) sendChip?.(decline.label, decline.message)
+    if (decline) {
+      sendChip?.(
+        decline.label,
+        decline.message,
+        decline.action_type ? { action_type: decline.action_type } : undefined,
+      )
+    }
     setSettled('dismissed')
   }, [settled, sendChip, decline])
 
@@ -169,9 +229,33 @@ export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactE
         </h3>
       </div>
 
-      <p className={typography.panelBody} data-testid="v5-held-proposal-summary">
-        {block.summary}
-      </p>
+      {/* WRAP, NEVER TRUNCATE (the estate's no-mid-word-wrap rule): the option
+          names in a held plan are long, and the dock is narrow. `break-words`
+          wraps at word boundaries and only breaks a word that is itself wider
+          than the column — it never clips, and there is no `truncate` anywhere
+          on this card. A `title` is deliberately NOT added: the full text is
+          already on screen, so a tooltip would be a second copy of it. */}
+      {consentLines.length > 1 ? (
+        <ul
+          className={`${typography.panelBody} list-disc pl-4 space-y-1 break-words`}
+          data-testid="v5-held-proposal-summary"
+          data-consent-line-count={consentLines.length}
+        >
+          {consentLines.map((line, i) => (
+            <li key={i} data-testid={`v5-held-proposal-summary-line-${i}`}>
+              {line}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p
+          className={`${typography.panelBody} break-words`}
+          data-testid="v5-held-proposal-summary"
+          data-consent-line-count={consentLines.length}
+        >
+          {consentLines[0] ?? block.summary}
+        </p>
+      )}
 
       <p
         className={`${typography.panelMeta} text-text-light`}

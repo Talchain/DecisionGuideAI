@@ -525,6 +525,26 @@ export interface V5HeldProposalAction {
    * by a string that stops mid-word (ROADMAP 2.474 residual (a)).
    */
   detail?: string
+  /**
+   * The producer's own `suggested_actions[].action_type`, carried so a
+   * CARD-HOSTED inline action dispatches with the SAME typed intent the
+   * identical action would carry if CEE had rendered it in the generic chip row
+   * (`buildSuggestedActionChips` already forwards it there).
+   *
+   * ── The defect this closes (L-59, measured 16 Aug 2026) ──────────────────
+   * The card sends through `_sendChip(label, message)`, which minted a chip
+   * with NO `action_type` — so a click on the product's own inline action
+   * reached CEE as an ordinary chat turn. The witnessed symptom is the sentence
+   * `chipActionVocabulary`'s docstring already names as the signature of an
+   * untyped chip click: "You did not ask me to edit the model, so I have not".
+   * The affordance and the reply disagreed about what had just happened.
+   *
+   * Fail-closed by construction: `buildPayload.sanitiseActionType` withholds
+   * any value that is not BOTH published in our vendored enum AND accepted at
+   * CEE ingress, so an absent or unrecognised value behaves exactly as today
+   * and can never 422 the turn.
+   */
+  action_type?: string
 }
 
 export interface V5HeldProposalBlock {

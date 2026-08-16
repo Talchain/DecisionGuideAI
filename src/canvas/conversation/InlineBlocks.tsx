@@ -67,7 +67,7 @@ import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/A
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
 import { isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
-import { composeMessage } from './messageComposition'
+import { composeMessage, dedupeRenderedText } from './messageComposition'
 import { GraphVocabularyLegend } from './GraphVocabularyLegend'
 import { V5AnalysisResultBlock } from '../../v5/blocks/V5AnalysisResultBlock'
 import { V5GraphPatchBlock } from '../../v5/blocks/V5GraphPatchBlock'
@@ -151,6 +151,17 @@ interface InlineBlocksProps {
   onProposalConfirm?: (proposalId: string) => void
   /** Word count of the turn's assistant_text — used by commentary collapse default logic */
   assistantTextWordCount?: number
+  /**
+   * ONE RENDER AUTHORITY (L-16, item 7). Text the turn has ALREADY rendered
+   * above these blocks — the consent-card surfaces (tier 0) and the prose body
+   * (tier 2). A `commentary` block whose paragraphs repeat one of those, or
+   * repeat an earlier commentary block in this same turn, renders the surviving
+   * remainder instead of the same sentences a second time.
+   *
+   * Absent ⇒ nothing is withheld anywhere, i.e. byte-identical to the previous
+   * behaviour for every caller that does not opt in.
+   */
+  alreadyRendered?: readonly string[]
 }
 
 export const InlineBlocks = memo(function InlineBlocks({
@@ -163,6 +174,7 @@ export const InlineBlocks = memo(function InlineBlocks({
   onArtefactMessage,
   onProposalConfirm,
   assistantTextWordCount = 0,
+  alreadyRendered,
 }: InlineBlocksProps) {
   /** One disclosure, one piece of state — replaces the two independent toggles. */
   const [detailExpanded, setDetailExpanded] = useState(false)
@@ -185,6 +197,46 @@ export const InlineBlocks = memo(function InlineBlocks({
 
   // DS v5 §21.2: block type badge dots are always on (no v2 flag gate).
   const showBadgeDots = true
+
+  /**
+   * ONE RENDER AUTHORITY, applied to the prose-bearing block family.
+   *
+   * Walks the entries in RENDER order (top level in producer order, then the
+   * disclosure) and gives each `commentary` block the remainder of its own text
+   * after removing whole segments an earlier surface already rendered. Only
+   * `commentary` participates: it is the one block type that carries free prose
+   * the producer also emits through `assistant_text`, and a typed card's copy is
+   * structural — withholding a line of it would change what the card means.
+   *
+   * Computed over the FULL entry list rather than per-render-position, so a
+   * block's text does not change when the disclosure opens: opening it must
+   * reveal what was demoted, never re-write it (invariant 1's byte-preserving
+   * demotion guarantee).
+   */
+  const commentaryTextOverrides = useMemo(() => {
+    const order = [
+      ...[...composition.pinned, ...composition.points].sort((a, b) => a.index - b.index),
+      ...composition.detail,
+    ]
+    const seen: string[] = [...(alreadyRendered ?? [])]
+    const overrides = new Map<number, string>()
+    for (const entry of order) {
+      const block = blocks[entry.index]
+      if (block.type !== 'commentary') continue
+      const text = (block as CommentaryBlockType).text ?? ''
+      const { text: survived, suppressedCount } = dedupeRenderedText(text, seen)
+      // Suppression may remove PART of a block, never the whole of it. A
+      // commentary whose every paragraph was already rendered above keeps its
+      // original text: an empty card with a live "More" toggle is a worse
+      // artefact than the duplicate, and silently deleting a block would breach
+      // the composition's own no-drop guarantee (invariant 1) from the text
+      // side. The suppression is a de-duplicator, not a censor.
+      const useOverride = suppressedCount > 0 && survived.trim().length > 0
+      if (useOverride) overrides.set(entry.index, survived)
+      seen.push(useOverride ? survived : text)
+    }
+    return overrides
+  }, [composition, blocks, alreadyRendered])
 
   /**
    * THE visibility rule — one predicate, every consumer. A block is hidden iff
@@ -249,6 +301,7 @@ export const InlineBlocks = memo(function InlineBlocks({
           onArtefactMessage={onArtefactMessage}
           onProposalConfirm={onProposalConfirm}
           assistantTextWordCount={assistantTextWordCount}
+          commentaryTextOverride={commentaryTextOverrides.get(index)}
           onRevealHiddenBlocks={hasCollapsedContent ? revealHiddenBlocks : undefined}
           blockContainerRef={blockContainerRef}
         />
@@ -322,6 +375,12 @@ interface BlockRendererProps {
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
   assistantTextWordCount?: number
+  /**
+   * ONE RENDER AUTHORITY: the surviving text for a `commentary` block whose
+   * paragraphs repeated a surface rendered earlier in this turn. Present ONLY
+   * when something was withheld, so the ordinary path is untouched.
+   */
+  commentaryTextOverride?: string
   /** C11: reveal collapsed pacing/budget content (present only while something is collapsed). */
   onRevealHiddenBlocks?: () => void
   /** Scope for citation-target lookups — the emitting turn's own block container. */
@@ -338,6 +397,7 @@ function BlockRenderer({
   onArtefactMessage,
   onProposalConfirm,
   assistantTextWordCount = 0,
+  commentaryTextOverride,
   onRevealHiddenBlocks,
   blockContainerRef,
 }: BlockRendererProps) {
@@ -347,6 +407,7 @@ function BlockRenderer({
         <CommentaryBlockRenderer
           block={block}
           assistantTextWordCount={assistantTextWordCount}
+          textOverride={commentaryTextOverride}
           onRevealHiddenBlocks={onRevealHiddenBlocks}
           blockContainerRef={blockContainerRef}
         />
@@ -513,12 +574,18 @@ function scrollToCitationTarget(target: Element): void {
 const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
   block,
   assistantTextWordCount = 0,
+  textOverride,
   onRevealHiddenBlocks,
   blockContainerRef,
 }: {
   block: CommentaryBlockType
   /** Word count of the assistant_text in the same turn — used for default expand logic */
   assistantTextWordCount?: number
+  /**
+   * ONE RENDER AUTHORITY: surviving text after whole segments already rendered
+   * earlier in this turn were withheld. Undefined ⇒ render `block.text` as-is.
+   */
+  textOverride?: string
   /** C11: reveal collapsed pacing/budget content (present only while something is collapsed). */
   onRevealHiddenBlocks?: () => void
   /** Scope for citation-target lookups — the emitting turn's own block container. */
@@ -570,9 +637,10 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
 
   // title is already a plain string; fallback uses plainTextPreview to decode entities
   // and strip markdown markers so the toggle reads naturally (e.g. "Lead phrase" not "**Lead phrase**")
-  const previewLabel = block.title ?? plainTextPreview(block.text)
+  const bodyText = textOverride ?? block.text
+  const previewLabel = block.title ?? plainTextPreview(bodyText)
 
-  const contentHtml = safeRichText(block.text)
+  const contentHtml = safeRichText(bodyText)
 
   const hasSections = block.sections && block.sections.length > 0
 

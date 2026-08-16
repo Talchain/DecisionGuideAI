@@ -10,7 +10,7 @@
 
 import { memo } from 'react'
 import { MessageBubble } from '../MessageBubble'
-import { MessageActions } from './MessageActions'
+import { ACTION_BAR_GUTTER_PX, MessageActions } from './MessageActions'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
 
@@ -76,9 +76,15 @@ export const ChatMessage = memo(function ChatMessage({
   return (
     <div
       className={`group relative pointer-events-auto ${borderClass}`}
-      style={{ marginBottom: 12 }}
+      // L-73: the hover controls get their OWN band. Before this they were
+      // absolutely positioned at top:0, i.e. on top of the first line of the
+      // message — "hover controls can cover message text", verbatim. The gutter
+      // is reserved unconditionally rather than on hover, because opening it on
+      // hover would reflow the whole thread under the user's pointer.
+      style={{ marginBottom: 12, paddingTop: ACTION_BAR_GUTTER_PX }}
       data-testid={`chat-message-${message.role}`}
       data-message-category={category !== 'answer' ? category : undefined}
+      data-actions-gutter-px={ACTION_BAR_GUTTER_PX}
     >
       {/* Action bar — visible on hover/focus-within, fade in 200ms */}
       <div

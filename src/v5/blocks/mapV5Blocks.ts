@@ -201,14 +201,29 @@ export function mapV5Block(
         // producer clamps the confirm label (`buildGmHeldPublicCopy`) and no
         // decline path emits `detail` today, so a decline field would be an
         // unread passenger.
+        //
+        // `action_type` is carried for the SAME reason `detail` is: dropping it
+        // silently degraded the card's own control. The generic chip row
+        // forwards it (`buildSuggestedActionChips`), so a held action rendered
+        // as a card was the ONLY place a producer-typed action lost its type —
+        // and an untyped click is routed by CEE as ordinary chat (L-59).
         confirm: {
           label: confirm.label,
           message: confirm.message,
           ...(typeof confirm.detail === 'string' && confirm.detail.length > 0
             ? { detail: confirm.detail }
             : {}),
+          ...(confirm.action_type ? { action_type: confirm.action_type } : {}),
         },
-        ...(decline ? { decline: { label: decline.label, message: decline.message } } : {}),
+        ...(decline
+          ? {
+              decline: {
+                label: decline.label,
+                message: decline.message,
+                ...(decline.action_type ? { action_type: decline.action_type } : {}),
+              },
+            }
+          : {}),
       }
     }
     case 'ui_directive':
