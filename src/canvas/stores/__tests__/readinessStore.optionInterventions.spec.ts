@@ -32,7 +32,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import type { Node, Edge } from 'reactflow'
+import type { Node, Edge } from '@xyflow/react'
 import { buildReadinessPayload } from '../readinessStore'
 
 type WireNode = Record<string, unknown>
