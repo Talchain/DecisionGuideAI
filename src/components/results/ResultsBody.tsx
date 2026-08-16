@@ -35,6 +35,7 @@ import { InferenceWarningStrip } from './InferenceWarningStrip'
 import { CritiqueWarningStrip } from './CritiqueWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
+import { WhatIWasGivenSection } from './contextIntegrity/WhatIWasGivenSection'
 import { openDefineSuccess, HowComputedTrigger } from './modals'
 import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 
@@ -318,15 +319,25 @@ export const ResultsBody = memo(function ResultsBody({
         hasResults={(resultsSectionData.recommendation.allOptions?.length ?? 0) > 0}
       />
 
-      {/* ══ V7 ASSESSMENT SCAFFOLD RETIRED FROM THIS TAB (12 Aug 2026) ══════
-          The V7 top group (`V7TopMatter`) + the "Current view" divider — the
-          V6-RESPEC-2026-07-23 §1 side-by-side assessment scaffold — MOVED,
-          unchanged, to the temporary "Alt view" dock tab
-          (`v7/V7ComparisonTabBody`), so the Analysis tab renders the analysis
-          ONCE. Paul's instruction: move, NOT delete — the fork stays
-          comparable across the two tabs until he adjudicates it. The wrapper
-          below is kept as-is so everything beneath the old divider renders
-          byte-identically. Re-mounting V7 here REDs
+      {/* ══ V7 ASSESSMENT SCAFFOLD — GONE, NOT MOVED (adjudicated) ═════════
+          HISTORY, because the intermediate state confused readers twice: the
+          V7 top group (`V7TopMatter`) + "Current view" divider — the
+          V6-RESPEC-2026-07-23 §1 side-by-side assessment scaffold — first
+          MOVED off this tab (12 Aug 2026) to a temporary "Alt view" dock tab
+          under "move, NOT delete", pending adjudication.
+          That adjudication is now settled: the Alt view tab is RETIRED and
+          `src/components/results/v7/` is DELETED. There is ONE Analysis
+          surface and no A/B twin.
+          What the fork uniquely rendered was re-homed rather than dropped —
+          "what I was given" (ROADMAP 2.973's trigger), the bias
+          micro-intervention steps, the canvas graph projection, the `est.`
+          provenance tag and `evidence_view_opened`. Two capabilities were
+          knowingly let go: the run-over-run comparison (prohibited by
+          runHistory.ts:1-8 §19 AND data-unavailable on the live path — see
+          buildHeroModel's whatChanged note) and the "You wrote:" quote-back
+          (whose deletion resolves rowed honesty defect 2.993).
+          The wrapper below is unchanged, so everything beneath the old
+          divider still renders byte-identically. Re-mounting V7 here REDs
           `ResultsBody.v7Retired.spec.tsx`. */}
       <div className="flex flex-col gap-4" data-testid="assessment-current-view-group">
 
@@ -415,6 +426,22 @@ export const ResultsBody = memo(function ResultsBody({
               no other posture. */}
           <SectionErrorBoundary section="Key question">
             <KeyQuestionCard />
+          </SectionErrorBoundary>
+          {/* ── 2.973: "what I was given" — RE-HOMED, not deleted ──────────
+              This surface used to render ONLY on the temporary "Alt view"
+              comparison tab. ROADMAP 2.973 carried an explicit trigger for
+              this moment: "when that tab retires, this surface MUST be
+              explicitly re-homed or it goes dark with it" (#673 review).
+              The tab is now retired, so it is mounted here — on the one
+              surviving Analysis surface — rather than dying with its host.
+              It is the ONLY reader of the context-integrity manifest and of
+              the user's verbatim brief; nothing else renders either.
+              It self-gates: it renders nothing unless the context-integrity
+              store's scenarioId matches the live decision (the identity gate
+              that fixed it showing a PREVIOUS decision's brief verbatim), so
+              mounting it unconditionally here is safe. */}
+          <SectionErrorBoundary section="What I was given">
+            <WhatIWasGivenSection />
           </SectionErrorBoundary>
         </>
 

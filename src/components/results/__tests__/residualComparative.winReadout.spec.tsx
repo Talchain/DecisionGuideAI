@@ -19,33 +19,19 @@
  * Number-first matches the sibling readout in the same copy module
  * (`goal.hitReadout`: "{formatted} hit target"), so the two lenses stay one
  * voice.
+ *
+ * ⚠ THE COPY-MODULE ARM IS GONE WITH ITS DECK (V7 retirement). This file opened
+ * with a describe over `V7_LENS_COPY.outcome.winReadout`, which DELEGATED to
+ * `COMPARATIVE_COPY.phrase`. The deck is deleted. `RangeVisualization` — the
+ * surviving surface below — reads `COMPARATIVE_COPY.phrase` DIRECTLY, so the
+ * rendered claim is measured on the live surface rather than on a delegation,
+ * and nothing about the register's own wording is lost: it is pinned in
+ * `utils/goalAnchorCopy.ts`'s own suite.
  */
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { V7_LENS_COPY } from '../v7/v7LensCopy'
 import { RangeVisualization } from '../RangeVisualization'
 import type { OptionResult } from '../types'
-
-describe('v7LensCopy.outcome.winReadout (ROADMAP 1.239)', () => {
-  it('reads as a noun, not a leader verb', () => {
-    expect(V7_LENS_COPY.outcome.winReadout('52%')).toBe('Came out ahead in 52% of simulated scenarios')
-  })
-
-  it('carries no leader verb at all', () => {
-    expect(V7_LENS_COPY.outcome.winReadout('52%')).not.toMatch(/\bleads?\b/i)
-  })
-
-  it('keeps the number — the relabel must not cost the DATA', () => {
-    // Over-suppression control: this residual is a wording fix, and a change
-    // that dropped the percentage would be a worse failure than the wording.
-    expect(V7_LENS_COPY.outcome.winReadout('52%')).toContain('52%')
-  })
-
-  it('stays one voice with its sibling readout in the same lens group', () => {
-    // `goal.hitReadout` is number-first; the outcome lens now matches it.
-    expect(V7_LENS_COPY.goal.hitReadout('40%', false)).toBe('40% chance of hitting your goal')
-  })
-})
 
 const OPTIONS: OptionResult[] = [
   {

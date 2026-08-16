@@ -1,35 +1,31 @@
 /**
- * ResultsBody — the V7 assessment scaffold is RETIRED FROM THE ANALYSIS TAB
- * (Paul, 12 Aug 2026: move the duplicated analysis surfaces to a temporary
- * comparison tab — move, NOT delete).
+ * ResultsBody — the V7 assessment scaffold is ABSENT from the Analysis tab.
  *
- * The Analysis tab (`results`) rendered the whole analysis TWICE: `V7TopMatter`
- * (the V6-RESPEC-2026-07-23 §1 "Option A — additive, never replace" assessment
- * scaffold) ABOVE a divider literally labelled "Current view", then the live
- * answer-first surfaces below. The scaffold never retired. It has now MOVED —
- * unchanged — to the temporary "Alt view" dock tab (`V7ComparisonTabBody`),
- * so the two renderings stay comparable without the duplication polluting the
- * working tab.
+ * The Analysis tab (`results`) once rendered the whole analysis TWICE:
+ * `V7TopMatter` (the V6-RESPEC-2026-07-23 §1 "Option A — additive, never
+ * replace" assessment scaffold) ABOVE a divider literally labelled "Current
+ * view", then the live answer-first surfaces below. Paul's 12 Aug 2026 ruling
+ * MOVED it — unchanged — to a temporary "Alt view" dock tab so the two
+ * renderings stayed comparable ("move, NOT delete"). The adjudication is now
+ * settled in favour of the consolidated analysis cockpit, and the whole V7
+ * group, its tab and its host are DELETED.
  *
- * These pins are the ANALYSIS-TAB half of the move (the new home's half lives
- * in `v7/__tests__/V7ComparisonTabBody.spec.tsx`):
+ * These pins survive the deletion because they are the absence half, and they
+ * still bite against a re-introduction:
  *   (a) the V7 top matter (and its host group) is ABSENT from the Analysis
  *       tab's render;
  *   (b) the "Current view" divider is ABSENT (only meaningful while the two
- *       views coexisted on one tab);
- *   (c) the temporary comparison tab is REGISTERED in the dock tab set,
- *       unconditionally (no flag — no-dark-launch doctrine).
+ *       views coexisted on one tab).
  *
- * RED-first at pristine 611d91c0: (a) and (b) fail because the scaffold still
- * mounts on the Analysis tab; (c) fails because no 'altview' tab exists.
+ * RED-first at pristine 611d91c0: (a) and (b) failed because the scaffold still
+ * mounted on the Analysis tab.
  *
- * A regression that re-mounts V7 on the Analysis tab turns (a) RED — this is
- * the named test the brief requires. Bound to testids (identity), not to copy.
+ * A regression that re-mounts a second analysis rendering on the Analysis tab
+ * turns (a) RED. Bound to testids (identity), not to copy.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
-import { getOutputTabsForParity } from '../../../canvas/components/OutputsDock'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
   ConfidenceSectionData,
@@ -147,7 +143,7 @@ function renderBody() {
   )
 }
 
-describe('ResultsBody — V7 scaffold retired from the Analysis tab (moved to the Alt view tab)', () => {
+describe('ResultsBody — the V7 scaffold is absent from the Analysis tab', () => {
   beforeEach(() => {
     useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
@@ -168,7 +164,7 @@ describe('ResultsBody — V7 scaffold retired from the Analysis tab (moved to th
 
     expect(
       screen.queryByTestId('v7-top-matter'),
-      'V7 top matter re-mounted on the Analysis tab — it lives on the Alt view tab now',
+      'a second analysis rendering re-mounted on the Analysis tab',
     ).not.toBeInTheDocument()
     expect(
       screen.queryByTestId('v7-top-group'),
@@ -186,14 +182,16 @@ describe('ResultsBody — V7 scaffold retired from the Analysis tab (moved to th
     expect(container.textContent ?? '').not.toMatch(/Current view/)
   })
 
-  it('(c) the temporary comparison tab is registered, unflagged, beside Analysis', () => {
-    const tabs = getOutputTabsForParity()
-    const ids = tabs.map(t => t.id)
-    expect(ids).toContain('altview')
-    const alt = tabs.find(t => t.id === 'altview')
-    expect(alt?.label).toBe('Alt view')
-    // Adjacency: directly after 'results' so the two renderings under
-    // comparison sit side by side in the strip.
-    expect(ids[ids.indexOf('results') + 1]).toBe('altview')
-  })
+  // ⚠ CASE (c) IS DELETED, AND ITS DELETION IS THE POINT. It asserted that the
+  // temporary 'altview' comparison tab WAS registered in the dock tab set. The
+  // V7 adjudication is settled in favour of the consolidated analysis cockpit,
+  // so that tab is RETIRED and the assertion is now false. It is not inverted
+  // here: the retired tab's absence — including the sessionStorage rehydration
+  // path, which case (c) never covered — is pinned by its owner,
+  // `canvas/components/__tests__/OutputsDock.dom.spec.tsx`. Restating it here
+  // from a second file is the hand-maintained mirror (trap 12).
+  //
+  // (a) and (b) above are UNCHANGED and still bite: they are absence pins about
+  // ResultsBody, and they RED if the assessment scaffold is ever re-mounted on
+  // the Analysis tab.
 })

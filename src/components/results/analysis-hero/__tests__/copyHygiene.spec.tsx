@@ -122,6 +122,9 @@ const UI_COPY: string[] = [
   HERO_COPY.evidence.tradeOffsTab,
   HERO_COPY.evidence.seeAllFactors,
   HERO_COPY.evidence.showFewer,
+  // The `est.` provenance tag and its accessible name (ported from V7).
+  HERO_COPY.evidence.estimateTag,
+  HERO_COPY.evidence.estimateTagAria,
   HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', HERO_COPY.evidence.fallsBelow, '30%', 'Two developers', false),
   HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', HERO_COPY.evidence.fallsBelow, '30%', 'Two developers', true),
   HERO_COPY.evidence.flipRiskNoAlternative('Salary cost', HERO_COPY.evidence.risesAbove, '$60,000', false),

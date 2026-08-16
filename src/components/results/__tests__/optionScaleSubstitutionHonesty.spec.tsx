@@ -14,10 +14,14 @@
  *       display of data that IS present.
  *
  *   (a) An absent MEDIAN was filled with the MEAN at the render site
- *       (`p50 ?? mean`). This is not a subtle mislabel: the lens prints a
- *       standing caption, `V7_LENS_COPY.outcome.caption`, that reads "Dots show
- *       the median." — so a substituted dot makes the surface state, in words,
- *       that a number is the median when it is the mean.
+ *       (`p50 ?? mean`). At the time this was not a subtle mislabel: the V7
+ *       lens printed a standing caption reading "Dots show the median." — so a
+ *       substituted dot made the surface state, in words, that a number was the
+ *       median when it was the mean. ⚠ THAT CAPTION DIED WITH THE V7 DECK and
+ *       nothing on the surviving surface restates it, so the case pinning it is
+ *       removed below. The rule itself is UNCHANGED and still pinned: an absent
+ *       p50 draws no dot and prints no middle label. A dot is a positional
+ *       claim about the median whether or not a sentence says so.
  *
  * ORACLE — the producer's own declared semantics, not this lane's reading
  * (trap 13c: a mutant kit validates sensitivity, never correctness). The type
@@ -27,29 +31,29 @@
  *    distributions."
  * A robustness Monte-Carlo distribution is exactly where they diverge.
  *
- * ⚠ WHY THESE PINS RENDER THE MOUNT PATH AND BIND TO `v7-range-bar`.
- * Two components render the same shared `OptionRangeBar`, and only one of them
- * reaches an ordinary reader on the deployed build:
- *   · V7LensGroup's bar (`v7-range-bar`) mounts through V7TopMatter — hosted,
- *     since the 12 Aug 2026 move, on the temporary "Alt view" dock tab
- *     (`V7ComparisonTabBody`, no flag; previously ResultsBody's unflagged
- *     `v7-top-group`). The harness below renders that host — V7TopMatter's
- *     ONLY production parent — so these pins stay pointed at the surface a
- *     reader actually loads.
- *   · OptionCards' bar (`option-range-bar`) sits inside `{expertMode && ...}`
- *     on the Analysis tab, and is NOT what these pins cover.
- * DOM census over the real captures in `PHASE0-EVIDENCE-2026-07-28/` (taken
- * pre-move, when the group lived on the Analysis tab — the CONTENT is
- * unchanged by the move): `v7-range-bar` in 53 capture files, `v7-outcome-row`
- * in 53, `v7-top-matter` in 81; `option-range-bar` in 1, and that one file is
- * a model inventory rather than a rendered results DOM.
+ * ⚠⚠ RE-POINTED BY THE V7 RETIREMENT, AND THE SCOPE CHANGE IS STATED RATHER
+ * THAN SLIPPED IN. Two components rendered the same shared `OptionRangeBar`.
+ * These pins used to render the V7 one (`v7-range-bar`, mounted through
+ * `V7TopMatter` on the temporary "Alt view" comparison tab), because a DOM
+ * census over `PHASE0-EVIDENCE-2026-07-28/` put `v7-range-bar` in 53 capture
+ * files against `option-range-bar` in 1. That component, its host and that tab
+ * are DELETED, so the ONLY surviving consumer of `OptionRangeBar` is
+ * `OptionCards`' bar (`option-range-bar`) on the Analysis tab — and every arm
+ * below now renders THAT.
  *
- * So every arm renders the MOUNT PATH (`<V7ComparisonTabBody>`) rather than a
- * component in isolation, and the first arm asserts the mount itself — rows
- * 2.466 and 2.491 shipped the same feature dark TWICE past a full mutant kit,
- * a RED-first discipline and a positive control, because every instrument was
- * pointed at a component the deployed flags do not mount. A green suite is not
- * evidence about a surface the deployment does not render.
+ * ⚠ THE HONEST COST OF THE MOVE, named: `OptionCards`' bar sits inside
+ * `{expertMode && ...}`, so the surviving surface is EXPERT-GATED where the V7
+ * one was flagless. These pins therefore cover a surface fewer readers reach.
+ * They are re-pointed rather than deleted because the substitution they guard
+ * lives in `OptionRangeBar` and `computeOptionScale` — SHARED code, still live,
+ * and the unit-level arm below exercises it with no host at all.
+ *
+ * Every rendered arm still renders the MOUNT PATH (`<ResultsBody expertMode>`)
+ * rather than a component in isolation, and the first arm asserts the mount
+ * itself — rows 2.466 and 2.491 shipped the same feature dark TWICE past a full
+ * mutant kit, a RED-first discipline and a positive control, because every
+ * instrument was pointed at a component the deployed flags do not mount. A
+ * green suite is not evidence about a surface the deployment does not render.
  *
  * BINDING: every assertion addresses a row by `data-option-id="<exact id>"` and
  * re-asserts that row's own label, so no assertion can be satisfied by a
@@ -58,10 +62,8 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup, within } from '@testing-library/react'
 
-import { V7ComparisonTabBody } from '../v7/V7ComparisonTabBody'
 import { ResultsBody } from '../ResultsBody'
 import { computeOptionScale } from '../shared/OptionRangeBar'
-import { V7_LENS_COPY } from '../v7/v7LensCopy'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
   ConfidenceSectionData,
@@ -164,18 +166,8 @@ function makeData(options: OptionResult[]): ResultsSectionDataReturn {
   } as unknown as ResultsSectionDataReturn
 }
 
-/** THE MOUNT PATH — V7TopMatter's only production parent (the Alt view tab). */
-function renderBody(options: OptionResult[]) {
-  return render(
-    <V7ComparisonTabBody
-      resultsSectionData={makeData(options)}
-      onSendMessage={() => {}}
-    />,
-  )
-}
-
-/** The ANALYSIS-TAB host — used ONLY by the expert-twin arm at the bottom,
- *  which pins `OptionCards`' bar (a ResultsBody surface, expert-gated). */
+/** THE ANALYSIS-TAB host — `OptionCards`' bar is the only surviving consumer of
+ *  the shared `OptionRangeBar`, and it is expert-gated (see the header). */
 function renderAnalysisTab(options: OptionResult[], expertMode = false) {
   return render(
     <ResultsBody
@@ -187,23 +179,28 @@ function renderAnalysisTab(options: OptionResult[], expertMode = false) {
   )
 }
 
+/** THE MOUNT PATH, with the gate the surviving bar actually sits behind. */
+function renderBody(options: OptionResult[]) {
+  return renderAnalysisTab(options, true)
+}
+
 /**
- * Select an outcome row by IDENTITY — the option id addresses it and the
- * option's own label is re-asserted, so a row carrying the right geometry under
+ * Select an option card by IDENTITY — the option id addresses it and the
+ * option's own label is re-asserted, so a card carrying the right geometry under
  * the wrong identity satisfies nothing.
  */
 function rowByIdentity(optionId: string, label: string): HTMLElement {
   const row = document.querySelector<HTMLElement>(
-    `[data-testid="v7-outcome-row"][data-option-id="${optionId}"]`,
+    `[data-testid="option-card-${optionId}"][data-option-id="${optionId}"]`,
   )
-  expect(row, `no v7-outcome-row rendered for option id "${optionId}"`).not.toBeNull()
-  expect(row!.textContent, `identity: row ${optionId} must show "${label}"`).toContain(label)
+  expect(row, `no option card rendered for option id "${optionId}"`).not.toBeNull()
+  expect(row!.textContent, `identity: card ${optionId} must show "${label}"`).toContain(label)
   return row!
 }
 
 function rangeBar(optionId: string, label: string): HTMLElement {
-  const bar = within(rowByIdentity(optionId, label)).queryByTestId('v7-range-bar')
-  expect(bar, `option "${optionId}" rendered no v7-range-bar`).not.toBeNull()
+  const bar = within(rowByIdentity(optionId, label)).queryByTestId('option-range-bar')
+  expect(bar, `option "${optionId}" rendered no option-range-bar`).not.toBeNull()
   return bar as HTMLElement
 }
 
@@ -230,24 +227,31 @@ afterEach(() => {
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('2.800 — MOUNT PATH: the pinned surface is the one the deployed build renders', () => {
-  it('the Alt view tab body mounts the V7 lens and its range bar with NO flag and NO expert mode', () => {
-    renderBody([
-      opt('scored', 'Scored option', { p10: 50, p50: 75, p90: 100, win: 0.6 }),
-      opt('other', 'Other option', { p10: 60, p50: 70, p90: 80, win: 0.4 }),
-    ])
+  const TWO_SCORED = () => [
+    opt('scored', 'Scored option', { p10: 50, p50: 75, p90: 100, win: 0.6 }),
+    opt('other', 'Other option', { p10: 60, p50: 70, p90: 80, win: 0.4 }),
+  ]
 
-    // If a flag is ever placed in front of the lens group, or the bar is
-    // re-hosted on a component the deployed flags leave unmounted, THIS reds —
-    // which is the alarm 2.466 and 2.491 did not have.
-    expect(screen.queryByTestId('v7-top-matter')).not.toBeNull()
-    expect(screen.queryByTestId('v7-lens-group')).not.toBeNull()
+  it('the Analysis tab mounts the option card and its range bar under expert mode', () => {
+    renderBody(TWO_SCORED())
+
+    // If the bar is ever re-hosted on a component the deployed flags leave
+    // unmounted, THIS reds — which is the alarm 2.466 and 2.491 did not have.
+    expect(screen.queryByTestId('outputs-results-redesign')).not.toBeNull()
     expect(rangeBar('scored', 'Scored option')).not.toBeNull()
+  })
 
-    // NOTE (12 Aug 2026 move): the old assertion that the expert-gated twin
-    // (`option-range-bar`) is absent here became VACUOUS in this host —
-    // OptionCards never mounts on the Alt view tab, so its absence proves
-    // nothing. The twin's own rule is pinned in the ResultsBody-bound arm at
-    // the bottom of this file, which mounts the surface it asserts about.
+  it('GATE CONTROL — without expert mode the bar is NOT rendered', () => {
+    // The honest scope of every rendered arm below, asserted rather than
+    // described: this surface is expert-gated, so a reader on the default
+    // posture sees no bar at all. Stating it here stops a later change reading
+    // these pins as covering the default Analysis tab.
+    renderAnalysisTab(TWO_SCORED(), false)
+    expect(screen.queryByTestId('outputs-results-redesign')).not.toBeNull()
+    expect(
+      within(rowByIdentity('scored', 'Scored option')).queryByTestId('option-range-bar'),
+      'the surviving range bar is expert-gated — this control pins that scope',
+    ).toBeNull()
   })
 })
 
@@ -320,7 +324,7 @@ describe('2.800b — the rendered comparison is unmoved by an option with no sta
     // The unscored option itself still renders its row and still shows NO bar —
     // absence stays absence, it is not backfilled with a zero-width artefact.
     expect(
-      within(rowByIdentity('unscored', 'Unscored option')).queryByTestId('v7-range-bar'),
+      within(rowByIdentity('unscored', 'Unscored option')).queryByTestId('option-range-bar'),
     ).toBeNull()
   })
 
@@ -367,31 +371,29 @@ describe('2.800a — median honesty: an absent p50 is NEVER the mean', () => {
     // Discriminating partner: proves the render reads p50 specifically, not
     // "whichever central value happens to be around". mean and p50 are far
     // apart and on opposite sides of the range.
-    renderBody([opt('a', 'Skewed option', { mean: 20, p10: 0, p50: 80, p90: 100, win: 0.6 })])
+    //
+    // ⚠ TWO OPTIONS, not one: this surviving host renders an option COMPARISON,
+    // so a one-option fixture paints no card at all and the assertion below
+    // would fail for a reason unrelated to the median. The labels asserted are
+    // that option's OWN raw values, so the sibling cannot satisfy them.
+    renderBody([
+      opt('a', 'Skewed option', { mean: 20, p10: 0, p50: 80, p90: 100, win: 0.6 }),
+      opt('b', 'Other option', { mean: 50, p10: 20, p50: 50, p90: 80, win: 0.4 }),
+    ])
 
     expect(barLabels('a', 'Skewed option')).toEqual(['0', '80', '100'])
   })
 
-  it('the caption still claims the dots ARE the median — which is why the substitution had to go', () => {
-    // This pins the COPY, not a conditional rendering rule. The lens prints
-    // "Dots show the median. Bars show the realistic range (10th to 90th
-    // percentile)." above the rows, and that sentence is what makes a
-    // substituted dot a false statement rather than a mislabelled glyph.
-    //
-    // Pinned so the two cannot drift apart in either direction: if someone
-    // later softens this wording to something a mean could satisfy, this reds
-    // and the reviewer has to decide deliberately rather than by accident.
-    //
-    // ⚠ SCOPE, stated plainly so the name cannot overclaim: this does NOT
-    // assert that the caption is suppressed when no dot is drawn. It is not —
-    // a run where no option carries a p50 still prints the sentence over
-    // dotless bars. That is a cosmetic incoherence, not a false statistic, and
-    // it is left for its own change rather than widened into this one.
-    renderBody([opt('a', 'Skewed option', { mean: 20, p10: 0, p50: 80, p90: 100, win: 0.6 })])
-
-    expect(screen.getByText(V7_LENS_COPY.outcome.caption)).toBeTruthy()
-    expect(V7_LENS_COPY.outcome.caption).toContain('median')
-  })
+  // ⚠⚠ THE CAPTION CASE IS REMOVED, AND ITS ABSENCE IS A FINDING. It pinned
+  // `V7_LENS_COPY.outcome.caption` — "Dots show the median. Bars show the
+  // realistic range (10th to 90th percentile)." — the sentence that made a
+  // substituted dot a false STATEMENT rather than a mislabelled glyph. That
+  // deck is deleted with the V7 group and NOTHING on the surviving surface
+  // restates it: `OptionCards` draws the dot with no caption at all. So after
+  // this retirement the product draws a median dot it never names. That is a
+  // disclosure gap to row, not something to reconstruct here against copy that
+  // does not exist — and the substitution rule the caption justified is
+  // unaffected and still pinned by the two cases above.
 })
 
 // ───────────────────────────────────────────────────────────────────────────

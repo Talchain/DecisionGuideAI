@@ -647,11 +647,16 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
       ...m,
       evidence: {
         assumedStrength: { selected: null, refusalReason: 'no_robustness_data', assumedFragileCount: 0 },
+        // `isEstimate` is REQUIRED on the row (see `HeroDriverValueProvenance`).
+        // This suite's subject is the drivers/flip-risks/trade-offs rendering,
+        // not value provenance, so every row here states the producer-silent
+        // state explicitly — the `est.` tag renders on 'estimated' ONLY and is
+        // covered by `HeroEvidenceDisclosure.estimateTag.spec.tsx`.
         drivers: [
-          { rank: 1, label: 'Developer capacity', targetId: 'node_dev', direction: 'positive', influence: 1 },
-          { rank: 2, label: 'Team morale', targetId: null, direction: 'negative', influence: 0.66 },
-          { rank: 3, label: 'Hiring speed', targetId: 'node_hiring', direction: null, influence: null },
-          { rank: 4, label: 'Salary cost', targetId: 'node_salary', direction: 'negative', influence: 0.58 },
+          { rank: 1, label: 'Developer capacity', targetId: 'node_dev', direction: 'positive', influence: 1, isEstimate: 'undetermined' },
+          { rank: 2, label: 'Team morale', targetId: null, direction: 'negative', influence: 0.66, isEstimate: 'undetermined' },
+          { rank: 3, label: 'Hiring speed', targetId: 'node_hiring', direction: null, influence: null, isEstimate: 'undetermined' },
+          { rank: 4, label: 'Salary cost', targetId: 'node_salary', direction: 'negative', influence: 0.58, isEstimate: 'undetermined' },
         ],
         flipRisks: [
           {
@@ -663,6 +668,10 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
         ],
         tradeOffs: null,
         designationsWithheld: false,
+        // No fragile-edge references: this suite renders no canvas, and the
+        // analysis-graph projection has its own spec
+        // (`HeroEvidenceDisclosure.projection.spec.tsx`).
+        fragileEdgeRefs: [],
         // V7-C slices 1 + 2a defaults: this suite's subject is the drivers /
         // flip-risks / trade-offs views, so the value-of-information views stay
         // in their honest-silence state here and are covered by

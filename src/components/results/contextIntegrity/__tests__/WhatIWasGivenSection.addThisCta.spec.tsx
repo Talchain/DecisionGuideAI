@@ -48,7 +48,7 @@
  * sentence ships and the imperative does not.
  */
 import { describe, it, expect } from 'vitest'
-import { composeNotModelledQuestion, recoverBriefSentence } from '../V7WhatIWasGivenSection'
+import { composeNotModelledQuestion, recoverBriefSentence } from '../WhatIWasGivenSection'
 import type { NotModelledItem } from '../../../../adapters/cee/notModelled'
 
 const BRIEF =

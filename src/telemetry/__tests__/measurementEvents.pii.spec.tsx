@@ -22,6 +22,16 @@
 //      allowed to run. A fixture that silently stopped rendering the canary
 //      would otherwise make the whole file pass by driving nothing.
 //
+// ⚠ THE DETECTOR, THE CANARY AND THE CONTROL NOW LIVE IN
+// `helpers/piiCanary.ts`, NOT IN THIS FILE. They were extracted when the
+// render-driven hero arm was relocated (see the manifest below): two spec files
+// needed the same instrument, and two copies of a leak detector is the
+// hand-maintained mirror (trap 12) applied to the one thing the whole PII
+// guarantee rests on. This file registers the control via
+// `registerLeakDetectorPlantedControl` in § 1, exactly as before — the control
+// is per-file because it must prove the detector sees a leak through THIS
+// file's own spy and mock, and a disconnected spy is the 0-byte failure mode.
+//
 // WHAT THE CANARY IS ON, AND THE EXACT SCOPE OF THE GUARANTEE
 // -----------------------------------------------------------
 // ⚠ THIS HEADER PREVIOUSLY CLAIMED THE CANARY WAS ON "contested-edge node
@@ -38,8 +48,32 @@
 //
 //   RENDER-DRIVEN — a real component renders IN THIS FILE, the canary is proven
 //   present in the DOM, and only then may the absence assertion run:
-//     · V7EvidenceDisclosure, all four views     → evidence_view_opened
-//     · FeedbackRow, thumbs                      → turn_feedback
+//     · FeedbackRow, thumbs                        → turn_feedback
+//
+//   ⚠⚠ `evidence_view_opened`'s RENDER-DRIVEN ARM IS NOT IN THIS FILE, and the
+//   history matters because this line has been wrong in both directions before.
+//   Its only emitter in the whole repo was `V7EvidenceDisclosure`, deleted with
+//   the V7 retirement, which left the event with ZERO emitters while its schema
+//   stayed declared in `measurementEvents.ts`. The interim pin was DIRECT-DRIVEN
+//   at the seam and said so honestly. The emitter was then re-homed onto
+//   `analysis-hero/HeroEvidenceDisclosure.tsx` — the disclosure a post-run user
+//   actually loads — and the render-driven arm was restored against THAT host,
+//   IN THIS FILE.
+//
+//   It has since MOVED OUT, to
+//   `components/results/analysis-hero/__tests__/HeroEvidenceDisclosure.pii.spec.tsx`.
+//   Not a preference: `analysis-hero/__tests__/inertness.spec.ts` is a LIVE
+//   MOUNT GUARD permitting exactly two importers of that module repo-wide, and
+//   it exempts no test file — so a telemetry-wide spec that renders the hero IS
+//   the offender. The guard was not widened; the one arm that needed the import
+//   went to where the import is legitimate, and the rest of this file stayed.
+//   The two files share `helpers/piiCanary.ts`, so there is still exactly one
+//   detector.
+//
+//   The SEAM-LEVEL `evidence_view_opened` pin REMAINS HERE (§ 2), and is not a
+//   substitute for the moved arm: the seam pin proves the transport drops an
+//   undeclared label; the render pin proves the component picks the right field
+//   in the first place.
 //
 //   ⚠ THIS LIST PREVIOUSLY INCLUDED "ContestedEdgeCard, mount + unmount". THIS
 //   FILE NEVER IMPORTS OR RENDERS THAT COMPONENT — the renders live in
@@ -90,11 +124,21 @@
 //   that a manifest is only honest if every line of it is re-checked against
 //   the file AFTER the file stops changing.
 //
-// The canary is placed on every user- or model-authored string those surfaces
-// can reach: driver labels, flip-risk from/to labels, trade-off factor and
-// winner labels, resolve-next row labels, contested-edge node/edge labels, and
-// every free-text field on the run-spine payloads. `factor_label` in particular
-// is RENDERED by the resolve-next surface — one spread from the payload.
+// The canary is placed on every user- or model-authored string the surfaces
+// THIS FILE drives can reach: the turn id behind FeedbackRow, contested-edge
+// node/edge labels, the resolve-next row label a developer could spread into
+// `factor_label`, and every free-text field on the run-spine payloads.
+//
+// ⚠ RE-DERIVED THREE TIMES, and this is the live one. The paragraph first
+// described `V7EvidenceDisclosure`'s model (driver `label`, flip-risk
+// `fromLabel`/`toLabel`, trade-off factor/winner labels); it was narrowed when
+// that component was deleted; it was then restated against `HeroEvidenceModel`.
+// It is now narrowed AGAIN, because the poisoned `HeroEvidenceModel` fixture
+// left with the render-driven arm — it lives beside that arm, in
+// `analysis-hero/__tests__/HeroEvidenceDisclosure.pii.spec.tsx`, where the
+// component it poisons is importable. Nothing in THIS file builds a hero model
+// any more, and a manifest claiming otherwise would be trap 14's fourth
+// recurrence in one header. Read the model, not this comment.
 // =============================================================================
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -123,68 +167,11 @@ vi.mock('@sentry/react', () => ({ captureMessage: (...a: unknown[]) => captureMe
 
 import * as runSpine from '../../lib/resultsInstrumentation'
 import { GUIDANCE_EVENTS, trackGuidance } from '../guidanceEvents'
-import { V7EvidenceDisclosure } from '../../components/results/v7/V7EvidenceDisclosure'
 import { FeedbackRow } from '../../canvas/conversation/FeedbackRow'
-import { v7EvidenceModel } from '../../__fixtures__/v7EvidenceModel'
 import { trackMeasurement, MEASUREMENT_EVENT_SCHEMAS } from '../measurementEvents'
-
-const CANARY = 'PII_CANARY_do_not_ship_7f3a'
-
-/**
- * THE DETECTOR. A function, deliberately — so the planted control below can
- * point it at a leak and prove it throws. An inline `expect` cannot be tested.
- *
- * Throws when the canary appears anywhere in any captured payload, at any
- * depth, including inside arrays and nested objects (JSON.stringify walks the
- * whole tree — a leak nested two levels deep is still a leak).
- */
-function assertNoCanary(calls: unknown[][]): void {
-  const offenders: string[] = []
-  for (const [name, props] of calls) {
-    const serialised = JSON.stringify(props ?? {})
-    if (serialised.includes(CANARY)) offenders.push(`${String(name)} → ${serialised}`)
-  }
-  if (offenders.length > 0) {
-    throw new Error(
-      `USER-AUTHORED CONTENT REACHED A TELEMETRY PAYLOAD. ${offenders.length} event(s):\n` +
-        offenders.join('\n') +
-        '\nEvery name on measurementEvents.ts\'s never-capture list is a real field at ' +
-        'the tip, reachable from an instrumented surface. This is what that list is for.',
-    )
-  }
-}
-
-/** Every user/model-authored string on the evidence model carries the canary. */
-function canaryEvidenceModel() {
-  return v7EvidenceModel({
-    drivers: [
-      { factorKey: 'f1', label: `${CANARY} driver one`, direction: 'positive', isEstimate: false, focusId: 'node-1' },
-      { factorKey: 'f2', label: `${CANARY} driver two`, direction: 'negative', isEstimate: true },
-    ],
-    flipRisks: [
-      { fromId: 'n1', toId: 'n2', edgeId: 'e1', fromLabel: `${CANARY} from`, toLabel: `${CANARY} to`, switchProbability: 0.4 },
-    ],
-    tradeOffs: [
-      {
-        factorLabel: `${CANARY} tradeoff factor`,
-        factorId: 'factor-77',
-        splitValue: 12.5,
-        splitUnit: 'units',
-        highWinnerLabel: `${CANARY} high winner`,
-        lowWinnerLabel: `${CANARY} low winner`,
-      },
-    ],
-    resolveNext: {
-      resolved: [
-        { factorId: 'factor-rank1', label: `${CANARY} rank one`, canFocus: true },
-        { factorId: 'factor-rank2', label: `${CANARY} rank two`, canFocus: false },
-      ],
-      belowResolution: [{ factorId: 'factor-low', label: `${CANARY} below`, canFocus: false }],
-      someFactorsUnassessed: true,
-    },
-    designationsWithheld: false,
-  })
-}
+// The detector, the canary and the planted control are SHARED with the hero's
+// render-driven arm (see the manifest above). One instrument, not two copies.
+import { CANARY, assertNoCanary, registerLeakDetectorPlantedControl } from './helpers/piiCanary'
 
 beforeEach(() => {
   trackEventSpy.mockClear()
@@ -199,103 +186,66 @@ afterEach(() => {
 
 // ---------------------------------------------------------------------------
 // § 1 — THE PLANTED CONTROL. Runs first, and on every CI pass.
+//
+// Registered from the shared helper so this file and the hero's render-driven
+// arm run the SAME control against the SAME detector. It still proves the
+// detector sees a leak through THIS file's own spy and mock — that is why it is
+// registered per-file rather than run once somewhere central.
 // ---------------------------------------------------------------------------
 
-describe('1.68 · S2 PLANTED CONTROL — the detector can SEE a leak', () => {
-  it('a deliberately-leaking payload makes assertNoCanary THROW', () => {
-    // The realistic accident, not a strawman: `rank1_factor_id` is declared, so
-    // it survives trackMeasurement's schema validation — and the resolve-next
-    // surface renders BOTH `row.factorId` and `row.label` two lines apart. A
-    // developer reaching for the wrong one produces exactly this payload, and
-    // it typechecks.
-    trackMeasurement('evidence_view_opened', {
-      view: 'resolveNext',
-      scenario_id: 'sc-1',
-      gated: false,
-      rank1_factor_id: `${CANARY} rank one`,
-    })
-
-    expect(
-      () => assertNoCanary(trackEventSpy.mock.calls),
-      'the leak detector did NOT throw on a payload that demonstrably contains the ' +
-        'canary. Every absence assertion in this file is therefore vacuous — this is ' +
-        'the 0-byte-capture failure mode, and it is why this control exists.',
-    ).toThrow(/USER-AUTHORED CONTENT REACHED A TELEMETRY PAYLOAD/)
-  })
-
-  it('a leak NESTED inside an array or object is still caught', () => {
-    // Guards the detector's own reach, not the product's: a shallow key scan
-    // would miss this, and a future refactor to a shallow scan must red here.
-    expect(() =>
-      assertNoCanary([['some_event', { rows: [{ meta: { label: CANARY } }] }]]),
-    ).toThrow(/USER-AUTHORED CONTENT REACHED/)
-  })
-
-  it('a clean payload does NOT throw (the detector is not simply always-red)', () => {
-    expect(() => assertNoCanary([['some_event', { scenario_id: 'sc-1', ranked_count: 2 }]])).not.toThrow()
-  })
-})
+registerLeakDetectorPlantedControl(() => trackEventSpy.mock.calls)
 
 // ---------------------------------------------------------------------------
 // § 2 — SURFACE-DRIVEN absence assertions, each with a presence-precondition
 // ---------------------------------------------------------------------------
 
 describe('1.68 · S2 — no user-authored content reaches a measurement payload', () => {
-  it('V7EvidenceDisclosure — all four views, opened and switched', () => {
-    render(<V7EvidenceDisclosure evidence={canaryEvidenceModel()} />)
-
-    // Open the disclosure (emits the first evidence_view_opened, view=drivers).
-    fireEvent.click(screen.getByRole('button', { expanded: false }))
-
-    // PRESENCE-PRECONDITION. Before any absence claim, prove the surface is
-    // actually RENDERING the canary — otherwise "the canary reached no payload"
-    // is true because the canary reached nothing at all.
-    expect(
-      document.body.textContent,
-      'the rendered evidence surface does not contain the canary — the fixture is not ' +
-        'driving this surface, so the absence assertion below would test nothing',
-    ).toContain(CANARY)
-
-    // Switch through every remaining view; each is a transition, each emits.
-    for (const key of ['flipRisks', 'tradeOffs', 'resolveNext'] as const) {
-      fireEvent.click(screen.getByTestId(`v7-evidence-tab-${key}`))
-    }
-
-    // The resolve-next view is the highest-risk one: it renders row LABELS and
-    // the payload carries row IDs. Prove we actually reached it.
-    expect(
-      screen.getAllByTestId('v7-resolve-next-row').length,
-      'the resolve-next view did not render its rows — the riskiest surface in this ' +
-        'taxonomy was never exercised',
-    ).toBeGreaterThan(0)
-
-    // Four openings/transitions must have produced four events.
-    const opened = trackEventSpy.mock.calls.filter((c) => c[0] === 'evidence_view_opened')
-    expect(
-      opened.length,
-      'evidence_view_opened did not fire once per view transition',
-    ).toBe(4)
-
+  /**
+   * The SEAM-LEVEL pin. It was written as the interim stand-in while
+   * `evidence_view_opened` had no emitter at all, and its original note said —
+   * correctly at the time — that it was deliberately weaker than the
+   * render-driven case it replaced, because it proves the TRANSPORT drops an
+   * undeclared label and not that any component picks the right field.
+   *
+   * ⚠ THAT SENTENCE IS WHY IT STAYS, AND WHY IT STAYS *HERE*. The two are not
+   * redundant: the render-driven case — now in
+   * `components/results/analysis-hero/__tests__/HeroEvidenceDisclosure.pii.spec.tsx`,
+   * moved there because the hero's live mount guard admits no outside importer —
+   * cannot exercise a developer spreading `factor_label` into the payload (the
+   * component does not do it), and this one cannot exercise the component's own
+   * field choice. Deleting either leaves a real defect class unobserved, and
+   * this half needs no hero import, so it did not move.
+   */
+  it('evidence_view_opened — the rendered label is DROPPED, the factor ID survives', () => {
+    trackMeasurement('evidence_view_opened', {
+      view: 'resolveNext',
+      scenario_id: 'sc-1',
+      gated: false,
+      rank1_factor_id: 'factor-rank1',
+      ranked_count: 2,
+      below_resolution_count: 1,
+      some_factors_unassessed: true,
+      // @ts-expect-error the accident under test: the surface renders `label`
+      // one line from `factorId`, and a developer reaching for the wrong one
+      // spreads it in here. It is UNDECLARED, so the seam must drop it.
+      factor_label: `${CANARY} rank one`,
+    })
     assertNoCanary(trackEventSpy.mock.calls)
-  })
 
-  it('V7EvidenceDisclosure — the resolveNext payload carries the factor ID, never the label', () => {
-    render(<V7EvidenceDisclosure evidence={canaryEvidenceModel()} />)
-    fireEvent.click(screen.getByRole('button', { expanded: false }))
-    fireEvent.click(screen.getByTestId('v7-evidence-tab-resolveNext'))
-
-    const opened = trackEventSpy.mock.calls.filter((c) => c[0] === 'evidence_view_opened')
-    const resolveNextEvent = opened.find((c) => (c[1] as { view: string }).view === 'resolveNext')
-    expect(resolveNextEvent, 'no evidence_view_opened fired for the resolveNext view').toBeTruthy()
-
-    const props = resolveNextEvent![1] as Record<string, unknown>
-    // The POSITIVE half: it carries the answer key M3/M5 need…
+    const opened = trackEventSpy.mock.calls.find((c) => c[0] === 'evidence_view_opened')
+    expect(opened, 'evidence_view_opened did not fire — the assertions below are vacuous').toBeTruthy()
+    const props = opened![1] as Record<string, unknown>
+    // The POSITIVE half: the answer key M3/M5 need is declared and survives…
     expect(props.rank1_factor_id).toBe('factor-rank1')
     expect(props.ranked_count).toBe(2)
     expect(props.below_resolution_count).toBe(1)
     expect(props.some_factors_unassessed).toBe(true)
-    // …and the NEGATIVE half: not the thing rendered next to it.
-    expect(String(props.rank1_factor_id)).not.toContain(CANARY)
+    // …and the NEGATIVE half: the thing rendered next to it does not.
+    expect(Object.keys(props)).not.toContain('factor_label')
+
+    const violation = trackEventSpy.mock.calls.find((c) => c[0] === 'ui.measurement_schema_violation')
+    expect(violation, 'the undeclared property was dropped SILENTLY').toBeTruthy()
+    expect((violation![1] as { undeclared_keys: string[] }).undeclared_keys).toEqual(['factor_label'])
   })
 
   it('FeedbackRow — the thumbs carry a rating and a scenario id, nothing else', () => {

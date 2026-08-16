@@ -25,8 +25,6 @@ import { render } from '@testing-library/react'
 import { ChatThread } from '../zones/ChatThread'
 import type { ConversationMessage } from '../types'
 
-vi.mock('../../../components/results/v7/V7HeldProposalCard', () => ({ V7HeldProposalCard: () => null }))
-
 const scrollIntoView = vi.fn()
 
 function props(messages: ConversationMessage[], nodeCount = 0) {

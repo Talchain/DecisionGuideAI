@@ -1,5 +1,5 @@
 /**
- * V7WhatIWasGivenSection — ROADMAP 2.973.
+ * WhatIWasGivenSection — ROADMAP 2.973.
  *
  * Four calm answers to the question a strategist actually asks:
  *
@@ -54,7 +54,7 @@ import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../../canvas/store'
 import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrityStore'
 import type { NotModelledItem } from '../../../adapters/cee/notModelled'
-import { ClampToggle } from './ClampToggle'
+import { ClampToggle } from '../ClampToggle'
 
 /** Rows shown per group before "show all". Keeps the open state scannable. */
 const VISIBLE_ROWS = 6
@@ -376,13 +376,13 @@ function Rows({
   )
 }
 
-export interface V7WhatIWasGivenSectionProps {
+export interface WhatIWasGivenSectionProps {
   /** Starts the conversation to add an unmodelled figure. When absent, no
    *  action is offered — we never render a button that does nothing. */
   onSendMessage?: (text: string) => void
 }
 
-export function V7WhatIWasGivenSection({ onSendMessage }: V7WhatIWasGivenSectionProps = {}) {
+export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProps = {}) {
   const [open, setOpen] = useState(false)
   const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
   const briefText = useContextIntegrityStore((s) => s.briefText)

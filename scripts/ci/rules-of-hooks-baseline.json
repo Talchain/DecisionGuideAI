@@ -44,8 +44,8 @@
   ],
   "_recordedAtTip": "5f066967e0a78d715b1594dc021810a3b400bd36",
   "_recordedOn": "2026-08-05",
-  "_total": 232,
-  "_maxTotal": 232,
+  "_total": 231,
+  "_maxTotal": 231,
   "files": {
     "src/canvas/ReactFlowGraph.tsx": 117,
     "src/components/SandboxStreamPanel.tsx": 81,
@@ -60,7 +60,6 @@
     "archive/dead-canvas-components-2026-07/EmptyStateOverlay.tsx": 1,
     "src/canvas/ui/inspector-v2/panels/FactorExternalPanel.tsx": 1,
     "src/components/results/decision-overview/DecisionOverviewCard.tsx": 1,
-    "src/components/results/v7/V7TopMatter.tsx": 1,
     "src/routes/ShareView.tsx": 1
   }
 }

@@ -11,13 +11,17 @@
  *
  *  1. `sortOptionsForDisplay` — `allHaveWinProb` (`every`) → the whole list
  *     re-sorted onto the expected-value comparator.
- *  2. `buildV7Lenses` — `hasCompleteGoalField` over all options → the entire
- *     goal lens collapsed to a `producer_gap` line, which was also the wrong
- *     DIAGNOSIS (the producer had no gap; it was never asked).
- *  3. `buildGoalFitRows` — `return null` from inside the loop returns from the
+ *  2. `buildGoalFitRows` — `return null` from inside the loop returns from the
  *     WHOLE builder, so one option blanked the entire goal-fit card. Two
  *     different questions were sharing that `return null` (CLAUDE.md trap 21):
  *     "never analysed" and "analysed, no goal figure".
+ *
+ * ⚠ A THIRD MEMBER OF THIS FAMILY IS GONE WITH ITS SUBJECT (V7 retirement).
+ * `buildV7Lenses` — `hasCompleteGoalField` over all options → the entire goal
+ * lens collapsed to a `producer_gap` line, which was also the wrong DIAGNOSIS
+ * (the producer had no gap; it was never asked) — had its own describe here.
+ * The builder is deleted, so the arm is removed rather than left pointing at
+ * nothing. The two surviving members below are untouched.
  *
  * Each is pinned with a CONTRAST CONTROL in the same describe: the same input
  * with the marked option removed must produce the ranked/complete result, so a
@@ -27,9 +31,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
-import { buildV7Lenses } from '../v7/buildV7Lenses'
 import { buildGoalFitRows } from '../../../canvas/components/model-tab/buildGoalFitRows'
-import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { OptionResult } from '../types'
 import type { Node } from '@xyflow/react'
 
@@ -98,52 +100,6 @@ describe('sortOptionsForDisplay — an unranked option does not re-rank the rank
     const input = [excluded(), ...ANALYSED_PAIR]
     const out = sortOptionsForDisplay(input, { designationsWithheld: true })
     expect(out.map((o) => o.id)).toEqual(input.map((o) => o.id))
-  })
-})
-
-function lensData(allOptions: OptionResult[], goalThreshold: number | null): ResultsSectionDataReturn {
-  return {
-    recommendation: {
-      allOptions,
-      recommendedOption: allOptions[0] ?? null,
-      goalThreshold,
-      outcomeUnit: 'count',
-      verdict: { hasLeadingOption: true },
-    },
-    drivers: { drivers: [] },
-    confidence: { challengeFragileEdges: [], conditionalWinners: [] },
-    voiRanking: null,
-  } as unknown as ResultsSectionDataReturn
-}
-
-describe('buildV7Lenses — an unanalysed option does not collapse the goal lens', () => {
-  it('the goal lens stays available and lists only the analysed options', () => {
-    const model = buildV7Lenses(lensData([excluded(), ...ANALYSED_PAIR], 0.4))
-    expect(model.goal.available).toBe(true)
-    expect(model.goal.gate).toBe('none')
-    expect(model.goal.options.map((o) => o.id).sort()).toEqual([A, B].sort())
-  })
-
-  it('CONTRAST CONTROL — the same pair without it is equally available', () => {
-    const model = buildV7Lenses(lensData(ANALYSED_PAIR, 0.4))
-    expect(model.goal.available).toBe(true)
-    expect(model.goal.options.map((o) => o.id).sort()).toEqual([A, B].sort())
-  })
-
-  it('the outcome lens draws no row for it', () => {
-    const model = buildV7Lenses(lensData([excluded(), ...ANALYSED_PAIR], 0.4))
-    expect(model.outcome.options.map((o) => o.id)).not.toContain(X)
-  })
-
-  it('UNCHANGED — a genuine producer gap still reports producer_gap', () => {
-    // The honest gate must survive: an ANALYSED option with no goal figure is
-    // a different fact and still closes the lens. Without this arm the fix
-    // above could have been "always available", which would render NaN bars.
-    const model = buildV7Lenses(
-      lensData([analysed(A, 0.6, 10, null), analysed(B, 0.3, 40, null)], 0.4),
-    )
-    expect(model.goal.available).toBe(false)
-    expect(model.goal.gate).toBe('producer_gap')
   })
 })
 

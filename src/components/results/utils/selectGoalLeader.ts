@@ -119,17 +119,19 @@ export function hasAnyGoalValue<T>(
  * its own finite goal probability.
  *
  * This is gate 2+3 of `selectGoalLeader` — a superlative needs the whole
- * field. It is exported for ONE other caller, and that caller is not asking
- * the availability question either: `buildV7Lenses`' goal row builder types
- * `V7GoalLens.options[].goalProbability` as a NON-NULLABLE `number` and casts
- * with `as number`, and `V7LensGroup`'s `GoalRow` does arithmetic on it
- * (`probability < FLOOR`, `Math.round(probability * 100)`). Handing it a
- * missing value would render `NaN%` and a NaN-width bar — a placeholder
- * presented as a measurement, which is the very defect class this lane exists
- * to remove. So V7 asks the complete-field question because its own model
- * cannot yet express absence, NOT because availability requires completeness.
- * Teaching that model `number | null` and rendering `'—'` would let V7 move to
- * `hasAnyGoalValue` too; until then this is the honest gate for it.
+ * field.
+ *
+ * ⚠ ITS SECOND CALLER IS GONE (V7 retirement), and the reasoning is kept
+ * because it is the reasoning, not the caller, that generalises. The V7 goal
+ * lens typed its row `goalProbability` as a NON-NULLABLE `number` and cast with
+ * `as number`, and its `GoalRow` did arithmetic on it (`probability < FLOOR`,
+ * `Math.round(probability * 100)`), so handing it a missing value would have
+ * rendered `NaN%` and a NaN-width bar — a placeholder presented as a
+ * measurement, the very defect class this lane exists to remove. It asked the
+ * complete-field question because its own model could not express absence, NOT
+ * because availability requires completeness. Any future consumer whose model
+ * cannot express absence inherits exactly that trade; one that can should ask
+ * `hasAnyGoalValue` instead.
  */
 export function hasCompleteGoalField<T>(
   candidates: readonly T[],

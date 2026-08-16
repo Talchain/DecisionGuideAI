@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, XCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, XCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
@@ -113,7 +113,6 @@ import { useResultsSectionData } from '../../components/results/useResultsSectio
 import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { ResultsBody } from '../../components/results/ResultsBody'
-import { V7ComparisonTabBody } from '../../components/results/v7/V7ComparisonTabBody'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
@@ -198,7 +197,10 @@ export function readPersistedActiveDockTab(): OutputsDockTab | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<OutputsDockState>
     const tab = parsed?.activeTab
-    if (tab === 'results' || tab === 'altview' || tab === 'compare' || tab === 'diagnostics' || tab === 'journey' || tab === 'olumi') {
+    // 'altview' is deliberately absent: the retired V7 comparison tab must not
+    // rehydrate from a session persisted before its retirement — an unknown id
+    // falls through to null and the dock opens on its default tab.
+    if (tab === 'results' || tab === 'compare' || tab === 'diagnostics' || tab === 'journey' || tab === 'olumi') {
       return tab
     }
     return null
@@ -342,13 +344,11 @@ export function getOutputTabsForParity(): { id: OutputsDockTab; label: string }[
     // 'results' (Analysis) via the state initialiser, not array position.
     ...(isAiPanelV2Enabled() ? [{ id: 'olumi' as const, label: 'Olumi' }] : []),
     { id: 'results', label: 'Analysis' },
-    // TEMPORARY comparison tab (Paul, 12 Aug 2026): hosts the V7 assessment
-    // group MOVED off the Analysis tab (see v7/V7ComparisonTabBody.tsx), so
-    // the two renderings of the same analysis stay comparable side by side.
-    // Unflagged on purpose (no-dark-launch); retires with the V7-vs-Current
-    // adjudication (COMPONENT-INVENTORY 2026-08-12 §10A). Sits directly after
-    // 'results' so the two surfaces under comparison are adjacent.
-    { id: 'altview', label: 'Alt view' },
+    // The TEMPORARY 'altview' comparison tab (Paul, 12 Aug 2026) is RETIRED.
+    // It hosted the V7 assessment group side by side with the Analysis tab
+    // for the V7-vs-Current adjudication (COMPONENT-INVENTORY 2026-08-12
+    // §10A). The adjudication is settled in favour of the consolidated
+    // analysis cockpit, so the second rendering — and its tab — are gone.
     ...(isCompareTabEnabled() ? [{ id: 'compare' as const, label: 'Compare' }] : []),
     // ⚠ IDENTITY TRAP — READ THIS BEFORE WRITING A TEST AGAINST "THE MODEL TAB".
     // The tab a user (and every brief, roadmap row and bug report) calls "Model"
@@ -2316,8 +2316,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             const Icon =
               tab.id === 'results'
                 ? BarChart3
-                : tab.id === 'altview'
-                ? FlaskConical
                 : tab.id === 'compare'
                 ? Shuffle
                 : tab.id === 'journey'
@@ -2936,20 +2934,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   />
                 )}
               </div>
-            )}
-            {effectiveActiveTab === 'altview' && (
-              // TEMPORARY comparison tab (12 Aug 2026): the V7 assessment
-              // group, moved off the Analysis tab. SINGLE DATA AUTHORITY:
-              // the SAME resultsSectionData instance + the SAME
-              // fragile/robust edge-count expressions ResultsBody receives
-              // above — never a re-derivation.
-              <V7ComparisonTabBody
-                resultsSectionData={resultsSectionData}
-                fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
-                robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
-                onFocusNode={handleFocusResultNode}
-                onSendMessage={sendMessage}
-              />
             )}
             {effectiveActiveTab === 'compare' && (
               // 2.581 — ONE expert mode for the product. The Compare pill used

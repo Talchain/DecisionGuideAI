@@ -36,6 +36,7 @@
  */
 
 import { useState, type ReactNode } from 'react'
+import { Clock } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { HERO_COPY } from '../heroCopy'
 import { ROW_TINT_CLASS, CATEGORY_DOT_CLASS } from './tokens'
@@ -136,6 +137,80 @@ export function ActOnItSection({
   )
 }
 
+/**
+ * The producer's effort estimate, in ONE leaf so the testid and the classes
+ * cannot drift between the two slots that render it (with steps, and alone).
+ * `V7BiasSection` factored it out for the same reason; kept.
+ */
+function MinutesBadge({ minutes }: { minutes: number }) {
+  return (
+    <span
+      data-testid="hero-act-on-it-row-minutes"
+      className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-light`}
+    >
+      <Clock aria-hidden="true" className="h-3 w-3 flex-none" />
+      {HERO_COPY.actOnIt.minutes(minutes)}
+    </span>
+  )
+}
+
+/**
+ * ── RE-HOMED FROM `V7BiasSection` (deleted; preserved at `ca8cb0c1`) ─────────
+ *
+ * The producer's `micro_intervention`: the concrete numbered steps that say
+ * what to DO about a bias finding, and roughly how long it takes. v7's bias
+ * section was the ONLY surface in the product that rendered either; the reflect
+ * rows that replaced it showed the bias type and description alone, so both
+ * were lost. The structure below is v7's, deliberately: the steps list is an
+ * ordered list, the minutes ride INSIDE the steps header when there are steps,
+ * and stand alone when there are not.
+ *
+ * ⚠ ABSENT MUST READ AS ABSENT — this is the whole honesty contract of the
+ * component, and it is why the two null branches below are separate rather than
+ * merged into one truthy check:
+ *   · no steps AND no estimate  → renders NOTHING (not an empty list, not a
+ *     "Try this" heading with nothing under it);
+ *   · steps but no estimate     → the list, with NO invented duration;
+ *   · an estimate but no steps  → the estimate alone, as v7 did, because the
+ *     producer did say how long it takes even though it did not say how.
+ * There is no default minute count anywhere in this file, and there must never
+ * be one: a fabricated "About 5 min" is indistinguishable, on screen, from a
+ * real producer estimate.
+ */
+function MicroIntervention({
+  steps,
+  estimatedMinutes,
+}: {
+  steps: string[]
+  estimatedMinutes: number | null
+}) {
+  const hasSteps = steps.length > 0
+  if (!hasSteps && estimatedMinutes == null) return null
+
+  if (!hasSteps) {
+    // Estimate with no steps — surfaced honestly, exactly as v7 did.
+    return <MinutesBadge minutes={estimatedMinutes as number} />
+  }
+
+  return (
+    <div className="space-y-1" data-testid="hero-act-on-it-row-steps">
+      <div className="flex items-center gap-2">
+        <span className={`${typography.panelMeta} font-semibold text-text-header`}>
+          {HERO_COPY.actOnIt.stepsLabel}
+        </span>
+        {estimatedMinutes != null && <MinutesBadge minutes={estimatedMinutes} />}
+      </div>
+      <ol className="space-y-0.5">
+        {steps.map((step, i) => (
+          <li key={i} className={`${typography.panelMeta} text-text-body break-words`}>
+            {i + 1}. {step}
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
 function Row({
   row,
   dispatchRowAction,
@@ -172,6 +247,7 @@ function Row({
           >
             {row.reason}
           </p>
+          <MicroIntervention steps={row.steps} estimatedMinutes={row.estimatedMinutes} />
         </div>
         <ActOnItActionRow
           actions={row.actions}

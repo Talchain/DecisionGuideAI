@@ -61,6 +61,7 @@ import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
+import { mapM2BiasFindings } from './mapM2BiasFindings'
 import { mapDecisionQualityPrompts } from './utils/decisionQualityPrompts'
 import { humaniseCritique } from './utils/humaniseCritique'
 import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
@@ -3350,17 +3351,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // V12: Review status for M2 gate
       reviewStatus,
       // V12: M2 data (gated on reviewStatus === 'complete' in components)
-      m2BiasFindings: (() => {
-        const findings = safeArray(m1ReviewAssumptions?.bias_findings)
-        if (findings.length === 0) return undefined
-        return findings.map((f: any) => ({
-          type: f.type ?? '',
-          source: f.source ?? '',
-          description: f.description ? sanitizeCoachingText(f.description) : '',
-          affectedElements: safeArray(f.affected_elements),
-          linkedCritiqueCode: f.linked_critique_code ?? '',
-        }))
-      })(),
+      // Single mapping site. The five historical fields are mapped exactly as
+      // they were here; the module additionally carries the finding's
+      // `micro_intervention` steps + effort estimate, which this inline mapping
+      // used to discard — silently making them unrenderable downstream. See
+      // `mapM2BiasFindings.ts` for the producer trace and the honest-absence rule.
+      m2BiasFindings: mapM2BiasFindings(m1ReviewAssumptions?.bias_findings),
       m2DecisionQualityPrompts: (() => {
         const prompts = safeArray(m1ReviewAssumptions?.decision_quality_prompts)
         if (prompts.length === 0) return undefined

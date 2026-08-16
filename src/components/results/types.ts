@@ -17,6 +17,7 @@ import type { V2FactorSensitivity, V2OptionComparison } from '../../adapters/plo
 import type { KnownFlipReason } from './utils/flipReasonVocabulary'
 import type { PercentilesSource } from './utils/downsideCopy'
 import type { MappedDecisionQualityPrompt } from './utils/decisionQualityPrompts'
+import type { M2BiasFinding } from './mapM2BiasFindings'
 import type { NotAnalysedReason } from './utils/notAnalysedOptions'
 
 // Re-export M1 coaching type for component use
@@ -962,14 +963,17 @@ export interface ConfidenceSectionData {
   }
   /** V12: Review status for M2 gate ('complete' enables M2 data) */
   reviewStatus?: string
-  /** V12: M2 bias findings (structured) */
-  m2BiasFindings?: Array<{
-    type: string
-    source: string
-    description: string
-    affectedElements: string[]
-    linkedCritiqueCode: string
-  }>
+  /**
+   * V12: M2 bias findings (structured).
+   *
+   * The element shape and the full producer trace live in the single mapping
+   * site, `./mapM2BiasFindings.ts`. The shape is declared there rather than
+   * inline here because it now carries the re-homed `micro_intervention` steps
+   * and effort estimate (v7's `V7BiasSection` was their only renderer, and this
+   * adapter was where they were being dropped) — one declaration, so a reader
+   * of the type lands on the trace instead of on a copy of it.
+   */
+  m2BiasFindings?: M2BiasFinding[]
   /**
    * V12: M2 decision quality prompts (structured). Lane 1 (P1): the entry
    * shape is owned by `utils/decisionQualityPrompts` (single mapping site) and

@@ -24,14 +24,17 @@
  * ### Family 2 — the mount path
  *
  * ⚠ THIS ESTATE HAS SHIPPED A FEATURE DARK TWICE BY BINDING A SPEC TO A
- * COMPONENT THE DEPLOYED FLAGS SWITCH OFF (CLAUDE.md trap 3b). `ResultsBody`
- * forks on `analysisHeroPanel`, staging deploys `=1`, and the two arms are
- * mutually exclusive by construction — so a section hosted on the `=0` arm is
- * invisible in production while every render test passes. This section is
- * mounted in the UNCONDITIONAL V7 group — hosted, since the 12 Aug 2026 move,
- * on the "Alt view" tab (`V7ComparisonTabBody`, no flag; previously
- * ResultsBody's unflagged `v7-top-group`) — and the spec asserts it under
- * BOTH postures so that a flag move cannot make it disappear silently.
+ * COMPONENT THE DEPLOYED FLAGS SWITCH OFF (CLAUDE.md trap 3b), so the mount
+ * path is asserted, never merely presence.
+ *
+ * ⭐ RE-HOMED (V7 RETIREMENT). This section used to hang off the V7 group,
+ * hosted on the temporary "Alt view" comparison tab. BOTH are now
+ * deleted. ROADMAP 2.973 carried the explicit trigger for this moment — "when
+ * that tab retires, this surface MUST be explicitly re-homed or it goes dark
+ * with it" — so the section is mounted UNCONDITIONALLY on the one surviving
+ * Analysis surface (`ResultsBody`, testid `outputs-results-redesign`), and the
+ * case below asserts DESCENDANCY of that host rather than presence anywhere in
+ * the document. A relocation off the Analysis tab REDs it.
  *
  * Flags are injected through the flag system's OWN seam (localStorage, which
  * `makeFlag` reads at call time), never `vi.mock('@/flags')` — a mocked flag
@@ -54,15 +57,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
 import { ResultsBody } from '../../ResultsBody'
-import { V7ComparisonTabBody } from '../V7ComparisonTabBody'
-import { V7WhatIWasGivenSection } from '../V7WhatIWasGivenSection'
+import { WhatIWasGivenSection } from '../WhatIWasGivenSection'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { OptionResult } from '../../types'
 import { useContextIntegrityStore } from '@/canvas/stores/contextIntegrityStore'
 import { parseNotModelled } from '@/adapters/cee/notModelled'
-import { ClampToggle, clampRevealLabel, clampCollapseLabel } from '../ClampToggle'
+import { ClampToggle, clampRevealLabel, clampCollapseLabel } from '../../ClampToggle'
 
 import b1Fixture from './fixtures/b1-cold-read.not-modelled.json'
 import b2Fixture from './fixtures/b2-cold-read.not-modelled.json'
@@ -170,7 +172,7 @@ describe("identity gate — the receipt never speaks for a decision it isn't abo
   it('THE P0: content recorded for another scenario is NOT rendered on this one', () => {
     // Scenario A's brief is in the store; scenario B (LIVE) is on screen.
     seedFrom(b1Fixture as never, OTHER_SCENARIO_ID)
-    const { container } = render(<V7WhatIWasGivenSection />)
+    const { container } = render(<WhatIWasGivenSection />)
 
     expect(screen.queryByTestId('what-i-was-given-section')).toBeNull()
     expect(screen.queryByTestId('what-i-was-given-brief')).toBeNull()
@@ -189,7 +191,7 @@ describe("identity gate — the receipt never speaks for a decision it isn't abo
     // reason at all (trap 13: an absence assertion needs to prove it can see a
     // presence). Same fixture, same component, only the identity differs.
     seedFrom(b1Fixture as never, LIVE_SCENARIO_ID)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
 
     expect(screen.getByTestId('what-i-was-given-section')).toBeInTheDocument()
     openPanel()
@@ -201,7 +203,7 @@ describe("identity gate — the receipt never speaks for a decision it isn't abo
   it('content recorded with NO scenario id is never rendered', () => {
     // `null` is what this store holds for a decision it was never told about.
     seedFrom(b1Fixture as never, null)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     expect(screen.queryByTestId('what-i-was-given-section')).toBeNull()
   })
 
@@ -216,7 +218,7 @@ describe("identity gate — the receipt never speaks for a decision it isn't abo
     // conjunct is the guard and this is the case that pins it.
     seedFrom(b1Fixture as never, null)
     useCanvasStore.setState({ currentScenarioId: null } as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
 
     expect(screen.queryByTestId('what-i-was-given-section')).toBeNull()
     expect(screen.queryByTestId('what-i-was-given-brief')).toBeNull()
@@ -229,7 +231,7 @@ describe("identity gate — the receipt never speaks for a decision it isn't abo
     // store still holds the decision the user has just left.
     seedFrom(b1Fixture as never, LIVE_SCENARIO_ID)
     useCanvasStore.setState({ currentScenarioId: null } as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     expect(screen.queryByTestId('what-i-was-given-section')).toBeNull()
   })
 })
@@ -237,7 +239,7 @@ describe("identity gate — the receipt never speaks for a decision it isn't abo
 describe('what I was given — the brief, verbatim', () => {
   it('shows the user their own words, byte-for-byte', () => {
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
 
     const quote = screen.getByTestId('what-i-was-given-brief')
@@ -251,7 +253,7 @@ describe('what I used — the verdicts, bound by identity', () => {
   it('lists a dropped figure under "not in the model", addressed by its offset', () => {
     const cold = coldReadOf(b1Fixture as never)
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
 
     // The group is truncated by default (progressive disclosure), so reveal it
@@ -271,7 +273,7 @@ describe('what I used — the verdicts, bound by identity', () => {
   it('does not cry loss over a figure that DID reach the model', () => {
     const cold = coldReadOf(b1Fixture as never)
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
 
     fireEvent.click(screen.getByTestId('what-i-was-given-notyet-show-all'))
@@ -288,7 +290,7 @@ describe('what I used — the verdicts, bound by identity', () => {
 
   it('summarises with a count, never with reassurance', () => {
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     const summary = screen.getByTestId('what-i-was-given-summary')
     expect(summary.textContent).toMatch(/\d+ of \d+ figures you mentioned aren't in the model yet/)
   })
@@ -301,7 +303,7 @@ describe("the model's own declared exclusions — the sharpest loss class", () =
     // saying it excluded her option, and why. This is the plumbing that was
     // missing, and it covers the loss class a figure check cannot see.
     seedFrom(b2Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
 
     const list = screen.getByTestId('what-i-was-given-considered')
@@ -316,7 +318,7 @@ describe("the model's own declared exclusions — the sharpest loss class", () =
     // 26 atoms. Rendering that silence as "nothing was left out" would be the
     // surface at its most confident exactly where it is most wrong.
     seedFrom(b3Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
 
     expect(screen.queryByTestId('what-i-was-given-considered')).toBeNull()
@@ -337,7 +339,7 @@ describe('what I estimated — the trust-critical answer', () => {
     // says, the product supplied that figure — and the user is entitled to see
     // which numbers are ours.
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
 
     const group = screen.getByTestId('what-i-was-given-estimated')
@@ -351,7 +353,7 @@ describe('what I estimated — the trust-critical answer', () => {
     // no unit, which the trace found meaningless to a user. Rendering it would
     // import the defect into the surface built to expose it.
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
 
     const group = screen.getByTestId('what-i-was-given-estimated')
@@ -362,7 +364,7 @@ describe('what I estimated — the trust-critical answer', () => {
   it('offers NO action here — there is no honest one-click fix for an estimate', () => {
     const onSendMessage = vi.fn()
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection onSendMessage={onSendMessage} />)
+    render(<WhatIWasGivenSection onSendMessage={onSendMessage} />)
     openPanel()
 
     const group = screen.getByTestId('what-i-was-given-estimated')
@@ -374,7 +376,7 @@ describe('actionable where honest', () => {
   it('an unmodelled figure can be added, and the message names that figure', () => {
     const onSendMessage = vi.fn()
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection onSendMessage={onSendMessage} />)
+    render(<WhatIWasGivenSection onSendMessage={onSendMessage} />)
     openPanel()
 
     const cold = coldReadOf(b1Fixture as never)
@@ -392,7 +394,7 @@ describe('actionable where honest', () => {
 
   it('renders NO action when there is no handler — never a button that does nothing', () => {
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
     expect(
       screen.getByTestId('what-i-was-given-notyet').querySelectorAll('[data-testid$="-add"]'),
@@ -430,7 +432,7 @@ describe('THE REGISTER — product, not diagnostics', () => {
     ['B3', b3Fixture],
   ])('%s: no pipeline vocabulary and no alarming language reaches the screen', (_name, fixture) => {
     seedFrom(fixture as never)
-    const { container } = render(<V7WhatIWasGivenSection onSendMessage={() => {}} />)
+    const { container } = render(<WhatIWasGivenSection onSendMessage={() => {}} />)
     openPanel()
     // Reveal every truncated group so hidden rows are covered too.
     for (const b of Array.from(container.querySelectorAll('[data-testid$="-show-all"]'))) {
@@ -457,7 +459,7 @@ describe('THE REGISTER — product, not diagnostics', () => {
 
   it('frames the gap as "not yet", an invitation rather than a verdict', () => {
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toContain(
       "aren't in the model yet",
     )
@@ -505,7 +507,7 @@ describe('THE TWO SECTIONS MAY NEVER CONTRADICT EACH OTHER ON SCREEN', () => {
         briefText,
         manifest,
       })
-      const { container } = render(<V7WhatIWasGivenSection />)
+      const { container } = render(<WhatIWasGivenSection />)
       openPanel()
 
       const used = Array.from(
@@ -534,7 +536,7 @@ describe('THE TWO SECTIONS MAY NEVER CONTRADICT EACH OTHER ON SCREEN', () => {
     // factors at all — satisfying "no contradiction" by saying nothing, and
     // deleting the trust-critical answer to do it.
     seedFrom(b1Fixture as never)
-    const { container } = render(<V7WhatIWasGivenSection />)
+    const { container } = render(<WhatIWasGivenSection />)
     openPanel()
     expect(
       container.querySelectorAll('[data-testid="what-i-was-given-estimated-row"]').length,
@@ -546,7 +548,7 @@ describe('THE TWO SECTIONS MAY NEVER CONTRADICT EACH OTHER ON SCREEN', () => {
     // established — it is now a statement about wording, not a stand-in for
     // correctness.
     seedFrom(b1Fixture as never)
-    const { container } = render(<V7WhatIWasGivenSection />)
+    const { container } = render(<WhatIWasGivenSection />)
     openPanel()
     const text = container.textContent ?? ''
     expect(text).not.toContain("You didn't give me a figure")
@@ -584,7 +586,7 @@ describe('counts come from the manifest, not from the rendered rows', () => {
       briefText: 'A long brief.',
       manifest,
     })
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     // 35 absent + 5 prose-only = 40, NOT the 1 row actually rendered.
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
       "40 of 50 figures you mentioned aren't in the model yet",
@@ -611,7 +613,7 @@ describe('an unknown untracked code never leaks onto the screen', () => {
       briefText: 'A brief.',
       manifest,
     })
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
 
     const caveat = screen.getByTestId('what-i-was-given-caveat')
@@ -624,7 +626,7 @@ describe('an unknown untracked code never leaks onto the screen', () => {
 describe('the caveat travels with the findings', () => {
   it('names the loss classes the check cannot see', () => {
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
 
     const caveat = screen.getByTestId('what-i-was-given-caveat')
@@ -684,7 +686,7 @@ describe('the parser refuses to vouch for what it cannot read', () => {
       briefText: 'We need £4m out by March 2027.',
       manifest: parseNotModelled({ schema: 'not_modelled.v2', status: 'derived' }),
     })
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
       "I can't show this yet",
     )
@@ -708,7 +710,7 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
       briefText: coldReadOf(b1Fixture as never).brief_text,
       manifest: null,
     })
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
 
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
       "I can't show this yet",
@@ -741,7 +743,7 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
       briefText: 'We need £4m out by March 2027.',
       manifest,
     })
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
       "I can't show this yet",
     )
@@ -761,7 +763,7 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
       briefText: 'Should I take the job or stay put?',
       manifest,
     })
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
       "0 of 0 figures you mentioned aren't in the model yet",
     )
@@ -780,7 +782,7 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
       briefText: null,
       manifest: null,
     })
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     expect(screen.queryByTestId('what-i-was-given-section')).toBeNull()
   })
 })
@@ -788,12 +790,9 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
 // ── MOUNT PATH ──────────────────────────────────────────────────────────────
 
 /**
- * The Alt view tab body (`V7ComparisonTabBody`, the V7 group's only
- * production parent since the 12 Aug 2026 move) mounts `V7TopMatter`
- * unconditionally, and `V7TopMatter` returns null until analysis exists
- * (`allOptions.length > 0`). This is the repo's own harness for that
- * component (`V7TopMatter.inAltViewTab.spec`), reused verbatim in shape so
- * the mount proof is about the FLAG, not about a bespoke data shape.
+ * A post-run hook payload — analysis PRESENT (`allOptions.length > 0`), so the
+ * Analysis tab paints its real content and the mount assertion below is made
+ * against a rendered panel rather than an empty one.
  */
 function makeAnalysedData(): ResultsSectionDataReturn {
   const winner = {
@@ -856,18 +855,8 @@ function makeAnalysedData(): ResultsSectionDataReturn {
   } as unknown as ResultsSectionDataReturn
 }
 
-function renderAltViewTab() {
-  return render(
-    <V7ComparisonTabBody
-      resultsSectionData={makeAnalysedData()}
-      onSendMessage={() => {}}
-      onFocusNode={() => {}}
-    />,
-  )
-}
-
-/** The hero-fork CONTROL below still needs the ANALYSIS tab's host — the
- *  fork the flag injection must demonstrably reach lives in ResultsBody. */
+/** The ONE surviving Analysis surface, and this section's host since the V7
+ *  retirement re-homed it (`ResultsBody.tsx`, ROADMAP 2.973's trigger). */
 function renderAnalysisTab() {
   return render(
     <ResultsBody
@@ -879,7 +868,7 @@ function renderAnalysisTab() {
   )
 }
 
-describe('MOUNT PATH — live under the DEPLOYED flag posture, and under its opposite', () => {
+describe('MOUNT PATH — the section is hosted on the one surviving Analysis surface', () => {
   beforeEach(() => {
     useCanvasStore.setState({
       analysisFreshness: { freshness: 'fresh', computedAt: '2026-08-08T00:00:00Z' },
@@ -888,22 +877,28 @@ describe('MOUNT PATH — live under the DEPLOYED flag posture, and under its opp
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
 
-  // MIGRATED from the DEPLOYED/OPPOSITE posture pair. The analysisHeroPanel
-  // flag is gone (the analysis-hero fork is closed), so the two postures have
-  // collapsed into one. The MOUNT-PATH assertion below is the half that
-  // mattered and is preserved verbatim.
-  it('the section mounts inside the Alt view tab body', () => {
+  // MIGRATED (V7 retirement). This case used to mount the Alt view comparison
+  // tab body and assert descendancy of its root testid.
+  // That host is deleted. The CLAIM is unchanged and is the one ROADMAP 2.973
+  // wrote its re-home trigger for: this surface must sit on the tab a post-run
+  // user actually lands on. Only the host it names has moved.
+  it('the section mounts inside the Analysis tab body', () => {
     seedFrom(b1Fixture as never)
-    renderAltViewTab()
+    renderAnalysisTab()
+
+    // POSITIVE CONTROL FIRST: the Analysis tab really painted, so the
+    // descendancy assertion below is made against a real render.
+    const analysisTab = screen.getByTestId('outputs-results-redesign')
+    expect(analysisTab).toBeInTheDocument()
 
     const section = screen.getByTestId('what-i-was-given-section')
     expect(section).toBeInTheDocument()
-    // Assert the MOUNT PATH itself, not merely presence: the section must be
-    // inside the Alt view tab body — the host that mounts the V7 group on
-    // BOTH arms of the flag. Presence alone would still pass if a later
-    // change re-hosted it onto a flag arm, which is how this estate shipped a
-    // feature dark twice.
-    expect(screen.getByTestId('v7-comparison-tab-body').contains(section)).toBe(true)
+    // THE MOUNT PATH ITSELF, not merely presence: the section must be a
+    // DESCENDANT of the Analysis tab body. Presence alone would still pass if
+    // a later change re-hosted it onto a secondary tab or a flag arm, which is
+    // how this estate shipped a feature dark twice (trap 3b) — and how this
+    // very surface nearly died with the Alt view tab.
+    expect(analysisTab.contains(section)).toBe(true)
   })
 
   // The former 'CONTROL — the two postures really do render different heroes'
@@ -924,9 +919,13 @@ describe('MOUNT PATH — live under the DEPLOYED flag posture, and under its opp
 /**
  * ── THE REVEAL CONTROL IS THE PANEL'S SHARED ONE, NOT A LOOK-ALIKE ──────────
  *
- * This section hand-rolled its own "Show N more" button in the SAME directory
- * as `ClampToggle`, whose header declares itself "ONE leaf for the THREE
- * verbatim copies in this directory". Two costs the user could see:
+ * This section hand-rolled its own "Show N more" button alongside
+ * `ClampToggle`, whose header declares itself "ONE leaf for the THREE
+ * verbatim copies". (Both have since been re-homed out of `v7/`:
+ * `ClampToggle` now lives at `results/ClampToggle.tsx`, this section at
+ * `results/contextIntegrity/`. The point below is unchanged — and note the
+ * closing sentence, which anticipated exactly this move.) Two costs the user
+ * could see:
  *
  *   · it rendered in a DIFFERENT colour from every other clamp in the results
  *     panel (`text-text-light underline` vs `text-info hover:underline`), in a
@@ -945,7 +944,7 @@ describe('the reveal control — the panel-wide clamp affordance, not a local co
 
   it('reverses: the control stays mounted as "Show fewer" and re-collapses the list', () => {
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
 
     const collapsed = notYetRows()
@@ -988,7 +987,7 @@ describe('the reveal control — the panel-wide clamp affordance, not a local co
     // the toggle's is written down here: change either and this test makes the
     // other follow. A hardcoded `px-2` would be the mirror (trap 12).
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
 
     const insetOf = (el: Element | null | undefined): string =>
@@ -1030,7 +1029,7 @@ describe('the reveal control — the panel-wide clamp affordance, not a local co
     cleanup()
 
     seedFrom(b1Fixture as never)
-    render(<V7WhatIWasGivenSection />)
+    render(<WhatIWasGivenSection />)
     openPanel()
 
     // Everything EXCEPT the horizontal inset comes from the shared component —

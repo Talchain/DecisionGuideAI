@@ -10,15 +10,18 @@
  * DIFFERENCE between two Monte-Carlo win frequencies. The ratified rule: no
  * user-facing surface states that gap — own-probability statements only.
  *
- * ⚠ RE-SCOPED 12 Aug 2026 (the V7 move): the V7 hero MOVED, unchanged, to the
- * temporary "Alt view" dock tab (`v7/V7ComparisonTabBody`) — Paul: "move, NOT
- * delete". Its arms of this guard moved WITH it, to
- * `v7/__tests__/V7Hero.winFrequencyGapAbsence.spec.tsx`. What remains here is
- * the ANALYSIS-TAB half, and it got STRONGER: the one surface entitled to the
- * "by N points" SHAPE (the V7 hero's goal arm, a GOAL-probability difference
- * with its own rationale in `goalLeadPoints`) left this tab, so the whole
- * panel — goal data or not — may now carry NONE of the three banned forms.
- * No region split, no sanctioned exception.
+ * ⚠ RE-SCOPED 12 Aug 2026 (the V7 move), then again by the V7 RETIREMENT. The
+ * V7 hero first MOVED, unchanged, to a temporary "Alt view" dock tab — Paul:
+ * "move, NOT delete" — taking its arms of this guard with it. That
+ * adjudication is now settled and the hero, its tab and its spec are DELETED,
+ * so THOSE ARMS ARE GONE RATHER THAN RELOCATED: no file now pins the retired
+ * "by N points" forms against a V7 surface, because there is no V7 surface.
+ * What remains here is the ANALYSIS-TAB half, and it is STRONGER than it was
+ * before either move: the one surface entitled to the "by N points" SHAPE (the
+ * V7 hero's goal arm, a GOAL-probability difference with its own rationale in
+ * `goalLeadPoints`) no longer exists, so the whole panel — goal data or not —
+ * may carry NONE of the three banned forms. No region split, no sanctioned
+ * exception.
  *
  * ⭐ WHY THIS SPEC RENDERS `ResultsBody` AND NOT A BUILDER (CLAUDE.md trap 3b):
  * this estate has twice shipped a fix onto a component the deployed flags did
@@ -200,9 +203,9 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
    * All three retired forms, asserted absent across the ENTIRE rendered panel
    * rather than element by element — so a gap claim reintroduced on any
    * surface `ResultsBody` composes REDs here, including a surface that does
-   * not exist yet. Since the V7 move there is NO sanctioned exception on this
-   * tab (the goal-arm "Leads by N points" lives on the Alt view tab), so the
-   * scoped `splitPanelText` region logic this file used to need is retired —
+   * not exist yet. There is NO sanctioned exception on this tab — the goal-arm
+   * "Leads by N points" left with the V7 move and no longer exists at all — so
+   * the scoped `splitPanelText` region logic this file used to need is retired:
    * the assertion is whole-panel on every fixture, goal data included.
    *
    * ⚠ SCOPE, STATED EXACTLY, because an absence claim is only as wide as what
@@ -210,9 +213,9 @@ describe('ResultsBody — no surface on the results panel states a win-frequency
    *   · WHAT IS SEARCHED — the DOM `ResultsBody` renders under this fixture.
    *     The canvas `OptionNode` is NOT composed by `ResultsBody`; its own
    *     retirement is pinned in `render-matrix.spec.tsx` and
-   *     `residualComparative.optionNode.spec.tsx`. The V7 hero is NOT composed
-   *     by `ResultsBody` any more; its guard is
-   *     `v7/__tests__/V7Hero.winFrequencyGapAbsence.spec.tsx`.
+   *     `residualComparative.optionNode.spec.tsx`. The V7 hero is DELETED, so
+   *     it is neither composed here nor guarded anywhere — there is nothing
+   *     left for its arm of this guard to be pointed at.
    *   · `certaintyCopy`'s `" by N point(s)"` suffix is NOT searched here: its
    *     only host, `DecisionConfidencePanel`, is deleted. That copy is covered
    *     directly by `utils/__tests__/certaintyCopy.spec.ts`.
