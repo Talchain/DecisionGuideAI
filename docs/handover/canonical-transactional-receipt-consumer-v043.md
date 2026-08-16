@@ -1,8 +1,13 @@
 # Canonical transactional receipt consumer — schemas 0.43 handover
 
-**Component boundary:** UI reader/consumer only, based on deployed UI
-`ca8cb0c1eea98e32a57fc94026e733d3194be572`. The backend producer is not
-enabled or changed here.
+**Component boundary:** UI reader/consumer only, rebased onto deployed UI
+`8e6f7629e556595cd1b653444b84718c3080cfd4` (#728 conditional-winners,
+including the #726 Alt/V7 retirement immediately beneath it). The backend
+producer is not enabled or changed here. The independently reviewed #726-based
+candidate remains preserved locally at
+`archive/ui-canonical-receipt-consumer-043-pre-rebase-8e6-7b1477b4`; the
+original pre-#726 component remains at
+`archive/ui-canonical-receipt-consumer-043-pre-rebase-dd354fed`.
 
 ## Authority and settlement
 
@@ -61,14 +66,38 @@ Olumi route opens while ordinary first-use fit and rail behaviour remain intact.
 
 ## Frozen-boundary gates
 
-- Rebased transactional/readiness/A2 coexistence matrix: 21 files, 488 tests
-  passed, including the three false goal-attestation boundary and lifecycle
-  mutants.
-- Typecheck ratchet: passed (3,439/3,479 tracked files; 2,332 diagnostics,
-  within the 2,381 baseline, none added).
-- Changed-file lint: zero errors (pre-existing/rebased warnings remain).
+- Original #726 conflict map: only `OutputsDock.tsx` and the two generated
+  typecheck baselines conflicted. The accepted component plus its bounded
+  coexistence repair and evidence commits then formed the independently
+  reviewed 17-commit candidate at `7b1477b4c3af7fb87e93b6ca19ca40e9cdad6b2d`
+  (tree `ea8a410de30792894b5546977946bcafc1f1c471`).
+- Exact deployed-tip replay: remote staging and deployed `/version.json` both
+  resolved to `8e6f7629e556595cd1b653444b84718c3080cfd4`. All 17 candidate commits
+  initially replayed once with zero conflicts and `=` for every patch. After
+  adding exact-tip evidence to this handover, final range-diff preserves all 16
+  code/baseline patches as `=` and replaces only the documentation commit.
+  #728's `mapV5AnalysisToReport.ts` and conditional-winners test retain the
+  exact base blob ids; its focused 12/12 tests pass on the combined tree.
+- #726 coexistence repair: one exhaustive `OutputTab` runtime normaliser is
+  consumed by both mounted dock-state readers. A pre-#726 persisted
+  `activeTab: "altview"` now paints and persists `results` on the first mounted
+  render; the retired tab, icon, import and V7 body remain absent.
+- Independently reviewed #726-base transactional/readiness/A2 coexistence
+  matrix: 11 files, 214 tests passed. This includes the four strict receipt
+  authorities, the dock/floating recovery topology, the settled AI-panel
+  fixture, Alt/V7 retirement controls, and the complete-borders successor
+  guard. Exact-tip range-diff preserves every tested code patch.
+- Exact deployed-tip discriminators: 168/168 tests passed across seven focused
+  files. These cover #728's 12 conditional-winners cases, strict receipt
+  authority/resolution/lifecycle, transactional Run hold, the settled AI-panel
+  fixture, and a stale persisted `altview` first-paint normalisation case.
+- Exact-tip full typecheck passes at 3,407 of 3,447 tracked TypeScript files and
+  2,332 baseline diagnostics, with none added. The baseline was regenerated
+  earlier only through `scripts/ci/typecheck-gate.sh --update-baseline`.
+- Exact-tip full lint passes with zero errors (1,202 pre-existing warnings); the
+  rules-of-hooks ratchet exactly matches 231 known violations across 14 files.
 - Schema version guard, vendored-package checksum, and diff check: passed.
-- Production CI build, PLC assertion, and bundle budget: passed (46.86 KB gzip
+- Production CI build, PLC assertion, and bundle budget: passed (46.85 KB gzip
   against the 50 KB budget).
 - Graph-recovery FIX-FIRST matrix: 67/67 focused tests passed, covering
   ready-to-needs-encoding and blocked-to-ready graph-read mutants, byte-identical
@@ -76,8 +105,11 @@ Olumi route opens while ordinary first-use fit and rail behaviour remain intact.
   newer settled writer. The authorized inspector discriminator also proves a
   strict five-carrier success receipt opens Run while a legacy-partial receipt
   remains held (71/71 combined affected tests).
-- Post-fix full typecheck passed with no new diagnostics; full lint passed with
-  zero errors and an exact hooks ratchet; production build passed (3,847 modules).
+- Exact-tip production build passed (3,830 modules; largest `index` chunk
+  47.98 kB gzip, within the recorded 50 kB budget).
+- The local gate runner emitted non-blocking environment warnings because it
+  used Node 22.16.0 while the repository declares Node 20 and had no
+  `NODE_AUTH_TOKEN` for private-registry interpolation.
 
 The exact local freeze commit/tree is reported with the review handoff; no
 branch publication, merge, or deployment is part of this component.
