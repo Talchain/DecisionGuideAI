@@ -83,3 +83,68 @@ describe('CanvasLegendPopover', () => {
     expect(screen.getByText('Strong effect')).toBeDefined()
   })
 })
+
+/**
+ * R6 + L-49 (Paul, 16 Aug 2026) — the key now covers COLOUR and the honest
+ * blanks, which is what it was missing.
+ *
+ * ⚠ Note for whoever edits this file next: the `APPROVED` list above is a
+ * hand-maintained copy of the component's own rows, and the test that consumes
+ * it asserts PRESENCE only — adding a row can never fail it. So new rows need
+ * their own assertions, which is what these are. It cannot prove the key is
+ * COMPLETE either; only a reader comparing it against StyledEdge can do that.
+ */
+describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
+  function open() {
+    render(<CanvasLegendPopover />)
+    fireEvent.click(screen.getByTestId('btn-canvas-legend'))
+  }
+
+  it('explains the ONE reserved colour: orange means the reviews disagree', () => {
+    open()
+    expect(screen.getByText('Orange: reviews disagree — your call')).toBeInTheDocument()
+  })
+
+  it('explains grey as "not stated yet", the signal with no other channel', () => {
+    open()
+    expect(screen.getByText('Grey: direction not set yet')).toBeInTheDocument()
+    expect(screen.getByText('Not set yet: thin and grey')).toBeInTheDocument()
+  })
+
+  /**
+   * The row's caption is a claim ABOUT ITS OWN SWATCH, so the text assertion
+   * above cannot check it. This shipped for a review cycle with a hard-coded
+   * body-coloured stroke: at 1.5px it is the same WIDTH as "Weak effect", so
+   * colour is the only discriminator, and the two rows rendered pixel-identical
+   * while the caption said "grey". Assert the stroke, and assert the two rows
+   * DIFFER — a discriminating pair, not one reading in isolation.
+   */
+  it('draws the unset swatch grey, and distinguishably from "Weak effect"', () => {
+    open()
+    const unset = document.querySelector('[data-testid="legend-thickness-unset"] line') as SVGLineElement
+    const weak = document.querySelector('[data-testid="legend-thickness-weak"] line') as SVGLineElement
+    expect(unset).toBeTruthy()
+    expect(weak).toBeTruthy()
+
+    expect(unset.getAttribute('stroke')).toBe('var(--edge-neutral)')
+    // Same width — which is precisely why the colour has to carry the meaning.
+    expect(unset.getAttribute('stroke-width')).toBe(weak.getAttribute('stroke-width'))
+    // …and therefore the two swatches must not be identical.
+    expect(unset.getAttribute('stroke')).not.toBe(weak.getAttribute('stroke'))
+  })
+
+  it('still teaches direction, and still says Raises / Lowers', () => {
+    open()
+    expect(screen.getByText('Raises')).toBeInTheDocument()
+    expect(screen.getByText('Lowers')).toBeInTheDocument()
+  })
+
+  it('keeps the vocabulary constraint on the new rows too', () => {
+    const { container } = render(<CanvasLegendPopover />)
+    fireEvent.click(screen.getByTestId('btn-canvas-legend'))
+    const text = (container.textContent ?? '').toLowerCase()
+    expect(text).not.toMatch(/\bnode\b/)
+    expect(text).not.toMatch(/\bedge\b/)
+    expect(text).not.toMatch(/\bgraph\b/)
+  })
+})

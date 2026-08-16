@@ -248,6 +248,13 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blu
       // `shouldAutoExpandDockForResponse` treats it as showing nothing.)
       // Coaching stays one click away on the restore pill, and every dispatch
       // path that sends work to Olumi reveals the surface again.
+      //
+      // R3 (Paul, 16 Aug 2026): minimise is retained rather than swapped for
+      // close() — closing would take the coaching affordance away entirely.
+      // The orphan-pill defect it used to cause (L-05/S17: the pill inheriting
+      // this PANEL anchor and landing mid-canvas) is fixed at the pill itself,
+      // which now docks to the bottom-right corner derived from live geometry.
+      // See computePillDockPosition in FloatingOlumiPanel.
       useFloatingPanelState.getState().minimise()
     }
     if (prefersReducedMotion) {

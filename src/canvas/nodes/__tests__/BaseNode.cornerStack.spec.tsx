@@ -41,16 +41,17 @@ vi.mock('@xyflow/react', async () => {
 // Hoisted so the vi.mock factory (also hoisted) can close over these spies.
 // `editedNodeIds` is a mutable set the store mock reads for isEditedSinceRun; a
 // test opts a node in via editedNodeIds.add(id) and beforeEach clears it.
-const { selectNodeWithoutHistory, setShowInspectorPanel, editedNodeIds } = vi.hoisted(() => ({
+const { selectNodeWithoutHistory, editedNodeIds } = vi.hoisted(() => ({
   selectNodeWithoutHistory: vi.fn(),
-  setShowInspectorPanel: vi.fn(),
   editedNodeIds: new Set<string>(),
 }))
 
 vi.mock('../../store', () => {
   const state = {
     edges: [],
-    nodes: [],
+    // `openNodeInspector` fail-closes on a node that is not on the graph, so
+    // the double must actually contain the node under test.
+    nodes: [{ id: 'node-a' }],
     results: { status: 'complete', report: null },
     highlightedNodes: new Set(),
     dimmedNodeIds: new Set(),
@@ -63,7 +64,6 @@ vi.mock('../../store', () => {
     lodActive: false,
     viewMode: 'expert',
     selectNodeWithoutHistory,
-    setShowInspectorPanel,
   }
   const useCanvasStore = vi.fn((selector: (s: unknown) => unknown) => selector(state))
   ;(useCanvasStore as unknown as { getState: () => unknown }).getState = () => state
@@ -229,6 +229,9 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
   })
 
   it('CLICK-THROUGH: coaching onClick still fires with the rank badge present', () => {
+    let inspectorOpened = false
+    const onOpen = () => { inspectorOpened = true }
+    window.addEventListener('olumi:open-full-inspector', onOpen)
     sensitivityRank = 1
     useGuidanceStore.getState().setGuidanceItems([makeItem({ item_id: 'the-item' })])
     renderNode()
@@ -237,8 +240,13 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     expect(screen.getByTestId('sensitivity-rank-node-a')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('node-coaching-marker-node-a'))
 
+    // The marker used to write `showInspectorPanel`, a store field with zero
+    // render consumers — so this assertion passed while the control opened
+    // nothing. It now asserts the LIVE seam: select, then raise the inspector
+    // via the event ReactFlowGraph actually listens for.
     expect(selectNodeWithoutHistory).toHaveBeenCalledWith('node-a')
-    expect(setShowInspectorPanel).toHaveBeenCalledWith(true)
+    expect(inspectorOpened).toBe(true)
     expect(useGuidanceStore.getState().activeGuidanceItemId).toBe('the-item')
+    window.removeEventListener('olumi:open-full-inspector', onOpen)
   })
 })

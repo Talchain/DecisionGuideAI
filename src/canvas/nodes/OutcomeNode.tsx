@@ -14,6 +14,7 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { EstimateMarker } from './shared'
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -46,9 +47,16 @@ export const OutcomeNode = memo((props: NodeProps) => {
     // `RelationshipsSection`: a gate whose condition is a tautology.
     const display = resolveEdgeSignedStrengthDisplay(edge.data as Record<string, unknown> | undefined)
     const signedMean = display.show ? display.value : null
+    // R6: is this strength an ESTIMATE or something the user stated? Derived
+    // from the edge's own provenance stamp — the same field the display gate
+    // above consults — never from a hardcoded word. `weightSource` absent means
+    // defaulted (edgeValueProvenance's stated invariant), which is an estimate;
+    // `'user'` means the user set it, and carries no marker at all.
+    const weightSource = (edge.data as Record<string, unknown> | undefined)?.weightSource
     return {
       signedMean,
       bridgeStrengthPct: signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null,
+      bridgeIsEstimated: signedMean != null && weightSource !== 'user',
     }
   }, [edges, nodes, props.id])
 
@@ -192,13 +200,33 @@ export const OutcomeNode = memo((props: NodeProps) => {
             from "assumed strength" to "of your goal" the moment
             results.status became 'complete' — masquerading an un-computed
             input as a computed goal contribution without any producer
-            attribution behind it. Kept as "assumed strength" pre- AND
-            post-analysis. Removal trigger: a producer supplies a typed
-            per-node goal-attribution field. */}
+            attribution behind it. Removal trigger: a producer supplies a typed
+            per-node goal-attribution field.
+
+            ⚠ R6 REVISED AFTER REVIEW. The first attempt at R6 dropped the noun
+            entirely and left a bare "85%", which re-opens exactly the defect
+            UI-SEM-089 exists to close: an unlabelled percentage beside a goal
+            reads as a computed contribution. Measured by the reviewer — the
+            relabel-to-"% contribution" mutant REDs at base and SURVIVED at that
+            head, i.e. the guard had been inverted from a PRESENCE assertion to
+            an ABSENCE one and could no longer see the masquerade.
+
+            The noun therefore stays on BOTH branches. What R6 actually removes
+            is the word "assumed", which was false for a value the user had
+            stated: "85% strength" when somebody set it, "85% strength · est."
+            when nobody did. The honesty claim and the placeholder-wall claim are
+            different claims and both are satisfied. */}
         {bridgeEdgeData?.bridgeStrengthPct != null && (
-          <div className="mt-1 inline-flex items-center gap-1">
+          <div className="mt-1 inline-flex items-baseline gap-1">
             <span className={`${typography.nodeLabel} font-semibold text-success`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
-            <span className={`${typography.edgeLabel} text-text-light`}>assumed strength</span>
+            {/* The noun. Never "of your goal", never absent — see UI-SEM-089 above. */}
+            <span className={`${typography.edgeLabel} text-text-light`}>strength</span>
+            {bridgeEdgeData.bridgeIsEstimated && (
+              <>
+                <span aria-hidden="true" className={`${typography.edgeLabel} text-text-light`}>·</span>
+                <EstimateMarker title="Strength estimated, not yet confirmed — open the details to set or confirm it" />
+              </>
+            )}
           </div>
         )}
 

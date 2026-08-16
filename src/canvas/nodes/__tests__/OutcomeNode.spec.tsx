@@ -68,6 +68,22 @@ const renderOutcome = (data: Record<string, unknown> = {}) =>
     </ReactFlowProvider>
   )
 
+
+// R6 (Paul, 16 Aug 2026) — and the correction a review forced on it.
+//
+// The word "assumed" is gone: it printed beside EVERY bridge strength, including
+// ones the user had stated, so it was false about half the values it labelled.
+// What is NOT gone is the NOUN. The first attempt dropped it and left a bare
+// "85%", which re-opens the very defect UI-SEM-089 exists to close — and the
+// review measured that: the relabel-to-"% contribution" mutant REDs at base and
+// SURVIVED at that head, because the guard had been flipped from a PRESENCE
+// assertion to an ABSENCE one and could no longer see the masquerade.
+//
+// So the two claims are asserted SEPARATELY below, because they are separate:
+//   • the honesty claim — a noun is present, on BOTH branches (PRESENCE)
+//   • the placeholder claim — `est.` appears only when nobody stated the value
+// Never collapse the first into the second again: an absence assertion cannot
+// observe a relabel.
 describe('OutcomeNode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -133,7 +149,8 @@ describe('OutcomeNode', () => {
     // assumed edge strength, NOT a computed goal contribution. Post-analysis it
     // must keep the honest "assumed strength" wording and must NEVER relabel to
     // "of your goal" just because results.status flipped to 'complete'.
-    expect(screen.getByText(/assumed strength/)).toBeDefined()
+    expect(screen.getByText('strength')).toBeInTheDocument() // UI-SEM-089: the noun, always
+    expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no `est.`
     expect(screen.queryByText(/of your goal/)).toBeNull()
     expect(screen.getByText(/75%/)).toBeDefined()
   })
@@ -403,16 +420,24 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
     it('POSITIVE CONTROL: renders the figure for a strength somebody set', () => {
       bridgeStore({ weight: 0.6, direction: 'positive', weightSource: 'user' })
       renderOutcome()
-      expect(screen.getByText(/assumed strength/)).toBeDefined()
+      expect(screen.getByText('strength')).toBeInTheDocument() // UI-SEM-089: the noun, always
+    expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no `est.`
       expect(screen.getByText(/60%/)).toBeDefined()
     })
 
+
+    it('R6 POSITIVE CONTROL: a strength nobody stated carries the est. marker', () => {
+      bridgeStore({ weight: 0.6, direction: 'positive', weightSource: 'cee' })
+      renderOutcome()
+      expect(screen.getByText(/60%/)).toBeDefined()
+      expect(screen.getByTestId('estimate-marker')).toBeDefined()
+    })
     it('renders NOTHING for an edge nobody characterised (USER_EDGE_DEFAULTS)', () => {
       bridgeStore({ ...USER_EDGE_DEFAULTS })
       renderOutcome()
       expect(USER_EDGE_DEFAULTS.weight).toBe(0.3)
       expect(screen.queryByText(/30%/)).toBeNull()
-      expect(screen.queryByText(/assumed strength/)).toBeNull()
+      expect(screen.queryByTestId('estimate-marker')).toBeNull()
     })
 
     it('renders NOTHING for a bare DEFAULT_EDGE_DATA weight of 0.5', () => {
@@ -420,7 +445,7 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
       renderOutcome()
       expect(DEFAULT_EDGE_DATA.weight).toBe(0.5)
       expect(screen.queryByText(/50%/)).toBeNull()
-      expect(screen.queryByText(/assumed strength/)).toBeNull()
+      expect(screen.queryByTestId('estimate-marker')).toBeNull()
     })
 
     it('POSITIVE CONTROL: accepts CEE back-compat evidence (strength_mean)', () => {
@@ -428,5 +453,68 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
       renderOutcome()
       expect(screen.getByText(/45%/)).toBeDefined()
     })
+  })
+})
+
+/**
+ * UI-SEM-089 anti-relabel guard, restored as a PRESENCE assertion.
+ *
+ * This is the assertion the review found missing. It is written against the
+ * SPEC — "the number always carries a noun that names it as an input, and never
+ * one that names it as a computed output" — not against the single relabel that
+ * happened to be tried. So it bites on any member of the forbidden family, in
+ * both phases, on both provenance branches.
+ */
+describe('OutcomeNode — UI-SEM-089: the bridge strength always carries an honest noun', () => {
+  const FORBIDDEN = [/contribution/i, /of your goal/i, /goal drag/i, /impact on/i]
+
+  const seedBridge = (weightSource: string) =>
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: null },
+        nodes: [
+          { id: 'outcome-1', type: 'outcome', data: { type: 'outcome' } },
+          { id: 'goal-1', data: { type: 'goal' } },
+        ],
+        edges: [{ id: 'b1', source: 'outcome-1', target: 'goal-1', data: { weight: 0.85, direction: 'positive', weightSource } }],
+      }) as any)
+    )
+
+  it.each([['user-stated', 'user'], ['estimated', 'cee']])(
+    'renders the figure AND its noun on the %s branch',
+    (_label, source) => {
+      seedBridge(source)
+      renderOutcome()
+      expect(screen.getByText('85%')).toBeInTheDocument()
+      expect(screen.getByText('strength')).toBeInTheDocument()
+    },
+  )
+
+  it.each([['user-stated', 'user'], ['estimated', 'cee']])(
+    'never names it as a computed output on the %s branch',
+    (_label, source) => {
+      seedBridge(source)
+      const { container } = renderOutcome()
+      const text = container.textContent ?? ''
+      for (const banned of FORBIDDEN) {
+        expect(text).not.toMatch(banned)
+      }
+      // …and the permitted noun IS there, so this cannot pass by rendering
+      // nothing at all — the failure mode an absence-only guard has.
+      expect(text).toMatch(/strength/)
+    },
+  )
+
+  it('marks ONLY the estimated branch, so the two claims stay separable', () => {
+    seedBridge('user')
+    const stated = renderOutcome()
+    expect(stated.container.textContent).toMatch(/strength/)
+    expect(stated.queryByTestId('estimate-marker')).toBeNull()
+    stated.unmount()
+
+    seedBridge('cee')
+    const estimated = renderOutcome()
+    expect(estimated.container.textContent).toMatch(/strength/)
+    expect(estimated.getByTestId('estimate-marker')).toBeInTheDocument()
   })
 })

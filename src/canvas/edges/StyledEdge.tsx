@@ -878,7 +878,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ75 !== null && lensSensWeight >= lensQ75)
               shadows.push('drop-shadow(0 0 2px var(--semantic-info, #3b82f6))')
             if (isAnalysisFragileEdge && !isStructuralEdge)
-              shadows.push('drop-shadow(0 0 4px var(--semantic-warning, #eab308))')
+              // R6: the fragility halo moves off the warning hue with the
+              // fragility chips it accompanies — under the DEFAULT lens, orange
+              // on an edge means contested. (The evidence LENS keeps its own
+              // orange for 'assumed': a lens is an explicit alternative
+              // encoding with its own key, not the default vocabulary.)
+              shadows.push('drop-shadow(0 0 4px var(--semantic-info, #3b82f6))')
             // 6B: hover / selection emphasis for the WHOLE connection.
             // Deliberately a drop-shadow rather than a stroke colour: the stroke
             // already carries direction polarity (green/red) and the resolution
@@ -1020,7 +1025,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               padding: '2px 6px',
               borderRadius: '4px',
             }}
-            className="bg-panel text-text-body border border-warning/30 shadow-sm"
+            className="bg-panel text-text-body border border-info/30 shadow-sm"
             title={fragileEdgeSwitchProb !== null
               ? `Sensitive assumption: ${Math.round(fragileEdgeSwitchProb * 100)}% chance the result flips if this relationship changes`
               : 'Sensitive assumption: outcome may flip if this relationship changes'}
@@ -1049,7 +1054,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               fontWeight: 500,
               whiteSpace: 'nowrap',
             }}
-            className="bg-panel text-text-body border border-warning/30 shadow-sm"
+            className="bg-panel text-text-body border border-info/30 shadow-sm"
           >
             {lensFragileLabel}
           </div>
@@ -1138,8 +1143,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                         flexShrink: 0,
                       }}
                       className={
+                        // R6: orange on an edge means CONTESTED and nothing
+                        // else. This dot used to paint `user` provenance in the
+                        // warning hue — the semantic inverse, since a
+                        // user-stated value is the most trustworthy kind. It is
+                        // now the success hue, matching every other
+                        // "you set this" signal on the canvas.
                         provenance === 'template' ? 'bg-info-500' :
-                        provenance === 'user' ? 'bg-warning' :
+                        provenance === 'user' ? 'bg-success' :
                         'bg-gray-400'
                       }
                       title={`Provenance: ${provenance}`}
@@ -1166,7 +1177,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             title="Flagged as assumption"
             data-testid="edge-assumption-badge"
           >
-            <Flag size={12} className="text-warning" />
+            {/* R6: not orange — this is a user annotation, not a contested
+                verdict. Orange on an edge is reserved for contested. */}
+            <Flag size={12} className="text-text-light" />
           </div>
         </EdgeLabelRenderer>
       )}
@@ -1252,7 +1265,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               )}
               {/* Fragile warning with switch probability */}
               {isFragileEdge && (
-                <div className={`${typography.edgeLabel} text-warning flex items-center gap-1`}>
+                <div className={`${typography.edgeLabel} text-info flex items-center gap-1`}>
                   <AlertTriangle size={10} />
                   Sensitive{fragileEdgeSwitchProb !== null ? `: ${Math.round(fragileEdgeSwitchProb * 100)}% flip risk` : ''}
                 </div>

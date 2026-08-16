@@ -82,17 +82,24 @@ describe('NodeCoachingMarker — click reaches the guidance surface', () => {
       .getState()
       .setGuidanceItems([makeItem({ item_id: 'the-item', target_object: { type: 'node', id: 'node-a' } })])
     const selectSpy = vi.spyOn(useCanvasStore.getState(), 'selectNodeWithoutHistory')
-    const inspectorSpy = vi.spyOn(useCanvasStore.getState(), 'setShowInspectorPanel')
+    // `openNodeInspector` fail-closes on a node that is not on the graph.
+    useCanvasStore.setState({ nodes: [{ id: 'node-a', position: { x: 0, y: 0 }, data: {} }] } as never)
+    let inspectorOpened = false
+    const onOpen = () => { inspectorOpened = true }
+    window.addEventListener('olumi:open-full-inspector', onOpen)
 
     render(<NodeCoachingMarker nodeId="node-a" />)
     fireEvent.click(screen.getByTestId('node-coaching-marker-node-a'))
 
     expect(selectSpy).toHaveBeenCalledWith('node-a')
-    expect(inspectorSpy).toHaveBeenCalledWith(true)
+    // Was `setShowInspectorPanel(true)` — a store field with zero render
+    // consumers, so the old assertion was green while the marker opened
+    // nothing. This asserts the event ReactFlowGraph actually listens for.
+    expect(inspectorOpened).toBe(true)
     expect(useGuidanceStore.getState().activeGuidanceItemId).toBe('the-item')
 
+    window.removeEventListener('olumi:open-full-inspector', onOpen)
     selectSpy.mockRestore()
-    inspectorSpy.mockRestore()
   })
 
   it('activates the highest-severity item when several target the node', () => {

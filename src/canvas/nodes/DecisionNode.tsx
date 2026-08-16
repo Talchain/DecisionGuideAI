@@ -23,6 +23,7 @@ import { cleanFactorLabel } from '../utils/labelUtils'
 import { biasSignal } from '../shared/biasSignalTitles'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
+import { openNodeInspector } from './shared/openNodeInspector'
 
 /** Truncate text at word boundary. */
 function truncateAtWord(text: string, maxLength: number): string {
@@ -267,8 +268,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     if (!biggestRisk) return
     const store = useCanvasStore.getState()
     store.setHighlightedNodes([biggestRisk.nodeId])
-    store.onSelectionChange({ nodes: [{ id: biggestRisk.nodeId } as any], edges: [] })
-    store.setShowInspectorPanel(true)
+    openNodeInspector(biggestRisk.nodeId)
     setTimeout(() => store.setHighlightedNodes([]), 3000)
   }, [biggestRisk])
 
