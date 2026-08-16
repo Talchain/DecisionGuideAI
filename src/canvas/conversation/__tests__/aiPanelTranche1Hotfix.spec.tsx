@@ -21,10 +21,40 @@ vi.mock('../../hooks/useStagePill', () => ({
   useStagePill: () => ({ stage: mockStage }),
 }))
 
-let mockCanvasState: { nodes: Array<{ id: string }>; edges: Array<{ id: string }>; draftComposerText: string | null } = {
+type MockCanvasState = {
+  nodes: Array<{ id: string }>
+  edges: Array<{ id: string }>
+  draftComposerText: string | null
+  currentScenarioId: string | null
+  unconfirmedEmittedEdits: number
+  edgeStrengthSync: {
+    hydration: 'settled' | 'unconfirmed'
+    issue: string | null
+    recoverySummary: {
+      items: Array<{
+        from: string
+        to: string
+        label: string
+        kind: string
+        relationshipExists: boolean
+      }>
+      total: number
+      remaining: number
+    }
+  }
+}
+
+let mockCanvasState: MockCanvasState = {
   nodes: [],
   edges: [],
   draftComposerText: null,
+  currentScenarioId: null,
+  unconfirmedEmittedEdits: 0,
+  edgeStrengthSync: {
+    hydration: 'settled',
+    issue: null,
+    recoverySummary: { items: [], total: 0, remaining: 0 },
+  },
 }
 vi.mock('../../store', () => ({
   useCanvasStore: Object.assign(
