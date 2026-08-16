@@ -65,6 +65,14 @@ const renderRisk = (data: Record<string, unknown> = {}) =>
     </ReactFlowProvider>
   )
 
+
+// R6 (Paul, 16 Aug 2026): the literal "assumed strength" is gone. It printed
+// beside EVERY bridge strength, including ones the user had stated — so it was
+// not merely part of S17's placeholder wall, it was false about half the values
+// it labelled. The marker is now derived from the edge's own `weightSource`
+// stamp: `est.` when nobody stated it, nothing at all when the user did.
+// Each assertion below keeps its original intent (does the figure render?) and
+// binds to the marker's test id rather than to copy that no longer exists.
 describe('RiskNode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -176,7 +184,7 @@ describe('RiskNode', () => {
     // assumed edge strength, NOT a computed goal drag. Post-analysis it must
     // keep the honest "assumed strength" wording and must NEVER relabel to
     // "goal drag" just because results.status flipped to 'complete'.
-    expect(screen.getByText(/assumed strength/)).toBeDefined()
+    expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no marker
     expect(screen.queryByText(/goal drag/)).toBeNull()
     expect(screen.getByText(/60%/)).toBeDefined()
   })
@@ -311,16 +319,23 @@ describe('RiskNode', () => {
     it('POSITIVE CONTROL: renders the figure for a strength somebody set', () => {
       bridgeStore({ weight: 0.6, direction: 'negative', weightSource: 'user' })
       renderRisk()
-      expect(screen.getByText(/assumed strength/)).toBeDefined()
+      expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no marker
       expect(screen.getByText(/60%/)).toBeDefined()
     })
 
+
+    it('R6 POSITIVE CONTROL: a strength nobody stated carries the est. marker', () => {
+      bridgeStore({ weight: 0.6, direction: 'positive', weightSource: 'cee' })
+      renderRisk()
+      expect(screen.getByText(/60%/)).toBeDefined()
+      expect(screen.getByTestId('estimate-marker')).toBeDefined()
+    })
     it('renders NOTHING for an edge nobody characterised (USER_EDGE_DEFAULTS)', () => {
       bridgeStore({ ...USER_EDGE_DEFAULTS })
       renderRisk()
       expect(USER_EDGE_DEFAULTS.weight).toBe(0.3)
       expect(screen.queryByText(/30%/)).toBeNull()
-      expect(screen.queryByText(/assumed strength/)).toBeNull()
+      expect(screen.queryByTestId('estimate-marker')).toBeNull()
     })
 
     it('renders NOTHING for a bare DEFAULT_EDGE_DATA weight of 0.5', () => {
@@ -328,7 +343,7 @@ describe('RiskNode', () => {
       renderRisk()
       expect(DEFAULT_EDGE_DATA.weight).toBe(0.5)
       expect(screen.queryByText(/50%/)).toBeNull()
-      expect(screen.queryByText(/assumed strength/)).toBeNull()
+      expect(screen.queryByTestId('estimate-marker')).toBeNull()
     })
 
     it('POSITIVE CONTROL: accepts CEE back-compat evidence (strength_mean)', () => {

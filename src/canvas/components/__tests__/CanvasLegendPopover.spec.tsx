@@ -83,3 +83,46 @@ describe('CanvasLegendPopover', () => {
     expect(screen.getByText('Strong effect')).toBeDefined()
   })
 })
+
+/**
+ * R6 + L-49 (Paul, 16 Aug 2026) — the key now covers COLOUR and the honest
+ * blanks, which is what it was missing.
+ *
+ * ⚠ Note for whoever edits this file next: the `APPROVED` list above is a
+ * hand-maintained copy of the component's own rows, and the test that consumes
+ * it asserts PRESENCE only — adding a row can never fail it. So new rows need
+ * their own assertions, which is what these are. It cannot prove the key is
+ * COMPLETE either; only a reader comparing it against StyledEdge can do that.
+ */
+describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
+  function open() {
+    render(<CanvasLegendPopover />)
+    fireEvent.click(screen.getByTestId('btn-canvas-legend'))
+  }
+
+  it('explains the ONE reserved colour: orange means the reviews disagree', () => {
+    open()
+    expect(screen.getByText('Orange: reviews disagree — your call')).toBeInTheDocument()
+  })
+
+  it('explains grey as "not stated yet", the signal with no other channel', () => {
+    open()
+    expect(screen.getByText('Grey: direction not set yet')).toBeInTheDocument()
+    expect(screen.getByText('Not set yet: thin and grey')).toBeInTheDocument()
+  })
+
+  it('still teaches direction, and still says Raises / Lowers', () => {
+    open()
+    expect(screen.getByText('Raises')).toBeInTheDocument()
+    expect(screen.getByText('Lowers')).toBeInTheDocument()
+  })
+
+  it('keeps the vocabulary constraint on the new rows too', () => {
+    const { container } = render(<CanvasLegendPopover />)
+    fireEvent.click(screen.getByTestId('btn-canvas-legend'))
+    const text = (container.textContent ?? '').toLowerCase()
+    expect(text).not.toMatch(/\bnode\b/)
+    expect(text).not.toMatch(/\bedge\b/)
+    expect(text).not.toMatch(/\bgraph\b/)
+  })
+})

@@ -18,7 +18,9 @@ import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
 
 const INFO_GLOW = 'drop-shadow(0 0 2px var(--semantic-info, #3b82f6))'
-const WARNING_HALO = 'drop-shadow(0 0 4px var(--semantic-warning, #eab308))'
+// R6: the fragility halo moved off the warning hue — under the default lens,
+// orange on an edge means CONTESTED and nothing else.
+const WARNING_HALO = 'drop-shadow(0 0 4px var(--semantic-info, #3b82f6))'
 
 // Mutable, per-test scenario knobs.
 let lensActive: 'full' | 'sensitivity' = 'full'

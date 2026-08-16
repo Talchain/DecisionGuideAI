@@ -68,6 +68,14 @@ const renderOutcome = (data: Record<string, unknown> = {}) =>
     </ReactFlowProvider>
   )
 
+
+// R6 (Paul, 16 Aug 2026): the literal "assumed strength" is gone. It printed
+// beside EVERY bridge strength, including ones the user had stated — so it was
+// not merely part of S17's placeholder wall, it was false about half the values
+// it labelled. The marker is now derived from the edge's own `weightSource`
+// stamp: `est.` when nobody stated it, nothing at all when the user did.
+// Each assertion below keeps its original intent (does the figure render?) and
+// binds to the marker's test id rather than to copy that no longer exists.
 describe('OutcomeNode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -133,7 +141,7 @@ describe('OutcomeNode', () => {
     // assumed edge strength, NOT a computed goal contribution. Post-analysis it
     // must keep the honest "assumed strength" wording and must NEVER relabel to
     // "of your goal" just because results.status flipped to 'complete'.
-    expect(screen.getByText(/assumed strength/)).toBeDefined()
+    expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no marker
     expect(screen.queryByText(/of your goal/)).toBeNull()
     expect(screen.getByText(/75%/)).toBeDefined()
   })
@@ -403,16 +411,23 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
     it('POSITIVE CONTROL: renders the figure for a strength somebody set', () => {
       bridgeStore({ weight: 0.6, direction: 'positive', weightSource: 'user' })
       renderOutcome()
-      expect(screen.getByText(/assumed strength/)).toBeDefined()
+      expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no marker
       expect(screen.getByText(/60%/)).toBeDefined()
     })
 
+
+    it('R6 POSITIVE CONTROL: a strength nobody stated carries the est. marker', () => {
+      bridgeStore({ weight: 0.6, direction: 'positive', weightSource: 'cee' })
+      renderOutcome()
+      expect(screen.getByText(/60%/)).toBeDefined()
+      expect(screen.getByTestId('estimate-marker')).toBeDefined()
+    })
     it('renders NOTHING for an edge nobody characterised (USER_EDGE_DEFAULTS)', () => {
       bridgeStore({ ...USER_EDGE_DEFAULTS })
       renderOutcome()
       expect(USER_EDGE_DEFAULTS.weight).toBe(0.3)
       expect(screen.queryByText(/30%/)).toBeNull()
-      expect(screen.queryByText(/assumed strength/)).toBeNull()
+      expect(screen.queryByTestId('estimate-marker')).toBeNull()
     })
 
     it('renders NOTHING for a bare DEFAULT_EDGE_DATA weight of 0.5', () => {
@@ -420,7 +435,7 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
       renderOutcome()
       expect(DEFAULT_EDGE_DATA.weight).toBe(0.5)
       expect(screen.queryByText(/50%/)).toBeNull()
-      expect(screen.queryByText(/assumed strength/)).toBeNull()
+      expect(screen.queryByTestId('estimate-marker')).toBeNull()
     })
 
     it('POSITIVE CONTROL: accepts CEE back-compat evidence (strength_mean)', () => {

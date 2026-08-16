@@ -21,7 +21,7 @@ import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
@@ -836,10 +836,16 @@ export const FactorNode = memo((props: NodeProps) => {
 
         {/* ===== LAYER 1: Standard body ===== */}
 
-        {/* Value display (contextual) — null for needs-input and empty externals */}
+        {/* Value display (contextual) — null for needs-input and empty externals.
+            R6: at REST an INFERRED value sheds its parenthesised raw number
+            ("Moderate (0.5)" -> "Moderate") and carries ONE quiet `est.`
+            marker instead of the stack of stamps S17 showed. Detailed view,
+            the popover and the inspector keep the full string. A value the
+            user stated is never touched and never marked. */}
         {valueDisplay !== null && (
-          <div className={`${typography.nodeLabel} mt-1 text-text-body`}>
-            {valueDisplay}
+          <div className={`${typography.nodeLabel} mt-1 text-text-body inline-flex items-baseline gap-1`}>
+            <span>{isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay}</span>
+            {isInferred && !isDetailed && <EstimateMarker />}
           </div>
         )}
 

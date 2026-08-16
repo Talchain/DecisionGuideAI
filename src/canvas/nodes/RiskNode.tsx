@@ -14,6 +14,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { EstimateMarker } from './shared'
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -53,9 +54,16 @@ export const RiskNode = memo((props: NodeProps) => {
     // `RelationshipsSection`: a gate whose condition is a tautology.
     const display = resolveEdgeSignedStrengthDisplay(edge.data as Record<string, unknown> | undefined)
     const signedMean = display.show ? display.value : null
+    // R6: is this strength an ESTIMATE or something the user stated? Derived
+    // from the edge's own provenance stamp — the same field the display gate
+    // above consults — never from a hardcoded word. `weightSource` absent means
+    // defaulted (edgeValueProvenance's stated invariant), which is an estimate;
+    // `'user'` means the user set it, and carries no marker at all.
+    const weightSource = (edge.data as Record<string, unknown> | undefined)?.weightSource
     return {
       signedMean,
       bridgeStrengthPct: signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null,
+      bridgeIsEstimated: signedMean != null && weightSource !== 'user',
     }
   }, [edges, nodes, props.id])
 
@@ -200,7 +208,11 @@ export const RiskNode = memo((props: NodeProps) => {
         {bridgeEdgeData?.bridgeStrengthPct != null && (
           <div className="mt-1 inline-flex items-center gap-1">
             <span className={`${typography.nodeLabel} font-semibold text-danger`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
-            <span className={`${typography.edgeLabel} text-text-light`}>assumed strength</span>
+            {/* R6: was the literal "assumed strength" — which printed even for a
+          value the USER had stated, so it was not merely noisy, it was wrong.
+          The marker is now derived from the edge's own provenance stamp and
+          collapses to one quiet `est.`; absent when the user set it. */}
+      {bridgeEdgeData.bridgeIsEstimated && <EstimateMarker />}
           </div>
         )}
 

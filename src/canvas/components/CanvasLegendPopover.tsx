@@ -5,10 +5,23 @@
  * Opens on click (keyboard: Enter/Space activates); dismissed via outside-click
  * or Esc. Focus alone does not open it. Every rendered
  * string is brief/amendment-approved (A4) — no Claude-authored copy, and no
- * "node/edge/graph" wording. If more copy is ever needed here, stop and ask Paul.
+ * "node/edge/graph" wording.
+ *
+ * ⚠ The rule above used to end "if more copy is ever needed here, stop and ask
+ * Paul." R6 (Paul, 16 Aug 2026) is that instruction being given: "orange
+ * reserved for contested connections only, WITH A LEGEND." The colour and
+ * direction rows below are added under that ruling; the vocabulary constraint
+ * is unchanged and still enforced by this component's spec. Any FURTHER copy
+ * still stops and asks.
+ *
+ * L-49: the canvas spoke four vocabularies with no key — solid vs dashed, +/-
+ * markers, thickness, and colour. The legend explained the first and the third.
+ * Worse, it taught up/down ARROWS for direction, which the canvas has never
+ * drawn: direction is a line colour plus a + or - marker. Every row here is now
+ * derived from what StyledEdge actually paints.
  */
 import { useRef, useEffect, useState, useCallback, type ReactNode } from 'react'
-import { HelpCircle, ArrowUp, ArrowDown } from 'lucide-react'
+import { HelpCircle } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 
@@ -32,26 +45,64 @@ const TYPE_ROWS: LegendRow[] = [
   },
 ]
 
-function LineSwatch({ dashed }: { dashed: boolean }) {
+function LineSwatch({ dashed, stroke = 'var(--text-body)', width = 1.5, mark }: {
+  dashed?: boolean
+  stroke?: string
+  width?: number
+  /** Optional polarity marker drawn beside the line, as the canvas draws it. */
+  mark?: '+' | '−'
+}) {
   return (
-    <svg width={24} height={8} aria-hidden="true" style={{ flexShrink: 0 }}>
-      <line
-        x1={0}
-        y1={4}
-        x2={24}
-        y2={4}
-        stroke="var(--text-body)"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeDasharray={dashed ? '3 2' : undefined}
-      />
-    </svg>
+    <span className="inline-flex items-center gap-0.5" style={{ flexShrink: 0 }}>
+      <svg width={mark ? 17 : 24} height={Math.max(width + 2, 8)} aria-hidden="true" style={{ flexShrink: 0 }}>
+        <line
+          x1={0}
+          y1={Math.max(width + 2, 8) / 2}
+          x2={mark ? 17 : 24}
+          y2={Math.max(width + 2, 8) / 2}
+          stroke={stroke}
+          strokeWidth={width}
+          strokeLinecap="round"
+          strokeDasharray={dashed ? '3 2' : undefined}
+        />
+      </svg>
+      {mark && (
+        <span aria-hidden="true" style={{ color: stroke, fontWeight: 700, fontSize: '11px', lineHeight: 1 }}>
+          {mark}
+        </span>
+      )}
+    </span>
   )
 }
 
 const CONNECTION_ROWS: LegendRow[] = [
   { label: 'Solid connection: established', swatch: <LineSwatch dashed={false} /> },
   { label: 'Dashed connection: less certain', swatch: <LineSwatch dashed /> },
+]
+
+// Direction, as the canvas actually draws it: the line's colour, plus a + or -
+// marker beside the label. `--edge-positive` / `--edge-negative` / `--edge-neutral`
+// are the same tokens computeDirectionStroke() picks from, so this key cannot
+// drift from the connections it describes.
+//
+// The grey row is the one that matters most and was missing entirely: grey is
+// how the canvas says "nobody has stated this yet". Without it a reader has no
+// way to tell an honest blank from a weak effect.
+const DIRECTION_ROWS: LegendRow[] = [
+  { label: 'Raises', swatch: <LineSwatch stroke="var(--edge-positive)" width={2} mark="+" /> },
+  { label: 'Lowers', swatch: <LineSwatch stroke="var(--edge-negative)" width={2} mark="−" /> },
+  { label: 'Grey: direction not set yet', swatch: <LineSwatch stroke="var(--edge-neutral)" width={2} /> },
+]
+
+// Colour, R6. Exactly one meaning is reserved on a connection: orange means the
+// two reviews disagreed and it is waiting on the person. Every other orange the
+// canvas used to paint on a connection (fragility, assumption flags, who set a
+// value) has moved off the hue, so this row is true.
+const COLOUR_ROWS: LegendRow[] = [
+  {
+    label: 'Orange: reviews disagree — your call',
+    swatch: <LineSwatch stroke="var(--semantic-warning)" width={2} dashed />,
+  },
 ]
 
 function ThicknessSwatch({ width }: { width: number }) {
@@ -83,11 +134,11 @@ const THICKNESS_ROWS: LegendRow[] = [
   { label: 'Weak effect', swatch: <ThicknessSwatch width={1.5} /> },
   { label: 'Moderate effect', swatch: <ThicknessSwatch width={2} /> },
   { label: 'Strong effect', swatch: <ThicknessSwatch width={3} /> },
-]
-
-const DIRECTION_ROWS: LegendRow[] = [
-  { label: 'Raises', swatch: <ArrowUp size={12} className="text-success shrink-0" aria-hidden="true" /> },
-  { label: 'Lowers', swatch: <ArrowDown size={12} className="text-danger shrink-0" aria-hidden="true" /> },
+  // Honesty row: an unset strength draws at the SAME width as a weak effect
+  // (UNSET_EDGE_STROKE_WIDTH is 1.5), so without this the key actively teaches
+  // the reader to mistake a blank for a finding. Thickness alone cannot tell
+  // them apart — the colour does.
+  { label: 'Not set yet: thin and grey', swatch: <ThicknessSwatch width={1.5} /> },
 ]
 
 function LegendGroup({ rows }: { rows: LegendRow[] }) {
@@ -162,6 +213,8 @@ export function CanvasLegendPopover() {
           <LegendGroup rows={THICKNESS_ROWS} />
           <div className="h-px bg-panel-border my-2" aria-hidden="true" />
           <LegendGroup rows={DIRECTION_ROWS} />
+      <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+      <LegendGroup rows={COLOUR_ROWS} />
         </div>
       )}
     </div>
