@@ -20,7 +20,8 @@
  *   1. the CEE send fires on every click, unconditionally;
  *   2. the canvas pulse STAYS gated on local-diff availability (it needs an
  *      alignable local pair to highlight anything);
- *   3. the resting accessible name is the ACTION ("What changed?"), never a
+ *   3. the resting accessible name is the ACTION ("What changed since the last
+ *      analysis run?"), never a
  *      disability claim.
  *
  * These specs are RED-first: written to assert the corrected behaviour, run
@@ -202,14 +203,14 @@ describe('WhatChangedChip — F2B: mounts and sends with NO comparison pair (emp
 })
 
 describe('WhatChangedChip — resting accessible name is the action, not a disability claim', () => {
-  it('names the ACTION "What changed?" when no local highlight is available', () => {
+  it('names the ACTION, naming the ANALYSIS RUN, when no local highlight is available', () => {
     ctxMock.mockReturnValue({ dispatchAction: vi.fn().mockResolvedValue(undefined) })
     seedIdenticalRuns()
 
     render(<WhatChangedChip />)
     const chip = screen.getByTestId('what-changed-chip')
     // The accessible name is the action — never "(not available for this run)".
-    expect(chip).toHaveAccessibleName('What changed?')
+    expect(chip).toHaveAccessibleName('What changed since the last analysis run?')
     expect(chip.getAttribute('aria-label') ?? '').not.toMatch(/not available/i)
     expect(chip.textContent).not.toMatch(/not available/i)
   })
@@ -222,7 +223,7 @@ describe('WhatChangedChip — resting accessible name is the action, not a disab
     const chip = screen.getByTestId('what-changed-chip')
     // Anti-fabrication contract from #423 survives: no everything-added "+N".
     expect(chip.textContent).not.toMatch(/[+~-]\d/)
-    expect(chip.textContent).toMatch(/what changed\?/i)
+    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
   })
 })
 

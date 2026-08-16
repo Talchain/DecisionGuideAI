@@ -262,15 +262,23 @@ export function WhatChangedChip() {
   }
 
   // Label + accessible name. With the send always available the chip is always
-  // actionable, so the resting state names the ACTION ("What changed?"), never
-  // a disability claim. When a local delta IS computable we additionally show
-  // the counts and name the highlight it will pulse.
+  // actionable, so the resting state names the ACTION, never a disability claim.
+  // When a local delta IS computable we additionally show the counts and name
+  // the highlight it will pulse.
+  //
+  // ⚠ VOCABULARY (16 Aug 2026, trap 21). This chip and the version-history
+  // panel both said "What changed", and they answer DIFFERENT questions about
+  // DIFFERENT objects: this one compares two ANALYSIS RUNS (what the engine
+  // computed), the panel compares two VERSIONS (what the user authored). One
+  // phrase serving both taught users the two were the same thing. Every user-
+  // facing string here now names the analysis run explicitly; the panel names
+  // the version. See canvas/versions/versionLabels.ts for the other half.
   const label = localHighlightAvailable
-    ? `Since your last run: ${parts.join(' • ')}`
-    : 'What changed?'
+    ? `Since your last analysis run: ${parts.join(' • ')}`
+    : 'What changed since the last analysis run?'
   const ariaLabel = localHighlightAvailable
-    ? `Since your last run: ${parts.join(', ')}. Highlight the changes on the canvas.`
-    : 'What changed?'
+    ? `Since your last analysis run: ${parts.join(', ')}. Highlight the changes on the canvas.`
+    : 'What changed since the last analysis run?'
 
   // F8 (honesty): the click can only DO something when either the pulse is
   // available (a computable local delta) OR a dispatcher is in scope (the CEE
@@ -316,7 +324,7 @@ export function WhatChangedChip() {
         would be false. */}
     {localHighlightAvailable && (
       <span className={`${typography.panelMeta} text-text-light pl-1`}>
-        Compared with your previous run on this device
+        Compared with your previous analysis run on this device
       </span>
     )}
     </span>

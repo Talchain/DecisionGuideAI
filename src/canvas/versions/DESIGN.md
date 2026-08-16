@@ -19,12 +19,48 @@ and is tested; it does not mean deployed, mounted or user-witnessed.
 | Storage (localStorage, guest-working) | `versionStorage.ts` | built + tested (18 cases) |
 | Plain-language captions | `describeChange.ts` | built + tested (24 cases) |
 | Pre-ingest auto-capture | `autoCapture.ts` | built + tested (9 cases) |
-| What Changed panel | `WhatChangedPanel.tsx` | built + tested (13 cases, jsdom) |
-| Mount host | `VersionsPanelHost.tsx` | built |
+| Version-history panel | `WhatChangedPanel.tsx` | built + tested (jsdom) |
+| Panel mount host | `VersionsPanelHost.tsx` | built |
+| Trigger (no positioning) | `VersionsTrigger.tsx` | built + tested |
+| Open/closed state | `versionsPanelStore.ts` | built + tested |
+| Panel vocabulary + origin labels | `versionLabels.ts` | built + tested |
 
-Mounted at `src/routes/CanvasMVP.tsx` (one lazy import, one JSX element), which
-serves both `/canvas` and `/scenario/:id`. No feature flag: the surface ships on,
-per programme doctrine.
+The PANEL is mounted at `src/routes/CanvasMVP.tsx` (one lazy import, one JSX
+element), which serves both `/canvas` and `/scenario/:id`. No feature flag: the
+surface ships on, per programme doctrine.
+
+The TRIGGER is mounted separately, and that separation is the point of R4 (see
+below). Its homes:
+
+- `src/components/layout/TopBar.tsx` — the primary one, beside share and the
+  model name;
+- the analysis panel header — one line for the cockpit lane:
+  `<VersionsTrigger variant="icon" />`.
+
+## R4 — one home for history, and no floating pill
+
+Paul ruled on 16 Aug 2026 that the floating "Versions" pill dies. What it cost
+while it lived (ledger L-08): it was `position: absolute; z-[1500]`, offset from
+the viewport's right edge by a `calc()` over the OutputsDock's expanded width in
+BOTH dock states, so with the dock collapsed it hovered ~350px out over open
+canvas, attached to nothing. An entire module (`versionsTriggerPosition.ts`,
+~124 lines of derived-offset arithmetic and overlap geometry) existed to stop
+one floating control landing on another floating control.
+
+That module is DELETED, and `VersionsTrigger` carries no positioning of its own —
+no `absolute`, no `fixed`, no `z-index`, no inset. Layout belongs to the header
+row that mounts it. **Do not give this component a position.** The defect was
+never the arithmetic; it was a control with no home, and better arithmetic
+would only have hidden it.
+
+The consequence for state: trigger and panel are no longer in one subtree, so
+the open flag moved from host-local `useState` to `versionsPanelStore` — a
+dedicated store, deliberately NOT `uiStore.activeOverlaySurface`, whose one-slot
+exclusivity would make opening the kebab menu silently close version history.
+
+Meanwhile the TopBar already had a "Version history" button that dispatched a
+toast reading *"Version history is coming soon."* — a control denying a
+capability that was mounted 57px below it. That button is now the real trigger.
 
 ⚠ jsdom proves presence and text, never visibility. Nothing here is
 journey-witnessed. A browser witness on staging is still owed.
@@ -77,9 +113,29 @@ either flattening user data away or widening its schema, and widening the schema
 a flag-off module with a `VisualDiff` of its own would have produced a second diff
 authority by the back door.
 
-**Recommendation for the estate:** retire `src/canvas/snapshots/` and its flag once
-this surface is witnessed, or explicitly re-scope it to visual/layout snapshots so
-the two are not competing answers to one question. Not actioned here — out of lane.
+**Recommendation ACTIONED, 16 Aug 2026 — partially, and the remainder is named.**
+Re-derived at `f15bccaf` with a same-shape contrast control (`snapshots/types` →
+7 importers, so the probe can see importers when they exist):
+
+- `snapshots/snapshots.ts`, `SnapshotPanel.tsx`, `VisualDiff.tsx`,
+  `useVisualDiff.ts` and `__tests__/snapshots.spec.ts` formed a CLOSED island —
+  they import each other and **nothing outside the directory imports any of
+  them**. Deleted, with `e2e/snapshots-v2.spec.ts` (its only other reference).
+- `snapshots/types.ts` is NOT dead — 7 live importers, including
+  `canvas/store.ts`. **Kept.** The earlier note above that the whole directory
+  had "zero importers outside its own directory" was measured against the
+  MODULE, not the directory, and is corrected here.
+- `VITE_FEATURE_SNAPSHOTS_V2` / `flags.snapshotsV2` / `isSnapshotsV2Enabled` are
+  now orphaned (only `tests/__helpers__/mockFlags.ts` references them). NOT
+  removed here: `src/flags.ts` is high-collision shared state and a required CI
+  job reports flag drift against the deployed set. Reported for a flags lane.
+- `src/lib/snapshots.ts` (a THIRD, unrelated `Snapshot` type) is **live** —
+  `components/SandboxStreamPanel.tsx` imports it. Not touched.
+- `canvas/components/SnapshotManager.tsx` (a FOURTH concept, over
+  `canvas/persist`) is **live and user-reachable** from the TopBar kebab as
+  "Snapshots". It overlaps this feature conceptually and its removal is a
+  material change to a visible surface, so it is REPORTED for Paul's ruling,
+  not removed.
 
 ---
 
@@ -243,3 +299,18 @@ does not.
    from the changeset. No summaries, scores or judgements.
 5. **Guests work.** No identity check in the storage path, ever.
 6. **Auto-capture cannot break ingest.** Every failure swallowed with a warning.
+7. **A version is not an analysis run, and the copy must say so.** A VERSION is
+   a snapshot the USER authored; an ANALYSIS RUN is a computation the ENGINE
+   performed. Two surfaces both said "What changed" and answered those two
+   different questions, which taught readers they were one thing (trap 21). The
+   panel names versions; the run-over-run chip
+   (`canvas/components/WhatChangedChip.tsx`) names analysis runs. Panel
+   vocabulary lives in `versionLabels.ts` — change it there, not inline.
+8. **The trigger carries no positioning.** See R4 above.
+9. **No comparison UI until there is something to compare.** With fewer than two
+   versions the panel renders its honest empty state and NOTHING else — no
+   selects, no comparison section (ledger L-11). An affordance that cannot keep
+   its promise is worse than its absence; this is the same rule that keeps
+   `restore` unbuilt.
+10. **Automatic captures are labelled.** A row the user did not create must say
+    so, or the list is a mystery rather than a history.

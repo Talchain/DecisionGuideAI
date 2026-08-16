@@ -1,5 +1,5 @@
 /**
- * What Changed — the versions surface.
+ * Version history — the versions surface.
  * British English: visualisation, colour, initialise.
  *
  * RENDERS THE CHANGESET AND NOTHING ELSE. Every line on screen comes from
@@ -9,16 +9,43 @@
  *
  * EXCEPTIONS LOUD, NORMAL QUIET: a failed save says so, in place, with the real
  * reason. A successful save says nothing — the new version simply appears.
+ *
+ * ── THREE CHANGES, 16 Aug 2026 ───────────────────────────────────────────────
+ *
+ * (1) VOCABULARY (trap 21). "Version" and "analysis run" are different objects
+ *     and this panel said neither. It now says what a version IS and what it is
+ *     NOT, from `versionLabels.ts`, and its comparison section is titled
+ *     "Changes between these versions" rather than the bare "What changed" it
+ *     shared with the run-over-run chip on the analysis surface.
+ *
+ * (2) NO PREMATURE INVITATION (ledger L-11). With fewer than two versions the
+ *     panel used to render the From/To comparison selects anyway — two dropdowns
+ *     offering to compare a single version with itself. The comparison UI is now
+ *     gated on there being something to compare, and the honest empty state is
+ *     the ONLY voice in that case. An affordance that cannot keep its promise is
+ *     worse than its absence (the same rule that keeps `restore` unbuilt).
+ *
+ * (3) AUTOMATIC CAPTURES ARE VISIBLE. `origin` was stored and never rendered,
+ *     so pre-ingest captures appeared as rows the user had no memory of
+ *     creating. They are now marked, in the list and in the selects, from one
+ *     string (`versionLabels.ts`).
  */
 
 import { useCallback, useState } from 'react'
-import { GitCompare, Save, Trash2 } from 'lucide-react'
+import { History, Save, Trash2 } from 'lucide-react'
 import { PanelShell } from '../panels/_shared/PanelShell'
 import { PanelSection } from '../panels/_shared/PanelSection'
 import { typography } from '../../styles/typography'
 import { buildVersionLabelIndex, describeChangeset } from './describeChange'
 import { useModelVersions } from './useModelVersions'
+import {
+  VERSION_STORAGE_DISCLOSURE,
+  VERSION_VS_RUN_DISCLOSURE,
+  versionOriginLabel,
+  versionOriginSuffix,
+} from './versionLabels'
 import type { ChangeLine } from './describeChange'
+import type { ModelVersion } from './types'
 
 export interface WhatChangedPanelProps {
   isOpen: boolean
@@ -36,6 +63,11 @@ function formatTimestamp(ms: number): string {
   } catch {
     return new Date(ms).toISOString()
   }
+}
+
+/** One `<option>` caption: name, when, and — for an auto capture — what it is. */
+function optionCaption(version: ModelVersion): string {
+  return `${version.name} · ${formatTimestamp(version.createdAt)}${versionOriginSuffix(version.origin)}`
 }
 
 /** Neutral markers — the change KIND, never a judgement about it. */
@@ -84,6 +116,14 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
   const lines =
     changeset && from && to ? describeChangeset(changeset, buildVersionLabelIndex(from, to)) : []
 
+  // THE GATE THAT MAKES THE EMPTY STATE THE ONLY VOICE (L-11). A comparison
+  // needs two DISTINCT versions to be about anything; with one (or none) the
+  // panel says so plainly and offers nothing else. Deliberately derived from the
+  // list rather than from `changeset != null` — the changeset is also null while
+  // a selection is being changed, and the user must not watch the comparison
+  // controls appear and disappear underneath them.
+  const canCompare = versions.length >= 2
+
   return (
     <div
       className="fixed right-0 z-[2000]"
@@ -91,11 +131,21 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
       data-testid="what-changed-panel"
     >
       <PanelShell
-        icon={<GitCompare className="w-5 h-5" />}
-        title="Versions"
+        icon={<History className="w-5 h-5" />}
+        title="Version history"
         onClose={onClose}
         width="420px"
       >
+        {/* WHAT A VERSION IS — before anything asks the user to make one.
+            Stated once, at the top, because every other line in this panel is
+            only meaningful if the reader has the right object in mind. */}
+        <p
+          className={`${typography.panelBody} text-text-light`}
+          data-testid="versions-vocabulary-disclosure"
+        >
+          {VERSION_VS_RUN_DISCLOSURE}
+        </p>
+
         <PanelSection title="Save a version">
           <div className="flex items-center gap-2">
             <label htmlFor="version-name" className="sr-only">
@@ -123,20 +173,33 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
               {saveError}
             </p>
           )}
-          <p className={`${typography.panelMeta} text-text-light`}>
-            Versions are stored in this browser only. They are not shared with collaborators and are
-            lost if you clear site data.
+          <p
+            className={`${typography.panelMeta} text-text-light`}
+            data-testid="versions-storage-disclosure"
+          >
+            {VERSION_STORAGE_DISCLOSURE}
           </p>
         </PanelSection>
 
+        {/* ── The honest empty states. Exactly one of these renders, and when one
+            does, the comparison controls below do NOT (see `canCompare`). ── */}
         {versions.length === 0 && (
-          <p className={`${typography.panelBody} text-text-light`}>
-            No versions saved yet. Save one to start tracking how your model changes.
+          <p className={`${typography.panelBody} text-text-light`} data-testid="versions-empty">
+            No versions yet. Save one to start a history of this model.
           </p>
         )}
 
-        {versions.length > 0 && (
-          <PanelSection title="Compare">
+        {versions.length === 1 && (
+          <p
+            className={`${typography.panelBody} text-text-light`}
+            data-testid="versions-single-capture"
+          >
+            One version so far. Save a second to compare them.
+          </p>
+        )}
+
+        {canCompare && (
+          <PanelSection title="Compare two versions">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label
@@ -153,7 +216,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
                 >
                   {versions.map((version) => (
                     <option key={version.id} value={version.id}>
-                      {version.name} · {formatTimestamp(version.createdAt)}
+                      {optionCaption(version)}
                     </option>
                   ))}
                 </select>
@@ -173,7 +236,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
                 >
                   {versions.map((version) => (
                     <option key={version.id} value={version.id}>
-                      {version.name} · {formatTimestamp(version.createdAt)}
+                      {optionCaption(version)}
                     </option>
                   ))}
                 </select>
@@ -182,14 +245,8 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
           </PanelSection>
         )}
 
-        {versions.length === 1 && (
-          <p className={`${typography.panelBody} text-text-light`}>
-            Save a second version to see what changed between them.
-          </p>
-        )}
-
-        {changeset && (
-          <PanelSection title="What changed">
+        {canCompare && changeset && (
+          <PanelSection title="Changes between these versions">
             {changeset.isEmpty ? (
               <p className={`${typography.panelBody} text-text-light`}>
                 No differences between these two versions.
@@ -213,26 +270,47 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
         )}
 
         {versions.length > 0 && (
-          <PanelSection title="Saved versions">
+          <PanelSection title="All versions">
             <ul className="space-y-1">
-              {versions.map((version) => (
-                <li key={version.id} className="flex items-center justify-between gap-2">
-                  <span className={`${typography.panelBody} text-text-body truncate`}>
-                    {version.name}
-                    <span className={`${typography.panelMeta} text-text-light ml-2`}>
-                      {formatTimestamp(version.createdAt)}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`Delete version ${version.name}`}
-                    onClick={() => removeVersion(version.id)}
-                    className="shrink-0 p-1 rounded-md text-text-light hover:text-danger hover:bg-panel-hover"
+              {versions.map((version) => {
+                const originLabel = versionOriginLabel(version.origin)
+                return (
+                  <li
+                    key={version.id}
+                    className="flex items-center justify-between gap-2"
+                    data-testid="version-row"
+                    data-version-origin={version.origin}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </li>
-              ))}
+                    <span className="min-w-0 flex-1">
+                      <span className={`${typography.panelBody} text-text-body truncate`}>
+                        {version.name}
+                      </span>
+                      <span className={`${typography.panelMeta} text-text-light ml-2`}>
+                        {formatTimestamp(version.createdAt)}
+                      </span>
+                      {/* WHO MADE THIS ROW. Shown only for captures the product
+                          took by itself — the ones the user cannot otherwise
+                          account for. A manual save needs no explanation. */}
+                      {originLabel !== null && (
+                        <span
+                          className={`${typography.panelMeta} text-text-light ml-2 px-1.5 py-0.5 rounded border border-panel-border`}
+                          data-testid="version-origin-badge"
+                        >
+                          {originLabel}
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Delete version ${version.name}`}
+                      onClick={() => removeVersion(version.id)}
+                      className="shrink-0 p-1 rounded-md text-text-light hover:text-danger hover:bg-panel-hover"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           </PanelSection>
         )}

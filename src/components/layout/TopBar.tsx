@@ -8,6 +8,7 @@ import { UserAvatarMenu } from './UserAvatarMenu'
 import { KebabMenu } from './KebabMenu'
 import { ScenarioSwitcher } from '../../canvas/components/ScenarioSwitcher'
 import { SCENARIO_RENAME_REQUEST_EVENT } from '../../canvas/components/scenarioRenameEvent'
+import { VersionsTrigger } from '../../canvas/versions/VersionsTrigger'
 import { ownerPanelHash } from '../../collab/panelRoute'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { useUIStore } from '../../stores/uiStore'
@@ -382,20 +383,18 @@ export const TopBar = ({
           </button>
         </Tooltip>
 
-        {/* Version history */}
-        <Tooltip content="Version history (coming soon)">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Version history"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent(HELP_EVENTS.SHOW_TOAST, {
-                detail: { message: 'Version history is coming soon.', level: 'info' },
-              }))
-            }}
-          >
-            <Clock size={14} aria-hidden="true" />
-          </button>
+        {/* ⭐ VERSION HISTORY — THE REAL CONTROL (R4, Paul, 16 Aug 2026).
+            This button used to be a LIE: it said "coming soon" and fired an
+            informational toast, while the fully built versions feature was
+            mounted 57px below it as a floating pill over the canvas (ledger
+            L-08). Two controls for one capability, one of them denying the
+            capability existed.
+            The floating pill is retired and this is now the capability's home:
+            history belongs beside the model name and share, with the other
+            document-level controls, not hovering over the graph. `VersionsTrigger`
+            carries no positioning of its own — this row owns its layout. */}
+        <Tooltip content="Version history — snapshots of the model you authored">
+          <VersionsTrigger variant="icon" className={styles.iconButton} data-testid="topbar-versions-trigger" />
         </Tooltip>
 
         {/* Kebab menu */}

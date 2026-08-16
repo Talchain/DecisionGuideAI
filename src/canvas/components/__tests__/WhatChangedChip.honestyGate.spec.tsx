@@ -70,7 +70,7 @@ function seedIdenticalRuns() {
   loadRunsMock.mockReturnValue([run(g), run(g)])
 }
 
-const DEVICE_COPY = 'Compared with your previous run on this device'
+const DEVICE_COPY = 'Compared with your previous analysis run on this device'
 
 beforeEach(() => {
   loadRunsMock.mockReset()

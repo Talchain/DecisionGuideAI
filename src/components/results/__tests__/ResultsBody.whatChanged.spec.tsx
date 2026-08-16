@@ -163,7 +163,7 @@ describe('ResultsBody — WhatChangedChip mount (R6)', () => {
     loadRunsMock.mockReturnValue([])
     renderBody()
     const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed\?/i)
+    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
     const existingHero = screen.getByTestId('analysis-hero-panel')
     expect(before(chip, existingHero), 'chip must precede the hero block').toBe(true)
   })
@@ -172,7 +172,7 @@ describe('ResultsBody — WhatChangedChip mount (R6)', () => {
     loadRunsMock.mockReturnValue([runFx([nodeFx('a', 'A')], 1)])
     renderBody()
     const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed\?/i)
+    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
   })
 
   it('KEEPS the chip mounted and actionable when nothing changed between runs (send is unconditional; only the pulse is gated)', () => {
@@ -182,7 +182,7 @@ describe('ResultsBody — WhatChangedChip mount (R6)', () => {
     // A previous run exists, so the chip stays actionable even at zero local
     // delta — its resting name is the ACTION, not a "(not available)" claim.
     const chip = screen.getByTestId('what-changed-chip')
-    expect(chip.textContent).toMatch(/what changed\?/i)
+    expect(chip.textContent).toMatch(/what changed since the last analysis run\?/i)
     const existingHero = screen.getByTestId('analysis-hero-panel')
     expect(before(chip, existingHero), 'chip must precede the hero block').toBe(true)
   })

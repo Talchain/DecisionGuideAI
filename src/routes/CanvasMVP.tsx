@@ -261,9 +261,13 @@ export default function CanvasMVP() {
           />
         </Suspense>
 
-        {/* Versioned workspace: "Versions" trigger + What Changed panel.
-            Self-contained — owns its own open state and touches no shared
-            store, so this mount is the feature's entire integration surface. */}
+        {/* Versioned workspace: the version-history PANEL only.
+            R4 (Paul, 16 Aug 2026): the floating "Versions" pill that used to
+            render here is retired — the trigger now lives in the TopBar above
+            (and, for the cockpit lane, in the analysis panel header). Both
+            triggers and this panel share `versionsPanelStore`, so this mount
+            stays the feature's entire integration surface on the route and
+            still touches no canvas store. */}
         <Suspense fallback={null}>
           <VersionsPanelHost />
         </Suspense>
