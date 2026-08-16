@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2486
+# count=2389
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -138,37 +138,21 @@
 4	src/adapters/plot/__tests__/autoDetectAdapter.streaming.test.ts	TS2741	Property 'template_id' is missing in type '{ graph: { nodes: { id: string; label: string; }[]; edges: never[]; }; seed: number; }' but required in type 'RunRequest'.
 1	src/adapters/plot/__tests__/autoDetectAdapter.streaming.test.ts	TS6133	'beforeEach' is declared but its value is never read.
 1	src/adapters/plot/__tests__/autoDetectAdapter.streaming.test.ts	TS6133	'completeCalled' is declared but its value is never read.
-4	src/adapters/plot/__tests__/determinism.test.ts	TS2339	Property 'confidence' does not exist on type '{ response_hash: string; response_hash_algo: "fnv1a-64" | "sha256"; response_hash_source?: "local" | "producer" | undefined; normalized: true; identifiability_tag?: string | undefined; sources?: { ...; }[] | undefined; }'.
-1	src/adapters/plot/__tests__/determinism.test.ts	TS2339	Property 'debug' does not exist on type 'ReportV1'.
-2	src/adapters/plot/__tests__/determinism.test.ts	TS2339	Property 'explanation' does not exist on type 'ReportV1'.
-4	src/adapters/plot/__tests__/determinism.test.ts	TS2339	Property 'seed' does not exist on type '{ response_hash: string; response_hash_algo: "fnv1a-64" | "sha256"; response_hash_source?: "local" | "producer" | undefined; normalized: true; identifiability_tag?: string | undefined; sources?: { ...; }[] | undefined; }'.
-1	src/adapters/plot/__tests__/determinism.test.ts	TS2741	Property 'template_id' is missing in type '{ graph: { nodes: { id: string; label: string; }[]; edges: { id: string; source: string; target: string; data: { weight: number; }; }[]; }; seed: number; }' but required in type 'RunRequest'.
-1	src/adapters/plot/__tests__/determinism.test.ts	TS7006	Parameter 'error' implicitly has an 'any' type.
 2	src/adapters/plot/__tests__/enrichment.spec.ts	TS2345	Argument of type '{ result: { answer: string; confidence: number; explanation: string; }; execution_ms: number; enrichment: { metadata: { isl_enabled: boolean; detail_level: string; }; sensitivity_analysis: any; }; }' is not assignable to parameter of type 'PLoTResponseWithEnrichment'.
 2	src/adapters/plot/__tests__/httpV1Adapter.contract.test.ts	TS18046	'result.graph' is of type 'unknown'.
-1	src/adapters/plot/__tests__/httpV1Adapter.stream.test.ts	TS6196	'ErrorV1' is declared but never used.
-1	src/adapters/plot/__tests__/httpV1Adapter.stream.test.ts	TS6196	'ReportV1' is declared but never used.
 7	src/adapters/plot/__tests__/trustFields.contract.spec.ts	TS18048	'readiness' is possibly 'undefined'.
 17	src/adapters/plot/__tests__/trustFields.contract.spec.ts	TS18048	'result' is possibly 'undefined'.
 3	src/adapters/plot/__tests__/trustFields.contract.spec.ts	TS2532	Object is possibly 'undefined'.
 1	src/adapters/plot/autoDetectAdapter.ts	TS2353	Object literal may only specify known properties, and 'source' does not exist in type '{ ok: false; error: Error; fetchedAt: number; }'.
-1	src/adapters/plot/httpV1Adapter.ts	TS6133	'computeClientHash' is declared but its value is never read.
-1	src/adapters/plot/httpV1Adapter.ts	TS6133	'shouldUseSync' is declared but its value is never read.
-1	src/adapters/plot/httpV1Adapter.ts	TS6133	'startTime' is declared but its value is never read.
-1	src/adapters/plot/httpV1Adapter.ts	TS6133	'templateId' is declared but its value is never read.
-1	src/adapters/plot/httpV1Adapter.ts	TS6196	'TemplateSummary' is declared but never used.
-1	src/adapters/plot/httpV1Adapter.ts	TS6196	'V1RunResult' is declared but never used.
-1	src/adapters/plot/httpV1Adapter.ts	TS6196	'V1ValidateRequest' is declared but never used.
-1	src/adapters/plot/httpV1Adapter.ts	TS6196	'V1ValidateResponse' is declared but never used.
+1	src/adapters/plot/httpV1Adapter.ts	TS6133	'loadTemplateGraph' is declared but its value is never read.
+1	src/adapters/plot/httpV1Adapter.ts	TS6133	'mapConfidenceLevel' is declared but its value is never read.
+1	src/adapters/plot/httpV1Adapter.ts	TS6133	'mapGraphToV1Request' is declared but its value is never read.
+1	src/adapters/plot/httpV1Adapter.ts	TS6196	'ReportV1' is declared but never used.
 1	src/adapters/plot/index.ts	TS6133	'BackendUnavailableError' is declared but its value is never read.
 1	src/adapters/plot/mockAdapter.ts	TS2322	Type '"CEE_TEMPORARY"' is not assignable to type '"CEE_CLIENT_DISCONNECT" | "CEE_INTERNAL_ERROR" | "CEE_LLM_TIMEOUT" | "CEE_LLM_UPSTREAM_ERROR" | "CEE_LLM_VALIDATION_FAILED" | "CEE_REQUEST_BUDGET_EXCEEDED"'.
 1	src/adapters/plot/mockAdapter.ts	TS2353	Object literal may only specify known properties, and 'category' does not exist in type 'TemplateDetail'.
 1	src/adapters/plot/mockAdapter.ts	TS6196	'StreamEvent' is declared but never used.
 1	src/adapters/plot/reconnection.ts	TS6133	'reject' is declared but its value is never read.
-1	src/adapters/plot/v1/__tests__/http.payloadTraceStore.spec.ts	TS2353	Object literal may only specify known properties, and 'decision' does not exist in type 'V1Graph'.
-1	src/adapters/plot/v1/__tests__/sseClient.payloadTraceStore.spec.ts	TS2353	Object literal may only specify known properties, and 'onCancelled' does not exist in type 'V1StreamHandlers'.
-1	src/adapters/plot/v1/http.ts	TS2345	Argument of type '{}' is not assignable to parameter of type 'number'.
-1	src/adapters/plot/v1/http.ts	TS2352	Conversion of type '{ code: "PARSE_ERROR"; message: string; requestId: string; }' to type 'V1Error' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/adapters/plot/v1/limitsManager.ts	TS18048	'apiLimits.edges' is possibly 'undefined'.
 1	src/adapters/plot/v1/limitsManager.ts	TS18048	'apiLimits.nodes' is possibly 'undefined'.
 1	src/adapters/plot/v1/limitsManager.ts	TS2322	Type 'boolean' is not assignable to type 'void'.
@@ -199,11 +183,11 @@
 3	src/adapters/plot/v2/__tests__/responseMapper.spec.ts	TS2339	Property 'outcome' does not exist on type 'OptionProbability'.
 1	src/adapters/plot/v2/__tests__/runV2.plotBearer.spec.ts	TS2322	Type 'Mock<[_url: string, _init?: RequestInit | undefined], Promise<{ ok: boolean; status: number; statusText: string; headers: Headers; clone: () => { text: () => Promise<string>; }; json: () => Promise<...>; }>>' is not assignable to type 'Mock<any[], unknown>'.
 2	src/adapters/plot/v2/adapter.ts	TS2304	Cannot find name 'CEEInterventionV3'.
-2	src/adapters/plot/v2/adapter.ts	TS2322	Type '{ goal_node_id?: string | undefined; options?: { [key: string]: unknown; id: string; }[] | undefined; critiques?: { [key: string]: unknown; affected_nodes?: string[] | undefined; }[] | undefined; drivers?: { [key: string]: unknown; node_id: string; }[] | undefined; robustness?: { ...; } | undefined; option_compariso...' is not assignable to type 'V2RunResult'.
-2	src/adapters/plot/v2/adapter.ts	TS2339	Property 'analysis_status' does not exist on type '{ goal_node_id?: string | undefined; options?: { [key: string]: unknown; id: string; }[] | undefined; critiques?: { [key: string]: unknown; affected_nodes?: string[] | undefined; }[] | undefined; drivers?: { [key: string]: unknown; node_id: string; }[] | undefined; robustness?: { ...; } | undefined; option_compariso...'.
-2	src/adapters/plot/v2/adapter.ts	TS2339	Property 'request_id' does not exist on type '{ goal_node_id?: string | undefined; options?: { [key: string]: unknown; id: string; }[] | undefined; critiques?: { [key: string]: unknown; affected_nodes?: string[] | undefined; }[] | undefined; drivers?: { [key: string]: unknown; node_id: string; }[] | undefined; robustness?: { ...; } | undefined; option_compariso...'.
-2	src/adapters/plot/v2/adapter.ts	TS2345	Argument of type 'V2RunResult' is not assignable to parameter of type '{ goal_node_id?: string | undefined; options?: { [key: string]: unknown; id: string; }[] | undefined; critiques?: { [key: string]: unknown; affected_nodes?: string[] | undefined; }[] | undefined; drivers?: { [key: string]: unknown; node_id: string; }[] | undefined; robustness?: { ...; } | undefined; option_compariso...'.
-2	src/adapters/plot/v2/adapter.ts	TS2345	Argument of type '{ goal_node_id?: string | undefined; options?: { [key: string]: unknown; id: string; }[] | undefined; critiques?: { [key: string]: unknown; affected_nodes?: string[] | undefined; }[] | undefined; drivers?: { [key: string]: unknown; node_id: string; }[] | undefined; robustness?: { ...; } | undefined; option_compariso...' is not assignable to parameter of type 'V2RunResult'.
+1	src/adapters/plot/v2/adapter.ts	TS2322	Type '{ goal_node_id?: string | undefined; options?: { [key: string]: unknown; id: string; }[] | undefined; critiques?: { [key: string]: unknown; affected_nodes?: string[] | undefined; }[] | undefined; drivers?: { [key: string]: unknown; node_id: string; }[] | undefined; robustness?: { ...; } | undefined; option_compariso...' is not assignable to type 'V2RunResult'.
+1	src/adapters/plot/v2/adapter.ts	TS2339	Property 'analysis_status' does not exist on type '{ goal_node_id?: string | undefined; options?: { [key: string]: unknown; id: string; }[] | undefined; critiques?: { [key: string]: unknown; affected_nodes?: string[] | undefined; }[] | undefined; drivers?: { [key: string]: unknown; node_id: string; }[] | undefined; robustness?: { ...; } | undefined; option_compariso...'.
+1	src/adapters/plot/v2/adapter.ts	TS2339	Property 'request_id' does not exist on type '{ goal_node_id?: string | undefined; options?: { [key: string]: unknown; id: string; }[] | undefined; critiques?: { [key: string]: unknown; affected_nodes?: string[] | undefined; }[] | undefined; drivers?: { [key: string]: unknown; node_id: string; }[] | undefined; robustness?: { ...; } | undefined; option_compariso...'.
+1	src/adapters/plot/v2/adapter.ts	TS2345	Argument of type 'V2RunResult' is not assignable to parameter of type '{ goal_node_id?: string | undefined; options?: { [key: string]: unknown; id: string; }[] | undefined; critiques?: { [key: string]: unknown; affected_nodes?: string[] | undefined; }[] | undefined; drivers?: { [key: string]: unknown; node_id: string; }[] | undefined; robustness?: { ...; } | undefined; option_compariso...'.
+1	src/adapters/plot/v2/adapter.ts	TS2345	Argument of type '{ goal_node_id?: string | undefined; options?: { [key: string]: unknown; id: string; }[] | undefined; critiques?: { [key: string]: unknown; affected_nodes?: string[] | undefined; }[] | undefined; drivers?: { [key: string]: unknown; node_id: string; }[] | undefined; robustness?: { ...; } | undefined; option_compariso...' is not assignable to parameter of type 'V2RunResult'.
 1	src/adapters/plot/v2/adapter.ts	TS6133	'STRENGTH_BOUNDS' is declared but its value is never read.
 1	src/adapters/plot/v2/adapter.ts	TS6133	'VALID_CATEGORIES' is declared but its value is never read.
 1	src/adapters/plot/v2/responseMapper.ts	TS2322	Type 'Record<string, { goal_probability?: number | undefined; probability_of_joint_goal?: number | undefined; confidence: number; win_probability?: number | undefined; expected?: number | undefined; outcome?: { ...; } | undefined; constraint_analysis?: ConstraintAnalysis | undefined; }>' is not assignable to type 'Record<string, OptionProbability>'.
@@ -232,10 +216,6 @@
 1	src/canvas/__tests__/accessibility.spec.tsx	TS6133	'headingStyle' is declared but its value is never read.
 1	src/canvas/__tests__/applyDraftResult.v5FreshDraft.regression.spec.ts	TS2322	Type 'Edge[]' is not assignable to type 'Edge<EdgeData>[]'.
 3	src/canvas/__tests__/applyLayout.staleCommit.spec.ts	TS2698	Spread types may only be created from object types.
-1	src/canvas/__tests__/canvas.analyze-again.dom.spec.tsx	TS2305	Module '"../../adapters/plot/v1/types"' has no exported member 'ReportV1'.
-1	src/canvas/__tests__/canvas.analyze-again.dom.spec.tsx	TS2741	Property 'anchorPosition' is missing in type '{ nodeIds: Set<string>; edgeIds: Set<string>; }' but required in type '{ nodeIds: Set<string>; edgeIds: Set<string>; anchorPosition: { x: number; y: number; } | null; }'.
-1	src/canvas/__tests__/canvas.analyze-again.dom.spec.tsx	TS6133	'StoredRun' is declared but its value is never read.
-1	src/canvas/__tests__/canvas.analyze-again.dom.spec.tsx	TS6133	'addRun' is declared but its value is never read.
 1	src/canvas/__tests__/canvas.share-link.dom.spec.tsx	TS6133	'vi' is declared but its value is never read.
 2	src/canvas/__tests__/documents.guard.spec.ts	TS2532	Object is possibly 'undefined'.
 1	src/canvas/__tests__/domain.spec.ts	TS2345	Argument of type '{ version: number; timestamp: number; nodes: { id: string; type: string; position: { x: number; y: number; }; data: { label: string; }; }[]; edges: { id: string; source: string; target: string; label: string; }[]; }' is not assignable to parameter of type '{ nodes: any[]; edges: any[]; version?: 1 | undefined; timestamp?: number | undefined; }'.
@@ -316,7 +296,6 @@
 1	src/canvas/components/DriverChips.tsx	TS6133	'activeDriver' is declared but its value is never read.
 1	src/canvas/components/DriverChips.tsx	TS6133	'setMatchCycles' is declared but its value is never read.
 1	src/canvas/components/DriverChips.tsx	TS7006	Parameter 'w' implicitly has an 'any' type.
-1	src/canvas/components/EdgeFunctionTypeSelector.tsx	TS2322	Type '"diminishing_returns" | "linear" | "logistic" | "noisy_and_not" | "noisy_or" | "s_curve" | "threshold"' is not assignable to type 'EdgeFunctionType'.
 1	src/canvas/components/FocusModeChip.tsx	TS2322	Type '{} | null' is not assignable to type 'ReactNode'.
 1	src/canvas/components/FocusModeChip.tsx	TS2322	Type '{} | undefined' is not assignable to type 'string | undefined'.
 1	src/canvas/components/FocusModeChip.tsx	TS2339	Property 'length' does not exist on type '{}'.
@@ -389,8 +368,6 @@
 1	src/canvas/components/RiskTolerancePanel.tsx	TS6133	'handleEdit' is declared but its value is never read.
 3	src/canvas/components/ScenarioComparison.tsx	TS2322	Type '{}' is not assignable to type 'ReactNode'.
 1	src/canvas/components/SectionErrorBoundary.tsx	TS6133	'section' is declared but its value is never read.
-1	src/canvas/components/SequentialView/index.tsx	TS6133	'analysis' is declared but its value is never read.
-1	src/canvas/components/SequentialView/index.tsx	TS6133	'onDetailsClick' is declared but its value is never read.
 1	src/canvas/components/ThresholdDisplay.tsx	TS2367	This comparison appears to be unintentional because the types '"cancelled" | "connecting" | "error" | "idle" | "preparing" | "streaming"' and '"success"' have no overlap.
 1	src/canvas/components/ThresholdDisplay.tsx	TS6133	'buildRichGraphPayload' is declared but its value is never read.
 1	src/canvas/components/Tooltip.tsx	TS6133	'KeyboardEvent' is declared but its value is never read.
@@ -401,7 +378,6 @@
 1	src/canvas/components/UtilityWeightPanel.tsx	TS6133	'useMemo' is declared but its value is never read.
 1	src/canvas/components/UtilityWeightPanel.tsx	TS7006	Parameter 's' implicitly has an 'any' type.
 1	src/canvas/components/ValidationPanel.tsx	TS6133	'index' is declared but its value is never read.
-1	src/canvas/components/__tests__/ConnectivityChip.spec.tsx	TS2322	Type 'MockInstance<[], boolean>' is not assignable to type 'MockInstance<unknown[], unknown>'.
 1	src/canvas/components/__tests__/DeltaInterpretation.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/components/__tests__/DocumentsManager.search-sort.dom.spec.tsx	TS2322	Type 'Mock<[field: "date" | "name" | "size" | "type", direction: "asc" | "desc"], void>' is not assignable to type 'Mock<any[], unknown>'.
 1	src/canvas/components/__tests__/DocumentsManager.search-sort.dom.spec.tsx	TS2322	Type 'Mock<[query: string], void>' is not assignable to type 'Mock<any[], unknown>'.
@@ -418,8 +394,8 @@
 1	src/canvas/components/__tests__/ObjectiveBanner.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/components/__tests__/OutputsDock.dom.spec.tsx	TS2556	A spread argument must either have a tuple type or be passed to a rest parameter.
 1	src/canvas/components/__tests__/RiskProfileBadge.spec.tsx	TS2305	Module '"../../../adapters/plot/types"' has no exported member 'RiskProfile'.
-2	src/canvas/components/__tests__/RiskProfileSelector.spec.tsx	TS2339	Property 'getRiskProfileFromPreset' does not exist on type '{ run(input: RunRequest): Promise<ReportV1>; templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; ... 4 more ...; stream: { ...; }; }'.
-5	src/canvas/components/__tests__/RiskProfileSelector.spec.tsx	TS2339	Property 'getRiskQuestions' does not exist on type '{ run(input: RunRequest): Promise<ReportV1>; templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; ... 4 more ...; stream: { ...; }; }'.
+2	src/canvas/components/__tests__/RiskProfileSelector.spec.tsx	TS2339	Property 'getRiskProfileFromPreset' does not exist on type '{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }'.
+5	src/canvas/components/__tests__/RiskProfileSelector.spec.tsx	TS2339	Property 'getRiskQuestions' does not exist on type '{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }'.
 1	src/canvas/components/__tests__/RiskTolerancePanel.spec.tsx	TS2305	Module '"../../../adapters/plot/types"' has no exported member 'RiskProfile'.
 1	src/canvas/components/__tests__/StarterProvenanceBanner.spec.tsx	TS2322	Type 'MockInstance<[], void>' is not assignable to type 'MockInstance<unknown[], unknown>'.
 1	src/canvas/components/__tests__/StarterProvenanceBanner.spec.tsx	TS2322	Type 'MockInstance<[message?: string | undefined], boolean>' is not assignable to type 'MockInstance<unknown[], unknown>'.
@@ -603,29 +579,19 @@
 1	src/canvas/hooks/usePreRunValidation.ts	TS2345	Argument of type '{ code: string; message: string; affectedId: string; }' is not assignable to parameter of type 'objectOutputType<{ code: ZodString; message: ZodString; severity: ZodEnum<["info", "warn", "error"]>; details: ZodOptional<ZodRecord<ZodString, ZodUnknown>>; }, ZodTypeAny, "passthrough">'.
 2	src/canvas/hooks/usePreRunValidation.ts	TS2345	Argument of type '{ code: string; message: string; suggestion: string; affectedId: string; }' is not assignable to parameter of type 'objectOutputType<{ code: ZodString; message: ZodString; severity: ZodEnum<["info", "warn", "error"]>; details: ZodOptional<ZodRecord<ZodString, ZodUnknown>>; }, ZodTypeAny, "passthrough">'.
 1	src/canvas/hooks/usePreRunValidation.ts	TS2345	Argument of type '{ code: string; message: string; suggestion: string; }' is not assignable to parameter of type 'objectOutputType<{ code: ZodString; message: ZodString; severity: ZodEnum<["info", "warn", "error"]>; details: ZodOptional<ZodRecord<ZodString, ZodUnknown>>; }, ZodTypeAny, "passthrough">'.
-1	src/canvas/hooks/usePreviewRun.ts	TS2339	Property 'previewCancelled' does not exist on type 'CanvasState'.
-1	src/canvas/hooks/usePreviewRun.ts	TS2339	Property 'previewError' does not exist on type 'CanvasState'.
-1	src/canvas/hooks/usePreviewRun.ts	TS2339	Property 'previewGetMergedGraph' does not exist on type 'CanvasState'.
-1	src/canvas/hooks/usePreviewRun.ts	TS2339	Property 'previewProgress' does not exist on type 'CanvasState'.
-1	src/canvas/hooks/usePreviewRun.ts	TS2339	Property 'previewStart' does not exist on type 'CanvasState'.
-1	src/canvas/hooks/usePreviewRun.ts	TS2551	Property 'previewSetReport' does not exist on type 'CanvasState'. Did you mean 'previousReport'?
-1	src/canvas/hooks/useResultsRun.ts	TS2339	Property 'ceeError' does not exist on type 'ReportV1'.
-1	src/canvas/hooks/useResultsRun.ts	TS2339	Property 'ceeReview' does not exist on type 'ReportV1'.
-1	src/canvas/hooks/useResultsRun.ts	TS2339	Property 'ceeTrace' does not exist on type 'ReportV1'.
 1	src/canvas/hooks/useRiskProfile.ts	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfile'.
 1	src/canvas/hooks/useRiskProfile.ts	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.
 1	src/canvas/hooks/useRiskProfile.ts	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfileResponse'.
 1	src/canvas/hooks/useRiskProfile.ts	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskQuestion'.
-1	src/canvas/hooks/useRiskProfile.ts	TS2339	Property 'getRiskProfileFromPreset' does not exist on type '{ run(input: RunRequest): Promise<ReportV1>; templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; ... 4 more ...; stream: { ...; }; }'.
-1	src/canvas/hooks/useRiskProfile.ts	TS2339	Property 'getRiskQuestions' does not exist on type '{ run(input: RunRequest): Promise<ReportV1>; templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; ... 4 more ...; stream: { ...; }; }'.
-1	src/canvas/hooks/useRiskProfile.ts	TS2339	Property 'submitRiskAnswers' does not exist on type '{ run(input: RunRequest): Promise<ReportV1>; templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; ... 4 more ...; stream: { ...; }; }'.
+1	src/canvas/hooks/useRiskProfile.ts	TS2339	Property 'getRiskProfileFromPreset' does not exist on type '{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }'.
+1	src/canvas/hooks/useRiskProfile.ts	TS2339	Property 'getRiskQuestions' does not exist on type '{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }'.
+1	src/canvas/hooks/useRiskProfile.ts	TS2339	Property 'submitRiskAnswers' does not exist on type '{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }'.
 1	src/canvas/hooks/useRiskProfile.ts	TS6196	'RiskProfileResponse' is declared but never used.
 1	src/canvas/hooks/useRiskToleranceSuggestion.ts	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfile'.
 1	src/canvas/hooks/useRiskToleranceSuggestion.ts	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.
-1	src/canvas/hooks/useRiskToleranceSuggestion.ts	TS2339	Property 'getRiskProfileFromPreset' does not exist on type '{ run(input: RunRequest): Promise<ReportV1>; templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; ... 4 more ...; stream: { ...; }; }'.
+1	src/canvas/hooks/useRiskToleranceSuggestion.ts	TS2339	Property 'getRiskProfileFromPreset' does not exist on type '{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }'.
 8	src/canvas/hooks/useScienceIcons.ts	TS2322	Type 'LucideIcon' is not assignable to type 'ComponentType<{ size?: number | undefined; className?: string | undefined; }>'.
 1	src/canvas/hooks/useScienceIcons.ts	TS6133	'category' is declared but its value is never read.
-1	src/canvas/hooks/useSequentialAnalysis.ts	TS6133	'stage' is declared but its value is never read.
 1	src/canvas/hooks/useUnifiedActions.ts	TS2339	Property 'bias_findings' does not exist on type 'CeeDecisionReviewPayload'.
 4	src/canvas/hooks/useUnifiedActions.ts	TS2339	Property 'code' does not exist on type 'ValidationIssue'.
 2	src/canvas/hooks/useUnifiedActions.ts	TS2339	Property 'current_value' does not exist on type 'CritiqueItemV1'.
@@ -637,7 +603,7 @@
 1	src/canvas/hooks/useUtilityWeights.ts	TS2305	Module '"../../adapters/plot/types"' has no exported member 'UtilityWeightResponse'.
 1	src/canvas/hooks/useUtilityWeights.ts	TS2305	Module '"../../adapters/plot/types"' has no exported member 'UtilityWeightSuggestion'.
 1	src/canvas/hooks/useUtilityWeights.ts	TS2305	Module '"../../adapters/plot/types"' has no exported member 'WeightingPreset'.
-1	src/canvas/hooks/useUtilityWeights.ts	TS2339	Property 'suggestUtilityWeights' does not exist on type '{ run(input: RunRequest): Promise<ReportV1>; templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; ... 4 more ...; stream: { ...; }; }'.
+1	src/canvas/hooks/useUtilityWeights.ts	TS2339	Property 'suggestUtilityWeights' does not exist on type '{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }'.
 1	src/canvas/hooks/useUtilityWeights.ts	TS6196	'UtilityWeightSuggestion' is declared but never used.
 1	src/canvas/hooks/useUtilityWeights.ts	TS7006	Parameter 's' implicitly has an 'any' type.
 1	src/canvas/hooks/useV2Run.ts	TS2322	Type '{ sensitivity_analysis: { edges: { edge_id: string; elasticity: number; importance_rank: number; }[]; factors: { factor_id: string; elasticity: number; importance_rank: number; }[]; fragile_edges?: string[] | undefined; robust_edges?: string[] | undefined; overall_robustness?: "moderate" | ... 2 more ... | undefined...' is not assignable to type 'PLoTEnrichment | null | undefined'.
@@ -1089,8 +1055,6 @@
 1	src/components/results/ConfidenceSection.tsx	TS6196	'AssumptionItem' is declared but never used.
 1	src/components/results/ConfidenceSection.tsx	TS6196	'EvidenceGapItem' is declared but never used.
 1	src/components/results/DriversSection.tsx	TS2339	Property '__OLUMI_DEBUG' does not exist on type 'Window & typeof globalThis'.
-1	src/components/results/ParetoChart.tsx	TS6133	'UseParetoParams' is declared but its value is never read.
-1	src/components/results/ParetoChart.tsx	TS6133	'XCircle' is declared but its value is never read.
 2	src/components/results/ResultsBody.tsx	TS2304	Cannot find name '__GIT_SHA__'.
 1	src/components/results/ResultsBody.tsx	TS2322	Type '{ children: Element; title: string; subtitle: string; defaultExpanded: false; isExpanded: boolean | undefined; onExpandChange: ((expanded: boolean) => void) | undefined; count: number; badgeState: "unresolved" | undefined; testId: string; }' is not assignable to type 'IntrinsicAttributes & AccordionProps'.
 1	src/components/results/ResultsFooter.tsx	TS2322	Type 'null | number | undefined' is not assignable to type 'number | undefined'.
@@ -1307,12 +1271,6 @@
 2	src/pages/sandbox-guide/components/panel/sections/BiasMitigation.tsx	TS7006	Parameter 'node' implicitly has an 'any' type.
 4	src/pages/sandbox-guide/components/panel/sections/TopDriversSection.tsx	TS2339	Property 'action' does not exist on type '{ label: string; polarity: "down" | "neutral" | "up"; strength: "high" | "low" | "medium"; contribution?: number | undefined; nodeId?: string | undefined; edgeId?: string | undefined; }'.
 1	src/pages/sandbox-guide/components/panel/sections/VerificationBadge.tsx	TS6133	'variant' is declared but its value is never read.
-1	src/pages/sandbox-guide/components/panel/states/CompareState.tsx	TS2307	Cannot find module '../../../hooks/useGuideStore' or its corresponding type declarations.
-1	src/pages/sandbox-guide/components/panel/states/CompareState.tsx	TS2322	Type '"xs"' is not assignable to type 'ButtonSize | undefined'.
-1	src/pages/sandbox-guide/components/panel/states/CompareState.tsx	TS2322	Type 'Edge[]' is not assignable to type 'Edge<EdgeData>[]'.
-6	src/pages/sandbox-guide/components/panel/states/CompareState.tsx	TS2339	Property 'affectedNodes' does not exist on type '{ nodeId: string; nodeLabel: string; contribution: number; direction: "negative" | "positive"; }'.
-7	src/pages/sandbox-guide/components/panel/states/CompareState.tsx	TS2339	Property 'outcome' does not exist on type 'ReportV1'.
-1	src/pages/sandbox-guide/components/panel/states/CompareState.tsx	TS2551	Property 'contributionPct' does not exist on type '{ nodeId: string; nodeLabel: string; contribution: number; direction: "negative" | "positive"; }'. Did you mean 'contribution'?
 1	src/pages/sandbox-guide/components/panel/states/EmptyState.tsx	TS2353	Object literal may only specify known properties, and 'type' does not exist in type '{ x: number; y: number; }'.
 1	src/pages/sandbox-guide/components/panel/states/EmptyState.tsx	TS2559	Type '"LR"' has no properties in common with type '{ skipHistory?: boolean | undefined; requestId?: number | undefined; }'.
 1	src/pages/sandbox-guide/components/panel/states/EmptyState.tsx	TS6133	'Button' is declared but its value is never read.
@@ -1325,14 +1283,9 @@
 1	src/pages/sandbox-guide/components/panel/states/InspectorState.tsx	TS2339	Property 'toFixed' does not exist on type '{}'.
 1	src/pages/sandbox-guide/components/panel/states/InspectorState.tsx	TS2362	The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
 2	src/pages/sandbox-guide/components/panel/states/InspectorState.tsx	TS7006	Parameter 'state' implicitly has an 'any' type.
-1	src/pages/sandbox-guide/components/panel/states/PreRunReadyState.tsx	TS2345	Argument of type '{ graph: { nodes: { id: string; data: Record<string, unknown>; }[]; edges: { id: string; source: string; target: string; data: EdgeData | undefined; }[]; }; outcome_node: string | undefined; seed: number; }' is not assignable to parameter of type 'RunRequest'.
 1	src/pages/sandbox-guide/components/shared/NodeReferenceBadges.tsx	TS2322	Type '{}' is not assignable to type 'ReactNode'.
 1	src/pages/sandbox-guide/components/shared/index.ts	TS2307	Cannot find module './GuideErrorBoundary' or its corresponding type declarations.
-1	src/pages/sandbox-guide/components/toolbar/CopilotBottomToolbar.tsx	TS2307	Cannot find module '../../hooks/useGuideStore' or its corresponding type declarations.
 1	src/pages/sandbox-guide/components/toolbar/CopilotBottomToolbar.tsx	TS2339	Property 'clearCanvas' does not exist on type 'CanvasState'.
-1	src/pages/sandbox-guide/components/toolbar/CopilotBottomToolbar.tsx	TS2339	Property 'status' does not exist on type 'ResultsStoreState & ResultsActions'.
-1	src/pages/sandbox-guide/components/toolbar/CopilotBottomToolbar.tsx	TS2345	Argument of type '{ graph: { nodes: { id: string; data: Record<string, unknown>; }[]; edges: { id: string; source: string; target: string; data: EdgeData | undefined; }[]; }; outcome_node: string | undefined; seed: number; }' is not assignable to parameter of type 'RunRequest'.
-1	src/pages/sandbox-guide/components/toolbar/CopilotBottomToolbar.tsx	TS7006	Parameter 'state' implicitly has an 'any' type.
 1	src/pages/sandbox-guide/components/topbar/CopilotTopBar.test.tsx	TS2307	Cannot find module '../../hooks/useGuideStore' or its corresponding type declarations.
 1	src/pages/sandbox-guide/components/topbar/CopilotTopBar.test.tsx	TS2307	Cannot find module './GuideTopBar' or its corresponding type declarations.
 1	src/pages/sandbox-guide/components/topbar/CopilotTopBar.test.tsx	TS2322	Type '{}' is not assignable to type 'EdgeData'.
@@ -1342,10 +1295,7 @@
 1	src/pages/sandbox-guide/components/topbar/CopilotTopBar.tsx	TS2339	Property 'status' does not exist on type 'ResultsStoreState & ResultsActions'.
 1	src/pages/sandbox-guide/components/topbar/CopilotTopBar.tsx	TS6133	'Button' is declared but its value is never read.
 1	src/pages/sandbox-guide/components/topbar/CopilotTopBar.tsx	TS7006	Parameter 'state' implicitly has an 'any' type.
-1	src/pages/sandbox-guide/hooks/__tests__/useCompareData.test.ts	TS2339	Property 'affectedNodes' does not exist on type '{ nodeId: string; nodeLabel: string; contribution: number; direction: "negative" | "positive"; }'.
 2	src/pages/sandbox-guide/hooks/index.ts	TS2307	Cannot find module './useGuideStore' or its corresponding type declarations.
-2	src/pages/sandbox-guide/hooks/useCompareData.ts	TS2339	Property 'explain_delta' does not exist on type 'ReportV1'.
-2	src/pages/sandbox-guide/hooks/useCompareData.ts	TS2339	Property 'outcome' does not exist on type 'ReportV1'.
 1	src/pages/sandbox-guide/hooks/useGhostSuggestions.ts	TS2322	Type '{ weight: number; belief: number; }' is not assignable to type 'EdgeData'.
 1	src/pages/sandbox-guide/hooks/useJourneyDetection.ts	TS2307	Cannot find module './useGuideStore' or its corresponding type declarations.
 1	src/pages/sandbox-guide/hooks/useJourneyDetection.ts	TS2339	Property 'report' does not exist on type 'ResultsStoreState & ResultsActions'.
@@ -1354,9 +1304,7 @@
 1	src/pages/sandbox-guide/hooks/useKeyboardShortcuts.test.ts	TS2307	Cannot find module './useGuideStore' or its corresponding type declarations.
 2	src/pages/sandbox-guide/hooks/useKeyboardShortcuts.test.ts	TS6133	'result' is declared but its value is never read.
 1	src/pages/sandbox-guide/hooks/useKeyboardShortcuts.ts	TS2307	Cannot find module './useGuideStore' or its corresponding type declarations.
-1	src/pages/sandbox-guide/hooks/useKeyboardShortcuts.ts	TS2345	Argument of type '{ graph: { nodes: { id: string; data: Record<string, unknown>; }[]; edges: { id: string; source: string; target: string; data: EdgeData | undefined; }[]; }; outcome_node: string | undefined; seed: number; }' is not assignable to parameter of type 'RunRequest'.
-1	src/pages/sandbox-guide/hooks/useKeyboardShortcuts.ts	TS6133	'journeyStage' is declared but its value is never read.
-3	src/pages/sandbox-guide/hooks/useKeyboardShortcuts.ts	TS7006	Parameter 'state' implicitly has an 'any' type.
+2	src/pages/sandbox-guide/hooks/useKeyboardShortcuts.ts	TS7006	Parameter 'state' implicitly has an 'any' type.
 1	src/pages/sandbox-guide/hooks/usePostRunHighlighting.ts	TS2307	Cannot find module './useGuideStore' or its corresponding type declarations.
 1	src/pages/sandbox-guide/hooks/usePostRunHighlighting.ts	TS2339	Property 'report' does not exist on type 'ResultsStoreState & ResultsActions'.
 1	src/pages/sandbox-guide/hooks/usePostRunHighlighting.ts	TS2339	Property 'setEdges' does not exist on type 'CanvasState'.
@@ -1379,8 +1327,6 @@
 1	src/routes/CanvasMVP.tsx	TS6133	'supabaseLastSaved' is declared but its value is never read.
 1	src/routes/PlotWorkspace.tsx	TS2322	Type '{ "data-testid": string; initialNodes: { id: string; type: string; position: { x: number; y: number; }; data: { label: string; }; }[]; initialEdges: { id: string; source: string; target: string; label: string | undefined; }[]; }' is not assignable to type 'IntrinsicAttributes & ReactFlowGraphProps'.
 1	src/routes/SandboxV1.tsx	TS6133	'resolveEdge' is declared but its value is never read.
-1	src/routes/templates/DecisionTemplates.tsx	TS2345	Argument of type '{ id: string; type: "plot_result"; timestamp: string; data: { template_id: string; seed: number; response_hash: string; likely: number; conservative: number; optimistic: number; confidence: ConfidenceLevel; mode: "real" | "strict"; }; }' is not assignable to parameter of type 'NoteBlock'.
-1	src/routes/templates/DecisionTemplates.tsx	TS6133	'useRef' is declared but its value is never read.
 1	src/routes/templates/components/WhyPanel.tsx	TS2322	Type 'unknown' is not assignable to type 'ReactNode'.
 1	src/routes/templates/components/WhyPanel.tsx	TS2322	Type '{}' is not assignable to type 'ReactNode'.
 1	src/services/__tests__/scenarioService.spec.ts	TS18048	'hashes.graph_hash' is possibly 'undefined'.
@@ -1481,14 +1427,9 @@
 1	tests/canvas/panels/TemplatesPanel.a11y.test.tsx	TS2339	Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
 1	tests/canvas/panels/TemplatesPanel.a11y.test.tsx	TS2741	Property 'version' is missing in type '{ id: string; name: string; description: string; }' but required in type 'TemplateSummary'.
 1	tests/canvas/panels/TemplatesPanel.a11y.test.tsx	TS6133	'React' is declared but its value is never read.
-1	tests/canvas/panels/TemplatesPanel.test.old.tsx	TS2322	Type '"templates.list.v1"' is not assignable to type '"template-list.v1"'.
-1	tests/canvas/panels/TemplatesPanel.test.old.tsx	TS2339	Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
-7	tests/canvas/panels/TemplatesPanel.test.old.tsx	TS2339	Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
-2	tests/canvas/panels/TemplatesPanel.test.old.tsx	TS2339	Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
-1	tests/canvas/panels/TemplatesPanel.test.old.tsx	TS2741	Property 'description' is missing in type '{ id: string; name: string; version: string; }' but required in type 'TemplateSummary'.
-1	tests/canvas/panels/TemplatesPanel.test.old.tsx	TS6133	'React' is declared but its value is never read.
+1	tests/canvas/panels/TemplatesPanel.test.tsx	TS2339	Property 'run' does not exist on type 'MockedObject<{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }>'.
 2	tests/canvas/panels/TemplatesPanel.test.tsx	TS2339	Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement | null>'.
-13	tests/canvas/panels/TemplatesPanel.test.tsx	TS2339	Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+9	tests/canvas/panels/TemplatesPanel.test.tsx	TS2339	Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
 2	tests/canvas/panels/TemplatesPanel.test.tsx	TS2339	Property 'toHaveAttribute' does not exist on type 'Assertion<HTMLElement>'.
 3	tests/canvas/panels/TemplatesPanel.test.tsx	TS2741	Property 'version' is missing in type '{ id: string; name: string; description: string; }' but required in type 'TemplateSummary'.
 1	tests/canvas/panels/TemplatesPanel.test.tsx	TS6133	'React' is declared but its value is never read.
@@ -1529,7 +1470,6 @@
 4	tests/routes/templates/components/WhyPanel.test.tsx	TS2339	Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
 1	tests/routes/templates/components/WhyPanel.test.tsx	TS2353	Object literal may only specify known properties, and 'action' does not exist in type '{ label: string; polarity: "down" | "neutral" | "up"; strength: "high" | "low" | "medium"; contribution?: number | undefined; nodeId?: string | undefined; edgeId?: string | undefined; }'.
 1	tests/routes/templates/components/WhyPanel.test.tsx	TS6133	'React' is declared but its value is never read.
-1	tests/routes/templates/hooks/useTemplatesRun.test.ts	TS2345	Argument of type '{ schema: "report.v1"; meta: { seed: number; response_id: string; elapsed_ms: number; }; model_card: { response_hash: string; response_hash_algo: "sha256"; normalized: boolean; }; results: { conservative: number; likely: number; optimistic: number; }; confidence: { ...; }; drivers: never[]; }' is not assignable to parameter of type 'ReportV1'.
 1	tests/setup/rtl.ts	TS1362	'toHaveNoViolations' cannot be used as a value because it was exported using 'export type'.
 1	tests/setup/rtl.ts	TS2345	Argument of type '(results: AxeResults) => NoViolationsMatcherResult' is not assignable to parameter of type 'MatchersObject<MatcherState>'.
 2	tests/visual-regression/analysis-tab.spec.ts	TS2769	No overload matches this call.
