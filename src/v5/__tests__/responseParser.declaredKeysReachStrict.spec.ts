@@ -80,6 +80,11 @@ const SCHEMA_VALID_SAMPLES: Readonly<Record<string, unknown>> = {
   draft_graph: { nodes: [], edges: [], node_count: 0, edge_count: 0 },
   analysis_ready: { status: 'ready', options: [], goal_node_id: 'goal-1' },
   reasoning: 'model working',
+  model_building_notices: {
+    total_count: 2,
+    groups: [{ kind: 'relationship_not_used', count: 2 }],
+    details_redacted: true,
+  },
   // The four that were unreachable before this fix.
   framing_question: 'What would a good outcome look like in twelve months?',
   decision_classification: { stakes: 'high' },

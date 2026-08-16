@@ -75,6 +75,29 @@ describe('transcriptStore', () => {
     expect(out!.messages[0].blocks).toHaveLength(1)
   })
 
+  it('never serializes session-only model-building notices', () => {
+    saveTranscript(SID, [
+      msg({
+        id: 'a-notice',
+        role: 'assistant',
+        content: 'A first model is ready.',
+        modelBuildingNotices: {
+          total_count: 1,
+          groups: [{ kind: 'detail_not_connected', count: 1 }],
+          details_redacted: true,
+        },
+      }),
+    ])
+
+    const storedBytes = localStorage.getItem(TRANSCRIPT_STORAGE_KEY) ?? ''
+    expect(storedBytes).not.toContain('modelBuildingNotices')
+    expect(storedBytes).not.toContain('model_building_notices')
+    expect(storedBytes).not.toContain('detail_not_connected')
+
+    const restored = loadTranscript(SID)
+    expect(restored?.messages[0].modelBuildingNotices).toBeUndefined()
+  })
+
   it('returns null when nothing is stored — the placeholder is TRUE then', () => {
     expect(loadTranscript(SID)).toBeNull()
     expect(loadTranscript(null)).toBeNull()

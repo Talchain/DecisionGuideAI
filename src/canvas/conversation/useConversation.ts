@@ -5099,6 +5099,12 @@ export function useConversation(): UseConversationReturn {
             // merged into `content` (attached as its own field, rendered by
             // AnswerBody). See answerShape.ts for the full contract note.
             const answerShape = extractAnswerShapeSidecar(target.response)
+            // Schemas 0.45 reader-first adoption: this value already passed the
+            // strict top-level OlumiResponse parser. Carry it only on the live
+            // assistant message for neutral presentation. It deliberately does
+            // not enter applyV5State, canvas/Zustand, graph receipts, compute,
+            // context or either transcript serializer.
+            const modelBuildingNotices = target.response.model_building_notices
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
@@ -5107,6 +5113,7 @@ export function useConversation(): UseConversationReturn {
               ...(actionChips.length > 0 ? { actionChips } : {}),
               ...(reasoning ? { reasoning } : {}),
               ...(answerShape ? { answerShape } : {}),
+              ...(modelBuildingNotices ? { modelBuildingNotices } : {}),
               timestamp: new Date(),
             })
 

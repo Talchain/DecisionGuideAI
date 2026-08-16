@@ -1951,6 +1951,42 @@
   border-color: color-mix(in srgb, var(--info, #277A9D) 30%, transparent);
 }
 
+.modelBuildingNoticeContent {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modelBuildingNoticeHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  color: var(--text-body, #3F3F3E);
+}
+
+.modelBuildingNoticeGroups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 0;
+  padding: 0;
+  color: var(--text-body, #3F3F3E);
+  list-style: none;
+}
+
+.modelBuildingNoticeGroup {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.modelBuildingNoticeCount {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--conv-type-weight-semibold);
+}
+
 .scienceConceptBadge {
   display: inline-flex;
   align-items: center;

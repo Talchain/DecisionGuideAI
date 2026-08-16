@@ -7,57 +7,51 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.43.0.tgz` ← **THE CURRENT PIN**
+### `talchain-schemas-0.45.0.tgz` ← **THE CURRENT PIN**
 
 **Provenance: PACKED FROM THE EXACT SOURCE TREE NOW MERGED AND TAGGED.** Packed
 from `olumi-schemas` `main` @
-`fdc30a4d74d3b3cf52c5674fcd4a7805cb8e6807`, tag `v0.43.0` (tree
-`fc96888fc41cf537ed83f041bab159447e23bc2d`) by extracting that exact commit
-into a clean temporary directory, then running `npm ci`, `npm run build` and
-`npm pack`. 411,468 bytes. sha256:
+`3c6545f9115d0a392c6210b858683906232e3e7d`, tag `v0.45.0` (tree
+`02d3d6537cbcf40646a4a40ae061c09151ff2ebd`) in a clean shallow checkout,
+then running `npm ci`, `npm run build` and `npm pack`. Two repeated packs were
+byte-identical. 422,405 bytes. sha256:
 
 ```
-9865bfc0891cfed383ae7a0741b324087ba33db03479f97295174f031dc8ea5e
+274fc8bd28962ffee2bc8acc19da5978ca1477ab778a397c3aa069421d1843cb
 ```
 
 | Claim | Status |
 |---|---|
-| source identity | ✅ exact commit and tree above; the archive excluded local worktree state |
+| source identity | ✅ exact commit and tree above; the fresh checkout excluded local worktree state |
 | the sidecar matches these bytes | ✅ `pnpm run check:vendor` re-hashes the tarball and compares the exact sidecar |
 | `check:vendor` agrees and rejects orphans | ✅ the package pin, tarball and sidecar are one derived set |
-| merged/tagged release provenance | ✅ `main` @ `fdc30a4d74d3b3cf52c5674fcd4a7805cb8e6807`, tag `v0.43.0`; both resolve to the exact packed tree above |
+| merged/tagged release provenance | ✅ `main` @ `3c6545f9115d0a392c6210b858683906232e3e7d`, tag `v0.45.0`; both resolve to the exact packed tree above |
 
-**What the UI adopts here — READER BEFORE PRODUCER.** Version 0.43 adds the
-analysis-affecting fields `options` and `goal_node_id` to the existing strict
-`draft_graph` reader, while retaining `goal_constraints`; all three remain
-optional on the legacy reader so old four-field draft graphs still parse with
-their own-key absence intact. It also exports the stricter
-`CanonicalCommittedGraphReceiptSchema` and block twin for producers and for
-consumers that need to distinguish a complete canonical attestation from a
-legacy partial graph.
+**What the UI adopts here — READER BEFORE PRODUCER.** Version 0.45 adds the
+strict, optional, top-level `OlumiResponse.model_building_notices` carrier.
+It contains only grouped positive counts, a verified total and the literal
+attestation `details_redacted: true`; labels, values, raw reasons and node ids
+are absent from the wire contract. The UI reads that validated response field
+into the live assistant message only and renders neutral consumer-owned copy.
+Absence renders no DOM, and a malformed carrier fails the whole strict response
+parse so no partial notice can appear.
 
-The UI emits none of these fields. Its existing response parser derives the
-top-level surface from `OlumiResponseSchema.shape` and already sends both the
-top-level `draft_graph` and `blocks[]` twin through strict validation. Focused
-tests prove that the new fields survive at both locations, legacy omission
-still survives as omission, the canonical producer rejects count mismatch,
-and an undeclared nested key still fails closed. The canonical graph-hash
-projection vocabulary is not reimplemented here.
+The notice is deliberately response-only. It is not carried by draft-graph or
+canonical-receipt schemas and this UI does not write it into canvas/Zustand,
+analysis readiness, graph hashing, compute/context payloads or transcript
+persistence. The 0.44 conditional-winner contract included in this pin remains
+transport-only here; this adoption adds no science claims, producer, provider,
+prompt, model or cache change.
 
-This pin does not create a readiness, option or goal authority and does not
-alter the canonical analysis-run dispatcher. Receipt options remain carried
-on the wire while option nodes remain the canvas display structure; readiness
-continues to come only from the existing `analysis_ready` authority.
+**Rollback path:** revert this reader pin and UI surface together, then run
+`pnpm install`. Do not enable the CEE notice producer until this reader is
+integrated and deployed.
 
-**Actual predecessor note.** The package and lockfile at the deployed base
-were pinned to 0.41.0, although this document's old marker still named 0.39.0
-as current. This section corrects that stale documentation while replacing
-the sole 0.41.0 tarball and sidecar; the orphan gate intentionally permits
-only one vendored package pair.
+### `talchain-schemas-0.43.0.tgz` (superseded — REMOVED, section retained for history)
 
-**Rollback path:** revert this pin commit and reinstall. Do not enable a 0.43
-canonical receipt producer until the reader pin and its canonical explicit-
-absence consumer are both integrated.
+The 0.43 tarball and sidecar were removed when this 0.45 reader pin landed.
+Its exact provenance remains available in repository history at the preceding
+pin commit.
 
 ### `talchain-schemas-0.39.0.tgz` (superseded — REMOVED, section retained for history)
 

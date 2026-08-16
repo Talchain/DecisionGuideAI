@@ -21,6 +21,7 @@ import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
 import { AnswerBody } from './AnswerBody'
 import { InlineBlocks } from './InlineBlocks'
+import { ModelBuildingNoticesStrip } from './ModelBuildingNoticesStrip'
 import { AlertCircle, ChevronDown, ChevronUp, ListPlus, AlignLeft, RefreshCw } from 'lucide-react'
 import { FeedbackRow } from './FeedbackRow'
 import { StalenessPill, type StalenessFreshness } from './StalenessPill'
@@ -409,6 +410,9 @@ export const MessageBubble = memo(function MessageBubble({
       )}
       {message.insights && message.insights.length > 0 && isDeterministicCeeEnabled() && (
         <InsightsStrip insights={message.insights} onSendMessage={onArtefactMessage} />
+      )}
+      {!isUser && message.modelBuildingNotices && (
+        <ModelBuildingNoticesStrip notices={message.modelBuildingNotices} />
       )}
       {message.blocks && message.blocks.length > 0 && (
         <InlineBlocks

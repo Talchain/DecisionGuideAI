@@ -5,7 +5,7 @@
  * messages, blocks, chips, turn requests/responses, and system events.
  */
 
-import type { StageType } from '@talchain/schemas/boundary'
+import type { ModelBuildingNotices, StageType } from '@talchain/schemas/boundary'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
 import type { AnswerShape } from './answerShape'
 
@@ -45,6 +45,14 @@ export interface ConversationMessage {
   toolLoadingState?: string | null
   /** Deterministic CEE insights — rendered between assistant_text and chips */
   insights?: Insight[]
+  /**
+   * Schemas 0.45: aggregate, redacted construction notices for this response.
+   * Populated only from the strictly validated top-level V5 carrier and
+   * rendered between assistant text and blocks. Session-only: every transcript
+   * serializer deliberately omits it, so it cannot become graph, analysis,
+   * context or persisted-history state.
+   */
+  modelBuildingNotices?: ModelBuildingNotices
   /** When true, this user message was initiated by a pill/chip click.
    *  Renders as a compact action indicator instead of a full user bubble. */
   chipInitiated?: boolean
