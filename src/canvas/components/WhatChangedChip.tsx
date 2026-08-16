@@ -62,6 +62,7 @@ import type { Node, Edge } from '@xyflow/react'
 import { GitCompareArrows } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useOptionalConversationContext } from '../conversation/ConversationContext'
+import { revealOlumiSurface } from '../conversation/revealOlumi'
 import { WHAT_CHANGED_CHIP_MESSAGE } from './whatChangedChipMessage'
 
 // Re-exported for callers/tests already importing it from the component. The
@@ -229,6 +230,34 @@ export function WhatChangedChip() {
         // A failed CEE send must never break the chip. The conversation panel
         // surfaces its own send-failure notice.
       })
+
+      // (3) REVEAL — bring the Olumi thread into view so the answer is SEEN.
+      //
+      // The server owns comparison honesty and answers `insufficient_runs`
+      // when there is only one run — but that reply lands in a thread that may
+      // be on a hidden dock tab or behind a minimised panel, so the user
+      // pressed a button and, on screen, nothing happened.
+      //
+      // Every OTHER dispatch site is already covered: guidanceStore wraps the
+      // registration seam in `withOlumiReveal` (guidanceStore.ts:209-221), so
+      // `_sendMessage`, `_sendChip`, `_prefillChat` and `_dispatchAction` all
+      // reveal automatically (:592-603). This chip reads the RAW context
+      // `dispatchAction` (above), which bypasses that wrapped seam — making it
+      // the one send with no reveal. Same treatment as
+      // AnalysisHeroContainer.tsx:111-116 and InspectorCoaching.tsx:79.
+      //
+      // Fired here rather than in `.then()`: the user should see their message
+      // land AND the reply, not just the reply. Best-effort, per the contract
+      // guidanceStore states at :200-202 — a reveal failure must never turn a
+      // DELIVERED message into a thrown error.
+      //
+      // Inside the `if` on purpose: with no dispatcher nothing was sent, and
+      // revealing would drag the user to a thread no message went to.
+      try {
+        revealOlumiSurface()
+      } catch (err) {
+        console.warn('[WhatChangedChip] Olumi reveal failed after dispatch:', err)
+      }
     }
   }
 

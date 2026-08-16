@@ -434,8 +434,14 @@ export function DebugPanel() {
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           }}
           title="Open Debug Panel"
+          // The visible label read "Test", which named nothing this button
+          // does — it expands DebugPanelV2. On staging the pill sits directly
+          // above the zoom controls (see `bottom: 200` above), so it reads as
+          // a product affordance. Label and accessible name now match the
+          // tooltip this button already carried.
+          aria-label="Open Debug Panel"
         >
-          <span>Test</span>
+          <span>Debug</span>
         </button>
       ) : (
         /* Debug Panel V2 - 4-tab layout */

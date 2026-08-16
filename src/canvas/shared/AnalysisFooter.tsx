@@ -69,8 +69,21 @@ export function AnalysisFooter({
               <StatusIcon className={`h-3.5 w-3.5 flex-shrink-0 ${statusIconClassName}`} aria-hidden="true" />
               <span className={`font-medium ${statusIconClassName}`}>{statusText}</span>
             </div>
+            {/* The producer's robustness reason is a TWO-CLAUSE sentence and
+                the second clause is the one that justifies the status line
+                above it — e.g. verdict "fragile" + "none of the factors we
+                could test changed which option leads on its own, BUT THIS
+                RESULT SCORED LOW ON OUR OTHER ROBUSTNESS CHECKS" (walkA
+                capture). At 130–137 characters it never fitted one row, so
+                `truncate` (nowrap + ellipsis) clipped it around the comma and
+                left the headline reading as a flat contradiction of its own
+                body. Wrapping, not rewriting: the copy is the producer's and
+                stays verbatim. Pinned by AnalysisFooter.metaWrap.spec.tsx. */}
             {metaText ? (
-              <span className="text-[10px] text-text-light leading-snug truncate" data-testid="sticky-footer-meta">
+              <span
+                className="text-[10px] text-text-light leading-snug whitespace-normal break-words"
+                data-testid="sticky-footer-meta"
+              >
                 {metaText}
               </span>
             ) : null}

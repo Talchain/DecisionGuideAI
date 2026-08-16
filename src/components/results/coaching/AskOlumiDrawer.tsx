@@ -114,6 +114,27 @@ export function AskOlumiDrawer() {
 
   const targetResolvable = targetId !== null && targetId !== ''
 
+  /**
+   * The drawer showed the seeded question twice — read-only above and again in
+   * the textarea — because `DecisionOverviewCard.tsx:582-591` passes the
+   * framing question as `context` AND builds the draft as
+   * `Help me work through: ${framingQuestion}`.
+   *
+   * Suppress the read-only line only when the draft ENDS WITH the context
+   * verbatim (equality included). Correct by construction: the sentence stays
+   * on screen, in full, in the editable field directly below — a duplicate is
+   * removed, no information is.
+   *
+   * NOT `includes`: a short heading such as "Fragile relationships"
+   * (FragileEdgeGroupCard.tsx:162) can appear mid-draft while still doing real
+   * work as a label. The suffix relation identifies the observed
+   * "<preamble>: <the very same sentence>" shape and nothing else.
+   */
+  const trimmedContext = context.trim()
+  const contextRepeatedInDraft =
+    trimmedContext.length > 0 && draft.trim().endsWith(trimmedContext)
+  const showContextLine = trimmedContext.length > 0 && !contextRepeatedInDraft
+
   return (
     <>
       {isOpen && (
@@ -137,7 +158,7 @@ export function AskOlumiDrawer() {
             </button>
           </div>
           <div className="px-[11px] pb-[10px] pt-2">
-            {context && (
+            {showContextLine && (
               <p
                 data-testid="ask-olumi-context"
                 className="mb-2 rounded-[9px] border border-info px-2.5 py-2 text-xs text-text-body"
