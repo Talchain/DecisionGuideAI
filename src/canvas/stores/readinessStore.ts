@@ -304,6 +304,48 @@ export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
               : {}),
           }
         }
+        // ── Option interventions: what makes a CONFIGURED option legible ──
+        //
+        // CEE's canonical readiness assessor decides whether an option is
+        // configured by reading its interventions off the GRAPH. Until this
+        // existed, the projection sent none, so a fully-configured canvas model
+        // arrived wire-indistinguishable from an empty one and every option came
+        // back `MISSING_OPTION_VALUE` (measured CEE-side with a contrast
+        // control). That gap is what blocks re-pointing `/graph-readiness` at
+        // the single canonical assessor — see CEE #991.
+        //
+        // TOP-LEVEL, not under `data`, and this is load-bearing: CEE types
+        // option `data` as `OptionData`, whose `interventions` is
+        // `z.record(z.string(), z.number())` — strictly numeric — so writing the
+        // canvas's rich `{ value, source, target_match }` entries there risks
+        // failing the `NodeData` union and returning HTTP 400. The top-level
+        // field survives CEE's `.passthrough()` request parse and is DECLARED by
+        // its `NodeV3` as `z.record(z.string(), z.any())`.
+        //
+        // Numeric-only by construction: CEE's `extractNumericIntervention`
+        // accepts a bare number or `{ value: number }`, and a categorical value
+        // awaiting encoding is not a configured effect — it is dropped rather
+        // than invented into a number. An option with no resolvable value omits
+        // the field entirely, because an empty map would assert
+        // "configured with nothing".
+        if (nodeKind === 'option') {
+          const raw = data?.interventions
+          if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
+            const interventions: Record<string, number> = {}
+            for (const [factorId, entry] of Object.entries(raw as Record<string, unknown>)) {
+              const value =
+                typeof entry === 'number'
+                  ? entry
+                  : entry != null &&
+                      typeof entry === 'object' &&
+                      typeof (entry as { value?: unknown }).value === 'number'
+                    ? (entry as { value: number }).value
+                    : undefined
+              if (value !== undefined && Number.isFinite(value)) interventions[factorId] = value
+            }
+            if (Object.keys(interventions).length > 0) node.interventions = interventions
+          }
+        }
         return node
       }),
       /**
