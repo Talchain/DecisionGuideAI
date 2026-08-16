@@ -27,6 +27,36 @@ const PlotWorkspace = lazy(() => import('../routes/PlotWorkspace'))
 const PlcLab = lazy(() => import('../routes/PlcLab'))
 const DecisionTemplates = lazy(() => import('../routes/templates/DecisionTemplates').then(m => ({ default: m.DecisionTemplates })))
 
+/**
+ * A Suspense boundary that belongs to the ROUTE, not to the app shell.
+ *
+ * `<HashRouter future={{ v7_startTransition: true }}>` wraps every navigation
+ * state update in `React.startTransition`, and React will not replace
+ * already-revealed content with a fallback during a transition. The single
+ * `<Suspense>` above `<Routes>` has committed content from the moment the first
+ * route renders, so on every later navigation into a lazy route it shows
+ * nothing and React simply holds the PREVIOUS page on screen until the new
+ * chunk arrives.
+ *
+ * That is what made the fresh guest's first click look dead: "Continue without
+ * an account" (pages/ScenarioListPage.tsx) moved the hash to `#/canvas`
+ * instantly and then left the sign-in gate on screen for the whole ~2 MB canvas
+ * download (CanvasMVP + ReactFlowGraph), with no spinner and no disabled
+ * button. Nothing was broken — there was simply no way to tell.
+ *
+ * A boundary mounted BY the transition has no revealed content to preserve, so
+ * it shows its fallback immediately. Wrapping the routed element therefore
+ * restores the loading state without a reload and without a flag.
+ *
+ * The shell boundary above `<Routes>` stays: it still covers the very first
+ * paint, and it remains the fallback for every route that does not carry its
+ * own. `guestGateCanvasTransition.spec.tsx` pins the gate → canvas transition
+ * against this, so removing the wrapper fails loud.
+ */
+function RouteContent({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<RouteLoadingFallback />}>{children}</Suspense>
+}
+
 // PR #156 follow-up — staging-only debug-export UI.
 // `<DebugPanel />` is the visibility / sizing shell that delegates the
 // actual debug content to `<DebugPanelV2 />`. It is the entry point for
@@ -919,12 +949,12 @@ export default function AppPoC() {
                 <Route element={<AuthGuard />}>
                   <Route path="/" element={<ScenarioListPage />} />
                   <Route path="/scenarios" element={<ScenarioListPage />} />
-                  <Route path="/scenario/:id" element={<CanvasMVP />} />
+                  <Route path="/scenario/:id" element={<RouteContent><CanvasMVP /></RouteContent>} />
                   {/* COLLAB — the owner's side. INSIDE AuthGuard: minting a
                       round pins a version of the owner's model and names real
                       people, so it requires a verified session. */}
                   <Route path="/scenario/:id/panel" element={<PanelSetupPage />} />
-                  <Route path="/canvas" element={<CanvasMVP />} />
+                  <Route path="/canvas" element={<RouteContent><CanvasMVP /></RouteContent>} />
                   <Route path="/profile" element={<ProfileSettingsPage />} />
                   <Route path="/templates" element={<DecisionTemplates />} />
                 </Route>
