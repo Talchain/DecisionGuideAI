@@ -190,7 +190,10 @@ describe('one ask semantic · InspectorCoaching no longer auto-sends', () => {
     useGuidanceStore.setState({
       guidanceItems: [
         makeGuidanceItem({
-          primary_action: { type: 'run_exercise', exercise: 'premortem' } as GuidanceItem['primary_action'],
+          // The producer's own enum — 'pre_mortem', not 'premortem'. Derived
+          // from GuidanceAction in guidanceStore.ts rather than guessed, and
+          // asserted without a cast so the compiler keeps checking it.
+          primary_action: { type: 'run_exercise', exercise: 'pre_mortem' },
         }),
       ],
       _prefillChat: prefill,
@@ -200,7 +203,7 @@ describe('one ask semantic · InspectorCoaching no longer auto-sends', () => {
     render(<InspectorCoaching {...coachingProps} />)
     fireEvent.click(screen.getByText('Ask about this'))
 
-    expect(send).toHaveBeenCalledWith('/exercise premortem')
+    expect(send).toHaveBeenCalledWith('/exercise pre_mortem')
     expect(prefill).not.toHaveBeenCalled()
   })
 
