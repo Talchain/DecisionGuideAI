@@ -1,7 +1,10 @@
 /**
  * Model tab v2 — KEYBOARD NAVIGATION (design §5.2).
  *
- * ⚠ UNMOUNTED. See `types.ts`.
+ * ⚠ NOT YET WIRED by the 16 Aug 2026 mount train (which mounted the outline +
+ * detail region + in-row editing; the input itself handles Enter/Escape).
+ * Tab-through-and-fix remains to be wired to the mounted outline. See
+ * `types.ts`.
  *
  * Enter states an intent · Escape cancels · Tab and Shift+Tab move to the next
  * and previous EDITABLE value in outline order · ⌘/Ctrl+Enter confirms a

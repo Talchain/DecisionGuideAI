@@ -1,10 +1,14 @@
 /**
  * Model tab v2 — THE REPAIR QUEUE LIST, RENDER-ONLY (design §5.3).
  *
- * ⚠ UNMOUNTED, AND DELIBERATELY INERT. This renders the queue. It does not
- * apply anything, and it cannot: applying is a write, writes belong to Codex's
- * transactional-edit vertical, and that API is not frozen. Every Apply, Defer
- * and Resume control here is DISABLED and says why.
+ * ⚠ DELIBERATELY INERT (and still unmounted by the 16 Aug 2026 mount train,
+ * which mounted the outline + detail region only). This renders the queue. It
+ * does not apply anything, and it cannot: applying needs write operations the
+ * canonical wire does not carry yet (`proposeOptionIntervention`,
+ * `proposeFactorConfirmation`, `proposeBatch`, `proposeDeferral` — contracts.ts
+ * §1). Every Apply, Defer and Resume control here is DISABLED and says why.
+ * Mounting an actionless queue would add noise, not capability, so the queues
+ * wait for their carriers.
  *
  * ⚠ WHY NOT STUB THE APPLY. A stub that flipped a row to "applied" would
  * reproduce, inside the component written to kill it, the exact defect this

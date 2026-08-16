@@ -1,27 +1,24 @@
 /**
- * Model tab v2 — the structured model editor. TYPE SKELETON ONLY.
+ * Model tab v2 — the structured model editor. The type contracts.
  *
- * ⚠ NOTHING IN THIS DIRECTORY IS MOUNTED. There is no route, no tab
- * registration, no component and no runtime value here — these are type
- * declarations that pin the contracts in `docs/Design/MODEL-EDITOR-V2.md` (capital
- * D — the lowercase path does not exist and resolves only on macOS) so
- * the write-authority lane (Codex) and the dock lane (PX-A) have something
- * concrete to bind to. Integration/mounting is the technical lead's call, and
- * the design is Paul-vetoable before any of it is built.
+ * MOUNTED since the 16 Aug 2026 mount train: `ModelTabV2Panel` hosts the
+ * outline + detail region on the Model tab (via `ModelTabBody`), with factor
+ * value edits riding the canonical `factor_value_edit` transaction through
+ * `useModelEditAuthority`. These declarations pin the contracts in
+ * `docs/Design/MODEL-EDITOR-V2.md` (capital D — the lowercase path does not
+ * exist and resolves only on macOS). The design's §7 KEEP/CUT removal review
+ * still awaits Paul's verdict — the mount is ADDITIVE and removed nothing.
  *
  * WHY TYPES AND NOT PROSE. Three of the twelve defects the design documents are
  * hand-maintained mirrors (a dead search prop, a dead `isContested` prop, a
  * hand-copied band-threshold table). A contract expressed as prose becomes the
  * next one. Expressed as a total union it is a type error instead.
  *
- * ⚠ WHEN THIS DIRECTORY BECOMES LIVE, EXTEND THE RAW-WRITE GUARD.
- * `src/canvas/components/model-tab/__tests__/modelTabNoRawStoreWrites.sourceScan.spec.ts`
- * scans `src/canvas/components/model-tab/` ONLY. A v2 component tree living
- * here is therefore UNGUARDED against raw `updateNode` / `updateEdge` /
- * `updateEdgeData` calls — the exact class that guard exists to prevent, and the
- * exact way it was re-opened last time (the inspector was fixed, the Model tab
- * kept its own hand-rolled writes, and the killed class stayed live through a
- * different door). Widen its scope in the same PR that mounts anything here.
+ * THE RAW-WRITE GUARD IS WIDENED (the obligation the pre-mount header carried):
+ * `modelTabNoRawStoreWrites.sourceScan.spec.ts` now scans this directory too,
+ * and `modelTabV2Boundary.sourceScan.spec.ts` pins the mount path, bans direct
+ * writes in every file here, and pins the mount host's foreign hooks to the
+ * one authority seam.
  */
 
 // NOTE: this module deliberately imports NOTHING. Provenance travels as the raw

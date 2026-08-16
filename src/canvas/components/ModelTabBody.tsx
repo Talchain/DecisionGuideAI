@@ -50,6 +50,13 @@ import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
 import { countFactorsToVerify, mapSourceToDisplay } from './model-tab/utils'
 import { ModelAdjustments } from './model-tab/ModelAdjustments'
 import { resolveRawFactorConfidenceDisplay, type FactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
+// The Model Editor v2 (16 Aug 2026 mount train). Mounted ON, no flag: the
+// no-dark-launches rule. Its factor-value edits ride the SAME canonical
+// transaction as FactorsSection's chips (`useModelEditAuthority`); everything
+// without a canonical carrier renders honestly disabled. The v1 sections below
+// are retained UNCHANGED — the design's §7 KEEP/CUT removals await Paul's
+// verdict and are deliberately not executed in this train.
+import { ModelTabV2Panel } from '../model-tab-v2/ModelTabV2Panel'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -179,6 +186,9 @@ export const ModelTabBody = memo(function ModelTabBody({
   const selectionEdgeIds = useCanvasStore(s => s.selection?.edgeIds ?? EMPTY_EDGE_IDS)
   const updateEdge = useCanvasStore(s => s.updateEdge)
   const rawV2Response = useCanvasStore(s => s.rawV2Response)
+  // The v2 outline's goal row reads the store scalar (RAW user units — the
+  // single-writer carrier `setGoalThresholdAndUpdateNode` maintains it).
+  const goalThreshold = useCanvasStore(s => s.goalThreshold ?? null)
 
   // ── Scientific enrichment data from PLoT response ───────────────────────────
   // Single-pass extraction of all per-factor enrichment maps from factor_sensitivity.
@@ -745,6 +755,17 @@ export const ModelTabBody = memo(function ModelTabBody({
         isRunning={trust.isRunning}
         startedAt={trust.runStartedAt}
         contentRetained={nodes.length > 0}
+      />
+
+      {/* ── The Model Editor v2 (mounted 16 Aug 2026, no flag) ─────────────── */}
+      {/* One filterable outline of the model, editable in place where the
+          canonical transaction exists. ADDITIVE: the v1 sections below are
+          unchanged — §7's removals await Paul's KEEP/CUT verdict. */}
+      <ModelTabV2Panel
+        nodes={nodes}
+        edges={edges}
+        goalThreshold={goalThreshold}
+        fragileEdgeIds={hasRobustnessData ? fragileEdgeIds : undefined}
       />
 
       {/* ── Header: factor/edge counts + "Show full detail" toggle ─────────── */}

@@ -1,12 +1,15 @@
 /**
  * Shared types for the model-tab component suite.
+ *
+ * `ModelTabProps` was REMOVED by the 16 Aug 2026 mount train (design §7.5,
+ * F15): it had no importer anywhere in `src/` and had drifted from the live
+ * inline `ModelTabBodyProps` (it declared a `critique` field the body does not
+ * take, and lacked `expertMode` / `onSendMessage`). A stale type nobody uses
+ * is the next session's false map. The live props live inline in
+ * `ModelTabBody.tsx` — read them there.
  */
 
-import type { Node, Edge } from '@xyflow/react'
-import type { MappedRobustness } from '../../../lib/mappers/types'
-import type { CritiqueItemV1 } from '../../../adapters/plot/types'
-import type { CeeQualityDimensions } from '../../store'
-
+/** Factor observed state as the model-tab display readers accept it. */
 export interface ObservedState {
   value?: number
   raw_value?: number
@@ -24,24 +27,4 @@ export type FactorInfluenceMap = Map<string, number>
 /** Context provided by "Show full detail" toggle */
 export interface DetailContext {
   showDetail: boolean
-}
-
-export interface ModelTabProps {
-  showDebug: boolean
-  hasDiagnostics: boolean
-  diagnostics: unknown
-  hasTrim: boolean
-  effectiveCorrelationId: string | null | undefined
-  correlationMismatch: boolean
-  correlationIdHeader: string | null | undefined
-  nodes: Node[]
-  edges: Edge[]
-  robustness: MappedRobustness | null
-  critique?: CritiqueItemV1[] | null
-  /** Factor influence map from PLoT — keyed by node ID, value is 0–1 sensitivity score */
-  factorInfluence?: FactorInfluenceMap
-  /** Trigger analysis re-run (from OutputsDock handleRunAnalysis) */
-  onReanalyse?: () => void
-  /** CEE quality dimensions — from ceeQuality store field */
-  ceeQuality?: CeeQualityDimensions | null
 }
