@@ -47,11 +47,36 @@ describe('useStageAwarePlaceholder', () => {
     expect(placeholder()).toBe('Ask about this model…')
   })
 
-  it('selection wins over everything → "Ask about {label}…"', () => {
+  /**
+   * ⚠ PIN FLIPPED, DELIBERATELY (L-17, 16 Aug 2026). This used to assert
+   * `'Ask about Switch jobs?…'` — a selection-derived placeholder.
+   *
+   * That behaviour was the defect. A placeholder is an ATTRIBUTE, not content:
+   * the composer's VALUE stayed empty, so the sentence the product appeared to
+   * have written for the user could not be sent. Measured again on 16 Aug at UI
+   * `f15bccaf`: "composer VALUE empty ... Grey, non-submittable, exactly as
+   * filed."
+   *
+   * The selection now carries a REAL, submittable control (`SelectionPill`:
+   * a clickable pill plus a chip, both dispatching one selection-grounded
+   * turn), so the placeholder returns to the neutral prompt and stops
+   * impersonating content it never held. The affordance is pinned by
+   * `SelectionPill.askAffordance.spec.tsx`; this test pins that the composer
+   * no longer claims it.
+   *
+   * The assertion is NEGATIVE as well as positive on purpose: asserting only
+   * the new string would still pass if the label leaked back in some other
+   * form.
+   */
+  it('a selection does NOT write a fake sentence into the composer (L-17)', () => {
     useCanvasStore.setState({ nodes: [node('a')] as never })
     complete(); setFresh()
     selectionRef.value = { id: 'g', label: 'Switch jobs?', kind: 'node' }
-    expect(placeholder()).toBe('Ask about Switch jobs?…')
+    const p = placeholder()
+    expect(p).not.toContain('Switch jobs?')
+    // The selection no longer outranks the freshness verdict either — the
+    // composer says the true thing about the analysis instead.
+    expect(p).toBe('Ask about the latest analysis…')
   })
 
   it('confirmed-fresh analysis → "Ask about the latest analysis…"', () => {

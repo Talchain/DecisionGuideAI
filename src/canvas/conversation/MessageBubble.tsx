@@ -166,6 +166,54 @@ export const MessageBubble = memo(function MessageBubble({
   onRetryFailedSend,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
+  const isStreaming = message.isStreaming === true
+
+  // ── HOOKS FIRST ────────────────────────────────────────────────────────────
+  // These three memos are declared BEFORE every early return in this component.
+  //
+  // That placement is load-bearing, not style: this file already carries three
+  // rules-of-hooks exceptions (hooks declared BELOW the sentinel /
+  // non-conversational / chip-initiated early returns), and the repo's ratchet
+  // says of them — correctly — "this file had an exception for its EXISTING
+  // violations, not a licence to add more. Each one is a render-time crash."
+  // A message that flips across one of those early returns between renders
+  // would change its hook count. So the render-authority memos sit above all of
+  // them. The pre-existing three are REPORTED, not fixed here: hoisting them is
+  // a separate, mechanical change and this lane's scope rule forbids
+  // "while we're here" work.
+  const rawDisplayContent = (isUser || isStreaming || message.stoppedByUser)
+    ? message.content
+    : extractFromRawJson(message.content)
+
+  /**
+   * ONE RENDER AUTHORITY (L-16 / NEW-9) — tier 0 for this turn.
+   *
+   * The consent / answer cards this turn will render below the prose. The prose
+   * body then withholds any whole segment one of them already states, so the
+   * plan behind a [Confirm these changes] control is read ONCE, on the control.
+   *
+   * Never applied to a user bubble (the user's own words are never withheld)
+   * and never while streaming (the card has not arrived, so "already rendered"
+   * is not yet a true statement about anything).
+   */
+  const consentSurfaceText = useMemo(
+    () => (isUser || isStreaming ? [] : collectConsentSurfaceText(message.blocks)),
+    [isUser, isStreaming, message.blocks],
+  )
+  const dedupedBody = useMemo(
+    () => dedupeRenderedText(rawDisplayContent, consentSurfaceText),
+    [rawDisplayContent, consentSurfaceText],
+  )
+  const displayContent = dedupedBody.text
+  /**
+   * Tier 0 + tier 2, as one stable array. Memoised because `InlineBlocks` is
+   * `memo`'d and a fresh literal on every render would defeat it — the same
+   * reason `AnswerBody` keeps a frozen empty default.
+   */
+  const renderedAboveBlocks = useMemo(
+    () => [...consentSurfaceText, displayContent],
+    [consentSurfaceText, displayContent],
+  )
   // Transcript honesty (trust item #3): a user send whose turn failed must
   // LOOK failed — marker + optional retry affordance on the message itself.
   const sendFailed = isUser && message.deliveryState === 'failed'
@@ -228,7 +276,6 @@ export const MessageBubble = memo(function MessageBubble({
     )
   }
 
-  const isStreaming = message.isStreaming === true
   const isProvisional = message.isProvisional === true
   const hasToolLoading = Boolean(message.toolLoadingState)
 
@@ -239,39 +286,6 @@ export const MessageBubble = memo(function MessageBubble({
   // reject, causing extractFromRawJson to return its "didn't render correctly"
   // placeholder — confusing alongside the "Response stopped." indicator. The
   // user chose to stop mid-stream; show whatever partial they had.
-  const rawDisplayContent = (isUser || isStreaming || message.stoppedByUser)
-    ? message.content
-    : extractFromRawJson(message.content)
-
-  /**
-   * ONE RENDER AUTHORITY (L-16 / NEW-9) — tier 0 for this turn.
-   *
-   * The consent / answer cards this turn will render below the prose. The prose
-   * body then withholds any whole segment one of them already states, so the
-   * plan behind a [Confirm these changes] control is read ONCE, on the control.
-   *
-   * Never applied to a user bubble (the user's own words are never withheld)
-   * and never while streaming (the card has not arrived, so "already rendered"
-   * is not yet a true statement about anything).
-   */
-  const consentSurfaceText = useMemo(
-    () => (isUser || isStreaming ? [] : collectConsentSurfaceText(message.blocks)),
-    [isUser, isStreaming, message.blocks],
-  )
-  const dedupedBody = useMemo(
-    () => dedupeRenderedText(rawDisplayContent, consentSurfaceText),
-    [rawDisplayContent, consentSurfaceText],
-  )
-  const displayContent = dedupedBody.text
-  /**
-   * Tier 0 + tier 2, as one stable array. Memoised because `InlineBlocks` is
-   * `memo`'d and a fresh literal on every render would defeat it — the same
-   * reason `AnswerBody` keeps a frozen empty default.
-   */
-  const renderedAboveBlocks = useMemo(
-    () => [...consentSurfaceText, displayContent],
-    [consentSurfaceText, displayContent],
-  )
 
   // F1 (answer-shape progressive disclosure): when a well-formed answer-shape
   // sidecar is present on a settled assistant turn, the structured view
