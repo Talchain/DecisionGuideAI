@@ -6,6 +6,7 @@
  */
 import { create } from 'zustand'
 import { AlertTriangle, Lightbulb, type LucideIcon } from 'lucide-react'
+import { revealOlumiSurface } from '../conversation/revealOlumi'
 
 // ---------------------------------------------------------------------------
 // § 1 — CEE contract types
@@ -171,6 +172,51 @@ export function deriveGuidanceDskProvenance(
     (GUIDANCE_EVIDENCE_STRENGTHS as readonly string[]).includes(strength)
       ? { strength }
       : {}),
+  }
+}
+
+/**
+ * Wrap a conversation callback so invoking it also REVEALS the Olumi surface.
+ *
+ * Class-8 guarantee (16 Aug 2026): *every action that sends work to Olumi
+ * visibly reveals Olumi with the in-flight turn.* A swept census found ~25
+ * dispatch sites that sent silently — node chips and coaching markers
+ * (`nodes/NodeChip`, `FactorNode`, `RiskNode`, `GoalNode`, `DecisionNode`,
+ * `OutcomeNode`, `GhostOptionNode`, `shared/ScienceIcon`), the Ask-Olumi drawer
+ * and its ~15 result-surface callers, and the `onSendMessage` prop chain — all
+ * firing while the thread sat on a hidden dock tab or behind a minimised panel.
+ * The user pressed a button and, as far as the screen was concerned, nothing
+ * happened.
+ *
+ * ⭐ WRAPPED AT THE REGISTRATION SEAM, ON PURPOSE. The obvious alternative is a
+ * `revealOlumiSurface()` call next to each send — which is a hand-maintained
+ * list of call sites, the defect class this codebase pays for most often: it is
+ * correct the day it is written and silently short the first time someone adds
+ * a send. Wrapping here means a callback cannot be dispatched WITHOUT the
+ * reveal, and it covers surfaces this lane must not edit (the Ask-Olumi drawer
+ * and the result-surface callers belong to another lane) without touching one
+ * line of them.
+ *
+ * The reveal runs AFTER the send so a throwing callback cannot be masked, and
+ * the reveal itself is best-effort: it must never turn a delivered message into
+ * a thrown error, so it is caught and logged.
+ *
+ * Not every callback is wrapped — see the notes at each field in
+ * `registerConversationCallbacks`. Identity: the wrapper is a new function
+ * object, so ownership must be compared by `_registrationToken` (which it
+ * already is, deliberately, for the singleton-host reason documented there).
+ */
+function withOlumiReveal<Args extends unknown[]>(
+  fn: ((...args: Args) => void) | null,
+): ((...args: Args) => void) | null {
+  if (!fn) return null
+  return (...args: Args) => {
+    fn(...args)
+    try {
+      revealOlumiSurface()
+    } catch (err) {
+      console.warn('[guidanceStore] Olumi reveal failed after dispatch:', err)
+    }
   }
 }
 
@@ -543,12 +589,18 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
   registerConversationCallbacks: (sendMessage, scrollToPatch, sendChip, runAnalysis, prefillChat, dispatchAction) => {
     const token = {}
     set({
-      _sendMessage: sendMessage,
+      _sendMessage: withOlumiReveal(sendMessage),
+      // `_runAnalysis` is deliberately NOT wrapped: a run navigates the dock to
+      // Analysis and has its own return-to-Olumi signal once the run produces
+      // review content (`runReturnSignal.ts`). Fronting Olumi at run START would
+      // fight that, and would yank the user off the surface the run is filling.
       _runAnalysis: runAnalysis ?? null,
+      // `_scrollToPatch` moves within an ALREADY-visible thread; revealing on it
+      // would be motion without a message.
       _scrollToPatch: scrollToPatch,
-      _sendChip: sendChip ?? null,
-      _prefillChat: prefillChat ?? null,
-      _dispatchAction: dispatchAction ?? null,
+      _sendChip: withOlumiReveal(sendChip ?? null),
+      _prefillChat: withOlumiReveal(prefillChat ?? null),
+      _dispatchAction: withOlumiReveal(dispatchAction ?? null),
       _registrationToken: token,
     })
     return () => {

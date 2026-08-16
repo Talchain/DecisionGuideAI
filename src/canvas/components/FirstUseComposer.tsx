@@ -226,6 +226,29 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blu
       // dependency change (e.g. another node-count tick during the 450ms
       // clear window).
       performAutoReposition(anchor, { reducedMotion: prefersReducedMotion })
+
+      // …then step out of the model's way. Measured 16 Aug 2026 at 1280x800
+      // with the committed CEE draft capture: with the dock collapsed to its
+      // rail, an OPEN floating panel leaves an 796px fitting box for a graph
+      // that needs 1008px at the legibility floor, so the user's first view of
+      // their own model is clamped and overflowing. Closed or minimised, the
+      // same measurement gives 1136px and fits at 0.563. No dock width and no
+      // padding rule can recover that: a 400x550 panel plus its side tab is a
+      // third of a laptop viewport, so while it is open the fit CANNOT clear
+      // the floor — the only honest options are to occlude the graph or to
+      // clamp it, and this chooses neither.
+      //
+      // Scope is deliberately the narrowest that achieves it: this runs only
+      // under `canAutoDock` (source === 'system-first-use' && !userRepositioned)
+      // and only on the 0→N draft transition, i.e. the TRANSCRIPT-LESS hero
+      // that the user has never moved. A panel the user opened or dragged is
+      // never touched, and neither is one showing a transcript — so this cannot
+      // hide an assistant reply the user could otherwise read. (The hero has no
+      // transcript by construction; that is precisely why
+      // `shouldAutoExpandDockForResponse` treats it as showing nothing.)
+      // Coaching stays one click away on the restore pill, and every dispatch
+      // path that sends work to Olumi reveals the surface again.
+      useFloatingPanelState.getState().minimise()
     }
     if (prefersReducedMotion) {
       performReposition()

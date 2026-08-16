@@ -338,6 +338,46 @@ function StoreConfirmDialog() {
   )
 }
 
+/**
+ * Pointer tolerances for select/grab reliability (16 Aug 2026).
+ *
+ * All three were previously UNSET, so xyflow's own defaults applied — and those
+ * defaults are strict to the pixel. Derived at the bytes in
+ * `@xyflow/react/dist/esm/index.js`: `nodeClickDistance = 0` and
+ * `paneClickDistance = 1` (:3598), `nodeDragThreshold = 1` (:3184).
+ *
+ * `nodeClickDistance = 0` is the sharp one: a node click registers ONLY if the
+ * pointer travelled zero pixels between press and release, and a 1px drag
+ * threshold promotes a wobble into a drag, which suppresses the click outright.
+ * On a trackpad that makes click-to-select a coin toss — the user presses a
+ * node, the pointer jitters by a pixel, and the selection silently does not
+ * happen, with nothing to distinguish it from a dead zone. That is precisely
+ * the "grab miss" this lane was sent to find.
+ *
+ * A few pixels is what real pointer hardware delivers, and it costs nothing
+ * else: a deliberate drag passes 2px immediately, so dragging is unaffected.
+ *
+ * Module scope, not component scope: they are constants, and
+ * `SELECT_MODE_PAN_BUTTONS` in particular must keep a STABLE IDENTITY across
+ * renders (a fresh array each render re-triggers xyflow's pane wiring). It was
+ * briefly a `useMemo`, which the rules-of-hooks ratchet correctly rejected —
+ * this file is at its exception limit and a new hook here is a render-time
+ * crash risk. A module constant needs no hook at all.
+ */
+const NODE_CLICK_DISTANCE = 4
+const PANE_CLICK_DISTANCE = 4
+const NODE_DRAG_THRESHOLD = 2
+
+/**
+ * Which mouse buttons pan in SELECT mode (xyflow numbering: 0 left, 1 middle,
+ * 2 right). This was `[1, 2]`, which made right-drag a pan trigger while
+ * `onPaneContextMenu` / `onNodeContextMenu` / `onEdgeContextMenu` were all
+ * bound — so a right-press that moved a pixel panned the canvas AND opened the
+ * context menu on release. Button 2 belongs to the menu; middle-drag keeps
+ * panning. Hand mode is unchanged (`panOnDrag={true}` — every button pans).
+ */
+const SELECT_MODE_PAN_BUTTONS = [1]
+
 // Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
 const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGhostSuggestions = false }: ReactFlowGraphProps) {
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
@@ -627,6 +667,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Interaction mode: 'select' for normal selection/drag, 'hand' for pan mode (like Figma V/H)
   // Default to 'hand' mode for easier canvas navigation on load
   const [interactionMode, setInteractionMode] = useState<'select' | 'hand'>('hand')
+
 
   // Spacebar hold-to-pan: temporarily switches to hand mode while held (like Figma)
   const [spaceHeld, setSpaceHeld] = useState(false)
@@ -2109,8 +2150,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             selectionOnDrag={canDragSelect}
             selectionMode={SelectionMode.Partial}
             multiSelectionKeyCode={['Meta', 'Control']}
-            panOnDrag={effectiveMode === 'hand' ? true : [1, 2]}
+            panOnDrag={effectiveMode === 'hand' ? true : SELECT_MODE_PAN_BUTTONS}
             nodesDraggable={effectiveMode === 'select'}
+            nodeClickDistance={NODE_CLICK_DISTANCE}
+            paneClickDistance={PANE_CLICK_DISTANCE}
+            nodeDragThreshold={NODE_DRAG_THRESHOLD}
             fitView
             minZoom={0.1}
             maxZoom={4}

@@ -197,6 +197,9 @@ describe('Olumi tab click while floating is open', () => {
     // order-dependent on a leaked canvas state.
     useCanvasStore.getState().resetCanvas()
     useCanvasStore.getState().addNode(undefined, 'decision')
+    // Since 16 Aug 2026 the first-use rail ends on an analysis RESULT, not on
+    // graph content, so the node alone no longer expands the dock.
+    useCanvasStore.setState({ hasCompletedFirstRun: true } as any)
 
     // Pre-state: Analysis tab is active in the global store, and the
     // floating panel is open.
@@ -240,6 +243,9 @@ describe('Olumi tab click while floating is open', () => {
 
     useCanvasStore.getState().resetCanvas()
     useCanvasStore.getState().addNode(undefined, 'decision') // populated → dock can host Olumi
+    // …and an analysis result, which is what actually ends the rail since
+    // 16 Aug 2026. "Populated" alone leaves the dock at 40px and unable to host.
+    useCanvasStore.setState({ hasCompletedFirstRun: true } as any)
     try {
       sessionStorage.setItem(
         'canvas.outputsDock.v1',
@@ -372,6 +378,11 @@ describe('Olumi tab click while floating is open', () => {
     // is on the Olumi tab, no floating open.
     useCanvasStore.setState({
       nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'd', kind: 'decision' } }],
+      // Since 16 Aug 2026 the first-use rail ends on an analysis RESULT, not on
+      // graph content, so the graph alone no longer expands the dock. These
+      // cases are about tab/floating-panel behaviour in an EXPANDED dock, so a
+      // session that has produced an analysis is the accurate fixture.
+      hasCompletedFirstRun: true,
     } as any)
     useUIStore.setState({ activeOutputTab: 'olumi', activeOutputTabVersion: 0 })
     useFloatingPanelState.getState().reset()
@@ -412,7 +423,10 @@ describe('Olumi tab click while floating is open', () => {
     expect(persisted).not.toBe('olumi')
 
     // Cleanup: leave the canvas store empty for the next test.
-    useCanvasStore.setState({ nodes: [] } as any)
+    // Symmetric teardown: these tests now also seed `hasCompletedFirstRun`, and
+    // clearing only `nodes` would leak an analysis result into the next test —
+    // which is precisely what made a later rail-path case render expanded.
+    useCanvasStore.setState({ nodes: [], hasCompletedFirstRun: false } as any)
   })
 
   it('persisted activeTab=olumi + global=results + floating open → floating yields on first render (round-5 race guard)', async () => {
@@ -445,6 +459,11 @@ describe('Olumi tab click while floating is open', () => {
     // Need a graph so the panel doesn't yield via yieldToFirstUse.
     useCanvasStore.setState({
       nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'd', kind: 'decision' } }],
+      // Since 16 Aug 2026 the first-use rail ends on an analysis RESULT, not on
+      // graph content, so the graph alone no longer expands the dock. These
+      // cases are about tab/floating-panel behaviour in an EXPANDED dock, so a
+      // session that has produced an analysis is the accurate fixture.
+      hasCompletedFirstRun: true,
     } as any)
 
     const { container } = render(
@@ -459,7 +478,10 @@ describe('Olumi tab click while floating is open', () => {
 
     // Cleanup: clear the persisted state so subsequent tests don't inherit it.
     try { sessionStorage.removeItem('canvas.outputsDock.v1') } catch {}
-    useCanvasStore.setState({ nodes: [] } as any)
+    // Symmetric teardown: these tests now also seed `hasCompletedFirstRun`, and
+    // clearing only `nodes` would leak an analysis result into the next test —
+    // which is precisely what made a later rail-path case render expanded.
+    useCanvasStore.setState({ nodes: [], hasCompletedFirstRun: false } as any)
   })
 
   it('docked Olumi float-out returns the user to the LAST non-Olumi tab (round-5 UX)', async () => {
@@ -477,6 +499,11 @@ describe('Olumi tab click while floating is open', () => {
     // (internally 'diagnostics'), then switched to Olumi.
     useCanvasStore.setState({
       nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'd', kind: 'decision' } }],
+      // Since 16 Aug 2026 the first-use rail ends on an analysis RESULT, not on
+      // graph content, so the graph alone no longer expands the dock. These
+      // cases are about tab/floating-panel behaviour in an EXPANDED dock, so a
+      // session that has produced an analysis is the accurate fixture.
+      hasCompletedFirstRun: true,
     } as any)
     useUIStore.setState({ activeOutputTab: 'diagnostics', activeOutputTabVersion: 0 })
     useFloatingPanelState.getState().reset()
@@ -511,7 +538,10 @@ describe('Olumi tab click while floating is open', () => {
 
     // Cleanup.
     try { sessionStorage.removeItem('canvas.outputsDock.v1') } catch {}
-    useCanvasStore.setState({ nodes: [] } as any)
+    // Symmetric teardown: these tests now also seed `hasCompletedFirstRun`, and
+    // clearing only `nodes` would leak an analysis result into the next test —
+    // which is precisely what made a later rail-path case render expanded.
+    useCanvasStore.setState({ nodes: [], hasCompletedFirstRun: false } as any)
   })
 
   it('persistent strip chevron from Olumi tab opens floating panel (round-14 regression)', async () => {
@@ -542,6 +572,11 @@ describe('Olumi tab click while floating is open', () => {
     // floating closed.
     useCanvasStore.setState({
       nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'd', kind: 'decision' } }],
+      // Since 16 Aug 2026 the first-use rail ends on an analysis RESULT, not on
+      // graph content, so the graph alone no longer expands the dock. These
+      // cases are about tab/floating-panel behaviour in an EXPANDED dock, so a
+      // session that has produced an analysis is the accurate fixture.
+      hasCompletedFirstRun: true,
     } as any)
     useUIStore.setState({ activeOutputTab: 'olumi', activeOutputTabVersion: 0 })
     useFloatingPanelState.getState().reset()
@@ -576,7 +611,10 @@ describe('Olumi tab click while floating is open', () => {
 
     // Cleanup.
     try { sessionStorage.removeItem('canvas.outputsDock.v1') } catch {}
-    useCanvasStore.setState({ nodes: [] } as any)
+    // Symmetric teardown: these tests now also seed `hasCompletedFirstRun`, and
+    // clearing only `nodes` would leak an analysis result into the next test —
+    // which is precisely what made a later rail-path case render expanded.
+    useCanvasStore.setState({ nodes: [], hasCompletedFirstRun: false } as any)
   })
 
   it('falls through to normal tab activation when floating is CLOSED', async () => {

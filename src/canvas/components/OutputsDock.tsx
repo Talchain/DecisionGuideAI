@@ -252,6 +252,84 @@ export function deriveNextDockIsOpen(isFirstUse: boolean, storedIsOpen: boolean)
 // enforced by `handleTabClick` + the close-floating-on-olumi-active
 // effect (see OutputsDockBody below).
 
+/**
+ * Whether the dock renders as its collapsed 40px rail rather than its full
+ * body — the "first use" state.
+ *
+ * ⚠ THE INPUT CHANGED ON 16 Aug 2026 and that IS the behaviour change: this
+ * used to be driven by `!hasGraphContent`, so a DRAFTED GRAPH ended first use
+ * and the dock expanded to its full width the instant the model appeared —
+ * showing a pre-run Analysis tab with no analysis in it. An outputs dock with
+ * no outputs has no claim to that width, and the canvas pays for it: measured
+ * at 1280x800 with the committed CEE draft capture, the expanded dock reserved
+ * 361px of `computeFitPadding`, leaving an 843px fitting box for a graph
+ * needing 1008px at the legibility floor — so the product's own first view of
+ * the user's model was clamped and overflowing. Collapsed: 1136px, fits at
+ * 0.563.
+ *
+ * Pure and exported so the rule is mutation-testable without mounting the dock.
+ *
+ * @param hasAnalysisResult `hasCompletedFirstRun` — at least one successful or
+ *   restored run exists in this session, i.e. the dock has something to show.
+ * @param analysisActive a run is IN FLIGHT (results status is anything but
+ *   `idle`/`cancelled`). Outputs are not here yet but they are coming, and the
+ *   run's own progress narration lives in the dock body.
+ *
+ *   ⚠ This is NOT redundant with the run-start effect's override, and the
+ *   difference is reachable: that effect fires on the `idle → active`
+ *   TRANSITION, so it never fires for a run that is ALREADY active when the
+ *   dock mounts — a page reload mid-analysis, or a resumed session. Without
+ *   this input the user would watch their running analysis from behind a 40px
+ *   rail. The override still earns its place for the other direction: once a
+ *   run has opened the dock it STAYS open, so a cancelled run does not collapse
+ *   the dock out from under the user.
+ * @param userExplicitlyOpened the session-scoped override raised by the rail's
+ *   own chevron, by a started run, and by the collapsed-response signal. Once
+ *   raised it wins outright: an explicit expand is never undone by this rule.
+ */
+export function shouldRenderFirstUseRail(input: {
+  aiPanelV2On: boolean
+  hasAnalysisResult: boolean
+  analysisActive: boolean
+  userExplicitlyOpened: boolean
+}): boolean {
+  return (
+    input.aiPanelV2On &&
+    !input.hasAnalysisResult &&
+    !input.analysisActive &&
+    !input.userExplicitlyOpened
+  )
+}
+
+/**
+ * Whether a programmatic tab activation is entitled to END the first-use rail.
+ *
+ * Only a forced activation of the OLUMI tab is — that is `revealOlumiSurface()`,
+ * and revealing a thread the user cannot see is meaningless behind a 40px rail.
+ *
+ * ⚠ THE 'olumi' CLAUSE IS THE WHOLE POINT, AND ITS ABSENCE WAS A MEASURED
+ * REGRESSION (16 Aug 2026). Without it, ANY forced activation cleared the rail —
+ * which looks equivalent, since all of them are "programmatic navigation that
+ * has decided to front the dock". But `FirstUseComposer` forces `'results'` on
+ * the 0→N draft transition, so the DRAFT ITSELF cleared the rail: the dock
+ * re-claimed its full width with no analysis in it and the post-draft fit went
+ * straight back to the clamped 843px this lane exists to remove. One change
+ * silently undoing the other, on the single journey both were written for.
+ *
+ * The full test suite was GREEN with that defect present — it is a two-effect
+ * interaction, invisible to every unit test — and it was caught only by
+ * re-running the browser measurement on the final tip. Hence this pure helper:
+ * so the rule has somewhere to be tested, and a mutant has something to bite.
+ *
+ * Two different questions under one mechanism (trap 21): "reveal the Olumi
+ * thread" legitimately claims the dock; "the draft landed, front Analysis" does
+ * not. A started run ends the rail through its own effect, so no other tab
+ * needs this.
+ */
+export function forcedActivationEndsRail(versionChanged: boolean, resolvedTab: string): boolean {
+  return versionChanged && resolvedTab === 'olumi'
+}
+
 /** Dynamic accessor: re-evaluates feature flags on every call. Exported so
  *  parity tests can verify tab gating without remounting OutputsDock. The
  *  component computes its own OUTPUT_TABS via useMemo at render time, so a
@@ -368,6 +446,19 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // floatingPanelIsOpen subscriber is declared — keeps Rules of Hooks
   // happy with the deps array.)
 
+  /**
+   * Session-scoped override that ends the first-use rail (see
+   * `shouldRenderFirstUseRail`). Raised by the rail's own chevron
+   * (`toggleOpen`), by a started run, by the collapsed-response signal, and by
+   * a forced tab activation. Never persisted, so a returning user with no
+   * analysis still gets the rail.
+   *
+   * Declared HERE, above the E1 sync effect, because that effect raises it —
+   * keeping the declaration below its first use would rely on closure timing to
+   * stay legal.
+   */
+  const userExplicitlyOpenedRailRef = useRef(false)
+
   // E1: Sync external tab changes from Zustand store (programmatic navigation).
   // Also watches activeOutputTabVersion so `forceActivateOutputTab` triggers
   // the sync even when the tab value itself didn't change — e.g. auto-dock
@@ -409,6 +500,34 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       || (externalTab === 'olumi' && !isAiPanelV2Enabled())
       ? 'results'
       : externalTab
+    // A forced activation OF THE OLUMI TAB must also clear the FIRST-USE RAIL,
+    // for the same reason `versionChanged` clears an overlay panel above. Since
+    // 16 Aug the rail persists until an analysis result exists, and
+    // `effectiveIsOpen` is `isFirstUse ? false : state.isOpen` — so the
+    // `isOpen: true` below is overridden by the rail, and `revealOlumiSurface()`
+    // would "open" a dock that stays 40px wide. That is ROADMAP 2.639's defect
+    // (the turn reports success and nothing on screen moves) reachable again
+    // through a different override, so it gets 2.639's answer. This is what
+    // makes the class-8 guarantee true.
+    //
+    // ⚠ SCOPED TO 'olumi' DELIBERATELY, and the wider version cost a measured
+    // regression. Clearing the rail on ANY forced activation looks equivalent —
+    // both are "programmatic navigation that has decided to front the dock" —
+    // but `FirstUseComposer` calls `forceActivateOutputTab('results')` on the
+    // 0→N draft transition, which bumps the same counter. The rail was
+    // therefore cleared by the draft itself, the dock re-claimed its full width
+    // with no analysis in it, and the post-draft fit went straight back to the
+    // clamped 843px this lane exists to fix — the class-8 change silently
+    // undoing the coexistence change, on the one journey both were written for.
+    // Caught only by re-running the browser measurement on the final tip.
+    //
+    // The two are different questions (trap 21): "reveal the Olumi thread"
+    // legitimately claims the dock; "the draft landed, front Analysis" does not.
+    // A run start clears the rail through its own effect, so nothing else needs
+    // this.
+    if (forcedActivationEndsRail(versionChanged, resolvedTab)) {
+      userExplicitlyOpenedRailRef.current = true
+    }
     setState(prev => {
       if (prev.activeTab === resolvedTab && prev.isOpen) return prev
       return { ...prev, isOpen: true, activeTab: resolvedTab as OutputsDockTab }
@@ -499,16 +618,41 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // The collapse is NOT persisted — derived per render so returning users
   // with an empty canvas only see the rail until they explicitly engage.
   const aiPanelV2On = isAiPanelV2Enabled()
+  // Read here (not at the later `resultsStatus` site) because the rail
+  // derivation below needs it and runs first. Same selector, so no extra
+  // subscription cost beyond the one hook call.
+  const railResultsStatus = useCanvasStore(selectResultsStatus)
+  // "A run is in flight." Mirrors the auto-switch effect's own `isNowActive`
+  // notion — anything that is not idle/cancelled — so the two cannot drift into
+  // disagreeing about what an active run is.
+  const analysisActive = railResultsStatus !== 'idle' && railResultsStatus !== 'cancelled'
   const conversationCtxForFirstUse = useOptionalConversationContext()
   const realMessageCount = conversationCtxForFirstUse
     ? conversationCtxForFirstUse.messages.filter((m) => !m.synthetic).length
     : 0
-  // First-use ends only when graph content exists OR the user explicitly
-  // expands the dock (via the rail's chevron). We do NOT use realMessageCount
-  // here — the brief is explicit that the empty Analysis tab should not flash
-  // after a user message but before the graph builds.
-  const userExplicitlyOpenedRailRef = useRef(false)
-  const isFirstUse = aiPanelV2On && !hasGraphContent && !userExplicitlyOpenedRailRef.current
+  // First-use ends when the dock has OUTPUTS TO SHOW — i.e. an analysis result
+  // exists (`hasCompletedFirstRun`: at least one successful or restored run this
+  // session) — OR the user explicitly expands the dock (the rail's chevron), OR
+  // a run starts (see the auto-switch effect, which drops the lock so a running
+  // analysis is visible). We do NOT use realMessageCount here — the brief is
+  // explicit that the empty Analysis tab should not flash after a user message
+  // but before the graph builds.
+  //
+  // ⚠ THIS WAS `!hasGraphContent` UNTIL 16 Aug 2026, and that is the defect.
+  // A drafted graph ended first-use, so the dock expanded to its full width the
+  // moment the model appeared — showing a pre-run Analysis tab with no analysis
+  // in it. An outputs dock with no outputs has no claim to that width, and the
+  // cost is paid by the canvas: measured at 1280x800 with the committed CEE
+  // draft capture, the expanded dock reserved 361px of `computeFitPadding`,
+  // leaving a 843px fitting box for a graph needing 1008px at the legibility
+  // floor — so the product's own first view of the user's model was clamped and
+  // overflowing. Collapsed, the same measurement gives a 1136px fitting box.
+  const isFirstUse = shouldRenderFirstUseRail({
+    aiPanelV2On,
+    hasAnalysisResult: hasCompletedFirstRun,
+    analysisActive,
+    userExplicitlyOpened: userExplicitlyOpenedRailRef.current,
+  })
   // realMessageCount kept for downstream consumers (Olumi tab empty-state
   // logic); intentionally does NOT participate in isFirstUse.
   void realMessageCount
@@ -1509,6 +1653,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       userInteractedSinceRunRef.current = false
       runAutoSwitchedToAnalysisRef.current = activeTabRef.current !== 'results'
     }
+
+    // Drop the first-use rail lock. Since 16 Aug the rail persists until an
+    // analysis result EXISTS (`hasCompletedFirstRun`), which is only set when a
+    // run COMPLETES — so without this, the dock would stay collapsed for the
+    // whole duration of the first run and the user would watch their analysis
+    // run behind a 40px rail. `isOpen: true` below is not enough on its own:
+    // `effectiveIsOpen` is `isFirstUse ? false : state.isOpen`, so the rail
+    // overrides it. A started run is exactly the "outputs are coming" signal the
+    // dock should open for; this is the same one-line override the user's own
+    // chevron-expand and the collapsed-response signal already use.
+    userExplicitlyOpenedRailRef.current = true
 
     // Task F: Auto-open results — close overlay panels so OutputsDock becomes visible
     useUIStore.getState().openRightPanel('results')

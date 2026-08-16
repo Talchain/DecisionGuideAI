@@ -8,16 +8,20 @@
  * "Try Again" and every other cross-surface run/ask CTA until a chat panel
  * was reopened.
  */
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useGuidanceStore } from '../guidanceStore'
 
+// Spies rather than bare stubs: since the store wraps callbacks (see the note
+// above `expectDelegatesTo`), ownership is asserted by WHICH callback runs, and
+// that needs a call record. Each `makeCallbacks()` returns fresh spies so two
+// hosts are distinguishable.
 const makeCallbacks = () => ({
-  sendMessage: (_text: string) => {},
-  scrollToPatch: (_id: string) => {},
-  sendChip: (_label: string, _message: string) => {},
-  runAnalysis: () => {},
-  prefillChat: (_text: string) => {},
-  dispatchAction: (_opts: { label: string; message: string; source: string }) => {},
+  sendMessage: vi.fn((_text: string) => {}),
+  scrollToPatch: vi.fn((_id: string) => {}),
+  sendChip: vi.fn((_label: string, _message: string) => {}),
+  runAnalysis: vi.fn(() => {}),
+  prefillChat: vi.fn((_text: string) => {}),
+  dispatchAction: vi.fn((_opts: { label: string; message: string; source: string }) => {}),
 })
 
 const register = (cb: ReturnType<typeof makeCallbacks>) =>
@@ -31,6 +35,31 @@ const register = (cb: ReturnType<typeof makeCallbacks>) =>
       cb.prefillChat,
       cb.dispatchAction,
     )
+
+/**
+ * ⚠ IDENTITY vs DELEGATION (16 Aug 2026). `registerConversationCallbacks` now
+ * stores `withOlumiReveal(cb)` — a wrapper that invokes the registered callback
+ * and then reveals the Olumi surface (the class-8 guarantee: an action that
+ * sends work to Olumi must visibly reveal Olumi). The stored value is therefore
+ * a NEW function object, and `toBe(cb.dispatchAction)` can no longer hold.
+ *
+ * These assertions were rewritten to test what they were always ABOUT — which
+ * host's registration is active — via DELEGATION rather than object identity.
+ * That is also the more honest test: this suite's own subject is that ownership
+ * is decided by `_registrationToken`, precisely BECAUSE callback identity
+ * cannot discriminate hosts (both hosts share the singleton conversation's
+ * function objects). An identity assertion was the one thing the file argues
+ * against everywhere else.
+ */
+function expectDelegatesTo(
+  stored: unknown,
+  spy: { mockClear: () => void; mock: { calls: unknown[][] } },
+) {
+  expect(stored).toBeTypeOf('function')
+  spy.mockClear()
+  ;(stored as (arg: unknown) => void)({ probe: true })
+  expect(spy.mock.calls).toEqual([[{ probe: true }]])
+}
 
 describe('guidanceStore registration ownership', () => {
   beforeEach(() => {
@@ -48,7 +77,7 @@ describe('guidanceStore registration ownership', () => {
   it('registers all callbacks and returns an unregister function', () => {
     const cb = makeCallbacks()
     const unregister = register(cb)
-    expect(useGuidanceStore.getState()._dispatchAction).toBe(cb.dispatchAction)
+    expectDelegatesTo(useGuidanceStore.getState()._dispatchAction, cb.dispatchAction)
     expect(typeof unregister).toBe('function')
   })
 
@@ -70,7 +99,7 @@ describe('guidanceStore registration ownership', () => {
     register(shared) // second host, identical callback identities
     unregisterFirst() // first host unmounts AFTER the second registered
     // The second host's registration must survive.
-    expect(useGuidanceStore.getState()._dispatchAction).toBe(shared.dispatchAction)
+    expectDelegatesTo(useGuidanceStore.getState()._dispatchAction, shared.dispatchAction)
     expect(useGuidanceStore.getState()._registrationToken).not.toBeNull()
   })
 
@@ -90,8 +119,15 @@ describe('guidanceStore registration ownership', () => {
     // registered (e.g. dock tab unmounts while the floating panel stays up).
     unregisterFirst()
     const s = useGuidanceStore.getState()
-    expect(s._dispatchAction).toBe(second.dispatchAction)
-    expect(s._sendMessage).toBe(second.sendMessage)
+    // Discriminating: the SECOND host's spies must fire and the FIRST host's
+    // must not — which is the claim, and one that survives the wrapper.
+    expectDelegatesTo(s._dispatchAction, second.dispatchAction)
+    expect(first.dispatchAction).not.toHaveBeenCalled()
+    expectDelegatesTo(s._sendMessage, second.sendMessage)
+    expect(first.sendMessage).not.toHaveBeenCalled()
+    // `_runAnalysis` is stored UNWRAPPED by design (a run navigates to Analysis
+    // and has its own return-to-Olumi signal), so identity still holds here —
+    // and asserting it pins that deliberate asymmetry.
     expect(s._runAnalysis).toBe(second.runAnalysis)
   })
 })

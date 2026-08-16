@@ -145,7 +145,21 @@ function resetDockEnvironment() {
       results: PRISTINE_RESULTS,
       currentScenarioFraming: null,
       currentScenarioLastResultHash: null,
-      hasCompletedFirstRun: false,
+      // ⚠ WAS `false` UNTIL 16 Aug 2026 — the same "wrong fixture" the comment
+      // above describes, one rule further on. `shouldRenderFirstUseRail` was
+      // re-based from "does a graph exist" onto "does an analysis RESULT
+      // exist", so seeding nodes is no longer enough to put the dock into its
+      // body: a drafted-but-unanalysed session renders the 40px rail, and the
+      // tests below assert on tab-strip and dock-body chrome (ARIA sections,
+      // the Model verify badge, persisted tab state, ?tab= handling, the
+      // Journey flag) which only exist once the body is showing.
+      //
+      // Seeding a session that HAS an analysis result is the accurate fixture
+      // for those assertions, not a relaxation of them — every assertion is
+      // untouched. Tests that genuinely exercise the PRE-RUN dock or the rail
+      // itself set `hasCompletedFirstRun: false` explicitly for themselves, and
+      // still do.
+      hasCompletedFirstRun: true,
     } as any)
   useGuidanceStore.setState({
     guidanceItems: [],
@@ -1047,6 +1061,13 @@ describe('I.2a: Secondary action button interaction', () => {
         { id: 'seed-decision', type: 'decision', data: { label: 'Seed Decision' }, position: { x: 100, y: 100 } },
       ],
       edges: [{ id: 'seed-e1', source: 'seed-decision', target: 'seed-goal' }],
+      // The comment above predicted this exact failure and its symptom — "icon
+      // buttons with no text" — it just predicted it one rule early. Since
+      // 16 Aug the rail ends on an analysis RESULT, not on graph content, so
+      // seeding nodes alone leaves the fresh store on the rail and the assertion
+      // below reads six empty strings instead of the tab labels. Mirrors the
+      // `beforeEach` fixture; the assertion is untouched.
+      hasCompletedFirstRun: true,
     } as any)
     render(
       <FreshToastProvider>
