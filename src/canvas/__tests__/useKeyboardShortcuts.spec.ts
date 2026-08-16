@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { useKeyboardShortcuts } from '../useKeyboardShortcuts'
+import {
+  useKeyboardShortcuts,
+  isTextEntryElement,
+  resolveEffectiveInteractionMode,
+  shouldReleaseTextFocusOnCanvasPointerDown,
+} from '../useKeyboardShortcuts'
 
 describe('useKeyboardShortcuts — interaction mode', () => {
   let onModeChange: ReturnType<typeof vi.fn>
@@ -101,6 +106,74 @@ describe('useKeyboardShortcuts — interaction mode', () => {
     })
   })
 
+  // L-01(b): the reported symptom was "the icon says select but the canvas
+  // still pans, and Escape is needed". The pan half of that is a spacebar hold
+  // that leaked `true`: macOS does not deliver `keyup` for ordinary keys while
+  // Command is down, so a hold interrupted by a modifier never released.
+  describe('Spacebar hold — stuck-true leak (L-01b)', () => {
+    it('releases a held space when a modifier arrives (macOS swallows the keyup)', () => {
+      renderHook(() => useKeyboardShortcuts({ onSpaceHeld }))
+
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+      expect(onSpaceHeld).toHaveBeenLastCalledWith(true)
+
+      // Cmd goes down mid-hold. The space keyup that follows will never be
+      // delivered, so the hold must be released here or it leaks forever.
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Meta', metaKey: true }))
+      expect(onSpaceHeld).toHaveBeenLastCalledWith(false)
+    })
+
+    it('releases a held space when the modifier itself is released', () => {
+      renderHook(() => useKeyboardShortcuts({ onSpaceHeld }))
+
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+      expect(onSpaceHeld).toHaveBeenLastCalledWith(true)
+
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Control' }))
+      expect(onSpaceHeld).toHaveBeenLastCalledWith(false)
+    })
+
+    it('refuses to start a hold that begins with a modifier already down', () => {
+      renderHook(() => useKeyboardShortcuts({ onSpaceHeld }))
+
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', metaKey: true }))
+      expect(onSpaceHeld).not.toHaveBeenCalledWith(true)
+    })
+
+    it('releases a held space when the document is hidden (tab switch)', () => {
+      renderHook(() => useKeyboardShortcuts({ onSpaceHeld }))
+
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+      expect(onSpaceHeld).toHaveBeenLastCalledWith(true)
+
+      const original = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState')
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+      document.dispatchEvent(new Event('visibilitychange'))
+      expect(onSpaceHeld).toHaveBeenLastCalledWith(false)
+      if (original) Object.defineProperty(document, 'visibilityState', original)
+    })
+
+    it('recognises Space by event.code when key is unavailable', () => {
+      renderHook(() => useKeyboardShortcuts({ onSpaceHeld }))
+
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }))
+      expect(onSpaceHeld).toHaveBeenLastCalledWith(true)
+    })
+
+    it('emits only real transitions — repeated releases do not re-fire', () => {
+      renderHook(() => useKeyboardShortcuts({ onSpaceHeld }))
+
+      window.dispatchEvent(new Event('blur'))
+      window.dispatchEvent(new Event('blur'))
+      expect(onSpaceHeld).not.toHaveBeenCalled()
+
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }))
+      window.dispatchEvent(new Event('blur'))
+      expect(onSpaceHeld).toHaveBeenCalledTimes(2)
+    })
+  })
+
   describe('Cleanup', () => {
     it('removes all event listeners on unmount', () => {
       const { unmount } = renderHook(() =>
@@ -117,5 +190,53 @@ describe('useKeyboardShortcuts — interaction mode', () => {
       expect(onModeChange).not.toHaveBeenCalled()
       expect(onSpaceHeld).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('resolveEffectiveInteractionMode (L-01a)', () => {
+  it('returns the persisted mode when no hold is active', () => {
+    expect(resolveEffectiveInteractionMode('select', false)).toBe('select')
+    expect(resolveEffectiveInteractionMode('hand', false)).toBe('hand')
+  })
+
+  it('overrides to hand while the spacebar hold is active', () => {
+    expect(resolveEffectiveInteractionMode('select', true)).toBe('hand')
+    expect(resolveEffectiveInteractionMode('hand', true)).toBe('hand')
+  })
+})
+
+describe('isTextEntryElement', () => {
+  it('recognises the three text-entry surfaces', () => {
+    expect(isTextEntryElement(document.createElement('input'))).toBe(true)
+    expect(isTextEntryElement(document.createElement('textarea'))).toBe(true)
+    const ce = document.createElement('div')
+    Object.defineProperty(ce, 'isContentEditable', { value: true })
+    expect(isTextEntryElement(ce)).toBe(true)
+  })
+
+  it('is false for ordinary elements and for nothing', () => {
+    expect(isTextEntryElement(document.createElement('button'))).toBe(false)
+    expect(isTextEntryElement(document.createElement('div'))).toBe(false)
+    expect(isTextEntryElement(null)).toBe(false)
+    expect(isTextEntryElement(undefined)).toBe(false)
+  })
+})
+
+describe('shouldReleaseTextFocusOnCanvasPointerDown (L-01c)', () => {
+  const textarea = () => document.createElement('textarea')
+  const pane = () => document.createElement('div')
+
+  it('releases composer focus when the user engages the canvas pane', () => {
+    expect(shouldReleaseTextFocusOnCanvasPointerDown(pane(), textarea())).toBe(true)
+  })
+
+  it('does NOT release when the pointer lands in a text surface (node label editor)', () => {
+    expect(shouldReleaseTextFocusOnCanvasPointerDown(textarea(), textarea())).toBe(false)
+    expect(shouldReleaseTextFocusOnCanvasPointerDown(document.createElement('input'), textarea())).toBe(false)
+  })
+
+  it('does nothing when no text surface holds focus', () => {
+    expect(shouldReleaseTextFocusOnCanvasPointerDown(pane(), pane())).toBe(false)
+    expect(shouldReleaseTextFocusOnCanvasPointerDown(pane(), null)).toBe(false)
   })
 })

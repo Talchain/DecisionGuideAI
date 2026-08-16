@@ -22,7 +22,11 @@ import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
 import { useFitViewOnLayoutVersion } from './hooks/useFitViewOnLayoutVersion'
 import { nodeTypes } from './nodes/registry'
 import { StyledEdge } from './edges/StyledEdge'
-import { useKeyboardShortcuts } from './useKeyboardShortcuts'
+import {
+  useKeyboardShortcuts,
+  resolveEffectiveInteractionMode,
+  shouldReleaseTextFocusOnCanvasPointerDown,
+} from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
 import * as scenarios from './store/scenarios'
 import type { Scenario } from './store/scenarios'
@@ -671,8 +675,24 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Spacebar hold-to-pan: temporarily switches to hand mode while held (like Figma)
   const [spaceHeld, setSpaceHeld] = useState(false)
-  const effectiveMode = spaceHeld ? 'hand' : interactionMode
+  // ONE resolution of "what mode is the canvas actually in", consumed by the
+  // behaviour props AND by the toolbar icon below. L-01(a): the toolbar used
+  // to read the raw persisted mode, so the icon and the pointer disagreed.
+  const effectiveMode = resolveEffectiveInteractionMode(interactionMode, spaceHeld)
   const canDragSelect = effectiveMode === 'select'
+
+  // L-01(c): the canvas composer is a <textarea> and keeps focus once it has
+  // it, so every single-key canvas shortcut (V/H, Delete, arrows) stays inert
+  // while the user is plainly working on the canvas — the mechanism behind
+  // "Escape was needed" (Escape blurred the composer). Engaging the canvas
+  // releases that focus. Clicking INTO a text surface (an on-node label
+  // editor) is exempt: see shouldReleaseTextFocusOnCanvasPointerDown.
+  const handleCanvasPointerDownCapture = useCallback((event: React.PointerEvent) => {
+    if (typeof document === 'undefined') return
+    const active = document.activeElement
+    if (!shouldReleaseTextFocusOnCanvasPointerDown(event.target as Element | null, active)) return
+    ;(active as HTMLElement).blur()
+  }, [])
 
   // M4: Graph Health actions (graphHealth, showIssuesPanel state selected above)
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
@@ -2082,6 +2102,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     >
       <div
         className={effectiveMode === 'hand' ? 'canvas-mode-hand' : 'canvas-mode-select'}
+        onPointerDownCapture={handleCanvasPointerDownCapture}
         style={{
           position: 'absolute',
           top: 0,
@@ -2190,7 +2211,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {reconnecting && <ReconnectBanner />}
 
       <LeftSidebar
-        interactionMode={interactionMode}
+        interactionMode={effectiveMode}
         onSelectClick={() => setInteractionMode(prev => prev === 'select' ? 'hand' : 'select')}
         onUndoClick={undo}
         onRedoClick={redo}
