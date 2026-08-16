@@ -82,21 +82,20 @@ const CONTENT_CARD_FILES = [
   'canvas/components/model-tab/ModelTabHeader.tsx',
   'canvas/ui/inspector/InspectorGuidanceSection.tsx',
   'components/assistants/ProvenanceChip.tsx',
-  // V7 Lane L4 — top-matter content cards (complete borders only).
-  'components/results/v7/V7TopMatter.tsx',
-  'components/results/v7/V7Hero.tsx',
-  'components/results/v7/V7SignalRow.tsx',
-  'components/results/v7/V7SuggestedChips.tsx',
-  'components/results/v7/V7SharpenLine.tsx',
-  'components/results/v7/V7FreshnessStrip.tsx',
-  // V7 Lane L5 — lens group + evidence disclosure (complete borders only).
-  'components/results/v7/V7LensGroup.tsx',
-  'components/results/v7/V7EvidenceDisclosure.tsx',
-  'components/results/v7/V7WhatChangedLens.tsx',
-  // V7 Lane L6 — guidance list, held-proposal pointer card, bias coaching.
-  'components/results/v7/V7GuidanceSection.tsx',
-  'components/results/v7/V7HeldProposalCard.tsx',
-  'components/results/v7/V7BiasSection.tsx',
+  // ── The V7 fork is DELETED; these 12 entries are replaced by their LIVE
+  //    SUCCESSORS, not simply dropped. Deleting a scan entry without
+  //    re-pointing it silently shrinks this guard's scope, which is the same
+  //    carve-out defect the guard exists to catch. Where a v7 card had no
+  //    successor its convention retires with the capability:
+  //      V7SignalRow / V7SuggestedChips / V7GuidanceSection /
+  //      V7HeldProposalCard / V7FreshnessStrip — absorbed or not re-homed;
+  //      V7SharpenLine / V7WhatChangedLens — deliberately retired (see the
+  //      V7-retirement PR: honesty defect 2.993, and runHistory §19).
+  'components/results/analysis-hero/AnalysisHeroPanel.tsx',       // was V7Hero
+  'components/results/analysis-hero/HeroLensTabs.tsx',            // was V7LensGroup
+  'components/results/analysis-hero/HeroEvidenceDisclosure.tsx',  // was V7EvidenceDisclosure
+  'components/results/analysis-hero/actOnIt/ActOnItSection.tsx',  // was V7BiasSection
+  'components/results/contextIntegrity/WhatIWasGivenSection.tsx', // was hosted by V7TopMatter
   // V7 L2 — the final two one-sided accents, now converted to complete borders.
   'v5/blocks/V5CoachingBlock.tsx',
   'canvas/ToastContext.tsx',
