@@ -23,6 +23,34 @@ function renderOutputsDock() {
   )
 }
 
+/**
+ * Expand the dock from its collapsed rail, the way a user does, and return the
+ * Run control the caller is about to click.
+ *
+ * ⚠ WHY THIS EXISTS (16 Aug 2026). This suite's `beforeEach` seeds
+ * `hasCompletedFirstRun: false` with a graph present — a DRAFTED, NOT YET
+ * ANALYSED session. `shouldRenderFirstUseRail` was re-based from "does a graph
+ * exist" onto "does an analysis RESULT exist", so that state now renders the
+ * 40px rail, and the dock's own Run control lives inside the body the rail
+ * hides. (The user is not stranded: the drafted decision node carries its own
+ * "Run analysis" chip, and this chevron is one click.)
+ *
+ * The tests below are about the Run control's DISPATCH behaviour — V2 vs the
+ * conversation callback vs the canonical chip — not about its visibility, so
+ * they open the dock first. This is a REACHABLE state, not a test-only
+ * convenience: `toggleOpen` raises the same session override that a started run
+ * and the collapsed-response signal raise.
+ *
+ * Bound to the chevron's aria-label rather than a testid so a rename fails
+ * loudly, and it ASSERTS THE CHEVRON WAS THERE — an expand that silently no-ops
+ * would otherwise resurface as the original "unable to find outputs-run-button"
+ * error one line later, which is exactly the confusion this helper removes.
+ */
+function expandDockFromRail() {
+  fireEvent.click(screen.getByLabelText('Expand outputs dock'))
+  return screen.getByTestId('outputs-run-button')
+}
+
 const {
   mockIsOrchestratorV2Enabled,
   mockIsLegacyDirectRunEnabled,
@@ -205,7 +233,7 @@ describe('OutputsDock analyse convergence', () => {
 
     renderOutputsDock()
 
-    fireEvent.click(screen.getByTestId('outputs-run-button'))
+    fireEvent.click(expandDockFromRail())
 
     // The run now awaits the pre-dispatch save flush (F1 barrier) before
     // reaching the V2/dispatch path, so the spy resolves on a later microtask.
@@ -219,7 +247,7 @@ describe('OutputsDock analyse convergence', () => {
 
     renderOutputsDock()
 
-    fireEvent.click(screen.getByTestId('outputs-run-button'))
+    fireEvent.click(expandDockFromRail())
 
     await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
     expect(mockShowToast).not.toHaveBeenCalled()
@@ -247,7 +275,7 @@ describe('OutputsDock analyse convergence', () => {
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
 
       renderOutputsDock()
-      fireEvent.click(screen.getByTestId('outputs-run-button'))
+      fireEvent.click(expandDockFromRail())
 
       // Correction 8: exact chip/action payload shape — action_type
       // 'run_analysis', source 'chip', no free-text LLM route.
@@ -275,7 +303,7 @@ describe('OutputsDock analyse convergence', () => {
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
 
       renderOutputsDock()
-      fireEvent.click(screen.getByTestId('outputs-run-button'))
+      fireEvent.click(expandDockFromRail())
 
       await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
       expect(dispatchAction).not.toHaveBeenCalled()
@@ -291,7 +319,7 @@ describe('OutputsDock analyse convergence', () => {
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
 
       renderOutputsDock()
-      fireEvent.click(screen.getByTestId('outputs-run-button'))
+      fireEvent.click(expandDockFromRail())
 
       await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
       expect(dispatchAction).not.toHaveBeenCalled()
@@ -322,6 +350,12 @@ describe('OutputsDock analyse convergence', () => {
       // POSITIVE CONTROL: bind to the runner the dock actually registered, so a
       // null here fails loudly instead of the assertions below passing against
       // a dock that never mounted.
+      //
+      // Conflict resolution (A2 rebase onto #723): staging replaced this case's
+      // DOM click with the registered runner, so the dock no longer has to be
+      // expanded for it — the A2 side's `expandDockFromRail()` is obsolete HERE
+      // and is dropped. It is kept in the cases below that still click the
+      // dock's own Run control, which the first-use rail does hide.
       expect(runner).not.toBeNull()
 
       const outcome = await runner!({ source: 'test' })

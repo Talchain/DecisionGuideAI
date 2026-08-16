@@ -274,10 +274,19 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
     try { localStorage.clear() } catch { /* private mode */ }
     useFloatingPanelState.getState().reset()
     useCanvasStore.getState().resetCanvas()
-    // A populated canvas: without it the dock is forced to its 40px first-use
-    // rail and hosts no tabs at all.
+    // A populated canvas AND a session that has already produced an analysis:
+    // without both, the dock is forced to its 40px first-use rail and hosts no
+    // tabs at all.
+    //
+    // ⚠ The graph alone was enough until 16 Aug 2026, when the rail was re-based
+    // from "does a graph exist" onto "does an analysis RESULT exist". These
+    // tests are about where a COMPLETED run returns the user, so a session that
+    // has run is the accurate fixture — and `status: 'idle'` beside it is not a
+    // contradiction: `resultsSettle` lands a finished run back on idle while
+    // `hasCompletedFirstRun` stays true, which is exactly the post-run state
+    // these cases exercise.
     useCanvasStore.getState().addNode(undefined, 'decision')
-    useCanvasStore.setState({ results: { status: 'idle', progress: 0 } })
+    useCanvasStore.setState({ results: { status: 'idle', progress: 0 }, hasCompletedFirstRun: true } as any)
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
 
@@ -555,7 +564,10 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     useFloatingPanelState.getState().reset()
     useCanvasStore.getState().resetCanvas()
     useCanvasStore.getState().addNode(undefined, 'decision')
-    useCanvasStore.setState({ results: { status: 'idle', progress: 0 } })
+    // Mirrors the sibling describe's fixture: since 16 Aug 2026 the first-use
+    // rail ends on an analysis RESULT, not on graph content, so the node alone
+    // leaves the dock at 40px with no Olumi tab to scroll within.
+    useCanvasStore.setState({ results: { status: 'idle', progress: 0 }, hasCompletedFirstRun: true } as any)
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
 
