@@ -15,9 +15,26 @@
  * `src/lib/__tests__/analysisFreshnessState.test.ts` (17 cases). This
  * file is the DOM-level matrix proof: each verdict produces a
  * distinguishable visible affordance, so the receipt's stale hint
- * (V5GraphPatchBlock) and the post-analysis HeroQualifier together
- * form a coherent four-state surface — not collapsing all states into
- * a single pill.
+ * (V5GraphPatchBlock) and the Results freshness strip
+ * (AnalysisFreshnessNotice) together form a coherent four-state
+ * surface — not collapsing all states into a single pill.
+ *
+ * ⚠ SURFACE RE-POINT (dead-HeroQualifier carve-out). This matrix used to
+ * read its second surface from `HeroQualifier`, which had ZERO non-test
+ * importers and was ABSENT FROM THE DEPLOYED BUNDLE — a census of 128
+ * staging chunks found its testid, its `data-qualifier-source` attribute
+ * and all four of its exclusive copy strings at zero occurrences, while
+ * `analysis-freshness-notice`, `freshness-dot`, `v5-change-freshness-hint`
+ * and its exact hint copy all resolved. The invariant was therefore half
+ * bound to a component no user could reach (trap 3b). It now reads
+ * `AnalysisFreshnessNotice` — the strip `OutputsDock` actually mounts and
+ * which the codebase names the sole freshness owner — and the mount path
+ * itself is asserted below, so the binding fails LOUD if that mount moves.
+ *
+ * The re-point STRENGTHENS the invariant. On the dead surface three of the
+ * four verdicts collapsed to "no qualifier"; on the live strip all four
+ * carry distinct copy and a distinct `data-freshness`, so the matrix now
+ * pins FOUR pairwise-distinct outcomes instead of one.
  *
  * Out of scope here: pre-analysis panel structural-readiness display.
  * That surface is owned by `usePreRunValidation` + `PreAnalysisPanel`
@@ -27,10 +44,17 @@
  * that landed in this workstream.
  */
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 
-import { HeroQualifier } from '../../components/results/HeroQualifier'
+import { stripComments } from '../../../tests/helpers/stripSourceComments'
+import {
+  AnalysisFreshnessNotice,
+  FRESHNESS_COPY,
+} from '../../components/results/AnalysisFreshnessNotice'
 import {
   deriveAnalysisFreshnessState,
   type AnalysisFreshnessInputs,
@@ -40,30 +64,43 @@ import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/co
 
 // ─── Mock the canvas store (CEE freshness slice) for V5GraphPatchBlock ────
 
-vi.mock('../../canvas/store', () => ({
-  useCanvasStore: (
-    selector: (s: {
-      nodes: unknown
-      edges: unknown
-      analysisFreshness: { freshness: string } | null
-      analysisFreshnessDirty: boolean
-    }) => unknown,
-  ) =>
-    // The V5GraphPatchBlock hint now derives from the CEE freshness slice via
-    // classifyFreshnessForDisplay; mirror the controllable verdict into the slice.
-    selector({
-      nodes: [],
-      edges: [],
-      analysisFreshness: { freshness: mockFreshnessState().freshness },
-      analysisFreshnessDirty: false,
-    }),
-}))
+vi.mock('../../canvas/store', () => {
+  // The V5GraphPatchBlock hint derives from the CEE freshness slice via
+  // classifyFreshnessForDisplay; mirror the controllable verdict into the
+  // slice. AnalysisFreshnessNotice additionally reads `results`,
+  // `currentScenarioId`, `v5AnalysisFact` (through useAnalysisStateSource)
+  // and `importPendingServerRegistration`. Absent results ⇒ the source
+  // classifier returns 'none' ⇒ NOT orphaned, so the strip renders exactly
+  // the verdict it is handed rather than a synthesised cannot-confirm.
+  const canvasState = () => ({
+    nodes: [],
+    edges: [],
+    // `beforeEach` resets the mock, so an un-stubbed read returns undefined.
+    // The strip describes below are PROP-driven and never stub it; only the
+    // V5GraphPatchBlock cases care about this slice, and they always stub it
+    // first. Default to 'unknown' so the store shape stays valid either way.
+    analysisFreshness: { freshness: mockFreshnessState()?.freshness ?? 'unknown' },
+    analysisFreshnessDirty: false,
+    results: undefined,
+    currentScenarioId: null,
+    v5AnalysisFact: null,
+    importPendingServerRegistration: false,
+  })
+  const useCanvasStore = (selector: (s: ReturnType<typeof canvasState>) => unknown) =>
+    selector(canvasState())
+  // AnalysisFreshnessNotice's completion-toast effect reads the store
+  // imperatively; without this the strip throws on render.
+  useCanvasStore.getState = canvasState
+  return { useCanvasStore }
+})
 
 // Drives the CEE freshness slice the V5GraphPatchBlock describe reads
 // (analysisFreshness.freshness, via the useCanvasStore mock above). The
-// HeroQualifier describe passes `freshness` as a prop, and the legacy-derivation
-// describe calls deriveAnalysisFreshnessState directly — so no component here
-// consumes the useAnalysisFreshnessState hook, and it is intentionally NOT mocked.
+// AnalysisFreshnessNotice describe passes `state` as a prop — the component's
+// own documented test override, and the form its dedicated spec uses — and the
+// legacy-derivation describe calls deriveAnalysisFreshnessState directly, so no
+// component here consumes the useAnalysisFreshnessState hook and it is
+// intentionally NOT mocked.
 const mockFreshnessState = vi.fn<[], { freshness: 'unknown' | 'fresh' | 'stale' | 'none' }>(() => ({
   freshness: 'unknown',
 }))
@@ -204,33 +241,67 @@ describe('V5GraphPatchBlock — receipt hint surfaces ONLY the stale state disti
   }
 })
 
-// ─── DOM matrix — HeroQualifier (post-analysis surface) ──────────────────
+// ─── MOUNT PATH — the invariant's surface must be one the product mounts ──
+//
+// The whole point of the re-point: this matrix is only evidence about the
+// product if the surface it renders is the surface a user loads. HeroQualifier
+// passed every render assertion for months while being absent from the deployed
+// bundle. So assert the mount itself, and assert it against COMMENT-STRIPPED
+// source: OutputsDock.tsx names AnalysisFreshnessNotice eight times, seven of
+// them in prose. A naive substring check would go green on a comment alone —
+// a guard agreeing with itself rather than with the product.
 
-describe('HeroQualifier — surfaces the four freshness states distinctly', () => {
-  it('stale → renders curated stale copy via data-qualifier-source="freshness"', () => {
-    render(<HeroQualifier freshness="stale" freshnessReason="graph_hash_diverged" />)
-    const el = screen.getByTestId('hero-qualifier')
-    expect(el.getAttribute('data-qualifier-source')).toBe('freshness')
-    // The exact stale copy comes from freshnessReasonCopy; assert the
-    // qualifier surfaces (non-empty) without coupling to the curated
-    // table contents (separate test owns that mapping).
-    expect((el.textContent ?? '').trim().length).toBeGreaterThan(0)
+describe('AnalysisFreshnessNotice — mount path (fails loud if the strip is unmounted)', () => {
+  const MOUNT_OWNER = 'src/canvas/components/OutputsDock.tsx'
+
+  const readStripped = (rel: string): string =>
+    stripComments(readFileSync(join(process.cwd(), rel), 'utf8'), rel)
+
+  it('OutputsDock imports AND renders the strip in real code, not in a comment', () => {
+    const code = readStripped(MOUNT_OWNER)
+
+    // Precondition pin (trap 13b): prove the stripper left real code behind,
+    // so a green result below cannot come from an empty/over-stripped string.
+    expect(code.length).toBeGreaterThan(1000)
+
+    expect(code).toMatch(
+      /import\s*\{[^}]*\bAnalysisFreshnessNotice\b[^}]*\}\s*from\s*['"][^'"]*AnalysisFreshnessNotice['"]/,
+    )
+    expect(code).toMatch(/<AnalysisFreshnessNotice\b/)
   })
 
-  it('fresh → does NOT render the freshness-source qualifier (lower tiers continue)', () => {
-    render(<HeroQualifier freshness="fresh" freshnessReason="graph_hash_match" />)
-    // No qualifier at all when no completeness reasons / dimensions.
-    expect(screen.queryByTestId('hero-qualifier')).toBeNull()
+  it('the stripper is what makes that assertion meaningful (control)', () => {
+    const raw = readFileSync(join(process.cwd(), MOUNT_OWNER), 'utf8')
+    const stripped = readStripped(MOUNT_OWNER)
+    // Prose mentions vastly outnumber the single render site; if this ever
+    // reads equal, comments are no longer being removed and the mount
+    // assertion above has quietly become a substring search over prose.
+    const count = (s: string): number => (s.match(/AnalysisFreshnessNotice/g) ?? []).length
+    expect(count(raw)).toBeGreaterThan(count(stripped))
+    expect(count(stripped)).toBeGreaterThan(0)
   })
+})
 
-  it('none → does NOT render the freshness-source qualifier (analysis not run yet)', () => {
-    render(<HeroQualifier freshness="none" freshnessReason="no_successful_run_analysis_fact" />)
-    expect(screen.queryByTestId('hero-qualifier')).toBeNull()
-  })
+// ─── DOM matrix — AnalysisFreshnessNotice (the mounted Results strip) ─────
 
-  it('unknown → does NOT render the freshness-source qualifier (lower tiers continue)', () => {
-    render(<HeroQualifier freshness="unknown" freshnessReason={null} />)
-    expect(screen.queryByTestId('hero-qualifier')).toBeNull()
+describe('AnalysisFreshnessNotice — surfaces the four freshness states distinctly', () => {
+  type FreshnessVerdict = 'fresh' | 'stale' | 'none' | 'unknown'
+  const VERDICTS: readonly FreshnessVerdict[] = ['fresh', 'stale', 'none', 'unknown'] as const
+
+  for (const verdict of VERDICTS) {
+    it(`${verdict} → renders the strip with data-freshness="${verdict}" and its own copy`, () => {
+      render(<AnalysisFreshnessNotice state={{ freshness: verdict }} dirty={false} />)
+      const el = screen.getByTestId('analysis-freshness-notice')
+      // Bind by IDENTITY (the verdict attribute), never by a value predicate
+      // another verdict could satisfy.
+      expect(el.getAttribute('data-freshness')).toBe(verdict)
+      expect(el.textContent).toContain(FRESHNESS_COPY[verdict])
+    })
+  }
+
+  it('every verdict carries DIFFERENT copy (the table itself cannot collapse)', () => {
+    const copies = VERDICTS.map((v) => FRESHNESS_COPY[v])
+    expect(new Set(copies).size).toBe(VERDICTS.length)
   })
 })
 
@@ -241,7 +312,7 @@ describe('HeroQualifier — surfaces the four freshness states distinctly', () =
 // that treats two distinct states as identical at the surface.
 
 describe('freshness verdicts produce distinct user-facing outcomes (no collapse)', () => {
-  it('the four verdicts are pairwise distinguishable across receipt hint + qualifier', () => {
+  it('the four verdicts are pairwise distinguishable across receipt hint + freshness strip', () => {
     const outcomes: Record<string, string> = {}
     const verdicts: Array<'fresh' | 'stale' | 'none' | 'unknown'> = [
       'fresh',
@@ -258,29 +329,40 @@ describe('freshness verdicts produce distinct user-facing outcomes (no collapse)
       const hintText = hint ? hint.textContent ?? '' : 'NO_HINT'
 
       cleanup()
-      render(<HeroQualifier freshness={v} freshnessReason={v === 'stale' ? 'graph_hash_diverged' : null} />)
-      const qual = screen.queryByTestId('hero-qualifier')
-      const qualText = qual ? `${qual.getAttribute('data-qualifier-source')}|${qual.textContent ?? ''}` : 'NO_QUAL'
+      render(<AnalysisFreshnessNotice state={{ freshness: v }} dirty={false} />)
+      const strip = screen.queryByTestId('analysis-freshness-notice')
+      const stripText = strip
+        ? `${strip.getAttribute('data-freshness')}|${strip.textContent ?? ''}`
+        : 'NO_STRIP'
 
-      // Combined outcome = (receipt hint visibility, qualifier
-      // visibility + source). This is the user-visible signature
-      // for the verdict.
-      outcomes[v] = `${hintText}::${qualText}`
+      // Combined outcome = (receipt hint visibility, strip verdict +
+      // copy). Both halves are surfaces the deployed bundle carries —
+      // this is the user-visible signature for the verdict.
+      outcomes[v] = `${hintText}::${stripText}`
     }
 
-    // Stale's outcome must differ from every other verdict
-    // (highest-impact warning).
-    expect(outcomes.stale).not.toBe(outcomes.fresh)
-    expect(outcomes.stale).not.toBe(outcomes.none)
-    expect(outcomes.stale).not.toBe(outcomes.unknown)
+    // ⚠ STRENGTHENED BY THE RE-POINT. The dead HeroQualifier rendered
+    // nothing for fresh/none/unknown, so this invariant could only pin
+    // "stale differs, the other three collapse". The mounted strip gives
+    // every verdict its own copy and its own data-freshness, so all four
+    // are now pinned pairwise-distinct. Any future change that makes two
+    // verdicts read alike to a user REDs here.
+    const seen = new Map<string, string>()
+    for (const v of verdicts) {
+      const prior = seen.get(outcomes[v]!)
+      expect(
+        prior,
+        `verdicts "${prior}" and "${v}" produce an identical user-facing outcome: ${outcomes[v]}`,
+      ).toBeUndefined()
+      seen.set(outcomes[v]!, v)
+    }
+    expect(seen.size).toBe(verdicts.length)
 
-    // The remaining three verdicts collapse to "no qualifier" at the
-    // post-analysis hero level today (intentional — they are
-    // distinguished by the pre-analysis panel and the receipt hint
-    // independently). This invariant test pins that collapse so any
-    // future divergence (e.g. a new "fresh" pill) lands explicitly
-    // here as a needed test update, not as silent UX drift.
-    expect(outcomes.fresh).toBe(outcomes.none)
-    expect(outcomes.fresh).toBe(outcomes.unknown)
+    // Stale additionally owns the receipt hint — the highest-impact
+    // warning is the only verdict that reaches the change receipt.
+    expect(outcomes.stale!.startsWith('Latest analysis is now out of date.')).toBe(true)
+    for (const v of ['fresh', 'none', 'unknown'] as const) {
+      expect(outcomes[v]!.startsWith('NO_HINT')).toBe(true)
+    }
   })
 })
