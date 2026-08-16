@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2348
+# count=2332
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -213,7 +213,6 @@
 1	src/canvas/ReactFlowGraph.tsx	TS6133	'setShowDraftChat' is declared but its value is never read.
 1	src/canvas/__tests__/__helpers__/renderCanvas.tsx	TS2739	Type 'never[]' is missing the following properties from type '{ summary: string; risks: string[]; next_steps: string[]; node_references?: { node_id: string; label?: string | undefined; context?: string | undefined; }[] | undefined; edge_references?: { edge_id: string; label?: string | undefined; context?: string | undefined; }[] | undefined; }': summary, risks, next_steps
 2	src/canvas/__tests__/__helpers__/renderCanvas.tsx	TS2741	Property 'id' is missing in type '{ from: string; to: string; probability: number; weight: number; belief: number; provenance: "template"; }' but required in type 'BlueprintEdge'.
-1	src/canvas/__tests__/accessibility.spec.tsx	TS6133	'headingStyle' is declared but its value is never read.
 1	src/canvas/__tests__/applyDraftResult.v5FreshDraft.regression.spec.ts	TS2322	Type 'Edge[]' is not assignable to type 'Edge<EdgeData>[]'.
 3	src/canvas/__tests__/applyLayout.staleCommit.spec.ts	TS2698	Spread types may only be created from object types.
 1	src/canvas/__tests__/canvas.share-link.dom.spec.tsx	TS6133	'vi' is declared but its value is never read.
@@ -529,7 +528,6 @@
 1	src/canvas/domain/__tests__/nodes.spec.ts	TS6133	'NodeDataSchema' is declared but its value is never read.
 1	src/canvas/edges/StyledEdge.tsx	TS2322	Type 'null | string | undefined' is not assignable to type 'StrokeDasharray<number | string> | undefined'.
 1	src/canvas/edges/StyledEdge.tsx	TS2322	Type 'unknown' is not assignable to type 'string | undefined'.
-1	src/canvas/edges/StyledEdge.tsx	TS2322	Type 'unknown' is not assignable to type 'string'.
 1	src/canvas/edges/StyledEdge.tsx	TS2339	Property 'flagged_as_assumption' does not exist on type '{}'.
 6	src/canvas/edges/StyledEdge.tsx	TS2339	Property 'robustness' does not exist on type 'ReportV1'.
 1	src/canvas/edges/StyledEdge.tsx	TS2344	Type 'EdgeData' does not satisfy the constraint 'Edge<Record<string, unknown>, string | undefined>'.
@@ -539,7 +537,6 @@
 1	src/canvas/edges/StyledEdge.tsx	TS6133	'formatConfidence' is declared but its value is never read.
 1	src/canvas/edges/StyledEdge.tsx	TS6133	'labelVisibility' is declared but its value is never read.
 1	src/canvas/edges/StyledEdge.tsx	TS6133	'useGuidanceStore' is declared but its value is never read.
-1	src/canvas/edges/__tests__/EdgeEditPopover.perf.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/health/issueExplainers.ts	TS2741	Property 'probability_error' is missing in type '{ cycle: string; orphan_node: string; self_loop: string; dangling_edge: string; duplicate_edge: string; missing_label: string; invalid_type: string; }' but required in type 'Record<IssueType, string>'.
 1	src/canvas/highlight/HighlightLayer.tsx	TS6133	'edges' is declared but its value is never read.
 1	src/canvas/highlight/HighlightLayer.tsx	TS6133	'nodes' is declared but its value is never read.
@@ -792,12 +789,8 @@
 1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ label: string | undefined; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 26 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
 1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ strengthStd: number; strengthStdSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
 1	src/canvas/ui/inspector/SignedStrengthSlider.stories.tsx	TS2307	Cannot find module '@storybook/react' or its corresponding type declarations.
-1	src/canvas/ui/inspector/SignedStrengthSlider.tsx	TS6133	'displayColor' is declared but its value is never read.
-1	src/canvas/ui/inspector/SignedStrengthSlider.tsx	TS6133	'effectCoaching' is declared but its value is never read.
 1	src/canvas/ui/inspector/StrengthBar.stories.tsx	TS2307	Cannot find module '@storybook/react' or its corresponding type declarations.
 4	src/canvas/ui/inspector/StrengthBar.stories.tsx	TS7006	Parameter 'Story' implicitly has an 'any' type.
-1	src/canvas/utils/__tests__/ceeAnalysisReadyValidation.spec.ts	TS2322	Type '"analysis_ready"' is not assignable to type '"needs_encoding" | "needs_user_input" | "needs_user_mapping" | "ready" | undefined'.
-2	src/canvas/utils/__tests__/ceeAnalysisReadyValidation.spec.ts	TS2322	Type 'number' is not assignable to type 'CEEInterventionV3'.
 9	src/canvas/utils/__tests__/computeOptionPaths.spec.ts	TS2345	Argument of type '({ id: string; interventions: { factorX: number; factorY?: undefined; }; } | { id: string; interventions: { factorY: number; factorX?: undefined; }; })[]' is not assignable to parameter of type 'CeeOption[]'.
 30	src/canvas/utils/__tests__/graphDisplayCalculations.spec.ts	TS2345	Argument of type '({ id: string; interventions: { 'factor-1': number; 'factor-2': number; }; } | { id: string; interventions: { 'factor-1': number; 'factor-2'?: undefined; }; })[]' is not assignable to parameter of type 'OptionWithInterventions[]'.
 1	src/canvas/utils/__tests__/mergeAppliedGraph.spec.ts	TS2322	Type 'MockInstance<unknown[], void>' is not assignable to type 'MockInstance<unknown[], unknown>'.

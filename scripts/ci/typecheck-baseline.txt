@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2348
+# count=2332
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -93,7 +93,6 @@
 14	src/adapters/plot/v2/responseMapper.ts
 12	src/canvas/ReactFlowGraph.tsx
 3	src/canvas/__tests__/__helpers__/renderCanvas.tsx
-1	src/canvas/__tests__/accessibility.spec.tsx
 1	src/canvas/__tests__/applyDraftResult.v5FreshDraft.regression.spec.ts
 3	src/canvas/__tests__/applyLayout.staleCommit.spec.ts
 1	src/canvas/__tests__/canvas.share-link.dom.spec.tsx
@@ -236,8 +235,7 @@
 1	src/canvas/domain/__tests__/edgeLabels.spec.ts
 1	src/canvas/domain/__tests__/migrations.spec.ts
 1	src/canvas/domain/__tests__/nodes.spec.ts
-31	src/canvas/edges/StyledEdge.tsx
-1	src/canvas/edges/__tests__/EdgeEditPopover.perf.spec.tsx
+30	src/canvas/edges/StyledEdge.tsx
 1	src/canvas/health/issueExplainers.ts
 2	src/canvas/highlight/HighlightLayer.tsx
 1	src/canvas/hooks/__tests__/goalThreshold.representation.spec.ts
@@ -332,9 +330,7 @@
 1	src/canvas/ui/inspector-v2/types.ts
 4	src/canvas/ui/inspector-v2/useInspectorMutations.ts
 1	src/canvas/ui/inspector/SignedStrengthSlider.stories.tsx
-2	src/canvas/ui/inspector/SignedStrengthSlider.tsx
 5	src/canvas/ui/inspector/StrengthBar.stories.tsx
-3	src/canvas/utils/__tests__/ceeAnalysisReadyValidation.spec.ts
 9	src/canvas/utils/__tests__/computeOptionPaths.spec.ts
 30	src/canvas/utils/__tests__/graphDisplayCalculations.spec.ts
 1	src/canvas/utils/__tests__/mergeAppliedGraph.spec.ts
