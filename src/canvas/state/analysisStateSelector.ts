@@ -327,6 +327,28 @@ export function mapRunStateKindToSemantic(
       return 'changed'
     case 'unknown_degraded':
       return 'cannot_confirm'
+    default: {
+      // ⚠ RUNTIME FLOOR (ROADMAP 2.1258). Unreachable through a validated
+      // payload today — the envelope's discriminated union rejects an unknown
+      // `kind` before this function sees it. But that guarantee lives in the
+      // SCHEMA PIN, not in this file, and a newer CEE emitting a kind this pin
+      // does not know is exactly the case the pin cannot cover. Without this,
+      // the switch falls through to `undefined` and every consumer reads it as
+      // "no verdict".
+      //
+      // It degrades to CANNOT-CONFIRM and never to a completion claim: an
+      // unrecognised state is precisely the situation in which the product has
+      // least right to vouch for a result.
+      //
+      // The `never` binding keeps the COMPILE-TIME check as well: add a member
+      // to `ANALYSIS_RUN_STATE_KINDS` without handling it above and `kind` stops
+      // being `never` here, so this line fails to typecheck. Runtime floor and
+      // compile-time exhaustiveness are both required — the floor alone would
+      // let a new kind be silently swallowed at the next pin bump.
+      const unhandled: never = kind
+      void unhandled
+      return 'cannot_confirm'
+    }
   }
 }
 
@@ -357,6 +379,16 @@ export function mapRunStateKindToDisplayedFreshness(
       return 'fresh'
     case 'complete_stale':
       return 'stale'
+    default: {
+      // ⚠ RUNTIME FLOOR (ROADMAP 2.1258) — see the twin in
+      // `mapRunStateKindToSemantic` for the full argument. `'unknown'` is the
+      // cannot-confirm VALUE; note it is deliberately not `'stale'`, which would
+      // fabricate a "model changed" claim CEE never made, and not `'fresh'`,
+      // which would vouch for a result under an unrecognised state.
+      const unhandled: never = kind
+      void unhandled
+      return 'unknown'
+    }
   }
 }
 
@@ -549,8 +581,21 @@ export function composeAnalysisState(
   // really does mean only "cannot confirm", with no refusal behind it — so this
   // forcing is scoped to the wire branch and must not leak into the other.
   const wireKind = wire?.run_state.kind ?? null
+  // ⚠ FAIL-CLOSED BY CONSTRUCTION, and this is the THIRD runtime floor
+  // (ROADMAP 2.1258 addendum). This was written as an ALLOW-list of the three
+  // kinds known to need forcing — `refused`, `complete_stale`,
+  // `unknown_degraded` — which meant any kind NOT on it, including a future one
+  // this pin has never heard of, fell through to `analysisChanged: false` and
+  // rendered a green "Analysis complete". A completion claim is the single
+  // worst default for an unrecognised state, and an allow-list of things to
+  // distrust always produces exactly that.
+  //
+  // Inverted: everything forces the dimmed/rerun row EXCEPT the two kinds that
+  // have earned something else — `complete_current` (the only kind entitled to
+  // a completion claim at all) and `blocked` (routed to not_ready just below,
+  // because a blocked model has no result body to dim).
   const wireForcesStale =
-    wireKind === 'refused' || wireKind === 'complete_stale' || wireKind === 'unknown_degraded'
+    wire !== null && wireKind !== 'complete_current' && wireKind !== 'blocked'
   const displayState: AnalysisDisplayStateView = deriveAnalysisDisplayState({
     // Readiness under the wire branch is the PRODUCER's own readiness, not the
     // legacy `ceeAnalysisReady` slice — same producer, one less derivation.

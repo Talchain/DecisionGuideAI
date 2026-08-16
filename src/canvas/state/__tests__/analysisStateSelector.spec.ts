@@ -14,7 +14,7 @@
  * a value predicate another state could satisfy.
  */
 import { describe, expect, it } from 'vitest'
-import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
+import type { AnalysisStateV1, AnalysisRunStateKind } from '@talchain/schemas/boundary'
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 
 import { ANALYSIS_RUN_STATE_KINDS } from '@talchain/schemas/boundary'
@@ -461,6 +461,66 @@ describe('DISPLAYED FRESHNESS — never fabricates stale, on either branch', () 
       const value = mapRunStateKindToDisplayedFreshness(kind, true)
       if (kind === 'complete_stale') expect(value).toBe('stale')
       else expect(value).not.toBe('stale')
+    }
+  })
+})
+
+describe('RUNTIME FLOOR — an unknown kind from a newer CEE degrades, never completes', () => {
+  /**
+   * ROADMAP 2.1258. The switches are typecheck-guarded, but the compiler is not
+   * on the wire: a newer CEE emitting a kind this pin does not know would fall
+   * through to `undefined`, which every consumer reads as "no verdict".
+   *
+   * These cases feed the fabricated kind DIRECTLY to the selector, bypassing the
+   * envelope — which is the whole point. The envelope's discriminated union does
+   * reject unknown kinds today, but that guarantee lives in the schema pin, not
+   * in this module, and the floor is what makes this module safe on its own.
+   */
+  const FUTURE_KIND = 'complete_provisional' as AnalysisRunStateKind
+
+  it('maps to cannot-confirm, not to a completion claim', () => {
+    expect(mapRunStateKindToSemantic(FUTURE_KIND, true)).toBe('cannot_confirm')
+    expect(mapRunStateKindToSemantic(FUTURE_KIND, true)).not.toBe('current')
+  })
+
+  it('maps to the cannot-confirm VALUE — never fresh, never a fabricated stale', () => {
+    expect(mapRunStateKindToDisplayedFreshness(FUTURE_KIND, true)).toBe('unknown')
+    expect(mapRunStateKindToDisplayedFreshness(FUTURE_KIND, true)).not.toBe('fresh')
+    expect(mapRunStateKindToDisplayedFreshness(FUTURE_KIND, true)).not.toBe('stale')
+  })
+
+  it('composes end-to-end without any surface claiming currency', () => {
+    // The floor is only worth having if it survives composition: the hero read
+    // its own allow-list of kinds to distrust, so an unknown kind reached
+    // `analysisChanged: false` and rendered "Analysis complete" even while the
+    // semantic said cannot-confirm.
+    const composed = composeAnalysisState({
+      ...LEGACY_SAYS_CURRENT,
+      analysisState: {
+        ...wireVerdict(),
+        // Bypasses the parser deliberately — a validated payload cannot carry
+        // this today, and that is exactly the assumption under test.
+        run_state: { kind: FUTURE_KIND, computed_at: '2026-08-16T10:00:00.000Z' },
+      } as AnalysisStateV1,
+    })
+    expect(composed.authority).toBe('wire')
+    expect(composed.runStateKind).toBe(FUTURE_KIND)
+    expect(composed.semantic).toBe('cannot_confirm')
+    expect(composed.displayedFreshness).toBe('unknown')
+    expect(composed.displayState.state).not.toBe('complete')
+    expect(composed.displayState.state).toBe('results_stale')
+    // And no leader may be named under a state we do not understand.
+    expect(composed.leaderClaimPermitted).toBe(false)
+  })
+
+  it('every DECLARED kind still round-trips — the floor did not swallow the real ones', () => {
+    // Without this, a default that returned cannot-confirm for EVERYTHING would
+    // pass every assertion above (trap 13: an instrument that cannot fail).
+    for (const kind of ANALYSIS_RUN_STATE_KINDS) {
+      const semantic = mapRunStateKindToSemantic(kind, true)
+      if (kind === 'complete_current') expect(semantic).toBe('current')
+      if (kind === 'complete_stale') expect(semantic).toBe('changed')
+      if (kind === 'never_run' || kind === 'blocked') expect(semantic).toBe('none')
     }
   })
 })
