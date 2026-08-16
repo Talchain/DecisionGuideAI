@@ -164,20 +164,23 @@ describe('C11 — citation to collapsed content reveals and scrolls', () => {
   it('a citation to a visible block scrolls immediately without touching any collapse state', () => {
     const commentary: CommentaryBlock = {
       type: 'commentary',
-      text: 'See the fact. [2]',
-      citations: [{ index: 2, source: 'Lift' }],
+      text: 'See the first review card. [3]',
+      citations: [{ index: 3, source: 'Lift' }],
     }
-    // 7 phase-3 cards against the 2.211-② cap of 6 → rc_7 stays collapsed
-    // (was 4 cards against a cap of 3).
+    // PX-B: 7 review cards against the 3-point cap → rc_7 is demoted into the
+    // disclosure. Citation 3 targets block index 2 (rc_1), which IS top-level,
+    // so the click must scroll WITHOUT opening the disclosure. Re-pointed at a
+    // top-level block rather than re-expected: the case pins "a visible target
+    // does not touch disclosure state", and that claim is unchanged.
     const blocks: ConversationBlock[] = [
       commentary,
       fact,
       ...[1, 2, 3, 4, 5, 6, 7].map(reviewCard),
     ]
     render(<InlineBlocks blocks={blocks} />)
-    fireEvent.click(screen.getByRole('button', { name: /citation 2/i }))
+    fireEvent.click(screen.getByRole('button', { name: /citation 3/i }))
     expect(scrollSpy).toHaveBeenCalled()
-    // The pacing collapse stays collapsed (rc_7 remains hidden).
+    // The disclosure stays closed (rc_7 remains hidden).
     expect(screen.queryByText('Review card 7')).not.toBeInTheDocument()
   })
 })
@@ -227,14 +230,13 @@ describe('C13 — legend gates on a phase-3 card being CURRENTLY RENDERED', () =
 
 describe('C4 — the pacing count is static sr-only text, not a nested live region', () => {
   it('renders the collapsed-count text without role="status" (the toggle name already carries the count)', () => {
-    // 8 cards against the 2.211-② default-expanded cap of 6 → 2 collapsed.
-    // This fixture was 5 cards while the cap was 3 (same 2-collapsed shape);
-    // it was resized, NOT re-expected, so the assertion below is byte-identical
-    // to the one this pin has always made.
+    // PX-B: 8 cards against the 3-point cap → 5 demoted. The summary COPY moved
+    // with the composition; what this case pins — a static summary and NO live
+    // region of InlineBlocks' own — is unchanged.
     const blocks: ConversationBlock[] = [1, 2, 3, 4, 5, 6, 7, 8].map(reviewCard)
     const { container } = render(<InlineBlocks blocks={blocks} />)
     // The sr-only summary text is still present…
-    expect(screen.getByText(/2 more coaching and review cards collapsed/i)).toBeInTheDocument()
+    expect(screen.getByText(/5 more supporting items available/i)).toBeInTheDocument()
     // …but InlineBlocks contributes NO live region of its own.
     expect(container.querySelector('[role="status"]')).toBeNull()
     expect(container.querySelector('[aria-live]')).toBeNull()

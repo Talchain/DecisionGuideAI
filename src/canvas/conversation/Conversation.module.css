@@ -349,6 +349,24 @@
   margin-top: 8px;
 }
 
+/*
+ * PX-B: the ONE disclosure body holding every demoted block.
+ * Deliberately NOT another bordered card — a panel around a stack of panels is
+ * the "panels-within-panels" defect it exists to fix. A single hairline rule on
+ * the inline-start edge signals "this is supporting detail" at one level of
+ * nesting only, and the demoted blocks keep their own renderers unchanged.
+ */
+.blockDetailBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-inline-start: 10px;
+  /* Fallback matches the four sibling rules in this file, not a new hex:
+     an invented fallback silently shadows the token with a colour brand.css
+     never declared, which is what the css-var-resolution guard catches. */
+  border-inline-start: 1px solid var(--border-default, #EEE6D8);
+}
+
 .commentaryBlock {
   /* DS v5 §21.2 — Commentary is inline: no border, muted text, slight indent. */
   color: var(--text-light, #6E6B6B);

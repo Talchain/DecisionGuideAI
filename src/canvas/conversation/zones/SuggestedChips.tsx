@@ -26,6 +26,7 @@ import { type FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { isChipRenderable } from '../chipDispatch'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
+import { CHIP_CLASS } from '../../../v5/blocks/chipClass'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -290,18 +291,18 @@ export function SuggestedChips({
               disabled={disabled}
               aria-label={ariaLabel}
               aria-disabled={disabled}
-              className={[
-                'suggested-chip chip-stagger-in',
-                'inline-flex items-center gap-1.5',
-                'bg-panel border border-panel-border rounded-full',
-                'px-4 py-2 min-h-[44px]',
-                'hover:bg-panel-hover active:bg-panel-border/30',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',
-                'text-text-body cursor-pointer font-sans',
-                typography.bodySmall,
-                'disabled:opacity-40 disabled:pointer-events-none',
-                'transition-colors duration-200',
-              ].join(' ')}
+              // PX-B (Paul, 15 Aug: "oversized actions"). The chip grammar —
+              // and the down-size to `.chip`'s 12px/6px at 12px — lives in
+              // CHIP_CLASS, which is the ONE authority for it. This file used
+              // to carry a byte-identical copy of that string; the copy is
+              // gone rather than edited in parallel, because two copies that
+              // agree today are two copies that diverge at the next DS tweak
+              // (this change is that tweak, and editing only this one would
+              // have shipped two chip sizes into a single panel).
+              //
+              // Only the animation classes stay local: they are this surface's
+              // stagger-in, not part of the shared idiom.
+              className={`suggested-chip chip-stagger-in ${CHIP_CLASS}`}
               style={{ animationDelay: `${i * 70}ms` }}
               data-testid={`suggested-chip-${chip.id}`}
               data-chip-role={chip.role ?? undefined}

@@ -17,6 +17,9 @@ import { ThinkingIndicator } from './ThinkingIndicator'
 import { SuggestedChips } from './SuggestedChips'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
+import { useCanvasStore } from '../../store'
+import { useDraftStore, draftStreamPhaseFor } from '../../stores/draftStore'
+import { SETTLING_STAGES, SETTLING_AFTER_COACHING_STAGES } from '../../components/DraftLoadingAnimation'
 
 interface ChatThreadProps {
   messages: ConversationMessage[]
@@ -54,8 +57,45 @@ interface ChatThreadProps {
   scrollListRef?: React.MutableRefObject<HTMLDivElement | null>
 }
 
-/** Derive a thinking label from the hint. */
-function thinkingLabel(hint: string | null): string {
+/**
+ * Which half of the streamed draft's settling window the thread is in.
+ * 'none' covers every non-settling state, including the whole buffered path
+ * (which has no such window — the graph and the turn land together).
+ */
+type DraftSettlingState = 'none' | 'settling' | 'after_coaching'
+
+/**
+ * Derive a thinking label from the hint.
+ *
+ * PX-B (Paul's 15 Aug testing: "an unexplained still-thinking state after the
+ * model appears"). During the streamed draft's SETTLING window the thread used
+ * to render `longRunningHint` unchanged \u2014 and nothing updates that hint at
+ * GRAPH_READY, so for the ~25 s measured settling window
+ * (GRAPH_READY 35.8 s \u2192 COMPLETE 60.9 s, useConversation.ts) the thread said
+ * "Building your decision model\u2026 45s" ABOUT A MODEL ALREADY ON THE CANVAS,
+ * while the composer three inches below said "Your model is on the canvas.
+ * Values and coaching are still arriving\u2026". Two surfaces, one moment,
+ * contradicting each other \u2014 not a silence, a lie.
+ *
+ * What is actually happening in that window, derived at the CEE bytes
+ * (`unified-pipeline/index.ts`): the graph is emitted at GRAPH_READY BEFORE the
+ * expensive work, and the window is dominated by ONE bounded LLM call \u2014 the
+ * Stage 4.5 coaching pass (measured `coaching_pass_ms`: median 20.8 s, n=40) \u2014
+ * writing coaching and causal claims about a structure that is already final,
+ * with the per-edge validation pass settling concurrently. "Values and coaching
+ * are still arriving" is exactly that, and no more than that.
+ *
+ * So this reuses the SETTLING tables verbatim rather than writing new copy:
+ * they are already ratified against the cross-surface narration-honesty
+ * invariant (`narrationHonesty.invariant.spec.ts` \u2014 no pipeline-stage claim,
+ * no completion-proximity, no claim the frame does not license), and inventing
+ * a second sentence for the same moment is how the two surfaces diverged in the
+ * first place. The elapsed clock deliberately stays with the composer, which
+ * owns it; the thread takes the base line for its phase.
+ */
+function thinkingLabel(hint: string | null, settling: DraftSettlingState): string {
+  if (settling === 'after_coaching') return SETTLING_AFTER_COACHING_STAGES[0].message
+  if (settling === 'settling') return SETTLING_STAGES[0].message
   if (hint) return hint
   return 'Thinking\u2026'
 }
@@ -165,6 +205,17 @@ export const ChatThread = memo(function ChatThread({
   // 2.668's second defect came to be diagnosed against this file at all.
   const suggestedChips = lastAssistantMsg?.actionChips ?? []
 
+  // PX-B: the settling phase, read the SAME way AIInputBar reads it —
+  // `draftStreamPhaseFor` is the one place that decides scenario ownership, so
+  // a stale stream from another scenario cannot narrate over this one.
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, currentScenarioId))
+  // Read as a CONJUNCT of the settling phase, never bare (same rule as
+  // AIInputBar): coachingLanded is not scenario-scoped on its own.
+  const coachingLanded = useDraftStore((s) => s.draftStreamCoachingLanded)
+  const settlingState: DraftSettlingState =
+    draftStreamPhase !== 'settling' ? 'none' : coachingLanded ? 'after_coaching' : 'settling'
+
   return (
     <div
       ref={listRef}
@@ -179,7 +230,7 @@ export const ChatThread = memo(function ChatThread({
       {showEmptyState && (
         <EmptyState
           animate={isThinking}
-          statusLabel={isThinking ? thinkingLabel(longRunningHint) : null}
+          statusLabel={isThinking ? thinkingLabel(longRunningHint, settlingState) : null}
           streamingText={streamingText}
         />
       )}
@@ -225,7 +276,7 @@ export const ChatThread = memo(function ChatThread({
 
       {/* ThinkingIndicator: only when EmptyState is NOT handling the loading display */}
       {isThinking && !showEmptyState && !messages.some(m => m.isStreaming) && (
-        <ThinkingIndicator label={thinkingLabel(longRunningHint)} />
+        <ThinkingIndicator label={thinkingLabel(longRunningHint, settlingState)} />
       )}
 
       {/* New messages pill */}
