@@ -37,6 +37,7 @@ import { PanelShell } from '../panels/_shared/PanelShell'
 import { PanelSection } from '../panels/_shared/PanelSection'
 import { typography } from '../../styles/typography'
 import { buildVersionLabelIndex, describeChangeset } from './describeChange'
+import { ServerVersionsSection } from './ServerVersionsSection'
 import { useModelVersions } from './useModelVersions'
 import {
   VERSION_STORAGE_DISCLOSURE,
@@ -314,6 +315,14 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
             </ul>
           </PanelSection>
         )}
+
+        {/* SHARED (server-side) versions — the durable half. Rendered after
+            the local sections: the local history above answers "what did I
+            change on this canvas?"; this is the team's restorable history of
+            the shared model itself (its own storage disclosure inside;
+            sign-in required, and it says so honestly). Renders nothing when
+            the scenario is not server-addressable. */}
+        <ServerVersionsSection />
       </PanelShell>
     </div>
   )
