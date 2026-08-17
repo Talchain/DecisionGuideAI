@@ -20,6 +20,7 @@ import { memo, useState, useMemo, useRef } from 'react'
 import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
 import { AnswerBody, resolveAnswerBodyText } from './AnswerBody'
+import { GroundedOnNotice } from './GroundedOnNotice'
 import { InlineBlocks } from './InlineBlocks'
 import { AlertCircle, ChevronDown, ChevronUp, ListPlus, AlignLeft, RefreshCw } from 'lucide-react'
 import { FeedbackRow } from './FeedbackRow'
@@ -478,6 +479,17 @@ export const MessageBubble = memo(function MessageBubble({
             </div>
           )}
         </>
+      )}
+      {/* CEE hop 4b — which model elements this answer was grounded on.
+        * NO FLAG (the producer emits unconditionally on the success path), and
+        * the condition is the SIDECAR'S OWN PRESENCE: an ungrounded turn
+        * carries no key, so `message.groundedSelection` is undefined and
+        * nothing renders. Rendering this on a turn without the sidecar would
+        * fabricate a grounding — pinned by the wire spec. Assistant-only: a
+        * grounding is a fact about an ANSWER, and the user's own bubble is not
+        * one. */}
+      {!isUser && message.groundedSelection && (
+        <GroundedOnNotice groundedSelection={message.groundedSelection} />
       )}
       {message.insights && message.insights.length > 0 && isDeterministicCeeEnabled() && (
         <InsightsStrip insights={message.insights} onSendMessage={onArtefactMessage} />
