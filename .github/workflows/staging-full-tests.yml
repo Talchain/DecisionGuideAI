@@ -144,6 +144,25 @@ jobs:
       - name: Vendored schemas version constant is derived, not drifted
         run: pnpm run ci:guard:schemas-version
 
+      # ── Design System v5 drift ratchet ──────────────────────────────────
+      # ⚠ WIRED HERE ON PURPOSE, NOT ONLY IN ci.yml — same reasoning as the
+      # bundle-credentials guard in the `build` job below.
+      #
+      # `staging` protection requires exactly ONE check: "Staging Gate", whose
+      # `needs` list is [tsc, typecheck-selftest, vitest, vitest-summary, build].
+      # Nothing in ci.yml is required, so the DS guard living only there would
+      # advise and never block — which is precisely what happened: it shipped
+      # report-only in ci.yml, its false-positive class was diagnosed in the July
+      # soak and left unfixed, and from then on NO Design System rule gated
+      # anything at all.
+      #
+      # Derived 2026-08-17:
+      #   gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
+      #     --jq '.required_status_checks.contexts'   → ["Staging Gate"]
+      # Re-derive before assuming this is still where the blocking happens.
+      - name: Design System v5 drift (enforcing)
+        run: pnpm run ci:guard:ds:enforce
+
   # ── Typecheck gate self-test (positive control) ──────────────────────
   # The `tsc` job above asserts an ABSENCE ("no new type errors, no invisible
   # files"). That assertion is worth nothing unless the gate can be shown to

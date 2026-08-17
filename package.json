@@ -88,7 +88,7 @@
     "migrate:tokens": "node scripts/migrate-olumi-tokens.mjs",
     "test:e2e:firefox": "playwright test --project=firefox -c playwright.config.ts",
     "test:e2e:webkit": "playwright test --project=webkit -c playwright.config.ts",
-    "ci:all": "npm run typecheck && npm run lint && npm run test:contracts && npm run test:full && npm run e2e && npm run ci:guard:zustand && npm run ci:guard:duplicates && npm run ci:guard:ds",
+    "ci:all": "npm run typecheck && npm run lint && npm run test:contracts && npm run test:full && npm run e2e && npm run ci:guard:zustand && npm run ci:guard:duplicates && npm run ci:guard:ds:enforce",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "generate:flag-env": "node scripts/generate-flag-env.mjs",

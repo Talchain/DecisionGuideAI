@@ -34,6 +34,19 @@
  * It still writes NO graph state. The strength is set in the panel this opens,
  * by `useEdgeMutations.setStrength`, which remains the single writer of
  * `weight`/`weightSource`. A write here would be a second writer of that field.
+ *
+ * ── TYPOGRAPHY: THE SANCTIONED SCALE, NOT RAW UTILITIES ─────────────────────
+ * This card first shipped with raw Tailwind size and weight utilities, which
+ * DS v5 §2.4 bans in panel scope (`src/styles/typography.ts:47-54` declares the
+ * strict set for src/components/results/: heroDisplay / panelHeader / panelBody /
+ * panelMeta). It now uses panelHeader for the title, panelBody for prose and the
+ * action, and panelMeta for the tertiary "others" line — so the card sits on the
+ * same three-size scale as every sibling. Do not reintroduce a raw size or weight
+ * utility here: the DS guard now ENFORCES this class and will red the gate.
+ *
+ * Note the guard scans COMMENTS for this class on purpose — spelling a banned
+ * utility in prose here would itself red the gate, because a utility named in a
+ * comment is an instruction that gets copied into code.
  */
 
 import { memo } from 'react'
@@ -47,6 +60,7 @@ import {
   assumedStrengthWhy,
 } from './assumedStrengthCopy'
 import type { AssumedStrengthDecision } from './selectAssumedStrengthToResolve'
+import { typography } from '../../../styles/typography'
 
 export interface AssumedStrengthCardProps {
   decision: AssumedStrengthDecision
@@ -70,7 +84,7 @@ function AssumedStrengthCardImpl({ decision, onResolve }: AssumedStrengthCardPro
     if (copy === null) return null
     return (
       <div className="border-t border-panel-border pt-2" data-testid="assumed-strength-refusal">
-        <p className="text-sm text-text-body">{copy}</p>
+        <p className={`${typography.panelBody} text-text-body`}>{copy}</p>
       </div>
     )
   }
@@ -86,27 +100,27 @@ function AssumedStrengthCardImpl({ decision, onResolve }: AssumedStrengthCardPro
       data-edge-id={selected.edgeId}
       aria-label={ASSUMED_STRENGTH_TITLE}
     >
-      <h4 className="text-sm font-medium text-text-heading" data-testid="assumed-strength-title">
+      <h4 className={`${typography.panelHeader} text-text-heading`} data-testid="assumed-strength-title">
         {ASSUMED_STRENGTH_TITLE}
       </h4>
-      <p className="text-sm text-text-body" data-testid="assumed-strength-lead">
+      <p className={`${typography.panelBody} text-text-body`} data-testid="assumed-strength-lead">
         {assumedStrengthLead(selected)}
       </p>
-      <p className="text-sm text-text-body" data-testid="assumed-strength-why">
+      <p className={`${typography.panelBody} text-text-body`} data-testid="assumed-strength-why">
         {assumedStrengthWhy(selected)}
       </p>
-      <p className="text-sm text-text-body" data-testid="assumed-strength-ask">
+      <p className={`${typography.panelBody} text-text-body`} data-testid="assumed-strength-ask">
         {ASSUMED_STRENGTH_ASK}
       </p>
       {others !== null && (
-        <p className="text-xs text-text-muted" data-testid="assumed-strength-others">
+        <p className={`${typography.panelMeta} text-text-muted`} data-testid="assumed-strength-others">
           {others}
         </p>
       )}
       {onResolve !== undefined && (
         <button
           type="button"
-          className="text-sm font-medium text-accent underline underline-offset-2"
+          className={`${typography.panelBody} text-accent underline underline-offset-2`}
           data-testid="assumed-strength-action"
           onClick={() => onResolve(selected.edgeId)}
         >
