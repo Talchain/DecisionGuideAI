@@ -443,21 +443,42 @@ describe('CX6 · blocker says the value is missing vs Olumi says it exists', () 
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * ⭐ P1 — ONE SEAM BEYOND THE GUARD, and this block exists because a mutant
- * found the defect rather than because the design anticipated it.
+ * ⭐ P1 — ONE SEAM BEYOND THE GUARD.
  *
- * THE SEAM TESTED: `detectCX1/CX2/CX3/CX4`'s early return. Each one used to read
- * `state?.run_state?.kind !== '…'`, so the optional chain doubled as the
- * null guard for `state` — and every line after it dereferenced `state`
- * directly. Mutant G (which changed only WHICH kind CX1 gates on) therefore did
- * not widen the detector, it made `evaluateCrossSurfaceCoherence` THROW on the
- * one corpus capture with no `analysis_state` at all, taking FOUR unrelated
- * pairs' verdicts down with it. A gate that throws stops detecting at exactly
- * the moment a payload is malformed — which is when detection matters most.
+ * ⚠ AND A CORRECTION OF THIS LANE'S OWN FIRST CLAIM, kept here because the
+ * over-read is more instructive than the fix. The first version of this comment
+ * said a mutant had "found the defect". It had not. What happened:
  *
- * The guards are now explicit (`if (state === null) return`) and these tests
- * pin the property rather than the guard, so the same defect cannot return by a
- * different route.
+ *   · `detectCX1/CX2/CX3/CX4` used to read `state?.run_state?.kind !== '…'`, so
+ *     the optional chain doubled as the null guard, and every line after it
+ *     dereferenced `state` directly.
+ *   · Mutant G changed only WHICH kind CX1 gates on (`!== 'complete_current'` →
+ *     `=== 'never_run'`). For the one corpus capture with no `analysis_state`,
+ *     the mutated guard no longer returned, so `state.readiness` THREW and took
+ *     FOUR unrelated pairs' verdicts down with it.
+ *   · But the SHIPPED form never threw on any input: `undefined !==
+ *     'complete_current'` always returns early. **There was no live defect.**
+ *
+ * So the explicit `if (state === null) return` is a HARDENING, not a bug fix,
+ * and the honest evidence for it is not a bitten test — it is these two mutants:
+ *
+ *   P1a  delete the guard outright  → TYPE-INVALID (`strictNullChecks` rejects
+ *        `state.run_state` on `AnalysisStateV1 | null`). VOIDED, not scored:
+ *        the invariant is now enforced by the COMPILER.
+ *   P1b  revert to the optional-chain form → type-valid and SURVIVES, because it
+ *        is behaviourally identical for every input. A DEMONSTRATED EQUIVALENT
+ *        MUTANT, not an untested assertion of equivalence.
+ *
+ * The value of the change is therefore precise and small: the null-safety of
+ * these detectors no longer DEPENDS on which kind the predicate happens to
+ * compare, so an edit to the predicate cannot silently convert detection into a
+ * crash. Mutant G is the proof that the coupling was load-bearing — with the
+ * fix, G produces a clean manifest-GROWS signal; without it, G produced a
+ * throw-cascade across four pairs.
+ *
+ * The tests below pin the PROPERTY (a malformed state must not take the other
+ * pairs down). They passed before the change too, and this comment says so
+ * rather than implying they caught something.
  */
 describe('P1 · a malformed or absent analysis state must not take the other pairs down with it', () => {
   it('an ABSENT analysis state returns an empty verdict rather than throwing', () => {
