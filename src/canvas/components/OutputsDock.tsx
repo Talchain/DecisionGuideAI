@@ -273,12 +273,18 @@ export function deriveNextDockIsOpen(isFirstUse: boolean, storedIsOpen: boolean)
  * first analysis"). **R1 RULED: the right panel is visible immediately when
  * the model appears; the panel starts NARROW so the graph keeps priority.**
  * The 843px measurement was never an argument for hiding the panel — it was an
- * argument about WIDTH, and R1 answers it with width. So the rail input
- * reverts to model content, and the width half of the trade is discharged by
- * `resolveDockWidthForAnalysisState` below, which opens the dock at its
- * narrowest usable width until an analysis exists. Neither half works alone:
- * reverting the input without the narrow width re-opens the 843px clamp this
- * predicate was rewritten to close.
+ * argument about WIDTH, and R1 answered it with width: the rail input reverted
+ * to model content and a companion rule narrowed the dock until an analysis
+ * existed.
+ *
+ * ⚠⚠ THE WIDTH HALF IS NOW WITHDRAWN (17 Aug 2026) AND THIS RAIL PREDICATE IS
+ * UNCHANGED BY THAT. R1's VISIBILITY ruling stands — the panel appears the
+ * moment the model does. What is withdrawn is the narrowing, because the
+ * legibility it was buying was never delivered at ANY dock width (760 / 843 /
+ * 896 fit box against a 1008px requirement) while the panel lost 35% of its
+ * content budget. See the deleted `resolveDockWidthForAnalysisState` note
+ * below for the full record. The two halves were briefed as a pair; only one
+ * of them turned out to be doing anything.
  *
  * Pure and exported so the rule is mutation-testable without mounting the dock.
  *
@@ -316,36 +322,36 @@ export function shouldRenderFirstUseRail(input: {
 }
 
 /**
- * The width the dock opens at — R1's "starts NARROW so the graph keeps
- * priority" half.
+ * ⚠⚠ `resolveDockWidthForAnalysisState` WAS HERE AND IS DELETED (17 Aug 2026).
  *
- * Composed from `dockWidth.ts`'s existing pure rules rather than re-deriving
- * bounds here (three separate copies of those bounds is the defect that module
- * was created to remove).
+ * It was R1's "starts NARROW so the graph keeps priority" half: until an
+ * analysis result existed, the dock was clamped to `dockWidthBounds().min`.
+ * Three things were wrong with it and only the third is about layout taste.
  *
- * TWO PROPERTIES, BOTH DELIBERATE:
- *  1. An EXPLICIT user width always wins. Someone who has dragged the dock has
- *     stated a preference; narrowing it under them because an analysis has not
- *     run yet would be the product overriding a direct instruction.
- *  2. The narrow width is the module's own `DOCK_MIN_WIDTH` floor, not a new
- *     constant. "Narrow" here means "the narrowest width this panel is known
- *     to remain usable at" — a second magic number would be a second authority
- *     on the same question, and would drift from the floor the drag path
- *     clamps to.
+ *  1. **It bought nothing.** The clamp existed to close the 843px graph clamp.
+ *     It did not: the drafted graph needs 1008px at the 0.50 legibility floor
+ *     and the fit box reaches only 896px even at 280 (760 / 843 / 896 for dock
+ *     416 / 333 / 280 — asserted in `computeFitPadding.spec.ts`). The
+ *     post-draft fit clamped at the floor at EVERY dock width, so the trade
+ *     was one-sided from the day it shipped.
+ *  2. **The floor is an unconditional constant**, so `Math.min(full, min)`
+ *     produced 280px at 1280, at 1920 and at 3840 alike. Screen size was
+ *     irrelevant, and content budget fell from 390px to 254px (−35%) at every
+ *     one of them. A per-input rule returning the same answer for every input
+ *     is the tell (trap 20) and nothing was looking.
+ *  3. **Its input did not persist.** `hasCompletedFirstRun` lives in a store
+ *     with no `persist()` middleware (`store.ts:424`), so every page reload
+ *     re-narrowed the dock for a user who had run analyses all day. The fix is
+ *     NOT to persist the flag — that would make a wrong rule rarer. The dock's
+ *     width is not a function of analysis state, and the dependency is gone.
  *
- * Pure and exported: mutation-testable without a DOM.
+ * The width now comes from `resolveDockWidth` alone: an explicit user drag
+ * wins, otherwise the responsive default, re-clamped to the drag bounds. 280
+ * is a FLOOR a user may drag to, never a width the product chooses for them.
+ *
+ * Containment, not the final design — the canonical panel shell that owns
+ * width, tabs, scroll/sticky regions, type scale and spacing is separate work.
  */
-export function resolveDockWidthForAnalysisState(input: {
-  viewportWidth: number
-  storedWidth: number | null
-  hasAnalysisResult: boolean
-}): number {
-  const full = resolveDockWidth(input.viewportWidth, input.storedWidth)
-  if (input.hasAnalysisResult) return full
-  if (input.storedWidth != null && Number.isFinite(input.storedWidth)) return full
-  const { min } = dockWidthBounds(input.viewportWidth)
-  return Math.min(full, min)
-}
 
 /**
  * Whether a programmatic tab activation is entitled to END the first-use rail.
@@ -684,10 +690,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // ⚠⚠ THIS INPUT HAS FLIPPED TWICE IN ONE DAY. It was `!hasGraphContent`,
   // became `!hasCompletedFirstRun` on 16 Aug (#728, to close a measured 843px
   // graph clamp), and R1 reverts it — because Paul's veto is about VISIBILITY
-  // and the 843px measurement is about WIDTH. The width half is now discharged
-  // by `resolveDockWidthForAnalysisState`: the dock opens at its narrowest
-  // usable width until an analysis exists. See the predicate's own header for
-  // the full record; the two halves are a pair and neither ships alone.
+  // and the 843px measurement is about WIDTH. R1's width half (a pre-analysis
+  // narrowing) is WITHDRAWN as of 17 Aug: it bought no legibility at any dock
+  // width and cost 35% of the panel's content budget. This VISIBILITY rule is
+  // untouched by that. See the predicate's own header for the full record.
   const isFirstUse = shouldRenderFirstUseRail({
     aiPanelV2On,
     hasModelContent: hasGraphContent,
@@ -1968,16 +1974,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       }
       const viewportWidth = window.innerWidth || root.clientWidth || 0
       if (!viewportWidth) return
-      // R1's width half: narrow until an analysis exists, then the normal
-      // responsive width. An explicit user width always wins (see the helper).
-      root.style.setProperty(
-        '--dock-right-expanded',
-        `${resolveDockWidthForAnalysisState({
-          viewportWidth,
-          storedWidth: stored,
-          hasAnalysisResult: hasCompletedFirstRun,
-        })}px`,
-      )
+      // One rule: an explicit user drag wins, otherwise the responsive
+      // default, re-clamped to the drag bounds. Deliberately NOT a function of
+      // whether an analysis exists — see the deleted
+      // `resolveDockWidthForAnalysisState` note above, and the mounted pins in
+      // `OutputsDock.dockWidth.dom.spec.tsx`.
+      root.style.setProperty('--dock-right-expanded', `${resolveDockWidth(viewportWidth, stored)}px`)
     }
 
     apply()
@@ -1998,12 +2000,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       window.removeEventListener('resize', onResize)
       if (frame !== null) window.cancelAnimationFrame(frame)
     }
-    // ⚠ `hasCompletedFirstRun` IS a dependency and its absence would be silent:
-    // the effect would apply the narrow width once and never widen when the
-    // first analysis lands, so the user's results would arrive into a 280px
-    // panel until the next window resize. A width rule that only re-runs on
-    // `resize` is a width rule that is wrong for as long as nobody resizes.
-  }, [hasCompletedFirstRun])
+    // ⚠ `hasCompletedFirstRun` WAS a dependency here and is deliberately gone:
+    // the width is no longer a function of analysis state, so re-running the
+    // effect when an analysis lands would recompute the same number. The empty
+    // dep list is the assertion — if a future change makes the width depend on
+    // store state again, the dependency has to come back, and that is exactly
+    // the moment the mounted independence pin should stop it.
+  }, [])
   const transitionClass = prefersReducedMotion ? '' : 'transition-[width,opacity] duration-200 ease-in-out'
 
   // OUTPUT_TABS computed per render so a localStorage flag flip is picked

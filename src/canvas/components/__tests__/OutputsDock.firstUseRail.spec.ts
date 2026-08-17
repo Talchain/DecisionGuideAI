@@ -1,7 +1,11 @@
 /**
  * `shouldRenderFirstUseRail` — the rule deciding whether the OutputsDock renders
- * as its 40px rail or claims its full width — and `resolveDockWidthForAnalysisState`,
- * the width rule that is its other half.
+ * as its 40px rail or claims its full width.
+ *
+ * ⚠ It once had a width companion, `resolveDockWidthForAnalysisState`. That is
+ * DELETED (17 Aug 2026) and the last block in this file pins its absence; the
+ * width itself is pinned against the mounted dock in
+ * `OutputsDock.dockWidth.dom.spec.tsx`.
  *
  * Written against the STATED RULE, not against the 1280x800 measurement that
  * motivated it — the measurement is evidence for the rule, and a spec pinned to
@@ -17,18 +21,20 @@
  * priority. The veto was about VISIBILITY; the 843px measurement was about
  * WIDTH; R1 answers the second with width rather than with hiding.
  *
- * So the rail input is model content again — AND the width half is now a real
- * rule rather than an implicit "full width or nothing". The two are a PAIR: the
- * predicate tests below are honest only because the width tests below them
- * exist. Delete either and the 843px clamp comes back.
+ * So the rail input is model content again. R1's VISIBILITY half stands and is
+ * pinned below. Its WIDTH half — narrow until an analysis exists — is
+ * withdrawn: it was buying a graph legibility that the fit box never reaches
+ * at ANY dock width (760 / 843 / 896 against a 1008px requirement), at the
+ * price of 35% of the panel's content budget. The two were briefed as a pair;
+ * only one of them was doing anything.
  */
 
 import { describe, it, expect } from 'vitest'
-import {
-  shouldRenderFirstUseRail,
-  forcedActivationEndsRail,
-  resolveDockWidthForAnalysisState,
-} from '../OutputsDock'
+import { shouldRenderFirstUseRail, forcedActivationEndsRail } from '../OutputsDock'
+// Namespace import as well as the named ones: the withdrawal block below binds
+// to the module's EXPORT LIST by identity, which a named import cannot express
+// (a named import of a deleted symbol is a compile error, not an assertion).
+import * as OutputsDockModule from '../OutputsDock'
 import { DOCK_MIN_WIDTH, resolveDockWidth } from '../dockWidth'
 
 describe('shouldRenderFirstUseRail', () => {
@@ -107,64 +113,63 @@ describe('shouldRenderFirstUseRail', () => {
   })
 })
 
-describe('resolveDockWidthForAnalysisState — R1\'s "starts NARROW" half', () => {
-  // 1280x800 is the viewport the 843px clamp was measured at, so it is the
-  // width at which the pair has to hold.
+describe('the WIDTH half is withdrawn — the dock has no analysis-state input at all', () => {
+  // ⚠ THIS BLOCK REPLACES FOUR TESTS OF `resolveDockWidthForAnalysisState`,
+  // WHICH IS DELETED (17 Aug 2026). Those tests were correct about the rule
+  // they pinned; the rule was the defect. It clamped the dock to
+  // `dockWidthBounds().min` — an UNCONDITIONAL 280 — until an analysis
+  // existed, so the pre-analysis dock was 280px at 1280, at 1920 and at 3840
+  // alike, a 35% cut in content budget, in exchange for graph legibility that
+  // the fit-box arithmetic shows was never available at any dock width.
+  //
+  // Coverage is not dropped, it MOVES, and it moves UP a level: the width is
+  // now pinned against the MOUNTED dock in
+  // `OutputsDock.dockWidth.dom.spec.tsx`, where a pure helper cannot be
+  // correct-in-isolation while the component does something else. What stays
+  // HERE is the claim this file is the right home for: the rail predicate and
+  // the width rule no longer share an input.
+
   const VIEWPORT = 1280
 
-  it('opens NARROW while no analysis exists', () => {
-    // The claim is "narrow", and narrow is defined as the module's own usable
-    // floor — not a fresh constant, which would be a second authority on the
-    // same question and would drift from the bound the drag path clamps to.
-    expect(
-      resolveDockWidthForAnalysisState({
-        viewportWidth: VIEWPORT,
-        storedWidth: null,
-        hasAnalysisResult: false,
-      }),
-    ).toBe(DOCK_MIN_WIDTH)
+  it('the module exports no analysis-state width rule', () => {
+    // Bound by IDENTITY to the export name, not to a behaviour another
+    // function could satisfy. Reintroducing the clamp means reintroducing this
+    // symbol (or a renamed twin — see the sibling assertion below), and this
+    // is the test that has to be deleted to do it.
+    expect(Object.keys(OutputsDockModule)).not.toContain('resolveDockWidthForAnalysisState')
+    // CONTRAST CONTROL: the same probe DOES see the exports that are still
+    // here, so a zero here is real absence rather than a blind instrument.
+    expect(Object.keys(OutputsDockModule)).toContain('shouldRenderFirstUseRail')
+    expect(Object.keys(OutputsDockModule)).toContain('forcedActivationEndsRail')
   })
 
-  it('widens to the normal responsive width once an analysis exists', () => {
-    // DISCRIMINATING PAIR with the case above: same viewport, same absence of a
-    // stored width, opposite analysis state, and the widths must DIFFER. A
-    // mutant that returns the full width in both cases passes the first test
-    // only if the floor happens to equal the responsive width — which at this
-    // viewport it does not, and that is asserted rather than assumed.
-    const full = resolveDockWidthForAnalysisState({
-      viewportWidth: VIEWPORT,
-      storedWidth: null,
-      hasAnalysisResult: true,
-    })
-    expect(full).toBe(resolveDockWidth(VIEWPORT, null))
-    expect(full).toBeGreaterThan(DOCK_MIN_WIDTH)
+  it('no exported width rule takes an analysis-state argument under any name', () => {
+    // The rename escape hatch, closed. A twin called
+    // `resolveDockWidthForRunState` would satisfy the assertion above and
+    // reopen the defect, so this sweeps every export whose name mentions width
+    // and asserts none of them exists. Written against the CLASS, not the one
+    // identifier that happened to bite.
+    const widthExports = Object.keys(OutputsDockModule).filter((k) => /width/i.test(k))
+    expect(widthExports).toEqual([])
   })
 
-  it('never overrides a width the user set for themselves', () => {
-    // Someone who has dragged the dock has given a direct instruction.
-    // Narrowing it under them because an analysis has not run yet is the
-    // product overruling the user, and no layout ruling asks for that.
-    const stored = 460
-    expect(
-      resolveDockWidthForAnalysisState({
-        viewportWidth: VIEWPORT,
-        storedWidth: stored,
-        hasAnalysisResult: false,
-      }),
-    ).toBe(resolveDockWidth(VIEWPORT, stored))
+  it('the surviving width authority is a function of viewport and stored width ONLY', () => {
+    // `resolveDockWidth` is the whole rule now. Its signature admits no
+    // analysis input, and at the founder-facing viewport it returns the
+    // restored default rather than the drag floor.
+    expect(resolveDockWidth(VIEWPORT, null)).toBe(416)
+    expect(resolveDockWidth(VIEWPORT, null)).toBeGreaterThan(DOCK_MIN_WIDTH)
+    expect(resolveDockWidth.length).toBe(2)
   })
 
-  it('never returns a width below the usable floor, at any viewport', () => {
-    // Swept, because the narrow arm is a `Math.min` and a `min` against a
-    // pathologically small viewport is exactly where a floor gets lost.
-    for (const viewportWidth of [320, 768, 1024, 1280, 1600, 2560]) {
-      for (const hasAnalysisResult of [true, false]) {
-        expect(
-          resolveDockWidthForAnalysisState({ viewportWidth, storedWidth: null, hasAnalysisResult }),
-          `${viewportWidth}/${hasAnalysisResult}`,
-        ).toBeGreaterThanOrEqual(DOCK_MIN_WIDTH)
-      }
-    }
+  it('280 survives as the floor a manual drag clamps to — a floor, never a default', () => {
+    // The containment boundary. Removing the clamp must not remove the bound:
+    // a user may still drag the dock to 280, and a stored width below it is
+    // still raised to it.
+    expect(resolveDockWidth(VIEWPORT, 280)).toBe(DOCK_MIN_WIDTH)
+    expect(resolveDockWidth(VIEWPORT, 120)).toBe(DOCK_MIN_WIDTH)
+    // …and the product does not choose it: same viewport, no stored width.
+    expect(resolveDockWidth(VIEWPORT, null)).not.toBe(DOCK_MIN_WIDTH)
   })
 })
 

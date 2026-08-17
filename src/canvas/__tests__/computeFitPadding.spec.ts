@@ -193,30 +193,72 @@ describe('computeFitPadding', () => {
     }
   })
 
-  it('the motivating laptop case: 1280x800 with the responsive 333px dock leaves an 843px fitting box', () => {
-    // The exact geometry measured in the browser on 15 Aug 2026, pinned so the
-    // constants that produce it cannot drift back silently. Dock `right: 12`,
-    // responsive width 333 → left = 1280 - 12 - 333 = 935, overlap = 345.
+  it('the motivating laptop case: 1280x800 with the restored 416px dock leaves a 760px fitting box', () => {
+    // ⚠ RE-PINNED 17 Aug 2026 from the 333px dock (fit box 843px) to the
+    // restored 416px default. The geometry is the same measurement, taken at
+    // the width the dock is actually shipped at. Dock `right: 12`, width 416
+    // → left = 1280 - 12 - 416 = 852, overlap = 428.
     stubSelectors({
-      [DOCK]: fakeEl({ left: 935, right: 1268, width: 333, top: 12, bottom: 784, height: 772 }),
+      [DOCK]: fakeEl({ left: 852, right: 1268, width: 416, top: 12, bottom: 784, height: 772 }),
       [SIDEBAR]: fakeEl({ left: 12, right: 60, width: 48, top: 73, bottom: 300, height: 227 }),
     })
     const p = computeFitPadding(fakeEl({ left: 0, right: 1280, width: 1280, top: 0, bottom: 800, height: 800 }))
-    expect(p.right).toBe('361px') // 345 + 16
+    expect(p.right).toBe('444px') // 428 + 16
     expect(p.left).toBe('76px') // 60 + 16 > base 47
     expect(p.top).toBe('29px')
 
     const fitBoxWidth = 1280 - parseInt(p.right, 10) - parseInt(p.left, 10)
-    expect(fitBoxWidth).toBe(843)
+    expect(fitBoxWidth).toBe(760)
 
-    // ⚠ And the honest other half, asserted so nobody reads the number above as
-    // a fix: the drafted 17-node graph measures 2016 flow-units wide, so at the
-    // 0.5 legibility floor it needs 1008px. 843 is NOT enough — the post-draft
-    // fit still clamps. Closing that gap needs the dock collapsed, which is a
-    // workspace-shell decision, not a padding constant.
+    // ⚠ THE HONEST OTHER HALF, AND THE WHOLE REASON THE NARROWING WAS REVERTED.
+    // The drafted 17-node graph measures 2016 flow-units wide, so at the 0.5
+    // legibility floor it needs 1008px. The post-draft fit clamps at that floor
+    // at EVERY dock width the product has shipped — the trade of panel width
+    // for graph legibility was one-sided from the day it landed.
     const GRAPH_FLOW_WIDTH = 2016
     const LEGIBILITY_FLOOR = 0.5
-    expect(fitBoxWidth).toBeLessThan(GRAPH_FLOW_WIDTH * LEGIBILITY_FLOOR)
+    const REQUIRED = GRAPH_FLOW_WIDTH * LEGIBILITY_FLOOR // 1008
+    expect(fitBoxWidth).toBeLessThan(REQUIRED)
+  })
+
+  it('the fit box clamps at the legibility floor at 416, 333 AND 280 — the narrowing bought nothing', () => {
+    // THE DECISIVE ARITHMETIC, asserted rather than asserted-about. Each dock
+    // width is driven through the REAL `computeFitPadding` (not a formula
+    // restated here), and every one of them lands under the 1008px the graph
+    // needs. Swept over the three widths the product has actually shipped, so
+    // "narrowing the dock fixes the graph clamp" cannot be re-argued from a
+    // single unmeasured case.
+    const GRAPH_FLOW_WIDTH = 2016
+    const LEGIBILITY_FLOOR = 0.5
+    const REQUIRED = GRAPH_FLOW_WIDTH * LEGIBILITY_FLOOR // 1008
+    const expected: Record<number, number> = { 416: 760, 333: 843, 280: 896 }
+
+    for (const dockWidth of [416, 333, 280]) {
+      const dockLeft = 1280 - 12 - dockWidth
+      stubSelectors({
+        [DOCK]: fakeEl({
+          left: dockLeft,
+          right: dockLeft + dockWidth,
+          width: dockWidth,
+          top: 12,
+          bottom: 784,
+          height: 772,
+        }),
+        [SIDEBAR]: fakeEl({ left: 12, right: 60, width: 48, top: 73, bottom: 300, height: 227 }),
+      })
+      const p = computeFitPadding(
+        fakeEl({ left: 0, right: 1280, width: 1280, top: 0, bottom: 800, height: 800 }),
+      )
+      const fitBoxWidth = 1280 - parseInt(p.right, 10) - parseInt(p.left, 10)
+      expect(fitBoxWidth, `dock ${dockWidth}px`).toBe(expected[dockWidth])
+      expect(fitBoxWidth, `dock ${dockWidth}px still clamps at the floor`).toBeLessThan(REQUIRED)
+    }
+
+    // PIN THE PRECONDITION (trap 13b): the sweep is only evidence if the three
+    // widths genuinely produce three DIFFERENT fit boxes. A stub that silently
+    // stopped varying would satisfy every assertion above while measuring one
+    // case three times — undiscriminated output looks exactly like a result.
+    expect(new Set(Object.values(expected)).size).toBe(3)
   })
 })
 
