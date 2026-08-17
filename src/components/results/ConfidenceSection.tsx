@@ -469,6 +469,7 @@ export function ConfidenceSection({
     m2EvidenceEnhancements,
     // New ISL fields (gated on presence)
     conditionalWinners,
+    recommendedOptionId,
     inferenceWarnings,
   } = data
 
@@ -960,7 +961,7 @@ export function ConfidenceSection({
 
       {/* Conditional winners — factor-dependent recommendation splits (ISL) */}
       {conditionalWinners && conditionalWinners.length > 0 && (
-        <ConditionalWinnerCards winners={conditionalWinners} onFocusNode={onFocusNode} />
+        <ConditionalWinnerCards winners={conditionalWinners} recommendedOptionId={recommendedOptionId} onFocusNode={onFocusNode} />
       )}
 
       {/* Inference warnings — model gaps (ISL) */}

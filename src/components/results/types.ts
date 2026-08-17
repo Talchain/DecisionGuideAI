@@ -847,20 +847,56 @@ export interface AssumptionItem {
   target?: string
 }
 
-/** Conditional winner entry from ISL (factor-dependent recommendation splits) */
+/**
+ * One bucket of a conditional-winner split (schemas 0.46
+ * `EnrichmentConditionalBucketSchema`, carried VERBATIM).
+ *
+ * Every identity member is optional BY CONTRACT: CEE's withheld-claim
+ * projection strips exactly `winner_id` / `winner_label` / `runner_up_id` /
+ * `runner_up_label` on claim-withheld turns — absence means the leading
+ * option was withheld on this turn, and the consumer renders the neutral
+ * arm rather than guessing. `win_probability` is contract-required on the
+ * 0.44+ wire but ABSENT on the pre-0.44 persisted rows still replayed from
+ * run history — absence is preserved, never defaulted to 0.
+ */
+export interface ConditionalWinnerBucket {
+  /** Winning option ID in this bucket (absent ⇒ withheld on this turn) */
+  winner_id?: string
+  /** Winning option display label (display only — never bind logic to it) */
+  winner_label?: string
+  /** Runner-up option ID in this bucket */
+  runner_up_id?: string
+  /** Runner-up option display label */
+  runner_up_label?: string
+  /** Win probability of the winner in this bucket (absent stays absent) */
+  win_probability?: number
+  /** Mean outcome for the winner in this bucket */
+  mean_outcome?: number
+}
+
+/** Conditional winner entry from ISL (factor-dependent leadership splits) */
 export interface ConditionalWinner {
   /** Factor label driving the split */
   factor_label: string
   /** Factor node ID */
   factor_id: string
-  /** Split value where winner changes */
+  /** Split value where the leading option changes */
   split_value: number
   /** Unit for display */
   split_unit?: string
-  /** Winner label when factor is above split */
-  high_bucket: { winner_label: string; win_probability: number }
-  /** Winner label when factor is below split */
-  low_bucket: { winner_label: string; win_probability: number }
+  /** Bucket above the split */
+  high_bucket: ConditionalWinnerBucket
+  /** Bucket below the split */
+  low_bucket: ConditionalWinnerBucket
+  /**
+   * Producer attestation that the winning option CHANGES across the split
+   * (schemas 0.46: says THAT the winner changes, never WHICH option). This —
+   * not label comparison — is what makes a row a scenario: two options can
+   * share a display label (a real flip a label filter cannot see) and a
+   * label churn is not a flip. Rows without the attestation are not
+   * rendered as scenarios.
+   */
+  winner_flips?: boolean
 }
 
 /** Inference warning from ISL (model gaps) */
@@ -993,6 +1029,14 @@ export interface ConfidenceSectionData {
 
   /** ISL conditional_winners — factor-dependent recommendation splits */
   conditionalWinners?: ConditionalWinner[]
+  /**
+   * `report.robustness.recommended_option_id` VERBATIM — the backend's own
+   * leading-option identity, used to bind conditional-winner direction by
+   * ID (never by display label). Deliberately NOT the UI's recommendation
+   * fallback chain or tie-breaker: a UI-invented recommendation would be a
+   * guess wearing an ID, and the card's honest fallback is its neutral arm.
+   */
+  recommendedOptionId?: string
   /** ISL inference_warnings — model gap warnings */
   inferenceWarnings?: InferenceWarning[]
   /** ISL edge_e_values — sensitivity measure per edge */

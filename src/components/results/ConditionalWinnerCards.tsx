@@ -1,25 +1,40 @@
 /**
- * ConditionalWinnerCards — factor-dependent recommendation splits (ISL).
+ * ConditionalWinnerCards — factor-dependent leadership splits (ISL).
  *
- * Brief 4 Task 10. Post-analysis surfaces where the recommendation flips
- * when a factor crosses a split point. Gated on at least one winner-flip
- * entry being present (entries where high/low buckets share the same
- * winner are not "scenarios" and are filtered out).
+ * V6 Science-to-Reasoning slice: the card binds to the PRODUCER's claims,
+ * never to display-label comparison.
  *
- * Copy derives the direction from which bucket carries the ALTERNATIVE
- * winner relative to the overall recommended option:
- *   - if the flip happens on the HIGH side → "When X exceeds N, ALT leads instead"
- *   - if the flip happens on the LOW side  → "When X falls below N, ALT leads instead"
- * When the recommended option label is unknown, fall back to "exceeds" with
- * the high-bucket winner — this is the most conservative phrasing and matches
- * PLoT's typical monotone interpretation of split values.
+ *   - A scenario is a row the producer ATTESTED with `winner_flips: true`
+ *     (schemas 0.46: "says THAT the winner changes across the split, never
+ *     WHICH option"). Label inequality is not a flip test: two options can
+ *     share one display label (a real flip a label filter cannot see) and a
+ *     label churn is not a flip (trap 19).
+ *
+ *   - Direction binds by IDENTITY: `winner_id` vs `recommendedOptionId`
+ *     (`report.robustness.recommended_option_id`). If the recommended id
+ *     sits in the LOW bucket, the flip happens when the factor EXCEEDS the
+ *     split; in the HIGH bucket, when it FALLS BELOW. Labels are display
+ *     only.
+ *
+ *   - When direction cannot be bound by ID (identity withheld by CEE's
+ *     withheld-claim projection, recommended id absent, or matching neither
+ *     bucket), the card renders the NEUTRAL two-sided arm — the factor and
+ *     the threshold with no option name and no direction — instead of
+ *     guessing or vanishing. CEE ships identity-stripped rows deliberately
+ *     ("dropping the key whole would be the over-suppression failure");
+ *     rendering nothing would drop that claim on the floor.
+ *
+ *   - Absent numerics render as absent. A row without a finite
+ *     `split_value` is not renderable as a threshold claim and is skipped
+ *     (defence in depth — the projection already drops it). An absent
+ *     `win_probability` omits the percentage; it is never minted as 0%.
  */
 
 import { useMemo } from 'react'
 import { GitBranch, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
-import type { ConditionalWinner } from './types'
+import type { ConditionalWinner, ConditionalWinnerBucket } from './types'
 // Canonical glossary check shared with the v17 hero row builders + body
 // sub-components. Used in v17 mode to sanitise user-supplied factor /
 // option labels before they enter generated prose. The raw label still
@@ -30,19 +45,24 @@ const MAX_CONDITIONAL_CARDS = 3
 
 interface ConditionalWinnerCardsProps {
   winners: ConditionalWinner[]
-  /** Label of the overall recommended option (drives direction wording). */
-  recommendedLabel?: string
+  /**
+   * `report.robustness.recommended_option_id` — the backend's own
+   * leading-option identity. Direction wording derives from comparing this
+   * to the buckets' `winner_id`s BY IDENTITY; display labels never decide
+   * direction. Absent (or matching neither bucket) ⇒ the neutral arm.
+   */
+  recommendedOptionId?: string
   onFocusNode?: (nodeId: string) => void
   /**
    * v17 hero mode (Round-7 review). When true:
    *   - The header info tooltip + sr-only text drop the banned word
    *     "recommendation" in favour of "which option leads".
-   *   - All four interpolated user labels (`factor_label`, the chosen
-   *     `alt` winner_label, and the two bucket `winner_label`s in the
-   *     Above/Below footer) route through `safeInterpolatedLabel` so a
-   *     user-named option like "Winning strategy" cannot smuggle a
-   *     banned term into the visible prose. The raw label still appears
-   *     verbatim when `useV17Copy=false`.
+   *   - All interpolated user labels (`factor_label`, the chosen `alt`
+   *     winner_label, and the two bucket `winner_label`s in the Above/Below
+   *     footer) route through `safeInterpolatedLabel` so a user-named
+   *     option like "Winning strategy" cannot smuggle a banned term into
+   *     the visible prose. The raw label still appears verbatim when
+   *     `useV17Copy=false`.
    *
    * Default: false — the copy the legacy panel used before it was deleted,
    * kept so remaining callers and tests are untouched.
@@ -50,14 +70,20 @@ interface ConditionalWinnerCardsProps {
   useV17Copy?: boolean
 }
 
+/** Which direction arm a row can honestly claim. */
+type DirectionArm = 'high-alt' | 'low-alt' | 'neutral'
+
 export function ConditionalWinnerCards({
   winners,
-  recommendedLabel,
+  recommendedOptionId,
   onFocusNode,
   useV17Copy = false,
 }: ConditionalWinnerCardsProps) {
+  // Producer attestation ONLY — label comparison cannot see a same-label
+  // flip and renders label churn as a phantom scenario. A row without a
+  // finite split_value cannot state "flips at N" and is skipped.
   const flipping = useMemo(
-    () => winners.filter(w => w.high_bucket.winner_label !== w.low_bucket.winner_label),
+    () => winners.filter(w => w.winner_flips === true && Number.isFinite(w.split_value)),
     [winners],
   )
   if (flipping.length === 0) return null
@@ -94,47 +120,77 @@ export function ConditionalWinnerCards({
             else focusNodeById(w.factor_id)
           }
         }
-        // Direction: if the recommended option matches the LOW bucket winner,
-        // then the flip happens when the factor EXCEEDS the split (HIGH bucket
-        // is the alternative). If it matches the HIGH bucket, flip happens
-        // when the factor FALLS BELOW the split.
-        const highIsAlt = recommendedLabel != null
-          ? w.low_bucket.winner_label === recommendedLabel
-          : true
-        const direction = highIsAlt ? 'exceeds' : 'falls below'
-        const alt = highIsAlt ? w.high_bucket.winner_label : w.low_bucket.winner_label
-        const splitSuffix = w.split_unit ? w.split_unit : ''
+        // Direction by IDENTITY. The recommended option id must match
+        // exactly one bucket's winner_id; anything else — identity withheld,
+        // recommended absent, or an id the buckets don't carry — is the
+        // neutral arm, never a guess.
+        const highId = w.high_bucket.winner_id
+        const lowId = w.low_bucket.winner_id
+        let arm: DirectionArm = 'neutral'
+        if (recommendedOptionId && highId && lowId && highId !== lowId) {
+          if (lowId === recommendedOptionId) arm = 'high-alt'
+          else if (highId === recommendedOptionId) arm = 'low-alt'
+        }
+        // A directional sentence names the alternative; without its label
+        // there is nothing honest to name — fall back to the neutral arm.
+        const altBucket: ConditionalWinnerBucket | undefined =
+          arm === 'high-alt' ? w.high_bucket : arm === 'low-alt' ? w.low_bucket : undefined
+        if (arm !== 'neutral' && altBucket?.winner_label === undefined) arm = 'neutral'
+
+        const splitDisplay = `${w.split_value.toLocaleString()}${w.split_unit ?? ''}`
         // (Round-7 P1.1) v17 mode: gate every user-supplied label that
         // enters the visible prose through `safeInterpolatedLabel`. The
         // legacy panel keeps the raw labels verbatim (default).
         const factorLabelDisplay = useV17Copy
           ? safeInterpolatedLabel(w.factor_label, 'this factor')
           : w.factor_label
-        const altDisplay = useV17Copy
-          ? safeInterpolatedLabel(alt, 'the other option')
-          : alt
-        const highLabelDisplay = useV17Copy
-          ? safeInterpolatedLabel(w.high_bucket.winner_label, 'the other option')
-          : w.high_bucket.winner_label
-        const lowLabelDisplay = useV17Copy
-          ? safeInterpolatedLabel(w.low_bucket.winner_label, 'the other option')
-          : w.low_bucket.winner_label
+        const altDisplay = altBucket?.winner_label !== undefined
+          ? (useV17Copy ? safeInterpolatedLabel(altBucket.winner_label, 'the other option') : altBucket.winner_label)
+          : undefined
+
+        // Footer sides render exactly what the producer sent: label when
+        // present, percentage when present, neither minted. A side with
+        // nothing to say is omitted; so is an empty footer.
+        const sideText = (bucket: ConditionalWinnerBucket): string | undefined => {
+          const label = bucket.winner_label !== undefined
+            ? (useV17Copy ? safeInterpolatedLabel(bucket.winner_label, 'the other option') : bucket.winner_label)
+            : undefined
+          const pct = bucket.win_probability !== undefined
+            ? `${Math.round(bucket.win_probability * 100)}%`
+            : undefined
+          if (label !== undefined && pct !== undefined) return `${label} (${pct})`
+          if (label !== undefined) return label
+          if (pct !== undefined) return pct
+          return undefined
+        }
+        const aboveText = sideText(w.high_bucket)
+        const belowText = sideText(w.low_bucket)
+
         return (
           <div
             key={`${w.factor_id}-${idx}`}
+            data-cw-arm={arm}
             className={`p-3 bg-panel border border-info/30 rounded-lg ${canFocus ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all' : ''}`}
             onClick={canFocus ? handleFocus : undefined}
             role={canFocus ? 'button' : undefined}
             tabIndex={canFocus ? 0 : undefined}
             onKeyDown={canFocus ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } } : undefined}
           >
-            <p className={`${typography.panelBody} text-text-body`}>
-              When <span className="text-text-header">{factorLabelDisplay}</span> {direction} {w.split_value.toLocaleString()}{splitSuffix}, <span className="text-text-header">{altDisplay}</span> leads instead.
-            </p>
-            <div className={`${typography.panelMeta} text-text-light mt-1 flex gap-4`}>
-              <span>Above: {highLabelDisplay} ({Math.round(w.high_bucket.win_probability * 100)}%)</span>
-              <span>Below: {lowLabelDisplay} ({Math.round(w.low_bucket.win_probability * 100)}%)</span>
-            </div>
+            {arm === 'neutral' ? (
+              <p className={`${typography.panelBody} text-text-body`}>
+                Which option leads depends on <span className="text-text-header">{factorLabelDisplay}</span> — the analysis flips at {splitDisplay}.
+              </p>
+            ) : (
+              <p className={`${typography.panelBody} text-text-body`}>
+                When <span className="text-text-header">{factorLabelDisplay}</span> {arm === 'high-alt' ? 'exceeds' : 'falls below'} {splitDisplay}, <span className="text-text-header">{altDisplay}</span> leads instead.
+              </p>
+            )}
+            {(aboveText !== undefined || belowText !== undefined) && (
+              <div className={`${typography.panelMeta} text-text-light mt-1 flex gap-4`}>
+                {aboveText !== undefined && <span>Above: {aboveText}</span>}
+                {belowText !== undefined && <span>Below: {belowText}</span>}
+              </div>
+            )}
           </div>
         )
       })}

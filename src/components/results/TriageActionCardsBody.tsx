@@ -758,7 +758,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
         <div className="border-t border-panel-border pt-3">
           <ConditionalWinnerCards
             winners={data.confidence.conditionalWinners}
-            recommendedLabel={data.recommendation.recommendedOption?.label}
+            recommendedOptionId={data.confidence.recommendedOptionId}
             onFocusNode={onFocusNode}
             useV17Copy={useV17Copy}
           />
