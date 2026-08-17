@@ -270,6 +270,151 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # ── Visual regression (ADVISORY — reports, never blocks) ─────────────
+  #
+  # WHY: between 2026-08-15 and 2026-08-17 roughly fifteen UI PRs merged, every
+  # one green, and together they shipped a layout regression that only the
+  # founder's eyes caught. He was the only instrument the programme had for
+  # visual defects. This job is the replacement instrument.
+  #
+  # ⚠ ADVISORY ON PURPOSE, AND ONLY FOR NOW. It is `continue-on-error` and is
+  # deliberately ABSENT from the "Staging Gate" aggregator's `needs` at the end
+  # of this file, so a red here is loud but does not block a merge. Promoting it
+  # to a required check is a separate, later decision, to be taken once its
+  # false-positive rate on `ubuntu-latest` has actually been observed rather
+  # than assumed. Measured on darwin the run-to-run noise floor is 0 differing
+  # pixels out of 1,296,000; the linux figure is not yet known, and gating on an
+  # unmeasured false-positive rate is how a check becomes a red everyone learns
+  # to ignore (CLAUDE.md trap 7).
+  #
+  # ⚠ IT MUST NEVER REPORT SUCCESS HAVING EXECUTED NOTHING. A check in this repo
+  # did exactly that for 204 days. Two mechanisms prevent it here:
+  #   - `globalTeardown` asserts the captured screenshots BY NAME against
+  #     STATE_NAMES x VIEWPORTS and fails the run on zero captures;
+  #   - references are platform-scoped and a MISSING one is a hard error, not a
+  #     silent write (`updateSnapshots: 'none'`), so "no baseline" can never be
+  #     mistaken for "no difference".
+  #
+  # FIRST RUN ON A BRANCH WITH NO LINUX REFERENCES: chromium renders text
+  # differently on darwin and linux, so the committed darwin references cannot
+  # be compared here. The job generates the linux set, uploads it for review,
+  # and FAILS with instructions. It never commits them — re-blessing is an
+  # explicit human commit (scripts/visual/rebless.sh, e2e/visual/README.md).
+  visual-regression:
+    name: Visual Regression (advisory)
+    needs: install
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Chromium (Playwright)
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Are there linux references to compare against?
+        id: refs
+        run: |
+          set -o pipefail
+          count=$(ls -1 e2e/visual/references/linux/*.png 2>/dev/null | wc -l | tr -d ' ')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Found $count committed linux reference image(s)."
+
+      - name: Compare against committed linux references
+        if: steps.refs.outputs.count != '0'
+        run: pnpm run visual
+
+      - name: Generate linux references for review (no references committed yet)
+        if: steps.refs.outputs.count == '0'
+        run: |
+          set -o pipefail
+          echo "::warning::No linux visual references are committed. Generating them for human review."
+          VISREG_BLESS=1 pnpm exec playwright test -c playwright.visual.config.ts --reporter=list
+
+      - name: Upload generated references for review
+        if: always() && steps.refs.outputs.count == '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-references-generated-linux
+          path: e2e/visual/references/linux
+          retention-days: 14
+          if-no-files-found: error
+
+      # A generated-reference run has compared NOTHING. Saying so is the whole
+      # point: an unmeasured state must read as unmeasured, never as a pass.
+      - name: Fail — linux references absent, nothing was compared
+        if: steps.refs.outputs.count == '0'
+        run: |
+          echo "::error::No linux visual references were committed, so this run compared NOTHING."
+          echo "::error::Download the 'visual-references-generated-linux' artifact, LOOK AT THE IMAGES,"
+          echo "::error::and commit them to e2e/visual/references/linux/ as their own reviewable commit."
+          exit 1
+
+      - name: Upload diffs and HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-report
+          path: |
+            playwright-report-visual
+            test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo '### Visual regression (advisory — does not block merges)'
+            echo ''
+            if [ -f test-results/visual-selftest/selftest-report.txt ]; then
+              echo 'Self-test measurement — the tolerance must separate noise from a real regression:'
+              echo ''
+              echo '```'
+              cat test-results/visual-selftest/selftest-report.txt
+              echo '```'
+            fi
+            if [ -f test-results/visual-manifest.txt ]; then
+              echo ''
+              echo 'States captured this run:'
+              echo ''
+              echo '```'
+              cat test-results/visual-manifest.txt
+              echo '```'
+            else
+              echo ''
+              echo '⚠ No capture manifest — this run captured nothing.'
+            fi
+            echo ''
+            echo 'Failed comparisons upload `-expected` / `-actual` / `-diff` images in the'
+            echo '`visual-regression-report` artifact. Adjudicate the image, do not guess from a ratio.'
+            echo 'To accept a change: `scripts/visual/rebless.sh`, review, and commit the references on their own.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # ── Full test suite (sharded 4-way) ───────────────────────────────────
   vitest:
     name: Full Test Suite (shard ${{ matrix.shard }}/${{ strategy.job-total }})
