@@ -2192,10 +2192,25 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   // effectiveIsOpen is defined once near isFirstUse (above) and reused here.
 
+  // ⚠ THESE FALLBACKS ARE NOT FREE NUMBERS — they must equal the `:root`
+  // declarations in `src/index.css` (`--dock-right-expanded: 26rem`,
+  // `--dock-right-collapsed: 2.5rem`), which in turn must equal
+  // `DOCK_RESPONSIVE_MAX_WIDTH` in `dockWidth.ts`. `--dock-right-expanded`
+  // said `24rem` here for as long as the declaration said 26rem: the default
+  // was widened and this hand-copy was missed, so the two disagreed by 32px
+  // and the css-var census had the pair ALLOWLISTED as known drift.
+  //
+  // Kept as literals on purpose. Building them from the constant
+  // (`` `var(--x, ${DOCK_RESPONSIVE_MAX_WIDTH}px)` ``) reads as the safer fix
+  // and is not: the census resolves interpolations in the property-NAME
+  // region only, so the fallback arrives as a placeholder and the comparison
+  // is blinded permanently. Agreement is enforced instead by the derived
+  // guard in `tests/ci-guards/css-var-resolution.spec.ts` — edit either side
+  // and it REDs, naming both.
   const asideStyle: React.CSSProperties = {
     position: 'fixed',
     width: effectiveIsOpen
-      ? 'var(--dock-right-expanded, 24rem)'
+      ? 'var(--dock-right-expanded, 26rem)'
       : 'var(--dock-right-collapsed, 2.5rem)',
     right: 12,
     top: 12,

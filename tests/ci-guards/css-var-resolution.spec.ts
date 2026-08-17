@@ -357,6 +357,15 @@ const KNOWN_UNDEFINED_CSS_PALETTE = [
  * `--info-hover` is #236E8E, and EmptyState.tsx:21 still falls back to the
  * base blue. That is a genuine, still-live drift with its own history, and D1
  * did not touch it.
+ *
+ * REPAIRED 17 Aug 2026, removed from this list: `--dock-right-expanded|24rem`.
+ * That entry was the odd one out — every other line here is a COLOUR decision
+ * deliberately deferred, whereas this was a stale hand-copy of a LAYOUT number
+ * (`OutputsDock.tsx` said 24rem/384px while index.css declared 26rem/416px,
+ * having been "Widened from 24rem"). Pinning it meant the guard written to
+ * catch a drifted fallback was certifying one, which reads to every later
+ * session as a settled choice. The fallback now matches, and the dock's three
+ * authorities are bound together by the derived block at the foot of this file.
  */
 const KNOWN_FALLBACK_DRIFT = [
   '--bg-panel|#FEF9F3',
@@ -369,7 +378,6 @@ const KNOWN_FALLBACK_DRIFT = [
   '--bottombar-h|0',
   '--bottombar-h|0px',
   '--danger|#ef4444',
-  '--dock-right-expanded|24rem',
   '--factor|#6b7280',
   '--factor-light|rgba(176,168,153,0.3)',
   '--goal|#f59e0b',
@@ -639,5 +647,189 @@ describe('css custom-property resolution guard', () => {
     for (const u of census.fallbackUncomparable) {
       expect(u.reason, `var(${u.name}, ${u.fallback}) reported uncomparable with no reason`).toBeTruthy()
     }
+  })
+})
+
+// ───────────────────────────────────────────────────────────── dock width
+/**
+ * THE DOCK'S EXPANDED WIDTH HAD THREE AUTHORITIES AND THEY DISAGREED.
+ *
+ * The census above compares a `var()` fallback against the token it shadows,
+ * which catches two of the three. It cannot see the third, because the third
+ * is not CSS: `dockWidth.ts` owns the width the dock is actually given at
+ * runtime (`resolveDockWidth` writes it with `setProperty`), and no CSS-side
+ * census can reach a TypeScript constant. So the three were:
+ *
+ *   1. `src/index.css`            `--dock-right-expanded: 26rem`   → 416px
+ *   2. `OutputsDock.tsx`          `var(--dock-right-expanded, …)`  → 384px  ✗
+ *   3. `dockWidth.ts`             `DOCK_RESPONSIVE_MAX_WIDTH`      → 416px
+ *
+ * (2) was a hand-copied `24rem` left behind when the default was widened —
+ * its own trailing comment in index.css ("Widened from 24rem") is the
+ * fingerprint. It sat in `KNOWN_FALLBACK_DRIFT` above, so the guard that
+ * exists to catch exactly this was CERTIFYING it. A pinned defect is worse
+ * than an unpinned one: it reads as a decision.
+ *
+ * WHY THE FALLBACK IS STILL A LITERAL, rather than built from the constant.
+ * The obvious repair is `` `var(--dock-right-expanded, ${DOCK_RESPONSIVE_MAX_WIDTH}px)` ``
+ * so the copy cannot drift. MEASURED, and it defeats the census: the scanner
+ * resolves interpolations in the property-NAME region only, so the fallback
+ * region arrives as the placeholder `@@0@@` and the census reports
+ * `var(--dock-right-expanded, @@0@@) but --dock-right-expanded is 26rem` —
+ * a permanent, meaningless drift that would have to be allowlisted, blinding
+ * the comparison for good. Deriving the value at RUNTIME costs the guard its
+ * sight. So the value stays statically readable and the DERIVATION lives
+ * here: all three authorities are parsed from source and required to agree.
+ * Nothing below restates the number — a mirror in the test is still a mirror.
+ *
+ * Deleting the fallback instead was rejected: `width: var(--x)` with the
+ * property undefined is invalid at computed-value time, so `width` falls back
+ * to `auto` and a `position: fixed` panel collapses to its content. A
+ * 32px-wrong fallback is a bad day; an `auto`-width dock is a broken screen.
+ */
+const REPO_ROOT = path.resolve(__dirname, '../..')
+const DOCK_SOURCES = {
+  css: 'src/index.css',
+  consumer: 'src/canvas/components/OutputsDock.tsx',
+  widthAuthority: 'src/canvas/components/dockWidth.ts',
+} as const
+
+/**
+ * CSS's initial root font size, and the only reason a `rem` fallback can be
+ * compared against a `px` constant at all.
+ *
+ * This is NOT a number chosen here: it is the CSS initial value, and it
+ * applies only because nothing in this repo overrides the root font size.
+ * That precondition is the first test below — if a stylesheet ever sets
+ * `html { font-size: … }`, every conversion in this block silently changes
+ * meaning, so the guard must fail rather than quietly convert wrongly.
+ */
+const ROOT_FONT_SIZE_PX = 16
+
+const readRepoFile = (rel: string) => readFileSync(path.join(REPO_ROOT, rel), 'utf8')
+
+/** Convert a CSS length to px. Only rem and px — anything else is a hard error. */
+function lengthToPx(value: string, where: string): number {
+  const v = value.trim().toLowerCase()
+  const m = v.match(/^(-?\d*\.?\d+)(rem|px)$/)
+  if (!m) {
+    throw new Error(
+      `${where}: "${value}" is not a plain rem/px length, so this guard cannot compare it. ` +
+        'Either express the dock width in rem or px, or teach lengthToPx the new unit — ' +
+        'do NOT skip the comparison, which is how the 24rem/26rem drift survived.',
+    )
+  }
+  return m[2] === 'rem' ? Number(m[1]) * ROOT_FONT_SIZE_PX : Number(m[1])
+}
+
+/** Every `--dock-*` custom property DECLARED in a stylesheet, name → values. */
+function declaredDockTokens(css: string): Map<string, string[]> {
+  const out = new Map<string, string[]>()
+  const re = /(--dock-[a-z-]+)\s*:\s*([^;{}]+)[;}]/g
+  for (let m = re.exec(css); m; m = re.exec(css)) {
+    const value = m[2].replace(/\/\*[\s\S]*?\*\//g, '').trim()
+    out.set(m[1], [...(out.get(m[1]) ?? []), value])
+  }
+  return out
+}
+
+/** Every `var(--dock-*, fallback)` USE that carries a hardcoded fallback. */
+function dockFallbackUses(source: string): { name: string; fallback: string }[] {
+  const uses: { name: string; fallback: string }[] = []
+  const re = /var\(\s*(--dock-[a-z-]+)\s*,\s*([^(),]+?)\s*\)/g
+  for (let m = re.exec(source); m; m = re.exec(source)) uses.push({ name: m[1], fallback: m[2] })
+  return uses
+}
+
+describe('dock width — three authorities, one number, derived on every side', () => {
+  const indexCss = readRepoFile(DOCK_SOURCES.css)
+  const outputsDock = readRepoFile(DOCK_SOURCES.consumer)
+  const declared = declaredDockTokens(indexCss)
+  const uses = dockFallbackUses(outputsDock)
+
+  it('the guard can SEE both sides it is comparing (positive control)', () => {
+    // An empty parse satisfies every agreement assertion below while testing
+    // nothing (trap 13). Pin the preconditions BY NAME, so a refactor that
+    // moves the dock's width out of these shapes REDs here rather than
+    // silently reducing this whole block to a no-op.
+    expect(
+      [...declared.keys()].sort(),
+      `no --dock-* declarations parsed out of ${DOCK_SOURCES.css} — the scan, not the CSS, is what changed`,
+    ).toEqual(expect.arrayContaining(['--dock-right-collapsed', '--dock-right-expanded']))
+    expect(
+      uses.map((u) => u.name).sort(),
+      `no var(--dock-*, fallback) uses parsed out of ${DOCK_SOURCES.consumer}`,
+    ).toEqual(['--dock-right-collapsed', '--dock-right-expanded'])
+  })
+
+  it('the root font-size this guard converts with is not overridden anywhere', () => {
+    // The rem→px conversion is only valid while the root font size is the
+    // CSS initial 16px. Derive that, never assume it.
+    const files = execFileSync('git', ['ls-files', '*.css'], { cwd: REPO_ROOT, encoding: 'utf8' })
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+    const overrides: string[] = []
+    let sawAnyFontSize = 0
+    for (const file of files) {
+      const css = readRepoFile(file)
+      if (/font-size\s*:/.test(css)) sawAnyFontSize += 1
+      const rule = /([^{}]*)\{([^{}]*)\}/g
+      for (let m = rule.exec(css); m; m = rule.exec(css)) {
+        const selector = (m[1].split('\n').pop() ?? '').trim()
+        const declarations = m[2]
+        if (/(^|[\s,>+~])(html|:root)($|[\s,:.[])/.test(`${selector} `) && /font-size\s*:/.test(declarations)) {
+          overrides.push(`${file}: ${selector} { ${(declarations.match(/font-size\s*:[^;]*/) ?? [''])[0].trim()} }`)
+        }
+      }
+    }
+    // CONTRAST CONTROL: an absence claim from a scanner that cannot see the
+    // thing is worth nothing. Prove it finds font-size where font-size exists.
+    expect(sawAnyFontSize, 'the scan found font-size in NO stylesheet — it is blind, not the CSS clean').toBeGreaterThan(0)
+    expect(
+      overrides,
+      `a stylesheet overrides the root font size, so ${ROOT_FONT_SIZE_PX}px is no longer the rem basis and ` +
+        'every rem↔px comparison in this block is now wrong. Re-derive the basis before relaxing this.',
+    ).toEqual([])
+  })
+
+  // One case PER TOKEN, not a loop inside one test. A loop fails fast, so the
+  // first disagreement hides every pair after it — and the agreeing sibling
+  // then never runs at all, which is the difference between a control and a
+  // claim about one. `--dock-right-collapsed` agrees (2.5rem both sides) and
+  // `--dock-right-expanded` did not, in the SAME file: named separately, the
+  // pair shows this guard both firing and standing down on real data.
+  it.each(uses.map((u) => [u.name, u.fallback] as const))(
+    'var(%s, %s) resolves to the token it shadows',
+    (name, fallback) => {
+      const values = declared.get(name)
+      expect(values, `var(${name}, …) shadows a property nothing declares`).toBeDefined()
+      expect(values, `${name} is declared more than once — pick one authority`).toHaveLength(1)
+      const declaredPx = lengthToPx(values![0], `${DOCK_SOURCES.css} ${name}`)
+      const fallbackPx = lengthToPx(fallback, `${DOCK_SOURCES.consumer} var(${name}, …)`)
+      expect(
+        fallbackPx,
+        `var(${name}, ${fallback}) is ${fallbackPx}px but ${name} is declared ` +
+          `${values![0]} (${declaredPx}px) in ${DOCK_SOURCES.css} — a hand-copied fallback that ` +
+          'stopped tracking the token it shadows. Match it to the declaration.',
+      ).toBe(declaredPx)
+    },
+  )
+
+  it('the CSS default and the runtime width authority are the same number', () => {
+    // The third authority, invisible to the CSS census: dockWidth.ts is what
+    // `setProperty('--dock-right-expanded', …)` actually writes on mount.
+    const widthAuthority = readRepoFile(DOCK_SOURCES.widthAuthority)
+    const m = widthAuthority.match(/export const DOCK_RESPONSIVE_MAX_WIDTH\s*=\s*(\d+)/)
+    expect(m, `DOCK_RESPONSIVE_MAX_WIDTH not found in ${DOCK_SOURCES.widthAuthority}`).toBeTruthy()
+    const runtimeCeilingPx = Number(m![1])
+    const declaredPx = lengthToPx(declared.get('--dock-right-expanded')![0], 'index.css --dock-right-expanded')
+    expect(
+      declaredPx,
+      `${DOCK_SOURCES.css} declares --dock-right-expanded as ${declared.get('--dock-right-expanded')![0]} ` +
+        `(${declaredPx}px) but ${DOCK_SOURCES.widthAuthority} resolves the dock to ${runtimeCeilingPx}px at ` +
+        'every viewport wide enough to reach the ceiling. The pre-JS width and the post-mount width would ' +
+        'differ, so the dock would visibly jump on load.',
+    ).toBe(runtimeCeilingPx)
   })
 })
