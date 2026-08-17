@@ -198,29 +198,92 @@ describe('runStateKind — the invariant consumers are allowed to rely on', () =
 
     // Swept over every kind the wire can state, so a new contract member cannot
     // quietly arrive on the wire branch reading `null`.
-    for (const run_state of [
-      { kind: 'never_run' },
-      { kind: 'running', started_at: '2026-08-16T10:00:00.000Z' },
-      { kind: 'refused', reason_code: 'analysis_declined_this_turn' },
-      { kind: 'unknown_degraded', cause: 'store_unreadable' },
-      { kind: 'complete_current', computed_at: '2026-08-16T10:00:00.000Z' },
-    ] as const) {
-      const over: Partial<AnalysisStateV1> = { run_state }
-      // CC-C (0.47.0): `never_run` forbids every usability flag being true.
-      if (run_state.kind === 'never_run') {
-        Object.assign(over, {
-          usable_for_prose: false,
-          usable_for_chips: false,
-          usable_for_followup: false,
-          requires_rerun: false,
-        })
-      }
+    //
+    // Each row carries its FULL override, not just `run_state`, because the
+    // 0.47.0 cross-checks tie the usability booleans to the kind and
+    // `wireVerdict` deliberately does not auto-repair them (see its note). The
+    // CC rules cited below are derived from the contract at this pin —
+    // `refineAnalysisStateV1` in `@talchain/schemas/boundary`'s
+    // `analysis-state`, which states each rule and its proof class.
+    const SWEPT: readonly (Partial<AnalysisStateV1> &
+      Pick<AnalysisStateV1, 'run_state'>)[] = [
+      {
+        run_state: { kind: 'never_run' },
+        // CC-C: `never_run` means no analysis fact exists, and the producer
+        // derives every usability flag from that fact — so all four are false.
+        usable_for_prose: false,
+        usable_for_chips: false,
+        usable_for_followup: false,
+        requires_rerun: false,
+      },
+      { run_state: { kind: 'running', started_at: '2026-08-16T10:00:00.000Z' } },
+      {
+        run_state: { kind: 'blocked', reason_code: 'no_goal_node', blockers: [] },
+        // CC-A: the same producer status that selects the `blocked` branch
+        // forces `blocked_unusable` true — a payload asserting otherwise cannot
+        // come from the producer.
+        blocked_unusable: true,
+        // CC-D: every `usable_for_*` flag is computed with a not-blocked
+        // conjunct, so none can be true beside `blocked_unusable`.
+        // `requires_rerun` is DELIBERATELY exempt (a blocked model whose prior
+        // fact is stale emits it), so it is left at the base fixture's value
+        // rather than pinned here.
+        usable_for_prose: false,
+        usable_for_chips: false,
+        usable_for_followup: false,
+      },
+      { run_state: { kind: 'refused', reason_code: 'analysis_declined_this_turn' } },
+      { run_state: { kind: 'complete_current', computed_at: '2026-08-16T10:00:00.000Z' } },
+      {
+        run_state: {
+          kind: 'complete_stale',
+          computed_at: '2026-08-16T10:00:00.000Z',
+          cause: 'graph_changed',
+        },
+        // CC-F: the chip predicate requires a fresh verdict and a stale kind is
+        // produced only from a stale one.
+        usable_for_chips: false,
+      },
+      { run_state: { kind: 'unknown_degraded', cause: 'store_unreadable' } },
+    ]
+
+    // ⭐ DERIVED COMPLETENESS GUARD (trap 12 — the hand-maintained mirror).
+    // The sweep above is a hand-written list, so on its own it would go
+    // silently short the day an eighth kind lands: the two kinds it was missing
+    // when this guard was added — `blocked` and `complete_stale` — were exactly
+    // that, unswept for a whole review cycle with the suite green.
+    //
+    // Derived from `ANALYSIS_RUN_STATE_KINDS`, i.e. the CONTRACT's own closed
+    // vocabulary, rather than from a UI-side table that mirrors it: the
+    // producer owns this enum, so the producer is what the sweep must equal.
+    // Sorted on both sides — this asserts SET equality, not sweep order.
+    expect(
+      SWEPT.map((over) => over.run_state.kind)
+        .slice()
+        .sort(),
+    ).toStrictEqual([...ANALYSIS_RUN_STATE_KINDS].slice().sort())
+
+    for (const over of SWEPT) {
+      const kind = over.run_state.kind
       const wired = composeAnalysisState({
         ...LEGACY_SAYS_CURRENT,
         analysisState: wireVerdict(over),
       })
-      expect(wired.authority, run_state.kind).toBe('wire')
-      expect(wired.runStateKind, run_state.kind).toBe(run_state.kind)
+      expect(wired.authority, kind).toBe('wire')
+      expect(wired.runStateKind, kind).toBe(kind)
+
+      // The producer-computed booleans travel through VERBATIM — this module's
+      // own header forbids re-deriving them. Bound by IDENTITY to the exact
+      // field and the exact kind, so no other row could satisfy them.
+      if (kind === 'blocked') {
+        expect(wired.blockedUnusable, kind).toBe(true)
+        expect(wired.usableForProse, kind).toBe(false)
+        expect(wired.usableForChips, kind).toBe(false)
+        expect(wired.usableForFollowup, kind).toBe(false)
+      }
+      if (kind === 'complete_stale') {
+        expect(wired.usableForChips, kind).toBe(false)
+      }
     }
   })
 })
