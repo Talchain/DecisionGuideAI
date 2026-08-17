@@ -46,8 +46,8 @@ import {
  * ⚠ DERIVED, NOT INVENTED. The salvaged `stateSelection.selectHeroState`
  * returned one of `weak | moderate | reflect | strong`, but `rankHeroRows`
  * only ever discriminated `strong` from everything else — `moderate` and
- * `reflect` took the identical branch. So only the `strong` predicate is
- * carried over, and it is carried over EXACTLY:
+ * `reflect` took the identical branch. So only the `strong` predicate was
+ * carried over:
  *
  *   selectHeroState returns 'strong'  ⟺
  *     hasWinner
@@ -57,34 +57,117 @@ import {
  *     ∧ robustnessVerdict === 'robust'
  *     ∧ stability ≥ 0.85 ∧ gaps ≤ 1 ∧ fragileEdgeCount === 0
  *
- * The two bracketed weak guards are entailed by `stability ≥ 0.85 ∧ gaps ≤ 1`
- * (0.85 ≮ 0.5, and 1 < 3 ≤ 4), so dropping them changes nothing. That
- * equivalence is proved by execution — not asserted here — in
- * `./__tests__/rankActOnItRows.spec.ts`, which replays the original selector's
- * own table against this predicate.
+ * ⚠ THE HEADER'S EQUIVALENCE CLAIM WAS FALSE WHEN FIRST WRITTEN, and the
+ * correction is worth keeping. This module landed in the cockpit consolidation
+ * citing a proof spec that DID NOT EXIST: 278 lines of live ranking logic
+ * (reached from `AnalysisHeroContainer`) with zero tests, under a header
+ * claiming execution proof. The spec exists now. A comment asserting a proof is
+ * not evidence of one — check the file before trusting the next such sentence,
+ * including this one. (Its test count is deliberately NOT restated here: the
+ * previous number went stale within weeks. Run the file.)
  *
- * ⚠ THAT SENTENCE WAS FALSE WHEN FIRST WRITTEN, and the correction is worth
- * keeping. This module landed in the cockpit consolidation citing a proof
- * spec that DID NOT EXIST: 278 lines of live ranking logic (reached from
- * `AnalysisHeroContainer`) with zero tests, under a header claiming execution
- * proof. The spec now exists (67 tests, 19 mutants, 0 survivors) and the claim
- * is true. A comment asserting a proof is not evidence of one — check the file
- * before trusting the next such sentence, including this one.
+ * ── ROADMAP 2.1228: THE `stability ≥ 0.85` CONJUNCT IS RETIRED ──────────────
  *
- * ⚠ KNOWN GAP, PINNED NOT HIDDEN. The two reads below —
- * `robustnessVerdict` and `recommendationStability` — are banned by
- * `../__tests__/hygiene.spec.ts` (no producer display-safe label => any read
- * is a fabrication path). They are recorded there in an EXACTLY-pinned
- * known-gap set that REDs if it grows or shrinks, rather than being carved out
- * of the guard. The two are different debts and are rowed separately: the ban
- * is stale for `robustnessVerdict` (PLoT does publish a display-safe verdict),
- * and correct for `recommendationStability` (the `0.85` cliff below is
- * UI-invented). Do not resolve either by editing the pin.
+ * It is gone, and the predicate now DELIBERATELY DIVERGES from the legacy
+ * selector on exactly the rows that cliff used to block. Three findings, each
+ * derived at the producer's bytes rather than reasoned from this repo:
  *
- * The `robustnessVerdict === 'robust'` conjunct is LOAD-BEARING and must not
- * be relaxed: raw stability alone must never unlock a "ready to brief" claim
- * (single-source rule, ROBUSTNESS-VERDICT-CONTRACT). Older producers omit the
- * field, and then this predicate is simply unreachable — the honest direction.
+ * 1. THE CLIFF WAS UI-INVENTED. `0.85` appears in no contract, no schema and no
+ *    producer. It banded a bare 0-1 float with no display-safe label.
+ *
+ * 2. ⭐ THE PRODUCER DELIBERATELY WITHHOLDS THE FIELD IT GATED ON, so the
+ *    conjunct made this predicate UNREACHABLE ON EVERY FRESH RUN. PLoT stopped
+ *    emitting `robustness.recommendation_stability` on /v2/run (lane PLoT-H
+ *    item B, 2026-07-07; `src/routes/v2/run.ts:3266-3277`) because ISL derives
+ *    it as `option_wins[winner]/n_samples` — the leader's `win_probability`
+ *    relabelled, "zero independent information" — and the UI printing it as
+ *    "N% stability" was "a fabricated second statistic". `useResultsSectionData`
+ *    populates the field from that wire slot and nothing else, so it arrives
+ *    undefined and `typeof stability !== 'number'` returned false forever. The
+ *    ready-to-brief row was DARK, and its own spec fixtures were the only place
+ *    the cliff could be satisfied (trap 16-inverse: reachability inside one
+ *    service is not reachability in the system, and a fixture you wrote
+ *    yourself is not evidence about the wire).
+ *    ⚠ AND IT WAS DARK ON PERSISTED RUNS TOO — this was first recorded the
+ *    other way ("satisfiable from a pre-withdrawal snapshot"), inferred from a
+ *    773-run field census. The producer's EMISSION HISTORY settles it and says
+ *    the opposite: PLoT withdrew `recommendation_stability` in #199
+ *    (`1823e07f`, 07 Jul 10:33 +0100) and first emitted `display_verdict` in
+ *    #202 (`38d589cd`, 07 Jul 14:44 +0100) — 4 h 11 min LATER. No PLoT build
+ *    ever co-emitted the two fields this predicate required, so no `robustness`
+ *    object taken from a single /v2/run response, fresh or hydrated, could
+ *    satisfy both conjuncts. The only residual path is a CROSS-SLOT mix: the
+ *    verdict is read from `store.rawV2Response` (`useResultsSectionData:1288`)
+ *    while stability is read from `report?.robustness` (`:1896`), so a hydrated
+ *    legacy `report` beside a fresh response could combine them. Not witnessed.
+ *    Consequence for this change: it is behaviourally INERT on legacy snapshots
+ *    except in the same `(0.8, 0.85]` band it opens for fresh runs.
+ *    (A census tells you what a field happens to contain; only the producer
+ *    tells you what it could ever have contained alongside another field.)
+ *
+ * 3. THE CLIFF WAS A MIRROR OF A PRODUCER BAND THAT HAS ALREADY MOVED. What the
+ *    producer's own `robust` verdict entails, traced end to end:
+ *      · PLoT `robustness-display-verdict.ts:182-207` — `display_verdict ===
+ *        'robust'` ⟺ robustness computed ∧ `is_robust === true` ∧
+ *        `level === 'high'` (BOTH facts required; an explicit `is_robust:
+ *        false` always wins → 'fragile').
+ *      · ISL `src/api/robustness.py:1230` — `level === 'high'` ⟺ `is_robust`
+ *        ∧ `confidence > 0.8`.
+ *      · ISL `robustness_analyzer_v2.py:6015` + `:1670` — `is_robust` ⟺
+ *        `recommendation_stability >= ROBUST_THRESHOLD (0.7)`; and since ISL
+ *        #114 the `confidence` slot IS the bare stability fraction
+ *        (`_stability_confidence_figure`, `:3391`).
+ *      ⟹ `robust` entails `recommendation_stability > 0.8`.
+ *    So the UI's 0.85 sat 0.05 above a producer threshold it duplicated — and
+ *    that threshold has already shifted once (pre-#114 the `confidence` slot
+ *    carried `stability × (1 − 1/√n)`, putting the entailed floor near 0.826 at
+ *    n=1000). A UI constant tracking a producer band it cannot see is the
+ *    hand-maintained mirror this estate keeps paying for.
+ *
+ * WHAT THE CHANGE COSTS, STATED HONESTLY: the licensing band widens from
+ * `≥ 0.85` to the producer's `> 0.8`. That is a real relaxation of ~5 points of
+ * stability, and it is the correct direction — inside that band the producer's
+ * own display-safe verdict says `robust`, and meaning is producer-owned. It
+ * cannot let a FRAGILE result brief: `is_robust === false` or a low/very_low
+ * level maps to 'fragile' before any of this is reached.
+ *
+ * THE OTHER CONJUNCTS ARE UNTOUCHED, and two points matter:
+ *  · The bracketed weak guards are entailed by `gaps ≤ 1` ALONE (gaps ≤ 1 ⟹
+ *    ¬(gaps ≥ 3) ∧ ¬(gaps ≥ 4)). The old header credited the entailment to
+ *    `stability ≥ 0.85 ∧ gaps ≤ 1`; the stability half was never doing any of
+ *    that work, which is why retiring it reopens neither guard.
+ *  · `fragileEdgeCount === 0` is an INDEPENDENT measurement, not a proxy for
+ *    stability — ISL's own note at `robustness_analyzer_v2.py:6013-6014` is that
+ *    "fragile_edges is a separate indicator of edge-level sensitivity", and
+ *    `is_robust: true` can co-occur with fragile edges. So edge fragility still
+ *    blocks a brief on its own, and that guard is now carrying the load the
+ *    cliff was imagined to carry.
+ *
+ * Both the divergence set and the "nothing else was relaxed" twin are pinned by
+ * execution in `./__tests__/rankActOnItRows.spec.ts` §6/§7, bidirectionally: the
+ * divergence REDs if it grows (a conjunct was relaxed) or shrinks (the cliff
+ * came back).
+ *
+ * ── THE KNOWN-GAP SET IN `../__tests__/hygiene.spec.ts` IS NOW EMPTY ────────
+ *
+ * Both entries that named this file are resolved, and in OPPOSITE ways:
+ *  · `recommendationStability` (ROADMAP 2.1228) — the ban was right and the
+ *    code was wrong, so the READ IS GONE, as described above.
+ *  · `robustnessVerdict` (ROADMAP 2.1227) — the code was right and the ban was
+ *    STALE, so THE SYMBOL LEFT THE REGEX. `types.ts` documents this field as
+ *    sourced only from PLoT's `robustness.display_verdict`, fail-closed
+ *    normalised in `useResultsSectionData.ts:1974-1986`, and instructs surfaces
+ *    to use it for the binary glyph. The read below IS the sanctioned path, so
+ *    pinning it was recording a debt that did not exist.
+ *    ⚠ `robustnessLevel` remains banned and that is the point — it is the
+ *    NON-display-safe twin, carrying a UI-SEM-005 stability fallback, and
+ *    `types.ts` says it must not drive the binary verdict. Unbanning the wrong
+ *    twin would have been the differently-named-twins defect.
+ *
+ * The `robustnessVerdict === 'robust'` conjunct is LOAD-BEARING and must not be
+ * relaxed: it is now the ONLY trust authority in this predicate (single-source
+ * rule, ROBUSTNESS-VERDICT-CONTRACT). Older producers omit the field, and then
+ * this predicate is simply unreachable — the honest direction.
  */
 export function isReadyToBrief(
   data: ResultsSectionDataReturn,
@@ -94,8 +177,6 @@ export function isReadyToBrief(
   if (!rec?.recommendedOption) return false
   if ((rec.allOptions?.length ?? 0) < 2) return false
   if (rec.robustnessVerdict !== 'robust') return false
-  const stability = rec.recommendationStability
-  if (typeof stability !== 'number' || !Number.isFinite(stability) || stability < 0.85) return false
   const gaps = (data?.confidence?.topEvidenceGaps ?? data?.confidence?.evidenceGaps ?? []).length
   if (gaps > 1) return false
   return fragileEdgeCount === 0

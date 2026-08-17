@@ -8,8 +8,11 @@
  *   - UI-created banding thresholds (a `>= 0.x ?` style ternary — the
  *     prototype's band()/trustWord() shape);
  *   - reads of the trust/stability fields the hero must not consume
- *     (the robustness trio and recommendationStability — no producer
- *     display-safe label exists, so any read would be a fabrication path);
+ *     (`robustnessLevel`, `robustnessLabel`, `recommendationStability` — no
+ *     producer display-safe label exists for these, so any read is a
+ *     fabrication path. ⚠ `robustnessVerdict` is deliberately NOT in that list
+ *     since ROADMAP 2.1227: it IS the producer's display-safe field and reading
+ *     it is the sanctioned path — see the block comment below);
  *   - imports from the focus-now module (its inertness guard forbids
  *     external importers — patterns were copied, not imported).
  */
@@ -44,7 +47,17 @@ const sources = productionSources(MODULE_DIR)
 
 describe('Analysis hero source hygiene', () => {
   it('scans a non-empty production source set (guard is alive)', () => {
-    expect(sources.map((s) => s.file)).toContain('buildHeroModel.ts')
+    // Names a file at BOTH depths on purpose. Every other `it` in this file
+    // asserts an ABSENCE over `sources`, so all of them go vacuous if the scan
+    // shrinks — and until 2.1228 the subdirectory half of that scan was held
+    // alive only incidentally, by the trust/stability pin happening to contain
+    // two `actOnIt/` entries. Emptying that pin retired the only control on the
+    // recursion: deleting the `isDirectory()` walk left this whole spec GREEN
+    // (measured), silently un-covering `actOnIt/` — the directory holding the
+    // module 2.1228 changed. Assert the depth explicitly instead.
+    expect(sources.map((s) => s.file)).toEqual(
+      expect.arrayContaining(['buildHeroModel.ts', 'rankActOnItRows.ts']),
+    )
   })
 
   it.each([
@@ -82,28 +95,51 @@ describe('Analysis hero source hygiene', () => {
    * grew, you introduced a fabrication path. Only shrink it alongside the
    * change that genuinely removes a read.
    *
-   * THE TWO ENTRIES ARE NOT THE SAME KIND OF DEBT — the guard's blanket
-   * rationale ("no producer display-safe label exists") is stale for one of
-   * them and exactly right for the other:
+   * ⭐ THE SET IS NOW EMPTY, AND THE BAN IS FLAT AGAIN. The two entries were
+   * NOT the same kind of debt — the guard's blanket rationale ("no producer
+   * display-safe label exists") was stale for one and exactly right for the
+   * other. Both are now resolved, in opposite ways, and the difference is the
+   * whole lesson of this block:
    *
-   *   · `robustnessVerdict` — a display-safe label DOES exist. `types.ts`
-   *     documents it as sourced only from PLoT's `robustness.display_verdict`,
-   *     fail-closed normalised. Reading it is the sanctioned path; the fix is
-   *     to consume the producer's label explicitly.
-   *   · `recommendationStability` — the ban is correct. It is a bare 0-1 float
-   *     with no display-safe label, and the `< 0.85` cliff in `isReadyToBrief`
-   *     is a UI-INVENTED threshold. The fix is producer-side, or a licensed
-   *     constant.
+   *   · `recommendationStability` — ✅ ROADMAP 2.1228. The ban was CORRECT and
+   *     the CODE was wrong, so the READ was deleted. `isReadyToBrief` no longer
+   *     consults it: the `>= 0.85` cliff was UI-INVENTED, and the producer
+   *     deliberately WITHHOLDS the field it gated on (PLoT
+   *     `src/routes/v2/run.ts:3266-3277` — it is the leader's `win_probability`
+   *     relabelled, so emitting it under a stability name was "a fabricated
+   *     second statistic"). The predicate relies solely on the producer's
+   *     display-safe verdict now. See
+   *     `../actOnIt/__tests__/rankActOnItRows.spec.ts` §6/§7 for the
+   *     bidirectional divergence pin bounding that behavioural change.
    *
-   * Both are rowed separately. Neither is fixed in this train.
+   *   · `robustnessVerdict` — ✅ ROADMAP 2.1227. The CODE was correct and the
+   *     BAN was wrong, so the SYMBOL LEFT THE REGEX. A display-safe label does
+   *     exist: `types.ts` documents this field as sourced ONLY from PLoT's
+   *     `robustness.display_verdict`, fail-closed normalised in
+   *     `useResultsSectionData.ts:1974-1986` (only the four producer enum
+   *     tokens populate it; absent field or unrecognised token → undefined →
+   *     the honest "Robustness unknown" state). Reading it IS the sanctioned
+   *     path — it is what `types.ts` instructs surfaces to use for the binary
+   *     glyph — so banning it and then pinning the violation was recording a
+   *     debt that did not exist.
+   *
+   * ⚠ NOTE WHICH SYMBOL DID *NOT* LEAVE. `robustnessLevel` is still banned and
+   * that is deliberate: `types.ts` says it is PLoT-level structured data that
+   * "must NOT drive the binary Robust/Sensitive glyph", and it carries a
+   * UI-SEM-005 stability fallback. The two are differently-named twins and only
+   * one is display-safe — unbanning the wrong one would have been this estate's
+   * chronic defect. So the ban keeps its three genuinely-unlicensed symbols and
+   * an EMPTY known-gap set, which is the healthy end state the flat ban had
+   * before the cockpit consolidation.
+   *
+   * THE PIN STILL BITES IN BOTH DIRECTIONS FROM EMPTY: a new banned read makes
+   * the found set GROW (RED), and padding this list with an entry nothing
+   * matches makes it OVERSTATE (RED). Both are proved by mutants.
    */
   const TRUST_STABILITY_RE =
-    /robustnessLevel|robustnessLabel|robustnessVerdict|recommendationStability/g
+    /robustnessLevel|robustnessLabel|recommendationStability/g
 
-  const KNOWN_TRUST_STABILITY_READS: readonly string[] = [
-    'rankActOnItRows.ts::recommendationStability',
-    'rankActOnItRows.ts::robustnessVerdict',
-  ]
+  const KNOWN_TRUST_STABILITY_READS: readonly string[] = []
 
   it('trust/stability field reads match the pinned known-gap set EXACTLY', () => {
     const found = new Set<string>()
@@ -120,6 +156,28 @@ describe('Analysis hero source hygiene', () => {
     ).toEqual([...KNOWN_TRUST_STABILITY_READS].sort())
   })
 
+  /**
+   * ROADMAP 2.1227 — THE UN-BAN IS ITSELF PINNED, IN BOTH DIRECTIONS.
+   *
+   * `robustnessVerdict` left the regex deliberately (it is the producer's
+   * display-safe field and reading it is sanctioned). Without this test, the
+   * un-ban is invisible: someone re-adding the symbol would make the pin RED
+   * with a message telling them a fabrication path had appeared, and the
+   * tempting "fix" would be to re-pin the sanctioned read as a debt again.
+   *
+   * The second assertion is the load-bearing half — it stops the un-ban being
+   * over-applied to the NON-display-safe twin.
+   */
+  it('the display-safe verdict is unbanned; its non-display-safe twin is NOT', () => {
+    // Both assertions rebuild the pattern from `.source`: `TRUST_STABILITY_RE`
+    // carries the `g` flag, and `.test()` on a global regex advances `lastIndex`,
+    // so calling it twice on the shared instance would make the second result
+    // depend on the first. A stateful instrument is not an instrument.
+    const banned = () => new RegExp(TRUST_STABILITY_RE.source)
+    expect(banned().test('data.robustnessVerdict')).toBe(false)
+    expect(banned().test('data.robustnessLevel')).toBe(true)
+  })
+
   it('positive controls: each pattern fires on the code it bans', () => {
     const banding = /[><]=?\s*(?:0?\.\d+|\d+(?:\.\d+)?e-\d+)\s*\?/i
     expect(/dangerouslySetInnerHTML|\binnerHTML\b/.test('el.innerHTML = x')).toBe(true)
@@ -127,7 +185,11 @@ describe('Analysis hero source hygiene', () => {
     expect(banding.test("conf >= 0.65 ? 'Firm' : 'Fragile'")).toBe(true)
     expect(banding.test("p > .5 ? 'likely' : 'unlikely'")).toBe(true)
     expect(banding.test("score >= 1e-1 ? 'a' : 'b'")).toBe(true)
-    expect(/robustnessVerdict/.test('data.robustnessVerdict')).toBe(true)
+    // Re-pointed by ROADMAP 2.1227 from `robustnessVerdict` (deliberately
+    // unbanned) to `robustnessLevel` — its NON-display-safe twin, which is
+    // still banned. A positive control aimed at a symbol the regex no longer
+    // contains would assert nothing.
+    expect(/robustnessLevel/.test('data.robustnessLevel')).toBe(true)
     // Assembled from parts rather than written as one source-text literal:
     // the sibling guard (focus-now module's own inertness spec) regex-scans
     // raw file text repo-wide for an import-shaped string ending in the
@@ -141,14 +203,14 @@ describe('Analysis hero source hygiene', () => {
 
   it('comment-strip both directions: comment mentions vanish, code (incl. bracket-key) still trips', () => {
     const fetchRe = /\bfetch\s*\(|\baxios\b|XMLHttpRequest|EventSource|WebSocket/
-    const verdictRe = /robustnessLevel|robustnessLabel|robustnessVerdict|recommendationStability/
+    const verdictRe = /robustnessLevel|robustnessLabel|recommendationStability/
     // Comment-borne mentions are blanked → not scanned (the #386/#403 footgun):
     expect(fetchRe.test(stripComments('// must never introduce a second fetch(', 'x.ts'))).toBe(false)
-    expect(verdictRe.test(stripComments('/* must not read robustnessVerdict */', 'x.ts'))).toBe(false)
+    expect(verdictRe.test(stripComments('/* must not read robustnessLevel */', 'x.ts'))).toBe(false)
     // Real code still trips, INCLUDING a bracket-string read (why we keep
     // strings — blankNonCode would have blanked this and missed it):
     expect(fetchRe.test(stripComments('const r = await fetch(url)', 'x.ts'))).toBe(true)
-    expect(verdictRe.test(stripComments("const v = data['robustnessVerdict']", 'x.ts'))).toBe(true)
+    expect(verdictRe.test(stripComments("const v = data['robustnessLevel']", 'x.ts'))).toBe(true)
     // A live focus-now import string is kept and caught. Assemble the
     // specifier (do NOT spell out an import-shaped focus-now literal in source)
     // — the sibling focus-now inertness guard regex-scans this file; same

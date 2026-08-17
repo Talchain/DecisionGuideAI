@@ -645,10 +645,20 @@ describe('rankActOnItRows — §5 readyToBrief posture', () => {
  * VERBATIM copy of the DELETED `analysisHeroV17/stateSelection.ts`
  * (`git show ae153fa1^:src/components/results/analysisHeroV17/stateSelection.ts`).
  *
- * This is the oracle the module's own header names: it claims `isReadyToBrief`
- * is EXACTLY `selectHeroState(...) === 'strong'`, and that the two weak guards
- * it drops are entailed. The claim is settled here BY EXECUTION rather than by
- * assertion in a comment.
+ * This WAS a pure equivalence oracle: the module's header claimed
+ * `isReadyToBrief` is EXACTLY `selectHeroState(...) === 'strong'`.
+ *
+ * ⚠ ROADMAP 2.1228 — IT IS NOW AN EQUIVALENCE *EXCEPT AN EXACTLY-PINNED
+ * DIVERGENCE SET*, AND THE DIVERGENCE IS THE FIX. The legacy selector required
+ * `stability >= 0.85` — a UI-INVENTED cliff on a bare 0-1 float. That conjunct
+ * is retired; the producer's display-safe `robustnessVerdict` is now the only
+ * trust authority. So the two predicates deliberately disagree on exactly the
+ * rows the cliff used to block, and nowhere else.
+ *
+ * The oracle is KEPT rather than deleted precisely because that is the claim
+ * worth pinning: `LEGACY_DIVERGENCE_ROWS` below REDs if the divergence GROWS
+ * (some other conjunct was relaxed) or SHRINKS (the cliff came back). Deleting
+ * the oracle would have made the blast radius of this change unobservable.
  */
 type LegacyHeroState = 'weak' | 'moderate' | 'reflect' | 'strong'
 
@@ -731,10 +741,11 @@ describe('isReadyToBrief — §6 equivalence with selectHeroState(...) === "stro
    * rows that discriminate the dropped weak guards. Each row is checked BOTH
    * ways: the oracle's verdict, and `isReadyToBrief`'s.
    *
-   * ⚠ Scope: finite stability values and absence only. `selectHeroState`
-   * accepted `Infinity` as "strong"; `isReadyToBrief` requires
-   * `Number.isFinite`, so the two DIVERGE there — in the conservative
-   * direction. That divergence is out of this table's scope by construction.
+   * ⚠ Scope: finite stability values and absence only. The pre-2.1228
+   * `isReadyToBrief` required `Number.isFinite(stability)` where the legacy
+   * selector accepted `Infinity` as "strong"; that divergence is out of this
+   * table's scope by construction and is now moot in any case — the predicate
+   * no longer reads stability at all, so no stability value can move it.
    */
   const table: Array<{ name: string; input: LegacyInputs }> = [
     // WEAK branch
@@ -775,9 +786,90 @@ describe('isReadyToBrief — §6 equivalence with selectHeroState(...) === "stro
     { name: 'weak guard 4 boundary: 2 options + verdict robust', input: legacyBase({ optionCount: 2, stability: 0.9, robustnessVerdict: 'robust' }) },
   ]
 
-  it.each(table)('agrees with the legacy selector: $name', ({ input }) => {
-    const expected = selectHeroState(input) === 'strong'
-    expect(isReadyToBrief(dataFromLegacy(input), input.fragileEdgeCount)).toBe(expected)
+  /**
+   * THE EXACT SET OF ROWS ON WHICH THE RETIRED CLIFF USED TO CHANGE THE ANSWER.
+   *
+   * Both rows satisfy every conjunct that survives 2.1228 — a recommended
+   * option, ≥2 options, producer verdict `robust`, ≤1 evidence gap, zero
+   * fragile edges — and the legacy selector still returned non-strong, for one
+   * reason only: `stability >= 0.85` failed.
+   *
+   *   · `stability 0.849` — the arbitrary cliff, one thousandth below.
+   *   · `absent stability` — ⭐ THE LIVE SHAPE. PLoT DELIBERATELY WITHHOLDS
+   *     `robustness.recommendation_stability` from the /v2/run wire
+   *     (`src/routes/v2/run.ts:3266-3277`, lane PLoT-H item B, 2026-07-07: it
+   *     is the leader's `win_probability` relabelled, "zero independent
+   *     information", and the UI printing it was "a fabricated second
+   *     statistic"). So on every fresh run the field is undefined and the
+   *     legacy cliff could never be met — the ready-to-brief row was DARK.
+   *     This row is the un-darkening.
+   */
+  const LEGACY_DIVERGENCE_ROWS: readonly string[] = [
+    'absent stability + verdict robust + clean signals',
+    'boundary: stability 0.849 + verdict robust',
+  ]
+
+  it.each(table)('agrees with the legacy selector except where pinned: $name', ({ name, input }) => {
+    const legacyStrong = selectHeroState(input) === 'strong'
+    const actual = isReadyToBrief(dataFromLegacy(input), input.fragileEdgeCount)
+    if (LEGACY_DIVERGENCE_ROWS.includes(name)) {
+      // Pinned divergence, and it is PERMISSIVE-ONLY BY ASSERTION: the legacy
+      // cliff blocked, the producer verdict licenses. Asserting both halves
+      // (not just `!==`) is what stops a future regression that diverges in the
+      // other direction — blocking a run the legacy selector allowed — from
+      // passing here as "still diverging".
+      expect(legacyStrong, `${name}: legacy must have BLOCKED this row`).toBe(false)
+      expect(actual, `${name}: the producer verdict must now license it`).toBe(true)
+      return
+    }
+    expect(actual).toBe(legacyStrong)
+  })
+
+  /**
+   * THE BIDIRECTIONAL PIN — the load-bearing guard of ROADMAP 2.1228.
+   *
+   * Same discipline as the hygiene known-gap set: a GROWN divergence means a
+   * conjunct was relaxed that nobody licensed (most dangerously
+   * `robustnessVerdict === 'robust'`, which is LOAD-BEARING per
+   * ROBUSTNESS-VERDICT-CONTRACT); a SHRUNK divergence means the UI-invented
+   * cliff was reintroduced. Either way this REDs, and neither is fixable by
+   * editing the list.
+   */
+  it('the divergence from the legacy selector is EXACTLY the pinned stability-cliff set', () => {
+    const diverged = table
+      .filter(
+        ({ input }) =>
+          (selectHeroState(input) === 'strong') !==
+          isReadyToBrief(dataFromLegacy(input), input.fragileEdgeCount),
+      )
+      .map(({ name }) => name)
+      .sort()
+    expect(
+      diverged,
+      'divergence from the legacy selector drifted: a GROWN set means a conjunct ' +
+        'was relaxed beyond the retired stability cliff, a SHRUNK set means the ' +
+        'cliff is back. Do not edit the pin to match reality.',
+    ).toEqual([...LEGACY_DIVERGENCE_ROWS].sort())
+  })
+
+  /**
+   * PIN THE CAUSE, NOT JUST THE COUNT (trap 13b — a discriminator must pin its
+   * own precondition in-test). Without this, the divergence set could stay the
+   * right SIZE while its members diverged for an unrelated reason.
+   */
+  it.each(LEGACY_DIVERGENCE_ROWS)('%s diverges because of the cliff and nothing else', (name) => {
+    const row = table.find((r) => r.name === name)
+    expect(row, `divergence row "${name}" is not in the table`).toBeDefined()
+    const input = row!.input
+    // The retired conjunct is the ONLY one that fails on this row...
+    expect(input.stability === null || input.stability < 0.85).toBe(true)
+    // ...and every surviving conjunct is satisfied, so the row genuinely
+    // isolates the cliff.
+    expect(input.hasWinner).toBe(true)
+    expect(input.optionCount).toBeGreaterThanOrEqual(2)
+    expect(input.robustnessVerdict).toBe('robust')
+    expect(input.evidenceGapCount).toBeLessThanOrEqual(1)
+    expect(input.fragileEdgeCount).toBe(0)
   })
 
   it('the table discriminates — it contains BOTH strong and non-strong rows', () => {
@@ -792,11 +884,20 @@ describe('isReadyToBrief — §6 equivalence with selectHeroState(...) === "stro
 // ── §7 isReadyToBrief — boundaries derived from the implementation ──────────
 
 describe('isReadyToBrief — §7 conjunct-by-conjunct', () => {
-  /** Every conjunct satisfied — the one TRUE baseline the negatives vary from. */
+  /**
+   * Every conjunct satisfied — the one TRUE baseline the negatives vary from.
+   *
+   * ⭐ ROADMAP 2.1228: `stability` is deliberately ABSENT here, because that is
+   * the shape the producer actually ships. PLoT withholds
+   * `robustness.recommendation_stability` from /v2/run, so a fresh run reaches
+   * this predicate with the field undefined. The baseline is now the live shape
+   * rather than a fixture-only one (trap 16-inverse: a fixture you wrote
+   * yourself is not evidence about the wire — so the baseline is pinned to what
+   * the wire carries).
+   */
   const readyOverrides: DataOverrides = {
     hasWinner: true,
     optionCount: 2,
-    stability: 0.85,
     robustnessVerdict: 'robust',
     gapCount: 1,
   }
@@ -826,18 +927,80 @@ describe('isReadyToBrief — §7 conjunct-by-conjunct', () => {
     ).toBe(false)
   })
 
-  it('requires stability >= 0.85 — 0.85 passes, 0.849 does not', () => {
-    expect(isReadyToBrief(makeData({ ...readyOverrides, stability: 0.85 }), 0)).toBe(true)
-    expect(isReadyToBrief(makeData({ ...readyOverrides, stability: 0.849 }), 0)).toBe(false)
-    expect(isReadyToBrief(makeData({ ...readyOverrides, stability: 1 }), 0)).toBe(true)
+  /**
+   * ROADMAP 2.1228 — REPLACES two retired tests:
+   *   · `requires stability >= 0.85 — 0.85 passes, 0.849 does not`
+   *   · `rejects an absent or non-finite stability rather than treating it as high`
+   *
+   * Both encoded the UI-INVENTED cliff as the specification. They are not
+   * "fixed" by moving the number: the predicate must not consult the field at
+   * all, so the assertion is written against the SPEC (the producer's
+   * display-safe verdict is the single trust authority) rather than against the
+   * failure mode (trap 13d).
+   *
+   * NOTE the value list spans the whole domain the type admits AND the domain it
+   * does not — including the values whose special-casing the old guard existed
+   * for (absent / NaN / ±Infinity). A corpus that omitted them could not certify
+   * that no residual stability branch survives (trap 13d(c): check what the
+   * corpus EXCLUDES).
+   */
+  it('ignores recommendationStability entirely — no value of it can move the verdict', () => {
+    const everyStability = [
+      undefined,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      -1,
+      0,
+      0.1,
+      0.5,
+      0.699,
+      0.7,
+      0.8,
+      0.849,
+      0.85,
+      1,
+      42,
+    ]
+    for (const stability of everyStability) {
+      expect(
+        isReadyToBrief(makeData({ ...readyOverrides, stability }), 0),
+        `stability ${String(stability)} must not change the answer — the producer ` +
+          'verdict is the only trust authority',
+      ).toBe(true)
+    }
   })
 
-  it('rejects an absent or non-finite stability rather than treating it as high', () => {
-    expect(isReadyToBrief(makeData({ ...readyOverrides, stability: undefined }), 0)).toBe(false)
-    expect(isReadyToBrief(makeData({ ...readyOverrides, stability: Number.NaN }), 0)).toBe(false)
-    expect(
-      isReadyToBrief(makeData({ ...readyOverrides, stability: Number.POSITIVE_INFINITY }), 0),
-    ).toBe(false)
+  /**
+   * THE OPPOSITE-DIRECTION TWIN (trap 22b): retiring the cliff must not have
+   * relaxed anything else. Every case here runs at the LIVE shape — stability
+   * absent, exactly as the producer ships it — because that is the shape in
+   * which a residual "no stability means unknown, so allow it" bug would hide.
+   *
+   * Each case CAN fail: at the pinned fix each is a genuine false, and flipping
+   * the corresponding conjunct in the source turns it red (proved by the mutant
+   * kit, not asserted here).
+   */
+  it('retiring the cliff relaxed nothing else — every other guard still bites at the live shape', () => {
+    const live = { ...readyOverrides, stability: undefined }
+    // The producer verdict remains load-bearing (ROBUSTNESS-VERDICT-CONTRACT):
+    for (const verdict of ['moderate', 'fragile', 'not_assessed'] as const) {
+      expect(
+        isReadyToBrief(makeData({ ...live, robustnessVerdict: verdict }), 0),
+        `verdict "${verdict}" must not brief`,
+      ).toBe(false)
+    }
+    expect(isReadyToBrief(makeData({ ...live, robustnessVerdict: undefined }), 0)).toBe(false)
+    // Edge fragility is an INDEPENDENT measurement from recommendation
+    // stability (ISL: "fragile_edges is a separate indicator of edge-level
+    // sensitivity", and is_robust=true can co-occur with fragile edges), so
+    // this guard is doing work the verdict does not do:
+    expect(isReadyToBrief(makeData(live), 1)).toBe(false)
+    expect(isReadyToBrief(makeData(live), Number.NaN)).toBe(false)
+    // Evidence-gap and option-count guards:
+    expect(isReadyToBrief(makeData({ ...live, gapCount: 2 }), 0)).toBe(false)
+    expect(isReadyToBrief(makeData({ ...live, optionCount: 1 }), 0)).toBe(false)
+    expect(isReadyToBrief(makeData({ ...live, hasWinner: false }), 0)).toBe(false)
   })
 
   it('allows at most one evidence gap', () => {
@@ -868,6 +1031,27 @@ describe('isReadyToBrief — §7 conjunct-by-conjunct', () => {
     // AnalysisHeroContainer passes `fragileEdgeCount ?? Number.NaN` precisely
     // so a caller that forgets to thread the count gets the conservative answer.
     expect(isReadyToBrief(makeData(readyOverrides), Number.NaN)).toBe(false)
+  })
+
+  /**
+   * ⭐ THE UN-DARKENING, AT THE ROW RATHER THAN THE PREDICATE.
+   *
+   * A true predicate is not a user-visible row. This walks the same composition
+   * `AnalysisHeroContainer.tsx:102` walks — `rankActOnItRows(data, { readyToBrief:
+   * isReadyToBrief(data, fragile) })` — on the shape the producer actually
+   * emits, and binds to the row BY KEY (identity, never a value predicate
+   * another row could satisfy — trap 19).
+   *
+   * Before 2.1228 this could not have passed on this fixture at any stability
+   * value, because the producer does not send one.
+   */
+  it('the producer-shaped fresh run reaches the ready-to-brief ROW, not just the predicate', () => {
+    const data = makeData({ ...readyOverrides, stability: undefined })
+    const rows = rankActOnItRows(data, { readyToBrief: isReadyToBrief(data, 0) })
+    expect(rows.map((r) => r.key)).toContain('ready-brief')
+    const ready = rows.find((r) => r.key === 'ready-brief')!
+    expect(ready.category).toBe('ready')
+    expect(ready.priority).toBe('Ready')
   })
 })
 
