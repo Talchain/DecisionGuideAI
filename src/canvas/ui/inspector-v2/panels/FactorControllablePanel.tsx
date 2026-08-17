@@ -53,6 +53,8 @@ import {
   describeInWordsToggleLabel,
 } from '../../../components/BeliefElicitationField'
 import { useParticipantName } from '../../../../collab/useParticipantName'
+import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
+import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 
 /**
  * Extract a non-empty string intervention value, accepting either a bare
@@ -118,6 +120,12 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
    * both labels below byte-identical to what they rendered before.
    */
   const attributedTo = useParticipantName(obs?.elicited_from as unknown)
+  /**
+   * The CITATION the owner recorded when they applied this value. A no-op for
+   * every value carrying no citation: `no_citation` fetches nothing and renders
+   * nothing, leaving this panel byte-identical to what it rendered before.
+   */
+  const citedEvidence = useCitedEvidence(obs?.elicited_from as unknown)
   // Canonical location is observedState.uncertainty_drivers (per ObservedStateSchema).
   // Fall back to legacy top-level node.data.uncertainty_drivers for in-flight data
   // that predates the schema consolidation.
@@ -542,6 +550,11 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source, attributedTo)}</span>
             </div>
           )}
+
+          {/* What the owner cited when they applied it. Renders only when a
+              citation resolved; never gated on `source`, because the citation is
+              a fact about the apply and not about the extraction kind. */}
+          <CitedEvidenceNote resolution={citedEvidence} />
           {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
             <div className="flex gap-1.5 flex-wrap mt-1.5">
               {uncertaintyDrivers.map((d, i) => (
