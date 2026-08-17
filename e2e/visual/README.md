@@ -254,9 +254,8 @@ loudly: the job generates the set, uploads it as
 commits them itself. Download the artefact, look at the images, and commit them
 under `e2e/visual/references/linux/` as their own reviewable commit.
 
-**Current state: `references/darwin/` is committed; `references/linux/` is not.**
-A linux set was generated and committed once, then removed: it had been captured
-before the font-ordering fix above, so it recorded fallback-metric graph layouts.
-The advisory job will regenerate it on the next run and red with instructions —
-which is the documented route working, not a defect. Committing that set is the
-one remaining step to make the job comparative on linux.
+Both platform sets are committed. The linux set was regenerated **after** the
+font-ordering fix above (run `32069090061`); an earlier set captured before that
+fix was committed and then removed, because it encoded fallback-metric graph
+layouts and would have made the job permanently red — the broken-alarm failure
+mode the job exists to avoid.
