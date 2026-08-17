@@ -46,7 +46,11 @@
 import { describe, it, expect } from 'vitest'
 
 import { mapToAnalysisRunState } from '../useAnalysisRunState'
-import { TRUTH_BANNER_BY_RUN_STATE, type AnalysisRunStateKind } from '../analysisStateContract'
+import {
+  TRUTH_BANNER_BY_RUN_STATE,
+  selectBodyPresentation,
+  type AnalysisRunStateKind,
+} from '../analysisStateContract'
 
 type Input = Parameters<typeof mapToAnalysisRunState>[0]
 
@@ -227,9 +231,14 @@ describe('mapToAnalysisRunState — the UNION with the wire verdict', () => {
     // `refused` on a legacy turn, so a naive substitution re-darks the refusal
     // notice. The pair: same cell, wire silent vs wire speaking.
     expect(map({ wireRunStateKind: null, refusalPresent: true })).toBe('refused')
-    // And the discrimination: with a wire verdict present the wire answers, so
-    // this arm is provably reachable ONLY on a no-verdict turn.
-    expect(map({ wireRunStateKind: 'never_run', refusalPresent: true })).toBe('never_run')
+    // And the discrimination: with a wire verdict present the wire answers.
+    // ⚠ The discriminator was `never_run` until the round-2 blocker fix; that
+    // kind is now carved out (it renders NO banner over a live refusal), so it
+    // can no longer serve as "the wire speaks" here. Any banner-rendering kind
+    // does, and `complete_current` is the strongest contradiction available.
+    expect(map({ wireRunStateKind: 'complete_current', refusalPresent: true })).toBe(
+      'complete_current',
+    )
   })
 
   it('a wire REFUSAL passes through, and `blocked` is minted ONLY from the wire', () => {
@@ -302,6 +311,50 @@ describe('mapToAnalysisRunState — the UNION with the wire verdict', () => {
     expect(TRUTH_BANNER_BY_RUN_STATE).toHaveProperty(kind)
   })
 
+  it('BLOCKER B1: a wire `never_run` must NOT silence a LIVE refusal', () => {
+    // ⚠⚠ THE HARM, AND IT IS SILENCE RATHER THAN A WRONG SENTENCE. `never_run`
+    // resolves to `banner: 'none'` + `body: 'hidden'`, so letting it outrank a
+    // populated refusal slice replaces the refusal explanation with NOTHING —
+    // worse than the adjudicated conflict cell, where a truthful freshness
+    // banner at least appears.
+    //
+    // Reachable cross-turn: `refusal_declared` is a per-turn stamp, so by turn 2
+    // it is absent and `freshness === 'none'` derives `never_run`, while the
+    // refusal slice RETAINS. Journey: analyse refused → notice shows → user
+    // clicks a chip → notice vanishes, nothing replaces it.
+    expect(map({ wireRunStateKind: 'never_run', refusalPresent: true })).toBe('refused')
+
+    // ⭐ ONE SEAM BEYOND THE GUARD (standing brief P1). The enum is not the
+    // harm; the RENDERED OUTCOME is. Asserted through the real composition
+    // table, so a future table edit that re-silences this cell REDs here too.
+    const kind = map({ wireRunStateKind: 'never_run', refusalPresent: true })
+    expect(TRUTH_BANNER_BY_RUN_STATE[kind]).toBe('refusal')
+
+    // And what the pre-fix behaviour would have rendered, pinned as the thing
+    // being prevented — a banner of 'none', i.e. silence, over a live refusal.
+    // This contrast is the whole assertion: `refusal` vs `none` IS the harm.
+    expect(TRUTH_BANNER_BY_RUN_STATE['never_run']).toBe('none')
+
+    // ⚠ NOTE ON WHAT IS *NOT* ASSERTED HERE, because the first draft got it
+    // wrong and execution caught it. `selectBodyPresentation` returns 'hidden'
+    // whenever there is no report AT ALL, independent of kind — and a refused
+    // FIRST analysis has no report by definition. So "the body is not hidden" is
+    // false for the right reason and says nothing about this defect. The body
+    // only distinguishes the two kinds once a prior report exists:
+    expect(selectBodyPresentation(kind, true)).toBe('prior')
+    expect(selectBodyPresentation('never_run', true)).toBe('hidden')
+
+    // THE DISCRIMINATING PAIR, both directions:
+    // (a) no refusal → `never_run` is honoured, so the carve-out is scoped and
+    //     has not simply disabled the wire's `never_run`;
+    expect(map({ wireRunStateKind: 'never_run', refusalPresent: false })).toBe('never_run')
+    // (b) the carve-out is scoped to `never_run` ALONE — every other wire kind
+    //     still outranks a retained refusal (the adjudicated cell, untouched).
+    for (const other of ['complete_current', 'complete_stale', 'unknown_degraded'] as const) {
+      expect(map({ wireRunStateKind: other, refusalPresent: true }), other).toBe(other)
+    }
+  })
+
   it('every wire kind maps to itself and is a member of the composition table', () => {
     // Totality over the wire limb. A kind the wire can state but this hop
     // silently rewrites would be a lie about the producer's verdict, and one the
@@ -322,8 +375,15 @@ describe('mapToAnalysisRunState — the UNION with the wire verdict', () => {
       Object.keys(TRUTH_BANNER_BY_RUN_STATE).slice().sort(),
     )
     for (const kind of ALL_KINDS) {
-      // At a settled cell, the wire kind is passed through verbatim.
-      expect(map({ wireRunStateKind: kind, resultsStatus: 'complete' }), kind).toBe(kind)
+      // At a settled cell WITH NO LIVE REFUSAL, the wire kind is passed through
+      // verbatim. The no-refusal condition is stated explicitly rather than
+      // inherited from BASE: `never_run` is carved out when a refusal IS live
+      // (B1), so a sweep that silently relied on BASE would start asserting the
+      // wrong thing the moment BASE changed.
+      expect(
+        map({ wireRunStateKind: kind, resultsStatus: 'complete', refusalPresent: false }),
+        kind,
+      ).toBe(kind)
       expect(TRUTH_BANNER_BY_RUN_STATE, kind).toHaveProperty(kind)
     }
   })

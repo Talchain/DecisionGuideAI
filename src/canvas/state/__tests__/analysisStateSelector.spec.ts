@@ -166,9 +166,62 @@ describe('PRECEDENCE — a wire verdict outranks the local derivation', () => {
     })
     expect(composed.runStateKind).toBe('refused')
     expect(composed.semantic).toBe('cannot_confirm')
-    // The derived branch must never be able to reach this kind — that is what
-    // makes `refused` the proof the wire is being read rather than inferred.
-    expect(composeAnalysisState(LEGACY_SAYS_CURRENT).runStateKind).not.toBe('refused')
+    // ⚠ THIS LINE WAS `.not.toBe('refused')` AND IS NOW VACUOUS IN THAT FORM.
+    // Once the legacy run-state derivation was deleted, the derived branch
+    // returns `null` — which is `.not.toBe('refused')` trivially, for a reason
+    // that has nothing to do with what the assertion was written to prove. A pin
+    // that passes because its subject stopped existing is worse than no pin, so
+    // it asserts the NEW contract directly instead.
+    expect(composeAnalysisState(LEGACY_SAYS_CURRENT).runStateKind).toBeNull()
+  })
+})
+
+describe('runStateKind — the invariant consumers are allowed to rely on', () => {
+  /**
+   * `authority === 'wire'` ⟺ `runStateKind !== null`.
+   *
+   * ⭐ WHY THIS EXISTS AS ITS OWN PIN. `useAnalysisRunState` reads
+   * `composed.runStateKind` DIRECTLY and treats non-null as "the wire spoke". It
+   * used to gate that read on `authority === 'wire'`; the gate was removed when
+   * the legacy derivation was deleted, because it had become a dead branch. That
+   * removal is only safe while this biconditional holds, so the invariant is
+   * pinned HERE, in the module that owns it, rather than assumed at the consumer.
+   *
+   * Both directions are asserted: a one-way check would pass if the derived
+   * branch started minting a kind again, which is precisely the regression that
+   * would re-dark the refusal notice.
+   */
+  it('holds in BOTH directions across the wire and derived branches', () => {
+    const derived = composeAnalysisState(LEGACY_SAYS_CURRENT)
+    expect(derived.authority).toBe('derived')
+    expect(derived.runStateKind).toBeNull()
+
+    // Swept over every kind the wire can state, so a new contract member cannot
+    // quietly arrive on the wire branch reading `null`.
+    for (const run_state of [
+      { kind: 'never_run' },
+      { kind: 'running', started_at: '2026-08-16T10:00:00.000Z' },
+      { kind: 'refused', reason_code: 'analysis_declined_this_turn' },
+      { kind: 'unknown_degraded', cause: 'store_unreadable' },
+      { kind: 'complete_current', computed_at: '2026-08-16T10:00:00.000Z' },
+    ] as const) {
+      const over: Partial<AnalysisStateV1> = { run_state }
+      // CC-C (0.47.0): `never_run` forbids every usability flag being true.
+      if (run_state.kind === 'never_run') {
+        Object.assign(over, {
+          usable_for_prose: false,
+          usable_for_chips: false,
+          usable_for_followup: false,
+          requires_rerun: false,
+        })
+      }
+      const wired = composeAnalysisState({
+        ...LEGACY_SAYS_CURRENT,
+        analysisState: wireVerdict(over),
+      })
+      expect(wired.authority, run_state.kind).toBe('wire')
+      expect(wired.runStateKind, run_state.kind).toBe(run_state.kind)
+    }
   })
 })
 

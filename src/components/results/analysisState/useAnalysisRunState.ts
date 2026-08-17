@@ -56,16 +56,27 @@
  *     refusal may be several turns old.
  *
  * So in the conflict cell the wire is the fresher fact and the refusal is the
- * possibly-stale one. 0.47.0's cross-checks (CC-A…CC-F) additionally refuse the
- * internally-incoherent verdicts, so a wire verdict that parses cannot itself be
- * claiming completion and blocked-ness at once.
+ * possibly-stale one.
  *
- * RESIDUAL RISK, STATED RATHER THAN HIDDEN: if CEE ever emits a non-refusal
- * `analysis_state` while a genuine refusal is still in force, this ordering
- * hides the refusal notice. That requires the producer to contradict itself
- * across two fields of one turn. `mapping.spec.ts` pins the cell explicitly, so
- * the decision is visible and reversible in one line if CEE's behaviour makes it
- * wrong.
+ * SAME-TURN CONFLICT IS UNREACHABLE, and that is derived rather than hoped: CEE's
+ * `refusal_declared` forces `run_state.kind: 'refused'`, so on the turn a refusal
+ * is declared the wire AGREES with the slice. The two can only diverge across
+ * turns.
+ *
+ * ⚠ RESIDUAL EFFECT, CORRECTED — IT IS A DISCLOSURE-DURATION CHANGE, NOT A
+ * FABRICATION. An earlier draft of this paragraph said the cell "requires the
+ * producer to contradict itself across two fields of one turn". That OVERSTATED
+ * the precondition and understated how ordinary the cell is: the reachable case
+ * needs NO self-contradiction at all — merely a NEXT turn that carries a verdict
+ * while the refusal slice retains. What the user loses is the refusal notice
+ * EARLIER than they otherwise would; what they are shown instead is still true
+ * (every wire statement is accurate about the prior analysis). So the cost is how
+ * long the explanation stays on screen, not its truth.
+ *
+ * The one cell where that trade is NOT acceptable is a wire `never_run`, because
+ * there the replacement is silence rather than a truthful banner — carved out at
+ * step 2. `mapping.spec.ts` pins both cells explicitly, so the decision is
+ * visible and reversible in one line if CEE's behaviour makes it wrong.
  *
  * ⚠ WHAT THIS IS NOT
  * ------------------
@@ -137,10 +148,38 @@ export function mapToAnalysisRunState(input: {
   //    existing totality sweep in `mapping.spec.ts` is what found it. A missing
   //    verdict must degrade to the legacy limb, never to a kind that does not
   //    exist.
-  if (input.wireRunStateKind != null) return input.wireRunStateKind
+  //
+  //    ⚠⚠ THE ONE CARVE-OUT, AND IT IS A BLOCKER FIX (reviewer, round 2).
+  //    A wire `never_run` over a LIVE local refusal must NOT win, because
+  //    `never_run` renders NOTHING: the composition table gives it
+  //    `banner: 'none'` and `body: 'hidden'`, so the refusal explanation is
+  //    replaced by SILENCE while the refusal slice is still populated. That is
+  //    strictly worse than the adjudicated conflict cell below, where at least
+  //    a truthful freshness banner appears — and it silently undid the
+  //    protection this file's own header claims ("refusal outranks never_run so
+  //    a refused FIRST analysis still reaches the user"): hoisting the wire limb
+  //    above the refusal limb took that away for exactly the wire case.
+  //
+  //    It is REACHABLE CROSS-TURN, derived at both ends. `refusal_declared` is a
+  //    PER-TURN stamp, so by turn 2 it is absent and with nothing analysed
+  //    `freshness === 'none'` → `never_run`; turn 2 still emits `analysis_state`
+  //    (chip_click threads freshness unconditionally, and `attachAnalysisState`
+  //    fires on canonicalState OR freshness) while the refusal slice RETAINS.
+  //    The journey: first analyse refused → notice shows → user clicks a chip →
+  //    the notice vanishes and nothing replaces it.
+  //
+  //    Scoped to `never_run` alone on purpose. Every other wire kind renders a
+  //    banner, so the wire still outranks a retained refusal there — that is the
+  //    adjudicated cell, deliberately untouched by this carve-out.
+  if (input.wireRunStateKind != null) {
+    if (!(input.wireRunStateKind === 'never_run' && input.refusalPresent)) {
+      return input.wireRunStateKind
+    }
+  }
   // 3. THE LOCAL REFUSAL LIMB — the half of the union the selector cannot
   //    supply. Refusal outranks never_run so a refused FIRST analysis still
-  //    reaches the user; see the header.
+  //    reaches the user; see the header. The carve-out above routes a wire
+  //    `never_run` + live refusal here, which is what keeps that true.
   if (input.refusalPresent) return 'refused'
   // 4. No run has completed and none was refused: the pre-run surface owns
   //    this state entirely, and no truth-state banner belongs on it. Ordered
@@ -157,11 +196,14 @@ export function mapToAnalysisRunState(input: {
   //    retained verdict describes the PREVIOUS run; it cannot vouch for a
   //    surface whose latest run errored.
   //
-  //    ⚠ THIS IS ALSO WHY THE SELECTOR'S OWN LEGACY KIND IS NOT CONSUMED HERE.
-  //    `deriveRunStateKindFromLegacy` has no error arm, so on an errored rerun
-  //    with a retained `fresh` verdict it returns `complete_current`. Passing
-  //    `composed.runStateKind` through on the derived branch would re-open
-  //    exactly this defect.
+  //    ⚠ THIS ARM IS ALSO WHY THE SELECTOR NEVER HAD LEGACY AUTHORITY OVER THE
+  //    KIND. Its `deriveRunStateKindFromLegacy` had no error arm, so on an
+  //    errored rerun with a retained `fresh` verdict it returned
+  //    `complete_current` — which is one of the two reasons this hook could not
+  //    simply substitute it (the other being that it never minted `refused`).
+  //    That derivation is now DELETED and the derived branch returns `null`, so
+  //    the defect is unreachable by construction rather than avoided by a guard.
+  //    This arm remains the owner of the errored-rerun answer.
   if (input.resultsStatus === 'error') return 'unknown_degraded'
   // 6. A run has completed. Its currency is the freshness owner's verdict —
   //    and an ABSENT verdict is not evidence of currency. `null`/'none' with a
@@ -185,13 +227,24 @@ export function useAnalysisRunState(): AnalysisRunStateKind {
   const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun)
 
   return mapToAnalysisRunState({
-    // ⚠⚠ THE WIRE'S OWN KIND, GATED ON `authority` — NOT `composed.runStateKind`
-    // unconditionally. That unconditional read IS the naive substitution: on a
-    // legacy turn `runStateKind` is the selector's CONSERVATIVE legacy
-    // derivation, which never mints `refused` and has no error arm, so the
-    // refusal notice would go dark AND an errored rerun would inherit a stale
-    // `complete_current`. Pinned in `mapping.spec.ts`.
-    wireRunStateKind: composed.authority === 'wire' ? composed.runStateKind : null,
+    // ⭐ READ DIRECTLY — and that is now SAFE BY TYPE, which it was not before.
+    //
+    // This was `composed.authority === 'wire' ? composed.runStateKind : null`,
+    // guarding against the naive substitution: on a legacy turn the selector's
+    // conservative legacy derivation would have arrived here, re-darking the
+    // refusal notice and letting an errored rerun inherit a stale
+    // `complete_current`.
+    //
+    // That derivation is now DELETED and `runStateKind` is `null` on the derived
+    // branch, so the ternary had become a dead branch — provably equivalent to
+    // this line, since `authority === 'wire'` ⟺ `runStateKind !== null` (an
+    // invariant pinned in `analysisStateSelector.spec.ts`, not assumed here).
+    // Keeping a guard that cannot fire is how the next reader loses track of
+    // which fallbacks are live, so it goes with the derivation it guarded.
+    //
+    // The footgun is not merely re-guarded, it is GONE: there is no longer a
+    // non-null legacy kind for a consumer to pass through by mistake.
+    wireRunStateKind: composed.runStateKind,
     refusalPresent: Boolean(refusal),
     resultsStatus: resultsStatus ?? null,
     hasCompletedFirstRun: Boolean(hasCompletedFirstRun),

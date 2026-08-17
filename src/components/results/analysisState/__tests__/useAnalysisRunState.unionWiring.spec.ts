@@ -6,13 +6,20 @@
  * the two things that live only in the hook body, and both are places a correct
  * mapping can still be fed the wrong input:
  *
- *   1. THE `authority` GATE. The hook must pass the WIRE's own kind, i.e.
- *      `composed.authority === 'wire' ? composed.runStateKind : null`. Passing
- *      `composed.runStateKind` UNCONDITIONALLY is the naive substitution #741
- *      was written to catch — and the mapping spec cannot catch it, because from
- *      the pure function's side a legacy-derived kind arriving in
- *      `wireRunStateKind` is indistinguishable from a real wire verdict. The
- *      lie is in the WIRING, so it has to be pinned at the wiring.
+ *   1. WHICH SELECTOR MEMBER REACHES THE MAPPING. From the pure function's side,
+ *      a legacy-derived kind arriving in `wireRunStateKind` is indistinguishable
+ *      from a real wire verdict — the naive substitution #741 was written to
+ *      catch. That lie lives in the WIRING, so it is pinned at the wiring.
+ *
+ *      ⚠ HOW THIS CHANGED, AND WHY THE FILE IS STILL WORTH ITS KEEP. The hook
+ *      used to gate the read on `composed.authority === 'wire'`. The gate is gone
+ *      — not weakened: the selector's legacy run-state derivation was DELETED, so
+ *      `runStateKind` is `null` on a derived turn and there is no non-null legacy
+ *      kind left to pass through by mistake. The footgun is closed at the TYPE
+ *      level, which no test can be as strong as. What is still only observable
+ *      here is the BEHAVIOUR either side of that seam: with no wire kind the
+ *      local refusal must speak, and with one the wire must win — including the
+ *      B1 carve-out for `never_run`, which no type can express.
  *
  *   2. THE DELETED FRESHNESS DERIVATION. The hook used to call
  *      `resolveDisplayedFreshness(analysisFreshness, analysisFreshnessDirty)`
@@ -34,11 +41,20 @@ import type { ComposedAnalysisState } from '@/canvas/state/analysisStateSelector
 let composed: ComposedAnalysisState
 let storeState: Record<string, unknown>
 
-vi.mock('@/canvas/state/analysisStateSelector', () => ({
+// ⚠ BOTH FACTORIES SPREAD `importOriginal` — trap 12's exact mechanism. A bare
+// `vi.mock(path, () => ({ … }))` REPLACES the module, so every export the factory
+// does not list becomes `undefined`. In this repo that has already cost 51 tests
+// silently (the flags-mock allowlist), and it fails at COLLECTION with an error
+// that names the importer rather than the mock. Spreading the original means only
+// the ONE export each test needs to control is overridden, and anything these
+// modules gain later keeps working without this file having to be updated.
+vi.mock('@/canvas/state/analysisStateSelector', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   useAnalysisState: () => composed,
 }))
 
-vi.mock('@/canvas/store', () => ({
+vi.mock('@/canvas/store', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   useCanvasStore: (selector: (s: Record<string, unknown>) => unknown) => selector(storeState),
 }))
 
@@ -46,14 +62,26 @@ vi.mock('@/canvas/store', () => ({
 const { useAnalysisRunState } = await import('../useAnalysisRunState')
 
 /**
- * A composed state shaped like the selector's DERIVED branch. Only the four
- * members this hook reads are load-bearing; the rest satisfy the type.
+ * A composed state shaped like the selector's DERIVED branch. Only the members
+ * this hook reads are load-bearing; the rest satisfy the type.
+ *
+ * ⚠ THE DEFAULT IS `runStateKind: null`, AND THAT IS A CORRECTNESS FIX, NOT
+ * TIDYING. It used to default to `'unknown_degraded'` alongside
+ * `authority: 'derived'` — a pair the selector CAN NO LONGER PRODUCE, since
+ * deleting the legacy run-state derivation made `authority === 'wire'` ⟺
+ * `runStateKind !== null` (pinned in `analysisStateSelector.spec.ts`). A fixture
+ * outside the producer's output domain proves nothing about the consumer, however
+ * green it goes: trap 16's inverse, and the reason `composedState` now defaults
+ * to the only derived-branch value that exists.
+ *
+ * Every case below that wants a kind therefore passes `authority: 'wire'` with
+ * it, which is the only combination the producer can emit.
  */
 function composedState(over: Partial<ComposedAnalysisState>): ComposedAnalysisState {
   return {
     authority: 'derived',
     wire: null,
-    runStateKind: 'unknown_degraded',
+    runStateKind: null,
     semantic: 'cannot_confirm',
     displayedFreshness: null,
     trust: { semantic: 'cannot_confirm', orphaned: false, isRunning: false },
@@ -93,27 +121,46 @@ beforeEach(() => {
 
 const run = () => renderHook(() => useAnalysisRunState()).result.current
 
-describe('useAnalysisRunState — the authority gate (the naive-substitution guard)', () => {
-  it('a LEGACY turn does NOT let the selector\'s derived kind override a refusal', () => {
-    // ⭐⭐ THE REGRESSION THIS FILE EXISTS FOR. On a legacy turn the selector
-    // derives a kind — here the strongest possible contradiction,
-    // `complete_current` — and it NEVER derives `refused`. If the hook passed
-    // `runStateKind` through unconditionally, the refusal notice would go dark
-    // and the surface would present retained numbers as current.
-    composed = composedState({ authority: 'derived', runStateKind: 'complete_current' })
+describe('useAnalysisRunState — the wire/refusal union at the store seam', () => {
+  it('a LEGACY turn (no wire kind) lets the LOCAL refusal reach the user', () => {
+    // ⭐⭐ THE REGRESSION THIS FILE EXISTS FOR, restated for the post-deletion
+    // shape. It used to set `authority:'derived'` WITH a non-null
+    // `runStateKind:'complete_current'` — the strongest contradiction the legacy
+    // derivation could produce — and assert the hook did not pass it through.
+    //
+    // That pair is now PRODUCER-UNEMITTABLE: the legacy derivation is deleted, so
+    // a derived turn carries `runStateKind: null`. The substitution footgun is
+    // gone at the TYPE level rather than guarded at runtime, which is strictly
+    // better than this test was. What remains worth pinning is the behaviour that
+    // matters to the user: with no wire kind, the refusal still speaks.
+    composed = composedState({ authority: 'derived', runStateKind: null })
     storeState.analysisRefusalNotice = { blockedReason: 'no goal node', computedAt: null }
 
     expect(run()).toBe('refused')
   })
 
   it('a WIRE turn honours the wire verdict at the same cell — the discriminating pair', () => {
-    // Same store, same refusal, ONLY `authority` flips. The answer must differ,
-    // which is what proves the gate is reading `authority` and not something
-    // that happens to correlate with it.
+    // Same store, same refusal; only the wire's presence differs. The answer must
+    // differ too, which is what proves the wire limb is load-bearing and that the
+    // case above is not passing on a constant.
     composed = composedState({ authority: 'wire', runStateKind: 'complete_current' })
     storeState.analysisRefusalNotice = { blockedReason: 'no goal node', computedAt: null }
 
     expect(run()).toBe('complete_current')
+  })
+
+  it('B1: a wire `never_run` does NOT silence a live refusal, at the store seam', () => {
+    // The blocker fix driven through the real hook rather than the pure mapper,
+    // because the harm was only visible once the mounted consumer's composition
+    // table was consulted: `never_run` renders no banner at all.
+    composed = composedState({ authority: 'wire', runStateKind: 'never_run' })
+    storeState.analysisRefusalNotice = { blockedReason: 'no goal node', computedAt: null }
+    expect(run()).toBe('refused')
+
+    // The pair: same wire kind, no refusal → `never_run` is honoured, so the
+    // carve-out has not simply disabled it.
+    storeState.analysisRefusalNotice = null
+    expect(run()).toBe('never_run')
   })
 
   it('a wire `refused` reaches the surface as `refused`', () => {
