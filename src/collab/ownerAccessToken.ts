@@ -44,10 +44,19 @@
  */
 
 import { getSessionIdentity } from '../lib/supabase'
-import { ownerSignInRequired } from './collabService'
+import { ownerNotSignedIn } from './collabService'
 
+/**
+ * ⚠ WHAT THE THROW MAY AND MAY NOT CLAIM. `getSessionIdentity()` returns a null
+ * token for THREE different worlds — never signed in, a session that has gone,
+ * and `getSession()` itself erroring — and this function cannot tell them
+ * apart. So it throws `ownerNotSignedIn()`, whose copy is true of all three and
+ * asserts only what was observed here: no credential was available to send.
+ * `ownerSignInRequired()` ("sign in AGAIN") would assert a prior session, which
+ * is exactly the falsehood a visitor with no account was shown on `81b5c966`.
+ */
 export async function requireOwnerAccessToken(): Promise<string> {
   const { accessToken } = await getSessionIdentity()
-  if (accessToken === null || accessToken.trim() === '') throw ownerSignInRequired()
+  if (accessToken === null || accessToken.trim() === '') throw ownerNotSignedIn()
   return accessToken
 }

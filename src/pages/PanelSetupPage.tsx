@@ -48,6 +48,7 @@ import {
   fetchOwnerDisagreement,
   fetchOwnerReveal,
   mintRound,
+  ownerNotSignedIn,
   ownerSignInRequired,
   participantLink,
   type MintedRound,
@@ -80,9 +81,57 @@ const FIELD =
  */
 const SIGN_IN_SENTENCE = ownerSignInRequired().message
 
+/**
+ * ⚠ THE OTHER credential sentence, and it is a DIFFERENT ONE — see the seam's
+ * header. `ownerNotSignedIn()` is minted when this browser holds no credential
+ * to send; `ownerSignInRequired()` describes the wire declining one it sent.
+ * Both are derived here rather than retyped, for the same reason as above.
+ */
+const NOT_SIGNED_IN_SENTENCE = ownerNotSignedIn().message
+
 type OwnerAction = 'open' | 'close'
 
-interface OwnerFailure {
+/**
+ * ⭐⭐ DID A SERVER SAY ANYTHING? — the field that makes the 17 Aug lie
+ * UNREPRESENTABLE rather than merely discouraged (P5, structural).
+ *
+ * The defect was not bad copy. It was copy asserting a state THE CLIENT HAD NOT
+ * OBSERVED — "your session has ended" on a click that sent zero requests. Copy
+ * alone cannot be defended by review: any future branch can retype the sentence.
+ * So every branch must now DECLARE its provenance, and two mechanisms bind that
+ * declaration to what the user is allowed to be told:
+ *
+ *   • THE TYPE. `observation` is required, so a new branch cannot be added
+ *     without answering the question. There is no default to fall into.
+ *   • A DERIVED INVARIANT over the WHOLE domain
+ *     (`panelSetupFirstSessionHonesty.spec.tsx`): any failure that did not come
+ *     from a server answer must carry NO session-history claim, checked by
+ *     iterating the seam's producers rather than a hand-listed pair of cases —
+ *     so a branch added later is covered the moment it declares.
+ *
+ * And the renderer is bound to it too: a server's own words may only be shown
+ * when a server actually spoke.
+ */
+type ServerObservation =
+  /** A response was received and parsed (`parseError`) — the server spoke. */
+  | 'server-answered'
+  /** Refused locally, before any request left the browser. Nothing was heard. */
+  | 'nothing-was-sent'
+  /** A throw that is not a `CollabRequestError`: a rejected fetch, or a parse
+   *  failure AFTER an earlier request in the same action had succeeded. Whether
+   *  anything was answered is genuinely unknown, and unknown may not be
+   *  narrated as if it were observed. */
+  | 'unknown'
+
+/**
+ * ⚠ EXPORTED FOR THE INVARIANT, AND ONLY FOR IT. The rendered-surface tests
+ * still drive the real page through a real click — they are what prove the user
+ * sees this. But an invariant has to cover the predicate's WHOLE DOMAIN, and a
+ * dozen wire codes through a dozen renders would neither be affordable nor
+ * complete. The honesty rule is a property of this pure function, so it is
+ * asserted on this pure function.
+ */
+export interface OwnerFailure {
   /** The headline. Human, and for a credential refusal the seam's own sentence. */
   title: string
   /** What to do next — the part the witness found missing entirely. */
@@ -91,14 +140,18 @@ interface OwnerFailure {
   credential: boolean
   /** The server's own words, shown as secondary detail — never as the message. */
   detail: string | null
+  /** ⚠ NOT decoration and NOT dead: read by the renderer below and by the
+   *  derived honesty invariant. See `ServerObservation`. */
+  observation: ServerObservation
 }
 
 /**
  * Translate a failure into something an owner can act on.
  *
- * ⚠ THE PREDICATE'S DOMAIN, NOT JUST THE CASE IN HAND. A credential refusal is
- * `sign_in_required` (minted locally, before any request leaves) OR an HTTP
- * 401 (the server declining the bearer). 403 IS NOT ONE OF THEM: at CEE's
+ * ⚠ THE PREDICATE'S DOMAIN, NOT JUST THE CASE IN HAND. A credential refusal has
+ * TWO producers answering DIFFERENT QUESTIONS, and this function collapsed them
+ * into one branch until 17 Aug 2026 — see the `not_signed_in` branch below and
+ * `ownerNotSignedIn()`'s header at the seam. 403 IS NOT ONE OF THEM: at CEE's
  * bytes (`route-support.ts` `replyForRefusal`) the only refusal code that
  * answers 403 is `collab_owner_only`, and the service mints it AFTER the
  * bearer has been accepted — a bad bearer 401s in `requireOwnerUser` before
@@ -114,7 +167,7 @@ interface OwnerFailure {
  * edge proxy answers a code-less origin refusal), and for those the honest
  * answer is the unknown-state fallback carrying the server's own words.
  */
-function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
+export function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
   const fallbackTitle =
     action === 'open' ? 'We could not open the round.' : 'We could not close the round.'
 
@@ -125,9 +178,44 @@ function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
         'Something went wrong before we heard back. Check your connection and try again — nothing has been sent to anyone.',
       credential: false,
       detail: null,
+      observation: 'unknown',
     }
   }
 
+  // ⭐ NEVER SIGNED IN — checked FIRST, because this error also carries 401 and
+  // the wire branch below would otherwise swallow it (that swallow WAS the
+  // defect). `not_signed_in` is minted only locally, by `ownerNotSignedIn()`,
+  // and reaching it proves NO REQUEST WAS SENT: the client has heard nothing
+  // from any server about any session, so it may not say one has ended.
+  //
+  // Browser-witnessed on deployed `81b5c966`, 17 Aug 2026: a visitor with no
+  // account filled this form, clicked "Open the round", and was told "Your
+  // session has ended" / "Sign in again" while the capture's request log for
+  // the collab seam was EMPTY (`S4.network.json === []`) — the server had said
+  // nothing at all. The honest copy states what the client observed — that it found
+  // no signed-in session in this browser — which is also true of the two other
+  // worlds behind the same null token (a session that has gone, and a
+  // `getSession()` that errored). It does not claim which of the three it is.
+  if (err.code === 'not_signed_in') {
+    return {
+      title: NOT_SIGNED_IN_SENTENCE,
+      // The action is named in the TITLE ("open or close a round"), so the
+      // guidance does not repeat it — a second copy of the action would be one
+      // more thing to get wrong on the close path.
+      guidance:
+        'We found no signed-in session in this browser, so nothing was sent. Sign in in the new tab, then come back here and try again — what you have typed on this page is kept.',
+      credential: true,
+      // No server sentence exists to show: nothing was asked of one.
+      detail: null,
+      observation: 'nothing-was-sent',
+    }
+  }
+
+  // THE WIRE DECLINED A BEARER WE SENT. Reaching here means the request left
+  // the browser carrying a non-empty token (`ownerAuthorization` throws
+  // `not_signed_in` above rather than sending `Bearer `), so the server DID
+  // speak about this session — which is what makes "has ended" an observation
+  // rather than the guess it was for a visitor who never had one.
   if (err.code === 'sign_in_required' || err.status === 401) {
     return {
       title: SIGN_IN_SENTENCE,
@@ -138,6 +226,7 @@ function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
       // verified.") tells the owner nothing they can act on, and repeating it
       // beside the guidance would only muddy it.
       detail: null,
+      observation: 'server-answered',
     }
   }
 
@@ -158,6 +247,7 @@ function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
           : 'There is no round you own with that id — it may have been removed, or it was opened under a different account. Signing in again as this account will not change that; if that other account is yours, sign in with it instead. If the round is gone for good, forget the reminder and open a fresh round.',
       credential: false,
       detail: `${err.code} — ${err.message}`,
+      observation: 'server-answered',
     }
   }
 
@@ -177,6 +267,7 @@ function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
         'The round is still open. Try again in a moment — nobody has seen anything they should not.',
       credential: false,
       detail: `${err.code} — ${err.message}`,
+      observation: 'server-answered',
     }
   }
 
@@ -190,6 +281,12 @@ function describeOwnerFailure(err: unknown, action: OwnerAction): OwnerFailure {
     // The server's own code is part of the detail: "Internal server error"
     // alone is undiagnosable, and the code is what the wire witness greps for.
     detail: `${err.code} — ${err.message}`,
+    // Every `CollabRequestError` reaching here came from `parseError`, i.e. from
+    // a response: the ONLY locally-minted owner error is `not_signed_in`, caught
+    // above. Scope of that claim: this page's two call sites, `handleMint` and
+    // `handleClose` (`participantHeaders`' local mint is on the participant
+    // path and cannot arrive here).
+    observation: 'server-answered',
   }
 }
 
@@ -826,7 +923,12 @@ export default function PanelSetupPage(): JSX.Element {
               >
                 {failure.guidance}
               </p>
-              {failure.detail !== null && (
+              {/* ⭐ A SERVER'S OWN WORDS MAY ONLY APPEAR IF A SERVER SPOKE.
+                  `detail` is always null on the two non-answered branches
+                  today, so this conjunct changes nothing NOW — it is what makes
+                  the property hold for a future branch that sets a detail it did
+                  not receive, and it is why `observation` is not a dead field. */}
+              {failure.detail !== null && failure.observation === 'server-answered' && (
                 <p
                   data-testid="panel-error-detail"
                   className={`${typography.bodySmall} mt-2 text-text-light`}

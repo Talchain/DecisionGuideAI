@@ -74,11 +74,18 @@ const GOOD_CODE = 'CODE-THAT-WORKS-a1b2c3'
 const BAD_CODE = 'CODE-THAT-DOES-NOT-WORK-zzzz'
 const OWNER_TOKEN = 'owner-access-token-friction-IDENTITY'
 
-/** The exact sentence the collab seam mints for a credential refusal. Written
- *  here from the user's side, deliberately NOT imported from the product — a
- *  guard that imports its own expectation only proves the code agrees with
- *  itself. */
-const SIGN_IN_COPY = 'Sign in again to open or close a round.'
+/** The two credential sentences, written here from the user's side and
+ *  deliberately NOT imported from the product — a guard that imports its own
+ *  expectation only proves the code agrees with itself.
+ *
+ *  ⚠ SPLIT 17 Aug 2026, AND THIS FILE IS WHY THE DEFECT SURVIVED. There used to
+ *  be ONE constant, `'Sign in again to open or close a round.'`, asserted on
+ *  BOTH the never-signed-in path and the wire-401 path — the same "two
+ *  questions under one name" collapse as the product code, reproduced in the
+ *  expectations. A suite that gives two different states one expected sentence
+ *  cannot notice that one of them is being lied to. */
+const NOT_SIGNED_IN_COPY = 'Sign in to open or close a round.'
+const SESSION_ENDED_COPY = 'Sign in again to open or close a round.'
 
 type StubResponse = Pick<Response, 'ok' | 'status' | 'json'>
 
@@ -314,7 +321,10 @@ describe('F4/F5: a failure is translated into human copy with a next step', () =
     fireEvent.click(screen.getByTestId('panel-mint'))
 
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
-    expect(screen.getByTestId('panel-error')).toHaveTextContent(SIGN_IN_COPY)
+    // NEVER SIGNED IN: no request left the browser, so the copy may not say a
+    // session ended. Pinned in full by panelSetupFirstSessionHonesty.spec.tsx.
+    expect(screen.getByTestId('panel-error')).toHaveTextContent(NOT_SIGNED_IN_COPY)
+    expect(screen.getByTestId('panel-error')).not.toHaveTextContent(SESSION_ENDED_COPY)
     expect(screen.getByTestId('panel-error-guidance')).toBeInTheDocument()
 
     // F5: the affordance the message presupposed but never provided.
@@ -339,7 +349,9 @@ describe('F4/F5: a failure is translated into human copy with a next step', () =
     fireEvent.click(screen.getByTestId('panel-mint'))
 
     await waitFor(() => expect(screen.getByTestId('panel-error')).toBeInTheDocument())
-    expect(screen.getByTestId('panel-error')).toHaveTextContent(SIGN_IN_COPY)
+    // THE WIRE SPOKE: a real bearer was sent (the beforeEach signs this owner
+    // in) and refused, so "again" is an observation here.
+    expect(screen.getByTestId('panel-error')).toHaveTextContent(SESSION_ENDED_COPY)
     expect(screen.getByTestId('panel-sign-in')).toBeInTheDocument()
   })
 
