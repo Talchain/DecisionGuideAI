@@ -33,6 +33,8 @@ import { FactorExternalEditor } from '../editors/FactorExternalEditor'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { useParticipantName } from '../../../../collab/useParticipantName'
+import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
+import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 
 // Quick-set presets
 const QUICK_SET = {
@@ -81,6 +83,12 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
    * both labels below byte-identical to what they rendered before.
    */
   const attributedTo = useParticipantName(obs?.elicited_from as unknown)
+  /**
+   * The CITATION the owner recorded when they applied this value. A no-op for
+   * every value carrying no citation: `no_citation` fetches nothing and renders
+   * nothing, leaving this panel byte-identical to what it rendered before.
+   */
+  const citedEvidence = useCitedEvidence(obs?.elicited_from as unknown)
 
   // Prior range
   const prior = (node?.data as Record<string, unknown>)?.prior as Record<string, unknown> | number | undefined
@@ -188,6 +196,11 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             {getExtractionLabel(source, attributedTo)}
           </span>
         </div>
+
+        {/* What the owner cited when they applied it. Renders only when a
+            citation resolved; never gated on `source`, because the citation is a
+            fact about the apply and not about the extraction kind. */}
+        <CitedEvidenceNote resolution={citedEvidence} />
 
         {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
         <StaleGuardBanner hasResults={isResultsMode}>

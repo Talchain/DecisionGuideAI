@@ -67,6 +67,26 @@
 export interface RoundParticipantRef {
   round_id: string
   participant_id: string
+  /**
+   * 0.41.0 — WHICH piece of panel evidence the owner cited when they applied
+   * this value. Optional in the contract (`evidence_event_id: z.ZodOptional`
+   * inside a `.strict()` object), and the key is OMITTED rather than nulled when
+   * the owner cited nothing.
+   *
+   * ⚠ IT IS CARRIED HERE, NOT RESOLVED HERE. This module answers "whose number
+   * is this"; the citation is a different question with a different source (the
+   * owner disagreement view, not the roster) and lives in `citedEvidence.ts`.
+   * It rides on this reference because THIS is the one gate every mounted
+   * attribution surface passes through — the field was written by CEE from
+   * 0.41.0 onward and reached no surface for three days precisely because this
+   * function dropped it, so a second reader for the same wire object is how a
+   * future field goes dark the same way.
+   *
+   * ⚠ ABSENCE IS NOT AN ERROR AND NOT "CITATION LOST". Absent means the owner
+   * applied a value without citing evidence — the ordinary case, and the only
+   * case for every value written before 0.41.0.
+   */
+  evidence_event_id?: string
 }
 
 /**
@@ -104,10 +124,38 @@ export type ParticipantNameResolution =
  */
 export function readElicitedFrom(value: unknown): RoundParticipantRef | null {
   if (typeof value !== 'object' || value === null) return null
-  const ref = value as { round_id?: unknown; participant_id?: unknown }
+  const ref = value as {
+    round_id?: unknown
+    participant_id?: unknown
+    evidence_event_id?: unknown
+  }
   if (typeof ref.round_id !== 'string' || ref.round_id.trim() === '') return null
   if (typeof ref.participant_id !== 'string' || ref.participant_id.trim() === '') return null
-  return { round_id: ref.round_id, participant_id: ref.participant_id }
+
+  /**
+   * The citation is admitted on its OWN validity, and its absence or malformity
+   * NEVER costs the attribution.
+   *
+   * ⚠ THE ORDER MATTERS AND IS THE POINT. A reference is usable as attribution
+   * the moment its two required members are strings; a junk `evidence_event_id`
+   * is a citation problem, not an attribution problem, and returning `null` for
+   * the whole reference would take a NAME off the screen because a THIRD field
+   * was wrong. That inverts the absence semantics the contract states.
+   *
+   * The key is omitted rather than set to `undefined`, so `'evidence_event_id'
+   * in ref` is false for an uncited apply — the same presence test the write
+   * path already uses (`panelApplyHandoff.ts:169`, `buildPayload.ts:715`).
+   */
+  const citation =
+    typeof ref.evidence_event_id === 'string' && ref.evidence_event_id.trim() !== ''
+      ? ref.evidence_event_id
+      : undefined
+
+  return {
+    round_id: ref.round_id,
+    participant_id: ref.participant_id,
+    ...(citation !== undefined ? { evidence_event_id: citation } : {}),
+  }
 }
 
 /**

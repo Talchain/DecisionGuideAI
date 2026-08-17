@@ -39,6 +39,8 @@ import { resolveCoaching } from '../coachingConfig'
 import { FactorObservableEditor } from '../editors/FactorObservableEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { useParticipantName } from '../../../../collab/useParticipantName'
+import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
+import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 
 export const FactorObservablePanel = memo(function FactorObservablePanel({
   nodeId,
@@ -79,6 +81,14 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
    * both labels below byte-identical to what they rendered before.
    */
   const attributedTo = useParticipantName(obs?.elicited_from)
+  /**
+   * The CITATION the owner recorded when they applied this value — a colleague's
+   * note or link. Called unconditionally (it is a hook) and, like the name
+   * resolution above, a no-op for every value that carries no citation: no
+   * `evidence_event_id` means `no_citation`, which fetches nothing and renders
+   * nothing, leaving this panel byte-identical to what it rendered before.
+   */
+  const citedEvidence = useCitedEvidence(obs?.elicited_from)
 
   // Description — conditional edit state for EmptyDescriptionPrompt pattern
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
@@ -237,6 +247,11 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
               <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source, attributedTo)}</span>
             </div>
           )}
+
+          {/* What the owner cited when they applied it. Renders only when a
+              citation resolved; never gated on `source`, because the citation is
+              a fact about the apply and not about the extraction kind. */}
+          <CitedEvidenceNote resolution={citedEvidence} />
         </PrimaryControlCard>
 
         {/* Coaching — within Your input group, below the card */}
