@@ -336,11 +336,19 @@ jobs:
       - name: Install Chromium (Playwright)
         run: pnpm exec playwright install --with-deps chromium
 
+      # ⚠ COUNTED WITH A GLOB, NOT WITH `ls`. The first version of this step ran
+      # `ls -1 …/*.png | wc -l`, and GitHub's default shell is
+      # `bash --noprofile --norc -e -o pipefail`: with no matches `ls` exits 1,
+      # `-e` kills the step BEFORE the output is written, and every downstream
+      # `if:` then compares against an EMPTY string rather than '0'. Reproduced
+      # exactly. `nullglob` + array length cannot fail, so the zero case is a
+      # real measured zero instead of a step that died on the way to saying so.
       - name: Are there linux references to compare against?
         id: refs
         run: |
-          set -o pipefail
-          count=$(ls -1 e2e/visual/references/linux/*.png 2>/dev/null | wc -l | tr -d ' ')
+          shopt -s nullglob
+          files=(e2e/visual/references/linux/*.png)
+          count=${#files[@]}
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "Found $count committed linux reference image(s)."
 
