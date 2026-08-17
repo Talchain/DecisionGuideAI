@@ -47,6 +47,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { stripComments } from '../../../tests/helpers/stripSourceComments'
 
 vi.mock('../../lib/supabase', async (importOriginal) => {
   // Spread the real module rather than hand-list its exports (trap 12). It also
@@ -261,12 +264,32 @@ describe('THE PAIR: the two answers are not the same answer', () => {
  * IMPOSSIBLE. The three tests above bind the two branches a user reaches today.
  * They cannot stop a THIRD branch, added next month, retyping the sentence.
  *
- * This block can. It walks the predicate's WHOLE DOMAIN and asserts the rule as
- * a property: no failure that lacks a server answer may carry session-history
- * language. Because `observation` is a REQUIRED field, a new branch cannot dodge
+ * This block can. It walks the predicate's DOMAIN AS PINNED BELOW and asserts
+ * the rule as a property: no failure that lacks a server answer may carry
+ * session-history language, and a `server-answered` declaration is checked
+ * against the error's own provenance rather than trusted.
+ *
+ * ⚠ AN EARLIER VERSION OF THIS PARAGRAPH CLAIMED A GUARANTEE NOBODY ENFORCED,
+ * and it is worth saying exactly what was wrong because the shape recurs. It
+ * read: "Because `observation` is a REQUIRED field, a new branch cannot dodge
  * it — declaring `nothing-was-sent` or `unknown` enrols it in this invariant
- * automatically, and declaring `server-answered` falsely is itself caught below
- * by comparing the declaration against the error's own provenance.
+ * automatically." The first half is true and the second does not follow. The
+ * REQUIRED field forces a new branch to DECLARE an observation; it does nothing
+ * to make that branch REACHED. `DOMAIN` is a hand-written corpus, so a branch
+ * keyed on a code no member carries is simply never executed — declared,
+ * unenrolled, and invisible to every assertion here. A comment describing a
+ * guarantee nothing implements is this estate's hand-maintained mirror (trap
+ * 12), and it is at its most expensive in a spec header, where the next reader
+ * takes it as the reason not to look.
+ *
+ * SO THE CLAIM IS NOW IMPLEMENTED RATHER THAN ASSERTED. `COMPLETENESS` below
+ * harvests every `err.code === '<literal>'` branch from `describeOwnerFailure`'s
+ * own SOURCE and requires `DOMAIN` to carry an error for each one — so adding a
+ * branch without adding its corpus member REDs here. Its scope, stated
+ * precisely (trap 20): it harvests CODE-KEYED branches from that one function.
+ * It does not see the `err.status === 401` arm, the `action === 'close'`
+ * conjunct, or any branch reached some other way; those remain covered only by
+ * the corpus members that exercise them.
  *
  * ⚠ THE PREDICATE OVER LANGUAGE IS THE RISK HERE (trap 22), so it is bounded
  * three ways: the patterns match session-HISTORY PHRASES, never bare words
@@ -374,7 +397,99 @@ const DOMAIN: ReadonlyArray<{
   { name: 'a thrown non-Error', err: 'something odd', truth: 'unknown' },
 ]
 
+/* ── THE DERIVED HALF: make the completeness claim TRUE, not merely accurate ──
+ *
+ * `DOMAIN` above is hand-written, which is what lets it state each member's
+ * provenance independently of the product — the property that makes the
+ * declaration checkable rather than trusted. That strength is also its hole: a
+ * hand-written corpus goes silently short the day someone adds a branch.
+ *
+ * So the corpus is checked against a FRESH DERIVATION of the branches it is
+ * supposed to cover, harvested from `describeOwnerFailure`'s source text. The
+ * harvest is deliberately NOT derived from `DOMAIN`, and `DOMAIN` is
+ * deliberately not generated from the harvest: a pin computed from the thing it
+ * validates can only ever agree with itself (trap 13b).
+ */
+const PANEL_SETUP_SOURCE = resolve(process.cwd(), 'src', 'pages', 'PanelSetupPage.tsx')
+
+/**
+ * The source text of `describeOwnerFailure` alone, comments stripped.
+ *
+ * Sliced to the one function rather than scanning the file: `PanelSetupPage`
+ * has other error handling, and a whole-file harvest would demand corpus
+ * members for branches this invariant does not govern. Comments are stripped so
+ * a code named in PROSE — several are, in the branch commentary — cannot be
+ * harvested as a branch that does not exist.
+ *
+ * Both failure modes throw rather than returning empty: an extractor that
+ * silently produces nothing agrees with every assertion made about it, which is
+ * the absence-probe-with-no-positive-control defect (trap 13).
+ */
+function describeOwnerFailureSource(): string {
+  const full = readFileSync(PANEL_SETUP_SOURCE, 'utf8')
+  const start = full.indexOf('export function describeOwnerFailure')
+  if (start === -1) {
+    throw new Error(
+      `describeOwnerFailure not found in ${PANEL_SETUP_SOURCE} — it was renamed, moved, or ` +
+        'stopped being exported. This harvest is pointed at the wrong bytes; fix the pointer, ' +
+        'do not delete the guard.',
+    )
+  }
+  // The closing brace of a top-level function declaration is the first `}` at
+  // column 0 after its start; every nested brace in this function is indented.
+  const end = full.indexOf('\n}\n', start)
+  if (end === -1) {
+    throw new Error('could not find the end of describeOwnerFailure — the slice would be wrong')
+  }
+  const body = full.slice(start, end)
+  if (body.trim() === '') throw new Error('describeOwnerFailure sliced to an empty string')
+  return stripComments(body, 'PanelSetupPage.tsx')
+}
+
+/** Every `err.code === '<literal>'` branch in that function, deduped and sorted. */
+const HARVESTED_CODE_BRANCHES: readonly string[] = [
+  ...new Set(
+    [...describeOwnerFailureSource().matchAll(/err\.code === '([A-Za-z0-9_]+)'/g)].map(
+      (m) => m[1],
+    ),
+  ),
+].sort()
+
 describe('STRUCTURAL: no failure without a server answer may claim a session ended', () => {
+  it('COMPLETENESS: every err.code branch in describeOwnerFailure has a corpus member (harvested from source)', () => {
+    // ── POSITIVE CONTROL: the harvest can see SOMETHING, at a plausible
+    // magnitude. A count alone is not enough (trap 13e) — an extractor reading
+    // the wrong bytes returns a clean, confident zero, and zero uncovered
+    // branches out of zero harvested branches passes every assertion below.
+    expect(
+      HARVESTED_CODE_BRANCHES.length,
+      'the harvest found no code-keyed branches at all — it is reading the wrong bytes',
+    ).toBeGreaterThanOrEqual(4)
+    expect(HARVESTED_CODE_BRANCHES).toContain('not_signed_in')
+    expect(HARVESTED_CODE_BRANCHES).toContain('sign_in_required')
+
+    const corpusCodes = new Set(
+      DOMAIN.map((d) => d.err)
+        .filter((e): e is CollabRequestError => e instanceof CollabRequestError)
+        .map((e) => e.code),
+    )
+
+    // ── CONTRAST CONTROL: the harvest DISCRIMINATES, it does not just echo the
+    // corpus. `collab_round_closed` is in DOMAIN and is deliberately NOT a
+    // branch here (the close call site falls through to the reveal), so a
+    // harvest that had degenerated into "return the corpus" fails this line.
+    expect(corpusCodes.has('collab_round_closed')).toBe(true)
+    expect(HARVESTED_CODE_BRANCHES).not.toContain('collab_round_closed')
+
+    const uncovered = HARVESTED_CODE_BRANCHES.filter((code) => !corpusCodes.has(code))
+    expect(
+      uncovered,
+      'describeOwnerFailure branches on these codes and DOMAIN carries no error for them, so ' +
+        'the honesty invariant never executes those branches. Add a member to DOMAIN stating ' +
+        "the branch's TRUE provenance — do not delete the branch or loosen this guard.",
+    ).toEqual([])
+  })
+
   it('POSITIVE CONTROL: the detector finds the claim in the exact sentences the deployed build emitted', () => {
     // Without this, every negative assertion below could be passing because the
     // patterns match nothing at all. These two strings are the witness's own
