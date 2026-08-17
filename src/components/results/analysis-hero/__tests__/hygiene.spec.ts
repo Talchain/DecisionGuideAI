@@ -82,26 +82,30 @@ describe('Analysis hero source hygiene', () => {
    * grew, you introduced a fabrication path. Only shrink it alongside the
    * change that genuinely removes a read.
    *
-   * THE TWO ENTRIES ARE NOT THE SAME KIND OF DEBT — the guard's blanket
-   * rationale ("no producer display-safe label exists") is stale for one of
-   * them and exactly right for the other:
+   * THE ENTRIES ARE NOT THE SAME KIND OF DEBT — the guard's blanket rationale
+   * ("no producer display-safe label exists") is stale for one and was exactly
+   * right for the other:
    *
    *   · `robustnessVerdict` — a display-safe label DOES exist. `types.ts`
    *     documents it as sourced only from PLoT's `robustness.display_verdict`,
    *     fail-closed normalised. Reading it is the sanctioned path; the fix is
-   *     to consume the producer's label explicitly.
-   *   · `recommendationStability` — the ban is correct. It is a bare 0-1 float
-   *     with no display-safe label, and the `< 0.85` cliff in `isReadyToBrief`
-   *     is a UI-INVENTED threshold. The fix is producer-side, or a licensed
-   *     constant.
-   *
-   * Both are rowed separately. Neither is fixed in this train.
+   *     to consume the producer's label explicitly. STILL PINNED (ROADMAP
+   *     2.1227).
+   *   · `recommendationStability` — ✅ RESOLVED, ROADMAP 2.1228, and the pin
+   *     SHRANK BY EXACTLY THIS ONE ENTRY alongside the change that removed the
+   *     read. `isReadyToBrief` no longer consults it: the `>= 0.85` cliff was
+   *     UI-INVENTED, and the producer deliberately WITHHOLDS the field it
+   *     gated on (PLoT `src/routes/v2/run.ts:3266-3277` — it is the leader's
+   *     `win_probability` relabelled, so emitting it under a stability name was
+   *     "a fabricated second statistic"). The predicate now relies solely on
+   *     the producer's display-safe verdict. See
+   *     `../actOnIt/__tests__/rankActOnItRows.spec.ts` §6/§7 for the
+   *     bidirectional divergence pin that bounds the behavioural change.
    */
   const TRUST_STABILITY_RE =
     /robustnessLevel|robustnessLabel|robustnessVerdict|recommendationStability/g
 
   const KNOWN_TRUST_STABILITY_READS: readonly string[] = [
-    'rankActOnItRows.ts::recommendationStability',
     'rankActOnItRows.ts::robustnessVerdict',
   ]
 
