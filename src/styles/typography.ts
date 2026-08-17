@@ -40,9 +40,25 @@ export const typography = {
   tabular: 'text-sm font-sans leading-normal tabular-nums', // 14px
 
   // Canvas/Graph - Inter (smaller for dense UI)
-  nodeTitle: 'text-[13px] font-semibold font-sans leading-tight',
-  nodeLabel: 'text-[11px] font-sans leading-tight',
-  edgeLabel: 'text-[10px] font-sans leading-tight',
+  //
+  // ⭐ THE DECLARED SIZES BELOW ARE DS v5 §2.3 AND HAVE NOT CHANGED: 13 / 11 / 10.
+  // What changed (17 Aug 2026) is that they are now what the user actually SEES.
+  //
+  // Canvas labels are DOM inside React Flow's viewport transform, which scales
+  // glyphs. A post-draft graph clamps at the `LABEL_LEGIBLE_ZOOM` floor of 0.50,
+  // so these three tokens were rendering at 6.5 / 5.5 / 5.0px — against §2.4's
+  // 10px canvas floor, and past the point where the §2.4 small-font guardrail
+  // (10–11px only for non-essential metadata) means anything at all.
+  //
+  // `--canvas-label-scale` is the counter-scale, written onto the React Flow
+  // root by `CanvasLabelScaleSync` as `1 / zoom` across the legible band. The
+  // `var(…, 1)` fallback is load-bearing: OUTSIDE that subtree the property is
+  // unset, so every non-canvas use of these tokens resolves to exactly the same
+  // font-size it had before this change. Derivation and bounds:
+  // `src/canvas/utils/zoomLegibility.ts`.
+  nodeTitle: 'text-[length:calc(13px*var(--canvas-label-scale,1))] font-semibold font-sans leading-tight',
+  nodeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-tight',
+  edgeLabel: 'text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-tight',
 
   // Results Panel — strict 4-size system (Brief 5.5 §2.1 lock)
   // Only these four tokens should be used inside src/components/results/

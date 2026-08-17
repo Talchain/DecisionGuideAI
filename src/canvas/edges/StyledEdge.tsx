@@ -24,6 +24,12 @@ import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import { shouldShowEdgeLabel } from './edgeLabelVisibility'
 import { computeDirectionStroke } from './directionStroke'
+import {
+  readContestedState,
+  resolveEdgeStroke,
+  resolveEdgeDash,
+  type EdgePresentationState,
+} from './edgePresentation'
 import { resolvePersistentLabelPlacements, type PlacementEdge } from './edgeLabelCollision'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel, getEdgeConfidence } from '../domain/edges'
@@ -58,9 +64,10 @@ import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 // Structural edge grey — brief constant, not a theme token. Used for the
 // thin 1px solid stroke on decision→option and option→factor edges so they
-// recede visually next to causal edges. Exported so tests track the colour
-// via the constant rather than a hard-coded literal.
-export const STRUCTURAL_EDGE_COLOUR = '#B8B8B8'
+// recede visually next to causal edges. Re-exported so the many existing tests
+// that import it from here keep working; it now LIVES in `edgePresentation`,
+// beside the rule that applies it.
+export { STRUCTURAL_EDGE_COLOUR } from './edgePresentation'
 
 // Stable empty set for the lens-disabled branch of the store selector —
 // a fresh Set per call would defeat useShallow's reference equality.
@@ -345,27 +352,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [beliefExists]
   )
 
-  // Contested edge styling — dashed info-colour stroke scaled by max_divergence
-  // Resolved or absent validation: revert to normal rendering.
-  // If max_divergence is absent, treat as non-contested (no inferred divergence).
+  // Contested edge state — reduced to four named facts by the one authority
+  // (`edgePresentation.readContestedState`), which also owns the
+  // divergence-scaled dash. The gate itself is unchanged: status contested AND
+  // user_action pending AND a divergence actually supplied.
   const validation = edgeData?.validation
-  const isContested = validation?.status === 'contested'
-    && validation?.user_action === 'pending'
-    && validation?.max_divergence !== undefined
-    && validation?.max_divergence !== null
-  const needsUserInput = isContested && (validation?.pass2?.needs_user_input === true)
-
-  // Contested dash: gap scales with max_divergence (0→1 maps to 4→8px gap)
-  // needs_user_input gets a tighter dash for stronger visual signal
-  const contestedDashArray = isContested
-    ? (() => {
-        const divergence = validation!.max_divergence
-        const gap = needsUserInput ? 3 : Math.round(4 + divergence * 4)
-        // Dash width scales between 1.5px and 3px: 1.5 + divergence * 1.5
-        const dashWidth = Number((1.5 + divergence * 1.5).toFixed(1))
-        return `${dashWidth} ${gap}`
-      })()
-    : null
+  const contested = useMemo(() => readContestedState(validation), [validation])
 
   // Fix 1: Line style encodes existence certainty ONLY, not direction
   // Direction is already encoded via color (green/red) and sign (+/−)
@@ -373,10 +365,21 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // D.1: Unified confidence check via getEdgeConfidence (returns null when missing)
   const edgeConfidenceValue = getEdgeConfidence(edgeData as Record<string, unknown> | undefined)
 
-  // B.I.10: Pre-run overlay — dashed stroke for edges with NO confidence set.
-  // F.2: Controls dash pattern only; colour is derived from direction.
+  // B.I.10 (SUPERSEDED as a STYLE, retained as a MARKER — 17 Aug 2026).
+  //
+  // This used to be `!isResultsMode && edgeConfidenceValue === null` and it
+  // dashed the edge, commented "needs attention". Both halves were defects:
+  //   • On a fresh AI draft NO edge has a confidence, so "needs attention"
+  //     marked the entire graph — Paul's ruling that exception styling must not
+  //     become the default. `edgePresentation.EDGE_DASH_RULES` no longer carries
+  //     a `pre_run_incomplete` rule.
+  //   • `!isResultsMode` is an APP PHASE (`results.status === 'complete'`), so
+  //     completing an analysis restyled edges the user had not touched. That is
+  //     the flip Paul witnessed on the Analysis tab, and it is why the term is
+  //     gone from the predicate rather than merely unused: an edge's resting
+  //     appearance is a function of the edge.
   // A confidence of 0 is a valid user choice (low), not "missing".
-  const isPreRunIncompleteEdge = !isResultsMode && edgeConfidenceValue === null
+  const isMissingConfidenceEdge = edgeConfidenceValue === null
 
   // Determine label visibility and styling
   const labelVisibility = useMemo(
@@ -718,6 +721,29 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     showEdgeHint: Boolean(showEdgeHint),
   })
 
+  // ── Stroke + dash, from the one authority ────────────────────────────────
+  //
+  // NOTE WHAT IS NOT IN THIS STATE: `isResultsMode`. An edge's resting colour
+  // and dash are a function of the EDGE. Interaction states (hover, selection,
+  // highlight, lens) are transient and user-driven and stay; analysis
+  // completion is neither, and used to restyle a graph nobody had edited.
+  const presentationState: EdgePresentationState = useMemo(() => ({
+    isStructural: isStructuralEdge,
+    lensMode,
+    causalParams: causalEdgeParams,
+    evidenceClass: evidenceEdgeClass,
+    contested,
+    isHighlighted: isHighlightedEdge,
+    polarityStroke: directionStroke,
+    existenceDash: existenceCertaintyDash,
+    visualPropsDash: visualProps.strokeDasharray,
+  }), [
+    isStructuralEdge, lensMode, causalEdgeParams, evidenceEdgeClass, contested,
+    isHighlightedEdge, directionStroke, existenceCertaintyDash, visualProps.strokeDasharray,
+  ])
+  const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
+  const edgeDash = useMemo(() => resolveEdgeDash(presentationState), [presentationState])
+
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
 
@@ -742,7 +768,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         stroke="transparent"
         strokeWidth={EDGE_HIT_AREA_WIDTH}
         style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
-        {...(isPreRunIncompleteEdge ? { 'data-testid': 'overlay-missing-confidence' } : {})}
+        {...(isMissingConfidenceEdge ? { 'data-testid': 'overlay-missing-confidence' } : {})}
       >
         {isStructuralEdge && structuralTooltip && <title>{structuralTooltip}</title>}
       </path>
@@ -806,42 +832,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // fragile-badged, so they never bump.
             return isAnalysisFragileEdge && !isStructuralEdge ? Math.max(base, 4) : base
           })(),
-          // Fix 1: Use existence certainty for line style, fallback to visual props
-          // B.I.10: Pre-run incomplete edges get dashed stroke to indicate "needs attention"
-          // Priority: structural (solid) > contested dash > pre-run incomplete dash > existence certainty > visual props
-          strokeDasharray: (() => {
-            if (isStructuralEdge) return undefined
-            if (isContested) return contestedDashArray
-            if (isPreRunIncompleteEdge) return '6 3'
-            return existenceCertaintyDash ?? visualProps.strokeDasharray
-          })(),
-          // Graph Interaction P1: Highlighted edges get brighter color
-          // F.2: Direction colour always applies — yellow only for truly uninitialised edges
-          // Pre-run overlay controls dash pattern only, not colour
-          stroke: (() => {
-            // Structural edges: fixed grey regardless of lens / highlight
-            if (isStructuralEdge) return STRUCTURAL_EDGE_COLOUR
-            // Causal lens: neutral colour; danger ONLY for a STATED negative
-            // (ROADMAP 2.954). Danger-red is a direction claim, so it renders
-            // from the resolved direction — never from the sign of a mean the
-            // UI itself may have fabricated (`effect_direction: 'unknown'`
-            // edges used to draw red here off the fallback sign).
-            if (lensMode === 'causal' && causalEdgeParams) {
-              return causalEdgeParams.direction === 'negative' ? 'var(--semantic-danger, #ef4444)' : 'var(--text-body, #3F3F3E)'
-            }
-            // Evidence lens: colour by provenance classification
-            if (lensMode === 'evidence' && evidenceEdgeClass) {
-              switch (evidenceEdgeClass) {
-                case 'evidence': return 'var(--semantic-success, #22c55e)'
-                case 'assumed': return 'var(--semantic-warning, #eab308)'
-                case 'unknown': return 'var(--semantic-danger, #ef4444)'
-              }
-            }
-            if (isContested) {
-              return needsUserInput ? 'var(--semantic-warning)' : 'color-mix(in srgb, var(--semantic-warning) 70%, transparent)'
-            }
-            return isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke)
-          })(),
+          // ⭐ ONE AUTHORITY, ONE STATED PRECEDENCE (17 Aug 2026).
+          //
+          // Both channels used to be ordered early-return chains written inline
+          // here. Nobody had ever chosen that order — it was the sequence the
+          // branches were added in, and it silently made polarity unreachable on
+          // every contested edge. `edgePresentation` owns the decision now:
+          // `EDGE_STROKE_RULES` / `EDGE_DASH_RULES` are ordered arrays, the
+          // resolvers return the NAMED rule that fired, and both orderings are
+          // asserted against those arrays in `edgePresentation.spec.ts`. Adding
+          // a branch here again — rather than a rule there — is the regression
+          // this refactor exists to make impossible to do quietly.
+          strokeDasharray: edgeDash.value,
+          stroke: edgeStroke.value,
           // Opacity is a lens-only channel now. exists_probability is a SINGLE
           // encoding — the dash (existenceCertaintyDash above), which stays
           // legible at every zoom level and doesn't fight the analysis halo.

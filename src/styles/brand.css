@@ -220,6 +220,19 @@
   --edge-negative-dark: #F06595;
   --edge-neutral-dark: #A1A1AA;
 
+  /* Canvas label counter-scale. NOT a colour and NOT a size — a unitless
+     multiplier the three canvas type tokens (nodeTitle / nodeLabel / edgeLabel)
+     apply to their DECLARED px, so DS v5 §2.3's 13/11/10 are the sizes actually
+     rendered rather than the sizes before React Flow's viewport transform
+     halves them. 1 is the identity and the correct value everywhere except
+     inside a zoomed-out canvas: `CanvasLabelScaleSync` overrides it on the
+     React Flow root only, from `labelCounterScale(zoom)`. Defined here so the
+     property RESOLVES — `css-var-resolution.spec` requires every var() in
+     TS/TSX to name a real token, and the tokens' inline `var(…, 1)` fallback
+     must agree with this declaration or the census reports fallback drift.
+     Rule and bounds: src/canvas/utils/zoomLegibility.ts */
+  --canvas-label-scale: 1;
+
   --goal-rgb: 245 196 51;
 
   --goal: rgb(var(--goal-rgb));
