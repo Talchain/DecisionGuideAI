@@ -157,19 +157,42 @@ describe('FactorsSection — no EVPI text and no EVPI ordering', () => {
 })
 
 describe('StatusBar — no "Xpp via EVPI" chip', () => {
+  /**
+   * ⚠ `recommendationStability` REMOVED FROM THIS FIXTURE (ROADMAP 2.1273).
+   *
+   * The prop no longer exists on `StatusBarProps`: PLoT withholds
+   * `robustness.recommendation_stability` (the leading option's
+   * `win_probability` relabelled), so the `"{N}% stability"` segment was
+   * deleted alongside the `"{X}pp via EVPI"` segment this file pins — same
+   * defect class, same file, one row apart.
+   *
+   * ⚠⚠ AND NOTE HOW THIS SURFACED, because it is the lesson: the positive
+   * control below used to assert `text).toContain('stability')` as its proof
+   * that the bar was not empty. Removing the segment made that control FAIL —
+   * correctly. But the TYPECHECK GATE COULD NOT SEE THE STALE PROP, because
+   * `BASE` is a `const` that is SPREAD (`{...BASE}`), and TypeScript's
+   * excess-property check does not apply to a spread of a variable — only to a
+   * fresh object literal. So `pnpm run typecheck` passed clean while a removed
+   * prop was still being supplied, and only the runtime assertion caught it.
+   * A green typecheck says nothing about props delivered through a spread.
+   */
   const BASE = {
     factorsToVerify: 2,
     fragileEdgeCount: 0,
     contestedCount: 3,
-    recommendationStability: 0.71,
     hasAnalysisData: true,
   }
 
   it('POSITIVE CONTROL: the bar still renders its other post-analysis segments', () => {
     render(<StatusBar {...BASE} />)
     const text = screen.getByTestId('model-status-bar').textContent ?? ''
+    // Two SURVIVING segments, so this control still proves the bar rendered
+    // content — it must never again be anchored to a segment under removal.
     expect(text).toContain('contested')
-    expect(text).toContain('stability')
+    expect(text).toContain('to verify')
+    // And the withdrawn one is gone (pinned in full, with the prop INJECTED, in
+    // `withheldStabilitySurfaces.honesty.spec.tsx`).
+    expect(text).not.toContain('stability')
   })
 
   it('never sums percentage points into a headline figure', () => {

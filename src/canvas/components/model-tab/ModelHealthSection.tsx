@@ -1,11 +1,26 @@
 /**
  * ModelHealthSection — "Audit" section, collapsed by default.
  *
- * Collapsed view: stability %, overall quality score.
+ * Collapsed view: overall quality score.
  * Expanded view: root node warnings, CEE quality sub-scores, audit trail
- *   (seed, hash, simulations, stability, auto-noise, penalty, repairs, warnings).
+ *   (seed, hash, simulations, auto-noise, penalty, repairs, warnings).
  *
  * Connectivity and evidence health cards removed — live in Analysis tab.
+ *
+ * ⛔ NO STABILITY PERCENTAGE (ROADMAP 2.1273). This card used to carry TWO
+ * renders of `robustness.recommendation_stability` — the collapsed header
+ * summary (`"{N}% stability · 7.2 / 10"`) and an audit-trail `Stability` row.
+ * PLoT withholds that field deliberately: ISL derives it as
+ * `option_wins[winner] / n_samples`, i.e. the leading option's
+ * `win_probability` relabelled, carrying zero independent information. An
+ * audit surface printing it as a distinct measurement is the most credible
+ * possible place to show a number that is not one. Both renders, the
+ * `AuditTrailData` field and its `hasAuditSignal` limb are gone — a legacy
+ * hydrated payload still CARRIES the value, so a null-guard could not have
+ * defended this. Absence pinned in
+ * `__tests__/withheldStabilitySurfaces.honesty.spec.tsx`.
+ * REINSTATEMENT TRIGGER: PLoT supplies a genuine numeric robustness/stability
+ * field distinct from the leader's win probability.
  */
 
 import { useContext, useMemo } from 'react'
@@ -24,7 +39,6 @@ export interface AuditTrailData {
   nSamples: number | null
   repairsApplied: Array<{ code?: string; type?: string; field_path?: string; reason?: string }> | null
   inferenceWarnings: Array<{ code?: string; severity?: string; message?: string }> | null
-  recommendationStability: number | null
   autoNoiseApplied: boolean | null
   /**
    * Audit B3 (P0): structured disclosure metadata for the auto-noise
@@ -115,7 +129,12 @@ function ModelHealthSectionInner({
       auditTrail.seedUsed != null ||
       auditTrail.responseHash != null ||
       auditTrail.nSamples != null ||
-      auditTrail.recommendationStability != null ||
+      // NOTE (2.1273): `recommendationStability` was a limb here. Removing it
+      // narrows `hasAuditSignal` by exactly one field. Every real PLoT payload
+      // that carried it also carries `seedUsed` / `responseHash` / `nSamples`,
+      // so no live run changes branch; a hypothetical payload bearing ONLY the
+      // withdrawn statistic now reads as pre-analysis, which is the honest
+      // answer for a payload whose sole "signal" is a refuted quantity.
       auditTrail.autoNoiseApplied != null ||
       // Audit B3 (P0): provenance counts as an audit signal in its own
       // right. Without this, a payload-drift case where the boolean is
@@ -130,15 +149,14 @@ function ModelHealthSectionInner({
   const hasQualitySignal = ceeQuality != null && ceeQuality.overall != null
   const isPreAnalysis = !hasAuditSignal && !hasQualitySignal
 
-  // Collapsed summary visible in accordion header via tierLabel
-  const stabilityLabel = auditTrail?.recommendationStability != null
-    ? `${Math.round(auditTrail.recommendationStability * 100)}% stability`
-    : null
+  // Collapsed summary visible in accordion header via tierLabel.
+  // ⛔ The `"{N}% stability"` half is REMOVED (2.1273) — see the file header.
+  // The summary is the quality score alone; the `.filter(Boolean).join(' · ')`
+  // combiner went with it, since there is nothing left to combine.
   const qualityLabel = ceeQuality?.overall != null
     ? `${ceeQuality.overall.toFixed(1)} / 10`
     : null
-  // Combine into a single header summary: "71% stability · 7.2 / 10"
-  const headerSummary = [stabilityLabel, qualityLabel].filter(Boolean).join(' · ') || undefined
+  const headerSummary = qualityLabel ?? undefined
 
   return (
     <Accordion
@@ -165,8 +183,19 @@ function ModelHealthSectionInner({
                 {factorsToVerify} factor{factorsToVerify !== 1 ? 's need' : ' needs'} your input
               </p>
             )}
+            {/*
+              ⛔ "stability," WAS REMOVED FROM THIS SENTENCE (2.1273), and it is
+              the same defect as the renders this row deletes — one step earlier.
+              PLoT DELIBERATELY WITHHOLDS `robustness.recommendation_stability`
+              and never emitted `ranking_stability` at all, so promising the user
+              "stability" data before the run advertises a field the run cannot
+              return. Removing the six renders while leaving the promise in place
+              would trade a fabricated number for a broken one.
+              Reinstating "stability" here requires PLoT to start emitting an
+              independent stability measure — not a relabelled win probability.
+            */}
             <p className={`${typography.panelMeta} text-text-light mt-1`}>
-              Run analysis to see stability, confidence, and reproducibility data
+              Run analysis to see confidence and reproducibility data
             </p>
           </div>
         )}
@@ -233,14 +262,11 @@ function ModelHealthSectionInner({
                   </span>
                 </>
               )}
-              {auditTrail.recommendationStability != null && (
-                <>
-                  <span className={`${typography.panelMeta} text-text-light`}>Stability</span>
-                  <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                    {(auditTrail.recommendationStability * 100).toFixed(0)}%
-                  </span>
-                </>
-              )}
+              {/* ⛔ REMOVED (2.1273): the `Stability  {N}%` audit row. See the
+                  file header — the quantity is the leading option's win
+                  probability relabelled, so an audit receipt presenting it as a
+                  separate measurement was the least honest place in the product
+                  to print it. Do not reinstate without the trigger named there. */}
               {(() => {
                 // Audit B3: prefer the explicit boolean echo, but fall
                 // back to the structured provenance's `applied` field

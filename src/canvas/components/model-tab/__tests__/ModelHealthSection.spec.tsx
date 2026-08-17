@@ -31,10 +31,25 @@ describe('ModelHealthSection', () => {
 
   it('renders pre-analysis content when no audit data and no CEE quality', () => {
     render(<ModelHealthSection factorCount={4} edgeCount={6} factorsToVerify={2} />)
-    expect(screen.getByTestId('model-card-pre-analysis')).toBeInTheDocument()
+    const preAnalysis = screen.getByTestId('model-card-pre-analysis')
+    expect(preAnalysis).toBeInTheDocument()
     expect(screen.getByText(/4 factors and 6 relationships/)).toBeInTheDocument()
     expect(screen.getByText(/2 factors need your input/)).toBeInTheDocument()
-    expect(screen.getByText(/Run analysis to see stability/)).toBeInTheDocument()
+
+    // ⛔ THE PROMISE MAY NAME ONLY WHAT A RUN CAN ACTUALLY DELIVER (2.1273).
+    // PLoT DELIBERATELY WITHHOLDS `robustness.recommendation_stability`, and
+    // `ranking_stability` was never emitted at all — so this sentence used to
+    // read "Run analysis to see stability, confidence, and reproducibility
+    // data", offering a field no run will ever return. That is the same defect
+    // the rest of this row removes, arriving one step earlier: not a fabricated
+    // number, but a PROMISE of one, made before the run that cannot honour it.
+    expect(preAnalysis.textContent).toMatch(
+      /Run analysis to see confidence and reproducibility data/,
+    )
+    // ...and it must not come back. Scoped to the pre-analysis block so the
+    // post-analysis "Penalty: N.NNx stability" line — a DIFFERENT quantity,
+    // read from the audit trail and not from the withheld field — is untouched.
+    expect(preAnalysis.textContent).not.toMatch(/see stability/i)
   })
 
   it('renders pre-analysis content when audit trail is all-null and no CEE quality', () => {
@@ -44,7 +59,6 @@ describe('ModelHealthSection', () => {
       nSamples: null,
       repairsApplied: null,
       inferenceWarnings: null,
-      recommendationStability: null,
       autoNoiseApplied: null,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
@@ -65,7 +79,6 @@ describe('ModelHealthSection', () => {
       nSamples: null,
       repairsApplied: null,
       inferenceWarnings: null,
-      recommendationStability: null,
       autoNoiseApplied: null,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
@@ -74,22 +87,28 @@ describe('ModelHealthSection', () => {
     expect(screen.getByTestId('model-health-section')).toBeInTheDocument()
   })
 
-  it('shows stability and quality in accordion header (visible when collapsed)', () => {
+  it('shows quality — and NOT a stability percentage — in the accordion header', () => {
     const auditTrail: AuditTrailData = {
       seedUsed: null,
       responseHash: null,
       nSamples: null,
       repairsApplied: null,
       inferenceWarnings: null,
-      recommendationStability: 0.71,
       autoNoiseApplied: null,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
     }
     render(<ModelHealthSection auditTrail={auditTrail} ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }} />)
     const tierLabel = screen.getByTestId('accordion-tier-label')
-    expect(tierLabel).toHaveTextContent('71% stability')
+    // POSITIVE CONTROL: the header summary still renders, so the absence
+    // assertion below is about the stability half specifically and not about a
+    // header that failed to appear at all.
     expect(tierLabel).toHaveTextContent('7.2 / 10')
+    // ROADMAP 2.1273: the "{N}% stability" half is gone. This spec no longer
+    // supplies the field, so the load-bearing proof — which INJECTS it and
+    // shows the header still cannot render a percentage — lives in
+    // `withheldStabilitySurfaces.honesty.spec.tsx`.
+    expect(tierLabel.textContent ?? '').not.toMatch(/%\s*stability/i)
   })
 
   it('shows root node warning when inference_warnings contain ROOT_NODE_DEFAULT_VALUE', () => {
@@ -102,7 +121,6 @@ describe('ModelHealthSection', () => {
         { code: 'ROOT_NODE_DEFAULT_VALUE', severity: 'warning', message: 'Node has default value' },
         { code: 'ROOT_NODE_DEFAULT_VALUE', severity: 'warning', message: 'Node has default value' },
       ],
-      recommendationStability: null,
       autoNoiseApplied: null,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
@@ -121,7 +139,6 @@ describe('ModelHealthSection', () => {
       inferenceWarnings: [
         { code: 'ROOT_NODE_DEFAULT_VALUE', severity: 'warning', message: 'test' },
       ],
-      recommendationStability: null,
       autoNoiseApplied: null,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: 0.90,
@@ -137,7 +154,6 @@ describe('ModelHealthSection', () => {
       nSamples: 1000,
       repairsApplied: null,
       inferenceWarnings: null,
-      recommendationStability: null,
       autoNoiseApplied: null,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
@@ -156,7 +172,6 @@ describe('ModelHealthSection', () => {
         { code: 'DEFAULT_EXISTS_PROBABILITY', field_path: 'edges[1]', reason: 'No exists_probability provided' },
       ],
       inferenceWarnings: null,
-      recommendationStability: 0.71,
       autoNoiseApplied: true,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
@@ -204,7 +219,6 @@ describe('ModelHealthSection', () => {
         nSamples: 1000,
         repairsApplied: null,
         inferenceWarnings: null,
-        recommendationStability: null,
         autoNoiseApplied: null,
         autoNoiseProvenance: null,
         stabilityPenaltyFactor: null,
@@ -265,7 +279,6 @@ describe('ModelHealthSection', () => {
               seedUsed: null,
               responseHash: null,
               nSamples: null,
-              recommendationStability: null,
               stabilityPenaltyFactor: null,
             })}
           />

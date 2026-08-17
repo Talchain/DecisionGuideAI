@@ -73,30 +73,29 @@ describe('TrajectorySection expert table — absence is not zero (T2b)', () => {
     expect(cells).toContain('0')
   })
 
-  it('recommendationStability null → "Not assessed", not "0%"', () => {
-    render(
-      <TrajectorySection
-        snapshots={[snapshot({ recommendationStability: null, stabilityLabel: null })]}
-        showExpert
-      />,
-    )
-
-    const cells = screen.getAllByRole('cell').map(c => c.textContent)
-    expect(cells).toContain('Not assessed')
-    expect(cells).not.toContain('0%')
-  })
-
-  it('an honest 0 stability still shows 0%', () => {
-    render(
-      <TrajectorySection
-        snapshots={[snapshot({ recommendationStability: 0, stabilityLabel: 'fragile' })]}
-        showExpert
-      />,
-    )
-
-    const cells = screen.getAllByRole('cell').map(c => c.textContent)
-    expect(cells).toContain('0%')
-  })
+  /**
+   * ⛔ TWO T2b CASES RETIRED HERE (ROADMAP 2.1273), and the retirement is
+   * deliberately recorded rather than silently deleted:
+   *
+   *   · `recommendationStability null → "Not assessed", not "0%"`
+   *   · `an honest 0 stability still shows 0%`
+   *
+   * Both were correct and both are now UNTESTABLE, because the `Stability %`
+   * COLUMN THEY GUARDED NO LONGER EXISTS. PLoT withholds
+   * `robustness.recommendation_stability` (it is the leader's `win_probability`
+   * relabelled — zero independent information), so there is no honest rendering
+   * of the number to fall back to and the T2b question "absence or zero?" no
+   * longer arises for this field. See the block comment in `../TrajectorySection.tsx`.
+   *
+   * ⚠ This is a REDUCTION IN COVERAGE ONLY IN THE SENSE THAT THE SUBJECT LEFT.
+   * The replacement is strictly stronger and lives in
+   * `canvas/components/model-tab/__tests__/withheldStabilitySurfaces.honesty.spec.tsx`,
+   * which INJECTS a legacy stability value and proves no percentage renders —
+   * i.e. it covers the case these two could not: a value that IS present.
+   * The `Not assessed` mechanism itself remains under test by the surviving
+   * `fragileEdgeCount` / `seedUsed` / `evidenceCoverage` cases in this file, so
+   * the shared absence token has not lost its guard.
+   */
 
   it('seedUsed null → "Not assessed", never "Seed 0"', () => {
     render(<TrajectorySection snapshots={[snapshot({ seedUsed: null })]} showExpert />)

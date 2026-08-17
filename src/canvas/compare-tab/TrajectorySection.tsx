@@ -24,13 +24,46 @@ interface TrajectorySectionProps {
  */
 const NOT_ASSESSED = 'Not assessed'
 
+/**
+ * ⛔ NO `Stability %` COLUMN (ROADMAP 2.1273).
+ *
+ * The table used to open with `Run | Stability % | …`, rendering
+ * `Math.round(s.recommendationStability * 100)` per run. That snapshot field is
+ * `robustness.recommendation_stability`, which PLoT WITHHOLDS deliberately: ISL
+ * derives it as `option_wins[winner] / n_samples` — the leading option's
+ * `win_probability` relabelled, carrying zero independent information.
+ *
+ * The column already had an honest absence token (`NOT_ASSESSED`), and on a
+ * fresh run that is what fired. The column is nevertheless DELETED rather than
+ * left to that guard, because this tab's history comes from
+ * `v5_handler_facts` rows via `stores/persistedRunSnapshotFactory.ts` — a row
+ * written before the withdrawal still CARRIES the value, and `!= null` is true
+ * for a value that is present. A signed-in owner of such a scenario would have
+ * seen the withdrawn statistic in a per-run trajectory table, which is the most
+ * observation-like framing available (a column of percentages across runs reads
+ * as a measured trend).
+ *
+ * Note the tab's own reachability bound, since it decides severity: the
+ * persisted-history read is signed-in only by construction
+ * (`v5_handler_facts` RLS is `auth.uid() = user_id`; guest rows carry a NULL
+ * user_id, and `useCompareHistoryHydration` checks for a session and skips).
+ *
+ * `recommendationStability` STAYS on `AnalysisSnapshot` — `stabilityLabel` is
+ * derived from it and drives `Hero`/`HealthIndicators`/`deriveTransitions`
+ * categorical copy. That chain is a separate, rowed concern and is deliberately
+ * out of scope here; it is recorded in the pinned known-gap set of
+ * `src/components/results/__tests__/withheldFieldReadBan.spec.ts`.
+ *
+ * REINSTATEMENT TRIGGER: PLoT supplies a genuine numeric robustness/stability
+ * field distinct from the leader's win probability.
+ */
 function ExpertTable({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
   return (
     <div className="mt-2">
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            {['Run', 'Stability %', 'Evidence', 'Conc. %', 'Flip rate', 'Fragile', 'Seed'].map(h => (
+            {['Run', 'Evidence', 'Conc. %', 'Flip rate', 'Fragile', 'Seed'].map(h => (
               <th
                 key={h}
                 className={`${typography.panelMeta} font-medium text-left px-0.5 py-0.5 border-b border-panel-border`}
@@ -45,9 +78,6 @@ function ExpertTable({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
             <tr key={s.runId}>
               {[
                 s.runNumber,
-                s.recommendationStability != null
-                  ? `${Math.round(s.recommendationStability * 100)}%`
-                  : NOT_ASSESSED,
                 s.evidenceCoverage ?? NOT_ASSESSED,
                 `${s.influenceConcentration}%`,
                 s.rankFlipRate.toFixed(2),

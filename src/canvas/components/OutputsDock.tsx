@@ -1465,7 +1465,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     : null
 
   const decisionReadiness = report?.decision_readiness || readinessFromConfidence
-  const recommendationStability = (report as any)?.robustness?.recommendation_stability ?? (report as any)?.robustness?.ranking_stability
+  // ⛔ REMOVED (ROADMAP 2.1273): `const recommendationStability = report?.robustness
+  // ?.recommendation_stability ?? report?.robustness?.ranking_stability`, and the
+  // `stability:` argument it fed to `derivePostFooterMeta`.
+  //
+  // It was a DEAD READ on both limbs. `derivePostFooterMeta` has not read its
+  // `stability` input since the F7 display-honesty change (see
+  // `./utils/postAnalysisFooter.ts`, which documents the parameter as
+  // deliberately not destructured); and `ranking_stability` is a field PLoT has
+  // never emitted at all, so the `??` fallback could not fire either. Both the
+  // local and the now-unused `PostFooterMetaInput.stability` field are gone, so
+  // the withheld field has no reader on this path rather than a reader whose
+  // value is discarded downstream.
   // Footer status is driven by the display-safe robustness verdict ONLY
   // (single-source rule — the same `robustnessVerdict` field that drives the
   // certified "Robustness unknown" glyph), NEVER by raw recommendation_stability.
@@ -1484,12 +1495,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     label: postFooterStatus.label,
   }
   const postRunMetaText = derivePostFooterMeta({
-    stability: recommendationStability,
-    // Same display-safe verdict as the status above: without a determinate
-    // verdict the "{N}% stability" segment is suppressed —
-    // "Robustness unknown · 59% stability" contradicted itself (and the raw
-    // number is numerically the leader's win probability, not a robustness
-    // verdict). Suppress, never relabel.
+    // No `stability:` argument — the helper stopped reading it at F7 and the
+    // field is gone from `PostFooterMetaInput` (2.1273). The historical note
+    // that lived here (a "Robustness unknown · 59% stability" self-contradiction,
+    // whose number was the leader's win probability rather than a robustness
+    // verdict) is preserved in `./utils/postAnalysisFooter.ts`'s header.
     robustnessVerdict: resultsSectionData.recommendation.robustnessVerdict,
     // Producer-owned reason phrase, rendered verbatim as the leading meta
     // segment (never authored in the UI).
