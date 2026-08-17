@@ -58,12 +58,19 @@ describe('stripComments — block-comment state, not a line prefix', () => {
   })
 
   it('blanks a CONTINUATION line of a block comment — the 13-of-16 false-positive class', () => {
-    // src/v5/blocks/V5EvidenceBlock.tsx:60 — the continuation line starts with
-    // PROSE, so `line.trimStart().startsWith('*')` never fired on it.
+    // src/canvas/components/OutputsDock.tsx:2377. The continuation line starts
+    // with PROSE, so `line.trimStart().startsWith('*')` never fired on it.
+    //
+    // ⚠ THE REFERENCE HERE IS DELIBERATELY PRECEDED BY `, ` — a value-slot
+    // character. That makes this case reachable ONLY by the state machine: the
+    // position rule would KEEP `, #739`, so if someone replaces stripComments
+    // with a prefix test this test reds. Measured: it does (mutant M4). A
+    // mid-prose reference would have passed under the prefix test too, via the
+    // other rule, and would have proved nothing about this one.
     const src = [
       '/**',
-      ' * Header line.',
-      'THE UNCERTAINTY CHANNEL — #670 mechanism, consumed through the shared',
+      ' * Analysis freshness is owned by the',
+      'versions lane, #739). The trigger deliberately carries NO',
       ' */',
       "const c = '#abcdef'",
     ].join('\n')
