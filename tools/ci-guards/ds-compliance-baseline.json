@@ -4561,7 +4561,7 @@
     "production-hex": {
       "mode": "ratchet",
       "description": "Raw hex colour literals in production .ts/.tsx (excl. debug/poc/theme/tests + var() fallbacks)",
-      "total": 311,
+      "total": 312,
       "byFile": {
         "src/components/ContractInspector.tsx": 67,
         "src/canvas/export/decisionBrief.ts": 33,
@@ -4604,7 +4604,8 @@
         "src/lib/scientificValidation/confidenceValidation.ts": 1,
         "src/lib/scientificValidation/flipThresholdValidation.ts": 1,
         "src/pages/sandbox-guide/components/canvas/GhostEdge.tsx": 1,
-        "src/plotLite/GhostPanel.tsx": 1
+        "src/plotLite/GhostPanel.tsx": 1,
+        "src/canvas/edges/edgePresentation.ts": 1
       },
       "signatures": {
         "production-hex :: src/canvas/ReactFlowGraph.tsx :: #F87171": {
@@ -5836,6 +5837,12 @@
           "file": "src/routes/PlotWorkspace.tsx",
           "token": "#DDD6FE",
           "sample": "const noteColors = ['#fef3c7', '#fde68a', '#fed7aa', '#fecaca', '#ddd6fe']"
+        },
+        "production-hex :: src/canvas/edges/edgePresentation.ts :: #B8B8B8": {
+          "count": 1,
+          "file": "src/canvas/edges/edgePresentation.ts",
+          "token": "#B8B8B8",
+          "sample": "export const STRUCTURAL_EDGE_COLOUR = '#B8B8B8'"
         }
       }
     },
