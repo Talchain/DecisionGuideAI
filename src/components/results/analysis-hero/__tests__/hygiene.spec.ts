@@ -47,7 +47,17 @@ const sources = productionSources(MODULE_DIR)
 
 describe('Analysis hero source hygiene', () => {
   it('scans a non-empty production source set (guard is alive)', () => {
-    expect(sources.map((s) => s.file)).toContain('buildHeroModel.ts')
+    // Names a file at BOTH depths on purpose. Every other `it` in this file
+    // asserts an ABSENCE over `sources`, so all of them go vacuous if the scan
+    // shrinks — and until 2.1228 the subdirectory half of that scan was held
+    // alive only incidentally, by the trust/stability pin happening to contain
+    // two `actOnIt/` entries. Emptying that pin retired the only control on the
+    // recursion: deleting the `isDirectory()` walk left this whole spec GREEN
+    // (measured), silently un-covering `actOnIt/` — the directory holding the
+    // module 2.1228 changed. Assert the depth explicitly instead.
+    expect(sources.map((s) => s.file)).toEqual(
+      expect.arrayContaining(['buildHeroModel.ts', 'rankActOnItRows.ts']),
+    )
   })
 
   it.each([

@@ -88,6 +88,22 @@ import {
  *    the cliff could be satisfied (trap 16-inverse: reachability inside one
  *    service is not reachability in the system, and a fixture you wrote
  *    yourself is not evidence about the wire).
+ *    ⚠ AND IT WAS DARK ON PERSISTED RUNS TOO — this was first recorded the
+ *    other way ("satisfiable from a pre-withdrawal snapshot"), inferred from a
+ *    773-run field census. The producer's EMISSION HISTORY settles it and says
+ *    the opposite: PLoT withdrew `recommendation_stability` in #199
+ *    (`1823e07f`, 07 Jul 10:33 +0100) and first emitted `display_verdict` in
+ *    #202 (`38d589cd`, 07 Jul 14:44 +0100) — 4 h 11 min LATER. No PLoT build
+ *    ever co-emitted the two fields this predicate required, so no `robustness`
+ *    object taken from a single /v2/run response, fresh or hydrated, could
+ *    satisfy both conjuncts. The only residual path is a CROSS-SLOT mix: the
+ *    verdict is read from `store.rawV2Response` (`useResultsSectionData:1288`)
+ *    while stability is read from `report?.robustness` (`:1896`), so a hydrated
+ *    legacy `report` beside a fresh response could combine them. Not witnessed.
+ *    Consequence for this change: it is behaviourally INERT on legacy snapshots
+ *    except in the same `(0.8, 0.85]` band it opens for fresh runs.
+ *    (A census tells you what a field happens to contain; only the producer
+ *    tells you what it could ever have contained alongside another field.)
  *
  * 3. THE CLIFF WAS A MIRROR OF A PRODUCER BAND THAT HAS ALREADY MOVED. What the
  *    producer's own `robust` verdict entails, traced end to end:
