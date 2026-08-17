@@ -178,16 +178,22 @@ const WITHHELD_FIELD_RE =
  * Grouped by DEBT CLASS, because they are not the same kind of entry and a flat
  * list invites the next lane to "clean up" a legitimate one.
  */
-const KNOWN_WITHHELD_FIELD_READS: readonly string[] = [
-  // ── (a) TOLERATION / PARSE LAYER — legitimate, expected to stay ──────────
-  // These must keep ACCEPTING a field that legacy persisted payloads contain.
-  // Deleting them does not remove a fabrication; it breaks hydration of an old
-  // run. `types.ts` entries are type declarations, not reads.
+/**
+ * ── (a) TOLERATION / PARSE LAYER — legitimate, expected to stay ──────────
+ * These must keep ACCEPTING a field that legacy persisted payloads contain.
+ * Deleting them does not remove a fabrication; it breaks hydration of an old
+ * run. `types.ts` entries are type declarations, not reads.
+ *
+ * ⚠ THE MEMBERSHIP TEST FOR THIS CLASS, stated so the next entry lands in the
+ * right one: a file belongs here only if it PARSES OR CARRIES the value and
+ * derives NO verdict from it. A file that turns the withheld number into a
+ * word, a band, a percentage or a gate is class (b) below — however plumbing-
+ * like its path looks.
+ */
+const TOLERATION_READS: readonly string[] = [
   'src/canvas/store.ts::rankingStability',
   'src/canvas/store.ts::ranking_stability',
   'src/canvas/store.ts::recommendation_stability',
-  'src/canvas/stores/analysisSnapshotFactory.ts::recommendationStability',
-  'src/canvas/stores/analysisSnapshotFactory.ts::recommendation_stability',
   'src/canvas/compare-tab/types.ts::recommendationStability',
   'src/components/results/types.ts::rankingStability',
   'src/components/results/types.ts::ranking_stability',
@@ -200,7 +206,9 @@ const KNOWN_WITHHELD_FIELD_READS: readonly string[] = [
   // the absence case). Carries the value onward; renders nothing.
   'src/canvas/analysis/assembleAnalysisInputsSummary.ts::ranking_stability',
   'src/canvas/analysis/assembleAnalysisInputsSummary.ts::recommendation_stability',
+]
 
+const DERIVED_LABEL_READS: readonly string[] = [
   // ── (b) CATEGORICAL LABELS DERIVED FROM THE WITHHELD NUMBER ─────────────
   // ROWED SEPARATELY, deliberately NOT fixed in this train, and left visible
   // here so the debt is countable rather than forgotten.
@@ -241,6 +249,35 @@ const KNOWN_WITHHELD_FIELD_READS: readonly string[] = [
   'src/canvas/nodes/DecisionNode.tsx::recommendation_stability',
   'src/canvas/nodes/GoalNode.tsx::recommendationStability',
   'src/canvas/nodes/GoalNode.tsx::recommendation_stability',
+  // ⚠ MOVED HERE FROM CLASS (a) — it was filed as toleration and it is not.
+  // `analysisSnapshotFactory.ts` reads the withheld number, calls
+  // `deriveStabilityLabel(stability)` on it, and PERSISTS the resulting word
+  // onto `AnalysisSnapshot.stabilityLabel` — which `compare-tab/Hero.tsx`
+  // renders ("Confidence improving · Model {label}"), `HealthIndicators.tsx`
+  // renders as a from/to pair, and `deriveTransitions.ts` reads to decide
+  // `robustnessChanged`. Class (a)'s own description — "carries the value
+  // onward; renders nothing", "legitimate, expected to stay" — is false of it
+  // on both counts, and the mislabel told the next lane there was nothing here
+  // to fix. This is (b) at its sharpest: the derived verdict is written to a
+  // persistence surface, so it OUTLIVES the run that produced it.
+  'src/canvas/stores/analysisSnapshotFactory.ts::recommendationStability',
+  'src/canvas/stores/analysisSnapshotFactory.ts::recommendation_stability',
+]
+
+/**
+ * The pin the equality assertion checks, assembled from the two debt classes.
+ *
+ * ⚠ IT IS ASSEMBLED, NOT FLAT, AND THAT IS THE POINT. The classes used to be
+ * two COMMENT HEADINGS inside one array — so an entry's debt class was a
+ * decoration the suite could not see, and one landed in the wrong class and
+ * stayed there through review. A comment that records a judgement nothing
+ * enforces is the hand-maintained mirror (trap 12); making the classes real
+ * arrays means a new entry must be PLACED in one, and `classifies every read`
+ * below makes a misplacement a RED rather than a reading error.
+ */
+const KNOWN_WITHHELD_FIELD_READS: readonly string[] = [
+  ...TOLERATION_READS,
+  ...DERIVED_LABEL_READS,
 ]
 
 /**
@@ -300,6 +337,52 @@ describe('withheld-field read ban (wide scan: results/ + canvas/)', () => {
         'a GROWN set means a new read of a field PLoT withholds, a SHRUNK set means ' +
         'a fix landed without updating the pin. Do not edit the pin to match reality.',
     ).toEqual([...KNOWN_WITHHELD_FIELD_READS].sort())
+  })
+
+  it('classifies every read into exactly one debt class, and DERIVES-A-VERDICT is class (b)', () => {
+    // The two classes carry OPPOSITE instructions to the next lane — (a) says
+    // "legitimate, expected to stay", (b) says "rowed debt, still a claim
+    // sourced from a withheld quantity". Putting a read in the wrong one does
+    // not change a number anywhere; it tells the next reader not to fix
+    // something that needs fixing. So the classification gets its own pin.
+
+    // Disjoint and total: every pinned read is in exactly one class.
+    const overlap = TOLERATION_READS.filter((r) => DERIVED_LABEL_READS.includes(r))
+    expect(overlap, 'a read may not be in both debt classes').toEqual([])
+    expect(KNOWN_WITHHELD_FIELD_READS.length).toBe(
+      TOLERATION_READS.length + DERIVED_LABEL_READS.length,
+    )
+
+    // IDENTITY-BOUND, per file, not a count — a count would be satisfied by any
+    // other entry moving in the opposite direction (trap 19).
+    //
+    // `analysisSnapshotFactory.ts` is class (b), NOT toleration. It does not
+    // merely carry the value: it calls `deriveStabilityLabel(stability)` and
+    // PERSISTS the resulting word onto `AnalysisSnapshot.stabilityLabel`, which
+    // `compare-tab/Hero.tsx` renders as "Model {label}", `HealthIndicators.tsx`
+    // renders as a from/to pair, and `deriveTransitions.ts` reads to decide
+    // `robustnessChanged`. A derived VERDICT that outlives the run that produced
+    // it is the strongest form of this debt, not an example of the benign kind.
+    for (const spelling of ['recommendationStability', 'recommendation_stability']) {
+      const entry = `src/canvas/stores/analysisSnapshotFactory.ts::${spelling}`
+      expect(KNOWN_WITHHELD_FIELD_READS, `${entry} must still be pinned`).toContain(entry)
+      expect(
+        DERIVED_LABEL_READS,
+        `${entry} derives a categorical label (deriveStabilityLabel) and persists it — class (b)`,
+      ).toContain(entry)
+      expect(
+        TOLERATION_READS,
+        `${entry} must NOT be filed as toleration: "legitimate, expected to stay" is false of a persisted derived verdict`,
+      ).not.toContain(entry)
+    }
+
+    // CONTRAST CONTROL, so the two assertions above are discriminating rather
+    // than a pair that would hold for every entry: a genuine toleration read
+    // must sit in (a) and NOT in (b). `types.ts` is a type declaration — it
+    // derives nothing and renders nothing.
+    const pureType = 'src/components/results/types.ts::recommendation_stability'
+    expect(TOLERATION_READS).toContain(pureType)
+    expect(DERIVED_LABEL_READS).not.toContain(pureType)
   })
 
   it('the surfaces this row cleared hold ZERO withheld-field reads (independent of the pin)', () => {

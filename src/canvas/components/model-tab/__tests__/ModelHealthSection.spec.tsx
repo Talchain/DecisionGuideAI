@@ -31,10 +31,25 @@ describe('ModelHealthSection', () => {
 
   it('renders pre-analysis content when no audit data and no CEE quality', () => {
     render(<ModelHealthSection factorCount={4} edgeCount={6} factorsToVerify={2} />)
-    expect(screen.getByTestId('model-card-pre-analysis')).toBeInTheDocument()
+    const preAnalysis = screen.getByTestId('model-card-pre-analysis')
+    expect(preAnalysis).toBeInTheDocument()
     expect(screen.getByText(/4 factors and 6 relationships/)).toBeInTheDocument()
     expect(screen.getByText(/2 factors need your input/)).toBeInTheDocument()
-    expect(screen.getByText(/Run analysis to see stability/)).toBeInTheDocument()
+
+    // ⛔ THE PROMISE MAY NAME ONLY WHAT A RUN CAN ACTUALLY DELIVER (2.1273).
+    // PLoT DELIBERATELY WITHHOLDS `robustness.recommendation_stability`, and
+    // `ranking_stability` was never emitted at all — so this sentence used to
+    // read "Run analysis to see stability, confidence, and reproducibility
+    // data", offering a field no run will ever return. That is the same defect
+    // the rest of this row removes, arriving one step earlier: not a fabricated
+    // number, but a PROMISE of one, made before the run that cannot honour it.
+    expect(preAnalysis.textContent).toMatch(
+      /Run analysis to see confidence and reproducibility data/,
+    )
+    // ...and it must not come back. Scoped to the pre-analysis block so the
+    // post-analysis "Penalty: N.NNx stability" line — a DIFFERENT quantity,
+    // read from the audit trail and not from the withheld field — is untouched.
+    expect(preAnalysis.textContent).not.toMatch(/see stability/i)
   })
 
   it('renders pre-analysis content when audit trail is all-null and no CEE quality', () => {

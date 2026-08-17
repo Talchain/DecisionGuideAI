@@ -183,8 +183,19 @@ function ModelHealthSectionInner({
                 {factorsToVerify} factor{factorsToVerify !== 1 ? 's need' : ' needs'} your input
               </p>
             )}
+            {/*
+              ⛔ "stability," WAS REMOVED FROM THIS SENTENCE (2.1273), and it is
+              the same defect as the renders this row deletes — one step earlier.
+              PLoT DELIBERATELY WITHHOLDS `robustness.recommendation_stability`
+              and never emitted `ranking_stability` at all, so promising the user
+              "stability" data before the run advertises a field the run cannot
+              return. Removing the six renders while leaving the promise in place
+              would trade a fabricated number for a broken one.
+              Reinstating "stability" here requires PLoT to start emitting an
+              independent stability measure — not a relabelled win probability.
+            */}
             <p className={`${typography.panelMeta} text-text-light mt-1`}>
-              Run analysis to see stability, confidence, and reproducibility data
+              Run analysis to see confidence and reproducibility data
             </p>
           </div>
         )}
