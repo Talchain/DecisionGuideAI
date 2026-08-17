@@ -16,21 +16,48 @@
  *
  * WHY IT LIVES HERE AND NOT IN THE SCHEMA
  * ---------------------------------------
- * The vendored contract is `@talchain/schemas` 0.46.0, and it has ZERO
- * cross-field refinement — measured, not assumed: `superRefine` occurrences in
- * `dist/boundary/analysis-state.js` = 0, and the file's own header says so
- * ("NO cross-field refinement. Every composition rule below is stated as
- * LICENCE in a `.describe()` and is NOT enforced by the parser"), pinning three
- * DISCLOSED LIMITS (L1 `permitted:true` beside `withheld_reason` parses; L2 the
- * five usability booleans are not cross-checked against `run_state`;
- * L3 `contradictions: []` is the producer's self-report, not evidence).
- * The producer agrees, deliberately: CEE
- * `src/orchestrator-v5/compose/analysis-state-v1.ts` limit L-D says it "does
- * NOT force the usability booleans to agree with `run_state`".
+ * ⚠ RE-DERIVED at the vendored tip after UI #749 re-vendored 0.47.0. An earlier
+ * version of this header said the contract "has ZERO cross-field refinement",
+ * derived at 0.46.0 — TRUE THEN, FALSE NOW, and left uncorrected it would have
+ * been the estate's characteristic defect (a doctrine sentence kept true by
+ * nobody re-measuring it). Re-measured at 0.47.0: `superRefine` occurrences in
+ * `dist/boundary/analysis-state.js` = **1**, and CC-A…CC-F are present and
+ * enforced by `refineAnalysisStateV1`.
  *
- * So the incoherence is SANCTIONED at both ends of the wire. Detecting it is
- * therefore a third thing — neither a parser rule nor a producer rule — and
- * that is what this module is.
+ * WHAT THE SIX CROSS-CHECKS ACTUALLY COVER, read off 0.47.0's own rule list:
+ *   CC-A blocked ⇒ blocked_unusable true          CC-B complete_* ⇒ ¬blocked_unusable
+ *   CC-C never_run ⇒ ¬usable_for_{prose,chips,followup} ∧ ¬requires_rerun
+ *   CC-D blocked_unusable ⇒ ¬usable_for_*         CC-E usable_for_chips ⇒ ¬requires_rerun
+ *   CC-F complete_stale ⇒ ¬usable_for_chips
+ *
+ * Every rule keys on `run_state.kind` and the five booleans, and on NOTHING
+ * else. `readiness.status`, `leader_claim`, `robustness` and `contradictions`
+ * appear in ZERO rules — asserted, not assumed, in the derivation spec. So of
+ * the six pairs here:
+ *   · CX3's usability limb IS NOW PARSER-ENFORCED (CC-C). See the limb note.
+ *   · CX1, CX2, CX4, CX5 and CX6 are untouched, and still parse cleanly.
+ * The contract's remaining DISCLOSED LIMITS still hold: L1 (`permitted:true`
+ * beside `withheld_reason` parses) and L3 (`contradictions: []` is the
+ * producer's self-report, not evidence). L2 is the limit 0.47.0 closed.
+ *
+ * The producer still declines to enforce any of it: CEE
+ * `src/orchestrator-v5/compose/analysis-state-v1.ts` limit L-D says it "does
+ * NOT force the usability booleans to agree with `run_state`". So five of six
+ * remain SANCTIONED at both ends of the wire. Detecting them is a third thing —
+ * neither a parser rule nor a producer rule — and that is what this module is.
+ *
+ * ⚠ AND THE CROSS-CHECKS MAKE THE GATE MORE NECESSARY, NOT LESS, FOR THE ONE
+ * PAIR THEY CLOSE. When a cross-check fires in production the contradiction
+ * does not surface: `responseParser`'s tolerance step QUARANTINES the malformed
+ * `analysis_state` and every surface falls back to its legacy derivation with a
+ * diagnostic ("the honest failure mode is 'ignore the verdict, fall back to the
+ * derivations, record a diagnostic', never 'lose the turn'" —
+ * `src/v5/__tests__/responseParser.analysisStateTolerance.spec.ts`). So a
+ * CC-C-violating turn becomes an ABSENT VERDICT nobody sees. That is the
+ * concrete answer to the frozen adjudication's sub-question 1 ("what is the
+ * failure mode when the tripwire fires in production?"): SILENT FALLBACK. This
+ * gate reads the payload as the WIRE delivered it, not as the parser approved
+ * it, precisely so that class stays visible (`captureAdapter.ts`).
  *
  * EXPRESSIBILITY, STATED PER PAIR (the honest answer to the frozen Codex
  * adjudication's question 9: "is coherence BETWEEN sibling analysis blocks a
@@ -39,6 +66,12 @@
  *
  *   'analysis_state'  — statable as a cross-check rule INSIDE `AnalysisStateV1`
  *                       (CC-G shaped). The contract could carry it today.
+ *   'analysis_state_enforced'
+ *                     — statable inside `AnalysisStateV1` AND ALREADY ENFORCED
+ *                       there by one of 0.47.0's CC-A…CC-F rules. The gate keeps
+ *                       the limb because the parser's refusal is SILENT at the
+ *                       consumer (tolerance quarantines and falls back), so
+ *                       enforcement removes the visibility, not the defect.
  *   'envelope'        — spans `analysis_state` and a SIBLING BLOCK
  *                       (`enrichment`, `assistant_text`). `AnalysisStateV1` is
  *                       `.strict()` and has no member for either, so the rule
@@ -259,8 +292,12 @@ export function coherenceInput(partial: Partial<CoherenceInput>): CoherenceInput
 export const COHERENCE_PAIR_IDS = ['CX1', 'CX2', 'CX3', 'CX4', 'CX5', 'CX6'] as const
 export type CoherencePairId = (typeof COHERENCE_PAIR_IDS)[number]
 
-/** Where a rule forbidding this pair COULD live. See the header. */
-export type CoherenceExpressibility = 'analysis_state' | 'envelope' | 'not_on_the_wire'
+/** Where a rule forbidding this pair COULD live, or already does. See the header. */
+export type CoherenceExpressibility =
+  | 'analysis_state'
+  | 'analysis_state_enforced'
+  | 'envelope'
+  | 'not_on_the_wire'
 
 export interface CoherencePair {
   readonly id: CoherencePairId
@@ -340,9 +377,18 @@ export const COHERENCE_PAIRS: Readonly<Record<CoherencePairId, CoherencePair>> =
  * CX3's three limbs do not share an expressibility, and collapsing them would
  * hide the only interesting fact about the pair. The pair's own field carries
  * the weakest limb; this map carries the truth per limb.
+ *
+ * ⚠ `never_run_with_usable_analysis` is `'analysis_state_enforced'` as of the
+ * 0.47.0 re-vendor: CC-C now REFUSES it at the parser. The limb is kept anyway,
+ * and not as belt-and-braces — the parser's refusal is what makes the
+ * contradiction invisible (tolerance quarantines the verdict and every surface
+ * falls back), so this limb is the only thing that still SAYS SO. It is the one
+ * pair in the set that has moved a rung, and the movement is the proof that a
+ * CC-shaped rule can close a pair — which is the load-bearing input for the
+ * freeze decision on the other five.
  */
 export const CX3_LIMB_EXPRESSIBILITY: Readonly<Record<string, CoherenceExpressibility>> = {
-  never_run_with_usable_analysis: 'analysis_state',
+  never_run_with_usable_analysis: 'analysis_state_enforced',
   never_run_after_degraded_store_read: 'not_on_the_wire',
   never_run_over_visible_result_body: 'envelope',
 }

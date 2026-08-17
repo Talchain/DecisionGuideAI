@@ -97,6 +97,29 @@ export function adaptCapture(raw: unknown): AdaptedCapture {
     } else {
       analysisStateStatus = 'invalid'
       analysisStateError = parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ')
+      // ⭐ THE GATE STILL EVALUATES IT, AND THAT IS THE WHOLE POINT.
+      //
+      // 0.47.0 added the CC-A…CC-F cross-checks, so a payload carrying one of
+      // those contradictions no longer parses. Nulling the verdict here would
+      // make the gate BLIND to exactly the payload class the cross-checks were
+      // written about — the detector would go quiet at the moment a producer
+      // actually shipped the defect.
+      //
+      // Worse, that is also what the PRODUCT does. `responseParser`'s tolerance
+      // step quarantines a malformed `analysis_state` and falls back to the
+      // legacy derivations with a diagnostic
+      // (`src/v5/__tests__/responseParser.analysisStateTolerance.spec.ts` —
+      // "the honest failure mode is 'ignore the verdict, fall back to the
+      // derivations, record a diagnostic', never 'lose the turn'"). So when a
+      // cross-check fires in production the contradiction does not become an
+      // error the user sees; it becomes an ABSENT VERDICT nobody sees.
+      //
+      // Reading the raw object is therefore deliberate, and it is safe for this
+      // consumer specifically: the gate only ever REPORTS. Nothing here reaches
+      // a surface, so an unvalidated read cannot put an unvouched-for value in
+      // front of a user. Every detector already treats absent/malformed members
+      // as not-stated rather than as a negative verdict.
+      analysisState = capture.analysis_state as AnalysisStateV1
     }
   }
 

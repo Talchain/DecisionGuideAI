@@ -189,6 +189,61 @@ describe('⭐ THE MANIFEST — which pairs real captures VIOLATE today', () => {
   })
 })
 
+/**
+ * ⭐ THE ANTI-RUBBER-STAMP BLOCK.
+ *
+ * Every assertion above is an equality against an EXPECTED set, and a gate that
+ * evaluated nothing at all would satisfy most of them by producing the empty
+ * answer everywhere. These four make that impossible: the gate cannot report
+ * success having captured nothing, evaluated nothing, or found nothing.
+ */
+describe('⭐ the gate cannot report SUCCESS having evaluated nothing', () => {
+  it('CORPUS SIZE is non-zero and pinned — an empty corpus would satisfy every equality above', () => {
+    expect(CORPUS.length).toBe(8)
+    expect(CORPUS.length).toBeGreaterThan(0)
+    // And every entry really carries a payload, not an empty object.
+    for (const entry of CORPUS) {
+      expect(entry.raw, entry.name).toBeTypeOf('object')
+      expect(Object.keys(entry.raw as object).length, entry.name).toBeGreaterThan(0)
+    }
+  })
+
+  it('EVALUATED-PAIR COUNT is non-zero and pinned — 8 captures × 6 pairs = 48 evaluations', () => {
+    expect(COHERENCE_PAIR_IDS.length).toBe(6)
+    const evaluations = CORPUS.length * COHERENCE_PAIR_IDS.length
+    expect(evaluations).toBe(48)
+    expect(evaluations).toBeGreaterThan(0)
+  })
+
+  it('THE GATE ACTUALLY FIRED — a detector set that returned nothing everywhere would RED here', () => {
+    let cells = 0
+    let violations = 0
+    for (const entry of CORPUS) {
+      const found = evaluateCrossSurfaceCoherence(adaptCapture(entry.raw).input)
+      violations += found.length
+      cells += violatedPairs(found).length
+    }
+    // 5 violating (capture, pair) cells: CX1×2 captures, CX4, CX5, CX6.
+    expect(cells).toBe(5)
+    // 7 violation objects — CX4 and CX5 each report per FACTOR, and w2d carries
+    // two contradicting factors, so the object count exceeds the cell count.
+    expect(violations).toBe(7)
+    expect(violations).toBeGreaterThan(0)
+  })
+
+  it('every capture that carries analysis_state was actually READ — a nulled verdict would silence four pairs', () => {
+    const read = CORPUS.filter(c => adaptCapture(c.raw).input.analysisState !== null)
+    expect(read).toHaveLength(7)
+    // Including any capture the 0.47.0 cross-checks REFUSE: the adapter reads the
+    // payload as the wire delivered it, so a CC-rejected verdict is still
+    // evaluated rather than dropped.
+    const invalid = CORPUS.filter(c => adaptCapture(c.raw).analysisStateStatus === 'invalid')
+    for (const entry of invalid) {
+      expect(adaptCapture(entry.raw).input.analysisState, entry.name).not.toBeNull()
+    }
+  })
+})
+
 describe('absence claims carry a POSITIVE and a CONTRAST control', () => {
   it('CX2 is unexercised because no capture carries a `refused` run state — and the same sweep DOES find other kinds', () => {
     const kinds: string[] = CORPUS
