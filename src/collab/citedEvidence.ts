@@ -30,9 +30,17 @@
  * surface may say WHAT was cited and WHO wrote it, and must never say the
  * citation CAUSED the change.
  *
- * The stance phrase is CEE-authored and pinned by CEE's own copy guard, which
- * asserts over every string that module can emit that none of them resolves the
- * disagreement. A phrase composed in this bundle would sit outside that proof.
+ * The stance phrase is CEE-authored, which keeps ONE authority for the word.
+ *
+ * ⚠ AND IT IS NOT COVERED BY CEE'S COPY GUARD — an earlier version of this
+ * header claimed it was, and that was overstated. `disagreement-copy.ts`'s
+ * `everyString()` derives from `STANDING_SENTENCES` plus the headlines and
+ * questions; `STANCE_PHRASE` is NOT in it. So a causal phrase shipped in
+ * `STANCE_PHRASE` would pass this bundle's banned-register assertion unseen,
+ * because that assertion runs over what CEE SERVED and CEE is trusted for this
+ * field. Deferring to CEE is still right — two authorities on one user-facing
+ * word is worse — but it is deference, not a proof, and it must not be cited as
+ * a backstop it is not.
  *
  * ── ⭐ THE ASYMMETRY IS THE FEATURE, NOT A BUG TO NORMALISE ───────────────
  * The cited evidence is frequently authored by a DIFFERENT person from the value
@@ -75,12 +83,36 @@ export interface CitationRef {
 export interface CitedEvidence {
   /** The R-2-resolved label of whoever ATTACHED the evidence. */
   readonly author_label: string
-  /** CEE's fixed word for the stance. Rendered verbatim, never re-worded. */
+  /**
+   * CEE's fixed word for the stance — a BARE VERB (`supports` / `challenges` /
+   * `qualifies`, `disagreement-copy.ts:126-130`), not a sentence fragment.
+   *
+   * ⚠ IT NEEDS AN OBJECT TO READ AS ENGLISH, and CEE supplies one at its own
+   * render site. A surface that drops it in after a comma emits "Ada attached
+   * this, challenges".
+   */
   readonly stance_phrase: string
+  /**
+   * WHOSE position the evidence is about, R-2-resolved by CEE, or null when it
+   * is about the factor rather than a person. The object of `stance_phrase`.
+   *
+   * ⚠ The LABEL only. `about_participant_id` is deliberately not carried — the
+   * same no-identifier rule the author id follows.
+   */
+  readonly about_label: string | null
   readonly kind: 'note' | 'link'
   /** The participant's own words. Verbatim. */
   readonly body: string
-  /** http/https only, normalised server-side at append time. */
+  /**
+   * An http/https URL, or null.
+   *
+   * ⚠ RE-CHECKED HERE EVEN THOUGH CEE NORMALISES AT APPEND TIME. The view
+   * arrives through an unvalidated `as DisagreementView` cast
+   * (`collabService.ts:446`), so "validated server-side" is a claim about the
+   * producer and not about the bytes this function received. This value feeds an
+   * `href`, and `javascript:` in an href is the one place a skewed or hostile
+   * payload becomes script execution.
+   */
   readonly url: string | null
 }
 
@@ -130,19 +162,57 @@ export function resolveCitedEvidence(
   }
 
   /**
-   * ⚠ BOUND BY `event_id` ACROSS EVERY TARGET, NOT BY THE TARGET UNDER THE
-   * CURSOR. The citation names an evidence ROW, and CEE's verifier requires only
-   * that the row belong to the same ROUND — a note attached to a neighbouring
-   * factor is a legitimate citation. Scoping this search to one target would
-   * silently render `evidence_not_found` for a citation the server verified and
-   * accepted, and the surface would report an absence that is not real.
+   * ⭐⭐ THE SHAPE GUARD, AND IT IS NOT DEFENSIVE PADDING — IT WAS A CRASH.
+   *
+   * `fetchOwnerDisagreement` returns `(await res.json()) as DisagreementView` —
+   * a CAST, with no validation anywhere. A 200 whose body is `{}` (an older CEE,
+   * a schema skew, a proxy error page) therefore reaches here with
+   * `per_target === undefined`, and iterating it THROWS DURING RENDER. Because
+   * this hook is called from the factor panels, the throw takes down the whole
+   * inspector subtree — so the participant's NAME leaves the screen too.
+   *
+   * That is this feature's central claim failing one seam past the reader gate:
+   * "malformity costs the citation, never the attribution" was TRUE of
+   * `readElicitedFrom` and FALSE here. Schema skew is this estate's hazard #1
+   * and it is precisely the trigger.
+   *
+   * A malformed view is `view_unavailable` — the same state as a failed load,
+   * which is what it is.
+   */
+  if (!Array.isArray(view.per_target)) {
+    return { state: 'unresolved', reason: 'view_unavailable' }
+  }
+
+  /**
+   * ⚠ BOUND BY `event_id` ACROSS EVERY TARGET IN THE VIEW — and the reason is
+   * ROBUSTNESS TO GROUPING, not the verifier's scope.
+   *
+   * ⚠⚠ AN EARLIER VERSION OF THIS COMMENT SAID CEE "requires only that the row
+   * belong to the same ROUND". THAT IS FALSE, and it was refuted at CEE's bytes:
+   * `apply-verification.ts:282-287` binding (f) requires `evidence_attached` AND
+   * the same round AND `cited.target.kind === 'factor' && cited.target.id ===
+   * target_id`, refusing with "That evidence is not on this round for this
+   * factor." So a citation is always on the SAME FACTOR as the value.
+   *
+   * The wide search STAYS, because the two directions are not symmetric: a
+   * search wider than the producer can never report a FALSE ABSENCE, whereas a
+   * search narrower than the view's grouping can. This function must not encode
+   * an assumption about which `per_target` row CEE files an evidence row under.
+   *
+   * ⭐ WHAT IS *NOT* SCOPED BY THE VERIFIER IS THE AUTHOR — deliberately, and
+   * CEE says so in the same region: applying Grace's number BECAUSE ADA
+   * CHALLENGED IT "is the most valuable case this whole feature has". Never add
+   * an author-equality check.
    *
    * The match is by id, never by a predicate another row could satisfy — no
    * "the first note", no "the one from this author" (trap 19).
    */
   for (const target of view.per_target) {
+    // Same cast, same hazard, one level down: a row whose `evidence` is absent
+    // must skip, never throw.
+    if (!Array.isArray(target?.evidence)) continue
     for (const row of target.evidence) {
-      if (row.event_id !== ref.evidence_event_id) continue
+      if (row?.event_id !== ref.evidence_event_id) continue
 
       // A row can exist with an unusable body. `body` is the participant's own
       // words and is the whole content of the citation; an empty one has nothing
@@ -164,14 +234,36 @@ export function resolveCitedEvidence(
         return { state: 'unresolved', reason: 'body_unusable' }
       }
 
+      /**
+       * The scheme allowlist. `http:`/`https:` only, decided by the URL PARSER
+       * rather than by a string prefix test — `javascript:alert(1)#https://x`
+       * defeats a `startsWith`, and a malformed string must be dropped rather
+       * than thrown on.
+       */
+      let url: string | null = null
+      if (typeof row.url === 'string' && row.url.trim() !== '') {
+        try {
+          const parsed = new URL(row.url.trim())
+          if (parsed.protocol === 'http:' || parsed.protocol === 'https:') url = row.url.trim()
+        } catch {
+          url = null
+        }
+      }
+
+      const aboutLabel =
+        typeof row.about_label === 'string' && row.about_label.trim() !== ''
+          ? row.about_label.trim()
+          : null
+
       return {
         state: 'cited',
         evidence: {
           author_label: authorLabel,
           stance_phrase: stancePhrase,
+          about_label: aboutLabel,
           kind: row.kind,
           body,
-          url: typeof row.url === 'string' && row.url.trim() !== '' ? row.url : null,
+          url,
         },
       }
     }

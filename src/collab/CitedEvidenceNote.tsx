@@ -34,16 +34,44 @@ import type { CitedEvidenceResolution } from './citedEvidence'
 export const CITED_EVIDENCE_TESTID = 'collab-cited-evidence'
 
 /**
- * The connective, and the whole of this bundle's authored copy.
+ * The sentence, composed the way CEE composes it.
  *
- * ⚠ IT IS A REPORT OF AN ACT, NOT OF A CONSEQUENCE. "attached" is what happened
- * and is verifiable from the evidence row itself. Anything in the register of
- * "because", "which is why", "the reason for", "supports this value" or
- * "justifies" asserts a link between the citation and the applied number that
- * nothing upstream has checked.
+ * ⚠⚠ THE FIRST VERSION WAS BROKEN ENGLISH ON EVERY REAL CITATION, and the
+ * reason is worth keeping: it read `${author} attached this, ${stancePhrase}`,
+ * which assumed `stance_phrase` was a fragment like "challenging this". It is
+ * not. CEE's `STANCE_PHRASE` is a BARE VERB — `supports` / `challenges` /
+ * `qualifies` (`disagreement-copy.ts:126-130`) — so production rendered
+ * **"Ada attached this, challenges"**. The fixture that passed carried
+ * "challenging this", a string CEE never emits: the oracle came from this
+ * lane's head instead of from the producer (trap 13c), and a full mutant kit
+ * scored perfectly against it.
+ *
+ * ⭐ SO THE OBJECT IS SUPPLIED, MIRRORING CEE'S OWN RENDER SITE
+ * (`disagreement-read-model.ts:365-366`):
+ *
+ *     const about = e.about_label !== null ? `${e.about_label}'s position` : 'this factor'
+ *     `- Evidence from ${e.author_label}, ${e.stance_phrase} ${about}: "${e.body}"`
+ *
+ * ⚠ THAT MIRROR IS A CROSS-SERVICE HAZARD AND IS ACCEPTED KNOWINGLY. The
+ * `about` composition now exists in two services, so a change to CEE's form
+ * drifts this one silently — the hand-maintained-mirror defect, across a
+ * boundary. It is taken because the alternative is worse: dropping the stance
+ * loses the fact that a colleague CHALLENGED the number, which is the most
+ * valuable thing this line can say. The durable fix is CEE serving a
+ * sentence-form phrase; until then this comment is the marker.
+ *
+ * ⚠ IT REPORTS A STANCE, NEVER A CONSEQUENCE. "Ada challenges Grace's position"
+ * is a fact recorded on the evidence row. Anything in the register of "because",
+ * "which is why", "the reason for" or "justifies" asserts a link between the
+ * citation and the applied number that CEE never checked.
  */
-function attributionSentence(authorLabel: string, stancePhrase: string): string {
-  return `${authorLabel} attached this, ${stancePhrase}`
+function attributionSentence(
+  authorLabel: string,
+  stancePhrase: string,
+  aboutLabel: string | null,
+): string {
+  const about = aboutLabel !== null ? `${aboutLabel}'s position` : 'this factor'
+  return `${authorLabel} ${stancePhrase} ${about}`
 }
 
 export function CitedEvidenceNote({
@@ -53,7 +81,7 @@ export function CitedEvidenceNote({
 }): JSX.Element | null {
   if (resolution.state !== 'cited') return null
 
-  const { author_label, stance_phrase, kind, body, url } = resolution.evidence
+  const { author_label, stance_phrase, about_label, kind, body, url } = resolution.evidence
   const Icon = kind === 'link' ? Link2 : FileText
 
   return (
@@ -65,7 +93,7 @@ export function CitedEvidenceNote({
         <Icon size={12} className="text-info mt-0.5 shrink-0" aria-hidden="true" />
         <div className="min-w-0">
           <div className="text-xs text-text-muted">
-            {attributionSentence(author_label, stance_phrase)}
+            {attributionSentence(author_label, stance_phrase, about_label)}
           </div>
           {/* The participant's own words. Verbatim, never summarised. */}
           <div className="text-xs text-text-body mt-0.5 break-words">{body}</div>

@@ -29,11 +29,23 @@
  *
  * ── ASSERTIONS BIND BY IDENTITY ───────────────────────────────────────────
  * The fixture holds THREE evidence rows across TWO targets, with distinct
- * bodies, distinct authors and distinct stances, so no assertion can pass on the
- * wrong row (trap 19). The cited row is deliberately on a DIFFERENT target from
- * the factor under the cursor, and is authored by a DIFFERENT person from the
- * applied value — both are real product paths and both would be hidden by a
- * narrower lookup.
+ * bodies and distinct authors, so no assertion can pass on the wrong row
+ * (trap 19).
+ *
+ * ⚠⚠ THE CROSS-TARGET PLACEMENT IS A GROUPING-ROBUSTNESS FIXTURE AND IS A
+ * PRODUCER-IMPOSSIBLE WIRE STATE. An earlier version of this header claimed CEE
+ * admits a citation on a neighbouring factor. IT DOES NOT: binding (f) at
+ * `apply-verification.ts:282-287` requires the cited row's `target.kind ===
+ * 'factor'` AND `target.id === target_id`, refusing with "That evidence is not
+ * on this round for this factor." So the citation is ALWAYS on the same factor.
+ * The fixture stays because the resolver must not encode an assumption about
+ * which `per_target` row CEE groups an evidence row under — a search wider than
+ * the producer cannot report a false absence, while a narrower one can. It
+ * proves grouping-independence, NOT verifier scope.
+ *
+ * ⭐ WHAT *IS* GENUINELY UNSCOPED IS THE AUTHOR, and CEE says so in that same
+ * region: applying Grace's number BECAUSE ADA CHALLENGED IT "is the most
+ * valuable case this whole feature has".
  */
 
 import { render, screen, waitFor } from '@testing-library/react'
@@ -54,7 +66,19 @@ const GRACE_ID = '55555555-5555-4555-8555-555555555555'
 const ADA_EVIDENCE_ID = '88888888-8888-4888-8888-888888888888'
 const ADA_BODY = 'Q3 cohort held at 12% after the last rise, so 0.85 looks high'
 const ADA_LABEL = 'Ada'
-const ADA_STANCE_PHRASE = 'challenging this'
+/**
+ * ⭐ CEE'S REAL VOCABULARY, derived from the producer at
+ * `disagreement-copy.ts:126-130` — `STANCE_PHRASE` is a BARE VERB, identical at
+ * both service tips.
+ *
+ * ⚠ THIS FIXTURE PREVIOUSLY SAID 'challenging this', WHICH CEE NEVER EMITS. The
+ * suite was green and a 9-mutant kit scored perfectly while production rendered
+ * "Ada attached this, challenges" — a perfect score against an oracle written
+ * from this lane's head rather than from the producer (trap 13c).
+ */
+const ADA_STANCE_PHRASE = 'challenges'
+/** The object of the verb. `null` here means "about the factor, not a person". */
+const ADA_ABOUT_LABEL = 'Grace'
 
 /** A decoy on the SAME target as the cursor. Never cited. */
 const DECOY_EVIDENCE_ID = '99999999-9999-4999-8999-999999999999'
@@ -73,6 +97,7 @@ function evidenceRow(o: {
   author_label: string
   body: string
   stance_phrase?: string
+  about_label?: string | null
   kind?: 'note' | 'link'
   url?: string | null
 }) {
@@ -82,11 +107,11 @@ function evidenceRow(o: {
     author_label: o.author_label,
     stance: 'challenges' as const,
     stance_phrase: o.stance_phrase ?? ADA_STANCE_PHRASE,
+    about_label: o.about_label === undefined ? null : o.about_label,
     kind: o.kind ?? ('note' as const),
     body: o.body,
     url: o.url ?? null,
     about_participant_id: null,
-    about_label: null,
     created_at: '2026-08-14T11:00:00.000Z',
   }
 }
@@ -132,7 +157,12 @@ function disagreementView(overrides: Partial<DisagreementView> = {}): Disagreeme
         // The CITED row lives on the NEIGHBOUR, which is legitimate: CEE's
         // verifier requires only that the evidence belong to the same ROUND.
         evidence: [
-          evidenceRow({ event_id: ADA_EVIDENCE_ID, author_label: ADA_LABEL, body: ADA_BODY }),
+          evidenceRow({
+            event_id: ADA_EVIDENCE_ID,
+            author_label: ADA_LABEL,
+            body: ADA_BODY,
+            about_label: ADA_ABOUT_LABEL,
+          }),
         ],
         headline: 'They agree on this.',
         question: null,
@@ -195,7 +225,7 @@ describe('the reader gate carries the citation without costing the attribution',
 })
 
 describe('resolution binds to the cited row by id, across every target', () => {
-  it('⭐ resolves a row on a DIFFERENT target from the cursor, by id', () => {
+  it('⭐ resolves by id regardless of which per_target row groups it', () => {
     const res = resolveCitedEvidence(citedElicitedFrom, disagreementView())
     expect(res.state).toBe('cited')
     if (res.state !== 'cited') return
@@ -324,14 +354,29 @@ describe('⭐ PROVENANCE IS NEVER FABRICATED: no citation, no line', () => {
 })
 
 describe('⭐ THE COPY REPORTS AN ACT, NEVER A CONSEQUENCE', () => {
-  it('renders the author, the stance and the words', () => {
+  it('⭐ renders GRAMMATICAL English from CEE\'s bare verb, with an object', () => {
     const res = resolveCitedEvidence(citedElicitedFrom, disagreementView())
     render(<CitedEvidenceNote resolution={res} />)
 
     const node = screen.getByTestId(CITED_EVIDENCE_TESTID)
-    expect(node.textContent).toContain(ADA_LABEL)
-    expect(node.textContent).toContain(ADA_STANCE_PHRASE)
+    // The whole sentence, asserted exactly — mirroring CEE's own composition at
+    // `disagreement-read-model.ts:365-366`. A bare-verb regression renders
+    // "Ada attached this, challenges", which this cannot pass.
+    expect(node.textContent).toContain(`${ADA_LABEL} ${ADA_STANCE_PHRASE} ${ADA_ABOUT_LABEL}'s position`)
     expect(node.textContent).toContain(ADA_BODY)
+    // and the broken form is asserted ABSENT by name.
+    expect(node.textContent).not.toContain('attached this,')
+  })
+
+  it('falls back to CEE\'s own object when the evidence is about the factor', () => {
+    const aboutFactor = disagreementView()
+    aboutFactor.per_target[1].evidence[0].about_label = null
+    const res = resolveCitedEvidence(citedElicitedFrom, aboutFactor)
+    render(<CitedEvidenceNote resolution={res} />)
+    // CEE's fallback is the literal 'this factor' — same string, same place.
+    expect(screen.getByTestId(CITED_EVIDENCE_TESTID).textContent).toContain(
+      `${ADA_LABEL} ${ADA_STANCE_PHRASE} this factor`,
+    )
   })
 
   it('asserts NO causal link between the citation and the applied value', () => {
@@ -351,6 +396,9 @@ describe('⭐ THE COPY REPORTS AN ACT, NEVER A CONSEQUENCE', () => {
       'which is why',
       'justifies',
       'justified',
+      // ⚠ 'supports this value' stays banned — that is a claim about the NUMBER.
+      // CEE's own 'supports this factor' is the stance it recorded and is fine;
+      // the two differ by one word and only one of them is a verdict.
       'supports this value',
       'confirms',
       'verified by',
@@ -382,6 +430,109 @@ describe('⭐ THE COPY REPORTS AN ACT, NEVER A CONSEQUENCE', () => {
 
     render(<CitedEvidenceNote resolution={resolveCitedEvidence(citedElicitedFrom, disagreementView())} />)
     expect(screen.queryByRole('link')).toBeNull()
+  })
+})
+
+describe('⭐⭐ B1 — A MALFORMED VIEW MUST NOT CRASH THE INSPECTOR', () => {
+  /**
+   * `fetchOwnerDisagreement` returns `(await res.json()) as DisagreementView` —
+   * a CAST, never validated. So a 200 with a body this bundle did not expect
+   * reaches the resolver intact, and an unguarded iteration THROWS DURING
+   * RENDER, taking the whole inspector subtree — including the participant's
+   * NAME — off the screen.
+   *
+   * That is this feature's own claim ("malformity costs the citation, never the
+   * attribution") failing one seam past the reader gate. Schema skew is this
+   * estate's hazard #1 and is exactly the trigger, so every one of these shapes
+   * is a real deploy state, not a hypothetical.
+   */
+  const MALFORMED: ReadonlyArray<readonly [string, unknown]> = [
+    ['empty object (an older CEE, or a proxy error page)', {}],
+    ['per_target absent', { round_id: ROUND_ID, graph_version_ref: 'mv-1', standing_note: null }],
+    ['per_target null', { per_target: null }],
+    ['per_target an object, not an array', { per_target: { 0: {} } }],
+    ['per_target a string', { per_target: 'nope' }],
+    ['a target whose evidence is absent', { per_target: [{ target: { kind: 'factor', id: 'x' } }] }],
+    ['a target whose evidence is null', { per_target: [{ evidence: null }] }],
+    ['a target that is null', { per_target: [null] }],
+    ['an evidence row that is null', { per_target: [{ evidence: [null] }] }],
+  ]
+
+  for (const [name, body] of MALFORMED) {
+    it(`does not throw and reports view_unavailable or evidence_not_found: ${name}`, () => {
+      // The load-bearing half is that it RETURNS rather than throws.
+      const res = resolveCitedEvidence(citedElicitedFrom, body as DisagreementView)
+      expect(res.state).toBe('unresolved')
+      if (res.state !== 'unresolved') return
+      expect(['view_unavailable', 'evidence_not_found']).toContain(res.reason)
+    })
+  }
+
+  it('⭐ the ATTRIBUTION SURVIVES a malformed view — the claim this PR makes', () => {
+    // The reader gate still answers, so the name pill still renders. This is the
+    // assertion that would have caught B1: the citation degrades, the identity
+    // does not.
+    const ref = readElicitedFrom(citedElicitedFrom)
+    expect(ref?.participant_id).toBe(GRACE_ID)
+    const res = resolveCitedEvidence(citedElicitedFrom, {} as DisagreementView)
+    expect(res).toEqual({ state: 'unresolved', reason: 'view_unavailable' })
+    const { container } = render(<CitedEvidenceNote resolution={res} />)
+    expect(container.innerHTML).toBe('')
+  })
+})
+
+describe('⭐ B1 rider — the url feeds an href and is re-checked here', () => {
+  function withUrl(url: unknown) {
+    const v = disagreementView()
+    v.per_target[1].evidence[0].kind = 'link'
+    ;(v.per_target[1].evidence[0] as { url: unknown }).url = url
+    return resolveCitedEvidence(citedElicitedFrom, v)
+  }
+
+  it('admits http and https', () => {
+    for (const ok of ['https://example.test/a', 'http://example.test/b']) {
+      const res = withUrl(ok)
+      if (res.state !== 'cited') throw new Error('expected cited')
+      expect(res.evidence.url).toBe(ok)
+    }
+  })
+
+  it('⭐ drops every non-http(s) scheme, and the citation still renders', () => {
+    /**
+     * "Validated server-side at append time" is a claim about the PRODUCER, not
+     * about the bytes that arrived through an unvalidated cast. `javascript:` in
+     * an href is where a skewed or hostile payload becomes script execution.
+     *
+     * The prefix-test defeaters are deliberate: a `startsWith('https://')` check
+     * passes the fragment form, and a naive scheme split passes the tab form.
+     */
+    for (const bad of [
+      'javascript:alert(1)',
+      'JaVaScRiPt:alert(1)',
+      'javascript:alert(1)#https://example.test',
+      'data:text/html;base64,PHNjcmlwdD4=',
+      'vbscript:msgbox(1)',
+      'file:///etc/passwd',
+      'not a url at all',
+      '',
+      42,
+      null,
+    ]) {
+      const res = withUrl(bad)
+      // The citation is NOT lost — only the link is. A dangerous url must not
+      // cost the user the note's words.
+      expect(res.state, `url=${String(bad)}`).toBe('cited')
+      if (res.state !== 'cited') continue
+      expect(res.evidence.url, `url=${String(bad)}`).toBeNull()
+      expect(res.evidence.body).toBe(ADA_BODY)
+    }
+  })
+
+  it('renders NO anchor for a dropped url', () => {
+    render(<CitedEvidenceNote resolution={withUrl('javascript:alert(1)')} />)
+    expect(screen.queryByRole('link')).toBeNull()
+    // and the body is still on screen.
+    expect(screen.getByTestId(CITED_EVIDENCE_TESTID).textContent).toContain(ADA_BODY)
   })
 })
 
