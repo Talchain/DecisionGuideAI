@@ -442,6 +442,64 @@ describe('CX6 · blocker says the value is missing vs Olumi says it exists', () 
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * ⭐ P1 — ONE SEAM BEYOND THE GUARD, and this block exists because a mutant
+ * found the defect rather than because the design anticipated it.
+ *
+ * THE SEAM TESTED: `detectCX1/CX2/CX3/CX4`'s early return. Each one used to read
+ * `state?.run_state?.kind !== '…'`, so the optional chain doubled as the
+ * null guard for `state` — and every line after it dereferenced `state`
+ * directly. Mutant G (which changed only WHICH kind CX1 gates on) therefore did
+ * not widen the detector, it made `evaluateCrossSurfaceCoherence` THROW on the
+ * one corpus capture with no `analysis_state` at all, taking FOUR unrelated
+ * pairs' verdicts down with it. A gate that throws stops detecting at exactly
+ * the moment a payload is malformed — which is when detection matters most.
+ *
+ * The guards are now explicit (`if (state === null) return`) and these tests
+ * pin the property rather than the guard, so the same defect cannot return by a
+ * different route.
+ */
+describe('P1 · a malformed or absent analysis state must not take the other pairs down with it', () => {
+  it('an ABSENT analysis state returns an empty verdict rather than throwing', () => {
+    expect(() => evaluateCrossSurfaceCoherence(coherenceInput({ analysisState: null }))).not.toThrow()
+    expect(pairsOf(coherenceInput({ analysisState: null }))).toEqual([])
+  })
+
+  it('a MALFORMED analysis state does not stop the enrichment-only pair from reporting (the surviving-content assertion)', () => {
+    const { input } = adaptCapture(w2d)
+    // CX5 reads ONLY enrichment, so it must survive any state-side malformity.
+    const shapes: unknown[] = [
+      null,
+      {},
+      { run_state: null },
+      { run_state: {} },
+      { run_state: { kind: 'complete_current' }, readiness: null },
+      { run_state: { kind: 'never_run' }, leader_claim: null, readiness: { status: 'ready' } },
+      { run_state: { kind: 'refused' } },
+    ]
+    for (const shape of shapes) {
+      const probe = coherenceInput({ ...input, analysisState: shape as never })
+      expect(() => evaluateCrossSurfaceCoherence(probe), JSON.stringify(shape)).not.toThrow()
+      // The surrounding content SURVIVES: CX5's two factor violations still report.
+      expect(pairsOf(probe), JSON.stringify(shape)).toContain('CX5')
+    }
+  })
+
+  it('POSITIVE CONTROL — the probe payload really does carry a CX5 contradiction, so the survival above is not vacuous', () => {
+    const { input } = adaptCapture(w2d)
+    expect(
+      evaluateCrossSurfaceCoherence(input).filter(v => v.pair === 'CX5').map(v => v.evidence.factor_id).sort(),
+    ).toEqual(['71c6351d', 'fcf3d740'])
+  })
+
+  it('a capture with NO analysis_state at all evaluates cleanly — the corpus member that caught this', () => {
+    const { input } = adaptCapture(probeA)
+    expect(input.analysisState).toBeNull()
+    expect(() => evaluateCrossSurfaceCoherence(input)).not.toThrow()
+    expect(pairsOf(input)).toEqual([])
+  })
+})
+
 describe('CX6 · the sentence splitter must not cut a decimal', () => {
   it('a period between digits is not a sentence end (£1.5 million must survive)', () => {
     expect(splitSentences('The cap is £1.5 million already reflected. Next.')).toEqual([

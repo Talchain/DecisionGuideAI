@@ -585,7 +585,8 @@ export function sentenceAssertsPresence(sentence: string): string | null {
 
 function detectCX1(input: CoherenceInput, out: CoherenceViolation[]): void {
   const state = input.analysisState
-  if (state?.run_state?.kind !== 'complete_current') return
+  if (state === null) return
+  if (state.run_state?.kind !== 'complete_current') return
   const status = state.readiness?.status
   if (!assertsNotAnalysable(status)) return
   const blocking = actionableBlockers(state)
@@ -610,7 +611,8 @@ function detectCX1(input: CoherenceInput, out: CoherenceViolation[]): void {
 
 function detectCX2(input: CoherenceInput, out: CoherenceViolation[]): void {
   const state = input.analysisState
-  if (state?.run_state?.kind !== 'refused') return
+  if (state === null) return
+  if (state.run_state?.kind !== 'refused') return
   const status = state.readiness?.status
   if (status === READINESS_STATUS_READY) {
     out.push({
@@ -643,7 +645,8 @@ function detectCX2(input: CoherenceInput, out: CoherenceViolation[]): void {
 
 function detectCX3(input: CoherenceInput, out: CoherenceViolation[]): void {
   const state = input.analysisState
-  if (state?.run_state?.kind !== 'never_run') return
+  if (state === null) return
+  if (state.run_state?.kind !== 'never_run') return
 
   const usable: string[] = []
   if (state.usable_for_prose === true) usable.push('usable_for_prose')
@@ -689,7 +692,8 @@ function detectCX3(input: CoherenceInput, out: CoherenceViolation[]): void {
 
 function detectCX4(input: CoherenceInput, out: CoherenceViolation[]): void {
   const state = input.analysisState
-  if (state?.leader_claim?.permitted !== false) return
+  if (state === null) return
+  if (state.leader_claim?.permitted !== false) return
   const rows = renderedConditionalWinnerRows(input.enrichment?.conditional_winners)
   const naming = rows.filter(rowNamesAnOption)
   if (naming.length === 0) return
