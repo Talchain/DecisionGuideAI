@@ -261,6 +261,25 @@ export async function openCanvas(page: Page): Promise<void> {
     undefined,
     { timeout: 30_000 },
   )
+
+  // ⚠ FONTS MUST BE LOADED **BEFORE** ANYTHING IS SEEDED, and this ordering is
+  // the whole reason the graph states are reproducible.
+  //
+  // The graph layout is computed from MEASURED node sizes, and node sizes are
+  // measured from rendered text. If a webfont arrives after the layout pass, the
+  // nodes are measured at fallback metrics, the layout is computed from those,
+  // and the committed reference records a graph that only reproduces when the
+  // font happens to be late again. Measured: with `document.fonts.ready` awaited
+  // only at the END of the quiescence wait (i.e. after layout), darwin was
+  // pixel-identical across runs — because its fonts are already warm — while
+  // ubuntu-latest CI diverged by 2.08-4.42% on exactly and only the two
+  // full-viewport GRAPH states (`fresh-draft`, `graph-default-zoom`), 40-90x the
+  // tolerance, with the diff bounded to the graph area. The three clipped
+  // dock states, which contain no laid-out graph, were clean on both platforms.
+  //
+  // A local platform with warm font caches cannot see this class of defect at
+  // all, which is why it took a linux run to surface it.
+  await page.evaluate(() => document.fonts?.ready)
   await freezeMotion(page)
 }
 
