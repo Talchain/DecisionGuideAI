@@ -20,7 +20,10 @@
  * FAIL-LOUD RULES (trap-12: a silent gap in a census is worse than no census):
  *   - unknown named text-* size class            → error
  *   - `font:` shorthand in CSS                   → error
- *   - rem/em/calc/clamp font-size                → error (add handling first)
+ *   - rem/em/calc/clamp font-size                → error (add handling first),
+ *     with ONE sanctioned exception: `text-[length:calc(Npx*var(--x,1))]`, the
+ *     canvas counter-scale, which resolves to its declared N (see
+ *     COUNTER_SCALED_PX below — anything wider than that shape still errors)
  *   - template-interpolated `text-${...}`        → error
  *   - typography token name not found            → error
  *   - non-literal inline fontSize/fontWeight     → error
@@ -91,14 +94,33 @@ function parseTypographyTokens() {
   return tokens
 }
 
+/**
+ * The one arbitrary-length shape the census resolves rather than rejects:
+ * `text-[length:calc(13px*var(--canvas-label-scale,1))]`. The custom property's
+ * fallback MUST be exactly 1, so the declared px is the size everywhere the
+ * property is unset. Anything else keeps erroring.
+ */
+const COUNTER_SCALED_PX = /^text-\[length:calc\((\d+(?:\.\d+)?)px\*var\(--[a-z0-9-]+,\s*1\)\)\]$/
+
 function classesToTraits(classString, context) {
   const traits = { size: null, weight: null, lineHeight: null }
   for (const cls of classString.split(/\s+/)) {
     let m
     if ((m = cls.match(/^text-\[(\d+(?:\.\d+)?)px\]$/))) {
       traits.size = Number(m[1])
+    } else if ((m = cls.match(COUNTER_SCALED_PX))) {
+      // ONE sanctioned calc shape: a declared px multiplied by a counter-scale
+      // custom property that DEFAULTS TO 1. The census measures the declared
+      // type scale, and `var(--x, 1)` resolves to the declared px wherever the
+      // property is unset — which is everywhere outside the canvas subtree. So
+      // the size this census cares about is unchanged, and the regex is narrow
+      // enough that any OTHER calc/clamp/rem still falls through to the error
+      // below. See src/canvas/utils/zoomLegibility.ts for why the canvas tokens
+      // carry it. Deliberately NOT a general calc evaluator: a census that
+      // guesses at arithmetic is worse than one that refuses it (trap 12).
+      traits.size = Number(m[1])
     } else if ((m = cls.match(/^text-\[/))) {
-      errors.push(`${context}: unsupported arbitrary text class "${cls}" (only [Npx] handled)`)
+      errors.push(`${context}: unsupported arbitrary text class "${cls}" (only [Npx] and [length:calc(Npx*var(--x,1))] handled)`)
     } else if ((m = cls.match(/^text-(xs|sm|base|lg|xl|\dxl)$/))) {
       if (!(m[1] in TW_SIZE_PX)) errors.push(`${context}: unknown text size "${cls}"`)
       else traits.size = TW_SIZE_PX[m[1]]

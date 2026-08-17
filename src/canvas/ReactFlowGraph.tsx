@@ -15,6 +15,7 @@ import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
 import { useEditedSinceRun } from './hooks/useEditedSinceRun'
 import { LodSync } from './components/LodSync'
+import { CanvasLabelScaleSync } from './components/CanvasLabelScaleSync'
 import { CanvasLodNotice } from './components/CanvasLodNotice'
 import { cameraDuration } from './utils/cameraMotion'
 import { useFocusCamera } from './hooks/useFocusCamera'
@@ -2204,6 +2205,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             </svg>
             {/* D2: level-of-detail zoom watcher — main canvas only. */}
             <LodSync />
+            {/* Counter-scales canvas label text against the viewport transform
+                so DS v5 §2.3's 13/11/10px are the sizes actually rendered, not
+                the sizes before a 0.50 auto-fit halves them. Main canvas only:
+                the Compare-tab minis are deliberately simplified views. */}
+            <CanvasLabelScaleSync />
             {/* Says so when LodSync has blanked the labels — measured at 0 of 5
                 viewports before this shipped; see the component's header. */}
             <CanvasLodNotice />
