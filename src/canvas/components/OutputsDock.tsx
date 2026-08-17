@@ -925,8 +925,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // Brief step 6 — the composed run state that decides WHICH truth-state
   // banner this surface may render. It derives nothing new: it maps the
   // verdicts the refusal/freshness/results owners already publish onto the
-  // contract's state names. Swaps to the wire's `AnalysisStateV1.run_state`
-  // in one line when the migration lane lands (see useAnalysisRunState.ts).
+  // contract's state names.
+  //
+  // ⚠ THE MIGRATION HAS LANDED, AND IT IS A UNION, NOT THE ONE-LINE SWAP THIS
+  // COMMENT USED TO PROMISE. `useAnalysisRunState` now consumes
+  // `useAnalysisState()`'s wire verdict as the authority while keeping the local
+  // refusal limb, because #737's selector never mints `refused` from legacy
+  // signals — a plain substitution would have re-darked the refusal notice. See
+  // that file's header for the precedence order and the one adjudicated cell.
   const analysisRunState = useAnalysisRunState()
   // Anchor-run-control (Paul, 21-Jul): the sticky bottom AnalysisFooter is the
   // SOLE Rerun owner in every post-run state — it carries the robustness

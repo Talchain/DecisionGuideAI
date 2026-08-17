@@ -201,14 +201,24 @@ export interface ComposedAnalysisState {
    */
   readonly wire: AnalysisStateV1 | null
   /**
-   * The run-state verdict. Under `'wire'` this is CEE's own `run_state.kind`.
-   * Under `'derived'` it is the closest honest classification the legacy
-   * signals support — and it is deliberately CONSERVATIVE: the derived branch
-   * never returns `'refused'` or a `cause`-bearing kind, because no legacy
-   * signal distinguishes those, and inventing one would be exactly the
-   * fabrication this contract exists to stop.
+   * The run-state verdict — CEE's own `run_state.kind` under `'wire'`, and
+   * **`null` under `'derived'`**.
+   *
+   * ⭐ `null` IS THE ANSWER, NOT A MISSING ONE. This selector has no legacy
+   * authority over the run-state kind. It previously returned a conservative
+   * legacy classification here, but that value reached no product surface — its
+   * one consumer (`useAnalysisRunState`) only reads this when the wire spoke,
+   * because the legacy classification never minted `'refused'` and had no
+   * errored-rerun arm, so the consumer had to keep its own limbs anyway. The
+   * derivation was deleted as the migration's final step; see the note where it
+   * used to live.
+   *
+   * INVARIANT, pinned in this module's spec: `authority === 'wire'` ⟺
+   * `runStateKind !== null`. A consumer may rely on that, and the type now makes
+   * the old footgun — passing this straight through on a legacy turn — a
+   * COMPILE-TIME error rather than a silent re-darking of the refusal notice.
    */
-  readonly runStateKind: AnalysisRunStateKind
+  readonly runStateKind: AnalysisRunStateKind | null
   /**
    * The ONE display semantic — the value every freshness/trust surface renders
    * from. Under `'wire'` it is mapped from `run_state.kind` by the ratified
@@ -392,38 +402,29 @@ export function mapRunStateKindToDisplayedFreshness(
   }
 }
 
-/**
- * Classify the legacy signals into a run-state kind, for the `'derived'` branch.
+/*
+ * ⭐⭐ `deriveRunStateKindFromLegacy` WAS DELETED HERE — the migration's final step.
  *
- * CONSERVATIVE BY CONSTRUCTION. It returns only the four kinds the legacy
- * signals can actually support. It NEVER returns `'refused'` (no legacy signal
- * distinguishes a refusal from a block) and never claims `complete_stale`'s
- * `cause`. Where the legacy signals cannot tell, it says `unknown_degraded`,
- * which is the contract's own instruction: emit the honest absence of a verdict
- * in preference to guessing one.
+ * It classified the legacy signals into a run-state kind for the `'derived'`
+ * branch. Once `useAnalysisRunState` consumed this selector as a UNION, its
+ * output stopped reaching any product surface: `runStateKind` has exactly ONE
+ * product consumer, and that consumer only ever reads it when the wire spoke.
+ * The legacy branch therefore computed a value nothing rendered.
+ *
+ * It is DELETED rather than left dormant because a superseded derivation that
+ * still compiles is the estate's most reliable source of future confusion — the
+ * next reader cannot tell a live fallback from a dead one, and the type said
+ * `AnalysisRunStateKind` (non-null) which actively invited a consumer to trust
+ * it. `runStateKind` is now `AnalysisRunStateKind | null`, and `null` on the
+ * derived branch is the honest answer: this selector has no legacy authority
+ * over the run-state KIND. It never really did — it declined to mint `'refused'`
+ * and had no error arm, which is precisely why the consumer had to keep its own
+ * limbs.
+ *
+ * Nothing else moved: `semantic`, `displayedFreshness`, `trust` and
+ * `displayState` all still answer on the derived branch exactly as before. This
+ * removal is scoped to the ONE member that had no reader.
  */
-function deriveRunStateKindFromLegacy(input: {
-  semantic: FreshnessDisplaySemantic
-  hasReport: boolean
-  isRunning: boolean
-}): AnalysisRunStateKind {
-  const { semantic, hasReport, isRunning } = input
-  if (isRunning) return 'running'
-  if (!hasReport) return 'never_run'
-  switch (semantic) {
-    case 'current':
-      return 'complete_current'
-    case 'changed':
-      return 'complete_stale'
-    case 'cannot_confirm':
-      return 'unknown_degraded'
-    case 'none':
-      // A report is on screen with no verdict attached to it at all. That is
-      // precisely "cannot determine", not "never run" — the report disproves
-      // never_run and nothing supports a completion claim.
-      return 'unknown_degraded'
-  }
-}
 
 export interface ComposeAnalysisStateInput {
   /**
@@ -528,16 +529,18 @@ export function composeAnalysisState(
           runStartedAt: Number.isFinite(wireStartedAt) ? wireStartedAt : resultsStartedAt,
         }
       : { isRunning: false, runStartedAt: resultsStartedAt }
-  const isRunning = runPair.isRunning
 
-  const runStateKind: AnalysisRunStateKind =
-    wire !== null
-      ? wire.run_state.kind
-      : deriveRunStateKindFromLegacy({
-          semantic: legacyTrust.semantic,
-          hasReport,
-          isRunning,
-        })
+  // NULL ON THE DERIVED BRANCH — this selector has no legacy authority over the
+  // run-state KIND, and says so rather than inventing one. See the long note
+  // where `deriveRunStateKindFromLegacy` used to live.
+  //
+  // (The local `const isRunning` that fed that derivation was deleted with it.
+  // `trust` below reads `runPair.isRunning` directly and always did; leaving the
+  // alias behind would have failed the typecheck gate on TS6133, which is how a
+  // three-edit version of this deletion passed 118 tests and still failed the
+  // gate.)
+  const runStateKind: AnalysisRunStateKind | null =
+    wire !== null ? wire.run_state.kind : null
 
   // THE PRECEDENCE RULE. When the wire is present its verdict wins outright —
   // the legacy semantic is not consulted, not blended, and not used as a
