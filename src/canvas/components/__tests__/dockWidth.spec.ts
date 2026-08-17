@@ -58,22 +58,30 @@ describe('dockWidthBounds — the HARD bounds a user drag may reach', () => {
 
 describe('responsiveDockWidth — the width when the user has NEVER dragged', () => {
   it('is proportional to the viewport below the historic ceiling', () => {
-    // 1280 is the measured laptop case: 0.26 * 1280 = 332.8 -> 333, which is
-    // what returns canvas to the graph. Bound to the exact viewport, so a
-    // change to the ratio reds here by name rather than silently drifting.
-    expect(responsiveDockWidth(1280)).toBe(333)
+    // ⚠ RE-PINNED 17 Aug 2026. This asserted `responsiveDockWidth(1280) === 333`
+    // — correct for the 0.26 ratio, and the pin is kept rather than deleted so
+    // the geometry still cannot drift silently; only the number moves, with the
+    // ratio restored to 416/1280. The proportional BAND is now viewports below
+    // 1280, so 1024 is where the formula is still observable.
     expect(responsiveDockWidth(1024)).toBe(SAFE_MIN(Math.round(1024 * DOCK_VIEWPORT_RATIO)))
+    expect(responsiveDockWidth(1024)).toBe(333)
+    // …and the band is real, not a formula nobody reaches: 1024 sits strictly
+    // between the floor and the ceiling, so a mutant collapsing the taper to
+    // either bound is visible here.
+    expect(responsiveDockWidth(1024)).toBeGreaterThan(DOCK_MIN_WIDTH)
+    expect(responsiveDockWidth(1024)).toBeLessThan(DOCK_RESPONSIVE_MAX_WIDTH)
   })
 
   it('never exceeds the historic fixed width, so wide screens are unchanged', () => {
-    // The whole change is a laptop-size REDUCTION, not a redesign. If this
-    // ever exceeds 416 a wide screen would get a dock bigger than it had
-    // before the refactor — a regression this spec exists to forbid.
+    // 416 is the ceiling in both directions: no viewport gets more than the
+    // dock's last known usable width, and (see the containment block below) no
+    // desktop viewport gets less.
     for (const w of VIEWPORTS) {
       expect(responsiveDockWidth(w), `viewport ${w}`).toBeLessThanOrEqual(DOCK_RESPONSIVE_MAX_WIDTH)
     }
-    expect(responsiveDockWidth(1600)).toBe(DOCK_RESPONSIVE_MAX_WIDTH) // 0.26*1600 = 416 exactly
-    expect(responsiveDockWidth(2560)).toBe(DOCK_RESPONSIVE_MAX_WIDTH) // proportional 666, capped
+    expect(responsiveDockWidth(1280)).toBe(DOCK_RESPONSIVE_MAX_WIDTH) // 0.325*1280 = 416 exactly
+    expect(responsiveDockWidth(1600)).toBe(DOCK_RESPONSIVE_MAX_WIDTH) // proportional 520, capped
+    expect(responsiveDockWidth(2560)).toBe(DOCK_RESPONSIVE_MAX_WIDTH) // proportional 832, capped
     expect(responsiveDockWidth(3840)).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
   })
 
@@ -100,7 +108,7 @@ describe('responsiveDockWidth — the width when the user has NEVER dragged', ()
 describe('resolveDockWidth — explicit user width wins, re-clamped to bounds', () => {
   it('falls back to the responsive default when there is no stored width', () => {
     expect(resolveDockWidth(1280, null)).toBe(responsiveDockWidth(1280))
-    expect(resolveDockWidth(1280, null)).toBe(333)
+    expect(resolveDockWidth(1280, null)).toBe(416)
   })
 
   it('honours an explicit width that is inside the bounds', () => {
@@ -174,8 +182,58 @@ describe('parseStoredDockWidth — localStorage string to number | null', () => 
     // instead of null (the defect the null-signal exists to prevent) is
     // visible here as a width of 280 rather than the responsive default.
     expect(resolveDockWidth(900, parseStoredDockWidth('480'))).toBe(360)
-    expect(resolveDockWidth(1280, parseStoredDockWidth(null))).toBe(333)
-    expect(resolveDockWidth(1280, parseStoredDockWidth('garbage'))).toBe(333)
+    expect(resolveDockWidth(1280, parseStoredDockWidth(null))).toBe(416)
+    expect(resolveDockWidth(1280, parseStoredDockWidth('garbage'))).toBe(416)
+  })
+})
+
+describe('the restored 416px default — containment pins (17 Aug 2026)', () => {
+  // 416 is the dock's last known usable width: the fixed `--dock-right-expanded:
+  // 26rem` this module replaced, and still the declared default in
+  // `src/index.css:517`. The ratio narrowing traded content budget for graph
+  // legibility that was never delivered — the post-draft fit clamps at the 0.5
+  // floor at 416px, 333px AND 280px alike (computeFitPadding.spec.ts).
+  //
+  // 254px of content budget after borders and `px-3` padding is what 280 buys;
+  // 390px is what 416 buys. −35% is not a layout tweak.
+
+  it('gives a 1280px laptop the full 416px', () => {
+    // The founder-facing viewport, bound by name so a ratio change reds HERE
+    // rather than drifting silently through a proportional formula.
+    expect(responsiveDockWidth(1280)).toBe(416)
+    expect(responsiveDockWidth(1280)).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
+  })
+
+  it('gives 416px at 1280, 1920 and 3840 — screen size may widen the dock, never narrow it', () => {
+    // The three viewports named because #741's clamp was `Math.min(full, min)`
+    // against an UNCONDITIONAL 280 constant, so all three answered 280. A
+    // per-input probe returning the same answer for every input is evidence
+    // about the probe (trap 20) — here it was evidence about the product, and
+    // nothing was asking.
+    for (const viewport of [1280, 1920, 3840]) {
+      expect(responsiveDockWidth(viewport), `viewport ${viewport}`).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
+    }
+  })
+
+  it('never returns the drag FLOOR as a default at a desktop viewport', () => {
+    // 280 is a floor for a manual drag, not a width the product chooses. This
+    // is the claim, stated separately from the value above so a future ceiling
+    // change cannot quietly satisfy it by lowering both numbers together.
+    for (const viewport of [1280, 1440, 1920, 2560, 3840]) {
+      expect(responsiveDockWidth(viewport), `viewport ${viewport}`).toBeGreaterThan(DOCK_MIN_WIDTH)
+    }
+  })
+
+  it('KEEPS 280 as the floor a manual drag clamps to', () => {
+    // The other direction, and the reason this is containment rather than a
+    // revert of the width authority: the drag bounds are untouched. A user may
+    // still choose 280; the product may not choose it for them.
+    expect(dockWidthBounds(1280).min).toBe(280)
+    expect(dockWidthBounds(3840).min).toBe(280)
+    expect(resolveDockWidth(1280, 200)).toBe(280)
+    expect(resolveDockWidth(1280, 280)).toBe(280)
+    // …and 280 remains REACHABLE by drag, which is what makes it a floor.
+    expect(resolveDockWidth(3840, 280)).toBe(280)
   })
 })
 
