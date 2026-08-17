@@ -1,11 +1,12 @@
 /**
  * Model tab v2 — THE READ-ONLY STORE → PROJECTION ADAPTER.
  *
- * Maps LIVE canvas state onto the typed read projections in `types.ts`, so that
- * mounting this surface later is a wiring job rather than a design job.
+ * Maps LIVE canvas state onto the typed read projections in `types.ts`.
+ * MOUNTED since the 16 Aug 2026 mount train: `ModelTabV2Panel` is the caller
+ * that reads the store at the component boundary and passes the slices in.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * WHAT MAKES THIS SAFE TO EXIST WHILE UNMOUNTED
+ * WHAT MAKES THIS SAFE (the same properties that made it safe unmounted)
  *
  * ⚠ IT TAKES STATE AS AN ARGUMENT. It does NOT call `useCanvasStore()`, or any
  * other hook, anywhere. Every function here is a pure function of the slices it
@@ -16,8 +17,9 @@
  * type` and pure imports are allowed.
  *
  * ⚠ THE DIRECTION OF THE DEPENDENCY IS THE INVARIANT. namespace → live reads
- * are fine and are what this file is for. live → namespace imports are what
- * would constitute a mount, and there are none.
+ * are fine and are what this file is for. live → namespace imports are the
+ * mount, and the boundary guard pins them to exactly one site
+ * (`ModelTabBody.tsx`).
  *
  * ⚠ NO WRITES. No store mutator, no dispatch, no system event. Reading is the
  * whole job.

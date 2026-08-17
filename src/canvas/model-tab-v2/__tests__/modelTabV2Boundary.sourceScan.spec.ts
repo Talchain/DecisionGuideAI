@@ -1,20 +1,31 @@
 /**
  * Model tab v2 — THE LANE BOUNDARY, ENFORCED (design §8, §9.1).
  *
- * This lane makes three claims about itself. Each is the kind of claim that is
- * cheap to write in a comment, invisible when it stops being true, and expensive
- * when it does. So each is a test:
+ * ⚠ RESTRUCTURED BY THE 16 Aug 2026 MOUNT TRAIN. The original claim 1 was
+ * "NOTHING IS MOUNTED"; the directory is now mounted deliberately (the PX-D
+ * BUILT-UNMOUNTED finding, closed), so that claim is retired and REPLACED by a
+ * stronger one rather than deleted — the ratified pattern: narrow what is
+ * banned, never stop banning things.
  *
- *   1. NOTHING IS MOUNTED — no file outside this directory references it, so the
- *      whole directory is deletable if Paul vetoes the design.
- *   2. NOTHING WRITES — no file here calls a store mutator or dispatches a turn.
- *      The write authority is Codex's transactional-edit vertical (§9.1), and a
- *      second writer appearing here is exactly how the estate previously ended
- *      up committing one edit through three paths with three provenance stamps.
+ * The three claims now enforced:
+ *
+ *   1. MOUNTED EXACTLY ONCE, FROM THE NAMED HOST — the only file outside this
+ *      directory that references it is `components/ModelTabBody.tsx` (the
+ *      Model tab's container). A second importer is a second mount path and
+ *      must be added HERE, deliberately, or it is a defect.
+ *   2. NOTHING WRITES DIRECTLY — no file here (the mount host included) calls
+ *      a store mutator or dispatches a turn itself. Every write goes through
+ *      `useModelEditAuthority`, the ONE seam that implements the canonical
+ *      transaction — a second writer appearing here is exactly how the estate
+ *      previously ended up committing one edit through three paths with three
+ *      provenance stamps. Corollary: no v2 file except the named mount host
+ *      may invoke a hook from outside this namespace, and the host's foreign
+ *      hooks are pinned to exactly the authority seam.
  *   3. NOTHING FAKES SUCCESS — no runtime module here constructs an `applied`
  *      commit state. `applied` is reachable only from an authority's receipt; a
  *      component that could build one itself would reproduce design §2 F6 inside
- *      the code written to kill it.
+ *      the code written to kill it. (Today's authority returns NO receipt, so
+ *      nothing here may render `applied` at all.)
  *
  * Every scan is DERIVED by walking the directory, never a hand-listed file set —
  * a new component is in scope the moment it exists. Every absence assertion
@@ -79,6 +90,7 @@ describe('model-tab-v2 — the scan sees the directory it claims to cover', () =
       'ModelOutline.tsx',
       'ModelDetailRegion.tsx',
       'RepairQueueList.tsx',
+      'ModelTabV2Panel.tsx',
       'useOutlineKeyboard.ts',
       'types.ts',
       'contracts.ts',
@@ -107,7 +119,15 @@ function referencesV2(src: string, file: string): boolean {
   return V2_PATH_TOKEN.test(stripComments(src, file))
 }
 
-describe('⭐ model-tab-v2 is UNMOUNTED — nothing outside it references it', () => {
+/**
+ * The complete set of files outside this directory that may reference it. ONE
+ * entry: the Model tab's container, which hosts `ModelTabV2Panel`. Adding a
+ * second mount path is a deliberate decision that must be made here, in the
+ * guard, with a reason — never discovered in a diff.
+ */
+const ALLOWED_MOUNT_SITES = ['canvas/components/ModelTabBody.tsx']
+
+describe('⭐ model-tab-v2 is MOUNTED EXACTLY ONCE — from the named host only', () => {
   const outsideFiles = sourceFilesIn(SRC_DIR).filter(
     f => !f.startsWith(V2_DIR + '/') && f !== V2_DIR,
   )
@@ -137,17 +157,17 @@ describe('⭐ model-tab-v2 is UNMOUNTED — nothing outside it references it', (
     expect(referencesV2('// the model-tab-v2 design is unmounted\nconst x = 1', 'x.ts')).toBe(false)
   })
 
-  it('no file outside the directory imports or mentions it', () => {
-    const offenders: string[] = []
+  it('the ONLY outside references are the named mount sites — no second mount path', () => {
+    const referencing: string[] = []
     for (const file of outsideFiles) {
       if (referencesV2(readFileSync(file, 'utf8'), file)) {
-        offenders.push(relative(SRC_DIR, file))
+        referencing.push(relative(SRC_DIR, file))
       }
     }
-    // If this ever goes red, the directory is MOUNTED and three things become
-    // due at once: widen the raw-write guard (§9.1), re-read the disabled
-    // affordances, and stop describing the design as vetoable-by-deletion.
-    expect(offenders).toEqual([])
+    // Exact equality, both directions: a file DROPPING off this list means the
+    // editor was silently unmounted (the BUILT-UNMOUNTED regression), and a
+    // file APPEARING on it means a second mount path nobody ruled on.
+    expect(referencing.sort()).toEqual([...ALLOWED_MOUNT_SITES].sort())
   })
 })
 
@@ -278,8 +298,25 @@ describe('⭐ model-tab-v2 NEVER WRITES — the write authority is another lane'
       foreignHookCallsIn('export function useMine() { return useCanvasStore() }', 'x.ts'),
     ).toEqual(['useCanvasStore'])
 
+    /*
+     * ⚠ THE MOUNT HOST IS THE ONE EXCEPTION, AND ITS EXCEPTION IS PINNED, not
+     * waived: `ModelTabV2Panel` must reach the write authority, and a hook is
+     * the only sanctioned way to reach it. So the host is excluded from the
+     * blanket rule below and held to an EXACT set instead — its foreign hooks
+     * are `useModelEditAuthority` and nothing else. A store subscription
+     * (`useCanvasStore`), a context, or a second authority appearing there
+     * turns this red just as loudly as it would anywhere else.
+     */
+    const MOUNT_HOST = 'ModelTabV2Panel.tsx'
+    const host = v2Files.find(f => basename(f) === MOUNT_HOST)
+    expect(host).toBeDefined()
+    expect(
+      [...new Set(foreignHookCallsIn(readFileSync(host!, 'utf8'), host!))].sort(),
+    ).toEqual(['useModelEditAuthority'])
+
     const offenders: string[] = []
     for (const file of v2Files) {
+      if (basename(file) === MOUNT_HOST) continue
       const found = foreignHookCallsIn(readFileSync(file, 'utf8'), file)
       if (found.length > 0) offenders.push(`${basename(file)}: ${[...new Set(found)].join(', ')}`)
     }
@@ -304,6 +341,131 @@ describe('⭐ model-tab-v2 NEVER WRITES — the write authority is another lane'
     const src = blankNonCode(readFileSync(adapter!, 'utf8'))
     expect(/\buse[A-Z]\w*\s*\(/.test(src)).toBe(false)
     expect(/ModelProjectionInput/.test(src)).toBe(true)
+  })
+})
+
+// ── 2b. NO STORE ACCESS AT ALL (review B1, 17 Aug 2026) ──────────────────────
+
+/**
+ * ⚠ ADDED AFTER AN ADVERSARIAL REVIEW EXECUTED TWO EVASIONS OF SECTION 2 AND
+ * EVERY GUARD STAYED GREEN. Both are ordinary idioms in sibling directories, so
+ * an honest future lane would copy them here:
+ *
+ *   E1  `import { useCanvasStore } from '../store'` +
+ *       `useCanvasStore.getState()` / `.setState({ nodes: … })` — the hook scan
+ *       only matches `use[A-Z]\w*(` CALLS, and `BANNED_WRITE` names 12 mutators
+ *       (`setState`, `addNode`, `deleteNodeById`, `applyRepair`,
+ *       `applyAllRepairs` are all unlisted);
+ *   E2  `const { updateNode: patchNode } = canvasState.getState()` —
+ *       destructure-RENAME evades every named token.
+ *
+ * So this scan bans the ACCESS ROUTE rather than enumerating mutators: for
+ * every v2 file INCLUDING the mount host, (a) no import/require/dynamic-import
+ * specifier may resolve to a store module (`…/store`, a `store(s)/` path
+ * segment, or `zustand` itself — path-based, so an alias like `@/canvas/store`
+ * is caught by its tail), and (b) `getState(` / `setState(` may not appear at
+ * all. Zero legitimate occurrences existed when this was written (verified);
+ * the one sanctioned writer remains `useModelEditAuthority`, which lives
+ * OUTSIDE this directory.
+ *
+ * NOTE this deliberately TIGHTENS what an older control in section 2 tolerates:
+ * there, a bare non-invoked store import is "a read, not a subscription" — that
+ * control pins the FOREIGN-HOOK scanner's discrimination and still holds; as
+ * DIRECTORY POLICY, any store import here is now banned outright, because E1
+ * proved a non-hook import is a full write path.
+ *
+ * ⚠ KNOWN LIMITS of source-text scanning (reviewer's riders, recorded so nobody
+ * mistakes this for a semantic guarantee): (i) a SPLIT-TOKEN dynamic import
+ * (`import('../sto' + 're')`) defeats specifier matching; (ii) TRANSITIVE
+ * closure is not scanned — a v2 file importing an out-of-directory helper that
+ * itself writes would pass. Both are visible in review as exactly the
+ * contortions they are; the scans exist to make the HONEST mistake loud, not to
+ * defeat an adversary.
+ */
+const STORE_SPECIFIER = (s: string): boolean =>
+  s === 'zustand' ||
+  s.startsWith('zustand/') ||
+  /(^|\/)store$/.test(s) ||
+  /(^|\/)stores?\//.test(s)
+
+/**
+ * ⚠ `stripComments`, NOT `blankNonCode` — an import specifier IS a string
+ * literal (the same lesson this file has now paid for twice; see the header).
+ */
+function storeAccessIn(src: string, file: string): string[] {
+  const code = stripComments(src, file)
+  const hits: string[] = []
+  const specifiers = [
+    ...code.matchAll(/from\s*['"]([^'"]+)['"]/g),
+    ...code.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]/g),
+    ...code.matchAll(/\brequire\s*\(\s*['"]([^'"]+)['"]/g),
+  ].map(m => m[1])
+  for (const s of specifiers) {
+    if (STORE_SPECIFIER(s)) hits.push(`import:${s}`)
+  }
+  for (const m of code.matchAll(/\b(getState|setState)\s*\(/g)) {
+    hits.push(`call:${m[1]}`)
+  }
+  return hits
+}
+
+describe('⭐ model-tab-v2 NEVER TOUCHES THE STORE — the access route is banned, not just the mutator names', () => {
+  it('POSITIVE CONTROL: evasion E1 (store import + getState/setState) is detected in full', () => {
+    // The review's exact executed shape, through the same pipeline as the claim.
+    expect(
+      storeAccessIn(
+        [
+          "import { useCanvasStore } from '../store'",
+          'const s = useCanvasStore.getState()',
+          'useCanvasStore.setState({ nodes: [] })',
+        ].join('\n'),
+        'x.ts',
+      ),
+    ).toEqual(['import:../store', 'call:getState', 'call:setState'])
+  })
+
+  it('POSITIVE CONTROL: evasion E2 (destructure-rename off getState) is detected', () => {
+    expect(
+      storeAccessIn(
+        'const { updateNode: patchNode } = canvasState.getState()\npatchNode(id, { data: {} })',
+        'x.ts',
+      ),
+    ).toEqual(['call:getState'])
+  })
+
+  it('POSITIVE CONTROL: zustand itself, aliased store paths, and a stores/ segment are all caught', () => {
+    expect(storeAccessIn("import { create } from 'zustand'", 'x.ts')).toEqual(['import:zustand'])
+    expect(storeAccessIn("import { useCanvasStore } from '@/canvas/store'", 'x.ts')).toEqual([
+      'import:@/canvas/store',
+    ])
+    expect(storeAccessIn("import { useUIStore } from '../../stores/uiStore'", 'x.ts')).toEqual([
+      'import:../../stores/uiStore',
+    ])
+    expect(storeAccessIn("const m = await import('../store')", 'x.ts')).toEqual(['import:../store'])
+  })
+
+  it('POSITIVE CONTROL: comments and innocent imports are NOT flagged — the scan discriminates', () => {
+    expect(
+      storeAccessIn(
+        "// import { useCanvasStore } from '../store'\n// getState( in prose\nconst x = 1",
+        'x.ts',
+      ),
+    ).toEqual([])
+    expect(
+      storeAccessIn(
+        "import { focusNodeById } from '../utils/focusHelpers'\nfocusNodeById(id)",
+        'x.tsx',
+      ),
+    ).toEqual([])
+  })
+
+  it('no v2 file — the mount host included — imports a store module or calls getState/setState', () => {
+    const offenders: string[] = []
+    for (const file of v2Files) {
+      const found = storeAccessIn(readFileSync(file, 'utf8'), file)
+      if (found.length > 0) offenders.push(`${basename(file)}: ${[...new Set(found)].join(', ')}`)
+    }
+    expect(offenders).toEqual([])
   })
 })
 

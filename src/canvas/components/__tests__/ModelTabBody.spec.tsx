@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { ModelTabBody } from '../ModelTabBody'
 import type { Node, Edge } from '@xyflow/react'
 import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
@@ -160,8 +160,10 @@ describe('Goal headline', () => {
         edges={[]}
       />
     )
-    expect(screen.getByTestId('model-goal-section')).toBeInTheDocument()
-    expect(screen.getByText('Pick the right vendor')).toBeInTheDocument()
+    // Scoped by identity: the v2 outline (mounted 16 Aug 2026) also renders
+    // this label, so an unscoped getByText would match two surfaces.
+    const goalSection = screen.getByTestId('model-goal-section')
+    expect(within(goalSection).getByText('Pick the right vendor')).toBeInTheDocument()
   })
 
   it('hides goal section when no goal node', () => {
@@ -180,21 +182,23 @@ describe('Source mapping — canonical value preserved', () => {
   it('shows friendly display label in read mode for cee_inference', () => {
     const nodes = [makeFactorNode('f1', 'Market size', { source: 'cee_inference' })]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    // Display text shows friendly label
-    expect(screen.getByText('AI estimate')).toBeInTheDocument()
+    // Display text shows friendly label — scoped to the v1 card by identity
+    // (the mounted v2 outline renders its own provenance pill for the row).
+    expect(within(screen.getByTestId('factor-card-f1')).getByText('AI estimate')).toBeInTheDocument()
   })
 
   it('shows friendly display label for brief_extraction', () => {
     const nodes = [makeFactorNode('f1', 'Budget', { source: 'brief_extraction' })]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    expect(screen.getByText('From brief')).toBeInTheDocument()
+    expect(within(screen.getByTestId('factor-card-f1')).getByText('From brief')).toBeInTheDocument()
   })
 
   it('shows "Not set" pill when source is absent', () => {
     const nodes = [makeFactorNode('f1', 'Cost', { source: undefined })]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    // P0.5: showWhenAbsent defaults to true — "Not set" is shown to surface missing sources
-    expect(screen.getByText('Not set')).toBeInTheDocument()
+    // P0.5: showWhenAbsent defaults to true — "Not set" is shown to surface missing sources.
+    // Scoped to the v1 card: the v2 row renders its own "Not set" value text.
+    expect(within(screen.getByTestId('factor-card-f1')).getByText('Not set')).toBeInTheDocument()
   })
 })
 
@@ -530,8 +534,9 @@ describe('DS-1: All pills use outlined style (no filled backgrounds)', () => {
       makeEdge('e1', 'f1', 'f2', { direction: 'positive', weight: 0.5, strengthStd: 0.1 }),
     ]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
-    // Semantic label for weight=0.5 positive = "Moderate positive effect"
-    expect(screen.getByText('Moderate positive effect')).toBeInTheDocument()
+    // Semantic label for weight=0.5 positive = "Moderate positive effect" —
+    // scoped to the v1 edge summary (the v2 relationship row says it too).
+    expect(within(screen.getByTestId('edge-e1-summary')).getByText('Moderate positive effect')).toBeInTheDocument()
   })
 })
 
@@ -586,7 +591,8 @@ describe('PD-1: Currency prefix formatting', () => {
       },
     }
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
-    expect(screen.getByText('£49')).toBeInTheDocument()
+    // Scoped to the v1 card: the v2 row renders the same formatted value.
+    expect(within(screen.getByTestId('factor-card-f1')).getByText('£49')).toBeInTheDocument()
   })
 })
 

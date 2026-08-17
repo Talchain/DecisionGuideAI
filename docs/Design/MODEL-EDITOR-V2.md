@@ -3,6 +3,18 @@
 **Status:** DESIGN, for Paul's veto — **§7 is the removal review; nothing is removed until he rules.**
 **Lane:** PX-D (design-first). **Derived at:** UI `staging` tip `a3c71513`, 15 Aug 2026.
 
+> **⚠ MOUNT-TRAIN AMENDMENT (16 Aug 2026).** The paragraph below was written when nothing was
+> mounted; that half is now history. `ModelTabV2Panel` mounts the outline + detail region on the
+> Model tab (hosted by `ModelTabBody`, additively — **no §7 removal has been executed; the v1
+> sections are untouched and the removal review still awaits Paul's ruling**). Factor-value edits
+> are LIVE through the canonical `factor_value_edit` transaction
+> (`src/canvas/hooks/useModelEditAuthority.ts` — event build → optimistic undo → sanctioned setter
+> → dispatch, the same path as the v1 chips, with inline Confirm/Discard chips per ruling R9).
+> Edits with no canonical carrier (edge strength/likelihood/direction, option interventions, goal
+> target, factor confirmation) remain disabled with honest labels; the repair queues remain
+> unmounted pending their carriers (§9.1 C7/C9/C12/C15). The raw-write guard is widened and the
+> boundary guard now pins the mount path (§9.1's mount obligations, discharged).
+
 **What exists in code, stated precisely so this header cannot drift into a false claim.** Nothing on
 the Model tab changes, and **nothing in this design is mounted**: no route, no tab registration, no
 import from any live surface. What does exist is an **unmounted component set** under

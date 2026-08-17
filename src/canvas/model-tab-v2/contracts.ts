@@ -1,6 +1,14 @@
 /**
  * Model tab v2 — the contracts this surface needs from OTHER lanes.
- * TYPE DECLARATIONS ONLY. No implementations, no runtime values, nothing mounted.
+ * TYPE DECLARATIONS ONLY. No implementations, no runtime values.
+ *
+ * ⚠ MOUNT-TRAIN STATUS (16 Aug 2026): the surface is now mounted, and the
+ * subset of §1 with a live canonical carrier is served by
+ * `src/canvas/hooks/useModelEditAuthority.ts` (factor values; prior range and
+ * edge adjudication remain reachable through their existing sanctioned seams).
+ * The RECEIPT-bearing handle below (`EditProposalHandle`, `applied` only from
+ * a receipt) is still the target API and still unimplemented — the authority
+ * hook documents why it must not be faked from an echo.
  *
  * This file exists so the two owning lanes have a concrete shape to bind to
  * instead of a paragraph in a design document:

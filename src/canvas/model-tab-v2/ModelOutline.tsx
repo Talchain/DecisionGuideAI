@@ -1,7 +1,8 @@
 /**
  * Model tab v2 — THE OUTLINE. Two tiers, seven groups, one scroll (design §4.3).
  *
- * ⚠ UNMOUNTED. See `types.ts`.
+ * MOUNTED since the 16 Aug 2026 mount train, via `ModelTabV2Panel` (hosted by
+ * `ModelTabBody`). The boundary guard pins the mount path.
  *
  * ⚠ THE LOAD-BEARING PROPERTY: THE TIER IS A CONTENT SWITCH, NEVER A LAYOUT
  * SWITCH. Today's `expertMode` drives BOTH the scientific detail AND the
@@ -28,7 +29,13 @@ import { useCallback, useMemo, useState } from 'react'
 import { typography } from '../../styles/typography'
 import { ModelRowView } from './ModelRowView'
 import { GROUP_TITLE } from './rowPresentation'
-import { MODEL_GROUP_IDS, type DetailTier, type ModelGroupId, type ModelRow } from './types'
+import {
+  MODEL_GROUP_IDS,
+  type DetailTier,
+  type EditCommitState,
+  type ModelGroupId,
+  type ModelRow,
+} from './types'
 
 export interface ModelOutlineProps {
   /**
@@ -45,6 +52,24 @@ export interface ModelOutlineProps {
   onFocusOnCanvas?: (id: string) => void
   /** Groups closed at first render. Everything else is open (multi-open always). */
   initiallyClosedGroups?: readonly ModelGroupId[]
+  /**
+   * The host's edit state per row, keyed by row id. Absent entries render idle.
+   * There is deliberately no default map literal here — an absent prop means
+   * "no live editing on this outline", exactly as before the mount.
+   */
+  commitByRowId?: ReadonlyMap<string, EditCommitState>
+  /**
+   * Rows whose edit class has a CANONICAL transaction behind it. When provided,
+   * only these rows get a live editor affordance; everything else renders the
+   * honest disabled control. When absent, presence-of-`onBeginEdit` semantics
+   * are unchanged (back-compatible with render-only callers).
+   */
+  editConnectedIds?: ReadonlySet<string>
+  onBeginEdit?: (id: string) => void
+  onDraftChange?: (id: string, draft: string) => void
+  onProposeEdit?: (id: string) => void
+  onDiscardEdit?: (id: string) => void
+  onConfirmEdit?: (id: string) => void
 }
 
 /**
@@ -89,6 +114,13 @@ export function ModelOutline({
   onSelect,
   onFocusOnCanvas,
   initiallyClosedGroups,
+  commitByRowId,
+  editConnectedIds,
+  onBeginEdit,
+  onDraftChange,
+  onProposeEdit,
+  onDiscardEdit,
+  onConfirmEdit,
 }: ModelOutlineProps) {
   const [closed, setClosed] = useState<ReadonlySet<ModelGroupId>>(
     () => new Set(initiallyClosedGroups ?? []),
@@ -150,8 +182,17 @@ export function ModelOutline({
                     row={row}
                     tier={tier}
                     selected={row.id === selectedId}
+                    commit={commitByRowId?.get(row.id)}
+                    editConnected={
+                      editConnectedIds === undefined ? true : editConnectedIds.has(row.id)
+                    }
                     onSelect={onSelect}
                     onFocusOnCanvas={onFocusOnCanvas}
+                    onBeginEdit={onBeginEdit}
+                    onDraftChange={onDraftChange}
+                    onProposeEdit={onProposeEdit}
+                    onDiscardEdit={onDiscardEdit}
+                    onConfirmEdit={onConfirmEdit}
                   />
                 ))}
               </ul>

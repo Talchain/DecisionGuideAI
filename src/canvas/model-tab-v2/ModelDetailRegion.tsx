@@ -1,7 +1,8 @@
 /**
  * Model tab v2 — THE DETAIL REGION (design §4.4).
  *
- * ⚠ UNMOUNTED. See `types.ts`.
+ * MOUNTED since the 16 Aug 2026 mount train, via `ModelTabV2Panel`. See
+ * `types.ts`.
  *
  * WHAT IT REPLACES. Today reaching an edge's detail costs THREE nested
  * disclosures — the section accordion, then a per-card `cardExpanded` toggled by

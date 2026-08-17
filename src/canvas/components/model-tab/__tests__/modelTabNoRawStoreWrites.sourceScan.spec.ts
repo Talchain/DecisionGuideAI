@@ -22,8 +22,14 @@
  * WHAT IT ASSERTS, precisely
  * --------------------------
  * SCOPE: every non-test `.ts`/`.tsx` file under
- * `src/canvas/components/model-tab/`, **recursively**. That is the complete set
- * of Model-tab section components — enumerated at run time, never quoted here.
+ * `src/canvas/components/model-tab/` AND under `src/canvas/model-tab-v2/`,
+ * **recursively** in both. The second directory was added by the 16 Aug 2026
+ * mount train, discharging the obligation `MODEL-EDITOR-V2.md` §9.1 records:
+ * *"widen this guard in the same PR that mounts anything here"* — a v2 tree
+ * outside the scan was UNGUARDED against raw writes, which is precisely how
+ * the raw-write class was re-opened last time (the inspector was fixed, the
+ * Model tab kept its own hand-rolled writes, and the killed class stayed live
+ * through a different door).
  *
  * The walk was FLAT in the first version of this guard, and the adversarial
  * review proved the hole: a scratch `model-tab/subsections/EvilSection.tsx`
@@ -58,6 +64,8 @@ import { fileURLToPath } from 'node:url'
 import { blankNonCode } from '../../../../../tests/helpers/stripSourceComments'
 
 const MODEL_TAB_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
+/** The mounted Model Editor v2 — in scope since the mount train (§9.1). */
+const MODEL_TAB_V2_DIR = join(MODEL_TAB_DIR, '..', '..', 'model-tab-v2')
 
 /**
  * The store mutators that take a free-form `data` patch. These are the ones that
@@ -91,7 +99,7 @@ function bannedCallsIn(src: string): string[] {
 }
 
 describe('Model-tab sections never write the canvas store directly (2.121 slice 1)', () => {
-  const files = sourceFilesIn(MODEL_TAB_DIR)
+  const files = [...sourceFilesIn(MODEL_TAB_DIR), ...sourceFilesIn(MODEL_TAB_V2_DIR)]
 
   it('the scan covers the whole model-tab directory (scope is derived, not listed)', () => {
     // Not an exact count — that would be a mirror of its own. The assertion is
@@ -103,6 +111,10 @@ describe('Model-tab sections never write the canvas store directly (2.121 slice 
       'GoalSection.tsx',
       'OptionsSection.tsx',
       'RelationshipsSection.tsx',
+      // The mounted v2 surface — its container and its render components are
+      // in scope from the day of the mount, per §9.1's widening obligation.
+      'ModelTabV2Panel.tsx',
+      'ModelRowView.tsx',
     ]) {
       expect(names).toContain(required)
     }

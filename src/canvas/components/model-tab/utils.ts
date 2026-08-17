@@ -27,11 +27,10 @@ export function isCurrencyUnit(unit: string): boolean {
   return CURRENCY_SYMBOLS.has(trimmed) || ISO_CURRENCY_CODES.has(trimmed)
 }
 
-/** Returns true for units that represent abstract/dimensionless scales.
- *  Source of truth: GENERIC_PLACEHOLDER_UNITS in labelUtils.ts. */
-export function isGenericUnit(unit: string): boolean {
-  return GENERIC_PLACEHOLDER_UNITS.has(unit.trim().toLowerCase())
-}
+// `isGenericUnit` was REMOVED by the 16 Aug 2026 mount train (design §7.5):
+// no production importer — `formatValueWithUnit` below consults
+// GENERIC_PLACEHOLDER_UNITS directly. Contrast control at removal time:
+// `formatValueWithUnit` resolves to 18 importing files.
 
 /** Smart number: integers stay integer, decimals use minimal precision (max 2dp, no trailing zeros) */
 export function formatSmartNumber(n: number): string {
@@ -102,15 +101,8 @@ export function mapSourceToDisplay(source: string | undefined): string | null {
   return cls ? KIND_LABELS[cls.kind] : source
 }
 
-/**
- * The raw literal, for a title attribute. Byte-identical to the map it
- * replaced: every entry in the old `SOURCE_TOOLTIPS` was `Source: <literal>`,
- * i.e. exactly what its own fallback produced (2.638 S2).
- */
-export function mapSourceToTooltip(source: string | undefined): string | undefined {
-  if (!source) return undefined
-  return `Source: ${source}`
-}
+// `mapSourceToTooltip` was REMOVED by the 16 Aug 2026 mount train (design
+// §7.5): no importer anywhere in `src/`, its own declaration aside.
 
 // ── Factor verification ─────────────────────────────────────────────────────
 

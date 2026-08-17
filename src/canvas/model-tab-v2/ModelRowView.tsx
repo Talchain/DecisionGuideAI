@@ -1,11 +1,12 @@
 /**
  * Model tab v2 — THE ROW. One anatomy for every element (design §4.2).
  *
- * ⚠ UNMOUNTED. Nothing imports this outside `src/canvas/model-tab-v2/` and its
- * specs; `__tests__/modelTabV2IsUnmounted.sourceScan.spec.ts` proves it.
+ * MOUNTED since the 16 Aug 2026 mount train — `ModelTabV2Panel` hosts this on
+ * the Model tab (via `ModelTabBody`). The boundary guard now pins the mount
+ * path instead of the old unmounted claim.
  *
  * ⚠ THIS COMPONENT NEVER WRITES, AND NEVER DECIDES THAT AN EDIT SUCCEEDED.
- * It renders `commit` — the state the WRITE AUTHORITY reports — and it renders
+ * It renders `commit` — the state the edit host reports — and it renders
  * `row.primaryValue` VERBATIM. It does not re-derive a value, re-format a
  * number, or infer a provenance. The reason is design §2 F6: today an edge
  * strength, an option's intervention value and the goal target are local store
@@ -13,12 +14,17 @@
  * the two are INDISTINGUISHABLE on screen. A row that can only render `applied`
  * from a receipt cannot reproduce that, whatever it is handed.
  *
- * THE DISABLED-AFFORDANCE RULE (the lane boundary, design §8). The write
- * authority is Codex's transactional-edit vertical and it is not frozen yet. So
- * every control here that would CAUSE a transition is rendered DISABLED, with a
- * label saying why, whenever its callback is absent. A disabled affordance with
- * an honest label beats a fake one: a stub that reported success would be the
- * silent-local-write defect re-created inside the component written to kill it.
+ * THE DISABLED-AFFORDANCE RULE (the lane boundary, design §8). An edit control
+ * is live ONLY where the host has a CANONICAL transaction to dispatch on
+ * (`editConnected` + the callbacks). Everywhere else it renders DISABLED, with
+ * a label saying why. A disabled affordance with an honest label beats a fake
+ * one: a stub that reported success would be the silent-local-write defect
+ * re-created inside the component written to kill it.
+ *
+ * THE INLINE-CHIP CONFIRM (ruling R9, 16 Aug 2026). The three-beat renders in
+ * the row itself: an input while `editing`, then Confirm / Discard CHIPS while
+ * `proposed` — never a modal. Until Confirm, the model is unchanged and the
+ * row says so in words.
  */
 
 import { typography } from '../../styles/typography'
@@ -45,10 +51,26 @@ export interface ModelRowViewProps {
   /** Focus this element on the canvas — today's `focusNodeById` behaviour. */
   onFocusOnCanvas?: (id: string) => void
   /**
-   * Begin an edit. ABSENT UNTIL THE WRITE AUTHORITY IS FROZEN, which is why the
-   * editor affordance renders disabled rather than optimistic.
+   * Begin an edit. Presence alone does not enable the editor — see
+   * `editConnected`.
    */
   onBeginEdit?: (id: string) => void
+  /**
+   * Whether THIS row's edit has a canonical transaction behind it. Defaults to
+   * true so presence-of-callback semantics are unchanged for existing callers;
+   * the host passes `false` for rows whose edit class has no wire carrier yet
+   * (edge strength/likelihood/direction, option interventions, goal target),
+   * which keeps their affordances honestly disabled.
+   */
+  editConnected?: boolean
+  /** Live-edit callbacks (the three-beat). Absent ⇒ the static renders below. */
+  onDraftChange?: (id: string, draft: string) => void
+  /** Commit intent: editing → proposed. */
+  onProposeEdit?: (id: string) => void
+  /** Abandon the edit from either the input (Escape) or the proposal chip. */
+  onDiscardEdit?: (id: string) => void
+  /** The inline confirm chip — dispatches the canonical transaction. */
+  onConfirmEdit?: (id: string) => void
 }
 
 /** Why the editor is unavailable. Shown on the disabled control, in words. */
@@ -63,9 +85,14 @@ export function ModelRowView({
   onSelect,
   onFocusOnCanvas,
   onBeginEdit,
+  editConnected = true,
+  onDraftChange,
+  onProposeEdit,
+  onDiscardEdit,
+  onConfirmEdit,
 }: ModelRowViewProps) {
   const phase = commit?.phase ?? 'idle'
-  const editorAvailable = row.editable && typeof onBeginEdit === 'function'
+  const editorAvailable = row.editable && editConnected && typeof onBeginEdit === 'function'
 
   return (
     <li
@@ -105,6 +132,10 @@ export function ModelRowView({
         commit={commit}
         editorAvailable={editorAvailable}
         onBeginEdit={onBeginEdit}
+        onDraftChange={onDraftChange}
+        onProposeEdit={onProposeEdit}
+        onDiscardEdit={onDiscardEdit}
+        onConfirmEdit={onConfirmEdit}
       />
 
       {/*
@@ -174,17 +205,55 @@ function ValueCell({
   commit,
   editorAvailable,
   onBeginEdit,
+  onDraftChange,
+  onProposeEdit,
+  onDiscardEdit,
+  onConfirmEdit,
 }: {
   row: ModelRow
   commit?: EditCommitState
   editorAvailable: boolean
   onBeginEdit?: (id: string) => void
+  onDraftChange?: (id: string, draft: string) => void
+  onProposeEdit?: (id: string) => void
+  onDiscardEdit?: (id: string) => void
+  onConfirmEdit?: (id: string) => void
 }) {
   const testid = `model-row-v2-${row.id}-value`
 
   if (commit && commit.phase !== 'idle') {
     switch (commit.phase) {
       case 'editing':
+        // Live host: a real input. The draft is the HOST's state — this cell
+        // renders it and reports keystrokes; it decides nothing.
+        if (onDraftChange && onProposeEdit && onDiscardEdit) {
+          return (
+            <span data-testid={testid} className={typography.tabular}>
+              <input
+                data-testid={`${testid}-input`}
+                // Focus follows the click that opened this input — it replaces
+                // the value control the user just activated.
+                autoFocus
+                inputMode="decimal"
+                value={commit.draft}
+                aria-label={`New value for ${row.label}`}
+                onClick={e => e.stopPropagation()}
+                onChange={e => onDraftChange(row.id, e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    onProposeEdit(row.id)
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    onDiscardEdit(row.id)
+                  }
+                }}
+                className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+              />
+            </span>
+          )
+        }
         return (
           <span data-testid={testid} className={typography.tabular}>
             {commit.draft}
@@ -199,6 +268,37 @@ function ValueCell({
             <span className={`${typography.caption} text-text-light ml-2`}>
               Nothing has changed yet
             </span>
+            {/*
+              R9 — the inline confirm CHIPS. Rendered only when the host can
+              actually dispatch the canonical transaction; a Confirm that could
+              not would be a fake affordance, which is the one thing this
+              surface must never render.
+            */}
+            {onConfirmEdit && onDiscardEdit && (
+              <span
+                className="ml-2 inline-flex gap-1"
+                onClick={e => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  data-testid={`model-row-v2-${row.id}-confirm`}
+                  aria-label={`Confirm new value for ${row.label}`}
+                  onClick={() => onConfirmEdit(row.id)}
+                  className={`${typography.buttonSmall} text-info border border-info/50 rounded px-2 py-0.5`}
+                >
+                  Confirm
+                </button>
+                <button
+                  type="button"
+                  data-testid={`model-row-v2-${row.id}-discard`}
+                  aria-label={`Discard new value for ${row.label}`}
+                  onClick={() => onDiscardEdit(row.id)}
+                  className={`${typography.buttonSmall} text-text-light border border-panel-border rounded px-2 py-0.5`}
+                >
+                  Discard
+                </button>
+              </span>
+            )}
           </span>
         )
       case 'inflight':

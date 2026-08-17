@@ -11,7 +11,6 @@ import {
   formatValueWithUnit,
   getPrimaryValue,
   isCurrencyUnit,
-  isGenericUnit,
 } from '../utils'
 import { directionFromProducerSignedMean } from '../../../domain/edgeValueProvenance'
 
@@ -143,28 +142,10 @@ describe('isCurrencyUnit', () => {
   })
 })
 
-describe('isGenericUnit', () => {
-  it('recognises generic/dimensionless units', () => {
-    expect(isGenericUnit('scale')).toBe(true)
-    expect(isGenericUnit('index')).toBe(true)
-    expect(isGenericUnit('score')).toBe(true)
-    expect(isGenericUnit('normalised')).toBe(true)
-    expect(isGenericUnit('normalized')).toBe(true)
-    expect(isGenericUnit('norm')).toBe(true)
-  })
-
-  it('is case-insensitive', () => {
-    expect(isGenericUnit('Scale')).toBe(true)
-    expect(isGenericUnit('NORMALISED')).toBe(true)
-  })
-
-  it('rejects specific units', () => {
-    expect(isGenericUnit('months')).toBe(false)
-    expect(isGenericUnit('FTE')).toBe(false)
-    expect(isGenericUnit('%')).toBe(false)
-    expect(isGenericUnit('£')).toBe(false)
-  })
-})
+// `isGenericUnit` removed with its function (16 Aug 2026 mount train, design
+// §7.5 — no production importer). The LIVE generic-unit behaviour is pinned
+// above through `formatValueWithUnit` ('omits generic units …'), which is the
+// path production actually takes.
 
 describe('getPrimaryValue', () => {
   it('returns formatted raw_value with unit when both present', () => {
