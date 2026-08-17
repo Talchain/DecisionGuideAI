@@ -12,6 +12,7 @@ coverage/
 .playwright-cli/
 .playwright-mcp/
 playwright-report/
+playwright-report-visual/
 test-results/
 
 # Cache
