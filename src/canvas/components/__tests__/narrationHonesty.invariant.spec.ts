@@ -59,6 +59,8 @@ import {
   UNSETTLED_DRAFT_NOTICE,
   STOPPED_DRAFT_NOTICE,
   DRAFT_FAILED_MODEL_KEPT_NOTICE,
+  DRAFT_RECOVERED_STREAM_LOSS_NOTICE,
+  DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE,
   EARLY_STOP_NOT_SAVED_NOTICE,
   EARLY_STOP_ALREADY_SAVED_NOTICE,
   EARLY_STOP_UNCONFIRMED_NOTICE,
@@ -294,6 +296,12 @@ const FRAME_LICENSED_STRINGS: ReadonlyArray<readonly [string, string]> = [
   ['UNSETTLED_DRAFT_NOTICE', UNSETTLED_DRAFT_NOTICE],
   ['STOPPED_DRAFT_NOTICE', STOPPED_DRAFT_NOTICE],
   ['DRAFT_FAILED_MODEL_KEPT_NOTICE', DRAFT_FAILED_MODEL_KEPT_NOTICE],
+  // The two recovery notices (ROADMAP 2.1257). Licensed by MORE than a held
+  // frame — a server response whose graph the merge has applied — but held to
+  // the same bar: they may say the saved model is on the canvas, they may not
+  // judge it, call it finished, or forecast anything.
+  ['DRAFT_RECOVERED_STREAM_LOSS_NOTICE', DRAFT_RECOVERED_STREAM_LOSS_NOTICE],
+  ['DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE', DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE],
   // The three explicit-Stop notices (Codex P0 stop-fence). They are shown when
   // drafting has ENDED rather than while it runs, but they are held to the same
   // bar: the frame licence lets them say the canvas is or is not changed, never
@@ -395,6 +403,8 @@ describe('every notice this module exports is governed (trap 12, round 2)', () =
     // And the manifest is named, so a reviewer sees what was actually covered.
     expect(exportedNotices.sort()).toEqual([
       'DRAFT_FAILED_MODEL_KEPT_NOTICE',
+      'DRAFT_RECOVERED_STREAM_LOSS_NOTICE',
+      'DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE',
       'EARLY_STOP_ALREADY_SAVED_NOTICE',
       'EARLY_STOP_NOT_SAVED_NOTICE',
       'EARLY_STOP_UNCONFIRMED_NOTICE',

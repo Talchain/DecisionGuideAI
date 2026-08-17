@@ -116,10 +116,13 @@ import {
   UNSETTLED_DRAFT_NOTICE,
   STOPPED_DRAFT_NOTICE,
   DRAFT_FAILED_MODEL_KEPT_NOTICE,
+  DRAFT_RECOVERED_STREAM_LOSS_NOTICE,
+  DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE,
   EARLY_STOP_NOT_SAVED_NOTICE,
   EARLY_STOP_ALREADY_SAVED_NOTICE,
   EARLY_STOP_UNCONFIRMED_NOTICE,
 } from '../components/DraftLoadingAnimation'
+import { recoverDraftFromServer } from '../hydrate/draftRecovery'
 import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { getSessionIdentity } from '../../lib/supabase'
@@ -784,9 +787,16 @@ async function runStreamedDraftTurn(args: {
   // 96.981 s; terminal COMPLETE 504 UPSTREAM_TIMEOUT 125.202 s; the next turn
   // reloaded the committed graph — olumi-poc-independent-review-2026-08-09.md).
   // The commit runs server-side around the GRAPH_READY emission and survives
-  // late failures in the common case (CEE 2.709 first-write exemption), and
-  // this client cannot poll server state (no status route; guest RLS). So the
-  // reconciliation is the terminal payload's own commit marker:
+  // late failures in the common case (CEE 2.709 first-write exemption).
+  // ⚠ CORRECTED (ROADMAP 2.1257): this comment used to claim "this client
+  // cannot poll server state (no status route; guest RLS)" — FALSE. The
+  // scenario-graph read exists and is guest-reachable: `fetchScenarioGraph`
+  // (adapters/cee/scenarioGraph.ts) POSTs `/bff/cee/scenarios/{id}/graph` →
+  // CEE `POST /assist/v1/scenarios/:scenario_id/graph`, and the unsettled
+  // path now USES it (`recoverDraftFromServer`, at the notice site). What
+  // remains unpollable is per-TURN commit/delivery status — so the
+  // SYNCHRONOUS reconciliation here still keys on the one thing this
+  // response carries, the terminal payload's own commit marker:
   //   · proof the commit failed (`draft_graph_commit_failed` — the server said
   //     "Nothing was written") → remove the preview; removal states the truth.
   //   · anything else → KEEP the graph. The `previewOwnsCanvas &&
@@ -5296,28 +5306,66 @@ export function useConversation(): UseConversationReturn {
           // duration forecast, no verdict — held to the same bar as the wait
           // narration and pinned by `narrationHonesty.invariant.spec.ts`.
           if (streamedUnsettledCause != null && mode === 'user' && !hidden) {
-            addMessage({
-              id: crypto.randomUUID(),
-              role: 'assistant',
-              synthetic: true,
-              // Cause-keyed copy (the three-strings-not-one rule): a kept
-              // model behind a terminal error is a different fact from a
-              // connection that dropped the values, and each notice states
-              // only its own cause. Both live in DraftLoadingAnimation and are
-              // governed by narrationHonesty.invariant.spec.ts.
-              content:
-                streamedUnsettledCause === 'terminal_error_model_kept'
-                  ? DRAFT_FAILED_MODEL_KEPT_NOTICE
-                  : UNSETTLED_DRAFT_NOTICE,
-              // F3: NOT `retry`. `retryLast` re-sends onto the SAME scenario,
-              // whose canvas is now non-empty, so it is a buffered turn CEE's
-              // continuation guard DECLINES — the old chip could not deliver the
-              // numbers its own copy promised, on any auth tier.
-              actionChips: [
-                { id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' },
-              ],
-              timestamp: new Date(),
+            // ═══ ROADMAP 2.1257 — in-session draft recovery, BEFORE the chip ═══
+            //
+            // The server has usually ALREADY persisted the drafted graph when a
+            // stream dies (CEE finishes the turn after the client hangs up;
+            // 2.709 makes the commit the common case), and the scenario-graph
+            // read leg is alive end to end. Until this branch its only caller
+            // was boot hydration — so the user paid a reload for a graph one
+            // request away. Attempt that read HERE, and only then choose copy.
+            //
+            // Honesty ordering is load-bearing: the fetch is AWAITED and the
+            // notice chosen from its RESULT. No sentence below can claim a
+            // recovery before the read has returned (`recoverDraftFromServer`
+            // never throws — hydrateCanvasFromServer's own contract). On
+            // 404/failure the standing unsettled behaviour is untouched:
+            // CEE's 404 means "no readable graph", deliberately.
+            const recovery = await recoverDraftFromServer({
+              scenarioId: scenarioIdAtDispatch,
+              userId: v5UserId,
+              turnClientId,
             })
+            if (recovery === 'recovered') {
+              // The merge applied the server's committed values and released
+              // the unsettled phase (ownership-guarded, in the module). The
+              // reply is still lost — say exactly that, cause-keyed (the
+              // three-strings-not-one rule), with no chip: there is nothing
+              // left for the user to restart.
+              addMessage({
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                synthetic: true,
+                content:
+                  streamedUnsettledCause === 'terminal_error_model_kept'
+                    ? DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE
+                    : DRAFT_RECOVERED_STREAM_LOSS_NOTICE,
+                timestamp: new Date(),
+              })
+            } else {
+              addMessage({
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                synthetic: true,
+                // Cause-keyed copy (the three-strings-not-one rule): a kept
+                // model behind a terminal error is a different fact from a
+                // connection that dropped the values, and each notice states
+                // only its own cause. Both live in DraftLoadingAnimation and are
+                // governed by narrationHonesty.invariant.spec.ts.
+                content:
+                  streamedUnsettledCause === 'terminal_error_model_kept'
+                    ? DRAFT_FAILED_MODEL_KEPT_NOTICE
+                    : UNSETTLED_DRAFT_NOTICE,
+                // F3: NOT `retry`. `retryLast` re-sends onto the SAME scenario,
+                // whose canvas is now non-empty, so it is a buffered turn CEE's
+                // continuation guard DECLINES — the old chip could not deliver the
+                // numbers its own copy promised, on any auth tier.
+                actionChips: [
+                  { id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' },
+                ],
+                timestamp: new Date(),
+              })
+            }
           }
         } catch (err) {
           clearLifecycleTimers()

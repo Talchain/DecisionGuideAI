@@ -272,6 +272,43 @@ export const EARLY_STOP_UNCONFIRMED_NOTICE =
   'You stopped this draft. We could not reach the server to cancel it, so it may still be saved \u2014 reload to see what your canvas holds.'
 
 /**
+ * \u2500\u2500 THE TWO RECOVERY NOTICES (ROADMAP 2.1257) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+ *
+ * Emitted ONLY after the in-session recovery read has RETURNED a graph and the
+ * merge has APPLIED it (`recoverDraftFromServer` \u2192 `hydrateCanvasFromServer`
+ * \u2192 `'merged'`). Never before the fetch resolves \u2014 a past-tense sentence about
+ * an unmeasured state is a fabrication even when it later proves true, and the
+ * call site is structured so these strings cannot render on any other outcome
+ * (a 404/failure falls through to the standing unsettled notices above).
+ *
+ * TWO strings, not one, per the three-strings-not-one rule the notices above
+ * established: a connection that dropped and a turn that ended in a
+ * server-reported error are different facts, and "the connection dropped"
+ * would be false for the second.
+ *
+ * What each sentence claims, and why the claim is licensed:
+ *   - "this draft had already been saved" \u2014 the scenario-graph read returned a
+ *     graph for THIS scenario whose node identities overlap the GRAPH_READY
+ *     preview (the merge's own acceptance guard), i.e. the server holds this
+ *     draft's committed row. Read back, not inferred.
+ *   - "the saved model is now on your canvas" \u2014 `mergeServerGraphOnHydrate`
+ *     applied the server's values before this string was chosen.
+ *   - No claim the model is finished, fresh, or worth acting on; no verdict,
+ *     no forecast \u2014 the same frame-licence bar as every notice above
+ *     (`narrationHonesty.invariant.spec.ts` governs these the moment they
+ *     exist, via the `*_NOTICE` completeness check).
+ *
+ * Deliberately free of em dashes and bullet glyphs so `safeRichText`'s
+ * house-style substitutions leave them byte-stable in the DOM (same rule as
+ * DRAFT_FAILED_MODEL_KEPT_NOTICE).
+ */
+export const DRAFT_RECOVERED_STREAM_LOSS_NOTICE =
+  'The connection dropped before the reply arrived, but this draft had already been saved. The saved model is now on your canvas, and you can keep working from it.'
+
+export const DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE =
+  'Drafting failed after your model reached the canvas, but the draft itself had already been saved. The saved model is now on your canvas, and you can keep working from it.'
+
+/**
  * Every narration table this module owns, keyed by name.
  *
  * DERIVED, so the cross-surface honesty suite cannot miss one. The suite used
