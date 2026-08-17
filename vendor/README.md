@@ -7,7 +7,78 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.46.0.tgz` ← **THE CURRENT PIN**
+### `talchain-schemas-0.47.0.tgz` ← **THE CURRENT PIN**
+
+**Provenance: PACKED FROM THE MERGED, TAGGED RELEASE.** Packed from
+`olumi-schemas` **`main` @ `1ab64dff1c49c9c2db07b87d7a4bb4e0215dddcb`**, tag
+**`v0.47.0`** (tree `74d4cff3af49aec2055dfe86ee13c66b7aba3a4b`) by `git archive`
+of that exact commit into a clean temporary directory, then `npm ci`,
+`npm run build`, `npm pack`. 446,155 bytes. sha256:
+
+```
+81313452e788284cf7a8ced04114536e56a35b0af6be321cb66bc5977d17055c
+```
+
+| Claim | Status |
+|---|---|
+| source identity | ✅ tag `v0.47.0` resolved through the GitHub API to `1ab64dff…`; `git archive` of that commit, so the archive carried no local worktree state |
+| the sidecar matches these bytes | ✅ `pnpm run check:vendor` re-hashes the tarball and compares the exact sidecar |
+| `check:vendor` agrees and rejects orphans | ✅ 0.46.0's tarball + sidecar were deleted in this same commit |
+| **the packed archive matches the built source tree** | ✅ **verified by CONTENT, not by hash** — all **226 packed files** diffed against the built tree, **zero mismatches**, and the comparator carried a POSITIVE CONTROL (a 1-byte append was detected). A compressed-artefact sha proves only that the bytes did not move after packing; it says nothing about what was packed. |
+| the cross-checks are live in the INSTALLED package | ✅ exercised through `node_modules` after `pnpm install`, not read from the source tree — see the quarantine cases in `responseParser.analysisStateTolerance.spec.ts` |
+
+**What the UI adopts here — SIX CROSS-CHECKS, AND A TYPE CHANGE THAT MATTERS
+MORE THAN THEY DO.** 0.47.0 leaves the strict body of `AnalysisStateV1`
+unchanged from 0.46.0 and adds `CC-A`…`CC-F`: refinements that refuse exactly the
+`boolean × run_state` combinations CEE provably cannot emit (e.g. CC-B — a
+`complete_current` verdict cannot also assert `blocked_unusable`).
+
+⚠ **THE LOAD-BEARING CONSEQUENCE IS STRUCTURAL, NOT SEMANTIC.** The rules are
+attached with `superRefine`, so `AnalysisStateV1Schema` changes from a
+**`z.ZodObject`** at 0.46.0 to a **`z.ZodEffects`** at 0.47.0. `.safeParse` and
+`z.infer` are unaffected; the **ZodObject-only** methods (`.shape`, `.extend`,
+`.pick`, `.omit`, `.partial`) would break. That is why the adoption check for
+this bump is a sweep for those methods, and it was run with contrast controls:
+**zero** call sites on `AnalysisStateV1Schema`, against **20** hits for the same
+methods on other schemas in the same sweep and **12** references to
+`AnalysisStateV1Schema` itself — so the zero is a real absence, not a blind
+probe. Every consumer reaches it via `.safeParse` or the quarantine registry,
+which types its entries as `z.ZodTypeAny`.
+
+**Why no consumer code was needed for the rules to take effect.**
+`src/v5/responseParser.ts`'s `QUARANTINABLE_ADDITIVE_KEYS` names the **schema
+object itself** (`['analysis_state', AnalysisStateV1Schema]`), so the refinement
+participates in the quarantine automatically: a CC-violating verdict is lifted
+out **before** the strict envelope parse, the turn still applies, and the
+selector feature-detects an absent verdict and falls back to the legacy
+derivations. Pinned in `responseParser.analysisStateTolerance.spec.ts`.
+
+⚠ **THE BUMP WAS NOT INERT FOR THE SUITE, AND THAT IS THE POINT.** Four fixtures
+in `analysisStateSelector.spec.ts` were RED at this pin — three CC-F, one CC-A —
+because they overrode `run_state.kind` while inheriting base usability booleans
+the cross-checks now forbid. They were **describing payloads no producer can
+send**. Only the fixtures moved; every assertion survived unchanged. The suite's
+`wireVerdict()` helper throws on a non-conforming fixture, which is the only
+reason this surfaced loudly instead of silently — and it deliberately does NOT
+auto-repair the booleans from the kind, because that would mirror the rules
+(trap 12) and silently absorb the next one.
+
+**Absorption cost 0.46.0 → 0.47.0, measured on this branch:** `pnpm typecheck`
+PASSED at **3442/3482** files loaded, **563 file(s) / 2307 error(s) against a
+baseline of 2325 — zero added diagnostics** (18 fixed). The baseline was
+deliberately **not** banked: the gate passes without it, and
+`scripts/ci/typecheck-baseline*.txt` are touched by open PRs #727 and #682.
+
+**Rollback path:** revert this PR and `pnpm install`. It cannot be reverted
+independently of the analysis-state consumers, which import `AnalysisStateV1`
+from this pin.
+
+### `talchain-schemas-0.46.0.tgz` (superseded — REMOVED, section retained for history)
+
+> ⚠ **The tarball and its sidecar were DELETED in the 0.47.0 bump**, in the same
+> commit that added 0.47.0's — `check-vendor-sha.mjs` fails the build on the
+> orphan, and two coexisting "current pin" tarballs read as ambiguous
+> provenance.
 
 **Provenance: PACKED FROM THE MERGED, TAGGED RELEASE.** Packed from
 `olumi-schemas` **`main` @ `637ae4f8e3e33136c728a3aa3d1363e6019bf40b`**, tag

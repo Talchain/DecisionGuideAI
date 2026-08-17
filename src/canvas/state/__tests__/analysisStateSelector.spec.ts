@@ -77,6 +77,23 @@ function wireVerdict(over: Partial<AnalysisStateV1> = {}): AnalysisStateV1 {
   // Built through the REAL schema parser, never hand-cast. A fixture that never
   // meets the contract cannot certify a consumer of the contract, and a `as`
   // cast would let this suite drift from the wire silently.
+  //
+  // ⚠ 0.47.0 (CC-A…CC-F): OVERRIDING `run_state.kind` MAY REQUIRE OVERRIDING THE
+  // USABILITY BOOLEANS TOO. The base below is coherent for `complete_current`;
+  // the cross-checks refuse boolean × kind pairs the producer cannot emit, so
+  // e.g. a `complete_stale` override must also set `usable_for_chips: false`
+  // (CC-F) and a `blocked` override must set `blocked_unusable: true` with the
+  // three `usable_for_*` false (CC-A + CC-D). Four fixtures in this file were
+  // exactly that incoherent at the 0.46.0 pin and the bump REDded them.
+  //
+  // THIS HELPER DELIBERATELY DOES NOT AUTO-REPAIR THE BOOLEANS FROM THE KIND.
+  // Deriving them here would be a hand-maintained mirror of the cross-checks
+  // (trap 12) and — worse — it would SILENTLY ABSORB a future CC rule instead of
+  // REDding on it, which is the whole value this throw provides.
+  //
+  // Note what the CC failures mean: they are not schema breakage, they are the
+  // suite discovering it had been asserting behaviour over payloads no producer
+  // could ever send. The assertions all survived; only the fixtures moved.
   const parsed = AnalysisStateV1Schema.safeParse({
     run_state: { kind: 'complete_current', computed_at: '2026-08-16T10:00:00.000Z' },
     readiness: { status: 'ready', blockers: [] },
@@ -113,6 +130,8 @@ describe('PRECEDENCE — a wire verdict outranks the local derivation', () => {
           computed_at: '2026-08-16T10:00:00.000Z',
           cause: 'graph_changed',
         },
+        // CC-F (0.47.0): a stale kind forbids usable_for_chips.
+        usable_for_chips: false,
       }),
     })
 
@@ -231,17 +250,28 @@ describe('HERO COPY — a refusal must never render as green "Analysis complete"
   // declined to vouch for the result — the exact contradiction class this whole
   // migration exists to close. Each case asserts the STATE by identity, not the
   // copy string, so a copy change cannot silently satisfy it.
+  // Each row carries the FULL override, not just `run_state`, because the
+  // 0.47.0 cross-checks tie the usability booleans to the kind — see
+  // `wireVerdict`'s note.
   it.each([
-    ['refused', { kind: 'refused', reason_code: 'analysis_declined_this_turn' }],
-    ['unknown_degraded', { kind: 'unknown_degraded', cause: 'store_unreadable' }],
+    ['refused', { run_state: { kind: 'refused', reason_code: 'analysis_declined_this_turn' } }],
+    ['unknown_degraded', { run_state: { kind: 'unknown_degraded', cause: 'store_unreadable' } }],
     [
       'complete_stale',
-      { kind: 'complete_stale', computed_at: '2026-08-16T10:00:00.000Z', cause: 'graph_changed' },
+      {
+        run_state: {
+          kind: 'complete_stale',
+          computed_at: '2026-08-16T10:00:00.000Z',
+          cause: 'graph_changed',
+        },
+        // CC-F (0.47.0): a stale kind forbids usable_for_chips.
+        usable_for_chips: false,
+      },
     ],
-  ] as const)('%s over a visible result → results_stale with a rerun CTA', (_label, run_state) => {
+  ] as const)('%s over a visible result → results_stale with a rerun CTA', (_label, over) => {
     const composed = composeAnalysisState({
       ...LEGACY_SAYS_CURRENT,
-      analysisState: wireVerdict({ run_state }),
+      analysisState: wireVerdict(over),
     })
     expect(composed.displayState.state).toBe('results_stale')
     expect(composed.displayState.cta).toStrictEqual({ kind: 'secondary', label: 'Rerun analysis' })
@@ -260,6 +290,12 @@ describe('HERO COPY — a refusal must never render as green "Analysis complete"
       ...LEGACY_SAYS_CURRENT,
       analysisState: wireVerdict({
         run_state: { kind: 'blocked', reason_code: 'no_goal_node', blockers: [] },
+        // CC-A (0.47.0): `blocked` is produced by the same status that forces
+        // blocked_unusable. CC-D then forbids the three usable_for_* beside it.
+        blocked_unusable: true,
+        usable_for_prose: false,
+        usable_for_chips: false,
+        usable_for_followup: false,
       }),
     })
     expect(composed.displayState.state).toBe('not_ready')
@@ -297,6 +333,8 @@ describe('LEADER CLAIM — the contract conjunction is applied once, here', () =
           cause: 'options_changed',
         },
         leader_claim: { permitted: true },
+        // CC-F (0.47.0): a stale kind forbids usable_for_chips.
+        usable_for_chips: false,
       }),
     })
     expect(composed.wire?.leader_claim.permitted).toBe(true)

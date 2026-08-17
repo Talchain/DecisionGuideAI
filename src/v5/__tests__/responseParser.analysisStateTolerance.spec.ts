@@ -30,6 +30,7 @@
  * the scoping is asserted below rather than left implicit.
  */
 import { describe, it, expect } from 'vitest'
+import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 
 import {
   parseV5Response,
@@ -166,6 +167,148 @@ describe('analysis_state tolerance — a bad verdict costs the verdict, never th
       makeResponse({ ...BASE_PAYLOAD, analysis_ready: { status: 42 } }),
     )
     expect(result.kind).toBe('parse_error')
+  })
+})
+
+/**
+ * 0.47.0's CROSS-CHECKS ARE A NEW FAILURE CLASS ON THIS SEAM, AND THE TOLERANCE
+ * MUST COVER THEM.
+ *
+ * Every case in the describe above fails STRUCTURALLY — an unknown kind, a wrong
+ * primitive, a missing member, a non-object. The 0.47.0 pin adds a second, quite
+ * different way for a verdict to be rejected: CC-A…CC-F refuse boolean × kind
+ * COMBINATIONS in a payload whose every field is individually well-typed and
+ * present. Structurally perfect, semantically producer-unemittable.
+ *
+ * That distinction matters here because the two classes reach the quarantine by
+ * different code. A structural failure is caught by the object schema; a
+ * cross-check failure is caught by the `superRefine` WRAPPED AROUND it — and the
+ * wrapping is what changed `AnalysisStateV1Schema` from a `ZodObject` at 0.46.0
+ * into a `ZodEffects` at 0.47.0. The quarantine registry types its entries as
+ * `z.ZodTypeAny` and calls `.safeParse`, so it carries the refinement for free;
+ * these cases are what PROVE that rather than assuming it.
+ *
+ * ⚠ WHY EACH CASE PINS ITS OWN PRECONDITION. A CC payload is one keystroke away
+ * from being merely malformed, and a malformed payload quarantines too — so a
+ * case that only asserted "the turn survived" would pass for entirely the wrong
+ * reason and certify nothing about the cross-checks. (Exactly this happened while
+ * writing these: a probe payload spelled `completed_at` for `computed_at` and the
+ * "CC rejection" it reported was a missing required field.) Each case therefore
+ * asserts THREE things: the payload is rejected, the rejection names the CC rule,
+ * and the CC-REPAIRED TWIN PARSES — which is what makes the cross-check, and not
+ * a typo, the demonstrated cause.
+ */
+describe('analysis_state cross-checks (0.47.0) — a producer-unemittable verdict quarantines to legacy', () => {
+  /** CC-B: a complete verdict cannot also assert blocked_unusable. */
+  const CC_B_VIOLATION = {
+    ...VALID_ANALYSIS_STATE,
+    // Structurally flawless; the PAIR is what the producer cannot emit.
+    blocked_unusable: true,
+    // Held false so CC-D (blocked_unusable ⇒ usable_for_* false) does NOT also
+    // fire — this case isolates ONE rule, so the message assertion below is
+    // about the rule it names.
+    usable_for_prose: false,
+    usable_for_chips: false,
+    usable_for_followup: false,
+  }
+
+  /** CC-A: `blocked` is produced by the same status that forces blocked_unusable. */
+  const CC_A_VIOLATION = {
+    ...VALID_ANALYSIS_STATE,
+    run_state: { kind: 'blocked', reason_code: 'no_goal_node', blockers: [] },
+    blocked_unusable: false,
+  }
+
+  it.each([
+    [
+      'CC-B (complete_current + blocked_unusable)',
+      CC_B_VIOLATION,
+      'analysis_state_complete_forbids_blocked_unusable',
+      // The CC-repaired twin: drop the contradictory assertion, keep everything
+      // else byte-identical.
+      { ...CC_B_VIOLATION, blocked_unusable: false },
+    ],
+    [
+      'CC-A (blocked without blocked_unusable)',
+      CC_A_VIOLATION,
+      'analysis_state_blocked_requires_blocked_unusable',
+      // Repairing CC-A forces CC-D's three flags too, which is the contract
+      // being coherent rather than an extra concession.
+      {
+        ...CC_A_VIOLATION,
+        blocked_unusable: true,
+        usable_for_prose: false,
+        usable_for_chips: false,
+        usable_for_followup: false,
+      },
+    ],
+  ])(
+    '%s → quarantined to legacy, never fatal',
+    async (_label, analysis_state, expectedRuleCode, repairedTwin) => {
+      // ── PRECONDITION 1: the payload really is refused at THIS pin. ──────────
+      const rejected = AnalysisStateV1Schema.safeParse(analysis_state)
+      expect(rejected.success).toBe(false)
+
+      // ── PRECONDITION 2: refused BY THE NAMED CROSS-CHECK, not by a typo. ────
+      // Binds by the rule's own message code (identity), never by "it failed".
+      if (!rejected.success) {
+        expect(rejected.error.issues.map((i) => i.message).join(' | ')).toContain(
+          expectedRuleCode,
+        )
+        // And ONLY that rule fired, so this case cannot silently become a test
+        // of some other cross-check after an edit.
+        expect(rejected.error.issues).toHaveLength(1)
+      }
+
+      // ── PRECONDITION 3: THE DISCRIMINATOR. The repaired twin PARSES, so the
+      // rejection above is attributable to the cross-checked COMBINATION and to
+      // nothing else in the payload.
+      const repaired = AnalysisStateV1Schema.safeParse(repairedTwin)
+      expect(
+        repaired.success,
+        repaired.success ? '' : JSON.stringify(repaired.error.issues),
+      ).toBe(true)
+
+      // ── THE LOAD-BEARING ASSERTIONS. ───────────────────────────────────────
+      const result = await parseV5Response(
+        makeResponse({ ...BASE_PAYLOAD, analysis_state }),
+      )
+
+      // The turn survives. A producer emitting an incoherent verdict must cost
+      // the verdict and nothing else.
+      expect(result.kind).toBe('response')
+      if (result.kind !== 'response') return
+      expect(result.response.assistant_text).toBe('here is the analysis')
+
+      // The verdict is absent from the validated surface, so
+      // `analysisStateSelector` feature-detects `null` and routes to the legacy
+      // derivations. A half-read verdict presented as authority is worse than
+      // none — that is the whole reason this key is quarantinable.
+      expect(
+        (result.response as Record<string, unknown>).analysis_state,
+      ).toBeUndefined()
+
+      // Recorded, not silently dropped.
+      const sidecar = (result.response as Record<string, unknown>)[
+        ADDITIVE_EXTENSIONS_KEY
+      ] as Record<string, unknown> | undefined
+      const quarantined = sidecar?.[QUARANTINED_KEYS_KEY] as
+        | Record<string, unknown>
+        | undefined
+      expect(Object.keys(quarantined ?? {})).toContain('analysis_state')
+    },
+  )
+
+  it('POSITIVE CONTROL: a CC-COHERENT verdict is untouched by the cross-checks', async () => {
+    // Without this the cases above would also pass if 0.47.0 had accidentally
+    // made EVERY analysis_state unparseable — the field would be permanently
+    // dark, the turn would still survive, and every assertion above would agree.
+    const result = await parseV5Response(
+      makeResponse({ ...BASE_PAYLOAD, analysis_state: VALID_ANALYSIS_STATE }),
+    )
+    expect(result.kind).toBe('response')
+    if (result.kind !== 'response') return
+    expect(result.response.analysis_state).toStrictEqual(VALID_ANALYSIS_STATE)
   })
 })
 
