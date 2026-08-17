@@ -440,8 +440,16 @@ export const ResultsBody = memo(function ResultsBody({
               store's scenarioId matches the live decision (the identity gate
               that fixed it showing a PREVIOUS decision's brief verbatim), so
               mounting it unconditionally here is safe. */}
+          {/* ⭐ L-10 FIX: `onSendMessage` was never passed, and the component
+              renders its "Where does this fit?" action ONLY when it is
+              (`WhatIWasGivenSection.tsx:515` → `onAdd={onSendMessage ? … :
+              undefined}`). So this was not a dead BUTTON — the whole
+              "not modelled yet" action column never rendered at all, which is
+              why no click ever failed and nothing ever looked broken. The
+              handler is the same `onSendMessage` every other section on this
+              body already receives; there is no new write path. */}
           <SectionErrorBoundary section="What I was given">
-            <WhatIWasGivenSection />
+            <WhatIWasGivenSection onSendMessage={onSendMessage} />
           </SectionErrorBoundary>
         </>
 
@@ -625,13 +633,28 @@ export const ResultsBody = memo(function ResultsBody({
       )}
 
       {/* ── SECTION 3: DRIVERS ──────────────────────────────────── */}
+      {/* ⚠⚠ THE COUNT ON THIS ACCORDION HAS NEVER RENDERED, and finding out
+          why is the L-57 "honest counts" item in miniature. The call site read
+          `count={…}`; `Accordion` has no such prop — the badge is
+          `badgeCount`. React drops an unknown prop on a function component
+          without a word, so `badgeCount` stayed `undefined`, the
+          `badgeCount !== undefined && badgeCount > 0` gate never opened, and
+          the accompanying `badgeState` styled a badge that was not there. The
+          drivers section has been collapsed with no indication of how much is
+          inside it for as long as that line existed.
+          It did not fail loudly because TypeScript's excess-property
+          diagnostic for it is one of the three sitting in this file's
+          typecheck BASELINE — a ratcheted error that was hiding a live display
+          defect, not merely noise. Pinned by
+          `Accordion.badgeCountProp.spec.tsx`, whose second case renders the
+          WRONG prop name and asserts nothing appears. */}
       <Accordion
         title="What's driving this"
         subtitle="Factors with the strongest current influence on the result"
         defaultExpanded={false}
         isExpanded={driversExpanded}
         onExpandChange={onDriversExpandChange}
-        count={resultsSectionData.drivers.totalCount}
+        badgeCount={resultsSectionData.drivers.totalCount}
         badgeState={resultsSectionData.drivers.totalCount > 0 ? 'unresolved' : undefined}
         testId="accordion-drivers"
       >
@@ -653,10 +676,17 @@ export const ResultsBody = memo(function ResultsBody({
       </Accordion>
 
       {/* ── SECTION 3b: WHAT COULD CHANGE THE RESULT ──────────── */}
+      {/* ⭐ L-57: this was the ONE collapsed section on the tab with no count
+          on its header, so a reader scanning the collapsed sections could see
+          how many drivers there were but had no idea whether opening this one
+          revealed two factors or twenty. The count is the rendered row count —
+          the same array `TornadoChart` iterates, not a second derivation that
+          could disagree with what opening it reveals. */}
       {tornadoData.rows.length > 0 && tornadoData.expectedOutcome != null && (
         <Accordion
           title="What could change the result"
           defaultExpanded={false}
+          badgeCount={tornadoData.rows.length}
           testId="accordion-tornado"
         >
           <SectionErrorBoundary section="Tornado">

@@ -49,11 +49,21 @@ describe('AnalysisHero — accessibility', () => {
     renderPanel(chartModel())
     const tablist = screen.getByRole('tablist')
     expect(tablist).toHaveAccessibleName('Results lens')
-    // Full prototype strip: four tabs; unavailable lenses stay focusable
-    // and selectable (their panel explains itself), never aria-disabled
-    // dead ends.
+    // ⚠ The count changed, the PATTERN did not (cockpit simplification,
+    // L-57/L-38). This asserted four tabs — the full prototype strip, with two
+    // permanently unavailable. Those two (`stability`, `whatChanged`) are never
+    // pushed into the available set by the live adapter, so on every real run
+    // they advertised capabilities the producers cannot supply; the strip is
+    // now derived from what is reachable or user-actionable.
+    //
+    // What this test is FOR is unchanged and still asserted in full: a real
+    // tablist, exactly one selected tab, and a tabpanel labelled by it.
+    // Asserting a fixed length here would pin the defect, not the pattern —
+    // and the strip is still asserted non-empty, so a mutation that rendered
+    // NO tabs (which would also "pass" a length-free version of this test)
+    // fails on the `tabs[0]` reads below.
     const tabs = screen.getAllByRole('tab')
-    expect(tabs).toHaveLength(4)
+    expect(tabs.length).toBeGreaterThan(1)
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
     for (const tab of tabs.slice(1)) {
       expect(tab).toHaveAttribute('aria-selected', 'false')

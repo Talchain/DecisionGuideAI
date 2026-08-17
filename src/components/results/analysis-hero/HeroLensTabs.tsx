@@ -17,6 +17,41 @@ import { HERO_COPY } from './heroCopy'
 import { ALL_HERO_LENSES } from './heroTypes'
 import type { HeroLens } from './heroTypes'
 
+/**
+ * Lenses whose unavailability the USER CAN ACT ON. `goal` is the only one:
+ * when it is unavailable because no success target is set, the panel body
+ * offers "Set a success target to unlock Goal fit." with a live define-success
+ * route — so the muted tab is a real affordance.
+ *
+ * ⭐ L-57/L-38, AND THE RULE BEHIND IT. Every other unavailable lens is a
+ * PRODUCER GAP the user can do nothing whatever about: `stability` needs
+ * per-option stability data ISL does not emit (issue 211) and `whatChanged`
+ * needs versioned run comparisons PLoT does not emit (issue 212). Neither is
+ * ever pushed into the available set by the live adapter (`buildHeroModel.ts`
+ * pushes exactly `goal` and `outcome`), so on live data those two tabs were
+ * PERMANENTLY muted — a strip in which half the tabs advertise capabilities
+ * the product does not have, one of them explaining itself in producer-issue
+ * vocabulary ("This unlocks with versioned run comparisons. Olumi will not
+ * approximate it locally.").
+ *
+ * A tab the user cannot act on and the producer cannot fill is not an
+ * affordance, it is an advertisement. It is hidden — NOT deleted: the moment a
+ * producer starts supplying the data, `available` contains the lens and the
+ * tab returns with no code change. The fixture gallery keeps all four, because
+ * fixtures genuinely populate them.
+ */
+export const USER_ACTIONABLE_WHEN_UNAVAILABLE: readonly HeroLens[] = ['goal']
+
+/**
+ * The lenses the strip renders. Pure and exported so the rule is testable
+ * without a DOM, and so a mutant that widens it is visible.
+ */
+export function selectVisibleLenses(available: readonly HeroLens[]): HeroLens[] {
+  return ALL_HERO_LENSES.filter(
+    (lens) => available.includes(lens) || USER_ACTIONABLE_WHEN_UNAVAILABLE.includes(lens),
+  )
+}
+
 export interface HeroLensTabsProps {
   /** DATA-BEARING lenses; every other lens renders muted but selectable. */
   available: HeroLens[]
@@ -42,10 +77,15 @@ export function HeroLensTabs({
   panelId,
 }: HeroLensTabsProps) {
   const refs = useRef<Partial<Record<HeroLens, HTMLButtonElement | null>>>({})
+  // Roving focus must walk the RENDERED tabs, not the full lens enum — arrowing
+  // onto a tab that is not in the DOM focuses nothing and strands the keyboard
+  // user (the `refs.current[next]?.focus()` below would silently no-op).
+  const visibleLenses = selectVisibleLenses(available)
 
   const moveTo = (index: number) => {
-    const count = ALL_HERO_LENSES.length
-    const next = ALL_HERO_LENSES[(index + count) % count]
+    const count = visibleLenses.length
+    if (count === 0) return
+    const next = visibleLenses[(index + count) % count]
     onSelect(next)
     refs.current[next]?.focus()
   }
@@ -69,7 +109,7 @@ export function HeroLensTabs({
         break
       case 'End':
         e.preventDefault()
-        moveTo(ALL_HERO_LENSES.length - 1)
+        moveTo(visibleLenses.length - 1)
         break
     }
   }
@@ -80,7 +120,7 @@ export function HeroLensTabs({
       aria-label={HERO_COPY.tablistAria}
       className="flex gap-0.5 rounded-full border border-panel-border p-0.5"
     >
-      {ALL_HERO_LENSES.map((lens, index) => {
+      {visibleLenses.map((lens, index) => {
         const selected = lens === active
         const isAvailable = available.includes(lens)
         return (

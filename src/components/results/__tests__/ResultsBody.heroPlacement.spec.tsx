@@ -238,14 +238,14 @@ describe("Paul's ruling (2026-07-12): risk appetite is an explicitly-labelled le
     useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
     renderBody()
     expect(screen.queryByTestId('risk-lens-label')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Optimistic (p90)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Optimistic' }))
     expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/highlights the option with the strongest high end \(p90\)/i)
     // SUPERSEDED 2026-07-31: the un-anchored noun "the recommendation" is
     // retired; the lens sentence now names the quantity that is unchanged.
     expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/goal ranking above is unchanged/i)
-    fireEvent.click(screen.getByRole('button', { name: 'Cautious (p10)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cautious' }))
     expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/highlights the option with the strongest low end \(p10\)/i)
-    fireEvent.click(screen.getByRole('button', { name: 'Middle (p50)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Middle' }))
     expect(screen.queryByTestId('risk-lens-label')).not.toBeInTheDocument()
   })
 
@@ -253,7 +253,7 @@ describe("Paul's ruling (2026-07-12): risk appetite is an explicitly-labelled le
     useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
     renderBody()
     const heroBefore = screen.getByTestId('analysis-hero-panel').textContent
-    fireEvent.click(screen.getByRole('button', { name: 'Cautious (p10)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cautious' }))
     // Strict: the lens label renders OUTSIDE this panel, so any drift here
     // is real contamination.
     expect(screen.getByTestId('analysis-hero-panel').textContent).toBe(heroBefore)

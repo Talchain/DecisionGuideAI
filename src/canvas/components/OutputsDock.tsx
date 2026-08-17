@@ -37,8 +37,9 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
 import { useAnalysisState } from '../state/analysisStateSelector'
 import { getScenario } from '../store/scenarios'
-import { AnalysisFreshnessNotice } from '../../components/results/AnalysisFreshnessNotice'
-import { AnalysisRefusalNotice } from '../../components/results/AnalysisRefusalNotice'
+import { VersionsTrigger } from '../versions/VersionsTrigger'
+import { AnalysisStateRegion } from '../../components/results/analysisState/AnalysisStateRegion'
+import { useAnalysisRunState } from '../../components/results/analysisState/useAnalysisRunState'
 import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
 import { isDecisionOverviewEnabled } from '../../flags'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
@@ -257,21 +258,33 @@ export function deriveNextDockIsOpen(isFirstUse: boolean, storedIsOpen: boolean)
  * Whether the dock renders as its collapsed 40px rail rather than its full
  * body — the "first use" state.
  *
- * ⚠ THE INPUT CHANGED ON 16 Aug 2026 and that IS the behaviour change: this
- * used to be driven by `!hasGraphContent`, so a DRAFTED GRAPH ended first use
- * and the dock expanded to its full width the instant the model appeared —
- * showing a pre-run Analysis tab with no analysis in it. An outputs dock with
- * no outputs has no claim to that width, and the canvas pays for it: measured
- * at 1280x800 with the committed CEE draft capture, the expanded dock reserved
- * 361px of `computeFitPadding`, leaving an 843px fitting box for a graph
- * needing 1008px at the legibility floor — so the product's own first view of
- * the user's model was clamped and overflowing. Collapsed: 1136px, fits at
- * 0.563.
+ * ⚠⚠ THE INPUT HAS NOW CHANGED TWICE IN ONE DAY, AND THE SECOND CHANGE IS
+ * PAUL'S RULING R1 (16 Aug 2026) OVERTURNING THE FIRST.
+ *
+ * Until 16 Aug this was `!hasGraphContent`. #728 changed it to
+ * `!hasAnalysisResult` for a measured reason: a drafted graph ended first use,
+ * the dock claimed its FULL width with no analysis in it, and at 1280x800 with
+ * the committed CEE draft capture the expanded dock reserved 361px of
+ * `computeFitPadding` — an 843px fitting box for a graph needing 1008px at the
+ * legibility floor, so the product's own first view of the user's model was
+ * clamped and overflowing. Collapsed: 1136px, fits at 0.563.
+ *
+ * Paul vetoed the resulting behaviour (ledger L-06: "right panel hidden until
+ * first analysis"). **R1 RULED: the right panel is visible immediately when
+ * the model appears; the panel starts NARROW so the graph keeps priority.**
+ * The 843px measurement was never an argument for hiding the panel — it was an
+ * argument about WIDTH, and R1 answers it with width. So the rail input
+ * reverts to model content, and the width half of the trade is discharged by
+ * `resolveDockWidthForAnalysisState` below, which opens the dock at its
+ * narrowest usable width until an analysis exists. Neither half works alone:
+ * reverting the input without the narrow width re-opens the 843px clamp this
+ * predicate was rewritten to close.
  *
  * Pure and exported so the rule is mutation-testable without mounting the dock.
  *
- * @param hasAnalysisResult `hasCompletedFirstRun` — at least one successful or
- *   restored run exists in this session, i.e. the dock has something to show.
+ * @param hasModelContent there is a model on the canvas — the thing the panel
+ *   would be reporting on. THIS, not the existence of an analysis, is what
+ *   ends first use (R1).
  * @param analysisActive a run is IN FLIGHT (results status is anything but
  *   `idle`/`cancelled`). Outputs are not here yet but they are coming, and the
  *   run's own progress narration lives in the dock body.
@@ -290,16 +303,48 @@ export function deriveNextDockIsOpen(isFirstUse: boolean, storedIsOpen: boolean)
  */
 export function shouldRenderFirstUseRail(input: {
   aiPanelV2On: boolean
-  hasAnalysisResult: boolean
+  hasModelContent: boolean
   analysisActive: boolean
   userExplicitlyOpened: boolean
 }): boolean {
   return (
     input.aiPanelV2On &&
-    !input.hasAnalysisResult &&
+    !input.hasModelContent &&
     !input.analysisActive &&
     !input.userExplicitlyOpened
   )
+}
+
+/**
+ * The width the dock opens at — R1's "starts NARROW so the graph keeps
+ * priority" half.
+ *
+ * Composed from `dockWidth.ts`'s existing pure rules rather than re-deriving
+ * bounds here (three separate copies of those bounds is the defect that module
+ * was created to remove).
+ *
+ * TWO PROPERTIES, BOTH DELIBERATE:
+ *  1. An EXPLICIT user width always wins. Someone who has dragged the dock has
+ *     stated a preference; narrowing it under them because an analysis has not
+ *     run yet would be the product overriding a direct instruction.
+ *  2. The narrow width is the module's own `DOCK_MIN_WIDTH` floor, not a new
+ *     constant. "Narrow" here means "the narrowest width this panel is known
+ *     to remain usable at" — a second magic number would be a second authority
+ *     on the same question, and would drift from the floor the drag path
+ *     clamps to.
+ *
+ * Pure and exported: mutation-testable without a DOM.
+ */
+export function resolveDockWidthForAnalysisState(input: {
+  viewportWidth: number
+  storedWidth: number | null
+  hasAnalysisResult: boolean
+}): number {
+  const full = resolveDockWidth(input.viewportWidth, input.storedWidth)
+  if (input.hasAnalysisResult) return full
+  if (input.storedWidth != null && Number.isFinite(input.storedWidth)) return full
+  const { min } = dockWidthBounds(input.viewportWidth)
+  return Math.min(full, min)
 }
 
 /**
@@ -629,26 +674,23 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const realMessageCount = conversationCtxForFirstUse
     ? conversationCtxForFirstUse.messages.filter((m) => !m.synthetic).length
     : 0
-  // First-use ends when the dock has OUTPUTS TO SHOW — i.e. an analysis result
-  // exists (`hasCompletedFirstRun`: at least one successful or restored run this
-  // session) — OR the user explicitly expands the dock (the rail's chevron), OR
-  // a run starts (see the auto-switch effect, which drops the lock so a running
-  // analysis is visible). We do NOT use realMessageCount here — the brief is
-  // explicit that the empty Analysis tab should not flash after a user message
-  // but before the graph builds.
+  // First-use ends when a MODEL EXISTS — the thing the panel reports on (ruling
+  // R1, 16 Aug 2026) — OR the user explicitly expands the dock (the rail's
+  // chevron), OR a run starts (see the auto-switch effect, which drops the lock
+  // so a running analysis is visible). We do NOT use realMessageCount here —
+  // the brief is explicit that the empty Analysis tab should not flash after a
+  // user message but before the graph builds.
   //
-  // ⚠ THIS WAS `!hasGraphContent` UNTIL 16 Aug 2026, and that is the defect.
-  // A drafted graph ended first-use, so the dock expanded to its full width the
-  // moment the model appeared — showing a pre-run Analysis tab with no analysis
-  // in it. An outputs dock with no outputs has no claim to that width, and the
-  // cost is paid by the canvas: measured at 1280x800 with the committed CEE
-  // draft capture, the expanded dock reserved 361px of `computeFitPadding`,
-  // leaving a 843px fitting box for a graph needing 1008px at the legibility
-  // floor — so the product's own first view of the user's model was clamped and
-  // overflowing. Collapsed, the same measurement gives a 1136px fitting box.
+  // ⚠⚠ THIS INPUT HAS FLIPPED TWICE IN ONE DAY. It was `!hasGraphContent`,
+  // became `!hasCompletedFirstRun` on 16 Aug (#728, to close a measured 843px
+  // graph clamp), and R1 reverts it — because Paul's veto is about VISIBILITY
+  // and the 843px measurement is about WIDTH. The width half is now discharged
+  // by `resolveDockWidthForAnalysisState`: the dock opens at its narrowest
+  // usable width until an analysis exists. See the predicate's own header for
+  // the full record; the two halves are a pair and neither ships alone.
   const isFirstUse = shouldRenderFirstUseRail({
     aiPanelV2On,
-    hasAnalysisResult: hasCompletedFirstRun,
+    hasModelContent: hasGraphContent,
     analysisActive,
     userExplicitlyOpened: userExplicitlyOpenedRailRef.current,
   })
@@ -874,6 +916,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // fold the strip already applied).
   const displayedFreshness = useAnalysisState().displayedFreshness
   const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
+  // Brief step 6 — the composed run state that decides WHICH truth-state
+  // banner this surface may render. It derives nothing new: it maps the
+  // verdicts the refusal/freshness/results owners already publish onto the
+  // contract's state names. Swaps to the wire's `AnalysisStateV1.run_state`
+  // in one line when the migration lane lands (see useAnalysisRunState.ts).
+  const analysisRunState = useAnalysisRunState()
   // Anchor-run-control (Paul, 21-Jul): the sticky bottom AnalysisFooter is the
   // SOLE Rerun owner in every post-run state — it carries the robustness
   // verdict AND the Rerun action together, and being OUTSIDE the scroller it is
@@ -1920,7 +1968,16 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       }
       const viewportWidth = window.innerWidth || root.clientWidth || 0
       if (!viewportWidth) return
-      root.style.setProperty('--dock-right-expanded', `${resolveDockWidth(viewportWidth, stored)}px`)
+      // R1's width half: narrow until an analysis exists, then the normal
+      // responsive width. An explicit user width always wins (see the helper).
+      root.style.setProperty(
+        '--dock-right-expanded',
+        `${resolveDockWidthForAnalysisState({
+          viewportWidth,
+          storedWidth: stored,
+          hasAnalysisResult: hasCompletedFirstRun,
+        })}px`,
+      )
     }
 
     apply()
@@ -1941,7 +1998,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       window.removeEventListener('resize', onResize)
       if (frame !== null) window.cancelAnimationFrame(frame)
     }
-  }, [])
+    // ⚠ `hasCompletedFirstRun` IS a dependency and its absence would be silent:
+    // the effect would apply the narrow width once and never widen when the
+    // first analysis lands, so the user's results would arrive into a 280px
+    // panel until the next window resize. A width rule that only re-runs on
+    // `resize` is a width rule that is wrong for as long as nobody resizes.
+  }, [hasCompletedFirstRun])
   const transitionClass = prefersReducedMotion ? '' : 'transition-[width,opacity] duration-200 ease-in-out'
 
   // OUTPUT_TABS computed per render so a localStorage flag flip is picked
@@ -2255,10 +2317,19 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       )
                     )}
                     {tab.id === 'diagnostics' && factorsToVerify > 0 && (
+                      // ⭐ L-58: this was a bare orange number. A `title` is a
+                      // hover-only affordance — it is invisible to a user
+                      // scanning the tab strip, absent on touch, and never
+                      // reaches a screen reader as the badge's NAME. The count
+                      // now carries its meaning in the accessible name as well,
+                      // so "why is there an orange 4?" is answerable without
+                      // hovering. (`role="status"` is deliberately NOT used: it
+                      // is a static label on a tab, not a live announcement.)
                       <span
                         className="inline-flex items-center justify-center rounded-full bg-warning text-text-on-color font-semibold"
                         style={{ fontSize: 11, fontWeight: 600, minWidth: 16, height: 16, padding: '0 4px' }}
                         title={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
+                        aria-label={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
                         data-testid="model-tab-verify-badge"
                       >
                         {factorsToVerify}
@@ -2268,6 +2339,24 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 </button>
               )})}
             </nav>
+            {/* ⭐ R4 — version history's home in this panel (delegated by the
+                versions lane, #739). The trigger deliberately carries NO
+                positioning of its own; layout belongs to this row, which is
+                the whole point of retiring the floating pill (L-08).
+
+                ⚠ ITS OWN HEADER SAYS `<VersionsTrigger variant="icon" />` AND
+                THAT IS INCOMPLETE: the `icon` variant applies `className` with
+                an EMPTY default (the `labelled` variant self-styles; this one
+                does not), so following the instruction verbatim mounts an
+                unstyled bare button in a row of bordered icon controls. It is
+                given the SAME class as the collapse chevron beside it, so the
+                two read as one control set rather than as a button that lost
+                its styling. */}
+            <VersionsTrigger
+              variant="icon"
+              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header hover:bg-panel shrink-0`}
+              data-testid="dock-versions-trigger"
+            />
             <button
               type="button"
               onClick={() => setExpertMode(prev => !prev)}
@@ -2568,22 +2657,25 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                           >
                             Edit model
                           </button>
-                          {friendlyError.secondaryActionText && (
-                            <button
-                              type="button"
-                              onClick={() => setState(prev => ({ ...prev, isOpen: false }))}
-                              className={`${typography.caption} font-medium px-3 py-1.5 rounded border ${
-                                friendlyError.severity === 'error'
-                                  ? 'border-danger/30 text-danger hover:opacity-80'
-                                  : friendlyError.severity === 'warning'
-                                    ? 'border-warning/30 text-warning hover:opacity-80'
-                                    : 'border-info/30 text-info hover:opacity-80'
-                              }`}
-                              data-testid="error-secondary-action"
-                            >
-                              {friendlyError.secondaryActionText}
-                            </button>
-                          )}
+                          {/* ⛔ `error-secondary-action` REMOVED (ledger L-10).
+                              It rendered `friendlyError.secondaryActionText`
+                              over a handler that was BYTE-IDENTICAL to "Edit
+                              model" beside it: `setState({ isOpen: false })`.
+                              The label is a pure string with no behaviour
+                              attached, so the button promised four different
+                              things and did one — and two of the four are
+                              outright false: `CEE_DEGRADED` offered "Retry Full
+                              Analysis" (it retried nothing; the Retry lives in
+                              `error-primary-action`) and `COMPARISON_FAILED`
+                              offered "View Individual Results" (it navigated
+                              nowhere). A control whose label names an action it
+                              cannot perform is the guarantee-theatre class, not
+                              a cosmetic defect, so it is removed rather than
+                              relabelled. `secondaryActionText` is still emitted
+                              by `lib/userFriendlyErrors.ts` (not this lane's
+                              file) and now has no consumer — flagged in the PR
+                              body for its owner to retire or to give a real
+                              handler. */}
                         </div>
                         {/* Task P.3.5: Coaching text for repeated failures */}
                         <p className={`${typography.caption} text-text-header`}>
@@ -2755,18 +2847,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     previous analysis. `selectReportIsFromEarlierRun` compares
                     the store's run-epoch stamps and fails CLOSED on unknown
                     provenance: no stamp, no claim. */}
-                {isError && report && reportIsFromEarlierRun && (
-                  <div
-                    className="flex items-center gap-2 px-3 py-2 bg-panel border border-warning/30 rounded"
-                    role="status"
-                    data-testid="stale-results-banner"
-                  >
-                    <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
-                    <span className={`${typography.caption} text-text-header`}>
-                      Showing results from previous analysis
-                    </span>
-                  </div>
-                )}
+                {/* ⭐ MOVED, NOT RETIRED (cockpit simplification, brief step 6).
+                    This attribution now renders INSIDE `<AnalysisStateRegion>`'s
+                    body slot, as `bodyAttribution` — see the region's mount
+                    below. Its predicate, copy, testid and full reachable-cell
+                    matrix are unchanged and stay pinned by
+                    `OutputsDock.failedRunHonesty.spec.tsx`.
+                    WHY it moved: it answers "whose numbers are on screen?",
+                    which is a claim about the BODY, not about whether the
+                    analysis ran or is current. Leaving it out here is what
+                    lets the truth-state slot above the body hold exactly one
+                    banner without swallowing a true provenance disclosure. */}
                 {/* Wave F-B (brief §5.2): the top-level stale banner is RETIRED —
                     AnalysisFreshnessNotice (mounted below in this tab's
                     scroller, above the results body) is the sole freshness
@@ -2799,9 +2890,53 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     in the canonical hierarchy (brief §3). Mount-site gated
                     (house pattern, review B1): flag-off renders NOTHING and
                     pays no subscription or parsing cost. */}
+                {/* ⭐⭐ THE ONE TRUTH-STATE REGION (brief step 6, ruling R1).
+                    Before this, seven independently-sourced truth-state
+                    children hung off this scroller and none gated any other —
+                    the mechanism behind L-36/S06, where "This analysis did not
+                    run" and "Cannot confirm whether this analysis is current"
+                    stacked directly above a fully rendered result. Three
+                    claims, two of them contradictory, every component correct
+                    in isolation.
+                    The region owns ONE banner slot and ONE body slot; which
+                    banner is a function of `analysisRunState` alone. Mounting
+                    either notice anywhere else on this surface REDs
+                    `AnalysisStateRegion.singleTruthBanner.spec.tsx`'s
+                    single-mount-site guard, which DERIVES the mount sites from
+                    the source rather than mirroring a hand-kept list. */}
+                {/* ⚠ THE OVERVIEW CARD STAYS OUTSIDE THE REGION, ABOVE IT, and
+                    that is a correction to this lane's first draft — which put
+                    it inside the body slot and inverted the canonical
+                    hierarchy (caught by
+                    `OutputsDock.analysis-run.spec.tsx`'s "the overview mounts
+                    FIRST" case, which exists precisely to pin brief §3).
+                    It belongs outside on the merits, not merely to keep a test
+                    green: the card is the ORIENTATION surface and by its own
+                    §4.1 "shows no analysis outcomes". The region owns the
+                    truth-state banner and the RESULTS body — what the run
+                    produced and whether it can be trusted. Orientation is
+                    neither. */}
                 {isDecisionOverviewEnabled() && !isPreRun && hasInlineSummary && resultsSectionData && (
                   <DecisionOverviewCard title={overviewTitle} />
                 )}
+                <AnalysisStateRegion
+                  runState={analysisRunState}
+                  hasReport={!isPreRun && hasInlineSummary && Boolean(resultsSectionData)}
+                  bodyAttribution={
+                    isError && report && reportIsFromEarlierRun ? (
+                      <div
+                        className="flex items-center gap-2 px-3 py-2 bg-panel border border-warning/30 rounded"
+                        role="status"
+                        data-testid="stale-results-banner"
+                      >
+                        <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
+                        <span className={`${typography.caption} text-text-header`}>
+                          Showing results from previous analysis
+                        </span>
+                      </div>
+                    ) : null
+                  }
+                >
                 {/* ROADMAP 2.1163 / EXT-2 — CEE's typed analysis refusal
                     (`analysis_ready.blocked_reason`, PR #942), which had ZERO
                     readers repo-wide until this mount.
@@ -2821,15 +2956,30 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     aria-disabled region. It is a SIBLING of DecisionOverview-
                     Card, not a state of it — that card's `liveState` derivation
                     is untouched ('unassessed'/collapsed on a cleared readiness
-                    slice is correct, per the 2026-08-14 deployed-UI trace). */}
-                <AnalysisRefusalNotice />
-                {/* The freshness strip states fresh/stale/unknown (informational
-                    only — the anchor footer below owns the Rerun). It mounts
-                    ABOVE the dim wrapper at full opacity so the freshness signal
-                    never sits inside an aria-disabled region. */}
-                {!isPreRun && hasInlineSummary && resultsSectionData && (
-                  <AnalysisFreshnessNotice />
-                )}
+                    slice is correct, per the 2026-08-14 deployed-UI trace).
+
+                    ⭐ THE UNGATED-NESS IS PRESERVED, BY PRECEDENCE RATHER THAN
+                    BY MOUNT SITE. `mapToAnalysisRunState` orders `refused`
+                    ABOVE `never_run` precisely so a refused FIRST analysis —
+                    where `hasCompletedFirstRun` is false and there are no
+                    results to decorate — still reaches the user.
+
+                    ⚠⚠ AN EARLIER VERSION OF THIS COMMENT NAMED THE WRONG GUARD,
+                    AND AN ADVERSARIAL REVIEW PROVED IT BY EXECUTION. It claimed
+                    that unifying the gates "would re-dark it and RED
+                    `applyV5State.analysisRefusalNotice.spec.tsx`". Deleting the
+                    refusal arm from the mapping left that spec — and 53/53
+                    tests across all four refusal-touching specs — GREEN, because
+                    that one is STORE-level: it proves the wire populates the
+                    slice and says nothing about the slice → run-state hop.
+                    A comment that names a guard which does not guard is worse
+                    than no comment: it tells the next reader the seam is
+                    covered, so they stop looking.
+                    The guard that actually bites is
+                    `useAnalysisRunState.mapping.spec.ts`, which pins the
+                    refusal arm against `never_run` AND against every freshness
+                    arm as discriminating pairs. Verified by deleting the arm
+                    and watching it RED. */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <div
                     // Parity audit: v6 keeps stale results fully readable —
@@ -2892,6 +3042,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   />
                   </div>
                 )}
+                </AnalysisStateRegion>
                 </div>
                 {/* Brief 5.4 Phase 11: "Create decision brief" placeholder removed.
                     Anchor-run-control (Paul, 21-Jul): the sticky bottom anchor

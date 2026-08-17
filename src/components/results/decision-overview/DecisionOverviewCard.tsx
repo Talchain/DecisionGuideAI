@@ -88,7 +88,29 @@ export const OVERVIEW_COPY = {
   // chip ("+N to set") — collapsed shows what IS, never a per-field inventory
   // of what ISN'T. The old per-field "not set" name labels are retired.
   classificationUnsetSuffix: 'to set',
+  /**
+   * L-58: what the compact "+N to set" chip COUNTS, and what clicking it does.
+   *
+   * ⚠ TWO PLAIN STRINGS, NOT A FORMATTER FUNCTION, AND THAT IS DELIBERATE.
+   * `copyHygiene.spec.ts` scans `Object.values(OVERVIEW_COPY)` for em dashes,
+   * shouting caps, American spellings and internal vocabulary. A function
+   * value is invisible to that scan: the copy would ship UNCHECKED while the
+   * guard stayed green — a guard that cannot see the string it is guarding.
+   * Two constants keep every user-visible word inside the scan; the singular
+   * arm exists so the chip never reads "1 more things".
+   */
+  classificationUnsetHintOne:
+    'One more thing to say about this decision (stakes, reversibility, horizon or risk). Open the overview to set it.',
+  classificationUnsetHintMany:
+    'more things to say about this decision (stakes, reversibility, horizon and risk). Open the overview to set them.',
 } as const
+
+/** Composes the two hygiene-scanned arms above. */
+export function classificationUnsetHint(n: number): string {
+  return n === 1
+    ? OVERVIEW_COPY.classificationUnsetHintOne
+    : `${n} ${OVERVIEW_COPY.classificationUnsetHintMany}`
+}
 
 const STATE_COPY: Record<BriefState, { line: string; note: string }> = {
   ready: { line: OVERVIEW_COPY.ready, note: OVERVIEW_COPY.readyNote },
@@ -459,11 +481,21 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
             {/* One muted aggregate for every empty field (V6-RESPEC §4).
                 Clicking it expands the card — the existing boolean expand
                 behaviour, no new focus plumbing. Complete (dashed) border. */}
+            {/* ⭐ L-58: the visible chip read "+4 to set" — four of WHAT, set
+                WHERE, and by whom? It sits beside value pills like "High
+                stakes", so the reader has no way to infer that the four are
+                the UNFILLED members of that same set. The visible text is
+                unchanged (it is a compact aggregate by design, V6-RESPEC §4)
+                but it is no longer the only thing on offer: the accessible
+                name and the tooltip now say what the number counts and what
+                clicking does. */}
             {unsetCount > 0 && (
               <button
                 type="button"
                 data-testid="decision-pills-unset"
                 onClick={() => setExpanded(true)}
+                title={classificationUnsetHint(unsetCount)}
+                aria-label={classificationUnsetHint(unsetCount)}
                 className={`${typography.panelMeta} max-w-full truncate rounded-pill border border-dashed border-panel-border bg-transparent px-2 py-0.5 text-text-light hover:bg-panel-hover`}
               >
                 +{unsetCount} {OVERVIEW_COPY.classificationUnsetSuffix}

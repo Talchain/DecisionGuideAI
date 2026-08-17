@@ -443,6 +443,16 @@ function T1ChecksFooter({
     robustnessVerdict === 'fragile'
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
   const evidenceWeak = gaps.some(g => typeof g.confidence === 'number' && g.confidence < 50)
+  // ⚠ L-58 / L-38. `evidenceKnown` is `gaps.length > 0` and NOTHING MORE, and
+  // the label it drove said "Evidence unknown" — which is not what the value
+  // means. An empty list is the producer returning no evidence gaps; whether
+  // that is "assessed, none found" or "not assessed" is genuinely
+  // indistinguishable here, because `useResultsSectionData` collapses absent
+  // and empty through `?? []` (`:3221-3226`). So the honest label states the
+  // ONE thing we hold — that nothing was flagged — and claims neither
+  // coverage nor an absence of assessment. (Trap 13c: the expectation is
+  // derived from the producer's semantics, not from what the field's name
+  // suggests it ought to mean.)
   const evidenceKnown = gaps.length > 0
   const addressed = gaps.filter(g => typeof g.confidence === 'number' && g.confidence >= 50).length
   const total = gaps.length
@@ -458,6 +468,17 @@ function T1ChecksFooter({
 
   return (
     <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
+      {/* ⭐ L-58/L-57: the row used to be three bare glyph+word chips
+          ("✓ Has leading option × Sensitive × Evidence unknown"), which reads
+          as QA chrome rather than as a statement to the user — Paul filed it
+          from a `?diag=1` session and it turned out to be USER-DEFAULT.
+          It keeps its three checks (they are the results side of the
+          cross-surface single-verdict guard, `singleVerdict.crossSurface.spec`)
+          and gains the heading that says what it IS, plus a plain-language
+          reading of each. Nothing is removed. */}
+      <p className={`${typography.panelMeta} text-text-light mb-1`} data-testid="checks-heading">
+        What we checked
+      </p>
       <div className={`flex items-center flex-wrap gap-x-3 gap-y-1 ${typography.panelMeta} text-text-light`}>
         <ChecksGlyph
           ok={hasWinner}
@@ -469,9 +490,12 @@ function T1ChecksFooter({
           ok={robustOk}
           unknown={!robustKnown}
           okLabel="Robust"
+          // "Sensitive" alone names no subject. Sensitive to WHAT is the whole
+          // content of the verdict, and the producer's own reason phrase (the
+          // tooltip below) has always said "to assumptions".
           notOkLabel={
             robustKnown
-              ? 'Sensitive'
+              ? 'Sensitive to assumptions'
               : robustnessVerdict === 'not_assessed'
                 ? 'Robustness not assessed'
                 : 'Robustness unknown'
@@ -483,13 +507,20 @@ function T1ChecksFooter({
         />
         <ChecksGlyph
           ok={!evidenceWeak && evidenceKnown}
+          // An empty gap list is the NEUTRAL third state, not a failure — the
+          // red X was itself part of the wrongness ("Evidence unknown" scored
+          // as a fault). `unknown` renders the muted help glyph.
+          unknown={!evidenceKnown}
           okLabel="Evidence covered"
-          notOkLabel={evidenceKnown ? 'Evidence gaps' : 'Evidence unknown'}
+          notOkLabel={evidenceKnown ? 'Evidence gaps' : 'No evidence gaps flagged'}
+          // Only the empty-list arm needs the caveat: with gaps present the
+          // label is a plain count-backed fact.
+          title={evidenceKnown ? undefined : 'The analysis returned no evidence gaps for this run.'}
           dataTestid="checks-evidence"
         />
         {total > 0 && (
           <span className="ml-auto" data-testid="checks-addressed">
-            {addressed}/{total} addressed
+            {addressed} of {total} evidence gaps addressed
           </span>
         )}
       </div>
