@@ -193,6 +193,41 @@
   [headers.values]
   cache-control = "no-cache, must-revalidate, max-age=0"
 
+# ⭐⭐ /version.json IS THE DEPLOYMENT-EVIDENCE ENDPOINT — IT MUST NEVER BE SERVED FROM CACHE.
+#
+# Measured 17 Aug 2026 (ROADMAP 2.1281). With NO rule here, this file inherited
+# Netlify's platform default `public,max-age=0,must-revalidate`, and the edge stored
+# it as a HIT with `ttl=31535922` (~365 days), serving `age` up to 18,827 s (5.2 h).
+# Twenty consecutive deploy polls read the PREVIOUS commit; UNIFORMITY was the only
+# tell. The discriminator was a same-site contrast: `/index.html` (no-cache, the rule
+# directly above) revalidated at `age: 34` while `/version.json` sat at `age: 18465`.
+#
+# `public` is what defeats `must-revalidate` at this edge — a `max-age=0` response is
+# still STORABLE, so the edge answers from store without forwarding. Only `no-store`
+# / `no-cache` stop that.
+#
+# Failure direction was conservative (it can only report an OLDER sha, never falsely
+# confirm a new deploy), so no past deploy claim was falsely confirmed by it — but it
+# made a genuine deploy-TRIGGER outage (row 2.1280, which happened on CEE the same
+# morning) INDISTINGUISHABLE from cache staleness. That combination is the hazard.
+#
+# Two directives, deliberately: `no-store` is the semantically correct answer for a
+# build-identity endpoint and is the posture PLoT's /health and /version already ship
+# (measured `cache-control: no-store`, `cf-cache-status: DYNAMIC`); `no-cache,
+# must-revalidate, max-age=0` is the shape PROVEN to revalidate at THIS site by the
+# /index.html rule above. Do not thin this to one directive on the reasoning that the
+# other is redundant — the proven shape is the fallback if the edge ever treats
+# `no-store` differently.
+#
+# ⚠ VERIFY AFTER ANY CHANGE HERE, cache-immune and asserting the turnover:
+#   curl -sSD- -o- https://staging--olumi.netlify.app/version.json | grep -iE 'cache-status|age:|cache-control'
+#   require: `age: 0` AND cache-status showing fwd=miss / bypass — a `hit` with
+#   non-zero `age` is NOT deployment evidence.
+[[headers]]
+  for = "/version.json"
+  [headers.values]
+  cache-control = "no-store, no-cache, must-revalidate, max-age=0"
+
 [[headers]]
   for = "/assets/*.js"
   [headers.values]
