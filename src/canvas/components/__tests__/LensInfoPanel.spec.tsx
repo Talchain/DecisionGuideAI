@@ -138,7 +138,7 @@ describe('LensInfoPanel robustness list — presence-branch on measured switch_p
     expect(panel.textContent).not.toContain('Price')
   })
 
-  it('CONTROL: a measured edge below the floor stays unlisted; stability line unaffected', () => {
+  it('CONTROL: a measured edge below the floor stays unlisted', () => {
     seedRobustnessLens([
       {
         from_id: 'price',
@@ -149,7 +149,41 @@ describe('LensInfoPanel robustness list — presence-branch on measured switch_p
     ])
     render(<LensInfoPanel />)
     const panel = screen.getByTestId('lens-info-robustness')
-    expect(panel.textContent).toContain('Recommendation stability: 80%')
+    // POSITIVE CONTROL: the panel rendered its surviving sentence, so the
+    // absence assertions below are not about a panel that failed to mount.
+    expect(panel.textContent).toContain('Sensitive assumptions:')
     expect(panel.textContent).not.toContain('20%')
+  })
+
+  /**
+   * ROADMAP 2.1273 — the `"Recommendation stability: {N}%."` sentence is GONE.
+   *
+   * ⚠ The seeded report in `seedRobustnessLens` still sets
+   * `recommendation_stability: 0.8`, and that is DELIBERATE: it is exactly the
+   * legacy hydrated payload the removal defends against, so this assertion
+   * proves the sentence cannot render for a value that IS PRESENT — not merely
+   * that it is suppressed when absent (which every fresh run already gives).
+   * PLoT withholds the field because it is the leading option's
+   * `win_probability` relabelled; see `../LensInfoPanel.tsx`.
+   */
+  it('never renders the withheld "Recommendation stability" claim, even with a legacy value seeded', () => {
+    seedRobustnessLens([
+      {
+        from_id: 'price',
+        to_id: 'revenue',
+        switch_probability: 0.9,
+        alternative_winner_label: 'Plan B',
+      },
+    ])
+    render(<LensInfoPanel />)
+    const panel = screen.getByTestId('lens-info-robustness')
+    // POSITIVE CONTROLS: the panel is mounted and populated — the heading, the
+    // surviving sentence, and the measured fragile edge all render.
+    expect(panel.textContent).toContain('Robustness')
+    expect(panel.textContent).toContain('Sensitive assumptions:')
+    expect(panel.textContent).toContain('90%')
+    // The claim, and the figure it would have printed (0.8 → "80%"), are absent.
+    expect(panel.textContent).not.toContain('Recommendation stability')
+    expect(panel.textContent).not.toContain('80%')
   })
 })

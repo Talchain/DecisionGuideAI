@@ -12,7 +12,36 @@
 
 import { describe, it, expect } from 'vitest'
 import { derivePostFooterStatus, derivePostFooterMeta } from '../postAnalysisFooter'
+import type { PostFooterMetaInput } from '../postAnalysisFooter'
 import type { RobustnessDisplayVerdict } from '@/components/results/types'
+
+/**
+ * FORCE the `stability` field that `PostFooterMetaInput` NO LONGER DECLARES
+ * (ROADMAP 2.1273 removed it; F7 had already stopped the helper reading it).
+ *
+ * ⚠ WHY THESE TESTS STILL PASS A STABILITY VALUE, AND WHY THIS IS NOT A CARVE-OUT.
+ * The F7 block below exists to prove a specific property: *even when a caller
+ * hands this helper a finite stability number, no "{N}% stability" claim
+ * reaches the footer*. Deleting `stability` from the call sites would have made
+ * every one of those tests pass by NOT SUPPLYING THE INPUT — the guard would go
+ * green while losing the power to see the thing it exists to catch (CLAUDE.md
+ * trap 13b, "a guard agreeing with itself"). The type-level removal and the
+ * runtime proof are complementary, not alternatives, so the tests keep forcing
+ * the value in and the assertions are unchanged.
+ *
+ * The cast is deliberate, local to this file, and mirrors `withRemovedProp` in
+ * `canvas/components/model-tab/__tests__/evpiSurfacesRemoved.canvas.honesty.spec.tsx`
+ * — the same technique the estate already uses to prove a removed prop is inert.
+ *
+ * Net effect: the guarantee is now strictly STRONGER than before 2.1273. A
+ * production caller cannot even name the field (compile error), and this suite
+ * proves the helper ignores it if one forces it through anyway.
+ */
+type ForcedStability = PostFooterMetaInput & { stability?: number | null }
+
+function derivePostFooterMetaWithForcedStability(input: ForcedStability): string | null {
+  return derivePostFooterMeta(input as PostFooterMetaInput)
+}
 
 describe('derivePostFooterStatus — display-safe verdict only (robustness trust fix)', () => {
   // Single-source rule (ROBUSTNESS-VERDICT-CONTRACT): the footer verdict comes
@@ -109,7 +138,7 @@ describe('derivePostFooterMeta — F7: the "{N}% stability" numeric segment is r
   it('never renders a "% stability" segment even with a determinate verdict + finite stability', () => {
     // RED pin (task spec): recommendation_stability = 0.61 must NOT produce a
     // "61%"-with-"stability" claim.
-    const out = derivePostFooterMeta({
+    const out = derivePostFooterMetaWithForcedStability({
       stability: 0.61,
       robustnessVerdict: 'robust',
       reviewCards: [{ confidence: 70 }, { confidence: 90 }],
@@ -121,7 +150,7 @@ describe('derivePostFooterMeta — F7: the "{N}% stability" numeric segment is r
 
   it('renders "Evidence gaps remain" alone when any review-card confidence < 50', () => {
     expect(
-      derivePostFooterMeta({
+      derivePostFooterMetaWithForcedStability({
         stability: 0.6,
         robustnessVerdict: 'moderate',
         reviewCards: [{ confidence: 40 }, { confidence: 80 }],
@@ -131,13 +160,13 @@ describe('derivePostFooterMeta — F7: the "{N}% stability" numeric segment is r
 
   it('returns null when there are no review cards and no reason (nothing but stability would have rendered)', () => {
     expect(
-      derivePostFooterMeta({ stability: 0.91, robustnessVerdict: 'robust', reviewCards: [] }),
+      derivePostFooterMetaWithForcedStability({ stability: 0.91, robustnessVerdict: 'robust', reviewCards: [] }),
     ).toBeNull()
   })
 
   it('returns "Evidence gaps remain" when stability is missing (unchanged — stability never mattered)', () => {
     expect(
-      derivePostFooterMeta({
+      derivePostFooterMetaWithForcedStability({
         stability: undefined,
         robustnessVerdict: 'robust',
         reviewCards: [{ confidence: 30 }],
@@ -147,13 +176,13 @@ describe('derivePostFooterMeta — F7: the "{N}% stability" numeric segment is r
 
   it('returns null when both stability and review-cards are absent', () => {
     expect(
-      derivePostFooterMeta({ stability: null, robustnessVerdict: 'robust', reviewCards: [] }),
+      derivePostFooterMetaWithForcedStability({ stability: null, robustnessVerdict: 'robust', reviewCards: [] }),
     ).toBeNull()
   })
 
   it('treats non-numeric review-card confidence as ok (no false "Evidence gaps remain", no stability)', () => {
     expect(
-      derivePostFooterMeta({
+      derivePostFooterMetaWithForcedStability({
         stability: 0.95,
         robustnessVerdict: 'robust',
         reviewCards: [{ confidence: undefined }, { confidence: null }],
@@ -164,14 +193,14 @@ describe('derivePostFooterMeta — F7: the "{N}% stability" numeric segment is r
   it('no determinate verdict + any stability + no cards → null (stability alone can never render)', () => {
     for (const v of [undefined, null, 'not_assessed'] as const) {
       expect(
-        derivePostFooterMeta({ stability: 0.59, robustnessVerdict: v, reviewCards: [] }),
+        derivePostFooterMetaWithForcedStability({ stability: 0.59, robustnessVerdict: v, reviewCards: [] }),
       ).toBeNull()
     }
   })
 
   it('runtime-safe: malformed verdict values never surface a stability number', () => {
     for (const bad of [0.87, '0.87', 'unexpected', 'high', 'low', 'very_low', '', Number.NaN, true, {}, []]) {
-      const out = derivePostFooterMeta({
+      const out = derivePostFooterMetaWithForcedStability({
         stability: 0.75,
         robustnessVerdict: bad as unknown as RobustnessDisplayVerdict,
         reviewCards: [],
@@ -184,7 +213,7 @@ describe('derivePostFooterMeta — F7: the "{N}% stability" numeric segment is r
 describe('derivePostFooterMeta — producer reason rendered verbatim (lane 35 fix 3)', () => {
   it('the producer reason renders alone (no trailing "% stability" segment after F7)', () => {
     expect(
-      derivePostFooterMeta({
+      derivePostFooterMetaWithForcedStability({
         stability: 0.82,
         robustnessVerdict: 'robust',
         robustnessVerdictReason: 'this result held up under the changes we tested',
@@ -195,7 +224,7 @@ describe('derivePostFooterMeta — producer reason rendered verbatim (lane 35 fi
 
   it('the not_assessed reason renders alone', () => {
     expect(
-      derivePostFooterMeta({
+      derivePostFooterMetaWithForcedStability({
         stability: 0.59,
         robustnessVerdict: 'not_assessed',
         robustnessVerdictReason: 'robustness was not assessed for this run',
@@ -206,7 +235,7 @@ describe('derivePostFooterMeta — producer reason rendered verbatim (lane 35 fi
 
   it('a reason without any verdict is never rendered (no orphaned robustness prose)', () => {
     expect(
-      derivePostFooterMeta({
+      derivePostFooterMetaWithForcedStability({
         stability: 0.59,
         robustnessVerdict: undefined,
         robustnessVerdictReason: 'small changes could flip this result',
@@ -217,7 +246,7 @@ describe('derivePostFooterMeta — producer reason rendered verbatim (lane 35 fi
 
   it('an absent or blank reason renders nothing (no stability fallback)', () => {
     expect(
-      derivePostFooterMeta({
+      derivePostFooterMetaWithForcedStability({
         stability: 0.82,
         robustnessVerdict: 'fragile',
         robustnessVerdictReason: '   ',
@@ -228,7 +257,7 @@ describe('derivePostFooterMeta — producer reason rendered verbatim (lane 35 fi
 
   it('reason + evidence combine with the separator; stability never appears', () => {
     expect(
-      derivePostFooterMeta({
+      derivePostFooterMetaWithForcedStability({
         stability: 0.82,
         robustnessVerdict: 'robust',
         robustnessVerdictReason: 'this result held up under the changes we tested',

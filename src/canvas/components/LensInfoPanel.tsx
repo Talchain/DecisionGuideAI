@@ -162,7 +162,7 @@ function RobustnessPanel() {
   const fragileEdgeIds = useCanvasStore(s => s.lens._fragileEdgeIds)
   const nodes = useCanvasStore(s => s.nodes)
 
-  const { stability, fragileList, topFocusLabel } = useMemo(() => {
+  const { fragileList, topFocusLabel } = useMemo(() => {
     const reportAny = report as Record<string, unknown> | null | undefined
     const rob = reportAny?.robustness as Record<string, unknown> | undefined
     const rawFragile = (rob?.fragile_edges ?? []) as Array<Record<string, unknown>>
@@ -208,9 +208,28 @@ function RobustnessPanel() {
     })
 
     return {
-      stability: typeof rob?.recommendation_stability === 'number'
-        ? Math.round((rob.recommendation_stability as number) * 100)
-        : null,
+      // ⛔ REMOVED (ROADMAP 2.1273): `stability`, which was
+      // `Math.round(rob.recommendation_stability * 100)` and rendered below as
+      // "Recommendation stability: {N}%."
+      //
+      // This was the most explicit instance of the defect in the product: it
+      // named the withheld statistic by its own name. PLoT WITHHOLDS
+      // `robustness.recommendation_stability` (`src/routes/v2/run.ts` at PLoT
+      // `8bf54150`) because ISL derives it as `option_wins[winner]/n_samples` —
+      // the leading option's `win_probability` RELABELLED, carrying zero
+      // independent information — so this sentence asserted a distinct
+      // robustness measurement that was never made.
+      //
+      // A null-guard was not sufficient: on a fresh run the field is absent and
+      // the sentence already suppressed itself, but a HYDRATED `scenarios.analysis`
+      // payload written before the withdrawal still carries the value (the V2
+      // response mapper passes it through verbatim), so `typeof === 'number'`
+      // was TRUE and the claim rendered for a signed-in user.
+      //
+      // The rest of this panel is untouched: the sensitive-assumption count and
+      // the ranked fragile-edge list are producer-measured quantities with their
+      // own presence branches. REINSTATEMENT TRIGGER: PLoT supplies a genuine
+      // numeric robustness/stability field distinct from the win probability.
       fragileList: list,
       topFocusLabel: list.length > 0
         ? `${list[0].from} \u2192 ${list[0].to}`
@@ -224,9 +243,8 @@ function RobustnessPanel() {
         Robustness
       </div>
       <div style={{ fontSize: 11, color: 'var(--text-light, #6E6B6B)', lineHeight: 1.5 }}>
-        {stability !== null && (
-          <>Recommendation stability: {stability}%. </>
-        )}
+        {/* ⛔ The "Recommendation stability: {N}%." sentence was here (2.1273).
+            See the note at the removed `stability` derivation above. */}
         Sensitive assumptions: {fragileEdgeIds.size}.
       </div>
       {/* Ranked fragile edge list */}

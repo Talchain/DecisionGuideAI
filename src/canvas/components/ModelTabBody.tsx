@@ -341,7 +341,10 @@ export const ModelTabBody = memo(function ModelTabBody({
         ? (raw as NonNullable<AuditTrailData['inferenceWarnings']>)
         : null
     })(),
-    recommendationStability: robustness?.recommendationStability ?? null,
+    // ⛔ REMOVED (ROADMAP 2.1273): `recommendationStability`. The Model card no
+    // longer declares the field, because PLoT withholds the wire value it came
+    // from and a legacy hydrated payload still carries it — see
+    // `model-tab/ModelHealthSection.tsx`'s file header.
     // Legacy fallback: older PLoT builds emitted the flag under `_meta`
     // before it was promoted to a top-level field. Cached/hydrated bundles
     // captured pre-promotion still rely on this read path; without it the
@@ -782,11 +785,13 @@ export const ModelTabBody = memo(function ModelTabBody({
         showDetail={expertMode ?? false}
       >
         {/* ── Status bar ─────────────────────────────────────────────── */}
+        {/* No `recommendationStability` prop: the "{N}% stability" segment was
+            removed in 2.1273 (PLoT withholds the field; a legacy hydrated
+            payload still carries it). See `model-tab/StatusBar.tsx`. */}
         <StatusBar
           factorsToVerify={factorsToVerify}
           fragileEdgeCount={fragileEdgeCount}
           contestedCount={contestedPendingCount}
-          recommendationStability={robustness?.recommendationStability}
           hasAnalysisData={hasRobustnessData}
         />
 

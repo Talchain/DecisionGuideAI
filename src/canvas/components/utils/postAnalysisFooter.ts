@@ -68,7 +68,6 @@ export interface PostFooterStatus {
 }
 
 export interface PostFooterMetaInput {
-  stability: number | null | undefined
   /**
    * The SAME display-safe verdict that drives `derivePostFooterStatus`.
    * Gates the "{N}% stability" segment: without a determinate verdict the
@@ -130,8 +129,6 @@ export function derivePostFooterStatus(
 }
 
 export function derivePostFooterMeta({
-  // `stability` is intentionally NOT destructured/read — see the F7 note
-  // below. It remains on `PostFooterMetaInput` for caller compatibility.
   robustnessVerdict,
   robustnessVerdictReason,
   reviewCards,
@@ -142,8 +139,14 @@ export function derivePostFooterMeta({
   // PROBABILITY, not a robustness/stability measure — so rendering it as
   // "{N}% stability" mislabels a win probability as stability (same doctrine
   // #407 applied to the Advanced receipts). Only the display-safe
-  // verdict/reason and the evidence-gap text survive. The `stability` input
-  // is retained on the interface for caller compatibility but no longer read.
+  // verdict/reason and the evidence-gap text survive.
+  //
+  // ⛔ ROADMAP 2.1273 finished the job: the `stability` input is now GONE from
+  // `PostFooterMetaInput` too, and its caller (`OutputsDock`) no longer computes
+  // the value to pass. F7 stopped the render; leaving the parameter in place
+  // kept a live reader of a field PLoT withholds, which is what the wide
+  // read-ban guard now forbids. A field a helper accepts and discards still
+  // obliges every caller to source it.
   // Removal trigger: PLoT supplies a genuine numeric robustness/stability
   // field distinct from the win probability.
   const verdictKnown =

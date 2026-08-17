@@ -44,7 +44,6 @@ describe('ModelHealthSection', () => {
       nSamples: null,
       repairsApplied: null,
       inferenceWarnings: null,
-      recommendationStability: null,
       autoNoiseApplied: null,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
@@ -65,7 +64,6 @@ describe('ModelHealthSection', () => {
       nSamples: null,
       repairsApplied: null,
       inferenceWarnings: null,
-      recommendationStability: null,
       autoNoiseApplied: null,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
@@ -74,22 +72,28 @@ describe('ModelHealthSection', () => {
     expect(screen.getByTestId('model-health-section')).toBeInTheDocument()
   })
 
-  it('shows stability and quality in accordion header (visible when collapsed)', () => {
+  it('shows quality — and NOT a stability percentage — in the accordion header', () => {
     const auditTrail: AuditTrailData = {
       seedUsed: null,
       responseHash: null,
       nSamples: null,
       repairsApplied: null,
       inferenceWarnings: null,
-      recommendationStability: 0.71,
       autoNoiseApplied: null,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
     }
     render(<ModelHealthSection auditTrail={auditTrail} ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }} />)
     const tierLabel = screen.getByTestId('accordion-tier-label')
-    expect(tierLabel).toHaveTextContent('71% stability')
+    // POSITIVE CONTROL: the header summary still renders, so the absence
+    // assertion below is about the stability half specifically and not about a
+    // header that failed to appear at all.
     expect(tierLabel).toHaveTextContent('7.2 / 10')
+    // ROADMAP 2.1273: the "{N}% stability" half is gone. This spec no longer
+    // supplies the field, so the load-bearing proof — which INJECTS it and
+    // shows the header still cannot render a percentage — lives in
+    // `withheldStabilitySurfaces.honesty.spec.tsx`.
+    expect(tierLabel.textContent ?? '').not.toMatch(/%\s*stability/i)
   })
 
   it('shows root node warning when inference_warnings contain ROOT_NODE_DEFAULT_VALUE', () => {
@@ -102,7 +106,6 @@ describe('ModelHealthSection', () => {
         { code: 'ROOT_NODE_DEFAULT_VALUE', severity: 'warning', message: 'Node has default value' },
         { code: 'ROOT_NODE_DEFAULT_VALUE', severity: 'warning', message: 'Node has default value' },
       ],
-      recommendationStability: null,
       autoNoiseApplied: null,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
@@ -121,7 +124,6 @@ describe('ModelHealthSection', () => {
       inferenceWarnings: [
         { code: 'ROOT_NODE_DEFAULT_VALUE', severity: 'warning', message: 'test' },
       ],
-      recommendationStability: null,
       autoNoiseApplied: null,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: 0.90,
@@ -137,7 +139,6 @@ describe('ModelHealthSection', () => {
       nSamples: 1000,
       repairsApplied: null,
       inferenceWarnings: null,
-      recommendationStability: null,
       autoNoiseApplied: null,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
@@ -156,7 +157,6 @@ describe('ModelHealthSection', () => {
         { code: 'DEFAULT_EXISTS_PROBABILITY', field_path: 'edges[1]', reason: 'No exists_probability provided' },
       ],
       inferenceWarnings: null,
-      recommendationStability: 0.71,
       autoNoiseApplied: true,
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
@@ -204,7 +204,6 @@ describe('ModelHealthSection', () => {
         nSamples: 1000,
         repairsApplied: null,
         inferenceWarnings: null,
-        recommendationStability: null,
         autoNoiseApplied: null,
         autoNoiseProvenance: null,
         stabilityPenaltyFactor: null,
@@ -265,7 +264,6 @@ describe('ModelHealthSection', () => {
               seedUsed: null,
               responseHash: null,
               nSamples: null,
-              recommendationStability: null,
               stabilityPenaltyFactor: null,
             })}
           />

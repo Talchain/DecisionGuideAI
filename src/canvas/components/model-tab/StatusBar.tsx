@@ -2,9 +2,15 @@
  * StatusBar — compact horizontal row of clickable status segments.
  *
  * Pre-analysis: "N to verify" + "N fragile" (0 pre-analysis).
- * Post-analysis adds: "N contested", "N fragile", "Npp via EVPI", "N% stability".
+ * Post-analysis adds: "N contested".
  *
  * Each segment scrolls to the relevant section on click.
+ *
+ * ⛔ TWO SEGMENTS HAVE BEEN REMOVED FROM THIS BAR, BOTH FOR THE SAME REASON:
+ * each rendered a number the producer cannot vouch for. See the in-body notes
+ * at their former positions. Absence pinned in
+ * `__tests__/evpiSurfacesRemoved.canvas.honesty.spec.tsx` (EVPI) and
+ * `__tests__/withheldStabilitySurfaces.honesty.spec.tsx` (stability).
  */
 
 import { typography } from '../../../styles/typography'
@@ -13,7 +19,6 @@ interface StatusBarProps {
   factorsToVerify: number
   fragileEdgeCount: number
   contestedCount: number
-  recommendationStability: number | null | undefined
   hasAnalysisData: boolean
 }
 
@@ -33,7 +38,6 @@ export function StatusBar({
   factorsToVerify,
   fragileEdgeCount,
   contestedCount,
-  recommendationStability,
   hasAnalysisData,
 }: StatusBarProps) {
   const segments: Segment[] = []
@@ -76,15 +80,30 @@ export function StatusBar({
     // 12.3 / 10.2 / 6.6 in the same payload — so the sum inherited every
     // defect and compounded them. Do not reinstate.
 
-    // Stability
-    if (recommendationStability != null) {
-      segments.push({
-        key: 'stability',
-        dotColour: 'bg-success',
-        label: `${Math.round(recommendationStability * 100)}% stability`,
-        scrollTarget: 'model-health-section',
-      })
-    }
+    // ⛔ REMOVED (ROADMAP 2.1273): the `"{N}% stability"` segment, derived from
+    // `robustness.recommendation_stability`.
+    //
+    // PLoT WITHHOLDS that field deliberately (`src/routes/v2/run.ts` at PLoT
+    // `8bf54150`) because ISL derives it as `option_wins[winner] / n_samples` —
+    // the leading option's `win_probability` RELABELLED, carrying zero
+    // independent information. Printing it as "stability" showed one quantity
+    // twice: honestly as "came out ahead in N% of simulated scenarios", and
+    // again under a name implying an independent robustness measurement.
+    //
+    // On a fresh run the field is absent, so this segment was already dark
+    // (wire-witnessed 2026-08-17: `enrichment.robustness` carries 11 keys and
+    // `recommendation_stability` is not one of them). The reason it is DELETED
+    // rather than left to its null-guard is a legacy HYDRATED payload: a
+    // `scenarios.analysis` row written before the withdrawal still carries the
+    // value, `adapters/plot/v2/responseMapper.ts` passes it through verbatim,
+    // and this segment would then render the withdrawn statistic to a
+    // signed-in user. A null-check cannot defend against a value that is
+    // present; only not reading it can.
+    //
+    // Same treatment, same reasoning, as `utils/postAnalysisFooter.ts`'s F7
+    // removal of its own "{N}% stability" segment. REINSTATEMENT TRIGGER: PLoT
+    // supplies a genuine numeric robustness/stability field that is distinct
+    // from the leader's win probability. Until then, do not reinstate.
   }
 
   if (segments.length === 0) return null

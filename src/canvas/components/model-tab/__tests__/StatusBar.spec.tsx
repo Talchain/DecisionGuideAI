@@ -13,7 +13,6 @@ describe('StatusBar', () => {
         factorsToVerify={0}
         fragileEdgeCount={0}
         contestedCount={0}
-        recommendationStability={null}
         hasAnalysisData={false}
       />
     )
@@ -26,7 +25,6 @@ describe('StatusBar', () => {
         factorsToVerify={3}
         fragileEdgeCount={0}
         contestedCount={0}
-        recommendationStability={null}
         hasAnalysisData={false}
       />
     )
@@ -39,7 +37,6 @@ describe('StatusBar', () => {
         factorsToVerify={1}
         fragileEdgeCount={0}
         contestedCount={2}
-        recommendationStability={0.71}
         hasAnalysisData={false}
       />
     )
@@ -53,7 +50,6 @@ describe('StatusBar', () => {
         factorsToVerify={2}
         fragileEdgeCount={4}
         contestedCount={1}
-        recommendationStability={0.71}
         hasAnalysisData={true}
       />
     )
@@ -66,7 +62,13 @@ describe('StatusBar', () => {
     // three refuted numbers into one headline. Absence pinned in
     // evpiSurfacesRemoved.canvas.honesty.spec.tsx.
     expect(screen.queryByTestId('status-evpi')).not.toBeInTheDocument()
-    expect(screen.getByTestId('status-stability')).toHaveTextContent('71% stability')
+    // The `status-stability` segment ("71% stability") is removed too (ROADMAP
+    // 2.1273): PLoT withholds `robustness.recommendation_stability` because it
+    // is the leader's win_probability relabelled. This spec no longer supplies
+    // the prop, so its absence here is not by itself evidence — the load-bearing
+    // proof, which INJECTS the removed prop and shows the segment still cannot
+    // render, lives in `withheldStabilitySurfaces.honesty.spec.tsx`.
+    expect(screen.queryByTestId('status-stability')).not.toBeInTheDocument()
   })
 
   it('hides contested when 0', () => {
@@ -75,7 +77,6 @@ describe('StatusBar', () => {
         factorsToVerify={1}
         fragileEdgeCount={0}
         contestedCount={0}
-        recommendationStability={0.5}
         hasAnalysisData={true}
       />
     )
@@ -91,7 +92,6 @@ describe('StatusBar', () => {
         factorsToVerify={2}
         fragileEdgeCount={0}
         contestedCount={0}
-        recommendationStability={null}
         hasAnalysisData={false}
       />
     )
