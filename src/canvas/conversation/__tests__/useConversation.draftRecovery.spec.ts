@@ -321,6 +321,36 @@ describe('stream loss + fallback decline — the server HOLDS the draft', () => 
     expect(chip).toBeDefined()
   })
 
+  it("'unchanged' is NOT a recovery: a token-identical server graph means this draft committed nothing new (reviewer blocker pin)", async () => {
+    // Precondition: a PREVIOUS hydration already applied exactly the graph the
+    // server holds — the identity token matches what the read returns, so
+    // hydrateCanvasFromServer short-circuits to 'unchanged' WITHOUT merging.
+    // Claiming recovery here would present pre-draft state as the recovered
+    // draft ("the saved model is now on your canvas" over the preview's zeroed
+    // values) and open the run gate on unsettled values. The reviewer's mutant
+    // (treat 'unchanged' as recovery) survived the original battery — this pin
+    // is what makes it bite.
+    useCanvasStore.setState({
+      serverGraphIdentity: { value: 'srv-hash-1', projectionVersion: 'p1' },
+    } as never)
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const result = await driveStreamLossDecline()
+
+    // The read WAS attempted — this test is about the outcome mapping, not
+    // about skipping the fetch (M1 owns that direction).
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+
+    // Nothing merged: the preview's zeroed values are untouched.
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(0)
+
+    // Standing unsettled behaviour, and NO recovery claim in either voice.
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+    const contents = result.current.messages.map((m) => m.content)
+    expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
+    expect(contents).not.toContain(DRAFT_RECOVERED_STREAM_LOSS_NOTICE)
+    expect(contents).not.toContain(DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE)
+  })
+
   it('a transport-dead recovery read is a failure, not a recovery — same standing behaviour', async () => {
     // The read leg itself can die (the 2.1251 class). `unusable` must route
     // exactly like 404: no claim, standing notice, chip present.
