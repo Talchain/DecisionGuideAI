@@ -1,0 +1,787 @@
+/**
+ * THE CROSS-SURFACE COHERENCE GATE — six contradiction pairs.
+ *
+ * ⚠ WHAT THIS IS, AND WHAT IT IS NOT
+ * ----------------------------------
+ * It is a DETECTOR, not a fix. It renders nothing, gates no mount, suppresses
+ * no field and repairs no payload. It answers exactly one question that no
+ * single-surface test can answer:
+ *
+ *     do two surfaces of THIS turn contradict each other?
+ *
+ * Every pair below is a case where each surface is INTERNALLY CORRECT while
+ * contradicting a sibling. That is why no component-level guard reaches them:
+ * a guard is correct at the seam it guards (P1), and this defect lives in the
+ * space BETWEEN two seams that never consult one another.
+ *
+ * WHY IT LIVES HERE AND NOT IN THE SCHEMA
+ * ---------------------------------------
+ * The vendored contract is `@talchain/schemas` 0.46.0, and it has ZERO
+ * cross-field refinement — measured, not assumed: `superRefine` occurrences in
+ * `dist/boundary/analysis-state.js` = 0, and the file's own header says so
+ * ("NO cross-field refinement. Every composition rule below is stated as
+ * LICENCE in a `.describe()` and is NOT enforced by the parser"), pinning three
+ * DISCLOSED LIMITS (L1 `permitted:true` beside `withheld_reason` parses; L2 the
+ * five usability booleans are not cross-checked against `run_state`;
+ * L3 `contradictions: []` is the producer's self-report, not evidence).
+ * The producer agrees, deliberately: CEE
+ * `src/orchestrator-v5/compose/analysis-state-v1.ts` limit L-D says it "does
+ * NOT force the usability booleans to agree with `run_state`".
+ *
+ * So the incoherence is SANCTIONED at both ends of the wire. Detecting it is
+ * therefore a third thing — neither a parser rule nor a producer rule — and
+ * that is what this module is.
+ *
+ * EXPRESSIBILITY, STATED PER PAIR (the honest answer to the frozen Codex
+ * adjudication's question 9: "is coherence BETWEEN sibling analysis blocks a
+ * contract obligation, or is it a producer obligation the contract cannot
+ * express?"). Each pair below carries an `expressibility` field with one of:
+ *
+ *   'analysis_state'  — statable as a cross-check rule INSIDE `AnalysisStateV1`
+ *                       (CC-G shaped). The contract could carry it today.
+ *   'envelope'        — spans `analysis_state` and a SIBLING BLOCK
+ *                       (`enrichment`, `assistant_text`). `AnalysisStateV1` is
+ *                       `.strict()` and has no member for either, so the rule
+ *                       is NOT expressible inside it. It needs an
+ *                       envelope-level obligation or a gate like this one.
+ *   'not_on_the_wire' — the fact the rule needs is NOT TRANSMITTED at all.
+ *                       No schema change to `AnalysisStateV1`'s current members
+ *                       can express it; the producer must first emit the fact.
+ *
+ * Three of the six are 'envelope' and one is 'not_on_the_wire'. That is the
+ * finding, and it is why "add CC-G and freeze" would close two pairs of six.
+ *
+ * WHAT THIS MODULE MUST NEVER DO
+ * ------------------------------
+ * Weaken a pair to make a capture pass. A pair that cannot be expressed is
+ * reported as inexpressible (see `expressibility`), never narrowed until the
+ * corpus goes quiet. And it must not become a CONSUMER of the incoherent
+ * members it observes: reading `refused` beside `usable_for_chips` to DETECT
+ * the contradiction is not the same as rendering from it, and nothing here
+ * returns a value any surface may display.
+ *
+ * PRODUCER DERIVATION (P7) — every vocabulary below is read from the PRODUCER,
+ * never inferred from the captures this gate is pointed at:
+ *   · `run_state.kind`            CEE `compose/analysis-state-v1.ts:189-265`
+ *                                 (`composeRunState`), and the closed enum is
+ *                                 imported at RUN TIME from the contract, not
+ *                                 re-typed here.
+ *   · `readiness.status`          CEE `src/schemas/analysis-ready.ts:222-228`
+ *                                 (`AnalysisReadyStatus`) + the unsupplied
+ *                                 sentinel `READINESS_STATUS_UNSUPPLIED`
+ *                                 ('unknown', `analysis-state-v1.ts:110`),
+ *                                 whose own doc says it is NOT a synonym for
+ *                                 blocked.
+ *   · actionable blocker CODES    CEE `ACTIONABLE_BLOCKER_TYPES`
+ *                                 (`context/canonical-analysis-state.ts:130`)
+ *                                 mapped through `blockerIssue`
+ *                                 (`orchestrator/tools/analysis-ready-helper.ts:623-651`).
+ *                                 `constraint_dropped` → `CONSTRAINT_REVIEW_REQUIRED`
+ *                                 is ADVISORY by the producer's own statement
+ *                                 and is deliberately EXCLUDED.
+ *   · usability booleans          `assembleCanonicalState`
+ *                                 (`canonical-analysis-state.ts:505-545`): all
+ *                                 five require `hasFact`.
+ *   · enrichment field names      derived at run time from the contract's
+ *                                 `EnrichmentFlipThresholdSchema` /
+ *                                 `EnrichmentConditionalWinnerSchema` shapes.
+ */
+
+import {
+  ANALYSIS_RUN_STATE_KINDS,
+  type AnalysisStateV1,
+  type AnalysisBlocker,
+} from '@talchain/schemas/boundary'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Producer vocabularies
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The ONE `readiness.status` that means "this model can be analysed".
+ *
+ * The contract types `readiness.status` as a free string ON PURPOSE — the
+ * vocabulary lives with CEE, and a closed enum in the shared package would be a
+ * hand-maintained mirror of a registry it does not own. So this gate names the
+ * single POSITIVE value rather than mirroring the negative list: a status CEE
+ * adds later is not-ready by default, which fails toward detection rather than
+ * toward silence.
+ */
+export const READINESS_STATUS_READY = 'ready'
+
+/**
+ * CEE's sentinel for "no readiness verdict was supplied on this turn"
+ * (`analysis-state-v1.ts:110`, `READINESS_STATUS_UNSUPPLIED`). Its own doc:
+ * "It is NOT a synonym for `blocked`, and a consumer must not treat it as one."
+ *
+ * So it is neither ready nor not-ready, and every pair below that keys on
+ * not-readiness EXCLUDES it. Treating an absent verdict as a negative verdict
+ * is how an absence becomes a fabricated finding.
+ */
+export const READINESS_STATUS_UNSUPPLIED = 'unknown'
+
+/**
+ * The full `readiness.status` vocabulary CEE can emit, recorded so drift is
+ * VISIBLE rather than silent. Derived from `AnalysisReadyStatus`
+ * (CEE `src/schemas/analysis-ready.ts:222-228`) plus the unsupplied sentinel.
+ *
+ * ⚠ This is a MIRROR of a producer registry, and this estate's dominant defect
+ * is exactly that. It is therefore NOT load-bearing for any detector — no pair
+ * consults it. It exists solely so
+ * `crossSurfaceCoherence.contractDerivation.spec.ts` can assert that every
+ * status appearing in the real captures is a member, and RED when one is not.
+ * A drift makes the suite fail loud; it never silently changes a verdict.
+ */
+export const KNOWN_READINESS_STATUSES: readonly string[] = [
+  'ready',
+  'needs_user_mapping',
+  'needs_encoding',
+  'needs_user_input',
+  'blocked',
+  READINESS_STATUS_UNSUPPLIED,
+]
+
+/**
+ * Blocker CODES that mean "the user must supply something before this model is
+ * analysable".
+ *
+ * DERIVED, not observed: CEE's `ACTIONABLE_BLOCKER_TYPES` is
+ * `{missing_value, ambiguous_value, missing_connection}`
+ * (`canonical-analysis-state.ts:130-134`), and `blockerIssue`
+ * (`analysis-ready-helper.ts:623-651`) maps those three wire types onto exactly
+ * these three contract codes.
+ *
+ * `CONSTRAINT_REVIEW_REQUIRED` (from wire type `constraint_dropped`) is
+ * EXCLUDED because the producer excludes it: "Advisory `constraint_dropped`
+ * blockers do NOT trigger it … It must NOT downgrade usability"
+ * (`canonical-analysis-state.ts:48-56`). Counting an advisory blocker as
+ * actionable would make this gate fire on a BY-DESIGN combination — the
+ * over-refusal failure mode the frozen adjudication's sub-question 1 warns
+ * about.
+ *
+ * `UNREACHABLE_CONTROLLABLE_FACTOR` is also excluded: it is minted from the
+ * `needs_user_mapping` STATUS branch (`analysis-ready-helper.ts:615-622`), not
+ * from an actionable blocker type, so admitting it would widen the predicate
+ * past the producer's own definition.
+ */
+export const ACTIONABLE_BLOCKER_CODES: readonly string[] = [
+  'MISSING_OPTION_VALUE',
+  'AMBIGUOUS_OPTION_VALUE',
+  'MISSING_OPTION_CONNECTION',
+]
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The gate's input
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One `enrichment.flip_thresholds` row, narrowed to the members a pair reads. */
+export interface FlipThresholdRow {
+  factor_id?: string
+  factor_label?: string
+  no_flip_in_range?: boolean
+  flip_reason?: string
+  flip_value?: number | null
+}
+
+/** One `enrichment.conditional_winners` bucket, narrowed likewise. */
+export interface ConditionalWinnerBucketRow {
+  winner_id?: string
+  winner_label?: string
+  win_probability?: number
+}
+
+/** One `enrichment.conditional_winners` row, narrowed likewise. */
+export interface ConditionalWinnerRow {
+  factor_id?: string
+  factor_label?: string
+  split_value?: number
+  winner_flips?: boolean
+  low_bucket?: ConditionalWinnerBucketRow
+  high_bucket?: ConditionalWinnerBucketRow
+}
+
+/**
+ * Everything one TURN puts in front of one user, as far as coherence is
+ * concerned.
+ *
+ * Deliberately a flat bag of OBSERVED CLAIMS rather than a re-derivation. This
+ * module computes no freshness, no readiness, no entitlement and no run
+ * outcome — it only compares claims that already exist.
+ */
+export interface CoherenceInput {
+  /** The composed verdict, when the wire carried one. */
+  analysisState: AnalysisStateV1 | null
+  /** `analysis_result` block enrichment members the pairs read. */
+  enrichment: {
+    flip_thresholds?: readonly FlipThresholdRow[] | null
+    conditional_winners?: readonly ConditionalWinnerRow[] | null
+  } | null
+  /** The assistant's rendered prose for this turn (`assistant_text`). */
+  prose: string | null
+  /** What is actually MOUNTED, which no payload field states. */
+  surfaces: {
+    /**
+     * A results body is on screen. Not derivable from `analysis_state`: the
+     * body may be a retained prior result the turn did not re-ship.
+     */
+    resultBodyVisible?: boolean | null
+  }
+  /**
+   * Facts about how this turn's state was OBTAINED.
+   *
+   * ⚠ NOT ON THE WIRE TODAY. `fetchPriorTurns` swallows a thrown store read and
+   * reports success, so a degraded read reaches the wire as the POSITIVE claim
+   * `run_state.kind: 'never_run'` with nothing to distinguish it from a
+   * genuinely fresh scenario. Every member here is `null` for every real
+   * capture, and the pair that reads it says so.
+   */
+  provenance: {
+    /** `false` ⇒ the prior-turn store read failed or degraded this turn. */
+    priorTurnStoreReadOk?: boolean | null
+  }
+}
+
+/** A convenience constructor so callers cannot forget a member. */
+export function coherenceInput(partial: Partial<CoherenceInput>): CoherenceInput {
+  return {
+    analysisState: partial.analysisState ?? null,
+    enrichment: partial.enrichment ?? null,
+    prose: partial.prose ?? null,
+    surfaces: partial.surfaces ?? {},
+    provenance: partial.provenance ?? {},
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The gate's output
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const COHERENCE_PAIR_IDS = ['CX1', 'CX2', 'CX3', 'CX4', 'CX5', 'CX6'] as const
+export type CoherencePairId = (typeof COHERENCE_PAIR_IDS)[number]
+
+/** Where a rule forbidding this pair COULD live. See the header. */
+export type CoherenceExpressibility = 'analysis_state' | 'envelope' | 'not_on_the_wire'
+
+export interface CoherencePair {
+  readonly id: CoherencePairId
+  /** Stable machine name — what a report cites. */
+  readonly name: string
+  /** The claim one surface makes. */
+  readonly claimA: string
+  /** The claim its sibling makes, which cannot hold at the same time. */
+  readonly claimB: string
+  readonly expressibility: CoherenceExpressibility
+}
+
+export interface CoherenceViolation {
+  readonly pair: CoherencePairId
+  /** Sub-code — one pair may have several distinguishable limbs. */
+  readonly code: string
+  /** What contradicts what, in one line, for a report. */
+  readonly detail: string
+  /**
+   * The identities the violation binds to (factor ids, option ids, statuses).
+   * Assertions in the suite bind to THESE, never to a value predicate another
+   * object could satisfy.
+   */
+  readonly evidence: Readonly<Record<string, string>>
+}
+
+export const COHERENCE_PAIRS: Readonly<Record<CoherencePairId, CoherencePair>> = {
+  CX1: {
+    id: 'CX1',
+    name: 'analysis_complete_vs_model_not_analysable',
+    claimA: 'run_state.complete_current — this result reflects the CURRENT model',
+    claimB: 'readiness — the CURRENT model cannot be analysed (actionable blockers)',
+    // Both members live inside `AnalysisStateV1`, so a CC-rule could state it.
+    expressibility: 'analysis_state',
+  },
+  CX2: {
+    id: 'CX2',
+    name: 'refused_vs_readiness',
+    claimA: 'run_state.refused — this turn declined to analyse',
+    claimB: 'readiness.ready / usable_for_chips — the analysis is ready and chip-safe',
+    expressibility: 'analysis_state',
+  },
+  CX3: {
+    id: 'CX3',
+    name: 'never_run_vs_evidence_of_a_run',
+    claimA: 'run_state.never_run — this scenario has never been analysed',
+    claimB: 'usability booleans / a visible result body / a degraded store read',
+    // Limbs (a) is analysis_state; (b) is not_on_the_wire; (c) is envelope.
+    // The pair takes its WEAKEST limb, because the pair is only as expressible
+    // as its hardest member — see `limbExpressibility` below for the split.
+    expressibility: 'not_on_the_wire',
+  },
+  CX4: {
+    id: 'CX4',
+    name: 'leader_withheld_vs_leader_designated',
+    claimA: 'leader_claim.permitted:false — no leading option may be named',
+    claimB: 'conditional_winners — a rendered row names the leading option per bucket',
+    expressibility: 'envelope',
+  },
+  CX5: {
+    id: 'CX5',
+    name: 'flip_proof_vs_conditional_winner',
+    claimA: 'flip_thresholds.no_flip_in_range:true — this factor cannot flip the winner',
+    claimB: 'conditional_winners.winner_flips:true — this same factor flips the winner',
+    expressibility: 'envelope',
+  },
+  CX6: {
+    id: 'CX6',
+    name: 'value_claimed_present_vs_blocker_says_missing',
+    claimA: 'assistant prose — the model already reflects this value',
+    claimB: 'readiness.blockers — that value is missing for this option/factor',
+    expressibility: 'envelope',
+  },
+}
+
+/**
+ * CX3's three limbs do not share an expressibility, and collapsing them would
+ * hide the only interesting fact about the pair. The pair's own field carries
+ * the weakest limb; this map carries the truth per limb.
+ */
+export const CX3_LIMB_EXPRESSIBILITY: Readonly<Record<string, CoherenceExpressibility>> = {
+  never_run_with_usable_analysis: 'analysis_state',
+  never_run_after_degraded_store_read: 'not_on_the_wire',
+  never_run_over_visible_result_body: 'envelope',
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared readers — deliberately tolerant, because a gate that throws on a
+// malformed payload stops detecting exactly when detection matters most (P1:
+// the seam one past the guard is where the defect lives).
+// ─────────────────────────────────────────────────────────────────────────────
+
+function blockersOf(state: AnalysisStateV1 | null): readonly AnalysisBlocker[] {
+  const raw = state?.readiness?.blockers
+  return Array.isArray(raw) ? raw : []
+}
+
+function actionableBlockers(state: AnalysisStateV1 | null): readonly AnalysisBlocker[] {
+  return blockersOf(state).filter(
+    b => typeof b?.code === 'string' && ACTIONABLE_BLOCKER_CODES.includes(b.code),
+  )
+}
+
+/**
+ * "This status asserts the model is NOT analysable."
+ *
+ * `ready` is the one positive value; the unsupplied sentinel is neither. An
+ * absent status is neither, too — an absence is not a negative verdict.
+ */
+export function assertsNotAnalysable(status: unknown): boolean {
+  if (typeof status !== 'string' || status.length === 0) return false
+  if (status === READINESS_STATUS_READY) return false
+  if (status === READINESS_STATUS_UNSUPPLIED) return false
+  return true
+}
+
+/**
+ * The rows `ConditionalWinnerCards` ACTUALLY renders.
+ *
+ * Byte-for-byte the component's own filter — `ConditionalWinnerCards.tsx:85-89`:
+ * `winners.filter(w => w.winner_flips === true && Number.isFinite(w.split_value))`,
+ * then `if (flipping.length === 0) return null`. Restated rather than imported
+ * so this module stays free of React; the pairs spec RENDERS the real component
+ * against the same rows and asserts the DOM agrees, so the restatement cannot
+ * drift silently (P2).
+ */
+export function renderedConditionalWinnerRows(
+  rows: readonly ConditionalWinnerRow[] | null | undefined,
+): readonly ConditionalWinnerRow[] {
+  if (!Array.isArray(rows)) return []
+  return rows.filter(r => r?.winner_flips === true && Number.isFinite(r?.split_value))
+}
+
+/**
+ * Does this row put an OPTION IDENTITY on screen?
+ *
+ * The data-vs-designation doctrine is the discriminator, not a blanket ban:
+ * withholding a leader claim drops the DESIGNATION and KEEPS the DATA. A bucket
+ * carrying only `win_probability` renders "Above: 65%" — data, permitted. A
+ * bucket carrying `winner_label` renders "Above: Floating price contract (50%)"
+ * — a designation of which option leads in that bucket, which is exactly what a
+ * withheld claim forbids. `ConditionalWinnerCards.tsx:154-165` (`sideText`) is
+ * the function that makes that choice; `:184-186` names the alt winner in the
+ * directional sentence.
+ */
+export function rowNamesAnOption(row: ConditionalWinnerRow): boolean {
+  const buckets = [row.low_bucket, row.high_bucket]
+  return buckets.some(b => typeof b?.winner_label === 'string' && b.winner_label.length > 0)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CX6's lexical limb — bounded on purpose, and its bound is DECLARED
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Phrases that assert a value is ALREADY IN THE MODEL.
+ *
+ * ⚠ THIS IS A BOUNDED LEXICAL TRIPWIRE, NOT A DERIVED PREDICATE, AND THE
+ * DIFFERENCE IS THE POINT (P7). Every other vocabulary in this file was read
+ * off the producer. This one CANNOT be: the sentence is generated by a language
+ * model, so there is no instruction, schema or normaliser that fixes its
+ * wording — a sweep of CEE for the witnessed phrasing returns ONE hit, in an
+ * unrelated comment (`compose/lens-selector.ts:390`). A predicate over an
+ * unbounded phrasing space cannot be complete, and four rounds of "one more
+ * rule" on exactly this kind of predicate is a documented failure in this
+ * estate.
+ *
+ * So the honest shape is: a SHORT list, a pinned KNOWN-DROPPED set in the spec
+ * (paraphrases this gate provably misses), and a plain statement that the
+ * structural fix belongs to the PRODUCER — the standing brief's P5 requires
+ * that a claim contradicting the same payload's blockers be made IMPOSSIBLE,
+ * not merely detected. This limb is a tripwire under that fix, not a substitute
+ * for it.
+ *
+ * The list is drawn from sentences the product ACTUALLY EMITTED (the J4
+ * capture), not from phrasings imagined here.
+ */
+export const PRESENCE_ASSERTION_PHRASES: readonly string[] = [
+  'already reflects',
+  'already reflected',
+  'already anchors',
+  'already captured',
+  'already set to',
+  'already in the model',
+  'already modelled',
+  'no change is needed',
+]
+
+/**
+ * Words that flip a presence assertion into its opposite when they sit
+ * immediately before it ("does not already reflect", "not yet captured").
+ *
+ * ONE rule, with its opposite-direction twin pinned in the spec. It is not
+ * extended when a new construction is found: a new construction is recorded in
+ * the KNOWN-DROPPED set instead. Two reversals on one natural-language
+ * predicate is the signal that no further punctuation rule will settle it.
+ */
+const NEGATION_LOOKBEHIND = /\b(?:no|not|never|without|isn't|doesn't|does\s+not|is\s+not|has\s+not|hasn't)\b[^.!?]{0,24}$/i
+
+const STOPWORDS: ReadonlySet<string> = new Set([
+  'a', 'an', 'and', 'as', 'at', 'by', 'for', 'from', 'in', 'of', 'on', 'or', 'per',
+  'the', 'to', 'with', 'share', 'total',
+])
+
+/**
+ * Split prose into sentences WITHOUT cutting decimals.
+ *
+ * The estate has shipped a guard that could not fire because its window was cut
+ * at the first `[.!?]` — which is also the decimal point — so `£1.5 million`
+ * became `1` before the guard ever looked. A period flanked by digits is not a
+ * sentence end here.
+ */
+export function splitSentences(text: string): string[] {
+  const parts: string[] = []
+  let start = 0
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i]
+    if (ch !== '.' && ch !== '!' && ch !== '?' && ch !== '\n') continue
+    if (ch === '.') {
+      const prev = text[i - 1]
+      const next = text[i + 1]
+      if (prev !== undefined && next !== undefined && /\d/.test(prev) && /\d/.test(next)) continue
+    }
+    const slice = text.slice(start, i + 1).trim()
+    if (slice.length > 0) parts.push(slice)
+    start = i + 1
+  }
+  const tail = text.slice(start).trim()
+  if (tail.length > 0) parts.push(tail)
+  return parts
+}
+
+function contentTokens(label: string): string[] {
+  return label
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(t => t.length > 2 && !STOPWORDS.has(t))
+}
+
+/**
+ * The share of a label's content tokens a sentence must carry before the
+ * sentence counts as being ABOUT that label.
+ *
+ * Identity binding, not a value predicate: the point is that the sentence names
+ * THIS factor, not that it names some factor. 0.7 is high enough that a
+ * sentence about a different factor sharing one or two generic words cannot
+ * satisfy it, and low enough to survive the paraphrase the product actually
+ * emits ("subcontractor cost at 12% of affected-route revenue" carries 5 of the
+ * 6 content tokens of "Subcontractor cost as share of affected-route revenue").
+ */
+export const FACTOR_IDENTITY_TOKEN_SHARE = 0.7
+
+export function sentenceNamesLabel(sentence: string, label: string): boolean {
+  const tokens = contentTokens(label)
+  if (tokens.length === 0) return false
+  const haystack = sentence.toLowerCase()
+  const present = tokens.filter(t => haystack.includes(t)).length
+  return present / tokens.length >= FACTOR_IDENTITY_TOKEN_SHARE
+}
+
+/** Does this sentence assert (un-negated) that a value is already present? */
+export function sentenceAssertsPresence(sentence: string): string | null {
+  const lower = sentence.toLowerCase()
+  for (const phrase of PRESENCE_ASSERTION_PHRASES) {
+    const at = lower.indexOf(phrase)
+    if (at === -1) continue
+    if (NEGATION_LOOKBEHIND.test(lower.slice(0, at))) continue
+    return phrase
+  }
+  return null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The six detectors
+// ─────────────────────────────────────────────────────────────────────────────
+
+function detectCX1(input: CoherenceInput, out: CoherenceViolation[]): void {
+  const state = input.analysisState
+  if (state?.run_state?.kind !== 'complete_current') return
+  const status = state.readiness?.status
+  if (!assertsNotAnalysable(status)) return
+  const blocking = actionableBlockers(state)
+  if (blocking.length === 0) return
+  out.push({
+    pair: 'CX1',
+    code: 'complete_current_with_actionable_blockers',
+    detail:
+      `run_state 'complete_current' claims the result reflects the CURRENT model, ` +
+      `while readiness '${String(status)}' plus ${blocking.length} actionable blocker(s) ` +
+      `claims the current model cannot be analysed. The results surface says the ` +
+      `analysis is current; the pre-analysis footer renders "Not ready for analysis yet".`,
+    evidence: {
+      run_state_kind: 'complete_current',
+      readiness_status: String(status),
+      actionable_blocker_codes: blocking.map(b => b.code).join(','),
+      first_blocker_option_id: blocking[0]?.option_id ?? '',
+      first_blocker_factor_id: blocking[0]?.factor_id ?? '',
+    },
+  })
+}
+
+function detectCX2(input: CoherenceInput, out: CoherenceViolation[]): void {
+  const state = input.analysisState
+  if (state?.run_state?.kind !== 'refused') return
+  const status = state.readiness?.status
+  if (status === READINESS_STATUS_READY) {
+    out.push({
+      pair: 'CX2',
+      code: 'refused_with_readiness_ready',
+      detail:
+        `run_state 'refused' says this turn declined to analyse, while readiness ` +
+        `reports '${READINESS_STATUS_READY}' on the same payload.`,
+      evidence: { run_state_kind: 'refused', readiness_status: String(status) },
+    })
+  }
+  if (state.usable_for_chips === true) {
+    out.push({
+      pair: 'CX2',
+      code: 'refused_with_usable_for_chips',
+      detail:
+        `run_state 'refused' says this turn declined to analyse, while ` +
+        `usable_for_chips:true invites result-exploration chips off it. The producer ` +
+        `computes usable_for_chips as hasFact && fresh && !blockedUnusable && ` +
+        `!trustDowngrade, and the refusal branch returns BEFORE the status check, so ` +
+        `this pair is emittable rather than impossible.`,
+      evidence: {
+        run_state_kind: 'refused',
+        usable_for_chips: 'true',
+        reason_code: String(state.run_state.reason_code ?? ''),
+      },
+    })
+  }
+}
+
+function detectCX3(input: CoherenceInput, out: CoherenceViolation[]): void {
+  const state = input.analysisState
+  if (state?.run_state?.kind !== 'never_run') return
+
+  const usable: string[] = []
+  if (state.usable_for_prose === true) usable.push('usable_for_prose')
+  if (state.usable_for_chips === true) usable.push('usable_for_chips')
+  if (state.usable_for_followup === true) usable.push('usable_for_followup')
+  if (usable.length > 0) {
+    out.push({
+      pair: 'CX3',
+      code: 'never_run_with_usable_analysis',
+      detail:
+        `run_state 'never_run' claims this scenario has never been analysed, while ` +
+        `${usable.join(' + ')} claims an analysis exists to use. The producer derives ` +
+        `every usability boolean from hasFact, so this combination is not merely ` +
+        `contradictory — it is producer-impossible, and its appearance means a ` +
+        `producer invariant broke.`,
+      evidence: { run_state_kind: 'never_run', usable_true: usable.join(',') },
+    })
+  }
+
+  if (input.provenance.priorTurnStoreReadOk === false) {
+    out.push({
+      pair: 'CX3',
+      code: 'never_run_after_degraded_store_read',
+      detail:
+        `run_state 'never_run' is a POSITIVE historical claim ("this scenario has ` +
+        `never been analysed"), asserted after a store read that did not succeed. The ` +
+        `honest state for an unreadable store is unknown_degraded/store_unreadable.`,
+      evidence: { run_state_kind: 'never_run', prior_turn_store_read_ok: 'false' },
+    })
+  }
+
+  if (input.surfaces.resultBodyVisible === true) {
+    out.push({
+      pair: 'CX3',
+      code: 'never_run_over_visible_result_body',
+      detail:
+        `run_state 'never_run' claims this scenario has never been analysed, while a ` +
+        `result body is mounted beneath it.`,
+      evidence: { run_state_kind: 'never_run', result_body_visible: 'true' },
+    })
+  }
+}
+
+function detectCX4(input: CoherenceInput, out: CoherenceViolation[]): void {
+  const state = input.analysisState
+  if (state?.leader_claim?.permitted !== false) return
+  const rows = renderedConditionalWinnerRows(input.enrichment?.conditional_winners)
+  const naming = rows.filter(rowNamesAnOption)
+  if (naming.length === 0) return
+  for (const row of naming) {
+    const labels = [row.low_bucket?.winner_label, row.high_bucket?.winner_label]
+      .filter((l): l is string => typeof l === 'string' && l.length > 0)
+    out.push({
+      pair: 'CX4',
+      code: 'withheld_leader_claim_with_named_conditional_winner',
+      detail:
+        `leader_claim.permitted:false` +
+        `${state.leader_claim.withheld_reason ? ` (${state.leader_claim.withheld_reason})` : ''}` +
+        ` withholds the leading-option designation, while the conditional-winner row ` +
+        `for factor '${row.factor_id ?? 'unknown'}' renders option identities ` +
+        `(${labels.join(' / ')}) as the winner of each bucket.`,
+      evidence: {
+        factor_id: String(row.factor_id ?? ''),
+        withheld_reason: String(state.leader_claim.withheld_reason ?? ''),
+        low_winner_id: String(row.low_bucket?.winner_id ?? ''),
+        high_winner_id: String(row.high_bucket?.winner_id ?? ''),
+        named_labels: labels.join('|'),
+      },
+    })
+  }
+}
+
+function detectCX5(input: CoherenceInput, out: CoherenceViolation[]): void {
+  const flips = input.enrichment?.flip_thresholds
+  const winners = input.enrichment?.conditional_winners
+  if (!Array.isArray(flips) || !Array.isArray(winners)) return
+  const noFlipByFactor = new Map<string, FlipThresholdRow>()
+  for (const f of flips) {
+    if (typeof f?.factor_id === 'string' && f.no_flip_in_range === true) {
+      noFlipByFactor.set(f.factor_id, f)
+    }
+  }
+  if (noFlipByFactor.size === 0) return
+  for (const w of winners) {
+    if (w?.winner_flips !== true) continue
+    if (typeof w.factor_id !== 'string') continue
+    const f = noFlipByFactor.get(w.factor_id)
+    if (f === undefined) continue
+    out.push({
+      pair: 'CX5',
+      code: 'no_flip_in_range_with_winner_flips',
+      detail:
+        `For factor '${w.factor_id}', flip_thresholds reports no_flip_in_range:true ` +
+        `(reason '${f.flip_reason ?? 'unstated'}') while conditional_winners reports ` +
+        `winner_flips:true for the same factor. Both render on the Analysis tab.`,
+      evidence: {
+        factor_id: w.factor_id,
+        factor_label: String(w.factor_label ?? f.factor_label ?? ''),
+        flip_reason: String(f.flip_reason ?? ''),
+        winner_flips: 'true',
+        no_flip_in_range: 'true',
+      },
+    })
+  }
+}
+
+function detectCX6(input: CoherenceInput, out: CoherenceViolation[]): void {
+  const prose = input.prose
+  if (typeof prose !== 'string' || prose.length === 0) return
+  const blocking = actionableBlockers(input.analysisState)
+  if (blocking.length === 0) return
+  const sentences = splitSentences(prose)
+  // One violation per (factor) at most — the same sentence naming a factor that
+  // carries several blockers is ONE contradiction, not N.
+  const reported = new Set<string>()
+  for (const blocker of blocking) {
+    const label = blocker.factor_label
+    if (typeof label !== 'string' || label.length === 0) continue
+    const key = blocker.factor_id ?? label
+    if (reported.has(key)) continue
+    for (const sentence of sentences) {
+      const phrase = sentenceAssertsPresence(sentence)
+      if (phrase === null) continue
+      if (!sentenceNamesLabel(sentence, label)) continue
+      reported.add(key)
+      out.push({
+        pair: 'CX6',
+        code: 'presence_claimed_while_blocker_says_missing',
+        detail:
+          `The reply asserts "${phrase}" about "${label}", while the same payload's ` +
+          `blocker ${blocker.code} says that value is missing` +
+          `${blocker.option_label ? ` for "${blocker.option_label}"` : ''}.`,
+        evidence: {
+          factor_id: String(blocker.factor_id ?? ''),
+          factor_label: label,
+          option_id: String(blocker.option_id ?? ''),
+          blocker_code: blocker.code,
+          phrase,
+          sentence: sentence.slice(0, 200),
+        },
+      })
+      break
+    }
+  }
+}
+
+/**
+ * Every pair, in id order. Written as an exhaustive `Record` so adding an id to
+ * `COHERENCE_PAIR_IDS` without writing its detector is a TYPE ERROR rather than
+ * a pair that silently never fires.
+ */
+const DETECTORS: Readonly<
+  Record<CoherencePairId, (input: CoherenceInput, out: CoherenceViolation[]) => void>
+> = {
+  CX1: detectCX1,
+  CX2: detectCX2,
+  CX3: detectCX3,
+  CX4: detectCX4,
+  CX5: detectCX5,
+  CX6: detectCX6,
+}
+
+/**
+ * Run every pair against one turn.
+ *
+ * Returns EVERY violation found, never the first — a turn that contradicts
+ * itself twice is a different finding from one that does so once, and stopping
+ * early would hide the second.
+ */
+export function evaluateCrossSurfaceCoherence(input: CoherenceInput): CoherenceViolation[] {
+  const out: CoherenceViolation[] = []
+  for (const id of COHERENCE_PAIR_IDS) DETECTORS[id](input, out)
+  return out
+}
+
+/** The set of pairs violated, for a compact per-capture verdict. */
+export function violatedPairs(violations: readonly CoherenceViolation[]): CoherencePairId[] {
+  const seen = new Set<CoherencePairId>()
+  for (const v of violations) seen.add(v.pair)
+  return COHERENCE_PAIR_IDS.filter(id => seen.has(id))
+}
+
+/**
+ * Re-exported so the derivation spec can assert this module's assumptions
+ * against the CONTRACT rather than against a copy of it.
+ */
+export const CONTRACT_RUN_STATE_KINDS = ANALYSIS_RUN_STATE_KINDS
