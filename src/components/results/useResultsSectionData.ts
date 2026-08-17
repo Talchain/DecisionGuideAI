@@ -3406,45 +3406,53 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       conditionalWinners: (() => {
         const raw = safeArray((report as any)?.conditional_winners ?? (report as any)?.robustness?.conditional_winners)
         if (raw.length === 0) return undefined
-        const probOf = (b: any): { ok: boolean; value?: number } => {
-          if (b == null || typeof b !== 'object' || !('win_probability' in b)) return { ok: true }
-          const p = (b as any).win_probability
+        // Wire rows are narrowed via `unknown` → typeof checks (no `as any`;
+        // the trust-boundary cast budget in wave2-replay-gate.spec.ts is the
+        // enforcement — typed narrowing is the pattern it exists to force).
+        const asRecord = (v: unknown): Record<string, unknown> | null =>
+          v != null && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
+        const probOf = (b: Record<string, unknown>): { ok: boolean; value?: number } => {
+          if (!('win_probability' in b)) return { ok: true }
+          const p = b.win_probability
           if (typeof p === 'number' && Number.isFinite(p) && p >= 0 && p <= 1) return { ok: true, value: p }
           return { ok: false }
         }
-        const toBucket = (b: any, p: number | undefined): ConditionalWinnerBucket => {
+        const toBucket = (b: Record<string, unknown>, p: number | undefined): ConditionalWinnerBucket => {
           const out: ConditionalWinnerBucket = {}
-          if (typeof b?.winner_id === 'string' && b.winner_id) out.winner_id = b.winner_id
-          const label = b?.winner_label ?? b?.label
+          if (typeof b.winner_id === 'string' && b.winner_id) out.winner_id = b.winner_id
+          const label = b.winner_label ?? b.label
           if (typeof label === 'string' && label) out.winner_label = label
-          if (typeof b?.runner_up_id === 'string' && b.runner_up_id) out.runner_up_id = b.runner_up_id
-          if (typeof b?.runner_up_label === 'string' && b.runner_up_label) out.runner_up_label = b.runner_up_label
+          if (typeof b.runner_up_id === 'string' && b.runner_up_id) out.runner_up_id = b.runner_up_id
+          if (typeof b.runner_up_label === 'string' && b.runner_up_label) out.runner_up_label = b.runner_up_label
           if (p !== undefined) out.win_probability = p
-          if (typeof b?.mean_outcome === 'number' && Number.isFinite(b.mean_outcome)) out.mean_outcome = b.mean_outcome
+          if (typeof b.mean_outcome === 'number' && Number.isFinite(b.mean_outcome)) out.mean_outcome = b.mean_outcome
           return out
         }
         const rows: ConditionalWinner[] = []
-        for (const w of raw as any[]) {
-          const split = typeof w?.split_value === 'number' && Number.isFinite(w.split_value) ? w.split_value : undefined
+        for (const item of raw) {
+          const w = asRecord(item)
+          if (!w) continue
+          const split = typeof w.split_value === 'number' && Number.isFinite(w.split_value) ? w.split_value : undefined
           if (split === undefined) continue
-          const factorLabelRaw = w?.factor_label ?? w?.label
-          const factorIdRaw = w?.factor_id ?? w?.node_id
+          const factorLabelRaw = w.factor_label ?? w.label
+          const factorIdRaw = w.factor_id ?? w.node_id
           if (typeof factorLabelRaw !== 'string' || factorLabelRaw.length === 0) continue
           if (typeof factorIdRaw !== 'string' || factorIdRaw.length === 0) continue
-          if (w?.high_bucket == null || typeof w.high_bucket !== 'object') continue
-          if (w?.low_bucket == null || typeof w.low_bucket !== 'object') continue
-          const highProb = probOf(w.high_bucket)
-          const lowProb = probOf(w.low_bucket)
+          const high = asRecord(w.high_bucket)
+          const low = asRecord(w.low_bucket)
+          if (!high || !low) continue
+          const highProb = probOf(high)
+          const lowProb = probOf(low)
           if (!highProb.ok || !lowProb.ok) continue
-          const splitUnit = w?.split_unit ?? w?.unit
+          const splitUnit = w.split_unit ?? w.unit
           rows.push({
             factor_label: factorLabelRaw,
             factor_id: factorIdRaw,
             split_value: split,
             ...(typeof splitUnit === 'string' && splitUnit ? { split_unit: splitUnit } : {}),
-            high_bucket: toBucket(w.high_bucket, highProb.value),
-            low_bucket: toBucket(w.low_bucket, lowProb.value),
-            ...(typeof w?.winner_flips === 'boolean' ? { winner_flips: w.winner_flips } : {}),
+            high_bucket: toBucket(high, highProb.value),
+            low_bucket: toBucket(low, lowProb.value),
+            ...(typeof w.winner_flips === 'boolean' ? { winner_flips: w.winner_flips } : {}),
           })
         }
         return rows.length > 0 ? rows : undefined
@@ -3454,7 +3462,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // (`backendRecommendedId` above deliberately NOT reused — a UI-invented
       // recommendation would be a guess wearing an ID).
       recommendedOptionId: (() => {
-        const raw = (report as any)?.robustness?.recommended_option_id
+        const raw = report?.robustness?.recommended_option_id
         return typeof raw === 'string' && raw.length > 0 ? raw : undefined
       })(),
       inferenceWarnings: (() => {
