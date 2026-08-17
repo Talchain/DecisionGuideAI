@@ -50,6 +50,8 @@ import type {
   ConfidenceCalibrationStatus,
   ConfidenceInputQuality,
   ConfidenceProvenance,
+  ConditionalWinner,
+  ConditionalWinnerBucket,
 } from './types'
 import { normalizeAutoNoiseProvenance, normalizeHeadlineBanded } from './types'
 import {
@@ -3384,23 +3386,84 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       })(),
 
       // New ISL fields (gated on presence)
+      //
+      // V6 Science-to-Reasoning slice: carry the 0.46 contract VERBATIM and
+      // fail closed — never default. The previous projection discarded
+      // `winner_id` / `runner_up_*` / `winner_flips` / `mean_outcome` and
+      // minted `?? 0` / `?? ''` fabrications ("When X exceeds 0", "(0%)" on
+      // every real persisted row). Disposal rules mirror the producer's own
+      // (PLoT run.ts ConditionalWinnerDraft + prob01 egress guard):
+      //   - non-finite `split_value` ⇒ DROP the row (a threshold claim
+      //     without a threshold is nothing; a producer-sent 0 is real);
+      //   - PRESENT-but-corrupt `win_probability` ⇒ DROP the row (a corrupt
+      //     probability poisons the row's measurements);
+      //   - ABSENT `win_probability` ⇒ keep the row, keep the field absent —
+      //     the pre-0.44 persisted rows (the only populated rows on staging,
+      //     Apr–Jun 2026) carry identity + attestation but no probabilities,
+      //     and the flip claim stands without them. Never mint 0%.
+      //   - identity absence (CEE's withheld-claim projection) is PRESERVED,
+      //     so the card can render its neutral arm instead of nothing.
       conditionalWinners: (() => {
         const raw = safeArray((report as any)?.conditional_winners ?? (report as any)?.robustness?.conditional_winners)
         if (raw.length === 0) return undefined
-        return raw.map((w: any) => ({
-          factor_label: String(w.factor_label ?? w.label ?? ''),
-          factor_id: String(w.factor_id ?? w.node_id ?? ''),
-          split_value: Number(w.split_value ?? 0),
-          split_unit: w.split_unit ?? w.unit ?? undefined,
-          high_bucket: {
-            winner_label: String(w.high_bucket?.winner_label ?? w.high_bucket?.label ?? ''),
-            win_probability: Number(w.high_bucket?.win_probability ?? 0),
-          },
-          low_bucket: {
-            winner_label: String(w.low_bucket?.winner_label ?? w.low_bucket?.label ?? ''),
-            win_probability: Number(w.low_bucket?.win_probability ?? 0),
-          },
-        }))
+        // Wire rows are narrowed via `unknown` → typeof checks (no `as any`;
+        // the trust-boundary cast budget in wave2-replay-gate.spec.ts is the
+        // enforcement — typed narrowing is the pattern it exists to force).
+        const asRecord = (v: unknown): Record<string, unknown> | null =>
+          v != null && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
+        const probOf = (b: Record<string, unknown>): { ok: boolean; value?: number } => {
+          if (!('win_probability' in b)) return { ok: true }
+          const p = b.win_probability
+          if (typeof p === 'number' && Number.isFinite(p) && p >= 0 && p <= 1) return { ok: true, value: p }
+          return { ok: false }
+        }
+        const toBucket = (b: Record<string, unknown>, p: number | undefined): ConditionalWinnerBucket => {
+          const out: ConditionalWinnerBucket = {}
+          if (typeof b.winner_id === 'string' && b.winner_id) out.winner_id = b.winner_id
+          const label = b.winner_label ?? b.label
+          if (typeof label === 'string' && label) out.winner_label = label
+          if (typeof b.runner_up_id === 'string' && b.runner_up_id) out.runner_up_id = b.runner_up_id
+          if (typeof b.runner_up_label === 'string' && b.runner_up_label) out.runner_up_label = b.runner_up_label
+          if (p !== undefined) out.win_probability = p
+          if (typeof b.mean_outcome === 'number' && Number.isFinite(b.mean_outcome)) out.mean_outcome = b.mean_outcome
+          return out
+        }
+        const rows: ConditionalWinner[] = []
+        for (const item of raw) {
+          const w = asRecord(item)
+          if (!w) continue
+          const split = typeof w.split_value === 'number' && Number.isFinite(w.split_value) ? w.split_value : undefined
+          if (split === undefined) continue
+          const factorLabelRaw = w.factor_label ?? w.label
+          const factorIdRaw = w.factor_id ?? w.node_id
+          if (typeof factorLabelRaw !== 'string' || factorLabelRaw.length === 0) continue
+          if (typeof factorIdRaw !== 'string' || factorIdRaw.length === 0) continue
+          const high = asRecord(w.high_bucket)
+          const low = asRecord(w.low_bucket)
+          if (!high || !low) continue
+          const highProb = probOf(high)
+          const lowProb = probOf(low)
+          if (!highProb.ok || !lowProb.ok) continue
+          const splitUnit = w.split_unit ?? w.unit
+          rows.push({
+            factor_label: factorLabelRaw,
+            factor_id: factorIdRaw,
+            split_value: split,
+            ...(typeof splitUnit === 'string' && splitUnit ? { split_unit: splitUnit } : {}),
+            high_bucket: toBucket(high, highProb.value),
+            low_bucket: toBucket(low, lowProb.value),
+            ...(typeof w.winner_flips === 'boolean' ? { winner_flips: w.winner_flips } : {}),
+          })
+        }
+        return rows.length > 0 ? rows : undefined
+      })(),
+      // Direction identity for the conditional-winner card: the backend's
+      // robustness key VERBATIM, never the UI's fallback chain/tie-breaker
+      // (`backendRecommendedId` above deliberately NOT reused — a UI-invented
+      // recommendation would be a guess wearing an ID).
+      recommendedOptionId: (() => {
+        const raw = report?.robustness?.recommended_option_id
+        return typeof raw === 'string' && raw.length > 0 ? raw : undefined
       })(),
       inferenceWarnings: (() => {
         const raw = safeArray(readInferenceWarnings(report))
