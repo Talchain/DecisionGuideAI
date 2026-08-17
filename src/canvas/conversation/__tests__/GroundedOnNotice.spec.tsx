@@ -281,11 +281,14 @@ describe('GroundedOnNotice — the empty-and-honest producer states', () => {
 })
 
 describe('resolveGroundedLabels — the id-first, fail-closed join', () => {
+  // Naming is DELEGATED to `resolveElementLabel`, the repo's existing authority
+  // (see the component docstring). These cases pin the id-binding and the
+  // fail-closed dropping, which is the part this module owns.
   const nodes = [
     { id: SALARY_ID, data: { label: SALARY_LABEL } },
     { id: MARGIN_ID, data: { label: MARGIN_LABEL } },
-  ]
-  const edges = [{ id: EDGE_ID, source: SALARY_ID, target: MARGIN_ID }]
+  ] as never
+  const edges = [{ id: EDGE_ID, source: SALARY_ID, target: MARGIN_ID }] as never
 
   it('joins a node id to its label, keyed on id', () => {
     expect(resolveGroundedLabels([SALARY_ID], nodes, edges)).toEqual([
@@ -293,10 +296,17 @@ describe('resolveGroundedLabels — the id-first, fail-closed join', () => {
     ])
   })
 
-  it('names an edge as source → target, matching useSelectionContext', () => {
-    expect(resolveGroundedLabels([EDGE_ID], nodes, edges)).toEqual([
-      { id: EDGE_ID, label: `${SALARY_LABEL} → ${MARGIN_LABEL}` },
-    ])
+  it('names an edge from its endpoints, via the delegated label authority', () => {
+    // The composed form is `resolveElementLabel`'s, NOT a second convention
+    // invented here. ⚠ Note it uses an ASCII arrow while `useSelectionContext`
+    // (the SelectionPill the user clicked) uses `→` — a PRE-EXISTING divergence
+    // in the estate, reported rather than silently taken a side on. Pinned here
+    // so the notice cannot drift from whichever authority owns the name.
+    const named = resolveGroundedLabels([EDGE_ID], nodes, edges)
+    expect(named).toHaveLength(1)
+    expect(named[0].id).toBe(EDGE_ID)
+    expect(named[0].label).toContain(SALARY_LABEL)
+    expect(named[0].label).toContain(MARGIN_LABEL)
   })
 
   it('drops an unknown id rather than fabricating a label', () => {
@@ -304,10 +314,10 @@ describe('resolveGroundedLabels — the id-first, fail-closed join', () => {
   })
 
   it('drops a node with no usable label rather than echoing its id at the user', () => {
-    expect(resolveGroundedLabels(['n-blank'], [{ id: 'n-blank', data: { label: '  ' } }], [])).toEqual(
-      [],
-    )
-    expect(resolveGroundedLabels(['n-none'], [{ id: 'n-none' }], [])).toEqual([])
+    expect(
+      resolveGroundedLabels(['n-blank'], [{ id: 'n-blank', data: { label: '  ' } }] as never, []),
+    ).toEqual([])
+    expect(resolveGroundedLabels(['n-none'], [{ id: 'n-none' }] as never, [])).toEqual([])
   })
 
   it('preserves input order and does not sort', () => {

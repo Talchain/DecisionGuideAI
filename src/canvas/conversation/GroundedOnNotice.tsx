@@ -43,6 +43,7 @@
 import { memo, useMemo } from 'react'
 import { typo } from '../../styles/typography'
 import { useCanvasStore } from '../store'
+import { resolveElementLabel } from './utils/resolveElementLabel'
 import type { GroundedSelection, GroundedUnresolved } from './groundedSelection'
 
 /** A grounded element this canvas can actually name, bound to its canonical id. */
@@ -51,53 +52,35 @@ export interface NamedGroundedElement {
   label: string
 }
 
-/** The minimal node/edge shape this join needs — narrower than the store's. */
-interface JoinableNode {
-  id: string
-  data?: { label?: unknown } | undefined
-}
-interface JoinableEdge {
-  id: string
-  source: string
-  target: string
-}
-
 /**
  * ID-FIRST, FAIL-CLOSED join from the producer's canonical ids to display
  * labels — the same direction and the same failure posture as CEE's own focus
  * join, which is id-first *precisely because* "labels collide".
  *
- * Label derivation mirrors `useSelectionContext` (the repo's existing authority
- * for naming a canvas element), including its `source → target` form for an
- * edge, so the transcript names an element exactly as the selection pill did
- * when the user picked it. It is NOT re-derived here in a second style.
+ * ⭐ NAMING IS DELEGATED, NOT RE-DERIVED. `resolveElementLabel` is this repo's
+ * existing, tested authority for "what is this canvas element called" (nodes
+ * first, then edges composed from their endpoints, `undefined` when it cannot
+ * say). An earlier draft of this function re-implemented that traversal, which
+ * would have made a SECOND authority on the name of an element — the trap-21
+ * shape this estate has already paid for. Only the id-binding and the
+ * fail-closed dropping below belong to this module.
  *
  * ⚠ AN ID THAT MATCHES NOTHING ON THIS CANVAS CONTRIBUTES NOTHING. That is the
  * fail-closed half: a graph can legitimately be out of step with a turn (an
- * element deleted since the answer, or a hydrated transcript against a
+ * element deleted since the answer, or a hydrated transcript read against a
  * different model), and inventing a name — or echoing a raw uuid at the user —
  * would be a fabrication. Order is preserved as received: it is
  * persisted-graph order and matches the order CEE gave the model.
  */
 export function resolveGroundedLabels(
   elementIds: readonly string[],
-  nodes: readonly JoinableNode[],
-  edges: readonly JoinableEdge[],
+  nodes: Parameters<typeof resolveElementLabel>[1],
+  edges: Parameters<typeof resolveElementLabel>[2],
 ): NamedGroundedElement[] {
   const named: NamedGroundedElement[] = []
   for (const id of elementIds) {
-    const node = nodes.find((n) => n.id === id)
-    if (node) {
-      const label = typeof node.data?.label === 'string' ? node.data.label.trim() : ''
-      if (label.length > 0) named.push({ id, label })
-      continue
-    }
-    const edge = edges.find((e) => e.id === id)
-    if (!edge) continue
-    const sourceLabel = nodes.find((n) => n.id === edge.source)?.data?.label
-    const targetLabel = nodes.find((n) => n.id === edge.target)?.data?.label
-    if (typeof sourceLabel !== 'string' || typeof targetLabel !== 'string') continue
-    const label = `${sourceLabel.trim()} → ${targetLabel.trim()}`
+    const label = resolveElementLabel(id, nodes, edges)?.trim()
+    if (label === undefined || label.length === 0) continue
     named.push({ id, label })
   }
   return named
@@ -133,12 +116,7 @@ export const GroundedOnNotice = memo(function GroundedOnNotice({
   const edges = useCanvasStore((s) => s.edges)
 
   const named = useMemo(
-    () =>
-      resolveGroundedLabels(
-        groundedSelection.element_ids,
-        nodes as unknown as readonly JoinableNode[],
-        edges as unknown as readonly JoinableEdge[],
-      ),
+    () => resolveGroundedLabels(groundedSelection.element_ids, nodes, edges),
     [groundedSelection.element_ids, nodes, edges],
   )
 
