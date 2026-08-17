@@ -132,7 +132,31 @@ async function freshDraftPage(browser: import('@playwright/test').Browser) {
 
 const SHOT = { animations: 'disabled', caret: 'hide', scale: 'css' } as const
 
+/**
+ * ⚠ NEVER RUNS WHILE BLESSING, and this is a correctness requirement, not tidiness.
+ *
+ * Under `VISREG_BLESS=1` the config sets `updateSnapshots: 'all'`, so
+ * `toHaveScreenshot` OVERWRITES the reference instead of failing. Two things go
+ * wrong at once:
+ *   1. the "the real assertion path REDS on a perturbed page" test cannot throw,
+ *      so it fails — which is how CI first surfaced this;
+ *   2. far worse, that test deliberately perturbs the page, so in bless mode it
+ *      would WRITE A 35%-WIDENED PANEL AS THE CANONICAL REFERENCE. On the first
+ *      CI run it was saved only by alphabetical file ordering — `selftest` runs
+ *      before `states`, which then re-blessed over the top. A reference whose
+ *      correctness depends on which file sorts first is not a reference.
+ * The comparison tests below need references to already exist; blessing is what
+ * creates them. The two modes are mutually exclusive by nature, so they are made
+ * mutually exclusive by construction.
+ */
 test.describe('visual harness self-test — proves the instrument can fail', () => {
+  test.skip(
+    process.env.VISREG_BLESS === '1',
+    'VISREG_BLESS=1: skipped by design. In bless mode toHaveScreenshot overwrites rather than ' +
+      'compares, so these tests cannot assert a failure — and the perturbation tests would write ' +
+      'a deliberately-broken image as the reference. Run `pnpm visual` (no bless) to exercise them.',
+  )
+
   test('tolerance separates antialiasing noise from a real regression, by an order of magnitude', async ({ browser }) => {
     const results: Comparison[] = []
 

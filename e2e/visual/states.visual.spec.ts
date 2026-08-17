@@ -24,6 +24,27 @@
  * The unblocking step is a captured CEE analysis turn for one of the five
  * starter graphs, committed next to them with the same provenance discipline.
  * Until that exists this state stays uncovered and SAID to be uncovered.
+ *
+ * NOT COVERED, AND WHY — inspector with a node selected. MEASURED AND REMOVED.
+ * It was built, blessed, and then dropped on evidence. Clicking a node opens the
+ * inspector AND starts a focus/lens transition ("Showing paths from X to goal"),
+ * and the right-hand dock races between the inspector's content and the
+ * pre-analysis readiness surface (whose fetch returns the harness's hermetic 503
+ * and offers a Retry). Measured at 1280x800:
+ *   - 389 differing pixels between two independent blessing runs — 76% of the
+ *     whole tolerance budget consumed by noise alone;
+ *   - 15,182 differing pixels across four fresh browser contexts, IDENTICAL for
+ *     runs 1/2/3 against run 0, i.e. BIMODAL rather than random: the first
+ *     (cold) capture lands in one dock state and every later one in the other.
+ * A stronger wait was attempted and did not settle it. Every other state was
+ * pixel-IDENTICAL across the same two independent runs, so this is specific to
+ * this state, not to the harness.
+ *
+ * A state that flakes at 30x the tolerance would get the whole harness muted
+ * inside a week, which is worse than not covering it. The unblocking step is a
+ * deterministic readiness condition for "the dock has settled on the inspector"
+ * — most likely a testid on the inspector's dock takeover plus a settled
+ * readiness state — at which point it can be re-added to STATE_NAMES.
  */
 
 import { test, expect } from '@playwright/test'
@@ -44,9 +65,6 @@ import {
  * the graph/panel relationship the regressions actually live in.
  */
 const STARTER = 'build-vs-buy' as const
-
-/** A node that exists in the build-vs-buy capture, bound by id, not by position. */
-const INSPECTOR_NODE_ID = 'fac_vendor_cost'
 
 test.describe('visual regression — founder states', () => {
   test.beforeAll(() => {
@@ -134,26 +152,6 @@ test.describe('visual regression — founder states', () => {
         await captureState(page, testInfo, `olumi-tab--${vp.name}`, vp, {
           clip: '[data-testid="outputs-dock"]',
           anchors: ['[data-testid="outputs-dock"]', '[data-testid="olumi-tab-wrapper"]'],
-        })
-      })
-
-      test(`inspector — a node selected [${vp.name}]`, async ({ page }, testInfo) => {
-        await preparePage(page, vp)
-        await openCanvas(page)
-        await seedStarterDraft(page, STARTER)
-        await clearNotifications(page)
-
-        // The floating Olumi panel occupies x52-452; this node sits at x~826, so
-        // the click lands without touching the panel. Deliberately NOT minimising
-        // first: fewer interactions, fewer ways to be non-deterministic.
-        // Bound by node id, never by position or by a value another node could
-        // satisfy (CLAUDE.md trap 19).
-        await page.locator(`.react-flow__node[data-id="${INSPECTOR_NODE_ID}"]`).click({ timeout: 20_000 })
-
-        // Full viewport: an inspector that overlaps the graph or the dock is
-        // precisely the class of defect this is here to catch.
-        await captureState(page, testInfo, `inspector-node-selected--${vp.name}`, vp, {
-          anchors: ['div[role="dialog"][aria-label="Node inspector"]', '[data-testid="rf-root"]'],
         })
       })
 

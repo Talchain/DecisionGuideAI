@@ -31,7 +31,7 @@ VISREG_PARTIAL=1 pnpm visual -- -g "Model tab"
 
 ## What it captures
 
-Six states, each at **1280×800** and **1440×900** — twelve references.
+Five states, each at **1280×800** and **1440×900** — ten references.
 
 | State | What it is | Framing |
 |---|---|---|
@@ -55,6 +55,15 @@ either one alone.
   whatever is left.
 - **1440×900** — the MacBook Air/Pro logical resolution the founder and testers
   actually use, and therefore the size the regressions were *seen* at.
+
+### Not captured: inspector with a node selected — measured and removed
+
+Built, blessed, then dropped **on evidence**. Clicking a node opens the inspector *and* starts a focus/lens transition, and the dock races between the inspector's content and the pre-analysis readiness surface (whose fetch returns the harness's hermetic 503 and offers a Retry). Measured at 1280×800:
+
+- **389** differing pixels between two independent blessing runs — 76% of the entire tolerance budget consumed by noise alone;
+- **15,182** differing pixels across four fresh browser contexts, **identical** for runs 1/2/3 against run 0 — bimodal, not random: the cold capture lands in one dock state, every later one in the other.
+
+A stronger wait was attempted and did not settle it. **Every other state was pixel-identical across the same two independent runs**, so this is specific to the state, not the harness. A state that flakes at 30× the tolerance would get the whole harness muted inside a week. Unblocking step: a deterministic "the dock has settled on the inspector" condition, then re-add it to `STATE_NAMES`.
 
 ### Not captured: completed analysis
 
@@ -99,8 +108,13 @@ Everything variable is pinned:
   the posture `netlify.toml` declares", and the posture fingerprint is printed
   in every run's log.
 
-Measured result: **0 differing pixels out of 1,296,000** between a fresh capture
-and the committed reference, across process runs.
+Measured result: **all ten references pixel-identical across two independent
+process runs** (cold dev server each time), and **0 differing pixels out of
+1,296,000** for `fresh-draft--1440x900` specifically. The one state that was *not*
+stable was measured, understood and removed rather than tolerated — see above.
+The noise-floor figure the self-test asserts is measured on
+`fresh-draft--1440x900`; it is not a claim about every state, which is why the
+per-reference cross-run comparison above is stated separately.
 
 ## Tolerance
 

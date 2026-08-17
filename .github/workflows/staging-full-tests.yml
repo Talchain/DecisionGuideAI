@@ -374,8 +374,12 @@ jobs:
 
       # A generated-reference run has compared NOTHING. Saying so is the whole
       # point: an unmeasured state must read as unmeasured, never as a pass.
+      # `always()` on purpose: if generation itself failed, the operator still
+      # needs to be told that NOTHING WAS COMPARED. Without it this step is
+      # skipped by the earlier failure and the loud instruction never prints —
+      # which happened on the first run.
       - name: Fail — linux references absent, nothing was compared
-        if: steps.refs.outputs.count == '0'
+        if: always() && steps.refs.outputs.count == '0'
         run: |
           echo "::error::No linux visual references were committed, so this run compared NOTHING."
           echo "::error::Download the 'visual-references-generated-linux' artifact, LOOK AT THE IMAGES,"

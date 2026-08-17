@@ -128,15 +128,14 @@ export type ViewportName = (typeof VIEWPORTS)[number]['name']
  * declared here. It is a mirror, and it is guarded by a derivation rather than
  * by anyone remembering (CLAUDE.md trap 12).
  *
- * `completed-analysis` is deliberately absent — see the header of
- * `states.visual.spec.ts` for why it cannot be seeded truthfully at this tip.
+ * `completed-analysis` and `inspector-node-selected` are deliberately absent —
+ * see the header of `states.visual.spec.ts` for the measurements behind both.
  */
 export const STATE_NAMES = [
   'fresh-draft',
   'blocked-provisional',
   'model-tab',
   'olumi-tab',
-  'inspector-node-selected',
   'graph-default-zoom',
 ] as const
 
