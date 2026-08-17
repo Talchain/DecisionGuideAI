@@ -191,9 +191,9 @@ describe('⭐ THE MANIFEST — which pairs real captures VIOLATE today', () => {
 
 describe('absence claims carry a POSITIVE and a CONTRAST control', () => {
   it('CX2 is unexercised because no capture carries a `refused` run state — and the same sweep DOES find other kinds', () => {
-    const kinds = CORPUS
+    const kinds: string[] = CORPUS
       .map(c => adaptCapture(c.raw).input.analysisState?.run_state?.kind)
-      .filter((k): k is string => typeof k === 'string')
+      .filter(k => typeof k === 'string')
     // TARGET reads zero…
     expect(kinds.filter(k => k === 'refused')).toEqual([])
     // …while the CONTRAST in the SAME sweep reads non-zero. Absence is proven
