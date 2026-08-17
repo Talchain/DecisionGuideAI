@@ -30,6 +30,10 @@ import {
   LAYOUT_BOX_MIN_W,
   COLLISION_GAP,
   DEFAULT_NODE_HEIGHT,
+  NODE_CARD_PADDING_X,
+  NODE_HEADER_RESERVE_PX,
+  NODE_SINGLE_ROW_FAIR_SHARE_W,
+  NODE_TITLE_MIN_MEASURE_PX,
 } from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -528,9 +532,26 @@ describe('constants contract', () => {
     expect(LAYOUT_BOX_MIN_W).toBe(NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X)
   })
 
-  it('NODE_CARD_MAX_W is 320, NODE_LAYOUT_MIN_W is 140', () => {
+  it('NODE_CARD_MAX_W is 320; NODE_LAYOUT_MIN_W is the label-scale-derived floor', () => {
     expect(NODE_CARD_MAX_W).toBe(320)
-    expect(NODE_LAYOUT_MIN_W).toBe(140)
+
+    // ⚠ WAS `toBe(140)` (17 Aug 2026). `NODE_LAYOUT_MIN_W` is no longer a
+    // number anyone may state: canvas label text is counter-scaled, and a card
+    // floor tuned against the DECLARED font size holds half the text it claims
+    // to at the zoom the product settles on — that is #758's regression. The
+    // floor is now derived from `MAX_LABEL_COUNTER_SCALE`, so this lock asserts
+    // the DERIVATION. Restating 140 (or 244, or any literal) here would
+    // reinstate exactly the hand-maintained mirror that let the font scale and
+    // the geometry drift apart in the first place (CLAUDE.md trap 12).
+    //
+    // The row-split policy DID stay at 140 and is deliberately a separate
+    // constant — see NODE_SINGLE_ROW_FAIR_SHARE_W and the two `layout.spec.ts`
+    // branch regression-locks, which pin that the label scale cannot move a
+    // tier between branches.
+    expect(NODE_LAYOUT_MIN_W).toBe(
+      NODE_TITLE_MIN_MEASURE_PX + NODE_HEADER_RESERVE_PX + NODE_CARD_PADDING_X,
+    )
+    expect(NODE_SINGLE_ROW_FAIR_SHARE_W).toBe(140)
   })
 
   it('COLLISION_GAP does not exceed the rendered node-node gap', () => {

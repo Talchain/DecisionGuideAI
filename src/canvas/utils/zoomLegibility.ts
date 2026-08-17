@@ -122,6 +122,39 @@ export function labelCounterScale(zoom: number): number {
 }
 
 /**
+ * The LARGEST counter-scale canvas label text can ever carry.
+ *
+ * ⭐ THIS IS THE COUPLING BETWEEN THE LABEL SCALE AND NODE GEOMETRY. Read this
+ * before changing either.
+ *
+ * `labelCounterScale` is bounded above by construction (see its derivation), and
+ * the bound is reached at exactly `LABEL_LEGIBLE_ZOOM` — which is also where a
+ * post-draft auto-fit parks, because `useFitViewOnLayoutVersion` passes that
+ * value as `minZoom`. So the settle zoom IS the worst case, and the worst case
+ * is a CONSTANT rather than a number that has to be tracked at runtime.
+ *
+ * WHY GEOMETRY USES THE BOUND AND NOT `labelCounterScale(zoom)` ITSELF (the
+ * defect this closes, measured 17 Aug 2026): `#758` counter-scaled the FONT and
+ * left node geometry alone, so at the settle zoom a title measure sized for
+ * 13px text was holding 26px text. 59 of 174 rendered node titles across the
+ * five shipped starters broke MID-WORD — "Stripe Middlewa|re", "Engineerin|g
+ * Overload". The font grew; the box did not.
+ *
+ * Geometry cannot simply track `labelCounterScale(zoom)`, because node POSITIONS
+ * come from a layout that runs on `layoutVersion`, not on zoom: cards that
+ * resized as the user zoomed would slide out of the boxes ELK placed them in,
+ * and a layout that re-ran on zoom would feed its own fit (a wider graph fits at
+ * a lower zoom, which raises the counter-scale, which widens the graph). Sizing
+ * for the BOUND is stable, needs no relayout, and is correct at the only zoom
+ * the product ever chooses for the user.
+ *
+ * Consumers: `nodeLayoutConstants.ts` (`NODE_TITLE_MIN_MEASURE_PX`,
+ * `NODE_LAYOUT_MIN_W`). Changing `LABEL_LEGIBLE_ZOOM` moves the font scale and
+ * the geometry together, in one decision — which is the whole point.
+ */
+export const MAX_LABEL_COUNTER_SCALE = labelCounterScale(LABEL_LEGIBLE_ZOOM)
+
+/**
  * The rendered size, in CSS px, of canvas text declared at `declaredPx` when the
  * viewport sits at `zoom` and the counter-scale above is applied.
  *

@@ -1,6 +1,13 @@
 /**
  * BaseNode — node titles must wrap at WORD boundaries, never mid-word.
  *
+ * ⚠ The measurements below are a RECORD of build f2b48fc9 (14 Aug 2026), when
+ * `NODE_LAYOUT_MIN_W` was 140px and canvas text rendered at its declared size.
+ * Both have since changed — the floor now carries the label counter-scale — so
+ * read the numbers as history, not as current geometry. `nodeLabelFit.spec.ts`
+ * and `e2e/visual/nodeLabelFit.visual.spec.ts` hold the current derivation and
+ * the current in-browser measurement.
+ *
  * Defect witnessed on deployed staging build f2b48fc9 (14 Aug 2026), in a real
  * browser: when a dense tier compresses cards to NODE_LAYOUT_MIN_W (140px), the
  * title shared its flex row with the shape indicator and the header slot,
@@ -25,7 +32,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { Target } from 'lucide-react'
 import { BaseNode } from '../BaseNode'
-import { NODE_TITLE_MIN_MEASURE_PX } from '../../utils/nodeLayoutConstants'
+import { NODE_LAYOUT_MIN_W, NODE_TITLE_MIN_MEASURE_PX } from '../../utils/nodeLayoutConstants'
+import { MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -83,8 +91,16 @@ const baseProps = {
 const REPORTED_LABEL = 'Team Coordination Overhead'
 
 /**
- * Render at the compressed card width the layout pipeline actually produces
- * (NODE_LAYOUT_MIN_W = 140) — the only width at which the defect appears.
+ * Render at the compressed card width the layout pipeline actually produces —
+ * the only width at which the defect appears.
+ *
+ * ⚠ IMPORTED, NOT RESTATED (17 Aug 2026). This was the literal `140`, written
+ * when that happened to be `NODE_LAYOUT_MIN_W`. The floor now carries the canvas
+ * label counter-scale (see `nodeLayoutConstants.ts`), and the literal did not —
+ * so this spec, which exists to catch mid-word breaking, was rendering a card
+ * the layout no longer produces and asserting a measure BaseNode correctly
+ * refuses to give at that width. A test bound to a stale copy of a constant is
+ * the mirror defect one level up (CLAUDE.md trap 12).
  */
 function renderTitle(label: string = REPORTED_LABEL) {
   const { container } = render(
@@ -93,7 +109,7 @@ function renderTitle(label: string = REPORTED_LABEL) {
       data={{ label }}
       nodeType="factor"
       icon={Target}
-      maxWidth={140}
+      maxWidth={NODE_LAYOUT_MIN_W}
     />
   )
   const title = container.querySelector('[data-testid="node-title"]') as HTMLElement | null
@@ -110,7 +126,12 @@ describe('BaseNode — titles wrap at word boundaries (never mid-word)', () => {
     // (`min-w-0`), the wrapper collapses to 77px inside a 140px card and
     // break-word splits "Coordination" mid-word.
     expect(wrapper.style.minWidth).toBe(`${NODE_TITLE_MIN_MEASURE_PX}px`)
-    expect(NODE_TITLE_MIN_MEASURE_PX).toBeGreaterThanOrEqual(96)
+    // The floor must hold an ordinary word at the size the text is ACTUALLY
+    // rendered at. `>= 96` was the bound while canvas text rendered at its
+    // declared 13px; it is now counter-scaled, so the bound has to scale too or
+    // it certifies a measure half the size it needs to be — which is exactly how
+    // #758 passed this file. Derivation and evidence: `nodeLabelFit.spec.ts`.
+    expect(NODE_TITLE_MIN_MEASURE_PX).toBeGreaterThanOrEqual(96 * MAX_LABEL_COUNTER_SCALE)
   })
 
   it('does not let the title shrink to zero (min-w-0 must not govern the title)', () => {

@@ -19,7 +19,15 @@ import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
-import { NODE_CARD_MAX_W, NODE_TITLE_MIN_MEASURE_PX } from '../utils/nodeLayoutConstants'
+import {
+  NODE_CARD_MAX_W,
+  NODE_CARD_PADDING_X,
+  NODE_HEADER_GAP_PX,
+  NODE_HEADER_ICON_PX,
+  NODE_HEADER_RESERVE_PX,
+  NODE_LAYOUT_MIN_W,
+  NODE_TITLE_MIN_MEASURE_PX,
+} from '../utils/nodeLayoutConstants'
 import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
@@ -218,6 +226,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // Graph Editing Experience Task 5: Edit impact preview indicator
   const impactDirection = useEditPreviewStore(s => s.impactMap.get(id))
 
+  // The width this card will actually render at — the same expression the
+  // `maxWidth` style below uses, hoisted so the title's measure floor can be
+  // bounded by it. Without the bound, a caller passing a `maxWidth` narrower
+  // than the floor would have the title's own min-width force the card wider
+  // than the box ELK placed it in.
+  const renderedCardW = isExpanded ? NODE_CARD_MAX_W : (maxWidth ?? layoutNodeWidth ?? NODE_CARD_MAX_W)
+  const titleMinMeasurePx = Math.max(
+    0,
+    Math.min(NODE_TITLE_MIN_MEASURE_PX, renderedCardW - NODE_CARD_PADDING_X - NODE_HEADER_RESERVE_PX),
+  )
+
   // Causal lens: hide organisational nodes entirely
   if (isLensHidden) return null
 
@@ -278,14 +297,20 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         padding: showQuickActions || ((nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens)
           ? '12px 12px 24px 12px'
           : '12px',
-        minWidth: '140px',
+        // The card's own floor is the LAYOUT floor, imported rather than
+        // restated: this was a hardcoded `'140px'` that happened to equal
+        // `NODE_LAYOUT_MIN_W`, i.e. two copies of one number with nothing to
+        // go red when they stopped agreeing (CLAUDE.md trap 12). It is now one
+        // number, and it carries the label counter-scale with it — see the
+        // header of `nodeLayoutConstants.ts`.
+        minWidth: `${NODE_LAYOUT_MIN_W}px`,
         // Width policy:
         //  - Non-expanded: use caller's maxWidth if given, else the last layout's
         //    width, else fall back to NODE_CARD_MAX_W so rendered width matches ELK.
         //  - Expanded: deliberately override both `maxWidth` and `layoutNodeWidth`
         //    with NODE_CARD_MAX_W. Expanded nodes show a description panel and need
         //    a readable width regardless of what a caller or layout computed.
-        maxWidth: isExpanded ? `${NODE_CARD_MAX_W}px` : `${maxWidth ?? layoutNodeWidth ?? NODE_CARD_MAX_W}px`,
+        maxWidth: `${renderedCardW}px`,
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
@@ -426,7 +451,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         style={{
           display: 'flex',
           alignItems: 'flex-start',
-          gap: '6px',
+          // Same source as the layout's header reservation, so the gap the card
+          // is sized for is the gap it renders (NODE_HEADER_RESERVE_PX).
+          gap: `${NODE_HEADER_GAP_PX}px`,
           marginBottom: '4px',
           // Let the header slot drop below the title rather than squeezing the
           // title's measure below NODE_TITLE_MIN_MEASURE_PX. At normal card
@@ -436,7 +463,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       >
         {/* Shape indicator — type name as tooltip */}
         <Tooltip content={NODE_TYPE_DESCRIPTIONS[nodeType] ?? (NODE_REGISTRY[nodeType]?.label ?? nodeType)} delay={300}>
-          <span className="inline-flex mt-0.5 shrink-0"><NodeShapeIndicator nodeKind={nodeType} size={14} /></span>
+          <span className="inline-flex mt-0.5 shrink-0"><NodeShapeIndicator nodeKind={nodeType} size={NODE_HEADER_ICON_PX} /></span>
         </Tooltip>
 
         {/* Title + optional badges inline.
@@ -444,12 +471,30 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             collapse below its content, which at compressed card widths left a
             77px measure and made `break-words` split ordinary words mid-word.
             A real minimum measure keeps wrapping on word boundaries. */}
-        <div className="flex-1" style={{ minWidth: `${NODE_TITLE_MIN_MEASURE_PX}px` }}>
+        <div className="flex-1" style={{ minWidth: `${titleMinMeasurePx}px` }}>
           {/* line-clamp-3: cap title to 3 lines with ellipsis so ELK can
               rely on uniform-ish node heights. `break-words` preserved so
-              long unbroken tokens still wrap before clamping. */}
+              long unbroken tokens still wrap before clamping.
+
+              WHY `break-words` STAYS, now that the measure follows the label
+              scale: it is a LAST-RESORT rule and, at the derived measure, the
+              last resort is no longer reached by real content — measured 0
+              mid-word breaks across all 174 titles the five shipped starters
+              render at the settle zoom, against 59 before. Dropping it would
+              not improve those 174 (measured: identical), and would let a
+              pathological unbreakable token (an id, a URL) overflow the card
+              and be CLIPPED by the clamp's `overflow: hidden` — a cut with no
+              ellipsis, which is worse than a contained break. So ordinary text
+              wraps and clamps at word boundaries, and the pathological case
+              stays inside the card.
+
+              `title` makes the full label reachable at a readable size
+              whenever the clamp ellipsises it or the last resort fires (DS v5
+              §2.4). The group's `aria-label` already carries it for assistive
+              tech; this is the sighted-hover half. */}
           <div
             data-testid="node-title"
+            title={label}
             className={
               lodBoostTitle
                 ? 'text-lg font-semibold text-text-header break-words line-clamp-2'
