@@ -30,7 +30,8 @@ import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpe
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { classifyUnit } from '../../canvas/utils/labelUtils'
-import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
+import { isStableRobustnessLevel } from './constants'
+import { assessStabilityReadiness } from './utils/stabilityReadiness'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
 import { AlertTriangle, Check, X as XIcon, Info, Lightbulb, Search, ArrowLeftRight, GitBranch, ShieldAlert } from 'lucide-react'
@@ -499,7 +500,12 @@ export function ConfidenceSection({
   const hasNoFragileEdges = uncertainties.length === 0
   const hasStableRobustness = robustnessLevel === undefined || isStableRobustnessLevel(robustnessLevel)
   const hasLowRobustness = robustnessLevel !== undefined && !isStableRobustnessLevel(robustnessLevel)
-  const hasHighStability = (rankingStability ?? 1) >= MIN_STABLE_RECOMMENDATION_STABILITY
+  // ⚠ ABSENCE IS NOT CONFIDENCE. This used to read `(rankingStability ?? 1) >= MIN`,
+  // which coerced a WITHHELD measurement to the MAXIMUM and made the conjunct
+  // below unconditionally true for every user. `assessStabilityReadiness` keeps
+  // "unmeasured" distinct from both "high" and "low" — see that module's header
+  // for why this must not be collapsed back into a single boolean.
+  const stability = assessStabilityReadiness(rankingStability)
 
   // V14.1: Readiness gate — "Good foundation" hidden when coaching says model needs work
   const readinessBlocks = coachingReadiness === 'needs_framing' || coachingReadiness === 'needs_evidence'
@@ -509,14 +515,24 @@ export function ConfidenceSection({
   // - AND (robustness undefined OR high/moderate) AND stability >= 0.6
   // - V14.1: AND readiness is not needs_framing/needs_evidence
   // - V14.1: AND at least one option has winProbability > 0.5
+  // An UNMEASURED conjunct is skipped, exactly as `hasStableRobustness` skips an
+  // absent `robustnessLevel` — it is not treated as satisfied. `blocksReadiness`
+  // is true only when a measurement actually arrived and fell short, so absence
+  // neither blocks readiness nor vouches for it.
   const isFullyReady = tier.tier === 'strong' && improvements.length === 0 && uncertainties.length === 0
-    && hasStableRobustness && hasHighStability
+    && hasStableRobustness && !stability.blocksReadiness
     && !readinessBlocks && (hasWinnerAbove50 !== false)
 
   // Bug 2 fix: Low robustness warning only when robustnessLevel is explicitly low/very_low
-  // OR when stability is below threshold with explicit robustness data
+  // OR when a stability measurement arrived and fell below threshold.
+  // ⚠ The stability arm is gated on the STABILITY measurement's own presence, not
+  // on `robustnessLevel !== undefined`. Those are different fields answering
+  // different questions: the old guard let the presence of `level` license a
+  // claim about `stability`, so a genuinely low measured stability produced no
+  // warning whenever the producer omitted `level` (which it does), while a
+  // non-finite value produced a fabricated one.
   const showLowRobustnessWarning = hasNoFragileEdges
-    && (hasLowRobustness || (robustnessLevel !== undefined && !hasHighStability))
+    && (hasLowRobustness || stability.blocksReadiness)
 
   // v7.10 T6: showTierWarning + tierDescription removed — tier badge now in Accordion header
 
