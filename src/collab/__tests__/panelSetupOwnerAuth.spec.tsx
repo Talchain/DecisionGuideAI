@@ -62,8 +62,17 @@ const ROUND_ID = 'rnd-66666666-7777-8888-9999-aaaaaaaaaaaa'
 
 /** The exact sentence a signed-out owner must see. Written here from the
  *  user's side, deliberately NOT imported from the product — a guard that
- *  imports its own expectation only proves the code agrees with itself. */
-const SIGN_IN_COPY = 'Sign in again to open or close a round.'
+ *  imports its own expectation only proves the code agrees with itself.
+ *
+ *  ⚠ CORRECTED 17 Aug 2026. This constant used to read "Sign in AGAIN to open
+ *  or close a round." — and so this file was PINNING A FALSEHOOD: the path it
+ *  drives is a visitor with NO SESSION, and "again" asserts a prior one. The
+ *  local mint and the wire's 401 shared one code, so nothing could tell them
+ *  apart; they are now `not_signed_in` and `sign_in_required` respectively
+ *  (`panelSetupFirstSessionHonesty.spec.tsx` pins the pair). The "again"
+ *  sentence still exists and is still asserted — on the wire branch, where it
+ *  is true. */
+const SIGN_IN_COPY = 'Sign in to open or close a round.'
 
 const MINT_URL = '/bff/collab/rounds'
 const CLOSE_URL = `/bff/collab/rounds/${ROUND_ID}/close`
@@ -257,22 +266,27 @@ describe('a signed-out owner is told so, and NO request is issued', () => {
 })
 
 describe('the collab seam refuses to build an empty bearer — the choke point', () => {
-  it('mintRound throws sign_in_required and issues no request', async () => {
+  // ⚠ THE CODE HERE IS `not_signed_in`, NOT `sign_in_required` (17 Aug 2026).
+  // These three assert the LOCAL mint — nothing has been sent, so nothing has
+  // been declined, and the code must not be the one the WIRE uses to say it
+  // declined a bearer. Sharing one code is how the page came to tell a visitor
+  // with no account that their session had ended.
+  it('mintRound throws not_signed_in and issues no request', async () => {
     await expect(
       mintRound('', { scenarioId: SCENARIO_ID, contextNote: null, targets: [], participants: [] }),
-    ).rejects.toMatchObject({ name: 'CollabRequestError', code: 'sign_in_required', status: 401 })
+    ).rejects.toMatchObject({ name: 'CollabRequestError', code: 'not_signed_in', status: 401 })
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('closeRound throws sign_in_required and issues no request', async () => {
+  it('closeRound throws not_signed_in and issues no request', async () => {
     await expect(closeRound('', ROUND_ID)).rejects.toBeInstanceOf(CollabRequestError)
-    await expect(closeRound('', ROUND_ID)).rejects.toMatchObject({ code: 'sign_in_required' })
+    await expect(closeRound('', ROUND_ID)).rejects.toMatchObject({ code: 'not_signed_in' })
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('fetchOwnerReveal throws sign_in_required and issues no request', async () => {
+  it('fetchOwnerReveal throws not_signed_in and issues no request', async () => {
     await expect(fetchOwnerReveal('', ROUND_ID)).rejects.toMatchObject({
-      code: 'sign_in_required',
+      code: 'not_signed_in',
       status: 401,
     })
     expect(fetchMock).not.toHaveBeenCalled()

@@ -341,8 +341,42 @@ export async function fetchParticipantDisagreement(roundId: string): Promise<Dis
 /* ── owner ───────────────────────────────────────────────────────────────── */
 
 /**
- * The one place an owner-credential refusal is minted, so every path a user can
+ * ⭐⭐ TWO QUESTIONS, TWO NAMES — and they were ONE name until 17 Aug 2026.
+ *
+ * A credential refusal on the owner path has two producers, answering different
+ * questions, and for a while both minted `sign_in_required` at status 401:
+ *
+ *   • `ownerNotSignedIn()` — "does this browser hold a credential to send?"
+ *     Answered HERE, locally, before any request leaves. When the answer is no,
+ *     the client has observed NOTHING about whether a session ever existed.
+ *   • `ownerSignInRequired()` — "did the server accept the credential we sent?"
+ *     Answered by the WIRE (401 from CEE's `requireOwnerUser`). Reaching it
+ *     proves a non-empty bearer WAS sent and refused.
+ *
+ * Because both carried one code, `PanelSetupPage` could not tell them apart and
+ * told a visitor with NO ACCOUNT "Your session has ended" — browser-witnessed
+ * on deployed `81b5c966` with `S4.network.json === []`, i.e. zero requests, so
+ * no server had said anything about any session. Naming the concepts apart is
+ * the fix; aligning the copy would only have picked which half to lie to.
+ *
+ * ⚠ `status: 401` on the local mint is the status this refusal CORRESPONDS to,
+ * never an observation — no response was received. Discriminate on the CODE.
+ */
+export function ownerNotSignedIn(): CollabRequestError {
+  return new CollabRequestError({
+    code: 'not_signed_in',
+    message: 'Sign in to open or close a round.',
+    status: 401,
+  })
+}
+
+/**
+ * The WIRE's credential refusal, described in one place so every path a user can
  * hit says the same sentence. `PanelSetupPage` renders `.message` verbatim.
+ *
+ * ⚠ NOT the local mint — see `ownerNotSignedIn()` above. "Sign in AGAIN" is a
+ * claim about a session that existed, and it is true only once the server has
+ * declined a bearer this browser actually sent.
  */
 export function ownerSignInRequired(): CollabRequestError {
   return new CollabRequestError({
@@ -376,7 +410,10 @@ export function ownerSignInRequired(): CollabRequestError {
  * it at all until those ratchets existed.
  */
 function ownerAuthorization(accessToken: string): string {
-  if (accessToken.trim() === '') throw ownerSignInRequired()
+  // ⚠ `ownerNotSignedIn`, NOT `ownerSignInRequired`: nothing has been sent, so
+  // nothing has been declined. This throw is the client refusing to send an
+  // empty bearer — it is not a report of anything the server said.
+  if (accessToken.trim() === '') throw ownerNotSignedIn()
   return `Bearer ${accessToken}`
 }
 
