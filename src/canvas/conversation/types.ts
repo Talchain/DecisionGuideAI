@@ -8,6 +8,7 @@
 import type { StageType } from '@talchain/schemas/boundary'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
 import type { AnswerShape } from './answerShape'
+import type { GroundedSelection } from './groundedSelection'
 
 // ---------------------------------------------------------------------------
 // § 1 — Conversation messages
@@ -75,6 +76,24 @@ export interface ConversationMessage {
    * history falls back to the full-text render (same treatment as `reasoning`).
    */
   answerShape?: AnswerShape
+  /**
+   * CEE hop 4b: WHICH model elements this turn's answer was grounded on —
+   * `_grounded_selection` on the V5 body, parsed + fail-closed by
+   * `extractGroundedSelectionSidecar` (groundedSelection.ts, which carries the
+   * full producer contract). When present the bubble renders a
+   * `GroundedOnNotice`; when ABSENT the bubble renders exactly as today and
+   * makes NO grounding claim — absence is the producer's ungrounded signal
+   * (the key is omitted, never sent as null), so a claim here would be a
+   * fabrication. No flag: CEE emits it unconditionally on the success path, so
+   * this auto-lights-up.
+   *
+   * Ephemeral: derived from the live turn and NOT persisted — hydrated history
+   * renders without a grounding notice, the same treatment as `reasoning` and
+   * `answerShape`. That is deliberate rather than a gap: the ids are canonical
+   * canvas ids, and a rehydrated thread can be read against a model those ids
+   * no longer name.
+   */
+  groundedSelection?: GroundedSelection
   /**
    * Transcript honesty (dress-rehearsal trust item #3, 2026-07-20): delivery
    * state of a visible user send on the LIVE V5 path.

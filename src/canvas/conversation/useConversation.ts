@@ -62,6 +62,7 @@ import { START_NEW_DRAFT_CHIP_ID } from './chipDispatch'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { extractAnswerShapeSidecar } from './answerShape'
+import { extractGroundedSelectionSidecar } from './groundedSelection'
 // Leg 3 blocker fix: the wire->camelCase coaching mapper lives in the CEE
 // client adapter (DraftChat/useRetryDraft path); the V5 inline-draft seam
 // reuses it so one mapper owns the coaching wire shape.
@@ -5109,6 +5110,23 @@ export function useConversation(): UseConversationReturn {
             // merged into `content` (attached as its own field, rendered by
             // AnswerBody). See answerShape.ts for the full contract note.
             const answerShape = extractAnswerShapeSidecar(target.response)
+            // CEE hop 4b — WHICH model elements this answer was grounded on.
+            // `_grounded_selection` rides the SAME `__additive__` demotion as
+            // `_reasoning` and `_answer_shape` (it is undeclared at the pinned
+            // schema, and CEE's egress schema is `.strict()`), so it is read
+            // through the typed accessor rather than off the OlumiResponse
+            // surface. Emitted UNCONDITIONALLY by the producer on the success
+            // path (route-v2.ts:1543 — no flag, no debug token), so there is no
+            // UI flag here either.
+            //
+            // ⚠ FAIL-CLOSED, AND THE ABSENT CASE IS LOAD-BEARING: an ungrounded
+            // turn carries NO key at all (the producer returns null and
+            // attaches nothing), extractGroundedSelectionSidecar returns null,
+            // and the conditional spread below attaches nothing — so the bubble
+            // makes no grounding claim. Attaching a default/empty value here
+            // would fabricate a grounding on every ungrounded turn, which is
+            // the precise defect the wire spec's guards pin.
+            const groundedSelection = extractGroundedSelectionSidecar(target.response)
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
@@ -5117,6 +5135,7 @@ export function useConversation(): UseConversationReturn {
               ...(actionChips.length > 0 ? { actionChips } : {}),
               ...(reasoning ? { reasoning } : {}),
               ...(answerShape ? { answerShape } : {}),
+              ...(groundedSelection ? { groundedSelection } : {}),
               timestamp: new Date(),
             })
 
