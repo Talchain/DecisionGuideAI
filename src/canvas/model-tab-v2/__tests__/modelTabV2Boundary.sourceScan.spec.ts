@@ -344,6 +344,131 @@ describe('⭐ model-tab-v2 NEVER WRITES — the write authority is another lane'
   })
 })
 
+// ── 2b. NO STORE ACCESS AT ALL (review B1, 17 Aug 2026) ──────────────────────
+
+/**
+ * ⚠ ADDED AFTER AN ADVERSARIAL REVIEW EXECUTED TWO EVASIONS OF SECTION 2 AND
+ * EVERY GUARD STAYED GREEN. Both are ordinary idioms in sibling directories, so
+ * an honest future lane would copy them here:
+ *
+ *   E1  `import { useCanvasStore } from '../store'` +
+ *       `useCanvasStore.getState()` / `.setState({ nodes: … })` — the hook scan
+ *       only matches `use[A-Z]\w*(` CALLS, and `BANNED_WRITE` names 12 mutators
+ *       (`setState`, `addNode`, `deleteNodeById`, `applyRepair`,
+ *       `applyAllRepairs` are all unlisted);
+ *   E2  `const { updateNode: patchNode } = canvasState.getState()` —
+ *       destructure-RENAME evades every named token.
+ *
+ * So this scan bans the ACCESS ROUTE rather than enumerating mutators: for
+ * every v2 file INCLUDING the mount host, (a) no import/require/dynamic-import
+ * specifier may resolve to a store module (`…/store`, a `store(s)/` path
+ * segment, or `zustand` itself — path-based, so an alias like `@/canvas/store`
+ * is caught by its tail), and (b) `getState(` / `setState(` may not appear at
+ * all. Zero legitimate occurrences existed when this was written (verified);
+ * the one sanctioned writer remains `useModelEditAuthority`, which lives
+ * OUTSIDE this directory.
+ *
+ * NOTE this deliberately TIGHTENS what an older control in section 2 tolerates:
+ * there, a bare non-invoked store import is "a read, not a subscription" — that
+ * control pins the FOREIGN-HOOK scanner's discrimination and still holds; as
+ * DIRECTORY POLICY, any store import here is now banned outright, because E1
+ * proved a non-hook import is a full write path.
+ *
+ * ⚠ KNOWN LIMITS of source-text scanning (reviewer's riders, recorded so nobody
+ * mistakes this for a semantic guarantee): (i) a SPLIT-TOKEN dynamic import
+ * (`import('../sto' + 're')`) defeats specifier matching; (ii) TRANSITIVE
+ * closure is not scanned — a v2 file importing an out-of-directory helper that
+ * itself writes would pass. Both are visible in review as exactly the
+ * contortions they are; the scans exist to make the HONEST mistake loud, not to
+ * defeat an adversary.
+ */
+const STORE_SPECIFIER = (s: string): boolean =>
+  s === 'zustand' ||
+  s.startsWith('zustand/') ||
+  /(^|\/)store$/.test(s) ||
+  /(^|\/)stores?\//.test(s)
+
+/**
+ * ⚠ `stripComments`, NOT `blankNonCode` — an import specifier IS a string
+ * literal (the same lesson this file has now paid for twice; see the header).
+ */
+function storeAccessIn(src: string, file: string): string[] {
+  const code = stripComments(src, file)
+  const hits: string[] = []
+  const specifiers = [
+    ...code.matchAll(/from\s*['"]([^'"]+)['"]/g),
+    ...code.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]/g),
+    ...code.matchAll(/\brequire\s*\(\s*['"]([^'"]+)['"]/g),
+  ].map(m => m[1])
+  for (const s of specifiers) {
+    if (STORE_SPECIFIER(s)) hits.push(`import:${s}`)
+  }
+  for (const m of code.matchAll(/\b(getState|setState)\s*\(/g)) {
+    hits.push(`call:${m[1]}`)
+  }
+  return hits
+}
+
+describe('⭐ model-tab-v2 NEVER TOUCHES THE STORE — the access route is banned, not just the mutator names', () => {
+  it('POSITIVE CONTROL: evasion E1 (store import + getState/setState) is detected in full', () => {
+    // The review's exact executed shape, through the same pipeline as the claim.
+    expect(
+      storeAccessIn(
+        [
+          "import { useCanvasStore } from '../store'",
+          'const s = useCanvasStore.getState()',
+          'useCanvasStore.setState({ nodes: [] })',
+        ].join('\n'),
+        'x.ts',
+      ),
+    ).toEqual(['import:../store', 'call:getState', 'call:setState'])
+  })
+
+  it('POSITIVE CONTROL: evasion E2 (destructure-rename off getState) is detected', () => {
+    expect(
+      storeAccessIn(
+        'const { updateNode: patchNode } = canvasState.getState()\npatchNode(id, { data: {} })',
+        'x.ts',
+      ),
+    ).toEqual(['call:getState'])
+  })
+
+  it('POSITIVE CONTROL: zustand itself, aliased store paths, and a stores/ segment are all caught', () => {
+    expect(storeAccessIn("import { create } from 'zustand'", 'x.ts')).toEqual(['import:zustand'])
+    expect(storeAccessIn("import { useCanvasStore } from '@/canvas/store'", 'x.ts')).toEqual([
+      'import:@/canvas/store',
+    ])
+    expect(storeAccessIn("import { useUIStore } from '../../stores/uiStore'", 'x.ts')).toEqual([
+      'import:../../stores/uiStore',
+    ])
+    expect(storeAccessIn("const m = await import('../store')", 'x.ts')).toEqual(['import:../store'])
+  })
+
+  it('POSITIVE CONTROL: comments and innocent imports are NOT flagged — the scan discriminates', () => {
+    expect(
+      storeAccessIn(
+        "// import { useCanvasStore } from '../store'\n// getState( in prose\nconst x = 1",
+        'x.ts',
+      ),
+    ).toEqual([])
+    expect(
+      storeAccessIn(
+        "import { focusNodeById } from '../utils/focusHelpers'\nfocusNodeById(id)",
+        'x.tsx',
+      ),
+    ).toEqual([])
+  })
+
+  it('no v2 file — the mount host included — imports a store module or calls getState/setState', () => {
+    const offenders: string[] = []
+    for (const file of v2Files) {
+      const found = storeAccessIn(readFileSync(file, 'utf8'), file)
+      if (found.length > 0) offenders.push(`${basename(file)}: ${[...new Set(found)].join(', ')}`)
+    }
+    expect(offenders).toEqual([])
+  })
+})
+
 // ── 3. NO FAKE SUCCESS ───────────────────────────────────────────────────────
 
 /**
