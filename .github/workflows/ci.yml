@@ -264,13 +264,24 @@ jobs:
       - name: Duplicate-suffix guard
         run: pnpm run ci:guard:duplicates
 
-      # Design System v5 drift ratchet — REPORT-ONLY soak (Stage 2a). Surfaces
-      # net-new legacy tokens / raw hex / all-caps / panel-typography vs the
-      # committed baseline; DS debt does NOT fail CI, but a missing/corrupt baseline
-      # DOES (guard misconfiguration). Promote DS-debt detection to ci:guard:ds:enforce
-      # in a follow-up once the baseline has soaked.
-      - name: Design System v5 drift (report-only soak)
-        run: pnpm run ci:guard:ds
+      # Design System v5 drift ratchet — ENFORCING (Stage 2b). Net-new legacy
+      # tokens / raw hex / all-caps / panel-typography vs the committed baseline
+      # now FAIL, as does a missing/corrupt baseline (guard misconfiguration).
+      #
+      # It was report-only for a month because the July soak's 65 "net-new" hexes
+      # were all false positives (PR refs like #739 read as 3-digit hex) — the
+      # diagnosis was recorded and the stripper was never fixed, so no DS rule
+      # gated anything. The stripper is fixed first, then this is promoted; the
+      # reverse order turns CI red on comments.
+      #
+      # ⚠ THIS STEP ALONE DOES NOT GATE. Nothing in ci.yml is a required check —
+      # `staging` protection requires exactly one, "Staging Gate", in
+      # staging-full-tests.yml. The enforcing copy that actually blocks is in that
+      # workflow's `tsc` job. Derived 2026-08-17:
+      #   gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
+      #     --jq '.required_status_checks.contexts'   → ["Staging Gate"]
+      - name: Design System v5 drift (enforcing)
+        run: pnpm run ci:guard:ds:enforce
 
   # ── Typecheck gate self-test (positive control) ──────────────────────
   # PARITY WITH staging-full-tests.yml. The `tsc` job above asserts an ABSENCE

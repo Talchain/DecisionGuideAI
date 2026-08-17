@@ -195,7 +195,10 @@ function MicroIntervention({
   return (
     <div className="space-y-1" data-testid="hero-act-on-it-row-steps">
       <div className="flex items-center gap-2">
-        <span className={`${typography.panelMeta} font-semibold text-text-header`}>
+        {/* DS v5 §2.4: no raw font-weight in panel scope. panelMeta carries no
+            weight step, so the label reads as a label via text-text-header
+            against the list items' text-text-body below. */}
+        <span className={`${typography.panelMeta} text-text-header`}>
           {HERO_COPY.actOnIt.stepsLabel}
         </span>
         {estimatedMinutes != null && <MinutesBadge minutes={estimatedMinutes} />}

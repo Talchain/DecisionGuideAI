@@ -972,7 +972,12 @@ function OptionCard({
           {option.downside !== undefined ? (
             <div className="mt-1" data-testid={`option-downside-${option.id}`}>
               <p className={`${typography.panelMeta} text-text-light`}>
-                <span className="font-medium">{DOWNSIDE_HEADING_COPY}</span>{' '}
+                {/* Run-in label. DS v5 §2.4 bans raw font-size AND font-weight
+                    utilities in panel scope, and the sanctioned three-size scale
+                    (panelHeader/Body/Meta) has no 11px emphasis step — so the
+                    label is distinguished by the semantic COLOUR token against
+                    the paragraph's text-text-light, not by a raw weight. */}
+                <span className="text-text-header">{DOWNSIDE_HEADING_COPY}</span>{' '}
                 {/* ROADMAP 2.580 member 4: the magnitudes still go through
                     `formatRangeValue` (unchanged precision); the unit is
                     attached only when the goal stated one AND the values are

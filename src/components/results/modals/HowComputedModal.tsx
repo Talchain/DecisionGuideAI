@@ -190,7 +190,12 @@ export function HowComputedCard({ model }: HowComputedCardProps) {
         <div className="mt-1 flex flex-col gap-2">
           {C.whatItDoes.map((item) => (
             <div key={item.heading}>
-              <p className={`${typography.panelBody} font-semibold text-text-header`}>{item.heading}</p>
+              {/* Sub-heading inside a Section whose own <h3> is already
+                  panelHeader (14 semibold) — promoting this to panelHeader would
+                  make the two indistinguishable. DS v5 §2.4 bans the raw weight,
+                  so the sub-heading stays at panelBody and is distinguished from
+                  its body paragraph by text-text-header vs text-text-body. */}
+              <p className={`${typography.panelBody} text-text-header`}>{item.heading}</p>
               <p className={`${typography.panelBody} text-text-body`}>{item.body}</p>
             </div>
           ))}
