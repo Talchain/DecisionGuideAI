@@ -362,10 +362,26 @@ export async function clearNotifications(page: Page): Promise<void> {
  * side-tab controls render at x18-50,y89-193 — underneath the canvas
  * viewport-controls toolbar, which occupies the same box. A mouse click on
  * `floating-olumi-panel-minimise` is intercepted by the toolbar's undo icon
- * (`svg.lucide-undo2`, inside `rf-root`) and never lands. Keyboard activation
+ * (`svg.lucide-undo2`) and never lands. Keyboard activation
  * routes round the occlusion, which is exactly why it works and exactly why the
  * occlusion is worth a product look. Reported, not fixed: this lane adds test
  * infrastructure only.
+ *
+ * ⚠ CONTAINER ATTRIBUTION CORRECTED (re-derived at `b8fb8cbc`, 1440x900). This
+ * comment and the one on `activateByKeyboard` both said the occluding undo icon
+ * sits "inside `rf-root`". It does NOT. Measured with `elementFromPoint` at the
+ * control's centre (box x18,y117,32x32), the full ancestor chain is:
+ *   svg.lucide-undo2 <- button[aria-label="Undo"] <- div <- div
+ *   <- nav[aria-label="Canvas tools"] <- div <- main
+ * and `top.closest('#rf-root, .react-flow')` is NULL. The occluder is the
+ * LEFT-HAND "Canvas tools" sidebar nav, not react-flow's root — so a product fix
+ * aimed at the react-flow viewport controls would target the wrong element. The
+ * occlusion itself is confirmed still present (`isSelf=false`).
+ *
+ * ⚠ AND NOTE THE INSTRUMENT TRAP that hid this for one probe cycle:
+ * `SVGElement.className` is an `SVGAnimatedString`, not a string, so reading it
+ * as one yields `''` and the occluder's identity silently disappears. Use
+ * `getAttribute('class')` when hit-testing may land on SVG.
  */
 export async function minimiseFloatingOlumiPanel(page: Page): Promise<void> {
   const panel = page.getByTestId('floating-olumi-panel')
@@ -512,8 +528,11 @@ export function measureContent(png: PNG): { distinctColours: number; nonModalFra
  * exists to catch.
  *
  * Currently one use: `floating-olumi-panel-minimise`, which renders underneath
- * the canvas viewport-controls toolbar (both at x18-50, y89-193 at 1440x900);
- * `document.elementFromPoint` at its centre returns `svg.lucide-undo2`. Measured
+ * the LEFT-HAND `nav[aria-label="Canvas tools"]` sidebar (both at x18-50,
+ * y89-193 at 1440x900; the control itself measured x18,y117,32x32);
+ * `document.elementFromPoint` at its centre returns `svg.lucide-undo2`, whose
+ * `button` carries `aria-label="Undo"`. NOT inside `rf-root` — see the corrected
+ * attribution on `minimiseFloatingOlumiPanel`, re-derived at `b8fb8cbc`. Measured
  * at 289b730d at both 1280x800 and 1440x900. Reported, not fixed — this lane
  * adds test infrastructure only.
  *

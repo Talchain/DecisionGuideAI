@@ -222,6 +222,46 @@ Re-blessing is deliberately a separate, reviewable commit. Nothing overwrites a
 reference automatically, and no CI job ever commits one. If a reference changes,
 a human has to have looked at the image and said so in a commit message.
 
+### Re-blessed 2026-08-17: the four darwin graph references (#758)
+
+`#758` ("one edge-style authority + readable labels") merged **after** this
+harness blessed its references at `289b730d`, and legitimately changed the
+graph: node label text is now counter-scaled against the viewport transform, so
+labels render at roughly twice their former size; `contested` orange narrowed to
+two reasons; the phase-keyed `pre_run_incomplete` dash was deleted.
+
+The harness detected it, and detected exactly it. Measured against the
+then-committed darwin references (tolerance 0.05%):
+
+| reference | differing px | ratio | × tolerance |
+|---|---|---|---|
+| `fresh-draft--1280x800` | 18,140 | 1.772% | 35× |
+| `fresh-draft--1440x900` | 23,296 | 1.797% | 36× |
+| `graph-default-zoom--1280x800` | 26,052 | 2.544% | 51× |
+| `graph-default-zoom--1440x900` | 31,686 | 2.445% | 49× |
+
+The three dock-clipped states passed unchanged at both viewports — the diff was
+bounded to the graph, which is what a label-size change should look like. Ink
+(dark-pixel) count rose ×1.229–×1.351 on the four graph references and by
+**exactly zero** on the six dock references, so "the text got bigger" is a
+measurement here and not an inference.
+
+**⚠ Only the darwin set was stale, and that asymmetry is worth understanding
+before anyone concludes CI was red.** The linux set is generated on Linux by the
+CI job (see below), and was regenerated *after* `#758` had merged; the darwin
+set was captured locally at `289b730d`, *before* it. So at `0f22854b` the
+advisory linux job was **15/15 green** (job `95512722767`) while `pnpm visual`
+on darwin was 4 references red. **A green CI visual job is not evidence that
+your platform's references are current** — the two sets can drift
+independently, and only the one matching your `process.platform` is consulted.
+
+**⚠ `VISREG_BLESS=1` rewrites all ten references, not just the ones that
+differ.** Two dock references picked up sub-tolerance byte churn with no visual
+change during this re-bless and were reverted so the commit carried only the
+intended change. Expect to prune a re-bless diff; a re-bless commit touching
+every reference is the normal output of the tool, not evidence that everything
+changed.
+
 ### ⚠ These references are PROVISIONAL
 
 They were captured from `staging` at `42f6cb6a`, which still carries the
