@@ -265,9 +265,13 @@ export function ServerVersionsSection() {
         await refresh()
         return
       case 'incomplete':
+        // Refresh BEFORE inviting a retry: a retry with the stale head hash
+        // answers 409 (the server's pre-restore machinery already moved the
+        // head — measured in review); with the refreshed head it completes.
         setMessage(
-          'The restore did not complete: the version was recorded but the working model was not updated. Try again — it is safe to retry.',
+          'The restore did not complete: the version was recorded but the working model was not updated. The list has been refreshed — restoring the version again will complete it. No work is lost.',
         )
+        await refresh()
         return
       case 'versionNotFound':
         setMessage('That version is no longer available.')

@@ -147,6 +147,15 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   /^\/assist\/v1\/draft-graph$/,
   /^\/assist\/v1\/scenarios\/[^/]+\/graph$/,
   /^\/assist\/v1\/scenarios\/[^/]+\/graph\/register$/,
+  // Shared model versions (CEE #1001 wiring slice / UI #744): list, named
+  // save, guarded restore. Added WITH their ON-LIST cases in
+  // tests/ci-guards/bffProxyPathAllowlist.spec.ts — the first cut of #744
+  // omitted these and the whole feature died at this seam with 404 while
+  // every unit test above it stayed green (the guard spec is the instrument
+  // that sees this; keep new routes and their cases in the same PR).
+  /^\/assist\/v1\/scenarios\/[^/]+\/versions$/,
+  /^\/assist\/v1\/scenarios\/[^/]+\/versions\/save$/,
+  /^\/assist\/v1\/scenarios\/[^/]+\/versions\/restore$/,
   /^\/assist\/v1\/decision-records\/commit$/,
   /^\/assist\/v1\/decision-records\/[^/]+\/outcome$/,
 ]

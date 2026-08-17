@@ -97,6 +97,44 @@ describe('cee-proxy path allowlist (/bff/cee/* → /assist/v1/*)', () => {
     expect(r.calledUrl).toBe(`https://cee-staging.onrender.com/assist/v1/scenarios/${uuid}/graph`)
   })
 
+  // Shared model versions (UI #744 / CEE #1001). These three cases exist
+  // because the FIRST cut of #744 shipped without the allowlist entries and
+  // every browser call died at this seam with 404 while all 26 unit tests
+  // stayed green — adapter mocked fetch, section mocked the adapter, and
+  // nothing exercised the REAL handler (trap 3b's shape: every instrument
+  // above the seam agreed, and none touched what a user loads). This spec is
+  // the instrument that sees it; any new /bff/cee route needs its ON-LIST
+  // case here IN THE SAME PR.
+  it('ON-LIST /bff/cee/scenarios/{uuid}/versions forwards (versions list)', async () => {
+    const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+    const r = await invoke(ceeHandler as Handler, { path: `/bff/cee/scenarios/${uuid}/versions` })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(`https://cee-staging.onrender.com/assist/v1/scenarios/${uuid}/versions`)
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+  })
+
+  it('ON-LIST /bff/cee/scenarios/{uuid}/versions/save forwards (named save)', async () => {
+    const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+    const r = await invoke(ceeHandler as Handler, {
+      path: `/bff/cee/scenarios/${uuid}/versions/save`,
+    })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(
+      `https://cee-staging.onrender.com/assist/v1/scenarios/${uuid}/versions/save`,
+    )
+  })
+
+  it('ON-LIST /bff/cee/scenarios/{uuid}/versions/restore forwards (guarded restore)', async () => {
+    const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+    const r = await invoke(ceeHandler as Handler, {
+      path: `/bff/cee/scenarios/${uuid}/versions/restore`,
+    })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(
+      `https://cee-staging.onrender.com/assist/v1/scenarios/${uuid}/versions/restore`,
+    )
+  })
+
   it('OFF-LIST /bff/cee/decision-review (a real LLM route the UI never calls) is 404 with NO key sent', async () => {
     const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/decision-review' })
     expect(r.status).toBe(404)

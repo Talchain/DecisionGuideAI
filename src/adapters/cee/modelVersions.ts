@@ -21,10 +21,16 @@
  * restore copies the STORED version's graph server-side. The request schemas
  * have nowhere to put client bytes, and this client never tries.
  *
- * WRITES ARE NEVER AUTO-RETRIED. A restore is idempotent-converging
- * server-side (the RPC dedupes; the graph write re-runs), so retrying is
- * SAFE — but it is the USER's decision, surfaced through the typed
- * `incomplete` / `conflict` outcomes, never the transport's.
+ * WRITES ARE NEVER AUTO-RETRIED. Retrying a partial restore is SAFE (no
+ * data loss either way) but it is the USER's decision, surfaced through the
+ * typed `incomplete` / `conflict` outcomes, never the transport's — and the
+ * mechanism matters (measured, review of #744): a retry with the SAME
+ * expected head hash answers 409 (the server's own pre-restore machinery
+ * already moved the head), so a bare transport retry would spin on
+ * conflicts. A retry AFTER re-reading the list (fresh head hash) completes
+ * the restore, at the cost of two more appended version rows per attempt.
+ * The section refreshes the list on `incomplete`/`conflict` for exactly
+ * this reason.
  */
 
 import { logger } from '../../lib/logger'
@@ -109,8 +115,10 @@ export type RestoreModelVersionResult =
   | { status: 'signInRequired' }
   | { status: 'conflict' }
   | { status: 'versionNotFound' }
-  /** The version row was recorded but the working graph write failed.
-   *  Retrying the same restore CONVERGES server-side. */
+  /** The version row was recorded but the working graph write failed. A
+   *  retry completes it ONLY with a re-read head hash (a same-hash retry
+   *  409s; a refreshed retry appends two more version rows and lands the
+   *  graph — no data loss either way). See the header. */
   | { status: 'incomplete' }
   | { status: 'notReadable' }
   | { status: 'disabled' }
