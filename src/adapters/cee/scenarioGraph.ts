@@ -56,6 +56,9 @@
  * locally; see `canvas/utils/mergeServerGraph.ts`.
  */
 
+import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
+import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
+
 import { logger } from '../../lib/logger'
 import { parseNotModelled, type NotModelledManifest } from './notModelled'
 
@@ -118,6 +121,34 @@ export type ScenarioGraphResult =
       identity: ScenarioGraphIdentity | null
       /** MEASURED by CEE on the returned bytes. `false` for every real graph today. */
       layoutPresent: boolean
+      /**
+       * ROADMAP 2.1271 — CEE's composed `AnalysisStateV1` verdict for this
+       * scenario, PARSED, or `null`.
+       *
+       * ⚠ `null` IS NOT A STATE, and reading it as one is the whole hazard of
+       * this field. It means CEE DID NOT ANSWER — the build predates the key, the
+       * scenario has no graph, or the shape failed validation. A consumer must
+       * leave whatever it already believed standing. In particular it must NOT be
+       * read as evidence against an in-flight run the DRAFT TURN reported: the
+       * two authorities answer different questions (a turn answers "did I start a
+       * run?", a read answers "has a fact landed?"), and CEE keeps no in-flight
+       * marker, so mid-run this leg can only ever say `never_run`. See
+       * `canvas/hydrate/applyScenarioAnalysisRead.ts`, which is the ONLY
+       * sanctioned consumer.
+       */
+      analysisState: AnalysisStateV1 | null
+      /**
+       * ROADMAP 2.1271 — the `analysis_result` block for the fact the verdict
+       * selected, present ONLY on a `complete_current` verdict (CEE withholds it
+       * on a stale one, because those numbers describe a graph the user has since
+       * changed). `null` means no CURRENT result is being delivered — never "the
+       * analysis is empty".
+       *
+       * Deliberately typed `unknown`: the block is handed to `mapV5AnalysisToReport`
+       * — the SAME mapper the turn path uses — and a second local shape
+       * declaration here would be a mirror of the block contract.
+       */
+      analysisResult: unknown
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
@@ -174,6 +205,48 @@ function readIdentityEnvelope(raw: unknown): ScenarioGraphIdentity | null {
   return { value, projectionVersion }
 }
 
+/**
+ * ROADMAP 2.1271 — parse CEE's verdict with the CONTRACT, never a local mirror.
+ *
+ * `AnalysisStateV1Schema` is `.strict()` at every level and its `run_state` is a
+ * discriminated union, so an unknown kind or an extra key FAILS rather than
+ * handing a consumer a shape it will read as authority — the same discipline
+ * `applyV5State` applies on the turn path, using the same schema object.
+ *
+ * A parse failure returns `null`, i.e. "CEE did not answer". That is deliberately
+ * the same value as absence here, and it is safe ONLY because the single consumer
+ * treats `null` as "leave what you believed standing" rather than as a state.
+ */
+function readAnalysisState(raw: unknown): AnalysisStateV1 | null {
+  if (raw === null || raw === undefined) return null
+  const parsed = AnalysisStateV1Schema.safeParse(raw)
+  if (parsed.success) return parsed.data
+  logger.warn('scenario_graph.analysis_state_invalid_shape', {
+    issueCount: parsed.error.issues.length,
+  })
+  return null
+}
+
+/**
+ * The `analysis_result` block, gated on its own discriminator.
+ *
+ * Not validated further on purpose: `mapV5AnalysisToReport` is the block
+ * contract's one consumer and restating its shape here would be a mirror of it
+ * (trap 12). But the TYPE TAG is checked, so a future CEE key landing on this
+ * name cannot be forwarded to a mapper written for a different block.
+ */
+function readAnalysisResultBlock(raw: unknown): unknown {
+  if (raw === null || raw === undefined || typeof raw !== 'object') return null
+  const type = (raw as { type?: unknown }).type
+  if (type !== 'analysis_result') {
+    logger.warn('scenario_graph.analysis_result_unexpected_type', {
+      receivedType: typeof type === 'string' ? type : typeof type,
+    })
+    return null
+  }
+  return raw
+}
+
 function parseOk(body: unknown): ScenarioGraphResult {
   if (body === null || typeof body !== 'object') return { status: 'unusable' }
   const b = body as Record<string, unknown>
@@ -215,6 +288,17 @@ function parseOk(body: unknown): ScenarioGraphResult {
     notModelled: parseNotModelled(b.not_modelled),
     identity: readIdentityEnvelope(b.graph_identity_hash),
     layoutPresent: b.layout_present === true,
+    // ROADMAP 2.1271 — PARSED, NOT TRUSTED, and by the SAME `.strict()`
+    // discriminated-union schema `v5/applyV5State.ts` uses on the turn path. A
+    // malformed verdict yields `null` ("CEE did not answer") rather than a shape
+    // a consumer would read as authority. There is deliberately no local mirror
+    // of the vocabulary here.
+    analysisState: readAnalysisState(b.analysis_state),
+    // Handed through opaque: the ONLY reader is `mapV5AnalysisToReport`, which
+    // already owns the block contract. Presence is gated on the discriminator
+    // being the one block type this leg may carry, so a future CEE key cannot
+    // arrive here as an unlabelled object.
+    analysisResult: readAnalysisResultBlock(b.analysis_result),
     requestId,
   }
 }
