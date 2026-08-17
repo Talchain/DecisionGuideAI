@@ -132,14 +132,21 @@ import {
  * divergence REDs if it grows (a conjunct was relaxed) or shrinks (the cliff
  * came back).
  *
- * ⚠ KNOWN GAP, PINNED NOT HIDDEN. The `robustnessVerdict` read below is banned
- * by `../__tests__/hygiene.spec.ts` and recorded there in an EXACTLY-pinned
- * known-gap set that REDs if it grows or shrinks. That ban is STALE — PLoT does
- * publish a display-safe verdict and `types.ts` documents this field as sourced
- * only from it, fail-closed normalised — and clearing the pin entry is ROADMAP
- * 2.1227, not this change. Do not resolve it by editing the pin. The
- * `recommendationStability` entry was removed from that set BY THIS CHANGE,
- * alongside the removal of the read itself.
+ * ── THE KNOWN-GAP SET IN `../__tests__/hygiene.spec.ts` IS NOW EMPTY ────────
+ *
+ * Both entries that named this file are resolved, and in OPPOSITE ways:
+ *  · `recommendationStability` (ROADMAP 2.1228) — the ban was right and the
+ *    code was wrong, so the READ IS GONE, as described above.
+ *  · `robustnessVerdict` (ROADMAP 2.1227) — the code was right and the ban was
+ *    STALE, so THE SYMBOL LEFT THE REGEX. `types.ts` documents this field as
+ *    sourced only from PLoT's `robustness.display_verdict`, fail-closed
+ *    normalised in `useResultsSectionData.ts:1974-1986`, and instructs surfaces
+ *    to use it for the binary glyph. The read below IS the sanctioned path, so
+ *    pinning it was recording a debt that did not exist.
+ *    ⚠ `robustnessLevel` remains banned and that is the point — it is the
+ *    NON-display-safe twin, carrying a UI-SEM-005 stability fallback, and
+ *    `types.ts` says it must not drive the binary verdict. Unbanning the wrong
+ *    twin would have been the differently-named-twins defect.
  *
  * The `robustnessVerdict === 'robust'` conjunct is LOAD-BEARING and must not be
  * relaxed: it is now the ONLY trust authority in this predicate (single-source
