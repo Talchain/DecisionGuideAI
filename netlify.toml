@@ -193,6 +193,80 @@
   [headers.values]
   cache-control = "no-cache, must-revalidate, max-age=0"
 
+# ⭐⭐ /version.json IS THE DEPLOYMENT-EVIDENCE ENDPOINT — IT MUST NEVER BE SERVED FROM CACHE.
+#
+# Measured 17 Aug 2026 (ROADMAP 2.1281). With NO rule here, this file inherited
+# Netlify's platform default `public,max-age=0,must-revalidate`, and the edge stored
+# it as a HIT with `ttl=31535922` (~365 days), serving `age` up to 18,827 s (5.2 h).
+# Twenty consecutive deploy polls read the PREVIOUS commit; UNIFORMITY was the only
+# tell. The discriminator was a same-site contrast: `/index.html` (no-cache, the rule
+# directly above) revalidated at `age: 34` while `/version.json` sat at `age: 18465`.
+#
+# Failure direction is conservative (it can only report an OLDER sha, never falsely
+# confirm a new deploy), so no past deploy claim was falsely confirmed by it — but it
+# made a genuine deploy-TRIGGER outage (row 2.1280, which happened on CEE the same
+# morning) INDISTINGUISHABLE from cache staleness. That combination is the hazard.
+#
+# ⭐⭐ CORRECTED 17 Aug 2026 — `Cache-Control` ALONE DOES NOT GOVERN THIS EDGE, AND THE
+# ORIGINAL VERSION OF THIS RULE WOULD NOT HAVE FIXED ANYTHING. Three claims previously
+# written here are REFUTED by measurement; they are removed rather than softened,
+# because a plausible wrong mechanism in this file is what cost the 5.2-hour window.
+#
+#   REFUTED: "`public` is what defeats `must-revalidate` at this edge." Measured the
+#   same minute: `/index.html` carries NO `public` (`no-cache,must-revalidate,max-age=0`
+#   — the rule directly above) and is STILL a stored hit with ttl ~1 year.
+#   REFUTED: "`no-cache, must-revalidate, max-age=0` is the shape PROVEN to revalidate
+#   at THIS site." It is not: /index.html ships exactly that shape and is stored.
+#   REFUTED: the `age: 34` vs `age: 18465` contrast. That was ENTRY AGE, not directive
+#   behaviour — /index.html plain-GETs at age ~9,000 s too. A capture proves only what
+#   it was pointed at.
+#
+# WHAT ACTUALLY GOVERNS (Netlify's documented precedence):
+#   Netlify-CDN-Cache-Control  >  CDN-Cache-Control  >  Cache-Control
+# Static assets default to `Netlify-CDN-Cache-Control: public, s-maxage=31536000,
+# must-revalidate`, and Netlify explicitly IGNORES attempts to shorten that with a
+# plain `Cache-Control`. Arithmetic proof, measured across three paths in one run:
+# `ttl + age` = 31,536,001 / 31,536,000 / 31,536,000 for /version.json, /index.html
+# and /assets/*.js alike — one directive governs all three, and it is not the one any
+# of them sets. Hence the CDN-level header below: it is the only line here that
+# actually stops the edge storing this file. `cache-control` is retained for browsers
+# and intermediaries.
+#
+# ⚠⚠ AND THE ENDPOINT IS NODE-DEPENDENT — SO A SINGLE SAMPLE CANNOT ESTABLISH
+# FRESHNESS. Two reads seconds apart, same URL, both real: `age: 0; fwd=miss; stored`
+# then `age: 10100; hit; ttl=31525901`. Different edge nodes hold different entries.
+# Consequence: the old criterion here (`require: age: 0 AND fwd=miss`) was NOT
+# DISCRIMINATING — it passes on a cold node while the fix is inert (false pass) and
+# fails on a warm node while the fix works (false fail). It was measured PASSING on
+# the UNFIXED endpoint. Likewise ROADMAP 2.1281's "cache-immune read" recipe is INERT:
+# request-side `If-None-Match`/`Pragma`/`Cache-Control: no-store` and query-string
+# busting are all no-ops at this edge (same ETag, age keeps climbing). Its original
+# `fwd=miss; age: 0` was the first request after a deploy invalidated the entry — the
+# recipe took credit for the deploy's work.
+#
+# ⚠ VERIFY AFTER ANY CHANGE HERE — four conditions, and the CONTRAST is what makes it
+# evidence rather than a coin toss:
+#   git ls-remote https://github.com/Talchain/DecisionGuideAI staging   # derive the SHA independently
+#   curl -sS -D- -o /tmp/vj.json https://staging--olumi.netlify.app/version.json \
+#     | grep -iE '^HTTP|cache-control|^age:|cache-status|content-type'; cat /tmp/vj.json
+#   curl -sS -D- -o /dev/null https://staging--olumi.netlify.app/index.html \
+#     | grep -iE 'cache-control|^age:|cache-status'                     # contrast control, SAME run
+#   FIXED requires ALL of: (1) `cache-control` has TURNED OVER to the new string — a
+#   stored entry replays the old one, so the new string proves you are not on a stale
+#   entry; (2) `cache-status` shows fwd=bypass or fwd=miss AND NO `ttl=` that sums with
+#   `age` to ~31,536,000; (3) body `commit` equals the step-1 SHA, `content-type:
+#   application/json`, 40-hex (a MISSING file returns index.html as HTTP 200 text/html
+#   via the SPA catch-all, so assert the content-type); (4) the /index.html control in
+#   the same run STILL reads a ~1-year stored hit — proving your reading is a property
+#   of the new directive and not of a cold node.
+#   A bare `age: 0` proves NOTHING on its own. Never record a deploy verdict from it.
+[[headers]]
+  for = "/version.json"
+  [headers.values]
+  netlify-cdn-cache-control = "no-store"
+  cdn-cache-control = "no-store"
+  cache-control = "no-store, no-cache, must-revalidate, max-age=0"
+
 [[headers]]
   for = "/assets/*.js"
   [headers.values]
