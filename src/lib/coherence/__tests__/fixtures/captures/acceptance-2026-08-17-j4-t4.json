@@ -1,0 +1,563 @@
+{
+ "response_version": 2,
+ "assistant_text": "\"subcontracting inner-city deliveries to a green courier\" still has no effect value on Subcontractor cost as share of affected-route revenue, so that link is not carrying anything yet. You do not have to set it before analysing: the analysis will run on the options that are set, and it will name \"subcontracting inner-city deliveries to a green courier\" as left out of the comparison rather than scoring it. To set it directly, open \"subcontracting inner-city deliveries to a green courier\" on the canvas and enter the value on its link to Subcontractor cost as share of affected-route revenue.",
+ "blocks": [],
+ "suggested_actions": [
+  {
+   "id": "edit_graph_action_0",
+   "label": "Change Net EV capex after grants and resale of displaced diesels",
+   "message": "For Net EV capex after grants and resale of displaced diesels, what value should we use?"
+  },
+  {
+   "id": "edit_graph_action_1",
+   "label": "Change subcontracting inner-city deliveries to a green courier",
+   "message": "For subcontracting inner-city deliveries to a green courier, what value should we use?"
+  },
+  {
+   "id": "edit_graph_action_2",
+   "label": "Change Electrify one-third of fleet (EV capex route)",
+   "message": "For Electrify one-third of fleet (EV capex route), what value should we use?"
+  }
+ ],
+ "insights": [],
+ "stage_indicator": "frame",
+ "analysis_ready": {
+  "options": [
+   {
+    "option_id": "21ea9b80",
+    "label": "subcontracting inner-city deliveries to a green courier",
+    "status": "needs_encoding",
+    "interventions": {},
+    "is_baseline": false,
+    "status_reason": "No interventions extracted; original status preserved"
+   },
+   {
+    "option_id": "27af3c89",
+    "label": "Electrify one-third of fleet (EV capex route)",
+    "status": "needs_encoding",
+    "interventions": {},
+    "is_baseline": false,
+    "status_reason": "No interventions extracted; original status preserved"
+   },
+   {
+    "option_id": "862169d7",
+    "label": "Subcontract inner-city runs to green courier",
+    "status": "needs_encoding",
+    "interventions": {},
+    "is_baseline": false,
+    "status_reason": "No interventions extracted; original status preserved"
+   },
+   {
+    "option_id": "8678dc17",
+    "label": "paying the daily charges and passing costs to customers",
+    "status": "ready",
+    "interventions": {
+     "90246f0d": 0.95
+    },
+    "is_baseline": false,
+    "intervention_details": {
+     "90246f0d": {
+      "display_value": "Very high (0.95)",
+      "normalised_value": 0.95
+     }
+    },
+    "status_reason": "1 intervention(s) ready for analysis"
+   },
+   {
+    "option_id": "a120db6d",
+    "label": "Pay daily clean-air charges and pass through to customers",
+    "status": "needs_encoding",
+    "interventions": {},
+    "is_baseline": false,
+    "status_reason": "No interventions extracted; original status preserved"
+   },
+   {
+    "option_id": "b46b21eb",
+    "label": "replacing a third of the diesel fleet with electric vans now",
+    "status": "ready",
+    "interventions": {
+     "395af71f": 0.96
+    },
+    "is_baseline": false,
+    "intervention_details": {
+     "395af71f": {
+      "display_value": "Very high (0.96)",
+      "normalised_value": 0.96
+     }
+    },
+    "status_reason": "1 intervention(s) ready for analysis"
+   }
+  ],
+  "goal_node_id": "d91a57ea",
+  "status": "needs_user_input",
+  "blockers": [
+   {
+    "option_id": "21ea9b80",
+    "option_label": "subcontracting inner-city deliveries to a green courier",
+    "factor_id": "49a2b80b",
+    "factor_label": "Subcontractor cost as share of affected-route revenue",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Subcontractor cost as share of affected-route revenue\" is currently 0.5. What should option \"subcontracting inner-city deliveries to a green courier\" set it to?",
+    "suggested_action": "add_value"
+   },
+   {
+    "option_id": "27af3c89",
+    "option_label": "Electrify one-third of fleet (EV capex route)",
+    "factor_id": "395af71f",
+    "factor_label": "Net EV capex after grants and resale of displaced diesels",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Net EV capex after grants and resale of displaced diesels\" is currently 0.5. What should option \"Electrify one-third of fleet (EV capex route)\" set it to?",
+    "suggested_action": "add_value"
+   },
+   {
+    "option_id": "27af3c89",
+    "option_label": "Electrify one-third of fleet (EV capex route)",
+    "factor_id": "49a2b80b",
+    "factor_label": "Subcontractor cost as share of affected-route revenue",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Subcontractor cost as share of affected-route revenue\" is currently 0.5. What should option \"Electrify one-third of fleet (EV capex route)\" set it to?",
+    "suggested_action": "add_value"
+   },
+   {
+    "option_id": "27af3c89",
+    "option_label": "Electrify one-third of fleet (EV capex route)",
+    "factor_id": "90246f0d",
+    "factor_label": "Annual clean-air charge burden",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Annual clean-air charge burden\" is currently 0.5. What should option \"Electrify one-third of fleet (EV capex route)\" set it to?",
+    "suggested_action": "add_value"
+   },
+   {
+    "option_id": "862169d7",
+    "option_label": "Subcontract inner-city runs to green courier",
+    "factor_id": "395af71f",
+    "factor_label": "Net EV capex after grants and resale of displaced diesels",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Net EV capex after grants and resale of displaced diesels\" is currently 0.5. What should option \"Subcontract inner-city runs to green courier\" set it to?",
+    "suggested_action": "add_value"
+   },
+   {
+    "option_id": "862169d7",
+    "option_label": "Subcontract inner-city runs to green courier",
+    "factor_id": "49a2b80b",
+    "factor_label": "Subcontractor cost as share of affected-route revenue",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Subcontractor cost as share of affected-route revenue\" is currently 0.5. What should option \"Subcontract inner-city runs to green courier\" set it to?",
+    "suggested_action": "add_value"
+   },
+   {
+    "option_id": "862169d7",
+    "option_label": "Subcontract inner-city runs to green courier",
+    "factor_id": "90246f0d",
+    "factor_label": "Annual clean-air charge burden",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Annual clean-air charge burden\" is currently 0.5. What should option \"Subcontract inner-city runs to green courier\" set it to?",
+    "suggested_action": "add_value"
+   },
+   {
+    "option_id": "a120db6d",
+    "option_label": "Pay daily clean-air charges and pass through to customers",
+    "factor_id": "395af71f",
+    "factor_label": "Net EV capex after grants and resale of displaced diesels",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Net EV capex after grants and resale of displaced diesels\" is currently 0.5. What should option \"Pay daily clean-air charges and pass through to customers\" set it to?",
+    "suggested_action": "add_value"
+   },
+   {
+    "option_id": "a120db6d",
+    "option_label": "Pay daily clean-air charges and pass through to customers",
+    "factor_id": "49a2b80b",
+    "factor_label": "Subcontractor cost as share of affected-route revenue",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Subcontractor cost as share of affected-route revenue\" is currently 0.5. What should option \"Pay daily clean-air charges and pass through to customers\" set it to?",
+    "suggested_action": "add_value"
+   },
+   {
+    "option_id": "a120db6d",
+    "option_label": "Pay daily clean-air charges and pass through to customers",
+    "factor_id": "90246f0d",
+    "factor_label": "Annual clean-air charge burden",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Annual clean-air charge burden\" is currently 0.5. What should option \"Pay daily clean-air charges and pass through to customers\" set it to?",
+    "suggested_action": "add_value"
+   }
+  ],
+  "bias_findings": [],
+  "readiness_issues": [
+   {
+    "issue_id": "semantic_1",
+    "repairability": "human_input_required",
+    "option_id": "21ea9b80",
+    "option_label": "subcontracting inner-city deliveries to a green courier",
+    "factor_id": "49a2b80b",
+    "factor_label": "Subcontractor cost as share of affected-route revenue",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Choose the missing effect value for \"subcontracting inner-city deliveries to a green courier\" on \"Subcontractor cost as share of affected-route revenue\"."
+   },
+   {
+    "issue_id": "semantic_3",
+    "repairability": "human_input_required",
+    "option_id": "27af3c89",
+    "option_label": "Electrify one-third of fleet (EV capex route)",
+    "factor_id": "395af71f",
+    "factor_label": "Net EV capex after grants and resale of displaced diesels",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Choose the missing effect value for \"Electrify one-third of fleet (EV capex route)\" on \"Net EV capex after grants and resale of displaced diesels\"."
+   },
+   {
+    "issue_id": "semantic_5",
+    "repairability": "human_input_required",
+    "option_id": "27af3c89",
+    "option_label": "Electrify one-third of fleet (EV capex route)",
+    "factor_id": "49a2b80b",
+    "factor_label": "Subcontractor cost as share of affected-route revenue",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Choose the missing effect value for \"Electrify one-third of fleet (EV capex route)\" on \"Subcontractor cost as share of affected-route revenue\"."
+   },
+   {
+    "issue_id": "semantic_7",
+    "repairability": "human_input_required",
+    "option_id": "27af3c89",
+    "option_label": "Electrify one-third of fleet (EV capex route)",
+    "factor_id": "90246f0d",
+    "factor_label": "Annual clean-air charge burden",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Choose the missing effect value for \"Electrify one-third of fleet (EV capex route)\" on \"Annual clean-air charge burden\"."
+   },
+   {
+    "issue_id": "semantic_9",
+    "repairability": "human_input_required",
+    "option_id": "862169d7",
+    "option_label": "Subcontract inner-city runs to green courier",
+    "factor_id": "395af71f",
+    "factor_label": "Net EV capex after grants and resale of displaced diesels",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Choose the missing effect value for \"Subcontract inner-city runs to green courier\" on \"Net EV capex after grants and resale of displaced diesels\"."
+   },
+   {
+    "issue_id": "semantic_11",
+    "repairability": "human_input_required",
+    "option_id": "862169d7",
+    "option_label": "Subcontract inner-city runs to green courier",
+    "factor_id": "49a2b80b",
+    "factor_label": "Subcontractor cost as share of affected-route revenue",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Choose the missing effect value for \"Subcontract inner-city runs to green courier\" on \"Subcontractor cost as share of affected-route revenue\"."
+   },
+   {
+    "issue_id": "semantic_13",
+    "repairability": "human_input_required",
+    "option_id": "862169d7",
+    "option_label": "Subcontract inner-city runs to green courier",
+    "factor_id": "90246f0d",
+    "factor_label": "Annual clean-air charge burden",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Choose the missing effect value for \"Subcontract inner-city runs to green courier\" on \"Annual clean-air charge burden\"."
+   },
+   {
+    "issue_id": "semantic_15",
+    "repairability": "human_input_required",
+    "option_id": "a120db6d",
+    "option_label": "Pay daily clean-air charges and pass through to customers",
+    "factor_id": "395af71f",
+    "factor_label": "Net EV capex after grants and resale of displaced diesels",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Choose the missing effect value for \"Pay daily clean-air charges and pass through to customers\" on \"Net EV capex after grants and resale of displaced diesels\"."
+   },
+   {
+    "issue_id": "semantic_17",
+    "repairability": "human_input_required",
+    "option_id": "a120db6d",
+    "option_label": "Pay daily clean-air charges and pass through to customers",
+    "factor_id": "49a2b80b",
+    "factor_label": "Subcontractor cost as share of affected-route revenue",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Choose the missing effect value for \"Pay daily clean-air charges and pass through to customers\" on \"Subcontractor cost as share of affected-route revenue\"."
+   },
+   {
+    "issue_id": "semantic_19",
+    "repairability": "human_input_required",
+    "option_id": "a120db6d",
+    "option_label": "Pay daily clean-air charges and pass through to customers",
+    "factor_id": "90246f0d",
+    "factor_label": "Annual clean-air charge burden",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Choose the missing effect value for \"Pay daily clean-air charges and pass through to customers\" on \"Annual clean-air charge burden\"."
+   }
+  ],
+  "repair_proposal": {
+   "proposal_version": "readiness_repair_v1",
+   "complete": true,
+   "issue_ids": [
+    "semantic_1",
+    "semantic_3",
+    "semantic_5",
+    "semantic_7",
+    "semantic_9",
+    "semantic_11",
+    "semantic_13",
+    "semantic_15",
+    "semantic_17",
+    "semantic_19"
+   ],
+   "changes": [],
+   "unresolved_inputs": [
+    {
+     "issue_id": "semantic_1",
+     "kind": "option_effect_value",
+     "prompt": "Choose the missing effect value for \"subcontracting inner-city deliveries to a green courier\" on \"Subcontractor cost as share of affected-route revenue\".",
+     "option_id": "21ea9b80",
+     "factor_id": "49a2b80b"
+    },
+    {
+     "issue_id": "semantic_3",
+     "kind": "option_effect_value",
+     "prompt": "Choose the missing effect value for \"Electrify one-third of fleet (EV capex route)\" on \"Net EV capex after grants and resale of displaced diesels\".",
+     "option_id": "27af3c89",
+     "factor_id": "395af71f"
+    },
+    {
+     "issue_id": "semantic_5",
+     "kind": "option_effect_value",
+     "prompt": "Choose the missing effect value for \"Electrify one-third of fleet (EV capex route)\" on \"Subcontractor cost as share of affected-route revenue\".",
+     "option_id": "27af3c89",
+     "factor_id": "49a2b80b"
+    },
+    {
+     "issue_id": "semantic_7",
+     "kind": "option_effect_value",
+     "prompt": "Choose the missing effect value for \"Electrify one-third of fleet (EV capex route)\" on \"Annual clean-air charge burden\".",
+     "option_id": "27af3c89",
+     "factor_id": "90246f0d"
+    },
+    {
+     "issue_id": "semantic_9",
+     "kind": "option_effect_value",
+     "prompt": "Choose the missing effect value for \"Subcontract inner-city runs to green courier\" on \"Net EV capex after grants and resale of displaced diesels\".",
+     "option_id": "862169d7",
+     "factor_id": "395af71f"
+    },
+    {
+     "issue_id": "semantic_11",
+     "kind": "option_effect_value",
+     "prompt": "Choose the missing effect value for \"Subcontract inner-city runs to green courier\" on \"Subcontractor cost as share of affected-route revenue\".",
+     "option_id": "862169d7",
+     "factor_id": "49a2b80b"
+    },
+    {
+     "issue_id": "semantic_13",
+     "kind": "option_effect_value",
+     "prompt": "Choose the missing effect value for \"Subcontract inner-city runs to green courier\" on \"Annual clean-air charge burden\".",
+     "option_id": "862169d7",
+     "factor_id": "90246f0d"
+    },
+    {
+     "issue_id": "semantic_15",
+     "kind": "option_effect_value",
+     "prompt": "Choose the missing effect value for \"Pay daily clean-air charges and pass through to customers\" on \"Net EV capex after grants and resale of displaced diesels\".",
+     "option_id": "a120db6d",
+     "factor_id": "395af71f"
+    },
+    {
+     "issue_id": "semantic_17",
+     "kind": "option_effect_value",
+     "prompt": "Choose the missing effect value for \"Pay daily clean-air charges and pass through to customers\" on \"Subcontractor cost as share of affected-route revenue\".",
+     "option_id": "a120db6d",
+     "factor_id": "49a2b80b"
+    },
+    {
+     "issue_id": "semantic_19",
+     "kind": "option_effect_value",
+     "prompt": "Choose the missing effect value for \"Pay daily clean-air charges and pass through to customers\" on \"Annual clean-air charge burden\".",
+     "option_id": "a120db6d",
+     "factor_id": "90246f0d"
+    }
+   ]
+  },
+  "computed_at": "2026-08-17T09:27:45.751Z",
+  "freshness": "fresh",
+  "freshness_reason": "graph_hash_match",
+  "graph_hash_at_run": "476126e58107f67f",
+  "current_graph_hash": "476126e58107f67f"
+ },
+ "analysis_state": {
+  "run_state": {
+   "kind": "complete_current",
+   "computed_at": "2026-08-17T09:27:45.751Z"
+  },
+  "readiness": {
+   "status": "needs_user_input",
+   "blockers": [
+    {
+     "repairability": "human_input_required",
+     "option_id": "21ea9b80",
+     "option_label": "subcontracting inner-city deliveries to a green courier",
+     "factor_id": "49a2b80b",
+     "factor_label": "Subcontractor cost as share of affected-route revenue",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Choose the missing effect value for \"subcontracting inner-city deliveries to a green courier\" on \"Subcontractor cost as share of affected-route revenue\"."
+    },
+    {
+     "repairability": "human_input_required",
+     "option_id": "27af3c89",
+     "option_label": "Electrify one-third of fleet (EV capex route)",
+     "factor_id": "395af71f",
+     "factor_label": "Net EV capex after grants and resale of displaced diesels",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Choose the missing effect value for \"Electrify one-third of fleet (EV capex route)\" on \"Net EV capex after grants and resale of displaced diesels\"."
+    },
+    {
+     "repairability": "human_input_required",
+     "option_id": "27af3c89",
+     "option_label": "Electrify one-third of fleet (EV capex route)",
+     "factor_id": "49a2b80b",
+     "factor_label": "Subcontractor cost as share of affected-route revenue",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Choose the missing effect value for \"Electrify one-third of fleet (EV capex route)\" on \"Subcontractor cost as share of affected-route revenue\"."
+    },
+    {
+     "repairability": "human_input_required",
+     "option_id": "27af3c89",
+     "option_label": "Electrify one-third of fleet (EV capex route)",
+     "factor_id": "90246f0d",
+     "factor_label": "Annual clean-air charge burden",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Choose the missing effect value for \"Electrify one-third of fleet (EV capex route)\" on \"Annual clean-air charge burden\"."
+    },
+    {
+     "repairability": "human_input_required",
+     "option_id": "862169d7",
+     "option_label": "Subcontract inner-city runs to green courier",
+     "factor_id": "395af71f",
+     "factor_label": "Net EV capex after grants and resale of displaced diesels",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Choose the missing effect value for \"Subcontract inner-city runs to green courier\" on \"Net EV capex after grants and resale of displaced diesels\"."
+    },
+    {
+     "repairability": "human_input_required",
+     "option_id": "862169d7",
+     "option_label": "Subcontract inner-city runs to green courier",
+     "factor_id": "49a2b80b",
+     "factor_label": "Subcontractor cost as share of affected-route revenue",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Choose the missing effect value for \"Subcontract inner-city runs to green courier\" on \"Subcontractor cost as share of affected-route revenue\"."
+    },
+    {
+     "repairability": "human_input_required",
+     "option_id": "862169d7",
+     "option_label": "Subcontract inner-city runs to green courier",
+     "factor_id": "90246f0d",
+     "factor_label": "Annual clean-air charge burden",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Choose the missing effect value for \"Subcontract inner-city runs to green courier\" on \"Annual clean-air charge burden\"."
+    },
+    {
+     "repairability": "human_input_required",
+     "option_id": "a120db6d",
+     "option_label": "Pay daily clean-air charges and pass through to customers",
+     "factor_id": "395af71f",
+     "factor_label": "Net EV capex after grants and resale of displaced diesels",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Choose the missing effect value for \"Pay daily clean-air charges and pass through to customers\" on \"Net EV capex after grants and resale of displaced diesels\"."
+    },
+    {
+     "repairability": "human_input_required",
+     "option_id": "a120db6d",
+     "option_label": "Pay daily clean-air charges and pass through to customers",
+     "factor_id": "49a2b80b",
+     "factor_label": "Subcontractor cost as share of affected-route revenue",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Choose the missing effect value for \"Pay daily clean-air charges and pass through to customers\" on \"Subcontractor cost as share of affected-route revenue\"."
+    },
+    {
+     "repairability": "human_input_required",
+     "option_id": "a120db6d",
+     "option_label": "Pay daily clean-air charges and pass through to customers",
+     "factor_id": "90246f0d",
+     "factor_label": "Annual clean-air charge burden",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Choose the missing effect value for \"Pay daily clean-air charges and pass through to customers\" on \"Annual clean-air charge burden\"."
+    }
+   ]
+  },
+  "leader_claim": {
+   "permitted": false,
+   "withheld_reason": "separation_unavailable"
+  },
+  "robustness": {},
+  "usable_for_prose": true,
+  "usable_for_chips": true,
+  "usable_for_followup": true,
+  "requires_rerun": false,
+  "blocked_unusable": false,
+  "contradictions": []
+ },
+ "graph_hash": "476126e58107f67f",
+ "_diagnostic_trace": {
+  "llm_calls": [
+   {
+    "role": "edit_graph",
+    "provider": "anthropic",
+    "model": "claude-sonnet-5",
+    "input_tokens": 15368,
+    "output_tokens": 307,
+    "cache_read_tokens": null,
+    "cache_creation_tokens": null,
+    "latency_ms": 7392,
+    "stop_reason": "end_turn",
+    "thinking_enabled": false,
+    "error": null
+   }
+  ],
+  "prompt_identity": [],
+  "zone2_assembly": null,
+  "tool_policy": null,
+  "provider_resolution": [],
+  "structured_output_config": null,
+  "streaming_metrics": null,
+  "fallback_trace": [],
+  "benchmarking": {
+   "total_duration_ms": 19857,
+   "substage_timings": {
+    "finalisation_ms": 3
+   }
+  },
+  "correlation_ids": {
+   "request_id": "ea2656eb-7967-4ffd-8c4a-6490e317956f",
+   "scenario_id": "289c2690-f605-4f3c-8e43-465b339fda1e",
+   "turn_id": "84be7084-875f-4e47-9a81-5310122fb89d",
+   "response_hash": "9de90ff1e4bd"
+  },
+  "environment": {
+   "build_sha": "8be62df",
+   "environment": "staging"
+  },
+  "exit_path": "edit_graph",
+  "trace_version": 1,
+  "claim_safety": {
+   "may_name_leading_option": true,
+   "verdict_provenance": "scenario_fact",
+   "withheld_projection_reason": null
+  }
+ }
+}

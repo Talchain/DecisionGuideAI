@@ -1,0 +1,1203 @@
+{
+ "stage": "COMPLETE",
+ "seq": 3,
+ "status": "complete",
+ "status_code": 200,
+ "payload": {
+  "response_version": 2,
+  "assistant_text": "I've built a first decision model for \"We need a direction before the January board meeting\".\n\nOptions compared\n\u2022 Status Quo: Defend and hold current\n\u2022 diversify fast by buying a small M&E\n\u2022 bid aggressively to keep it even if\n\u2022 invest in a sales push into the NHS\n\nWhat the model is weighing\n\u2022 Main trade-off: NHS sales investment balanced against Bid aggressiveness on anchor contract\n\u2022 Assumption to check: whether the model's key inputs reflect your real delivery constraints\n\nNext, choose the missing effect value for \"diversify fast by buying a small M&E ma\u2026\" on \"M&E acquisition investment\" so the comparison can be prepared.\n\nA couple of things to check: I've assumed the goal and the horizon in this draft, and I haven't confirmed them with you.\n1. What outcome would make this decision a success?\n2. What timeframe does this decision need to play out over?\nYou can answer here, or change them directly on the canvas.",
+  "blocks": [],
+  "suggested_actions": [
+   {
+    "id": "chip_prompt_configure_option",
+    "label": "Configure diversify fast by buying a small M&E ma\u2026",
+    "message": "Help me configure diversify fast by buying a small M&E ma\u2026."
+   }
+  ],
+  "insights": [],
+  "stage_indicator": "analyse",
+  "draft_graph": {
+   "nodes": [
+    {
+     "id": "0b6174b6",
+     "kind": "factor",
+     "label": "NHS sales investment",
+     "observed_state": {
+      "value": 0.5,
+      "source": "cee_inference",
+      "extractionType": "inferred",
+      "factor_type": "other",
+      "uncertainty_drivers": [
+       "Not provided"
+      ]
+     },
+     "category": "controllable",
+     "display_value": "Moderate (0.5)",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "12eec3e0",
+     "kind": "risk",
+     "label": "Cash runway pressure from acquisition",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "21ca9f13",
+     "kind": "outcome",
+     "label": "Anchor contract retained",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "22a2b2db",
+     "kind": "option",
+     "label": "Status Quo: Defend and hold current position without new investment",
+     "interventions": {
+      "34260c08": {
+       "value": 0.3,
+       "source": "cee_hypothesis",
+       "target_match": {
+        "node_id": "34260c08",
+        "match_type": "exact_id",
+        "confidence": "high"
+       },
+       "value_confidence": "low",
+       "reasoning": "Model-chosen intervention level; this factor's scale is not recorded, so the amount could not be checked against the brief"
+      }
+     },
+     "is_baseline": true,
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "34260c08",
+     "kind": "factor",
+     "label": "Bid aggressiveness on anchor contract renewal",
+     "observed_state": {
+      "value": 0.5,
+      "source": "cee_inference",
+      "extractionType": "inferred",
+      "factor_type": "other",
+      "uncertainty_drivers": [
+       "Not provided"
+      ]
+     },
+     "category": "controllable",
+     "display_value": "Moderate (0.5)",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "51534bf0",
+     "kind": "factor",
+     "label": "M&E acquisition investment",
+     "observed_state": {
+      "value": 0.5,
+      "source": "cee_inference",
+      "extractionType": "inferred",
+      "factor_type": "other",
+      "uncertainty_drivers": [
+       "Not provided"
+      ]
+     },
+     "category": "controllable",
+     "display_value": "Moderate (0.5)",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "548f21a9",
+     "kind": "outcome",
+     "label": "Revenue diversification achieved",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "6c0e0404",
+     "kind": "goal",
+     "label": "We need a direction before the January board meeting",
+     "provenance": "from_brief"
+    },
+    {
+     "id": "6d3c7483",
+     "kind": "decision",
+     "label": "Decision",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "8eac2076",
+     "kind": "factor",
+     "label": "Management capacity to service new work",
+     "category": "external",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "a6e9d3c5",
+     "kind": "risk",
+     "label": "Revenue cliff if anchor contract lost",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "bb0c49e0",
+     "kind": "risk",
+     "label": "Management overstretch",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "bbea56fa",
+     "kind": "option",
+     "label": "diversify fast by buying a small M&E maintenance firm we have been circling",
+     "interventions": {},
+     "is_baseline": false,
+     "provenance": "from_brief"
+    },
+    {
+     "id": "bda0d87e",
+     "kind": "risk",
+     "label": "Margin erosion on anchor contract",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "cfb39cb3",
+     "kind": "factor",
+     "label": "NHS procurement cycle length and complexity",
+     "category": "external",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "dd80f02d",
+     "kind": "option",
+     "label": "bid aggressively to keep it even if margins go to near zero",
+     "interventions": {
+      "34260c08": {
+       "value": 0.9,
+       "source": "cee_hypothesis",
+       "target_match": {
+        "node_id": "34260c08",
+        "match_type": "exact_id",
+        "confidence": "high"
+       },
+       "value_confidence": "low",
+       "reasoning": "Model-chosen intervention level; this factor's scale is not recorded, so the amount could not be checked against the brief"
+      }
+     },
+     "is_baseline": false,
+     "provenance": "from_brief"
+    },
+    {
+     "id": "dff669a8",
+     "kind": "factor",
+     "label": "Anchor contract revenue concentration",
+     "category": "external",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "ec97ce3b",
+     "kind": "factor",
+     "label": "Acquisition price uncertainty",
+     "category": "external",
+     "prior": {
+      "distribution": "uniform",
+      "range_min": 0.3,
+      "range_max": 0.8999999999999999
+     },
+     "factor_type": "price",
+     "extractionType": "inferred",
+     "provenance": "ai_inferred"
+    },
+    {
+     "id": "f9b0b167",
+     "kind": "option",
+     "label": "invest in a sales push into the NHS estates market",
+     "interventions": {},
+     "is_baseline": false,
+     "provenance": "from_brief"
+    }
+   ],
+   "edges": [
+    {
+     "from": "0b6174b6",
+     "to": "548f21a9",
+     "strength": {
+      "mean": 0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "0b6174b6",
+     "to": "bb0c49e0",
+     "strength": {
+      "mean": 0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "12eec3e0",
+     "to": "6c0e0404",
+     "strength": {
+      "mean": -0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "negative",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "21ca9f13",
+     "to": "6c0e0404",
+     "strength": {
+      "mean": 0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "22a2b2db",
+     "to": "34260c08",
+     "strength": {
+      "mean": 1,
+      "std": 0.01
+     },
+     "exists_probability": 1,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "34260c08",
+     "to": "21ca9f13",
+     "strength": {
+      "mean": 0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "34260c08",
+     "to": "bda0d87e",
+     "strength": {
+      "mean": 0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "51534bf0",
+     "to": "12eec3e0",
+     "strength": {
+      "mean": 0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "51534bf0",
+     "to": "548f21a9",
+     "strength": {
+      "mean": 0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "548f21a9",
+     "to": "6c0e0404",
+     "strength": {
+      "mean": 0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "6d3c7483",
+     "to": "22a2b2db",
+     "strength": {
+      "mean": 1,
+      "std": 0.01
+     },
+     "exists_probability": 1,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Decision-to-option scaffold minted by the projector"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "default"
+    },
+    {
+     "from": "6d3c7483",
+     "to": "bbea56fa",
+     "strength": {
+      "mean": 1,
+      "std": 0.01
+     },
+     "exists_probability": 1,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Decision-to-option scaffold minted by the projector"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "default"
+    },
+    {
+     "from": "6d3c7483",
+     "to": "dd80f02d",
+     "strength": {
+      "mean": 1,
+      "std": 0.01
+     },
+     "exists_probability": 1,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Decision-to-option scaffold minted by the projector"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "default"
+    },
+    {
+     "from": "6d3c7483",
+     "to": "f9b0b167",
+     "strength": {
+      "mean": 1,
+      "std": 0.01
+     },
+     "exists_probability": 1,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Decision-to-option scaffold minted by the projector"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "default"
+    },
+    {
+     "from": "8eac2076",
+     "to": "548f21a9",
+     "strength": {
+      "mean": 0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "8eac2076",
+     "to": "bb0c49e0",
+     "strength": {
+      "mean": -0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "negative",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "a6e9d3c5",
+     "to": "6c0e0404",
+     "strength": {
+      "mean": -0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "negative",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "bb0c49e0",
+     "to": "6c0e0404",
+     "strength": {
+      "mean": -0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "negative",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "bbea56fa",
+     "to": "51534bf0",
+     "strength": {
+      "mean": 1,
+      "std": 0.01
+     },
+     "exists_probability": 1,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "bda0d87e",
+     "to": "6c0e0404",
+     "strength": {
+      "mean": -0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "negative",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "cfb39cb3",
+     "to": "548f21a9",
+     "strength": {
+      "mean": -0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "negative",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "dd80f02d",
+     "to": "34260c08",
+     "strength": {
+      "mean": 1,
+      "std": 0.01
+     },
+     "exists_probability": 1,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "dff669a8",
+     "to": "a6e9d3c5",
+     "strength": {
+      "mean": 0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "ec97ce3b",
+     "to": "12eec3e0",
+     "strength": {
+      "mean": 0.5,
+      "std": 0.11999999999999998
+     },
+     "exists_probability": 0.8,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    },
+    {
+     "from": "f9b0b167",
+     "to": "0b6174b6",
+     "strength": {
+      "mean": 1,
+      "std": 0.01
+     },
+     "exists_probability": 1,
+     "effect_direction": "positive",
+     "provenance": {
+      "source": "cee_hypothesis",
+      "reasoning": "Model-inferred causal link (records projector)"
+     },
+     "provenance_display": "ai_inferred",
+     "origin": "ai"
+    }
+   ],
+   "node_count": 19,
+   "edge_count": 25
+  },
+  "analysis_ready": {
+   "options": [
+    {
+     "option_id": "22a2b2db",
+     "label": "Status Quo: Defend and hold current position without new investment",
+     "status": "ready",
+     "interventions": {
+      "34260c08": 0.3
+     },
+     "is_baseline": true,
+     "intervention_details": {
+      "34260c08": {
+       "display_value": "Moderate (0.3)",
+       "normalised_value": 0.3
+      }
+     },
+     "extraction_metadata": {
+      "source": "cee_hypothesis",
+      "confidence": "low",
+      "reasoning": "Model-chosen intervention level; this factor's scale is not recorded, so the amount could not be checked against the brief"
+     },
+     "status_reason": "1 intervention(s) ready for analysis"
+    },
+    {
+     "option_id": "bbea56fa",
+     "label": "diversify fast by buying a small M&E maintenance firm we have been circling",
+     "status": "needs_user_mapping",
+     "interventions": {},
+     "extraction_metadata": {
+      "source": "brief_extraction",
+      "confidence": "low",
+      "reasoning": "diversify fast by buying a small M&E maintenance firm we have been circling"
+     },
+     "status_reason": "No interventions extracted"
+    },
+    {
+     "option_id": "dd80f02d",
+     "label": "bid aggressively to keep it even if margins go to near zero",
+     "status": "ready",
+     "interventions": {
+      "34260c08": 0.9
+     },
+     "intervention_details": {
+      "34260c08": {
+       "display_value": "Very high (0.9)",
+       "normalised_value": 0.9
+      }
+     },
+     "extraction_metadata": {
+      "source": "cee_hypothesis",
+      "confidence": "low",
+      "reasoning": "Model-chosen intervention level; this factor's scale is not recorded, so the amount could not be checked against the brief"
+     },
+     "status_reason": "1 intervention(s) ready for analysis"
+    },
+    {
+     "option_id": "f9b0b167",
+     "label": "invest in a sales push into the NHS estates market",
+     "status": "needs_user_mapping",
+     "interventions": {},
+     "extraction_metadata": {
+      "source": "brief_extraction",
+      "confidence": "low",
+      "reasoning": "invest in a sales push into the NHS estates market"
+     },
+     "status_reason": "No interventions extracted"
+    }
+   ],
+   "goal_node_id": "6c0e0404",
+   "status": "needs_user_input",
+   "blockers": [
+    {
+     "option_id": "bbea56fa",
+     "option_label": "diversify fast by buying a small M&E maintenance firm we have been circling",
+     "factor_id": "51534bf0",
+     "factor_label": "M&E acquisition investment",
+     "blocker_type": "missing_value",
+     "message": "Factor \"M&E acquisition investment\" is currently 0.5. What should option \"diversify fast by buying a small M&E maintenance firm we have been circling\" set it to?",
+     "suggested_action": "add_value"
+    },
+    {
+     "option_id": "f9b0b167",
+     "option_label": "invest in a sales push into the NHS estates market",
+     "factor_id": "0b6174b6",
+     "factor_label": "NHS sales investment",
+     "blocker_type": "missing_value",
+     "message": "Factor \"NHS sales investment\" is currently 0.5. What should option \"invest in a sales push into the NHS estates market\" set it to?",
+     "suggested_action": "add_value"
+    }
+   ],
+   "model_adjustments": [
+    {
+     "code": "category_reclassified",
+     "node_id": "0b6174b6",
+     "field": "category",
+     "after": "controllable",
+     "reason": "Structural inference: has option edge \u2192 controllable (NHS sales investment)"
+    },
+    {
+     "code": "category_reclassified",
+     "node_id": "34260c08",
+     "field": "category",
+     "after": "controllable",
+     "reason": "Structural inference: has option edge \u2192 controllable (Bid aggressiveness on anchor contract renewal)"
+    },
+    {
+     "code": "category_reclassified",
+     "node_id": "51534bf0",
+     "field": "category",
+     "after": "controllable",
+     "reason": "Structural inference: has option edge \u2192 controllable (M&E acquisition investment)"
+    },
+    {
+     "code": "category_reclassified",
+     "node_id": "8eac2076",
+     "field": "category",
+     "after": "external",
+     "reason": "Structural inference: no option edge, no value \u2192 external (Management capacity to service new work)"
+    },
+    {
+     "code": "category_reclassified",
+     "node_id": "cfb39cb3",
+     "field": "category",
+     "after": "external",
+     "reason": "Structural inference: no option edge, no value \u2192 external (NHS procurement cycle length and complexity)"
+    },
+    {
+     "code": "category_reclassified",
+     "node_id": "dff669a8",
+     "field": "category",
+     "after": "external",
+     "reason": "Structural inference: no option edge, no value \u2192 external (Anchor contract revenue concentration)"
+    },
+    {
+     "code": "category_reclassified",
+     "node_id": "ec97ce3b",
+     "field": "category",
+     "after": "external",
+     "reason": "Structural inference: no option edge, no value \u2192 external (Acquisition price uncertainty)"
+    },
+    {
+     "code": "category_reclassified",
+     "node_id": "8eac2076",
+     "field": "nodes[8eac2076].category",
+     "reason": "Reclassified unreachable factor \"Management capacity to service new work\" to external",
+     "source": "deterministic_sweep"
+    },
+    {
+     "code": "category_reclassified",
+     "node_id": "cfb39cb3",
+     "field": "nodes[cfb39cb3].category",
+     "reason": "Reclassified unreachable factor \"NHS procurement cycle length and complexity\" to external",
+     "source": "deterministic_sweep"
+    },
+    {
+     "code": "category_reclassified",
+     "node_id": "dff669a8",
+     "field": "nodes[dff669a8].category",
+     "reason": "Reclassified unreachable factor \"Anchor contract revenue concentration\" to external",
+     "source": "deterministic_sweep"
+    },
+    {
+     "code": "category_reclassified",
+     "node_id": "ec97ce3b",
+     "field": "nodes[ec97ce3b].category",
+     "reason": "Reclassified unreachable factor \"Acquisition price uncertainty\" to external with synthesised prior [0.3, 0.8999999999999999]. The extracted value \u00a3600,000 is not used in the maths \u2014 the range shown is a placeholder",
+     "source": "deterministic_sweep",
+     "before": 600000
+    },
+    {
+     "code": "category_reclassified",
+     "field": "nodes[factor_factor_0].category",
+     "reason": "Reclassified unreachable factor \"Factor\" to external with synthesised prior [0.105, 0.315]",
+     "source": "deterministic_sweep",
+     "before": 210
+    }
+   ],
+   "bias_findings": [
+    {
+     "id": "overconfidence_narrow_belief_band",
+     "category": "other",
+     "severity": "high",
+     "node_ids": [
+      "22a2b2db",
+      "34260c08",
+      "6d3c7483",
+      "bbea56fa",
+      "dd80f02d",
+      "f9b0b167",
+      "51534bf0",
+      "0b6174b6"
+     ],
+     "explanation": "Edge beliefs are all high and tightly clustered; probability estimates may be over-confident.",
+     "code": "OVERCONFIDENCE",
+     "targets": {
+      "node_ids": [
+       "22a2b2db",
+       "34260c08",
+       "6d3c7483",
+       "bbea56fa",
+       "dd80f02d",
+       "f9b0b167",
+       "51534bf0",
+       "0b6174b6"
+      ]
+     },
+     "structural_pattern": "Belief values in high, narrow band [1.00, 1.00] across 8 edges",
+     "confidence_band": "medium",
+     "mechanism": "Excessive certainty in own judgments, leading to overly narrow confidence intervals and underestimation of uncertainty.",
+     "citation": "Lichtenstein et al. (1982) - Judgment Under Uncertainty",
+     "micro_intervention": {
+      "steps": [
+       "Widen your confidence interval: what would make you 90% confident vs 50%?",
+       "List three things you might be wrong about in this analysis"
+      ],
+      "estimated_minutes": 3
+     }
+    },
+    {
+     "id": "authority_high_degree_node",
+     "category": "other",
+     "severity": "medium",
+     "node_ids": [
+      "6c0e0404",
+      "12eec3e0",
+      "21ca9f13",
+      "548f21a9",
+      "a6e9d3c5",
+      "bb0c49e0",
+      "bda0d87e"
+     ],
+     "explanation": "One or more authority-labelled nodes are highly connected in the decision graph; this may overweight senior opinions.",
+     "code": "AUTHORITY_BIAS",
+     "targets": {
+      "node_ids": [
+       "6c0e0404",
+       "12eec3e0",
+       "21ca9f13",
+       "548f21a9",
+       "a6e9d3c5",
+       "bb0c49e0",
+       "bda0d87e"
+      ]
+     },
+     "structural_pattern": "Authority-labelled node has connections to three or more other nodes",
+     "confidence_band": "medium",
+     "mechanism": "Tendency to attribute greater accuracy to opinions of authority figures, regardless of content.",
+     "citation": "Milgram (1963) - Journal of Abnormal and Social Psychology",
+     "micro_intervention": {
+      "steps": [
+       "Collect input anonymously before revealing who said what",
+       "Explicitly ask junior team members to share their view first"
+      ],
+      "estimated_minutes": 3
+     }
+    }
+   ],
+   "computed_at": "2026-08-17T09:18:58.529Z",
+   "freshness": "none",
+   "freshness_reason": "no_successful_run_analysis_fact",
+   "current_graph_hash": "0eb5bea593835d99"
+  },
+  "analysis_state": {
+   "run_state": {
+    "kind": "never_run"
+   },
+   "readiness": {
+    "status": "needs_user_input",
+    "blockers": [
+     {
+      "repairability": "human_input_required",
+      "option_id": "bbea56fa",
+      "option_label": "diversify fast by buying a small M&E maintenance firm we have been circling",
+      "factor_id": "51534bf0",
+      "factor_label": "M&E acquisition investment",
+      "code": "MISSING_OPTION_VALUE",
+      "category": "option_values",
+      "message": "Choose the missing effect value for \"diversify fast by buying a small M&E maintenance firm we have been circling\" on \"M&E acquisition investment\"."
+     },
+     {
+      "repairability": "human_input_required",
+      "option_id": "f9b0b167",
+      "option_label": "invest in a sales push into the NHS estates market",
+      "factor_id": "0b6174b6",
+      "factor_label": "NHS sales investment",
+      "code": "MISSING_OPTION_VALUE",
+      "category": "option_values",
+      "message": "Choose the missing effect value for \"invest in a sales push into the NHS estates market\" on \"NHS sales investment\"."
+     }
+    ]
+   },
+   "leader_claim": {
+    "permitted": false,
+    "withheld_reason": "separation_unavailable"
+   },
+   "robustness": {},
+   "usable_for_prose": false,
+   "usable_for_chips": false,
+   "usable_for_followup": false,
+   "requires_rerun": false,
+   "blocked_unusable": false,
+   "contradictions": []
+  },
+  "graph_hash": "0eb5bea593835d99",
+  "_diagnostic_trace": {
+   "llm_calls": [
+    {
+     "role": "draft_graph",
+     "provider": "anthropic",
+     "model": "claude-sonnet-4-6",
+     "input_tokens": 2136,
+     "output_tokens": 1716,
+     "cache_read_tokens": null,
+     "cache_creation_tokens": null,
+     "latency_ms": 24835,
+     "stop_reason": "end_turn",
+     "thinking_enabled": false,
+     "error": null
+    }
+   ],
+   "prompt_identity": [
+    {
+     "task_id": "draft_graph",
+     "prompt_id": "draft_graph_default@v195 (staging)",
+     "version": "draft_graph_default@v195 (staging)",
+     "hash": "152998b447819c2e9e797b1727f8e05b34480486dca6f672a5d2839facd2353f",
+     "source": "pms",
+     "is_staging": true
+    }
+   ],
+   "zone2_assembly": null,
+   "tool_policy": null,
+   "provider_resolution": [
+    {
+     "task": "draft_graph",
+     "env_default_provider": "anthropic",
+     "env_model_override": null,
+     "prompt_config_model": null,
+     "resolved_model": "claude-sonnet-4-6",
+     "resolved_provider": "anthropic",
+     "switch_reason": null
+    }
+   ],
+   "structured_output_config": {
+    "enabled": true,
+    "api_shape": "tool_use",
+    "schema_hash": null,
+    "beta_header_present": false
+   },
+   "streaming_metrics": null,
+   "fallback_trace": [],
+   "benchmarking": {
+    "total_duration_ms": 76065,
+    "substage_timings": {
+     "llm_call_ms": 24835,
+     "parse_ms": 24924,
+     "repair_ms": 183,
+     "persistence_ms": 643,
+     "total_handler_duration_ms": 75154,
+     "finalisation_ms": 5
+    }
+   },
+   "correlation_ids": {
+    "request_id": "7cc1d69c-4403-4a23-9903-de18d550f084",
+    "scenario_id": "2a49431a-f814-43ab-9229-66dcbb535e42",
+    "turn_id": "9ba60b5c-e266-409e-837d-506b331dc694",
+    "graph_hash": "0eb5bea593835d99",
+    "prompt_hash": "152998b447819c2e9e797b1727f8e05b34480486dca6f672a5d2839facd2353f",
+    "response_hash": "1e9bddc39a90"
+   },
+   "pipeline_outcome": {
+    "graph_drafted": true,
+    "graph_structurally_valid": true,
+    "deterministic_sweep_violations": 0,
+    "verification_status": "passed",
+    "validation_status": "failed_degraded",
+    "enrichment_status": "complete",
+    "coaching_status": "complete",
+    "warnings": [
+     {
+      "stage": "validation_pipeline",
+      "error": "abandoned_deadline",
+      "degraded": true
+     }
+    ],
+    "rescue_score": 33,
+    "factor_value_coverage": {
+     "total": 7,
+     "explicit": 0,
+     "inferred_with_evidence": 0,
+     "fallback_default": 7
+    },
+    "edge_strength_unique_count": 1,
+    "llm_repair": {
+     "triggered": false,
+     "outcome": "skipped",
+     "fallback_reason": null,
+     "attempts": 0
+    },
+    "repair_provenance": [
+     {
+      "rule": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "code": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "node_or_edge_id": "edges[22a2b2db\u219234260c08]",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "code": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "node_or_edge_id": "edges[6d3c7483\u219222a2b2db]",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "code": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "node_or_edge_id": "edges[6d3c7483\u2192bbea56fa]",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "code": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "node_or_edge_id": "edges[6d3c7483\u2192dd80f02d]",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "code": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "node_or_edge_id": "edges[6d3c7483\u2192f9b0b167]",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "code": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "node_or_edge_id": "edges[bbea56fa\u219251534bf0]",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "code": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "node_or_edge_id": "edges[dd80f02d\u219234260c08]",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "code": "STRUCTURAL_EDGE_NOT_CANONICAL_ERROR",
+      "node_or_edge_id": "edges[f9b0b167\u21920b6174b6]",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "CATEGORY_MISMATCH",
+      "code": "CATEGORY_MISMATCH",
+      "node_or_edge_id": "nodes[factor_factor_0].category",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "CONTROLLABLE_MISSING_DATA",
+      "code": "CONTROLLABLE_MISSING_DATA",
+      "node_or_edge_id": "nodes[0b6174b6].data",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "fallback_default"
+     },
+     {
+      "rule": "CONTROLLABLE_MISSING_DATA",
+      "code": "CONTROLLABLE_MISSING_DATA",
+      "node_or_edge_id": "nodes[34260c08].data",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "fallback_default"
+     },
+     {
+      "rule": "CONTROLLABLE_MISSING_DATA",
+      "code": "CONTROLLABLE_MISSING_DATA",
+      "node_or_edge_id": "nodes[51534bf0].data",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "fallback_default"
+     },
+     {
+      "rule": "UNREACHABLE_FACTOR_RECLASSIFIED",
+      "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+      "node_or_edge_id": "nodes[8eac2076].category",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "UNREACHABLE_FACTOR_RECLASSIFIED",
+      "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+      "node_or_edge_id": "nodes[cfb39cb3].category",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "UNREACHABLE_FACTOR_RECLASSIFIED",
+      "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+      "node_or_edge_id": "nodes[dff669a8].category",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "UNREACHABLE_FACTOR_RECLASSIFIED",
+      "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+      "node_or_edge_id": "nodes[ec97ce3b].category",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "UNREACHABLE_FACTOR_RECLASSIFIED",
+      "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+      "node_or_edge_id": "nodes[factor_factor_0].category",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "UNREACHABLE_FACTOR_RETAINED",
+      "code": "UNREACHABLE_FACTOR_RETAINED",
+      "node_or_edge_id": "nodes[factor_factor_0]",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     },
+     {
+      "rule": "DISCONNECTED_OBSERVABLE_PRUNED",
+      "code": "DISCONNECTED_OBSERVABLE_PRUNED",
+      "node_or_edge_id": "nodes[factor_factor_0]",
+      "field": "graph",
+      "before": null,
+      "after": null,
+      "source": "structure"
+     }
+    ]
+   },
+   "environment": {
+    "build_sha": "8be62df",
+    "environment": "staging"
+   },
+   "exit_path": "draft_graph",
+   "trace_version": 1,
+   "claim_safety": {
+    "may_name_leading_option": true,
+    "verdict_provenance": "no_analysis_exists",
+    "withheld_projection_reason": null
+   }
+  }
+ }
+}
