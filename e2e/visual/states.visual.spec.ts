@@ -29,7 +29,6 @@
 import { test, expect } from '@playwright/test'
 import {
   VIEWPORTS,
-  activateByKeyboard,
   captureState,
   clearNotifications,
   minimiseFloatingOlumiPanel,
@@ -108,10 +107,12 @@ test.describe('visual regression — founder states', () => {
         const modelTab = page.getByTestId('outputs-dock-tab-diagnostics')
         await expect(modelTab).toBeVisible({ timeout: 20_000 })
         await expect(modelTab).toContainText('Model')
-        // Keyboard, because at both viewports this tab is OCCLUDED by
-        // `button[aria-label="Collapse outputs dock"]` and a mouse click never
-        // lands. See `activateByKeyboard` — a reported product finding.
-        await activateByKeyboard(page, 'outputs-dock-tab-diagnostics')
+        // A REAL MOUSE CLICK, deliberately. At 42f6cb6a this tab was occluded by
+        // `button[aria-label="Collapse outputs dock"]` in a 280px dock and had to
+        // be driven by keyboard; the 416px restore (#754/#755) fixed it. Clicking
+        // rather than focus+Enter means a future re-narrowing that re-occludes
+        // this tab REDS here instead of being routed around silently.
+        await modelTab.click()
 
         await captureState(page, testInfo, `model-tab--${vp.name}`, vp, {
           clip: '[data-testid="outputs-dock"]',
@@ -128,8 +129,7 @@ test.describe('visual regression — founder states', () => {
         const olumiTab = page.getByTestId('outputs-dock-tab-olumi')
         await expect(olumiTab).toBeVisible({ timeout: 20_000 })
         await expect(olumiTab).toContainText('Olumi')
-        // Keyboard for symmetry with the Model tab; this one is not occluded.
-        await activateByKeyboard(page, 'outputs-dock-tab-olumi')
+        await olumiTab.click()
 
         await captureState(page, testInfo, `olumi-tab--${vp.name}`, vp, {
           clip: '[data-testid="outputs-dock"]',

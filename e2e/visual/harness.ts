@@ -70,23 +70,26 @@ export const MANIFEST_PATH = join(repoRoot(), 'test-results', 'visual-manifest.t
 
 /*
  * SUBSTANTIVE-REFERENCE FLOORS — calibrated against the real references, not
- * guessed. Measured on the darwin set captured 2026-08-17:
+ * guessed. Measured on the darwin set captured at 289b730d (2026-08-17), weakest
+ * first:
  *
- *   reference                             size    colours   non-modal px
- *   fresh-draft--1440x900                 294 KB      263        50.8%
- *   inspector-node-selected--1280x800     265 KB      223        37.1%
- *   graph-default-zoom--1280x800          254 KB      253        49.2%
- *   blocked-provisional--1280x800          50 KB       89        11.6%
- *   olumi-tab--1440x900                    20 KB       66         4.2%   <- floor-setter
+ *   reference                             dims        size  colours  non-modal
+ *   olumi-tab--1440x900                   416x872     20 KB      64      3.2%  <- floor-setter
+ *   blocked-provisional--1440x900         416x872     74 KB      89     10.5%
+ *   model-tab--1440x900                   416x872     89 KB      81     11.9%
+ *   fresh-draft--1440x900                1440x900    279 KB     260     45.1%
+ *   graph-default-zoom--1440x900         1440x900    313 KB     263     54.2%
  *
- * A blank/white/error page of the same dimensions is ~2-4 KB, 1-3 quantised
- * colours and ~0% non-modal. The floors sit an order of magnitude below the
- * weakest real reference and an order of magnitude above a blank one, so they
- * discriminate the case they exist for without being tripped by a legitimately
- * sparse panel. (The first cut of this guard used 200 colours — above the real
- * value for four narrow-panel references — and rejected them. Floors written
- * from intuition rather than measurement fail in whichever direction you were
- * not thinking about.)
+ * A blank/white/error page of the same dimensions is ~2-7 KB, 1-3 quantised
+ * colours and ~0% non-modal. The floors sit well below the weakest real
+ * reference and well above a blank one, so they discriminate the case they exist
+ * for without being tripped by a legitimately sparse panel.
+ *
+ * (The first cut used a 200-colour floor — above the real value for every
+ * narrow-panel reference — and rejected four of them. Floors written from
+ * intuition rather than measurement fail in whichever direction you were not
+ * thinking about. Re-measured after the 416px dock restore: the minima moved
+ * 66->64 colours and 4.2%->3.2% non-modal, and the floors still hold.)
  */
 const MIN_REFERENCE_BYTES = 8_000
 const MIN_DISTINCT_QUANTISED_COLOURS = 40
@@ -484,21 +487,25 @@ export function measureContent(png: PNG): { distinctColours: number; nonModalFra
 /**
  * Activate a control with the keyboard.
  *
- * ⚠ USED WHERE A MOUSE CLICK IS INTERCEPTED BY AN OVERLAPPING CONTROL, and
- * every such use is a recorded product finding, not a convenience. Measured at
- * this tip under the pinned posture, at BOTH 1280x800 and 1440x900:
- *   - the four dock tabs (Olumi/Analysis/Compare/Model) span 282px inside a
- *     155px-wide `nav[aria-label="Outputs sections"]` in a 280px dock, so they
- *     overflow the dock's right edge. `document.elementFromPoint` at the centre
- *     of "Compare" returns an `svg`, and at the centre of "Model" returns
- *     `button[aria-label="Collapse outputs dock"]`. Two of four tabs are not
- *     reachable by mouse.
- *   - `floating-olumi-panel-minimise` sits under the canvas viewport-controls
- *     toolbar.
- * Keyboard activation reaches them because focus order is unaffected by
- * z-order. This lane adds test infrastructure only, so the occlusions are
- * REPORTED rather than fixed, and the references below record the product as it
- * currently renders.
+ * ⚠ USED ONLY WHERE A MOUSE CLICK IS PHYSICALLY INTERCEPTED, and each use names
+ * the occlusion. Keyboard activation reaches an occluded control because focus
+ * order is unaffected by z-order — which is exactly why it must NOT be used as a
+ * general-purpose click: it would route round the very defects this harness
+ * exists to catch.
+ *
+ * Currently one use: `floating-olumi-panel-minimise`, which renders underneath
+ * the canvas viewport-controls toolbar (both at x18-50, y89-193 at 1440x900);
+ * `document.elementFromPoint` at its centre returns `svg.lucide-undo2`. Measured
+ * at 289b730d at both 1280x800 and 1440x900. Reported, not fixed — this lane
+ * adds test infrastructure only.
+ *
+ * ⚠ HISTORY, because it is the reason this helper is scoped so tightly: at
+ * 42f6cb6a the four dock tabs overflowed a 280px dock and `Compare` and `Model`
+ * were BOTH mouse-unreachable, so this helper was used for them too. The
+ * 416px width restore (#754/#755) fixed that — re-derived at 289b730d, all four
+ * tabs hit-test to themselves — so the tabs went back to real mouse clicks. Had
+ * they been left on keyboard activation, a future re-narrowing would have been
+ * INVISIBLE to this harness.
  */
 export async function activateByKeyboard(page: Page, testId: string): Promise<void> {
   const control = page.getByTestId(testId)
@@ -543,15 +550,15 @@ export function readManifest(): string[] {
  * the image. It is the number that decides whether this harness bites, so it
  * is derived from `selftest.visual.spec.ts`, which measures the noise floor and
  * two real regressions of the class that shipped past fifteen green PRs.
- * Measured on darwin/chromium 1.57 at 1440x900 (1,296,000 px), each
+ * Measured on darwin/chromium 1.57 at 1440x900 (1,296,000 px) at 289b730d, each
  * perturbation in its OWN browser context:
  *
  *   noise floor (fresh capture vs committed reference)   0.0000%       0 px
  *   marginal: 1px nudge of one small control             0.0077%     100 px
- *   REGRESSION: sticky footer overlapping content        0.6502%   8,427 px
- *   REGRESSION: right-hand panel widened by 35%          1.9483%  25,250 px
+ *   REGRESSION: sticky footer overlapping content        0.6346%   8,225 px
+ *   REGRESSION: right-hand panel widened by 35%          2.0319%  26,333 px
  *
- * 0.0005 (0.05%, 648 px at this size) sits with a 13x margin under the smaller
+ * 0.0005 (0.05%, 648 px at this size) sits with a 12x margin under the smaller
  * of the two real regressions and an unbounded margin over a noise floor that
  * measured EXACTLY ZERO differing pixels across process runs. The self-test
  * asserts both margins (>=10x) on every run, so this constant cannot quietly
@@ -559,9 +566,9 @@ export function readManifest(): string[] {
  *
  * What it will NOT catch, stated honestly: a sub-650px change at full-viewport
  * scale, e.g. the 1px control nudge above. Panel-scale states are clipped to
- * the dock (~216,000 px) where the same ratio is ~108 px, so small copy and
- * spacing changes there DO trip it — deliberately: in a panel, a one-word
- * change is a change worth re-blessing on purpose.
+ * the dock (416x872 = ~363,000 px) where the same ratio is ~181 px, so small
+ * copy and spacing changes there DO trip it — deliberately: in a panel, a
+ * one-word change is a change worth re-blessing on purpose.
  */
 export const MAX_DIFF_PIXEL_RATIO = 0.0005
 export const PIXEL_THRESHOLD = 0.2

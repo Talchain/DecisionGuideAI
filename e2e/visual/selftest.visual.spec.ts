@@ -136,13 +136,36 @@ test.describe('visual harness self-test — proves the instrument can fail', () 
   test('tolerance separates antialiasing noise from a real regression, by an order of magnitude', async ({ browser }) => {
     const results: Comparison[] = []
 
+    // The panel-width perturbation is DERIVED from the dock's live width, not
+    // hardcoded. It was hardcoded at 378px when the dock was 280px; the 416px
+    // restore (#754/#755) would have silently turned "+35%" into "-9%" — a
+    // perturbation that shrinks instead of widening, still producing a large
+    // diff, so the assertion would have passed while measuring the wrong thing.
+    const dockWidth = await (async () => {
+      const { page, context } = await freshDraftPage(browser)
+      try {
+        const box = await page.locator('[data-testid="outputs-dock"]').first().boundingBox()
+        expect(box, 'outputs-dock has no box — cannot derive the perturbation').not.toBeNull()
+        return Math.round(box!.width)
+      } finally {
+        await context.close()
+      }
+    })()
+    const widened = Math.round(dockWidth * 1.35)
+    // eslint-disable-next-line no-console
+    console.log(`[visreg self-test] dock is ${dockWidth}px; +35% perturbation widens it to ${widened}px`)
+    expect(widened, 'the +35% perturbation must WIDEN the dock, not shrink it').toBeGreaterThan(dockWidth)
+
     // Each perturbation gets its own context, so none can contaminate the next.
     const cases: Array<{ label: string; css?: string }> = [
       // 1. NOISE FLOOR — unmodified.
       { label: 'noise floor (unmodified)' },
-      // 2. PANEL WIDTH +35% — the dock is 280px; 378px is +35%. This is the
-      //    regression class of the 15-PR wave.
-      { label: 'panel width +35 percent', css: '[data-testid="outputs-dock"] { width: 378px !important; max-width: 378px !important; }' },
+      // 2. PANEL WIDTH +35% — width derived above from the live dock. This is
+      //    the regression class of the 15-PR wave.
+      {
+        label: 'panel width +35 percent',
+        css: `[data-testid="outputs-dock"] { width: ${widened}px !important; max-width: ${widened}px !important; }`,
+      },
       // 3. STICKY FOOTER OVERLAP — footer lifted over the content beneath it.
       {
         label: 'sticky footer overlap',
@@ -206,8 +229,10 @@ test.describe('visual harness self-test — proves the instrument can fail', () 
     // The measurement above proves pixelmatch discriminates. It does NOT prove
     // that captureState's own comparison is wired to fail. This does.
     const { page, context } = await freshDraftPage(browser)
+    const box = await page.locator('[data-testid="outputs-dock"]').first().boundingBox()
+    const widened = Math.round((box?.width ?? 416) * 1.35)
     await page.addStyleTag({
-      content: `[data-testid="outputs-dock"] { width: 378px !important; max-width: 378px !important; }`,
+      content: `[data-testid="outputs-dock"] { width: ${widened}px !important; max-width: ${widened}px !important; }`,
     })
     await waitForVisualQuiescence(page)
 

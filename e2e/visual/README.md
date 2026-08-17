@@ -114,10 +114,16 @@ Chosen from measurement, not habit. `selftest.visual.spec.ts` measures, at
 |---|---|---|
 | noise floor (fresh capture vs committed reference) | **0.0000%** | 0 |
 | marginal: 1px nudge of one small control | 0.0077% | 100 |
-| **regression: sticky footer overlapping content** | **0.6502%** | 8,427 |
-| **regression: right-hand panel widened by 35%** | **1.9483%** | 25,250 |
+| **regression: sticky footer overlapping content** | **0.6346%** | 8,225 |
+| **regression: right-hand panel widened by 35%** | **2.0319%** | 26,333 |
 
-0.05% sits 13× under the smaller real regression and above a noise floor that
+Measured at `289b730d`. The panel-width perturbation is **derived from the dock's
+live width** (416px → 562px), not hardcoded: it was hardcoded at 378px when the
+dock was 280px, and the 416px restore would have silently turned "+35%" into
+"−9%" — still a big diff, so the assertion would have passed while measuring the
+wrong thing.
+
+0.05% sits 12× under the smaller real regression and above a noise floor that
 measured exactly zero. The self-test asserts both margins (≥10×) on **every
 run**, so the constant cannot drift into being too slack to fail or too tight to
 trust.
