@@ -319,5 +319,12 @@ describe('G3 — the demotion this applier exists to prevent is REAL', () => {
       store: narrow.store,
     })
     expect(narrow.setAnalysisStateV1).not.toHaveBeenCalled()
-  })
+    // ⚠ EXPLICIT TIMEOUT, and it is not padding. This is the one test here that
+    // dynamically imports `applyV5State` — a large module whose cold transform
+    // exceeded vitest's 5s default in a fresh worktree with a symlinked
+    // `node_modules` (caught by the mutant battery's PRISTINE CONTROL, which is
+    // what that control is for). A cold-cache timeout in a control makes every
+    // mutant verdict void, so the flake is fixed at the source rather than
+    // absorbed.
+  }, 30_000)
 })
