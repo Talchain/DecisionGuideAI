@@ -111,8 +111,32 @@ const EDGE_REGISTRY = path.join(ROOT, 'src/canvas/ReactFlowGraph.tsx')
  * counter-scaled token there would render at 2x. Excluded BY MECHANISM (the
  * file portals), not by preference; the assertion below re-derives that the
  * exclusion is still earned. Paths are relative to `src/canvas`.
+ *
+ * ⭐ `edges/EdgeEditPopover.tsx` JOINED THIS LIST on 18 Aug 2026, and the reason
+ * matters more than the entry. It was pinned below as two un-counter-scaled
+ * PANEL tokens plus an aside about being `position: fixed` inside a transformed
+ * ancestor. Both readings were downstream of a fact nobody had measured:
+ * `@xyflow/react`'s `EdgeWrapper` renders an edge component inside
+ * `<svg><g>…</g></svg>` (derived at the installed bytes, 12.10.2), and
+ * `StyledEdge` returned this popover as a plain sibling of its edge path rather
+ * than through an `<EdgeLabelRenderer>`. React creates the children of an
+ * `<svg>` in the SVG NAMESPACE, so the whole popover was being built as
+ * SVG-namespaced `div`s — proven in jsdom with a contrast control, and the
+ * reason its existing specs never saw it is that every one of them rendered the
+ * component standalone into an HTML container.
+ *
+ * So the typography was never the user-visible defect, and the obvious
+ * "conformance" fix — routing `panelHeader`/`panelMeta` to canvas tokens —
+ * would have shrunk a panel heading 14 -> 13px to satisfy the §2.3 canvas
+ * scale, which does not govern this component. That would have been another
+ * instance of the exact defect class this census exists to catch: a declared
+ * size routed around its actual scale authority. The popover now portals to
+ * `document.body` like `NodePopover`, which is what its `event.clientX/clientY`
+ * coordinates and its `position: fixed` always assumed; outside the transform
+ * DS v5 §2.2 governs it and its panel tokens are correct unchanged.
+ * Pinned by `edges/__tests__/EdgeEditPopover.mount.spec.tsx`.
  */
-const PORTALLED = ['nodes/shared/NodePopover.tsx']
+const PORTALLED = ['nodes/shared/NodePopover.tsx', 'edges/EdgeEditPopover.tsx']
 
 /**
  * Sizes inside the transform that are NOT yet counter-scaled, pinned EXACTLY.
@@ -147,28 +171,16 @@ const PORTALLED = ['nodes/shared/NodePopover.tsx']
  *                                   ⭐ NEEDS A SIZE RULING. It is the only one
  *                                   of the five inline edge-label sizes left
  *                                   un-counter-scaled by #771.
- *   edges/EdgeEditPopover.tsx       panelHeader 14px -> 7.0px, panelMeta 11px
- *                                   -> 5.5px. PANEL tokens on a component that
- *                                   renders inside the transform (StyledEdge
- *                                   returns it as a sibling of the edge path).
- *                                   panelMeta is the same 11px as the canvas
- *                                   `nodeLabel`, so that half is a like-for-like
- *                                   swap; panelHeader's 14px is not in the
- *                                   canvas scale and needs the same ruling as
- *                                   the glyph above. ⚠ Separately worth a look:
- *                                   the popover is `position: fixed` with
- *                                   viewport coordinates INSIDE a transformed
- *                                   ancestor, which makes the transform its
- *                                   containing block — a positioning question,
- *                                   not a typography one, and out of scope here.
+ *
+ * ⚠ `edges/EdgeEditPopover.tsx` USED TO CARRY TWO ENTRIES HERE (panelHeader,
+ * panelMeta) and no longer does — it moved to `PORTALLED` above, where the
+ * reasoning is recorded. It is NOT a size that was silently resized to fit.
  */
 const KNOWN_FIXED = [
   'nodes/BaseNode.tsx:text-lg',
   'nodes/EvidenceGapBadge.tsx:inline-7',
   'nodes/shared/NodeCoachingMarker.tsx:typography.caption',
   'edges/StyledEdge.tsx:inline-16',
-  'edges/EdgeEditPopover.tsx:typography.panelHeader',
-  'edges/EdgeEditPopover.tsx:typography.panelMeta',
 ] as const
 
 /**

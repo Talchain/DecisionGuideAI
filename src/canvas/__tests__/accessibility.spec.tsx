@@ -62,11 +62,15 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
     })
 
     it('should have proper heading hierarchy', () => {
-      const { container } = render(<EdgeEditPopover {...mockProps} />)
+      // EdgeEditPopover portals to `document.body` (see its header: it is
+      // rendered inside the edge <svg> and must escape both the SVG namespace
+      // and the viewport transform), so it is a SIBLING of RTL's render
+      // container rather than a descendant. Query from `screen`/`document.body`.
+      render(<EdgeEditPopover {...mockProps} />)
 
-      const heading = container.querySelector('h3')
+      const heading = screen.getByRole('heading', { level: 3 })
       expect(heading).toBeDefined()
-      expect(heading?.textContent).toBe('Edit Edge')
+      expect(heading.textContent).toBe('Edit Edge')
     })
 
     it('should have keyboard hint text for screen readers', () => {
@@ -170,7 +174,11 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
 
   describe('Color Contrast', () => {
     it('should use high-contrast colors for text', () => {
-      const { container } = render(
+      // EdgeEditPopover portals to `document.body` (see its header: it is
+      // rendered inside the edge <svg> and must escape both the SVG namespace
+      // and the viewport transform), so it is a SIBLING of RTL's render
+      // container rather than a descendant. Query from `screen`/`document.body`.
+      render(
         <EdgeEditPopover
           edge={{ id: 'e1', data: { weight: 0.5, belief: 0.5 } }}
           position={{ x: 400, y: 300 }}
@@ -180,7 +188,7 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
       )
 
       // Check heading color
-      const heading = container.querySelector('h3')
+      const heading = screen.getByRole('heading', { level: 3 })
       const headingStyle = window.getComputedStyle(heading!)
 
       // Should have dark text (gray-900 or similar)
@@ -223,7 +231,11 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
     })
 
     it('should have semantic HTML structure', () => {
-      const { container } = render(
+      // EdgeEditPopover portals to `document.body` (see its header: it is
+      // rendered inside the edge <svg> and must escape both the SVG namespace
+      // and the viewport transform), so it is a SIBLING of RTL's render
+      // container rather than a descendant. Query from `screen`/`document.body`.
+      render(
         <EdgeEditPopover
           edge={{ id: 'e1', data: { weight: 0.5, belief: 0.5 } }}
           position={{ x: 400, y: 300 }}
@@ -233,11 +245,11 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
       )
 
       // Should have proper heading
-      const heading = container.querySelector('h3')
+      const heading = screen.getByRole('heading', { level: 3 })
       expect(heading).toBeDefined()
 
       // Should have proper labels
-      const labels = container.querySelectorAll('label')
+      const labels = document.body.querySelectorAll('label')
       expect(labels.length).toBe(2) // Weight and Belief
     })
   })

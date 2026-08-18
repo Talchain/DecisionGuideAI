@@ -44,9 +44,13 @@ describe('S2-INLINE: EdgeEditPopover DOM Integration', () => {
     })
 
     it('should render at correct screen position', () => {
-      const { container } = render(<EdgeEditPopover {...defaultProps} />)
+      // EdgeEditPopover portals to `document.body` (see its header: it is
+      // rendered inside the edge <svg> and must escape both the SVG namespace
+      // and the viewport transform), so it is a SIBLING of RTL's render
+      // container rather than a descendant. Query from `screen`/`document.body`.
+      render(<EdgeEditPopover {...defaultProps} />)
 
-      const popover = container.querySelector('[role="dialog"]') as HTMLElement
+      const popover = screen.getByRole('dialog') as HTMLElement
       expect(popover.style.left).toBe('400px')
       expect(popover.style.top).toBe('300px')
       expect(popover.style.transform).toBe('translate(-50%, -100%) translateY(-8px)')
@@ -364,12 +368,16 @@ describe('S2-INLINE: EdgeEditPopover DOM Integration', () => {
     })
 
     it('should have semantic HTML structure', () => {
-      const { container } = render(<EdgeEditPopover {...defaultProps} />)
+      // EdgeEditPopover portals to `document.body` (see its header: it is
+      // rendered inside the edge <svg> and must escape both the SVG namespace
+      // and the viewport transform), so it is a SIBLING of RTL's render
+      // container rather than a descendant. Query from `screen`/`document.body`.
+      render(<EdgeEditPopover {...defaultProps} />)
 
-      const heading = container.querySelector('h3')
-      expect(heading?.textContent).toBe('Edit Edge')
+      const heading = screen.getByRole('heading', { level: 3 })
+      expect(heading.textContent).toBe('Edit Edge')
 
-      const labels = container.querySelectorAll('label')
+      const labels = document.body.querySelectorAll('label')
       expect(labels.length).toBe(2)
     })
 

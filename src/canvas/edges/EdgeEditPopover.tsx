@@ -6,9 +6,33 @@
  * - Enter/Click outside to commit
  * - ESC to cancel
  * - Debounced updates (120ms) for INP performance
+ *
+ * ⭐ WHY THIS PORTALS (18 Aug 2026).
+ * `StyledEdge` returns this component as a plain sibling of its edge path, and
+ * `@xyflow/react` renders an edge component inside `<svg><g>…</g></svg>`
+ * (derived at the installed bytes, `EdgeWrapper`). React creates the children
+ * of an `<svg>` in the SVG NAMESPACE, so unportalled this whole subtree was
+ * built as SVG-namespaced `div`s — unknown SVG elements, which the SVG
+ * rendering model does not lay out as HTML boxes. `position: fixed` cannot mean
+ * anything on such an element, and even in the HTML namespace it would have
+ * resolved against the viewport TRANSFORM rather than the viewport, because a
+ * transformed ancestor becomes the containing block for `fixed` descendants.
+ *
+ * The coordinates this component is handed are `event.clientX/clientY` from
+ * `handleLabelDoubleClick` — i.e. VIEWPORT coordinates — so `fixed` is the
+ * right declaration and `document.body` is the right parent. Same pattern, and
+ * same reason, as `nodes/shared/NodePopover.tsx`.
+ *
+ * Consequence for typography: this is a floating PANEL surface OUTSIDE the
+ * canvas transform, so DS v5 §2.2's panel scale (`panelHeader` 14px /
+ * `panelMeta` 11px) governs it and the §2.3 canvas scale does not. It is
+ * therefore correctly excluded from the canvas counter-scale census, by the
+ * same earned mechanism as `NodePopover`. Pinned by
+ * `__tests__/EdgeEditPopover.mount.spec.tsx`.
  */
 
 import { useState, useEffect, useRef, useCallback, type KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
@@ -108,7 +132,7 @@ export function EdgeEditPopover({ edge, position, onUpdate, onClose }: EdgeEditP
     }
   }, [onClose])
 
-  return (
+  return createPortal(
     <div
       ref={popoverRef}
       className="fixed bg-white border border-gray-300 rounded-lg shadow-panel p-4 z-[3000]"
@@ -183,6 +207,7 @@ export function EdgeEditPopover({ edge, position, onUpdate, onClose }: EdgeEditP
         Press Enter to save, ESC to cancel. Arrow keys: 
         ±0.01 (Shift: ±0.05)
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
