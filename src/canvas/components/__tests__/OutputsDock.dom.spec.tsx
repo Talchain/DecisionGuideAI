@@ -359,6 +359,36 @@ describe('OutputsDock DOM', () => {
   })
 
   it('auto-switches back to Results tab when results become active', () => {
+    // ⚠ PIN THE PRECONDITION IN-TEST (trap 13b). This case was passing on a
+    // NEIGHBOUR'S SIDE EFFECT, and de-tabbing Compare exposed it — measured,
+    // not guessed:
+    //
+    //   `updates ?tab= query parameter when tabs are clicked` ends by clicking
+    //   Analysis, and `handleTabClick` does `setShowResultsPanel(tab ===
+    //   'results')` — so it leaves `showResultsPanel` TRUE in the canvas store,
+    //   which is module state this file never resets. The next case used to
+    //   click the COMPARE tab, which set it back to FALSE purely as a side
+    //   effect. Compare's tab is gone (Fable, 18 Aug 2026), that click went
+    //   with it, and the flag now arrives here TRUE. Probed directly:
+    //   `showResultsPanel = true, results.status = idle` at this line.
+    //
+    // With it TRUE the merged auto-switch effect no longer takes its
+    // `if (!statusTransitioned && !showResultsPanel) return` exit at mount, so
+    // it runs and arms the 50ms React-#185 debounce (`OutputsDock.tsx`,
+    // `lastDockOpenRef`). The status transition below then lands INSIDE that
+    // window and is swallowed, the tab never switches, and the case fails on a
+    // missing 'Analysis' header. It is a pure timing race — locally the gap
+    // exceeds 50ms and it passes; on CI it does not, and shard 1/4 went red
+    // while the same shard was green at the base commit and on eleven other
+    // recent runs.
+    //
+    // So the flag is set explicitly here. The case is about the auto-switch,
+    // not about what the previous test happened to click.
+    act(() => {
+      useCanvasStore.setState({ showResultsPanel: false } as any)
+    })
+    expect(useCanvasStore.getState().showResultsPanel).toBe(false)
+
     renderOutputsDock()
 
     // Move away from Results tab
