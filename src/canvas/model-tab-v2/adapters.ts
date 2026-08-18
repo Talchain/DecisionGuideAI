@@ -118,6 +118,12 @@ import { getCausalEdges } from '../domain/edgeUtils'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
 import { getPrimaryValue, formatSmartNumber } from '../components/model-tab/utils'
+// THE ONE raw-source → human-label policy, the same one `SourceProvenancePill`
+// renders. Imported, never re-expressed: a second copy is how the pill and the
+// outline start disagreeing about what `cee_inference` is called.
+import { mapSourceToDisplay } from '../components/model-tab/utils'
+// The evidence gate v1 applies before it will print a provenance at all.
+import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
 import { getDisplayEdgeId } from '../utils/edgeIdentity'
 // THE ONE id → label policy (`src/canvas/domain/canvasLabels.ts`). It returns
 // `null` rather than the identifier, and rejects a stored label that is itself
@@ -377,7 +383,13 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     const kind = nodeKind(node)
     if (kind === null) continue
     const data = node.data as Record<string, unknown> | undefined
-    const label = typeof data?.label === 'string' ? data.label : node.id
+    // THE ONE id → label policy, same as the relationship rows below.
+    // ⚠ NOT `typeof data?.label === 'string' ? data.label : node.id`, which is
+    // what stood here: a raw wire id (`fac_arr`) rendered as the row's NAME.
+    // That is the same leak #777 fixed on the relationship path, wearing a
+    // ternary instead of a `??` — which is precisely why the source scan that
+    // certified this directory at ZERO could not see it.
+    const label = resolveCanvasLabel(node.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL
 
     if (kind === 'factor') {
       const value = factorValue(data)
@@ -478,6 +490,33 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
  * queue: a badge and its queue that disagree is the defect the current tab
  * already ships, where "N to verify" counts factors the user cannot reach.
  */
+/**
+ * A factor's provenance, in the user's words.
+ *
+ * ⚠ `Source: cee_inference` IS A WIRE TOKEN, NOT COPY. `mapSourceToDisplay` is
+ * the policy `SourceProvenancePill` already renders ("AI estimate", "Confirmed
+ * by you"); this surface reuses it rather than printing the enum, so the pill
+ * and the queue cannot disagree about what a source is called.
+ */
+function sourceBasis(source: string | undefined): string | null {
+  const label = mapSourceToDisplay(source)
+  return label === null ? null : `Source: ${label}`
+}
+
+/**
+ * An edge's provenance, gated exactly as v1 gates it.
+ *
+ * ⚠ THE GATE IS THE POINT. `RelationshipsSection.tsx:213` prints a provenance
+ * only when it is EVIDENCE — `assumption`, `template` and `ai-suggested` are
+ * placeholders, and announcing "Source: assumption" states a basis that does
+ * not exist. The ungated read this replaces printed all three.
+ */
+function edgeProvenanceBasis(provenance: unknown): string | null {
+  if (typeof provenance !== 'string' || provenance.trim() === '') return null
+  if (NON_EVIDENCE_PROVENANCE.includes(provenance)) return null
+  return `Source: ${provenance}`
+}
+
 export function toRepairQueueItems(
   input: ModelProjectionInput,
   queueId: RepairQueue['id'],
@@ -492,14 +531,17 @@ export function toRepairQueueItems(
         const data = n.data as Record<string, unknown> | undefined
         return {
           rowId: n.id,
-          label: typeof data?.label === 'string' ? data.label : n.id,
+          label: resolveCanvasLabel(n.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL,
           currentValue: factorValue(data),
           // Confirming ratifies the value that is already there; it does not
           // propose a different one.
           suggestedValue: null,
-          basis: typeof observedStateOf(data)?.source === 'string'
-            ? `Source: ${observedStateOf(data)!.source}`
-            : null,
+          // ⚠ THE CLASSIFIED LABEL, NEVER THE WIRE TOKEN. This read
+          // `Source: ${obs.source}` and put `Source: cee_inference` on screen
+          // as body copy. v1 never did: `SourceProvenancePill` renders
+          // `mapSourceToDisplay` ("AI estimate"), and the raw token appears
+          // only in a `title`. Same policy imported, not a second copy.
+          basis: sourceBasis(observedStateOf(data)?.source),
         }
       })
   }
@@ -511,7 +553,7 @@ export function toRepairQueueItems(
         const data = n.data as Record<string, unknown> | undefined
         return {
           rowId: n.id,
-          label: typeof data?.label === 'string' ? data.label : n.id,
+          label: resolveCanvasLabel(n.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL,
           currentValue: null,
           suggestedValue: null,
           basis: null,
@@ -548,7 +590,7 @@ export function toRepairQueueItems(
       const data = n.data as Record<string, unknown> | undefined
       return {
         rowId: n.id,
-        label: typeof data?.label === 'string' ? data.label : n.id,
+        label: resolveCanvasLabel(n.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL,
         currentValue: null,
         suggestedValue: null,
         basis: 'This option does not change any factor yet',
@@ -603,7 +645,7 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     rowId,
     description: typeof data?.label === 'string' ? data.label : null,
     secondaryValues: [],
-    basis: typeof data?.provenance === 'string' ? `Source: ${data.provenance}` : null,
+    basis: edgeProvenanceBasis(data?.provenance),
     adjustments: [],
     affects: [
       { id: edge.target, label: endpointLabel(edge.target, nodeLabels) },
@@ -669,12 +711,28 @@ function buildAdvancedForNode(id: string, obs: ObservedState | undefined) {
   ]
 }
 
+/**
+ * ⚠ BOTH NUMBERS ARE PROVENANCE-GATED, AND ONE OF THEM WAS READING THE WRONG
+ * FIELD. The raw reads this replaces had two independent defects:
+ *
+ *  1. `data.strengthStd` unstamped is `USER_EDGE_DEFAULTS.strengthStd = 0.15` —
+ *     a constant nobody measured, printed as a measured uncertainty. v1 closed
+ *     exactly this (ROADMAP 2.296 C4, `RelationshipsSection.tsx:183-197`) by
+ *     routing through `resolveEdgeValueDisplay`, which shows a number only once
+ *     its ingestion site has stamped a source. This surface did not, so the
+ *     canonical editor was laundering a default the duplicate editor suppresses.
+ *  2. `data.exists_probability` IS NOT THE EDITED FIELD. Every likelihood write
+ *     in the product lands on `beliefExists` (`useInspectorMutations.ts:429-435`,
+ *     via `setExistsProbability`), so a user who set a likelihood saw this row
+ *     read empty. `resolveEdgeValueDisplay(data, 'beliefExists')` owns that
+ *     spelling — including the legacy `belief` leg — in one place.
+ */
 function buildAdvancedForEdge(id: string, data: Record<string, unknown> | undefined) {
-  const std = data?.strengthStd
-  const ep = data?.exists_probability
+  const std = resolveEdgeValueDisplay(data, 'strengthStd')
+  const ep = resolveEdgeValueDisplay(data, 'beliefExists')
   return [
     { label: 'Edge ID', value: id },
-    { label: 'Std', value: typeof std === 'number' ? String(std) : null },
-    { label: 'Exists probability', value: typeof ep === 'number' ? String(ep) : null },
+    { label: 'Std', value: std.show ? String(std.value) : null },
+    { label: 'Exists probability', value: ep.show ? String(ep.value) : null },
   ]
 }

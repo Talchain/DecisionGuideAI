@@ -41,6 +41,7 @@
  * still yields `null` rather than an empty card.
  */
 
+import { buildCanvasLabelMap, resolveCanvasLabel, UNNAMED_ELEMENT_LABEL } from '../../domain/canvasLabels'
 import type { Node } from '@xyflow/react'
 import {
   selectGoalProbability,
@@ -98,6 +99,8 @@ export function buildGoalFitRows(
   // still the whole-card null.
   const analysedNodes = optionNodes.filter((node) => isAnalysedOption(optionProbabilities, node.id))
   if (analysedNodes.length === 0) return null
+  // ONE map for the whole build — the same policy the canonical outline uses.
+  const optionLabels = buildCanvasLabelMap(optionNodes)
   const rows: GoalFitRow[] = []
   for (const node of analysedNodes) {
     const entry = optionProbabilities[node.id]
@@ -106,13 +109,18 @@ export function buildGoalFitRows(
     if (typeof entry !== 'object') return null
     const decision = selectGoalProbability(entry as GoalProbabilityInput)
     if (decision.goalProbability == null) return null
-    const data = node.data as Record<string, unknown> | undefined
     // Read straight off the producer entry this row was scored from, so the
     // count and the probability cannot come from different options.
     const outcome = (entry as { outcome?: Record<string, unknown> }).outcome
     rows.push({
       id: node.id,
-      label: typeof data?.label === 'string' ? data.label : node.id,
+      // THE ONE id → label policy. This read was `… : node.id`, so an option
+      // whose label is absent (or is itself id-shaped) put a raw wire id —
+      // `opt_hire_two_aes` — into a sentence about the user's goal. Fixed in
+      // place rather than pinned in the removal residual, on the same ground
+      // as `ContestedEdgeCard`: this builder OUTLIVES the duplicate editor
+      // (`ModelTabBody` owns it), so the leak would have become permanent.
+      label: resolveCanvasLabel(node.id, optionLabels) ?? UNNAMED_ELEMENT_LABEL,
       probability: decision.goalProbability,
       // ⭐ L62: always false — the row only exists when a number survived line
       // 75, and every surviving number earns the possessive now that the joint

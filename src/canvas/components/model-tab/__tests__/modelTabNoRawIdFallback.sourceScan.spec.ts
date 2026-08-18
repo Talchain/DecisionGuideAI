@@ -49,15 +49,45 @@ const V2_DIR = join(HERE, '..', '..', '..', 'model-tab-v2')
  */
 const RAW_ID_FALLBACK = /\?\?\s*[A-Za-z_$][\w$]*(?:\??\.[\w$]+)*\.(?:id|source|target)\b/g
 
+/**
+ * ⭐⭐ THE SECOND SHAPE — ADDED 18 Aug 2026, AND IT IS WHY THIS FILE'S OWN
+ * "ZERO" WAS A STATEMENT ABOUT THE INSTRUMENT.
+ *
+ * `RAW_ID_FALLBACK` matches `??` and only `??`. The canonical editor's node
+ * rows and all three repair-queue producers wrote the SAME fallback as a
+ * TERNARY:
+ *
+ *     const label = typeof data?.label === 'string' ? data.label : node.id
+ *
+ * Four sites, in `model-tab-v2/adapters.ts` — the directory this spec asserts
+ * carries ZERO. It passed, every time, because the pattern was written from the
+ * shape the author had just fixed rather than from the class. **This file's own
+ * header warned about exactly that** ("a pattern narrower than the defect class
+ * under-reports and reads as a clean result") one screen above a pattern that
+ * was narrower than the defect class. A guard written with the same blind spot
+ * as the code it guards agrees with the code.
+ *
+ * The test is `label`-anchored rather than bare, so an object literal
+ * (`{ rowId: n.id, label: … }`) — a colon beside a raw id that is NOT a
+ * fallback — does not fire. Both directions are controlled below.
+ */
+const RAW_ID_TERNARY =
+  /\blabel\b[^\n;]{0,120}\?[^\n;]{0,120}:\s*[A-Za-z_$][\w$]*(?:\??\.[\w$]+)*\.(?:id|source|target)\b/g
+
 function tsFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true })
     .filter(e => e.isFile() && /\.tsx?$/.test(e.name))
     .map(e => join(dir, e.name))
 }
 
+/** Both shapes, unioned — the CLASS, not whichever spelling was fixed last. */
 function fallbacksIn(file: string): number {
-  const code = blankNonCode(readFileSync(file, 'utf8'))
-  return [...code.matchAll(RAW_ID_FALLBACK)].length
+  return countIn(readFileSync(file, 'utf8'))
+}
+
+function countIn(src: string): number {
+  const code = blankNonCode(src)
+  return [...code.matchAll(RAW_ID_FALLBACK)].length + [...code.matchAll(RAW_ID_TERNARY)].length
 }
 
 function scan(dir: string): Record<string, number> {
@@ -110,6 +140,30 @@ describe('the CANONICAL editor never falls back to a wire id', () => {
   it('CONTRAST CONTROL: it does NOT fire on an honest resolution', () => {
     const honest = "const l = resolveCanvasLabel(edge.source, labels) ?? UNNAMED_ELEMENT_LABEL\n"
     expect([...blankNonCode(honest).matchAll(RAW_ID_FALLBACK)]).toHaveLength(0)
+  })
+
+  it('POSITIVE CONTROL: the TERNARY shape — the one that got past this scan — is detected', () => {
+    // The exact text that stood in `adapters.ts` at four sites while this file
+    // asserted the directory was clean.
+    const ternary = "const label = typeof data?.label === 'string' ? data.label : node.id\n"
+    expect(countIn(ternary)).toBe(1)
+    // …and the queue-producer spelling, which uses a different receiver.
+    expect(countIn("label: typeof data?.label === 'string' ? data.label : n.id,\n")).toBe(1)
+  })
+
+  it('CONTRAST CONTROL: an object literal naming a raw id is NOT a fallback', () => {
+    // `rowId: n.id` beside a label is legitimate — a queue item MUST carry the
+    // element's identity. Without this control the widened pattern would ban
+    // the correct code and get narrowed back to uselessness by the first lane
+    // it inconvenienced.
+    expect(countIn('const item = { rowId: n.id, label: resolved }\n')).toBe(0)
+    expect(countIn('return { rowId: edge.id, label: relationshipLabel(d, s, t, m) }\n')).toBe(0)
+  })
+
+  it('CONTRAST CONTROL: the honest resolution is clean under BOTH patterns', () => {
+    const honest =
+      'const label = resolveCanvasLabel(node.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL\n'
+    expect(countIn(honest)).toBe(0)
   })
 
   it('the scan reads real files, not an empty directory', () => {
