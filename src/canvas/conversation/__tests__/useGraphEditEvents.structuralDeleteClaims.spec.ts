@@ -16,7 +16,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import type { Edge, Node } from '@xyflow/react'
 
-import { useGraphEditEvents } from '../useGraphEditEvents'
+import {
+  removeStructuralDeleteClaims,
+  useGraphEditEvents,
+  type DiffAccumulator,
+} from '../useGraphEditEvents'
 import { useCanvasStore } from '../../store'
 import type { EdgeData } from '../../domain/edges'
 
@@ -117,5 +121,98 @@ describe('claimed removals do not ALSO ride the debounced notification', () => {
     }
     expect(payload.changed_node_ids).toEqual(['option_b'])
     expect(payload.operations).toEqual(['remove'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// removeStructuralDeleteClaims — driven directly, because the hook path cannot
+// reach one of its branches.
+//
+// ⚠ THIS SECTION EXISTS BECAUSE A MUTANT SURVIVED. Deleting the `operations`
+// re-derivation left the whole battery green: the store applies a removal and
+// any sibling change in SEPARATE `set()` calls, so the hook's subscribe callback
+// never sees one diff carrying a claimed removal AND an unclaimed change — the
+// only shape in which a stale 'remove' is observable. A branch the caller cannot
+// currently reach is still a branch the next caller will, and a guard nothing
+// can red is not a guard. Driving the function directly is what closes it.
+// ---------------------------------------------------------------------------
+
+function diff(over: Partial<DiffAccumulator> = {}): DiffAccumulator {
+  return {
+    changedNodeIds: new Set(),
+    changedEdgeIds: new Set(),
+    operations: new Set(),
+    nodeOps: new Map(),
+    edgeOps: new Map(),
+    fieldsChanged: new Map(),
+    ...over,
+  }
+}
+
+describe('removeStructuralDeleteClaims — the op set is RE-DERIVED, not left stale', () => {
+  it('drops the claimed removal AND the now-unsupported "remove" op kind', () => {
+    const d = diff({
+      changedNodeIds: new Set(['option_b', 'factor_new']),
+      operations: new Set<'add' | 'update' | 'remove'>(['remove', 'add']),
+      nodeOps: new Map<string, 'add' | 'update' | 'remove'>([
+        ['option_b', 'remove'],
+        ['factor_new', 'add'],
+      ]),
+    })
+    removeStructuralDeleteClaims(d, [{ claimedNodeIds: ['option_b'], claimedEdgeIds: [] }])
+
+    expect([...d.changedNodeIds]).toEqual(['factor_new'])
+    // The whole point: 'remove' must NOT survive, or the notification tells CEE
+    // a removal happened that it no longer names.
+    expect([...d.operations].sort()).toEqual(['add'])
+  })
+
+  it('KEEPS "remove" when an UNCLAIMED removal is still in the diff (twin)', () => {
+    const d = diff({
+      changedNodeIds: new Set(['option_b', 'option_c']),
+      operations: new Set<'add' | 'update' | 'remove'>(['remove']),
+      nodeOps: new Map<string, 'add' | 'update' | 'remove'>([
+        ['option_b', 'remove'],
+        ['option_c', 'remove'],
+      ]),
+    })
+    removeStructuralDeleteClaims(d, [{ claimedNodeIds: ['option_b'], claimedEdgeIds: [] }])
+    expect([...d.changedNodeIds]).toEqual(['option_c'])
+    expect([...d.operations]).toEqual(['remove'])
+  })
+
+  it('never drops a claimed id whose op is NOT a removal — a re-add is a genuine add', () => {
+    const d = diff({
+      changedNodeIds: new Set(['option_b']),
+      operations: new Set<'add' | 'update' | 'remove'>(['add']),
+      nodeOps: new Map<string, 'add' | 'update' | 'remove'>([['option_b', 'add']]),
+    })
+    removeStructuralDeleteClaims(d, [{ claimedNodeIds: ['option_b'], claimedEdgeIds: [] }])
+    expect([...d.changedNodeIds]).toEqual(['option_b'])
+    expect([...d.operations]).toEqual(['add'])
+  })
+
+  it('drops a claimed EDGE removal by its canvas id, leaving unclaimed edges alone', () => {
+    const d = diff({
+      changedEdgeIds: new Set(['e-1', 'e-9']),
+      operations: new Set<'add' | 'update' | 'remove'>(['remove']),
+      edgeOps: new Map<string, 'add' | 'update' | 'remove'>([
+        ['e-1', 'remove'],
+        ['e-9', 'remove'],
+      ]),
+    })
+    removeStructuralDeleteClaims(d, [{ claimedNodeIds: [], claimedEdgeIds: ['e-1'] }])
+    expect([...d.changedEdgeIds]).toEqual(['e-9'])
+  })
+
+  it('an EMPTY pending list leaves the diff byte-identical — no claim, no subtraction', () => {
+    const d = diff({
+      changedNodeIds: new Set(['option_b']),
+      operations: new Set<'add' | 'update' | 'remove'>(['remove']),
+      nodeOps: new Map<string, 'add' | 'update' | 'remove'>([['option_b', 'remove']]),
+    })
+    removeStructuralDeleteClaims(d, [])
+    expect([...d.changedNodeIds]).toEqual(['option_b'])
+    expect([...d.operations]).toEqual(['remove'])
   })
 })

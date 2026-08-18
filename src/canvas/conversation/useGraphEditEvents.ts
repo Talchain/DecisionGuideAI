@@ -49,7 +49,7 @@ function takeSnapshot(nodes: Node[], edges: Edge[]): GraphSnapshot {
 
 type ElementOp = 'add' | 'update' | 'remove'
 
-interface DiffAccumulator {
+export interface DiffAccumulator {
   changedNodeIds: Set<string>
   changedEdgeIds: Set<string>
   operations: Set<ElementOp>
@@ -148,7 +148,7 @@ function diffSnapshots(prev: GraphSnapshot, curr: GraphSnapshot): DiffAccumulato
  * REMOVED by the gesture and ADDED back by something else in the same debounce
  * window is a genuine add and stays.
  */
-function removeStructuralDeleteClaims(
+export function removeStructuralDeleteClaims(
   diff: DiffAccumulator,
   pending: ReadonlyArray<{
     claimedNodeIds: readonly string[]
