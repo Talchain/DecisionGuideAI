@@ -922,12 +922,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               pointerEvents: 'none',
               padding: '2px 6px',
               borderRadius: '4px',
-              fontSize: '11px',
               fontWeight: 500,
               fontFamily: 'ui-monospace, monospace',
               whiteSpace: 'nowrap',
             }}
-            className="bg-panel text-text-body border border-panel-border shadow-sm"
+            // 11px, unchanged — declared by the canvas token rather than inline
+            // so it can see `--canvas-label-scale`. An inline fontSize cannot,
+            // and rendered this label at 5.5px at the 0.50 auto-fit floor.
+            // The inline fontFamily still wins over the token's `font-sans`.
+            className={`${typography.nodeLabel} bg-panel text-text-body border border-panel-border shadow-sm`}
             data-testid="causal-edge-label"
           >
             {/* ROADMAP 2.954 — the number is a strength claim, the sign a
@@ -959,11 +962,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               pointerEvents: 'none',
               padding: '2px 6px',
               borderRadius: '4px',
-              fontSize: '10px',
               fontWeight: 500,
               whiteSpace: 'nowrap',
             }}
-            className="bg-panel text-text-body border border-panel-border shadow-sm"
+            // 10px, unchanged — see the causal label above. Rendered at 5.0px.
+            className={`${typography.edgeLabel} bg-panel text-text-body border border-panel-border shadow-sm`}
             data-testid="evidence-edge-label"
           >
             {evidenceEdgeClass === 'evidence' ? 'Evidence-backed' : evidenceEdgeClass === 'assumed' ? 'Assumed' : 'Unknown basis'}
@@ -992,6 +995,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${targetX - 18}px,${targetY - 18}px)`,
               pointerEvents: 'none',
+              // ⚠ NOT counter-scaled, and DELIBERATELY so — the one site #771
+              // left alone, pinned in `canvasTextCounterScale.census.spec.ts`'s
+              // KNOWN_FIXED so it is a visible gap rather than an invisible one.
+              //
+              // This glyph renders at 8.0px at the 0.50 auto-fit floor, and it
+              // is on the DEFAULT lens, so it is the worst-placed of the five
+              // inline sizes in this file. It is still not this lane's to fix:
+              // 16px is five px above the top of the DS v5 §2.3 canvas scale
+              // (13/11/10) and four above §2.4's 10-12px canvas band, so no
+              // canvas token declares it. `nodeTitle` would shrink the glyph
+              // 16 -> 13 at zoom 1 — a silent resize — and minting a fourth
+              // canvas size is a design-system change, not a legibility fix.
+              // ⭐ NEEDS A SIZE RULING. Once ruled, route it through a token.
               fontSize: '16px',
               fontWeight: 700,
               color: statedDirection === 'positive' ? '#059669' : '#dc2626',
@@ -1034,7 +1050,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               : 'Sensitive assumption: outcome may flip if this relationship changes'}
           >
             <AlertTriangle size={12} />
-            <span style={{ fontSize: '10px', fontWeight: 600 }}>
+            {/* 10px, unchanged — via the canvas token so it sees the
+                counter-scale; inline it rendered at 5.0px. */}
+            <span className={typography.edgeLabel} style={{ fontWeight: 600 }}>
               Sensitive{fragileEdgeSwitchProb !== null ? ` · ${Math.round(fragileEdgeSwitchProb * 100)}%` : ''}
             </span>
           </div>
@@ -1053,11 +1071,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               pointerEvents: 'none',
               padding: '2px 8px',
               borderRadius: '4px',
-              fontSize: '11px',
               fontWeight: 500,
               whiteSpace: 'nowrap',
             }}
-            className="bg-panel text-text-body border border-info/30 shadow-sm"
+            // 11px, unchanged — see the causal label above. Rendered at 5.5px.
+            className={`${typography.nodeLabel} bg-panel text-text-body border border-info/30 shadow-sm`}
           >
             {lensFragileLabel}
           </div>

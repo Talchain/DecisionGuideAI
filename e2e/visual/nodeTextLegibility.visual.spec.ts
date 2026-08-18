@@ -4,7 +4,7 @@
  * WHY THIS IS A BROWSER TEST. jsdom has no layout and no viewport transform, so
  * a passing DOM assertion proves a class is present and proves nothing about
  * the size of a glyph on screen (CLAUDE.md trap 3). The sibling census
- * (`src/canvas/nodes/__tests__/nodeTextCounterScale.census.spec.ts`) proves
+ * (`src/canvas/__tests__/canvasTextCounterScale.census.spec.ts`) proves
  * every declared size is routed through a counter-scaled token; only this spec
  * can prove what that renders to. Neither replaces the other.
  *
