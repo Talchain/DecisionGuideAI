@@ -71,6 +71,8 @@ import { InfluenceExplainer, useInfluenceExplainer } from '../components/assista
 import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
+import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
+import { LABEL_LEGIBLE_ZOOM } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
@@ -458,7 +460,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     const ghostGap = measuredW + 60
 
     const ghostNode = {
-      id: '__ghost-option__',
+      id: GHOST_OPTION_NODE_ID,
       type: 'ghost-option' as const,
       position: { x: maxX + ghostGap, y: ghostY },
       data: {},
@@ -473,15 +475,20 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // AI coaching is rendered by the guidanceStore consumers, not here — see
   // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.
 
-  const { getViewport, fitView, zoomIn, zoomOut, zoomTo, screenToFlowPosition } = useReactFlow()
+  const { getViewport, getNodes, fitView, zoomIn, zoomOut, zoomTo, screenToFlowPosition } = useReactFlow()
 
   // Brief 36 Fix: Stabilize ReactFlow function references via refs
   // These functions may have unstable references in some ReactFlow versions
   const getViewportRef = useRef(getViewport)
+  // Fit targets are read through a ref for the same reason every other ReactFlow
+  // function here is: the reference is not stable across versions and these
+  // callbacks are empty-deps by design.
+  const getNodesRef = useRef(getNodes)
   const zoomInRef = useRef(zoomIn)
   const zoomOutRef = useRef(zoomOut)
   const zoomToRef = useRef(zoomTo)
   getViewportRef.current = getViewport
+  getNodesRef.current = getNodes
   zoomInRef.current = zoomIn
   zoomOutRef.current = zoomOut
   zoomToRef.current = zoomTo
@@ -1967,7 +1974,25 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const handleZoomIn = useCallback(() => zoomInRef.current({ duration: cameraDuration(200, reducedMotionRef.current) }), [])
   const handleZoomOut = useCallback(() => zoomOutRef.current({ duration: cameraDuration(200, reducedMotionRef.current) }), [])
   const handleZoomReset = useCallback(() => zoomToRef.current(1, { duration: cameraDuration(200, reducedMotionRef.current) }), [])
-  const handleFitView = useCallback(() => fitViewRef.current({ padding: computeFitPadding(), duration: cameraDuration(300, reducedMotionRef.current) }), [])
+  // The USER-invoked "Fit to view".
+  //
+  // ⚠ It had no legibility floor while the product's own auto-fit did — so the
+  // product refused to choose an unreadable first view and then offered the user
+  // a button that chose one for them. `minZoom` is honoured by xyflow
+  // (`fitViewport` passes it into `getViewportForBounds`, which clamps and
+  // RE-FRAMES on the clamped zoom), and the canvas instance's own `minZoom={0.1}`
+  // still lets the user zoom out by hand: the asymmetry is deliberate — the user
+  // may choose the overview, the product may not choose it for them.
+  // `utils/zoomLegibility.ts` owns the number.
+  const handleFitView = useCallback(() => {
+    const nodes = excludeNonModelNodes(getNodesRef.current())
+    fitViewRef.current({
+      ...(nodes.length > 0 ? { nodes } : {}),
+      padding: computeFitPadding(),
+      minZoom: LABEL_LEGIBLE_ZOOM,
+      duration: cameraDuration(300, reducedMotionRef.current),
+    })
+  }, [])
 
   // Canvas debug mode: 'blank' short-circuits the full canvas UI so we can
   // quickly determine whether React 185 is coming from inside the canvas

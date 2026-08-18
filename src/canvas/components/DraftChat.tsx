@@ -5,6 +5,7 @@ import { useCEEDraft } from '../../hooks/useCEEDraft'
 import { DraftLoadingAnimation } from './DraftLoadingAnimation'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { useCanvasStore } from '../store'
+import { resolveLayoutCanvasSize } from '../utils/layoutCanvasSize'
 import { useDraftStore } from '../stores/draftStore'
 import { useAnalysisSnapshotStore } from '../stores/analysisSnapshotStore'
 import { useLayoutStore } from '../layoutStore'
@@ -709,24 +710,15 @@ export function DraftChat() {
         totalEdges: useCanvasStore.getState().edges.length,
       })
     }
-    // Pass actual canvas dimensions so layoutGraph can size nodes to fit.
-    // Read the React Flow container directly so the measurement is accurate
-    // regardless of whether the right panel is open or collapsed.
-    const rfEl = document.querySelector('.react-flow') as HTMLElement | null
-    if (rfEl) {
-      const { width, height } = rfEl.getBoundingClientRect()
-      setCanvasSize({
-        width: Math.max(600, width),
-        height: Math.max(400, height),
-      })
-    } else if (typeof window !== 'undefined') {
-      // Fallback: subtract known fixed chrome (left sidebar 48px, top bar 57px,
-      // canvas toolbar 72px). No right-panel deduction — panel width varies.
-      setCanvasSize({
-        width: Math.max(600, window.innerWidth - 48),
-        height: Math.max(400, window.innerHeight - 57 - 72),
-      })
-    }
+    // The canvas size the canonical model is packed against. ONE authority —
+    // this block and `LayoutOptionsPanel`'s were hand-copied duplicates, each
+    // with its own floors and its own window fallback, and a third path used
+    // `layout.ts`'s FALLBACK_CANVAS instead. See `utils/layoutCanvasSize.ts` for
+    // the derivation, for why it is deliberately panel-state-INDEPENDENT
+    // ("stable model, adaptive attention"), and for what the 1088-vs-760 gap
+    // between this and the fit box is and is not.
+    const layoutCanvas = resolveLayoutCanvasSize()
+    if (layoutCanvas) setCanvasSize(layoutCanvas)
     // Defer layout until React Flow has measured the inserted nodes (D2).
     setPendingLayout(true)
 

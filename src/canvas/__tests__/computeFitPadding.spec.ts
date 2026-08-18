@@ -29,7 +29,7 @@
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { computeFitPadding, cheapestReservation } from '../utils/computeFitPadding'
+import { computeFitPadding } from '../utils/computeFitPadding'
 
 function fakeEl(rect: Partial<DOMRect>): HTMLElement {
   const full: DOMRect = {
@@ -263,205 +263,178 @@ describe('computeFitPadding', () => {
 })
 
 /**
- * A2 (16 Aug 2026) — the FLOATING conversation panel's reservation.
+ * STEP 1 (18 Aug 2026) — THE FLOATING PANEL RESERVES NOTHING, EVER.
  *
- * The dock and the sidebar are edge-anchored, so "what do they occlude" has one
- * answer. The floating Olumi panel is free-floating, so it does not: these tests
- * are written against the STATED CONTRACT — "the graph must not be framed
- * underneath the panel, at the least cost to the fitting box" — and not against
- * the 1280x800 case that motivated the work. A reservation is correct when the
- * chosen side EXCLUDES the occluder from the fitting box; that postcondition is
- * asserted directly below rather than by pinning the side a particular geometry
- * happens to pick.
+ * `WORKSPACE-COMPOSITION-DECISION-2026-08-18.md`, built inside the founder's
+ * ruling: *"FLOATING AND LAYOUT-RESERVING ARE DIFFERENT CONCEPTS… FIX THE
+ * COMPOSITION, NOT THE CAPABILITY."* This module was the one place in the
+ * codebase that conflated them: it converted a free-floating overlay into a
+ * rectangular fitView inset, and because a rectangular inset cannot express
+ * "this box is covered", the only way to clear a 400x550 panel was to give up
+ * a whole band of canvas. Measured live at 1280x800: **392px of canvas, 52% of
+ * the resulting fit box**, spent so one conversation and one analysis could
+ * coexist. Fit box 368x742 with the panel open, 760x742 without it.
+ *
+ * The tests this replaces asserted the OPPOSITE contract ("the graph must not
+ * be framed underneath the panel, at the least cost to the fitting box") and
+ * they were correct about the code as it stood. They are deleted rather than
+ * skipped, because the contract they pinned is the one being retired — with
+ * one exception carried over deliberately: the minimised pill's non-reservation
+ * is now a special case of the general rule rather than a judgement of its own.
+ *
+ * THE NEW RULE, stated once: **ONLY EDGE-ANCHORED, LAYOUT-RESERVING CHROME
+ * CONTRIBUTES.** Guard G2(a) of the decision.
+ *
+ * ⚠ WHAT THIS DOES **NOT** MEAN, and the reason `cameraComfort` changed in the
+ * same commit: "the fit must not reserve for the panel" is not "nothing may
+ * know the panel is there". `cameraComfort`'s no-churn rule is stated as each
+ * target's rect inside the fit frame — "anything less — a target off-screen,
+ * UNDER AN OCCLUDING PANEL, or rendered unreadably small — and the caller
+ * fits". It derived that frame from THIS function, so deleting the floating
+ * branch here alone would have scored a node behind the panel COMFORTABLE and
+ * the focus camera would have silently refused to move — a regression in the
+ * very capability this change exists to serve, with no error and no red test.
+ * See `cameraComfort.spec.ts` → "the floating companion is comfort-visible".
  */
-describe('computeFitPadding — floating Olumi panel', () => {
+describe('computeFitPadding — the floating panel reserves NOTHING (G2a: padding invariance)', () => {
   const PANEL = '[data-testid="floating-olumi-panel"]'
   const SIDE_TAB = '[data-testid="floating-olumi-panel-side-tab"]'
   const PILL = '[aria-label="Restore Olumi"]'
   const FLOW = { left: 0, right: 1280, width: 1280, top: 0, bottom: 800, height: 800 }
+  // The shipped 1280x800 geometry: dock `right: 12` at 416px, sidebar at 12/52.
+  const DOCK_1280 = { left: 852, right: 1268, width: 416, top: 12, bottom: 784, height: 772 }
+  const SIDEBAR_1280 = { left: 12, right: 60, width: 48, top: 73, bottom: 300, height: 227 }
 
-  /** The fitting box the returned padding implies, in viewport coordinates. */
-  function fitBoxOf(p: { top: string; right: string; bottom: string; left: string }) {
-    return {
-      left: FLOW.left + parseInt(p.left, 10),
-      right: FLOW.right - parseInt(p.right, 10),
-      top: FLOW.top + parseInt(p.top, 10),
-      bottom: FLOW.bottom - parseInt(p.bottom, 10),
-    }
+  /**
+   * Every position the panel actually reaches, INCLUDING the centred case the
+   * old suite had to except itself from (`MAX_PADDING_FRACTION` bound first) and
+   * the bottom-hugging case that used to take a cheap bottom reservation. Under
+   * invariance there is no case to except: the answer is zero everywhere.
+   */
+  const POSITIONS = [
+    { name: 'bottom-right anchor (FirstUseComposer)', left: 812, top: 234, w: 400, h: 550 },
+    { name: 'left clamp floor', left: 52, top: 73, w: 400, h: 550 },
+    { name: 'top-left', left: 52, top: 16, w: 400, h: 550 },
+    { name: 'centred (the old suite could not clear this one)', left: 440, top: 125, w: 400, h: 550 },
+    { name: 'wide + bottom-hugging (used to cost bottom)', left: 300, top: 700, w: 700, h: 90 },
+    { name: 'fully outside the flow rect', left: 1400, top: 73, w: 400, h: 550 },
+  ] as const
+
+  function baseline() {
+    stubSelectors({ [DOCK]: fakeEl(DOCK_1280), [SIDEBAR]: fakeEl(SIDEBAR_1280) })
+    const p = computeFitPadding(fakeEl(FLOW))
+    vi.restoreAllMocks()
+    return p
   }
 
-  function overlaps(a: { left: number; right: number; top: number; bottom: number }, b: typeof a) {
-    return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
-  }
+  it('inserting a floating rect ANYWHERE changes the returned padding by exactly zero', () => {
+    const before = baseline()
+    // PIN THE PRECONDITION (trap 13b): this whole assertion is vacuous unless
+    // the baseline is a real, non-degenerate reservation. 444 = dock overlap 428
+    // + GAP 16; 76 = sidebar 60 + GAP 16. If either drifted to the base margin
+    // the invariance below would pass while measuring nothing.
+    expect(before, 'baseline must be the real 1280x800 reservation').toEqual({
+      top: '29px',
+      right: '444px',
+      bottom: '29px',
+      left: '76px',
+    })
 
-  it('excludes the panel from the fitting box at every EDGE-RESTING position', () => {
-    // The POSTCONDITION, swept over the positions the panel actually rests at in
-    // the product: the bottom-right anchor `FirstUseComposer` slides to on the
-    // 0→N draft, the left clamp floor (x = DEFAULT_MARGIN + SIDE_TAB_WIDTH = 52,
-    // where `clampPositionToViewport` parks it), and the top-left corner. If any
-    // of these framed the graph under the panel the reservation would be
-    // decorative. The CENTRED case is excluded here on purpose and gets its own
-    // test below — it cannot satisfy this postcondition, and pretending
-    // otherwise by widening the sweep until it passed would hide that.
-    const positions = [
-      { name: 'bottom-right anchor', left: 812, top: 234 },
-      { name: 'left clamp floor', left: 52, top: 73 },
-      { name: 'top-left', left: 52, top: 16 },
-    ]
-    for (const pos of positions) {
-      const panel = { left: pos.left, right: pos.left + 400, top: pos.top, bottom: pos.top + 550 }
+    for (const pos of POSITIONS) {
+      const panel = { left: pos.left, right: pos.left + pos.w, top: pos.top, bottom: pos.top + pos.h }
       stubSelectors({
-        [PANEL]: fakeEl({ ...panel, width: 400, height: 550 }),
-        [SIDE_TAB]: fakeEl({ left: panel.left - 36, right: panel.left, top: pos.top, bottom: pos.top + 120, width: 36, height: 120 }),
+        [DOCK]: fakeEl(DOCK_1280),
+        [SIDEBAR]: fakeEl(SIDEBAR_1280),
+        [PANEL]: fakeEl({ ...panel, width: pos.w, height: pos.h }),
+        // The side tab sits OUTSIDE the panel rect at `left: -36` (overflow
+        // visible), so a union-blind implementation used to be 36px short. Both
+        // are asserted to cost zero.
+        [SIDE_TAB]: fakeEl({
+          left: panel.left - 36,
+          right: panel.left,
+          top: pos.top,
+          bottom: pos.top + 120,
+          width: 36,
+          height: 120,
+        }),
       })
-      const p = computeFitPadding(fakeEl(FLOW))
-      const box = fitBoxOf(p)
-      const panelWithTab = { ...panel, left: panel.left - 36 }
-      // PIN THE PRECONDITION (else this passes for the wrong reason): assert the
-      // MAX_PADDING_FRACTION clamp is NOT binding on either axis, so the
-      // exclusion below is the reservation's doing and not an accident of a
-      // capped padding that happened to land clear.
-      const hSum = parseInt(p.left, 10) + parseInt(p.right, 10)
-      const vSum = parseInt(p.top, 10) + parseInt(p.bottom, 10)
-      expect(hSum, `${pos.name}: horizontal clamp bound`).toBeLessThanOrEqual(1024)
-      expect(vSum, `${pos.name}: vertical clamp bound`).toBeLessThanOrEqual(640)
-      expect(overlaps(box, panelWithTab), `${pos.name}: fitting box still overlaps the panel`).toBe(false)
+      const after = computeFitPadding(fakeEl(FLOW))
+      expect(after, `${pos.name}: the floating panel changed the padding`).toEqual(before)
       vi.restoreAllMocks()
     }
   })
 
-  it('CANNOT clear a centred panel — the fitting-area clamp binds first', () => {
-    // An honest limit, not a pass. A 400x550 panel resting mid-pane needs a
-    // 691px reservation on its cheapest side; MAX_PADDING_FRACTION caps the
-    // vertical pair at 640px, so the clamp scales the reservation DOWN and the
-    // fitting box still overlaps the panel. Recorded rather than papered over:
-    // it is the strongest statement of why the hero MINIMISES after the draft
-    // (FirstUseComposer) instead of the product trying to fit around it.
-    const panel = { left: 440, right: 840, top: 125, bottom: 675 }
+  it('the minimised pill still reserves nothing — now a case of the rule, not an exception to it', () => {
+    const before = baseline()
     stubSelectors({
-      [PANEL]: fakeEl({ ...panel, width: 400, height: 550 }),
-      [SIDE_TAB]: fakeEl({ left: 404, right: 440, top: 125, bottom: 245, width: 36, height: 120 }),
+      [DOCK]: fakeEl(DOCK_1280),
+      [SIDEBAR]: fakeEl(SIDEBAR_1280),
+      [PILL]: fakeEl({ left: 640, right: 708, top: 400, bottom: 425, width: 68, height: 25 }),
     })
-    const p = computeFitPadding(fakeEl(FLOW))
-    const box = fitBoxOf(p)
-    // 639, not 640: `capPair` floors each side after scaling (29→25, 691→614),
-    // so the pair lands one below the 0.8 cap. Pinned at the value the code
-    // actually produces rather than the value the cap suggests.
-    expect(parseInt(p.top, 10) + parseInt(p.bottom, 10)).toBe(639)
-    expect(overlaps(box, { ...panel, left: 404 })).toBe(true) // and so it is NOT cleared
+    expect(computeFitPadding(fakeEl(FLOW))).toEqual(before)
   })
 
-  it('unions the side tab, which sits OUTSIDE the panel rect at left:-36', () => {
-    // Identity-bound, and deliberately measured on a RIGHT-side reservation.
-    // The side tab extends the panel's LEFT edge, and a left-side reservation is
-    // `occ.right - flow.left` — which does not read occ.left at all, so the tab
-    // is invisible there. Only `right` (= flow.right - occ.left) can observe it.
-    // The first draft of this test asserted the difference on a left-resting
-    // panel and measured 0: a spec written from the assumption rather than from
-    // the formula would have "proved" the union works while testing nothing.
-    const panel = { left: 812, right: 1212, top: 234, bottom: 784 }
-    stubSelectors({
-      [PANEL]: fakeEl({ ...panel, width: 400, height: 550 }),
-      [SIDE_TAB]: fakeEl({ left: 776, right: 812, top: 234, bottom: 354, width: 36, height: 120 }),
-    })
-    const withTab = parseInt(computeFitPadding(fakeEl(FLOW)).right, 10)
-    vi.restoreAllMocks()
-
-    stubSelectors({ [PANEL]: fakeEl({ ...panel, width: 400, height: 550 }) })
-    const withoutTab = parseInt(computeFitPadding(fakeEl(FLOW)).right, 10)
-
-    expect(withTab - withoutTab).toBe(36)
-    expect(withTab).toBe(520) // 1280 - 776 + 16 gap
-  })
-
-  it('takes the CHEAPEST side, not a fixed one — a bottom-resting panel costs bottom, not width', () => {
-    // A wide, short panel hugging the bottom edge: reserving width would cost
-    // far more than reserving height. This is the discriminating case — a
-    // right-only implementation passes the first test and fails this one.
-    stubSelectors({
-      [PANEL]: fakeEl({ left: 300, right: 1000, top: 700, bottom: 790, width: 700, height: 90 }),
-    })
-    const p = computeFitPadding(fakeEl(FLOW))
-    expect(p.bottom).toBe('116px') // 800 - 700 + 16
-    expect(p.left).toBe('47px') // untouched base margin
-    expect(p.right).toBe('47px')
-  })
-
-  it('reserves nothing when the panel does not overlap the flow rect', () => {
-    // Positive control for the absence claim: the SAME stub shape that produces
-    // a reservation above must produce none here, so a no-op implementation
-    // cannot pass both this and the tests above.
-    stubSelectors({
-      [PANEL]: fakeEl({ left: 1400, right: 1800, top: 73, bottom: 623, width: 400, height: 550 }),
-    })
-    const p = computeFitPadding(fakeEl(FLOW))
-    expect(p.left).toBe('47px')
-    expect(p.right).toBe('47px')
-    expect(p.top).toBe('29px')
-    expect(p.bottom).toBe('29px')
-  })
-
-  it('does NOT reserve the minimised pill — the measured reason it is excluded', () => {
-    // Deliberate product judgement, pinned so a later tidy-up cannot "restore
-    // consistency" by adding the pill selector back without re-reading why.
-    // Measured 16 Aug 2026: reserving an 84x28 pill resting mid-pane took 416px
-    // of bottom padding, collapsing the vertical fitting box to 355px for a
-    // graph needing 524px — clamping the entire first view of the model to
-    // avoid a node grazing a draggable affordance.
-    stubSelectors({ [PILL]: fakeEl({ left: 640, right: 708, top: 400, bottom: 425, width: 68, height: 25 }) })
-    const p = computeFitPadding(fakeEl(FLOW))
-    expect(p.bottom).toBe('29px')
-    expect(p.top).toBe('29px')
-    expect(p.left).toBe('47px')
-    expect(p.right).toBe('47px')
-  })
-
-  it('reserves the panel ALONGSIDE the dock, taking the larger on a shared side', () => {
-    // Both occlude the right at 1280x800 with the dock collapsed: the rail
-    // reserves 68, the bottom-right panel 504. The side must carry the larger,
-    // never the last one written.
-    stubSelectors({
-      [DOCK]: fakeEl({ left: 1228, right: 1268, width: 40, top: 12, bottom: 784, height: 772 }),
-      [PANEL]: fakeEl({ left: 812, right: 1212, top: 234, bottom: 784, width: 400, height: 550 }),
-      [SIDE_TAB]: fakeEl({ left: 776, right: 812, top: 234, bottom: 354, width: 36, height: 120 }),
-    })
-    const p = computeFitPadding(fakeEl(FLOW))
-    expect(p.right).toBe('520px') // 1280 - 776 + 16, beating the rail's 68
-  })
-})
-
-describe('cheapestReservation', () => {
-  const FLOW = { left: 0, top: 0, right: 1280, bottom: 800 }
-
-  it('returns null when the boxes do not intersect', () => {
-    expect(cheapestReservation(FLOW, { left: 1400, top: 0, right: 1800, bottom: 550 })).toBeNull()
-    expect(cheapestReservation(FLOW, { left: 100, top: 900, right: 500, bottom: 1200 })).toBeNull()
-  })
-
-  it('picks the minimum of the four clearing distances', () => {
-    // Bottom-right anchored panel: right (504) < bottom (566) < left (1212).
-    expect(cheapestReservation(FLOW, { left: 776, top: 234, right: 1212, bottom: 784 })).toEqual({
-      side: 'right',
-      amount: 504,
-    })
-    // Same panel moved to hug the top edge: top (262) is now cheapest.
-    expect(cheapestReservation(FLOW, { left: 776, top: 0, right: 1212, bottom: 262 })).toEqual({
-      side: 'top',
-      amount: 262,
-    })
-  })
-
-  it('never returns a negative amount', () => {
-    // Spec-level invariant (not a case): a padding is a non-negative length,
-    // whatever pathological rect arrives.
-    const boxes = [
-      { left: -500, top: -500, right: 2000, bottom: 2000 },
-      { left: 0, top: 0, right: 1280, bottom: 800 },
-      { left: 1279, top: 799, right: 1281, bottom: 801 },
-    ]
-    for (const b of boxes) {
-      const r = cheapestReservation(FLOW, b)
-      if (r) expect(r.amount).toBeGreaterThanOrEqual(0)
+  it('integration: a floating panel in the REAL DOM changes nothing (no-arg call, real selectors)', () => {
+    // The invariance above drives a stubbed `querySelector`. This one builds the
+    // real elements, so a future implementation that reads the panel through a
+    // different selector, a different attribute or a live `document` walk is
+    // still covered. Same three-element geometry as the 1280x800 case.
+    const mk = (tag: string, attrs: Record<string, string>, rect: Partial<DOMRect>) => {
+      const el = document.createElement(tag)
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === 'class') el.className = v
+        else el.setAttribute(k, v)
+      }
+      const full = { x: 0, y: 0, width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, toJSON: () => ({}), ...rect } as DOMRect
+      el.getBoundingClientRect = () => full
+      document.body.appendChild(el)
+      return el
     }
+    const created: HTMLElement[] = []
+    try {
+      created.push(mk('div', { class: 'react-flow' }, { ...FLOW }))
+      created.push(mk('aside', { 'aria-label': 'Outputs dock' }, DOCK_1280))
+      created.push(mk('nav', { 'aria-label': 'Canvas tools' }, SIDEBAR_1280))
+      const without = computeFitPadding()
+
+      created.push(
+        mk('div', { 'data-testid': 'floating-olumi-panel' }, { left: 812, right: 1212, top: 234, bottom: 784, width: 400, height: 550 }),
+      )
+      created.push(
+        mk('div', { 'data-testid': 'floating-olumi-panel-side-tab' }, { left: 776, right: 812, top: 234, bottom: 354, width: 36, height: 120 }),
+      )
+      const with_ = computeFitPadding()
+
+      expect(without.right).toBe('444px') // precondition: a real reservation exists
+      expect(with_).toEqual(without)
+    } finally {
+      created.forEach((el) => el.remove())
+    }
+  })
+
+  /**
+   * THE DISCRIMINATING PAIR (decision §6, step 1). Invariance alone cannot tell
+   * "the panel is ignored" apart from "this function ignores everything". The
+   * mutant that removes the invariance REDs the test above; the mutant that
+   * changes an EDGE-ANCHORED reservation must RED **this** test instead — a
+   * different assertion, on a different rule. Neither alone proves the binding.
+   */
+  it('an EDGE-ANCHORED reservation still moves the padding — the other half of the pair', () => {
+    const expanded = baseline()
+    stubSelectors({
+      // Same dock, collapsed to its 40px rail: left = 1280 - 12 - 40 = 1228.
+      [DOCK]: fakeEl({ left: 1228, right: 1268, width: 40, top: 12, bottom: 784, height: 772 }),
+      [SIDEBAR]: fakeEl(SIDEBAR_1280),
+    })
+    const rail = computeFitPadding(fakeEl(FLOW))
+    expect(rail.right).toBe('68px') // 52 overlap + 16 gap
+    expect(rail.right).not.toBe(expanded.right)
+
+    // And the win this change buys, asserted as arithmetic on the real function
+    // rather than restated: 760px of fit box at the expanded dock (up from the
+    // measured 368px with the panel open), 1136px at the rail.
+    const boxOf = (p: { left: string; right: string }) => 1280 - parseInt(p.left, 10) - parseInt(p.right, 10)
+    expect(boxOf(expanded)).toBe(760)
+    expect(boxOf(rail)).toBe(1136)
   })
 })

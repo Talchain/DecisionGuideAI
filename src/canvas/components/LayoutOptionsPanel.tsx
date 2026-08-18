@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useLayoutStore } from '../layoutStore'
+import { resolveLayoutCanvasSize } from '../utils/layoutCanvasSize'
 import { useToast } from '../ToastContext'
 import { runLayoutWithProgress } from '../layout/runLayoutWithProgress'
 import { typography } from '../../styles/typography'
@@ -24,23 +25,11 @@ export function LayoutOptionsPanel() {
   const handleApplyLayout = async () => {
     setIsApplying(true)
 
-    // Capture actual canvas dimensions before layout so viewport-constrained
-    // sizing uses real available space rather than the fallback constants.
-    // Read the React Flow container directly so measurement is accurate
-    // regardless of whether the right panel is open or collapsed.
-    const rfEl = document.querySelector('.react-flow') as HTMLElement | null
-    if (rfEl) {
-      const { width, height } = rfEl.getBoundingClientRect()
-      setCanvasSize({
-        width: Math.max(600, width),
-        height: Math.max(400, height),
-      })
-    } else if (typeof window !== 'undefined') {
-      setCanvasSize({
-        width: Math.max(600, window.innerWidth - 48),
-        height: Math.max(400, window.innerHeight - 57 - 72),
-      })
-    }
+    // Same single authority as the draft path — see `utils/layoutCanvasSize.ts`.
+    // These two blocks were hand-copied and would have drifted; the rule now
+    // lives in one module and neither call site derives a dimension itself.
+    const layoutCanvas = resolveLayoutCanvasSize()
+    if (layoutCanvas) setCanvasSize(layoutCanvas)
 
     // Show loading toast for first-time ELK load
     showToast('Loading layout engine...', 'info')
