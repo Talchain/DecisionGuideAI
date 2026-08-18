@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { layoutGraph, groupByYRow, applyCollisionGuard } from '../utils/layout'
-import type { CanvasSize } from '../utils/layout'
 import {
   NODE_LAYOUT_MIN_W,
   NODE_CARD_MAX_W,
@@ -8,6 +7,9 @@ import {
   LAYOUT_PADDING_Y,
   DEFAULT_NODE_HEIGHT,
   CANVAS_MARGIN,
+  CANONICAL_LAYOUT_WIDTH,
+  NODE_SINGLE_ROW_FAIR_SHARE_W,
+  MIN_GAP,
 } from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -45,14 +47,19 @@ function checkNoOverlap(nodes: Node[], nodeW = 264, nodeH = 116): void {
   }
 }
 
-// Standard test canvas — reference viewport minus fixed chrome
-const TEST_CANVAS: CanvasSize = { width: 1300, height: 750 }
-// Narrow canvas simulating right panel open (1440 - 48 - 416 - 40 ≈ 936px)
-const NARROW_CANVAS: CanvasSize = { width: 936, height: 750 }
-// Wide canvas where 5 factors at NODE_CARD_MAX_W would previously have been
-// compressed under the old fit-to-viewport policy; used to verify the
-// pin-at-MAX-and-overflow rule and the uniform-stride rule.
-const WIDE_CANVAS: CanvasSize = { width: 1700, height: 900 }
+// ⚠ THE THREE TEST CANVASES ARE GONE, AND THAT IS THE POINT (founder ruling R1,
+// 18 Aug 2026). `layoutGraph` no longer takes a canvas: the budget is the
+// constant `CANONICAL_LAYOUT_WIDTH`, so a viewport can no longer select a
+// packing branch. Every case below that used to pick its branch by handing the
+// solver a narrow/wide canvas now picks it by WIDEST TIER COUNT, which is the
+// model-intrinsic driver and the only one left.
+//
+// Where the branch boundary sits under the pinned budget, re-derived from the
+// shipped constants (AW = CANONICAL_LAYOUT_WIDTH = 1105):
+//   widest tier <= 6  → single-row, every card at NODE_CARD_MAX_W
+//   widest tier >= 7  → multi-row, 4 per row, every card at NODE_LAYOUT_MIN_W
+// Measured against the pristine module side by side, the pin reproduces the
+// shape the product already shipped at 1440 and 1512.
 
 // ---------------------------------------------------------------------------
 // Core layout tests
@@ -91,7 +98,7 @@ describe('ELK Layout', () => {
   })
 
   it('returns layoutNodeWidth', async () => {
-    const { layoutNodeWidth } = await layoutGraph(mockNodes, mockEdges, {}, TEST_CANVAS)
+    const { layoutNodeWidth } = await layoutGraph(mockNodes, mockEdges, {})
     expect(layoutNodeWidth).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
     expect(layoutNodeWidth).toBeLessThanOrEqual(NODE_CARD_MAX_W)
   })
@@ -153,7 +160,7 @@ describe('ELK Layout', () => {
       makeEdge('e3', 'optA', 'factorA'),
       makeEdge('e4', 'factorA', 'goal'),
     ]
-    const { nodes } = await layoutGraph(fiveNodes, fiveEdges, {}, TEST_CANVAS)
+    const { nodes } = await layoutGraph(fiveNodes, fiveEdges, {})
     checkNoOverlap(nodes)
   })
 
@@ -171,7 +178,7 @@ describe('ELK Layout', () => {
       makeEdge('e7', 'f1', 'r1'), makeEdge('e8', 'f2', 'r2'),
       makeEdge('e9', 'r1', 'g'), makeEdge('e10', 'r2', 'g'),
     ]
-    const { nodes } = await layoutGraph(tenNodes, tenEdges, {}, TEST_CANVAS)
+    const { nodes } = await layoutGraph(tenNodes, tenEdges, {})
     checkNoOverlap(nodes)
   })
 
@@ -189,7 +196,7 @@ describe('ELK Layout', () => {
       makeEdge('e3', 'f', 'out'),
       makeEdge('e4', 'out', 'g'),
     ]
-    const { nodes } = await layoutGraph(chain, chainEdges, {}, TEST_CANVAS)
+    const { nodes } = await layoutGraph(chain, chainEdges, {})
 
     const pos = (id: string) => nodes.find(n => n.id === id)!.position.y
     expect(pos('d')).toBeLessThan(pos('o'))
@@ -250,7 +257,7 @@ describe('ELK Layout', () => {
       makeEdge('e6', 'f1', 'out'), makeEdge('e7', 'f2', 'out'),
       makeEdge('e8', 'out', 'g'),
     ]
-    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {})
     expect(layoutNodeWidth).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
     expect(layoutNodeWidth).toBeLessThanOrEqual(NODE_CARD_MAX_W)
     // All positions must be finite
@@ -260,11 +267,12 @@ describe('ELK Layout', () => {
     })
   })
 
-  it('4-factor tier on 1300px canvas: max-single fires; row overflows canvas (regression-lock for NODE_CARD_MAX_W=320)', async () => {
+  it('4-factor tier: max-single fires; the row OVERRUNS the canonical budget (regression-lock for NODE_CARD_MAX_W=320)', async () => {
     // After restoring NODE_CARD_MAX_W to 320 and tightening the default
-    // spacing to 15 (chain 60 → 30 → 20 → 15), a 4-node tier on a 1300px
-    // canvas falls into the max-single branch and the rendered row visibly
-    // overflows the canvas. The pre-ELK `Math.max(20, spacing)` floor in
+    // spacing to 15 (chain 60 → 30 → 20 → 15), a 4-node tier falls into the
+    // max-single branch and the rendered row visibly overruns the canonical
+    // budget it was admitted against — the DOWN-branch defect recorded in
+    // `layout.ts`'s header, pinned here rather than described. The pre-ELK `Math.max(20, spacing)` floor in
     // layout.ts clamps effective spacing to 20 even when the caller passes
     // 15, so the rendered last-edge stays at 1436 (was 1466 at spacing=30,
     // 1556 at spacing=60). Math:
@@ -277,7 +285,7 @@ describe('ELK Layout', () => {
     //             = 24 + 3 * 364 + 320
     //             = 1436
     //
-    // 1436 > 1300 → 136px overflow past the canvas right edge. The test
+    // 1436 > 1185 → 251px past the budget the branch was chosen against. The test
     // exercises the production-default spacing path by passing SPACING that
     // matches the layoutGraph default; EFFECTIVE_SPACING below makes the
     // pre-ELK floor explicit in the assertion so a future change to either
@@ -299,11 +307,10 @@ describe('ELK Layout', () => {
       nodes,
       edges,
       { spacing: SPACING },
-      TEST_CANVAS,
     )
 
-    // max-single fires: unclamped = floor((1300*0.85 - 3*MIN_GAP)/4)
-    //                             = floor((1105 - 45)/4) = 265 ≥ 164.
+    // max-single fires: unclamped = floor((CANONICAL_LAYOUT_WIDTH - 3*MIN_GAP)/4)
+    //                             = floor((1185 - 45)/4) = 285 ≥ 164.
     expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
 
     const factors = laid
@@ -317,72 +324,80 @@ describe('ELK Layout', () => {
       CANVAS_MARGIN + 3 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + EFFECTIVE_SPACING) + NODE_CARD_MAX_W,
     )
 
-    // Outcome: row overflows the canvas. If any contributing constant
-    // changes such that the rendered row now fits the canvas (or worse,
-    // gets clipped to min-width via a re-introduced smarter threshold),
-    // this assertion flips and forces a deliberate review.
-    expect(lastVisibleRightEdge).toBeGreaterThan(TEST_CANVAS.width)
+    // Outcome: the row overruns the budget the solver admitted it against.
+    // If any contributing constant changes such that the rendered row now
+    // fits the budget (or worse, gets clipped to min-width via a
+    // re-introduced smarter threshold), this assertion flips and forces a
+    // deliberate review.
+    expect(lastVisibleRightEdge).toBeGreaterThan(CANONICAL_LAYOUT_WIDTH)
   })
 
-  it('7-factor tier on 1500px canvas: MIN_GAP=15 flips max-single ON (regression-lock for MIN_GAP)', async () => {
-    // MIN_GAP behaviour-flip lock. The `unclamped >= NODE_LAYOUT_MIN_W +
-    // LAYOUT_PADDING_X` gate decides max-single vs multi-row branch; MIN_GAP
-    // is the only knob that moves this threshold without touching widths.
+  it('the single-row cap is SIX at the canonical budget, and MIN_GAP is the knob that moves it', async () => {
+    // ⚠ RE-EXPRESSED, AND THE REASON MATTERS. This was a MIN_GAP behaviour-flip
+    // lock: it drove a 7-factor tier at a 1500px canvas and asserted that
+    // MIN_GAP=15 (vs the historic 30) flipped it onto the max-single branch.
+    // `layoutGraph` no longer takes a canvas (founder ruling R1), and at the
+    // pinned budget MIN_GAP 15 and 30 give the SAME single-row cap:
+    //   cap = floor((AW + MIN_GAP) / (FAIR_SHARE + PADDING_X + MIN_GAP))
+    //   MIN_GAP=15 → floor(1200/179) = 6      MIN_GAP=30 → floor(1215/194) = 6
+    // So no tier count can discriminate 15 from 30 any more, and a test written
+    // as though one could would be asserting a flip that cannot happen.
     //
-    //   unclamped = floor((1500*0.85 - 6*MIN_GAP) / 7)
-    //
-    // At MIN_GAP=30 (prior): floor((1275 - 180)/7) = floor(1095/7) = 156.
-    //   156 < 164 (= MIN_W + PADDING_X) → multi-row branch, nodes compress
-    //   to NODE_LAYOUT_MIN_W=140, the row fits the canvas at ~1268px.
-    // At MIN_GAP=15 (current): floor((1275 - 90)/7) = floor(1185/7) = 169.
-    //   169 >= 164 → max-single fires, every node at NODE_CARD_MAX_W=320,
-    //   the row visibly overflows by ~1028px.
-    //
-    // If MIN_GAP rises back to ~25+ this assertion flips and forces a
-    // deliberate review of whether 7-factor tiers should overflow at MAX_W
-    // or compress to fit.
+    // What is locked instead: the CAP ITSELF, derived from the shipped constants
+    // rather than recorded, plus a demonstration that the derivation is still
+    // SENSITIVE to MIN_GAP (at 60 the cap drops to 5). Nothing is lost by the
+    // change: for a DOWN layout MIN_GAP only ever enters through this threshold,
+    // so a MIN_GAP move that does not shift the cap does not change any layout.
+    const singleRowCap = (minGap: number): number =>
+      Math.floor(
+        (CANONICAL_LAYOUT_WIDTH + minGap) /
+          (NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X + minGap),
+      )
+    expect(singleRowCap(MIN_GAP)).toBe(6)
+    // The derivation DISCRIMINATES — without this the assertion above could be
+    // satisfied by a formula that ignores MIN_GAP entirely (trap 20).
+    expect(singleRowCap(60)).toBe(5)
+    expect(singleRowCap(60)).not.toBe(singleRowCap(MIN_GAP))
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'),
       makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
       makeNode('f4', 'factor'), makeNode('f5', 'factor'), makeNode('f6', 'factor'),
-      makeNode('f7', 'factor'),
     ]
     const edges: Edge[] = [
       makeEdge('e1', 'd', 'o1'),
       makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'), makeEdge('e4', 'o1', 'f3'),
       makeEdge('e5', 'o1', 'f4'), makeEdge('e6', 'o1', 'f5'), makeEdge('e7', 'o1', 'f6'),
-      makeEdge('e8', 'o1', 'f7'),
     ]
-    const FLIP_CANVAS: CanvasSize = { width: 1500, height: 900 }
     const SPACING = 15
     const EFFECTIVE_SPACING = Math.max(20, SPACING)
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(
       nodes,
       edges,
       { spacing: SPACING },
-      FLIP_CANVAS,
     )
 
-    // max-single fired: nodes at MAX_W (proves MIN_GAP threshold relaxed).
+    // …and the REAL layout agrees with the derivation: a 6-wide tier is a
+    // single row of max-width cards.
     expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
 
     const factors = laid
       .filter(n => n.type === 'factor')
       .sort((a, b) => a.position.x - b.position.x)
-    expect(factors).toHaveLength(7)
+    expect(factors).toHaveLength(6)
 
-    // Single-row placement formula: rightEdge = 24 + 6 * (320+24+20) + 320 = 2528.
-    const lastVisibleRightEdge = factors[6].position.x + NODE_CARD_MAX_W
+    // Single-row placement formula: rightEdge = 24 + 5 * (320+24+20) + 320 = 2164.
+    const lastVisibleRightEdge = factors[5].position.x + NODE_CARD_MAX_W
     expect(lastVisibleRightEdge).toBe(
-      CANVAS_MARGIN + 6 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + EFFECTIVE_SPACING) + NODE_CARD_MAX_W,
+      CANVAS_MARGIN + 5 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + EFFECTIVE_SPACING) + NODE_CARD_MAX_W,
     )
-    expect(lastVisibleRightEdge).toBeGreaterThan(FLIP_CANVAS.width)
+    expect(lastVisibleRightEdge).toBeGreaterThan(CANONICAL_LAYOUT_WIDTH)
   })
 
   it('nodeW stays at NODE_CARD_MAX_W when widest tier overflows the viewport', async () => {
-    // 5 factors on a 1700px canvas previously compressed every node to ~241px.
-    // New policy: pin every node to NODE_CARD_MAX_W and overflow horizontally.
+    // 5 factors previously compressed every node to ~241px. New policy: pin
+    // every node to NODE_CARD_MAX_W and overflow horizontally. 5 <= 6, so this
+    // is the single-row branch against the canonical budget.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -396,7 +411,7 @@ describe('ELK Layout', () => {
       makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'),
       makeEdge('e9', 'f1', 'g'), makeEdge('e10', 'f5', 'g'),
     ]
-    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, WIDE_CANVAS)
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {})
     expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)
@@ -421,7 +436,7 @@ describe('ELK Layout', () => {
       makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'),
       makeEdge('e9', 'f1', 'g'), makeEdge('e10', 'f5', 'g'),
     ]
-    const { nodes: laid } = await layoutGraph(nodes, edges, {}, WIDE_CANVAS)
+    const { nodes: laid } = await layoutGraph(nodes, edges, {})
 
     const gapsFor = (ids: string[]): number[] => {
       const xs = ids
@@ -456,7 +471,7 @@ describe('ELK Layout', () => {
       makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'),
       makeEdge('e9', 'f1', 'g'), makeEdge('e10', 'f5', 'g'),
     ]
-    const { nodes: laid } = await layoutGraph(nodes, edges, {}, WIDE_CANVAS)
+    const { nodes: laid } = await layoutGraph(nodes, edges, {})
 
     // ELK box width is uniform at NODE_CARD_MAX_W + LAYOUT_PADDING_X in this case
     const elkBoxW = NODE_CARD_MAX_W + LAYOUT_PADDING_X
@@ -471,10 +486,11 @@ describe('ELK Layout', () => {
     expect(Math.abs(optionCentre - factorCentre)).toBeLessThanOrEqual(1)
   })
 
-  it('nodeW is clamped to NODE_LAYOUT_MIN_W (140) when tier is too wide for canvas', async () => {
-    // 14-node graph: 7 factors in tier 2. On a 936px narrow canvas,
-    // 7 * 140 + 6 * 30 = 1160px > 936 * 0.85 = 795px, so multi-row fires.
-    // layoutNodeWidth must equal 140.
+  it('nodeW is clamped to NODE_LAYOUT_MIN_W when the widest tier cannot take its fair share', async () => {
+    // 14-node graph: 7 factors in tier 2. Against the canonical budget,
+    // floor((1105 - 6*MIN_GAP)/7) = 145 < 164, so multi-row fires and
+    // layoutNodeWidth must equal NODE_LAYOUT_MIN_W. ⚠ The branch is selected by
+    // the TIER COUNT, not by a canvas: 7 is the smallest tier that splits.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -492,7 +508,7 @@ describe('ELK Layout', () => {
       makeEdge('e11', 'f1', 'out'), makeEdge('e12', 'f2', 'out'),
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
-    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {})
     expect(layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W)
     // All positions must be finite and non-overlapping (using NODE_LAYOUT_MIN_W for overlap check)
     laid.forEach(n => {
@@ -520,7 +536,7 @@ describe('ELK Layout', () => {
       makeEdge('e11', 'f1', 'out'), makeEdge('e12', 'f2', 'out'),
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
-    const { nodes: laid } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
+    const { nodes: laid } = await layoutGraph(nodes, edges, {})
     checkNoOverlap(laid, NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X, DEFAULT_NODE_HEIGHT + LAYOUT_PADDING_Y)
   })
 
@@ -539,7 +555,7 @@ describe('ELK Layout', () => {
       makeEdge('e6', 'o2', 'f4'), makeEdge('e7', 'o2', 'f5'),
       makeEdge('e8', 'f1', 'g'), makeEdge('e9', 'f5', 'g'),
     ]
-    const { nodes: laid } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
+    const { nodes: laid } = await layoutGraph(nodes, edges, {})
 
     const dY = laid.find(n => n.id === 'd')!.position.y
     const o1Y = laid.find(n => n.id === 'o1')!.position.y
@@ -572,7 +588,7 @@ describe('applyCollisionGuard', () => {
       makeEdge('e3', 'o1', 'f1'), makeEdge('e4', 'o2', 'f2'), makeEdge('e5', 'o2', 'f3'),
       makeEdge('e6', 'f1', 'out'), makeEdge('e7', 'out', 'g'),
     ]
-    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {})
 
     // Build a positionMap mirroring the laid-out state, and a sizeMap using
     // the ELK box width returned by layoutGraph (uniform across all nodes).

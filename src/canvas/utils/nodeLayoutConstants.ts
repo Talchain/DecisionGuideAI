@@ -168,6 +168,111 @@ export const NODE_CARD_MAX_W = 320
  */
 export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
 
+/**
+ * ⭐⭐ THE CANONICAL LAYOUT WIDTH — the ONE budget the canonical model is packed
+ * against, and the reason it is a CONSTANT and not a measurement.
+ *
+ * FOUNDER RULING R1 (18 Aug 2026, `ARCHITECTURE-BOARD.md` §0-RULINGS):
+ *
+ * > "Stable model, adaptive attention. The canonical graph layout must not
+ * > change because viewport width changes. Therefore: remove viewport width as
+ * > an authority over canonical row packing; establish ONE stable canonical
+ * > layout; responsive behaviour happens through camera/focus/disclosure, not
+ * > persisted re-layout."
+ *
+ * WHAT WAS WRONG. `layout.ts` solved `availableWidth = canvasSize.width * 0.85`,
+ * where `canvasSize` was the live `.react-flow` pane rect. Two of that solver's
+ * outputs — WHETHER the widest tier splits into rows, and HOW MANY nodes go in
+ * each row — were therefore functions of the viewport. Measured at `06f745ba`,
+ * RED-first, with named position digests: **three of the five shipped starters
+ * produce THREE DIFFERENT canonical layouts across 1280 / 1440 / 1512 / 1920.**
+ * The instability is INSIDE the laptop band, not below it. Two teammates on two
+ * laptops were looking at two different shapes of the same shared model.
+ *
+ * ⭐ HOW THIS VALUE WAS DERIVED — it is not a taste call, and it was NOT the
+ * first value tried. The first candidate was measured, found wanting, and
+ * replaced; the measurement is below because R1 asks for the derivation, not
+ * just the number.
+ *
+ * The packing branch is a step function of the budget, re-derived here from the
+ * constants in this file (`availableWidth` = AW):
+ *
+ *   single-row iff floor((AW - (T-1)*MIN_GAP) / T) >= NODE_SINGLE_ROW_FAIR_SHARE_W
+ *                                                     + LAYOUT_PADDING_X
+ *              iff AW >= 179*T - 15                      (T = widest tier count)
+ *   otherwise  nodesPerRow = floor((AW + 20) / (NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X + 20))
+ *
+ * So the budget only ever selects a (single-row cap, nodes-per-row) PAIR, and
+ * near laptop widths the reachable pairs are few:
+ *
+ *   AW in [1059, 1132)  cap T=6   3 per row (820 units)
+ *   AW in [1132, 1238)  cap T=6   4 per row (1108 units)   <- HERE
+ *   AW in [1238, 1417)  cap T=7   4 per row
+ *   AW in [1420, 1596)  cap T=8   5 per row
+ *
+ * The shipped product's own values landed in three different rows of that table
+ * — 1280*0.85 = 1088, 1440*0.85 = 1224, 1512*0.85 = 1285, 1920*0.85 = 1632.
+ * That IS the defect.
+ *
+ * ⭐ THE TWO CLIFFS, AND WHY THIS BAND. The lower cliff is exactly the width of
+ * a four-card row: 4*(NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X) + 3*20 = 1132. The
+ * upper cliff, 179*7 - 15 = 1238, is the budget at which a SEVEN-wide tier stops
+ * splitting and becomes a 2504-unit single row. Four is therefore the LARGEST
+ * per-row count still compatible with splitting a 7-wide tier at all: five needs
+ * AW >= 1420, which also single-rows an 8-wide tier at 2868 units. **1185 is the
+ * midpoint of [1132, 1238)** — 53 units of margin to each cliff, which is
+ * deliberate: a constant sitting on a cliff edge is a defect waiting for a
+ * rounding change.
+ *
+ * ⭐⭐ AND THE MEASUREMENT THAT ACTUALLY DECIDED IT, in a real browser (trap 3 —
+ * jsdom cannot prove a rendered size), five shipped starters x 1280/1440/1512,
+ * reading the SETTLED camera transform rather than deriving it. The first
+ * candidate was 1105 (= 1300 x 0.85, `layout.ts`'s old FALLBACK_CANVAS, chosen
+ * because it reproduces the shape shipped at 1280 byte-for-byte and so preserved
+ * every measurement taken at 1280). It is STABLE and it is WORSE: three-per-row
+ * makes these models taller, and they are HEIGHT-bound, so the camera lands
+ * lower.
+ *
+ *   settled zoom, dock expanded      1280      1440      1512
+ *   vendor-selection  shipped      0.5139    0.7202    0.6873   (3 shapes)
+ *                     pin 1105     0.5000    0.5549    0.5292   (1 shape)
+ *                     pin 1185     0.6613    0.7202    0.6873   (1 shape)
+ *   build-vs-buy      shipped      0.5000    0.6337    0.6045   (3 shapes)
+ *                     pin 1105     0.5000    0.5000    0.5000   (1 shape)
+ *                     pin 1185     0.5587    0.6567    0.6283   (1 shape)
+ *
+ * 1185 is stable AND at least as legible as the shipped build in every measured
+ * cell. Stated precisely, because the tempting summary overstates it: at 1440
+ * and 1512 this pin reproduces the shipped shape, so those columns do not
+ * improve — they were already 5 of 5 clearing the floor and they stay there.
+ * **The gain is at 1280, where models clearing the 0.50 floor go from 2 of 5 to
+ * 3 of 5** (build-vs-buy 0.5000 clamped → 0.5587), and the cost is zero
+ * everywhere else. That is the whole measured effect; choosing on it rather
+ * than on evidence-continuity is the point of R1's instruction that deriving
+ * this constant IS the work.
+ *
+ * ⚠ Instrument noise, so the table is not over-read: node HEIGHTS vary by a few
+ * px between runs even at byte-identical node positions (build-vs-buy measured
+ * 1320 then 1316 at 1440, moving the zoom 0.6337 → 0.6567). Treat differences
+ * below ~0.03 as jitter, not as signal.
+ *
+ * ⚠ WHAT THIS DOES NOT FIX, and it is the honest half. The two five-wide
+ * starters pack to a 1776-unit single row and still clamp at 0.50 in the 760px
+ * fit box at 1280 — unchanged by this pin in either direction, because a 5-wide
+ * tier is single-row at every budget above 880. R1 rules that the answer to a
+ * constrained screen is "readable subset + explicit 'showing X of Y' + obvious
+ * whole-model access" — a PRESENTATION change — never a re-pack. Do not fix it
+ * here.
+ *
+ * ⚠⚠ FORBIDDEN, and this is the whole point of the constant: nothing may make
+ * this budget a function of anything that varies at runtime — not the viewport,
+ * not the pane rect, not the fit box, not panel state, not zoom, not node count.
+ * That is not a stylistic preference: it is the difference between a shared model
+ * and a per-screen rendering of one. Enforced at the bytes by
+ * `layoutViewportIndependence.guard.spec.ts`.
+ */
+export const CANONICAL_LAYOUT_WIDTH = 1185
+
 /** Horizontal padding added around the rendered card to form the ELK box. */
 export const LAYOUT_PADDING_X = 24
 

@@ -44,7 +44,6 @@
 
 import { describe, it, expect } from 'vitest'
 import { layoutGraph } from '../utils/layout'
-import type { CanvasSize } from '../utils/layout'
 import { COLLISION_GAP, LAYOUT_PADDING_X } from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -72,17 +71,28 @@ type StarterId = keyof typeof STARTERS
 const HEIGHTS = (capture as { heights: Record<string, Record<string, number>> }).heights
 
 /**
- * The two packing branches, named by what they exercise rather than by number.
- * `layout.ts` splits a tier into multiple rows when the per-node fair share of
- * `canvasSize.width * 0.85` falls below `NODE_SINGLE_ROW_FAIR_SHARE_W +
- * LAYOUT_PADDING_X`, so these two widths straddle that threshold for the
- * five-factor starters. Asserted below by IDENTITY (row occupancy of the
- * factor tier), never assumed.
+ * ⭐ THE BRANCH IS NOW A PROPERTY OF THE MODEL, NOT OF THE SCREEN (founder ruling
+ * R1, 18 Aug 2026). This suite used to straddle the two packing branches by
+ * handing `layoutGraph` a 1300px and a 900px canvas. `layoutGraph` no longer
+ * takes a canvas: the budget is `CANONICAL_LAYOUT_WIDTH`, so the branch is
+ * selected by the widest tier's node count alone.
+ *
+ * The corpus straddles both branches on its own — the shipped starters carry
+ * widest tiers of 5 (single-row) and 8 (multi-row) — which is strictly better
+ * evidence than a synthetic width, because these are the shapes that ship.
+ * `BRANCH_OF` records which starter exercises which, and the `describe` block
+ * below proves each one really is on the branch claimed, BY NODE IDENTITY.
+ * Recorded rather than derived from the layout, deliberately: a table derived
+ * from the thing it describes is a guard agreeing with itself.
  */
-const BRANCHES: ReadonlyArray<{ name: string; canvas: CanvasSize }> = [
-  { name: 'single-row branch', canvas: { width: 1300, height: 742 } },
-  { name: 'multi-row branch', canvas: { width: 900, height: 742 } },
-]
+type Branch = 'single-row' | 'multi-row'
+const BRANCH_OF: Record<StarterId, Branch> = {
+  'vendor-selection': 'multi-row',
+  'market-entry': 'multi-row',
+  'build-vs-buy': 'multi-row',
+  'headcount-allocation': 'single-row',
+  'pricing-model': 'single-row',
+}
 
 interface Rect { id: string; x: number; y: number; w: number; h: number }
 
@@ -120,9 +130,9 @@ function rowsOf(rects: Rect[]): Map<number, Rect[]> {
   return rows
 }
 
-async function layOut(id: StarterId, canvas: CanvasSize): Promise<Rect[]> {
+async function layOut(id: StarterId): Promise<Rect[]> {
   const { nodes, edges } = buildGraph(id)
-  const out = await layoutGraph(nodes, edges, {}, canvas)
+  const out = await layoutGraph(nodes, edges, {})
   return out.nodes.map((n) => ({
     id: n.id,
     x: n.position.x,
@@ -150,10 +160,18 @@ describe('the capture is complete before anything is derived from it', () => {
 })
 
 describe('same-row gap holds at BOTH packing branches, for every shipped starter', () => {
-  for (const branch of BRANCHES) {
+  // The corpus must actually contain both branches, or "BOTH" in this
+  // describe's name is a claim nothing checks (trap 13: an absence/coverage
+  // claim needs a control).
+  it('the shipped corpus covers both packing branches', () => {
+    const covered = new Set(Object.values(BRANCH_OF))
+    expect([...covered].sort()).toEqual(['multi-row', 'single-row'])
+  })
+
+  {
     for (const id of Object.keys(STARTERS) as StarterId[]) {
-      it(`${id} — ${branch.name} @${branch.canvas.width}px: every same-row neighbour pair clears COLLISION_GAP`, async () => {
-        const rects = await layOut(id, branch.canvas)
+      it(`${id} — ${BRANCH_OF[id]} branch: every same-row neighbour pair clears COLLISION_GAP`, async () => {
+        const rects = await layOut(id)
         expect(rects.length, `"${id}" laid out no nodes`).toBe(
           (STARTERS[id] as unknown as { nodes: unknown[] }).nodes.length,
         )
@@ -165,7 +183,7 @@ describe('same-row gap holds at BOTH packing branches, for every shipped starter
         const multiNodeRows = [...rows.values()].filter((r) => r.length >= 2)
         expect(
           multiNodeRows.length,
-          `no row of "${id}" holds two nodes at ${branch.canvas.width}px — the gap assertion would be vacuous`,
+          `no row of "${id}" holds two nodes — the gap assertion would be vacuous`,
         ).toBeGreaterThan(0)
 
         let pairsChecked = 0
@@ -178,7 +196,7 @@ describe('same-row gap holds at BOTH packing branches, for every shipped starter
             // threshold is DERIVED from the shipped constant, never recorded.
             expect(
               gap,
-              `"${id}" @${branch.canvas.width}px: "${left.id}" and "${right.id}" share row y=${left.y} with a ${gap}px gap`,
+              `"${id}": "${left.id}" and "${right.id}" share row y=${left.y} with a ${gap}px gap`,
             ).toBeGreaterThanOrEqual(COLLISION_GAP)
             pairsChecked++
           }
@@ -190,9 +208,10 @@ describe('same-row gap holds at BOTH packing branches, for every shipped starter
 })
 
 describe('the branches this suite claims to straddle are the branches it exercises', () => {
-  // Bind the branch claim to node IDENTITY, not to a width literal. If a future
-  // change moves the threshold, this REDs and says so, instead of quietly
-  // running both cells on the same branch and reporting double coverage.
+  // Bind the branch claim to node IDENTITY, never to a width literal or to a
+  // count re-derived from the layout. If the boundary moves in EITHER direction
+  // one of these REDs and says so, instead of quietly running every cell on one
+  // branch and reporting double coverage.
   const FACTOR_TIER_OF_HEADCOUNT = [
     'fac_ae_headcount',
     'fac_eng_attrition',
@@ -201,20 +220,35 @@ describe('the branches this suite claims to straddle are the branches it exercis
     'fac_quota_attainment',
   ] as const
 
-  it('headcount-allocation packs its factor tier on ONE row at 1300px', async () => {
-    const rects = await layOut('headcount-allocation', { width: 1300, height: 742 })
+  // vendor-selection's tier-2 nodes: eight, the first width the canonical
+  // budget refuses as a single row.
+  const FACTOR_TIER_OF_VENDOR_SELECTION = [
+    'fac_annual_cost',
+    'fac_data_team_capacity',
+    'fac_gdpr_compliance',
+    'fac_migration_effort',
+    'fac_ops_overhead',
+    'fac_rudderstack',
+    'fac_segment',
+    'fac_snowflake_build',
+  ] as const
+
+  it('headcount-allocation (5-wide tier) packs its factor tier on ONE row', async () => {
+    const rects = await layOut('headcount-allocation')
     const ys = new Set(
       FACTOR_TIER_OF_HEADCOUNT.map((nid) => rects.find((r) => r.id === nid)!.y),
     )
     expect(ys.size, 'expected the single-row branch').toBe(1)
+    expect(BRANCH_OF['headcount-allocation']).toBe('single-row')
   })
 
-  it('headcount-allocation splits its factor tier across MORE THAN ONE row at 900px', async () => {
-    const rects = await layOut('headcount-allocation', { width: 900, height: 742 })
+  it('vendor-selection (8-wide tier) splits its factor tier across MORE THAN ONE row', async () => {
+    const rects = await layOut('vendor-selection')
     const ys = new Set(
-      FACTOR_TIER_OF_HEADCOUNT.map((nid) => rects.find((r) => r.id === nid)!.y),
+      FACTOR_TIER_OF_VENDOR_SELECTION.map((nid) => rects.find((r) => r.id === nid)!.y),
     )
     expect(ys.size, 'expected the multi-row branch').toBeGreaterThan(1)
+    expect(BRANCH_OF['vendor-selection']).toBe('multi-row')
   })
 })
 
@@ -240,12 +274,10 @@ describe('WHERE THE GAP COMES FROM — and it is not applyCollisionGuard', () =>
     '%s: the minimum same-row gap is the STRIDE (44px), strictly above COLLISION_GAP',
     async (id) => {
       let min = Number.POSITIVE_INFINITY
-      for (const branch of BRANCHES) {
-        const rows = rowsOf(await layOut(id, branch.canvas))
-        for (const row of rows.values()) {
-          for (let i = 1; i < row.length; i++) {
-            min = Math.min(min, row[i].x - (row[i - 1].x + row[i - 1].w))
-          }
+      const rows = rowsOf(await layOut(id))
+      for (const row of rows.values()) {
+        for (let i = 1; i < row.length; i++) {
+          min = Math.min(min, row[i].x - (row[i - 1].x + row[i - 1].w))
         }
       }
       expect(Number.isFinite(min), 'no same-row pair existed to measure').toBe(true)

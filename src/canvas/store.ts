@@ -2959,7 +2959,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const { useLayoutStore } = await import('./layoutStore')
       const layoutOptions = useLayoutStore.getState()
 
-      const canvasSize = layoutOptions.canvasSize ?? undefined
+      // No canvas/viewport argument, deliberately: the canonical layout has no
+      // runtime input (founder ruling R1). See `utils/layout.ts`'s header.
       const { nodes: layoutedNodes, layoutNodeWidth } = await layoutGraph(
         nodes,
         edges,
@@ -2968,8 +2969,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           spacing: layoutOptions.nodeSpacing,
           layerSpacing: layoutOptions.layerSpacing,
           preserveLocked: layoutOptions.respectLocked,
-        },
-        canvasSize
+        }
       )
 
       // Post-await commit guard. The awaits above are an async window during

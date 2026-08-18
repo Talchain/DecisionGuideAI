@@ -5,10 +5,8 @@ import { useCEEDraft } from '../../hooks/useCEEDraft'
 import { DraftLoadingAnimation } from './DraftLoadingAnimation'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { useCanvasStore } from '../store'
-import { resolveLayoutCanvasSize } from '../utils/layoutCanvasSize'
 import { useDraftStore } from '../stores/draftStore'
 import { useAnalysisSnapshotStore } from '../stores/analysisSnapshotStore'
-import { useLayoutStore } from '../layoutStore'
 import { typography } from '../../styles/typography'
 import { CEEError } from '../../adapters/cee/client'
 import { DraftGuidancePanel } from './DraftGuidancePanel'
@@ -127,7 +125,6 @@ export function DraftChat() {
   const setLastDraftDescription = useDraftStore(s => s.setLastDraftDescription)
   const pushHistory = useCanvasStore(s => s.pushHistory)
   const setPendingLayout = useCanvasStore(s => s.setPendingLayout)
-  const setCanvasSize = useLayoutStore(s => s.setCanvasSize)
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
   const captureErrorDetail = useCanvasStore(s => s.captureErrorDetail)
   const nodeCount = useCanvasStore(s => s.nodes.length)
@@ -710,15 +707,12 @@ export function DraftChat() {
         totalEdges: useCanvasStore.getState().edges.length,
       })
     }
-    // The canvas size the canonical model is packed against. ONE authority —
-    // this block and `LayoutOptionsPanel`'s were hand-copied duplicates, each
-    // with its own floors and its own window fallback, and a third path used
-    // `layout.ts`'s FALLBACK_CANVAS instead. See `utils/layoutCanvasSize.ts` for
-    // the derivation, for why it is deliberately panel-state-INDEPENDENT
-    // ("stable model, adaptive attention"), and for what the 1088-vs-760 gap
-    // between this and the fit box is and is not.
-    const layoutCanvas = resolveLayoutCanvasSize()
-    if (layoutCanvas) setCanvasSize(layoutCanvas)
+    // ⚠ NOTHING MEASURES THE PANE HERE ANY MORE. This block used to read the
+    // live `.react-flow` rect and hand it to the solver, which made the
+    // canonical row packing a function of the viewport (founder ruling R1,
+    // 18 Aug 2026). The budget is now the constant `CANONICAL_LAYOUT_WIDTH`;
+    // see `utils/layout.ts`'s header for why re-adding a measurement here is
+    // forbidden rather than merely discouraged.
     // Defer layout until React Flow has measured the inserted nodes (D2).
     setPendingLayout(true)
 
