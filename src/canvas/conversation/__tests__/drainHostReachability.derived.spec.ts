@@ -107,16 +107,32 @@ function enumerateDrains(): string[] {
 }
 
 // ── 2. THE FLAG-ON HOST SET, walked from the canvas root ───────────────────
+/**
+ * ⚠ SCOPED TO THE FUNCTION BODY FIRST, AND THAT IS NOT A TIDY-UP. The first
+ * version of this sliced the whole file between `<ConversationProvider>` and
+ * `</ConversationProvider>`, and `indexOf` matched a DOC-COMMENT mention of the
+ * tag (`ReactFlowGraph.tsx:2512`) rather than the JSX 11 lines below it. The
+ * derivation still returned the right answer — the comment sits just above the
+ * block, so the slice happened to contain it — which is precisely why it was
+ * dangerous: a probe reading the wrong bytes and agreeing anyway (trap 16). It
+ * was caught by a mutant that SURVIVED when it should have bitten.
+ *
+ * Anchoring on the function declaration first puts the comment out of range.
+ */
 function flagOnProviderBlock(): string {
   const source = read(CANVAS_ROOT)
-  const open = source.indexOf('<ConversationProvider>')
-  const close = source.indexOf('</ConversationProvider>')
+  const fnStart = source.indexOf('export function MaybeConversationProvider')
+  if (fnStart === -1) return ''
+  const body = source.slice(fnStart)
+  const open = body.indexOf('<ConversationProvider>')
+  const close = body.indexOf('</ConversationProvider>')
   // A structural precondition, asserted rather than assumed: if the provider is
   // renamed or restructured, this returns an empty string and EVERY drain reads
   // dark — an instrument failure that would otherwise look like a finding
-  // (trap 20: uniformity is evidence about the probe).
+  // (trap 20: uniformity is evidence about the probe). The CONTRAST CONTROL test
+  // below is what turns that into a RED instead of a false discovery.
   if (open === -1 || close === -1 || close <= open) return ''
-  return source.slice(open, close)
+  return body.slice(open, close)
 }
 
 /** Repo-relative paths of the components mounted inside the flag-ON provider. */
