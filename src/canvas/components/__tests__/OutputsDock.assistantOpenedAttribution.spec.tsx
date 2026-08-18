@@ -74,6 +74,16 @@ const {
   // compareTab ON, journeyTab OFF. `MOUNT-1` asserts that exact strip, so if
   // a flag moves under this spec the binding fails LOUD instead of quietly
   // testing a component the deployment does not render.
+  //
+  // ⚠⚠ AMENDED 18 Aug 2026, AND THE FLAG DID NOT MOVE — THE CONTRACT DID.
+  // `mockIsCompareTabEnabled` STAYS `true`, because `netlify.toml:157` still
+  // sets `VITE_FEATURE_COMPARE_TAB = "1"` and this block's job is to state the
+  // deployed FLAG posture truthfully. Compare left the strip by CONTRACT
+  // (`workspaceShell/shellContract.ts`, Fable's ruling), which is the stronger
+  // statement and is not a flag. So the expected strip below is now
+  // ["Olumi","Analysis","Model"] with compareTab ON — flipping the mock to
+  // `false` to "make it pass" would have made this comment a lie and hollowed
+  // the trap-3b binding it exists to hold.
   mockIsJourneyTabEnabled: vi.fn(() => false),
   mockIsCompareTabEnabled: vi.fn(() => true),
   mockIsAiPanelV2Enabled: vi.fn(() => true),
@@ -338,7 +348,7 @@ describe('ROADMAP 2.1132 — the assistant attributes the panel gestures it actu
     // before anything below asserts a presence or an absence inside it.
     const strip = screen.getByRole('navigation', { name: 'Outputs sections' })
     expect(strip).toBeInTheDocument()
-    expect(tabLabels(strip)).toEqual(['Olumi', 'Analysis', 'Compare', 'Model'])
+    expect(tabLabels(strip)).toEqual(['Olumi', 'Analysis', 'Model'])
 
     // Absent before any gesture — so the presence below is the gesture's doing.
     expect(notice()).not.toBeInTheDocument()
