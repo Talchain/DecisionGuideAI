@@ -72,6 +72,8 @@ export interface ModelOutlineProps {
   onProposeEdit?: (id: string) => void
   onDiscardEdit?: (id: string) => void
   onConfirmEdit?: (id: string) => void
+  /** Ratify an AI estimate as correct — passed straight through to the row. */
+  onConfirmValueAsIs?: (id: string) => void
   /**
    * The group-level affordances rehomed from the v1 stack (add a factor, add a
    * relationship, explore other strategies, identify risks, discuss each group).
@@ -150,6 +152,7 @@ export function ModelOutline({
   onProposeEdit,
   onDiscardEdit,
   onConfirmEdit,
+  onConfirmValueAsIs,
   onGroupAction,
   groupActionContext,
 }: ModelOutlineProps) {
@@ -245,6 +248,7 @@ export function ModelOutline({
                       onProposeEdit={onProposeEdit}
                       onDiscardEdit={onDiscardEdit}
                       onConfirmEdit={onConfirmEdit}
+                      onConfirmValueAsIs={onConfirmValueAsIs}
                     />
                   ))}
                 </ul>

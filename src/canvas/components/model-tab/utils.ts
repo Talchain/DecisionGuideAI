@@ -10,6 +10,7 @@
  */
 
 import type { ObservedState } from './types'
+import { factorNeedsVerification } from '../../domain/valueProvenance'
 import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
 import type { EdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
 import { selectDriverDisplayModel, extractPolicyRow } from '../../../components/results/driverDisplayModel'
@@ -106,13 +107,18 @@ export function mapSourceToDisplay(source: string | undefined): string | null {
 
 // ── Factor verification ─────────────────────────────────────────────────────
 
-/** Count factors needing user verification (no source, or AI estimate). */
+/**
+ * Count factors needing user verification (no source, or AI estimate).
+ *
+ * ⚠ THE PREDICATE MOVED OUT (18 Aug 2026) and this function no longer holds a
+ * copy of it. It lived here inline while a second, deliberate port lived in
+ * `model-tab-v2/adapters.ts` — the estate's own documented mirror, pinned by a
+ * corpus that could only prove the two AGREED. Both now import
+ * `factorNeedsVerification` from `domain/valueProvenance`, so the count, the
+ * outline's ⚠ marker and the Confirm affordance cannot disagree about a row.
+ */
 export function countFactorsToVerify(factorNodes: ReadonlyArray<{ data: unknown }>): number {
-  return factorNodes.filter(n => {
-    const data = n.data as Record<string, unknown> | undefined
-    const obs = (data?.observedState ?? data?.observed_state) as Record<string, unknown> | undefined
-    return !obs?.source || obs?.source === 'cee_inference'
-  }).length
+  return factorNodes.filter(n => factorNeedsVerification(n.data)).length
 }
 
 // ── Strength semantic labels ──────────────────────────────────────────────────

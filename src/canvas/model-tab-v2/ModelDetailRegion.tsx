@@ -36,6 +36,21 @@ export interface ModelDetailRegionProps {
   detail: ModelRowDetail
   tier: DetailTier
   onFocusOnCanvas?: (id: string) => void
+  /**
+   * The intervention currently being edited, if any — OWNED BY THE HOST.
+   *
+   * ⚠ THIS COMPONENT HOLDS NO EDIT STATE, deliberately. The panel owns "the one
+   * active edit" for the whole surface, which is what stops the outline and the
+   * detail region each believing they have one. `factorId` identifies the row
+   * BY IDENTITY, never by position in the list (trap 19).
+   */
+  interventionEdit?: { factorId: string; draft: string } | null
+  /** Begin editing one intervention target. Absent ⇒ the list is read-only. */
+  onBeginInterventionEdit?: (factorId: string, seed: string) => void
+  onInterventionDraftChange?: (factorId: string, draft: string) => void
+  /** Commit the draft through the write authority. */
+  onCommitIntervention?: (factorId: string) => void
+  onDiscardInterventionEdit?: () => void
 }
 
 /** Absence is rendered as absence — never as a zero, never as a blank cell. */
@@ -63,6 +78,11 @@ export function ModelDetailRegion({
   detail,
   tier,
   onFocusOnCanvas,
+  interventionEdit = null,
+  onBeginInterventionEdit,
+  onInterventionDraftChange,
+  onCommitIntervention,
+  onDiscardInterventionEdit,
 }: ModelDetailRegionProps) {
   /*
    * The identity gate. This is deliberately a VISIBLE refusal rather than a
@@ -110,6 +130,105 @@ export function ModelDetailRegion({
         </p>
         <FieldList fields={detail.secondaryValues} testid="model-detail-v2-secondary" />
       </section>
+
+      {/*
+        2b — What this option would change (rehomed from `OptionsSection`'s
+        intervention rows, 18 Aug 2026).
+
+        ⚠ IT RENDERS ONLY WHEN THERE IS SOMETHING TO SHOW. An option that sets
+        no targets reports that through its ROW's `missing-intervention` marker
+        and the repair queue that collects it — an empty section here would be a
+        second, quieter rendering of the same fact, and the two would then have
+        to be kept in step.
+      */}
+      {detail.interventions.length > 0 && (
+        <section data-testid="model-detail-v2-interventions">
+          <h4 className={`${typography.label} text-text-header`}>What this would change</h4>
+          <ul>
+            {detail.interventions.map(iv => {
+              const editing = interventionEdit?.factorId === iv.factorId
+              const editable = typeof onBeginInterventionEdit === 'function'
+              return (
+                <li
+                  key={iv.factorId}
+                  data-testid={`model-detail-v2-intervention-${iv.factorId}`}
+                  className="flex items-center gap-2 py-0.5"
+                >
+                  {/*
+                    ⚠ THE FACTOR'S NAME, NEVER ITS ID. The projection drops any
+                    entry it cannot name, so there is no `?? factorId` fallback
+                    to leak one here — see `buildOptionInterventions`.
+                  */}
+                  <span className={`${typography.bodySmall} text-text-body flex-1 truncate`}>
+                    {iv.factorLabel}
+                  </span>
+
+                  {editing ? (
+                    <>
+                      <input
+                        type="number"
+                        autoFocus
+                        data-testid={`model-detail-v2-intervention-${iv.factorId}-input`}
+                        aria-label={`Target value for ${iv.factorLabel}`}
+                        value={interventionEdit.draft}
+                        onChange={e => onInterventionDraftChange?.(iv.factorId, e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') onCommitIntervention?.(iv.factorId)
+                          if (e.key === 'Escape') onDiscardInterventionEdit?.()
+                        }}
+                        className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+                      />
+                      <button
+                        type="button"
+                        data-testid={`model-detail-v2-intervention-${iv.factorId}-save`}
+                        onClick={() => onCommitIntervention?.(iv.factorId)}
+                        className={`${typography.buttonSmall} text-info`}
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        data-testid={`model-detail-v2-intervention-${iv.factorId}-cancel`}
+                        onClick={() => onDiscardInterventionEdit?.()}
+                        className={`${typography.buttonSmall} text-text-light`}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!editable}
+                      data-testid={`model-detail-v2-intervention-${iv.factorId}-value`}
+                      title={editable ? 'Change this target' : undefined}
+                      aria-label={
+                        editable
+                          ? `Change the target for ${iv.factorLabel}`
+                          : `${iv.factorLabel}: ${iv.value ?? 'Not set'}`
+                      }
+                      onClick={() =>
+                        onBeginInterventionEdit?.(
+                          iv.factorId,
+                          // ⚠ SEEDS FROM `numericValue`, NEVER FROM `value`. The
+                          // displayed string may be CEE-authored prose; seeding an
+                          // editor from it would let a label be saved back as if the
+                          // user had typed it.
+                          iv.numericValue === null ? '' : String(iv.numericValue),
+                        )
+                      }
+                      className={`${typography.tabular} ${
+                        editable ? 'underline decoration-dotted' : 'text-text-light'
+                      }`}
+                    >
+                      {iv.value ?? 'Not set'}
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
 
       {/* 3 — Where it came from */}
       <section data-testid="model-detail-v2-provenance">

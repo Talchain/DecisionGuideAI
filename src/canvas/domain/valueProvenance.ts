@@ -197,3 +197,35 @@ export function classifyNodeProvenance(
   if (provenance === 'ai_inferred') return { kind: 'ai', userOwned: false }
   return null
 }
+
+/**
+ * Does this factor's value still need a human to look at it?
+ *
+ * ⚠ MOVED HERE 18 Aug 2026 — IT WAS THE ESTATE'S OWN DOCUMENTED MIRROR. The
+ * predicate existed twice: inline inside `countFactorsToVerify`
+ * (`components/model-tab/utils.ts`), and as a deliberate PORT in
+ * `model-tab-v2/adapters.ts` whose header said so in as many words and pinned
+ * the copy against the live count over a corpus. That pin was honest and it was
+ * still a mirror — it could only prove the two AGREED, never that either was
+ * right, and it needed a hand-written corpus to do even that (trap 12d).
+ *
+ * The REHOME → DELETE lane forced the issue: the Model tab's Confirm ✓ must be
+ * offered by exactly the predicate that counts the factor as unverified, or the
+ * badge and the button disagree about the same row. Three readings of one
+ * question was one too many before; four would have been absurd. So it moved to
+ * the domain layer both surfaces already depend on, and neither keeps a copy.
+ *
+ * ⚠ IT READS BOTH SPELLINGS. Canvas stores `observedState`; the CEE/PLoT wire
+ * uses `observed_state`, and real graphs carry both. Reading one under-counts.
+ *
+ * ⚠ ANY SOURCE OTHER THAN ABSENT-OR-`cee_inference` CLEARS IT — including
+ * `user_confirmed`, which is what ratifying an estimate now stamps. That is the
+ * behaviour the count has always had; it is stated here because the Confirm
+ * gesture is the thing that produces the transition, and a reader of the button
+ * needs to know the badge will clear with it.
+ */
+export function factorNeedsVerification(data: unknown): boolean {
+  const d = data as Record<string, unknown> | undefined
+  const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
+  return !obs?.source || obs?.source === 'cee_inference'
+}

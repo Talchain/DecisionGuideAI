@@ -21,7 +21,6 @@ import type { EdgeData } from '../../domain/edges'
 import { countFactorsToVerify } from '../../components/model-tab/utils'
 import {
   edgeIsContested,
-  factorNeedsVerification,
   nodeKind,
   optionHasNoInterventions,
   toModelRows,

@@ -25,15 +25,22 @@
  * a confirmation (contracts.ts §1 C11). When the receipt-bearing transaction
  * API lands, the three-beat's tail states plug in at `useModelEditAuthority`.
  *
- * EDIT COVERAGE AT THIS TIP: factor values (the reference canonical
- * transaction). Rows whose edit class has NO canonical carrier — edge
- * strength / likelihood / direction, option interventions, the goal target —
- * render the honest disabled affordance (`editConnectedIds`). Wiring them
- * through a local-only write instead would recreate design §2 F6 on the
- * surface built to kill it.
+ * EDIT COVERAGE AT THIS TIP (widened 18 Aug 2026, the REHOME → DELETE lane):
+ *   · FACTOR VALUES — the reference canonical transaction, server-backed.
+ *   · OPTION INTERVENTION TARGETS — in the detail region of the selected option.
+ *   · FACTOR CONFIRMATION — the row's Confirm chip, stamping `user_confirmed`.
+ * The last two are LOCAL COMMITS with no wire carrier, dispatched through the
+ * same authority; see `useModelEditAuthority`'s header for why that does not
+ * re-open design §2 F6 and for the outcome type that makes an over-claim
+ * unrepresentable.
+ *
+ * STILL DISABLED, HONESTLY: edge strength / likelihood / direction and the goal
+ * target. They have no authority entry point, so `editConnectedIds` keeps their
+ * affordances disabled with a label saying so. Wiring them through a local-only
+ * write instead would recreate F6 on the surface built to kill it.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import type { EdgeData } from '../domain/edges'
@@ -90,6 +97,18 @@ export function ModelTabV2Panel({
   const [filter, setFilter] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [edit, setEdit] = useState<ActiveEdit | null>(null)
+  /**
+   * The one intervention target being edited, if any.
+   *
+   * ⚠ IT CARRIES ITS OWN `optionId` AND IS CLEARED ON SELECTION CHANGE. Without
+   * that, selecting a different option while an edit was open would leave a
+   * draft addressed to the previous option's factor — the authority would still
+   * refuse it (the factor is not the new option's), but the user would be
+   * looking at their number in a box that no longer means what it says.
+   */
+  const [interventionEdit, setInterventionEdit] = useState<
+    { optionId: string; factorId: string; draft: string } | null
+  >(null)
 
   const projection: ModelProjectionInput = useMemo(
     () => ({
@@ -148,7 +167,37 @@ export function ModelTabV2Panel({
     [onHandOffToOlumi],
   )
 
-  const authority = useModelEditAuthority(edit?.rowId ?? null)
+  /**
+   * ⚠ ONE AUTHORITY, KEYED ON WHICHEVER NODE THE ACTIVE GESTURE BELONGS TO.
+   *
+   * The value three-beat addresses the row being typed into; an intervention
+   * edit addresses the OPTION that owns it; a confirmation addresses the row
+   * the user pressed Confirm on, which is resolved at the call site. A second
+   * `useModelEditAuthority(...)` call for the second gesture would be a second
+   * writer of the same kind — the defect this whole change removes, recreated
+   * inside the fix. The precedence below is total and the two states are
+   * mutually exclusive in practice: beginning either clears the other.
+   */
+  const activeAuthorityNodeId = edit?.rowId ?? interventionEdit?.optionId ?? null
+  const authority = useModelEditAuthority(activeAuthorityNodeId)
+
+  /**
+   * The confirmation authority for ONE row.
+   *
+   * ⚠ IT IS A SEPARATE HOOK CALL BECAUSE IT ADDRESSES A DIFFERENT NODE, not
+   * because it is a different kind of write. `useModelEditAuthority` is
+   * node-parameterised exactly as `useNodeMutations` is, and Confirm fires on a
+   * row the user has NOT entered an edit on — so there is no active edit whose
+   * node it could borrow. Hooks cannot be called per row, so the host tracks the
+   * row whose confirmation is pending and dispatches on the next render.
+   */
+  const [pendingConfirmId, setPendingConfirmId] = useState<string | null>(null)
+  const confirmAuthority = useModelEditAuthority(pendingConfirmId)
+  useEffect(() => {
+    if (pendingConfirmId === null) return
+    confirmAuthority.proposeFactorConfirmation()
+    setPendingConfirmId(null)
+  }, [pendingConfirmId, confirmAuthority])
 
   /** Rows are nodes OR edges — focus each with the helper that owns its kind. */
   const focusOnCanvas = useCallback(
@@ -224,6 +273,58 @@ export function ModelTabV2Panel({
     [edit, authority],
   )
 
+  /**
+   * Ratify an AI estimate as correct — the v1 Confirm ✓, rehomed.
+   *
+   * Beginning a confirmation CLEARS any open edit: they are two states of one
+   * row and holding both would leave a draft the user can no longer see.
+   */
+  const confirmValueAsIs = useCallback((rowId: string) => {
+    setEdit(null)
+    setInterventionEdit(null)
+    setPendingConfirmId(rowId)
+  }, [])
+
+  const beginInterventionEdit = useCallback(
+    (factorId: string, seed: string) => {
+      if (selectedId === null) return
+      setEdit(null)
+      setInterventionEdit({ optionId: selectedId, factorId, draft: seed })
+    },
+    [selectedId],
+  )
+
+  const changeInterventionDraft = useCallback((factorId: string, draft: string) => {
+    setInterventionEdit(prev => (prev && prev.factorId === factorId ? { ...prev, draft } : prev))
+  }, [])
+
+  const discardInterventionEdit = useCallback(() => setInterventionEdit(null), [])
+
+  const commitIntervention = useCallback(
+    (factorId: string) => {
+      if (!interventionEdit || interventionEdit.factorId !== factorId) return
+      const num = parseFloat(interventionEdit.draft)
+      // Fail CLOSED, exactly as the value three-beat does: an unparseable draft
+      // stays open rather than committing something the user did not state.
+      if (!Number.isFinite(num)) return
+      authority.proposeOptionIntervention(factorId, num)
+      setInterventionEdit(null)
+    },
+    [interventionEdit, authority],
+  )
+
+  /**
+   * ⚠ SELECTING A DIFFERENT ROW ABANDONS AN OPEN INTERVENTION DRAFT. See
+   * `interventionEdit`'s declaration: a draft outliving its option is a number
+   * shown in a box that no longer addresses it.
+   */
+  const selectRow = useCallback((id: string) => {
+    setSelectedId(prev => {
+      if (prev !== id) setInterventionEdit(null)
+      return id
+    })
+  }, [])
+
   return (
     <section
       data-testid="model-tab-v2-panel"
@@ -282,7 +383,7 @@ export function ModelTabV2Panel({
         tier={tier}
         filter={filter}
         selectedId={selectedId}
-        onSelect={setSelectedId}
+        onSelect={selectRow}
         onFocusOnCanvas={focusOnCanvas}
         commitByRowId={commitByRowId}
         editConnectedIds={editConnectedIds}
@@ -291,6 +392,7 @@ export function ModelTabV2Panel({
         onProposeEdit={proposeEdit}
         onDiscardEdit={discardEdit}
         onConfirmEdit={confirmEdit}
+        onConfirmValueAsIs={confirmValueAsIs}
         onGroupAction={onHandOffToOlumi ? handleGroupAction : undefined}
         groupActionContext={groupActionContext}
       />
@@ -301,6 +403,15 @@ export function ModelTabV2Panel({
           detail={selectedDetail}
           tier={tier}
           onFocusOnCanvas={focusOnCanvas}
+          interventionEdit={
+            interventionEdit && interventionEdit.optionId === selectedRow.id
+              ? { factorId: interventionEdit.factorId, draft: interventionEdit.draft }
+              : null
+          }
+          onBeginInterventionEdit={beginInterventionEdit}
+          onInterventionDraftChange={changeInterventionDraft}
+          onCommitIntervention={commitIntervention}
+          onDiscardInterventionEdit={discardInterventionEdit}
         />
       )}
     </section>
