@@ -334,31 +334,60 @@ describe('Olumi copy assembly — a label is rendered in full, never cut', () =>
     expect(balance(UNBALANCED_LABEL)).toBe(false)
   })
 
-  it('TWIN A: a 183-char balanced-bracket label renders in full', () => {
+  /**
+   * ⚠ BOUND TO THE PILL, NOT TO THE WHOLE CARD — and the first version of
+   * these two tests was NOT, which is why this comment exists.
+   *
+   * Written first as `expect(container.textContent).toContain(LABEL)`, both
+   * twins SURVIVED a mutant that truncated the pill to `optionKey.slice(0, 40)`
+   * — 14/14 green while the very defect they exist to catch was live. The
+   * labels also appear in `enrichment.option_comparison`, which other parts of
+   * this card read, so the assertions were passing on a DIFFERENT OBJECT than
+   * the one under test (platform trap 19: bind by identity, never by a value
+   * predicate another object could satisfy).
+   *
+   * They now bind to the option pill itself — the `role="listitem"` inside
+   * `v5-analysis-result-probabilities` whose text STARTS with the label — and
+   * the same truncating mutant now REDs both.
+   */
+  function optionPillTexts(container: HTMLElement): string[] {
+    const list = container.querySelector(
+      '[data-testid="v5-analysis-result-probabilities"]',
+    )
+    if (!list) throw new Error('no probability pill list rendered — probe is vacuous')
+    const pills = Array.from(list.querySelectorAll('[role="listitem"]'))
+    if (pills.length === 0) throw new Error('pill list is empty — probe is vacuous')
+    return pills.map((p) => p.textContent ?? '')
+  }
+
+  it('TWIN A: a 183-char balanced-bracket label renders in full, in its own pill', () => {
     const { blocks } = liftCapture(W998)
     const { container } = render(<InlineBlocks blocks={blocks} turnId="t-twin-a" />)
-    const text = container.textContent ?? ''
+    const pills = optionPillTexts(container)
 
-    expect(text).toContain(BALANCED_LABEL)
-    // Bound by identity: the label's own closing bracket, not merely "some" text.
-    expect(text).toContain('support a 10% price rise)')
-    expect(text).not.toContain('building the analytics add-on customers keep asking for…')
+    // Exactly one pill carries this option, and it carries the WHOLE label —
+    // closing bracket included.
+    const matching = pills.filter((t) => t.startsWith(BALANCED_LABEL))
+    expect(matching).toHaveLength(1)
+    expect(matching[0]).toContain('support a 10% price rise)')
+    expect(matching[0]).not.toContain('…')
   })
 
   it('TWIN B: a producer-truncated label renders verbatim — not cut further, not repaired', () => {
     const { blocks } = liftCapture(W998)
     const { container } = render(<InlineBlocks blocks={blocks} turnId="t-twin-b" />)
-    const text = container.textContent ?? ''
+    const pills = optionPillTexts(container)
 
     // Rendered in full, exactly as received…
-    expect(text).toContain(UNBALANCED_LABEL)
+    const matching = pills.filter((t) => t.startsWith(UNBALANCED_LABEL))
+    expect(matching).toHaveLength(1)
     // …with the producer's own unclosed bracket still visible. The UI must not
     // hide an upstream defect by "closing" it — that would be the product
     // misquoting the user's model back to them, which is the class being fixed.
-    expect(text).not.toContain(`${UNBALANCED_LABEL})`)
+    expect(matching[0]).not.toContain(`${UNBALANCED_LABEL})`)
     // …and the UI adds no ellipsis of its own to this label.
-    expect(text).not.toContain('sales hires and compliance…')
-    expect(text).not.toContain('sales hires and compliance...')
+    expect(matching[0]).not.toContain('…')
+    expect(matching[0]).not.toContain('...')
   })
 
   it('a 91-char label in a card body renders in full, with no character cap', () => {
