@@ -5,6 +5,7 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import {
   NODE_LAYOUT_MIN_W,
   NODE_CARD_MAX_W,
+  NODE_SINGLE_ROW_FAIR_SHARE_W,
   LAYOUT_PADDING_X,
   LAYOUT_PADDING_Y,
   DEFAULT_NODE_HEIGHT,
@@ -102,7 +103,12 @@ export async function layoutGraph(
   if (isDownLayout && maxTierCount > 1) {
     const unclampedElkBoxW = Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
 
-    if (unclampedElkBoxW >= NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X) {
+    // WHEN the tier splits is a row-packing policy and is deliberately NOT the
+    // (label-scale-derived) card floor — see NODE_SINGLE_ROW_FAIR_SHARE_W.
+    // Fusing the two moved tiers between branches when the label scale changed,
+    // which dragged the pre-existing multi-row overlap defect onto graphs that
+    // did not have it.
+    if (unclampedElkBoxW >= NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X) {
       elkBoxW = NODE_CARD_MAX_W + LAYOUT_PADDING_X
       gap = effectiveNodeSpacing
     } else {
