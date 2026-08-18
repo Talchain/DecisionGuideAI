@@ -425,6 +425,31 @@ function T1ChecksFooter({
   const hasWinner = verdict
     ? verdict.hasLeadingOption
     : !!data.recommendation.recommendedOption
+  // ⭐ NO DENIAL WITHOUT AUTHORITY (Analysis convergence, 18 Aug 2026).
+  //
+  // `hasLeadingOption === false` covers TWO different states and this is the
+  // one consumer for which they differ. Every other consumer in the tree
+  // (`OptionNode`, `DecisionNode`, `OptionPanel`, `OptionCards`,
+  // `V5AnalysisResultBlock`, `deriveRunPairComparison`) uses the boolean to
+  // WITHHOLD — correct for both states, so none of them had to read
+  // `separation`. This one turns it into an affirmative DENIAL, and
+  // `decisionVerdict.ts` licenses that for `'tied'` ONLY:
+  //
+  //   "`false` — surfaces must NOT badge, and MAY say 'no clear leading
+  //    option' (only when `separation === 'tied'`; `'unknown'` licenses
+  //    silence, never a denial)"
+  //
+  // Measured on deployed staging `c71ea7e0`: a run whose producer sent no
+  // near-tie block and no `headline_banded` rendered "No clear leader" here
+  // while `results-analysis-footer` three screens below said "Stable ranking —
+  // this result held up under the changes we tested". Two authorities, two
+  // questions (CLAUDE.md trap 21) — and one of them claiming what it does not
+  // hold. Reconciling the DEFAULTS would have been the wrong fix; withdrawing
+  // the unlicensed claim is the right one, and it leaves the tie denial intact.
+  //
+  // `unknown` therefore renders the neutral third state — the same idiom the
+  // robustness check beside it already uses for 'Robustness not assessed'.
+  const winnerUndetermined = verdict != null && verdict.separation === 'unknown'
   // Robustness glyph: driven ONLY by the display-safe robustness verdict
   // (`robustnessVerdict`) — never PLoT `report.robustness.level`, never the
   // UI-SEM-005 stability fallback, never a recommendationStability threshold.
@@ -465,6 +490,10 @@ function T1ChecksFooter({
   // these two labels.
   const winnerOkLabel = 'Has leading option'
   const winnerNotOkLabel = 'No clear leader'
+  // States the check could not be determined. It is NOT a third verdict about
+  // the options — it is the absence of one, which is why it must not read like
+  // "No clear leader" (a finding) nor like "Has leading option".
+  const winnerUndeterminedLabel = 'Leading option not assessed'
 
   return (
     <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
@@ -482,8 +511,14 @@ function T1ChecksFooter({
       <div className={`flex items-center flex-wrap gap-x-3 gap-y-1 ${typography.panelMeta} text-text-light`}>
         <ChecksGlyph
           ok={hasWinner}
+          unknown={winnerUndetermined}
           okLabel={winnerOkLabel}
-          notOkLabel={winnerNotOkLabel}
+          notOkLabel={winnerUndetermined ? winnerUndeterminedLabel : winnerNotOkLabel}
+          title={
+            winnerUndetermined
+              ? 'This run did not carry a leader verdict, so the analysis makes no claim either way.'
+              : undefined
+          }
           dataTestid="checks-winner"
         />
         <ChecksGlyph

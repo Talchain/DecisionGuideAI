@@ -81,9 +81,32 @@ function renderSection(fragileEdges: ChallengeFragileEdge[]) {
  * Binds by the factor's EXACT label — the object identity a reader sees — not
  * by a substring another row could satisfy.
  */
+/**
+ * Rows whose trigger names `label` as the SOURCE factor.
+ *
+ * ⚠ RE-POINTED, NOT NARROWED (Analysis convergence, 18 Aug 2026) — declared
+ * here because silently re-pointing a probe is how a guard stops biting
+ * (CLAUDE.md 13b/14).
+ *
+ * It previously required the row's text to equal the literal
+ * `If {label} shifts`. `FragileEdgeGroupCard` now DISAMBIGUATES the exact case
+ * this block's controls exist to protect: when one source feeds two targets in
+ * the same group the rows read `If {source}'s effect on {target} shifts`, so
+ * two genuinely different findings are no longer two identical sentences. The
+ * old equality made the probe blind to precisely those rows — it would have
+ * counted 0 and reported "the fix deleted producer findings" when the fix had
+ * done the opposite.
+ *
+ * The PROPERTY under test is unchanged and is still counted: how many rows name
+ * this source. Only the sentence template it tolerates is widened, and it is
+ * still anchored at both ends (`If …` / `… shifts`), so a row that stopped
+ * being a trigger sentence would not be counted.
+ */
 function countShiftRowsFor(label: string): number {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const trigger = new RegExp(`^If ${escaped}(?:'s effect on .+)? shifts$`)
   return screen.queryAllByText(label, { selector: 'span' })
-    .filter(el => el.parentElement?.textContent === `If ${label} shifts`)
+    .filter(el => trigger.test(el.parentElement?.textContent ?? ''))
     .length
 }
 

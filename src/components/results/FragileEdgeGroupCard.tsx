@@ -83,6 +83,27 @@ export function FragileEdgeGroupCard({
 }) {
   const hasEValue = edges.some(e => e.e_value != null)
 
+  // ⭐ ONE SENTENCE PER RELATIONSHIP (Analysis convergence, 18 Aug 2026).
+  //
+  // The row names the SOURCE only, so one factor feeding two targets renders
+  // two identical lines with two identically-labelled Review chips. Measured
+  // on deployed staging `c71ea7e0`: `fac_4day_adoption → risk_coverage_gap`
+  // and `fac_4day_adoption → risk_productivity_loss` both read "If 4-Day Week
+  // Adoption Level shifts", and the ledger recorded it as a DUPLICATE ROW
+  // (L-37). It is not one. `dedupeFragileEdgesByIdentity` kept both on purpose
+  // — its header says so — because they are two producer findings. Deduping
+  // them would have deleted one.
+  //
+  // So the ambiguity is disambiguated, not collapsed, and ONLY where it exists:
+  // where a source appears once in this group the short line survives
+  // unchanged. Both halves are pinned as a discriminating pair in
+  // `FragileEdgeGroupCard.distinguishableRows.spec.tsx`.
+  const sourceCounts = edges.reduce<Record<string, number>>((acc, e) => {
+    const key = stripEncodingNotation(e.from_label)
+    acc[key] = (acc[key] ?? 0) + 1
+    return acc
+  }, {})
+
   const header = fragileEdgeGroupHeader({
     altWinnerLabel,
     edgeCount: edges.length,
@@ -119,6 +140,9 @@ export function FragileEdgeGroupCard({
           preserved — the user can navigate to each relationship individually). */}
       {edges.map((edge, i) => {
         const edgeSource = stripEncodingNotation(edge.from_label)
+        const edgeTarget = stripEncodingNotation(edge.to_label)
+        // Only when this group holds more than one edge from the same source.
+        const needsTarget = (sourceCounts[edgeSource] ?? 0) > 1 && edgeTarget.length > 0
         const edgeFocusId = edge.from_id
         return (
           <div key={`${edge.from_label}-${edge.to_label}-${i}`} className="space-y-1">
@@ -126,7 +150,16 @@ export function FragileEdgeGroupCard({
                 cards, the header already names the alt-winner so we just show
                 "If {source} shifts" as the body. */}
             <div className={`flex items-baseline gap-2 flex-wrap ${typography.panelMeta} text-text-light`}>
-              <span>If <span className="text-text-body">{edgeSource}</span> shifts</span>
+              <span>
+                If <span className="text-text-body">{edgeSource}</span>
+                {needsTarget ? (
+                  <>
+                    {"'s effect on "}
+                    <span className="text-text-body">{edgeTarget}</span>
+                  </>
+                ) : null}
+                {' shifts'}
+              </span>
               {!altWinnerLabel && (
                 <span>{fragileEdgeConsequence({ designationsWithheld })}</span>
               )}
@@ -144,7 +177,11 @@ export function FragileEdgeGroupCard({
                 onClick={() => onFocusNode(edgeFocusId)}
                 data-testid={`fragile-review-chip-${i}`}
                 className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
-                aria-label={`Review relationship from ${edgeSource}`}
+                aria-label={
+                  needsTarget
+                    ? `Review relationship from ${edgeSource} to ${edgeTarget}`
+                    : `Review relationship from ${edgeSource}`
+                }
               >
                 Review this relationship
               </button>

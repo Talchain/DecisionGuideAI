@@ -1537,6 +1537,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // segment (never authored in the UI).
     robustnessVerdictReason: resultsSectionData.recommendation.robustnessVerdictReason,
     reviewCards: resultsSectionData.confidence.topEvidenceGaps ?? resultsSectionData.confidence.evidenceGaps ?? [],
+    // Only while the footer's Rerun is actually unpressable. While a run is in
+    // flight the control is disabled for an obvious reason the label already
+    // states ("Running analysis…"), so repeating a gate reason there would be
+    // noise — and it is not the reason the button is disabled.
+    blockedReason: !canRunAnalysis && !isRunning ? runBlockedTooltip : null,
   })
 
   // Triage card action handlers — same pattern as pre-analysis expertise (uses withObservedStateUpdate)

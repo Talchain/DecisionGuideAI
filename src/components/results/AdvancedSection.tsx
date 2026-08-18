@@ -14,7 +14,7 @@ import { Copy, Check, AlertTriangle, Gauge, Eye } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
-import { selectHumanisedInferenceWarnings } from './utils/humaniseInferenceWarning'
+import { selectHumanisedInferenceWarningsOutsideStrip } from './utils/humaniseInferenceWarning'
 import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
 import { derivePostFooterStatus } from '../../canvas/components/utils/postAnalysisFooter'
 import type { RobustnessDisplayVerdict } from './types'
@@ -206,10 +206,15 @@ export function AdvancedSection({
 
   // Phase 8 hotfix (Item 4): when the envelope includes inference warnings,
   // auto-expand so stability caveats aren't hidden inside a collapsed
-  // accordion. Warnings live inside the trust narrative in this section
-  // per brief Task 12, so the collapse default would otherwise suppress
-  // them until the user clicks.
-  const hasInferenceWarnings = selectHumanisedInferenceWarnings(inferenceWarnings).length > 0
+  // accordion.
+  //
+  // ⭐ Narrowed with the one-mount-per-entry fix: the trigger is now the set
+  // this section ACTUALLY renders. Warning-severity caveats are carried by
+  // `InferenceWarningStrip` at the top of the results body, always visible and
+  // never collapsed — auto-expanding a five-screen-down accordion for entries
+  // it no longer shows would expand it for a reason that is not on screen.
+  const hasInferenceWarnings =
+    selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings).length > 0
 
   return (
     <Accordion
@@ -358,10 +363,23 @@ export function AdvancedSection({
             {/* Brief 4 Task 12: inference warnings, capped at 3 with Show-all
                 overflow. One AlertTriangle per warning.
                 P0-3 fold: humanised by `code` via the shared view model
-                (selectHumanisedInferenceWarnings) — never the raw producer
-                `message`, which carries internal identifiers. */}
+                — never the raw producer `message`, which carries internal
+                identifiers.
+
+                ⭐ ONE MOUNT PER ENTRY (Analysis convergence, 18 Aug 2026).
+                This block used to render EVERY entry with a message, and
+                `InferenceWarningStrip` — five screens above, at the top of the
+                results body — renders the warning-severity ones through the
+                identical humaniser. Measured on deployed staging `c71ea7e0`:
+                all three of the strip's sentences appeared here again,
+                verbatim. Deleting the block was the wrong fix; it uniquely
+                carries the entries the strip FILTERS OUT (info severity), and
+                "less interface, not less intelligence" protects those. So it
+                now renders the strip's COMPLEMENT, derived from the strip's own
+                predicate rather than from a second copy of it.
+                Pinned by `inferenceWarnings.oneMountPerEntry.spec.tsx`. */}
             {(() => {
-              const relevant = selectHumanisedInferenceWarnings(inferenceWarnings)
+              const relevant = selectHumanisedInferenceWarningsOutsideStrip(inferenceWarnings)
               if (relevant.length === 0) return null
               const visible = showAllWarnings ? relevant : relevant.slice(0, 3)
               const hidden = relevant.length - visible.length
