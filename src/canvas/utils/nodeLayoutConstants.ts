@@ -168,6 +168,89 @@ export const NODE_CARD_MAX_W = 320
  */
 export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
 
+/**
+ * ⭐⭐ THE CANONICAL LAYOUT WIDTH — the ONE budget the canonical model is packed
+ * against, and the reason it is a CONSTANT and not a measurement.
+ *
+ * FOUNDER RULING R1 (18 Aug 2026, `ARCHITECTURE-BOARD.md` §0-RULINGS):
+ *
+ * > "Stable model, adaptive attention. The canonical graph layout must not
+ * > change because viewport width changes. Therefore: remove viewport width as
+ * > an authority over canonical row packing; establish ONE stable canonical
+ * > layout; responsive behaviour happens through camera/focus/disclosure, not
+ * > persisted re-layout."
+ *
+ * WHAT WAS WRONG. `layout.ts` solved `availableWidth = canvasSize.width * 0.85`,
+ * where `canvasSize` was the live `.react-flow` pane rect. Two of that solver's
+ * outputs — WHETHER the widest tier splits into rows, and HOW MANY nodes go in
+ * each row — were therefore functions of the viewport. Measured at `06f745ba`,
+ * RED-first, with named position digests: **three of the five shipped starters
+ * produce THREE DIFFERENT canonical layouts across 1280 / 1440 / 1512 / 1920.**
+ * The instability is INSIDE the laptop band, not below it. Two teammates on two
+ * laptops were looking at two different shapes of the same shared model.
+ *
+ * ⭐ HOW THIS VALUE WAS DERIVED — it is not a taste call, and it is not free.
+ *
+ * The packing branch is a step function of the budget, re-derived here from the
+ * constants in this file (`availableWidth` = AW):
+ *
+ *   single-row iff floor((AW - (T-1)*MIN_GAP) / T) >= NODE_SINGLE_ROW_FAIR_SHARE_W
+ *                                                     + LAYOUT_PADDING_X
+ *              iff AW >= 179*T - 15                      (T = widest tier count)
+ *   otherwise  nodesPerRow = floor((AW + 20) / (NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X + 20))
+ *
+ * So the budget only ever selects a (single-row cap, nodes-per-row) PAIR, and
+ * the reachable pairs near laptop widths are few:
+ *
+ *   AW in [ 844, 1059)  cap T=5 (1776 units wide)   3 per row (820 units)
+ *   AW in [1059, 1132)  cap T=6 (2140 units wide)   3 per row (820 units)  <- HERE
+ *   AW in [1132, 1238)  cap T=6 (2140)              4 per row (1108)
+ *   AW in [1238, 1417)  cap T=7 (2504)              4 per row (1108)
+ *   AW in [1417, 1420)  cap T=8 (2868)              4 per row (1108)
+ *
+ * The shipped product's own values land in three different rows of that table:
+ * 1280*0.85 = 1088 (band 2), 1440*0.85 = 1224 and 1512*0.85 = 1285 (bands 3-4),
+ * 1920*0.85 = 1632 (below the table, single-row to T=9). That IS the defect.
+ *
+ * **1105 = 1300 x 0.85.** `1300` is the width `layout.ts` already used whenever
+ * nothing measured the pane (its `FALLBACK_CANVAS`, now deleted with the rest of
+ * the runtime authority) and the width the layout suite has used as its baseline
+ * throughout (`TEST_CANVAS` / `STD_CANVAS` in `layout.spec.ts` and
+ * `layout.semantic.spec.ts`). `0.85` is the shipped viewport-utilisation ratio.
+ * It is therefore a reference width the layout code ALREADY contained, not a new
+ * number chosen to flatter a screenshot.
+ *
+ * ⭐ AND THE PROPERTY THAT DECIDED IT, which is about EVIDENCE, not taste: 1105
+ * sits in the same band as 1088 = 1280 x 0.85, so **the canonical shape this pin
+ * produces is byte-identical to the shape the product ships TODAY at a 1280
+ * viewport.** Every geometry measurement this programme holds was taken at 1280
+ * (`DRAFT-GEOMETRY-CORPUS-2026-08-18.md`, 12 models; the decision's starter
+ * arithmetic; the browser height capture in `__fixtures__/`). Pinning inside that
+ * band keeps all of it valid and collapses 1440 / 1512 / 1920 onto the measured
+ * case. Pinning into any other band would have invalidated the whole corpus and
+ * re-opened the layout-design cycle R1 explicitly closes.
+ *
+ * MARGIN TO THE CLIFFS, stated because a constant on a cliff edge is a defect
+ * waiting for a rounding change: the band is [1059, 1132). 1105 sits **46 above**
+ * the lower edge and **27 below** the upper. `layoutViewportIndependence.guard.spec.ts`
+ * pins both edges, so a future nudge across either REDs by name rather than
+ * silently re-shaping every model.
+ *
+ * ⚠ WHAT THIS DOES NOT FIX, and it is the honest half. A 6-wide tier still packs
+ * to 2140 units single-row, which does not clear the 0.50 legibility floor in the
+ * 760px fit box at 1280. R1 rules that the answer to a constrained screen is
+ * "readable subset + explicit 'showing X of Y' + obvious whole-model access" —
+ * a PRESENTATION change — never a re-pack. Do not fix it here.
+ *
+ * ⚠⚠ FORBIDDEN, and this is the whole point of the constant: nothing may make
+ * this budget a function of anything that varies at runtime — not the viewport,
+ * not the pane rect, not the fit box, not panel state, not zoom, not node count.
+ * That is not a stylistic preference: it is the difference between a shared model
+ * and a per-screen rendering of one. Enforced at the bytes by
+ * `layoutViewportIndependence.guard.spec.ts`.
+ */
+export const CANONICAL_LAYOUT_WIDTH = 1105
+
 /** Horizontal padding added around the rendered card to form the ELK box. */
 export const LAYOUT_PADDING_X = 24
 

@@ -18,7 +18,6 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { layoutGraph, groupByYRow, normaliseTierRows } from '../utils/layout'
-import type { CanvasSize } from '../utils/layout'
 import {
   CANVAS_MARGIN,
   TIER_BY_KIND,
@@ -45,8 +44,13 @@ function e(id: string, src: string, tgt: string): Edge {
   return { id, source: src, target: tgt }
 }
 
-const STD_CANVAS: CanvasSize = { width: 1300, height: 750 }
-const NARROW: CanvasSize = { width: 936, height: 750 }
+// ⚠ `STD_CANVAS` (1300) and `NARROW` (936) are gone: `layoutGraph` no longer
+// takes a canvas (founder ruling R1, 18 Aug 2026). The budget is the constant
+// `CANONICAL_LAYOUT_WIDTH`, and the packing branch is now selected by the widest
+// tier's node count alone — <= 6 single-row, >= 7 multi-row at 3 per row. The
+// row-splitting cases below therefore choose their branch by COUNT, and the
+// 6-vs-7 pair is deliberately kept as a discriminating pair: if the boundary
+// moves in either direction one of them REDs.
 
 const tierY = (laid: Node[], id: string): number =>
   laid.find(node => node.id === id)!.position.y
@@ -254,7 +258,6 @@ describe('normaliseTierRows — direct fixture (I.2)', () => {
       nodesWithHeights,
       fixture.edges as Edge[],
       {},
-      STD_CANVAS,
     )
 
     const optionYs = result.nodes
@@ -279,7 +282,6 @@ describe('normaliseTierRows — canonical tier Y (D3)', () => {
       [n('d', 'decision'), n('o', 'option'), n('f', 'factor'), n('g', 'goal')],
       [e('1', 'd', 'o'), e('2', 'o', 'f'), e('3', 'f', 'g')],
       {},
-      STD_CANVAS,
     )
     expect(tierY(small.nodes, 'd')).toBeLessThan(tierY(small.nodes, 'o'))
     expect(tierY(small.nodes, 'o')).toBeLessThan(tierY(small.nodes, 'f'))
@@ -300,7 +302,6 @@ describe('normaliseTierRows — canonical tier Y (D3)', () => {
         e('5', 'f1', 'out'), e('6', 'out', 'r'), e('7', 'r', 'g'),
       ],
       {},
-      STD_CANVAS,
     )
     expect(tierY(medium.nodes, 'd')).toBeLessThan(tierY(medium.nodes, 'o1'))
     expect(tierY(medium.nodes, 'o1')).toBeLessThan(tierY(medium.nodes, 'f1'))
@@ -323,7 +324,6 @@ describe('normaliseTierRows — canonical tier Y (D3)', () => {
         e('4', 'out', 'g'), e('5', 'r', 'g'),
       ],
       {},
-      STD_CANVAS,
     )
     const outY = tierY(laid, 'out')
     const rY = tierY(laid, 'r')
@@ -336,7 +336,6 @@ describe('normaliseTierRows — canonical tier Y (D3)', () => {
       [n('d', 'decision'), n('f1', 'factor'), n('f2', 'factor'), n('g', 'goal')],
       [e('1', 'd', 'f1'), e('2', 'd', 'f2'), e('3', 'f1', 'g'), e('4', 'f2', 'g')],
       {},
-      STD_CANVAS,
     )
     expect(Math.abs(tierY(laid, 'f1') - tierY(laid, 'f2'))).toBeLessThanOrEqual(10)
   })
@@ -356,8 +355,8 @@ describe('normaliseTierRows — canonical tier Y (D3)', () => {
       e('6', 'f1', 'out'), e('7', 'f3', 'r'),
       e('8', 'out', 'g'), e('9', 'r', 'g'),
     ]
-    const a = (await layoutGraph(nodes, edges, {}, STD_CANVAS)).nodes
-    const b = (await layoutGraph(nodes, edges, {}, STD_CANVAS)).nodes
+    const a = (await layoutGraph(nodes, edges, {})).nodes
+    const b = (await layoutGraph(nodes, edges, {})).nodes
     for (const node of a) {
       const match = b.find(x => x.id === node.id)!
       expect(match.position.x).toBeCloseTo(node.position.x, 5)
@@ -388,7 +387,6 @@ describe('global translation', () => {
       [n('d', 'decision'), n('o', 'option'), n('f', 'factor'), n('g', 'goal')],
       [e('1', 'd', 'o'), e('2', 'o', 'f'), e('3', 'f', 'g')],
       {},
-      STD_CANVAS,
     )
     for (const node of laid) {
       expect(node.position.x).toBeGreaterThanOrEqual(CANVAS_MARGIN - 0.5)
@@ -413,7 +411,6 @@ describe('global translation', () => {
       ),
       [e('1', 'd', 'o'), e('2', 'o', 'f'), e('3', 'f', 'g')],
       {},
-      STD_CANVAS,
     )
     const locked = laid.find(node => node.id === 'locked')!
     expect(locked.position.x).toBe(lockedX)
@@ -431,7 +428,7 @@ describe('balanced row splits (exact remainder)', () => {
       edges.push(e(`ed-f${i}`, 'd', id))
       edges.push(e(`ef-g${i}`, id, 'g'))
     }
-    const { nodes: laid } = await layoutGraph(nodes, edges, {}, NARROW)
+    const { nodes: laid } = await layoutGraph(nodes, edges, {})
     return laid
   }
 
@@ -451,28 +448,42 @@ describe('balanced row splits (exact remainder)', () => {
     return true
   }
 
-  it('6 factors split balanced', async () => {
+  // ── The discriminating pair. 6 is the widest tier the canonical budget still
+  // admits as a single row; 7 is the first that splits. Neither assertion alone
+  // shows the boundary is where it is — 6-does-not-split would stay green if the
+  // splitter stopped working entirely, and 7-splits would stay green if
+  // everything split. Together they pin it.
+  it('6 factors do NOT split — the widest single row the canonical budget admits', async () => {
     const sizes = rowSizesFor(await layoutFactors(6), 'f')
-    expect(balancedAdjacentDifference(sizes)).toBe(true)
-    expect(sizes.reduce((a, b) => a + b, 0)).toBe(6)
+    expect(sizes).toEqual([6])
   })
 
-  it('7 factors split balanced', async () => {
+  it('8 factors split balanced', async () => {
+    const sizes = rowSizesFor(await layoutFactors(8), 'f')
+    expect(balancedAdjacentDifference(sizes)).toBe(true)
+    expect(sizes.reduce((a, b) => a + b, 0)).toBe(8)
+    expect(sizes.length).toBeGreaterThan(1)
+  })
+
+  it('7 factors split balanced — the first tier width that splits', async () => {
     const sizes = rowSizesFor(await layoutFactors(7), 'f')
     expect(balancedAdjacentDifference(sizes)).toBe(true)
     expect(sizes.reduce((a, b) => a + b, 0)).toBe(7)
+    expect(sizes.length).toBeGreaterThan(1)
   })
 
   it('10 factors split balanced (never N+1 mismatch)', async () => {
     const sizes = rowSizesFor(await layoutFactors(10), 'f')
     expect(balancedAdjacentDifference(sizes)).toBe(true)
     expect(sizes.reduce((a, b) => a + b, 0)).toBe(10)
+    expect(sizes.length).toBeGreaterThan(1)
   })
 
   it('11 factors split balanced', async () => {
     const sizes = rowSizesFor(await layoutFactors(11), 'f')
     expect(balancedAdjacentDifference(sizes)).toBe(true)
     expect(sizes.reduce((a, b) => a + b, 0)).toBe(11)
+    expect(sizes.length).toBeGreaterThan(1)
   })
 })
 
@@ -492,7 +503,6 @@ describe('spine centring', () => {
         e('7', 'f1', 'out'), e('8', 'out', 'g'),
       ],
       {},
-      STD_CANVAS,
     )
     const spineNodes = ['d', 'o1', 'o2', 'o3'].map(id => laid.find(node => node.id === id)!)
     const centres = spineNodes.map(node => node.position.x).sort((a, b) => a - b)
@@ -597,7 +607,6 @@ describe('end-to-end no-overlap', () => {
         e('6', 'f1', 'out'), e('7', 'out', 'r'), e('8', 'r', 'g'),
       ],
       {},
-      STD_CANVAS,
     )
     const minBoxW = LAYOUT_BOX_MIN_W
     const minBoxH = DEFAULT_NODE_HEIGHT + LAYOUT_PADDING_Y

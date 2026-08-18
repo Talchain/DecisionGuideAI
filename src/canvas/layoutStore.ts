@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import type { CanvasSize } from './utils/layout'
 
 type Direction = 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'
 
@@ -8,8 +7,14 @@ interface LayoutOptions {
   nodeSpacing: number
   layerSpacing: number
   respectLocked: boolean
-  /** Runtime canvas pixel dimensions, set by the UI before triggering layout. */
-  canvasSize: CanvasSize | null
+  /*
+   * ⚠ THERE IS DELIBERATELY NO `canvasSize` HERE. It was the runtime authority
+   * over canonical row packing, and founder ruling R1 (18 Aug 2026) removed
+   * viewport width as an authority over the canonical model. The budget is the
+   * constant `CANONICAL_LAYOUT_WIDTH`; see `utils/layout.ts`'s header. A future
+   * lane re-adding a size field here REDs
+   * `__tests__/layoutViewportIndependence.guard.spec.ts`.
+   */
   /**
    * Node width (px) used in the most recent layout pass.
    * BaseNode reads this to size itself to match ELK's assumptions.
@@ -22,7 +27,6 @@ interface LayoutOptions {
   /** D4: apply a comfortable/compact spacing preset (persists like the setters). */
   setDensity: (preset: LayoutDensity) => void
   setRespectLocked: (respect: boolean) => void
-  setCanvasSize: (size: CanvasSize) => void
   setLayoutNodeWidth: (width: number) => void
 }
 
@@ -149,7 +153,6 @@ function persist(state: Pick<LayoutOptions, 'direction' | 'nodeSpacing' | 'layer
 
 export const useLayoutStore = create<LayoutOptions>((set, get) => ({
   ...loadPersistedOptions(),
-  canvasSize: null,
   layoutNodeWidth: null,
 
   setDirection: (dir) => {
@@ -172,9 +175,6 @@ export const useLayoutStore = create<LayoutOptions>((set, get) => ({
   setRespectLocked: (respect) => {
     set({ respectLocked: respect })
     persist(get())
-  },
-  setCanvasSize: (size) => {
-    set({ canvasSize: size })
   },
   setLayoutNodeWidth: (width) => {
     set({ layoutNodeWidth: width })

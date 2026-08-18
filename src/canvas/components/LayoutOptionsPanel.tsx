@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useLayoutStore } from '../layoutStore'
-import { resolveLayoutCanvasSize } from '../utils/layoutCanvasSize'
 import { useToast } from '../ToastContext'
 import { runLayoutWithProgress } from '../layout/runLayoutWithProgress'
 import { typography } from '../../styles/typography'
@@ -18,18 +17,14 @@ export function LayoutOptionsPanel() {
     setNodeSpacing,
     setLayerSpacing,
     setRespectLocked,
-    setCanvasSize,
   } = useLayoutStore()
   const { showToast } = useToast()
 
   const handleApplyLayout = async () => {
     setIsApplying(true)
 
-    // Same single authority as the draft path — see `utils/layoutCanvasSize.ts`.
-    // These two blocks were hand-copied and would have drifted; the rule now
-    // lives in one module and neither call site derives a dimension itself.
-    const layoutCanvas = resolveLayoutCanvasSize()
-    if (layoutCanvas) setCanvasSize(layoutCanvas)
+    // ⚠ NOTHING MEASURES THE PANE HERE ANY MORE — see the twin note in
+    // `DraftChat.tsx` and `utils/layout.ts`'s header (founder ruling R1).
 
     // Show loading toast for first-time ELK load
     showToast('Loading layout engine...', 'info')

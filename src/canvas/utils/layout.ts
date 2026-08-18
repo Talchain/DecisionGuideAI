@@ -1,42 +1,40 @@
 /**
- * ⭐⭐ A LOAD-BEARING NON-CHANGE — READ BEFORE TOUCHING `availableWidth`.
+ * ⭐⭐ THE CANONICAL LAYOUT HAS NO RUNTIME INPUT. READ BEFORE ADDING A PARAMETER.
  *
- * `WORKSPACE-COMPOSITION-DECISION-2026-08-18.md` §5.1 records this file as **NO
- * CHANGE, and it is load-bearing**. This header is that record.
+ * FOUNDER RULING R1 (18 Aug 2026, `ARCHITECTURE-BOARD.md` §0-RULINGS):
  *
- * ⚠⚠ FORBIDDEN: deriving the layout budget from the fit box —
- * `availableWidth = boxW / LABEL_LEGIBLE_ZOOM` (i.e. `boxW / 0.50`) or any
- * relative of it. It is a genuinely attractive idea: it makes the solver's
- * assumption and the camera's frame agree by construction, and one of the three
- * candidate designs proposed exactly this. It is forbidden because the fit box is
- * a function of PANEL STATE, so the canonical model would **re-pack whenever a
- * panel opened or a screen shrank** — the founder's binding ruling is the
- * opposite:
+ * > "Stable model, adaptive attention. The canonical graph layout must not
+ * > change because viewport width changes… responsive behaviour happens through
+ * > camera/focus/disclosure, not persisted re-layout."
  *
- * > "Do NOT solve the problem by making the canonical model artificially
- * > smaller. Preserve: STABLE MODEL, ADAPTIVE ATTENTION."
+ * This module used to take a `canvasSize` and solve
+ * `availableWidth = canvasSize.width * 0.85`. It no longer takes one at all, and
+ * the whole authority behind it — `utils/layoutCanvasSize.ts`, the layout store's
+ * `canvasSize`/`setCanvasSize`, and the two call sites that measured the pane —
+ * is DELETED rather than left plumbed-but-ignored. A silently-ignored input is
+ * how the defect comes back: the next lane finds a parameter, sees no harm in
+ * honouring it, and the canonical model is a function of the screen again.
+ * `availableWidth` is now `CANONICAL_LAYOUT_WIDTH`, a constant whose derivation,
+ * band and cliff margins live in `nodeLayoutConstants.ts`.
  *
- * The model is the team's shared reasoning. It must not silently change shape
- * because someone opened a conversation. Adapt the PRESENTATION (camera, focus,
- * "showing N of M"), never the model.
+ * ⚠⚠ FORBIDDEN, all of it for the same reason: deriving the layout budget from
+ * the viewport, the `.react-flow` pane rect, `window.innerWidth`, panel state,
+ * the current zoom, the fit box (`boxW / LABEL_LEGIBLE_ZOOM` and any relative),
+ * or the node count. The fit box is especially attractive — it makes the solver's
+ * assumption and the camera's frame agree by construction — and it is especially
+ * wrong, because the fit box is a function of PANEL STATE, so the model would
+ * re-pack whenever someone opened a conversation.
  *
- * WHAT IS SAFE, and what shipped instead (18 Aug 2026): pinning `canvasSize` to
- * ONE canonical, panel-INDEPENDENT derived width — `utils/layoutCanvasSize.ts`,
- * which replaced two hand-copied duplicates. That removes an authority defect
- * without coupling the model to the chrome. Read that module's header for the
- * measured 1088-vs-760 arithmetic and for which half of it is a defect (the
- * floating panel's phantom reservation, now deleted) and which half is not (the
- * dock and sidebar, which genuinely occlude).
+ * The model is the team's shared reasoning. Adapt the PRESENTATION — camera,
+ * focus, "showing N of M" — never the model.
  *
  * ⚠ ONE GENUINE DEFECT IN THIS FILE, NOT FIXED HERE, recorded so it is not lost:
  * the DOWN branch treats `availableWidth` as a budget for deciding
  * single-row-vs-multi-row and then emits a row that OVERRUNS it — a 6-wide tier
- * packs to 2140 units against a 1088 budget, 63% over (the sharpest diagnosis in
- * the design set). Honouring the budget would change the shape of every model at
- * every viewport, so it is a product decision behind a visual-regression gate,
- * not a tidy-up. Guard G3 (`layoutSizingAuthority.guard.spec.ts`) pins the
- * current viewport-independence AND the exact width at which it breaks, so any
- * move in either direction REDs.
+ * packs to 2140 units against a 1105 budget, 94% over. R1 rules that a
+ * constrained screen is answered by a readable subset with an explicit
+ * "showing X of Y" and obvious whole-model access — a PRESENTATION change —
+ * never by re-packing. Do not fix it here.
  */
 // P1 Polish: Dynamic ELK import for code-splitting (Task F)
 import type { ElkNode, ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js'
@@ -51,16 +49,10 @@ import {
   DEFAULT_NODE_HEIGHT,
   MIN_GAP,
   COLLISION_GAP,
+  CANONICAL_LAYOUT_WIDTH,
   CANVAS_MARGIN,
   TIER_BY_KIND,
 } from './nodeLayoutConstants'
-
-export interface CanvasSize {
-  width: number
-  height: number
-}
-
-const FALLBACK_CANVAS: CanvasSize = { width: 1300, height: 750 }
 
 interface LayoutOptions {
   direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'
@@ -74,7 +66,7 @@ interface LayoutOptions {
  *
  * Pipeline (DOWN layouts):
  *   1. Filter locked nodes (their saved positions are returned untouched).
- *   2. Solve viewport-constrained ELK box width.
+ *   2. Solve the ELK box width against the CANONICAL (viewport-free) budget.
  *   3. Run ELK with uniform `elkBoxW` and the resolved `gap`.
  *   4. Apply balanced multi-row splitting (when nodesPerRow !== null).
  *   5. Override ELK's Y with deterministic canonical tier rows.
@@ -87,8 +79,7 @@ interface LayoutOptions {
 export async function layoutGraph(
   nodes: Node[],
   edges: Edge[],
-  options: LayoutOptions = {},
-  canvasSize: CanvasSize = FALLBACK_CANVAS
+  options: LayoutOptions = {}
 ): Promise<{ nodes: Node[]; edges: Edge[]; layoutNodeWidth: number }> {
   const {
     direction = 'DOWN',
@@ -133,7 +124,7 @@ export async function layoutGraph(
   }
   const maxTierCount = Math.max(...tierCounts.values())
 
-  const availableWidth = canvasSize.width * 0.85
+  const availableWidth = CANONICAL_LAYOUT_WIDTH
   const isDownLayout = direction === 'DOWN'
 
   let elkBoxW: number
