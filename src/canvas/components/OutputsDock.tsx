@@ -37,7 +37,25 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
 import { useAnalysisState } from '../state/analysisStateSelector'
 import { getScenario } from '../store/scenarios'
-import { VersionsTrigger } from '../versions/VersionsTrigger'
+// ── The workspace-shell contract ────────────────────────────────────────────
+// This dock IS the shell. `shellContract.ts` states what it owns and what a
+// child surface may never set; read that file before changing width, tabs,
+// scroll regions, the footer region or the type/spacing/radius scales here.
+import {
+  SHELL_RADIUS_PX,
+  WORKSPACE_SURFACES,
+  presentedSurfaces,
+  shellBodyClassName,
+  type WorkspaceSurfaceDescriptor,
+} from './workspaceShell/shellContract'
+import {
+  PanelWidthProvider,
+  useMeasuredPanelWidth,
+} from './workspaceShell/usePanelWidth'
+import {
+  WorkspaceShellCollapsedStrip,
+  WorkspaceShellTabStrip,
+} from './workspaceShell/WorkspaceShellTabStrip'
 import { AnalysisStateRegion } from '../../components/results/analysisState/AnalysisStateRegion'
 import { useAnalysisRunState } from '../../components/results/analysisState/useAnalysisRunState'
 import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
@@ -387,32 +405,34 @@ export function forcedActivationEndsRail(versionChanged: boolean, resolvedTab: s
  *  component computes its own OUTPUT_TABS via useMemo at render time, so a
  *  localStorage flag flip plus a re-render is enough — no module reload
  *  required for the gating to reflect the new flag state. */
-export function getOutputTabsForParity(): { id: OutputsDockTab; label: string }[] {
-  return [
-    // Olumi leads the strip as the first (leftmost) tab by product decision —
-    // keep it first. The default-SELECTED tab is independent: it stays
-    // 'results' (Analysis) via the state initialiser, not array position.
-    ...(isAiPanelV2Enabled() ? [{ id: 'olumi' as const, label: 'Olumi' }] : []),
-    { id: 'results', label: 'Analysis' },
-    // The TEMPORARY 'altview' comparison tab (Paul, 12 Aug 2026) is RETIRED.
-    // It hosted the V7 assessment group side by side with the Analysis tab
-    // for the V7-vs-Current adjudication (COMPONENT-INVENTORY 2026-08-12
-    // §10A). The adjudication is settled in favour of the consolidated
-    // analysis cockpit, so the second rendering — and its tab — are gone.
-    ...(isCompareTabEnabled() ? [{ id: 'compare' as const, label: 'Compare' }] : []),
-    // ⚠ IDENTITY TRAP — READ THIS BEFORE WRITING A TEST AGAINST "THE MODEL TAB".
-    // The tab a user (and every brief, roadmap row and bug report) calls "Model"
-    // has id `'diagnostics'`, not `'model'`. There is no tab whose id is 'model'.
-    // A spec that queries `'model'` — by id, by testid, or by `getByRole('tab',
-    // { name: ... })` against the wrong string — binds to NOTHING and passes
-    // vacuously, and this is the most-touched surface in the product. The live
-    // testid is `outputs-dock-tab-diagnostics` (see the tab strip below); bind to
-    // that, or to the exact label 'Model' — never to a guessed id. Recorded here
-    // rather than in a doc because the next lane reads the code (ROADMAP 2.474;
-    // trap 19 — bind by identity, never by a value another object could satisfy).
-    { id: 'diagnostics', label: 'Model' },
-    ...(isJourneyTabEnabled() ? [{ id: 'journey' as const, label: 'Journey' }] : []),
-  ]
+export function getOutputTabsForParity(): WorkspaceSurfaceDescriptor[] {
+  // ⚠ IDENTITY TRAP — READ THIS BEFORE WRITING A TEST AGAINST "THE MODEL TAB".
+  // The tab a user (and every brief, roadmap row and bug report) calls "Model"
+  // has id `'diagnostics'`, not `'model'`. There is no tab whose id is 'model'.
+  // A spec that queries `'model'` — by id, by testid, or by `getByRole('tab',
+  // { name: ... })` against the wrong string — binds to NOTHING and passes
+  // vacuously, and this is the most-touched surface in the product. The live
+  // testid is `outputs-dock-tab-diagnostics`; bind to that, or to the exact
+  // label 'Model' — never to a guessed id (ROADMAP 2.474; trap 19 — bind by
+  // identity, never by a value another object could satisfy).
+  //
+  // The list itself now comes from `WORKSPACE_SURFACES` in the shell contract,
+  // where every surface declares who owns its scroll and its padding. Only the
+  // FLAG gating stays here, because flags are runtime state and the contract is
+  // a static declaration.
+  //
+  // The TEMPORARY 'altview' comparison tab (Paul, 12 Aug 2026) is RETIRED: it
+  // hosted the V7 assessment group beside Analysis for the V7-vs-Current
+  // adjudication, which is settled in favour of the consolidated cockpit.
+  //
+  // Journey is absent by CONTRACT, not by flag — `presentedAsTab: false`. See
+  // its row in `shellContract.ts` for the ruling and the evidence.
+  return presentedSurfaces().filter(surface => {
+    if (surface.id === 'olumi') return isAiPanelV2Enabled()
+    if (surface.id === 'compare') return isCompareTabEnabled()
+    if (surface.id === 'journey') return isJourneyTabEnabled()
+    return true
+  })
 }
 
 /**
@@ -2027,11 +2047,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   // OUTPUT_TABS computed per render so a localStorage flag flip is picked
   // up on the next re-render without requiring a module reload.
-  const OUTPUT_TABS = useMemo<{ id: OutputsDockTab; label: string }[]>(
+  const OUTPUT_TABS = useMemo<WorkspaceSurfaceDescriptor[]>(
     () => getOutputTabsForParity(),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- flag accessors are stable; we re-run by value
     [aiPanelV2On, isJourneyTabEnabled(), isCompareTabEnabled()],
   )
+
+  // ── Shell width, published once, derived from the live element ────────────
+  // The dock's own rect is the authority; every child reads `--panel-width` or
+  // `usePanelWidth()` rather than assuming a width. See `usePanelWidth.tsx`.
+  const shellRef = useRef<HTMLElement | null>(null)
+  const panelWidth = useMeasuredPanelWidth(shellRef)
 
   const toggleOpen = () => {
     // Derive nextIsOpen from what the user SEES right now (visual state),
@@ -2218,14 +2244,36 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     background: 'rgba(255, 255, 255, 0.95)',
     backdropFilter: 'blur(8px)',
     border: '1px solid var(--border-default)',
-    borderRadius: 16,
+    // DS v5 §6.2 `lg` — this aside is a STANDALONE SURFACE, not a card inside a
+    // panel, so it takes 20px. Cards INSIDE it take `panelCard` (12px). The
+    // distinction is the DS's explicit panel override and it is the thing that
+    // stops the dock reading as a stack of floating cards. It was 16px, which
+    // is not a DS token at all.
+    borderRadius: SHELL_RADIUS_PX.standalone,
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)',
     zIndex: 900,
     overflow: 'hidden',
+    // ⚠ `containerType: 'inline-size'` BELONGS HERE AND IS DELIBERATELY ABSENT.
+    // It would let children use a real `@container` query against the panel —
+    // the syntax the zero-container-queries defect calls for. It is not set
+    // because `container-type` implies `contain: layout`, which makes this
+    // element the containing block for FIXED-positioned descendants, and this
+    // subtree has three that mean the VIEWPORT: the scenario-comparison
+    // overlay (`fixed inset-0 z-[1000]`) and two `fixed bottom-24 right-4`
+    // toasts, all further down this file. Turning containment on would shrink
+    // a full-screen overlay to the dock and move both toasts inside it.
+    // Unblocking step, named so it is actionable: portal those three (the
+    // pattern `CogPopover` already uses), then set it here.
+    // Until then `--panel-width` and `usePanelWidth()` carry the same
+    // information with no containment side effects.
   }
 
   return (
-    <>
+    // The shell publishes its LIVE measured width to every descendant. A child
+    // that needs to branch on width calls `usePanelWidth()` or reads
+    // `--panel-width`; it never assumes one, and never uses a viewport
+    // breakpoint, because the panel's width and the window's are unrelated.
+    <PanelWidthProvider value={panelWidth}>
       {/* F9: THE single aria-live region for run start/settle, mounted once
           at the dock call site so it survives tab switches and speaks for
           runs dispatched from ANY tab. It is a SIBLING of the aside, not a
@@ -2241,6 +2289,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         analysisTabFronted={effectiveIsOpen && effectiveActiveTab === 'results'}
       />
     <aside
+      ref={shellRef}
       className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
       style={asideStyle}
       aria-label="Outputs dock"
@@ -2288,132 +2337,35 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           className="absolute inset-y-0 left-0 w-1 cursor-col-resize bg-transparent hover:bg-panel-border/60"
         />
       )}
+      {/* The header region. It carried its own `rounded-t-2xl` (16px), a
+          second declaration of a radius the shell owns — and one that no
+          longer matched once the shell adopted the DS `lg` 20px. It is simply
+          gone: the shell is `overflow: hidden`, so it already clips this
+          child to its own corner radius, exactly once. */}
       <div
-        className="sticky top-0 z-10 border-b rounded-t-2xl border-panel-border"
+        className="sticky top-0 z-10 border-b border-panel-border"
         style={{ background: 'rgba(255, 255, 255, 0.95)' }}
       >
-        {!effectiveIsOpen && (
-          <div className="flex items-center justify-end px-2 py-2">
-            <button
-              type="button"
-              onClick={toggleOpen}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header hover:bg-panel`}
-              aria-label={effectiveIsOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
-            >
-              {effectiveIsOpen ? '>' : '<'}
-            </button>
-          </div>
-        )}
+        {!effectiveIsOpen && <WorkspaceShellCollapsedStrip onToggleOpen={toggleOpen} />}
 
+        {/* The tab strip is the shell's, and only the shell's. Its layout
+            rules — per-tab truncation with the freshness icon and the
+            factors-to-verify badge exempt, `shrink-0` on every control, an
+            icon rather than an ASCII glyph on the collapse button — live in
+            `workspaceShell/WorkspaceShellTabStrip.tsx` with the reasoning. */}
         {effectiveIsOpen && (
-          <div className="flex items-center gap-2 px-2 py-2" aria-label="Outputs sections">
-            <span className="sr-only" aria-live="polite">
-              {OUTPUT_TABS.find(tab => tab.id === effectiveActiveTab)?.label ?? ''}
-            </span>
-            <nav className="flex flex-1 min-w-0 gap-1" aria-label="Outputs sections">
-              {OUTPUT_TABS.map(tab => {
-                // Round-3 UX correction: clicking Olumi always docks (closes
-                // floating), so the tab no longer needs the "Olumi is open"
-                // signage that round 2 added. Text-only label keeps Olumi
-                // visually consistent with Analysis / Compare / Model.
-                return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => handleTabClick(tab.id)}
-                  data-testid={tab.id === 'diagnostics' ? 'outputs-dock-tab-diagnostics' : tab.id === 'olumi' ? 'outputs-dock-tab-olumi' : undefined}
-                  className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
-                    effectiveActiveTab === tab.id
-                      ? 'text-info border-b-2 border-info'
-                      : 'text-text-header hover:bg-panel border-b-2 border-transparent'
-                  }`}
-                  style={
-                    effectiveActiveTab === tab.id
-                      ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' }
-                      : undefined
-                  }
-                >
-                  <span className={`inline-flex items-center gap-1${tab.id === 'results' && resultsTabReallyStale ? ' text-warning' : ''}`}>
-                    {tab.label}
-                    {tab.id === 'results' && showResultsTabFreshnessIcon && (
-                      resultsTabReallyStale ? (
-                        <AlertTriangle
-                          className="w-3 h-3 text-warning"
-                          aria-label="Analysis is stale"
-                          data-testid="results-tab-stale-icon"
-                        />
-                      ) : (
-                        <HelpCircle
-                          className="w-3 h-3 text-text-light"
-                          aria-label="Cannot confirm whether this analysis is current."
-                          data-testid="results-tab-cannot-confirm-icon"
-                        />
-                      )
-                    )}
-                    {tab.id === 'diagnostics' && factorsToVerify > 0 && (
-                      // ⭐ L-58: this was a bare orange number. A `title` is a
-                      // hover-only affordance — it is invisible to a user
-                      // scanning the tab strip, absent on touch, and never
-                      // reaches a screen reader as the badge's NAME. The count
-                      // now carries its meaning in the accessible name as well,
-                      // so "why is there an orange 4?" is answerable without
-                      // hovering. (`role="status"` is deliberately NOT used: it
-                      // is a static label on a tab, not a live announcement.)
-                      <span
-                        className="inline-flex items-center justify-center rounded-full bg-warning text-text-on-color font-semibold"
-                        style={{ fontSize: 11, fontWeight: 600, minWidth: 16, height: 16, padding: '0 4px' }}
-                        title={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
-                        aria-label={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
-                        data-testid="model-tab-verify-badge"
-                      >
-                        {factorsToVerify}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              )})}
-            </nav>
-            {/* ⭐ R4 — version history's home in this panel (delegated by the
-                versions lane, #739). The trigger deliberately carries NO
-                positioning of its own; layout belongs to this row, which is
-                the whole point of retiring the floating pill (L-08).
-
-                ⚠ ITS OWN HEADER SAYS `<VersionsTrigger variant="icon" />` AND
-                THAT IS INCOMPLETE: the `icon` variant applies `className` with
-                an EMPTY default (the `labelled` variant self-styles; this one
-                does not), so following the instruction verbatim mounts an
-                unstyled bare button in a row of bordered icon controls. It is
-                given the SAME class as the collapse chevron beside it, so the
-                two read as one control set rather than as a button that lost
-                its styling. */}
-            <VersionsTrigger
-              variant="icon"
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header hover:bg-panel shrink-0`}
-              data-testid="dock-versions-trigger"
-            />
-            <button
-              type="button"
-              onClick={() => setExpertMode(prev => !prev)}
-              className={`${typography.panelMeta} px-2 py-0.5 rounded-full border shrink-0 cursor-pointer transition-colors ${
-                expertMode
-                  ? 'text-info border-info'
-                  : 'text-text-light border-panel-border hover:border-info hover:text-info'
-              }`}
-              aria-label={expertMode ? 'Disable expert mode' : 'Enable expert mode'}
-              aria-pressed={expertMode}
-              title="Toggle expert mode"
-            >
-              {'</>'}
-            </button>
-            <button
-              type="button"
-              onClick={toggleOpen}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header hover:bg-panel`}
-              aria-label={effectiveIsOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
-            >
-              {effectiveIsOpen ? '>' : '<'}
-            </button>
-          </div>
+          <WorkspaceShellTabStrip
+            surfaces={OUTPUT_TABS}
+            activeTab={effectiveActiveTab}
+            onTabClick={handleTabClick}
+            isOpen={effectiveIsOpen}
+            onToggleOpen={toggleOpen}
+            expertMode={expertMode}
+            onToggleExpertMode={() => setExpertMode(prev => !prev)}
+            showResultsFreshnessIcon={showResultsTabFreshnessIcon}
+            resultsStale={resultsTabReallyStale}
+            factorsToVerify={factorsToVerify}
+          />
         )}
         {/* ROADMAP 2.1132 — when the ASSISTANT fronted this dock via an
             `open_panel` / `open_section` ui_directive, say so, here, directly
@@ -2462,8 +2414,23 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         </nav>
       )}
 
+      {/* ⭐ THE BODY'S LAYOUT MODEL IS DECLARED, NOT INFERRED.
+            This read `effectiveActiveTab === 'results' || … === 'olumi' ? A : B`
+            — one ternary on tab id choosing between two incompatible layout
+            models, so gutters differed per tab for no stated reason and a NEW
+            tab silently got whichever branch the else happened to be. Each
+            surface now declares `scroll` and `padding` in `WORKSPACE_SURFACES`,
+            both REQUIRED fields on a `Record` over the tab union, so a tab that
+            has not declared them does not compile. The class list is derived
+            from that declaration and is byte-identical to the ternary's output
+            for all five of today's surfaces. */}
       {effectiveIsOpen && (
-        <div className={`flex-1 min-h-0 ${typography.caption} text-text-header ${effectiveActiveTab === 'results' || effectiveActiveTab === 'olumi' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
+        <div
+          className={`${shellBodyClassName(WORKSPACE_SURFACES[effectiveActiveTab])} ${typography.panelBody} text-text-header`}
+          data-testid="outputs-dock-body"
+          data-shell-scroll-owner={WORKSPACE_SURFACES[effectiveActiveTab].scroll}
+          data-shell-padding-owner={WORKSPACE_SURFACES[effectiveActiveTab].padding}
+        >
             {effectiveActiveTab === 'results' && (
               <div className="flex-1 min-h-0 flex flex-col">
                 {aiPanelV2On && transitionReceipt === 'model-drafted' ? (
@@ -3254,6 +3221,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
         {/* Legacy v7 sticky footer removed — superseded by AnalysisFooter above */}
     </aside>
-    </>
+    </PanelWidthProvider>
   )
 }

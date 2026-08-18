@@ -1,5 +1,21 @@
 /**
- * ReanalyseBar — sticky bottom bar prompting re-analysis after graph edits.
+ * ReanalyseBar — in-flow bar prompting re-analysis after graph edits.
+ *
+ * ⚠ IT WAS `sticky bottom-0`, AND THAT WAS THE CONFIRMED OVERLAP. The Model
+ * surface declares `scroll: 'shell'`, so its content sits inside the dock's
+ * `overflow-y-auto` body and `ModelTabBody` creates no scroll container of its
+ * own. A `sticky bottom-0` element therefore pinned itself to the bottom of
+ * the dock's scroller from a mid-list position — and it is opaque (`bg-panel`),
+ * so it occluded `ModelFooter`, which is rendered immediately AFTER it, plus
+ * everything below. The footer was reachable only by the user not noticing it
+ * was covered.
+ *
+ * The shell owns the footer region and reserves space for it as a flex SIBLING
+ * of the scrolling body; that is the mechanism a bar like this should use. The
+ * `sticky` is simply removed here: the bar is in flow, at the end of the Model
+ * content, where it can occlude nothing. Per the shell contract a child surface
+ * may not use bottom-anchored `sticky` inside the body, and the conformance
+ * guard now REDs on it.
  *
  * Visible only when the analysis is DEFINITELY out of date — the composed
  * trust semantic (`useAnalysisTrust`) is 'changed' (CEE 'stale' OR a
@@ -39,7 +55,7 @@ export function ReanalyseBar({ onReanalyse }: ReanalyseBarProps) {
 
   return (
     <div
-      className="sticky bottom-0 left-0 right-0 bg-panel border-t border-warning/30 px-3 py-2 flex items-center justify-between gap-2"
+      className="bg-panel border-t border-warning/30 px-3 py-2 flex items-center justify-between gap-2"
       data-testid="reanalyse-bar"
       data-reason={heldUnsure ? 'import-unregistered' : 'model-changed'}
       role="status"
