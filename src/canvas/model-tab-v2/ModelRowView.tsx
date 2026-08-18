@@ -368,11 +368,22 @@ function ValueCell({
     )
   }
 
-  // Editable but the canonical transaction is not connected: the control is
-  // dead, so an unknown here is inert text, not an affordance.
-  if (display === null && !editorAvailable) {
-    return <span data-testid={testid} className={typography.tabular} />
-  }
+  /*
+   * ⚠ THE EDITABLE-BUT-UNCONNECTED ROW DELIBERATELY STILL SAYS "Not set", AND
+   * THIS COMMENT EXISTS SO NOBODY "FINISHES THE JOB" BY SILENCING IT.
+   *
+   * A first cut of the wall fix silenced it too, and broke
+   * `ModelTabV2Panel.spec.tsx`'s pinned invariant that the relationship, option
+   * and goal rows render a DISABLED control carrying `NO_AUTHORITY_REASON`. That
+   * invariant is right: a control that says "editing is not connected yet" is
+   * strictly more truthful than an empty cell, and silence here would replace a
+   * truthful fallback with nothing (P3).
+   *
+   * Which means the remaining "Not set" repetition on this surface is NOT a
+   * display defect — it is the visible shape of the edit paths that have no
+   * canonical carrier yet (design §2 F6/F9). Suppressing it would have killed
+   * the symptom and left the defect (trap 23). It is reported, not hidden.
+   */
 
   return (
     <button

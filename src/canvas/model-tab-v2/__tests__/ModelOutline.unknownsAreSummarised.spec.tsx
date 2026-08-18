@@ -85,14 +85,6 @@ describe('B4 · unknown values are summarised at the group, not repeated down th
     expect(summary).toHaveTextContent('3 of 4 have no value yet')
   })
 
-  it('a row with no value and NO live editor prints nothing in its value cell', () => {
-    // `editConnectedIds` empty = no canonical transaction for these rows, so the
-    // editor is not live and a "Not set" here would be inert text.
-    renderOutline(FACTORS, new Set<string>())
-    const cell = screen.getByTestId('model-row-v2-fac_a-value')
-    expect(cell.textContent).toBe('')
-  })
-
   it('a row that is NOT EDITABLE AT ALL prints nothing either', () => {
     // The second silent arm. `fac_c` is `editable: false`, which is a different
     // branch of the value cell from "editable but no live authority" above —
@@ -124,22 +116,26 @@ describe('B4 · unknown values are summarised at the group, not repeated down th
     expect(screen.queryByTestId('model-group-v2-factors-unknown-summary')).toBeNull()
   })
 
-  it('the wall is gone: the outline prints "Not set" at most once per ACTIONABLE row', () => {
-    // The headline claim, stated as a count over the whole rendered outline.
-    // Three unknown-bearing rows, one of them actionable => exactly one "Not set".
-    // Note `fac_c` is in `editConnectedIds` and STILL silent, because it is not
-    // editable — connectivity alone does not make a row an affordance.
-    renderOutline(FACTORS, new Set(['fac_a', 'fac_c']))
+  it('the non-editable row contributes NOTHING to the "Not set" count', () => {
+    /*
+     * The scope of this change, stated exactly. Four rows, three of them with no
+     * value: `fac_a` and `fac_b` are editable (so they keep "Not set" — live for
+     * `fac_a`, honestly disabled for `fac_b`, both of which are affordances or
+     * explanations), and `fac_c` is not editable at all, so it is silent.
+     * => exactly two "Not set", not three.
+     */
+    renderOutline(FACTORS, new Set(['fac_a']))
     const outline = screen.getByTestId('model-outline-v2')
     const occurrences = (outline.textContent ?? '').split('Not set').length - 1
-    expect(occurrences).toBe(1)
+    expect(occurrences).toBe(2)
   })
 
-  it('CONTRAST: with no editors connected at all, the outline prints "Not set" zero times', () => {
-    renderOutline(FACTORS, new Set<string>())
+  it('the group summary carries the FULL unknown count, including the silent row', () => {
+    // The information the silent cell no longer prints is still on screen — and
+    // the summary counts `fac_c` even though its cell says nothing, which is the
+    // whole point of moving it there.
+    renderOutline(FACTORS, new Set(['fac_a']))
     const outline = screen.getByTestId('model-outline-v2')
-    expect(outline.textContent).not.toContain('Not set')
-    // ...and the information is still on screen, in one place instead of three.
     expect(
       within(outline).getByTestId('model-group-v2-factors-unknown-summary'),
     ).toHaveTextContent('3 of 4 have no value yet')
