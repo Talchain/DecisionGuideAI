@@ -79,6 +79,59 @@ function shellModuleFiles(): string[] {
 }
 
 /**
+ * The dock's TRANSITIVE IMPORT CLOSURE, crawled from `OutputsDock.tsx`.
+ *
+ * Home-directory globs were rejected for this: a rule scoped to
+ * `canvas/components/model-tab/**` cannot see `canvas/shared/AnalysisFooter.tsx`
+ * even though the shell mounts it, and cannot see a violation one import deeper
+ * than a surface's entry module — which is exactly where the confirmed overlap
+ * lived (`ReanalyseBar`, imported BY `ModelTabBody`, not part of it). A glob is
+ * also as driftable as any hand-listed set: a new panel directory is out of
+ * scope by default and silently unguarded.
+ *
+ * The crawl follows RELATIVE imports only. Package imports are deliberately not
+ * followed — we do not own `node_modules`, and following them would make the
+ * scope unbounded without adding a single file we can fix.
+ */
+function dockImportClosure(): string[] {
+  const seen = new Set<string>()
+  const stack = [path.join(REPO, SHELL_HOST)]
+  const resolve = (from: string, spec: string): string | null => {
+    if (!spec.startsWith('.')) return null
+    const base = path.resolve(path.dirname(from), spec)
+    for (const c of [`${base}.tsx`, `${base}.ts`, `${base}/index.tsx`, `${base}/index.ts`, base]) {
+      if (existsSync(c)) {
+        try {
+          if (readFileSync(c) && /\.tsx?$/.test(c)) return c
+        } catch {
+          /* a directory, not a file */
+        }
+      }
+    }
+    return null
+  }
+  while (stack.length) {
+    const file = stack.pop()!
+    if (seen.has(file)) continue
+    seen.add(file)
+    let text: string
+    try {
+      text = readFileSync(file, 'utf8')
+    } catch {
+      continue
+    }
+    for (const m of text.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
+      const r = resolve(file, m[1])
+      if (r && !seen.has(r)) stack.push(r)
+    }
+  }
+  return [...seen]
+    .map(f => path.relative(REPO, f).split(path.sep).join('/'))
+    .filter(f => /\.tsx?$/.test(f) && !/(\.spec\.|\.test\.|__tests__\/)/.test(f))
+    .sort()
+}
+
+/**
  * Code with comments blanked, one entry per source line.
  *
  * Load-bearing: this file's own prose deliberately spells `p-2.5`, `sm:` and
@@ -308,6 +361,76 @@ describe('workspace shell — OutputsDock burn-down pins (exact, both directions
       ).toBe(PINNED[rule.id])
     })
   }
+})
+
+describe('workspace shell — no NEW occluding sticky across the whole dock closure', () => {
+  /**
+   * The one rule scoped to the FULL closure, because it is the one whose harm
+   * was witnessed: an opaque bottom-anchored bar pinning itself to the bottom
+   * of the shell's scroller and covering whatever the shell rendered below it.
+   *
+   * ⚠ Only this rule runs at closure scope, and the reason is measured. At
+   * closure scope `dock-width-literal` produces two hits that are NOT dock
+   * widths — `ComposerTools.tsx:141 minWidth: 280` and
+   * `EmptyState.tsx:132 maxWidth: 480` merely share the digits. A guard that
+   * flags those gets switched off within a week, so that rule stays where it
+   * can be precise (`shellContract` scope) rather than being loud and wrong
+   * over 650 files.
+   *
+   * The residual set is PINNED BY NAME with its reason, and asserted for exact
+   * equality. A gap recorded in the suite is honest; a gap invisible to it is
+   * how the same defect oscillates back in.
+   */
+  const KNOWN_STICKY_BOTTOM: Record<string, string> = {
+    'src/canvas/shared/AnalysisFooter.tsx':
+      'Mounted by the shell as a flex SIBLING of the scroller, in the footer region, so its ' +
+      'sticky is redundant rather than occluding. Dies with the footer consolidation.',
+    'src/canvas/journey/JourneyTabBody.tsx':
+      'Journey is `presentedAsTab: false` — unreachable, so nothing is occluded today. It must ' +
+      'be fixed before the surface is ever lit.',
+  }
+
+  const closure = dockImportClosure()
+
+  it('the closure is real and reaches PAST the surface entry modules', () => {
+    // Positive control on the scope, and the load-bearing half of it. A crawl
+    // that silently stopped at depth 1 would return a plausible list and score
+    // zero violations for the best possible reason — that it looked nowhere.
+    // `ReanalyseBar` is two hops in (OutputsDock → ModelTabBody → ReanalyseBar)
+    // and is the exact file whose overlap this rule exists for, so its presence
+    // proves the depth the claim depends on.
+    expect(closure.length).toBeGreaterThan(300)
+    expect(closure).toContain(SHELL_HOST)
+    expect(closure).toContain('src/canvas/components/model-tab/ReanalyseBar.tsx')
+    expect(closure).toContain('src/canvas/shared/AnalysisFooter.tsx')
+  })
+
+  it('every bottom-anchored sticky in the dock closure is a KNOWN, reasoned entry', () => {
+    const files = [...new Set(scan(closure, ruleStickyBottom).map(f => f.file))].sort()
+    const known = Object.keys(KNOWN_STICKY_BOTTOM).sort()
+    expect(
+      files,
+      files.length > known.length
+        ? '\nA NEW bottom-anchored sticky appeared inside the dock. The shell owns the footer ' +
+          'region — render into it instead of pinning to the scroller.\n' +
+          fmt(scan(closure, ruleStickyBottom)) +
+          '\n'
+        : '\nOne of the known occluding stickies is gone — remove it from KNOWN_STICKY_BOTTOM in ' +
+          'this PR so the set keeps meaning what it says.\n',
+    ).toEqual(known)
+  })
+
+  it('ReanalyseBar specifically is no longer sticky (the witnessed overlap)', () => {
+    // Bound by IDENTITY to the file whose bar covered `ModelFooter`, not to
+    // "the set is small" — which a different file leaving the set would also
+    // satisfy.
+    const bar = 'src/canvas/components/model-tab/ReanalyseBar.tsx'
+    expect(closure).toContain(bar)
+    expect(scan([bar], ruleStickyBottom)).toEqual([])
+    // …and prove the file still renders the bar at all, so this is not passing
+    // because the component was deleted.
+    expect(readFileSync(path.join(REPO, bar), 'utf8')).toContain('data-testid="reanalyse-bar"')
+  })
 })
 
 describe('the guard can SEE a violation (positive controls, one per rule)', () => {
