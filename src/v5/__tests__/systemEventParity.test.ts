@@ -40,6 +40,7 @@ const UI_WIRE_EVENT_TYPES = [
   'factor_value_edit',
   'edge_adjudication',
   'prior_range_edit',
+  'structural_delete',
 ] as const satisfies readonly WireSystemEventType[]
 
 // The `satisfies` above is ONE-DIRECTIONAL: it proves every listed member is a
@@ -121,6 +122,22 @@ const UI_COVERAGE: Record<
     kind: 'system_event',
     eventKind: 'prior_range_edit',
     payload: { target_id: 'fac_adoption', range_min: 0.2, range_max: 0.6 },
+  },
+  // 0.48.0: the FIRST removal verb in any UI→CEE vocabulary — every other
+  // member here is an add/edit/notify verb, which is exactly why a deleted
+  // option used to come back on the next re-run. Emitted by the canvas delete
+  // gestures through `useStructuralDeleteEvents`. Reader-first, mandatory and
+  // not a preference: every member is `.strict()` inside a discriminatedUnion
+  // on `kind`, so a CEE pinned below 0.48.0 that receives this rejects the
+  // WHOLE turn — CEE #1015 deploys before this emitter (merge ordering, no flag).
+  structural_delete: {
+    kind: 'system_event',
+    eventKind: 'structural_delete',
+    payload: {
+      removed_node_ids: ['opt_wait'],
+      removed_edges: [{ from: 'fac_price', to: 'out_churn' }],
+      base_graph_hash: 'f3d31f75957c5cb5',
+    },
   },
 }
 
@@ -233,7 +250,7 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 7 of 12 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 8 of 13 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
@@ -243,13 +260,17 @@ describe('UI ↔ V5 system event parity', () => {
     // `prior_range_edit`; the P4 transport lane wired both). 0.43.0 grew it to
     // 12 by transitively exposing the existing `edge_strength_edit` server
     // event; that event remains deliberately deferred in this reader-only
-    // lane. UI emission count therefore remains 7 (patch_accepted,
-    // patch_dismissed, direct_graph_edit, feedback, factor_value_edit,
-    // edge_adjudication, prior_range_edit).
+    // lane. 0.48.0 grew it to 13 by adding `structural_delete` — and unlike the
+    // 0.43.0 addition this one IS wired, because it is the close of "the option
+    // I deleted comes back on the next re-run": a reader-only adoption would
+    // have left that defect open. UI emission count is therefore 8
+    // (patch_accepted, patch_dismissed, direct_graph_edit, feedback,
+    // factor_value_edit, edge_adjudication, prior_range_edit,
+    // structural_delete).
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
-    expect(uiEmittedCount).toBe(7)
-    expect(V5_EVENT_KINDS).toHaveLength(12)
+    expect(uiEmittedCount).toBe(8)
+    expect(V5_EVENT_KINDS).toHaveLength(13)
   })
 })
