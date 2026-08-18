@@ -91,6 +91,22 @@ export interface PostFooterMetaInput {
    * "Evidence gaps remain" decision.
    */
   reviewCards: ReadonlyArray<{ confidence?: number | null }>
+  /**
+   * Why the footer's Rerun is DISABLED, when it is.
+   *
+   * ⭐ VISIBLE, NOT HOVER-ONLY (Analysis convergence, 18 Aug 2026). Measured on
+   * deployed staging `c71ea7e0`: `results-analysis-footer-action` rendered
+   * disabled with its only explanation in the native `title` attribute —
+   * invisible to anyone not hovering, and to touch entirely. The visible footer
+   * read "Stable ranking · this result held up under the changes we tested ·
+   * Rerun", i.e. a reassuring line beside a control that cannot be pressed and
+   * says nothing about why.
+   *
+   * It LEADS the meta line because it is the only actionable part of it, and it
+   * is ADDED rather than substituted: the robustness reason answers a different
+   * question and both are true at once.
+   */
+  blockedReason?: string | null
 }
 
 /**
@@ -132,6 +148,7 @@ export function derivePostFooterMeta({
   robustnessVerdict,
   robustnessVerdictReason,
   reviewCards,
+  blockedReason,
 }: PostFooterMetaInput): string | null {
   // F7 (display honesty): the "{N}% stability" numeric segment is REMOVED.
   // `stability` here is the legacy `recommendation_stability` field, which
@@ -159,7 +176,12 @@ export function derivePostFooterMeta({
     ? null
     : (evidenceWeak ? 'Evidence gaps remain' : 'Evidence strong')
   const parts: string[] = []
-  // Producer reason VERBATIM, first — but only beside a known verdict (never
+  // The blocked reason leads: it is the only part the user can act on, and a
+  // disabled control whose reason is hover-only is a control with no reason.
+  if (typeof blockedReason === 'string' && blockedReason.trim() !== '') {
+    parts.push(blockedReason.trim())
+  }
+  // Producer reason VERBATIM, next — but only beside a known verdict (never
   // render a robustness sentence the status line cannot vouch for).
   if (
     verdictKnown &&

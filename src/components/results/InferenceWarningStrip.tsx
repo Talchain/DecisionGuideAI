@@ -23,7 +23,7 @@
  */
 import { AlertTriangle } from 'lucide-react'
 import { typography } from '@/styles/typography'
-import { humaniseInferenceWarningTitle } from './utils/humaniseInferenceWarning'
+import { humaniseInferenceWarningTitle, isStripEntry } from './utils/humaniseInferenceWarning'
 import type { InferenceWarning } from './types'
 
 export interface InferenceWarningStripProps {
@@ -32,13 +32,20 @@ export interface InferenceWarningStripProps {
   className?: string
 }
 
-/** Entries the strip will show: severity === 'warning' AND a non-empty producer message. */
+/**
+ * Entries the strip will show: severity === 'warning' AND a non-empty producer
+ * message.
+ *
+ * The predicate itself now lives in `utils/humaniseInferenceWarning.ts` as
+ * `isStripEntry`, because `AdvancedSection` renders this set's COMPLEMENT and
+ * a second spelling of it would be a mirror that drifts silently — the two
+ * surfaces would start repeating each other and no guard would notice
+ * (CLAUDE.md trap 12). This wrapper keeps the strip's own named selector.
+ */
 export function selectWarningSeverityEntries(
   warnings: InferenceWarning[] | undefined,
 ): InferenceWarning[] {
-  return (warnings ?? []).filter(
-    (w) => w.severity === 'warning' && typeof w.message === 'string' && w.message.trim().length > 0,
-  )
+  return (warnings ?? []).filter(isStripEntry)
 }
 
 export function InferenceWarningStrip({ warnings, className = '' }: InferenceWarningStripProps) {

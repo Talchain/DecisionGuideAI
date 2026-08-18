@@ -24,8 +24,26 @@ import type { UncertaintyItem } from '../types'
 export interface HumanisableInferenceWarning {
   code: string
   message?: string
+  /** Producer severity. The strip shows only `'warning'`; see `isStripEntry`. */
+  severity?: string
   affected_nodes?: string[]
   affected_labels?: string[]
+}
+
+/**
+ * THE STRIP'S ADMISSION PREDICATE — one definition, two consumers.
+ *
+ * `InferenceWarningStrip` shows warning-severity entries with a real producer
+ * message and nothing else. `AdvancedSection` shows the COMPLEMENT of exactly
+ * this set, so the two cannot both state the same sentence.
+ *
+ * It lives here rather than in the strip because a complement computed from a
+ * SECOND spelling of the predicate is a hand-maintained mirror (CLAUDE.md trap
+ * 12): the day someone widens the strip, the Advanced side would start
+ * repeating again and nothing would say so. Both sides now call this.
+ */
+export function isStripEntry(w: HumanisableInferenceWarning): boolean {
+  return w.severity === 'warning' && typeof w.message === 'string' && w.message.trim().length > 0
 }
 
 /** Node-label map for humaniseCritique's factor-label resolution, built from
@@ -57,13 +75,31 @@ export function humaniseInferenceWarningTitle(w: HumanisableInferenceWarning): s
   return humaniseCritique(item, buildInferenceWarningLabelMap(w)).title
 }
 
-/** AdvancedSection selection: keep every warning with a non-empty producer
- *  message (all severities — fail-closed on empties, no fabricated copy), and
- *  return it already humanised so the JSX never touches `.message`. */
+/** Every warning with a non-empty producer message, all severities
+ *  (fail-closed on empties, no fabricated copy), already humanised so the JSX
+ *  never touches `.message`. */
 export function selectHumanisedInferenceWarnings(
   warnings: HumanisableInferenceWarning[] | undefined,
 ): Array<{ code: string; title: string }> {
   return (warnings ?? [])
     .filter((w) => typeof w.message === 'string' && w.message.trim().length > 0)
+    .map((w) => ({ code: w.code, title: humaniseInferenceWarningTitle(w) }))
+}
+
+/**
+ * AdvancedSection selection: the entries the strip does NOT show.
+ *
+ * Derived as the COMPLEMENT of `isStripEntry`, never as its own filter list.
+ * Measured on deployed staging `c71ea7e0`: without this, the Advanced trust
+ * list repeated all three of the strip's sentences verbatim five screens below
+ * them. The remainder is what Advanced uniquely carries — info-severity
+ * entries the strip filters out — so nothing is lost and nothing repeats.
+ */
+export function selectHumanisedInferenceWarningsOutsideStrip(
+  warnings: HumanisableInferenceWarning[] | undefined,
+): Array<{ code: string; title: string }> {
+  return (warnings ?? [])
+    .filter((w) => typeof w.message === 'string' && w.message.trim().length > 0)
+    .filter((w) => !isStripEntry(w))
     .map((w) => ({ code: w.code, title: humaniseInferenceWarningTitle(w) }))
 }
