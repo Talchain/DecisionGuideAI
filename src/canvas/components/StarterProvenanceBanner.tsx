@@ -25,7 +25,7 @@ import { typography } from '../../styles/typography'
  *
  * It also names the analysis consequence, because the Analyse button IS
  * disabled for a starter and a user who does not know why will read it as the
- * product being broken. `computeCeeCannotSeeModel` refuses the run for any
+ * product being broken. `analysisHeldOn` refuses the run for any
  * client-injected graph on the V5 canonical path: the V5 turn body carries no
  * graph, so CEE would otherwise answer about a model it never received. The
  * re-draft is the honest route to an analysable model, which is exactly why it

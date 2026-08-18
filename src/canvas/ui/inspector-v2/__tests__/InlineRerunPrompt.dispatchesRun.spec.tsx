@@ -63,6 +63,10 @@ import {
   __resetCanonicalRunnerForTests,
   RUNNER_UNAVAILABLE_MESSAGE,
 } from '../../../analysis/canonicalRunRegistry'
+// Bound to the gate's real refusal rather than a hand-typed literal: this spec
+// asserts the toast carries WHATEVER the canonical runner refused with, and a
+// retired sentence frozen here would keep a dead string alive in the suite.
+import { ANALYSIS_HELD_NOTICE } from '../../../utils/analysisHeldOnInjectedModel'
 
 const NODE_ID = 'fac_compliance_readiness'
 const CAP = 1
@@ -149,14 +153,14 @@ describe('post-edit inline Re-run dispatches the canonical run (ROADMAP 2.102)',
   it('surfaces a BLOCKED refusal instead of silently no-opping', async () => {
     const runner = vi
       .fn()
-      .mockResolvedValue({ status: 'blocked', reason: 'Draft or save a model first, then run analysis.' })
+      .mockResolvedValue({ status: 'blocked', reason: ANALYSIS_HELD_NOTICE.starter })
     registerCanonicalRunner(runner)
 
     render(<InlineRerunPrompt visible />)
     fireEvent.click(screen.getByTestId('inline-rerun'))
 
     await waitFor(() =>
-      expect(showToast).toHaveBeenCalledWith('Draft or save a model first, then run analysis.', 'warning'),
+      expect(showToast).toHaveBeenCalledWith(ANALYSIS_HELD_NOTICE.starter, 'warning'),
     )
   })
 

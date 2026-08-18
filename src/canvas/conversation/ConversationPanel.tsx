@@ -33,7 +33,8 @@ import { humaniseWireToken } from './friendlyOperation'
 import type { BriefReadiness } from './hooks/useBriefSignals'
 import { useThreadPersistence } from './hooks/useThreadPersistence'
 import { beginInteractionChain, getUiSurfaceState, recordCrossSurfaceEvent, recordInteractionEvent, recordUserAction, type InteractionStateSnapshot } from '../../lib/debug-state'
-import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip, computeCeeCannotSeeModel } from '../utils/canRunAnalysis'
+import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
+import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 
 interface ConversationPanelProps {
@@ -497,10 +498,13 @@ export const ConversationPanel = memo(function ConversationPanel({
   })
   const isAnalysisRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
-  // Boolean selector: recomputes on store writes but only re-renders on a
-  // flip. Same honest gate as OutputsDock — without it this surface's run
-  // button re-created the exact panel-vs-engine contradiction #343 fixed.
-  const ceeCannotSeeModel = useCanvasStore((s) => computeCeeCannotSeeModel(s.nodes))
+  // Primitive selector (a provenance string or null): recomputes on store
+  // writes but only re-renders on a flip. Same honest gate as OutputsDock —
+  // without it this surface's run button re-created the exact panel-vs-engine
+  // contradiction #343 fixed. It carries the WORDING too, which is why this
+  // surface's tooltip cannot describe the held model differently from the
+  // Analysis panel's refusal.
+  const heldOn = useCanvasStore((s) => analysisHeldOn(s.nodes))
   // ROADMAP 2.122 — this surface is a run affordance too, so it needs the
   // streamed-draft honesty rung for the same reason OutputsDock does: between
   // GRAPH_READY (~36 s) and COMPLETE (~61 s) the canvas holds a graph whose
@@ -518,10 +522,10 @@ export const ConversationPanel = memo(function ConversationPanel({
     hasBlockers,
     nodeCount,
     isRunning: isAnalysisRunning,
-    ceeCannotSeeModel,
+    analysisHeldOn: heldOn,
     draftStreamPhase,
     readinessStale,
-  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning, ceeCannotSeeModel, draftStreamPhase, readinessStale])
+  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning, heldOn, draftStreamPhase, readinessStale])
 
   // In-flight takes priority over structural reasons: the composer button
   // is disabled for either cause, but the user-visible tooltip should explain

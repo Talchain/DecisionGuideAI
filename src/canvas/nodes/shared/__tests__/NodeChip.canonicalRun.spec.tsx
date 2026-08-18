@@ -6,7 +6,7 @@
  * the guidance bridge's `_dispatchAction` DIRECTLY, so a click bypassed
  * everything OutputsDock's `runCanonicalAnalysis` does before dispatching:
  *
- *  1. the readiness gate (`canRunAnalysis`, incl. computeCeeCannotSeeModel) —
+ *  1. the readiness gate (`canRunAnalysis`, incl. analysisHeldOn) —
  *     a graph CEE cannot see could still dispatch a run;
  *  2. the `flushPendingSaves()` barrier — a click inside the 1500ms autosave
  *     debounce resolved against the PREVIOUS persisted graph (edit loss);

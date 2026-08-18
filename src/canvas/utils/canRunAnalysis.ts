@@ -43,10 +43,8 @@ import {
   type OptionNeedingValues,
 } from './composeBlockedReason'
 import {
-  analysisHeldOnInjectedModel,
-  noticeForProvenance,
+  ANALYSIS_HELD_NOTICE as HELD_NOTICE,
   type ClientInjectedProvenance,
-  type NodeLike,
 } from './analysisHeldOnInjectedModel'
 
 /**
@@ -60,10 +58,16 @@ import {
  * the derivation and for why quoting CEE's `NO_GRAPH` sentence here was the
  * root error (trap 21).
  *
- * Re-exported rather than inlined so existing importers of this module keep
- * working while there remains exactly ONE place the sentence is written.
+ * Re-exported rather than inlined so a reader who arrives at the gate looking
+ * for its refusal finds the one place the sentence is written, instead of a
+ * second copy of it.
  */
-export { ANALYSIS_HELD_NOTICE, analysisHeldNotice } from './analysisHeldOnInjectedModel'
+export {
+  ANALYSIS_HELD_NOTICE,
+  analysisHeldNotice,
+  analysisHeldOn,
+  type ClientInjectedProvenance,
+} from './analysisHeldOnInjectedModel'
 
 /**
  * ROADMAP 2.122 — the refusal shown while a STREAMED draft's structure is on
@@ -97,21 +101,6 @@ export const DRAFT_VALUES_SETTLING_REFUSAL =
 export const DRAFT_VALUES_UNSETTLED_REFUSAL =
   'Drafting ended before this model\u2019s values arrived, so they are not final. Start a new draft to analyse it.'
 
-/**
- * True when the canvas model is invisible to the analysis engine.
- *
- * ⭐ DELEGATES to `analysisHeldOnInjectedModel` — the ONE condition the run
- * gate and the provenance banner both read, so neither can claim analysis is
- * held while the other disagrees (the staleness the 18 Aug affordance sweep
- * found: the banner still saying "analysis is held" beside "Analysis
- * complete."). The predicate, the provenance list and the sentence all live in
- * that module now; this name is kept because it is what the gate's callers and
- * specs already ask for.
- */
-export function computeCeeCannotSeeModel(nodes: ReadonlyArray<NodeLike>): boolean {
-  return analysisHeldOnInjectedModel(nodes)
-}
-
 export interface CanRunAnalysisResult {
   /** Whether analysis can be run */
   allowed: boolean
@@ -143,21 +132,21 @@ export interface CanRunAnalysisParams {
   nodeCount: number
   /** Whether analysis is currently running */
   isRunning?: boolean
-  /** See computeCeeCannotSeeModel — the model exists only client-side and
-   *  the run routes through CEE, so the engine would refuse it (#343). */
-  ceeCannotSeeModel?: boolean
   /**
-   * WHICH client-side injection put the graph on the canvas — passed THROUGH
-   * raw (`clientInjectedProvenance(nodes)`), never pre-worded by the caller,
-   * for the same reason `draftStreamPhase` is: a sentence chosen at the call
-   * site is a hand-maintained mirror, and the mutant that picks the wrong
-   * variant survives.
+   * ⭐ ONE INPUT for the injected-model rung — `analysisHeldOn(nodes)`, passed
+   * THROUGH raw, never pre-worded by the caller (the same rule as
+   * `draftStreamPhase`: a sentence chosen at a call site is a hand-maintained
+   * mirror, and the mutant that picks the wrong variant survives).
    *
-   * It affects ONLY the wording of the refusal, never `allowed` — the gating
-   * answer is `ceeCannotSeeModel`. Omitted ⇒ the provenance-neutral notice,
-   * which states the claim without guessing.
+   * Non-null ⇒ the model exists only client-side while the run routes through
+   * CEE, so the engine would answer about a graph it never received (#343) —
+   * AND the value names which ready-made model it is, so the refusal can
+   * describe it. This used to be two parameters (a gating boolean plus a
+   * provenance), which is how `OutputsDock` and `ConversationPanel` came within
+   * one review of describing the SAME state with two different nouns. One
+   * value cannot half-arrive.
    */
-  injectedProvenance?: ClientInjectedProvenance | null
+  analysisHeldOn?: ClientInjectedProvenance | null
   /**
    * ROADMAP 2.122 — the streamed draft's phase, passed THROUGH rather than
    * pre-derived by the caller.
@@ -306,7 +295,7 @@ export const RUN_LICENCE_SUPERSEDED_REFUSAL =
  * @returns CanRunAnalysisResult with allowed status and reason
  */
 export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResult {
-  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false, injectedProvenance = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
+  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, analysisHeldOn = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
 
   const blockingReasons: string[] = []
 
@@ -352,11 +341,13 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
     }
   }
 
-  // 2.5 Model invisible to the analysis engine (see computeCeeCannotSeeModel).
-  if (ceeCannotSeeModel) {
+  // 2.5 Model invisible to the analysis engine (see `analysisHeldOn`). The
+  // gating answer and the sentence come from the SAME value, so this rung
+  // cannot refuse for one reason and explain itself with another.
+  if (analysisHeldOn !== null) {
     return {
       allowed: false,
-      reason: noticeForProvenance(injectedProvenance),
+      reason: HELD_NOTICE[analysisHeldOn],
       blockingReasons: ['Model not in Olumi scenario state (client-injected graph)'],
     }
   }

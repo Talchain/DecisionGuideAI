@@ -7,10 +7,9 @@ import {
   canRunAnalysis,
   getRunButtonTooltip,
   getRunButtonAriaLabel,
-  computeCeeCannotSeeModel,
-    type CanRunAnalysisParams,
+  type CanRunAnalysisParams,
 } from '../canRunAnalysis'
-import { ANALYSIS_HELD_NOTICE } from '../analysisHeldOnInjectedModel'
+import { ANALYSIS_HELD_NOTICE, analysisHeldOn } from '../analysisHeldOnInjectedModel'
 import { BLOCKED_REASON_COPY } from '../composeBlockedReason'
 
 
@@ -443,41 +442,41 @@ describe('canRunAnalysis — #343 honest stopgap (model invisible to CEE)', () =
     // wrong question's answer in place — see `analysisHeldOnInjectedModel.ts`'s
     // header, and `analyseAffordanceTruthfulness.spec.ts` for the pins that
     // now hold the sentence to THIS rung's facts.
-    const result = canRunAnalysis({ ...base, ceeCannotSeeModel: true })
+    const result = canRunAnalysis({ ...base, analysisHeldOn: 'starter' })
     expect(result.allowed).toBe(false)
     expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
   })
 
-  it('does not block when the model is CEE-visible (flag false/omitted)', () => {
-    expect(canRunAnalysis({ ...base, ceeCannotSeeModel: false }).allowed).toBe(true)
+  it('does not block when the model is CEE-visible (null/omitted)', () => {
+    expect(canRunAnalysis({ ...base, analysisHeldOn: null }).allowed).toBe(true)
     expect(canRunAnalysis({ ...base }).allowed).toBe(true)
   })
 
   it('empty canvas still wins over the CEE-visibility blocker (more fundamental reason first)', () => {
-    const result = canRunAnalysis({ ...base, nodeCount: 0, ceeCannotSeeModel: true })
+    const result = canRunAnalysis({ ...base, nodeCount: 0, analysisHeldOn: 'starter' })
     expect(result.allowed).toBe(false)
     expect(result.reason).toBe('Add some nodes to get started')
   })
 })
 
-describe('computeCeeCannotSeeModel — the ONE home for the honest-gate predicate', () => {
+describe('analysisHeldOn — the ONE home for the honest-gate predicate', () => {
   const templateNodes = [{ data: { templateId: 'hiring-v1' } }, { data: {} }]
   const draftedNodes = [{ data: {} }, { data: { label: 'x' } }]
 
-  it('true only for template provenance on the CEE-routed path', () => {
+  it('names the provenance only for a client-injected graph on the CEE-routed path', () => {
     isV5CanonicalRunPathMock.mockReturnValue(true)
-    expect(computeCeeCannotSeeModel(templateNodes)).toBe(true)
-    expect(computeCeeCannotSeeModel(draftedNodes)).toBe(false)
+    expect(analysisHeldOn(templateNodes)).toBe('template')
+    expect(analysisHeldOn(draftedNodes)).toBeNull()
   })
 
-  it('false off the canonical path — a V2-direct run CAN analyse canvas graphs', () => {
+  it('null off the canonical path — a V2-direct run CAN analyse canvas graphs', () => {
     isV5CanonicalRunPathMock.mockReturnValue(false)
-    expect(computeCeeCannotSeeModel(templateNodes)).toBe(false)
+    expect(analysisHeldOn(templateNodes)).toBeNull()
   })
 
   it('the exported refusal constant IS the sentence the gate emits (one home, no drift)', () => {
     isV5CanonicalRunPathMock.mockReturnValue(true)
-    const result = canRunAnalysis({ graphHealth: null, readiness: null, hasBlockers: false, nodeCount: 5, ceeCannotSeeModel: computeCeeCannotSeeModel(templateNodes) })
-    expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
+    const result = canRunAnalysis({ graphHealth: null, readiness: null, hasBlockers: false, nodeCount: 5, analysisHeldOn: analysisHeldOn(templateNodes) })
+    expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.template)
   })
 })

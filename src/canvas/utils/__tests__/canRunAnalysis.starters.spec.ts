@@ -15,7 +15,7 @@
  * `VITE_AUTH_MODE = "guest"`.
  *
  * So a graph that was injected client-side and never persisted is INVISIBLE to
- * the analysis engine. Today `computeCeeCannotSeeModel` catches exactly one
+ * the analysis engine. Today `analysisHeldOn` catches exactly one
  * such case — template inserts, sniffed via `data.templateId` — and refuses the
  * run honestly. A pre-drafted starter is the same situation with a different
  * stamp: without this coverage the Run button would go ENABLED and dispatch a
@@ -29,8 +29,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { computeCeeCannotSeeModel, canRunAnalysis } from '../canRunAnalysis'
-import { ANALYSIS_HELD_NOTICE } from '../analysisHeldOnInjectedModel'
+import { canRunAnalysis } from '../canRunAnalysis'
+import { ANALYSIS_HELD_NOTICE, analysisHeldOn } from '../analysisHeldOnInjectedModel'
 
 const isV5CanonicalRunPathMock = vi.fn(() => true)
 vi.mock('../../../v5/eligibility', async (importOriginal) => {
@@ -42,40 +42,54 @@ const starterNodes = [{ data: { starterId: 'market-entry', label: 'Germany First
 const templateNodes = [{ data: { templateId: 'hiring_strategy_tech_lead' } }, { data: {} }]
 const ceeDraftedNodes = [{ data: { label: 'Germany First' } }, { data: {} }]
 
-describe('computeCeeCannotSeeModel — starter provenance', () => {
+describe('analysisHeldOn — starter provenance', () => {
   beforeEach(() => {
     isV5CanonicalRunPathMock.mockReturnValue(true)
   })
 
   it('POSITIVE CONTROL: still fires for template inserts (the predicate is alive)', () => {
-    expect(computeCeeCannotSeeModel(templateNodes)).toBe(true)
+    expect(analysisHeldOn(templateNodes)).toBe('template')
   })
 
   it('fires for a starter graph — CEE has no persisted graph for a client-injected starter', () => {
-    expect(computeCeeCannotSeeModel(starterNodes)).toBe(true)
+    expect(analysisHeldOn(starterNodes)).toBe('starter')
   })
 
   it('does NOT fire for a genuine CEE-drafted graph (the gate stays narrow)', () => {
-    expect(computeCeeCannotSeeModel(ceeDraftedNodes)).toBe(false)
+    expect(analysisHeldOn(ceeDraftedNodes)).toBeNull()
   })
 
   it('does not fire off the V5 canonical path — a V2-direct run sends the graph itself', () => {
     isV5CanonicalRunPathMock.mockReturnValue(false)
     // Presence first: the same input is `true` on-path (asserted above), so a
     // `false` here is the flag doing work, not the predicate being dead.
-    expect(computeCeeCannotSeeModel(starterNodes)).toBe(false)
-    expect(computeCeeCannotSeeModel(templateNodes)).toBe(false)
+    expect(analysisHeldOn(starterNodes)).toBeNull()
+    expect(analysisHeldOn(templateNodes)).toBeNull()
   })
 
-  it('a starter graph refuses the run with the same honest sentence as a template insert', () => {
+  it('a starter graph refuses the run with the sentence for a STARTER, chosen by the graph', () => {
+    // The wording is not supplied by this call site: `analysisHeldOn` returns
+    // the gating answer and the provenance as ONE value, so the sentence is a
+    // function of the nodes. The template twin below is the discriminator —
+    // without it, a rung that hardcoded the starter sentence would pass.
     const result = canRunAnalysis({
       graphHealth: null,
       readiness: null,
       hasBlockers: false,
       nodeCount: 18,
-      ceeCannotSeeModel: computeCeeCannotSeeModel(starterNodes),
+      analysisHeldOn: analysisHeldOn(starterNodes),
     })
     expect(result.allowed).toBe(false)
     expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
+
+    const templateResult = canRunAnalysis({
+      graphHealth: null,
+      readiness: null,
+      hasBlockers: false,
+      nodeCount: 18,
+      analysisHeldOn: analysisHeldOn(templateNodes),
+    })
+    expect(templateResult.reason).toBe(ANALYSIS_HELD_NOTICE.template)
+    expect(ANALYSIS_HELD_NOTICE.template).not.toBe(ANALYSIS_HELD_NOTICE.starter)
   })
 })

@@ -67,7 +67,7 @@ export function getStarter(id: string): StarterSummary | undefined {
 /**
  * THE predicate for "is this canvas a starter graph", and which starter.
  *
- * Scans EVERY node, deliberately. `computeCeeCannotSeeModel` (canRunAnalysis)
+ * Scans EVERY node, deliberately. `analysisHeldOn` (canRunAnalysis)
  * refuses the run when ANY node carries the stamp, so a disclosure that read
  * only `nodes[0]` disagreed with the gate the moment an unstamped node sat
  * first — the run stayed refused while the banner explaining the refusal

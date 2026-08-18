@@ -78,7 +78,7 @@ describe('StarterProvenanceBanner', () => {
 
     // ── the two-shapes defect ────────────────────────────────────────────
     //
-    // `computeCeeCannotSeeModel` (canRunAnalysis.ts) refuses the run when ANY
+    // `analysisHeldOn` (canRunAnalysis.ts) refuses the run when ANY
     // node carries starter provenance — `nodes.some(...)`. This banner used to
     // read `nodes[0]?.data?.starterId`, i.e. the FIRST node only. Two shapes
     // for one question, and they disagree exactly when an unstamped node sits

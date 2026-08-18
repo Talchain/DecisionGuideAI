@@ -240,7 +240,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
    *
    * Derived from the graph's own stamp via `resolveStarterId` — the SAME
    * predicate the canvas disclosure (`StarterProvenanceBanner`) and the run
-   * gate (`computeCeeCannotSeeModel`) ask. A separate flag would be a second
+   * gate (`analysisHeldOn`) ask. A separate flag would be a second
    * answer to one question, and this panel would eventually contradict the
    * banner sitting directly above it (W-1: it already did).
    */

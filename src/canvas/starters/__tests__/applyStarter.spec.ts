@@ -4,7 +4,7 @@
  * WHY THIS FILE EXISTS. It was added because a mutation check found the gap:
  * commenting out `stampStarterProvenance` left all 27 starter-integrity tests
  * green. That stamp is the single thing that makes
- *   (a) `computeCeeCannotSeeModel` refuse an un-analysable starter run, and
+ *   (a) `analysisHeldOn` refuse an un-analysable starter run, and
  *   (b) the saved-example disclosure render at all.
  * Without it the product would silently dispatch a V5 run against a scenario
  * CEE has no graph for, and would show a cached model with no disclosure —
