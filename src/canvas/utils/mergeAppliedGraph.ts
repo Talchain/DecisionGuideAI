@@ -699,14 +699,14 @@ export function reconcileAppliedGraph(
   // local edit. For guidance that means wiping the coaching the very same turn
   // just delivered, and because `clearGuidanceItems()` also clears the persisted
   // blob (`guidanceStore.ts:608-613`), the loss survives a reload.
-  useCanvasStore.getState().beginExternalGraphMutation('envelope_apply')
+  useCanvasStore.getState().beginExternalGraphMutation?.('envelope_apply')
   try {
     useCanvasStore.setState({
       nodes: [...reconciledNodes, ...addedNodes] as any,
       edges: [...reconciledEdges, ...addedEdges] as any,
     })
   } finally {
-    useCanvasStore.getState().endExternalGraphMutation()
+    useCanvasStore.getState().endExternalGraphMutation?.()
   }
 
   // Staleness flags set EXPLICITLY (not via pushToHistory, which early-returns

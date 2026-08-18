@@ -61,7 +61,7 @@ export function applyAnalysisReadyPatch(
   // that found this named only the first. Guarding here covers both, and covers
   // the next one nobody remembers to guard. The counter is re-entrant, so this
   // nests harmlessly inside any window a caller already holds.
-  useCanvasStore.getState().beginExternalGraphMutation('patch_apply')
+  useCanvasStore.getState().beginExternalGraphMutation?.('patch_apply')
   try {
   useCanvasStore.getState().setCeeAnalysisReady(patch.ceeAnalysisReady)
 
@@ -87,6 +87,6 @@ export function applyAnalysisReadyPatch(
 
   backfillGoalThresholdOntoGoalNode(patch.ceeAnalysisReady)
   } finally {
-    useCanvasStore.getState().endExternalGraphMutation()
+    useCanvasStore.getState().endExternalGraphMutation?.()
   }
 }

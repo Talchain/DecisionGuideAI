@@ -445,14 +445,14 @@ export function mergeServerGraphOnHydrate(
   // local edit. For guidance that means wiping the coaching the very same turn
   // just delivered, and because `clearGuidanceItems()` also clears the persisted
   // blob (`guidanceStore.ts:608-613`), the loss survives a reload.
-  useCanvasStore.getState().beginExternalGraphMutation('hydrate')
+  useCanvasStore.getState().beginExternalGraphMutation?.('hydrate')
   try {
     useCanvasStore.setState({
       nodes: [...mergedNodes, ...addedNodes] as any,
       edges: [...mergedEdges, ...addedEdges] as any,
     })
   } finally {
-    useCanvasStore.getState().endExternalGraphMutation()
+    useCanvasStore.getState().endExternalGraphMutation?.()
   }
 
   // ── DISCLOSURE: never move a number the user is looking at in silence ──────

@@ -231,7 +231,7 @@ export function applyDraftResult(
   // items AFTER auto-apply patches complete"); V5 mints first. Guarding the
   // WRITER rather than reordering the mint fixes it for every caller and does
   // not depend on two files staying in a particular order.
-  useCanvasStore.getState().beginExternalGraphMutation('envelope_apply')
+  useCanvasStore.getState().beginExternalGraphMutation?.('envelope_apply')
   try {
   useCanvasStore.setState({
     nodes,
@@ -277,7 +277,7 @@ export function applyDraftResult(
     importPendingServerRegistration: false,
   })
   } finally {
-    useCanvasStore.getState().endExternalGraphMutation()
+    useCanvasStore.getState().endExternalGraphMutation?.()
   }
 
   // Warning-only schema validation at the mutation boundary. Non-throwing —
@@ -668,10 +668,10 @@ export function backfillGoalThresholdOntoGoalNode(
   // local edit. For guidance that means wiping the coaching the very same turn
   // just delivered, and because `clearGuidanceItems()` also clears the persisted
   // blob (`guidanceStore.ts:608-613`), the loss survives a reload.
-  useCanvasStore.getState().beginExternalGraphMutation('patch_apply')
+  useCanvasStore.getState().beginExternalGraphMutation?.('patch_apply')
   try {
     useCanvasStore.setState({ nodes: updatedNodes as any })
   } finally {
-    useCanvasStore.getState().endExternalGraphMutation()
+    useCanvasStore.getState().endExternalGraphMutation?.()
   }
 }

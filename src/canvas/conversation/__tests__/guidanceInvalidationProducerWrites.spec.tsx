@@ -62,6 +62,7 @@ import { applyAnalysisReadyPatch } from '../utils/mirrorAnalysisReady'
 const SCENARIO = 'scenario-p0'
 const ITEM_ID = 'guidance-delivered-by-this-turn'
 const GOAL_ID = 'goal-1'
+const OPTION_ID = 'opt-1'
 
 function item(id: string): GuidanceItem {
   return {
@@ -105,7 +106,14 @@ beforeEach(() => {
     graphHash: 'ui-hash-fixed',
   }))
   useCanvasStore.setState({
-    nodes: [node(GOAL_ID, 'Profit'), node('n2', 'Cost')],
+    nodes: [
+      node(GOAL_ID, 'Profit'),
+      node('n2', 'Cost'),
+      // An OPTION node, so `backfillInterventionsOntoOptionNodes` has something
+      // to write. Without it that writer no-ops and the guard covering it is
+      // untested — which is exactly how mutant G1 first SURVIVED.
+      { id: OPTION_ID, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A', kind: 'option' } } as Node,
+    ],
     edges: [] as Edge[],
     currentScenarioId: SCENARIO,
     _externalMutationActive: 0,
@@ -120,6 +128,20 @@ afterEach(() => {
 })
 
 describe('P0 — producer writes must not clear the user coaching', () => {
+  it('CONTROL: the REAL store implements the guard the writers optional-chain', () => {
+    // ⚠ THE GUARDS ARE WRITTEN `beginExternalGraphMutation?.(…)`, because several
+    // existing specs pass PARTIAL STORE DOUBLES and a bare call throws in them
+    // (the precedent is `mirrorAnalysisReady.ts`'s own `setAnalysisFreshness?.()`,
+    // whose comment says exactly this). But an optional-chained GUARD is one
+    // rename away from silently becoming a no-op, and a guard that cannot fire is
+    // the P0 back again with nothing red. So the REAL store is pinned here: if
+    // either method is ever removed or renamed, this REDs instead of the
+    // suppression quietly evaporating.
+    const st = useCanvasStore.getState() as Record<string, unknown>
+    expect(typeof st.beginExternalGraphMutation).toBe('function')
+    expect(typeof st.endExternalGraphMutation).toBe('function')
+  })
+
   it('CONTROL: the fixture seeds the item and the hook is genuinely sensitive', () => {
     // Trap 13 — every "survived" assertion below is vacuous unless the hook can
     // actually clear. This is the POSITIVE control: a real user edit still wipes.
@@ -163,6 +185,31 @@ describe('P0 — producer writes must not clear the user coaching', () => {
     // Precondition: the write actually landed, or this asserts nothing.
     const goal = (useCanvasStore.getState().nodes as any[]).find((n) => n.id === GOAL_ID)
     expect(goal?.data?.goal_threshold_raw, 'precondition: the backfill wrote').toBe(0.42)
+    expect(guidanceIds()).toContain(ITEM_ID)
+  })
+
+  it('P0-B: the INTERVENTIONS backfill (batchUpdateNodes, not setState) must not clear guidance', () => {
+    // ⚠ THIS CASE EXISTS BECAUSE A MUTANT SURVIVED. Reverting the guard on
+    // `applyAnalysisReadyPatch` left the suite 6/6 GREEN, because the only
+    // writer the other cases reached was the goal-threshold backfill, which
+    // carries its OWN guard. The interventions writer goes through
+    // `batchUpdateNodes` — a store ACTION, a different write path entirely —
+    // and nothing exercised it. An equivalent mutant must be DEMONSTRATED, not
+    // assumed; this is the fixture that shows it was never equivalent.
+    renderHook(() => useGuidanceInvalidationOnEdit())
+
+    applyAnalysisReadyPatch(
+      {
+        ceeAnalysisReady: {
+          options: [{ id: OPTION_ID, interventions: { price: 0.1 }, is_baseline: false }],
+        } as never,
+      },
+      { patchId: 'patch-2', scenarioId: SCENARIO },
+    )
+
+    // Precondition: the write actually landed, or this asserts nothing.
+    const opt = (useCanvasStore.getState().nodes as any[]).find((n) => n.id === OPTION_ID)
+    expect(opt?.data?.interventions, 'precondition: the backfill wrote').toBeTruthy()
     expect(guidanceIds()).toContain(ITEM_ID)
   })
 
