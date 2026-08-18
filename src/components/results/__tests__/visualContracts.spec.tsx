@@ -9,8 +9,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
-import { ConfidenceSection } from '../ConfidenceSection'
-import type { OptionResult, ConfidenceSectionData, HingeInfo, TopAction } from '../types'
+import type { OptionResult } from '../types'
 
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -47,32 +46,6 @@ const twoOptions: OptionResult[] = [
     rank: 2,
   },
 ]
-
-const baseConfidenceData: ConfidenceSectionData = {
-  tier: { tier: 'fair', icon: '⚠', label: 'Fair', description: 'Covers the basics.' },
-  qualityScore: 55,
-  uncertainties: [],
-  topUncertainties: [],
-  improvements: [],
-  topImprovements: [],
-  rankingStability: 0.65,
-  robustnessStatus: 'computed',
-}
-
-const testHinge: HingeInfo = {
-  label: 'Customer churn',
-  nodeId: 'factor-churn',
-  kind: 'edge',
-  reason: 'fragile_edge',
-  edgeDetail: 'Customer churn → Revenue',
-  alternativeWinnerLabel: 'Option B',
-}
-
-const flippableAction: TopAction = {
-  label: 'Customer churn',
-  nodeId: 'factor-churn',
-  couldFlip: true,
-}
 
 // ── Indeterminate contracts ───────────────────────────────────────────────
 
@@ -140,19 +113,6 @@ describe('Visual contract: Indeterminate state', () => {
     expect(winnerCard.className).toContain('border-panel-border')
   })
 
-  it('VOI block hidden in ConfidenceSection', () => {
-    render(
-      <ConfidenceSection
-        data={baseConfidenceData}
-        decisionState="indeterminate"
-        hinge={testHinge}
-        topAction={flippableAction}
-      />
-    )
-
-    // VOI block should still be visible for indeterminate (it's hidden only for robust)
-    expect(screen.getByTestId('voi-promoted-block')).toBeInTheDocument()
-  })
 })
 
 // ── Robust contracts ──────────────────────────────────────────────────────
@@ -210,19 +170,6 @@ describe('Visual contract: Robust state', () => {
     expect(winnerCard.className).toContain('border-success/30')
   })
 
-  it('V16.2: VOI block shown for robust state (scroll-link target)', () => {
-    render(
-      <ConfidenceSection
-        data={baseConfidenceData}
-        decisionState="robust"
-        hinge={testHinge}
-        topAction={flippableAction}
-      />
-    )
-
-    // V16.2: MVS card renders for all states so bullet-3 scroll-link target exists
-    expect(screen.getByTestId('voi-promoted-block')).toBeInTheDocument()
-  })
 })
 
 // ── Sensitive contracts ───────────────────────────────────────────────────
@@ -244,19 +191,6 @@ describe('Visual contract: Sensitive state', () => {
     expect(winnerCard.className).toContain('border-success/30')
   })
 
-  it('VOI block visible in ConfidenceSection', () => {
-    render(
-      <ConfidenceSection
-        data={baseConfidenceData}
-        decisionState="sensitive"
-        hinge={testHinge}
-        topAction={flippableAction}
-      />
-    )
-
-    expect(screen.getByTestId('voi-promoted-block')).toBeInTheDocument()
-    expect(screen.getByText('Most valuable next step')).toBeInTheDocument()
-  })
 
   it('D17: colour marker present; no "#N of M" rank prefix', () => {
     render(

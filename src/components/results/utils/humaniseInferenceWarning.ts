@@ -75,16 +75,14 @@ export function humaniseInferenceWarningTitle(w: HumanisableInferenceWarning): s
   return humaniseCritique(item, buildInferenceWarningLabelMap(w)).title
 }
 
-/** Every warning with a non-empty producer message, all severities
- *  (fail-closed on empties, no fabricated copy), already humanised so the JSX
- *  never touches `.message`. */
-export function selectHumanisedInferenceWarnings(
-  warnings: HumanisableInferenceWarning[] | undefined,
-): Array<{ code: string; title: string }> {
-  return (warnings ?? [])
-    .filter((w) => typeof w.message === 'string' && w.message.trim().length > 0)
-    .map((w) => ({ code: w.code, title: humaniseInferenceWarningTitle(w) }))
-}
+// `selectHumanisedInferenceWarnings` — the UNFILTERED selector — was DELETED on
+// 18 Aug 2026. It went dead when #766 partitioned the Advanced list and the
+// warning strip into an exact complement: every caller moved to
+// `selectHumanisedInferenceWarningsOutsideStrip` below, leaving the unfiltered
+// form with a definition and no callers. Rowed in TRUE-BACKLOG from the #766
+// review, trigger "next Analysis-surface tidy" — this is that tidy. Re-adding an
+// unfiltered selector would re-open the duplicate-render defect the complement
+// was built to close, so it is recorded here rather than silently dropped.
 
 /**
  * AdvancedSection selection: the entries the strip does NOT show.

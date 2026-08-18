@@ -24,8 +24,10 @@ export function trackResultsViewed(): void {
  * Compare opened — the ONE sender for this action, deliberately.
  *
  * ⚠ There used to be TWO functions with this exact name: this one (an in-memory
- * counter behind `isTelemetryEnabled`, wired to the real compare-open actions at
- * `OutputsDock.tsx:1698` and `CompactOptionSpread.tsx:86`) and a PostHog one in
+ * counter behind `isTelemetryEnabled`, wired to the real compare-open action at
+ * `OutputsDock.tsx:1698` — a second citation, `CompactOptionSpread.tsx:86`, was
+ * dropped on 18 Aug 2026 when that unreachable component was deleted) and a
+ * PostHog one in
  * `lib/resultsInstrumentation.ts` with **no call sites at all**. So the action
  * users actually perform incremented a counter nobody reads, while the sender
  * that would have reached PostHog was never called — and an import-site typo

@@ -18,15 +18,23 @@
  * reaches the DOM, while proving each harness can still see the surrounding
  * content (trap 13 — an absence assertion with no positive control is vacuous).
  *
+ * ⚠ SCOPE NARROWED (dead-Analysis-block sweep, 18 Aug 2026). This file used to
+ * assert the same absence on `ConfidenceSection` as well. That component had
+ * ZERO importers outside this test tree — its only referrer was the
+ * `components/results` barrel, which itself had zero importers — so those
+ * assertions were about a surface no user could reach, and they were deleted
+ * WITH it. The claim that still matters (the refuted `pp` vocabulary reaches no
+ * rendered results surface) is carried here by `TriageCard`, which IS mounted,
+ * and on the "Resolve next" surface by the sibling spec. The shared matcher
+ * vocabulary control below is unchanged and still guards both.
+ *
  * CLAIM TYPE: rendered text / DOM presence within jsdom. NOT a visibility
  * claim — jsdom cannot prove layout, and nothing here asserts one.
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { ConfidenceSection } from '../ConfidenceSection'
+import { render } from '@testing-library/react'
 import { TriageCard } from '../../shared/TriageCard'
-import type { ConfidenceSectionData } from '../types'
 // Any "<n>pp" token, and the prose that used to carry it — ONE definition,
 // shared with `evpiSurfacesRemoved.resolveNext.honesty.spec.tsx`, which pins the
 // same absence on the NEW "Resolve next" surface. While each file held its own
@@ -51,73 +59,6 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
 function withRemovedProp<P>(props: P, removed: Record<string, unknown>): P {
   return { ...props, ...removed } as P
 }
-
-function baseData(): ConfidenceSectionData {
-  return {
-    tier: { tier: 'strong', icon: '✓', label: 'Good foundation', description: 'ok' },
-    qualityScore: 75,
-    uncertainties: [],
-    topUncertainties: [],
-    improvements: [],
-    topImprovements: [],
-    rankingStability: 0.85,
-  } as unknown as ConfidenceSectionData
-}
-
-describe('ConfidenceSection — no percentage-point value claim on an evidence gap', () => {
-  /**
-   * The gap fixture is the live `a4b32ee2` top gap, carrying the exact refuted
-   * figure PLoT publishes for it.
-   */
-  const LIVE_GAP = {
-    factorId: 'fac_team_experience',
-    factorLabel: 'Existing Team Experience Level',
-    suggestion: 'Gather data on "Existing Team Experience Level" to reduce uncertainty',
-    voi: 0.3764947747747747,
-    confidence: 44,
-    evpiPp: 10.2,
-  }
-
-  function renderWithGap() {
-    const data = {
-      ...baseData(),
-      evidenceGaps: [LIVE_GAP],
-      topEvidenceGaps: [LIVE_GAP],
-    } as unknown as ConfidenceSectionData
-    return render(<ConfidenceSection data={data} />)
-  }
-
-  it('POSITIVE CONTROL: the gap itself still renders — removal did not empty the panel', () => {
-    const { container } = renderWithGap()
-    // Without this, every absence assertion below could pass on a blank panel.
-    expect(screen.getByText('Existing Team Experience Level')).toBeInTheDocument()
-    expect(container.textContent ?? '').toContain('Existing Team Experience Level')
-  })
-
-  it('does not render "Resolving could improve confidence by up to Xpp"', () => {
-    const { container } = renderWithGap()
-    const text = container.textContent ?? ''
-    expect(text).not.toMatch(RESOLVING_CLAIM)
-    expect(text).not.toContain('10.2')
-    expect(text).not.toMatch(PP_TOKEN)
-  })
-
-  it('renders no pp claim even for a large figure that would be hard to miss', () => {
-    const data = {
-      ...baseData(),
-      evidenceGaps: [{ ...LIVE_GAP, evpiPp: 52.9 }],
-      topEvidenceGaps: [{ ...LIVE_GAP, evpiPp: 52.9 }],
-    } as unknown as ConfidenceSectionData
-    const { container } = render(<ConfidenceSection data={data} />)
-    const text = container.textContent ?? ''
-    // The old line ran the value through Math.round, so `52.9` never appeared
-    // literally — asserting only on `52.9` would have been a vacuous test that
-    // passed against the defect. Assert on what was actually rendered.
-    expect(text).not.toContain('53pp')
-    expect(text).not.toMatch(RESOLVING_CLAIM)
-    expect(text).not.toMatch(PP_TOKEN)
-  })
-})
 
 describe('TriageCard — no pp badge', () => {
   const CARD_PROPS = {
@@ -149,20 +90,28 @@ describe('TriageCard — no pp badge', () => {
 
 describe('the removed prose templates appear nowhere in a rendered results surface', () => {
   it('neither "Worth Xpp if resolved" nor "Resolving could improve confidence" survives', () => {
-    const gap = {
-      factorId: 'f1',
-      factorLabel: 'Market Receptivity to Feature',
-      suggestion: 'Gather data on it',
-      voi: 0.15,
-      confidence: 44,
-      evpiPp: 12.3,
-    }
-    const data = {
-      ...baseData(),
-      evidenceGaps: [gap],
-      topEvidenceGaps: [gap],
-    } as unknown as ConfidenceSectionData
-    const { container } = render(<ConfidenceSection data={data} />)
+    // ⚠ HOST RETARGETED (18 Aug 2026). This case used to render
+    // `ConfidenceSection`, which was deleted as provably dead (zero importers
+    // outside the test tree; its only referrer was an unimported barrel). The
+    // vocabulary control below is the load-bearing half of this case and is
+    // host-independent, so it is preserved verbatim and the DOM half now runs
+    // against `TriageCard` — a surface ResultsBody actually mounts. Asserting an
+    // absence on an unmounted component was the weaker claim of the two.
+    const { container } = render(
+      <TriageCard
+        {...withRemovedProp(
+          {
+            cardKey: 'gap-f1-0',
+            ordinal: 1,
+            title: 'Market Receptivity to Feature',
+            detail: 'Gather data on it',
+            category: 'add_evidence' as const,
+            targetNodeId: 'f1',
+          },
+          { evoiImpact: 12.3 },
+        )}
+      />,
+    )
     const text = container.textContent ?? ''
 
     // POSITIVE CONTROL on the matchers themselves: they CAN fire.
@@ -185,6 +134,9 @@ describe('the removed prose templates appear nowhere in a rendered results surfa
       expect(re.test(original), `matcher must see: ${original}`).toBe(true)
     }
 
+    // POSITIVE CONTROL on the host: the card is really rendering content, so the
+    // absence assertions below cannot pass on an empty container.
+    expect(text).toContain('Market Receptivity to Feature')
     expect(text).not.toMatch(WORTH_CLAIM)
     expect(text).not.toMatch(RESOLVING_CLAIM)
     expect(text).not.toContain('12.3')

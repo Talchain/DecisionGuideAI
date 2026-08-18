@@ -29,7 +29,6 @@ import {
   resolveBaselineId,
 } from '../useResultsSectionData'
 import { useCanvasStore } from '../../../canvas/store'
-import { formatFlipRiskMessage } from '../utils/formatScenarioRatio'
 import type { RawFactorSensitivity, EdgeForDirection } from '../types'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 
@@ -1006,138 +1005,20 @@ describe('value_of_information warning trigger', () => {
     expect(shouldShowWarning(highConfidenceHighVoi)).toBe(true)
   })
 })
-
 // =============================================================================
-// 12. Flip Risk Category Display Tests
+// 12. Flip Risk Category Display Tests — DELETED 18 Aug 2026
 // =============================================================================
-
-describe('flip_risk_category display logic', () => {
-  // Helper that mirrors the flip risk display logic in DriversSection.tsx
-  const getFlipRiskMessage = (driver: {
-    flipRiskCategory?: 'isolated' | 'correlated' | 'negligible'
-    fragileEdgeInfo?: {
-      switchProbability?: number
-      alternativeWinnerLabel?: string
-    }
-  }): string | null => {
-    const alternativeWinnerLabel = driver.fragileEdgeInfo?.alternativeWinnerLabel
-    const hasSpecificAlternative = typeof alternativeWinnerLabel === 'string'
-      && alternativeWinnerLabel.trim().length > 0
-      && alternativeWinnerLabel !== 'another option'
-
-    if (driver.flipRiskCategory === 'isolated') {
-      // Show percentage for isolated factors (can flip decision alone)
-      if (driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative) {
-        return formatFlipRiskMessage(driver.fragileEdgeInfo.switchProbability, alternativeWinnerLabel)
-      }
-      return null
-    } else if (driver.flipRiskCategory === 'correlated') {
-      // Show qualitative message for correlated factors (contribute to joint risk)
-      return 'In some simulations, this factor can change which option is best'
-    } else if (driver.flipRiskCategory === 'negligible') {
-      // No flip text for negligible factors
-      return null
-    } else {
-      // Fallback: use existing behavior when flip_risk_category is undefined (old PLoT)
-      if (driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative) {
-        return formatFlipRiskMessage(driver.fragileEdgeInfo.switchProbability, alternativeWinnerLabel)
-      }
-      return null
-    }
-  }
-
-  it('isolated category shows ratio format when probability < 0.5', () => {
-    const driver = {
-      flipRiskCategory: 'isolated' as const,
-      fragileEdgeInfo: {
-        switchProbability: 0.22,
-        alternativeWinnerLabel: 'Keep Pro at £49',
-      },
-    }
-    // Task 1.2: 0.22 < 0.5 → ratio format "~1 in 5"
-    expect(getFlipRiskMessage(driver)).toBe(
-      'In ~1 in 5 simulations, "Keep Pro at £49" becomes the better choice'
-    )
-  })
-
-  it('isolated category shows null when no fragile edge info', () => {
-    const driver = {
-      flipRiskCategory: 'isolated' as const,
-      fragileEdgeInfo: undefined,
-    }
-    expect(getFlipRiskMessage(driver)).toBeNull()
-  })
-
-  it('correlated category shows qualitative message (NOT percentage)', () => {
-    // This is the key fix: correlated factors should NOT show "0% chance..."
-    const driver = {
-      flipRiskCategory: 'correlated' as const,
-      fragileEdgeInfo: {
-        switchProbability: 0, // Would show "0% chance..." without the fix
-        alternativeWinnerLabel: 'Option B',
-      },
-    }
-    expect(getFlipRiskMessage(driver)).toBe('In some simulations, this factor can change which option is best')
-    expect(getFlipRiskMessage(driver)).not.toContain('0%')
-  })
-
-  it('correlated category shows qualitative message even without fragile edge info', () => {
-    const driver = {
-      flipRiskCategory: 'correlated' as const,
-      fragileEdgeInfo: undefined,
-    }
-    expect(getFlipRiskMessage(driver)).toBe('In some simulations, this factor can change which option is best')
-  })
-
-  it('negligible category shows no flip text', () => {
-    const driver = {
-      flipRiskCategory: 'negligible' as const,
-      fragileEdgeInfo: {
-        switchProbability: 0.05,
-        alternativeWinnerLabel: 'Option C',
-      },
-    }
-    expect(getFlipRiskMessage(driver)).toBeNull()
-  })
-
-  it('undefined category (old PLoT) falls back to scenario-tested display', () => {
-    // When flip_risk_category is missing (old PLoT version), use formatFlipRiskMessage
-    const driver = {
-      flipRiskCategory: undefined,
-      fragileEdgeInfo: {
-        switchProbability: 0.35,
-        alternativeWinnerLabel: 'Alternative Option',
-      },
-    }
-    // Task 1.2: 0.35 < 0.5 → ratio format "~1 in 3"
-    expect(getFlipRiskMessage(driver)).toBe(
-      'In ~1 in 3 simulations, "Alternative Option" becomes the better choice'
-    )
-  })
-
-  it('undefined category with no fragile edge shows null', () => {
-    const driver = {
-      fragileEdgeInfo: undefined,
-    }
-    expect(getFlipRiskMessage(driver)).toBeNull()
-  })
-
-  it('ignores "another option" as alternative winner label', () => {
-    // Generic "another option" shouldn't trigger the flip risk message
-    const driver = {
-      flipRiskCategory: 'isolated' as const,
-      fragileEdgeInfo: {
-        switchProbability: 0.5,
-        alternativeWinnerLabel: 'another option',
-      },
-    }
-    expect(getFlipRiskMessage(driver)).toBeNull()
-  })
-})
-
-// =============================================================================
-// Winner Selection Tests
-// =============================================================================
+//
+// This block asserted on `getFlipRiskMessage`, a LOCAL RE-IMPLEMENTATION whose own
+// comment read "mirrors the flip risk display logic in DriversSection.tsx". It
+// tested a copy of the code, never the code (trap 19 — an assertion must bind to
+// its object by identity). The code it mirrored — DriversSection's
+// `decisionChangeRisk` line — sat behind a hard-false constant, rendered nothing,
+// and was deleted with the rest of the fragility placement duplicates; the shared
+// `utils/formatScenarioRatio.ts` it called went to zero production importers in
+// the same change and was deleted too. Nothing here was covering live behaviour.
+// The live flip-risk copy is covered where it renders: `OptionCards`,
+// `FragileEdgeGroupCard`, `StressTestSection` and `TriageActionCardsBody`.
 
 describe('determineWinnerSelection', () => {
   it('falls back to expected_outcome when win_probability coverage is partial', () => {

@@ -11,8 +11,8 @@
  * options section (`ResultsBody.tsx:591`). `OptionCards` beneath it truncates
  * to the top 2 behind a "Show all (N more)" toggle, so a total taken there
  * would routinely be a SUBSET total, which is not a rounding artefact and must
- * not be described as one. `CompactOptionSpread` is not on this route at all
- * (`ResultsBody.tsx:527-529` states so).
+ * not be described as one. `CompactOptionSpread` was not on this route at all,
+ * and on 18 Aug 2026 it was deleted outright (zero importers repo-wide).
  *
  * ONE SOURCE OF TRUTH (trap 12/21)
  * --------------------------------

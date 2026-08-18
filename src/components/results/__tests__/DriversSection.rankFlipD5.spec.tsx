@@ -52,8 +52,10 @@ describe('DriversSection — "Ranking may shift" row hidden (fragility → fragi
     )
     // "Ranking may shift" is a fragility/ranking-shift claim; per the
     // single-source rule it belongs in the fragile-factors section, not the
-    // influence-only driver section (SHOW_FRAGILITY_IN_DRIVER_SECTION). So the
-    // row stays hidden even when rankFlipRate >= 0.15.
+    // influence-only driver section. The row used to be gated off by a hard-false
+    // `SHOW_FRAGILITY_IN_DRIVER_SECTION`; on 18 Aug 2026 it was DELETED, so this
+    // pin now binds to the absence of the code rather than to a constant, and
+    // `StressTestSection` carries the claim at the same >= 0.15 threshold.
     expect(screen.queryByTestId('driver-ranking-shift-factor-1')).not.toBeInTheDocument()
     expect(screen.queryByText(/Ranking may shift/i)).not.toBeInTheDocument()
   })

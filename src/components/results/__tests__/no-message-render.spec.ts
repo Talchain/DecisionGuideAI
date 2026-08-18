@@ -40,15 +40,15 @@ const RESULTS_DIR = join(__dirname, '..')
  * Paths are RELATIVE to RESULTS_DIR so a basename collision elsewhere in
  * src/components/results/ cannot silently inherit this exemption.
  */
-const SKIPPED_FILES = new Set<string>([
-  // ConfidenceSection.tsx — archived 2026-04-17 (commit c88d5967). No
-  // production render path; exists solely as a legacy integration fixture
-  // for specs that pre-date the DecisionConfidencePanel rewrite. A late
-  // .message render was introduced the same day (commit 3702e773) but is
-  // never mounted. Scanner should not treat archived test fixtures as
-  // runtime risk. Remove this entry if the component is re-introduced.
-  'ConfidenceSection.tsx',
-])
+// ⚠ NOW EMPTY, DELIBERATELY. Its only entry was `ConfidenceSection.tsx`, an
+// archived component with no production render path — the exemption was a
+// trust-on-history claim that the file stayed un-mounted. On 18 Aug 2026 the
+// file was DELETED (zero importers outside the test tree; its only referrer was
+// the `components/results` barrel, which itself had zero importers), so the
+// claim is now discharged by absence rather than attested by a list. Keep the
+// set — an empty exemption list is the honest resting state, and the next
+// candidate should have to be added explicitly.
+const SKIPPED_FILES = new Set<string>([])
 
 /** Recursively collect .tsx source files (excluding __tests__, Debug, Advanced) */
 function getSourceFiles(dir: string): string[] {
@@ -148,8 +148,10 @@ const DEFENCE_IN_DEPTH_FILES: Record<string, RegExp> = {
   // sanitise internal identifiers (e.g. `constraint_fac_… observed_state.value
   // intercept=0`), so the "ISL warnings are structurally safe" rationale was
   // false. It now humanises by `code` via the shared view model
-  // (selectHumanisedInferenceWarnings) and holds zero `.message` access, so the
-  // scanner enforces the invariant with no exemption.
+  // (selectHumanisedInferenceWarningsOutsideStrip — the unfiltered
+  // `selectHumanisedInferenceWarnings` was deleted as dead on 18 Aug 2026) and
+  // holds zero `.message` access, so the scanner enforces the invariant with no
+  // exemption.
   // InferenceWarningStrip.tsx: the JSX itself renders ONLY humaniseCritique's
   // sanitised `.title` (never `.message`) — fixed here after the PR #236
   // regression that rendered `w.message` verbatim. The two remaining matches
