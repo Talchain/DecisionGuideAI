@@ -5849,7 +5849,7 @@
     "uppercase-text": {
       "mode": "ratchet",
       "description": "Styling-driven all-caps (uppercase class) — sentence case required (DS v5 §2)",
-      "total": 79,
+      "total": 77,
       "byFile": {
         "src/components/decisions/DecisionList.tsx": 7,
         "src/canvas/compare/EdgeDiffTable.tsx": 6,
@@ -5862,7 +5862,6 @@
         "src/canvas/components/ScenarioSwitcher.tsx": 2,
         "src/canvas/help/KeyboardLegend.tsx": 2,
         "src/canvas/ui/inspector/InspectorAccordion.tsx": 2,
-        "src/canvas/ui/inspector-v2/shared/SectionTitle.tsx": 2,
         "src/components/debug/tabs/PipelineTab.tsx": 2,
         "src/pages/sandbox-guide/components/panel/states/EmptyState.tsx": 2,
         "src/canvas/components/CogPopover.tsx": 1,
@@ -6053,12 +6052,6 @@
           "file": "src/canvas/ui/inspector/InspectorAccordion.tsx",
           "token": "uppercase",
           "sample": "/** Section header style: 11px, uppercase, text-text-light, 1px letter-spacing */"
-        },
-        "uppercase-text :: src/canvas/ui/inspector-v2/shared/SectionTitle.tsx :: uppercase": {
-          "count": 2,
-          "file": "src/canvas/ui/inspector-v2/shared/SectionTitle.tsx",
-          "token": "uppercase",
-          "sample": "* SectionTitle — Lucide icon (13px) + uppercase label"
         },
         "uppercase-text :: src/components/Analysis/utils/formatAnalysis.tsx :: uppercase": {
           "count": 1,
