@@ -36,6 +36,41 @@
  * like FloatingOlumiPanel.measureDockInset), so it stays correct if the canvas
  * is offset or embedded.
  *
+ * ⭐⭐ THE STATED RULE, added 18 Aug 2026: **ONLY EDGE-ANCHORED, LAYOUT-RESERVING
+ * CHROME CONTRIBUTES.** The OutputsDock and the LeftSidebar are edge-anchored, so
+ * "how much do they occlude" has exactly one answer and the caller reserves it on
+ * that side. The floating Olumi conversation panel is not, and it used to be
+ * handled here anyway — converted into a rectangular inset by taking the cheapest
+ * of four clearing directions.
+ *
+ * That conflated two concepts the founder ruled are different:
+ *
+ * > "DO NOT remove floating/concurrent Olumi… FLOATING AND LAYOUT-RESERVING ARE
+ * > DIFFERENT CONCEPTS… FIX THE COMPOSITION, NOT THE CAPABILITY."
+ *
+ * A `fitView` padding is a rectangular inset and cannot express "this box is
+ * covered", so the only way to clear a 400x550 overlay was to surrender a whole
+ * band of canvas. Measured live at 1280x800 on the deployed build: **392px of
+ * canvas, 52% of the resulting fit box** — the fit box was 368x742 with the panel
+ * open against 760x742 without it, and at a dragged position it fell to 257 and
+ * even 194px. Nought of twelve measured models cleared the 0.50 legibility floor
+ * in that state; six of twelve clear it at 760.
+ *
+ * So the floating panel — and its side tab, and its minimised pill — now reserve
+ * NOTHING, EVER. The panel keeps its capability and stops charging the graph for
+ * it. Pinned by the padding-invariance guard (decision guard G2a) in
+ * `computeFitPadding.spec.ts`.
+ *
+ * ⚠ THIS IS NOT "nothing may know the panel is there", and the difference is a
+ * live regression if it is missed. `cameraComfort`'s no-churn rule asks whether a
+ * target is *"off-screen, UNDER AN OCCLUDING PANEL, or rendered unreadably
+ * small"*, and it derived that frame from this function. Deleting the branch here
+ * ALONE scores a node behind the panel COMFORTABLE, so the focus camera silently
+ * refuses to move — no error, no red, and "Ask Olumi about this node" quietly
+ * stops working. The companion-aware COMFORT frame therefore lives in
+ * `cameraComfort.ts` and landed in the same commit as this deletion. Padding is
+ * about layout; comfort is about occlusion; they are not the same question.
+ *
  * Scope caveat: with no `flowEl` argument this defaults to the FIRST `.react-flow`
  * in the document — correct for the single live main canvas (where the wired fit
  * sites run). Multi-canvas surfaces (comparison mode) use their own separate
@@ -72,80 +107,6 @@ const MAX_PADDING_FRACTION = 0.8
 
 /** A pixel padding string, e.g. `'120px'` — matches xyflow's `PaddingWithUnit`. */
 type PxString = `${number}px`
-
-/** The four sides a reservation can be taken from. */
-export type ReservationSide = 'left' | 'right' | 'top' | 'bottom'
-
-/** A rectangle in viewport coordinates — the shape `getBoundingClientRect` returns. */
-export interface Box {
-  left: number
-  top: number
-  right: number
-  bottom: number
-}
-
-/**
- * The cheapest way to push the graph clear of a FREE-FLOATING occluder.
- *
- * The dock and the sidebar are edge-anchored, so "how much do they occlude"
- * has exactly one answer and the caller reserves it on that side. The floating
- * Olumi panel is not: it can rest anywhere, and after the 0→N draft transition
- * it slides to a bottom-right anchor (`FirstUseComposer`), while a minimised
- * pill is a small box wherever the panel last was. There is no single "its
- * side" to reserve.
- *
- * `fitView` padding is rectangular, so the only way to guarantee the graph is
- * not drawn underneath a box is to keep the graph entirely to one side of it.
- * Four reservations achieve that; this returns the SMALLEST, i.e. the direction
- * that costs the fitting box least:
- *
- *   right  → `flow.right - occ.left`     (graph sits left of the occluder)
- *   left   → `occ.right - flow.left`     (graph sits right of it)
- *   bottom → `flow.bottom - occ.top`     (graph sits above it)
- *   top    → `occ.bottom - flow.top`     (graph sits below it)
- *
- * This is what makes a minimised pill cheap: a 28px-tall pill resting near the
- * bottom edge costs ~44px of BOTTOM padding, where reserving the whole right
- * band from its left edge would have cost ~468px of width.
- *
- * Returns `null` when the occluder does not overlap the flow rect at all —
- * nothing to reserve. Ties resolve in `right, left, bottom, top` order, which
- * only matters for exactly-square overlaps and never changes the amount.
- */
-export function cheapestReservation(flow: Box, occ: Box): { side: ReservationSide; amount: number } | null {
-  const overlapsX = occ.left < flow.right && occ.right > flow.left
-  const overlapsY = occ.top < flow.bottom && occ.bottom > flow.top
-  if (!overlapsX || !overlapsY) return null
-
-  const candidates: Array<{ side: ReservationSide; amount: number }> = [
-    { side: 'right', amount: flow.right - occ.left },
-    { side: 'left', amount: occ.right - flow.left },
-    { side: 'bottom', amount: flow.bottom - occ.top },
-    { side: 'top', amount: occ.bottom - flow.top },
-  ]
-  let best = candidates[0]
-  for (const c of candidates) {
-    if (c.amount < best.amount) best = c
-  }
-  return { side: best.side, amount: Math.max(0, best.amount) }
-}
-
-/**
- * Union of a set of rects, or `null` when none are present. Used to treat the
- * floating panel and its side tab (which is positioned OUTSIDE the panel's left
- * edge at `left: -36`, so it is absent from the panel's own
- * `getBoundingClientRect`) as the single opaque box the user actually sees.
- */
-function unionOf(boxes: Array<DOMRect | null>): Box | null {
-  const present = boxes.filter((b): b is DOMRect => b != null)
-  if (present.length === 0) return null
-  return {
-    left: Math.min(...present.map((b) => b.left)),
-    top: Math.min(...present.map((b) => b.top)),
-    right: Math.max(...present.map((b) => b.right)),
-    bottom: Math.max(...present.map((b) => b.bottom)),
-  }
-}
 
 export interface FitPadding {
   top: PxString
@@ -219,41 +180,11 @@ export function computeFitPadding(flowEl?: Element | null): FitPadding {
       if (overlap > 0) left = Math.max(left, overlap + GAP)
     }
 
-    // The floating Olumi conversation panel — a FREE-FLOATING occluder, so it
-    // reserves in whichever direction costs the fitting box least (see
-    // `cheapestReservation`). Measured 16 Aug 2026 at 1280x800: with the panel
-    // open, 10 of the 18 nodes in the committed CEE draft capture rendered
-    // UNDERNEATH it, because this function reserved nothing for it at all.
-    //
-    // The side tab is a sibling positioned at `left: -36` with the panel
-    // `overflow: visible`, so it is NOT part of the panel's own rect — union
-    // the two or the reservation is 36px short of what the user sees.
-    //
-    // ⚠ THE MINIMISED PILL IS DELIBERATELY NOT RESERVED, and this is a judgement
-    // with a measurement behind it rather than an oversight. Reserving it was
-    // tried first: an 84x28 pill resting mid-pane took a 416px BOTTOM
-    // reservation (the cheapest of its four directions), which collapsed the
-    // vertical fitting box to 355px for a graph needing 524px and clamped the
-    // whole first view at the legibility floor. The harm avoided was one node
-    // partially behind a 28px-tall affordance; the harm caused was an
-    // unreadable model. The pill's entire contract is "I am out of the way" —
-    // it is small, semi-transparent and draggable — whereas the open panel is a
-    // 400x550 opaque surface the user is reading. Reserve the surface, not the
-    // affordance.
-    const floating = unionOf([
-      rectOf('[data-testid="floating-olumi-panel"]'),
-      rectOf('[data-testid="floating-olumi-panel-side-tab"]'),
-    ])
-    if (floating) {
-      const reservation = cheapestReservation(flowRect, floating)
-      if (reservation && reservation.amount > 0) {
-        const value = reservation.amount + GAP
-        if (reservation.side === 'right') right = Math.max(right, value)
-        else if (reservation.side === 'left') left = Math.max(left, value)
-        else if (reservation.side === 'top') top = Math.max(top, value)
-        else bottom = Math.max(bottom, value)
-      }
-    }
+    // ⭐ NOTHING ELSE CONTRIBUTES. The floating conversation panel, its side tab
+    // and its minimised pill are read here NOWHERE — deliberately, and see the
+    // header for the 392px this gives back and for why `cameraComfort` still
+    // observes the panel. A future lane adding a free-floating occluder to this
+    // function REDs the padding-invariance guard (G2a).
   }
 
   // Defensive clamp: never reserve so much padding that the pane is left with no
