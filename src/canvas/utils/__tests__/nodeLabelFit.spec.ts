@@ -158,6 +158,13 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // defect with them (overlap area 4,554 -> 115,988 px² on
     // headcount-allocation, 5,589 -> 140,396 px² on pricing-model). Decoupled,
     // both are byte-identical to before. This asserts they stay decoupled.
+    // ⚠ RE-DERIVED 18 Aug 2026 at 6524caed: the overlap figures quoted above
+    // do NOT reproduce — same-row overlap measures 0 px² in all 120 cells with
+    // browser-real node heights, and removing `applyCollisionGuard` altogether
+    // leaves node positions byte-identical. The 17 Aug numbers stay as the
+    // dated record; see the appended note in `nodeLayoutConstants.ts` and the
+    // derived invariant in `src/canvas/__tests__/layout.sameRowGap.spec.ts`.
+    // The DECOUPLING this test pins is unaffected and still correct.
     expect(NODE_SINGLE_ROW_FAIR_SHARE_W).toBe(140)
     expect(NODE_SINGLE_ROW_FAIR_SHARE_W).not.toBe(NODE_LAYOUT_MIN_W)
   })
