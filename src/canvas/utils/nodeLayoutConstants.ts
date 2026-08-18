@@ -131,6 +131,40 @@ export const NODE_CARD_MAX_W = 320
  * So this holds the shipped value: when the tier splits is unchanged by the
  * label scale; only HOW WIDE the cards are once it splits follows the scale.
  * `layout.spec.ts`'s branch regression-locks pin that this did not move.
+ *
+ * ⚠ RE-DERIVED 18 Aug 2026 at 6524caed — THE OVERLAP FIGURES ABOVE DO NOT
+ * REPRODUCE, and the sentence they support ("the pre-existing multi-row overlap
+ * defect") is not observable at this tip. The 17 Aug numbers are left standing
+ * as the dated record of what was measured then; this note is APPENDED rather
+ * than substituted, because a measurement is evidence and evidence is
+ * append-only (CLAUDE.md trap 14b).
+ *
+ * What was measured, and how: `layoutGraph` driven with BROWSER-REAL node
+ * heights (Chromium, `e2e/visual/harness.ts` seeding at 1280x800, captured to
+ * `__tests__/__fixtures__/starter-node-heights.browser-capture-2026-08-18.json`)
+ * over all five shipped starters x eight canvas widths x three node-spacing
+ * settings — 120 cells spanning BOTH packing branches, including the forced
+ * multi-row packings. Same-row overlap was 0 px² in every cell and the minimum
+ * same-row neighbour gap was 44 px in every cell.
+ *
+ * Decisively: deleting the `applyCollisionGuard` call from `layoutGraph`
+ * produced a BYTE-IDENTICAL node-position signature across 25 cells
+ * (sha256/16 = a36fe11f1762b6b5 both before and after). `centreRowsOnSpine`
+ * runs immediately before the guard and re-snaps every row to a uniform
+ * `elkBoxW + gap` stride, so on every reachable input the guard's precondition
+ * is already satisfied and it moves nothing.
+ *
+ * The guard is NOT dead, and that was shown by execution rather than asserted:
+ * shrinking the stride by 30 px with the guard removed REDs 15 of the 22 cases
+ * in `__tests__/layout.sameRowGap.spec.ts`, and the same shrink WITH the guard
+ * in place stays fully green — the guard fires and restores the 44 px gap.
+ * It is a working net that has never had to catch anything.
+ *
+ * Consequence for anyone briefed off the 17 Aug numbers: a spec written to
+ * "assert the multi-row flip no longer overlaps" would pass at pristine and its
+ * prescribed mutant ("disable the guard for one row → must RED") CANNOT BITE,
+ * because removing an inert call changes nothing. Pin the PROPERTY and the
+ * AUTHORITY instead — which is what `layout.sameRowGap.spec.ts` does.
  */
 export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
 
