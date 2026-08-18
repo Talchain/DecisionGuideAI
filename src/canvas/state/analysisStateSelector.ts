@@ -77,6 +77,7 @@ import {
   deriveResultsTabFreshness,
   type ResultsTabFreshnessIndicator,
 } from '../components/resultsTabFreshness'
+import { ANALYSIS_READY_STATUS_UNSUPPLIED } from '../../adapters/cee/types'
 
 /** The results-slice statuses that mean "an analysis is in flight right now". */
 const RUNNING_STATUSES: ReadonlySet<string> = new Set(['preparing', 'connecting', 'streaming'])
@@ -605,12 +606,34 @@ export function composeAnalysisState(
     // legacy `ceeAnalysisReady` slice — same producer, one less derivation.
     // `blocked` is stated by `run_state`, not by the readiness code, so it is
     // forced across rather than hoped for.
+    //
+    // ⚠ EXCEPT THE UNSUPPLIED SENTINEL, WHICH IS AN ABSENCE AND NOT A VERDICT.
+    // CEE emits `analysis_state` on all 22 exits, and 12 of them supply no
+    // readiness payload — `clarify_v2`, the mainline conversational turn, among
+    // them. On those `composeAnalysisStateV1` sets `readiness.status` to its
+    // `READINESS_STATUS_UNSUPPLIED` sentinel, whose own producer docstring says:
+    // "It is NOT a synonym for `blocked`, and a consumer must not treat it as
+    // one." Overriding a retained `ready` with it told a user with a fully
+    // drafted, CEE-ready model that their model was not set up and REMOVED THE
+    // RUN CTA, on every clarifying question asked before the first analysis.
+    //
+    // So the sentinel FALLS BACK to the last known verdict; it never replaces
+    // one. Every real producer status still wins — pinned by an
+    // opposite-direction twin in `analysisStateSelector.unsuppliedReadiness.spec.ts`
+    // so this cannot widen into "the wire never wins".
+    //
+    // ⭐ THIS IS THE SAME SHAPE #1004's review round 2 fixed one field up (a
+    // per-turn composed value silently degrading a retained known-good verdict,
+    // fixed there by threading `exitFreshness`). Fixing one instance of a shape
+    // is not fixing the shape — this is the second instance.
     ceeAnalysisReadyStatus:
       wire === null
         ? ceeAnalysisReadyStatus
         : wireKind === 'blocked'
           ? 'blocked'
-          : wire.readiness.status,
+          : wire.readiness.status === ANALYSIS_READY_STATUS_UNSUPPLIED
+            ? ceeAnalysisReadyStatus
+            : wire.readiness.status,
     hasReport,
     // The orphan OR is preserved from useAnalysisDisplayState's own rule (RCA-D1).
     analysisChanged: wireForcesStale || semantic === 'changed' || trust.orphaned,

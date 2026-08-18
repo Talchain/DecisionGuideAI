@@ -161,10 +161,29 @@ export function SuggestedChips({
   const freshnessSemantic = useAnalysisTrust().semantic
   const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
   // ⭐ PoC DOMAIN 5 — the chip reads the SAME held-model authority the Analyse
-  // control reads (`canRunAnalysis` rung 2.5), so the two cannot disagree about
-  // whether THIS run is possible. Non-null ⇒ the canvas holds a client-injected
-  // graph that CEE never received, so a run would answer about a different
-  // model. See the hold filter below for why it is applied to `chips` directly.
+  // control reads (`canRunAnalysis` rung 2.5), so the two cannot disagree ABOUT
+  // THE HOLD. Non-null ⇒ the canvas holds a client-injected graph that CEE never
+  // received, so a run would answer about a different model.
+  //
+  // ⚠ AND THAT IS THE WHOLE OF THE CLAIM. An earlier draft said the two "cannot
+  // disagree about whether THIS run is possible", which is FALSE on at least
+  // three reachable states — graph-health errors, a streamed draft still
+  // settling, and `readiness.can_run_analysis: false` — in each of which this
+  // chip still renders beside a refusing gate. The gate has six rungs; the chip
+  // now shares one of them. The class is NARROWED, not removed.
+  //
+  // ⭐ THE FULLER FIX IS ONE PROP AWAY AND IS DELIBERATELY NOT TAKEN HERE.
+  // `ConversationPanel` already computes `runGateResult = canRunAnalysis({...})`
+  // — all six rungs — and guards its own `handleRunAnalysis` on it, while
+  // `handleChipClick` consults none of it. Passing that result down is the real
+  // repair; it is a change to the parent's contract with this component and to
+  // the click path, not to chip filtering, so it belongs in its own reviewed
+  // change rather than riding this one. Recorded here so the next reader sees a
+  // known remainder instead of inferring the job is finished.
+  //
+  // (Related, same neighbourhood: the wire already carries `usable_for_chips` —
+  // CEE's own chip-safety statement — surfaced at `analysisStateSelector` and
+  // read today only by the coherence DIAGNOSTIC, never by this surface.)
   const heldOn = useCanvasStore((s) => analysisHeldOn(s.nodes))
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {

@@ -393,10 +393,21 @@ export const ANALYSIS_READY_STATUSES = [
 export type AnalysisReadyStatus = (typeof ANALYSIS_READY_STATUSES)[number]
 
 /**
- * NOT a producer value — a sentinel the UI mints itself. `applyV5State.ts:262`
- * coerces a missing/non-string `analysis_ready.status` to `'unknown'` so the
- * lenient V5 normaliser never drops the payload. It means "CEE said nothing
- * about readiness on this turn", which is not a verdict of any kind.
+ * "CEE said nothing about readiness on this turn" — an ABSENCE, not a verdict
+ * of any kind, and specifically NOT a synonym for `blocked`.
+ *
+ * ⚠ CORRECTED. This said "NOT a producer value — a sentinel the UI mints
+ * itself". That was true when written and is now FALSE at both ends: CEE
+ * declares the identical string as `READINESS_STATUS_UNSUPPLIED`
+ * (`compose/analysis-state-v1.ts`) and emits it on the 12 of 22 turn exits that
+ * supply no readiness payload, `clarify_v2` included. The UI still mints it too
+ * (`applyV5State.ts:262` coerces a missing/non-string `analysis_ready.status`),
+ * so it now arrives by BOTH routes and means the same thing on each.
+ *
+ * ⚠ THE OBLIGATION THAT FOLLOWS, because a consumer already got this wrong:
+ * treat it as "fall back to the last known verdict", NEVER as "not ready".
+ * `analysisStateSelector` does exactly that; reading it as a negative removed
+ * the Run CTA from every pre-analysis clarification turn.
  */
 export const ANALYSIS_READY_STATUS_UNSUPPLIED = 'unknown'
 

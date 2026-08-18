@@ -58,6 +58,14 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 
 import { SuggestedChips } from '../zones/SuggestedChips'
+
+// Mocked so the dev-log counter assertion (case 9) can observe emissions.
+// `importOriginal` is spread so every OTHER export stays real — a bare factory
+// REPLACES the module and silently removes anything it forgets (trap 12).
+vi.mock('../../../v5/debugLog', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../v5/debugLog')>()),
+  logV5StateEvent: vi.fn(),
+}))
 import { useCanvasStore } from '../../store'
 import type { ActionChip } from '../types'
 
@@ -289,9 +297,11 @@ describe('SuggestedChips — the held-model gate (PoC domain 5)', () => {
   //    all, this goes red for the right reason.
   // ───────────────────────────────────────────────────────────────────────────
 
-  it('agrees with canRunAnalysis: whenever the run gate refuses for the hold, the chip is absent', async () => {
+  it('agrees with canRunAnalysis: the gate refuses FOR THE HOLD, and the chip is absent', async () => {
     const { canRunAnalysis } = await import('../../utils/canRunAnalysis')
-    const { analysisHeldOn } = await import('../../utils/analysisHeldOnInjectedModel')
+    const { analysisHeldOn, ANALYSIS_HELD_NOTICE } = await import(
+      '../../utils/analysisHeldOnInjectedModel'
+    )
 
     setReady('ready')
     setNodes(STARTER_NODES)
@@ -299,16 +309,128 @@ describe('SuggestedChips — the held-model gate (PoC domain 5)', () => {
     const heldOn = analysisHeldOn(STARTER_NODES)
     expect(heldOn).toBe('starter') // precondition PINNED in-test (trap 13b)
 
-    const gate = canRunAnalysis({
-      graphHealth: { errors: [], warnings: [] },
-      readiness: { status: 'ready' },
+    // ⚠ THE FIRST DRAFT OF THIS CASE WAS VACUOUS, and the way it was vacuous is
+    // worth keeping in view. Its fixture was `readiness: { status: 'ready' }`,
+    // but `canRunAnalysis` reads `can_run_analysis` — so `readinessObjectsToRun`
+    // fired on the MISSING field and `allowed` was false whether or not the
+    // model was held. The test agreed with the fix for a reason that had nothing
+    // to do with the fix. A gate that refuses for the wrong reason is not
+    // evidence about the hold (trap 13b).
+    //
+    // Fixed two ways, and BOTH are needed: the fixture now uses the real field
+    // names, and the assertion binds to the REASON rather than to the boolean,
+    // so only a refusal that is actually the hold can satisfy it.
+    const params = {
+      graphHealth: { issues: [] },
+      readiness: { can_run_analysis: true },
       hasBlockers: false,
       nodeCount: STARTER_NODES.length,
-      analysisHeldOn: heldOn,
-    } as any)
-    expect(gate.allowed).toBe(false) // the Analyse control refuses …
+    }
+
+    const held = canRunAnalysis({ ...params, analysisHeldOn: heldOn } as never)
+    expect(held.allowed).toBe(false)
+    expect(held.reason).toBe(ANALYSIS_HELD_NOTICE.starter) // …refused FOR THE HOLD
+
+    // ⭐ CONTRAST CONTROL, in the same run: the identical fixture with no hold
+    // must be ALLOWED. Without this the case could pass on any refusal at all.
+    const notHeld = canRunAnalysis({ ...params, analysisHeldOn: null } as never)
+    expect(notHeld.allowed).toBe(true)
 
     renderChips([makeChip({ id: 'coherent', action_type: 'run_analysis' })])
-    expect(screen.queryByTestId('suggested-chip-coherent')).toBeNull() // … and so does the chip
+    expect(screen.queryByTestId('suggested-chip-coherent')).toBeNull() // chip agrees
+  })
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 7. THE ESCAPE ROUTES MUST SURVIVE THE HOLD. A reviewer's mutant that also
+  //    silenced these SURVIVED 12/12 — the routes were present but UNPINNED, so
+  //    a future tightening could strand the user on a held model with a green
+  //    suite. `start_new_draft` is id-routed and carries no message, which is
+  //    exactly the shape a label/message-based filter would swallow.
+  // ───────────────────────────────────────────────────────────────────────────
+
+  it('still shows draft_graph on a held graph — re-drafting is the way OUT of the hold', () => {
+    setReady('ready')
+    setNodes(STARTER_NODES)
+    renderChips([makeChip({ id: 'draft_ok', action_type: 'draft_graph', label: 'Re-draft this live' })])
+    expect(screen.getByTestId('suggested-chip-draft_ok')).toBeInTheDocument()
+  })
+
+  it('still shows the id-routed start_new_draft chip (no message) on a held graph', () => {
+    setReady('ready')
+    setNodes(STARTER_NODES)
+    render(
+      <SuggestedChips
+        chips={[{ id: 'start_new_draft', label: 'Start a new draft', intent: 'primary' } as ActionChip]}
+        onChipClick={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('suggested-chip-start_new_draft')).toBeInTheDocument()
+  })
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 8. ⭐ KNOWN-DROPPED, PINNED AS AN EXACT SET rather than left invisible.
+  //
+  //    `RUN_ANALYSIS_RE` is ANCHORED (`^(?:run|rerun)\s+(?:the\s+)?analysis\.?$`),
+  //    deliberately, so conversational chips like "Explain the analysis" survive.
+  //    The cost is that a chip with NO `action_type` whose message merely
+  //    CONTAINS a run request is not suppressed by the hold.
+  //
+  //    Widening the regex is the wrong trade: it is the same predicate that
+  //    protects the conversational chips, and loosening it to catch this case
+  //    re-opens the opposite harm (trap 22b — one predicate, two opposite
+  //    harms). So the gap is recorded HERE, as an exact set, and this test REDs
+  //    if the set grows OR shrinks. A gap in the suite is honest; a gap the
+  //    suite cannot see is how four rounds of oscillation happen.
+  //
+  //    ⚠ Residual harm is bounded, not zero: such a chip sends an ordinary
+  //    conversational turn, and an LLM-elected `run_analysis` is now itself
+  //    gated server-side by CEE's analysis-election gate.
+  // ───────────────────────────────────────────────────────────────────────────
+
+  it('KNOWN-DROPPED: an unanchored run request with no action_type is NOT suppressed', () => {
+    setReady('ready')
+    setNodes(STARTER_NODES)
+    renderChips([
+      makeChip({ id: 'known_dropped', label: 'Run analysis now', message: 'Please run the analysis now' }),
+    ])
+    // Documented gap, asserted as CURRENT behaviour so a change is visible.
+    expect(screen.getByTestId('suggested-chip-known_dropped')).toBeInTheDocument()
+  })
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 9. ⭐ THE M7-ANALOGUE NON-EQUIVALENCE, DEMONSTRATED RATHER THAN CLAIMED.
+  //
+  //    Mutant M7 showed that applying this filter DOWNSTREAM is behaviourally
+  //    equivalent for VISIBILITY. The source comment justifies the upstream
+  //    position by saying the dev-log counters operate on the admissible set —
+  //    and per the estate's own rule a NON-equivalence must be demonstrated too,
+  //    or the claim dropped. This is the demonstration: a held run chip must not
+  //    be reported as "removed for unreadiness", because it was not.
+  // ───────────────────────────────────────────────────────────────────────────
+
+  it('does not mis-report a HELD chip as removed-for-unreadiness in the dev log', async () => {
+    const { logV5StateEvent } = await import('../../../v5/debugLog')
+    const spy = vi.mocked(logV5StateEvent)
+    spy.mockClear()
+
+    setReady('needs_encoding') // not ready → the unready counter is live
+    setNodes(STARTER_NODES)
+    renderChips([makeChip({ id: 'held_devlog', action_type: 'run_analysis' })])
+
+    const unready = spy.mock.calls.filter((c) => c[0] === 'chip_filter_unready')
+    expect(unready).toHaveLength(0)
+
+    // ⭐ POSITIVE CONTROL, without which the assertion above is vacuous: the
+    // counter must actually FIRE for a chip that really was dropped for
+    // unreadiness. An absence proves nothing until the probe has shown it can
+    // see a presence (trap 13) — and if `import.meta.env.DEV` were false here,
+    // or the mock were not wired, this control would fail rather than let the
+    // absence pass silently.
+    cleanup()
+    spy.mockClear()
+    setNodes(DRAFTED_NODES) // not held → the hold cannot be the reason
+    renderChips([makeChip({ id: 'unready_devlog', action_type: 'run_analysis' })])
+    const fired = spy.mock.calls.filter((c) => c[0] === 'chip_filter_unready')
+    expect(fired).toHaveLength(1)
   })
 })
