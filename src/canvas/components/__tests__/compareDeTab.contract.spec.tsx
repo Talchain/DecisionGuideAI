@@ -97,11 +97,20 @@ describe('Compare is de-tabbed by contract (Fable, 18 Aug 2026)', () => {
     // CONTRAST CONTROL in the same run — absence is only evidence when the
     // things that must be present read present (trap 13e).
     expect(ids).toEqual(['olumi', 'results', 'diagnostics'])
-    // 30s, not the 5s default: importing OutputsDock cold pulls a large module
-    // graph and the default timeout fired BEFORE the assertions ran. A timeout
-    // is not a RED — it proves nothing about the predicate (trap 13) — so the
-    // budget is set where the case fails on its own assertion or not at all.
-  }, 30_000)
+    // ⚠ 120s, and the number is deliberate, not padding. Importing OutputsDock
+    // cold through `resetModules` + `doMock` pulls a very large module graph:
+    // measured 27.1s on this machine, and the 5s default fired BEFORE any
+    // assertion ran. A first 30s budget was WORSE THAN USELESS — it sat just
+    // above the measured cost, so the case passed at 27.1s and then reported
+    // 30001ms / 30009ms / 30004ms under three mutants and the trailing control:
+    // FOUR identical clock-limit readings that look exactly like a biting
+    // mutant and are not (trap 20 — when a per-item probe returns the same
+    // answer for every item, suspect the probe). A timeout is not a RED; it
+    // proves nothing about the predicate. The budget must sit far enough above
+    // the cost that this case can only ever fail on its own assertion.
+    // The same cold-import cost already times out the two OUTPUT_TABS cases in
+    // `aiPanelV2.parity.spec.tsx` at their 5s default on a slow machine.
+  }, 120_000)
 
   it('DT-3: presentedSurfaces() drops compare and keeps the other three, in strip order', () => {
     expect(presentedSurfaces().map(s => s.id)).toEqual(['olumi', 'results', 'diagnostics'])
