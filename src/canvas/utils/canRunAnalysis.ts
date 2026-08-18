@@ -38,54 +38,32 @@
 
 import { draftValuesAreUnsettled, type DraftStreamPhase } from '../stores/draftStore'
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
-import { isV5CanonicalRunPath } from '../../v5/eligibility'
 import {
   composeReadinessBlockedReason,
   type OptionNeedingValues,
 } from './composeBlockedReason'
+import {
+  analysisHeldOnInjectedModel,
+  noticeForProvenance,
+  type ClientInjectedProvenance,
+  type NodeLike,
+} from './analysisHeldOnInjectedModel'
 
 /**
- * The refusal for a model the engine did not draft (see
- * `computeCeeCannotSeeModel`). It is THIS gate's own sentence, deliberately —
- * and that is a correction, not a drift.
+ * The refusal for a model the engine did not draft.
  *
- * ⚠ IT USED TO BE `CEE_DRAFT_FIRST_REFUSAL`, quoting CEE verbatim on the
- * grounds that "the gate must show the engine's own words so panel and chat
- * never contradict each other". CEE does emit
- * `'Draft or save a model first, then run analysis.'` — at
- * `analysis-ready-helper.ts::assessCanonicalAnalysisReadiness`, under code
- * `NO_GRAPH`, when `graph === null || graph === undefined`. That answers
- * *"is there a model at all?"*, and for THAT question both limbs are true and
- * achievable.
+ * ⭐ NOT AUTHORED HERE, AND THAT IS THE FIX. It is
+ * `analysisHeldOnInjectedModel.ts`'s `ANALYSIS_HELD_NOTICE` — the sentence the
+ * provenance banner already shipped and that was already true. The gate used to
+ * write its own (`CEE_DRAFT_FIRST_REFUSAL`, "Draft or save a model first, then
+ * run analysis."), which was false in both limbs; see that module's header for
+ * the derivation and for why quoting CEE's `NO_GRAPH` sentence here was the
+ * root error (trap 21).
  *
- * This rung answers a different question — *"is the model on this canvas one
- * the engine can analyse?"* — and borrowing the other question's answer made
- * BOTH limbs false here (trap 21: name the question each authority answers
- * before making them agree):
- *
- *   - "Draft ... a model first" — `canRunAnalysis` returns at `nodeCount === 0`
- *     before this rung, so a model is ALWAYS on the canvas when this renders.
- *     Witnessed on deployed `d5aa8453`: 8 nodes, 3 options, 3 risks and 8
- *     estimates on screen, beneath this sentence.
- *   - "... or save a model first" — `computeCeeCannotSeeModel` reads
- *     `node.data` only, and `applyStarter` stamps `starterId` onto EVERY node.
- *     Persistence round-trips `node.data`, so a saved starter is still refused.
- *     The product was asking for an action it could not accept (preamble P8).
- *     `StarterProvenanceBanner` had ALREADY corrected exactly this promise in
- *     its own copy — "the starter stamp rides a save, so saving does NOT
- *     re-enable analysis. Re-drafting is the one route that does" — and this
- *     constant beside it was left carrying it. One claim, two copies, one
- *     fixed (trap 12).
- *
- * So it now states this rung's own fact and names the action that genuinely
- * clears it. The named remedy is reachable from where the user is standing:
- * the composer is always on screen, and for a starter
- * `StarterProvenanceBanner`'s "Re-draft this live" does exactly this in one
- * click.
+ * Re-exported rather than inlined so existing importers of this module keep
+ * working while there remains exactly ONE place the sentence is written.
  */
-export const CLIENT_INJECTED_MODEL_REFUSAL =
-  'Olumi has not drafted this model, so it cannot analyse it yet. ' +
-  'Ask Olumi in the chat to draft it live, then run the analysis.'
+export { ANALYSIS_HELD_NOTICE, analysisHeldNotice } from './analysisHeldOnInjectedModel'
 
 /**
  * ROADMAP 2.122 — the refusal shown while a STREAMED draft's structure is on
@@ -120,44 +98,18 @@ export const DRAFT_VALUES_UNSETTLED_REFUSAL =
   'Drafting ended before this model\u2019s values arrived, so they are not final. Start a new draft to analyse it.'
 
 /**
- * Provenance stamps that mark a graph as INJECTED CLIENT-SIDE rather than
- * produced by a CEE turn.
+ * True when the canvas model is invisible to the analysis engine.
  *
- * `templateId` — stamped only by insertBlueprint (PLoT template insert).
- * `starterId`  — stamped only by applyStarter (pre-drafted starter scenario,
- *                src/canvas/starters/loadStarter.ts).
- *
- * No CEE draft path stamps either one, which is exactly what makes them a
- * sound discriminator. Kept as one named list so a third injection source
- * cannot be added without meeting this decision.
+ * ⭐ DELEGATES to `analysisHeldOnInjectedModel` — the ONE condition the run
+ * gate and the provenance banner both read, so neither can claim analysis is
+ * held while the other disagrees (the staleness the 18 Aug affordance sweep
+ * found: the banner still saying "analysis is held" beside "Analysis
+ * complete."). The predicate, the provenance list and the sentence all live in
+ * that module now; this name is kept because it is what the gate's callers and
+ * specs already ask for.
  */
-const CLIENT_INJECTED_PROVENANCE_KEYS = ['templateId', 'starterId'] as const
-
-/**
- * True when the canvas model is invisible to the analysis engine: the graph was
- * injected client-side (see CLIENT_INJECTED_PROVENANCE_KEYS) AND the run would
- * route through CEE, which analyses its own scenario state — not the canvas
- * (#343). A V2-direct run can analyse canvas graphs, so the gate stays open off
- * the canonical path.
- *
- * The V5 turn body carries no graph at all — `src/v5/buildPayload.ts` emits
- * turn ids/stage/message/source/chip and the vendored MessageTurnPayloadSchema
- * is `.strict()` — so CEE's only route to the nodes is its persisted scenario
- * row, which `flushPendingGraphSave` writes ONLY when persistence is active.
- * A guest session therefore has no server-side graph for an injected model, and
- * refusing the run is the honest outcome: the alternative is dispatching a run
- * that returns an answer about a graph nobody analysed.
- *
- * ONE home for the predicate: both gate callers (OutputsDock,
- * ConversationPanel) consume this instead of re-deriving it.
- */
-export function computeCeeCannotSeeModel(
-  nodes: ReadonlyArray<{ data?: Record<string, unknown> | undefined }>,
-): boolean {
-  return (
-    isV5CanonicalRunPath() &&
-    nodes.some((n) => CLIENT_INJECTED_PROVENANCE_KEYS.some((k) => n.data?.[k] != null))
-  )
+export function computeCeeCannotSeeModel(nodes: ReadonlyArray<NodeLike>): boolean {
+  return analysisHeldOnInjectedModel(nodes)
 }
 
 export interface CanRunAnalysisResult {
@@ -194,6 +146,18 @@ export interface CanRunAnalysisParams {
   /** See computeCeeCannotSeeModel — the model exists only client-side and
    *  the run routes through CEE, so the engine would refuse it (#343). */
   ceeCannotSeeModel?: boolean
+  /**
+   * WHICH client-side injection put the graph on the canvas — passed THROUGH
+   * raw (`clientInjectedProvenance(nodes)`), never pre-worded by the caller,
+   * for the same reason `draftStreamPhase` is: a sentence chosen at the call
+   * site is a hand-maintained mirror, and the mutant that picks the wrong
+   * variant survives.
+   *
+   * It affects ONLY the wording of the refusal, never `allowed` — the gating
+   * answer is `ceeCannotSeeModel`. Omitted ⇒ the provenance-neutral notice,
+   * which states the claim without guessing.
+   */
+  injectedProvenance?: ClientInjectedProvenance | null
   /**
    * ROADMAP 2.122 — the streamed draft's phase, passed THROUGH rather than
    * pre-derived by the caller.
@@ -342,7 +306,7 @@ export const RUN_LICENCE_SUPERSEDED_REFUSAL =
  * @returns CanRunAnalysisResult with allowed status and reason
  */
 export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResult {
-  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
+  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false, injectedProvenance = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
 
   const blockingReasons: string[] = []
 
@@ -392,8 +356,8 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   if (ceeCannotSeeModel) {
     return {
       allowed: false,
-      reason: CLIENT_INJECTED_MODEL_REFUSAL,
-      blockingReasons: ['Model not in Olumi scenario state (template insert)'],
+      reason: noticeForProvenance(injectedProvenance),
+      blockingReasons: ['Model not in Olumi scenario state (client-injected graph)'],
     }
   }
 

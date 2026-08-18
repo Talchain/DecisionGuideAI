@@ -113,6 +113,7 @@ import {
   RUN_LICENCE_SUPERSEDED_REFUSAL,
   type ReadinessVerdictLicence,
 } from '../utils/canRunAnalysis'
+import { clientInjectedProvenance } from '../utils/analysisHeldOnInjectedModel'
 import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
@@ -1148,6 +1149,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     nodeCount: nodes.length,
     isRunning,
     ceeCannotSeeModel: computeCeeCannotSeeModel(nodes),
+    injectedProvenance: clientInjectedProvenance(nodes),
     draftStreamPhase,
     optionsNeedingValues,
     readinessStale,

@@ -29,7 +29,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { computeCeeCannotSeeModel, canRunAnalysis, CLIENT_INJECTED_MODEL_REFUSAL } from '../canRunAnalysis'
+import { computeCeeCannotSeeModel, canRunAnalysis } from '../canRunAnalysis'
+import { ANALYSIS_HELD_NOTICE } from '../analysisHeldOnInjectedModel'
 
 const isV5CanonicalRunPathMock = vi.fn(() => true)
 vi.mock('../../../v5/eligibility', async (importOriginal) => {
@@ -75,6 +76,6 @@ describe('computeCeeCannotSeeModel — starter provenance', () => {
       ceeCannotSeeModel: computeCeeCannotSeeModel(starterNodes),
     })
     expect(result.allowed).toBe(false)
-    expect(result.reason).toBe(CLIENT_INJECTED_MODEL_REFUSAL)
+    expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
   })
 })

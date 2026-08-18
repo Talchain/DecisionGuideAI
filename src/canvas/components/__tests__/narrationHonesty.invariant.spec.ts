@@ -387,7 +387,7 @@ describe('every notice this module exports is governed (trap 12, round 2)', () =
    * module must be under the frame-licence rules.
    *
    * Scoped to that module on purpose. The gate module also exports
-   * `CLIENT_INJECTED_MODEL_REFUSAL`, which predates this lane and is governed
+   * `computeCeeCannotSeeModel`'s refusal, which predates this lane and is governed
    * by its own pins (`utils/__tests__/analyseAffordanceTruthfulness.spec.ts`) —
    * holding another module's copy to this lane's licence model would be the
    * wrong claim, so the two refusals this lane owns are listed explicitly above

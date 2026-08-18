@@ -55,11 +55,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { canRunAnalysis, computeCeeCannotSeeModel } from '../canRunAnalysis'
 import {
-  canRunAnalysis,
-  computeCeeCannotSeeModel,
-  CLIENT_INJECTED_MODEL_REFUSAL,
-} from '../canRunAnalysis'
+  ANALYSIS_HELD_NOTICE,
+  analysisHeldNotice,
+  clientInjectedProvenance,
+} from '../analysisHeldOnInjectedModel'
 import { composeReadinessBlockedReason, BLOCKED_REASON_COPY } from '../composeBlockedReason'
 import type { GraphReadiness } from '../../hooks/useGraphReadiness'
 import { derivePostFooterMeta } from '../../components/utils/postAnalysisFooter'
@@ -84,22 +85,56 @@ function gateWith(overrides: Partial<Parameters<typeof canRunAnalysis>[0]> = {})
     hasBlockers: false,
     nodeCount: 8,
     ceeCannotSeeModel: true,
+    injectedProvenance: 'starter',
     ...overrides,
   })
 }
+
+/** The template twin, to prove the wording follows the graph's own provenance. */
+const templateNodes = [{ data: { templateId: 'hiring_strategy_tech_lead' } }]
 
 describe('the injected-model refusal never asks for an action the gate cannot accept (P8)', () => {
   beforeEach(() => {
     isV5CanonicalRunPathMock.mockReturnValue(true)
   })
 
-  it('CONTROL: the injected-model rung is live and owns the refusal', () => {
-    const result = gateWith({ ceeCannotSeeModel: computeCeeCannotSeeModel(starterNodes) })
+  it('CONTROL: the rung is live, and its sentence IS the banner\'s shipped one', () => {
+    const result = gateWith({
+      ceeCannotSeeModel: computeCeeCannotSeeModel(starterNodes),
+      injectedProvenance: clientInjectedProvenance(starterNodes),
+    })
     expect(computeCeeCannotSeeModel(starterNodes)).toBe(true)
     expect(result.allowed).toBe(false)
-    // Bound to the rung BY IDENTITY (the exported constant), never by a
-    // substring another rung's copy could satisfy.
-    expect(result.reason).toBe(CLIENT_INJECTED_MODEL_REFUSAL)
+    // ⭐ THE ONE-AUTHORITY PIN, bound BY IDENTITY to the shared notice rather
+    // than to a constant this module authors. If the gate ever goes back to
+    // writing its own sentence, this REDs.
+    expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
+    expect(result.reason).toBe(analysisHeldNotice(starterNodes))
+  })
+
+  it('the wording follows the graph\'s own provenance, not the call site\'s guess', () => {
+    // Discriminating twin: same rung, different provenance, different sentence —
+    // and neither is chosen by the caller.
+    expect(
+      gateWith({ injectedProvenance: clientInjectedProvenance(templateNodes) }).reason,
+    ).toBe(ANALYSIS_HELD_NOTICE.template)
+    expect(ANALYSIS_HELD_NOTICE.template).not.toBe(ANALYSIS_HELD_NOTICE.starter)
+    // A caller that supplies no provenance states the claim without guessing.
+    expect(gateWith({ injectedProvenance: null }).reason).toBe(ANALYSIS_HELD_NOTICE.unspecified)
+    // Every variant offers the SAME way out — one remedy, three descriptions.
+    for (const notice of Object.values(ANALYSIS_HELD_NOTICE)) {
+      expect(notice).toMatch(/re-draft it live to run one\.$/)
+    }
+  })
+
+  it('the notice is NOT made when analysis is not held (it cannot go stale)', () => {
+    // The sweep found the banner still claiming "analysis is held" beside
+    // "Analysis complete." A null here is what makes that unstateable.
+    isV5CanonicalRunPathMock.mockReturnValue(false)
+    expect(analysisHeldNotice(starterNodes)).toBeNull()
+    // CONTROL: the same input DOES yield a notice on the canonical path.
+    isV5CanonicalRunPathMock.mockReturnValue(true)
+    expect(analysisHeldNotice(starterNodes)).toBe(ANALYSIS_HELD_NOTICE.starter)
   })
 
   it('the rung is UNREACHABLE with an empty canvas, so it may not say "draft a model first"', () => {
@@ -108,9 +143,9 @@ describe('the injected-model refusal never asks for an action the gate cannot ac
     // injected-model sentence ONLY ever renders with a model on screen.
     const empty = gateWith({ nodeCount: 0 })
     expect(empty.reason).toBe('Add some nodes to get started')
-    expect(empty.reason).not.toBe(CLIENT_INJECTED_MODEL_REFUSAL)
+    expect(empty.reason).not.toBe(ANALYSIS_HELD_NOTICE.starter)
 
-    expect(CLIENT_INJECTED_MODEL_REFUSAL).not.toMatch(/draft[^.]*\bfirst\b/i)
+    expect(ANALYSIS_HELD_NOTICE.starter).not.toMatch(/draft[^.]*\bfirst\b/i)
   })
 
   it('saving cannot clear the stamp, so the refusal may not ask the user to save', () => {
@@ -121,15 +156,15 @@ describe('the injected-model refusal never asks for an action the gate cannot ac
     const afterSaveRoundTrip = JSON.parse(JSON.stringify(starterNodes))
     expect(computeCeeCannotSeeModel(afterSaveRoundTrip)).toBe(true)
 
-    expect(CLIENT_INJECTED_MODEL_REFUSAL).not.toMatch(/\bsav(e|ed|ing)\b/i)
+    expect(ANALYSIS_HELD_NOTICE.starter).not.toMatch(/\bsav(e|ed|ing)\b/i)
   })
 
   it('names the one action that DOES clear the refusal — a live re-draft', () => {
     // P8's positive half: the question the product asks must have an acceptance
     // path. `StarterProvenanceBanner`'s "Re-draft this live" is it, and a
     // CEE-drafted graph carries no stamp — proven by the twin below.
-    expect(CLIENT_INJECTED_MODEL_REFUSAL).toMatch(/draft/i)
-    expect(CLIENT_INJECTED_MODEL_REFUSAL).toMatch(/\blive\b/i)
+    expect(ANALYSIS_HELD_NOTICE.starter).toMatch(/draft/i)
+    expect(ANALYSIS_HELD_NOTICE.starter).toMatch(/\blive\b/i)
 
     // The twin: a graph Olumi drafted is NOT refused, so the named remedy is
     // one the gate genuinely accepts.

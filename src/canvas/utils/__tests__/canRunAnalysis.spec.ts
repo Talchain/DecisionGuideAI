@@ -8,9 +8,9 @@ import {
   getRunButtonTooltip,
   getRunButtonAriaLabel,
   computeCeeCannotSeeModel,
-  CLIENT_INJECTED_MODEL_REFUSAL,
-  type CanRunAnalysisParams,
+    type CanRunAnalysisParams,
 } from '../canRunAnalysis'
+import { ANALYSIS_HELD_NOTICE } from '../analysisHeldOnInjectedModel'
 import { BLOCKED_REASON_COPY } from '../composeBlockedReason'
 
 
@@ -440,12 +440,12 @@ describe('canRunAnalysis — #343 honest stopgap (model invisible to CEE)', () =
     // nothing, because the constant was never supposed to track CEE here: CEE
     // emits that sentence for `NO_GRAPH` (no model at all), while this rung
     // fires only with a model on the canvas. Pinning the literal froze the
-    // wrong question's answer in place — see `CLIENT_INJECTED_MODEL_REFUSAL`'s
-    // docstring, and `analyseAffordanceTruthfulness.spec.ts` for the pins that
+    // wrong question's answer in place — see `analysisHeldOnInjectedModel.ts`'s
+    // header, and `analyseAffordanceTruthfulness.spec.ts` for the pins that
     // now hold the sentence to THIS rung's facts.
     const result = canRunAnalysis({ ...base, ceeCannotSeeModel: true })
     expect(result.allowed).toBe(false)
-    expect(result.reason).toBe(CLIENT_INJECTED_MODEL_REFUSAL)
+    expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
   })
 
   it('does not block when the model is CEE-visible (flag false/omitted)', () => {
@@ -478,6 +478,6 @@ describe('computeCeeCannotSeeModel — the ONE home for the honest-gate predicat
   it('the exported refusal constant IS the sentence the gate emits (one home, no drift)', () => {
     isV5CanonicalRunPathMock.mockReturnValue(true)
     const result = canRunAnalysis({ graphHealth: null, readiness: null, hasBlockers: false, nodeCount: 5, ceeCannotSeeModel: computeCeeCannotSeeModel(templateNodes) })
-    expect(result.reason).toBe(CLIENT_INJECTED_MODEL_REFUSAL)
+    expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
   })
 })
