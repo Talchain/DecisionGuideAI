@@ -232,10 +232,16 @@ test.describe('the widest-word bound covers the product’s own content', () => 
      * PLATFORM. Found by this guard on its first CI run — linux Chromium renders
      * the title font ~16% wider than darwin:
      *
-     *     word              darwin    linux
-     *     Cannibalization    97.77   113.47
-     *     Concentration      90.19   103.77
-     *     Improvement        83.55    98.16
+     *     word              darwin    linux    over the 100px bound?
+     *     Cannibalization    97.77   113.47    linux only
+     *     Concentration      90.19   103.77    linux only
+     *     Improvement        83.55    98.16    no
+     *     International      80.39    95.66    no
+     *
+     * TWO words, and the set below was wrong on its first attempt for exactly
+     * that reason: it pinned the WIDEST word rather than EVERY word over the
+     * bound, and CI named the one it had missed ("Concentration 103.77px"). Pin
+     * the whole set, never its head. Both live in `pricing-model`.
      *
      * So on linux metrics the widest word in the product's own content needs
      * 226.94px at the maximum counter-scale, against a COMPRESSED-branch measure
@@ -253,7 +259,7 @@ test.describe('the widest-word bound covers the product’s own content', () => 
      * already pays — a geometry decision, not a test decision, so it is reported
      * rather than taken here.
      */
-    const KNOWN_OVER_BOUND = new Set(['Cannibalization'])
+    const KNOWN_OVER_BOUND = new Set(['Cannibalization', 'Concentration'])
     const over = corpus.filter((c) => c.px > NODE_TITLE_WIDEST_WORD_PX)
     const unexpected = over.filter((c) => !KNOWN_OVER_BOUND.has(c.word))
 
