@@ -67,7 +67,11 @@ import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/A
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
 import { isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
-import { composeMessage, dedupeRenderedText } from './messageComposition'
+import {
+  composeMessage,
+  dedupeRenderedText,
+  turnDeliversNarrativeAsTypedCard,
+} from './messageComposition'
 import { GraphVocabularyLegend } from './GraphVocabularyLegend'
 import { V5AnalysisResultBlock } from '../../v5/blocks/V5AnalysisResultBlock'
 import { V5GraphPatchBlock } from '../../v5/blocks/V5GraphPatchBlock'
@@ -246,6 +250,17 @@ export const InlineBlocks = memo(function InlineBlocks({
    * it is in the detail class and the disclosure is closed. Previously this was
    * a disjunction over two budgets that could (and did) disagree.
    */
+  /**
+   * SECOND-CHANNEL ROUTING (UX gate 2026-08-18 point 4b). Computed ONCE per
+   * turn from the turn's own blocks, because the analysis-result card cannot
+   * see its siblings and must not guess. Structural — block presence, never a
+   * string comparison. See `turnDeliversNarrativeAsTypedCard`.
+   */
+  const narrativeDeliveredByTypedCard = useMemo(
+    () => turnDeliversNarrativeAsTypedCard(blocks),
+    [blocks],
+  )
+
   const detailIndices = useMemo(() => new Set(detail.map((e) => e.index)), [detail])
   const isBlockHidden = useCallback(
     (i: number) => !detailExpanded && detailIndices.has(i),
@@ -305,6 +320,7 @@ export const InlineBlocks = memo(function InlineBlocks({
           onProposalConfirm={onProposalConfirm}
           assistantTextWordCount={assistantTextWordCount}
           commentaryTextOverride={commentaryTextOverrides.get(index)}
+          narrativeDeliveredByTypedCard={narrativeDeliveredByTypedCard}
           isLatestAssistantTurn={isLatestAssistantTurn}
           onRevealHiddenBlocks={hasCollapsedContent ? revealHiddenBlocks : undefined}
           blockContainerRef={blockContainerRef}
@@ -385,6 +401,11 @@ interface BlockRendererProps {
    * when something was withheld, so the ordinary path is untouched.
    */
   commentaryTextOverride?: string
+  /**
+   * UX gate 2026-08-18 point 4b — does this turn deliver the analysis
+   * narrative as its own titled card? Only `v5_analysis_result` reads it.
+   */
+  narrativeDeliveredByTypedCard?: boolean
   /** L-42: only the newest assistant turn's applied-edit card may claim the staleness voice. */
   isLatestAssistantTurn?: boolean
   /** C11: reveal collapsed pacing/budget content (present only while something is collapsed). */
@@ -404,6 +425,7 @@ function BlockRenderer({
   onProposalConfirm,
   assistantTextWordCount = 0,
   commentaryTextOverride,
+  narrativeDeliveredByTypedCard = false,
   isLatestAssistantTurn = false,
   onRevealHiddenBlocks,
   blockContainerRef,
@@ -493,7 +515,12 @@ function BlockRenderer({
     // V5 block kinds — no flag gate; whole V5 path is behind
     // VITE_ENABLE_V5_ORCHESTRATOR at the dispatcher level.
     case 'v5_analysis_result':
-      return <V5AnalysisResultBlock block={block} />
+      return (
+        <V5AnalysisResultBlock
+          block={block}
+          narrativeDeliveredByTypedCard={narrativeDeliveredByTypedCard}
+        />
+      )
 
     case 'v5_graph_patch':
       return (

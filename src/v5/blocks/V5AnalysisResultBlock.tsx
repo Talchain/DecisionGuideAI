@@ -9,6 +9,18 @@
  *     `story_headlines`, `robustness_explanation`, `readiness_rationale`,
  *     `scenario_contexts` (ROADMAP 2.154). This is where the analysis
  *     EXPLANATION lives, so it renders here beside the summary it explains.
+ *
+ *     ⚠ CORRECTED 2026-08-18 (UX gate point 4b) — THAT PREMISE IS FALSE FOR
+ *     ONE OF THE FIVE. `narrative_summary` IS delivered by another wire
+ *     block: the same turn carries a `review_card` of `card_kind:
+ *     "narrative"`, titled "How the analysis reads", whose body is the same
+ *     string byte for byte (8/8 analysis-turn captures, 2026-07-31 →
+ *     2026-08-17; `readiness_rationale` duplicated in 0/8, which is the
+ *     contrast proving the measurement discriminates). Rendering both put the
+ *     same paragraph on screen twice, a few hundred pixels apart, on the
+ *     deployed build. So `narrative_summary` now renders here ONLY when the
+ *     typed card is absent — see the `narrativeDeliveredByTypedCard` prop.
+ *     The premise still holds for the other four, and they are untouched.
  *   - When the payload on that key is genuinely malformed: a hidden operator
  *     marker, and nothing else changes.
  *
@@ -52,6 +64,23 @@ import { calibrateUncertaintyCopy } from '../../components/results/utils/uncerta
 
 export interface V5AnalysisResultBlockProps {
   block: V5AnalysisResultBlockType
+  /**
+   * SECOND-CHANNEL ROUTING (UX gate 2026-08-18 point 4b). True when the SAME
+   * turn also carries a typed narrative review card ("How the analysis
+   * reads"), which CEE emits with the identical string — see
+   * `turnDeliversNarrativeAsTypedCard` in `messageComposition.ts` for the
+   * producer measurement and the reasoning.
+   *
+   * When true, this card omits its `narrative_summary` paragraph AND NOTHING
+   * ELSE: the other four prose fields are not duplicated by any card (0/8 in
+   * the corpus) and are untouched.
+   *
+   * Defaults to FALSE so every existing caller renders byte-for-byte as
+   * before, and so a caller that cannot answer the question causes a
+   * duplicate rather than a dropped paragraph. Absence must never cost
+   * content — the same default `collectConsentSurfaceText` takes.
+   */
+  narrativeDeliveredByTypedCard?: boolean
 }
 
 /**
@@ -247,7 +276,10 @@ function useOptionLabelResolver(
   return (optionId: string) => resolveCanvasLabel(optionId, merged)
 }
 
-function V5AnalysisResultBlockImpl({ block }: V5AnalysisResultBlockProps): ReactElement {
+function V5AnalysisResultBlockImpl({
+  block,
+  narrativeDeliveredByTypedCard = false,
+}: V5AnalysisResultBlockProps): ReactElement {
   // ROADMAP 2.154 — the wire has FOUR states and only ONE of them is an alarm.
   // `absent` (the enricher's soft-fail skips) and `degraded`
   // (`decision_review: null`, CEE's "attempted, degraded at the call site")
@@ -391,7 +423,14 @@ function V5AnalysisResultBlockImpl({ block }: V5AnalysisResultBlockProps): React
           data-testid="v5-analysis-result-decision-review"
           data-produced-at={review030.produced_at}
         >
-          {review030.narrative_summary !== null && (
+          {/*
+            UX gate 2026-08-18 point 4b — the narrative is withheld HERE only
+            when the turn delivers it as its own titled card. Not a string
+            comparison and not a de-duplication: a channel choice, made on
+            block presence, so it cannot depend on the prose staying
+            byte-identical. See `turnDeliversNarrativeAsTypedCard`.
+          */}
+          {review030.narrative_summary !== null && !narrativeDeliveredByTypedCard && (
             <p
               className={`${typography.panelBody} ${PROSE_WRAP}`}
               data-testid="v5-analysis-result-narrative-summary"
