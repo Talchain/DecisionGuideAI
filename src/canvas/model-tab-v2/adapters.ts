@@ -498,8 +498,8 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
  * by you"); this surface reuses it rather than printing the enum, so the pill
  * and the queue cannot disagree about what a source is called.
  */
-function sourceBasis(source: string | undefined): string | null {
-  const label = mapSourceToDisplay(source)
+function sourceBasis(source: string | null | undefined): string | null {
+  const label = mapSourceToDisplay(source ?? undefined)
   return label === null ? null : `Source: ${label}`
 }
 
@@ -550,7 +550,6 @@ export function toRepairQueueItems(
     return factorNodes
       .filter(n => factorValue(n.data) === null)
       .map(n => {
-        const data = n.data as Record<string, unknown> | undefined
         return {
           rowId: n.id,
           label: resolveCanvasLabel(n.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL,
@@ -587,7 +586,6 @@ export function toRepairQueueItems(
   return input.nodes
     .filter(n => nodeKind(n) === 'option' && optionHasNoInterventions(n.data))
     .map(n => {
-      const data = n.data as Record<string, unknown> | undefined
       return {
         rowId: n.id,
         label: resolveCanvasLabel(n.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL,

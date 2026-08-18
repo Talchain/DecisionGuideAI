@@ -49,9 +49,17 @@ import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { ModelOutline } from './ModelOutline'
 import { ModelDetailRegion } from './ModelDetailRegion'
+import { RepairQueueList } from './RepairQueueList'
+import { REPAIR_QUEUE } from './rowPresentation'
 import type { GroupAction, GroupActionContext } from './groupActions'
-import { toModelRows, toRowDetail, nodeKind, type ModelProjectionInput } from './adapters'
-import type { DetailTier, EditCommitState } from './types'
+import {
+  toModelRows,
+  toRepairQueueItems,
+  toRowDetail,
+  nodeKind,
+  type ModelProjectionInput,
+} from './adapters'
+import type { DetailTier, EditCommitState, RepairQueue } from './types'
 
 export interface ModelTabV2PanelProps {
   nodes: Node[]
@@ -94,6 +102,18 @@ export function ModelTabV2Panel({
   onHandOffToOlumi,
 }: ModelTabV2PanelProps) {
   const [tier, setTier] = useState<DetailTier>('plain')
+  /**
+   * Which repair queue the user is standing in, if any.
+   *
+   * ⚠ A MODE, NOT A SECOND LIST. Design §5.3: a queue is *a filtered view of
+   * the same outline* — "there is only ever one rendering of a row". Rendering
+   * the queue BESIDE the outline would put the same factor on screen twice,
+   * which is precisely the defect this whole consolidation exists to remove;
+   * doing it inside the fix would be the defect class reproduced one layer up.
+   * So the queue REPLACES the outline while it is open, and one control
+   * returns.
+   */
+  const [activeQueue, setActiveQueue] = useState<RepairQueue['id'] | null>(null)
   const [filter, setFilter] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [edit, setEdit] = useState<ActiveEdit | null>(null)
@@ -121,6 +141,18 @@ export function ModelTabV2Panel({
   )
 
   const rows = useMemo(() => toModelRows(projection), [projection])
+
+  /**
+   * ⚠ THE CHIP AND THE QUEUE ARE THE SAME DERIVATION, so they cannot disagree.
+   * The count on the chip IS `confirmItems.length` — not a second predicate
+   * that happens to agree today. The current tab ships the opposite: a
+   * "N to verify" badge whose N counts factors the user has no way to reach.
+   * This is the first time that badge does anything (design §7.2).
+   */
+  const confirmItems = useMemo(
+    () => toRepairQueueItems(projection, 'confirm-estimates'),
+    [projection],
+  )
 
   /**
    * The rows whose edit has a canonical transaction at this tip: factors.
@@ -403,6 +435,49 @@ export function ModelTabV2Panel({
         </div>
       </header>
 
+      {/*
+        THE ATTENTION CHIP — the first time "N to verify" is a control.
+        Rendered only when the count is non-zero: a chip reading "0 to verify"
+        is furniture, and the queue behind it would be empty.
+      */}
+      {confirmItems.length > 0 && activeQueue === null && (
+        <button
+          type="button"
+          data-testid="model-tab-v2-chip-confirm-estimates"
+          onClick={() => setActiveQueue('confirm-estimates')}
+          className={`${typography.buttonSmall} self-start rounded border border-panel-border px-2 py-0.5 text-text-header hover:bg-panel-hover`}
+        >
+          {confirmItems.length === 1 ? '1 to verify' : `${confirmItems.length} to verify`}
+        </button>
+      )}
+
+      {activeQueue === 'confirm-estimates' ? (
+        <>
+          <button
+            type="button"
+            data-testid="model-tab-v2-queue-back"
+            onClick={() => setActiveQueue(null)}
+            className={`${typography.buttonSmall} self-start rounded border border-panel-border px-2 py-0.5 text-text-header hover:bg-panel-hover`}
+          >
+            Back to the model outline
+          </button>
+          <RepairQueueList
+            queue={REPAIR_QUEUE['confirm-estimates']}
+            items={confirmItems}
+            onFocusOnCanvas={focusOnCanvas}
+            /*
+              ⚠ THE SAME AUTHORITY CALL AS THE ROW'S CONFIRM CHIP, not a second
+              implementation of confirming. `confirmValueAsIs` routes to
+              `useModelEditAuthority.proposeFactorConfirmation`, so the queue and
+              the row stamp `user_confirmed` through ONE path. Two entry points
+              to one edit is the design; two implementations of one edit is the
+              defect being removed.
+            */
+            onApply={confirmValueAsIs}
+            applyLabel="Confirm"
+          />
+        </>
+      ) : (
       <ModelOutline
         rows={rows}
         tier={tier}
@@ -421,8 +496,9 @@ export function ModelTabV2Panel({
         onGroupAction={onHandOffToOlumi ? handleGroupAction : undefined}
         groupActionContext={groupActionContext}
       />
+      )}
 
-      {selectedRow !== null && selectedDetail !== null && (
+      {activeQueue === null && selectedRow !== null && selectedDetail !== null && (
         <ModelDetailRegion
           row={selectedRow}
           detail={selectedDetail}

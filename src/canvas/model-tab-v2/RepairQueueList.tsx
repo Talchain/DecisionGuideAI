@@ -1,7 +1,19 @@
 /**
  * Model tab v2 — THE REPAIR QUEUE LIST, RENDER-ONLY (design §5.3).
  *
- * ⚠ DELIBERATELY INERT (and still unmounted by the 16 Aug 2026 mount train,
+ * ⚠⚠ NO LONGER WHOLLY INERT, AND NO LONGER UNMOUNTED (18 Aug 2026, the
+ * REHOME → DELETE lane). Two of the four carriers this file was waiting for
+ * now exist: #777 gave `useModelEditAuthority` `proposeFactorConfirmation`
+ * and `proposeOptionIntervention`. So the CONFIRM-ESTIMATES queue is mounted
+ * and its Confirm resolves, through the SAME authority call as the outline
+ * row's Confirm chip — one edit, one path, two entry points. `proposeBatch`
+ * and `proposeDeferral` still do not exist, so Apply-all, Defer and Resume
+ * remain disabled and still say why. The paragraph below is the ORIGINAL
+ * statement, kept because its reasoning is what governs the parts that are
+ * still inert.
+ *
+ * ⚠ DELIBERATELY INERT (as shipped 16 Aug 2026, and still true of every
+ * control whose carrier is missing;
  * which mounted the outline + detail region only). This renders the queue. It
  * does not apply anything, and it cannot: applying needs write operations the
  * canonical wire does not carry yet (`proposeOptionIntervention`,
@@ -61,6 +73,27 @@ export interface RepairQueueListProps {
   items: readonly RepairQueueItem[]
   /** Focus the element on the canvas — read-only navigation, safe today. */
   onFocusOnCanvas?: (rowId: string) => void
+  /**
+   * Resolve ONE item, through the caller's write authority.
+   *
+   * ⚠ OPTIONAL, AND ITS ABSENCE IS THE HONEST DEFAULT. A queue whose carrier
+   * does not exist yet passes nothing and every Apply stays DISABLED with the
+   * reason on it — the state this component shipped in. A queue whose carrier
+   * DOES exist passes it, and only that queue's button comes alive. So
+   * "connected" is a per-queue fact the type system carries, not a flag someone
+   * has to remember to keep true.
+   *
+   * ⚠ THIS COMPONENT STILL WRITES NOTHING. It calls back; the mount host owns
+   * the authority. Wiring a store setter in here would make the queue a second
+   * writer of the same edit — the defect the whole consolidation removes.
+   */
+  onApply?: (rowId: string) => void
+  /**
+   * What resolving means IN THIS QUEUE. "Apply" is right for a suggested value;
+   * "Confirm" is right for ratifying an estimate that is already in the model,
+   * where "Apply" would imply a change that does not happen.
+   */
+  applyLabel?: string
 }
 
 const NO_AUTHORITY_ITEM =
@@ -119,7 +152,13 @@ function ItemCells({
   )
 }
 
-export function RepairQueueList({ queue, items, onFocusOnCanvas }: RepairQueueListProps) {
+export function RepairQueueList({
+  queue,
+  items,
+  onFocusOnCanvas,
+  onApply,
+  applyLabel = 'Apply',
+}: RepairQueueListProps) {
   // Partition, preserving the caller's order within each group.
   const activeItems = items.filter(i => i.deferred === undefined)
   const deferredItems = items.filter(i => i.deferred !== undefined)
@@ -170,15 +209,30 @@ export function RepairQueueList({ queue, items, onFocusOnCanvas }: RepairQueueLi
             >
               <ItemCells queueId={q} item={item} onFocusOnCanvas={onFocusOnCanvas} />
 
+              {/*
+                ⚠ ONE BUTTON, TWO HONEST STATES — never a third that pretends.
+                With a carrier it resolves the item; without one it is disabled
+                and says why. It never renders enabled-but-inert, which is the
+                shape that would let the queue report a success it never had.
+              */}
               <button
                 type="button"
                 data-testid={`repair-queue-v2-${q}-item-${item.rowId}-apply`}
-                disabled
-                title={NO_AUTHORITY_ITEM}
-                aria-label={`${item.label} — ${NO_AUTHORITY_ITEM}`}
-                className={`${typography.buttonSmall} text-text-light cursor-not-allowed border border-panel-border rounded px-2 py-0.5`}
+                disabled={onApply === undefined}
+                onClick={onApply === undefined ? undefined : () => onApply(item.rowId)}
+                title={onApply === undefined ? NO_AUTHORITY_ITEM : undefined}
+                aria-label={
+                  onApply === undefined
+                    ? `${item.label} — ${NO_AUTHORITY_ITEM}`
+                    : `${applyLabel} ${item.label}`
+                }
+                className={`${typography.buttonSmall} border border-panel-border rounded px-2 py-0.5 ${
+                  onApply === undefined
+                    ? 'text-text-light cursor-not-allowed'
+                    : 'text-text-header hover:bg-panel-hover'
+                }`}
               >
-                Apply
+                {onApply === undefined ? 'Apply' : applyLabel}
               </button>
 
               {/*
