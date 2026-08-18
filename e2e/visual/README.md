@@ -303,6 +303,22 @@ then-committed darwin set (tolerance 0.05%):
 Sub-tolerance byte churn was not pruned this time: every reference genuinely
 changed well above tolerance.
 
+### Re-blessed 2026-08-18 (second pass): the two `model-tab` references only
+
+The adversarial review of the shell change found that de-stickying
+`ReanalyseBar` had traded an occlusion for an invisibility: the Model tab's
+only stale warning and only Re-analyse control fell about five screens below
+the fold, and `AnalysisFooter` — the other always-visible Rerun owner — mounts
+on the `results` branch only. The bar now renders into the shell's reserved
+footer region.
+
+`model-tab--1280x800` 2,902 px · `model-tab--1440x900` 3,229 px. **The other
+eight references were byte-identical**, which is the useful part: it is the
+evidence that making the dock a CSS size container (`container-type:
+inline-size`) had no visual effect at all. The re-bless tool rewrote six of
+them with sub-tolerance churn anyway and those six were reverted, per the
+pruning note above.
+
 ### ⚠ These references are PROVISIONAL
 
 They were captured from `staging` at `42f6cb6a`, which still carries the
