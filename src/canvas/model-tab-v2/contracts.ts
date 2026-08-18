@@ -157,50 +157,25 @@ export interface ModelEditAuthority {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// § 2 — From PX-A (panel fronting)
+// § 2 — panel fronting: BUILT, AND ITS TYPES MOVED WITH IT (18 Aug 2026)
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Whether the Olumi surface actually came to the front.
- *
- * ⚠ THE RETURN VALUE IS THE POINT. All 12 send-to-AI call sites on today's
- * Model tab (6 components, 11 distinct messages, measured at `a3c71513`) post a
- * real turn into a panel that stays `hidden`, so the user clicks "Discuss this
- * with the AI" and nothing visibly happens. A hand-off that cannot front the
- * panel must be able to SAY so rather than send into silence.
- */
-export type PanelFrontingOutcome = 'fronted' | 'deferred'
-
-/**
- * The one call this surface needs from the dock lane.
- *
- * Requirements:
- *   · fronts the Olumi conversation whether it is DOCKED, FLOATING or COLLAPSED
- *     (`revealOlumiSurface()` is the current primitive and the natural basis);
- *   · ⚠ ORIGIN IS `'user'`. These are user gestures. They must not stamp
- *     `outputSurfaceOrigin: 'assistant'` and must not raise the
- *     `AssistantOpenedNotice` — telling the user Olumi opened something they
- *     opened themselves is a lie on the one channel whose purpose is
- *     truthfulness;
- *   · returns the outcome.
- *
- * This lane does NOT build it.
- */
-export type FrontOlumiPanel = (opts?: { reason?: string }) => PanelFrontingOutcome
-
-/**
- * The single hand-off helper every v2 send-to-AI affordance goes through.
- *
- * ⚠ THE RULE: no Model-tab control may call `onSendMessage` directly. Fronting
- * happens FIRST, then the send. It matters most for the structural CTAs ("Add a
- * factor", "Add a relationship", "Map interventions", "Explore other
- * strategies") — those terminate in a conversation rather than a mutation, so
- * an invisible conversation makes them dead ends. That combination — the tab's
- * only structural affordance ending in a hidden panel — is the measured
- * mechanism behind "the less I feel like I can actually directly edit the
- * decision model".
- */
-export type HandOffToOlumi = (opts: {
-  message: string
-  reason?: string
-}) => PanelFrontingOutcome
+//
+// `PanelFrontingOutcome`, `FrontOlumiPanel` and `HandOffToOlumi` used to be
+// declared here, unimplemented, against the day another lane built them. They
+// are now implemented in `src/canvas/conversation/olumiHandOff.ts`, and the
+// types went with the implementation.
+//
+// ⚠ THEY HAD TO MOVE, and the reason is a guard doing its job. This directory's
+// boundary scan pins `ModelTabBody.tsx` as the ONLY file outside it that may
+// reference `model-tab-v2/` at all — one mount path, no second one. An
+// implementation living in the conversation layer and importing its interface
+// from here made that scan RED, correctly: a type import is a real reference,
+// and the alternative — widening the allowlist — would have traded a structural
+// guarantee for one import's convenience.
+//
+// The deeper point, which is why this note stays: a contract declared where it
+// is CONSUMED rather than where it is IMPLEMENTED has no owner. It reads as a
+// commitment while nothing is bound to it — `HandOffToOlumi` sat here with ZERO
+// implementations while all eleven Model-tab send-to-AI controls bypassed it
+// entirely. Now the type and the code that satisfies it cannot drift apart,
+// because they are the same file.

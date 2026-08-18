@@ -322,3 +322,94 @@ describe('ModelTabV2Panel — rows with no canonical carrier stay honestly disab
     expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value`)).not.toBeDisabled()
   })
 })
+
+/**
+ * THE HAND-OFF SEAM — the third of three, and the one a mutation battery found
+ * uncovered (18 Aug 2026, the rehome lane).
+ *
+ * The rehomed affordances pass through three independent gates before a turn can
+ * be sent, and each fails CLOSED on its own:
+ *
+ *   1. `createOlumiHandOff(undefined)` → `null`      (pinned in olumiHandOff.spec)
+ *   2. `ModelOutline` with no `onGroupAction` renders nothing
+ *                                                    (pinned in groupActionsRehome.spec)
+ *   3. THIS PANEL with no `onHandOffToOlumi` passes nothing down  ← was unpinned
+ *
+ * ⚠ WHY THAT MATTERED. A mutant that turned gate 1 into a no-op callable reddened
+ * ONLY gate 1's spec, because the other two specs bypass it. Three gates guarding
+ * one harm, each tested where it sits, and the middle one invisible from either
+ * side — so a regression in the panel's own `onHandOffToOlumi ? … : undefined`
+ * conditional would have shipped under a fully green suite. That is the estate's
+ * "guard agreeing with itself" one layer out: every instrument was correct and
+ * none of them was pointed here.
+ */
+describe('ModelTabV2Panel — the rehomed affordances, at the mounted consumer', () => {
+  beforeEach(() => {
+    seedStore()
+  })
+
+  it('renders the rehomed group actions and hands the EXACT message up', () => {
+    const onHandOffToOlumi = vi.fn()
+    render(
+      <ModelTabV2Panel
+        nodes={allNodes()}
+        edges={[stampedEdge()]}
+        goalThreshold={null}
+        onHandOffToOlumi={onHandOffToOlumi}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('model-action-v2-factors-add'))
+    expect(onHandOffToOlumi).toHaveBeenCalledTimes(1)
+    expect(onHandOffToOlumi.mock.calls[0][0]).toBe('I want to add a new factor to the model')
+    // The reason names the action by ID, so a debug trace can be attributed to
+    // one affordance rather than to "the Model tab".
+    expect(onHandOffToOlumi.mock.calls[0][1]).toBe('model-tab-v2:factors-add')
+  })
+
+  it('GATE 3: with no hand-off, the panel renders NO affordance at all', () => {
+    renderPanel()
+    expect(screen.queryByTestId('model-action-v2-factors-add')).toBeNull()
+    expect(screen.queryByTestId('model-action-v2-relationships-add')).toBeNull()
+    expect(screen.queryByTestId('model-action-v2-risks-add')).toBeNull()
+    expect(screen.queryByTestId('model-action-v2-options-explore')).toBeNull()
+    // CONTRAST CONTROL: the panel and its rows DID render, so the absences above
+    // are about the affordances and not about a render that never happened.
+    expect(screen.getByTestId('model-tab-v2-panel')).toBeInTheDocument()
+    expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}`)).toBeInTheDocument()
+  })
+
+  it('the goal hand-off quotes the goal row THIS PANEL projected (P5)', () => {
+    const onHandOffToOlumi = vi.fn()
+    render(
+      <ModelTabV2Panel
+        nodes={allNodes()}
+        edges={[stampedEdge()]}
+        goalThreshold={null}
+        onHandOffToOlumi={onHandOffToOlumi}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('model-action-v2-goal-discuss'))
+    // The label is the goal NODE's label, taken from the projected row — not a
+    // second read of the store, and not the node id.
+    expect(onHandOffToOlumi.mock.calls[0][0]).toContain("'Hit ARR target'")
+    expect(onHandOffToOlumi.mock.calls[0][0]).not.toContain(GOAL_ID)
+  })
+
+  it('a relationship row reads in English, not in wire ids, at the mounted consumer', () => {
+    // `stampedEdge()` carries its own label, so assert the derived path with an
+    // edge that does NOT — the case that produced `fac_… → goal_…` on screen.
+    const unlabelled = {
+      id: 'e_unlabelled',
+      source: FACTOR_ID,
+      target: GOAL_ID,
+      data: { weight: 0.4, direction: 'positive', weightSource: 'user' },
+    } as unknown as Edge
+    render(
+      <ModelTabV2Panel nodes={allNodes()} edges={[unlabelled]} goalThreshold={null} />,
+    )
+    const row = screen.getByTestId('model-row-v2-e_unlabelled')
+    expect(row.textContent).toContain('Monthly Engineering Cost → Hit ARR target')
+    expect(row.textContent).not.toContain(FACTOR_ID)
+    expect(row.textContent).not.toContain(GOAL_ID)
+  })
+})

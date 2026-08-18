@@ -24,6 +24,21 @@
 import { RAW_ID_PATTERN } from '../conversation/friendlyOperation'
 
 /**
+ * What an element is called when the model gives it no honest name.
+ *
+ * ⚠ IT LIVES BESIDE THE POLICY THAT PRODUCES THE `null` IT FILLS, and there is
+ * exactly one of it. It was briefly declared twice — in `model-tab-v2/adapters.ts`
+ * and in `model-tab/ContestedEdgeCard.tsx` — which is the same defect class as the
+ * two editors this work removes, at constant scale: one wording for one situation,
+ * or the two copies drift and the tab calls the same nameless element two things.
+ *
+ * The vocabulary follows the estate's existing choice for this situation
+ * (`V5FlipAnalysisBlock.tsx:30` — "Unnamed factor"), generalised because an
+ * endpoint may be an option or an outcome, not only a factor.
+ */
+export const UNNAMED_ELEMENT_LABEL = 'Unnamed element'
+
+/**
  * Resolve one wire id to a human label, or `null` when no honest label exists.
  *
  * ⚠ RETURNS `null` RATHER THAN THE ID, AND THAT IS THE WHOLE POINT. Callers must

@@ -122,7 +122,7 @@ import { getDisplayEdgeId } from '../utils/edgeIdentity'
 // THE ONE id → label policy (`src/canvas/domain/canvasLabels.ts`). It returns
 // `null` rather than the identifier, and rejects a stored label that is itself
 // id-shaped — which is why it is imported here rather than reimplemented.
-import { buildCanvasLabelMap, resolveCanvasLabel } from '../domain/canvasLabels'
+import { buildCanvasLabelMap, resolveCanvasLabel, UNNAMED_ELEMENT_LABEL } from '../domain/canvasLabels'
 import type {
   AttentionReason,
   ModelElementKind,
@@ -268,22 +268,6 @@ export function optionHasNoInterventions(data: unknown): boolean {
 // Relationships in plain English
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * What an endpoint is called when the model gives it no honest name.
- *
- * ⚠ NEVER THE IDENTIFIER. This surface used to render
- * `fac_arr → out_uk_arr_retention` — the raw wire ids, joined by an arrow — for
- * every edge without its own `label`, which is most of them. The v1 stack
- * resolved both endpoints to their node labels
- * (`RelationshipsSection.tsx:149-150`), so the canonical outline was the LESS
- * readable of the two editors on the one thing a relationship is for: saying
- * what affects what.
- *
- * The vocabulary matches the estate's existing choice for the same situation
- * (`V5FlipAnalysisBlock.tsx:30` — "Unnamed factor"), generalised because an
- * endpoint here may be an option or an outcome, not only a factor.
- */
-const UNNAMED_ENDPOINT_LABEL = 'Unnamed element'
 
 /**
  * `From → To`, in the user's words.
@@ -299,14 +283,14 @@ function relationshipLabel(
   labels: ReadonlyMap<string, string>,
 ): string {
   if (typeof data?.label === 'string' && data.label.trim() !== '') return data.label
-  const from = resolveCanvasLabel(sourceId, labels) ?? UNNAMED_ENDPOINT_LABEL
-  const to = resolveCanvasLabel(targetId, labels) ?? UNNAMED_ENDPOINT_LABEL
+  const from = resolveCanvasLabel(sourceId, labels) ?? UNNAMED_ELEMENT_LABEL
+  const to = resolveCanvasLabel(targetId, labels) ?? UNNAMED_ELEMENT_LABEL
   return `${from} → ${to}`
 }
 
 /** One element's name for a navigation target. Never its identifier. */
 function endpointLabel(id: string, labels: ReadonlyMap<string, string>): string {
-  return resolveCanvasLabel(id, labels) ?? UNNAMED_ENDPOINT_LABEL
+  return resolveCanvasLabel(id, labels) ?? UNNAMED_ELEMENT_LABEL
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
