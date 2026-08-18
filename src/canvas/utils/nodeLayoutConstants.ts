@@ -242,11 +242,19 @@ export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
  *                     pin 1185     0.5587    0.6567    0.6283   (1 shape)
  *
  * 1185 is stable AND at least as legible as the shipped build in every measured
- * cell, and strictly better at 1280 for all three eight-wide starters. Models
- * clearing the 0.50 legibility floor go from 2/5 (shipped, 1280) to 3/5, and
- * from 4/5 to 5/5 at both 1440 and 1512. Choosing on the measurement rather than
- * on evidence-continuity is the whole point of R1's instruction that deriving
+ * cell. Stated precisely, because the tempting summary overstates it: at 1440
+ * and 1512 this pin reproduces the shipped shape, so those columns do not
+ * improve — they were already 5 of 5 clearing the floor and they stay there.
+ * **The gain is at 1280, where models clearing the 0.50 floor go from 2 of 5 to
+ * 3 of 5** (build-vs-buy 0.5000 clamped → 0.5587), and the cost is zero
+ * everywhere else. That is the whole measured effect; choosing on it rather
+ * than on evidence-continuity is the point of R1's instruction that deriving
  * this constant IS the work.
+ *
+ * ⚠ Instrument noise, so the table is not over-read: node HEIGHTS vary by a few
+ * px between runs even at byte-identical node positions (build-vs-buy measured
+ * 1320 then 1316 at 1440, moving the zoom 0.6337 → 0.6567). Treat differences
+ * below ~0.03 as jitter, not as signal.
  *
  * ⚠ WHAT THIS DOES NOT FIX, and it is the honest half. The two five-wide
  * starters pack to a 1776-unit single row and still clamp at 0.50 in the 760px
