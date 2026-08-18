@@ -29,6 +29,7 @@ import { useCanvasStore } from '../../store'
 import { useReadinessStore } from '../../stores/readinessStore'
 import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
+import { ANALYSIS_HELD_NOTICE } from '../../utils/analysisHeldOnInjectedModel'
 import { FOOTER_COPY } from '../pre-analysis-v3/constants'
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -112,18 +113,27 @@ function ensureMatchMedia() {
   }
 }
 
-/** Pre-run canvas: a decision, a goal and five options — Paul's actual model. */
-function seedPreRunCanvas(overrides: Record<string, unknown> = {}) {
+/**
+ * Pre-run canvas: a decision, a goal and five options — Paul's actual model.
+ *
+ * `stamp` is the client-side injection provenance `applyStarter` writes onto
+ * EVERY node. Passing it is the only difference between the two cases in the
+ * final describe below, which is what makes that pair discriminating.
+ */
+function seedPreRunCanvas(
+  overrides: Record<string, unknown> = {},
+  stamp: Record<string, unknown> = {},
+) {
   const nodes = [
-    { id: 'd1', type: 'decision', position: { x: 0, y: 0 }, data: { kind: 'decision', label: 'Build or buy?' } },
-    { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: 'Increase delivery output' } },
+    { id: 'd1', type: 'decision', position: { x: 0, y: 0 }, data: { kind: 'decision', label: 'Build or buy?', ...stamp } },
+    { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: 'Increase delivery output', ...stamp } },
     ...Object.entries(OPTION_LABELS).map(([id, label], i) => ({
       id,
       type: 'option',
       position: { x: 10 * i, y: 0 },
-      data: { kind: 'option', label },
+      data: { kind: 'option', label, ...stamp },
     })),
-    { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: 'Ramp-up time' } },
+    { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: 'Ramp-up time', ...stamp } },
   ]
   useCanvasStore.setState({
     nodes: nodes as never,
@@ -196,7 +206,25 @@ beforeEach(() => {
 afterEach(() => {
   useReadinessStore.getState().reset()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
+  try { localStorage.removeItem('feature.v5CanonicalAnalysis') } catch { /* jsdom quirk */ }
 })
+
+/**
+ * The DEPLOYED run-path posture: both `VITE_V5_CANONICAL_ANALYSIS` and
+ * `VITE_ENABLE_V5_ORCHESTRATOR` are inlined "true" in the staging bundle, so the
+ * canonical path — the one on which CEE receives no graph — is the one a real
+ * user is on (trap 3b: bind to the surface the deployed flags mount).
+ *
+ * ⚠ The canonical half goes through the documented localStorage override, not
+ * `vi.stubEnv`: `lib/flagFactory.ts` reads env from an EAGERLY-CAPTURED SNAPSHOT
+ * (`envSnapshot`) while it reads `localStorage` per call, so a stub set inside a
+ * test arrives after the snapshot and silently reads OFF.
+ */
+function seedCanonicalRunPath() {
+  try { localStorage.setItem('feature.v5CanonicalAnalysis', '1') } catch { /* jsdom quirk */ }
+  vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+}
 
 describe('OutputsDock → the blocked footer, through the real wiring', () => {
   it('names the option the user must describe (no prop injection anywhere)', async () => {
@@ -256,5 +284,69 @@ describe('OutputsDock → the blocked footer, through the real wiring', () => {
       'title',
       BLOCKED_REASON_COPY.oneOption('Partner with a consultancy', true),
     )
+  }, 30_000)
+})
+
+/**
+ * ⭐ THE A2 DEFECT, AT THE DOCK — and the mutant that made this necessary.
+ *
+ * The 18 Aug affordance sweep (A7) found `Analyse first pass` disabled under
+ * "Draft or save a model first, then run analysis." on a 20-node bundled
+ * starter, four rows below the same panel's own option/risk/estimate counts.
+ * The gate now refuses with the sentence the provenance banner already shipped.
+ *
+ * WHY IT IS PINNED HERE AND NOT ONLY AT THE GATE: a mutant that deleted
+ * `analysisHeldOn: analysisHeldOn(nodes)` from OutputsDock's `canRunAnalysis`
+ * call SURVIVED a battery of 261 tests across six spec files. Every one of them
+ * tested the gate as a function or the footer as a prop — the WIRING between
+ * them, which is the entire fix, was pinned by nothing. This file exists for
+ * exactly that class (see its header), so the case belongs in it.
+ *
+ * The verdict is deliberately `can_run_analysis: true` so the hold is the ONLY
+ * blocker: with a refusing verdict the footer would print the readiness rung and
+ * this pin would pass without the wiring ever running.
+ */
+describe('OutputsDock → the held-analysis refusal, through the real wiring', () => {
+  it('a bundled starter refuses with the truthful sentence, not "draft or save a model first"', async () => {
+    seedCanonicalRunPath()
+    seedPreRunCanvas({}, { starterId: 'starter-decision-vendor-selection' })
+    seedVerdict({ can_run_analysis: true, options_ready: 5 })
+
+    render(
+      <ToastProvider>
+        <OutputsDock />
+      </ToastProvider>,
+    )
+
+    const footer = await screen.findByTestId('pre-analysis-v3-footer', {}, { timeout: 20_000 })
+    expect(footer).toHaveTextContent(ANALYSIS_HELD_NOTICE.starter)
+    // The witnessed sentence, and the non-committal line an unwired dock gives.
+    expect(footer).not.toHaveTextContent('Draft or save a model first')
+    expect(footer).not.toHaveTextContent(FOOTER_COPY.notReadySubFallback)
+
+    // One state, one story: the button says the same thing as the subline.
+    const analyse = screen.getByTestId('pre-analysis-v3-analyse')
+    expect(analyse).toBeDisabled()
+    expect(analyse).toHaveAttribute('title', ANALYSIS_HELD_NOTICE.starter)
+  }, 30_000)
+
+  it('DISCRIMINATOR: the identical model Olumi drafted ANALYSES — only the stamp differs', async () => {
+    // The founder's other half, at the dock. Same canvas, same verdict, same
+    // flags; the ONLY difference from the case above is the absence of the
+    // starter stamp. Without this twin the pin above would pass against a dock
+    // that had simply stopped enabling the button.
+    seedCanonicalRunPath()
+    seedPreRunCanvas()
+    seedVerdict({ can_run_analysis: true, options_ready: 5 })
+
+    render(
+      <ToastProvider>
+        <OutputsDock />
+      </ToastProvider>,
+    )
+
+    const analyse = await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
+    expect(analyse).toBeEnabled()
+    expect(screen.getByTestId('pre-analysis-v3-footer')).not.toHaveTextContent('Analysis is held')
   }, 30_000)
 })
