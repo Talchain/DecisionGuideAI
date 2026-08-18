@@ -25,9 +25,6 @@
  * a user sees belongs.
  */
 import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { LABEL_LEGIBLE_ZOOM, MAX_LABEL_COUNTER_SCALE, labelCounterScale } from '../zoomLegibility'
 import {
   NODE_CARD_MAX_W,
@@ -45,51 +42,24 @@ import {
  * MEASURED EVIDENCE, recorded here so the geometry is bound to a real
  * measurement rather than to itself.
  *
- * Chromium, Inter 600 at the DECLARED node-title size of 13px (DS v5 §2.3),
- * against the real loaded font inside the running product, 17 Aug 2026:
+ * Chromium, at the DECLARED node-title size of 13px (DS v5 §2.3), measured
+ * against the LIVE font of a mounted node title inside the running product —
+ * all 194 unbreakable runs in the five shipped starters, i.e. a corpus from
+ * outside this change's author:
  *
- *     Cannibalization  96.06px      Concentration  88.13px
- *     International    78.02px      Engineering    75.13px
- *     Localisation     75.86px      Middleware     70.80px
+ *     Cannibalization  97.77px      Concentration  90.19px
+ *     Improvement      83.55px      RudderStack    82.05px
+ *     International    80.39px      Dependency     79.45px
  *
- * "Cannibalization" is the widest single word in the product's own content —
- * a corpus from outside this change's author. `WIDEST_WORD` names it so the
- * completeness check below can prove the measurement was taken on the right
- * word, and re-RED if a starter ever introduces a longer one.
+ * ⚠ CORRECTED. This recorded 96.06px, taken from a hand-built probe span rather
+ * than from a real title element; the review re-measured at 97.77px and every
+ * one of its figures reproduced here to 2dp. A probe that builds its own font
+ * stack is not measuring the font the product resolves — take the computed
+ * style off the mounted element. The margin above the widest real word is
+ * therefore **2.23px, not 3.94px**: deliberately tight, because the bound feeds
+ * the card floor and every pixel of it widens every compressed card.
  */
-const WIDEST_WORD = 'Cannibalization'
-const WIDEST_WORD_PX_AT_13 = 96.06
-
-const STARTER_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../starters/data')
-
-/** Every node label the shipped starters contain. Derived, never hand-listed. */
-function starterLabels(): string[] {
-  const out: string[] = []
-  for (const file of readdirSync(STARTER_DIR).filter((f) => f.endsWith('.draft.json'))) {
-    const parsed = JSON.parse(readFileSync(join(STARTER_DIR, file), 'utf8')) as {
-      nodes?: Array<{ data?: { label?: unknown }; label?: unknown }>
-    }
-    for (const node of parsed.nodes ?? []) {
-      const label = (node.data?.label ?? node.label) as unknown
-      if (typeof label === 'string' && label) out.push(label)
-    }
-  }
-  return out
-}
-
-/**
- * The longest run of characters that has to fit a line box as one unit. A
- * hyphen is a legal break point, so "Snowflake-Native" is two units, not one.
- */
-function longestUnbreakableRun(labels: string[]): string {
-  let longest = ''
-  for (const label of labels) {
-    for (const run of label.split(/[\s-]+/)) {
-      if (run.length > longest.length) longest = run
-    }
-  }
-  return longest
-}
+const WIDEST_WORD_PX_AT_13 = 97.77
 
 describe('the label scale is the geometry authority', () => {
   it('the maximum counter-scale is DERIVED from the legibility floor, not restated', () => {
@@ -129,19 +99,28 @@ describe('the derived geometry actually holds the product’s own words', () => 
     )
   })
 
-  it('the widest word measured really is the widest word the starters contain', () => {
-    // Derived from the starter files, so a new starter carrying a longer word
-    // REDs here and forces a re-measurement, rather than silently invalidating
-    // the constant above (CLAUDE.md trap 12: a list nobody re-derives drifts).
-    const labels = starterLabels()
-    expect(labels.length).toBeGreaterThan(80)
-    const longest = longestUnbreakableRun(labels)
-    expect(
-      longest.length,
-      `"${longest}" is now the longest unbreakable run in the starters, but the ` +
-        `measurement behind NODE_TITLE_WIDEST_WORD_PX was taken on "${WIDEST_WORD}". Re-measure.`,
-    ).toBeLessThanOrEqual(WIDEST_WORD.length)
-  })
+  /*
+   * ⚠ THE COMPLETENESS CHECK IS NOT HERE, AND MUST NOT BE RE-ADDED HERE.
+   *
+   * A guard asking "does the bound still cover the corpus?" is a question about
+   * PIXEL WIDTH, and jsdom has no text metrics. The first version of this file
+   * substituted CHARACTER COUNT, which is a proxy that fails in the direction of
+   * SILENCE — an adversarial review proved it by measurement:
+   *
+   *     Commoditisation  107.81px  15 chars — same length as the widest real
+   *                                word, 7.81px over the bound, guard GREEN
+   *     Recommendation   110.47px  14 chars — SHORTER and WIDER still
+   *     Communications   106.39px  ·  Mismanagement 104.78px · Accommodation 102.91px
+   *
+   * Five ordinary business words with fewer characters and more pixels than the
+   * bound. Any of them entering a starter re-opens mid-word breaking while the
+   * guard reports success — the same defect class as the truncation it protects.
+   *
+   * It now lives in `e2e/visual/nodeLabelFit.visual.spec.ts`, where it measures
+   * every corpus word against the live font of a mounted title, and carries the
+   * five words above as a NEGATIVE CONTROL that must measure OVER the bound — so
+   * the check is shown to discriminate rather than merely to pass.
+   */
 
   it('the maximum card still affords the measure — the cap does not scale, so it is GUARDED', () => {
     // `NODE_CARD_MAX_W` is a viewport constraint, not a text measure, so it

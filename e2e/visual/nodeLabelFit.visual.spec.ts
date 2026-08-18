@@ -30,7 +30,11 @@
  * 14 after.
  */
 import { test, expect } from '@playwright/test'
+import { readdirSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { VIEWPORTS, clearNotifications, openCanvas, preparePage, seedStarterDraft } from './harness'
+import { NODE_TITLE_WIDEST_WORD_PX } from '../../src/canvas/utils/nodeLayoutConstants'
 
 /** Every starter the product ships — the label corpus, from outside this file. */
 const STARTERS = [
@@ -105,6 +109,138 @@ const readTitles = (): Reading => {
   }
   return { zoom, labelScale, titles }
 }
+
+const STARTER_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../src/canvas/starters/data')
+
+/** Every node label the shipped starters contain. Derived, never hand-listed. */
+function starterLabels(): string[] {
+  const out: string[] = []
+  for (const file of readdirSync(STARTER_DIR).filter((f) => f.endsWith('.draft.json'))) {
+    const parsed = JSON.parse(readFileSync(join(STARTER_DIR, file), 'utf8')) as {
+      nodes?: Array<{ data?: { label?: unknown }; label?: unknown }>
+    }
+    for (const node of parsed.nodes ?? []) {
+      const label = (node.data?.label ?? node.label) as unknown
+      if (typeof label === 'string' && label) out.push(label)
+    }
+  }
+  return out
+}
+
+/**
+ * The longest run that must fit a line box as one unit. A hyphen is a legal
+ * break point, so "Snowflake-Native" is two units.
+ */
+function unbreakableRuns(labels: string[]): string[] {
+  return [...new Set(labels.flatMap((l) => l.split(/[\s-]+/)).filter(Boolean))]
+}
+
+/**
+ * ⭐ THE COMPLETENESS CHECK, AND WHY IT LIVES HERE RATHER THAN IN jsdom.
+ *
+ * `NODE_TITLE_WIDEST_WORD_PX` is a bound on the WIDTH of the widest word the
+ * product's own content contains. The first version of this guard checked the
+ * widest word's CHARACTER COUNT, which is a proxy — and a proxy that fails in
+ * the direction of SILENCE. An adversarial review proved it: "Commoditisation"
+ * is exactly as long as "Cannibalization" (15 characters) and materially wider
+ * in pixels, so it would enter a starter, re-open mid-word breaking, and leave
+ * the guard GREEN. `Recommendation` is WIDER at FOURTEEN characters. Counting
+ * cannot see any of that.
+ *
+ * So the check measures, against the live font of a real mounted node title —
+ * not a hand-built probe span, whose font stack can differ from the one the
+ * product actually resolves. The declared size is derived from the element
+ * itself (`computed font-size ÷ --canvas-label-scale`) rather than assuming 13.
+ */
+const measureWords = (input: { words: string[]; control: string[] }) => {
+  const sample = document.querySelector('[data-testid="node-title"]') as HTMLElement | null
+  if (!sample) return null
+  const cs = getComputedStyle(sample)
+  const root = document.querySelector('.react-flow') as HTMLElement | null
+  const scale = Number(
+    (root ? getComputedStyle(root).getPropertyValue('--canvas-label-scale').trim() : '') || '1',
+  )
+  const declaredPx = parseFloat(cs.fontSize) / scale
+
+  const span = document.createElement('span')
+  span.style.position = 'absolute'
+  span.style.visibility = 'hidden'
+  span.style.whiteSpace = 'pre'
+  span.style.fontFamily = cs.fontFamily
+  span.style.fontWeight = cs.fontWeight
+  span.style.fontStyle = cs.fontStyle
+  span.style.fontFeatureSettings = cs.fontFeatureSettings
+  span.style.letterSpacing = cs.letterSpacing
+  span.style.fontSize = `${declaredPx}px`
+  document.body.appendChild(span)
+
+  const widthOf = (w: string) => {
+    span.textContent = w
+    return Math.round(span.getBoundingClientRect().width * 100) / 100
+  }
+  const measure = (list: string[]) =>
+    list.map((w) => ({ word: w, px: widthOf(w) })).sort((a, b) => b.px - a.px)
+
+  const corpus = measure(input.words)
+  const control = measure(input.control)
+  span.remove()
+  return { declaredPx, scale, letterSpacing: cs.letterSpacing, fontFamily: cs.fontFamily, corpus, control }
+}
+
+test.describe('the widest-word bound covers the product’s own content', () => {
+  test('MEASURED, not counted — and the guard is shown to discriminate', async ({ page }) => {
+    await preparePage(page, VIEWPORTS[0])
+    await openCanvas(page)
+    await seedStarterDraft(page, 'build-vs-buy')
+    await clearNotifications(page)
+    await page.waitForTimeout(1200)
+
+    const words = unbreakableRuns(starterLabels())
+    expect(words.length, 'no starter words were read — the corpus check would be vacuous').toBeGreaterThan(150)
+
+    // NEGATIVE CONTROL. Ordinary business words that are NOT in the corpus and
+    // that the review measured as WIDER than the bound. If these came back
+    // under it, this test could not distinguish a safe corpus from an unsafe
+    // one, and its pass would mean nothing.
+    const control = ['Commoditisation', 'Recommendation', 'Communications', 'Mismanagement', 'Accommodation']
+
+    const result = await page.evaluate(measureWords, { words, control })
+    expect(result, 'no mounted node title to take the live font from').not.toBeNull()
+    const { declaredPx, corpus, control: controlPx } = result!
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `[labelfit] declared title size ${declaredPx}px; widest 6 of ${corpus.length} corpus words:\n` +
+        corpus.slice(0, 6).map((c) => `    ${c.word.padEnd(18)} ${c.px}px`).join('\n') +
+        `\n  negative control (must exceed ${NODE_TITLE_WIDEST_WORD_PX}px):\n` +
+        controlPx.map((c) => `    ${c.word.padEnd(18)} ${c.px}px`).join('\n'),
+    )
+
+    // The declared size must be the DS v5 §2.3 canvas title size. If this drifts
+    // the measurement below is being taken at the wrong size and means nothing.
+    expect(declaredPx).toBeCloseTo(13, 1)
+
+    const widest = corpus[0]!
+    expect(
+      widest.px,
+      `"${widest.word}" measures ${widest.px}px at the declared title size, above the ` +
+        `NODE_TITLE_WIDEST_WORD_PX bound of ${NODE_TITLE_WIDEST_WORD_PX}px. The card floor is ` +
+        `derived from that bound, so this word can break mid-word. Raise the constant to cover it ` +
+        `(and accept the wider cards), or take the word out of the starters.`,
+    ).toBeLessThanOrEqual(NODE_TITLE_WIDEST_WORD_PX)
+
+    // DISCRIMINATION: every control word must be OVER the bound, i.e. the guard
+    // would fire if one of them entered the corpus. Without this the assertion
+    // above passes on any bound large enough to be useless.
+    for (const c of controlPx) {
+      expect(
+        c.px,
+        `negative control "${c.word}" measures ${c.px}px, NOT above the ${NODE_TITLE_WIDEST_WORD_PX}px ` +
+          `bound — this test can no longer tell a safe corpus from an unsafe one`,
+      ).toBeGreaterThan(NODE_TITLE_WIDEST_WORD_PX)
+    }
+  })
+})
 
 test.describe('node titles fit at the settle zoom', () => {
   for (const viewport of VIEWPORTS) {

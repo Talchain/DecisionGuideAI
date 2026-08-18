@@ -60,15 +60,23 @@ export const NODE_HEADER_RESERVE_PX = NODE_HEADER_ICON_PX + NODE_HEADER_GAP_PX
  * Width of the widest single word the product's own content contains, at the
  * DECLARED node-title size (Design System v5 §2.3: Inter 600, 13px).
  *
- * MEASURED, not estimated — in Chromium against the real loaded font, over the
- * 87 node labels in the five shipped starters (`src/canvas/starters/data/`),
- * i.e. a corpus from outside this change's author. The widest is
- * "Cannibalization" at **96.06px**; next are "Concentration" 88.13 and
- * "International" 78.02. Rounded up to 100 for headroom.
+ * MEASURED, not estimated — in Chromium against the LIVE font of a mounted node
+ * title, over all 194 unbreakable runs in the five shipped starters
+ * (`src/canvas/starters/data/`), i.e. a corpus from outside this change's
+ * author. The widest is "Cannibalization" at **97.77px**; next are
+ * "Concentration" 90.19 and "Improvement" 83.55. Rounded up to 100.
  *
  * ⚠ This supersedes a hand-set `96`, whose comment claimed "fits a
- * ~12-character word". That was 0.06px short of its own widest real word even
- * at 1× — the value was under-derived, not merely unscaled.
+ * ~12-character word" — under-derived, not merely unscaled.
+ *
+ * ⚠ THE MARGIN IS 2.23px AND THAT IS DELIBERATE. Every pixel here is doubled by
+ * the counter-scale and widens every compressed card, so headroom is not free.
+ * Ordinary business words already exceed it — "Recommendation" 110.47px,
+ * "Commoditisation" 107.81px — and are simply not in the product's content
+ * today. `e2e/visual/nodeLabelFit.visual.spec.ts` MEASURES the corpus against
+ * this bound and REDs if one arrives; it carries those words as a negative
+ * control so it is shown to discriminate. Do not guard this by counting
+ * characters: "Commoditisation" is exactly as long as "Cannibalization".
  */
 export const NODE_TITLE_WIDEST_WORD_PX = 100
 
