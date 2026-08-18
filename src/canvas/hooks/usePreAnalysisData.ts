@@ -373,7 +373,7 @@ function getMissingBaselineIssue(
     severity: 'low',
     category: 'framing',
     title: 'No baseline option identified',
-    why: 'Consider marking one option as your "do nothing" or "status quo" baseline for comparison.',
+    why: 'Consider marking one option as your baseline — the option where nothing changes — for comparison.',
     focus: undefined,
     actions: [
       { key: 'mark_baseline', label: CTA_LABELS.markBaseline, kind: 'navigate' },

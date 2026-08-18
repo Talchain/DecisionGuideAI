@@ -23,6 +23,29 @@
  * proper labeling and comparison handling.
  */
 
+/**
+ * ⭐ THE ONE USER-FACING NAME FOR THE DO-NOTHING OPTION (Paul, 18 Aug 2026).
+ *
+ * This module already owned DETECTION — 14 call sites, every one of them
+ * reading `.isBaseline`. It did not own the NAME, and nothing did: three
+ * would-be authorities in this file and in `inspectorStrings.ts` had zero
+ * non-test consumers, so every visible string was hand-written at its render
+ * site. The canvas then said three things about one object — the panels badged
+ * it "Baseline" while `useAddBaseline` minted a node whose visible TITLE was
+ * "Status Quo" and its own chips asked about "the status quo" and "doing
+ * nothing". A hand-written string in N places is the drift mechanism
+ * (CLAUDE.md trap 12), so the name lives here exactly once.
+ *
+ * ⚠ NOT to be confused with `status_quo_bias`, a named cognitive bias carried
+ * on the wire and rendered from `shared/biasSignalTitles.ts`. That is a
+ * different concept and keeps its name — "Baseline bias" is not a thing.
+ *
+ * ⚠ The value must remain something `detectBaseline` itself recognises, or the
+ * product would mint a node its own detector reads as an ordinary option.
+ * `baselineVocabulary.canvas.spec.ts` pins exactly that.
+ */
+export const BASELINE_OPTION_LABEL = 'Baseline'
+
 // Keywords that indicate a baseline/status quo option
 const BASELINE_KEYWORDS = [
   'keep',

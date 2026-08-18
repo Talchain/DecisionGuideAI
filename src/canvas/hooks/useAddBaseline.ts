@@ -1,7 +1,7 @@
 /**
  * useAddBaseline Hook (P2 Task 2)
  *
- * Shared hook for creating a "Status Quo" baseline option.
+ * Shared hook for creating the "Baseline" option.
  * Extracted from PreAnalysisPanel.handleAddBaseline for reuse in Results panel.
  *
  * Features:
@@ -12,6 +12,7 @@
  */
 
 import { useCallback } from 'react'
+import { BASELINE_OPTION_LABEL } from '../utils/baselineDetection'
 import { useCanvasStore } from '../store'
 import { focusNodeById } from '../utils/focusHelpers'
 
@@ -23,14 +24,14 @@ interface UseAddBaselineOptions {
 }
 
 interface UseAddBaselineReturn {
-  /** Add a "Status Quo" baseline option to the graph */
+  /** Add the "Baseline" option to the graph */
   addBaseline: () => boolean
   /** Check if a baseline already exists */
   hasBaseline: boolean
 }
 
 /**
- * Hook for creating a "Status Quo" baseline option.
+ * Hook for creating the "Baseline" option.
  * Returns a function that creates the baseline and a flag indicating if one exists.
  */
 export function useAddBaseline(options: UseAddBaselineOptions = {}): UseAddBaselineReturn {
@@ -100,7 +101,7 @@ export function useAddBaseline(options: UseAddBaselineOptions = {}): UseAddBasel
     updateNode(newNode.id, {
       data: {
         ...newNode.data,
-        label: 'Status Quo',
+        label: BASELINE_OPTION_LABEL,
         kind: 'option',
         is_baseline: true,
         interventions,
