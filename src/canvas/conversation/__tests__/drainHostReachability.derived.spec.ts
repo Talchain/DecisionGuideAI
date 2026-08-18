@@ -170,11 +170,25 @@ function flagOnHostedDrains(drains: string[]): string[] {
  *     (a) CEE never hears about a local canvas edit between turns. The turn
  *         itself writes no graph server-side by design, so no persisted state is
  *         lost — what is lost is CEE's awareness that the model moved.
- *     (b) STALE COACHING SURVIVES A LOCAL STRUCTURAL EDIT. `clearGuidanceItems()`
+ *     (b) ⚠⚠ CLOSED — DO NOT INHERIT THIS AS A LIVE LOSS. It used to read:
+ *         "STALE COACHING SURVIVES A LOCAL STRUCTURAL EDIT. `clearGuidanceItems()`
  *         is what drops every guidance item the moment the user changes the
  *         model; with no host it never runs, so guidance minted against the old
  *         model stands until the next assistant turn replaces the whole list
- *         (`useConversation.ts:3911` / `:5078`). This is the user-visible half.
+ *         (`useConversation.ts:3911` / `:5078`). This is the user-visible half."
+ *         That was true and is no longer. The coaching half was SPLIT OUT of this
+ *         hook as `useGuidanceInvalidationOnEdit` and given its own flag-ON host,
+ *         `GuidanceInvalidationHost`, mounted in `MaybeConversationProvider`
+ *         beside the two drain hosts above. It is pinned by
+ *         `guidanceInvalidationReachability.production.spec.tsx`, which REDs if
+ *         the mount is deleted.
+ *         ⭐ THE SPLIT IS THE POINT, and it is why this entry stays rather than
+ *         being deleted: re-hosting `useGraphEditEvents` itself would have fixed
+ *         the coaching defect AND silently switched on `direct_graph_edit` wire
+ *         emission for every flag-ON user. The new hook takes no transport and
+ *         imports none, so it cannot. The wire half — (a) above — is STILL DARK,
+ *         deliberately, and this hook is still correctly listed in
+ *         `KNOWN_DARK_DRAINS` for that reason alone.
  *     (c) Journey `direct_edit` scenario events — no loss: that limb is gated on
  *         `isJourneyTabEnabled()` and Journey is retired by contract
  *         (`shellContract.ts`, `presentedAsTab: false`).
