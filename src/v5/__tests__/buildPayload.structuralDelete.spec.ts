@@ -16,7 +16,7 @@ import { describe, it, expect } from 'vitest'
 import { OrchestratorTurnPayloadSchema } from '@talchain/schemas/boundary'
 
 import { buildV5Payload } from '../buildPayload'
-import { WIRE_SYSTEM_EVENT_TYPES } from '../../canvas/conversation/types'
+import { WIRE_SYSTEM_EVENT_TYPES, type SystemEvent } from '../../canvas/conversation/types'
 
 const HASH = 'f3d31f75957c5cb5'
 
@@ -25,10 +25,13 @@ function build(payload: Record<string, unknown>) {
     turnId: '11111111-1111-4111-8111-111111111111',
     scenarioId: '22222222-2222-4222-8222-222222222222',
     stage: 'analyse',
-    turnClass: 'system_event',
+    turnClass: 'decide',
     mode: 'system',
-    systemEvent: { type: 'structural_delete', payload },
-  } as Parameters<typeof buildV5Payload>[0])
+    // The malformed cases below are exactly what a drifted caller would hand
+    // over, so the payload slot stays deliberately untyped — narrowing it here
+    // would make the compiler, not the adapter, the thing under test.
+    systemEvent: { type: 'structural_delete', payload } as SystemEvent,
+  })
 }
 
 const wellFormed = {
