@@ -438,8 +438,14 @@ describe('STRUCTURAL_DELETE_NOTICE', () => {
   it('the mechanism that copy names is the one in the code (the pin, not the phrase)', () => {
     // If `applyV5State` ever stops capturing the hash, the copy becomes a lie —
     // so the claim is pinned against the producer's source rather than trusted.
+    //
+    // ⚠ PINNED TO THE CALL, NOT THE NAME, AND A MUTANT IS WHY. The first version
+    // asserted only that the file CONTAINS 'setLastServerGraphHash' — which the
+    // optional-setter DECLARATION in `V5ApplicatorStore` satisfies all by
+    // itself. Deleting the actual capture left this test GREEN: a guard that
+    // matches a type declaration is not a guard on the behaviour.
     const applicator = readFileSync(resolve(process.cwd(), 'src/v5/applyV5State.ts'), 'utf8')
-    expect(applicator).toContain('setLastServerGraphHash')
+    expect(applicator).toContain('store.setLastServerGraphHash?.(rawGraphHash)')
     expect(applicator).toContain('graph_hash:captured')
   })
 
