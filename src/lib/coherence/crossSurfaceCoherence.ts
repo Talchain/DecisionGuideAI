@@ -126,6 +126,8 @@ import {
   type AnalysisBlocker,
 } from '@talchain/schemas/boundary'
 
+import { ANALYSIS_READY_STATUSES } from '../../adapters/cee/types'
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Producer vocabularies
 // ─────────────────────────────────────────────────────────────────────────────
@@ -155,22 +157,21 @@ export const READINESS_STATUS_UNSUPPLIED = 'unknown'
 
 /**
  * The full `readiness.status` vocabulary CEE can emit, recorded so drift is
- * VISIBLE rather than silent. Derived from `AnalysisReadyStatus`
- * (CEE `src/schemas/analysis-ready.ts:222-228`) plus the unsupplied sentinel.
+ * VISIBLE rather than silent. `AnalysisReadyStatus`
+ * (CEE `src/schemas/analysis-ready.ts:220-227`) plus the unsupplied sentinel.
  *
- * ⚠ This is a MIRROR of a producer registry, and this estate's dominant defect
- * is exactly that. It is therefore NOT load-bearing for any detector — no pair
- * consults it. It exists solely so
- * `crossSurfaceCoherence.contractDerivation.spec.ts` can assert that every
- * status appearing in the real captures is a member, and RED when one is not.
- * A drift makes the suite fail loud; it never silently changes a verdict.
+ * ⚠ Still a MIRROR of a producer registry — the shared contract does not export
+ * that enum at the 0.48.0 pin, so it cannot be derived from `@talchain/schemas`
+ * (measured, with contrast controls; see `ANALYSIS_READY_STATUSES`). What HAS
+ * changed is that this module no longer keeps its own second copy: the producer
+ * half now comes from the single recorded vocabulary in `adapters/cee/types.ts`,
+ * so this list and `usePreRunValidation`'s gate cannot disagree about what CEE
+ * can say. It remains NOT load-bearing for any detector — no pair consults it —
+ * and exists so `crossSurfaceCoherence.contractDerivation.spec.ts` and the real
+ * captures spec RED when a status turns up that is not a member.
  */
 export const KNOWN_READINESS_STATUSES: readonly string[] = [
-  'ready',
-  'needs_user_mapping',
-  'needs_encoding',
-  'needs_user_input',
-  'blocked',
+  ...ANALYSIS_READY_STATUSES,
   READINESS_STATUS_UNSUPPLIED,
 ]
 

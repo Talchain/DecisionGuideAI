@@ -7,6 +7,8 @@
  * Validators are defensive and never throw - they return validation results.
  */
 
+import { ANALYSIS_READY_STATUSES } from '../adapters/cee/types'
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -66,7 +68,14 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 // CEE Response Validators
 // ============================================================================
 
-const VALID_CEE_STATUSES = ['ready', 'needs_encoding', 'needs_user_mapping', 'needs_user_input'] as const
+/**
+ * Derived from the ONE recorded producer vocabulary rather than re-spelled.
+ * This list was a third hand-maintained copy of CEE's `AnalysisReadyStatus` and
+ * had the same missing member (`blocked`), so this diagnostic reported a valid
+ * refusal payload as `invalid status "blocked"` — a false contract failure in
+ * the tool people reach for when they suspect a contract failure.
+ */
+const VALID_CEE_STATUSES = ANALYSIS_READY_STATUSES
 const VALID_NODE_KINDS = ['goal', 'factor', 'outcome', 'decision', 'risk', 'action', 'option'] as const
 
 /**

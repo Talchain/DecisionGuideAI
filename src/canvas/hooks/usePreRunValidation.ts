@@ -18,7 +18,15 @@ import type { Node, Edge } from '@xyflow/react'
 import type { UIOption } from '../../types/options'
 import { normaliseOptionFromLegacyNode, type LegacyOptionNode } from '../../types/options'
 import { validateAllEdges, ceeOptionToUIOption } from '../../adapters/plot/v2'
-import type { CEEAnalysisReady } from '../../adapters/cee/types'
+import {
+  RECOGNISED_ANALYSIS_READY_STATUSES,
+  type CEEAnalysisReady,
+  type RecognisedAnalysisReadyStatus,
+} from '../../adapters/cee/types'
+import {
+  ANALYSIS_REFUSAL_GENERIC_REASON,
+  describeAnalysisRefusalReason,
+} from '../store/analysisRefusalNotice'
 import { detectBaseline } from '../utils/baselineDetection'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { verboseWarn } from '../../utils/verboseLog'
@@ -26,26 +34,75 @@ import { getEdgeKey } from '../domain/edgeUtils'
 import type { ValidationWarning, ValidationBlocker } from '@talchain/schemas'
 
 /**
+ * What this gate DOES about each status it recognises.
+ *
+ * ⭐ THIS MAP IS THE DRIFT GUARD, and it is load-bearing rather than
+ * decorative — every branch below is selected from it, so it cannot agree with
+ * itself while the validator does something else (trap 13b).
+ *
+ * `Record<RecognisedAnalysisReadyStatus, …>` is total by construction:
+ *   • a member ADDED to `RECOGNISED_ANALYSIS_READY_STATUSES` and not given a
+ *     disposition here is a TS2741 missing-property error;
+ *   • a member REMOVED there leaves an excess key here — a TS2353 error.
+ * Either way the BUILD breaks. That is the fail-loud CLAUDE.md trap 12 asks for
+ * where derivation is impossible, and derivation IS impossible here: CEE's
+ * `AnalysisReadyStatus` is not exported by `@talchain/schemas` at the 0.48.0 pin
+ * (measured with contrast controls — see the note on the vocabulary itself).
+ *
+ * Before this map, the recognised set was a hand-typed copy of the producer's
+ * enum that was one member short. `blocked` fell through to the defensive
+ * unrecognised branch, so a refused analysis told the user
+ * `Unrecognised analysis status "blocked". Please re-draft.` and offered a
+ * re-draft that discards options added in chat.
+ */
+type StatusDisposition =
+  /** CEE says this model can be analysed. */
+  | 'runnable'
+  /** CEE REFUSED: a validation failure prevents analysis. `blocked_reason` says why. */
+  | 'producer_blocked'
+  /** Deterministic user action required — hard block, never bypassed. */
+  | 'hard_block_brief'
+  /** LLM metadata omission; bypassable when the option data is actually resolved. */
+  | 'soft_bypassable'
+  /** No readiness verdict on this turn. Not a verdict — but not a licence to run. */
+  | 'generic_not_ready'
+
+const STATUS_DISPOSITION: Record<RecognisedAnalysisReadyStatus, StatusDisposition> = {
+  ready: 'runnable',
+  needs_user_mapping: 'soft_bypassable',
+  needs_encoding: 'soft_bypassable',
+  needs_user_input: 'hard_block_brief',
+  blocked: 'producer_blocked',
+  unknown: 'generic_not_ready',
+}
+
+/**
  * CEE statuses that the LLM produces when it drops metadata (e.g. `category`).
  * These can be soft-bypassed when the actual option data is resolved.
  * Also used by PreAnalysisPanel to determine retry eligibility.
+ *
+ * DERIVED from the disposition map — never hand-listed again.
  */
-export const SOFT_BYPASS_STATUSES: ReadonlySet<string> = new Set([
-  'needs_user_mapping',
-  'needs_encoding',
-])
+export const SOFT_BYPASS_STATUSES: ReadonlySet<string> = new Set(
+  Object.entries(STATUS_DISPOSITION)
+    .filter(([, disposition]) => disposition === 'soft_bypassable')
+    .map(([status]) => status),
+)
 
 /**
- * All recognised analysis_ready.status values.
- * Unrecognised values trigger a defensive hard block.
+ * All recognised analysis_ready.status values. Unrecognised values still trigger
+ * the defensive hard block — recognising `blocked` must not become recognising
+ * everything, or a jargon message is merely traded for a silent wrong answer.
  */
-const RECOGNISED_STATUSES: ReadonlySet<string> = new Set([
-  'ready',
-  'needs_user_mapping',
-  'needs_encoding',
-  'needs_user_input',
-  'unknown',
-])
+const RECOGNISED_STATUSES: ReadonlySet<string> = new Set(
+  RECOGNISED_ANALYSIS_READY_STATUSES,
+)
+
+function dispositionOf(status: string): StatusDisposition | undefined {
+  return RECOGNISED_STATUSES.has(status)
+    ? STATUS_DISPOSITION[status as RecognisedAnalysisReadyStatus]
+    : undefined
+}
 
 // ============================================================================
 // Types
@@ -197,10 +254,14 @@ function describeUnresolvedOptions(
  * analysis_ready is the SINGLE SOURCE OF TRUTH for run gating.
  * Top-level cee_response.options[] is for display only — never used for gating.
  *
- * Status handling:
- * - 'ready': proceed
- * - 'needs_user_input': hard block (deterministic, no bypass)
- * - 'needs_user_mapping' / 'needs_encoding': soft-bypassable when options are resolved
+ * Status handling is selected from STATUS_DISPOSITION, never from a string
+ * comparison, so the set of statuses this function knows how to answer and the
+ * set it recognises cannot drift apart:
+ * - 'runnable'          ('ready'): proceed
+ * - 'producer_blocked'  ('blocked'): CEE refused — explain, offer nothing destructive
+ * - 'hard_block_brief'  ('needs_user_input'): hard block (deterministic, no bypass)
+ * - 'soft_bypassable'   ('needs_user_mapping' / 'needs_encoding'): bypass when options resolve
+ * - 'generic_not_ready' ('unknown'): no verdict; generic block + re-draft
  * - unrecognised: defensive hard block
  */
 function validateOverallStatus(
@@ -216,7 +277,8 @@ function validateOverallStatus(
   }
 
   // Defensive: reject unrecognised status values
-  if (!RECOGNISED_STATUSES.has(ceeAnalysisReady.status)) {
+  const disposition = dispositionOf(ceeAnalysisReady.status)
+  if (!disposition) {
     blockers.push({
       code: 'ANALYSIS_NOT_READY',
       message: `Unrecognised analysis status "${ceeAnalysisReady.status}". Please re-draft.`,
@@ -226,9 +288,48 @@ function validateOverallStatus(
   }
 
   // Check overall status
-  if (ceeAnalysisReady.status !== 'ready') {
+  if (disposition !== 'runnable') {
+    // CEE REFUSED this model. The status is a verdict about the GRAPH
+    // (graph_structure / numeric_integrity / internal — cee
+    // analysis-ready-helper.ts:1109-1113), not about an option the user can
+    // open and fill in, so none of this panel's affordances recovers it.
+    //
+    // P8 — never ask what you cannot accept: we therefore offer NO action
+    // rather than a button whose direct answer we cannot honour. `retry_draft`
+    // would be worse than useless — it discards options the user added in chat
+    // (the destruction ROADMAP 2.924 removed from the sibling branch) while
+    // leaving a structural fault untouched.
+    //
+    // The sentence is DERIVED from the producer's own vocabulary via
+    // `describeAnalysisRefusalReason`, the map `AnalysisRefusalNotice` already
+    // uses for the same `blocked_reason` codes. Sharing one map is what stops
+    // the two surfaces contradicting each other on a single payload — both
+    // render on this turn. An unmapped or absent code gets the honest generic,
+    // never a guessed specific.
+    //
+    // ⚠ NOT INHERITED: `ANALYSIS_REFUSAL_POINTER` ("The assistant's reply
+    // explains the next step"). That guarantee was derived for the
+    // handler-failure carrier (`composeHandlerFailureBody` sets `assistant_text`
+    // on every recoverable branch). THIS carrier is the readiness one, and no
+    // equivalent guarantee has been established for it — so asserting the
+    // pointer here would be a promise about a different producer's behaviour.
+    if (disposition === 'producer_blocked') {
+      const reason = ceeAnalysisReady.blocked_reason
+      const mapped = typeof reason === 'string' && reason.trim().length > 0
+        ? describeAnalysisRefusalReason(reason)
+        : null
+      blockers.push({
+        code: 'ANALYSIS_BLOCKED',
+        message: mapped ?? ANALYSIS_REFUSAL_GENERIC_REASON,
+      })
+      if (ceeAnalysisReady.user_questions?.length) {
+        userQuestions.push(...ceeAnalysisReady.user_questions)
+      }
+      return { blockers, warnings, userQuestions }
+    }
+
     // needs_user_input: deterministic user action required — always hard block
-    if (ceeAnalysisReady.status === 'needs_user_input') {
+    if (disposition === 'hard_block_brief') {
       blockers.push({
         code: 'ANALYSIS_NOT_READY',
         message: 'Your decision brief needs changes before analysis can run.',
@@ -244,7 +345,7 @@ function validateOverallStatus(
     // it drops `category` on factor nodes, check if options are actually
     // resolved. If so, the status was downgraded due to missing metadata —
     // not a genuine structural problem.
-    const isSoftStatus = SOFT_BYPASS_STATUSES.has(ceeAnalysisReady.status)
+    const isSoftStatus = disposition === 'soft_bypassable'
 
     // Baseline options correctly have empty interventions ("do nothing").
     // Exclude them from the intervention requirement in the soft bypass check.

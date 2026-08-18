@@ -768,7 +768,7 @@
 1	src/canvas/ui/inspector/SignedStrengthSlider.tsx	TS6133	'effectCoaching' is declared but its value is never read.
 1	src/canvas/ui/inspector/StrengthBar.stories.tsx	TS2307	Cannot find module '@storybook/react' or its corresponding type declarations.
 4	src/canvas/ui/inspector/StrengthBar.stories.tsx	TS7006	Parameter 'Story' implicitly has an 'any' type.
-1	src/canvas/utils/__tests__/ceeAnalysisReadyValidation.spec.ts	TS2322	Type '"analysis_ready"' is not assignable to type '"needs_encoding" | "needs_user_input" | "needs_user_mapping" | "ready" | undefined'.
+1	src/canvas/utils/__tests__/ceeAnalysisReadyValidation.spec.ts	TS2322	Type '"analysis_ready"' is not assignable to type '"blocked" | "needs_encoding" | "needs_user_input" | "needs_user_mapping" | "ready" | undefined'.
 2	src/canvas/utils/__tests__/ceeAnalysisReadyValidation.spec.ts	TS2322	Type 'number' is not assignable to type 'CEEInterventionV3'.
 9	src/canvas/utils/__tests__/computeOptionPaths.spec.ts	TS2345	Argument of type '({ id: string; interventions: { factorX: number; factorY?: undefined; }; } | { id: string; interventions: { factorY: number; factorX?: undefined; }; })[]' is not assignable to parameter of type 'CeeOption[]'.
 30	src/canvas/utils/__tests__/graphDisplayCalculations.spec.ts	TS2345	Argument of type '({ id: string; interventions: { 'factor-1': number; 'factor-2': number; }; } | { id: string; interventions: { 'factor-1': number; 'factor-2'?: undefined; }; })[]' is not assignable to parameter of type 'OptionWithInterventions[]'.
