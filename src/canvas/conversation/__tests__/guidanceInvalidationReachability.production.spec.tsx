@@ -282,7 +282,53 @@ describe('N-23 §2 — the fix is mounted on the deployed surface, and carries n
   it('GuidanceInvalidationHost is mounted inside the flag-ON provider', () => {
     // THE PROOF OBLIGATION: deleting the mount must RED. This is the guard that
     // was missing when the capability first shipped dark.
-    expect(flagOnProviderBlock()).toContain('<GuidanceInvalidationHost />')
+    //
+    // ⚠⚠ STRIPPED, AND THE OMISSION HERE WAS THE REAL DEFECT. The first version
+    // of this spec added `stripComments` to the NEGATIVE assertions and not to
+    // this one — the ASYMMETRY is the bug. Mutant M1b (delete the mount, leave a
+    // JSX comment that merely NAMES `<GuidanceInvalidationHost />`) left this
+    // test GREEN: a comment satisfied the spec's central claim. Finding one
+    // instance of a class is not finding the class.
+    expect(stripComments(flagOnProviderBlock())).toContain('<GuidanceInvalidationHost />')
+  })
+
+  it('M1b: a COMMENT naming the host does not satisfy the mount assertion', () => {
+    // The permanent, in-suite form of the mutant. If `stripComments` ever stops
+    // stripping, this REDs — rather than the mount assertion silently going blind.
+    const commentOnly = '{/* <GuidanceInvalidationHost /> was here */}\n<Other />'
+    expect(stripComments(commentOnly)).not.toContain('<GuidanceInvalidationHost />')
+    // …and a real mount still survives the strip (contrast: the strip is not
+    // simply eating everything).
+    expect(stripComments('{/* note */}\n<GuidanceInvalidationHost />')).toContain(
+      '<GuidanceInvalidationHost />',
+    )
+  })
+
+  it('M6/M8: the RENDER path and the FLAG that decides it are pinned here', () => {
+    // ⚠ THIS SPEC WAS NOT SELF-SUFFICIENT ON ITS OWN CENTRAL CLAIM. Two mutants
+    // left it 22/22 GREEN:
+    //   M6 — `<MaybeConversationProvider>` replaced by `<>`, so EVERY host in the
+    //        block above goes dark while the block itself still reads correct.
+    //   M8 — `if (isAiPanelV2Enabled())` inverted to `if (!isAiPanelV2Enabled())`,
+    //        this estate's twice-shipped signature defect.
+    // Both were caught only by `panelApplyReachability.production.spec.tsx` — a
+    // spec this file's own header disparaged while silently depending on it for
+    // the only render-level and flag-level guard that existed. Pinned here now.
+    const source = stripComments(read(CANVAS_ROOT))
+
+    // M6: the provider must actually be RENDERED, not merely declared.
+    expect(source, 'M6: MaybeConversationProvider must be rendered').toMatch(
+      /<MaybeConversationProvider[\s>]/,
+    )
+
+    // M8: the flag-ON branch must be the POSITIVE test, verbatim.
+    const fnStart = source.indexOf('export function MaybeConversationProvider')
+    expect(fnStart, 'precondition: the provider function was found').toBeGreaterThan(-1)
+    const body = source.slice(fnStart, fnStart + 400)
+    expect(body, 'M8: the flag-ON branch must not be inverted').toContain(
+      'if (isAiPanelV2Enabled()) {',
+    )
+    expect(body).not.toContain('if (!isAiPanelV2Enabled()) {')
   })
 
   it('the canvas root imports the host from its own module', () => {
@@ -331,6 +377,40 @@ describe('N-23 §2 — the fix is mounted on the deployed surface, and carries n
 
     expect(host).not.toContain('sendSystemEvent')
     expect(host).not.toContain('useConversationContext')
+  })
+
+  it('the two guard chains have not diverged', () => {
+    // ⚠ THE "SINGLE AUTHORITY" CLAIM WAS NOT EARNED, and saying so is the point.
+    // What is genuinely shared is the DIFF (`takeSnapshot`/`diffSnapshots`). The
+    // INVALIDATION DECISION — scenario switch, reference equality,
+    // `_externalMutationActive`, baseline advance, position-only — is ~30 lines
+    // of COPIED control flow with nothing asserting the two copies agree.
+    // Mutant M2c proved the divergence is invisible: removing the position-only
+    // guard from the EMITTER left all 22 tests green.
+    //
+    // This does not merge the two chains (they legitimately differ after the
+    // decision point: one clears, one debounces and emits). It asserts that both
+    // still ASK THE SAME QUESTIONS, so a guard deleted from either side REDs.
+    const src = read(EMITTER_FILE)
+    const emitter = stripComments(functionBody(src, 'export function useGraphEditEvents'))
+    const invalidation = stripComments(
+      functionBody(src, 'export function useGuidanceInvalidationOnEdit'),
+    )
+
+    expect(emitter.length, 'precondition: emitter body extracted').toBeGreaterThan(200)
+    expect(invalidation.length, 'precondition: invalidation body extracted').toBeGreaterThan(200)
+
+    const SHARED_GUARDS: Array<[string, RegExp]> = [
+      ['scenario switch', /currentScenarioId !== scenarioIdRef\.current/],
+      ['reference equality', /curr\.nodes === prev\.nodes && curr\.edges === prev\.edges/],
+      ['external mutation', /curr\._externalMutationActive > 0/],
+      ['missing baseline', /if \(!prevSnapshot\)/],
+      ['position-only', /if \(!diff\)/],
+    ]
+    for (const [name, re] of SHARED_GUARDS) {
+      expect(re.test(emitter), `emitter lost its "${name}" guard`).toBe(true)
+      expect(re.test(invalidation), `invalidation lost its "${name}" guard`).toBe(true)
+    }
   })
 
   it('the emitter keeps its single DraftChat host — this lane did not re-host it', () => {

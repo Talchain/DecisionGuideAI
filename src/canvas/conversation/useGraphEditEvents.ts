@@ -456,12 +456,25 @@ export function useGraphEditEvents(
 // is touched. Position-only changes are excluded by `diffSnapshots` returning
 // `null` — dragging a node must not wipe the user's coaching.
 //
-// ⚠ EXTERNAL MUTATIONS STAY SUPPRESSED, and that is load-bearing, not inherited
-// boilerplate. Accepting an assistant patch runs under
-// `beginExternalGraphMutation('patch_apply')` and uses `clearItemsByTargetIds`
-// to drop only the items the patch touched; a blanket clear here would destroy
-// the untargeted items that are legitimately still valid, and
-// `guidanceStore.ts`'s `minting` gate depends on that distinction holding.
+// ⚠⚠ EXTERNAL MUTATIONS STAY SUPPRESSED — and the ORIGINAL VERSION OF THIS NOTE
+// WAS FALSIFIED BY REVIEW, which is why it now reads at this length.
+//
+// It said: "Accepting an assistant patch runs under
+// `beginExternalGraphMutation('patch_apply')` … a blanket clear here would
+// destroy the untargeted items that are legitimately still valid." That is TRUE
+// OF THE GUARDED WINDOW AND WAS FALSE OF THE TAIL. `ConversationPanel` CLOSED
+// the window (`:330`) and then called `mirrorAnalysisReadyAfterAccept()`
+// (`:335`), whose backfills write node `data` — so the tail arrived here
+// UNSUPPRESSED, and this hook's blanket clear fired twelve lines before the
+// deliberate `clearItemsByTargetIds(allIds)` at `:347`, which then no-opped on
+// an empty store. Three more producer writers had the same hole
+// (`applyDraftResult`, `reconcileAppliedGraph`, `mergeServerGraph`).
+//
+// The suppression is therefore load-bearing AND WAS NOT SUFFICIENT ON ITS OWN.
+// The writers have been guarded at source (see each one's note), and
+// `guidanceInvalidationProducerWrites.spec.tsx` drives the REAL producer
+// functions to prove it — because the argument above is exactly the kind that
+// reads correct and is wrong about which bytes execute.
 //
 // ⚠ NOT GATED ON `isOrchestratorV2Enabled()`, unlike the emitter above. That
 // flag governs a TRANSPORT; whether the user's coaching is honest about their

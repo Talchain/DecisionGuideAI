@@ -222,6 +222,17 @@ export function applyDraftResult(
     captureBeforeIngest(store.nodes, store.edges)
     store.pushHistory()
   }
+  // ⚠ PRODUCER WRITE — see the guard note on the goal-threshold backfill below.
+  // THE DEFECT THIS CLOSES (P0-A): `useConversation.ts:5076` MINTS this turn's
+  // guidance and `:5127` then calls this function, whose bare `setState` looked
+  // to every "did the user edit the graph?" consumer exactly like a user edit —
+  // so the turn wiped the coaching it had just delivered, and the persisted blob
+  // with it. ⭐ THE V4 PATH GOT THE ORDER RIGHT ON PURPOSE (`:3909` "Set guidance
+  // items AFTER auto-apply patches complete"); V5 mints first. Guarding the
+  // WRITER rather than reordering the mint fixes it for every caller and does
+  // not depend on two files staying in a particular order.
+  useCanvasStore.getState().beginExternalGraphMutation('envelope_apply')
+  try {
   useCanvasStore.setState({
     nodes,
     edges,
@@ -265,6 +276,9 @@ export function applyDraftResult(
     // DEMONSTRATED, NEVER ASSERTED — and so must a NON-equivalent one.
     importPendingServerRegistration: false,
   })
+  } finally {
+    useCanvasStore.getState().endExternalGraphMutation()
+  }
 
   // Warning-only schema validation at the mutation boundary. Non-throwing —
   // shape drift is logged via devWarn in DEV builds only.
@@ -646,5 +660,18 @@ export function backfillGoalThresholdOntoGoalNode(
     }
   })
 
-  useCanvasStore.setState({ nodes: updatedNodes as any })
+  // ⚠ PRODUCER WRITE, NOT A USER GESTURE — the suppression is load-bearing.
+  // `_externalMutationActive` is a COUNTER, so nesting with an outer window is
+  // safe and deliberate. Without this, any consumer of "the user changed the
+  // graph" — `useGuidanceInvalidationOnEdit`, and the `direct_graph_edit`
+  // emitter on the flag-OFF posture — treats a write the PRODUCER made as a
+  // local edit. For guidance that means wiping the coaching the very same turn
+  // just delivered, and because `clearGuidanceItems()` also clears the persisted
+  // blob (`guidanceStore.ts:608-613`), the loss survives a reload.
+  useCanvasStore.getState().beginExternalGraphMutation('patch_apply')
+  try {
+    useCanvasStore.setState({ nodes: updatedNodes as any })
+  } finally {
+    useCanvasStore.getState().endExternalGraphMutation()
+  }
 }

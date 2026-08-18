@@ -62,8 +62,27 @@ function read(repoRelative: string): string {
   return readFileSync(resolve(process.cwd(), repoRelative), 'utf8')
 }
 
+/**
+ * ⚠⚠ THIS DERIVATION WAS COMMENT-BLIND, AND ITS OWN CONTROL PASSED ON A
+ * COMMENTED-OUT CALL. `useSessionResumeEvent` appears in `DraftChat.tsx` at
+ * L31, L32 and L179 — ALL THREE COMMENTED OUT — yet `imports()` matched the
+ * commented import and `callsHook()` matched the commented call, so the control
+ * written to catch exactly this ("`${d}` is imported by DraftChat but never
+ * called") reported it as genuinely called. The spec's stated model — "Both run
+ * ONLY inside DraftChat" — was therefore FALSE: that hook runs NOWHERE, in
+ * EITHER posture. A probe over source text cannot tell code from a mention
+ * (trap 16), and here the mention was code that had been deliberately switched
+ * off.
+ */
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^\s*\/\/.*$/gm, ' ')
+}
+
 /** Every `import { … } from '…'` in a source file, as (specifiers, module). */
-function imports(source: string): Array<{ names: string[]; module: string }> {
+function imports(rawSource: string): Array<{ names: string[]; module: string }> {
+  const source = stripComments(rawSource)
   const out: Array<{ names: string[]; module: string }> = []
   const re = /import\s*\{([^}]*)\}\s*from\s*'([^']+)'/g
   for (const m of source.matchAll(re)) {
@@ -92,7 +111,7 @@ function resolveLocal(fromRepoRelative: string, module: string): string | null {
 }
 
 function callsHook(source: string, hookName: string): boolean {
-  return new RegExp(`\\b${hookName}\\s*\\(`).test(source)
+  return new RegExp(`\\b${hookName}\\s*\\(`).test(stripComments(source))
 }
 
 // ── 1. THE DRAIN SET, from DraftChat's own imports ─────────────────────────
@@ -159,9 +178,14 @@ function flagOnHostedDrains(drains: string[]): string[] {
 /**
  * ⭐ THE DRAINS WITH NO FLAG-ON HOST, AND WHAT EACH ONE COSTS.
  *
- * Both run ONLY inside DraftChat, which the deployed posture does not mount.
- * Both are recorded here rather than fixed: re-hosting either changes product
- * behaviour and is its own decision.
+ * ⚠ CORRECTED: this used to read "Both run ONLY inside DraftChat". That was
+ * FALSE, and it was false because the derivation below was COMMENT-BLIND — see
+ * `stripComments`. Of the three hooks originally listed, TWO run only inside
+ * DraftChat (which the deployed posture does not mount) and the third,
+ * `useSessionResumeEvent`, runs NOWHERE AT ALL: its import and its call are both
+ * commented out. It is now classified under `HOSTED_NOWHERE`, not here.
+ * The remaining two are recorded rather than fixed: re-hosting either changes
+ * product behaviour and is its own decision.
  *
  * `useGraphEditEvents` — the sole emitter of `direct_graph_edit`, and the sole
  *   production caller of `clearGuidanceItems()` (complete manifest:
@@ -208,23 +232,36 @@ function flagOnHostedDrains(drains: string[]): string[] {
  *   real defect — silently. That is the reason it is recorded here rather than
  *   dismissed.
  *
- * `useSessionResumeEvent` — sends `session_resume` when the user returns to a
- *   scenario that already has a graph. Dark, a flag-ON user loses NOTHING, and
- *   this one is structural rather than corpus-dependent: `session_resume` is not
- *   in `WIRE_SYSTEM_EVENT_TYPES` (`conversation/types.ts:926`), so
- *   `serializeSystemEvent` returns `null` for it and `sendSystemEvent`
- *   short-circuits to `SEND_BLOCKED` before any network call
- *   (`systemEvents.ts:34` states the intent outright — *"session_resume and
- *   undo_draft are internal UI events only"*). Hosting it flag-ON would emit
- *   nothing. ⚠ Same tripwire shape as above: adding `session_resume` to the wire
- *   vocabulary would make this hook load-bearing, and its absence a real defect,
- *   with nothing else to notice.
+ * `useSessionResumeEvent` — MOVED to `HOSTED_NOWHERE`; see that constant for why
+ *   "dark drain" was the wrong classification and why the old tripwire framing
+ *   here was mis-specified.
  */
 const KNOWN_DARK_DRAINS = [
   'useAnalysisCompleteEvent',
   'useGraphEditEvents',
-  'useSessionResumeEvent',
 ] as const
+
+/**
+ * ⚠⚠ A THIRD CLASSIFICATION, BECAUSE "DARK DRAIN" WAS THE WRONG WORD FOR IT.
+ *
+ * `useSessionResumeEvent` is NOT a drain with no flag-ON host — it is a hook
+ * with NO CALLER AT ALL. Its import (`DraftChat.tsx:31-32`) and its call
+ * (`:179`) are both COMMENTED OUT. The old derivation was comment-blind and
+ * counted it as live-in-DraftChat, so it sat in `KNOWN_DARK_DRAINS` describing a
+ * posture-dependent loss that does not exist: it runs nowhere, in either posture.
+ *
+ * ⭐ AND THE OLD ENTRY'S REASONING WAS REFUTED EVEN WHERE ITS CONCLUSION HELD.
+ * "Hosting it flag-ON would emit nothing" is TRUE, but not for the reason given:
+ * `session_resume` is absent from `WIRE_SYSTEM_EVENT_TYPES`
+ * (`conversation/types.ts:926-963`) AND `serializeSystemEvent` returns null for
+ * it — blocked twice over. The "tripwire" framing was also mis-specified: adding
+ * `session_resume` to the wire vocabulary would NOT wake this hook, because
+ * nothing calls it. A tripwire nobody is standing on is not a tripwire.
+ *
+ * Kept as an explicit pinned set rather than deleted, so that wiring OR deleting
+ * the hook is a conscious edit here — not a silent third dormant authority.
+ */
+const HOSTED_NOWHERE = ['useSessionResumeEvent'] as const
 
 describe('conversation drains — every DraftChat drain needs a flag-ON host', () => {
   it('CONTROL: the derivation sees a plausible number of drains, and each is actually called', () => {
@@ -233,7 +270,9 @@ describe('conversation drains — every DraftChat drain needs a flag-ON host', (
 
     // Positive control (trap 13/13e): a probe that enumerated nothing would make
     // every downstream assertion vacuously true.
-    expect(drains.length).toBeGreaterThanOrEqual(5)
+    // Comment-aware (see `stripComments`): the commented-out
+    // `useSessionResumeEvent` import is correctly no longer counted.
+    expect(drains.length).toBeGreaterThanOrEqual(4)
     // A stale import is a false drain. Fail loudly rather than counting it.
     for (const d of drains) {
       expect(callsHook(draftChat, d), `${d} is imported by DraftChat but never called`).toBe(true)
@@ -258,6 +297,29 @@ describe('conversation drains — every DraftChat drain needs a flag-ON host', (
     // SHRINKS → a known-dark drain was re-hosted: a behaviour change that must be
     //           a conscious edit here, with the costs above re-read.
     expect(dark).toEqual([...KNOWN_DARK_DRAINS].sort())
+  })
+
+  it('HOSTED_NOWHERE hooks are imported by nobody — not even DraftChat', () => {
+    const drains = new Set(enumerateDrains())
+    for (const h of HOSTED_NOWHERE) {
+      // If someone wires it, this REDs and the entry must move (or be deleted).
+      expect(drains.has(h), `${h} is now imported by DraftChat — reclassify it`).toBe(false)
+      // …and the file still exists, so this is a live classification, not a
+      // stale name (contrast control: a deleted hook would make this vacuous).
+      expect(
+        read(`src/canvas/conversation/${h}.ts`).length,
+        `${h}.ts is gone — delete its HOSTED_NOWHERE entry too`,
+      ).toBeGreaterThan(100)
+    }
+  })
+
+  it('CONTROL: the comment-strip is what makes the two sets disjoint', () => {
+    // Proves the strip is load-bearing rather than cosmetic: WITHOUT it the
+    // commented-out import is matched and `useSessionResumeEvent` reads as a
+    // live drain — the exact false reading this spec shipped with.
+    const raw = read(DRAFT_CHAT)
+    expect(/\buseSessionResumeEvent\s*\(/.test(raw), 'raw source DOES contain the text').toBe(true)
+    expect(callsHook(raw, 'useSessionResumeEvent'), 'comment-aware probe must not').toBe(false)
   })
 
   it('the known-dark set names only real drains (no entry outlives its hook)', () => {

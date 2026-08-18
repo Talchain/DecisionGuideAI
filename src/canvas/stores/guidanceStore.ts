@@ -512,6 +512,18 @@ export function setGuidancePersistenceContext(provider: (() => GuidancePersisten
  * H1 → H2, the untargeted items legitimately survive — and re-stamping them at
  * H2 made them look freshly authored. `dismissItem` did the same.
  *
+ * ⚠⚠ THE SENTENCE ABOVE DESCRIBES THE GUARDED WINDOW AND WAS FALSE OF THE TAIL.
+ * `ConversationPanel` ENDS that window at `:330` and only then calls
+ * `mirrorAnalysisReadyAfterAccept()` (`:335`), whose backfills write node `data`
+ * — so the accept path's tail was NOT suppressed, and the `clearItemsByTargetIds`
+ * at `:347` could find an already-emptied store. "The untargeted items
+ * legitimately survive" was therefore true only up to `:330`. The producer
+ * writers are now guarded at source (`mirrorAnalysisReady.ts`,
+ * `applyDraftResult.ts`, `mergeAppliedGraph.ts`, `mergeServerGraph.ts`), which is
+ * what makes the paragraph above true of the WHOLE accept path rather than of
+ * its first half. Do not re-derive this from the window alone — derive it from
+ * the writers.
+ *
  * Only `setGuidanceItems` — a turn delivering guidance — is authorship. Every
  * other path INHERITS the stamp from the blob already on disk, and where it
  * cannot (no blob, or a blob for another decision) it writes `null`, which the

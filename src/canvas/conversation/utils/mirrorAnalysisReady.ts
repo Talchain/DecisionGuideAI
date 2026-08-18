@@ -45,6 +45,24 @@ export function applyAnalysisReadyPatch(
   patch: AnalysisReadyPatch,
   context: { patchId?: string; scenarioId?: string | null },
 ): void {
+  // ⚠⚠ P0-B — THE PATCH-ACCEPT TAIL ESCAPED THE SUPPRESSION WINDOW.
+  // `ConversationPanel` opens `beginExternalGraphMutation('patch_apply')`, applies
+  // the patch, and CLOSES the window in its `finally` — and only THEN calls
+  // `mirrorAnalysisReadyAfterAccept()`, which lands here and writes node `data`
+  // through the two backfills below. So the tail's writes arrived unsuppressed,
+  // twelve lines before the DELIBERATE, TARGETED `clearItemsByTargetIds(allIds)`
+  // that follows. A blanket clear at that moment empties the store, and the
+  // targeted prune — whose very existence proves the codebase expects guidance to
+  // be PRESENT and SELECTIVELY PRESERVED here — then no-ops on nothing.
+  //
+  // ⭐ FIXED IN THE WRITER, NOT AT THE CALL SITE, DELIBERATELY: there are TWO
+  // callers of `mirrorAnalysisReadyAfterAccept` (`ConversationPanel.tsx:335` for
+  // the validated path and `:393` for the adapter-less fallback), and the review
+  // that found this named only the first. Guarding here covers both, and covers
+  // the next one nobody remembers to guard. The counter is re-entrant, so this
+  // nests harmlessly inside any window a caller already holds.
+  useCanvasStore.getState().beginExternalGraphMutation('patch_apply')
+  try {
   useCanvasStore.getState().setCeeAnalysisReady(patch.ceeAnalysisReady)
 
   // Freshness source of truth: a patch's analysis_ready.freshness must flow
@@ -68,4 +86,7 @@ export function applyAnalysisReadyPatch(
   }
 
   backfillGoalThresholdOntoGoalNode(patch.ceeAnalysisReady)
+  } finally {
+    useCanvasStore.getState().endExternalGraphMutation()
+  }
 }
