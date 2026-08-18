@@ -14,8 +14,14 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const sendMessageMock = vi.fn()
+const setDraftMock = vi.fn()
 vi.mock('../../conversation/ConversationContext', () => ({
-  useConversationContext: () => ({ sendMessage: sendMessageMock }),
+  // `draft`/`setDraft` are part of this context's real shape and the banner's
+  // failure path now writes the brief back through them. A `vi.mock` FACTORY
+  // REPLACES THE MODULE (CLAUDE.md trap 12), so a field omitted here is
+  // `undefined` in the component — which is why they are listed rather than
+  // the component being made defensive against its own test double.
+  useConversationContext: () => ({ sendMessage: sendMessageMock, draft: '', setDraft: setDraftMock }),
 }))
 
 import { StarterProvenanceBanner } from '../StarterProvenanceBanner'

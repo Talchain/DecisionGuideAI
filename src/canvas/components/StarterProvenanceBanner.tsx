@@ -32,7 +32,15 @@ import { typography } from '../../styles/typography'
  */
 export function StarterProvenanceBanner() {
   const [dismissed, setDismissed] = useState(false)
-  const { sendMessage } = useConversationContext()
+  // `draft`/`setDraft` are the SHARED composer buffer — `AIInputBar` reads it
+  // from this same context precisely so the text survives a surface switch
+  // (`AIInputBar.tsx:110`, `:140`), and `FirstUseComposer` reads it too
+  // (`:97`). So this is the one write that lands the brief in whichever
+  // composer the user is actually looking at, which is what the confirm
+  // dialog below promises. Destructuring `draft` costs nothing extra: the
+  // context value is `useMemo`'d on `[conversation, draft, …]`, so this
+  // component already re-rendered on every keystroke.
+  const { sendMessage, draft, setDraft } = useConversationContext()
   const showToast = useShowToastSafe()
 
   // `resolveStarterId` is the single shape for this question, shared with the
@@ -50,10 +58,20 @@ export function StarterProvenanceBanner() {
     // model back" is a real outcome the user is entitled to know about first,
     // not a surprise. The last line states the RECOVERY the code below now
     // actually performs; it previously promised only the brief back.
+    // ⚠ THE UNDISCLOSED HALF, ADDED AFTER THE 18 Aug SWEEP SCORED THIS CONTROL
+    // MISLEADING: `resetCanvas()` below does not only clear the graph — for a
+    // decision that is NOT a saved record it also calls
+    // `clearTranscript(scenarioIdBeingReset)` (`store.ts`, resetCanvas), so the
+    // conversation so far is destroyed. The sweep's driver lost its chat here
+    // and this dialog had said nothing about it. The clause is conditional
+    // because the code is: a SAVED record's transcript belongs to the record and
+    // is deliberately left alone, so an unconditional warning would be its own
+    // false claim.
     const confirmed = window.confirm(
       'Re-draft this example live?\n\n' +
         'Olumi will send the original brief to the model and build a fresh graph. ' +
         'This clears the saved example and replaces it with whatever the live draft returns. ' +
+        'If this decision isn’t saved, it also clears the conversation so far. ' +
         'Live drafting can fail or time out; if it does, the saved example is put back and ' +
         'your brief comes back in the composer so you can retry.',
     )
@@ -110,13 +128,43 @@ export function StarterProvenanceBanner() {
       // rather than clobbering it with the old example.
       if (useCanvasStore.getState().nodes.length === 0) {
         useCanvasStore.getState().undoDraft()
+
+        // ⭐ AFFORDANCE SWEEP A13 — THE PROMISE THIS BRANCH DID NOT KEEP.
+        //
+        // The confirm dialog says, of the failure case, *"the saved example is
+        // put back AND YOUR BRIEF COMES BACK IN THE COMPOSER so you can
+        // retry"*, and the toast below repeated the claim. The code above put
+        // the example back and **never touched the composer** — so on the
+        // deployed build (`9ff14c19`) the user was left with the identical
+        // blocked model and an EMPTY composer, told twice that their brief was
+        // in it. Measured, fresh guest, 91 s after the click: canvas restored
+        // to its 20 nodes, banner back, `textarea.value === ""`.
+        //
+        // ⚠ AND THE TWO CLAIMS THE SAME MEASUREMENT REFUTED, recorded because
+        // this branch is the one a later session will read: the brief IS sent
+        // (wire-witnessed, `POST /proxy/v5/turn/stream`, `message` = the
+        // verbatim 385-char brief, 200) and the user's turn IS rendered (it is
+        // in the Olumi tab). The re-draft's only broken promise was this one —
+        // do not "fix" the other two.
+        //
+        // FAIL-SAFE, for the same reason the canvas check above is: if the user
+        // typed into the composer while the draft was in flight, that text is
+        // theirs and outranks the brief. So the restore is conditional — and
+        // the toast then may not claim it happened, which is why the sentence
+        // is chosen from the SAME boolean that performed the write rather than
+        // being asserted alongside it.
+        const composerWasEmpty = draft.trim().length === 0
+        if (composerWasEmpty) setDraft(starter.brief)
+
         showToast(
-          'The live re-draft didn’t return a model, so your saved example has been put back. Your brief is in the composer if you want to try again.',
+          composerWasEmpty
+            ? 'The live re-draft didn’t return a model, so your saved example has been put back. Your brief is in the composer if you want to try again.'
+            : 'The live re-draft didn’t return a model, so your saved example has been put back. What you had typed is still in the composer, so your brief was left out of it.',
           'warning',
         )
       }
     }
-  }, [starterId, sendMessage, showToast])
+  }, [starterId, sendMessage, showToast, draft, setDraft])
 
   if (!starterId || dismissed) return null
   const starter = getStarter(starterId)

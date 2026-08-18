@@ -2145,6 +2145,24 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     if (tab === 'olumi' && useFloatingPanelState.getState().isOpen) {
       useFloatingPanelState.getState().close()
     }
+    // ⭐ AFFORDANCE SWEEP A2 — WITHOUT THIS LINE THE COLLAPSED RAIL'S TAB
+    // ICONS ARE DEAD CONTROLS.
+    //
+    // `effectiveIsOpen` is `isFirstUse ? false : state.isOpen`, so the
+    // `isOpen: true` below is OVERRIDDEN by the first-use rail: a fresh guest
+    // on an empty canvas clicked the rail's `Analysis` icon and NOTHING
+    // rendered — the tab selection was applied to a panel the user could not
+    // see, discoverable only by separately pressing `Expand outputs dock`.
+    // Measured on the deployed build (`9ff14c19`), scored DEAD.
+    //
+    // Choosing a tab is at least as strong a "show me the outputs" signal as
+    // the chevron beside it, and this is the SAME one-line override the
+    // chevron (`toggleOpen`), the run-start auto-switch and the
+    // collapsed-response signal already use — not a second mechanism. Keeping
+    // it a ref means the rail lock is spent for the session without writing a
+    // persisted preference, so a returning user with an empty canvas still
+    // gets the rail (see `shouldRenderFirstUseRail`).
+    userExplicitlyOpenedRailRef.current = true
     setState(prev => ({ ...prev, isOpen: true, activeTab: tab }))
     // E1: Sync tab state to Zustand store for cross-component navigation
     useUIStore.getState().setActiveOutputTab(tab as OutputTab)
@@ -2774,6 +2792,61 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   )
                 })()}
                 {/* v7: Rerun + Compare buttons moved to sticky footer below */}
+                {/* ⭐ AFFORDANCE SWEEP A3 — THE EMPTY STATE THAT WAS SIMPLY ABSENT.
+                    Every section in this branch is gated on either
+                    `isPreRun && nodes.length > 0` (the pre-run panel, below) or
+                    `!isPreRun` (everything after it), so the intersection —
+                    no analysis has completed AND no model on the canvas — had
+                    NO renderer at all. A fresh guest who opened the Analysis
+                    tab got a COMPLETELY BLANK panel: zero copy, no reason, no
+                    next step. Measured on the deployed build (`9ff14c19`),
+                    scored DEAD.
+
+                    The Model tab already does this correctly (`ModelOutline`'s
+                    "Nothing in this group yet"), so this copies that pattern
+                    rather than inventing a second one.
+
+                    ⚠ WHAT THIS COPY MAY CLAIM, AND WHY IT CLAIMS SO LITTLE.
+                    The reachable condition is exactly `isPreRun && nodes.length
+                    === 0`, so the only facts in evidence are "no analysis has
+                    completed in this session" and "the canvas holds no model".
+                    Both sentences below say only that. It deliberately does NOT
+                    promise that describing a decision will produce a model on
+                    the canvas — that is the very promise the same sweep found
+                    broken on the `Build the model` chip, and repeating it here
+                    would make this fix another instance of the defect class it
+                    removes. The button's acceptance path is the one thing that
+                    IS proven: the Olumi tab mounts a composer that takes a
+                    description (sweep A5, WORKS), and `handleTabClick('olumi')`
+                    is the same call the tab strip makes. */}
+                {isPreRun && nodes.length === 0 && (
+                  <div
+                    className="flex flex-col items-start gap-2"
+                    data-testid="outputs-analysis-empty"
+                  >
+                    <div className={`${typography.panelHeader} text-text-header`}>
+                      Nothing to analyse yet
+                    </div>
+                    <p className={`${typography.panelBody} text-text-light`}>
+                      This panel reports on a decision model. There isn’t one on the canvas yet.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleTabClick('olumi')}
+                      // `py-2` (8px), not the `py-1.5` (6px) the sibling
+                      // buttons in this file use: 6px is OFF the DS spacing
+                      // scale, and `tests/ci-guards/shell-conformance.spec.ts`
+                      // pins `off-scale-spacing` in this file at EXACTLY 6 —
+                      // it REDs on growth as well as on an unrecorded fix. New
+                      // markup in the shell host stays on-scale so the ratchet
+                      // holds without the pin moving.
+                      className={`${typography.panelBody} rounded px-3 py-2 bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
+                      data-testid="outputs-analysis-empty-describe"
+                    >
+                      Describe your decision to Olumi
+                    </button>
+                  </div>
+                )}
                 {/* Pre-run state: Show consolidated guidance and Run button */}
                 {isPreRun && nodes.length > 0 && (
                   isPreAnalysisV3Enabled() ? (
