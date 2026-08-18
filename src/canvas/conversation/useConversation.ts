@@ -41,6 +41,7 @@ import {
   readStructuralDeleteReceipt,
   revertStructuralDelete,
   STRUCTURAL_DELETE_NOTICE,
+  STRUCTURAL_DELETE_NO_WRITE_CONFLICT_CATEGORIES,
   type StructuralDeleteIntent,
   type StructuralDeleteNoticeKey,
 } from '../mutations/structuralDelete'
@@ -3005,13 +3006,38 @@ export function useConversation(): UseConversationReturn {
           outcome.response.assistant_text.trim().length > 0
         notice = spoke ? null : 'unconfirmed_server'
       } else if (outcome.kind === 'typed_error') {
-        // BASE_HASH_DIVERGED is the ONLY category with a guaranteed no-write and
-        // a remedy that actually works. A fence category or an unknown one gets
-        // the honest cannot-confirm line rather than a reload instruction we
-        // cannot promise resolves anything (P8).
-        const diverged = outcome.conflictCategory === 'BASE_HASH_DIVERGED'
-        shouldRevert = diverged
-        notice = diverged ? 'base_hash_diverged' : 'unconfirmed_server'
+        // SET-MEMBERSHIP, NOT ONE EQUALITY — CEE has TWO 409 sources on this
+        // path and BOTH state a no-write guarantee in their own words. An
+        // equality against the first alone sent the second down the
+        // cannot-confirm line, so the canvas kept asserting a deletion the
+        // server had declined, under copy reading "It's still gone from the
+        // canvas". Derived at the CEE bytes (293da078), not from the names:
+        //
+        //   · BASE_HASH_DIVERGED  — system-events/structural-delete.ts:475-484,
+        //     the stale gate, refused before anything is resolved.
+        //   · rpc_cas_conflict    — session/supabase-store.ts:309-318 (v3) and
+        //     :1070-1079 (v4), the atomic CAS on SQLSTATE OLGC1, whose own
+        //     message is "Atomic in-transaction CAS: the whole turn rolled
+        //     back, nothing clobbered."
+        //
+        // Both arrive identically: dispatch.ts:1176-1197 copies
+        // `err.conflict_category` onto `graphConflict`, and route-v2.ts:2476-2504
+        // sends it as a 409 GRAPH_DIVERGED with the category in
+        // `details.conflict_category`.
+        //
+        // ONE NOTICE FOR BOTH, and the remedy holds for both: `applyV5State`
+        // captures the top-level `graph_hash` off EVERY response, so any turn
+        // re-syncs the base hash whichever gate refused. See
+        // STRUCTURAL_DELETE_NOTICE.base_hash_diverged for why the two more
+        // obvious instructions are affordances terminating in refusal (P8).
+        //
+        // A fence category or an unknown one is still NOT in the set: it gets
+        // the honest cannot-confirm line rather than a promise we cannot keep.
+        const provenNoWrite = STRUCTURAL_DELETE_NO_WRITE_CONFLICT_CATEGORIES.has(
+          outcome.conflictCategory ?? '',
+        )
+        shouldRevert = provenNoWrite
+        notice = provenNoWrite ? 'base_hash_diverged' : 'unconfirmed_server'
       } else {
         notice = 'unconfirmed_transport'
       }

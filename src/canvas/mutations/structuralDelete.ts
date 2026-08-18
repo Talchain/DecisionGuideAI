@@ -470,6 +470,34 @@ export function revertStructuralDelete(
 }
 
 /**
+ * The `details.conflict_category` values on a 409 `GRAPH_DIVERGED` for which
+ * CEE ITSELF STATES the write did not land. Membership here is what entitles
+ * the resolver to revert the canvas and to promise, in
+ * `STRUCTURAL_DELETE_NOTICE.base_hash_diverged`, that nothing was removed.
+ *
+ * ⚠ DERIVED FROM THE PRODUCER, ONE ENTRY PER STATED GUARANTEE (CEE
+ * `293da078`) — never from what a category NAME suggests:
+ *
+ *   · `BASE_HASH_DIVERGED` — `system-events/structural-delete.ts:475-484`.
+ *     The stale gate refuses before any target is resolved; the refusal path
+ *     writes no graph and no turn row.
+ *   · `rpc_cas_conflict`   — `session/supabase-store.ts:309-318` (v3) and
+ *     `:1070-1079` (v4). The atomic in-transaction CAS raises SQLSTATE OLGC1
+ *     and the store throws `GraphStaleWriteError`, whose message is the
+ *     guarantee: *"Atomic in-transaction CAS: the whole turn rolled back,
+ *     nothing clobbered."*
+ *
+ * ⚠ THIS IS A CLOSED SET AND MUST STAY ONE. A category absent from it — a
+ * turn-fence verdict, or any future category — is an UNKNOWN, and an unknown
+ * takes `unconfirmed_server`. Reverting on an unknown would assert "these are
+ * still in your model" with no evidence, which is exactly as unfounded as
+ * leaving them deleted. Add a member only with the producer line that states
+ * the guarantee, and pin its opposite-direction twin.
+ */
+export const STRUCTURAL_DELETE_NO_WRITE_CONFLICT_CATEGORIES: ReadonlySet<string> =
+  new Set(['BASE_HASH_DIVERGED', 'rpc_cas_conflict'])
+
+/**
  * The one honest sentence for a delete whose fate we could not confirm, keyed by
  * OUTCOME rather than composed at each site.
  *

@@ -1100,14 +1100,31 @@ export function applyV5State(
   // `blocked_reason` had ZERO readers repo-wide, and an honest refusal nobody
   // renders is indistinguishable from a silent failure.
   //
-  // ⚠ IT IS DELIBERATELY NOT ROUTED INTO THE READINESS SLICE. The normaliser
-  // below REJECTS this carrier (empty goal_node_id / empty options) and clears
-  // `ceeAnalysisReady`; a deployed-UI trace (2026-08-14) established that
-  // clearing is correct and load-bearing, and
-  // `applyV5State.blockedAnalysisReady.spec.tsx` pins it. So the refusal is
-  // extracted HERE, from the raw payload while it is still in hand and BEFORE
-  // validation, into its own session-local slice. Nothing about the readiness
-  // slice's behaviour changes.
+  // ⚠ IT IS DELIBERATELY NOT ROUTED INTO THE READINESS SLICE — and there are
+  // now TWO refusal carriers, which this comment used to deny. It said the
+  // normaliser "REJECTS this carrier", full stop. That is true of ONE arm only:
+  //
+  //   ARM A — EMPTY (`options: []`, `goal_node_id: ''`). The normaliser below
+  //     REJECTS it and clears `ceeAnalysisReady`; a deployed-UI trace
+  //     (2026-08-14) established that clearing is correct and load-bearing, and
+  //     `applyV5State.blockedAnalysisReady.spec.tsx` pins it. Still emitted for
+  //     a `ready`/absent/degenerate structural projection and on the chip-click
+  //     arm.
+  //   ARM B — IDENTITY-PRESERVING (non-empty `goal_node_id` and `options`).
+  //     CEE #1023 (merged 2026-08-18, `analysis-ready-helper.ts:1427-1472` at
+  //     `293da078`) preserves the model's identity when the turn's structural
+  //     projection is not `ready`, and its degeneracy guard is a VERBATIM copy
+  //     of the accept predicate at :232-234 below. So the normaliser ACCEPTS
+  //     this one: `analysis_ready:set`, no clear, no deferred invalid-shape.
+  //
+  // EITHER WAY THE REFUSAL IS EXTRACTED HERE, from the raw payload while it is
+  // still in hand and BEFORE validation, into its own session-local slice —
+  // `deriveAnalysisRefusalNoticeUpdate` keys on `status` plus a non-empty
+  // `blocked_reason` and never on the identity fields, so both arms set it.
+  // What the normaliser does with the carrier afterwards is unchanged by this
+  // block, on either arm. Arm B is pinned end to end (through to
+  // `deriveAnalysisDisplayState` = `not_ready`) in
+  // `applyV5State.analysisRefusalNotice.spec.tsx`.
   //
   // Three-valued on purpose: a conversational turn RETAINS the notice (silence
   // is not evidence the refusal is over), an accepted analysis_ready or a
