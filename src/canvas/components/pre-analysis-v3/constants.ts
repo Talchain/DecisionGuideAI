@@ -152,8 +152,24 @@ export const SIGNAL_COPY = {
   }),
   riskRationale:
     'Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.',
-  estimates: (n: number, topLabel: string | null) => ({
-    lead: `Olumi estimated ${n === 1 ? 'one value' : `${n} values`} from your brief.`,
+  /**
+   * ⚠ `isSavedExample` IS AN HONESTY PARAMETER, NOT A STYLE ONE (W-1).
+   *
+   * Measured live on deployed staging `6524caed`, 2026-08-18: a guest who had
+   * written nothing opened the bundled "Customer Data Platform Selection"
+   * example and was told "Olumi estimated 6 values from your brief." The brief
+   * ships inside the app and was drafted on 2026-07-28 — which the canvas
+   * banner two inches away says out loud. One surface knew; this one claimed
+   * authorship on the user's behalf.
+   *
+   * The count and the ranking are unchanged and still true either way; only
+   * the attribution moves. `n === 0` never reaches here (the signal does not
+   * fire), so both branches always name a real quantity.
+   */
+  estimates: (n: number, topLabel: string | null, isSavedExample: boolean) => ({
+    lead: isSavedExample
+      ? `Olumi estimated ${n === 1 ? 'one value' : `${n} values`} in this saved example.`
+      : `Olumi estimated ${n === 1 ? 'one value' : `${n} values`} from your brief.`,
     emphasis: topLabel
       ? `Check ${topLabel} first, it may matter most.`
       : 'Replacing them with your judgement usually helps the analysis.',

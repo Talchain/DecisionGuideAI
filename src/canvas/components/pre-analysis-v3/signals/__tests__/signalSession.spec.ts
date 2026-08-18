@@ -12,6 +12,7 @@ function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionIn
     risksAllOlumi: true,
     aiEstimatedCount: 6,
     topUncalibrated: { id: 'f1', label: 'Tech lead impact' },
+    isSavedExample: false,
     narrowFramingDetail: null,
     biasFindingExplanation: null,
     ...overrides,
