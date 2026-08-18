@@ -132,10 +132,21 @@ describe('B4 / N-20 · the Goal panel MOUNTS the provenance line', () => {
   })
 
   it('the panel RENDERS the provenance component, fed from the persisted field', () => {
-    // `<GoalConstraintProvenance` — the JSX form. A bare import would not match,
-    // so an unmounted-but-imported component still reds this.
-    expect(panelSource).toContain('<GoalConstraintProvenance')
+    /*
+     * ⚠ A WORD BOUNDARY, NOT A SUBSTRING — this assertion was
+     * `toContain('<GoalConstraintProvenance')` and a mutant that renamed the
+     * element to `<GoalConstraintProvenanceUNMOUNTED` SURVIVED it, because the
+     * original name is still a substring of the renamed one. A `toContain` on a
+     * component name cannot tell a mount from a lookalike that renders nothing.
+     */
+    expect(panelSource).toMatch(/<GoalConstraintProvenance[\s/>]/)
     expect(panelSource).toContain('sourceQuote={c.source_quote}')
+  })
+
+  it('CONTRAST CONTROL: the boundary matcher REJECTS a renamed lookalike', () => {
+    // Proves the fix above is discriminating rather than merely different.
+    expect('<GoalConstraintProvenanceUNMOUNTED\n').not.toMatch(/<GoalConstraintProvenance[\s/>]/)
+    expect('<GoalConstraintProvenance\n').toMatch(/<GoalConstraintProvenance[\s/>]/)
   })
 
   it('the testid the panel will emit is the one this spec asserts on', () => {

@@ -49,11 +49,19 @@ function row(over: Partial<ModelRow> & Pick<ModelRow, 'id'>): ModelRow {
   } as ModelRow
 }
 
-/** Three unknown factors, one known — a group that is 3-of-4 unstated. */
+/**
+ * Three unknown factors, one known — a group that is 3-of-4 unstated.
+ *
+ * ⚠ `fac_c` IS NOT EDITABLE, AND THAT IS LOAD-BEARING. The first version of
+ * this fixture made every row `editable: true`, so the value cell's
+ * `!row.editable` arm was never rendered and a mutant restoring the wall on
+ * that arm SURVIVED the whole suite. A fixture that omits a branch certifies
+ * nothing about it (trap 22: check what your corpus EXCLUDES).
+ */
 const FACTORS: readonly ModelRow[] = [
   row({ id: 'fac_a' }),
   row({ id: 'fac_b' }),
-  row({ id: 'fac_c' }),
+  row({ id: 'fac_c', editable: false }),
   row({ id: 'fac_known', primaryValue: '45 days' }),
 ]
 
@@ -85,6 +93,15 @@ describe('B4 · unknown values are summarised at the group, not repeated down th
     expect(cell.textContent).toBe('')
   })
 
+  it('a row that is NOT EDITABLE AT ALL prints nothing either', () => {
+    // The second silent arm. `fac_c` is `editable: false`, which is a different
+    // branch of the value cell from "editable but no live authority" above —
+    // and it was the branch a restore-the-wall mutant slipped through.
+    renderOutline(FACTORS, new Set(['fac_a', 'fac_b', 'fac_c']))
+    const cell = screen.getByTestId('model-row-v2-fac_c-value')
+    expect(cell.textContent).toBe('')
+  })
+
   it('ACTIONABLE unknowns keep saying "Not set" — there it is the control, not a label', () => {
     // The opposite-direction twin of the assertion above. Without it, a change
     // that silenced EVERY unknown would pass the previous test while removing
@@ -109,8 +126,10 @@ describe('B4 · unknown values are summarised at the group, not repeated down th
 
   it('the wall is gone: the outline prints "Not set" at most once per ACTIONABLE row', () => {
     // The headline claim, stated as a count over the whole rendered outline.
-    // Four unknown-bearing rows, one of them actionable => exactly one "Not set".
-    renderOutline(FACTORS, new Set(['fac_a']))
+    // Three unknown-bearing rows, one of them actionable => exactly one "Not set".
+    // Note `fac_c` is in `editConnectedIds` and STILL silent, because it is not
+    // editable — connectivity alone does not make a row an affordance.
+    renderOutline(FACTORS, new Set(['fac_a', 'fac_c']))
     const outline = screen.getByTestId('model-outline-v2')
     const occurrences = (outline.textContent ?? '').split('Not set').length - 1
     expect(occurrences).toBe(1)
