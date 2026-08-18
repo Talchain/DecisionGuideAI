@@ -8,6 +8,8 @@ import { ValidationBanner, type ValidationError } from './ValidationBanner'
 import { useValidationFeedback } from '../hooks/useValidationFeedback'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
 import { computeFitPadding } from '../utils/computeFitPadding'
+import { excludeNonModelNodes } from '../utils/fitTargets'
+import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
 import { typography } from '../../styles/typography'
@@ -44,7 +46,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
   // React #185 FIX: Use shallow comparison for array selectors
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
-  const { fitView } = useReactFlow()
+  const { fitView, getNodes } = useReactFlow()
   const { formatErrors, focusError } = useValidationFeedback()
   const prefersReducedMotion = usePrefersReducedMotion() // F1: reduced-motion guard for Zoom to Fit
 
@@ -167,7 +169,18 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
       }
     }},
     { id: 'select-all', label: 'Select All', shortcut: '⌘A', execute: () => selectAll() },
-    { id: 'zoom-fit', label: 'Zoom to Fit', execute: () => fitView({ padding: computeFitPadding(), duration: cameraDuration(300, prefersReducedMotion) }) },
+    // Same contract as the toolbar's "Fit to view" (ReactFlowGraph.handleFitView):
+    // UI placeholders excluded, and floored at the legibility zoom so the palette
+    // cannot choose an unreadable frame either.
+    { id: 'zoom-fit', label: 'Zoom to Fit', execute: () => {
+      const nodes = getNodes ? excludeNonModelNodes(getNodes()) : []
+      fitView({
+        ...(nodes.length > 0 ? { nodes } : {}),
+        padding: computeFitPadding(),
+        minZoom: LABEL_LEGIBLE_ZOOM,
+        duration: cameraDuration(300, prefersReducedMotion),
+      })
+    } },
     { id: 'save-snapshot', label: 'Save Snapshot', shortcut: '⌘S', execute: () => saveSnapshot() },
   ]
 

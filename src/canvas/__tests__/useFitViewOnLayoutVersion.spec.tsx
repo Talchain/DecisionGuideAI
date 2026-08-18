@@ -8,6 +8,11 @@
  * `layoutVersion === 0` is the "no layout yet" state and must not trigger
  * fitView. `computeFitPadding` is mocked here to a sentinel — its own correctness
  * is covered by computeFitPadding.spec.ts; this spec locks the cadence + duration.
+ *
+ * ⭐ EXTENDED 18 Aug 2026 (`WORKSPACE-COMPOSITION-DECISION-2026-08-18.md` step 1):
+ * the RESERVED BOX is now a trigger too, and the fit targets exclude UI
+ * placeholders. Both are covered below; the sentinel padding is mutable so a
+ * reserved-box CHANGE can be simulated without the real measurement.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -19,13 +24,17 @@ import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 const fitViewSpy = vi.fn()
 
 const FIT_PADDING = { top: '10px', right: '20px', bottom: '10px', left: '20px' }
+/** The reserved box the mocked measurement reports; reassigned to simulate a change. */
+let currentPadding: { top: string; right: string; bottom: string; left: string } = FIT_PADDING
+/** The nodes the mocked ReactFlow instance holds — including a UI placeholder. */
+let currentNodes: Array<{ id: string }> = []
 
 vi.mock('@xyflow/react', () => ({
-  useReactFlow: () => ({ fitView: fitViewSpy }),
+  useReactFlow: () => ({ fitView: fitViewSpy, getNodes: () => currentNodes }),
 }))
 
 vi.mock('../utils/computeFitPadding', () => ({
-  computeFitPadding: () => FIT_PADDING,
+  computeFitPadding: () => currentPadding,
 }))
 
 describe('useFitViewOnLayoutVersion', () => {
@@ -33,6 +42,8 @@ describe('useFitViewOnLayoutVersion', () => {
     useCanvasStore.getState().resetCanvas()
     useCanvasStore.setState({ layoutVersion: 0 } as never)
     fitViewSpy.mockReset()
+    currentPadding = FIT_PADDING
+    currentNodes = []
   })
 
   afterEach(() => {
@@ -152,5 +163,147 @@ describe('useFitViewOnLayoutVersion', () => {
 
     rafSpy.mockRestore()
     cancelSpy.mockRestore()
+  })
+
+  describe('the reserved box is a trigger too', () => {
+    it('re-fits when the reserved box changes, with the SAME contract as the layout fit', () => {
+      // The witnessed defect: the camera sat at zoom 0.385 after the conversation
+      // panel closed while the computed fit for the new box was 0.582 — the graph
+      // 34% smaller than it needed to be, because fitView only ever ran on layout.
+      const rafCallbacks: Array<() => void> = []
+      const rafSpy = vi
+        .spyOn(globalThis, 'requestAnimationFrame')
+        .mockImplementation((cb: FrameRequestCallback) => {
+          rafCallbacks.push(cb as () => void)
+          return rafCallbacks.length
+        })
+
+      renderHook(() => useFitViewOnLayoutVersion())
+      act(() => {
+        useCanvasStore.setState({ layoutVersion: 1 } as never)
+      })
+      act(() => {
+        rafCallbacks.splice(0).forEach((cb) => cb())
+      })
+      expect(fitViewSpy).toHaveBeenCalledTimes(1)
+      const layoutFitArgs = fitViewSpy.mock.calls[0][0]
+
+      // The dock collapses: 20px of right reservation becomes 444px.
+      currentPadding = { top: '10px', right: '444px', bottom: '10px', left: '20px' }
+      act(() => {
+        window.dispatchEvent(new Event('resize'))
+      })
+      act(() => {
+        rafCallbacks.splice(0).forEach((cb) => cb())
+      })
+
+      expect(fitViewSpy).toHaveBeenCalledTimes(2)
+      const refitArgs = fitViewSpy.mock.calls[1][0]
+      // ONE contract: everything except the measured padding must be identical,
+      // so the two triggers cannot drift into two different fits.
+      expect(refitArgs.minZoom).toBe(layoutFitArgs.minZoom)
+      expect(refitArgs.duration).toBe(layoutFitArgs.duration)
+      expect(refitArgs.padding).toEqual(currentPadding)
+
+      rafSpy.mockRestore()
+    })
+
+    it('does NOT re-fit when the reserved box is unchanged', () => {
+      // The discriminating half: a watcher that fired on every trigger regardless
+      // would pass the test above and yank the camera on every pointerup.
+      const rafCallbacks: Array<() => void> = []
+      const rafSpy = vi
+        .spyOn(globalThis, 'requestAnimationFrame')
+        .mockImplementation((cb: FrameRequestCallback) => {
+          rafCallbacks.push(cb as () => void)
+          return rafCallbacks.length
+        })
+
+      renderHook(() => useFitViewOnLayoutVersion())
+      act(() => {
+        useCanvasStore.setState({ layoutVersion: 1 } as never)
+      })
+      act(() => {
+        rafCallbacks.splice(0).forEach((cb) => cb())
+      })
+      expect(fitViewSpy).toHaveBeenCalledTimes(1)
+
+      // Same padding: three triggers, no re-fit.
+      act(() => {
+        window.dispatchEvent(new Event('resize'))
+        document.dispatchEvent(new Event('pointerup'))
+        document.dispatchEvent(new Event('transitionend'))
+      })
+      act(() => {
+        rafCallbacks.splice(0).forEach((cb) => cb())
+      })
+      expect(fitViewSpy).toHaveBeenCalledTimes(1)
+
+      rafSpy.mockRestore()
+    })
+
+    it('never re-fits before a layout has happened', () => {
+      const rafCallbacks: Array<() => void> = []
+      const rafSpy = vi
+        .spyOn(globalThis, 'requestAnimationFrame')
+        .mockImplementation((cb: FrameRequestCallback) => {
+          rafCallbacks.push(cb as () => void)
+          return rafCallbacks.length
+        })
+
+      renderHook(() => useFitViewOnLayoutVersion())
+      currentPadding = { top: '10px', right: '444px', bottom: '10px', left: '20px' }
+      act(() => {
+        window.dispatchEvent(new Event('resize'))
+      })
+      act(() => {
+        rafCallbacks.splice(0).forEach((cb) => cb())
+      })
+      expect(fitViewSpy).not.toHaveBeenCalled()
+
+      rafSpy.mockRestore()
+    })
+  })
+
+  describe('fit targets exclude UI placeholders', () => {
+    function fitOnce() {
+      const rafCallbacks: Array<() => void> = []
+      const rafSpy = vi
+        .spyOn(globalThis, 'requestAnimationFrame')
+        .mockImplementation((cb: FrameRequestCallback) => {
+          rafCallbacks.push(cb as () => void)
+          return rafCallbacks.length
+        })
+      renderHook(() => useFitViewOnLayoutVersion())
+      act(() => {
+        useCanvasStore.setState({ layoutVersion: 1 } as never)
+      })
+      act(() => {
+        rafCallbacks.splice(0).forEach((cb) => cb())
+      })
+      rafSpy.mockRestore()
+      return fitViewSpy.mock.calls[0][0]
+    }
+
+    it('passes the model nodes and omits __ghost-option__ — bound by ID', () => {
+      currentNodes = [{ id: 'dec_1' }, { id: 'opt_a' }, { id: '__ghost-option__' }]
+      const args = fitOnce()
+      // Bound by identity, never by a count another node set could satisfy.
+      expect(args.nodes.map((n: { id: string }) => n.id)).toEqual(['dec_1', 'opt_a'])
+    })
+
+    it('omits `nodes` entirely when there are none — the previous behaviour', () => {
+      // A `nodes: []` would frame nothing. The fallback must be xyflow's
+      // fit-everything, i.e. exactly what shipped before.
+      currentNodes = []
+      const args = fitOnce()
+      expect('nodes' in args).toBe(false)
+    })
+
+    it('omits `nodes` when the ONLY node is the placeholder', () => {
+      currentNodes = [{ id: '__ghost-option__' }]
+      const args = fitOnce()
+      expect('nodes' in args).toBe(false)
+    })
   })
 })
