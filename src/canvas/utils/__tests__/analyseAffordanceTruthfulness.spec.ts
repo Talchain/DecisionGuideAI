@@ -318,10 +318,15 @@ describe('no surface denies analysability while completed results are on screen'
     expect(meta).not.toMatch(/not able to run this/i)
   })
 
-  it('the pre-analysis degrade fallback is the SAME string, not a copy of it', () => {
-    // Two verbatim literals for one sentence is the mirror that drifts
-    // (trap 12). Bound by identity so a future edit to one cannot leave the
-    // other behind.
+  it('the pre-analysis degrade fallback carries the same VALUE as the composed rung', () => {
+    // ⚠ AND THIS ASSERTION CANNOT SEE THE THING ITS OLD NAME CLAIMED. It read
+    // "the SAME string, not a copy of it" — but `toBe` on two primitives is
+    // value equality, so it passes just as happily against two verbatim
+    // literals as against a reference. Measured: it PASSED at pristine
+    // `06f745ba`, where `constants.ts` did hold a second copy. A guard that
+    // agrees with itself (trap 13b). It stays, because the value equality is
+    // worth pinning; the mirror claim is made where it can actually be
+    // measured — in the source sweep below.
     expect(FOOTER_COPY.notReadySubFallback).toBe(BLOCKED_REASON_COPY.unspecified)
   })
 })
@@ -376,5 +381,28 @@ describe('exactly ONE place in the source writes this sentence', () => {
       code.get(f)!.includes('Analysis is held on a saved example'),
     )
     expect(authors.map((f) => path.basename(f))).toEqual(['analysisHeldOnInjectedModel.ts'])
+  })
+
+  it('the terminal readiness rung is written once too — the mirror the value test cannot see', () => {
+    const files = sourceFilesUnder(SRC)
+    const code = new Map(
+      files.map((f) => [f, stripComments(fs.readFileSync(f, 'utf8'), f)] as const),
+    )
+
+    // CONTRAST CONTROL: a neighbouring sentence from the same constant object,
+    // so a zero below means "one author", not "the sweep is blind".
+    const control = files.filter((f) =>
+      code.get(f)!.includes('Ask in the chat and it will explain what is missing'),
+    )
+    expect(control.length).toBeGreaterThan(0)
+
+    // At pristine `06f745ba` this sentence had TWO authors —
+    // `composeBlockedReason.ts` and `pre-analysis-v3/constants.ts` — and the
+    // `toBe` pin above passed anyway, because both literals were identical.
+    // This is where "one home" is actually decidable.
+    const authors = files.filter((f) =>
+      code.get(f)!.includes('Olumi needs something more from this model'),
+    )
+    expect(authors.map((f) => path.basename(f))).toEqual(['composeBlockedReason.ts'])
   })
 })

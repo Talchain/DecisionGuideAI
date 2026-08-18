@@ -7,6 +7,18 @@
  * tests pin the two claims that must never silently regress — that the
  * disclosure renders whenever starter provenance is on the graph, and that the
  * redraft re-sends the VERBATIM brief the shown graph came from.
+ *
+ * ⭐ THE ANALYSIS CLAIM IS NOW CONDITIONAL, AND THAT IS THE POINT (18 Aug
+ * affordance sweep, cross-cutting note 1). The banner used to print "Analysis
+ * is held on a saved example" unconditionally, on its OWN mount condition —
+ * so it kept saying it while a toast said "Analysis complete." It now reads
+ * `analysisHeldNotice`, the run gate's own condition and sentence, which is
+ * `null` off the V5 canonical run path (a V2-direct run carries the graph, so
+ * nothing is held). The DEPLOYED posture bakes that path ON — both
+ * `VITE_V5_CANONICAL_ANALYSIS` and `VITE_ENABLE_V5_ORCHESTRATOR` are inlined
+ * "true" — so the held-claim tests stub it ON to test the surface the
+ * deployment actually mounts (trap 3b), and the twin below proves the claim
+ * DISAPPEARS when the state stops holding.
  */
 
 import { render, screen, waitFor } from '@testing-library/react'
@@ -52,12 +64,29 @@ describe('StarterProvenanceBanner', () => {
     vi.clearAllMocks()
     confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     resetSpy = vi.spyOn(useCanvasStore.getState(), 'resetCanvas').mockImplementation(() => {})
+    // The deployed flag posture (see the file header). Without it the run gate
+    // does not hold, so the banner correctly declines to say that it does — and
+    // the assertions below would be measuring a posture staging does not serve.
+    //
+    // ⚠ THE CANONICAL HALF GOES THROUGH localStorage, NOT `vi.stubEnv`.
+    // `flags.ts` resolves `VITE_V5_CANONICAL_ANALYSIS` at MODULE LOAD (which is
+    // why `flags.v5CanonicalAnalysis.spec.ts` pairs every `stubEnv` with a
+    // `vi.resetModules()`), so a stub set here arrives too late and reads as
+    // OFF. The documented storage override is evaluated per call and is the one
+    // that works from a component spec. Measured, not assumed: with `stubEnv`
+    // alone these assertions failed while the "STOPS claiming" twin below
+    // passed — i.e. the twin was agreeing for the wrong reason and proving
+    // nothing (trap 13b).
+    try { localStorage.setItem('feature.v5CanonicalAnalysis', '1') } catch { /* ignore */ }
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
     setNodes({ starterId: 'market-entry', starterTitle: MARKET.title })
   })
 
   afterEach(() => {
     confirmSpy.mockRestore()
     resetSpy.mockRestore()
+    vi.unstubAllEnvs()
+    try { localStorage.removeItem('feature.v5CanonicalAnalysis') } catch { /* ignore */ }
   })
 
   describe('disclosure', () => {
@@ -74,6 +103,22 @@ describe('StarterProvenanceBanner', () => {
     it('explains why analysis is held, so a disabled Run does not read as broken', () => {
       render(<StarterProvenanceBanner />)
       expect(screen.getByTestId('starter-provenance-banner')).toHaveTextContent(/analysis is held/i)
+    })
+
+    it('STOPS claiming analysis is held once the run gate no longer holds it', () => {
+      // The staleness the sweep witnessed, pinned from the other side: the
+      // banner still read "Analysis is held on a saved example" beside a toast
+      // that said "Analysis complete." The claim now comes from the gate's own
+      // condition, so when that condition is false the sentence is simply not
+      // made — while the provenance disclosure, which is still true, stays.
+      try { localStorage.setItem('feature.v5CanonicalAnalysis', '0') } catch { /* ignore */ }
+      render(<StarterProvenanceBanner />)
+      const banner = screen.getByTestId('starter-provenance-banner')
+      expect(banner).not.toHaveTextContent(/analysis is held/i)
+      // CONTROL: the banner is still mounted and still discloses provenance, so
+      // the absence above is the CLAIM being dropped, not the component.
+      expect(banner).toHaveTextContent(/saved example/i)
+      expect(banner).toHaveTextContent(/wasn’t generated just now/i)
     })
 
     // ── the two-shapes defect ────────────────────────────────────────────
