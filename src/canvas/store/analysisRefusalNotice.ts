@@ -9,13 +9,32 @@
  *   analysis_ready: { status: 'blocked', blocked_reason: <specific code>,
  *                     options: [], goal_node_id: '', freshness, computed_at }
  *
- * `applyV5State`'s readiness normaliser REJECTS that carrier (empty
- * `goal_node_id` / empty `options`) and clears `ceeAnalysisReady`. That
- * rejection is CORRECT and deliberate — a deployed-UI trace (2026-08-14)
- * established the clearing kills two harms, and the R1-R3 dynamics are
- * premised on it. So the refusal is NOT routed back into readiness. It gets
- * this separate, lightweight, SESSION-LOCAL field instead, extracted from the
- * raw payload before validation.
+ * ⚠ THE SENTENCE THAT USED TO SIT HERE WAS TRUE OF ONE ARM AND WRITTEN AS IF
+ * IT WERE TRUE OF THE CARRIER. It read: *"`applyV5State`'s readiness
+ * normaliser REJECTS that carrier (empty `goal_node_id` / empty `options`) and
+ * clears `ceeAnalysisReady`."* CEE #1023 (merged 2026-08-18) made a second
+ * refusal arm ACCEPTED, so the true statement is:
+ *
+ *   ARM A — EMPTY carrier (`options: []`, `goal_node_id: ''`). Still emitted
+ *     when the turn's structural projection is `ready`, absent or degenerate,
+ *     and on the chip-click arm. The readiness normaliser REJECTS it and clears
+ *     `ceeAnalysisReady`. That rejection is CORRECT and deliberate — a
+ *     deployed-UI trace (2026-08-14) established the clearing kills two harms,
+ *     and the R1-R3 dynamics are premised on it.
+ *   ARM B — IDENTITY-PRESERVING carrier (non-empty `goal_node_id` and
+ *     `options`). `buildAnalysisRefusalReadiness`
+ *     (`analysis-ready-helper.ts:1427-1472` at CEE `293da078`) preserves the
+ *     model's identity when the structural projection is not `ready`, using the
+ *     UI's own accept predicate as its degeneracy guard — so the normaliser
+ *     ACCEPTS it and writes `ceeAnalysisReady` with `status: 'blocked'`.
+ *     `deriveAnalysisDisplayState` maps that to `not_ready`, so an accepted
+ *     refusal still cannot render a green completion.
+ *
+ * NEITHER ARM ROUTES THE REFUSAL BACK INTO READINESS. It gets this separate,
+ * lightweight, SESSION-LOCAL field instead, extracted from the raw payload
+ * before validation — and because the derivation below keys on `status` plus a
+ * non-empty `blocked_reason` and never on the identity fields, both arms set
+ * it identically.
  *
  * ⚠ TWO DISTINCT `status: 'blocked'` CARRIERS EXIST — derived at the CEE bytes
  * (PR #942 head 2ca6c079), not inferred. Only one is a refusal:
@@ -140,6 +159,67 @@ export const ANALYSIS_REFUSAL_REASON_COPY: Readonly<Record<string, string>> = {
     "An option's effect could not be resolved to a value.",
   INTERNAL_ERROR:
     'The analysis stopped on an internal error. This is on our side, not your model.',
+
+  // ── reason_code, CanonicalReadinessIssueCode ──────────────────────────
+  // (analysis-ready-helper.ts:52-66). ⚠ THIS FAMILY WAS MISSING ENTIRELY, and
+  // the omission included `MISSING_OPTION_VALUE`, the code CEE PR #1023
+  // measured on the deployed wire. `ReadinessReasonCode` is a UNION whose
+  // members include `CanonicalReadinessIssueCode`, so covering
+  // `StructuralViolationCode` 10/10 was covering one arm of a union and
+  // reading as complete.
+  //
+  // EVERY SENTENCE BELOW IS DERIVED FROM THE ISSUE BUILDER THAT EMITS THE CODE
+  // (trap 13c / P7 — the producer's semantics, never our reading of the name),
+  // and each is written to be compatible with the message CEE puts in the chat
+  // for the same issue, so the two surfaces cannot contradict each other.
+  //
+  // ⚠ THEY STATE A CLASS, NEVER AN INSTANCE. `blocked_reason` is a bare code:
+  // the option and factor labels live on `readiness_issues[]`, which this
+  // notice does not read. Naming "your Expand-into-the-EU option" here would be
+  // a claim about the user's model that this surface cannot ground (P5). The
+  // pointer line above carries the action; these carry the fact.
+  MISSING_OPTION_VALUE:
+    // blockerIssue 'missing_value' (:681-687): `Choose the missing effect
+    // value for "<option>" on "<factor>".`
+    'An option has no effect value set on one of your factors, so there was nothing to compare.',
+  AMBIGUOUS_OPTION_VALUE:
+    // blockerIssue 'ambiguous_value' (:688-694): `Confirm the effect value…`
+    "An option's effect value could be read in more than one way, so it was not safe to use.",
+  MISSING_OPTION_CONNECTION:
+    // blockerIssue 'missing_connection' (:695-701): `Choose the missing
+    // connection…` — category `option_mapping`.
+    'An option is not connected to the factor it affects, so its effect could not be traced.',
+  CONSTRAINT_REVIEW_REQUIRED:
+    // blockerIssue 'constraint_dropped' (:702-708): `Review the unresolved
+    // constraint…`; `requiredInputForIssue` gives it its own
+    // `constraint_review` kind (:743).
+    'A constraint on this decision was left unresolved, so the analysis stopped rather than ignore it.',
+  UNREACHABLE_CONTROLLABLE_FACTOR:
+    // blockerIssue mapping-with-no-option (:672-679): fires when the payload is
+    // `needs_user_mapping` and the blocker names a FACTOR but no option —
+    // `Choose which option changes "<factor>" and by how much.`
+    'A factor you can control is not changed by any of your options, so nothing connects it to the decision.',
+  OPTION_NEEDS_MAPPING:
+    // per-option sweep (:923-937), `option.status === 'needs_user_mapping'`:
+    // `Choose which factor "<option>" changes and by how much.`
+    'It is not yet recorded which factor one of your options changes, or by how much.',
+  OPTION_NEEDS_ENCODING:
+    // per-option sweep (:923-937), the non-mapping arm: `Choose how "<option>"
+    // should be represented on the effect scale.` The status itself is defined
+    // as "has raw values (categorical/boolean) awaiting numeric encoding"
+    // (schemas/analysis-ready.ts:62). ⚠ A SECOND, NON-BLOCKING producer emits
+    // this code as a `safe_canonicalisation` carrier issue (:1009-1017); that
+    // one never becomes a `blocked_reason`, so this sentence describes the
+    // blocking sense only.
+    "An option's value is not a number yet, so it could not be placed on the effect scale.",
+
+  // ── reason_code, the analysable-option gate (run-analysis.ts:434-459) ──
+  // Not a canonical issue code: a distinct refusal raised BEFORE PLoT, because
+  // `/v2/run` declares `options` with `minItems: 2` and a one-option
+  // "comparison" has a win probability of 1.0 by construction. Aligned with the
+  // `next_step` CEE puts in the chat for the same code.
+  insufficient_analysable_options:
+    'Leaving out the options with no values set left only one to compare, and one option is not a comparison.',
 
   // ── reason_code, StructuralViolationCode (graph-structure-validator.ts:22-32)
   NO_GOAL: 'The model has no goal, so there was nothing to analyse towards.',

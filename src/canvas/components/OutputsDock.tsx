@@ -429,10 +429,20 @@ export function getOutputTabsForParity(): WorkspaceSurfaceDescriptor[] {
   //
   // Journey is absent by CONTRACT, not by flag — `presentedAsTab: false`. See
   // its row in `shellContract.ts` for the ruling and the evidence.
+  //
+  // ⚠ AND THEREFORE THERE IS NO `journey` BRANCH HERE. One used to sit below
+  // the `compare` line (`if (surface.id === 'journey') return
+  // isJourneyTabEnabled()`), and it could never execute: `presentedSurfaces()`
+  // filters on `presentedAsTab` (`shellContract.ts:412`) BEFORE this callback
+  // ever sees a surface, so no journey descriptor reaches it whatever the flag
+  // says. A dead flag check next to two live ones is worse than none — it reads
+  // as "the flag decides", which is exactly the belief the contract row exists
+  // to correct. `presentedSurfaces().map(s => s.id)` is asserted not to contain
+  // 'journey' in `tests/ci-guards/shell-conformance.spec.ts`, and
+  // `OutputsDock.dom.spec.tsx` drives the whole dock with the flag forced ON.
   return presentedSurfaces().filter(surface => {
     if (surface.id === 'olumi') return isAiPanelV2Enabled()
     if (surface.id === 'compare') return isCompareTabEnabled()
-    if (surface.id === 'journey') return isJourneyTabEnabled()
     return true
   })
 }
@@ -2052,7 +2062,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const OUTPUT_TABS = useMemo<WorkspaceSurfaceDescriptor[]>(
     () => getOutputTabsForParity(),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- flag accessors are stable; we re-run by value
-    [aiPanelV2On, isJourneyTabEnabled(), isCompareTabEnabled()],
+    // No `isJourneyTabEnabled()` here: `getOutputTabsForParity` no longer reads
+    // it (journey is hidden by contract), so listing it would re-run this memo
+    // on a value the computation cannot consume.
+    [aiPanelV2On, isCompareTabEnabled()],
   )
 
   // ── Shell width, published once, derived from the live element ────────────

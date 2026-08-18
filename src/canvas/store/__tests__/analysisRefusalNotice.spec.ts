@@ -37,6 +37,7 @@ import {
   deriveAnalysisRefusalNoticeUpdate,
   describeAnalysisRefusalReason,
   ANALYSIS_REFUSAL_REASON_COPY,
+  ANALYSIS_REFUSAL_GENERIC_REASON,
   type AnalysisRefusalNoticeUpdate,
 } from '../analysisRefusalNotice'
 
@@ -190,6 +191,61 @@ describe('describeAnalysisRefusalReason — mapped vocabulary derived from the C
     'OPTION_NO_FACTOR_EDGES',
     'OPTION_NOT_LINKED_TO_DECISION',
   ] as const
+
+  /**
+   * ⚠ THE LIST ABOVE WAS SHORT, AND THE OMISSION WAS THE MOST COMMON CODE ON
+   * THE DEPLOYED WIRE. `ReadinessReasonCode` (analysis-ready-core.ts:56-70 at
+   * CEE `293da078`) is a UNION, and one of its members is
+   * `CanonicalReadinessIssueCode` — a whole second family the list above never
+   * enumerated. The reachability chain, derived rather than assumed:
+   *
+   *   `assessCanonicalAnalysisReadiness` builds `blockingIssues`
+   *     (analysis-ready-helper.ts:1057-1063 — structural violations, then
+   *      `appendSemanticIssues` which pushes the semantic codes into the SAME
+   *      array)
+   *   -> `reasonCodes = [...new Set(blockingIssues.map(i => i.code))]`
+   *      (analysis-ready-core.ts:163-165)
+   *   -> `details.reason_code = verdict.reasonCodes[0]`
+   *      (run-analysis.ts:324, on the `AnalysisNotReadyError` branch)
+   *   -> `blockedReasonForHandlerFailure` returns `details.reason_code`
+   *      (handler-errors.ts:196-202)
+   *   -> `analysis_ready.blocked_reason`.
+   *
+   * WITNESSED, not only derived: CEE PR #1023 measured
+   * `blocked_reason="MISSING_OPTION_VALUE"` against deployed staging on 18 Aug
+   * 2026 — the code the map had no entry for was the one the P0 arrived on.
+   *
+   * `insufficient_analysable_options` is a lower_snake `reason_code` from a
+   * different producer entirely (run-analysis.ts:434-459), reachable only when
+   * excluding unanalysable options leaves fewer than PLoT's two-option minimum.
+   */
+  const CANONICAL_ISSUE_CODES_REACHABLE_FROM_RUN_ANALYSIS = [
+    // CanonicalReadinessIssueCode members NOT already covered above
+    // (analysis-ready-helper.ts:52-66), each with its blocking producer:
+    'MISSING_OPTION_VALUE',            // blockerIssue 'missing_value'      :681-687
+    'AMBIGUOUS_OPTION_VALUE',          // blockerIssue 'ambiguous_value'    :688-694
+    'MISSING_OPTION_CONNECTION',       // blockerIssue 'missing_connection' :695-701
+    'CONSTRAINT_REVIEW_REQUIRED',      // blockerIssue 'constraint_dropped' :702-708
+    'UNREACHABLE_CONTROLLABLE_FACTOR', // blockerIssue mapping-no-option    :672-679
+    'OPTION_NEEDS_MAPPING',            // per-option sweep                  :923-937
+    'OPTION_NEEDS_ENCODING',           // per-option sweep                  :923-937
+    // A distinct producer, not a canonical issue code.
+    'insufficient_analysable_options', // run-analysis.ts                   :434-459
+  ] as const
+
+  it.each(CANONICAL_ISSUE_CODES_REACHABLE_FROM_RUN_ANALYSIS)(
+    'maps the reachable canonical code %s to specific copy',
+    (code) => {
+      const copy = describeAnalysisRefusalReason(code)
+      expect(copy).toBeTypeOf('string')
+      expect((copy as string).length).toBeGreaterThan(0)
+      // OPPOSITE DIRECTION: specific means SPECIFIC — a mapped code must not
+      // silently resolve to the honest generic, which would pass the length
+      // assertion above while telling the user nothing (trap 13b: a guard that
+      // agrees with itself).
+      expect(copy).not.toBe(ANALYSIS_REFUSAL_GENERIC_REASON)
+    },
+  )
 
   it.each(CAUSE_KINDS_REACHABLE_FROM_RUN_ANALYSIS)(
     'maps the reachable cause_kind %s to specific copy',
