@@ -120,11 +120,22 @@ export function WorkspaceShellTabStrip({
               type="button"
               onClick={() => onTabClick(surface.id)}
               // `min-w-0` is the load-bearing class: without it the button's
-              // default `min-width:auto` floors it at min-content and
-              // `flex-1`'s `flex-basis:0` cannot shrink it.
+              // default `min-width: auto` floors it at min-content, and no
+              // amount of flex-shrink can take it below that — which is why the
+              // tabs spilled under the controls instead of shrinking.
+              //
+              // ⚠ `flex-auto`, NOT `flex-1`, and the difference was MEASURED at
+              // 1280x800 and 1920x1080. `flex-1` is `flex: 1 1 0%` — basis
+              // zero, so every tab ends up the SAME width whatever it holds,
+              // and with `min-w-0` it then truncates even when the row has
+              // room: at four tabs it rendered "Anal…" and "Mo…" on a row with
+              // space to spare, i.e. the fix producing the defect it was
+              // written to prevent. `flex-auto` is `flex: 1 1 auto` —
+              // content-sized, growing to fill the row and shrinking
+              // PROPORTIONALLY only when the content genuinely does not fit.
               title={surface.label}
               data-testid={`outputs-dock-tab-${surface.id}`}
-              className={`flex-1 min-w-0 px-2 py-1 rounded ${typography.panelBody} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+              className={`flex-auto min-w-0 px-2 py-1 rounded ${typography.panelBody} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                 isActive
                   ? 'text-info border-b-2 border-info'
                   : 'text-text-header hover:bg-panel border-b-2 border-transparent'
