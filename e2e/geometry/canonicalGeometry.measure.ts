@@ -1,7 +1,31 @@
 /**
- * MEASUREMENT ONLY — real Chromium, real layout, no references, nothing blessed.
- * Reports the canonical geometry of each shipped starter at 1280 / 1440 / 1512.
- * Deleted before commit; its OUTPUT is the deliverable.
+ * CANONICAL GEOMETRY — a MEASUREMENT instrument, not a gate.
+ *
+ * Real Chromium, real layout, no references, nothing blessed, no assertions
+ * about what the numbers ought to be. It exists because founder ruling R1
+ * (18 Aug 2026) asks for the shipped starters to be RE-MEASURED at 1280 / 1440
+ * / 1512 after the canonical-layout authority is fixed, and because jsdom
+ * cannot prove a rendered size or a settled camera zoom (CLAUDE.md trap 3).
+ *
+ * ⚠ RUN IT DELIBERATELY, it is not in any gate:
+ *     pnpm exec playwright test -c playwright.geometry.config.ts
+ * The file is `*.measure.ts`, NOT `*.spec.ts`, precisely so the main e2e
+ * config (`testDir: 'e2e'`, default testMatch) cannot collect it into a run
+ * that has no dev server on its port.
+ *
+ * ⭐ THE POSITIVE CONTROL THIS HARNESS NEEDS, recorded because it was missing on
+ * the first run and produced a perfect false negative. `applyDraftResult` — the
+ * seeding path — never set the layout store's `canvasSize`, so on the PRISTINE
+ * build every viewport silently fell back to `layout.ts`'s FALLBACK_CANVAS of
+ * 1300 and the harness reported BEFORE and AFTER as byte-identical in all
+ * fifteen cells. That reads exactly like "the change did nothing". To witness
+ * the viewport dependence on a pristine tree you must first reproduce
+ * `DraftChat.tsx`'s two lines (`resolveLayoutCanvasSize()` then
+ * `setCanvasSize`) through Vite's module graph, and ASSERT the store took the
+ * pane's width before seeding. On this tree there is nothing to reproduce —
+ * the authority is gone — which is the property under test.
+ *
+ * Output: one `GEOMJSON {...}` line per cell on stdout.
  */
 import { test } from '@playwright/test'
 import {

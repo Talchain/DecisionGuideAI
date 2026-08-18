@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 const UNREACHABLE = 'http://127.0.0.1:9'
 export default defineConfig({
   testDir: 'e2e/geometry',
-  testMatch: '**/*.measure.spec.ts',
+  testMatch: '**/*.measure.ts',
   fullyParallel: false,
   workers: 1,
   retries: 0,
