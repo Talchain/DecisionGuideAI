@@ -165,3 +165,57 @@ export const useFloatingPanelState = create<FloatingPanelState>((set, get) => ({
 export function canAutoDock(state: Pick<FloatingPanelState, 'source' | 'userRepositioned'>): boolean {
   return state.source === 'system-first-use' && !state.userRepositioned
 }
+
+/**
+ * WOULD FRONTING THE FLOATING PANEL PUT A WINDOW ON SCREEN THAT THE USER NEVER
+ * CHOSE? (19 Aug 2026 — UX gate point 7a.)
+ *
+ * ⚠ THIS IS A DIFFERENT QUESTION FROM `canAutoDock`, AND THE TWO MUST NOT BE
+ * COLLAPSED (platform trap 21 — two concepts under similar names is how one
+ * fix re-opens another's defect). `canAutoDock` asks whether the post-draft
+ * transition MAY MOVE OR MINIMISE the panel without overriding a user choice.
+ * This asks whether an AUTOMATIC REVEAL may RESTORE it. They share the
+ * ownership half on purpose — one definition of "the system opened this and
+ * the user has never touched it", so the two cannot drift — and diverge on the
+ * half that decides this one: whether the panel is currently OUT OF SIGHT.
+ *
+ * ── THE DEFECT THIS CLOSES ────────────────────────────────────────────────
+ *
+ * After the first draft, `FirstUseComposer` minimises the transcript-less hero
+ * to the pill so the model gets the canvas. `isOpen` stays TRUE while minimised
+ * (the panel is kept mounted at `display: none`). `FloatingOlumiPanel`'s focus
+ * channel registers on `isOpen`, and its handler calls `restore()`. So from
+ * that moment every automatic reveal — and `withOlumiReveal` wraps EVERY
+ * guidance-store send, so analysis coaching is one — re-opened a full 400x550
+ * window over the graph. The user never chose floating; the product chose it
+ * for them, once, and then for the rest of the session.
+ *
+ * Measured on the deployed build `4d1e650b`, fresh guest, at fit-to-view:
+ * 40% / 33% / 28% of the graph hidden at 1280 / 1440 / 1512, 9 of 14 nodes
+ * obscured at 1280, and the node carrying the product's own "Leading option"
+ * badge 58% covered before the user had done anything. Its position confirms
+ * the mechanism arithmetically: the gate measured `x=436, y=240`, which is
+ * exactly `performReposition`'s bottom-right anchor computed while the dock was
+ * expanded (`1280 - 428 - 400 - 16` and `800 - 544 - 16`) — i.e. the panel the
+ * user saw was the MINIMISED hero, restored at the anchor it was minimised from.
+ *
+ * ── WHAT THIS DOES NOT DO (founder ruling, do not violate) ────────────────
+ *
+ * > "DO NOT remove floating/concurrent Olumi… FLOATING AND LAYOUT-RESERVING ARE
+ * > DIFFERENT CONCEPTS… FIX THE COMPOSITION, NOT THE CAPABILITY."
+ *
+ * Floating stays fully available and fully functional. Only the mode an
+ * AUTOMATIC reveal opens in changes. Every user-owned state is excluded by the
+ * predicate itself and still restores to floating:
+ *   - `source === 'user'`  — opened from the chevron, the tab, or a float-out;
+ *   - `userRepositioned`   — dragged or resized, i.e. positioned by choice;
+ *   - `!isMinimised`       — already on screen, so it IS the surface the user
+ *                            has, and a reveal must front it (`revealOlumi`).
+ * The pill's own `onClick={restore}` is untouched, so floating is one click
+ * away at all times, and the dock's float-out control is unchanged.
+ */
+export function revealWouldImposeFloating(
+  state: Pick<FloatingPanelState, 'source' | 'userRepositioned' | 'isMinimised'>,
+): boolean {
+  return state.isMinimised && canAutoDock(state)
+}

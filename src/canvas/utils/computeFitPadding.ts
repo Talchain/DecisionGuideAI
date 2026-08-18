@@ -36,6 +36,35 @@
  * like FloatingOlumiPanel.measureDockInset), so it stays correct if the canvas
  * is offset or embedded.
  *
+ * ⭐⭐ THE TOP BAR IS AN OCCLUDER, AND THIS FUNCTION USED TO SAY IT WAS NOT
+ * (19 Aug 2026 — UX gate point 7b). The comment on the `top`/`bottom` branch
+ * below read *"Top bar sits above `.react-flow` in the flex layout, so it never
+ * overlaps the flow rect"*. **That was false at the deployed tip.** `TopBar`
+ * has been a FLOATING PILL since the Miro-style header landed:
+ * `position: fixed; top: 12px; left: 12px; height: 45px; z-index: 3000`
+ * (`TopBar.module.css:1-19`), and `.react-flow` is the full window.
+ *
+ * Derived live on the deployed build `4d1e650b`, fresh guest, 1280x800:
+ * `[role="banner"]` = `{left 12, top 12, right 526.6, bottom 57}`, `.react-flow`
+ * = `{left 0, top 0, right 1280, bottom 800}`. So the bar overlaps the flow rect
+ * by **57px** while this function reserved the 29px base margin — a fitted graph's
+ * top row lands UNDER the bar BY CONSTRUCTION. At z-3000 over a z-0 canvas it is
+ * not merely obscured but unclickable: `elementFromPoint` inside the bar returns
+ * the bar's own controls. The UX gate measured the Decision node — the anchor of
+ * the model — 33% / 18% / 12% behind it at 1280 / 1440 / 1512, with header
+ * controls answering 3 of 4 hit probes inside it.
+ *
+ * ⚠ WHY THIS IS NOT THE RESERVATION THE HEADER BELOW ABOLISHES. The rule is
+ * unchanged and is the discriminator: **ONLY EDGE-ANCHORED, LAYOUT-RESERVING
+ * CHROME CONTRIBUTES.** The floating conversation panel is free-floating,
+ * user-movable and dismissible, so "how much does it occlude" has no single
+ * answer and clearing it cost a `cheapestClearance` band of 392px / 52% of the
+ * fit box. The top bar is anchored to one edge, is not movable, is not
+ * dismissible, and has exactly one answer — `bar.bottom - flow.top` — the same
+ * predicate the dock and the sidebar already use. The cost is bounded and small:
+ * top goes 29px → 73px at 800px of pane, 5.5% of the vertical, against 52%.
+ * A future lane must apply the same test before adding a contributor here.
+ *
  * ⭐⭐ THE STATED RULE, added 18 Aug 2026: **ONLY EDGE-ANCHORED, LAYOUT-RESERVING
  * CHROME CONTRIBUTES.** The OutputsDock and the LeftSidebar are edge-anchored, so
  * "how much do they occlude" has exactly one answer and the caller reserves it on
@@ -102,6 +131,15 @@
 const BASE_RATIO = 0.08
 /** Breathing gap between the graph and an occluding panel edge. */
 const GAP = 16
+/**
+ * The floating TopBar pill, spelled ONCE. `role="banner"` is the page's header
+ * LANDMARK and there is exactly one in the app (`TopBar.tsx:209` is the only
+ * `role="banner"` in `src/`) — so this binds to the bar by identity rather than
+ * by a class name or a position predicate another fixed element could satisfy.
+ * Pinned by `topBarFitInset.dom.spec.tsx`, which renders the real `TopBar` and
+ * asserts the element this selector finds IS it, and that it is unique.
+ */
+export const TOP_BAR_SELECTOR = '[role="banner"]'
 /** Never let combined per-axis padding exceed this fraction of the pane (keeps a fitting area). */
 const MAX_PADDING_FRACTION = 0.8
 
@@ -159,8 +197,10 @@ export function computeFitPadding(flowEl?: Element | null): FitPadding {
 
   let right = baseX
   let left = baseX
-  // Top bar sits above `.react-flow` in the flex layout, so it never overlaps
-  // the flow rect — top/bottom keep the base margin.
+  // Bottom keeps the base margin: nothing is anchored to the bottom edge of the
+  // canvas. `top` is resolved against the floating top bar below — see the
+  // header for why the old claim on this line ("the top bar never overlaps the
+  // flow rect") was false at the deployed tip.
   let top = baseY
   let bottom = baseY
 
@@ -179,12 +219,25 @@ export function computeFitPadding(flowEl?: Element | null): FitPadding {
       const overlap = Math.max(0, sidebar.right - flowRect.left)
       if (overlap > 0) left = Math.max(left, overlap + GAP)
     }
+    // Top edge — the floating TopBar pill (`role="banner"`, the header landmark).
+    // MEASURED, NEVER NAMED AS A NUMBER: the bar's height is a CSS value that has
+    // already moved once, and `--topbar-h` is a hand-maintained mirror of it
+    // (`TopBar.tsx` writes the literal '57px' next to the comment "12px top + 45px
+    // height"). Reading the live rect is the same derivation the dock and the
+    // sidebar use, and it is the one that stays true when the bar's height,
+    // padding or offset changes.
+    const topBar = rectOf(TOP_BAR_SELECTOR)
+    if (topBar) {
+      const overlap = Math.max(0, topBar.bottom - flowRect.top)
+      if (overlap > 0) top = Math.max(top, overlap + GAP)
+    }
 
     // ⭐ NOTHING ELSE CONTRIBUTES. The floating conversation panel, its side tab
     // and its minimised pill are read here NOWHERE — deliberately, and see the
     // header for the 392px this gives back and for why `cameraComfort` still
     // observes the panel. A future lane adding a free-floating occluder to this
-    // function REDs the padding-invariance guard (G2a).
+    // function REDs the padding-invariance guard (G2a). The three that DO
+    // contribute are each anchored to the edge they reserve from.
   }
 
   // Defensive clamp: never reserve so much padding that the pane is left with no
