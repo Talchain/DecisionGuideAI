@@ -18,7 +18,10 @@
 import { describe, it, expect } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
 import type { EdgeData } from '../../domain/edges'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { countFactorsToVerify } from '../../components/model-tab/utils'
+import { factorNeedsVerification } from '../../domain/valueProvenance'
 import {
   edgeIsContested,
   nodeKind,
@@ -155,9 +158,27 @@ describe('toModelRows — factor values and attention', () => {
   })
 })
 
-// ── ⭐ THE PORT PIN ──────────────────────────────────────────────────────────
+// ── ⭐ THE PORT PIN, RETIRED AND REPLACED (18 Aug 2026) ──────────────────────
+//
+// This block used to pin a COPY: `adapters.ts` carried its own
+// `factorNeedsVerification`, ported from the filter body inside
+// `countFactorsToVerify`, and these tests asserted the two agreed over a corpus.
+//
+// ⚠ THE PIN WAS HONEST AND IT WAS STILL A MIRROR. Agreement is all a derived
+// guard can ever prove — never that either side is RIGHT — and it needed a
+// hand-written corpus to prove even that (trap 12d). The REHOME → DELETE lane
+// removed the copy: the predicate now lives once, in `domain/valueProvenance`,
+// and both readers import it.
+//
+// So the corpus-agreement assertions became TAUTOLOGIES — the same function on
+// both sides of the equals sign — and a tautology that reads as a guard is
+// worse than no guard. They are replaced by the claim that actually matters
+// now: THERE IS EXACTLY ONE DEFINITION, and the count still delegates to it.
+// The corpus is kept, because it is the thing that would notice the surviving
+// definition being wrong (trap 12d's other half: derivation and corpus are not
+// redundant — ship both).
 
-describe('⭐ the ported predicate agrees with the live original', () => {
+describe('⭐ ONE definition of "needs verification", and the count delegates to it', () => {
   /**
    * A corpus spanning every shape the live filter distinguishes, INCLUDING the
    * snake_case wire spelling and a factor with no observed state at all.
@@ -178,12 +199,37 @@ describe('⭐ the ported predicate agrees with the live original', () => {
     },
   ]
 
-  it('my per-factor predicate and the live COUNT agree over the corpus', () => {
-    // The live function exports only a count, which is why the predicate had to
-    // be ported at all. Pinning them against each other means the copy cannot
-    // drift from the badge without turning this red.
-    const mine = CORPUS.filter(n => factorNeedsVerification(n.data)).length
-    expect(mine).toBe(countFactorsToVerify(CORPUS))
+  it('the badge COUNT is the domain predicate applied N times — it holds no copy', () => {
+    // Still worth asserting after the move: it goes RED the day
+    // `countFactorsToVerify` grows its own inline predicate back.
+    const viaPredicate = CORPUS.filter(n => factorNeedsVerification(n.data)).length
+    expect(countFactorsToVerify(CORPUS)).toBe(viaPredicate)
+    // ⚠ AND THE COUNT IS NOT TRIVIAL. Without this the line above would pass on
+    // a corpus where nothing needs verification, i.e. on two functions that both
+    // return false for everything (trap 13 — an absence assertion needs a
+    // positive control).
+    expect(viaPredicate).toBeGreaterThan(0)
+    expect(viaPredicate).toBeLessThan(CORPUS.length)
+  })
+
+  it('⭐ the predicate is DEFINED exactly once in the tree — the mirror is gone, not relocated', () => {
+    const read = (rel: string) => readFileSync(join(__dirname, rel), 'utf8')
+    const DEFINITION = /export function factorNeedsVerification\s*\(/
+    const domain = read('../../domain/valueProvenance.ts')
+    const adapters = read('../adapters.ts')
+    const utils = read('../../components/model-tab/utils.ts')
+
+    // POSITIVE CONTROL: the matcher can see a definition when one is present —
+    // otherwise "no definition here" would be reported by a blind regex.
+    expect(DEFINITION.test(domain)).toBe(true)
+
+    // The two former copy sites hold NEITHER a definition NOR a re-export. A
+    // re-export would keep the name reachable from three places with one owner,
+    // which is the shim this lane exists to refuse.
+    for (const [name, src] of [['adapters.ts', adapters], ['model-tab/utils.ts', utils]] as const) {
+      expect(`${name}: ${DEFINITION.test(src)}`).toBe(`${name}: false`)
+      expect(`${name}: ${/export\s*\{[^}]*factorNeedsVerification/.test(src)}`).toBe(`${name}: false`)
+    }
   })
 
   it('and they agree on the empty case', () => {
@@ -191,6 +237,10 @@ describe('⭐ the ported predicate agrees with the live original', () => {
   })
 
   it('the predicate identifies WHICH factors, which is what a queue needs', () => {
+    // The corpus survives the move DELIBERATELY. A single definition cannot be
+    // wrong-and-consistent-with-itself into a red; only a hand-written corpus
+    // notices the surviving definition being wrong. Note `d` (`user_confirmed`)
+    // is absent — which is what makes the rehomed Confirm ✓ clear the badge.
     const flagged = CORPUS.filter(n => factorNeedsVerification(n.data)).map(n => n.id)
     expect(flagged).toEqual(['a', 'b', 'f', 'g'])
   })

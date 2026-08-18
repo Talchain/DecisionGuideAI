@@ -90,6 +90,23 @@ export function ModelDetailRegion({
    * rendering bug and gets "fixed" by removing the check, whereas a stated
    * mismatch names the defect for whoever sees it.
    */
+  /*
+   * ⚠ READ DEFENSIVELY EVEN THOUGH THE TYPE SAYS IT IS REQUIRED (preamble P1).
+   *
+   * `interventions` is not optional in `ModelRowDetail`, so a producer that
+   * omits it is a contract break — and the type keeps obliging producers. But
+   * the SEAM ONE PAST THAT GUARD is this render, and `detail.interventions.length`
+   * on an absent array throws during render and takes the WHOLE pane with it:
+   * the element's name, its value, its provenance and its "what it affects"
+   * list all disappear because one list is missing. That is #746's exact shape —
+   * malformity must cost the citation, never the attribution.
+   *
+   * Proven, not assumed: twelve existing tests in this file went RED the moment
+   * the field was added, all of them on payloads built before it existed, and
+   * every one of them was asserting something ELSE about the pane.
+   */
+  const interventions = detail.interventions ?? []
+
   if (detail.rowId !== row.id) {
     return (
       <aside data-testid="model-detail-v2" data-mismatch="true">
@@ -141,11 +158,11 @@ export function ModelDetailRegion({
         second, quieter rendering of the same fact, and the two would then have
         to be kept in step.
       */}
-      {detail.interventions.length > 0 && (
+      {interventions.length > 0 && (
         <section data-testid="model-detail-v2-interventions">
           <h4 className={`${typography.label} text-text-header`}>What this would change</h4>
           <ul>
-            {detail.interventions.map(iv => {
+            {interventions.map(iv => {
               const editing = interventionEdit?.factorId === iv.factorId
               const editable = typeof onBeginInterventionEdit === 'function'
               return (

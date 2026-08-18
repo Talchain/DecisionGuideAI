@@ -191,10 +191,20 @@ export function ModelRowView({
         </span>
       )}
 
+      {/*
+        ⚠ `-confirm-as-is`, NOT `-confirm`. The three-beat's chip already owns
+        `model-row-v2-<id>-confirm`, and the first cut of this affordance reused
+        it — two DIFFERENT gestures answering to one identity, which broke five
+        existing pins that assert the value-edit chip is absent while typing.
+        The collision was the guard doing its job: an assertion that binds by
+        identity is only as good as the identity being unique (trap 19), and a
+        shared testid is the same "two things, one name" defect this whole lane
+        is removing, at the scale of an attribute.
+      */}
       {canConfirmAsIs && (
         <button
           type="button"
-          data-testid={`model-row-v2-${row.id}-confirm`}
+          data-testid={`model-row-v2-${row.id}-confirm-as-is`}
           title="Confirm this value is correct"
           aria-label={`Confirm ${row.label} is correct`}
           className={`${typography.buttonSmall} text-info underline decoration-dotted`}
