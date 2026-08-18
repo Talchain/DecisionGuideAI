@@ -421,3 +421,111 @@ export function useGraphEditEvents(
     }
   }, [sendSystemEvent])
 }
+
+// ---------------------------------------------------------------------------
+// § useGuidanceInvalidationOnEdit — the coaching half, WITHOUT the wire half
+//
+// ⚠⚠ THE DEFECT THIS CLOSES (N-23, derived at the bytes in
+// `drainHostReachability.derived.spec.ts` and confirmed again at `4d1e650b`):
+// STALE COACHING SURVIVES A LOCAL STRUCTURAL EDIT. `clearGuidanceItems()` had
+// exactly ONE production caller — `useGraphEditEvents` above — and that hook's
+// only host is `DraftChat`, which `ReactFlowGraph.tsx:2484` mounts ONLY when
+// `aiPanelV2` is OFF. The flag is ON in every deployed context
+// (`netlify.toml:57` `"true"`). So for every real user, the model can be
+// restructured underneath coaching that was minted against the PREVIOUS model,
+// and that coaching stands until the next assistant turn replaces the whole
+// list. Advice about a model the user has since changed is not merely stale —
+// it is confidently wrong on a surface whose entire job is to be trusted.
+//
+// ⭐ WHY THIS IS A SEPARATE HOOK AND NOT A RE-HOST OF THE ONE ABOVE.
+// A prior lane stopped at exactly this boundary and was right to. Mounting
+// `useGraphEditEvents` on the live path would ALSO switch on `direct_graph_edit`
+// wire emission for every user — a WIRE-BEHAVIOUR change (CEE starts receiving a
+// system event it currently never receives from a flag-ON user) smuggled in as a
+// UX fix. That is a different decision, with a different blast radius, and it is
+// not this lane's to take. So the two jobs are split by CONSTRUCTION rather than
+// by discipline: this hook takes NO `sendSystemEvent`, imports no transport, and
+// is therefore STRUCTURALLY INCAPABLE of emitting anything. The guard for that
+// is a source-level assertion in the spec, not a promise in this comment.
+//
+// SINGLE AUTHORITY ON "WHAT IS A STRUCTURAL CHANGE". This deliberately reuses
+// `takeSnapshot`/`diffSnapshots` from the emitter above rather than
+// re-implementing the diff. Two same-named-but-different notions of "the graph
+// changed" is this estate's most-paid-for defect class (the two
+// `generateGraphHash` twins), and a copy here would drift the moment either side
+// is touched. Position-only changes are excluded by `diffSnapshots` returning
+// `null` — dragging a node must not wipe the user's coaching.
+//
+// ⚠ EXTERNAL MUTATIONS STAY SUPPRESSED, and that is load-bearing, not inherited
+// boilerplate. Accepting an assistant patch runs under
+// `beginExternalGraphMutation('patch_apply')` and uses `clearItemsByTargetIds`
+// to drop only the items the patch touched; a blanket clear here would destroy
+// the untargeted items that are legitimately still valid, and
+// `guidanceStore.ts`'s `minting` gate depends on that distinction holding.
+//
+// ⚠ NOT GATED ON `isOrchestratorV2Enabled()`, unlike the emitter above. That
+// flag governs a TRANSPORT; whether the user's coaching is honest about their
+// current model is not a transport concern. In the deployed posture the flag is
+// `"true"` (`netlify.toml:35`) so this is behaviour-identical there; where it is
+// OFF, this hook still keeps coaching honest instead of leaving the defect
+// standing for a reason unrelated to it.
+// ---------------------------------------------------------------------------
+
+/**
+ * Clear all guidance the moment the user makes a local structural edit.
+ *
+ * Wire-free by construction: takes no transport, emits nothing, and touches
+ * only the canvas store (read) and the guidance store (clear).
+ */
+export function useGuidanceInvalidationOnEdit(): void {
+  const snapshotRef = useRef<GraphSnapshot | null>(null)
+  const scenarioIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const state = useCanvasStore.getState()
+    snapshotRef.current = takeSnapshot(state.nodes, state.edges)
+    scenarioIdRef.current = state.currentScenarioId
+
+    const unsubscribe = useCanvasStore.subscribe((curr, prev) => {
+      // Scenario switch — re-baseline and clear nothing. Guidance for the
+      // decision being LEFT is not invalidated by leaving it, and the store's
+      // own rehydration gate keys on `scenarioId` anyway.
+      if (curr.currentScenarioId !== scenarioIdRef.current) {
+        scenarioIdRef.current = curr.currentScenarioId
+        snapshotRef.current = takeSnapshot(curr.nodes, curr.edges)
+        return
+      }
+
+      // Same references — nothing moved.
+      if (curr.nodes === prev.nodes && curr.edges === prev.edges) return
+
+      // Patch-apply / hydration / envelope-apply. Re-baseline so the next real
+      // user edit diffs against the post-mutation graph rather than a stale one.
+      if (curr._externalMutationActive > 0) {
+        snapshotRef.current = takeSnapshot(curr.nodes, curr.edges)
+        return
+      }
+
+      const prevSnapshot = snapshotRef.current
+      if (!prevSnapshot) {
+        snapshotRef.current = takeSnapshot(curr.nodes, curr.edges)
+        return
+      }
+
+      const currSnapshot = takeSnapshot(curr.nodes, curr.edges)
+      const diff = diffSnapshots(prevSnapshot, currSnapshot)
+      // Position-only change: advance the baseline, keep the coaching.
+      if (!diff) {
+        snapshotRef.current = currSnapshot
+        return
+      }
+
+      snapshotRef.current = currSnapshot
+      useGuidanceStore.getState().clearGuidanceItems()
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
+}
