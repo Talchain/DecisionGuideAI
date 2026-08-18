@@ -35,7 +35,15 @@ import {
   resolveGuidance as resolveV5ErrorGuidance,
   resolveRetryable as resolveV5Retryable,
   resolveFailureCopyForError,
+  extractConflictCategory,
 } from '../../v5/failureTypeRetryability'
+import {
+  readStructuralDeleteReceipt,
+  revertStructuralDelete,
+  STRUCTURAL_DELETE_NOTICE,
+  type StructuralDeleteIntent,
+  type StructuralDeleteNoticeKey,
+} from '../mutations/structuralDelete'
 import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { ACTION_TO_TURN_TYPE } from './actionTurnTypes'
@@ -2343,6 +2351,17 @@ export interface SendTurnOpts {
    */
   optimisticFactorEdit?: OptimisticFactorEdit
   /**
+   * schemas 0.48.0 — the delete gesture this `structural_delete` announces.
+   *
+   * NOT part of the wire payload, and the same reason `optimisticFactorEdit`
+   * rides here: the canvas has ALREADY removed these elements, so a refusal
+   * leaves the product showing a deletion the server declined — an ungrounded
+   * claim about the user's model. The resolution needs the response in hand
+   * (only `draft_graph` proves absence), which is why it happens inside
+   * `sendTurn` rather than in the dispatcher.
+   */
+  structuralDelete?: StructuralDeleteIntent
+  /**
    * Keep this system event with its caller when another turn owns the lock.
    *
    * Default true preserves the established singleton sender queue. Callers
@@ -2415,10 +2434,30 @@ export class SystemEventSendError extends Error {
   /** 'transport': nothing reached the server (network / proxy timeout).
    *  'server':    the server received the turn and failed it (typed error). */
   readonly kind: 'transport' | 'server'
-  constructor(kind: 'transport' | 'server', options?: { cause?: unknown }) {
+  /**
+   * The wire failure code (`FailureType`) when the server answered with a typed
+   * error, else undefined.
+   *
+   * ⚠ ADDITIVE, AND IT EXISTS BECAUSE 'server' IS TOO COARSE FOR A DELETE. A
+   * `structural_delete` refused on a diverged base hash is a 409 whose meaning
+   * is precise — CEE wrote nothing, and the honest remedy is reload-then-delete,
+   * NOT the retry a generic server error implies. Without these two fields the
+   * dispatcher can only say "something went wrong", which is exactly the
+   * generic-error outcome the durable-delete brief forbids. Existing callers
+   * read neither field and are unaffected.
+   */
+  readonly code?: string
+  /** `details.conflict_category` — distinguishes BASE_HASH_DIVERGED from a fence. */
+  readonly conflictCategory?: string
+  constructor(
+    kind: 'transport' | 'server',
+    options?: { cause?: unknown; code?: string; conflictCategory?: string },
+  ) {
     super(`System event send failed (${kind})`)
     this.name = 'SystemEventSendError'
     this.kind = kind
+    if (options?.code !== undefined) this.code = options.code
+    if (options?.conflictCategory !== undefined) this.conflictCategory = options.conflictCategory
     if (options?.cause !== undefined) {
       ;(this as Error & { cause?: unknown }).cause = options.cause
     }
@@ -2456,6 +2495,13 @@ export interface UseConversationReturn {
      * canvas showing a number (and a "User edited" stamp) the engine declined.
      */
     optimisticFactorEdit?: OptimisticFactorEdit
+    /**
+     * schemas 0.48.0 — the delete gesture this `structural_delete` announces,
+     * so `sendTurn` can resolve it against the server receipt. Callers that
+     * delete optimistically MUST pass this; without it a refusal leaves the
+     * canvas asserting a removal the server declined.
+     */
+    structuralDelete?: StructuralDeleteIntent
     /** Return `SEND_BLOCKED` instead of queueing behind an in-flight turn. */
     deferIfBusy?: boolean
     // Resolves to SEND_DEFERRED when the in-flight lock queued the send instead
@@ -2898,6 +2944,107 @@ export function useConversation(): UseConversationReturn {
       return next
     })
   }, [])
+
+  /**
+   * schemas 0.48.0 — resolve a `structural_delete` against what the SERVER did.
+   *
+   * THE TRUST DEFECT THIS CLOSES: the delete already happened on the canvas
+   * before the turn was sent, so an unresolved refusal leaves the product
+   * showing a model state the server declined to hold — an ungrounded claim
+   * about the user's own decision (P5), and one whose only previous symptom was
+   * the option silently reappearing on the next re-run.
+   *
+   * THE EVIDENCE, AND ITS THREE STATES (never two):
+   *   · `proven`   — `draft_graph` arrived and every id/pair we named is absent
+   *     from it. CEE stamps that field ONLY after re-reading the COMMITTED bytes
+   *     and verifying each removal landed, so this is a receipt, not a promise.
+   *     The canvas already matches; CEE's own confirmation prose renders through
+   *     the normal 200 branch, so nothing is added here.
+   *   · `refuted` / `unproven` on a 200 — REVERT. Derived from CEE's writer, not
+   *     assumed: every `refuse()` returns before any commit ("writes nothing on
+   *     refusal"), and the one post-commit path that omits `draft_graph` is the
+   *     receipt-invalid withhold, which fires precisely when the removals were
+   *     NOT observed in the committed bytes. In both cases the best-grounded
+   *     state is the elements still being there.
+   *   · a 409 `BASE_HASH_DIVERGED` — REVERT, same guarantee, stated explicitly
+   *     by the writer ("No graph or turn row is written for this outcome").
+   *
+   * ⚠ AND THE ONE CASE THAT MUST NOT REVERT: a TRANSPORT failure. Nothing was
+   * read, so we know neither that it landed nor that it did not — and restoring
+   * the elements would assert "these are still in your model", which is exactly
+   * as unfounded as leaving them deleted. An honest unknown may not be replaced
+   * by a convenient certainty (P3), so the canvas is left alone and the notice
+   * says the deletion could not be confirmed.
+   *
+   * ⚠ THE NOTICE IS WITHHELD WHENEVER CEE ALREADY SPOKE. A 200 refusal carries
+   * prose that says exactly what happened ("I couldn't find everything you
+   * deleted in the saved model, so I haven't removed anything. Reload it and try
+   * again.") and the system-turn 200 branch renders it. Adding our sentence
+   * there would put two voices on one outcome. Typed errors and transport
+   * failures render NO bubble in system mode — that silence is what these fill.
+   */
+  const resolveStructuralDelete = useCallback(
+    (
+      intent: StructuralDeleteIntent,
+      capturedScenarioId: string | null,
+      outcome:
+        | { kind: 'response'; response: { draft_graph?: unknown; assistant_text?: unknown } }
+        | { kind: 'typed_error'; conflictCategory: string | undefined }
+        | { kind: 'transport' },
+    ) => {
+      const store = useCanvasStore.getState()
+      let notice: StructuralDeleteNoticeKey | null = null
+      let shouldRevert = false
+
+      if (outcome.kind === 'response') {
+        const receipt = readStructuralDeleteReceipt(intent, outcome.response)
+        if (receipt === 'proven') return
+        shouldRevert = true
+        const spoke =
+          typeof outcome.response.assistant_text === 'string' &&
+          outcome.response.assistant_text.trim().length > 0
+        notice = spoke ? null : 'unconfirmed_server'
+      } else if (outcome.kind === 'typed_error') {
+        // BASE_HASH_DIVERGED is the ONLY category with a guaranteed no-write and
+        // a remedy that actually works. A fence category or an unknown one gets
+        // the honest cannot-confirm line rather than a reload instruction we
+        // cannot promise resolves anything (P8).
+        const diverged = outcome.conflictCategory === 'BASE_HASH_DIVERGED'
+        shouldRevert = diverged
+        notice = diverged ? 'base_hash_diverged' : 'unconfirmed_server'
+      } else {
+        notice = 'unconfirmed_transport'
+      }
+
+      if (shouldRevert) {
+        const revertOutcome = revertStructuralDelete(
+          intent,
+          {
+            nodes: store.nodes,
+            edges: store.edges,
+            currentScenarioId: store.currentScenarioId,
+            applyStructuralDeleteRevert: store.applyStructuralDeleteRevert,
+          },
+          capturedScenarioId,
+        )
+        // The copy promises the elements are back. If the revert stood down
+        // (scenario moved on) that promise is false, so the notice is withheld
+        // rather than shipped alongside a canvas it does not describe.
+        if (revertOutcome === 'stood_down') return
+      }
+
+      if (notice !== null) {
+        addMessage({
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          synthetic: true,
+          content: STRUCTURAL_DELETE_NOTICE[notice],
+          timestamp: new Date(),
+        })
+      }
+    },
+    [addMessage],
+  )
 
   /** Update an existing message in-place by id (used by streaming path) */
   const updateMessage = useCallback((id: string, patch: Partial<ConversationMessage>) => {
@@ -4655,6 +4802,43 @@ export function useConversation(): UseConversationReturn {
           //     of newer truth.
           //   • the revert itself stands down unless the node still holds the
           //     number this turn sent (see `revertOptimisticFactorEdit`).
+          // ── schemas 0.48.0 — bind the delete's acknowledgement to the RECEIPT
+          //
+          // Placed beside the optimistic-value resolution because it answers the
+          // same question for the other optimistic write, and it is placed
+          // BEFORE the state apply below deliberately: `reconcileAppliedGraph`
+          // ingests `draft_graph` into the canvas, and a revert decided after
+          // that would be reasoning about a graph the receipt had already
+          // rewritten.
+          //
+          // NOT gated on `target.kind !== 'typed_error'` (unlike the factor
+          // edit, whose typed errors are the deferral buffer's business): a 409
+          // IS the outcome this event most needs to resolve, and a delete is
+          // never queued for retry — its base hash cannot survive the wait.
+          const structuralDelete = opts.structuralDelete
+          if (
+            structuralDelete &&
+            systemEvent?.type === 'structural_delete' &&
+            activeV5TurnIdRef.current === turnClientId
+          ) {
+            resolveStructuralDelete(
+              structuralDelete,
+              // Captured at DISPATCH, not read now: a scenario switch mid-turn
+              // must stand the revert down rather than write these ids into a
+              // decision the user never edited. (The scenario fence above has
+              // already discarded a late response, so this agrees with it by
+              // construction — belt and braces, and it keeps the revert's own
+              // precondition explicit rather than inherited.)
+              scenarioIdAtDispatch,
+              target.kind === 'typed_error'
+                ? {
+                    kind: 'typed_error',
+                    conflictCategory: extractConflictCategory(target.boundaryError),
+                  }
+                : { kind: 'response', response: target.response },
+            )
+          }
+
           const optimisticEdit = opts.optimisticFactorEdit
           if (
             optimisticEdit &&
@@ -5305,6 +5489,16 @@ export function useConversation(): UseConversationReturn {
               // it is rethrown after `finally` and the dispatcher can react.
               systemSendFailure = new SystemEventSendError(
                 transportFailure ? 'transport' : 'server',
+                // Carried, not re-derived downstream: `target.code` and the
+                // envelope are in scope HERE and nowhere else. A dispatcher that
+                // had to guess the cause from `kind` alone could only render
+                // generic copy.
+                {
+                  ...(typeof target.code === 'string' ? { code: target.code } : {}),
+                  ...(target.boundaryError
+                    ? { conflictCategory: extractConflictCategory(target.boundaryError) }
+                    : {}),
+                },
               )
             }
           }
@@ -5465,6 +5659,16 @@ export function useConversation(): UseConversationReturn {
             // to the dispatcher — an aborted turn (user stop / timeout) is not
             // a failure and is excluded above.
             systemSendFailure = new SystemEventSendError('transport', { cause: err })
+            // 0.48.0 — a delete that never reached the server. The canvas is
+            // LEFT ALONE (see `resolveStructuralDelete`: nothing was read, so
+            // restoring would be as unfounded as leaving it deleted) and the
+            // user is told the deletion is unconfirmed rather than left to
+            // discover it on the next re-run.
+            if (opts.structuralDelete && systemEvent?.type === 'structural_delete') {
+              resolveStructuralDelete(opts.structuralDelete, scenarioIdAtDispatch, {
+                kind: 'transport',
+              })
+            }
           }
           if (import.meta.env.DEV && !isAbort) {
             console.warn('[sendTurn V5] Dispatch error:', err)
@@ -6191,6 +6395,8 @@ export function useConversation(): UseConversationReturn {
       debugInitiatedBy?: 'user' | 'automatic'
       debugSourceSurface?: string
       optimisticFactorEdit?: OptimisticFactorEdit
+      /** 0.48.0 — see the interface declaration. */
+      structuralDelete?: StructuralDeleteIntent
       deferIfBusy?: boolean
     }) => {
       // No-op when orchestrator V2 is OFF
@@ -6227,6 +6433,16 @@ export function useConversation(): UseConversationReturn {
         initiatedBy: opts?.debugInitiatedBy ?? 'automatic',
         sourceSurface: opts?.debugSourceSurface,
         optimisticFactorEdit: opts?.optimisticFactorEdit,
+        structuralDelete: opts?.structuralDelete,
+        // ⚠ A DELETE MAY DEFER, AND THE DEDUPE KEY IS WHY THAT IS SAFE.
+        // `enqueueDeferredSystemSend` collapses only `factor_value_edit`
+        // (last-write-wins per target); every other type gets a per-enqueue
+        // unique key and APPENDS, so two deletes queued behind one turn are both
+        // dispatched, in order, and each resolves its own receipt through this
+        // same `sendTurn`. If an intervening turn moves the persisted hash the
+        // deferred delete is refused on the stale gate — which is CORRECT, and
+        // it now surfaces as a revert plus an honest sentence rather than as an
+        // option quietly reappearing on the next re-run.
         deferIfBusy: opts?.deferIfBusy,
       })
     },

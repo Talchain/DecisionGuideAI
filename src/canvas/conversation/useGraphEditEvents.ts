@@ -136,6 +136,48 @@ function diffSnapshots(prev: GraphSnapshot, curr: GraphSnapshot): DiffAccumulato
   return hasChanges ? diff : null
 }
 
+/**
+ * Drop from a diff the removals a `structural_delete` intent has already
+ * claimed, so one gesture produces one turn.
+ *
+ * Bound by IDENTITY — the intent's exact node ids and exact canvas edge ids —
+ * never by "this diff contains removals". A gesture that removed A while an
+ * unrelated producer removed B must still report B.
+ *
+ * The op check is load-bearing in the other direction too: an id that was
+ * REMOVED by the gesture and ADDED back by something else in the same debounce
+ * window is a genuine add and stays.
+ */
+function removeStructuralDeleteClaims(
+  diff: DiffAccumulator,
+  pending: ReadonlyArray<{
+    claimedNodeIds: readonly string[]
+    claimedEdgeIds: readonly string[]
+  }>,
+): void {
+  if (pending.length === 0) return
+  for (const intent of pending) {
+    for (const id of intent.claimedNodeIds) {
+      if (diff.nodeOps.get(id) !== 'remove') continue
+      diff.changedNodeIds.delete(id)
+      diff.nodeOps.delete(id)
+      diff.fieldsChanged.delete(id)
+    }
+    for (const id of intent.claimedEdgeIds) {
+      if (diff.edgeOps.get(id) !== 'remove') continue
+      diff.changedEdgeIds.delete(id)
+      diff.edgeOps.delete(id)
+      diff.fieldsChanged.delete(id)
+    }
+  }
+  // `operations` is a set of op KINDS, not of ids, so it must be re-derived
+  // from what survived — leaving a stale 'remove' would tell CEE a removal
+  // happened that this notification no longer names.
+  diff.operations.clear()
+  for (const op of diff.nodeOps.values()) diff.operations.add(op)
+  for (const op of diff.edgeOps.values()) diff.operations.add(op)
+}
+
 function buildSummary(acc: DiffAccumulator): string {
   const parts: string[] = []
   const nodeCount = acc.changedNodeIds.size
@@ -213,7 +255,25 @@ export function useGraphEditEvents(
 
       const currSnapshot = takeSnapshot(curr.nodes, curr.edges)
       const diff = diffSnapshots(prevSnapshot, currSnapshot)
-
+      // ── schemas 0.48.0 — ONE GESTURE, ONE TURN ────────────────────────────
+      //
+      // A canvas delete is now carried by `structural_delete`, which the store
+      // records SYNCHRONOUSLY (in its own set(), immediately before the removal
+      // set() this callback is observing — so the queue is guaranteed populated
+      // here, and guaranteed drained long before the 1.5 s debounce fires).
+      //
+      // Without this subtraction the same deletion would reach CEE twice: once
+      // as the durable removal and once as a `direct_graph_edit` claiming the
+      // same ids changed. Two turns describing one gesture is the second-
+      // authority defect this estate pays for most often, and the notification
+      // half is the one CEE classifies 'ack_and_commit' — the very
+      // no-graph-write path the durable verb exists to replace.
+      //
+      // ⚠ SUBTRACTS ONLY WHAT WAS ACTUALLY CLAIMED, by id. When the capture
+      // stands down (no CEE `graph_hash` yet — see structuralDelete.ts's KNOWN
+      // GAP) no intent exists, nothing is subtracted, and the notification
+      // still carries the removal exactly as it does today. The fallback is
+      // preserved rather than replaced.
       if (!diff) {
         // Position-only change — update snapshot but don't trigger event
         snapshotRef.current = currSnapshot
@@ -223,7 +283,23 @@ export function useGraphEditEvents(
       // Clear guidance immediately on structural change (before debounce fires).
       // Direct model edits invalidate all guidance — drop everything now so stale
       // items don't persist during the 1.5s debounce window.
+      //
+      // ⚠ BEFORE THE CLAIM SUBTRACTION, DELIBERATELY. Guidance invalidation is a
+      // statement about the MODEL having changed, not about which turn reports
+      // it — a delete carried by `structural_delete` invalidates guidance every
+      // bit as much as one carried by the notification. Moving this below the
+      // subtraction would leave stale guidance standing after exactly the most
+      // destructive edit the canvas offers.
       useGuidanceStore.getState().clearGuidanceItems()
+
+      removeStructuralDeleteClaims(diff, curr.pendingStructuralDeletes)
+      if (diff.changedNodeIds.size === 0 && diff.changedEdgeIds.size === 0) {
+        // Every change in this diff is already on the wire as a durable
+        // removal. Advance the snapshot and emit nothing — one gesture, one
+        // turn.
+        snapshotRef.current = currSnapshot
+        return
+      }
 
       // Accumulate changes
       if (!accRef.current) {

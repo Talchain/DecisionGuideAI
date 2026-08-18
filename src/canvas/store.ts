@@ -23,6 +23,7 @@ import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
 import { RUN_COMPLETED_WITHOUT_VERDICT, VERDICT_ABSENT_FROM_PAYLOAD, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import type { AnalysisRefusalNotice } from './store/analysisRefusalNotice'
+import { captureStructuralDelete, type StructuralDeleteIntent } from './mutations/structuralDelete'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
@@ -594,6 +595,31 @@ interface CanvasState {
    * anchor by ruling (there is deliberately no `updated_at` on the read route).
    */
   serverGraphIdentity: { value: string; projectionVersion: string } | null
+  /**
+   * schemas 0.48.0 — the last `graph_hash` CEE stamped on a turn (`aag_v1`,
+   * 16 hex), held VERBATIM as the base for a `structural_delete`.
+   *
+   * ⚠ NOT `serverGraphIdentity` (the 64-hex `identity.v1` token) and NOT the
+   * UI's own `generateGraphHash`. CEE's delete writer compares against
+   * `computeAnalysisAffectingGraphHash`, whose only wire emitters are this
+   * top-level `graph_hash` and `analysis_ready.current_graph_hash`; the identity
+   * hash has no wire emitter, so a gate keyed on it could never match. The three
+   * are same-shaped strings from three different algorithms — see
+   * `canvas/mutations/structuralDelete.ts` for the full derivation.
+   *
+   * Null means "CEE has not stamped one this session", in which case a delete
+   * stands down from the wire rather than asserting a base it does not hold.
+   */
+  lastServerGraphHash: string | null
+  /**
+   * Delete gestures captured but not yet sent, oldest first.
+   *
+   * Written SYNCHRONOUSLY inside the delete actions against the PRE-delete
+   * graph, because `base_graph_hash` asserts the graph the user was looking at —
+   * a hash read after a debounce describes a graph that may have moved. Drained
+   * by `useStructuralDeleteEvents`, which is the ONE sender.
+   */
+  pendingStructuralDeletes: StructuralDeleteIntent[]
   // CEE Pipeline trace from last draft-graph response (for debug panel)
   ceePipelineTrace: CeePipelineTrace | null
   // CEE V3: Per-node LLM reasoning (node ID → why text) for rationale tooltips
@@ -968,6 +994,28 @@ interface CanvasState {
   setServerGraphIdentity: (
     identity: { value: string; projectionVersion: string } | null,
   ) => void
+  /** 0.48.0: record CEE's `aag_v1` `graph_hash` for the next delete's stale gate. */
+  setLastServerGraphHash: (hash: string | null) => void
+  /**
+   * 0.48.0: hand the drainer every queued delete gesture and empty the queue in
+   * ONE atomic read — a peek-then-clear would re-send a gesture if a second
+   * drain interleaved.
+   */
+  takePendingStructuralDeletes: () => StructuralDeleteIntent[]
+  /**
+   * 0.48.0: put back elements the server refused to remove.
+   *
+   * A restore, never a generic add: it re-inserts the captured elements
+   * VERBATIM (layout, size, data), which is the only way to undo a delete
+   * faithfully — CEE has never seen the layout and can never return it. It is a
+   * correction of a write the user already saw, so it deliberately takes no
+   * history entry: `pushToHistory` here would put "Deleted 2 elements" back on
+   * the redo stack as if the deletion had stood.
+   */
+  applyStructuralDeleteRevert: (restore: {
+    nodes: readonly Node[]
+    edges: readonly Edge<EdgeData>[]
+  }) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
   setCeeQuality: (quality: CeeQualityDimensions | null) => void
   // Phase 1b actions
@@ -1344,6 +1392,16 @@ const DECISION_CONTEXT_CLEAR = {
   // a decision-context change would make the next scenario's first read compare
   // equal to a graph it has nothing to do with, and skip its own hydration.
   serverGraphIdentity: null,
+  // 0.48.0: the base hash names ONE scenario's persisted graph. Carrying it
+  // across a decision-context change would send the previous decision's hash as
+  // the stale gate — refused by CEE, but only by luck: it is a claim about a
+  // graph this canvas is no longer showing.
+  lastServerGraphHash: null,
+  // 0.48.0: an undrained gesture belongs to the graph it was captured against.
+  // Sending it after a context change would name ids in a decision the user
+  // never edited. (Typed rather than left to `as const`, which would infer
+  // `readonly []` and refuse to satisfy the mutable store field.)
+  pendingStructuralDeletes: [] as StructuralDeleteIntent[],
 } as const
 
 /**
@@ -1464,6 +1522,58 @@ function markAnalysisFreshnessDirty(
   if (!get().analysisFreshnessDirty) {
     set(() => ({ analysisFreshnessDirty: true }))
   }
+}
+
+/**
+ * Record a user delete gesture for the wire, BEFORE the removal is applied.
+ *
+ * ⚠ THE CALL ORDER IS THE CONTRACT, not a style choice. `base_graph_hash`
+ * asserts the graph the user was looking at, and every id/edge-endpoint in the
+ * payload is resolved against that same pre-delete graph — so this must run
+ * while `get()` still returns it. Called from the FOUR delete actions
+ * (`deleteSelected`, `deleteNodeById`, `deleteEdgeById`, `deleteEdge`), which
+ * together are the one chokepoint every delete gesture crosses: the keyboard
+ * shortcut, the context menu (via `commitValidatedMutation`'s localApply) and
+ * the edge inspector all end here.
+ *
+ * DELIBERATELY NOT CALLED from the producer-driven removal paths
+ * (`applyPatch`, `graphRepair`, receipt reconciliation): those are CEE's own
+ * writes coming back, and echoing them to CEE as user deletes would be a second
+ * authority arguing with the first. `_externalMutationActive` is the estate's
+ * existing name for that distinction and `captureStructuralDelete` reads it.
+ *
+ * Writes in its OWN `set()`, ahead of the removal's, so `useGraphEditEvents`
+ * sees a populated queue when it diffs the removal and can stand its own
+ * removal limb down — one gesture, one turn.
+ */
+function recordStructuralDeleteIntent(
+  get: () => CanvasState,
+  set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
+  removed: { nodeIds: Iterable<string>; edgeIds: Iterable<string> },
+): void {
+  const state = get()
+  const result = captureStructuralDelete({
+    nodesBefore: state.nodes,
+    edgesBefore: state.edges,
+    removedNodeIds: removed.nodeIds,
+    removedEdgeIds: removed.edgeIds,
+    baseGraphHash: state.lastServerGraphHash,
+    externalMutationActive: state._externalMutationActive > 0,
+    makeId: () =>
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `sd-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  })
+  if (!result.ok) {
+    if (import.meta.env.DEV && result.reason === 'no_server_graph_hash') {
+      console.warn(
+        '[structuralDelete] no CEE graph_hash held yet — this deletion stays local ' +
+          '(it will not persist). See canvas/mutations/structuralDelete.ts KNOWN GAP.',
+      )
+    }
+    return
+  }
+  set((s) => ({ pendingStructuralDeletes: [...s.pendingStructuralDeletes, result.intent] }))
 }
 
 /**
@@ -1750,6 +1860,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   lastAuthoritativeGraph: null,
   // 2.312: no server graph read yet — nothing to compare against.
   serverGraphIdentity: null,
+  // 0.48.0: no CEE turn seen yet — a delete stands down rather than assert a
+  // base hash it does not hold.
+  lastServerGraphHash: null,
+  // 0.48.0: no delete gestures awaiting the wire.
+  pendingStructuralDeletes: [],
   // CEE Pipeline trace from last draft
   ceePipelineTrace: null,
   // CEE V3: Per-node LLM reasoning for rationale tooltips
@@ -2338,6 +2453,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
            selection.nodeIds.has(e.target)
     )
 
+    // 0.48.0 — durable removal. ONE intent for the whole multi-select: a node
+    // removal takes its incident edges with it, so splitting this into per-
+    // element turns would open a dangling-edge window the contract forbids.
+    // Before the removal set(), against the graph the user was looking at.
+    recordStructuralDeleteIntent(get, set, {
+      nodeIds: selection.nodeIds,
+      edgeIds: selection.edgeIds,
+    })
+
     set((s) => {
       const remaining = s.nodes.filter(n => !selection.nodeIds.has(n.id))
       const newOutcomeId = shouldClearOutcome ? null : s.outcomeNodeId
@@ -2382,6 +2506,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const { outcomeNodeId } = get()
     // P0.5 Fix: Clear outcomeNodeId if this is the outcome node
     const shouldClearOutcome = outcomeNodeId === nodeId
+    // 0.48.0 — durable removal, before the removal set(). Incident edges are
+    // NOT enumerated: CEE's `applyRemoveNode` owns that cascade.
+    recordStructuralDeleteIntent(get, set, { nodeIds: [nodeId], edgeIds: [] })
     set((s) => {
       const remaining = s.nodes.filter(n => n.id !== nodeId)
       const newOutcomeId = shouldClearOutcome ? null : s.outcomeNodeId
@@ -2409,6 +2536,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (!edge) return
 
     pushToHistory(get, set, 'Deleted connection')
+    // 0.48.0 — durable removal, addressed by the canonical (from, to) pair.
+    recordStructuralDeleteIntent(get, set, { nodeIds: [], edgeIds: [edgeId] })
     set((s) => ({
       edges: s.edges.filter(e => e.id !== edgeId),
       // Clear selection if deleted edge was selected
@@ -3054,6 +3183,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (!edge) return
 
     pushToHistory(get, set, 'Deleted connection')
+    // 0.48.0 — durable removal. The edge inspector's Delete lands here, so it
+    // must record too or that gesture would stay local-only.
+    recordStructuralDeleteIntent(get, set, { nodeIds: [], edgeIds: [id] })
 
     const newEdges = edges.filter(e => e.id !== id)
     const newEdgeIds = new Set(selection.edgeIds)
@@ -4675,6 +4807,42 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setServerGraphIdentity: (identity) => {
     set({ serverGraphIdentity: identity })
+  },
+
+  setLastServerGraphHash: (hash) => {
+    // Never absence→clear: a turn that carries no `graph_hash` says nothing
+    // about the persisted graph, and forgetting the last good base would send
+    // the next delete down the stand-down path for no reason. Only an explicit
+    // null (decision-context change) clears, and that goes through
+    // DECISION_CONTEXT_CLEAR rather than here.
+    if (typeof hash !== 'string' || hash.length === 0) return
+    if (get().lastServerGraphHash === hash) return
+    set({ lastServerGraphHash: hash })
+  },
+
+  takePendingStructuralDeletes: () => {
+    const queued = get().pendingStructuralDeletes
+    if (queued.length === 0) return []
+    set({ pendingStructuralDeletes: [] })
+    return queued
+  },
+
+  applyStructuralDeleteRevert: (restore) => {
+    if (restore.nodes.length === 0 && restore.edges.length === 0) return
+    set((s) => {
+      const presentNodeIds = new Set(s.nodes.map((n) => n.id))
+      const presentEdgeIds = new Set(s.edges.map((e) => e.id))
+      const nodes = [...s.nodes, ...restore.nodes.filter((n) => !presentNodeIds.has(n.id))]
+      const edges = [...s.edges, ...restore.edges.filter((e) => !presentEdgeIds.has(e.id))]
+      return {
+        nodes,
+        edges,
+        // The restored graph is the one the server still holds, so any retained
+        // 'fresh' verdict is no longer confirmable against what is on screen.
+        ...deriveGoalThresholdFromNode(nodes, s.outcomeNodeId),
+      }
+    })
+    markAnalysisFreshnessDirty(get, set)
   },
 
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => {

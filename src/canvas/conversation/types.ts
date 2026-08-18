@@ -942,6 +942,23 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // deploys BEFORE these emitters — an older pin rejects the whole turn.
   'edge_adjudication',
   'prior_range_edit',
+  // schemas 0.48.0 — the FIRST removal verb in any UI→CEE vocabulary, and the
+  // close of "the option I deleted comes back on the next re-run". Every other
+  // member here is an add/edit/notify verb, so a canvas delete previously
+  // reached CEE only as a `direct_graph_edit` NOTIFICATION, which is classified
+  // 'ack_and_commit': a turn row and NO graph write.
+  //
+  // A SIBLING of direct_graph_edit, not a value on it — for the same reason
+  // `factor_value_edit` is: direct_graph_edit's target_id is a REPRESENTATIVE
+  // singular (the first changed id in a batch), and keying the most destructive
+  // mutation in the product on it would delete whichever node sorted first.
+  //
+  // ⚠ READER-FIRST, AND IT IS NOT A PREFERENCE. Every SystemEventSchema member
+  // is `.strict()` and the union is discriminated on `kind`, so a CEE pinned
+  // ≤0.47.0 that receives this member fails the DISCRIMINATOR and rejects the
+  // WHOLE turn (422) — not just this field. CEE's reader (#1015) must be
+  // deployed before this emitter. Merge ordering carries that, not a flag.
+  'structural_delete',
 ] as const
 
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */
