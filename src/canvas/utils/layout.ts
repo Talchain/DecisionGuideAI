@@ -31,7 +31,7 @@
  * ⚠ ONE GENUINE DEFECT IN THIS FILE, NOT FIXED HERE, recorded so it is not lost:
  * the DOWN branch treats `availableWidth` as a budget for deciding
  * single-row-vs-multi-row and then emits a row that OVERRUNS it — a 6-wide tier
- * packs to 2140 units against a 1105 budget, 94% over. R1 rules that a
+ * packs to 2140 units against the 1185 budget, 81% over. R1 rules that a
  * constrained screen is answered by a readable subset with an explicit
  * "showing X of Y" and obvious whole-model access — a PRESENTATION change —
  * never by re-packing. Do not fix it here.

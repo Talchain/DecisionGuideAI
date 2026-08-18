@@ -189,7 +189,10 @@ export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
  * The instability is INSIDE the laptop band, not below it. Two teammates on two
  * laptops were looking at two different shapes of the same shared model.
  *
- * ⭐ HOW THIS VALUE WAS DERIVED — it is not a taste call, and it is not free.
+ * ⭐ HOW THIS VALUE WAS DERIVED — it is not a taste call, and it was NOT the
+ * first value tried. The first candidate was measured, found wanting, and
+ * replaced; the measurement is below because R1 asks for the derivation, not
+ * just the number.
  *
  * The packing branch is a step function of the budget, re-derived here from the
  * constants in this file (`availableWidth` = AW):
@@ -200,47 +203,58 @@ export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
  *   otherwise  nodesPerRow = floor((AW + 20) / (NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X + 20))
  *
  * So the budget only ever selects a (single-row cap, nodes-per-row) PAIR, and
- * the reachable pairs near laptop widths are few:
+ * near laptop widths the reachable pairs are few:
  *
- *   AW in [ 844, 1059)  cap T=5 (1776 units wide)   3 per row (820 units)
- *   AW in [1059, 1132)  cap T=6 (2140 units wide)   3 per row (820 units)  <- HERE
- *   AW in [1132, 1238)  cap T=6 (2140)              4 per row (1108)
- *   AW in [1238, 1417)  cap T=7 (2504)              4 per row (1108)
- *   AW in [1417, 1420)  cap T=8 (2868)              4 per row (1108)
+ *   AW in [1059, 1132)  cap T=6   3 per row (820 units)
+ *   AW in [1132, 1238)  cap T=6   4 per row (1108 units)   <- HERE
+ *   AW in [1238, 1417)  cap T=7   4 per row
+ *   AW in [1420, 1596)  cap T=8   5 per row
  *
- * The shipped product's own values land in three different rows of that table:
- * 1280*0.85 = 1088 (band 2), 1440*0.85 = 1224 and 1512*0.85 = 1285 (bands 3-4),
- * 1920*0.85 = 1632 (below the table, single-row to T=9). That IS the defect.
+ * The shipped product's own values landed in three different rows of that table
+ * — 1280*0.85 = 1088, 1440*0.85 = 1224, 1512*0.85 = 1285, 1920*0.85 = 1632.
+ * That IS the defect.
  *
- * **1105 = 1300 x 0.85.** `1300` is the width `layout.ts` already used whenever
- * nothing measured the pane (its `FALLBACK_CANVAS`, now deleted with the rest of
- * the runtime authority) and the width the layout suite has used as its baseline
- * throughout (`TEST_CANVAS` / `STD_CANVAS` in `layout.spec.ts` and
- * `layout.semantic.spec.ts`). `0.85` is the shipped viewport-utilisation ratio.
- * It is therefore a reference width the layout code ALREADY contained, not a new
- * number chosen to flatter a screenshot.
+ * ⭐ THE TWO CLIFFS, AND WHY THIS BAND. The lower cliff is exactly the width of
+ * a four-card row: 4*(NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X) + 3*20 = 1132. The
+ * upper cliff, 179*7 - 15 = 1238, is the budget at which a SEVEN-wide tier stops
+ * splitting and becomes a 2504-unit single row. Four is therefore the LARGEST
+ * per-row count still compatible with splitting a 7-wide tier at all: five needs
+ * AW >= 1420, which also single-rows an 8-wide tier at 2868 units. **1185 is the
+ * midpoint of [1132, 1238)** — 53 units of margin to each cliff, which is
+ * deliberate: a constant sitting on a cliff edge is a defect waiting for a
+ * rounding change.
  *
- * ⭐ AND THE PROPERTY THAT DECIDED IT, which is about EVIDENCE, not taste: 1105
- * sits in the same band as 1088 = 1280 x 0.85, so **the canonical shape this pin
- * produces is byte-identical to the shape the product ships TODAY at a 1280
- * viewport.** Every geometry measurement this programme holds was taken at 1280
- * (`DRAFT-GEOMETRY-CORPUS-2026-08-18.md`, 12 models; the decision's starter
- * arithmetic; the browser height capture in `__fixtures__/`). Pinning inside that
- * band keeps all of it valid and collapses 1440 / 1512 / 1920 onto the measured
- * case. Pinning into any other band would have invalidated the whole corpus and
- * re-opened the layout-design cycle R1 explicitly closes.
+ * ⭐⭐ AND THE MEASUREMENT THAT ACTUALLY DECIDED IT, in a real browser (trap 3 —
+ * jsdom cannot prove a rendered size), five shipped starters x 1280/1440/1512,
+ * reading the SETTLED camera transform rather than deriving it. The first
+ * candidate was 1105 (= 1300 x 0.85, `layout.ts`'s old FALLBACK_CANVAS, chosen
+ * because it reproduces the shape shipped at 1280 byte-for-byte and so preserved
+ * every measurement taken at 1280). It is STABLE and it is WORSE: three-per-row
+ * makes these models taller, and they are HEIGHT-bound, so the camera lands
+ * lower.
  *
- * MARGIN TO THE CLIFFS, stated because a constant on a cliff edge is a defect
- * waiting for a rounding change: the band is [1059, 1132). 1105 sits **46 above**
- * the lower edge and **27 below** the upper. `layoutViewportIndependence.guard.spec.ts`
- * pins both edges, so a future nudge across either REDs by name rather than
- * silently re-shaping every model.
+ *   settled zoom, dock expanded      1280      1440      1512
+ *   vendor-selection  shipped      0.5139    0.7202    0.6873   (3 shapes)
+ *                     pin 1105     0.5000    0.5549    0.5292   (1 shape)
+ *                     pin 1185     0.6613    0.7202    0.6873   (1 shape)
+ *   build-vs-buy      shipped      0.5000    0.6337    0.6045   (3 shapes)
+ *                     pin 1105     0.5000    0.5000    0.5000   (1 shape)
+ *                     pin 1185     0.5587    0.6567    0.6283   (1 shape)
  *
- * ⚠ WHAT THIS DOES NOT FIX, and it is the honest half. A 6-wide tier still packs
- * to 2140 units single-row, which does not clear the 0.50 legibility floor in the
- * 760px fit box at 1280. R1 rules that the answer to a constrained screen is
- * "readable subset + explicit 'showing X of Y' + obvious whole-model access" —
- * a PRESENTATION change — never a re-pack. Do not fix it here.
+ * 1185 is stable AND at least as legible as the shipped build in every measured
+ * cell, and strictly better at 1280 for all three eight-wide starters. Models
+ * clearing the 0.50 legibility floor go from 2/5 (shipped, 1280) to 3/5, and
+ * from 4/5 to 5/5 at both 1440 and 1512. Choosing on the measurement rather than
+ * on evidence-continuity is the whole point of R1's instruction that deriving
+ * this constant IS the work.
+ *
+ * ⚠ WHAT THIS DOES NOT FIX, and it is the honest half. The two five-wide
+ * starters pack to a 1776-unit single row and still clamp at 0.50 in the 760px
+ * fit box at 1280 — unchanged by this pin in either direction, because a 5-wide
+ * tier is single-row at every budget above 880. R1 rules that the answer to a
+ * constrained screen is "readable subset + explicit 'showing X of Y' + obvious
+ * whole-model access" — a PRESENTATION change — never a re-pack. Do not fix it
+ * here.
  *
  * ⚠⚠ FORBIDDEN, and this is the whole point of the constant: nothing may make
  * this budget a function of anything that varies at runtime — not the viewport,
@@ -249,7 +263,7 @@ export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
  * and a per-screen rendering of one. Enforced at the bytes by
  * `layoutViewportIndependence.guard.spec.ts`.
  */
-export const CANONICAL_LAYOUT_WIDTH = 1105
+export const CANONICAL_LAYOUT_WIDTH = 1185
 
 /** Horizontal padding added around the rendered card to form the ELK box. */
 export const LAYOUT_PADDING_X = 24

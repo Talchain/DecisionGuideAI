@@ -8,6 +8,8 @@ import {
   DEFAULT_NODE_HEIGHT,
   CANVAS_MARGIN,
   CANONICAL_LAYOUT_WIDTH,
+  NODE_SINGLE_ROW_FAIR_SHARE_W,
+  MIN_GAP,
 } from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -55,9 +57,9 @@ function checkNoOverlap(nodes: Node[], nodeW = 264, nodeH = 116): void {
 // Where the branch boundary sits under the pinned budget, re-derived from the
 // shipped constants (AW = CANONICAL_LAYOUT_WIDTH = 1105):
 //   widest tier <= 6  → single-row, every card at NODE_CARD_MAX_W
-//   widest tier >= 7  → multi-row, 3 per row, every card at NODE_LAYOUT_MIN_W
-// The old `TEST_CANVAS` was 1300 wide — i.e. exactly the width this constant is
-// derived from — so every case that used it is unchanged by construction.
+//   widest tier >= 7  → multi-row, 4 per row, every card at NODE_LAYOUT_MIN_W
+// Measured against the pristine module side by side, the pin reproduces the
+// shape the product already shipped at 1440 and 1512.
 
 // ---------------------------------------------------------------------------
 // Core layout tests
@@ -283,7 +285,7 @@ describe('ELK Layout', () => {
     //             = 24 + 3 * 364 + 320
     //             = 1436
     //
-    // 1436 > 1105 → 331px past the budget the branch was chosen against. The test
+    // 1436 > 1185 → 251px past the budget the branch was chosen against. The test
     // exercises the production-default spacing path by passing SPACING that
     // matches the layoutGraph default; EFFECTIVE_SPACING below makes the
     // pre-ELK floor explicit in the assertion so a future change to either
@@ -308,7 +310,7 @@ describe('ELK Layout', () => {
     )
 
     // max-single fires: unclamped = floor((CANONICAL_LAYOUT_WIDTH - 3*MIN_GAP)/4)
-    //                             = floor((1105 - 45)/4) = 265 ≥ 164.
+    //                             = floor((1185 - 45)/4) = 285 ≥ 164.
     expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
 
     const factors = laid
@@ -330,26 +332,32 @@ describe('ELK Layout', () => {
     expect(lastVisibleRightEdge).toBeGreaterThan(CANONICAL_LAYOUT_WIDTH)
   })
 
-  it('6-factor tier: MIN_GAP=15 flips max-single ON at the canonical budget (regression-lock for MIN_GAP)', async () => {
-    // MIN_GAP behaviour-flip lock. The `unclamped >= NODE_LAYOUT_MIN_W +
-    // LAYOUT_PADDING_X` gate decides max-single vs multi-row branch; MIN_GAP
-    // is the only knob that moves this threshold without touching widths.
+  it('the single-row cap is SIX at the canonical budget, and MIN_GAP is the knob that moves it', async () => {
+    // ⚠ RE-EXPRESSED, AND THE REASON MATTERS. This was a MIN_GAP behaviour-flip
+    // lock: it drove a 7-factor tier at a 1500px canvas and asserted that
+    // MIN_GAP=15 (vs the historic 30) flipped it onto the max-single branch.
+    // `layoutGraph` no longer takes a canvas (founder ruling R1), and at the
+    // pinned budget MIN_GAP 15 and 30 give the SAME single-row cap:
+    //   cap = floor((AW + MIN_GAP) / (FAIR_SHARE + PADDING_X + MIN_GAP))
+    //   MIN_GAP=15 → floor(1200/179) = 6      MIN_GAP=30 → floor(1215/194) = 6
+    // So no tier count can discriminate 15 from 30 any more, and a test written
+    // as though one could would be asserting a flip that cannot happen.
     //
-    //   unclamped = floor((CANONICAL_LAYOUT_WIDTH - 5*MIN_GAP) / 6)
-    //
-    // ⚠ RE-DERIVED at the pinned budget (this case used to hand the solver a
-    // 1500px canvas and a 7-factor tier; the canvas argument no longer exists,
-    // so the flip has to be found at the tier count where it actually sits).
-    // At MIN_GAP=30: floor((1105 - 150)/6) = floor(159.17) = 159.
-    //   159 < 164 (= MIN_W + PADDING_X) → multi-row branch, nodes compress
-    //   to NODE_LAYOUT_MIN_W.
-    // At MIN_GAP=15 (current): floor((1105 - 75)/6) = floor(171.67) = 171.
-    //   171 >= 164 → max-single fires, every node at NODE_CARD_MAX_W=320,
-    //   and the row overruns the budget.
-    //
-    // If MIN_GAP rises back to ~25+ this assertion flips and forces a
-    // deliberate review of whether 7-factor tiers should overflow at MAX_W
-    // or compress to fit.
+    // What is locked instead: the CAP ITSELF, derived from the shipped constants
+    // rather than recorded, plus a demonstration that the derivation is still
+    // SENSITIVE to MIN_GAP (at 60 the cap drops to 5). Nothing is lost by the
+    // change: for a DOWN layout MIN_GAP only ever enters through this threshold,
+    // so a MIN_GAP move that does not shift the cap does not change any layout.
+    const singleRowCap = (minGap: number): number =>
+      Math.floor(
+        (CANONICAL_LAYOUT_WIDTH + minGap) /
+          (NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X + minGap),
+      )
+    expect(singleRowCap(MIN_GAP)).toBe(6)
+    // The derivation DISCRIMINATES — without this the assertion above could be
+    // satisfied by a formula that ignores MIN_GAP entirely (trap 20).
+    expect(singleRowCap(60)).toBe(5)
+    expect(singleRowCap(60)).not.toBe(singleRowCap(MIN_GAP))
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'),
@@ -369,7 +377,8 @@ describe('ELK Layout', () => {
       { spacing: SPACING },
     )
 
-    // max-single fired: nodes at MAX_W (proves MIN_GAP threshold relaxed).
+    // …and the REAL layout agrees with the derivation: a 6-wide tier is a
+    // single row of max-width cards.
     expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
 
     const factors = laid

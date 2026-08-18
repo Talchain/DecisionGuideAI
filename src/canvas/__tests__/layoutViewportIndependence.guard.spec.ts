@@ -350,13 +350,16 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1920'
    * NOT a visual-regression reference and must not be re-blessed by pasting new
    * digests — a moved digest is a product decision.
    *
-   * Captured at the pin (`CANONICAL_LAYOUT_WIDTH = 1105`), which reproduces the
-   * shape the product shipped at a 1280 viewport.
+   * ⭐ These are not new shapes. Measured against the pristine `06f745ba` layout
+   * module run side by side, the pin reproduces BYTE-FOR-BYTE the shape the
+   * product already shipped at 1440 and 1512 — the founder's own machine. What
+   * changes is that a 1280 and a 1920 user now get that same shape instead of
+   * two different ones.
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '99c6e7f1d7e6137e', nodes: 19 },
-    'market-entry': { digest: '8d6939bf06faf357', nodes: 18 },
-    'build-vs-buy': { digest: '626636627590d79b', nodes: 19 },
+    'vendor-selection': { digest: '965ce13a0c023c31', nodes: 19 },
+    'market-entry': { digest: 'ea8e81e6fe7d4278', nodes: 18 },
+    'build-vs-buy': { digest: '27c5080706eb0760', nodes: 19 },
     'headcount-allocation': { digest: '4055b1313f4caf01', nodes: 16 },
     'pricing-model': { digest: 'ac60debf91cc922e', nodes: 15 },
   }
@@ -389,7 +392,7 @@ describe('the pinned budget sits inside its band, and both cliffs are named', ()
    * defect waiting for a rounding change, and a constant nudged across one
    * re-shapes every model silently.
    */
-  const BAND = { lower: 1059, upper: 1132 } as const
+  const BAND = { lower: 1132, upper: 1238 } as const
 
   it('CANONICAL_LAYOUT_WIDTH is strictly inside the band', () => {
     expect(CANONICAL_LAYOUT_WIDTH).toBeGreaterThan(BAND.lower)
@@ -397,12 +400,16 @@ describe('the pinned budget sits inside its band, and both cliffs are named', ()
   })
 
   it('the band edges are exactly where the shipped constants put them', () => {
-    // Lower cliff: one unit below it, a 6-wide tier stops being a single row.
-    expect(packingOf(6, BAND.lower)).toBe('single-row')
-    expect(packingOf(6, BAND.lower - 1)).not.toBe('single-row')
-    // Upper cliff: at it, a split tier starts packing FOUR per row instead of three.
-    expect(packingOf(7, BAND.upper - 1)).toBe('multi-row/3')
-    expect(packingOf(7, BAND.upper)).toBe('multi-row/4')
+    // Lower cliff = the width of a four-card row. One unit below it, a split
+    // tier drops to THREE per row (taller models, measured worse).
+    expect(BAND.lower).toBe(4 * (NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X) + 3 * 20)
+    expect(packingOf(7, BAND.lower)).toBe('multi-row/4')
+    expect(packingOf(7, BAND.lower - 1)).toBe('multi-row/3')
+    // Upper cliff = 179*7 - 15, where a SEVEN-wide tier stops splitting and
+    // becomes a 2504-unit single row.
+    expect(BAND.upper).toBe(179 * 7 - 15)
+    expect(packingOf(7, BAND.upper - 1)).toBe('multi-row/4')
+    expect(packingOf(7, BAND.upper)).toBe('single-row')
   })
 
   it('the whole packing table at the pinned budget, recorded', () => {
@@ -416,10 +423,10 @@ describe('the pinned budget sits inside its band, and both cliffs are named', ()
       4: 'single-row',
       5: 'single-row',
       6: 'single-row',
-      7: 'multi-row/3',
-      8: 'multi-row/3',
-      9: 'multi-row/3',
-      10: 'multi-row/3',
+      7: 'multi-row/4',
+      8: 'multi-row/4',
+      9: 'multi-row/4',
+      10: 'multi-row/4',
     })
   })
 
