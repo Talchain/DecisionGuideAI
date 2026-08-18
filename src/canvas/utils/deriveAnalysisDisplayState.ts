@@ -34,6 +34,8 @@
  * `useAnalysisDisplayState` hook to consume from a component.
  */
 
+import { ANALYSIS_READY_STATUSES } from '../../adapters/cee/types'
+
 export type AnalysisDisplayState =
   | 'not_ready'
   | 'ready_to_analyse'
@@ -93,12 +95,17 @@ export interface AnalysisDisplayStateView {
  * through — without this entry that state would render green "Analysis
  * complete" whenever a prior report is held. Rendering-level mapping only.
  */
-const EXPLICIT_NOT_READY_STATUSES: ReadonlySet<string> = new Set([
-  'needs_encoding',
-  'needs_user_mapping',
-  'needs_user_input',
-  'blocked',
-])
+/**
+ * DERIVED, not hand-listed: every producer status except the one that means
+ * "analysable". Spelling the negatives out was a fifth copy of CEE's
+ * `AnalysisReadyStatus` — the copy family that shipped the `blocked` defect in
+ * `usePreRunValidation`. Deriving the complement also fails toward DETECTION:
+ * a member CEE adds later is not-ready here by default, rather than silently
+ * rendering a green "Analysis complete".
+ */
+const EXPLICIT_NOT_READY_STATUSES: ReadonlySet<string> = new Set(
+  ANALYSIS_READY_STATUSES.filter(status => status !== 'ready'),
+)
 
 function isExplicitNotReady(status: string | undefined): boolean {
   return status !== undefined && EXPLICIT_NOT_READY_STATUSES.has(status)

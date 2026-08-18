@@ -41,6 +41,7 @@ import {
 } from '../../../adapters/cee/types'
 import { SOFT_BYPASS_STATUSES, validateBeforeRun } from '../usePreRunValidation'
 import { KNOWN_READINESS_STATUSES } from '../../../lib/coherence/crossSurfaceCoherence'
+import { deriveAnalysisDisplayState } from '../../utils/deriveAnalysisDisplayState'
 import { enrichBlocker } from '../../components/pre-analysis/blockerEnrichment'
 import {
   ANALYSIS_REFUSAL_GENERIC_REASON,
@@ -261,6 +262,24 @@ describe('THE DRIFT GUARD — one recorded vocabulary, and drift breaks the buil
     // Every member is a real producer status — a typo could not survive this.
     for (const status of SOFT_BYPASS_STATUSES) {
       expect(ANALYSIS_READY_STATUSES as readonly string[]).toContain(status)
+    }
+  })
+
+  it('the display-state helper derives its not-ready set from the SAME vocabulary', () => {
+    // `deriveAnalysisDisplayState` kept a fifth copy of the producer enum (its
+    // negative half). Deriving the complement means a status CEE adds later
+    // renders not-ready rather than a green "Analysis complete".
+    for (const status of ANALYSIS_READY_STATUSES) {
+      const { state } = deriveAnalysisDisplayState({
+        ceeAnalysisReadyStatus: status,
+        hasReport: true,
+        analysisChanged: false,
+      })
+      if (status === 'ready') {
+        expect(state, `"${status}" must not be forced not_ready`).not.toBe('not_ready')
+      } else {
+        expect(state, `"${status}" must render not_ready even with a prior report`).toBe('not_ready')
+      }
     }
   })
 
