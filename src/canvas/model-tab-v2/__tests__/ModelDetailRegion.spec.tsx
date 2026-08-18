@@ -30,6 +30,10 @@ function detail(over: Partial<ModelRowDetail> = {}): ModelRowDetail {
     basis: 'Inferred from model structure',
     adjustments: [],
     affects: [],
+    // A FACTOR has none. Interventions belong to options, so the honest default
+    // here is the empty list, not an omission — `ModelRowDetail` requires the
+    // field precisely so a producer cannot forget it.
+    interventions: [],
     advancedParameters: [
       { label: 'Elasticity', value: '0.42' },
       { label: 'Node ID', value: 'f1' },

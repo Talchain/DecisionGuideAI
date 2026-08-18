@@ -307,10 +307,35 @@ export function ModelTabV2Panel({
       // Fail CLOSED, exactly as the value three-beat does: an unparseable draft
       // stays open rather than committing something the user did not state.
       if (!Number.isFinite(num)) return
+
+      /*
+       * ⚠ A RE-TYPED IDENTICAL NUMBER IS NOT A CHANGE — and the comparison is
+       * NUMERIC, not lexical.
+       *
+       * This is `InlineEdit.hasChanged` rehomed rather than reinvented. That
+       * guard exists because of a specific adversarial finding: a bare string
+       * compare made `3e4` for `30000`, or `0.40` for `0.4`, read as an edit on
+       * the Model tab and as a no-op in the inspector — two surfaces disagreeing
+       * about whether the user did anything. Here the cost of getting it wrong
+       * is a store write and a `direct_graph_edit` notification for a change
+       * that never happened: the product telling CEE the model moved when it
+       * did not.
+       *
+       * The old editor's intervention rows had this guard because they went
+       * through `InlineEdit`. This editor does not, so it carries the rule
+       * explicitly — otherwise the removal of the old one would quietly delete
+       * a correctness property nobody listed as a capability.
+       */
+      const current = selectedDetail?.interventions?.find(iv => iv.factorId === factorId)
+      if (current?.numericValue !== null && current?.numericValue === num) {
+        setInterventionEdit(null)
+        return
+      }
+
       authority.proposeOptionIntervention(factorId, num)
       setInterventionEdit(null)
     },
-    [interventionEdit, authority],
+    [interventionEdit, authority, selectedDetail],
   )
 
   /**

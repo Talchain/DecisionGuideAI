@@ -161,6 +161,11 @@ function storedSource(id: string): unknown {
   return (storedNode(id).observedState as Record<string, unknown> | undefined)?.source
 }
 
+/** The node's `data` OBJECT. A sanctioned write replaces it; a no-op does not. */
+function nodeRef(id: string): unknown {
+  return useCanvasStore.getState().nodes.find(x => x.id === id)?.data
+}
+
 function storedInterventions(id: string): Record<string, unknown> {
   return (storedNode(id).interventions ?? {}) as Record<string, unknown>
 }
@@ -299,12 +304,17 @@ describe('What this would change — the rehomed intervention targets', () => {
   it('commits a new target through the authority, into the OPTION that owns it', () => {
     renderPanel()
     selectOption()
+    const beforeRef = nodeRef(OPTION_ID)
     fireEvent.click(screen.getByTestId(`model-detail-v2-intervention-${FACTOR_ID}-value`))
     const input = screen.getByTestId(`model-detail-v2-intervention-${FACTOR_ID}-input`)
     fireEvent.change(input, { target: { value: '0.42' } })
     fireEvent.click(screen.getByTestId(`model-detail-v2-intervention-${FACTOR_ID}-save`))
 
     expect(storedInterventions(OPTION_ID)[FACTOR_ID]).toBe(0.42)
+    // POSITIVE CONTROL for the identity instrument used by the no-op test
+    // below: a REAL change DOES replace the node's data object. Without this,
+    // `toBe(before)` there could pass because the setter never replaces it.
+    expect(nodeRef(OPTION_ID)).not.toBe(beforeRef)
     // The ghost entry is untouched: the write is a targeted set, not a rewrite
     // of the map, so an entry the surface cannot render is not silently dropped
     // from the user's model either.
@@ -335,6 +345,42 @@ describe('What this would change — the rehomed intervention targets', () => {
     expect(
       screen.getByTestId(`model-detail-v2-intervention-${FACTOR_ID}-input`),
     ).toBeInTheDocument()
+  })
+
+  it('⭐ re-typing the SAME number in another form is not a change — no write, no notification', () => {
+    renderPanel()
+    selectOption()
+    const before = nodeRef(OPTION_ID)
+    fireEvent.click(screen.getByTestId(`model-detail-v2-intervention-${FACTOR_ID}-value`))
+    // 0.6 stored; `6e-1` is the same number in a different lexical form. The v1
+    // rows suppressed this through `InlineEdit.hasChanged`, which compares
+    // PARSED NUMBERS for exactly this case.
+    fireEvent.change(screen.getByTestId(`model-detail-v2-intervention-${FACTOR_ID}-input`), {
+      target: { value: '6e-1' },
+    })
+    fireEvent.click(screen.getByTestId(`model-detail-v2-intervention-${FACTOR_ID}-save`))
+
+    /*
+     * ⚠ THE ASSERTION IS OBJECT IDENTITY, NOT THE VALUE — and it had to be.
+     *
+     * The first cut asserted `interventions[FACTOR_ID] === 0.6`, and a mutant
+     * that DELETED this guard SURVIVED it: writing 0.6 over 0.6 leaves the value
+     * identical, so a value assertion cannot tell "no write happened" from "a
+     * pointless write happened". That is trap 19 in its purest form — a test
+     * passing on a state another path also produces.
+     *
+     * The sanctioned setter replaces the node's `data` object, so reference
+     * equality is what actually distinguishes them. Proven: with the guard
+     * removed this line goes RED while the value assertion stays green.
+     */
+    expect(nodeRef(OPTION_ID)).toBe(before)
+    expect(storedInterventions(OPTION_ID)[FACTOR_ID]).toBe(0.6)
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+    // The editor closes: the user's intent was honoured, there was simply
+    // nothing to record. Leaving it open would read as a rejected edit.
+    expect(
+      screen.queryByTestId(`model-detail-v2-intervention-${FACTOR_ID}-input`),
+    ).not.toBeInTheDocument()
   })
 
   it('Cancel abandons the draft and writes nothing', () => {
