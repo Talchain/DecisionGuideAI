@@ -29,6 +29,7 @@ import {
   shouldReleaseTextFocusOnCanvasPointerDown,
 } from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
+import { armRecoveryNotice, consumeRecoveryNotice } from './persist/recoveryNotice'
 import * as scenarios from './store/scenarios'
 import type { Scenario } from './store/scenarios'
 import { isUUID } from '../services/turn-request-builder'
@@ -1644,11 +1645,18 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
       // Show recovery toast if we loaded from autosave
       // Note: Toast will be shown after component mounts via a separate effect
+      //
+      // ⚠ WHAT was restored decides WHAT we are allowed to say about it (W-1).
+      // This used to write a bare `'true'`, and the effect below turned every
+      // restore into "Recovered unsaved changes from your last session." —
+      // including a restore of Olumi's own bundled starter example, which is
+      // neither the visitor's work nor unsaved. `armRecoveryNotice` classifies
+      // by the graph's own starter stamp (the same predicate the canvas
+      // disclosure and the run gate use) and records the kind, not a boolean.
       if (recoveredFromAutosave) {
-        // Store flag for toast effect to pick up
-        try {
-          sessionStorage.setItem('olumi-recovered-from-autosave', 'true')
-        } catch {}
+        // No argument by design — it reads the graph this effect has just
+        // hydrated, so there is no array for a later edit to get wrong.
+        armRecoveryNotice()
       }
 
       // Restore ceeAnalysisReady with source-aligned fallback and validation
@@ -1771,16 +1779,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       currentGraphHash: uiGraphHashSeedless(st.nodes, st.edges),
     })
 
-    try {
-      const recovered = sessionStorage.getItem('olumi-recovered-from-autosave')
-      if (recovered === 'true') {
-        sessionStorage.removeItem('olumi-recovered-from-autosave')
-        // Slight delay to ensure component is fully mounted
-        setTimeout(() => {
-          showToast('Recovered unsaved changes from your last session.', 'info')
-        }, 500)
-      }
-    } catch {}
+    // The sentence comes from `recoveryNotice`, which decided it from what was
+    // actually restored — never from a literal here. See its header for the
+    // measured defect (W-1: a bundled saved example announced as the user's
+    // own unsaved work).
+    const recoveryMessage = consumeRecoveryNotice()
+    if (recoveryMessage) {
+      // Slight delay to ensure component is fully mounted
+      setTimeout(() => {
+        showToast(recoveryMessage, 'info')
+      }, 500)
+    }
 
     // Uninstall the guidance persistence context when this canvas unmounts, so
     // a later mount cannot write under a stale decision identity.

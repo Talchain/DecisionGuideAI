@@ -19,6 +19,8 @@
 
 import { applyDraftResult } from '../utils/applyDraftResult'
 import { useCanvasStore } from '../store'
+import { saveAutosave } from '../store/scenarios'
+import { autosaveSourceFromStore, projectAutosaveData } from '../store/autosaveProjection'
 import manifest from './starters.manifest.json'
 
 export interface StarterProvenance {
@@ -138,6 +140,12 @@ export async function loadStarterPayload(id: string): Promise<unknown> {
  * `starterId` is load-bearing in two places (canRunAnalysis's honesty gate and
  * the canvas disclosure), so it is applied to EVERY node: a partial stamp
  * would let a single unstamped node silently satisfy an `every()` check.
+ *
+ * ⚠ RUNNING AFTER THE INGESTION IS ONLY SAFE IF NOTHING PERSISTS IN BETWEEN.
+ * It did not use to be: `applyDraftResult` writes the autosave itself, so the
+ * copy that reached `localStorage` — the copy the boot arbiter restores from —
+ * was the UNSTAMPED graph. The stamp lived in memory and died at the page
+ * boundary. See `applyStarter` below for the measured consequence.
  */
 function stampStarterProvenance(id: string, title: string): void {
   const state = useCanvasStore.getState()
@@ -171,10 +179,37 @@ export async function applyStarter(id: string): Promise<ApplyStarterResult> {
   const meta = getStarter(id)
   if (!meta) throw new Error(`[starters] unknown starter id "${id}"`)
   const payload = await loadStarterPayload(id)
-  const result = applyDraftResult(payload as never)
+  // ⚠ `skipAutosave` IS THE FIX, NOT AN OPTIMISATION — W-1, measured live on
+  // the deployed staging build `6524caed` (2026-08-18) with storage cleared
+  // from `/version.json` so no SPA unload write could re-seed it.
+  //
+  // `applyDraftResult` persists the autosave from its own body, BEFORE this
+  // function has stamped anything. So a guest who opened the "Customer Data
+  // Platform Selection" card and reloaded got back an autosave holding 19
+  // nodes and `nodes.filter(n => n.data.starterId).length === 0` — and with
+  // the stamp went every honesty mechanism it carries. The reloaded canvas
+  // showed no "Saved example" disclosure, the run gate stopped refusing on
+  // starter grounds, and the boot arbiter announced Olumi's own bundled demo
+  // as "Recovered unsaved changes from your last session."
+  //
+  // Ingest without persisting, stamp, then persist the STAMPED graph once.
+  const result = applyDraftResult(payload as never, { skipAutosave: true })
   if (result.nodeCount === 0) {
     throw new Error(`[starters] "${id}" applied zero nodes — fixture is not a usable graph`)
   }
   stampStarterProvenance(id, meta.title)
+  // Same projection every other writer uses (autosaveProjection.ts's single
+  // constructor invariant, pinned by tests/ci-guards).
+  //
+  // Fail-soft in the SAFE direction, deliberately. If this write throws
+  // (quota, private mode) the canvas keeps the example and no autosave is
+  // written at all — the next load starts clean. That is strictly better than
+  // the behaviour this replaced, where a failure to stamp still left an
+  // unstamped record behind for the boot arbiter to misattribute.
+  try {
+    saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
+  } catch {
+    // Non-critical — the example is on the canvas either way.
+  }
   return result
 }

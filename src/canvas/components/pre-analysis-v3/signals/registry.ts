@@ -22,6 +22,16 @@ export interface SignalDetectionInput {
   risksAllOlumi: boolean
   aiEstimatedCount: number
   topUncalibrated: { id: string; label: string } | null
+  /**
+   * True when the graph on the canvas is one of the bundled starter examples
+   * (`resolveStarterId(nodes) != null` — the same predicate the canvas
+   * disclosure and the run gate use, never a second answer to one question).
+   *
+   * Required, not optional: a signal that claims the user supplied something
+   * must be told whether they did, and an omitted flag defaulting to `false`
+   * would silently restore the W-1 fabrication at the next call site.
+   */
+  isSavedExample: boolean
   /** draftCoaching narrow_framing detail, verbatim — null when not live. */
   narrowFramingDetail: string | null
   /** First analysis_ready bias finding explanation, verbatim — null when not live. */
@@ -138,7 +148,11 @@ export const SIGNAL_REGISTRY: ReadonlyArray<SignalDef> = [
     resolvedCopy: 'Top estimates checked.',
     detect: input => {
       if (input.aiEstimatedCount === 0 || input.topUncalibrated == null) return null
-      const copy = SIGNAL_COPY.estimates(input.aiEstimatedCount, input.topUncalibrated.label)
+      const copy = SIGNAL_COPY.estimates(
+        input.aiEstimatedCount,
+        input.topUncalibrated.label,
+        input.isSavedExample,
+      )
       return {
         signal_id: 'sig_estimates',
         copy: { lead: copy.lead, emphasis: copy.emphasis },

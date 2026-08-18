@@ -36,6 +36,7 @@ function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionIn
     risksAllOlumi: true,
     aiEstimatedCount: 6,
     topUncalibrated: { id: 'f1', label: 'Tech lead impact' },
+    isSavedExample: false,
     narrowFramingDetail: null,
     biasFindingExplanation: null,
     ...overrides,
@@ -185,8 +186,13 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
     ...SIGNAL_COPY,
     optionBreadth: SIGNAL_COPY.optionBreadth(2),
     riskCount: SIGNAL_COPY.riskCount(2, true),
-    estimates: SIGNAL_COPY.estimates(6, 'Tech lead impact'),
-    estimatesNoTop: SIGNAL_COPY.estimates(1, null),
+    // Both attributions are scanned: the saved-example wording is user-facing
+    // copy too, and a glossary scan that saw only one branch would be a guard
+    // watching one door.
+    estimates: SIGNAL_COPY.estimates(6, 'Tech lead impact', false),
+    estimatesNoTop: SIGNAL_COPY.estimates(1, null, false),
+    estimatesSavedExample: SIGNAL_COPY.estimates(6, 'Tech lead impact', true),
+    estimatesSavedExampleNoTop: SIGNAL_COPY.estimates(1, null, true),
   })
   push('ATTRIBUTION_COPY', ATTRIBUTION_COPY)
   push('RANK_LABEL_COPY', RANK_LABEL_COPY)

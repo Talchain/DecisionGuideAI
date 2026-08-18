@@ -11,6 +11,7 @@ import { useEffect, useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { useGraphReadiness } from '../../../hooks/useGraphReadiness'
 import { readinessWillScaffold } from '../../../utils/canRunAnalysis'
+import { resolveStarterId } from '../../../starters/loadStarter'
 import { isReviewedByUser } from '../../pre-analysis/utils/isReviewedByUser'
 import { computeBars, type BarsModel } from '../selectors/computeBars'
 import { computeContestedRows, type ContestedRowModel } from '../selectors/computeContestedRows'
@@ -234,6 +235,17 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     return guardCeeText(first.explanation, CEE_FALLBACK_COPY.biasRow).text
   }, [analysisReady])
 
+  /**
+   * Is the graph on the canvas one of the bundled starter examples?
+   *
+   * Derived from the graph's own stamp via `resolveStarterId` — the SAME
+   * predicate the canvas disclosure (`StarterProvenanceBanner`) and the run
+   * gate (`computeCeeCannotSeeModel`) ask. A separate flag would be a second
+   * answer to one question, and this panel would eventually contradict the
+   * banner sitting directly above it (W-1: it already did).
+   */
+  const isSavedExample = useMemo(() => resolveStarterId(nodes) != null, [nodes])
+
   const derived = useMemo(
     () =>
       deriveSignalViews(
@@ -245,12 +257,13 @@ export function usePreAnalysisModel(): PreAnalysisModel {
           risksAllOlumi: facts.risksAllOlumi,
           aiEstimatedCount: provenance.aiEstimatedCount,
           topUncalibrated: top,
+          isSavedExample,
           narrowFramingDetail,
           biasFindingExplanation,
         },
         seen,
       ),
-    [facts, success.isSet, provenance.aiEstimatedCount, top, narrowFramingDetail, biasFindingExplanation, seen],
+    [facts, success.isSet, provenance.aiEstimatedCount, top, isSavedExample, narrowFramingDetail, biasFindingExplanation, seen],
   )
 
   useEffect(() => {
