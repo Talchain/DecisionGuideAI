@@ -297,7 +297,8 @@ same state).
 | Model changed since analysis (CEE verdict) | Model changed since this analysis. Re-run to update. | `FRESHNESS_COPY.stale` |
 | Freshness unknown | Cannot confirm whether this analysis is current. | `FRESHNESS_COPY.unknown` |
 | No analysis yet | No analysis yet. | `FRESHNESS_COPY.none` |
-| Engine cannot see the model | Draft or save a model first, then run analysis. | `CEE_DRAFT_FIRST_REFUSAL` |
+| Analysis held on a bundled starter | Analysis is held on a saved example. Re-draft it live to run one. | `ANALYSIS_HELD_NOTICE.starter` |
+| Analysis held on an inserted template | Analysis is held on an inserted template. Re-draft it live to run one. | `ANALYSIS_HELD_NOTICE.template` |
 | Guest panel constraint not analysed (persistence inactive) | In guest mode, constraints added here aren't included in the analysis. Add them in chat instead. | `GOAL_CONSTRAINT_COPY.guestConstraintsNotInAnalysis` |
 | Template load failed | Failed to load template. | `TEMPLATE_LOAD_FAILED_MESSAGE` |
 

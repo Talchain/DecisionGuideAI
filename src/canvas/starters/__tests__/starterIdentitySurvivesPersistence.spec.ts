@@ -18,7 +18,7 @@
  * UNSTAMPED graph. The stamp exists in memory and dies at the page boundary,
  * and with it BOTH honesty mechanisms `starterId` carries: the canvas
  * disclosure (StarterProvenanceBanner) and the run gate
- * (`computeCeeCannotSeeModel`).
+ * (`analysisHeldOn`).
  *
  * The in-memory stamp is already pinned by `applyStarter.spec.ts`. That spec
  * stays green through the whole defect, because it never looks at what was

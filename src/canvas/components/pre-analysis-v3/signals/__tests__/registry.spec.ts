@@ -26,6 +26,7 @@ import {
 } from '../../constants'
 import { findBannedTerm } from '../../../../../test/glossaryBannedTerms'
 import { BLOCKED_REASON_COPY } from '../../../../utils/composeBlockedReason'
+import { ANALYSIS_HELD_NOTICE } from '../../../../utils/analysisHeldOnInjectedModel'
 
 function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionInput {
   return {
@@ -216,6 +217,14 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
     manyOptions: BLOCKED_REASON_COPY.manyOptions(3, true),
     manyOptionsNoPromise: BLOCKED_REASON_COPY.manyOptions(3, false),
   })
+  // The injected-model refusal (18 Aug affordance sweep A7). It reaches THIS
+  // surface — `canRunAnalysis` hands it to `PanelFooter` as the `blockedReason`
+  // subline — so it belongs under the same copy rules as everything else the
+  // footer prints. Unswept, it was the one user-facing sentence on this panel
+  // that no glossary rule governed, which is how a second set of conventions
+  // gets in: the sweep is the only thing that makes "the product's copy rules"
+  // mean the product's copy rather than one file's.
+  push('ANALYSIS_HELD_NOTICE', ANALYSIS_HELD_NOTICE)
   // ROADMAP 2.376 — the contested surface's own copy, with its one factory invoked so the
   // sentence a user is shown is scanned rather than the function that builds it.
   push('CONTESTED_COPY', { ...CONTESTED_COPY, meta: CONTESTED_COPY.meta(2) })

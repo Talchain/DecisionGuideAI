@@ -24,7 +24,7 @@
  * ── HOW THE QUESTION IS ANSWERED ─────────────────────────────────────────────
  * By `resolveStarterId` over the restored nodes — the SAME predicate the canvas
  * disclosure (`StarterProvenanceBanner`) and the run gate
- * (`computeCeeCannotSeeModel`) already use. Not a new "is this a demo" flag: a
+ * (`analysisHeldOn`) already use. Not a new "is this a demo" flag: a
  * second answer to one question is how the disclosure and the gate would come
  * to disagree, and the graph's own stamp is the authoritative persisted read
  * (P5) — it is present exactly when the starter graph is.

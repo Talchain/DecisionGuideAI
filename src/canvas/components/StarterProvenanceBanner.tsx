@@ -5,6 +5,7 @@ import { useCanvasStore } from '../store'
 import { useShowToastSafe } from '../ToastContext'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { getStarter, resolveStarterId } from '../starters/loadStarter'
+import { analysisHeldNotice } from '../utils/analysisHeldOnInjectedModel'
 import { typography } from '../../styles/typography'
 
 /**
@@ -24,7 +25,7 @@ import { typography } from '../../styles/typography'
  *
  * It also names the analysis consequence, because the Analyse button IS
  * disabled for a starter and a user who does not know why will read it as the
- * product being broken. `computeCeeCannotSeeModel` refuses the run for any
+ * product being broken. `analysisHeldOn` refuses the run for any
  * client-injected graph on the V5 canonical path: the V5 turn body carries no
  * graph, so CEE would otherwise answer about a model it never received. The
  * re-draft is the honest route to an analysable model, which is exactly why it
@@ -46,6 +47,16 @@ export function StarterProvenanceBanner() {
   // `resolveStarterId` is the single shape for this question, shared with the
   // run gate — see its docstring for why reading nodes[0] alone was wrong.
   const starterId = useCanvasStore((s) => resolveStarterId(s.nodes))
+  /**
+   * ⭐ THE ANALYSIS CLAIM NOW TRACKS THE RUN GATE, rather than the banner's own
+   * mount condition. The 18 Aug affordance sweep found this notice still saying
+   * "Analysis is held on a saved example" while a toast said "Analysis
+   * complete." — because the banner mounted on `starterId` while the gate
+   * refused on a DIFFERENT condition. `analysisHeldNotice` is the gate's own
+   * condition and the gate's own sentence, so the two cannot disagree; `null`
+   * means analysis is not held and the claim is simply not made.
+   */
+  const heldNotice = useCanvasStore((s) => analysisHeldNotice(s.nodes))
 
   const handleRedraft = useCallback(async () => {
     if (!starterId) return
@@ -189,8 +200,7 @@ export function StarterProvenanceBanner() {
             saving does NOT re-enable analysis. Re-drafting is the one route
             that does, because the resulting graph comes from a CEE turn. */}
         <p className={`mt-1 ${typography.caption} text-text-light`}>
-          Edit anything on the canvas. Analysis is held on a saved example — re-draft it live to
-          run one.
+          Edit anything on the canvas.{heldNotice === null ? '' : ` ${heldNotice}`}
         </p>
         <button
           type="button"

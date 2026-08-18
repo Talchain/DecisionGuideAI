@@ -107,12 +107,12 @@ import { useConversation } from '../conversation/useConversation'
 import {
   canRunAnalysis as canRunAnalysisUtil,
   getRunButtonTooltip,
-  computeCeeCannotSeeModel,
   readinessObjectsToRun,
   verdictLicenceSuperseded,
   RUN_LICENCE_SUPERSEDED_REFUSAL,
   type ReadinessVerdictLicence,
 } from '../utils/canRunAnalysis'
+import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
 import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
@@ -1147,7 +1147,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     hasBlockers: hasValidationBlockers,
     nodeCount: nodes.length,
     isRunning,
-    ceeCannotSeeModel: computeCeeCannotSeeModel(nodes),
+    // ONE value carries both "is analysis held?" and "what do we call this
+    // model?" — see `analysisHeldOn`. Two parameters here is how the panel and
+    // the composer came within one review of naming the same state differently.
+    analysisHeldOn: analysisHeldOn(nodes),
     draftStreamPhase,
     optionsNeedingValues,
     readinessStale,
