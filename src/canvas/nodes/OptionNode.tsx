@@ -1207,7 +1207,7 @@ export const OptionNode = memo((props: NodeProps) => {
               <span
                 data-testid={`option-stable-number-${props.id}`}
                 aria-label={`Option ${stableOptionNumber}`}
-                className={`${typography.panelMeta} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
+                className={`${typography.nodeLabel} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
               >
                 {stableOptionNumber}
               </span>
@@ -1294,8 +1294,8 @@ export const OptionNode = memo((props: NodeProps) => {
             {structuredDeltas.map(d => (
               <span
                 key={d.factorId}
-                className="inline-flex items-center gap-0.5 font-sans leading-tight px-[5px] py-[1px] rounded-full border border-panel-border bg-transparent text-text-body"
-                style={{ fontSize: 11, borderWidth: '0.5px' }}
+                className={`${typography.nodeLabel} inline-flex items-center gap-0.5 px-[5px] py-[1px] rounded-full border border-panel-border bg-transparent text-text-body`}
+                style={{ borderWidth: '0.5px' }}
               >
                 {d.direction === 'up' ? (
                   <ArrowUp size={10} className="text-success flex-shrink-0" />

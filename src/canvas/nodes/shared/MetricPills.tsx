@@ -5,7 +5,11 @@
  * contact; the tooltip/aria still carry the full provenance). Bias coaching is
  * NOT a pill here: it lives on the header ScienceIcon (one bias-coaching
  * surface per node — bias-coaching slice, proposal 2026-07-16 §1.5(2)).
- * Font 10px (edgeLabel). Pill padding 1px 5px. Border-radius 10px. Gap 3px.
+ * Font 10px via the `edgeLabel` TOKEN. It was a raw utility until 18 Aug 2026,
+ * and a raw utility cannot see `--canvas-label-scale`: measured in Chromium,
+ * these pills rendered at 5.0px at the 0.50 auto-fit floor while their sibling
+ * node title rendered at its declared 13px. DS v5 §2.4 forbids the raw form for
+ * exactly this reason. Pill padding 1px 5px. Border-radius 10px. Gap 3px.
  *
  * Lane C4 (influence-scale disclosure): the influence number comes from the
  * shared display model (useNodeDisplayMetadata → driverDisplayModel), which on
@@ -19,6 +23,7 @@
  * (influenceScaleCopy) DriversSection consumes too, so the surfaces cannot
  * drift (review fix 3).
  */
+import { typography } from '../../../styles/typography'
 import type { DriverDisplayProvenance } from '../../../components/results/driverDisplayModel'
 import { influenceExplanation, influencePillAriaLabel } from '../../../components/results/influenceScaleCopy'
 
@@ -69,7 +74,7 @@ export function MetricPills({
     <div className="flex gap-[3px] mt-1.5 items-center flex-wrap">
       {hasInfluence && (
         <span
-          className="text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border border-info/40 text-text-body"
+          className={`${typography.edgeLabel} px-[5px] py-[1px] rounded-[10px] border border-info/40 text-text-body`}
           title={influenceTitle}
           // Review fix 5: aria-label on a role-less <span> is unreliably
           // announced (generic role), and `title` alone is keyboard/touch
@@ -85,7 +90,7 @@ export function MetricPills({
       )}
       {hasConfidence && (
         <span
-          className="text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border border-factor/60 text-text-body inline-flex items-center gap-0.5"
+          className={`${typography.edgeLabel} px-[5px] py-[1px] rounded-[10px] border border-factor/60 text-text-body inline-flex items-center gap-0.5`}
           // Disclosure travels WITH the number, in the same element, so the
           // figure cannot be rendered bare. Same vocabulary the Drivers panel
           // ships ("Default estimate — not yet validated with evidence" /
