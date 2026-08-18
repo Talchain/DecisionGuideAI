@@ -551,6 +551,21 @@ export function collectConsentSurfaceText(
  * the spec pins that precondition against the corpus so a divergence REDs
  * rather than quietly dropping text.
  */
+/**
+ * ⚠ A HAND-MAINTAINED MIRROR OF CEE'S VOCABULARY, and named as one.
+ *
+ * `card_kind` is deliberately typed loosely on the wire so a future producer
+ * kind passes through without a UI release, which means a CEE rename would
+ * NOT be a type error here — this constant would simply stop matching and the
+ * duplicate would come back. It fails OPEN (a duplicate, never a deletion),
+ * which is the safe direction, but nothing in the type system REDs on drift.
+ *
+ * So the spec carries a CORPUS-DERIVED guard: it reads the narrative card's
+ * `card_kind` out of every capture in the corpus and asserts it equals this
+ * constant. Derivation cannot prove the constant is RIGHT, only that the
+ * corpus and the code still agree — which is exactly the drift that would
+ * silently reopen the defect (platform trap 12/12d).
+ */
 export const NARRATIVE_REVIEW_CARD_KIND = 'narrative'
 
 /**
@@ -566,10 +581,15 @@ export function turnDeliversNarrativeAsTypedCard(
 ): boolean {
   if (!blocks || blocks.length === 0) return false
   return blocks.some((block) => {
-    if (block.type !== 'v5_review_card' && block.type !== 'review_card') return false
-    const kind = (block as { card_kind?: unknown }).card_kind
-    if (kind !== NARRATIVE_REVIEW_CARD_KIND) return false
-    const body = (block as { body?: unknown }).body
+    // `v5_review_card` ONLY. The legacy `review_card` was in this condition
+    // and was UNREACHABLE: `ReviewCardBlock` (types.ts) carries
+    // title/body/variant/tone/priority and has NO `card_kind` at all, so the
+    // kind test below could never pass for it. A dead branch in a predicate
+    // reads as coverage of a case that cannot occur — removed rather than
+    // left to imply the legacy shape was considered and handled.
+    if (block.type !== 'v5_review_card') return false
+    if (block.card_kind !== NARRATIVE_REVIEW_CARD_KIND) return false
+    const body: unknown = block.body
     return typeof body === 'string' && body.trim().length > 0
   })
 }

@@ -252,13 +252,34 @@ export const InlineBlocks = memo(function InlineBlocks({
    */
   /**
    * SECOND-CHANNEL ROUTING (UX gate 2026-08-18 point 4b). Computed ONCE per
-   * turn from the turn's own blocks, because the analysis-result card cannot
-   * see its siblings and must not guess. Structural — block presence, never a
-   * string comparison. See `turnDeliversNarrativeAsTypedCard`.
+   * turn, because the analysis-result card cannot see its siblings and must
+   * not guess. Structural — block presence, never a string comparison. See
+   * `turnDeliversNarrativeAsTypedCard`.
+   *
+   * ⚠⚠ COMPUTED OVER `topLevel`, NOT OVER `blocks`, AND THE DIFFERENCE IS A
+   * DELETED PARAGRAPH. The first version of this passed the whole `blocks`
+   * array, so a narrative card DEMOTED into the closed disclosure still
+   * suppressed the untyped copy: the analysis card withheld the paragraph and
+   * the disclosure hid the card, so the narrative was NOWHERE. Proven by
+   * execution on real producer bytes, changing only the card's ORDER —
+   * narrative 1st among candidates renders once; narrative 4th rendered ZERO
+   * times. Real turns carry 9–17 point candidates against `MAX_POINTS`, so
+   * 6–14 are demoted on every analysis turn; only CEE's `priority_rank: 10`
+   * (the minimum in all 8 captures) kept the narrative top-level. That is a
+   * PRODUCER-OWNED FACT mirrored nowhere in the UI — a re-rank upstream would
+   * have deleted the paragraph with no UI signal. Reading `topLevel` removes
+   * the dependency on it rather than mirroring it.
+   *
+   * This is exactly what the C13 comment twenty lines below warns against:
+   * gate on a card being CURRENTLY RENDERED, never on mere presence.
+   *
+   * ⚠ Deliberately NOT gated on `isBlockHidden`: `topLevel` membership is
+   * stable with respect to `detailExpanded`, so the paragraph cannot appear
+   * or vanish as the user opens the disclosure.
    */
   const narrativeDeliveredByTypedCard = useMemo(
-    () => turnDeliversNarrativeAsTypedCard(blocks),
-    [blocks],
+    () => turnDeliversNarrativeAsTypedCard(topLevel.map((e) => blocks[e.index])),
+    [topLevel, blocks],
   )
 
   const detailIndices = useMemo(() => new Set(detail.map((e) => e.index)), [detail])

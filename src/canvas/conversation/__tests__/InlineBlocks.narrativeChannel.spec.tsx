@@ -88,9 +88,10 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { InlineBlocks } from '../InlineBlocks'
+import { MAX_POINTS, NARRATIVE_REVIEW_CARD_KIND } from '../messageComposition'
 import type {
   ConversationBlock,
   V5AnalysisResultBlock as V5AnalysisResultBlockType,
@@ -114,43 +115,142 @@ vi.mock('../../store', () => {
   }
 })
 
-const CAPTURE_DIR = join(
-  __dirname,
-  '..',
-  '..',
-  '..',
-  'lib',
-  'coherence',
-  '__tests__',
-  'fixtures',
-  'captures',
-)
+const SRC_ROOT = join(__dirname, '..', '..', '..')
+
+/**
+ * The corpus is DERIVED, not hand-listed — and it spans TWO directories.
+ *
+ * An earlier version of this spec hardcoded two filenames from ONE directory
+ * while the measurement behind the fix had a denominator of eight spanning
+ * two. Six real payloads carrying the field were therefore exercised by no
+ * test at all: a hand-maintained mirror of a corpus, which is the defect class
+ * this platform pays for most often (trap 12).
+ *
+ * Discovery selects exactly the turns the routing is about: an analysis-result
+ * block carrying `narrative_summary`, plus a narrative review card. Because a
+ * derived list can silently shrink to nothing and still look green, the count
+ * is asserted against a FLOOR below (trap 12d: derivation proves agreement,
+ * never completeness).
+ */
+const CAPTURE_DIRS = [
+  join(SRC_ROOT, 'lib', 'coherence', '__tests__', 'fixtures', 'captures'),
+  join(SRC_ROOT, 'v5', '__tests__', 'fixtures'),
+]
+
+/** The number of qualifying payloads measured at 2026-08-18. Never fewer. */
+const CORPUS_FLOOR = 8
 
 interface RawCapture {
   blocks: Array<Record<string, unknown>>
 }
 
-function loadCapture(file: string): RawCapture {
-  return JSON.parse(readFileSync(join(CAPTURE_DIR, file), 'utf8')) as RawCapture
+function readBlocks(raw: unknown): Array<Record<string, unknown>> | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const top = (raw as { blocks?: unknown }).blocks
+  if (Array.isArray(top)) return top as Array<Record<string, unknown>>
+  const payload = (raw as { payload?: unknown }).payload
+  if (typeof payload === 'object' && payload !== null) {
+    const nested = (payload as { blocks?: unknown }).blocks
+    if (Array.isArray(nested)) return nested as Array<Record<string, unknown>>
+  }
+  return null
+}
+
+function narrativeSummaryOf(blocks: Array<Record<string, unknown>>): string | null {
+  for (const b of blocks) {
+    if (b.type !== 'analysis_result' && b.type !== 'v5_analysis_result') continue
+    const enrichment = b.enrichment as Record<string, unknown> | undefined
+    const review = enrichment?.decision_review as Record<string, unknown> | undefined
+    const summary = review?.narrative_summary
+    if (typeof summary === 'string' && summary.trim().length > 0) return summary
+  }
+  return null
+}
+
+function discoverCaptures(): string[] {
+  const found: string[] = []
+  for (const dir of CAPTURE_DIRS) {
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith('.json')) continue
+      const path = join(dir, name)
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(readFileSync(path, 'utf8'))
+      } catch {
+        continue
+      }
+      const blocks = readBlocks(parsed)
+      if (!blocks) continue
+      if (narrativeSummaryOf(blocks) === null) continue
+      const hasNarrativeCard = blocks.some(
+        (b) => b.type === 'review_card' && b.card_kind === 'narrative',
+      )
+      if (hasNarrativeCard) found.push(path)
+    }
+  }
+  return found.sort()
+}
+
+const CAPTURES = discoverCaptures()
+
+/** Short, readable name for `it.each` output. */
+const nameOf = (path: string): string => path.split('/').slice(-1)[0]
+
+function captureByName(name: string): string {
+  const hit = CAPTURES.find((p) => nameOf(p) === name)
+  if (!hit) throw new Error(`capture ${name} not in the derived corpus`)
+  return hit
+}
+
+function loadCapture(path: string): RawCapture {
+  return JSON.parse(readFileSync(path, 'utf8')) as RawCapture
+}
+
+function liftReviewCard(rawCard: Record<string, unknown>): V5ReviewCardBlock {
+  return {
+    type: 'v5_review_card',
+    block_id: rawCard.block_id as string,
+    title: rawCard.title as string,
+    body: rawCard.body as string,
+    severity: rawCard.severity as V5ReviewCardBlock['severity'],
+    card_kind: rawCard.card_kind as V5ReviewCardBlock['card_kind'],
+    target_refs: (rawCard.target_refs ?? []) as V5ReviewCardBlock['target_refs'],
+    priority_rank: rawCard.priority_rank as number,
+    freshness: rawCard.freshness as V5ReviewCardBlock['freshness'],
+  }
 }
 
 /**
- * Lift the turn's `analysis_result` and its narrative `review_card` into the
- * UI's own block union, copying fields VERBATIM — the same copy `mapV5Blocks`
- * performs for these two wire types. Nothing is reshaped, so the bytes under
- * test are the producer's.
+ * Lift the turn's `analysis_result` and ALL of its review cards into the UI's
+ * own block union, copying fields VERBATIM — the same copy `mapV5Blocks`
+ * performs for these wire types. The bytes under test are the producer's.
+ *
+ * ⚠⚠ ALL THE CARDS, NOT JUST THE NARRATIVE ONE, AND THAT IS THE WHOLE POINT.
+ *
+ * The first version of this helper reduced a 15-block capture to TWO blocks.
+ * Every byte it kept was the producer's, so the docblock's "nothing is
+ * reshaped" was true of the BYTES — and false of the TURN SHAPE. With two
+ * blocks the composition cap (`MAX_POINTS`) is never reached, so the suite was
+ * structurally incapable of observing what happens when the narrative card is
+ * DEMOTED. That is the corpus-excludes-the-class trap: the reduction removed
+ * exactly the pressure that turns a suppression into a deletion, and it hid a
+ * real content-loss defect through a full green suite and a six-mutant kit.
+ *
+ * Real turns carry 4–7 review cards against a cap of 3, so keeping them all
+ * means the cap is genuinely exercised on every capture.
  */
 function liftCapture(file: string): {
   blocks: ConversationBlock[]
   narrativeSummary: string
   narrativeCardBody: string
+  narrativeCardKind: unknown
   winProbabilityLabels: string[]
+  reviewCardCount: number
 } {
   const raw = loadCapture(file)
   const rawResult = raw.blocks.find((b) => b.type === 'analysis_result')
-  const rawNarrative = raw.blocks.find(
-    (b) => b.type === 'review_card' && b.card_kind === 'narrative',
-  )
+  const rawCards = raw.blocks.filter((b) => b.type === 'review_card')
+  const rawNarrative = rawCards.find((b) => b.card_kind === 'narrative')
   if (!rawResult) throw new Error(`${file}: no analysis_result block`)
   if (!rawNarrative) throw new Error(`${file}: no narrative review_card`)
 
@@ -166,24 +266,38 @@ function liftCapture(file: string): {
     win_probabilities: winProbabilities,
     enrichment,
   }
-  const narrativeCard: V5ReviewCardBlock = {
-    type: 'v5_review_card',
-    block_id: rawNarrative.block_id as string,
-    title: rawNarrative.title as string,
-    body: rawNarrative.body as string,
-    severity: rawNarrative.severity as V5ReviewCardBlock['severity'],
-    card_kind: rawNarrative.card_kind as V5ReviewCardBlock['card_kind'],
-    target_refs: (rawNarrative.target_refs ?? []) as V5ReviewCardBlock['target_refs'],
-    priority_rank: rawNarrative.priority_rank as number,
-    freshness: rawNarrative.freshness as V5ReviewCardBlock['freshness'],
-  }
 
   return {
-    blocks: [resultBlock, narrativeCard],
+    // Producer order preserved: the analysis result, then the cards as sent.
+    blocks: [resultBlock, ...rawCards.map(liftReviewCard)],
     narrativeSummary,
     narrativeCardBody: rawNarrative.body as string,
+    narrativeCardKind: rawNarrative.card_kind,
     winProbabilityLabels: Object.keys(winProbabilities),
+    reviewCardCount: rawCards.length,
   }
+}
+
+/**
+ * The same turn with the narrative card moved PAST the point cap, changing
+ * nothing but ORDER. This is the shape a CEE re-rank would produce.
+ */
+function withNarrativeDemoted(blocks: ConversationBlock[]): ConversationBlock[] {
+  const narrative = blocks.find(
+    (b) => b.type === 'v5_review_card' && b.card_kind === 'narrative',
+  )
+  if (!narrative) throw new Error('no narrative card to demote — probe is vacuous')
+  const rest = blocks.filter((b) => b !== narrative)
+  const others = rest.filter((b) => b.type === 'v5_review_card')
+  if (others.length < MAX_POINTS) {
+    throw new Error(
+      `capture has only ${others.length} sibling cards; need >= ${MAX_POINTS} to demote`,
+    )
+  }
+  // Insert after enough candidates that the narrative falls outside the cap.
+  const head = rest.slice(0, rest.indexOf(others[MAX_POINTS - 1]) + 1)
+  const tail = rest.slice(head.length)
+  return [...head, narrative, ...tail]
 }
 
 /** Whitespace-normalised occurrence count of `needle` in `haystack`. */
@@ -201,11 +315,6 @@ function countOccurrences(haystack: string, needle: string): number {
   }
 }
 
-const CAPTURES = [
-  'w998-2026-08-16-a1-turn3.json',
-  'seeded-2026-08-17-w2d-analysis-turn.json',
-] as const
-
 describe('Olumi copy assembly — the narrative channel renders once', () => {
   /**
    * THE PRECONDITION THIS ROUTING RESTS ON, PINNED IN-TEST.
@@ -216,27 +325,47 @@ describe('Olumi copy assembly — the narrative channel renders once', () => {
    * card no longer restates. A guard whose precondition nothing pins is a
    * guard that can quietly stop discriminating (platform trap 13b).
    */
-  it.each(CAPTURES)(
+  it('the derived corpus reaches its floor and spans both capture directories', () => {
+    // A derived list that silently shrinks to nothing still runs green. The
+    // floor is what makes the derivation fail loud instead (trap 12d).
+    expect(CAPTURES.length).toBeGreaterThanOrEqual(CORPUS_FLOOR)
+    const dirs = new Set(CAPTURES.map((p) => p.split('/').slice(0, -1).join('/')))
+    expect(dirs.size).toBe(CAPTURE_DIRS.length)
+  })
+
+  /**
+   * F3 — `NARRATIVE_REVIEW_CARD_KIND` is a hand-maintained mirror of CEE's
+   * vocabulary that the type system cannot check. This is the derived guard
+   * that REDs if the producer renames the kind out from under it.
+   */
+  it.each(CAPTURES.map((p) => [nameOf(p), p] as const))(
+    '%s: the producer still calls the narrative card by the kind the code matches',
+    (_name, file) => {
+      expect(liftCapture(file).narrativeCardKind).toBe(NARRATIVE_REVIEW_CARD_KIND)
+    },
+  )
+
+  it.each(CAPTURES.map((p) => [nameOf(p), p] as const))(
     '%s: the producer emits the narrative on BOTH channels, byte-identical',
-    (file) => {
+    (_name, file) => {
       const { narrativeSummary, narrativeCardBody } = liftCapture(file)
       expect(narrativeSummary.length).toBeGreaterThan(0)
       expect(narrativeCardBody).toBe(narrativeSummary)
     },
   )
 
-  it.each(CAPTURES)(
+  it.each(CAPTURES.map((p) => [nameOf(p), p] as const))(
     '%s: the narrative paragraph renders EXACTLY ONCE in the turn',
-    (file) => {
+    (_name, file) => {
       const { blocks, narrativeSummary } = liftCapture(file)
       const { container } = render(<InlineBlocks blocks={blocks} turnId="t-narrative" />)
       expect(countOccurrences(container.textContent ?? '', narrativeSummary)).toBe(1)
     },
   )
 
-  it.each(CAPTURES)(
+  it.each(CAPTURES.map((p) => [nameOf(p), p] as const))(
     '%s: the surviving copy is the TITLED card, not the untyped one',
-    (file) => {
+    (_name, file) => {
       const { blocks, narrativeSummary } = liftCapture(file)
       const { container } = render(<InlineBlocks blocks={blocks} turnId="t-narrative" />)
 
@@ -258,9 +387,9 @@ describe('Olumi copy assembly — the narrative channel renders once', () => {
    * NO narrative card must still show the narrative. Absence of the card may
    * only ever cost a duplicate — never a paragraph.
    */
-  it.each(CAPTURES)(
+  it.each(CAPTURES.map((p) => [nameOf(p), p] as const))(
     '%s: with NO narrative card, the analysis-result copy still renders',
-    (file) => {
+    (_name, file) => {
       const { blocks, narrativeSummary } = liftCapture(file)
       const withoutCard = blocks.filter((b) => b.type !== 'v5_review_card')
       expect(withoutCard).toHaveLength(1)
@@ -281,7 +410,7 @@ describe('Olumi copy assembly — the narrative channel renders once', () => {
    * 0/8) and must keep rendering in the analysis-result card exactly as
    * before, card present or not.
    */
-  it.each(CAPTURES)('%s: readiness_rationale is untouched by the routing', (file) => {
+  it.each(CAPTURES.map((p) => [nameOf(p), p] as const))('%s: readiness_rationale is untouched by the routing', (_name, file) => {
     const raw = loadCapture(file)
     const rawResult = raw.blocks.find((b) => b.type === 'analysis_result')!
     const decisionReview = (rawResult.enrichment as Record<string, unknown>)
@@ -294,10 +423,50 @@ describe('Olumi copy assembly — the narrative channel renders once', () => {
     const { container } = render(<InlineBlocks blocks={blocks} turnId="t-narrow" />)
     expect(container.textContent).toContain(readiness as string)
   })
+
+  /**
+   * ⭐⭐ F1 — THE DEMOTION CASE. The defect this suite could not previously see.
+   *
+   * The routing predicate first read the WHOLE block list, so a narrative card
+   * demoted into the CLOSED disclosure still suppressed the untyped copy: the
+   * analysis card withheld the paragraph and the disclosure hid the card, so
+   * the narrative was NOWHERE. Nothing but the card's ORDER changes here —
+   * every byte is still the producer's.
+   *
+   * The turn stayed correct on real traffic only because CEE assigns the
+   * narrative card `priority_rank: 10`, the minimum in all 8 captures. That is
+   * a producer-owned fact mirrored nowhere in the UI; this test is what stands
+   * in for it, so a re-rank upstream REDs here instead of deleting a paragraph
+   * in front of a customer.
+   */
+  it.each(CAPTURES.map((p) => [nameOf(p), p] as const))(
+    '%s: the turn really does exceed the point cap (the pressure is real)',
+    (_name, file) => {
+      expect(liftCapture(file).reviewCardCount).toBeGreaterThan(MAX_POINTS)
+    },
+  )
+
+  it.each(CAPTURES.map((p) => [nameOf(p), p] as const))(
+    '%s: DEMOTED into the closed disclosure, the narrative still renders exactly once',
+    (_name, file) => {
+      const { blocks, narrativeSummary } = liftCapture(file)
+      const demoted = withNarrativeDemoted(blocks)
+      // Same blocks, same bytes — order only.
+      expect(demoted).toHaveLength(blocks.length)
+
+      const { container } = render(<InlineBlocks blocks={demoted} turnId="t-demoted" />)
+      expect(countOccurrences(container.textContent ?? '', narrativeSummary)).toBe(1)
+      // …and it is the analysis-result copy that carries it, because the card
+      // the user would have read is collapsed out of view.
+      expect(
+        container.querySelector('[data-testid="v5-analysis-result-narrative-summary"]'),
+      ).not.toBeNull()
+    },
+  )
 })
 
 describe('Olumi copy assembly — a label is rendered in full, never cut', () => {
-  const W998 = 'w998-2026-08-16-a1-turn3.json'
+  const W998 = captureByName('w998-2026-08-16-a1-turn3.json')
 
   /** TWIN A — long label, BALANCED brackets. Verbatim producer bytes. */
   const BALANCED_LABEL =
