@@ -15,6 +15,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { PersistentInputStrip } from '../PersistentInputStrip'
+import { focusDockedOlumi } from '../../conversation/dockedOlumiFocus'
 import {
   ConversationProvider,
   useConversationContext,
@@ -223,5 +224,85 @@ describe('PersistentInputStrip', () => {
       const reborn = screen.getByRole('textbox') as HTMLTextAreaElement
       expect(reborn.value).toBe('half-typed thought')
     })
+  })
+})
+
+/**
+ * THE DOCKED OLUMI FOCUS CHANNEL (B3 convergence).
+ *
+ * `revealOlumiSurface()` focuses the docked composer through
+ * `focusDockedOlumi()`. That only works if this strip registers the channel —
+ * and only while it is actually rendering a textarea. A channel registered in
+ * status or redirect mode would report SUCCESS while focusing a null ref,
+ * which is worse than no channel: the caller stops looking for another surface.
+ *
+ * Bound by identity to the strip's three modes via their own testids, so the
+ * registration cannot be satisfied by "some input somewhere got focus".
+ */
+describe('docked Olumi focus channel', () => {
+  beforeEach(() => {
+    useFloatingPanelState.getState().reset()
+  })
+
+  it('registers in composer mode and focuses the strip textarea', () => {
+    render(
+      <Wrapper>
+        <PersistentInputStrip isOlumiTabActive onOpenFloating={vi.fn()} onCogClick={vi.fn()} />
+      </Wrapper>,
+    )
+    // POSITIVE CONTROL — we are in composer mode, not some other branch.
+    expect(screen.getByTestId('persistent-strip-composer')).toBeInTheDocument()
+    expect(focusDockedOlumi()).toBe(true)
+    const textarea = screen
+      .getByTestId('persistent-strip-composer')
+      .querySelector('textarea')
+    expect(textarea).not.toBeNull()
+    expect(document.activeElement).toBe(textarea)
+  })
+
+  it('⭐ does NOT register in redirect mode (no textarea to focus)', () => {
+    render(
+      <Wrapper>
+        <PersistentInputStrip
+          isOlumiTabActive={false}
+          onOpenFloating={vi.fn()}
+          onCogClick={vi.fn()}
+        />
+      </Wrapper>,
+    )
+    expect(screen.getByTestId('persistent-strip-composer-redirect')).toBeInTheDocument()
+    expect(focusDockedOlumi()).toBe(false)
+  })
+
+  it('⭐ does NOT register in status mode (the floating panel owns focus)', () => {
+    act(() => {
+      useFloatingPanelState.getState().open('user')
+    })
+    render(
+      <Wrapper>
+        <PersistentInputStrip isOlumiTabActive onOpenFloating={vi.fn()} onCogClick={vi.fn()} />
+      </Wrapper>,
+    )
+    expect(screen.getByTestId('persistent-strip-status')).toBeInTheDocument()
+    expect(focusDockedOlumi()).toBe(false)
+  })
+
+  it('re-registers when a minimised floating panel hands composing back', () => {
+    act(() => {
+      useFloatingPanelState.getState().open('user')
+    })
+    render(
+      <Wrapper>
+        <PersistentInputStrip isOlumiTabActive onOpenFloating={vi.fn()} onCogClick={vi.fn()} />
+      </Wrapper>,
+    )
+    expect(focusDockedOlumi()).toBe(false)
+    act(() => {
+      useFloatingPanelState.getState().minimise()
+    })
+    // The pill has no textarea, so the strip takes composing back — and with
+    // it the focus channel.
+    expect(screen.getByTestId('persistent-strip-composer')).toBeInTheDocument()
+    expect(focusDockedOlumi()).toBe(true)
   })
 })

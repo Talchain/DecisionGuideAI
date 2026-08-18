@@ -59,6 +59,20 @@ function categoryIcon(cat: GuidanceItem['category']) {
 // Action button label
 // ---------------------------------------------------------------------------
 
+/**
+ * The strip's action-button face and aria-label.
+ *
+ * ⚠ THE `default` ARM IS LOAD-BEARING AND ITS ABSENCE WAS A RUNTIME HOLE.
+ * `primary_action.type` arrives ON THE WIRE, so the union is a claim about
+ * the producer at pin time, not a runtime guarantee. Without a default this
+ * switch returned `undefined` for any type CEE adds — an EMPTY button face
+ * and the aria-label `"undefined: <title>"` read aloud to a screen-reader
+ * user. TypeScript could not see it: the union made the switch exhaustive at
+ * compile time, which is exactly why the hole survived review.
+ *
+ * The fallback is a neutral verb, never the raw token: a button reading
+ * `open_evidence_drawer` is the same log-language defect one level down.
+ */
 function actionLabel(action: GuidanceAction): string {
   switch (action.type) {
     case 'open_inspector': return 'View'
@@ -66,6 +80,7 @@ function actionLabel(action: GuidanceAction): string {
     case 'run_exercise': return 'Try it'
     case 'approve_patch': return 'Review'
     case 'navigate': return 'Go to'
+    default: return 'Open'
   }
 }
 

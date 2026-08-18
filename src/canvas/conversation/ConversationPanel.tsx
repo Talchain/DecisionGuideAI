@@ -29,6 +29,7 @@ import { ChatThread } from './zones/ChatThread'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
 import { useOptionalConversationContext } from './ConversationContext'
 import { prefillInto } from './prefillTarget'
+import { humaniseWireToken } from './friendlyOperation'
 import type { BriefReadiness } from './hooks/useBriefSignals'
 import { useThreadPersistence } from './hooks/useThreadPersistence'
 import { beginInteractionChain, getUiSurfaceState, recordCrossSurfaceEvent, recordInteractionEvent, recordUserAction, type InteractionStateSnapshot } from '../../lib/debug-state'
@@ -98,6 +99,22 @@ function extractTurnIdFromStateKey(stateKey: string, patchId: string): string {
   const separatorIndex = stateKey.indexOf(':')
   if (separatorIndex === -1) return stateKey
   return stateKey.slice(0, separatorIndex)
+}
+
+/**
+ * The user-facing sentence for a patch operation this build cannot apply.
+ *
+ * ⚠ THE RAW OP MAY NOT RIDE IN `message`. `message` is rendered verbatim in
+ * the rejected-patch card, so embedding `unknownOps[0].op` put `add_node` on
+ * screen. `humaniseWireToken` returns null for anything id-shaped and the
+ * sentence then simply omits the name — the user does not need the token, and
+ * the rejection CODE still carries it for operators.
+ */
+export function unsupportedOperationMessage(op: unknown): string {
+  const named = humaniseWireToken(op)
+  return named
+    ? `This build cannot apply that kind of change yet (${named.toLowerCase()}).`
+    : 'This build cannot apply that kind of change yet.'
 }
 
 export const ConversationPanel = memo(function ConversationPanel({
@@ -265,7 +282,10 @@ export const ConversationPanel = memo(function ConversationPanel({
           setPatchBlockState(stateKey, 'rejected')
           setPatchRejection(stateKey, {
             code: 'UNSUPPORTED_OPERATION',
-            message: `Unsupported operation: ${unknownOps[0].op}`,
+            // `message` is rendered verbatim to the user, so the raw op enum
+            // may not ride inside it. The CODE still carries the token for
+            // operators (GraphPatchBlockRenderer puts it on a data attribute).
+            message: unsupportedOperationMessage(unknownOps[0].op),
           })
           sendSystemEventBestEffort({
             type: 'patch_dismissed',

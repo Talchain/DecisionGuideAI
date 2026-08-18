@@ -1,9 +1,10 @@
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useEffect, useRef } from 'react'
 import { ChevronUp } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { useStageAwarePlaceholder } from '../hooks/useStageAwarePlaceholder'
-import { AIInputBar } from './AIInputBar'
+import { registerDockedOlumiFocus } from '../conversation/dockedOlumiFocus'
+import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
 
 interface PersistentInputStripProps {
   /** True when the docked Olumi tab is the active dock tab. When true and
@@ -56,6 +57,30 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   // nowhere else to type.
   const floatingIsMinimised = useFloatingPanelState((s) => s.isMinimised)
   const placeholder = useStageAwarePlaceholder()
+  const inputBarRef = useRef<AIInputBarHandle | null>(null)
+
+  /**
+   * THE DOCKED OLUMI COMPOSER'S FOCUS CHANNEL.
+   *
+   * `revealOlumiSurface()` — the primitive every Ask-Olumi / chip / coaching
+   * action funnels through — could previously only focus the FLOATING panel,
+   * because that was the only surface with a registered channel. On the
+   * dominant deployed path the dock hosts Olumi and the floating panel has
+   * deliberately deregistered, so a revealed action left the composer
+   * unfocused and the user had to click into the box before typing.
+   *
+   * Registered ONLY in composer mode — the same condition the render below
+   * uses, so the channel exists exactly when there is a textarea to focus.
+   * In status mode the floating panel owns focus; in redirect mode there is no
+   * input at all, and registering there would hand `focusDockedOlumi()` a null
+   * ref that silently succeeds (a focus channel that reports success while
+   * focusing nothing is worse than none).
+   */
+  const isComposerMode = isOlumiTabActive && (!floatingIsOpen || floatingIsMinimised)
+  useEffect(() => {
+    if (!isComposerMode) return
+    return registerDockedOlumiFocus(() => inputBarRef.current?.focus())
+  }, [isComposerMode])
 
   const handleFocus = useCallback(() => {
     onFocusFloating?.()
@@ -117,6 +142,7 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   return (
     <div className="border-t border-panel-border bg-panel" data-testid="persistent-strip-composer">
       <AIInputBar
+        ref={inputBarRef}
         variant="strip"
         onCogClick={onCogClick}
         onChevronClick={onOpenFloating}

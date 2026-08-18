@@ -308,3 +308,35 @@ describe('GuidanceStrip — category badge', () => {
     expect(screen.getByText(expected)).toBeInTheDocument()
   })
 })
+
+/**
+ * THE RUNTIME HOLE IN `actionLabel` (B3 convergence — no log language).
+ *
+ * `primary_action.type` arrives ON THE WIRE. The label switch had no `default`,
+ * so a type CEE adds returned `undefined`: an EMPTY button face and the
+ * aria-label "undefined: <title>" read aloud to a screen-reader user.
+ * TypeScript could not see it — the union made the switch exhaustive at
+ * compile time, which is exactly why it survived review.
+ */
+describe('an unmodelled wire action type', () => {
+  it('⭐ never renders "undefined", and never the raw token', () => {
+    const item = makeItem({
+      title: 'A new kind of suggestion',
+      // A producer type this build does not model. Cast because the whole
+      // point is that the union is a claim about pin time, not runtime.
+      primary_action: { type: 'open_evidence_drawer' } as unknown as GuidanceItem['primary_action'],
+    })
+    useGuidanceStore.getState().setGuidanceItems([item])
+    render(<GuidanceStrip {...makeProps()} />)
+
+    // POSITIVE CONTROL — the strip rendered this item, so the assertions below
+    // are about a surface that exists.
+    expect(screen.getByTestId('guidance-strip')).toBeInTheDocument()
+    expect(screen.getByText('A new kind of suggestion')).toBeInTheDocument()
+
+    const button = screen.getByRole('button', { name: /A new kind of suggestion/ })
+    expect(button.getAttribute('aria-label')).not.toContain('undefined')
+    expect(button.textContent?.trim().length ?? 0).toBeGreaterThan(0)
+    expect(button.textContent).not.toContain('open_evidence_drawer')
+  })
+})

@@ -34,7 +34,7 @@ import { resolvePatchBlockState } from '../selectors'
 import { resolveCardState, getPatchCardLabels } from '../utils/getPatchCardLabels'
 import { safeRichText, normaliseDashes } from '../../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../../flags'
-import { describeOperation, RAW_ID_PATTERN } from '../friendlyOperation'
+import { describeOperation, humaniseWireToken, RAW_ID_PATTERN } from '../friendlyOperation'
 import type { DescribeOpDeps } from '../friendlyOperation'
 import { BadgeIcon } from './BadgeIcon'
 import styles from '../Conversation.module.css'
@@ -260,7 +260,9 @@ export function GraphPatchBlockRenderer({
             ...item,
             description: op
               ? describeOperation(op, deps)
-              : item.description.replace(new RegExp(RAW_ID_PATTERN.source, 'gi'), '[item]'),
+              // `[item]` read as a broken template to the user; the scrub is
+              // right, its replacement text was not.
+              : item.description.replace(new RegExp(RAW_ID_PATTERN.source, 'gi'), 'this element'),
             elementLabel: labelNeedsClean ? undefined : item.elementLabel,
           }
         })
@@ -268,7 +270,9 @@ export function GraphPatchBlockRenderer({
           const deps: DescribeOpDeps = { relatedElements, nodeLabels, edgeEndpoints }
           return {
             description: describeOperation(op, deps),
-            elementLabel: typeof op.data?.kind === 'string' ? op.data.kind : undefined,
+            // `kind` is a producer token (`intervention`, `outcome`), not a
+            // label the user wrote. Humanised, and DROPPED when it is an id.
+            elementLabel: humaniseWireToken(op.data?.kind) ?? undefined,
             changeLabel: undefined,
           }
         })
@@ -505,8 +509,23 @@ export function GraphPatchBlockRenderer({
         <div className={styles.graphPatchStatusRejected} data-testid="patch-status-rejected">
           {cardBadge && <BadgeIcon badge={cardBadge} />} {cardHeader}
           {rejectionInfo && (
-            <div className={styles.graphPatchError}>
-              {rejectionInfo.code}: {rejectionInfo.message}
+            <div
+              className={styles.graphPatchError}
+              data-testid="patch-rejection-detail"
+              /* ⚠ THE CODE STAYS REACHABLE, JUST NOT ON SCREEN. It used to be
+                 rendered as `CODE: message` — log language at the exact moment
+                 the product is telling the user something failed. The code is
+                 an operator's handle, so it moves to a data attribute rather
+                 than being deleted; deleting it is how the next lane
+                 re-introduces the leak to get its diagnosis back. */
+              data-rejection-code={rejectionInfo.code}
+            >
+              {/* The producer's own sentence when it sent one; otherwise the
+                  humanised code, because a rejection with no explanation at
+                  all is worse than a plain one. Never both, and never raw. */}
+              {rejectionInfo.message?.trim()
+                ? rejectionInfo.message
+                : humaniseWireToken(rejectionInfo.code) ?? 'This change could not be applied.'}
               {rejectionInfo.violations && rejectionInfo.violations.length > 0 && (
                 <>
                   <div className={styles.graphPatchViolations}>
@@ -717,23 +736,39 @@ export function ProposalBlockRenderer({
         <div className={styles.graphPatchProposalList}>
           {block.changes.map((c, i) => {
             const resolved = c.target ? resolveTarget(c.target) : null
+            const operationLabel = humaniseWireToken(c.operation)
+            /**
+             * An UNRESOLVED target is only ever shown when it is already human
+             * text — a label the producer wrote. An entity id resolves to null
+             * and the pill is omitted: the change's own `detail` sentence is
+             * what tells the user what is happening, and a pill reading
+             * `fac_x7` adds nothing but noise. A RESOLVED target keeps its
+             * string (the resolution rule matches on id OR exact label), but
+             * an id-shaped one is still withheld from display.
+             */
+            const targetLabel = c.target && !RAW_ID_PATTERN.test(c.target) ? c.target : null
             return (
               <div key={`${c.target}-${i}`} className={styles.graphPatchProposalItem}>
                 <span className={typography.panelBody}>{c.detail}</span>
                 <div className="flex gap-1">
-                  {c.operation && (
-                    <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{c.operation}</span>
+                  {/* Raw wire tokens never reach the DOM here. `GraphPatchBlockRenderer`
+                      above already scrubs its half through RAW_ID_PATTERN;
+                      this renderer did not, so `add_edge` and `fac_x7` were
+                      rendering verbatim — in the pill face AND in the pill's
+                      aria-label, i.e. read aloud to a screen-reader user. */}
+                  {operationLabel && (
+                    <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{operationLabel}</span>
                   )}
-                  {c.target && resolved && (
+                  {resolved && targetLabel && (
                     <TargetRefPill
                       id={resolved.id}
                       kind={resolved.kind}
-                      label={c.target}
+                      label={targetLabel}
                       className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}
                     />
                   )}
-                  {c.target && !resolved && (
-                    <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>{c.target}</span>
+                  {!resolved && targetLabel && (
+                    <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>{targetLabel}</span>
                   )}
                 </div>
               </div>
