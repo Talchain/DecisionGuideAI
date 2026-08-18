@@ -5,6 +5,7 @@ import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { STORAGE_KEY as RUN_HISTORY_STORAGE_KEY } from '../../store/runHistory'
 import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
+import { trackCompareOpened } from '../../utils/sandboxTelemetry'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 // 34edc1fd ("conversation singleton + explicit first-use submit signal",
 // 2026-05-19) made OutputsDockProviderHost consume useConversationContext,
@@ -198,10 +199,15 @@ describe('OutputsDock DOM', () => {
     // The TEMPORARY 'Alt view' tab (id 'altview') that sat directly after
     // Analysis is RETIRED with the V7 fork it hosted. Its ABSENCE from this
     // list is the assertion: one Analysis surface, no A/B twin.
+    //
+    // 'Compare' left the same way on 18 Aug 2026 (Fable's ruling) — hidden BY
+    // CONTRACT in `workspaceShell/shellContract.ts`, with its flag still ON.
+    // The list stays EXACT and ORDERED; nothing is loosened. `compareDeTab
+    // .contract.spec.tsx` is the pin that says why, and REDs if the row is
+    // reverted.
     expect(tabs.map(tab => tab.textContent)).toEqual([
       'Olumi',
       'Analysis',
-      'Compare',
       'Model',
     ])
   })
@@ -239,12 +245,15 @@ describe('OutputsDock DOM', () => {
     expect(screen.queryByTestId('outputs-dock-body')).toBeNull()
 
     const resultsIcon = screen.getByRole('button', { name: 'Analysis' })
-    const compareIcon = screen.getByRole('button', { name: 'Compare' })
     const modelIcon = screen.getByRole('button', { name: 'Model' })
 
     expect(resultsIcon).toBeInTheDocument()
-    expect(compareIcon).toBeInTheDocument()
     expect(modelIcon).toBeInTheDocument()
+    // The collapsed rail maps the SAME `OUTPUT_TABS` the expanded strip does
+    // (`OutputsDock.tsx:2444`), so Compare's contract row closes both. Asserted
+    // as an ABSENCE here, bound by the exact accessible name, so the rail
+    // cannot quietly keep an affordance the strip dropped.
+    expect(screen.queryByRole('button', { name: 'Compare' })).not.toBeInTheDocument()
 
     fireEvent.click(modelIcon)
 
@@ -257,9 +266,12 @@ describe('OutputsDock DOM', () => {
   it('persists active tab and open state via useDockState', () => {
     const { unmount } = renderOutputsDock()
 
-    // Switch to Compare tab and leave dock open
-    const compareTab = screen.getByRole('button', { name: 'Compare' })
-    fireEvent.click(compareTab)
+    // Switch to a NON-DEFAULT tab and leave the dock open. This was Compare
+    // until 18 Aug 2026; Compare is hidden by contract now, and Model is the
+    // remaining non-default surface — the case is about PERSISTENCE, and any
+    // tab that is not the 'results' default exercises it identically.
+    const modelTab = screen.getByRole('button', { name: 'Model' })
+    fireEvent.click(modelTab)
 
     // Unmount and remount to verify persisted state
     unmount()
@@ -273,7 +285,7 @@ describe('OutputsDock DOM', () => {
     expect(aside.style.bottom).toContain('var(--bottombar-h)')
 
     // Header label (aria-live) should reflect active tab
-    const headerLabel = screen.getByText('Compare', {
+    const headerLabel = screen.getByText('Model', {
       selector: 'span[aria-live="polite"]',
     })
     expect(headerLabel).toBeInTheDocument()
@@ -310,7 +322,18 @@ describe('OutputsDock DOM', () => {
     expect(params.get('tab')).toBeNull()
   })
 
-  it('emits sandbox.compare.opened when Compare tab is opened', () => {
+  it('no longer offers a Compare tab to open, so its open-telemetry cannot fire from the strip', () => {
+    // ⭐ RULING (Fable, 18 Aug 2026). This case used to click the Compare tab
+    // and assert `sandbox.compare.opened === 1`. That affordance is gone —
+    // Compare is hidden by contract — so the old assertion would now fail on a
+    // missing element, which says nothing about the ruling.
+    //
+    // It is RETARGETED rather than deleted: same site, same telemetry counter,
+    // bound by identity to the Compare tab's exact accessible name, and it REDs
+    // if the tab returns. `trackCompareOpened()` at `OutputsDock.tsx:2162` is
+    // deliberately LEFT IN PLACE — Compare's code is not being retired, and the
+    // counter still fires on the programmatic activation paths the ruling did
+    // not close (see the compare row's comment in `shellContract.ts`).
     try {
       localStorage.setItem('feature.telemetry', '1')
     } catch {}
@@ -318,11 +341,21 @@ describe('OutputsDock DOM', () => {
 
     renderOutputsDock()
 
-    const compareTab = screen.getByRole('button', { name: 'Compare' })
-    fireEvent.click(compareTab)
+    expect(screen.queryByRole('button', { name: 'Compare' })).not.toBeInTheDocument()
+    // Positive control (trap 13): the harness CAN see tab buttons and CAN read
+    // this counter map — so the two absences below are the ruling's doing and
+    // not a blind query or an uninitialised counter store.
+    expect(screen.getByRole('button', { name: 'Model' })).toBeInTheDocument()
+    expect(__getTelemetryCounters()['sandbox.compare.opened']).toBe(0)
 
-    const counters = __getTelemetryCounters()
-    expect(counters['sandbox.compare.opened']).toBe(1)
+    // POSITIVE CONTROL (trap 13): a counter reading 0 is only evidence of an
+    // ABSENCE if that counter can be shown to MOVE. Firing the tracker directly
+    // proves the key is live and the map is being read — so the 0 above is
+    // "the strip never opened Compare", not "this assertion is pointed at a
+    // dead key". The tracker is deliberately still exported and still callable:
+    // Compare's code is not being retired by this ruling.
+    trackCompareOpened()
+    expect(__getTelemetryCounters()['sandbox.compare.opened']).toBe(1)
   })
 
   it('auto-switches back to Results tab when results become active', () => {
@@ -1089,9 +1122,16 @@ describe('I.2a: Secondary action button interaction', () => {
     expect(tabs.map(tab => tab.textContent)).toEqual([
       'Olumi',
       'Analysis',
-      'Compare',
       'Model',
     ])
+    // ⭐ 18 Aug 2026: 'Compare' left this list the same way Journey did, and
+    // THIS case is where the difference between the two shows. Journey's flag
+    // is absent, so a green "Journey is hidden" can never tell contract from
+    // flag. Compare's flag is forced ON in this very block (see the doMock
+    // above) — so its absence here is proof the CONTRACT is what holds a tab
+    // shut. Bound by identity below, and pinned in full by
+    // `compareDeTab.contract.spec.tsx`.
+    expect(within(tabNav).queryByRole('button', { name: 'Compare' })).not.toBeInTheDocument()
     // Bound by IDENTITY to Journey, so a rename of some other tab cannot
     // satisfy this line (trap 19).
     expect(within(tabNav).queryByRole('button', { name: 'Journey' })).not.toBeInTheDocument()
@@ -1324,13 +1364,16 @@ describe('F9: dock-level run announcer (single voice for start/settle)', () => {
     expect(screen.getAllByTestId('analysis-run-announcer')).toHaveLength(1)
   })
 
-  it('announces rerun start and settle while the Compare tab is fronted, exactly once', () => {
+  it('announces rerun start and settle while a NON-Analysis tab is fronted, exactly once', () => {
     // A RERUN (complete -> streaming) does not trip the I.1 auto-switch, so
-    // Compare stays fronted for the whole run — exactly the F9 scenario
-    // (rerun dispatched with another tab in view was silent and frozen).
+    // the fronted tab stays fronted for the whole run — exactly the F9
+    // scenario (rerun dispatched with another tab in view was silent and
+    // frozen). This drove the Compare tab until 18 Aug 2026, when Compare was
+    // hidden by contract; Model is the remaining non-Analysis surface and the
+    // property under test is "not Analysis", not "Compare".
     seedIdle(true)
     renderOutputsDock()
-    fireEvent.click(screen.getByRole('button', { name: 'Compare' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Model' }))
 
     startRun(true)
     expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent(
@@ -1364,7 +1407,9 @@ describe('F9: dock-level run announcer (single voice for start/settle)', () => {
   it('stays silent on a FIRST run: the auto-switch fronts the Analysis tab, whose furniture speaks', () => {
     seedIdle(false)
     renderOutputsDock()
-    fireEvent.click(screen.getByRole('button', { name: 'Compare' }))
+    // Was the Compare tab until 18 Aug 2026 (hidden by contract). Any fronted
+    // tab that is NOT Analysis exercises the auto-switch this case is about.
+    fireEvent.click(screen.getByRole('button', { name: 'Model' }))
 
     startRun(false)
     // The I.1 auto-switch yanked the dock to the Analysis tab, where the
