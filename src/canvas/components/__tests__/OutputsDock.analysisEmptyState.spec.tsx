@@ -47,7 +47,7 @@
  */
 
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // OutputsDock's import chain pulls in supabase + dompurify, which break under
@@ -102,6 +102,8 @@ vi.mock('../pre-analysis-v3', () => ({
 
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
+import { useUIStore } from '../../../stores/uiStore'
+import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 
 function renderDock() {
@@ -117,6 +119,30 @@ function railIcon(label: 'Olumi' | 'Analysis' | 'Model') {
   const nav = document.querySelector('nav[aria-label="Outputs sections"]')
   const btns = Array.from(nav?.querySelectorAll('button[aria-label]') ?? [])
   return btns.find((b) => b.getAttribute('aria-label') === label) as HTMLElement | undefined
+}
+
+/**
+ * Put the dock in "expanded, Analysis fronted" — the state A3 is about —
+ * without going through the collapsed rail.
+ *
+ * Deliberately tolerant of BOTH starting states. The dock may already be open
+ * (see the leak note in the suite below), and a helper that assumed one or the
+ * other would turn an environment difference into a spurious failure. What it
+ * asserts is only its POSTCONDITION, which is the precondition each A3 case
+ * actually needs.
+ */
+async function expandToAnalysis() {
+  if (
+    screen.getByTestId('dock-collapse-control').getAttribute('aria-label') ===
+    'Expand outputs dock'
+  ) {
+    fireEvent.click(screen.getByTestId('dock-collapse-control'))
+  }
+  const tab = await screen.findByTestId('outputs-dock-tab-results')
+  fireEvent.click(tab)
+  await waitFor(() => {
+    expect(screen.getByTestId('outputs-dock-body')).toBeInTheDocument()
+  })
 }
 
 function ensureMatchMedia() {
@@ -139,7 +165,47 @@ function ensureMatchMedia() {
 
 describe('the Analysis dock tab in its two measured-dead states (affordance sweep A2 + A3)', () => {
   beforeEach(() => {
+    // EXPLICIT unmount before each case. RTL's automatic cleanup runs, but a
+    // case that ended inside `waitFor` can leave the previous tree alive long
+    // enough for `document.querySelector` (which, unlike `screen`, is not
+    // scoped to the current container) to find the EXPANDED tab strip's
+    // `<nav aria-label="Outputs sections">` instead of the collapsed rail's.
+    // Measured: cases 3-5 then failed with "Unable to fire a click event" —
+    // a missing element, not a false assertion — while each passed alone.
+    cleanup()
     ensureMatchMedia()
+    // ⚠⚠ WITHOUT THIS RESET ONE CASE BELOW PASSED WITH THE DEFECT STILL IN
+    // PLACE — measured, not theorised. `useUIStore` and the dock's persisted
+    // open-state are MODULE-LEVEL and survive `render`/`cleanup`, so a tab
+    // activation from an earlier case bumped `activeOutputTabVersion`, the
+    // dock's sync effect force-activated on the next mount, and the third case
+    // observed an already-open dock. It therefore asserted nothing about
+    // `handleTabClick` and would have shipped as a discriminator that does not
+    // discriminate (CLAUDE.md trap 13b — a guard whose evidence came from
+    // itself). Proven by re-running the same case FIRST against the pre-fix
+    // tree, where the dock correctly stayed collapsed.
+    //
+    // Resetting here rather than in one case, deliberately: the leak makes
+    // EVERY case order-dependent, so a per-case patch would leave the others
+    // passing by luck.
+    // ⚠ sessionStorage, NOT localStorage — and getting that wrong cost a whole
+    // battery run. `useDockState` persists the dock's `{isOpen, activeTab}`
+    // under `OUTPUTS_DOCK_STORAGE_KEY` in **sessionStorage**, so clearing
+    // localStorage alone left the dock OPEN from the previous case and the
+    // collapsed rail simply did not render — three cases then failed on a
+    // missing element rather than on their own assertion, which reads like a
+    // broken test and is in fact leaked state. Both are cleared because the
+    // component reads both.
+    sessionStorage.clear()
+    localStorage.clear()
+    useUIStore.setState({
+      activeOutputTab: 'results',
+      activeOutputTabVersion: 0,
+      outputSurfaceOrigin: null,
+      outputSurfaceOriginSeq: 0,
+      outputSurfaceOriginAt: null,
+    })
+    useFloatingPanelState.getState().close()
     // A fresh guest: empty canvas, no analysis has ever completed. This is the
     // exact intersection that had no renderer.
     useCanvasStore.setState({ nodes: [] as never, edges: [] as never })
@@ -180,25 +246,34 @@ describe('the Analysis dock tab in its two measured-dead states (affordance swee
     expect(screen.getByTestId('outputs-dock-body')).toBeInTheDocument()
   })
 
-  it('A2 — the fix is on the shared handler, not special-cased to Analysis', async () => {
-    // The defect was in `handleTabClick`, which every rail icon shares, so a
-    // fix that only rescued Analysis would be the wrong shape. Driving a
-    // DIFFERENT icon is the discrimination: it must open the dock too.
-    renderDock()
-    fireEvent.click(railIcon('Model')!)
-
-    await waitFor(() => {
-      expect(screen.getByTestId('dock-collapse-control')).toHaveAttribute(
-        'aria-label',
-        'Collapse outputs dock',
-      )
-    })
-    expect(screen.getByTestId('outputs-dock-tab-diagnostics')).toBeInTheDocument()
-  })
+  /**
+   * ⚠ A CASE WAS REMOVED HERE, AND THE REASON IS THE POINT.
+   *
+   * There was a third A2 case — "the fix is on the shared handler, not
+   * special-cased to Analysis" — that clicked the `Model` rail icon. It
+   * PASSED against the pre-fix tree, i.e. it discriminated nothing (CLAUDE.md
+   * trap 13b). Measured cause: it ran third, and a post-click effect from the
+   * preceding case leaves module-level state that ends the first-use rail, so
+   * by the time it mounted the dock was already open. Re-run FIRST against the
+   * pre-fix tree, the same click correctly left the dock collapsed
+   * (`Expand outputs dock`, no body, no diagnostics tab).
+   *
+   * It is not replaced by a "fixed" version because the property it was
+   * reaching for is STRUCTURAL, not behavioural: the override is one
+   * unconditional line inside `handleTabClick`, which every tab — strip and
+   * rail alike — routes through. There is no tab predicate for a test to
+   * discriminate against. A case that can only pass by luck is worse than a
+   * comment saying where the guarantee comes from.
+   */
 
   it('A3 — the expanded Analysis panel says what is going on instead of rendering nothing', async () => {
+    // Reached through `expandToAnalysis()` rather than the collapsed rail: A3 is
+    // a claim about what the EXPANDED panel RENDERS, and how it got expanded is
+    // irrelevant to it. Keeping the rail out of these two cases also keeps them
+    // immune to the module-state leak documented above, which is what made the
+    // removed case pass for the wrong reason.
     renderDock()
-    fireEvent.click(railIcon('Analysis')!)
+    await expandToAnalysis()
 
     const empty = await screen.findByTestId('outputs-analysis-empty')
     expect(empty).toBeInTheDocument()
@@ -219,7 +294,7 @@ describe('the Analysis dock tab in its two measured-dead states (affordance swee
     // the Olumi surface — which is the one surface measured as WORKING for this
     // (sweep A5: the chat panel opens with its composer).
     renderDock()
-    fireEvent.click(railIcon('Analysis')!)
+    await expandToAnalysis()
 
     const cta = await screen.findByTestId('outputs-analysis-empty-describe')
     fireEvent.click(cta)
