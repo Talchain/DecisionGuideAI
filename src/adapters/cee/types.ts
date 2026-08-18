@@ -351,6 +351,64 @@ export interface CEEOptionV3 {
   is_baseline?: boolean | null
 }
 
+// ── analysis_ready.status — the ONE recorded producer vocabulary ───────────
+
+/**
+ * CEE's `AnalysisReadyStatus`, recorded here ONCE so the UI has a single place
+ * that answers "what can `analysis_ready.status` be".
+ *
+ * ⚠ WHY THIS IS A RECORDED MIRROR AND NOT A DERIVATION — measured, not assumed.
+ * The enum is NOT exported by the shared contract: `AnalysisReadyStatus` has
+ * ZERO occurrences in the vendored `@talchain/schemas` 0.48.0 tarball AND in
+ * `olumi-schemas` main (`81493081`). Positive/contrast controls in the same
+ * sweep: `ProductReadiness` (6 hits) and `ValidationBlocker` (4 files) are both
+ * present, so the zero is real absence rather than a blind probe.
+ * `ProductReadiness` is a DIFFERENT, three-member enum
+ * (`ready | needs_encoding | needs_user_mapping`) — importing it here would be
+ * worse than this list, not better: it is short by two members.
+ *
+ * So it cannot be derived, and per CLAUDE.md trap 12 the mirror must instead
+ * FAIL LOUD on drift rather than assume-good. Two mechanisms do that:
+ *   1. `STATUS_DISPOSITION` in `usePreRunValidation.ts` is typed
+ *      `Record<RecognisedAnalysisReadyStatus, …>`, so adding a member here
+ *      without deciding what the product DOES about it is a TYPECHECK FAILURE,
+ *      and removing one orphans a key — also a typecheck failure. The build
+ *      breaks; a user never meets an unhandled status as jargon.
+ *   2. `crossSurfaceCoherence.realCaptures.spec.ts` REDs when a status present
+ *      in the real capture corpus is not a member here.
+ *
+ * SOURCE OF TRUTH: cee `src/schemas/analysis-ready.ts:220-227` (read at CEE
+ * staging `83a11574`). Keep the order identical to the producer's enum so a
+ * diff between the two is a straight read.
+ */
+export const ANALYSIS_READY_STATUSES = [
+  'ready',
+  'needs_user_mapping',
+  'needs_encoding',
+  'needs_user_input',
+  'blocked',
+] as const
+
+/** A value CEE's `AnalysisReadyStatus` can hold. */
+export type AnalysisReadyStatus = (typeof ANALYSIS_READY_STATUSES)[number]
+
+/**
+ * NOT a producer value — a sentinel the UI mints itself. `applyV5State.ts:262`
+ * coerces a missing/non-string `analysis_ready.status` to `'unknown'` so the
+ * lenient V5 normaliser never drops the payload. It means "CEE said nothing
+ * about readiness on this turn", which is not a verdict of any kind.
+ */
+export const ANALYSIS_READY_STATUS_UNSUPPLIED = 'unknown'
+
+/** Producer vocabulary ∪ the UI's own unsupplied sentinel. */
+export const RECOGNISED_ANALYSIS_READY_STATUSES = [
+  ...ANALYSIS_READY_STATUSES,
+  ANALYSIS_READY_STATUS_UNSUPPLIED,
+] as const
+
+export type RecognisedAnalysisReadyStatus =
+  (typeof RECOGNISED_ANALYSIS_READY_STATUSES)[number]
+
 /**
  * CEE V3 analysis_ready payload.
  *
@@ -365,13 +423,25 @@ export interface CEEAnalysisReady {
   /** Suggested seed for reproducibility (string, defaults to "42") */
   suggested_seed?: string
   /**
-   * Overall readiness status.
+   * Overall readiness status. Derived from `ANALYSIS_READY_STATUSES` above —
+   * do NOT re-spell the union here; that copy is exactly what drifted.
    * - 'ready': All options resolved, graph is valid, can run analysis
    * - 'needs_encoding': Options have categorical values needing encoding
    * - 'needs_user_mapping': Structural issues (e.g., no causal path to goal)
    * - 'needs_user_input': Deterministic user action required (hard block, no bypass)
+   * - 'blocked': CEE refused — a validation failure prevents analysis. Carries
+   *   `blocked_reason`. Reachable HERE with populated options via the
+   *   `semantic` + `hardBlocked` branch (cee `analysis-ready-helper.ts:1113-1119`).
    */
-  status?: 'ready' | 'needs_encoding' | 'needs_user_mapping' | 'needs_user_input'
+  status?: AnalysisReadyStatus
+  /**
+   * Machine-readable code for WHY CEE refused. Present iff `status === 'blocked'`
+   * (cee `src/schemas/analysis-ready.ts`, `AnalysisReadyPayload.blocked_reason`,
+   * `z.string().min(1).optional()`). Its vocabulary is `ReadinessReasonCode` /
+   * `StructuralViolationCode` / `cause_kind` — the same keys
+   * `ANALYSIS_REFUSAL_REASON_COPY` maps to sentences. NEVER user copy on its own.
+   */
+  blocked_reason?: string
   /**
    * User-facing questions explaining issues when status is not 'ready'.
    * E.g., "The factor 'Price' doesn't have a path to the goal. Is this correct?"

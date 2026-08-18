@@ -108,6 +108,32 @@ const BLOCKER_DISPLAY: Record<string, BlockerDisplayMeta> = {
     supportsRetry: true,
     suggestedActions: ['Retry draft', 'Edit brief'],
   },
+  /**
+   * CEE refused the analysis (`analysis_ready.status: 'blocked'`).
+   *
+   * `supportsRetry: false` is the load-bearing field, not the blocker's action:
+   * BlockersSection gates the destructive "Retry Draft" button on THIS flag,
+   * keyed by code. Re-drafting discards options the user added in chat and
+   * would not touch the structural fault CEE objected to, so the button must
+   * not render (P8 — never offer what cannot be honoured).
+   *
+   * `suggestedActions: []` for the same reason: this panel has no affordance
+   * that recovers a refused graph, and listing one we cannot bind would be the
+   * same defect in bullet form. The description carries the producer's own
+   * reason sentence instead — see the pass-through in `enrichBlocker`.
+   *
+   * Severity is 'warning', not 'critical': the reachable reason set includes
+   * `INTERNAL_ERROR` ("This is on our side, not your model"), and an alarm-red
+   * treatment would contradict its own sentence. Same reasoning the reviewed
+   * `AnalysisRefusalNotice` tone note records.
+   */
+  ANALYSIS_BLOCKED: {
+    title: "This model can't be analysed yet",
+    description: 'The analysis was stopped before it ran.',
+    severity: 'warning',
+    supportsRetry: false,
+    suggestedActions: [],
+  },
   ANALYSIS_READY_INVALID: {
     title: 'Invalid analysis response',
     description: 'Analysis response is missing option data. Please re-draft.',
@@ -181,6 +207,8 @@ const BLOCKER_SORT_ORDER: Record<string, number> = {
   GOAL_NODE_KIND_MISMATCH: 12,
   NO_OPTIONS: 13,
   INTERVENTION_TARGETS_OPTION: 14,
+  // Producer refusal — CEE's own hard verdict, above the draft-failure family
+  ANALYSIS_BLOCKED: 19,
   // Draft failure (show second)
   ANALYSIS_NOT_READY: 20,
   ANALYSIS_READY_INVALID: 21,
@@ -238,6 +266,18 @@ export function enrichBlocker(blocker: ValidationBlocker): EnrichedBlocker {
     display = {
       ...display,
       title: `Options need configuration: ${optionNames.join(', ')}${suffix}`,
+    }
+  }
+
+  // ANALYSIS_BLOCKED: the description IS the producer's reason sentence, mapped
+  // from `blocked_reason` by the same table AnalysisRefusalNotice uses. The
+  // static description above is only the fallback for a blocker that somehow
+  // carries no message; deriving both surfaces from one map is what keeps them
+  // from contradicting each other on a single payload.
+  if (blocker.code === 'ANALYSIS_BLOCKED' && blocker.message) {
+    display = {
+      ...display,
+      description: blocker.message,
     }
   }
 
