@@ -137,7 +137,7 @@ describe('Tooltip — its sized element portals out of the transform', () => {
     // safe to keep asserting on structure alone.
     const dist = readFileSync(
       path.join(ROOT, 'node_modules/@floating-ui/react/dist/floating-ui.react.mjs'), 'utf8')
-    const hook = /function useFloatingPortalNode\([\s\S]*?\n  return portalNode;/.exec(dist)?.[0]
+    const hook = /function useFloatingPortalNode\([\s\S]*?\n {2}return portalNode;/.exec(dist)?.[0]
     expect(hook, 'could not locate useFloatingPortalNode in the installed @floating-ui/react').toBeTruthy()
     expect(hook!, 'the portal container no longer falls back to document.body')
       .toContain('container = container || document.body')
