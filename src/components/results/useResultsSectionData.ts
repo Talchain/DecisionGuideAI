@@ -3138,6 +3138,41 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       humanisedCritiques,
       // P1 Integration: Top fragile edge for HeroSection bullet 3
       topFragileEdge: topFragileEdgeData,
+      // ⭐ THE PRODUCER'S SILENCE IS A THIRD STATE, AND IT USED TO BE
+      // INDISTINGUISHABLE FROM AN ASSESSED ZERO (UX gate point 8, 18 Aug 2026).
+      //
+      // The IIFE below returns `{}` on an empty list, so `evidenceGaps` and
+      // `topEvidenceGaps` are `undefined` BOTH when the producer said "I found
+      // no evidence gaps" AND when the producer never spoke about evidence at
+      // all. Every consumer then collapses that through `?? []`, and the
+      // T1 checks footer rendered the result as an affirmative all-clear:
+      // "No evidence gaps flagged".
+      //
+      // On the deployed V5 path the producer NEVER speaks. Measured three
+      // independent ways at `4d1e650b`:
+      //   - `applyV5State` (the canonical analysis path) contains ZERO
+      //     references to `m1Coaching`, and `useConversation`'s
+      //     `resultsComplete` call passes no coaching, so `runMeta.m1Coaching`
+      //     is never written on a turn-driven analysis;
+      //   - of 13 real captured analysis turns in this repo, 12 carry no
+      //     `evidence_gaps` key at all and the 13th carries an empty array
+      //     (positive control: three older captures DO carry 3 gaps each, so
+      //     the probe can see presence — this is real absence, not blindness);
+      //   - driven in a real browser across 6 captures x 2 starter graphs,
+      //     the footer rendered "No evidence gaps flagged" in 12 of 12.
+      // `useResultsSectionData` itself already calls the m1Coaching read a
+      // "DEPRECATION FALLBACK ... effectively dead per B1 investigation".
+      //
+      // So the sentence was not a finding. It was a CONSTANT, and it rendered
+      // beside four live evidence-weakness signals that come from the fields
+      // the producer DOES populate (`robustness.fragile_edges` and
+      // `factor_sensitivity` — present in 8 of 8 of those same captures).
+      //
+      // This flag restores the distinction the `?? []` collapse destroys. It
+      // is deliberately the NARROW test (`Array.isArray`), not `m1Coaching !=
+      // null`: it is true only when the producer actually sent the array, so
+      // silence can never be read as an assessment.
+      evidenceGapsAssessed: Array.isArray(m1Coaching?.evidence_gaps),
       // Task 4 (M1 Coaching): Evidence gaps - sorted by VOI descending, deduped by factor_id
       ...(() => {
         const rawGaps = safeArray(m1Coaching?.evidence_gaps)

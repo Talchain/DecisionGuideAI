@@ -327,8 +327,37 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
           ? 'thin'
           : 'ready'
   const state: BriefState = stateOverride ?? liveState
-  // Unassessed is a QUIET no-claim state — collapsed like ready (review S2).
-  const autoExpand = state !== 'ready' && state !== 'unassessed'
+  // ⭐ ANSWER FIRST (UX gate point 3, 18 Aug 2026 — measured on deployed
+  // `4d1e650b`, fresh guest, 1280x800).
+  //
+  // This card auto-expanded on every non-ready framing quality, INCLUDING
+  // after a completed analysis. Measured on staging: the verdict sentence sat
+  // 573px down a 515px-tall visible region — 111% of a panel height — and the
+  // four Goal/Context/Constraints/Options sub-cards plus the brief actions and
+  // the framing question were the bulk of what pushed it there. A fresh user
+  // who had just clicked "Analyse first pass" saw no answer at all without
+  // scrolling.
+  //
+  // ORDERING, NOT DELETION. Nothing is removed: the same four dimensions, the
+  // same "Review your decision brief" action and the same framing question all
+  // still render, one click away behind the disclosure control this card
+  // already owns (`aria-expanded`, below). Paul's constraint on every
+  // simplification is "less interface, not less intelligence" — so the
+  // framing prompt keeps its full content and loses only its claim on the
+  // first screenful once there is a result to read.
+  //
+  // `blocked` is deliberately EXEMPT. It is the danger-severity state ("resolve
+  // before relying on the read"): a framing problem serious enough to undermine
+  // the result must not be folded away behind the result it undermines.
+  //
+  // Derived from the report, not from the caller's mount gate. `OutputsDock`
+  // only mounts this card post-analysis today, which would make `hasResult`
+  // structurally true and this condition invisible — but a card that reads its
+  // own precondition cannot be silently re-pointed by a future mount site
+  // (CLAUDE.md trap 3b), and pre-analysis mounts keep the historic behaviour.
+  const hasResult = useCanvasStore((s) => s.results?.report != null)
+  const autoExpand =
+    state === 'blocked' || (!hasResult && state !== 'ready' && state !== 'unassessed')
 
   const [expanded, setExpanded] = useState(autoExpand)
   useEffect(() => setExpanded(autoExpand), [autoExpand])

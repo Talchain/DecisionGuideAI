@@ -973,6 +973,16 @@ export interface ConfidenceSectionData {
    * cause. It can no longer arise: this list is empty iff `evidenceGaps` is.
    */
   topEvidenceGaps?: EvidenceGapItem[]
+  /**
+   * Did the producer ASSESS evidence on this run at all?
+   *
+   * `evidenceGaps` being empty answers two different questions with one value
+   * — "assessed, none found" and "never assessed" — and a surface that turns
+   * the empty list into an affirmative "No evidence gaps flagged" is making a
+   * claim only the first of those licenses. True iff `m1_coaching.evidence_gaps`
+   * arrived as an array. See the derivation comment in `useResultsSectionData`.
+   */
+  evidenceGapsAssessed?: boolean
   /** M1 Coaching next actions - prioritised recommendations */
   nextActions?: NextActionItem[]
   /** M1 Coaching top next actions (max 3, sorted by priority) */
