@@ -585,6 +585,16 @@ export function backfillInterventionsOntoOptionNodes(
   }
 
   if (patches.length) {
+    // ⚠ PRODUCER WRITE THROUGH A STORE ACTION, NOT `setState` — and that is why
+    // it was missed twice. Guarding the composite callers
+    // (`applyAnalysisReadyPatch`) covered this only when it was reached THROUGH
+    // them; `reconcileAppliedGraph` (`mergeAppliedGraph.ts:735`) and
+    // `applyDraftResult` (`:351`) call it directly, so the write arrived
+    // unsuppressed and wiped the user's coaching. Found by a test written for a
+    // SURVIVING mutant, not by inspection. Guarding the LEAF makes it safe from
+    // every caller, including the next one.
+    useCanvasStore.getState().beginExternalGraphMutation?.('patch_apply')
+    try {
     // Single history entry; diff-aware no-op if shallow-equal to current state.
     useCanvasStore.getState().batchUpdateNodes(patches, 'backfill-interventions')
     // Warning-only schema validation after the write. Use a Set for O(1)
@@ -592,6 +602,9 @@ export function backfillInterventionsOntoOptionNodes(
     const patchedIds = new Set(patches.map(p => p.id))
     const updated = useCanvasStore.getState().nodes
     validateNodesBatch(updated.filter(n => patchedIds.has(n.id)) as any)
+    } finally {
+      useCanvasStore.getState().endExternalGraphMutation?.()
+    }
   }
 
   return {

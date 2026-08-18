@@ -58,6 +58,8 @@ import {
   backfillGoalThresholdOntoGoalNode,
 } from '../../utils/applyDraftResult'
 import { applyAnalysisReadyPatch } from '../utils/mirrorAnalysisReady'
+import { reconcileAppliedGraph } from '../../utils/mergeAppliedGraph'
+import { mergeServerGraphOnHydrate } from '../../utils/mergeServerGraph'
 
 const SCENARIO = 'scenario-p0'
 const ITEM_ID = 'guidance-delivered-by-this-turn'
@@ -248,6 +250,53 @@ describe('P0 — producer writes must not clear the user coaching', () => {
     )
 
     expect(persistedIds()).toContain(ITEM_ID)
+  })
+
+  it('the APPLIED-EDIT RECEIPT (reconcileAppliedGraph) must not clear guidance', () => {
+    // ⚠ ADDED BECAUSE THE MUTANT SURVIVED. Unguarding `reconcileAppliedGraph`
+    // left the corpus 8/8 GREEN — not because the guard is equivalent, but
+    // because nothing reached that writer. A survivor is a claim in both
+    // directions and has to be settled with a discriminating fixture.
+    renderHook(() => useGuidanceInvalidationOnEdit())
+
+    const before = (useCanvasStore.getState().nodes as Node[]).length
+    reconcileAppliedGraph({
+      nodes: [
+        { id: GOAL_ID, label: 'Profit', type: 'factor' },
+        { id: 'recon-new', label: 'Reconciled arrival', type: 'factor' },
+      ],
+      edges: [],
+    } as never)
+
+    // Precondition: the reconcile genuinely moved the graph.
+    const after = useCanvasStore.getState().nodes as Node[]
+    expect(after.some((n) => n.id === 'recon-new'), 'precondition: reconcile wrote').toBe(true)
+    expect(after.length).not.toBe(before)
+    expect(guidanceIds()).toContain(ITEM_ID)
+  })
+
+  it('BOOT HYDRATION (mergeServerGraphOnHydrate) must not clear guidance', () => {
+    // ⚠ ALSO ADDED FROM A SURVIVOR. This is the third concern the review raised
+    // but could not verify — server-graph hydration landing on top of
+    // `rehydrateGuidance`, whose own header promises "the user's coaching must
+    // survive a refresh". Guarding the WRITER settles it WITHOUT depending on
+    // effect ordering, which is the part the review had to leave inferred.
+    renderHook(() => useGuidanceInvalidationOnEdit())
+
+    const result = mergeServerGraphOnHydrate({
+      nodes: [
+        { id: GOAL_ID, label: 'Profit from server', type: 'factor' },
+        { id: 'srv-new', label: 'Server arrival', type: 'factor' },
+      ],
+      edges: [],
+    })
+
+    // Precondition: the merge was not refused, or this asserts nothing.
+    expect(
+      (useCanvasStore.getState().nodes as Node[]).some((n) => n.id === 'srv-new'),
+      `precondition: hydration wrote (result: ${JSON.stringify(result)})`,
+    ).toBe(true)
+    expect(guidanceIds()).toContain(ITEM_ID)
   })
 
   it('TWIN: after the producer write completes, the NEXT real user edit still clears', () => {
