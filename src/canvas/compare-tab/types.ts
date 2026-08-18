@@ -16,8 +16,15 @@ export interface FactorSensitivitySummary {
   /** Node ID (stable, for canvas linking) */
   id: string
   label: string
-  elasticity: number
-  rankFlipRate: number
+  /**
+   * D7 absence-preserving. `elasticity ?? 0` published "this factor has no
+   * influence" for a factor the producer simply did not score — and 0 is not a
+   * neutral placeholder here, it is the STRONGEST scientific claim the field
+   * can make. An honest producer-sent 0 still flows through as 0.
+   */
+  elasticity: number | null
+  /** D7 absence-preserving, same rule as `elasticity`. */
+  rankFlipRate: number | null
   /** Attribution stability label from PLoT bootstrap */
   attributionStability: string
 }
@@ -197,8 +204,16 @@ export interface AnalysisSnapshot {
 
   // Factor sensitivity — top 5 for transition derivation
   topFactors: FactorSensitivitySummary[]
-  /** max |elasticity| / sum |elasticity|, as percentage */
-  influenceConcentration: number
+  /**
+   * max |elasticity| / sum |elasticity|, as percentage.
+   *
+   * D7 absence-preserving: null when NO factor carries a scored elasticity, so
+   * the ratio was never computed. It returned 0 — "influence is perfectly
+   * spread across every factor" — which is a measurement, and `HealthIndicators`
+   * then compared two such zeros to draw a DIRECTION ARROW between them.
+   * A genuine computed 0 (every elasticity scored, all zero) still renders 0.
+   */
+  influenceConcentration: number | null
   /**
    * The factor the Compare hero invites the user to calibrate: the top factor
    * by |elasticity|, i.e. the same one whose influence the hero already prints.
@@ -213,10 +228,20 @@ export interface AnalysisSnapshot {
   topCalibrationFactor: string
   /** Node ID for canvas linking */
   topCalibrationFactorId: string
-  /** As percentage */
-  topElasticity: number
-  /** From top factor */
-  rankFlipRate: number
+  /**
+   * As percentage. D7 absence-preserving: null when there is no top factor, or
+   * when the top factor's elasticity was not scored. The Compare hero prints
+   * this as "{n}% influence"; `: 0` printed "0% influence" about a factor the
+   * hero had just named as the one worth calibrating.
+   */
+  topElasticity: number | null
+  /**
+   * From top factor. D7 absence-preserving: null when there is no top factor,
+   * or when the producer did not score its `rank_flip_rate`. The trajectory
+   * table's own neighbouring columns already render `?? 'Not assessed'`; this
+   * one printed a fabricated "0.00" in the same row.
+   */
+  rankFlipRate: number | null
 
   // Goal
   goalProbability: number | null
@@ -224,10 +249,33 @@ export interface AnalysisSnapshot {
 
   // ISL fields (may be empty arrays when ISL doesn't provide them)
   inferenceWarnings: string[]
+  /**
+   * Conditional-winner rows the PRODUCER ATTESTED as flipping.
+   *
+   * D7 — every member here is bound to a producer attestation or an IDENTITY,
+   * never to a label:
+   *  · the row is present only when `winner_flips === true`. The contract types
+   *    `winner_flips` as a REQUIRED boolean that admits `false`
+   *    (`EnrichmentConditionalWinnerSchema`, vendored 0.48.0), and its own doc
+   *    says the field states THAT the winner changes, never WHICH option.
+   *  · `winnerId` / `runnerUpId` are the bucket IDENTITIES. The producer's
+   *    absence semantics are explicit: a missing `winner_id`/`winner_label`
+   *    means the leading option was WITHHELD on this turn — "It never means
+   *    'no option won'". So absence here is withholding, and the consumer must
+   *    not name an option.
+   *  · `winner` is the high-bucket label and is `null` under exactly that
+   *    withholding. It was `String(... ?? '')`, which rendered the empty string
+   *    into the sentence "…, {winner} takes over".
+   */
   conditionalWinners: Array<{
     factorId: string
     factorLabel: string
-    winner: string
+    /** High-bucket winner LABEL. null ⇒ withheld on this turn — do not name it. */
+    winner: string | null
+    /** High-bucket winner IDENTITY. null ⇒ withheld on this turn. */
+    winnerId: string | null
+    /** Low-bucket winner IDENTITY, i.e. who leads BELOW the split. */
+    lowWinnerId: string | null
     condition: string
   }>
   edgeEValues: Array<{

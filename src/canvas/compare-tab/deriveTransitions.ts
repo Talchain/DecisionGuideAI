@@ -123,8 +123,14 @@ function deriveAffectedFactors(
       }
     }
 
-    // Elasticity changed by >20% relative
-    if (prevElasticity !== undefined && prevElasticity !== 0) {
+    // Elasticity changed by >20% relative.
+    // D7: both ends must be SCORED. `elasticity` is now `number | null`, and a
+    // null end means the producer did not measure that factor on that run —
+    // which is not a change in the factor, it is a change in what was measured.
+    if (
+      prevElasticity !== undefined && prevElasticity !== null && prevElasticity !== 0
+      && factor.elasticity !== null
+    ) {
       const change = Math.abs(factor.elasticity - prevElasticity) / Math.abs(prevElasticity)
       if (change > 0.2) {
         ids.add(factor.id)
@@ -161,7 +167,13 @@ function deriveDeterministicAnchor(
   if (!fromTop) return `Based on: ${toTop.label} is the top influence factor`
 
   if (fromTop.id === toTop.id) {
-    return `Based on: ${toTop.label} remained the top influence factor (elasticity ${toTop.elasticity.toFixed(2)})`
+    // D7: the parenthetical is the only place this sentence states a NUMBER, so
+    // it is dropped when the number does not exist. `.toFixed(2)` on a
+    // fabricated 0 printed "(elasticity 0.00)" — a precise-looking measurement
+    // — for a top factor the producer never scored.
+    return toTop.elasticity !== null
+      ? `Based on: ${toTop.label} remained the top influence factor (elasticity ${toTop.elasticity.toFixed(2)})`
+      : `Based on: ${toTop.label} remained the top influence factor`
   }
   return `Based on: ${toTop.label} overtook ${fromTop.label} as the top influence factor`
 }
@@ -359,9 +371,19 @@ function findConditionalWinner(
   const affectedSet = new Set(affectedFactorIds)
   const match = snapshot.conditionalWinners.find(cw => affectedSet.has(cw.factorId))
   if (!match) return null
-  return match.condition
+  if (match.condition === '') return null
+  // D7. Every row reaching here carries the producer's `winner_flips: true`
+  // attestation (the factory's gate 1), so the FLIP is producer-stated in both
+  // arms below. What differs is whether the producer let us NAME the option:
+  //   · named    → the full claim.
+  //   · withheld → the flip is still real and still worth stating; naming an
+  //                option is what is not permitted. The old code interpolated
+  //                the empty string here and published ", takes over".
+  // This is deliberately NOT a suppression of the finding — over-suppressing a
+  // quantity the producer DID compute is the mirror defect, weighted equally.
+  return match.winner !== null
     ? `${match.condition}, ${match.winner} takes over`
-    : null
+    : `${match.condition}, the leading option changes (which option is withheld on this run)`
 }
 
 // ---------------------------------------------------------------------------

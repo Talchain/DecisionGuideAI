@@ -80,8 +80,15 @@ function ExpertTable({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
               {[
                 s.runNumber,
                 s.evidenceCoverage ?? NOT_ASSESSED,
-                `${s.influenceConcentration}%`,
-                s.rankFlipRate.toFixed(2),
+                // D7. These two columns were the only cells in this row that
+                // could not say "Not assessed", and they sat between three that
+                // already could. `influenceConcentration` interpolated a
+                // fabricated 0 as "0%" and `rankFlipRate.toFixed(2)` printed
+                // "0.00" — the most measurement-like form a number takes, in a
+                // table of per-run values that reads as a measured trend.
+                // A producer-sent 0 still renders "0%" / "0.00".
+                s.influenceConcentration != null ? `${s.influenceConcentration}%` : NOT_ASSESSED,
+                s.rankFlipRate != null ? s.rankFlipRate.toFixed(2) : NOT_ASSESSED,
                 s.fragileEdgeCount ?? NOT_ASSESSED,
                 s.seedUsed ?? NOT_ASSESSED,
               ].map((val, i) => (

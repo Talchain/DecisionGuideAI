@@ -83,13 +83,31 @@ function extractTopFactors(
   factors: V2FactorSensitivity[],
 ): FactorSensitivitySummary[] {
   return [...factors]
-    .sort((a, b) => Math.abs(b.elasticity ?? 0) - Math.abs(a.elasticity ?? 0))
+    // D7: an UNSCORED factor sorts LAST rather than being folded in among the
+    // genuinely-zero ones. `Math.abs(x ?? 0)` put "not measured" and "measured
+    // as exactly zero" in the same place, so `topFactors[0]` — the factor the
+    // hero invites the user to calibrate — could be a factor nobody scored.
+    .sort((a, b) => {
+      const av = typeof a.elasticity === 'number' ? Math.abs(a.elasticity) : null
+      const bv = typeof b.elasticity === 'number' ? Math.abs(b.elasticity) : null
+      if (av === null && bv === null) return 0
+      if (av === null) return 1
+      if (bv === null) return -1
+      return bv - av
+    })
     .slice(0, 5)
     .map(f => ({
       id: f.node_id ?? f.factor_id ?? '',
       label: f.factor_label ?? f.label ?? '',
-      elasticity: f.elasticity ?? 0,
-      rankFlipRate: f.rank_flip_rate ?? 0,
+      // D7 absence-preserving. `?? 0` here was the load-bearing mint: it fed
+      // `topElasticity`, `influenceConcentration` and the transition sentence
+      // "elasticity 0.00", all three of which read as measurements.
+      elasticity: typeof f.elasticity === 'number' && Number.isFinite(f.elasticity)
+        ? f.elasticity
+        : null,
+      rankFlipRate: typeof f.rank_flip_rate === 'number' && Number.isFinite(f.rank_flip_rate)
+        ? f.rank_flip_rate
+        : null,
       attributionStability: f.attribution_stability ?? 'unknown',
     }))
 }
@@ -98,9 +116,24 @@ function extractTopFactors(
 // Influence concentration
 // ---------------------------------------------------------------------------
 
-function computeInfluenceConcentration(factors: V2FactorSensitivity[]): number {
-  if (factors.length === 0) return 0
-  const absElasticities = factors.map(f => Math.abs(f.elasticity ?? 0))
+/**
+ * D7 absence-preserving. Two distinct returns of `0` were fabrications and one
+ * was a real result, and the old signature could not tell them apart:
+ *   · no factors at all                 → NOTHING WAS MEASURED  → null
+ *   · factors present, none scored      → NOTHING WAS MEASURED  → null
+ *   · every scored elasticity is 0.0    → a genuine measurement → 0
+ * The third is preserved deliberately: this is the opposite-direction twin, and
+ * suppressing a computed 0 would be the same defect pointing the other way.
+ *
+ * Unscored factors are EXCLUDED from the denominator rather than counted as
+ * zero — counting them would deflate `max/sum` by exactly the number of
+ * measurements the producer declined to make.
+ */
+function computeInfluenceConcentration(factors: V2FactorSensitivity[]): number | null {
+  const absElasticities = factors
+    .filter(f => typeof f.elasticity === 'number' && Number.isFinite(f.elasticity))
+    .map(f => Math.abs(f.elasticity as number))
+  if (absElasticities.length === 0) return null
   const sum = absElasticities.reduce((a, b) => a + b, 0)
   if (sum === 0) return 0
   const max = Math.max(...absElasticities)
@@ -128,16 +161,64 @@ function extractConditionalWinners(
   if (!Array.isArray(raw)) return []
   return raw
     .filter((w: Record<string, unknown>) => w && typeof w === 'object')
-    .map((w: Record<string, unknown>) => ({
-      factorId: String(w.factor_id ?? w.node_id ?? ''),
-      factorLabel: String(w.factor_label ?? w.label ?? ''),
-      winner: String(w.high_bucket && typeof w.high_bucket === 'object'
-        ? (w.high_bucket as Record<string, unknown>).winner_label ?? ''
-        : ''),
-      condition: w.split_value != null
-        ? `When ${String(w.factor_label ?? w.label ?? 'factor')} exceeds ${w.split_value}${w.split_unit ? ` ${w.split_unit}` : ''}`
-        : '',
-    }))
+    // ── D7 GATE 1: THE PRODUCER'S FLIP ATTESTATION ───────────────────────────
+    // `winner_flips` is a REQUIRED boolean in the contract
+    // (`EnrichmentConditionalWinnerSchema`, vendored 0.48.0) that admits
+    // `false`, and the producer's own doc states it says THAT the winner
+    // changes across the split, never WHICH option. This extractor read no
+    // attestation at all: it took `high_bucket.winner_label` and
+    // `deriveTransitions` rendered "…, {label} takes over" — a takeover claim
+    // minted from a bucket label, for a row the science may have attested does
+    // NOT flip. `ConditionalWinnerCards.tsx:86` (the results panel) already
+    // gates on this field; the Compare tab is the sibling surface that was left
+    // behind, so one payload produced a flip claim on one surface and not the
+    // other.
+    .filter((w: Record<string, unknown>) => w.winner_flips === true)
+    // ── D7 GATE 2: A CLAIM NEEDS A THRESHOLD IT CAN STATE ────────────────────
+    // "flips at N" requires a finite N. A row without one cannot state the
+    // condition, and the old `: ''` arm produced the bare fragment ", X takes
+    // over" with no "when".
+    .filter((w: Record<string, unknown>) =>
+      typeof w.split_value === 'number' && Number.isFinite(w.split_value))
+    // ── D7 GATE 3: IDENTITY, NOT LABEL ───────────────────────────────────────
+    // When BOTH bucket identities are on the wire they are the discriminator,
+    // and they outrank the labels: two options can share one display label (a
+    // real flip a label filter cannot see) and a relabelled option is not a
+    // flip. Equal ids beside `winner_flips: true` is a producer
+    // self-contradiction (coherence pair CX5's shape) — the honest response is
+    // to decline the claim, not to reconcile it. When an id is ABSENT the
+    // producer has WITHHELD it, which is not a contradiction and is handled
+    // below by declining to NAME the option rather than dropping the row.
+    .filter((w: Record<string, unknown>) => {
+      const lo = bucketMember(w.low_bucket, 'winner_id')
+      const hi = bucketMember(w.high_bucket, 'winner_id')
+      if (lo === null || hi === null) return true
+      return lo !== hi
+    })
+    .map((w: Record<string, unknown>) => {
+      const highId = bucketMember(w.high_bucket, 'winner_id')
+      const highLabel = bucketMember(w.high_bucket, 'winner_label')
+      const factorLabel = String(w.factor_label ?? w.label ?? '')
+      return {
+        factorId: String(w.factor_id ?? w.node_id ?? ''),
+        factorLabel,
+        // Absence here means WITHHELD, per the contract's stated absence
+        // semantics ("It never means 'no option won'"). `String(... ?? '')`
+        // turned that withholding into an empty string that was then
+        // interpolated into a sentence.
+        winner: highLabel,
+        winnerId: highId,
+        lowWinnerId: bucketMember(w.low_bucket, 'winner_id'),
+        condition: `When ${factorLabel !== '' ? factorLabel : 'this factor'} exceeds ${w.split_value}${w.split_unit ? ` ${String(w.split_unit)}` : ''}`,
+      }
+    })
+}
+
+/** Read one string member off a conditional-winner bucket. Absent ⇒ null. */
+function bucketMember(bucket: unknown, key: string): string | null {
+  if (!bucket || typeof bucket !== 'object') return null
+  const v = (bucket as Record<string, unknown>)[key]
+  return typeof v === 'string' && v !== '' ? v : null
 }
 
 function extractEdgeEValues(
@@ -535,10 +616,15 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     influenceConcentration: computeInfluenceConcentration(factors),
     topCalibrationFactor: topCalibrationFactor?.label ?? '',
     topCalibrationFactorId: topCalibrationFactor?.id ?? '',
-    topElasticity: topFactors.length > 0
+    // D7 absence-preserving. Both lines had the identical `: 0` fabrication the
+    // rest of this factory had already been cleaned of (`stability`,
+    // `fragileEdgeCount`, `seedUsed`, `runnerUpProbability`). They survived
+    // because they are the FACTOR-sensitivity trio rather than the robustness
+    // block, and each cleanup was scoped to the block in front of it.
+    topElasticity: topFactors.length > 0 && topFactors[0].elasticity !== null
       ? Math.round(Math.abs(topFactors[0].elasticity) * 100)
-      : 0,
-    rankFlipRate: topFactors.length > 0 ? topFactors[0].rankFlipRate : 0,
+      : null,
+    rankFlipRate: topFactors.length > 0 ? topFactors[0].rankFlipRate : null,
 
     goalProbability,
     jointGoalProbability,
