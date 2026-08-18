@@ -52,7 +52,10 @@ describe('humaniseCritique', () => {
       makeItem({ code: 'CONSTRAINT_MISSING_RANGE', affectedNodes: ['fac_timeline'] }),
       nodeLabels,
     )
-    expect(result.title).toBe('Timeline is missing a range for its constraint')
+    // Re-grounded in the producer (N-21 item 4): PLoT emits this as INFO with
+    // "no downstream impact", so the copy no longer implies the target cannot
+    // be evaluated. The label resolution this case exists to pin is unchanged.
+    expect(result.title).toBe('Timeline has no range to check your target against')
     expect(result.suggestion).toBe('Set range')
     expect(result.factorId).toBe('fac_timeline')
   })

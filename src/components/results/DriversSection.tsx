@@ -242,10 +242,15 @@ function ContestedDriverQuickSelect({ driver }: { driver: DriverItem }) {
           key={preset.label}
           type="button"
           onClick={() => handlePresetClick(i)}
+          // DS v5 §2.4: size/weight come from `panelMeta`, never from inline
+          // `fontSize`/`fontWeight` — which no class-based guard can see. The
+          // selected state was also carrying a weight bump (600 vs 500); it is
+          // already signalled by the border and background below, so the extra
+          // channel is dropped rather than re-expressed (§1: no channel should
+          // duplicate another).
+          className={typography.panelMeta}
           style={{
             fontFamily: 'inherit',
-            fontSize: '11px',
-            fontWeight: selectedIndex === i ? 600 : 500,
             padding: '4px 10px',
             borderRadius: '999px',
             border: `1px solid ${selectedIndex === i ? 'var(--info)' : 'var(--border-default)'}`,
@@ -261,9 +266,8 @@ function ContestedDriverQuickSelect({ driver }: { driver: DriverItem }) {
         value={customValue}
         onChange={handleInputChange}
         aria-label="Custom confidence value"
+        className={typography.panelMeta}
         style={{
-          fontSize: '11px',
-          fontWeight: 600,
           width: '44px',
           padding: '3px 6px',
           border: '1px solid var(--border-default)',

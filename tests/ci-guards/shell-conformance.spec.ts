@@ -465,6 +465,25 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
    * rebuilt to avoid. Exact equality in both directions: a lane that burns
    * some down lowers its number here, and the diff is the proof.
    */
+  // ⭐ BURNED DOWN TO ZERO, 18 Aug 2026 (B2 Analysis convergence): all EIGHT
+  // `src/components/results/**` entries are gone from this map because the
+  // measured count for each is now 0 — 30 occurrences retired in one pass
+  // (AskOlumiDrawer 10, StrengthenPanel 7, DriversSection 4, and 2 each in
+  // AnalysisHeroPanel / HeroEvidenceDisclosure / ActionsMenu /
+  // DecisionOverviewCard, 1 in TriageActionCardsBody). The whole results tree
+  // now measures ZERO under this rule AND under the DS ratchet's narrower one.
+  //
+  // How, so the next lane does not re-introduce them: block titles took
+  // `panelHeader` (the sanctioned 14px semibold step) instead of a body token
+  // plus a raw weight; buttons took `panelBody` per the DS's panel-button rule;
+  // inline emphasis inside body/meta text took `<strong>`, the pattern already
+  // in TriageActionCardsBody, which carries the emphasis semantically rather
+  // than through a banned utility; StrengthenPanel's three `font-normal` badge
+  // RESETS disappeared once the badges stopped being nested inside a bolded
+  // title; and DriversSection's inline `fontSize`/`fontWeight` — the class the
+  // header rightly calls invisible to every class-based regex — became
+  // `panelMeta`, dropping a selected-state weight bump that duplicated the
+  // border/background channel.
   const RAW_TYPOGRAPHY_BY_FILE: Record<string, number> = {
     'src/canvas/compare-tab/CompareFooter.tsx': 2,
     'src/canvas/compare-tab/DotProgression.tsx': 2,
@@ -498,14 +517,6 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     'src/canvas/shared/AnalysisFooter.tsx': 2,
     'src/canvas/ui/inspector/StrengthBar.tsx': 1,
     'src/components/Tooltip.tsx': 1,
-    'src/components/results/DriversSection.tsx': 4,
-    'src/components/results/TriageActionCardsBody.tsx': 1,
-    'src/components/results/analysis-hero/AnalysisHeroPanel.tsx': 2,
-    'src/components/results/analysis-hero/HeroEvidenceDisclosure.tsx': 2,
-    'src/components/results/coaching/AskOlumiDrawer.tsx': 10,
-    'src/components/results/decision-overview/ActionsMenu.tsx': 2,
-    'src/components/results/decision-overview/DecisionOverviewCard.tsx': 2,
-    'src/components/results/strengthen/StrengthenPanel.tsx': 7,
     'src/styles/typography.ts': 38,
     'src/v5/blocks/V5AnalysisResultBlock.tsx': 4,
     'src/v5/blocks/V5CoachingBlock.tsx': 2,
@@ -562,8 +573,8 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // measuring almost nothing, which is how this kind of ratchet dies.
     const files = Object.keys(RAW_TYPOGRAPHY_BY_FILE).length
     const total = Object.values(RAW_TYPOGRAPHY_BY_FILE).reduce((a, b) => a + b, 0)
-    expect(files).toBe(45)
-    expect(total).toBe(164)
+    expect(files).toBe(37)
+    expect(total).toBe(134)
   })
 })
 

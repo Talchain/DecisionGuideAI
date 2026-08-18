@@ -266,19 +266,35 @@ describe('humaniseCritique', () => {
     })
   })
 
-  describe('V16.2: CONSTRAINT_NO_DERIVABLE_RANGE', () => {
-    it('maps explicit code to humanised template', () => {
+  /**
+   * ⭐ REWRITTEN (N-21 item 4). This block used to be titled
+   * "V16.2: CONSTRAINT_NO_DERIVABLE_RANGE" and pinned three expectations onto a
+   * code NO PRODUCER EMITS (0 hits across PLoT fb63b03d / ISL 28fe0c9 /
+   * schemas 8149308, against sibling-code contrast controls of 13/16/8). Its
+   * expectations were therefore pinning a UI fabrication in place: the same
+   * "has no estimate set" / "Set estimate" pair that
+   * `CONSTRAINT_TARGET_NO_OBSERVED_VALUE` already owns, plus a "less precise"
+   * consequence PLoT explicitly denies for the range case.
+   *
+   * The BEHAVIOUR under test is kept — a `GENERAL` row carrying PLoT's range
+   * message must still resolve to a specific, labelled sentence rather than the
+   * generic fallback — but it is re-bound to the real producer code. This is a
+   * changed expectation, not a deleted one; the deeper provenance argument and
+   * its controls live in `humaniseCritique.constraintRangeProvenance.spec.ts`.
+   */
+  describe('PLoT range message → CONSTRAINT_MISSING_RANGE', () => {
+    it('maps the real producer code to its own humanised template', () => {
       const result = humaniseCritique(
-        makeItem({ code: 'CONSTRAINT_NO_DERIVABLE_RANGE', affectedNodes: ['fac_risk_churn'] }),
+        makeItem({ code: 'CONSTRAINT_MISSING_RANGE', affectedNodes: ['fac_risk_churn'] }),
         new Map([['fac_risk_churn', 'Risk Churn']]),
       )
-      expect(result.title).toBe('Risk Churn has no estimate set')
-      expect(result.description).toContain('less precise')
-      expect(result.suggestion).toBe('Set estimate')
+      expect(result.title).toBe('Risk Churn has no range to check your target against')
+      expect(result.description).toContain('exactly as you set it')
+      expect(result.suggestion).toBe('Set range')
       expect(result.factorId).toBe('fac_risk_churn')
     })
 
-    it('detects "no derivable range" in GENERAL code message', () => {
+    it('detects "no derivable range" in a GENERAL code message and lands on the RANGE finding', () => {
       const result = humaniseCritique(
         makeItem({
           code: 'GENERAL',
@@ -287,12 +303,15 @@ describe('humaniseCritique', () => {
         }),
         new Map([['risk_churn', 'Risk Churn']]),
       )
-      expect(result.title).toBe('Risk Churn has no estimate set')
-      expect(result.displayText).toBe('Risk Churn has no estimate set')
-      expect(result.suggestion).toBe('Set estimate')
+      expect(result.title).toBe('Risk Churn has no range to check your target against')
+      expect(result.displayText).toBe('Risk Churn has no range to check your target against')
+      expect(result.suggestion).toBe('Set range')
+      // The defect this replaces: it used to answer with the no-estimate copy,
+      // which is a different producer finding entirely.
+      expect(result.title).not.toContain('has no estimate set')
     })
 
-    it('returns null displayText when resolved label contains internal tokens', () => {
+    it('derives a clean label from the node id when no label map is supplied', () => {
       const result = humaniseCritique(
         makeItem({
           code: 'GENERAL',
@@ -301,8 +320,8 @@ describe('humaniseCritique', () => {
         }),
       )
       // factorIdToLabel derives "Churn" which is clean → displayText should be set
-      expect(result.title).toBe('Churn has no estimate set')
-      expect(result.displayText).toBe('Churn has no estimate set')
+      expect(result.title).toBe('Churn has no range to check your target against')
+      expect(result.displayText).toBe('Churn has no range to check your target against')
     })
   })
 })

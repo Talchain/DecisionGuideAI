@@ -75,7 +75,7 @@ export function CompactOptionSpread({ options }: Props) {
       data-testid="compact-option-spread"
     >
       <p className={`${typography.panelBody} text-text-body min-w-0 truncate`}>
-        <span className="font-semibold">Option spread:</span> {parts.join(' · ')}
+        <strong>Option spread:</strong> {parts.join(' · ')}
       </p>
       <button
         type="button"

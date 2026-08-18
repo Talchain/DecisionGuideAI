@@ -54,7 +54,9 @@ describe('Fix 5: Constraint investigate items name the factor', () => {
 
     const result = humaniseCritique(item, nodeLabels)
 
-    expect(result.title).toBe('Revenue Target is missing a range for its constraint')
+    // Copy re-grounded in the producer (N-21 item 4). This case pins LABEL
+    // RESOLUTION, not the sentence, and the label is still named.
+    expect(result.title).toBe('Revenue Target has no range to check your target against')
     expect(result.title).not.toContain('This factor')
   })
 

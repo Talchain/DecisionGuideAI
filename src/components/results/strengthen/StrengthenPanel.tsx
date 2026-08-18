@@ -134,8 +134,21 @@ function RecRow({
       >
         <Icon aria-hidden="true" data-testid="strengthen-rec-icon" className="mt-px h-[17px] w-[17px] text-factor" />
         <span className="min-w-0">
-          <span className={`${typography.panelBody} block font-semibold text-text-header`}>
-            {rec.title}
+          {/* ── DS v5 §2.4: THE BADGES ARE SIBLINGS OF THE TITLE, NOT CHILDREN ──
+              This block used to be one body-token span carrying a raw weight
+              override, with the three badges nested INSIDE it and each carrying
+              a raw weight RESET to climb back out of the inherited bold. That
+              is four raw typography utilities to express one title and three
+              pills, and the resets only existed because of the override above
+              them.
+              Un-nesting removes all four: the title takes `panelHeader` (the
+              sanctioned 14px semibold "section title / key emphasis" step,
+              which is also the correct hierarchy for a recommendation title)
+              and each badge takes `panelMeta` at its own natural weight.
+              `align-middle` + `ml-1.5` keep them on the title's baseline, so
+              the rendered arrangement is unchanged. */}
+          <span className="block">
+            <span className={`${typography.panelHeader} text-text-header`}>{rec.title}</span>
             {/* Stage 2 — honest severity badge: rendered ONLY when the producer
                 categorised this finding (phase-3 recs). Absent category = no
                 badge (the PR-427 honest-absent posture); the UI's own triggers
@@ -144,21 +157,21 @@ function RecRow({
               <span
                 data-testid="strengthen-rec-severity"
                 data-category={rec.category}
-                className={`${typography.panelMeta} ml-1.5 inline-flex items-center rounded-pill border bg-transparent px-1.5 font-normal align-middle ${SEVERITY_BADGE_CLASS[rec.category]}`}
+                className={`${typography.panelMeta} ml-1.5 inline-flex items-center rounded-pill border bg-transparent px-1.5 align-middle ${SEVERITY_BADGE_CLASS[rec.category]}`}
               >
                 {COPY.severityLabel[rec.category]}
               </span>
             )}
             {record.status === 'in_progress' && (
               <span
-                className={`${typography.panelMeta} ml-1.5 inline-flex items-center rounded-pill border border-info/30 bg-transparent px-1.5 font-normal text-text-body align-middle`}
+                className={`${typography.panelMeta} ml-1.5 inline-flex items-center rounded-pill border border-info/30 bg-transparent px-1.5 text-text-body align-middle`}
               >
                 {COPY.inProgressPill}
               </span>
             )}
             {record.status === 'reopened' && (
               <span
-                className={`${typography.panelMeta} ml-1.5 inline-flex items-center rounded-pill border border-warning/30 bg-transparent px-1.5 font-normal text-text-body align-middle`}
+                className={`${typography.panelMeta} ml-1.5 inline-flex items-center rounded-pill border border-warning/30 bg-transparent px-1.5 text-text-body align-middle`}
               >
                 {COPY.reopenedPill}
               </span>
@@ -191,7 +204,7 @@ function RecRow({
         <div className="space-y-1.5 pb-3 pl-[42px] pr-3">
           <p className={`${typography.panelBody} text-text-body`}>{rec.whyNow}</p>
           <p className={`${typography.panelBody} text-text-header`}>
-            <span className="font-semibold text-info">{COPY.tryThisLead}</span> {rec.tryThis}
+            <strong className="text-info">{COPY.tryThisLead}</strong> {rec.tryThis}
           </p>
           <p className={`${typography.panelMeta} text-text-light`}>{rec.sourceLine}</p>
 
@@ -199,7 +212,7 @@ function RecRow({
             <button
               type="button"
               onClick={() => onPrimaryAction(record)}
-              className={`${typography.panelBody} rounded-pill bg-primary px-3 py-1 font-semibold text-text-on-color transition-colors hover:bg-primary-hover active:bg-primary-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              className={`${typography.panelBody} rounded-pill bg-primary px-3 py-1 text-text-on-color transition-colors hover:bg-primary-hover active:bg-primary-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             >
               {rec.action.label}
             </button>
@@ -331,7 +344,7 @@ export function StrengthenPanel({
             <button
               type="button"
               onClick={handleUndo}
-              className={`${typography.panelBody} font-semibold text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              className={`${typography.panelBody} text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             >
               {COPY.undo}
             </button>
