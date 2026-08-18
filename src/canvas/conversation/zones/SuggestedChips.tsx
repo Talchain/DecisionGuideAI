@@ -29,6 +29,7 @@ import { useCanvasStore } from '../../store'
 import { type FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { isChipRenderable } from '../chipDispatch'
+import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS } from '../../../v5/blocks/chipClass'
 import type { ActionChip } from '../types'
@@ -159,6 +160,12 @@ export function SuggestedChips({
   // here too, so the chip relabels to "Rerun" in step with the strip.
   const freshnessSemantic = useAnalysisTrust().semantic
   const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
+  // ⭐ PoC DOMAIN 5 — the chip reads the SAME held-model authority the Analyse
+  // control reads (`canRunAnalysis` rung 2.5), so the two cannot disagree about
+  // whether THIS run is possible. Non-null ⇒ the canvas holds a client-injected
+  // graph that CEE never received, so a run would answer about a different
+  // model. See the hold filter below for why it is applied to `chips` directly.
+  const heldOn = useCanvasStore((s) => analysisHeldOn(s.nodes))
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
     if (!chipError) return
@@ -196,8 +203,38 @@ export function SuggestedChips({
   //   action_type present but unknown → hide (treat as potentially executable
   //                                     with an unsatisfied gate)
   // On V4 (not V5-active), all chips pass through unchanged.
+  // ⭐ THE HELD-MODEL GATE (PoC domain 5) — a SEPARATE filter over `chips`,
+  // never a conjunct of the readiness predicate.
+  //
+  //  · ⚠ IT MUST NOT LIVE INSIDE THE READINESS GATE BELOW. That predicate has a
+  //    deliberate early `return true` for `runAnalysisPolish === 'relabel-rerun'`,
+  //    and an early `return true` for chips with no `action_type` — so a hold
+  //    written as one more clause in it is SKIPPED in exactly the states it
+  //    exists to catch. Measured, not asserted: that shape (mutant M3) turns
+  //    the bypass case and the prompt-only case RED. A rerun against a graph
+  //    CEE never received is exactly as wrong as a first run.
+  //  · ⚠ AND THE HONEST LIMIT OF THAT CLAIM, because a demonstrated-equivalent
+  //    mutant is worth more than a confident comment (trap 13c): applying this
+  //    SAME filter downstream, over the polished list, is behaviourally
+  //    IDENTICAL for visibility — mutant M7 survived 12/12. Upstream is chosen
+  //    so the dev-log counts below and the polish step both operate on the
+  //    admissible set, NOT because visibility depends on the position.
+  //  · UNCONDITIONALLY (not inside the `v5Active` branch), because the hold
+  //    already carries the run-path conjunct itself — `analysisHeldOn` returns
+  //    null off the V5 canonical path, where a run sends the canvas graph and
+  //    the engine genuinely does see this model. Re-testing the run path here
+  //    would be a second copy of that condition (trap 12).
+  //
+  // It removes ONLY run-analysis affordances: the hold refuses THE RUN, not the
+  // conversation, and the chips that get the user out of the held state
+  // (edit_graph, draft_graph, plain chat) must survive it. Detection is
+  // `isRunAnalysisAffordance` — the SAME detector the polish step below already
+  // uses, so a prompt-only "Rerun analysis" chip cannot slip through a narrower
+  // `action_type`-only test, and there is no second predicate to drift.
+  const admissible = heldOn === null ? chips : chips.filter((c) => !isRunAnalysisAffordance(c))
+
   const supported = v5Active
-    ? chips.filter((c) => {
+    ? admissible.filter((c) => {
         if (!c.action_type) return true
         const isV5Known = V5_ENABLED_ACTIONS.has(c.action_type)
         if (!isV5Known) return false
@@ -218,12 +255,12 @@ export function SuggestedChips({
         }
         return true
       })
-    : chips
+    : admissible
   if (import.meta.env.DEV && v5Active) {
-    const removedUnsupported = chips.filter(
+    const removedUnsupported = admissible.filter(
       (c) => c.action_type && !V5_ENABLED_ACTIONS.has(c.action_type),
     )
-    const removedUnready = chips.filter(
+    const removedUnready = admissible.filter(
       (c) =>
         c.action_type &&
         V5_ENABLED_ACTIONS.has(c.action_type) &&
