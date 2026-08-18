@@ -119,6 +119,10 @@ import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
 import { getPrimaryValue, formatSmartNumber } from '../components/model-tab/utils'
 import { getDisplayEdgeId } from '../utils/edgeIdentity'
+// THE ONE id → label policy (`src/canvas/domain/canvasLabels.ts`). It returns
+// `null` rather than the identifier, and rejects a stored label that is itself
+// id-shaped — which is why it is imported here rather than reimplemented.
+import { buildCanvasLabelMap, resolveCanvasLabel } from '../domain/canvasLabels'
 import type {
   AttentionReason,
   ModelElementKind,
@@ -261,6 +265,51 @@ export function optionHasNoInterventions(data: unknown): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Relationships in plain English
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * What an endpoint is called when the model gives it no honest name.
+ *
+ * ⚠ NEVER THE IDENTIFIER. This surface used to render
+ * `fac_arr → out_uk_arr_retention` — the raw wire ids, joined by an arrow — for
+ * every edge without its own `label`, which is most of them. The v1 stack
+ * resolved both endpoints to their node labels
+ * (`RelationshipsSection.tsx:149-150`), so the canonical outline was the LESS
+ * readable of the two editors on the one thing a relationship is for: saying
+ * what affects what.
+ *
+ * The vocabulary matches the estate's existing choice for the same situation
+ * (`V5FlipAnalysisBlock.tsx:30` — "Unnamed factor"), generalised because an
+ * endpoint here may be an option or an outcome, not only a factor.
+ */
+const UNNAMED_ENDPOINT_LABEL = 'Unnamed element'
+
+/**
+ * `From → To`, in the user's words.
+ *
+ * The arrow is the v1 separator, kept verbatim. An edge that carries its OWN
+ * `label` still wins — the producer naming a relationship outranks anything
+ * derived from its endpoints.
+ */
+function relationshipLabel(
+  data: Record<string, unknown> | undefined,
+  sourceId: string,
+  targetId: string,
+  labels: ReadonlyMap<string, string>,
+): string {
+  if (typeof data?.label === 'string' && data.label.trim() !== '') return data.label
+  const from = resolveCanvasLabel(sourceId, labels) ?? UNNAMED_ENDPOINT_LABEL
+  const to = resolveCanvasLabel(targetId, labels) ?? UNNAMED_ENDPOINT_LABEL
+  return `${from} → ${to}`
+}
+
+/** One element's name for a navigation target. Never its identifier. */
+function endpointLabel(id: string, labels: ReadonlyMap<string, string>): string {
+  return resolveCanvasLabel(id, labels) ?? UNNAMED_ENDPOINT_LABEL
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Value display
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -356,6 +405,9 @@ function attentionForFactor(data: unknown, value: string | null): AttentionReaso
  */
 export function toModelRows(input: ModelProjectionInput): ModelRow[] {
   const rows: ModelRow[] = []
+  // ONE map per projection — built here, threaded down. Rebuilding it per edge
+  // would be the same work N times and, worse, a second place to get it wrong.
+  const nodeLabels = buildCanvasLabelMap(input.nodes)
 
   for (const node of input.nodes) {
     const kind = nodeKind(node)
@@ -438,7 +490,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       id: edge.id,
       kind: 'relationship',
       group: 'relationships',
-      label: typeof data?.label === 'string' ? data.label : `${edge.source} → ${edge.target}`,
+      label: relationshipLabel(data, edge.source, edge.target, nodeLabels),
       primaryValue: edgeValue(data),
       provenanceSource: typeof data?.weightSource === 'string' ? data.weightSource : undefined,
       attention,
@@ -466,6 +518,7 @@ export function toRepairQueueItems(
   queueId: RepairQueue['id'],
 ): RepairQueueItem[] {
   const factorNodes = input.nodes.filter(n => nodeKind(n) === 'factor')
+  const nodeLabels = buildCanvasLabelMap(input.nodes)
 
   if (queueId === 'confirm-estimates') {
     return factorNodes
@@ -511,7 +564,7 @@ export function toRepairQueueItems(
         const data = e.data as Record<string, unknown> | undefined
         return {
           rowId: e.id,
-          label: typeof data?.label === 'string' ? data.label : `${e.source} → ${e.target}`,
+          label: relationshipLabel(data, e.source, e.target, nodeLabels),
           currentValue: edgeValue(data),
           suggestedValue: null,
           basis: 'Two validation passes disagree',
@@ -552,6 +605,7 @@ export function toRepairQueueItems(
  * visible refusal rather than a confident, wrong pane.
  */
 export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRowDetail | null {
+  const nodeLabels = buildCanvasLabelMap(input.nodes)
   const node = input.nodes.find(n => n.id === rowId)
   if (node) {
     const data = node.data as Record<string, unknown> | undefined
@@ -566,9 +620,12 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
       secondaryValues: secondary,
       basis: typeof obs?.source === 'string' ? `Source: ${obs.source}` : null,
       adjustments: [],
+      // ⚠ The NAVIGATION id stays the edge's; the LABEL is the target element's
+      // name. Rendering `e.target` here put a raw wire id in the detail region's
+      // "What it affects" list — an identifier presented as user copy.
       affects: input.edges
         .filter(e => e.source === rowId)
-        .map(e => ({ id: e.id, label: e.target })),
+        .map(e => ({ id: e.id, label: endpointLabel(e.target, nodeLabels) })),
       advancedParameters: buildAdvancedForNode(node.id, obs),
     }
   }
@@ -582,7 +639,9 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     secondaryValues: [],
     basis: typeof data?.provenance === 'string' ? `Source: ${data.provenance}` : null,
     adjustments: [],
-    affects: [{ id: edge.target, label: edge.target }],
+    affects: [
+      { id: edge.target, label: endpointLabel(edge.target, nodeLabels) },
+    ],
     advancedParameters: buildAdvancedForEdge(edge.id, data),
   }
 }

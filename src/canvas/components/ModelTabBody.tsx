@@ -56,6 +56,10 @@ import { resolveRawFactorConfidenceDisplay, type FactorConfidenceDisplay } from 
 // are retained UNCHANGED — the design's §7 KEEP/CUT removals await Paul's
 // verdict and are deliberately not executed in this train.
 import { ModelTabV2Panel } from '../model-tab-v2/ModelTabV2Panel'
+// THE ONE hand-off for affordances that terminate in a conversation. Built here
+// because this file is the Model tab's only live-app seam; the v2 directory
+// stays free of fronting and store concerns.
+import { createOlumiHandOff } from '../conversation/olumiHandOff'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -745,6 +749,24 @@ export const ModelTabBody = memo(function ModelTabBody({
     navigator.clipboard?.writeText(json).catch(() => {})
   }, [goalLabel, sortedFactors, sortedEdges])
 
+  /**
+   * The Olumi hand-off for the canonical outline's group affordances.
+   *
+   * ⚠ `null` WHEN THERE IS NO SENDER, and that null travels all the way to the
+   * buttons, which then do not render. The v1 sections each guarded their
+   * send-to-AI controls behind `{onSendMessage && …}`; this preserves that guard
+   * in ONE place instead of eleven, and it is what stops the outline offering an
+   * action whose turn cannot be delivered (preamble P8).
+   */
+  const olumiHandOff = useMemo(() => createOlumiHandOff(onSendMessage), [onSendMessage])
+
+  const handOffToOlumi = useCallback(
+    (message: string, reason: string) => {
+      olumiHandOff?.({ message, reason })
+    },
+    [olumiHandOff],
+  )
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -772,6 +794,7 @@ export const ModelTabBody = memo(function ModelTabBody({
         edges={edges}
         goalThreshold={goalThreshold}
         fragileEdgeIds={hasRobustnessData ? fragileEdgeIds : undefined}
+        onHandOffToOlumi={olumiHandOff ? handOffToOlumi : undefined}
       />
 
       {/* ── Header: factor/edge counts + "Show full detail" toggle ─────────── */}

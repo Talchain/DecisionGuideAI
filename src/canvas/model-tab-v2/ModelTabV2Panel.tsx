@@ -42,6 +42,7 @@ import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { ModelOutline } from './ModelOutline'
 import { ModelDetailRegion } from './ModelDetailRegion'
+import type { GroupAction, GroupActionContext } from './groupActions'
 import { toModelRows, toRowDetail, nodeKind, type ModelProjectionInput } from './adapters'
 import type { DetailTier, EditCommitState } from './types'
 
@@ -56,6 +57,17 @@ export interface ModelTabV2PanelProps {
    * otherwise.
    */
   fragileEdgeIds?: ReadonlySet<string>
+  /**
+   * Hand a turn to Olumi, having FRONTED the conversation first.
+   *
+   * ⚠ ABSENT MEANS THE GROUP AFFORDANCES DO NOT RENDER. `ModelTabBody` builds
+   * this with `createOlumiHandOff`, which returns `null` when no sender exists —
+   * so "no conversation" propagates as "no button", never as a button that
+   * swallows the turn. This panel does NOT import the fronting primitive itself:
+   * the mount host owns every live-app seam, which is what keeps this directory's
+   * boundary guard meaningful.
+   */
+  onHandOffToOlumi?: (message: string, reason: string) => void
 }
 
 /** One active edit at a time — the row the user is currently changing. */
@@ -72,6 +84,7 @@ export function ModelTabV2Panel({
   edges,
   goalThreshold,
   fragileEdgeIds,
+  onHandOffToOlumi,
 }: ModelTabV2PanelProps) {
   const [tier, setTier] = useState<DetailTier>('plain')
   const [filter, setFilter] = useState('')
@@ -109,6 +122,30 @@ export function ModelTabV2Panel({
   const selectedDetail = useMemo(
     () => (selectedId === null ? null : toRowDetail(projection, selectedId)),
     [projection, selectedId],
+  )
+
+  /**
+   * What a group action may quote back to the user.
+   *
+   * ⚠ DERIVED FROM THE RENDERED GOAL ROW, not from `goalThreshold` or the store.
+   * The v1 goal hand-off quoted `displayThreshold` — the value that section was
+   * displaying. The equivalent here is the value THIS outline is displaying, so
+   * the sentence and the screen cannot disagree (preamble P5: a claim about the
+   * model is grounded in the state the user is actually shown).
+   */
+  const groupActionContext: GroupActionContext = useMemo(() => {
+    const goalRow = rows.find(r => r.kind === 'goal') ?? null
+    return {
+      goalLabel: goalRow?.label ?? null,
+      goalTarget: goalRow?.primaryValue ?? null,
+    }
+  }, [rows])
+
+  const handleGroupAction = useCallback(
+    (action: GroupAction, message: string) => {
+      onHandOffToOlumi?.(message, `model-tab-v2:${action.id}`)
+    },
+    [onHandOffToOlumi],
   )
 
   const authority = useModelEditAuthority(edit?.rowId ?? null)
@@ -254,6 +291,8 @@ export function ModelTabV2Panel({
         onProposeEdit={proposeEdit}
         onDiscardEdit={discardEdit}
         onConfirmEdit={confirmEdit}
+        onGroupAction={onHandOffToOlumi ? handleGroupAction : undefined}
+        groupActionContext={groupActionContext}
       />
 
       {selectedRow !== null && selectedDetail !== null && (

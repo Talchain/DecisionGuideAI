@@ -28,6 +28,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import { typography } from '../../styles/typography'
 import { ModelRowView } from './ModelRowView'
+import { ModelGroupActions } from './ModelGroupActions'
+import { GROUP_ACTIONS, type GroupAction, type GroupActionContext } from './groupActions'
 import { GROUP_TITLE } from './rowPresentation'
 import {
   MODEL_GROUP_IDS,
@@ -70,6 +72,21 @@ export interface ModelOutlineProps {
   onProposeEdit?: (id: string) => void
   onDiscardEdit?: (id: string) => void
   onConfirmEdit?: (id: string) => void
+  /**
+   * The group-level affordances rehomed from the v1 stack (add a factor, add a
+   * relationship, explore other strategies, identify risks, discuss each group).
+   *
+   * ⚠ ABSENT MEANS THE BUTTONS DO NOT RENDER, not that they render inert. There
+   * is deliberately no default: the v1 sections guarded every send-to-AI control
+   * behind `{onSendMessage && …}`, and dropping that guard would put an
+   * undeliverable affordance on screen (preamble P8).
+   */
+  onGroupAction?: (action: GroupAction, message: string) => void
+  /**
+   * What a group action's message may interpolate. Sourced from the rows this
+   * outline is rendering, so a quoted target is the one the user can see.
+   */
+  groupActionContext?: GroupActionContext
 }
 
 /**
@@ -133,6 +150,8 @@ export function ModelOutline({
   onProposeEdit,
   onDiscardEdit,
   onConfirmEdit,
+  onGroupAction,
+  groupActionContext,
 }: ModelOutlineProps) {
   const [closed, setClosed] = useState<ReadonlySet<ModelGroupId>>(
     () => new Set(initiallyClosedGroups ?? []),
@@ -196,39 +215,55 @@ export function ModelOutline({
             )}
           </button>
 
-          {group.open &&
-            (group.rows.length === 0 ? (
-              <p
-                data-testid={`model-group-v2-${group.id}-empty`}
-                className={`${typography.caption} text-text-light px-4 py-1`}
-              >
-                {filter.trim() === ''
-                  ? 'Nothing in this group yet'
-                  : 'No matches in this group'}
-              </p>
-            ) : (
-              <ul role="listbox" aria-label={GROUP_TITLE[group.id]}>
-                {group.rows.map(row => (
-                  <ModelRowView
-                    key={row.id}
-                    row={row}
-                    tier={tier}
-                    selected={row.id === selectedId}
-                    commit={commitByRowId?.get(row.id)}
-                    editConnected={
-                      editConnectedIds === undefined ? true : editConnectedIds.has(row.id)
-                    }
-                    onSelect={onSelect}
-                    onFocusOnCanvas={onFocusOnCanvas}
-                    onBeginEdit={onBeginEdit}
-                    onDraftChange={onDraftChange}
-                    onProposeEdit={onProposeEdit}
-                    onDiscardEdit={onDiscardEdit}
-                    onConfirmEdit={onConfirmEdit}
-                  />
-                ))}
-              </ul>
-            ))}
+          {group.open && (
+            <>
+              {group.rows.length === 0 ? (
+                <p
+                  data-testid={`model-group-v2-${group.id}-empty`}
+                  className={`${typography.caption} text-text-light px-4 py-1`}
+                >
+                  {filter.trim() === ''
+                    ? 'Nothing in this group yet'
+                    : 'No matches in this group'}
+                </p>
+              ) : (
+                <ul role="listbox" aria-label={GROUP_TITLE[group.id]}>
+                  {group.rows.map(row => (
+                    <ModelRowView
+                      key={row.id}
+                      row={row}
+                      tier={tier}
+                      selected={row.id === selectedId}
+                      commit={commitByRowId?.get(row.id)}
+                      editConnected={
+                        editConnectedIds === undefined ? true : editConnectedIds.has(row.id)
+                      }
+                      onSelect={onSelect}
+                      onFocusOnCanvas={onFocusOnCanvas}
+                      onBeginEdit={onBeginEdit}
+                      onDraftChange={onDraftChange}
+                      onProposeEdit={onProposeEdit}
+                      onDiscardEdit={onDiscardEdit}
+                      onConfirmEdit={onConfirmEdit}
+                    />
+                  ))}
+                </ul>
+              )}
+              {/*
+                THE ACTIONS RENDER EVEN WHEN THE GROUP IS EMPTY, and that is the
+                point of putting them here. "Add a factor" is at its most useful
+                when there are no factors — the v1 risks CTA rendered ONLY in the
+                empty state and the v1 factor CTA only in the populated one, so
+                each was missing exactly where the other proved it was wanted.
+              */}
+              <ModelGroupActions
+                groupId={group.id}
+                actions={GROUP_ACTIONS[group.id]}
+                context={groupActionContext ?? { goalLabel: null, goalTarget: null }}
+                onAction={onGroupAction}
+              />
+            </>
+          )}
         </section>
       ))}
     </div>
