@@ -125,9 +125,21 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     description: 'Results may be unreliable without a current value for this constraint.',
     suggestion: 'Set estimate',
   }),
+  // ⭐ RE-GROUNDED IN THE PRODUCER (N-21 item 4, P7). PLoT emits this as
+  // `createInfo`, and its own branch comment declares the case "informational
+  // only (no downstream impact since constraint values pass through raw to
+  // ISL)" (`preflight-v2.ts:670-671`); its humanised copy reads "The constraint
+  // on {label} cannot be range-checked. The constraint value will be used
+  // as-is." The previous description — "A range is needed to assess whether
+  // this target can be met" — asserted the target could NOT be assessed, which
+  // the emitter contradicts: the target IS assessed, only the sanity-check
+  // against a min/max is skipped. The suggestion stays because setting a range
+  // genuinely clears the note (P8: the ask has an acceptance path); what goes
+  // is the false consequence attached to not doing it.
   CONSTRAINT_MISSING_RANGE: (label) => ({
-    title: `${label} is missing a range for its constraint`,
-    description: 'A range is needed to assess whether this target can be met.',
+    title: `${label} has no range to check your target against`,
+    description:
+      'Your target is used exactly as you set it. Recording a lowest and highest value for this factor lets Olumi sanity-check it.',
     suggestion: 'Set range',
   }),
   CONSTRAINT_FILTERED_TEMPORAL: () => ({
@@ -140,11 +152,17 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     description: 'The target for this constraint falls outside the range the model can assess.',
     suggestion: 'Review',
   }),
-  CONSTRAINT_NO_DERIVABLE_RANGE: (label) => ({
-    title: `${label} has no estimate set`,
-    description: 'Constraint results may be less precise. Set a value to sharpen the analysis.',
-    suggestion: 'Set estimate',
-  }),
+  // ⛔ `CONSTRAINT_NO_DERIVABLE_RANGE` WAS HERE AND IS DELETED (N-21 item 4).
+  // It was a UI-LOCAL INVENTION: swept at the producers with contrast controls
+  // (PLoT `staging` fb63b03d / ISL 28fe0c9 / schemas 8149308) it reads 0/0/0,
+  // while the sibling codes read 13/16/8 — so the zero is real absence, not a
+  // blind instrument. Its template duplicated
+  // `CONSTRAINT_TARGET_NO_OBSERVED_VALUE`'s title and suggestion VERBATIM
+  // ("{label} has no estimate set" / "Set estimate"), which is the duplicate
+  // sentence N-21 reported; and its description ("results may be less precise")
+  // asserted a consequence PLoT explicitly denies for the range case.
+  // The real producer code for that message is `CONSTRAINT_MISSING_RANGE`,
+  // which already has its own honest template above.
   INBOUND_STRENGTH_SUM_EXCEEDED: (label) => ({
     title: `The factors driving ${label} may be over-weighted`,
     description: 'The combined strength of connections into this node exceeds the expected range. Consider reducing some edge strengths.',
@@ -330,9 +348,22 @@ export function humaniseCritique(
     return { ...result, displayText, factorId }
   }
 
-  // V16.2: Message-based detection for known ISL patterns sent as GENERAL code
+  // Message-based safety net for a row that carries PLoT's range MESSAGE under
+  // a code this map does not hold (historically `GENERAL`).
+  //
+  // ⭐ RE-POINTED (N-21 item 4). It used to resolve to the invented
+  // `CONSTRAINT_NO_DERIVABLE_RANGE` template, i.e. the "has no estimate set"
+  // sentence — a DIFFERENT finding from the one the message describes. The
+  // phrase is PLoT's `CONSTRAINT_MISSING_RANGE` message verbatim
+  // (`preflight-v2.ts:677`), so that is the template it must reach.
+  //
+  // Note this branch sits AFTER the code-keyed lookup, and
+  // `CONSTRAINT_MISSING_RANGE` IS in the map — so for any correctly-coded
+  // producer row it is unreachable by construction. It survives only as the
+  // net for a mis-coded one, and it now lands on the same sentence that row
+  // would have got.
   if (/no derivable range/i.test(item.message)) {
-    const result = CODE_TEMPLATES.CONSTRAINT_NO_DERIVABLE_RANGE(factorLabel)
+    const result = CODE_TEMPLATES.CONSTRAINT_MISSING_RANGE(factorLabel)
     const displayText = INTERNAL_TOKEN_REGEX.test(result.title) ? null : result.title
     return { ...result, displayText, factorId }
   }
