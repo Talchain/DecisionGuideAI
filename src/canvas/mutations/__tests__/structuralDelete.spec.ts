@@ -8,6 +8,9 @@
  * proves beside one that refutes.
  */
 
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { describe, it, expect } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
 
@@ -16,6 +19,7 @@ import {
   buildStructuralDeleteWirePayload,
   captureStructuralDelete,
   isCanonicalEndpointId,
+  mergeStructuralDeleteIntents,
   readStructuralDeleteReceipt,
   revertStructuralDelete,
   type StructuralDeleteIntent,
@@ -167,6 +171,13 @@ describe('isCanonicalEndpointId — the producer schema, both directions', () =>
 
   it('drops a delimiter-bearing edge rather than retargeting silently', () => {
     const g = graph()
+    // ⚠ THE COMPOSITE-ID NODE IS PRESENT ON PURPOSE. A later guard elides any
+    // edge whose endpoints are not in the pre-delete graph, and without this
+    // node that guard would drop `e-bad` first — the test would still pass while
+    // testing nothing about the composite rule, and the composite mutant would
+    // read as equivalent. Putting the node on the canvas leaves the composite
+    // check as the only thing that can reject this edge.
+    g.nodes.push(node('a→b'))
     g.edges.push(edge('e-bad', 'a→b', 'goal'))
     const result = captureStructuralDelete({
       nodesBefore: g.nodes,
@@ -180,6 +191,84 @@ describe('isCanonicalEndpointId — the producer schema, both directions', () =>
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.intent.removedEdges).toEqual([{ from: 'factor_cost', to: 'goal' }])
+  })
+
+  it('drops an edge whose ENDPOINT the graph no longer holds — never an unresolvable name', () => {
+    // The split-callback shape: React Flow removed the node through
+    // `onNodesChange`, so by the time the edge half arrives its endpoint is
+    // already gone. CEE would refuse the WHOLE removal on such a name.
+    const g = graph()
+    g.edges.push(edge('e-orphan', 'already_gone', 'goal'))
+    const result = captureStructuralDelete({
+      nodesBefore: g.nodes,
+      edgesBefore: g.edges,
+      removedNodeIds: [],
+      removedEdgeIds: ['e-orphan', 'e-1'],
+      baseGraphHash: HASH,
+      externalMutationActive: false,
+      makeId: () => 'intent-1',
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.intent.removedEdges).toEqual([{ from: 'factor_cost', to: 'goal' }])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// same-tick coalescing — ONE gesture, ONE payload, across TWO callbacks
+// ---------------------------------------------------------------------------
+
+describe('mergeStructuralDeleteIntents — React Flow splits one keypress in two', () => {
+  const base = (over: Partial<StructuralDeleteIntent>): StructuralDeleteIntent => ({
+    id: 'i1',
+    removedNodeIds: [],
+    removedEdges: [],
+    baseGraphHash: HASH,
+    claimedNodeIds: [],
+    claimedEdgeIds: [],
+    restore: { nodes: [], edges: [] },
+    ...over,
+  })
+
+  it('folds the node half and the edge half into ONE payload', () => {
+    const merged = mergeStructuralDeleteIntents(
+      base({ id: 'first', removedNodeIds: ['option_a'], claimedNodeIds: ['option_a'] }),
+      base({
+        id: 'second',
+        removedEdges: [{ from: 'factor_cost', to: 'goal' }],
+        claimedEdgeIds: ['e-1'],
+      }),
+    )
+    expect(merged.id).toBe('first')
+    expect(merged.removedNodeIds).toEqual(['option_a'])
+    expect(merged.removedEdges).toEqual([{ from: 'factor_cost', to: 'goal' }])
+    expect(merged.claimedEdgeIds).toEqual(['e-1'])
+  })
+
+  it('RE-ELIDES an edge the folded-in node removal now cascades away', () => {
+    // Independent when the edge half was captured; cascade-redundant once the
+    // node half joins it. Naming it would be the duplicate op CEE elides.
+    const merged = mergeStructuralDeleteIntents(
+      base({ removedEdges: [{ from: 'factor_cost', to: 'option_a' }] }),
+      base({ removedNodeIds: ['option_a'] }),
+    )
+    expect(merged.removedNodeIds).toEqual(['option_a'])
+    expect(merged.removedEdges).toEqual([])
+  })
+
+  it('REFUSES to fold across different base hashes — never one half\'s ids on the other\'s assertion', () => {
+    const second = base({ id: 'second', baseGraphHash: 'deadbeefdeadbeef', removedNodeIds: ['x'] })
+    const merged = mergeStructuralDeleteIntents(base({ removedNodeIds: ['option_a'] }), second)
+    expect(merged).toBe(second)
+  })
+
+  it('dedupes the restore set by id so a revert cannot double-insert', () => {
+    const n = { id: 'option_a', type: 'factor', position: { x: 0, y: 0 }, data: {} } as Node
+    const merged = mergeStructuralDeleteIntents(
+      base({ restore: { nodes: [n], edges: [] } }),
+      base({ restore: { nodes: [n], edges: [] } }),
+    )
+    expect(merged.restore.nodes).toHaveLength(1)
   })
 })
 
@@ -333,10 +422,25 @@ describe('revertStructuralDelete', () => {
 // ---------------------------------------------------------------------------
 
 describe('STRUCTURAL_DELETE_NOTICE', () => {
-  it('the diverged-base copy names RELOAD, never a bare retry of the same payload', () => {
+  // P8 — the acceptance path named in the copy must be one the code implements.
+  // Bound to the MECHANISM, not to a phrase: the only thing that refreshes
+  // `lastServerGraphHash` is a turn response passing through `applyV5State`, so
+  // the copy must ask for a turn. Both of the obvious alternatives are refusals
+  // in disguise and are pinned OUT: a bare retry re-sends the same stale hash,
+  // and a reload leaves the hash null so the next delete stands down silently.
+  it('the diverged-base copy asks for the one thing that refreshes the base — a TURN', () => {
     const copy = STRUCTURAL_DELETE_NOTICE.base_hash_diverged
-    expect(copy).toContain('Reload')
+    expect(copy).toMatch(/ask me|send me|message/i)
     expect(copy.toLowerCase()).not.toMatch(/\btry again\b/)
+    expect(copy).not.toMatch(/reload this decision.*delete it again/i)
+  })
+
+  it('the mechanism that copy names is the one in the code (the pin, not the phrase)', () => {
+    // If `applyV5State` ever stops capturing the hash, the copy becomes a lie —
+    // so the claim is pinned against the producer's source rather than trusted.
+    const applicator = readFileSync(resolve(process.cwd(), 'src/v5/applyV5State.ts'), 'utf8')
+    expect(applicator).toContain('setLastServerGraphHash')
+    expect(applicator).toContain('graph_hash:captured')
   })
 
   it('the diverged-base copy states the removal did NOT happen', () => {

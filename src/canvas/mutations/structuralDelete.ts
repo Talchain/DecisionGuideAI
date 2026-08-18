@@ -201,6 +201,7 @@ export function captureStructuralDelete(
   const requestedEdgeIds = new Set(input.removedEdgeIds)
 
   const nodesById = new Map(input.nodesBefore.map((n) => [n.id, n]))
+  const nodeIdsPresent = new Set(input.nodesBefore.map((n) => n.id))
 
   // Nodes: resolve against the PRE-delete graph and against the contract's id
   // rules. An id the canvas does not hold cannot be described to the server.
@@ -232,6 +233,17 @@ export function captureStructuralDelete(
 
     // Elided: the server's `applyRemoveNode` cascade owns this one.
     if (incident) continue
+    // ⚠ AN EDGE WHOSE ENDPOINT THE GRAPH NO LONGER HOLDS IS NOT NAMEABLE.
+    // CEE resolves every named edge against its persisted graph and refuses the
+    // WHOLE removal on `edge_target_unresolvable`, so naming one costs the user
+    // the entire delete. This also does the eliding in the split-callback case:
+    // React Flow reports node removals and edge removals through two SEPARATE
+    // store callbacks, so when the nodes go first the incident edges arrive with
+    // their endpoint already gone — `incident` above cannot see that, and this
+    // can.
+    if (!nodeIdsPresent.has(String(edge.source)) || !nodeIdsPresent.has(String(edge.target))) {
+      continue
+    }
     if (!isCanonicalEndpointId(edge.source) || !isCanonicalEndpointId(edge.target)) continue
     const key = canvasEdgePairKey(edge)
     if (key === null || wireEdgesByPair.has(key)) continue
@@ -258,6 +270,72 @@ export function captureStructuralDelete(
       claimedNodeIds: removedNodeIds,
       claimedEdgeIds,
       restore: { nodes: restoreNodes, edges: restoreEdges },
+    },
+  }
+}
+
+/**
+ * Fold two intents captured in the SAME synchronous tick into one.
+ *
+ * ⚠ THIS EXISTS BECAUSE ONE GESTURE CAN REACH THE STORE THROUGH TWO CALLBACKS.
+ * React Flow's built-in delete (default `deleteKeyCode` = Backspace/Delete, and
+ * no `deleteKeyCode` prop is set on this canvas) reports node removals through
+ * `onNodesChange` and edge removals through `onEdgesChange` — two separate store
+ * writes for ONE keypress. Recorded naively that is two turns, and the second
+ * one is refused BY CONSTRUCTION: the first commit moves the persisted hash, so
+ * the second carries a base the server has already left behind. The user would
+ * get a spurious "the model changed since you deleted that" for a wait we chose.
+ *
+ * Merging is only sound within a tick, and that is exactly the window used: no
+ * turn can have been sent and no hash can have moved, so both halves genuinely
+ * describe the same base graph — asserted below rather than assumed.
+ *
+ * The re-elision at the end is load-bearing. An edge that was independent when
+ * the edge half was captured becomes cascade-redundant once the node half is
+ * folded in, and naming it would be the duplicate-op the server's
+ * `elideCascadeRedundantRemoveEdges` exists to drop.
+ */
+export function mergeStructuralDeleteIntents(
+  first: StructuralDeleteIntent,
+  second: StructuralDeleteIntent,
+): StructuralDeleteIntent {
+  if (first.baseGraphHash !== second.baseGraphHash) {
+    // Not reachable within a tick — but if it ever is, folding would attach one
+    // half's ids to the other half's base assertion, which is the one thing this
+    // event must never do.
+    return second
+  }
+
+  const removedNodeIds = [...new Set([...first.removedNodeIds, ...second.removedNodeIds])].sort()
+  const removedNodeIdSet = new Set(removedNodeIds)
+
+  const edgesByPair = new Map<string, CanonicalEdgeRef>()
+  for (const e of [...first.removedEdges, ...second.removedEdges]) {
+    if (removedNodeIdSet.has(e.from) || removedNodeIdSet.has(e.to)) continue
+    edgesByPair.set(edgePairKey(e.from, e.to), e)
+  }
+  const removedEdges = [...edgesByPair.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([, ref]) => ref)
+
+  const dedupeById = <T extends { id: string }>(items: readonly T[]): T[] => {
+    const byId = new Map<string, T>()
+    for (const item of items) if (!byId.has(item.id)) byId.set(item.id, item)
+    return [...byId.values()]
+  }
+
+  return {
+    // The FIRST intent's id survives: the drainer and any telemetry already
+    // correlate the gesture by it.
+    id: first.id,
+    removedNodeIds,
+    removedEdges,
+    baseGraphHash: first.baseGraphHash,
+    claimedNodeIds: [...new Set([...first.claimedNodeIds, ...second.claimedNodeIds])].sort(),
+    claimedEdgeIds: [...new Set([...first.claimedEdgeIds, ...second.claimedEdgeIds])].sort(),
+    restore: {
+      nodes: dedupeById([...first.restore.nodes, ...second.restore.nodes]),
+      edges: dedupeById([...first.restore.edges, ...second.restore.edges]),
     },
   }
 }
@@ -405,12 +483,31 @@ export function revertStructuralDelete(
 export const STRUCTURAL_DELETE_NOTICE = {
   /**
    * 409 `GRAPH_DIVERGED` / `BASE_HASH_DIVERGED`. CEE guarantees it wrote nothing,
-   * so the elements are back and the honest next step is a reload — NOT a retry
-   * of the same payload, which carries the same stale hash and would refuse
-   * identically. Never offer an action that cannot land (P8).
+   * so the elements are back.
+   *
+   * ⚠ THE ACTION NAMED HERE IS DERIVED FROM WHAT ACTUALLY REFRESHES THE BASE,
+   * and two more obvious instructions are wrong — both were in this string at
+   * some point and both are affordances terminating in refusal (P8):
+   *
+   *   · "Try again" — a bare retry re-sends the SAME `base_graph_hash`, because
+   *     `lastServerGraphHash` only moves when a turn response stamps a new one.
+   *     It refuses identically, forever, in a loop of the product's own making.
+   *   · "Reload, then delete again" — a reload builds a fresh store and hydrates
+   *     from Supabase with NO CEE turn, so `lastServerGraphHash` is null and the
+   *     next delete STANDS DOWN silently (the warning is DEV-gated). The user
+   *     would follow the instruction straight back into the original defect.
+   *     Seeding the hash at hydration is not available either: the scenario-graph
+   *     READ returns `graph_identity_hash` (the 64-hex identity token) and no
+   *     `graph_hash` at all — measured, with a contrast control.
+   *
+   * What DOES refresh it is a turn: `applyV5State` captures the top-level
+   * `graph_hash` off every response, so any message re-syncs the base — and on a
+   * receipt-bearing turn `reconcileAppliedGraph` re-syncs the canvas with it. So
+   * the copy asks for the one thing that works, and it works in-session with no
+   * reload at all.
    */
   base_hash_diverged:
-    "The saved model changed since you deleted that, so nothing was removed — I've put it back on the canvas rather than show you a deletion that never happened. Reload this decision to pick up the current model, then delete it again.",
+    "The saved model changed since you deleted that, so nothing was removed — I've put it back on the canvas rather than show you a deletion that never happened. Ask me anything about this decision and I'll re-sync with the saved model, then delete it again.",
   /**
    * Any other server-side failure. The turn reached the server and failed; we
    * hold no committed bytes, so we know neither that it landed nor that it did

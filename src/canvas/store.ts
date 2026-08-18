@@ -23,7 +23,11 @@ import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
 import { RUN_COMPLETED_WITHOUT_VERDICT, VERDICT_ABSENT_FROM_PAYLOAD, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import type { AnalysisRefusalNotice } from './store/analysisRefusalNotice'
-import { captureStructuralDelete, type StructuralDeleteIntent } from './mutations/structuralDelete'
+import {
+  captureStructuralDelete,
+  mergeStructuralDeleteIntents,
+  type StructuralDeleteIntent,
+} from './mutations/structuralDelete'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
@@ -1525,16 +1529,44 @@ function markAnalysisFreshnessDirty(
 }
 
 /**
+ * Has the current synchronous tick already recorded a delete intent?
+ *
+ * Module-level rather than store state because it is a scheduling fact, not
+ * model state: it must be false again on the next macrotask whatever the store
+ * does, and persisting it would make an undrained flag outlive the gesture it
+ * describes. Cleared by a microtask, so every synchronous callback React Flow
+ * fires for ONE keypress sees the same tick. See
+ * `mergeStructuralDeleteIntents` for why the fold is only sound inside it.
+ */
+let structuralDeleteTickOpen = false
+
+/**
  * Record a user delete gesture for the wire, BEFORE the removal is applied.
  *
  * ⚠ THE CALL ORDER IS THE CONTRACT, not a style choice. `base_graph_hash`
  * asserts the graph the user was looking at, and every id/edge-endpoint in the
  * payload is resolved against that same pre-delete graph — so this must run
- * while `get()` still returns it. Called from the FOUR delete actions
- * (`deleteSelected`, `deleteNodeById`, `deleteEdgeById`, `deleteEdge`), which
- * together are the one chokepoint every delete gesture crosses: the keyboard
- * shortcut, the context menu (via `commitValidatedMutation`'s localApply) and
- * the edge inspector all end here.
+ * while `get()` still returns it.
+ *
+ * ⚠ THE COMPLETE MANIFEST OF DELETE PATHS IS SIX, NOT FOUR, and an earlier
+ * version of this comment claimed four — corrected here rather than left as an
+ * honest-sounding label that is wrong:
+ *   1. `deleteSelected`   — the app's own Delete/Backspace shortcut and the
+ *                           context menu's multi-select delete
+ *   2. `deleteNodeById`   — the context menu's single-node delete
+ *   3. `deleteEdgeById`   — the context menu's single-edge delete
+ *   4. `deleteEdge`       — the edge inspector's Delete
+ *   5. `onNodesChange`    — REACT FLOW'S BUILT-IN delete, node half
+ *   6. `onEdgesChange`    — REACT FLOW'S BUILT-IN delete, edge half
+ * 5 and 6 are not hypothetical: no `deleteKeyCode` prop is set on `<ReactFlow>`,
+ * so its default Backspace/Delete binding is live, and `onEdgesChange`'s own
+ * comment already records that built-in edge removals *"reach the store ONLY
+ * through this handler — they never go through deleteEdgeById / deleteSelected"*.
+ * The app's shortcut listener is on `window` (bubble phase) while React Flow's
+ * is nearer the event target, so on a keypress React Flow's handler plausibly
+ * runs FIRST and `deleteSelected` then finds nothing selected. Covering both
+ * removes the need to be right about that ordering: whichever fires first
+ * records, and the other stands down as `nothing_removed`.
  *
  * DELIBERATELY NOT CALLED from the producer-driven removal paths
  * (`applyPatch`, `graphRepair`, receipt reconciliation): those are CEE's own
@@ -1573,7 +1605,29 @@ function recordStructuralDeleteIntent(
     }
     return
   }
-  set((s) => ({ pendingStructuralDeletes: [...s.pendingStructuralDeletes, result.intent] }))
+  // Fold same-tick captures into ONE payload — see the manifest above (React
+  // Flow splits one keypress across two callbacks) and
+  // `mergeStructuralDeleteIntents` for why the tick is the sound window.
+  const coalesce = structuralDeleteTickOpen
+  if (!coalesce) {
+    structuralDeleteTickOpen = true
+    queueMicrotask(() => {
+      structuralDeleteTickOpen = false
+    })
+  }
+  set((s) => {
+    const queued = s.pendingStructuralDeletes
+    const last = queued.length > 0 ? queued[queued.length - 1] : undefined
+    if (coalesce && last) {
+      return {
+        pendingStructuralDeletes: [
+          ...queued.slice(0, -1),
+          mergeStructuralDeleteIntents(last, result.intent),
+        ],
+      }
+    }
+    return { pendingStructuralDeletes: [...queued, result.intent] }
+  })
 }
 
 /**
@@ -2155,6 +2209,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (removedChanges.length > 0) {
       const deletedNodeIds = removedChanges.map(c => (c as { id: string }).id)
       maybeInvalidateOnNodeDelete(get, set, deletedNodeIds)
+      // 0.48.0 — durable removal, path 5 of 6. React Flow's built-in delete
+      // (default Backspace/Delete; no `deleteKeyCode` prop is set) removes nodes
+      // through this handler, and its listener sits nearer the event target than
+      // the app's window-level shortcut — so on a keypress this may well be the
+      // path that actually runs. Incident edges are NOT enumerated: CEE's
+      // `applyRemoveNode` owns that cascade. Recorded BEFORE the set() below,
+      // against the pre-delete graph.
+      recordStructuralDeleteIntent(get, set, { nodeIds: deletedNodeIds, edgeIds: [] })
     }
 
     const hasSelectChange = changes.some(c => c.type === 'select')
@@ -2231,6 +2293,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         const removed = edgesBefore.find((e) => e.id === (change as { id: string }).id)
         if (removed) maybeInvalidateOnEdgeDelete(get, set, removed)
       }
+      // 0.48.0 — durable removal, path 6 of 6. The comment above is the reason
+      // this line has to exist: built-in edge deletes reach the store ONLY here,
+      // so without it the commonest keyboard gesture would stay local-only and
+      // the connection would come back on the next re-run. Same tick as the node
+      // half, so the two fold into ONE payload.
+      recordStructuralDeleteIntent(get, set, {
+        nodeIds: [],
+        edgeIds: removedEdgeChanges.map((c) => (c as { id: string }).id),
+      })
     }
 
     set((s) => {

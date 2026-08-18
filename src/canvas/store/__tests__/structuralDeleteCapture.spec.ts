@@ -107,9 +107,13 @@ describe('the stand-downs (twin: recorded vs not)', () => {
 })
 
 describe('takePendingStructuralDeletes — one atomic read', () => {
-  it('hands over every queued gesture and empties the queue', () => {
+  it('hands over every queued gesture and empties the queue', async () => {
     seed()
     useCanvasStore.getState().deleteNodeById('option_a')
+    // A tick apart, because that is what two real gestures are — two clicks
+    // cannot land in one synchronous tick, and same-tick captures are folded
+    // into one payload on purpose (React Flow splits one keypress in two).
+    await new Promise((r) => setTimeout(r, 0))
     useCanvasStore.getState().deleteNodeById('option_b')
     const taken = useCanvasStore.getState().takePendingStructuralDeletes()
     expect(taken.map((i) => i.removedNodeIds[0])).toEqual(['option_a', 'option_b'])
@@ -164,5 +168,78 @@ describe('setLastServerGraphHash — retain on absence', () => {
     useCanvasStore.getState().setLastServerGraphHash('')
     useCanvasStore.getState().setLastServerGraphHash(null as unknown as string)
     expect(useCanvasStore.getState().lastServerGraphHash).toBe(HASH)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// React Flow's BUILT-IN delete — paths 5 and 6 of the six-path manifest.
+//
+// ⚠ THESE EXIST BECAUSE THE ORIGINAL MANIFEST SAID FOUR AND WAS WRONG. No
+// `deleteKeyCode` prop is set on `<ReactFlow>`, so its default Backspace/Delete
+// binding is live, and `onEdgesChange`'s own comment already recorded that
+// built-in edge removals *"reach the store ONLY through this handler — they
+// never go through deleteEdgeById / deleteSelected"*. The app's own shortcut
+// listener is on `window` (bubble phase) while React Flow's sits nearer the
+// event target, so on a keypress React Flow's handler plausibly runs FIRST and
+// `deleteSelected` then finds nothing selected. Covering both handlers removes
+// the need to be right about that ordering.
+// ---------------------------------------------------------------------------
+
+describe("React Flow's built-in delete records too", () => {
+  beforeEach(() => seed())
+
+  it('onNodesChange remove — records the node, leaving the cascade to CEE', () => {
+    useCanvasStore.getState().onNodesChange([{ type: 'remove', id: 'option_a' }] as never)
+    expect(queue()).toHaveLength(1)
+    expect(queue()[0].removedNodeIds).toEqual(['option_a'])
+    expect(queue()[0].removedEdges).toEqual([])
+    expect(useCanvasStore.getState().nodes.map((n) => n.id)).not.toContain('option_a')
+  })
+
+  it('onEdgesChange remove — records the ENDPOINT PAIR', () => {
+    useCanvasStore.getState().onEdgesChange([{ type: 'remove', id: 'e-1' }] as never)
+    expect(queue()).toHaveLength(1)
+    expect(queue()[0].removedEdges).toEqual([{ from: 'factor_cost', to: 'goal' }])
+  })
+
+  it('the node half and the edge half of ONE keypress become ONE payload', () => {
+    // The shape React Flow actually produces: two synchronous store callbacks
+    // for one Delete press. Two intents here would mean two turns, and the
+    // second is refused by construction — the first commit moves the hash.
+    const store = useCanvasStore.getState()
+    store.onNodesChange([{ type: 'remove', id: 'option_a' }] as never)
+    store.onEdgesChange([{ type: 'remove', id: 'e-1' }] as never)
+
+    expect(queue()).toHaveLength(1)
+    expect(queue()[0].removedNodeIds).toEqual(['option_a'])
+    expect(queue()[0].removedEdges).toEqual([{ from: 'factor_cost', to: 'goal' }])
+  })
+
+  it('an incident edge arriving after its node went is NOT named (it would be unresolvable)', () => {
+    const store = useCanvasStore.getState()
+    store.onNodesChange([{ type: 'remove', id: 'option_a' }] as never)
+    // e-0 is option_a→goal; its endpoint is already gone from the store.
+    store.onEdgesChange([{ type: 'remove', id: 'e-0' }] as never)
+
+    expect(queue()).toHaveLength(1)
+    expect(queue()[0].removedNodeIds).toEqual(['option_a'])
+    expect(queue()[0].removedEdges).toEqual([])
+  })
+
+  it('a LATER tick is a SEPARATE gesture and gets its own payload (twin: not folded)', async () => {
+    useCanvasStore.getState().onNodesChange([{ type: 'remove', id: 'option_a' }] as never)
+    // Let the tick close — the fold window is one synchronous tick, deliberately.
+    await Promise.resolve()
+    await new Promise((r) => setTimeout(r, 0))
+    useCanvasStore.getState().onNodesChange([{ type: 'remove', id: 'option_b' }] as never)
+
+    expect(queue()).toHaveLength(2)
+    expect(queue()[0].removedNodeIds).toEqual(['option_a'])
+    expect(queue()[1].removedNodeIds).toEqual(['option_b'])
+  })
+
+  it('a non-remove change batch records nothing', () => {
+    useCanvasStore.getState().onNodesChange([{ type: 'select', id: 'option_a', selected: true }] as never)
+    expect(queue()).toEqual([])
   })
 })
