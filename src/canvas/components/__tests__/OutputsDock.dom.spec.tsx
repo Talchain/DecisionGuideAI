@@ -997,7 +997,26 @@ describe('I.2a: Secondary action button interaction', () => {
     expect(headerLabel).toBeInTheDocument()
   })
 
-  it('shows Journey tab when flag is ON', async () => {
+  /**
+   * ⭐ RULING (Paul, 17 Aug 2026): JOURNEY STAYS HIDDEN UNTIL IT IS A REAL
+   * MOUNTED CAPABILITY — and this case is the pin, so it is deliberately still
+   * driven with the flag ON.
+   *
+   * It used to assert the opposite ("shows Journey tab when flag is ON") and it
+   * was correct about the code. Journey was measured DARK end to end: the flag
+   * is absent, and under a diagnostic override the event feed stays empty after
+   * a full journey — two independent breaks. A tab that opens onto nothing is
+   * the same defect as a CTA that terminates in refusal: the product
+   * advertising an action it cannot honour. It also spent a fifth of the tab
+   * strip at the width where the strip has least to spare.
+   *
+   * So the surface is hidden BY CONTRACT (`presentedAsTab: false` in
+   * `workspaceShell/shellContract.ts`), NOT by the flag — which is the whole
+   * point of driving this case with the flag ON. Turning the flag on must not
+   * be enough to light it; only deleting the contract row's ruling can, and
+   * doing that REDs here.
+   */
+  it('does NOT show the Journey tab even when its flag is ON (hidden by contract)', async () => {
     const { isJourneyTabEnabled } = await import('../../../flags')
     vi.mocked(isJourneyTabEnabled).mockReturnValue(true)
 
@@ -1062,17 +1081,30 @@ describe('I.2a: Secondary action button interaction', () => {
 
     // Same two deliberate renames as the ARIA/sections case above
     // (dbf4092b Results→Analysis; 3c290f2f adds the leading Olumi tab), and
-    // the same tighter nav-scoped query. Journey still appends last, which is
-    // what this case is about.
+    // the same tighter nav-scoped query.
     const tabNav = screen.getByRole('navigation', { name: 'Outputs sections' })
     const tabs = within(tabNav).getAllByRole('button')
+    // The FULL list, not just "Journey is absent" — an exact list also catches
+    // a surface silently disappearing, which "not.toContain" never would.
     expect(tabs.map(tab => tab.textContent)).toEqual([
       'Olumi',
       'Analysis',
       'Compare',
       'Model',
-      'Journey',
     ])
+    // Bound by IDENTITY to Journey, so a rename of some other tab cannot
+    // satisfy this line (trap 19).
+    expect(within(tabNav).queryByRole('button', { name: 'Journey' })).not.toBeInTheDocument()
+    // …and the contract, not the flag, is what is holding it shut. Without
+    // this the case would pass just as well if the flag accessor had simply
+    // broken, which is a different — and much worse — reason to be green.
+    // Read the POST-resetModules graph — the same module instances
+    // FreshOutputsDock consumed. Asserting the pre-reset copies would be a
+    // claim about a different program than the one that just rendered.
+    const freshFlags = await import('../../../flags')
+    expect(freshFlags.isJourneyTabEnabled()).toBe(true)
+    const { WORKSPACE_SURFACES } = await import('../workspaceShell/shellContract')
+    expect(WORKSPACE_SURFACES.journey.presentedAsTab).toBe(false)
   })
 })
 
