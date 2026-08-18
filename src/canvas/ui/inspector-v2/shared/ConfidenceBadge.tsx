@@ -26,7 +26,7 @@ export function ConfidenceBadge({ level, value }: ConfidenceBadgeProps) {
       className={`${typography.panelMeta} inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-transparent`}
       style={{ border: `1.5px ${cfg.borderStyle} ${cfg.borderColor}` }}
     >
-      <span className={`font-semibold ${cfg.colorClass}`}>{cfg.glyph}</span>
+      <span className={cfg.colorClass}>{cfg.glyph}</span>
       {value != null && (
         <span className="text-text-body">{value}%</span>
       )}

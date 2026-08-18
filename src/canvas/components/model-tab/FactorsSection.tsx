@@ -50,7 +50,7 @@ function CategoryBadge({ category }: { category?: string }) {
   if (!style) return null
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} font-medium bg-transparent border ${style.border} text-text-body`}
+      className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-transparent border ${style.border} text-text-body`}
     >
       {style.label}
     </span>
@@ -72,7 +72,7 @@ function AttributionStabilityPill({ level }: { level: string | undefined }) {
   if (!style) return null
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} font-medium bg-transparent border ${style.border} text-text-body`}
+      className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-transparent border ${style.border} text-text-body`}
       data-testid="attribution-stability-pill"
     >
       {style.label}
@@ -92,7 +92,7 @@ function RangeDerivationBadge({ source }: { source: string | undefined }) {
   const tooltip = `Range estimated from ${source.replace(/_/g, ' ')}. Consider confirming the plausible range.`
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} font-medium bg-transparent border border-danger/30 text-text-body`}
+      className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-transparent border border-danger/30 text-text-body`}
       title={tooltip}
       data-testid="range-derivation-badge"
     >
@@ -409,7 +409,7 @@ function FactorCard({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); focusNodeById(node.id) }}
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full border border-info/30 text-text-body hover:bg-panel-hover transition-colors ${typography.panelMeta} font-medium`}
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full border border-info/30 text-text-body hover:bg-panel-hover transition-colors ${typography.panelMeta}`}
                   data-testid={`factor-${node.id}-refine-range`}
                 >
                   Refine range
@@ -537,7 +537,7 @@ function FactorCard({
           {/* Group 1: Current state — only shown when there is something to display */}
           {(isExternal ? (priorRangeMin !== undefined && priorRangeMax !== undefined) : obs.value !== undefined || obs.cap !== undefined) && (
             <>
-              <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Current state</div>
+              <div className={`${typography.panelMeta} text-text-light mb-1`}>Current state</div>
               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
                 {isExternal && priorRangeMin !== undefined && priorRangeMax !== undefined && (
                   <>
@@ -570,7 +570,7 @@ function FactorCard({
           {/* Group 2: Sensitivity — only shown when at least one sensitivity metric exists */}
           {((uncertaintyDrivers && uncertaintyDrivers.length > 0) || elasticity != null || rankFlipRate != null || factorConfidence?.show === true) && (
             <div className="border-t border-panel-border mt-2 pt-2">
-              <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Sensitivity</div>
+              <div className={`${typography.panelMeta} text-text-light mb-1`}>Sensitivity</div>
               {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
                 <div className="mb-1">
                   <span className={`${typography.panelMeta} text-text-light`}>Uncertainty drivers</span>
@@ -615,7 +615,7 @@ function FactorCard({
 
           {/* Group 3: Metadata */}
           <div className="border-t border-panel-border mt-2 pt-2">
-            <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Metadata</div>
+            <div className={`${typography.panelMeta} text-text-light mb-1`}>Metadata</div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               <span className={`${typography.panelMeta} text-text-light`}>Node ID</span>
               <span className={`${typography.panelBody} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>

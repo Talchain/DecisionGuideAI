@@ -136,10 +136,32 @@ const CLASSES = [
     id: 'panel-typography-scoped',
     mode: 'ratchet',
     description: 'Raw text-/font- utilities in panel scope — must use panelHeader/Body/Meta (DS v5 §2.4)',
+    /*
+     * ⚠ THIS SCOPE WAS A HAND-MAINTAINED MIRROR OF A SCOPE DECLARED IN PROSE
+     * ELSEWHERE, AND IT HAD DRIFTED (widened 18 Aug 2026, B4 lane).
+     *
+     * DS v5 §2.2 declares the rule's scope as "`src/components/results/`,
+     * `src/canvas/panels/`, `src/canvas/ui/EdgeInspector*`, AND ANY COMPONENT
+     * RENDERED INSIDE A SIDE PANEL". The list below implemented the three
+     * literal paths and dropped the clause that carries the actual meaning —
+     * so the gate did not scan the INSPECTOR (`canvas/ui/inspector-v2/`) or the
+     * MODEL EDITOR (`canvas/model-tab-v2/`, `canvas/components/model-tab/`),
+     * which are the side panels the rule exists for. Measured at `dd089a50`:
+     * ZERO baseline signatures in those directories and 67 real occurrences
+     * across 28 files. The gate reported green over the whole surface.
+     *
+     * The three directories are now named. `EdgeInspector` is matched as a
+     * PREFIX, per §2.2's `EdgeInspector*`, rather than the single exact file
+     * the list happened to hold — the stories file beside it was out of scope
+     * for no stated reason.
+     */
     inScope: (p) =>
       !isTest(p) &&
       (under(p, 'components/results') || under(p, 'canvas/panels') ||
-       p === 'canvas/ui/EdgeInspector.tsx'),
+       under(p, 'canvas/ui/inspector-v2') ||
+       under(p, 'canvas/model-tab-v2') ||
+       under(p, 'canvas/components/model-tab') ||
+       p.startsWith('canvas/ui/EdgeInspector')),
     lineTokens: (line) => line.match(PANEL_TYPO) || [],
   },
   {

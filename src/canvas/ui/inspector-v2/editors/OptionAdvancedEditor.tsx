@@ -57,7 +57,7 @@ export function OptionAdvancedEditor({ nodeId }: OptionAdvancedEditorProps) {
           <div className="space-y-2">
             {rows.map(row => (
               <div key={row.factorId} className="space-y-0.5">
-                <div className={`${typography.panelMeta} text-text-body font-medium truncate`}>
+                <div className={`${typography.panelMeta} text-text-body truncate`}>
                   {row.label}
                 </div>
                 <AdvancedField

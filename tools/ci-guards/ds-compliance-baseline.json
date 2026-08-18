@@ -6173,13 +6173,16 @@
     "panel-typography-scoped": {
       "mode": "ratchet",
       "description": "Raw text-/font- utilities in panel scope — must use panelHeader/Body/Meta (DS v5 §2.4)",
-      "total": 10,
+      "total": 15,
       "byFile": {
         "src/canvas/panels/TemplatesPanel.tsx": 3,
         "src/canvas/ui/EdgeInspector.tsx": 3,
         "src/canvas/panels/AdapterStatusBanner.tsx": 2,
+        "src/canvas/ui/inspector-v2/panels/FactorControllablePanel.tsx": 2,
+        "src/canvas/ui/inspector-v2/shared/InlineNumberEditor.tsx": 2,
         "src/canvas/panels/InspectorPanel.tsx": 1,
-        "src/canvas/panels/IssuesPanel.tsx": 1
+        "src/canvas/panels/IssuesPanel.tsx": 1,
+        "src/canvas/ui/inspector-v2/panels/OptionPanel.tsx": 1
       },
       "signatures": {
         "panel-typography-scoped :: src/canvas/panels/AdapterStatusBanner.tsx :: text-xs": {
@@ -6223,6 +6226,24 @@
           "file": "src/canvas/ui/EdgeInspector.tsx",
           "token": "font-medium",
           "sample": "<span className=\"font-medium\">{sourceLabel}</span>"
+        },
+        "panel-typography-scoped :: src/canvas/ui/inspector-v2/panels/FactorControllablePanel.tsx :: text-xl": {
+          "count": 2,
+          "file": "src/canvas/ui/inspector-v2/panels/FactorControllablePanel.tsx",
+          "token": "text-xl",
+          "sample": "<span className={`${typography.panelHeader} text-xl`}>{unit}</span>"
+        },
+        "panel-typography-scoped :: src/canvas/ui/inspector-v2/panels/OptionPanel.tsx :: text-2xl": {
+          "count": 1,
+          "file": "src/canvas/ui/inspector-v2/panels/OptionPanel.tsx",
+          "token": "text-2xl",
+          "sample": "<div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--option)' }}>"
+        },
+        "panel-typography-scoped :: src/canvas/ui/inspector-v2/shared/InlineNumberEditor.tsx :: text-xl": {
+          "count": 2,
+          "file": "src/canvas/ui/inspector-v2/shared/InlineNumberEditor.tsx",
+          "token": "text-xl",
+          "sample": "className={`${typography.panelHeader} text-xl text-left w-full cursor-text hover:bg-panel-hover rounded px-0.5 -mx-0.5 t"
         }
       }
     },

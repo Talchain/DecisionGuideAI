@@ -338,12 +338,40 @@ function ValueCell({
    */
   const display = row.primaryValue
 
+  /*
+   * ⚠ THE "NOT SET" WALL, AND WHY SILENCE HERE IS NOT A HIDDEN UNKNOWN.
+   *
+   * Every row used to render `display ?? 'Not set'`, so a nine-factor model
+   * stacked twenty-odd identical inert strings down the outline — individually
+   * honest, collectively meaningless, and loud enough to drown the rows that
+   * had something to say.
+   *
+   * The rule now: "Not set" is printed only where it is ACTIONABLE, i.e. where
+   * pressing it opens the editor that fixes it (the arm below). Where nothing
+   * can be done from this cell, the cell is SILENT — and the fact is carried,
+   * once, by the group heading's unknown summary in `ModelOutline`, by this
+   * row's `attention` marker, and by the detail region, which still renders
+   * "Not set" for the selected row.
+   *
+   * This is the rule the provenance pill three elements up already follows
+   * (`showWhenAbsent={false}` — "absence is rendered as absence"); the value
+   * cell simply did not follow its own neighbour. Nothing is invented and
+   * nothing is concealed: the unknown moved from N repetitions to one sentence
+   * plus one marker, which is the difference between stating a fact and
+   * shouting it.
+   */
   if (!row.editable) {
     return (
       <span data-testid={testid} className={typography.tabular}>
-        {display ?? 'Not set'}
+        {display ?? ''}
       </span>
     )
+  }
+
+  // Editable but the canonical transaction is not connected: the control is
+  // dead, so an unknown here is inert text, not an affordance.
+  if (display === null && !editorAvailable) {
+    return <span data-testid={testid} className={typography.tabular} />
   }
 
   return (

@@ -44,6 +44,8 @@ import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProve
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
 import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
+import { resolveElementLabel } from '../../../domain/elementLabel'
+import { GoalConstraintProvenance } from '../shared/GoalConstraintProvenance'
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
@@ -211,7 +213,7 @@ export const GoalPanel = memo(function GoalPanel({
   const factorNodes = useMemo(() =>
     nodes.filter(n => n.type === 'factor').map(n => ({
       id: n.id,
-      label: String(n.data?.label ?? n.id),
+      label: resolveElementLabel(n.data),
     })),
   [nodes])
 
@@ -291,7 +293,7 @@ export const GoalPanel = memo(function GoalPanel({
           edgeId: e.id,
           nodeId: e.source,
           nodeKind: kind,
-          label: String(sourceNode?.data?.label ?? e.source),
+          label: resolveElementLabel(sourceNode?.data),
           strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
@@ -404,6 +406,13 @@ export const GoalPanel = memo(function GoalPanel({
                           }`}>{Math.round(prob * 100)}%</span>
                         )}
                       </div>
+                      {/* N-20 — the user's own words, under the constraint they
+                          produced. Renders nothing for an Olumi-inferred
+                          constraint, which carries no `source_quote`. */}
+                      <GoalConstraintProvenance
+                        constraintId={String(c.constraint_id ?? c.id ?? i)}
+                        sourceQuote={c.source_quote}
+                      />
                       {prob !== null && (
                         <div className="mt-1">
                           <DataBar
@@ -568,7 +577,7 @@ export const GoalPanel = memo(function GoalPanel({
                 <button
                   type="button"
                   onClick={handleAddConstraint}
-                  className={`${typography.panelMeta} bg-primary text-text-on-color rounded-lg px-3 py-1 font-medium`}
+                  className={`${typography.panelMeta} bg-primary text-text-on-color rounded-lg px-3 py-1`}
                   data-testid="confirm-add-constraint"
                 >
                   {GOAL_CONSTRAINT_COPY.addButton}

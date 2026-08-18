@@ -59,7 +59,7 @@ export function SourceProvenancePill({ source, showWhenAbsent = true }: SourcePr
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border ${config.border} text-text-body ${typography.panelMeta} font-medium`}
+      className={`inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border ${config.border} text-text-body ${typography.panelMeta}`}
       title={source ? `Source: ${source}` : 'No source set'}
     >
       {config.label}

@@ -113,7 +113,7 @@ export const InspectorShell = memo(function InspectorShell({
             <Spline size={22} style={{ color: entityColor }} aria-hidden="true" />
           )}
           <span
-            className={`${typography.panelMeta} font-semibold`}
+            className={`${typography.panelMeta}`}
             style={{ color: entityColor }}
           >
             {typePill}

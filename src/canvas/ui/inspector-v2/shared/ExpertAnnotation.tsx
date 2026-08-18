@@ -11,6 +11,7 @@
  */
 
 import type { ReactNode } from 'react'
+import { typography } from '../../../../styles/typography'
 
 interface ExpertAnnotationDisplayProps {
   techMode: boolean
@@ -41,7 +42,7 @@ export function ExpertAnnotation(props: ExpertAnnotationProps) {
       <div className="flex items-center gap-1 mt-1">
         {suffix && (
           <span
-            className="text-[10px] leading-none text-text-light font-mono"
+            className={`${typography.code} leading-none text-text-light`}
           >
             {suffix}
           </span>
@@ -58,7 +59,7 @@ export function ExpertAnnotation(props: ExpertAnnotationProps) {
             const v = Number(raw)
             if (Number.isFinite(v)) onChange(v)
           }}
-          className="text-[10px] leading-none font-mono text-right bg-panel border border-panel-border rounded px-1 py-0.5 w-16 text-text-body focus:outline-none focus:border-primary"
+          className={`${typography.code} leading-none text-right bg-panel border border-panel-border rounded px-1 py-0.5 w-16 text-text-body focus:outline-none focus:border-primary`}
         />
       </div>
     )
@@ -66,7 +67,7 @@ export function ExpertAnnotation(props: ExpertAnnotationProps) {
 
   return (
     <div
-      className="text-[10px] leading-none text-text-light font-mono mt-1"
+      className={`${typography.code} leading-none text-text-light mt-1`}
     >
       {props.children}
     </div>

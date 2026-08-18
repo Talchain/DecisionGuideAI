@@ -35,6 +35,7 @@ import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProve
 import { useParticipantName } from '../../../../collab/useParticipantName'
 import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
 import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
+import { resolveElementLabel } from '../../../domain/elementLabel'
 
 // Quick-set presets
 const QUICK_SET = {
@@ -143,7 +144,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
           edgeId: e.id,
           nodeId: e.target,
           nodeKind: kind,
-          label: String(tgt?.data?.label ?? e.target),
+          label: resolveElementLabel(tgt?.data),
           strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
@@ -189,10 +190,10 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
 
         {/* Provenance pills: category identity + data source */}
         <div className="mt-2 flex gap-1.5 flex-wrap">
-          <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
+          <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
             Outside your control
           </span>
-          <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
+          <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
             {getExtractionLabel(source, attributedTo)}
           </span>
         </div>
@@ -255,7 +256,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
                 onClick={() => handleQuickSet(key)}
                 className={`${typography.panelMeta} px-2.5 py-1 rounded-full cursor-pointer capitalize transition-colors ${
                   selected === key
-                    ? 'border border-primary text-primary font-semibold bg-panel'
+                    ? 'border border-primary text-primary bg-panel'
                     : 'border border-panel-border text-text-light bg-panel hover:bg-panel-hover'
                 }`}
               >

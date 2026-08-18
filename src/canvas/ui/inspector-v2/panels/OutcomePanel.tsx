@@ -29,6 +29,7 @@ import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { OutcomeAdvancedEditor } from '../editors/OutcomeAdvancedEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
+import { resolveElementLabel } from '../../../domain/elementLabel'
 
 // ─── Option comparison helpers ─────────────────────────────────────
 
@@ -102,7 +103,7 @@ function OptionComparisonSection({
                 {opt.option_label ?? opt.option_id}
               </span>
               {opt.win_probability != null && (
-                <span className={`${typography.panelMeta} shrink-0 text-option font-medium`}>
+                <span className={`${typography.panelMeta} shrink-0 text-option`}>
                   {Math.round(opt.win_probability * 100)}% win
                 </span>
               )}
@@ -182,7 +183,7 @@ export const OutcomePanel = memo(function OutcomePanel({
           edgeId: e.id,
           nodeId: e.source,
           nodeKind: kind,
-          label: String(src?.data?.label ?? e.source),
+          label: resolveElementLabel(src?.data),
           strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
@@ -205,13 +206,13 @@ export const OutcomePanel = memo(function OutcomePanel({
         {goalContribution != null && (
           <div className="mt-2 px-3 py-2 bg-panel border border-success/30 rounded-lg">
             <div className="flex items-center gap-2">
-              <span className={`${typography.panelMeta} font-medium text-text-body`}>
+              <span className={`${typography.panelMeta} text-text-body`}>
                 {INLINE_LABELS.contributesToGoal}
               </span>
               <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden">
                 <div className="h-full bg-success rounded-full" style={{ width: `${Math.min(goalContribution, 100)}%` }} />
               </div>
-              <span className={`${typography.panelMeta} font-medium text-text-body`}>{goalContribution}%</span>
+              <span className={`${typography.panelMeta} text-text-body`}>{goalContribution}%</span>
             </div>
             {!isResultsMode && (
               <p className={`${typography.panelMeta} text-text-light mt-1`}>{INLINE_LABELS.basedOnModelStructure}</p>

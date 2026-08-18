@@ -55,6 +55,7 @@ import {
 import { useParticipantName } from '../../../../collab/useParticipantName'
 import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
 import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
+import { resolveElementLabel } from '../../../domain/elementLabel'
 
 /**
  * Extract a non-empty string intervention value, accepting either a bare
@@ -348,7 +349,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
           interventionValue == null ? extractStringIntervention(raw) : null
         return {
           nodeId: e.source,
-          label: String(src?.data?.label ?? e.source),
+          label: resolveElementLabel(src?.data),
           interventionValue,
           interventionDisplayValue,
           interventionStringValue,
@@ -375,7 +376,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
           edgeId: e.id,
           nodeId: e.target,
           nodeKind: kind,
-          label: String(tgt?.data?.label ?? e.target),
+          label: resolveElementLabel(tgt?.data),
           strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
@@ -421,11 +422,11 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         {/* Provenance pills: factor type identity + extraction source */}
         <div className="mt-2 flex gap-1.5 flex-wrap">
           {node.data?.factorType && (
-            <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
+            <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
               {String(node.data.factorType)}
             </span>
           )}
-          <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
+          <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
             {getExtractionLabel(source, attributedTo)}
           </span>
         </div>
@@ -560,7 +561,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               {uncertaintyDrivers.map((d, i) => (
                 <span
                   key={i}
-                  className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
+                  className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
                   style={{ border: '1px solid var(--warning)4D' }}
                 >
                   {d}
@@ -609,7 +610,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                   nodeKind="option"
                   label={o.label}
                   badge={badgeContent != null ? (
-                    <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2 py-0.5 rounded-full bg-transparent text-text-body border border-option/30`}>
+                    <span className={`${typography.panelMeta} inline-flex items-center px-2 py-0.5 rounded-full bg-transparent text-text-body border border-option/30`}>
                       {badgeContent}
                     </span>
                   ) : undefined}

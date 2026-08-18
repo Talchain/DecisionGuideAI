@@ -41,6 +41,7 @@ import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProve
 import { useParticipantName } from '../../../../collab/useParticipantName'
 import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
 import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
+import { resolveElementLabel } from '../../../domain/elementLabel'
 
 export const FactorObservablePanel = memo(function FactorObservablePanel({
   nodeId,
@@ -118,7 +119,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           edgeId: e.id,
           nodeId: e.target,
           nodeKind: kind,
-          label: String(tgt?.data?.label ?? e.target),
+          label: resolveElementLabel(tgt?.data),
           strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
@@ -163,11 +164,11 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
 
         {/* Provenance pills: category identity + data source */}
         <div className="mt-2 flex gap-1.5 flex-wrap">
-          <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
+          <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
             You measure this
           </span>
           {source && (
-            <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
+            <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
               {getExtractionLabel(source, attributedTo)}
             </span>
           )}

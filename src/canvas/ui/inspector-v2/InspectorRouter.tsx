@@ -27,6 +27,7 @@ import { OutcomePanel } from './panels/OutcomePanel'
 import { RiskPanel } from './panels/RiskPanel'
 import { GenericNodePanel } from './panels/GenericNodePanel'
 import { InspectorQuickActions } from './shared/InspectorQuickActions'
+import { resolveElementLabel } from '../../domain/elementLabel'
 
 // Entity colour map — used as fallback for inspector header entity colour
 const TOP_BAR_COLORS: Record<string, string> = {
@@ -168,8 +169,8 @@ export const InspectorRouter = memo(function InspectorRouter({
 
     const sourceNode = nodes.find(n => n.id === edge.source)
     const targetNode = nodes.find(n => n.id === edge.target)
-    const sourceLabel = String(sourceNode?.data?.label ?? edge.source)
-    const targetLabel = String(targetNode?.data?.label ?? edge.target)
+    const sourceLabel = resolveElementLabel(sourceNode?.data)
+    const targetLabel = resolveElementLabel(targetNode?.data)
     const edgeLabel = `${sourceLabel} \u2192 ${targetLabel}`
 
     // Edge confidence from beliefExists — PROVENANCE-GATED.
