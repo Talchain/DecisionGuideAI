@@ -15,11 +15,17 @@
  *
  * Options are canvas nodes (there is no separate option entity), so one node
  * map resolves both `option_id` and `factor_id`.
+ *
+ * ⚠ `resolveCanvasLabel` NO LONGER LIVES HERE. It moved to
+ * `src/canvas/domain/canvasLabels.ts` (18 Aug 2026) so the Model tab's pure
+ * projection adapter can share the ONE policy without taking this store
+ * subscription with it. There is deliberately NO re-export from this module:
+ * a shim would make the policy reachable from two places, which is the defect
+ * the move exists to avoid. Import it from its new home.
  */
 
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../canvas/store'
-import { RAW_ID_PATTERN } from '../../canvas/conversation/friendlyOperation'
 
 /**
  * Node id → display label for every canvas node that has one.
@@ -41,28 +47,4 @@ export function useCanvasNodeLabels(): ReadonlyMap<string, string> {
     }
     return map
   }, [nodes])
-}
-
-/**
- * Resolve one wire id to a human label, or `null` when no honest label
- * exists.
- *
- * Returns `null` rather than the id — that is the whole point. Callers must
- * decide what to show instead, and the type makes them decide: there is no
- * way to accidentally fall through to the identifier.
- *
- * A stored label that is ITSELF a raw id is rejected via `RAW_ID_PATTERN`.
- * Upstream sometimes seeds a node's label from its id; without this guard the
- * leak would simply move one hop upstream and still reach the user.
- */
-export function resolveCanvasLabel(
-  id: string,
-  labels: ReadonlyMap<string, string>,
-): string | null {
-  const label = labels.get(id)
-  if (label === undefined) return null
-  const trimmed = label.trim()
-  if (trimmed === '') return null
-  if (RAW_ID_PATTERN.test(trimmed)) return null
-  return trimmed
 }

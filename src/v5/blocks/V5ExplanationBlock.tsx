@@ -18,7 +18,8 @@
 import { useMemo, type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import type { V5ExplanationBlock as V5ExplanationBlockType } from '../../canvas/conversation/types'
-import { useCanvasNodeLabels, resolveCanvasLabel } from './useCanvasLabels'
+import { useCanvasNodeLabels } from './useCanvasLabels'
+import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
 
 export interface V5ExplanationBlockProps {
   block: V5ExplanationBlockType

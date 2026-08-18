@@ -21,6 +21,12 @@
  * one: a stub that reported success would be the silent-local-write defect
  * re-created inside the component written to kill it.
  *
+ * ⚠ THE CONFIRM CHIP (`onConfirmValueAsIs`, 18 Aug 2026) IS NOT AN EXCEPTION TO
+ * THAT RULE — it is the rule applied to a different gesture. It has an
+ * authority, so it renders live; and because it changes a value's PROVENANCE
+ * rather than the value, it is deliberately outside the three-beat rather than
+ * a phase of it. See the prop's own note.
+ *
  * THE INLINE-CHIP CONFIRM (ruling R9, 16 Aug 2026). The three-beat renders in
  * the row itself: an input while `editing`, then Confirm / Discard CHIPS while
  * `proposed` — never a modal. Until Confirm, the model is unchanged and the
@@ -71,6 +77,23 @@ export interface ModelRowViewProps {
   onDiscardEdit?: (id: string) => void
   /** The inline confirm chip — dispatches the canonical transaction. */
   onConfirmEdit?: (id: string) => void
+  /**
+   * Ratify this row's AI-estimated value as correct — the v1 Confirm ✓,
+   * rehomed (18 Aug 2026).
+   *
+   * ⚠ IT IS A SEPARATE PROP FROM THE VALUE THREE-BEAT, NOT A PHASE OF IT, and
+   * that separation is load-bearing. Confirming changes the value's PROVENANCE
+   * and not the value, so it has no draft, no `from`/`to` and nothing to
+   * propose — folding it into `EditCommitState` would give the row a "proposed"
+   * state whose `to` equalled its `from`, which reads as an edit that did
+   * nothing. Two gestures, two names (trap 21).
+   *
+   * Absent ⇒ the affordance does not render at all. It never renders disabled:
+   * unlike the value editor, this operation HAS an authority, so an absent
+   * callback means the host chose not to offer it here, not that the estate
+   * cannot honour it.
+   */
+  onConfirmValueAsIs?: (id: string) => void
 }
 
 /** Why the editor is unavailable. Shown on the disabled control, in words. */
@@ -90,9 +113,28 @@ export function ModelRowView({
   onProposeEdit,
   onDiscardEdit,
   onConfirmEdit,
+  onConfirmValueAsIs,
 }: ModelRowViewProps) {
   const phase = commit?.phase ?? 'idle'
   const editorAvailable = row.editable && editConnected && typeof onBeginEdit === 'function'
+
+  /*
+   * ⚠ THE AFFORDANCE IS BOUND TO THE ATTENTION REASON, NOT TO A RE-DERIVED
+   * PREDICATE. `unconfirmed-estimate` is already the one predicate this surface
+   * uses for "an AI estimate nobody has ratified" — it drives the row marker and
+   * the queue counts. Asking the same question a second way here is how the
+   * chip and the ⚠ start disagreeing about the same row (trap 12).
+   *
+   * The value guard is separate and is NOT a duplicate of it: `attention` says
+   * the estimate is unratified; `primaryValue` says there is a number on screen
+   * to ratify. A Confirm button over an empty cell asks the user to endorse
+   * nothing (preamble P8), and the authority would refuse it anyway — so the
+   * button does not appear rather than appearing and failing.
+   */
+  const canConfirmAsIs =
+    typeof onConfirmValueAsIs === 'function' &&
+    row.attention.includes('unconfirmed-estimate') &&
+    row.primaryValue !== null
 
   return (
     <li
@@ -147,6 +189,32 @@ export function ModelRowView({
         <span data-testid={`model-row-v2-${row.id}-provenance`}>
           <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} />
         </span>
+      )}
+
+      {/*
+        ⚠ `-confirm-as-is`, NOT `-confirm`. The three-beat's chip already owns
+        `model-row-v2-<id>-confirm`, and the first cut of this affordance reused
+        it — two DIFFERENT gestures answering to one identity, which broke five
+        existing pins that assert the value-edit chip is absent while typing.
+        The collision was the guard doing its job: an assertion that binds by
+        identity is only as good as the identity being unique (trap 19), and a
+        shared testid is the same "two things, one name" defect this whole lane
+        is removing, at the scale of an attribute.
+      */}
+      {canConfirmAsIs && (
+        <button
+          type="button"
+          data-testid={`model-row-v2-${row.id}-confirm-as-is`}
+          title="Confirm this value is correct"
+          aria-label={`Confirm ${row.label} is correct`}
+          className={`${typography.buttonSmall} text-info underline decoration-dotted`}
+          onClick={e => {
+            e.stopPropagation()
+            onConfirmValueAsIs?.(row.id)
+          }}
+        >
+          Confirm
+        </button>
       )}
 
       {row.attention.map(reason => (

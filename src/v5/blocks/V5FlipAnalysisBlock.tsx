@@ -19,7 +19,8 @@
 import { useMemo, type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import type { V5FlipAnalysisBlock as V5FlipAnalysisBlockType } from '../../canvas/conversation/types'
-import { useCanvasNodeLabels, resolveCanvasLabel } from './useCanvasLabels'
+import { useCanvasNodeLabels } from './useCanvasLabels'
+import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
 
 export interface V5FlipAnalysisBlockProps {
   block: V5FlipAnalysisBlockType

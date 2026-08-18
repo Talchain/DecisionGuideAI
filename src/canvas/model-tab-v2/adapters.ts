@@ -44,13 +44,12 @@
  *   · `getDirectionalStrengthLabel`  — model-tab/strengthBands
  *   · `getPrimaryValue`              — model-tab/utils
  *   · `getDisplayEdgeId`             — utils/edgeIdentity
+ *   · `factorNeedsVerification`      — domain/valueProvenance. ⚠ THIS USED TO BE
+ *     A PORT, with a corpus pinning the copy against `countFactorsToVerify`.
+ *     It MOVED to the domain layer on 18 Aug 2026 and both readers now import
+ *     it, so there is nothing left to pin: agreement is structural, not tested.
  *
  * PORTED, because the live logic is not exported per-item:
- *   · `factorNeedsVerification` ← the filter body inside `countFactorsToVerify`
- *     (`model-tab/utils.ts:118-125`). Only the COUNT is exported, and a queue
- *     needs to know WHICH factors. ⚠ The port is pinned in
- *     `adapters.spec.ts` by asserting my per-factor predicate and the live
- *     COUNT agree over a corpus — so the copy cannot drift without a red.
  *   · `edgeIsContested` ← `RelationshipsSection.tsx:610`.
  *   · `optionHasNoInterventions` ← the `allUnmapped` body in
  *     `OptionsSection.tsx:441-446`.
@@ -119,12 +118,21 @@ import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
 import { getPrimaryValue, formatSmartNumber } from '../components/model-tab/utils'
 import { getDisplayEdgeId } from '../utils/edgeIdentity'
+// THE ONE id → label policy (`src/canvas/domain/canvasLabels.ts`). It returns
+// `null` rather than the identifier, and rejects a stored label that is itself
+// id-shaped — which is why it is imported here rather than reimplemented.
+import { buildCanvasLabelMap, resolveCanvasLabel, UNNAMED_ELEMENT_LABEL } from '../domain/canvasLabels'
+import { resolveNodeTypeLiteral } from '../domain/nodes'
+import { factorNeedsVerification } from '../domain/valueProvenance'
+import { interventionTargetValue } from '../domain/interventions'
+import { unwrapInterventionValue } from '../utils/labelUtils'
 import type {
   AttentionReason,
   ModelElementKind,
   ModelGroupId,
   ModelRow,
   ModelRowDetail,
+  OptionInterventionField,
   RepairQueue,
   RepairQueueItem,
 } from './types'
@@ -168,8 +176,12 @@ export interface ModelProjectionInput {
  * canvas puts it in.
  */
 export function nodeKind(node: { type?: string; data?: unknown }): ModelElementKind | null {
-  const data = node.data as { kind?: unknown; type?: unknown } | undefined
-  const raw = (node.type ?? data?.kind ?? data?.type) as string | undefined
+  // ⚠ THE FALLBACK CHAIN IS NOT RE-DERIVED HERE. `resolveNodeTypeLiteral`
+  // (canvas/domain/nodes.ts) owns it, because "where is the kind stored?" is a
+  // fact about the data that every surface must answer identically. This
+  // function answers a DIFFERENT question — "does this outline render it?" —
+  // and that narrowing is the only thing it adds.
+  const raw = resolveNodeTypeLiteral(node)
   switch (raw) {
     case 'goal':
     case 'decision':
@@ -201,35 +213,6 @@ const KIND_GROUP: Record<ModelElementKind, ModelGroupId> = {
 // Ported predicates — each pinned against its live original in the specs
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * PORTED from the filter body of `countFactorsToVerify`
- * (`src/canvas/components/model-tab/utils.ts:118-125`), verbatim in behaviour:
- *
- *     const obs = data?.observedState ?? data?.observed_state
- *     return !obs?.source || obs?.source === 'cee_inference'
- *
- * ⚠ WHY A PORT AND NOT AN IMPORT: only the COUNT is exported, and a queue must
- * know WHICH factors, not how many. The copy is pinned in `adapters.spec.ts`
- * against the live `countFactorsToVerify` over a corpus, so a drift in either
- * direction turns that spec red rather than silently disagreeing with the badge.
- *
- * ⚠⚠ IF YOU MUTATION-TEST THIS FUNCTION, ANCHOR ON THE FUNCTION BODY, NOT ON THE
- * PREDICATE LINE. The comment above quotes the live source VERBATIM, so the
- * predicate text appears twice in this file and a first-occurrence replace edits
- * the COMMENT. That produced a FALSE SURVIVOR here once already: the file's hash
- * changed, the applied-check passed, and the mutant was inert — an unapplied
- * mutation is indistinguishable from an equivalent one unless the check proves
- * the CODE moved. Anchoring on the enclosing `export function …` block cannot
- * match a comment, and the mutant then bites six tests.
- *
- * ⚠ IT READS BOTH SPELLINGS. Canvas stores `observedState`; the CEE/PLoT wire
- * uses `observed_state`, and graphs carry both. Reading one would under-count.
- */
-export function factorNeedsVerification(data: unknown): boolean {
-  const d = data as Record<string, unknown> | undefined
-  const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
-  return !obs?.source || obs?.source === 'cee_inference'
-}
 
 /**
  * PORTED from `RelationshipsSection.tsx:610`:
@@ -258,6 +241,35 @@ export function optionHasNoInterventions(data: unknown): boolean {
     | Record<string, unknown>
     | undefined
   return !interventions || Object.keys(interventions).length === 0
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Relationships in plain English
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+/**
+ * `From → To`, in the user's words.
+ *
+ * The arrow is the v1 separator, kept verbatim. An edge that carries its OWN
+ * `label` still wins — the producer naming a relationship outranks anything
+ * derived from its endpoints.
+ */
+function relationshipLabel(
+  data: Record<string, unknown> | undefined,
+  sourceId: string,
+  targetId: string,
+  labels: ReadonlyMap<string, string>,
+): string {
+  if (typeof data?.label === 'string' && data.label.trim() !== '') return data.label
+  const from = resolveCanvasLabel(sourceId, labels) ?? UNNAMED_ELEMENT_LABEL
+  const to = resolveCanvasLabel(targetId, labels) ?? UNNAMED_ELEMENT_LABEL
+  return `${from} → ${to}`
+}
+
+/** One element's name for a navigation target. Never its identifier. */
+function endpointLabel(id: string, labels: ReadonlyMap<string, string>): string {
+  return resolveCanvasLabel(id, labels) ?? UNNAMED_ELEMENT_LABEL
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -356,6 +368,9 @@ function attentionForFactor(data: unknown, value: string | null): AttentionReaso
  */
 export function toModelRows(input: ModelProjectionInput): ModelRow[] {
   const rows: ModelRow[] = []
+  // ONE map per projection — built here, threaded down. Rebuilding it per edge
+  // would be the same work N times and, worse, a second place to get it wrong.
+  const nodeLabels = buildCanvasLabelMap(input.nodes)
 
   for (const node of input.nodes) {
     const kind = nodeKind(node)
@@ -438,7 +453,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       id: edge.id,
       kind: 'relationship',
       group: 'relationships',
-      label: typeof data?.label === 'string' ? data.label : `${edge.source} → ${edge.target}`,
+      label: relationshipLabel(data, edge.source, edge.target, nodeLabels),
       primaryValue: edgeValue(data),
       provenanceSource: typeof data?.weightSource === 'string' ? data.weightSource : undefined,
       attention,
@@ -466,6 +481,7 @@ export function toRepairQueueItems(
   queueId: RepairQueue['id'],
 ): RepairQueueItem[] {
   const factorNodes = input.nodes.filter(n => nodeKind(n) === 'factor')
+  const nodeLabels = buildCanvasLabelMap(input.nodes)
 
   if (queueId === 'confirm-estimates') {
     return factorNodes
@@ -511,7 +527,7 @@ export function toRepairQueueItems(
         const data = e.data as Record<string, unknown> | undefined
         return {
           rowId: e.id,
-          label: typeof data?.label === 'string' ? data.label : `${e.source} → ${e.target}`,
+          label: relationshipLabel(data, e.source, e.target, nodeLabels),
           currentValue: edgeValue(data),
           suggestedValue: null,
           basis: 'Two validation passes disagree',
@@ -552,6 +568,7 @@ export function toRepairQueueItems(
  * visible refusal rather than a confident, wrong pane.
  */
 export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRowDetail | null {
+  const nodeLabels = buildCanvasLabelMap(input.nodes)
   const node = input.nodes.find(n => n.id === rowId)
   if (node) {
     const data = node.data as Record<string, unknown> | undefined
@@ -566,9 +583,13 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
       secondaryValues: secondary,
       basis: typeof obs?.source === 'string' ? `Source: ${obs.source}` : null,
       adjustments: [],
+      // ⚠ The NAVIGATION id stays the edge's; the LABEL is the target element's
+      // name. Rendering `e.target` here put a raw wire id in the detail region's
+      // "What it affects" list — an identifier presented as user copy.
       affects: input.edges
         .filter(e => e.source === rowId)
-        .map(e => ({ id: e.id, label: e.target })),
+        .map(e => ({ id: e.id, label: endpointLabel(e.target, nodeLabels) })),
+      interventions: buildOptionInterventions(node, nodeLabels),
       advancedParameters: buildAdvancedForNode(node.id, obs),
     }
   }
@@ -582,9 +603,56 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     secondaryValues: [],
     basis: typeof data?.provenance === 'string' ? `Source: ${data.provenance}` : null,
     adjustments: [],
-    affects: [{ id: edge.target, label: edge.target }],
+    affects: [
+      { id: edge.target, label: endpointLabel(edge.target, nodeLabels) },
+    ],
+    interventions: [],
     advancedParameters: buildAdvancedForEdge(edge.id, data),
   }
+}
+
+/**
+ * The factors an option would move — the v1 intervention rows, projected.
+ *
+ * ⚠ `[]` FOR EVERY NON-OPTION KIND, decided by the SAME `nodeKind` the outline
+ * groups by rather than by "does this node happen to carry an `interventions`
+ * key". A factor that somehow carried one would otherwise sprout an editor for
+ * a relationship it does not have.
+ *
+ * ⚠ AN ENTRY WHOSE FACTOR IS NOT IN THE MODEL IS DROPPED, NOT RENAMED. The v1
+ * row rendered `factorId` in that case — a raw wire id presented as the name of
+ * a thing the user is asked to set a value for. Showing `UNNAMED_ELEMENT_LABEL`
+ * instead would be honest about the label and still wrong about the offer: the
+ * product would be asking the user to change something that is not in their
+ * model (preamble P8). The write authority refuses these for the same reason,
+ * so the projection and the authority agree by construction.
+ */
+function buildOptionInterventions(
+  node: Node,
+  labels: ReadonlyMap<string, string>,
+): OptionInterventionField[] {
+  if (nodeKind(node) !== 'option') return []
+  const raw = (node.data as Record<string, unknown> | undefined)?.interventions as
+    | Record<string, unknown>
+    | undefined
+  if (!raw) return []
+  return Object.entries(raw).flatMap(([factorId, rawValue]) => {
+    const factorLabel = resolveCanvasLabel(factorId, labels)
+    if (factorLabel === null) return []
+    const numeric = interventionTargetValue(rawValue)
+    const { displayValue } = unwrapInterventionValue(rawValue)
+    // A CEE-authored `display_value` wins the DISPLAY (the F.6 passthrough the
+    // v1 rows already honoured); the numeric half is independent of it.
+    const value = displayValue ?? (numeric === undefined ? null : formatSmartNumber(numeric))
+    return [
+      {
+        factorId,
+        factorLabel,
+        value,
+        numericValue: numeric === undefined ? null : numeric,
+      },
+    ]
+  })
 }
 
 /** Advanced-tier parameters. Absent values render as absence, never as zero. */

@@ -57,21 +57,41 @@ import { focusDockedOlumi } from './dockedOlumiFocus'
  * `forceActivateOutputTab` remains the right call on the dock path and does
  * more than switch a tab: it opens a collapsed dock and ends the first-use
  * rail, which is what makes "revealed" true rather than merely selected.
+ *
+ * ── WHY IT NOW REPORTS (18 Aug 2026, the Model-tab rehome lane) ────────────
+ *
+ * It returns whether a surface was actually fronted. The value is additive —
+ * every existing caller ignores it and is unaffected — and it exists because
+ * `model-tab-v2/contracts.ts` §2 needs it: an affordance that hands a turn to
+ * Olumi must be able to SAY it could not front the panel rather than sending
+ * into silence (preamble P8 — never ask what you cannot accept).
+ *
+ * ⚠ THE ANSWER IS DERIVED HERE, INSIDE THE BRANCHES THAT ALREADY KNOW IT, and
+ * must never be re-derived by a caller. A caller modelling "is Olumi visible?"
+ * would be a second copy of this rule (trap 12), and #773 rejected exactly that
+ * re-derivation for exactly that reason.
+ *
+ * What `true` claims, stated narrowly: A SURFACE WAS FRONTED. On the dock path
+ * that is `forceActivateOutputTab`'s own guarantee (it opens a collapsed dock
+ * and ends the first-use rail). It does NOT claim the composer received focus —
+ * that can legitimately land a frame later, and conflating the two would make
+ * this report the thing it cannot see.
  */
-export function revealOlumiSurface(): void {
+export function revealOlumiSurface(): boolean {
   // Flag OFF is the rollback posture: `OutputsDock` redirects an 'olumi'
   // activation to 'results', so claiming the dock would front the WRONG tab.
   // Best-effort floating focus, exactly as before — this path is unchanged.
   if (!isAiPanelV2Enabled()) {
-    focusFloating()
-    return
+    // Best-effort only on the rollback posture: if nothing floating took focus,
+    // there is no surface to front, and saying so is the honest answer.
+    return focusFloating()
   }
 
   // A floating or first-use composer is on screen and has been focused. Do NOT
   // touch the dock: claiming it retires the very surface just revealed, and on
   // an empty canvas it would retire it in favour of a 40px rail that cannot
   // host a composer at all — stranding the user with nowhere to type.
-  if (focusFloating()) return
+  if (focusFloating()) return true
 
   // Nothing floating is visible, so the dock is (or becomes) the host. Force-
   // activate even when the Olumi tab is already selected: the version counter
@@ -84,8 +104,12 @@ export function revealOlumiSurface(): void {
   //
   // ⚠ NO FALLBACK TO `focusFloating()` HERE. It has already returned false, and
   // reaching for it again after claiming the dock is exactly the defect above.
-  if (focusDockedOlumi()) return
+  if (focusDockedOlumi()) return true
   scheduleFrame(() => { focusDockedOlumi() })
+  // The DOCK IS FRONTED — that happened synchronously above. Only the composer
+  // focus is deferred to the next frame, and this return value is about
+  // fronting, not focus.
+  return true
 }
 
 /** rAF where it exists, a macrotask otherwise (jsdom/node without rAF). */

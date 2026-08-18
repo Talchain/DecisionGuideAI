@@ -217,6 +217,30 @@ export interface DetailField {
 }
 
 /**
+ * ONE factor an option would move, and the target it would move it to
+ * (design §4.4.2, rehomed from `OptionsSection`'s intervention rows 18 Aug 2026).
+ *
+ * ⚠ `factorLabel` IS ALWAYS A HUMAN LABEL, NEVER THE ID. The v1 rows fell back
+ * to `factorId` when the lookup missed (`factorNode?.data?.label ?? factorId`),
+ * which put a raw wire id on screen for exactly the factors a user is least
+ * able to identify. The projection resolves through the one label policy and
+ * names an unresolvable endpoint `UNNAMED_ELEMENT_LABEL` instead.
+ *
+ * ⚠ `value` AND `numericValue` ANSWER DIFFERENT QUESTIONS and are deliberately
+ * both present. `value` is what the row DISPLAYS — it may be a CEE-authored
+ * `display_value` string that no arithmetic produced. `numericValue` is what an
+ * editor SEEDS FROM, and it is `null` whenever no finite number is stated, so a
+ * display string can never be silently reinterpreted as a number the user then
+ * appears to have typed.
+ */
+export interface OptionInterventionField {
+  factorId: string
+  factorLabel: string
+  value: string | null
+  numericValue: number | null
+}
+
+/**
  * Everything the detail region shows for ONE selected row (design §4.4).
  *
  * ⚠ `rowId` IS LOAD-BEARING, NOT BOOKKEEPING. The detail region asserts it
@@ -244,6 +268,14 @@ export interface ModelRowDetail {
   adjustments: readonly string[]
   /** §4.4.4 "What it affects" — related elements, ID-addressed for navigation. */
   affects: readonly { id: string; label: string }[]
+  /**
+   * §4.4.2 — for an OPTION, the factors it would move and the targets it sets.
+   * Empty for every other kind, and empty for an option that sets none: an
+   * option with no interventions reports that through its row's
+   * `missing-intervention` attention, not by this list quietly meaning two
+   * different things.
+   */
+  interventions: readonly OptionInterventionField[]
   /**
    * §4.4.5 — the ONE Advanced block. ⚠ ABSENT ENTIRELY IN PLAIN, and never
    * mixed inline beside a plain value (design §4.3 rule 2). If a "parameter"

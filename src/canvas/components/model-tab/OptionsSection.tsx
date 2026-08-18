@@ -11,7 +11,7 @@ import { useCallback, useContext, useMemo } from 'react'
 import type { Node } from '@xyflow/react'
 import { ArrowRight, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
-import { useNodeMutations } from '../../ui/inspector-v2/useInspectorMutations'
+import { useModelEditAuthority } from '../../hooks/useModelEditAuthority'
 import { SectionErrorBoundary } from '../GraphTextView'
 import { Accordion } from '../../../components/results/Accordion'
 import { focusNodeById } from '../../utils/focusHelpers'
@@ -19,6 +19,7 @@ import { formatValueWithUnit, formatSmartNumber } from './utils'
 import { InlineEdit } from './InlineEdit'
 import { DetailToggleContext } from './DetailToggleContext'
 import { unwrapInterventionValue, formatRawValueWithUnit } from '../../utils/labelUtils'
+import { interventionTargetValue } from '../../domain/interventions'
 
 /** Conditional winner entry from ISL */
 export interface ConditionalWinner {
@@ -61,48 +62,20 @@ interface InterventionItem {
   displayValue?: string
 }
 
-/**
- * Extract a numeric intervention value, accepting any of these shapes:
- * - plain number (legacy / analysis_ready format)
- * - numeric string (back-compat with hand-edited fixtures)
- * - object with `raw_target` (legacy model-tab response shape)
- * - object with `target_value` (legacy model-tab response shape)
- * - UIInterventionValue / CEEInterventionV3 object with `.value`
- *   (post-`normaliseOptionFromCEE` shape used by inspector panels)
- *
- * Returns undefined when no finite numeric value can be extracted, so
- * callers can `flatMap` to drop unrenderable rows.
- *
- * Note: this helper is intentionally more permissive than `unwrapInterventionValue`
- * in `labelUtils.ts`. The model-tab Options section receives intervention
- * payloads from older CEE response paths that use `raw_target` / `target_value`
- * field names; those paths still need to render correctly.
- */
-function extractInterventionNumeric(value: unknown): number | undefined {
-  // Primary: V3-shape unwrap (handles plain numbers, {value} objects).
-  const unwrapped = unwrapInterventionValue(value).value
-  if (unwrapped != null) return unwrapped
-  // Fallback: numeric string
-  if (typeof value === 'string' && value.trim() !== '') {
-    const n = Number(value)
-    if (Number.isFinite(n)) return n
-  }
-  // Fallback: legacy model-tab object shapes (raw_target / target_value)
-  if (value && typeof value === 'object') {
-    const obj = value as Record<string, unknown>
-    if (typeof obj.raw_target === 'number' && Number.isFinite(obj.raw_target)) return obj.raw_target
-    if (typeof obj.target_value === 'number' && Number.isFinite(obj.target_value)) return obj.target_value
-  }
-  return undefined
-}
+// The private numeric reader that lived here MOVED to
+// `canvas/domain/interventions.ts` as `interventionTargetValue` (18 Aug 2026),
+// with its documentation. The canonical Model editor needs the IDENTICAL
+// reading — including the legacy `raw_target` / `target_value` shapes — and a
+// private reader inside the editor scheduled for deletion is a reader that
+// disappears with it. Moved, not copied: this file imports the one policy.
 
 function buildInterventions(optionNode: Node, allNodes: Node[]): InterventionItem[] {
   const raw = (optionNode.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
   if (!raw) return []
   return Object.entries(raw).flatMap(([factorId, rawValue]) => {
-    const numericValue = extractInterventionNumeric(rawValue)
+    const numericValue = interventionTargetValue(rawValue)
     if (numericValue === undefined) return []
-    // displayValue flows separately: extractInterventionNumeric has legacy
+    // displayValue flows separately: interventionTargetValue has legacy
     // fallbacks (raw_target, target_value) that unwrapInterventionValue does
     // not, so we pull the numeric through that; we extract displayValue via
     // the canonical helper on the same raw input.
@@ -169,9 +142,11 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
   hasAnalysisData?: boolean
 }) {
   const { showDetail } = useContext(DetailToggleContext)
-  // ROADMAP 2.121 slice 1 — sanctioned setter (`NODE_SETTER_FIELDS.setIntervention`),
-  // not a hand-rolled updateNode that spread a render-time `option.data`.
-  const mutations = useNodeMutations(option.id)
+  // ROADMAP 2.121 slice 1 kept this section off a hand-rolled `updateNode` by
+  // routing through the sanctioned setter. The 18 Aug 2026 rehome takes the next
+  // step: the section no longer holds a mutation handle AT ALL. Its only write
+  // goes through the one transactional authority — see `handleInterventionSave`.
+  const authority = useModelEditAuthority(option.id)
 
   const label = String(option.data?.label ?? option.id)
   const interventions = buildInterventions(option, allNodes)
@@ -196,11 +171,19 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
   // edit therefore reaches CEE only as the debounced `direct_graph_edit` ping —
   // stated here rather than implied, and rowed as open question 1 in the design
   // doc. What slice 1 fixes is the WRITE: it goes through the manifest setter.
+  //
+  // ⚠ IT NO LONGER WRITES. It DISPATCHES to `useModelEditAuthority`, the one
+  // transactional authority, which is what the canonical outline's intervention
+  // editor also calls — so the two surfaces cannot record the same gesture two
+  // ways, and deleting this section drops a rendering rather than a write path.
+  // The authority additionally refuses a target keyed to a factor that is not in
+  // the model; this handler wrote one happily, and every list that renders the
+  // result falls back to the raw id when the lookup misses.
   const handleInterventionSave = useCallback((factorId: string, val: string) => {
     const num = parseFloat(val)
     if (isNaN(num)) return
-    mutations.setIntervention(factorId, num)
-  }, [mutations])
+    authority.proposeOptionIntervention(factorId, num)
+  }, [authority])
 
   return (
     <div className="bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0" data-testid={`option-card-${option.id}`}>

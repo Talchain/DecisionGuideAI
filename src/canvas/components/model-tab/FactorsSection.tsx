@@ -18,6 +18,8 @@ import { Check, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { SectionErrorBoundary } from '../GraphTextView'
 import { useNodeMutations } from '../../ui/inspector-v2/useInspectorMutations'
+import { useModelEditAuthority } from '../../hooks/useModelEditAuthority'
+import { factorNeedsVerification } from '../../domain/valueProvenance'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
 import { buildFactorValueEditEvent } from '../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../conversation/optimisticFactorEdit'
@@ -163,6 +165,9 @@ function FactorCard({
   // on every commit, and one of them (`handleRawValueSave`) wrote `raw_value`
   // without recomputing the model-scale `value`.
   const mutations = useNodeMutations(node.id)
+  // The ONE transactional authority. This section dispatches; it does not decide
+  // how a confirmation is recorded — see `handleConfirmValue`.
+  const authority = useModelEditAuthority(node.id)
 
   // ROADMAP 2.121 slice 1 / #513 — a Model-tab value commit is a REAL TURN.
   //
@@ -319,19 +324,39 @@ function FactorCard({
   }, [coachingDismissKey])
 
   // Task 8: Verify/confirm button
-  const showConfirmButton = obs.source !== 'user' && (primaryValue !== null || normalisedValue !== null)
+  //
+  // ⚠ THE PREDICATE IS `factorNeedsVerification`, THE SAME ONE THE BADGE COUNTS.
+  // It used to be `obs.source !== 'user'`, which was already loose — it offered
+  // Confirm over a `brief_extraction` the badge did not count — and it becomes
+  // WRONG the moment the gesture stamps `user_confirmed` rather than `user`:
+  // the button would survive its own success and invite the user to confirm the
+  // same number for ever. One question, one predicate.
+  const showConfirmButton =
+    factorNeedsVerification(node.data) && (primaryValue !== null || normalisedValue !== null)
   const [confirmFlash, setConfirmFlash] = useState(false)
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (flashTimerRef.current) clearTimeout(flashTimerRef.current) }, [])
 
   // Confirm changes the PROVENANCE of the existing number, not the number. It
   // therefore has no value to put on the wire (`factor_value_edit.field` is the
-  // literal `'value'` and the contract carries no confirm event), and routes
-  // through the sanctioned source setter only. Stated plainly rather than
-  // hidden: a confirm is a local annotation today, not a turn.
+  // literal `'value'` and the contract carries no confirm event). Stated plainly
+  // rather than hidden: a confirm is a local annotation today, not a turn.
+  //
+  // ⚠ IT NO LONGER WRITES. It DISPATCHES to `useModelEditAuthority`, the one
+  // transactional authority, which is also what the canonical outline's Confirm
+  // chip calls. Two surfaces, one write, one stamp — and the stamp it writes is
+  // `user_confirmed`, not the `user` this handler used to put there. `user`
+  // classifies as the `edited` kind, so the pill read "User edited" for a
+  // gesture in which the user changed no number at all; pre-analysis, the
+  // outputs dock and the calibrate drill-in have all written `user_confirmed`
+  // for the identical act. This was the last surface asserting otherwise.
+  //
+  // The delegation is deliberately made BEFORE this section is deleted: with it,
+  // the removal drops a rendering and nothing else, which is what makes the
+  // removal reviewable.
   const handleConfirmValue = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    mutations.setObservedSource('user')
+    authority.proposeFactorConfirmation()
     // Flash success
     setConfirmFlash(true)
     flashTimerRef.current = setTimeout(() => setConfirmFlash(false), 300)
@@ -340,7 +365,7 @@ function FactorCard({
       sessionStorage.setItem(coachingDismissKey, '1')
       setCoachingDismissed(true)
     }
-  }, [mutations, isDefaultedControllable, coachingDismissed, coachingDismissKey])
+  }, [authority, isDefaultedControllable, coachingDismissed, coachingDismissKey])
 
   const uncertaintyDrivers = obs.uncertainty_drivers
 

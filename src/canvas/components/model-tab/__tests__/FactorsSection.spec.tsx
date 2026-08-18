@@ -477,13 +477,39 @@ describe('FactorsSection', () => {
     expect(screen.getByTestId('factor-f1-confirm')).toBeInTheDocument()
   })
 
-  it('writes source: user on confirm click', () => {
+  /**
+   * ⚠ THIS TEST USED TO PIN THE DEFECT. Its name was "writes source: user on
+   * confirm click", and that is exactly what the handler did — so the suite was
+   * GREEN over a surface telling the user "User edited" for a gesture in which
+   * they edited nothing. A test can be correct about the code and wrong about
+   * the product; this one was.
+   *
+   * `'user'` classifies as the `edited` kind. Ratifying somebody else's number
+   * is `user_confirmed` — which is what pre-analysis, the outputs dock and the
+   * calibrate drill-in have always written for the identical act. The Model tab
+   * was the last surface disagreeing, and it disagreed because of this handler.
+   *
+   * The click now dispatches through `useModelEditAuthority`; the assertion is
+   * unchanged in SHAPE (it still watches the store write that reaches the node)
+   * so it still fails if the dispatch stops writing at all.
+   */
+  it('confirm stamps user_confirmed — the ratification stamp, not the edit stamp', () => {
     mockUpdateNode.mockClear()
     const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5, source: 'cee_inference' })]
     mockGraph.nodes = nodes
     render(<FactorsSection factorNodes={nodes} />)
     fireEvent.click(screen.getByTestId('factor-f1-confirm'))
     expect(mockUpdateNode).toHaveBeenCalledWith(
+      'f1',
+      expect.objectContaining({
+        data: expect.objectContaining({
+          observedState: expect.objectContaining({ source: 'user_confirmed' }),
+        }),
+      })
+    )
+    // ⚠ THE FORBIDDEN LITERAL, ASSERTED. Stated so the defect cannot return
+    // under a widened expectation.
+    expect(mockUpdateNode).not.toHaveBeenCalledWith(
       'f1',
       expect.objectContaining({
         data: expect.objectContaining({

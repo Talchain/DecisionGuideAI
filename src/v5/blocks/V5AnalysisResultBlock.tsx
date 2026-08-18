@@ -43,7 +43,8 @@ import {
   resolveLeaderKeys,
   resolveOptionLabelById,
 } from '../mapV5AnalysisToReport'
-import { useCanvasNodeLabels, resolveCanvasLabel } from './useCanvasLabels'
+import { useCanvasNodeLabels } from './useCanvasLabels'
+import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 import { isRecord } from '../../lib/guards'
 import { formatProbabilityWithResolution } from '../../utils/formatPercent'

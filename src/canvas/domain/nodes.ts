@@ -33,6 +33,34 @@ export const NodeTypeEnum = z.enum(['goal', 'decision', 'option', 'factor', 'ris
 export type NodeType = z.infer<typeof NodeTypeEnum>
 
 /**
+ * THE ONE FALLBACK CHAIN for "what kind of element is this node?".
+ *
+ * ⚠ IT LIVES HERE BECAUSE IT IS A DOMAIN QUESTION, NOT A SURFACE ONE. The
+ * chain `node.type ?? data.kind ?? data.type` exists because the store, the
+ * wire and the importers have each seeded the kind in a different place over
+ * time. That is a fact about the DATA, so every surface that asks the question
+ * must get the same answer — a second copy in a hook or a panel would be the
+ * duplicated-helper defect this estate keeps paying for (trap 12), and it would
+ * drift the day a fourth seeding location appears.
+ *
+ * It was MOVED here from `model-tab-v2/adapters.ts` (18 Aug 2026), not copied:
+ * that module's `nodeKind` now calls this and narrows the result to the seven
+ * kinds its outline renders. Two callers, ONE chain, and the narrowing stays
+ * where the narrowing matters — the two functions answer different questions
+ * ("what is this?" vs "does my outline render it?") and are named apart so they
+ * cannot be conflated (trap 21).
+ *
+ * Returns `null` for anything outside the taxonomy, which is a fact to act on
+ * rather than a default to invent.
+ */
+export function resolveNodeTypeLiteral(node: { type?: string; data?: unknown }): NodeType | null {
+  const data = node.data as { kind?: unknown; type?: unknown } | undefined
+  const raw = node.type ?? data?.kind ?? data?.type
+  const parsed = NodeTypeEnum.safeParse(raw)
+  return parsed.success ? parsed.data : null
+}
+
+/**
  * Prior — either a plain probability (0..1) or the CEE distribution object
  * (`{ distribution, range_min, range_max }`) that external factors carry.
  *

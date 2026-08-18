@@ -292,9 +292,23 @@ describe('Trust instrumentation', () => {
   it('fires MODEL_CARD_VIEWED on mount of ModelTabBody', async () => {
     // ModelTabBody has heavy canvas deps — mock the store subscriptions
     vi.mock('../../canvas/components/ModelCardLite', () => ({ ModelCardLite: () => null }))
-    vi.mock('../../canvas/adapters/modelCardAdapter', () => ({
-      selectModelCardData: () => ({ nodes: [], edges: [] }),
-    }))
+    // ⚠ `importOriginal`-SPREAD, NOT A HAND-LISTED FACTORY (trap 12).
+    // A bare factory REPLACES the module, so this mock was a hand-maintained
+    // mirror of `modelCardAdapter`'s export list. It broke the moment an
+    // unrelated import chain reached a DIFFERENT export: `friendlyOperation.ts`
+    // derives `RECEIPT_FIELD_ALLOWLIST` from `Object.keys(FIELD_LABELS)` at
+    // module scope, so any spec that transitively imports it through this mock
+    // throws at collection — "No FIELD_LABELS export is defined on the mock".
+    // Spreading the original keeps the stub (`selectModelCardData`, the heavy
+    // canvas read this test is avoiding) while every other export stays real,
+    // so the mock cannot drift from the module again.
+    vi.mock('../../canvas/adapters/modelCardAdapter', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('../../canvas/adapters/modelCardAdapter')>()
+      return {
+        ...actual,
+        selectModelCardData: () => ({ nodes: [], edges: [] }),
+      }
+    })
     // Stub useCanvasStore hook (already mocked at top — returns null for selectors)
     const { ModelTabBody } = await import('../../canvas/components/ModelTabBody')
     render(

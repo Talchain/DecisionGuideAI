@@ -38,6 +38,7 @@ import {
   directionFromProducerSignedMean,
   type EdgeValueSource,
 } from '../../domain/edgeValueProvenance'
+import { buildCanvasLabelMap, resolveCanvasLabel, UNNAMED_ELEMENT_LABEL } from '../../domain/canvasLabels'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -170,8 +171,14 @@ export function ContestedEdgeCard({
 
   const sourceNode = nodes.find(n => n.id === edge.source)
   const targetNode = nodes.find(n => n.id === edge.target)
-  const fromLabel = String((sourceNode?.data as Record<string, unknown>)?.label ?? edge.source)
-  const toLabel   = String((targetNode?.data as Record<string, unknown>)?.label ?? edge.target)
+  // ⚠ THE ONE id→label policy, not `label ?? edge.source`. This card is KEPT
+  // WHOLESALE by design §7.4 E, so it OUTLIVES the v1 stack's removal — a raw-id
+  // fallback left here would be a permanent leak rather than one the delete
+  // sweeps up. `resolveCanvasLabel` returns null rather than the identifier and
+  // rejects a stored label that is itself id-shaped.
+  const edgeNodeLabels = buildCanvasLabelMap(nodes)
+  const fromLabel = resolveCanvasLabel(edge.source, edgeNodeLabels) ?? UNNAMED_ELEMENT_LABEL
+  const toLabel = resolveCanvasLabel(edge.target, edgeNodeLabels) ?? UNNAMED_ELEMENT_LABEL
 
   // Edge label takes precedence over from → to when present
   const edgeLabel = (data?.label as string | undefined) || null
