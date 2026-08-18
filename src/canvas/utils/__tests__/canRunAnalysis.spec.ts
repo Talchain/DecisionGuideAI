@@ -8,7 +8,7 @@ import {
   getRunButtonTooltip,
   getRunButtonAriaLabel,
   computeCeeCannotSeeModel,
-  CEE_DRAFT_FIRST_REFUSAL,
+  CLIENT_INJECTED_MODEL_REFUSAL,
   type CanRunAnalysisParams,
 } from '../canRunAnalysis'
 import { BLOCKED_REASON_COPY } from '../composeBlockedReason'
@@ -433,13 +433,19 @@ describe('canRunAnalysis — #343 honest stopgap (model invisible to CEE)', () =
     nodeCount: 5,
   }
 
-  it('blocks with CEE\'s own refusal sentence when the model cannot be seen by CEE', () => {
-    // The reason string must be CEE's own refusal sentence so panel and chat
-    // agree (#343). Deliberately the raw literal, NOT the exported constant:
-    // this pin is what catches the constant drifting from CEE's actual copy.
+  it('blocks with this rung\'s own refusal sentence when the model cannot be seen by CEE', () => {
+    // ⚠ THIS PIN USED TO HOLD THE RAW LITERAL
+    // `'Draft or save a model first, then run analysis.'`, on the grounds that
+    // it "catches the constant drifting from CEE's actual copy". It caught
+    // nothing, because the constant was never supposed to track CEE here: CEE
+    // emits that sentence for `NO_GRAPH` (no model at all), while this rung
+    // fires only with a model on the canvas. Pinning the literal froze the
+    // wrong question's answer in place — see `CLIENT_INJECTED_MODEL_REFUSAL`'s
+    // docstring, and `analyseAffordanceTruthfulness.spec.ts` for the pins that
+    // now hold the sentence to THIS rung's facts.
     const result = canRunAnalysis({ ...base, ceeCannotSeeModel: true })
     expect(result.allowed).toBe(false)
-    expect(result.reason).toBe('Draft or save a model first, then run analysis.')
+    expect(result.reason).toBe(CLIENT_INJECTED_MODEL_REFUSAL)
   })
 
   it('does not block when the model is CEE-visible (flag false/omitted)', () => {
@@ -472,6 +478,6 @@ describe('computeCeeCannotSeeModel — the ONE home for the honest-gate predicat
   it('the exported refusal constant IS the sentence the gate emits (one home, no drift)', () => {
     isV5CanonicalRunPathMock.mockReturnValue(true)
     const result = canRunAnalysis({ graphHealth: null, readiness: null, hasBlockers: false, nodeCount: 5, ceeCannotSeeModel: computeCeeCannotSeeModel(templateNodes) })
-    expect(result.reason).toBe(CEE_DRAFT_FIRST_REFUSAL)
+    expect(result.reason).toBe(CLIENT_INJECTED_MODEL_REFUSAL)
   })
 })

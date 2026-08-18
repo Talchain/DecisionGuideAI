@@ -9,6 +9,7 @@
  */
 
 import type { BarKey, BarState, SparkPrompt } from './types'
+import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 
 export type { SparkPrompt } from './types'
 
@@ -289,8 +290,15 @@ export const FOOTER_COPY = {
    * The real reason is now composed from the readiness verdict's structured
    * fields (`utils/composeBlockedReason.ts`) and this string is reached only
    * when even that has nothing specific to say.
+   *
+   * ⚠ REFERENCED, NOT RE-TYPED. This was a VERBATIM SECOND COPY of
+   * `BLOCKED_REASON_COPY.unspecified` — the same sentence, in two files, kept
+   * identical by nobody (trap 12). They answer the same question: "the verdict
+   * refuses and nothing specific can be named." The `guardCeeText` degrade path
+   * lands here, so a drift between the two would show the user one sentence on
+   * the composed path and a different one on the degraded path, for one state.
    */
-  notReadySubFallback: 'Olumi is not able to run this yet. Ask in the chat and it will explain what is missing.',
+  notReadySubFallback: BLOCKED_REASON_COPY.unspecified,
   /**
    * UI-SEM-091: runnable-via-scaffold subline. Shown when readiness reports
    * not-runnable but CEE (#612) will draft the remaining options — replaces the

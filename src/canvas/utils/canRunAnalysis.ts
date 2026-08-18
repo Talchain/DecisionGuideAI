@@ -45,11 +45,47 @@ import {
 } from './composeBlockedReason'
 
 /**
- * CEE's refusal sentence, verbatim — the gate must show the engine's own
- * words so panel and chat never contradict each other. If CEE rewords its
- * refusal, this constant (and the spec pinning the raw literal) must follow.
+ * The refusal for a model the engine did not draft (see
+ * `computeCeeCannotSeeModel`). It is THIS gate's own sentence, deliberately —
+ * and that is a correction, not a drift.
+ *
+ * ⚠ IT USED TO BE `CEE_DRAFT_FIRST_REFUSAL`, quoting CEE verbatim on the
+ * grounds that "the gate must show the engine's own words so panel and chat
+ * never contradict each other". CEE does emit
+ * `'Draft or save a model first, then run analysis.'` — at
+ * `analysis-ready-helper.ts::assessCanonicalAnalysisReadiness`, under code
+ * `NO_GRAPH`, when `graph === null || graph === undefined`. That answers
+ * *"is there a model at all?"*, and for THAT question both limbs are true and
+ * achievable.
+ *
+ * This rung answers a different question — *"is the model on this canvas one
+ * the engine can analyse?"* — and borrowing the other question's answer made
+ * BOTH limbs false here (trap 21: name the question each authority answers
+ * before making them agree):
+ *
+ *   - "Draft ... a model first" — `canRunAnalysis` returns at `nodeCount === 0`
+ *     before this rung, so a model is ALWAYS on the canvas when this renders.
+ *     Witnessed on deployed `d5aa8453`: 8 nodes, 3 options, 3 risks and 8
+ *     estimates on screen, beneath this sentence.
+ *   - "... or save a model first" — `computeCeeCannotSeeModel` reads
+ *     `node.data` only, and `applyStarter` stamps `starterId` onto EVERY node.
+ *     Persistence round-trips `node.data`, so a saved starter is still refused.
+ *     The product was asking for an action it could not accept (preamble P8).
+ *     `StarterProvenanceBanner` had ALREADY corrected exactly this promise in
+ *     its own copy — "the starter stamp rides a save, so saving does NOT
+ *     re-enable analysis. Re-drafting is the one route that does" — and this
+ *     constant beside it was left carrying it. One claim, two copies, one
+ *     fixed (trap 12).
+ *
+ * So it now states this rung's own fact and names the action that genuinely
+ * clears it. The named remedy is reachable from where the user is standing:
+ * the composer is always on screen, and for a starter
+ * `StarterProvenanceBanner`'s "Re-draft this live" does exactly this in one
+ * click.
  */
-export const CEE_DRAFT_FIRST_REFUSAL = 'Draft or save a model first, then run analysis.'
+export const CLIENT_INJECTED_MODEL_REFUSAL =
+  'Olumi has not drafted this model, so it cannot analyse it yet. ' +
+  'Ask Olumi in the chat to draft it live, then run the analysis.'
 
 /**
  * ROADMAP 2.122 — the refusal shown while a STREAMED draft's structure is on
@@ -356,7 +392,7 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   if (ceeCannotSeeModel) {
     return {
       allowed: false,
-      reason: CEE_DRAFT_FIRST_REFUSAL,
+      reason: CLIENT_INJECTED_MODEL_REFUSAL,
       blockingReasons: ['Model not in Olumi scenario state (template insert)'],
     }
   }

@@ -387,10 +387,17 @@ describe('every notice this module exports is governed (trap 12, round 2)', () =
    * module must be under the frame-licence rules.
    *
    * Scoped to that module on purpose. The gate module also exports
-   * `CEE_DRAFT_FIRST_REFUSAL`, which is CEE's own words quoted verbatim and
-   * predates this lane — holding someone else's copy to this lane's licence model
-   * would be the wrong claim, so the two refusals this lane owns are listed
-   * explicitly above and asserted here by name.
+   * `CLIENT_INJECTED_MODEL_REFUSAL`, which predates this lane and is governed
+   * by its own pins (`utils/__tests__/analyseAffordanceTruthfulness.spec.ts`) —
+   * holding another module's copy to this lane's licence model would be the
+   * wrong claim, so the two refusals this lane owns are listed explicitly above
+   * and asserted here by name.
+   *
+   * ⚠ This note used to justify the exclusion as "CEE's own words quoted
+   * verbatim". That justification was withdrawn when the constant was renamed:
+   * CEE emits that sentence for `NO_GRAPH`, a different question from the one
+   * this rung answers. The EXCLUSION still stands — it was always about
+   * ownership, not about provenance — but the reason given for it did not.
    */
   it('covers every *_NOTICE the narration module exports', () => {
     const exportedNotices = Object.keys(narration).filter((k) => k.endsWith('_NOTICE'))

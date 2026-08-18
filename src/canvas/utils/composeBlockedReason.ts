@@ -95,8 +95,29 @@ export const BLOCKED_REASON_COPY = {
    * structured field specific enough to name the cause. Deliberately makes NO
    * claim about the model — the defect this module fixes was a confident false
    * claim in exactly this position.
+   *
+   * ⚠ IT USED TO READ "Olumi is not able to run this yet." — and this file's
+   * own staleness rung already noted that sentence "still asserts the verdict's
+   * `can_run_analysis: false` as a present-tense fact". That assertion became a
+   * visible CONTRADICTION on 18 Aug 2026, when `OutputsDock` began feeding the
+   * run gate's reason to the POST-analysis footer (`derivePostFooterMeta`'s
+   * `blockedReason` — the right fix for a disabled Rerun that explained itself
+   * only on hover). From then on the sentence could render directly beneath a
+   * completed analysis's ranked results: a claim that Olumi cannot run one,
+   * printed next to the output of one it had just run.
+   *
+   * The rung is not wrong about the verdict; the wording was scoped to a
+   * pre-analysis screen. This phrasing carries the SAME information — the
+   * verdict refuses, nothing specific can be named, ask in the chat — while
+   * being true whether or not a run has already happened. "The next analysis"
+   * is the first one on a pre-analysis screen and the rerun on a post-analysis
+   * one, so ONE string stays honest in both places rather than a second copy
+   * being minted for the second surface (which is how this module acquired its
+   * mirrors in the first place).
    */
-  unspecified: 'Olumi is not able to run this yet. Ask in the chat and it will explain what is missing.',
+  unspecified:
+    'Olumi needs something more from this model before the next analysis. ' +
+    'Ask in the chat and it will explain what is missing.',
   /**
    * ROADMAP 2.635 (I-3) — the verdict on screen was not asked about the model
    * on screen.
