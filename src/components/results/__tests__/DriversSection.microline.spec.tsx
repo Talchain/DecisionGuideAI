@@ -53,7 +53,10 @@ describe('DriversSection: driver #1 microline hidden (fragility → fragile-fact
 
     // "If wrong, X overtakes" is a fragility/flip claim; per the single-source
     // rule it belongs in the fragile-factors section, not the influence-only
-    // driver section (SHOW_FRAGILITY_IN_DRIVER_SECTION).
+    // driver section. The microline was DELETED on 18 Aug 2026 (it sat behind a
+    // hard-false constant and rendered nothing); `OptionCards` and
+    // `FragileEdgeGroupCard` carry the claim. This pin now binds to the absence
+    // of the code, so re-adding the microline reds it.
     expect(screen.queryByTestId('driver-microline')).not.toBeInTheDocument()
     expect(screen.queryByText(/overtakes/i)).not.toBeInTheDocument()
   })

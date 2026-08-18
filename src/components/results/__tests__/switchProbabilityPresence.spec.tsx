@@ -29,9 +29,7 @@ import { fireEvent, render, renderHook, screen } from '@testing-library/react'
 import { useResultsSectionData } from '../useResultsSectionData'
 import { TriageActionCardsBody } from '../TriageActionCardsBody'
 import { StrengthenContainer } from '../strengthen/StrengthenContainer'
-import { ConfidenceSection } from '../ConfidenceSection'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
-import type { ConfidenceSectionData } from '../types'
 import { useCanvasStore } from '../../../canvas/store'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { selectActive, useStrengthenStore } from '../../../canvas/stores/strengthenStore'
@@ -376,21 +374,13 @@ describe('SENSITIVE_ASSUMPTION severity — absence propagates (schemas 0.30.0)'
     expect(findSensitiveAssumption(result.current)!.severity).toBe('critical')
   })
 
-  it('PIN (render): no producer severity → no "Critical assumption" verdict label in ConfidenceSection', () => {
-    seedReportWithFragileEdges([{ ...EDGE_BASE, marginal_switch_probability: 0.8 }])
-    const { result } = renderHook(() => useResultsSectionData())
-    render(<ConfidenceSection data={result.current.confidence as ConfidenceSectionData} />)
-    expect(screen.queryByText(/Critical assumption/)).toBeNull()
-  })
-
-  it('CONTROL (render): a producer "critical" severity still renders the verdict label', () => {
-    seedReportWithFragileEdges([
-      { ...EDGE_BASE, switch_probability: 0.8, severity: 'critical' },
-    ])
-    const { result } = renderHook(() => useResultsSectionData())
-    render(<ConfidenceSection data={result.current.confidence as ConfidenceSectionData} />)
-    expect(screen.getByText(/Critical assumption/)).toBeTruthy()
-  })
+  // ⚠ The two RENDER arms of this group ("Critical assumption" label present /
+  // absent in ConfidenceSection) were deleted on 18 Aug 2026 with the component
+  // itself, which had zero importers outside the test tree. The three data-level
+  // PIN/CONTROL cases above are the substantive claim and are untouched: they
+  // assert the severity never gets fabricated from a marginal in the first place,
+  // one seam UPSTREAM of any render. No live surface renders this label today; if
+  // one is built, add its render arm here.
 })
 
 // ─── topFragileEdge SELECTION — presence-first ranking ──────────────────────

@@ -12,7 +12,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, fireEvent, within } from '@testing-library/react'
 import React from 'react'
 import { normaliseDomSnapshot, captureByTestId } from './utils'
-import { ResultsFooter } from '@/components/results/ResultsFooter'
+import { AnalysisFooter } from '@/canvas/shared/AnalysisFooter'
+import { CheckCircle2 } from 'lucide-react'
 
 vi.mock('@/canvas/hooks/useRiskProfile', () => ({
   useRiskProfile: () => ({
@@ -48,16 +49,31 @@ describe('visual-regression scaffold (Brief 5)', () => {
   // time. The phase that owns the surface replaces `it.todo` with a real
   // render + snapshot.
 
-  it('Phase 1 / Task 4 — footer (stability + influence, no leaked hash)', () => {
+  // ⭐ HOST RETARGETED (18 Aug 2026), not deleted. This case used to render the
+  // legacy `ResultsFooter`, which was removed as provably dead — zero importers
+  // outside the test tree, and its only referrer was a barrel nothing imported.
+  // The no-leaked-hash assertion is the ONLY guard of its kind in the repo, so
+  // deleting the case would have silently retired a live honesty guard along
+  // with a dead component. It now runs against `AnalysisFooter` — the footer
+  // ResultsBody/OutputsDock actually mount — which makes the guard STRONGER
+  // than the one it replaces: it protects the surface users see.
+  it('Phase 1 / Task 4 — footer (status + meta, no leaked hash)', () => {
     const { container } = render(
-      React.createElement(ResultsFooter, { stability: 0.82, influencePct: 0.91 }),
+      React.createElement(AnalysisFooter, {
+        statusIcon: CheckCircle2,
+        statusText: 'Analysis complete',
+        metaText: '91% of influence · 82%',
+      }),
     )
-    const snap = captureByTestId(container, 'results-footer')
+    const snap = captureByTestId(container, 'sticky-footer')
+    // POSITIVE CONTROL: the harness really captured the footer. Without this the
+    // absence assertion below could pass on an empty capture (trap 13).
+    expect(snap).toContain('Analysis complete')
     // Contains the two metadata parts
     expect(snap).toContain('91% of influence')
     expect(snap).toContain('82%')
-    // Does NOT contain any hash-shaped token (7+ hex chars) — footer is intentionally
-    // stability + influence only; any hash leak regressions would show up here.
+    // Does NOT contain any hash-shaped token (7+ hex chars) — the footer is
+    // intentionally status + meta only; any hash leak regression shows up here.
     expect(snap).not.toMatch(/[0-9a-f]{7,}/i)
   })
   it('Phase 2 / Task 6 — risk control in Your options (display filter)', async () => {

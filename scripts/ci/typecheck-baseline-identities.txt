@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2306
+# count=2272
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -729,10 +729,6 @@
 1	src/canvas/ui/inspector-v2/InspectorRouter.tsx	TS1355	A 'const' assertions can only be applied to references to enum members, or string, number, boolean, array, or object literals.
 1	src/canvas/ui/inspector-v2/__tests__/Brief3Panels.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/ui/inspector-v2/__tests__/EdgePanelCausalClaims.spec.tsx	TS6133	'vi' is declared but its value is never read.
-1	src/canvas/ui/inspector-v2/__tests__/IntelligenceSection.spec.tsx	TS2322	Type 'VitestUtils' is not assignable to type 'Awaitable<HookCleanupCallback>'.
-1	src/canvas/ui/inspector-v2/__tests__/IntelligenceSection.spec.tsx	TS2345	Argument of type '(selector: (s: { nodes: ({ id: string; data: { label: string; observedState: { value: number; }; }; } | { id: string; data: { label: string; observedState?: undefined; }; })[]; edges: typeof mockEdges; }) => unknown) => unknown' is not assignable to parameter of type '(selector: (state: CanvasState) => unknown) => unknown'.
-1	src/canvas/ui/inspector-v2/__tests__/IntelligenceSection.spec.tsx	TS2345	Argument of type '(selector: (s: { nodes: typeof mockNodes; edges: typeof mockEdges; }) => unknown) => unknown' is not assignable to parameter of type '(selector: (state: CanvasState) => unknown) => unknown'.
-5	src/canvas/ui/inspector-v2/__tests__/IntelligenceSection.spec.tsx	TS2353	Object literal may only specify known properties, and 'status' does not exist in type 'ResultsStoreState & ResultsActions'.
 1	src/canvas/ui/inspector-v2/__tests__/SharedComponents.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/ui/inspector-v2/__tests__/SharedComponents.spec.tsx	TS6133	'getExtractionLabel' is declared but its value is never read.
 1	src/canvas/ui/inspector-v2/panels/DecisionPanel.tsx	TS2339	Property 'option_comparison' does not exist on type 'ReportV1'.
@@ -754,9 +750,6 @@
 1	src/canvas/ui/inspector-v2/panels/OptionPanel.tsx	TS2339	Property 'story_headlines' does not exist on type 'ReportV1'.
 1	src/canvas/ui/inspector-v2/panels/OptionPanel.tsx	TS6133	'onClose' is declared but its value is never read.
 1	src/canvas/ui/inspector-v2/panels/OutcomePanel.tsx	TS6133	'onClose' is declared but its value is never read.
-1	src/canvas/ui/inspector-v2/shared/IntelligenceSection.tsx	TS2339	Property 'drivers' does not exist on type 'ResultsStoreState & ResultsActions'.
-1	src/canvas/ui/inspector-v2/shared/IntelligenceSection.tsx	TS2339	Property 'status' does not exist on type 'ResultsStoreState & ResultsActions'.
-1	src/canvas/ui/inspector-v2/shared/IntelligenceSection.tsx	TS7006	Parameter 'd' implicitly has an 'any' type.
 1	src/canvas/ui/inspector-v2/types.ts	TS6196	'FactorCategory' is declared but never used.
 1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ beliefExists: number; beliefExistsSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
 1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ direction: "negative" | "positive"; directionSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | ... 2 more ... | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
@@ -1007,31 +1000,11 @@
 1	src/components/decisions/DecisionEdit.tsx	TS6133	'user' is declared but its value is never read.
 1	src/components/layout/KebabMenu.tsx	TS2322	Type 'RefObject<HTMLDivElement | null>' is not assignable to type 'LegacyRef<HTMLDivElement> | undefined'.
 1	src/components/results/AdvancedSection.tsx	TS6133	'expertMode' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'ActionItem' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'FocusTargetType' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'GitBranch' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'analysisStatus' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'config' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'hiddenHighRiskCount' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'showUncertainties' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'topDriverId' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'topDriverLabel' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'topEvidenceGaps' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'topNextActions' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'topUncertainties' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6133	'visibleDriverCount' is declared but its value is never read.
-1	src/components/results/ConfidenceSection.tsx	TS6196	'AssumptionItem' is declared but never used.
-1	src/components/results/ConfidenceSection.tsx	TS6196	'EvidenceGapItem' is declared but never used.
 1	src/components/results/DriversSection.tsx	TS2339	Property '__OLUMI_DEBUG' does not exist on type 'Window & typeof globalThis'.
 2	src/components/results/ResultsBody.tsx	TS2304	Cannot find name '__GIT_SHA__'.
-1	src/components/results/ResultsFooter.tsx	TS2322	Type 'null | number | undefined' is not assignable to type 'number | undefined'.
 1	src/components/results/SuccessTargetRow.tsx	TS6133	'showHitsTarget' is declared but its value is never read.
 1	src/components/results/TriageActionCardsBody.tsx	TS2345	Argument of type 'Map<string, StrengthenOverlay> | null' is not assignable to parameter of type 'Map<string, StrengthenOverlay>'.
 1	src/components/results/__tests__/Accordion.spec.tsx	TS6133	'vi' is declared but its value is never read.
-2	src/components/results/__tests__/ConfidenceSection.spec.tsx	TS2739	Type '{ factorId: string; factorLabel: string; voi: number; }' is missing the following properties from type 'EvidenceGapItem': confidence, suggestion
-2	src/components/results/__tests__/ConfidenceSection.spec.tsx	TS2741	Property 'confidence' is missing in type '{ factorId: string; factorLabel: string; suggestion: string; voi: number; }' but required in type 'EvidenceGapItem'.
-2	src/components/results/__tests__/ConfidenceSection.spec.tsx	TS2741	Property 'suggestion' is missing in type '{ factorId: string; factorLabel: string; voi: number; confidence: number; }' but required in type 'EvidenceGapItem'.
-1	src/components/results/__tests__/ConfidenceSection.spec.tsx	TS6133	'fireEvent' is declared but its value is never read.
 1	src/components/results/__tests__/DriversSection.columnAlignment.spec.tsx	TS2322	Type '"major"' is not assignable to type 'DriverSemanticLabel'.
 1	src/components/results/__tests__/DriversSection.influenceOnlyGuard.spec.tsx	TS2352	Conversion of type '{ factorKey: string; semanticLabel: "biggest"; influenceScore: number; flipRiskCategory: "isolated"; fragileEdgeInfo: { switchProbability: number; alternativeWinnerLabel: string; }; enrichment: { ...; }; }' to type 'DriverItem' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 2	src/components/results/__tests__/DriversSection.influenceScaleDisclosure.spec.tsx	TS2322	Type '"weak"' is not assignable to type 'DriverSemanticLabel | undefined'.

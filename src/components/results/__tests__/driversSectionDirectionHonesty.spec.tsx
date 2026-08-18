@@ -106,10 +106,11 @@ describe('DriversSection — the honest string reaches the RENDERED tooltip (ROA
       <DriversSection
         data={{
           // ⚠ `enrichment` is REQUIRED for the tooltip to exist at all.
-          // `hasTooltipContent` has three arms and two are dead constants
-          // (`DISPLAY_SAFE_DRIVER_CONFIDENCE = false`,
-          // `SHOW_FRAGILITY_IN_DRIVER_SECTION = false`), so `hasEnrichment` is
-          // the only live path — i.e. this copy reaches a user only on an
+          // `hasTooltipContent` now has TWO arms: `hasEnrichment` and a
+          // `DISPLAY_SAFE_DRIVER_CONFIDENCE = false` arm (an UNRULED doctrine
+          // gate). The third arm, `SHOW_FRAGILITY_IN_DRIVER_SECTION`, was deleted
+          // on 18 Aug 2026 under a settled placement ruling. So `hasEnrichment`
+          // remains the only live path — i.e. this copy reaches a user only on an
           // ENRICHED driver. Discovered while writing this pin; recorded because
           // it bounds who the R3 defect could ever have reached.
           drivers: [{ ...driver(direction), enrichment: { observations: ['obs'] } }],

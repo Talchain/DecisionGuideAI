@@ -7,14 +7,13 @@
  * - EVPI sort preference over VOI
  */
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import React from 'react'
 
 // --- E-value indicator tiers ---
 
 describe('EValueIndicator colour tiers', () => {
-  // Import the component from ConfidenceSection — it's not exported,
-  // so we test via the parent. Since we can't isolate it, test the logic:
+  // The tier logic was never exported; this asserts the rule itself. (It used to
+  // say "test via the parent, ConfidenceSection" — that parent was deleted as
+  // unreachable on 18 Aug 2026 and was never rendered here anyway.)
   it('classifies e-value > 3 as success (robust)', () => {
     const eValue = 4.2
     const colour = eValue > 3 ? 'text-success' : eValue >= 1.5 ? 'text-warning' : 'text-danger'
@@ -97,30 +96,6 @@ describe('Field-presence gating', () => {
     const nullVal: unknown = null
     expect(typeof ppVal === 'number' ? ppVal : undefined).toBe(3.2)
     expect(typeof nullVal === 'number' ? nullVal : undefined).toBeUndefined()
-  })
-})
-
-// --- RangeDerivationPill ---
-
-describe('RangeDerivationPill', () => {
-  // Import dynamically to avoid module resolution issues
-  it('renders nothing when source is null/undefined', async () => {
-    const { RangeDerivationPill } = await import('../../../canvas/ui/inspector-v2/shared/RangeDerivationPill')
-    const { container } = render(<RangeDerivationPill source={undefined} />)
-    expect(container.innerHTML).toBe('')
-  })
-
-  it('renders pill with correct label when source is present', async () => {
-    const { RangeDerivationPill } = await import('../../../canvas/ui/inspector-v2/shared/RangeDerivationPill')
-    render(<RangeDerivationPill source="explicit" />)
-    expect(screen.getByText('explicit')).toBeTruthy()
-    expect(screen.getByText('Range:')).toBeTruthy()
-  })
-
-  it('replaces underscores with spaces in label', async () => {
-    const { RangeDerivationPill } = await import('../../../canvas/ui/inspector-v2/shared/RangeDerivationPill')
-    render(<RangeDerivationPill source="inferred_spread" />)
-    expect(screen.getByText('inferred spread')).toBeTruthy()
   })
 })
 

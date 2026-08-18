@@ -86,7 +86,7 @@
  *      NOT fixed in this train, and deliberately left visible here so the debt
  *      is countable: `useResultsSectionData.ts` derives `robustnessLevel` from
  *      it via `lib/stability.ts`, and that level then drives hero/badge/node
- *      copy across `ResultsBody`, `OptionCards`, `ResultsFooter`,
+ *      copy across `ResultsBody`, `OptionCards`,
  *      `TriageActionCardsBody`, `certaintyCopy`, `winnerChipCopy`,
  *      `getStabilityDisplayLabel`, `GoalNode`, `DecisionNode`,
  *      `useNodeDisplayMetadata`, and the compare-tab's `stabilityLabel` chain.
@@ -219,9 +219,12 @@ const DERIVED_LABEL_READS: readonly string[] = [
   // producer withheld, and two of them are worse than a mislabel:
   //   · `useNodeDisplayMetadata.ts` substitutes stability for an unavailable
   //     GOAL PROBABILITY — a different quantity entirely;
-  //   · `ConfidenceSection.tsx` reads `(rankingStability ?? 1) >= …`, i.e. it
-  //     defaults a WITHHELD field to fully-stable — a fail-OPEN default.
-  // Both are recorded for follow-up, not silently tolerated.
+  // The second such case, `ConfidenceSection.tsx` — which read
+  // `(rankingStability ?? 1) >= …`, defaulting a WITHHELD field to fully-stable,
+  // a fail-OPEN default — is GONE: the component was deleted on 18 Aug 2026 as
+  // provably dead (zero importers outside the test tree). That debt is
+  // discharged by removal, not by toleration; `ResultsFooter.tsx` left the list
+  // the same way. `useNodeDisplayMetadata.ts` is recorded for follow-up.
   //
   // The root of this class is `useResultsSectionData.ts`, which derives
   // `robustnessLevel` via `lib/stability.ts`; every entry below it consumes
@@ -236,9 +239,7 @@ const DERIVED_LABEL_READS: readonly string[] = [
   'src/components/results/buildResultsVM.ts::recommendationStability',
   'src/components/results/OptionCards.tsx::recommendationStability',
   'src/components/results/ResultsBody.tsx::recommendationStability',
-  'src/components/results/ResultsFooter.tsx::recommendationStability',
   'src/components/results/TriageActionCardsBody.tsx::recommendationStability',
-  'src/components/results/ConfidenceSection.tsx::rankingStability',
   'src/components/results/utils/certaintyCopy.ts::recommendationStability',
   'src/components/results/utils/getStabilityDisplayLabel.ts::recommendationStability',
   'src/components/results/utils/winnerChipCopy.ts::recommendationStability',

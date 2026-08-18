@@ -347,8 +347,8 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
     // this field (`OutputsDock.tsx:519`, `:580`), and `compareTab` is ON in the
     // build config (`netlify.toml:157`). So a programmatic `setActiveOutputTab
     // ('compare')` still fronts the Compare BODY (`OutputsDock.tsx:3155`) with
-    // no tab lit — reachable today from `CompactOptionSpread.tsx:87`,
-    // `OptionPanel.tsx:422`, the `showComparePanel` effect
+    // no tab lit — reachable today from `OptionPanel.tsx:422`, the
+    // `showComparePanel` effect
     // (`ReactFlowGraph.tsx:819` → `OutputsDock.tsx:1902`) and an `open_panel`
     // ui_directive. Journey never exposed this because its flag is absent.
     // Closing it means teaching those guards to read this contract instead of

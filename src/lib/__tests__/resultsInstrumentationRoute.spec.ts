@@ -88,8 +88,9 @@ const SENDERS = Object.keys(instrumentation)
  *     instrumentation are the defect this module exists to remove, not a
  *     placeholder to keep warm.
  *   · trackCompareOpened — MOVED to canvas/utils/sandboxTelemetry.ts, which is
- *     where the real compare-open actions already call a same-named twin
- *     (OutputsDock.tsx:1698, CompactOptionSpread.tsx:86). Two same-named
+ *     where the real compare-open action already calls a same-named twin
+ *     (OutputsDock.tsx:1698; a second citation, CompactOptionSpread.tsx:86, was
+ *     dropped on 18 Aug 2026 with that unreachable component). Two same-named
  *     senders with different sinks is the hazard; one function driving both
  *     sinks is the fix. Pinned by runSpineSingleEmission.spec.ts.
  *

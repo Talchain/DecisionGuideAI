@@ -4,9 +4,12 @@
  * "What's Influencing This" panel — INFLUENCE ONLY (single-source rule; see
  * ROBUSTNESS-VERDICT-CONTRACT). The driver section communicates how much each
  * factor influences the current result; it does NOT render confidence / evidence
- * / stability / fragility claims derived from raw fields (those are gated on
- * DISPLAY_SAFE_DRIVER_CONFIDENCE / SHOW_FRAGILITY_IN_DRIVER_SECTION, both off
- * today). Per-factor discussion is the bottom-right DiscussWithAiButton sparkle.
+ * / stability / fragility claims derived from raw fields. Confidence-derived
+ * blocks remain gated on DISPLAY_SAFE_DRIVER_CONFIDENCE (an UNRULED display-safety
+ * doctrine call — see driverConfidenceDisplayPolicy.ts); the fragility blocks are
+ * gone entirely, deleted 18 Aug 2026 under a SETTLED placement ruling (see the
+ * note above the grid). Per-factor discussion is the bottom-right
+ * DiscussWithAiButton sparkle.
  *
  * Features:
  * - Panel title at top, separate from grid
@@ -25,7 +28,6 @@ import type { DriversSectionData, DriverItem, DriverSemanticLabel } from './type
 import { focusExistingTarget } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { EMPTY_STATES } from './emptyStates'
-import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
 import { cleanFactorLabel } from './utils/cleanFactorLabel'
 import { typography } from '../../styles/typography'
@@ -98,12 +100,23 @@ const BAR_COLORS = {
 
 // Fragility ("could change the result") belongs in the fragile-factors section,
 // NOT the driver section. Acceptance: driver section = "this matters most";
-// fragile section = "what to check because it could change the result". So the
-// driver-row fragility cross-refs — the "If wrong, X overtakes" microline and the
-// "Ranking may shift N%" rows/tooltip — stay hidden here. This is a placement
-// rule (not a display-safe-source gate): keep it false; fragility surfaces in the
-// fragile-factors section.
-const SHOW_FRAGILITY_IN_DRIVER_SECTION = false
+// fragile section = "what to check because it could change the result".
+//
+// ⚠ The four driver-row fragility cross-refs this file used to carry behind a
+// hard-false `SHOW_FRAGILITY_IN_DRIVER_SECTION` — the "If wrong, X overtakes"
+// microline, the "Ranking may shift N%" row, its tooltip twin, and the
+// decision-change-risk line — were DELETED on 18 Aug 2026. The gate was a
+// SETTLED placement ruling ("keep it false"), not an unruled one, and the
+// content has a live home: the same claims render from `StressTestSection`
+// (same >= 0.15 rank-flip threshold), `FragileEdgeGroupCard`, `OptionCards`
+// ("If {factor} shifts, this option overtakes") and `TriageActionCardsBody`.
+// Nothing left a user's screen — the blocks rendered nothing at any deployed
+// posture, because the gate was a module constant, not a flag.
+//
+// The absence is pinned, not merely emptied: `DriversSection.microline.spec.tsx`,
+// `DriversSection.rankFlipD5.spec.tsx` and `driversSectionDirectionHonesty.spec.tsx`
+// assert the copy does not appear in this section, and they now bind to the
+// deletion rather than to a constant.
 
 // Grid columns - shared between rows to avoid alignment drift. Influence-only by
 // default (factor name + Sensitivity/influence). The Confidence + glyph columns
@@ -334,7 +347,6 @@ function DriverRow({
   goalLabel: _goalLabel,
   isHighlighted,
   registerRef,
-  microlineLabel,
   onSendMessage,
   expertMode,
   isTopDriver,
@@ -348,7 +360,6 @@ function DriverRow({
   /** Graph Interaction P1: Ref callback to register this row for scroll sync */
   registerRef?: (element: HTMLDivElement | null) => void
   /** V12.2: Microline overtake warning label (only for first driver) */
-  microlineLabel?: string
   onSendMessage?: (text: string) => void
   expertMode?: boolean
   /** Brief 5.4 Phase 3 (Path A): technique hint chip only shown on top-ranked driver */
@@ -384,35 +395,19 @@ function DriverRow({
     : null
 
   // Determine if we have secondary content for tooltip
-  const alternativeWinnerLabel = driver.fragileEdgeInfo?.alternativeWinnerLabel
-  const decisionChangeRisk = driver.flipRiskCategory === 'isolated'
-    ? formatFlipRiskMessage(driver.fragileEdgeInfo?.switchProbability, alternativeWinnerLabel)
-    : driver.flipRiskCategory === 'correlated'
-      ? 'In some simulations, this factor can change which option is best'
-      : driver.flipRiskCategory !== 'negligible'
-        ? formatFlipRiskMessage(driver.fragileEdgeInfo?.switchProbability, alternativeWinnerLabel)
-        : null
   const showQualityHint = typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
   const hasEnrichment = driver.enrichment && hasEnrichmentContent(driver.enrichment)
   // Producer zero_reason stamp → visible badge label (rendered in the row body,
   // NOT the tooltip). Undefined when the producer left no stamp.
   const leverBadgeLabel = driver.zeroReason ? ZERO_REASON_BADGE_LABELS[driver.zeroReason] : undefined
-  // Task 7c: ranking shift + technique added to tooltip — must be computed before this line
-  // (rankingShiftWarn and techniqueSuggestion are computed after this block, so use inline checks)
   // The (i) info icon must appear only when the tooltip has VISIBLE content.
-  // Confidence/evidence/fragility lines (decisionChangeRisk, rankingShiftWarn,
-  // qualityHint) are gated off today, so they contribute to the icon only when
-  // their gate is on. Enrichment is always-visible. The zero-reason (lever)
-  // explanation moved OUT of the tooltip to a visible body badge (D-U); the
-  // technique chip likewise moved out to a body chip.
+  // The fragility lines that used to feed it were deleted (18 Aug 2026); the
+  // quality hint is still gated on DISPLAY_SAFE_DRIVER_CONFIDENCE, so it
+  // contributes to the icon only when that gate is on. Enrichment is
+  // always-visible. The zero-reason (lever) explanation moved OUT of the tooltip
+  // to a visible body badge (D-U); the technique chip likewise moved to a body chip.
   const hasTooltipContent = hasEnrichment
     || (DISPLAY_SAFE_DRIVER_CONFIDENCE && showQualityHint)
-    || (SHOW_FRAGILITY_IN_DRIVER_SECTION && (
-          !!decisionChangeRisk
-          || driver.attributionStability === 'low'
-          || driver.attributionStability === 'negligible'
-          || (typeof driver.confidence === 'number' && driver.confidence < 0.9)
-        ))
 
   const handleFocusClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -445,19 +440,7 @@ function DriverRow({
   // hover-only Tooltip, which is how it kept a fabricated direction so long.
   const tooltipElasticityCopy = elasticityShiftCopy(driver)
 
-  // Task 7c: ranking shift and technique suggestion for tooltip
-  const rankingShiftWarn = (() => {
-    const stabilityWarn = driver.attributionStability === 'low' || driver.attributionStability === 'negligible'
-    const confidenceWarn = typeof driver.confidence === 'number' && driver.confidence < 0.9
-    if (!stabilityWarn && !confidenceWarn) return null
-    const confidencePct = typeof driver.confidence === 'number'
-      ? Math.round(Math.max(0, Math.min(1, driver.confidence)) * 100)
-      : null
-    return confidencePct !== null
-      ? `Ranking may shift · ${confidencePct}% likely`
-      : 'Ranking may shift'
-  })()
-
+  // Task 7c: technique suggestion for the (confidence-gated) body chip
   const techniqueSuggestion = (() => {
     const influence = driver.displayInfluence ?? driver.influenceScore ?? driver.normalisedInfluence
     const conf = typeof driver.confidence === 'number' ? driver.confidence : null
@@ -472,11 +455,6 @@ function DriverRow({
       {tooltipElasticityCopy && (
         <p>{tooltipElasticityCopy}</p>
       )}
-      {/* Decision change risk — HIDDEN: a decision-flip / fragility claim
-          ("X becomes the better choice" / "can change which option is best").
-          Fragility belongs in the fragile-factors section, not the influence-only
-          driver section (SHOW_FRAGILITY_IN_DRIVER_SECTION). */}
-      {SHOW_FRAGILITY_IN_DRIVER_SECTION && decisionChangeRisk && <p>{decisionChangeRisk}</p>}
       {/* Quality hint — HIDDEN: an evidence claim derived from raw fields
           (single-source rule). Returns when DISPLAY_SAFE_DRIVER_CONFIDENCE is true. */}
       {DISPLAY_SAFE_DRIVER_CONFIDENCE && showQualityHint && (
@@ -488,16 +466,6 @@ function DriverRow({
       {/* Zero reason moved OUT of the tooltip to a visible body badge (D-U): a
           suppressed-sensitivity factor must SHOW why (e.g. "Controlled by your
           options"), never hide the reason behind hover on the top row only. */}
-      {/* Ranking shift warning (tooltip variant) — HIDDEN: a ranking-shift /
-          fragility claim. Fragility ("could change the result") belongs in the
-          fragile-factors section, not the driver section
-          (SHOW_FRAGILITY_IN_DRIVER_SECTION). */}
-      {SHOW_FRAGILITY_IN_DRIVER_SECTION && rankingShiftWarn && (
-        <p className="flex items-center gap-1 text-warning">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
-          {rankingShiftWarn}
-        </p>
-      )}
       {/* Brief 5.1 Task 7.5: technique suggestion promoted out of the
           tooltip into a visible, clickable chip on the card body. Tooltip
           no longer carries this line to avoid duplication. */}
@@ -726,19 +694,6 @@ function DriverRow({
         </ExpertBlock>
       )}
 
-      {/* Microline overtake warning — HIDDEN: "If wrong, X overtakes" is a
-          fragility/flip claim. Fragility ("could change the result") belongs in
-          the fragile-factors section, not the driver section
-          (SHOW_FRAGILITY_IN_DRIVER_SECTION). */}
-      {SHOW_FRAGILITY_IN_DRIVER_SECTION && microlineLabel && (
-        <p
-          className={`${typography.panelMeta} text-danger px-3 pb-1.5 -mt-0.5`}
-          data-testid="driver-microline"
-        >
-          If wrong, {microlineLabel} overtakes
-        </p>
-      )}
-
       {/* Technique suggestion chip — HIDDEN: it is gated on LOW confidence
           (techniqueSuggestion = influence > 0.6 && conf < 0.5), so it is a
           confidence-derived signal. Hidden under the single-source rule until a
@@ -763,19 +718,6 @@ function DriverRow({
             {techniqueSuggestion}
           </button>
         </div>
-      )}
-
-      {/* "Ranking may shift N%" — HIDDEN: a ranking-shift / fragility claim.
-          Fragility ("could change the result") belongs in the fragile-factors
-          section, not the driver section (SHOW_FRAGILITY_IN_DRIVER_SECTION).
-          UI-SEM-045: rank-flip warning visibility gate (>=0.15 rankFlipRate). */}
-      {SHOW_FRAGILITY_IN_DRIVER_SECTION && typeof driver.rankFlipRate === 'number' && driver.rankFlipRate >= 0.15 && (
-        <p
-          className={`${typography.panelMeta} text-warning px-3 pb-1.5 -mt-0.5`}
-          data-testid={`driver-ranking-shift-${driver.factorKey}`}
-        >
-          Ranking may shift {Math.round(driver.rankFlipRate * 100)}%
-        </p>
       )}
 
       {/* Brief 5.8B D5 step 6: per-driver elasticity + attribution_stability
@@ -1075,12 +1017,6 @@ export function DriversSection({
         {/* Driver rows */}
         <div className="space-y-2">
           {displayDrivers.map((driver, index) => {
-          // V11: Driver #1 microline — show overtake warning below first driver
-          const showMicroline = index === 0
-            && driver.fragileEdgeInfo?.switchProbability != null
-            && driver.fragileEdgeInfo.switchProbability > 0
-            && driver.fragileEdgeInfo.alternativeWinnerLabel
-
           return (
             <DriverRow
               key={driver.factorKey}
@@ -1092,7 +1028,6 @@ export function DriversSection({
                 ? (el) => registerDriverRef(driver.factorKey, el)
                 : undefined
               }
-              microlineLabel={showMicroline ? driver.fragileEdgeInfo!.alternativeWinnerLabel : undefined}
               onSendMessage={onSendMessage}
               expertMode={expertMode}
               isTopDriver={index === 0}

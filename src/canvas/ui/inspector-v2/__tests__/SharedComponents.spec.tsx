@@ -8,7 +8,6 @@ import { ConfidenceBadge } from '../shared/ConfidenceBadge'
 import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { ProbabilityArc } from '../shared/ProbabilityArc'
-import { SectionTitle } from '../shared/SectionTitle'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { ConnectionRow } from '../shared/ConnectionRow'
 
@@ -121,13 +120,6 @@ describe('ProbabilityArc', () => {
     expect(svg).toBeTruthy()
     const textEl = svg?.querySelector('text')
     expect(textEl?.textContent).toBe('68%')
-  })
-})
-
-describe('SectionTitle', () => {
-  it('renders uppercase label', () => {
-    render(<SectionTitle icon="Target" label="Success target" />)
-    expect(screen.getByText('Success target')).toBeTruthy()
   })
 })
 

@@ -73,7 +73,19 @@ const CONTENT_CARD_FILES = [
   'canvas/components/pre-analysis/PreAnalysisPanel.tsx',
   'canvas/components/pre-analysis/GoalTargetNudge.tsx',
   'components/results/TriageActionCardsBody.tsx',
-  'components/results/ConfidenceSection.tsx',
+  // ── `components/results/ConfidenceSection.tsx` REMOVED 18 Aug 2026 with the
+  //    file itself (provably dead: zero importers outside the test tree, its
+  //    only referrer an unimported barrel). Per this list's own rule above, an
+  //    entry is re-pointed at its LIVE SUCCESSOR rather than dropped — and the
+  //    successor is already scanned: the analysis cockpit absorbed this card
+  //    (`analysis-hero/AnalysisHeroPanel.tsx` and siblings, listed below). So
+  //    the guard's SCOPE does not shrink here; only a dead path leaves it.
+  //    ⚠ This list is FAIL-LOUD and did its job: the dedicated 'every scan-list
+  //    file exists' test throws on an entry naming a deleted file ('remove it
+  //    or fix the path'), so leaving this row would have RED-ed the guard, not
+  //    rotted quietly. Removing it here is the fix that test prescribes.
+  //    (The accent scan below separately skips a missing file on purpose, so a
+  //    stale entry surfaces as named list-drift rather than a raw ENOENT.)
   'canvas/components/GuidanceCard.tsx',
   'canvas/components/ActionsSignal.tsx',
   'canvas/components/ValidationPanel.tsx',

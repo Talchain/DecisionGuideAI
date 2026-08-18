@@ -10,6 +10,9 @@
  *
  * Both read the identical producer field through the identical humaniser
  * (`selectHumanisedInferenceWarnings` / `humaniseInferenceWarningTitle`), so
+ * (historic names, kept as the record of the defect: the unfiltered
+ * `selectHumanisedInferenceWarnings` went callerless once the complement below
+ * landed and was deleted on 18 Aug 2026 — only the ...OutsideStrip form remains)
  * they cannot differ in wording — they can only repeat. What separates them is
  * SEVERITY: the strip shows `severity === 'warning'` only; Advanced showed
  * every entry with a message. The overlap is therefore total by construction,

@@ -11,8 +11,10 @@
  * module exists to fix. `trackRetryClicked`, `trackRemediationClicked` and
  * `trackCTAClicked` had **ZERO product call sites** — dead exports that read as
  * instrumentation. `trackCompareOpened` had call sites, but not these: the real
- * compare-open actions (`OutputsDock.tsx:1698`, `CompactOptionSpread.tsx:86`)
- * call a **same-named twin** in `canvas/utils/sandboxTelemetry.ts`. Two
+ * compare-open action (`OutputsDock.tsx:1698`) calls a **same-named twin** in
+ * `canvas/utils/sandboxTelemetry.ts`. (A second call site, `CompactOptionSpread`,
+ * was cited here until 18 Aug 2026, when that component was deleted as
+ * unreachable — it had zero importers, so it was never a live sender.) Two
  * same-named senders with different sinks is the hazard, not the fix, so
  * `compare_opened` now lives in that twin — one name, one function, both sinks.
  * See `canvas/utils/sandboxTelemetry.ts`.

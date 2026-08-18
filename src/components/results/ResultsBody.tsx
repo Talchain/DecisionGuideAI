@@ -478,12 +478,14 @@ export const ResultsBody = memo(function ResultsBody({
 
       {/* ── SECTION 2: OPTIONS COMPARISON ────────────────────────── */}
       {/* Critical analysis content — the full options block is unconditional;
-          no flag has ever gated it. CompactOptionSpread (kept in the repo as a
-          potential supplementary affordance) is NOT used to replace this
-          surface: users need WinGauge + RiskAppetiteFilter + OptionCards on
-          the Analysis tab, including "What makes this lead" affordances and
-          stability/range bars. (Reverted 2026-05-27, formerly Item 3 of the
-          V17 power pass.) */}
+          no flag has ever gated it. It was once proposed that CompactOptionSpread
+          replace this surface; that was reverted on 2026-05-27 because users need
+          WinGauge + RiskAppetiteFilter + OptionCards on the Analysis tab,
+          including "What makes this lead" affordances and stability/range bars.
+          CompactOptionSpread was then kept "as a potential supplementary
+          affordance" and never wired to anything — it acquired zero importers and
+          was DELETED on 18 Aug 2026. The ruling this comment records still
+          stands; only the dormant component is gone. */}
       {!resultsSectionData.recommendation.isSingleOption &&
        resultsSectionData.recommendation.allOptions.length > 1 && (
         <SectionErrorBoundary section="Options comparison">
