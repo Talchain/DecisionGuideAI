@@ -323,9 +323,19 @@ describe('GraphPatchBlock', () => {
     )
 
     expect(screen.getByTestId('patch-status-rejected')).toBeInTheDocument()
-    expect(screen.getByText(/INVALID_NODE/)).toBeInTheDocument()
     expect(screen.getByText(/Node type not supported/)).toBeInTheDocument()
     expect(screen.getByText('Missing label field')).toBeInTheDocument()
+    // ⚠ THIS ASSERTION WAS INVERTED, DELIBERATELY (B3). It used to require
+    // `/INVALID_NODE/` in the rendered text — i.e. it PINNED the rejection code
+    // reaching the user, which is the `VALIDATION_FAILED: …` log-language
+    // defect. The code is an operator's handle, so it moved to a data
+    // attribute; both halves are asserted here so the swap cannot silently
+    // become a deletion.
+    expect(screen.getByTestId('patch-status-rejected').textContent).not.toContain('INVALID_NODE')
+    expect(screen.getByTestId('patch-rejection-detail')).toHaveAttribute(
+      'data-rejection-code',
+      'INVALID_NODE',
+    )
   })
 
   it('shows "Show more" toggle for multiple violations', () => {

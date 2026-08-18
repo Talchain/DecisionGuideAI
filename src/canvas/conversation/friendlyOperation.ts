@@ -144,6 +144,55 @@ export function friendlyFieldName(key: string): string {
 }
 
 /**
+ * ONE AUTHORITY for turning a raw WIRE TOKEN into user-facing text.
+ *
+ * ## The defect this closes
+ *
+ * Several surfaces rendered a producer token straight into the DOM — a
+ * rejection `code` (`VALIDATION_FAILED: …`), an operation enum (`add_node`), a
+ * block kind (`v5_flip_analysis`), a node `kind`. Each was individually small;
+ * together they are the "log language reaching the user" class, and every one
+ * of them arrived through the same shape: a value the UI does not model, put on
+ * screen because it was a string.
+ *
+ * ## What it does, and what it deliberately does NOT do
+ *
+ * It changes PRESENTATION only: separators to spaces, SCREAMING_SNAKE folded to
+ * sentence case, first letter capitalised. It never maps a token to a different
+ * word, so it cannot invent a meaning the producer did not have (P7 — a lookup
+ * table here would be a hand-maintained mirror of a producer enum, trap 12, and
+ * every entry would be a guess at the producer's semantics).
+ *
+ * ## Returning `null` is the load-bearing case
+ *
+ * An ENTITY ID is not display text at any casing. `Fac x7` is worse than
+ * `fac_x7`, because it reads as a name the user is expected to recognise. So
+ * anything matching {@link RAW_ID_PATTERN} — and anything that normalises to
+ * nothing — returns `null`, and the CALLER omits the element rather than
+ * rendering a prettier leak. Callers must treat `null` as "show nothing here",
+ * never as "fall back to the raw value": a `?? raw` at a call site reinstates
+ * the exact defect this function exists to remove.
+ */
+export function humaniseWireToken(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  if (trimmed.length === 0) return null
+  // An entity id is never display text — see the docstring. Checked BEFORE any
+  // normalisation, because normalising first would destroy the very shape the
+  // pattern recognises.
+  if (RAW_ID_PATTERN.test(trimmed)) return null
+  // Already prose (contains a space and no separator) — pass through untouched
+  // rather than re-casing a producer's sentence.
+  const words = trimmed.replace(/[_\-.]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (words.length === 0) return null
+  // Fold SCREAMING_SNAKE / ALL CAPS to lower case so it stops reading as a log
+  // line. Mixed-case tokens keep their case: `blockType` is the producer's, and
+  // lower-casing `PLoT` or `EVPI` would be a downgrade, not a humanisation.
+  const folded = words === words.toUpperCase() ? words.toLowerCase() : words
+  return folded.charAt(0).toUpperCase() + folded.slice(1)
+}
+
+/**
  * Returns the first changed key from `data` according to UPDATE_FIELD_PRIORITY,
  * then any remaining keys (excluding `id`), sorted for determinism.
  *

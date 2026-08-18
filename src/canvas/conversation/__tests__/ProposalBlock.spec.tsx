@@ -144,7 +144,11 @@ describe('ProposalBlockRenderer', () => {
     )
     expect(screen.getByText('Add Regulatory Risk as a new factor')).toBeInTheDocument()
     expect(screen.getByText('New factor node')).toBeInTheDocument()
-    expect(screen.getByText('add')).toBeInTheDocument()
+    // ⚠ WAS `getByText('add')` — it PINNED the raw wire operation token in the
+    // pill. The pill now carries the humanised form; asserting BOTH directions
+    // so the change cannot decay into the pill simply disappearing.
+    expect(screen.getByText('Add')).toBeInTheDocument()
+    expect(screen.queryByText('add')).not.toBeInTheDocument()
     expect(screen.getByText('Regulatory Risk')).toBeInTheDocument()
     expect(screen.getByText(/May increase model complexity/)).toBeInTheDocument()
   })
