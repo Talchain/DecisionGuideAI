@@ -202,7 +202,7 @@ function validateGoalNode(
 /**
  * Whether a CEE option is resolved for run purposes.
  *
- * Baseline options ("do nothing") correctly carry empty interventions, so they
+ * Baseline options (the option where nothing changes) correctly carry empty interventions, so they
  * are exempt from the intervention requirement.
  *
  * ROADMAP 2.924 — this is the SINGLE predicate behind both the soft-bypass gate
@@ -347,7 +347,7 @@ function validateOverallStatus(
     // not a genuine structural problem.
     const isSoftStatus = disposition === 'soft_bypassable'
 
-    // Baseline options correctly have empty interventions ("do nothing").
+    // Baseline options correctly have empty interventions (nothing changes).
     // Exclude them from the intervention requirement in the soft bypass check.
     const allOptionsResolved = isSoftStatus && (ceeAnalysisReady.options?.every(
       isCeeOptionResolved

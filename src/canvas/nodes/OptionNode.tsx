@@ -195,7 +195,7 @@ function computeAllDifferentiators(
   const optionInterventions = new Map<string, Map<string, InterventionEntry>>()
   for (const optNode of optionNodes) {
     // Explicit flag wins; regex fallback only fires when flag is null/undefined.
-    // Explicit `false` must suppress the regex (prevents "Status Quo" labels on
+    // Explicit `false` must suppress the regex (prevents "Baseline" labels on
     // non-baseline options from being treated as baseline).
     const explicit = (optNode.data as any)?.is_baseline as boolean | null | undefined
     const isBaseline = explicit ?? detectBaseline((optNode.data?.label as string) ?? '').isBaseline
@@ -914,8 +914,8 @@ export const OptionNode = memo((props: NodeProps) => {
         // Baseline chips already pre-existed inside layer2Content; keep them.
         return (
           <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip chipId="option_why_win_lose" actionType="explain_results" label="Why is this ahead or behind on your goal?" message={`Why does the status quo (${optionLabel}) do better or worse against my goal than the other options?`} />
-            <NodeChip chipId="option_risks_of_inaction" actionType={null} label="Risks of inaction" message="What are the risks of choosing to do nothing?" />
+            <NodeChip chipId="option_why_win_lose" actionType="explain_results" label="Why is this ahead or behind on your goal?" message={`Why does the baseline (${optionLabel}) do better or worse against my goal than the other options?`} />
+            <NodeChip chipId="option_risks_of_inaction" actionType={null} label="Risks of inaction" message="What are the risks of staying with the baseline?" />
           </div>
         )
       }
@@ -1207,7 +1207,7 @@ export const OptionNode = memo((props: NodeProps) => {
               <span
                 data-testid={`option-stable-number-${props.id}`}
                 aria-label={`Option ${stableOptionNumber}`}
-                className={`${typography.panelMeta} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
+                className={`${typography.nodeLabel} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
               >
                 {stableOptionNumber}
               </span>
@@ -1294,8 +1294,8 @@ export const OptionNode = memo((props: NodeProps) => {
             {structuredDeltas.map(d => (
               <span
                 key={d.factorId}
-                className="inline-flex items-center gap-0.5 font-sans leading-tight px-[5px] py-[1px] rounded-full border border-panel-border bg-transparent text-text-body"
-                style={{ fontSize: 11, borderWidth: '0.5px' }}
+                className={`${typography.nodeLabel} inline-flex items-center gap-0.5 px-[5px] py-[1px] rounded-full border border-panel-border bg-transparent text-text-body`}
+                style={{ borderWidth: '0.5px' }}
               >
                 {d.direction === 'up' ? (
                   <ArrowUp size={10} className="text-success flex-shrink-0" />

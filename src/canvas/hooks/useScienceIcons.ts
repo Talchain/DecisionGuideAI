@@ -193,7 +193,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
           id: 'status-quo-bias',
           icon: statusQuo.icon,
           tooltip: `${statusQuo.title}: inaction risks often underestimated.`,
-          action: 'What could go wrong with doing nothing?',
+          action: 'What could go wrong with staying on the baseline?',
           colour: 'text-warning',
           priority: 6,
         })

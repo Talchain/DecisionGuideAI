@@ -18,6 +18,7 @@
  * Per spec Section 14: 0.5px border, default colour, 10px font, border-radius 10px.
  */
 import { useMemo } from 'react'
+import { typography } from '../../../styles/typography'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 import { useCanvasStore } from '../../store'
 import { NodeShapeIndicator } from '../NodeShapeIndicator'
@@ -86,7 +87,7 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
       {pills.map(p => (
         <span
           key={p.id}
-          className="inline-flex items-center gap-0.5 text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border-[0.5px] border-panel-border text-text-light"
+          className={`${typography.edgeLabel} inline-flex items-center gap-0.5 px-[5px] py-[1px] rounded-[10px] border-[0.5px] border-panel-border text-text-light`}
         >
           {/* Direction for screen readers — the arrow glyph below is aria-hidden,
               so without this the pill would announce only the % and label.

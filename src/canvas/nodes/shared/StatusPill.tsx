@@ -8,8 +8,14 @@
  * Spec (Polish 4 Task 6): 10px text, 500 weight, 2px×8px padding, 10px radius,
  * warning at 15% bg / 40% border, warning text colour. The original 9px/1px
  * spec was unreadable at typical canvas zoom (80–100%). British English: colour.
+ *
+ * ⭐ 18 Aug 2026: that 11px was an INLINE `fontSize`, so it never saw the canvas
+ * counter-scale and rendered at 5.5px at the 0.50 auto-fit floor — smaller than
+ * the 9px this note records as already rejected at 80–100%. Same declared size,
+ * now via the `nodeLabel` token (DS v5 §2.3), which carries the counter-scale.
  */
 import { memo } from 'react'
+import { typography } from '../../../styles/typography'
 
 interface StatusPillProps {
   label: string
@@ -21,8 +27,8 @@ export const StatusPill = memo(({ label, title }: StatusPillProps) => (
   <span
     role="status"
     aria-label={title ?? label}
-    className="absolute -top-2 -right-1 z-10 inline-flex items-center font-sans font-medium text-warning bg-warning/15 border border-warning/40 rounded-[10px]"
-    style={{ fontSize: 11, padding: '2px 8px', lineHeight: 1.2, borderWidth: '0.5px' }}
+    className={`${typography.nodeLabel} absolute -top-2 -right-1 z-10 inline-flex items-center font-medium text-warning bg-warning/15 border border-warning/40 rounded-[10px]`}
+    style={{ padding: '2px 8px', lineHeight: 1.2, borderWidth: '0.5px' }}
     title={title ?? label}
     data-testid="needs-input-pill"
   >
