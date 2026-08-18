@@ -111,15 +111,39 @@ function Wrapper({ children }: { children: ReactNode }) {
  *  hero, the user never touched it, and the post-draft transition minimised it. */
 const IMPOSING = { source: 'system-first-use' as FloatingPanelSource, userRepositioned: false, isMinimised: true }
 
+/**
+ * Mount the panel in a given ownership/visibility state AND PIN THE
+ * PRECONDITION IN-TEST (trap 13b).
+ *
+ * ⚠ EVERY ASSERTION IN THIS FILE IS VACUOUS UNLESS THE PANEL IS ACTUALLY
+ * MOUNTED AND NOT YIELDING, and that is not hypothetical — it happened while
+ * this file was being written. `FloatingOlumiPanel` also suppresses itself when
+ * the dock hosts Olumi (`yieldToDockedOlumi`), and the
+ * `revealOlumiSurface()` test above leaves `activeOutputTab === 'olumi'` in the
+ * SHARED ui store. Every later test then measured a panel that had yielded, so
+ * `focusFloating()` was false for a reason that had nothing to do with the
+ * predicate under test — a suite that would have gone green the moment the
+ * three twins were deleted. The `beforeEach` reset closes the leak; this
+ * assertion is what makes a future leak RED instead of silent.
+ */
 function mountPanelIn(state: { source: FloatingPanelSource; userRepositioned: boolean; isMinimised: boolean }) {
   useFloatingPanelState.setState({ isOpen: true, ...state })
-  return render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+  const utils = render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+  expect(
+    document.querySelector('[data-testid="floating-olumi-panel"]'),
+    'PRECONDITION: the panel must be mounted and not yielding, or focusFloating() is answering a different question',
+  ).not.toBeNull()
+  return utils
 }
 
 beforeEach(() => {
   Object.defineProperty(window, 'innerWidth', { value: 1280, configurable: true })
   Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true })
   useFloatingPanelState.getState().reset()
+  // The dock tab is REAL product state and is not reset by vitest's mock
+  // hygiene. Leaving it on 'olumi' makes the panel yield — see mountPanelIn.
+  useUIStore.setState({ activeOutputTab: 'results' })
+  sessionStorage.clear()
 })
 afterEach(() => {
   useFloatingPanelState.getState().reset()
