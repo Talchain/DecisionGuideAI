@@ -108,6 +108,7 @@ import { DraftChat } from './components/DraftChat'
 import { isAiPanelV2Enabled } from '../flags'
 import { ConversationProvider } from './conversation/ConversationContext'
 import { PanelApplyDrainHost } from './conversation/PanelApplyDrainHost'
+import { StructuralDeleteDrainHost } from './conversation/StructuralDeleteDrainHost'
 import { FloatingOlumiPanel } from './components/FloatingOlumiPanel'
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
@@ -2521,6 +2522,12 @@ export function MaybeConversationProvider({ children }: { children: import('reac
     return (
       <ConversationProvider>
         <PanelApplyDrainHost />
+        {/* schemas 0.48.0 — the durable-delete drain's flag-ON host. DraftChat
+            owns it while aiPanelV2 is OFF; with the flag ON (the deployed
+            posture for every fresh user) DraftChat is not mounted, so hosting
+            the drain there alone shipped the capability dark. Same two-host
+            shape as PanelApplyDrainHost above, for the same reason. */}
+        <StructuralDeleteDrainHost />
         {children}
       </ConversationProvider>
     )

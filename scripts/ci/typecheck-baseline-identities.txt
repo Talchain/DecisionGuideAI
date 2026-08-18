@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2325
+# count=2306
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -509,7 +509,7 @@
 2	src/canvas/conversation/useConversation.ts	TS2339	Property 'graph_state' does not exist on type 'TurnRequestPayload'.
 1	src/canvas/conversation/useConversation.ts	TS2339	Property 'message' does not exist on type 'TurnRequestPayload'.
 2	src/canvas/conversation/useConversation.ts	TS2339	Property 'selected_elements' does not exist on type 'TurnRequestPayload'.
-1	src/canvas/conversation/useConversation.ts	TS2345	Argument of type '{ currentResultsHash: null | string; backfillGoalThreshold: (analysisReady: { goal_node_id?: string; goal_threshold_raw?: null | number; goal_threshold_unit?: null | string; goal_threshold_cap?: null | number; } | null) => void; ... 256 more ...; clearClarifierPreview: () => void; }' is not assignable to parameter of type 'V5ApplicatorStore'.
+1	src/canvas/conversation/useConversation.ts	TS2345	Argument of type '{ currentResultsHash: null | string; backfillGoalThreshold: (analysisReady: { goal_node_id?: string; goal_threshold_raw?: null | number; goal_threshold_unit?: null | string; goal_threshold_cap?: null | number; } | null) => void; ... 261 more ...; clearClarifierPreview: () => void; }' is not assignable to parameter of type 'V5ApplicatorStore'.
 2	src/canvas/conversation/useConversation.ts	TS2352	Conversion of type 'OrchestratorResponseEnvelopeV2' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/canvas/conversation/useGraphEditEvents.ts	TS6133	'op' is declared but its value is never read.
 1	src/canvas/conversation/useGraphEditEvents.ts	TS6133	'ops' is declared but its value is never read.
@@ -520,7 +520,6 @@
 1	src/canvas/domain/__tests__/edgeLabels.spec.ts	TS6133	'EdgeLabelMode' is declared but its value is never read.
 1	src/canvas/domain/__tests__/migrations.spec.ts	TS2532	Object is possibly 'undefined'.
 1	src/canvas/domain/__tests__/nodes.spec.ts	TS6133	'NodeDataSchema' is declared but its value is never read.
-1	src/canvas/edges/StyledEdge.tsx	TS2322	Type 'null | string | undefined' is not assignable to type 'StrokeDasharray<number | string> | undefined'.
 1	src/canvas/edges/StyledEdge.tsx	TS2322	Type 'unknown' is not assignable to type 'string | undefined'.
 1	src/canvas/edges/StyledEdge.tsx	TS2322	Type 'unknown' is not assignable to type 'string'.
 1	src/canvas/edges/StyledEdge.tsx	TS2339	Property 'flagged_as_assumption' does not exist on type '{}'.
@@ -672,16 +671,6 @@
 5	src/canvas/provenance/ProvenanceHub.tsx	TS2339	Property 'source' does not exist on type 'Citation'.
 2	src/canvas/provenance/ProvenanceHub.tsx	TS2339	Property 'text' does not exist on type 'Citation'.
 3	src/canvas/share/__tests__/decisionSummary.spec.ts	TS2322	Type 'number | undefined' is not assignable to type 'number'.
-1	src/canvas/snapshots/SnapshotPanel.tsx	TS2339	Property 'setEdges' does not exist on type 'CanvasState'.
-1	src/canvas/snapshots/SnapshotPanel.tsx	TS2339	Property 'setNodes' does not exist on type 'CanvasState'.
-1	src/canvas/snapshots/VisualDiff.tsx	TS2724	'"./snapshots"' has no exported member named 'SnapshotEdge'. Did you mean 'Snapshot'?
-1	src/canvas/snapshots/VisualDiff.tsx	TS2724	'"./snapshots"' has no exported member named 'SnapshotNode'. Did you mean 'Snapshot'?
-1	src/canvas/snapshots/__tests__/snapshots.spec.ts	TS2322	Type '{ label: string; weight: number; }' is not assignable to type 'EdgeData'.
-1	src/canvas/snapshots/__tests__/snapshots.spec.ts	TS2532	Object is possibly 'undefined'.
-1	src/canvas/snapshots/__tests__/snapshots.spec.ts	TS6133	'id3' is declared but its value is never read.
-1	src/canvas/snapshots/__tests__/snapshots.spec.ts	TS6133	'vi' is declared but its value is never read.
-1	src/canvas/snapshots/snapshots.ts	TS2322	Type '{ id: string; source: string; target: string; data: { label: string | undefined; weight: number | undefined; }; }[]' is not assignable to type 'Edge<EdgeData>[]'.
-1	src/canvas/snapshots/useVisualDiff.ts	TS2552	Cannot find name 'setDiffEnabled'. Did you mean 'setIsDiffEnabled'?
 3	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS2322	Type 'number' is not assignable to type 'CEEInterventionV3'.
 1	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS2322	Type '{ data: { weight: number; style?: "dashed" | "dotted" | "solid" | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 26 more ...; userReviewedStrength?: boole...' is not assignable to type 'Edge<EdgeData>[]'.
 1	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS6133	'newEdge' is declared but its value is never read.
@@ -738,7 +727,6 @@
 1	src/canvas/ui/__tests__/NodeInspector.inspector-fixes.spec.tsx	TS2740	Type '{}' is missing the following properties from type 'ReportV1': schema, meta, model_card, results, and 2 more.
 5	src/canvas/ui/__tests__/NodeInspector.inspector-fixes.spec.tsx	TS2741	Property 'progress' is missing in type '{ status: "idle"; report: null; }' but required in type 'ResultsState'.
 1	src/canvas/ui/inspector-v2/InspectorRouter.tsx	TS1355	A 'const' assertions can only be applied to references to enum members, or string, number, boolean, array, or object literals.
-1	src/canvas/ui/inspector-v2/InspectorRouter.tsx	TS2339	Property 'edge' does not exist on type '{ goal: NamedExoticComponent<InspectorPanelProps>; decision: NamedExoticComponent<InspectorPanelProps>; ... 5 more ...; risk: NamedExoticComponent<...>; }'.
 1	src/canvas/ui/inspector-v2/__tests__/Brief3Panels.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/ui/inspector-v2/__tests__/EdgePanelCausalClaims.spec.tsx	TS6133	'vi' is declared but its value is never read.
 1	src/canvas/ui/inspector-v2/__tests__/IntelligenceSection.spec.tsx	TS2322	Type 'VitestUtils' is not assignable to type 'Awaitable<HookCleanupCallback>'.
@@ -1036,7 +1024,6 @@
 1	src/components/results/ConfidenceSection.tsx	TS6196	'EvidenceGapItem' is declared but never used.
 1	src/components/results/DriversSection.tsx	TS2339	Property '__OLUMI_DEBUG' does not exist on type 'Window & typeof globalThis'.
 2	src/components/results/ResultsBody.tsx	TS2304	Cannot find name '__GIT_SHA__'.
-1	src/components/results/ResultsBody.tsx	TS2322	Type '{ children: Element; title: string; subtitle: string; defaultExpanded: false; isExpanded: boolean | undefined; onExpandChange: ((expanded: boolean) => void) | undefined; count: number; badgeState: "unresolved" | undefined; testId: string; }' is not assignable to type 'IntrinsicAttributes & AccordionProps'.
 1	src/components/results/ResultsFooter.tsx	TS2322	Type 'null | number | undefined' is not assignable to type 'number | undefined'.
 1	src/components/results/SuccessTargetRow.tsx	TS6133	'showHitsTarget' is declared but its value is never read.
 1	src/components/results/TriageActionCardsBody.tsx	TS2345	Argument of type 'Map<string, StrengthenOverlay> | null' is not assignable to parameter of type 'Map<string, StrengthenOverlay>'.
@@ -1120,7 +1107,6 @@
 3	src/lib/__tests__/compare.debug.test.ts	TS2322	Type 'string' is not assignable to type 'CompareStats'.
 1	src/lib/__tests__/config.drawer.test.tsx	TS6133	'act' is declared but its value is never read.
 1	src/lib/__tests__/contract-validators.spec.ts	TS6133	'ContractValidationResult' is declared but its value is never read.
-1	src/lib/__tests__/ctaStateMachine.spec.ts	TS6133	'CTAInput' is declared but its value is never read.
 1	src/lib/__tests__/discrimination.spec.ts	TS6133	'DiscriminationPayload' is declared but its value is never read.
 1	src/lib/__tests__/gate-state.spec.ts	TS6133	'GateName' is declared but its value is never read.
 1	src/lib/__tests__/gate-state.spec.ts	TS6133	'gates' is declared but its value is never read.
@@ -1137,7 +1123,6 @@
 9	src/lib/__tests__/nextSteps.spec.ts	TS2739	Type '{ id: string; kind: "node"; label: string; impact: number; impactDirection: "positive"; rawImpact: number; rank: number; }' is missing the following properties from type 'NormalizedDriver': uiId, uiIdValid
 1	src/lib/__tests__/nextSteps.spec.ts	TS6133	'NextStepsInput' is declared but its value is never read.
 4	src/lib/__tests__/payload-trace-store.envGate.spec.ts	TS2345	Argument of type 'string' is not assignable to parameter of type 'boolean'.
-1	src/lib/__tests__/readiness.spec.ts	TS2353	Object literal may only specify known properties, and 'affectedNodeIds' does not exist in type 'ValidationIssue'.
 1	src/lib/__tests__/replay.run.test.tsx	TS6133	'React' is declared but its value is never read.
 1	src/lib/__tests__/replay.tooltip.test.tsx	TS6133	'React' is declared but its value is never read.
 1	src/lib/__tests__/secureStorage.spec.ts	TS6133	'result' is declared but its value is never read.
@@ -1158,9 +1143,6 @@
 1	src/lib/mappers/utils.ts	TS2352	Conversion of type 'Window & typeof globalThis' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/lib/plotStream.ts	TS6133	'lastEventId' is declared but its value is never read.
 1	src/lib/prompts.ts	TS6133	'generatePrompt' is declared but its value is never read.
-1	src/lib/readiness.ts	TS2339	Property 'affectedNodeIds' does not exist on type 'ValidationIssue'.
-2	src/lib/readiness.ts	TS2367	This comparison appears to be unintentional because the types '"info" | "warning"' and '"blocker"' have no overlap.
-1	src/lib/readiness.ts	TS6133	'countIssuesBySeverity' is declared but its value is never read.
 1	src/modules/diagnostics/ErrorBanner.tsx	TS6133	'remaining' is declared but its value is never read.
 1	src/pages/ScenarioListPage.tsx	TS6133	'authenticated' is declared but its value is never read.
 1	src/pages/ScenarioListPage.tsx	TS6133	'deleting' is declared but its value is never read.

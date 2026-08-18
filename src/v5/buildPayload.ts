@@ -34,6 +34,10 @@ import type {
 import { ActionType, Intent } from '@talchain/schemas/boundary'
 
 import type { SystemEvent } from '../canvas/conversation/types'
+// The endpoint-id rules are the CONTRACT's, defined once beside the capture
+// that produces them — restating them here would be a mirror, and a drifted
+// copy would put a 422-shaped id on the wire.
+import { isCanonicalEndpointId } from '../canvas/mutations/structuralDelete'
 // VALUE import, and deliberately so: the selection this module puts on the wire
 // must be the one the canvas holds AT SEND TIME, read at the moment the payload
 // is built. Passing it in from useConversation would be purer, but the store is
@@ -397,6 +401,11 @@ function systemEventToPayload(args: {
       if (event === null) return null
       return { ...base, event }
     }
+    case 'structural_delete': {
+      const event = adaptStructuralDelete(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
     case 'feedback_submitted': {
       // F7 (feedback thumbs = wire): map the UI's optimistic thumbs event onto
       // the typed 0.22 `feedback` system event. The emitter
@@ -494,6 +503,11 @@ type EdgeAdjudicationWireEvent = Extract<
 type PriorRangeEditWireEvent = Extract<
   SystemEventTurnPayload['event'],
   { kind: 'prior_range_edit' }
+>
+/** The durable removal (0.48.0) — derived, never hand-rolled, same reason. */
+type StructuralDeleteWireEvent = Extract<
+  SystemEventTurnPayload['event'],
+  { kind: 'structural_delete' }
 >
 
 // Narrow an optional unknown field to a FINITE number, or undefined.
@@ -791,6 +805,55 @@ function adaptPriorRangeEdit(
   const distribution = stringField(eventPayload, 'distribution')
   if (distribution) event.distribution = distribution
   return event
+}
+
+/**
+ * `structural_delete` (0.48.0) — the durable, atomic removal.
+ *
+ * FAIL-CLOSED ON THE CONTRACT'S OWN RULES, checked here rather than trusted
+ * from the caller, because every member of this union is `.strict()` and the
+ * union is discriminated: one malformed field does not lose the field, it loses
+ * the WHOLE TURN at CEE's ingress (422). The rules re-applied here are the
+ * schema's, not invented ones:
+ *   · `CanonicalEdgeEndpointIdSchema` — non-blank, no surrounding whitespace,
+ *     never a `→`/`->` composite (that delimiter belongs to the composite
+ *     adapter and would silently retarget);
+ *   · `base_graph_hash` is `z.string().min(1)` — "absent, null and empty are
+ *     all forbidden: the stale gate is non-optional";
+ *   · `refineStructuralDelete` — both arrays empty is refused, so a gesture
+ *     that resolved to nothing must never reach the wire.
+ *
+ * A `null` return routes to `unsupported_system_event`, i.e. no turn at all —
+ * which is the right outcome: an unsendable delete must not become a turn that
+ * claims something happened.
+ */
+function adaptStructuralDelete(
+  eventPayload: Record<string, unknown> | undefined,
+): StructuralDeleteWireEvent | null {
+  const base_graph_hash = stringField(eventPayload, 'base_graph_hash')
+  if (!base_graph_hash) return null
+
+  const rawNodeIds = eventPayload?.removed_node_ids
+  const rawEdges = eventPayload?.removed_edges
+  if (!Array.isArray(rawNodeIds) || !Array.isArray(rawEdges)) return null
+
+  const removed_node_ids: string[] = []
+  for (const id of rawNodeIds) {
+    if (!isCanonicalEndpointId(id)) return null
+    removed_node_ids.push(id)
+  }
+
+  const removed_edges: { from: string; to: string }[] = []
+  for (const edge of rawEdges) {
+    const from = (edge as { from?: unknown } | null)?.from
+    const to = (edge as { to?: unknown } | null)?.to
+    if (!isCanonicalEndpointId(from) || !isCanonicalEndpointId(to)) return null
+    removed_edges.push({ from, to })
+  }
+
+  if (removed_node_ids.length === 0 && removed_edges.length === 0) return null
+
+  return { kind: 'structural_delete', removed_node_ids, removed_edges, base_graph_hash }
 }
 
 // ActionType is a strict enum on the wire. If the UI passes an unknown

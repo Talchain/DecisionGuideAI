@@ -26,6 +26,7 @@ import { EXAMPLE_BRIEF_CHIPS } from '../../constants/validation'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import { useConversation } from '../conversation/useConversation'
 import { useGraphEditEvents } from '../conversation/useGraphEditEvents'
+import { useStructuralDeleteEvents } from '../conversation/useStructuralDeleteEvents'
 import { usePanelApplyDrain } from '../conversation/usePanelApplyDrain'
 import { useAnalysisCompleteEvent } from '../conversation/useAnalysisCompleteEvent'
 // useSessionResumeEvent disabled — session_resume not in CEE v3 schema
@@ -152,6 +153,11 @@ export function DraftChat() {
 
   // A.5+ Phase 2: Wire system event hooks (all no-ops when flag is OFF)
   useGraphEditEvents(conversation.sendSystemEvent)
+  // schemas 0.48.0 — the durable-delete drainer, hosted beside its sibling
+  // system-event hooks for the same reason `usePanelApplyDrain` is: this is the
+  // one place where the conversation context and the canvas store are both in
+  // scope. The store records a delete gesture; this is the ONE sender.
+  useStructuralDeleteEvents(conversation.sendSystemEvent)
   useAnalysisCompleteEvent()
   // COLLAB 0.40.0 — drain a panel-apply intent recorded on `/scenario/:id/panel`.
   // It is hosted HERE, beside its two sibling system-event hooks, because this is

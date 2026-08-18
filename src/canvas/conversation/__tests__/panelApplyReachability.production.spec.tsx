@@ -516,4 +516,38 @@ describe('production panel-apply route', () => {
     expect(legacySource).toContain('usePanelApplyDrain({')
     expect(graphSource).toContain('{!isAiPanelV2Enabled() && <DraftChat />}')
   })
+
+  // ═══ schemas 0.48.0 — the durable-delete drain gets the SAME two-host pin ═══
+  //
+  // ⚠ THIS LIMB EXISTS BECAUSE THE CAPABILITY SHIPPED DARK WITHOUT IT. The
+  // delete drain was hosted only in DraftChat, which the line pinned above
+  // mounts ONLY when aiPanelV2 is OFF — and it is ON for every fresh user. The
+  // queue was never drained and no turn could ever be sent, yet the whole suite
+  // stayed green: deleting the single call site left 157 files / 1773 tests
+  // passing, because nothing bound the MOUNT.
+  //
+  // A green suite is not evidence about a component the deployment does not
+  // render, so the binding has to be to the mount itself. Both hosts are pinned
+  // by source, exactly as the sibling drain's are, so deleting EITHER reds here.
+  it('the durable-delete drain is mounted on BOTH flag postures', () => {
+    const graphSource = readFileSync(resolve(process.cwd(), 'src/canvas/ReactFlowGraph.tsx'), 'utf8')
+    const legacySource = readFileSync(resolve(process.cwd(), 'src/canvas/components/DraftChat.tsx'), 'utf8')
+    const flagOnHost = readFileSync(
+      resolve(process.cwd(), 'src/canvas/conversation/StructuralDeleteDrainHost.tsx'),
+      'utf8',
+    )
+
+    // Flag ON: the headless host is mounted exactly once, and INSIDE the
+    // provider — outside it there is no sendSystemEvent to drain through.
+    expect(graphSource.match(/<StructuralDeleteDrainHost \/>/g)).toHaveLength(1)
+    const providerBlock = graphSource.slice(
+      graphSource.indexOf('<ConversationProvider>'),
+      graphSource.indexOf('</ConversationProvider>'),
+    )
+    expect(providerBlock).toContain('<StructuralDeleteDrainHost />')
+    expect(flagOnHost).toContain('useStructuralDeleteEvents(sendSystemEvent)')
+
+    // Flag OFF: DraftChat keeps its own host, or the rollback posture goes dark.
+    expect(legacySource).toContain('useStructuralDeleteEvents(')
+  })
 })

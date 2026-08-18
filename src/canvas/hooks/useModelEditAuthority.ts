@@ -31,9 +31,12 @@
  * receipt-bearing transaction API lands, this seam is where it plugs in.
  *
  * SCOPE AT THIS TIP: `proposeFactorValue` only. The UI's wire vocabulary
- * (`WIRE_SYSTEM_EVENT_TYPES`) carries exactly three server-authoritative edit
- * carriers — `factor_value_edit`, `prior_range_edit` (emitted inside the
- * sanctioned `setPriorRange`) and `edge_adjudication`. Edge strength /
+ * (`WIRE_SYSTEM_EVENT_TYPES`) carries four server-authoritative edit carriers —
+ * `factor_value_edit`, `prior_range_edit` (emitted inside the sanctioned
+ * `setPriorRange`), `edge_adjudication`, and — since schemas 0.48.0 —
+ * `structural_delete`, the durable REMOVAL, which is emitted from the canvas
+ * delete gestures via `useStructuralDeleteEvents` and resolves its own receipt
+ * inside `sendTurn` (this hook is not on that path). Edge strength /
  * likelihood / direction, option interventions, the goal target and factor
  * confirmation have NO canonical carrier yet; the v2 surface renders those
  * affordances DISABLED with an honest label rather than routing them through a

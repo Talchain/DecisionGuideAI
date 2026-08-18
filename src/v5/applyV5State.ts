@@ -143,6 +143,12 @@ export interface V5ApplicatorStore {
   }) => void
   /** Optional: update the freshness slice from a raw response.analysis_ready (retain / order / never absence→fresh). */
   setAnalysisFreshness?: (rawAnalysisReady: unknown) => void
+  /**
+   * Optional (schemas 0.48.0): record CEE's top-level `graph_hash` — the
+   * `aag_v1` value a `structural_delete` echoes as its stale gate. Retain-on-
+   * absence: never called with an empty value.
+   */
+  setLastServerGraphHash?: (hash: string) => void
   /** Optional (ROADMAP 2.1163 / EXT-2): set or clear CEE's typed analysis-refusal notice. Pass null to clear. */
   setAnalysisRefusalNotice?: (notice: AnalysisRefusalNotice | null) => void
   /**
@@ -1066,6 +1072,27 @@ export function applyV5State(
   // Freshness slice: retain on absence, order by computed_at, never absence→fresh.
   // Independent of ceeAnalysisReady (which clears on analyse-turns-without-analysis_ready).
   store.setAnalysisFreshness?.(rawAnalysisReady)
+
+  // ── schemas 0.48.0 — the base for the next durable delete ───────────────
+  //
+  // `graph_hash` is a DECLARED top-level key of the strict OlumiResponseSchema
+  // (it reaches the typed response rather than the `__additive__` sidecar), and
+  // it is the ONLY wire emitter of the hash CEE's delete writer compares
+  // against: `computeAnalysisAffectingGraphHash`. Measured byte-identical to
+  // `analysis_ready.current_graph_hash` across six live turn captures in
+  // `src/v5/__tests__/fixtures/`; the top-level key is read here because it is
+  // present on turns that carry no `analysis_ready` at all.
+  //
+  // RETAIN ON ABSENCE, deliberately, same rule as the freshness slice above: a
+  // turn that says nothing about the graph hash is not evidence that the last
+  // one stopped being true, and clearing would send the next delete down the
+  // stand-down path for no reason. The setter enforces this; the conditional
+  // here just avoids the call.
+  const rawGraphHash = (response as { graph_hash?: unknown }).graph_hash
+  if (typeof rawGraphHash === 'string' && rawGraphHash.length > 0) {
+    store.setLastServerGraphHash?.(rawGraphHash)
+    applied.push('graph_hash:captured')
+  }
 
   // ── ROADMAP 2.1163 / EXT-2 — the refusal READER ────────────────────────
   // CEE PR #942 puts a TYPED analysis refusal on the wire
