@@ -1,3 +1,43 @@
+/**
+ * ⭐⭐ A LOAD-BEARING NON-CHANGE — READ BEFORE TOUCHING `availableWidth`.
+ *
+ * `WORKSPACE-COMPOSITION-DECISION-2026-08-18.md` §5.1 records this file as **NO
+ * CHANGE, and it is load-bearing**. This header is that record.
+ *
+ * ⚠⚠ FORBIDDEN: deriving the layout budget from the fit box —
+ * `availableWidth = boxW / LABEL_LEGIBLE_ZOOM` (i.e. `boxW / 0.50`) or any
+ * relative of it. It is a genuinely attractive idea: it makes the solver's
+ * assumption and the camera's frame agree by construction, and one of the three
+ * candidate designs proposed exactly this. It is forbidden because the fit box is
+ * a function of PANEL STATE, so the canonical model would **re-pack whenever a
+ * panel opened or a screen shrank** — the founder's binding ruling is the
+ * opposite:
+ *
+ * > "Do NOT solve the problem by making the canonical model artificially
+ * > smaller. Preserve: STABLE MODEL, ADAPTIVE ATTENTION."
+ *
+ * The model is the team's shared reasoning. It must not silently change shape
+ * because someone opened a conversation. Adapt the PRESENTATION (camera, focus,
+ * "showing N of M"), never the model.
+ *
+ * WHAT IS SAFE, and what shipped instead (18 Aug 2026): pinning `canvasSize` to
+ * ONE canonical, panel-INDEPENDENT derived width — `utils/layoutCanvasSize.ts`,
+ * which replaced two hand-copied duplicates. That removes an authority defect
+ * without coupling the model to the chrome. Read that module's header for the
+ * measured 1088-vs-760 arithmetic and for which half of it is a defect (the
+ * floating panel's phantom reservation, now deleted) and which half is not (the
+ * dock and sidebar, which genuinely occlude).
+ *
+ * ⚠ ONE GENUINE DEFECT IN THIS FILE, NOT FIXED HERE, recorded so it is not lost:
+ * the DOWN branch treats `availableWidth` as a budget for deciding
+ * single-row-vs-multi-row and then emits a row that OVERRUNS it — a 6-wide tier
+ * packs to 2140 units against a 1088 budget, 63% over (the sharpest diagnosis in
+ * the design set). Honouring the budget would change the shape of every model at
+ * every viewport, so it is a product decision behind a visual-regression gate,
+ * not a tidy-up. Guard G3 (`layoutSizingAuthority.guard.spec.ts`) pins the
+ * current viewport-independence AND the exact width at which it breaks, so any
+ * move in either direction REDs.
+ */
 // P1 Polish: Dynamic ELK import for code-splitting (Task F)
 import type { ElkNode, ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js'
 import { Node, Edge } from '@xyflow/react'
