@@ -189,18 +189,53 @@ const KNOWN_FIXED = [
  * Derived per run and asserted EXACTLY — see the header. Declared sizes and
  * what they render at the 0.50 floor, so the gap is costed and not merely named:
  *
- *   canvas/ui/shared/DataBar.tsx        typography.nodeLabel 11px (counter-scaled
- *                                       ✓) AND typography.panelBody 12px -> 6.0px
- *                                       — the numeric readout beside every
+ *   canvas/ui/shared/DataBar.tsx        typography.nodeLabel 11px, counter-scaled
+ *                                       ✓. ⚠ CORRECTED 18 Aug 2026: this entry
+ *                                       ALSO said "typography.panelBody 12px ->
+ *                                       6.0px — the numeric readout beside every
  *                                       stability / influence bar on Goal and
- *                                       Factor nodes.
+ *                                       Factor nodes". THAT IS FALSE, and it was
+ *                                       dispatched as a defect before anyone
+ *                                       derived it. `panelBody` sits behind
+ *                                       `showPercent && size === 'standard'`, and
+ *                                       the ONLY caller passing `showPercent` is
+ *                                       `components/results/DriversSection.tsx`
+ *                                       — a side PANEL, outside the transform.
+ *                                       The in-transform callers (FactorNode:667,
+ *                                       :689, GoalNode:255) pass neither
+ *                                       `showPercent` nor `trailingLabel`, so the
+ *                                       suffix slot renders `null`. The readout
+ *                                       beside a Factor node's bars is not
+ *                                       DataBar's: it is FactorNode's own sibling
+ *                                       <span> on the counter-scaled `edgeLabel`.
+ *                                       Routing `panelBody` to a canvas token
+ *                                       would have RESIZED a panel's 12px readout
+ *                                       and fixed nothing on canvas.
  *   canvas/components/CoachingCard.tsx  typography.nodeLabel 11px — already
  *                                       counter-scaled ✓.
  *   canvas/components/UnknownKindWarning typography.caption 12px -> 6.0px.
- *   components/Tooltip.tsx              raw `text-xs` 12px -> 6.0px. Shared
- *                                       app-wide, so its size is NOT a canvas
- *                                       decision; it renders un-portalled inside
- *                                       BaseNode and OlumiSparkle.
+ *   components/Tooltip.tsx              raw `text-xs` 12px. Shared app-wide, so
+ *                                       its size is NOT a canvas decision.
+ *                                       ⚠ CORRECTED 18 Aug 2026: this entry said
+ *                                       "-> 6.0px … renders un-portalled inside
+ *                                       BaseNode and OlumiSparkle". The
+ *                                       un-portalled half is the REFERENCE
+ *                                       WRAPPER, which declares no font size; the
+ *                                       `text-xs` is on the floating element
+ *                                       inside `<FloatingPortal>`, which with no
+ *                                       `root`/`id` prop and no FloatingPortal
+ *                                       ancestor resolves to `document.body`
+ *                                       (derived at @floating-ui/react 0.26.9,
+ *                                       `useFloatingPortalNode`). It renders at
+ *                                       its declared 12px, outside the transform.
+ *
+ * ⭐ TWO OF THESE FOUR SENTENCES WERE WRONG, AND BOTH WERE ACTED ON. That is
+ * this file's own trap 12 arriving inside the paragraph written to make a gap
+ * visible: a prose sidecar is a hand-maintained mirror however carefully it is
+ * worded, and a size recorded here reads as measured when it was inferred. The
+ * DataBar and Tooltip claims are now EXECUTABLE, with contrast controls, in
+ * `canvasTextCounterScale.foreignRendered.spec.tsx`. The other two entries above
+ * are still prose and still unverified — treat them as leads, not findings.
  */
 const FOREIGN_RENDERED = [
   'src/canvas/components/CoachingCard.tsx',
