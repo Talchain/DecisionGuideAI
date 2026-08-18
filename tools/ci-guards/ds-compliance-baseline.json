@@ -6173,22 +6173,13 @@
     "panel-typography-scoped": {
       "mode": "ratchet",
       "description": "Raw text-/font- utilities in panel scope — must use panelHeader/Body/Meta (DS v5 §2.4)",
-      "total": 34,
+      "total": 10,
       "byFile": {
-        "src/components/results/coaching/AskOlumiDrawer.tsx": 8,
-        "src/components/results/strengthen/StrengthenPanel.tsx": 4,
         "src/canvas/panels/TemplatesPanel.tsx": 3,
         "src/canvas/ui/EdgeInspector.tsx": 3,
         "src/canvas/panels/AdapterStatusBanner.tsx": 2,
-        "src/components/results/analysis-hero/AnalysisHeroPanel.tsx": 2,
-        "src/components/results/analysis-hero/HeroEvidenceDisclosure.tsx": 2,
-        "src/components/results/analysisHeroV17/HeroFooter.tsx": 2,
-        "src/components/results/decision-overview/ActionsMenu.tsx": 2,
-        "src/components/results/decision-overview/DecisionOverviewCard.tsx": 2,
         "src/canvas/panels/InspectorPanel.tsx": 1,
-        "src/canvas/panels/IssuesPanel.tsx": 1,
-        "src/components/results/CompactOptionSpread.tsx": 1,
-        "src/components/results/TriageActionCardsBody.tsx": 1
+        "src/canvas/panels/IssuesPanel.tsx": 1
       },
       "signatures": {
         "panel-typography-scoped :: src/canvas/panels/AdapterStatusBanner.tsx :: text-xs": {
@@ -6232,78 +6223,6 @@
           "file": "src/canvas/ui/EdgeInspector.tsx",
           "token": "font-medium",
           "sample": "<span className=\"font-medium\">{sourceLabel}</span>"
-        },
-        "panel-typography-scoped :: src/components/results/CompactOptionSpread.tsx :: font-semibold": {
-          "count": 1,
-          "file": "src/components/results/CompactOptionSpread.tsx",
-          "token": "font-semibold",
-          "sample": "<span className=\"font-semibold\">Option spread:</span> {parts.join(' · ')}"
-        },
-        "panel-typography-scoped :: src/components/results/TriageActionCardsBody.tsx :: font-semibold": {
-          "count": 1,
-          "file": "src/components/results/TriageActionCardsBody.tsx",
-          "token": "font-semibold",
-          "sample": "<span className=\"font-semibold whitespace-nowrap\">{dominantLabel}</span>"
-        },
-        "panel-typography-scoped :: src/components/results/analysis-hero/AnalysisHeroPanel.tsx :: font-semibold": {
-          "count": 2,
-          "file": "src/components/results/analysis-hero/AnalysisHeroPanel.tsx",
-          "token": "font-semibold",
-          "sample": "className={`${typography.panelMeta} inline-flex items-center rounded-full bg-primary px-3 py-1.5 font-semibold text-text"
-        },
-        "panel-typography-scoped :: src/components/results/analysis-hero/HeroEvidenceDisclosure.tsx :: font-semibold": {
-          "count": 2,
-          "file": "src/components/results/analysis-hero/HeroEvidenceDisclosure.tsx",
-          "token": "font-semibold",
-          "sample": "className={`font-semibold ${d.direction === 'positive' ? 'text-success' : 'text-danger'}`}"
-        },
-        "panel-typography-scoped :: src/components/results/analysisHeroV17/HeroFooter.tsx :: font-semibold": {
-          "count": 1,
-          "file": "src/components/results/analysisHeroV17/HeroFooter.tsx",
-          "token": "font-semibold",
-          "sample": "<strong className=\"text-text-header font-semibold\">Also:</strong>"
-        },
-        "panel-typography-scoped :: src/components/results/analysisHeroV17/HeroFooter.tsx :: font-medium": {
-          "count": 1,
-          "file": "src/components/results/analysisHeroV17/HeroFooter.tsx",
-          "token": "font-medium",
-          "sample": "className={`px-3 py-1.5 rounded-full bg-primary text-text-on-color border border-primary hover:bg-primary-hover focus-vi"
-        },
-        "panel-typography-scoped :: src/components/results/coaching/AskOlumiDrawer.tsx :: text-sm": {
-          "count": 1,
-          "file": "src/components/results/coaching/AskOlumiDrawer.tsx",
-          "token": "text-sm",
-          "sample": "<h2 className=\"flex-1 text-sm font-semibold text-text-header\">"
-        },
-        "panel-typography-scoped :: src/components/results/coaching/AskOlumiDrawer.tsx :: font-semibold": {
-          "count": 2,
-          "file": "src/components/results/coaching/AskOlumiDrawer.tsx",
-          "token": "font-semibold",
-          "sample": "<h2 className=\"flex-1 text-sm font-semibold text-text-header\">"
-        },
-        "panel-typography-scoped :: src/components/results/coaching/AskOlumiDrawer.tsx :: text-xs": {
-          "count": 5,
-          "file": "src/components/results/coaching/AskOlumiDrawer.tsx",
-          "token": "text-xs",
-          "sample": "className=\"mb-2 rounded-[9px] border border-info px-2.5 py-2 text-xs text-text-body\""
-        },
-        "panel-typography-scoped :: src/components/results/decision-overview/ActionsMenu.tsx :: font-semibold": {
-          "count": 2,
-          "file": "src/components/results/decision-overview/ActionsMenu.tsx",
-          "token": "font-semibold",
-          "sample": "<span className={`${typography.panelBody} block font-semibold text-text-header`}>{m.title}</span>"
-        },
-        "panel-typography-scoped :: src/components/results/decision-overview/DecisionOverviewCard.tsx :: font-semibold": {
-          "count": 2,
-          "file": "src/components/results/decision-overview/DecisionOverviewCard.tsx",
-          "token": "font-semibold",
-          "sample": "<span className={`${typography.panelBody} block font-semibold text-text-header`}>{copy.line}</span>"
-        },
-        "panel-typography-scoped :: src/components/results/strengthen/StrengthenPanel.tsx :: font-semibold": {
-          "count": 4,
-          "file": "src/components/results/strengthen/StrengthenPanel.tsx",
-          "token": "font-semibold",
-          "sample": "<span className={`${typography.panelBody} block font-semibold text-text-header`}>"
         }
       }
     },

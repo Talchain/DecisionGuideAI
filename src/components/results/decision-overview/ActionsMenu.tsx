@@ -171,7 +171,7 @@ export function ActionsMenu() {
               onClick={() => runMethod(m)}
               className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-panel-hover"
             >
-              <span className={`${typography.panelBody} block font-semibold text-text-header`}>{m.title}</span>
+              <span className={`${typography.panelHeader} block text-text-header`}>{m.title}</span>
               <span className={`${typography.panelMeta} block text-text-light`}>{m.description}</span>
             </button>
           ))}
@@ -185,7 +185,7 @@ export function ActionsMenu() {
               onClick={() => runGlobal(a)}
               className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-panel-hover"
             >
-              <span className={`${typography.panelBody} block font-semibold text-text-header`}>{a.title}</span>
+              <span className={`${typography.panelHeader} block text-text-header`}>{a.title}</span>
               <span className={`${typography.panelMeta} block text-text-light`}>{a.description}</span>
             </button>
           ))}

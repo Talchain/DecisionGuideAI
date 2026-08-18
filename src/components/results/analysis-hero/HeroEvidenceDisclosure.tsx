@@ -226,13 +226,18 @@ export function HeroEvidenceDisclosure({
           <Crosshair aria-hidden="true" className="h-3 w-3 flex-none text-info" />
         )}
         {d.direction != null && (
-          <span
+          // DS v5 §2.4: `<strong>` carries the emphasis semantically instead of a
+          // raw weight utility, matching the pattern already used for inline
+          // emphasis inside panel text (TriageActionCardsBody). The glyph is
+          // aria-hidden and the direction is also stated in the sr-only span
+          // below, so the weight is a visual cue only.
+          <strong
             data-testid="hero-driver-sign"
             aria-hidden="true"
-            className={`font-semibold ${d.direction === 'positive' ? 'text-success' : 'text-danger'}`}
+            className={d.direction === 'positive' ? 'text-success' : 'text-danger'}
           >
             {d.direction === 'positive' ? '+' : '-'}
-          </span>
+          </strong>
         )}
         <span className="min-w-0 truncate text-left">{d.label}</span>
         {/* Direction perceivable without the sign glyph/colour. */}
@@ -622,7 +627,7 @@ export function HeroEvidenceDisclosure({
             <div className="space-y-2" data-testid="hero-evidence-trade-offs">
               {evidence.tradeOffs.map((t) => (
                 <div key={t.option} className="space-y-1">
-                  <p className={`${typography.panelBody} font-semibold text-text-header`}>
+                  <p className={`${typography.panelHeader} text-text-header`}>
                     {t.option}
                   </p>
                   {/* Prototype .trade-grid: 2×2 bordered cells, de-emphasised

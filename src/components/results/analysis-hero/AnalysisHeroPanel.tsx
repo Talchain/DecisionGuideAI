@@ -153,7 +153,7 @@ function StatusState({ model }: { model: HeroStatusModel }) {
               label: HERO_COPY.paused.askLabel,
             })
           }
-          className={`${typography.panelMeta} inline-flex items-center rounded-full bg-primary px-3 py-1.5 font-semibold text-text-on-color transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+          className={`${typography.panelBody} inline-flex items-center rounded-full bg-primary px-3 py-1.5 text-text-on-color transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
         >
           {HERO_COPY.paused.resolveButton}
         </button>
@@ -721,7 +721,7 @@ export function AnalysisHeroPanel({
             </span>
             <span
               data-testid="hero-next-rec-title"
-              className={`${typography.panelBody} block truncate font-semibold text-text-header`}
+              className={`${typography.panelHeader} block truncate text-text-header`}
             >
               {nextRecommendation}
             </span>

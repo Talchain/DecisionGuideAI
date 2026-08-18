@@ -380,7 +380,7 @@ function T1DominantNudge({
       <p className={`${typography.panelMeta} text-text-body min-w-0 flex-1 flex items-baseline gap-1 overflow-hidden`}>
         <span className="whitespace-nowrap"><strong>Dominant factor:</strong></span>
         {/* Visible identity span — always renders the raw user label, even in v17 mode. */}
-        <span className="font-semibold whitespace-nowrap">{dominantLabel}</span>
+        <strong className="whitespace-nowrap">{dominantLabel}</strong>
         <span className={`truncate min-w-0 flex-1 text-text-light`}>{explanation}</span>
       </p>
       {dominantFocusId && onFocusNode && (

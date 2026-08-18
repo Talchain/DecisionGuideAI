@@ -519,7 +519,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
           className={`h-2 w-2 flex-none rounded-full ${STATE_DOT_TONE[state]}`}
         />
         <span className="min-w-0 flex-1">
-          <span className={`${typography.panelBody} block font-semibold text-text-header`}>{copy.line}</span>
+          <span className={`${typography.panelHeader} block text-text-header`}>{copy.line}</span>
           <span className={`${typography.panelMeta} block text-text-light`}>{copy.note}</span>
         </span>
         <ChevronDown
@@ -546,7 +546,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
                   className={`h-[7px] w-[7px] flex-none rounded-full border bg-transparent ${dotTone}`}
                 />
                 <span className="min-w-0">
-                  <span className={`${typography.panelBody} block font-semibold text-text-header`}>{dim}</span>
+                  <span className={`${typography.panelHeader} block text-text-header`}>{dim}</span>
                   {/* A null note renders NOTHING — not an empty line. Silence is
                       the honest state for a dimension we cannot speak to. */}
                   {note !== null && (
