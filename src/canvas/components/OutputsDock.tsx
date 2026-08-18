@@ -37,7 +37,26 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt, selectReportIsFromEarlierRun } from '../store'
 import { useAnalysisState } from '../state/analysisStateSelector'
 import { getScenario } from '../store/scenarios'
-import { VersionsTrigger } from '../versions/VersionsTrigger'
+// ── The workspace-shell contract ────────────────────────────────────────────
+// This dock IS the shell. `shellContract.ts` states what it owns and what a
+// child surface may never set; read that file before changing width, tabs,
+// scroll regions, the footer region or the type/spacing/radius scales here.
+import {
+  SHELL_CONTAINER_NAME,
+  SHELL_RADIUS_PX,
+  presentedSurfaces,
+  shellBodyClassName,
+  surfaceFor,
+  type WorkspaceSurfaceDescriptor,
+} from './workspaceShell/shellContract'
+import {
+  PanelWidthProvider,
+  useMeasuredPanelWidth,
+} from './workspaceShell/usePanelWidth'
+import {
+  WorkspaceShellCollapsedStrip,
+  WorkspaceShellTabStrip,
+} from './workspaceShell/WorkspaceShellTabStrip'
 import { AnalysisStateRegion } from '../../components/results/analysisState/AnalysisStateRegion'
 import { useAnalysisRunState } from '../../components/results/analysisState/useAnalysisRunState'
 import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
@@ -106,6 +125,7 @@ import { useScenario } from '../../hooks/useScenario'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { normaliseRawFactorValue, withObservedStateUpdate } from '../utils/observedStateHelpers'
 import { ModelTabBody } from './ModelTabBody'
+import { ReanalyseBar } from './model-tab/ReanalyseBar'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
 import { CompareTabBody as CompareTabBodyV2 } from '../compare-tab/CompareTabBody'
 // Results Panel Redesign: v7 four-section layout components
@@ -387,32 +407,34 @@ export function forcedActivationEndsRail(versionChanged: boolean, resolvedTab: s
  *  component computes its own OUTPUT_TABS via useMemo at render time, so a
  *  localStorage flag flip plus a re-render is enough — no module reload
  *  required for the gating to reflect the new flag state. */
-export function getOutputTabsForParity(): { id: OutputsDockTab; label: string }[] {
-  return [
-    // Olumi leads the strip as the first (leftmost) tab by product decision —
-    // keep it first. The default-SELECTED tab is independent: it stays
-    // 'results' (Analysis) via the state initialiser, not array position.
-    ...(isAiPanelV2Enabled() ? [{ id: 'olumi' as const, label: 'Olumi' }] : []),
-    { id: 'results', label: 'Analysis' },
-    // The TEMPORARY 'altview' comparison tab (Paul, 12 Aug 2026) is RETIRED.
-    // It hosted the V7 assessment group side by side with the Analysis tab
-    // for the V7-vs-Current adjudication (COMPONENT-INVENTORY 2026-08-12
-    // §10A). The adjudication is settled in favour of the consolidated
-    // analysis cockpit, so the second rendering — and its tab — are gone.
-    ...(isCompareTabEnabled() ? [{ id: 'compare' as const, label: 'Compare' }] : []),
-    // ⚠ IDENTITY TRAP — READ THIS BEFORE WRITING A TEST AGAINST "THE MODEL TAB".
-    // The tab a user (and every brief, roadmap row and bug report) calls "Model"
-    // has id `'diagnostics'`, not `'model'`. There is no tab whose id is 'model'.
-    // A spec that queries `'model'` — by id, by testid, or by `getByRole('tab',
-    // { name: ... })` against the wrong string — binds to NOTHING and passes
-    // vacuously, and this is the most-touched surface in the product. The live
-    // testid is `outputs-dock-tab-diagnostics` (see the tab strip below); bind to
-    // that, or to the exact label 'Model' — never to a guessed id. Recorded here
-    // rather than in a doc because the next lane reads the code (ROADMAP 2.474;
-    // trap 19 — bind by identity, never by a value another object could satisfy).
-    { id: 'diagnostics', label: 'Model' },
-    ...(isJourneyTabEnabled() ? [{ id: 'journey' as const, label: 'Journey' }] : []),
-  ]
+export function getOutputTabsForParity(): WorkspaceSurfaceDescriptor[] {
+  // ⚠ IDENTITY TRAP — READ THIS BEFORE WRITING A TEST AGAINST "THE MODEL TAB".
+  // The tab a user (and every brief, roadmap row and bug report) calls "Model"
+  // has id `'diagnostics'`, not `'model'`. There is no tab whose id is 'model'.
+  // A spec that queries `'model'` — by id, by testid, or by `getByRole('tab',
+  // { name: ... })` against the wrong string — binds to NOTHING and passes
+  // vacuously, and this is the most-touched surface in the product. The live
+  // testid is `outputs-dock-tab-diagnostics`; bind to that, or to the exact
+  // label 'Model' — never to a guessed id (ROADMAP 2.474; trap 19 — bind by
+  // identity, never by a value another object could satisfy).
+  //
+  // The list itself now comes from `WORKSPACE_SURFACES` in the shell contract,
+  // where every surface declares who owns its scroll and its padding. Only the
+  // FLAG gating stays here, because flags are runtime state and the contract is
+  // a static declaration.
+  //
+  // The TEMPORARY 'altview' comparison tab (Paul, 12 Aug 2026) is RETIRED: it
+  // hosted the V7 assessment group beside Analysis for the V7-vs-Current
+  // adjudication, which is settled in favour of the consolidated cockpit.
+  //
+  // Journey is absent by CONTRACT, not by flag — `presentedAsTab: false`. See
+  // its row in `shellContract.ts` for the ruling and the evidence.
+  return presentedSurfaces().filter(surface => {
+    if (surface.id === 'olumi') return isAiPanelV2Enabled()
+    if (surface.id === 'compare') return isCompareTabEnabled()
+    if (surface.id === 'journey') return isJourneyTabEnabled()
+    return true
+  })
 }
 
 /**
@@ -2027,11 +2049,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   // OUTPUT_TABS computed per render so a localStorage flag flip is picked
   // up on the next re-render without requiring a module reload.
-  const OUTPUT_TABS = useMemo<{ id: OutputsDockTab; label: string }[]>(
+  const OUTPUT_TABS = useMemo<WorkspaceSurfaceDescriptor[]>(
     () => getOutputTabsForParity(),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- flag accessors are stable; we re-run by value
     [aiPanelV2On, isJourneyTabEnabled(), isCompareTabEnabled()],
   )
+
+  // ── Shell width, published once, derived from the live element ────────────
+  // The dock's own rect is the authority; every child reads `--panel-width` or
+  // `usePanelWidth()` rather than assuming a width. See `usePanelWidth.tsx`.
+  const shellRef = useRef<HTMLElement | null>(null)
+  const panelWidth = useMeasuredPanelWidth(shellRef)
 
   const toggleOpen = () => {
     // Derive nextIsOpen from what the user SEES right now (visual state),
@@ -2218,14 +2246,75 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     background: 'rgba(255, 255, 255, 0.95)',
     backdropFilter: 'blur(8px)',
     border: '1px solid var(--border-default)',
-    borderRadius: 16,
+    // DS v5 §6.2 `lg` — this aside is a STANDALONE SURFACE, not a card inside a
+    // panel, so it takes 20px. Cards INSIDE it take `panelCard` (12px). The
+    // distinction is the DS's explicit panel override and it is the thing that
+    // stops the dock reading as a stack of floating cards. It was 16px, which
+    // is not a DS token at all.
+    borderRadius: SHELL_RADIUS_PX.standalone,
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)',
     zIndex: 900,
     overflow: 'hidden',
+    // ⭐ THE MECHANISM THAT MAKES THE ORIGINAL DEFECT IMPOSSIBLE, NOT MERELY
+    // FIXED. The dock lost 35% of its width and not one of ~450 panel
+    // components knew, because there were ZERO container queries in the tree.
+    // This declares the shell a size container, so a child can write a real
+    // `@container workspace-shell (...)` rule sized against the PANEL — which
+    // is what actually varies — instead of a viewport breakpoint, which
+    // barely does.
+    //
+    // ⚠ THIS WAS FIRST SHIPPED ABSENT, ON A REASON THAT IS FALSE. The comment
+    // here used to say `container-type` implies `contain: layout` and would
+    // therefore make this element the containing block for the three
+    // FIXED-positioned descendants further down this file that mean the
+    // VIEWPORT (the scenario-comparison overlay `fixed inset-0 z-[1000]` and
+    // two `fixed bottom-24 right-4` toasts). That was reasoned from spec text
+    // and never measured. MEASURED in Chromium, viewport 1280x800, with a
+    // positive control:
+    //
+    //   no containment            overlay [0,0,1280,800]   toast [1164,664,…]
+    //   container-type:inline-size overlay [0,0,1280,800]  toast [1164,664,…]
+    //   container-type:size        overlay [0,0,1280,800]  toast [1164,664,…]
+    //   contain:layout (CONTROL)   overlay [852,12,416,776] toast [1152,652,…]
+    //
+    // The control collapses the overlay to the dock, so the probe can see the
+    // effect it was looking for; neither `container-type` value does, and the
+    // computed `contain` stays `none`. `@container` matching was confirmed in
+    // the same run. Three independent engines were reported to agree.
+    //
+    // ⚠⚠ AND A SECOND FINDING THE ISOLATED PROBE MISSED, WHICH MATTERS MORE:
+    // in the REAL dock a fixed descendant IS dock-scoped — measured
+    // [853,13,414,770] at 1280x800, not the viewport. The cause is
+    // `backdropFilter: 'blur(8px)'` two lines above, which creates a
+    // containing block for fixed descendants and has been on this element
+    // since long before any of this:
+    //
+    //   nothing                           [0,0,1280,800]    viewport
+    //   container-type: inline-size       [0,0,1280,800]    viewport
+    //   backdrop-filter: blur(8px)        [852,12,416,776]  DOCK
+    //   backdrop-filter + container-type  [852,12,416,776]  DOCK
+    //
+    // So the three viewport-`fixed` descendants further down this file — the
+    // scenario-comparison `fixed inset-0 z-[1000]` overlay and two
+    // `fixed bottom-24 right-4` toasts — are ALREADY panel-sized on staging,
+    // and have been. That is a real pre-existing defect (a "full-screen"
+    // overlay that covers only the dock); it is REPORTED, not changed here,
+    // because fixing it alters an overlay's appearance and belongs in its own
+    // reviewable step. Nothing about it is caused or worsened by this line.
+    //
+    // `e2e/visual/shellLayout.visual.spec.ts` asserts the DISCRIMINATING
+    // claim rather than an absolute one: toggling `container-type` off and on
+    // against the real dock must move a fixed descendant by exactly nothing.
+    containerType: 'inline-size',
+    containerName: SHELL_CONTAINER_NAME,
   }
 
   return (
-    <>
+    // The shell publishes its LIVE measured width to every descendant. A child
+    // that needs to branch on width calls `usePanelWidth()` or reads
+    // `--panel-width`; it never assumes one, and never uses a viewport
+    // breakpoint, because the panel's width and the window's are unrelated.
+    <PanelWidthProvider value={panelWidth}>
       {/* F9: THE single aria-live region for run start/settle, mounted once
           at the dock call site so it survives tab switches and speaks for
           runs dispatched from ANY tab. It is a SIBLING of the aside, not a
@@ -2241,6 +2330,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         analysisTabFronted={effectiveIsOpen && effectiveActiveTab === 'results'}
       />
     <aside
+      ref={shellRef}
       className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
       style={asideStyle}
       aria-label="Outputs dock"
@@ -2288,132 +2378,35 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           className="absolute inset-y-0 left-0 w-1 cursor-col-resize bg-transparent hover:bg-panel-border/60"
         />
       )}
+      {/* The header region. It carried its own `rounded-t-2xl` (16px), a
+          second declaration of a radius the shell owns — and one that no
+          longer matched once the shell adopted the DS `lg` 20px. It is simply
+          gone: the shell is `overflow: hidden`, so it already clips this
+          child to its own corner radius, exactly once. */}
       <div
-        className="sticky top-0 z-10 border-b rounded-t-2xl border-panel-border"
+        className="sticky top-0 z-10 border-b border-panel-border"
         style={{ background: 'rgba(255, 255, 255, 0.95)' }}
       >
-        {!effectiveIsOpen && (
-          <div className="flex items-center justify-end px-2 py-2">
-            <button
-              type="button"
-              onClick={toggleOpen}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header hover:bg-panel`}
-              aria-label={effectiveIsOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
-            >
-              {effectiveIsOpen ? '>' : '<'}
-            </button>
-          </div>
-        )}
+        {!effectiveIsOpen && <WorkspaceShellCollapsedStrip onToggleOpen={toggleOpen} />}
 
+        {/* The tab strip is the shell's, and only the shell's. Its layout
+            rules — per-tab truncation with the freshness icon and the
+            factors-to-verify badge exempt, `shrink-0` on every control, an
+            icon rather than an ASCII glyph on the collapse button — live in
+            `workspaceShell/WorkspaceShellTabStrip.tsx` with the reasoning. */}
         {effectiveIsOpen && (
-          <div className="flex items-center gap-2 px-2 py-2" aria-label="Outputs sections">
-            <span className="sr-only" aria-live="polite">
-              {OUTPUT_TABS.find(tab => tab.id === effectiveActiveTab)?.label ?? ''}
-            </span>
-            <nav className="flex flex-1 min-w-0 gap-1" aria-label="Outputs sections">
-              {OUTPUT_TABS.map(tab => {
-                // Round-3 UX correction: clicking Olumi always docks (closes
-                // floating), so the tab no longer needs the "Olumi is open"
-                // signage that round 2 added. Text-only label keeps Olumi
-                // visually consistent with Analysis / Compare / Model.
-                return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => handleTabClick(tab.id)}
-                  data-testid={tab.id === 'diagnostics' ? 'outputs-dock-tab-diagnostics' : tab.id === 'olumi' ? 'outputs-dock-tab-olumi' : undefined}
-                  className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
-                    effectiveActiveTab === tab.id
-                      ? 'text-info border-b-2 border-info'
-                      : 'text-text-header hover:bg-panel border-b-2 border-transparent'
-                  }`}
-                  style={
-                    effectiveActiveTab === tab.id
-                      ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' }
-                      : undefined
-                  }
-                >
-                  <span className={`inline-flex items-center gap-1${tab.id === 'results' && resultsTabReallyStale ? ' text-warning' : ''}`}>
-                    {tab.label}
-                    {tab.id === 'results' && showResultsTabFreshnessIcon && (
-                      resultsTabReallyStale ? (
-                        <AlertTriangle
-                          className="w-3 h-3 text-warning"
-                          aria-label="Analysis is stale"
-                          data-testid="results-tab-stale-icon"
-                        />
-                      ) : (
-                        <HelpCircle
-                          className="w-3 h-3 text-text-light"
-                          aria-label="Cannot confirm whether this analysis is current."
-                          data-testid="results-tab-cannot-confirm-icon"
-                        />
-                      )
-                    )}
-                    {tab.id === 'diagnostics' && factorsToVerify > 0 && (
-                      // ⭐ L-58: this was a bare orange number. A `title` is a
-                      // hover-only affordance — it is invisible to a user
-                      // scanning the tab strip, absent on touch, and never
-                      // reaches a screen reader as the badge's NAME. The count
-                      // now carries its meaning in the accessible name as well,
-                      // so "why is there an orange 4?" is answerable without
-                      // hovering. (`role="status"` is deliberately NOT used: it
-                      // is a static label on a tab, not a live announcement.)
-                      <span
-                        className="inline-flex items-center justify-center rounded-full bg-warning text-text-on-color font-semibold"
-                        style={{ fontSize: 11, fontWeight: 600, minWidth: 16, height: 16, padding: '0 4px' }}
-                        title={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
-                        aria-label={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
-                        data-testid="model-tab-verify-badge"
-                      >
-                        {factorsToVerify}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              )})}
-            </nav>
-            {/* ⭐ R4 — version history's home in this panel (delegated by the
-                versions lane, #739). The trigger deliberately carries NO
-                positioning of its own; layout belongs to this row, which is
-                the whole point of retiring the floating pill (L-08).
-
-                ⚠ ITS OWN HEADER SAYS `<VersionsTrigger variant="icon" />` AND
-                THAT IS INCOMPLETE: the `icon` variant applies `className` with
-                an EMPTY default (the `labelled` variant self-styles; this one
-                does not), so following the instruction verbatim mounts an
-                unstyled bare button in a row of bordered icon controls. It is
-                given the SAME class as the collapse chevron beside it, so the
-                two read as one control set rather than as a button that lost
-                its styling. */}
-            <VersionsTrigger
-              variant="icon"
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header hover:bg-panel shrink-0`}
-              data-testid="dock-versions-trigger"
-            />
-            <button
-              type="button"
-              onClick={() => setExpertMode(prev => !prev)}
-              className={`${typography.panelMeta} px-2 py-0.5 rounded-full border shrink-0 cursor-pointer transition-colors ${
-                expertMode
-                  ? 'text-info border-info'
-                  : 'text-text-light border-panel-border hover:border-info hover:text-info'
-              }`}
-              aria-label={expertMode ? 'Disable expert mode' : 'Enable expert mode'}
-              aria-pressed={expertMode}
-              title="Toggle expert mode"
-            >
-              {'</>'}
-            </button>
-            <button
-              type="button"
-              onClick={toggleOpen}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header hover:bg-panel`}
-              aria-label={effectiveIsOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
-            >
-              {effectiveIsOpen ? '>' : '<'}
-            </button>
-          </div>
+          <WorkspaceShellTabStrip
+            surfaces={OUTPUT_TABS}
+            activeTab={effectiveActiveTab}
+            onTabClick={handleTabClick}
+            isOpen={effectiveIsOpen}
+            onToggleOpen={toggleOpen}
+            expertMode={expertMode}
+            onToggleExpertMode={() => setExpertMode(prev => !prev)}
+            showResultsFreshnessIcon={showResultsTabFreshnessIcon}
+            resultsStale={resultsTabReallyStale}
+            factorsToVerify={factorsToVerify}
+          />
         )}
         {/* ROADMAP 2.1132 — when the ASSISTANT fronted this dock via an
             `open_panel` / `open_section` ui_directive, say so, here, directly
@@ -2462,8 +2455,40 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         </nav>
       )}
 
+      {/* ⭐ THE BODY'S LAYOUT MODEL IS DECLARED, NOT INFERRED.
+            This read `effectiveActiveTab === 'results' || … === 'olumi' ? A : B`
+            — one ternary on tab id choosing between two incompatible layout
+            models, so gutters differed per tab for no stated reason and a NEW
+            tab silently got whichever branch the else happened to be. Each
+            surface now declares `scroll` and `padding` in `WORKSPACE_SURFACES`,
+            both REQUIRED fields on a `Record` over the tab union, so a tab that
+            has not declared them does not compile. The class list is derived
+            from that declaration and reproduces the ternary's LAYOUT classes
+            exactly for all five of today's surfaces.
+
+            ⚠ TWO THINGS DID CHANGE HERE AND THEY ARE NOT LAYOUT — do not read
+            "same classes" as "nothing moved". The inherited body token went
+            `typography.caption` -> `typography.panelBody`. Both are 12px, so
+            it reads like a rename; it is not. `caption` is `leading-normal`
+            (1.5), `panelBody` is `leading-relaxed` (1.625), and LINE-HEIGHT
+            INHERITS — measured live in Chromium on all four mounted tabs, this
+            element computes 12px/19.5px where it used to compute 12px/18px, so
+            every descendant without its own `leading-*` moved with it. The tab
+            buttons separately went `caption font-medium` -> `panelBody`, i.e.
+            weight 500 -> 400.
+
+            Both are deliberate DS v5 §2.2/§2.4 corrections — `caption` is not
+            in the panel scale, and §2.4 forbids weight overrides on panel
+            tokens — and both are baked into the re-blessed visual references.
+            Recorded because four child lanes inherit this baseline; see
+            `SHELL_INHERITED_BODY_TYPOGRAPHY` in the shell contract. */}
       {effectiveIsOpen && (
-        <div className={`flex-1 min-h-0 ${typography.caption} text-text-header ${effectiveActiveTab === 'results' || effectiveActiveTab === 'olumi' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
+        <div
+          className={`${shellBodyClassName(surfaceFor(effectiveActiveTab))} ${typography.panelBody} text-text-header`}
+          data-testid="outputs-dock-body"
+          data-shell-scroll-owner={surfaceFor(effectiveActiveTab).scroll}
+          data-shell-padding-owner={surfaceFor(effectiveActiveTab).padding}
+        >
             {effectiveActiveTab === 'results' && (
               <div className="flex-1 min-h-0 flex flex-col">
                 {aiPanelV2On && transitionReceipt === 'model-drafted' ? (
@@ -3134,7 +3159,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 edges={edges}
                 robustness={mappedRobustness}
                 factorInfluence={factorInfluenceMap}
-                onReanalyse={handleRunAnalysis}
                 ceeQuality={ceeQuality}
                 expertMode={expertMode}
                 onSendMessage={sendMessage}
@@ -3161,6 +3185,35 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             )}
           </div>
         )}
+
+        {/* ── THE SHELL'S RESERVED FOOTER REGION ────────────────────────────
+            A flex SIBLING of the scrolling body, `flex-shrink-0`, so anything
+            in here is always visible and can occlude nothing. This is the
+            mechanism a surface-level bar must use; a child pinning itself with
+            `sticky bottom-0` inside the body covers whatever the shell put
+            below it, and the conformance guard REDs on that.
+
+            ⚠ `ReanalyseBar` IS RENDERED BY THE SHELL, HERE, AND THAT IS THE
+            POINT. It used to be `sticky bottom-0` inside `ModelTabBody`, where
+            it occluded `ModelFooter`. Simply deleting the `sticky` fixed the
+            occlusion and created a worse defect: the Model tab's ONLY stale
+            warning and its ONLY Re-analyse control fell ~3,300px below the
+            fold — about five screens — and `AnalysisFooter`, the other
+            always-visible Rerun owner, mounts on the `results` branch only. So
+            the Model tab had no reachable Rerun at all. That is the exact
+            regression this file warns about at ROADMAP 2.129(a) ("must
+            never"), traded in rather than fixed.
+
+            It is gated on the SURFACE DESCRIPTOR rather than a bare tab-id
+            comparison, and it sits OUTSIDE the aiPanelV2 block deliberately:
+            the footer stack below is flag-gated, and hosting the control there
+            would make it vanish entirely on rollback. The bar renders its own
+            null when the analysis is not stale. */}
+        {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar === 'reanalyse' ? (
+          <div className="flex-shrink-0" data-testid="shell-surface-footer-bar">
+            <ReanalyseBar onReanalyse={handleRunAnalysis} />
+          </div>
+        ) : null}
 
         {/* aiPanelV2 footer stack: selection pill + stale badge + persistent
             input strip + cog popover. Always visible at panel base when
@@ -3254,6 +3307,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
         {/* Legacy v7 sticky footer removed — superseded by AnalysisFooter above */}
     </aside>
-    </>
+    </PanelWidthProvider>
   )
 }

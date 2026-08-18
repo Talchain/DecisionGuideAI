@@ -262,6 +262,63 @@ intended change. Expect to prune a re-bless diff; a re-bless commit touching
 every reference is the normal output of the tool, not evidence that everything
 changed.
 
+### Re-blessed 2026-08-18: all ten, for the workspace-shell step-0 change
+
+The right-hand dock gained a single layout authority
+(`src/canvas/components/workspaceShell/`). Every reference legitimately changed
+and each was reviewed as an image before being written. Measured against the
+then-committed darwin set (tolerance 0.05%):
+
+| reference | differing px | ratio | × tolerance |
+|---|---|---|---|
+| `model-tab--1440x900` | 47,710 | 13.152% | 263× |
+| `model-tab--1280x800` | 42,216 | 13.145% | 263× |
+| `blocked-provisional--1440x900` | 37,390 | 10.307% | 206× |
+| `blocked-provisional--1280x800` | 29,526 | 9.194% | 184× |
+| `fresh-draft--1440x900` | 37,392 | 2.885% | 58× |
+| `fresh-draft--1280x800` | 29,526 | 2.883% | 58× |
+| `graph-default-zoom--1440x900` | 37,392 | 2.885% | 58× |
+| `graph-default-zoom--1280x800` | 28,699 | 2.803% | 56× |
+| `olumi-tab--1280x800` | 4,689 | 1.460% | 29× |
+| `olumi-tab--1440x900` | 4,691 | 1.293% | 26× |
+
+**The harness earned its keep twice in this one change.**
+
+1. The `model-tab` reference is the clearest artefact: the OLD image shows the
+   `ReanalyseBar` — opaque, `sticky bottom-0` — sitting ON TOP of the factor
+   list, covering a "Not set" row with a further row clipped beneath it. That
+   is the C4.2 overlap, and it had been in a committed reference the whole time
+   without anyone reading it as a defect. The new image shows the row that was
+   underneath.
+2. It **caught a regression the change itself introduced.** The tab buttons were
+   given `flex-1 min-w-0`, which is `flex: 1 1 0%` — every tab the same width
+   whatever it holds — so with truncation added they rendered `Anal…` and `Mo…`
+   at four tabs on a row with space to spare: the layout fix producing the
+   defect it was written to prevent. Nothing in jsdom could see it and no
+   assertion in the change was pointed at it; it was visible in the image.
+   Fixed to `flex-auto` (`flex: 1 1 auto`) and the `model-tab` diff fell from
+   42,216 px to 14,072 px, which is the size of the change that was actually
+   intended.
+
+Sub-tolerance byte churn was not pruned this time: every reference genuinely
+changed well above tolerance.
+
+### Re-blessed 2026-08-18 (second pass): the two `model-tab` references only
+
+The adversarial review of the shell change found that de-stickying
+`ReanalyseBar` had traded an occlusion for an invisibility: the Model tab's
+only stale warning and only Re-analyse control fell about five screens below
+the fold, and `AnalysisFooter` — the other always-visible Rerun owner — mounts
+on the `results` branch only. The bar now renders into the shell's reserved
+footer region.
+
+`model-tab--1280x800` 2,902 px · `model-tab--1440x900` 3,229 px. **The other
+eight references were byte-identical**, which is the useful part: it is the
+evidence that making the dock a CSS size container (`container-type:
+inline-size`) had no visual effect at all. The re-bless tool rewrote six of
+them with sub-tolerance churn anyway and those six were reverted, per the
+pruning note above.
+
 ### ⚠ These references are PROVISIONAL
 
 They were captured from `staging` at `42f6cb6a`, which still carries the

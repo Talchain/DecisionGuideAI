@@ -158,13 +158,37 @@ describe('index.css — olumi scrollbar utility', () => {
     expect(css).toContain('var(--text-light, #6E6B6B)')
   })
 
-  it('is applied to the AI thread and right-hand panel sources', () => {
+  it('is applied to the AI thread and right-hand panel sources', async () => {
     const chatThreadSource = readFileSync(CHAT_THREAD_PATH, 'utf-8')
     const outputsDockSource = readFileSync(OUTPUTS_DOCK_PATH, 'utf-8')
     const preAnalysisPanelSource = readFileSync(PRE_ANALYSIS_PANEL_PATH, 'utf-8')
 
     expect(chatThreadSource).toContain('chat-thread olumi-scrollbar')
-    expect(outputsDockSource).toContain('olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto')
+
+    // ⚠ The dock BODY's class list is no longer a literal in OutputsDock.tsx.
+    // It used to be one arm of a ternary on tab id, and this line grepped that
+    // arm's exact text. Each surface now DECLARES whether the shell or the
+    // surface owns its scroll (`WORKSPACE_SURFACES`) and the class list is
+    // derived from the declaration by `shellBodyClassName`.
+    //
+    // So this asserts the DERIVED VALUE rather than a source substring, which
+    // is strictly stronger in both directions: a substring grep is satisfied by
+    // the string appearing in a comment, and it breaks on a re-ordering that
+    // changes nothing. Bound to `diagnostics` (the Model tab) by name — it is a
+    // `scroll: 'shell'` surface, so the shell's scroller is what it must get.
+    const { shellBodyClassName, WORKSPACE_SURFACES } = await import(
+      '../../components/workspaceShell/shellContract'
+    )
+    const shellScrolled = shellBodyClassName(WORKSPACE_SURFACES.diagnostics)
+    expect(shellScrolled).toContain('olumi-scrollbar')
+    expect(shellScrolled).toContain('overflow-y-auto')
+    // A `scroll: 'self'` surface must NOT get the shell's scrollbar — without
+    // this the assertion above would pass on a shell that scrolled everything,
+    // which is the change that would break Olumi's bottom-anchored thread.
+    expect(shellBodyClassName(WORKSPACE_SURFACES.olumi)).not.toContain('olumi-scrollbar')
+    // …and the dock still mounts the derived value rather than a hardcoded one.
+    expect(outputsDockSource).toContain('shellBodyClassName(surfaceFor(effectiveActiveTab))')
+
     expect(outputsDockSource).toContain('olumi-scrollbar overflow-y-auto px-3 py-3 space-y-6')
     expect(preAnalysisPanelSource).toContain('olumi-scrollbar flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3')
   })

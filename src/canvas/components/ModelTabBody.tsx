@@ -41,7 +41,6 @@ import { ModelHealthSection, type AuditTrailData } from './model-tab/ModelHealth
 import { normalizeAutoNoiseProvenance } from '../../components/results/types'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { ModelTabHeader } from './model-tab/ModelTabHeader'
-import { ReanalyseBar } from './model-tab/ReanalyseBar'
 import { ModelFooter } from './model-tab/ModelFooter'
 import { StatusBar } from './model-tab/StatusBar'
 import { EntityBar } from './model-tab/EntityBar'
@@ -73,8 +72,13 @@ interface ModelTabBodyProps {
   robustness: MappedRobustness | null
   /** Factor influence map from PLoT enrichment — keyed by node ID */
   factorInfluence?: Map<string, number>
-  /** Trigger analysis re-run */
-  onReanalyse?: () => void
+  /**
+   * ⚠ RETIRED — the shell owns this now, and the prop is gone rather than
+   * kept "just in case". Its only consumer was `ReanalyseBar`, which the shell
+   * hosts in its reserved footer region (`footerBar: 'reanalyse'`). Leaving an
+   * unused `onReanalyse` here is an invitation to re-mount the bar inside the
+   * scroller, which is the occlusion this move fixed.
+   */
   /** CEE quality dimensions from store */
   ceeQuality?: import('../store').CeeQualityDimensions | null
   expertMode?: boolean
@@ -109,7 +113,6 @@ export const ModelTabBody = memo(function ModelTabBody({
   edges,
   robustness,
   factorInfluence,
-  onReanalyse,
   ceeQuality,
   expertMode,
   onSendMessage,
@@ -879,8 +882,17 @@ export const ModelTabBody = memo(function ModelTabBody({
         correlationIdHeader={correlationIdHeader}
       />
 
-      {/* ── Reanalyse bar (shown when graph edited since last run) ─────────── */}
-      <ReanalyseBar onReanalyse={onReanalyse} />
+      {/* ⚠ `ReanalyseBar` USED TO MOUNT HERE AND MUST NOT COME BACK.
+          It was `sticky bottom-0`, and because this surface declares
+          `scroll: 'shell'` its content sits inside the dock's scroller — so
+          the bar pinned itself to the bottom of that scroller from a mid-list
+          position and, being opaque, covered `ModelFooter` (rendered directly
+          below) and everything after it.
+          The shell now hosts it in its RESERVED FOOTER REGION, a flex sibling
+          of the scroller that can occlude nothing, declared by this surface as
+          `footerBar: 'reanalyse'` in `workspaceShell/shellContract.ts`.
+          Re-adding it here would put the Model tab's only stale warning and
+          only re-run control back inside the scroll region. */}
 
       {/* ── Footer: search + copy ─────────────────────────────────────────── */}
       <ModelFooter

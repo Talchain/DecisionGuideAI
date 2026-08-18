@@ -509,6 +509,24 @@
   --edge-label-text: #E8ECF5;
   
   /* UI */
+  /* ⚠ THIS DELIBERATELY OVERRIDES `styles/brand.css` AND MATCHES NEITHER DS
+     NUMBER. Read this before "fixing" it.
+     `--radius-lg` is declared twice: `styles/brand.css:349` says 20px, this
+     line says 14px, and THIS ONE WINS because `@import './styles/brand.css'`
+     at the top of this file is hoisted above this `:root`. So every one of the
+     622 `rounded-lg` call sites in product `.tsx` renders at 14px.
+     And the design system contradicts ITSELF about what it should be: DS v5
+     §6.2 gives `lg` = 20px, while the panel checklist at
+     `Olumi_Design_System_v5.md:1155` instructs authors to use
+     "`rounded-lg` (12px) consistently" — so an unknown share of those call
+     sites were written intending 12px and have been getting 14px.
+     Collapsing to either number is a visible redesign at 622 sites and belongs
+     behind the visual-regression harness as its own reviewable step, together
+     with the DS's own self-contradiction. Until then the divergence is stated
+     here rather than being an accident nobody can see.
+     The shell's own surfaces do NOT depend on this: they take their radius
+     from `SHELL_RADIUS_PX` in `canvas/components/workspaceShell/shellContract.ts`
+     (panel cards 12px, standalone surfaces 20px, per §6.2's panel override). */
   --radius-lg: 14px;
 
   /* Canvas dock layout */

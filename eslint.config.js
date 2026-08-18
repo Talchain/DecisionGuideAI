@@ -31,6 +31,13 @@ export default [
     'dist/**',
     'docs/**',
     'playwright-report/**',
+    // The visual harness (#757) writes its report to a DIFFERENT directory
+    // (`playwright.visual.config.ts` -> `playwright-report-visual/`) and that
+    // one was never added here. It is gitignored, so CI is unaffected — but
+    // anyone who runs `pnpm visual` and then `pnpm run lint` gets 1038 errors
+    // out of the generated trace bundles and has to work out they are not
+    // theirs. A red nobody caused is a red everyone learns to ignore.
+    'playwright-report-visual/**',
     'test-results/**',
     '.github/**',
     '.claude/**',
