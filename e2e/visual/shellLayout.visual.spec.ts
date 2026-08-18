@@ -100,6 +100,102 @@ test.describe('workspace shell — layout, measured', () => {
         `${EXPECTED_DOCK_WIDTH}px`,
       )
 
+      // ── 1b. CONTAINER QUERIES ARE ACTUALLY AVAILABLE ──────────────────────
+      // This shipped ABSENT on a reason that turned out to be false: the
+      // comment claimed `container-type` implies `contain: layout` and would
+      // reparent the dock's viewport-`fixed` descendants. It does not. Both
+      // halves are asserted here against the REAL dock, because the failure
+      // mode in each direction is silent — an unmatched `@container` rule just
+      // applies its default arm, and a reparented overlay just renders small.
+      const containment = await page
+        .locator('[data-testid="outputs-dock"]')
+        .evaluate(el => {
+          const cs = getComputedStyle(el)
+          return { containerType: cs.containerType, containerName: cs.containerName, contain: cs.contain }
+        })
+      expect(
+        containment.containerType,
+        'the dock must be a size container or every child `@container` rule silently never matches',
+      ).toBe('inline-size')
+      expect(containment.containerName).toBe('workspace-shell')
+
+      // Direction A: a `@container workspace-shell` rule MUST match inside the
+      // dock. Asserted by injecting a probe rather than trusting the property,
+      // because `container-type` alone does not prove a rule resolves.
+      const containerQueryMatches = await page.evaluate(() => {
+        const dock = document.querySelector('[data-testid="outputs-dock"]')!
+        const probe = document.createElement('div')
+        probe.id = '__shell-cq-probe'
+        dock.appendChild(probe)
+        const style = document.createElement('style')
+        style.textContent =
+          '@container workspace-shell (max-width: 9999px) { #__shell-cq-probe { color: rgb(1, 2, 3) } }'
+        document.head.appendChild(style)
+        const matched = getComputedStyle(probe).color === 'rgb(1, 2, 3)'
+        probe.remove()
+        style.remove()
+        return matched
+      })
+      expect(containerQueryMatches, 'a @container rule did not match inside the dock').toBe(true)
+
+      // Direction B — the regression this feature was wrongly blocked on, and
+      // the assertion has to be the RIGHT one, which took two measurements.
+      //
+      // The first version asserted that a `fixed` descendant of the dock
+      // resolves against the VIEWPORT. It FAILED — [853,13,414,770], i.e. the
+      // dock. Isolating the cause showed why, and it is not this feature:
+      //
+      //   nothing                            [0,0,1280,800]    viewport
+      //   container-type: inline-size        [0,0,1280,800]    viewport
+      //   backdrop-filter: blur(8px)         [852,12,416,776]  DOCK
+      //   backdrop-filter + container-type   [852,12,416,776]  DOCK
+      //   contain: layout (control)          [852,12,416,776]  DOCK
+      //
+      // `backdrop-filter` creates a containing block for fixed descendants,
+      // and the dock has carried `blur(8px)` since long before this change. So
+      // the dock's three viewport-`fixed` descendants — the scenario-comparison
+      // `fixed inset-0` overlay and two toasts — were ALREADY dock-scoped on
+      // `staging`. That is a real pre-existing defect (a "full-screen" overlay
+      // that is panel-sized) and it is reported, not fixed here; asserting the
+      // viewport would be asserting something that has never been true.
+      //
+      // So the assertion is the DISCRIMINATING one, which is also the only
+      // thing this change is answerable for: turning the dock into a size
+      // container must move the fixed descendant BY NOTHING. Measured in-page
+      // against the real dock, with and without the property.
+      const containingBlock = await page.evaluate(() => {
+        const dock = document.querySelector('[data-testid="outputs-dock"]') as HTMLElement
+        const probe = document.createElement('div')
+        probe.style.cssText = 'position:fixed;inset:0;pointer-events:none'
+        dock.appendChild(probe)
+        const read = () => {
+          const b = probe.getBoundingClientRect()
+          return [Math.round(b.x), Math.round(b.y), Math.round(b.width), Math.round(b.height)]
+        }
+        const withContainer = read()
+        const saved = dock.style.containerType
+        dock.style.containerType = 'normal'
+        const withoutContainer = read()
+        dock.style.containerType = saved
+        probe.remove()
+        return { withContainer, withoutContainer, restored: getComputedStyle(dock).containerType }
+      })
+      expect(
+        containingBlock.withContainer,
+        `making the dock a size container MOVED a fixed descendant ` +
+          `(${JSON.stringify(containingBlock.withoutContainer)} -> ` +
+          `${JSON.stringify(containingBlock.withContainer)}). It must change nothing.`,
+      ).toEqual(containingBlock.withoutContainer)
+      // The toggle must have actually toggled, or the equality above is two
+      // reads of the same state agreeing with itself.
+      expect(containingBlock.restored).toBe('inline-size')
+      // eslint-disable-next-line no-console
+      console.log(
+        `[shell] ${vp.name}: fixed-descendant box ${JSON.stringify(containingBlock.withContainer)} ` +
+          `with container, ${JSON.stringify(containingBlock.withoutContainer)} without — ` +
+          `unchanged. (Dock-scoped by pre-existing \`backdrop-filter\`, not by this change.)`,
+      )
+
       // ── 2. THE TAB ROW DOES NOT OVERFLOW ──────────────────────────────────
       const nav = page.locator('nav[aria-label="Outputs sections"]').first()
       const navMetrics = await nav.evaluate(el => ({
@@ -226,6 +322,36 @@ test.describe('workspace shell — layout, measured', () => {
       // The body must also not overlap the header region above it.
       const header = await boxOf(page, 'nav[aria-label="Outputs sections"]')
       expect(overlapPx(header, body), 'the tab strip overlaps the body').toBe(0)
+
+      // ── 4. THE MODEL SURFACE'S RE-RUN CONTROL IS REACHABLE ────────────────
+      // De-stickying `ReanalyseBar` fixed an occlusion and created a worse
+      // defect: it fell ~3,300px below the fold, and `AnalysisFooter` — the
+      // other always-visible Rerun owner — mounts on the `results` branch
+      // only, so the Model tab had no reachable re-run at all. It now lives in
+      // the shell's reserved footer region. Asserted ON the Model tab, in the
+      // viewport, not merely present in the DOM.
+      await page.locator('[data-testid="outputs-dock-tab-diagnostics"]').click()
+      await expect(page.locator('[data-testid="model-tab-body"], [data-testid="outputs-dock-body"]').first()).toBeVisible()
+      await waitForVisualQuiescence(page)
+      const modelBody = await boxOf(page, '[data-testid="outputs-dock-body"]')
+      const bar = page.locator('[data-testid="reanalyse-bar"]')
+      if ((await bar.count()) > 0) {
+        const bb = await boxOf(page, '[data-testid="reanalyse-bar"]')
+        expect(
+          Math.round(bb.y + bb.height),
+          `the Re-analyse bar is below the fold at ${vp.name} (bottom ${Math.round(bb.y + bb.height)} ` +
+            `vs dock bottom ${Math.round(dock.y + dock.height)}) — the Model tab's only re-run control`,
+        ).toBeLessThanOrEqual(Math.round(dock.y + dock.height) + 1)
+        expect(
+          overlapPx(modelBody, bb),
+          'the Re-analyse bar overlaps the scrolling body again',
+        ).toBe(0)
+        // eslint-disable-next-line no-console
+        console.log(`[shell] ${vp.name}: reanalyse-bar in the footer region, bottom=${Math.round(bb.y + bb.height)} dock bottom=${Math.round(dock.y + dock.height)}`)
+      } else {
+        // eslint-disable-next-line no-console
+        console.log(`[shell] ${vp.name}: reanalyse-bar NOT mounted in this state (analysis not stale) — this run is NOT evidence about it`)
+      }
 
       // ── the artefact the owner reviews ────────────────────────────────────
       const png = await page.locator('[data-testid="outputs-dock"]').screenshot()

@@ -24,10 +24,21 @@
  *   - `--panel-width` (px) on the dock element, for CSS.
  *   - `usePanelWidth()`, for components that must branch in JS.
  *
- * The same element also carries `container-type: inline-size`, so a child can
- * use a real `@container` query. That is the mechanism that makes the original
- * defect impossible rather than merely fixed: a child written against the
- * container cannot be wrong about a width it never assumed.
+ * The same element carries `container-type: inline-size` and
+ * `container-name: workspace-shell`, so a child can write a real
+ * `@container workspace-shell (...)` query. That is the mechanism that makes
+ * the original defect impossible rather than merely fixed: a child written
+ * against the container cannot be wrong about a width it never assumed.
+ *
+ * ⚠ THIS SENTENCE WAS FALSE WHEN FIRST WRITTEN AND THAT IS WHY IT IS FLAGGED.
+ * The property was NOT set — it was deliberately omitted on a belief that
+ * `container-type` implies `contain: layout` — while this comment said it was
+ * present. Two comments in the same module said opposite things, and this is
+ * the one child lanes are pointed at, so they would have written `@container`
+ * rules that silently never match: no error, no red, the default arm applies.
+ * Measured and corrected; both halves are now asserted against the real dock
+ * in `e2e/visual/shellLayout.visual.spec.ts`, in a browser, so the comment and
+ * the product cannot drift apart again.
  */
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'

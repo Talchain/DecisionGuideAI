@@ -49,6 +49,9 @@ import {
   SHELL_SPACING_STEPS,
   SHELL_TYPOGRAPHY_KEYS,
   WORKSPACE_SURFACES,
+  WORKSPACE_SURFACE_ORDER,
+  SHELL_CONTAINER_NAME,
+  surfaceFor,
   MAX_PRESENTED_SURFACES,
   presentedSurfaces,
   shellBodyClassName,
@@ -433,6 +436,137 @@ describe('workspace shell — no NEW occluding sticky across the whole dock clos
   })
 })
 
+describe('workspace shell — child surfaces: raw typography, pinned per file', () => {
+  /**
+   * ⚠ THIS BLOCK EXISTS BECAUSE THE FIRST VERSION OF THIS GUARD DID NOT GUARD
+   * CHILDREN, WHILE THE CONTRACT READ AS IF IT DID.
+   *
+   * Proven by a reviewer injecting six real violations into `ReanalyseBar.tsx`
+   * — a genuine closure file two hops from the shell: **39/39 GREEN**, and the
+   * pre-existing DS ratchet byte-identical, because its scope is
+   * `components/results` + `canvas/panels` + one file. `model-tab/`,
+   * `compare-tab/`, `pre-analysis/` and `conversation/` are in NEITHER guard's
+   * scope — and those are the four child surfaces.
+   *
+   * DS §2.4 is the rule with the most leverage of the three that were
+   * unguarded, so it is the one widened to the full dock import closure.
+   * Measured at this tip: **45 files, 164 occurrences** (independently derived
+   * here and matching the review's figure).
+   *
+   * ⚠ WHAT IS AND IS NOT COVERED, stated so nobody reads more into it.
+   * Off-scale spacing (**572** closure-wide) and non-DS radius (**400**,
+   * with no rule anywhere) are NOT gated. Pinning 572 today would freeze a
+   * number nobody can burn down this week and would be pure ceremony. They are
+   * **review-only**, and the child briefs must say so rather than implying a
+   * mechanism exists.
+   *
+   * PER-FILE, not a total. A total lets a new violation in a clean file hide
+   * behind a fix elsewhere — the exact currency error the DS ratchet was
+   * rebuilt to avoid. Exact equality in both directions: a lane that burns
+   * some down lowers its number here, and the diff is the proof.
+   */
+  const RAW_TYPOGRAPHY_BY_FILE: Record<string, number> = {
+    'src/canvas/compare-tab/CompareFooter.tsx': 2,
+    'src/canvas/compare-tab/DotProgression.tsx': 2,
+    'src/canvas/compare-tab/EmptyState.tsx': 1,
+    'src/canvas/compare-tab/TrajectorySection.tsx': 3,
+    'src/canvas/components/DegeneracyWarning.tsx': 6,
+    'src/canvas/components/EvidenceCoverage.tsx': 2,
+    'src/canvas/components/GraphTextView.tsx': 8,
+    'src/canvas/components/IdentifiabilityBadge.tsx': 1,
+    'src/canvas/components/OutputsDock.tsx': 9,
+    'src/canvas/components/SectionErrorBoundary.tsx': 7,
+    'src/canvas/components/ValidationPanel.tsx': 4,
+    'src/canvas/components/WarningBanner.tsx': 1,
+    'src/canvas/components/WhatChangedChip.tsx': 1,
+    'src/canvas/components/model-tab/ContestedEdgeCard.tsx': 5,
+    'src/canvas/components/model-tab/FactorsSection.tsx': 7,
+    'src/canvas/components/model-tab/GoalSection.tsx': 1,
+    'src/canvas/components/model-tab/OptionsSection.tsx': 2,
+    'src/canvas/components/model-tab/ReanalyseBar.tsx': 1,
+    'src/canvas/components/model-tab/RelationshipsSection.tsx': 4,
+    'src/canvas/components/model-tab/SourceProvenancePill.tsx': 1,
+    'src/canvas/components/pre-analysis/PreAnalysisPanel.tsx': 5,
+    'src/canvas/components/pre-analysis/SharpenYourThinking.tsx': 3,
+    'src/canvas/conversation/InlineBlocks.tsx': 1,
+    'src/canvas/conversation/ModelReceiptBlock.tsx': 1,
+    'src/canvas/conversation/zones/BriefGuidanceStrip.tsx': 1,
+    'src/canvas/conversation/zones/BriefReadinessPill.tsx': 1,
+    'src/canvas/conversation/zones/ChatComposer.tsx': 1,
+    'src/canvas/conversation/zones/ChatThread.tsx': 1,
+    'src/canvas/conversation/zones/ComposerTools.tsx': 1,
+    'src/canvas/shared/AnalysisFooter.tsx': 2,
+    'src/canvas/ui/inspector/StrengthBar.tsx': 1,
+    'src/components/Tooltip.tsx': 1,
+    'src/components/results/DriversSection.tsx': 4,
+    'src/components/results/TriageActionCardsBody.tsx': 1,
+    'src/components/results/analysis-hero/AnalysisHeroPanel.tsx': 2,
+    'src/components/results/analysis-hero/HeroEvidenceDisclosure.tsx': 2,
+    'src/components/results/coaching/AskOlumiDrawer.tsx': 10,
+    'src/components/results/decision-overview/ActionsMenu.tsx': 2,
+    'src/components/results/decision-overview/DecisionOverviewCard.tsx': 2,
+    'src/components/results/strengthen/StrengthenPanel.tsx': 7,
+    'src/styles/typography.ts': 38,
+    'src/v5/blocks/V5AnalysisResultBlock.tsx': 4,
+    'src/v5/blocks/V5CoachingBlock.tsx': 2,
+    'src/v5/blocks/V5ComparisonBlock.tsx': 2,
+    'src/v5/blocks/V5FlipAnalysisBlock.tsx': 1,
+  }
+
+  const closure = dockImportClosure()
+
+  it('the closure scope reaches the four child surfaces (positive control)', () => {
+    // The claim this block makes is about CHILDREN, so the control has to show
+    // a child home directory is genuinely in scope — not merely that the
+    // closure is long. One file from each of the four surfaces, by name.
+    const mustReach = [
+      'src/canvas/components/model-tab/ReanalyseBar.tsx',
+      'src/canvas/components/ModelTabBody.tsx',
+      'src/canvas/compare-tab/CompareFooter.tsx',
+      'src/canvas/conversation/zones/ChatThread.tsx',
+    ]
+    for (const f of mustReach) expect(closure, `${f} must be in the dock closure`).toContain(f)
+    // …and a contrast control: a file OUTSIDE the dock's reach must not be.
+    expect(closure).not.toContain('src/pages/sandbox-guide/index.tsx')
+  })
+
+  it('no file in the dock closure gains raw typography (exact, per file)', () => {
+    const measured: Record<string, number> = {}
+    for (const f of closure) {
+      const n = scan([f], ruleRawTypography).length
+      if (n > 0) measured[f] = n
+    }
+    const grew = Object.entries(measured).filter(([f, n]) => n > (RAW_TYPOGRAPHY_BY_FILE[f] ?? 0))
+    const shrank = Object.entries(RAW_TYPOGRAPHY_BY_FILE).filter(
+      ([f, n]) => (measured[f] ?? 0) < n,
+    )
+    expect(
+      grew,
+      `\nNEW raw typography in the dock closure. DS v5 §2.4: panel scope uses only ` +
+        `${SHELL_TYPOGRAPHY_KEYS.join('/')} — raw sizes, raw WEIGHTS, arbitrary sizes and inline ` +
+        `fontSize/fontWeight are all banned.\n` +
+        grew.map(([f, n]) => `  ${f}: ${RAW_TYPOGRAPHY_BY_FILE[f] ?? 0} -> ${n}`).join('\n') +
+        '\n',
+    ).toEqual([])
+    expect(
+      shrank,
+      `\nBurned down — lower these in RAW_TYPOGRAPHY_BY_FILE in the same PR so the ratchet holds ` +
+        `at the new level:\n` +
+        shrank.map(([f, n]) => `  ${f}: ${n} -> ${measured[f] ?? 0}`).join('\n') +
+        '\n',
+    ).toEqual([])
+  })
+
+  it('the pin is a real, non-trivial burn-down target (guards against an empty pin)', () => {
+    // An empty or near-empty map would make the assertion above pass by
+    // measuring almost nothing, which is how this kind of ratchet dies.
+    const files = Object.keys(RAW_TYPOGRAPHY_BY_FILE).length
+    const total = Object.values(RAW_TYPOGRAPHY_BY_FILE).reduce((a, b) => a + b, 0)
+    expect(files).toBe(45)
+    expect(total).toBe(164)
+  })
+})
+
 describe('the guard can SEE a violation (positive controls, one per rule)', () => {
   /**
    * A guard that has never been shown detecting anything is an absence claim
@@ -524,6 +658,87 @@ describe('the shell contract itself holds together', () => {
       if (!s.presentedAsTab) expect(s.hiddenReason.trim().length).toBeGreaterThan(0)
       else expect(s.hiddenReason).toBe('')
     }
+  })
+
+  it('ORDER and the Record agree — no hand-maintained membership mirror', () => {
+    // ⚠ THE MIRROR THIS FILE EXISTS TO ABOLISH, FOUND INSIDE THE CONTRACT.
+    // `WORKSPACE_SURFACE_ORDER` was a plain array that `presentedSurfaces()`
+    // mapped over, so it was the de-facto membership list. Mutant: a surface
+    // `presentedAsTab: true` in the Record but omitted from ORDER rendered
+    // NOWHERE — tsc clean, whole suite green, and MAX_PRESENTED_SURFACES
+    // defeated because the count came from the array.
+    // Membership now comes from the Record and ORDER only sorts it, so the
+    // failure is cosmetic rather than invisible; this keeps it from happening
+    // at all.
+    expect(new Set(WORKSPACE_SURFACE_ORDER)).toEqual(new Set(Object.keys(WORKSPACE_SURFACES)))
+    expect(WORKSPACE_SURFACE_ORDER.length).toBe(Object.keys(WORKSPACE_SURFACES).length)
+  })
+
+  it('membership comes from the Record, not from ORDER (the mutant that was invisible)', () => {
+    // The structural claim, not just the agreement: every PRESENTED surface in
+    // the Record appears in presentedSurfaces(), whatever ORDER says. Binding
+    // by identity to the derived id set.
+    const fromRecord = (Object.keys(WORKSPACE_SURFACES) as Array<keyof typeof WORKSPACE_SURFACES>)
+      .filter(id => WORKSPACE_SURFACES[id].presentedAsTab)
+      .sort()
+    expect(presentedSurfaces().map(s => s.id).sort()).toEqual(fromRecord)
+  })
+
+  it('an unknown tab id degrades to Analysis instead of throwing', () => {
+    // The old ternary degraded; a bare Record index THROWS, and a render-time
+    // throw in the shell takes the whole dock down. No reachable path supplies
+    // an unknown id today — this removes the class rather than arguing it.
+    expect(surfaceFor('not-a-tab').id).toBe('results')
+    expect(surfaceFor('diagnostics').id).toBe('diagnostics')
+    expect(() => shellBodyClassName(surfaceFor('not-a-tab'))).not.toThrow()
+  })
+
+  it('the Model surface asks the SHELL to host its re-run bar', () => {
+    // B1: de-stickying `ReanalyseBar` fixed the occlusion and put the Model
+    // tab's ONLY stale warning and ONLY re-run control ~3,300px below the fold
+    // — `AnalysisFooter`, the other Rerun owner, mounts on `results` only. It
+    // is now declared into the shell's reserved footer region.
+    expect(WORKSPACE_SURFACES.diagnostics.footerBar).toBe('reanalyse')
+    // Bound by identity to the surface that has its own always-visible footer,
+    // so "some surface declares none" cannot satisfy this.
+    expect(WORKSPACE_SURFACES.results.footerBar).toBe('none')
+  })
+
+  it('the shell renders the footer bar OUTSIDE the flag-gated stack', () => {
+    // Hosting it inside the aiPanelV2 block would make the Model tab's only
+    // re-run control vanish on rollback — a worse defect than the one fixed.
+    const dock = readFileSync(path.join(REPO, SHELL_HOST), 'utf8')
+    expect(dock).toContain('data-testid="shell-surface-footer-bar"')
+    expect(dock).toContain("surfaceFor(effectiveActiveTab).footerBar === 'reanalyse'")
+    const barAt = dock.indexOf('data-testid="shell-surface-footer-bar"')
+    const stackAt = dock.indexOf('data-testid="ai-panel-footer-stack"')
+    expect(barAt).toBeGreaterThan(0)
+    expect(stackAt).toBeGreaterThan(0)
+    expect(barAt, 'the surface footer bar must precede the flag-gated stack').toBeLessThan(stackAt)
+  })
+
+  it('ModelTabBody no longer mounts the bar inside the scroller', () => {
+    const body = readFileSync(path.join(REPO, 'src/canvas/components/ModelTabBody.tsx'), 'utf8')
+    const code = stripComments(body).join('\n')
+    expect(code).not.toContain('<ReanalyseBar')
+    // …and prove the file is still the Model surface, so this is not passing
+    // because the component was renamed out from under the assertion.
+    expect(code).toContain('ModelFooter')
+  })
+
+  it('the shell is a size container so `@container` can match (A1)', () => {
+    // Shipped ABSENT on a reason that was false: `container-type` was believed
+    // to imply `contain: layout`. Measured in Chromium — it does not, and only
+    // explicit `contain: layout` collapses a fixed descendant. The browser
+    // half of this assertion lives in e2e/visual/shellLayout.visual.spec.ts.
+    const dock = readFileSync(path.join(REPO, SHELL_HOST), 'utf8')
+    const code = stripComments(dock).join('\n')
+    expect(code).toContain("containerType: 'inline-size'")
+    expect(code).toContain('containerName: SHELL_CONTAINER_NAME')
+    // …and the token resolves to the name children will write in their rules.
+    expect(SHELL_CONTAINER_NAME).toBe('workspace-shell')
+    // The one thing that WOULD break the fixed descendants must stay absent.
+    expect(code).not.toMatch(/contain:\s*['"`]layout/)
   })
 
   it('the strip never has to lay out more than the recorded maximum', () => {

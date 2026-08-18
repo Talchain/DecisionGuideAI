@@ -42,10 +42,11 @@ import { getScenario } from '../store/scenarios'
 // child surface may never set; read that file before changing width, tabs,
 // scroll regions, the footer region or the type/spacing/radius scales here.
 import {
+  SHELL_CONTAINER_NAME,
   SHELL_RADIUS_PX,
-  WORKSPACE_SURFACES,
   presentedSurfaces,
   shellBodyClassName,
+  surfaceFor,
   type WorkspaceSurfaceDescriptor,
 } from './workspaceShell/shellContract'
 import {
@@ -124,6 +125,7 @@ import { useScenario } from '../../hooks/useScenario'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { normaliseRawFactorValue, withObservedStateUpdate } from '../utils/observedStateHelpers'
 import { ModelTabBody } from './ModelTabBody'
+import { ReanalyseBar } from './model-tab/ReanalyseBar'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
 import { CompareTabBody as CompareTabBodyV2 } from '../compare-tab/CompareTabBody'
 // Results Panel Redesign: v7 four-section layout components
@@ -2253,19 +2255,58 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)',
     zIndex: 900,
     overflow: 'hidden',
-    // ⚠ `containerType: 'inline-size'` BELONGS HERE AND IS DELIBERATELY ABSENT.
-    // It would let children use a real `@container` query against the panel —
-    // the syntax the zero-container-queries defect calls for. It is not set
-    // because `container-type` implies `contain: layout`, which makes this
-    // element the containing block for FIXED-positioned descendants, and this
-    // subtree has three that mean the VIEWPORT: the scenario-comparison
-    // overlay (`fixed inset-0 z-[1000]`) and two `fixed bottom-24 right-4`
-    // toasts, all further down this file. Turning containment on would shrink
-    // a full-screen overlay to the dock and move both toasts inside it.
-    // Unblocking step, named so it is actionable: portal those three (the
-    // pattern `CogPopover` already uses), then set it here.
-    // Until then `--panel-width` and `usePanelWidth()` carry the same
-    // information with no containment side effects.
+    // ⭐ THE MECHANISM THAT MAKES THE ORIGINAL DEFECT IMPOSSIBLE, NOT MERELY
+    // FIXED. The dock lost 35% of its width and not one of ~450 panel
+    // components knew, because there were ZERO container queries in the tree.
+    // This declares the shell a size container, so a child can write a real
+    // `@container workspace-shell (...)` rule sized against the PANEL — which
+    // is what actually varies — instead of a viewport breakpoint, which
+    // barely does.
+    //
+    // ⚠ THIS WAS FIRST SHIPPED ABSENT, ON A REASON THAT IS FALSE. The comment
+    // here used to say `container-type` implies `contain: layout` and would
+    // therefore make this element the containing block for the three
+    // FIXED-positioned descendants further down this file that mean the
+    // VIEWPORT (the scenario-comparison overlay `fixed inset-0 z-[1000]` and
+    // two `fixed bottom-24 right-4` toasts). That was reasoned from spec text
+    // and never measured. MEASURED in Chromium, viewport 1280x800, with a
+    // positive control:
+    //
+    //   no containment            overlay [0,0,1280,800]   toast [1164,664,…]
+    //   container-type:inline-size overlay [0,0,1280,800]  toast [1164,664,…]
+    //   container-type:size        overlay [0,0,1280,800]  toast [1164,664,…]
+    //   contain:layout (CONTROL)   overlay [852,12,416,776] toast [1152,652,…]
+    //
+    // The control collapses the overlay to the dock, so the probe can see the
+    // effect it was looking for; neither `container-type` value does, and the
+    // computed `contain` stays `none`. `@container` matching was confirmed in
+    // the same run. Three independent engines were reported to agree.
+    //
+    // ⚠⚠ AND A SECOND FINDING THE ISOLATED PROBE MISSED, WHICH MATTERS MORE:
+    // in the REAL dock a fixed descendant IS dock-scoped — measured
+    // [853,13,414,770] at 1280x800, not the viewport. The cause is
+    // `backdropFilter: 'blur(8px)'` two lines above, which creates a
+    // containing block for fixed descendants and has been on this element
+    // since long before any of this:
+    //
+    //   nothing                           [0,0,1280,800]    viewport
+    //   container-type: inline-size       [0,0,1280,800]    viewport
+    //   backdrop-filter: blur(8px)        [852,12,416,776]  DOCK
+    //   backdrop-filter + container-type  [852,12,416,776]  DOCK
+    //
+    // So the three viewport-`fixed` descendants further down this file — the
+    // scenario-comparison `fixed inset-0 z-[1000]` overlay and two
+    // `fixed bottom-24 right-4` toasts — are ALREADY panel-sized on staging,
+    // and have been. That is a real pre-existing defect (a "full-screen"
+    // overlay that covers only the dock); it is REPORTED, not changed here,
+    // because fixing it alters an overlay's appearance and belongs in its own
+    // reviewable step. Nothing about it is caused or worsened by this line.
+    //
+    // `e2e/visual/shellLayout.visual.spec.ts` asserts the DISCRIMINATING
+    // claim rather than an absolute one: toggling `container-type` off and on
+    // against the real dock must move a fixed descendant by exactly nothing.
+    containerType: 'inline-size',
+    containerName: SHELL_CONTAINER_NAME,
   }
 
   return (
@@ -2422,14 +2463,31 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             surface now declares `scroll` and `padding` in `WORKSPACE_SURFACES`,
             both REQUIRED fields on a `Record` over the tab union, so a tab that
             has not declared them does not compile. The class list is derived
-            from that declaration and is byte-identical to the ternary's output
-            for all five of today's surfaces. */}
+            from that declaration and reproduces the ternary's LAYOUT classes
+            exactly for all five of today's surfaces.
+
+            ⚠ TWO THINGS DID CHANGE HERE AND THEY ARE NOT LAYOUT — do not read
+            "same classes" as "nothing moved". The inherited body token went
+            `typography.caption` -> `typography.panelBody`. Both are 12px, so
+            it reads like a rename; it is not. `caption` is `leading-normal`
+            (1.5), `panelBody` is `leading-relaxed` (1.625), and LINE-HEIGHT
+            INHERITS — measured live in Chromium on all four mounted tabs, this
+            element computes 12px/19.5px where it used to compute 12px/18px, so
+            every descendant without its own `leading-*` moved with it. The tab
+            buttons separately went `caption font-medium` -> `panelBody`, i.e.
+            weight 500 -> 400.
+
+            Both are deliberate DS v5 §2.2/§2.4 corrections — `caption` is not
+            in the panel scale, and §2.4 forbids weight overrides on panel
+            tokens — and both are baked into the re-blessed visual references.
+            Recorded because four child lanes inherit this baseline; see
+            `SHELL_INHERITED_BODY_TYPOGRAPHY` in the shell contract. */}
       {effectiveIsOpen && (
         <div
-          className={`${shellBodyClassName(WORKSPACE_SURFACES[effectiveActiveTab])} ${typography.panelBody} text-text-header`}
+          className={`${shellBodyClassName(surfaceFor(effectiveActiveTab))} ${typography.panelBody} text-text-header`}
           data-testid="outputs-dock-body"
-          data-shell-scroll-owner={WORKSPACE_SURFACES[effectiveActiveTab].scroll}
-          data-shell-padding-owner={WORKSPACE_SURFACES[effectiveActiveTab].padding}
+          data-shell-scroll-owner={surfaceFor(effectiveActiveTab).scroll}
+          data-shell-padding-owner={surfaceFor(effectiveActiveTab).padding}
         >
             {effectiveActiveTab === 'results' && (
               <div className="flex-1 min-h-0 flex flex-col">
@@ -3101,7 +3159,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 edges={edges}
                 robustness={mappedRobustness}
                 factorInfluence={factorInfluenceMap}
-                onReanalyse={handleRunAnalysis}
                 ceeQuality={ceeQuality}
                 expertMode={expertMode}
                 onSendMessage={sendMessage}
@@ -3128,6 +3185,35 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             )}
           </div>
         )}
+
+        {/* ── THE SHELL'S RESERVED FOOTER REGION ────────────────────────────
+            A flex SIBLING of the scrolling body, `flex-shrink-0`, so anything
+            in here is always visible and can occlude nothing. This is the
+            mechanism a surface-level bar must use; a child pinning itself with
+            `sticky bottom-0` inside the body covers whatever the shell put
+            below it, and the conformance guard REDs on that.
+
+            ⚠ `ReanalyseBar` IS RENDERED BY THE SHELL, HERE, AND THAT IS THE
+            POINT. It used to be `sticky bottom-0` inside `ModelTabBody`, where
+            it occluded `ModelFooter`. Simply deleting the `sticky` fixed the
+            occlusion and created a worse defect: the Model tab's ONLY stale
+            warning and its ONLY Re-analyse control fell ~3,300px below the
+            fold — about five screens — and `AnalysisFooter`, the other
+            always-visible Rerun owner, mounts on the `results` branch only. So
+            the Model tab had no reachable Rerun at all. That is the exact
+            regression this file warns about at ROADMAP 2.129(a) ("must
+            never"), traded in rather than fixed.
+
+            It is gated on the SURFACE DESCRIPTOR rather than a bare tab-id
+            comparison, and it sits OUTSIDE the aiPanelV2 block deliberately:
+            the footer stack below is flag-gated, and hosting the control there
+            would make it vanish entirely on rollback. The bar renders its own
+            null when the analysis is not stale. */}
+        {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar === 'reanalyse' ? (
+          <div className="flex-shrink-0" data-testid="shell-surface-footer-bar">
+            <ReanalyseBar onReanalyse={handleRunAnalysis} />
+          </div>
+        ) : null}
 
         {/* aiPanelV2 footer stack: selection pill + stale badge + persistent
             input strip + cog popover. Always visible at panel base when

@@ -109,6 +109,20 @@ export const SHELL_CONTENT_BUDGET_FLOOR_PX = shellContentBudget(DOCK_MIN_WIDTH)
  */
 export const PANEL_WIDTH_CSS_VAR = '--panel-width'
 
+/**
+ * The shell's CSS container name. A child may write
+ * `@container workspace-shell (max-width: 320px) { ... }` and it will match —
+ * measured, not assumed (see the block at `OutputsDock.tsx`'s `asideStyle`,
+ * and the browser assertion in `e2e/visual/shellLayout.visual.spec.ts`).
+ *
+ * ⚠ Use THIS rather than a viewport breakpoint. The dock is 416px at a 1280px
+ * viewport and 416px at 3840px, and 280px on a drag at either — so `sm:`/`md:`
+ * answer a question about the window that has almost nothing to do with the
+ * panel. The conformance guard REDs on viewport prefixes in shell scope for
+ * exactly this reason.
+ */
+export const SHELL_CONTAINER_NAME = 'workspace-shell'
+
 // ───────────────────────────────────────────────────────────────────────────
 // 2. SCALES — type, spacing, radius. The shell owns them; children inherit.
 // ───────────────────────────────────────────────────────────────────────────
@@ -126,6 +140,32 @@ export const PANEL_WIDTH_CSS_VAR = '--panel-width'
  */
 export const SHELL_TYPOGRAPHY_KEYS = ['panelHeader', 'panelBody', 'panelMeta'] as const
 export type ShellTypographyKey = (typeof SHELL_TYPOGRAPHY_KEYS)[number]
+
+/**
+ * ⚠⚠ THE INHERITED BASELINE MOVED. READ THIS BEFORE MEASURING ANYTHING.
+ *
+ * The dock body used to inherit `typography.caption`; it now inherits
+ * `typography.panelBody`. Both are 12px, so this reads like a rename — it is
+ * not. `caption` is `leading-normal` (1.5) and `panelBody` is `leading-relaxed`
+ * (1.625), and **line-height inherits**, so EVERY descendant that does not set
+ * its own `leading-*` moved with it. Measured live in Chromium on all four
+ * mounted tabs: `outputs-dock-body` computes **12px / 19.5px** where it
+ * previously computed 12px / 18px.
+ *
+ * Second change in the same family: the tab buttons were
+ * `caption font-medium` and are now `panelBody`, i.e. **weight 500 → 400**.
+ * Narrower glyphs — which means the tab-strip headroom figures recorded in the
+ * shell PR were taken at weight 400, and a child measuring against the older
+ * numbers will be measuring a different product.
+ *
+ * Both are DS v5 §2.2/§2.4 corrections and both are INTENDED. `caption` is not
+ * in the panel scale at all, and §2.4 forbids weight overrides on panel tokens.
+ * They are written down here because they are baked into the re-blessed visual
+ * references, and four child lanes are about to start from that baseline: a
+ * lane told "nothing moved" would attribute the extra 1.5px of leading to its
+ * own change.
+ */
+export const SHELL_INHERITED_BODY_TYPOGRAPHY: ShellTypographyKey = 'panelBody'
 
 /**
  * DS v5 §4.1 — the eleven-step spacing scale, in px.
@@ -228,6 +268,18 @@ export interface WorkspaceSurfaceDescriptor {
   readonly presentedAsTab: boolean
   /** Why, in one line, when `presentedAsTab` is false. Empty otherwise. */
   readonly hiddenReason: string
+  /**
+   * REQUIRED. Which surface-level bar, if any, the SHELL renders into its
+   * reserved footer region for this surface.
+   *
+   * The shell owns the footer region; a surface never pins its own bar with
+   * `sticky bottom-0` inside the scrolling body, because that covers whatever
+   * the shell rendered below it. But a bar that carries a stale warning and
+   * the surface's only re-run control also cannot simply be dropped into the
+   * end of a long scrolling list, where it lands several screens below the
+   * fold. Declaring it here is how a surface asks the shell to host it.
+   */
+  readonly footerBar: 'none' | 'reanalyse'
 }
 
 /**
@@ -249,6 +301,7 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
   olumi: {
     id: 'olumi',
     label: 'Olumi',
+    footerBar: 'none',
     // Bottom-anchored conversation with its own stick-to-bottom threshold.
     scroll: 'self',
     padding: 'self',
@@ -258,6 +311,9 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
   results: {
     id: 'results',
     label: 'Analysis',
+    // The Analysis surface has its own always-visible `AnalysisFooter`, which
+    // is already a flex sibling of its scroller and owns stale + Rerun there.
+    footerBar: 'none',
     // The Analysis body manages its own scroller so the pre-run readiness
     // layout can be a full-height flex column rather than a scrolling list.
     scroll: 'self',
@@ -268,6 +324,7 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
   compare: {
     id: 'compare',
     label: 'Compare',
+    footerBar: 'none',
     scroll: 'shell',
     padding: 'shell',
     presentedAsTab: true,
@@ -276,6 +333,10 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
   diagnostics: {
     id: 'diagnostics',
     label: 'Model',
+    // `ReanalyseBar` — this surface's ONLY stale warning and ONLY re-run
+    // control. `AnalysisFooter` mounts on the `results` branch only, so
+    // nothing else here offers a Rerun.
+    footerBar: 'reanalyse',
     scroll: 'shell',
     padding: 'shell',
     presentedAsTab: true,
@@ -284,6 +345,7 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
   journey: {
     id: 'journey',
     label: 'Journey',
+    footerBar: 'none',
     scroll: 'shell',
     padding: 'shell',
     // ⭐ RULING (Paul, 17 Aug 2026): Journey stays hidden until it is a real
@@ -298,7 +360,23 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
   },
 }
 
-/** Left-to-right order of the tab strip. Olumi leads by product decision. */
+/**
+ * Left-to-right order of the tab strip. Olumi leads by product decision.
+ *
+ * ⚠ THIS IS AN ORDERING HINT, NOT THE MEMBERSHIP LIST — and the distinction is
+ * the whole point. It was originally a plain array that `presentedSurfaces()`
+ * mapped over, which made it a hand-maintained mirror of the Record's keys
+ * inside the file written to abolish hand-maintained mirrors. Proven by
+ * mutant: a surface marked `presentedAsTab: true` in the Record but omitted
+ * here rendered NOWHERE, with tsc clean and the whole guard suite green, and
+ * `MAX_PRESENTED_SURFACES` defeated because the count was taken from this
+ * array rather than from the Record.
+ *
+ * Membership now comes from `WORKSPACE_SURFACES` — the type-checked source of
+ * truth — and this only sorts it. An id missing from here still renders, at
+ * the end, and the conformance guard REDs on the mismatch so the ordering gets
+ * fixed deliberately rather than a surface disappearing silently.
+ */
 export const WORKSPACE_SURFACE_ORDER: readonly OutputTab[] = [
   'olumi',
   'results',
@@ -323,7 +401,29 @@ export const MAX_PRESENTED_SURFACES = 4
  * `presentedAsTab: false` is the stronger statement and is not a flag.
  */
 export function presentedSurfaces(): WorkspaceSurfaceDescriptor[] {
-  return WORKSPACE_SURFACE_ORDER.map(id => WORKSPACE_SURFACES[id]).filter(s => s.presentedAsTab)
+  // Iterate the RECORD (membership), then sort by ORDER (presentation). An id
+  // absent from ORDER sorts last rather than vanishing — see ORDER's header.
+  const rank = (id: OutputTab) => {
+    const i = WORKSPACE_SURFACE_ORDER.indexOf(id)
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i
+  }
+  return (Object.keys(WORKSPACE_SURFACES) as OutputTab[])
+    .map(id => WORKSPACE_SURFACES[id])
+    .filter(s => s.presentedAsTab)
+    .sort((a, z) => rank(a.id) - rank(z.id))
+}
+
+/**
+ * The descriptor for a tab id, with a documented fallback.
+ *
+ * The shell indexes `WORKSPACE_SURFACES[activeTab]` to derive its body layout.
+ * The reviewer found no reachable path that supplies an unknown id — but the
+ * old tab-id ternary DEGRADED to an empty-ish body where a bare index THROWS,
+ * and a render-time throw in the shell takes the whole dock down. One line
+ * removes the class of failure rather than arguing about its reachability.
+ */
+export function surfaceFor(tab: OutputTab | string): WorkspaceSurfaceDescriptor {
+  return WORKSPACE_SURFACES[tab as OutputTab] ?? WORKSPACE_SURFACES.results
 }
 
 // ───────────────────────────────────────────────────────────────────────────

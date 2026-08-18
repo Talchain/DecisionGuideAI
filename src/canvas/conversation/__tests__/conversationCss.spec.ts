@@ -187,7 +187,7 @@ describe('index.css — olumi scrollbar utility', () => {
     // which is the change that would break Olumi's bottom-anchored thread.
     expect(shellBodyClassName(WORKSPACE_SURFACES.olumi)).not.toContain('olumi-scrollbar')
     // …and the dock still mounts the derived value rather than a hardcoded one.
-    expect(outputsDockSource).toContain('shellBodyClassName(WORKSPACE_SURFACES[effectiveActiveTab])')
+    expect(outputsDockSource).toContain('shellBodyClassName(surfaceFor(effectiveActiveTab))')
 
     expect(outputsDockSource).toContain('olumi-scrollbar overflow-y-auto px-3 py-3 space-y-6')
     expect(preAnalysisPanelSource).toContain('olumi-scrollbar flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3')
