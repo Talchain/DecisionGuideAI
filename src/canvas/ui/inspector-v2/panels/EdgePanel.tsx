@@ -46,6 +46,7 @@ import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
+import { resolveElementLabel } from '../../../domain/elementLabel'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -165,8 +166,12 @@ export const EdgePanel = memo(function EdgePanel({
   // Source/target nodes
   const sourceNode = useMemo(() => nodes.find(n => n.id === edge?.source), [nodes, edge?.source])
   const targetNode = useMemo(() => nodes.find(n => n.id === edge?.target), [nodes, edge?.target])
-  const sourceLabel = String(sourceNode?.data?.label ?? edge?.source ?? '')
-  const targetLabel = String(targetNode?.data?.label ?? edge?.target ?? '')
+  // The id tail (`?? edge?.source`) is gone: an endpoint with no name now reads
+  // as the honest no-name fallback rather than as a graph key. These two feed
+  // the shell title, the intervention notice sentence and the coaching label
+  // context, so the id was reaching the user in three places at once.
+  const sourceLabel = resolveElementLabel(sourceNode?.data)
+  const targetLabel = resolveElementLabel(targetNode?.data)
   const sourceKind = (sourceNode?.type || sourceNode?.data?.kind || 'factor') as NodeType
   const targetKind = (targetNode?.type || targetNode?.data?.kind || 'factor') as NodeType
 
@@ -311,7 +316,7 @@ export const EdgePanel = memo(function EdgePanel({
             <PanelGroup kind="context" label={GROUP_LABELS.context}>
               <StaleGuardBanner hasResults={isResultsMode}>
                 <div className="bg-panel border border-danger/30 p-2.5 rounded-lg">
-                  <div className={`${typography.panelBody} font-medium text-danger flex items-center gap-1`}>
+                  <div className={`${typography.panelBody} text-danger flex items-center gap-1`}>
                     <AlertTriangle size={13} className="text-danger" />
                     {INLINE_LABELS.sensitiveAssumption}
                   </div>

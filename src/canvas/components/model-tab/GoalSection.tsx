@@ -253,7 +253,7 @@ function GoalSectionInner({ goalNode, onSendMessage, goalFitRows }: GoalSectionP
       {/* Full detail expansion */}
       {showDetail && (
         <div className="mt-2.5 pt-2.5 border-t border-panel-border space-y-0.5">
-          <div className={`${typography.panelMeta} text-text-light font-medium`}>Goal threshold</div>
+          <div className={`${typography.panelMeta} text-text-light`}>Goal threshold</div>
           <div className={`${typography.panelBody} text-text-body`}>
             The probability you need to hit for this to count as success
           </div>

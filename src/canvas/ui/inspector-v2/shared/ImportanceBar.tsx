@@ -47,7 +47,7 @@ export function ImportanceBar({ importanceScore, sensitivityRank }: ImportanceBa
       {/* Single row: rank | bar | percentage */}
       <div className="flex items-center gap-2">
         {rankLabel && (
-          <span className="text-base font-semibold text-primary flex-shrink-0">
+          <span className={`${typography.panelHeader} text-primary flex-shrink-0`}>
             {rankLabel}
           </span>
         )}
@@ -64,7 +64,7 @@ export function ImportanceBar({ importanceScore, sensitivityRank }: ImportanceBa
             style={{ width: `${pct}%` }}
           />
         </div>
-        <span className={`${typography.panelMeta} font-medium text-text-body flex-shrink-0`}>
+        <span className={`${typography.panelMeta} text-text-body flex-shrink-0`}>
           {Math.round(pct)}%
         </span>
       </div>

@@ -297,7 +297,7 @@ export function ContestedEdgeCard({
             useCanvasStore.getState().selectEdgeWithoutHistory(edgeId)
             focusEdgeById(edgeId)
           }}
-          className={`${typography.panelBody} font-medium text-info hover:underline cursor-pointer flex-1 min-w-0 leading-snug text-left`}
+          className={`${typography.panelBody} text-info hover:underline cursor-pointer flex-1 min-w-0 leading-snug text-left`}
         >
           {edgeLabel ?? (
             <>
@@ -327,7 +327,7 @@ export function ContestedEdgeCard({
       {primaryReason && !isResolved && (
         <p className={`${typography.panelMeta} text-text-light mb-1`}>
           {primaryReason}
-          <span className={`${typography.panelMeta} font-semibold text-warning ml-1`}>
+          <span className={`${typography.panelMeta} text-warning ml-1`}>
             Δ {deltaMagnitude.toFixed(2)}
           </span>
         </p>
@@ -351,7 +351,7 @@ export function ContestedEdgeCard({
           <div className="flex items-center gap-1.5 mb-1" data-testid={`contested-pass1-${edgeId}`}>
             <span className="w-1.5 h-1.5 rounded-full bg-info shrink-0" aria-hidden="true" />
             <span className={`${typography.panelMeta} text-text-light`}>Current model:</span>
-            <span className={`${typography.panelMeta} font-medium text-text-header`}>
+            <span className={`${typography.panelMeta} text-text-header`}>
               {pass1Label} ({pass1Mean >= 0 ? '+' : ''}{pass1Mean.toFixed(2)})
             </span>
           </div>
@@ -360,7 +360,7 @@ export function ContestedEdgeCard({
           <div className="flex items-center gap-1.5 mb-2" data-testid={`contested-pass2-${edgeId}`}>
             <span className="w-1.5 h-1.5 rounded-full bg-option shrink-0" aria-hidden="true" />
             <span className={`${typography.panelMeta} text-text-light`}>Independent review:</span>
-            <span className={`${typography.panelMeta} font-medium text-text-header`}>
+            <span className={`${typography.panelMeta} text-text-header`}>
               {pass2Label} ({pass2Mean >= 0 ? '+' : ''}{pass2Mean.toFixed(2)})
             </span>
           </div>
@@ -370,7 +370,7 @@ export function ContestedEdgeCard({
             className={`${typography.panelMeta} text-text-body leading-relaxed`}
             data-testid={`contested-basis-reasoning-${edgeId}`}
           >
-            <span className="font-medium text-info" data-testid={`contested-basis-label-${edgeId}`}>
+            <span className="text-info" data-testid={`contested-basis-label-${edgeId}`}>
               {basisLabel}:
             </span>{' '}
             <span data-testid={`contested-reasoning-${edgeId}`}>{reasoning}</span>

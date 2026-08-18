@@ -287,7 +287,7 @@ function EdgeCard({
         )}
         {isFragile && (
           <span
-            className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full ${typography.panelMeta} font-medium bg-transparent border border-warning/30 text-text-body shrink-0`}
+            className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full ${typography.panelMeta} bg-transparent border border-warning/30 text-text-body shrink-0`}
             title={fragileTooltip}
           >
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -455,7 +455,7 @@ function EdgeCard({
           {/* Group 1: Effect — only shown when at least one effect metric is available */}
           {(signedMean !== undefined || strengthStd !== undefined || beliefExists !== undefined) && (
             <>
-              <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Effect</div>
+              <div className={`${typography.panelMeta} text-text-light mb-1`}>Effect</div>
               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
                 {signedMean !== undefined && (
                   <>
@@ -487,7 +487,7 @@ function EdgeCard({
 
           {/* Group 2: Provenance */}
           <div className="border-t border-panel-border mt-2 pt-2">
-            <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Provenance</div>
+            <div className={`${typography.panelMeta} text-text-light mb-1`}>Provenance</div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               <span className={`${typography.panelMeta} text-text-light`}>Provenance</span>
               <span className={`${typography.panelBody} text-text-body text-right`}>
@@ -526,7 +526,7 @@ function EdgeCard({
 
           {/* Group 3: Metadata */}
           <div className="border-t border-panel-border mt-2 pt-2">
-            <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Metadata</div>
+            <div className={`${typography.panelMeta} text-text-light mb-1`}>Metadata</div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               <span className={`${typography.panelMeta} text-text-light`}>Edge ID</span>
               <span className={`${typography.panelBody} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>

@@ -29,6 +29,7 @@ import { COACHING } from '../coachingConfig'
 import { DecisionAdvancedEditor } from '../editors/DecisionAdvancedEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
+import { resolveElementLabel } from '../../../domain/elementLabel'
 
 export const DecisionPanel = memo(function DecisionPanel({
   nodeId,
@@ -90,7 +91,7 @@ export const DecisionPanel = memo(function DecisionPanel({
         // here, but the type should not lie about the value shape.
         const ivs = (optNode.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
         const ivCount = ivs ? Object.keys(ivs).length : 0
-        const label = String(optNode.data?.label ?? otherId)
+        const label = resolveElementLabel(optNode.data)
         // Explicit `is_baseline` wins; regex fallback only fires when the flag is
         // absent — mirrors OptionNode.tsx / OptionPanel.tsx.
         const explicitIsBaseline = (optNode.data as { is_baseline?: boolean | null })?.is_baseline
@@ -125,7 +126,7 @@ export const DecisionPanel = memo(function DecisionPanel({
           edgeId: e.id,
           nodeId: otherId,
           nodeKind: kind,
-          label: String(otherNode.data?.label ?? otherId),
+          label: resolveElementLabel(otherNode.data),
           strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
@@ -193,15 +194,15 @@ export const DecisionPanel = memo(function DecisionPanel({
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-1.5">
                   <NodeShapeIndicator nodeKind="option" size={14} />
-                  <span className={`${typography.panelBody} font-medium`}>{opt.label}</span>
+                  <span className={`${typography.panelBody}`}>{opt.label}</span>
                   {opt.isBaseline && (
-                    <span className={`${typography.panelMeta} font-medium px-2 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
+                    <span className={`${typography.panelMeta} px-2 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
                       Baseline
                     </span>
                   )}
                 </div>
                 {isResultsMode && opt.winProb != null && (
-                  <span className={`${typography.panelMeta} font-medium text-text-body tabular-nums`}>
+                  <span className={`${typography.panelMeta} text-text-body tabular-nums`}>
                     {formatWinProbability(opt.winProb)}
                   </span>
                 )}

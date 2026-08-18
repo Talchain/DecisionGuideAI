@@ -25,6 +25,8 @@
 
 import { useState, useCallback, useRef, useEffect, type KeyboardEvent } from 'react'
 import { Pencil } from 'lucide-react'
+
+import { typography } from '../../../../styles/typography'
 import { NODE_LABEL_MAX_LENGTH } from '../useInspectorMutations'
 
 /** Characters remaining at which the counter appears. */
@@ -178,7 +180,7 @@ export function EditableLabel({
       {remaining <= COUNTER_REVEAL_MARGIN && (
         <span
           data-testid="inspector-rename-counter"
-          className="block text-[11px] leading-snug text-text-light mt-0.5"
+          className={`${typography.panelMeta} block text-text-light mt-0.5`}
         >
           {draft.length}/{maxLength} characters
         </span>

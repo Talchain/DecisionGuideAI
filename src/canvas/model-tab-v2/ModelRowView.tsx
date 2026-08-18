@@ -338,13 +338,52 @@ function ValueCell({
    */
   const display = row.primaryValue
 
+  /*
+   * ⚠ THE "NOT SET" WALL, AND WHY SILENCE HERE IS NOT A HIDDEN UNKNOWN.
+   *
+   * Every row used to render `display ?? 'Not set'`, so a nine-factor model
+   * stacked twenty-odd identical inert strings down the outline — individually
+   * honest, collectively meaningless, and loud enough to drown the rows that
+   * had something to say.
+   *
+   * The rule now: "Not set" is printed only where it is ACTIONABLE, i.e. where
+   * pressing it opens the editor that fixes it (the arm below). Where nothing
+   * can be done from this cell, the cell is SILENT — and the fact is carried,
+   * once, by the group heading's unknown summary in `ModelOutline`, by this
+   * row's `attention` marker, and by the detail region, which still renders
+   * "Not set" for the selected row.
+   *
+   * This is the rule the provenance pill three elements up already follows
+   * (`showWhenAbsent={false}` — "absence is rendered as absence"); the value
+   * cell simply did not follow its own neighbour. Nothing is invented and
+   * nothing is concealed: the unknown moved from N repetitions to one sentence
+   * plus one marker, which is the difference between stating a fact and
+   * shouting it.
+   */
   if (!row.editable) {
     return (
       <span data-testid={testid} className={typography.tabular}>
-        {display ?? 'Not set'}
+        {display ?? ''}
       </span>
     )
   }
+
+  /*
+   * ⚠ THE EDITABLE-BUT-UNCONNECTED ROW DELIBERATELY STILL SAYS "Not set", AND
+   * THIS COMMENT EXISTS SO NOBODY "FINISHES THE JOB" BY SILENCING IT.
+   *
+   * A first cut of the wall fix silenced it too, and broke
+   * `ModelTabV2Panel.spec.tsx`'s pinned invariant that the relationship, option
+   * and goal rows render a DISABLED control carrying `NO_AUTHORITY_REASON`. That
+   * invariant is right: a control that says "editing is not connected yet" is
+   * strictly more truthful than an empty cell, and silence here would replace a
+   * truthful fallback with nothing (P3).
+   *
+   * Which means the remaining "Not set" repetition on this surface is NOT a
+   * display defect — it is the visible shape of the edit paths that have no
+   * canonical carrier yet (design §2 F6/F9). Suppressing it would have killed
+   * the symptom and left the defect (trap 23). It is reported, not hidden.
+   */
 
   return (
     <button

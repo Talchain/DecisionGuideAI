@@ -68,7 +68,7 @@ export function EdgeReviewDisagreement({ validation, techMode }: EdgeReviewDisag
 
   return (
     <div className="bg-panel border border-warning/30 rounded-lg p-2.5">
-      <div className={`${typography.panelBody} font-medium text-warning flex items-center gap-1`}>
+      <div className={`${typography.panelBody} text-warning flex items-center gap-1`}>
         <AlertTriangle size={13} className="text-warning" />
         {EDGE_COPY.needsYourJudgement}
       </div>

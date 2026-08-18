@@ -106,6 +106,18 @@ export function outlineLayout(
   }
 }
 
+/**
+ * How many of these rows state no value.
+ *
+ * `primaryValue === null` is the projection's OWN definition of "nothing is
+ * stated" (`types.ts`: *"`null` means nothing is stated — which is a fact to
+ * render, never a zero to invent"*). Reading that same field is what keeps the
+ * group heading and the value cells from drifting apart.
+ */
+function unknownCount(rows: readonly ModelRow[]): number {
+  return rows.reduce((n, r) => (r.primaryValue === null ? n + 1 : n), 0)
+}
+
 export function ModelOutline({
   rows,
   tier,
@@ -156,12 +168,32 @@ export function ModelOutline({
             data-testid={`model-group-v2-${group.id}-toggle`}
             aria-expanded={group.open}
             onClick={() => toggle(group.id)}
-            className={`${typography.label} text-text-header w-full text-left px-2 py-1.5`}
+            className={`${typography.panelHeader} text-text-header w-full text-left px-2 py-1.5`}
           >
             {group.open ? '▾' : '▸'} {GROUP_TITLE[group.id]}
-            <span className={`${typography.caption} text-text-light ml-2`}>
+            <span className={`${typography.panelMeta} text-text-light ml-2`}>
               {group.rows.length}
             </span>
+            {/*
+              The unknown summary — ONE sentence in place of N identical "Not
+              set" strings down the rows (see `ModelRowView`'s value cell).
+
+              ⚠ DERIVED FROM THE SAME FIELD THE CELL READS (`primaryValue ===
+              null`), not from a separately maintained count, so the heading and
+              the rows cannot disagree about what is unstated (trap 12).
+
+              ⚠ RENDERED ONLY WHEN THERE ARE UNKNOWNS. A permanent "0 of 4"
+              would be its own wall — chrome that always renders states nothing
+              about the data.
+            */}
+            {unknownCount(group.rows) > 0 && (
+              <span
+                data-testid={`model-group-v2-${group.id}-unknown-summary`}
+                className={`${typography.panelMeta} text-text-light ml-2`}
+              >
+                {unknownCount(group.rows)} of {group.rows.length} have no value yet
+              </span>
+            )}
           </button>
 
           {group.open &&

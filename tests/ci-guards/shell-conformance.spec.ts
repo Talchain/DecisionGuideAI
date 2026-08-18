@@ -484,6 +484,28 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
   // header rightly calls invisible to every class-based regex — became
   // `panelMeta`, dropping a selected-state weight bump that duplicated the
   // border/background channel.
+  // ⭐ BURNED DOWN TO ZERO, 18 Aug 2026 (B4 Model/Inspector convergence): all
+  // SEVEN `src/canvas/components/model-tab/**` entries are gone from this map
+  // because the measured count for each is now 0 — 21 occurrences retired
+  // (ContestedEdgeCard 5, FactorsSection 7, RelationshipsSection 4,
+  // OptionsSection 2, and 1 each in GoalSection / ReanalyseBar /
+  // SourceProvenancePill). The model-tab child surface now measures ZERO under
+  // this rule.
+  //
+  // How, so the next lane does not re-introduce them: every one was a redundant
+  // WEIGHT stacked on a panel token (`${typography.panelMeta} font-medium`),
+  // which §2.4 bans outright — "each token defines its own weight". The token
+  // stayed and the raw utility went; where the weight was carrying a selected
+  // or emphasised STATE, that state was already signalled by colour and border,
+  // so dropping it also removed a duplicated visual channel (DS §1).
+  //
+  // ⚠ THIS GUARD IS WIDER THAN THE DS RATCHET AND CAUGHT WHAT THE RATCHET COULD
+  // NOT. The same PR widened `check-ds-compliance.mjs`'s `panel-typography-scoped`
+  // scope to include `model-tab/`, `inspector-v2/` and `model-tab-v2/` — but the
+  // ratchet's regex cannot see arbitrary sizes (`text-[10px]`) or inline
+  // `fontSize`/`fontWeight`, and its scope is still narrower than the dock
+  // closure. Two guards over one rule, neither redundant: this one measures the
+  // closure a user actually loads, that one gates the ratchet. Keep both.
   const RAW_TYPOGRAPHY_BY_FILE: Record<string, number> = {
     'src/canvas/compare-tab/CompareFooter.tsx': 2,
     'src/canvas/compare-tab/DotProgression.tsx': 2,
@@ -498,13 +520,6 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     'src/canvas/components/ValidationPanel.tsx': 4,
     'src/canvas/components/WarningBanner.tsx': 1,
     'src/canvas/components/WhatChangedChip.tsx': 1,
-    'src/canvas/components/model-tab/ContestedEdgeCard.tsx': 5,
-    'src/canvas/components/model-tab/FactorsSection.tsx': 7,
-    'src/canvas/components/model-tab/GoalSection.tsx': 1,
-    'src/canvas/components/model-tab/OptionsSection.tsx': 2,
-    'src/canvas/components/model-tab/ReanalyseBar.tsx': 1,
-    'src/canvas/components/model-tab/RelationshipsSection.tsx': 4,
-    'src/canvas/components/model-tab/SourceProvenancePill.tsx': 1,
     'src/canvas/components/pre-analysis/PreAnalysisPanel.tsx': 5,
     'src/canvas/components/pre-analysis/SharpenYourThinking.tsx': 3,
     'src/canvas/conversation/InlineBlocks.tsx': 1,
@@ -573,8 +588,14 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // measuring almost nothing, which is how this kind of ratchet dies.
     const files = Object.keys(RAW_TYPOGRAPHY_BY_FILE).length
     const total = Object.values(RAW_TYPOGRAPHY_BY_FILE).reduce((a, b) => a + b, 0)
-    expect(files).toBe(37)
-    expect(total).toBe(134)
+    // 18 Aug 2026 (B4): 37 -> 30 files, 134 -> 113 occurrences, as the seven
+    // `model-tab/**` entries above burned to zero. These two numbers are a
+    // hand-maintained mirror OF THE MAP and must be lowered in the same PR as
+    // any burn-down — which is exactly what caught this lane: removing the
+    // entries turned the ratchet green and turned THIS assertion red, so the
+    // pair cannot be quietly hollowed out from either end.
+    expect(files).toBe(30)
+    expect(total).toBe(113)
   })
 })
 

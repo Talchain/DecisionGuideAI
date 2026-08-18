@@ -156,7 +156,7 @@ function DeltaChip({ baseline, current, unit, crossUnitSpace }: {
   const positive = delta > 0
   const label = unit ? formatValueWithUnit(Math.abs(delta), unit) : formatSmartNumber(Math.abs(delta))
   return (
-    <span className={`${typography.panelMeta} font-medium ${positive ? 'text-success' : 'text-danger'}`}>
+    <span className={`${typography.panelMeta} ${positive ? 'text-success' : 'text-danger'}`}>
       {positive ? '+' : '-'}{label}
     </span>
   )
@@ -362,7 +362,7 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
         <div className="mt-2 pt-2 border-t border-panel-border">
           {interventions.length > 0 && (
             <>
-              <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Normalised targets (model space)</div>
+              <div className={`${typography.panelMeta} text-text-light mb-1`}>Normalised targets (model space)</div>
               <div className={`${typography.panelBody} text-text-body mb-1.5`}>
                 Internal simulation values, overriding each factor's baseline
               </div>

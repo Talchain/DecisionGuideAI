@@ -40,6 +40,7 @@ import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { RiskAdvancedEditor } from '../editors/RiskAdvancedEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
+import { resolveElementLabel } from '../../../domain/elementLabel'
 
 /** Impact enum options, ordered low → critical. Labels are the capitalised enum. */
 const IMPACT_OPTIONS: { value: RiskImpact; label: string }[] = [
@@ -93,7 +94,7 @@ export const RiskPanel = memo(function RiskPanel({
           edgeId: e.id,
           nodeId: e.source,
           nodeKind: kind,
-          label: String(src?.data?.label ?? e.source),
+          label: resolveElementLabel(src?.data),
           strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
@@ -150,7 +151,7 @@ export const RiskPanel = memo(function RiskPanel({
                     aria-checked={active}
                     data-testid={`risk-impact-${opt.value}`}
                     onClick={() => handleImpactSelect(opt.value)}
-                    className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
+                    className={`${typography.panelMeta} inline-flex items-center px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
                       active
                         ? 'border-primary bg-panel-hover text-text-body'
                         : 'border-panel-border bg-transparent text-text-light hover:bg-panel-hover'

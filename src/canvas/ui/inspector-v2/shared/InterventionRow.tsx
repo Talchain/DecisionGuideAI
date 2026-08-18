@@ -93,7 +93,7 @@ export function InterventionRow({
           <button
             type="button"
             onClick={onNavigate}
-            className={`${typography.panelBody} font-medium text-text-body hover:text-info transition-colors truncate ${onNavigate ? 'cursor-pointer hover:underline' : ''}`}
+            className={`${typography.panelBody} text-text-body hover:text-info transition-colors truncate ${onNavigate ? 'cursor-pointer hover:underline' : ''}`}
             disabled={!onNavigate}
           >
             {factorLabel}
@@ -134,7 +134,7 @@ export function InterventionRow({
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             disabled={disabled}
-            className={`${typography.panelHeader} text-xs w-[110px] px-2 py-1 border rounded-lg text-center bg-panel ${
+            className={`${typography.panelBody} w-[110px] px-2 py-1 border rounded-lg text-center bg-panel ${
               disabled ? 'border-panel-border text-text-light' : 'border-info'
             }`}
           />

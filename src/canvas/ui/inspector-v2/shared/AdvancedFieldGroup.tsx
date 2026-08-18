@@ -1,3 +1,4 @@
+import { typography } from '../../../../styles/typography'
 /**
  * AdvancedFieldGroup — section divider with label for technical detail editor.
  * Renders a card with a sentence-case label header + children.
@@ -11,7 +12,7 @@ interface AdvancedFieldGroupProps {
 export function AdvancedFieldGroup({ title, children }: AdvancedFieldGroupProps) {
   return (
     <div className="mb-2 first:mt-0 mt-2 bg-panel border border-panel-border rounded-lg p-3">
-      <div className="text-[10px] font-semibold text-text-light mb-2 pb-1.5 border-b border-panel-border">
+      <div className={`${typography.panelMeta} text-text-light mb-2 pb-1.5 border-b border-panel-border`}>
         {title}
       </div>
       <div className="space-y-2">

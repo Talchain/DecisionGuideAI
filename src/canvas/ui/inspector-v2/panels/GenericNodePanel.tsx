@@ -27,6 +27,7 @@ import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 import type { InspectorPanelProps } from '../types'
+import { resolveElementLabel } from '../../../domain/elementLabel'
 
 export const GenericNodePanel = memo(function GenericNodePanel({
   nodeId,
@@ -52,7 +53,7 @@ export const GenericNodePanel = memo(function GenericNodePanel({
           edgeId: e.id,
           nodeId: otherId,
           nodeKind: (other.type || other.data?.kind || 'factor') as NodeType,
-          label: String(other.data?.label ?? otherId),
+          label: resolveElementLabel(other.data),
           strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })

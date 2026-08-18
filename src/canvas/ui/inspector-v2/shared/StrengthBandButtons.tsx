@@ -67,7 +67,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
             onClick={() => handleClick(band.midpoint)}
             className={`${typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors cursor-pointer
               ${isActive
-                ? 'border-primary text-primary font-semibold'
+                ? 'border-primary text-primary'
                 : 'border-panel-border text-text-light hover:border-text-light hover:bg-panel-hover'
               }`}
             aria-pressed={isActive}

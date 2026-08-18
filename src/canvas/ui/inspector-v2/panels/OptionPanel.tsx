@@ -36,6 +36,7 @@ import { ResultsLink } from '../shared/ResultsLink'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../../../lib/decisionVerdict'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
+import { resolveElementLabel, resolveFirstStatedLabel } from '../../../domain/elementLabel'
 
 export const OptionPanel = memo(function OptionPanel({
   nodeId,
@@ -125,7 +126,7 @@ export const OptionPanel = memo(function OptionPanel({
       // the intervention value above — generic numeric defense.
       return [{
         factorId,
-        factorLabel: String(factorNode?.data?.label ?? factorId),
+        factorLabel: resolveElementLabel(factorNode?.data),
         baseline: unwrapInterventionValue(obs?.value).value ?? undefined,
         rawBaseline: unwrapInterventionValue(obs?.raw_value).value ?? undefined,
         unit: obs?.unit as string | undefined,
@@ -157,7 +158,7 @@ export const OptionPanel = memo(function OptionPanel({
           edgeId: e.id,
           nodeId: e.target,
           nodeKind: kind,
-          label: String(tgt.data?.label ?? e.target),
+          label: resolveElementLabel(tgt.data),
           strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
@@ -179,7 +180,7 @@ export const OptionPanel = memo(function OptionPanel({
         const valueDisplay = formatFactorValue(obs as Parameters<typeof formatFactorValue>[0])
         return {
           id: n.id,
-          label: String(n.data?.label ?? n.id),
+          label: resolveElementLabel(n.data),
           valueDisplay,
           // Defensive unwrap: see the interventions memo above. baseline flows
           // into mutations.setIntervention as the initial intervention value
@@ -200,7 +201,11 @@ export const OptionPanel = memo(function OptionPanel({
     if (!optionComparison || !Array.isArray(optionComparison)) return []
     return (optionComparison as Array<{ option_id: string; win_probability?: number; label?: string }>).map(o => ({
       id: o.option_id,
-      label: String(nodes.find(n => n.id === o.option_id)?.data?.label ?? o.label ?? o.option_id),
+      // Two legitimate name sources, then honest absence — never the id. The
+      // graph node's own label wins; the analysis payload's `label` is the
+      // fallback for an option the graph no longer holds; `o.option_id` is NOT
+      // a third source, it is a database key and has been dropped.
+      label: resolveFirstStatedLabel(nodes.find(n => n.id === o.option_id)?.data, { label: o.label }),
       // winPct: integer percent used for bar width + close-call gap arithmetic.
       // winLabel: user-facing string; routes through formatWinProbability so a
       // non-zero probability that rounds to 0 renders as "< 1%" rather than "0%".
@@ -229,7 +234,7 @@ export const OptionPanel = memo(function OptionPanel({
       <PanelGroup kind="context" label={GROUP_LABELS.context}>
         {isBaselineOption && (
           <div className="mb-2" data-testid="option-baseline-badge">
-            <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-panel-border`}>
+            <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-panel-border`}>
               Baseline option
             </span>
           </div>
@@ -246,7 +251,7 @@ export const OptionPanel = memo(function OptionPanel({
           >
             <Sparkles size={12} className="text-info mt-0.5 shrink-0" aria-hidden="true" />
             <p className={`${typography.panelMeta} text-text-light`}>
-              <span className="font-medium text-text-body">
+              <span className="text-text-body">
                 {OPTION_STRINGS.draftingNoteAttribution}
               </span>
               {' — '}
@@ -480,7 +485,7 @@ export const OptionPanel = memo(function OptionPanel({
                   {allOptions.map(o => (
                     <div key={o.id} className="flex items-center gap-2 py-0.5">
                       <span
-                        className={`${typography.panelMeta} w-[110px] truncate ${o.isCurrent ? 'font-semibold' : ''} text-text-light`}
+                        className={`${typography.panelMeta} w-[110px] truncate text-text-light`}
                       >
                         {o.label}
                       </span>
@@ -493,7 +498,7 @@ export const OptionPanel = memo(function OptionPanel({
                           }}
                         />
                       </div>
-                      <span className={`${typography.panelMeta} w-7 text-right ${o.isCurrent ? 'font-semibold' : ''} text-text-light`}>
+                      <span className={`${typography.panelMeta} w-7 text-right text-text-light`}>
                         {o.winLabel ?? '—'}
                       </span>
                     </div>

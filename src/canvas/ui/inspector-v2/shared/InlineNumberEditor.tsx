@@ -98,7 +98,7 @@ export function InlineNumberEditor({
       >
         {readout != null
           ? readout
-          : <span className={`${typography.panelMeta} text-text-light italic font-normal text-sm`}>{placeholder}</span>
+          : <span className={`${typography.panelMeta} text-text-light italic`}>{placeholder}</span>
         }
       </button>
     )
