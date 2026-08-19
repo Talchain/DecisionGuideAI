@@ -238,6 +238,11 @@ export const WATCHED_ROOTS = [
   'edges',
   'ceeAnalysisReady',
   'currentBriefText',
+  // Saving an unsaved canvas changes NOTHING about the model and EVERYTHING
+  // about the question: CEE switches from assessing the request graph to
+  // assessing the persisted scenario. A different question has to be re-asked,
+  // so this root is watched like any other payload input.
+  'currentScenarioId',
 ] as const
 
 /** The slice of canvas state the readiness request is a function of. */
@@ -246,6 +251,12 @@ export interface ReadinessPayloadInputs {
   edges: Edge[]
   ceeAnalysisReady: { options?: unknown[] } | null | undefined
   currentBriefText: string | null | undefined
+  /**
+   * The saved scenario this canvas IS, or `null`/`undefined` when it is not
+   * saved yet. It is an input to the payload because it selects WHICH MODEL
+   * CEE assesses — see the `scenario_id` block in `buildReadinessPayload`.
+   */
+  currentScenarioId: string | null | undefined
 }
 
 /**
@@ -272,7 +283,7 @@ export interface ReadinessPayloadInputs {
  * the payload.
  */
 export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
-  const { nodes, edges, ceeAnalysisReady, currentBriefText } = s
+  const { nodes, edges, ceeAnalysisReady, currentBriefText, currentScenarioId } = s
 
   const payload: Record<string, unknown> = {
     graph: {
@@ -372,6 +383,42 @@ export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
     const { model_adjustments: _strip, ...analysisReadyForPayload } =
       ceeAnalysisReady as Record<string, unknown>
     payload.analysis_ready = analysisReadyForPayload
+  }
+
+  // ── The two readiness authorities must assess the SAME model ──────
+  //
+  // Derived at CEE `cbc3ea3d`, `src/routes/assist.v1.graph-readiness.ts`:
+  //
+  //   scenario_id: z.string().min(1).optional()
+  //   ...
+  //   let assessedGraph = input.graph; let assessedFrom = "request_graph";
+  //   if (input.scenario_id) {
+  //     const persisted = await loadPersistedScenarioStateStrict(input.scenario_id);
+  //     if (persisted.graph != null) { assessedGraph = persisted.graph; assessedFrom = "persisted"; }
+  //   }
+  //
+  // CEE runs ONE predicate (`assessRouteAdmission` →
+  // `assessCanonicalAnalysisReadiness`, the same whole-model authority the TURN
+  // path uses) over one of TWO inputs, and the CALLER picks which. The run path
+  // always reads the persisted scenario. This projection never sent the id, so
+  // the panel was always answered over `request_graph` — the browser's LOCAL
+  // copy. Same predicate, two inputs: that is how the panel can read "3/3
+  // ready" about a model the analysis turn never sees.
+  //
+  // ⚠ STATE-CLASS, and it is a correctness constraint rather than a nicety.
+  // A guest, or a canvas drafted but not yet saved, HAS no scenario. For those
+  // callers `request_graph` is the right input and CEE says so itself ("the
+  // fallback is not a failure path"). So the field is omitted ENTIRELY rather
+  // than sent empty: CEE types it `z.string().min(1)`, so `""` is a validation
+  // failure, not a benign no-op — it would 400 every guest readiness request.
+  //
+  // ⚠ AND WHAT THIS DOES TO THE PANEL, recorded because it reads as a
+  // regression and is not one: where the persisted graph lags the canvas, the
+  // panel starts reporting the value MISSING — which is what the run path has
+  // been seeing all along. Agreement is the point; the lag is fixed by the
+  // coupled CEE `options[]`-sync work, not by a projection that flatters.
+  if (typeof currentScenarioId === 'string' && currentScenarioId.length > 0) {
+    payload.scenario_id = currentScenarioId
   }
 
   return JSON.stringify(payload)

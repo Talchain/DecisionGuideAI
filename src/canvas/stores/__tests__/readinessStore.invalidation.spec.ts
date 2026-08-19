@@ -649,7 +649,7 @@ describe('readinessStore — invalidation on mutation (ROADMAP 2.332)', () => {
 
     it('names every root the subscription watches', () => {
       expect([...WATCHED_ROOTS].sort()).toEqual(
-        ['ceeAnalysisReady', 'currentBriefText', 'edges', 'nodes'].sort(),
+        ['ceeAnalysisReady', 'currentBriefText', 'currentScenarioId', 'edges', 'nodes'].sort(),
       )
     })
   })
