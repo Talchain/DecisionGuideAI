@@ -34,6 +34,9 @@ import type { BriefReadiness } from './hooks/useBriefSignals'
 import { useThreadPersistence } from './hooks/useThreadPersistence'
 import { beginInteractionChain, getUiSurfaceState, recordCrossSurfaceEvent, recordInteractionEvent, recordUserAction, type InteractionStateSnapshot } from '../../lib/debug-state'
 import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
+import { useAnalysisReadinessAuthority } from '../state/analysisStateSelector'
+import { BLOCKED_REASON_COPY } from '../utils/composeBlockedReason'
+import { useShowToastSafe } from '../ToastContext'
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 
@@ -516,16 +519,22 @@ export const ConversationPanel = memo(function ConversationPanel({
   // to block Run on every other scenario with a false reason. `draftStreamPhaseFor`
   // is the one place that decides ownership — never re-derived at a call site.
   const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, scenarioId))
+  // ⭐ The CANONICAL readiness authority, read on this surface for the same
+  // reason OutputsDock reads it: both mount a run affordance, and a gate that
+  // consulted different authorities on two surfaces is the two-surfaces-one-state
+  // defect this file's own comments already record fixing twice.
+  const analysisReadiness = useAnalysisReadinessAuthority()
   const runGateResult = useMemo(() => canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
     readiness,
+    analysisReadiness,
     hasBlockers,
     nodeCount,
     isRunning: isAnalysisRunning,
     analysisHeldOn: heldOn,
     draftStreamPhase,
     readinessStale,
-  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning, heldOn, draftStreamPhase, readinessStale])
+  }), [graphHealth, readiness, analysisReadiness, hasBlockers, nodeCount, isAnalysisRunning, heldOn, draftStreamPhase, readinessStale])
 
   // In-flight takes priority over structural reasons: the composer button
   // is disabled for either cause, but the user-visible tooltip should explain
@@ -538,6 +547,11 @@ export const ConversationPanel = memo(function ConversationPanel({
     ? 'Analysis in progress'
     : (getRunButtonTooltip(runGateResult) ?? undefined)
 
+  // Best-effort outside a ToastProvider (headless hosts), which is why the
+  // refusal ALSO remains the composer button's tooltip: two surfaces for one
+  // fact, never two facts.
+  const showRunRefusal = useShowToastSafe()
+
   // ── Top bar callbacks ─────────────────────────────────────────────────
   const handleRunAnalysis = useCallback(() => {
     // Hotfix item 4 hardening: guard all run-trigger paths (composer button,
@@ -548,7 +562,35 @@ export const ConversationPanel = memo(function ConversationPanel({
     // ROADMAP 2.1229: the in-flight source is now the results-store status —
     // the retired `useV2Run` carried the only hook-local flag, and its F-77
     // supersede-abort went with the direct request it aborted.
-    if (!runGateResult.allowed || isAnalysisRunning) return
+    // ⭐ A REFUSAL MUST BE AUDIBLE (19 Aug 2026). This was a bare `return`.
+    //
+    // Measured on the frozen quartet: a fresh guest with a producer-READY
+    // 16-node model clicked the chat's "Run analysis" and got NOTHING — no
+    // analysis, no refusal, no error. `run_state.kind` stayed `never_run` and
+    // `analysisRefusalNotice` stayed `null`, because a client-side gate refusal
+    // writes neither. The user's only remaining affordance was the Analyse
+    // button, which was disabled with a sentence that was false. A dead end with
+    // no explanation at either exit.
+    //
+    // The root cause of the CLOSED gate is fixed above (the canonical authority
+    // now decides). This is the SECOND, independent defect: even a correctly
+    // closed gate said nothing. `runBlockedReason` is the same string this
+    // surface already puts in the composer button's tooltip, so the click and
+    // the hover cannot tell different stories about one state — and it is
+    // surfaced through the same toast the canonical runner uses for the same
+    // refusal in OutputsDock, rather than a new channel.
+    //
+    // ⚠ It deliberately does NOT write `analysisRefusalNotice`. That slice is
+    // sourced ONLY from a typed refusal on `response.analysis_ready` — CEE's
+    // own `blocked_reason` — and its header is explicit that it is "a fact about
+    // ONE turn". Fabricating one here would claim the producer refused a turn
+    // that was never sent, which is the guarantee-theatre class, not a fix for
+    // it. When the gate is open the click DISPATCHES, and a producer refusal
+    // then populates that slice honestly.
+    if (!runGateResult.allowed || isAnalysisRunning) {
+      showRunRefusal(runBlockedReason ?? BLOCKED_REASON_COPY.unspecified, 'warning')
+      return
+    }
     const composerText = composerRef.current?.peekText().trim() ?? ''
     beginInteractionChain({
       triggerSurface: 'analyse_now',
@@ -575,7 +617,7 @@ export const ConversationPanel = memo(function ConversationPanel({
       message: 'Run analysis',
       source: 'chip',
     })
-  }, [messages.length, runGateResult.allowed, isAnalysisRunning, dispatchAction])
+  }, [messages.length, runGateResult.allowed, isAnalysisRunning, dispatchAction, runBlockedReason, showRunRefusal])
 
   useEffect(() => {
     // L-59: forward the producer's own typed intent when the caller has one.

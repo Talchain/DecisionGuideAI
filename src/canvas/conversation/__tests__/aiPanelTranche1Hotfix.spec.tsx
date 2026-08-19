@@ -182,13 +182,29 @@ describe('Hotfix item 4 — Run analysis gate combines readiness + in-flight', (
       path.resolve(__dirname, '../ConversationPanel.tsx'),
       'utf8',
     )
-    // Guard asserts both structural readiness AND in-flight.
-    expect(src).toMatch(/if \(!runGateResult\.allowed \|\| isAnalysisRunning\) return/)
+    // Guard asserts both structural readiness AND in-flight. The CONDITION is
+    // unchanged; what changed on 19 Aug 2026 is the BODY.
+    expect(src).toMatch(/if \(!runGateResult\.allowed \|\| isAnalysisRunning\) \{/)
+    // ⭐ AND THE GUARD IS NO LONGER MUTE. This assertion used to end at
+    // `) return` — a shape that pinned the guard's EXISTENCE while being
+    // perfectly satisfied by a handler that swallowed the click in silence,
+    // which is exactly what shipped: on the frozen quartet a fresh guest's
+    // "Run analysis" produced no analysis, no refusal and no error. A refusal
+    // the user cannot perceive is not a guard, it is a dead end.
+    //
+    // ⚠ This regex is a hand-maintained mirror of a source shape (trap 12) and
+    // is deliberately NOT the load-bearing evidence for the behaviour. That is
+    // `conversationPanel.runRefusalIsAudible.spec.tsx`, which mounts the real
+    // panel, invokes the guidance store's own `_runAnalysis` reference, and
+    // asserts the refusal is ON SCREEN. This line only stops the shape being
+    // reverted without anyone noticing.
+    expect(src).toMatch(/showRunRefusal\(runBlockedReason/)
     // Dep array includes the in-flight flag so the callback is current.
     // `runV2Analysis` left the deps with the hook (2.1229); the canonical
-    // `dispatchAction` is now the only runner referenced here.
+    // `dispatchAction` is now the only runner referenced here, joined by the
+    // two values the refusal itself reads.
     expect(src).toMatch(
-      /\[messages\.length, runGateResult\.allowed, isAnalysisRunning, dispatchAction\]/,
+      /\[messages\.length, runGateResult\.allowed, isAnalysisRunning, dispatchAction, runBlockedReason, showRunRefusal\]/,
     )
   })
 
