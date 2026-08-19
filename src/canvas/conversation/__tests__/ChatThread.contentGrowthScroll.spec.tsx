@@ -29,7 +29,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
-import { ChatThread } from '../zones/ChatThread'
+import { ChatThread, THREAD_SCROLL_SENTINEL_TESTID } from '../zones/ChatThread'
 import type { ConversationMessage } from '../types'
 
 /**
@@ -73,11 +73,8 @@ const scrollIntoView = vi.fn(function (this: unknown) {
   scrollTargets.push(this)
 })
 
-/** The element `useSmartScroll` actually scrolls to (`useSmartScroll.ts:63,70`). */
-const SENTINEL_TESTID = 'thread-scroll-sentinel'
-
 function sentinelIn(root: ParentNode): Element {
-  const el = root.querySelector(`[data-testid="${SENTINEL_TESTID}"]`)
+  const el = root.querySelector(`[data-testid="${THREAD_SCROLL_SENTINEL_TESTID}"]`)
   expect(
     el,
     'precondition: the scroll sentinel is not in the DOM, so every assertion below would be vacuous',

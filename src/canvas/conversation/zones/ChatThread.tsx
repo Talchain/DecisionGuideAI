@@ -68,6 +68,17 @@ import { SETTLING_STAGES, SETTLING_AFTER_COACHING_STAGES } from '../../component
 export const THREAD_TESTID_DOCKED = 'chat-thread'
 export const THREAD_TESTID_FLOATING = 'chat-thread-floating'
 
+/**
+ * The element `useSmartScroll` aims `scrollIntoView` at (`useSmartScroll.ts:63`
+ * and `:70` — the only two call sites). Exported so no spec has to identify it
+ * by a property other elements share: `OutputsDock.runReturnsToOlumi.spec.tsx`
+ * used to find it as "the scrolled element that has NO `data-testid`", which
+ * any untagged element satisfied and which this constant's very existence
+ * would have broken (it did — that spec is updated in the same commit).
+ * One literal, one place (CLAUDE.md trap 12).
+ */
+export const THREAD_SCROLL_SENTINEL_TESTID = 'thread-scroll-sentinel'
+
 interface ChatThreadProps {
   messages: ConversationMessage[]
   isThinking: boolean
@@ -362,7 +373,7 @@ export const ChatThread = memo(function ChatThread({
           element by identity, rather than counting calls on a globally stubbed
           `Element.prototype.scrollIntoView` that any element would satisfy
           (CLAUDE.md trap 19). */}
-      <div ref={listEndRef} data-testid="thread-scroll-sentinel" />
+      <div ref={listEndRef} data-testid={THREAD_SCROLL_SENTINEL_TESTID} />
     </div>
   )
 })
