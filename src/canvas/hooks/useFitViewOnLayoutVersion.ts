@@ -7,6 +7,51 @@ import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
 import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
+import { getGraphIdentityKey, graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
+
+/** The slice of canvas state the camera's readiness questions are asked of. */
+type CameraReadinessState = Pick<
+  ReturnType<typeof useCanvasStore.getState>,
+  'nodes' | 'layoutVersion' | 'pendingLayout' | 'layoutInProgress'
+>
+
+/**
+ * Is there a RESTORED model on the canvas that the product has never aimed the
+ * camera at? True exactly in the state a page reload lands in.
+ *
+ * Deliberately reuses `graphNeedsInitialLayout` — `useInitialLayoutGuard`'s own
+ * predicate and the estate's authority on "are these positions meaningful" —
+ * rather than minting a second answer to the same question.
+ */
+function isRestoredModelReady(s: CameraReadinessState): boolean {
+  // A layout is about to move every position; fitting now frames a graph that
+  // is already obsolete.
+  if (s.pendingLayout || s.layoutInProgress) return false
+  // `excludeNonModelNodes` is the fit's own target set, so a canvas holding
+  // only the `__ghost-option__` affordance correctly reads as empty.
+  if (excludeNonModelNodes(s.nodes).length === 0) return false
+  // Stacked at the origin means a fresh draft whose layout is already on its
+  // way. The LAYOUT trigger owns that fit; aiming here frames a pile.
+  if (graphNeedsInitialLayout(s.nodes)) return false
+  return true
+}
+
+/**
+ * Has the product a model it may aim the camera at?
+ *
+ * ⚠ THIS REPLACES A `layoutVersion === 0` TEST THAT WAS ANSWERING A DIFFERENT
+ * QUESTION FROM THE ONE ITS CALLER ASKED (CLAUDE.md trap 21). On the reserved-box
+ * trigger, `layoutVersion === 0` was standing in for *"there is nothing to fit"*
+ * — and that proxy is FALSE for a restored graph, which is the whole of UX gate
+ * point 7. On the LAYOUT trigger the same expression means *"this effect run is
+ * the mount, not a layout completion"*, which is correct and is left alone.
+ */
+function cameraHasATarget(s: CameraReadinessState): boolean {
+  // A completed layout stays authoritative: the product laid this graph out, so
+  // it owns the camera for it, whatever the positions now look like.
+  if (s.layoutVersion > 0) return true
+  return isRestoredModelReady(s)
+}
 
 /**
  * Schedule a single RAF-synchronised fitView every time `layoutVersion`
@@ -36,6 +81,13 @@ import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
  * which is the intended asymmetry: the user may choose the overview, the
  * product may not choose it for them. See `utils/zoomLegibility.ts`.
  *
+ * ⭐⭐ THREE TRIGGERS, ONE CONTRACT. The third — THE RESTORE TRIGGER — landed
+ * 20 Aug 2026 (UX gate point 7); see the effect itself for the measurement.
+ * ⚠ This count is a hand-maintained mirror of the effects below (CLAUDE.md
+ * trap 12): it said TWO while a third was being added. Count the effects, not
+ * this sentence. What IS derived is that all three pass the SAME `fitNow`
+ * closure, so the contract cannot fork however many triggers there are.
+ *
  * ⭐ TWO TRIGGERS, ONE CONTRACT (18 Aug 2026,
  * `WORKSPACE-COMPOSITION-DECISION-2026-08-18.md` §5.1). The hook used to fit
  * once per completed layout and never again, so every pixel of canvas won back
@@ -56,6 +108,14 @@ import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
  */
 export function useFitViewOnLayoutVersion(): void {
   const layoutVersion = useCanvasStore((s) => s.layoutVersion)
+  // Restore-trigger inputs. Selected individually and as stable references /
+  // primitives — a selector returning a fresh object here is the React #185
+  // shape `ci:guard:zustand` exists to catch.
+  const restoreNodes = useCanvasStore((s) => s.nodes)
+  const restoreEdges = useCanvasStore((s) => s.edges)
+  const restorePendingLayout = useCanvasStore((s) => s.pendingLayout)
+  const restoreLayoutInProgress = useCanvasStore((s) => s.layoutInProgress)
+  const restoreScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const { fitView, getNodes } = useReactFlow()
   const fitViewRef = useRef(fitView)
   fitViewRef.current = fitView
@@ -93,13 +153,61 @@ export function useFitViewOnLayoutVersion(): void {
     return () => cancelAnimationFrame(raf)
   }, [layoutVersion])
 
-  // Re-fit when the RESERVED BOX changes. Gated on a layout having happened, so
-  // this never fits an empty canvas; the watcher derives the change from
+  // ⭐ TRIGGER 3 — THE RESTORE TRIGGER (UX gate point 7, 20 Aug 2026).
+  //
+  // A restored graph reaches the canvas through `hydrateGraphSlice` /
+  // `loadScenario` with its positions ALREADY REAL, so nothing sets
+  // `pendingLayout`, `applyLayout` never runs, and `layoutVersion` stays 0 for
+  // the whole page session. Before this, that latched off both triggers above
+  // and the camera was never aimed at a reloaded model AT ALL: the graph kept
+  // whatever xyflow's own `fitView` PROP produced at mount, with xyflow's
+  // DEFAULT padding — no header-banner inset, no dock, no sidebar.
+  //
+  // ⚠ STATE THE HARM NARROWLY, because a wider version of this sentence was
+  // written first and was REFUTED (20 Aug 2026). xyflow's prop fit DOES run at
+  // each mount, so arriving at a different window size does give a different
+  // frame — "the restore never re-fits" is FALSE and must not be repeated. What
+  // is true is that the PRODUCT's panel-aware fit never runs, so no arrival on
+  // this path carries the reservations `computeFitPadding` exists to apply.
+  // Measured headed, real Chromium, on the frozen base `2b6ec553`, reloading AT
+  // each size: `behindBanner: ["dec_cdp"]` at 1280x800 — the Decision node under
+  // the floating header at the smallest desktop this product commits to — and
+  // clean at 1440x900 / 1512x982. The fresh path at 1280x800 is clean, which is
+  // the contrast that makes it the restore's defect and not the graph's.
+  //
+  // Fires ONCE PER GRAPH IDENTITY, keyed by `getGraphIdentityKey` (the key
+  // `useInitialLayoutGuard` already uses, and structural rather than
+  // positional, so a user's own pan/drag never re-arms it). A graph that goes
+  // on to be laid out is handled by trigger 1 and returns early here.
+  const aimedIdentityRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (layoutVersion > 0) return
+    const s = useCanvasStore.getState()
+    if (!isRestoredModelReady(s)) return
+    const key = getGraphIdentityKey(s.currentScenarioId, s.nodes, s.edges)
+    if (aimedIdentityRef.current === key) return
+    aimedIdentityRef.current = key
+    const raf = requestAnimationFrame(() => {
+      fitNow.current()
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [
+    layoutVersion,
+    restoreNodes,
+    restoreEdges,
+    restorePendingLayout,
+    restoreLayoutInProgress,
+    restoreScenarioId,
+  ])
+
+  // Re-fit when the RESERVED BOX changes — including a window resize, which is
+  // the half the UX gate measured directly. Gated on the camera having a target
+  // so this never fits an empty canvas; the watcher derives the change from
   // `computeFitPadding` itself rather than from a list of things that move it
   // (see `reservedBoxWatcher.ts`).
   useEffect(() => {
     return watchReservedBox(() => {
-      if (useCanvasStore.getState().layoutVersion === 0) return
+      if (!cameraHasATarget(useCanvasStore.getState())) return
       fitNow.current()
     })
   }, [])

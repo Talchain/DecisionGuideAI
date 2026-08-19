@@ -188,7 +188,38 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     expect(useCanvasStore.getState().layoutVersion).toBeGreaterThan(0)
   })
 
-  it('saved-position scenario → guard, applyLayout, and fitView all stay quiet (acceptance #2)', async () => {
+  /**
+   * ⚠⚠ ACCEPTANCE #2 WAS AMENDED ON 20 Aug 2026, AND THE AMENDMENT IS THE POINT
+   * OF THE TEST — a reviewer should read this before the assertions.
+   *
+   * It used to assert `fitViewSpy` was NOT called here, alongside the layout
+   * assertions, under the single word "quiet". That bundled TWO DIFFERENT
+   * QUESTIONS under one name (CLAUDE.md trap 21):
+   *
+   *   (a) may the product move the NODES of a saved-position graph?  — NO.
+   *   (b) may the product aim the CAMERA at it?                      — YES, and
+   *       it MUST, because nothing else ever will.
+   *
+   * Every clause answering (a) is UNCHANGED and still asserted below: no
+   * `applyLayout`, `layoutVersion` still 0, and the saved x-positions still
+   * exactly 0 and 320. Aiming the camera moves no node — it changes the
+   * viewport only.
+   *
+   * (b) was refuted at the deployed product. A restored graph reaches the
+   * canvas through `hydrateGraphSlice` / `loadScenario`, which correctly never
+   * set `pendingLayout`, so `layoutVersion` stayed 0 and the fit owner's
+   * triggers were latched off for the whole page session. Measured in real
+   * Chromium at `ad79b344` after a reload: the viewport transform was
+   * `matrix(0.666667, 0, 0, 0.666667, 196, 20)` — byte-identical at 1280x800,
+   * 1440x900 and 1512x982 — carrying xyflow's DEFAULT padding rather than
+   * `computeFitPadding`'s, with the Decision node behind the header banner at
+   * all three sizes and the Goal node off-screen at 1280x800.
+   *
+   * So "quiet" now means quiet about the MODEL, not blind about the CAMERA.
+   * See `useFitViewOnLayoutVersion`'s restore trigger and
+   * `useFitViewOnLayoutVersion.restore.spec.tsx`.
+   */
+  it('saved-position scenario → guard and applyLayout stay quiet, and the camera IS aimed (acceptance #2, amended)', async () => {
     const applySpy = mockApplyLayoutWithSpread()
 
     const ids = ['a', 'b', 'c']
@@ -206,14 +237,23 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     renderHook(() => useLayoutLifecycle())
     await flushPipeline()
 
-    expect(applySpy).not.toHaveBeenCalled()
-    expect(fitViewSpy).not.toHaveBeenCalled()
+    // (a) THE MODEL IS UNTOUCHED — every original clause, unchanged.
+    expect(applySpy, 'a saved-position graph must never be re-laid-out').not.toHaveBeenCalled()
     expect(useCanvasStore.getState().pendingLayout).toBe(false)
     expect(useCanvasStore.getState().layoutVersion).toBe(0)
 
     const final = useCanvasStore.getState().nodes
     expect((final[0].position as { x: number }).x).toBe(0)
     expect((final[1].position as { x: number }).x).toBe(320)
+
+    // (b) THE CAMERA IS AIMED — the amended clause, with the same contract the
+    // layout fit uses, so the two triggers cannot drift into two different fits.
+    expect(fitViewSpy, 'the restored model was never framed — the reload defect').toHaveBeenCalledTimes(1)
+    expect(fitViewSpy).toHaveBeenCalledWith({
+      padding: FIT_PADDING,
+      minZoom: LABEL_LEGIBLE_ZOOM,
+      duration: 400,
+    })
   })
 
   it('locked nodes are preserved through the full pipeline (acceptance #3)', async () => {
@@ -274,9 +314,14 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     renderHook(() => useLayoutLifecycle())
     await flushPipeline()
 
-    // A had meaningful positions — nothing fired.
-    expect(applySpy).not.toHaveBeenCalled()
-    expect(fitViewSpy).not.toHaveBeenCalled()
+    // A had meaningful positions — no LAYOUT fired. The camera is aimed at A
+    // once (the restore trigger; see acceptance #2's amendment note), so the
+    // count is captured rather than assumed, and B's fit is asserted as a
+    // DELTA below. That keeps this test's subject — "fires fitView once FOR B"
+    // — bound to B, instead of to a running total any other trigger can move.
+    expect(applySpy, 'A had saved positions — it must not be re-laid-out').not.toHaveBeenCalled()
+    const fitsAfterA = fitViewSpy.mock.calls.length
+    expect(fitsAfterA, 'A was restored and should have been framed exactly once').toBe(1)
 
     // Switch to a stacked scenario B (mimics ScenarioSwitcher click /
     // useScenario.loadScenario → hydrateGraphSlice).
@@ -297,7 +342,9 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     const final = useCanvasStore.getState().nodes
     const xs = final.map((n) => (n.position as { x: number }).x)
     expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(40)
-    expect(fitViewSpy).toHaveBeenCalledTimes(1)
-    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, minZoom: LABEL_LEGIBLE_ZOOM, duration: 400 })
+    // EXACTLY ONE MORE fit, and it is B's: the layout trigger's, after B was
+    // laid out. A delta, not a total — see the note above.
+    expect(fitViewSpy.mock.calls.length - fitsAfterA, 'B was not framed exactly once after its layout').toBe(1)
+    expect(fitViewSpy).toHaveBeenLastCalledWith({ padding: FIT_PADDING, minZoom: LABEL_LEGIBLE_ZOOM, duration: 400 })
   })
 })
