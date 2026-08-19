@@ -24,6 +24,7 @@ import {
   resolveEvidenceGapConfidenceDisplay,
   evidenceGapGenericText,
   evidenceGapSourcePill,
+  isEvidenceGapAddressed,
 } from './utils/evidenceGapConfidenceDisplay'
 import { dedupTriageItems } from './utils/dedupTriageItems'
 import { TriageCard } from '@/components/shared/TriageCard'
@@ -467,7 +468,6 @@ function T1ChecksFooter({
     robustnessVerdict === 'moderate' ||
     robustnessVerdict === 'fragile'
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
-  const evidenceWeak = gaps.some(g => typeof g.confidence === 'number' && g.confidence < 50)
   // ⭐ NO DENIAL WITHOUT AUTHORITY — THE EVIDENCE TWIN (UX gate point 8,
   // 18 Aug 2026). This is the SAME ruling applied 24 lines above to the leader
   // verdict, applied to the check it missed on the same day.
@@ -503,8 +503,30 @@ function T1ChecksFooter({
   // emptiness that two different states produce.
   const evidenceAssessed = data.confidence.evidenceGapsAssessed === true
   const evidenceKnown = gaps.length > 0
-  const addressed = gaps.filter(g => typeof g.confidence === 'number' && g.confidence >= 50).length
+  const addressed = gaps.filter(g => isEvidenceGapAddressed(g.confidence)).length
   const total = gaps.length
+  // ⭐ NO ALL-CLEAR WITHOUT AUTHORITY — THE UNKNOWN-CONFIDENCE FACE OF IT.
+  //
+  // This used to be `!evidenceWeak && evidenceKnown`, with
+  // `evidenceWeak = gaps.some(g => typeof g.confidence === 'number' && g.confidence < 50)`
+  // — a TWO-valued predicate over a THREE-valued input. `useResultsSectionData`
+  // maps a gap with no stated `confidence` to `null` DELIBERATELY, and
+  // `evidenceGapConfidenceDisplay`'s contract is explicit that "Callers must
+  // SUPPRESS the figure and anything derived from it". `evidenceWeak` derived
+  // from it anyway, so "the producer never said" came out as "not weak", which
+  // came out as a green tick and "Evidence covered".
+  //
+  // Concrete input, and it is one payload producing two contradicting
+  // sentences ONE ROW APART:
+  //   `[{ factor_id: 'f1', factor_label: 'Supplier lead time', voi_score: 0.9 }]`
+  // (no `confidence`) rendered ✓ "Evidence covered" while `checks-addressed`
+  // beside it rendered "0 of 1 evidence gaps addressed".
+  //
+  // The tick is now DERIVED FROM THE SAME `addressed` COUNT that span renders,
+  // so the two cannot disagree by construction — a stronger guarantee than two
+  // predicates that merely happen to agree today (CLAUDE.md trap 21: the fix
+  // for two authorities is to make them one, not to align their defaults).
+  const evidenceAllAddressed = evidenceKnown && addressed === total
 
   // §6.2g: the legacy arm ("Winner" / "No winner") is DELETED, not
   // re-anchored. `useV17Copy` already selected the glossary-compliant labels
@@ -565,7 +587,7 @@ function T1ChecksFooter({
           dataTestid="checks-robust"
         />
         <ChecksGlyph
-          ok={!evidenceWeak && evidenceKnown}
+          ok={evidenceAllAddressed}
           // Two states render the muted help glyph rather than the red X, for
           // two different reasons: the producer assessed and found nothing (a
           // real, licensed all-clear) and the producer never assessed (no

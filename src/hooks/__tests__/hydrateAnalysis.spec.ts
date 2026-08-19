@@ -236,7 +236,7 @@ describe('extractM1CoachingFromV2', () => {
     expect(extractM1CoachingFromV2(v2)).toBeNull()
   })
 
-  it('extracts coaching fields with defaults', () => {
+  it('extracts coaching fields with defaults — but MINTS NO EVIDENCE ASSESSMENT', () => {
     const v2 = makeMinimalV2Response({
       m1_coaching: {
         executive_summary: { headline: 'H', body: 'B' },
@@ -246,8 +246,40 @@ describe('extractM1CoachingFromV2', () => {
 
     expect(result).not.toBeNull()
     expect(result!.executive_summary).toEqual({ headline: 'H', body: 'B' })
-    expect(result!.evidence_gaps).toEqual([])
+    // ⭐ This line used to read `.toEqual([])`, and it was pinning the defect.
+    // `useResultsSectionData` derives `evidenceGapsAssessed` from
+    // `Array.isArray(m1Coaching?.evidence_gaps)` precisely so that producer
+    // SILENCE cannot be read as an assessment — and a minted `[]` here defeated
+    // that one hop upstream, putting the all-clear "No evidence gaps flagged"
+    // on screen for a run nobody assessed. The key must be genuinely ABSENT,
+    // not an empty array: `Array.isArray(undefined)` is false, `[]` is true,
+    // and that single boolean is the whole authority.
+    expect(result!.evidence_gaps).toBeUndefined()
+    expect(
+      Object.prototype.hasOwnProperty.call(result!, 'evidence_gaps'),
+      'a present key holding undefined would still be a claim shaped like an answer',
+    ).toBe(false)
     expect(result!.next_actions).toEqual([])
     expect(result!.story_headlines).toEqual({})
+  })
+
+  it('carries a genuinely-sent empty assessment through — absence and emptiness stay distinct', () => {
+    const v2 = makeMinimalV2Response({
+      m1_coaching: { evidence_gaps: [] } as any,
+    })
+    const result = extractM1CoachingFromV2(v2)
+
+    // The producer DID assess and found nothing. That is a real finding and
+    // must survive, or the fix above degenerates into deleting the authority.
+    expect(Array.isArray(result!.evidence_gaps)).toBe(true)
+    expect(result!.evidence_gaps).toEqual([])
+  })
+
+  it('carries real gaps through unchanged', () => {
+    const gap = { factor_id: 'f1', factor_label: 'Supplier lead time', voi_score: 0.9, suggestion: 'Ask procurement.' }
+    const v2 = makeMinimalV2Response({ m1_coaching: { evidence_gaps: [gap] } as any })
+    const result = extractM1CoachingFromV2(v2)
+
+    expect(result!.evidence_gaps).toEqual([gap])
   })
 })

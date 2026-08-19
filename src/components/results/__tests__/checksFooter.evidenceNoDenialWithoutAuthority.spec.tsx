@@ -62,6 +62,7 @@ import { useResultsSectionData } from '../useResultsSectionData'
 import { ResultsBody } from '../ResultsBody'
 import { useCanvasStore } from '../../../canvas/store'
 import { mapV2ResponseToReportV1 } from '../../../adapters/plot/v2/responseMapper'
+import { hydrateAnalysisFromV2Response } from '../../../hooks/hydrateAnalysis'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 
 vi.mock('@xyflow/react', async () => {
@@ -79,7 +80,8 @@ const GAP_FACTOR_LABEL = 'Supplier lead time'
 type EvidenceGapWire = {
   factor_id: string
   factor_label: string
-  confidence: number
+  /** ABSENT when the producer never stated one — the third state. */
+  confidence?: number
   voi_score: number
   suggestion: string
 }
@@ -146,7 +148,13 @@ function setStore(producer: ProducerEvidence): void {
  * object `T1ChecksFooter` receives, so a green result cannot come from a
  * fixture that quietly stopped reproducing the state under test.
  */
-function readEvidenceSurfaces(): { label: string; assessed: boolean | undefined; gapCardPresent: boolean } {
+function readEvidenceSurfaces(): {
+  label: string
+  assessed: boolean | undefined
+  gapCardPresent: boolean
+  /** The sibling `checks-addressed` span, ONE ROW away from the label. */
+  addressedText: string | null
+} {
   const { result } = renderHook(() => useResultsSectionData())
   const assessed = result.current.confidence.evidenceGapsAssessed
   const { container } = render(
@@ -155,10 +163,12 @@ function readEvidenceSurfaces(): { label: string; assessed: boolean | undefined;
   const el = container.querySelector('[data-testid="checks-evidence"]')
   if (!el) throw new Error('checks-evidence did not render — the probe is blind, not the product silent')
   const queue = container.querySelector('[data-testid="unified-triage-queue"]')
+  const addressed = container.querySelector('[data-testid="checks-addressed"]')
   return {
     label: (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
     assessed,
     gapCardPresent: (queue?.textContent ?? '').includes(GAP_FACTOR_LABEL),
+    addressedText: addressed ? (addressed.textContent ?? '').replace(/\s+/g, ' ').trim() : null,
   }
 }
 
@@ -220,6 +230,125 @@ describe('checks-evidence: no all-clear without authority', () => {
   })
 
   /**
+   * ⭐ THE SAME RULING, ONE HOP UPSTREAM — THE ONLY LIVE WRITER OF THE STORE.
+   *
+   * Every case above authors `runMeta.m1Coaching` as an object literal, which
+   * is exactly why this hole was invisible to the corpus (CLAUDE.md trap 22: a
+   * corpus drawn from the author's head cannot see the class the author did
+   * not imagine). The store field is not written by hand in the product. Its
+   * SOLE live writer is `extractM1CoachingFromV2` inside
+   * `hydrateAnalysisFromV2Response` (`src/hooks/hydrateAnalysis.ts`), called
+   * only from `useScenario.ts` when a persisted scenario is restored
+   * (`row.analysis_status === 'ready'`).
+   *
+   * That writer used to map `evidence_gaps: coaching.evidence_gaps ?? []` — so
+   * a persisted response with `m1_coaching` PRESENT and no `evidence_gaps` key
+   * had an array MINTED for it, `Array.isArray` read true, and the footer
+   * rendered "No evidence gaps flagged" again. The same collapse the fix above
+   * withdraws, restored one hop upstream by the same idiom, on the one path
+   * that actually writes the field.
+   *
+   * These cases seed the store THROUGH that writer — the producer's own bytes,
+   * not the author's model of them (trap 16: a fixture you wrote yourself is
+   * not evidence about the wire).
+   */
+  describe('through the SOLE live writer (hydrateAnalysisFromV2Response)', () => {
+    /**
+     * Seeds the store the way the product does on a persisted-scenario load:
+     * the persisted V2 payload → `hydrateAnalysisFromV2Response` →
+     * `resultsHydrateFromSupabase`. Nothing about `m1Coaching` is authored here.
+     */
+    function setStoreViaHydration(m1Coaching: Record<string, unknown> | undefined): void {
+      const persisted = { ...makeV2Response(), ...(m1Coaching !== undefined ? { m1_coaching: m1Coaching } : {}) }
+      const hydrated = hydrateAnalysisFromV2Response(persisted, null)
+      if (!hydrated) {
+        throw new Error(
+          'hydrateAnalysisFromV2Response returned null — the fixture no longer validates, so this probe is blind, not the product silent',
+        )
+      }
+      useCanvasStore.setState({
+        nodes: OPTION_NODES,
+        edges: [],
+        goalThreshold: null,
+        viewMode: 'expert',
+      } as never)
+      useCanvasStore.getState().resultsHydrateFromSupabase(hydrated as never)
+      // PRECONDITION PIN (trap 13b): the real store action really did install a
+      // report, so a later label reading is about a mounted result and not
+      // about an empty panel.
+      if (useCanvasStore.getState().results?.report == null) {
+        throw new Error('resultsHydrateFromSupabase installed no report — the probe is blind')
+      }
+    }
+
+    it('persisted m1_coaching PRESENT with NO evidence_gaps key → no all-clear is minted', () => {
+      // The producer spoke about coaching and said NOTHING about evidence.
+      setStoreViaHydration({ executive_summary: 'Wholesale leads on the numbers we have.' })
+      const { label, assessed } = readEvidenceSurfaces()
+      // Precondition: this is the no-authority state. At pristine this reads
+      // `true`, because the writer minted the array.
+      expect(
+        assessed,
+        'the writer must not mint an assessment the persisted payload never carried',
+      ).toBe(false)
+      expect(
+        label,
+        `"No evidence gaps flagged" is an all-clear. The persisted response carried no evidence assessment, so there is nothing to clear. Read: ${label}`,
+      ).not.toMatch(/No evidence gaps flagged/i)
+      expect(label).not.toMatch(/Evidence covered/i)
+      expect(label).toBe('Evidence not assessed')
+    })
+
+    it('persisted m1_coaching ABSENT entirely → no all-clear either', () => {
+      setStoreViaHydration(undefined)
+      const { label, assessed } = readEvidenceSurfaces()
+      expect(assessed).toBe(false)
+      expect(label).toBe('Evidence not assessed')
+    })
+
+    /**
+     * CONTROL — the fix is "stop fabricating", NOT "delete the authority".
+     * A persisted response that really did assess and find nothing keeps its
+     * licensed all-clear through the same writer.
+     */
+    it('persisted evidence_gaps: [] → the all-clear survives the writer, because it was really sent', () => {
+      setStoreViaHydration({ evidence_gaps: [] })
+      const { label, assessed } = readEvidenceSurfaces()
+      expect(assessed).toBe(true)
+      expect(label).toBe('No evidence gaps flagged')
+    })
+
+    /** CONTRAST CONTROL — the writer still carries real gaps through. */
+    it('persisted evidence_gaps with a gap → the check reports gaps', () => {
+      setStoreViaHydration({ evidence_gaps: [WEAK_GAP] })
+      const { label, assessed, gapCardPresent } = readEvidenceSurfaces()
+      expect(assessed).toBe(true)
+      expect(label).toBe('Evidence gaps')
+      expect(gapCardPresent, `the gap card for "${GAP_FACTOR_LABEL}" must survive hydration`).toBe(true)
+    })
+
+    /**
+     * The discriminating triple again, but every state arriving through the
+     * live writer. A blanket change in either direction REDs here.
+     */
+    it('the three persisted states produce three DIFFERENT labels through the writer', () => {
+      setStoreViaHydration({ evidence_gaps: [WEAK_GAP] })
+      const withGaps = readEvidenceSurfaces().label
+      document.body.innerHTML = ''
+      setStoreViaHydration({ evidence_gaps: [] })
+      const assessedEmpty = readEvidenceSurfaces().label
+      document.body.innerHTML = ''
+      setStoreViaHydration({ executive_summary: 'no evidence key here' })
+      const silent = readEvidenceSurfaces().label
+
+      expect(
+        new Set([withGaps, assessedEmpty, silent]).size,
+        `withGaps="${withGaps}" assessedEmpty="${assessedEmpty}" silent="${silent}"`,
+      ).toBe(3)
+    })
+  })
+
+  /**
    * THE MOUNTED ACCEPTANCE, in test form: the summary line and the gap cards
    * are ONE READER. Mutating the single source must move BOTH.
    *
@@ -247,4 +376,102 @@ describe('checks-evidence: no all-clear without authority', () => {
     expect(back.gapCardPresent).toBe(false)
     expect(back.label).toBe('Evidence not assessed')
   })
+
+  /**
+   * ⭐ THE UNKNOWN-CONFIDENCE FACE OF THE SAME RULING (correction 2).
+   *
+   * The cases above vary whether the producer SPOKE. These vary whether the
+   * producer stated a CONFIDENCE for a gap it did flag — a third value the
+   * summary row used to be blind to.
+   *
+   * `useResultsSectionData` maps a gap with no stated confidence to `null`
+   * DELIBERATELY, and `evidenceGapConfidenceDisplay` states the contract:
+   * "Callers must SUPPRESS the figure and anything derived from it". The tick
+   * derived from it via `evidenceWeak = ...confidence < 50`, so unstated read
+   * as "not weak" ⇒ green ✓ "Evidence covered" — beside a sibling span, ONE
+   * ROW away, reading "0 of 1 evidence gaps addressed". One payload, two
+   * contradicting sentences.
+   */
+  describe('a gap whose confidence the producer never stated', () => {
+    /** The reviewer's concrete failing input, verbatim in shape. */
+    const UNSTATED_GAP: EvidenceGapWire = {
+      factor_id: 'f1',
+      factor_label: GAP_FACTOR_LABEL,
+      voi_score: 0.9,
+      suggestion: 'Ask procurement for the last six months of lead times.',
+    }
+
+    it('does NOT license the all-clear, and agrees with the counter beside it', () => {
+      setStore({ gaps: [UNSTATED_GAP] })
+      const { label, assessed, addressedText } = readEvidenceSurfaces()
+      // Preconditions: the producer really did flag a gap, and really did not
+      // state its confidence — so this is the third state and not an assessed
+      // zero (which would be a stated measurement).
+      expect(assessed).toBe(true)
+      expect(
+        addressedText,
+        'precondition: the sibling counter must be rendering the unaddressed state',
+      ).toBe('0 of 1 evidence gaps addressed')
+      expect(
+        label,
+        `"Evidence covered" is an all-clear about a gap whose strength the producer never stated. Read: ${label} — beside "${addressedText}"`,
+      ).not.toMatch(/Evidence covered/i)
+      expect(label).toBe('Evidence gaps')
+    })
+
+    /**
+     * CONTROL — the fix must not swallow the licensed all-clear. A gap the
+     * producer DID state at or above the threshold still earns the tick.
+     */
+    it('a STATED strong confidence still earns "Evidence covered"', () => {
+      setStore({ gaps: [{ ...UNSTATED_GAP, confidence: 80 }] })
+      const { label, addressedText } = readEvidenceSurfaces()
+      expect(addressedText).toBe('1 of 1 evidence gaps addressed')
+      expect(label).toBe('Evidence covered')
+    })
+
+    /** CONTROL — a stated weak confidence keeps reading as gaps. */
+    it('a STATED weak confidence still reads "Evidence gaps"', () => {
+      setStore({ gaps: [{ ...UNSTATED_GAP, confidence: 20 }] })
+      const { label, addressedText } = readEvidenceSurfaces()
+      expect(addressedText).toBe('0 of 1 evidence gaps addressed')
+      expect(label).toBe('Evidence gaps')
+    })
+
+    /**
+     * THE SUMMARY ROW AND ITS COUNTER ARE ONE READER — asserted as an
+     * INVARIANT over all three confidence states rather than as three
+     * independent facts, so a future change cannot re-open the contradiction
+     * in one row only.
+     */
+    it('INVARIANT: the tick appears iff every flagged gap is counted as addressed', () => {
+      for (const confidence of [undefined, 20, 49, 50, 80]) {
+        document.body.innerHTML = ''
+        setStore({ gaps: [{ ...UNSTATED_GAP, ...(confidence === undefined ? {} : { confidence }) }] })
+        const { label, addressedText } = readEvidenceSurfaces()
+        const counterSaysAllAddressed = addressedText === '1 of 1 evidence gaps addressed'
+        expect(
+          label === 'Evidence covered',
+          `confidence=${String(confidence)} → label="${label}" counter="${addressedText}" — the two rows disagree`,
+        ).toBe(counterSaysAllAddressed)
+      }
+    })
+
+    /**
+     * A MIXED list: one addressed, one never stated. The tick must not appear
+     * on the strength of the one that was stated.
+     */
+    it('a mixed list does not average away the unstated one', () => {
+      setStore({
+        gaps: [
+          { ...UNSTATED_GAP, factor_id: 'f_strong', factor_label: 'Warehouse capacity', confidence: 90 },
+          UNSTATED_GAP,
+        ],
+      })
+      const { label, addressedText } = readEvidenceSurfaces()
+      expect(addressedText).toBe('1 of 2 evidence gaps addressed')
+      expect(label).toBe('Evidence gaps')
+    })
+  })
 })
+

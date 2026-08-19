@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
+import { everyEvidenceGapAddressed } from '@/components/results/utils/evidenceGapConfidenceDisplay'
 import { derivePostFooterStatus, derivePostFooterMeta } from '../postAnalysisFooter'
 import type { PostFooterMetaInput } from '../postAnalysisFooter'
 import type { RobustnessDisplayVerdict } from '@/components/results/types'
@@ -180,14 +181,93 @@ describe('derivePostFooterMeta — F7: the "{N}% stability" numeric segment is r
     ).toBeNull()
   })
 
-  it('treats non-numeric review-card confidence as ok (no false "Evidence gaps remain", no stability)', () => {
+  /**
+   * ⭐ CORRECTED — this test used to assert 'Evidence strong' for exactly this
+   * input, and it was pinning the defect rather than a behaviour.
+   *
+   * `useResultsSectionData` maps a gap with no stated `confidence` to `null`
+   * DELIBERATELY, and `evidenceGapConfidenceDisplay`'s contract is that
+   * "Callers must SUPPRESS the figure and anything derived from it". The old
+   * predicate (`some(g => typeof g.confidence === 'number' && g.confidence < 50)`)
+   * derived from it anyway: unstated was "not weak", so the footer printed an
+   * all-clear — "Evidence strong" — about gaps whose strength the producer had
+   * never stated. "No false 'Evidence gaps remain'" was the wrong thing to
+   * protect; the false claim was in the other direction.
+   *
+   * The gaps are real producer findings and none of them is known to be
+   * addressed, so "Evidence gaps remain" is the licensed reading.
+   */
+  it('never says "Evidence strong" about gaps whose confidence the producer never stated', () => {
     expect(
       derivePostFooterMetaWithForcedStability({
         stability: 0.95,
         robustnessVerdict: 'robust',
         reviewCards: [{ confidence: undefined }, { confidence: null }],
       }),
+    ).toBe('Evidence gaps remain')
+  })
+
+  /**
+   * CONTROL — the fix is "stop minting an all-clear", NOT "delete the
+   * all-clear". Every gap stated at or above the threshold still earns it.
+   */
+  it('still says "Evidence strong" when EVERY gap carries a stated confidence >= 50', () => {
+    expect(
+      derivePostFooterMetaWithForcedStability({
+        stability: 0.95,
+        robustnessVerdict: 'robust',
+        reviewCards: [{ confidence: 50 }, { confidence: 90 }],
+      }),
     ).toBe('Evidence strong')
+  })
+
+  /** A single unstated gap in an otherwise strong list is enough to withdraw it. */
+  it('one unstated confidence in a strong list withdraws the all-clear', () => {
+    expect(
+      derivePostFooterMetaWithForcedStability({
+        stability: 0.95,
+        robustnessVerdict: 'robust',
+        reviewCards: [{ confidence: 90 }, { confidence: null }],
+      }),
+    ).toBe('Evidence gaps remain')
+  })
+
+  /**
+   * A non-finite number is not a stated figure either — `NaN`/`Infinity` are
+   * the shapes a `?? 0`-style fabrication leaves behind, and
+   * `resolveEvidenceGapConfidenceDisplay` already refuses them.
+   */
+  it('a non-finite confidence is not a stated figure', () => {
+    expect(
+      derivePostFooterMetaWithForcedStability({
+        stability: 0.95,
+        robustnessVerdict: 'robust',
+        reviewCards: [{ confidence: Number.NaN }],
+      }),
+    ).toBe('Evidence gaps remain')
+  })
+
+  /**
+   * ⭐ CROSS-SURFACE SINGLE PREDICATE (correction 3). This footer and the
+   * results panel's "What we checked" tick are fed the SAME list by
+   * `OutputsDock`, and they used to carry byte-identical copies of the same
+   * defective predicate. They now share ONE, so a change to it cannot fix one
+   * surface and leave the other lying.
+   */
+  it('agrees with the results-panel predicate on every confidence state', () => {
+    const cases: Array<{ confidence: number | null | undefined }> = [
+      { confidence: undefined }, { confidence: null }, { confidence: Number.NaN },
+      { confidence: 0 }, { confidence: 49 }, { confidence: 50 }, { confidence: 90 },
+    ]
+    for (const c of cases) {
+      const meta = derivePostFooterMetaWithForcedStability({
+        stability: 0.95, robustnessVerdict: 'robust', reviewCards: [c],
+      })
+      expect(
+        meta === 'Evidence strong',
+        `confidence=${String(c.confidence)} → footer said "${meta}"`,
+      ).toBe(everyEvidenceGapAddressed([c]))
+    }
   })
 
   it('no determinate verdict + any stability + no cards → null (stability alone can never render)', () => {

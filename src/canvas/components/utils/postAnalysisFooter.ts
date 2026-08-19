@@ -48,8 +48,9 @@
  *   - the producer's `robustnessVerdictReason` — leading segment, VERBATIM
  *     (producer-owned display phrase; never authored in the UI, never shown
  *     without its verdict)
- *   - "Evidence gaps remain" — appended when any review-card confidence < 50%
- *   - "Evidence strong"      — appended when there are gaps AND none weak
+ *   - "Evidence strong"      — appended ONLY when there are gaps AND every one
+ *     of them carries a STATED confidence at or above the addressed threshold
+ *   - "Evidence gaps remain" — appended otherwise, when there are gaps
  *   - omitted entirely when there are no review cards at all
  *
  * The Lucide icon is supplied by name (`'check' | 'warning' | 'unknown'`)
@@ -58,6 +59,7 @@
  */
 
 import type { RobustnessDisplayVerdict } from '@/components/results/types'
+import { everyEvidenceGapAddressed } from '@/components/results/utils/evidenceGapConfidenceDisplay'
 
 export type PostFooterIcon = 'check' | 'warning' | 'unknown'
 
@@ -171,10 +173,27 @@ export function derivePostFooterMeta({
     robustnessVerdict === 'moderate' ||
     robustnessVerdict === 'fragile' ||
     robustnessVerdict === 'not_assessed'
-  const evidenceWeak = reviewCards.some(g => typeof g.confidence === 'number' && g.confidence < 50)
+  // ⭐ NO ALL-CLEAR WITHOUT AUTHORITY — THE CROSS-SURFACE TWIN.
+  //
+  // This used to read
+  //   `reviewCards.some(g => typeof g.confidence === 'number' && g.confidence < 50)`
+  // — byte-for-byte the predicate `TriageActionCardsBody` used for its
+  // "Evidence covered" tick, on a DIFFERENT surface (`results-analysis-footer`)
+  // fed from the SAME list (`OutputsDock` passes
+  // `confidence.topEvidenceGaps ?? confidence.evidenceGaps ?? []` to both).
+  //
+  // Two-valued over a three-valued input: a gap whose confidence the producer
+  // NEVER STATED is `null` by design, so it was not "weak", so it was
+  // "Evidence strong" — an all-clear minted from a silence. A defect fixed on
+  // one surface and left on its twin is the same defect, and this estate's
+  // chronic failure is precisely the same predicate living under two names.
+  //
+  // So there is now ONE predicate, imported, not a second copy that happens to
+  // agree today: `everyEvidenceGapAddressed` — which is also what the results
+  // panel's tick and its "N of M addressed" counter are derived from.
   const evidenceText = reviewCards.length === 0
     ? null
-    : (evidenceWeak ? 'Evidence gaps remain' : 'Evidence strong')
+    : (everyEvidenceGapAddressed(reviewCards) ? 'Evidence strong' : 'Evidence gaps remain')
   const parts: string[] = []
   // The blocked reason leads: it is the only part the user can act on, and a
   // disabled control whose reason is hover-only is a control with no reason.

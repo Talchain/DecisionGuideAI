@@ -17,20 +17,40 @@
  * path) + a REAL captured CEE analysis turn replayed through `applyV5State`,
  * the same entry point `useConversation` uses. No hand-written report.
  *
- * ⚠ AND WHAT THIS IS NOT. The deployed defect was measured with a THIN BRIEF
- * (the user's typed brief had no success measure), which force-expanded the
- * overview card to its full body — that is how the verdict reached 573px in a
- * 515px region. The five committed starters all carry a success measure, so
- * they render the card's `ready` state and this harness CANNOT reproduce the
- * thin-brief geometry (`e2e/visual/states.visual.spec.ts` records the same
- * class of gap for completed analysis generally). The captured turns whose
- * state DOES read thin carry option ids that match no starter graph, so the
- * hero does not mount for them — measured, both ways.
+ * ── ⚠ WHY THE REPLAY IS TRIMMED, AND WHY THE FIRST VERSION MEASURED NOTHING ─
+ * The deployed defect was measured with a THIN BRIEF (the user's typed brief
+ * had no success measure), which force-expanded the overview card to its full
+ * body — that is how the verdict reached 573px in a 515px region.
  *
- * So this file measures the OFFSET the collapse removes and the resulting hero
- * position in the state it CAN reach truthfully. The thin-brief above-the-fold
- * claim is settled on the deployed build, not here, and is reported as such
- * rather than being manufactured from a fixture written to produce it.
+ * The first version of this file replayed the capture UNTRIMMED and was a
+ * NON-DISCRIMINATING CONTROL with respect to the change it was written for.
+ * Derived, not guessed: the capture's `analysis_ready.status` is `'ready'` and
+ * it carries `goal_threshold_raw: 1000000`, so `computeSuccessState` branch 2
+ * fires, `successIsSet` is true and `liveState` is `'ready'`. At PRISTINE
+ * (`autoExpand = state !== 'ready' && state !== 'unassessed'`) that is already
+ * `false`, and after the fix it is `false` too — so all three assertions below
+ * passed at pristine and the measured furniture offset was not attributable to
+ * the diff.
+ *
+ * (The header used to explain the same shortfall by saying the five committed
+ * starters "all carry a success measure". That is not what happens here:
+ * `build-vs-buy`'s goal node carries NO threshold and its own `analysis_ready`
+ * carries none either — the measure arrives ONLY from the replayed capture. The
+ * reason mattered, because it is what makes the trim below possible.)
+ *
+ * So the replay now DROPS `goal_threshold_raw` and `goal_threshold_unit` from
+ * `analysis_ready`, and nothing else. `status` stays `'ready'` (so the state is
+ * not `needs_input`) and the normalised `goal_threshold: 0.8` stays, so this is
+ * the product's own real value-scale degradation case: a threshold present on
+ * the wire but not displayable ⇒ `displayText: null` ⇒ `liveState: 'thin'`.
+ * That is a state pristine WOULD auto-expand and the fix collapses, so the
+ * numbers below now measure the change. The precondition is PINNED on screen
+ * (the thin copy) rather than assumed — a run that silently landed back in
+ * `ready` would otherwise report a comfortable number about nothing.
+ *
+ * It remains a REPLAY, not the deployed thin-brief journey: the brief text is
+ * the starter's, and the above-the-fold claim for a genuinely typed thin brief
+ * is settled on the deployed build, not here.
  *
  * ── PRECONDITIONS ARE PINNED, NOT HOPED FOR (trap 13b) ─────────────────────
  * A run in which the hero never mounted would otherwise report a comfortable
@@ -85,7 +105,20 @@ for (const vp of VPS) {
     await clearNotifications(page)
     await minimiseFloatingOlumiPanel(page).catch(() => {})
 
-    const envelope = JSON.parse(readFileSync(CAPTURE, 'utf8'))
+    const raw = JSON.parse(readFileSync(CAPTURE, 'utf8'))
+    // ⚠ The ONLY modification to the captured turn, and it is a DELETION of two
+    // keys — never a substitution. See the header: with them present the state
+    // is `ready`, which pristine already collapses, and this file measures a
+    // difference the change did not make.
+    const { goal_threshold_raw: _raw, goal_threshold_unit: _unit, ...analysisReadyThin } = raw.analysis_ready
+    const envelope = { ...raw, analysis_ready: analysisReadyThin }
+    // Assert the trim landed on the object we think it did — a rename upstream
+    // would otherwise leave this file silently replaying the untrimmed capture.
+    expect(
+      'goal_threshold_raw' in raw.analysis_ready && !('goal_threshold_raw' in envelope.analysis_ready),
+      'the capture must carry goal_threshold_raw and the replay must not',
+    ).toBe(true)
+    expect(envelope.analysis_ready.status, 'status must stay ready — this is a thin measure, not a blocked run').toBe('ready')
     const applied = await page.evaluate(async (env) => {
       // Resolved by the BROWSER against Vite's dev module graph — the same
       // applicator `useConversation` calls on a real turn.
@@ -114,6 +147,14 @@ for (const vp of VPS) {
     // PRECONDITION: the verdict is actually on screen. Without this the
     // measurement below is a comfortable number about an absent component.
     await expect(page.getByTestId('hero-headline')).toBeVisible({ timeout: 20_000 })
+    // PRECONDITION: the card is in the `thin` state — the state pristine
+    // auto-expands. Without this pin a run that landed back in `ready` would
+    // report the same comfortable numbers while measuring nothing, which is
+    // exactly what the untrimmed version of this file did.
+    await expect(
+      page.getByText('Framing needs one clarification'),
+      'the replay must reach the thin state, or this file is measuring a state pristine already collapsed',
+    ).toBeVisible({ timeout: 20_000 })
 
     const m = await page.evaluate(() => {
       const dock = document.querySelector('[data-testid="outputs-dock"]') as HTMLElement
@@ -136,6 +177,10 @@ for (const vp of VPS) {
         // Identity of the collapsed state + proof the content is still offered.
         subCardsExpanded: document.querySelector('[data-testid="brief-dim-goal"]') !== null,
         disclosure: toggle?.getAttribute('aria-expanded') ?? null,
+        // Recorded in the output line so the state class is in the artefact,
+        // not only in an assertion that has already passed.
+        briefState: (document.querySelector('[data-testid="decision-overview"]')?.textContent ?? '')
+          .includes('Framing needs one clarification') ? 'thin' : 'other',
         evidenceCheck: (document.querySelector('[data-testid="checks-evidence"]')?.textContent ?? '').trim(),
       }
     })
