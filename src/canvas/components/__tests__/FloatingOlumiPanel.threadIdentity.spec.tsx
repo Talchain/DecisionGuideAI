@@ -111,11 +111,20 @@ describe('FloatingOlumiPanel — the identity it gives its thread', () => {
    * easiest of all to lose silently.
    */
   it('COLLECTION GUARD — both cases in this file were collected, by name', (ctx) => {
-    const names = (ctx.task.suite?.tasks ?? []).map((t) => t.name)
+    const siblings = ctx.task.suite?.tasks ?? []
+    const names = siblings.map((t) => t.name)
     expect(names).toEqual([
       'COLLECTION GUARD — both cases in this file were collected, by name',
       'LINK 3 — hands its ConversationPanel the FLOATING identity, never the canonical one',
     ])
+    // A skipped case is still COLLECTED, so the name list alone cannot see
+    // one being quietly parked — measured: `it.skip` left the list identical
+    // and the guard green. Assert the mode too, or the guard is narrower than
+    // its own name (CLAUDE.md trap 13b — a guard agreeing with itself).
+    expect(
+      siblings.filter((t) => t.mode !== 'run').map((t) => t.name),
+      'a case in this file is skipped/todo — it is collected but it is not evidence',
+    ).toEqual([])
   })
 
   it('LINK 3 — hands its ConversationPanel the FLOATING identity, never the canonical one', () => {

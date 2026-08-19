@@ -155,13 +155,22 @@ describe('ChatThread — content growing on an existing message is scrolled to',
    * sanctioned form of a mirror (trap 12).
    */
   it('COLLECTION GUARD — all four cases in this file were collected, by name', (ctx) => {
-    const names = (ctx.task.suite?.tasks ?? []).map((t) => t.name)
+    const siblings = ctx.task.suite?.tasks ?? []
+    const names = siblings.map((t) => t.name)
     expect(names).toEqual([
       'COLLECTION GUARD — all four cases in this file were collected, by name',
       'scrolls when the reply BODY grows on the same message id — messages.length identical',
       'scrolls when the CHIPS arrive on an already-rendered reply — the affordance the user needs',
       'does NOT scroll when the user has deliberately scrolled up — it raises the pill instead',
     ])
+    // A skipped case is still COLLECTED, so the name list alone cannot see
+    // one being quietly parked — measured: `it.skip` left the list identical
+    // and the guard green. Assert the mode too, or the guard is narrower than
+    // its own name (CLAUDE.md trap 13b — a guard agreeing with itself).
+    expect(
+      siblings.filter((t) => t.mode !== 'run').map((t) => t.name),
+      'a case in this file is skipped/todo — it is collected but it is not evidence',
+    ).toEqual([])
   })
 
   it('scrolls when the reply BODY grows on the same message id — messages.length identical', async () => {

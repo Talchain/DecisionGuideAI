@@ -108,7 +108,8 @@ describe('the two conversation hosts do not share one data-testid', () => {
    * loud if the set grows OR shrinks (CLAUDE.md trap 12's sanctioned form).
    */
   it('COLLECTION GUARD — all five cases in this file were collected, by name', (ctx) => {
-    const names = (ctx.task.suite?.tasks ?? []).map((t) => t.name)
+    const siblings = ctx.task.suite?.tasks ?? []
+    const names = siblings.map((t) => t.name)
     expect(names).toEqual([
       'COLLECTION GUARD — all five cases in this file were collected, by name',
       'the two identities are DIFFERENT strings — the whole point, asserted before anything relies on it',
@@ -116,6 +117,14 @@ describe('the two conversation hosts do not share one data-testid', () => {
       'LINK 2 — ConversationPanel forwards the identity through to its thread',
       'LINK 2b — and defaults to the canonical identity when no surface is named',
     ])
+    // A skipped case is still COLLECTED, so the name list alone cannot see
+    // one being quietly parked — measured: `it.skip` left the list identical
+    // and the guard green. Assert the mode too, or the guard is narrower than
+    // its own name (CLAUDE.md trap 13b — a guard agreeing with itself).
+    expect(
+      siblings.filter((t) => t.mode !== 'run').map((t) => t.name),
+      'a case in this file is skipped/todo — it is collected but it is not evidence',
+    ).toEqual([])
   })
 
   it('the two identities are DIFFERENT strings — the whole point, asserted before anything relies on it', () => {
