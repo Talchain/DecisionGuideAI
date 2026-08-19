@@ -431,7 +431,10 @@ export function useGraphEditEvents(
 // exactly ONE production caller — `useGraphEditEvents` above — and that hook's
 // only host is `DraftChat`, which `ReactFlowGraph.tsx:2484` mounts ONLY when
 // `aiPanelV2` is OFF. The flag is ON in every deployed context
-// (`netlify.toml:57` `"true"`). So for every real user, the model can be
+// (`flags.ts:358` `defaultValue: true`; `netlify.toml:57` `"true"` proves
+// STAGING only — it is under `[context.staging.environment]`, and production
+// inherits from `[build.environment]` alone, so the DEFAULT is what carries
+// this). So for every real user, the model can be
 // restructured underneath coaching that was minted against the PREVIOUS model,
 // and that coaching stands until the next assistant turn replaces the whole
 // list. Advice about a model the user has since changed is not merely stale —

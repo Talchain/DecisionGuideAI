@@ -7,7 +7,10 @@
  * caller — `useGraphEditEvents.ts:293` — and that hook's only host is
  * `DraftChat`, which `ReactFlowGraph.tsx:2484` mounts ONLY when `aiPanelV2` is
  * OFF (`{!isAiPanelV2Enabled() && <DraftChat />}`). The flag is `"true"` at
- * `netlify.toml:57`, i.e. ON for every deployed user. So the mechanism that
+ * `flags.ts:358` (`defaultValue: true`), i.e. ON for every fresh user.
+ * ⚠ `netlify.toml:57` is NOT sufficient evidence for that: it sits under
+ * `[context.staging.environment]` and so proves STAGING only. The default is
+ * what carries the conclusion. So the mechanism that
  * drops coaching when the user changes their model never ran for anybody: the
  * guidance strip, the on-canvas node coaching markers and every inspector
  * coaching section could go on describing a model that no longer exists.
@@ -411,6 +414,40 @@ describe('N-23 §2 — the fix is mounted on the deployed surface, and carries n
       expect(re.test(emitter), `emitter lost its "${name}" guard`).toBe(true)
       expect(re.test(invalidation), `invalidation lost its "${name}" guard`).toBe(true)
     }
+  })
+
+  it('POSTURE ENUMERATION: exactly one clearing authority, except OFF x OFF', () => {
+    // Enumerated rather than argued, and the fourth cell is the one worth
+    // knowing. aiPanelV2 x orchestratorV2:
+    //   ON  x ON   → GuidanceInvalidationHost only   (DraftChat unmounted)      = 1
+    //   ON  x OFF  → GuidanceInvalidationHost only   (this hook is NOT gated on
+    //                the transport flag, deliberately)                          = 1
+    //   OFF x ON   → useGraphEditEvents in DraftChat only                       = 1
+    //   OFF x OFF  → ZERO. DraftChat mounts, but the emitter early-returns on
+    //                `isOrchestratorV2Enabled()`, and the new host is not
+    //                mounted because `MaybeConversationProvider` only renders it
+    //                under aiPanelV2. ⚠ THE DEFECT STAYS DARK IN THAT CELL.
+    //                Not reachable in any deployed posture (both flags default
+    //                true), so it is recorded rather than fixed — fixing it would
+    //                mean mounting the host outside the aiPanelV2 branch, which
+    //                changes what runs on the flag-OFF path.
+    // The two structural facts that cell depends on are asserted here so the
+    // enumeration cannot silently go stale.
+    const source = stripComments(read(CANVAS_ROOT))
+    expect(source, 'DraftChat is mounted only when aiPanelV2 is OFF').toContain(
+      '{!isAiPanelV2Enabled() && <DraftChat />}',
+    )
+    const emitterBody = stripComments(
+      functionBody(read(EMITTER_FILE), 'export function useGraphEditEvents'),
+    )
+    expect(emitterBody, 'the emitter is gated on the transport flag').toContain(
+      'if (!isOrchestratorV2Enabled()) return',
+    )
+    // …and the new hook is NOT, which is what makes ON x OFF a covered cell.
+    const invalidationBody = stripComments(
+      functionBody(read(EMITTER_FILE), 'export function useGuidanceInvalidationOnEdit'),
+    )
+    expect(invalidationBody).not.toContain('isOrchestratorV2Enabled')
   })
 
   it('the emitter keeps its single DraftChat host — this lane did not re-host it', () => {

@@ -5,8 +5,13 @@
  * THE WHOLE SUITE STAYED GREEN. `clearGuidanceItems()` had exactly ONE
  * production caller — `useGraphEditEvents.ts:293` — and that hook's only host is
  * `DraftChat`, which `ReactFlowGraph.tsx:2484` mounts ONLY when `aiPanelV2` is
- * OFF. The flag is ON in every deployed context (`netlify.toml:57` `"true"`), so
- * a user could restructure their model while coaching minted against the
+ * OFF. The flag is ON for every fresh user by `flags.ts:358` `defaultValue: true` — and it is the DEFAULT, not the
+ * staging entry, that carries this claim. `netlify.toml:57` sits under
+ * `[context.staging.environment]`, which applies ONLY to staging builds
+ * (production inherits from `[build.environment]` alone), so citing it proves
+ * STAGING and not "every deployed context" — an overclaim this comment made
+ * until review caught it.
+ * So a user could restructure their model while coaching minted against the
  * PREVIOUS model stayed on screen — the guidance strip, the on-canvas node
  * coaching markers and every inspector coaching section — until the next
  * assistant turn happened to replace the whole list.

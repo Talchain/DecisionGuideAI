@@ -719,7 +719,9 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
         // A caller count derived from a symbol grep counts mentions, not calls.)
         //
         // Deliberately NOT "fixed" here: on a local model edit
-        // `useGraphEditEvents` already fires `clearGuidanceItems()`, which drops
+        // `useGraphEditEvents` (flag-OFF) and `useGuidanceInvalidationOnEdit`
+        // via `GuidanceInvalidationHost` (flag-ON) already fire
+        // `clearGuidanceItems()`, which drops
         // everything, so the limb is redundant rather than load-bearing, and
         // changing eviction breadth reaches every guidance surface. Recorded so
         // the next reader inherits the measurement instead of the claim.
