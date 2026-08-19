@@ -79,6 +79,60 @@ function computeEvidenceCoverage(nodes: Node[]): string {
 // Factor sensitivity summary (top 5)
 // ---------------------------------------------------------------------------
 
+/**
+ * The producer's stated elasticity for one wire factor, sign preserved — or
+ * `null` where the producer stated none.
+ *
+ * ⚠ THIS IS THE ONLY PLACE IN THIS FILE THAT READS THE RAW `elasticity` FIELD,
+ * and that is the point of it. Four sites here each answered "did the producer
+ * score this factor?" for themselves, in four different spellings — `?? 0` in
+ * the sort, `typeof` + `Number.isFinite` in the summary map, a `filter` with a
+ * third spelling in the concentration denominator, and a bare `!== null` at the
+ * hero's percentage. Four spellings of one question are four chances to answer
+ * it differently, and `?? 0` was already answering it wrongly: it filed "not
+ * measured" under "measured as exactly zero", which is the strongest claim the
+ * field can make.
+ *
+ * The `elasticity` claim family is registered as FROZEN, SHRINK-ONLY DEBT with
+ * no estate-wide owner selector
+ * (`src/components/results/utils/elasticityClaimDebt.ts`). This is the
+ * file-local half of that convergence — one authority inside this file, leaving
+ * a single call site for the real owner to take over when it lands. It does not
+ * claim to BE that owner, and deliberately registers no `CLAIM_OWNERSHIP`:
+ * two modules registering one family is a hard RED in the walker's control 3a.
+ */
+function scoredElasticity(f: V2FactorSensitivity): number | null {
+  const stated = f.elasticity
+  return typeof stated === 'number' && Number.isFinite(stated) ? stated : null
+}
+
+/**
+ * Magnitude of a scored elasticity; absence propagates as `null` rather than
+ * collapsing to 0. The sign convention lives here once, instead of at each of
+ * the three sites that used to spell `Math.abs` beside their own null test.
+ */
+function elasticityMagnitude(f: V2FactorSensitivity): number | null {
+  const stated = scoredElasticity(f)
+  return stated === null ? null : Math.abs(stated)
+}
+
+/**
+ * The hero's "{n}% influence" for the top factor — `null` when there is no top
+ * factor, or when the producer did not score the one there is.
+ *
+ * Reads the ALREADY-ADAPTED summary rather than the wire, so the scored-ness
+ * decision is `scoredElasticity`'s, made once upstream, not re-litigated here.
+ * The `: 0` this replaces was the same fabrication the rest of this factory had
+ * already been cleaned of (`stability`, `fragileEdgeCount`, `seedUsed`,
+ * `runnerUpProbability`); it survived because it sits in the FACTOR-sensitivity
+ * trio rather than the robustness block, and each cleanup was scoped to the
+ * block in front of it.
+ */
+function topInfluencePercent(top: FactorSensitivitySummary | undefined): number | null {
+  const stated = top?.elasticity ?? null
+  return stated === null ? null : Math.round(Math.abs(stated) * 100)
+}
+
 function extractTopFactors(
   factors: V2FactorSensitivity[],
 ): FactorSensitivitySummary[] {
@@ -88,8 +142,8 @@ function extractTopFactors(
     // as exactly zero" in the same place, so `topFactors[0]` — the factor the
     // hero invites the user to calibrate — could be a factor nobody scored.
     .sort((a, b) => {
-      const av = typeof a.elasticity === 'number' ? Math.abs(a.elasticity) : null
-      const bv = typeof b.elasticity === 'number' ? Math.abs(b.elasticity) : null
+      const av = elasticityMagnitude(a)
+      const bv = elasticityMagnitude(b)
       if (av === null && bv === null) return 0
       if (av === null) return 1
       if (bv === null) return -1
@@ -102,9 +156,7 @@ function extractTopFactors(
       // D7 absence-preserving. `?? 0` here was the load-bearing mint: it fed
       // `topElasticity`, `influenceConcentration` and the transition sentence
       // "elasticity 0.00", all three of which read as measurements.
-      elasticity: typeof f.elasticity === 'number' && Number.isFinite(f.elasticity)
-        ? f.elasticity
-        : null,
+      elasticity: scoredElasticity(f),
       rankFlipRate: typeof f.rank_flip_rate === 'number' && Number.isFinite(f.rank_flip_rate)
         ? f.rank_flip_rate
         : null,
@@ -131,8 +183,8 @@ function extractTopFactors(
  */
 function computeInfluenceConcentration(factors: V2FactorSensitivity[]): number | null {
   const absElasticities = factors
-    .filter(f => typeof f.elasticity === 'number' && Number.isFinite(f.elasticity))
-    .map(f => Math.abs(f.elasticity as number))
+    .map(elasticityMagnitude)
+    .filter((v): v is number => v !== null)
   if (absElasticities.length === 0) return null
   const sum = absElasticities.reduce((a, b) => a + b, 0)
   if (sum === 0) return 0
@@ -676,9 +728,7 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     // `fragileEdgeCount`, `seedUsed`, `runnerUpProbability`). They survived
     // because they are the FACTOR-sensitivity trio rather than the robustness
     // block, and each cleanup was scoped to the block in front of it.
-    topElasticity: topFactors.length > 0 && topFactors[0].elasticity !== null
-      ? Math.round(Math.abs(topFactors[0].elasticity) * 100)
-      : null,
+    topElasticity: topInfluencePercent(topFactors[0]),
     rankFlipRate: topFactors.length > 0 ? topFactors[0].rankFlipRate : null,
 
     goalProbability,

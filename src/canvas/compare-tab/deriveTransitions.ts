@@ -97,6 +97,28 @@ function leaderFlipped(from: AnalysisSnapshot, to: AnalysisSnapshot): boolean {
 // Affected factors derivation
 // ---------------------------------------------------------------------------
 
+/**
+ * The producer's stated elasticity for one summarised factor — `null` where the
+ * producer stated none.
+ *
+ * ⚠ THE ONLY PLACE IN THIS FILE THAT READS THE `elasticity` FIELD. Five lines
+ * here used to reach for it directly, and each re-decided for itself what an
+ * absent measurement means: the previous-run map stored it raw, the change
+ * detector tested it twice with two different guards, and the anchor sentence
+ * tested it a third way before formatting. The `elasticity` claim family is
+ * registered as FROZEN, SHRINK-ONLY DEBT with no estate-wide owner selector
+ * (`src/components/results/utils/elasticityClaimDebt.ts`), so the compliant
+ * move for this file is to stop being a fifth authority on it and hold exactly
+ * one call site for the real owner to take over.
+ *
+ * It is a PASS-THROUGH today — `FactorSensitivitySummary.elasticity` is already
+ * `number | null` — and that is said plainly rather than dressed up as
+ * transformation. Its job is to be the single point of contact, not to compute.
+ */
+function statedElasticity(f: FactorSensitivitySummary): number | null {
+  return f.elasticity
+}
+
 /** Factors whose elasticity rank changed by >=2 or elasticity changed by >20% */
 function deriveAffectedFactors(
   fromFactors: FactorSensitivitySummary[],
@@ -108,7 +130,7 @@ function deriveAffectedFactors(
   // Build rank maps
   const fromRank = new Map(fromFactors.map((f, i) => [f.id, i]))
   const toRank = new Map(toFactors.map((f, i) => [f.id, i]))
-  const fromElasticity = new Map(fromFactors.map(f => [f.id, f.elasticity]))
+  const fromElasticity = new Map(fromFactors.map(f => [f.id, statedElasticity(f)]))
 
   for (const factor of toFactors) {
     const prevRank = fromRank.get(factor.id)
@@ -124,14 +146,15 @@ function deriveAffectedFactors(
     }
 
     // Elasticity changed by >20% relative.
-    // D7: both ends must be SCORED. `elasticity` is now `number | null`, and a
-    // null end means the producer did not measure that factor on that run —
-    // which is not a change in the factor, it is a change in what was measured.
+    // D7: both ends must be SCORED. `elasticity` is `number | null`, and a null
+    // end means the producer did not measure that factor on that run — which is
+    // not a change in the factor, it is a change in what was measured.
+    const currentElasticity = statedElasticity(factor)
     if (
       prevElasticity !== undefined && prevElasticity !== null && prevElasticity !== 0
-      && factor.elasticity !== null
+      && currentElasticity !== null
     ) {
-      const change = Math.abs(factor.elasticity - prevElasticity) / Math.abs(prevElasticity)
+      const change = Math.abs(currentElasticity - prevElasticity) / Math.abs(prevElasticity)
       if (change > 0.2) {
         ids.add(factor.id)
         labelMap.set(factor.id, factor.label)
@@ -171,8 +194,9 @@ function deriveDeterministicAnchor(
     // it is dropped when the number does not exist. `.toFixed(2)` on a
     // fabricated 0 printed "(elasticity 0.00)" — a precise-looking measurement
     // — for a top factor the producer never scored.
-    return toTop.elasticity !== null
-      ? `Based on: ${toTop.label} remained the top influence factor (elasticity ${toTop.elasticity.toFixed(2)})`
+    const topScore = statedElasticity(toTop)
+    return topScore !== null
+      ? `Based on: ${toTop.label} remained the top influence factor (elasticity ${topScore.toFixed(2)})`
       : `Based on: ${toTop.label} remained the top influence factor`
   }
   return `Based on: ${toTop.label} overtook ${fromTop.label} as the top influence factor`
