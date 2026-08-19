@@ -37,7 +37,7 @@
  * one rule that matters: **a state whose copy makes a leader claim may only be
  * selected when the producer entitled us to make it.**
  */
-import type { AnalysisSnapshot, CompareState, LeaderClaim } from './types'
+import type { AnalysisSnapshot, CompareState } from './types'
 import { deriveLeaderClaim, optionProbabilityIn } from './leaderClaim'
 
 /** Below this, three runs agreeing on one leader count as converged. */
@@ -125,16 +125,4 @@ export function deriveCompareState(
  */
 export function isNarrowFlip(latest: AnalysisSnapshot): boolean {
   return latest.leaderVerdict.separation === 'slight'
-}
-
-/**
- * The claim the hero and the trajectory row are entitled to make about the
- * newest run — resolved ONCE, so the sentence, the dot row and the chart
- * series cannot each answer the question differently.
- */
-export function latestLeaderClaim(snapshots: AnalysisSnapshot[]): LeaderClaim {
-  const latest = snapshots[snapshots.length - 1]
-  return latest != null
-    ? deriveLeaderClaim(latest)
-    : { kind: 'unclaimed', optionId: null, label: null, winProbability: null }
 }
