@@ -58,7 +58,8 @@ test('MOUNT geometry — chat-thread mounts, their boxes and hit-testability', a
       })
     }
     return {
-      chatThread: { count: document.querySelectorAll('[data-testid="chat-thread"]').length, mounts: probe('[data-testid="chat-thread"]') },
+      chatThreadCanonical: { count: document.querySelectorAll('[data-testid="chat-thread"]').length, mounts: probe('[data-testid="chat-thread"]') },
+      chatThreadFloating: { count: document.querySelectorAll('[data-testid="chat-thread-floating"]').length, mounts: probe('[data-testid="chat-thread-floating"]') },
       floatingPanel: probe('[data-testid="floating-olumi-panel"]'),
       olumiTabWrapper: probe('[data-testid="olumi-tab-wrapper"]'),
     }
