@@ -57,7 +57,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import { WinGauge } from '../WinGauge'
-import { deriveComparisonScope } from '../utils/goalAnchorCopy'
+import { COMPARISON_SCOPE_COPY, deriveComparisonScope } from '../utils/goalAnchorCopy'
 import type { OptionResult } from '../types'
 
 // ── Identity anchors. Every query binds to these, never to prose. ──────────
@@ -222,6 +222,49 @@ describe('comparison-scope disclosure — a subset result says which options it 
         <WinGauge shares={gaugeShares(options)} comparisonScope={deriveComparisonScope(options)} />,
       )
       expect(screen.queryByTestId(NOTE.gauge)).toBeNull()
+    })
+  })
+
+  // ── THE VERBATIM COPY. Pinned so the sentence a user reads is a decision in
+  // the record rather than whatever the register happens to compose today, and
+  // so a reviewer can read the shipped wording without running the app.
+  describe('COMPARISON_SCOPE_COPY — the sentence a user reads', () => {
+    const scope = deriveComparisonScope(subsetOptions())!
+
+    it('composes the draw-10 shape verbatim', () => {
+      expect(COMPARISON_SCOPE_COPY.sentence(scope)).toBe(
+        'Comparing 3 of your 4 options — Hybrid Phased Approach was left out.',
+      )
+      expect(COMPARISON_SCOPE_COPY.detail(scope)).toBe(
+        'Ranks and comparative percentages describe those 3 only.',
+      )
+    })
+
+    it('joins two excluded options in British house style (no serial comma)', () => {
+      const two = deriveComparisonScope([...subsetOptions(), excluded(DROPPED_TWO, DROPPED_TWO_LABEL)])!
+      expect(COMPARISON_SCOPE_COPY.sentence(two)).toBe(
+        'Comparing 3 of your 5 options — Hybrid Phased Approach and Rip and Replace were left out.',
+      )
+    })
+
+    it('falls back to the COUNT when no excluded option carries a usable label', () => {
+      const unnamed = deriveComparisonScope([
+        analysed(KEEP_A, 0.62),
+        { label: '   ', notAnalysed: true },
+      ])!
+      expect(COMPARISON_SCOPE_COPY.sentence(unnamed)).toBe(
+        'Comparing 1 of your 2 options — 1 was left out.',
+      )
+    })
+
+    // ⚠ NEUTRALITY. The excluded option was never scored, so nothing here may
+    // read as a verdict on it. A comparative verb would imply it was
+    // considered and lost.
+    it('claims nothing about the excluded option\'s merit', () => {
+      const text = `${COMPARISON_SCOPE_COPY.sentence(scope)} ${COMPARISON_SCOPE_COPY.detail(scope)}`
+      for (const verb of ['worse', 'lost', 'weaker', 'beaten', 'behind', 'ruled out', 'rejected']) {
+        expect(text.toLowerCase()).not.toContain(verb)
+      }
     })
   })
 
