@@ -148,6 +148,28 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
    */
   /^\/collab\/v1\/rounds\/[^/]+\/disagreement$/,
   /^\/collab\/v1\/packet\/[^/]+\/disagreement$/,
+  /**
+   * D3 (19 Aug 2026) — the WORKSPACE ROSTER, owner-only.
+   *
+   * Who has been on a panel in this scenario, so the owner can invite the SAME
+   * colleague to a second round instead of creating a stranger who happens to
+   * share a name. Four keys per person (`person_id`, `display_name`,
+   * `round_count`, `last_seen_at`) — no beliefs, no round ids, no tokens, no
+   * `supabase_user_id`. Owner-gated at CEE by `requireOwnerUser` plus a
+   * scenario-ownership check; a participant token is worthless on it, and it is
+   * registered on the OWNER route module precisely so no participant surface can
+   * reach it (a panellist must not learn who else has ever been asked).
+   *
+   * ⚠ Redacted people are absent from the response by construction — R-1 nulls
+   * `person_id`, and the service also excludes any row carrying a pseudonym.
+   *
+   * ⚠ This entry is now DERIVED-AND-GUARDED rather than hand-maintained:
+   * `tests/ci-guards/collab-proxy-path-allowlist-derived.spec.ts` extracts every
+   * path `collabService.ts` builds and asserts this list admits each one. That
+   * guard is the reason the next route added here cannot ship dark the way this
+   * comment block's D1 and D2 predecessors nearly did.
+   */
+  /^\/collab\/v1\/scenarios\/[^/]+\/people$/,
 ]
 
 function isAllowedTarget(pathname: string): boolean {

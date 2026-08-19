@@ -37,7 +37,7 @@
  * submitted-count to the packet — that is precisely how the anchor gets back in.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { AlertTriangle, Check, Copy, Loader2, LogIn, Users } from 'lucide-react'
 
@@ -52,8 +52,10 @@ import {
   ownerSignInRequired,
   participantLink,
   type MintedRound,
+  fetchWorkspacePeople,
   type DisagreementView,
   type RevealView,
+  type WorkspacePerson,
 } from '../collab/collabService'
 import { requireOwnerAccessToken } from '../collab/ownerAccessToken'
 import { readPendingApply, rememberPendingApply } from '../collab/panelApplyHandoff'
@@ -339,6 +341,18 @@ export default function PanelSetupPage(): JSX.Element {
   const [contextNote, setContextNote] = useState('')
   const [nameA, setNameA] = useState('')
   const [nameB, setNameB] = useState('')
+  /**
+   * ⭐ THE OWNER'S EXPLICIT CLAIM that a panellist IS someone they have asked
+   * before. `null` means "someone new" and CEE mints a fresh durable identity.
+   *
+   * ⚠ NEVER SET BY MATCHING WHAT THE OWNER TYPED. Typing "Grace" does not make
+   * this Grace; only clicking her does. A client that guessed from the name
+   * would be asking the server to file one person's words under another
+   * person's name, and the server cannot tell a guess from a real choice.
+   */
+  const [personA, setPersonA] = useState<WorkspacePerson | null>(null)
+  const [personB, setPersonB] = useState<WorkspacePerson | null>(null)
+  const [knownPeople, setKnownPeople] = useState<readonly WorkspacePerson[]>([])
   const [minted, setMinted] = useState<MintedRound | null>(null)
   const [reveal, setReveal] = useState<RevealView | null>(null)
   const [disagreement, setDisagreement] = useState<DisagreementView | null>(null)
@@ -361,6 +375,34 @@ export default function PanelSetupPage(): JSX.Element {
     recallOpenRound(scenarioId ?? ''),
   )
 
+  /**
+   * The people this owner has already put on a panel in this scenario.
+   *
+   * ⚠ FAILS SILENT ON PURPOSE, and this is the one place in this file where
+   * that is right. An empty list is indistinguishable from "identity is still
+   * round-scoped on this deployment" and from "nobody yet" — all three mean the
+   * same thing to the owner: there is no one to reuse. Surfacing an error for a
+   * convenience that has never existed before would be a worse lie than
+   * offering nothing. The MINT path, which can actually misattribute, refuses
+   * loudly instead.
+   */
+  useEffect(() => {
+    if (scenarioId === undefined || scenarioId === '') return
+    let cancelled = false
+    void (async () => {
+      try {
+        const token = await requireOwnerAccessToken()
+        const people = await fetchWorkspacePeople(token, scenarioId)
+        if (!cancelled) setKnownPeople(people)
+      } catch {
+        if (!cancelled) setKnownPeople([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [scenarioId])
+
   const handleMint = useCallback(async () => {
     setBusyAction('open')
     setFailure(null)
@@ -382,9 +424,14 @@ export default function PanelSetupPage(): JSX.Element {
             unit: prefill !== null && targetId.trim() === prefill.factorId ? prefill.unit : null,
           },
         ],
-        participants: [{ display_name: nameA.trim() }, { display_name: nameB.trim() }].filter(
-          (p) => p.display_name !== '',
-        ),
+        // `person_id` rides ONLY when the owner picked that person from the
+        // roster. `?? undefined` keeps the key absent rather than null, so the
+        // request says "someone new" by omission rather than by a value the
+        // server would have to interpret.
+        participants: [
+          { display_name: nameA.trim(), person_id: personA?.person_id ?? undefined },
+          { display_name: nameB.trim(), person_id: personB?.person_id ?? undefined },
+        ].filter((p) => p.display_name !== ''),
       })
       setMinted(result)
       // Remember the non-secret half so navigating away no longer strands the
@@ -401,7 +448,7 @@ export default function PanelSetupPage(): JSX.Element {
     } finally {
       setBusyAction(null)
     }
-  }, [scenarioId, targetId, targetLabel, contextNote, nameA, nameB, prefill])
+  }, [scenarioId, targetId, targetLabel, contextNote, nameA, nameB, personA, personB, prefill])
 
   // Parameterised by round id because there are now TWO callers: the fresh
   // mint on screen, and the recovery banner's RECORDED round.
@@ -752,7 +799,17 @@ export default function PanelSetupPage(): JSX.Element {
                       data-testid="panel-name-a"
                       className={`${FIELD} ${typography.body} mt-2`}
                       value={nameA}
-                      onChange={(e) => setNameA(e.target.value)}
+                      onChange={(e) => {
+                        setNameA(e.target.value)
+                        // ⚠ EDITING UNLINKS, ALWAYS. An owner who picks Grace,
+                        // then clears the field and types Sam, must not have
+                        // Sam's answer filed under Grace's identity — and the
+                        // client cannot tell a spelling correction from a
+                        // different person. Unlinking under-claims (they re-pick
+                        // if they meant Grace); keeping the link would
+                        // over-claim, invisibly, in the record.
+                        setPersonA(null)
+                      }}
                       placeholder="Ada"
                     />
                   </div>
@@ -768,11 +825,74 @@ export default function PanelSetupPage(): JSX.Element {
                       data-testid="panel-name-b"
                       className={`${FIELD} ${typography.body} mt-2`}
                       value={nameB}
-                      onChange={(e) => setNameB(e.target.value)}
+                      onChange={(e) => {
+                        setNameB(e.target.value)
+                        setPersonB(null)
+                      }}
                       placeholder="Grace"
                     />
                   </div>
                 </div>
+                {knownPeople.length > 0 && (
+                  <div className="mt-4" data-testid="panel-known-people">
+                    <p className={`${typography.bodySmall} text-text-light`}>
+                      You have asked these people before on this decision. Pick someone to keep
+                      their answers linked across rounds — otherwise they are recorded as a new
+                      person.
+                    </p>
+                    <div className="mt-2 flex flex-col gap-2">
+                      {(
+                        [
+                          ['A', personA, setPersonA, setNameA] as const,
+                          ['B', personB, setPersonB, setNameB] as const,
+                        ]
+                      ).map(([slot, picked, setPicked, setName]) => (
+                        <div key={slot} className="flex flex-wrap items-center gap-2">
+                          <span className={`${typography.bodySmall} text-text-light`}>
+                            {slot === 'A' ? 'First' : 'Second'}:
+                          </span>
+                          {knownPeople.map((person) => {
+                            const isPicked = picked?.person_id === person.person_id
+                            return (
+                              <button
+                                key={person.person_id}
+                                type="button"
+                                data-testid={`panel-person-${slot}-${person.person_id}`}
+                                aria-pressed={isPicked}
+                                className={`rounded-full border px-3 py-1 ${typography.bodySmall} ${
+                                  isPicked
+                                    ? 'border-info bg-info/10 text-text-header'
+                                    : 'border-panel-border text-text-body'
+                                }`}
+                                onClick={() => {
+                                  // Picking sets BOTH: the label the panel sees
+                                  // and the durable identity the record keeps.
+                                  setPicked(isPicked ? null : person)
+                                  if (!isPicked) setName(person.display_name)
+                                }}
+                              >
+                                {person.display_name}
+                                <span className="ml-1 text-text-light">
+                                  · {person.round_count}
+                                  {person.round_count === 1 ? ' round' : ' rounds'}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                    {(personA !== null || personB !== null) && (
+                      <p
+                        className={`${typography.bodySmall} mt-2 text-text-light`}
+                        data-testid="panel-person-linked-note"
+                      >
+                        Linked answers stay attributed to the same person across rounds. Editing a
+                        name below unlinks it, so nobody is recorded as someone they are not.
+                      </p>
+                    )}
+                  </div>
+                )}
                 <p className={`${typography.bodySmall} mt-3 text-text-light`}>
                   Names are what everyone sees beside each answer when the round closes.
                 </p>

@@ -424,7 +424,25 @@ function ownerHeaders(accessToken: string): HeadersInit {
 export interface MintedRound {
   round_id: string
   graph_version_ref: string
-  participants: Array<{ participant_id: string; display_name: string; token: string }>
+  participants: Array<{
+    participant_id: string
+    display_name: string
+    /**
+     * The DURABLE workspace identity CEE stamped for this panellist — reused if
+     * the owner picked an existing person, freshly minted otherwise. Returned so
+     * the next round can offer this person for reuse without a round trip.
+     */
+    person_id: string
+    token: string
+  }>
+}
+
+/** One person who has been on a panel in this scenario. */
+export interface WorkspacePerson {
+  person_id: string
+  display_name: string
+  round_count: number
+  last_seen_at: string
 }
 
 export async function mintRound(
@@ -433,7 +451,18 @@ export async function mintRound(
     scenarioId: string
     contextNote: string | null
     targets: PacketTarget[]
-    participants: Array<{ display_name: string }>
+    /**
+     * ⚠ `person_id` PRESENT means "this IS that person" — an owner's explicit
+     * claim, validated by CEE against this scenario. ABSENT means "someone new"
+     * and mints a fresh identity.
+     *
+     * ⚠ NEVER send a person id the owner did not actually choose from the
+     * roster. The server refuses an unknown one rather than minting silently,
+     * but a client that guessed by matching names would be asking the server to
+     * put one person's words under another person's name — the one failure this
+     * whole seam is shaped to prevent.
+     */
+    participants: Array<{ display_name: string; person_id?: string }>
   },
 ): Promise<MintedRound> {
   const res = await fetch(`${COLLAB_BASE}/rounds`, {
@@ -521,6 +550,31 @@ export async function fetchRoundRoster(
   })
   if (!res.ok) throw await parseError(res)
   return (await res.json()) as RoundRosterView
+}
+
+/**
+ * The people this owner has had on a panel in this scenario, most recent first.
+ *
+ * Owner-authed. Used to offer "the same Grace as last round" instead of silently
+ * creating a second Grace — the only mechanism by which two participant rows
+ * become one person, because merging is a claim only the owner can make.
+ *
+ * ⚠ Callers must treat an empty list as "nobody yet, or identity is still
+ * round-scoped on this deployment" — NOT as an error. CEE returns `[]` for both,
+ * and a scenario whose rows predate the person migration legitimately has no
+ * reusable people.
+ */
+export async function fetchWorkspacePeople(
+  accessToken: string,
+  scenarioId: string,
+): Promise<WorkspacePerson[]> {
+  const res = await fetch(
+    `${COLLAB_BASE}/scenarios/${encodeURIComponent(scenarioId)}/people`,
+    { method: 'GET', headers: { Authorization: ownerAuthorization(accessToken) } },
+  )
+  if (!res.ok) throw await parseError(res)
+  const body = (await res.json()) as { people?: WorkspacePerson[] }
+  return Array.isArray(body.people) ? body.people : []
 }
 
 /**
