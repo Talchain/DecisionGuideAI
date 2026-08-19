@@ -41,8 +41,9 @@ vi.mock('@xyflow/react', async () => {
 // Hoisted so the vi.mock factory (also hoisted) can close over these spies.
 // `editedNodeIds` is a mutable set the store mock reads for isEditedSinceRun; a
 // test opts a node in via editedNodeIds.add(id) and beforeEach clears it.
-const { selectNodeWithoutHistory, editedNodeIds } = vi.hoisted(() => ({
+const { selectNodeWithoutHistory, setShowResultsPanel, editedNodeIds } = vi.hoisted(() => ({
   selectNodeWithoutHistory: vi.fn(),
+  setShowResultsPanel: vi.fn(),
   editedNodeIds: new Set<string>(),
 }))
 
@@ -64,6 +65,21 @@ vi.mock('../../store', () => {
     lodActive: false,
     viewMode: 'expert',
     selectNodeWithoutHistory,
+    /**
+     * ⚠ ADDED 19 Aug 2026, AND THE WAY IT WAS FOUND IS THE POINT. This double is
+     * a HAND-MAINTAINED MIRROR of the store, and it drifted the instant
+     * `openNodeInspector` gained its dock stand-down: the helper threw
+     * `state.setShowResultsPanel is not a function` INSIDE a React click
+     * handler, so the coaching `onClick` under test never ran and the failure
+     * surfaced as `expected null to be 'edit-item'` — a message pointing at the
+     * assertion rather than at the missing double. Production was never
+     * affected; the real store has always had this (the edge twin,
+     * `openEdgeStrengthEditor`, has called it since it was written).
+     *
+     * Kept as a SPY rather than a no-op so a future test can assert the
+     * stand-down happened from this surface too.
+     */
+    setShowResultsPanel,
   }
   const useCanvasStore = vi.fn((selector: (s: unknown) => unknown) => selector(state))
   ;(useCanvasStore as unknown as { getState: () => unknown }).getState = () => state
