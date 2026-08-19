@@ -1037,7 +1037,29 @@ export const CEE_ACCEPTED_INTENTS: ReadonlySet<IntentLiteral> = new Set<IntentLi
 
 function sanitiseIntent(raw: string | undefined): IntentLiteral | undefined {
   if (!raw) return undefined
-  return isSendableToken(raw, KNOWN_INTENTS, CEE_ACCEPTED_INTENTS)
-    ? (raw as IntentLiteral)
-    : undefined
+  if (isSendableToken(raw, KNOWN_INTENTS, CEE_ACCEPTED_INTENTS)) return raw as IntentLiteral
+
+  /**
+   * ⭐ OBSERVABILITY ONLY — the gate's BEHAVIOUR is unchanged and the `intent`
+   * key stays omitted from the payload exactly as before.
+   *
+   * WHY THIS EXISTS: a declared intent that failed the gate used to disappear
+   * with no trace anywhere, and that SILENCE is the mechanism that made the
+   * original defect invisible — nothing in a dev session distinguished "this
+   * chip declared no intent" from "this chip declared one and the gate dropped
+   * it", so four mounted affordances degraded to anonymous prose for weeks with
+   * every signal reading healthy. A withheld intent is a legitimate, expected
+   * state; it simply must not be a SECRET one.
+   *
+   * The `!raw` early return above means this can only fire for a NON-EMPTY
+   * declared string. The ordinary no-intent turn — the overwhelming majority —
+   * returns before reaching here and never logs.
+   */
+  if (import.meta.env.DEV) {
+    console.warn(
+      `[v5] chip.intent "${raw}" withheld from the wire — not in CEE_ACCEPTED_INTENTS. ` +
+        'The send gate dropped it; the chip still travels with its identity.',
+    )
+  }
+  return undefined
 }

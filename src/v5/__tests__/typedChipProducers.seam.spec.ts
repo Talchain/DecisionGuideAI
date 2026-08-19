@@ -234,10 +234,13 @@ describe('typed coaching intents — mounted spark → chip.intent on the wire',
    * Every mounted spark that declares a typed wire intent, read from the
    * registry and DEDUPED BY ID.
    *
-   * The dedupe is not tidiness — `SPARK_PROMPTS` ALIASES two `ACTIONS_MENU`
-   * entries (`pressure_test_frame`, `widen_options`) so one affordance has two
-   * mount points. Without the dedupe the contrast assertion below reported the
-   * same spark twice and read as a registry defect. One affordance, one row.
+   * The dedupe is not tidiness — `SPARK_PROMPTS` ALIASES five `ACTIONS_MENU`
+   * entries via `fromActionsMenu` (`widen_options`, `pre_mortem`,
+   * `calibrate_estimates`, `pressure_test_frame`, `risks_upside`), so five
+   * affordances each have two mount points; only `define_success` and
+   * `reflect_bias` are declared inline with no menu counterpart. Without the
+   * dedupe the contrast assertion below reported the same spark twice and read
+   * as a registry defect. One affordance, one row.
    */
   const declaringSparks = [...new Map(
     [...ACTIONS_MENU, ...Object.values(SPARK_PROMPTS)]
@@ -249,7 +252,13 @@ describe('typed coaching intents — mounted spark → chip.intent on the wire',
     // Trap 13: `it.each` over an empty array reports ZERO tests and a GREEN
     // suite. The count is asserted by name so an emptied registry REDs here
     // rather than silently deleting the coverage below.
-    expect(declaringSparks.length).toBeGreaterThanOrEqual(7)
+    //
+    // EXACT, not a floor: six ACTIONS_MENU entries declare an intent
+    // (`compare_view` and `prepare_first_analysis` declare `null`) and two
+    // panel-only sparks add `define_success` and `reflect_bias` — eight after
+    // the dedupe. A `>=` floor cannot see a spark that LOSES its intent while
+    // another gains one, which is the drift this assertion exists to catch.
+    expect(declaringSparks.length).toBe(8)
   })
 
   it.each(declaringSparks.map(s => [s.id, s.intent] as const))(
@@ -260,13 +269,13 @@ describe('typed coaching intents — mounted spark → chip.intent on the wire',
       if (accepted) {
         expect(
           body.chip?.intent,
-          `\${sparkId} declares an ACCEPTED intent but it did not reach the wire — ` +
+          `${sparkId} declares an ACCEPTED intent but it did not reach the wire — ` +
             'the chip has degraded to anonymous prose, which is the defect this closes',
         ).toBe(intent)
       } else {
         expect(
           body.chip && 'intent' in body.chip,
-          `\${sparkId} declares \${intent}, which CEE does not route — sending it would ` +
+          `${sparkId} declares ${intent}, which CEE does not route — sending it would ` +
             'claim a capability the deployed service does not have',
         ).toBe(false)
       }
