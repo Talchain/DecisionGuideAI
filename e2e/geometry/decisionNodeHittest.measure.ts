@@ -45,6 +45,11 @@
  *   inside the top bar must attribute to TOPBAR and a point inside the panel must
  *   attribute to OLUMI_PANEL. If `elementFromPoint` stopped discriminating, every
  *   "the node is hittable" reading would pass by measuring nothing.
+ * - PLACEMENT-BOUND IS RUN-DEPENDENT (19 Aug 2026). A cell reporting `> 0`
+ *   best-possible interception is reporting on THIS RUN's layout draw, which moves
+ *   ±13-21px. Two runs of the same commit produced two bound cells and zero bound
+ *   cells respectively. Quote a bound cell as a finding about that run; never quote
+ *   the COUNT as a property of the product.
  * - STORE/DOM AGREEMENT: the panel's rendered position and the store's model of
  *   it were two authorities for one fact — the store said `position: null` while
  *   the DOM said `left: 52px`, because the placement effect never ran. Pinned
@@ -89,13 +94,34 @@ interface Probe {
   /**
    * The fewest probes ANY legal placement of the panel could intercept, found by
    * exhaustive scan of the panel's legal top-left rectangle. `0` means a clearing
-   * placement exists and the product must find it; `> 0` means the panel is
-   * physically too large to clear this model at this viewport, which is a finding
-   * about geometry, not about the rule.
+   * placement exists and the product must find it; `> 0` means no legal placement
+   * clears this model at this viewport — a PLACEMENT-BOUND cell.
+   *
+   * ⚠⚠ PLACEMENT-BOUND IS A PROPERTY OF THE RUN, NOT A GEOMETRIC FACT ABOUT THE
+   * CELL — corrected 19 Aug 2026, and #800's own body says otherwise. The author's
+   * run reported TWO bound cells; an independent reviewer's run reported ZERO —
+   * all 27 cells solvable and fully cleared. The cells are genuinely marginal
+   * (at `reopen headcount @1440` the rule clears the anchor by 1.1px), and the
+   * layout draw moves by ±13-21px between runs, so which side of the boundary a
+   * cell lands on moves with it. The scan is exhaustive over integer positions
+   * and conservative, so WHEN a cell reports bound the reading is trustworthy —
+   * but the COUNT of bound cells is not reproducible and must never be quoted as
+   * one. #800's claim that "it is derived per run, so the layout jitter cannot
+   * make it flaky" has the implication backwards: derived per run is exactly WHY
+   * the count moves.
    */
   minPossibleIntercepted: number
-  /** Positions the scan evaluated — a positive control on the scan itself. */
+  /**
+   * Positions the scan evaluated. The scan BREAKS the moment it finds a clearing
+   * placement, so this equals `legalBoxArea` only when it found none.
+   */
   scanned: number
+  /** Every integer top-left the panel may legally occupy: the scan's whole domain. */
+  legalBoxArea: number
+  /** The legal box itself, so the shipped placement can be checked against it. */
+  legalBox: { xMin: number; xMax: number; yMin: number; yMax: number }
+  /** The panel's ACTUAL top-left, unrounded. `null` when the panel is unplaced. */
+  shippedTopLeft: { x: number; y: number } | null
   nodeRect: number[]
   panelRect: number[] | null
   storePos: { x: number; y: number } | null
@@ -181,7 +207,14 @@ async function probeDecisionNode(page: Page): Promise<Probe> {
     const pw = panelEl ? parseFloat(panelEl.style.width || '400') : 400
     const ph = panelEl ? parseFloat(panelEl.style.height || '550') : 550
     const dockEl = document.querySelector('aside[aria-label="Outputs dock"]') as HTMLElement | null
-    const dockInset = dockEl ? Math.max(0, innerWidth - dockEl.getBoundingClientRect().left) : 0
+    // Mirrors `measureDockInset` EXACTLY, zero-size rule included. Without that
+    // rule an unmeasured dock would shrink `xMax` below the product's own maxX,
+    // and the legal-box containment assertion below would RED on a healthy run.
+    const dockRect = dockEl ? dockEl.getBoundingClientRect() : null
+    const dockInset =
+      dockRect && dockRect.width !== 0 && dockRect.height !== 0
+        ? Math.max(0, innerWidth - dockRect.left)
+        : 0
     const topbarH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0
     const topInset = topbarH > 0 ? topbarH + MARGIN : MARGIN
     const xMin = MARGIN + SIDE_TAB
@@ -223,6 +256,14 @@ async function probeDecisionNode(page: Page): Promise<Probe> {
       if (minPossibleIntercepted === 0) break
     }
 
+    // The placement the product ACTUALLY chose, read unrounded off the element
+    // the hit-test attributed to. Read from the inline style rather than the
+    // rect for the same reason `pw`/`ph` are: it is the exact number the
+    // placement rule wrote, with no sub-pixel compositing in between.
+    const finite = (v: number): number | null => (Number.isFinite(v) ? v : null)
+    const shippedX = panelEl ? finite(parseFloat(panelEl.style.left)) : null
+    const shippedY = panelEl ? finite(parseFloat(panelEl.style.top)) : null
+
     // The placement this rule replaces: the clamped centred default.
     const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
     const baseX = clamp(Math.max(MARGIN, Math.floor((innerWidth - dockInset - pw) / 2)), xMin, xMax)
@@ -237,6 +278,9 @@ async function probeDecisionNode(page: Page): Promise<Probe> {
       baselineIntercepted: interceptedAt(baseX, baseY),
       minPossibleIntercepted: minPossibleIntercepted === Infinity ? 0 : minPossibleIntercepted,
       scanned,
+      legalBoxArea: (xMax - xMin + 1) * (yMax - yMin + 1),
+      legalBox: { xMin, xMax, yMin, yMax },
+      shippedTopLeft: shippedX !== null && shippedY !== null ? { x: shippedX, y: shippedY } : null,
       nodeRect: [r.left, r.top, r.right, r.bottom].map(Math.round),
       panelRect: p ? [p.left, p.top, p.right, p.bottom].map(Math.round) : null,
       storePos: panelEl
@@ -263,7 +307,29 @@ function assertProbe(label: string, m: Probe): void {
   // (CLAUDE.md trap 13).
   expect(m.ctlTopBar, `${label} NEGATIVE CONTROL: a point inside the top bar must attribute to TOPBAR`).toBe('TOPBAR')
   expect(m.ctlPanel, `${label} NEGATIVE CONTROL: a point inside the panel must attribute to OLUMI_PANEL`).toBe('OLUMI_PANEL')
-  expect(m.scanned, `${label} POSITIVE CONTROL: the placement scan must have evaluated positions`).toBeGreaterThan(0)
+  // ⚠ REPLACES A CONTROL THAT COULD NOT FAIL. `expect(m.scanned).toBeGreaterThan(0)`
+  // was guaranteed by `xMax = Math.max(xMin, …)` / `yMax = Math.max(yMin, …)`:
+  // the loop always runs at least once. A reviewer measured `scanned: 1` in 15 of
+  // 27 cells — the early break — and the control read green on every one of them.
+  // The scan breaks the instant it finds a clearing placement, so `scanned` is
+  // only informative when it did NOT break, and there it must equal the WHOLE
+  // legal box: a "no legal placement clears this model" verdict from an under-run
+  // scan is an artefact, and that verdict is what downgrades the assertion below.
+  if (m.minPossibleIntercepted > 0) {
+    expect(
+      m.scanned,
+      `${label} POSITIVE CONTROL: a scan reporting NO clearing placement must have evaluated every legal position — ` +
+        `${m.scanned} of ${m.legalBoxArea} (${JSON.stringify(m.legalBox)})`,
+    ).toBe(m.legalBoxArea)
+  } else {
+    // Broke early, legitimately. What is still checkable is that the loop and the
+    // independently-computed area agree about the domain.
+    expect(
+      m.scanned,
+      `${label} POSITIVE CONTROL: the scan cannot have evaluated more positions than the legal box holds — ` +
+        `${m.scanned} of ${m.legalBoxArea}`,
+    ).toBeLessThanOrEqual(m.legalBoxArea)
+  }
   // BIND BY IDENTITY, never by screen position (trap 19).
   expect(m.hitElementId, `${label}: the probes must have landed on the DECISION node, bound by id`).toBe(m.decId)
 
@@ -281,9 +347,44 @@ function assertProbe(label: string, m: Probe): void {
     expect(m.panelIntercepted, `${label}: the companion must not intercept ANY probe — ${detail}`).toBe(0)
   } else {
     // PLACEMENT-BOUND: no legal placement of a panel this size clears this model
-    // at this viewport. Reported rather than silently tolerated, and still held
-    // to "never worse than the placement it replaces".
-    console.log(`PLACEMENT-BOUND ${label} — ${detail}`)
+    // at this viewport. ⚠ RUN-DEPENDENT, NOT A GEOMETRIC FACT about the cell —
+    // see `minPossibleIntercepted`'s doc. Reported rather than silently tolerated,
+    // and still held to "never worse than the placement it replaces".
+    console.log(`PLACEMENT-BOUND (run-dependent) ${label} — ${detail}`)
+
+    // ⭐ AND THE SOFTER BRANCH STILL ASSERTS. Otherwise the instrument's STRICTNESS
+    // is decided by the same run-dependent draw as the verdict: a run that happens
+    // to place the model lower gets `minPossible > 0`, and with it a `console.log`
+    // where the neighbouring run got a hard assertion. What this branch owes is the
+    // condition that makes its own verdict mean anything about the PRODUCT: the
+    // exhaustive scan searched the box the product is clamped into. If the shipped
+    // placement sits outside the scanned box, then "no legal placement clears this
+    // model" is a statement about a region the product cannot reach, and the
+    // downgrade above was bought with a mis-derived box. Bounds are compared
+    // exactly — `clampPositionToViewport` writes `xMin`/`maxX` verbatim, so a
+    // sub-pixel placement cannot straddle them.
+    expect(
+      m.shippedTopLeft,
+      `${label}: the panel must be PLACED for a placement-bound verdict to mean anything — ${detail}`,
+    ).not.toBeNull()
+    const { xMin, xMax, yMin, yMax } = m.legalBox
+    const box = `legal box x[${xMin}, ${xMax}] y[${yMin}, ${yMax}]`
+    expect(
+      m.shippedTopLeft!.x,
+      `${label}: the shipped placement must lie inside the box the scan searched, or the scan's verdict is about a region the product cannot use — shipped x ${m.shippedTopLeft!.x}, ${box}`,
+    ).toBeGreaterThanOrEqual(xMin)
+    expect(
+      m.shippedTopLeft!.x,
+      `${label}: shipped x ${m.shippedTopLeft!.x} is outside the scanned ${box}`,
+    ).toBeLessThanOrEqual(xMax)
+    expect(
+      m.shippedTopLeft!.y,
+      `${label}: shipped y ${m.shippedTopLeft!.y} is outside the scanned ${box}`,
+    ).toBeGreaterThanOrEqual(yMin)
+    expect(
+      m.shippedTopLeft!.y,
+      `${label}: shipped y ${m.shippedTopLeft!.y} is outside the scanned ${box}`,
+    ).toBeLessThanOrEqual(yMax)
   }
   expect(
     m.panelIntercepted,
