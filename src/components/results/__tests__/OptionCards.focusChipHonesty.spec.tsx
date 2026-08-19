@@ -6,14 +6,28 @@
  * `OptionCards.tsx:1085` rendered a chip labelled **"Edit interventions"** whose
  * `onClick` (`:1078-1081`) was `onFocusNode(option.id)`. It edits nothing.
  *
- * Traced on the path this card is MOUNTED through (trap 3b — the binding is to
- * the surface the deployed flags render, not to a component in the tree):
- * `ResultsBody` mounts `OptionCards` with no feature-flag gate, and
- * `OutputsDock.tsx:3182` supplies `onFocusNode={handleFocusResultNode}`. That
- * handler (`OutputsDock.tsx:1415-1422`) calls `focusExistingTarget(nodeId,
- * 'node')`, sets a highlight, and clears it after 3s. It opens no editor.
- * The estate's dedicated "open the inspector" helper
- * (`canvas/nodes/shared/openNodeInspector.ts`) is not on this path at all.
+ * The handler it fires, `handleFocusResultNode` (`OutputsDock.tsx:1415-1422`),
+ * calls `focusExistingTarget(nodeId, 'node')`, sets a highlight, and clears it
+ * after 3s. It opens no editor. The estate's dedicated "open the inspector"
+ * helper (`canvas/nodes/shared/openNodeInspector.ts`) is not on this path.
+ *
+ * ## ⚠ THE MOUNT CLAIM THIS HEADER USED TO MAKE WAS FALSE
+ *
+ * It read: "Traced on the path this card is MOUNTED through … `ResultsBody`
+ * mounts `OptionCards` with no feature-flag gate, and `OutputsDock.tsx:3182`
+ * supplies `onFocusNode={handleFocusResultNode}`." Both halves are true
+ * SEPARATELY and the conjunction is not: `OutputsDock.tsx:3182` supplies the
+ * handler to **`ResultsBody`**, and `ResultsBody` does NOT forward it to the
+ * `<OptionCards>` element at `ResultsBody.tsx:587` (it forwards to five other
+ * children — see `utils/focusOnCanvasCopy.ts` for the derived list).
+ *
+ * The chip is gated on `!option.isBaseline && onFocusNode`, so **on the
+ * deployed posture this chip does not render at all.** Every case below
+ * therefore renders `<OptionCards>` in ISOLATION with a handler injected, which
+ * is a claim about the COMPONENT and never about a surface a user loads — the
+ * precise distinction trap 3b exists to enforce, and the one this header
+ * previously blurred. The mount path itself is pinned separately, and honestly,
+ * in `ResultsBody.focusChipMountPath.spec.tsx`.
  *
  * ## What is pinned here, and why each pin exists
  *
@@ -160,8 +174,13 @@ describe('NotAnalysedOptionCard shares the same owner — one label, one behavio
         onFocusNode={onFocusNode}
       />,
     )
+    // Bound by testid to THIS option's chip, then by exact text to the owner.
+    // The `?? chip` fallback that used to sit here could not fail: `getByTestId`
+    // throws on absence, so the coalesce always yielded a truthy element even
+    // when the label query found nothing (trap 13 — an assertion that cannot
+    // observe a failure is not evidence).
     const chip = screen.getByTestId('not-analysed-focus-opt-excluded')
-    expect(within(chip).queryByText(FOCUS_ON_CANVAS_LABEL) ?? chip).toBeTruthy()
+    expect(within(chip).getByText(FOCUS_ON_CANVAS_LABEL)).toBeTruthy()
     expect(chip.textContent?.trim()).toBe(FOCUS_ON_CANVAS_LABEL)
   })
 })

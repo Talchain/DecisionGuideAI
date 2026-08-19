@@ -5,15 +5,40 @@
  * ## What it supersedes, and why the old label was FALSE
  *
  * `OptionCards.tsx` rendered a chip labelled **"Edit interventions"** whose
- * `onClick` was `onFocusNode(option.id)`. That handler edits nothing. Traced at
- * this tip, on the path this card is actually mounted through:
+ * `onClick` was `onFocusNode(option.id)`. That handler edits nothing:
+ * `handleFocusResultNode` (`OutputsDock.tsx:1415-1422`) does exactly three
+ * things — `focusExistingTarget(nodeId, 'node')` (a fail-closed camera move),
+ * `setHighlightedNodes([nodeId])`, and a 3-second timer that clears the
+ * highlight. It moves the camera and flashes the node. It opens no editor and
+ * writes no value.
  *
- *   `OutputsDock.tsx:3182` passes `onFocusNode={handleFocusResultNode}`, and
- *   `handleFocusResultNode` (`OutputsDock.tsx:1415-1422`) does exactly three
- *   things — `focusExistingTarget(nodeId, 'node')` (a fail-closed camera move),
- *   `setHighlightedNodes([nodeId])`, and a 3-second timer that clears the
- *   highlight. It moves the camera and flashes the node. It opens no editor and
- *   writes no value.
+ * ## ⚠ REACHABILITY — DERIVED, AND NARROWER THAN THIS FILE FIRST CLAIMED
+ *
+ * An earlier revision of this header introduced the trace above with "on the
+ * path this card is actually mounted through", and named `OutputsDock.tsx:3182`
+ * as the site supplying the handler TO THIS CHIP. **That is false, and the
+ * distinction is exactly why the wrong instance was fixed first.**
+ *
+ * `OutputsDock.tsx:3182` passes `onFocusNode={handleFocusResultNode}` to
+ * **`ResultsBody`** — not to `OptionCards`. `ResultsBody` forwards it to five
+ * children: `AnalysisHeroContainer` (:386), `TriageActionCardsBody` (:410),
+ * `DriversSection` (:666), `TornadoChart` (:729) and `StressTestSection`
+ * (:779). The `<OptionCards>` element at `ResultsBody.tsx:587` is NOT one of
+ * them, and `ResultsBody` is `OptionCards`' ONLY production parent.
+ *
+ * The chip is gated on `!option.isBaseline && onFocusNode`. With no handler
+ * threaded, **it does not render in the product at all.** Contrast control for
+ * that absence claim: `onFocusNode` appears 7× in `ResultsBody.tsx` itself, so
+ * the symbol is plainly visible to the sweep — the omission at :587 is a real
+ * absence, not a blind probe.
+ *
+ * So the relabel here is CORRECTNESS-IN-DEPTH, not the repair of a sentence a
+ * user is currently being shown through this chip. It still earns its place:
+ * `NotAnalysedOptionCard` renders the same chip on the same handler and IS
+ * reachable, and the moment anyone threads `onFocusNode` into `OptionCards` the
+ * old wording would have gone live as a false promise with nothing standing in
+ * its way. `__tests__/ResultsBody.focusChipMountPath.spec.tsx` pins the
+ * darkness so it cannot change silently in either direction.
  *
  * The estate has a DEDICATED helper for actually opening the inspector
  * (`canvas/nodes/shared/openNodeInspector.ts`) and this path does not call it —
