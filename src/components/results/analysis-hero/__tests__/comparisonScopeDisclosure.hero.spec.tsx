@@ -112,6 +112,17 @@ describe('analysis hero — comparison-scope disclosure', () => {
     expect(note).toHaveTextContent(DROPPED_LABEL)
   })
 
+  // ⭐ THE DISCRIMINATING TWIN (trap 19) — see the sibling spec's note: a
+  // mutant that names every option passes the presence pin above while
+  // claiming compared options were left out.
+  it('names ONLY the excluded option — an analysed sibling never appears', () => {
+    renderHero(subsetOptions())
+    const note = screen.getByTestId(HERO_NOTE)
+    expect(note).not.toHaveTextContent(`Analysed ${KEEP_A}`)
+    expect(note).not.toHaveTextContent(`Analysed ${KEEP_B}`)
+    expect(note).not.toHaveTextContent(`Analysed ${KEEP_C}`)
+  })
+
   // CONTROL — without this, "the note appeared" could be true of a render
   // carrying no headline claim at all (trap 13e: a control must be plausible).
   it('CONTROL — the headline the note qualifies is present in the same render', () => {

@@ -148,6 +148,19 @@ describe('comparison-scope disclosure — a subset result says which options it 
       expect(screen.getByTestId(NOTE.cards)).toHaveTextContent(DROPPED_LABEL)
     })
 
+    // ⭐ THE DISCRIMINATING TWIN (trap 19). The pin above is a PRESENCE check,
+    // and a mutant that names EVERY option satisfies it while saying something
+    // false — the note would list options that were in the comparison as
+    // though they had been left out. Binding the claim to the excluded
+    // option's identity requires asserting the analysed ones are ABSENT.
+    it('names ONLY the excluded option — an analysed sibling never appears', () => {
+      render(<OptionCards options={subsetOptions()} winnerId={KEEP_A} hasLeadingOption />)
+      const note = screen.getByTestId(NOTE.cards)
+      expect(note).not.toHaveTextContent(`Analysed ${KEEP_A}`)
+      expect(note).not.toHaveTextContent(`Analysed ${KEEP_B}`)
+      expect(note).not.toHaveTextContent(`Analysed ${KEEP_C}`)
+    })
+
     it('names BOTH excluded options when two of five were left out', () => {
       const options = [...subsetOptions(), excluded(DROPPED_TWO, DROPPED_TWO_LABEL)]
       render(<OptionCards options={options} winnerId={KEEP_A} hasLeadingOption />)
