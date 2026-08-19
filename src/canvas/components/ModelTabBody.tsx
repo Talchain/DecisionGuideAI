@@ -56,6 +56,13 @@ import { resolveRawFactorConfidenceDisplay, type FactorConfidenceDisplay } from 
 // are retained UNCHANGED — the design's §7 KEEP/CUT removals await Paul's
 // verdict and are deliberately not executed in this train.
 import { ModelTabV2Panel } from '../model-tab-v2/ModelTabV2Panel'
+// The contested-edge ADJUDICATION VERTICAL, rehomed out of the v1 section stack
+// (Milestone B, domain 11). It is hosted HERE rather than inside the v2 panel
+// because the v2 boundary guard bans store access outright and the card needs
+// it — see that file's header for the full reasoning. `handleResolveContested`
+// below stays in this file, which is what keeps `buildEdgeAdjudicationEvent` at
+// EXACTLY ONE production caller.
+import { ContestedEdgeSection } from './contested/ContestedEdgeSection'
 // THE ONE hand-off for affordances that terminate in a conversation. Built here
 // because this file is the Model tab's only live-app seam; the v2 directory
 // stays free of fronting and store concerns.
@@ -797,6 +804,22 @@ export const ModelTabBody = memo(function ModelTabBody({
         onHandOffToOlumi={olumiHandOff ? handOffToOlumi : undefined}
       />
 
+      {/* ── Contested edges: the adjudication vertical ─────────────────────── */}
+      {/* REHOMED here from inside `model-tab/RelationshipsSection`, so that the
+          only way to settle a two-pass disagreement survives that stack's
+          removal. Sits directly beneath the canonical editor, above the v1
+          sections, because it is the one thing on this tab that asks the user
+          for a decision rather than showing them state. */}
+      <ContestedEdgeSection
+        edges={causalEdges}
+        nodes={nodes}
+        fragileEdgeIds={fragileEdgeIds}
+        selectedEdgeIds={selectionEdgeIds}
+        hasRobustnessData={hasRobustnessData}
+        onResolveContested={handleResolveContested}
+        showDetail={expertMode ?? false}
+      />
+
       {/* ── Header: factor/edge counts + "Show full detail" toggle ─────────── */}
       {/* No sort label post-analysis. The list is ordered by influence, and we
           do not assert that its order encodes value — the previous
@@ -857,8 +880,6 @@ export const ModelTabBody = memo(function ModelTabBody({
             fragileEdgeIds={fragileEdgeIds}
             fragileEdgeSwitchProbMap={fragileEdgeSwitchProbMap}
             selectedEdgeIds={selectionEdgeIds}
-            hasRobustnessData={hasRobustnessData}
-            onResolveContested={handleResolveContested}
             edgeEValueMap={edgeEValueMap}
             edgeRepairsMap={edgeRepairsMap}
             onSendMessage={onSendMessage}

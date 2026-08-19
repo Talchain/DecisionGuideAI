@@ -25,7 +25,7 @@ vi.mock('../../lib/posthog', () => ({
 }))
 
 import { bucketDwellMs, MEASUREMENT_CONFIG, resolveParticipantTag } from '../measurementConfig'
-import { ContestedEdgeCard } from '../../canvas/components/model-tab/ContestedEdgeCard'
+import { ContestedEdgeCard } from '../../canvas/components/contested/ContestedEdgeCard'
 import {
   makeContestedEdge,
   makeContestedNode,

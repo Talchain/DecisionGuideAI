@@ -2,7 +2,8 @@
  * RelationshipsSection — edge cards with strength bar, semantic label, and fragile pill.
  *
  * Contested edges (validation?.status === 'contested' && user_action === 'pending') are
- * rendered first as ContestedEdgeCards, subject to the one-per-target-node cap.
+ * split out of the list below and rendered by `components/contested/
+ * ContestedEdgeSection`, which `ModelTabBody` hosts beside the Model Editor.
  * Remaining edges use the existing EdgeCard layout.
  *
  * One-per-target-node cap priority:
@@ -36,15 +37,14 @@ import { strengthSemanticLabel, directionToneClass, signedScalarText } from './u
 import { InlineEdit } from './InlineEdit'
 import { DetailToggleContext } from './DetailToggleContext'
 import { StrengthBar } from '../../ui/inspector/StrengthBar'
-import { ContestedEdgeCard } from './ContestedEdgeCard'
+import { isPendingContested } from '../contested/ContestedEdgeSection'
 import { CoachingCard } from './CoachingCard'
-import type { ValidationMetadata, UserAction } from '../../domain/validation'
+import type { ValidationMetadata } from '../../domain/validation'
 import {
   resolveEdgeValueDisplay,
   resolveEdgeSignedStrengthDisplay,
   resolveEdgeDirectionDisplay,
   compareEdgeValueDisplays,
-  type EdgeValueSource,
 } from '../../domain/edgeValueProvenance'
 
 /** Repair display entry for edge detail */
@@ -64,10 +64,6 @@ interface RelationshipsSectionProps {
   fragileEdgeSwitchProbMap?: Map<string, number>
   /** Set of selected edge IDs (from canvas store) — triggers scroll-into-view */
   selectedEdgeIds?: Set<string>
-  /** Whether robustness data is available (analysis has run) */
-  hasRobustnessData?: boolean
-  /** Called when user resolves a contested edge. Provided by ModelTabBody. */
-  onResolveContested?: (edgeId: string, action: UserAction, customMean?: number, directionSource?: EdgeValueSource | null) => void
   /** Map of edge ID → E-value from ISL robustness */
   edgeEValueMap?: Map<string, number>
   /** Map of edge ID → repairs applied from PLoT */
@@ -540,41 +536,6 @@ function EdgeCard({
   )
 }
 
-// ── Contested priority comparator ──────────────────────────────────────────────
-
-/**
- * Sort contested edges by priority for the full-audit list:
- *   - Post-analysis (both edges have evoi_rank set): evoi_impact desc
- *   - Pre-analysis: max_divergence desc → distance_to_goal asc → needs_user_input
- *
- * Used to order the contested group on the Model tab. There is NO one-per-target
- * cap on this surface — every pending contested edge is rendered as a fully
- * actionable ContestedEdgeCard. The cap is appropriate only for the pre-analysis
- * panel (which has a fixed budget) and lives in usePreAnalysisData there.
- */
-function compareContestedPriority(a: Edge, b: Edge): number {
-  const aVm = (a.data as Record<string, unknown>)?.validation as ValidationMetadata | undefined
-  const bVm = (b.data as Record<string, unknown>)?.validation as ValidationMetadata | undefined
-  if (!aVm || !bVm) return 0
-
-  const aPostAnalysis = aVm.evoi_rank !== null && aVm.evoi_rank !== undefined
-  const bPostAnalysis = bVm.evoi_rank !== null && bVm.evoi_rank !== undefined
-  if (aPostAnalysis && bPostAnalysis) {
-    const aImpact = aVm.evoi_impact ?? -Infinity
-    const bImpact = bVm.evoi_impact ?? -Infinity
-    if (aImpact !== bImpact) return bImpact - aImpact
-  }
-  if (aVm.max_divergence !== bVm.max_divergence) {
-    return bVm.max_divergence - aVm.max_divergence
-  }
-  if (aVm.distance_to_goal !== bVm.distance_to_goal) {
-    return aVm.distance_to_goal - bVm.distance_to_goal
-  }
-  const aNui = aVm.pass2.needs_user_input ? 1 : 0
-  const bNui = bVm.pass2.needs_user_input ? 1 : 0
-  return bNui - aNui
-}
-
 // ── Section ────────────────────────────────────────────────────────────────────
 
 function RelationshipsSectionInner({
@@ -583,8 +544,6 @@ function RelationshipsSectionInner({
   fragileEdgeIds = new Set(),
   fragileEdgeSwitchProbMap = new Map(),
   selectedEdgeIds,
-  hasRobustnessData,
-  onResolveContested,
   edgeEValueMap = new Map(),
   edgeRepairsMap = new Map(),
   onSendMessage,
@@ -606,8 +565,10 @@ function RelationshipsSectionInner({
     const contestedEdges: Edge[] = []
     const nonContestedEdges: Edge[] = []
     for (const e of causalEdges) {
-      const vm = (e.data as Record<string, unknown>)?.validation as ValidationMetadata | undefined
-      if (vm?.status === 'contested' && vm.user_action === 'pending') {
+      // ONE predicate, owned by the section that renders the cards — this
+      // used to be an inline copy, and a copy of a predicate is how the count
+      // in a heading and the list under it silently stop agreeing.
+      if (isPendingContested(e)) {
         contestedEdges.push(e)
       } else {
         nonContestedEdges.push(e)
@@ -615,13 +576,6 @@ function RelationshipsSectionInner({
     }
     return { contestedEdges, nonContestedEdges }
   }, [causalEdges])
-
-  // Full audit: ALL pending contested edges, sorted by priority. No
-  // one-per-target-node cap here — that policy belongs to pre-analysis.
-  const sortedContested = useMemo(
-    () => [...contestedEdges].sort(compareContestedPriority),
-    [contestedEdges]
-  )
 
   // Sort non-contested edges by fragility (switch probability) then weight desc.
   const sortedRemainder = useMemo(() => {
@@ -652,7 +606,7 @@ function RelationshipsSectionInner({
   // analysis has run and we surface the "worth Xpp" tail in the summary line.
   const topEvoiImpact = useMemo(() => {
     let max: number | null = null
-    for (const e of sortedContested) {
+    for (const e of contestedEdges) {
       const vm = (e.data as Record<string, unknown>)?.validation as ValidationMetadata | undefined
       const impact = vm?.evoi_impact
       if (impact !== null && impact !== undefined) {
@@ -660,7 +614,7 @@ function RelationshipsSectionInner({
       }
     }
     return max
-  }, [sortedContested])
+  }, [contestedEdges])
 
   // Summary line — deterministic, current-state counts. "Agreed" reflects the
   // CEE validation status (status === 'agreed'), not user-confirmation; saying
@@ -747,26 +701,17 @@ function RelationshipsSectionInner({
         </CoachingCard>
       )}
 
-      {/* ── Contested cards (all pending contested edges, no cap) ─────── */}
-      {sortedContested.map(edge => {
-        const edgeId = getDisplayEdgeId(edge)
-        const vm = (edge.data as Record<string, unknown>)?.validation as ValidationMetadata
-        return (
-          <ContestedEdgeCard
-            key={edgeId}
-            edge={edge}
-            nodes={nodes}
-            validation={vm}
-            isFragile={fragileEdgeIds.has(edgeId)}
-            hasRobustnessData={hasRobustnessData}
-            isSelected={selectedEdgeIds?.has(edgeId)}
-            onResolve={onResolveContested ?? (() => {})}
-          />
-        )
-      })}
-
+      {/* ⚠ THE CONTESTED CARDS NO LONGER RENDER HERE, AND MUST NOT COME BACK.
+          The adjudication vertical was rehomed to
+          `components/contested/ContestedEdgeSection`, hosted directly by
+          `ModelTabBody` beside the canonical Model Editor, so that it survives
+          this section stack's removal (Milestone B, domain 11: REHOME → DELETE,
+          never capability destruction).
+          This section still SPLITS them out — a contested edge must not also
+          appear in the "All relationships" list below — and still COUNTS them
+          for its summary line. It just no longer owns their controls. */}
       {/* ── "All relationships" separator ───────────────────────────────── */}
-      {sortedContested.length > 0 && sortedRemainder.length > 0 && (
+      {pendingCount > 0 && sortedRemainder.length > 0 && (
         <div
           className={`${typography.panelMeta} text-text-light py-1.5 mt-1 mb-1 border-t border-panel-border`}
           data-testid="relationships-separator"

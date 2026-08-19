@@ -13,7 +13,7 @@ import { useCallback, useContext, useRef, useEffect, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { AlertTriangle, Check } from 'lucide-react'
 import { typography } from '../../../styles/typography'
-import { DetailToggleContext } from './DetailToggleContext'
+import { DetailToggleContext } from '../model-tab/DetailToggleContext'
 import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
 import { useCanvasStore } from '../../store'
 import { getDisplayEdgeId } from '../../utils/edgeIdentity'
@@ -32,7 +32,7 @@ import {
   getSignedMidpoint,
   STRENGTH_BAND_MIDPOINTS,
   type StrengthBand,
-} from './strengthBands'
+} from '../model-tab/strengthBands'
 import {
   resolveEdgeDirectionDisplay,
   directionFromProducerSignedMean,

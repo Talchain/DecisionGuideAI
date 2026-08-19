@@ -7,7 +7,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { ContestedEdgeCard } from '../ContestedEdgeCard'
 import type { Edge, Node } from '@xyflow/react'
 import type { ValidationMetadata } from '../../../domain/validation'
-import { DetailToggleContext } from '../DetailToggleContext'
+import { DetailToggleContext } from '../../model-tab/DetailToggleContext'
 import { edgeValueSourcePatch } from '../../../domain/edgeValueProvenance'
 
 beforeAll(() => {

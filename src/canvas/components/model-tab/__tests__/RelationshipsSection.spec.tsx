@@ -471,134 +471,79 @@ function makeContested(id: string, source: string, target: string, vmOverrides: 
   }
 }
 
-describe('RelationshipsSection — contested integration', () => {
-  it('renders contested card at top of list', () => {
+describe('RelationshipsSection — contested edges are SPLIT OUT, not rendered here', () => {
+  /**
+   * ⚠ THIS BLOCK CHANGED MEANING IN MILESTONE B (domain 11) AND THE OLD
+   * ASSERTIONS WERE MOVED, NOT DELETED.
+   *
+   * The contested CARDS used to render from this section. They now render from
+   * `components/contested/ContestedEdgeSection`, which `ModelTabBody` hosts
+   * beside the canonical Model Editor, so that the adjudication vertical
+   * survives this section stack's removal. Every card-level assertion that used
+   * to live here — the no-cap rule, the priority ordering, the resolve-handler
+   * wiring — moved verbatim to `contested/__tests__/ContestedEdgeSection.spec.tsx`.
+   * Deleting them and calling the split "covered" would have dropped four real
+   * behaviours on the floor.
+   *
+   * What REMAINS this section's job, and is what this block now pins: a pending
+   * contested edge is EXCLUDED from the "All relationships" list, and a resolved
+   * one is INCLUDED. That split is still computed here, and it is the reason the
+   * two surfaces cannot double-render the same edge.
+   */
+
+  it('⭐ renders NO contested card — the vertical is hosted elsewhere', () => {
     const contested = makeContested('ec', 'f1', 'f2')
     const normal = makeEdge('en', 'f2', 'f1')
     render(<RelationshipsSection edges={[normal, contested]} nodes={nodes} />)
-    expect(screen.getByTestId('contested-card-ec')).toBeInTheDocument()
-    // Normal edge still rendered as EdgeCard
+    // ⚠ NOT a vacuous absence: the CONTRAST below proves this render produced
+    // cards at all, so the missing contested card is a fact about the component
+    // and not about a render that silently produced nothing.
+    expect(screen.queryByTestId('contested-card-ec')).not.toBeInTheDocument()
     expect(screen.getByTestId('edge-card-en')).toBeInTheDocument()
   })
 
-  it('renders separator between contested and all relationships', () => {
+  it('⭐ EXCLUDES a pending contested edge from the all-relationships list', () => {
+    // The load-bearing half of the split. If this regressed, the same edge
+    // would appear BOTH as an adjudication card and as an ordinary row.
     const contested = makeContested('ec', 'f1', 'f2')
     const normal = makeEdge('en', 'f2', 'f1')
     render(<RelationshipsSection edges={[normal, contested]} nodes={nodes} />)
-    expect(screen.getByTestId('relationships-separator')).toBeInTheDocument()
+    expect(screen.queryByTestId('edge-card-ec')).not.toBeInTheDocument()
+    expect(screen.getByTestId('edge-card-en')).toBeInTheDocument()
   })
 
-  it('does not render separator when no contested edges', () => {
-    const normal = makeEdge('en', 'f1', 'f2')
-    render(<RelationshipsSection edges={[normal]} nodes={nodes} />)
-    expect(screen.queryByTestId('relationships-separator')).not.toBeInTheDocument()
-  })
-
-  it('shows contested count in accordion header', () => {
-    const contested = makeContested('ec', 'f1', 'f2')
-    const { container } = render(<RelationshipsSection edges={[contested]} nodes={nodes} />)
-    // tierLabel renders "1 contested" inside the Accordion header
-    expect(container.textContent).toContain('1 contested')
-  })
-
-  it('renders every pending contested edge as a ContestedEdgeCard, even when sharing a target node', () => {
-    // Two contested edges with the same target node (f2). The model tab does
-    // NOT apply the one-per-target-node cap — that policy belongs to the
-    // pre-analysis panel. The full audit must keep every pending edge
-    // directly actionable.
-    const ec1 = makeContested('ec1', 'f1', 'f2', { max_divergence: 0.8 })
-    const ec2 = makeContested('ec2', 'f1', 'f2', { max_divergence: 0.4 })
-    const normal = makeEdge('en', 'f2', 'f1')
-    render(<RelationshipsSection edges={[ec1, ec2, normal]} nodes={nodes} />)
-    expect(screen.getByTestId('contested-card-ec1')).toBeInTheDocument()
-    expect(screen.getByTestId('contested-card-ec2')).toBeInTheDocument()
-    // Neither is shoved into the plain-EdgeCard fallback
-    expect(screen.queryByTestId('edge-card-ec1')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('edge-card-ec2')).not.toBeInTheDocument()
-  })
-
-  it('orders shared-target contested edges by max_divergence desc', () => {
-    const ec1 = makeContested('ec1', 'f1', 'f2', { max_divergence: 0.3 })
-    const ec2 = makeContested('ec2', 'f1', 'f2', { max_divergence: 0.9 })
-    const ec3 = makeContested('ec3', 'f1', 'f2', { max_divergence: 0.6 })
-    render(<RelationshipsSection edges={[ec1, ec2, ec3]} nodes={nodes} />)
-    const cards = screen.getAllByTestId(/^contested-card-/)
-    expect(cards.map(c => c.getAttribute('data-testid'))).toEqual([
-      'contested-card-ec2',
-      'contested-card-ec3',
-      'contested-card-ec1',
-    ])
-  })
-
-  it('edges from different target nodes each get a contested card', () => {
-    // f3 is a third node
-    const n3 = makeNode('f3', 'Factor C')
-    const ec1 = makeContested('ec1', 'f1', 'f2')
-    const ec2 = makeContested('ec2', 'f2', 'f3')
-    render(<RelationshipsSection edges={[ec1, ec2]} nodes={[...nodes, n3]} />)
-    expect(screen.getByTestId('contested-card-ec1')).toBeInTheDocument()
-    expect(screen.getByTestId('contested-card-ec2')).toBeInTheDocument()
-  })
-
-  it('resolved contested edge moves to plain card (no longer contested)', () => {
+  it('INCLUDES a resolved contested edge — it is no longer pending', () => {
     const resolved = makeContested('ec', 'f1', 'f2', { user_action: 'accepted_pass1' })
     render(<RelationshipsSection edges={[resolved]} nodes={nodes} />)
-    // Resolved edge: user_action !== 'pending', so not in contested group
-    expect(screen.queryByTestId('contested-card-ec')).not.toBeInTheDocument()
-    // Rendered as plain edge card instead
     expect(screen.getByTestId('edge-card-ec')).toBeInTheDocument()
   })
 
-  it('calls onResolveContested with correct args', () => {
-    const onResolve = vi.fn()
-    const contested = makeContested('ec', 'f1', 'f2')
-    render(
-      <RelationshipsSection
-        edges={[contested]}
-        nodes={nodes}
-        onResolveContested={onResolve}
-      />
-    )
-    fireEvent.click(screen.getByTestId('contested-dismiss-ec'))
-    expect(onResolve).toHaveBeenCalledWith('ec', 'dismissed')
+  it('INCLUDES an agreed edge', () => {
+    const agreed = makeContested('ea', 'f1', 'f2', { status: 'agreed' })
+    render(<RelationshipsSection edges={[agreed]} nodes={nodes} />)
+    expect(screen.getByTestId('edge-card-ea')).toBeInTheDocument()
   })
 
-  it('edges without validation field render normally as EdgeCards', () => {
+  it('INCLUDES an edge with no validation field at all', () => {
     const plain = makeEdge('ep', 'f1', 'f2')
     render(<RelationshipsSection edges={[plain]} nodes={nodes} />)
     expect(screen.getByTestId('edge-card-ep')).toBeInTheDocument()
-    expect(screen.queryByTestId('contested-card-ep')).not.toBeInTheDocument()
   })
 
-  it('edge with validation.status=agreed renders as EdgeCard (no contested treatment)', () => {
-    const agreed: Edge = {
-      id: 'ea', source: 'f1', target: 'f2',
-      data: {
-        weight: 0.5, direction: 'positive', beliefExists: 0.7, provenance: 'assumption',
-        validation: {
-          status: 'agreed', contested_reasons: [],
-          pass1: { strength_mean: 0.5, strength_std: 0.1, exists_probability: 0.7 },
-          pass2: { strength_mean: 0.5, strength_std: 0.1, exists_probability: 0.7, reasoning: 'Agreed', basis: 'domain_prior', needs_user_input: false },
-          max_divergence: 0, distance_to_goal: 1,
-          evoi_rank: null, evoi_impact: null, was_shown: true,
-          user_action: 'pending', resolved_value: null, resolved_by: 'default',
-        },
-      },
-    }
-    render(<RelationshipsSection edges={[agreed]} nodes={nodes} />)
-    expect(screen.getByTestId('edge-card-ea')).toBeInTheDocument()
-    expect(screen.queryByTestId('contested-card-ea')).not.toBeInTheDocument()
+  it('still COUNTS contested edges for its own header — the count did not move', () => {
+    const contested = makeContested('ec', 'f1', 'f2')
+    const { container } = render(<RelationshipsSection edges={[contested]} nodes={nodes} />)
+    expect(container.textContent).toContain('1 contested')
   })
 
-  it('post-analysis: sorts by evoi_impact desc when evoi_rank is set', () => {
-    const n3 = makeNode('f3', 'Factor C')
-    const highImpact = makeContested('ec1', 'f1', 'f2', { evoi_rank: 2, evoi_impact: 15, max_divergence: 0.3 })
-    const lowImpact  = makeContested('ec2', 'f1', 'f3', { evoi_rank: 1, evoi_impact: 5,  max_divergence: 0.9 })
-    render(<RelationshipsSection edges={[lowImpact, highImpact]} nodes={[...nodes, n3]} />)
-    // Both get contested cards (different targets)
-    const contestedCards = screen.getAllByTestId(/^contested-card-/)
-    expect(contestedCards[0]).toHaveAttribute('data-testid', 'contested-card-ec1')
-    expect(contestedCards[1]).toHaveAttribute('data-testid', 'contested-card-ec2')
+  it('renders the separator only when BOTH groups are non-empty', () => {
+    const contested = makeContested('ec', 'f1', 'f2')
+    const normal = makeEdge('en', 'f2', 'f1')
+    const { unmount } = render(<RelationshipsSection edges={[normal, contested]} nodes={nodes} />)
+    expect(screen.getByTestId('relationships-separator')).toBeInTheDocument()
+    unmount()
+    render(<RelationshipsSection edges={[normal]} nodes={nodes} />)
+    expect(screen.queryByTestId('relationships-separator')).not.toBeInTheDocument()
   })
 })
 

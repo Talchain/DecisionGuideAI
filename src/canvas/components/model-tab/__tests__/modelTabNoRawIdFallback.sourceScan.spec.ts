@@ -38,6 +38,15 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = join(HERE, '..', '..', '..', '..', '..')
 const V1_DIR = join(HERE, '..')
 const V2_DIR = join(HERE, '..', '..', '..', 'model-tab-v2')
+/**
+ * ⚠ ADDED BY THE REHOME (Milestone B, domain 11) — AND ADDED BECAUSE THE MOVE
+ * OPENED A HOLE THIS FILE COULD NOT SEE. `ContestedEdgeCard.tsx` left `V1_DIR`
+ * for `components/contested/`, which no scan covered. The test below asserting
+ * the card is absent from the v1 residual would have kept passing — trivially,
+ * because the FILE was absent — while the card itself became unscanned. A guard
+ * that keeps agreeing after its subject leaves its scope is not a guard.
+ */
+const CONTESTED_DIR = join(HERE, '..', '..', 'contested')
 
 /**
  * The defect CLASS: a nullish-coalescing fallback whose right-hand side is an
@@ -126,14 +135,36 @@ describe('the DUPLICATE stack’s residual is bounded and named', () => {
     expect(scan(V1_DIR)).toEqual(V1_PINNED)
   })
 
-  it('ContestedEdgeCard is NOT in the residual — it outlives the removal', () => {
+  it('ContestedEdgeCard has LEFT the residual — it was rehomed, not deleted', () => {
     // Design §7.4 E keeps this card wholesale, so its two endpoint fallbacks
     // would have become permanent rather than swept up by the delete. They were
-    // fixed in place for exactly that reason, and this pins the distinction.
+    // fixed in place for exactly that reason. The card has since MOVED to
+    // `components/contested/`; the scan of its new home is below, and it is the
+    // assertion that now carries the weight.
     const v1 = scan(V1_DIR)
     expect(v1['src/canvas/components/model-tab/ContestedEdgeCard.tsx']).toBeUndefined()
     // Contrast control: a file that IS in the residual reads non-zero, so the
-    // absence above is a fact about this card and not a dead scan.
+    // absence above is a fact about the directory and not a dead scan.
     expect(v1['src/canvas/components/model-tab/GoalSection.tsx']).toBe(1)
+  })
+})
+
+describe('the REHOMED adjudication vertical is held to the CANONICAL standard', () => {
+  /**
+   * `components/contested/` is canonical now — it is hosted by `ModelTabBody`
+   * beside the Model Editor and it OUTLIVES the v1 stack's removal. So it gets
+   * `model-tab-v2/`'s rule (derived ZERO, nothing to maintain), not `model-tab/`'s
+   * pinned-residual allowance. A residual here would become permanent.
+   */
+  it('contested/ carries ZERO raw-id fallbacks', () => {
+    expect(scan(CONTESTED_DIR)).toEqual({})
+  })
+
+  it('the scan reads real files there — the zero above is not an empty directory', () => {
+    // Trap 13: an absence proven over nothing. Named, because a mis-joined path
+    // would silently produce `{}` and certify a directory it never opened.
+    const files = tsFiles(CONTESTED_DIR).map(f => relative(REPO, f))
+    expect(files).toContain('src/canvas/components/contested/ContestedEdgeCard.tsx')
+    expect(files).toContain('src/canvas/components/contested/ContestedEdgeSection.tsx')
   })
 })

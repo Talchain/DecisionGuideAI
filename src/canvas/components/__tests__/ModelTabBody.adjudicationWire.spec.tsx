@@ -137,6 +137,20 @@ describe('ModelTabBody — contested resolution reaches the wire', () => {
     contextValue = { sendSystemEvent }
   })
 
+  it('⭐ the control is served by the REHOMED host, not the legacy section', () => {
+    // ⚠ WITHOUT THIS, THE TEST BELOW PASSES FROM EITHER SURFACE. Milestone B
+    // (domain 11) moved the adjudication vertical out of
+    // `model-tab/RelationshipsSection` into `contested/ContestedEdgeSection`,
+    // which `ModelTabBody` now hosts directly. The wire assertion cannot tell
+    // the two apart — it only sees a click and an event — so the binding is
+    // pinned here explicitly, by the host's own testid, with the button nested
+    // INSIDE it. If the vertical ever slid back into the legacy section this
+    // would RED while every other assertion in the file stayed green.
+    renderBody(makeContestedEdge())
+    const host = screen.getByTestId('contested-edge-section')
+    expect(host).toContainElement(screen.getByTestId('contested-accept-pass1-e-contested'))
+  })
+
   it('⭐ accepting pass 1 applies locally AND emits edge_adjudication, identity-bound', () => {
     renderBody(makeContestedEdge())
     fireEvent.click(screen.getByTestId('contested-accept-pass1-e-contested'))

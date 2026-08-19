@@ -38,7 +38,7 @@ vi.mock('../../lib/posthog', () => ({
 }))
 
 import { trackMeasurement } from '../measurementEvents'
-import { ContestedEdgeCard } from '../../canvas/components/model-tab/ContestedEdgeCard'
+import { ContestedEdgeCard } from '../../canvas/components/contested/ContestedEdgeCard'
 import {
   makeContestedEdge,
   makeContestedNode,
