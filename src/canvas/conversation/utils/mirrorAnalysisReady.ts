@@ -58,9 +58,22 @@ export function applyAnalysisReadyPatch(
   // ⭐ FIXED IN THE WRITER, NOT AT THE CALL SITE, DELIBERATELY: there are TWO
   // callers of `mirrorAnalysisReadyAfterAccept` (`ConversationPanel.tsx:335` for
   // the validated path and `:393` for the adapter-less fallback), and the review
-  // that found this named only the first. Guarding here covers both, and covers
-  // the next one nobody remembers to guard. The counter is re-entrant, so this
+  // that found this named only the first. The counter is re-entrant, so this
   // nests harmlessly inside any window a caller already holds.
+  //
+  // ⚠⚠ THIS PARTICULAR GUARD IS CURRENTLY REDUNDANT, AND THAT IS RECORDED HERE
+  // SO NOBODY LATER CITES IT AS THE THING THAT CLOSES P0-B. IT IS NOT.
+  // Measured with a discriminating set, not asserted (an equivalent mutant must
+  // be DEMONSTRATED — and so must a non-equivalent one):
+  //   · remove THIS guard, keep the leaf guards      → 10/10 GREEN  (redundant)
+  //   · remove the LEAF guards, keep this one        →  2 FAILED    (not a substitute)
+  //   · remove both                                  →  4 FAILED
+  // What actually closes P0-B is the pair of LEAF guards in `applyDraftResult.ts`
+  // — on the goal-threshold `setState` and on the interventions
+  // `batchUpdateNodes` — because `reconcileAppliedGraph` and `applyDraftResult`
+  // call those leaves DIRECTLY, never through this function. This guard is kept
+  // as defence-in-depth for `setCeeAnalysisReady` / `setAnalysisFreshness` and
+  // for the next writer added to this function; it is not load-bearing today.
   useCanvasStore.getState().beginExternalGraphMutation?.('patch_apply')
   try {
   useCanvasStore.getState().setCeeAnalysisReady(patch.ceeAnalysisReady)
