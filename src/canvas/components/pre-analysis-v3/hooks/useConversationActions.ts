@@ -43,7 +43,7 @@ export function useConversationActions(): ConversationActions {
 
   const sendPrompt = useCallback(
     (spark: SparkPrompt): boolean => {
-      const { id, label, prompt, action_type } = spark
+      const { id, label, prompt, action_type, intent } = spark
       // 1. Live conversation context — no registration race possible.
       if (conversation) {
         conversation
@@ -53,6 +53,12 @@ export function useConversationActions(): ConversationActions {
             message: prompt,
             intent: 'primary',
             ...(action_type ? { action_type } : {}),
+            // ⭐ The spark's TYPED intent. `wire_intent`, not `intent` — the
+            // line above is the STYLING variant, a different concept sharing
+            // the name. This is the hop that stops the four coaching sparks
+            // arriving as anonymous prose; the send gate in buildV5Payload
+            // still decides whether it reaches CEE.
+            ...(intent ? { wire_intent: intent } : {}),
             parameters: { spark_id: id },
           })
           .catch(() => showToast(FIELD_FEEDBACK_COPY.olumiUnavailable, 'error'))
@@ -66,6 +72,10 @@ export function useConversationActions(): ConversationActions {
       if (callbacks._dispatchAction) {
         callbacks._dispatchAction({
           ...(action_type ? { action_type } : {}),
+          // Same typed intent on the guidance-store bridge. This path reaches
+          // `dispatchAction` directly, so the field is plain `intent` here —
+          // there is no styling variant on DispatchActionOpts to collide with.
+          ...(intent ? { intent } : {}),
           parameters: { spark_id: id },
           label,
           message: prompt,

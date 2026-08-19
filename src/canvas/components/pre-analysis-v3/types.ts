@@ -7,7 +7,7 @@
  * See docs/pre-analysis-panel-solution-design-v1.md.
  */
 
-import type { ActionTypeLiteral } from '@talchain/schemas/boundary'
+import type { ActionTypeLiteral, IntentLiteral } from '@talchain/schemas/boundary'
 import type { PendingWireActionType } from '../../conversation/chipMeta'
 import type { ValueProvenanceKind } from '../../domain/valueProvenance'
 
@@ -30,6 +30,26 @@ export interface SparkPrompt {
    * exists (coaching/readiness sparks).
    */
   action_type: ActionTypeLiteral | PendingWireActionType | null
+  /**
+   * ⭐ The typed authored INTENT this spark declares (`chip.intent` on the
+   * wire — the 11-member `Intent` set, distinct from the 11-member
+   * `ActionType` set above and decoupled from it: an `action_type` names a
+   * deterministic HANDLER, an `intent` names WHAT THE USER WANTS).
+   *
+   * This is what stops a coaching spark degrading to anonymous prose. Four
+   * MOUNTED sparks carry `action_type: null` because no honest handler exists
+   * for a conversation — and until CEE grew a routing arm they therefore
+   * carried NOTHING, so the click arrived as untyped text and CEE re-inferred
+   * the intent from the message. `intent` is the honest typed value for
+   * exactly those sparks.
+   *
+   * `null` when the spark declares no typed intent. The send gate in
+   * `buildV5Payload` (`sanitiseIntent` → `KNOWN_INTENTS ∧
+   * CEE_ACCEPTED_INTENTS`) still decides whether it reaches the wire, and it
+   * fails CLOSED: a spark may declare an intent CEE does not yet route, and
+   * the value is simply withheld until CEE accepts it.
+   */
+  intent: IntentLiteral | null
 }
 
 /**

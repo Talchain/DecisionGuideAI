@@ -593,6 +593,12 @@ export const ConversationPanel = memo(function ConversationPanel({
         message,
         intent: 'primary',
         ...(meta?.action_type ? { action_type: meta.action_type } : {}),
+        // ROADMAP 2.1288 — forward the producer's TYPED intent. Its absence
+        // here was the whole defect: the card declared `action_intent`, CEE's
+        // rail required `chip.intent`, and this line was the missing hop.
+        // `wire_intent`, not `intent` — the latter is the styling variant
+        // being set on the line above.
+        ...(meta?.intent ? { wire_intent: meta.intent } : {}),
         ...(meta?.parameters ? { parameters: meta.parameters } : {}),
       })
     // Prefill the visible composer (see prefillInto): the legacy ChatComposer

@@ -6551,9 +6551,18 @@ export function useConversation(): UseConversationReturn {
         // Thread the chip's first-class identity (`chip.id` on the 0.22 wire) —
         // NOT `chip.intent`, which is the UI *styling* intent ('primary' |
         // 'secondary' | 'undo'), a different concept from the wire `Intent` set.
+        //
+        // ⭐ The typed wire intent travels as `chip.wire_intent`, whose separate
+        // name exists exactly so the line above stays true. Before it, a typed
+        // producer had NO channel through this seam: the widening card authored
+        // `action_intent: 'add_option'`, CEE's add-option rail fires on
+        // `chip.intent === 'add_option'`, and the click fell to the free-text
+        // edit lane and returned a refusal (ROADMAP 2.1288). The send gate in
+        // `buildV5Payload` still decides whether the value reaches the wire.
         await dispatchAction({
           id: chip.id,
           action_type: chip.action_type,
+          ...(chip.wire_intent ? { intent: chip.wire_intent } : {}),
           parameters: chip.parameters,
           label: chip.label,
           message: messageToSend,

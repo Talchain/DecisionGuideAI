@@ -880,6 +880,26 @@ export interface ActionChip {
   prompt?: string
   /** Action classification for deterministic routing */
   action_type?: string
+  /**
+   * ⭐ The producer-declared TYPED WIRE INTENT (`chip.intent` on the 0.22+
+   * schema: `add_option`, `elicit_options`, `challenge_frame`, …).
+   *
+   * ⚠ DELIBERATELY NOT CALLED `intent`. This interface already has an `intent`
+   * field three lines up and it means something completely different — the UI
+   * STYLING variant ('primary' | 'secondary' | 'undo'). Two concepts under one
+   * name is the estate's chronic defect (CLAUDE.md trap 21), and here it had
+   * teeth: `sendChip` explicitly refuses to forward `chip.intent` to the wire
+   * precisely BECAUSE it is the styling value, which left typed producers with
+   * no channel at all. The distinct name is what makes the two
+   * non-confusable at every call site.
+   *
+   * Forwarded by `sendChip` into `dispatchAction`'s `intent`, where
+   * `buildChipMeta` → `buildV5Payload`'s send gate
+   * (`KNOWN_INTENTS ∧ CEE_ACCEPTED_INTENTS`) decides whether it reaches CEE.
+   * The gate fails CLOSED, so an intent CEE does not route is withheld rather
+   * than 422'd.
+   */
+  wire_intent?: string
   /** Structured parameters for action execution */
   parameters?: Record<string, unknown>
 }
