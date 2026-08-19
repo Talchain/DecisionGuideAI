@@ -24,6 +24,18 @@
  * the only carrier that reaches the UI**, which is why the predicate is keyed
  * on it and not on the quote (a `source_quote` guard would be dark).
  *
+ * ⚠ SCOPE — DO NOT READ A GREEN RUN HERE AS MORE THAN IT IS. `from_brief` is a
+ * display projection of `extractionType` (`explicit`/`observed`) at the producer
+ * (`olumi-assistants-service` `src/cee/transforms/provenance-display.ts:24-29`),
+ * so it reports that the node's CONTENT came from the brief — NOT that the label
+ * is unauthored. The field that would say that is `label_authored`
+ * (`src/schemas/cee-v3.ts`, derived from `label !== source_quote`) and it is not
+ * on this wire. The captures above are genuine raw fragments, and the predicate
+ * correctly fires on them; it ALSO fires on a brief-extracted goal whose label
+ * CEE authored. The copy is true of both — that is the whole reason it is
+ * phrased as provenance rather than as a judgement about the label. The full
+ * derivation is in the module header.
+ *
  * ─── WHAT IS ASSERTED, AND HOW IT BINDS ─────────────────────────────────────
  * Every assertion binds by NODE ID, by `data-testid`, or by the `provenance`
  * field. NOTHING binds by matching the label string — the label is the thing
