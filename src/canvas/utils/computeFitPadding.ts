@@ -54,16 +54,47 @@
  * the model — 33% / 18% / 12% behind it at 1280 / 1440 / 1512, with header
  * controls answering 3 of 4 hit probes inside it.
  *
- * ⚠ WHY THIS IS NOT THE RESERVATION THE HEADER BELOW ABOLISHES. The rule is
- * unchanged and is the discriminator: **ONLY EDGE-ANCHORED, LAYOUT-RESERVING
- * CHROME CONTRIBUTES.** The floating conversation panel is free-floating,
- * user-movable and dismissible, so "how much does it occlude" has no single
- * answer and clearing it cost a `cheapestClearance` band of 392px / 52% of the
- * fit box. The top bar is anchored to one edge, is not movable, is not
- * dismissible, and has exactly one answer — `bar.bottom - flow.top` — the same
- * predicate the dock and the sidebar already use. The cost is bounded and small:
- * top goes 29px → 73px at 800px of pane, 5.5% of the vertical, against 52%.
- * A future lane must apply the same test before adding a contributor here.
+ * ⚠ WHY THIS IS NOT THE RESERVATION THE HEADER BELOW ABOLISHES — AND THE FOUR
+ * CRITERIA A CONTRIBUTOR MUST MEET, stated as a test rather than a slogan.
+ *
+ * The short rule used to read "only EDGE-ANCHORED, LAYOUT-RESERVING chrome
+ * contributes". ⚠ **"LAYOUT-RESERVING" IS THE WRONG WORD AND ALWAYS WAS**
+ * (adversarial review, 19 Aug 2026): all three contributors are
+ * `position: fixed` and none of them reserves layout in the CSS sense — they
+ * are overlays, and what this function does is buy the graph back the canvas
+ * they permanently sit on. A contributor qualifies only if ALL FOUR hold:
+ *
+ *   1. **EDGE-ANCHORED** — pinned to the side it reserves from, so "how much
+ *      does it occlude" has exactly one answer.
+ *   2. **NOT USER-MOVABLE** — that answer cannot change under the user's hand.
+ *   3. **NOT DISMISSIBLE** — the user cannot clear it, so the cost is not a
+ *      charge for something they could remove.
+ *   4. **PERSISTENT — present whenever the canvas is.** ⭐ ADDED BY REVIEW, and
+ *      it is not hypothetical: the reviewer swept every `position: fixed` rule
+ *      in `src/` and found **`ValidationChip`** (`fixed; bottom: 1rem;
+ *      right: 1rem; z-1000`) passes 1-3 — edge-anchored, non-movable, and with
+ *      no dismiss control — while being a transient corner chip that must never
+ *      move the camera. Criteria 1-3 alone ADMIT IT.
+ *
+ * The floating conversation panel fails 1, 2 and 3, so "how much does it
+ * occlude" has no single answer and clearing it cost a `cheapestClearance` band
+ * of 392px / 52% of the fit box. The top bar passes all four, and its cost is
+ * bounded and small: top goes 29px → 73px at 800px of pane, 5.5% of the
+ * vertical, against 52%.
+ *
+ * ⚠ AND THE APPROXIMATION, STATED RATHER THAN DISCOVERED LATER: a rectangular
+ * inset is a FULL BAND, and two of the three contributors do not span the edge
+ * they reserve from — the LeftSidebar is 227px of an 800px edge, the top bar
+ * 514.6px of a 1280px one. So this over-reserves on the part of the edge they
+ * do not cover. That is a deliberate conservative approximation (the alternative
+ * vocabulary — per-region insets — does not exist in `fitView`), it is what the
+ * dock and sidebar have always done, and it is only defensible while the amount
+ * stays small. It is a reason to keep the contributor set SHORT, not a reason to
+ * reach for `cheapestClearance` again.
+ *
+ * Criteria 1-4 are **REVIEW-ONLY** — no mechanism can decide "persistent" or
+ * "dismissible" from the bytes. What IS mechanised is that the set cannot grow
+ * without someone applying them: see `FIT_PADDING_CONTRIBUTORS` below.
  *
  * ⭐⭐ THE STATED RULE, added 18 Aug 2026: **ONLY EDGE-ANCHORED, LAYOUT-RESERVING
  * CHROME CONTRIBUTES.** The OutputsDock and the LeftSidebar are edge-anchored, so
@@ -140,6 +171,30 @@ const GAP = 16
  * asserts the element this selector finds IS it, and that it is unique.
  */
 export const TOP_BAR_SELECTOR = '[role="banner"]'
+/** The OutputsDock (rail when collapsed, panel when expanded). */
+export const DOCK_SELECTOR = 'aside[aria-label="Outputs dock"]'
+/** The LeftSidebar ("Canvas tools"). */
+export const SIDEBAR_SELECTOR = 'nav[aria-label="Canvas tools"]'
+
+/**
+ * THE DECLARED CONTRIBUTOR SET — the whole of it, and the only thing standing
+ * between this function and the reservation it exists to have abolished.
+ *
+ * G2a (the padding-invariance guard) names three floating-panel selectors and
+ * therefore only catches a re-admission spelled those three ways. This set is
+ * the general case: `computeFitPadding.contributorSet.spec.ts` reads THIS FILE'S
+ * BYTES, extracts every selector actually reached by `rectOf(...)` inside
+ * `computeFitPadding`, and asserts the two sets are equal. A lane adding ANY
+ * fourth occluder — by any selector — REDs it and must either declare it here,
+ * having applied criteria 1-4 above, or not add it.
+ *
+ * ⚠ WHAT THIS CANNOT DO (trap 12d): it proves the code and this list AGREE. It
+ * cannot prove the list is RIGHT — that is criteria 1-4, and they are
+ * review-only. Deriving a guard from a list moves the risk; it does not remove
+ * it. The same spec also asserts this function reaches for no store, so a
+ * contributor smuggled in as state rather than as a rect REDs too.
+ */
+export const FIT_PADDING_CONTRIBUTORS = [DOCK_SELECTOR, SIDEBAR_SELECTOR, TOP_BAR_SELECTOR] as const
 /** Never let combined per-axis padding exceed this fraction of the pane (keeps a fitting area). */
 const MAX_PADDING_FRACTION = 0.8
 
@@ -208,13 +263,13 @@ export function computeFitPadding(flowEl?: Element | null): FitPadding {
     // Right edge — OutputsDock (rail when collapsed, full panel when expanded).
     // Overlap = flowRect.right − dock.left, so it naturally includes the dock's
     // own right gap (the dock is positioned `right: 12`).
-    const dock = rectOf('aside[aria-label="Outputs dock"]')
+    const dock = rectOf(DOCK_SELECTOR)
     if (dock) {
       const overlap = Math.max(0, flowRect.right - dock.left)
       if (overlap > 0) right = Math.max(right, overlap + GAP)
     }
     // Left edge — LeftSidebar ("Canvas tools").
-    const sidebar = rectOf('nav[aria-label="Canvas tools"]')
+    const sidebar = rectOf(SIDEBAR_SELECTOR)
     if (sidebar) {
       const overlap = Math.max(0, sidebar.right - flowRect.left)
       if (overlap > 0) left = Math.max(left, overlap + GAP)
@@ -235,9 +290,17 @@ export function computeFitPadding(flowEl?: Element | null): FitPadding {
     // ⭐ NOTHING ELSE CONTRIBUTES. The floating conversation panel, its side tab
     // and its minimised pill are read here NOWHERE — deliberately, and see the
     // header for the 392px this gives back and for why `cameraComfort` still
-    // observes the panel. A future lane adding a free-floating occluder to this
-    // function REDs the padding-invariance guard (G2a). The three that DO
-    // contribute are each anchored to the edge they reserve from.
+    // observes the panel.
+    //
+    // ⚠ THE OLD SENTENCE HERE OVERCLAIMED, AND IT OVERCLAIMED ABOUT A GUARD, so
+    // it taught readers to stop checking (adversarial review, 19 Aug 2026). It
+    // said *"a future lane adding a free-floating occluder to this function REDs
+    // the padding-invariance guard (G2a)"*. **G2a is three hardcoded selector
+    // strings** — a re-admission under any OTHER selector, or via the store,
+    // stays green. A hand-maintained mirror inside the guard written to prevent
+    // one. The true scope: G2a REDs a re-admission of the panel BY THOSE THREE
+    // SELECTORS. What catches the general case is the structural guard over
+    // `FIT_PADDING_CONTRIBUTORS`, which is derived from these bytes.
   }
 
   // Defensive clamp: never reserve so much padding that the pane is left with no

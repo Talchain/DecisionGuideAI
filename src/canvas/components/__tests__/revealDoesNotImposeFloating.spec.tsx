@@ -33,7 +33,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { act, render } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 
 vi.mock('../../../lib/supabase', () => ({
@@ -153,30 +153,67 @@ describe('revealWouldImposeFloating — the predicate (UX gate 7a)', () => {
   const SOURCES: FloatingPanelSource[] = ['system-first-use', 'user']
   const BOOLS = [false, true]
 
-  it('is true for EXACTLY ONE of the eight ownership/visibility states', () => {
-    // Enumerated, not sampled: the whole state space, with the true-set pinned
-    // by identity. A widening of the predicate REDs here rather than silently
-    // taking floating away from a user who chose it.
+  it('is true for EXACTLY ONE of the SIXTEEN ownership/visibility states', () => {
+    // Enumerated, not sampled. `FloatingPanelSource` is a closed two-value
+    // union, so 2x2x2x2 is the WHOLE space and this cannot be short.
+    //
+    // ⚠ IT WAS EIGHT STATES UNTIL THE #786 REVIEW, and the missing axis was the
+    // defect: `userChoseFloating` did not exist, so the cell "user restored it
+    // from the pill, then minimised it again" fell into the imposing bucket and
+    // the product moved their conversation to the dock. An enumeration is only
+    // exhaustive over the axes it knows about.
     const trueStates: string[] = []
     for (const source of SOURCES) {
       for (const userRepositioned of BOOLS) {
         for (const isMinimised of BOOLS) {
-          if (revealWouldImposeFloating({ source, userRepositioned, isMinimised })) {
-            trueStates.push(`${source}/${userRepositioned ? 'moved' : 'unmoved'}/${isMinimised ? 'minimised' : 'visible'}`)
+          for (const userChoseFloating of BOOLS) {
+            if (revealWouldImposeFloating({ source, userRepositioned, isMinimised, userChoseFloating })) {
+              trueStates.push(
+                `${source}/${userRepositioned ? 'moved' : 'unmoved'}/${isMinimised ? 'minimised' : 'visible'}/${userChoseFloating ? 'chosen' : 'not-chosen'}`,
+              )
+            }
           }
         }
       }
     }
-    expect(trueStates).toEqual(['system-first-use/unmoved/minimised'])
+    expect(trueStates).toEqual(['system-first-use/unmoved/minimised/not-chosen'])
   })
 
   it('is a DIFFERENT question from canAutoDock — they disagree on a reachable state', () => {
     // Trap 21: two concepts under similar names is how one fix re-opens
     // another's defect. This pins that they are not interchangeable, so a later
     // tidy-up cannot collapse them without a red.
-    const visibleSystemPanel = { source: 'system-first-use' as FloatingPanelSource, userRepositioned: false, isMinimised: false }
+    const visibleSystemPanel = { source: 'system-first-use' as FloatingPanelSource, userRepositioned: false, isMinimised: false, userChoseFloating: false }
     expect(canAutoDock(visibleSystemPanel)).toBe(true)
     expect(revealWouldImposeFloating(visibleSystemPanel)).toBe(false)
+  })
+
+  it('CELL-9: pill-restore ownership is recorded WITHOUT widening canAutoDock', () => {
+    // The forbidden fix was to make restore() set source:'user' — which would
+    // have flipped canAutoDock too, changing whether the post-draft transition
+    // may reposition the panel. A different question, answered by accident.
+    // This pins that the two moved independently.
+    useFloatingPanelState.getState().open('system-first-use')
+    useFloatingPanelState.getState().minimise()
+    const before = useFloatingPanelState.getState()
+    expect(canAutoDock(before)).toBe(true)
+    expect(revealWouldImposeFloating(before)).toBe(true)
+
+    useFloatingPanelState.getState().restoreByUser()
+    const after = useFloatingPanelState.getState()
+    expect(after.userChoseFloating).toBe(true)
+    expect(after.source, 'source must NOT be rewritten').toBe('system-first-use')
+    expect(after.userRepositioned, 'userRepositioned must NOT be rewritten').toBe(false)
+    expect(canAutoDock(after), 'canAutoDock must be untouched by a pill restore').toBe(true)
+  })
+
+  it("CONTROL: the AUTOMATIC restore() still confers no ownership — that is why the field exists", () => {
+    // The measured fact the review found: restore() sets only isMinimised.
+    // If a later tidy-up merges restoreByUser into restore, this REDs.
+    useFloatingPanelState.getState().open('system-first-use')
+    useFloatingPanelState.getState().minimise()
+    useFloatingPanelState.getState().restore()
+    expect(useFloatingPanelState.getState().userChoseFloating).toBe(false)
   })
 })
 
@@ -218,6 +255,29 @@ describe('the focus channel stops lying about being on screen (UX gate 7a)', () 
     mountPanelIn({ ...IMPOSING, userRepositioned: true })
     expect(focusFloating()).toBe(true)
     expect(useFloatingPanelState.getState().isMinimised).toBe(false)
+  })
+
+  it('CELL-9: a user who CHOSE floating from the pill keeps it after minimising again', () => {
+    // ⭐ THE CELL THE FIRST VERSION OF THIS CHANGE MISSED, driven through the
+    // real control rather than through the store: mount in the imposing state,
+    // CLICK THE PILL, minimise again, and the channel must be back.
+    const { rerender } = mountPanelIn(IMPOSING)
+    expect(focusFloating(), 'precondition: the imposing cell starts dark').toBe(false)
+
+    // The pill is rendered even while the channel is dark — that is what makes
+    // this reachable, and it is the user's only in-place route to floating.
+    const pill = screen.getByTestId('floating-olumi-panel-pill')
+    act(() => { fireEvent.click(pill) })
+    expect(useFloatingPanelState.getState().isMinimised).toBe(false)
+    expect(useFloatingPanelState.getState().userChoseFloating, 'the click IS the choice').toBe(true)
+
+    act(() => { useFloatingPanelState.getState().minimise() })
+    rerender(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />)
+    expect(
+      focusFloating(),
+      'a user who chose floating must not be silently relocated to the dock on the next reveal',
+    ).toBe(true)
+    expect(useFloatingPanelState.getState().isMinimised, 'and the reveal restores it').toBe(false)
   })
 
   it('the panel re-registers the moment the user drags it — the effect is subscribed, not snapshotted', () => {

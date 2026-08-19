@@ -13,10 +13,23 @@
  * THE SIGNAL IS DERIVED, NOT MIRRORED (CLAUDE.md trap 12). This watcher does not
  * keep a list of "things that change the reserved box" and hope it stays
  * current — it recomputes `computeFitPadding()` and compares the result. A
- * trigger that fires spuriously costs three `getBoundingClientRect` calls and
- * changes nothing; a trigger we failed to think of degrades to the previous
- * behaviour (no re-fit), never to a wrong fit. The triggers are therefore
- * allowed to be approximate, and the decision never is.
+ * trigger that fires spuriously costs four `getBoundingClientRect` calls and
+ * changes nothing (⚠ it was three until the floating top bar became a
+ * contributor on 19 Aug 2026 — a hand-maintained count, corrected at review);
+ * a trigger we failed to think of degrades to the previous behaviour (no
+ * re-fit), never to a wrong fit. The triggers are therefore allowed to be
+ * approximate, and the decision never is.
+ *
+ * ⚠ BUT "DEGRADES TO NO RE-FIT" IS STICKY, AND THERE IS A NAMED HOLE (recorded
+ * at the #786 review rather than left to be discovered). None of the triggers
+ * fires when a `position: fixed` OVERLAY MOUNTS: the `ResizeObserver` watches
+ * `.react-flow`, whose box does not change when something is painted on top of
+ * it. So if the top bar is not yet measurable at fit time, `max(0, ...)` yields
+ * the old base margin and nothing later notices. The top bar mounts with the
+ * route, ahead of the canvas, so this is not reachable today — but it is pinned
+ * as a VALUE test ("the padding is 73px given this rect"), never as a RECOVERY
+ * test ("the padding self-corrects after the rect appears"), and the difference
+ * is exactly what would be missed.
  *
  * The trigger set, each with its reason:
  *  - `resize` on window — the viewport itself changed.

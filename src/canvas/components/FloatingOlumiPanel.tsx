@@ -394,6 +394,9 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // user drags the panel, and the channel would stay deregistered after the
   // drag made it a user-owned surface again.
   const userRepositioned = useFloatingPanelState((s) => s.userRepositioned)
+  // The pill-restore ownership fact. Subscribed for the same reason as
+  // `userRepositioned`: the focus-channel registration branches on it.
+  const userChoseFloating = useFloatingPanelState((s) => s.userChoseFloating)
   const position = useFloatingPanelState((s) => s.position)
   const size = useFloatingPanelState((s) => s.size)
   const setPosition = useFloatingPanelState((s) => s.setPosition)
@@ -401,7 +404,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   const setSize = useFloatingPanelState((s) => s.setSize)
   const close = useFloatingPanelState((s) => s.close)
   const minimise = useFloatingPanelState((s) => s.minimise)
-  const restore = useFloatingPanelState((s) => s.restore)
+  const restoreByUser = useFloatingPanelState((s) => s.restoreByUser)
   // First-use composer takes over rendering whenever the canvas is empty AND
   // the panel was opened by the system (initial first-use OR re-opened on a
   // canvas reset). This includes the post-submit / pre-graph window so the
@@ -574,15 +577,18 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // area 40% → 0% and obscured nodes 9 → 1 at 1280x800.
   //
   // The predicate is `revealWouldImposeFloating`, defined once beside
-  // `canAutoDock`; a minimised panel the user OPENED or MOVED is excluded and
-  // still restores here, and the restore branch below stays for exactly that.
+  // `canAutoDock`; a minimised panel the user OPENED, MOVED or RESTORED FROM
+  // THE PILL is excluded and still restores here, and the restore branch below
+  // stays for exactly that. (The pill case is the ninth cell the first version
+  // of this change missed — `restore()` confers no ownership, so the pill now
+  // calls `restoreByUser`.)
   // The empty-canvas hero is untouched BY CONSTRUCTION rather than by a second
   // rule: `registerFloatingFocus` is a single module slot and `yieldToFirstUse`
   // already hands it to `FirstUseComposer` there, so no node count is consulted
   // and the "never strand the user with zero composers" invariant cannot move.
   useEffect(() => {
     if (!isOpen || yieldToFirstUse || yieldToDockedOlumi) return
-    if (revealWouldImposeFloating({ isMinimised, source, userRepositioned })) return
+    if (revealWouldImposeFloating({ isMinimised, source, userRepositioned, userChoseFloating })) return
     return registerFloatingFocus(() => {
       const state = useFloatingPanelState.getState()
       if (state.isMinimised) {
@@ -592,7 +598,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         inputBarRef.current?.focus()
       }
     })
-  }, [isOpen, isMinimised, source, userRepositioned, yieldToFirstUse, yieldToDockedOlumi])
+  }, [isOpen, isMinimised, source, userRepositioned, userChoseFloating, yieldToFirstUse, yieldToDockedOlumi])
 
   // Clamp on viewport resize AND on dock resize/open/close so the panel
   // never leaves the visible area and never lands under the dock. The
@@ -913,7 +919,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     pillEl = (
       <button
         type="button"
-        onClick={restore}
+        onClick={restoreByUser}
         className="fixed inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-panel border border-panel-border shadow-2 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
         style={{
           zIndex: 300,

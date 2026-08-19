@@ -20,6 +20,24 @@
  *
  * Pure + dependency-free → exhaustively unit-tested in
  * `__tests__/olumiSurfaceInvariant.spec.ts`.
+ *
+ * ⚠⚠ THIS MODULE CALLS ITSELF A SINGLE SOURCE OF TRUTH AND IS CURRENTLY DORMANT
+ * — AND IT DISAGREES WITH THE LIVE RULE ON ONE CELL (recorded 19 Aug 2026, at
+ * the #786 review; verified by sweep, positive control `revealOlumiSurface`
+ * → 22 files, contrast control `dockHostsOlumi` → 5 production files, so this
+ * is real absence and not a blind probe). `resolveOlumiSurface` has ZERO
+ * production consumers: one definition, two comment mentions, everything else
+ * is tests. Its sibling `dockHostsOlumi` IS live in five production files.
+ *
+ * The disagreement: `floatingOpen` is fed from the store's `isOpen`, which stays
+ * TRUE while the panel is minimised. So on a populated canvas this function
+ * returns `'floating'` for a minimised, system-opened, never-chosen panel —
+ * exactly the cell `revealWouldImposeFloating` now routes to the DOCK. Nothing
+ * reads it, so nothing is wrong today. **It stops being safe the day someone
+ * wires it.** A lane doing so must first decide whether `floatingOpen` means
+ * "mounted" or "on screen", and reconcile with
+ * `useFloatingPanelState.revealWouldImposeFloating` — not silently adopt this
+ * answer because the header says single source of truth.
  */
 
 import type { OutputTab } from '../../stores/uiStore'
