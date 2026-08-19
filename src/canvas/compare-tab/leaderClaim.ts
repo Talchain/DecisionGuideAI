@@ -12,10 +12,12 @@
  * `deriveTransitions` is imported BY `deriveRunPairComparison`, so leaving it
  * there would have made the two modules mutually importing.
  *
- * A shared rule that four surfaces quote belongs in one place they can all
- * reach without a cycle. That is the whole point: sixteen modules once
- * classified a leader for themselves (`src/lib/decisionVerdict.ts` header), and
- * this tab is not becoming the seventeenth.
+ * A shared rule that SIX modules quote belongs in one place they can all reach
+ * without a cycle — `Hero`, `DotProgression`, `TrajectorySection`,
+ * `deriveCompareState`, `deriveRunPairComparison` and `deriveTransitions`.
+ * That is the whole point: sixteen modules once classified a leader for
+ * themselves (`src/lib/decisionVerdict.ts` header), and this tab is not
+ * becoming the seventeenth.
  */
 import type { AnalysisSnapshot, LeaderClaim } from './types'
 

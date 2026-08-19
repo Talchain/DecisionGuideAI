@@ -135,8 +135,8 @@ export interface AnalysisSnapshot {
    * denial. See that module's header for why the two are different questions.
    *
    * Turn it into a NAMEABLE claim with `deriveLeaderClaim`
-   * (deriveRunPairComparison.ts) — the one derivation entitled to resolve a
-   * verdict against this run's own options — never by hand at a call site.
+   * (`leaderClaim.ts`) — the one derivation entitled to resolve a verdict
+   * against this run's own options — never by hand at a call site.
    */
   leaderVerdict: DecisionVerdict
 
