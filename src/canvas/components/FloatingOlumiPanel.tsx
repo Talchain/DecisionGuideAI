@@ -16,6 +16,7 @@ import { useConversationContext } from '../conversation/ConversationContext'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import {
   useFloatingPanelState,
+  revealWouldImposeFloating,
   type FloatingPanelPosition,
   type FloatingPanelSize,
 } from '../hooks/useFloatingPanelState'
@@ -388,6 +389,14 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   const isOpen = useFloatingPanelState((s) => s.isOpen)
   const isMinimised = useFloatingPanelState((s) => s.isMinimised)
   const source = useFloatingPanelState((s) => s.source)
+  // Subscribed (not read via getState) because the focus-channel registration
+  // below branches on it: a getState read would not re-run the effect when the
+  // user drags the panel, and the channel would stay deregistered after the
+  // drag made it a user-owned surface again.
+  const userRepositioned = useFloatingPanelState((s) => s.userRepositioned)
+  // The pill-restore ownership fact. Subscribed for the same reason as
+  // `userRepositioned`: the focus-channel registration branches on it.
+  const userChoseFloating = useFloatingPanelState((s) => s.userChoseFloating)
   const position = useFloatingPanelState((s) => s.position)
   const size = useFloatingPanelState((s) => s.size)
   const setPosition = useFloatingPanelState((s) => s.setPosition)
@@ -395,7 +404,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   const setSize = useFloatingPanelState((s) => s.setSize)
   const close = useFloatingPanelState((s) => s.close)
   const minimise = useFloatingPanelState((s) => s.minimise)
-  const restore = useFloatingPanelState((s) => s.restore)
+  const restoreByUser = useFloatingPanelState((s) => s.restoreByUser)
   // First-use composer takes over rendering whenever the canvas is empty AND
   // the panel was opened by the system (initial first-use OR re-opened on a
   // canvas reset). This includes the post-submit / pre-graph window so the
@@ -549,8 +558,47 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // - When the panel is minimised the input is unmounted; restore first and
   //   schedule the focus on the next frame so React can remount before we
   //   call .focus() on the ref.
+  //
+  // ⭐⭐ AND SKIP WHEN REGISTERING WOULD MAKE THIS CHANNEL LIE (19 Aug 2026 —
+  // UX gate 7a). `revealOlumi`'s doctrine reads this registration as the
+  // surface's OWN STATEMENT THAT IT IS VISIBLE: *"Both floating surfaces
+  // register their focus channel under exactly the condition that makes them
+  // paint."* That sentence was FALSE for one state, and the false case was the
+  // one every fresh user reaches. A minimised panel is mounted at
+  // `display: none` with `isOpen` still true, so it registered — and its
+  // handler then CREATED the surface by calling `restore()`. The reveal
+  // primitive asked "is there a floating surface the user already has?", got
+  // "yes" from a pill, and put a 400x550 window over the model. Trap 21 exactly:
+  // a channel that answers "can I take focus?" read as "am I on screen?".
+  //
+  // So a MINIMISED panel the user never chose does not register, `focusFloating()`
+  // returns false, and `revealOlumiSurface` claims the DOCK — the same end state
+  // as the `Dock to panel` control, which the gate measured taking hidden graph
+  // area 40% → 0% and obscured nodes 9 → 1 at 1280x800.
+  //
+  // The predicate is `revealWouldImposeFloating`, defined once beside
+  // `canAutoDock`; a minimised panel the user OPENED, MOVED or RESTORED FROM
+  // THE PILL is excluded and still restores here, and the restore branch below
+  // stays for exactly that. (The pill case is the ninth cell the first version
+  // of this change missed — `restore()` confers no ownership, so the pill now
+  // calls `restoreByUser`.)
+  // The empty-canvas hero is untouched BY CONSTRUCTION rather than by a second
+  // rule: `registerFloatingFocus` is a single module slot and `yieldToFirstUse`
+  // already hands it to `FirstUseComposer` there, so no node count is consulted
+  // and the "never strand the user with zero composers" invariant cannot move.
   useEffect(() => {
     if (!isOpen || yieldToFirstUse || yieldToDockedOlumi) return
+    // ⚠ FLAG-GATED, exactly as `yieldToDockedOlumi` above is. Routing this cell
+    // to the dock is only honest when the dock CAN host Olumi, and that is
+    // `isAiPanelV2Enabled()`: with the flag OFF, `OutputsDock` redirects tab
+    // `olumi` -> `results`, so an unconditional guard would deregister the
+    // channel while nothing else can take it — `focusFloating()` false, the
+    // dock branch skipped, and `revealOlumiSurface()` returning false having
+    // fronted NOTHING. `VITE_FEATURE_AI_PANEL_V2` is set only under
+    // `[context.staging.environment]`, so that is production and every
+    // rollback posture. Not staging-reachable; it would silently disable the
+    // documented rollback lever. The twin test pins the flag-OFF direction.
+    if (isAiPanelV2Enabled() && revealWouldImposeFloating({ isMinimised, source, userRepositioned, userChoseFloating })) return
     return registerFloatingFocus(() => {
       const state = useFloatingPanelState.getState()
       if (state.isMinimised) {
@@ -560,7 +608,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         inputBarRef.current?.focus()
       }
     })
-  }, [isOpen, yieldToFirstUse, yieldToDockedOlumi])
+  }, [isOpen, isMinimised, source, userRepositioned, userChoseFloating, yieldToFirstUse, yieldToDockedOlumi])
 
   // Clamp on viewport resize AND on dock resize/open/close so the panel
   // never leaves the visible area and never lands under the dock. The
@@ -881,7 +929,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     pillEl = (
       <button
         type="button"
-        onClick={restore}
+        onClick={restoreByUser}
         className="fixed inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-panel border border-panel-border shadow-2 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
         style={{
           zIndex: 300,

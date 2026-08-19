@@ -41,10 +41,33 @@ import { focusDockedOlumi } from './dockedOlumiFocus'
  * ⭐ The test for "is a floating/hero composer on screen?" is
  * `focusFloating()`'s OWN RETURN VALUE, and that is deliberate. Both floating
  * surfaces register their focus channel under exactly the condition that makes
- * them paint — `FloatingOlumiPanel` under `isOpen && !yieldToFirstUse &&
- * !yieldToDockedOlumi`, `FirstUseComposer` under its `shouldRender` — and
- * both deregister on cleanup. So a registration IS the surface's own statement
- * that it is visible, taken from the surface itself.
+ * them paint — `FirstUseComposer` under its `shouldRender`,
+ * `FloatingOlumiPanel` under `isOpen && !yieldToFirstUse && !yieldToDockedOlumi
+ * && !revealWouldImposeFloating(...)` — and both deregister on cleanup. So a
+ * registration IS the surface's own statement that it is visible, taken from
+ * the surface itself.
+ *
+ * ⚠⚠ THAT SENTENCE WAS FALSE FOR ONE STATE UNTIL 19 AUG 2026, AND IT WAS THE
+ * STATE EVERY FRESH USER REACHED (UX gate point 7a). A MINIMISED floating panel
+ * is kept mounted at `display: none` with `isOpen` still true, so it registered
+ * while showing nothing but a pill — and its handler CREATED the surface by
+ * calling `restore()`. This function therefore asked "is there a floating
+ * surface the user already has?", was told "yes" by a pill, and returned
+ * without ever considering the dock. From the first draft onward — the
+ * post-draft transition minimises the transcript-less hero — EVERY automatic
+ * reveal in the session re-opened a 400x550 window over the model, including
+ * the coaching sends that `withOlumiReveal` wraps. Measured at fit-to-view on
+ * the deployed build `4d1e650b`: 40% / 33% / 28% of the graph hidden at
+ * 1280 / 1440 / 1512.
+ *
+ * The fix is at the surface, not here: `FloatingOlumiPanel` no longer registers
+ * when the panel is minimised AND system-opened AND never moved
+ * (`revealWouldImposeFloating`), so `focusFloating()` returns false and the
+ * branch below claims the dock — the same end state as the `Dock to panel`
+ * control. **The doctrine did not change; the oracle was made to answer the
+ * question the doctrine asks.** A panel the user opened, moved, or is currently
+ * looking at still registers and is still fronted here, unchanged: floating is
+ * not being removed, only stopped from being imposed.
  *
  * The alternative was to re-derive visibility here from the canvas node count,
  * the dock's persisted open-state and the active tab. That would be a SECOND

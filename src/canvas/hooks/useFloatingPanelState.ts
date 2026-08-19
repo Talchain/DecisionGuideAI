@@ -23,6 +23,23 @@ export interface FloatingPanelState {
   /** Minimised: collapses to a small restore pill at the panel's current
    *  position. Distinct from `!isOpen` which fully unmounts. */
   isMinimised: boolean
+  /**
+   * THE USER HAS DELIBERATELY CHOSEN THIS FLOATING SURFACE — a THIRD ownership
+   * fact, deliberately not folded into either of the other two.
+   *
+   * `source` records who OPENED the panel. `userRepositioned` records whether
+   * they MOVED it. Neither is true of the one remaining way a user can choose
+   * floating: clicking the restore pill on a panel the system opened. That
+   * click is an explicit choice and nothing recorded it — see `restoreByUser`.
+   *
+   * ⚠ THE OBVIOUS FIX IS THE WRONG ONE. Making `restore()` set
+   * `source: 'user'` would ALSO widen `canAutoDock`, silently changing whether
+   * the post-draft transition may reposition the panel — a different question,
+   * answered by accident. That is exactly the trap-21 collision
+   * `revealWouldImposeFloating`'s own header warns about, so this is a separate
+   * field read by exactly one predicate.
+   */
+  userChoseFloating: boolean
   /** Top-left position. null = compute on first open (centred on canvas). */
   position: FloatingPanelPosition | null
   /** Current panel size. */
@@ -41,8 +58,14 @@ export interface FloatingPanelState {
   toggle: () => void
   /** Collapse to the restore pill — preserves position/size/source/draft. */
   minimise: () => void
-  /** Restore from the pill back to the full panel. */
+  /** Restore from the pill back to the full panel. AUTOMATIC path — confers no
+   *  ownership. Used by the focus channel when it restores a panel the user
+   *  already owns. */
   restore: () => void
+  /** Restore because the USER clicked the pill. Same visual effect as
+   *  `restore`, plus the ownership `restore` cannot confer. The pill is the
+   *  only caller. */
+  restoreByUser: () => void
   /** Commit a final position after a pointer drag. Sets userRepositioned. */
   setPosition: (pos: FloatingPanelPosition) => void
   /** Commit a final size after a pointer resize. Sets userRepositioned. */
@@ -67,11 +90,12 @@ export interface FloatingPanelState {
 
 const DEFAULT_SIZE: FloatingPanelSize = { width: 400, height: 550 }
 
-const INITIAL: Pick<FloatingPanelState, 'isOpen' | 'userRepositioned' | 'source' | 'isMinimised' | 'position' | 'size' | 'isAutoRepositioning'> = {
+const INITIAL: Pick<FloatingPanelState, 'isOpen' | 'userRepositioned' | 'source' | 'isMinimised' | 'userChoseFloating' | 'position' | 'size' | 'isAutoRepositioning'> = {
   isOpen: false,
   userRepositioned: false,
   source: 'user',
   isMinimised: false,
+  userChoseFloating: false,
   position: null,
   size: DEFAULT_SIZE,
   isAutoRepositioning: false,
@@ -87,15 +111,17 @@ let _autoRepositionClearId: number | null = null
 
 export const useFloatingPanelState = create<FloatingPanelState>((set, get) => ({
   ...INITIAL,
-  open: (source) => set({ isOpen: true, source, userRepositioned: false, isMinimised: false }),
-  close: () => set({ isOpen: false, isMinimised: false }),
+  open: (source) =>
+    set({ isOpen: true, source, userRepositioned: false, isMinimised: false, userChoseFloating: false }),
+  close: () => set({ isOpen: false, isMinimised: false, userChoseFloating: false }),
   toggle: () => {
     const cur = get()
-    if (cur.isOpen) set({ isOpen: false, isMinimised: false })
-    else set({ isOpen: true, source: 'user', userRepositioned: false, isMinimised: false })
+    if (cur.isOpen) set({ isOpen: false, isMinimised: false, userChoseFloating: false })
+    else set({ isOpen: true, source: 'user', userRepositioned: false, isMinimised: false, userChoseFloating: false })
   },
   minimise: () => set({ isMinimised: true }),
   restore: () => set({ isMinimised: false }),
+  restoreByUser: () => set({ isMinimised: false, userChoseFloating: true }),
   setPosition: (position) => set({ position, userRepositioned: true }),
   setSize: (size) => set({ size, userRepositioned: true }),
   setInitialPosition: (position) =>
@@ -164,4 +190,80 @@ export const useFloatingPanelState = create<FloatingPanelState>((set, get) => ({
  */
 export function canAutoDock(state: Pick<FloatingPanelState, 'source' | 'userRepositioned'>): boolean {
   return state.source === 'system-first-use' && !state.userRepositioned
+}
+
+/**
+ * WOULD FRONTING THE FLOATING PANEL PUT A WINDOW ON SCREEN THAT THE USER NEVER
+ * CHOSE? (19 Aug 2026 — UX gate point 7a.)
+ *
+ * ⚠ THIS IS A DIFFERENT QUESTION FROM `canAutoDock`, AND THE TWO MUST NOT BE
+ * COLLAPSED (platform trap 21 — two concepts under similar names is how one
+ * fix re-opens another's defect). `canAutoDock` asks whether the post-draft
+ * transition MAY MOVE OR MINIMISE the panel without overriding a user choice.
+ * This asks whether an AUTOMATIC REVEAL may RESTORE it. They share the
+ * ownership half on purpose — one definition of "the system opened this and
+ * the user has never touched it", so the two cannot drift — and diverge on the
+ * half that decides this one: whether the panel is currently OUT OF SIGHT.
+ *
+ * ── THE DEFECT THIS CLOSES ────────────────────────────────────────────────
+ *
+ * After the first draft, `FirstUseComposer` minimises the transcript-less hero
+ * to the pill so the model gets the canvas. `isOpen` stays TRUE while minimised
+ * (the panel is kept mounted at `display: none`). `FloatingOlumiPanel`'s focus
+ * channel registers on `isOpen`, and its handler calls `restore()`. So from
+ * that moment every automatic reveal — and `withOlumiReveal` wraps EVERY
+ * guidance-store send, so analysis coaching is one — re-opened a full 400x550
+ * window over the graph. The user never chose floating; the product chose it
+ * for them, once, and then for the rest of the session.
+ *
+ * Measured on the deployed build `4d1e650b`, fresh guest, at fit-to-view:
+ * 40% / 33% / 28% of the graph hidden at 1280 / 1440 / 1512, 9 of 14 nodes
+ * obscured at 1280, and the node carrying the product's own "Leading option"
+ * badge 58% covered before the user had done anything. Its position confirms
+ * the mechanism arithmetically: the gate measured `x=436, y=240`, which is
+ * exactly `performReposition`'s bottom-right anchor computed while the dock was
+ * expanded (`1280 - 428 - 400 - 16` and `800 - 544 - 16`) — i.e. the panel the
+ * user saw was the MINIMISED hero, restored at the anchor it was minimised from.
+ *
+ * ── WHAT THIS DOES NOT DO (founder ruling, do not violate) ────────────────
+ *
+ * > "DO NOT remove floating/concurrent Olumi… FLOATING AND LAYOUT-RESERVING ARE
+ * > DIFFERENT CONCEPTS… FIX THE COMPOSITION, NOT THE CAPABILITY."
+ *
+ * Floating stays fully available and fully functional. Only the mode an
+ * AUTOMATIC reveal opens in changes. Four ownership facts exclude a panel, and
+ * each is a distinct way a user can say "I chose this":
+ *   - `source === 'user'`      — opened from the chevron, the tab, or a float-out;
+ *   - `userRepositioned`       — dragged or resized, i.e. positioned by choice;
+ *   - `userChoseFloating`      — restored from the pill (see below);
+ *   - `!isMinimised`           — already on screen, so it IS the surface the
+ *                                user has, and a reveal must front it.
+ *
+ * ⭐⭐ THE FOURTH FACT EXISTS BECAUSE THE FIRST VERSION OF THIS PREDICATE HAD A
+ * NINTH CELL AND I DID NOT ENUMERATE IT (adversarial review of #786). This
+ * header used to claim *"every user-owned state is excluded by the predicate
+ * itself"*. **THAT WAS FALSE**, and false in the direction that costs the
+ * capability the founder ruling protects. `restore()` sets only
+ * `isMinimised: false` — measured — so a user who clicked the pill (an explicit
+ * choice of floating) and later minimised it again was re-classified as
+ * system-imposed: the channel went dark and the next automatic reveal moved
+ * their conversation to the dock. `restoreByUser` records the choice the click
+ * always was.
+ *
+ * ⚠ AND THE SENTENCE THAT REPLACED IT MUST BE NARROWER, because the pill does
+ * NOT survive a dock claim. Once the reveal claims the dock,
+ * `yieldToDockedOlumi` unmounts the panel and `OutputsDock`'s close-effect
+ * calls `close()` — measured: `pillPresent=false, panelPresent=false`. So the
+ * honest statement is: **for a panel the user has chosen, floating is one click
+ * away on the pill at all times; for the un-chosen system panel this predicate
+ * docks, the pill is gone and the route back is the dock's float-out control**
+ * (`floatOutToWindow` → `open('user')`, which excludes the panel permanently
+ * thereafter). That is the same end state as the `Dock to panel` control the
+ * gate measured, and it is the intended one — but it is not "one click away",
+ * and saying so would be the confident wrongness this estate keeps paying for.
+ */
+export function revealWouldImposeFloating(
+  state: Pick<FloatingPanelState, 'source' | 'userRepositioned' | 'isMinimised' | 'userChoseFloating'>,
+): boolean {
+  return state.isMinimised && !state.userChoseFloating && canAutoDock(state)
 }
